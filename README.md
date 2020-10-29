@@ -33,7 +33,7 @@ Actors is the further outgrowth of my Buttefly system (c.a. 2008), which attempt
     
 EVAL has been registered as a known Actor, along with ECHO, SYSTEM-LOG, and any other services that are invented and registered. Actors can be reached through the registry by name (string or symbol).
 
-The Actor service is by way of self-encryped SSL channels on TCP/IP. A good real-world example of the use of Actors is the Asynchronous Socket Handling in "network-connection.lisp", a part of this Actor system. In there are examples of asyn even handling, continuations, and much more.
+The Actor service is by way of self-encryped SSL channels on TCP/IP. A good real-world example of the use of Actors is the Asynchronous Socket Handling in "network-connection.lisp", a part of this Actor system. In there are examples of async event handling, continuations, and much more.
 
 This work is performed mainly on Lispworks systems. Some effort has gone into making a portable source. But recent work has ignored that.
 
