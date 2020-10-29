@@ -39,7 +39,7 @@ The Actor service is by way of self-encryped SSL channels on TCP/IP. A good real
 
 The self-encryption with authentication, atop the SSL security, makes use of a modified SRP-6 handshake protocol to establish keying, independent for each direction. Internally the data are encrypted with AES-256. Large packets are fragmented and reassembled. The largest valid transmission packet is 64k, ameliorating DOS attacks carrying large payloads.
 
-This work is performed mainly on Lispworks systems. Some effort has gone into making a portable source. But recent work has ignored that.
+This work is performed mainly on Lispworks systems. Some effort has gone into making a portable source. But recent work has ignored that. Async Socket handling in Lispworks is among the very best available. But it can readily use Actors to make it simpler to use for client code.
 
 - DM
 
