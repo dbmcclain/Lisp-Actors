@@ -37,7 +37,7 @@ EVAL has been registered as a known Actor, along with ECHO, SYSTEM-LOG, and any 
 
 The Actor service is by way of self-encryped SSL channels on TCP/IP. A good real-world example of the use of Actors is the Asynchronous Socket Handling in "network-connection.lisp", a part of this Actor system. In there are examples of async event handling, continuations, and much more. 
 
-The self-encryption with authentication, atop the SSL security, makes use of a modified SRP-6 handshake protocol to establish keying, independent for each direction. Internally the data are encrypted with AES-128. Large packets are fragmented and reassembled. The largest valid transmission packet is 64k, ameliorating DOS attacks carrying large payloads.
+The self-encryption with authentication, atop the SSL security, makes use of a modified SRP-6 handshake protocol to establish keying, independent for each direction. Internally the data are encrypted with AES-256. Large packets are fragmented and reassembled. The largest valid transmission packet is 64k, ameliorating DOS attacks carrying large payloads.
 
 This work is performed mainly on Lispworks systems. Some effort has gone into making a portable source. But recent work has ignored that.
 
