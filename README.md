@@ -27,5 +27,15 @@ One interesting outcome of Actor style is that the particular Thread on which an
 
 The difference between an Actor and a Worker? Actors contain a mailbox for messages, Workers do not. Both run on Executive Threads. A Worker therefore only executes one action. An Actor can communicate readily (2-way interactions) with other Actors and the outside world, and performs open-ended possibilities for future actions.
 
+Actors is the further outgrowth of my Buttefly system (c.a. 2008), which attempted to mimic Erlang-style interactions between threads and machines. Actors have shown themselves even more capable in their own right, and so my entire Butterfly system has been scrapped in favor of Actors. When this Actors system starts up it initializes an Actor Server on TCP Port 65001. There is an EVAL Actor that can respond to external requests. So asking an Actor on another machine to send back the result of some action is as simple as:
+
+    (ask "eval@rincon.local" '(list (machine-instance) (get-universal-time)))
+    
+EVAL has been registered as a known Actor, along with ECHO, SYSTEM-LOG, and any other services that are invented and registered. Actors can be reached through the registry by name (string or symbol).
+
+The Actor service is by way of self-encryped SSL channels on TCP/IP. A good real-world example of the use of Actors is the Asynchronous Socket Handling in "network-connection.lisp", a part of this Actor system. In there are examples of asyn even handling, continuations, and much more.
+
+This work is performed mainly on Lispworks systems. Some effort has gone into making a portable source. But recent work has ignored that.
+
 - DM
 
