@@ -1,0 +1,95 @@
+rnc-color-stretch on Mac OSX
+
+Macs are similar to the linux install above as OSX is unix. On Macs
+copy the dounloaded rnc-color-stretch file to /usr/local/bin and
+change the protection to execute:
+
+cp rnc-color-stretch-v0.936-mac /usr/local/bin/rnc-color-stretch 
+chmod 555 /usr/local/bin/rnc-color-stretch
+
+You may need administrator privilege to run the above two commands.
+You can do the above commands from a command line, or use a file
+browser.
+
+Example: do the above copy command as administrator:
+
+sudo cp rnc-color-stretch-v0.93 /usr/local/bin/rnc-color-stretch 
+sudo chmod 555 /usr/local/bin/rnc-color-stretch
+
+Be sure when you download davinci from ASU, you follow their
+instructions. Also install xquartz as instructed on the davinci
+download page.
+
+On Macs, davinci gets installed in /Applications/davinci.app/Contents/Resources/bin so you need to add
+/Applications/davinci.app/Contents/Resources/bin to your PATH.
+
+Confirm your path to executable programs includes /usr/local/bin and
+/Applications/davinci.app/Contents/Resources/bin from a terminal
+window:
+
+echo $path 
+or
+echo $PATH 
+
+If /usr/local/bin and /Applications/davinci.app/Contents/Resources/bin
+are not in the path, you will need to add it (google for your
+particular shell).
+
+For bash shell, edit the file .bash_profile in your home directory (~/.bash_profile).
+Append PATH=$PATH:/Applications/davinci.app/Contents/Resources/bin to the file.
+save the file
+Then on the command line, run:
+echo $PATH 
+which gives something like:
+/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin:/Applications/davinci.app/Contents/Resources/bin
+
+Depending on which shell you are running, you may need to update the
+hash list of commands you can execute. For example, with csh or tcsh,
+execute: rehash and the new command will be available for your use.
+
+Confirm davinci runs. From a terminal window, type:
+davinci
+and if you get the davinci prompt:
+dv>
+type:
+exit()
+to exit davinci.
+Confirm the new programs will run. From you terminal window (command window) type:
+rnc-color-stretch
+and you should get information on running the program and a list of options.
+
+To use the program, use a terminal window to cd to the directory where
+your image is located and run the command: rnc-color-stretch
+yourfile.tif options
+
+See the example use pages at the top of this article.
+
+Install Issues on Some Macs
+
+On some macs it is not obvious (to me) how to get finder to see system directories like /usr/local/bin/, even after following some guides on the internet. On one mac, the path included /usr/local/bin/, but the directory did not exist. You can add this by hand. Open a terminal and run the following commands.
+
+ls -l /usr/local/bin # lists the direcotry. Complains if it does not exist.
+
+If it does not exist:
+
+sudo mkdir /usr/local # sudo is administator--you will need your password mkdir makes the directory.
+sudo mkdir /usr/local/bin
+The copy the script to /usr/local/bin:
+sudo cp rnc-color-stretch-v0.937-mac /usr/local/bin/rnc-color-stretch
+sudo chmod 555 /usr/local/bin/rnc-color-stretch
+Now edit .bash_profile in your home directory (~ = home directory):
+
+open -t ~/.bash_profile
+
+and add at the end of the file the line:
+PATH=$PATH:/Applications/davinci.app/Contents/Resources/bin
+save and close the file.
+
+Change directory to your image (command = cd). For example,
+cd /disk1/photos/m31
+pwd # print working directory
+The tab key will help complete directory and file names to save typing.
+
+Once you have cd'd to your directory, simply run the command
+rnc-color-stretch filename.tif with added options.
+

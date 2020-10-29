@@ -1,0 +1,2648 @@
+#!/usr/local/bin/davinci -f
+
+# On linux and windows the above line should be:
+#
+#  #!/usr/local/bin/davinci -f
+#
+# on macs, change the above to:
+#
+#  #!/Applications/davinci.app/Contents/Resources/bin/davinci -f
+#
+
+verbose=0
+
+###################################################
+###################################################
+
+printf ("\n")
+printf ("rnc-color-stretch  GNU General Public License\n\n")
+
+printf ("              Copyright (c) 2016, Roger N. Clark, http://www.clarkvision.com\n")
+printf ("              All rights reserved. \n")
+printf ("                              https://www.gnu.org/licenses/gpl.html\n")
+printf ("                              No warranty for this free software\n")
+printf ("              http://www.clarkvision.com/articles/astrophotography.software/\n")
+printf ("              Full license is in the source code.\n")
+
+progversion=0.938
+
+printf ("\n")
+printf ("\n version %5.3f\n", progversion)
+printf ("\n")
+printf ("\n")
+
+iopversion = 1   #  1 = linux, 2 = macs, 3 = windows  
+		 # change depending on which op sys this is running on
+
+# This software was written by Roger N. Clark falls under the following license:
+# 
+# Copyright (c) 2016, Roger N. Clark, clarkvision.com
+# 
+# All rights reserved.
+# 
+# GNU General Public License https://www.gnu.org/licenses/gpl.html
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#   Redistributions of the program must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+#
+#   Neither Roger N. Clark, clarkvision.com nor the names of its contributors
+#   may be used to endorse or promote products derived from this software
+#   without specific prior written permission.
+#
+#   Translation/recoding into other languages: the translation and source code
+#   must be made available for free.
+#
+#   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS"
+#   AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#   IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#   ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+#   BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+#   OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+#   SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+#   INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+#   CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+#   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+#   THE POSSIBILITY OF SUCH DAMAGE.
+
+########################## defaults ##############################################
+
+obase = "a-stretched-image"  # default output base file name
+
+rootpower    = 6.0      # default power factor: 1/rootpower for all iterations
+rootiter     = 1        # number of iterations on applying rootpower - sky
+rootpower2   = 1.0      # if rootiter =2 use this power on iteration 2 if the user sets it >1
+pcntclip     = 0.005    # default percent clip level = total pixels * pcntclip/100
+
+colorcorrect = 1        # default is to docolor correction.  (turn off to see the difference)
+
+colorenhance = 1.0      # default enhancement value.
+tonecurve    = 0        # no application odf a tone curve
+specprhist   = 0        # no output histogram to specpr file
+cumstretch   = 0        # do not do cumulative histogram stretch after rootpower
+skylevelfactor = 0.06   # sky level relative to the histogram peak  (was 0.03 v0.88 and before)
+rgbskylevel   = 1024.0    # desired  on a 16-bit  0 to 65535 scale
+rgbskylevelrs = 4096.0    # desired  on output root stretched image 16-bit  0 to 65535 scale
+zeroskyred    = 4096.0    # desired zero point on sky, red   channel
+zeroskygreen  = 4096.0    # desired zero point on sky, green channel
+zeroskyblue   = 4096.0    # desired zero point on sky, blue  channel
+scurve        = 0         # no s-curve application
+setmin        = 0         # no modification of the minimum
+setminr = 0.0  # minimum for red
+setming = 0.0  # minimum for green
+setminb = 0.0  # minimum for blue
+idisplay = 0   # do not display the final image
+jpegonly = 0   # do not do jpeg only (will do jpeg + 16-bit png)
+saveinputminussky  = 0  #  save input image - sky
+
+debuga  = 0  # set to 1 for debugging, or 0 for none
+doplots = 0  # show plots of histograms
+
+##################################################################################
+
+if ( $argc < 1 ) {
+	printf ("      ERROR: need command line arguments\n")
+	printf ("form:\n")
+	printf ("      rnc-color-stretch   input_16bit_file [-rootpower x.x]  [-percent_clip p.p]\n")
+	printf ("                                   -obase filename_noextension] [-enhance factor] [-tone] [-debug]\n")
+	printf ("                                    [-specpr spfile] [-cumstretch] [-skylevelfactor x.x]\n")
+	#printf ("                                    [-rgbskylevel x.x]\n")
+	printf ("                                    [-rgbskyzero x.x x.x x.x]\n")
+	printf ("                                    [-setmin R G B]\n")
+	printf ("                                    [-nocolorcoerect]\n")
+	printf ("                                    [-scurve1|-scurv2|scurve3|scurve4]\n")
+	printf ("                                    [-jpegonly]  [-display]\n")
+	printf ("\n")
+        printf ("      -obase   outoput base file name\n")
+	printf ("      -rootpower x.x  values 1.0 to 599.0, default =%f\n", rootpower)
+	printf ("                     Use higher number to bring up the faint end more\n")
+	printf ("      -rootpower2 x.x  Use this power on iteration 2 if the user sets it >1\n")
+	printf ("      -rootiter   Number of iterations to apploy rootpower - sky, default =1\n")
+	printf ("      -percent_clip p.p  allow no more than this percent of pixels to be clipped at zero.  default = %f%%\n", pcntclip)
+	printf ("                       Note: zeros are ignored\n")
+	printf ("      -enhance factor is >= 0.1. Values belwo 1 desaturate, above saturate.  default = %6.2f\n", colorenhance)
+	printf ("      -specpr spfile  create specpr file and write histogram 0-65535 DN\n")
+	printf ("               If spfile does not exist, it will be created\n")
+	printf ("               note: sp_stamp program must be on the system\n")
+	printf ("      -skylevelfactor  the sky histogram alignment level relative to peak histogram (0.000001 to 0.5)\n")
+	printf ("                       skylevelfactor default = %f\n", skylevelfactor)
+	#printf ("      -rgbskylevel  output image, neutralized dark sky DN level.  default= %f (OBSOLETE)\n", rgbskylevel)
+	#printf ("                    NOTE: rgbskylevel gets overridden by rgbskyzero so is obsolete\n")
+	printf ("      -rgbskyzero  final image zero point level.  default RGB= %8.1f %8.1f %8.1f\n", zeroskyred, zeroskygreen, zeroskyblue)
+	printf ("                   In the core of the Milky Way, it might be something like the color of interstellar dust.\n")
+	printf ("                   This might be something like 2500 4000 5500 (0 to 65535, 16-bit range)\n")
+	printf ("      -cumulstretch do cumulative stretch after rootpower (not trecommended)\n")
+	printf ("      -scurve1  apply an s-curve stretch as last step\n")
+	printf ("      -scurve2  apply a stronger s-curve stretch as last step\n")
+	printf ("      -scurve3  apply s-curve1 then 2, then 1 again as last step\n")
+	printf ("      -scurve4  apply s-curve1 then 2, then 1, then 2 again as last step\n")
+	printf ("      -setmin R G B set minimum levels to the 3 (floating point) values for red, green, blue\n")
+	printf ("                    typical is about 20 on a 0 - 255 scale for darkest sky\n")
+	printf ("                                        = 65535 * 20/255 = 5140 on 16-bit scale\n")
+	printf ("      -jpegonly   do jpeg output only, no 16-bt png\n")
+	printf ("      -display    display the final image\n")
+	printf ("      -plots      display plots of the RGB histograms at each stage (needs davinci with gnuplot)\n")
+	printf ("      -debug          turn on debug info and write debug images\n")
+	printf ("      -nocolorcoerect turn off color correction to see the detrimental effect of stretching\n")
+      printf ("\n  Example:\n")
+	printf ("      rnc-color-stretch trestfile.tif -rootpower 6.0  -obase testresult4  -scurve1\n")
+	exit (1)
+}
+
+printf ("\nFull command line:\n")
+printf ("rnc-color-stretch ")
+for (j = 1; j <= $argc; j = j +1 ) {
+
+	printf (" %s", $argv[j])
+}
+printf ("\n\n")
+
+if ( $argc > 1 ) {
+   for (j = 2; j <= $argc; j = j +1 ) {
+
+	if ($argv[j] == "-rootpower" || $argv[j] == "rootpower")   { 
+		j = j +1
+		rx = atof($argv[j])
+		if (rx >= 0.9999 && rx <= 599.001) {
+			rootpower  = rx
+			rootpower1 = rx
+			printf ("rootpower = %f\n", rootpower)
+		} else {
+
+			printf ("rootpower out of range.  Should be 1.0 to 599.0\n")
+			printf ("exit 1\n")
+			exit (1)
+		}
+	} else if ($argv[j] == "-rootiter" || $argv[j] == "rootiter") {
+		j = j +1
+		rootiter = atoi($argv[j])
+		if (rootiter < 1 || rootiter > 2) {
+			printf ("rootiter out of range.  Should be 1 to 2\n")
+			printf ("exit 1\n")
+			exit (1)
+		} else {
+			printf ("roopower-sky iteration= %d\n", rootiter)
+		}
+	} else if ($argv[j] == "-rootpower2" || $argv[j] == "rootpower2") {
+		j = j +1
+		rx = atof($argv[j])
+		if (rx >= 1.0    && rx <= 599.001) {
+			rootpower2 = rx
+			printf ("rootpower2 = %f\n", rootpower2)
+			if ( rootiter < 2) {
+				rootiter = 2
+				printf ("rootiter now set to %d\n", rootiter)
+			}
+		} else {
+
+			printf ("rootpower2 out of range.  Should be >1.0 to 599.0\n")
+			printf ("exit 1\n")
+			exit (1)
+		}
+	} else if ($argv[j] == "-percent_clip" || $argv[j] == "percent_clip") {
+		j = j +1
+		px = atof($argv[j])    # 
+		if (px >= 0.0 && px < 90.0) {
+			pcntclip = px
+			printf ("percent clip = %f\n", pcntclip)
+		} else {
+
+			printf ("pcntclip out of range.  Should be 0.0 to 90.0\n")
+			printf ("exit 1\n")
+			exit (1)
+		}
+	} else if ($argv[j] == "-obase" || $argv[j] == "obase") {
+		j = j +1
+		obase=$argv[j]
+		printf ("output base file name = %s\n", obase)
+	} else if ($argv[j] == "-enhance" || $argv[j] == "enhance") {
+		j = j +1
+		xcolor =atof($argv[j])
+		colorenhance = xcolor
+		printf ("color enhancement factor= %f\n", xcolor)
+	} else if ($argv[j] == "-setmin" || $argv[j] == "setmin") {
+		setminr = 0.0  # minimum for red
+		setming = 0.0  # minimum for green
+		setminb = 0.0  # minimum for blue
+		setmin = 1
+		j = j +1
+		setminr =atof($argv[j])
+		j = j +1
+		setming =atof($argv[j])
+		j = j +1
+		setminb =atof($argv[j])
+		if ( setminr < 0.0 || setminr > 20000.0 ||     \
+			setming < 0.0 || setming > 20000.0 ||  \
+			setminb < 0.0 || setminb > 20000.0 ) {
+				printf ("ERROR: minimum values out of range.  Must be within 0 to 20000, typical is 5000\n")
+				printf ("minimum RGB levels on output= %f %f %f\n", setminr, setming, setminb)
+			printf ("exit 1\n")
+			exit (1)
+		} else {
+			printf ("minimum RGB levels on output= %f %f %f\n", setminr, setming, setminb)
+		}
+	} else if ($argv[j] == "-skylevelfactor" || $argv[j] == "skylevelfactor") {
+		j = j +1
+		skylevelfactor =atof($argv[j])
+		printf ("Histogram sky level fraction from histogram peak= %f\n", skylevelfactor)
+		if (skylevelfactor < 0.000001 || skylevelfactor > 0.7) {
+
+			printf ("skylevelfactor is out of range.  Range is 0.000001 to 0.7\n")
+			printf ("exit 1\n")
+			exit (1)
+		} else {
+			printf ("skylevelfactor= %f\n", skylevelfactor)
+		}
+	} else if ($argv[j] == "-rgbskylevel" || $argv[j] == "rgbskylevel") {
+		j = j +1
+		rgbskylevel =atof($argv[j])
+		printf ("Output sky level = %f\n", rgbskylevel)
+		if (rgbskylevel < 0.1 || rgbskylevel > 20000.0) {
+
+			printf ("rgbskylevel is out of range.  Range is 001 to 20000.0\n")
+			printf ("exit 1\n")
+			exit (1)
+		} else {
+			printf ("rgbskylevel= %8.1f DN\n", rgbskylevel)
+		}
+	} else if ($argv[j] == "-rgbskyzero" || $argv[j] == "rgbskyzero") {
+		j = j +1
+		zeroskyred   =atof($argv[j])
+		j = j +1
+		zeroskygreen =atof($argv[j])
+		j = j +1
+		zeroskyblue  =atof($argv[j])
+		if (zeroskyred > 0 && zeroskyred < 25000 && zeroskygreen > 0 && zeroskygreen < 25000 && \
+			zeroskyblue > 0 && zeroskyblue < 25000) {
+			printf ("target image zero point level before stretch RGB= %8.1f %8.1f %8.1f\n", zeroskyred, zeroskygreen, zeroskyblue)
+		} else { 
+			printf ("ERROR: -rgbskyzero: out of range (0 to 25000): = %8.1f %8.1f %8.1f\n", zeroskyred, zeroskygreen, zeroskyblue)
+			printf ("exit 1\n")
+			exit (1)
+		}
+	} else if ($argv[j] == "-cumulstretch" || $argv[j] == "cumulstretch") {
+		cumstretch   = 1
+	} else if ($argv[j] == "-debug" || $argv[j] == "debug") {
+		debuga   = 1
+		printf ("debuging on\n")
+	} else if ($argv[j] == "-display" || $argv[j] == "display") {
+		idisplay = 1
+		printf ("will display final image\n")
+	} else if ($argv[j] == "-plots" || $argv[j] == "plots") {
+		doplots = 1
+		printf ("will plot histograms\n")
+	} else if ($argv[j] == "-jpegonly" || $argv[j] == "jpegonly") {
+		jpegonly = 1
+		printf ("will output jpeg image only\n")
+	} else if ($argv[j] == "-nocolorcoerect" || $argv[j] == "nocolorcoerect") {
+		colorcorrect = 0
+		printf ("color correction turned off\n")
+	} else if ($argv[j] == "-tone" || $argv[j] == "tone") {
+		tonecurve = 1  # apply a tone curve to the data
+		printf ("Will apply a tone curve\n")
+	} else if ($argv[j] == "-scurve1" || $argv[j] == "scurve1") {
+		scurve = 1
+		printf ("Will apply an s-curve curve 1\n")
+	} else if ($argv[j] == "-scurve2" || $argv[j] == "scurve2") {
+		scurve = 2
+		printf ("Will apply a strong s-curves 1 and 2\n")
+	} else if ($argv[j] == "-scurve3" || $argv[j] == "scurve3") {
+		scurve = 3
+		printf ("Will apply a s-curves 1, then 2, then 1 again\n")
+	} else if ($argv[j] == "-scurve4" || $argv[j] == "scurve4") {
+		scurve = 4
+		printf ("Will apply a s-curves 1, then 2, then 1, then1 again\n")
+	} else if ($argv[j] == "-saveinputminussky" || $argv[j] == "saveinputminussky") {
+		saveinputminussky = 1
+		printf ("Will save input image - sky\m")
+	} else if ($argv[j] == "-specpr" || $argv[j] == "specpr") {
+		j = j +1
+		if ( hasvalue($argv[j]) == 1 ) {
+			spfile = $argv[j]
+			spe= fexists(spfile)
+			if ( spe == 0 ) {
+				printf ("  creating specpr file %s\n", spfile)
+				s=sprintf ("cp /dev/null %s", spfile)
+				printf ("%s\n", s)
+				system (s)
+				s=sprintf ("sp_stamp %s", spfile)
+				printf ("%s\n", s)
+				system (s)
+			}
+			printf ("Will write histograms to specpr file %s\n", spfile)
+			specprhist = 1  # output histogram to specpr file
+		} else {
+			printf ("ERROR: no specpr file name after -specpr\n")
+			printf ("exit 1\n")
+			exit (1)
+		}
+	} else  {
+		printf ("ERROR: option not recognized: %s\n", $argv[j])
+		printf ("exit 1\n")
+		exit (1)
+
+	}
+   }
+}
+
+ofe = fexists(filename=$1)    # test if input file exists
+if ( ofe == 0 ) {  # file does not exist
+	printf ("ERROR: can not find input file  %s\n", $1)
+	printf ("EXITING\n")
+	exit(2)
+}
+ 
+a=read(filename=$1)
+
+if (HasValue(a) ==0) {
+        printf ("ERROR reading file %s\n", $1)
+        exit(2)
+} else {
+	printf ("input image: %s\n", $1)
+}
+
+imagefmt = format(a)  # result:
+			# "uint8"  -  8 bit unsigned integer
+			# "uint16" - 16 bit unsigned integer
+			# "uint32" - 32 bit unsigned integer
+			# "uint64" - 64 bit unsigned integer
+			# "int8"   -  8 bit signed integer
+			# "int16"  - 16 bit signed integer
+			# "int32"  - 32 bit signed integer
+			# "int64"  - 64 bit signed integer
+			# "float"  - 32 bit real
+			# "double" - 64 bit real
+
+			# "int"    - older versions of davinci have this
+
+amom = moment(a)  # min, max, mean ....
+
+aorg = org(a)  # result:
+		# "bip" - Band interleaved by pixel (ZXY)
+		# "bil" - Band interleaved by line (XZY)
+		# "bsq" - Band sequential (XYZ)
+
+printf ("Image is type %s, organization: %s\n", imagefmt, aorg)
+printf ("      data range min= %f  max= %f  mean=%f\n", amom[1,,], amom[2,,], amom[3,,])
+
+if ( amom[2,,] < 1  && imagefmt ==  "float") {
+
+	printf ("scaling floating point data to 16-bit range, still as floating point\n")
+	a = a * 65535.0
+} else if ( imagefmt == "int32" || imagefmt == "int" || imagefmt == "int16" && amom[2,,] > 8000. && amom[2,,] < 65536.0) {
+
+	printf ("Image integers have a good data range\n")
+} else {
+
+	printf ("Program does not yet handle this data type with this range.\n")
+	printf ("Convert the image to a 16-bit tif, range 0 to 65535 (photoshop shows 0-32767)\n")
+	printf ("        or 32-bit floating point 0 to 1.0 range\n")
+	printf ("exit 1\n")
+	exit (1)
+}
+
+# check if output files exist
+ofile=sprintf("%s.jpg", obase)
+ofe = fexists(filename=ofile)
+if ( ofe > 0 ) {  # file exists
+	printf ("WARNING: output file  %s  exists.\n", ofile)
+	printf("  *** WILL NOT OVERWRITE, so there will be no new output file written\n")
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("  Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+}
+ofile=sprintf("%s.png", obase)
+ofe = fexists(filename=ofile)
+if ( ofe > 0 ) {  # file exists
+	printf ("WARNING: output file  %s  exists.\n", ofile)
+	printf("  *** WILL NOT OVERWRITE, so there will be no new output file written\n")
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("  Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+}
+
+# record command line to a file #################################
+	rcmd = "rnc-color-stretch "
+
+	acmd = sprintf ("# version %5.3f\n", progversion)
+	obasecmd = sprintf ("echo \"%s\" > %s.dvcmd.txt", acmd,  obase)
+	system (obasecmd)    # writes the comment line to obase.cmd file
+
+	for (j = 1; j <= $argc; j = j +1 ) {
+
+		rcmd = sprintf("%s %s", rcmd, $argv[j])
+	}
+	obasecmd = sprintf ("echo \"%s\" >> %s.dvcmd.txt", rcmd,  obase)
+	#printf("debug:\n%s\n", obasecmd)
+	system (obasecmd)    # writes the command line to obase.cmd file
+
+if ( rootiter > 1 && rootpower2 < 1.0001) {
+	rootpower2 = rootpower1               # rootpower2 was never set by the user, so it defaults to rootpower1
+}
+
+printf ("\nAll parameters:\n")
+printf ("   Input file name:                          %s\n", $1)
+printf ("   Output base file name:                    %s\n", obase)
+printf ("   power factor:                             %f\n", rootpower1)
+printf ("   number of iterations of rootppower -sky   %f\n", rootiter)
+if (rootiter > 1) {
+printf ("   power factor2:                            %f\n", rootpower2)
+}
+printf ("   percent clip level:                       %f\n", pcntclip)
+printf ("   color correction flag:                    %d  (1=do color correction, 0 = no)\n", colorcorrect)
+printf ("   color enhancement factor:                 %f\n", colorenhance)
+printf ("   apply tone curve flag:                    %d  (0 = no tone curve, 1 = yes)\n", tonecurve)
+printf ("   output histogram to specpr file flag:     %d  (1=yes, 0=no)\n", specprhist)
+printf ("   do cumulative histogram stretch after rootpower: %d  (1=yes, 0=no)(very harsh)\n", cumstretch)
+printf ("   sky level relative to the histogram peak: %f  (fraction 0 to 1)\n", skylevelfactor)
+printf ("   desired sky level:                        %f  (0 to 65535 16-bit scale)\n", rgbskylevel)
+printf ("   desired sky level on stretched image:     %f  (0 to 65535 16-bit scale)\n", rgbskylevelrs)
+printf ("   desired zero point on sky, red   channel: zeroskyred   = %f\n", zeroskyred)
+printf ("   desired zero point on sky, green channel: zeroskygreen = %f\n", zeroskygreen)
+printf ("   desired zero point on sky, blue  channel: zeroskyblue  = %f\n", zeroskyblue)
+printf ("   s-curve application: scurve = %d (0=n, 1=apply scurve1, 2=apply 1 then curve2, 3= curves 1, 2, 1, etc)\n", scurve)
+printf ("   set minimum output value for red:   %7.1f\n", setminr)
+printf ("   set minimum output value for green: %7.1f\n", setming)
+printf ("   set minimum output value for blue:  %7.1f\n", setminb)
+printf ("   display the final image =           %d  (0=no, 1=yes)\n", idisplay)
+printf ("   write jpeg only =                   %d (=0 will do jpeg + 16-bit png)\n", jpegonly)
+
+printf ("\n")
+
+adim=dim(a)  # image dimensions
+
+px=adim[1,,]  # x pixels
+py=adim[2,,]  # y pixels
+pz=adim[3,,]  # number of channels (should be 3 for RGB image)
+
+npix = px * py        # number of pixels
+#npixm = npix * 0.00010  # number of pixels below the clip level
+npixm = int(npix * pcntclip/100.0)  # number of pixels below the clip level
+
+if ( npixm < 1) npixm  = 1
+
+printf ("Image size: %d x %d pixels, cut level = %d\n", px, py, npixm)
+
+af=float(a)
+
+amomred = moment(a[,,1])
+
+amomgreen = moment(a[,,2])
+
+amomblue = moment(a[,,3])
+
+printf ("input image:\n")
+printf("       RED:    min=%d    max=%d   mean=%d\n",  amomred[1,,],   amomred[2,,],   amomred[3,,])
+printf("       GREEN:  min=%d    max=%d   mean=%d\n",  amomgreen[1,,], amomgreen[2,,], amomgreen[3,,])
+printf("       BLUE:   min=%d    max=%d   mean=%d\n",  amomblue[1,,],  amomblue[2,,],  amomblue[3,,])
+
+if ( tonecurve == 1 ) {    # apply tone curve
+
+	#         af*b*(1/d)^((af/c)^0.4)
+
+	printf ("applying tone curve\n")
+	b=12.0
+	c=65535.0
+	d=12.0
+	af=af*b*((1.0/d)^((af/c)^0.4))
+
+	a = format(af, format=int)    # 32-bit integer
+
+	amomred = moment(a[,,1])
+	amomgreen = moment(a[,,2])
+	amomblue = moment(a[,,3])
+
+	printf ("input image after application of tone curve:\n")
+	printf("       RED:    min=%d    max=%d   mean=%d\n",  amomred[1,,],   amomred[2,,],   amomred[3,,])
+	printf("       GREEN:  min=%d    max=%d   mean=%d\n",  amomgreen[1,,], amomgreen[2,,], amomgreen[3,,])
+	printf("       BLUE:   min=%d    max=%d   mean=%d\n",  amomblue[1,,],  amomblue[2,,],  amomblue[3,,])
+
+}
+
+printf ("computing RGB histograms on input image\n")  # note this is after tone curve if -tone
+
+ahistred   = float(histogram(a[,,1], start=0.0, size=1.0, steps=65536))
+ahistgreen = float(histogram(a[,,2], start=0.0, size=1.0, steps=65536))
+ahistblue  = float(histogram(a[,,3], start=0.0, size=1.0, steps=65536))
+ahistrgb   = float(histogram(a,      start=0.0, size=1.0, steps=65536))
+
+#	if (doplots == 1) {   # plot histogram
+#
+#			if (idisplay > 0) {
+#				ajpg = byte(af/256.0)
+#				display(ajpg)
+#			}
+#
+#		ahistredz   = ahistred
+#		ahistgreenz = ahistgreen
+#		ahistbluez  = ahistblue
+#
+#		for (kz=2; kz<=65535; kz++) {  # fill zeros for plot
+#
+#			if (ahistredz[2,kz,1]   < 0.1) ahistredz[2,kz,1]   = ahistredz[2,kz-1,1]
+#			if (ahistgreenz[2,kz,1] < 0.1) ahistgreenz[2,kz,1] = ahistgreenz[2,kz-1,1]
+#			if (ahistbluez[2,kz,1]  < 0.1) ahistbluez[2,kz,1]  = ahistbluez[2,kz-1,1]
+#		}
+#
+#		hrange = 65535
+#		xah = ahistgreen[1,1:hrange,1]
+#		plot(ahistredz[2,1:hrange,1], axis=y, xaxis=xah, \
+#				label="histograms, input image, red", \
+#			ahistgreenz[2,1:hrange,1], axis=y, xaxis=xah, label="green", \
+#			ahistbluez[2,1:hrange,1], axis=y, xaxis=xah, label="blue")
+#
+#		plot("set xlabel \"Image Data DN Level\"")
+#		plot("set ylabel \"Number of Pixels (Linear Count)\"")
+#		plot("replot")
+#
+#		printf ("histograms, input image\n")
+#		printf ("Press return to continue\n")
+#		system("sh -c 'read a'")
+#
+#	}
+
+# we no longer need the integer image array a, so set it to a constant.
+# This clears the memory, except for 4 bytes.
+
+a = 0 # clear a
+
+if ( specprhist == 1 ) {      # specpr output for histogram
+
+	printf ("writing histograms to specpr file %s\n", spfile)
+
+	xtmp=float(create(1,1,10) * 0.0)  # tmp small array
+	write (xtmp, filename=spfile,  title="========================================", type=specpr)
+                            #           1111111111222222222233333333334
+                            #  1234567890123456789012345678901234567890
+
+
+	xtitle=sprintf("X-values to histogram %s               ", obase)
+	xtitle = xtitle[1:40,,]
+
+	write (ahistred[1,1:65535,1],filename=spfile,   title=xtitle                                    , type=specpr)
+	write (ahistred[2,1:65535,1],filename=spfile,   title="red channel histogram Y values before rs", type=specpr)
+	#                                                               1111111111222222222233333333334
+	#                                                      1234567890123456789012345678901234567890
+	write (ahistgreen[2,1:65535,1],filename=spfile, title="green channel histogram Y values before ", type=specpr)
+
+	write (ahistblue[2,1:65535,1],filename=spfile,  title="blue channel histogram Y values before  ", type=specpr)
+	write (ahistrgb[2,1:65535,1], filename=spfile,  title="RGB histogram Y values of input image   ", type=specpr)
+}
+
+# now find the level below which npixm pixels would be clipped
+
+alowred   = 0  # find the DN level which is the cut level
+alowgreen = 0
+alowblue  = 0
+nred   = 0     # number of pixels in histogram bin
+ngreen = 0
+nblue  = 0
+
+#printf("DEBUG: ahistblue[2,846,1]= %f \n", ahistblue[2,846,1])
+#printf("DEBUG: ahistblue[2,847,1]= %f \n", ahistblue[2,847,1])
+
+for (i=2; i<=39900; i++) {    # start at 2 because 1 is zeros, so we skip the zeros in the image.
+
+	iahr = int(ahistred[2,i,1])
+	if ( nred < npixm && iahr > 0) {
+		nred = nred + iahr
+		alowred = i-1
+		#printf ("debug: i=%d\n", i)
+		if (int(ahistred[2,i,1]) > 5) {
+		 #printf ("debug: i=%d  alowred+1=%d   ahistred[1,i,1]=%f    ahistred[2,i,1]=%d   nred=%d\n", i,  alowred+1, ahistred[1,i,1],  int(ahistred[2,i,1]), nred)
+		}
+	}
+	iahg = int(ahistgreen[2,i,1])
+	if ( ngreen < npixm && iahg > 0) {
+		ngreen = ngreen + iahg
+		alowgreen = i-1
+	}
+	iahb = int(ahistblue[2,i,1])
+	if (iahb < 0 && debuga > 0) printf ("DEBUG:  i=%d   ahistblue[2,i,1]=%f, but this should not be negative\n", i, ahistblue[2,i,1])
+	#if (i > 840 && i < 1200) printf ("DEBUG:  i=%d   nblue=%d   ahistblue[2,i,1]=%f\n", i, nblue, ahistblue[2,i,1])
+	if ( nblue < npixm && iahb > 0 ) {
+		nblue = nblue + iahb
+		alowblue = i-1
+		if (iahb > 6) {
+		 #printf ("debug: i=%d  alowblue+1=%d   ahistblue[1,i,1]=%f    ahistblue[2,i,1]=%d   nblue=%d\n", i,  alowblue+1, ahistblue[1,i,1],  int(ahistblue[2,i,1]), nblue)
+		}
+	}
+}
+
+printf ("cumulative histogram cut level (%f %% = %d pixels):\n", pcntclip, int(npixm))
+printf ("           red:   %d  (%d pixels)\n", alowred, nred)
+printf ("           green: %d  (%d pixels)\n", alowgreen, ngreen)
+printf ("           blue:  %d  (%d pixels)\n", alowblue, nblue)
+
+#printf ("debug: npixm subtract level: red=%d   green=%d   blue=%d\n", alowred, alowgreen, alowblue)
+
+# now smooth the histogram so we can find the darkest sky level to subtract
+# and find the sky histogram peak, which should be close to the darkest deep space zero level
+
+c = af
+
+   for ( ispass=1; ispass<=2;  ispass++ ) {    # do two pass on finding sky level
+	printf ("\n\n")
+	printf ("     computing RGB histograms on input image and smoothing the histograms, pass %d\n", ispass )
+
+	chistred   = float(histogram(c[,,1], start=0.0, size=1.0, steps=65536))
+	chistgreen = float(histogram(c[,,2], start=0.0, size=1.0, steps=65536))
+	chistblue  = float(histogram(c[,,3], start=0.0, size=1.0, steps=65536))
+
+	chistredsm   =  chistred     # array for smoothed histograms
+	chistgreensm =  chistgreen
+	chistbluesm  =  chistblue
+
+	ism=300  # number of chanels to smooth
+
+	for (ih=1; ih<=65535; ih++) {   # smooth the histograms
+
+		ilow = ih - ism
+		if (ilow < 1) ilow = 1
+		ihigh = ih + ism
+		if (ihigh > 65535) ihigh = 65535
+
+		csr= avg(chistred[2,ilow:ihigh,1], axis=y)
+		chistredsm[2,ih,1] = csr    # smoothed histogram value at ih
+						#printf ("debug: ih, snch= %d  %f\n", ih, cs[2,ih,1])
+
+		csg = avg(chistgreen[2,ilow:ihigh,1], axis=y)
+		chistgreensm[2,ih,1] = csg
+
+		csb = avg(chistblue[2,ilow:ihigh,1], axis=y)
+		chistbluesm[2,ih,1] = csb
+	}
+	# ok, we have the smoothed histograms for each color.  Now find the max.
+
+	chistredsmax   = 0.0
+	chistgreensmax = 0.0
+	chistbluesmax  = 0.0
+
+	chistredsmaxdn   = 0    # for histogram DN of the max
+	chistgreensmaxdn = 0
+	chistbluesmaxdn  = 0
+
+
+	for (ih=400; ih<=65500; ih++) {   # limit test range in case clipping or saturation
+
+		if ( chistredsm[2,ih,1]   > chistredsmax )   {
+			chistredsmax   = chistredsm[2,ih,1]
+			chistredsmaxdn = ih
+		}
+		if ( chistgreensm[2,ih,1] > chistgreensmax ) {
+			chistgreensmax   = chistgreensm[2,ih,1]
+			chistgreensmaxdn = ih
+		}
+		if ( chistbluesm[2,ih,1]  > chistbluesmax )  {
+			chistbluesmax   = chistbluesm[2,ih,1]
+			chistbluesmaxdn = ih
+		}
+	}
+
+	if (chistredsmaxdn == 0 || chistgreensmaxdn == 0 || chistbluesmaxdn == 0) {
+
+		printf ("     histogram max on input image not found:\n")
+		printf ("          channels: red %d   green %d   blue %d\n", chistredsmaxdn, chistgreensmaxdn, chistbluesmaxdn)
+		printf ("          This means that the algorithm can't work on this image\n")
+		printf ("          Try increasing -rgbskyzero values\n")
+
+		if (doplots == 1 && ispass == 1) {   # plot histogram
+
+			if (idisplay > 0) {
+				ajpg = byte(c/256.0)
+				display(ajpg)
+			}
+
+			hrange = 65535
+			xah = chistgreen[1,1:hrange,1]
+			plot(chistredsm[2,1:hrange,1], axis=y, xaxis=xah, \
+					label="histograms on root stretched image, smoothed, red", \
+				chistgreensm[2,1:hrange,1], axis=y, xaxis=xah, label="green", \
+				chistbluesm[2,1:hrange,1], axis=y, xaxis=xah, label="blue")
+
+			plot("set xlabel \"Image Data DN Level\"")
+			plot("set ylabel \"Number of Pixels (Linear Count)\"")
+			plot("replot")
+
+			printf ("histograms on root stretched image, smoothed\n")
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("  Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+		}
+
+		printf ("       exit (1)\n")
+		exit (1)
+	}
+
+	printf ("\n")
+	printf ("     Histogram peak, input image:\n")
+	printf ("     image histogram:     DN      Number of pixels in peak histogram bin\n")
+	printf ("                  red:   %d         %f\n", chistredsmaxdn,   chistredsmax)
+	printf ("                green:   %d         %f\n", chistgreensmaxdn, chistgreensmax)
+	printf ("                 blue:   %d         %f\n", chistbluesmaxdn,  chistbluesmax)
+
+	# now find the sky level on the left side of the histogram
+
+	chistredsky   = chistredsmax   * skylevelfactor
+	chistgreensky = chistgreensmax * skylevelfactor
+	chistbluesky  = chistbluesmax  * skylevelfactor
+
+	chistredskydn   = 0   # which DN is at the skylevelfactor level.  DN = Data Number
+	chistgreenskydn = 0
+	chistblueskydn  = 0
+
+	for (ih = chistredsmaxdn;  ih>=2; ih=ih-1) {   # search from max toward left minimum
+							# but search for the green level in each color
+
+		if (chistredsm[2,ih,1] >= chistgreensky && \
+				chistredsm[2,ih-1,1] <= chistgreensky && chistredskydn == 0) {
+
+			chistredskydn = ih
+			#printf ("debug: chistredskydn= %d\n", chistredskydn)
+		}
+	}
+	for (ih = chistgreensmaxdn;  ih>=2; ih=ih-1) {   # search from max toward left minimum
+
+		if (chistgreensm[2,ih,1] >= chistgreensky && \
+				chistgreensm[2,ih-1,1] <= chistgreensky && chistgreenskydn == 0) {
+
+			chistgreenskydn = ih
+			#printf ("debug: chistgreenskydn= %d\n", chistgreenskydn)
+		}
+	}
+	for (ih = chistbluesmaxdn;  ih>=2; ih=ih-1) {   # search from max toward left minimum
+
+		if (chistbluesm[2,ih,1] >= chistgreensky && \
+				chistbluesm[2,ih-1,1] <= chistgreensky && chistblueskydn == 0) {
+
+			chistblueskydn = ih
+			#printf ("debug: chistblueskydn= %d\n", chistblueskydn)
+		}
+	}
+	if ( chistredskydn == 0 || chistgreenskydn == 0 || chistblueskydn == 0) {
+
+		printf ("histogram sky level %f not found:\n", skylevelfactor)
+		printf ("     channels: red %d   green %d   blue %d\n", chistredskydn, chistgreenskydn, chistblueskydn)
+		printf ("     Thus, not sure what to do with this image, quitting\n")
+		printf ("          Try increasing -rgbskyzero values\n")
+
+		if (doplots == 1 && ispass == 1) {   # plot histogram
+
+			if (idisplay > 0) {
+				ajpg = byte(c/256.0)
+				display(ajpg)
+			}
+
+			hrange = 65535
+			xah = chistgreen[1,1:hrange,1]
+			plot(chistredsm[2,1:hrange,1], axis=y, xaxis=xah, \
+					label="histograms on input image, smoothed, red", \
+				chistgreensm[2,1:hrange,1], axis=y, xaxis=xah, label="green", \
+				chistbluesm[2,1:hrange,1], axis=y, xaxis=xah, label="blue")
+
+			plot("set xlabel \"Image Data DN Level\"")
+			plot("set ylabel \"Number of Pixels (Linear Count)\"")
+			plot("replot")
+
+			printf ("histograms on input image, smoothed\n")
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("  Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+		}
+
+		printf ("  exit (1)\n")
+		exit (1)
+	}
+
+	pskylevelfactor = skylevelfactor * 100.0
+
+	printf ("\n")
+	printf ("     histogram dark sky level on input image (%5.1f %% of max)\n", pskylevelfactor)
+	printf ("                  DN      Number of pixels in histogram bin\n")     # need to compute cumulative hstogram
+	printf ("           red:   %d         %f\n", chistredskydn,   chistredsky)
+	printf ("         green:   %d         %f\n", chistgreenskydn, chistgreensky)
+	printf ("          blue:   %d         %f\n", chistblueskydn,  chistbluesky)
+
+	if (doplots == 1 && ispass == 1) {   # plot histogram
+
+			if (idisplay > 0) {
+				ajpg = byte(c/256.0)
+				display(ajpg)
+			}
+
+		hrange = 65535
+		xah = chistgreen[1,1:hrange,1]
+		plabel = " "
+		plabel = sprintf("histograms on input image, smoothed, before sky subtraction, pass %d, red", ispass)
+		plot(chistredsm[2,1:hrange,1], axis=y, xaxis=xah, label=plabel, \
+			chistgreensm[2,1:hrange,1], axis=y, xaxis=xah, label="green", \
+			chistbluesm[2,1:hrange,1], axis=y, xaxis=xah, label="blue")
+
+		plot("set xlabel \"Image Data DN Level\"")
+		plot("set ylabel \"Number of Pixels (Linear Count)\"")
+		plot("replot")
+
+		printf ("histograms on input image, smoothed, before sky subtraction, pass %d\n", ispass)
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("  Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+
+	}
+
+
+	# pre v0.891:
+	#printf ("\n     Assume dark sky is neutral black, and green, %d, is the neutral level\n", chistgreenskydn)
+
+	chistredskysub1    = chistredskydn   - zeroskyred   # subtract value to bring red   sky equal to reference zero sky level
+	chistgreenskysub1  = chistgreenskydn - zeroskygreen # subtract value to bring green sky equal to reference zero sky level
+	chistblueskysub1   = chistblueskydn  - zeroskyblue  # subtract value to bring blue  sky equal to reference zero sky level
+
+	printf ("\n")
+	printf ("subtract %7.1f from red   to make red   sky align with zero reference sky: %7.1f\n", chistredskysub1,   zeroskyred)
+	printf ("subtract %7.1f from green to make green sky align with zero reference sky: %7.1f\n", chistgreenskysub1, zeroskygreen)
+	printf ("subtract %7.1f from blue  to make blue  sky align with zero reference sky: %7.1f\n", chistblueskysub1,  zeroskyblue)
+
+	cfscalered   = 65535.0 / (65535.0 - float(chistredskysub1))     # factor to scale so max = 65535
+	cfscalegreen = 65535.0 / (65535.0 - float(chistgreenskysub1))   # factor to scale so max = 65535
+	cfscaleblue  = 65535.0 / (65535.0 - float(chistblueskysub1))    # factor to scale so max = 65535
+
+	printf ("\n")
+
+	printf ("now set the RGB sky zero level to %7.1f  %7.1f  %7.1f DN out of 65535\n", zeroskyred, zeroskygreen, zeroskyblue)
+
+	rgbskysub1r = float(chistredskydn   - zeroskyred)
+	rgbskysub1g = float(chistgreenskydn - zeroskygreen)
+	rgbskysub1b = float(chistblueskydn  - zeroskyblue)
+
+	c[,,1] = (c[,,1] - rgbskysub1r) * (65535.0 / (65535.0 - rgbskysub1r))  # red   subtracted
+	c[,,2] = (c[,,2] - rgbskysub1g) * (65535.0 / (65535.0 - rgbskysub1g))  # green subtracted
+	c[,,3] = (c[,,3] - rgbskysub1b) * (65535.0 / (65535.0 - rgbskysub1b))  # blue  subtracted
+
+	c[ where ( c < 0.0 )] = 0.0 
+
+	cm = moment(c)
+	cmr = moment(c[,,1])
+	cmg = moment(c[,,2])
+	cmb = moment(c[,,3])
+
+	printf("\n")
+	printf("root stretched image, power exponent= %f\n", x)
+	printf("       scaled image stats, before color recovery, sky adjust pass %d:\n", ispass)
+	printf("       RED:    min=%d    max=%d   mean=%d\n", int(cmr[1,,]), int(cmr[2,,]), int(cmr[3,,]))
+	printf("       GREEN:  min=%d    max=%d   mean=%d\n", int(cmg[1,,]), int(cmg[2,,]), int(cmg[3,,]))
+	printf("       BLUE:   min=%d    max=%d   mean=%d\n", int(cmb[1,,]), int(cmb[2,,]), int(cmb[3,,]))
+	printf("\n")
+
+	if (doplots == 1) {   # plot histogram
+
+			if (idisplay > 0) {
+				ajpg = byte(c/256.0)
+				display(ajpg)
+			}
+
+		chistred   = float(histogram(c[,,1], start=0.0, size=1.0, steps=65536))
+		chistgreen = float(histogram(c[,,2], start=0.0, size=1.0, steps=65536))
+		chistblue  = float(histogram(c[,,3], start=0.0, size=1.0, steps=65536))
+
+		chistredz   = chistred
+		chistgreenz = chistgreen
+		chistbluez  = chistblue
+
+		for (kz=2; kz<=65535; kz++) {  # fill zeros for plor
+
+			if (chistredz[2,kz,1]   < 0.1) chistredz[2,kz,1]   = chistredz[2,kz-1,1]
+			if (chistgreenz[2,kz,1] < 0.1) chistgreenz[2,kz,1] = chistgreenz[2,kz-1,1]
+			if (chistbluez[2,kz,1]  < 0.1) chistbluez[2,kz,1]  = chistbluez[2,kz-1,1]
+		}
+
+		hrange = 65535
+		xah = chistgreen[1,1:hrange,1]
+		plabel = sprintf("histograms on input image, sky subtraction, pass %d, red", ispass)
+		plot(chistredz[2,1:hrange,1], axis=y, xaxis=xah, \
+				label=plabel, \
+			chistgreenz[2,1:hrange,1], axis=y, xaxis=xah, label="green", \
+			chistbluez[2,1:hrange,1], axis=y, xaxis=xah, label="blue")
+
+		plot("set xlabel \"Image Data DN Level\"")
+		plot("set ylabel \"Number of Pixels (Linear Count)\"")
+		plot("replot")
+
+		printf ("histograms on input image, sky subtraction, pass %d\n", ispass)
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+
+	}
+
+
+   }  # end loop for multi-pass sky level
+
+af = c   # af is now the sky subtracted image
+
+	afmomred   = moment(af[,,1])
+	afmomgreen = moment(af[,,2])
+	afmomblue  = moment(af[,,3])
+
+	printf ("image stats now::\n")
+	printf("       RED:    min=%d    max=%d   mean=%d\n",  afmomred[1,,],   afmomred[2,,],   afmomred[3,,])
+	printf("       GREEN:  min=%d    max=%d   mean=%d\n",  afmomgreen[1,,], afmomgreen[2,,], afmomgreen[3,,])
+	printf("       BLUE:   min=%d    max=%d   mean=%d\n",  afmomblue[1,,],  afmomblue[2,,],  afmomblue[3,,])
+
+
+# subtract baseline and rescale to max, all floating point  (OLD method of clip level)
+# af[,,1] = (af[,,1] - float(alowred))  * 65535.0 / (65535.0 - float(alowred))
+# af[,,2] = (af[,,2] - float(alowgreen))* 65535.0 / (65535.0 - float(alowgreen))
+# af[,,3] = (af[,,3] - float(alowblue)) * 65535.0 / (65535.0 - float(alowblue))
+
+# clip at zero:
+
+# already done above   af[ where ( af < 0.0 )] = 0.0   # this is the input -sky image.  (if tone curve then tone curve - sky)
+
+
+
+if ( specprhist == 1 ) {      # specpr output for histogram
+
+	printf ("\n")
+	printf ("computing RGB histograms on sky subtracted image\n")
+
+	ahistreds1   = float(histogram(af[,,1], start=0.0, size=1.0, steps=65536))
+	ahistgreens1 = float(histogram(af[,,2], start=0.0, size=1.0, steps=65536))
+	ahistblues1  = float(histogram(af[,,3], start=0.0, size=1.0, steps=65536))
+
+	printf ("writing histograms to specpr file %s\n", spfile)
+
+	write (ahistreds1[2,1:65535,1],filename=spfile,   title="red-skylow histogram Y values before rs ", type=specpr)
+	#                                                                1111111111222222222233333333334
+	#                                                       1234567890123456789012345678901234567890
+	write (ahistgreens1[2,1:65535,1],filename=spfile, title="green-skylow histogram Y values before r", type=specpr)
+
+	write (ahistblues1[2,1:65535,1],filename=spfile,  title="blue-skylow histogram Y values before rs", type=specpr)
+}
+
+# this is never used    afavg= (af[,,1] + af[,,2] + af[,,3])/(3.0 * 65535.0)   # average luminance, normalized
+
+# not needed, set above c = af   # c is the output image, af at this point is the floating point input image - sky
+
+# ================================================================================
+
+  if ( saveinputminussky == 1) {
+
+	printf ("writing input - sky images\n")
+	  #cm=moment(c)
+	  #printf ("c= min %d  max= %d  mean= %d\n", cm[1,,], cm[2,,], cm[3,,])
+	d1=short(c/2)
+	  #cm=moment(d1)
+	  #printf ("d1= min %d  max= %d  mean= %d\n", cm[1,,], cm[2,,], cm[3,,])
+	d1[ where ( d1 <     0 )] = 0
+	d1[ where ( d1 > 32765 )] = 32765
+
+	ofile=sprintf("%s_input-sky.png", obase)
+	printf("writing 16-bit results image %s\n", ofile)
+	printf("               NOTE: image is 0-32765.  You will need to scale it 2x, e.g. with levels tool in photoshop\n")
+
+	write (d1, filename=ofile, type=png)
+
+	j=byte(d1/128.0)
+	   #cm=moment(j)
+	   #printf ("j= min %d  max= %d  mean= %d\n", cm[1,,], cm[2,,], cm[3,,])
+	ofile=sprintf("%s_input-sky.jpg", obase)
+	printf("writing 8-bit results jpeg image %s\n", ofile)
+
+	write (j, filename=ofile, type=jpg)
+
+	d1 = 0 # clear memory
+  }
+
+
+x= 1.0/rootpower    # exponent to power stretch
+
+printf ("\n============= computing root stretch =============\n")
+
+for (irootiter=1; irootiter<=rootiter;  irootiter++) {                 # iterate application of rootppower -sky
+
+  if ( irootiter == 2 ) {
+	x= 1.0/rootpower2    # exponent to power stretch for iteration 2
+  }
+
+  printf ("Rootpower - sky iteration %d of %d\n", irootiter, rootiter)
+
+  if (rootpower < 25.0) {    # single precision is ok (use for speed)
+
+	#b = 65535.0 * ((c+1.0)/65536.0)^x   # root x stretch  (could put others here)  0 to 65535 range
+	# recode to save memory:
+
+	b = c+1.0
+	b = b / 65536.0
+	b = 65535.0 * b^x   # root x stretch  (could put others here)  0 to 65535 range
+
+	bm = moment(b)
+	bmr = moment(b[,,1])  # moment red
+	bmg = moment(b[,,2])  # moment green
+	bmb = moment(b[,,3])  # moment blue
+	#printf("debug: image stats right after root stretch: min=%f   max=%f   mean=%f\n", bm[1,,], bm[2,,], bm[3,,])
+
+	bmin= bm[1,,]
+
+	bminz = bmin - 4096.0   # we are going to make the minimum 4096 out of 65535.
+	if (bminz < 0.0) bminz = 0.0
+
+	# subtract the min, bminz, and rescale to max
+
+	printf ("subtracting %f from root stretched image\n", bminz)
+
+	# c = 65535.0 * (b - bminz) / (65535.0 - bminz)   # scale to a 0 to 1.0 range
+	# recode to save memory:
+
+	b = (b - bminz)
+	b = b / (65535.0 - bminz)
+	c = 65535.0 * b              # scale to a 0 to 1.0 range
+	b = 0 # clear memory
+
+  } else {  # need double precision
+
+	x = double(x)
+
+	#b = double(65535.0) * (double(c+1.0)/double(65536.0))^x   # root x stretch  (could put others here)  0 to 65535 range
+	# recode to save memory:
+
+	b = double(c+1.0)
+	b = b / double(65536.0)
+	b = double(65535.0) * b^x   # root x stretch  (could put others here)  0 to 65535 range
+
+	bm = moment(b)
+	bmr = moment(b[,,1])  # moment red
+	bmg = moment(b[,,2])  # moment green
+	bmb = moment(b[,,3])  # moment blue
+	#printf("debug: image stats right after root stretch: min=%f   max=%f   mean=%f\n", bm[1,,], bm[2,,], bm[3,,])
+
+	bmin= double(bm[1,,])
+
+	bminz = bmin - double(4096.0)   # we are going to make the minimum 4096 out of 65535.
+	if (bminz < 0.0) bminz = 0.0
+
+	# subtract the min, bminz, and rescale to max
+
+	printf ("subtracting %f from root stretched image\n", bminz)
+
+	# c = double(65535.0) * (b - bminz) / (double(65535.0) - bminz)   # scale to a 0 to 1.0 range
+	# recode to save memory:
+
+	b = (b - bminz)
+	b = b / (double(65535.0) - bminz)
+	c = double(65535.0) * b           # scale to a 0 to 1.0 range
+	c = float(c)                      # back to single precision
+
+	b = 0 # clear memory
+}
+
+  cm = moment(c)
+  cmr = moment(c[,,1])  # moment red
+  cmg = moment(c[,,2])  # moment green
+  cmb = moment(c[,,3])  # moment blue
+  printf("image stats after root stretch and subtract %f: min=%f   max=%f   mean=%f\n", bminz, cm[1,,], cm[2,,], cm[3,,])
+  printf("       RED:    min=%d    max=%d   mean=%d\n", int(cmr[1,,]), int(cmr[2,,]), int(cmr[3,,]))
+  printf("       GREEN:  min=%d    max=%d   mean=%d\n", int(cmg[1,,]), int(cmg[2,,]), int(cmg[3,,]))
+  printf("       BLUE:   min=%d    max=%d   mean=%d\n", int(cmb[1,,]), int(cmb[2,,]), int(cmb[3,,]))
+  printf("\n")
+
+  if ( debuga == 1) {
+
+	d1=short(c/2)
+	printf ("writing debug1 images\n")
+	d1[ where ( d1 <     0 )] = 0
+	d1[ where ( d1 > 32767 )] = 32767
+
+	ofile=sprintf("%s_debug1.png", obase)
+	printf("writing 16-bit results image %s\n", ofile)
+	printf("               NOTE: image is 0-32765.  You will need to scale it 2x, e.g. with levels tool in photoshop\n")
+
+	write (d1, filename=ofile, type=png)
+
+	#write (d[,,1], filename="test-sqrt-stretch-red.tif", type=tif)
+	#write (d[,,2], filename="test-sqrt-stretch-green.tif", type=tif)
+	#write (d[,,3], filename="test-sqrt-stretch-blue.tif", type=tif)
+
+	j=byte(d1/128.0)
+	ofile=sprintf("%s_debug1.jpg", obase)
+	printf("writing 8-bit results jpeg image %s\n", ofile)
+
+	write (j, filename=ofile, type=jpg)
+
+	d1 = 0 # clear memory
+  }
+
+
+########### on root stretched image, determine sky level   ########
+
+   ispassmax = 2
+   if (rootpower > 60.0) {
+		ispassmax = 3
+   }
+
+   for ( ispass=1; ispass<=ispassmax;  ispass++ ) {    # do multi-pass on finding sky level
+	printf ("\n\n")
+	printf ("     computing RGB histograms on root stretched image and smoothing the histograms, pass %d, root iteration %d\n", ispass, irootiter)
+
+	chistred   = float(histogram(c[,,1], start=0.0, size=1.0, steps=65536))
+	chistgreen = float(histogram(c[,,2], start=0.0, size=1.0, steps=65536))
+	chistblue  = float(histogram(c[,,3], start=0.0, size=1.0, steps=65536))
+
+	chistredsm   =  chistred     # array for smoothed histograms
+	chistgreensm =  chistgreen
+	chistbluesm  =  chistblue
+
+	ism=300  # number of chanels to smooth
+
+	for (ih=1; ih<=65535; ih++) {   # smooth the histograms
+
+		ilow = ih - ism
+		if (ilow < 1) ilow = 1
+		ihigh = ih + ism
+		if (ihigh > 65535) ihigh = 65535
+
+		csr= avg(chistred[2,ilow:ihigh,1], axis=y)
+		chistredsm[2,ih,1] = csr    # smoothed histogram value at ih
+						#printf ("debug: ih, snch= %d  %f\n", ih, cs[2,ih,1])
+
+		csg = avg(chistgreen[2,ilow:ihigh,1], axis=y)
+		chistgreensm[2,ih,1] = csg
+
+		csb = avg(chistblue[2,ilow:ihigh,1], axis=y)
+		chistbluesm[2,ih,1] = csb
+	}
+	# ok, we have the smoothed histograms for each color.  Now find the max.
+
+	chistredsmax   = 0.0
+	chistgreensmax = 0.0
+	chistbluesmax  = 0.0
+
+	chistredsmaxdn   = 0    # for histogram DN of the max
+	chistgreensmaxdn = 0
+	chistbluesmaxdn  = 0
+
+
+	for (ih=400; ih<=65500; ih++) {   # limit test range in case clipping or saturation
+
+		if ( chistredsm[2,ih,1]   > chistredsmax )   {
+			chistredsmax   = chistredsm[2,ih,1]
+			chistredsmaxdn = ih
+		}
+		if ( chistgreensm[2,ih,1] > chistgreensmax ) {
+			chistgreensmax   = chistgreensm[2,ih,1]
+			chistgreensmaxdn = ih
+		}
+		if ( chistbluesm[2,ih,1]  > chistbluesmax )  {
+			chistbluesmax   = chistbluesm[2,ih,1]
+			chistbluesmaxdn = ih
+		}
+	}
+
+	if (chistredsmaxdn == 0 || chistgreensmaxdn == 0 || chistbluesmaxdn == 0) {
+
+		printf ("     histogram max after root stretch not found:\n")
+		printf ("          channels: red %d   green %d   blue %d\n", chistredsmaxdn, chistgreensmaxdn, chistbluesmaxdn)
+		printf ("          This means that the algorithm can't work on this image\n")
+		printf ("          Try increasing -rgbskyzero values\n")
+
+		if (doplots == 1 && ispass == 1) {   # plot histogram
+
+			if (idisplay > 0) {
+				ajpg = byte(c/256.0)
+				display(ajpg)
+			}
+
+			hrange = 65535
+			xah = chistgreen[1,1:hrange,1]
+			plot(chistredsm[2,1:hrange,1], axis=y, xaxis=xah, \
+					label="histograms on root stretched image, smoothed, red", \
+				chistgreensm[2,1:hrange,1], axis=y, xaxis=xah, label="green", \
+				chistbluesm[2,1:hrange,1], axis=y, xaxis=xah, label="blue")
+
+			plot("set xlabel \"Image Data DN Level\"")
+			plot("set ylabel \"Number of Pixels (Linear Count)\"")
+			plot("replot")
+
+			printf ("histograms on root stretched image, smoothed\n")
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("  Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+		}
+
+		printf ("       exit (1)\n")
+		exit (1)
+	}
+
+	printf ("\n")
+	printf ("     Histogram peak, after root stretch, root iteration %d:\n", irootiter)
+	printf ("     image histogram:     DN      Number of pixels in peak histogram bin\n")
+	printf ("                  red:   %d         %f\n", chistredsmaxdn,   chistredsmax)
+	printf ("                green:   %d         %f\n", chistgreensmaxdn, chistgreensmax)
+	printf ("                 blue:   %d         %f\n", chistbluesmaxdn,  chistbluesmax)
+
+	# now find the sky level on the left side of the histogram
+
+	chistredsky   = chistredsmax   * skylevelfactor
+	chistgreensky = chistgreensmax * skylevelfactor
+	chistbluesky  = chistbluesmax  * skylevelfactor
+
+	chistredskydn   = 0   # which DN is at the skylevelfactor level.  DN = Data Number
+	chistgreenskydn = 0
+	chistblueskydn  = 0
+
+	for (ih = chistredsmaxdn;  ih>=2; ih=ih-1) {   # search from max toward left minimum
+							# but search for the green level in each color
+
+		if (chistredsm[2,ih,1] >= chistgreensky && \
+				chistredsm[2,ih-1,1] <= chistgreensky && chistredskydn == 0) {
+
+			chistredskydn = ih
+			#printf ("debug: chistredskydn= %d\n", chistredskydn)
+		}
+	}
+	for (ih = chistgreensmaxdn;  ih>=2; ih=ih-1) {   # search from max toward left minimum
+
+		if (chistgreensm[2,ih,1] >= chistgreensky && \
+				chistgreensm[2,ih-1,1] <= chistgreensky && chistgreenskydn == 0) {
+
+			chistgreenskydn = ih
+			#printf ("debug: chistgreenskydn= %d\n", chistgreenskydn)
+		}
+	}
+	for (ih = chistbluesmaxdn;  ih>=2; ih=ih-1) {   # search from max toward left minimum
+
+		if (chistbluesm[2,ih,1] >= chistgreensky && \
+				chistbluesm[2,ih-1,1] <= chistgreensky && chistblueskydn == 0) {
+
+			chistblueskydn = ih
+			#printf ("debug: chistblueskydn= %d\n", chistblueskydn)
+		}
+	}
+	if ( chistredskydn == 0 || chistgreenskydn == 0 || chistblueskydn == 0) {
+
+		printf ("histogram sky level %f not found:\n", skylevelfactor)
+		printf ("     channels: red %d   green %d   blue %d\n", chistredskydn, chistgreenskydn, chistblueskydn)
+		printf ("     Thus, not sure what to do with this image, quitting\n")
+		printf ("          Try increasing -rgbskyzero values\n")
+
+		if (doplots == 1 && ispass == 1) {   # plot histogram
+
+			if (idisplay > 0) {
+				ajpg = byte(c/256.0)
+				display(ajpg)
+			}
+
+			hrange = 65535
+			xah = chistgreen[1,1:hrange,1]
+			plot(chistredsm[2,1:hrange,1], axis=y, xaxis=xah, \
+					label="histograms on root stretched image, smoothed, red", \
+				chistgreensm[2,1:hrange,1], axis=y, xaxis=xah, label="green", \
+				chistbluesm[2,1:hrange,1], axis=y, xaxis=xah, label="blue")
+
+			plot("set xlabel \"Image Data DN Level\"")
+			plot("set ylabel \"Number of Pixels (Linear Count)\"")
+			plot("replot")
+
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("  Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+		}
+
+		printf ("  exit (1)\n")
+		exit (1)
+	}
+
+	pskylevelfactor = skylevelfactor * 100.0
+
+	printf ("\n")
+	printf ("     histogram dark sky level on root-stretched image (%5.1f %% of max)\n", pskylevelfactor)
+	printf ("                  DN      Number of pixels in histogram bin\n")     # need to compute cumulative hstogram
+	printf ("           red:   %d         %f\n", chistredskydn,   chistredsky)
+	printf ("         green:   %d         %f\n", chistgreenskydn, chistgreensky)
+	printf ("          blue:   %d         %f\n", chistblueskydn,  chistbluesky)
+
+	if (doplots == 1 && ispass == 1) {   # plot histogram
+
+			if (idisplay > 0) {
+				ajpg = byte(c/256.0)
+				display(ajpg)
+			}
+
+		hrange = 65535
+		xah = chistgreen[1,1:hrange,1]
+		plabel = " "
+		plabel = sprintf("histograms on root stretched image, smoothed, before sky subtraction, pass %d, red", ispass)
+		plot(chistredsm[2,1:hrange,1], axis=y, xaxis=xah, label=plabel, \
+			chistgreensm[2,1:hrange,1], axis=y, xaxis=xah, label="green", \
+			chistbluesm[2,1:hrange,1], axis=y, xaxis=xah, label="blue")
+
+		plot("set xlabel \"Image Data DN Level\"")
+		plot("set ylabel \"Number of Pixels (Linear Count)\"")
+		plot("replot")
+
+		printf ("histograms on root stretched image, smoothed, before sky subtraction, pass %d, root iteration %d\n", ispass, irootiter)
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("  Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+
+	}
+
+
+	# pre v0.891:
+	#printf ("\n     Assume dark sky is neutral black, and green, %d, is the neutral level\n", chistgreenskydn)
+
+	chistredskysub1    = chistredskydn   - zeroskyred   # subtract value to bring red   sky equal to reference zero sky level
+	chistgreenskysub1  = chistgreenskydn - zeroskygreen # subtract value to bring green sky equal to reference zero sky level
+	chistblueskysub1   = chistblueskydn  - zeroskyblue  # subtract value to bring blue  sky equal to reference zero sky level
+
+	printf ("\n")
+	printf ("subtract %7.1f from red   to make red   sky align with zero reference sky: %7.1f\n", chistredskysub1,   zeroskyred)
+	printf ("subtract %7.1f from green to make green sky align with zero reference sky: %7.1f\n", chistgreenskysub1, zeroskygreen)
+	printf ("subtract %7.1f from blue  to make blue  sky align with zero reference sky: %7.1f\n", chistblueskysub1,  zeroskyblue)
+
+	cfscalered   = 65535.0 / (65535.0 - float(chistredskysub1))     # factor to scale so max = 65535
+	cfscalegreen = 65535.0 / (65535.0 - float(chistgreenskysub1))   # factor to scale so max = 65535
+	cfscaleblue  = 65535.0 / (65535.0 - float(chistblueskysub1))    # factor to scale so max = 65535
+
+	printf ("\n")
+
+	printf ("now set the RGB sky zero level to %7.1f  %7.1f  %7.1f DN out of 65535\n", zeroskyred, zeroskygreen, zeroskyblue)
+
+	rgbskysub1r = float(chistredskydn   - zeroskyred)
+	rgbskysub1g = float(chistgreenskydn - zeroskygreen)
+	rgbskysub1b = float(chistblueskydn  - zeroskyblue)
+
+	c[,,1] = (c[,,1] - rgbskysub1r) * (65535.0 / (65535.0 - rgbskysub1r))  # red   subtracted
+	c[,,2] = (c[,,2] - rgbskysub1g) * (65535.0 / (65535.0 - rgbskysub1g))  # green subtracted
+	c[,,3] = (c[,,3] - rgbskysub1b) * (65535.0 / (65535.0 - rgbskysub1b))  # blue  subtracted
+
+	c[ where ( c < 0.0 )] = 0.0 
+
+	cm = moment(c)
+	cmr = moment(c[,,1])
+	cmg = moment(c[,,2])
+	cmb = moment(c[,,3])
+
+	printf("\n")
+	printf("root stretched image, power exponent= %f   root iteration %d\n", x, irootiter)
+	printf("       scaled image stats, before color recovery, sky adjust pass %d:\n", ispass)
+	printf("       RED:    min=%d    max=%d   mean=%d\n", int(cmr[1,,]), int(cmr[2,,]), int(cmr[3,,]))
+	printf("       GREEN:  min=%d    max=%d   mean=%d\n", int(cmg[1,,]), int(cmg[2,,]), int(cmg[3,,]))
+	printf("       BLUE:   min=%d    max=%d   mean=%d\n", int(cmb[1,,]), int(cmb[2,,]), int(cmb[3,,]))
+	printf("\n")
+
+	if (doplots == 1) {   # plot histogram
+
+			if (idisplay > 0) {
+				ajpg = byte(c/256.0)
+				display(ajpg)
+			}
+
+		chistred   = float(histogram(c[,,1], start=0.0, size=1.0, steps=65536))
+		chistgreen = float(histogram(c[,,2], start=0.0, size=1.0, steps=65536))
+		chistblue  = float(histogram(c[,,3], start=0.0, size=1.0, steps=65536))
+
+		chistredz   = chistred
+		chistgreenz = chistgreen
+		chistbluez  = chistblue
+
+		for (kz=2; kz<=65535; kz++) {  # fill zeros for plor
+
+			if (chistredz[2,kz,1]   < 0.1) chistredz[2,kz,1]   = chistredz[2,kz-1,1]
+			if (chistgreenz[2,kz,1] < 0.1) chistgreenz[2,kz,1] = chistgreenz[2,kz-1,1]
+			if (chistbluez[2,kz,1]  < 0.1) chistbluez[2,kz,1]  = chistbluez[2,kz-1,1]
+		}
+
+		hrange = 65535
+		xah = chistgreen[1,1:hrange,1]
+		plabel = sprintf("histograms on root stretched image, sky subtraction, pass %d, red", ispass)
+		plot(chistredz[2,1:hrange,1], axis=y, xaxis=xah, \
+				label=plabel, \
+			chistgreenz[2,1:hrange,1], axis=y, xaxis=xah, label="green", \
+			chistbluez[2,1:hrange,1], axis=y, xaxis=xah, label="blue")
+
+		plot("set xlabel \"Image Data DN Level\"")
+		plot("set ylabel \"Number of Pixels (Linear Count)\"")
+		plot("replot")
+
+		printf ("histograms on root stretched image, smoothed, before sky subtraction, pass %d\n", ispass)
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("  Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+
+	}
+
+
+   }  # end loop for multi-pass sky level
+}     # end iterate application of rootppower -sky
+
+########### on root stretched image, fixed sky level   ########
+###############################################################
+
+# S-curve
+#
+#   sc = (xfactor / (1 + exp(-1 * ((float(c)/65535.0 - xoffset) * xfactor) ))-(1- xoffset))/scurvemax
+#
+
+if (scurve > 0) {
+
+    printf ("\n============= computing s-curve stretch =============\n")
+
+    for (i=1; i<=scurve; i++) {
+
+      if ( i == 1 || i == 3 ) {
+	xfactor = 5.0
+	xoffset = 0.42  # note: this produces a crossover point (output = input) at about the 1/3 max level.
+			# above this level, image is brighter.  Below this level, image is darker with
+			# higher contrast.
+      } else if ( i == 2 || i == 4 ) {
+
+	xfactor = 3.0
+	xoffset = 0.22  # note: this produces a crossover point (output = input) near 0
+			# the image is brightened overall without much effect on the low end.
+      } else {
+
+	xfactor = 5.0
+	xoffset = 0.42  # note: this produces a crossover point (output = input) at about the 1/3 max level.
+			# above this level, image is brighter.  Below this level, image is darker with
+			# higher contrast.
+      }
+
+	# e       = 2.718281828459  # the exp function: exp(x) = e^x
+
+	scurvemin =  (xfactor / (1.0 + exp(-1.0 * ((float(0)/65535.0 - xoffset) * xfactor) ))-(1.0- xoffset))   # = -0.0345159 when i =1
+                                                                                                                # =  0.220000  when i =2
+	scurvemax =  (xfactor / (1.0 + exp(-1.0 * ((float(65535)/65535.0 - xoffset) * xfactor) ))-(1.0- xoffset)) # = 4.15923 when i =1
+														  # = 1.95641 when i =2
+
+	scurveminsc = scurvemin / scurvemax   # = -0.00829863 when i =1  this is the zero level after the sc calculation
+					      # =  0.123808   when i =2
+
+
+	printf ("s-curve pass %d\n", i)
+	printf ("                xfactor    = %f\n", xfactor)
+	printf ("                xoffset    = %f\n", xoffset)
+	printf ("                scurvemin  = %f\n", scurvemin)
+	printf ("                scurvemax  = %f\n", scurvemax)
+	printf ("                scurveminsc= %f\n", scurveminsc)
+
+	# sc = (xfactor / (1.0 + exp(-1.0 * ((float(c)/65535.0 - xoffset) * xfactor) ))-(1.0- xoffset))/scurvemax
+	# break into parts to save memory:
+
+	xo = (1.0- xoffset)
+	sc = float(c)/65535.0
+	sc = sc - xoffset      # now have (float(c)/65535.0 - xoffset)
+	sc = sc * xfactor
+	sc = sc * -1.0
+	sc = exp(sc)           # now have exp(-1.0 * ((float(c)/65535.0 - xoffset) * xfactor) )
+	
+		#sc = (xfactor / (1.0 + sc )-(1.0- xoffset))/scurvemax
+
+	sc = 1.0 + sc          # now have (1.0 + exp(-1.0 * ((float(c)/65535.0 - xoffset) * xfactor) ))
+	sc = xfactor / sc
+	sc = (sc-xo)
+	sc = sc /scurvemax
+
+	# image range is now -0.00829863 to 1.0  when i=1
+
+	#cbefore = c 
+	# c = 65535.0 * (sc - scurveminsc) / (1.0 - scurveminsc)
+	sc = sc - scurveminsc
+	sc = 65535.0 * sc
+	c = sc / (1.0 - scurveminsc)
+	#cdif= cbefore - c
+
+	cstrmr = moment(c[,,1])  # moment red
+	cstrmg = moment(c[,,2])  # moment green
+	cstrmb = moment(c[,,3])  # moment blue
+
+	printf("\n")
+	printf("     root stretched image stats after s-curve, pass %d:\n", i)
+	printf("       RED:    min=%d    max=%d   mean=%d\n", cstrmr[1,,], cstrmr[2,,], cstrmr[3,,])
+	printf("       GREEN:  min=%d    max=%d   mean=%d\n", cstrmg[1,,], cstrmg[2,,], cstrmg[3,,])
+	printf("       BLUE:   min=%d    max=%d   mean=%d\n", cstrmb[1,,], cstrmb[2,,], cstrmb[3,,])
+	printf("\n")
+    }
+    sc = 0 # clear memory
+}   # scurve computation end
+
+if (scurve > 0) {
+
+   printf ("\n============= subtracting sky ofset from scurve stretched image =============\n")
+
+   for ( ispass=1; ispass<=2;  ispass++ ) {    # do two pass on finding sky level
+	printf ("\n\n")
+	printf ("     computing RGB histograms on root stretched image and smoothing the histograms, pass %d\n", ispass )
+
+	chistred   = float(histogram(c[,,1], start=0.0, size=1.0, steps=65536))
+	chistgreen = float(histogram(c[,,2], start=0.0, size=1.0, steps=65536))
+	chistblue  = float(histogram(c[,,3], start=0.0, size=1.0, steps=65536))
+
+	chistredsm   =  chistred     # array for smoothed histograms
+	chistgreensm =  chistgreen
+	chistbluesm  =  chistblue
+
+	ism=300  # number of chanels to smooth
+
+	for (ih=1; ih<=65535; ih++) {   # smooth the histograms
+
+		ilow = ih - ism
+		if (ilow < 1) ilow = 1
+		ihigh = ih + ism
+		if (ihigh > 65535) ihigh = 65535
+
+		csr= avg(chistred[2,ilow:ihigh,1], axis=y)
+		chistredsm[2,ih,1] = csr    # smoothed histogram value at ih
+						#printf ("debug: ih, snch= %d  %f\n", ih, cs[2,ih,1])
+
+		csg = avg(chistgreen[2,ilow:ihigh,1], axis=y)
+		chistgreensm[2,ih,1] = csg
+
+		csb = avg(chistblue[2,ilow:ihigh,1], axis=y)
+		chistbluesm[2,ih,1] = csb
+	}
+	# ok, we have the smoothed histograms for each color.  Now find the max.
+
+	if (doplots == 1 && ispass == 1) {   # plot histogram
+
+			if (idisplay > 0) {
+				ajpg = byte(c/256.0)
+				display(ajpg)
+			}
+
+		hrange = 65535
+		xah = chistgreen[1,1:hrange,1]
+		plot(chistredsm[2,1:hrange,1], axis=y, xaxis=xah, \
+				label="smoothed histograms, root stretched scurve image, pre sky subtract, red", \
+			chistgreensm[2,1:hrange,1], axis=y, xaxis=xah, label="green", \
+			chistbluesm[2,1:hrange,1], axis=y, xaxis=xah, label="blue")
+
+		plot("set xlabel \"Image Data DN Level\"")
+		plot("set ylabel \"Number of Pixels (Linear Count)\"")
+		plot("replot")
+
+		printf ("smoothed histograms, root stretched scurve image, pre sky subtract, red\n")
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("  Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+
+	}
+
+	chistredsmax   = 0.0
+	chistgreensmax = 0.0
+	chistbluesmax  = 0.0
+
+	chistredsmaxdn   = 0    # for histogram DN of the max
+	chistgreensmaxdn = 0
+	chistbluesmaxdn  = 0
+
+
+	for (ih=400; ih<=65500; ih++) {   # limit test range in case clipping or saturation
+
+		if ( chistredsm[2,ih,1]   > chistredsmax )   {
+			chistredsmax   = chistredsm[2,ih,1]
+			chistredsmaxdn = ih
+		}
+		if ( chistgreensm[2,ih,1] > chistgreensmax ) {
+			chistgreensmax   = chistgreensm[2,ih,1]
+			chistgreensmaxdn = ih
+		}
+		if ( chistbluesm[2,ih,1]  > chistbluesmax )  {
+			chistbluesmax   = chistbluesm[2,ih,1]
+			chistbluesmaxdn = ih
+		}
+	}
+
+	if (chistredsmaxdn == 0 || chistgreensmaxdn == 0 || chistbluesmaxdn == 0) {
+
+		printf ("     histogram max after root stretch not found:\n")
+		printf ("          channels: red %d   green %d   blue %d\n", chistredsmaxdn, chistgreensmaxdn, chistbluesmaxdn)
+		printf ("          This means that the algorithm can't work on this image\n")
+		printf ("       exit (1)\n")
+		exit (1)
+	}
+
+	printf ("\n")
+	printf ("     Histogram peak, after root stretch:\n")
+	printf ("     image histogram:     DN      Number of pixels in peak histogram bin\n")
+	printf ("                  red:   %d         %f\n", chistredsmaxdn,   chistredsmax)
+	printf ("                green:   %d         %f\n", chistgreensmaxdn, chistgreensmax)
+	printf ("                 blue:   %d         %f\n", chistbluesmaxdn,  chistbluesmax)
+
+	# now find the sky level on the left side of the histogram
+
+	chistredsky   = chistredsmax   * skylevelfactor
+	chistgreensky = chistgreensmax * skylevelfactor
+	chistbluesky  = chistbluesmax  * skylevelfactor
+
+	chistredskydn   = 0   # which DN is at the skylevelfactor level.  DN = Data Number
+	chistgreenskydn = 0
+	chistblueskydn  = 0
+
+	for (ih = chistredsmaxdn;  ih>=2; ih=ih-1) {   # search from max toward left minimum
+							# but search for the green level in each color
+
+		if (chistredsm[2,ih,1] >= chistgreensky && \
+				chistredsm[2,ih-1,1] <= chistgreensky && chistredskydn == 0) {
+
+			chistredskydn = ih
+			#printf ("debug: chistredskydn= %d\n", chistredskydn)
+		}
+	}
+	for (ih = chistgreensmaxdn;  ih>=2; ih=ih-1) {   # search from max toward left minimum
+
+		if (chistgreensm[2,ih,1] >= chistgreensky && \
+				chistgreensm[2,ih-1,1] <= chistgreensky && chistgreenskydn == 0) {
+
+			chistgreenskydn = ih
+			#printf ("debug: chistgreenskydn= %d\n", chistgreenskydn)
+		}
+	}
+	for (ih = chistbluesmaxdn;  ih>=2; ih=ih-1) {   # search from max toward left minimum
+
+		if (chistbluesm[2,ih,1] >= chistgreensky && \
+				chistbluesm[2,ih-1,1] <= chistgreensky && chistblueskydn == 0) {
+
+			chistblueskydn = ih
+			#printf ("debug: chistblueskydn= %d\n", chistblueskydn)
+		}
+	}
+	if ( chistredskydn == 0 || chistgreenskydn == 0 || chistblueskydn == 0) {
+
+		printf ("histogram sky level %f not found:\n", skylevelfactor)
+		printf ("     channels: red %d   green %d   blue %d\n", chistredskydn, chistgreenskydn, chistblueskydn)
+		printf ("     Thus, not sure what to do with this image, quitting\n")
+		printf ("          Try increasing -rgbskyzero values\n")
+		printf ("  exit (1)\n")
+		exit (1)
+	}
+
+	pskylevelfactor = skylevelfactor * 100.0
+
+	printf ("\n")
+	printf ("     histogram dark sky level on root-stretched image (%5.1f %% of max)\n", pskylevelfactor)
+	printf ("                  DN      Number of pixels in histogram bin\n")     # need to compute cumulative hstogram
+	printf ("           red:   %d         %f\n", chistredskydn,   chistredsky)
+	printf ("         green:   %d         %f\n", chistgreenskydn, chistgreensky)
+	printf ("          blue:   %d         %f\n", chistblueskydn,  chistbluesky)
+
+
+	chistredskysub1    = chistredskydn   - zeroskyred   # subtract value to bring red   sky equal to reference zero sky level
+	chistgreenskysub1  = chistgreenskydn - zeroskygreen # subtract value to bring green sky equal to reference zero sky level
+	chistblueskysub1   = chistblueskydn  - zeroskyblue  # subtract value to bring blue  sky equal to reference zero sky level
+
+	printf ("\n")
+	printf ("subtract %7.1f from red   to make red   sky align with zero reference sky: %7.1f\n", chistredskysub1,   zeroskyred)
+	printf ("subtract %7.1f from green to make green sky align with zero reference sky: %7.1f\n", chistgreenskysub1, zeroskygreen)
+	printf ("subtract %7.1f from blue  to make blue  sky align with zero reference sky: %7.1f\n", chistblueskysub1,  zeroskyblue)
+
+	cfscalered   = 65535.0 / (65535.0 - float(chistredskysub1))     # factor to scale so max = 65535
+	cfscalegreen = 65535.0 / (65535.0 - float(chistgreenskysub1))   # factor to scale so max = 65535
+	cfscaleblue  = 65535.0 / (65535.0 - float(chistblueskysub1))    # factor to scale so max = 65535
+
+	printf ("\n")
+
+	printf ("now set the RGB sky zero level to %7.1f  %7.1f  %7.1f DN out of 65535\n", zeroskyred, zeroskygreen, zeroskyblue)
+
+	rgbskysub1r = float(chistredskydn   - zeroskyred)
+	rgbskysub1g = float(chistgreenskydn - zeroskygreen)
+	rgbskysub1b = float(chistblueskydn  - zeroskyblue)
+
+	c[,,1] = (c[,,1] - rgbskysub1r) * (65535.0 / (65535.0 - rgbskysub1r))  # red   subtracted
+	c[,,2] = (c[,,2] - rgbskysub1g) * (65535.0 / (65535.0 - rgbskysub1g))  # green subtracted
+	c[,,3] = (c[,,3] - rgbskysub1b) * (65535.0 / (65535.0 - rgbskysub1b))  # blue  subtracted
+
+	c[ where ( c < 0.0 )] = 0.0 
+
+	cm = moment(c)
+	cmr = moment(c[,,1])
+	cmg = moment(c[,,2])
+	cmb = moment(c[,,3])
+
+	printf("\n")
+	printf("root stretched image, power exponent= %f\n", x)
+	printf("       scaled image stats, before color recovery, sky adjust pass %d:\n", ispass)
+	printf("       RED:    min=%d    max=%d   mean=%d\n", int(cmr[1,,]), int(cmr[2,,]), int(cmr[3,,]))
+	printf("       GREEN:  min=%d    max=%d   mean=%d\n", int(cmg[1,,]), int(cmg[2,,]), int(cmg[3,,]))
+	printf("       BLUE:   min=%d    max=%d   mean=%d\n", int(cmb[1,,]), int(cmb[2,,]), int(cmb[3,,]))
+	printf("\n")
+
+   }
+}   # end s-curve sky subtract
+
+if ( debuga == 1) {
+
+	d1=short(c/2)
+	printf ("writing debug2 images\n")
+	d1[ where ( d1 <     0 )] = 0
+	d1[ where ( d1 > 32767 )] = 32767
+
+	ofile=sprintf("%s_debug2.png", obase)
+	printf("writing 16-bit results image %s\n", ofile)
+	printf("               NOTE: image is 0-32765.  You will need to scale it 2x, e.g. with levels tool in photoshop\n")
+
+	write (d1, filename=ofile, type=png)
+
+	#write (d[,,1], filename="test-sqrt-stretch-red.tif", type=tif)
+	#write (d[,,2], filename="test-sqrt-stretch-green.tif", type=tif)
+	#write (d[,,3], filename="test-sqrt-stretch-blue.tif", type=tif)
+
+	j=byte(d1/128.0)
+	ofile=sprintf("%s_debug2.jpg", obase)
+	printf("writing 8-bit results jpeg image %s\n", ofile)
+
+	write (j, filename=ofile, type=jpg)
+
+	d1 = 0 # clear memory
+}
+
+
+#cm=moment(c)
+#printf("moment c, output image: min=%f   max=%f   mean=%f\n", cm[1,,], cm[2,,], cm[3,,])
+cm = moment(c)
+cmr = moment(c[,,1])
+cmg = moment(c[,,2])
+cmb = moment(c[,,3])
+
+printf("\n")
+printf("image stats after root stretch, bottom adjusted: min=%f   max=%f   mean=%f\n", cm[1,,], cm[2,,], cm[3,,])
+
+printf("\n")
+printf("root stretched image, power exponent= %f, scaled image stats, before color recovery:\n", x)
+printf("       RED:    min=%d    max=%d   mean=%d\n", int(cmr[1,,]), int(cmr[2,,]), int(cmr[3,,]))
+printf("       GREEN:  min=%d    max=%d   mean=%d\n", int(cmg[1,,]), int(cmg[2,,]), int(cmg[3,,]))
+printf("       BLUE:   min=%d    max=%d   mean=%d\n", int(cmb[1,,]), int(cmb[2,,]), int(cmb[3,,]))
+printf("\n")
+
+ahistred   = histogram(c[,,1], start=0.0, size=1.0, steps=65535)
+ahistgreen = histogram(c[,,2], start=0.0, size=1.0, steps=65535)
+ahistblue  = histogram(c[,,3], start=0.0, size=1.0, steps=65535)
+
+	if (doplots == 1) {   # plot histogram
+
+			if (idisplay > 0) {
+				ajpg = byte(c/256.0)
+				display(ajpg)
+			}
+
+		ahistredz   = ahistred
+		ahistgreenz = ahistgreen
+		ahistbluez  = ahistblue
+
+		for (kz=2; kz<=65535; kz++) {  # fill zeros for plot
+
+			if (ahistredz[2,kz,1]   < 0.1) ahistredz[2,kz,1]   = ahistredz[2,kz-1,1]
+			if (ahistgreenz[2,kz,1] < 0.1) ahistgreenz[2,kz,1] = ahistgreenz[2,kz-1,1]
+			if (ahistbluez[2,kz,1]  < 0.1) ahistbluez[2,kz,1]  = ahistbluez[2,kz-1,1]
+		}
+
+		hrange = 65535
+		xah = ahistgreen[1,1:hrange,1]
+		plot(ahistredz[2,1:hrange,1], axis=y, xaxis=xah, \
+				label="histograms on root, scurve stretched sky subtracted image, red", \
+			ahistgreenz[2,1:hrange,1], axis=y, xaxis=xah, label="green", \
+			ahistbluez[2,1:hrange,1], axis=y, xaxis=xah, label="blue")
+
+		plot("set xlabel \"Image Data DN Level\"")
+		plot("set ylabel \"Number of Pixels (Linear Count)\"")
+		plot("replot")
+
+		printf ("histograms on root, scurve stretched sky subtracted image\n")
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("  Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+
+	}
+
+if ( specprhist == 1 ) {      # specpr output for histogram
+
+	printf ("writing histograms to specpr file %s\n", spfile)
+
+	write (ahistred[2,1:65535,1],filename=spfile,   title="red channel histogram Y rootstr bfr colc", type=specpr)
+	#                                                               1111111111222222222233333333334
+	#                                                      1234567890123456789012345678901234567890
+	write (ahistgreen[2,1:65535,1],filename=spfile, title="green channel histogram Y rootstbfr colc", type=specpr)
+
+	write (ahistblue[2,1:65535,1],filename=spfile,  title="blue channel histogram Y rootstrbfr colc", type=specpr)
+}
+
+# note: pre version 0.935, setmin was after color recovery.
+
+if ( setmin > 0) {   # this makes sure there are no really dark pixels.
+			# this happens typically from noise and color matrix
+			# application (in the raw converter) around stars showing
+			# chromatic aberration.
+	printf ("applying set minimum\n")
+	printf ("minimum RGB levels on output= %f %f %f\n", setminr, setming, setminb)
+	cr=c[,,1]  # red
+	cg=c[,,2]  # green
+	cb=c[,,3]  # blue
+
+	zx = 0.2  # keep some of the low level, which is noise, so it looks more natural.
+
+	cr[ where ( cr < setminr )] = setminr + zx * cr   # minimum for red
+	cg[ where ( cg < setming )] = setming + zx * cg   # minimum for green
+	cb[ where ( cb < setminb )] = setminb + zx * cg   # minimum for blue
+
+	# now put back together
+
+	c=cat(cr,cg, axis=z)
+	c=cat(c, cb, axis=z)
+	c=bip(c)
+
+	cr = 0 # clear memory
+	cg = 0 # clear memory
+	cb = 0 # clear memory
+}
+
+
+#### for debug:
+  kx=px/2
+  ky=py/2
+
+if ( colorcorrect > 0 )  {    # do color correction
+
+   printf ("computing image ratios for color analysis\n")
+
+   # af ratios indicate the original color
+   #    the c ratios are the root stretched color
+   #    we need to reduce the af color ratios from the af ratios by
+   #    the inverse of the c color ratios.  If the inverse reduction
+   #    is not done, then the color is overcorrected.
+   #  In other words, the c color ratios show the color already there in the root stretched image.
+   #     so we reduce the af color ratios so when we apply the computed color ratios (e.g. grratio)
+   #     it is not overcorrected.
+
+   afs      = af      # sky level subtracted af to get to the real zero point
+   afs[,,1] = af[,,1] - zeroskyred
+   afs[,,2] = af[,,2] - zeroskygreen
+   afs[,,3] = af[,,3] - zeroskyblue
+
+   afs[ where ( afs < 10.0) ] = 10.0    # very low number so prevents divide by 0 (out of 65535)
+
+   grratio = (afs[,,2] / afs[,,1]) / (c[,,2] / c[,,1])  # green / red ratio
+   brratio = (afs[,,3] / afs[,,1]) / (c[,,3] / c[,,1])  # blue  / red ratio
+
+   rgratio = (afs[,,1] / afs[,,2]) / (c[,,1] / c[,,2])  # red   / green ratio
+   bgratio = (afs[,,3] / afs[,,2]) / (c[,,3] / c[,,2])  # blue  / green ratio
+
+   gbratio = (afs[,,2] / afs[,,3]) / (c[,,2] / c[,,3])  # green / blue ratio
+   rbratio = (afs[,,1] / afs[,,3]) / (c[,,1] / c[,,3])  # red   / blue ratio
+
+   if ( debuga == 1) {
+        printf ("\n")
+
+   	printf ("before root stretch:                      pixel %d, %d: RGB: %d %d %d\n", kx, ky, int(af[kx,ky,1]), int(af[kx,ky,2]), int(af[kx,ky,3]))
+	printf ("after  root stretch:                      pixel %d, %d: RGB: %d %d %d\n", kx, ky, int( c[kx,ky,1]), int( c[kx,ky,2]), int( c[kx,ky,3]))
+
+        printf ("pixel %d, %d: af[,,2] / af[,,1] = %f  c[,,2] / c[,,1] %f # green / red ratio\n", kx, ky, afs[kx,ky,2] / afs[kx,ky,1], c[kx,ky,2] / c[kx,ky,1])
+        printf ("pixel %d, %d: af[,,3] / af[,,1] = %f  c[,,3] / c[,,1] %f # blue  / red ratio\n", kx, ky, afs[kx,ky,3] / afs[kx,ky,1], c[kx,ky,3] / c[kx,ky,1])
+
+        printf ("pixel %d, %d: af[,,1] / af[,,2] = %f  c[,,1] / c[,,2] %f # red   / green ratio\n", kx, ky, afs[kx,ky,1] / afs[kx,ky,2], c[kx,ky,1] / c[kx,ky,2])
+        printf ("pixel %d, %d: af[,,3] / af[,,2] = %f  c[,,3] / c[,,2] %f # blue  / green ratio\n", kx, ky, afs[kx,ky,3] / afs[kx,ky,2], c[kx,ky,3] / c[kx,ky,2])
+
+        printf ("pixel %d, %d: af[,,2] / af[,,3] = %f  c[,,2] / c[,,3] %f # green / blue ratio\n", kx, ky, afs[kx,ky,2] / afs[kx,ky,3], c[kx,ky,2] / c[kx,ky,3])
+        printf ("pixel %d, %d: af[,,1] / af[,,3] = %f  c[,,1] / c[,,3] %f # red   / blue ratio\n", kx, ky, afs[kx,ky,1] / afs[kx,ky,3], c[kx,ky,1] / c[kx,ky,3])
+
+
+	printf ("ratios before setting limits:\n")
+	printf ("          pixel %d, %d: grratio= %f\n", kx, ky, grratio[kx,ky,1])
+	printf ("          pixel %d, %d: brratio= %f\n", kx, ky, brratio[kx,ky,1])
+	printf ("          pixel %d, %d: rgratio= %f\n", kx, ky, rgratio[kx,ky,1])
+	printf ("          pixel %d, %d: bgratio= %f\n", kx, ky, bgratio[kx,ky,1])
+	printf ("          pixel %d, %d: gbratio= %f\n", kx, ky, gbratio[kx,ky,1])
+	printf ("          pixel %d, %d: rbratio= %f\n", kx, ky, rbratio[kx,ky,1])
+   }
+
+   # at this point, the af image array is no longer used, so clear memory:
+
+   #af = 0   # af now takes only 4 bytes of memory
+
+   # set limits
+
+   printf ("setting limits for color correction\n")
+
+   zmin = 0.2
+   zmax = 1.0   # note: numbers >1 desaturate.
+
+   grratio[ where ( grratio < zmin )] = zmin
+   grratio[ where ( grratio > zmax )] = zmax
+
+   brratio[ where ( brratio < zmin )] = zmin
+   brratio[ where ( brratio > zmax )] = zmax
+
+   rgratio[ where ( rgratio < zmin )] = zmin
+   rgratio[ where ( rgratio > zmax )] = zmax
+
+   bgratio[ where ( bgratio < zmin )] = zmin
+   bgratio[ where ( bgratio > zmax )] = zmax
+
+   gbratio[ where ( gbratio < zmin )] = zmin
+   gbratio[ where ( gbratio > zmax )] = zmax
+
+   rbratio[ where ( rbratio < zmin )] = zmin
+   rbratio[ where ( rbratio > zmax )] = zmax
+
+   # only make a color adjustment at the upper end
+   # and proportionally less correction with lower scene intensities.
+
+   printf ("\nColor ratio images after limit set %f to %f\n", zmin, zmax)
+   g = moment(grratio)
+   printf ("Color ratio: grratio = min=%7.3f   max=%7.3f   mean=%7.3f\n", g[1,,], g[2,,], g[3,,])
+   g = moment(brratio)
+   printf ("Color ratio: brratio = min=%7.3f   max=%7.3f   mean=%7.3f\n", g[1,,], g[2,,], g[3,,])
+   g = moment(rgratio)
+   printf ("Color ratio: rgratio = min=%7.3f   max=%7.3f   mean=%7.3f\n", g[1,,], g[2,,], g[3,,])
+   g = moment(bgratio)
+   printf ("Color ratio: bgratio = min=%7.3f   max=%7.3f   mean=%7.3f\n", g[1,,], g[2,,], g[3,,])
+   g = moment(gbratio)
+   printf ("Color ratio: gbratio = min=%7.3f   max=%7.3f   mean=%7.3f\n", g[1,,], g[2,,], g[3,,])
+   g = moment(rbratio)
+   printf ("Color ratio: rbratio = min=%7.3f   max=%7.3f   mean=%7.3f\n", g[1,,], g[2,,], g[3,,])
+
+
+   printf ("\ncomputing intensity dependent color correction\n")
+
+   cavgn = (c[,,1] + c[,,2] + c[,,3]) / 3.0    # note this is 0 to 65535 scale
+
+   cavgn = cavgn / 65535.0             # note: this image is a normalized 0 to 1.0 scale. floating point
+
+   cavgn[ where ( cavgn < 0.0 )] = 0.0
+
+   cm=moment(cavgn)
+   if ( cm[2,,] < 1.0 ) cavgn = cavgn / cm[2,,]   # normalize to the maximum
+
+   cavgn = cavgn^0.2  # cavgn reduces color correction as the scene darkens 
+                 # so chroma noise does not get enhanced, this parameter
+                 # will mean undercorrection of color rather than over correct
+                 # and as scene intensite is more undercorrected.
+                 # for no undercorrevtion, set: cavgn = 1.0
+                 # for less undercorrection, decrease the exponent, like cavgn = cavgn^0.1
+                 # see also the cfactor value below, which does a first order
+                 # correction to cavgn < 1.   Note, this is subjective
+                 # to produce pleasing colors.   You can effectively change all
+                 # this on the command line with the -colorenhance flag.
+
+    cavgn = (cavgn +0.3) / (1.0 + 0.3)  # prevent low level from copmpletely being lost
+
+      #cavgn = (cavgn +1.0) / (cavgn +1.0)  # TEST: make the image = 1
+
+   cm=moment(cavgn)
+
+   printf("color correction intensity range factor: image stats: min=%f   max=%f   mean=%f\n", cm[1,,], cm[2,,], cm[3,,])
+
+   cfactor = 1.2  # single factor to modify color enhancement default.
+                  # Set a little above 1 because the average cavgn is less than 1
+                  # pre version 0.9, cfactor = 1.5
+
+   # For strict colors, set cfactor = colorenhance = cavgn = 1.0
+   # but that can result in enhanced color noise in the darker parts
+   # of the image, depending on the S/N of the image.
+
+   cfe = cfactor * colorenhance * cavgn
+
+   cm=moment(cfe)
+
+   printf("color correction cfe range factor: image stats: min=%f   max=%f   mean=%f\n", cm[1,,], cm[2,,], cm[3,,])
+
+   grratio = 1.0 + (cfe * (grratio - 1.0))
+   brratio = 1.0 + (cfe * (brratio - 1.0))
+   rgratio = 1.0 + (cfe * (rgratio - 1.0))
+   bgratio = 1.0 + (cfe * (bgratio - 1.0))
+   gbratio = 1.0 + (cfe * (gbratio - 1.0))
+   rbratio = 1.0 + (cfe * (rbratio - 1.0))
+
+   printf ("\nColor ratio images after factors applied\n")
+   g = moment(grratio)
+   printf ("Color ratio: grratio = min=%7.3f   max=%7.3f   mean=%7.3f\n", g[1,,], g[2,,], g[3,,])
+   g = moment(brratio)
+   printf ("Color ratio: brratio = min=%7.3f   max=%7.3f   mean=%7.3f\n", g[1,,], g[2,,], g[3,,])
+   g = moment(rgratio)
+   printf ("Color ratio: rgratio = min=%7.3f   max=%7.3f   mean=%7.3f\n", g[1,,], g[2,,], g[3,,])
+   g = moment(bgratio)
+   printf ("Color ratio: bgratio = min=%7.3f   max=%7.3f   mean=%7.3f\n", g[1,,], g[2,,], g[3,,])
+   g = moment(gbratio)
+   printf ("Color ratio: gbratio = min=%7.3f   max=%7.3f   mean=%7.3f\n", g[1,,], g[2,,], g[3,,])
+   g = moment(rbratio)
+   printf ("Color ratio: rbratio = min=%7.3f   max=%7.3f   mean=%7.3f\n", g[1,,], g[2,,], g[3,,])
+
+   cfe = 0  # image no longer needed, soclear memory
+
+   if ( debuga == 1) {
+
+	printf ("ratios after  setting limits, with  enhancement (%f):\n", colorenhance)
+	printf ("          pixel %d, %d: cavgn = %f\n",  kx, ky, cavgn[kx,ky,1])
+	printf ("          pixel %d, %d: grratio= %f\n", kx, ky, grratio[kx,ky,1])
+	printf ("          pixel %d, %d: brratio= %f\n", kx, ky, brratio[kx,ky,1])
+	printf ("          pixel %d, %d: rgratio= %f\n", kx, ky, rgratio[kx,ky,1])
+	printf ("          pixel %d, %d: bgratio= %f\n", kx, ky, bgratio[kx,ky,1])
+	printf ("          pixel %d, %d: gbratio= %f\n", kx, ky, gbratio[kx,ky,1])
+	printf ("          pixel %d, %d: rbratio= %f\n", kx, ky, rbratio[kx,ky,1])
+   }
+   printf ("computing 6 intermediate possible image sets for color correction\n")
+
+   # these 6 images are computed to speed calculations below
+
+   c2gr = c[,,2] * grratio[,,1]  # green adjusted
+   c3br = c[,,3] * brratio[,,1]  # blue adjusted
+
+   c1rg = c[,,1] * rgratio[,,1]  # red adjusted
+   c3bg = c[,,3] * bgratio[,,1]  # blue adjusted
+
+   c1rb = c[,,1] * rbratio[,,1]  # red adjusted
+   c2gb = c[,,2] * gbratio[,,1]  # green adjusted
+
+
+   #printf ("BEBUG sleep 22\n")
+   #system ("sleep 22")   # sleep so the display program reads the tmp image file 
+
+   printf("starting signal-dependent color recovery\n")
+
+   nlines = 1000.0
+   if (py < 2000) {
+	nlines = 500.0
+   }
+   if (py < 1000) {
+	nlines = 200.0
+   }
+   if (py <  600) {
+	nlines = 100.0
+   }
+
+   pxmid = px/2   # middle of image
+
+   #printf ("BEBUG sleep 22\n")
+   #system ("sleep 22")   # sleep so the display program reads the tmp image file 
+
+   for (iy=1; iy<=py; iy++) {
+
+	ilinex = float(iy-1)/nlines - float(int((iy-1)/int(nlines)))
+	if ( abs(ilinex) < 0.00001 ) {   # print every nlines lines
+
+		printf ("starting line %d of %d\n", iy, py)
+	}
+
+	for (ix=1; ix<=px; ix++) {
+
+		imaxv= c[ix,iy,1]   # default: red is max
+		imaxch=1
+
+		if (c[ix,iy,2] > imaxv) {   # green is max
+			imaxv= c[ix,iy,2]
+			imaxch=2
+		}
+		if (c[ix,iy,3] > imaxv) {   # blue is max
+			#imaxv= c[ix,iy,3]  # this is not needed, so commented out
+			imaxch=3
+		}
+
+		# we now have which chanel has the maximum value
+
+		if (imaxch == 1) {   # red channel is max
+
+			#c[ix,iy,2] = c[ix,iy,2] * grratio[ix,iy,1]  # green adjusted
+			#c[ix,iy,3] = c[ix,iy,3] * brratio[ix,iy,1]  # blue adjusted
+			c[ix,iy,2] = c2gr[ix,iy,1]  # green adjusted
+			c[ix,iy,3] = c3br[ix,iy,1]  # blue adjusted
+
+		} else if (imaxch == 2) {   # green channel is max
+
+			#c[ix,iy,1] = c[ix,iy,1] * rgratio[ix,iy,1]  # red adjusted
+			#c[ix,iy,3] = c[ix,iy,3] * bgratio[ix,iy,1]  # blue adjusted
+			c[ix,iy,1] = c1rg[ix,iy,1]  # red adjusted
+			c[ix,iy,3] = c3bg[ix,iy,1]  # blue adjusted
+
+		} else {   # blue channel is max
+
+			#c[ix,iy,1] = c[ix,iy,1] * rbratio[ix,iy,1]  # red adjusted
+			#c[ix,iy,2] = c[ix,iy,2] * gbratio[ix,iy,1]  # green adjusted
+			c[ix,iy,1] = c1rb[ix,iy,1]  # red adjusted
+			c[ix,iy,2] = c2gb[ix,iy,1]  # green adjusted
+
+			if (debuga == 1 && ix == kx && iy == ky ) {
+				printf (" debug: pixel: %d, %d: c[ix,iy,1] = %f  c[ix,iy,2] = %f\n", kx, ky, c[kx,ky,1], c[kx,ky,2])
+			}
+		}
+	}
+	if ( abs(ilinex) < 0.00001 ) {   # print every 1000 lines
+
+		printf ("   line %d af[%d,iy,1]  orig-sky  RGB=%6d   %6d   %6d\n", iy, pxmid, \
+				int(af[pxmid,iy,1]), int(af[pxmid,iy,2]), int(af[pxmid,iy,3]))
+		printf ("   line %d  c[%d,iy,1]  corrected RGB=%6d   %6d   %6d\n", iy, pxmid, \
+				int(c[pxmid,iy,1]), int(c[pxmid,iy,2]), int(c[pxmid,iy,3]))
+	}
+   }
+   printf("color recovery complete\n")
+
+   if ( debuga == 1) {
+
+	printf ("after root stretch and color correction: pixel %d, %d: RGB: %d %d %d\n", kx, ky, int( c[kx,ky,1]), int( c[kx,ky,2]), int( c[kx,ky,3]))
+   }
+
+}   # color correction complete
+
+# Now clear memory from color correction.
+   grratio = 0.0
+   brratio = 0.0
+   rgratio = 0.0
+   bgratio = 0.0
+   gbratio = 0.0
+   rbratio = 0.0
+   c2gr = 0.0
+   c3br = 0.0
+   c1rg = 0.0
+   c3bg = 0.0
+   c1rb = 0.0
+   c2gb = 0.0
+
+
+if ( setmin > 0) {   # this makes sure there are no really dark pixels.
+			# this happens typically from noise and color matrix
+			# application (in the raw converter) around stars showing
+			# chromatic aberration.
+	printf ("applying set minimum after color correction\n")
+	printf ("minimum RGB levels on output= %f %f %f\n", setminr, setming, setminb)
+	cr=c[,,1]  # red
+	cg=c[,,2]  # green
+	cb=c[,,3]  # blue
+
+	zx = 0.2  # keep some of the low level, which is noise, so it looks more natural.
+
+	cr[ where ( cr < setminr )] = setminr + zx * cr   # minimum for red
+	cg[ where ( cg < setming )] = setming + zx * cg   # minimum for green
+	cb[ where ( cb < setminb )] = setminb + zx * cg   # minimum for blue
+
+	# now put back together
+
+	c=cat(cr,cg, axis=z)
+	c=cat(c, cb, axis=z)
+	c=bip(c)
+
+	cr = 0 # clear memory
+	cg = 0 # clear memory
+	cb = 0 # clear memory
+}
+
+########### on root stretched image, determing sky level now that color correction is complete   ########
+
+	printf ("\n\n")
+	printf ("     computing RGB histograms on root stretched image and smoothing the histograms\n")  
+
+	chistred   = float(histogram(c[,,1], start=0.0, size=1.0, steps=65536))
+	chistgreen = float(histogram(c[,,2], start=0.0, size=1.0, steps=65536))
+	chistblue  = float(histogram(c[,,3], start=0.0, size=1.0, steps=65536))
+
+	chistredsm   =  chistred     # array for smoothed histograms
+	chistgreensm =  chistgreen
+	chistbluesm  =  chistblue
+
+	ism=300  # number of chanels to smooth
+
+	for (ih=1; ih<=65535; ih++) {   # smooth the histograms
+
+		ilow = ih - ism
+		if (ilow < 1) ilow = 1
+		ihigh = ih + ism
+		if (ihigh > 65535) ihigh = 65535
+
+		csr= avg(chistred[2,ilow:ihigh,1], axis=y)
+		chistredsm[2,ih,1] = csr    # smoothed histogram value at ih
+						#printf ("debug: ih, snch= %d  %f\n", ih, cs[2,ih,1])
+
+		csg = avg(chistgreen[2,ilow:ihigh,1], axis=y)
+		chistgreensm[2,ih,1] = csg
+
+		csb = avg(chistblue[2,ilow:ihigh,1], axis=y)
+		chistbluesm[2,ih,1] = csb
+	}
+	# ok, we have the smoothed histograms for each color.  Now find the max.
+
+	chistredsmax   = 0.0
+	chistgreensmax = 0.0
+	chistbluesmax  = 0.0
+
+	chistredsmaxdn   = 0    # for histogram DN of the max
+	chistgreensmaxdn = 0
+	chistbluesmaxdn  = 0
+
+
+	for (ih=400; ih<=65500; ih++) {   # limit test range in case clipping or saturation
+
+		if ( chistredsm[2,ih,1]   > chistredsmax )   {
+			chistredsmax   = chistredsm[2,ih,1]
+			chistredsmaxdn = ih
+		}
+		if ( chistgreensm[2,ih,1] > chistgreensmax ) {
+			chistgreensmax   = chistgreensm[2,ih,1]
+			chistgreensmaxdn = ih
+		}
+		if ( chistbluesm[2,ih,1]  > chistbluesmax )  {
+			chistbluesmax   = chistbluesm[2,ih,1]
+			chistbluesmaxdn = ih
+		}
+	}
+
+	if (chistredsmaxdn == 0 || chistgreensmaxdn == 0 || chistbluesmaxdn == 0) {
+
+		printf ("     histogram max after root stretch and color correction not found:\n")
+		printf ("          channels: red %d   green %d   blue %d\n", chistredsmaxdn, chistgreensmaxdn, chistbluesmaxdn)
+		printf ("          This means that the algorithm can't work on this image\n")
+		printf ("       exit (1)\n")
+		exit (1)
+	}
+
+	printf ("\n")
+	printf ("     Histogram peak, after root stretch, color corrected:\n")
+	printf ("     image histogram:     DN      Number of pixels in peak histogram bin\n")
+	printf ("                  red:   %d         %f\n", chistredsmaxdn,   chistredsmax)
+	printf ("                green:   %d         %f\n", chistgreensmaxdn, chistgreensmax)
+	printf ("                 blue:   %d         %f\n", chistbluesmaxdn,  chistbluesmax)
+
+	# now find the sky level on the left side of the histogram
+
+	chistredsky   = chistredsmax   * skylevelfactor
+	chistgreensky = chistgreensmax * skylevelfactor
+	chistbluesky  = chistbluesmax  * skylevelfactor
+
+	chistredskydn   = 0   # which DN is at the skylevelfactor level.  DN = Data Number
+	chistgreenskydn = 0
+	chistblueskydn  = 0
+
+	for (ih = chistredsmaxdn;  ih>=2; ih=ih-1) {   # search from max toward left minimum
+							# but search for the green level in each color
+
+		if (chistredsm[2,ih,1] >= chistgreensky && \
+				chistredsm[2,ih-1,1] <= chistgreensky && chistredskydn == 0) {
+
+			chistredskydn = ih
+			#printf ("debug: chistredskydn= %d\n", chistredskydn)
+		}
+	}
+	for (ih = chistgreensmaxdn;  ih>=2; ih=ih-1) {   # search from max toward left minimum
+
+		if (chistgreensm[2,ih,1] >= chistgreensky && \
+				chistgreensm[2,ih-1,1] <= chistgreensky && chistgreenskydn == 0) {
+
+			chistgreenskydn = ih
+			#printf ("debug: chistgreenskydn= %d\n", chistgreenskydn)
+		}
+	}
+	for (ih = chistbluesmaxdn;  ih>=2; ih=ih-1) {   # search from max toward left minimum
+
+		if (chistbluesm[2,ih,1] >= chistgreensky && \
+				chistbluesm[2,ih-1,1] <= chistgreensky && chistblueskydn == 0) {
+
+			chistblueskydn = ih
+			#printf ("debug: chistblueskydn= %d\n", chistblueskydn)
+		}
+	}
+	if ( chistredskydn == 0 || chistgreenskydn == 0 || chistblueskydn == 0) {
+
+		printf ("histogram sky level %f not found:\n", skylevelfactor)
+		printf ("     channels: red %d   green %d   blue %d\n", chistredskydn, chistgreenskydn, chistblueskydn)
+		printf ("     Thus, not sure what to do with this image, quitting\n")
+		printf ("          Try increasing -rgbskyzero values\n")
+		printf ("  exit (1)\n")
+		exit (1)
+	}
+
+	pskylevelfactor = skylevelfactor * 100.0
+
+	printf ("\n")
+	printf ("     histogram dark sky level on root-stretched image (%5.1f %% of max)\n", pskylevelfactor)
+	printf ("                  DN      Number of pixels in histogram bin\n")     # need to compute cumulative hstogram
+	printf ("           red:   %d         %f\n", chistredskydn,   chistredsky)
+	printf ("         green:   %d         %f\n", chistgreenskydn, chistgreensky)
+	printf ("          blue:   %d         %f\n", chistblueskydn,  chistbluesky)
+
+	printf ("\n")
+	printf ("     now set the root-stretched sky level to %6.1f DN out of 65535\n", rgbskylevelrs)
+
+	rgbskysub1 = float(chistgreenskydn - rgbskylevelrs)
+	if (rgbskysub1 < 0.0) rgbskysub1 = 0.0   # do not allow too low
+
+	printf ("     subtracting %f from R, G, and B\n", rgbskysub1)
+
+	c = (c - rgbskysub1) * 65535.0 / (65535.0 - rgbskysub1)
+
+
+########### on root stretched image, fixed sky level after color correction   ########
+######################################################################################
+
+c[ where ( c < 0.0 )] = 0.0   # Needed before making tiff
+
+c[ where ( c > 65535.0 )] = 65535.0   # Needed before making tiff
+
+cmr=moment(c[,,1])
+cmg=moment(c[,,2])
+cmb=moment(c[,,3])
+
+printf("\n")
+printf("root stretched image, power exponent= %f, scaled image stats, after color recovery:\n", x)
+printf("       RED:    min=%d    max=%d   mean=%d\n", cmr[1,,], cmr[2,,], cmr[3,,])
+printf("       GREEN:  min=%d    max=%d   mean=%d\n", cmg[1,,], cmg[2,,], cmg[3,,])
+printf("       BLUE:   min=%d    max=%d   mean=%d\n", cmb[1,,], cmb[2,,], cmb[3,,])
+printf("\n")
+
+
+ahistred   = histogram(c[,,1], start=0.0, size=1.0, steps=65535)
+ahistgreen = histogram(c[,,2], start=0.0, size=1.0, steps=65535)
+ahistblue  = histogram(c[,,3], start=0.0, size=1.0, steps=65535)
+
+if ( specprhist == 1 ) {      # specpr output for histogram
+
+	printf ("writing histograms to specpr file %s\n", spfile)
+
+	write (ahistred[2,1:65535,1],filename=spfile,   title="red ch histogram Y rootstr step=1       ", type=specpr)
+	#                                                               1111111111222222222233333333334
+	#                                                      1234567890123456789012345678901234567890
+	write (ahistgreen[2,1:65535,1],filename=spfile, title="green ch histogram Y rootstr step=1     ", type=specpr)
+
+	write (ahistblue[2,1:65535,1],filename=spfile,  title="blue ch histogram Y rootstr step=1      ", type=specpr)
+
+	#ahistred3   = histogram(c[,,1], start=0.0, size=3.0, steps=19000)
+	#ahistgreen3 = histogram(c[,,2], start=0.0, size=3.0, steps=19000)
+	#ahistblue3  = histogram(c[,,3], start=0.0, size=3.0, steps=19000)
+
+	#write (ahistred3[2,1:19000,1],filename=spfile,   title="red ch histogram Y rootstr step=3       ", type=specpr)
+	#                                                               1111111111222222222233333333334
+	#                                                      1234567890123456789012345678901234567890
+	#write (ahistgreen3[2,1:19000,1],filename=spfile, title="green ch histogram Y rootstr step=3     ", type=specpr)
+
+	#write (ahistblue3[2,1:19000,1],filename=spfile,  title="blue ch histogram Y rootstr step=3      ", type=specpr)
+
+	ahistredc   = histogram(c[,,1], start=0.0, size=1.0, steps=65535, cumulative=1)
+	ahistgreenc = histogram(c[,,2], start=0.0, size=1.0, steps=65535, cumulative=1)
+	ahistbluec  = histogram(c[,,3], start=0.0, size=1.0, steps=65535, cumulative=1)
+
+	write (ahistredc[2,1:65535,1],filename=spfile,   title="red ch histogram Y rootstr step=1 cumul ", type=specpr)
+	#                                                               1111111111222222222233333333334
+	#                                                      1234567890123456789012345678901234567890
+	write (ahistgreenc[2,1:65535,1],filename=spfile, title="green ch histogram Y rootstr step=1 cuml", type=specpr)
+
+	write (ahistbluec[2,1:65535,1],filename=spfile,  title="blue ch histogram Y rootstr step=1 cumul", type=specpr)
+
+}
+
+if (doplots == 1) {   # plot histogram
+
+			if (idisplay > 0) {
+				ajpg = byte(c/256.0)
+				display(ajpg)
+			}
+
+		chistredz   = ahistred
+		chistgreenz = ahistgreen
+		chistbluez  = ahistblue
+
+		chistredsm   = chistredz  * 0.0  # set up arrays for smoothing
+		chistgreensm = chistredsm
+		chistbluesm  = chistredsm
+
+		for (kz=2; kz<=65535; kz++) {  # fill zeros for plot
+
+			if (chistredz[2,kz,1]   < 0.1) chistredz[2,kz,1]   = chistredz[2,kz-1,1]
+			if (chistgreenz[2,kz,1] < 0.1) chistgreenz[2,kz,1] = chistgreenz[2,kz-1,1]
+			if (chistbluez[2,kz,1]  < 0.1) chistbluez[2,kz,1]  = chistbluez[2,kz-1,1]
+		}
+
+		ism=300  # number of chanels to smooth
+
+		for (ih=1; ih<=65535; ih++) {   # smooth the histograms
+
+			ilow = ih - ism
+			if (ilow < 1) ilow = 1
+			ihigh = ih + ism
+			if (ihigh > 65535) ihigh = 65535
+
+			csr= avg(chistredz[2,ilow:ihigh,1], axis=y)
+			chistredsm[2,ih,1] = csr    # smoothed histogram value at ih
+							#printf ("debug: ih, snch= %d  %f\n", ih, cs[2,ih,1])
+
+			csg = avg(chistgreenz[2,ilow:ihigh,1], axis=y)
+			chistgreensm[2,ih,1] = csg
+
+			csb = avg(chistbluez[2,ilow:ihigh,1], axis=y)
+			chistbluesm[2,ih,1] = csb
+		}
+
+		hrange = 65535
+		xah = chistgreenz[1,1:hrange,1]
+		plot(chistredsm[2,1:hrange,1], axis=y, xaxis=xah, \
+				label="smoothed histograms on final stretched image, red", \
+			chistgreensm[2,1:hrange,1], axis=y, xaxis=xah, label="green", \
+			chistbluesm[2,1:hrange,1], axis=y, xaxis=xah, label="blue")
+
+		plot("set xlabel \"Image Data DN Level\"")
+		plot("set ylabel \"Number of Pixels (Linear Count)\"")
+		plot("replot")
+
+		printf ("histograms on final stretched image\n")
+			if ( iopversion < 2 ) {  # linux, macs
+				printf ("  Press return to continue\n")
+				system("sh -c 'read a'")
+			} else {
+				system("pause")   # windows
+			}
+
+}
+
+
+# cumulative stretch
+
+if ( cumstretch == 1) {   # do cumulative histogram stretch   EXPERIMENTAL--probably too much in most cases
+
+	printf ("performing cumulative histogram stretch on root-stretched image\n")
+
+	chist   = float(histogram(c, start=0.0, size=1.0, steps=65535, cumulative=1))
+
+	cs   =  chist  # array for smoothed cumulative histogram
+
+	# smooth the histogram
+	ism=15000  # number of chanels to cmooth
+	for (ih=1; ih<=65535; ih++) {
+
+		ilow = ih - ism
+		if (ilow < 1) ilow = 1
+		ihigh = ih + ism
+		if (ihigh > 65535) ihigh = 65535
+
+		cs1= avg(chist[2,ilow:ihigh,1], axis=y)
+		cs[2,ih,1] = cs1    # smoothed histogram value at ih
+		#printf ("debug: ih, snch= %d  %f\n", ih, cs[2,ih,1])
+	}
+
+	csm = moment(cs)
+	printf ("smoothed cumulative histogram: max=%f\n", csm[2,1,1])
+	printf ("normalizing cumulative histogram\n")
+
+	cs[2,,] = cs[2,,] / csm[2,1,1]  # normalized cumulative histogram
+
+	# now make it brighter so it does not clip the low end too soon.
+	cs[2,,] = cs[2,,] * 1.1
+	cs[ where ( cs > 1.0 ) ] = 1.0
+
+	if ( specprhist == 1 ) {      # specpr output for histogram
+	   write (cs[2,1:65535,1],filename=spfile,   title="imge relhistogram Y rootstr step=1 cumul", type=specpr)
+	   #                                                         1111111111222222222233333333334
+	   #                                                1234567890123456789012345678901234567890
+	}
+
+	# now multiply the image data by the smoothed cumulative histogram.
+
+	cstr = c  # cumulative stretched c array
+
+	c3av = (c[,,1] + c[,,2] + c[,,3]) /3.0   # average of the 3 channels
+
+	for (iy=1; iy<=py; iy++) {
+
+		ilinex = float(iy-1)/nlines - float(int((iy-1)/int(nlines)))
+		if ( abs(ilinex) < 0.00001 ) {   # print every nlines lines
+
+			printf ("cumulative histogram stretch: starting line %d of %d\n", iy, py)
+		}
+
+		for (ix=1; ix<=px; ix++) {
+
+			xstr= int(c3av[ix,iy,1]) +1   # average of 3 channels at pixel ix, iy
+			if (xstr <     1) xstr =  1
+			if (xstr > 65535) xstr =  65535
+			cstr[ix,iy,] = c[ix,iy,] * cs[2,xstr,1]
+			#if ( ix == 1000) {
+
+			  #printf ("DEBUG: c3av[%d,%d,]=%f\n", ix, iy, c3av[ix,iy,1])
+			  #printf ("DEBUG: cumul hist stretch: c[%d,%d,]=%6.0f %6.0f %6.0f cs=%8.2f, c3=%f xstr=%d, cstr[%d,%d,1]=%d\n", \
+			#	ix, iy, c[ix,iy,1], c[ix,iy,2], c[ix,iy,3], cs[2,xstr,1], c3av[ix,iy,1], xstr,  ix, iy, cstr[ix,iy,1])
+			#}
+		}
+	}
+	cstrmr = moment(cstr[,,1])  # moment red
+	cstrmg = moment(cstr[,,2])  # moment green
+	cstrmb = moment(cstr[,,3])  # moment blue
+
+	printf("\n")
+	if (scurve == 0) {
+	 printf("root stretched image, power exponent= %f, cunulative histogram stretch image stats, final:\n", x)
+	} else {
+	 printf("root stretched image, power exponent= %f, cunulative histogram stretch image stats, before final s-curve:\n", x)
+	}
+	printf("       RED:    min=%d    max=%d   mean=%d\n", cstrmr[1,,], cstrmr[2,,], cstrmr[3,,])
+	printf("       GREEN:  min=%d    max=%d   mean=%d\n", cstrmg[1,,], cstrmg[2,,], cstrmg[3,,])
+	printf("       BLUE:   min=%d    max=%d   mean=%d\n", cstrmb[1,,], cstrmb[2,,], cstrmb[3,,])
+	printf("\n")
+}
+
+cstrmr = moment(c[,,1])  # moment red
+cstrmg = moment(c[,,2])  # moment green
+cstrmb = moment(c[,,3])  # moment blue
+
+printf("\n")
+printf("     stretched image stats, final image:\n")
+printf("       RED:    min=%d    max=%d   mean=%d\n", cstrmr[1,,], cstrmr[2,,], cstrmr[3,,])
+printf("       GREEN:  min=%d    max=%d   mean=%d\n", cstrmg[1,,], cstrmg[2,,], cstrmg[3,,])
+printf("       BLUE:   min=%d    max=%d   mean=%d\n", cstrmb[1,,], cstrmb[2,,], cstrmb[3,,])
+printf("\n")
+
+
+# we now have the final stretched image = c
+
+c[ where ( c < 0.0 )]     = 0.0
+c[ where ( c > 65535.0 )] = 65535.0
+
+d1=short(c/2.0)
+d1[ where ( d1 < 0 )] = 0
+
+if ( jpegonly == 0 )   {          # jpegonly mode is off, so write the png image
+   ofile=sprintf("%s.png", obase)
+   ofe = fexists(filename=ofile)
+   if ( ofe == 0 )  {  # file does not exist, so OK to write png file
+	printf("writing 16-bit results image %s\n", ofile)
+	printf("               NOTE: image is 0-32765.  You will need to scale it 2x, e.g. with levels tool in photoshop\n")
+	printf("                     With levels tool in photoshop or other editore, change the right slider from 255 to 128\n")
+	printf("                     then save as 16-bit tiff for further processing\n")
+
+	write (d1, filename=ofile, type=png)
+   } else {
+	printf ("WARNING: output file  %s  exists.\n", ofile)
+	printf("  *** WILL NOT OVERWRITE, so there will be no new output file written\n")
+   }
+}
+
+# write JPEG
+
+d1=byte(d1/128.0)
+ofile=sprintf("%s.jpg", obase)
+ofe = fexists(filename=ofile)
+if ( ofe == 0 ) {  # file does not exist, so OK to write jpeg file
+	printf("writing 8-bit results jpeg image %s\n", ofile)
+
+	write (d1, filename=ofile, type=jpg)
+
+} else {
+	printf ("WARNING: output file  %s  exists.\n", ofile)
+	printf("  *** WILL NOT OVERWRITE, so there will be no new output file written\n")
+}
+
+if (idisplay == 1) {
+
+	display (d1)
+	system ("sleep 4")   # sleep so the display program reads the tmp image file 
+                             # before davinci deletes the tmp file when davinci exits.
+
+}
+###############################################
+
+if ( cumstretch == 1) {   # write cumulative histogram stretched image` (EXPERIMENTAL -- needs work)
+
+	d1=short(cstr/2.0)
+
+	ofile=sprintf("%s.png", obase+"cumhstr")
+	printf("writing 16-bit results image %s\n", ofile)
+	printf("               NOTE: image is 0-32765.  You will need to scale it 2x, e.g. with levels tool in photoshop\n")
+
+	write (d1, filename=ofile, type=png)
+
+	js=byte(cstr/256.0)
+	ofile=sprintf("%s.jpg", obase+"cumhstr")
+	printf("writing 8-bit results jpeg image %s\n", ofile)
+
+	write (js, filename=ofile, type=jpg)
+
+}
