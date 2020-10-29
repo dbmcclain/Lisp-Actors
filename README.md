@@ -3,7 +3,7 @@ Thread-agnostic Actors in Common Lisp
 
 This repo contains an ongoing investigation into the use of the Actor model in Common Lisp. It was begun nearly 3 years ago and has had the benefit of real-world application. That experience helped to refine what you now see. 
 
-When Actors began, I used the Comer DLAMBDA style for Actor body code. That still works. But along the way, I asked myself about the possibility of making Actor code extensible, and about using CLOS to provide more accessible infrastructure. From that question arose the larger proliferation of my Actors as CLOS Classes and new Actor behaviors can be constructed with CLOS Methods. The PERFORM-IN-ACTOR macro allows any method or function to wrap a body of code and ship it off to an Actor for execution. 
+When Actors began, I used the Comer DLAMBDA style for Actor body code. That still works. But along the way, I asked myself about the possibility of making Actor code extensible, and about using CLOS to provide more accessible infrastructure. From that question arose the larger proliferation of my Actors as CLOS Classes and new Actor behaviors that can be constructed with CLOS Methods. The PERFORM-IN-ACTOR macro allows any method or function to wrap a body of code and ship it off to an Actor for execution. 
 
 DLAMBDA style Actor bodies invite the use of private state in LET bindings. By contrast, Actors as Classes invite the use of Instance Slots for state information. Slots are not hidden from view, but an informal agreement should be that only the Actor itself can mutate that state. As with much of Common Lisp, I think this exposure of information can be beneficial. But with freedom comes responsibility...
 
