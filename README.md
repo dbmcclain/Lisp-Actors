@@ -15,7 +15,7 @@ In real life situations, programming inevitably involves calling on blocking I/O
 
 There are only two private messages for Actors. One is the CONTINUATION message. The other is an ASK message. Every message handling function among the Actor behaviors is a normal Lisp function and can return a value. But that value is just dropped, unless it is executed in the context of an ASK. When that happens its result is bundled up (including any exceptions that may have happened) and sent back to the waiting asker.
 
-By default, the USER-FUNCTION for a new Actor is #'FUNCALL. This allows any thunk to be performed in the Actor context. And since Actors can only be executed on one thread at any time, this serializes the function calls. SEND always enqueues new messages to the Actor's mailbox, for delivery handling in the main Actor loop. But an Actor can perform one of its own behaviors immediately by calling SELF-CALL.
+By default, the USER-FUNCTION for a new Actor is #'FUNCALL. This allows any thunk or function call message to be performed in the Actor context. And since Actors can only be executed on one thread at any time, this serializes the function calls. SEND always enqueues new messages to the Actor's mailbox, for delivery handling in the main Actor loop. But an Actor can perform one of its own behaviors immediately by calling SELF-CALL.
 
 By default, an Actor can be used as a Hoare-Monitor. It can also be used to serialize access to a shared resource - like *STANDARD-OUTPUT*.
 
