@@ -23,7 +23,7 @@ Using CONTINUATIONS invites problems with HANDLER-CASE, HANDLER-BIND, CATCH, etc
 
 So far so good. But Dynamic Bindings that were in effect cannot be restored, and UNWIND-PROTECT presents some interesting puzzles. If you really need some dynamic bindings restored, then use the CPS =LET and =LET* forms. But UNWIND-PROTECT remains a puzzle. In particular we have difficulties restarting irreversible actions...
 
-One interesting outcome of Actor style is that the particular Thread on which an Actor is executing is almost irrelevant. CURRENT-PROCESS is irrelevant. What is more important is CURRENT-ACTOR, which is used when forming continuation closures and elsewhere. It doesn't matter which thread an Actor is running on. But what does matter is whether or not some actor is the CURRENT-ACTOR, for that warns us off from making slot mutations and instead asking the other Actor to perform those mutations for itself.
+One interesting outcome of Actor style is that the particular Thread on which an Actor is executing is almost irrelevant. CURRENT-PROCESS is irrelevant. What is more important is CURRENT-ACTOR, which is used when forming continuation closures and elsewhere. It doesn't matter which thread an Actor is running on. But what does matter is whether or not some Actor is the CURRENT-ACTOR, for that warns us off from making slot mutations and instead asking the other Actor to perform those mutations for itself.
 
 The difference between an Actor and a Worker? Actors contain a mailbox for messages, Workers do not. Both run on Executive Threads. A Worker therefore only executes one action. An Actor can communicate readily (2-way interactions) with other Actors and the outside world, and performs open-ended possibilities for future actions.
 
