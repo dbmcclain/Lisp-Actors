@@ -41,5 +41,6 @@ The self-encryption with authentication, atop the SSL security, makes use of a m
 
 This work is performed mainly on Lispworks systems. Some effort has gone into making a portable source. But recent work has ignored that. Async Socket handling in Lispworks is among the very best available. But it can readily use Actors to make it simpler to use for client code.
 
+BTW... if you aren't on Lispworks, you can simnply elide the code in actor-bridge.lisp, network-security.lisp, and network-connection.lisp from the actors.asd file. That will remove the most unportable portion (networking) from the running system. All the rest can be ported, if not already portable, using the compatibility code found in the mcompat folder. To best of my knowledge, only the code in Actors will have a dozen or fewer Lispworks-centric functions that all have equivalents in other versions of Common Lisp.
 - DM
 
