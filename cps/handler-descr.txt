@@ -1,0 +1,50 @@
+
+Dynamic state restoration using =HANDLERs with =BIND.
+
+=BIND has the syntax: =BIND args form &body body
+
+The body code is wrapped into a continuation closure, and form is
+executed directly. The form should return via =VALUES which invokes
+the continuation closure.
+
+Two cases:
+
+  1. =BIND does not exit the dynamic context, and executes the
+    continuation within the extant dynamic context.
+
+    In this case, the =VALUES in the form is performed within the
+    handler dynamic extent, which causes the body code to execute also
+    within the original dynamic envirionment.
+
+    =HANDLER-CASE is equivalent to HANDLER-CASE. The original handler
+    tags remain visible during the execution of the =BIND body
+    code. There is a direct execution path from the top through
+    HANDLER-CASE, then through the =BIND form, and finally through the
+    =BIND body.
+
+    (define condition my-exit ()
+      ((val :reader my-exit-val :initarg :val)))
+      
+    (=handler-case
+       (=bind (x)
+           (=values 15)
+	 (signal my-exit :val x))
+      (my-exit (c)
+        (my-exit-val c)))
+	  
+  2. =BIND calls on SPAWN to execute the form in another thread,
+    leaving the body code to become executed as a continuation closure
+    at some later time. The orignal execution path terminates with
+    that spawn.
+
+    (=handler-case
+       (=bind (x)
+           (spawn-worker (lambda () (=values 15)))
+	 (signal my-exit :val x))
+      (my-exit (c)
+        (my-exit-val c)))
+
+    In this case the handler is exited after the =BIND exits, removing
+    the original dynamic context. When the contination closure later
+    executes, it needs to reconstruct the dynamic handler chain before
+    executing its body code.
