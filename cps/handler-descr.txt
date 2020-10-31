@@ -56,9 +56,9 @@ Impossibility of Lexical Tags for Continuation Closures
 Consider the following code:
 
 	 (block top
-	 	(=bind (x)
-		       (=values 15)
-		    (return-from top x)))
+	    (=bind (x)
+	         (=values 15)
+	      (return-from top x)))
 
 As long as there is a direct execution path all the way through the
 =BIND body code, this BLOCK/RETURN works as expected.
