@@ -16,8 +16,8 @@ Two cases:
     handler dynamic extent, which causes the body code to execute also
     within the original dynamic envirionment.
 
-    =HANDLER-CASE is equivalent to HANDLER-CASE. The original handler
-    tags remain visible during the execution of the =BIND body
+    =HANDLER-CASE becomes equivalent to HANDLER-CASE. The original
+    handler tags remain visible during the execution of the =BIND body
     code. There is a direct execution path from the top through
     HANDLER-CASE, then through the =BIND form, and finally through the
     =BIND body.
