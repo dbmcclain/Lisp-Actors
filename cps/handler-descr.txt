@@ -28,7 +28,7 @@ Two cases:
     (=handler-case
        (=bind (x)
            (=values 15)
-	 (signal my-exit :val x))
+	 (signal 'my-exit :val x))
       (my-exit (c)
         (my-exit-val c)))
 	  
