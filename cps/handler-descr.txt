@@ -48,3 +48,29 @@ Two cases:
     the original dynamic context. When the contination closure later
     executes, it needs to reconstruct the dynamic handler chain before
     executing its body code.
+
+==================================
+
+Impossibility of Lexical Tags for Continuation Closures
+
+Consider the following code:
+
+	 (block top
+	 	(=bind (x)
+		       (=values 15)
+		    (return-from top x)))
+
+As long as there is a direct execution path all the way through the
+=BIND body code, this BLOCK/RETURN works as expected.
+
+But if the =BIND form spawns off its form to execute in another
+thread, the =BIND exits the BLOCK after the spawn event. On later
+execution of the =BIND body code in a continuation closure, that BLOCK
+tag no longer exists, and the RETURN will fail.
+
+One cannot produce an =BLOCK in the same manner as for the =HANDLERs
+because the BLOCK tag needs to be seen in the lexical environment of
+the RETURN. The manner of producing the =HANDLERs separates the body
+code into a separate lambda closure and becomes passed into a real
+handler as a thunk. This would not allow the body code to see a BLOCK
+tag if it were done in the same way.
