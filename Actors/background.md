@@ -39,7 +39,7 @@ applications. But Common Lisp is just modeling clay. It needs
 paradigms to wrap around, and Actors has emerged over time as a very
 useful method of performing distributed computing.
 
-Actors gives the programming the sense of single-threaded semantics,
+Actors gives the programmer the sense of single-threaded semantics,
 regardless of how many CPU cores are all operating concurrently. Safer
 programming without running into a blizzard of Locking/Mutexes.
 
