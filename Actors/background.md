@@ -3,7 +3,7 @@ A little background about this project...
 
 I come from Ground-based Observational Astronomy, many decades
 ago. My first "real" language was Forth. We used Forth to control the
-world's first completely computer-controlled telescope, atop Mt. Jelm,
+world's first completely computer-controlled telescope, the 100in WIRO Infrared Telescope, atop Mt. Jelm,
 located about 25 miles SouthWest of Laramie, Wyoming, USA.
 
 From there I migrated to the then-largest telescope in the world on
