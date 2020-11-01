@@ -30,7 +30,7 @@ That is where I have remained, mostly, for the past 30 years.
 This Actors project was an outgrowth of earlier work, called
 Butterfly, whose aim was to control various pieces of laboratory gear
 for making precision frequency measurements between 1-30 MHz. It is
-laboratory distributed computing with realtime instrumentation
+laboratory distributed computing with realtime instrument
 control, data acquisition, and data reduction.
 
 Common Lisp is the glue that binds all of these together, better than
