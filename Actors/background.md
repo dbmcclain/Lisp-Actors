@@ -10,7 +10,7 @@ From there I migrated to the then-largest telescope in the world on
 Mt. Hopkins, about 60 km south of Tucson, AZ, USA. At the time, the
 MMT (Multiple Mirror Telescope) had 6 x 72in mirrors, all operating
 toward a common focus. We used Forth to run that beast too. I
-deveveloped MMTO SuperForth for that purpose. My job was to teach that
+developed MMTO SuperForth for that purpose. My job was to teach that
 monster to point and track stars to astonishing accuracy, using a
 Nova-800 computer.
 
