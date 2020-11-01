@@ -25,7 +25,7 @@ another decade, a number of other languages learned, and some graduate
 CompSci, and I immersed myself into Common Lisp, at first with
 Allegro, then Harlequin Common Lisp.
 
-That is where I have remained, mostly, for the past 30 years.
+That is where I have remained, mostly, for the past 30 years. I often state that "Lisp is what Forth always wanted to be when it grew up..."
 
 This Actors project was an outgrowth of earlier work, called
 Butterfly (ca. 2008), whose aim was to control various pieces of laboratory gear
