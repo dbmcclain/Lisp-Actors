@@ -1,7 +1,7 @@
 
 A little background about this project...
 
-I come from Ground-based Observational Astronomoy, many decades
+I come from Ground-based Observational Astronomy, many decades
 ago. My first "real" language was Forth. We used Forth to control the
 world's first completely computer-controlled telescope, atop Mt. Jelm,
 located about 25 miles SouthWest of Laramie, Wyoming, USA.
