@@ -28,7 +28,7 @@ Allegro, then Harlequin Common Lisp.
 That is where I have remained, mostly, for the past 30 years.
 
 This Actors project was an outgrowth of earlier work, called
-Butterfly, whose aim was to control various pieces of laboratory gear
+Butterfly (c.a. 2008), whose aim was to control various pieces of laboratory gear
 for making precision frequency measurements between 1-30 MHz. It is
 laboratory distributed computing with realtime instrument
 control, data acquisition, and data reduction.
