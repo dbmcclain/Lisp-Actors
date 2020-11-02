@@ -1,5 +1,5 @@
 # Lisp-Actors
-Thread-agnostic Actors in Common Lisp
+**Thread-agnostic Actors in Common Lisp**
 
 This repo contains an ongoing investigation into the use of the Actor model in Common Lisp. It was begun nearly 3 years ago and has had the benefit of real-world application. That experience helped to refine what you now see. 
 
