@@ -51,7 +51,9 @@ years of field use.
 It is still evolving, but the core is quite stable. Actors have fully
 replaced my earlier Butterfly network, as being more capable, smaller,
 more efficient, and more easily understood. The codebase is still
-evolving around the edges.
+evolving around the edges. 
+
+(Edges, here, means dealing with continuation closures and ASK messages, in the face of spawned continuations. The whole interplay between Actors and the CPS package.)
 
 And now with that description of where I came from, and what I use
 them for, you can perhaps appreciate the lack of polish evident in the
