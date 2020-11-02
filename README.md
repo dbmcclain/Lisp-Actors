@@ -11,7 +11,7 @@ DLAMBDA style Actor bodies invite the use of private state in LET bindings. By c
 
 Actors are Class Instances with a mailbox for sent messages and a USER-FUNCTION slot. That function describes its behavior to incoming messages. By default, the USER-FUNCTION for a new Actor is #'FUNCALL. This allows any thunk or function call message to be performed in the Actor context. And since Actors can only be executed on one thread at any time, this serializes the function calls. 
 
-By default, an Actor can be used as a Hoare-Monitor. It can also be used to serialize access to a shared resource - like *STANDARD-OUTPUT*.
+By default, an Actor can be used as a Hoare-Monitor. It can also be used to serialize access to a shared resource - like **STANDARD-OUTPUT**.
 
 SEND always enqueues new messages to the Actor's mailbox, for delivery handling in the main Actor loop. But an Actor can perform one of its own behaviors immediately by calling SELF-CALL. (SEND to Actors is always asynchronous, non-blocking, and enqueued in FIFO order.)
 
