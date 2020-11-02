@@ -5,6 +5,8 @@ This repo contains an ongoing investigation into the use of the Actor model in C
 
 When Actors began, I used the Comer DLAMBDA style for Actor body code. That still works. But along the way, I asked myself about the possibility of making Actor code extensible, and about using CLOS to provide more accessible infrastructure. From that question arose the larger proliferation of my Actors as CLOS Classes and new Actor behaviors that can be constructed with CLOS Methods. The PERFORM-IN-ACTOR macro allows any method or function to wrap a body of code and ship it off to an Actor for execution. 
 
+The main premise is that Actors are guaranteed to run in a single-thread context. All Actor code should abide by this premise.
+
 DLAMBDA style Actor bodies invite the use of private state in LET bindings. By contrast, Actors as Classes invite the use of Instance Slots for state information. Slots are not hidden from view, but an informal agreement should be that only the Actor itself can mutate that state. As with much of Common Lisp, I think this exposure of information can be beneficial. But with freedom comes responsibility...
 
 Actors are Class Instances with a mailbox for sent messages and a USER-FUNCTION slot. That function describes its behavior to incoming messages. By default, the USER-FUNCTION for a new Actor is #'FUNCALL. This allows any thunk or function call message to be performed in the Actor context. And since Actors can only be executed on one thread at any time, this serializes the function calls. 
@@ -12,8 +14,6 @@ Actors are Class Instances with a mailbox for sent messages and a USER-FUNCTION 
 By default, an Actor can be used as a Hoare-Monitor. It can also be used to serialize access to a shared resource - like *STANDARD-OUTPUT*.
 
 SEND always enqueues new messages to the Actor's mailbox, for delivery handling in the main Actor loop. But an Actor can perform one of its own behaviors immediately by calling SELF-CALL. (SEND to Actors is always asynchronous, non-blocking.)An Actor is not a thread. Rather, Actors with waiting messages are enqueued in a global mailbox to which a pool of Executive Threads are waiting for work items. When a message arrives to an Actor's mailbox, if that Actor is not currently executing, it becomes enqueued in the Ready Queue and will be taken at the next opportunity by one of the Executive Threads for execution of its message handling code.
-
-The main premise is that Actors are guaranteed to run in a single-thread context. All Actor code should abide by this premise.
 
 In real life situations, programming inevitably involves calling on blocking I/O. We have a choice to make here. Either allow the Actor code to call the blocking I/O, or else spawn off a WORKER onto another Executive thread for blocking execution and leave the Actor ready to handle more messages. But that implies that we have callback closures into the Actor body. And to preserve single-thread semantics, those callbacks must be performed by the Actor itself. So when work is spawned off, the continuation closure handed to it will send a private CONTINUATION message back to the Actor along with the actual closure code to execute.
 
