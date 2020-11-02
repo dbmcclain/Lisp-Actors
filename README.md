@@ -37,7 +37,7 @@ When this Actors system starts up it initializes an Actor Server on TCP Port 650
     
 EVAL has been registered as a known Actor, along with ECHO, SYSTEM-LOG, and any other services that are invented and registered. Actors can be reached through the registry by name (string or symbol).
 
-The Actor service is by way of self-encryped SSL channels on TCP/IP. A good real-world example of the use of Actors is the Asynchronous Socket Handling in "network-connection.lisp", a part of this Actor system. In there are examples of Actors-based async event handling, continuations, and much more. 
+The Actor service is by way of self-encryped, and authenticated, messages over SSL channels on TCP/IP. A good real-world example of the use of Actors is the Asynchronous Socket Handling in "network-connection.lisp", a part of this Actor system. In there are examples of Actors-based async event handling, continuations, and much more. 
 
 The self-encryption with authentication, atop the SSL security, makes use of a modified SRP-6 handshake protocol to establish keying, independent for each direction. Internally the data are encrypted with AES-256/CTR. Large packets are fragmented and reassembled. The largest valid transmission packet is 64k, in an attempt to subvert DOS attacks carrying large payloads.
 
