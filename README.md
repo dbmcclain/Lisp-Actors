@@ -13,7 +13,7 @@ Actors are Class Instances with a mailbox for sent messages and a USER-FUNCTION 
 
 By default, an Actor can be used as a Hoare-Monitor. It can also be used to serialize access to a shared resource - like *STANDARD-OUTPUT*.
 
-SEND always enqueues new messages to the Actor's mailbox, for delivery handling in the main Actor loop. But an Actor can perform one of its own behaviors immediately by calling SELF-CALL. (SEND to Actors is always asynchronous, non-blocking.)
+SEND always enqueues new messages to the Actor's mailbox, for delivery handling in the main Actor loop. But an Actor can perform one of its own behaviors immediately by calling SELF-CALL. (SEND to Actors is always asynchronous, non-blocking, and enqueued in FIFO order.)
 
 An Actor is not a thread. Rather, Actors with waiting messages are enqueued in a global mailbox to which a pool of Executive Threads are waiting for work items. When a message arrives to an Actor's mailbox, if that Actor is not currently executing, it becomes enqueued in the Ready Queue and will be taken at the next opportunity by one of the Executive Threads for execution of its message handling code.
 
