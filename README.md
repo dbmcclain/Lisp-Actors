@@ -13,7 +13,9 @@ Actors are Class Instances with a mailbox for sent messages and a USER-FUNCTION 
 
 By default, an Actor can be used as a Hoare-Monitor. It can also be used to serialize access to a shared resource - like *STANDARD-OUTPUT*.
 
-SEND always enqueues new messages to the Actor's mailbox, for delivery handling in the main Actor loop. But an Actor can perform one of its own behaviors immediately by calling SELF-CALL. (SEND to Actors is always asynchronous, non-blocking.)An Actor is not a thread. Rather, Actors with waiting messages are enqueued in a global mailbox to which a pool of Executive Threads are waiting for work items. When a message arrives to an Actor's mailbox, if that Actor is not currently executing, it becomes enqueued in the Ready Queue and will be taken at the next opportunity by one of the Executive Threads for execution of its message handling code.
+SEND always enqueues new messages to the Actor's mailbox, for delivery handling in the main Actor loop. But an Actor can perform one of its own behaviors immediately by calling SELF-CALL. (SEND to Actors is always asynchronous, non-blocking.)
+
+An Actor is not a thread. Rather, Actors with waiting messages are enqueued in a global mailbox to which a pool of Executive Threads are waiting for work items. When a message arrives to an Actor's mailbox, if that Actor is not currently executing, it becomes enqueued in the Ready Queue and will be taken at the next opportunity by one of the Executive Threads for execution of its message handling code.
 
 In real life situations, programming inevitably involves calling on blocking I/O. We have a choice to make here. Either allow the Actor code to call the blocking I/O, or else spawn off a WORKER onto another Executive thread for blocking execution and leave the Actor ready to handle more messages. But that implies that we have callback closures into the Actor body. And to preserve single-thread semantics, those callbacks must be performed by the Actor itself. So when work is spawned off, the continuation closure handed to it will send a private CONTINUATION message back to the Actor along with the actual closure code to execute.
 
