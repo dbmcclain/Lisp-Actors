@@ -53,7 +53,7 @@ replaced my earlier Butterfly network, as being more capable, smaller,
 more efficient, and more easily understood. The codebase is still
 evolving around the edges. 
 
-(Edges, here, means dealing with continuation closures and ASK messages, in the face of spawned continuations. The whole interplay between Actors and the CPS package.)
+(Edges, here, means dealing with continuation closures and ASK messages, in the face of spawned continuations. The whole interplay between Actors and the CPS package, restoration of Handlers, etc.)
 
 And now with that description of where I came from, and what I use
 them for, you can perhaps appreciate the lack of polish evident in the
