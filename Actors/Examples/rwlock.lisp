@@ -31,36 +31,36 @@
 (defclass rwlock (actor)
   ((rdwait  :initform (maps:empty))
    (wrwait  :initform (maps:empty))
-   (readers :initform nil)
-   (writers :initform nil)
+   (holders :initform nil)
    ))
 
 ;; --------------------------------
 
 (defun read-lock-obtainable-p (lock who-id)
-  (with-slots (writers) lock
+  (with-slots (holders) lock
     ;; true when no writers, or when we are the writer
-    (or (null writers)
-        (eq who-id (car writers)))
+    (every (lambda (elt)
+             (or (eq (car elt) :rd)
+                 (eq (cdr elt) who-id)))
+           holders)
     ))
 
 (defun write-lock-obtainable-p (lock who-id)
-  (with-slots (readers writers) lock
-    ;; true when we are the writer, or when no writers and all
-    ;; readers are me
-    (or (eq who-id (car writers))
-        (and (null writers)
-             (every (um:rcurry #'eq who-id) readers))) ;; true for NIL readers too!
+  (with-slots (holders) lock
+    ;; true when we are the only reader or writer
+    (every (lambda (elt)
+             (eq (cdr elt) who-id))
+           holders)
     ))
 
 ;; --------------------------------
 
 (defmethod lock-for-read ((lock rwlock) who-id reply-to)
-  (with-slots (readers rdwait) lock
+  (with-slots (holders rdwait) lock
     (perform-in-actor lock
       (cond
         ((read-lock-obtainable-p lock who-id)
-         (push who-id readers)
+         (push `(:rd . ,who-id) holders)
          (send reply-to 'ok))
         
         (t
@@ -79,7 +79,7 @@
     ))
 
 (defun try-enabling-pending-writer (lock)
-  (with-slots (wrwait writers) lock
+  (with-slots (wrwait holders) lock
     ;; the tree is kept in chronological order, and MAPS:ITER proceeds
     ;; from oldest to newest pending request. So we will launch the
     ;; oldest possible writer here.
@@ -87,31 +87,35 @@
                (lambda (k v)
                  (when (write-lock-obtainable-p lock (car v))
                    (maps:removef wrwait k)
-                   (push (car v) writers)
+                   (push `(:wr . ,(car v)) holders)
                    (send (cdr v) 'ok))))
     ))
 
 ;; --------------------------------
 
 (defmethod unlock-for-read ((lock rwlock) who-id)
-  (with-slots (readers) lock
+  (with-slots (holders) lock
     (perform-in-actor lock
-      (let ((rds readers))
-        (if (eq rds (um:removef readers who-id :count 1))
-            ;; was not among the readers - remove from pending readers
-            (drop-pending-reader lock who-id)
-          ;; else - try to enable some pending writer
-          (try-enabling-pending-writer lock)
-          )))))
+      (let ((rdr (find-if (lambda (elt)
+                            (and (eq (car elt) :rd)
+                                 (eq (cdr elt) who-id)))
+                          holders)))
+        (if rdr
+            (progn
+              (um:removef holders rdr)
+              (try-enabling-pending-writer lock))
+          ;; else
+          (drop-pending-reader lock who-id))
+        ))))
 
 ;; --------------------------------
 
 (defmethod lock-for-write ((lock rwlock) who-id reply-to)
-  (with-slots (writers wrwait) lock
+  (with-slots (holders wrwait) lock
     (perform-in-actor lock
       (if (write-lock-obtainable-p lock who-id)
           (progn
-            (push who-id writers)
+            (push `(:wr . ,who-id) holders)
             (send reply-to 'ok))
         ;; else
         (maps:addf wrwait (uuid:make-v1-uuid) (cons who-id reply-to)))
@@ -120,22 +124,22 @@
 ;; --------------------------------
 
 (defun enable-oldest-pending-writer (lock)
-  (with-slots (wrwait writers) lock
+  (with-slots (wrwait holders) lock
     (let ((cell (sets:min-elt wrwait)))
       (setf wrwait (sets:remove-min-elt wrwait))
       (destructuring-bind (who-id . reply-to)
           (maps:map-cell-val cell)
-        (push who-id writers)
+        (push `(:wr . ,who-id) holders)
         (send reply-to 'ok))
       )))
 
 (defun enable-all-pending-readers (lock)
-  (with-slots (rdwait readers) lock
+  (with-slots (rdwait holders) lock
     (maps:iter (shiftf rdwait (maps:empty))
                (lambda (k v)
                  (declare (ignore k))
                  (destructuring-bind (who . reply-to) v
-                   (push who readers)
+                   (push `(:rd . ,who) holders)
                    (send reply-to 'ok))))
     ))
 
@@ -150,27 +154,32 @@
 ;; --------------------------------
 
 (defmethod unlock-for-write ((lock rwlock) who-id)
-  (with-slots (rdwait wrwait writers) lock
+  (with-slots (rdwait wrwait holders) lock
     (perform-in-actor lock
-      (cond ((eq who-id (car writers))
-             ;; we were holding the write lock
-             (pop writers)
-             (unless writers
-               ;; no more writing - enable next in line
-               (let ((waiting (sets:union rdwait wrwait)))
-                 (unless (sets:is-empty waiting)
-                   ;; enable the oldest waiting request
-                   (let ((oldest (sets:min-elt waiting)))
-                     (if (and (not (maps:is-empty rdwait))
-                              (eq oldest (sets:min-elt rdwait)))
-                         (enable-all-pending-readers lock)
-                       ;; else - enable the oldest pending writer
-                       (enable-oldest-pending-writer lock))
-                     )))))
-            
-            (t
-             (drop-pending-writer lock who-id))
-            ))))
+      (let ((wrt (find-if (lambda (elt)
+                            (and (eq :wr (car elt))
+                                 (eq who-id (cdr elt))))
+                          holders)))
+        (if wrt
+            (progn
+              (um:removef holders wrt)
+              (when (every (lambda (elt)
+                             (eq :rd (car elt)))
+                           holders)
+                ;; no more writing - enable next in line
+                (let ((waiting (sets:union rdwait wrwait)))
+                  (unless (sets:is-empty waiting)
+                    ;; enable the oldest waiting request
+                    (let ((oldest (sets:min-elt waiting)))
+                      (if (and (not (maps:is-empty rdwait))
+                               (eq oldest (sets:min-elt rdwait)))
+                          (enable-all-pending-readers lock)
+                        ;; else - enable the oldest pending writer
+                        (enable-oldest-pending-writer lock))
+                      )))))
+          ;; else
+          (drop-pending-writer lock who-id))
+        ))))
 
 ;; --------------------------------
 
@@ -182,11 +191,10 @@
            (,g!id   (mp:get-current-process)))
        (=wait (,g!ok) (:timeout ,timeout :errorp ,errorp :on-timeout ,on-timeout)
            (lock-for-read ,g!lock ,g!id =wait-cont)
-         (when (eq 'ok ,g!ok)
-           (unwind-protect
-               (progn
-                 ,@body)
-             (unlock-for-read ,g!lock ,g!id)))
+         (unwind-protect
+             (when (eq 'ok ,g!ok)
+               ,@body)
+           (unlock-for-read ,g!lock ,g!id))
          ))
     ))
 
@@ -200,8 +208,8 @@
            (,g!id   (mp:get-current-process)))
        (=wait (,g!ok) (:timeout ,timeout :errorp ,errorp :on-timeout ,on-timeout)
            (lock-for-write ,g!lock ,g!id =wait-cont)
-         (when (eq 'ok ,g!ok)
-           (unwind-protect
+         (unwind-protect
+             (when (eq 'ok ,g!ok)
                (progn
                  ,@body)
              (unlock-for-write ,g!lock ,g!id)))
