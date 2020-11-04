@@ -166,17 +166,20 @@
               (when (every (lambda (elt)
                              (eq :rd (car elt)))
                            holders)
-                ;; no more writing - enable next in line
-                (let ((waiting (sets:union rdwait wrwait)))
-                  (unless (sets:is-empty waiting)
-                    ;; enable the oldest waiting request
-                    (let ((oldest (sets:min-elt waiting)))
-                      (if (and (not (maps:is-empty rdwait))
-                               (eq oldest (sets:min-elt rdwait)))
-                          (enable-all-pending-readers lock)
-                        ;; else - enable the oldest pending writer
-                        (enable-oldest-pending-writer lock))
-                      )))))
+                ;; no more writers
+                (if holders ;; still some readers
+                    (enable-all-pending-readers lock)
+                  ;; else no more anything - enable next in line
+                  (let ((waiting (sets:union rdwait wrwait)))
+                    (unless (sets:is-empty waiting)
+                      ;; enable the oldest waiting request
+                      (let ((oldest (sets:min-elt waiting)))
+                        (if (and (not (maps:is-empty rdwait))
+                                 (eq oldest (sets:min-elt rdwait)))
+                            (enable-all-pending-readers lock)
+                          ;; else - enable the oldest pending writer
+                          (enable-oldest-pending-writer lock))
+                        ))))))
           ;; else
           (drop-pending-writer lock who-id))
         ))))
