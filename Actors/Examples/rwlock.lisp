@@ -210,9 +210,8 @@
            (lock-for-write ,g!lock ,g!id =wait-cont)
          (unwind-protect
              (when (eq 'ok ,g!ok)
-               (progn
-                 ,@body)
-             (unlock-for-write ,g!lock ,g!id)))
+               ,@body)
+           (unlock-for-write ,g!lock ,g!id))
          ))
     ))
   
