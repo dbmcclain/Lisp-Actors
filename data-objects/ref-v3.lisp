@@ -121,7 +121,7 @@ THE SOFTWARE.
   (:method (obj)
    obj)
   (:method ((obj ref))
-   (ref-val obj)))
+   (um:rd obj)))
 
 (defgeneric wval (obj)
   ;; used in prep for destructive ops
@@ -130,11 +130,11 @@ THE SOFTWARE.
   (:method (obj)
    obj)
   (:method ((obj ref))
-   (ref-val obj)))
+   (um:rd obj)))
 
 (defmethod set-val ((r ref) val)
   ;; store is atomic, but perhaps buffered and delayed
-  (setf (ref-val r) val))
+  (um:wr r val))
 
 (defsetf val  set-val)
 (defsetf wval set-val)
@@ -204,13 +204,13 @@ THE SOFTWARE.
    :val (list obj)))
 
 (defmethod val ((obj cow))
-  (car (ref-val obj)))
+  (car (um:rd obj)))
 
 (defmethod wval ((obj cow))
   ;; Using preemptive cloning on direct DEREF. Once deref'd we lose
   ;; any control over possible mutation in client code, so we opt for
   ;; conservative safety. We rely on this behavior below...
-  (let ((cell (ref-val obj)))
+  (let ((cell (um:rd obj)))
     (if (cdr cell)
         (car cell)
       (um:rmw obj #'identity))))

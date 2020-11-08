@@ -68,7 +68,7 @@ THE SOFTWARE.
    (props-ref  :accessor props-ref   :initarg :props-ref  :initform (ref:ref (maps:empty)))))
 
 (defmethod props ((obj rubber-object))
-  (ref:val (props-ref obj)))
+  (ref:val (um:rd (props-ref obj))))
 
 (defvar =top= (make-instance 'rubber-object))
 

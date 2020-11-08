@@ -38,7 +38,7 @@
 (defvar actors-directory (maps:empty))
 
 (defun clear-directory ()
-  (um:rmw 'actors-directory (constantly (maps:empty))))
+  (um:wr 'actors-directory (maps:empty)))
 
 (defun %remove-key (key)
   (um:rmw 'actors-directory (um:rcurry 'maps:remove key)))
@@ -50,7 +50,7 @@
     actor))
 
 (defmethod unregister-actor ((actor actor))
-  (maps:iter actors-directory
+  (maps:iter (um:rd 'actors-directory)
              (lambda (k v)
                (when (eq v actor)
                  (%remove-key k)))
@@ -62,14 +62,14 @@
 
 (defun get-actors ()
   (um:accum acc
-    (maps:iter actors-directory
+    (maps:iter (um:rd 'actors-directory)
                (lambda (k v)
                  (acc (cons k v))))
     ))
 
 (defun get-server-actors ()
   (um:accum acc
-    (maps:iter actors-directory
+    (maps:iter (um:rd 'actors-directory)
                (lambda (k v)
                  (declare (ignore v))
                  (acc k)))
@@ -80,11 +80,11 @@
 
 (defmethod find-actor (name)
   (when-let (key (acceptable-key name))
-    (maps:find actors-directory key)))
+    (maps:find (um:rd 'actors-directory) key)))
 
 (defmethod find-names-for-actor ((actor actor))
   (let (keys)
-    (maps:iter actors-directory
+    (maps:iter (um:rd 'actors-directory)
                (lambda (k v)
                  (when (eq v actor)
                    (push k keys))))
