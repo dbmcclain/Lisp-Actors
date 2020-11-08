@@ -221,7 +221,7 @@ THE SOFTWARE.
 
 (defmethod get-property ((actor actor) key &optional default)
   ;; SMP-safe
-  (maps:find (ref:val (um:rd (actor-properties-ref actor))) key default))
+  (maps:find (um:rd (actor-properties-ref actor)) key default))
 
 (defmethod set-property ((actor actor) key value)
   ;; SMP-safe

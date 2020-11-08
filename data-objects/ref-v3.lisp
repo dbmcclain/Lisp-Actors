@@ -139,6 +139,9 @@ THE SOFTWARE.
 (defsetf val  set-val)
 (defsetf wval set-val)
 
+(defmethod clone ((r ref))
+  (ref (um:rd r)))
+
 (defmethod cas ((r ref) old new)
   (sys:compare-and-swap (ref-val r) old new))
 
