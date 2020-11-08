@@ -3120,6 +3120,7 @@ or list acceptable to the reader macros #+ and #-."
 ;; ----------------------------------------------
 ;; these need to be adapted to Allegro SMP
 
+#| ;; these have potential ABA problems
 #+:LISPWORKS
 (defmethod rmw ((cell cons) val-fn)
   (declare (function val-fn))
@@ -3141,7 +3142,50 @@ or list acceptable to the reader macros #+ and #-."
           new
         (iter)))
     ))
+|#
 
+(defvar *clog* #(:clog))
+
+(defun do-rmw (exch-fn cas-fn val-fn)
+  (um:nlet-tail get-old ()
+    (let ((old (funcall exch-fn)))
+      (when (eq old *clog*)
+        (get-old))
+      (handler-case
+          (let ((new (funcall val-fn old)))
+            (funcall cas-fn new)
+            new)
+        (error (c)
+          (funcall cas-fn old)
+          (error c))
+        ))))
+
+#+:LISPWORKS
+(defmacro exch-clog (place)
+  `(sys:atomic-exchange ,place *clog*))
+
+(defmacro exch-fn (place)
+  `(lambda ()
+     (exch-clog ,place)))
+
+#+:LISPWORKS
+(defmacro cas-clog (place new)
+  `(sys:compare-and-swap ,place *clog* ,new))
+
+(defmacro cas-fn (place)
+  (let ((g!new (gensym)))
+    `(lambda (,g!new)
+       (cas-clog ,place ,g!new))
+    ))
+
+#+:LISPWORKS
+(defmethod rmw ((sym symbol) val-fn)
+  (do-rmw (exch-fn (symbol-value sym)) (cas-fn (symbol-value sym)) val-fn))
+           
+#+:LISPWORKS
+(defmethod rmw ((cell cons) val-fn)
+  (do-rmw (exch-fn (car cell)) (cas-fn (car cell)) val-fn))
+  
 ;; ----------------------------------------------
 
 ;; -- end of usefull_macros.lisp -- ;;

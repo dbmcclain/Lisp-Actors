@@ -928,6 +928,9 @@ THE SOFTWARE.
    #:ensure-thread-eval-def
 
    #:rmw
+   #:exch-fn
+   #:cas-fn
+   #:do-rmw
 
    #:<lockable-mixin>
    #:<abstract-kv>
