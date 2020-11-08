@@ -927,10 +927,11 @@ THE SOFTWARE.
    #:ensure-thread-eval
    #:ensure-thread-eval-def
 
+   #:rd
+   #:wr
    #:rmw
    #:exch-fn
    #:cas-fn
-   #:do-rmw
 
    #:<lockable-mixin>
    #:<abstract-kv>

@@ -162,8 +162,11 @@ THE SOFTWARE.
       )))
 |#
 
-(defmethod um:rmw ((r ref) fn)
-  (um:do-rmw (um:exch-fn (ref-val r)) (um:cas-fn (ref-val r)) fn))
+(defmethod um:exch-fn ((r ref) val)
+  (sys:atomic-exchange (ref-val r) val))
+
+(defmethod um:cas-fn ((r ref) old new)
+  (sys:compare-and-swap (ref-val r) old new))
 
 ;; ---------------------------------------------------------------
 ;; COW - Copy on Write
@@ -242,12 +245,11 @@ THE SOFTWARE.
         (iter))
       )))
 |#
+
 (defmethod um:rmw ((obj cow) fn)
-  (um:do-rmw (um:exch-fn (ref-val obj)) (um:cas-fn (ref-val obj))
-             (lambda (old-cell)
-               (cons (funcall fn (maybe-clone old-cell))
-                     t))
-             ))
+  (call-next-method obj (lambda (old-cell)
+                          (cons (funcall fn (maybe-clone old-cell))
+                                t))))
              
 ;; ------------------------------------------------
 ;; Interesting... the use of COW becones ambiguous with LIST objects.

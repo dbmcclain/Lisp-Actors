@@ -3143,49 +3143,67 @@ or list acceptable to the reader macros #+ and #-."
         (iter)))
     ))
 |#
+;; ----------------------------------------------------------
+;; To overcome the CAS ABA-Problem...
+;;
+;; We can no longer simply read nor write the value in a shared
+;; location.  It might be in a state that is being used. When
+;; PARTIAL-READ returns a value, the place will have been marked
+;; in-use.
+;;
+;; Unfortunately, the RMW operation might possibly induce indefinite
+;; delays before getting back to a sharable state. To overcome that
+;; possibility entails using an ever incrementing serial number on
+;; stores, or else possibly receiving a signaled error in the wrong
+;; thread if a helper thread were to take it forward. So keep RMW
+;; fast.
 
-(defvar *clog* #(:clog))
-
-(defun do-rmw (exch-fn cas-fn val-fn)
-  (um:nlet-tail get-old ()
-    (let ((old (funcall exch-fn)))
-      (when (eq old *clog*)
-        (get-old))
-      (handler-case
-          (let ((new (funcall val-fn old)))
-            (funcall cas-fn new)
-            new)
-        (error (c)
-          (funcall cas-fn old)
-          (error c))
-        ))))
-
-#+:LISPWORKS
-(defmacro exch-clog (place)
-  `(sys:atomic-exchange ,place *clog*))
-
-(defmacro exch-fn (place)
-  `(lambda ()
-     (exch-clog ,place)))
+(defvar *clog* #(:clog)) ;; as in, clogging up something...
 
 #+:LISPWORKS
-(defmacro cas-clog (place new)
-  `(sys:compare-and-swap ,place *clog* ,new))
-
-(defmacro cas-fn (place)
-  (let ((g!new (gensym)))
-    `(lambda (,g!new)
-       (cas-clog ,place ,g!new))
-    ))
+(defgeneric exch-fn (obj val)
+  (:method ((obj symbol) val)
+   (sys:atomic-exchange (symbol-value obj) val))
+  (:method ((obj cons) val)
+   (sys:atomic-exchange (car obj) val)))
 
 #+:LISPWORKS
-(defmethod rmw ((sym symbol) val-fn)
-  (do-rmw (exch-fn (symbol-value sym)) (cas-fn (symbol-value sym)) val-fn))
-           
-#+:LISPWORKS
-(defmethod rmw ((cell cons) val-fn)
-  (do-rmw (exch-fn (car cell)) (cas-fn (car cell)) val-fn))
+(defgeneric cas-fn (obj old new)
+  (:method ((obj symbol) old new)
+   (sys:compare-and-swap (symbol-value obj) old new))
+  (:method ((obj cons) old new)
+   (sys:compare-and-swap (car obj) old new)))
+
+(defun partial-read (obj)
+  (um:nlet-tail get-val ()
+    (let ((val (exch-fn obj *clog*)))
+      (if (eq val *clog*)
+          (get-val)
+        val)
+      )))
+
+(defun rd (obj)
+  (let ((val (partial-read obj)))
+    (cas-fn obj *clog* val)
+    val))
+
+(defun wr (obj new)
+  (partial-read obj)
+  (cas-fn obj *clog* new)
+  new)
   
+(defmethod rmw (obj val-fn)
+  (let ((old (partial-read obj)))
+    (handler-case
+        (let ((new (funcall val-fn old)))
+          (cas-fn obj *clog* new)
+          new)
+      (error (c)
+        (cas-fn obj *clog* old)
+        (error c))
+      )))
+
+
 ;; ----------------------------------------------
 
 ;; -- end of usefull_macros.lisp -- ;;
