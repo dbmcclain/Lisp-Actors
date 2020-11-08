@@ -3193,15 +3193,11 @@ or list acceptable to the reader macros #+ and #-."
   new)
   
 (defmethod rmw (obj val-fn)
-  (let ((old (partial-read obj)))
-    (handler-case
-        (let ((new (funcall val-fn old)))
-          (cas-fn obj *clog* new)
-          new)
-      (error (c)
-        (cas-fn obj *clog* old)
-        (error c))
-      )))
+  (let ((val (partial-read obj)))
+    (unwind-protect
+        (setf val (funcall val-fn val))
+      (cas-fn obj *clog* val))
+    ))
 
 
 ;; ----------------------------------------------
