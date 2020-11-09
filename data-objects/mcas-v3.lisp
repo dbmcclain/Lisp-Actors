@@ -69,11 +69,16 @@ THE SOFTWARE.
 ;; -------------------------------------------------------------
 
 (defstruct ccas-desc
-  ref old new pred)
+  old new pred)
 
-(defun ccas-help (desc)
-  ;; nudge along a ccas-desc to resolve as either an mcas-desc
-  ;; or the old value of the ref
+(defun ccas-help (ref desc)
+  ;; At this point we know that ref contained our desc. It might not
+  ;; still contain it, if we got interrupted and another thread nudged
+  ;; us to completion. In that case the following CAS will fail, but
+  ;; that's okay.
+  ;;
+  ;; Nudge along a CCAS-DESC to resolve as either an MCAS-DESC, or the
+  ;; old value of the ref
   (declare (ccas-desc desc))
   (let ((val  (if (funcall (ccas-desc-pred desc))
                   (ccas-desc-new desc)
@@ -83,22 +88,25 @@ THE SOFTWARE.
     ;; will succeeed.
     ;;
     ;; If not, then it is because another thread has already been
-    ;; through here nudging our CCAS desc and succeeded.
+    ;; through here nudging our CCAS-DESC and succeeded.
     ;;
-    (cas (ccas-desc-ref desc) desc val)))
+    (cas ref desc val)))
 
 (defun ccas (ref old new pred)
   ;; CCAS -- conditional CAS, perform CAS only if PRED returns true.
   ;; Returns true if CAS was successful.
   (let ((desc  (make-ccas-desc
-                :ref   ref
                 :old   old
                 :new   new
                 :pred  pred)))
     (declare (ccas-desc desc))
     (um:nlet-tail iter ()
      (if (cas ref old desc)
-         (ccas-help desc)
+         ;; at this point, we know the ref contains our desc, even if
+         ;; we get interrupted and another thread performs it for us.
+         (progn
+           (ccas-help ref desc)
+           t)
        ;;
        ;;               CAS succeeded
        ;;                     |  
@@ -127,20 +135,21 @@ THE SOFTWARE.
        ;; else
        (let ((v (ref:val ref)))
          (when (ccas-desc-p v)
-           (ccas-help v)
+           (ccas-help ref v)
            (iter)))
        ))))
 
 (defun ccas-read (ref)
   ;; Return either an mcas-desc or an old value.
   ;; This nudges along any ccas-desc that may be claiming the ref.
-  (let ((v (ref:val ref)))
-    (cond ((ccas-desc-p v)
-           (ccas-help v)
-           (ccas-read ref))
-
-          (t  v)
-          )))
+  (um:nlet-tail iter ()
+    (let ((v (ref:val ref)))
+      (cond ((ccas-desc-p v)
+             (ccas-help ref v)
+             (iter))
+            
+            (t  v)
+            ))))
 
 ;; ------------------
 ;; MCAS - Multiple CAS

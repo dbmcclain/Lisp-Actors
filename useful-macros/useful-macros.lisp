@@ -3183,41 +3183,43 @@ or list acceptable to the reader macros #+ and #-."
   (:method ((obj cons) old new)
    (sys:compare-and-swap (car obj) old new)))
 
-(defstruct cas-desc
+(defstruct rmw-desc
   old new-fn)
 
-(defun cas-help (obj desc)
+(defun rmw-help (obj desc)
   ;; Here it is known that obj contained desc, but by now it might not
   ;; still contain desc.
   ;;
   ;; NOTE: new-fn can be called repeatedly and from arbitrary threads,
   ;; so it should be idempotent, and don't let it fail...
-  (let ((new (funcall (cas-desc-new-fn desc) (cas-desc-old desc))))
-    ;; the following CAS could fail if another thread already
-    ;; performed this task. That's okay.
-    (cas obj desc new)))
+  (with-slots (old new-fn) desc
+    (let ((new (funcall new-fn old)))
+      ;; the following CAS could fail if another thread already
+      ;; performed this task. That's okay.
+      (cas obj desc new))
+    ))
 
 (defun rd (obj)
   (um:nlet-tail iter ()
     (let ((v (val obj)))
-      (cond ((cas-desc-p v)
-             (cas-help obj v)
+      (cond ((rmw-desc-p v)
+             (rmw-help obj v)
              (iter))
             
             (t  v)
             ))))
            
 (defmethod rmw (obj new-fn)
-  (let ((desc (make-cas-desc
+  (let ((desc (make-rmw-desc
                :new-fn new-fn)))
     (um:nlet-tail iter ()
       (let ((old (rd obj)))
-        (setf (cas-desc-old desc) old)
+        (setf (rmw-desc-old desc) old)
         (if (cas obj old desc)
             ;; At this point we know that some thread will accomplish
             ;; our task if we get interrupted. And we know that no ABA
             ;; hazard can happen to captured old val.
-            (cas-help obj desc)
+            (rmw-help obj desc)
           ;; else - try again
           (iter))
         ))
