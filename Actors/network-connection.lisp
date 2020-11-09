@@ -476,17 +476,22 @@
                          (comm:async-io-state-read-status state)
                          end)
                |#
-               (when (plusp end)
-                 ;; (log-info :SYSTEM-LOG "~A Incoming bytes: ~A" title buffer)
-                 (send reader 'actor-internal-message:rd-incoming (list* 0 end (subseq buffer 0 end)))
-                 (comm:async-io-state-discard state end))
-               (when-let (status (comm:async-io-state-read-status state))
-                 ;; terminate on any error
-                 (comm:async-io-state-finish state)
-                 (log-error :SYSTEM-LOG "~A Incoming error state: ~A" title status)
-                 (send reader 'actor-internal-message:rd-error)
-                 (decr-io-count state)))
-             
+               (let (err-too-large)
+                 (when (plusp end)
+                   ;; (log-info :SYSTEM-LOG "~A Incoming bytes: ~A" title buffer)
+                   (if (> end +max-fragment-size+)
+                       (setf err-too-large "Incoming packet too large")
+                     (send reader 'actor-internal-message:rd-incoming (list* 0 end (subseq buffer 0 end))))
+                   (comm:async-io-state-discard state end))
+                 (when-let (status (or (comm:async-io-state-read-status state)
+                                       err-too-large))
+                   ;; terminate on any error
+                   (comm:async-io-state-finish state)
+                   (log-error :SYSTEM-LOG "~A Incoming error state: ~A" title status)
+                   (send reader 'actor-internal-message:rd-error)
+                   (decr-io-count state))
+                 ))
+               
              (decr-io-count (io-state)
                (when (zerop (atomic-decf io-running)) ;; >0 is running
                  (comm:close-async-io-state io-state)
