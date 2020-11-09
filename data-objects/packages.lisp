@@ -69,6 +69,8 @@ THE SOFTWARE.
   (:use #:common-lisp)
   (:import-from :um
    #:atomic-exch
+   #:val
+   #:cas
    #:rmw
    #:rd
    #:wr)

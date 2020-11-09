@@ -3158,6 +3158,76 @@ or list acceptable to the reader macros #+ and #-."
 ;; thread if a helper thread were to take it forward. So keep RMW
 ;; fast.
 
+;; ----------------------------------------------------------------
+;; Assured lock-free, ABA hazard immune, mutation
+;;
+;;  We need two primitives for every class of object:
+;;  (VAL obj) - returns the value contained in obj at this moment.
+;;  (CAS obj old new) - this primitve accomplishes a CAS on obj, returning T/F.
+;;
+;; But after mutation, we can't really know what value is held in obj.
+;; Another thread could come along and mutate right after we did.  So
+;; we break precedent with SETF and don't bother returning what we
+;; just set it to.
+
+(defgeneric val (obj)
+  (:method ((obj symbol))
+   (symbol-value obj))
+  (:method ((obj cons))
+   (car obj)))
+
+#+:LISPWORKS
+(defgeneric cas (obj old new)
+  (:method ((obj symbol) old new)
+   (sys:compare-and-swap (symbol-value obj) old new))
+  (:method ((obj cons) old new)
+   (sys:compare-and-swap (car obj) old new)))
+
+(defstruct cas-desc
+  old new-fn)
+
+(defun cas-help (obj desc)
+  ;; Here it is known that obj contained desc, but by now it might not
+  ;; still contain desc.
+  ;;
+  ;; NOTE: new-fn can be called repeatedly and from arbitrary threads,
+  ;; so it should be idempotent, and don't let it fail...
+  (let ((new (funcall (cas-desc-new-fn desc) (cas-desc-old desc))))
+    ;; the following CAS could fail if another thread already
+    ;; performed this task. That's okay.
+    (cas obj desc new)))
+
+(defun rd (obj)
+  (um:nlet-tail iter ()
+    (let ((v (val obj)))
+      (cond ((cas-desc-p v)
+             (cas-help obj v)
+             (iter))
+            
+            (t  v)
+            ))))
+           
+(defmethod rmw (obj new-fn)
+  (let ((desc (make-cas-desc
+               :new-fn new-fn)))
+    (um:nlet-tail iter ()
+      (let ((old (rd obj)))
+        (setf (cas-desc-old desc) old)
+        (if (cas obj old desc)
+            ;; At this point we know that some thread will accomplish
+            ;; our task if we get interrupted. And we know that no ABA
+            ;; hazard can happen to captured old val.
+            (cas-help obj desc)
+          ;; else - try again
+          (iter))
+        ))
+    ))
+
+(defmethod wr (obj new)
+  (rmw obj (constantly new)))
+
+;; -----------------------------------------------------
+
 #+:LISPWORKS
 (defgeneric atomic-exch (obj val)
   ;; exch-fn serves as an atomic sync point
@@ -3167,6 +3237,7 @@ or list acceptable to the reader macros #+ and #-."
   (:method ((obj cons) val)
    (sys:atomic-exchange (car obj) val)))
 
+#|
 (defun partial-read (obj)
   (um:nlet-tail get-val ()
     (let ((val (atomic-exch obj 'clogged)))
@@ -3192,7 +3263,7 @@ or list acceptable to the reader macros #+ and #-."
         (setf val (funcall val-fn val))
       (atomic-exch obj val))
     ))
-
+|#
 ;; ----------------------------------------------
 
 ;; -- end of usefull_macros.lisp -- ;;

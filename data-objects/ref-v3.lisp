@@ -116,21 +116,17 @@ THE SOFTWARE.
    (make-ref
     :val obj)))
 
-(defgeneric val (obj)
-  ;; used in prep for non-destructive read ops
-  (:method (obj)
-   obj)
-  (:method ((obj ref))
-   (rd obj)))
+(defmethod val ((obj ref))
+  (ref-val obj))
 
-(defgeneric wval (obj)
-  ;; used in prep for destructive ops
-  ;; for REF it is same as VAL
+(defmethod wval ((obj ref))
+  ;; Used in prep for destructive ops.
+  ;; For REF it is same as VAL
   ;; but see COW version...
-  (:method (obj)
-   obj)
-  (:method ((obj ref))
-   (rd obj)))
+  (ref-val obj))
+
+(defmethod wval (obj)
+  (val obj))
 
 (defmethod set-val ((r ref) val)
   ;; store is atomic, but perhaps buffered and delayed
@@ -202,7 +198,10 @@ THE SOFTWARE.
   (let ((cell (rd obj)))
     (if (cdr cell)
         (car cell)
-      (rmw obj #'identity))))
+      (progn
+        (rmw obj #'identity)
+        (val obj)))
+    ))
 
 (defmethod set-val :around ((c cow) val)
   (call-next-method c (cons val t))
@@ -226,11 +225,10 @@ THE SOFTWARE.
   (rmw obj #'1-))
 
 (defmethod rmw :around ((obj cow) fn)
-  (car
-   (call-next-method obj (lambda (old-cell)
-                           (cons (funcall fn (maybe-clone old-cell))
-                                 t))
-                     )))
+  (call-next-method obj (lambda (old-cell)
+                          (cons (funcall fn (maybe-clone old-cell))
+                                t))
+                    ))
              
 ;; ------------------------------------------------
 ;; Interesting... the use of COW becones ambiguous with LIST objects.

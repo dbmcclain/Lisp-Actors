@@ -28,11 +28,6 @@
             mp:mailbox-send
             mp:mailbox-peek
             
-            ref:ref
-            ref:val
-            ref:atomic-incf
-            ref:atomic-decf
-            
             um:defmonitor
             um:critical-section
             um:critical-or
@@ -135,7 +130,7 @@
 
   (labels
       ((resume-periodic-checking ()
-         (setf (ref:val watchdog-checking) nil))
+         (ref:wr watchdog-checking nil))
          
        (check-sufficient-execs ()
          (critical-section
@@ -208,7 +203,7 @@
         (unless heartbeat-timer
           (setf heartbeat-timer
                 (make-timer (lambda ()
-                              (when (and (zerop (ref:val watchdog-inhibit))
+                              (when (and (zerop (ref:rd watchdog-inhibit))
                                          (ref:CAS watchdog-checking nil t))
                                 (mp:funcall-async #'check-sufficient-execs)))
                             ))

@@ -931,7 +931,9 @@ THE SOFTWARE.
    #:wr
    #:rmw
    #:atomic-exch
-
+   #:val
+   #:cas
+   
    #:<lockable-mixin>
    #:<abstract-kv>
    #:<plist>
