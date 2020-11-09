@@ -54,6 +54,8 @@ THE SOFTWARE.
                 (:file "dlambder")
                 (:file "bb")
                 (:file "useful-macros")
+                (:file "rmw")
+                (:file "capture")
                 ;; (:file "scraps")
                 (:file "pandoric")
                 (:file "typed-fun")

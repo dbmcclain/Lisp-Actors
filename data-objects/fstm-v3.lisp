@@ -40,7 +40,7 @@ THE SOFTWARE.
 (defvar *current-transaction* nil)
 
 (defclass transaction (<orderable-mixin>)
-  ((state-ref  :reader   transaction-state-ref  :initform (ref :undecided))
+  ((state-ref  :reader   transaction-state-ref  :initform (ref:ref :undecided))
    (ro-list    :accessor transaction-ro-list    :initform nil)
    (rw-map     :accessor transaction-rw-map     :initform (maps:empty))
    ))
@@ -55,7 +55,7 @@ THE SOFTWARE.
   x)
 
 (defun trans-state (trans)
-  (ref:val (transaction-state-ref trans)))
+  (ref:basic-val (transaction-state-ref trans)))
 
 (defun trans-state-p (trans state)
   (eq state (trans-state trans)))
@@ -79,7 +79,7 @@ THE SOFTWARE.
 (defvar *var-index* 0)
 
 (defstruct (var
-            (:include ref)
+            (:include ref:ref)
             (:constructor var (ref:val)))
   (id (incf *var-index*) :read-only t))
 
@@ -134,7 +134,7 @@ THE SOFTWARE.
         (let ((pair (maps:find (transaction-rw-map val) var)))
           (funcall help-fn val)
           (if (trans-state-p val :successful)
-              (ref:val (cdr pair)) ;; new, bypass COW cloning
+              (ref:basic-val (cdr pair)) ;; new, bypass COW cloning
             (car pair))) ;; old
       ;; else
       val)))
@@ -147,7 +147,7 @@ THE SOFTWARE.
          (declare (transaction other-trans))
          (when (trans-state-p other-trans :read-phase)
            (if (trans< trans other-trans) ;; I'm older
-               (cas (transaction-state-ref other-trans) :read-phase :failed)
+               (ref:basic-cas (transaction-state-ref other-trans) :read-phase :failed)
              ;; else
              (commit-transaction other-trans)))
          ))
@@ -191,17 +191,17 @@ THE SOFTWARE.
 
     (um:labels*
         ((in-state? (state)
-           (eq state (ref:val state-ref)))
+           (eq state (ref:basic-val state-ref)))
          (transition (from-state to-state)
-           (cas state-ref from-state to-state)
-           (when (member (ref:val state-ref) '(:failed :successful))
+           (ref:basic-cas state-ref from-state to-state)
+           (when (member (ref:basic-val state-ref) '(:failed :successful))
              (release)))
          (patchup-success (var (old . new-ref))
            (declare (ignore old))
-           (cas var trans (ref:val new-ref))) ;; bypass COW cloning
+           (ref:basic-cas var trans (ref:basic-val new-ref))) ;; bypass COW cloning
          (patchup-failure (var (old . new-ref))
            (declare (ignore new-ref))
-           (cas var trans old))
+           (ref:basic-cas var trans old))
          (verify-read ((var . val))
            (unless (obj-verify trans var val)
              (transition :read-phase :failed)))
@@ -215,7 +215,7 @@ THE SOFTWARE.
          (acquire (var (old . new-ref))
            (declare (ignore new-ref))
            (um:nlet-tail iter ()
-             (unless (cas var old trans)
+             (unless (ref:basic-cas cas var old trans)
                (let ((val (var-val var))) ;; NOTE: low-level direct access to VAL slot
                  (cond ((eq val trans))
                        ;; we were here before... must be helping from another thread

@@ -930,9 +930,9 @@ THE SOFTWARE.
    #:rd
    #:wr
    #:rmw
-   #:atomic-exch
-   #:val
-   #:cas
+   #:basic-atomic-exch
+   #:basic-val
+   #:basic-cas
    
    #:<lockable-mixin>
    #:<abstract-kv>

@@ -108,30 +108,51 @@ THE SOFTWARE.
 ;; ====================================================================
 ;; REF - a mostly read-only indirect reference cell.
 
-(defstruct ref
-  val)
+(um:eval-always
+  (defstruct ref
+    val))
 
-(defgeneric ref (obj)
-  (:method (obj)
-   (make-ref
-    :val obj)))
+(defun ref (obj)
+  (make-ref
+   :val obj))
 
-(defmethod val ((obj ref))
+(defmethod basic-val ((obj ref))
   (ref-val obj))
 
-(defmethod wval ((obj ref))
+(defmethod basic-set-val ((r ref) val)
+  (setf (ref-val r) val))
+
+(defmethod basic-cas ((r ref) old new)
+  (sys:compare-and-swap (ref-val r) old new))
+
+(defmethod basic-atomic-exch ((r ref) new)
+  (sys:atomic-exchange (ref-val r) new))
+
+;; ---------------------------------------------------
+
+(defmethod val ((obj ref))
+  (rd obj))
+
+(defmethod wval (obj)
   ;; Used in prep for destructive ops.
   ;; For REF it is same as VAL
   ;; but see COW version...
-  (ref-val obj))
-
-(defmethod wval (obj)
   (val obj))
 
 (defmethod set-val ((r ref) val)
-  ;; store is atomic, but perhaps buffered and delayed
+  ;; A simple store is atomic, but perhaps buffered and delayed.
+  ;; SET-VAL assures synchronous mutation when it occurs. (It might
+  ;; happen that another thread performs the mutation for us.)
+  ;;
+  ;; NOTE: unlike SETF, SET-VAL does *NOT* return the stored value
   (wr r val))
 
+;; !!! In a departure from conventions (SETF (VAL place) newVal) and
+;; (SETF (WVAL place) newVal) do *NOT* return newVal.
+;;
+;; It could be wrong to assume that newVal corresponds to the value
+;; currently stored in place.
+;;
 (defsetf val  set-val)
 (defsetf wval set-val)
 
@@ -139,10 +160,10 @@ THE SOFTWARE.
   (ref (rd r)))
 
 (defmethod cas ((r ref) old new)
-  (sys:compare-and-swap (ref-val r) old new))
+  (basic-cas r old new))
 
 (defmethod atomic-exch ((r ref) new)
-  (sys:atomic-exchange (ref-val r) new))
+  (basic-atomic-exch r new))
 
 (defmethod atomic-incf ((r ref))
   (sys:atomic-fixnum-incf (ref-val r)))
@@ -204,8 +225,7 @@ THE SOFTWARE.
     ))
 
 (defmethod set-val :around ((c cow) val)
-  (call-next-method c (cons val t))
-  val)
+  (call-next-method c (cons val t)))
 
 (defmethod cas :around ((obj cow) old new)
   (call-next-method obj old (cons new t)))

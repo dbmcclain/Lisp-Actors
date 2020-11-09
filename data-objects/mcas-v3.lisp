@@ -41,7 +41,7 @@ THE SOFTWARE.
 (defvar *mcas-index*  0)
 
 (defstruct (mcas-ref
-            (:include ref)
+            (:include ref:ref)
             (:constructor mcas-ref (ref:val)))
   (id (incf *mcas-index*) :read-only t))
 
@@ -90,7 +90,7 @@ THE SOFTWARE.
     ;; If not, then it is because another thread has already been
     ;; through here nudging our CCAS-DESC and succeeded.
     ;;
-    (cas ref desc val)))
+    (ref:basic-cas ref desc val)))
 
 (defun ccas (ref old new pred)
   ;; CCAS -- conditional CAS, perform CAS only if PRED returns true.
@@ -101,7 +101,7 @@ THE SOFTWARE.
                 :pred  pred)))
     (declare (ccas-desc desc))
     (um:nlet-tail iter ()
-     (if (cas ref old desc)
+     (if (ref:basic-cas ref old desc)
          ;; at this point, we know the ref contains our desc, even if
          ;; we get interrupted and another thread performs it for us.
          (progn
@@ -133,7 +133,7 @@ THE SOFTWARE.
        ;;
        
        ;; else
-       (let ((v (ref:val ref)))
+       (let ((v (ref:basic-val ref)))
          (when (ccas-desc-p v)
            (ccas-help ref v)
            (iter)))
@@ -143,7 +143,7 @@ THE SOFTWARE.
   ;; Return either an mcas-desc or an old value.
   ;; This nudges along any ccas-desc that may be claiming the ref.
   (um:nlet-tail iter ()
-    (let ((v (ref:val ref)))
+    (let ((v (ref:basic-val ref)))
       (cond ((ccas-desc-p v)
              (ccas-help ref v)
              (iter))
@@ -161,7 +161,7 @@ THE SOFTWARE.
 
 (defstruct mcas-desc
   triples
-  (status   (ref :undecided)))
+  (status   (ref:ref :undecided)))
 
 (defun mcas-help (desc)
   (declare (mcas-desc desc))
@@ -171,21 +171,21 @@ THE SOFTWARE.
     (labels
         ((undecided-p ()
            ;; can't be declared dynamic-extent
-           (eq :undecided (ref:val status)))
+           (eq :undecided (ref:basic-val status)))
          
          (successful-p ()
-           (eq :successful (ref:val status)))
+           (eq :successful (ref:basic-val status)))
 
          (patch-fail (ref old new)
            (declare (ignore new))
-           (cas ref desc old))
+           (ref:basic-cas ref desc old))
 
          (patch-succeed (ref old new)
            (declare (ignore old))
-           (cas ref desc new))
+           (ref:basic-cas ref desc new))
          
          (decide (desired-state)
-           (cas status :undecided desired-state)
+           (ref:basic-cas status :undecided desired-state)
            (let* ((success (successful-p))
                   (patchfn (if success #'patch-succeed #'patch-fail)))
              (dolist (triple triples)
@@ -195,8 +195,10 @@ THE SOFTWARE.
          (acquire (ref old new)
            (declare (ignore new))
            (um:nlet-tail iter ()
+             ;; we might be on a repeat visit here, so ignore the
+             ;; outcome of CCAS and check explicitly.
              (ccas ref old desc #'undecided-p)
-             (let ((v (ref:val ref)))
+             (let ((v (ref:basic-val ref)))
                (cond
                 ((eq v desc))  ;; we got it
                 

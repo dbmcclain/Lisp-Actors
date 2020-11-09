@@ -68,9 +68,9 @@ THE SOFTWARE.
 (defpackage #:ref ;; for V3
   (:use #:common-lisp)
   (:import-from :um
-   #:atomic-exch
-   #:val
-   #:cas
+   #:basic-atomic-exch
+   #:basic-val
+   #:basic-cas
    #:rmw
    #:rd
    #:wr)
@@ -79,6 +79,10 @@ THE SOFTWARE.
    #:val
    #:wval
    #:ref-p
+   #:basic-val
+   #:basic-set-val
+   #:basic-cas
+   #:basic-atomic-exch
    #:cas
    #:atomic-exch
    #:atomic-incf
@@ -125,18 +129,10 @@ THE SOFTWARE.
 
 (defpackage #:mcas ;; for V3
   (:use #:common-lisp)
-  (:import-from #:ref
-   #:ref
-   #:val
-   #:wval
-   #:cas)
   (:export
    #:mcas-ref
    #:mcas-ref-p
-   #:cas
    #:mcas
-   #:val
-   #:wval
    #:mcas-read
    ))
 
@@ -260,12 +256,6 @@ THE SOFTWARE.
   (:import-from :orderable
    #:<orderable-mixin>
    #:order-id)
-  (:import-from #:ref
-   #:ref
-   #:val
-   #:wval
-   #:cas
-   #:cow)
   (:export
    #:var
    #:atomic

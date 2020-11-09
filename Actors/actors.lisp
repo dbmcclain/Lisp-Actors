@@ -204,8 +204,8 @@ THE SOFTWARE.
 ;; These methods can be called from any thread. SMP safe.
 
 (defmethod initialize-instance :after ((actor actor) &key properties &allow-other-keys)
-  (setf (ref:val (slot-value actor 'properties-ref))
-        (maps:add-plist (maps:empty) properties)))
+  (um:wr (slot-value actor 'properties-ref)
+         (maps:add-plist (maps:empty) properties)))
 
 (defun make-actor (fn &key
                       properties)

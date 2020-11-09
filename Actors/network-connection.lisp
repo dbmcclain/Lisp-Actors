@@ -64,12 +64,6 @@
             cps:=flet
             cps:=cont
             cps:=apply
-
-            ref:ref
-            ref:cas
-            ref:atomic-incf
-            ref:atomic-decf
-            ref:atomic-exch
             )))
 
 ;; -----------------------------------------------------------------------
@@ -270,7 +264,7 @@
       
       (perform-in-actor writer
         (cond
-         ((cas io-running 1 2) ;; still running recieve?
+         ((ref:basic-cas io-running 1 2) ;; still running recieve?
           (write-next-buffer io-state)
           (recv ()
             (actor-internal-message:wr-done ())
@@ -380,7 +374,7 @@
    (srp-ph3-begin :reader intf-srp-ph3-begin)
    writer
    kill-timer
-   (io-running :initform (ref 1))))
+   (io-running :initform (ref:ref 1))))
 
 (defmethod do-expect ((intf socket-interface) handler)
   (perform-in-actor intf
@@ -405,7 +399,7 @@
   (with-slots (kill-timer io-running io-state title) intf
     (inject-into-actor intf ;; as a continuation, preempting RECV filtering
       (discard kill-timer)
-      (atomic-exch io-running 0)
+      (ref:basic-atomic-exch io-running 0)
       (comm:async-io-state-abort-and-close io-state)
       (bridge-unregister intf)
       (log-info :SYSTEM-LOG "Socket ~A shutting down: ~A" title intf)
@@ -493,7 +487,7 @@
                  ))
                
              (decr-io-count (io-state)
-               (when (zerop (atomic-decf io-running)) ;; >0 is running
+               (when (zerop (ref:atomic-decf io-running)) ;; >0 is running
                  (comm:close-async-io-state io-state)
                  (shutdown intf))))
           

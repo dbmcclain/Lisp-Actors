@@ -130,7 +130,7 @@
 
   (labels
       ((resume-periodic-checking ()
-         (ref:wr watchdog-checking nil))
+         (ref:basic-atomic-exch watchdog-checking nil))
          
        (check-sufficient-execs ()
          (critical-section
@@ -203,8 +203,8 @@
         (unless heartbeat-timer
           (setf heartbeat-timer
                 (make-timer (lambda ()
-                              (when (and (zerop (ref:rd watchdog-inhibit))
-                                         (ref:CAS watchdog-checking nil t))
+                              (when (and (zerop (ref:basic-val watchdog-inhibit))
+                                         (ref:basic-cas watchdog-checking nil t))
                                 (mp:funcall-async #'check-sufficient-execs)))
                             ))
           (schedule-timer-relative
