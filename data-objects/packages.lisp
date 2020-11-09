@@ -67,6 +67,11 @@ THE SOFTWARE.
 
 (defpackage #:ref ;; for V3
   (:use #:common-lisp)
+  (:import-from :um
+   #:atomic-exch
+   #:rmw
+   #:rd
+   #:wr)
   (:export
    #:ref
    #:val
@@ -76,6 +81,9 @@ THE SOFTWARE.
    #:atomic-exch
    #:atomic-incf
    #:atomic-decf
+   #:rd
+   #:wr
+   #:rmw
    #:cow
    #:cow-p
    #:clone

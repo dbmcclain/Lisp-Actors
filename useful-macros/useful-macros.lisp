@@ -3158,47 +3158,40 @@ or list acceptable to the reader macros #+ and #-."
 ;; thread if a helper thread were to take it forward. So keep RMW
 ;; fast.
 
-(defvar *clog* #(:clog)) ;; as in, clogging up something...
-
 #+:LISPWORKS
-(defgeneric exch-fn (obj val)
+(defgeneric atomic-exch (obj val)
+  ;; exch-fn serves as an atomic sync point
+  ;; all loads and stores are forced at this point
   (:method ((obj symbol) val)
    (sys:atomic-exchange (symbol-value obj) val))
   (:method ((obj cons) val)
    (sys:atomic-exchange (car obj) val)))
 
-#+:LISPWORKS
-(defgeneric cas-fn (obj old new)
-  (:method ((obj symbol) old new)
-   (sys:compare-and-swap (symbol-value obj) old new))
-  (:method ((obj cons) old new)
-   (sys:compare-and-swap (car obj) old new)))
-
 (defun partial-read (obj)
   (um:nlet-tail get-val ()
-    (let ((val (exch-fn obj *clog*)))
-      (if (eq val *clog*)
+    (let ((val (atomic-exch obj 'clogged)))
+      (if (eq val 'clogged)
           (get-val)
         val)
       )))
 
 (defun rd (obj)
+  ;; just like old core memory...
   (let ((val (partial-read obj)))
-    (cas-fn obj *clog* val)
+    (atomic-exch obj val)
     val))
 
 (defun wr (obj new)
   (partial-read obj)
-  (cas-fn obj *clog* new)
+  (atomic-exch obj new)
   new)
   
 (defmethod rmw (obj val-fn)
   (let ((val (partial-read obj)))
     (unwind-protect
         (setf val (funcall val-fn val))
-      (cas-fn obj *clog* val))
+      (atomic-exch obj val))
     ))
-
 
 ;; ----------------------------------------------
 

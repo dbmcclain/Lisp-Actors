@@ -121,7 +121,7 @@ THE SOFTWARE.
   (:method (obj)
    obj)
   (:method ((obj ref))
-   (um:rd obj)))
+   (rd obj)))
 
 (defgeneric wval (obj)
   ;; used in prep for destructive ops
@@ -130,17 +130,17 @@ THE SOFTWARE.
   (:method (obj)
    obj)
   (:method ((obj ref))
-   (um:rd obj)))
+   (rd obj)))
 
 (defmethod set-val ((r ref) val)
   ;; store is atomic, but perhaps buffered and delayed
-  (um:wr r val))
+  (wr r val))
 
 (defsetf val  set-val)
 (defsetf wval set-val)
 
 (defmethod clone ((r ref))
-  (ref (um:rd r)))
+  (ref (rd r)))
 
 (defmethod cas ((r ref) old new)
   (sys:compare-and-swap (ref-val r) old new))
@@ -153,23 +153,6 @@ THE SOFTWARE.
 
 (defmethod atomic-decf ((r ref))
   (sys:atomic-fixnum-decf (ref-val r)))
-
-#|
-(defmethod um:rmw ((r ref) fn)
-  (um:nlet-tail iter ()
-    (let* ((old  (ref-val r))
-           (new  (funcall fn old)))
-      (if (cas r old new)
-          new
-        (iter))
-      )))
-|#
-
-(defmethod um:exch-fn ((r ref) val)
-  (sys:atomic-exchange (ref-val r) val))
-
-(defmethod um:cas-fn ((r ref) old new)
-  (sys:compare-and-swap (ref-val r) old new))
 
 ;; ---------------------------------------------------------------
 ;; COW - Copy on Write
@@ -207,19 +190,23 @@ THE SOFTWARE.
    :val (list obj)))
 
 (defmethod val ((obj cow))
-  (car (um:rd obj)))
+  (car (rd obj)))
+
+(defmethod clone ((obj cow))
+  (cow (val obj)))
 
 (defmethod wval ((obj cow))
   ;; Using preemptive cloning on direct DEREF. Once deref'd we lose
   ;; any control over possible mutation in client code, so we opt for
   ;; conservative safety. We rely on this behavior below...
-  (let ((cell (um:rd obj)))
+  (let ((cell (rd obj)))
     (if (cdr cell)
         (car cell)
-      (um:rmw obj #'identity))))
+      (rmw obj #'identity))))
 
-(defmethod set-val ((c cow) val)
-  (call-next-method c (cons val t)))
+(defmethod set-val :around ((c cow) val)
+  (call-next-method c (cons val t))
+  val)
 
 (defmethod cas :around ((obj cow) old new)
   (call-next-method obj old (cons new t)))
@@ -229,30 +216,21 @@ THE SOFTWARE.
       (car cell)
     (clone (car cell))))
 
-(defmethod atomic-exch ((obj cow) val)
-  (maybe-clone (sys:atomic-exchange (ref-val obj) (cons val t))))
+(defmethod atomic-exch :around ((obj cow) val)
+  (maybe-clone (call-next-method obj (cons val t))))
 
 (defmethod atomic-incf ((obj cow))
-  (um:rmw obj #'1+))
+  (rmw obj #'1+))
 
 (defmethod atomic-decf ((obj cow))
-  (um:rmw obj #'1-))
+  (rmw obj #'1-))
 
-#|
-(defmethod um:rmw ((obj cow) fn)
-  (um:nlet-tail iter ()
-    (let* ((old-cell (ref-val obj))
-           (new-val  (funcall fn (maybe-clone old-cell))))
-      (if (cas obj old-cell new-val)
-          new-val
-        (iter))
-      )))
-|#
-
-(defmethod um:rmw ((obj cow) fn)
-  (call-next-method obj (lambda (old-cell)
-                          (cons (funcall fn (maybe-clone old-cell))
-                                t))))
+(defmethod rmw :around ((obj cow) fn)
+  (car
+   (call-next-method obj (lambda (old-cell)
+                           (cons (funcall fn (maybe-clone old-cell))
+                                 t))
+                     )))
              
 ;; ------------------------------------------------
 ;; Interesting... the use of COW becones ambiguous with LIST objects.
