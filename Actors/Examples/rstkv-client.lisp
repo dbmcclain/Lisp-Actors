@@ -377,13 +377,13 @@ storage and network transmission.
 |#
 ;; -----------------------------------------------------
 
-(defmethod make-readable-entry ((entry vector))
-  (recover-key entry))
-   
-(defmethod make-readable-entry ((entry maps:map-cell))
-  (maps:make-map-cell
-   :key (recover-key (maps:map-cell-key entry))
-   :val (maps:map-cell-val entry)))
+(defgeneric make-readable-entry (entry)
+  (:method ((entry vector))
+   (recover-key entry))
+  (:method ((entry maps:map-cell))
+   (maps:make-map-cell
+    :key (recover-key (maps:map-cell-key entry))
+    :val (maps:map-cell-val entry))))
 
 (defun view-set (set)
   (sets:view-set set

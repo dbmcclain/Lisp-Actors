@@ -112,7 +112,8 @@ THE SOFTWARE.
   (defstruct ref
     val))
 
-(defun ref (obj)
+(defmethod ref (obj)
+  ;; we need this to be a defmethod for FSTM
   (make-ref
    :val obj))
 

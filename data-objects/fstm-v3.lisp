@@ -215,7 +215,7 @@ THE SOFTWARE.
          (acquire (var (old . new-ref))
            (declare (ignore new-ref))
            (um:nlet-tail iter ()
-             (unless (ref:basic-cas cas var old trans)
+             (unless (ref:basic-cas var old trans)
                (let ((val (var-val var))) ;; NOTE: low-level direct access to VAL slot
                  (cond ((eq val trans))
                        ;; we were here before... must be helping from another thread
@@ -298,7 +298,7 @@ THE SOFTWARE.
                          (cdr pair))
                      ;; else
                      (obj-read var)))
-             (new-ref (cow val))) ;; be sure to use DEREF to access value
+             (new-ref (ref:cow val))) ;; be sure to use DEREF to access value
         (maps:addf (transaction-rw-map *current-transaction*)
                    var (cons val new-ref))
         new-ref)))
