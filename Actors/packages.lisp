@@ -77,7 +77,7 @@ THE SOFTWARE.
    #:register-actor
    #:unregister-actor
    #:get-actors
-   #:get-server-actors
+   #:get-actor-names
    #:find-actor
    #:find-names-for-actor
    ))
@@ -319,7 +319,7 @@ THE SOFTWARE.
    #:unregister-actor
    #:find-actor
    #:get-actors
-   #:get-server-actors
+   #:get-actor-names
    #:find-names-for-actor
    
    #:terminate-actor

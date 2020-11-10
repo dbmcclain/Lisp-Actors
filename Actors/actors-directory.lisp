@@ -8,7 +8,7 @@
 
 (in-package :actors.directory)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
+(um:eval-always
   (import '(
             actors.base:actor
 
@@ -17,21 +17,18 @@
 
 ;; ------------------------------------------------------------
 
-(defmethod acceptable-key (name)
-  nil)
-
-(defmethod acceptable-key ((name (eql nil)))
-  nil)
-
-(defmethod acceptable-key ((name symbol))
-  (and (symbol-package name) ;; why would we care about this?
-       (acceptable-key (string name))))
-
-(defmethod acceptable-key ((name string))
-  (string-upcase name))
-
-(defmethod acceptable-key ((index integer))
-  index)
+(defgeneric acceptable-key (name)
+  (:method (name)
+   nil)
+  (:method ((name (eql nil)))
+   nil)
+  (:method ((name symbol))
+   (and (symbol-package name) ;; why would we care about this?
+        (acceptable-key (string name))))
+  (:method ((name string))
+   (string-upcase name))
+  (:method ((index integer))
+   index))
 
         ;;; =========== ;;;
 
@@ -40,55 +37,59 @@
 (defun clear-directory ()
   (um:wr 'actors-directory (maps:empty)))
 
-(defun %remove-key (key)
-  (um:rmw 'actors-directory (um:rcurry 'maps:remove key)))
+(defun current-directory ()
+  (um:rd 'actors-directory))
+
+(defun directory-foreach (fn)
+  (maps:iter (current-directory) fn))
+
+(defun update-directory (mut-fn)
+  (um:rmw 'actors-directory mut-fn))
 
 (defun register-actor (name actor)
   ;; this simply overwrites any existing entry with actor
   (when-let (key (acceptable-key name))
-    (um:rmw 'actors-directory (um:rcurry 'maps:add key actor))
+    (update-directory (um:rcurry 'maps:add key actor))
     actor))
 
-(defmethod unregister-actor ((actor actor))
-  (maps:iter (um:rd 'actors-directory)
-             (lambda (k v)
-               (when (eq v actor)
-                 (%remove-key k)))
-             ))
+(defun %remove-key (key)
+  (update-directory (um:rcurry 'maps:remove key)))
 
-(defmethod unregister-actor (name)
-  (when-let (key (acceptable-key name))
-    (%remove-key key)))
+(defgeneric unregister-actor (actor)
+  (:method (name)
+   (when-let (key (acceptable-key name))
+     (%remove-key key)))
+  (:method ((actor actor))
+   (directory-foreach
+    (lambda (k v)
+      (when (eq v actor)
+        (%remove-key k)))
+    )))
 
 (defun get-actors ()
   (um:accum acc
-    (maps:iter (um:rd 'actors-directory)
-               (lambda (k v)
-                 (acc (cons k v))))
+    (directory-foreach
+     (lambda (k v)
+       (acc (cons k v))))
     ))
 
-(defun get-server-actors ()
+(defun get-actor-names ()
+  (mapcar #'car (get-actors)))
+
+(defgeneric find-actor (actor)
+  (:method ((actor actor))
+   actor)
+  (:method (name)
+   (when-let (key (acceptable-key name))
+     (maps:find (current-directory) key))))
+
+(defun find-names-for-actor (actor)
   (um:accum acc
-    (maps:iter (um:rd 'actors-directory)
-               (lambda (k v)
-                 (declare (ignore v))
-                 (acc k)))
-    ))
-
-(defmethod find-actor ((actor actor))
-  actor)
-
-(defmethod find-actor (name)
-  (when-let (key (acceptable-key name))
-    (maps:find (um:rd 'actors-directory) key)))
-
-(defmethod find-names-for-actor ((actor actor))
-  (let (keys)
-    (maps:iter (um:rd 'actors-directory)
-               (lambda (k v)
-                 (when (eq v actor)
-                   (push k keys))))
-    (nreverse keys)))
+    (directory-foreach
+     (lambda (k v)
+       (when (eq v actor)
+         (acc k)))
+     )))
 
 ;; ------------------------------------------
 
