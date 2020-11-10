@@ -134,6 +134,8 @@ THE SOFTWARE.
    #:mcas-ref-p
    #:mcas
    #:mcas-read
+   #:val
+   #:cas
    ))
 
 (defpackage :multilock

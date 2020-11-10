@@ -107,20 +107,17 @@
         (setf (rmw-desc-old desc) old)
         ;; <-- ABA could happen here
         (if (basic-cas obj old desc)
-            ;; At this point we know that some thread will accomplish
-            ;; our task if we get interrupted. And we know that no
-            ;; further ABA hazard can happen to captured old val.
-            (rmw-help obj desc)
+            (progn
+              ;; At this point we know that some thread will
+              ;; accomplish our task if we get interrupted. And we
+              ;; know that no further ABA hazard can happen to
+              ;; captured old val.
+              (rmw-help obj desc)
+              (values))
           ;; else - try again
           (iter))
         ))
     ))
-
-(defmethod wr (obj new)
-  ;; NOTE: WR does *NOT* return new val. It could be wrong to assume
-  ;; that new val corresponds to what is currently stored in obj.
-  ;; Remember we are in a dynamic SMP environment.
-  (rmw obj (constantly new)))
 
 ;; -----------------------------------------------------
 
@@ -135,6 +132,17 @@
    (sys:atomic-exchange (car obj) val))
   (:method ((obj simple-vector) val)
    (sys:atomic-exchange (svref obj 0) val)))
+
+(defmethod wr (obj new)
+  ;; NOTE: WR does *NOT* return new val. It could be wrong to assume
+  ;; that new val corresponds to what is currently stored in obj.
+  ;; Remember we are in a dynamic SMP environment.
+  ;;
+  ;; Since RMW uses an idempotent mutator function, that function
+  ;; should be side-effect free. Hence, you won't mind if we never
+  ;; happen to call it... (this might overwrite an open descriptor)
+  (basic-atomic-exch obj new)
+  (values))
 
 ;; ----------------------------------------------
 

@@ -248,6 +248,7 @@ THE SOFTWARE.
    #:=async/err
 
    #:prt
+   #:pr
    ))
 
 (defpackage #:actors
@@ -367,6 +368,7 @@ THE SOFTWARE.
    #:=async/err
 
    #:prt
+   #:pr
    ))
 
 (loop for sym being the external-symbols of (find-package :cps) do

@@ -246,6 +246,12 @@ THE SOFTWARE.
             (t  v)
             ))))
 
+(defmethod ref:val ((m mcas-ref))
+  (mcas-read m))
+
+(defmethod ref:cas ((m mcas-ref) old new)
+  (mcas m old new))
+
 ;; -------------------------------------------------------------------------------------
 
 #|

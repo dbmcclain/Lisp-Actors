@@ -61,3 +61,10 @@
 (defmacro prt (&body body)
   `(perform-in-actor *printer*
      ,@body))
+
+(defun pr (&rest args)
+  (prt
+   (if (cdr args)
+       (print args)
+     (print (car args)))
+   ))
