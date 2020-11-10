@@ -35,7 +35,7 @@
 ;;
 ;; We need two primitives for every class of object:
 ;;  (BASIC-VAL obj) - returns the value contained in obj at this moment.
-;;  (BASIC-CAS obj old new) - this primitve accomplishes a CAS on obj, returning T/F.
+;;  (BASIC-CAS obj old new) - accomplishes a CAS on obj, returning T/F.
 ;;
 ;; We can't really know what value is held in obj for any length of
 ;; time after our mutation of it.  Another thread could come along and
@@ -87,6 +87,7 @@
   (um:nlet-tail iter ()
     (let ((v (basic-val obj)))
       (cond ((rmw-desc-p v)
+             ;; RMW in progress, nudge it along
              (rmw-help obj v)
              (iter))
             
@@ -101,11 +102,13 @@
                :new-fn new-fn)))
     (um:nlet-tail iter ()
       (let ((old (rd obj)))
+        ;; <-- ABA could happen here
         (setf (rmw-desc-old desc) old)
+        ;; <-- ABA could happen here
         (if (basic-cas obj old desc)
             ;; At this point we know that some thread will accomplish
-            ;; our task if we get interrupted. And we know that no ABA
-            ;; hazard can happen to captured old val.
+            ;; our task if we get interrupted. And we know that no
+            ;; further ABA hazard can happen to captured old val.
             (rmw-help obj desc)
           ;; else - try again
           (iter))
