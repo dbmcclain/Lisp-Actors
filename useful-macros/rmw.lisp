@@ -54,8 +54,9 @@
 
 #+:LISPWORKS
 (defgeneric basic-cas (obj old new)
-  ;; BASIC-CAS serves as an atomic sync point. All loads and stores
-  ;; are forced at this point
+  ;; BASIC-CAS serves as an atomic sync point. All pending loads and
+  ;; stores are forced at this point. And matching cache lines are
+  ;; invalidated on other cores.
   (:method ((obj symbol) old new)
    (sys:compare-and-swap (symbol-value obj) old new))
   (:method ((obj cons) old new)
@@ -125,8 +126,9 @@
 
 #+:LISPWORKS
 (defgeneric basic-atomic-exch (obj val)
-  ;; BASIC-ATOMIC-EXCH serves as an atomic sync point. All loads and
-  ;; stores are forced at this point
+  ;; BASIC-ATOMIC-EXCH serves as an atomic sync point. All pending
+  ;; loads and stores are forced at this point. And matching cache
+  ;; lines are invalidated on other cores.
   (:method ((obj symbol) val)
    (sys:atomic-exchange (symbol-value obj) val))
   (:method ((obj cons) val)
