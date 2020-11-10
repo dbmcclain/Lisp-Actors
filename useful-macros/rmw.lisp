@@ -6,29 +6,39 @@
 ;; -----------------------------------------------------------
 (in-package :um)
 ;; ----------------------------------------------------------
-;; To overcome the CAS ABA-Problem...
+;; To overcome the RMW ABA-Problem...
+;;
+;; We need to guard against ABA hazards during RMW. So we perform RMW
+;; with a 2-phase protocol: First acquire its value, while marking
+;; place as in-progress for update. The marking is done with a
+;; descriptor that enables any thread to help toward completion if we
+;; get interrupted. Then carry out the computation of the new value
+;; and perform the update if it hasn't already been done by anther
+;; thread on our behalf. This requires two CAS operations.
 ;;
 ;; We can no longer simply read nor write the value in a shared
 ;; location.  It might be in a state that is being updated by another
 ;; thread. If so we nudge it along to final resolution before
 ;; acquiring/setting its value.
 ;;
-;; We also need to guard against ABA hazards during RMW. So we perform
-;; RMW with a 2-phase protocol. First acquire the value, then mark its
-;; place as in-progress in such a way that other threads could help us
-;; complete if we get interrupted.
+;; As long as all modofiations to place are performed with WR or RMW
+;; then we can be assured that there will be no ABA hazards. Reading
+;; of place should be performed with RD, which helps push along any
+;; update in progress before returning its stable value.
 ;;
 ;; ----------------------------------------------------------------
 ;; Assured lock-free, ABA hazard immune, mutation
 ;;
-;;  We need two primitives for every class of object:
-;;  (VAL obj) - returns the value contained in obj at this moment.
-;;  (CAS obj old new) - this primitve accomplishes a CAS on obj, returning T/F.
+;; We need two primitives for every class of object:
+;;  (BASIC-VAL obj) - returns the value contained in obj at this moment.
+;;  (BASIC-CAS obj old new) - this primitve accomplishes a CAS on obj, returning T/F.
 ;;
-;; But after mutation, we can't really know what value is held in obj.
-;; Another thread could come along and mutate right after we did.  So
-;; we break precedent with SETF and don't bother returning what we
-;; just set it to.
+;; We can't really know what value is held in obj for any length of
+;; time after our mutation of it.  Another thread could come along and
+;; mutate right after we did.  So we break precedent with SETF and
+;; don't bother returning what we just set it to. When you need to
+;; know what value is held in obj, perform a RD on it to get the value
+;; it had at the time of the RD call.
 
 (defgeneric basic-val (obj)
   (:method ((obj symbol))
@@ -40,6 +50,8 @@
 
 #+:LISPWORKS
 (defgeneric basic-cas (obj old new)
+  ;; BASIC-CAS serves as an atomic sync point. All loads and stores
+  ;; are forced at this point
   (:method ((obj symbol) old new)
    (sys:compare-and-swap (symbol-value obj) old new))
   (:method ((obj cons) old new)
@@ -106,8 +118,8 @@
 
 #+:LISPWORKS
 (defgeneric basic-atomic-exch (obj val)
-  ;; exch-fn serves as an atomic sync point
-  ;; all loads and stores are forced at this point
+  ;; BASIC-ATOMIC-EXCH serves as an atomic sync point. All loads and
+  ;; stores are forced at this point
   (:method ((obj symbol) val)
    (sys:atomic-exchange (symbol-value obj) val))
   (:method ((obj cons) val)
