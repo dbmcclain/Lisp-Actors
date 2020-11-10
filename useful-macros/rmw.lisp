@@ -13,18 +13,22 @@
 ;; place as in-progress for update. The marking is done with a
 ;; descriptor that enables any thread to help toward completion if we
 ;; get interrupted. Then carry out the computation of the new value
-;; and perform the update if it hasn't already been done by anther
-;; thread on our behalf. This requires two CAS operations.
+;; and perform the update, if it hasn't already been done by anther
+;; thread on our behalf. This protocol requires two CAS operations.
 ;;
 ;; We can no longer simply read nor write the value in a shared
 ;; location.  It might be in a state that is being updated by another
-;; thread. If so we nudge it along to final resolution before
+;; thread. If so, we nudge it along to final resolution before
 ;; acquiring/setting its value.
 ;;
 ;; As long as all modofiations to place are performed with WR or RMW
 ;; then we can be assured that there will be no ABA hazards. Reading
 ;; of place should be performed with RD, which helps push along any
 ;; update in progress before returning its stable value.
+;;
+;; Mutations performed with WR and RMW force all pending reads/writes
+;; to be completed, and ensures cache coherency with other cores by
+;; invalidating their cache lines for mutated place.
 ;;
 ;; ----------------------------------------------------------------
 ;; Assured lock-free, ABA hazard immune, mutation
