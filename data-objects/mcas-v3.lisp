@@ -163,12 +163,12 @@ THE SOFTWARE.
   triples
   (status   (ref:ref :undecided)))
 
-(defun mcas-help (desc)
+(defun #1=mcas-help (desc)
   (declare (mcas-desc desc))
   (let ((triples  (mcas-desc-triples desc))
         (status   (mcas-desc-status desc)))
 
-    (labels
+    (um:labels*
         ((undecided-p ()
            ;; can't be declared dynamic-extent
            (eq :undecided (ref:basic-val status)))
@@ -176,11 +176,11 @@ THE SOFTWARE.
          (successful-p ()
            (eq :successful (ref:basic-val status)))
 
-         (patch-fail (ref old new)
+         (patch-fail ((ref old new))
            (declare (ignore new))
            (ref:basic-cas ref desc old))
 
-         (patch-succeed (ref old new)
+         (patch-succeed ((ref old new))
            (declare (ignore old))
            (ref:basic-cas ref desc new))
          
@@ -188,46 +188,43 @@ THE SOFTWARE.
            (ref:basic-cas status :undecided desired-state)
            (let* ((success (successful-p))
                   (patchfn (if success #'patch-succeed #'patch-fail)))
-             (dolist (triple triples)
-               (apply patchfn triple))
-             (return-from mcas-help success)))
+             (map nil patchfn triples)
+             (return-from #1# success)))
          
-         (acquire (ref old new)
+         (acquire ((ref old new))
            (declare (ignore new))
            (um:nlet-tail iter ()
              ;; we might be on a repeat visit here, so ignore the
              ;; outcome of CCAS and check explicitly.
-             (ccas ref old desc #'undecided-p)
-             (let ((v (ref:basic-val ref)))
-               (cond
-                ((eq v desc))  ;; we got it
-                
-                ((and (eq v old)
-                      (undecided-p))
-                 (iter))
-              
-                ((mcas-desc-p v)
-                 ;; someone else is trying, help them out, then
-                 ;; try again
-                 (mcas-help v)
-                 (iter))
-                
-                (t ;; not a descriptor, and not eq old with
-                   ;; :undecided, so we must have missed our
-                   ;; chance, or else we already resolved to
-                   ;; :failed or :successful, and this will
-                   ;; have no effect.
-                   (decide :failed))
-                )))))
+             (unless (ccas ref old desc #'undecided-p)
+               (let ((v (ref:basic-val ref)))
+                 (cond
+                  ((eq v desc))  ;; we were here before, we got it
+                  
+                  ((and (eq v old)
+                        (undecided-p))
+                   (iter))
+                  
+                  ((mcas-desc-p v)
+                   ;; someone else is trying, help them out, then
+                   ;; try again
+                   (mcas-help v)
+                   (iter))
+                  
+                  (t ;; not a descriptor, and not eq old with
+                     ;; :undecided, so we must have missed our chance,
+                     ;; or else we already resolved to :failed or
+                     ;; :successful, and this decide will have no
+                     ;; effect.
+                     (decide :failed))
+                  ))))))
       (declare (dynamic-extent #'successful-p
                                #'patch-fail  #'patch-succeed
                                #'decide      #'acquire))
-      (mp:with-interrupts-blocked
-        (when (undecided-p)
-          (dolist (triple triples)
-            (apply #'acquire triple)))
-        (decide :successful)
-        ))))
+      (when (undecided-p)
+        (map nil #'acquire triples))
+      (decide :successful)
+      )))
 
 (defun mcas (&rest triples)
   ;; triples - a sequence of (ref old new) as would be suitable for
@@ -240,15 +237,14 @@ THE SOFTWARE.
                              ))))
 
 (defun mcas-read (ref)
-  (mp:with-interrupts-blocked
-    (um:nlet-tail iter ()
-      (let ((v (ccas-read ref)))
-        (cond ((mcas-desc-p v)
-               (mcas-help v)
-               (iter))
+  (um:nlet-tail iter ()
+    (let ((v (ccas-read ref)))
+      (cond ((mcas-desc-p v)
+             (mcas-help v)
+             (iter))
             
-              (t  v)
-              )))))
+            (t  v)
+            ))))
 
 ;; -------------------------------------------------------------------------------------
 

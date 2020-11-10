@@ -220,7 +220,8 @@ THE SOFTWARE.
                  (cond ((eq val trans))
                        ;; we were here before... must be helping from another thread
 
-                       ((eq val old)
+                       ((and (eq val old)
+                             (in-state? :undecided))
                         ;; someone else owned it, then gave it back
                         (iter))
                        
@@ -237,18 +238,17 @@ THE SOFTWARE.
                                #'acquire #'verify-read #'release
                                #'patchup-success #'patchup-failure))
 
-      (mp:with-interrupts-blocked
-        (when (in-state? :undecided)
-          (maps:iter rw-map #'acquire)
-          (transition :undecided :read-phase))
-        (when (in-state? :read-phase)
-          ;; NOTE: this read checking only ensures that the value now
-          ;; seen is the same as originally seen, for each individual
-          ;; read-only operation.
-          (map nil #'verify-read
-               (transaction-ro-list trans))
-          (transition :read-phase :successful))
-        (release))
+      (when (in-state? :undecided)
+        (maps:iter rw-map #'acquire)
+        (transition :undecided :read-phase))
+      (when (in-state? :read-phase)
+        ;; NOTE: this read checking only ensures that the value now
+        ;; seen is the same as originally seen, for each individual
+        ;; read-only operation.
+        (map nil #'verify-read
+             (transaction-ro-list trans))
+        (transition :read-phase :successful))
+      (release)
       )))
         
 ;; -------------------------------------------------------------------------
