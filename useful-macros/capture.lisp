@@ -17,17 +17,17 @@
              (apply fn args))))
    ))
 
-(defmacro mcapture-ans-or-exn (&body body)
+(defmacro with-captured-ans-or-exn (&body body)
   `(capture-ans-or-exn (lambda ()
                          ,@body)))
 
-(defmethod recover-ans-or-exn ((capt capture-packet))
-  (multiple-value-bind (ans exn)
-      (values-list (capture-packet-data capt))
-    (if exn
-        (error exn)
-      (values-list ans))))
-
-(defmethod recover-ans-or-exn (ans)
-  ans)
+(defgeneric recover-ans-or-exn (val)
+  (:method (val)
+   val)
+  (:method ((val capture-packet))
+   (multiple-value-bind (ans exn)
+       (values-list (capture-packet-data val))
+     (if exn
+         (error exn)
+       (values-list ans)))))
 

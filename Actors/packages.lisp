@@ -180,7 +180,7 @@ THE SOFTWARE.
    #:dcase*
    #:defmonitor
    #:critical-section
-   #:mcapture-ans-or-exn
+   #:with-captured-ans-or-exn
    #:recover-ans-or-exn
    #:rmw)
   (:import-from #:actors.executives

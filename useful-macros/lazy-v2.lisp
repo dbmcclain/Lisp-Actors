@@ -24,7 +24,7 @@
          ((eq (cdr cell) :eval)
           (car cell))
          ((sys:compare-and-swap (cdr cell) :uneval :in-proc)
-          (let ((val (um:mcapture-ans-or-exn
+          (let ((val (um:with-captured-ans-or-exn
                        (funcall (car cell)))))
             (setf (lazy-cell obj) (cons val :eval))
             val))

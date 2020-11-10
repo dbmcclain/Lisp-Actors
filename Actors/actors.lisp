@@ -356,8 +356,7 @@ THE SOFTWARE.
       ;; must *NOT* use =HANDLER-CASE here
       (let ((*in-ask*  whole-msg))
         (send (cadr whole-msg)
-              (mcapture-ans-or-exn
-                (apply fn args))))
+              (apply #'capture-ans-or-exn fn args)))
 
     (no-immediate-answer ())
     ))
