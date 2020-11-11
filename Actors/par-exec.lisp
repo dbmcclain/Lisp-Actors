@@ -27,7 +27,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import '(um:single
-            um:with-captured-ans-or-exn
+            um:capture-ans-or-exn
             um:recover-ans-or-exn
             
             ref:ref
@@ -87,15 +87,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                                      collect
                                      (spawn-worker 
                                       (lambda (ix args)
-                                        (done ix (mcapture-ans-or-exn
-                                                   (apply fn args))))
+                                        (done ix (apply #'capture-ans-or-exn fn args)))
                                       ix grp)))
                   ;; perform the first of the branchees ourself
-                  (done 0 (with-captured-ans-or-exn
-                            (apply fn (car grps)))))
-              ;; blocking, in this case, means the wait for worker threads
-              ;; to complete after we have performed the first funcall
-              (map 'list 'recover-ans-or-exn ansv))
+                  (done 0 (apply #'capture-ans-or-exn fn (car grps))))
+                ;; blocking, in this case, means the wait for worker threads
+                ;; to complete after we have performed the first funcall
+                (map 'list 'recover-ans-or-exn ansv))
             ))))))
 
 (defmacro par (&rest forms)

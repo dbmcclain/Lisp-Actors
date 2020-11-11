@@ -76,6 +76,7 @@ THE SOFTWARE.
    #:wr)
   (:export
    #:ref
+   #:ref-val
    #:val
    #:wval
    #:ref-p
