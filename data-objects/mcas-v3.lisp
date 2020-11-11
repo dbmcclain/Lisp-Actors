@@ -197,7 +197,7 @@ THE SOFTWARE.
              ;; we might be on a repeat visit here, so ignore the
              ;; outcome of CCAS and check explicitly.
              (unless (ccas ref old desc #'undecided-p)
-               (let ((v (ref:basic-val ref)))
+               (let ((v (ccas-read ref)))
                  (cond
                   ((eq v desc))  ;; we were here before, we got it
                   
