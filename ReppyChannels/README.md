@@ -55,7 +55,10 @@ Example composition:
        (WRAP-ERROR (TimerEvt dt)
            (lambda (arg)
              (declare (ignore arg))
-             'TIMEOUT)))`
-
-
+             'TIMEOUT)))
+	     
+    (defun Wrap-Timeout (dt evt)
+        (CHOOSE* evt
+	         (TimeoutEvt dt)))
+		 
 - DM
