@@ -49,7 +49,7 @@ On successful rendezvous, all other events in the graph are told to execute any 
 	* WITH-CHANNEL ch &body body
 	* WITH-CHANNELS [ch]* &body body
 	
-Example composition:
+Example compositions:
 
     (defun TimeoutEvt (dt)
        (WRAP-ERROR (TimerEvt dt)
