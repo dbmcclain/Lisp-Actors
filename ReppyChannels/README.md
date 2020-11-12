@@ -59,6 +59,6 @@ Example compositions:
 	     
     (defun Wrap-Timeout (dt evt)
         (CHOOSE* evt
-	         (TimeoutEvt dt)))
+                 (TimeoutEvt dt)))
 		 
 - DM
