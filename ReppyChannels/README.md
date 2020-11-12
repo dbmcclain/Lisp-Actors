@@ -48,6 +48,7 @@ On successful rendezvous, all other events in the graph are told to execute any 
 * Possibly surrounding an event system:
 	* WITH-CHANNEL ch &body body
 	* WITH-CHANNELS [ch]* &body body
+	* and, of course, MAKE-CHANNEL
 	
 Example compositions:
 
