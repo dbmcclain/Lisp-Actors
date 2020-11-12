@@ -23,7 +23,7 @@ On successful rendezvous, all other events in the graph are told to execute any 
 	* JoinEvt thread
 	* KeyEvt &key flush stream - awaits stream input char input
 	* LineEvt &key flush stream - awaits stream text line input
-	* SexpEvt &key flush stream - awaits strean SEXP input
+	* SexpEvt &key flush stream - awaits stream SEXP input
 	
 * Meta-Event Composers - all produce Events from composition:
 	* CHOOSE [evt]* - one of the events chosen in random order. Only one will rendezvous.
