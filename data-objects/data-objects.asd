@@ -34,7 +34,7 @@ THE SOFTWARE.
                 (:file "bal-binary-trees")
                 ;; (:file "bal-binary-trees-cps")
                 (:file "bal-binary-tree-maps")
-                (:file "prio-queue")
+                (:file "prio-queue-lf")
                 (:file "resource")
                 (:file "locked-resource")
                 ;; (:file "mi-rubber-objects-2")
