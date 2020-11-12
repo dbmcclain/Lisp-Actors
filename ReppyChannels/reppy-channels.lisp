@@ -694,16 +694,17 @@
                  (other-bev  (comm-tuple-bev tup))
                  (data       (comm-tuple-data tup)))
              (unless ans
-               (when (mark2 my-comm    my-bev
-                            other-comm other-bev)
-                 (cond ((eq data 'no-rendezvous-token)
-                        ;; thanks, but I'll hold out for a better
-                        ;; offer...
-                        (setf (bev-nack my-bev) t) ;; NAK noted
-                        (unmark my-comm my-bev))   ;; unmark myself
-                       (t
-                        (setf ans tup))
-                       )))
+               (mp:with-lock ((channel-lock ch))
+                 (when (mark2 my-comm    my-bev
+                              other-comm other-bev)
+                   (cond ((eq data 'no-rendezvous-token)
+                          ;; thanks, but I'll hold out for a better
+                          ;; offer...
+                          (setf (bev-nack my-bev) t) ;; NAK noted
+                          (unmark my-comm my-bev))   ;; unmark myself
+                         (t
+                          (setf ans tup))
+                         ))))
              (when (marked? other-comm)
                ;; was either just marked here, or from a prior run
                ;; against the opposite queue when it was my-comm
@@ -712,8 +713,7 @@
       (declare (dynamic-extent #'try-rendezvous))
       (channel-queue-prepend-contents
        queue
-       (mp:with-lock ((channel-lock ch))
-         (remove-if #'try-rendezvous tups)))
+       (remove-if #'try-rendezvous tups))
       ans)))
 
 (defun do-polling (ch queue my-comm my-bev rendezvous-fn blocking-fn)
