@@ -292,9 +292,9 @@
 
 ;; ----------------------------------------------------------------------
 ;; CHANNEL -- the object of a rendezvous between threads. Channel
-;; objects are shared between threads, and so must be protected by a
-;; lock when reading/writing them.
-
+;; objects are shared between threads. We use lock-free FIFO queues to
+;; record pending event rendezvous possibilities.
+;;
 ;; LW has a strong enough GC finalization protocol that it can deal
 ;; directly with core objects. No need for the handle indirection
 ;; and object-display seen in SBCL.
