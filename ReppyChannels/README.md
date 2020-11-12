@@ -1,4 +1,4 @@
-*Reppy Channels - adapted for Actors*
+**Reppy Channels - adapted for Actors**
 
 While Actors are inherently asynchronous, John Reppy's Channels and Events are aimed specifically at synchronous communications between threads. The huge advantage of John Reppy's Channels is that events and handlers are composable in an FPL sense. You can make some very elaborate multi-channel interfaces among multiple threads.
 
