@@ -62,4 +62,8 @@ Example compositions:
         (CHOOSE* evt
                  (TimeoutEvt dt)))
 		 
+Purpose of the NACK? While all pending events get cancelled and call their WRAP-ABORT handlers on failed rendezvous, that only happens if one of the events in the graph actually rendezvous. So imagine a situation where one thread has a SEND or RECV on one channel, and another thread has some pending events on that same channel as well as other events pending on another channel. 
+
+If the other thread rendezvous on the other channel, its WRAP-ABORT handlers will be called on the first channel events. But unless those WRAP-HANLDERS perform a pseudo-rendezvous on the first channel, the first thread just hangs waiting for an event that will never arrive. We can deal with this situation by using timeouts on the channel comms. But by specifying a NACK handler SendEvt* or RecvEvt*, that pseudo-rendezvous will occur for us, telling the first thread to give up.
+
 - DM
