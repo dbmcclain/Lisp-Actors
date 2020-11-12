@@ -8,46 +8,46 @@ Event handlers are composed of leaf-handlers conjoined with event-meta operators
 
 On successful rendezvous, all other events in the graph are told to execute any wrap-abort handlers, and then the successful event performs its wrap handlers on the way to the top of the event tree. The final result is the data handed through the rendezvous, as modified by any wrap handlers.
 
-Leaf Events:
-	SendEvt ch msg
-	RecvEvt ch
-	AlwaysEvt data
-	NeverEvt
-	ExecEvt fn
-	SendEvt* ch msg - a Send with NAK
-	RecvEvt* ch - a Recv with NAK
-	AbortEvt &optional val
-	TimerEvt dt
-	ErrorEvt fn
-	TimeoutEvt dt
-	JoinEvt thread
-	KeyEvt &key flush stream - awaits stream input char input
-	LineEvt &key flush stream - awaits stream text line input
-	SexpEvt &key flush stream - awaits strean SEXP input
+* Leaf Events:
+	* SendEvt ch msg
+	* RecvEvt ch
+	* AlwaysEvt data
+	* NeverEvt
+	* ExecEvt fn
+	* SendEvt* ch msg - a Send with NAK
+	* RecvEvt* ch - a Recv with NAK
+	* AbortEvt &optional val
+	* TimerEvt dt
+	* ErrorEvt fn
+	* TimeoutEvt dt
+	* JoinEvt thread
+	* KeyEvt &key flush stream - awaits stream input char input
+	* LineEvt &key flush stream - awaits stream text line input
+	* SexpEvt &key flush stream - awaits strean SEXP input
 	
-Meta-Event Composers - all produce Events from composition:
-	CHOOSE [evt]* - one of the events chosen in random order
-	CHOOSE* [evt]* - one of the events in stated order
-	WRAP-ABORT evt fn
-	WRAP evt fn
-	WRAP-HANDLER evt fn - used to wrap the graph with HANDLER-CASE, etc.
-	FailEvt evt 
-	GUARD fn - fn must return an Event
-	WRAP-ERROR evt fn - fn should produce a condition object
-	WRAP-TIMEOUT dt evt
+* Meta-Event Composers - all produce Events from composition:
+	* CHOOSE [evt]* - one of the events chosen in random order
+	* CHOOSE* [evt]* - one of the events in stated order
+	* WRAP-ABORT evt fn
+	* WRAP evt fn
+	* WRAP-HANDLER evt fn - used to wrap the graph with HANDLER-CASE, etc.
+	* FailEvt evt 
+	* GUARD fn - fn must return an Event
+	* WRAP-ERROR evt fn - fn should produce a condition object
+	* WRAP-TIMEOUT dt evt
 	
-At the top of the graph:
-	SYNC evt
-	RECV ch = (SYNC (RecvEvt ch))
-	SEND ch msg = (SYNC (SendEvt ch msg))
-	POKE ch msg = async version of SEND
-	PEEK ch = async version of RECV
-	SELECT [evt]* = (SYNC (CHOOSE evts...))
-	SELECT* [evt]* = (SYNC (CHOOSE* evts...))
+* At the top of the graph:
+	* SYNC evt
+	* RECV ch = (SYNC (RecvEvt ch))
+	* SEND ch msg = (SYNC (SendEvt ch msg))
+	* POKE ch msg = async version of SEND
+	* PEEK ch = async version of RECV
+	* SELECT [evt]* = (SYNC (CHOOSE evts...))
+	* SELECT* [evt]* = (SYNC (CHOOSE* evts...))
 	
-Possibly surrounding an event system:
-	WITH-CHANNEL ch &body body
-	WITH-CHANNELS [ch]* &body body
+* Possibly surrounding an event system:
+	* WITH-CHANNEL ch &body body
+	* WITH-CHANNELS [ch]* &body body
 	
 Example composition:
 
