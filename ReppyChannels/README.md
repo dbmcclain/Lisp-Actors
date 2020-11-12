@@ -26,14 +26,14 @@ On successful rendezvous, all other events in the graph are told to execute any 
 	* SexpEvt &key flush stream - awaits strean SEXP input
 	
 * Meta-Event Composers - all produce Events from composition:
-	* CHOOSE [evt]* - one of the events chosen in random order
-	* CHOOSE* [evt]* - one of the events in stated order
+	* CHOOSE [evt]* - one of the events chosen in random order. Only one will rendezvous.
+	* CHOOSE* [evt]* - one of the events in stated order. Only one will rendezvous.
 	* WRAP-ABORT evt fn
 	* WRAP evt fn
 	* WRAP-HANDLER evt fn - used to wrap the graph with HANDLER-CASE, etc.
 	* FailEvt evt 
-	* GUARD fn - fn must return an Event
-	* WRAP-ERROR evt fn - fn should produce a condition object
+	* GUARD fn - thunk fn must return an Event.
+	* WRAP-ERROR evt fn - thunk fn should produce a condition specifier or object.
 	* WRAP-TIMEOUT dt evt
 	
 * At the top of the graph:
