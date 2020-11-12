@@ -292,9 +292,8 @@
 
 ;; ----------------------------------------------------------------------
 ;; CHANNEL -- the object of a rendezvous between threads. Channel
-;; objects are shared between threads. We use lock-free FIFO queues to
-;; record pending event rendezvous possibilities.
-;;
+;; objects are shared between threads. We use lock-free queues for this.
+
 ;; LW has a strong enough GC finalization protocol that it can deal
 ;; directly with core objects. No need for the handle indirection
 ;; and object-display seen in SBCL.
@@ -915,7 +914,6 @@
       (incf ix))
     ))
 
-
 (defun choose (&rest evs)
   ;; a CHOOSE event provides a nondeterministic ordering of
   ;; alternative event rendezvous (c.f. choose*). Only one event can
@@ -975,11 +973,7 @@
 
 
 ;; ------------------------------------------------------------------
-;; For Nack'able events, we use two channels: one for data transfer,
-;; the other for sending an abort notice.
-;; The abort channel will be poked, with itself as value,
-;; if the send/recv fail to rendezvous, to inform the other side.
-;; These should be used in opposing pairs, one on each side.
+;; Nack'able send / recv
 
 (defun abort-ch-evt (cha)
   ;; sense nack feedback and generate a failed rendezvous
