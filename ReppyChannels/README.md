@@ -53,9 +53,9 @@ Example composition:
 
     (defun TimeoutEvt (dt)
        (WRAP-ERROR (TimerEvt dt)
-         (lambda (arg)
-	    (declare (ignore arg))
-		'TIMEOUT)))`
+           (lambda (arg)
+             (declare (ignore arg))
+             'TIMEOUT)))`
 
 
 - DM
