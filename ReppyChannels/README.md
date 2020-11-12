@@ -51,10 +51,12 @@ On successful rendezvous, all other events in the graph are told to execute any 
 	
 Example composition:
 
->  (defun TimeoutEvt (dt)
->    (WRAP-ERROR (TimerEvt dt)
->      (lambda (arg)
->	    (declare (ignore arg))
->		'TIMEOUT)))`
-	
+`
+  (defun TimeoutEvt (dt)
+    (WRAP-ERROR (TimerEvt dt)
+      (lambda (arg)
+	    (declare (ignore arg))
+		'TIMEOUT)))`
+`
+
 - DM
