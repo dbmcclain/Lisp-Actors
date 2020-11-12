@@ -36,7 +36,7 @@ On successful rendezvous, all other events in the graph are told to execute any 
 	* WRAP-ERROR evt fn - thunk fn should produce a condition specifier or object.
 	* WRAP-TIMEOUT dt evt
 	
-* At the top of the graph:
+* At the top of the graph, causing it to execute:
 	* SYNC evt
 	* RECV ch = (SYNC (RecvEvt ch))
 	* SEND ch msg = (SYNC (SendEvt ch msg))
