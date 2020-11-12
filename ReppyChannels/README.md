@@ -14,8 +14,8 @@ On successful rendezvous, all other events in the graph are told to execute any 
 	* AlwaysEvt data
 	* NeverEvt
 	* ExecEvt fn
-	* SendEvt* ch msg - a Send with NAK
-	* RecvEvt* ch - a Recv with NAK
+	* SendEvt* ch msg - a SendEvt with NAK
+	* RecvEvt* ch - a RecvEvt with NAK
 	* AbortEvt &optional val
 	* TimerEvt dt
 	* ErrorEvt fn
