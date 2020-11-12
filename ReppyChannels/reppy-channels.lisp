@@ -39,10 +39,6 @@
    :cas
    :atomic-incf
    :atomic-decf)
-  (:import-from :mcas
-   :mcas-ref
-   :mcas
-   :mcas-read)
   (:import-from #:timeout
    #:*timeout*
    #:timeout)
@@ -255,9 +251,7 @@
 ;; readers / writers queues.
 
 (defstruct (channel-queue
-            (:include ref:ref))
-  ;; trim operations should only be performed in one thread at a time
-  (trim-lock (mp:make-lock)))
+            (:include ref:ref)))
 
 (defun channel-queue-send (q item)
   (um:rmw q (lambda (qlst)
@@ -278,21 +272,10 @@
                 (append qlst rlst))
             )))
 
-(defun channel-queue-trim (q delete-pred)
-  ;; we have to do it this way, instead of using RMW, since delete-pred
-  ;; is mainly used for its side effects. It is not idempotent.
-  (mp:with-lock ((channel-queue-trim-lock q))
-    ;; while we are locked during removal scan, other threads can
-    ;; still enqueue items. We won't see them in this run, but the
-    ;; next thread will redo the scan and see those new items.
-    (channel-queue-prepend-contents q
-                                    (remove-if delete-pred
-                                               (channel-queue-contents q)))
-    ))
-
 ;; ----------------------------------------------------------------------
 ;; CHANNEL -- the object of a rendezvous between threads. Channel
 ;; objects are shared between threads. We use lock-free queues for this.
+;; We only need to lock a channel during polling (sadly...)
 
 ;; LW has a strong enough GC finalization protocol that it can deal
 ;; directly with core objects. No need for the handle indirection
@@ -300,6 +283,7 @@
 
 (defclass channel (<orderable-mixin>)
   ((valid   :reader channel-valid   :initform (ref t))
+   (lock    :reader channel-lock    :initform (mp:make-lock))
    (readers :reader channel-readers :initform (make-channel-queue))
    (writers :reader channel-writers :initform (make-channel-queue))
    ))
@@ -401,7 +385,7 @@
   ;; sys atomic ops need this defined at compile time
   
   (defstruct (comm-cell
-              (:include mcas-ref))
+              (:include ref:ref))
     ;; NIL if not yet performed, will contain the leaf BEV which fired
     ;; against this cell. I.e., in which leaf did the rendevouz occur?
     ;; Note: nowhere in this object is there any indication of what
@@ -430,31 +414,33 @@
 ;; ------------------
 
 ;; ====================================================================
-;; We are actually 20% faster using LOCKs, instead of MCAS
-;; (but what the hell...)
 
 (defun mark (comm bev)
   ;; the comm might also be on other channels and might have been already marked
   ;; returns t if successfully marked, nil otherwise
   (declare (comm-cell comm))
-  (cas comm nil bev))
+  (ref:cas comm nil bev))
 
 (defun unmark (comm bev)
   ;; unmark if we are marked with bev
   (declare (comm-cell comm))
-  (cas comm bev nil))
+  (ref:cas comm bev nil))
 
 (defun marked? (comm)
   ;; return non-nil if already marked
   (declare (comm-cell comm))
-  (val comm))
+  (ref:val comm))
 
 (defun mark2 (comm1 bev1 comm2 bev2)
-  ;; we know we mustn't succeed when (eq comm1 comm2)
   (declare (comm-cell comm1 comm2))
+  ;; we know we mustn't succeed when (eq comm1 comm2)
   (unless (eq comm1 comm2)
-    (mcas comm1 nil bev1
-          comm2 nil bev2)))
+    (when (mark comm1 bev1)
+      (or (mark comm2 bev2)
+          (progn
+            (unmark comm1 bev1)
+            nil))
+      )))
 
 ;; ====================================================================
 
@@ -695,11 +681,12 @@
 ;; behave as would be desired.
 ;;
 
-(defun find-eligible-tuple (queue my-comm my-bev)
+(defun find-eligible-tuple (ch queue my-comm my-bev)
   ;; Scan a queue for an eligbible tuple and discard marked tuples
   ;; from the queue. An eligible tuple may become marked from
   ;; eligible-p. This version avoids consing.
-  (let (ans)
+  (let ((tups (channel-queue-contents queue))
+        ans)
     (flet
         ((try-rendezvous (tup)
            (declare (comm-tuple tup))
@@ -723,7 +710,10 @@
                (decref other-comm)) ;; returns non-nil for REMOVE-IF
              )))
       (declare (dynamic-extent #'try-rendezvous))
-      (channel-queue-trim queue #'try-rendezvous)
+      (channel-queue-prepend-contents
+       queue
+       (mp:with-lock ((channel-lock ch))
+         (remove-if #'try-rendezvous tups)))
       ans)))
 
 (defun do-polling (ch queue my-comm my-bev rendezvous-fn blocking-fn)
@@ -733,7 +723,7 @@
   ;; they should share a common core code
   (when (channel-valid-p ch) ;; return nil if discarded channel
     (funcall blocking-fn)
-    (when-let (tup (find-eligible-tuple queue my-comm my-bev))
+    (when-let (tup (find-eligible-tuple ch queue my-comm my-bev))
       (locally
         (declare (comm-tuple tup))
         (with-accessors ((other-comm  comm-tuple-comm)
