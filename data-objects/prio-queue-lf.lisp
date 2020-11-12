@@ -99,7 +99,7 @@ THE SOFTWARE.
 
 (defstruct (unsafe-fifo
             (:constructor %make-unsafe-fifo)
-            (:copier %copy-unsafe-fifo))
+            (:copier nil))
   hd tl)
 
 (defun make-unsafe-fifo ()
@@ -216,8 +216,8 @@ THE SOFTWARE.
   (let (pair)
     (um:rmw q (lambda (qpair)
                 (setf pair qpair)
-                (cons nil nil))
-    (append (car pair) (reverse (cdr pair))))
+                (cons nil nil)))
+    (append (car pair) (reverse (cdr pair)))
     ))
 
 (defmethod set-contents ((q fifo) lst)
