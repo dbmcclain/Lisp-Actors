@@ -4,9 +4,9 @@ While Actors are inherently asynchronous, John Reppy's Channels and Events are a
 
 But with CPS style (=BIND, etc.) you can have Actors join into the fun. This code base is more of my exploratorium for Lisp. While my Actors code has seen production level field testing, my Reppy Channels really have not. But they have been evolving since the early 2000's after I first read John Reppy's CML.
 
-Event handlers are composed of leaf-handlers conjoined with event-meta operators. Nothing happens until a composed event is called by SYNC. At that time, the events are entered into RECV/SEND queues, the queues are polled for available matching events, and when found, trigger a response from the composed handler graph.
+Event handlers are composed of leaf-handlers conjoined with event meta-operators. Nothing happens until a composed event graph is called by SYNC. At that time, the events are entered into RECV/SEND queues, the queues are polled for available matching events, and when found, trigger a response from the composed handler graph.
 
-On successful rendezvous, all other events in the graph are told to execute any wrap-abort handlers, and then the successful event performs its wrap handlers on the way to the top of the event tree. The final result is the data handed through the rendezvous, as modified by any wrap handlers.
+On successful rendezvous, all other events in the graph are told to execute any wrap-abort handlers, and then the successful event performs its wrap handlers on the way to the top of the event graph. The final result is the data handed through the rendezvous, as modified by any wrap handlers. Rendezvous are always synchronous on both sides. Senders wait for receivers to pick up the data.
 
 * Leaf Events:
 	* SendEvt ch msg
