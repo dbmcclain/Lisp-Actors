@@ -685,8 +685,7 @@
   ;; Scan a queue for an eligbible tuple and discard marked tuples
   ;; from the queue. An eligible tuple may become marked from
   ;; eligible-p. This version avoids consing.
-  (let ((tups (channel-queue-contents queue))
-        ans)
+  (let (ans)
     (flet
         ((try-rendezvous (tup)
            (declare (comm-tuple tup))
@@ -713,7 +712,8 @@
       (declare (dynamic-extent #'try-rendezvous))
       (channel-queue-prepend-contents
        queue
-       (remove-if #'try-rendezvous tups))
+       (remove-if #'try-rendezvous
+                  (channel-queue-contents queue)))
       ans)))
 
 (defun do-polling (ch queue my-comm my-bev rendezvous-fn blocking-fn)
