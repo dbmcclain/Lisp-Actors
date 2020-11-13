@@ -66,4 +66,8 @@ Purpose of the NACK? While all pending events get cancelled and call their WRAP-
 
 If the other thread rendezvous on the other channel, its WRAP-ABORT handlers will be called on the first channel events. But unless those WRAP-HANLDERS perform a pseudo-rendezvous on the first channel, the first thread just hangs waiting for an event that will never arrive. We can deal with this situation by using timeouts on the channel comms. But by specifying a NACK handler SendEvt* or RecvEvt*, that pseudo-rendezvous will occur for us, telling the first thread to give up.
 
+While the channels use lock-free FIFO queues, alas, we must resort to a lock during polling when considering each potential rendezvous. Too many things changing at the same time, and without locking, it becomes possible for valid rendezvous to become missed. 
+
+Honestly, this is relatively difficult concurrent code, and it really makes me appreciate Actors. But then our performance ought to be higher since the locking is very fine-grained here, whereas Actors tend to produce bottlenecks in concurrent code and generally apply to wider conditions than our fine-grained locking.
+
 - DM
