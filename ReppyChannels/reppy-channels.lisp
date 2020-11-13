@@ -436,6 +436,7 @@
   (ref:ref-val comm))
 
 (defun mark2 (comm1 bev1 comm2 bev2)
+  ;; called inside a dual lock, so order of marking is unimportant
   (declare (comm-cell comm1 comm2))
   (when (mark comm1 bev1)
     (or (mark comm2 bev2)
@@ -446,17 +447,15 @@
 
 (defun do-with-locked-comms (comm1 comm2 fn)
   (declare (comm-cell comm1 comm2))
-  ;; we know we mustn't succeed when (eq comm1 comm2)
-  (unless (eq comm1 comm2)
-    (if (< (comm-cell-ord comm1) (comm-cell-ord comm2))
-        (mp:with-lock ((comm-cell-lock comm1))
-          (mp:with-lock ((comm-cell-lock comm2))
-            (funcall fn)))
-      ;; else
-      (mp:with-lock ((comm-cell-lock comm2))
-        (mp:with-lock ((comm-cell-lock comm1))
+  (if (< (comm-cell-ord comm1) (comm-cell-ord comm2))
+      (mp:with-lock ((comm-cell-lock comm1))
+        (mp:with-lock ((comm-cell-lock comm2))
           (funcall fn)))
-      )))
+    ;; else
+    (mp:with-lock ((comm-cell-lock comm2))
+      (mp:with-lock ((comm-cell-lock comm1))
+        (funcall fn)))
+    ))
 
 (defmacro with-locked-comms ((comm1 comm2) &body body)
   `(do-with-locked-comms ,comm1 ,comm2 (lambda ()
@@ -712,7 +711,8 @@
            (with-accessors ((other-comm comm-tuple-comm)
                             (other-bev  comm-tuple-bev)
                             (data       comm-tuple-data)) tup
-             (unless ans
+             (unless (or ans
+                         (eq my-comm other-comm))
                (with-locked-comms (my-comm other-comm)
                  (when (mark2 my-comm    my-bev
                               other-comm other-bev)
