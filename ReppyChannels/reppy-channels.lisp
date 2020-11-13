@@ -419,17 +419,17 @@
   ;; the comm might also be on other channels and might have been already marked
   ;; returns t if successfully marked, nil otherwise
   (declare (comm-cell comm))
-  (ref:cas comm nil bev))
+  (ref:basic-cas comm nil bev))
 
 (defun unmark (comm bev)
   ;; unmark if we are marked with bev
   (declare (comm-cell comm))
-  (ref:cas comm bev nil))
+  (ref:basic-cas comm bev nil))
 
 (defun marked? (comm)
   ;; return non-nil if already marked
   (declare (comm-cell comm))
-  (ref:val comm))
+  (ref:ref-val comm))
 
 (defun mark2 (comm1 bev1 comm2 bev2)
   ;; called from within a channel lock, so ordering of marking is
