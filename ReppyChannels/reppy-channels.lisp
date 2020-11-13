@@ -432,6 +432,8 @@
   (ref:val comm))
 
 (defun mark2 (comm1 bev1 comm2 bev2)
+  ;; called from within a channel lock, so ordering of marking is
+  ;; unimportant
   (declare (comm-cell comm1 comm2))
   ;; we know we mustn't succeed when (eq comm1 comm2)
   (unless (eq comm1 comm2)
@@ -689,9 +691,9 @@
     (flet
         ((try-rendezvous (tup)
            (declare (comm-tuple tup))
-           (let ((other-comm (comm-tuple-comm tup))
-                 (other-bev  (comm-tuple-bev tup))
-                 (data       (comm-tuple-data tup)))
+           (with-accessors ((other-comm comm-tuple-comm)
+                            (other-bev  comm-tuple-bev)
+                            (data       comm-tuple-data)) tup
              (unless ans
                (mp:with-lock ((channel-lock ch))
                  (when (mark2 my-comm    my-bev
