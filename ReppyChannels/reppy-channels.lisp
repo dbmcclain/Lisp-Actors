@@ -425,25 +425,17 @@
   (declare (comm-cell comm))
   (ref:basic-cas comm nil bev))
 
-(defun unmark (comm bev)
-  ;; unmark if we are marked with bev
+(defun fast-mark (comm bev)
+  ;; used inside of a dual lock
   (declare (comm-cell comm))
-  (ref:basic-cas comm bev nil))
+  (setf (ref:ref-val comm) bev))
 
 (defun marked? (comm)
   ;; return non-nil if already marked
   (declare (comm-cell comm))
   (ref:ref-val comm))
 
-(defun mark2 (comm1 bev1 comm2 bev2)
-  ;; called inside a dual lock, so order of marking is unimportant
-  (declare (comm-cell comm1 comm2))
-  (when (mark comm1 bev1)
-    (or (mark comm2 bev2)
-        (progn
-          (unmark comm1 bev1)
-          nil))
-    ))
+;; --------------------------------------------------------
 
 (defun do-with-locked-comms (comm1 comm2 fn)
   (declare (comm-cell comm1 comm2))
@@ -714,14 +706,15 @@
              (unless (or ans
                          (eq my-comm other-comm))
                (with-locked-comms (my-comm other-comm)
-                 (when (mark2 my-comm    my-bev
-                              other-comm other-bev)
+                 (unless (or (marked? my-comm)
+                             (marked? other-comm))
+                   (fast-mark other-comm other-bev)
                    (cond ((eq data 'no-rendezvous-token)
                           ;; thanks, but I'll hold out for a better
                           ;; offer...
-                          (setf (bev-nack my-bev) t) ;; NAK noted
-                          (unmark my-comm my-bev))   ;; unmark myself
+                          (setf (bev-nack my-bev) t)) ;; NAK noted
                          (t
+                          (fast-mark my-comm my-bev)
                           (setf ans tup))
                          ))))
              (when (marked? other-comm)
