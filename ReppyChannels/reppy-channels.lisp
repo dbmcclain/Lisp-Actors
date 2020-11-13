@@ -283,7 +283,6 @@
 
 (defclass channel (<orderable-mixin>)
   ((valid   :reader channel-valid   :initform (ref t))
-   (lock    :reader channel-lock    :initform (mp:make-lock))
    (readers :reader channel-readers :initform (make-channel-queue))
    (writers :reader channel-writers :initform (make-channel-queue))
    ))
@@ -381,6 +380,8 @@
 ;; processor we need to grab claims using atomic operators. We could
 ;; also use locks, but that seems too heavy handed.
 
+(defvar *comm-id* 0)
+
 (um:eval-always
   ;; sys atomic ops need this defined at compile time
   
@@ -391,6 +392,9 @@
     ;; Note: nowhere in this object is there any indication of what
     ;; counterparty was involved in the rendezvous. (Good for security.
     ;; Necessary?)
+
+    (lock  (mp:make-lock))
+    (ord   (sys:atomic-fixnum-incf *comm-id*))
     
     ;; needs-wait will be true if we are ever placed on a R/W queue and
     ;; need to wait for a rendezvous.
@@ -432,17 +436,31 @@
   (ref:ref-val comm))
 
 (defun mark2 (comm1 bev1 comm2 bev2)
-  ;; called from within a channel lock, so ordering of marking is
-  ;; unimportant
+  (declare (comm-cell comm1 comm2))
+  (when (mark comm1 bev1)
+    (or (mark comm2 bev2)
+        (progn
+          (unmark comm1 bev1)
+          nil))
+    ))
+
+(defun do-with-locked-comms (comm1 comm2 fn)
   (declare (comm-cell comm1 comm2))
   ;; we know we mustn't succeed when (eq comm1 comm2)
   (unless (eq comm1 comm2)
-    (when (mark comm1 bev1)
-      (or (mark comm2 bev2)
-          (progn
-            (unmark comm1 bev1)
-            nil))
+    (if (< (comm-cell-ord comm1) (comm-cell-ord comm2))
+        (mp:with-lock ((comm-cell-lock comm1))
+          (mp:with-lock ((comm-cell-lock comm2))
+            (funcall fn)))
+      ;; else
+      (mp:with-lock ((comm-cell-lock comm2))
+        (mp:with-lock ((comm-cell-lock comm1))
+          (funcall fn)))
       )))
+
+(defmacro with-locked-comms ((comm1 comm2) &body body)
+  `(do-with-locked-comms ,comm1 ,comm2 (lambda ()
+                                         ,@body)))
 
 ;; ====================================================================
 
@@ -683,7 +701,7 @@
 ;; behave as would be desired.
 ;;
 
-(defun find-eligible-tuple (ch queue my-comm my-bev)
+(defun find-eligible-tuple (queue my-comm my-bev)
   ;; Scan a queue for an eligbible tuple and discard marked tuples
   ;; from the queue. An eligible tuple may become marked from
   ;; eligible-p. This version avoids consing.
@@ -695,7 +713,7 @@
                             (other-bev  comm-tuple-bev)
                             (data       comm-tuple-data)) tup
              (unless ans
-               (mp:with-lock ((channel-lock ch))
+               (with-locked-comms (my-comm other-comm)
                  (when (mark2 my-comm    my-bev
                               other-comm other-bev)
                    (cond ((eq data 'no-rendezvous-token)
@@ -725,7 +743,7 @@
   ;; they should share a common core code
   (when (channel-valid-p ch) ;; return nil if discarded channel
     (funcall blocking-fn)
-    (when-let (tup (find-eligible-tuple ch queue my-comm my-bev))
+    (when-let (tup (find-eligible-tuple queue my-comm my-bev))
       (locally
         (declare (comm-tuple tup))
         (with-accessors ((other-comm  comm-tuple-comm)
