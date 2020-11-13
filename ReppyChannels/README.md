@@ -68,6 +68,6 @@ If the other thread rendezvous on the other channel, its WRAP-ABORT handlers wil
 
 While the channels use lock-free FIFO queues, alas, we must resort to a lock during polling when considering each potential rendezvous. Too many things changing at the same time, and without locking, it becomes possible for valid rendezvous to become missed. 
 
-Honestly, this is relatively difficult concurrent code, and it really makes me appreciate Actors. But then our performance ought to be higher since the locking is very fine-grained here, whereas Actors tend to produce bottlenecks in concurrent code and generally apply to wider conditions than our fine-grained locking.
+Honestly, this is relatively difficult concurrent code, and it really makes me appreciate Actors. But then our performance ought to be higher since the locking is very fine-grained here, whereas Actors can produce bottlenecks in highly-subscribed services in concurrent code, and they generally apply to wider conditions than our fine-grained locking. Calling on an Actor is heavier weight, (but not nearly as heavy as spawning new threads), and so they need to accomplish significant work to make it worthwhile.
 
 - DM
