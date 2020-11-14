@@ -983,6 +983,12 @@ THE SOFTWARE.
    :call-with-restart
 
    :get-number-of-processors
+
+   :dynamic-wind
+   :proceed
+   :capture-dynamic-environment
+   :call-with-dyanmic-environment
+   :with-dynamic-environment
    ))
 
 #|

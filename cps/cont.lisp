@@ -1,52 +1,25 @@
-;; dynamic-wind.lisp -- managing dynamic environments
+;; cont.lisp -- managing dynamic environments
 ;;
-;; DM/RAL 11/20 -- I learned this from Pascal Costanza
+;; DM/RAL 11/20 -- using dynamic-wind for this
 ;; -------------------------------------------------------
-
 (in-package :cps)
+;; -------------------------------------------------
 
-(defvar *dynamic-wind-stack* nil)
+(um:eval-always
+  (import '(um:dynamic-wind
+            um:proceed
+            um:capture-dynamic-environment
+            um:with-dynamic-environment)))
 
-(defstruct (dynamic-environment
-            (:constructor make-dynamic-environment (dynamic-winds)))
-  (dynamic-winds nil :read-only t))
-
-(defun capture-dynamic-environment ()
-  (make-dynamic-environment (reverse *dynamic-wind-stack*)))
-
-(defmacro dynamic-wind (&body body)
-  (lw:with-unique-names (wind-fn thunk proceed-body)
-    `(flet ((,wind-fn (,thunk)
-              (macrolet ((proceed (&body ,proceed-body)
-                           `(if ,',thunk
-                                (funcall ,',thunk)
-                              (progn
-                                ,@,proceed-body))))
-                ,@body)))
-       (let ((*dynamic-wind-stack* (cons #',wind-fn *dynamic-wind-stack*)))
-         (,wind-fn nil)))
-    ))
-
-(defun call-with-dynamic-environment (env thunk)
-  (labels ((instantiate (env)
-             (cond (env
-                    (let* ((wind-fn (first env))
-                           (*dynamic-wind-stack* (cons wind-fn *dynamic-wind-stack*)))
-                      (funcall wind-fn (lambda ()
-                                         (instantiate (rest env))))
-                      ))
-                   (t
-                    (funcall thunk))
-                   )))
-    (with-slots (dynamic-winds) env
-      (instantiate dynamic-winds))))
-
-(defmacro with-dynamic-environment ((env) &body body)
-  `(call-with-dynamic-environment ,env (lambda ()
-                                         ,@body)))
-
-#+LISPWORKS
-(editor:setup-indent "with-dynamic-environment" 1)
+;; -------------------------------------------------------
+;; CPS Continuation Operators
+;;
+;; If there is any chance that the enclosing function has exited the
+;; dynamic chain before a continuation is invoked, we need to capture
+;; that chain so that it can be re-instituted before calling the
+;; continuation closure. Use these =Handlers insetead of the usual
+;; Lisp forms to enable that action. (This most likely occurs in Actor
+;; code.)
 
 (defmacro =handler-case (form &rest handlers)
   `(dynamic-wind
@@ -127,6 +100,22 @@
         (apply fn args)))))
 
 ;; -------------------------------------------
+#+:LISPWORKS
+(progn
+  (editor:setup-indent "=handler-bind" 1 2 4)
+  (editor:setup-indent "=handler-case" 1 2 4 'handler-case)
+  (editor:setup-indent "=catch" 1 2 4)
+  (editor:setup-indent "=let" 1 2 4)
+  (editor:setup-indent "=let*" 1 2 4)
+  (editor:setup-indent "=restart-bind" 1 2 4)
+  (editor:setup-indent "=restart-case" 1 2 4 'handler-case)
+  (editor:setup-indent "=with-simple-restart" 1 2 4)
+  (editor:setup-indent "=ignore-errors" 0 2 4)
+  (editor:setup-indent "=handler-bind*" 1 2 4)
+  (editor:setup-indent "=handler-case*" 1 2 4 'handler-case)
+  (editor:setup-indent "=handler-bind-case" 1 2 4 'handler-case))
+
+;; -------------------------------------------
 #|
 (=handler-case
     (=bind (x)
@@ -180,4 +169,24 @@
      (print "yes - we are final"))
    ))
 
+(block top
+  (=bind (x)
+      (=values 15)
+    (print x)
+    (return-from top 32)))
+
+(catch 'tag
+  (ac:spawn-worker (lambda ()
+                     (throw 'tag 32))))
+
+(dynamic-wind
+  (print
+   (proceed
+    (=catch 'top
+      (=bind (x)
+          (ac:spawn-worker (=lambda ()
+                             (=values 15))
+                           =bind-cont)
+        (print x)
+        (throw 'top 32))))))
 |#

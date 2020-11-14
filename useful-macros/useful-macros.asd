@@ -38,6 +38,7 @@ THE SOFTWARE.
                 (:file "dflet")
                 (:file "xlambda")
                 (:file "timeout")
+                (:file "dynamic-wind")
 		(:file "comprehensions")
                 #+(AND :COM.RAL :LISPWORKS) (:file "lexb4")
                 ;; (:file "freev")
