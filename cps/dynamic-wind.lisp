@@ -28,16 +28,18 @@
     ))
 
 (defun call-with-dynamic-environment (env thunk)
-  (labels ((instantiate (env thunk)
+  (labels ((instantiate (env)
              (cond (env
                     (let* ((wind-fn (first env))
                            (*dynamic-wind-stack* (cons wind-fn *dynamic-wind-stack*)))
                       (funcall wind-fn (lambda ()
-                                         (instantiate (rest env) thunk)))))
-                   (t (funcall thunk))
+                                         (instantiate (rest env))))
+                      ))
+                   (t
+                    (funcall thunk))
                    )))
     (with-slots (dynamic-winds) env
-      (instantiate dynamic-winds thunk))))
+      (instantiate dynamic-winds))))
 
 (defmacro with-dynamic-environment ((env) &body body)
   `(call-with-dynamic-environment ,env (lambda ()
