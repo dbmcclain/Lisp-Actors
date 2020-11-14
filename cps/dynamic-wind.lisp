@@ -111,6 +111,12 @@
         (proceed ,form)
       ,@handler-cases)))
 
+(defmacro =unwind-protect (form &rest exit-forms)
+  `(dynamic-wind
+     (unwind-protect
+         (proceed ,form)
+       ,@exit-forms)))
+
 ;; -------------------------------------------
 ;; Turn a simple closure into a Continuation
 
@@ -145,13 +151,33 @@
 (let ((tester (make-instance 'ac:actor)))
   (actors.base:perform-in-actor tester
     (=handler-case
-        (=bind (x)
-            (ac:spawn-worker (=lambda ()
-                               (=values 15))
-                             =bind-cont)
-          (print x)
-          (error "make an error"))
+        (=handler-case
+            (=bind (x)
+                (ac:spawn-worker (=lambda ()
+                                   (=values 15))
+                                 =bind-cont)
+              (print x)
+              (error "make an error"))
+          (error ()
+            (print "error correctly intercepted")
+            (error "make another error")))
       (error ()
-        (print "error correctly intercepted")
+        (print "error correctly intercepted again")
         t))))
+
+(let ((final nil)
+      (ctr 0))
+  (=unwind-protect
+   (=bind (x)
+       (ac:spawn-worker (=lambda ()
+                          (=values 15))
+                        =bind-cont)
+     (print x)
+     (setf final t))
+   (incf ctr)
+   (format t "~&Unwind-exit ctr = ~D" ctr)
+   (when final
+     (print "yes - we are final"))
+   ))
+
 |#

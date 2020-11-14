@@ -59,7 +59,8 @@
    :=handler-bind*
    :=handler-case*
    :=handler-bind-case
-
+   :=unwind-protect
+   
    :dynamic-wind
    :proceed
    :capture-dynamic-environment
