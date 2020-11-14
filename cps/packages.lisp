@@ -59,5 +59,11 @@
    :=handler-bind*
    :=handler-case*
    :=handler-bind-case
+
+   :dynamic-wind
+   :proceed
+   :capture-dynamic-environment
+   :call-with-dyanmic-environment
+   :with-dynamic-environment
    ))
 

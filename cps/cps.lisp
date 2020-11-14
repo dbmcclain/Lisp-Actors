@@ -48,7 +48,7 @@
 ;; continuation closure. Use these =Handlers insetead of the usual
 ;; Lisp forms to enable that action. (This most likely occurs in Actor
 ;; code.)
-
+#|
 (defvar *handler-fns* nil)
 
 (defun do=handler (hndlr closure)
@@ -173,7 +173,7 @@
                  (lambda ()
                    ,form))
     ))
-
+|#
 #+:LISPWORKS
 (progn
   (editor:setup-indent "=handler-bind" 1 2 4)
@@ -191,7 +191,7 @@
 
 ;; ----------------------------------------------------------
 ;; =CONT - turn a function into a continuation closure
-
+#|
 (defun =cont (fn)
   ;; for now... Actors will enhance.
   ;; --------------------------------------------------------------
@@ -222,6 +222,7 @@
                     (let ((*handler-fns* cur-hndlrs))
                       (funcall (car cur-hndlrs) cur-clos)))))
           )))))
+|#
 
 (defun =cont1 (fn)
   ;; A one-time continuation - avoids problems with multiple =VALUES
