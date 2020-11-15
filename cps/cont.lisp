@@ -105,8 +105,6 @@
   (editor:setup-indent "=handler-bind" 1 2 4)
   (editor:setup-indent "=handler-case" 1 2 4 'handler-case)
   (editor:setup-indent "=catch" 1 2 4)
-  (editor:setup-indent "=let" 1 2 4)
-  (editor:setup-indent "=let*" 1 2 4)
   (editor:setup-indent "=restart-bind" 1 2 4)
   (editor:setup-indent "=restart-case" 1 2 4 'handler-case)
   (editor:setup-indent "=with-simple-restart" 1 2 4)

@@ -50,8 +50,6 @@
    :=handler-bind
    :=handler-case
    :=catch
-   :=let
-   :=let*
    :=restart-case
    :=restart-bind
    :=with-simple-restart
