@@ -48,7 +48,7 @@
             (setf (getf (spm-handlers inst) req) fn))
            (:handle (replyCh inst req &rest args)
             (poke replych
-                  (um:with-captured-ans-or-exn 
+                  (um:capture-ans-or-exn 
                     (um:if-let (handler (getf (spm-handlers inst) req))
                         (apply handler inst args)
                       ;; else
