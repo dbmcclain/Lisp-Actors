@@ -32,17 +32,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             
             ref:ref
             ref:atomic-decf
-
-            timeout:timeout
-            timeout:*timeout*
-
-            cps:=wait
-            cps:=values
-            cps:with-cont
-            cps:with-cps
-            
-            actors.executives:terminate-actor
-            actors.base:spawn-worker
             )))
             
 ;; ------------------------------------------------------------------

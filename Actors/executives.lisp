@@ -8,12 +8,6 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import '(actors.base:%run-actor
-            actors.base:<runnable>
-            actors.base:actor
-            actors.base:worker
-            actors.base:actor-busy
-            actors.base:actor-user-fn
-            actors.base:worker-dispatch-wrapper
 
             mp:make-timer
             mp:schedule-timer-relative

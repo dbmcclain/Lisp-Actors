@@ -20,21 +20,6 @@
             um:nlet-tail
             um:capture-ans-or-exn
             
-            actors.lfm:log-info
-            actors.lfm:log-error
-
-            actors.base:actor
-            actors.base:become
-            actors.base:inject-into-actor
-            actors.base:perform-in-actor
-            actors.base:recv
-            actors.base:spawn-worker
-            actors.base:with-as-current-actor
-            actors.base:send
-            actors.base:assemble-ask-message
-            
-            actors.directory:find-actor
-            
             actors.security:secure-encoding
             actors.security:secure-decoding
             actors.security:insecure-decoding
@@ -53,17 +38,8 @@
             actors.bridge:bridge-reset
 
             actors.lfm:ensure-system-logger
-            
-            cps:=bind
-            cps:=wait
-            cps:=values
-            cps:=defun
-            cps:=bind-cont
-            cps:=wait-cont
-            cps:with-cont
-            cps:=flet
-            cps:=cont
-            cps:=apply
+
+            actors.base:assemble-ask-message
             )))
 
 ;; -----------------------------------------------------------------------

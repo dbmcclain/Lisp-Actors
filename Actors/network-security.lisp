@@ -23,16 +23,10 @@
             uuid:uuid-to-integer
             uuid:uuid-to-byte-array
 
-            cps:=wait
-            cps:=wait-cont
-
             actors.network:intf-srp-ph2-begin
             actors.network:intf-srp-ph2-reply
             actors.network:intf-srp-ph3-begin
             actors.network:client-request-negotiation
-
-            actors.lfm:log-info
-
             )))
 
 ;; --------------------------------------------

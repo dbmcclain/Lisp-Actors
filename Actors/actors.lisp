@@ -30,24 +30,6 @@ THE SOFTWARE.
 
 (in-package #:actors.base)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (import '(
-            actors.executives:add-to-ready-queue
-
-            actors.directory:find-actor
-
-            timeout:*timeout*
-
-            cps:=wait
-            cps:=wait-cont
-            cps:=defun
-            cps:=defgeneric
-            cps:=bind
-            cps:=bind-cont
-            cps:=values
-            cps:=apply
-            )))
-
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))
 

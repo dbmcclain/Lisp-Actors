@@ -10,8 +10,6 @@
 
 (um:eval-always
   (import '(
-            actors.base:actor
-
             um:when-let
             )))
 

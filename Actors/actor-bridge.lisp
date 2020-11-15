@@ -14,36 +14,11 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import '(
-            actors.base:current-actor
-            actors.base:actor
-            actors.base:make-actor
-            actors.base:send
-            actors.base:ask
-            actors.base:=ask
-            actors.base:perform-in-actor
-            actors.base:self-call
-            actors.base:assemble-ask-message
-            
-            actors.par:=non-blocking
-
-            actors.directory:find-actor
-            actors.directory:register-actor
-
-            actors.network:socket-send
-            actors.network:open-connection
-
-            cps:=bind
-            cps:=wait
-            cps:=values
-            cps:=bind-cont
-            cps:=defun
-            cps:=defmethod
-            cps:=apply
-            
             um:when-let
             um:recover-ans-or-exn
 
-            timeout:*timeout*
+            actors.network:open-connection
+            actors.network:socket-send
             )))
 
 ;; ---------------------------------------------------------------------------------

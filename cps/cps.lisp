@@ -73,10 +73,7 @@
 (defun get=sym (name)
   ;; be careful to get the correct package for the =name
   ;; this code assumes that NAME and =NAME are defined in the same package
-  (let* ((pkg   (symbol-package name))
-         (=name (symb '= name)))
-    (or (find-symbol (string =name) pkg)
-        =name)))
+  (intern (um:mkstr #\= name) (symbol-package name)))
 
 (defmacro =defun (name args &rest body)
   ;; define a named CPS function

@@ -1,11 +1,6 @@
 
 (in-package :actors)
 
-(um:eval-always
-  (import '(
-            cps:=bind-cont
-            )))
-
 (defclass reactor (actor)
   ((table  :reader reactor-table  :initform (make-hash-table))
    ))

@@ -12,16 +12,6 @@
 
 (in-package #:actors.lfm)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (import '(
-            actors.base:actor
-            actors.base:current-actor
-            actors.base:perform-in-actor
-            
-            actors.directory:register-actor
-            actors.directory:find-actor
-            )))
-
 ;; -------------------------------------------------------------
 #|
 (defmethod make-logging-handler ((stream stream) nlogfiles bg-logging)

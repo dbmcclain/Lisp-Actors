@@ -28,10 +28,8 @@ THE SOFTWARE.
 
 (in-package #:actors.base)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (import '(cps:=cont
-
-            mp:make-timer
+(um:eval-always
+  (import '(mp:make-timer
             )))
 
 ;; -------------------------------------------------------
