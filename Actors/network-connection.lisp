@@ -18,7 +18,7 @@
             um:dcase*
             um:nlet
             um:nlet-tail
-            um:with-captured-ans-or-exn
+            um:capture-ans-or-exn
             
             actors.lfm:log-info
             actors.lfm:log-error
@@ -344,7 +344,7 @@
            (=bind (&rest ans)
                (if-let (actor (find-actor service))                                    
                    (apply 'send actor (apply 'assemble-ask-message =bind-cont msg))
-                 (=values (with-captured-ans-or-exn
+                 (=values (capture-ans-or-exn
                             (no-service-alert service (machine-instance)))))
              (apply 'socket-send intf 'actor-internal-message:forwarding-reply id ans)))
            

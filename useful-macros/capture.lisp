@@ -9,7 +9,7 @@
 (defstruct capture-packet
   data)
 
-(defun capture-ans-or-exn (fn &rest args)
+(defun call-capturing-ans-or-exn (fn &rest args)
   (make-capture-packet
    :data (multiple-value-list
           (ignore-errors
@@ -17,9 +17,9 @@
              (apply fn args))))
    ))
 
-(defmacro with-captured-ans-or-exn (&body body)
-  `(capture-ans-or-exn (lambda ()
-                         ,@body)))
+(defmacro capture-ans-or-exn (&body body)
+  `(call-capturing-ans-or-exn (lambda ()
+                                ,@body)))
 
 (defgeneric recover-ans-or-exn (val)
   (:method (val)

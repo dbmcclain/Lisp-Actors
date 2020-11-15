@@ -911,7 +911,7 @@ THE SOFTWARE.
 
    #:capture-packet
    #:capture-ans-or-exn
-   #:with-captured-ans-or-exn
+   #:call-capturing-ans-or-exn
    #:recover-ans-or-exn
 
    #:*top-function*

@@ -86,5 +86,5 @@ arrives.
                  =bind-cont))
 
 (defmacro =async/err (&body body)
-  `(=async (=values (mcapture-ans-or-exn
+  `(=async (=values (capture-ans-or-exn
                       ,@body))))

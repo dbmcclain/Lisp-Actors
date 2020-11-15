@@ -19,7 +19,7 @@
 
 (defun do-async-open (reply-to filename &rest args)
   (send reply-to
-        (um:mcapture-ans-or-exn
+        (um:capture-ans-or-exn
           (apply #'open filename args))))
 
 (defun report-invalid-io-command (condition stream)
@@ -31,7 +31,7 @@
 
 (defun do-async-io (reply-to stream cmds)
   (send reply-to
-        (um:mcapture-ans-or-exn
+        (um:capture-ans-or-exn
           (um:accum acc
             (dolist (cmd cmds)
               (acc (list cmd
@@ -112,7 +112,7 @@
                         (um:nlet-tail dump ()
                           (um:if-let (pair (hcl:unlocked-queue-read queue))
                               (progn
-                                (send (car pair) (um:mcapture-ans-or-exn
+                                (send (car pair) (um:capture-ans-or-exn
                                                    (error 'stream-closed)))
                                 (dump))
                             ;; else
@@ -124,6 +124,5 @@
 
 (=defun perform (fn)
   (spawn-worker (=lambda ()
-                  (=values (um:mcapture-ans-or-exn
-                             (funcall fn))))
+                  (=values (um:call-capturing-ans-or-exn fn)))
                 =bind-cont))

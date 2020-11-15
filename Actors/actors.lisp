@@ -373,7 +373,7 @@ THE SOFTWARE.
                     (*in-ask*        t))
                 (handler-case
                     (send reply-to
-                          (with-captured-ans-or-exn
+                          (capture-ans-or-exn
                             (um:proceed
                              (apply #'self-call sub-msg))))
                   
