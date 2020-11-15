@@ -59,7 +59,7 @@ THE SOFTWARE.
 ;; delivery, ahead of new messages in the Actor mailbox.
 ;;
 (defun do-recv (conds-fn timeout-fn timeout)
-  (let ((in-ask-whole-msg *in-ask*)
+  (let ((dyn-env (um:capture-dynamic-environment))
         user-fn msg-queue timer)
     (labels
         ((restore-actor ()
@@ -74,9 +74,7 @@ THE SOFTWARE.
 
          (process-message (fn)
            (restore-actor)
-           (if in-ask-whole-msg
-               (try-asking fn () in-ask-whole-msg)
-             (funcall fn)))
+           (um:call-with-dynamic-environment dyn-env fn))
          
          (filter-message (&rest msg)
            (um:if-let (fn (and (not (in-ask-p))

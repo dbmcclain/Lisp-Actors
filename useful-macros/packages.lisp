@@ -987,7 +987,7 @@ THE SOFTWARE.
    :dynamic-wind
    :proceed
    :capture-dynamic-environment
-   :call-with-dyanmic-environment
+   :call-with-dynamic-environment
    :with-dynamic-environment
    ))
 

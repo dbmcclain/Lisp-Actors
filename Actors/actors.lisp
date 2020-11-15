@@ -207,16 +207,14 @@ THE SOFTWARE.
   (um:wr (slot-value actor 'properties-ref)
          (maps:add-plist (maps:empty) properties)))
 
-(defun make-actor (fn &key
-                      properties)
+(defun make-actor (&optional fn &key properties)
   (make-instance 'actor
-                 :user-fn    fn
+                 :user-fn    (or fn #'funcall)
                  :properties properties))
 
-(defun make-limited-actor (fn &key
-                              properties)
+(defun make-limited-actor (&optional fn &key properties)
   (make-instance 'limited-actor
-                 :user-fn    fn
+                 :user-fn    (or fn #'funcall)
                  :properties properties))
 
 (defmethod get-property ((actor actor) key &optional default)
@@ -351,62 +349,42 @@ THE SOFTWARE.
 (define-condition no-immediate-answer ()
   ())
 
-(defun try-asking (fn args whole-msg)
-  (handler-case
-      ;; must *NOT* use =HANDLER-CASE here
-      (let ((*in-ask*  whole-msg))
-        (send (cadr whole-msg)
-              (apply #'capture-ans-or-exn fn args)))
-
-    (no-immediate-answer ())
-    ))
-
-(define-condition try-again ()
-  ((retry-fn  :reader retry-fn :initarg :fn)))
-
-(defun #1=from-the-top (fn)
-  ;; re-entering from-the-top with a TRY-AGAIN also unwinds all the
-  ;; dynamic handlers in effect, forcing their reconstruction beneath
-  ;; the call to the retry FN.
-  (loop
-   (handler-case
-       (return-from #1# (funcall fn))
-     (try-again (cx)
-       (setf fn (retry-fn cx)))
-     )))
-
 (defun assemble-ask-message (reply-to &rest msg)
   (list* 'actor-internal-message:ask reply-to msg))
 
 ;; ---------------------------------------------------------
 
 (defgeneric dispatch-message (obj &rest msg)
-  (:method ((*current-actor* actor) &rest *whole-message*)
-   (declare (special *current-actor* *whole-message*))
-   ;; recoded dbm 8/20 - use direct cond instead of dlambda, dcase, for speedup
-   (let ((sel (car *whole-message*)))
-     (cond
-      ((eq sel 'actor-internal-message:continuation)
-       ;; Used for callbacks into the Actor
-       (destructuring-bind (fn . args) (cdr *whole-message*)
-         ;; message is (:conintuation fn . args)
-         (apply fn args)))
-      
-      ((eq sel 'actor-internal-message:ask)
-       ;; Intercept queries to send back a response from the following
-       ;; message, reflecting any errors back to the caller.
-       ;;
-       ;; Msg format is: ('internal:ask reply-to &rest message)
-       (from-the-top
-        (lambda ()
-          (try-asking 'self-call (cddr *whole-message*) *whole-message*))))
-      
-      (t
-       ;; anything else is up to the programmer who constructed
-       ;; this Actor
-       (apply 'self-call *whole-message*))
-      ))
-   ))
+  (:method ((obj actor) &rest msg)
+   (let ((*current-actor* obj)
+         (*whole-message* msg))
+     (um:dcase* msg
+       (actor-internal-message:continuation (fn &rest args)
+          ;; Used for callbacks into the Actor
+          (apply fn args))
+       
+       (actor-internal-message:ask (reply-to &rest sub-msg)
+          ;; Intercept restartable queries to send back a response
+          ;; from the following message, reflecting any errors back to
+          ;; the caller.
+          (let ((original-ask-message (whole-message)))
+            (um:dynamic-wind
+              (let ((*whole-message* original-ask-message)
+                    (*in-ask*        t))
+                (handler-case
+                    (send reply-to
+                          (with-captured-ans-or-exn
+                            (um:proceed
+                             (apply #'self-call sub-msg))))
+                  
+                  (no-immediate-answer ())
+                  )))))
+
+       (t (&rest msg)
+          ;; anything else is up to the programmer who constructed
+          ;; this Actor
+          (apply #'self-call msg))
+       ))))
 
 ;; ---------------------------------------------
 ;; SPAWN a new Actor on a function with args
