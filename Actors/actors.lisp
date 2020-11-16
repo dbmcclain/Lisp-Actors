@@ -340,7 +340,7 @@ THE SOFTWARE.
   (:method ((obj actor) &rest msg)
    (let ((*current-actor* obj)
          (*whole-message* msg))
-     (um:dcase* msg
+     (um:dcase msg
        (actor-internal-message:continuation (fn &rest args)
           ;; Used for callbacks into the Actor
           (apply fn args))

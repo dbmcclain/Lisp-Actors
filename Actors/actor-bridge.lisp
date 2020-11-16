@@ -14,6 +14,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import '(
+            um:if-let
             um:when-let
             um:recover-ans-or-exn
 
@@ -62,27 +63,22 @@
       (setf ip-addr (string-upcase (subseq dest start))))
     (values service ip-addr ip-port)))
 
-(defun do-with-valid-dest (dest fn)
+(defun find-handler (dest-ip dest-port)
+  (or (maps:find (actor-bridge-dests (current-actor)) dest-ip)
+      (open-connection dest-ip dest-port)))
+        
+(defun call-with-valid-dest (dest fn)
   (multiple-value-bind (service dest-ip dest-port)
       (parse-destination dest)
     (when (and service
                dest-ip)
-      (um:nlet iter ((handler (maps:find (actor-bridge-dests (current-actor)) dest-ip))
-                     (ct      0))
-        (cond (handler
-               (funcall fn service handler))
-              
-              ((zerop ct)
-               (=bind (handler)
-                   (=non-blocking
-                    (when-let (handler (open-connection dest-ip dest-port))
-                      (=values handler)))
-                 (iter handler 1)))
-              )))))
+      (when-let (handler (find-handler dest-ip dest-port))
+        (funcall fn service handler)))
+    ))
 
 (defmacro with-valid-dest ((service handler dest) &body body)
-  `(do-with-valid-dest ,dest (lambda (,service ,handler)
-                              ,@body)))
+  `(call-with-valid-dest ,dest (lambda (,service ,handler)
+                                 ,@body)))
 
 ;; ---------------------------------------------------------------------
 ;; Register / Connect to socket handler
