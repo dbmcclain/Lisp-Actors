@@ -74,21 +74,20 @@ THE SOFTWARE.
    #:copy-v1-uuid-replacing-time
    #:when-created
    #:uuid-string
+   #:one-of-mine?
    ))
 
 (in-package #:uuid)
 
-#+:LISPWORKS
-(let ((state (lw:make-mt-random-state t)))
+(defmonitor random-engine
+    ((state (load-time-value
+             #+:LISPWORKS (lw:make-mt-random-state t)
+             #-:LISPWORKS (cl:make-random-state t))))
   (defun random (arg)
-    (lw:mt-random arg state)))
+    (critical-section
+      #+:LISPWORKS (lw:mt-random arg state)
+      #-:LISPWORKS (cl:random arg state))))
 
-#-:LISPWORKS
-(let ((state (cl:make-random-state t)))
-  (defun random (arg)
-    (cl:random arg state)))
-
-#|
 (defvar *clock-seq* 0 
   "Holds the clock sequence. Is is set when a version 1 uuid is 
 generated for the first time and remains unchanged during a whole session.")
@@ -96,7 +95,6 @@ generated for the first time and remains unchanged during a whole session.")
 (defvar *node* nil 
   "Holds the IEEE 802 MAC address or a random number 
   when such is not available")
-|#
 
 #|
 ;; adjusted to 10 ticks per count for TOD in usec (100 ns units) ;; DM/RAL
@@ -355,24 +353,24 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
   (make-instance 'uuid))
 
 
-(let ((node      (get-node-id))
-      (clock-seq (random 10000)))
-  (defun make-v1-uuid ()
-    "Generates a version 1 (time-based) uuid."
-    (let ((timestamp (get-timestamp)))
-      #|
-      (when (zerop *clock-seq*)
-        (setf *clock-seq* (random 10000)))
-      (when (null *node*)
-        (setf *node* (get-node-id)))
-      |#
-      (make-instance 'uuid
-                     :time-low (ldb (byte 32 0) timestamp)
-                     :time-mid (ldb (byte 16 32) timestamp)
-                     :time-high (dpb #b0001 (byte 4 12) (ldb (byte 12 48) timestamp))
-                     :clock-seq-var (dpb #b10 (byte 2 6) (ldb (byte 6 8)  clock-seq))
-                     :clock-seq-low (ldb (byte 8 0) clock-seq) 
-                     :node node))))
+(defun make-v1-uuid ()
+  "Generates a version 1 (time-based) uuid."
+  (let ((timestamp (get-timestamp)))
+    (when (zerop *clock-seq*)
+      (setf *clock-seq* (random 10000)))
+    (when (null *node*)
+      (setf *node* (get-node-id)))
+    (make-instance 'uuid
+                   :time-low (ldb (byte 32 0) timestamp)
+                   :time-mid (ldb (byte 16 32) timestamp)
+                   :time-high (dpb #b0001 (byte 4 12) (ldb (byte 12 48) timestamp))
+                   :clock-seq-var (dpb #b10 (byte 2 6) (ldb (byte 6 8)  *clock-seq*))
+                   :clock-seq-low (ldb (byte 8 0) *clock-seq*) 
+                   :node *node*)))
+
+(defun one-of-mine? (uuid)
+  (and (= 1 (ldb (byte 4 12) (time-high uuid))) ;; type 1?
+       (= (node uuid) *node*)))
 
 (defun make-v3-uuid (namespace name)
   "Generates a version 3 (named based MD5) uuid."
@@ -382,13 +380,15 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
 
 (defun make-v4-uuid ()
   "Generates a version 4 (random) uuid"
-  (make-instance 'uuid
-		 :time-low (random #xffffffff)
-		 :time-mid (random #xffff)
-		 :time-high (dpb #b0100 (byte 4 12) (ldb (byte 12 0) (random #xffff)))
-		 :clock-seq-var (dpb #b10 (byte 2 6) (ldb (byte 8 0) (random #xff)))
-		 :clock-seq-low (random #xff)
-		 :node (random #xffffffffffff)))
+  (let ((v (random #.(ash 1 128))))
+    (make-instance 'uuid
+                   :time-low (ldb (byte 32 0) v) ;; (random #xffffffff)
+                   :time-mid (ldb (byte 16 32) v) ;; (random #xffff)
+                   :time-high (dpb #b0100 (byte 4 12) (ldb (byte 16 48) v #|(random #xffff)|#))
+                   :clock-seq-var (dpb #b10 (byte 2 6) (ldb (byte 8 64) v #|(random #xff)|#))
+                   :clock-seq-low (ldb (byte 8 72) v) ;; (random #xff)
+                   :node (ldb (byte 48 80) v)) #|(random #xffffffffffff)|#
+    ))
 
 (defun make-v5-uuid (namespace name)
   "Generates a version 5 (name based SHA1) uuid."

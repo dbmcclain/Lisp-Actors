@@ -161,6 +161,8 @@ THE SOFTWARE.
 
    #:prt
    #:pr
+
+   #:usti
    ))
 
 #-lispworks

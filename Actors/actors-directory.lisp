@@ -16,17 +16,18 @@
 ;; ------------------------------------------------------------
 
 (defgeneric acceptable-key (name)
-  (:method (name)
+  (:method (obj)
    nil)
-  (:method ((name (eql nil)))
+  (:method ((obj (eql nil)))
    nil)
-  (:method ((name symbol))
-   (and (symbol-package name) ;; why would we care about this?
-        (acceptable-key (string name))))
-  (:method ((name string))
-   (string-upcase name))
+  (:method ((sym symbol))
+   (acceptable-key (string sym)))
+  (:method ((str string))
+   (string-upcase str))
   (:method ((index integer))
-   index))
+   (acceptable-key (format nil "number: ~D" index)))
+  (:method ((usti uuid:uuid))
+   (acceptable-key (format nil "usti:~A" (uuid:uuid-string usti)))))
 
         ;;; =========== ;;;
 

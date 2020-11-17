@@ -211,3 +211,39 @@
      (t
       (call-next-method))
      )))
+
+;; --------------------------------------------------------------------------------
+;; USTI - Universal Send-Target Identifier
+;;
+;; While ASK uses a known syntax, where the reply-to field is in a
+;; known position of the message, and the Bridge takes care of
+;; translating that into a USTI for network transmission, we need
+;; something else for general messages that may contain a callback to
+;; some closure or mailbox.
+;;
+;; In that case, it is up to the caller to form an explicit USTI in
+;; the message, which will be looked up on return.
+;;
+;; Here we use UUID's for USTI's.
+
+(defgeneric usti (obj)
+  (:method ((obj uuid:uuid))
+   obj)
+  (:method (obj)
+   (let ((usti (uuid:make-v1-uuid)))
+     (perform-in-actor *bridge*
+       (with-slots (conts) *bridge*
+         (maps:addf conts usti (list nil obj))))
+     usti)))
+
+(defmethod find-actor ((usti uuid:uuid))
+  (or (when (uuid:one-of-mine? usti)
+        (query-actor *bridge* 
+          (with-slots (conts) *bridge*
+            (when-let (cont (second (maps:find conts usti)))
+              (maps:removef conts usti)
+              cont))
+          ))
+      (call-next-method)))
+
+    
