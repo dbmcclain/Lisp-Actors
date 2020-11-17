@@ -39,6 +39,14 @@
 (defstruct ip-dest
   service ip-addr port)
 
+(defmacro in-bridge (&body body)
+  `(perform-in-actor *bridge*
+     ,@body))
+
+(defmacro ask-bridge (&body body)
+  `(query-actor *bridge*
+     ,@body))
+
 ;; --------------------------------------------------------------------------------
 ;; Helper Functions
 
@@ -80,74 +88,80 @@
   `(call-with-valid-dest ,dest (lambda (,service ,handler)
                                  ,@body)))
 
+(defun find-and-remove-usti (usti)
+  (with-slots (conts) *bridge*
+    (when-let (cont (second (maps:find conts usti)))
+      (maps:removef conts usti)
+      cont)))
+
+(defun create-and-add-usti (obj &optional handler)
+  (with-slots (conts) *bridge*
+    (let ((usti (uuid:make-v1-uuid)))
+      (maps:addf conts usti (list handler obj))
+      usti)))
+
 ;; ---------------------------------------------------------------------
 ;; Register / Connect to socket handler
 
 (defun bridge-register (ip-addr handler)
   ;; called by socket handler to register a new connection
-  (with-slots (dests) *bridge*
-    (perform-in-actor *bridge*
-      (maps:addf dests (string-upcase ip-addr) handler)
-      )))
+  (in-bridge
+   (with-slots (dests) *bridge*
+     (maps:addf dests (string-upcase ip-addr) handler)
+     )))
 
 (defun bridge-unregister (handler)
   ;; called by socket handler on socket shutdown
-  (with-slots (dests conts) *bridge*
-    (perform-in-actor *bridge*
-      (maps:iter dests
-                 (lambda (k v)
-                   (when (eq handler v)
-                     (maps:removef dests k))))
-      (maps:iter conts
-                 (lambda (k v)
-                   (when (eq handler (first v))
-                     (maps:removef conts k))))
-      )))
+  (in-bridge
+   (with-slots (dests conts) *bridge*
+     (maps:iter dests
+                (lambda (k v)
+                  (when (eq handler v)
+                    (maps:removef dests k))))
+     (maps:iter conts
+                (lambda (k v)
+                  (when (eq handler (first v))
+                    (maps:removef conts k))))
+     )))
         
 (defun bridge-reset ()
   ;; called when all socket I/O is shutdown
-  (with-slots (dests conts) *bridge*
-    (perform-in-actor *bridge*
-      (setf conts (maps:empty)
-            dests (maps:empty))
-      )))
+  (in-bridge
+   (with-slots (dests conts) *bridge*
+     (setf conts (maps:empty)
+           dests (maps:empty))
+     )))
 
 ;; -----------------------------------------------------------------------
 
 (defun forward-query (handler service cont &rest msg)
-  (with-slots (conts) *bridge*
-    (let ((id (uuid:make-v1-uuid)))
-      (maps:addf conts id (list handler cont))
-      (apply 'socket-send handler 'actor-internal-message:forwarding-ask service id msg))
-    ))
+  (let ((usti (create-and-add-usti cont handler)))
+    (apply 'socket-send handler 'actor-internal-message:forwarding-ask service usti msg)))
 
 (defun bridge-forward-message (dest &rest msg)
   ;; called by SEND as a last resort
-  (perform-in-actor *bridge*
-    (with-valid-dest (service handler dest)
-      (case (car msg)
-        ((actor-internal-message:ask)
-         (apply 'forward-query handler service (cadr msg) (cddr msg)))
-        
-        (otherwise
-         (apply 'socket-send handler 'actor-internal-message:forwarding-send service msg))
-        ))))
+  (in-bridge
+   (with-valid-dest (service handler dest)
+     (case (car msg)
+       ((actor-internal-message:ask)
+        (apply 'forward-query handler service (cadr msg) (cddr msg)))
+       
+       (otherwise
+        (apply 'socket-send handler 'actor-internal-message:forwarding-send service msg))
+       ))))
 
 (=defun bridge-ask-query (dest &rest msg)
   ;; called by ASK as a last resort
-  (perform-in-actor *bridge*
-    (with-valid-dest (service handler dest)
-      (apply 'forward-query handler service =bind-cont msg)
-      )))
+  (in-bridge
+   (with-valid-dest (service handler dest)
+     (apply 'forward-query handler service =bind-cont msg)
+     )))
 
-(defun bridge-handle-reply (id &rest reply)
+(defun bridge-handle-reply (usti &rest reply)
   ;; called by socket handler when a reply arrives
-  (with-slots (conts) *bridge*
-    (perform-in-actor *bridge*
-      (when-let (cont (second (maps:find conts id)))
-        (maps:removef conts id)
-        (apply cont reply))
-      )))
+  (in-bridge
+   (when-let (cont (find-and-remove-usti usti))
+     (apply cont reply))))
 
 ;; -----------------------------------------------------------------------
 
@@ -230,20 +244,13 @@
   (:method ((obj uuid:uuid))
    obj)
   (:method (obj)
-   (let ((usti (uuid:make-v1-uuid)))
-     (perform-in-actor *bridge*
-       (with-slots (conts) *bridge*
-         (maps:addf conts usti (list nil obj))))
-     usti)))
+   (ask-bridge
+    (create-and-add-usti obj))))
 
 (defmethod find-actor ((usti uuid:uuid))
   (or (when (uuid:one-of-mine? usti)
-        (query-actor *bridge* 
-          (with-slots (conts) *bridge*
-            (when-let (cont (second (maps:find conts usti)))
-              (maps:removef conts usti)
-              cont))
-          ))
+        (ask-bridge
+         (find-and-remove-usti usti)))
       (call-next-method)))
 
     
