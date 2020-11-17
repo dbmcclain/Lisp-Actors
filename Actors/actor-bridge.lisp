@@ -36,9 +36,6 @@
   ;; registering, because it is not generally useful to end users.
   *bridge*)
 
-(defstruct ip-dest
-  service ip-addr port)
-
 (defmacro in-bridge (&body body)
   `(perform-in-actor *bridge*
      ,@body))
@@ -50,11 +47,8 @@
 ;; --------------------------------------------------------------------------------
 ;; Helper Functions
 
-(defmethod parse-destination ((dest ip-dest))
-  (with-slots (service ip-addr port) dest
-    (values service ip-addr port)))
-
-(defmethod parse-destination ((dest string))
+(defun parse-destination (dest)
+  (check-type dest string)
   (let ((pos-at    (position #\@ dest))
         (pos-colon (position #\: dest))
         start
@@ -67,22 +61,52 @@
       (setf start 0))
     (if pos-colon
         (setf ip-addr (string-upcase (subseq dest start (- pos-colon start)))
-              ip-port (subseq dest (1+ pos-colon)))
+              ip-port (parse-integer (subseq dest (1+ pos-colon))))
       (setf ip-addr (string-upcase (subseq dest start))))
     (values service ip-addr ip-port)))
+
+(defstruct (proxy
+            (:constructor %make-proxy))
+  (ip      nil :read-only t)
+  (port    nil :read-only t)
+  (service nil :read-only t))
+
+(defun make-proxy (&key ip port service addr)
+  (when addr
+    (multiple-value-bind (aservice aip aport)
+        (parse-destination addr)
+      (setf ip      aip
+            port    aport
+            service aservice)))
+  (%make-proxy
+   :ip      (string-upcase ip)
+   :port    (etypecase port
+              (null    nil)
+              (integer port)
+              (string  (parse-integer port)))
+   :service (string-upcase service)))
+
+;; -------------------------------------------
+;; Bridge Actor internal functions
 
 (defun find-handler (dest-ip dest-port)
   (or (maps:find (actor-bridge-dests (current-actor)) dest-ip)
       (open-connection dest-ip dest-port)))
         
-(defun call-with-valid-dest (dest fn)
-  (multiple-value-bind (service dest-ip dest-port)
-      (parse-destination dest)
-    (when (and service
-               dest-ip)
-      (when-let (handler (find-handler dest-ip dest-port))
-        (funcall fn service handler)))
-    ))
+(defun call-with-valid-ip (service ip port fn)
+  (when (and service
+             ip)
+    (when-let (handler (find-handler ip port))
+      (funcall fn service handler))))
+
+(defgeneric call-with-valid-dest (dest fn)
+  (:method ((dest string) fn)
+   (multiple-value-bind (service dest-ip dest-port)
+       (parse-destination dest)
+     (call-with-valid-ip service dest-ip dest-port fn)))
+  (:method ((dest proxy) fn)
+   (with-slots (service ip port) dest
+     (call-with-valid-ip service ip port fn))))
 
 (defmacro with-valid-dest ((service handler dest) &body body)
   `(call-with-valid-dest ,dest (lambda (,service ,handler)
@@ -135,6 +159,7 @@
 ;; -----------------------------------------------------------------------
 
 (defun forward-query (handler service cont &rest msg)
+  ;; we should already be running in Bridge
   (let ((usti (create-and-add-usti cont handler)))
     (apply 'socket-send handler 'actor-internal-message:forwarding-ask service usti msg)))
 
@@ -201,6 +226,16 @@
       (apply 'send actor message)
     (call-next-method)))
 
+(defmethod send ((proxy proxy) &rest message)
+  (apply 'bridge-forward-message proxy message))
+
+; ------------------------------------------
+
+(defun network-ask (dest &rest message)
+  (=wait (ans) (:timeout *timeout* :errorp t)
+      (=apply 'bridge-ask-query dest message)
+    (recover-ans-or-exn ans)))
+
 (defmethod ask ((str string) &rest message)
   (let (actor)
     (cond
@@ -208,9 +243,7 @@
       (apply 'ask actor message))
      
      ((find #\@ str)
-      (=wait (ans) (:timeout *timeout* :errorp t)
-          (=apply 'bridge-ask-query str message)
-        (recover-ans-or-exn ans)))
+      (apply 'network-ask str message))
      
      (t
       (call-next-method))
@@ -221,6 +254,16 @@
       (apply 'ask actor message)
     (call-next-method)))
 
+(defmethod ask ((proxy proxy) &rest message)
+  (apply 'network-ask proxy message))
+
+;; -----------------------------------------------
+
+(=defun network-ask-nb (dest &rest message)     
+  (=bind (ans)
+      (=apply 'bridge-ask-query dest message)
+    (=values (recover-ans-or-exn ans))))
+
 (=defmethod =ask ((str string) &rest message)
   (let (actor)
     (cond
@@ -228,9 +271,7 @@
       (=apply '=ask actor message))
      
      ((find #\@ str)
-      (=bind (ans)
-          (=apply 'bridge-ask-query str message)
-        (=values (recover-ans-or-exn ans))))
+      (=apply 'network-ask-nb str message))
      
      (t
       (call-next-method))
@@ -240,6 +281,9 @@
   (if-let (actor (find-actor usti))
       (=apply '=ask actor message)
     (call-next-method)))
+
+(=defmethod =ask ((proxy proxy) &rest message)
+  (=apply 'network-ask-nb proxy message))
 
 ;; --------------------------------------------------------------------------------
 ;; USTI - Universal Send-Target Identifier
@@ -253,7 +297,11 @@
 ;; In that case, it is up to the caller to form an explicit USTI in
 ;; the message, which will be looked up on return.
 ;;
-;; Here we use UUID's for USTI's.
+;; Here we use UUID's for USTI's. UUID's have a very short network
+;; encoding, compared to some struct that would enclose a UUID to
+;; serve as a USTI type envelope. Since USTI's are only used as
+;; targets of SEND across a network connection, it seems reasonable to
+;; just use UUID's here.
 
 (defgeneric usti (obj)
   (:method ((obj uuid:uuid))
@@ -268,4 +316,3 @@
          (find-and-remove-usti usti)))
       (call-next-method)))
 
-    

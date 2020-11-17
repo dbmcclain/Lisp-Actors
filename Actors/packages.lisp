@@ -163,6 +163,8 @@ THE SOFTWARE.
    #:pr
 
    #:usti
+   #:proxy
+   #:make-proxy
    ))
 
 #-lispworks
