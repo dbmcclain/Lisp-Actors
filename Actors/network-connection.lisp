@@ -316,16 +316,16 @@
            ;; sent to us on send to non-existent service
            (mp:funcall-async 'no-service-alert service node))
         
-        (actor-internal-message:forwarding-ask (service id &rest msg)
+        (actor-internal-message:forwarding-ask (service usti &rest msg)
            (=bind (&rest ans)
                (if-let (actor (find-actor service))                                    
                    (apply 'send actor (apply 'assemble-ask-message =bind-cont msg))
                  (=values (capture-ans-or-exn
                             (no-service-alert service (machine-instance)))))
-             (apply 'socket-send intf 'actor-internal-message:forwarding-reply id ans)))
+             (apply 'socket-send intf 'actor-internal-message:forwarding-reply usti ans)))
            
-        (actor-internal-message:forwarding-reply (id &rest ans)
-           (apply 'bridge-handle-reply id ans))
+        (actor-internal-message:forwarding-reply (usti &rest ans)
+           (apply 'bridge-handle-reply usti ans))
 
         (t (&rest msg)
            ;; other out-of-band messages

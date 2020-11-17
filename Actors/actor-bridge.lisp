@@ -196,6 +196,11 @@
       (call-next-method))
      )))
 
+(defmethod send ((usti uuid:uuid) &rest message)
+  (if-let (actor (find-actor usti))
+      (apply 'send actor message)
+    (call-next-method)))
+
 (defmethod ask ((str string) &rest message)
   (let (actor)
     (cond
@@ -211,6 +216,11 @@
       (call-next-method))
      )))
 
+(defmethod ask ((usti uuid:uuid) &rest message)
+  (if-let (actor (find-actor usti))
+      (apply 'ask actor message)
+    (call-next-method)))
+
 (=defmethod =ask ((str string) &rest message)
   (let (actor)
     (cond
@@ -225,6 +235,11 @@
      (t
       (call-next-method))
      )))
+
+(=defmethod =ask ((usti uuid:uuid) &rest message)
+  (if-let (actor (find-actor usti))
+      (=apply '=ask actor message)
+    (call-next-method)))
 
 ;; --------------------------------------------------------------------------------
 ;; USTI - Universal Send-Target Identifier
