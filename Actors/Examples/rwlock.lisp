@@ -192,7 +192,7 @@
         (g!ok   (gensym)))
     `(let ((,g!lock ,lock)
            (,g!id   (mp:get-current-process)))
-       (=wait (,g!ok) (:timeout ,timeout :errorp ,errorp :on-timeout ,on-timeout)
+       (=wait ((,g!ok) :timeout ,timeout :errorp ,errorp :on-timeout ,on-timeout)
            (lock-for-read ,g!lock ,g!id =wait-cont)
          (unwind-protect
              (when (eq 'ok ,g!ok)
@@ -209,7 +209,7 @@
         (g!ok   (gensym)))
     `(let ((,g!lock ,lock)
            (,g!id   (mp:get-current-process)))
-       (=wait (,g!ok) (:timeout ,timeout :errorp ,errorp :on-timeout ,on-timeout)
+       (=wait ((,g!ok) :timeout ,timeout :errorp ,errorp :on-timeout ,on-timeout)
            (lock-for-write ,g!lock ,g!id =wait-cont)
          (unwind-protect
              (when (eq 'ok ,g!ok)

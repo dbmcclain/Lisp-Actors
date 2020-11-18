@@ -389,7 +389,7 @@ storage and network transmission.
 (defun make-local-stkv-server (&rest args
                                      &key (path (default-database-pathname))
                                      &allow-other-keys)
-  (=wait (server is-new) ()
+  (=wait ((server is-new))
       (perform-in-actor *stkv-monitor*
         (cond ((probe-file path)
                (let* ((key    (namestring (truename path)))
@@ -416,7 +416,7 @@ storage and network transmission.
                                        path
                                        (registration *service-id*))
   (declare (ignore path))
-  (=wait (server) ()
+  (=wait ((server))
       (perform-in-actor *stkv-monitor*
         (multiple-value-bind (server is-new)
             (apply 'make-local-stkv-server args)

@@ -232,7 +232,7 @@
 ; ------------------------------------------
 
 (defun network-ask (dest &rest message)
-  (=wait (ans) (:timeout *timeout* :errorp t)
+  (=wait ((ans) :timeout *timeout* :errorp t)
       (=apply 'bridge-ask-query dest message)
     (recover-ans-or-exn ans)))
 

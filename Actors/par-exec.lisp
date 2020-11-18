@@ -66,7 +66,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           (handler-bind ((timeout (lambda (c)
                                     (declare (ignore c))
                                     (map nil 'terminate-actor actors))))
-            (=wait () (:timeout *timeout* :errorp t)
+            (=wait (() :timeout *timeout* :errorp t)
                 (flet ((done (ix ans)
                          (setf (aref ansv ix) ans)
                          (when (zerop (ref:atomic-decf count))

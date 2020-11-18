@@ -474,7 +474,7 @@ THE SOFTWARE.
   (if (eq actor (current-actor))
       (apply 'self-call message)
     ;; else - blocking synchronous ASK with mailbox
-    (=wait (ans) (:timeout *timeout* :errorp t)
+    (=wait ((ans) :timeout *timeout* :errorp t)
         (apply 'send actor (apply 'assemble-ask-message =wait-cont message))
       (recover-ans-or-exn ans))))
 
@@ -538,3 +538,53 @@ THE SOFTWARE.
        ;; else
        (error 'invalid-send-target :target obj)))))
 
+;; -------------------------------------------------------
+;; Using formal FUTURES
+
+(defstruct future
+  val)
+
+(defun call-future (fn)
+  (let ((mb (mp:make-mailbox)))
+    (spawn-worker (lambda ()
+                    (mp:mailbox-send mb
+                                     (um:call-capturing-ans-or-exn fn))))
+    (make-future
+     :val mb)))
+
+(defmacro future (&body body)
+  `(call-producing-future (lambda ()
+                            ,@body)))
+
+(defgeneric %forced-future-val (obj &key &allow-other-keys)
+  (:method (obj &key &allow-other-keys)
+   obj)
+  (:method ((mb mp:mailbox) &key (timeout *timeout*) (errorp t) on-timeout &allow-other-keys)
+   (multiple-value-bind (ans ok)
+       (mp:mailbox-read mb "Waiting on FUTURE" timeout)
+     (if ok
+         ans
+       (if errorp
+           (error 'timeout)
+         (when on-timeout
+           (funcall on-timeout))))
+      )))
+
+(defgeneric force (fut &key &allow-other-keys)
+  (:method (obj &key &allow-other-keys)
+   obj)
+  (:method ((fut future) &rest args &key (timeout *timeout*) (errorp t) on-timeout &allow-other-keys)
+   (declare (ignore timeout errorp on-timeout))
+   (with-slots (val) fut
+     (recover-ans-or-exn (setf val (apply #'%forced-future-val val args))))))
+  
+(defun call-forcing (fn fut &rest args &key (timeout *timeout*) (errorp t) on-timeout)
+  (declare (ignore timeout errorp on-timeout))
+  (multiple-value-call fn (apply #'force fut args)))
+
+(defmacro =fwait ((args &key (timeout *timeout*) (errorp t) on-timeout) fut &body body)
+  `(call-forcing-future (lambda ,args ,@body) ,fut
+                        :timeout    ,timeout
+                        :errorp     ,errorp
+                        :on-timeout ,on-timeout))
+  

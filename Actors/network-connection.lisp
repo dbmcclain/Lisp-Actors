@@ -526,7 +526,7 @@
 
 (ac:spawn
  (lambda ()
-   (ac:=wait* () ()
+   (ac:=wait* ()
        (lw:do-nothing)
      (ac:pr :got-it!))))
 
@@ -535,7 +535,7 @@
 #||# ;; -------------------------------
 
 (defun open-connection (ip-addr &optional ip-port)
-  (=wait (io-state) ()
+  (=wait ((io-state))
       (comm:create-async-io-state-and-connected-tcp-socket
          *ws-collection*
          ip-addr
@@ -564,7 +564,7 @@
               (progn
                 (client-negotiate-security crypto intf)
                 (socket-send intf 'actor-internal-message:client-info (machine-instance))
-                (=wait (ans) (:timeout 5 :errorp t)
+                (=wait ((ans) :timeout 5 :errorp t)
                     (expect intf
                       (actor-internal-message:server-info (server-node)
                           (bridge-register server-node intf)
@@ -685,7 +685,7 @@ See the discussion under START-CLIENT-MESSENGER for details."
     (=values)))
 
 (defun terminate-server ()
-  (=wait () ()
+  (=wait (())
       (%terminate-server)))
 
 (defun start-tcp-server (&optional (tcp-port-number *default-port*))

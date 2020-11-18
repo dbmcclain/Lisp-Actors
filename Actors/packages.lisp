@@ -165,6 +165,12 @@ THE SOFTWARE.
    #:usti
    #:proxy
    #:make-proxy
+
+   #:future
+   #:call-future
+   #:force
+   #:call-forcing
+   #:=fwait
    ))
 
 #-lispworks
