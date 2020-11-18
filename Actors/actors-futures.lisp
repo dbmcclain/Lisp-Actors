@@ -43,17 +43,8 @@ arrives.
   ;;
   (let ((fnc (lw:call-next-advice fn)))
     (if-let (actor (current-actor))
-        (let ((fncc (if-let (in-ask-whole-msg *in-ask*)
-                        (lambda (&rest args)
-                          (flet ((ask-again ()
-                                   (try-asking fnc args in-ask-whole-msg)))
-                            ;; signal works if we haven't left the dynamic context
-                            (signal 'try-gain :fn #'ask-again)
-                            ;; otherwise - we did leave
-                            (ask-again)))
-                      fnc)))
-          (lambda (&rest args)
-            (apply 'inject actor fncc args)))
+        (lambda (&rest args)
+          (apply 'inject actor fnc args))
       fnc)))
 
 ;; ------------------------------------------------------------------
@@ -93,10 +84,11 @@ arrives.
 ;; Using formal FUTURES
 
 (defstruct future
+  forced
   val)
 
 (defun call-future (fn)
-  (let ((mb (mp:make-mailbox)))
+  (let ((mb (mp:make-mailbox :size 1)))
     (spawn-worker (lambda ()
                     (mp:mailbox-send mb
                                      (um:call-capturing-ans-or-exn fn))))
@@ -107,34 +99,38 @@ arrives.
   `(call-future (lambda ()
                   ,@body)))
 
-(defgeneric %forced-future-val (obj &key &allow-other-keys)
-  (:method (obj &key &allow-other-keys)
-   obj)
-  (:method ((mb mp:mailbox) &key (timeout *timeout*) (errorp t) on-timeout &allow-other-keys)
-   (multiple-value-bind (ans ok)
-       (mp:mailbox-read mb "Waiting on FUTURE" timeout)
-     (if ok
-         ans
-       (if errorp
-           (error 'timeout)
-         (when on-timeout
-           (funcall on-timeout))))
-      )))
+(defun %forced-future-val (mb &key (timeout *timeout*) (errorp t) on-timeout)
+  (multiple-value-bind (ans ok)
+      (mp:mailbox-read mb "Waiting on FUTURE" timeout)
+    (if ok
+        ans
+      (if errorp
+          (error 'timeout)
+        (when on-timeout
+          (funcall on-timeout))))
+    ))
 
 (defgeneric force (fut &key &allow-other-keys)
   (:method (obj &key &allow-other-keys)
    obj)
   (:method ((fut future) &rest args &key (timeout *timeout*) (errorp t) on-timeout &allow-other-keys)
    (declare (ignore timeout errorp on-timeout))
-   (with-slots (val) fut
-     (recover-ans-or-exn (setf val (apply #'%forced-future-val val args))))))
+   (with-slots (forced val) fut
+     (recover-ans-or-exn
+      (if forced
+          val
+        (setf forced t
+              val    (apply #'%forced-future-val val args))))
+     )))
   
 (defun call-forcing (fn fut &rest args &key (timeout *timeout*) (errorp t) on-timeout)
   (declare (ignore timeout errorp on-timeout))
   (multiple-value-call fn (apply #'force fut args)))
 
 (defmacro =fwait ((args &key (timeout *timeout*) (errorp t) on-timeout) fut &body body)
-  `(call-forcing (lambda ,args ,@body) ,fut
+  `(call-forcing (lambda ,args
+                   ,@body)
+                 ,fut
                  :timeout    ,timeout
                  :errorp     ,errorp
                  :on-timeout ,on-timeout))
