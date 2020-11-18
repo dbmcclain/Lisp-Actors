@@ -104,8 +104,8 @@ arrives.
      :val mb)))
 
 (defmacro future (&body body)
-  `(call-producing-future (lambda ()
-                            ,@body)))
+  `(call-future (lambda ()
+                  ,@body)))
 
 (defgeneric %forced-future-val (obj &key &allow-other-keys)
   (:method (obj &key &allow-other-keys)
@@ -134,8 +134,8 @@ arrives.
   (multiple-value-call fn (apply #'force fut args)))
 
 (defmacro =fwait ((args &key (timeout *timeout*) (errorp t) on-timeout) fut &body body)
-  `(call-forcing-future (lambda ,args ,@body) ,fut
-                        :timeout    ,timeout
-                        :errorp     ,errorp
-                        :on-timeout ,on-timeout))
+  `(call-forcing (lambda ,args ,@body) ,fut
+                 :timeout    ,timeout
+                 :errorp     ,errorp
+                 :on-timeout ,on-timeout))
   
