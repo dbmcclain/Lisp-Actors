@@ -45,6 +45,9 @@ THE SOFTWARE.
 
 ;; ---------------------------------------------
 
+(defmethod compare (a b)
+  (compare (type-of a) (type-of b)))
+
 (defmethod compare ((a real) (b real))
   #f
   (- a b))
@@ -119,15 +122,10 @@ THE SOFTWARE.
                c)))
           )))
 
-(defmethod compare ((a <orderable-mixin>) (b <orderable-mixin>))
-  #F
-  (compare (order-id a) (order-id b)))
-
 (defmethod compare ((a uuid:uuid) (b uuid:uuid))
   "Compare two UUIDs for ordering, as if by considering them
                to be 128-bit integers"
-  (- (uuid:uuid-to-integer a)
-     (uuid:uuid-to-integer b)))
+  (uuid:compare-uuid a b))
 
 ;; ------------------------------------------
 

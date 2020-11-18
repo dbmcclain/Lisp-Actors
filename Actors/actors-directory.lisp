@@ -25,9 +25,9 @@
   (:method ((str string))
    (string-upcase str))
   (:method ((index integer))
-   (acceptable-key (format nil "number: ~D" index)))
+   index)
   (:method ((usti uuid:uuid))
-   (acceptable-key (format nil "usti:~A" (uuid:uuid-string usti)))))
+   usti))
 
         ;;; =========== ;;;
 
