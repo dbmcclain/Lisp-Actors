@@ -259,8 +259,6 @@ THE SOFTWARE.
   (:use #:common-lisp #:actors)
   (:export
    #:actor-bridge
-   #:ip-dest
-   #:make-ip-dest
    #:bridge-register
    #:bridge-unregister
    #:bridge-forward-message
@@ -287,13 +285,7 @@ THE SOFTWARE.
    ))
 
 (defpackage #:actors.par
-  (:use #:common-lisp #:actors)
-  (:export
-   #:pmapcar
-   #:par
-   #:parlet
-   #:=non-blocking
-   ))
+  (:use #:common-lisp #:actors))
 
 (defpackage #:actors.base
   (:use #:common-lisp #:actors
@@ -316,65 +308,8 @@ THE SOFTWARE.
   (:import-from #:actors.executives
    #:add-to-ready-queue)
   (:export
-   #:send
-   #:ask
-   #:=ask
-   #:get-property
-   #:set-property
-   #:remove-property
-   #:current-actor
-   #:self
-   
-   #:<runnable>
-   #:actor-busy
-   #:worker
-   #:worker-dispatch-wrapper
-   #:actor
-   #:actor-properties-ref
-   #:actor-mailbox
-   #:actor-user-fn
-   #:limited-actor
-   #:actor-as-worker
-   #:limited-actor-as-worker
-   #:make-actor
-   #:make-limited-actor
-
    #:%run-actor
-
-   #:become
-   #:self-call
-   #:in-ask-p
-   #:whole-message
-   #:dispatch-message
-
-   #:spawn
-   #:spawn-limited
-   #:spawn-worker
-   #:spawn-actor-as-worker
-   #:spawn-limited-actor-as-worker
-
-   #:invalid-send-target
-
-   #:schedule-after
-   #:recv
-   #:recv-match
-   #:retry-recv
-   
-   #:inject
-   #:exec
-   #:perform-in-actor
-   #:inject-into-actor
-   #:query-actor
-   #:with-as-current-actor
-   #:hoare-monitor
-
    #:assemble-ask-message
-
-   #:=async
-   #:=async/err
-
-   #:prt
-   #:pr
    ))
 
 
