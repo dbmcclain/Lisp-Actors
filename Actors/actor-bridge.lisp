@@ -67,9 +67,9 @@
 
 (defstruct (proxy
             (:constructor %make-proxy))
-  (ip      nil :read-only t)
-  (port    nil :read-only t)
-  (service nil :read-only t))
+  (ip      (machine-instance) :read-only t)
+  (port    nil                :read-only t)
+  (service nil                :read-only t))
 
 (defun make-proxy (&key ip port service addr)
   (when addr
@@ -84,8 +84,9 @@
               (null    nil)
               (integer port)
               (string  (parse-integer port)))
-   :service (typecase service
-              (null      nil)
+   :service (etypecase service
+              (null      (error "Service must be provided"))
+              (symbol    (string service))
               (string    (string-upcase service))
               (uuid:uuid service))))
 
@@ -309,6 +310,14 @@
 (defgeneric usti (obj)
   (:method ((obj proxy))
    obj)
+  (:method ((obj string))
+   (make-proxy
+    :service obj
+    :ip      (machine-instance)))
+  (:method ((obj symbol))
+   (make-proxy
+    :service obj
+    :ip      (machine-instance)))
   (:method ((obj uuid:uuid))
    (make-proxy
     :service obj
