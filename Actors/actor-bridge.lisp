@@ -84,7 +84,10 @@
               (null    nil)
               (integer port)
               (string  (parse-integer port)))
-   :service (string-upcase service)))
+   :service (typecase service
+              (null      nil)
+              (string    (string-upcase service))
+              (uuid:uuid service))))
 
 ;; -------------------------------------------
 ;; Bridge Actor internal functions
@@ -304,11 +307,17 @@
 ;; just use UUID's here.
 
 (defgeneric usti (obj)
-  (:method ((obj uuid:uuid))
+  (:method ((obj proxy))
    obj)
+  (:method ((obj uuid:uuid))
+   (make-proxy
+    :service obj
+    :ip      (machine-instance)))
   (:method (obj)
-   (ask-bridge
-    (create-and-add-usti obj))))
+   (make-proxy
+    :service (ask-bridge
+               (create-and-add-usti obj))
+    :ip      (machine-instance))))
 
 (defmethod find-actor ((usti uuid:uuid))
   (or (when (uuid:one-of-mine? usti)
@@ -316,3 +325,11 @@
          (find-and-remove-usti usti)))
       (call-next-method)))
 
+#|
+(defun test-usti ()
+  (=wait ((ans))
+      (send "eval@rincon.local"
+            `(send ,(usti =wait-cont) 15))
+    (print ans)))
+(test-usti)
+ |#

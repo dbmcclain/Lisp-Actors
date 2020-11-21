@@ -77,6 +77,7 @@ arrives.
                  =bind-cont))
 
 (defmacro =async/err (&body body)
+  ;; umm... not quite... what recovers the answer?
   `(=async (=values (capture-ans-or-exn
                       ,@body))))
 
