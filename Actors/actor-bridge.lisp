@@ -79,7 +79,8 @@
             port    aport
             service aservice)))
   (%make-proxy
-   :ip      (string-upcase ip)
+   :ip      (string-upcase (or ip
+                               (machine-instance)))
    :port    (etypecase port
               (null    nil)
               (integer port)
@@ -312,21 +313,18 @@
    obj)
   (:method ((obj string))
    (make-proxy
-    :service obj
-    :ip      (machine-instance)))
+    :service obj))
   (:method ((obj symbol))
    (make-proxy
-    :service obj
-    :ip      (machine-instance)))
+    :service obj))
   (:method ((obj uuid:uuid))
    (make-proxy
-    :service obj
-    :ip      (machine-instance)))
+    :service obj))
   (:method (obj)
    (make-proxy
     :service (ask-bridge
                (create-and-add-usti obj))
-    :ip      (machine-instance))))
+    )))
 
 (defmethod find-actor ((usti uuid:uuid))
   (or (when (uuid:one-of-mine? usti)
