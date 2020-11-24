@@ -67,9 +67,9 @@
 
 (defstruct (proxy
             (:constructor %make-proxy))
-  (ip      (machine-instance) :read-only t)
-  (port    nil                :read-only t)
-  (service nil                :read-only t))
+  (ip      nil :read-only t)
+  (port    nil :read-only t)
+  (service nil :read-only t))
 
 (defun make-proxy (&key ip port service addr)
   (when addr

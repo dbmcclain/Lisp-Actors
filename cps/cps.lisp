@@ -241,7 +241,7 @@
 ;; ----------------------------------------------------------------
 
 (defun do-wait (timeout errorp on-timeout fn cont)
-  (let ((mbox  (mp:make-mailbox)))
+  (let ((mbox  (mp:make-mailbox :size 1)))
     (trampoline fn (lambda (&rest args)
                      (mp:mailbox-send mbox args)))
     (multiple-value-bind (ans ok)
