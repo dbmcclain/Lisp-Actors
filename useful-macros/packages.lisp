@@ -242,25 +242,29 @@ THE SOFTWARE.
    #:llet*
    #:lexical)
   |#
-  (:import-from :xlambda
-   :defun*
-   :lambda*
-   :labels*
-   :flet*)
+  (:import-from #:lispworks
+   #:true
+   #:false
+   #:do-nothing)
+  (:import-from #:xlambda
+   #:defun*
+   #:lambda*
+   #:labels*
+   #:flet*)
   (:import-from #:timeout
-   :*timeout*
-   :timeout
-   :with-timeout)   
+   #:*timeout*
+   #:timeout
+   #:with-timeout)   
   (:import-from #:list-comprehensions
 		#:lc)
-  (:import-from :critsec
-   :defmonitor
-   :critical-section
-   :critical-or
-   :with-exclusive-access
-   :with-shared-access
-   :static
-   :let-static
+  (:import-from #:critsec
+   #:defmonitor
+   #:critical-section
+   #:critical-or
+   #:with-exclusive-access
+   #:with-shared-access
+   #:static
+   #:let-static
    #|
    :def-excl
    :lambda-excl
@@ -970,7 +974,8 @@ THE SOFTWARE.
 
    :->
    :_>
-
+   :=>
+   
    :read-mailbox-with-timeout
    :def-alias
    :eval-always

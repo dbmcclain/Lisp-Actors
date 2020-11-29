@@ -1901,6 +1901,10 @@ This is C++ style enumerations."
           :from-end t
           :initial-value init))
 
+(defun => (&rest fns)
+  ;; RPN Style passing results left to right
+  `(compose ,@(reverse fns)))
+
 #| ;; use Alexandria's version
 (defun compose (&rest fns)
   (cond ((null fns)   'identity)
@@ -2111,6 +2115,7 @@ This is C++ style enumerations."
   `(and ,@args))
 |#
 
+#| -- these already in LW
 (defun true (&rest args)
   (declare (ignore args))
   t)
@@ -2121,6 +2126,7 @@ This is C++ style enumerations."
 
 (defun do-nothing (&rest ignore)
   ignore)
+|#
 
 ;; -------------------------------------------------------
 ;; finite lists of values spanning a range
@@ -3215,16 +3221,16 @@ or list acceptable to the reader macros #+ and #-."
     (DOSOMETHING _ ARG3 ARG4)))
  |#
 
-(defun read-mailbox-with-timeout (mbox &key timeout errorp)
+(defun read-mailbox-with-timeout (mbox &key timeout errorp on-timeout)
   (multiple-value-bind (ans ok)
       (mp:mailbox-read mbox nil timeout)
-    (cond
-     ((or ok
-          (not errorp))
-      ans)
-     (t
-      (error (make-condition 'timeout:timeout)))
-     )))
+    (if ok
+        (values ans t)
+      (if errorp
+          (error 'timeout:timeout)
+        (when on-timeout
+          (funcall on-timeout))
+        ))))
 
 ;; ----------------------------------------------------
 

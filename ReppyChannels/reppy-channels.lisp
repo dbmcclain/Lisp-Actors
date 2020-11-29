@@ -417,6 +417,10 @@
 
 ;; ------------------
 
+(defun maybe-mark-async (comm async)
+  (when async
+    (setf (comm-cell-needs-wait comm) nil)))
+
 ;; ====================================================================
 
 (defun mark (comm bev)
@@ -439,15 +443,15 @@
 
 (defun do-with-locked-comms (comm1 comm2 fn)
   (declare (comm-cell comm1 comm2))
-  (if (< (comm-cell-ord comm1) (comm-cell-ord comm2))
-      (mp:with-lock ((comm-cell-lock comm1))
-        (mp:with-lock ((comm-cell-lock comm2))
-          (funcall fn)))
-    ;; else
-    (mp:with-lock ((comm-cell-lock comm2))
-      (mp:with-lock ((comm-cell-lock comm1))
-        (funcall fn)))
-    ))
+  (flet ((dual-lock (c1 c2)
+           (declare (comm-cell c1 c2))
+           (mp:with-lock ((comm-cell-lock c1))
+             (mp:with-lock ((comm-cell-lock c2))
+               (funcall fn)))))
+    (if (< (comm-cell-ord comm1)
+           (comm-cell-ord comm2))
+        (dual-lock comm1 comm2)
+      (dual-lock comm2 comm1))))
 
 (defmacro with-locked-comms ((comm1 comm2) &body body)
   `(do-with-locked-comms ,comm1 ,comm2 (lambda ()
@@ -468,10 +472,10 @@
   (sys:atomic-fixnum-decf (comm-cell-refct comm)))
 
 ;; ----------------
-
 ;; BEVs = Behaviors
+
 (defstruct bev
-  poll result abort kill-aborts nack)
+  nack fn)
 
 (defun setup-comm (ev)
   (let ((comm  (make-comm-cell)))
@@ -507,13 +511,11 @@
   (declare (comm-cell comm))
   (let* ((mbox   (comm-cell-owner comm))
          (wait   (comm-cell-needs-wait comm))
-         (okay   mbox)) ;; mbox used as a sentinel for no-rendezvous
+         (okay   nil))
     (unwind-protect
         (let ((bev (or bev  ;; rendezvous from polling
-                       (if (every #'bev-nack (comm-cell-all-evts comm))
-                           ;; all events got nack - no need to wait
-                           nil
-                         ;; else
+                       ;; if all events got nack - no need to wait
+                       (unless (every #'bev-nack (comm-cell-all-evts comm))
                          (when wait
                            (handler-case
                                (um:read-mailbox-with-timeout mbox
@@ -527,12 +529,12 @@
                                  (marked? comm)))
                              ))
                          ))))
-          (when (bev-p bev)
+          (when (bev-p bev) ;; BEV vs T/NIL, all BEV's are functions
             (unless (eq 'no-rendezvous-token (comm-cell-data comm))
               (setf okay t)
               (successful-rendezvous comm bev))))
       ;; unwind
-      (when (eq okay mbox)
+      (unless okay
         (failed-rendezvous comm))
       )))
 
@@ -625,25 +627,23 @@
       (funcall fn))
     ))
 
-(defmacro make-leaf-behavior ((comm leafs wlst alst &key self)
-                              &key ans poll kill-aborts result abort)
+(defmacro make-leaf-behavior ((comm self) &body polling-behavior)
   ;; leaf events are the only ones capable of communicating across channels
-  `(lambda (,comm ,leafs ,wlst ,alst)
-     (declare (ignorable ,comm))
-     (letrec ((,self  (make-bev
-                       :poll        (lambda ()
-                                      ,poll)
-                       :result      (lambda ()
-                                      ,(or result
-                                           `(leaf-result ,ans ,wlst)))
-                       :abort       (lambda ()
-                                      ,(or abort
-                                           `(leaf-abort ,alst)))
-                       :kill-aborts (lambda ()
-                                      ,(or kill-aborts
-                                           `(leaf-kill-aborts ,alst)))
-                       )))
-             (cons ,self ,leafs)))) ;; leafs accumulate in reverse order of visit
+  (lw:with-unique-names (leafs wlst alst)
+    `(lambda (,comm ,leafs ,wlst ,alst)
+       (letrec ((,self  (make-bev
+                         :fn (um:dlambda
+                               (:poll ()
+                                ,@polling-behavior)
+                               (:result ()
+                                (leaf-result (comm-cell-data ,comm) ,wlst))
+                               (:abort ()
+                                (leaf-abort ,alst))
+                               (:kill-aborts ()
+                                (leaf-kill-aborts ,alst))
+                               ))))
+         (cons ,self ,leafs)) ;; leafs accumulate in reverse order of visit
+       )))
 
 #+:LISPWORKS
 (editor:setup-indent "make-leaf-behavior" 1)
@@ -651,21 +651,21 @@
 ;; -----------------------------------------------------------------------
 ;; dlambda functions
 
-(defmethod poll ((bev bev))
+(defun poll (bev)
   ;; every leaf node has a :poll routine
-  (funcall (bev-poll bev)))
+  (funcall (bev-fn bev) :poll))
 
-(defmethod get-result ((bev bev))
+(defun get-result (bev)
   ;; every leaf node has a :result routine
-  (funcall (bev-result bev)))
+  (funcall (bev-fn bev) :result))
 
-(defmethod do-abort ((bev bev))
+(defun do-abort (bev)
   ;; every leaf node has a :abort routine
-  (funcall (bev-abort bev)))
+  (funcall (bev-fn bev) :abort))
 
-(defmethod kill-aborts ((bev bev))
+(defun kill-aborts (bev)
   ;; every leaf node has a :kill-aborts routine
-  (funcall (bev-kill-aborts bev)))
+  (funcall (bev-fn bev) :kill-aborts))
 
 ;; -----------------------------------------------------------------------
 ;; There are two dimensions of SMP multiple access here...  The first
@@ -696,6 +696,8 @@
   ;; Scan a queue for an eligbible tuple and discard marked tuples
   ;; from the queue. An eligible tuple may become marked from
   ;; eligible-p. This version avoids consing.
+  (declare (comm-cell my-comm)
+           (bev my-bev))
   (let (ans)
     (flet
         ((try-rendezvous (tup)
@@ -729,114 +731,101 @@
                   (channel-queue-contents queue)))
       ans)))
 
-(defun do-polling (ch queue my-comm my-bev rendezvous-fn blocking-fn)
-  (declare (channel ch)
-           (function rendezvous-fn blocking-fn))
+(defun do-polling (queue my-comm my-bev rendezvous-fn)
+  (declare (function rendezvous-fn))
   ;; such strong similarities between reader & writer polling that
   ;; they should share a common core code
-  (when (channel-valid-p ch) ;; return nil if discarded channel
-    (funcall blocking-fn)
-    (when-let (tup (find-eligible-tuple queue my-comm my-bev))
-      (locally
-        (declare (comm-tuple tup))
-        (with-accessors ((other-comm  comm-tuple-comm)
-                         (other-async comm-tuple-async)
-                         (other-bev   comm-tuple-bev)) tup
-          (funcall rendezvous-fn tup)
-          (unless other-async
-            (prod-owner other-comm other-bev))
-          my-bev))) ;; indicate successful rendezvous
-    ))
-      
+  (when-let (tup (find-eligible-tuple queue my-comm my-bev))
+    (locally
+      (declare (comm-tuple tup))
+      (with-accessors ((other-comm  comm-tuple-comm)
+                       (other-async comm-tuple-async)
+                       (other-bev   comm-tuple-bev)) tup
+        (funcall rendezvous-fn tup)
+        (unless other-async
+          (prod-owner other-comm other-bev))
+        my-bev)))) ;; indicate successful rendezvous
+
+;; -----------------------------------------------------------
+
+(defun get-effective-channel (ch)
+  (when-let (real-chan (reify-channel ch))
+    (locally
+      (declare (channel real-chan))
+      (and (channel-valid-p real-chan)
+           real-chan))))
+
 ;; -----------------------------------------------------------------
 
 (defun sendEvt (ch data &key async)
-  (make-leaf-behavior (wcomm leafs wlst alst :self me)
+  (make-leaf-behavior (wcomm me)
     ;; SendEvt behavior -- scan the channel pending readers to see if
     ;; we can rendezvous immediately. If not, then enqueue us on the
     ;; pending writers for the channel.
-    :ans   (comm-cell-data wcomm)
-    :poll  (progn
-             (when async
-               (setf (comm-cell-needs-wait wcomm) nil))
-             (when-let (ch (reify-channel ch))
-               (locally
-                 (declare (channel ch)
-                          (comm-cell wcomm))
-                 
-                 (flet ((rendezvous (tup)
-                          (declare (comm-tuple tup))
-                          (with-accessors ((rcomm      comm-tuple-comm)
-                                           (other-data comm-tuple-data)) tup
-                            (declare (comm-cell rcomm))
-                            (setf (comm-cell-data rcomm) data
-                                  (comm-cell-data wcomm) other-data)))
-                        
-                        (blocking ()
-                          (enqueue-tuple (channel-writers ch)
-                                         (make-comm-tuple
-                                          :comm  wcomm
-                                          :async async
-                                          :bev   me
-                                          :data  data))))
-                   
-                   (declare (dynamic-extent #'rendezvous #'blocking))
-                   
-                   (do-polling ch (channel-readers ch) wcomm me
-                               #'rendezvous #'blocking)
-                   ))))
-    ))
+    (maybe-mark-async wcomm async)
+    (when-let (ch (get-effective-channel ch))
+      (locally
+        (declare (channel ch)
+                 (comm-cell wcomm))
+        (flet ((rendezvous (tup)
+                 (declare (comm-tuple tup))
+                 (with-accessors ((rcomm      comm-tuple-comm)
+                                  (other-data comm-tuple-data)) tup
+                   (declare (comm-cell rcomm))
+                   (setf (comm-cell-data rcomm) data
+                         (comm-cell-data wcomm) other-data))))
+          (declare (dynamic-extent #'rendezvous))
+          
+          (enqueue-tuple (channel-writers ch)
+                         (make-comm-tuple
+                          :comm  wcomm
+                          :async async
+                          :bev   me
+                          :data  data))
+          (do-polling (channel-readers ch) wcomm me
+                      #'rendezvous)
+          )))))
 
 ;; -----------------------------------------------------------------
 
 (defun recvEvt (ch &key async abort)
-  (make-leaf-behavior (rcomm leafs wlst alst :self me)
+  (make-leaf-behavior (rcomm me)
     ;; recvEvt behavior -- scan the channel pending writers to see if
     ;; we can rendezvous immediately. If not, then enqueue us on the
     ;; channel pending readers, unless we are async.
-    :ans  (comm-cell-data rcomm)
-    :poll (progn
-            (when async
-              (setf (comm-cell-needs-wait rcomm) nil))
-            (when-let (ch (reify-channel ch))
-              (locally
-                (declare (channel ch)
-                         (comm-cell rcomm))
-                
-                (flet ((rendezvous (tup)
-                         (declare (comm-tuple tup))
-                         (with-accessors ((data  comm-tuple-data)
-                                          (wcomm comm-tuple-comm)) tup
-                           (declare (comm-cell rcomm))
-                           (setf (comm-cell-data rcomm) data
-                                 (comm-cell-data wcomm) abort)))
-                       
-                       (blocking ()
-                         (unless async
-                           (enqueue-tuple (channel-readers ch)
-                                          (make-comm-tuple
-                                           :comm  rcomm
-                                           :async async
-                                           :bev   me
-                                           :data  abort)))))
-                  
-                  (declare (dynamic-extent #'rendezvous #'blocking))
-                  
-                  (do-polling ch (channel-writers ch) rcomm me
-                              #'rendezvous #'blocking)
-                  ))))
-    ))
+    (maybe-mark-async rcomm async)
+    (when-let (ch (get-effective-channel ch))
+      (locally
+        (declare (channel ch)
+                 (comm-cell rcomm))
+        (flet ((rendezvous (tup)
+                 (declare (comm-tuple tup))
+                 (with-accessors ((data  comm-tuple-data)
+                                  (wcomm comm-tuple-comm)) tup
+                   (declare (comm-cell wcomm))
+                   (setf (comm-cell-data rcomm) data
+                         (comm-cell-data wcomm) abort))))
+          (declare (dynamic-extent #'rendezvous))
+          
+          (unless async
+            (enqueue-tuple (channel-readers ch)
+                           (make-comm-tuple
+                            :comm  rcomm
+                            :bev   me
+                            :data  abort)))
+          (do-polling (channel-writers ch) rcomm me
+                      #'rendezvous)
+          )))))
 
 ;; -----------------------------------------------------------------
 
 (defun alwaysEvt (data)
-  (make-leaf-behavior (comm leafs wlst alst :self me)
+  (make-leaf-behavior (comm me)
     ;; alwaysEvt behavior -- always successfully rendezvous if we
     ;; haven't already rendevoused elsewhere.
-    :ans  data
-    :poll (and (mark comm me)
-               (setf (comm-cell-data comm) data)
-               me)
+    (when (mark comm me)
+      (setf (comm-cell-data comm) data)
+      me)
     ;; The comm might also be on other channels and might have been
     ;; marked. Either way, we successfully polled but allow other mark
     ;; to take effect
@@ -855,21 +844,19 @@
   ;; never be chosen, and need never offer any result, but it holds
   ;; a list of wrap-aborts.
   ;;
-  (make-leaf-behavior (comm leafs wlst alst :self me)
-    :poll nil))
+  (make-leaf-behavior (comm me)
+    nil))
 
 (defun execEvt (fn &rest args)
   ;; a computed result, but defers computation as late as possible so
   ;; that earlier events might rendezvous first and never need the
   ;; computation
-  (let ((data nil))
-    (make-leaf-behavior (comm leafs wlst alst :self me)
-      :ans  data
-      :poll (when (mark comm me)
-              (setf (comm-cell-data comm)
-                    (setf data (apply fn args)))
-              me)
-      )))
+  (make-leaf-behavior (comm me)
+    (when (mark comm me)
+      (setf (comm-cell-data comm)
+            (apply fn args))
+      me)
+    ))
 
 ;; -----------------------------------------------------
 ;; Reppy Combinators

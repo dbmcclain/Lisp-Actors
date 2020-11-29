@@ -85,13 +85,16 @@ THE SOFTWARE.
 ;;   - allow hyphenated numbers as in telephone numbers, SSN's, and UUID's
 
 (defun remove-separators (s)
+  (delete #\, (remove #\_ s)))
+  
+(defun delete-separators (s)
   (delete #\, (delete #\_ s)))
   
 (defun match-number (s)
   (multiple-value-bind (start end)
       (#~m/^[+-]?[0-9][0-9_,]*(\.[0-9_,]*([eEdD][+-]?[0-9]+)?)?/ s)
     (when start
-      (values (read-from-string (remove-separators (subseq s start end)))
+      (values (read-from-string (delete-separators (subseq s start end)))
               (subseq s end))
       )))
 
@@ -131,7 +134,7 @@ THE SOFTWARE.
           (let* ((hh (read-from-string (subseq s hstart hend)))
                  (mm (read-from-string (subseq s mstart mend)))
                  (ss (if sstart
-                         (read-from-string (remove-separators
+                         (read-from-string (delete-separators
                                             (subseq s (1+ sstart) send)))
                        0))
                  (val  (+ (* 60 (+ (* 60 hh) mm))
