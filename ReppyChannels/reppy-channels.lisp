@@ -499,7 +499,7 @@
                                  (marked? comm)))
                              ))
                          ))))
-          (when (bev-p bev) ;; BEV vs T/NIL, all BEV's are functions
+          (when (bev-p bev)
             (unless (eq 'no-rendezvous-token (comm-cell-data comm))
               (setf okay t)
               (successful-rendezvous comm bev))))
@@ -629,36 +629,19 @@
 
 ;; -----------------------------------------------------------------------
 ;; There are two dimensions of SMP multiple access here...  The first
-;; is against the channel, and the second is against comm-cel objects.
+;; is against the channel, and the second is against comm-cell objects.
 ;; Channels are shared among threads and comm-cells belong to threads
 ;; and are shared among channels.
 ;;
-;; We use a multiple-CAS (MCAS) protocol on the comm-cells to allow
-;; unrestricted and paired marking attempts by all threads. A
-;; successful pair marking connotes a rendezvous.
-;;
-;; And for channel objects, what are shared are their reader/writer
-;; queues. Those queues implement a fast-spin exclusive access control
-;; of their own.
-;;
-;; But to get along properly in a shared SMP environment, each thread
-;; must announce its intentions during polling by posting a reader or
-;; writer queue entry before actually polling the opposite queue for
-;; matching rendezvous events.
-;;
-;; Note that because of our MCAS marking protocol, simultaneous
-;; send/recv on a channel, in either order, works okay, i.e., we do
-;; not self-trigger, except in the case of recv after poke. Hence we
-;; behave as would be desired.
-;;
 
 (defun do-polling (queue my-comm my-bev rendezvous-fn)
-  (declare (function rendezvous-fn))
+  (declare (list queue)
+           (comm-cell my-comm)
+           (bev my-bev)
+           (function rendezvous-fn))
   ;; Scan a queue for an eligbible tuple and discard marked tuples
   ;; from the queue. An eligible tuple may become marked from
   ;; eligible-p. This version avoids consing.
-  (declare (comm-cell my-comm)
-           (bev my-bev))
   (let (ans)
     (flet
         ((try-rendezvous (tup)
@@ -667,8 +650,8 @@
                             (other-bev   comm-tuple-bev)
                             (other-async comm-tuple-async)
                             (data        comm-tuple-data)) tup
-             (unless (or ans
-                         (eq my-comm other-comm))
+             (unless (or ans ;; we already rendezvous
+                         (eq my-comm other-comm)) ;; can't rendezvous with ourself
                (with-locked-comms (my-comm other-comm)
                  (unless (or (marked? my-comm)
                              (marked? other-comm))
@@ -691,7 +674,7 @@
                (decref other-comm)) ;; returns non-nil for REMOVE-IF
              )))
       (declare (dynamic-extent #'try-rendezvous))
-      (let ((trimmed-queue (remove-if #'try-rendezvous queue)))
+      (let ((trimmed-queue (delete-if #'try-rendezvous queue)))
         (values trimmed-queue ans))
       )))
 
