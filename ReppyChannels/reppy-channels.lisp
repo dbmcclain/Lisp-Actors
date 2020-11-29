@@ -652,7 +652,7 @@
 ;; behave as would be desired.
 ;;
 
-(defun find-eligible-tuple (queue my-comm my-bev rendezvous-fn)
+(defun do-polling (queue my-comm my-bev rendezvous-fn)
   (declare (function rendezvous-fn))
   ;; Scan a queue for an eligbible tuple and discard marked tuples
   ;; from the queue. An eligible tuple may become marked from
@@ -663,9 +663,10 @@
     (flet
         ((try-rendezvous (tup)
            (declare (comm-tuple tup))
-           (with-accessors ((other-comm comm-tuple-comm)
-                            (other-bev  comm-tuple-bev)
-                            (data       comm-tuple-data)) tup
+           (with-accessors ((other-comm  comm-tuple-comm)
+                            (other-bev   comm-tuple-bev)
+                            (other-async comm-tuple-async)
+                            (data        comm-tuple-data)) tup
              (unless (or ans
                          (eq my-comm other-comm))
                (with-locked-comms (my-comm other-comm)
@@ -679,8 +680,10 @@
                          
                          (t
                           (fast-mark my-comm my-bev)
+                          (setf ans my-bev)
                           (funcall rendezvous-fn tup)
-                          (setf ans tup))
+                          (unless other-async
+                            (prod-owner other-comm other-bev)))
                          ))))
              (when (marked? other-comm)
                ;; was either just marked here, or from a prior run
@@ -691,23 +694,6 @@
       (let ((trimmed-queue (remove-if #'try-rendezvous queue)))
         (values trimmed-queue ans))
       )))
-
-(defun do-polling (queue my-comm my-bev rendezvous-fn)
-  ;; such strong similarities between reader & writer polling that
-  ;; they should share a common core code
-  (multiple-value-bind (trimmed-queue tup)
-      (find-eligible-tuple queue my-comm my-bev rendezvous-fn)
-    (if tup
-      (locally
-        (declare (comm-tuple tup))
-        (with-accessors ((other-comm  comm-tuple-comm)
-                         (other-async comm-tuple-async)
-                         (other-bev   comm-tuple-bev)) tup
-          (unless other-async
-            (prod-owner other-comm other-bev))
-          (values trimmed-queue my-bev)))
-      ;; else
-      trimmed-queue)))
 
 ;; -----------------------------------------------------------
 
@@ -742,11 +728,13 @@
                      (comm-cell wcomm))
             (flet ((rendezvous (tup)
                      (declare (comm-tuple tup))
-                     (with-accessors ((rcomm      comm-tuple-comm)
-                                      (other-data comm-tuple-data)) tup
+                     (with-accessors ((rcomm       comm-tuple-comm)
+                                      (other-data  comm-tuple-data)) tup
                        (declare (comm-cell rcomm))
                        (setf (comm-cell-data rcomm) data
-                             (comm-cell-data wcomm) other-data))))
+                             (comm-cell-data wcomm) other-data)
+                       )))
+              
               (declare (dynamic-extent #'rendezvous))
 
               (multiple-value-bind (trimmed-queue ans-bev)
@@ -778,11 +766,12 @@
                      (comm-cell rcomm))
             (flet ((rendezvous (tup)
                      (declare (comm-tuple tup))
-                     (with-accessors ((data  comm-tuple-data)
-                                      (wcomm comm-tuple-comm)) tup
+                     (with-accessors ((data        comm-tuple-data)
+                                      (wcomm       comm-tuple-comm)) tup
                        (declare (comm-cell wcomm))
                        (setf (comm-cell-data rcomm) data
-                             (comm-cell-data wcomm) abort))))
+                             (comm-cell-data wcomm) abort)
+                       )))
               (declare (dynamic-extent #'rendezvous))
 
               (multiple-value-bind (trimmed-queue ans-bev)
