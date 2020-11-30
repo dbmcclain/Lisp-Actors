@@ -56,7 +56,7 @@
    #:make-channel
    #:discard-channel
    #:reset-channel
-   #:channel-valid-p
+   #:channel-valid
    
    #:recvevt
    #:sendevt
@@ -254,7 +254,8 @@
 ;; and object-display seen in SBCL.
 
 (defclass channel (<orderable-mixin>)
-  ((valid    :accessor channel-valid-ref :initform (ref:ref t))
+  ((lock     :reader   channel-lock      :initform (mp:make-lock :sharing t))
+   (valid    :accessor channel-valid     :initform t)
    (rdq-lock :reader   channel-rdq-lock  :initform (mp:make-lock))
    (readers  :accessor channel-readers   :initform nil)
    (wrq-lock :reader   channel-wrq-lock  :initform (mp:make-lock))
@@ -280,9 +281,6 @@
 (defmethod release-resource :before ((ch channel) &key &allow-other-keys)
   (discard-channel ch))
 
-(defmethod channel-valid-p ((ch channel))
-  (ref:val (channel-valid-ref ch)))
-  
 ;; ------------------------------------------------
 ;; Channel-otable -- a sparse collection of channels that have been
 ;; allocated. This is like an object display with weak pointers and
@@ -643,7 +641,7 @@
   ;; Scan a queue for an eligbible tuple and discard marked tuples
   ;; from the queue. An eligible tuple may become marked from
   ;; eligible-p. This version avoids consing.
-  (let (ans)
+  (let (rendezvous)
     (flet
         ((try-rendezvous (tup)
            (declare (comm-tuple tup))
@@ -651,7 +649,7 @@
                             (other-bev   comm-tuple-bev)
                             (other-async comm-tuple-async)
                             (data        comm-tuple-data)) tup
-             (unless (or ans ;; we already rendezvous
+             (unless (or rendezvous ;; we already rendezvous
                          (eq my-comm other-comm)) ;; can't rendezvous with ourself
                (with-locked-comms (my-comm other-comm)
                  (unless (or (marked? my-comm)
@@ -664,7 +662,7 @@
                          
                          (t
                           (fast-mark my-comm my-bev)
-                          (setf ans my-bev)
+                          (setf rendezvous my-bev)
                           (funcall rendezvous-fn tup)
                           (unless other-async
                             (prod-owner other-comm other-bev)))
@@ -678,45 +676,60 @@
       (nreverse (delete-if #'try-rendezvous (nreverse queue)))
       )))
 
+(defun invalid-channel (ch)
+  (error "Invalid Channel: ~A" ch))
+
+(defun do-with-effective-channel (ch fn)
+  (let ((real-ch (reify-channel ch)))
+    (mp:with-sharing-lock ((channel-lock real-ch))
+      (if (channel-valid real-ch)
+          (funcall fn real-ch)
+        (invalid-channel ch)))
+    ))
+
+(defmacro with-effective-channel ((chvar chexpr) &body body)
+  `(do-with-effective-channel ,chexpr (lambda (,chvar) ,@body)))
+
+#+:LISPWORKS
+(editor:setup-indent "with-effective-channel" 1)
+
 ;; -----------------------------------------------------------
 
 (defun sendEvt (ch data &key async)
   (make-leaf-behavior
       (lambda (wcomm me)
+        (declare (comm-cell wcomm))
         ;; SendEvt behavior -- scan the channel pending readers to see if
         ;; we can rendezvous immediately. If not, then enqueue us on the
         ;; pending writers for the channel.
         (maybe-mark-async wcomm async)
-        (when-let (ch (reify-channel ch))
-          (locally
-            (declare (channel ch)
-                     (comm-cell wcomm))
-            (when (channel-valid-p ch)
-              (flet ((rendezvous (tup)
-                       (declare (comm-tuple tup))
-                       (with-accessors ((rcomm       comm-tuple-comm)
-                                        (other-data  comm-tuple-data)) tup
-                         (declare (comm-cell rcomm))
-                         (setf (comm-cell-data rcomm) data
-                               (comm-cell-data wcomm) other-data)
-                         )))
-                
-                (declare (dynamic-extent #'rendezvous))
-                
-                (let ((tup (make-comm-tuple
-                            :comm  wcomm
-                            :bev   me
-                            :data  data
-                            :async async)))
-                  (incref wcomm)
-                  (mp:with-lock ((channel-wrq-lock ch))
-                    (push tup (channel-writers ch))))
-                
-                
-                (mp:with-lock ((channel-rdq-lock ch))
-                  (setf (channel-readers ch)
-                        (do-polling (channel-readers ch) wcomm me #'rendezvous)))
-                )))))
+        (with-effective-channel (ch ch)
+          (declare (channel ch))
+          (flet ((rendezvous (tup)
+                   (declare (comm-tuple tup))
+                   (with-accessors ((rcomm       comm-tuple-comm)
+                                    (other-data  comm-tuple-data)) tup
+                     (declare (comm-cell rcomm))
+                     (setf (comm-cell-data rcomm) data
+                           (comm-cell-data wcomm) other-data)
+                     )))
+            
+            (declare (dynamic-extent #'rendezvous))
+            
+            (let ((tup (make-comm-tuple
+                        :comm  wcomm
+                        :bev   me
+                        :data  data
+                        :async async)))
+              (incref wcomm)
+              (mp:with-lock ((channel-wrq-lock ch))
+                (push tup (channel-writers ch))))
+            
+            
+            (mp:with-lock ((channel-rdq-lock ch))
+              (setf (channel-readers ch)
+                    (do-polling (channel-readers ch) wcomm me #'rendezvous)))
+            )))
       ))
 
 ;; -----------------------------------------------------------------
@@ -724,38 +737,36 @@
 (defun recvEvt (ch &key async abort)
   (make-leaf-behavior
       (lambda (rcomm me)
+        (declare (comm-cell rcomm))
         ;; recvEvt behavior -- scan the channel pending writers to see if
         ;; we can rendezvous immediately. If not, then enqueue us on the
         ;; channel pending readers, unless we are async.
         (maybe-mark-async rcomm async)
-        (when-let (ch (reify-channel ch))
-          (locally
-            (declare (channel ch)
-                     (comm-cell rcomm))
-            (when (channel-valid-p ch)
-              (flet ((rendezvous (tup)
-                       (declare (comm-tuple tup))
-                       (with-accessors ((data        comm-tuple-data)
-                                        (wcomm       comm-tuple-comm)) tup
-                         (declare (comm-cell wcomm))
-                         (setf (comm-cell-data rcomm) data
-                               (comm-cell-data wcomm) (or abort t))
-                         )))
-                (declare (dynamic-extent #'rendezvous))
-
-                (let ((tup (make-comm-tuple
-                            :comm  rcomm
-                            :bev   me
-                            :data  (or abort t)
-                            :async async)))
-                  (incref rcomm)
-                  (mp:with-lock ((channel-rdq-lock ch))
-                    (push tup (channel-readers ch))))
-
-                (mp:with-lock ((channel-wrq-lock ch))
-                  (setf (channel-writers ch)
-                        (do-polling (channel-writers ch) rcomm me #'rendezvous)))
-                )))))
+        (with-effective-channel (ch ch)
+          (declare (channel ch))
+          (flet ((rendezvous (tup)
+                   (declare (comm-tuple tup))
+                   (with-accessors ((data        comm-tuple-data)
+                                    (wcomm       comm-tuple-comm)) tup
+                     (declare (comm-cell wcomm))
+                     (setf (comm-cell-data rcomm) data
+                           (comm-cell-data wcomm) (or abort t))
+                     )))
+            (declare (dynamic-extent #'rendezvous))
+            
+            (let ((tup (make-comm-tuple
+                        :comm  rcomm
+                        :bev   me
+                        :data  (or abort t)
+                        :async async)))
+              (incref rcomm)
+              (mp:with-lock ((channel-rdq-lock ch))
+                (push tup (channel-readers ch))))
+            
+            (mp:with-lock ((channel-wrq-lock ch))
+              (setf (channel-writers ch)
+                    (do-polling (channel-writers ch) rcomm me #'rendezvous)))
+            )))
       ))
   
 ;; -----------------------------------------------------------------
@@ -763,6 +774,7 @@
 (defun alwaysEvt (data)
   (make-leaf-behavior
       (lambda (comm me)
+        (declare (comm-cell comm))
         ;; alwaysEvt behavior -- always successfully rendezvous if we
         ;; haven't already rendevoused elsewhere.
         (mp:with-lock ((comm-cell-lock comm))
@@ -794,6 +806,7 @@
   ;; computation
   (make-leaf-behavior
       (lambda (comm me)
+        (declare (comm-cell comm))
         (mp:with-lock ((comm-cell-lock comm))
           (when (mark comm me)
             (setf (comm-cell-data comm)
@@ -1097,35 +1110,36 @@
 ;; ----------------------------------------------------------------------------
 
 (defun discard-channel (ch)
-  (when (ref:cas (channel-valid-ref ch) t nil)
-    (mp:with-lock ((channel-rdq-lock ch))
-      (mp:with-lock ((channel-wrq-lock ch))
+  (let ((ch (reify-channel ch)))
+    (mp:with-exclusive-lock ((channel-lock ch))
+      (when (channel-valid ch)
+        (setf (channel-valid ch) nil)
         (flet
             ((prod (q)
                (dolist (tup q)
                  (let ((comm  (comm-tuple-comm tup))
                        (async (comm-tuple-async tup)))
-                   (decref comm)
-                   (when (and (zerop (refct comm))   ;; not on any other queues
-                              (mark comm t)          ;; hasn't already rendezvous
-                              (not async))           ;; not an async event
-                     ;; since there should be no contention for the comm
-                     ;; object, (i.e., the channel has been discarded and
-                     ;; so no possibility of rendezvous) we use the mark
-                     ;; operation merely to check whether or not it has
-                     ;; already rendezvousd.
-                     (cancel-rendezvous comm)) ;; prod with rendezvous failure
-                   ))))
+                   (mp:with-lock ((comm-cell-lock comm))
+                     (when (and (zerop (decref comm))   ;; not on any other queues
+                                (mark comm t)           ;; hasn't already rendezvous
+                                (not async))            ;; not an async event
+                       ;; since there should be no contention for the comm
+                       ;; object, (i.e., the channel has been discarded and
+                       ;; so no possibility of rendezvous) we use the mark
+                       ;; operation merely to check whether or not it has
+                       ;; already rendezvousd.
+                       (cancel-rendezvous comm)) ;; prod with rendezvous failure
+                     )))))
           (declare (dynamic-extent #'prod))
-          (prod (channel-readers ch))
-          (prod (channel-writers ch))
-          (setf (channel-readers ch) nil
-                (channel-writers ch) nil)
+          (prod (shiftf (channel-readers ch) nil))
+          (prod (shiftf (channel-writers ch) nil))
           )))))
 
 (defun reset-channel (ch)
-  (discard-channel ch)
-  (setf (ref:val (channel-valid-ref ch)) t))
+  (let ((ch (reify-channel ch)))
+    (mp:with-exclusive-lock ((channel-lock ch))
+      (discard-channel ch)
+      (setf (channel-valid ch) t))))
 
 ;; ---------------------------------------------------------
 ;; Safe access of a channel shared through argument passing...
