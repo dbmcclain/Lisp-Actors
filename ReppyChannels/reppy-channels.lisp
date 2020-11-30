@@ -674,7 +674,7 @@
                (decref other-comm)) ;; returns non-nil for REMOVE-IF
              )))
       (declare (dynamic-extent #'try-rendezvous))
-      (let ((trimmed-queue (delete-if #'try-rendezvous queue)))
+      (let ((trimmed-queue (nreverse (delete-if #'try-rendezvous (nreverse queue)))))
         (values trimmed-queue ans))
       )))
 
@@ -698,7 +698,7 @@
 
 ;; -----------------------------------------------------------------
     
-(defun sendEvt (ch data &key async)
+(defun sendEvt (ch data &key async abort)
   (make-leaf-behavior
       (lambda (wcomm me)
         ;; SendEvt behavior -- scan the channel pending readers to see if
@@ -723,7 +723,7 @@
               (multiple-value-bind (trimmed-queue ans-bev)
                   (do-polling (channel-readers ch) wcomm me #'rendezvous)
                 (setf (channel-readers ch) trimmed-queue)
-                (unless ans-bev
+                (unless (or ans-bev abort)
                   (incref wcomm)
                   (push (make-comm-tuple
                          :comm  wcomm
@@ -920,31 +920,32 @@
 
 ;; ------------------------------------------------------------------
 ;; Nack'able send / recv
+;;
+;; This raises the issue of time coordination. What happens if a fresh
+;; attempt starts and sees a left-over cancel waiting in the channel
+;; from a prior rendezvous attempt? Maybe not such a good idea...
 
 (defun abort-ch-evt (cha)
   ;; sense nack feedback and generate a failed rendezvous
   (failEvt (recvEvt cha)))
 
-(defun wrap-notify-abort (ch ev)
-  ;; perform nack feedback on aborted rendezvous
-  (wrap-abort ev
-              (lambda ()
-                (sync (choose* (recvEvt ch
-                                        :abort 'no-rendezvous-token)
-                               (sendEvt ch 'no-rendezvous-token
-                                        :async t)
-                               )))
-              ))
-
 (defun sendEvt* (ch val &key async)
   ;; a version of sendEvt with nack feedback
-  (wrap-notify-abort ch 
-                     (sendEvt ch val :async async)))
+  (wrap-abort (sendEvt ch val :async async)
+              (lambda ()
+                (sync (sendEvt ch 'no-rendezvous-token
+                               :async t
+                               :abort t)))
+              ))
 
 (defun recvEvt* (ch &key async)
   ;; a version of recvEvt with nack feedback
-  (wrap-notify-abort ch
-                     (recvEvt ch :async async)))
+  (wrap-abort (recvEvt ch :async async)
+              (lambda ()
+                (sync (recvEvt ch
+                               :async t
+                               :abort 'no-rendezvous-token)))
+              ))
 
 ;; --------------------------------------------------
 
