@@ -593,6 +593,7 @@
 (defun make-leaf-behavior (polling-fn)
   ;; leaf events are the only ones capable of communicating across channels
   (lambda (comm leafs wlst alst)
+    (declare (comm-cell comm))
     (letrec ((self (make-bev
                     :fn (um:dlambda
                           (:poll ()
@@ -679,95 +680,94 @@
 (defun invalid-channel (ch)
   (error "Invalid Channel: ~A" ch))
 
-(defun do-with-effective-channel (ch fn)
-  (let ((real-ch (reify-channel ch)))
-    (mp:with-sharing-lock ((channel-lock real-ch))
-      (if (channel-valid real-ch)
-          (funcall fn real-ch)
-        (invalid-channel ch)))
-    ))
+(defun do-with-valid-channel (ch fn)
+  (mp:with-sharing-lock ((channel-lock ch))
+    (if (channel-valid ch)
+        (funcall fn)
+      (invalid-channel ch))))
 
-(defmacro with-effective-channel ((chvar chexpr) &body body)
-  `(do-with-effective-channel ,chexpr (lambda (,chvar) ,@body)))
+(defmacro with-valid-channel (ch &body body)
+  `(do-with-valid-channel ,ch
+                          (lambda () ,@body)))
 
 #+:LISPWORKS
-(editor:setup-indent "with-effective-channel" 1)
+(editor:setup-indent "with-valid-channel" 1)
 
 ;; -----------------------------------------------------------
 
-(defun sendEvt (ch data &key async)
-  (make-leaf-behavior
-      (lambda (wcomm me)
-        (declare (comm-cell wcomm))
-        ;; SendEvt behavior -- scan the channel pending readers to see if
-        ;; we can rendezvous immediately. If not, then enqueue us on the
-        ;; pending writers for the channel.
-        (maybe-mark-async wcomm async)
-        (with-effective-channel (ch ch)
-          (declare (channel ch))
-          (flet ((rendezvous (tup)
-                   (declare (comm-tuple tup))
-                   (with-accessors ((rcomm       comm-tuple-comm)
-                                    (other-data  comm-tuple-data)) tup
-                     (declare (comm-cell rcomm))
-                     (setf (comm-cell-data rcomm) data
-                           (comm-cell-data wcomm) other-data)
-                     )))
-            
-            (declare (dynamic-extent #'rendezvous))
-            
-            (let ((tup (make-comm-tuple
-                        :comm  wcomm
-                        :bev   me
-                        :data  data
-                        :async async)))
-              (incref wcomm)
-              (mp:with-lock ((channel-wrq-lock ch))
-                (push tup (channel-writers ch))))
-            
-            
-            (mp:with-lock ((channel-rdq-lock ch))
-              (setf (channel-readers ch)
-                    (do-polling (channel-readers ch) wcomm me #'rendezvous)))
-            )))
-      ))
+(defgeneric sendEvt (ch data &key async)
+  (:method ((ch channel-ref) data &key async)
+   (sendEvt (reify-channel ch) data :async async))
+  (:method ((ch channel) data &key async)
+   (make-leaf-behavior
+    (lambda (wcomm me)
+      (declare (comm-cell wcomm))
+      ;; SendEvt behavior -- enqueue us on the pending writers of
+      ;; channel, and scan the channel pending readers to see if we
+      ;; can rendezvous immediately.
+      (maybe-mark-async wcomm async)
+      (with-valid-channel ch
+        (flet ((rendezvous (tup)
+                 (declare (comm-tuple tup))
+                 (with-accessors ((rcomm       comm-tuple-comm)
+                                  (other-data  comm-tuple-data)) tup
+                   (declare (comm-cell rcomm))
+                   (setf (comm-cell-data rcomm) data
+                         (comm-cell-data wcomm) other-data)
+                   )))
+          (declare (dynamic-extent #'rendezvous))
+          
+          (let ((tup (make-comm-tuple
+                      :comm  wcomm
+                      :bev   me
+                      :data  data
+                      :async async)))
+            (incref wcomm)
+            (mp:with-lock ((channel-wrq-lock ch))
+              (push tup (channel-writers ch))))
+          
+          (mp:with-lock ((channel-rdq-lock ch))
+            (setf (channel-readers ch)
+                  (do-polling (channel-readers ch) wcomm me #'rendezvous)))
+          ))))))
 
 ;; -----------------------------------------------------------------
 
-(defun recvEvt (ch &key async abort)
-  (make-leaf-behavior
-      (lambda (rcomm me)
-        (declare (comm-cell rcomm))
-        ;; recvEvt behavior -- scan the channel pending writers to see if
-        ;; we can rendezvous immediately. If not, then enqueue us on the
-        ;; channel pending readers, unless we are async.
-        (maybe-mark-async rcomm async)
-        (with-effective-channel (ch ch)
-          (declare (channel ch))
-          (flet ((rendezvous (tup)
-                   (declare (comm-tuple tup))
-                   (with-accessors ((data        comm-tuple-data)
-                                    (wcomm       comm-tuple-comm)) tup
-                     (declare (comm-cell wcomm))
-                     (setf (comm-cell-data rcomm) data
-                           (comm-cell-data wcomm) (or abort t))
-                     )))
-            (declare (dynamic-extent #'rendezvous))
-            
-            (let ((tup (make-comm-tuple
-                        :comm  rcomm
-                        :bev   me
-                        :data  (or abort t)
-                        :async async)))
-              (incref rcomm)
-              (mp:with-lock ((channel-rdq-lock ch))
-                (push tup (channel-readers ch))))
-            
-            (mp:with-lock ((channel-wrq-lock ch))
-              (setf (channel-writers ch)
-                    (do-polling (channel-writers ch) rcomm me #'rendezvous)))
-            )))
-      ))
+(defgeneric recvEvt (ch &key async abort)
+  (:method ((ch channel-ref) &key async abort)
+   (recvEvt (reify-channel ch) :async async :abort abort))
+  (:method ((ch channel) &key async abort)
+   (make-leaf-behavior
+    (lambda (rcomm me)
+      (declare (comm-cell rcomm))
+      ;; recvEvt behavior -- enqueue us on pending readers of channel,
+      ;; and scan the channel pending writers to see if we can
+      ;; rendezvous immediately.
+      (maybe-mark-async rcomm async)
+      (with-valid-channel ch
+        (flet ((rendezvous (tup)
+                 (declare (comm-tuple tup))
+                 (with-accessors ((data        comm-tuple-data)
+                                  (wcomm       comm-tuple-comm)) tup
+                   (declare (comm-cell wcomm))
+                   (setf (comm-cell-data rcomm) data
+                         (comm-cell-data wcomm) (or abort t))
+                   )))
+          (declare (dynamic-extent #'rendezvous))
+          
+          (let ((tup (make-comm-tuple
+                      :comm  rcomm
+                      :bev   me
+                      :data  (or abort t)
+                      :async async)))
+            (incref rcomm)
+            (mp:with-lock ((channel-rdq-lock ch))
+              (push tup (channel-readers ch))))
+          
+          (mp:with-lock ((channel-wrq-lock ch))
+            (setf (channel-writers ch)
+                  (do-polling (channel-writers ch) rcomm me #'rendezvous)))
+          ))))))
   
 ;; -----------------------------------------------------------------
 
