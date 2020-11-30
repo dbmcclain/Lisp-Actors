@@ -77,7 +77,7 @@ THE SOFTWARE.
 (defclass limited-actor-mailbox (actor-mailbox)
   ()
   (:default-initargs
-   %mailbox (mp:make-mailbox :size 1)
+   %mailbox (mp:make-mailbox)
    ))
 
 ;; -----------------------------------------------------
@@ -344,6 +344,10 @@ THE SOFTWARE.
        (actor-internal-message:continuation (fn &rest args)
           ;; Used for callbacks into the Actor
           (apply fn args))
+
+       (actor-internal-message:send-sync (reply-to &rest sub-message)
+          (send reply-to t)
+          (apply #'self-call sub-message))
        
        (actor-internal-message:ask (reply-to &rest sub-msg)
           ;; Intercept restartable queries to send back a response
@@ -538,3 +542,15 @@ THE SOFTWARE.
        ;; else
        (error 'invalid-send-target :target obj)))))
 
+;; ------------------------------------------------------
+;; Synchronous Send?
+;;
+
+(defgeneric send-sync (actor &rest message)
+  (:method ((actor actor) &rest message)
+   (if (eq actor (current-actor))
+       (apply 'self-call message)
+     (let ((mb (mp:make-mailbox)))
+       (apply 'send actor actor-internal-message:send-sync mb message)
+       (mp:mailbox-read mb))
+     )))

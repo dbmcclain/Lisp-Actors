@@ -171,6 +171,8 @@ THE SOFTWARE.
    #:force
    #:call-forcing
    #:=fwait
+
+   #:send-sync
    ))
 
 #-lispworks
@@ -212,6 +214,8 @@ THE SOFTWARE.
 
    #:client-info
    #:server-info
+
+   #:send-sync
    ))
 
 (defpackage #:actors.directory
