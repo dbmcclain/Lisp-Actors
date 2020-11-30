@@ -916,17 +916,44 @@
 (defun abortEvt (&optional val)
   (failEvt (alwaysEvt val)))
 
-
 ;; ------------------------------------------------------------------
 ;; Nack'able send / recv
+;;
+;; This attempts to solve the situation where, e.g., 3 or more threads
+;; attempt to rendezvous on channels, as in:
+;;
+;;                           ch1 ----- Thr2
+;;                            |
+;;        Thr1 ---------------+
+;;                            |
+;;                           ch2 ----- Thr3
+;;
+;; Whichever pair rendezvous the other channel will leave a thread
+;; blocking waiting for a rendezvous. Ideally, the waiting thread
+;; would be notified that a rendezvous has happened but it wasn't the
+;; one chosen. That would allow the waiting thread to exit and perform
+;; any WRAP-ABORT functions.
+;;
+;; Unlike CML we do not have continuations, nor garbage collection of
+;; hung threads. So we can't directly support speculative
+;; communications in an attempt to solve this problem.
+;;
+;; So what we do here is wrap each channel event on the Thr1 side with
+;; an abort function that performs an async rendezvous attempt,
+;; carrying a special NO-RENDEZVOUS token as the data.
+;;
+;; That works just fine in many cases, but what happens if the aborted
+;; channel rendezvous happened because the opposite thread hadn't
+;; arrived yet?
+;;
+;; A future arrival would find an immedate rendezvous with the left
+;; over NO-RENDEZVOUS signal. And that might, or might not, be
+;; correct.
 ;;
 ;; This raises the issue of time coordination. What happens if a fresh
 ;; attempt starts and sees a left-over cancel waiting in the channel
 ;; from a prior rendezvous attempt? Maybe not such a good idea...
-
-(defun abort-ch-evt (cha)
-  ;; sense nack feedback and generate a failed rendezvous
-  (failEvt (recvEvt cha)))
+;;
 
 (defun sendEvt* (ch val &key async)
   ;; a version of sendEvt with nack feedback
@@ -944,6 +971,10 @@
                                :async t
                                :abort 'no-rendezvous-token)))
               ))
+
+(defun abort-ch-evt (cha)
+  ;; sense nack feedback and generate a failed rendezvous
+  (failEvt (recvEvt cha)))
 
 ;; --------------------------------------------------
 
