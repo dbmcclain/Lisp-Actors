@@ -481,13 +481,13 @@
 (defun cancel-rendezvous (comm)
   (prod-owner comm nil))
 
-(defun select-event (comm bev)
+(defun select-event (comm)
   (declare (comm-cell comm))
   (let* ((mbox   (comm-cell-owner comm))
          (wait   (comm-cell-needs-wait comm))
          (okay   nil))
     (unwind-protect
-        (let ((bev (or bev  ;; rendezvous from polling
+        (let ((bev (or (marked? comm) ;; rendezvous from polling
                        ;; if all events got nack - no need to wait
                        (unless (every #'bev-nack (comm-cell-all-evts comm))
                          (when wait
@@ -496,13 +496,10 @@
                                                              :timeout *timeout*
                                                              :errorp t)
                              (timeout (c)
-                               (if (mark comm t)
-                                   ;; If I can mark it, then no rendezvous happened
-                                   (error c)
-                                 ;; else
-                                 (marked? comm)))
-                             ))
-                         ))))
+                               (or (marked? comm)
+                                   (error c)))
+                             )))
+                       )))
           (when (bev-p bev)
             (unless (eq 'no-rendezvous-token (comm-cell-data comm))
               (setf okay t)
@@ -683,7 +680,7 @@
 
 ;; -----------------------------------------------------------
 
-(defun sendEvt (ch data &key async abort)
+(defun sendEvt (ch data &key async)
   (make-leaf-behavior
       (lambda (wcomm me)
         ;; SendEvt behavior -- scan the channel pending readers to see if
@@ -719,7 +716,6 @@
                 (mp:with-lock ((channel-rdq-lock ch))
                   (setf (channel-readers ch)
                         (do-polling (channel-readers ch) wcomm me #'rendezvous)))
-                (marked? wcomm)
                 )))))
       ))
 
@@ -759,7 +755,6 @@
                 (mp:with-lock ((channel-wrq-lock ch))
                   (setf (channel-writers ch)
                         (do-polling (channel-writers ch) rcomm me #'rendezvous)))
-                (marked? rcomm)
                 )))))
       ))
   
@@ -772,12 +767,11 @@
         ;; haven't already rendevoused elsewhere.
         (mp:with-lock ((comm-cell-lock comm))
           (when (mark comm me)
-            (setf (comm-cell-data comm) data)
-            me)))
-    ;; The comm might also be on other channels and might have been
-    ;; marked. Either way, we successfully polled but allow other mark
-    ;; to take effect
-    ))
+            (setf (comm-cell-data comm) data))))
+      ;; The comm might also be on other channels and might have been
+      ;; marked. Either way, we successfully polled but allow other mark
+      ;; to take effect
+      ))
 
 (defun neverEvt ()
   ;; an event which serves to create a NIL COMM-EVENT object
@@ -792,7 +786,7 @@
   ;; never be chosen, and need never offer any result, but it holds
   ;; a list of wrap-aborts.
   ;;
-  (make-leaf-behavior (constantly nil)))
+  (make-leaf-behavior #'lw:do-nothing))
 
 (defun execEvt (fn &rest args)
   ;; a computed result, but defers computation as late as possible so
@@ -803,9 +797,8 @@
         (mp:with-lock ((comm-cell-lock comm))
           (when (mark comm me)
             (setf (comm-cell-data comm)
-                  (apply fn args))
-            me)))
-    ))
+                  (apply fn args)))))
+      ))
 
 ;; -----------------------------------------------------
 ;; Reppy Combinators
@@ -927,8 +920,7 @@
   (wrap-abort (sendEvt ch val :async async)
               (lambda ()
                 (sync (sendEvt ch 'no-rendezvous-token
-                               :async t
-                               :abort t)))
+                               :async t)))
               ))
 
 (defun recvEvt* (ch &key async)
@@ -990,9 +982,12 @@
 
 (defun sync (ev)
   ;; reify abstract events to produce a rendezvous
-  (let* ((comm (setup-comm ev))
-         (bev  (find-if #'poll (comm-cell-all-evts comm))))
-    (select-event comm bev)))
+  (let ((comm (setup-comm ev)))
+    (some (lambda (bev)
+            (poll bev)
+            (marked? comm))
+          (comm-cell-all-evts comm))
+    (select-event comm)))
 
 (defmacro on-sync (&body body)
   `(guard
