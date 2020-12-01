@@ -483,23 +483,31 @@
 (defconstant +MAX-FRAGMENT-SIZE+ 65536)
 
 (defun insecure-prep (obj)
-  ;; leave some room (32 bytes) on the max fragment size, for the
-  ;; re-encodings.
-  (let ((frags (group (loenc:encode obj :align 16)
-                      (load-time-value
-                       (- +MAX-FRAGMENT-SIZE+ 32)
-                       t))))
-    (if (cdr frags)
-        (nlet-tail iter ((frags (nreverse frags))
-                         (msg   'actor-internal-message:last-frag)
-                         (acc   nil))
-          (if (endp frags)
-              acc
-            (iter (cdr frags) 'actor-internal-message:frag
-                  (cons (loenc:encode (list msg (car frags)) :align 16) acc))
-            ))
-      frags)))
-  
+  ;; leave some room (64 bytes) on the max fragment size, for the
+  ;; prefixed re-encodings.
+  (let ((enc    (loenc:encode obj))
+        (maxlen (load-time-value
+                 (- +max-fragment-size+ 64)
+                 t)))
+    (um:accum acc
+      (nlet-tail iter ((len   (length enc))
+                       (start 0))
+        (when (plusp len)
+          (let* ((nel    (min len maxlen))
+                 (end    (+ start nel))
+                 (rem    (- len nel))
+                 (frag   (subseq enc start end))
+                 (msg    (if (plusp rem)
+                             'actor-internal-message:frag
+                           'actor-internal-message:last-frag))
+                 (packet (loenc:encode (list msg frag)
+                                       :align 16)))
+            (acc packet)
+            (iter rem end)
+            )))
+      )))
+
+#|
 (defun insecure-encoding (obj)
   (mapcar (lambda (frag)
             (let* ((len  (length frag))
@@ -509,6 +517,7 @@
                 (replace ansv frag :start1 4)
                 ansv)))
           (insecure-prep obj)))
+|#
 
 (defun secure-encoding (crypto obj)
   (with-accessors ((cipher       crypto-cypher-out)
