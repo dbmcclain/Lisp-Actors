@@ -483,7 +483,11 @@
 (defconstant +MAX-FRAGMENT-SIZE+ 65536)
 
 (defun insecure-prep (obj)
-  ;; leave some room (64 bytes) on the max fragment size, for the
+  ;; Encode an object for network transmission and split into
+  ;; a list of chunks, each with length below max transfer size.
+  ;; Each chunk is prefixed with :FRAG or :LAST-FRAG.
+  ;;
+  ;; Leave some room (64 bytes) on the max fragment size, for the
   ;; prefixed re-encodings.
   (let ((enc    (loenc:encode obj))
         (maxlen (load-time-value
@@ -507,40 +511,37 @@
             )))
       )))
 
-#|
-(defun insecure-encoding (obj)
-  (mapcar (lambda (frag)
-            (let* ((len  (length frag))
-                   (cntv (vec-n len 4)))
-              (let ((ansv (make-u8-vector (+ 4 len))))
-                (replace ansv cntv :start1 0 :end1 4)
-                (replace ansv frag :start1 4)
-                ansv)))
-          (insecure-prep obj)))
-|#
-
 (defun secure-encoding (crypto obj)
+  ;; Encode an object for network transmission. Object encoding will
+  ;; be split into packets, each with size smaller than max transfer
+  ;; size, and each packet will be prefixed with a 4-byte length, and
+  ;; suffixed with an HMAC on the encrypted packet.
+  ;;
+  ;; An internal seaquence counter keeps a cumulative total on the
+  ;; number of packet bytes transmitted. This sequence is used in
+  ;; deriving the HMAC, but not transmitted. The receiver should be
+  ;; keeping its own cumulative byte count to use in checking the HMAC
+  ;; on each packet.
   (with-accessors ((cipher       crypto-cypher-out)
                    (sequence-out crypto-sequence-out)
                    (hmkey        crypto-hmac-key)) crypto
-    (mapcar (lambda (frag)
-              (let* ((len (length frag))
-                     (cnt (vec-n len 4)))
-                (when cipher
-                  (ironclad:encrypt-in-place cipher frag))
-                (incf sequence-out len)
-                (let* ((hmac (generate-hmac hmkey
-                                            cnt
-                                            (vec-n sequence-out 8)
-                                            frag))
-                       (hlen (length hmac))
-                       (ansv (make-u8-vector (+ 4 len hlen))))
-                  (replace ansv cnt  :start1 0 :end1 4)
-                  (replace ansv frag :start1 4 :end1 (+ 4 len))
-                  (replace ansv hmac :start1 (+ 4 len))
-                  ansv)))
-            (insecure-prep obj))
-      ))
+    (um:accum acc
+      (um:foreach (lambda (frag)
+                    (let* ((len (length frag))
+                           (cnt (vec-n len 4)))
+                      (when cipher
+                        (ironclad:encrypt-in-place cipher frag))
+                      (incf sequence-out len)
+                      (let ((hmac (generate-hmac hmkey
+                                                 cnt
+                                                 (vec-n sequence-out 8)
+                                                 frag)))
+                        (acc cnt)
+                        (acc frag)
+                        (acc hmac)
+                        )))
+                  (insecure-prep obj)))
+    ))
 
 ;; --------------------------------------------------
 
