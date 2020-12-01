@@ -551,6 +551,6 @@ THE SOFTWARE.
    (if (eq actor (current-actor))
        (apply 'self-call message)
      (let ((mb (mp:make-mailbox)))
-       (apply 'send actor actor-internal-message:send-sync mb message)
+       (apply 'send actor 'actor-internal-message:send-sync mb message)
        (mp:mailbox-read mb))
      )))
