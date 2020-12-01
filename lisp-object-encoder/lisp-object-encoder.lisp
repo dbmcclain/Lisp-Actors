@@ -315,7 +315,7 @@ recycling that buffer for another use later. This is an attempt to avoid generat
                    use-magic
                    prefix-length
                    length
-                   (reader 'aref)
+                   (reader 'ubyte-streams:xaref)
                    (backend 'loe-back-end))
   (ubstream:with-input-from-ubyte-stream (s arr :start start :reader reader)
     (deserialize s

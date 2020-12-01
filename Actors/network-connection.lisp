@@ -276,7 +276,7 @@
 ;; ------------------------------------------------------------------------
 
 (defclass message-dispatcher (actor)
-  ((accum :initform nil)
+  ((accum      :initform (make-instance 'ubyte-streams:scatter-vector))
    (kill-timer :initarg :kill-timer)
    (intf       :initarg :intf)
    (title      :initarg :title)
@@ -293,14 +293,13 @@
           (shutdown intf))
         
         (actor-internal-message:frag (frag)
-          (push frag accum))
+          (ubyte-streams:scatter-vector-add-fragment accum frag))
         
         (actor-internal-message:last-frag (frag)
-           (push frag accum)
+           (ubyte-streams:scatter-vector-add-fragment accum frag)
            (handle-message dispatcher (insecure-decoding
-                                       (apply 'concatenate 'vector
-                                              (nreverse (shiftf accum nil))
-                                              ))
+                                       (shiftf accum
+                                               (make-instance 'ubyte-streams:scatter-vector)))
                            ))
             
         (actor-internal-message:srp-node-id (node-id)

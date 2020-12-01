@@ -109,7 +109,7 @@ THE SOFTWARE.
   ((arr    :reader   uis-arr    :initarg :arr)
    (ix     :accessor uis-ix     :initarg :start)
    (end    :reader   uis-end    :initarg :end)
-   (reader :reader   uis-reader :initarg :reader :initform 'aref)
+   (reader :reader   uis-reader :initarg :reader :initform 'xaref)
    ))
 
 #+(or sbcl)
@@ -118,7 +118,7 @@ THE SOFTWARE.
   ((arr    :reader   uis-arr    :initarg :arr)
    (ix     :accessor uis-ix     :initarg :start)
    (end    :reader   uis-end    :initarg :end)
-   (reader :reader   uis-reader :initarg :reader :initform 'aref)
+   (reader :reader   uis-reader :initarg :reader :initform 'xaref)
    ))
 
 #+:ALLEGRO
@@ -127,15 +127,67 @@ THE SOFTWARE.
   ((arr    :reader   uis-arr    :initarg :arr)
    (ix     :accessor uis-ix     :initarg :start)
    (end    :reader   uis-end    :initarg :end)
-   (reader :reader   uis-reader :initarg :reader :initform 'aref)
+   (reader :reader   uis-reader :initarg :reader :initform 'xaref)
    ))
 
-(defun make-ubyte-input-stream (arr &key (start 0) end (reader 'aref))
+(defun make-ubyte-input-stream (arr &key (start 0) end (reader 'xaref))
   (make-instance 'ubyte-input-stream
                  :arr    arr
                  :start  start
                  :end    end
                  :reader reader))
+
+(defclass scatter-vector ()
+  ((frags      :accessor scatter-vector-frags      :initform (make-array 1
+                                                                         :adjustable   t
+                                                                         :fill-pointer 0))
+   (last-ix    :accessor scatter-vector-last-ix    :initform 0)
+   (last-base  :accessor scatter-vector-last-base  :initform 0)
+   (length     :accessor scatter-vector-length     :initform 0)
+   ))
+
+(defgeneric in-bounds-p (vec ix)
+  (:method ((vec vector) ix)
+   (array-in-bounds-p vec ix))
+  (:method ((vec scatter-vector) ix)
+   (and (not (minusp ix))
+        (< ix (scatter-vector-length vec))
+        )))
+
+(defgeneric xlength (vec)
+  (:method ((vec vector))
+   (length vec))
+  (:method ((vec scatter-vector))
+   (scatter-vector-length vec)))
+
+(defgeneric xaref (vec ix)
+  (:method ((vec vector) ix)
+   (aref vec ix))
+  (:method ((vec scatter-vector) ix)
+   ;; written to allow possibility of scatter-vector elements also
+   ;; being scatter-vectors
+   (let ((ix-rem (- ix (scatter-vector-last-base vec))))
+     (when (minusp ix-rem)
+       ;; start over from front
+       (setf (scatter-vector-last-ix vec)   0
+             (scatter-vector-last-base vec) 0
+             ix-rem  ix))
+     (um:nlet-tail iter ((cur-ix (scatter-vector-last-ix vec))
+                         (ix-rem ix-rem))
+       (let* ((cur-frag (aref (scatter-vector-frags vec) cur-ix))
+              (nel      (xlength cur-frag)))
+         (if (< ix-rem nel)
+             (xaref cur-frag ix-rem)
+           (progn
+             (incf (scatter-vector-last-ix vec))
+             (incf (scatter-vector-last-base vec) nel)
+             (iter (1+ cur-ix) (- ix-rem nel)))
+           )))
+     )))
+
+(defmethod scatter-vector-add-fragment ((sv scatter-vector) frag-vec)
+  (vector-push-extend frag-vec (scatter-vector-frags sv))
+  (incf (scatter-vector-length sv) (xlength frag-vec)))
 
 #+(or :LISPWORKS :CLOZURE)
 (defmethod stream:stream-read-byte ((stream ubyte-input-stream))
@@ -145,8 +197,8 @@ THE SOFTWARE.
                    (reader uis-reader)) stream
     (if (or (and end
                  (>= ix end))
-            (not (array-in-bounds-p arr ix)))
-        stream ;; return stream on EOF
+            (not (in-bounds-p arr ix)))
+        :eof
       (prog1
           (funcall reader arr ix)
         (incf ix))
@@ -160,8 +212,8 @@ THE SOFTWARE.
                    (reader uis-reader)) stream
     (if (or (and end
                  (>= ix end))
-            (not (array-in-bounds-p arr ix)))
-        stream ;; return stream on EOF
+            (not (in-bounds-p arr ix)))
+        :eof
       (prog1
           (funcall reader arr ix)
         (incf ix))
@@ -176,8 +228,8 @@ THE SOFTWARE.
                    (reader uis-reader)) stream
     (if (or (and end
                  (>= ix end))
-            (not (array-in-bounds-p arr ix)))
-        stream ;; return stream on EOF
+            (not (in-bounds-p arr ix)))
+        :eof
       (prog1
           (funcall reader arr ix)
         (incf ix))

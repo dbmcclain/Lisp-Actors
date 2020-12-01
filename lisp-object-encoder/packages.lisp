@@ -155,5 +155,12 @@
    #:with-output-to-ubyte-stream
    ;; Allegro does not export stream:stream-file-position
    #:stream-file-position
+
+   #:scatter-vector
+   #:scatter-vector-add-fragment
+   #:in-bounds-p
+   #:scatter-vector-length
+   #:xaref
+   #:xlength
    ))
 
