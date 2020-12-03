@@ -256,7 +256,7 @@
     (um:rmw chq
             (lambda (tups)
               ;; this function can be called repeatedly, hence must
-              ;; appear idempotent
+              ;; appear idempotent - no lasting side effects
               (setf old nil)
               (cons new-tup
                     ;; we need to trim away the already rendezvous
@@ -272,15 +272,18 @@
               (um:foreach #'decref old)))))
 
 (defmethod get-tuples ((chq channel-queue))
-  (um:rd chq))
+  ;; return list in FIFO order
+  (reverse (um:rd chq)))
 
 (defmethod reset-queue ((chq channel-queue))
   (um:wr chq nil))
 
 ;; ----------------------------------------------------------------------
 ;; CHANNEL -- the object of a rendezvous between threads. Channel
-;; objects are shared between threads. We use lock-free queues for this.
-;; We only need to lock a channel during polling (sadly...)
+;; objects are shared between threads. We use lock-free queues for
+;; this.  We need to lock channels while polling, using a sharing lock
+;; among threads. It is an exclusive lock only when discarding a
+;; channel.
 
 ;; LW has a strong enough GC finalization protocol that it can deal
 ;; directly with core objects. No need for the handle indirection
@@ -666,7 +669,7 @@
 ;;
 
 (defun do-polling (tuples my-comm my-bev rendezvous-fn)
-  (declare (list tuples) ;; must treat as read-only
+  (declare (list tuples)
            (comm-cell my-comm)
            (bev my-bev)
            (function rendezvous-fn))
@@ -700,7 +703,7 @@
                        ))))
            )))
     (declare (dynamic-extent #'try-rendezvous))
-    (some #'try-rendezvous (reverse tuples))
+    (some #'try-rendezvous tuples)
     ))
 
 (defun invalid-channel (ch)
