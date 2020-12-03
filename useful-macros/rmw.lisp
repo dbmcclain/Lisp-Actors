@@ -68,7 +68,7 @@
 
 (defstruct rmw-desc
   ;; contains captured old value, and mutator function
-  old new-fn)
+  old new-fn post-fn)
 
 (defun rmw-help (obj desc)
   ;; Here it is known that obj contained desc, but by now it might not
@@ -77,12 +77,13 @@
   ;; NOTE: new-fn can be called repeatedly and from arbitrary threads,
   ;; so it should be idempotent, and don't let it fail...
   ;;
-  (with-slots (old new-fn) desc
+  (with-slots (old new-fn post-fn) desc
     (let ((new (funcall new-fn old)))
       ;; the following CAS could fail if another thread already
       ;; performed this task. That's okay.
-      (basic-cas obj desc new))
-    ))
+      (when (basic-cas obj desc new)
+        (funcall post-fn))
+    )))
 
 (defun rd (obj)
   (um:nlet-tail iter ()
@@ -95,12 +96,13 @@
             (t  v)
             ))))
            
-(defmethod rmw (obj new-fn)
+(defmethod rmw (obj new-fn &optional (post-fn #'lw:do-nothing))
   ;; NOTE: RMW does *NOT* return new val. It could be wrong to assume
   ;; that new val corresponds to what is currently stored in obj.
   ;; Remember we are in a dynamic SMP environment.
   (let ((desc (make-rmw-desc
-               :new-fn new-fn)))
+               :new-fn  new-fn
+               :post-fn post-fn)))
     (um:nlet-tail iter ()
       (let ((old (rd obj)))
         ;; <-- ABA could happen here

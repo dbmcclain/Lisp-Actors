@@ -245,6 +245,39 @@
   (format stream "No event rendezvous"))
 
 ;; ----------------------------------------------------------------------
+;; CHANNEL-QUEUE -- lock free queues
+
+(defstruct (channel-queue
+            (:include ref:ref)))
+
+(defmethod enqueue-tuple ((chq channel-queue) new-tup)
+  (incref (comm-tuple-comm new-tup))
+  (let (old)
+    (um:rmw chq
+            (lambda (tups)
+              ;; this function can be called repeatedly, hence must
+              ;; appear idempotent
+              (setf old nil)
+              (cons new-tup
+                    ;; we need to trim away the already rendezvous
+                    ;; tuples
+                    (remove-if (lambda (tup)
+                                 (let ((comm (comm-tuple-comm tup)))
+                                   (when (marked? comm)
+                                     (push comm old))))
+                               tups)))
+            (lambda ()
+              ;; this function is called only once, on a successful
+              ;; RMW update
+              (um:foreach #'decref old)))))
+
+(defmethod get-tuples ((chq channel-queue))
+  (um:rd chq))
+
+(defmethod reset-queue ((chq channel-queue))
+  (um:wr chq nil))
+
+;; ----------------------------------------------------------------------
 ;; CHANNEL -- the object of a rendezvous between threads. Channel
 ;; objects are shared between threads. We use lock-free queues for this.
 ;; We only need to lock a channel during polling (sadly...)
@@ -256,10 +289,8 @@
 (defclass channel (<orderable-mixin>)
   ((lock     :reader   channel-lock      :initform (mp:make-lock :sharing t))
    (valid    :accessor channel-valid     :initform t)
-   (rdq-lock :reader   channel-rdq-lock  :initform (mp:make-lock))
-   (readers  :accessor channel-readers   :initform nil)
-   (wrq-lock :reader   channel-wrq-lock  :initform (mp:make-lock))
-   (writers  :accessor channel-writers   :initform nil)
+   (readers  :accessor channel-readers   :initform (make-channel-queue))
+   (writers  :accessor channel-writers   :initform (make-channel-queue))
    ))
 
 (defmethod initialize-instance :after ((ch channel) &key &allow-other-keys)
@@ -634,48 +665,43 @@
 ;; and are shared among channels.
 ;;
 
-(defun do-polling (queue my-comm my-bev rendezvous-fn)
-  (declare (list queue)
+(defun do-polling (tuples my-comm my-bev rendezvous-fn)
+  (declare (list tuples) ;; must treat as read-only
            (comm-cell my-comm)
            (bev my-bev)
            (function rendezvous-fn))
   ;; Scan a queue for an eligbible tuple and discard marked tuples
   ;; from the queue. An eligible tuple may become marked from
   ;; eligible-p. This version avoids consing.
-  (let (rendezvous)
-    (flet
-        ((try-rendezvous (tup)
-           (declare (comm-tuple tup))
-           (with-accessors ((other-comm  comm-tuple-comm)
-                            (other-bev   comm-tuple-bev)
-                            (other-async comm-tuple-async)
-                            (data        comm-tuple-data)) tup
-             (unless (or rendezvous ;; we already rendezvous
-                         (eq my-comm other-comm)) ;; can't rendezvous with ourself
-               (with-locked-comms (my-comm other-comm)
-                 (unless (or (marked? my-comm)
-                             (marked? other-comm))
-                   (fast-mark other-comm other-bev)
-                   (cond ((eq data 'no-rendezvous-token)
-                          ;; thanks, but I'll hold out for a better
-                          ;; offer...
-                          (setf (bev-nack my-bev) t)) ;; NAK noted
-                         
-                         (t
-                          (fast-mark my-comm my-bev)
-                          (setf rendezvous my-bev)
-                          (funcall rendezvous-fn tup)
-                          (unless other-async
-                            (prod-owner other-comm other-bev)))
-                         ))))
-             (when (marked? other-comm)
-               ;; was either just marked here, or from a prior run
-               ;; against the opposite queue when it was my-comm
-               (decref other-comm)) ;; returns non-nil for REMOVE-IF
-             )))
-      (declare (dynamic-extent #'try-rendezvous))
-      (nreverse (delete-if #'try-rendezvous (nreverse queue)))
-      )))
+  (flet
+      ((try-rendezvous (tup)
+         (declare (comm-tuple tup))
+         (with-accessors ((other-comm  comm-tuple-comm)
+                          (other-bev   comm-tuple-bev)
+                          (other-async comm-tuple-async)
+                          (data        comm-tuple-data)) tup
+           (unless (eq my-comm other-comm) ;; can't rendezvous with ourself
+             (with-locked-comms (my-comm other-comm)
+               (unless (or (marked? my-comm)
+                           (marked? other-comm))
+                 (fast-mark other-comm other-bev)
+                 (cond ((eq data 'no-rendezvous-token)
+                        ;; thanks, but I'll hold out for a better
+                        ;; offer...
+                        (setf (bev-nack my-bev) t) ;; NAK noted
+                        nil) ;; but we haven't rendezvous
+                       
+                       (t
+                        (fast-mark my-comm my-bev)
+                        (funcall rendezvous-fn tup)
+                        (unless other-async
+                          (prod-owner other-comm other-bev))
+                        t) ;; we just rendezvous
+                       ))))
+           )))
+    (declare (dynamic-extent #'try-rendezvous))
+    (some #'try-rendezvous (reverse tuples))
+    ))
 
 (defun invalid-channel (ch)
   (error "Invalid Channel: ~A" ch))
@@ -717,18 +743,13 @@
                    )))
           (declare (dynamic-extent #'rendezvous))
           
-          (let ((tup (make-comm-tuple
-                      :comm  wcomm
-                      :bev   me
-                      :data  data
-                      :async async)))
-            (incref wcomm)
-            (mp:with-lock ((channel-wrq-lock ch))
-              (push tup (channel-writers ch))))
-          
-          (mp:with-lock ((channel-rdq-lock ch))
-            (setf (channel-readers ch)
-                  (do-polling (channel-readers ch) wcomm me #'rendezvous)))
+          (enqueue-tuple (channel-writers ch)
+                         (make-comm-tuple
+                          :comm  wcomm
+                          :bev   me
+                          :data  data
+                          :async async))
+          (do-polling (get-tuples (channel-readers ch)) wcomm me #'rendezvous)
           ))))))
 
 ;; -----------------------------------------------------------------
@@ -755,18 +776,13 @@
                    )))
           (declare (dynamic-extent #'rendezvous))
           
-          (let ((tup (make-comm-tuple
-                      :comm  rcomm
-                      :bev   me
-                      :data  (or abort t)
-                      :async async)))
-            (incref rcomm)
-            (mp:with-lock ((channel-rdq-lock ch))
-              (push tup (channel-readers ch))))
-          
-          (mp:with-lock ((channel-wrq-lock ch))
-            (setf (channel-writers ch)
-                  (do-polling (channel-writers ch) rcomm me #'rendezvous)))
+          (enqueue-tuple (channel-readers ch)
+                         (make-comm-tuple
+                          :comm  rcomm
+                          :bev   me
+                          :data  (or abort t)
+                          :async async))
+          (do-polling (get-tuples (channel-writers ch)) rcomm me #'rendezvous)
           ))))))
   
 ;; -----------------------------------------------------------------
@@ -1146,24 +1162,25 @@
       (when (channel-valid ch)
         (setf (channel-valid ch) nil)
         (flet
-            ((prod (q)
-               (dolist (tup q)
-                 (let ((comm  (comm-tuple-comm tup))
-                       (async (comm-tuple-async tup)))
-                   (mp:with-lock ((comm-cell-lock comm))
-                     (when (and (zerop (decref comm))   ;; not on any other queues
-                                (mark comm t)           ;; hasn't already rendezvous
-                                (not async))            ;; not an async event
-                       ;; since there should be no contention for the comm
-                       ;; object, (i.e., the channel has been discarded and
-                       ;; so no possibility of rendezvous) we use the mark
-                       ;; operation merely to check whether or not it has
-                       ;; already rendezvousd.
-                       (cancel-rendezvous comm)) ;; prod with rendezvous failure
-                     )))))
+            ((prod (tup)
+               (let ((comm  (comm-tuple-comm tup))
+                     (async (comm-tuple-async tup)))
+                 (mp:with-lock ((comm-cell-lock comm))
+                   (when (and (zerop (decref comm))   ;; not on any other queues
+                              (mark comm t)           ;; hasn't already rendezvous
+                              (not async))            ;; not an async event
+                     ;; since there should be no contention for the comm
+                     ;; object, (i.e., the channel has been discarded and
+                     ;; so no possibility of rendezvous) we use the mark
+                     ;; operation merely to check whether or not it has
+                     ;; already rendezvousd.
+                     (cancel-rendezvous comm)) ;; prod with rendezvous failure
+                   ))))
           (declare (dynamic-extent #'prod))
-          (prod (shiftf (channel-readers ch) nil))
-          (prod (shiftf (channel-writers ch) nil))
+          (um:foreach #'prod (get-tuples (channel-readers ch)))
+          (um:foreach #'prod (get-tuples (channel-writers ch)))
+          (reset-queue (channel-readers ch))
+          (reset-queue (channel-writers ch))
           )))))
 
 (defun reset-channel (ch)

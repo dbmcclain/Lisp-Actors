@@ -245,11 +245,11 @@ THE SOFTWARE.
 (defmethod atomic-decf ((obj cow))
   (rmw obj #'1-))
 
-(defmethod rmw :around ((obj cow) fn)
+(defmethod rmw :around ((obj cow) fn &optional (post-fn #'lw:do-nothing))
   (call-next-method obj (lambda (old-cell)
                           (cons (funcall fn (maybe-clone old-cell))
                                 t))
-                    ))
+                    post-fn))
              
 ;; ------------------------------------------------
 ;; Interesting... the use of COW becones ambiguous with LIST objects.
