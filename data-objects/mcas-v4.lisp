@@ -61,6 +61,14 @@ THE SOFTWARE.
             (:constructor %make-mcas-desc))
   triples)
 
+(declaim (inline undecided-p successful-p))
+
+(defun undecided-p (mdesc)
+  (eq :undecided (um:basic-val mdesc)))
+
+(defun successful-p (mdesc)
+  (eq :successful (um:basic-val mdesc)))
+
 (defstruct word-desc
   parent addr old new)
 
@@ -81,52 +89,50 @@ THE SOFTWARE.
   ;; mref must be an MCAS-REF
   (um:nlet-tail retry-read ()
     (let ((val (um:basic-val mref)))
-      (cond ((word-desc-p val)
-             (let ((parent (word-desc-parent val)))
-               (if (and (not (eq parent self))
-                        (eq :undecided (um:basic-val parent)))
-                   (progn
-                     (mcas-help parent)
-                     (retry-read))
-                 ;; else
-                 (values val
-                         (if (eq :successful (um:basic-val parent))
-                             (word-desc-new val)
-                           (word-desc-old val)))
-                 )))
-            
-            (t
-             (values val val))
-            ))))
+      (if (word-desc-p val)
+          (let ((parent (word-desc-parent val)))
+            (if (and (not (eq parent self))
+                     (undecided-p parent))
+                (progn
+                  (mcas-help parent)
+                  (retry-read))
+              ;; else
+              (values val
+                      (if (successful-p parent)
+                          (word-desc-new val)
+                        (word-desc-old val)))
+              ))
+        ;; else
+        (values val val))
+      )))
 
 (defun mcas-read (mref)
   ;; mref must be an MCAS-REF
-  (second (multiple-value-list (read-helper mref nil))))
+  (multiple-value-bind (content value)
+      (read-helper mref nil)
+    (declare (ignore content))
+    value))
             
 (defun mcas-help (mdesc)
+  ;; minimum CAS algorithm, for N locations, needs only N+1 CAS
   (declare (mcas-desc mdesc))
-  (let ((success  t))
-
-    (every (lambda (wdesc)
-             (declare (word-desc wdesc))
-             (um:nlet-tail retry-word ()
-               (multiple-value-bind (content value)
-                   (read-helper (word-desc-addr wdesc) mdesc)
-                 (or (eq content wdesc)
-                     (and (setf success (eq value (word-desc-old wdesc)))
-                          (eq :undecided (um:basic-val mdesc))
-                          (or (um:basic-cas (word-desc-addr wdesc) content wdesc)
-                              (retry-word))
-                          ))
-                 )))
-           (mcas-desc-triples mdesc))
-
-    (um:basic-cas mdesc :undecided (if success
-                                       :successful
-                                     :failed))
-
-    (eq (um:basic-val mdesc) :successful)
-    ))
+  (um:basic-cas mdesc :undecided
+                (if (every (lambda (wdesc)
+                             (declare (word-desc wdesc))
+                             (um:nlet-tail retry-word ()
+                               (multiple-value-bind (content value)
+                                   (read-helper (word-desc-addr wdesc) mdesc)
+                                 (or (eq content wdesc)
+                                     (and (eq value (word-desc-old wdesc))
+                                          (undecided-p mdesc)
+                                          (or (um:basic-cas (word-desc-addr wdesc) content wdesc)
+                                              (retry-word))
+                                          ))
+                                 )))
+                           (mcas-desc-triples mdesc))
+                    :successful
+                  :failed))
+  (successful-p mdesc))
 
 (defun mcas (&rest triples)
   ;; triples - a sequence of (ref old new) as would be suitable for
