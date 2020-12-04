@@ -431,7 +431,7 @@
 (defun marked? (comm)
   ;; return non-nil if already marked
   (declare (comm-cell comm))
-  (ref:ref-val comm))
+  (ref:val comm))
 
 (defun mark-pair (comm1 bev1 comm2 bev2)
   ;; return true if both comm cells can be marked

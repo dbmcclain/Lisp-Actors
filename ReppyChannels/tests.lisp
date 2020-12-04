@@ -7,25 +7,26 @@
   (let* ((ch12  (make-channel))
          (ch12a (make-channel)) ;; abort chan
          (ch13  (make-channel))
-         (ch13a (make-channel)) ;; abort chan
-         (t2   (ac:spawn-worker
-                (lambda ()
-                  (select (wrap (recvEvt ch12)
-                                (lambda (ans)
-                                  (ac:pr (format nil "t2 got ~A" ans))))
-                          (wrap (recvEvt ch12a)
-                                (lambda (_)
-                                  (ac:pr :t2-fail))))
-                  )))
-         (t3   (ac:spawn-worker
-                (lambda ()
-                  (select (wrap (recvEvt ch13)
-                                (lambda (ans)
-                                  (ac:pr (format nil "t3 got ~A" ans))))
-                          (wrap (recvEvt ch13a)
-                                (lambda (_)
-                                  (ac:pr :t3-fail)))
-                          )))))
+         (ch13a (make-channel))) ;; abort chan
+    (ac:pr "----------------------------------")
+    (ac:spawn-worker
+     (lambda ()
+       (select (wrap (recvEvt ch12)
+                     (lambda (ans)
+                       (ac:pr (format nil "t2 got ~A" ans))))
+               (wrap (recvEvt ch12a)
+                     (lambda (_)
+                       (ac:pr :t2-fail))))
+       ))
+    (ac:spawn-worker
+     (lambda ()
+       (select (wrap (recvEvt ch13)
+                     (lambda (ans)
+                       (ac:pr (format nil "t3 got ~A" ans))))
+               (wrap (recvEvt ch13a)
+                     (lambda (_)
+                       (ac:pr :t3-fail)))
+               )))
     (sleep 0.5)
     (select
      (wrap-abort (wrap (sendEvt ch12 :one-two)
@@ -37,8 +38,8 @@
                        (lambda (_)
                          (ac:pr :sent13)))
                  (lambda ()
-                   (poke ch13a t)))
-     )))
+                   (poke ch13a t))))
+    (values)))
     
 (tst)
 
