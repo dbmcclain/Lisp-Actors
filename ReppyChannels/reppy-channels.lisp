@@ -82,8 +82,6 @@
    #:choose
    #:choose*
 
-   #:recvEvt*
-   #:sendEvt*
    #:abort-ch-evt
    #:wrap-notify-abort
 
@@ -386,22 +384,17 @@
 ;; processor we need to grab claims using atomic operators. We could
 ;; also use locks, but that seems too heavy handed.
 
-(defvar *comm-id* 0)
-
 (um:eval-always
   ;; sys atomic ops need this defined at compile time
   
   (defstruct (comm-cell
-              (:include ref:ref))
+              (:include mcas:mcas-ref))
     ;; NIL if not yet performed, will contain the leaf BEV which fired
     ;; against this cell. I.e., in which leaf did the rendevouz occur?
     ;; Note: nowhere in this object is there any indication of what
     ;; counterparty was involved in the rendezvous. (Good for security.
     ;; Necessary?)
 
-    (lock  (mp:make-lock))
-    (ord   (sys:atomic-fixnum-incf *comm-id*))
-    
     ;; needs-wait will be true if we are ever placed on a R/W queue and
     ;; need to wait for a rendezvous.
     (needs-wait t)
@@ -413,7 +406,7 @@
     all-evts
     
     ;; the comm data value
-    (data  'no-rendezvous-token)
+    data
     
     ;; count of channels on which this object is currently enqueued
     ;; NOTE: this might show as zero, even if it had been placed on one
@@ -433,35 +426,17 @@
   ;; the comm might also be on other channels and might have been already marked
   ;; returns t if successfully marked, nil otherwise
   (declare (comm-cell comm))
-  (ref:basic-cas comm nil bev))
-
-(defun fast-mark (comm bev)
-  ;; used inside of a dual lock
-  (declare (comm-cell comm))
-  (setf (ref:ref-val comm) bev))
+  (ref:cas comm nil bev))
 
 (defun marked? (comm)
   ;; return non-nil if already marked
   (declare (comm-cell comm))
   (ref:ref-val comm))
 
-;; --------------------------------------------------------
-
-(defun do-with-locked-comms (comm1 comm2 fn)
-  (declare (comm-cell comm1 comm2))
-  (flet ((dual-lock (c1 c2)
-           (declare (comm-cell c1 c2))
-           (mp:with-lock ((comm-cell-lock c1))
-             (mp:with-lock ((comm-cell-lock c2))
-               (funcall fn)))))
-    (if (< (comm-cell-ord comm1)
-           (comm-cell-ord comm2))
-        (dual-lock comm1 comm2)
-      (dual-lock comm2 comm1))))
-
-(defmacro with-locked-comms ((comm1 comm2) &body body)
-  `(do-with-locked-comms ,comm1 ,comm2 (lambda ()
-                                         ,@body)))
+(defun mark-pair (comm1 bev1 comm2 bev2)
+  ;; return true if both comm cells can be marked
+  (mcas:mcas comm1 nil bev1
+             comm2 nil bev2))
 
 ;; ====================================================================
 
@@ -481,7 +456,7 @@
 ;; BEVs = Behaviors
 
 (defstruct bev
-  nack fn)
+  fn)
 
 (defun setup-comm (ev)
   (let ((comm  (make-comm-cell)))
@@ -517,27 +492,22 @@
   (declare (comm-cell comm))
   (let* ((mbox   (comm-cell-owner comm))
          (wait   (comm-cell-needs-wait comm))
-         (okay   nil))
+         (bev    nil))
     (unwind-protect
-        (let ((bev (or (marked? comm) ;; rendezvous from polling
-                       ;; if all events got nack - no need to wait
-                       (unless (every #'bev-nack (comm-cell-all-evts comm))
-                         (when wait
-                           (handler-case
-                               (um:read-mailbox-with-timeout mbox
-                                                             :timeout *timeout*
-                                                             :errorp t)
-                             (timeout (c)
-                               (or (marked? comm)
-                                   (error c)))
-                             )))
-                       )))
-          (when (bev-p bev)
-            (unless (eq 'no-rendezvous-token (comm-cell-data comm))
-              (setf okay t)
-              (successful-rendezvous comm bev))))
+        (setf bev (or (marked? comm) ;; rendezvous from polling
+                      ;; if all events got nack - no need to wait
+                      (when wait
+                        (handler-case
+                            (um:read-mailbox-with-timeout mbox
+                                                          :timeout *timeout*
+                                                          :errorp t)
+                          (timeout (c)
+                            (or (marked? comm)
+                                (error c)))
+                          ))))
       ;; unwind
-      (unless okay
+      (if (bev-p bev)
+          (successful-rendezvous comm bev)
         (failed-rendezvous comm))
       )))
 
@@ -681,26 +651,14 @@
          (declare (comm-tuple tup))
          (with-accessors ((other-comm  comm-tuple-comm)
                           (other-bev   comm-tuple-bev)
-                          (other-async comm-tuple-async)
-                          (data        comm-tuple-data)) tup
+                          (other-async comm-tuple-async)) tup
            (unless (eq my-comm other-comm) ;; can't rendezvous with ourself
-             (with-locked-comms (my-comm other-comm)
-               (unless (or (marked? my-comm)
-                           (marked? other-comm))
-                 (fast-mark other-comm other-bev)
-                 (cond ((eq data 'no-rendezvous-token)
-                        ;; thanks, but I'll hold out for a better
-                        ;; offer...
-                        (setf (bev-nack my-bev) t) ;; NAK noted
-                        nil) ;; but we haven't rendezvous
-                       
-                       (t
-                        (fast-mark my-comm my-bev)
-                        (funcall rendezvous-fn tup)
-                        (unless other-async
-                          (prod-owner other-comm other-bev))
-                        t) ;; we just rendezvous
-                       ))))
+             (when (mark-pair my-comm    my-bev
+                              other-comm other-bev)
+               (funcall rendezvous-fn tup)
+               (unless other-async
+                 (prod-owner other-comm other-bev))
+               t)) ;; we just rendezvous
            )))
     (declare (dynamic-extent #'try-rendezvous))
     (some #'try-rendezvous tuples)
@@ -796,9 +754,8 @@
         (declare (comm-cell comm))
         ;; alwaysEvt behavior -- always successfully rendezvous if we
         ;; haven't already rendevoused elsewhere.
-        (mp:with-lock ((comm-cell-lock comm))
-          (when (mark comm me)
-            (setf (comm-cell-data comm) data))))
+        (when (mark comm me)
+          (setf (comm-cell-data comm) data)))
       ;; The comm might also be on other channels and might have been
       ;; marked. Either way, we successfully polled but allow other mark
       ;; to take effect
@@ -826,10 +783,9 @@
   (make-leaf-behavior
       (lambda (comm me)
         (declare (comm-cell comm))
-        (mp:with-lock ((comm-cell-lock comm))
-          (when (mark comm me)
-            (setf (comm-cell-data comm)
-                  (apply fn args)))))
+        (when (mark comm me)
+          (setf (comm-cell-data comm)
+                (apply fn args))))
       ))
 
 ;; -----------------------------------------------------
@@ -934,62 +890,6 @@
 
 (defun abortEvt (&optional val)
   (failEvt (alwaysEvt val)))
-
-;; ------------------------------------------------------------------
-;; Nack'able send / recv
-;;
-;; This attempts to solve the situation where, e.g., 3 or more threads
-;; attempt to rendezvous on channels, as in:
-;;
-;;                           ch1 ----- Thr2
-;;                            |
-;;        Thr1 ---------------+
-;;                            |
-;;                           ch2 ----- Thr3
-;;
-;; Whichever pair rendezvous the other channel will leave a thread
-;; blocking waiting for a rendezvous. Ideally, the waiting thread
-;; would be notified that a rendezvous has happened but it wasn't the
-;; one chosen. That would allow the waiting thread to exit and perform
-;; any WRAP-ABORT functions.
-;;
-;; Unlike CML we do not have continuations, nor garbage collection of
-;; hung threads. So we can't directly support speculative
-;; communications in an attempt to solve this problem.
-;;
-;; So what we do here is wrap each channel event on the Thr1 side with
-;; an abort function that performs an async rendezvous attempt,
-;; carrying a special NO-RENDEZVOUS token as the data.
-;;
-;; That works just fine in many cases, but what happens if the aborted
-;; channel rendezvous happened because the opposite thread hadn't
-;; arrived yet?
-;;
-;; A future arrival would find an immedate rendezvous with the left
-;; over NO-RENDEZVOUS signal. And that might, or might not, be
-;; correct.
-;;
-;; This raises the issue of time coordination. What happens if a fresh
-;; attempt starts and sees a left-over cancel waiting in the channel
-;; from a prior rendezvous attempt? Maybe not such a good idea...
-;;
-
-(defun sendEvt* (ch val &key async)
-  ;; a version of sendEvt with nack feedback
-  (wrap-abort (sendEvt ch val :async async)
-              (lambda ()
-                (sync (sendEvt ch 'no-rendezvous-token
-                               :async t)))
-              ))
-
-(defun recvEvt* (ch &key async)
-  ;; a version of recvEvt with nack feedback
-  (wrap-abort (recvEvt ch :async async)
-              (lambda ()
-                (sync (recvEvt ch
-                               :async t
-                               :abort 'no-rendezvous-token)))
-              ))
 
 (defun abort-ch-evt (cha)
   ;; sense nack feedback and generate a failed rendezvous
@@ -1168,17 +1068,16 @@
             ((prod (tup)
                (let ((comm  (comm-tuple-comm tup))
                      (async (comm-tuple-async tup)))
-                 (mp:with-lock ((comm-cell-lock comm))
-                   (when (and (zerop (decref comm))   ;; not on any other queues
-                              (mark comm t)           ;; hasn't already rendezvous
-                              (not async))            ;; not an async event
-                     ;; since there should be no contention for the comm
-                     ;; object, (i.e., the channel has been discarded and
-                     ;; so no possibility of rendezvous) we use the mark
-                     ;; operation merely to check whether or not it has
-                     ;; already rendezvousd.
-                     (cancel-rendezvous comm)) ;; prod with rendezvous failure
-                   ))))
+                 (when (and (zerop (decref comm))   ;; not on any other queues
+                            (mark comm t)           ;; hasn't already rendezvous
+                            (not async))            ;; not an async event
+                   ;; since there should be no contention for the comm
+                   ;; object, (i.e., the channel has been discarded and
+                   ;; so no possibility of rendezvous) we use the mark
+                   ;; operation merely to check whether or not it has
+                   ;; already rendezvousd.
+                   (cancel-rendezvous comm)) ;; prod with rendezvous failure
+                 )))
           (declare (dynamic-extent #'prod))
           (um:foreach #'prod (get-tuples (channel-readers ch)))
           (um:foreach #'prod (get-tuples (channel-writers ch)))

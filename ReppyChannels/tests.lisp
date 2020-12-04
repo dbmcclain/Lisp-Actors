@@ -2,115 +2,44 @@
 (in-package :rch)
 
 (defun tst ()
-  (let* ((ch12 (make-channel))
-         (ch12a (make-channel))
-         (ch13 (make-channel))
-         (ch13a (make-channel))
+  ;; randomly rendezvous with one of two threads, sending an abort to
+  ;; the other thread
+  (let* ((ch12  (make-channel))
+         (ch12a (make-channel)) ;; abort chan
+         (ch13  (make-channel))
+         (ch13a (make-channel)) ;; abort chan
          (t2   (ac:spawn-worker
                 (lambda ()
-                  (let ((*timeout* 1))
-                    (sleep (lw:mt-random 0.5))
-                    (select (wrap (recvEvt ch12)
+                  (select (wrap (recvEvt ch12)
                                 (lambda (ans)
                                   (ac:pr (format nil "t2 got ~A" ans))))
-                            (wrap (recvEvt ch12a)
-                                  (lambda (_)
-                                    (ac:pr :t2-fail))))
-                    ))))
+                          (wrap (recvEvt ch12a)
+                                (lambda (_)
+                                  (ac:pr :t2-fail))))
+                  )))
          (t3   (ac:spawn-worker
                 (lambda ()
-                  (let ((*timeout* 1))
-                    (sleep (lw:mt-random 0.5))
-                    (select (wrap (recvEvt ch13)
-                                  (lambda (ans)
-                                    (ac:pr (format nil "t3 got ~A" ans))))
-                            (wrap (recvEvt ch13a)
-                                  (lambda (_)
-                                    (ac:pr :t3-fail)))
-                            ))))))
-    ;; (sleep 0.5)
-    (let ((*timeout* 1))
-      (select
-       (wrap-abort (wrap (sendEvt ch12 :one-two)
-                         (lambda (_)
-                           (ac:pr :sent12)))
-                   (lambda ()
-                     (poke ch12a t)))
-       (wrap-abort (wrap (sendEvt ch13 :one-three)
-                         (lambda (_)
-                           (ac:pr :sent13)))
-                   (lambda ()
-                     (poke ch13a)))
-       ))))
+                  (select (wrap (recvEvt ch13)
+                                (lambda (ans)
+                                  (ac:pr (format nil "t3 got ~A" ans))))
+                          (wrap (recvEvt ch13a)
+                                (lambda (_)
+                                  (ac:pr :t3-fail)))
+                          )))))
+    (sleep 0.5)
+    (select
+     (wrap-abort (wrap (sendEvt ch12 :one-two)
+                       (lambda (_)
+                         (ac:pr :sent12)))
+                 (lambda ()
+                   (poke ch12a t)))
+     (wrap-abort (wrap (sendEvt ch13 :one-three)
+                       (lambda (_)
+                         (ac:pr :sent13)))
+                 (lambda ()
+                   (poke ch13a t)))
+     )))
     
-(tst)
-
-;; ---------------------------------------------------------------------------------
-;; This is the way to do it. No separate abort channels
-;; One participant gets a rendezvous, all others get an abort, all without any timeouts
-
-(defun tst ()
-  (let* ((ch12 (make-channel))
-         (ch13 (make-channel))
-         (ch14 (make-channel)))
-    (flet ((rx (ch msg-recv msg-abort)
-             (ac:spawn-worker
-              (lambda ()
-                (sleep (random 2.0))
-                (let ((*timeout* 5))
-                  (sync
-                   (wrapping
-                    (recvEvt* ch)
-                    :on-rendezvous (lambda (ans)
-                                     (ac:pr (format nil msg-recv ans)))
-                    :on-abort (lambda ()
-                                (ac:pr msg-abort))))
-                  ))))
-           (tx (ch item msg)
-             (wrapping
-              (sendEvt* ch item)
-              :on-rendezvous (lambda (_)
-                               (declare (ignore _))
-                               (ac:pr msg)))))
-      (rx ch12 "t2 got ~A" :t2-fail)
-      (rx ch13 "t3 got ~A" :t3-fail)
-      (rx ch14 "t4 got ~A" :t4-fail)
-    ;; (sleep 5)
-    (let ((*timeout* 5))
-      (select
-       (tx ch12 :one-two   :sent12)
-       (tx ch13 :one-three :sent13)
-       (tx ch14 :one-four  :sent14))
-      ))))
-
-(defun tst ()
-  (let* ((ch12 (make-channel))
-         (ch13 (make-channel))
-         (ch14 (make-channel)))
-    (flet ((tx (ch item msg-send msg-abort)
-             (ac:spawn-worker
-              (lambda ()
-                (sleep (random 2.0))
-                (let ((*timeout* 5))
-                  (sync
-                   (wrapping
-                    (sendEvt* ch item)
-                    :on-rendezvous (lambda (ans)
-                                     (declare (ignore ans))
-                                     (ac:pr (format nil msg-send item)))
-                    :on-abort (lambda ()
-                                (ac:pr msg-abort)))
-                   ))))))
-      (tx ch12 :two   "t2 sent ~A" :t2-fail)
-      (tx ch13 :three "t3 sent ~A" :t3-fail)
-      (tx ch14 :four  "t4 sent ~A" :t4-fail)
-    ;; (sleep 5)
-    (let ((*timeout* 5))
-      (ac:pr (select
-              (recvEvt* ch12)
-              (recvEvt* ch13)
-              (recvEvt* ch14)))
-      ))))
 (tst)
 
 ;; --------------------------------------------------------------------------
@@ -375,26 +304,6 @@
                          (with-nack
                           ch
                           (sendEvt ch :something)
-                          (lambda ()
-                            (pr "Worker send aborted")))
-                         (wrap (recvEvt ch2)
-                               #'pr))
-                        )))
-    (sync
-     (sendEvt ch2 :side-event)
-     ;; (sendEvt cha cha)
-     )
-    ))
-
-(defun tst ()
-  (let ((ch  (make-channel))
-        (ch2 (make-channel))
-        (cha (make-channel)))
-    (ac:spawn-worker (lambda ()
-                       (sync
-                        (choose
-                         (wrap-abort
-                          (sendEvt* ch :something)
                           (lambda ()
                             (pr "Worker send aborted")))
                          (wrap (recvEvt ch2)
