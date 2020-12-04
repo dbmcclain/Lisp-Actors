@@ -40,7 +40,7 @@ THE SOFTWARE.
                 ;; (:file "mi-rubber-objects-2")
 		;; (:file "rubber-objects-maps")
                 (:file "rubber-objects-lock-free")
-                #+(AND :COM.RAL :LISPWORKS) (:file "mcas-v3")
+                #+(AND :COM.RAL :LISPWORKS) (:file "mcas-v4")
                 (:file "multilock")
                 (:file "tl2")
                 #+(AND :COM.RAL :LISPWORKS) (:file "fstm-v3")

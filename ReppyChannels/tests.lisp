@@ -424,3 +424,12 @@
 
 ;; -------------------------------------------------------
 
+(let* ((arr (make-array 32
+                        :element-type 'fixnum
+                        :initial-element 0)))
+  (loop repeat 10000 do
+        (let ((val (lw:mt-random #.(ash 1 32))))
+          (dotimes (ix 32)
+            (when (logbitp ix val)
+              (incf (aref arr ix))))))
+  (plt:plot 'histo arr :clear t))
