@@ -3,6 +3,8 @@
 ;; Adapted from "Efficient Multi-word Compare and Swap", by Guerraoui,
 ;; Kogan, Marathe, and Zablotchi
 ;;
+;; An N-way MCAS, without contention, needs only N+1 CAS instructions.
+;;
 ;; DM/RAL  12/20
 ;; -------------------------------------------------------------
 #|
@@ -53,7 +55,7 @@ THE SOFTWARE.
 ;;
 ;; NOTE: Any ref that is used in an MCAS operation should really use
 ;; MCAS and MCAS-READ, even when not part of an ensemble (as in simple
-;; CAS), and for querying the value.  This will detect MCAS in
+;; CAS), and for querying the value.  These will detect MCAS in
 ;; progress and help it along for final resolution.
 
 (defstruct (mcas-desc

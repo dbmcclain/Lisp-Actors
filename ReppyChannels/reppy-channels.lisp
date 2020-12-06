@@ -434,7 +434,7 @@
   (ref:val comm))
 
 (defun mark-pair (comm1 bev1 comm2 bev2)
-  ;; return true if both comm cells can be marked
+  ;; return true if both comm cells could be marked
   (mcas:mcas comm1 nil bev1
              comm2 nil bev2))
 

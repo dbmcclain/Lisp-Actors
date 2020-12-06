@@ -43,7 +43,7 @@ THE SOFTWARE.
                 #+(AND :COM.RAL :LISPWORKS) (:file "mcas-v4")
                 (:file "multilock")
                 (:file "tl2")
-                #+(AND :COM.RAL :LISPWORKS) (:file "fstm-v3")
+                #+(AND :COM.RAL :LISPWORKS) (:file "fstm-v4")
                 #+(AND :COM.RAL :LISPWORKS) (:file "lf-bag")
                 #+(AND :COM.RAL :LISPWORKS) (:file "lw-rwgate")
                 #+(AND :COM.RAL :LISPWORKS) (:file "progress-bar")
