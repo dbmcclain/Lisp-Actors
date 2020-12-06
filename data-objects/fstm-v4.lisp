@@ -156,18 +156,17 @@ THE SOFTWARE.
 
 ;; ----------------------------------------
 
-(defun validate ()
+(defun validate-transaction (trans)
   (and
-   (every-ro-element *current-transaction*
-                     (um:rcurry #'check-var nil))
-   (every-rw-element *current-transaction*
+   (every-ro-element trans (um:rcurry #'check-var nil))
+   (every-rw-element trans
                      (lambda (var wdesc)
                        (check-var (cons var (word-desc-old wdesc)) nil)))
    ))
                       
 (defun commit-transaction (trans)
   (declare (transaction trans))
-  (um:labels*
+  (labels
       ((acquire (var wdesc)
          (declare (word-desc wdesc))
          (um:nlet-tail retry-word ()
@@ -272,6 +271,9 @@ THE SOFTWARE.
   (unless expr
     (retry)))
 
+(defun validate ()
+  (check (validate-transaction *current-transaction*)))
+
 (defun commit ()
   (re-parent *current-transaction*)
   (check (commit-transaction *current-transaction*))
@@ -295,7 +297,7 @@ THE SOFTWARE.
                   (multiple-value-prog1
                       (funcall (first rest-fns))
                     (cond (parent
-                           (check (validate))
+                           (validate)
                            (absorb-trans parent *current-transaction*))
                           
                           (t
