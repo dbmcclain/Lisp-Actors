@@ -116,11 +116,7 @@ THE SOFTWARE.
             (if (and (not (eq parent trans))
                      (trans-state-p parent :undecided))
                 (progn
-                  (if (and trans
-                           (trans< trans parent)) ;; I'm older
-                      (ref:basic-cas (transaction-state-ref parent) :undecided :failed)
-                    ;; else
-                    (commit-transaction parent))
+                  (commit-transaction parent)
                   (retry-read))
               ;; else
               (values val
