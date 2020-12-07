@@ -780,13 +780,15 @@
   ;; a computed result, but defers computation as late as possible so
   ;; that earlier events might rendezvous first and never need the
   ;; computation
-  (make-leaf-behavior
-      (lambda (comm me)
-        (declare (comm-cell comm))
-        (when (mark comm me)
-          (setf (comm-cell-data comm)
-                (apply fn args))))
-      ))
+  (let ((env (um:capture-dynamic-environment)))
+    (make-leaf-behavior
+     (lambda (comm me)
+       (declare (comm-cell comm))
+       (when (mark comm me)
+         (setf (comm-cell-data comm)
+               (um:with-dynamic-environment (env)
+                 (apply fn args)))))
+      )))
 
 ;; -----------------------------------------------------
 ;; Reppy Combinators
@@ -862,13 +864,19 @@
 (defun wrap-abort (ev fn)
   ;; fn should be a thunk (function of no args). Funciton will be
   ;; called only if the wrapped event fails to rendezvous.
-  (lambda (comm leafs wlst alst)
-    (let ((bev  (once-ref fn))) ;; funcalling bev returns fn, but only the first time.
-      ;; why the once-ref indirection? We need to break cycles in
-      ;; the abort graph, where more than one leaf might have a
-      ;; given abort clause along the path to the root of the event
-      ;; tree. We only want the abort clause to fire once.
-      (get-leafs ev comm leafs wlst (cons bev alst)))))
+  (let* ((env (um:capture-dynamic-environment))
+         (fne (lambda ()
+                (um:with-dynamic-environment (env)
+                  (funcall fn)))
+              ))
+    (lambda (comm leafs wlst alst)
+      (let ((bev  (once-ref fne))) ;; funcalling bev returns fn, but only the first time.
+        ;; why the once-ref indirection? We need to break cycles in
+        ;; the abort graph, where more than one leaf might have a
+        ;; given abort clause along the path to the root of the event
+        ;; tree. We only want the abort clause to fire once.
+        (get-leafs ev comm leafs wlst (cons bev alst))))
+    ))
 
 ;; --------------------------------------------------
 
@@ -911,8 +919,14 @@
   ;; result produced by the function fn. If this wrapped event is not
   ;; chosen, the function will not be asked to perform.
   ;;
-  (lambda (comm leafs wlst alst)
-    (get-leafs ev comm leafs (cons fn wlst) alst)))
+  (let* ((env (um:capture-dynamic-environment))
+         (fne (lambda (arg)
+                (um:with-dynamic-environment (env)
+                  (funcall fn arg)))
+              ))
+    (lambda (comm leafs wlst alst)
+      (get-leafs ev comm leafs (cons fne wlst) alst))
+    ))
 
 (defun wrap-handler (ev fn)
   ;; Wrapped handlers provide for error handling of rest of wrapper
