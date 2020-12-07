@@ -866,8 +866,7 @@
   ;; called only if the wrapped event fails to rendezvous.
   (let* ((env (um:capture-dynamic-environment))
          (fne (lambda ()
-                (um:with-dynamic-environment (env)
-                  (funcall fn)))
+                (um:call-with-dynamic-environment env fn))
               ))
     (lambda (comm leafs wlst alst)
       (let ((bev  (once-ref fne))) ;; funcalling bev returns fn, but only the first time.
