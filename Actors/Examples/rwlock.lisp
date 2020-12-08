@@ -79,7 +79,7 @@
                    (return-from #1#))))
     ))
 
-(defun try-enabling-pending-writer (lock)
+(defun #1=try-enabling-pending-writer (lock)
   (with-slots (wrwait holders) lock
     ;; the tree is kept in chronological order, and MAPS:ITER proceeds
     ;; from oldest to newest pending request. So we will launch the
@@ -89,7 +89,8 @@
                  (when (write-lock-obtainable-p lock (car v))
                    (maps:removef wrwait k)
                    (push `(:wr . ,(car v)) holders)
-                   (send (cdr v) 'ok))))
+                   (send (cdr v) 'ok)
+                   (return-from #1#))))
     ))
 
 ;; --------------------------------
@@ -103,7 +104,7 @@
                           holders)))
         (if rdr
             (progn
-              (um:removef holders rdr :count 1)
+              (um:removef holders rdr :count 1 :test #'eq)
               (try-enabling-pending-writer lock))
           ;; else
           (drop-pending-reader lock who-id))
@@ -164,7 +165,7 @@
                           holders)))
         (if wrt
             (progn
-              (um:removef holders wrt :count 1)
+              (um:removef holders wrt :count 1 :test #'eq)
               (when (every (lambda (elt)
                              (eq :rd (car elt)))
                            holders)
