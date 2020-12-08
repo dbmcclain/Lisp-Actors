@@ -70,12 +70,13 @@
 
 ;; --------------------------------
 
-(defun drop-pending-reader (lock who-id)
+(defun #1=drop-pending-reader (lock who-id)
   (with-slots (rdwait) lock
     (maps:iter rdwait
                (lambda (k v)
                  (when (eq (car v) who-id)
-                   (maps:removef rdwait k))))
+                   (maps:removef rdwait k)
+                   (return-from #1#))))
     ))
 
 (defun try-enabling-pending-writer (lock)
@@ -102,7 +103,7 @@
                           holders)))
         (if rdr
             (progn
-              (um:removef holders rdr)
+              (um:removef holders rdr :count 1)
               (try-enabling-pending-writer lock))
           ;; else
           (drop-pending-reader lock who-id))
@@ -143,12 +144,13 @@
                    (send reply-to 'ok))))
     ))
 
-(defun drop-pending-writer (lock who-id)
+(defun #1=drop-pending-writer (lock who-id)
   (with-slots (wrwait) lock
     (maps:iter wrwait
                (lambda (k v)
                  (when (eq (car v) who-id)
-                   (maps:removef wrwait k))))
+                   (maps:removef wrwait k)
+                   (return-from #1#))))
     ))
 
 ;; --------------------------------
@@ -162,7 +164,7 @@
                           holders)))
         (if wrt
             (progn
-              (um:removef holders wrt)
+              (um:removef holders wrt :count 1)
               (when (every (lambda (elt)
                              (eq :rd (car elt)))
                            holders)
