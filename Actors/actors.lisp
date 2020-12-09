@@ -258,8 +258,10 @@ THE SOFTWARE.
       (maybe-add-to-ready-queue actor))
     ))
 
-(defun %basic-run-actor-as-worker (actor)
+(defun %basic-run-actor-as-worker (actor class)
   (%basic-run-worker actor)
+  ;; first call treats as worker, thereafter as actor
+  (change-class actor class)
   (%basic-run-actor actor))
 
 (defun maybe-add-to-ready-queue (actor)
@@ -291,16 +293,11 @@ THE SOFTWARE.
 
   (:method ((*current-actor* actor-as-worker))
    (declare (special *current-actor*))
-   ;; first call treats as worker, thereafter as actor
-   (change-class *current-actor* 'actor)
-   (%basic-run-actor-as-worker *current-actor*))
+   (%basic-run-actor-as-worker *current-actor* 'actor))
 
   (:method ((*current-actor* limited-actor-as-worker))
    (declare (special *current-actor*))
-   ;; first call treats as worker, thereafter as actor
-   (change-class *current-actor* 'limited-actor)
-   (%basic-run-actor-as-worker *current-actor*))
-  )
+   (%basic-run-actor-as-worker *current-actor* 'limited-actor)))
 
 ;; -----------------------------------------------
 ;; Since these methods are called against (CURRENT-ACTOR) they can
