@@ -36,7 +36,8 @@
    #:timerEvt
    #:failEvt
    #:timeoutEvt
-
+   #:execEvt
+   
    #:success
    #:failure
    ))
@@ -116,11 +117,15 @@
 ;; -------------------------------
 
 (defstruct evt
+  (init #'lw:do-nothing) ;; init allows for reussable event trees
   poll
   success
   failure
-  async
-  data)
+  async  ;; async polling when true
+  data)  ;; sendEvt has this data
+
+(defun init (evt)
+  (funcall (evt-init evt)))
 
 (defun poll (comm evt)
   (funcall (evt-poll evt) comm))
@@ -171,6 +176,7 @@
 ;; ------------------
 
 (defun mark-async (comm async)
+  ;; an async event means we don't need to wait
   (when async
     (setf (comm-needs-wait comm) nil)))
 
@@ -288,6 +294,7 @@
         this-evt)
     (setf this-evt (make-evt
                     :poll    (lambda (comm)
+                               ;; might already be marked
                                (mark comm this-evt))
                     :success (lambda (comm)
                                (declare (ignore comm))
@@ -304,7 +311,7 @@
   ;; be emplaced into the comm-marker.
   (let ((env (capture-dynamic-environment)))
     (make-evt
-     :poll #'lw:do-nothing
+     :poll    #'lw:do-nothing
      :failure (lambda ()
                 (with-dynamic-environment (env)
                   (signal 'failure)))
@@ -334,11 +341,13 @@
   ;; choose evts are never emplaced into the comm-marker
   ;; so success will never be called on them. But failure will be called.
   (make-evt
-   :poll (lambda (comm)
-           (some (lambda (evt)
-                   (poll comm evt)
-                   (marked? comm))
-                 (funcall order-fn (butlast evts))))
+   :init    (lambda ()
+              (foreach #'init evts))
+   :poll    (lambda (comm)
+              (some (lambda (evt)
+                      (poll comm evt)
+                      (marked? comm))
+                    (funcall order-fn (butlast evts))))
    :failure (lambda ()
               ;; provide breadth-first failure handling
               (foreach #'failure evts))
@@ -347,12 +356,15 @@
 (defun compile-chooser (order-fn &rest evts)
   `(choiceEvt #',order-fn
               ,@(mapcar (lambda (evt)
+                          ;; this stops the propagation of the failure
+                          ;; on each individual evt
                           `(dynamic-wind
                              (handler-case
                                  (proceed ,evt)
                                (failure ())
                                )))
                         evts)
+              ;; this neverEvt propagates the failure to higher levels
               (neverEvt)))
 
 (defmacro choose (&rest evts)
@@ -368,8 +380,10 @@
         evt)
     (make-evt
      :poll    (lambda (comm)
+                ;; in a choice event, this might never get called.
                 (with-dynamic-environment (env)
                   (setf evt (funcall fn)))
+                (init evt)
                 (poll comm evt))
      :failure (lambda ()
                 (failure evt))
@@ -387,11 +401,22 @@
        )))
 
 (defmacro wrap-abort (evt fn)
-  (let ((gfn  (gensym)))
-    `(let ((,gfn ,fn))
+  (let ((gfn  (gensym))
+        (gevt (gensym)))
+    `(let (,gfn)
        (dynamic-wind
          (handler-case
-             (proceed ,evt)
+             (proceed
+              (let ((,gevt ,evt))
+                (make-evt
+                 :init  (lambda ()
+                          (init ,gevt)
+                          (setf ,gfn ,fn))
+                 :poll  (lambda (comm)
+                          (poll comm ,gevt))
+                 :failure (lambda ()
+                            (failure ,gevt)))
+                ))
            
            (success (c)
              (setf ,gfn nil)
@@ -420,10 +445,18 @@
          (signal 'failure))
        )))
 
+(defun execEvt (fn)
+  ;; an execEvt always succeeds, but might not get called in a choice
+  (wrap (alwaysEvt t)
+        (lambda (_)
+          (declare (ignore _))
+          (funcall fn))))
+
 ;; -----------------------------------------
 
 (defun sync (evt)
   (let ((comm (make-comm)))
+    (init evt)
     (poll comm evt)
     (unwind-protect
         (let ((an-evt (or (marked? comm)
@@ -444,19 +477,19 @@
 
 ;; ---------------------------------------------------------
 
-(defun select (&rest evts)
-  (sync (apply #'choose evts)))
+(defmacro select (&rest evts)
+  `(sync (choose ,@evts)))
 
-(defun select* (&rest evts)
-  (sync (apply #'choose* evts)))
+(defmacro select* (&rest evts)
+  `(sync (choose* ,@evts)))
         
 ;; ---------------------------------------------------------
 
-(defun recv (ch)
-  (sync (recvEvt ch)))
-
 (defun send (ch item)
   (sync (sendEvt ch item)))
+
+(defun recv (ch)
+  (sync (recvEvt ch)))
 
 ;; -------------------------------------------
 
@@ -500,6 +533,7 @@
 ;; ----------------------------------------------------------------------------------
 ;; Events that could generate errors if chosen
 
+#| ;; say What?!
 (defun wrap-error (ev errfn)
   ;; An event that fires an error if successful rendezvos. It also
   ;; acts like a failed rendezvous. Errfn should be prepared to accept
@@ -518,12 +552,13 @@
   ;; event.
   (wrap-error (alwaysEvt nil)
               errfn))
+|#
 
 (defun timeoutEvt (dt)
   ;; an event that produces a timeout error
   (wrap (timerEvt dt)
-        (lambda (arg)
-          (declare (ignore arg))
+        (lambda (_)
+          (declare (ignore _))
           (error 'timeout))))
 
 (defun wrap-timeout (ev dt)
