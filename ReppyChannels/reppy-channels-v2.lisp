@@ -78,16 +78,6 @@
   (apply #'mp:process-run-function (symbol-name (gensym (or name "RCH:spawn-"))) nil
          fn args))
 
-;; -----------------------------------------------------------
-
-(define-condition no-rendezvous (error)
-  ()
-  (:report report-no-rendezvous))
-
-(defun report-no-rendezvous (err stream)
-  (declare (ignore err))
-  (format stream "No event rendezvous"))
-
 ;; ----------------------------------------------------------------------
 ;; CHANNEL-QUEUE -- lock free queues
 
@@ -128,11 +118,9 @@
 (defstruct evt
   poll
   success
+  failure
   async
-  data
-  (failure (lambda (&rest ignored)
-             (declare (ignore ignored))
-             (signal 'failure))))
+  data)
 
 (defun poll (comm evt)
   (funcall (evt-poll evt) comm))
@@ -140,8 +128,8 @@
 (defun success (comm evt)
   (funcall (evt-success evt) comm))
 
-(defun failure (comm evt)
-  (funcall (evt-failure evt) comm))
+(defun failure (evt)
+  (funcall (evt-failure evt)))
 
 ;; -----------------------------------------
 
@@ -240,65 +228,87 @@
       (some #'try-rendezvous (get-bevs queue))
       )))
 
+;; -------------------------------------------------------
+
 (defun recvEvt (ch &key async)
-  (um:letrec ((this-evt (make-evt
-                         :async   async
-                         :poll    (lambda (comm)
-                                    (mark-async comm async)
-                                    (let ((my-bev (make-bev
-                                                   :comm comm
-                                                   :evt  this-evt)))
-                                      (enqueue-bev (channel-readers ch) my-bev)
-                                      (labels
-                                          ((rendezvous (bev)
-                                             (setf (comm-data comm) (evt-data (bev-evt bev)))))
-                                        (do-polling #'rendezvous (channel-writers ch) my-bev)
-                                      )))
-                         :success (lambda (comm)
-                                    (let ((val (comm-data comm)))
-                                      (signal 'success :val val)
-                                      val))
-                         )))
-    this-evt))
+  (let ((env (capture-dynamic-environment))
+        this-evt)
+    (setf this-evt (make-evt
+                    :async   async
+                    :poll    (lambda (comm)
+                               (mark-async comm async)
+                               (let ((my-bev (make-bev
+                                              :comm comm
+                                              :evt  this-evt)))
+                                 (enqueue-bev (channel-readers ch) my-bev)
+                                 (labels
+                                     ((rendezvous (bev)
+                                        (setf (comm-data comm) (evt-data (bev-evt bev)))))
+                                   (do-polling #'rendezvous (channel-writers ch) my-bev)
+                                   )))
+                    :success (lambda (comm)
+                               (let ((val (comm-data comm)))
+                                 (with-dynamic-environment (env)
+                                   (signal 'success :val val)
+                                   val)))
+                    :failure (lambda ()
+                               (with-dynamic-environment (env)
+                                 (signal 'failure)))
+                    ))))
 
 (defun sendEvt (ch val &key async)
-  (um:letrec ((this-evt (make-evt
-                         :data    val
-                         :async   async
-                         :poll    (lambda (comm)
-                                    (mark-async comm async)
-                                    (let ((my-bev (make-bev
-                                                   :comm comm
-                                                   :evt  this-evt)))
-                                      (enqueue-bev (channel-writers ch) my-bev)
-                                      (labels
-                                          ((rendezvous (bev)
-                                             (setf (comm-data (bev-comm bev)) val)))
-                                        (do-polling #'rendezvous (channel-readers ch) my-bev)
-                                        )))
-                         :success (lambda (comm)
-                                    (declare (ignore comm))
-                                    (signal 'success :val val)
-                                    val)
-                         )))
-    this-evt))
+  (let ((env (capture-dynamic-environment))
+        this-evt)
+    (setf this-evt (make-evt
+                    :data    val
+                    :async   async
+                    :poll    (lambda (comm)
+                               (mark-async comm async)
+                               (let ((my-bev (make-bev
+                                              :comm comm
+                                              :evt  this-evt)))
+                                 (enqueue-bev (channel-writers ch) my-bev)
+                                 (labels
+                                     ((rendezvous (bev)
+                                        (setf (comm-data (bev-comm bev)) val)))
+                                   (do-polling #'rendezvous (channel-readers ch) my-bev)
+                                   )))
+                    :success (lambda (comm)
+                               (declare (ignore comm))
+                               (with-dynamic-environment (env)
+                                 (signal 'success :val val)
+                                 val))
+                    :failure (lambda ()
+                               (with-dynamic-environment (env)
+                                 (signal 'failure)))
+                    ))))
 
 (defun alwaysEvt (val)
-  (um:letrec ((this-evt (make-evt
-                         :poll    (lambda (comm)
-                                    (mark comm this-evt))
-                         :success (lambda (comm)
-                                    (declare (ignore comm))
-                                    (signal 'success :val val)
-                                    val)
-                         )))
-    this-evt))
+  (let ((env (capture-dynamic-environment))
+        this-evt)
+    (setf this-evt (make-evt
+                    :poll    (lambda (comm)
+                               (mark comm this-evt))
+                    :success (lambda (comm)
+                               (declare (ignore comm))
+                               (with-dynamic-environment (env)
+                                 (signal 'success :val val)
+                                 val))
+                    :failure (lambda ()
+                               (with-dynamic-environment (env)
+                                 (signal 'failure)))
+                    ))))
 
 (defun neverEvt ()
   ;; success will never be called on neverEvt because these can never
   ;; be emplaced into the comm-marker.
-  (make-evt
-   :poll #'lw:do-nothing))
+  (let ((env (capture-dynamic-environment)))
+    (make-evt
+     :poll #'lw:do-nothing
+     :failure (lambda ()
+                (with-dynamic-environment (env)
+                  (signal 'failure)))
+     )))
 
 ;; -----------------------------------------
 
@@ -318,7 +328,9 @@
       (incf ix))
     ))
 
-(defun do-choose (order-fn &rest evts)
+;; -----------------------------------------------------
+
+(defun choiceEvt (order-fn &rest evts)
   ;; choose evts are never emplaced into the comm-marker
   ;; so success will never be called on them. But failure will be called.
   (make-evt
@@ -326,96 +338,87 @@
            (some (lambda (evt)
                    (poll comm evt)
                    (marked? comm))
-                 (funcall order-fn evts)))
-   :failure (lambda (comm)
+                 (funcall order-fn (butlast evts))))
+   :failure (lambda ()
               ;; provide breadth-first failure handling
-              (foreach (lambda (evt)
-                         (handler-case
-                             (failure comm evt)
-                           (failure ())
-                           ))
-                       evts)
-              (signal 'failure))
+              (foreach #'failure evts))
    ))
 
-(defun choose (&rest evts)
-  (apply #'do-choose #'shuffle-evts evts))
+(defun compile-chooser (order-fn &rest evts)
+  `(choiceEvt #',order-fn
+              ,@(mapcar (lambda (evt)
+                          `(dynamic-wind
+                             (handler-case
+                                 (proceed ,evt)
+                               (failure ())
+                               )))
+                        evts)
+              (neverEvt)))
 
-(defun choose* (&rest evts)
-  (apply #'do-choose #'identity evts))
+(defmacro choose (&rest evts)
+  (apply #'compile-chooser 'shuffle-evts evts))
+
+(defmacro choose* (&rest evts)
+  (apply #'compile-chooser 'identity evts))
 
 (defun guard (fn)
   ;; guard events are never emplaced into the comm-marker
   ;; so success will never be called on them. But failure will be called.
-  (let (evt)
+  (let ((env (capture-dynamic-environment))
+        evt)
     (make-evt
      :poll    (lambda (comm)
-                (setf evt (funcall fn))
+                (with-dynamic-environment (env)
+                  (setf evt (funcall fn)))
                 (poll comm evt))
-     :failure (lambda (comm)
-                (failure comm evt))
+     :failure (lambda ()
+                (failure evt))
      )))
 
-(defun capture-event (evt)
-  (let ((env (um:capture-dynamic-environment))
-        (success (evt-success evt))
-        (failure (evt-failure evt)))
-    (setf (evt-success evt)
-          (lambda (comm)
-            (with-dynamic-environment (env)
-              (funcall success comm)))
-          
-          (evt-failure evt)
-          (lambda (comm)
-            (with-dynamic-environment (env)
-              (funcall failure comm))))
-    evt))
+(defmacro wrap (evt fn)
+  `(dynamic-wind
+     (handler-case
+         (proceed ,evt)
+       
+       (success (c)
+         (let ((ans (funcall ,fn (success-val c))))
+           (signal 'success :val ans)
+           ans))
+       )))
 
-(defun wrap (evt fn)
-  (dynamic-wind
-   (handler-case
-       (proceed
-        (capture-event evt))
-
-     (success (c)
-       (let ((ans (funcall fn (success-val c))))
-         (signal 'success :val ans)
-         ans))
-     )))
-
-(defun wrap-abort (evt fn)
-  (dynamic-wind
-   (handler-case
-       (proceed
-        (capture-event evt))
-
-     (success (c)
-       (setf fn nil)
-       (signal c)
-       (success-val c))
-     
-     (failure (c)
-       (when-let (f (shiftf fn nil))
-         (funcall f)
-         (signal c)))
-     )))
+(defmacro wrap-abort (evt fn)
+  (let ((gfn  (gensym)))
+    `(let ((,gfn ,fn))
+       (dynamic-wind
+         (handler-case
+             (proceed ,evt)
+           
+           (success (c)
+             (setf ,gfn nil)
+             (signal c)
+             (success-val c))
+           
+           (failure (c)
+             (when-let (f (shiftf ,gfn nil))
+               (funcall f)
+               (signal c)))
+           )))
+    ))
 
 (defmacro wrap-handler (evt &rest handlers)
   `(dynamic-wind
     (handler-case
-        (proceed
-         (capture-event ,evt))
+        (proceed ,evt)
       ,@handlers)))
 
-(defun failEvt (evt)
-  (dynamic-wind
-   (handler-case
-       (proceed
-        (capture-event evt))
-
-     (success ()
-       (signal 'failure))
-     )))
+(defmacro failEvt (evt)
+  `(dynamic-wind
+     (handler-case
+         (proceed ,evt)
+       
+       (success ()
+         (signal 'failure))
+       )))
 
 ;; -----------------------------------------
 
@@ -436,7 +439,7 @@
           (when (evt-p an-evt)
             (success comm an-evt)))
       ;; unwind clause
-      (failure comm evt))
+      (failure evt))
     ))
 
 ;; ---------------------------------------------------------
@@ -576,9 +579,56 @@
   (ac:spawn-worker
    (lambda ()
      (ac:pr (list :worker (sync (recvEvt ch))))))
-  (sync (wrap (sendEvt ch 15)
+  (sync (wrap (wrap (wrap (sendEvt ch 15)
+                          (lambda (val)
+                            (ac:pr (list :thread val))))
+                    (lambda (val)
+                      (ac:pr (list :outer val))))
               (lambda (val)
-                (break)
-                (ac:pr (list :thread val)))))
-  )
+                (ac:pr (list :outer-outer val))))
+        ))
+
+(let ((ch (make-channel)))
+  (ac:pr (list "top" 
+               (sync (wrap
+                      (wrap-abort
+                       (wrap-abort
+                        (choose*
+                         (alwaysEvt 32)
+                         (wrap-abort (recvEvt ch)
+                                     (lambda ()
+                                       (ac:pr "inner recvEvt abort")))
+                         #||#
+                         (wrap-abort (failEvt (alwaysEvt 15))
+                                     (lambda ()
+                                       (ac:pr "inner failEvt abort")))
+                         #||#
+                        )
+                       (lambda ()
+                         (ac:pr "inner-outer choose abort")))
+                      (lambda ()
+                        (ac:pr "outer-outer choose abort")))
+                      (lambda (x)
+                        (+ x 1)))
+                     ))))
+
+(ac:pr (list "top"
+             (sync (wrap-abort
+                    (wrap
+                     (alwaysEvt 15)
+                     (lambda (x)
+                       (1+ x)))
+                    (lambda ()
+                      (ac:pr "fail")))
+                   )))
+
+(ac:pr (list "top"
+             (sync (wrap
+                    (wrap-abort
+                     (alwaysEvt 15)
+                    (lambda ()
+                      (ac:pr "fail")))
+                    (lambda (x)
+                      (1+ x)))
+                   )))
 |#
