@@ -445,12 +445,12 @@
          (signal 'failure))
        )))
 
-(defun execEvt (fn)
+(defun execEvt (fn &rest args)
   ;; an execEvt always succeeds, but might not get called in a choice
   (wrap (alwaysEvt t)
         (lambda (_)
           (declare (ignore _))
-          (funcall fn))))
+          (apply fn args))))
 
 ;; -----------------------------------------
 
