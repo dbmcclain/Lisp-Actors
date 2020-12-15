@@ -353,19 +353,20 @@
               (foreach #'failure evts))
    ))
 
-(defun compile-chooser (order-fn &rest evts)
-  `(choiceEvt #',order-fn
-              ,@(mapcar (lambda (evt)
-                          ;; this stops the propagation of the failure
-                          ;; on each individual evt
-                          `(dynamic-wind
-                             (handler-case
-                                 (proceed ,evt)
-                               (failure ())
-                               )))
-                        evts)
-              ;; this neverEvt propagates the failure to higher levels
-              (neverEvt)))
+(um:eval-always
+  (defun compile-chooser (order-fn &rest evts)
+    `(choiceEvt #',order-fn
+                ,@(mapcar (lambda (evt)
+                            ;; this stops the propagation of the failure
+                            ;; on each individual evt
+                            `(dynamic-wind
+                               (handler-case
+                                   (proceed ,evt)
+                                 (failure ())
+                                 )))
+                          evts)
+                ;; this neverEvt propagates the failure to higher levels
+                (neverEvt))))
 
 (defmacro choose (&rest evts)
   (apply #'compile-chooser 'shuffle-evts evts))
