@@ -48,10 +48,9 @@
          (intf (make-instance intfname
                               :app-killch ch)))
     (run-interface intf before after)
-    (rch:sync (rch:wrap (rch:recvEvt ch)
-                        (lambda (_)
-                          (declare (ignore _))
-                          (lw:quit :status 0)))
+    (rch:sync (rch:wrap (_ (rch:recvEvt ch))
+                (declare (ignore _))
+                (lw:quit :status 0))
               )))
   
 (defun run-toplevel-app-interface (intfname &key before after)

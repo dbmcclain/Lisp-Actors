@@ -60,10 +60,9 @@
   (make-instance 'M-cell))
 
 (defmethod get-cell ((m M-cell) cbfn)
-  (sync (wrap (recvEvt (IM-cell-chan m))
-              (lambda (ans)
-                (setf (car (IM-cell-val m)) +no-value+)
-                (funcall cbfn ans)))
+  (sync (wrap (ans (recvEvt (IM-cell-chan m)))
+          (setf (car (IM-cell-val m)) +no-value+)
+          (funcall cbfn ans))
         ))
 
 ;; -------------------------------------------------------
@@ -75,10 +74,9 @@
   (make-instance 'I-cell))
 
 (defmethod get-cell ((i I-cell) cbfn)
-  (sync (wrap (recvEvt (IM-cell-chan i))
-              (lambda (val)
-                (poke (IM-cell-chan i) val)
-                (funcall cbfn val)))
+  (sync (wrap (val (recvEvt (IM-cell-chan i)))
+          (poke (IM-cell-chan i) val)
+          (funcall cbfn val))
         ))
 
 

@@ -433,4 +433,6 @@
           (dotimes (ix 32)
             (when (logbitp ix val)
               (incf (aref arr ix))))))
-  (plt:plot 'histo arr :clear t))
+  (plt:plot 'histo arr :clear t
+            :yrange '(4500 5500)
+            :line-type :stepped))
