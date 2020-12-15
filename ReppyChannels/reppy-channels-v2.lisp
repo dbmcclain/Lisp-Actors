@@ -23,9 +23,9 @@
    #:sync
    #:choose
    #:choose*
-   #:guard
+   #:on-sync
    #:wrap
-   #:wrap-abort
+   #:on-abort
    #:wrap-handler
    #:wrap-timeout
    
@@ -373,7 +373,11 @@
 (defmacro choose* (&rest evts)
   (apply #'compile-chooser 'identity evts))
 
-(defun guard (fn)
+;; -------------------------------------------------------
+;; ON-SYNC -- formerly called GUARD A function that is invoked at SYNC
+;; time to produce an EVENT object, but only if polled during SYNC.
+
+(defun do-on-sync (fn)
   ;; guard events are never emplaced into the comm-marker
   ;; so success will never be called on them. But failure will be called.
   (let ((env (capture-dynamic-environment))
@@ -389,52 +393,121 @@
                 (failure evt))
      )))
 
-(defmacro wrap (evt fn)
-  `(dynamic-wind
-     (handler-case
-         (proceed ,evt)
-       
-       (success (c)
-         (let ((ans (funcall ,fn (success-val c))))
-           (signal 'success :val ans)
-           ans))
-       )))
+(defmacro on-sync (&body body)
+  `(do-on-sync (lambda ()
+                 ,@body)))
 
-(defmacro wrap-abort (evt fn)
-  (let ((gfn  (gensym))
-        (gevt (gensym)))
-    `(let (,gfn)
-       (dynamic-wind
-         (handler-case
-             (proceed
-              (let ((,gevt ,evt))
-                (make-evt
-                 :init  (lambda ()
-                          (init ,gevt)
-                          (setf ,gfn ,fn))
-                 :poll  (lambda (comm)
-                          (poll comm ,gevt))
-                 :failure (lambda ()
-                            (failure ,gevt)))
-                ))
+;; ----------------------------------------------------------
+
+(defmacro wrap ((ans evt) &body body)
+  ;; A more Lisp-centric approach.
+  ;;   (WRAP (var evt) &body clauses* {:on-abort abort-clause} {:handlers handler-clauses*})
+
+  ;; Main body clauses are performed only after the event rendezvous.
+  ;; The abort-clause is performed only if no rendezvous on the event.
+
+  ;; Handlers (if any) are active during the rendezvous of the event -
+  ;; i.e., during inner wraps as well as during the body clauses of
+  ;; the this wrap. They are also active during the abort-clause and
+  ;; any inner abort clauses
+  ;;
+  ;; So the overall effect of WRAP is:
+  ;;   (cml:wrap-handlers
+  ;;      (cml:wrap
+  ;;        (cml:wrap-abort evt
+  
+  (lw:with-unique-names (cx)
+    (let (rendezvous-clauses
+          abort-clauses
+          handlers)
+      (um:nlet-tail iter ((clauses body))
+        (unless (endp clauses)
+          (destructuring-bind (hd . tl) clauses
+            (cond ((eq hd :on-abort)
+                   (push (car tl) abort-clauses)
+                   (iter (cdr tl)))
+                  ((eq hd :handlers)
+                   (setf handlers tl))
+                  (t
+                   (push hd rendezvous-clauses)
+                   (iter tl))
+                  ))))
+      (labels
+          ((success-body ()
+             (lw:with-unique-names (res)
+               `(let ((,res (funcall (lambda (,ans)
+                                       ,@(nreverse rendezvous-clauses))
+                                     (success-val ,cx))))
+                  (signal 'success :val ,res) ;; propagate success upward
+                  ,res) ;; if no success handlers
+               ))
            
-           (success (c)
-             (setf ,gfn nil)
-             (signal c)
-             (success-val c))
-           
-           (failure (c)
-             (when-let (f (shiftf ,gfn nil))
-               (funcall f)
-               (signal c)))
-           )))
-    ))
+           (wrap-body ()
+             (cond
+              (abort-clauses
+               (lw:with-unique-names (trap-abort event comm)
+                 `(let (,trap-abort)
+                    (dynamic-wind
+                      (handler-case
+                          (proceed
+                           (let ((,event ,evt))
+                             (make-evt
+                              :init    (lambda ()
+                                         (init ,event)
+                                         (setf ,trap-abort t))
+                              :poll    (lambda (,comm)
+                                         (poll ,comm ,event))
+                              :failure (lambda ()
+                                         (failure ,event))
+                              )))
+                        
+                        (success (,cx)
+                          (setf ,trap-abort nil) ;; neutrailize abort-clause
+                          ,@(if rendezvous-clauses
+                                `(,(success-body))
+                              ;; else
+                              `((signal ,cx) ;; propagate success upward
+                                (success-val ,cx)) ;; if no success handlers
+                              ))
+                        
+                        (failure (,cx)
+                          (when (shiftf ,trap-abort nil) ;; once-only execution
+                            ,@(nreverse abort-clauses)
+                            (signal ,cx))) ;; propagate failure upward
+                        )))
+                 ))
+                   
+              (rendezvous-clauses
+               `(dynamic-wind
+                  (handler-case
+                      (proceed ,evt)
+                    
+                    (success (,cx)
+                      ,(success-body))
+                    )))
+              
+              (t
+               evt)
+              )))
+        
+        (if handlers
+            `(dynamic-wind
+               (handler-case
+                   (proceed ,(wrap-body))
+                 ,@handlers))
+          ;; else
+          (wrap-body))
+        ))))
+
+(defmacro on-abort (evt &body body)
+  ;; ON-ABORT -- a Lisp-centric version of WRAP-ABORT
+  `(wrap (_ ,evt)
+     :on-abort (progn
+                 ,@body)))
 
 (defmacro wrap-handler (evt &rest handlers)
-  `(dynamic-wind
-    (handler-case
-        (proceed ,evt)
-      ,@handlers)))
+  `(wrap (_ ,evt)
+     :handlers ,@handlers))
 
 (defmacro failEvt (evt)
   `(dynamic-wind
@@ -447,10 +520,9 @@
 
 (defun execEvt (fn &rest args)
   ;; an execEvt always succeeds, but might not get called in a choice
-  (wrap (alwaysEvt t)
-        (lambda (_)
-          (declare (ignore _))
-          (apply fn args))))
+  (wrap (_ (alwaysEvt t))
+    (declare (ignore _))
+    (apply fn args)))
 
 ;; -----------------------------------------
 
@@ -520,14 +592,13 @@
          (alwaysEvt t)) ;; should already have fired
         
         (t ;; anything else is a real timer rendezvous
-           (guard (lambda ()
-                    (let* ((ch     (make-channel))
-                           (timer  (make-timer #'mp:funcall-async #'poke ch t)))
-                      (schedule-timer timer dt :absolute absolute)
-                      (wrap-abort (recvEvt ch)
-                                  (lambda ()
-                                    (unschedule-timer timer)))
-                      ))))
+           (on-sync
+            (let* ((ch     (make-channel))
+                   (timer  (make-timer #'mp:funcall-async #'poke ch t)))
+              (schedule-timer timer dt :absolute absolute)
+              (on-abort (recvEvt ch)
+                (unschedule-timer timer))
+              )))
         ))
 
 ;; ----------------------------------------------------------------------------------
@@ -556,10 +627,9 @@
 
 (defun timeoutEvt (dt)
   ;; an event that produces a timeout error
-  (wrap (timerEvt dt)
-        (lambda (_)
-          (declare (ignore _))
-          (error 'timeout))))
+  (wrap (_ (timerEvt dt))
+    (declare (ignore _))
+    (error 'timeout)))
 
 (defun wrap-timeout (ev dt)
   (choose* ev
@@ -578,35 +648,33 @@
     (ac:pr "----------------------------------")
     (ac:spawn-worker
      (lambda ()
-       (select (wrap (recvEvt ch12)
-                     (lambda (ans)
-                       (ac:pr (format nil "t2 got ~A" ans))))
-               (wrap (recvEvt ch12a)
-                     (lambda (_)
-                       (ac:pr :t2-fail))))
-       ))
+       (select (wrap (ans (recvEvt ch12))
+                 (ac:pr (format nil "t2 got ~S" ans)))
+               (wrap (_ (recvEvt ch12a))
+                 (declare (ignore _))
+                 (ac:pr :t2-fail)))))
     (ac:spawn-worker
      (lambda ()
-       (select (wrap (recvEvt ch13)
-                     (lambda (ans)
-                       (ac:pr (format nil "t3 got ~A" ans))))
-               (wrap (recvEvt ch13a)
-                     (lambda (_)
-                       (ac:pr :t3-fail)))
-               )))
+       (select (wrap (ans (recvEvt ch13))
+                 (ac:pr (format nil "t3 got ~S" ans)))
+               (wrap (_ (recvEvt ch13a))
+                 (declare (ignore _))
+                 (ac:pr :t3-fail)))))
     (sleep 0.5)
     (select
-     (wrap-abort (wrap (sendEvt ch12 :one-two)
-                       (lambda (_)
-                         (ac:pr :sent12)))
-                 (lambda ()
-                   (poke ch12a t)))
-     (wrap-abort (wrap (sendEvt ch13 :one-three)
-                       (lambda (_)
-                         (ac:pr :sent13)))
-                 (lambda ()
-                   (poke ch13a t))))
-    (values)))
+     (wrap (_ (sendEvt ch12 :one-two))
+       (declare (ignore _))
+       (ac:pr :sent12)
+       
+       :on-abort (poke ch12a t))
+     
+     (wrap (_ (sendEvt ch13 :one-three))
+       (declare (ignore _))
+       (ac:pr :sent13)
+
+       :on-abort (poke ch13a t)))
+    (values)
+    ))
 
 (tst)
 
@@ -614,56 +682,40 @@
   (ac:spawn-worker
    (lambda ()
      (ac:pr (list :worker (sync (recvEvt ch))))))
-  (sync (wrap (wrap (wrap (sendEvt ch 15)
-                          (lambda (val)
-                            (ac:pr (list :thread val))))
-                    (lambda (val)
-                      (ac:pr (list :outer val))))
-              (lambda (val)
-                (ac:pr (list :outer-outer val))))
+  (sync (wrap (val
+               (wrap (val
+                      (wrap (val (sendEvt ch 15))
+                        (ac:pr (list :thread val))) )
+                 (ac:pr (list :outer val))) )
+          (ac:pr (list :outer-outer val)))
         ))
 
 (let ((ch (make-channel)))
   (ac:pr (list "top" 
-               (sync (wrap
-                      (wrap-abort
-                       (wrap-abort
-                        (choose*
-                         (alwaysEvt 32)
-                         (wrap-abort (recvEvt ch)
-                                     (lambda ()
-                                       (ac:pr "inner recvEvt abort")))
-                         #||#
-                         (wrap-abort (failEvt (alwaysEvt 15))
-                                     (lambda ()
-                                       (ac:pr "inner failEvt abort")))
-                         #||#
-                        )
-                       (lambda ()
-                         (ac:pr "inner-outer choose abort")))
-                      (lambda ()
-                        (ac:pr "outer-outer choose abort")))
-                      (lambda (x)
-                        (+ x 1)))
+               (sync (wrap (x
+                            (on-abort
+                                (on-abort (choose*
+                                           (alwaysEvt 32)
+                                           (on-abort (recvEvt ch)
+                                             (ac:pr "inner recvEvt abort"))
+                                           (on-abort (failEvt (alwaysEvt 15))
+                                             (ac:pr "inner failEvt abort")))
+                                  (ac:pr "inner-outer choose abort"))
+                              (ac:pr "outer-outer choose abort")))
+                       (+ x 1))
                      ))))
 
 (ac:pr (list "top"
-             (sync (wrap-abort
-                    (wrap
-                     (alwaysEvt 15)
-                     (lambda (x)
-                       (1+ x)))
-                    (lambda ()
-                      (ac:pr "fail")))
+             (sync (wrap (x (failEvt (alwaysEvt 15)))
+                     (1+ x)
+                     :on-abort (ac:pr "fail"))
                    )))
 
 (ac:pr (list "top"
-             (sync (wrap
-                    (wrap-abort
-                     (alwaysEvt 15)
-                    (lambda ()
-                      (ac:pr "fail")))
-                    (lambda (x)
-                      (1+ x)))
+             (sync (wrap (x (wrap-timeout (neverEvt)
+                                          2))
+                     (1+ x)
+                     :on-abort (ac:pr "fail"))
                    )))
+
 |#
