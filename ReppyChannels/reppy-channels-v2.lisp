@@ -409,7 +409,7 @@
 
 (defmacro wrap ((ans evt) &body body)
   ;; A more Lisp-centric approach.
-  ;;   (WRAP (var evt) &body clauses* {:on-abort abort-clause} {:handlers handler-clauses*})
+  ;;   (WRAP (var evt) &body clauses* {:on-abort abort-clauses*} {:handlers handler-clauses*})
 
   ;; Main body clauses are performed only after the event rendezvous.
   ;; The abort-clause is performed only if no rendezvous on the event.
@@ -427,17 +427,20 @@
   (lw:with-unique-names (cx)
     (let (rendezvous-clauses
           abort-clauses
-          handlers)
+          handlers
+          in-abort)
       (um:nlet-tail iter ((clauses body))
         (unless (endp clauses)
           (destructuring-bind (hd . tl) clauses
             (cond ((eq hd :on-abort)
-                   (push (car tl) abort-clauses)
-                   (iter (cdr tl)))
+                   (setf in-abort t)
+                   (iter tl))
                   ((eq hd :handlers)
                    (setf handlers tl))
                   (t
-                   (push hd rendezvous-clauses)
+                   (if in-abort
+                       (push hd abort-clauses)
+                     (push hd rendezvous-clauses))
                    (iter tl))
                   ))))
       (labels
@@ -447,7 +450,7 @@
                                        ,@(nreverse rendezvous-clauses))
                                      (success-val ,cx))))
                   (signal 'success :val ,res) ;; propagate success upward
-                  ,res) ;; if no success handlers
+                  ,res) ;; if no higher success handlers
                ))
            
            (wrap-body ()
@@ -509,9 +512,9 @@
 
 (defmacro on-abort (evt &body body)
   ;; ON-ABORT -- a Lisp-centric version of WRAP-ABORT
+  ;; It can also include a :HANDLERS section.
   `(wrap (_ ,evt)
-     :on-abort (progn
-                 ,@body)))
+     :on-abort ,@body))
 
 (defmacro wrap-handler (evt &rest handlers)
   `(wrap (_ ,evt)
