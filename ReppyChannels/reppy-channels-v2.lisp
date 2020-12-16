@@ -8,6 +8,7 @@
    #:proceed
    #:capture-dynamic-environment
    #:with-dynamic-environment
+   #:call-with-dynamic-environment
    #:foreach
   )
   (:export
@@ -319,7 +320,7 @@
 
 ;; -----------------------------------------
 
-(defun shuffle-evts (evts)
+(defun shuffle-evts (&rest evts)
   #F
   (declare (list evts))
   (let ((rnd  (random (ash 1 (length evts))))
@@ -335,6 +336,9 @@
       (incf ix))
     ))
 
+(defun no-reorder (&rest evts)
+  evts)
+
 ;; -----------------------------------------------------
 
 (defun choiceEvt (order-fn &rest evts)
@@ -347,7 +351,7 @@
               (some (lambda (evt)
                       (poll comm evt)
                       (marked? comm))
-                    (funcall order-fn (butlast evts))))
+                    (apply order-fn evts)))
    :failure (lambda ()
               ;; provide breadth-first failure handling
               (foreach #'failure evts))
@@ -357,22 +361,22 @@
   (defun compile-chooser (order-fn &rest evts)
     `(choiceEvt #',order-fn
                 ,@(mapcar (lambda (evt)
-                            ;; this stops the propagation of the failure
-                            ;; on each individual evt
+                            ;; this stops the upward propagation of
+                            ;; failure on each individual evt
                             `(dynamic-wind
                                (handler-case
                                    (proceed ,evt)
                                  (failure ())
                                  )))
                           evts)
-                ;; this neverEvt propagates the failure to higher levels
+                ;; this neverEvt propagates failure to higher levels
                 (neverEvt))))
 
 (defmacro choose (&rest evts)
   (apply #'compile-chooser 'shuffle-evts evts))
 
 (defmacro choose* (&rest evts)
-  (apply #'compile-chooser 'identity evts))
+  (apply #'compile-chooser 'no-reorder evts))
 
 ;; -------------------------------------------------------
 ;; ON-SYNC -- formerly called GUARD A function that is invoked at SYNC
@@ -384,14 +388,17 @@
   (let ((env (capture-dynamic-environment))
         evt)
     (make-evt
+     :init    (lambda ()
+                (setf evt nil))
      :poll    (lambda (comm)
-                ;; in a choice event, this might never get called.
-                (with-dynamic-environment (env)
-                  (setf evt (funcall fn)))
+                ;; in a choose event, this polling might never be
+                ;; called.
+                (setf evt (call-with-dynamic-environment env fn))
                 (init evt)
                 (poll comm evt))
      :failure (lambda ()
-                (failure evt))
+                (when evt
+                  (failure evt)))
      )))
 
 (defmacro on-sync (&body body)
