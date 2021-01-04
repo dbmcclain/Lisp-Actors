@@ -31,7 +31,8 @@
             actors.security:+MAX-FRAGMENT-SIZE+
             actors.security:server-negotiate-security
             actors.security:client-negotiate-security
-
+            actors.security:assemble-sks
+            
             actors.bridge:bridge-register
             actors.bridge:bridge-unregister
             actors.bridge:bridge-handle-reply
@@ -603,16 +604,14 @@ See the discussion under START-CLIENT-MESSENGER for details."
 
 ;; --------------------------------------------------------------
 ;;; The certificate and private key files in this directory were generated
-;;; by running the following:
-#|
-   openssl req -new -text -subj "/C=US/ST=Arizona/L=Tucson/O=Refined Audiometrics Laboratory, LLC/CN=chicken" -passout pass:{bbe37564-f7b1-11ea-82f8-787b8acbe32e} -out newreq.pem -keyout newreq.pem
-   openssl x509 -req -in newreq.pem -signkey newreq.pem -text -passin pass:{bbe37564-f7b1-11ea-82f8-787b8acbe32e} -out newcert.pem
-   cat newreq.pem newcert.pem > cert-and-key.pem
-   openssl dhparam -text 1024 -out dh_param_1024.pem
-|#
+;;; by running gen-certs.sh
 
-(defvar *ssl-context*      nil)
-(defvar *actors-version*   "{bbe37564-f7b1-11ea-82f8-787b8acbe32e}")
+(defvar *ssl-context*  nil)
+(defvar *sks*          '(321733724383825903474181809138867224319
+                         307214529734158044597204414117235727461
+                         -19740686719057312770474482585946948768))
+
+(define-symbol-macro *actors-version* (assemble-sks *sks*))
 
 (defun filename-in-ssl-server-directory (name)
   (namestring (merge-pathnames name
@@ -632,7 +631,6 @@ See the discussion under START-CLIENT-MESSENGER for details."
 
 (defun my-configure-ssl-ctx (ssl-ctx ask-for-certificate)
   (comm:set-ssl-ctx-password-callback ssl-ctx :password *actors-version*)
-
   (comm:ssl-ctx-use-certificate-chain-file
    ssl-ctx
    (filename-in-ssl-server-directory "newcert.pem" ))

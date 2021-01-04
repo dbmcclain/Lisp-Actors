@@ -137,6 +137,56 @@
         (setf p (mult-mod p b modulus)))) ))
   
 ;; -----------------------------------------------------------------------------
+
+(defun prep-interpolation-shares (shares)
+  (flet ((prep (share_i)
+           (destructuring-bind (xi . yi) share_i
+             (flet ((denom (prod share_j)
+                      (if (eq share_i share_j)
+                          prod
+                        (* prod (- xi (car share_j))))
+                      ))
+               (cons xi (/ yi (reduce #'denom shares
+                                       :initial-value 1)))
+               ))))
+    (mapcar #'prep shares)))
+
+(defun make-lagrange-interpolator (shares)
+  (let ((preps (prep-interpolation-shares shares)))
+    (lambda (x)
+      (flet ((term (sum prep_i)
+               (flet ((factor (prod prep_j)
+                        (if (eq prep_i prep_j)
+                            prod
+                          (* prod (- x (car prep_j))))
+                        ))
+                 (+ sum (reduce #'factor preps
+                                 :initial-value (cdr prep_i))))))
+        (reduce #'term preps
+                :initial-value 0)
+        ))
+    ))
+
+(defun share-uuid (uuid-str)
+  (let* ((k  (uuid:uuid-to-integer (uuid:make-uuid-from-string uuid-str)))
+         (share1 (random #.(ash 1 128)))
+         (share2 (random #.(ash 1 128)))
+         (fn     (make-lagrange-interpolator `((0 . ,k)
+                                               (1 . ,share1)
+                                               (2 . ,share2))))
+         (share3 (funcall fn 3)))
+    (list share1 share2 share3)))
+
+(defun uuid-str-from-shares (share1 share2 share3)
+  (let ((fn (make-lagrange-interpolator `((1 . ,share1)
+                                          (2 . ,share2)
+                                          (3 . ,share3)))))
+    (uuid:uuid-string (uuid:integer-to-uuid (funcall fn 0)))))
+
+(defun assemble-sks (shares)
+  (apply #'uuid-str-from-shares shares))
+
+;; -----------------------------------------------------------------------------
 ;;
 
 (defmacro def-cached-var (name creator &optional cache-name)

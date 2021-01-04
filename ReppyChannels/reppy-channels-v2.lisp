@@ -409,7 +409,7 @@
 
 (defmacro wrap ((ans evt) &body body)
   ;; A more Lisp-centric approach.
-  ;;   (WRAP (var evt) &body clauses* {:on-abort abort-clauses*} {:handlers handler-clauses*})
+  ;;   (WRAP (var evt) &body {clauses*} {:on-abort abort-clauses*} {:handlers handler-clauses*})
 
   ;; Main body clauses are performed only after the event rendezvous.
   ;; The abort-clause is performed only if no rendezvous on the event.
@@ -530,7 +530,7 @@
        )))
 
 (defun execEvt (fn &rest args)
-  ;; an execEvt always succeeds, but might not get called in a choice
+  ;; an execEvt always succeeds, but might not get called in a choose
   (wrap (_ (alwaysEvt t))
     (declare (ignore _))
     (apply fn args)))

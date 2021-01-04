@@ -257,6 +257,7 @@ THE SOFTWARE.
    #:+MAX-FRAGMENT-SIZE+
    #:server-negotiate-security
    #:client-negotiate-security
+   #:assemble-sks
    ))
    
 (defpackage :actors.bridge
