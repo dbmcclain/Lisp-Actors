@@ -607,9 +607,9 @@ See the discussion under START-CLIENT-MESSENGER for details."
 ;;; by running gen-certs.sh
 
 (defvar *ssl-context*  nil)
-(defvar *sks*          '(321733724383825903474181809138867224319
-                         307214529734158044597204414117235727461
-                         -19740686719057312770474482585946948768))
+(defvar *sks*          '(294297294582192362684893941219822844867
+                         322987594312967468185144433154971621447
+                         109887796422271580361209178284393871546))
 
 (define-symbol-macro *actors-version* (assemble-sks *sks*))
 

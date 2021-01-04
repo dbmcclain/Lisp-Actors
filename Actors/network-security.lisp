@@ -135,8 +135,14 @@
       (declare (integer b p ix))
       (when (logbitp ix exponent)
         (setf p (mult-mod p b modulus)))) ))
-  
+
+(defun div-mod (x y modulus)
+  (mult-mod x
+            (expt-mod y (- modulus 2) modulus)
+            modulus))
+
 ;; -----------------------------------------------------------------------------
+(defvar *mod128* #.(+ (ash 1 128) 385))
 
 (defun prep-interpolation-shares (shares)
   (flet ((prep (share_i)
@@ -144,10 +150,11 @@
              (flet ((denom (prod share_j)
                       (if (eq share_i share_j)
                           prod
-                        (* prod (- xi (car share_j))))
+                        (mult-mod prod (sub-mod xi (car share_j) *mod128*) *mod128*))
                       ))
-               (cons xi (/ yi (reduce #'denom shares
-                                       :initial-value 1)))
+               (cons xi (div-mod yi (reduce #'denom shares
+                                            :initial-value 1)
+                                 *mod128*))
                ))))
     (mapcar #'prep shares)))
 
@@ -158,10 +165,11 @@
                (flet ((factor (prod prep_j)
                         (if (eq prep_i prep_j)
                             prod
-                          (* prod (- x (car prep_j))))
+                          (mult-mod prod (sub-mod x (car prep_j) *mod128*) *mod128*))
                         ))
-                 (+ sum (reduce #'factor preps
-                                 :initial-value (cdr prep_i))))))
+                 (add-mod sum (reduce #'factor preps
+                                      :initial-value (cdr prep_i))
+                          *mod128*))))
         (reduce #'term preps
                 :initial-value 0)
         ))
@@ -186,6 +194,12 @@
 (defun assemble-sks (shares)
   (apply #'uuid-str-from-shares shares))
 
+#|
+(share-uuid "{cfe31464-f7b1-11ea-82f8-787b8acbe32e}")
+(assemble-sks '(116556184643808452113560705861977715537
+                55066560204924271324109576419163150535
+                179630390834232184955478921582272058641))
+|#
 ;; -----------------------------------------------------------------------------
 ;;
 
