@@ -104,75 +104,84 @@
 
 ;; -----------------------------------------------
 
-(defun add-mod (x y modulus)
-  ;; x + y mod modulus
-  #F
-  (declare (integer x y modulus))
-  (mod (+ x y) modulus))
+(defvar *base*)
 
-(defun sub-mod (x y modulus)
-  ;; x - y mod modulus
-  #F
-  (declare (integer x y modulus))
-  (mod (- x y) modulus))
+(defmacro with-mod (base &body body)
+  `(let ((*base* ,base))
+     ,@body))
 
-(defun mult-mod (x y modulus)
-  ;; (x * y) mod modulus
+(defun m+ (x y)
   #F
-  (declare (integer x y modulus))
-  (mod (* x y) modulus))
+  (declare (integer x y))
+  (mod (+ x y) *base*))
 
-(defun expt-mod (base exponent modulus)
-  ;; base^exponent mod modulus, for any modulus
+(defun m- (x y)
   #F
-  (declare (integer base exponent modulus))
-  (let ((n (integer-length exponent)))
-    (declare (integer n))
-    (do ((b  base (mult-mod b b modulus))
+  (declare (integer x y))
+  (mod (- x y) *base*))
+
+(defun m* (x y)
+  #F
+  (declare (integer x y))
+  (mod (* x y) *base*))
+
+(defun m/ (x y)
+  #F
+  (declare (integer x y))
+  (m* x (minv y)))
+
+(defun minv (x)
+  #F
+  (declare (integer x))
+  (m^ x (- *base* 2)))
+
+(defun m^ (x n)
+  #F
+  (declare (integer x n))
+  (let ((nbits (integer-length n)))
+    (declare (integer nbits))
+    (do ((b  x    (m* b b))
          (p  1)
          (ix 0    (1+ ix)))
-        ((>= ix n) p)
+        ((>= ix nbits) p)
       (declare (integer b p ix))
-      (when (logbitp ix exponent)
-        (setf p (mult-mod p b modulus)))) ))
-
-(defun div-mod (x y modulus)
-  (mult-mod x
-            (expt-mod y (- modulus 2) modulus)
-            modulus))
+      (when (logbitp ix n)
+        (setf p (m* p b))))
+    ))
 
 ;; -----------------------------------------------------------------------------
 (defvar *mod128* #.(+ (ash 1 128) 385))
 
 (defun prep-interpolation-shares (shares)
-  (flet ((prep (share_i)
-           (destructuring-bind (xi . yi) share_i
-             (flet ((denom (prod share_j)
-                      (if (eq share_i share_j)
-                          prod
-                        (mult-mod prod (sub-mod xi (car share_j) *mod128*) *mod128*))
-                      ))
-               (cons xi (div-mod yi (reduce #'denom shares
-                                            :initial-value 1)
-                                 *mod128*))
-               ))))
-    (mapcar #'prep shares)))
+  (with-mod *mod128*
+    (flet ((prep (share_i)
+             (destructuring-bind (xi . yi) share_i
+               (flet ((denom (prod share_j)
+                        (if (eq share_i share_j)
+                            prod
+                          (m* prod (m- xi (car share_j))))
+                        ))
+                 (cons xi (m/ yi (reduce #'denom shares
+                                         :initial-value 1)))
+                 ))))
+      (mapcar #'prep shares))))
 
 (defun make-lagrange-interpolator (shares)
   (let ((preps (prep-interpolation-shares shares)))
     (lambda (x)
-      (flet ((term (sum prep_i)
-               (flet ((factor (prod prep_j)
-                        (if (eq prep_i prep_j)
-                            prod
-                          (mult-mod prod (sub-mod x (car prep_j) *mod128*) *mod128*))
-                        ))
-                 (add-mod sum (reduce #'factor preps
-                                      :initial-value (cdr prep_i))
-                          *mod128*))))
-        (reduce #'term preps
-                :initial-value 0)
-        ))
+      (with-mod *mod128*
+        (flet ((term (sum prep_i)
+                 (flet ((factor (prod prep_j)
+                          (if (eq prep_i prep_j)
+                              prod
+                            (m* prod (m- x (car prep_j))))
+                          ))
+                   (m+ sum (reduce #'factor preps
+                                   :initial-value (cdr prep_i)))
+                   )))
+          (reduce #'term preps
+                  :initial-value 0)
+          )))
     ))
 
 (defun share-uuid (uuid-str)
@@ -709,13 +718,14 @@
                              x)
                            -1)
                       c)))
-        
+
         (nlet-tail iter ((u  1)
                          (v  1)
                          (ix (- (integer-length k) 2)))
           (if (minusp ix)
               (zerop u)
-            (let ((utmp (mult-mod u v c))
+            (let ((utmp (with-mod c
+                          (m* u v)))
                   (vtmp (half-mod (+ (* v v) (* d u u)))))
               (if (logbitp ix k)
                   (iter (half-mod (+ utmp vtmp))
@@ -735,12 +745,14 @@
       (lambda (a)
         ;; return true if a not not witness a composite value for p
         (declare (integer a))
-        (let ((x (expt-mod a d p)))
-          (declare (integer x))
-          (or (= x 1)
-              (loop repeat s
-                    for y of-type integer = x then (the integer (mod (the integer (* y y)) p))
-                    thereis (= y p-1))) )))))
+        (with-mod p
+          (let ((x (m^ a d)))
+            (declare (integer x))
+            (or (= x 1)
+                (loop repeat s
+                      for y of-type integer = x then (the integer (m* y y))
+                    thereis (= y p-1)))
+            ))))))
 
 (defun is-prime? (p &optional (k 40))
   ;; Probabilistic Miller-Rabin test.
@@ -772,13 +784,14 @@
 
 (defun check-generator (g p)
   ;; assumes P = 2*Q+1, P prime, Q prime
-  (unless (< 1 g (1- p))
-    (error "Prime group generator out of range (1 < g < (P-1)"))
-  (unless (and (/= 1 (expt-mod g (truncate (1- p) 2) p))
-               (/= 1 (expt-mod g 2 p)))
-    (error "Prime group generator not of order P"))
-  (unless (> (* 2 (integer-length g)) (integer-length p))
-    (error "Generator too small")))
+  (with-mod p
+    (unless (< 1 g (1- p))
+      (error "Prime group generator out of range (1 < g < (P-1)"))
+    (unless (and (/= 1 (m^ g (truncate (1- p) 2)))
+                 (/= 1 (m^ g 2)))
+      (error "Prime group generator not of order P"))
+    (unless (> (* 2 (integer-length g)) (integer-length p))
+      (error "Generator too small"))))
 
 (defun check-public-key (k p)
   (unless (< 1 k p)
@@ -910,23 +923,15 @@ Checks:
       
       (check-prime-modulus p-key)
       (check-generator     g-key p-key)
-      
-      (flet ((addm (a b)
-               (add-mod a b p-key))
-             (subm (a b)
-               (sub-mod a b p-key))
-             (multm (a b)
-               (mult-mod a b p-key))
-             (exptm (a b)
-               (expt-mod a b p-key)))
-        
+
+      (with-mod p-key
         ;; Public key B might not be a *valid* public key.
         ;; But we don't use it directly.
         ;; Do the subtraction first, then check for validity.
         (let* ((x   (srp6-x salt node-id))
-               (bbb (subm bb
-                          (multm 3
-                                 (exptm g-key x)))
+               (bbb (m- bb
+                        (m* 3
+                            (m^ g-key x)))
                     ))
           
           (check-public-key bbb p-key)
@@ -936,15 +941,15 @@ Checks:
           (multiple-value-bind (a aa u)
               ;; can't permit u = 0
               (loop for a  = (rand-between 2 p-key)
-                    for aa = (exptm g-key a)
+                    for aa = (m^ g-key a)
                     for u  = (srp6-u aa bb)
                     do
                     (unless (zerop u)
                       (return (values a aa u))))
             
-            (let* ((s  (exptm bbb
-                              (addm a
-                                    (multm u x))))
+            (let* ((s  (m^ bbb
+                           (m+ a
+                               (m* u x))))
                    (m1 (hash32 aa bb s)))
               (=wait ((m2) :timeout 5)
                   (funcall (intf-srp-ph2-reply intf) =wait-cont aa m1)
@@ -1073,15 +1078,7 @@ Checks:
   #-:diddly
   (multiple-value-bind (p-key g-key) (select-public-keys)
 
-    (flet ((addm (a b)
-             (add-mod a b p-key))
-           (subm (a b)
-             (sub-mod a b p-key))
-           (multm (a b)
-             (mult-mod a b p-key))
-           (exptm (a b)
-             (expt-mod a b p-key)))
-
+    (with-mod p-key
       ;; Phase I: Await ID
       (when-let (key (crypto-reneg-key crypto))
         (unless (equalp node-id key)
@@ -1102,10 +1099,10 @@ Checks:
                 (unless (zerop x)
                   (return (values salt x))))
         
-        (let* ((v  (exptm g-key x))
+        (let* ((v  (m^ g-key x))
                (b  (rand-between 2 p-key))
-               (bb (addm (multm 3 v) ;; we know that 3 cannot be a primitive root
-                         (exptm g-key b))
+               (bb (m+ (m* 3 v) ;; we know that 3 cannot be a primitive root
+                       (m^ g-key b))
                    ))
           (=wait ((aa m1) :timeout 5)
               (funcall (intf-srp-ph2-begin intf) =wait-cont p-key g-key salt bb)
@@ -1122,9 +1119,9 @@ Checks:
             (check-public-key aa p-key)
             
             (let* ((u         (srp6-u aa bb))
-                   (s         (exptm (multm aa
-                                            (exptm v u))
-                                     b))
+                   (s         (m^ (m* aa
+                                      (m^ v u))
+                                  b))
                    (chk1      (hash32 aa bb s))
                    (m2        (hash32 aa m1 s))
                    (key-in    (hash32 #|hash16|# bb s aa))
