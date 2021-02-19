@@ -282,7 +282,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
    (defun get-timestamp ()
      "Get timestamp, compensate nanoseconds intervals"
      (critical-section
-       (um:nlet-tail iter ()
+       (um:nlet iter ()
          (let ((time-now ;; (+ (* (get-universal-time) 10000000) 100103040000000000)
                          (+ (* 10 (the integer (usec:get-universal-time-usec)))
                             #N|10_010_304_000_0000000|) ;; time offset in 100ns increments
@@ -300,7 +300,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
                          (+ time-now uuids-this-tick))
                         
                         (T
-                         (iter))
+                         (go-iter))
                         ))
                  ))))))
 

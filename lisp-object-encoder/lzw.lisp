@@ -157,14 +157,14 @@ THE SOFTWARE.
     (loop for x across v do
           (cond ((> x 127)
                  (write-sequence
-                  (um:nlet-tail iter ((x     x)
-                                      (hibit 0)
-                                      (ans   nil))
+                  (um:nlet iter ((x     x)
+                                 (hibit 0)
+                                 (ans   nil))
                     (let ((acc  (cons (logior hibit (logand x 127))
                                       ans))
                           (xshf (ash x -7)))
                       (if (plusp xshf)
-                          (iter xshf #x80 acc)
+                          (go-iter xshf #x80 acc)
                         acc)) )
                   s))
                 

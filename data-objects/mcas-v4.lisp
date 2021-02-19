@@ -89,7 +89,7 @@ THE SOFTWARE.
 
 (defun read-helper (mref self)
   ;; mref must be an MCAS-REF
-  (um:nlet-tail retry-read ()
+  (um:nlet retry-read ()
     (let ((val (um:basic-val mref)))
       (if (word-desc-p val)
           (let ((parent (word-desc-parent val)))
@@ -97,7 +97,7 @@ THE SOFTWARE.
                      (undecided-p parent))
                 (progn
                   (mcas-help parent)
-                  (retry-read))
+                  (go-retry-read))
               ;; else
               (values val
                       (if (successful-p parent)
@@ -121,14 +121,14 @@ THE SOFTWARE.
   (um:basic-cas mdesc :undecided
                 (if (every (lambda (wdesc)
                              (declare (word-desc wdesc))
-                             (um:nlet-tail retry-word ()
+                             (um:nlet retry-word ()
                                (multiple-value-bind (content value)
                                    (read-helper (word-desc-addr wdesc) mdesc)
                                  (or (eq content wdesc)
                                      (and (eq value (word-desc-old wdesc))
                                           (undecided-p mdesc)
                                           (or (um:basic-cas (word-desc-addr wdesc) content wdesc)
-                                              (retry-word))
+                                              (go-retry-word))
                                           ))
                                  )))
                            (mcas-desc-triples mdesc))

@@ -80,10 +80,10 @@ caller."
     arr))
 
 (defun find-first-fit (nb)
-  (um:nlet-tail iter ((ix nb))
+  (um:nlet iter ((ix nb))
     (when (<= ix $max-managed-buffer-size)
       (or (popq *buffer-queues* :prio ix)
-          (iter (ash ix 1))))
+          (go-iter (ash ix 1))))
     ))
 
 (defun recycle-buffer (buf)

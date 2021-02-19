@@ -120,9 +120,9 @@ THE SOFTWARE.
 ;; Syntax is (DEFMONITOR name bindings [[decl* | doc]] form*)
 ;; ----------------------------------------------------------------------
 
-(defmacro defmonitor (name bindings &body body)
+(defmacro defmonitor (&whole whole name bindings &body body)
   (multiple-value-bind (forms decls docstr)
-      (alexandria:parse-body body)
+      (um:parse-body body :documentation t :whole whole)
     (let* ((vars  (mapcar 'car bindings))
            (vals  (mapcar 'cadr bindings)))
       `(progn

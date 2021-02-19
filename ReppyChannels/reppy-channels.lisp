@@ -27,7 +27,7 @@
    #:when-let
    #:foreach
    #:letrec
-   #:nlet-tail
+   #:nlet
    #:dlambda
    #:dcase)
   (:import-from :orderable

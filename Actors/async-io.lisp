@@ -109,12 +109,12 @@
                     (hcl:unlocked-queue-read queue)
                     (send reply-to ans)
                     (if (find :close cmds :key #'car)
-                        (um:nlet-tail dump ()
+                        (um:nlet dump ()
                           (um:if-let (pair (hcl:unlocked-queue-read queue))
                               (progn
                                 (send (car pair) (um:capture-ans-or-exn
                                                    (error 'stream-closed)))
-                                (dump))
+                                (go-dump))
                             ;; else
                             (remhash stream stream-table)))
                       ;; else

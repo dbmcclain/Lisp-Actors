@@ -52,9 +52,12 @@ THE SOFTWARE.
 ;; --------------------------------------------------------------------------
 
 (defun generate-uuid ()
+  (uuid:make-v1-uuid))
+#|
+(defun generate-uuid ()
   #+:MACOSX  (uuid:byte-array-to-uuid (uuidgen:generate))
   #+:WIN32   (uuid:make-v1-uuid))
-
+|#
 ;; --------------------------------------------------------------------------
 
 (defmacro CAS (place old new)

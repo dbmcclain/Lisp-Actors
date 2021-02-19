@@ -132,10 +132,12 @@ THE SOFTWARE.
     `(labels ((,name ,args ,@body))
        (,name ,@vals))
     ))
-  
+
+#|
 (defmacro nlet (name bindings &body body)
   ;; NLET = Named LET
   `(perform ,name ,bindings ,@body))
+|#
 
 #| ;; use Alexandria:parse-body instead of this
 (defun collect-decls (forms)

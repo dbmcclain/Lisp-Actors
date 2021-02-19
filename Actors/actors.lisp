@@ -246,14 +246,14 @@ THE SOFTWARE.
   (let ((mbox  (actor-mailbox actor))
         (busy  (actor-busy actor)))
     (unwind-protect
-        (um:nlet-tail do-next-message ()
+        (um:nlet do-next-message ()
           (when (eq t (car busy)) ;; not terminated?
             (multiple-value-bind (msg ok)
                 (next-message mbox)
               (when ok  ;; until no more messages waiting
                 (with-simple-restart (abort "Run same Actor with next message")
                   (apply #'dispatch-message actor msg))
-                (do-next-message)))))
+                (go-do-next-message)))))
       ;; unwind clause
       (maybe-add-to-ready-queue actor))
     ))

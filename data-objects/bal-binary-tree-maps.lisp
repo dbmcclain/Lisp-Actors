@@ -98,18 +98,18 @@ THE SOFTWARE.
 
 (defmethod add-plist ((map tree) plist)
   ;; plist = alternating key,value pairs
-  (um:nlet-tail iter ((lst plist))
+  (um:nlet iter ((lst plist))
     (when lst
       (addf map (car lst) (cadr lst))
-      (iter (cddr lst)))
+      (go-iter (cddr lst)))
     map))
 
 (defmethod add-alist ((map tree) alist)
   ;; alist list of pairs (key value)
-  (um:nlet-tail iter ((lst alist))
+  (um:nlet iter ((lst alist))
     (when lst
       (addf map (caar lst) (cadar lst))
-      (iter (cdr lst)))
+      (go-iter (cdr lst)))
     map))
 
 (defmethod add-hashtable ((map tree) hashtable)
@@ -118,11 +118,11 @@ THE SOFTWARE.
 
 (defmethod add-keys-vals ((map tree) keys vals)
   ;; keys and vals are lists of correspoinding key/val pairs
-  (um:nlet-tail iter ((ks keys)
-                      (vs vals))
+  (um:nlet iter ((ks keys)
+                 (vs vals))
     (when (and ks vs)
       (addf map (car ks) (car vs))
-      (iter (cdr ks) (cdr vs)))
+      (go-iter (cdr ks) (cdr vs)))
     map))
 
 

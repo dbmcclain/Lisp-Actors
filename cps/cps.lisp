@@ -19,11 +19,11 @@
 
 (defun trampoline (fn &rest args)
   (let ((*in-trampoline* t))
-    (nlet-tail iter ((c  (catch 'tramp
-                           (apply fn args))))
+    (nlet iter ((c  (catch 'tramp
+                      (apply fn args))))
       (if (thunk-p c)
-          (iter (catch 'tramp
-                  (funcall (thunk-fn c))))
+          (go-iter (catch 'tramp
+                     (funcall (thunk-fn c))))
         ;; else
         c)
       )))

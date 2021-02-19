@@ -38,9 +38,14 @@ THE SOFTWARE.
   ;; fast as possible.
   ;;
   (declare (optimize speed))
-  (let ((name (if (packagep name)
-                  (package-name name)
-                (string name))))
+  (let ((name (cond ((packagep name)
+                     (package-name name))
+                    ((stringp name)
+                     #+:LISPWORKS (string-upcase name)
+                     #-:LISPWORKS name)
+                    (t
+                     (string name))
+                    )))
     (declare (type string name))
     
     (flet ((relative-to (package name)

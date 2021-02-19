@@ -36,7 +36,7 @@ THE SOFTWARE.
   (editor:setup-indent "nlet-tail" 2)
   (editor:setup-indent "if-let" 2 2 4)
   (editor:setup-indent "when-let" 1)
-  (editor:setup-indent "with-gensyms" 2 2 4)
+  (editor:setup-indent "with-gensyms" 1 2 4)
   (editor:setup-indent "with-tail-pure-code" 2 2 4)
   (editor:setup-indent "aif" 2 2 4)
   (editor:setup-indent "aif*" 2 2 4)

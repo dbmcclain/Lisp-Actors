@@ -17,7 +17,6 @@
             um:dcase
             um:dcase*
             um:nlet
-            um:nlet-tail
             um:capture-ans-or-exn
             
             actors.security:secure-encoding
@@ -39,7 +38,8 @@
             actors.bridge:bridge-reset
 
             actors.lfm:ensure-system-logger
-
+            actors.lfm:kill-system-logger
+            
             actors.base:assemble-ask-message
             )))
 
@@ -49,6 +49,8 @@
 (defvar *socket-timeout-period*   60)
 (defvar *ws-collection*           nil)
 (defvar *aio-accepting-handle*    nil)
+
+(defconstant +using-ssl+          t)
 
 ;; -------------------------------------------------------------
 ;; For link debugging...
@@ -139,7 +141,7 @@
   (with-slots (crypto dispatcher queue len-buf hmac-buf) reader
     (labels
         ((extract-bytes (buf start end)
-           (nlet-tail iter ()
+           (nlet iter ()
              (destructuring-bind
                  (&whole frag &optional frag-start frag-end . frag-bytes)
                  (pop-queue queue)
@@ -153,7 +155,7 @@
                                   :start1 start
                                   :start2 frag-start)
                          (incf start nb))
-                       (iter))
+                       (go-iter))
                       
                       ((= nb need)
                        (when (plusp need)
@@ -545,9 +547,10 @@
              (apply 'log-error :SYSTEM-LOG args))
            (=values (if args nil state)))
          #||#
-         :ssl-ctx :tls-v1
-         :ctx-configure-callback (lambda (ctx)
-                                   (comm:set-ssl-ctx-cert-cb ctx 'my-find-certificate))
+         :ssl-ctx (when +using-ssl+ :tls-v1)
+         :ctx-configure-callback (when +using-ssl+
+                                   (lambda (ctx)
+                                     (comm:set-ssl-ctx-cert-cb ctx 'my-find-certificate)))
          #||#
          :handshake-timeout 5
          :ipv6    nil)
@@ -607,10 +610,11 @@ See the discussion under START-CLIENT-MESSENGER for details."
 ;;; by running gen-certs.sh
 
 (defvar *ssl-context*  nil)
-(defvar *sks*          '(294297294582192362684893941219822844867
-                         322987594312967468185144433154971621447
-                         109887796422271580361209178284393871546))
-
+(defvar *sks*
+  '(("miss" "record" "glory" "hedgehog" "smile" "rail" "section" "cart" "visit" "process" "depend" "journey")
+    ("august" "leader" "nurse" "arrow" "unfold" "spy" "divorce" "mammal" "bronze" "torch" "miracle" "angry")
+    ("lunch" "fiction" "kingdom" "bulb" "eagle" "bamboo" "october" "bread" "youth" "index" "cheap" "blanket")))
+  
 (define-symbol-macro *actors-version* (assemble-sks *sks*))
 
 (defun filename-in-ssl-server-directory (name)
@@ -630,7 +634,9 @@ See the discussion under START-CLIENT-MESSENGER for details."
   t)
 
 (defun my-configure-ssl-ctx (ssl-ctx ask-for-certificate)
-  (comm:set-ssl-ctx-password-callback ssl-ctx :password *actors-version*)
+  (comm:set-ssl-ctx-password-callback
+   ssl-ctx
+   :password *actors-version*)
   (comm:ssl-ctx-use-certificate-chain-file
    ssl-ctx
    (filename-in-ssl-server-directory "newcert.pem" ))
@@ -639,12 +645,17 @@ See the discussion under START-CLIENT-MESSENGER for details."
    (filename-in-ssl-server-directory "newreq.pem")
    comm:ssl_filetype_pem)
   (comm:set-ssl-ctx-dh
-   ssl-ctx :filename (filename-in-ssl-server-directory "dh_param_1024.pem"))
+   ssl-ctx
+   :filename (filename-in-ssl-server-directory "dh_param_1024.pem"))
 
   (when ask-for-certificate
-    (comm:set-verification-mode ssl-ctx :server :always
-                                'verify-client-certificate)
-    (comm:set-verification-depth ssl-ctx 1)))
+    (comm:set-verification-mode
+     ssl-ctx
+     :server :always
+     'verify-client-certificate)
+    (comm:set-verification-depth
+     ssl-ctx
+     1)))
 
 (defun initialize-the-ctx (symbol ask-for-certificate)
   (when-let (old (symbol-value symbol))
@@ -673,6 +684,9 @@ See the discussion under START-CLIENT-MESSENGER for details."
                                    (lambda (coll)
                                      ;; we are operating in the collection process
                                      (comm:close-wait-state-collection coll)
+                                     (when +using-ssl+
+                                       (comm:destroy-ssl-ctx *ssl-context*)
+                                       (setf *ssl-context* nil))
                                      (setf *aio-accepting-handle* nil
                                            *ws-collection*        nil)
                                      (unwind-protect
@@ -690,7 +704,8 @@ See the discussion under START-CLIENT-MESSENGER for details."
 indicated port number."
 
   (terminate-server)
-  (initialize-the-ctx '*ssl-context* t)
+  (when +using-ssl+
+    (initialize-the-ctx '*ssl-context* t))
   (setq *ws-collection*
         (comm:create-and-run-wait-state-collection "Actors Server"))
   (setq *aio-accepting-handle* 
@@ -698,7 +713,8 @@ indicated port number."
          *ws-collection*
          tcp-port-number
          'start-server-messenger
-         :ssl-ctx *ssl-context*
+         :ssl-ctx (when +using-ssl+
+                    *ssl-context*)
          :ipv6    nil
          ))
   (log-info :SYSTEM-LOG "Actors service started on port ~A" tcp-port-number))
@@ -706,34 +722,52 @@ indicated port number."
 ;; --------------------------------------------------
 ;;
 
+(defun reset-global-state ()
+  (when *ssl-context*
+    (comm:destroy-ssl-ctx *ssl-context*)
+    (setf *ssl-context* nil))
+  (setf *ws-collection*        nil
+        *aio-accepting-handle* nil
+        *cert-key-pairs*       nil))
+
 (defun lw-start-tcp-server (&rest ignored)
   ;; called by Action list with junk args
   (declare (ignore ignored))
   ;; We need to delay the construction of the system logger till this
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
+  (assert (null *ws-collection*))
+  (assert (null *aio-accepting-handle*))
+  (assert (null *ssl-context*))
+  (assert (null *cert-key-pairs*))
   (ensure-system-logger)
   (start-tcp-server))
 
 (defun lw-reset-actor-system (&rest ignored)
   (declare (ignore ignored))
   (terminate-server)
-  (bridge-reset))
+  (bridge-reset)
+  (kill-system-logger)
+  (kill-executives)
+  (reset-global-state)
+  (print "Actors and Network has been shut down."))
 
 (let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))
-  
+
   (lw:define-action "Initialize LispWorks Tools"
                     "Start up Actor Server"
                     'lw-start-tcp-server
                     :after "Run the environment start up functions"
                     :once)
 
-  #+(OR :LISPWORKS6 :LISPWORKS7)
   (lw:define-action "Save Session Before"
                     "Reset Actors"
                     'lw-reset-actor-system)
 
-  #+(OR :LISPWORKS6 :LISPWORKS7)
   (lw:define-action "Save Session After"
                     "Restart Actor System"
-                    'lw-start-tcp-server))
+                    'lw-start-tcp-server)
+  )
+
+(defun ac:start ()
+  (lw-start-tcp-server))

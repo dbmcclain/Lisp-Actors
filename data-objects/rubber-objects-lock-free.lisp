@@ -33,7 +33,7 @@ THE SOFTWARE.
   (:nicknames #:ro)
   (:import-from #:useful-macros
    #:defmacro!
-   #:nlet-tail
+   #:nlet
    #:symb
    #:if-let
    #:group)
@@ -73,11 +73,11 @@ THE SOFTWARE.
 (defvar =top= (make-instance 'rubber-object))
 
 (defmethod is-a ((obj rubber-object) archetype)
-  (nlet-tail iter ((obj obj))
+  (nlet iter ((obj obj))
     (when obj
       (if (eq obj archetype)
           t
-        (iter (parent obj))))))
+        (go-iter (parent obj))))))
 
 (defmethod props (obj)
   nil) ;; default for all other objects
@@ -88,14 +88,14 @@ THE SOFTWARE.
 (defmethod prop ((obj rubber-object) key &optional default)
   ;; return the direct or ancestor property value
   ;; as a secondary value we return the object in which the prop was found
-  (nlet-tail iter ((obj  obj))
+  (nlet iter ((obj  obj))
     (if obj
         (multiple-value-bind (ans found)
             (maps:find (props obj) key)
           (if found
               (values ans obj)
             ;; else
-            (iter (parent obj))))
+            (go-iter (parent obj))))
       ;; else
       (values default nil))
     ))
@@ -152,10 +152,10 @@ THE SOFTWARE.
   (sets:elements (%direct-prop-keys obj (sets:empty))))
 
 (defmethod prop-keys ((obj rubber-object))
-  (nlet-tail collect ((obj   obj)
-                      (accum (sets:empty)))
+  (nlet collect ((obj   obj)
+                 (accum (sets:empty)))
     (if obj
-        (collect (parent obj) (%direct-prop-keys obj accum))
+        (go-collect (parent obj) (%direct-prop-keys obj accum))
       (sets:elements accum))))
 
 (defmethod has-direct-prop ((obj rubber-object) key)
@@ -172,10 +172,10 @@ THE SOFTWARE.
 (defun %merge-props (new-props old-props)
   ;; reversing here removes duplicates by taking the
   ;; earliest as final
-  (um:nlet-tail iter ((lst (reverse new-props)))
+  (um:nlet iter ((lst (reverse new-props)))
     (when lst
       (maps:addf old-props (cadr lst) (car lst))
-      (iter (cddr lst))))
+      (go-iter (cddr lst))))
   old-props)
 
 (defmethod copy-obj ((obj rubber-object) &rest new-props)

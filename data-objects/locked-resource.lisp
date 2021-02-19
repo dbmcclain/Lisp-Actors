@@ -192,11 +192,11 @@ THE SOFTWARE.
      (call-next-method)))
 
   (:method ((obj <plist>) fn)
-   (um:nlet-tail iter ((lst (lm-val obj)))
+   (um:nlet iter ((lst (lm-val obj)))
      (when lst
        (destructuring-bind (k v &rest tl) lst
          (funcall fn k v)
-         (iter tl))
+         (go-iter tl))
        )))
 
   (:method ((obj <alist>) fn)
@@ -313,11 +313,11 @@ THE SOFTWARE.
 
 (defun plist-to-map (plist)
   (assert (plist-p plist))
-  (um:nlet-tail iter ((lst (reverse plist))
-                      (map (maps:empty)))
+  (um:nlet iter ((lst (reverse plist))
+                 (map (maps:empty)))
     (if lst
         (destructuring-bind (v k . tl) lst
-          (iter tl (maps:add map k v)))
+          (go-iter tl (maps:add map k v)))
       map)))
 
 (defun alist-to-map (alist)

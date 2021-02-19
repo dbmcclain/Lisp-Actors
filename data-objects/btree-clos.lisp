@@ -197,11 +197,11 @@ Allow the implementation to cache these values."
 (defun first-item (btree)
   (with-locked-btree (btree)
     (um:when-let (root (root-node btree))
-        (um:nlet-tail iter ((node root))
+        (um:nlet iter ((node root))
           (let ((first-node (node-list-cell node 0)))
             (if (leaf-node-p node)
                 (coerce-to-object btree first-node)
-              (iter first-node))
+              (go-iter first-node))
             )))))
     
 ;; --------------------------------------
@@ -210,12 +210,12 @@ Allow the implementation to cache these values."
 (defun last-item (btree)
   (with-locked-btree (btree)
     (um:when-let (root (root-node btree))
-        (um:nlet-tail iter ((node root))
+        (um:nlet iter ((node root))
           (let* ((last-ix   (1- (node-fill-pointer node)))
                  (last-node (node-list-cell node last-ix)))
             (if (leaf-node-p node)
                 (coerce-to-object btree last-node)
-              (iter last-node))
+              (go-iter last-node))
             )) )))
     
 ;; --------------------------------------
@@ -319,7 +319,7 @@ Allow the implementation to cache these values."
           (values val t)
         ;; else
         (um:when-let (root (root-node btree))
-            (um:nlet-tail srch ((node root))
+            (um:nlet srch ((node root))
               (multiple-value-bind (found-it ix) (search-node item-key btree node)
                 (if found-it
                     (progn
@@ -328,7 +328,7 @@ Allow the implementation to cache these values."
                         (values val t)))
                   ;; else -- if we have a subtree, search there
                   (when (> (node-height node) 1)
-                    (srch (node-list-cell node (* 2 ix))))
+                    (go-srch (node-list-cell node (* 2 ix))))
                   ))))
         ))))
 
@@ -365,13 +365,13 @@ Allow the implementation to cache these values."
   (with-locked-btree (btree)
     (um:when-let (root (root-node btree))
         (cond (key
-               (um:nlet-tail srch ((node  root)
-                                   (state nil))
+               (um:nlet srch ((node  root)
+                              (state nil))
                  (multiple-value-bind (found-it ix) (search-node key btree node)
                    (if (and (not found-it)
                             (> (node-height node) 1))
-                       (srch (node-list-cell node (* 2 ix))
-                             (list* node ix state))
+                       (go-srch (node-list-cell node (* 2 ix))
+                                (list* node ix state))
                      ;; else
                      (make-cursor
                       :btree btree

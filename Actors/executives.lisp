@@ -107,20 +107,21 @@
      (actor-ready-queue                    ;; a queue of pending Actor activations
         (mp:make-mailbox :name "Actor Ready Queue"))
      (nbr-execs                            ;; should match the number of CPU Cores but never less than 4
-        #+(AND :LISPWORKS :MACOSX)
-        (um:get-number-of-processors)
-        #|
-        (load-time-value
-         (with-open-stream (s (sys:open-pipe "sysctl -n hw.logicalcpu"))
-           (let ((ans (ignore-errors (parse-integer (read-line s nil nil)))))
-             (or (and (integerp ans)
-                      ans)
-                 (max 4 ans)))))
-        |#
-        #+:CLOZURE
-        (max 4 (ccl:cpu-count))
-        #-(or :CLOZURE (AND :LISPWORKS :MACOSX))
-        4))
+        (max 4
+             #+(AND :LISPWORKS :MACOSX)
+             (um:get-number-of-processors)
+             #|
+             (load-time-value
+              (with-open-stream (s (sys:open-pipe "sysctl -n hw.logicalcpu"))
+                (let ((ans (ignore-errors (parse-integer (read-line s nil nil)))))
+                  (or (and (integerp ans)
+                           ans)
+                      1))))
+             |#
+             #+:CLOZURE
+             (ccl:cpu-count)
+             #-(or :CLOZURE (AND :LISPWORKS :MACOSX))
+             1)))
 
   (labels
       ((resume-periodic-checking ()

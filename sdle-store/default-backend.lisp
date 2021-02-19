@@ -123,7 +123,7 @@
     (write-byte count stream))
    (t (let ((nb (ceiling (integer-length count) 7)))
         (declare (type (unsigned-byte *) nb))
-        (um:nlet-tail iter ((ix (* 7 (1- nb))))
+        (um:nlet iter ((ix (* 7 (1- nb))))
           (declare (type (unsigned-byte *) ix))
           (if (zerop ix)
               (write-byte (ldb (byte 7 0) count) stream)
@@ -131,7 +131,7 @@
               (write-byte (logior #x80
                                   (ldb (byte 7 ix) count))
                           stream)
-              (iter (- ix 7))) )) )) ))
+              (go-iter (- ix 7))) )) )) ))
 
 (defun read-count (stream)
   (declare (optimize (speed 3) (debug 0)))
@@ -139,14 +139,14 @@
     (declare (type (unsigned-byte 8) x))
     (cond
      ((< x 128) x)
-     (t (um:nlet-tail iter ((val (logand x #x7f)))
+     (t (um:nlet iter ((val (logand x #x7f)))
           (declare (type (unsigned-byte *) val))
           (let* ((x        (read-byte stream))
                  (next-val (logior (logand x #x7f) (ash val 7))))
             (declare (type (unsigned-byte 8) x)
                      (type (unsigned-byte *) next-val))
             (if (logbitp 7 x)
-                (iter next-val)
+                (go-iter next-val)
               next-val) ))) )))
 
 #|

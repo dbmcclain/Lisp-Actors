@@ -246,7 +246,7 @@
            (declare (ignore key))
            (let ((tvar  (entry-tvar entry))
                  (ver   (entry-ver entry)))
-             (um:nlet-tail iter ()
+             (um:nlet iter ()
                (cas-ver tvar ver entry)
                (let ((v (tvar-ver tvar)))
                  (cond
@@ -254,7 +254,7 @@
 
                   ((not (integerp v))  ;; currently locked - wait to see if it aborts
                    (commit-transaction v)
-                   (iter))
+                   (go-iter))
                   
                   (t
                    ;; tvar was updated ahead of us
@@ -280,7 +280,7 @@
   (let* ((parent *current-transaction*)
          (rwmap  (when parent
                    (transaction-rw-map parent))))
-    (um:nlet-tail iter ((rest-fns fns))
+    (um:nlet iter ((rest-fns fns))
       (when rest-fns
         (let ((*current-transaction* (make-transaction rwmap)))
           (handler-case
@@ -296,20 +296,20 @@
                   (return-from do-orelse ans)))
             
             (retry-exn ()
-              (iter (cdr rest-fns)))
+              (go-iter (cdr rest-fns)))
 
             (retry-for-write-exn ()
               (when parent
                 (retry-for-write))
               (setf rwmap (maps:empty))
-              (iter fns))
+              (go-iter fns))
             
             (abort-exn (exn)
               (return-from do-orelse (abort-exn-retval exn)))
             )))
       (if parent
           (retry)
-        (iter fns))
+        (go-iter fns))
       )))
 
 (defmacro atomic (&body body)

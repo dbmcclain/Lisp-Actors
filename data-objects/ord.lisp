@@ -94,20 +94,20 @@ THE SOFTWARE.
   (let* ((nela (length a))
          (nelb (length b))
          (nel  (min nela nelb)))
-    (um:nlet-tail iter ((ix 0))
+    (um:nlet iter ((ix 0))
       (if (>= ix nel)
           (- nela nelb)
         ;; else
         (let ((c (compare (aref a ix) (aref b ix))))
           (if (zerop c)
-              (iter (1+ ix))
+              (go-iter (1+ ix))
             c))
         ))))
 
 (defmethod compare ((a list) (b list))
   #f
-  (um:nlet-tail iter ((a a)
-                      (b b))
+  (um:nlet iter ((a a)
+                 (b b))
     (cond ((endp a)
            (if (endp b)
                0
@@ -118,7 +118,7 @@ THE SOFTWARE.
           (t
            (let ((c (compare (car a) (car b))))
              (if (zerop c)
-                 (iter (cdr a) (cdr b))
+                 (go-iter (cdr a) (cdr b))
                c)))
           )))
 

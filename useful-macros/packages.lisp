@@ -26,11 +26,20 @@ THE SOFTWARE.
 
 (defpackage :xlambda
   (:use :cl)
-  (:export
+  (:import-from :cl
    :defun*
    :lambda*
    :labels*
-   :flet*))
+   :flet*
+   :λ*
+   :define*)
+  (:export
+   :defun*
+   :lambda*
+   :λ*
+   :labels*
+   :flet*
+   :define*))
 
 (defpackage :lambda-parsing
   (:use :cl)
@@ -249,6 +258,7 @@ THE SOFTWARE.
   (:import-from #:xlambda
    #:defun*
    #:lambda*
+   #:λ*
    #:labels*
    #:flet*)
   (:import-from #:timeout
@@ -767,8 +777,10 @@ THE SOFTWARE.
    #:nif
    #:g!-symbol-p
    #:defmacro/g!
+   #:parse-body ;; Alexandria replacement
    #:nlet
    #:nlet-tail
+   #:nlet-tail*
    #:o!-symbol-p
    #:o!-symbol-to-g!-symbol
    #:defmacro!
@@ -969,6 +981,7 @@ THE SOFTWARE.
 
    :defun*
    :lambda*
+   :λ*
    :labels*
    :flet*
 
@@ -977,7 +990,6 @@ THE SOFTWARE.
    :=>
    
    :read-mailbox-with-timeout
-   :def-alias
    :eval-always
    :->>
 
@@ -994,6 +1006,25 @@ THE SOFTWARE.
    :capture-dynamic-environment
    :call-with-dynamic-environment
    :with-dynamic-environment
+
+   :doseq
+   :vbind
+   :vbind*
+   :with-velems
+
+   :utf-8-encoding
+   :utf-8-code-chars
+   :encstr
+   :sbs
+   :ucs
+   :dostring
+   :dovector
+
+   :defalias
+   :redirect
+
+   :convert-int-to-wordlist
+   :convert-wordlist-to-int
    ))
 
 #|

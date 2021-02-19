@@ -18,7 +18,7 @@
 (defgeneric force (obj)
   (:method ((obj lazy))
    (um:recover-ans-or-exn
-    (um:nlet-tail iter ()
+    (um:nlet iter ()
       (let ((cell (lazy-cell obj)))
         (cond
          ((eq (cdr cell) :eval)
@@ -29,7 +29,7 @@
             val))
          (t
           (mp:process-allow-scheduling)
-          (iter))
+          (go-iter))
          )))))
   (:method ((obj function))
    (funcall obj))

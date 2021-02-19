@@ -15,7 +15,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import '(um:when-let
             um:group
-            um:nlet-tail
+            um:nlet
             um:defmonitor
             um:critical-section
             
@@ -184,6 +184,12 @@
           )))
     ))
 
+(defun fill-to-132 (n)
+  (dpb n (byte 129 0) (random (ash 1 132))))
+
+(defun low-129 (n)
+  (ldb (byte 129 0) n))
+
 (defun share-uuid (uuid-str)
   (let* ((k  (uuid:uuid-to-integer (uuid:make-uuid-from-string uuid-str)))
          (share1 (random #.(ash 1 128)))
@@ -192,7 +198,9 @@
                                                (1 . ,share1)
                                                (2 . ,share2))))
          (share3 (funcall fn 3)))
-    (list share1 share2 share3)))
+    (mapcar #'um:convert-int-to-wordlist
+            (mapcar #'fill-to-132
+                    (list share1 share2 share3)))))
 
 (defun uuid-str-from-shares (share1 share2 share3)
   (let ((fn (make-lagrange-interpolator `((1 . ,share1)
@@ -201,7 +209,8 @@
     (uuid:uuid-string (uuid:integer-to-uuid (funcall fn 0)))))
 
 (defun assemble-sks (shares)
-  (apply #'uuid-str-from-shares shares))
+  (apply #'uuid-str-from-shares (mapcar #'low-129
+                                        (mapcar #'um:convert-wordlist-to-int shares))))
 
 #|
 (share-uuid "{cfe31464-f7b1-11ea-82f8-787b8acbe32e}")
@@ -514,14 +523,14 @@
     (loop for x across v do
           (cond ((> x 127)
                  (write-sequence
-                  (nlet-tail iter ((x     x)
-                                   (hibit 0)
-                                   (ans   nil))
+                  (nlet iter ((x     x)
+                              (hibit 0)
+                              (ans   nil))
                     (let ((acc  (cons (logior hibit (logand x 127))
                                       ans))
                           (xshf (ash x -7)))
                       (if (plusp xshf)
-                          (iter xshf #x80 acc)
+                          (go-iter xshf #x80 acc)
                         acc)) )
                   s))
                 
@@ -567,8 +576,8 @@
                  (- +max-fragment-size+ 64)
                  t)))
     (um:accum acc
-      (nlet-tail iter ((len   (length enc))
-                       (start 0))
+      (nlet iter ((len   (length enc))
+                  (start 0))
         (when (plusp len)
           (let* ((nel    (min len maxlen))
                  (end    (+ start nel))
@@ -580,7 +589,7 @@
                  (packet (loenc:encode (list msg frag)
                                        :align 16)))
             (acc packet)
-            (iter rem end)
+            (go-iter rem end)
             )))
       )))
 
@@ -719,19 +728,19 @@
                            -1)
                       c)))
 
-        (nlet-tail iter ((u  1)
-                         (v  1)
-                         (ix (- (integer-length k) 2)))
+        (nlet iter ((u  1)
+                    (v  1)
+                    (ix (- (integer-length k) 2)))
           (if (minusp ix)
               (zerop u)
             (let ((utmp (with-mod c
                           (m* u v)))
                   (vtmp (half-mod (+ (* v v) (* d u u)))))
               (if (logbitp ix k)
-                  (iter (half-mod (+ utmp vtmp))
-                        (half-mod (+ vtmp (* d utmp)))
-                        (1- ix))
-                (iter utmp vtmp (1- ix))) ))) ))))
+                  (go-iter (half-mod (+ utmp vtmp))
+                           (half-mod (+ vtmp (* d utmp)))
+                           (1- ix))
+                (go-iter utmp vtmp (1- ix))) ))) ))))
                 
 (defun make-strong-miller-rabin-liar-test (p)
   #F

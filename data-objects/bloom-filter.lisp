@@ -30,7 +30,7 @@ THE SOFTWARE.
 (defpackage #:bloom-filter
   (:use #:common-lisp)
   (:import-from #:um
-   #:nlet-tail
+   #:nlet
    #:if-let
    #:when-let
    #:group

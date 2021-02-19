@@ -1,3 +1,4 @@
+;; -*- Mode: Lisp; Coding: UTF-8 -*-
 ;; xlambda.lisp -- Convenience auto destructuring argument lists for
 ;; DEFUN* and LAMBDA*
 ;;
@@ -15,7 +16,7 @@
   (if (destr-lambda-list-p args)
       (let ((g!args (gensym)))
         (multiple-value-bind (body-forms decls docstr)
-            (alexandria:parse-body body)
+            (um:parse-body body :documentation t)
           `(,name (&rest ,g!args)
                   ,@docstr
                   (destructuring-bind ,args ,g!args
@@ -25,30 +26,34 @@
     ;; else
     `(,name ,args ,@body)))
 
-(defmacro lambda* (args &body body)
-  (apply 'wrap-assembly 'lambda args body))
-
-(defmacro defun* (name args &body body)
-  `(defun ,@(apply 'wrap-assembly name args body)))
-
-
-(defun wrap-bindings (hd bindings body)
-  `(,hd ,(mapcar (lambda (form)
-                   (apply 'wrap-assembly form))
-                 bindings)
-        ,@body))
-
-(defmacro labels* (bindings &body body)
-  (wrap-bindings 'labels bindings body))
-
-(defmacro flet* (bindings &body body)
-  (wrap-bindings 'flet bindings body))
+(let ((lw:*handle-warn-on-redefinition* nil))
+  
+  (defmacro cl:lambda* (args &body body)
+    (apply 'wrap-assembly 'lambda args body))
+  
+  (defmacro cl:defun* (name args &body body)
+    `(defun ,@(apply 'wrap-assembly name args body)))
+  
+  
+  (defun wrap-bindings (hd bindings body)
+    `(,hd ,(mapcar (lambda (form)
+                     (apply 'wrap-assembly form))
+                   bindings)
+          ,@body))
+  
+  (defmacro cl:labels* (bindings &body body)
+    (wrap-bindings 'labels bindings body))
+  
+  (defmacro cl:flet* (bindings &body body)
+    (wrap-bindings 'flet bindings body))
+  
+  (define-macro (cl::define* name args &body body)
+    `(defun* ,name ,args ,@body)))
 
 #+:LISPWORKS
 (progn
   (editor:setup-indent "lambda*" 1 2 8)
   (editor:setup-indent "defun*"  2 2 7)
   (editor:setup-indent "labels*" 1 2 4 'flet)
-  (editor:setup-indent "flet*"   1 2 4 'flet))
-  
-
+  (editor:setup-indent "flet*"   1 2 4 'flet)
+  (editor:setup-indent "define*" 1))

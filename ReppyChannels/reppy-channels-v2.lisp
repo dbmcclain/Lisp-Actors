@@ -429,19 +429,19 @@
           abort-clauses
           handlers
           in-abort)
-      (um:nlet-tail iter ((clauses body))
+      (um:nlet iter ((clauses body))
         (unless (endp clauses)
           (destructuring-bind (hd . tl) clauses
             (cond ((eq hd :on-abort)
                    (setf in-abort t)
-                   (iter tl))
+                   (go-iter tl))
                   ((eq hd :handlers)
                    (setf handlers tl))
                   (t
                    (if in-abort
                        (push hd abort-clauses)
                      (push hd rendezvous-clauses))
-                   (iter tl))
+                   (go-iter tl))
                   ))))
       (labels
           ((success-body ()

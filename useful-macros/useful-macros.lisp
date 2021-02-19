@@ -116,55 +116,42 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "letp" 1)
 
-(defmacro! nlet-tail (name letargs &rest body)
-  (let ((gs  (gensyms letargs))
-        (gsx (gensyms letargs)))
-    (multiple-value-bind (body decls)
-        (alexandria:parse-body body)
-      #|
-    (multiple-value-bind (body decls)
-        (collect-decls body)
-      |#
-      `(macrolet
-           ((,name ,gs
-              `(progn
-                 (psetq
-                  ,@(mapcan 'list ',gsx (list ,@gs)))
-                 (go ,',g!n))))
-         (block ,g!b
-           (let ,(mapcar #2`(,a1 ,(cadr a2)) gsx letargs)
-             (tagbody
-              ,g!n
-              (let ,(mapcar #2`(,(car a2) ,a1) gsx letargs)
-                ,@decls
+#|
+(eval-always
+  (defun %i-nlet-tail (letter name letargs decls+body)
+    (let ((gs  (gensyms letargs))
+          (gb  (gensym))
+          (gn  (gensym)))
+      (multiple-value-bind (body decls)
+          (alexandria:parse-body decls+body)
+        `(macrolet
+             ((,name ,gs
+                `(progn
+                   (psetq
+                    ,@(mapcan 'list
+                              ',(mapcar #'car letargs)
+                              (list ,@gs)))
+                   (go ,',gn))))
+           (block ,gb
+           (,letter ,letargs
+               ,@decls
+               (tagbody
+                ,gn
                 (return-from
-                    ,g!b (progn ,@body)))))) ))))
+                    ,gb (progn ,@body))))))
+        ))))
+
+(defmacro nlet-tail (name letargs &body decls+body)
+  (%i-nlet-tail 'let name letargs decls+body))
+
+(defmacro nlet-tail* (name letargs &body decls+body)
+  (%i-nlet-tail 'let* name letargs decls+body))
+|#
 
 #|
-(defmacro! nlet-tail (name letargs &rest body)
-  (let ((gs  (gensyms letargs))
-        (gsx (gensyms letargs)))
-    (multiple-value-bind (body decls)
-        (collect-decls body)
-      `(macrolet
-           ((,name ,gs
-              `(progn
-                 (psetq
-                  ,@(mapcan 'list ',gsx (list ,@gs)))
-                 (go ,',g!n))))
-         (block ,g!b
-           (let* ,letargs
-             (let ,(mapcar #2`(,a1 ,(car a2)) gsx letargs)
-               (tagbody
-                ,g!n
-                (let ,(mapcar #2`(,(car a2) ,a1) gsx letargs)
-                  ,@decls
-                  (return-from
-                      ,g!b (progn ,@body)))))) )))))
-|#
-#|
-(nlet-tail iter ((a a-init)
+(nlet-tail* iter ((a a-init)
                  (b b-init))
+  (declare (fixnum a b))
   (clause1)
   (iter xx yy))
 
@@ -2437,12 +2424,12 @@ This is C++ style enumerations."
 (defun bind*-handler (symbol)
   (get symbol 'bind*-handler))
 
-(defmacro! define-bind*-handler (symbol (binding-name more-bindings-name) &body body)
-  (multiple-value-bind (forms decls docstr)
-      (alexandria:parse-body body)
+(defmacro! define-bind*-handler (&whole whole symbol (binding-name more-bindings-name) &body body)
+  (multiple-value-bind (forms decls doc)
+      (parse-body body :documentation t :whole whole)
     `(setf (get ,symbol 'bind*-handler)
            (lambda* (,binding-name ,g!bindings ,g!more)
-             ,@docstr
+             ,@doc
              ,@decls
              (symbol-macrolet ((,more-bindings-name (funcall ,g!more ,g!bindings)))
                ,@forms)))))
@@ -2555,8 +2542,8 @@ This is C++ style enumerations."
   ;; Easiest way, for numeric args, is to use (- wanted-key ixm-key) for the comparison function,
   ;; where ixm-key corresponds to the ixm sent by this routine.
   ;;
-  (nlet-tail srch ((ixl (1- low-index))
-                   (ixu hi-index))
+  (nlet srch ((ixl (1- low-index))
+              (ixu hi-index))
     (declare (type fixnum ixl ixu))
     (cond ((> (- ixu ixl) 1)
            (let* ((ixm (truncate (+ ixu ixl) 2))
@@ -2564,9 +2551,9 @@ This is C++ style enumerations."
              (declare (type fixnum ixm c))
              (cond ((zerop c)  (values t ixm)) ;; found it!
                    
-                   ((minusp c) (srch ixl ixm))
+                   ((minusp c) (go-srch ixl ixm))
                    
-                   (t          (srch ixm ixu))
+                   (t          (go-srch ixm ixu))
                    )))
 
           (t  (values nil ixu))
@@ -3234,9 +3221,6 @@ or list acceptable to the reader macros #+ and #-."
 
 ;; ----------------------------------------------------
 
-(defmacro def-alias (sym fn-sym)
-  `(setf (symbol-function ',sym) ',fn-sym))
-
 #||#
 (defmacro ->> (arg &rest fn-forms)
   (if fn-forms
@@ -3264,3 +3248,44 @@ or list acceptable to the reader macros #+ and #-."
      #'identity)
 (->> (x))
 |#
+;; -------------------------------------------------------------
+
+(defmacro doseq ((var coll &optional ret-form) &body body)
+  ;; mimic syntax of DOLIST
+  `(progn
+     (map nil (lambda (,var)
+                ,@body)
+          ,coll)
+     ,ret-form))
+
+(defmacro vbind (syms vec &body body)
+  (let ((gvec (gensym)))
+    `(let ((,gvec ,vec))
+       ,@(nlet iter ((syms syms)
+                     (pos  0))
+           (if (endp syms)
+               body
+             `((let ((,(car syms) (aref ,gvec ,pos)))
+                 ,@(iter (cdr syms) (1+ pos))))
+             ))
+       )))
+
+(defmacro vbind* (syms vec &body body)
+  (let ((gvec (gensym)))
+    `(let ((,gvec ,vec))
+       ,@(nlet iter ((syms syms)
+                     (pos  0))
+           (if (endp syms)
+               body
+             `((symbol-macrolet ((,(car syms) (aref ,gvec ,pos)))
+                 ,@(iter (cdr syms) (1+ pos))))
+             ))
+       )))
+
+(defmacro with-velems (bindings vec &body body)
+  (let ((gvec (gensym)))
+    `(let ((,gvec ,vec))
+       (symbol-macrolet ,(mapcar #`(,(car a1) (aref ,gvec ,(cadr a1))) bindings)
+         ,@body))
+    ))
+       

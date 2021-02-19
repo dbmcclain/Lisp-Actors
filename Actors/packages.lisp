@@ -173,6 +173,8 @@ THE SOFTWARE.
    #:=fwait
 
    #:send-sync
+
+   #:start
    ))
 
 #-lispworks
@@ -225,6 +227,7 @@ THE SOFTWARE.
   (:use #:common-lisp #:actors)
   (:export
    #:ensure-system-logger
+   #:kill-system-logger
    ))
 
 (defpackage :actors.network
@@ -301,7 +304,7 @@ THE SOFTWARE.
    #:rcurry
    #:if-let
    #:when-let
-   #:nlet-tail
+   #:nlet
    #:dlambda*
    #:dcase*
    #:defmonitor

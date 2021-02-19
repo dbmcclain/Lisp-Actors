@@ -442,6 +442,10 @@
     (setf *syslog* (make-instance 'lfm))
     (register-actor :SYSTEM-LOG *syslog*)))
 
+(defun kill-system-logger ()
+  (unregister-actor :SYSTEM-LOG)
+  (setf *syslog* nil))
+
 (defmethod set-printer ((actor lfm) new-printer)
   ;; new-handler should be a function of 4 args:
   ;;  output-stream, entry-type, format-string, optional args

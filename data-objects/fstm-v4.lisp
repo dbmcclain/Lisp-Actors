@@ -109,7 +109,7 @@ THE SOFTWARE.
 (defun obj-read (var trans)
   ;; only called outside of commit
   (declare (var var))
-  (um:nlet-tail retry-read ()
+  (um:nlet retry-read ()
     (let ((val (var-val var))) ;; NOTE: direct low-level access to VAL slot
       (if (word-desc-p val)
           (let ((parent (word-desc-parent val)))
@@ -117,7 +117,7 @@ THE SOFTWARE.
                      (trans-state-p parent :undecided))
                 (progn
                   (commit-transaction parent)
-                  (retry-read))
+                  (go-retry-read))
               ;; else
               (values val
                       (if (trans-state-p parent :successful)
@@ -169,14 +169,14 @@ THE SOFTWARE.
   (labels
       ((acquire (var wdesc)
          (declare (word-desc wdesc))
-         (um:nlet-tail retry-word ()
+         (um:nlet retry-word ()
            (multiple-value-bind (content value)
                (obj-read var trans)
              (or (eq content wdesc)
                  (and (eq value (word-desc-old wdesc))
                       (trans-state-p trans :undecided)
                       (or (um:basic-cas var content wdesc)
-                          (retry-word))
+                          (go-retry-word))
                       ))
              ))))
     
@@ -288,7 +288,7 @@ THE SOFTWARE.
                (transaction-rw-map parent)  (transaction-rw-map trans))))
 
     (let ((parent *current-transaction*))
-      (um:nlet-tail iter ((rest-fns fns))
+      (um:nlet iter ((rest-fns fns))
         (if rest-fns
             (let ((*current-transaction* (make-transaction)))
               (when parent
@@ -306,12 +306,12 @@ THE SOFTWARE.
                           ))
                 
                 (retry-exn ()
-                  (iter (rest rest-fns)))
+                  (go-iter (rest rest-fns)))
                 ))
           ;; else - retry the whole bunch
           (if parent
               (retry)
-            (iter fns))
+            (go-iter fns))
           )))))
 
 (defmacro atomic (&body body)
@@ -338,14 +338,14 @@ THE SOFTWARE.
       ;; absorb nested atomics into outer one
       (values (funcall fn) t) ;; optimistic success
     ;; else
-    (um:nlet-tail iter ()
+    (um:nlet iter ()
       (let ((*current-transaction* (make-transaction)))
         (handler-case
             (multiple-value-prog1
                 (values (funcall fn) t)
               (commit))
           (retry-exn ()
-            (iter))
+            (go-iter))
           (abort-exn (exn)
             (values (abort-exn-retval exn) nil))
           )))

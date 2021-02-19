@@ -172,8 +172,8 @@ THE SOFTWARE.
        (setf (scatter-vector-last-ix vec)   0
              (scatter-vector-last-base vec) 0
              ix-rem  ix))
-     (um:nlet-tail iter ((cur-ix (scatter-vector-last-ix vec))
-                         (ix-rem ix-rem))
+     (um:nlet iter ((cur-ix (scatter-vector-last-ix vec))
+                    (ix-rem ix-rem))
        (let* ((cur-frag (aref (scatter-vector-frags vec) cur-ix))
               (nel      (xlength cur-frag)))
          (if (< ix-rem nel)
@@ -181,7 +181,7 @@ THE SOFTWARE.
            (progn
              (incf (scatter-vector-last-ix vec))
              (incf (scatter-vector-last-base vec) nel)
-             (iter (1+ cur-ix) (- ix-rem nel)))
+             (go-iter (1+ cur-ix) (- ix-rem nel)))
            )))
      )))
 

@@ -42,12 +42,12 @@ THE SOFTWARE.
         (um:split-if test lst)
       (if post
           (values (cadr post) t
-                  (nlet-tail flush ((pre  pre)
-                                    (tl   (cddr post)))
+                  (nlet flush ((pre  pre)
+                               (tl   (cddr post)))
                     (multiple-value-bind (hd new-tl) (um:split-if test tl)
                       (let ((new-pre (nconc pre hd)))
                         (if new-tl
-                            (flush new-pre (cddr new-tl))
+                            (go-flush new-pre (cddr new-tl))
                           new-pre)
                         ))) )
         (values nil nil lst))

@@ -86,9 +86,9 @@ THE SOFTWARE.
                          (eval `(redefdynfun ,fname))
                          (get-dynsym fname))))
 
-(defmacro dflet1 ((fname (&rest args) &body funbody) &body dflbody)
+(defmacro dflet1 ((fname args &body funbody) &body dflbody)
   (let ((dynsym (get-defined-dynsym fname)))
-    (um:with-gensyms (orgfun orgargs newargs)
+    (lw:with-unique-names (orgfun orgargs newargs)
         `(let* ((,orgfun  ,dynsym)
                 (,dynsym  (lambda (&rest ,orgargs)
                             (flet ((call-next-function (&rest ,newargs)
@@ -106,6 +106,8 @@ THE SOFTWARE.
           :initial-value `(progn ,@body)
           :from-end      t))
 
+#+:LISPWORKS
+(editor:setup-indent "dflet" 1 2 4 'flet)
 
 #|
 (defun f (x) (print x))

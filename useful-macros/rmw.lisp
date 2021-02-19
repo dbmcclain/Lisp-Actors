@@ -86,12 +86,12 @@
     )))
 
 (defun rd (obj)
-  (um:nlet-tail iter ()
+  (um:nlet iter ()
     (let ((v (basic-val obj)))
       (cond ((rmw-desc-p v)
              ;; RMW in progress, nudge it along
              (rmw-help obj v)
-             (iter))
+             (go-iter))
             
             (t  v)
             ))))
@@ -103,7 +103,7 @@
   (let ((desc (make-rmw-desc
                :new-fn  new-fn
                :post-fn post-fn)))
-    (um:nlet-tail iter ()
+    (um:nlet iter ()
       (let ((old (rd obj)))
         ;; <-- ABA could happen here
         (setf (rmw-desc-old desc) old)
@@ -117,7 +117,7 @@
               (rmw-help obj desc)
               (values))
           ;; else - try again
-          (iter))
+          (go-iter))
         ))
     ))
 
