@@ -125,7 +125,7 @@ THE SOFTWARE.
       (um:parse-body body :documentation t :whole whole)
     (let* ((vars  (mapcar 'car bindings))
            (vals  (mapcar 'cadr bindings)))
-      `(progn
+      `(dspec:def (defmonitor ,name)
          (defvar ,name (make-mon-parms
                         :lock     (mp:make-lock :sharing t)
                         :bindings ,(when bindings `(vector ,@vals)))
