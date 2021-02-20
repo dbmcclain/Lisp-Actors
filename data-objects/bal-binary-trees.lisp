@@ -707,9 +707,8 @@ THE SOFTWARE.
 (defmethod print-node ((tree node) keyfn)
   (with-node-bindings (_ v) tree
     (with-standard-io-syntax
-      (with-output-to-string (s)
-        (princ (funcall keyfn v) s)
-        ))))
+      (prin1-to-string (funcall keyfn v))
+      )))
 
 (defmethod key-fn (item)
   item)
