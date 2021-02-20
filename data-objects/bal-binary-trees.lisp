@@ -186,7 +186,8 @@ THE SOFTWARE.
   (cond
    ((functionp f) f)
    ((and (symbolp f)
-         (fboundp f))
+         (fboundp f)
+         (not (macro-function f)))
     (symbol-function f))
    (t  (constantly f))
    ))
@@ -208,7 +209,7 @@ THE SOFTWARE.
                       ;; in zero case - to support maps (see below)
                       ;; ensure that new map value is substituted for old
                       ;; value - use x instead of v for value field of result.
-                      (if (funcall *replace-p* x)
+                      (if (funcall *replace-p* v)
                           (make-instance 'node
                                          :l l :v x :r r :h h)
                         tree))
