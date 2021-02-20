@@ -100,7 +100,7 @@ THE SOFTWARE.
     (um:when-let (sym (find-if #'is-wild? syms))
       `((declare (ignore ,sym)))
       )))
-  
+
 (defmacro with-node-bindings (lvrh-syms node &body body)
   ;; Intended only to destructure tree nodes.  Every instance is
   ;; expected to have 4 symbols in lvrh-syms pattern, corresponding to
@@ -151,7 +151,7 @@ THE SOFTWARE.
              (cond ((>= (the fixnum (height ll))
                         (the fixnum (height lr)))
                     (create ll lv (create lr v r)))
-                   
+
                    (t  (with-node-bindings (lrl lrv lrr) lr
                          (create (create ll lv lrl) lrv (create lrr v r))))
                    )))
@@ -161,14 +161,14 @@ THE SOFTWARE.
              (cond ((>= (the fixnum (height rr))
                         (the fixnum (height rl)))
                     (create (create l v rl) rv rr))
-                   
+
                    (t  (with-node-bindings (rll rlv rlr) rl
                          (create (create l v rll) rlv (create rlr rv rr))))
                    )))
-          
+
           (t  (create l v r hl hr))
           )))
-            
+
 ;; -----------------------------------------------------------
 ;; add - insertion of one element
 
@@ -212,14 +212,14 @@ THE SOFTWARE.
                           (make-instance 'node
                                          :l l :v x :r r :h h)
                         tree))
-                      
+
                       ((minusp c)
                        (multiple-value-bind (new-left needs-rebal) (add l x)
                          (cond ((eq l new-left)  tree)
                                (needs-rebal      (values (bal new-left v r) t))
                                (t                (create new-left v r))
                                )))
-                      
+
                       (t
                        (multiple-value-bind (new-right needs-rebal) (add r x)
                          (cond ((eq r new-right)  tree)
@@ -262,10 +262,10 @@ THE SOFTWARE.
     (with-node-bindings (rl rv rr rh) r
       (cond  ((> lh (the fixnum (+ 2 rh)))
               (bal ll lv (join lr v r)))
-             
+
              ((> rh (the fixnum (+ 2 lh)))
               (bal (join l v rl) rv rr))
-             
+
              (t (create l v r lh rh))
              ))))
 
@@ -291,7 +291,7 @@ THE SOFTWARE.
 ;; i.e., remove the leftmost node
 
 (defmethod remove-min-elt ((tree empty))
-  (not-found))
+  tree)
 
 (defmethod remove-min-elt ((tree node))
   ;; execute with S(Log2(N))
@@ -329,7 +329,7 @@ THE SOFTWARE.
 ;; also useful for priority-queues
 
 (defmethod remove-max-elt ((tree empty))
-  (not-found))
+  tree)
 
 (defmethod remove-max-elt ((tree node))
   ;; execute with S(Log2(N))
@@ -428,7 +428,7 @@ THE SOFTWARE.
                    (t  (with-list-bindings (l2 _ r2) (split s2 v1)
                          (join (union l1 l2) v1 (union r1 r2))))
                    ))
-            
+
             (t (cond ((= h1 1)  (add s2 v1))
                      (t  (with-list-bindings (l1 _ r1) (split s1 v2)
                            (join (union l1 l2) v2 (union r1 r2))))
@@ -535,13 +535,13 @@ THE SOFTWARE.
         (cond ((zerop c)
                (and (subset l1 l2)
                     (subset r1 r2)))
-              
+
               ((minusp c)
                (and (subset (make-instance 'node
                                  :l l1  :v v1)
                                 l2)
                     (subset r1 s2)))
-              
+
               (t (and (subset (make-instance 'node
                                    :v v1  :r r1)
                                   r2)
@@ -661,7 +661,7 @@ THE SOFTWARE.
 (capi:contain
  (make-instance 'capi:graph-pane
                 :roots (list xtt)
-                
+
                 :children-function (lambda (tree)
                                      (cond ((and (null (first tree))
                                                  (null (third tree)))
@@ -671,11 +671,11 @@ THE SOFTWARE.
 
                                            ((null (third tree))
                                             (list (first tree) (list nil #\x nil)))
-                                           
+
                                            (t (list (first tree)
                                                     (third tree)))
                                            ))
-                
+
                 :print-function (lambda (node)
                                   (format nil "~A" (second node)))
                 ))
@@ -695,7 +695,7 @@ THE SOFTWARE.
       (cond ((and (is-empty l)
                   (is-empty r))
              nil)
-            (t 
+            (t
              (case layout
                ((:left-right :right-left) (list rx lx))
                (t  (list lx rx))))
