@@ -271,19 +271,17 @@ THE SOFTWARE.
 
 ;; ------------------------------------------------------------------------
 
-(defun not-found ()
-  (error "Not found"))
-
 ;; min-elt -- return the value of the smallest element of the set
 ;; i.e., the value from the leftmost node
 
 (defmethod min-elt ((tree empty))
-  (not-found))
+  (values))
 
 (defmethod min-elt ((tree node))
+  ;; -> val, found-p
   ;; execute with S(1)
   (with-node-bindings (l v) tree
-    (cond ((is-empty l)  v)
+    (cond ((is-empty l)  (values v t))
           (t             (min-elt l))
           )))
 
@@ -316,12 +314,13 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------------
 
 (defmethod max-elt ((tree empty))
-  (not-found))
+  (values))
 
 (defmethod max-elt ((tree node))
+  ;; -> val, found-p
   ;; execute with S(1)
   (with-node-bindings (_ v r) tree
-    (cond ((is-empty r)  v)
+    (cond ((is-empty r)  (values v t))
           (t             (max-elt r))
           )))
 

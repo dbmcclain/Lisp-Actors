@@ -611,8 +611,6 @@ THE SOFTWARE.
    #:choose
    #:view-set
 
-   #:not-found
-
    ;; privately exported for derivative packages
    #:with-node-bindings
    #:with-list-bindings
