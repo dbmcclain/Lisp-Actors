@@ -29,7 +29,8 @@ THE SOFTWARE.
 
 ;; --------------------------------------------
 
-(defstruct map-cell
+(defstruct (map-cell
+            (:constructor map-cell (key val)))
   key val)
 
 (defmethod ord:compare ((a map-cell) (b map-cell))
@@ -51,9 +52,7 @@ THE SOFTWARE.
 (defmethod add ((map tree) key val &key (replace t))
   (sets:with-replacement-p replace
     (sets:add map
-              (make-map-cell
-               :key key
-               :val val))
+              (map-cell key val))
     ))
 
 (define-modify-macro addf (key value &rest args)

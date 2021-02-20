@@ -635,7 +635,6 @@ THE SOFTWARE.
   (:shadowing-import-from #:sets #:equal #:remove #:union #:intersection)
   (:export
    #:map-cell
-   #:make-map-cell
    #:map-cell-key
    #:map-cell-val
    #:empty
