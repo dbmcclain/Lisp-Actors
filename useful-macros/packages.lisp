@@ -1025,6 +1025,8 @@ THE SOFTWARE.
 
    :convert-int-to-wordlist
    :convert-wordlist-to-int
+
+   :cx-dspec-def
    ))
 
 #|

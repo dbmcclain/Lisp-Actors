@@ -120,12 +120,19 @@ THE SOFTWARE.
 ;; Syntax is (DEFMONITOR name bindings [[decl* | doc]] form*)
 ;; ----------------------------------------------------------------------
 
+(defmacro um:cx-dspec-def (dspec &body body)
+  (declare (ignoreable dspec))
+  #+:LISPWORKS
+  `(dspec:def ,dspec ,@body)
+  #-:LISPWORKS
+  `(progn ,@body))
+
 (defmacro defmonitor (&whole whole name bindings &body body)
   (multiple-value-bind (forms decls docstr)
       (um:parse-body body :documentation t :whole whole)
     (let* ((vars  (mapcar 'car bindings))
            (vals  (mapcar 'cadr bindings)))
-      `(dspec:def (defmonitor ,name)
+      `(um:cx-dspec-def (defmonitor ,name)
          (defvar ,name (make-mon-parms
                         :lock     (mp:make-lock :sharing t)
                         :bindings ,(when bindings `(vector ,@vals)))
