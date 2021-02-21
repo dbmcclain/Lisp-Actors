@@ -5,11 +5,13 @@
 
 (in-package :cl)
 
+#|
 (defmacro λ (&body body)
   `(lambda ,@body))
 
 (defmacro λ* (&body body)
   `(lambda* ,@body))
+|#
 
 ;; Scheme did some things right...
 (defmacro define (item &body body)
@@ -37,12 +39,12 @@
   (editor:setup-indent "define-generic" 1)
   (editor:setup-indent "define-method" 1))
 
-(export '(λ
+(export '(;; λ
           define
           define-macro
           define-generic
           define-method
-          λ*
+          ;; λ*
           lambda*
           define*
           defun*

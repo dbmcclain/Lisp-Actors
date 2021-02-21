@@ -209,7 +209,7 @@ THE SOFTWARE.
                       ;; in zero case - to support maps (see below)
                       ;; ensure that new map value is substituted for old
                       ;; value - use x instead of v for value field of result.
-                      (if (funcall *replace-p* v)
+                      (if (funcall *replace-p* v x)
                           (make-instance 'node
                                          :l l :v x :r r :h h)
                         tree))

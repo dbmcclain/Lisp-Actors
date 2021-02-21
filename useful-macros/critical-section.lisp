@@ -121,7 +121,7 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------------
 
 (defmacro um:cx-dspec-def (dspec &body body)
-  (declare (ignoreable dspec))
+  ;; (declare (ignorable dspec))
   #+:LISPWORKS
   `(dspec:def ,dspec ,@body)
   #-:LISPWORKS
@@ -155,6 +155,7 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (progn
+  (setf (get 'defmonitor 'editor::dwc-subparser) t)
   (editor:setup-indent "defmonitor" 2)
   (editor:setup-indent "with-exclusive-access" 1)
   (editor:setup-indent "with-shared-access" 1)

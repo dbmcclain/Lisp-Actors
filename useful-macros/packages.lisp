@@ -31,12 +31,12 @@ THE SOFTWARE.
    :lambda*
    :labels*
    :flet*
-   :λ*
+   ;; :λ*
    :define*)
   (:export
    :defun*
    :lambda*
-   :λ*
+   ;; :λ*
    :labels*
    :flet*
    :define*))
@@ -258,7 +258,7 @@ THE SOFTWARE.
   (:import-from #:xlambda
    #:defun*
    #:lambda*
-   #:λ*
+   ;; #:λ*
    #:labels*
    #:flet*)
   (:import-from #:timeout
@@ -981,7 +981,7 @@ THE SOFTWARE.
 
    :defun*
    :lambda*
-   :λ*
+   ;; :λ*
    :labels*
    :flet*
 

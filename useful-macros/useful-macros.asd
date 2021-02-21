@@ -32,6 +32,7 @@ THE SOFTWARE.
   	        #+:SBCL    (:file "sbcl-compat")
 		#+:ALLEGRO (:file "allegro-compat")
                 #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
+                ;; #+:LISPWORKS (:file "editor-extensions")
                 (:file "packages")
                 (:file "basic-useful")
                 ;; (:file "lambda-parsing")
@@ -100,6 +101,7 @@ THE SOFTWARE.
                 (:file "handlers")
                 (:file "defalias")
                 (:file "wordlist")
+                (:file "fixmes")
                 )
   :serial       t
   :depends-on   (#| "compiled-ml-matcher" |#
