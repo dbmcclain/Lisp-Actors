@@ -42,16 +42,16 @@
 
 (lw:defadvice (system::dump-object :transient :around)
     (obj fasl-out)
-  (handler-case
-      (lw:call-next-advice obj fasl-out)
-    (error (c)
-      (if *transient-protection*
-          (progn
-            (unless *warned*
-              (warn "Attempt to serialize a non-serializable object: ~S" obj)
-              (setf *warned* t))
-            (lw:call-next-advice :dummy fasl-out))
-        (error c)))))
+  (if *transient-protection*
+      (handler-case
+          (lw:call-next-advice obj fasl-out)
+        (error ()
+          (unless *warned*
+            (warn "Attempt to serialize a non-serializable object: ~S" obj)
+            (setf *warned* t))
+          (lw:call-next-advice :dummy fasl-out)))
+    ;; else
+    (lw:call-next-advice obj fasl-out)))
   
 (lw:defadvice (dspec:save-tags-database :rescue-deep-copies :around)
     (fasl-file)
