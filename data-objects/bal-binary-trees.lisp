@@ -65,7 +65,7 @@ THE SOFTWARE.
   ((is-empty :reader is-empty :allocation :class :initform t)
    (height   :reader height   :allocation :class :initform 0)))
 
-(defvar +empty+
+(defconstant +empty+
   (make-instance 'empty))
 
 (defun empty ()
