@@ -121,7 +121,7 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------------
 
 (defmacro um:cx-dspec-def (dspec &body body)
-  ;; (declare (ignorable dspec))
+  (declare (ignorable dspec))
   #+:LISPWORKS
   `(dspec:def ,dspec ,@body)
   #-:LISPWORKS
@@ -133,9 +133,12 @@ THE SOFTWARE.
     (let* ((vars  (mapcar 'car bindings))
            (vals  (mapcar 'cadr bindings)))
       `(um:cx-dspec-def (defmonitor ,name)
-         (defvar ,name (make-mon-parms
-                        :lock     (mp:make-lock :sharing t)
-                        :bindings ,(when bindings `(vector ,@vals)))
+         (#+:LISPWORKS hcl:defglobal-variable
+          #-:LISPWORKS defvar
+          ,name (load-time-value
+                 (make-mon-parms
+                  :lock     (mp:make-lock :sharing t)
+                  :bindings ,(when bindings `(vector ,@vals))))
            ,@docstr)
          (macrolet ((with-shared-access ((&optional timeout) &body body)
                       `(%with-shared-access ,',name ,timeout (lambda ()
@@ -155,7 +158,6 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (progn
-  (setf (get 'defmonitor 'editor::dwc-subparser) t)
   (editor:setup-indent "defmonitor" 2)
   (editor:setup-indent "with-exclusive-access" 1)
   (editor:setup-indent "with-shared-access" 1)
