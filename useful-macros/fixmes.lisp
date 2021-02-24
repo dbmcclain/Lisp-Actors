@@ -30,33 +30,33 @@
   (let ((*saving-tags* t))
     (lw:call-next-advice pathname)))
 
-(defgeneric eql-spec-needs-proxy-p (obj)
+(defun needs-proxy-p (x)
+  ;; objects which may pose risks to serialization
+  (or (functionp x)
+      (streamp x)
+      (typep x 'standard-object)
+      (typep x 'structure-object)
+      (typep x 'array)
+      (typep x 'clos::system-object)))
+
+(defun not-needs-proxy-p (x)
+  ;; objects which can serialize without risk
+  (or (pathnamep x)
+      (typep x 'uuid:uuid)))
+
+(defgeneric scrub (obj)
   (:method (obj)
-   nil)
-  (:method ((obj function))
-   t)
-  (:method ((obj stream))
-   t)
-  (:method ((obj uuid:uuid))
-   nil)
-  (:method ((obj standard-object))
-   t)
-  (:method ((obj pathname))
-   nil)
-  (:method ((obj structure-object))
-   t)
-  (:method ((obj array))
-   t)
-  (:method ((obj clos::system-object))
-   t))
+   (cond
+    ((not-needs-proxy-p obj)  obj)
+    ((needs-proxy-p obj)      (gensym (format nil "~A-"
+                                              (class-name
+                                               (class-of obj))))) 
+    (t                        obj)
+    ))
+  (:method ((obj string))
+   obj))
 
 (defvar *allow-hash-tables* t)
-
-(defmethod scrub (obj)
-  (if (eql-spec-needs-proxy-p obj)
-      (gensym (format nil "~A-"
-                      (class-name (class-of obj))))
-    obj))
 
 (defmethod scrub ((obj hash-table))
   (if *allow-hash-tables*
@@ -70,16 +70,20 @@
             obj)
         (needs-new-table (start-k new-v)
           (let ((new-tbl (make-hash-table
-                          :test (hash-table-test obj))))
+                          :test (hash-table-test obj)))
+                (state :early))
             (maphash (lambda (k v)
                        (setf (gethash k new-tbl)
-                             (cond
-                              ((eql k start-k)
-                               (setf start-k nil)
-                               new-v)
-                              (start-k  v)
-                              (t        (scrub v))
-                              )))
+                             (case state
+                               ((:early)
+                                (if (eql k start-k)
+                                    (progn
+                                      (setf state :late)
+                                      new-v)
+                                  v))
+                               ((:late)
+                                (scrub v))
+                               )))
                      obj)
             new-tbl)))
     ;; else
@@ -108,31 +112,31 @@
 (defmethod scrub ((obj cons))
   ;; functionally pure scrubber replacing EQL specializers that
   ;; cannot be meaningfully serialized without risk.
+  ;; Warning: obj may be a dotted pair
   (destructuring-bind (hd . tl) obj
-    (cond ((and (eq 'eql hd)
-                (consp tl)
-                (null (cdr tl)))
-           (let* ((arg     (car tl))
-                  (*allow-hash-tables* nil)
-                  (new-arg (scrub arg)))
-             (if (eq arg new-arg)
-                 obj
-               (list 'eql new-arg))
-             ))
-          
-          (t
-           (let ((new-hd (scrub hd))
-                 (new-tl (scrub tl)))
-             (if (and (eq hd new-hd)
-                      (eq tl new-tl))
-                 obj
-               (cons new-hd new-tl))))
-          )))
+    (if (and (eq 'eql hd)
+             (consp tl)
+             (null (cdr tl)))
+        (let* ((arg  (car tl))
+               (*allow-hash-tables* nil)
+               (new-arg (scrub arg)))
+          (if (eq arg new-arg)
+              obj
+            (list 'eql new-arg)))
+      ;; else
+      (let ((new-hd (scrub hd)))
+        (if (eq hd new-hd)
+            (let ((new-tl (scrub tl)))
+              (if (eq tl new-tl)
+                  obj
+                (cons hd new-tl)))
+          ;; else
+          (cons new-hd (scrub tl)))
+        ))))
 
 (lw:defadvice (dump-forms-to-file :filter-dspec-methods :around)
     (pathname forms &rest args)
   (when *saving-tags*
-    ;; (setf *the-forms* forms)
     (setf forms (scrub forms)))
   (apply #'lw:call-next-advice pathname forms args))
 
