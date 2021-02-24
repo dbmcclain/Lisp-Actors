@@ -20,8 +20,27 @@
 ;; Sometimes those composite objects may contain a function, which is
 ;; not serializable, and will cause the save operation to bomb out.
 ;;
+;; The following Advice on DSPEC allows it to safely save a tags
+;; database, without incident, and later read it back in. No
+;; information is discarded. If an EQL arg cannot be safely serialized
+;; then a unique proxy symbol is created in package
+;; DSPEC/UNSERIALIZED, that symbol is serialized by name, and its
+;; symbol value is set to the original arg value. The symbol name
+;; reflects the class of the arg.
+;;
+;; Repeated saving of the tags database reuse the same proxy symbols
+;; for the same EQL arg objects.
+;;
+;; If a session is saved after having saved the tags database, then on
+;; later readback of the tags, the information in them will be valid.
+;;
+;; But if you don't save the session after saving the tags database,
+;; then on later readback, those proxy symbols will be unbound. It
+;; becomes up to the user whether or not information is discarded.
+;;
 ;; --------------------------------------------------------------------------
-;; Try to prevent DSPEC from saving risky compound EQL method specializers
+;; Try to prevent DSPEC from saving risky compound EQL Method
+;; Specializers
 
 (defpackage :dspec/unserialized)
 
