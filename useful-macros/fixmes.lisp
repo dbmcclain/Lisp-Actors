@@ -23,6 +23,11 @@
 ;; --------------------------------------------------------------------------
 ;; Try to prevent DSPEC from saving risky compound EQL method specializers
 
+(defpackage :dspec/unserialized)
+
+(defvar *unserialized* (make-hash-table
+                        :test #'eql))
+
 (defvar *saving-tags* nil)
 
 (lw:defadvice (dspec:save-tags-database :ensure-safe-serializing :around)
@@ -44,13 +49,21 @@
   (or (pathnamep x)
       (typep x 'uuid:uuid)))
 
+(defun lookup-unserialized-symbol (obj)
+  (or (gethash obj *unserialized*)
+      (let ((sym (intern (string (gensym (format nil "~A-"
+                                         (class-name
+                                          (class-of obj)))))
+                         :dspec/unserialized)))
+        (export sym :dspec/unserialized)
+        (setf (symbol-value sym) obj
+              (gethash obj *unserialized*) sym))))
+
 (defgeneric scrub (obj)
   (:method (obj)
    (cond
     ((not-needs-proxy-p obj)  obj)
-    ((needs-proxy-p obj)      (gensym (format nil "~A-"
-                                              (class-name
-                                               (class-of obj))))) 
+    ((needs-proxy-p obj)     (lookup-unserialized-symbol obj))
     (t                        obj)
     ))
   (:method ((obj string))
@@ -146,10 +159,10 @@
 
 (defmethod tst (x)
   (print x))
-(defmethod tst ((x (eql #'tst)))
+(defmethod tst ((x (eql 'tst)))
   (print :yes!))
 (tst 51)
-(tst #'tst)
+(tst 'tst)
  |#
 
 
