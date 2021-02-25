@@ -96,8 +96,7 @@
 (defun =cont (fn)
   (let ((dyn-env (capture-dynamic-environment)))
     (lambda (&rest args)
-      (trampoline #'(lambda ()
-                      (apply #'call-with-dynamic-environment dyn-env fn args))))
+      (apply #'trampoline #'call-with-dynamic-environment dyn-env fn args))
     ))
 
 ;; -------------------------------------------
