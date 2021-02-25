@@ -7,15 +7,15 @@
 ;; ------------------------------------------------------------------
 ;; Trampoline and Thunks... for simulated CPS
 
-(aop:defdynfun trampoline (fn &rest args)
-  (block tramp
-    (aop:dflet ((trampoline (newfn &rest newargs)
+(aop:defdynfun #1=trampoline (fn &rest args)
+  (block #1#
+    (aop:dflet ((#1# (newfn &rest newargs)
                   (setq fn   newfn
                         args newargs)
-                  (throw 'trampoline nil)))
+                  (throw '#1# nil)))
       (loop
-       (catch 'trampoline
-         (return-from tramp (apply fn args))))
+       (catch '#1#
+         (return-from #1# (apply fn args))))
       )))
 
 (defun once-only (fn)
