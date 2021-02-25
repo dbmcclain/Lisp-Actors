@@ -9,18 +9,14 @@
 
 (aop:defdynfun trampoline (fn &rest args)
   (block tramp
-    (aop:dflet ((trampoline (fn &rest args)
-                  (invoke-restart 'trampoline fn args)))
-      (tagbody
-       again
-       (restart-case
-           (return-from tramp (apply fn args))
-         
-         (trampoline (newfn newargs)
-           (setf fn   newfn
-                 args newargs)
-           (go again))
-         )))))
+    (aop:dflet ((trampoline (newfn &rest newargs)
+                  (setq fn   newfn
+                        args newargs)
+                  (throw 'trampoline nil)))
+      (loop
+       (catch 'trampoline
+         (return-from tramp (apply fn args))))
+      )))
 
 (defun once-only (fn)
   (lambda (&rest args)
