@@ -1027,6 +1027,10 @@ THE SOFTWARE.
    :convert-wordlist-to-int
 
    :cx-dspec-def
+
+   :with-fwd
+   :call-fwd
+   :apply-fwd
    ))
 
 #|

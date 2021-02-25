@@ -101,6 +101,7 @@ THE SOFTWARE.
                 (:file "handlers")
                 (:file "defalias")
                 (:file "wordlist")
+                (:file "call-fwd")
                 (:file "fixmes")
                 )
   :serial       t

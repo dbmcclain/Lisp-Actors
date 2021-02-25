@@ -1,62 +1,60 @@
 
-(in-package :cl-user)
+(in-package #:cl-user)
 
-(defpackage :cps
-  (:use :cl)
-  (:import-from :alexandria
-   :parse-ordinary-lambda-list)
-  (:import-from :useful-macros
-   :symb
-   :if-let
-   :when-let
-   :split
-   :lambda*
-   :defun*
-   :labels*
-   :flet*
-   :nlet
-   :nlet-tail)
+(defpackage #:cps
+  (:use #:cl)
+  (:import-from #:alexandria
+   #:parse-ordinary-lambda-list)
+  (:import-from #:useful-macros
+   #:symb
+   #:if-let
+   #:when-let
+   #:split
+   #:lambda*
+   #:defun*
+   #:labels*
+   #:flet*
+   #:nlet)
   (:export
-   :=bind
-   :=future
-   :=values
-   :=defun
-   :=defgeneric
-   :=defmethod
-   :=labels
-   :=flet
-   :=lambda
-   :=funcall
-   :=apply
-   :with-cont
+   #:=bind
+   #:=future
+   #:=values
+   #:=defun
+   #:=defgeneric
+   #:=defmethod
+   #:=labels
+   #:=flet
+   #:=lambda
+   #:=funcall
+   #:=apply
+   #:with-cont
    
-   :=bind-cont
-   :=wait-cont
-   :=wait
+   #:=bind-cont
+   #:=wait-cont
+   #:=wait
 
-   :=nlet
-   :=nlet-tail
+   #:=nlet
+   #:=nlet-tail
 
-   :prep-wait
-   :do-wait
+   #:prep-wait
+   #:do-wait
 
-   :=tlet
-   :thunk
-   :trampoline
-   :=cont
-   :=cont1
-   :with-cps
-   :once-only
-   :=handler-bind
-   :=handler-case
-   :=catch
-   :=restart-case
-   :=restart-bind
-   :=with-simple-restart
-   :=ignore-errors
-   :=handler-bind*
-   :=handler-case*
-   :=handler-bind-case
-   :=unwind-protect
+   #:=tlet
+   #:trampoline
+   #:=cont
+   #:=cont1
+   #:with-cps
+   #:once-only
+   #:=handler-bind
+   #:=handler-case
+   #:=catch
+   #:=restart-case
+   #:=restart-bind
+   #:=with-simple-restart
+   #:=ignore-errors
+   #:=handler-bind*
+   #:=handler-case*
+   #:=handler-bind-case
+   #:=unwind-protect
    ))
 

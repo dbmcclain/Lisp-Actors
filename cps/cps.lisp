@@ -7,37 +7,25 @@
 ;; ------------------------------------------------------------------
 ;; Trampoline and Thunks... for simulated CPS
 
-(defstruct thunk
-  fn)
-
-(defmacro thunk (&body body)
-  `(make-thunk
-    :fn (lambda ()
-          ,@body)))
-
-(defvar *in-trampoline* nil)
-
-(defun trampoline (fn &rest args)
-  (let ((*in-trampoline* t))
-    (nlet iter ((c  (catch 'tramp
-                      (apply fn args))))
-      (if (thunk-p c)
-          (go-iter (catch 'tramp
-                     (funcall (thunk-fn c))))
-        ;; else
-        c)
-      )))
+(aop:defdynfun trampoline (fn &rest args)
+  (block tramp
+    (aop:dflet ((trampoline (fn &rest args)
+                  (invoke-restart 'trampoline fn args)))
+      (tagbody
+       again
+       (restart-case
+           (return-from tramp (apply fn args))
+         
+         (trampoline (newfn newargs)
+           (setf fn   newfn
+                 args newargs)
+           (go again))
+         )))))
 
 (defun once-only (fn)
-  ;; continuations are one-shot
   (lambda (&rest args)
-    (if *in-trampoline*
-        (throw 'tramp
-               (thunk
-                 (apply fn args)))
-      (when fn
-        (apply (shiftf fn nil) args))
-      )))
+    (when fn
+      (apply (shiftf fn nil) args))))
 
 (defun =cont1 (fn)
   ;; A one-time continuation - avoids problems with multiple =VALUES
@@ -315,9 +303,11 @@
   (let ((=name  (get=sym name))
         (g!args (gensym)))
     `(macrolet ((,name (&rest ,g!args)
-                  `(thunk (,',=name %sk ,@,g!args))))
+                  `(trampoline #',',=name %sk ,@,g!args)))
        (labels ((,=name ,(cons '%sk (mapcar 'car bindings)) ,@body))
-         (trampoline #',=name #'values ,@(mapcar 'cadr bindings))))
+         (let ((%sk #'values))
+           (,name ,@(mapcar #'cadr bindings)))
+         ))
     ))
 
 ;; ------------------------------------------------------------------------

@@ -573,7 +573,6 @@ THE SOFTWARE.
    #:=values
    #:=bind
    #:=nlet
-   #:thunk
    #:=tlet
    #:trampoline)
   (:export

@@ -387,9 +387,9 @@ storage and network transmission.
   (:method ((entry vector))
    (recover-key entry))
   (:method ((entry maps:map-cell))
-   (maps:make-map-cell
-    :key (recover-key (maps:map-cell-key entry))
-    :val (maps:map-cell-val entry))))
+   (maps:map-cell
+    (recover-key (maps:map-cell-key entry))
+    (maps:map-cell-val entry))))
 
 (defun view-set (set)
   (sets:view-set set

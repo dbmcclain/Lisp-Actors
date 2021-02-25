@@ -96,8 +96,10 @@
 (defun =cont (fn)
   (let ((dyn-env (capture-dynamic-environment)))
     (lambda (&rest args)
-      (with-dynamic-environment (dyn-env)
-        (apply fn args)))))
+      (trampoline #'(lambda ()
+                      (with-dynamic-environment (dyn-env)
+                        (apply fn args)))))
+    ))
 
 ;; -------------------------------------------
 #+:LISPWORKS
