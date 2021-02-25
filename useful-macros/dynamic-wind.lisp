@@ -15,11 +15,11 @@
   (make-dynamic-environment (reverse *dynamic-wind-stack*)))
 
 (defmacro dynamic-wind (&body body)
-  (lw:with-unique-names (wrapper-fn thunk proceed-body)
-    `(flet ((,wrapper-fn (,thunk)
+  (lw:with-unique-names (wrapper-fn fn args proceed-body)
+    `(flet ((,wrapper-fn (,fn &rest ,args)
               (macrolet ((proceed (&body ,proceed-body)
-                           `(if ,',thunk
-                                (funcall ,',thunk)
+                           `(if ,',fn
+                                (apply ,',fn ,',args)
                               (progn
                                 ,@,proceed-body))))
                 ,@body)))
@@ -27,7 +27,7 @@
          (,wrapper-fn nil)))
     ))
 
-(defun call-with-dynamic-environment (env thunk)
+(defun call-with-dynamic-environment (env fn &rest args)
   (labels ((wrap-env (env)
              (if env
                  (let* ((wrapper-fn (first env))
@@ -35,7 +35,7 @@
                    (funcall wrapper-fn (lambda ()
                                          (wrap-env (rest env)))))
                ;; else
-               (funcall thunk))))
+               (apply fn args))))
     (with-slots (wrapper-fns) env
       (wrap-env wrapper-fns))))
 

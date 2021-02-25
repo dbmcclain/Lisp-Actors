@@ -9,7 +9,7 @@
   (import '(um:dynamic-wind
             um:proceed
             um:capture-dynamic-environment
-            um:with-dynamic-environment)))
+            um:call-with-dynamic-environment)))
 
 ;; -------------------------------------------------------
 ;; CPS Continuation Operators
@@ -97,8 +97,7 @@
   (let ((dyn-env (capture-dynamic-environment)))
     (lambda (&rest args)
       (trampoline #'(lambda ()
-                      (with-dynamic-environment (dyn-env)
-                        (apply fn args)))))
+                      (apply #'call-with-dynamic-environment dyn-env fn args))))
     ))
 
 ;; -------------------------------------------
