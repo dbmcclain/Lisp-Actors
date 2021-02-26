@@ -37,6 +37,5 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 )
   :SERIAL T
   :depends-on   ("useful-macros"
-                 "alexandria"
                  ))
 

@@ -246,14 +246,15 @@ THE SOFTWARE.
   (let ((mbox  (actor-mailbox actor))
         (busy  (actor-busy actor)))
     (unwind-protect
-        (um:nlet do-next-message ()
-          (when (eq t (car busy)) ;; not terminated?
-            (multiple-value-bind (msg ok)
-                (next-message mbox)
-              (when ok  ;; until no more messages waiting
-                (with-simple-restart (abort "Run same Actor with next message")
-                  (apply #'dispatch-message actor msg))
-                (go-do-next-message)))))
+        (tagbody
+         again
+         (when (eq t (car busy)) ;; not terminated?
+           (multiple-value-bind (msg ok)
+               (next-message mbox)
+             (when ok  ;; until no more messages waiting
+               (with-simple-restart (abort "Run same Actor with next message")
+                 (apply #'dispatch-message msg))
+               (go again)))))
       ;; unwind clause
       (maybe-add-to-ready-queue actor))
     ))
@@ -335,39 +336,39 @@ THE SOFTWARE.
 
 ;; ---------------------------------------------------------
 
-(defgeneric dispatch-message (obj &rest msg)
-  (:method ((obj actor) &rest *whole-message*)
-   (um:dcase *whole-message*
-     (actor-internal-message:continuation (fn &rest args)
-        ;; Used for callbacks into the Actor
-        (apply fn args))
-     
-     (actor-internal-message:send-sync (reply-to &rest sub-message)
-        (send reply-to t)
-        (apply #'self-call sub-message))
-     
-     (actor-internal-message:ask (reply-to &rest sub-msg)
-        ;; Intercept restartable queries to send back a response
-        ;; from the following message, reflecting any errors back to
-        ;; the caller.
-        (let ((original-ask-message *whole-message*))
-          (dynamic-wind
-            (let ((*whole-message* original-ask-message)
-                  (*in-ask*        t))
-              (handler-case
-                  (send reply-to
-                        (capture-ans-or-exn
-                          (um:proceed
-                           (apply #'self-call sub-msg))))
-                
-                (no-immediate-answer ())
-                )))))
-     
-     (t (&rest msg)
-        ;; anything else is up to the programmer who constructed
-        ;; this Actor
-        (apply #'self-call msg))
-     )))
+(defun dispatch-message (&rest *whole-message*)
+  (with-trampoline
+    (um:dcase *whole-message*
+      (actor-internal-message:continuation (fn &rest args)
+                                           ;; Used for callbacks into the Actor
+                                           (apply fn args))
+      
+      (actor-internal-message:send-sync (reply-to &rest sub-message)
+                                        (send reply-to t)
+                                        (apply #'self-call sub-message))
+      
+      (actor-internal-message:ask (reply-to &rest sub-msg)
+                                  ;; Intercept restartable queries to send back a response
+                                  ;; from the following message, reflecting any errors back to
+                                  ;; the caller.
+                                  (let ((original-ask-message *whole-message*))
+                                    (dynamic-wind
+                                      (let ((*whole-message* original-ask-message)
+                                            (*in-ask*        t))
+                                        (handler-case
+                                            (send reply-to
+                                                  (capture-ans-or-exn
+                                                    (um:proceed
+                                                     (apply #'self-call sub-msg))))
+                                          
+                                          (no-immediate-answer ())
+                                          )))))
+      
+      (t (&rest msg)
+         ;; anything else is up to the programmer who constructed
+         ;; this Actor
+         (apply #'self-call msg))
+      )))
 
 ;; ---------------------------------------------
 ;; SPAWN a new Actor on a function with args

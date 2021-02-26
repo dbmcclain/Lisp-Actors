@@ -5,28 +5,47 @@
 (define-symbol-macro =wait-cont %sk)
 
 ;; ------------------------------------------------------------------
-;; Trampoline and Thunks... for simulated CPS
+;; Trampoline and Continuations... for simulated CPS
 
-(aop:defdynfun #1=trampoline (fn &rest args)
-  (block #1#
-    (aop:dflet ((#1# (newfn &rest newargs)
-                  (setq fn   newfn
-                        args newargs)
-                  (throw '#1# nil)))
-      (loop
-       (catch '#1#
-         (return-from #1# (apply fn args))))
-      )))
+(defclass cont ()
+  ()
+  (:metaclass clos:funcallable-standard-class))
 
-(defun once-only (fn)
-  (lambda (&rest args)
-    (when fn
-      (apply (shiftf fn nil) args))))
+(defmethod initialize-instance :after ((c cont) &key fn &allow-other-keys)
+  (clos:set-funcallable-instance-function c
+                                          (lambda (&rest args)
+                                            (apply #'trampoline fn args))))
 
-(defun =cont1 (fn)
-  ;; A one-time continuation - avoids problems with multiple =VALUES
-  ;; executions. Only first one will count.
-  (once-only (=cont fn)))
+(defun cont (fn)
+  (make-instance 'cont :fn fn))
+
+(define-condition no-trampoline (error)
+  ()
+  (:report "No trampoline installed"))
+
+(aop:defdynfun trampoline (fn &rest args)
+  (declare (ignore fn args))
+  (error 'no-trampoline))
+
+(defmacro with-trampoline (&body body)
+  `(do-with-trampoline (lambda () ,@body)))
+
+(aop:defdynfun do-with-trampoline (thunk)
+  (block trampoline
+    (let ((fn thunk)
+          args)
+      (aop:dflet ((do-with-trampoline (thunk)
+                    (trampoline thunk))
+                  (trampoline (new-fn &rest new-args)
+                    (setq fn   new-fn
+                          args new-args)
+                    (throw 'trampoline nil)))
+        (tagbody
+         again
+         (catch 'trampoline
+           (return-from trampoline (apply fn args)))
+         (go again))
+        ))))
 
 ;; ----------------------------------------------------
 
@@ -186,11 +205,11 @@
 (defmacro with-cps (&body body)
   ;; use around CPS code when the continuation %SK has already been
   ;; bound
-  `(trampoline (lambda () ,@body)))
+  `(with-trampoline ,@body))
 
 (defmacro with-cont (&body body)
   ;; for top level calling of CPS functions
-  `(let ((%sk #'values))
+  `(let ((%sk (cont #'values)))
      (declare (ignorable %sk))
      (with-cps ,@body)))
 
@@ -204,7 +223,7 @@
 
 (defmacro =bind (args expr &body body)
   ;; It is expected that =BIND will always be used in tail position.
-  `(let ((%sk (=cont1 (lambda* ,args ,@body))))
+  `(let ((%sk (=cont (lambda* ,args ,@body))))
      ;; expr should return via =values
      ;; continuation will fire only one time
      ,expr))
@@ -226,8 +245,8 @@
 
 (defun do-wait (timeout errorp on-timeout fn cont)
   (let ((mbox  (mp:make-mailbox :size 1)))
-    (trampoline fn (lambda (&rest args)
-                     (mp:mailbox-send mbox args)))
+    (funcall fn (lambda (&rest args)
+                  (mp:mailbox-send mbox args)))
     (multiple-value-bind (ans ok)
         (mp:mailbox-read mbox "In =WAIT" timeout)
       (if ok
@@ -240,13 +259,14 @@
     ))
 
 (defun prep-wait (do-fn args timeout errorp on-timeout expr body)
-  `(,do-fn ,timeout ,errorp ,(if on-timeout
-				 `(lambda ()
-				    ,on-timeout))
-            (lambda (%sk)
-              ,expr)
-            (lambda* ,args
-              ,@body)))
+  `(,do-fn ,timeout ,errorp
+           ,(if on-timeout
+                `(lambda ()
+                   ,on-timeout))
+           (lambda (%sk)
+             ,expr)
+           (lambda* ,args
+             ,@body)))
 
 (defmacro =wait ((args &key (timeout 60) (errorp t) on-timeout) expr &body body)
   ;; a version of =bind with blocking wait
