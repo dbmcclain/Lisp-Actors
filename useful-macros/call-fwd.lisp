@@ -19,16 +19,13 @@
        (let (,vdest ,vargs)
          (tagbody
           (return-from ,gblk
-            (macrolet ((call-fwd (dest &rest args)
-                         `(progn
-                            (setf ,',vdest ,dest
-                                  ,',vargs (list ,@args))
-                            (go ,',gfwd)))
-                       (apply-fwd (dest &rest args)
+            (macrolet ((apply-fwd (dest &rest args)
                          `(progn
                             (setf ,',vdest ,dest
                                   ,',vargs (list* ,@args))
-                            (go ,',gfwd))))
+                            (go ,',gfwd)))
+                       (call-fwd (dest &rest args)
+                         `(apply-fwd ,dest ,@args nil)))
               ,@body))
           ,gfwd
           (apply ,vdest ,vargs))
