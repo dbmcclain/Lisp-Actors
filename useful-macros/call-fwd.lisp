@@ -21,7 +21,7 @@
           (return-from ,gblk
             (macrolet ((apply-fwd (,dest &rest ,args)
                          `(progn
-                            (setf ,',vdest ,,dest
+                            (setq ,',vdest ,,dest
                                   ,',vargs (list* ,@,args))
                             (go ,',gfwd)))
                        (call-fwd (,dest &rest ,args)
@@ -33,10 +33,9 @@
     ))
 
 #|
+;; should print :UNWIND followed by 15
 (with-fwd
   (unwind-protect
-      (progn
-        (doit)
-        (call-fwd #'thing 15))
+      (call-fwd #'print 15)
     (print :unwind)))  
 |#
