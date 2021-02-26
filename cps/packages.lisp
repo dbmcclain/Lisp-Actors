@@ -56,5 +56,7 @@
    #:=handler-case*
    #:=handler-bind-case
    #:=unwind-protect
+   #:=let
+   #:=let*
    ))
 

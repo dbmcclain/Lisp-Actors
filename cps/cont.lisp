@@ -90,6 +90,18 @@
          (proceed ,form)
        ,@exit-forms)))
 
+(defmacro =let (bindings &body body)
+  `(dynamic-wind
+     (let ,bindings
+       (proceed
+        ,@body))))
+
+(defmacro =let* (bindings &body body)
+  `(dynamic-wind
+     (let* ,bindings
+       (proceed
+        ,@body))))
+
 ;; -------------------------------------------
 ;; Turn a simple closure into a Continuation
 
