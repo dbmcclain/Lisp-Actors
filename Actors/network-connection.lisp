@@ -406,6 +406,7 @@
     (with-as-current-actor intf ;; for =cont
       (flet
           ((start-phase2 (cont p-key g-key salt bb)
+             ;; Called by server in response to request for crypto negotiation
              (socket-send intf 'actor-internal-message:srp-phase2 p-key g-key salt bb)
              (expect intf
                (actor-internal-message:srp-phase2-reply (aa m1)
@@ -413,6 +414,7 @@
                ))
            
            (phase2-reply (cont aa m1)
+             ;; Called by client after receiving server ack on crypto renegotiation
              (socket-send intf 'actor-internal-message:srp-phase2-reply aa m1)
              (expect intf
                (actor-internal-message:srp-phase3 (m2)
@@ -420,9 +422,13 @@
                ))
            
            (start-phase3 (m2 final-fn)
+             ;; sent by server as last message sent under old crypto during crypto negotiation
+             ;; encrypt, set new crypto, then send - to avoid race conditions
              (let ((enc (secure-encoding crypto `(actor-internal-message:srp-phase3 ,m2))))
-               (write-message writer enc)
-               (funcall final-fn))))
+               ;; init new crypto for incoming messages
+               (funcall final-fn)
+               ;; send old-encr message
+               (write-message writer enc))))
         
         (setf srp-ph2-begin (=cont #'start-phase2)
               srp-ph2-reply (=cont #'phase2-reply)

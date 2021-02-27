@@ -981,24 +981,22 @@ Checks:
                   (funcall (intf-srp-ph2-reply intf) =wait-cont aa m1)
                 ;; Phase 3: receive M2
                 ;; Compute: Chk2  = H32(A,M1,S), check Chk2 = M2
-                ;;          Key   = H32(S)    ;; H16(S)
-                ;;          InitV = H32(M2,S) ;; H16(M2,S)
+                ;;          Key   = H32(S) 
+                ;;          InitV = H32(M2,S)
                 ;; Init crypto with Key, InitV
                 (let* ((chk2      (hash32 aa m1 s))
-                       (key-in    (hash32 #|hash16|# aa s bb))
-                       (key-out   (hash32 #|hash16|# bb s aa))
-                       (his-initv (hash32 #|hash16|# m1 s))
-                       (my-initv  (hash32 #|hash16|# m2 s)))
+                       (key-in    (hash32 aa s bb))
+                       (key-out   (hash32 bb s aa))
+                       (his-initv (hash32 m1 s))
+                       (my-initv  (hash32 m2 s)))
                   
                   (unless (equalp chk2 m2)
                     (signature-mismatch-error))
                   
                   (init-crypto-for-hmac   crypto his-initv my-initv)
-                  #| |#
                   (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
                   (init-crypto-for-output crypto key-out (subseq my-initv 0 16))
                   (init-crypto-for-renegotiation crypto s)
-                  #| |#
                   ))
               )))))
     ))
@@ -1150,10 +1148,10 @@ Checks:
                                   b))
                    (chk1      (hash32 aa bb s))
                    (m2        (hash32 aa m1 s))
-                   (key-in    (hash32 #|hash16|# bb s aa))
-                   (key-out   (hash32 #|hash16|# aa s bb))
-                   (his-initv (hash32 #|hash16|# m2 s))
-                   (my-initv  (hash32 #|hash16|# m1 s)))
+                   (key-in    (hash32 bb s aa))
+                   (key-out   (hash32 aa s bb))
+                   (his-initv (hash32 m2 s))
+                   (my-initv  (hash32 m1 s)))
               
               (when (zerop u)
                 (error "Invalid public key A"))
@@ -1163,11 +1161,9 @@ Checks:
               (funcall (intf-srp-ph3-begin intf) m2
                       (lambda ()
                         (init-crypto-for-hmac   crypto my-initv his-initv)
-                        #| |#
                         (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
                         (init-crypto-for-output crypto key-out (subseq my-initv 0 16))
                         (init-crypto-for-renegotiation crypto s)
-                        #| |#
                         ))
               ))
           )))))
