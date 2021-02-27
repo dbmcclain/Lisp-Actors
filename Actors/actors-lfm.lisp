@@ -417,7 +417,7 @@
 ;; --------------------------------------------------------------------------
 ;; User API
 
-(defclass lfm (actor)
+(define-actor-class lfm ()
   ((log-file    :accessor lfm-log-file    :initarg :log-file)
    (nlogfiles   :accessor lfm-nlogfiles   :initarg :nlogfiles)
    (bg-logging  :accessor lfm-bg-logging  :initarg :bg-logging)

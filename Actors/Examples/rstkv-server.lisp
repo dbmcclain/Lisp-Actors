@@ -97,7 +97,8 @@ storage and network transmission.
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import '(um:dlambda*
             um:when-let
-            
+
+            ac:define-actor-class
             ac:actor
             ac:with-as-current-actor
             ac:become
@@ -114,7 +115,7 @@ storage and network transmission.
 
             )))
 
-(defclass stkv-server (actor)
+(define-actor-class stkv-server ()
   ((main-table :initform (make-main-table))
    (path       :initarg  :path)
    sync)

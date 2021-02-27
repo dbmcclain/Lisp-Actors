@@ -1,7 +1,7 @@
 
 (in-package :actors)
 
-(defclass reactor (actor)
+(define-actor-class reactor ()
   ((table  :reader reactor-table  :initform (make-hash-table))
    ))
 

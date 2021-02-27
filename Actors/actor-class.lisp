@@ -44,7 +44,7 @@
   `(let ((*current-actor* ,actor))
      ,@body))
 
-(defclass hoare-monitor (actor)
+(define-actor-class hoare-monitor ()
   ())
 
 #+:LISPWORKS
@@ -53,7 +53,7 @@
   (editor:setup-indent "inject-into-actor" 1)
   (editor:setup-indent "with-as-current-actor" 1))
 
-(defclass printer (actor)
+(define-actor-class printer ()
   ())
 
 (defvar *printer* (make-instance 'printer))

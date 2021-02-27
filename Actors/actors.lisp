@@ -127,7 +127,15 @@ THE SOFTWARE.
 ;; Version 3... make the Actor's internal state more readily visible
 ;; to debuggers. Use a CLOS object instead of closed over lambda vars.
 
-(defclass <runnable> ()
+(defmacro define-actor-class (name superclasses slots &rest options)
+  `(defclass ,name ,(cond
+                     ((equalp superclasses '(t)) nil)
+                     ((null superclasses)        '(actor))
+                     (t                          superclasses))
+     ,slots ,@options
+     (:metaclass clos:funcallable-standard-class)))
+
+(define-actor-class <runnable> (t)
   ((busy
     ;; when non-nil this Actor is either already enqueued for running,
     ;; or is running. We use a CONS cell for the flag for SMP CAS
@@ -139,7 +147,7 @@ THE SOFTWARE.
    :busy  (list nil)
    ))
 
-(defclass worker (<runnable>)
+(define-actor-class worker (<runnable>)
   ((wrapper
     ;; contains a list whose CAR is a function and whose CDR is a list
     ;; of args, or contains NIL when nullified by terminate-actor
@@ -149,7 +157,7 @@ THE SOFTWARE.
    :wrapper (list 'lw:do-nothing)
    ))
 
-(defclass actor (<runnable>)
+(define-actor-class actor (<runnable>)
   ((properties-ref
     ;; globally visible properties on this Actor. SMP-safe methods are
     ;; provided for getting / setting
@@ -170,16 +178,16 @@ THE SOFTWARE.
    :user-fn        #'funcall
    ))
 
-(defclass limited-actor (actor)
+(define-actor-class limited-actor (actor)
   ((mbox
     :reader   actor-mailbox
     :initform (make-instance 'limited-actor-mailbox))
    ))
 
-(defclass actor-as-worker (worker actor)
+(define-actor-class actor-as-worker (worker actor)
   ())
 
-(defclass limited-actor-as-worker (worker limited-actor)
+(define-actor-class limited-actor-as-worker (worker limited-actor)
   ())
 
 ;; -----------------------------------------------------
@@ -187,7 +195,12 @@ THE SOFTWARE.
 
 (defmethod initialize-instance :after ((actor actor) &key properties &allow-other-keys)
   (um:wr (slot-value actor 'properties-ref)
-         (maps:add-plist (maps:empty) properties)))
+         (maps:add-plist (maps:empty) properties))
+  (clos:set-funcallable-instance-function actor
+                                          (lambda (&rest args)
+                                            (if (eq actor (current-actor))
+                                                (apply #'self-call args)
+                                              (apply #'send actor args)))))
 
 (defun make-actor (&optional fn &key properties)
   (make-instance 'actor

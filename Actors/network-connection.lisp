@@ -130,7 +130,7 @@
 
 ;; -------------------------------------------------------------------------
 
-(defclass message-reader (actor)
+(define-actor-class message-reader ()
   ((crypto     :initarg :crypto)
    (dispatcher :initarg :dispatcher)
    (queue      :initform (make-queue))
@@ -221,7 +221,7 @@
 
 ;; -------------------------------------------------------------------------
 
-(defclass message-writer (actor)
+(define-actor-class message-writer ()
   ((io-state      :initarg :io-state)
    (io-running    :initarg :io-running)
    (decr-io-count :initarg :decr-io-count)))
@@ -256,7 +256,7 @@
 
 ;; -------------------------------------------------------------------------
 
-(defclass kill-timer (actor)
+(define-actor-class kill-timer ()
   (timer))
 
 (defmethod initialize-instance :after ((kt kill-timer) &key timer-fn &allow-other-keys)
@@ -278,7 +278,7 @@
 
 ;; ------------------------------------------------------------------------
 
-(defclass message-dispatcher (actor)
+(define-actor-class message-dispatcher ()
   ((accum      :initform (make-instance 'ubyte-streams:scatter-vector))
    (kill-timer :initarg :kill-timer)
    (intf       :initarg :intf)
@@ -343,7 +343,7 @@
 
 ;; ------------------------------------------------------------------------
 
-(defclass socket-interface (actor)
+(define-actor-class socket-interface ()
   ((title    :initarg :title)
    (io-state :initarg :io-state)
    (crypto   :initarg :crypto)

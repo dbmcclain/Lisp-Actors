@@ -57,6 +57,7 @@ THE SOFTWARE.
    #:call-with-dynamic-environment)
 
   (:export
+   #:define-actor-class
    #:send
    #:ask
    #:=ask

@@ -24,7 +24,7 @@
 
 ;; ---------------------------------------------------------------------------------
 
-(defclass actor-bridge (actor)
+(define-actor-class actor-bridge ()
   ((conts :accessor actor-bridge-conts :initform (maps:empty))
    (dests :accessor actor-bridge-dests :initform (maps:empty))
    ))
