@@ -332,16 +332,16 @@
     (ironclad:produce-digest dig)))
      
 (defun hash32 (&rest objs)
-  (hash-objects-to-digest :sha256 objs))
+  (hash-objects-to-digest :sha3/256 objs))
 
 (defun generate-hmac (key &rest data)
-  (let ((hmac (ironclad:make-hmac key :sha256)))
+  (let ((hmac (ironclad:make-hmac key :sha3/256)))
     (dolist (d data)
       (ironclad:update-hmac hmac (vector-of d)))
     (ironclad:hmac-digest hmac)))
 
 #|
-(let ((key (hash-objects-to-digest :sha256 '("this is a test"))))
+(let ((key (hash-objects-to-digest :sha3/256 '("this is a test"))))
   (loop repeat 1000 do
         (generate-hmac key "this is another test")))
  |#
@@ -356,7 +356,7 @@
   | prefix count (4 bytes BigEndian)   |    ;; count of data bytes, excluding itself and HMAC
   +------------------------------------+ 4
 
-  Data (beneath AES-256/CBC encryption):
+  Data (beneath AES-256/CTR encryption):
   +------------------------------------+ 0
   | Encoded Data (n-Bytes)             |   
   +------------------------------------+ n
@@ -365,7 +365,7 @@
 
   Authentication (unencrypted):
   +------------------------------------+ 0
-  | SHA256 HMAC (32 bytes)             |    ;; HMAC includes prefix count, sequence number, encrypted data
+  | SHA3/256 HMAC (32 bytes)           |    ;; HMAC includes prefix count, sequence number, encrypted data
   +------------------------------------+ 32
 |#
 
@@ -861,12 +861,12 @@
   HMAC-Key = H(H(M1,S)|H(M2,S))  HMAC-Key = H(H(M1,S)|H(M2,S))
   Renegotiation-Key = H(S)       Renegotiation-Key = H(S)
 
-      Hash H = SHA256 (32 bytes)
+      Hash H = SHA3/256 (32 bytes)
       
       Handshake completed, continue with encrypted I/O:
-        AES256/CBC(Key-Out, MyInitv,  msg)  -->  (out)
-        AES256/CBC(Key-In,  HisInitv, msg)  <--  (in)
-        Each packet uses HMAC-SHA256(H(H(M1,S)|H(M2,S)), msgLen | seqNo | Encryped(msg))
+        AES256/CTR(Key-Out, MyInitv,  msg)  -->  (out)
+        AES256/CTR(Key-In,  HisInitv, msg)  <--  (in)
+        Each packet uses HMAC-SHA3/256(H(H(M1,S)|H(M2,S)), msgLen | seqNo | Encryped(msg))
         HMAC based on running 64-bit sequence number that counts cumulative bytes transfered in messages.
         No decryption on input attempted unless HMACs agree.
 
@@ -897,7 +897,7 @@ Checks:
 ;; -------------------------------------------------------------
 
 (defvar $VERSION
-  "Actors 2020/10/09 22:24:12. Copyright (C) 2008-2020 by Refined Audiometrics Laboratory. All rights reserved.")
+  "Actors 2021/02/27 13:13:54Z. Copyright (C) 2008-2021 by Refined Audiometrics Laboratory. All rights reserved.")
 
 (defun srp6-x (salt node-id)
   (integer-of

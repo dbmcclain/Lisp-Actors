@@ -94,9 +94,9 @@ THE SOFTWARE.
                                 (error 'timeout)))
                             )))
 
+      (setf user-fn (become #'filter-message)) ;; save prior handler
       (when timeout
         (setf timer (do-schedule-after timeout #'handle-timeout)))
-      (setf user-fn (become #'filter-message)) ;; save prior handler
       (signal 'no-immediate-answer)
       )))
 

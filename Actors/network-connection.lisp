@@ -537,6 +537,7 @@
 #||# ;; -------------------------------
 
 (defun open-connection (ip-addr &optional ip-port)
+  ;; Called from client side wishing to connect to a server
   (=wait ((io-state))
       (comm:create-async-io-state-and-connected-tcp-socket
          *ws-collection*
@@ -561,10 +562,12 @@
                                          :io-state io-state
                                          :crypto   crypto)))
             (handler-bind ((error (lambda (c)
+                                    ;; if any negotiation errors we shut down immediately
                                     (declare (ignore c))
                                     (shutdown intf))
                                   ))
               (progn
+                ;; connection will be authenticated/encrypted regardless of using SSL/TLS or not.
                 (client-negotiate-security crypto intf)
                 (socket-send intf 'actor-internal-message:client-info (machine-instance))
                 (=wait ((ans) :timeout 5 :errorp t)
