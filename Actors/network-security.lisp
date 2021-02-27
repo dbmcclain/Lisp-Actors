@@ -276,12 +276,6 @@
                                                             (random +reneg-interval+)))
    ))
 
-(defclass server-crypto (crypto)
-  ())
-
-(defclass client-crypto (crypto)
-  ())
-
 (defmethod init-crypto-for-input ((crypto crypto) key initv)
   (setf (crypto-cypher-in crypto)
         (ironclad:make-cipher :aes
@@ -943,7 +937,7 @@ Checks:
 
 ;; ---------------------------------------------------------------------------
 
-(defmethod client-negotiate-security ((crypto client-crypto) intf)
+(defmethod client-negotiate-security ((crypto crypto) intf)
   ;; Phase-I: send local node ID
   (let* ((node-id (or (crypto-reneg-key crypto)
                       (machine-instance))))
@@ -1109,7 +1103,7 @@ Checks:
 
 ;; ---------------------------------------------------------------------
 
-(defmethod server-negotiate-security ((crypto server-crypto) intf node-id)
+(defmethod server-negotiate-security ((crypto crypto) intf node-id)
   ;; ensure that our good numbers have not been altered...
   #-:diddly
   (multiple-value-bind (p-key g-key) (select-public-keys)

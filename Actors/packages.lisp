@@ -253,8 +253,7 @@ THE SOFTWARE.
    #:secure-encoding
    #:secure-decoding
    #:byte-decode-obj
-   #:client-crypto
-   #:server-crypto
+   #:crypto
    #:unexpected
    #:make-u8-vector
    #:convert-vector-to-integer

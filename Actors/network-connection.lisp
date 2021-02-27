@@ -22,8 +22,7 @@
             actors.security:secure-encoding
             actors.security:secure-decoding
             actors.security:byte-decode-obj
-            actors.security:client-crypto
-            actors.security:server-crypto
+            actors.security:crypto
             actors.security:unexpected
             actors.security:make-u8-vector
             actors.security:convert-vector-to-integer
@@ -608,7 +607,7 @@
          :handshake-timeout 5
          :ipv6    nil)
     (if io-state
-          (let* ((crypto  (make-instance 'client-crypto))
+          (let* ((crypto  (make-instance 'crypto))
                  (intf    (make-instance 'socket-interface
                                          :title    "Client"
                                          :io-state io-state
@@ -647,7 +646,7 @@ See the discussion under START-CLIENT-MESSENGER for details."
   ;; this is a callback function from the socket event loop manager
   ;; so we can't dilly dally...
   (declare (ignore accepting-handle))
-  (let* ((crypto  (make-instance 'server-crypto))
+  (let* ((crypto  (make-instance 'crypto))
          (intf    (make-instance 'socket-interface
                                  :title    "Server"
                                  :io-state io-state
