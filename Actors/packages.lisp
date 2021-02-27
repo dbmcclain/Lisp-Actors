@@ -252,7 +252,7 @@ THE SOFTWARE.
   (:export
    #:secure-encoding
    #:secure-decoding
-   #:insecure-decoding
+   #:byte-decode-obj
    #:client-crypto
    #:server-crypto
    #:unexpected

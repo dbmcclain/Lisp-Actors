@@ -350,15 +350,16 @@
 
 #|
   A secure data packet.
+  Sequence number is internal count of encrypted packet data octets sent.
 
   Prefix (unencrypted):
   +------------------------------------+ 0
-  | prefix count (4 bytes BigEndian)   |    ;; count of data bytes, excluding itself and HMAC
+  | prefix count (4 bytes BigEndian)   |    ;; count of packet data bytes, excluding itself and HMAC
   +------------------------------------+ 4
 
   Data (beneath AES-256/CTR encryption):
   +------------------------------------+ 0
-  | Encoded Data (n-Bytes)             |   
+  | Encoded Data (n-Bytes)             |   ;; self-clocking serialization
   +------------------------------------+ n
   | zero padding to fill out block     |
   +------------------------------------+ n + npad = 16*N
@@ -564,6 +565,22 @@
 
 (defconstant +MAX-FRAGMENT-SIZE+ 65536)
 
+(defun byte-encode-obj (obj)
+  (loenc:encode
+   (lzw:zl-compress obj)))
+
+(defun byte-decode-obj (vec)
+  (multiple-value-bind (v e)
+      (ignore-errors 
+        (lzw:decompress
+         (loenc:decode vec)))
+    (if e
+        (progn
+          ;; (setf *bad-data* (copy-seq data))
+          `(actor-internal-message:discard))
+      ;; else
+      v)))
+  
 (defun insecure-prep (obj)
   ;; Encode an object for network transmission and split into
   ;; a list of chunks, each with length below max transfer size.
@@ -571,7 +588,7 @@
   ;;
   ;; Leave some room (64 bytes) on the max fragment size, for the
   ;; prefixed re-encodings.
-  (let ((enc    (loenc:encode obj))
+  (let ((enc    (byte-encode-obj obj))
         (maxlen (load-time-value
                  (- +max-fragment-size+ 64)
                  t)))

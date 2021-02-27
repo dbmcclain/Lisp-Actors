@@ -21,7 +21,7 @@
             
             actors.security:secure-encoding
             actors.security:secure-decoding
-            actors.security:insecure-decoding
+            actors.security:byte-decode-obj
             actors.security:client-crypto
             actors.security:server-crypto
             actors.security:unexpected
@@ -300,7 +300,7 @@
         
         (actor-internal-message:last-frag (frag)
            (ubyte-streams:scatter-vector-add-fragment accum frag)
-           (handle-message dispatcher (insecure-decoding
+           (handle-message dispatcher (byte-decode-obj
                                        (shiftf accum
                                                (make-instance 'ubyte-streams:scatter-vector)))
                            ))
