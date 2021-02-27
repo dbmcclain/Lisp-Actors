@@ -111,6 +111,12 @@
       (apply #'trampoline #'call-with-dynamic-environment dyn-env fn args))
     ))
 
+(defun =fut (fn)
+  (let ((dyn-env (capture-dynamic-environment)))
+    (lambda (&rest args)
+      (apply #'call-with-dynamic-environment dyn-env fn args))
+    ))
+
 ;; -------------------------------------------
 #+:LISPWORKS
 (progn

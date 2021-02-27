@@ -216,10 +216,6 @@
      ;; continuation will fire only one time
      ,expr))
 
-(defun =fut (fn)
-  ;; give us something to hang an Advice on for Actors
-  fn)
-
 (defmacro =future (args expr &body body)
   ;; =FUTURE can be cascaded and used in non-tail position, leaving a
   ;; trail of callback handlers
