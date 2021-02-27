@@ -7,18 +7,6 @@
 ;; ------------------------------------------------------------------
 ;; Trampoline and Continuations... for simulated CPS
 
-(defclass cont ()
-  ()
-  (:metaclass clos:funcallable-standard-class))
-
-(defmethod initialize-instance :after ((c cont) &key fn &allow-other-keys)
-  (clos:set-funcallable-instance-function c
-                                          (lambda (&rest args)
-                                            (apply #'trampoline fn args))))
-
-(defun cont (fn)
-  (make-instance 'cont :fn fn))
-
 (define-condition no-trampoline (error)
   ()
   (:report "No trampoline installed"))
@@ -228,10 +216,14 @@
      ;; continuation will fire only one time
      ,expr))
 
+(defun =fut (fn)
+  ;; give us something to hang an Advice on for Actors
+  fn)
+
 (defmacro =future (args expr &body body)
   ;; =FUTURE can be cascaded and used in non-tail position, leaving a
   ;; trail of callback handlers
-  `(let ((%sk (=cont (lambda* ,args ,@body))))
+  `(let ((%sk (=fut (lambda* ,args ,@body))))
      ;; expr should return via =values
      ;; continuation can repeatedly fire
      ,expr))

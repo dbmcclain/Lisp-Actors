@@ -41,7 +41,9 @@
 
    #:=tlet
    #:trampoline
+   #:with-trampoline
    #:=cont
+   #:=fut
    #:with-cps
    #:=handler-bind
    #:=handler-case
@@ -56,10 +58,5 @@
    #:=unwind-protect
    #:=let
    #:=let*
-
-   #:cont
-   #:invoke-cont
-   #:cross-invoke-cont
-   #:with-trampoline
    ))
 

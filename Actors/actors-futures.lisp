@@ -31,6 +31,12 @@ arrives.
 ;; ------------------------------------------
 ;; Create a callback on the function argument
 
+(defun wrap-injector (fn)
+  (if-let (actor (current-actor))
+      (lambda (&rest args)
+        (apply 'inject actor fn args))
+    fn))
+
 (lw:defadvice (=cont =cont-for-actors :around)
     (fn)
   ;;
@@ -41,11 +47,7 @@ arrives.
   ;; Code inside an Actor should only be executing on one thread
   ;; at a time, in order to preserve SMP single-thread semantics.
   ;;
-  (let ((fnc (lw:call-next-advice fn)))
-    (if-let (actor (current-actor))
-        (lambda (&rest args)
-          (apply 'inject actor fnc args))
-      fnc)))
+  (wrap-injector (lw:call-next-advice fn)))
 
 ;; ------------------------------------------------------------------
 ;;
@@ -83,6 +85,18 @@ arrives.
 
 ;; -------------------------------------------------------
 ;; Using formal FUTURES
+
+(lw:defadvice (=fut =fut-for-actors :around)
+    (fn)
+  ;;
+  ;; If the callback originated from inside an Actor, we ensure
+  ;; that it will later execute inside that Actor only when that
+  ;; Actor is alive.
+  ;;
+  ;; Code inside an Actor should only be executing on one thread
+  ;; at a time, in order to preserve SMP single-thread semantics.
+  ;;
+  (wrap-injector (lw:call-next-advice fn)))
 
 (defstruct future
   forced
