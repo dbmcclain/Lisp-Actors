@@ -31,6 +31,7 @@
             actors.security:server-negotiate-security
             actors.security:client-negotiate-security
             actors.security:assemble-sks
+            actors.security:time-to-renegotiate?
             
             actors.bridge:bridge-register
             actors.bridge:bridge-unregister
@@ -277,6 +278,44 @@
         (setf timer nil)))))
 
 ;; ------------------------------------------------------------------------
+;; Simple to add a session crypto renegotiation monitor using Actors...
+;;
+;; Running on each end of the connection.
+;; Checks for duration and data transfer limits reached,
+;; then initiates a crypto renegotiation for session.
+;; Each end of the connection has randomized time and data transfer limits.
+;; Renegotiation can be initiated by either end.
+
+(defconstant +monitor-interval+ 60) ;; check every minute while session alive
+
+(define-actor-class crypto-monitor ()
+  ((crypto :reader   notification-crypto  :initarg :crypto)
+   (intf   :reader   notification-intf    :initarg :intf)
+   (timer)))
+
+(defmethod initialize-instance :after ((mon crypto-monitor) &key &allow-other-keys)
+  (with-slots (timer) mon
+    (setf timer (mp:make-timer (lambda ()
+                                 (check-reneg mon))))
+    (mp:schedule-timer-relative timer +monitor-interval+)))
+
+(defmethod check-reneg ((mon crypto-monitor))
+  (with-slots (crypto intf timer) mon
+    (perform-in-actor mon
+      (when (time-to-renegotiate? crypto)
+        (handler-bind ((error (lambda (c)
+                                ;; if any negotiation errors we shut down immediately
+                                (declare (ignore c))
+                                (shutdown intf))
+                              ))
+          (client-negotiate-security crypto intf)))
+      (mp:schedule-timer-relative timer +monitor-interval+))))
+
+(defmethod kill-monitor ((mon crypto-monitor))
+  (with-slots (timer) mon
+    (mp:unschedule-timer timer)))
+          
+;; ------------------------------------------------------------------------
 
 (define-actor-class message-dispatcher ()
   ((accum      :initform (make-instance 'ubyte-streams:scatter-vector))
@@ -352,6 +391,7 @@
    (srp-ph3-begin :reader intf-srp-ph3-begin)
    writer
    kill-timer
+   monitor
    (io-running :initform (ref:ref 1))))
 
 (defmethod do-expect ((intf socket-interface) handler)
@@ -374,9 +414,10 @@
 
 (defmethod shutdown ((intf socket-interface))
   ;; define as a Continuation to get past any active RECV
-  (with-slots (kill-timer io-running io-state title) intf
+  (with-slots (kill-timer monitor io-running io-state title) intf
     (inject-into-actor intf ;; as a continuation, preempting RECV filtering
       (discard kill-timer)
+      (kill-monitor monitor)
       (ref:basic-atomic-exch io-running 0)
       (comm:async-io-state-abort-and-close io-state)
       (bridge-unregister intf)
@@ -399,6 +440,7 @@
                crypto
                kill-timer
                writer
+               monitor
                io-running
                srp-ph2-begin
                srp-ph2-reply
@@ -479,7 +521,11 @@
                 (make-instance 'message-writer
                                :io-state      io-state
                                :io-running    io-running
-                               :decr-io-count #'decr-io-count))
+                               :decr-io-count #'decr-io-count)
+                monitor
+                (make-instance 'crypto-monitor
+                               :intf   intf
+                               :crypto crypto))
           (comm:async-io-state-read-with-checking io-state #'rd-callback-fn
                                                   :element-type '(unsigned-byte 8))
           (resched kill-timer)

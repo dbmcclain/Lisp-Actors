@@ -135,6 +135,9 @@ THE SOFTWARE.
      ,slots ,@options
      (:metaclass clos:funcallable-standard-class)))
 
+#+:LISPWORKS
+(editor:setup-indent "define-actor-class" 2 2 10)
+
 (define-actor-class <runnable> (t)
   ((busy
     ;; when non-nil this Actor is either already enqueued for running,

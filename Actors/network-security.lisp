@@ -262,6 +262,8 @@
 
 ;; -------------------------------------------------
 
+(defconstant +reneg-interval+ 600) ;; 10 minutes
+
 (defclass crypto ()
   ((cypher-in    :accessor crypto-cypher-in    :initform nil)
    (cypher-out   :accessor crypto-cypher-out   :initform nil)
@@ -269,8 +271,9 @@
    (sequence-out :accessor crypto-sequence-out :initform 0)
    (hmac-key     :accessor crypto-hmac-key     :initform (hash32 (vector-of "default HMAC key")))
    (reneg-key    :accessor crypto-reneg-key    :initform nil)
-   (reneg-period :accessor crypto-reneg-period :initform #.(ash 1 63))
-   (reneg-time   :accessor crypto-reneg-time   :initform (get-universal-time))
+   (reneg-period :accessor crypto-reneg-period :initform (random #.(ash 1 63)))
+   (reneg-time   :accessor crypto-reneg-time   :initform (+ (get-universal-time)
+                                                            (random +reneg-interval+)))
    ))
 
 (defclass server-crypto (crypto)
@@ -300,9 +303,18 @@
   (setf (crypto-reneg-key    crypto) (hash32 s)
         (crypto-sequence-in  crypto) 0
         (crypto-sequence-out crypto) 0
-        (crypto-reneg-period crypto) (ash (1+ (rand 32)) 27)
-        (crypto-reneg-time   crypto) (get-universal-time)))
+        (crypto-reneg-period crypto) (random #.(ash 1 63))
+        (crypto-reneg-time   crypto) (+ (get-universal-time)
+                                        (random +reneg-interval+))
+        ))
 
+(defmethod time-to-renegotiate? ((crypto crypto))
+  (let ((tbytes (+ (crypto-sequence-in crypto)
+                   (crypto-sequence-out crypto))))
+    (or (> (get-universal-time) (crypto-reneg-time crypto))
+        (> tbytes (crypto-reneg-period crypto)))
+    ))
+                
 ;; -----------------------------------------------------------------------
 
 (define-condition signature-mismatch-exn (error)
