@@ -147,7 +147,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
        ,@body)))
 
 #+:LISPWORKS
-(editor:setup-indent "parlet" 2)
+(editor:indent-like 'parlet 'let)
+;; (editor:setup-indent "parlet" 2)
 
 ;; ----------------------------------------------------------------------
 

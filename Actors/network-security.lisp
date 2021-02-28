@@ -27,7 +27,36 @@
             actors.network:intf-srp-ph2-reply
             actors.network:intf-srp-ph3-begin
             actors.network:client-request-negotiation
-            )))
+            ))
+  (shadow '(random)))
+
+;; -----------------------------------------------------------------------------
+;;
+
+(defmonitor rand-monitor
+    ((ctr-hash-prng  #-:OS-WINDOWS (ironclad:make-prng :fortuna :seed :urandom)
+                     #+:OS-WINDOWS (lw:make-mt-random-state t)))
+  ;; protected by a global lock
+  ;; ctr-hash-prng is a shared mutable state
+  (defun random (limit)
+    (critical-section
+      #-:OS-WINDOWS (ironclad:strong-random limit ctr-hash-prng)
+      #+:OS-WINDOWS (lw:mt-random limit ctr-hash-prng))))
+
+(defun random-between (lower upper)
+  (declare (integer lower upper))
+  ;; generate random (lower <= n < upper)
+  (+ lower (random (- upper lower))))
+
+;; --------------------------------------------------
+
+(defun ensure-simple-array (v)
+  ;; the Ironclad crypto functions require simple arrays
+  (if (or (adjustable-array-p v)
+          (array-has-fill-pointer-p v)
+          (array-displacement v))
+      (copy-seq v)
+    v))
 
 ;; --------------------------------------------
 ;; Encryption / Decryption Stuff...
@@ -218,48 +247,6 @@
                 55066560204924271324109576419163150535
                 179630390834232184955478921582272058641))
 |#
-;; -----------------------------------------------------------------------------
-;;
-
-(defmacro def-cached-var (name creator &optional cache-name)
-  (let ((cname (or cache-name (intern (format nil "*~A*" (string name))))))
-    `(progn
-       (defvar ,cname nil)
-       (defun ,name ()
-         (or ,cname
-             (setf ,cname ,creator)))) ))
-
-(editor:setup-indent "def-cached-var" 1)
-
-;; -----------------------------------------------------------------------------
-
-(def-cached-var ctr-hash-prng
-  #-:OS-WINDOWS (ironclad:make-prng :fortuna :seed :urandom)
-  #+:OS-WINDOWS (lw:make-mt-random-state t))
-
-;; protected by a global lock
-;; ctr-hash-prng is a shared mutable state
-(defmonitor rand-monitor ()
-  (defun rand (limit)
-    (critical-section
-      #-:OS-WINDOWS (ironclad:strong-random limit (ctr-hash-prng))
-      #+:OS-WINDOWS (lw:mt-random limit (ctr-hash-prng)))))
-
-(defun rand-between (lower upper)
-  (declare (integer lower upper))
-  ;; generate random (lower <= n < upper)
-  (+ lower (rand (- upper lower))))
-
-;; --------------------------------------------------
-
-(defun ensure-simple-array (v)
-  ;; the Ironclad crypto functions require simple arrays
-  (if (or (adjustable-array-p v)
-          (array-has-fill-pointer-p v)
-          (array-displacement v))
-      (copy-seq v)
-    v))
-
 ;; -------------------------------------------------
 
 (defconstant +reneg-interval+ 600) ;; 10 minutes
@@ -273,7 +260,7 @@
    (reneg-key    :accessor crypto-reneg-key    :initform nil)
    (reneg-period :accessor crypto-reneg-period :initform (random #.(ash 1 63)))
    (reneg-time   :accessor crypto-reneg-time   :initform (+ (get-universal-time)
-                                                            (random +reneg-interval+)))
+                                                            (random (* 2 +reneg-interval+))))
    ))
 
 (defmethod init-crypto-for-input ((crypto crypto) key initv)
@@ -299,7 +286,7 @@
         (crypto-sequence-out crypto) 0
         (crypto-reneg-period crypto) (random #.(ash 1 63))
         (crypto-reneg-time   crypto) (+ (get-universal-time)
-                                        (random +reneg-interval+))
+                                        (random (* 2 +reneg-interval+)))
         ))
 
 (defmethod time-to-renegotiate? ((crypto crypto))
@@ -702,7 +689,7 @@
   ;; if c actually is a perfect square, this can often fail anyway
   (let* ((n  (integer-length c))
          (m  (ceiling n 2)))
-    (do ((x  (rand-between (ash 1 (1- m)) (ash 1 m))
+    (do ((x  (random-between (ash 1 (1- m)) (ash 1 m))
              (truncate (+ c (* x x)) (* 2 x))))
         ((< (* x x) (+ c (ash 1 m)))
          (values (= c (* x x)) x))
@@ -797,7 +784,7 @@
    (> p 2)
    (let ((strong-liar? (make-strong-miller-rabin-liar-test p)))
      (loop repeat k
-           for witness of-type integer = (rand-between 2 p)
+           for witness of-type integer = (random-between 2 p)
            always (funcall strong-liar? witness)) )
    (probabilistic-lucas-test p)) )
 
@@ -972,7 +959,7 @@ Checks:
           
           (multiple-value-bind (a aa u)
               ;; can't permit u = 0
-              (loop for a  = (rand-between 2 p-key)
+              (loop for a  = (random-between 2 p-key)
                     for aa = (m^ g-key a)
                     for u  = (srp6-u aa bb)
                     do
@@ -1094,7 +1081,7 @@ Checks:
   168516597358932725059741419028317878902514975014526844506427091602719064740793636589431778957022815755768791289655698540940775231539091525727098828971959642176390391056054449327840348969131519258743786776611839311508949504060111715207591201471356585608638513521514941729583683637170827060120861872138307432749
   17242605896284731830921566377864934308010238956787579001243785437328303246660731062322210781929577675919762263857329727700120503680786959040961468337485685197121476112475864740078211481759596272809490436827511191796516358588098139854294373681504048781304478032559695906696983129506742320767071193880932880307))
          
-         (ix     (rand (length p-keys)))
+         (ix     (random (length p-keys)))
          (p-key  (aref p-keys ix))
          (g-key  (aref g-keys ix)))
     (check-prime-modulus p-key)
@@ -1123,14 +1110,14 @@ Checks:
       ;; Hold as secret: x, v, b
       (multiple-value-bind (salt x)
           ;; can't permit x = 0
-          (loop for salt = (rand p-key)
+          (loop for salt = (random p-key)
                 for x    = (srp6-x salt node-id)
                 do
                 (unless (zerop x)
                   (return (values salt x))))
         
         (let* ((v  (m^ g-key x))
-               (b  (rand-between 2 p-key))
+               (b  (random-between 2 p-key))
                (bb (m+ (m* 3 v) ;; we know that 3 cannot be a primitive root
                        (m^ g-key b))
                    ))

@@ -1,6 +1,7 @@
 
 (in-package :editor)
 
+#|
 (lw:defadvice (section-form dwc :around)
     (start end return-anonymous-p)
   (let ((this (call-next-advice start end return-anonymous-p)))
@@ -31,7 +32,16 @@
               this))
         this))
     ))
-
+|#
 #|
 (hcl:delete-advice section-form dwc)
 |#
+
+(defun indent-like (sym like-sym)
+  (let* ((tbl  (slot-value *default-syntax-table* 'operators))
+         (inds (gethash (string like-sym) tbl)))
+    (if inds
+        (apply #'setup-indent (string sym) (coerce inds 'list))
+      (error "No indentation for symbol: ~A" like-sym))
+    ))
+(export 'indent-like)

@@ -128,15 +128,17 @@ THE SOFTWARE.
 ;; to debuggers. Use a CLOS object instead of closed over lambda vars.
 
 (defmacro define-actor-class (name superclasses slots &rest options)
+  ;; Superclass defaults to 'ACTOR
   `(defclass ,name ,(cond
                      ((equalp superclasses '(t)) nil)
                      ((null superclasses)        '(actor))
                      (t                          superclasses))
-     ,slots ,@options
+     ,slots
+     ,@options
      (:metaclass clos:funcallable-standard-class)))
 
 #+:LISPWORKS
-(editor:setup-indent "define-actor-class" 2 2 10)
+(editor:indent-like 'define-actor-class 'defclass)
 
 (define-actor-class <runnable> (t)
   ((busy

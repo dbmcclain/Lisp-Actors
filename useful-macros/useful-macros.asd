@@ -32,7 +32,7 @@ THE SOFTWARE.
   	        #+:SBCL    (:file "sbcl-compat")
 		#+:ALLEGRO (:file "allegro-compat")
                 #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
-                ;; #+:LISPWORKS (:file "editor-extensions")
+                #+:LISPWORKS (:file "editor-extensions")
                 (:file "packages")
                 (:file "basic-useful")
                 ;; (:file "lambda-parsing")
