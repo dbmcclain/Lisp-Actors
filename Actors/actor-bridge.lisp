@@ -1,7 +1,7 @@
 ;; actor-bridge.lisp -- The bridge needed to allow Actors to remotely interact
 ;;
 ;; When an Actor target is a string specified as
-;; "service.ip-addr:port" this package re-routes the SEND/ASK to a
+;; "service@ip-addr:port" this package re-routes the SEND/ASK to a
 ;; socket interface, connecting first to a remote server if needed.
 ;;
 ;; Keeps a local record of pending callbacks, and serializes them by
@@ -113,7 +113,7 @@
    (with-slots (service ip port) dest
      (call-with-valid-ip service ip port fn))))
 
-(defmacro with-valid-dest ((service handler dest) &body body)
+(defmacro with-valid-dest ((service handler) dest &body body)
   `(call-with-valid-dest ,dest (lambda (,service ,handler)
                                  ,@body)))
 
@@ -135,31 +135,31 @@
 (defun bridge-register (ip-addr handler)
   ;; called by socket handler to register a new connection
   (in-bridge
-   (with-slots (dests) *bridge*
-     (maps:addf dests (string-upcase ip-addr) handler)
-     )))
+    (with-slots (dests) *bridge*
+      (maps:addf dests (string-upcase ip-addr) handler)
+      )))
 
 (defun bridge-unregister (handler)
   ;; called by socket handler on socket shutdown
   (in-bridge
-   (with-slots (dests conts) *bridge*
-     (maps:iter dests
-                (lambda (k v)
-                  (when (eq handler v)
-                    (maps:removef dests k))))
-     (maps:iter conts
-                (lambda (k v)
-                  (when (eq handler (first v))
-                    (maps:removef conts k))))
-     )))
+    (with-slots (dests conts) *bridge*
+      (maps:iter dests
+                 (lambda (k v)
+                   (when (eq handler v)
+                     (maps:removef dests k))))
+      (maps:iter conts
+                 (lambda (k v)
+                   (when (eq handler (first v))
+                     (maps:removef conts k))))
+      )))
         
 (defun bridge-reset ()
   ;; called when all socket I/O is shutdown
   (in-bridge
-   (with-slots (dests conts) *bridge*
-     (setf conts (maps:empty)
-           dests (maps:empty))
-     )))
+    (with-slots (dests conts) *bridge*
+      (setf conts (maps:empty)
+            dests (maps:empty))
+      )))
 
 ;; -----------------------------------------------------------------------
 
@@ -171,27 +171,27 @@
 (defun bridge-forward-message (dest &rest msg)
   ;; called by SEND as a last resort
   (in-bridge
-   (with-valid-dest (service handler dest)
-     (case (car msg)
-       ((actor-internal-message:ask)
-        (apply 'forward-query handler service (cadr msg) (cddr msg)))
-       
-       (otherwise
-        (apply 'socket-send handler 'actor-internal-message:forwarding-send service msg))
-       ))))
+    (with-valid-dest (service handler) dest
+      (case (car msg)
+        ((actor-internal-message:ask)
+         (apply 'forward-query handler service (cadr msg) (cddr msg)))
+        
+        (otherwise
+         (apply 'socket-send handler 'actor-internal-message:forwarding-send service msg))
+        ))))
 
 (=defun bridge-ask-query (dest &rest msg)
   ;; called by ASK as a last resort
   (in-bridge
-   (with-valid-dest (service handler dest)
-     (apply 'forward-query handler service =bind-cont msg)
-     )))
+    (with-valid-dest (service handler) dest
+      (apply 'forward-query handler service =bind-cont msg)
+      )))
 
 (defun bridge-handle-reply (usti &rest reply)
   ;; called by socket handler when a reply arrives
   (in-bridge
-   (when-let (cont (find-and-remove-usti usti))
-     (apply cont reply))))
+    (when-let (cont (find-and-remove-usti usti))
+      (apply cont reply))))
 
 ;; -----------------------------------------------------------------------
 
