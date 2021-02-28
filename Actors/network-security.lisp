@@ -27,8 +27,7 @@
             actors.network:intf-srp-ph2-reply
             actors.network:intf-srp-ph3-begin
             actors.network:client-request-negotiation
-            ))
-  (shadow '(random)))
+            )))
 
 ;; -----------------------------------------------------------------------------
 ;;

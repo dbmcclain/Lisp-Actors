@@ -249,7 +249,9 @@ THE SOFTWARE.
 
 (defpackage :actors.security
   (:use #:common-lisp #:actors)
+  (:shadow #:random)
   (:export
+   #:random
    #:secure-encoding
    #:secure-decoding
    #:byte-decode-obj

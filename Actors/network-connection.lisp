@@ -10,6 +10,7 @@
 
 (in-package #:actors.network)
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (shadowing-import '(actors.security:random))
   (import '(um:if-let
             um:when-let
             um:dlambda
@@ -296,7 +297,8 @@
   (with-slots (timer) mon
     (setf timer (mp:make-timer (lambda ()
                                  (check-reneg mon))))
-    (mp:schedule-timer-relative timer +monitor-interval+)))
+    (mp:schedule-timer-relative timer (random (* 2 +monitor-interval+)))
+    ))
 
 (defmethod check-reneg ((mon crypto-monitor))
   (with-slots (crypto intf timer) mon
@@ -308,7 +310,8 @@
                                 (shutdown intf))
                               ))
           (client-negotiate-security crypto intf)))
-      (mp:schedule-timer-relative timer +monitor-interval+))))
+      (mp:schedule-timer-relative timer (random (* 2 +monitor-interval+))))
+    ))
 
 (defmethod kill-monitor ((mon crypto-monitor))
   (with-slots (timer) mon
