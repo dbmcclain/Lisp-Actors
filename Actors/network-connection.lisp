@@ -315,7 +315,8 @@
 
 (defmethod kill-monitor ((mon crypto-monitor))
   (with-slots (timer) mon
-    (mp:unschedule-timer timer)))
+    (perform-in-actor mon
+      (mp:unschedule-timer timer))))
           
 ;; ------------------------------------------------------------------------
 
