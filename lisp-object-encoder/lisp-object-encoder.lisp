@@ -101,7 +101,7 @@ THE SOFTWARE.
 
 (defstore (obj LZW:ZL-COMPRESSED stream)
   (output-type-code +LZW-ZL-code+ stream)
-  (let ((data (lzw:compressed-data obj)))
+  (let ((data (lzw:zl-compressed-data obj)))
     (store-count (length data) stream)
     (write-sequence data stream)))
 
