@@ -67,20 +67,18 @@ THE SOFTWARE.
 
 (defun dlambda*-actors-helper (clauses)
   ;; split out in anticipation of Actors special needs...
-  (let* ((g!args (make-symbol (string 'args)))
-         (g!head (make-symbol (string 'head)))
-         (g!tail (make-symbol (string 'tail))))
-    `(lambda (&rest ,g!args)
-       (destructuring-bind (,g!head . ,g!tail) ,g!args
-         (case ,g!head
+  (lw:with-unique-names (args head tail)
+    `(lambda (&rest ,args)
+       (destructuring-bind (,head . ,tail) ,args
+         (case ,head
            ,@(mapcar (lambda (clause)
                        (let ((sel (car clause)))
                          `(,(if (eq t sel)
                                 t
                               `(,sel))
                            (apply #',sel ,(if (eq t sel)
-                                              g!args
-                                            g!tail)))
+                                              args
+                                            tail)))
                          ))
                      clauses)
            )))))
