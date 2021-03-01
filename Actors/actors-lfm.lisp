@@ -57,10 +57,10 @@
 
 (defun normalized-tell-logger (service entry-kind msg)
   (let ((actor (find-actor service)))
-  (log-message actor entry-kind msg (timestamp)
-               (or (current-actor)
-                   (mp:get-current-process)))
-  ))
+    (log-message actor entry-kind msg (timestamp)
+                 (or (current-actor)
+                     (mp:get-current-process)))
+    ))
   
 ;; --------------------------------------------------------------
 

@@ -45,20 +45,19 @@ THE SOFTWARE.
   (error "Invalid selector ~A" (car msg)))
 
 (um:defmacro! dlambda (&rest ds)
-  `(lambda (&rest ,g!args)
-     (let ((,g!tail (cdr ,g!args)))
-       (case (car ,g!args)
-         ,@(mapcar
-            (lambda (d)
-              `(,(if (eq t (car d))
-                     t
-                   (list (car d)))
-                (apply (lambda ,@(cdr d))
-                       ,(if (eq t (car d))
-                            g!args
-                          g!tail)) ))
-            ds)
-         ))))
+  `(lambda* (&whole ,g!args ,g!head . ,g!tail)
+     (case ,g!head
+       ,@(mapcar
+          (lambda (d)
+            `(,(if (eq t (car d))
+                   t
+                 (list (car d)))
+              (apply (lambda* ,@(cdr d))
+                     ,(if (eq t (car d))
+                          g!args
+                        g!tail)) ))
+          ds)
+       )))
 
 (defmacro dcase (args &rest clauses)
   `(apply (dlambda
@@ -68,7 +67,7 @@ THE SOFTWARE.
 (defun dlambda*-actors-helper (clauses)
   ;; split out in anticipation of Actors special needs...
   (lw:with-unique-names (args head tail)
-    `(lambda (&rest ,args)
+    `(lambda* (&whole ,args ,head . ,tail)
        (destructuring-bind (,head . ,tail) ,args
          (case ,head
            ,@(mapcar (lambda (clause)
@@ -90,7 +89,7 @@ THE SOFTWARE.
   (if (notevery (um:compose 'symbolp 'car) clauses)
       `(dlambda ,@clauses)
     ;; else
-    `(labels
+    `(labels*
          ,clauses
        ,(dlambda*-actors-helper clauses))
     ))
@@ -102,8 +101,8 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (progn
-  (editor:setup-indent "dcase" 1)
-  (editor:setup-indent "dcase*" 1))
+  (editor:indent-like 'dcase 'case)
+  (editor:indent-like 'dcase* 'case))
 
 #| |#
 
