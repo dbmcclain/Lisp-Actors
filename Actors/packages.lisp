@@ -176,6 +176,8 @@ THE SOFTWARE.
    #:send-sync
 
    #:start
+
+   #:defglobal-var
    ))
 
 #-lispworks

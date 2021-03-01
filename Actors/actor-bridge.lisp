@@ -29,12 +29,7 @@
    (dests :accessor actor-bridge-dests :initform (maps:empty))
    ))
 
-(defvar *bridge* (make-instance 'actor-bridge))
-
-(defun actor-bridge ()
-  ;; Return the singleton instance of BRIDGE. Don't bother
-  ;; registering, because it is not generally useful to end users.
-  *bridge*)
+(defglobal-var *bridge* (make-instance 'actor-bridge))
 
 (defmacro in-bridge (&body body)
   `(perform-in-actor *bridge*

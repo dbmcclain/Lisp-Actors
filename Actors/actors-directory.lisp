@@ -11,7 +11,7 @@
 (um:eval-always
   (import '(
             um:when-let
-            )))
+               )))
 
 ;; ------------------------------------------------------------
 
@@ -30,8 +30,11 @@
    usti))
 
         ;;; =========== ;;;
+;; The Directory utilizes a functional mapping (shareable, immutable).
+;; But the pointer to the top of the map is not immutable. We use
+;; lock-free accessors/mutators on that top node pointer.
 
-(defvar *actors-directory* (maps:empty))
+(defglobal-var *actors-directory* (maps:empty))
 
 (defun clear-directory ()
   (um:wr '*actors-directory* (maps:empty)))
