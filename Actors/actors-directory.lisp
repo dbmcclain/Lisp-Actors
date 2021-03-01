@@ -31,19 +31,19 @@
 
         ;;; =========== ;;;
 
-(defvar actors-directory (maps:empty))
+(defvar *actors-directory* (maps:empty))
 
 (defun clear-directory ()
-  (um:wr 'actors-directory (maps:empty)))
+  (um:wr '*actors-directory* (maps:empty)))
 
 (defun current-directory ()
-  (um:rd 'actors-directory))
+  (um:rd '*actors-directory*))
 
 (defun directory-foreach (fn)
   (maps:iter (current-directory) fn))
 
 (defun update-directory (mut-fn)
-  (um:rmw 'actors-directory mut-fn))
+  (um:rmw '*actors-directory* mut-fn))
 
 (defun register-actor (name actor)
   ;; this simply overwrites any existing entry with actor
