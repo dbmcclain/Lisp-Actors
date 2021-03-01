@@ -571,12 +571,14 @@ built according code-char of each number in the uuid-string"
   ;; for Type-1 UUID's
   (multiple-value-bind (utc frac)
       (uuid-to-universal-time uuid)
-    (multiple-value-bind (ss mm hh d m y)
+    (multiple-value-bind (ss mm hh d m y dow)
         (decode-universal-time utc 0)
-      (let ((mac (uuid-mac uuid)))
+      (let ((mac (uuid-mac uuid))
+            (day (aref #.#("Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun")
+                       dow)))
         (format nil
-                "~4D~{-~2,'0D~} ~{~2,'0D~^\:~}.~7,'0D UTC ~{~2,'0X~^\:~}"
-                y (list m d) (list hh mm ss)
+                "~A ~4D~{-~2,'0D~} ~{~2,'0D~^\:~}.~7,'0D UTC ~{~2,'0X~^\:~}"
+                day y (list m d) (list hh mm ss)
                 frac
                 (loop for pos from 40 downto 0 by 8 collect
                       (ldb (byte 8 pos) mac))

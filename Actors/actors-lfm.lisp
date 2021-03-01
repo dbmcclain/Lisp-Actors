@@ -80,14 +80,14 @@
 
 (defun timestamp ()
   (multiple-value-bind (s m h d mo y dow dsav-p tz)
-      (decode-universal-time (get-universal-time))
+      (get-decoded-time)
     (declare (ignore dsav-p))
-    (let ((mo-name (aref #("???" "Jan" "Feb" "Mar"
-                           "Apr" "May" "Jun"
-                           "Jul" "Aug" "Sep"
-                           "Oct" "Nov" "Dec")
+    (let ((mo-name (aref #.#("???" "Jan" "Feb" "Mar"
+                             "Apr" "May" "Jun"
+                             "Jul" "Aug" "Sep"
+                             "Oct" "Nov" "Dec")
                          mo))
-          (dow-name (aref #("Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun")
+          (dow-name (aref #.#("Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun")
                           dow)))
       (format nil "~A ~D-~A-~2,'0D::~2,'0D:~2,'0D:~2,'0D (Z~@D)"
               dow-name y mo-name d
