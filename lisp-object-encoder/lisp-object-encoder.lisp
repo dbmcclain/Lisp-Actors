@@ -68,20 +68,20 @@ THE SOFTWARE.
 
 ;; ---------------------------------------------------------------
 
-(defconstant +UUID-code+ (register-code 127 'uuid))
+(defconstant +UUID-code+ (register-code 127 'uuid:uuid))
 
 (defstore (obj UUID:UUID stream)
   (output-type-code +UUID-code+ stream)
   (write-sequence (uuid:uuid-to-byte-array obj) stream))
 
-(defrestore (uuid stream)
+(defrestore (uuid:uuid stream)
   (with-stack-buffer (arr 16)
     (read-sequence arr stream)
     (uuid:byte-array-to-uuid arr)))
 
 ;; ---------------------------------------------------------------
 
-(defconstant +LZW-code+ (register-code 126 'lzw))
+(defconstant +LZW-code+ (register-code 126 'lzw:compressed))
 
 (defstore (obj LZW:COMPRESSED stream)
   (output-type-code +LZW-code+ stream)
@@ -89,11 +89,27 @@ THE SOFTWARE.
     (store-count (length data) stream)
     (write-sequence data stream)))
 
-(defrestore (lzw stream)
+(defrestore (lzw:compressed stream)
   (let* ((nb  (read-count stream))
          (vec (make-array nb :element-type '(unsigned-byte 8))))
     (read-sequence vec stream)
     (lzw:make-compressed
+     :data vec)))
+
+
+(defconstant +LZW-ZL-code+ (register-code 125 'lzw:zl-compressed))
+
+(defstore (obj LZW:ZL-COMPRESSED stream)
+  (output-type-code +LZW-ZL-code+ stream)
+  (let ((data (lzw:compressed-data obj)))
+    (store-count (length data) stream)
+    (write-sequence data stream)))
+
+(defrestore (lzw:zl-compressed stream)
+  (let* ((nb  (read-count stream))
+         (vec (make-array nb :element-type '(unsigned-byte 8))))
+    (read-sequence vec stream)
+    (lzw:make-zl-compressed
      :data vec)))
 
 ;; -------------------------------------------

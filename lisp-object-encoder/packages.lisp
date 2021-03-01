@@ -17,6 +17,8 @@
    :compress
    :decompress
    :zl-compress
+   :zl-compressed
+   :make-zl-compressed
    ))
 
 (defpackage :lisp-object-encoder
