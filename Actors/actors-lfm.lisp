@@ -79,18 +79,20 @@
 ;; -----------------------------------------------------------------
 
 (defun timestamp ()
-  (um:bind*
-      ((:values (s m h d mo y) (decode-universal-time (get-universal-time)))
-       (mo-name (aref #("???" "Jan" "Feb" "Mar"
-                              "Apr" "May" "Jun"
-                              "Jul" "Aug" "Sep"
-                              "Oct" "Nov" "Dec")
-                      mo)))
-    
-    (format nil "~2,'0D-~A-~D::~2,'0D:~2,'0D:~2,'0D"
-            d mo-name y
-            h m s)
-    ))
+  (multiple-value-bind (s m h d mo y dow dsav-p tz)
+      (decode-universal-time (get-universal-time))
+    (declare (ignore dsav-p))
+    (let ((mo-name (aref #("???" "Jan" "Feb" "Mar"
+                           "Apr" "May" "Jun"
+                           "Jul" "Aug" "Sep"
+                           "Oct" "Nov" "Dec")
+                         mo))
+          (dow-name (aref #("Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun")
+                          dow)))
+      (format nil "~A ~D-~A-~2,'0D::~2,'0D:~2,'0D:~2,'0D (Z~@D)"
+              dow-name y mo-name d
+              h m s (- tz))
+      )))
                        
 ;; -----------------------------------------------------------------
 ;; composite logger printing - performed by caller
