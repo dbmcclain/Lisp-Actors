@@ -61,13 +61,15 @@
 
 (defglobal-var *bridge* (make-instance 'actor-bridge))
 
-(defmacro in-bridge (&body body)
+(defmacro in-bridge (slots &body body)
   `(perform-in-actor *bridge*
-     ,@body))
+     (with-slots ,slots *bridge*
+       ,@body)))
 
-(defmacro ask-bridge (&body body)
+(defmacro ask-bridge (slots &body body)
   `(query-actor *bridge*
-     ,@body))
+     (with-slots ,slots *bridge*
+       ,@body)))
 
 ;; --------------------------------------------------------------------------------
 ;; Actor PROXY addresses
@@ -171,33 +173,30 @@
 
 (defun bridge-register (ip-addr handler)
   ;; called by socket handler to register a new connection
-  (in-bridge
-    (with-slots (dests) *bridge*
-      (maps:addf dests (string-upcase ip-addr) handler)
-      )))
+  (in-bridge (dests)
+    (maps:addf dests (string-upcase ip-addr) handler)
+    ))
 
 (defun bridge-unregister (handler)
   ;; called by socket handler on socket shutdown to remove all
   ;; mappings that indicate the handler Actor
-  (in-bridge
-    (with-slots (dests conts) *bridge*
-      (maps:iter dests
-                 (lambda (k v)
-                   (when (eq handler v)
-                     (maps:removef dests k))))
-      (maps:iter conts
-                 (lambda (k v)
-                   (when (eq handler (first v))
-                     (maps:removef conts k))))
-      )))
+  (in-bridge (dests conts)
+    (maps:iter dests
+               (lambda (k v)
+                 (when (eq handler v)
+                   (maps:removef dests k))))
+    (maps:iter conts
+               (lambda (k v)
+                 (when (eq handler (first v))
+                   (maps:removef conts k))))
+    ))
         
 (defun bridge-reset ()
   ;; called when *all* socket I/O is shutdown
-  (in-bridge
-    (with-slots (dests conts) *bridge*
-      (setf conts (maps:empty)
-            dests (maps:empty))
-      )))
+  (in-bridge (dests conts)
+    (setf conts (maps:empty)
+          dests (maps:empty))
+    ))
 
 ;; -----------------------------------------------------------------------
 
@@ -208,7 +207,7 @@
 
 (defun bridge-forward-message (dest &rest msg)
   ;; called by SEND as a last resort
-  (in-bridge
+  (in-bridge ()
     (with-valid-dest (service handler) dest
       (case (car msg)
         ((actor-internal-message:ask)
@@ -220,14 +219,14 @@
 
 (=defun bridge-ask-query (dest &rest msg)
   ;; called by ASK as a last resort
-  (in-bridge
+  (in-bridge ()
     (with-valid-dest (service handler) dest
       (apply 'forward-query handler service =bind-cont msg)
       )))
 
 (defun bridge-handle-reply (usti &rest reply)
   ;; called by socket handler when a reply arrives
-  (in-bridge
+  (in-bridge ()
     (when-let (cont (find-and-remove-usti usti))
       (apply cont reply))))
 
@@ -366,13 +365,13 @@
     :service obj))
   (:method (obj)
    (make-proxy
-    :service (ask-bridge
+    :service (ask-bridge ()
                (create-and-add-usti obj))
     )))
 
 (defmethod find-actor ((usti uuid:uuid))
   (or (when (uuid:one-of-mine? usti)
-        (ask-bridge
+        (ask-bridge ()
          (find-and-remove-usti usti)))
       (call-next-method)))
 
