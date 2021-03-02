@@ -89,7 +89,7 @@
                          mo))
           (dow-name (aref #.#("Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun")
                           dow)))
-      (format nil "~A ~D-~A-~2,'0D::~2,'0D:~2,'0D:~2,'0D (Z~@D)"
+      (format nil "~A ~D-~A-~2,'0D ~2,'0D:~2,'0D:~2,'0D (Z~@D)"
               dow-name y mo-name d
               h m s (- tz))
       )))
