@@ -23,10 +23,40 @@
             )))
 
 ;; ---------------------------------------------------------------------------------
-
+;; The "Bridge" - a resident agent for transparent SEND/ASK across a
+;; network connection to foreign Actors. A foreign Actor is identified
+;; by IP Addr, Port, and Service name - aka PROXY,
+;;
+;; When a network connection becomes established, an entry is made in
+;; the DESTS map, relating the stated IP Addr with the Actor
+;; responsible for comms across that connection.
+;;
+;; When a caller wants to send a message across the network
+;; connection, and include a reply-to callback, it must represent that
+;; callback closure using a UUID. The foreign system can forward reply
+;; SENDS to that closure using the UUID. Back at the original sender
+;; side, that UUID can be translated back into the actual closure code
+;; to perform.
+;;
+;; Users can produce UUID -> Continuation mappings for other purposes
+;; than a reply-to address. In that case, the Handler will be NIL.
+;;
+;; These UUID -> Continuation mappings are ephemeral, being removed
+;; from the map upon invocation.
+;;
 (define-actor-class actor-bridge ()
-  ((conts :accessor actor-bridge-conts :initform (maps:empty))
-   (dests :accessor actor-bridge-dests :initform (maps:empty))
+  ((conts
+    ;; mapping UUID -> (Network Intf, Continuation)
+    ;;   Network Intf = Connecction handling Actor, or NIL
+    ;;   Continuation = lambda closure
+    :accessor actor-bridge-conts
+    :initform (maps:empty))
+   (dests
+    ;; mapping IP Addr -> Network Intf
+    ;;   IP Addr = upper case string
+    ;;   Network Intf = Connection handling Actor
+    :accessor actor-bridge-dests
+    :initform (maps:empty))
    ))
 
 (defglobal-var *bridge* (make-instance 'actor-bridge))
@@ -40,7 +70,7 @@
      ,@body))
 
 ;; --------------------------------------------------------------------------------
-;; Helper Functions
+;; Actor PROXY addresses
 
 (defun parse-destination (dest)
   (check-type dest string)
@@ -90,10 +120,17 @@
 ;; Bridge Actor internal functions
 
 (defun find-handler (dest-ip dest-port)
+  ;; Find and return the Network Handler Actor for a stated IP
+  ;; Address. If not present in the map, then try to open a connection
+  ;; to the server at that IP Addr. If a connection can be opened, it
+  ;; will self-register in this map.
   (or (maps:find (actor-bridge-dests (current-actor)) dest-ip)
       (open-connection dest-ip dest-port)))
         
 (defun call-with-valid-ip (service ip port fn)
+  ;; Find or create a connection Actor for the IP Addr. If successful,
+  ;; then execute the fn with the service and connection handler Actor
+  ;; as arguments.
   (when (and service
              ip)
     (when-let (handler (find-handler ip port))
@@ -113,12 +150,17 @@
                                  ,@body)))
 
 (defun find-and-remove-usti (usti)
+  ;; find the indicated continuation closure and remove its mapping
+  ;; before sending it back to the caller
   (with-slots (conts) *bridge*
     (when-let (cont (second (maps:find conts usti)))
       (maps:removef conts usti)
       cont)))
 
 (defun create-and-add-usti (obj &optional handler)
+  ;; construct an ephemeral UUID -> Continuation mapping, including
+  ;; the handler if specified. Return the UUID representing the
+  ;; continuation for the other side of the connection.
   (with-slots (conts) *bridge*
     (let ((usti (uuid:make-v1-uuid)))
       (maps:addf conts usti (list handler obj))
@@ -135,7 +177,8 @@
       )))
 
 (defun bridge-unregister (handler)
-  ;; called by socket handler on socket shutdown
+  ;; called by socket handler on socket shutdown to remove all
+  ;; mappings that indicate the handler Actor
   (in-bridge
     (with-slots (dests conts) *bridge*
       (maps:iter dests
@@ -149,7 +192,7 @@
       )))
         
 (defun bridge-reset ()
-  ;; called when all socket I/O is shutdown
+  ;; called when *all* socket I/O is shutdown
   (in-bridge
     (with-slots (dests conts) *bridge*
       (setf conts (maps:empty)
@@ -189,6 +232,7 @@
       (apply cont reply))))
 
 ;; -----------------------------------------------------------------------
+;; Default services: ECHO and EVAL
 
 (register-actor :echo
                 (make-actor
@@ -207,6 +251,7 @@
                    (funcall (apply #'cmpfn msg)))))
 
 ;; ----------------------------------------------------------------------
+;; SEND across network connections - never blocks.
 
 (defmethod send ((str string) &rest message)
   (let (actor)
@@ -229,9 +274,11 @@
 (defmethod send ((proxy proxy) &rest message)
   (apply 'bridge-forward-message proxy message))
 
-; ------------------------------------------
+;; ------------------------------------------
+;; Blocking ASK across network connections
 
 (defun network-ask (dest &rest message)
+  ;; Blocking ASK across a network connection
   (=wait ((ans) :timeout *timeout* :errorp t)
       (=apply 'bridge-ask-query dest message)
     (recover-ans-or-exn ans)))
@@ -258,8 +305,10 @@
   (apply 'network-ask proxy message))
 
 ;; -----------------------------------------------
+;; Non-blocking ASK across network connections
 
-(=defun network-ask-nb (dest &rest message)     
+(=defun network-ask-nb (dest &rest message)
+  ;; Non-blocking ASK across a network connection
   (=bind (ans)
       (=apply 'bridge-ask-query dest message)
     (=values (recover-ans-or-exn ans))))
