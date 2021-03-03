@@ -52,7 +52,7 @@
       (store-error (c)
         (warn (um:format-error c))
         (file-position stream pos)
-        (call-next-method backend '+unserializable+ stream))
+        (call-next-method backend 'unserializable stream))
       )))
 
 (defun safe-encode (msg &rest args)
