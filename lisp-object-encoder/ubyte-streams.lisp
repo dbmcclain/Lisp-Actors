@@ -186,45 +186,66 @@ THE SOFTWARE.
      )))
 
 (defgeneric xdefrag (vec)
+  ;; return vector copy of vec defragmented
   (:method ((vec vector))
-   vec)
+   (copy-seq vec))
   (:method ((vec scatter-vector))
    (xsubseq vec 0)))
 
+(defun within (low ix hi)
+  ;; test for ix in half-open interval [low, hi)
+  (and (<= low ix)
+       (< ix hi)))
+
 (defgeneric xsubseq (vec start &optional end)
+  ;; return a subseq vector copy of vec
   (:method ((vec vector) start &optional end)
    (subseq vec start end))
   (:method ((vec scatter-vector) start &optional end)
-   (let ((ans (make-array (- (or end
-                                 (xlength vec))
-                             start)
-                          :element-type '(unsigned-byte 8))))
-     (cond
-      ((and (zerop start)
-            (null end))
-       ;; extract the whole thing, concatenated - most likely case
-       (let* ((frags (scatter-vector-frags vec))
-              (limit (length frags)))
-         (um:nlet iter ((pos  0)
-                        (frag 0))
-           (if (< frag limit)
-               (let* ((bytes (xdefrag (aref frags frag)))
-                      (nb    (length bytes)))
-                 (replace ans bytes
-                          :start1 pos)
-                 (go-iter (+ pos nb) (1+ frag)))
-             ;; else
-             ans))
-         ))
-      (t
-       ;; quick and dirty for now...
-       (loop for pos from 0
-             for vix from start below end
-             do
-             (setf (aref ans pos)
-                   (xaref vec vix)))
-       ans)
-      ))))
+   (let* ((frags  (scatter-vector-frags vec))
+          (nfrags (length frags)))
+     (case nfrags
+       ((0)  (subseq #() start end))
+       ((1)  (let ((fragv (xdefrag (aref frags 0))))
+               (if (and (zerop start) ;; try to avoid double copying
+                        (or (null end)
+                            (= end (length fragv))))
+                   fragv ;; fragv is already a copy
+                 ;; else
+                 (subseq fragv start end))))
+       (t
+        (let* ((end  (or end (xlength vec)))
+               (ans  (make-array (- end start)
+                                 :element-type '(unsigned-byte 8))))
+          (um:nlet outer ((base    0)
+                          (frag-ix 0))
+            ;; first - search for start frag
+            (if (< base end)
+                (let* ((frag (aref frags frag-ix))
+                       (nb   (xlength frag)))
+                  (when (within base start (+ base nb))
+                    (um:nlet inner ((pos     0)
+                                    (base    base)
+                                    (frag-ix frag-ix))
+                      (if (< base end)
+                          (let* ((fragv      (xdefrag (aref frags frag-ix)))
+                                 (nfrag      (length fragv))
+                                 (frag-start (max 0 (- start base)))
+                                 (frag-end   (- (min (+ base nfrag) end)
+                                                base))
+                                 (nb         (- frag-end frag-start)))
+                            (replace ans fragv
+                                     :start1 pos
+                                     :start2 frag-start
+                                     :end2   frag-end)
+                            (go-inner (+ pos nb) (+ base nfrag) (1+ frag-ix)))
+                        ;; else
+                        ans)))
+                  (go-outer (+ base nb) (1+ frag-ix)))
+              ;; else
+              ans))
+          ))
+       ))))
 
 (defmethod scatter-vector-add-fragment ((sv scatter-vector) frag-vec)
   (vector-push-extend frag-vec (scatter-vector-frags sv))
