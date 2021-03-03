@@ -43,8 +43,8 @@
   (error 'unserializable-object))
 (setf (symbol-value 'unserializable) 'unserializable)
 
-(defmethod sdle-store:backend-store-object :around ((backend safe-marshaling-backend)
-                                                    obj stream)
+(defmethod backend-store-object :around ((backend safe-marshaling-backend)
+                                         obj stream)
   (let ((pos (file-position stream)))
     (handler-case
         (call-next-method)
