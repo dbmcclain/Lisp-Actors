@@ -652,7 +652,7 @@
                                              (not (eql (slot-definition-allocation slot)
                                                        :class)))))))
                     (serializable-slots obj)) ))
-    (store-object (type-of obj) stream)
+    (store-object (class-name (class-of obj)) stream)
     (store-count (length all-slots) stream)
     (dolist (slot all-slots)
       (let ((slot-name (slot-definition-name slot)))
@@ -759,7 +759,7 @@
                             #'class-name)
                         (class-direct-superclasses obj))
                 stream)
-  (store-object (type-of obj) stream))
+  (store-object (class-name (class-of obj)) stream))
 
 (defrestore-sdle-store (standard-class stream)
   (restore-standard-class stream))

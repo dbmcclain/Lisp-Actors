@@ -148,7 +148,7 @@ inherit from this class."))
     
 ;; ------------------------------------------------------------
 
-(defun oid-for-object (obj)
+(defun oid-for-obj (obj)
   (gethash obj (system-obj-table *prevalent-system*)))
 
 (defun obj-for-oid (oid)
@@ -191,7 +191,8 @@ inherit from this class."))
     (handler-case
         (funcall fn)
       (error (exn)
-        (print (format-error exn))
+        ;; (print (format-error exn))
+        (warn exn)
         (file-position stream file-pos)
         (store-object alternate-object stream))
       )))
@@ -253,7 +254,7 @@ inherit from this class."))
             
             ((not *in-symbol*)
              ;; (format t "~%SDLE-Logging ~A" obj)
-             (if-let (oid (oid-for-object obj))
+             (if-let (oid (oid-for-obj obj))
                  (progn
                    (store-count +object-proxy-code+ stream)
                    (store-count oid stream))
@@ -293,7 +294,7 @@ inherit from this class."))
 
 (defmethod log-update (object at-spec value)
   ;; this is also called from persistent-slot mutation
-  (when (oid-for-object object)
+  (when (oid-for-obj object)
     (serialize-to-logfile (make-update-spec object at-spec value))))
 
 ;; ------------------------------------------------------
@@ -338,7 +339,7 @@ inherit from this class."))
     (remove-item-from-object object key)))
 
 (defmethod log-remove (object key)
-  (when (oid-for-object object)
+  (when (oid-for-obj object)
     (serialize-to-logfile (make-remove-item-spec object key))))
     
 (defmethod remove-item-from-object ((object hash-table) key)
@@ -369,7 +370,7 @@ inherit from this class."))
     (slot-makunbound obj slot-name)))
     
 (defmethod log-makunbound (object slot-name)
-  (when (oid-for-object object)
+  (when (oid-for-obj object)
     (serialize-to-logfile (make-makunbound-spec object slot-name))))
 
 ;; ------------------------------------------------------------

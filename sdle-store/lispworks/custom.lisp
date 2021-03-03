@@ -41,8 +41,10 @@
 
 (defstore-sdle-store (obj structure-object stream)
   (output-type-code +structure-object-code+ stream)
-  (let* ((slot-names (structure:structure-class-slot-names (class-of obj))))
-    (store-object (type-of obj) stream)
+  (let* ((obj-class  (class-of obj))
+         (class-name (class-name obj-class))
+         (slot-names (structure:structure-class-slot-names obj-class)))
+    (store-object class-name stream)
     (store-count (length slot-names) stream)
     (dolist (slot-name slot-names)
       (store-object slot-name stream))

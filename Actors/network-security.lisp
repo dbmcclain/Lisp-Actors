@@ -548,24 +548,24 @@
 ;; --------------------------------------------------
 
 (defun encode (obj &rest args)
-  (cvt-intvec-to-octets (lzw-compress (apply #'loenc:encode obj args))))
+  (cvt-intvec-to-octets (lzw-compress (apply #'rsmb:safe-encode obj args))))
 
 (defun decode (data)
-  (loenc:decode (lzw-decompress (cvt-octets-to-intvec data))))
+  (rsmb:safe-decode (lzw-decompress (cvt-octets-to-intvec data))))
 |#  
 ;; --------------------------------------------------
 
 (defconstant +MAX-FRAGMENT-SIZE+ 65536)
 
 (defun byte-encode-obj (obj)
-  (loenc:encode
+  (rsmb:safe-encode
    (lzw:zl-compress obj)))
 
 (defun byte-decode-obj (vec)
   (multiple-value-bind (v e)
       (ignore-errors 
         (lzw:decompress
-         (loenc:decode vec)))
+         (rsmb:safe-decode vec)))
     (if e
         (progn
           ;; (setf *bad-data* (copy-seq data))
@@ -595,8 +595,8 @@
                  (msg    (if (plusp rem)
                              'actor-internal-message:frag
                            'actor-internal-message:last-frag))
-                 (packet (loenc:encode (list msg frag)
-                                       :align 16)))
+                 (packet (rsmb:safe-encode (list msg frag)
+                                           :align 16)))
             (acc packet)
             (go-iter rem end)
             )))
@@ -639,7 +639,7 @@
 (defun insecure-decoding (enc-buf)
   (multiple-value-bind (v e)
       (ignore-errors 
-        (loenc:decode enc-buf))
+        (rsmb:safe-decode enc-buf))
     (if e
         (progn
           ;; (setf *bad-data* (copy-seq data))

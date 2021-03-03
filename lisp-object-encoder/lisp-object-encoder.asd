@@ -40,6 +40,7 @@ THE SOFTWARE.
 		(:file "ubyte-streams")
                 (:file "lzw")
                 (:file "lisp-object-encoder")
+                (:file "safe-marshaling")
                 #+(AND :COM.RAL :LISPWORKS) (:file "persistent-store")
 		#+(AND :COM.RAL :LISPWORKS) (:file "prevalent-metaclass")
                 #+(AND :COM.RAL :LISPWORKS) (:file "prevalent-objects")
