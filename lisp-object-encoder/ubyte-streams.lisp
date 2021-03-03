@@ -185,6 +185,47 @@ THE SOFTWARE.
            )))
      )))
 
+(defgeneric xdefrag (vec)
+  (:method ((vec vector))
+   vec)
+  (:method ((vec scatter-vector))
+   (xsubseq vec 0)))
+
+(defgeneric xsubseq (vec start &optional end)
+  (:method ((vec vector) start &optional end)
+   (subseq vec start end))
+  (:method ((vec scatter-vector) start &optional end)
+   (let ((ans (make-array (- (or end
+                                 (xlength vec))
+                             start)
+                          :element-type '(unsigned-byte 8))))
+     (cond
+      ((and (zerop start)
+            (null end))
+       ;; extract the whole thing, concatenated - most likely case
+       (let* ((frags (scatter-vector-frags vec))
+              (limit (length frags)))
+         (um:nlet iter ((pos  0)
+                        (frag 0))
+           (if (< frag limit)
+               (let* ((bytes (xdefrag (aref frags frag)))
+                      (nb    (length bytes)))
+                 (replace ans bytes
+                          :start1 pos)
+                 (go-iter (+ pos nb) (1+ frag)))
+             ;; else
+             ans))
+         ))
+      (t
+       ;; quick and dirty for now...
+       (loop for pos from 0
+             for vix from start below end
+             do
+             (setf (aref ans pos)
+                   (xaref vec vix)))
+       ans)
+      ))))
+
 (defmethod scatter-vector-add-fragment ((sv scatter-vector) frag-vec)
   (vector-push-extend frag-vec (scatter-vector-frags sv))
   (incf (scatter-vector-length sv) (xlength frag-vec)))

@@ -558,13 +558,14 @@
 (defconstant +MAX-FRAGMENT-SIZE+ 65536)
 
 (defun byte-encode-obj (obj)
-  (loenc:encode
+  (lzw:zl-compressed-data
    (lzw:zl-compress obj)))
 
 (defun byte-decode-obj (vec)
   (handler-case
       (lzw:decompress
-       (loenc:decode vec))
+       (lzw:make-zl-compressed
+        :data (ubyte-streams:xdefrag vec)))
     (error ()
       ;; (setf *bad-data* (copy-seq data))
       `(actor-internal-message:discard))

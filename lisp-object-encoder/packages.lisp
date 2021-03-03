@@ -165,5 +165,7 @@
    #:scatter-vector-length
    #:xaref
    #:xlength
+   #:xdefrag
+   #:xsubseq
    ))
 
