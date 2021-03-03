@@ -634,15 +634,12 @@
 ;; --------------------------------------------------
 
 (defun insecure-decoding (enc-buf)
-  (multiple-value-bind (v e)
-      (ignore-errors 
-        (rsmb:safe-decode enc-buf))
-    (if e
-        (progn
-          ;; (setf *bad-data* (copy-seq data))
-          `(actor-internal-message:discard))
-      ;; else
-      v)))
+  (handler-case
+      (loenc:decode enc-buf)
+    (error ()
+      ;; (setf *bad-data* (copy-seq data))
+      `(actor-internal-message:discard))
+    ))
 
 (defun secure-decoding (crypto len len-buf enc-buf hmac-buf)
   (with-accessors ((cipher      crypto-cypher-in)
