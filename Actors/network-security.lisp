@@ -548,30 +548,27 @@
 ;; --------------------------------------------------
 
 (defun encode (obj &rest args)
-  (cvt-intvec-to-octets (lzw-compress (apply #'rsmb:safe-encode obj args))))
+  (cvt-intvec-to-octets (lzw-compress (apply #'loenc:encode obj args))))
 
 (defun decode (data)
-  (rsmb:safe-decode (lzw-decompress (cvt-octets-to-intvec data))))
+  (loenc:decode (lzw-decompress (cvt-octets-to-intvec data))))
 |#  
 ;; --------------------------------------------------
 
 (defconstant +MAX-FRAGMENT-SIZE+ 65536)
 
 (defun byte-encode-obj (obj)
-  (rsmb:safe-encode
+  (loenc:encode
    (lzw:zl-compress obj)))
 
 (defun byte-decode-obj (vec)
-  (multiple-value-bind (v e)
-      (ignore-errors 
-        (lzw:decompress
-         (rsmb:safe-decode vec)))
-    (if e
-        (progn
-          ;; (setf *bad-data* (copy-seq data))
-          `(actor-internal-message:discard))
-      ;; else
-      v)))
+  (handler-case
+      (lzw:decompress
+       (loenc:decode vec))
+    (error ()
+      ;; (setf *bad-data* (copy-seq data))
+      `(actor-internal-message:discard))
+    ))
   
 (defun insecure-prep (obj)
   ;; Encode an object for network transmission and split into
@@ -595,8 +592,8 @@
                  (msg    (if (plusp rem)
                              'actor-internal-message:frag
                            'actor-internal-message:last-frag))
-                 (packet (rsmb:safe-encode (list msg frag)
-                                           :align 16)))
+                 (packet (loenc:encode (list msg frag)
+                                       :align 16)))
             (acc packet)
             (go-iter rem end)
             )))
