@@ -42,6 +42,9 @@
             actors.lfm:kill-system-logger
             
             actors.base:assemble-ask-message
+
+            scatter-vec:scatter-vector
+            scatter-vec:add-fragment
             )))
 
 ;; -----------------------------------------------------------------------
@@ -321,7 +324,7 @@
 ;; ------------------------------------------------------------------------
 
 (define-actor-class message-dispatcher ()
-  ((accum      :initform (make-instance 'scatter-vec:scatter-vector))
+  ((accum      :initform (make-instance 'scatter-vector))
    (kill-timer :initarg :kill-timer)
    (intf       :initarg :intf)
    (title      :initarg :title)
@@ -338,13 +341,13 @@
           (shutdown intf))
         
         (actor-internal-message:frag (frag)
-          (scatter-vec:add-fragment accum frag))
+          (add-fragment accum frag))
         
         (actor-internal-message:last-frag (frag)
-           (scatter-vec:add-fragment accum frag)
+           (add-fragment accum frag)
            (handle-message dispatcher (byte-decode-obj
                                        (shiftf accum
-                                               (make-instance 'scatter-vec:scatter-vector)))
+                                               (make-instance 'scatter-vector)))
                            ))
             
         (actor-internal-message:srp-node-id (node-id)
