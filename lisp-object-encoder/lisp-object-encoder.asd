@@ -37,7 +37,9 @@ THE SOFTWARE.
   :license     "Copyright (c) 2008 by SpectroDynamics, LLC. All rights reserved."
   :components  ((:file "packages")
                 (:file "managed-buffers")
+                (:file "scatter-vec")
 		(:file "ubyte-streams")
+                (:file "xzlib")
                 (:file "lzw")
                 (:file "lisp-object-encoder")
                 (:file "safe-marshaling")
@@ -51,5 +53,6 @@ THE SOFTWARE.
                  "ironclad"
                  "sdle-store"
                  "babel"
-                 "zlib"))
+                 ;; "zlib"
+                 ))
 

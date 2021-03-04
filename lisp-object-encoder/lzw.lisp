@@ -219,10 +219,10 @@ THE SOFTWARE.
 
 (defun zl-compress (x)
   (make-zl-compressed
-   :data (zlib:compress (loenc:encode x) :fixed)))
+   :data (xzlib:compress (loenc:encode x) :fixed)))
 
 (defmethod decompress ((x zl-compressed))
   (loenc:decode
-   (zlib:uncompress
+   (xzlib:uncompress
     (zl-compressed-data x))))
 

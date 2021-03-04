@@ -1,6 +1,23 @@
 
 (in-package :user)
 
+(defpackage #:scatter-vec
+  (:export
+   #:scatter-vector
+   #:in-bounds-p
+   #:xlength
+   #:xaref
+   #:xdefrag
+   #:xsubseq
+   #:add-fragment
+   ))
+
+(defpackage #:xzlib
+  (:use #:cl #:scatter-vec)
+  (:export
+   #:compress
+   #:uncompress))
+
 (defpackage :lzw
   (:use :cl)
   (:export
@@ -23,7 +40,7 @@
    ))
 
 (defpackage :lisp-object-encoder
-  (:use #:common-lisp)
+  (:use #:common-lisp #:scatter-vec)
   (:nicknames #:loenc)
   (:import-from #:sdle-store
    #:output-type-code
@@ -142,7 +159,7 @@
    ))
 
 (defpackage #:ubyte-streams
-  (:use #:common-lisp)
+  (:use #:common-lisp #:scatter-vec)
   (:nicknames #:ubstream)
   #+:LISPWORKS
   (:import-from #:stream

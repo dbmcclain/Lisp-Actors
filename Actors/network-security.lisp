@@ -565,7 +565,7 @@
   (handler-case
       (lzw:decompress
        (lzw:make-zl-compressed
-        :data (ubyte-streams:xdefrag vec)))
+        :data vec))
     (error ()
       ;; (setf *bad-data* (copy-seq data))
       `(actor-internal-message:discard))

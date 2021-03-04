@@ -287,7 +287,7 @@ transmitted in network byte-order (big-endian)."
 (defun deserialize-for-length (stream nb &key (backend 'loe-back-end))
   (mgdbuf:with-temporary-buffer (buf nb)
     (must-read-raw-bytes stream nb buf)
-    (ubyte-streams:with-input-from-ubyte-stream (s buf)
+    (ubstream:with-input-from-ubyte-stream (s buf)
       (sdle-store:restore s backend))))
 
 (defun deserialize-prefixed-stream (stream prefix-length &key (backend 'loe-back-end))
@@ -331,7 +331,7 @@ recycling that buffer for another use later. This is an attempt to avoid generat
                    use-magic
                    prefix-length
                    length
-                   (reader 'ubyte-streams:xaref)
+                   (reader 'xaref)
                    (backend 'loe-back-end))
   (ubstream:with-input-from-ubyte-stream (s arr :start start :reader reader)
     (deserialize s

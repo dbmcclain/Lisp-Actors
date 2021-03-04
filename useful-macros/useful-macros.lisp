@@ -3289,3 +3289,11 @@ or list acceptable to the reader macros #+ and #-."
          ,@body))
     ))
        
+;; -------------------------------------------------
+
+(defun within (low ix hi)
+  ;; test for ix in half-open interval [low, hi)
+  (and (<= low ix)
+       (< ix hi)))
+
+
