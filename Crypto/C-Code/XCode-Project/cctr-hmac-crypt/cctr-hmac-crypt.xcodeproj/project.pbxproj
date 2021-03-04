@@ -1,0 +1,264 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		69FA01F716D327BA00840ECC /* cctr_hmac_crypt.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 69FA01F616D327BA00840ECC /* cctr_hmac_crypt.1 */; };
+		69FA020216D3280400840ECC /* aes.c in Sources */ = {isa = PBXBuildFile; fileRef = 69FA01FD16D3280400840ECC /* aes.c */; };
+		69FA020316D3280400840ECC /* aesx.c in Sources */ = {isa = PBXBuildFile; fileRef = 69FA01FE16D3280400840ECC /* aesx.c */; };
+		69FA020516D3280400840ECC /* parse_keytext.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 69FA020016D3280400840ECC /* parse_keytext.cpp */; };
+		69FA020616D3280400840ECC /* sha2.c in Sources */ = {isa = PBXBuildFile; fileRef = 69FA020116D3280400840ECC /* sha2.c */; };
+		69FA021016D3282F00840ECC /* Twofish.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 69FA020F16D3282F00840ECC /* Twofish.cpp */; };
+		69FA021416D328AD00840ECC /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 69FA021316D328AD00840ECC /* main.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		69FA01EF16D327BA00840ECC /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				69FA01F716D327BA00840ECC /* cctr_hmac_crypt.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		69B6863716D3505900B77C00 /* Twofish.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Twofish.h; path = ../../../Twofish/Twofish.h; sourceTree = "<group>"; };
+		69FA01F116D327BA00840ECC /* cctr-hmac-crypt */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "cctr-hmac-crypt"; sourceTree = BUILT_PRODUCTS_DIR; };
+		69FA01F616D327BA00840ECC /* cctr_hmac_crypt.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = cctr_hmac_crypt.1; sourceTree = "<group>"; };
+		69FA01FD16D3280400840ECC /* aes.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = aes.c; path = ../../../AES256/aes.c; sourceTree = "<group>"; };
+		69FA01FE16D3280400840ECC /* aesx.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = aesx.c; path = ../../../AES256/aesx.c; sourceTree = "<group>"; };
+		69FA020016D3280400840ECC /* parse_keytext.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = parse_keytext.cpp; path = ../../../AES256/parse_keytext.cpp; sourceTree = "<group>"; };
+		69FA020116D3280400840ECC /* sha2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sha2.c; path = ../../../AES256/sha2.c; sourceTree = "<group>"; };
+		69FA020716D3282100840ECC /* aes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = aes.h; path = ../../../Include/aes.h; sourceTree = "<group>"; };
+		69FA020816D3282100840ECC /* aesx.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = aesx.h; path = ../../../Include/aesx.h; sourceTree = "<group>"; };
+		69FA020916D3282100840ECC /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config.h; path = ../../../Include/config.h; sourceTree = "<group>"; };
+		69FA020A16D3282100840ECC /* my_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = my_types.h; path = ../../../Include/my_types.h; sourceTree = "<group>"; };
+		69FA020C16D3282100840ECC /* parse_keytext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = parse_keytext.h; path = ../../../Include/parse_keytext.h; sourceTree = "<group>"; };
+		69FA020D16D3282100840ECC /* sha2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sha2.h; path = ../../../Include/sha2.h; sourceTree = "<group>"; };
+		69FA020E16D3282100840ECC /* Twofish_data.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Twofish_data.h; path = ../../../Include/Twofish_data.h; sourceTree = "<group>"; };
+		69FA020F16D3282F00840ECC /* Twofish.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Twofish.cpp; path = ../../../Twofish/Twofish.cpp; sourceTree = "<group>"; };
+		69FA021316D328AD00840ECC /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = ../../../main.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		69FA01EE16D327BA00840ECC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		69FA01E816D327BA00840ECC = {
+			isa = PBXGroup;
+			children = (
+				69FA01F316D327BA00840ECC /* cctr-hmac-crypt */,
+				69FA01F216D327BA00840ECC /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		69FA01F216D327BA00840ECC /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				69FA01F116D327BA00840ECC /* cctr-hmac-crypt */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		69FA01F316D327BA00840ECC /* cctr-hmac-crypt */ = {
+			isa = PBXGroup;
+			children = (
+				69FA021316D328AD00840ECC /* main.cpp */,
+				69FA020716D3282100840ECC /* aes.h */,
+				69FA020816D3282100840ECC /* aesx.h */,
+				69FA020916D3282100840ECC /* config.h */,
+				69FA020A16D3282100840ECC /* my_types.h */,
+				69FA020C16D3282100840ECC /* parse_keytext.h */,
+				69FA020D16D3282100840ECC /* sha2.h */,
+				69B6863716D3505900B77C00 /* Twofish.h */,
+				69FA020E16D3282100840ECC /* Twofish_data.h */,
+				69FA020F16D3282F00840ECC /* Twofish.cpp */,
+				69FA01FD16D3280400840ECC /* aes.c */,
+				69FA01FE16D3280400840ECC /* aesx.c */,
+				69FA020016D3280400840ECC /* parse_keytext.cpp */,
+				69FA020116D3280400840ECC /* sha2.c */,
+				69FA01F616D327BA00840ECC /* cctr_hmac_crypt.1 */,
+			);
+			path = "cctr-hmac-crypt";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		69FA01F016D327BA00840ECC /* cctr-hmac-crypt */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 69FA01FA16D327BA00840ECC /* Build configuration list for PBXNativeTarget "cctr-hmac-crypt" */;
+			buildPhases = (
+				69FA01ED16D327BA00840ECC /* Sources */,
+				69FA01EE16D327BA00840ECC /* Frameworks */,
+				69FA01EF16D327BA00840ECC /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "cctr-hmac-crypt";
+			productName = "cctr-hmac-crypt";
+			productReference = 69FA01F116D327BA00840ECC /* cctr-hmac-crypt */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		69FA01E916D327BA00840ECC /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0460;
+				ORGANIZATIONNAME = "David McClain";
+			};
+			buildConfigurationList = 69FA01EC16D327BA00840ECC /* Build configuration list for PBXProject "cctr-hmac-crypt" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 69FA01E816D327BA00840ECC;
+			productRefGroup = 69FA01F216D327BA00840ECC /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				69FA01F016D327BA00840ECC /* cctr-hmac-crypt */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		69FA01ED16D327BA00840ECC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				69FA020216D3280400840ECC /* aes.c in Sources */,
+				69FA020316D3280400840ECC /* aesx.c in Sources */,
+				69FA020516D3280400840ECC /* parse_keytext.cpp in Sources */,
+				69FA020616D3280400840ECC /* sha2.c in Sources */,
+				69FA021016D3282F00840ECC /* Twofish.cpp in Sources */,
+				69FA021416D328AD00840ECC /* main.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		69FA01F816D327BA00840ECC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libstdc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				ONLY_ACTIVE_ARCH = NO;
+				SDKROOT = macosx10.7;
+			};
+			name = Debug;
+		};
+		69FA01F916D327BA00840ECC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libstdc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				SDKROOT = macosx10.7;
+			};
+			name = Release;
+		};
+		69FA01FB16D327BA00840ECC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_STYLE = "non-global";
+			};
+			name = Debug;
+		};
+		69FA01FC16D327BA00840ECC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_STYLE = "non-global";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		69FA01EC16D327BA00840ECC /* Build configuration list for PBXProject "cctr-hmac-crypt" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				69FA01F816D327BA00840ECC /* Debug */,
+				69FA01F916D327BA00840ECC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		69FA01FA16D327BA00840ECC /* Build configuration list for PBXNativeTarget "cctr-hmac-crypt" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				69FA01FB16D327BA00840ECC /* Debug */,
+				69FA01FC16D327BA00840ECC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 69FA01E916D327BA00840ECC /* Project object */;
+}

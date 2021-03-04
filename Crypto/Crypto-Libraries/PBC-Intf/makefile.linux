@@ -1,0 +1,14 @@
+GCC=g++ -shared -fpic -I$(PREFIX)/include -O2 -msse3 -mfpmath=sse -m64 -L$(PREFIX)/lib
+
+
+TARGET=$(PREFIX)/lib/libLispPBCIntf.so
+
+all: $(TARGET)
+
+$(TARGET): pbc_intf.cpp pbc_intf.h
+	$(GCC) -o libLispPBCIntf.so \
+		pbc_intf.cpp \
+	-Wl,-rpath $(PREFIX)/lib -lpbc
+	mv -f libLispPBCIntf.so $(TARGET)
+
+

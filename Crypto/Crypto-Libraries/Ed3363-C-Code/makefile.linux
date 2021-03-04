@@ -1,0 +1,16 @@
+GCC=g++ -shared -fpic -I$(PREFIX)/include  -O3 -msse3 -mfpmath=sse -m64 -L$(PREFIX)/lib
+
+TARGET=$(PREFIX)/lib/libLispEd3363.so
+TARGET2=$(PREFIX)/lib/libLispCurve1174.so
+
+all: $(TARGET) $(TARGET2)
+
+$(TARGET): ed3363_intf.cpp ed3363_intf.h
+	$(GCC) -o libLispEd3363.so \
+		ed3363_intf.cpp
+	mv -f libLispEd3363.so $(TARGET)
+
+$(TARGET2): curve1174_intf.cpp curve1174_intf.h
+	$(GCC) -o libLispCurve1174.so \
+		curve1174_intf.cpp
+	mv -f libLispCurve1174.so $(TARGET2)

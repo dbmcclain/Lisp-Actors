@@ -1,0 +1,13 @@
+GCC=g++ -dynamiclib -I$(PREFIX)/include  -O2 -msse3 -mfpmath=sse -m64
+
+TARGET=$(PREFIX)/lib/libLispPBCIntf.dylib
+
+all: $(TARGET)
+
+$(TARGET): pbc_intf.cpp pbc_intf.h
+	$(GCC) -o libLispPBCIntf.dylib \
+		pbc_intf.cpp \
+                -Wl,-L$(PREFIX)/lib -lpbc -lgmp
+	mv libLispPBCIntf.dylib $(TARGET)
+
+

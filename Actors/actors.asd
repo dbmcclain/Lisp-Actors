@@ -43,6 +43,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "actors-lfm")
                 (:file "actor-bridge")
                 (:file "network-security")
+                #+:COM.RAL (:file "srp6-ecc")
                 (:file "network-connection")
                 (:file "reactor"))
   :SERIAL T
@@ -51,5 +52,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 		 "mpcompat"
                  "cps"
                  "lisp-object-encoder"
+                 #+:COM.RAL "core-crypto"
                  ))
 

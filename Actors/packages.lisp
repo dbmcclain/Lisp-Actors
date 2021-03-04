@@ -221,6 +221,9 @@ THE SOFTWARE.
    #:server-info
 
    #:send-sync
+
+   #:srp-node-id-ecc
+   #:srp-phase2-ecc
    ))
 
 (defpackage #:actors.directory
@@ -244,7 +247,9 @@ THE SOFTWARE.
    #:terminate-server
    #:*default-port*
    #:client-request-negotiation
+   #:client-request-negotiation-ecc
    #:intf-srp-ph2-begin
+   #:intf-srp-ph2-begin-ecc
    #:intf-srp-ph2-reply
    #:intf-srp-ph3-begin
    ))
@@ -253,6 +258,7 @@ THE SOFTWARE.
   (:use #:common-lisp #:actors)
   (:shadow #:random)
   (:export
+   #:$VERSION
    #:random
    #:secure-encoding
    #:secure-decoding
