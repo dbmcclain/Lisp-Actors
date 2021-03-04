@@ -55,47 +55,67 @@
 #|
 (defun member-data (machine-instance)
   (let* ((salt (int (hash/256 (usec:get-time-usec))))
-         (seed (int (hash/256 salt (hash/256 machine-instance $VERSION)))))
+         (seed (int (hash/256 salt
+                              (hash/256 machine-instance
+                                        $VERSION)))))
     (multiple-value-bind (x v)
         (make-deterministic-keys seed)
-      (list machine-instance salt x (ed-compress-pt v)))))
+      (list machine-instance x (ed-compress-pt v)))))
 |#
 
 (progn
   (add-member '("Arroyo.local"
-                64312043832863619747953468365437559830437998134641746103290477938253457572300
                 891938153290200541895437830188057625448175311417807227544513453588451873458
                 #S(EDWARDS-ECC::ECC-CMPR-PT
                    :CX 2281124396847643339496930478758037867194371184857201838485742174386118537564)))
   (add-member '("Rincon.local"
-                115162469593219643095529344846467810336764392449392003640786646358322559337381
                 685238382847641274182683657843007532897107465333895821456505441193694774431
                 #S(EDWARDS-ECC::ECC-CMPR-PT
                    :CX 4618639225348649571859847622871416385806382551022274362125457945368830526970))))
 
+(define-condition no-member-info (error)
+  ((node-id  :reader no-member-info-node-id :initarg :node-id))
+  (:report (lambda (c stream)
+             (format stream "No member info: ~A"
+                     (no-member-info-node-id c)))
+   ))
+
+(defun get-keying (mach-id)
+  (or (gethash mach-id *member-tbl*)
+      (error 'no-member-info :node-id mach-id)))
+
 (defmethod client-negotiate-security-ecc ((crypto crypto) intf)
-  ;; Phase-I: send local node ID
+  ;; No second chances - any error shuts down the connection
+  ;; immediately.
   (let ((node-id (machine-instance)))
-    (destructuring-bind (salt x gxc)
-        (gethash node-id *member-tbl*)
-      (declare (ignore salt))
+    (destructuring-bind (x gxc) ;; x as Mod *ed-r*, gxc as compressed pt
+        (get-keying node-id)
+      ;;
+      ;; Phase-I: send local node ID
+      ;;
       (=wait ((bbc) :timeout 5)
           (client-request-negotiation-ecc intf =wait-cont node-id)
-        ;; Phase-II: receive N,g,s,B
-        ;; Compute: x = H32(s,ID,PassPhrase)
-        ;;          a = 1 < random < N
-        ;;          A = g^a mod N
-        ;;          u = H32(A,B)
-        ;;          S = (B - 3*g^x)^(a+u*x) mod N
-        ;;          M1 = H32(A,B,S)
-        ;; Send A,m1
+        ;;
+        ;; Phase-II: receive B                  -- a random compressed ECC point on Curve1174
+        ;;
+        ;; PreComputed: (x, V=x*G) as deterministic key pair, using
+        ;;                         seed H32(salt,H32(ID,PassPhrase))
+        ;;
+        ;; Compute: (a, A=a*G) as random key pair on curve1174
+        ;;          u = H32(A,B)                -- A,B in compressed form
+        ;;          k = H32(*ed-r*,*ed-q*)
+        ;;          S = (B - k*x*G)*(a + u*x)   -- a point on Curve1174
+        ;;          M1 = H32(A,B,S)             -- A,B,S in compressed form
+        ;;
+        ;; Send A,M1                            -- A in compressed form, M1 as Hash/256
         ;; Hold as secret: x, a, u, S
-        
-        ;; Public key B might not be a *valid* public key.
-        ;; But we don't use it directly.
-        ;; Do the subtraction first, then check for validity.
+        ;;
+        ;; Public key B might not be a *valid* public key.  Conversion
+        ;; from compressed form to affine or projective will perform
+        ;; validity checking.
+        ;;
         (let* ((k   (int (hash/256 *ed-r* *ed-q*)))
-               (bbb (ed-sub bbc
+               (bb  (ed-sub bbc
                             (ed-mul gxc k))))
           
           (multiple-value-bind (a aa)
@@ -103,17 +123,26 @@
             (let* ((aac (ed-compress-pt aa))
                    (u   (int (hash/256 aac bbc)))
                    (sc  (ed-compress-pt
-                         (ed-mul bbb
+                         (ed-mul bb
                                  (with-mod *ed-r*
                                    (m+ a (m* u x))))))
                    (m1  (hash/256 aac bbc sc)))
               (=wait ((m2) :timeout 5)
                   (funcall (intf-srp-ph2-reply intf) =wait-cont aac m1)
-                ;; Phase 3: receive M2
-                ;; Compute: Chk2  = H32(A,M1,S), check Chk2 = M2
-                ;;          Key   = H32(S) 
-                ;;          InitV = H32(M2,S)
-                ;; Init crypto with Key, InitV
+                ;;
+                ;; Phase 3: receive M2 -- a Hash/256
+                ;;
+                ;; Compute: Chk2      = H32(A,M1,S), check Chk2 == M2
+                ;;          Key-in    = H32(A,S,B) -- A,S,B in compressed form
+                ;;          Key-out   = H32(B,S,A) -- A,S,B in compressed form
+                ;;          His InitV = H32(M1,S)[0:16)  -- M1 as Hash256, S in compressed form
+                ;;          My InitV  = H32(M2,S)[0:16)  -- M2 as Hash256, S in compressed form
+                ;;
+                ;; Init crypto with (Key-in, His-InitV)      -- input channel
+                ;;                  (Key-out, My-InitV)      -- output channel
+                ;;                  H32(His-InitV, My-InitV) -- HMAC keying
+                ;; For symmetric AES/256/HMAC applied asymmetrically.
+                ;;
                 (let* ((chk2      (hash/256 aac m1 sc))
                        (key-in    (vec (hash/256 aac sc bbc)))
                        (key-out   (vec (hash/256 bbc sc aac)))
@@ -131,43 +160,53 @@
               ))))
       )))
 
-(define-condition no-member-info (error)
-  ((node-id  :reader no-member-info-node-id :initarg :node-id))
-  (:report (lambda (c stream)
-             (format stream "No member info: ~A"
-                     (no-member-info-node-id c)))
-   ))
-
 (defmethod server-negotiate-security-ecc ((crypto crypto) intf node-id)
-  ;; ensure that our good numbers have not been altered...
-  (let ((gxc (third (gethash node-id *member-tbl*))))
-    (unless gxc
-      (error 'no-member-info :node-id node-id))
-    ;; Phase II: Compute: s = random 256-bit
-    ;;                    x = H32(s,ID,PassPhrase)
-    ;;                    v = g^x mod N
-    ;;                    b = 1 < random < N
-    ;;                    B = 3*v + g^b mod N
-    ;; Write: N,g,s,B
-    ;; Hold as secret: x, v, b
-    (multiple-value-bind (b bbb)
+  ;; No second chances - any error shuts down the connection
+  ;; immediately.
+  ;;
+  ;; We start in Phase II on receipt of his node-id.
+  (let ((gxc (cadr (get-keying node-id))))
+    ;;
+    ;; Phase II:
+    ;;
+    ;; PreComputed: (x, V=x*G) as deterministic key pair, using
+    ;;                         seed H32(salt,H32(ID,PassPhrase))
+    ;;
+    ;; Compute: (b, b*G) = random key pair on Curve1174
+    ;;          k = H32(*ed-r*, *ed-q*)
+    ;;          B = k*V + b*G
+    ;;
+    ;; Write: B in compressed point form
+    ;; Hold as secret: V, b
+    ;;
+    (multiple-value-bind (b bb)
         (ed-random-pair)
       (let* ((k   (int (hash/256 *ed-r* *ed-q*)))
              (bbc (ed-compress-pt
-                   (ed-add bbb
+                   (ed-add bb
                            (ed-mul gxc k)))))
         (=wait ((aac m1) :timeout 5)
             (funcall (intf-srp-ph2-begin-ecc intf) =wait-cont bbc)
-          ;; Phase III: Receive A,M1
-          ;; Compute: u     = H32(A,B)
-          ;;          S     = (A*v^u)^b mod N
-          ;;          Chk1  = H32(A,B,S) check Chk1 = M1
-          ;;          M2    = H32(A,M1,S)
-          ;;          Key   = H32(S)    ;; H16(S)
-          ;;          InitV = H32(M1,S) ;; H16(M1,S)
+          ;;
+          ;; Phase III: Receive A,M1 -- A as compressed point, M1 as Hash/256
+          ;;
+          ;; Compute: u         = H32(A,B)    -- A,B as compressed points
+          ;;          S         = (A + u*V)*b
+          ;;          Chk1      = H32(A,B,S), check Chk1 == M1
+          ;;          M2        = H32(A,M1,S) -- A,S as compressed points, M1 as Hash/256 
+          ;;          Key-in    = H32(B,S,A)  -- A,B,S as compressed points
+          ;;          Key-out   = H32(A,S,B)  -- A,B,S as compressed points   
+          ;;          His-InitV = H32(M2,S)[0:16)   -- M2 as Hash/256, S as compressed point
+          ;;          My-InitV  = H32(M1,S)[0:16)   -- M1 as Hash/256, S as compressed point
+          ;;
           ;; Send: M2
           ;; Hold as secret: u,S
-          ;; Init crypto with Key, initv
+          ;;
+          ;; Init crypto with (Key-in, His-InitV), -- for input channel
+          ;;                  (Key-out, My-InitV), -- for output channel
+          ;;                  H32(My-InitV, His-InitV) -- HMAC keying
+          ;; For symmetric AES/256/HMAC applied asymmetrically.
+          ;;
           (let* ((u         (int (hash/256 aac bbc)))
                  (sc        (ed-compress-pt
                              (ed-mul
