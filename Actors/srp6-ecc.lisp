@@ -7,17 +7,15 @@
   (:use #:cl #:ac)
   (:import-from #:core-crypto
    #:int
+   #:vec
    #:hash/256
    #:hash=
-   #:vec
    #:with-mod
    #:m+
    #:m*)
   (:import-from #:edwards-ecc
-   #:*ed-gen*
    #:*ed-r*
    #:*ed-q*
-   #:ed-affine
    #:ed-compress-pt
    #:ed-random-pair
    #:make-deterministic-keys
@@ -36,8 +34,8 @@
    #:init-crypto-for-renegotiation)
   (:import-from #:actors.network
    #:client-request-negotiation-ecc
-   #:intf-srp-ph2-reply
    #:intf-srp-ph2-begin-ecc
+   #:intf-srp-ph2-reply
    #:intf-srp-ph3-begin)
   (:export
    #:client-negotiate-security-ecc
@@ -79,19 +77,9 @@
       (pprint (list mach salt (ed-compress-pt gx))))))
 
 (multiple-value-bind (x gx)
-    (gen-info 58092113895438756482702715951169183950349033817880824399631344333284986728915)
+    (gen-info (machine-instance)
+              58092113895438756482702715951169183950349033817880824399631344333284986728915)
   (ed-compress-pt gx))
-
-(defun member-data (machine-instance)
-  (let* ((salt (int (hash/256 (usec:get-time-usec))))
-         (id   (uuid:make-v1-uuid))
-         (seed (int (hash/256 salt
-                              (uuid:uuid-mac id)
-                              machine-instance
-                              $VERSION))))
-    (multiple-value-bind (x v)
-        (make-deterministic-keys seed)
-      (list machine-instance salt (ed-compress-pt v)))))
 |#
 
 (define-condition no-member-info (error)
@@ -109,7 +97,7 @@
   ;; No second chances - any error shuts down the connection
   ;; immediately.
   (let ((node-id (machine-instance)))
-    (destructuring-bind (salt gxc) ;; x as Mod *ed-r*, gxc as compressed pt
+    (destructuring-bind (salt gxc) ;; salt as int, gxc as compressed pt
         (get-keying node-id)
       ;;
       ;; Phase-I: send local node ID
@@ -132,7 +120,7 @@
         ;; Hold as secret: x, a, u, S
         ;;
         ;; Public key B might not be a *valid* public key.  Conversion
-        ;; from compressed form to affine or projective will perform
+        ;; from compressed form to affine or projective performs
         ;; validity checking.
         ;;
         (let* ((x   (gen-info node-id salt))
