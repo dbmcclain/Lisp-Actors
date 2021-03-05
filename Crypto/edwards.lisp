@@ -1187,10 +1187,10 @@ THE SOFTWARE.
 ;; -------------------------------------------------
 
 (defun compute-deterministic-skey (seed &optional (index 0))
-  "Return a value based on seed, to be used for generating a public
-  key, (aka, a secret key), which is in the upper range of the
-  *ed-r* field, and which avoids potential small-group attacks"
-  (int (hash-to-grp-range seed index)))
+  (multiple-value-bind (_ hval)
+      (hash-to-grp-range seed index)
+    (declare (ignore _))
+    hval))
 
 (defun make-deterministic-keys (seed)
   (let* ((skey  (compute-deterministic-skey seed))
@@ -1198,9 +1198,8 @@ THE SOFTWARE.
     (values skey pkey)))
 
 (defun ed-random-pair ()
-  "Select a random private and public key from the curve, abiding by
-  the precautions discussed for COMPUTE-DETERMINISTIC-SKEY"
-  (let* ((seed (ctr-drbg (um:floor-log2 *ed-r*)))
+  "Select a random private and public key from the curve"
+  (let* ((seed (ctr-drbg (integer-length (1- *ed-r*))))
          (skey (compute-deterministic-skey seed))
          (pt   (ed-nth-pt skey)))
     (values skey pt)))
@@ -1208,34 +1207,13 @@ THE SOFTWARE.
 ;; -----------------------------------------------------
 ;; Hashing onto curve
 
-(defun absorb-hash (h)
-  ;; absorb a hash value in the *ed-q* coordinate group
-  ;; if hash is small, then form (H | 1 | H | 2 | H ...) till large enough
-  ;; then back off by 1 bit right shift until hash value < *ed-q*
-  (let* ((qlen (integer-length *ed-q*))
-         (hvec (bev-vec h))
-         (hv   hvec))
-    (declare (fixnum qlen)
-             (ub8-vector hvec hv))
-    (loop for ct fixnum from 1
-          while (< (* 8 (length hv)) qlen)
-          do
-          (setf hv (concatenate 'ub8-vector hv (vector ct) hvec)))
-    (let ((hint  (int hv)))
-      (declare (integer hint))
-      (when (>= hint *ed-q*)
-        (setf hint (ash hint (- qlen (integer-length hint))))
-        (if (>= hint *ed-q*)
-            (setf hint (ash hint -1))))
-      hint)))
-
-(defun ed-pt-from-hash (h)
+(defun ed-pt-from-hash (hintval)
   "Hash onto curve. Treat h as X coord, just like a compressed point.
 Then if Y is a quadratic residue we are done.
 Else re-probe with (X^2 + 1)."
   (let ((cof-fn  (ed-decmpr*h-fn)))
     (with-mod *ed-q*
-      (um:nlet iter ((x (absorb-hash h)))
+      (um:nlet iter ((x  hintval))
         (or
          (um:when-let (y (ignore-errors (ed-solve-y x)))
            (let ((pt (funcall cof-fn
@@ -1251,12 +1229,14 @@ Else re-probe with (X^2 + 1)."
              (and (not (ed-neutral-point-p pt))
                   pt)))
          ;; else - invalid point, so re-probe at x^2+1
-         (go-iter (1+ (m* x x)))
+         (go-iter (m+ 1 (m* x x)))
          )))))
 
-
 (defun ed-pt-from-seed (&rest seeds)
-  (ed-pt-from-hash (apply 'hash-to-pt-range seeds)))
+  (multiple-value-bind (_ hval)
+      (apply 'hash-to-pt-range seeds)
+    (declare (ignore _))
+    (ed-pt-from-hash hval)))
 
 (defun ed-random-generator ()
   (ed-pt-from-seed (uuid:make-v1-uuid)
@@ -1275,7 +1255,7 @@ Else re-probe with (X^2 + 1)."
     ;; random because of hash - nothing up my sleeve...
     (let ((r   (int (hash-to-grp-range
                      (levn ix 4)
-                     (levn k-priv (um:floor-log2 *ed-q*)) ;; we want *ed-q* here to avoid truncating skey
+                     (levn k-priv (integer-length (1- *ed-q*))) ;; we want *ed-q* here to avoid truncating skey
                      msgv))))
       (if (plusp r)
           (values r (ed-nth-pt r) ix)

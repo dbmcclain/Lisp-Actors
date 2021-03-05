@@ -209,7 +209,7 @@ THE SOFTWARE.
 #|
 (defun split* (m a b)
   (declare (integer m a b))
-  (let* ((nbot (floor (um:ceiling-log2 m) 2))
+  (let* ((nbot (floor (integer-length m) 2))
          (alo  (ldb (byte nbot 0) a))
          (ahi  (mod (- a alo) m))
          (blo  (ldb (byte nbot 0) b))

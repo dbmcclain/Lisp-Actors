@@ -371,6 +371,10 @@ storage and network transmission.
   (let ((trans (rollback)))
     (get-key trans :pi)))
 
+(with-server ("rstkv@arroyo.local")
+  (let ((trans (rollback)))
+    (get-key trans :pi)))
+
 (let ((server (ac:make-proxy
                :addr "rstkv@rincon.local")))
   (with-server (server)

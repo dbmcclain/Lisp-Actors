@@ -143,20 +143,26 @@ THE SOFTWARE.
   ;; by considering the hash value to be an X coord.
   ;; No need here to restrict range to (Sqrt[base], base - Sart[base])
   ;; as we do for safe-random values, because of difficulty of ECDLP.
+  ;; &rest seeds -> hash, int(hash)
   (declare (integer range))
   (check-type range (integer 2)) ;; produce N s.t. N in [0:N)
   (apply (get-cached-symbol-data
           'hash/var 'hash-to-range range
           (lambda ()
-            (let* ((maxbits (um:floor-log2 range))
+            (let* ((maxbits (integer-length (1- range)))
                    (nbytes  (ceiling maxbits 8))
-                   (nhbits  (- maxbits (* 8 (1- nbytes)))))
+                   (nhibits (- maxbits (* 8 (1- nbytes)))))
               (labels ((hash-fn (&rest args)
                          (let ((vec (apply 'get-raw-hash-nbytes nbytes args)))
                            ;; vec is viewwed as big-endian encoding of an integer
-                           (when (< nhbits 8)
-                             (setf (aref vec 0) (ldb (byte nhbits 0) (aref vec 0))))
-                           (make-bare-hash vec #'hash-fn))))
+                           (when (< nhibits 8)
+                             (setf (aref vec 0) (ldb (byte nhibits 0) (aref vec 0))))
+                           (let ((hval (int vec)))
+                             (if (< hval range)
+                                 (values (make-bare-hash vec #'hash-fn)
+                                         hval) ;; for efficiency when int will be called anyway
+                               (hash-fn vec)))
+                           )))
                 #'hash-fn))))
          seeds))
 
