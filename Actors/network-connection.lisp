@@ -523,7 +523,7 @@
                                                :timer-fn #'(lambda ()
                                                              (mp:funcall-async
                                                               (lambda ()
-                                                                (log-error :SYSTEM-LOG "Watchdog Timeout")
+                                                                (log-info :SYSTEM-LOG "Inactivity shutdown request")
                                                                 (shutdown intf))))
                                                )))
     
