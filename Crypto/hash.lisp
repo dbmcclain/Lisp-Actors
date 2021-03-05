@@ -144,18 +144,18 @@ THE SOFTWARE.
   ;; No need here to restrict range to (Sqrt[base], base - Sart[base])
   ;; as we do for safe-random values, because of difficulty of ECDLP.
   (declare (integer range))
-  (check-type range (integer 2))
+  (check-type range (integer 2)) ;; produce N s.t. N in [0:N)
   (apply (get-cached-symbol-data
           'hash/var 'hash-to-range range
           (lambda ()
-            (let ((nbytes  (ceiling (integer-length range) 8)))
+            (let* ((maxbits (um:floor-log2 range))
+                   (nbytes  (ceiling maxbits 8))
+                   (nhbits  (- maxbits (* 8 (1- nbytes)))))
               (labels ((hash-fn (&rest args)
-                         (let* ((vec (apply 'get-raw-hash-nbytes nbytes args))
-                                (val (int vec)))
-                           (unless (< val range)
-                             (um:while (>= val range)
-                               (setf val (ash val -1)))
-                             (setf vec (convert-int-to-vec val)))
+                         (let ((vec (apply 'get-raw-hash-nbytes nbytes args)))
+                           ;; vec is viewwed as big-endian encoding of an integer
+                           (when (< nhbits 8)
+                             (setf (aref vec 0) (ldb (byte nhbits 0) (aref vec 0))))
                            (make-bare-hash vec #'hash-fn))))
                 #'hash-fn))))
          seeds))

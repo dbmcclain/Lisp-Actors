@@ -1190,16 +1190,7 @@ THE SOFTWARE.
   "Return a value based on seed, to be used for generating a public
   key, (aka, a secret key), which is in the upper range of the
   *ed-r* field, and which avoids potential small-group attacks"
-  (let* ((nbits (um:floor-log2 *ed-r*))
-         (h     (int
-                 (hash-to-grp-range
-                  seed :generate-private-key index)))
-         (s     (dpb 1 (byte 1 (1- nbits)) h))   ;; set high bit
-         (skey  s)) ;; (- s (logand s (1- *ed-h*)))))   ;; *ed-h* is always 2^n = (1, 4, 8, ...)
-    (if (< skey *ed-r*) ;; will be true with overwhelming probability (failure ~1e-38)
-        skey
-      (compute-deterministic-skey seed (1+ index)))
-    ))
+  (int (hash-to-grp-range seed index)))
 
 (defun make-deterministic-keys (seed)
   (let* ((skey  (compute-deterministic-skey seed))
@@ -1591,13 +1582,13 @@ Else re-probe with (X^2 + 1)."
 (defun compute-deterministic-elligator-skey (seed &optional (index 0))
   ;; compute a private key from the seed that is safe, and produces an
   ;; Elligator-capable public key.
-  (um:nlet iter ((ix  index))
-    (let* ((skey (compute-deterministic-skey seed ix))
-           (pkey (ed-nth-pt skey))
-           (tau  (elli2-encode pkey)))
-      (if tau
-          (values skey tau ix)
-        (go-iter (1+ ix))))))
+  (let* ((skey (compute-deterministic-skey seed index))
+         (pkey (ed-nth-pt skey))
+         (tau  (elli2-encode pkey)))
+    (if tau
+        (values skey tau index)
+      (compute-deterministic-elligator-skey seed (1+ index)))
+    ))
 
 (defun compute-elligator-summed-pkey (sum-pkey)
   ;; post-processing step after summing public keys. This corrects the

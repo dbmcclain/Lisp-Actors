@@ -299,11 +299,10 @@
 
 (define-condition signature-mismatch-exn (error)
   ()
-  (:default-initargs
-   :arg "Signature mismatch on remote connection"))
+  (:report "Signature mismatch on remote connection"))
 
 (defun signature-mismatch-error ()
-  (error (make-condition 'signature-mismatch-exn)))
+  (error 'signature-mismatch-exn))
 
 ;; -----------------------------------------------------------------------
 
