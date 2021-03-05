@@ -2241,7 +2241,7 @@ This is C++ style enumerations."
 
 (defun pwr2-q (n)
   (and (plusp n)
-       (zerop (ldb (byte (1- (integer-length n)) 0) n))))
+       (eql n (ash 1 (1- (integer-length n))))))
 
 #|
   ;; these are leftovers from the 32-bit era
