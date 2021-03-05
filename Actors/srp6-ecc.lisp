@@ -50,28 +50,49 @@
                       :test #'equal))
 
 (defun add-member (info)
+  ;; info = (machine-id, salt, pubkey)
   (setf (gethash (car info) *member-tbl*) (cdr info)))
 
-#|
-(defun member-data (machine-instance)
-  (let* ((salt (int (hash/256 (usec:get-time-usec))))
-         (seed (int (hash/256 salt
-                              (hash/256 machine-instance
-                                        $VERSION)))))
-    (multiple-value-bind (x v)
-        (make-deterministic-keys seed)
-      (list machine-instance x (ed-compress-pt v)))))
-|#
+(defun gen-info (salt)
+  (let ((id   (uuid:make-v1-uuid))
+        (mach (machine-instance)))
+    (make-deterministic-keys (int (hash/256 salt
+                                            (uuid:uuid-mac id)
+                                            (machine-instance)
+                                            $VERSION)))))
 
 (progn
-  (add-member '("Arroyo.local"
-                891938153290200541895437830188057625448175311417807227544513453588451873458
-                #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 2281124396847643339496930478758037867194371184857201838485742174386118537564)))
   (add-member '("Rincon.local"
-                685238382847641274182683657843007532897107465333895821456505441193694774431
+                82742401931499115828092503595133852931756235569214710955199135185759516753403
                 #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 4618639225348649571859847622871416385806382551022274362125457945368830526970))))
+                   :CX 5775185911231075011605979731077916478487985651213190689614513290037894381553)))
+  (add-member '("Arroyo.local"
+                58092113895438756482702715951169183950349033817880824399631344333284986728915
+                #S(EDWARDS-ECC::ECC-CMPR-PT
+                   :CX 4152356979655075219871307531776727005831228248111683298715594735760249914398))))
+
+#|
+(let ((*print-readably* t))
+  (let ((salt (int (hash/256 (usec:get-time-usec)))))
+    (multiple-value-bind (x gx)
+        (gen-info salt)
+      (pprint (list (machine-instance) salt (ed-compress-pt gx))))))
+
+(multiple-value-bind (x gx)
+    (gen-info 58092113895438756482702715951169183950349033817880824399631344333284986728915)
+  (ed-compress-pt gx))
+
+(defun member-data (machine-instance)
+  (let* ((salt (int (hash/256 (usec:get-time-usec))))
+         (id   (uuid:make-v1-uuid))
+         (seed (int (hash/256 salt
+                              (uuid:uuid-mac id)
+                              machine-instance
+                              $VERSION))))
+    (multiple-value-bind (x v)
+        (make-deterministic-keys seed)
+      (list machine-instance salt (ed-compress-pt v)))))
+|#
 
 (define-condition no-member-info (error)
   ((node-id  :reader no-member-info-node-id :initarg :node-id))
@@ -88,7 +109,7 @@
   ;; No second chances - any error shuts down the connection
   ;; immediately.
   (let ((node-id (machine-instance)))
-    (destructuring-bind (x gxc) ;; x as Mod *ed-r*, gxc as compressed pt
+    (destructuring-bind (salt gxc) ;; x as Mod *ed-r*, gxc as compressed pt
         (get-keying node-id)
       ;;
       ;; Phase-I: send local node ID
@@ -114,7 +135,8 @@
         ;; from compressed form to affine or projective will perform
         ;; validity checking.
         ;;
-        (let* ((k   (int (hash/256 *ed-r* *ed-q*)))
+        (let* ((x   (gen-info salt))
+               (k   (int (hash/256 *ed-r* *ed-q*)))
                (bb  (ed-sub bbc
                             (ed-mul gxc k))))
           
