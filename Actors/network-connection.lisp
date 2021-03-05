@@ -313,6 +313,7 @@
         (handler-bind ((error (lambda (c)
                                 ;; if any negotiation errors we shut down immediately
                                 (declare (ignore c))
+                                (log-error :SYSTEM-LOG "Renegotiation failure")
                                 (shutdown intf))
                               ))
           #+:COM.RAL (client-negotiate-security-ecc crypto intf)
@@ -343,6 +344,7 @@
         
         (actor-internal-message:discard (&rest msg)
           (declare (ignore msg))
+          (log-error :SYSTEM-LOG "Data framing error")
           (shutdown intf))
         
         (actor-internal-message:frag (frag)
@@ -409,6 +411,7 @@
    writer
    kill-timer
    monitor
+   (stopped    :initform nil)
    (io-running :initform (ref:ref 1))))
 
 (defmethod do-expect ((intf socket-interface) handler)
@@ -431,15 +434,16 @@
 
 (defmethod shutdown ((intf socket-interface))
   ;; define as a Continuation to get past any active RECV
-  (with-slots (kill-timer monitor io-running io-state title) intf
+  (with-slots (kill-timer monitor io-running io-state title stopped) intf
     (inject-into-actor intf ;; as a continuation, preempting RECV filtering
-      (discard kill-timer)
-      (kill-monitor monitor)
-      (ref:basic-atomic-exch io-running 0)
-      (comm:async-io-state-abort-and-close io-state)
-      (bridge-unregister intf)
-      (log-info :SYSTEM-LOG "Socket ~A shutting down: ~A" title intf)
-      (become-null-monitor :socket-interface))))
+      (unless (shiftf stopped t)
+        (discard kill-timer)
+        (kill-monitor monitor)
+        (ref:basic-atomic-exch io-running 0)
+        (comm:async-io-state-abort-and-close io-state)
+        (bridge-unregister intf)
+        (log-info :SYSTEM-LOG "Socket ~A shutting down: ~A" title intf)
+        (become-null-monitor :socket-interface)))))
 
 (defmethod client-request-negotiation ((intf socket-interface) cont node-id)
   ;; Called by Client for crypto negotiation. Make it a continuation so
@@ -517,7 +521,10 @@
               srp-ph3-begin     (=cont #'start-phase3)
               kill-timer        (make-instance 'kill-timer
                                                :timer-fn #'(lambda ()
-                                                             (mp:funcall-async 'shutdown intf))
+                                                             (mp:funcall-async
+                                                              (lambda ()
+                                                                (log-error :SYSTEM-LOG "Watchdog Timeout")
+                                                                (shutdown intf))))
                                                )))
     
       (let ((reader (make-instance 'message-reader
@@ -555,6 +562,7 @@
              (decr-io-count (io-state)
                (when (zerop (ref:atomic-decf io-running)) ;; >0 is running
                  (comm:close-async-io-state io-state)
+                 (log-info :SYSTEM-LOG "Connection Shutdown")
                  (shutdown intf))))
           
           (setf writer
@@ -656,6 +664,7 @@
             (handler-bind ((error (lambda (c)
                                     ;; if any negotiation errors we shut down immediately
                                     (declare (ignore c))
+                                    (log-error :SYSTEM-LOG "Can't connect")
                                     (shutdown intf))
                                   ))
               (progn
