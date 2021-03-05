@@ -53,12 +53,11 @@
   ;; info = (machine-id, salt, pubkey)
   (setf (gethash (car info) *member-tbl*) (cdr info)))
 
-(defun gen-info (salt)
-  (let ((id   (uuid:make-v1-uuid))
-        (mach (machine-instance)))
+(defun gen-info (machine-instance salt)
+  (let ((id   (uuid:make-v1-uuid)))
     (make-deterministic-keys (int (hash/256 salt
                                             (uuid:uuid-mac id)
-                                            (machine-instance)
+                                            machine-instance
                                             $VERSION)))))
 
 (progn
@@ -73,10 +72,11 @@
 
 #|
 (let ((*print-readably* t))
-  (let ((salt (int (hash/256 (usec:get-time-usec)))))
+  (let ((salt (int (hash/256 (usec:get-time-usec))))
+        (mach (machine-instance)))
     (multiple-value-bind (x gx)
-        (gen-info salt)
-      (pprint (list (machine-instance) salt (ed-compress-pt gx))))))
+        (gen-info mach salt)
+      (pprint (list mach salt (ed-compress-pt gx))))))
 
 (multiple-value-bind (x gx)
     (gen-info 58092113895438756482702715951169183950349033817880824399631344333284986728915)
@@ -135,7 +135,7 @@
         ;; from compressed form to affine or projective will perform
         ;; validity checking.
         ;;
-        (let* ((x   (gen-info salt))
+        (let* ((x   (gen-info node-id salt))
                (k   (int (hash/256 *ed-r* *ed-q*)))
                (bb  (ed-sub bbc
                             (ed-mul gxc k))))
