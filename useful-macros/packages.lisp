@@ -749,14 +749,20 @@ THE SOFTWARE.
    
    #:move
    #:pwr2-q
+   #:pwr2
+   #:unchecked-pwr2
    #:ceiling-pwr2
+   #:unchecked-ceiling-pwr2
    #:ceiling-log2
-
+   #:unchecked-ceiling-log2
    #:floor-pwr2
+   #:unchecked-floor-pwr2
    #:floor-log2
-
+   #:unchecked-floor-log2
+   
    #:align-pwr2
-
+   #:unchecked-align-pwr2
+   
    #:format-error
    #:separate-declares-and-documentation
    #:define-monitor

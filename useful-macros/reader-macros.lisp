@@ -303,33 +303,6 @@ THE SOFTWARE.
 #n1+2j
 |#
 ;; --------------------------------------
-;; Reader macro for #f
-;; sets compiler optimization levels
-;; #0f .. #3f   #f defaults to #3f for fastest code
-(um:eval-always
-
-  (defun |reader-for-#F| (stream sub-char numarg)
-    (declare (ignore stream sub-char))
-    (unless *read-suppress*
-      (setq numarg (or numarg 3))
-      (unless (<= numarg 3)
-        (error "Bad value for #f: ~a" numarg))
-      `(declare (optimize (speed ,numarg)
-                          (safety ,(- 3 numarg))
-                          #+LISPWORKS (float ,(- 3 numarg))
-                          ))))
-  
-  (set-dispatch-macro-character #\# #\f '|reader-for-#F|)
-
-  ) ;; end of eval-when
-
-(defmacro fast-progn (&rest body)
-  `(locally #f ,@body))
-
-(defmacro safe-progn (&rest body)
-  `(locally #0f ,@body))
-
-;; --------------------------------------
 
 (defmacro! alet (letargs &rest body)
   `(let ((,a!this) ,@letargs)

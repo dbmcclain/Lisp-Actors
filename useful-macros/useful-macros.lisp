@@ -2239,10 +2239,6 @@ This is C++ style enumerations."
 
 ;; ----------------------------------------------------------------
 
-(defun pwr2-q (n)
-  (and (plusp n)
-       (= 1 (logcount n))))
-
 #|
   ;; these are leftovers from the 32-bit era
 #-:LISPWORKS
@@ -2286,13 +2282,6 @@ This is C++ style enumerations."
          )))
 |#
 
-(defun ceiling-log2 (n)
-  (- (integer-length n)
-     (if (= 1 (logcount n)) 1 0)))
-
-(defun ceiling-pwr2 (n)
-  (ash 1 (ceiling-log2 n)))
-
 #|
 (defun ceiling-pwr2 (n)
   (declare (fixnum n))
@@ -2318,18 +2307,6 @@ This is C++ style enumerations."
   (declare (fixnum n))
   (logcount (1- (floor-pwr2 n))))
 |#
-
-(defun floor-log2 (n)
-  (1- (integer-length n)))
-
-(defun floor-pwr2 (n)
-  (ash 1 (floor-log2 n)))
-
-(defun align-pwr2 (val pwr2)
-  (declare (type fixnum pwr2)
-           (type integer val))
-  (let ((pwr2m1 (1- pwr2)))
-    (logandc2 (+ val pwr2m1) pwr2m1)))
 
 ;; -----------------------------------------------------------------------
 

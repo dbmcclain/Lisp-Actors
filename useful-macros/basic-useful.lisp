@@ -24,7 +24,71 @@ THE SOFTWARE.
 
 (in-package :useful-macros)
 
-#| ;; use Alexandria's version
+;; ----------------------------------------------------------------
+
+(declaim (inline unchecked-pwr2
+                 unchecked-ceiling-log2 unchecked-ceiling-pwr2
+                 unchecked-floor-log2   unchecked-floor-pwr2
+                 unchecked-align-pwr2))
+
+(defun pwr2-q (n)
+  (and (plusp n)
+       (= 1 (logcount n))))
+
+(defun unchecked-pwr2 (n)
+  #F
+  (declare (fixnum n))
+  (dpb 1 (byte 1 n) 0))
+
+(defun pwr2 (n)
+  (check-type n (fixnum 0))
+  (unchecked-pwr2 n))
+
+(defun unchecked-ceiling-log2 (n)
+  #F
+  (declare (integer n))
+  (- (integer-length n)
+     (if (= 1 (logcount n)) 1 0)))
+
+(defun ceiling-log2 (n)
+  (check-type n (integer 1))
+  (unchecked-ceiling-log2 n))
+
+(defun unchecked-ceiling-pwr2 (n)
+  (unchecked-pwr2 (unchecked-ceiling-log2 n)))
+
+(defun ceiling-pwr2 (n)
+  (unchecked-pwr2 (ceiling-log2 n)))
+
+(defun unchecked-floor-log2 (n)
+  #F
+  (declare (integer n))
+  (1- (integer-length n)))
+
+(defun floor-log2 (n)
+  (check-type n (integer 1))
+  (unchecked-floor-log2 n))
+
+(defun unchecked-floor-pwr2 (n)
+  (unchecked-pwr2 (unchecked-floor-log2 n)))
+
+(defun floor-pwr2 (n)
+  (unchecked-pwr2 (floor-log2 n)))
+
+(defun unchecked-align-pwr2 (val pwr2)
+  #F
+  (declare (fixnum pwr2)
+           (integer val))
+  (let ((pwr2m1 (1- pwr2)))
+    (logandc2 (+ val pwr2m1) pwr2m1)))
+
+(defun align-pwr2 (val pwr2)
+  (check-type val (integer 0))
+  (check-type pwr2 (fixnum 0))
+  (unchecked-align-pwr2 val pwr2))
+
+;; -----------------------------------------------------------
+#| ;; use Alexandria's version of curry and rcurry
 ;; in ML these are referred to as sections
 ;; these actually correspond to the Dylan operators
 ;; secr ::= rcurry, secl ::= curry

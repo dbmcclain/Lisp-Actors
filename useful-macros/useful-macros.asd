@@ -34,10 +34,11 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
                 #+:LISPWORKS (:file "editor-extensions")
                 (:file "packages")
+                (:file "eval-always")
+                (:file "sharp-f")
                 (:file "basic-useful")
                 ;; (:file "lambda-parsing")
                 (:file "nbr-cpus")
-                (:file "eval-always")
                 (:file "dflet")
                 (:file "parse-body")
                 (:file "xlambda")
