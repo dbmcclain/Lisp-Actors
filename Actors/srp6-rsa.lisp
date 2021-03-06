@@ -15,10 +15,20 @@
    #:random-between
    #:signature-mismatch-error
    #:crypto
+   #:crypto-reneg-key
    #:init-crypto-for-hmac
    #:init-crypto-for-input
    #:init-crypto-for-output
-   #:init-crypto-for-renegotiation)
+   #:init-crypto-for-renegotiation
+   #:hash32
+   #:integer-of
+   #:with-mod
+   #:m+
+   #:m-
+   #:m*
+   #:m/
+   #:minv
+   #:m^)
   (:import-from #:actors.network
    #:client-request-negotiation-rsa
    #:intf-srp-ph2-begin-rsa
@@ -289,7 +299,7 @@ Checks:
   (let* ((node-id (or (crypto-reneg-key crypto)
                       (machine-instance))))
     (=wait ((p-key g-key salt bb) :timeout 5)
-        (client-request-negotiation intf =wait-cont node-id)
+        (client-request-negotiation-rsa intf =wait-cont node-id)
       ;; Phase-II: receive N,g,s,B
       ;; Compute: x = H32(s,ID,PassPhrase)
       ;;          a = 1 < random < N

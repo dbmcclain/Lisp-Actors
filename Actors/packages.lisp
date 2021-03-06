@@ -267,9 +267,17 @@ THE SOFTWARE.
    #:unexpected
    #:make-u8-vector
    #:convert-vector-to-integer
+   #:integer-of
    #:+MAX-FRAGMENT-SIZE+
    #:assemble-sks
    #:time-to-renegotiate?
+   #:with-mod
+   #:m+
+   #:m-
+   #:m*
+   #:m/
+   #:minv
+   #:m^
    ))
    
 (defpackage :actors.bridge
