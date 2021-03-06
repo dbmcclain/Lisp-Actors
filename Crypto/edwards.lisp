@@ -290,18 +290,21 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------------------------
 
+#-:WINDOWS
 (cffi:defcfun ("Ed3363_affine_mul" _Ed3363-affine-mul) :void
   (ptx  :pointer :uint8)
   (pty  :pointer :uint8)
   (ptz  :pointer :uint8)
   (nv   :pointer :uint8))
 
+#-:WINDOWS
 (cffi:defcfun ("Ed3363_projective_mul" _Ed3363-projective-mul) :void
   (ptx  :pointer :uint8)
   (pty  :pointer :uint8)
   (ptz  :pointer :uint8)
   (nv   :pointer :uint8))
 
+#-:WINDOWS
 (cffi:defcfun ("Ed3363_projective_add" _Ed3363-projective-add) :void
   (pt1x :pointer :uint8)
   (pt1y :pointer :uint8)
@@ -310,6 +313,7 @@ THE SOFTWARE.
   (pt2y :pointer :uint8)
   (pt2z :pointer :uint8))
 
+#-:WINDOWS
 (cffi:defcfun ("Ed3363_to_affine" _Ed3363-to-affine) :void
   (pt1x :pointer :uint8)
   (pt1y :pointer :uint8)
@@ -317,18 +321,21 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------------------------
 
+#-:WINDOWS
 (cffi:defcfun ("Curve1174_affine_mul" _Curve1174-affine-mul) :void
   (ptx  :pointer :uint8)
   (pty  :pointer :uint8)
   (ptz  :pointer :uint8)
   (nv   :pointer :uint8))
 
+#-:WINDOWS
 (cffi:defcfun ("Curve1174_projective_mul" _Curve1174-projective-mul) :void
   (ptx  :pointer :uint8)
   (pty  :pointer :uint8)
   (ptz  :pointer :uint8)
   (nv   :pointer :uint8))
 
+#-:WINDOWS
 (cffi:defcfun ("Curve1174_projective_add" _Curve1174-projective-add) :void
   (pt1x :pointer :uint8)
   (pt1y :pointer :uint8)
@@ -337,6 +344,7 @@ THE SOFTWARE.
   (pt2y :pointer :uint8)
   (pt2z :pointer :uint8))
 
+#-:WINDOWS
 (cffi:defcfun ("Curve1174_to_affine" _Curve1174-to-affine) :void
   (pt1x :pointer :uint8)
   (pt1y :pointer :uint8)
@@ -358,7 +366,10 @@ THE SOFTWARE.
 ;; -------------------------------------------------------------------
 
 (defun have-fast-impl ()
-  (fast-ed-curve-p *edcurve*))
+  #-:WINDOWS
+  (fast-ed-curve-p *edcurve*)
+  #+:WINDOWS
+  nil)
 
 ;; -------------------------------------------------------------------
 
@@ -380,6 +391,7 @@ THE SOFTWARE.
            (make-ecc-pt
             :x  x
             :y  y))
+          #-:WINDOWS
           ((have-fast-impl)
            (%ecc-fast-to-affine pt))
           (t
@@ -592,14 +604,17 @@ THE SOFTWARE.
   ;; (tally :ecadd)
   (let ((ppt1 (ed-projective pt1))  ;; projective add is so much faster than affine add
         (ppt2 (ed-projective pt2))) ;; so it pays to make the conversion
-    (cond ((have-fast-impl)
-           (%ecc-fast-add ppt1 ppt2))
-          (t 
-           ;; since projective add takes about 6 usec, and affine add takes
-           ;; about 40 usec, it pays to always convert to projective coords,
-           ;; especially since it is so cheap to do so.
-           (ed-projective-add ppt1 ppt2))
-          )))
+    (cond
+     #-:WINDOWS
+     ((have-fast-impl)
+      (%ecc-fast-add ppt1 ppt2))
+
+     (t 
+      ;; since projective add takes about 6 usec, and affine add takes
+      ;; about 40 usec, it pays to always convert to projective coords,
+      ;; especially since it is so cheap to do so.
+      (ed-projective-add ppt1 ppt2))
+     )))
 
 ;; ----------------------------------------------------------------
 
@@ -695,6 +710,7 @@ THE SOFTWARE.
 ;; -------------------------------------------------
 ;; Support for C-level Ed3363 curve
 
+#-:WINDOWS
 (defun xfer-to-c (val cvec)
   ;; transfer val to C vector in 6 8-byte words
   (declare (integer val))
@@ -708,6 +724,7 @@ THE SOFTWARE.
           (cffi:mem-aref cvec :uint64 5) (ldb (byte 64 320) val))
     ))
 
+#-:WINDOWS
 (defun xfer-from-c (cvec)
   ;; retrieve val from C vector in 6 8-byte words
   (let ((v 0))
@@ -728,6 +745,7 @@ THE SOFTWARE.
     v
     ))
 
+#-:WINDOWS
 (defmacro with-fli-buffers (buffers &body body)
   (if (endp buffers)
       `(progn
@@ -744,6 +762,7 @@ THE SOFTWARE.
 
 ;; -------------------------------------------------------------------
 
+#-:WINDOWS
 (defmethod %ecc-fast-mul ((pt ecc-proj-pt) n)
   ;; about a 10% speed penalty over using affine points
   (with-fli-buffers ((cptx (ecc-proj-pt-x pt))  ;; projective in...
@@ -760,6 +779,7 @@ THE SOFTWARE.
               :z (xfer-from-c cptz))
     ))
 
+#-:WINDOWS
 (defmethod %ecc-fast-mul ((pt ecc-pt) n)
   (with-fli-buffers ((cptx (ecc-pt-x pt))  ;; affine in...
                      (cpty (ecc-pt-y pt))
@@ -775,9 +795,11 @@ THE SOFTWARE.
      :z (xfer-from-c cptz))
     ))
 
+#-:WINDOWS
 (defmethod %ecc-fast-mul ((pt ecc-cmpr-pt) n)
   (%ecc-fast-mul (ed-projective pt) n))
-  
+
+#-:WINDOWS
 (defun %ecc-fast-add (pt1 pt2)
   (with-fli-buffers ((cpt1xv (ecc-proj-pt-x pt1)) ;; projective in...
                      (cpt1yv (ecc-proj-pt-y pt1))
@@ -796,6 +818,7 @@ THE SOFTWARE.
      :z (xfer-from-c cpt1zv))
     ))
 
+#-:WINDOWS
 (defun %ecc-fast-to-affine (pt)
   (with-fli-buffers ((cptx (ecc-proj-pt-x pt)) ;; projective in...
                      (cpty (ecc-proj-pt-y pt))
@@ -998,7 +1021,8 @@ THE SOFTWARE.
           ((or (= nn 1)
                (ed-neutral-point-p pt))
            pt)
-          
+
+          #-:WINDOWS
           ((have-fast-impl)
            (%ecc-fast-mul pt nn))
           

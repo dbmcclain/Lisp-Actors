@@ -43,7 +43,7 @@ THE SOFTWARE.
                 (:file "lagrange-4-square")
                 (:file "pbc-cffi")
                 (:file "crypto-safe-reader")
-                (:file "pbc")
+                #-:WINDOWS (:file "pbc")
                 (:file "subkey-derivation")
                 (:file "proofs")
                 (:file "init-crypto")
@@ -61,9 +61,10 @@ THE SOFTWARE.
                  ;; "emotiq"
                  ;; "emotiq/delivery"
                  "cffi"
-		 "core-crypto/libraries"
+		 #-:WINDOWS "core-crypto/libraries"
                  ))
 
+#-:WINDOWS
 (defsystem "core-crypto/libraries"
   :perform
   (prepare-op
