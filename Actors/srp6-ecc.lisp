@@ -10,12 +10,13 @@
    #:vec
    #:hash/256
    #:hash=
-   #:with-mod
    #:m+
    #:m*)
   (:import-from #:edwards-ecc
    #:*ed-r*
    #:*ed-q*
+   #:modr
+   #:ed-neutral-point-p
    #:ed-compress-pt
    #:ed-random-pair
    #:make-deterministic-keys
@@ -44,6 +45,13 @@
 
 (in-package #:srp6-ecc)
 
+(defvar *k* (modr
+             (m+ 0 (int (hash/256 *ed-r* *ed-q*)))))
+
+;; If this assertion fails, you are in big trouble. Choose a different
+;; curve. Or choose a different way to produce *K*.
+(assert (plusp *k*))
+
 (defvar *member-tbl* (make-hash-table
                       :test #'equal))
 
@@ -52,7 +60,7 @@
   (setf (gethash (car info) *member-tbl*) (cdr info)))
 
 (defun gen-info (machine-instance salt)
-  (let ((id   (uuid:make-v1-uuid)))
+  (let ((id  (uuid:make-v1-uuid)))
     (make-deterministic-keys (int (hash/256 salt
                                             (uuid:uuid-mac id)
                                             machine-instance
@@ -101,79 +109,89 @@
 (defmethod client-negotiate-security-ecc ((crypto crypto) intf)
   ;; No second chances - any error shuts down the connection
   ;; immediately.
-  (let ((node-id (machine-instance)))
-    (destructuring-bind (salt gxc) ;; salt as int, gxc as compressed pt
-        (get-keying node-id)
+  (let* ((node-id (machine-instance))
+         (salt    (car (get-keying node-id)))) ;; salt as int
+    ;;
+    ;; Phase-I: send local node ID
+    ;;
+    (=wait ((bbc) :timeout 5)
+        (client-request-negotiation-ecc intf =wait-cont node-id)
       ;;
-      ;; Phase-I: send local node ID
+      ;; Phase-II: receive B                  -- a random compressed ECC point on Curve1174
       ;;
-      (=wait ((bbc) :timeout 5)
-          (client-request-negotiation-ecc intf =wait-cont node-id)
-        ;;
-        ;; Phase-II: receive B                  -- a random compressed ECC point on Curve1174
-        ;;
-        ;; PreComputed: (x, V=x*G) as deterministic key pair, using
-        ;;                         seed H32(salt,MAC-addr,ID,PassPhrase))
-        ;;
-        ;; Compute: (a, A=a*G) as random key pair on curve1174
-        ;;          u = H32(A,B)                -- A,B in compressed form
-        ;;          k = H32(*ed-r*,*ed-q*)
-        ;;          S = (B - k*V)*(a + u*x)     -- a point on Curve1174
-        ;;          M1 = H32(A,B,S)             -- A,B,S in compressed form
-        ;;
-        ;; Send A,M1                            -- A in compressed form, M1 as Hash/256
-        ;; Hold as secret: x, a, u, S
-        ;;
-        ;; Public key B might not be a *valid* public key.  Conversion
-        ;; from compressed form to affine or projective performs
-        ;; validity checking.
-        ;;
-        (let* ((x   (gen-info node-id salt))
-               (k   (int (hash/256 *ed-r* *ed-q*)))
-               (bb  (ed-sub bbc
-                            (ed-mul gxc k))))
+      ;; PreComputed: (x, V=x*G) as deterministic key pair, using
+      ;;                         seed H32(salt,MAC-addr,ID,PassPhrase))
+      ;;
+      ;; Compute: (a, A=a*G) as random key pair on curve1174
+      ;;          u = H32(A,B)                -- A,B in compressed form
+      ;;          k = H32(*ed-r*,*ed-q*)
+      ;;          S = (B - k*V)*(a + u*x)     -- a point on Curve1174
+      ;;          M1 = H32(A,B,S)             -- A,B,S in compressed form
+      ;;
+      ;; Send A,M1                            -- A in compressed form, M1 as Hash/256
+      ;; Hold as secret: x, a, u, S
+      ;;
+      ;; Public key B might not be a *valid* public key.  Conversion
+      ;; from compressed form to affine or projective performs
+      ;; validity checking.
+      ;;
+      (multiple-value-bind (x gx)
+          (gen-info node-id salt)
+        (let ((bb  (ed-sub bbc
+                           (ed-mul gx *k*))))
           
-          (multiple-value-bind (a aa)
-              (ed-random-pair)
-            (let* ((aac (ed-compress-pt aa))
-                   (u   (int (hash/256 aac bbc)))
-                   (sc  (ed-compress-pt
-                         (ed-mul bb
-                                 (with-mod *ed-r*
-                                   (m+ a (m* u x))))))
-                   (m1  (hash/256 aac bbc sc)))
-              (=wait ((m2) :timeout 5)
-                  (funcall (intf-srp-ph2-reply intf) =wait-cont aac m1)
-                ;;
-                ;; Phase 3: receive M2 -- a Hash/256
-                ;;
-                ;; Compute: Chk2      = H32(A,M1,S), check Chk2 == M2
-                ;;          Key-in    = H32(A,S,B) -- A,S,B in compressed form
-                ;;          Key-out   = H32(B,S,A) -- A,S,B in compressed form
-                ;;          His InitV = H32(M1,S)[0:16)  -- M1 as Hash256, S in compressed form
-                ;;          My InitV  = H32(M2,S)[0:16)  -- M2 as Hash256, S in compressed form
-                ;;
-                ;; Init crypto with (Key-in, His-InitV)      -- input channel
-                ;;                  (Key-out, My-InitV)      -- output channel
-                ;;                  H32(His-InitV, My-InitV) -- HMAC keying
-                ;; For symmetric AES/256/HMAC applied asymmetrically.
-                ;;
-                (let* ((chk2      (hash/256 aac m1 sc))
-                       (key-in    (vec (hash/256 aac sc bbc)))
-                       (key-out   (vec (hash/256 bbc sc aac)))
-                       (his-initv (vec (hash/256 m1 sc)))
-                       (my-initv  (vec (hash/256 m2 sc))))
-                  
-                  (unless (hash= chk2 m2)
-                    (signature-mismatch-error))
-                  
-                  (init-crypto-for-hmac   crypto his-initv my-initv)
-                  (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
-                  (init-crypto-for-output crypto key-out (subseq my-initv 0 16))
-                  (init-crypto-for-renegotiation crypto (vec sc))
+          (when (ed-neutral-point-p bb)
+            (signature-mismatch-error)) ;; someone sent us a fishy B point
+          
+          (multiple-value-bind (aac sc m1)
+              (um:nlet iter ()
+                (multiple-value-bind (a aa)
+                    (ed-random-pair)
+                  (let* ((aac (ed-compress-pt aa))
+                         (u   (int (hash/256 aac bbc)))
+                         (s   (ed-mul bb
+                                      (modr
+                                       (m+ a (m* u x))))))
+                    (if (or (zerop u)
+                            (ed-neutral-point-p s))
+                        (go-iter)
+                      (let ((sc  (ed-compress-pt s))
+                            (m1  (hash/256 aac bbc sc)))
+                        (values aac sc m1))
+                      ))
                   ))
-              ))))
-      )))
+            (=wait ((m2) :timeout 5)
+                (funcall (intf-srp-ph2-reply intf) =wait-cont aac m1)
+              ;;
+              ;; Phase 3: receive M2 -- a Hash/256
+              ;;
+              ;; Compute: Chk2      = H32(A,M1,S), check Chk2 == M2
+              ;;          Key-in    = H32(A,S,B) -- A,S,B in compressed form
+              ;;          Key-out   = H32(B,S,A) -- A,S,B in compressed form
+              ;;          His InitV = H32(M1,S)[0:16)  -- M1 as Hash256, S in compressed form
+              ;;          My InitV  = H32(M2,S)[0:16)  -- M2 as Hash256, S in compressed form
+              ;;
+              ;; Init crypto with (Key-in, His-InitV)      -- input channel
+              ;;                  (Key-out, My-InitV)      -- output channel
+              ;;                  H32(His-InitV, My-InitV) -- HMAC keying
+              ;; For symmetric AES/256/HMAC applied asymmetrically.
+              ;;
+              (let* ((chk2      (hash/256 aac m1 sc))
+                     (key-in    (vec (hash/256 aac sc bbc)))
+                     (key-out   (vec (hash/256 bbc sc aac)))
+                     (his-initv (vec (hash/256 m1 sc)))
+                     (my-initv  (vec (hash/256 m2 sc))))
+                
+                (unless (hash= chk2 m2)
+                  (signature-mismatch-error))
+                
+                (init-crypto-for-hmac   crypto his-initv my-initv)
+                (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
+                (init-crypto-for-output crypto key-out (subseq my-initv  0 16))
+                (init-crypto-for-renegotiation crypto (vec sc))
+                ))
+            ))))
+    ))
 
 (defmethod server-negotiate-security-ecc ((crypto crypto) intf node-id)
   ;; No second chances - any error shuts down the connection
@@ -196,10 +214,9 @@
     ;;
     (multiple-value-bind (b bb)
         (ed-random-pair)
-      (let* ((k   (int (hash/256 *ed-r* *ed-q*)))
-             (bbc (ed-compress-pt
-                   (ed-add bb
-                           (ed-mul gxc k)))))
+      (let ((bbc (ed-compress-pt
+                  (ed-add bb
+                          (ed-mul gxc *k*)))))
         (=wait ((aac m1) :timeout 5)
             (funcall (intf-srp-ph2-begin-ecc intf) =wait-cont bbc)
           ;;
@@ -222,28 +239,36 @@
           ;;                  H32(My-InitV, His-InitV) -- HMAC keying
           ;; For symmetric AES/256/HMAC applied asymmetrically.
           ;;
-          (let* ((u         (int (hash/256 aac bbc)))
-                 (sc        (ed-compress-pt
-                             (ed-mul
-                              (ed-add aac
-                                      (ed-mul gxc u))
-                              b)))
-                 (chk1      (hash/256 aac bbc sc))
-                 (m2        (hash/256 aac m1 sc))
-                 (key-in    (vec (hash/256 bbc sc aac)))
-                 (key-out   (vec (hash/256 aac sc bbc)))
-                 (his-initv (vec (hash/256 m2 sc)))
-                 (my-initv  (vec (hash/256 m1 sc))))
-            
-            (unless (hash= chk1 m1)
+          
+          (when (ed-neutral-point-p aac) ;; someone sent us a fishy A point
+            (signature-mismatch-error))
+          
+          (let* ((u  (int (hash/256 aac bbc)))
+                 (s  (ed-mul
+                      (ed-add aac
+                              (ed-mul gxc u))
+                      b)))
+            (when (or (zerop u) ;; someone cooked up an A
+                      (ed-neutral-point-p s))
               (signature-mismatch-error))
             
-            (funcall (intf-srp-ph3-begin intf) m2
-                     (lambda ()
-                       (init-crypto-for-hmac   crypto my-initv his-initv)
-                       (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
-                       (init-crypto-for-output crypto key-out (subseq my-initv 0 16))
-                       (init-crypto-for-renegotiation crypto (vec sc))
-                       ))
-            ))
+            (let* ((sc        (ed-compress-pt s))
+                   (chk1      (hash/256 aac bbc sc)))
+              (unless (hash= chk1 m1)
+                (signature-mismatch-error))
+              
+              (let ((m2        (hash/256 aac m1 sc))
+                    (key-in    (vec (hash/256 bbc sc aac)))
+                    (key-out   (vec (hash/256 aac sc bbc)))
+                    (his-initv (vec (hash/256 m2 sc)))
+                    (my-initv  (vec (hash/256 m1 sc))))
+                
+                (funcall (intf-srp-ph3-begin intf) m2
+                         (lambda ()
+                           (init-crypto-for-hmac   crypto my-initv his-initv)
+                           (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
+                           (init-crypto-for-output crypto key-out (subseq my-initv  0 16))
+                           (init-crypto-for-renegotiation crypto (vec sc))
+                           ))
+                ))))
         ))))
