@@ -205,10 +205,10 @@ THE SOFTWARE.
    #:discard
    #:frag
    #:last-frag
-   #-:COM.RAL #:srp-node-id-rsa
-   #-:COM.RAL #:srp-phase2-rsa
-   #+:COM.RAL #:srp-node-id-ecc
-   #+:COM.RAL #:srp-phase2-ecc
+   #+:USING-RSA-CRYPTO #:srp-node-id-rsa
+   #+:USING-ECC-CRYPTO #:srp-node-id-ecc
+   #+:USING-RSA-CRYPTO #:srp-phase2-rsa
+   #+:USING-ECC-CRYPTO #:srp-phase2-ecc
    #:srp-phase2-reply
    #:srp-phase3
    #:incoming-msg
@@ -246,10 +246,10 @@ THE SOFTWARE.
    #:start-tcp-server
    #:terminate-server
    #:*default-port*
-   #-:COM.RAL #:client-request-negotiation-rsa
-   #+:COM.RAL #:client-request-negotiation-ecc
-   #-:COM.RAL #:intf-srp-ph2-begin-rsa
-   #+:COM.RAL #:intf-srp-ph2-begin-ecc
+   #+:USING-RSA-CRYPTO #:client-request-negotiation-rsa
+   #+:USING-ECC-CRYPTO #:client-request-negotiation-ecc
+   #+:USING-RSA-CRYPTO #:intf-srp-ph2-begin-rsa
+   #+:USING-ECC-CRYPTO #:intf-srp-ph2-begin-ecc
    #:intf-srp-ph2-reply
    #:intf-srp-ph3-begin
    ))
