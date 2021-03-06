@@ -155,8 +155,8 @@
                     (if (or (zerop u)
                             (ed-neutral-point-p s))
                         (go-iter)
-                      (let ((sc  (ed-compress-pt s))
-                            (m1  (hash/256 aac bbc sc)))
+                      (let* ((sc  (ed-compress-pt s))
+                             (m1  (hash/256 aac bbc sc)))
                         (values aac sc m1))
                       ))
                   ))
@@ -257,11 +257,11 @@
               (unless (hash= chk1 m1)
                 (signature-mismatch-error))
               
-              (let ((m2        (hash/256 aac m1 sc))
-                    (key-in    (vec (hash/256 bbc sc aac)))
-                    (key-out   (vec (hash/256 aac sc bbc)))
-                    (his-initv (vec (hash/256 m2 sc)))
-                    (my-initv  (vec (hash/256 m1 sc))))
+              (let* ((m2        (hash/256 aac m1 sc))
+                     (key-in    (vec (hash/256 bbc sc aac)))
+                     (key-out   (vec (hash/256 aac sc bbc)))
+                     (his-initv (vec (hash/256 m2 sc)))
+                     (my-initv  (vec (hash/256 m1 sc))))
                 
                 (funcall (intf-srp-ph3-begin intf) m2
                          (lambda ()
