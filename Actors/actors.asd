@@ -23,14 +23,8 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 |#
 
-;; Choose one or the other...
+;; ... or feel free to not use ECC (uses RSA instead)
 (pushnew :using-ecc-crypto *features*)
-;; (pushnew :using-rsa-crypto *features*)
-(let ((ecc (find :using-ecc-crypto *features*))
-      (rsa (find :using-rsa-crypto *features*)))
-  (unless (or (and ecc       (not rsa))
-              (and (not ecc) rsa))
-    (error "Choose one of :USING-ECC-CRYPTO or :USING-RSA-CRYPTO, but not both.")))
 
 (asdf:defsystem "actors"
   :description "Actors Multiplexed on an OS Thread Pool"
@@ -53,7 +47,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "actor-bridge")
                 (:file "network-security")
                 #+:USING-ECC-CRYPTO (:file "srp6-ecc")
-                #+:USING-RSA-CRYPTO (:file "srp6-rsa")
+                #-:USING-ECC-CRYPTO (:file "srp6-rsa")
                 (:file "network-connection")
                 (:file "reactor"))
   :SERIAL T
