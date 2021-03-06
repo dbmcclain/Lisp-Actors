@@ -84,10 +84,11 @@
 
 (define-condition no-member-info (error)
   ((node-id  :reader no-member-info-node-id :initarg :node-id))
-  (:report (lambda (c stream)
-             (format stream "No member info: ~A"
-                     (no-member-info-node-id c)))
-   ))
+  (:report report-no-member-info))
+
+(defun report-no-member-info (c stream)
+  (format stream "No member info: ~A"
+          (no-member-info-node-id c)))
 
 (defun get-keying (mach-id)
   (or (gethash mach-id *member-tbl*)

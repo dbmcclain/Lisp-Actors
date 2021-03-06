@@ -343,14 +343,18 @@ recycling that buffer for another use later. This is an attempt to avoid generat
 ;; -----------------------------------------------------------------------------
 
 (defun ensure-portable-condition (err)
-  ;; sometimes Condition objects are not portable
-  ;; across a network connection. But strings always are.
-  ;; So we interpret the error on this end, if necessary.
-  (multiple-value-bind (v e)
-      (ignore-errors (loenc:encode err))
-    (declare (ignore v))
-    (if e
-        (um:format-error err)
-      err)))
+  ;; sometimes Condition objects are not portable across a network
+  ;; connection. But strings and simple-errors always are.  So we
+  ;; recode the error on this end, if necessary.
+  (handler-case
+      (progn
+        (loenc:encode err) ;; try to tickle an encoding error
+        err)               ;; no error - just use original condition object
+    (error ()
+      (handler-case
+          (error (um:format-error err)) ;; reconstruct condition as simple error
+        (error (e)
+          e)))
+    ))
 
 ;; -----------------------------------------------------------------------------
