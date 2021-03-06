@@ -28,8 +28,6 @@
             actors.security:make-u8-vector
             actors.security:convert-vector-to-integer
             actors.security:+MAX-FRAGMENT-SIZE+
-            actors.security:server-negotiate-security
-            actors.security:client-negotiate-security
             actors.security:assemble-sks
             actors.security:time-to-renegotiate?
             
@@ -45,6 +43,9 @@
 
             scatter-vec:scatter-vector
             scatter-vec:add-fragment
+
+            #-:COM.RAL srp6-rsa:server-negotiate-security-rsa
+            #-:COM.RAL srp6-rsa:client-negotiate-security-rsa
 
             #+:COM.RAL srp6-ecc:client-negotiate-security-ecc
             #+:COM.RAL srp6-ecc:server-negotiate-security-ecc
@@ -317,7 +318,7 @@
                                 (shutdown intf))
                               ))
           #+:COM.RAL (client-negotiate-security-ecc crypto intf)
-          #-:COM.RAL (client-negotiate-security     crypto intf)
+          #-:COM.RAL (client-negotiate-security-rsa crypto intf)
           ))
       (mp:schedule-timer-relative timer (random (* 2 +monitor-interval+))))
     ))
@@ -357,10 +358,12 @@
                                                (make-instance 'scatter-vector)))
                            ))
 
-        (actor-internal-message:srp-node-id (node-id)
+        #-:COM.RAL
+        (actor-internal-message:srp-node-id-rsa (node-id)
            ;; Client is requesting security negotiation
-           (spawn-worker 'server-negotiate-security crypto intf node-id))
+           (spawn-worker 'server-negotiate-security-rsa crypto intf node-id))
 
+        #+:COM.RAL
         (actor-internal-message:srp-node-id-ecc (node-id)
            ;; Client is requesting security negotiation
            (spawn-worker 'server-negotiate-security-ecc crypto intf node-id))
@@ -403,11 +406,10 @@
   ((title    :initarg :title)
    (io-state :initarg :io-state)
    (crypto   :initarg :crypto)
-   (srp-ph2-begin     :reader intf-srp-ph2-begin)
+   #-:COM.RAL (srp-ph2-begin-rsa :reader intf-srp-ph2-begin-rsa)
+   #+:COM.RAL (srp-ph2-begin-ecc :reader intf-srp-ph2-begin-ecc)
    (srp-ph2-reply     :reader intf-srp-ph2-reply)
    (srp-ph3-begin     :reader intf-srp-ph3-begin)
-   #+:COM.RAL
-   (srp-ph2-begin-ecc :reader intf-srp-ph2-begin-ecc)
    writer
    kill-timer
    monitor
@@ -445,16 +447,18 @@
         (log-info :SYSTEM-LOG "Socket ~A shutting down: ~A" title intf)
         (become-null-monitor :socket-interface)))))
 
-(defmethod client-request-negotiation ((intf socket-interface) cont node-id)
+#-:COM.RAL
+(defmethod client-request-negotiation-rsa ((intf socket-interface) cont node-id)
   ;; Called by Client for crypto negotiation. Make it a continuation so
   ;; it can be initiated by message reader when deemed appropriate.
   (inject-into-actor intf
-    (socket-send intf 'actor-internal-message:srp-node-id node-id)
+    (socket-send intf 'actor-internal-message:srp-node-id-rsa node-id)
     (expect intf
-      (actor-internal-message:srp-phase2 (p-key g-key salt bb)
+      (actor-internal-message:srp-phase2-rsa (p-key g-key salt bb)
          (funcall cont p-key g-key salt bb))
       )))
 
+#+:COM.RAL
 (defmethod client-request-negotiation-ecc ((intf socket-interface) cont node-id)
   ;; Called by Client for crypto negotiation. Make it a continuation so
   ;; it can be initiated by message reader when deemed appropriate.
@@ -473,15 +477,16 @@
                writer
                monitor
                io-running
-               srp-ph2-begin
-               srp-ph2-begin-ecc
+               #-:COM.RAL srp-ph2-begin-rsa
+               #+:COM.RAL srp-ph2-begin-ecc
                srp-ph2-reply
                srp-ph3-begin) intf
     (with-as-current-actor intf ;; for =cont
       (flet
-          ((start-phase2 (cont p-key g-key salt bb)
+          (#-:COM.RAL
+           (start-phase2-rsa (cont p-key g-key salt bb)
              ;; Called by server in response to request for crypto negotiation
-             (socket-send intf 'actor-internal-message:srp-phase2 p-key g-key salt bb)
+             (socket-send intf 'actor-internal-message:srp-phase2-rsa p-key g-key salt bb)
              (expect intf
                (actor-internal-message:srp-phase2-reply (aa m1)
                   (funcall cont aa m1))
@@ -515,9 +520,10 @@
         
         #+:COM.RAL
         (setf srp-ph2-begin-ecc (=cont #'start-phase2-ecc))
+        #-:COM.RAL
+        (setf srp-ph2-begin-rsa (=cont #'start-phase2-rsa))
         
-        (setf srp-ph2-begin     (=cont #'start-phase2)
-              srp-ph2-reply     (=cont #'phase2-reply)
+        (setf srp-ph2-reply     (=cont #'phase2-reply)
               srp-ph3-begin     (=cont #'start-phase3)
               kill-timer        (make-instance 'kill-timer
                                                :timer-fn #'(lambda ()
@@ -654,7 +660,7 @@
                                      (comm:set-ssl-ctx-cert-cb ctx 'my-find-certificate)))
          #||#
          :handshake-timeout 5
-         :ipv6    nil)
+         #-:WINDOWS :ipv6    #-:WINDOWS nil)
     (if io-state
           (let* ((crypto  (make-instance 'crypto))
                  (intf    (make-instance 'socket-interface
@@ -670,7 +676,7 @@
               (progn
                 ;; connection will be authenticated/encrypted regardless of using SSL/TLS or not.
                 #+:COM.RAL (client-negotiate-security-ecc crypto intf)
-                #-:COM.RAL (client-negotiate-security     crypto intf)
+                #-:COM.RAL (client-negotiate-security-rsa crypto intf)
                 (socket-send intf 'actor-internal-message:client-info (machine-instance))
                 (=wait ((ans) :timeout 5 :errorp t)
                     (expect intf

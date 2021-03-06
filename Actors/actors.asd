@@ -44,6 +44,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "actor-bridge")
                 (:file "network-security")
                 #+:COM.RAL (:file "srp6-ecc")
+                #-:COM.RAL (:file "srp6-rsa")
                 (:file "network-connection")
                 (:file "reactor"))
   :SERIAL T

@@ -375,6 +375,10 @@ storage and network transmission.
   (let ((trans (rollback)))
     (get-key trans :pi)))
 
+(with-server ("rstkv@10.0.0.142") ;; i.e. RAMBO on Win/7
+  (let ((trans (rollback)))
+    (get-key trans :e)))
+
 (let ((server (ac:make-proxy
                :addr "rstkv@rincon.local")))
   (with-server (server)
@@ -384,6 +388,17 @@ storage and network transmission.
 (with-server ("rstkv@dachshund.local")
   (let ((trans (rollback)))
     (get-key trans :pi)))
+
+(with-server (:RSTKV)
+  (let ((trans (rollback)))
+    (get-key trans :e)))
+
+(with-server (:RSTKV)
+  (let ((trans (rollback)))
+    (setf (get-key trans :e) (exp 1.0))
+    (commit trans)))
+
+(rstkv-server:make-remote-stkv-service)
 |#
 ;; -----------------------------------------------------
 

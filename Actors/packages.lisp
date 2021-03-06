@@ -205,8 +205,10 @@ THE SOFTWARE.
    #:discard
    #:frag
    #:last-frag
-   #:srp-node-id
-   #:srp-phase2
+   #-:COM.RAL #:srp-node-id-rsa
+   #-:COM.RAL #:srp-phase2-rsa
+   #+:COM.RAL #:srp-node-id-ecc
+   #+:COM.RAL #:srp-phase2-ecc
    #:srp-phase2-reply
    #:srp-phase3
    #:incoming-msg
@@ -222,8 +224,6 @@ THE SOFTWARE.
 
    #:send-sync
 
-   #:srp-node-id-ecc
-   #:srp-phase2-ecc
    ))
 
 (defpackage #:actors.directory
@@ -246,10 +246,10 @@ THE SOFTWARE.
    #:start-tcp-server
    #:terminate-server
    #:*default-port*
-   #:client-request-negotiation
-   #:client-request-negotiation-ecc
-   #:intf-srp-ph2-begin
-   #:intf-srp-ph2-begin-ecc
+   #-:COM.RAL #:client-request-negotiation-rsa
+   #+:COM.RAL #:client-request-negotiation-ecc
+   #-:COM.RAL #:intf-srp-ph2-begin-rsa
+   #+:COM.RAL #:intf-srp-ph2-begin-ecc
    #:intf-srp-ph2-reply
    #:intf-srp-ph3-begin
    ))
@@ -268,8 +268,6 @@ THE SOFTWARE.
    #:make-u8-vector
    #:convert-vector-to-integer
    #:+MAX-FRAGMENT-SIZE+
-   #:server-negotiate-security
-   #:client-negotiate-security
    #:assemble-sks
    #:time-to-renegotiate?
    ))
