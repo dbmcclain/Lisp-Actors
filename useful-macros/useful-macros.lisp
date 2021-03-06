@@ -2241,7 +2241,7 @@ This is C++ style enumerations."
 
 (defun pwr2-q (n)
   (and (plusp n)
-       (eql n (ash 1 (1- (integer-length n))))))
+       (= 1 (logcount n))))
 
 #|
   ;; these are leftovers from the 32-bit era
@@ -2287,10 +2287,8 @@ This is C++ style enumerations."
 |#
 
 (defun ceiling-log2 (n)
-  (let ((nb (integer-length n)))
-    (if (= n (ash 1 (1- nb)))
-        (1- nb)
-      nb)))
+  (- (integer-length n)
+     (if (= 1 (logcount n)) 1 0)))
 
 (defun ceiling-pwr2 (n)
   (ash 1 (ceiling-log2 n)))
