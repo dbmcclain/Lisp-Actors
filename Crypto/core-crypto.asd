@@ -22,6 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
+
 (defsystem "core-crypto"
   :description "core-crypto: core cryptography functions"
   :version     "1.0.1"
@@ -38,14 +39,14 @@ THE SOFTWARE.
                 (:file "ctr-hash-drbg")
                 (:file "primes")
                 (:file "startup")
-                (:file "lib-loads")
+                #-:WINDOWS (:file "lib-loads")
                 (:file "edwards")
                 (:file "lagrange-4-square")
-                (:file "pbc-cffi")
-                (:file "crypto-safe-reader")
+                #-:WINDOWS (:file "pbc-cffi")
+                #-:WINDOWS (:file "crypto-safe-reader")
                 #-:WINDOWS (:file "pbc")
-                (:file "subkey-derivation")
-                (:file "proofs")
+                #-:WINDOWS (:file "subkey-derivation")
+                #-:WINDOWS (:file "proofs")
                 (:file "init-crypto")
                 (:file "keying")
                 (:file "ed-keying")

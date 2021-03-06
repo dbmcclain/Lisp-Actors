@@ -3,11 +3,13 @@
 
 ;; --------------------------------------------------------------------
 
-#-:lispworks
+#-(and :lispworks
+       (not :windows))
 (eval-when (:load-toplevel)
   (startup))
 
-#+:lispworks
+#+(and :lispworks
+       (not :windows))
 (eval-when (:load-toplevel)
   ;; 2 choices, if building-binary, don't load-dlls; else load-dlls
   ;; Cannot load-dlls during DELIVERY (since, multitasking not allowed during DELIVERY), must load-dlls later.

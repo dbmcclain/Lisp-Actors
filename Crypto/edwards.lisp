@@ -2099,7 +2099,7 @@ Else re-probe with (X^2 + 1)."
 ;; CORE-CRYPTO:STARTUP and CORE-CRYPTO:SHUTDOWN
 
 (defun startup-edwards ()
-  (core-crypto:ensure-dlls-loaded)
+  #-:WINDOWS (core-crypto:ensure-dlls-loaded)
   (format t "~%Connecting Edwards Curves")
   (set-ed-curve :curve1174))
 
