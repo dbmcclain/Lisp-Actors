@@ -109,12 +109,12 @@
         ;; Phase-II: receive B                  -- a random compressed ECC point on Curve1174
         ;;
         ;; PreComputed: (x, V=x*G) as deterministic key pair, using
-        ;;                         seed H32(salt,H32(ID,PassPhrase))
+        ;;                         seed H32(salt,MAC-addr,ID,PassPhrase))
         ;;
         ;; Compute: (a, A=a*G) as random key pair on curve1174
         ;;          u = H32(A,B)                -- A,B in compressed form
         ;;          k = H32(*ed-r*,*ed-q*)
-        ;;          S = (B - k*x*G)*(a + u*x)   -- a point on Curve1174
+        ;;          S = (B - k*V)*(a + u*x)     -- a point on Curve1174
         ;;          M1 = H32(A,B,S)             -- A,B,S in compressed form
         ;;
         ;; Send A,M1                            -- A in compressed form, M1 as Hash/256
@@ -181,7 +181,7 @@
     ;; Phase II:
     ;;
     ;; PreComputed: (x, V=x*G) as deterministic key pair, using
-    ;;                         seed H32(salt,H32(ID,PassPhrase))
+    ;;                         seed H32(salt,MAC-addr,ID,PassPhrase))
     ;;
     ;; Compute: (b, b*G) = random key pair on Curve1174
     ;;          k = H32(*ed-r*, *ed-q*)
