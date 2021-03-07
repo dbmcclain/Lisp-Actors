@@ -39,7 +39,7 @@ THE SOFTWARE.
   #F
   (declare (fixnum n))
   ;; (dpb 1 (byte 1 n) 0)
-  (ash 1 n)) ;; this is 1,000 times faster in LWM
+  (ash 1 n)) ;; ASH is 100 times faster than DPB in LWM
 
 (defun pwr2 (n)
   (check-type n (fixnum 0))

@@ -19,7 +19,7 @@
   ;; publish sig = (u e)
   (with-mod *ed-r*
     (let* ((r  (gen-sig-random msg)) ;; deterministic pseudo-randomness
-           (K  (ed-mul *ed-gen* r))
+           (K  (ed-compress-pt (ed-mul *ed-gen* r)))
            (e  (hash/256 K msg))
            (u  (m- r (m* (int e) *my-skey*))))
       (list msg
@@ -27,8 +27,9 @@
             u e))))
 
 (defun ssig-verify (msg pkey u e)
-  (let* ((Kv  (ed-add (ed-mul *ed-gen* u)
-                      (ed-mul (ed-decompress-pt pkey) (int e))))
+  (let* ((Kv  (ed-compress-pt
+               (ed-add (ed-mul *ed-gen* u)
+                       (ed-mul (ed-decompress-pt pkey) (int e)))))
          (ev  (hash/256 Kv msg)))
     (hash= ev e)))
 
