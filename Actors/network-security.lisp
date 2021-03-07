@@ -189,43 +189,51 @@
               (list share1 share2 share3)))))
 |#
 
+(defun reduce-factors (x pair_i pairs init)
+  ;; -> init * (x - x1) * (x - x2) * ... * (x - x_i-1) * (x - x_i+1) * ... * (x - x_n)
+  ;; i.e., Prod((x - x_j) for j = 1..N, j /= i)
+  ;; pairs are (x . y) coords
+  (flet ((factor (prod pair_j)
+           (if (eq pair_i pair_j)
+               prod
+            (m* prod (m- x (car pair_j))))
+           ))
+    (reduce #'factor pairs
+            :initial-value init)))
+
 (defun prep-interpolation-shares (shares)
+  ;; Map (x_i . y_i) -> (x_i . y_i / Prod((x_i - x_j), j = 1..N, j /= i)) 
   (flet ((prep (share_i)
            (destructuring-bind (xi . yi) share_i
-             (flet ((denom (prod share_j)
-                      (if (eq share_i share_j)
-                          prod
-                        (m* prod (m- xi (car share_j))))
-                      ))
-               (cons xi (m/ yi (reduce #'denom shares
-                                       :initial-value 1)))
-               ))))
+             (cons xi (m/ yi (reduce-factors xi share_i shares 1)))
+             )))
     (mapcar #'prep shares)))
 
 (defun make-lagrange-interpolator (shares)
+  ;; F(x) = Sum((x_i, y_i) -> y_i * Prod((x - x_j), j = 1 .. N, j /= i)
+  ;;                              / Prod((x_i - x_j), j = 1..N, j /= i),
+  ;;             i = 1..N)
   (let ((preps (prep-interpolation-shares shares)))
     (lambda (x)
       (flet ((term (sum prep_i)
-               (flet ((factor (prod prep_j)
-                        (if (eq prep_i prep_j)
-                            prod
-                          (m* prod (m- x (car prep_j))))
-                        ))
-                 (m+ sum (reduce #'factor preps
-                                 :initial-value (cdr prep_i)))
-                 )))
+               (m+ sum (reduce-factors x prep_i preps (cdr prep_i)))
+               ))
         (reduce #'term preps
                 :initial-value 0)
         ))))
 
+(defun solve-shares (x shares)
+  (let ((fn (make-lagrange-interpolator shares)))
+    (funcall fn x)))
+  
 (defun uuid-str-from-shares (share1 share2 share3)
-  (with-mod #.(- (ash 1 264) 275)
-    (let ((fn (make-lagrange-interpolator `((1 . ,share1)
-                                            (2 . ,share2)
-                                            (3 . ,share3)))))
-      (uuid:uuid-string
-       (uuid:integer-to-uuid
-        (funcall fn 0))))))
+  (uuid:uuid-string
+   (uuid:integer-to-uuid
+    (with-mod #.(- (ash 1 264) 275)
+      (solve-shares 0 `((1 . ,share1)
+                        (2 . ,share2)
+                        (3 . ,share3)))))
+   ))
 
 (defun assemble-sks (shares)
   (apply #'uuid-str-from-shares
