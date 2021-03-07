@@ -175,60 +175,57 @@
     ))
 
 ;; -----------------------------------------------------------------------------
-(defvar *mod-base*  (- (ash 1 264) 275))
-
 #|
 (defun share-uuid (uuid-str)
-  (let* ((k  (uuid:uuid-to-integer (uuid:make-uuid-from-string uuid-str)))
-         (share1 (random #.(ash 1 264)))
-         (share2 (random #.(ash 1 264)))
-         (fn     (make-lagrange-interpolator `((0 . ,k)
-                                               (1 . ,share1)
-                                               (2 . ,share2))))
-         (share3 (funcall fn 3)))
-    (mapcar #'um:convert-int-to-wordlist
-            (list share1 share2 share3))))
+  (with-mod #.(- (ash 1 264) 275)
+    (let* ((k  (uuid:uuid-to-integer (uuid:make-uuid-from-string uuid-str)))
+           (share1 (random #.(ash 1 264)))
+           (share2 (random #.(ash 1 264)))
+           (fn     (make-lagrange-interpolator `((0 . ,k)
+                                                 (1 . ,share1)
+                                                 (2 . ,share2))))
+           (share3 (funcall fn 3)))
+      (mapcar #'um:convert-int-to-wordlist
+              (list share1 share2 share3)))))
 |#
 
 (defun prep-interpolation-shares (shares)
-  (with-mod *mod-base*
-    (flet ((prep (share_i)
-             (destructuring-bind (xi . yi) share_i
-               (flet ((denom (prod share_j)
-                        (if (eq share_i share_j)
-                            prod
-                          (m* prod (m- xi (car share_j))))
-                        ))
-                 (cons xi (m/ yi (reduce #'denom shares
-                                         :initial-value 1)))
-                 ))))
-      (mapcar #'prep shares))))
+  (flet ((prep (share_i)
+           (destructuring-bind (xi . yi) share_i
+             (flet ((denom (prod share_j)
+                      (if (eq share_i share_j)
+                          prod
+                        (m* prod (m- xi (car share_j))))
+                      ))
+               (cons xi (m/ yi (reduce #'denom shares
+                                       :initial-value 1)))
+               ))))
+    (mapcar #'prep shares)))
 
 (defun make-lagrange-interpolator (shares)
   (let ((preps (prep-interpolation-shares shares)))
     (lambda (x)
-      (with-mod *mod-base*
-        (flet ((term (sum prep_i)
-                 (flet ((factor (prod prep_j)
-                          (if (eq prep_i prep_j)
-                              prod
-                            (m* prod (m- x (car prep_j))))
-                          ))
-                   (m+ sum (reduce #'factor preps
-                                   :initial-value (cdr prep_i)))
-                   )))
-          (reduce #'term preps
-                  :initial-value 0)
-          )))
-    ))
+      (flet ((term (sum prep_i)
+               (flet ((factor (prod prep_j)
+                        (if (eq prep_i prep_j)
+                            prod
+                          (m* prod (m- x (car prep_j))))
+                        ))
+                 (m+ sum (reduce #'factor preps
+                                 :initial-value (cdr prep_i)))
+                 )))
+        (reduce #'term preps
+                :initial-value 0)
+        ))))
 
 (defun uuid-str-from-shares (share1 share2 share3)
-  (let ((fn (make-lagrange-interpolator `((1 . ,share1)
-                                          (2 . ,share2)
-                                          (3 . ,share3)))))
-    (uuid:uuid-string
-     (uuid:integer-to-uuid
-      (funcall fn 0)))))
+  (with-mod #.(- (ash 1 264) 275)
+    (let ((fn (make-lagrange-interpolator `((1 . ,share1)
+                                            (2 . ,share2)
+                                            (3 . ,share3)))))
+      (uuid:uuid-string
+       (uuid:integer-to-uuid
+        (funcall fn 0))))))
 
 (defun assemble-sks (shares)
   (apply #'uuid-str-from-shares
