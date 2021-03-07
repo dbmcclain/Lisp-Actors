@@ -38,7 +38,8 @@ THE SOFTWARE.
 (defun unchecked-pwr2 (n)
   #F
   (declare (fixnum n))
-  (dpb 1 (byte 1 n) 0))
+  ;; (dpb 1 (byte 1 n) 0)
+  (ash 1 n)) ;; this is 1,000 times faster in LWM
 
 (defun pwr2 (n)
   (check-type n (fixnum 0))
