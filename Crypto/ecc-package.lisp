@@ -156,6 +156,9 @@ THE SOFTWARE.
    :crypto/modular-arith
    :cached-var)
   (:nicknames :ecc)
+  (:import-from :useful-macros
+   :defstub
+   :with-fast-impl)
   (:export
    :ctr-hash-prng
    :basic-random
@@ -215,6 +218,10 @@ THE SOFTWARE.
    :cached-var
    :vec-repr
    :hash)
+  (:import-from :useful-macros
+   :defstub
+   :stub-function-p
+   :with-fast-impl)
   (:import-from :ecc-crypto-b571
 		:convert-int-to-nbytes
 		:convert-int-to-nbytesv
@@ -490,6 +497,10 @@ THE SOFTWARE.
    :field-random
    :safe-field-random)
   (:export
+   :defstub
+   :stub-function-p
+   :with-fast-impl
+   
    ;; from crypto/modular-arith
    :with-mod
    :reset-blinders

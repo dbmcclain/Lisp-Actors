@@ -241,6 +241,13 @@ THE SOFTWARE.
    #:make-mpsafe-monitored-collector
    ))
 
+(defpackage :stub-functions
+  (:use :common-lisp)
+  (:export
+   :defstub
+   :stub-function-p
+   :with-fast-impl))
+
 (defpackage #:useful-macros
   (:use #:common-lisp)
   (:nicknames #:um)
@@ -255,6 +262,10 @@ THE SOFTWARE.
    #:true
    #:false
    #:do-nothing)
+  (:import-from :stub-functions
+   :defstub
+   :stub-function-p
+   :with-fast-impl)
   (:import-from #:xlambda
    #:defun*
    #:lambda*
@@ -1039,6 +1050,10 @@ THE SOFTWARE.
    :apply-fwd
 
    #:within
+
+   :defstub
+   :stub-function-p
+   :with-fast-impl
    ))
 
 #|

@@ -59,297 +59,6 @@ THE SOFTWARE.
 (defun tally (kwsym)
   (ac:send *watcher* :tally kwsym))
 |#
-;; ------------------------------------------------------------------
-;; Curve1174:  x^2 + y^2 = 1 + d*x^2*y^2
-;; curve has order 4 * *ed-r* for field arithmetic over prime field *ed-q*
-;;    (ed-mul *ed-gen* (* 4 *ed-r*)) -> (0, *ed-c*)
-;;
-;; isomorphs for d' = d / c'^4 then with (x,y) -> (x',y') = (c'*x, c'*y)
-;;  x^2 + y^2 = 1 + d*x^2*y^2 -> x'^2 + y'^2 = c'^2*(1 + d'*x'^2*y'^2)
-;;
-;; See paper: "Elligator: Elliptic-curve points indistinguishable from uniform random strings"
-;; by Bernstein, Hamburg, Krasnova, and Lange
-;;
-;; See also, https://safecurves.cr.yp.to
-
-(defstruct ed-curve
-  name c d q h r gen)
-
-(defstruct (fast-ed-curve (:include ed-curve))
-  affine-mul
-  proj-mul
-  proj-add
-  to-affine)
-
-;; -----------------------------------------------------------
-
-(defstruct ecc-pt
-  x y)
-
-(defstruct ecc-proj-pt
-  x y z)
-
-(defstruct ecc-cmpr-pt
-  cx)
-
-#|
-(defmethod make-load-form ((point ecc-pt) &optional env)
-  (make-load-form-saving-slots point :environment env))
-
-(defmethod make-load-form ((point ecc-proj-pt) &optional env)
-  (make-load-form-saving-slots point :environment env))
-|#
-
-(defmethod vec-repr:int ((pt ecc-pt))
-  (vec-repr:int (ed-compress-pt pt)))
-
-(defmethod vec-repr:int ((pt ecc-proj-pt))
-  (vec-repr:int (ed-compress-pt pt)))
-
-(defmethod vec-repr:int ((pt ecc-cmpr-pt))
-  (vec-repr:int (ecc-cmpr-pt-cx pt)))
-
-
-(defmethod vec-repr:bev ((pt ecc-cmpr-pt))
-  (vec-repr:bev (ecc-cmpr-pt-cx pt)))
-
-(defmethod vec-repr:bev ((pt ecc-pt))
-  (vec-repr:bev (ed-compress-pt pt)))
-
-(defmethod vec-repr:bev ((pt ecc-proj-pt))
-  (vec-repr:bev (ed-compress-pt pt)))
-
-;; ------------------------------------------------------------------------------
-;; Curve parameters from SafeCurves
-;; https://safecurves.cr.yp.to
-;;
-;; c = curve parameter : Theorem 1, Definition 2, c = 2/s^2, d = -(c + 1)^2/(c - 1)^2
-;; d = curve parameter
-;; q = F_q prime number field
-;; r = prime cofactor for curve order
-;; h = cofactor for curve order #E(K) = h*r
-;; gen = generator point
-
-(defvar *curve1174*
-  ;; rho-security (security by Pollard's rho attack) = 2^124.3
-  ;; rho-security = (* 0.886 (sqrt *ed-r*))  (0.886 = (sqrt (/ pi 4)))
-  ;; x^2 + y^2 = 1 - 1174 x^2 y^2
-  (make-fast-ed-curve
-   :name :Curve1174
-   :c    1
-   :d    -1174
-   :q    (- (ash 1 251) 9)
-   :r    904625697166532776746648320380374280092339035279495474023489261773642975601
-   ;; = 2^249 - 11332719920821432534773113288178349711
-   :h    4  ;; cofactor -- #E(K) = h*r
-   :gen  (make-ecc-pt
-          :x  1582619097725911541954547006453739763381091388846394833492296309729998839514
-          :y  3037538013604154504764115728651437646519513534305223422754827055689195992590)
-
-   :affine-mul '_Curve1174-affine-mul
-   :proj-mul   '_Curve1174-projective-mul
-   :proj-add   '_Curve1174-projective-add
-   :to-affine  '_Curve1174-to-affine
-   ))
-
-;; ---------------------------
-
-(defvar *curve-E382*
-  ;; rho-security = 2^188.8
-  (make-ed-curve
-   :name :Curve-E382
-   :c    1
-   :d    -67254
-   :q    (- (ash 1 382) 105)
-   :r    2462625387274654950767440006258975862817483704404090416745738034557663054564649171262659326683244604346084081047321
-            ;; = 2^380 - 1030303207694556153926491950732314247062623204330168346855
-   :h    4
-   :gen  (make-ecc-pt
-          :x  3914921414754292646847594472454013487047137431784830634731377862923477302047857640522480241298429278603678181725699
-          :y  17)
-   ))
-
-;; ---------------------------
-
-(defvar *curve41417*
-  ;; rho-security = 2^205.3
-  (make-ed-curve
-   :name :Curve41417
-   :c    1
-   :d    3617
-   :q    (- (ash 1 414) 17)
-   :r    5288447750321988791615322464262168318627237463714249754277190328831105466135348245791335989419337099796002495788978276839289
-            ;; = 2^411 - 33364140863755142520810177694098385178984727200411208589594759
-   :h    8
-   :gen  (make-ecc-pt
-          :x  17319886477121189177719202498822615443556957307604340815256226171904769976866975908866528699294134494857887698432266169206165
-          :y  34)
-   ))
-
-(defvar *ed-sk1* '(95246105359107334368835702946360885221712654429149134602107470274728322648
-                   . 871438026695917300513750426093020668134374754750828650996077213558451945727))
-
-;; ---------------------------
-
-(defvar *curve-Ed448* ;; the Goldilocks curve
-  ;; rho-security = 2^222.8
-  (make-ed-curve
-   :name :Curve-Ed448
-   :c    1
-   :d    -39081
-   :q    (- (ash 1 448) (ash 1 224) 1)
-   :r    (- (ash 1 446) 13818066809895115352007386748515426880336692474882178609894547503885)
-   :h    4
-   :gen  (make-ecc-pt
-          :x  117812161263436946737282484343310064665180535357016373416879082147939404277809514858788439644911793978499419995990477371552926308078495
-          :y  19)
-   ))
-
-(defvar *ed-sk2* '(421974047105585348268953778604183148636297453017931755410200849399520674162
-                   . 599385664174222180908461435453721901391720075307525572554742060814390186035))
-
-;; ---------------------------
-
-(defvar *curve-E521*
-  ;; rho-security = 2^259.3
-  (make-ed-curve
-   :name :curve-E521
-   :c    1
-   :d    -376014
-   :q    (- (ash 1 521) 1)
-   :r    1716199415032652428745475199770348304317358825035826352348615864796385795849413675475876651663657849636693659065234142604319282948702542317993421293670108523
-            ;; = 2^519 - 337554763258501705789107630418782636071904961214051226618635150085779108655765
-   :h    4
-   :gen  (make-ecc-pt
-          :x  1571054894184995387535939749894317568645297350402905821437625181152304994381188529632591196067604100772673927915114267193389905003276673749012051148356041324
-          :y  12)
-   ))
-
-(defvar *ed-sk3* '(92467223671543291667538537127794393729406965156397932625577105047698643617
-                   . 80308136573684915858899498388575132495612607448470528849337536761764056915))
-
-;; ---------------------------
-
-(defvar *curve-Ed3363*  ;; the High-Five curve from MIRACL Labs
-  ;; y^2 + x^2 = 1 + 11111 x^2 y^2
-  ;; rho-security = 2^168 to 2^192 ?? just a guess
-  (make-fast-ed-curve
-   :name :curve-Ed3363
-   :c    1
-   :d    11111  ;; the High-Five! 
-   :q    (- (ash 1 336) 3)
-   :r    #x200000000000000000000000000000000000000000071415FA9850C0BD6B87F93BAA7B2F95973E9FA805
-            ;; = 2^333 + 10345181422283708075595279275609870082194840463365
-   :h    8
-   :gen  (make-ecc-pt
-          :x  #x0c
-          :y  #xC0DC616B56502E18E1C161D007853D1B14B46C3811C7EF435B6DB5D5650CA0365DB12BEC68505FE8632)
-
-   :affine-mul '_Ed3363-affine-mul
-   :proj-mul   '_Ed3363-projective-mul
-   :proj-add   '_Ed3363-projective-add
-   :to-affine  '_Ed3363-to-affine
-   ))
-
-;; ------------------------------------------------------
-
-(defvar *edcurve* *Curve1174*)
-
-(define-symbol-macro *ed-c*     (ed-curve-c     *edcurve*)) ;; c constant in curve equation
-(define-symbol-macro *ed-d*     (ed-curve-d     *edcurve*)) ;; d constant in curve equation
-(define-symbol-macro *ed-q*     (ed-curve-q     *edcurve*)) ;; prime base of the coordinate field
-(define-symbol-macro *ed-r*     (ed-curve-r     *edcurve*)) ;; primt bsae on the curve field
-(define-symbol-macro *ed-h*     (ed-curve-h     *edcurve*)) ;; cofactor for the containing field
-(define-symbol-macro *ed-gen*   (ed-curve-gen   *edcurve*)) ;; generator point for the curve
-(define-symbol-macro *ed-name*  (ed-curve-name  *edcurve*)) ;; keyword symbol name of the curve
-
-;; ------------------------------------------------------
-
-(defvar *known-curves*
-  (list *curve1174* *curve-e382* *curve41417* *curve-e521* *curve-Ed3363* *Curve-Ed448*))
-
-(defmethod select-curve ((curve ed-curve))
-  curve)
-
-(defmethod select-curve ((curve symbol))
-  (or (find curve *known-curves*
-            :key 'ed-curve-name)
-      (error "Not a known curve: ~A" curve)))
-
-(defmacro with-ed-curve (curve &body body)
-  `(let ((*edcurve* (select-curve ,curve)))
-     ,@body))
-
-(defun ed-curves ()
-  ;; present caller with a list of symbols that can be used to select
-  ;; a curve using WITH-ED-CURVE
-  (mapcar 'ed-curve-name *known-curves*))
-
-(defun set-ed-curve (curve)
-  (setf *edcurve* (select-curve curve)))
-
-;; -----------------------------------------------------------------------
-
-#-:WINDOWS
-(cffi:defcfun ("Ed3363_affine_mul" _Ed3363-affine-mul) :void
-  (ptx  :pointer :uint8)
-  (pty  :pointer :uint8)
-  (ptz  :pointer :uint8)
-  (nv   :pointer :uint8))
-
-#-:WINDOWS
-(cffi:defcfun ("Ed3363_projective_mul" _Ed3363-projective-mul) :void
-  (ptx  :pointer :uint8)
-  (pty  :pointer :uint8)
-  (ptz  :pointer :uint8)
-  (nv   :pointer :uint8))
-
-#-:WINDOWS
-(cffi:defcfun ("Ed3363_projective_add" _Ed3363-projective-add) :void
-  (pt1x :pointer :uint8)
-  (pt1y :pointer :uint8)
-  (pt1z :pointer :uint8)
-  (pt2x :pointer :uint8)
-  (pt2y :pointer :uint8)
-  (pt2z :pointer :uint8))
-
-#-:WINDOWS
-(cffi:defcfun ("Ed3363_to_affine" _Ed3363-to-affine) :void
-  (pt1x :pointer :uint8)
-  (pt1y :pointer :uint8)
-  (pt1z :pointer :uint8))
-
-;; -----------------------------------------------------------------------
-
-#-:WINDOWS
-(cffi:defcfun ("Curve1174_affine_mul" _Curve1174-affine-mul) :void
-  (ptx  :pointer :uint8)
-  (pty  :pointer :uint8)
-  (ptz  :pointer :uint8)
-  (nv   :pointer :uint8))
-
-#-:WINDOWS
-(cffi:defcfun ("Curve1174_projective_mul" _Curve1174-projective-mul) :void
-  (ptx  :pointer :uint8)
-  (pty  :pointer :uint8)
-  (ptz  :pointer :uint8)
-  (nv   :pointer :uint8))
-
-#-:WINDOWS
-(cffi:defcfun ("Curve1174_projective_add" _Curve1174-projective-add) :void
-  (pt1x :pointer :uint8)
-  (pt1y :pointer :uint8)
-  (pt1z :pointer :uint8)
-  (pt2x :pointer :uint8)
-  (pt2y :pointer :uint8)
-  (pt2z :pointer :uint8))
-
-#-:WINDOWS
-(cffi:defcfun ("Curve1174_to_affine" _Curve1174-to-affine) :void
-  (pt1x :pointer :uint8)
-  (pt1y :pointer :uint8)
-  (pt1z :pointer :uint8))
-
 ;; ----------------------------------------------------------------
 
 (defun ed-neutral-point ()
@@ -365,11 +74,27 @@ THE SOFTWARE.
 
 ;; -------------------------------------------------------------------
 
+#-:WINDOWS
 (defun have-fast-impl ()
-  #-:WINDOWS
-  (fast-ed-curve-p *edcurve*)
-  #+:WINDOWS
+  (fast-ed-curve-p *edcurve*))
+
+#+:WINDOWS
+(defmacro have-fast-impl ()
   nil)
+
+(defstub _Curve1174-affine-mul)
+(defstub _Curve1174-projective-mul)
+(defstub _Curve1174-projective-add)
+(defstub _Curve1174-to-affine)
+
+(defstub _Ed3363-affine-mul)
+(defstub _Ed3363-projective-mul)
+(defstub _Ed3363-projective-add)
+(defstub _Ed3363-to-affine)
+
+(defstub %ecc-fast-mul)
+(defstub %ecc-fast-add)
+(defstub %ecc-fast-to-affine)
 
 ;; -------------------------------------------------------------------
 
@@ -391,7 +116,6 @@ THE SOFTWARE.
            (make-ecc-pt
             :x  x
             :y  y))
-          #-:WINDOWS
           ((have-fast-impl)
            (%ecc-fast-to-affine pt))
           (t
@@ -605,7 +329,6 @@ THE SOFTWARE.
   (let ((ppt1 (ed-projective pt1))  ;; projective add is so much faster than affine add
         (ppt2 (ed-projective pt2))) ;; so it pays to make the conversion
     (cond
-     #-:WINDOWS
      ((have-fast-impl)
       (%ecc-fast-add ppt1 ppt2))
 
@@ -706,131 +429,6 @@ THE SOFTWARE.
              ))
         ))
 |#
-
-;; -------------------------------------------------
-;; Support for C-level Ed3363 curve
-
-#-:WINDOWS
-(defun xfer-to-c (val cvec)
-  ;; transfer val to C vector in 6 8-byte words
-  (declare (integer val))
-  (setf val (mod val *ed-q*))
-  (setf (cffi:mem-aref cvec :uint64 0) (ldb (byte 64   0) val)
-        (cffi:mem-aref cvec :uint64 1) (ldb (byte 64  64) val)
-        (cffi:mem-aref cvec :uint64 2) (ldb (byte 64 128) val)
-        (cffi:mem-aref cvec :uint64 3) (ldb (byte 64 192) val))
-  (when (eql *edcurve* *curve-ed3363*)
-    (setf (cffi:mem-aref cvec :uint64 4) (ldb (byte 64 256) val)
-          (cffi:mem-aref cvec :uint64 5) (ldb (byte 64 320) val))
-    ))
-
-#-:WINDOWS
-(defun xfer-from-c (cvec)
-  ;; retrieve val from C vector in 6 8-byte words
-  (let ((v 0))
-    (declare (integer v))
-    (setf v (dpb (cffi:mem-aref cvec :uint64 0) (byte 64   0) v)
-          v (dpb (cffi:mem-aref cvec :uint64 1) (byte 64  64) v)
-          v (dpb (cffi:mem-aref cvec :uint64 2) (byte 64 128) v)
-          v (dpb (cffi:mem-aref cvec :uint64 3) (byte 64 192) v))
-    (when (eql *edcurve* *curve-ed3363*)
-      (setf v (dpb (cffi:mem-aref cvec :uint64 4) (byte 64 256) v)
-            v (dpb (cffi:mem-aref cvec :uint64 5) (byte 64 320) v)))
-    #|
-      ;; libs now handle conversion properly - DM 03/19
-    (assert (and (<= 0 v)
-                 (< v *ed-q*)))
-    (mod v *ed-q*)
-    |#
-    v
-    ))
-
-#-:WINDOWS
-(defmacro with-fli-buffers (buffers &body body)
-  (if (endp buffers)
-      `(progn
-         ,@body)
-    (destructuring-bind (name &optional lisp-val) (car buffers)
-      `(cffi:with-foreign-pointer (,name 48)
-         ,@(when lisp-val
-             `((xfer-to-c ,lisp-val ,name)))
-         (with-fli-buffers ,(cdr buffers) ,@body))
-      )))
-
-#+:LISPWORKS
-(editor:setup-indent "with-fli-buffers" 1)
-
-;; -------------------------------------------------------------------
-
-#-:WINDOWS
-(defmethod %ecc-fast-mul ((pt ecc-proj-pt) n)
-  ;; about a 10% speed penalty over using affine points
-  (with-fli-buffers ((cptx (ecc-proj-pt-x pt))  ;; projective in...
-                     (cpty (ecc-proj-pt-y pt))
-                     (cptz (ecc-proj-pt-z pt))
-                     (cwv  n))
-    
-    (funcall (fast-ed-curve-proj-mul *edcurve*)
-             cptx cpty cptz cwv)
-    
-    (make-ecc-proj-pt
-              :x (xfer-from-c cptx) ;; projective out...
-              :y (xfer-from-c cpty)
-              :z (xfer-from-c cptz))
-    ))
-
-#-:WINDOWS
-(defmethod %ecc-fast-mul ((pt ecc-pt) n)
-  (with-fli-buffers ((cptx (ecc-pt-x pt))  ;; affine in...
-                     (cpty (ecc-pt-y pt))
-                     (cptz)
-                     (cwv  n))
-
-    (funcall (fast-ed-curve-affine-mul *edcurve*)
-             cptx cpty cptz cwv)
-    
-    (make-ecc-proj-pt
-     :x (xfer-from-c cptx) ;; projective out...
-     :y (xfer-from-c cpty)
-     :z (xfer-from-c cptz))
-    ))
-
-#-:WINDOWS
-(defmethod %ecc-fast-mul ((pt ecc-cmpr-pt) n)
-  (%ecc-fast-mul (ed-projective pt) n))
-
-#-:WINDOWS
-(defun %ecc-fast-add (pt1 pt2)
-  (with-fli-buffers ((cpt1xv (ecc-proj-pt-x pt1)) ;; projective in...
-                     (cpt1yv (ecc-proj-pt-y pt1))
-                     (cpt1zv (ecc-proj-pt-z pt1))
-                     (cpt2xv (ecc-proj-pt-x pt2))
-                     (cpt2yv (ecc-proj-pt-y pt2))
-                     (cpt2zv (ecc-proj-pt-z pt2)))
-    
-             (funcall (fast-ed-curve-proj-add *edcurve*)
-                      cpt1xv cpt1yv cpt1zv
-                      cpt2xv cpt2yv cpt2zv)
-    
-    (make-ecc-proj-pt ;; projective out...
-     :x (xfer-from-c cpt1xv)
-     :y (xfer-from-c cpt1yv)
-     :z (xfer-from-c cpt1zv))
-    ))
-
-#-:WINDOWS
-(defun %ecc-fast-to-affine (pt)
-  (with-fli-buffers ((cptx (ecc-proj-pt-x pt)) ;; projective in...
-                     (cpty (ecc-proj-pt-y pt))
-                     (cptz (ecc-proj-pt-z pt)))
-    
-    (funcall (fast-ed-curve-to-affine *edcurve*)
-             cptx cpty cptz)
-    
-    (make-ecc-pt
-     :x (xfer-from-c cptx) ;; affine out...
-     :y (xfer-from-c cpty))
-    ))
 
 #|
 (let ((prf (range-proofs:make-range-proof 1234567890)))
@@ -1022,7 +620,6 @@ THE SOFTWARE.
                (ed-neutral-point-p pt))
            pt)
 
-          #-:WINDOWS
           ((have-fast-impl)
            (%ecc-fast-mul pt nn))
           

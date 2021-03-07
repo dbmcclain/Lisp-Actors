@@ -36,6 +36,7 @@ THE SOFTWARE.
                 (:file "packages")
                 (:file "eval-always")
                 (:file "sharp-f")
+                (:file "stub-functions")
                 (:file "basic-useful")
                 ;; (:file "lambda-parsing")
                 (:file "nbr-cpus")
