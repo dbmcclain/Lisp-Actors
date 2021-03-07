@@ -175,10 +175,23 @@
     ))
 
 ;; -----------------------------------------------------------------------------
-(defvar *mod128* #.(+ (ash 1 128) 385))
+(defvar *mod-base*  (- (ash 1 264) 275))
+
+#|
+(defun share-uuid (uuid-str)
+  (let* ((k  (uuid:uuid-to-integer (uuid:make-uuid-from-string uuid-str)))
+         (share1 (random #.(ash 1 264)))
+         (share2 (random #.(ash 1 264)))
+         (fn     (make-lagrange-interpolator `((0 . ,k)
+                                               (1 . ,share1)
+                                               (2 . ,share2))))
+         (share3 (funcall fn 3)))
+    (mapcar #'um:convert-int-to-wordlist
+            (list share1 share2 share3))))
+|#
 
 (defun prep-interpolation-shares (shares)
-  (with-mod *mod128*
+  (with-mod *mod-base*
     (flet ((prep (share_i)
              (destructuring-bind (xi . yi) share_i
                (flet ((denom (prod share_j)
@@ -194,7 +207,7 @@
 (defun make-lagrange-interpolator (shares)
   (let ((preps (prep-interpolation-shares shares)))
     (lambda (x)
-      (with-mod *mod128*
+      (with-mod *mod-base*
         (flet ((term (sum prep_i)
                  (flet ((factor (prod prep_j)
                           (if (eq prep_i prep_j)
@@ -209,34 +222,19 @@
           )))
     ))
 
-(defun fill-to-132 (n)
-  (dpb n (byte 129 0) (random (ash 1 132))))
-
-(defun low-129 (n)
-  (ldb (byte 129 0) n))
-
-(defun share-uuid (uuid-str)
-  (let* ((k  (uuid:uuid-to-integer (uuid:make-uuid-from-string uuid-str)))
-         (share1 (random #.(ash 1 128)))
-         (share2 (random #.(ash 1 128)))
-         (fn     (make-lagrange-interpolator `((0 . ,k)
-                                               (1 . ,share1)
-                                               (2 . ,share2))))
-         (share3 (funcall fn 3)))
-    (mapcar #'um:convert-int-to-wordlist
-            (mapcar #'fill-to-132
-                    (list share1 share2 share3)))))
-
 (defun uuid-str-from-shares (share1 share2 share3)
   (let ((fn (make-lagrange-interpolator `((1 . ,share1)
                                           (2 . ,share2)
                                           (3 . ,share3)))))
-    (uuid:uuid-string (uuid:integer-to-uuid (funcall fn 0)))))
+    (uuid:uuid-string
+     (uuid:integer-to-uuid
+      (funcall fn 0)))))
 
 (defun assemble-sks (shares)
-  (apply #'uuid-str-from-shares (mapcar #'low-129
-                                        (mapcar #'um:convert-wordlist-to-int shares))))
+  (apply #'uuid-str-from-shares
+         (mapcar #'um:convert-wordlist-to-int shares)))
 
+;; -----------------------------------------------------------------------------
 #|
 (share-uuid "{cfe31464-f7b1-11ea-82f8-787b8acbe32e}")
 (assemble-sks '(116556184643808452113560705861977715537

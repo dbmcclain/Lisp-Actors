@@ -722,9 +722,15 @@ See the discussion under START-CLIENT-MESSENGER for details."
 
 (defvar *ssl-context*  nil)
 (defvar *sks*
-  '(("miss" "record" "glory" "hedgehog" "smile" "rail" "section" "cart" "visit" "process" "depend" "journey")
-    ("august" "leader" "nurse" "arrow" "unfold" "spy" "divorce" "mammal" "bronze" "torch" "miracle" "angry")
-    ("lunch" "fiction" "kingdom" "bulb" "eagle" "bamboo" "october" "bread" "youth" "index" "cheap" "blanket")))
+  '(("appear"  "learn"  "mean"  "diagram"  "off"  "average"  "aerobic"  "rose"
+     "similar"  "notice"  "hill"  "accident"  "hammer"  "vicious"  "exercise"
+     "kind"  "bacon"  "fossil"  "convince"  "tent"  "spare"  "old"  "news"  "march")
+    ("art"  "gaze"  "toss"  "total"  "donor"  "melody"  "segment"  "vessel"
+     "inspire"  "prefer"  "glass"  "worth"  "cargo"  "raise"  "soup"  "road"
+     "topple"  "latin"  "rotate"  "mixture"  "toddler"  "bright"  "kind"  "board")
+    ("allow"  "place"  "because"  "whip"  "wealth"  "identify"  "dial"  "pilot"
+     "ahead"  "decade"  "toward"  "voice"  "control"  "company"  "gaze"  "wedding"
+     "game"  "average"  "shoe"  "worth"  "scene"  "ensure"  "test"  "blur")))
   
 (define-symbol-macro *actors-version* (assemble-sks *sks*))
 
