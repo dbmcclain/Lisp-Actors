@@ -197,7 +197,7 @@
 
 (defmacro with-cont (&body body)
   ;; for top level calling of CPS functions
-  `(let ((%sk (cont #'values)))
+  `(let ((%sk (=cont #'values)))
      (declare (ignorable %sk))
      (with-cps ,@body)))
 
