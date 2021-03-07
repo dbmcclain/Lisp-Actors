@@ -44,6 +44,7 @@ THE SOFTWARE.
                 (:file "ed-curves")
                 #-:WINDOWS (:file "edwards-metal")
                 (:file "edwards")
+                (:file "elligator")
                 (:file "lagrange-4-square")
                 #-:WINDOWS (:file "pbc-cffi")
                 #-:WINDOWS (:file "crypto-safe-reader")
