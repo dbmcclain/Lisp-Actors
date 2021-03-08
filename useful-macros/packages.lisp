@@ -1058,6 +1058,8 @@ THE SOFTWARE.
    :defstub
    :stub-function-p
    :with-fast-impl
+   :use-slow-code
+   :reset-error
    ))
 
 #|
