@@ -26,8 +26,9 @@
 ;; -----------------------------------------------------------------
 ;; NOTE -- I (DBM) did not create this code. I suspect it came from
 ;; (c.a.2019) one of: Shanon Spires, Mark David, Paul Tarvydas, or
-;; Mark Evanston.  I appreciafe the cleverness displayed in the
-;; details of this code!
+;; Mark Evanston, during the Emotiq Project, porting my own code to
+;; other (Non-Lispworks) Lisp systems.  I appreciate the cleverness
+;; displayed in the details of this code!
 ;; -----------------------------------------------------------------
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
