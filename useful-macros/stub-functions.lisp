@@ -23,6 +23,13 @@
 ;;; you have no intention of ever fixing the situation in the present
 ;;; development period.
 
+;; -----------------------------------------------------------------
+;; NOTE -- I (DBM) did not create this code. I suspect it came from
+;; (c.a.2019) one of: Shanon Spires, Mark David, Paul Tarvydas, or
+;; Mark Evanston.  I appreciafe the cleverness displayed in the
+;; details of this code!
+;; -----------------------------------------------------------------
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
 (defmacro stub-function-p (function-name)
   "Accessor on FUNCTION-NAME (getable, setf'able). Value either true, if
@@ -70,10 +77,10 @@ from calling the function."
                  (format *error-output*
                          "!!! ***   Error condition type = ~S *** !!!~%"
                          (type-of error-condition)))
-
+               
                ;; Consider enabling this, maybe just in development mode:
                ;; (cerror "Continue" "Error on fast-impl call of ~S" fast-name)
-
+               
                (setf (error-running-fast-impl-function? fast-name)
                      error-condition)
                nil)))
@@ -85,8 +92,8 @@ from calling the function."
         ;; If at expansion time we already know FAST-NAME names a stub function,
         ;; do not expand a call to it: simply emit SLOW-FORM straight inline.
         slow-form
-        `(do-with-fast-impl ',fast-name
-           (lambda ()
-             ,fast-form)
-           (lambda ()
-             ,slow-form)) )))
+      `(do-with-fast-impl ',fast-name
+                          (lambda ()
+                            ,fast-form)
+                          (lambda ()
+                            ,slow-form)) )))
