@@ -246,7 +246,9 @@ THE SOFTWARE.
   (:export
    :defstub
    :stub-function-p
-   :with-fast-impl))
+   :with-fast-impl
+   :use-slow-code
+   :reset-error))
 
 (defpackage #:useful-macros
   (:use #:common-lisp)
@@ -265,7 +267,9 @@ THE SOFTWARE.
   (:import-from :stub-functions
    :defstub
    :stub-function-p
-   :with-fast-impl)
+   :with-fast-impl
+   :use-slow-code
+   :reset-error)
   (:import-from #:xlambda
    #:defun*
    #:lambda*

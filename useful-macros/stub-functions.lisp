@@ -31,7 +31,7 @@
 ;; displayed in the details of this code!
 ;; -----------------------------------------------------------------
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
+(um:eval-always
 (defmacro stub-function-p (function-name)
   "Accessor on FUNCTION-NAME (getable, setf'able). Value either true, if
 FUNCTION-NAME is a symbol that is the name of a stub function, or false (nil)
@@ -54,12 +54,54 @@ for any other symbol."
 ;; -----------------------------------------------------------------------------
 ;; with-fast-impl (macro)
 
+(um:eval-always
 (defmacro error-running-fast-impl-function? (fast-name)
   "Accessor on a fast-impl-function name (getable, setf'able). Value can either
 be nil (initially) the Lisp error condition object from a first error condition
 from calling the function."
   `(get ',fast-name 'error-running-fast-impl-function))
+)
 
+(defun use-slow-code ()
+  ;; Added (DBM) to allow fast code to fall back to the slow variant
+  (throw 'use-slow-code nil))
+
+(defmacro reset-error (fast-name)
+  ;; Added (DBM) to allow repair after modifying errant code
+  (setf (error-running-fast-impl-function? fast-name) nil))
+
+(defun #1=do-with-fast-impl (fast-name fast-fn slow-fn)
+  ;; Changed (DBM) to allow fast to fall back to slow by calling USE-SLOW-CODE
+  ;; also behaves properly when/if fast-fn returns NIL
+  (unless (error-running-fast-impl-function? fast-name)
+    (handler-case
+        (catch 'use-slow-code
+          (return-from #1#
+            (funcall fast-fn)))
+      (error (error-condition)
+        ;; Throw a bone to a developer tracking down the error: log to
+        ;; error output, and store error condition in a property on the
+        ;; function name symbol.
+        (format *error-output*
+                "!!! *** Taking function ~S out. *** !!!~%" 
+                fast-name)
+        (format *error-output*
+                "!!! ***   Error condition = ~A *** !!!~%" 
+                error-condition)
+        (format *error-output*
+                "!!! ***   Error condition type = ~S *** !!!~%"
+                (type-of error-condition))
+        
+        ;; Consider enabling this, maybe just in development mode:
+        ;; (cerror "Continue" "Error on fast-impl call of ~S" fast-name)
+        
+        (setf (error-running-fast-impl-function? fast-name)
+              error-condition))
+      ))
+  (funcall slow-fn))
+
+#|
+ ;; original version
 (defun do-with-fast-impl (fast-name fast-fn slow-fn)
   (or (and (null (error-running-fast-impl-function? fast-name))
            (handler-case
@@ -86,15 +128,18 @@ from calling the function."
                      error-condition)
                nil)))
       (funcall slow-fn)))
+|#
 
-(defmacro with-fast-impl (fast-form slow-form)
-  (let ((fast-name (car fast-form)))
-    (if (stub-function-p fast-name)
-        ;; If at expansion time we already know FAST-NAME names a stub function,
-        ;; do not expand a call to it: simply emit SLOW-FORM straight inline.
-        slow-form
-      `(do-with-fast-impl ',fast-name
-                          (lambda ()
-                            ,fast-form)
-                          (lambda ()
-                            ,slow-form)) )))
+(defmacro with-fast-impl ((fast-name) fast-form slow-form)
+  ;; changed (DBM) to no longer require fast-form to begin with call
+  ;; to fast-name - allows for condiitonal expressions that might
+  ;; invoke USE-SLOW-CODE
+  (if (stub-function-p fast-name)
+      ;; If at expansion time we already know FAST-NAME names a stub function,
+      ;; do not expand a call to it: simply emit SLOW-FORM straight inline.
+      slow-form
+    `(do-with-fast-impl ',fast-name
+                        (lambda ()
+                          ,fast-form)
+                        (lambda ()
+                          ,slow-form)) ))
