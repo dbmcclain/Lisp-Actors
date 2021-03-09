@@ -35,7 +35,7 @@ THE SOFTWARE.
    #:defmacro!
    #:nlet
    #:symb
-   #:if-let)
+   #:when-let)
   (:export
    #:rubber-object
    #:parent
@@ -53,6 +53,9 @@ THE SOFTWARE.
    #:is-a
    #:copy-obj
    #:inherit-from
+   #:call
+   #:super
+   #:defslotfn
    ))
 
 (in-package :rubber-objects)
@@ -62,6 +65,28 @@ THE SOFTWARE.
                      ;; (safety 0)
                      (float  0)))
 
+;; ------------------------------------------------------------------
+(define-condition no-property (error)
+  ((key :reader no-property-key :initarg :key)
+   (obj :reader no-property-obj :initarg :obj))
+  (:report report-no-property))
+
+(defun report-no-property (cx stream)
+  (format stream "No property ~S on ~A"
+          (no-property-key cx)
+          (no-property-obj cx)))
+
+(define-condition no-next-property (error)
+  ((key  :reader next-property-key :initarg :key)
+   (obj  :reader next-property-obj :initarg :obj))
+  (:report report-no-next-property))
+
+(defun report-no-next-property (cx stream)
+  (format stream "No next property ~S on ~A"
+          (next-property-key cx)
+          (next-property-obj cx)))
+  
+;; ------------------------------------------------------------------
 (defclass rubber-object ()
   ((parent     :reader   parent      :initarg :parent     :initform nil)
    (props-ref  :accessor props-ref   :initarg :props-ref  :initform (ref:ref (maps:empty)))))
@@ -135,10 +160,10 @@ THE SOFTWARE.
                keys)))
 
 (defmethod print-object ((obj rubber-object) out-stream)
-  (if-let (fn (prop obj :print-object-fn))
-      (funcall fn obj out-stream)
-    ;; else
-    (call-next-method)))
+  (handler-case
+      (call obj :print-object out-stream)
+    (no-property ()
+      (call-next-method))))
 
 (defun %direct-prop-keys (obj accum)
   (maps:fold (props obj)
@@ -226,11 +251,28 @@ THE SOFTWARE.
   )
 |#
 
-(defmethod call-next ((obj rubber-object) key &rest args)
-  (let ((fn  (prop (parent obj) key)))
-    (if (functionp fn)
-        (apply fn args)
-      fn)))
+(defvar *responder* nil)
+(defvar *key*       nil)
+
+(defgeneric call (obj key &rest args)
+  (:method ((obj rubber-object) *key* &rest args)
+   (multiple-value-bind (fn *responder*) (prop obj *key*)
+     (if *responder*
+         (if (functionp fn)
+             (apply fn obj args)
+           fn)
+       (error 'no-property :key *key* :obj obj)))))
+
+(defun #1=%call-next (&rest args)
+  (when-let (par (parent *responder*))
+    (multiple-value-bind (fn *responder*) (prop par *key*)
+      (when *responder*
+        (return-from #1#
+          (if (functionp fn)
+              (apply fn args)
+            fn))
+        )))
+  (error 'no-next-property :key *key* :obj *responder*))
     
 (defmacro! defslotfn (key obj (&rest args) &body body)
   ;; slot functions can refer to inherited slot functions for the same
@@ -239,14 +281,15 @@ THE SOFTWARE.
          (,g!key ,key))
      (setf (prop ,g!obj ,g!key)
            (lambda (&rest ,g!org-args)
-             (flet ((call-super (&rest ,g!args)
-                      (apply #'call-next ,g!obj ,g!key (or ,g!args ,g!org-args))))
+             (flet ((super (&rest ,g!args)
+                      (apply #'%call-next (or ,g!args ,g!org-args))))
                (destructuring-bind ,args ,g!org-args
-                 ,@body))))))
+                 ,@body)))
+           )))
 
 (editor:setup-indent "defslotfn" 3)
 
-(defslotfn :print-object-fn =top= (obj stream)
+(defslotfn :print-object =top= (obj &optional (stream *standard-output*))
   (print-unreadable-object (obj stream :identity t)
     (format stream "~:(~S~)"
             (class-name (class-of obj))))

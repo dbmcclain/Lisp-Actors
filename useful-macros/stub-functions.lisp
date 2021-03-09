@@ -68,7 +68,7 @@ from calling the function."
 
 (defmacro reset-error (fast-name)
   ;; Added (DBM) to allow repair after modifying errant code
-  (setf (error-running-fast-impl-function? fast-name) nil))
+  `(setf (error-running-fast-impl-function? ,fast-name) nil))
 
 (defun #1=do-with-fast-impl (fast-name fast-fn slow-fn)
   ;; Changed (DBM) to allow fast to fall back to slow by calling USE-SLOW-CODE
