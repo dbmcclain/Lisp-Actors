@@ -85,15 +85,16 @@
         (funcall post-fn))
     )))
 
-(defun rd (obj)
-  (um:nlet iter ()
-    (let ((v (basic-val obj)))
-      (cond ((rmw-desc-p v)
-             ;; RMW in progress, nudge it along
-             (rmw-help obj v)
-             (go-iter))
+(defun #1=rd (obj)
+  (tagbody
+   again
+   (let ((v (basic-val obj)))
+     (cond ((rmw-desc-p v)
+            ;; RMW in progress, nudge it along
+            (rmw-help obj v)
+            (go again))
             
-            (t  v)
+            (t  (return-from #1# v))
             ))))
            
 (defmethod rmw (obj new-fn &optional (post-fn #'lw:do-nothing))
@@ -103,23 +104,22 @@
   (let ((desc (make-rmw-desc
                :new-fn  new-fn
                :post-fn post-fn)))
-    (um:nlet iter ()
-      (let ((old (rd obj)))
-        ;; <-- ABA could happen here
-        (setf (rmw-desc-old desc) old)
-        ;; <-- ABA could happen here
-        (if (basic-cas obj old desc)
-            (progn
-              ;; At this point we know that some thread will
-              ;; accomplish our task if we get interrupted. And we
-              ;; know that no further ABA hazard can happen to
-              ;; captured old val.
-              (rmw-help obj desc)
-              (values))
-          ;; else - try again
-          (go-iter))
-        ))
-    ))
+    (declare (dynamic-extent desc))
+    (tagbody
+     again
+     (let ((old (rd obj)))
+       ;; <-- ABA could happen here
+       (setf (rmw-desc-old desc) old)
+       ;; <-- ABA could happen here
+       (if (basic-cas obj old desc)
+           ;; At this point we know that some thread will accomplish
+           ;; our task if we get preempted. And we know that no
+           ;; further ABA hazard can happen to the container contents
+           ;; that held captured old val.
+           (rmw-help obj desc)
+         ;; else - try again
+         (go again)))
+     )))
 
 ;; -----------------------------------------------------
 

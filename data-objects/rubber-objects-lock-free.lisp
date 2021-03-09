@@ -35,8 +35,7 @@ THE SOFTWARE.
    #:defmacro!
    #:nlet
    #:symb
-   #:if-let
-   #:group)
+   #:if-let)
   (:export
    #:rubber-object
    #:parent
@@ -68,7 +67,7 @@ THE SOFTWARE.
    (props-ref  :accessor props-ref   :initarg :props-ref  :initform (ref:ref (maps:empty)))))
 
 (defmethod props ((obj rubber-object))
-  (ref:val (um:rd (props-ref obj))))
+  (ref:val (props-ref obj)))
 
 (defvar =top= (make-instance 'rubber-object))
 
@@ -172,6 +171,7 @@ THE SOFTWARE.
 (defun %merge-props (new-props old-props)
   ;; reversing here removes duplicates by taking the
   ;; earliest as final
+  (assert (evenp (length new-props)))
   (um:nlet iter ((lst (reverse new-props)))
     (when lst
       (maps:addf old-props (cadr lst) (car lst))
@@ -228,8 +228,9 @@ THE SOFTWARE.
 
 (defmethod call-next ((obj rubber-object) key &rest args)
   (let ((fn  (prop (parent obj) key)))
-    (when (functionp fn)
-      (apply fn args))))
+    (if (functionp fn)
+        (apply fn args)
+      fn)))
     
 (defmacro! defslotfn (key obj (&rest args) &body body)
   ;; slot functions can refer to inherited slot functions for the same

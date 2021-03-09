@@ -304,6 +304,9 @@
 (defun signature-mismatch-error ()
   (error 'signature-mismatch-exn))
 
+(defun unexpected (msg)
+  (error "Unexpected Message: ~A" msg))
+
 ;; -----------------------------------------------------------------------
 
 (defun do-with-error-logging (fn)

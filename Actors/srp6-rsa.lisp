@@ -289,9 +289,6 @@ Checks:
   (integer-of
    (hash32 aa bb)))
 
-(defun unexpected (msg)
-  (error "Unexpected Message: ~A" msg))
-
 ;; ---------------------------------------------------------------------------
 
 (defmethod client-negotiate-security-rsa ((crypto crypto) intf)
