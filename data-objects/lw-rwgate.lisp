@@ -39,31 +39,22 @@ THE SOFTWARE.
   (mp:make-lock :sharing t))
 
 (defun do-with-lock (lock lock-type timeout fn abortfn)
-  (let (has-lock)
-    (multiple-value-bind (lockfn unlockfn)
-        (case lock-type
-          (:read  (values #'mp:process-sharing-lock
-                          #'mp:process-sharing-unlock))
-          (:write (values #'mp:process-exclusive-lock
-                          #'mp:process-exclusive-unlock)))
-      
-      (labels ((ok-to-proceed ()
-                 (mp:with-interrupts-blocked
-                   (setf has-lock (funcall lockfn lock :waiting 0)))))
-        
-        (hcl:unwind-protect-blocking-interrupts-in-cleanups
-            (when (or (ok-to-proceed)
-                      (mp:wait-processing-events timeout
-                                                 :wait-function #'ok-to-proceed))
-              (funcall fn))
-          (if has-lock
-              (funcall unlockfn lock)
-            ;; else
-            (when abortfn
-              ;; abortfn called with interrupts disabled
-              (funcall abortfn))
-            ))
-        ))))
+  (let (had-lock)
+    (unwind-protect
+        (ecase lock-type
+          ((:read)
+           (mp:with-sharing-lock (lock "Waiting for Read-Lock" timeout)
+             (setf had-lock t)
+             (funcall fn)))
+          ((:write)
+           (mp:with-exclusive-lock (lock "Waiting for Write-Lock" timeout)
+             (setf had-lock t)
+             (funcall fn))) )
+      ;; unwind
+      (unless had-lock
+        (when abortfn
+          (funcall abortfn)))
+      )))
 
 (defmacro with-read-lock ((lock &key timeout abortfn) &body body)
   `(do-with-lock ,lock :read ,timeout (lambda () ,@body) ,abortfn))
@@ -71,3 +62,22 @@ THE SOFTWARE.
 (defmacro with-write-lock ((lock &key timeout abortfn) &body body)
   `(do-with-lock ,lock :write ,timeout (lambda () ,@body) ,abortfn))
 
+#|
+;; This test shows that we are checking the wait function approximately 10/sec,
+;; and that the wait function is *NOT* always being called from the original thread.
+;; Be sure to conmpile the tst function first.
+(defun tst ()
+  (let ((ctr 0)
+        (proc (mp:get-current-process))
+        (consistent t))
+    (mp:wait-processing-events 5
+                               :wait-function
+                               (lambda ()
+                                 (incf ctr)
+                                 (setf consistent (and consistent
+                                                       (eq proc (mp:get-current-process))))
+                                 nil))
+    (list ctr consistent)))
+    
+(tst) ;; => (52 NIL)
+|#
