@@ -85,40 +85,39 @@
         (funcall post-fn))
     )))
 
-(defun #1=rd (obj)
-  (tagbody
-   again
-   (let ((v (basic-val obj)))
-     (cond ((rmw-desc-p v)
-            ;; RMW in progress, nudge it along
-            (rmw-help obj v)
-            (go again))
+(defun rd (obj)
+  (prog ()
+    again
+    (let ((v (basic-val obj)))
+      (cond ((rmw-desc-p v)
+             ;; RMW in progress, nudge it along
+             (rmw-help obj v)
+             (go again))
             
-            (t  (return-from #1# v))
+            (t  (return v))
             ))))
            
 (defmethod rmw (obj new-fn &optional (post-fn #'lw:do-nothing))
   ;; NOTE: RMW does *NOT* return new val. It could be wrong to assume
   ;; that new val corresponds to what is currently stored in obj.
   ;; Remember we are in a dynamic SMP environment.
-  (let ((desc (make-rmw-desc
-               :new-fn  new-fn
-               :post-fn post-fn)))
-    (tagbody
-     again
-     (let ((old (rd obj)))
-       ;; <-- ABA could happen here
-       (setf (rmw-desc-old desc) old)
-       ;; <-- ABA could happen here
-       (if (basic-cas obj old desc)
-           ;; At this point we know that some thread will accomplish
-           ;; our task if we get preempted. And we know that no
-           ;; further ABA hazard can happen to the container contents
-           ;; that held captured old val.
-           (rmw-help obj desc)
-         ;; else - try again
-         (go again)))
-     )))
+  (prog ((desc (make-rmw-desc
+                :new-fn  new-fn
+                :post-fn post-fn)))
+    again
+    (let ((old (rd obj)))
+      ;; <-- ABA could happen here
+      (setf (rmw-desc-old desc) old)
+      ;; <-- ABA could happen here
+      (if (basic-cas obj old desc)
+          ;; At this point we know that some thread will accomplish
+          ;; our task if we get preempted. And we know that no
+          ;; further ABA hazard can happen to the container contents
+          ;; that held captured old val.
+          (rmw-help obj desc)
+        ;; else - try again
+        (go again)))
+    ))
 
 ;; -----------------------------------------------------
 

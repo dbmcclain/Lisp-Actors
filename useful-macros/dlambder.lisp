@@ -45,8 +45,8 @@ THE SOFTWARE.
   (error "Invalid selector ~A" (car msg)))
 
 (um:defmacro! dlambda (&rest ds)
-  `(lambda* (&whole ,g!args ,g!head . ,g!tail)
-     (case ,g!head
+  `(lambda (&rest ,g!args)
+     (case (car ,g!args)
        ,@(mapcar
           (lambda (d)
             `(,(if (eq t (car d))
@@ -55,7 +55,7 @@ THE SOFTWARE.
               (apply (lambda* ,@(cdr d))
                      ,(if (eq t (car d))
                           g!args
-                        g!tail)) ))
+                        `(cdr ,g!args))) ))
           ds)
        )))
 
@@ -66,21 +66,20 @@ THE SOFTWARE.
 
 (defun dlambda*-actors-helper (clauses)
   ;; split out in anticipation of Actors special needs...
-  (lw:with-unique-names (args head tail)
-    `(lambda* (&whole ,args ,head . ,tail)
-       (destructuring-bind (,head . ,tail) ,args
-         (case ,head
-           ,@(mapcar (lambda (clause)
-                       (let ((sel (car clause)))
-                         `(,(if (eq t sel)
-                                t
-                              `(,sel))
-                           (apply #',sel ,(if (eq t sel)
-                                              args
-                                            tail)))
-                         ))
-                     clauses)
-           )))))
+  (lw:with-unique-names (args)
+    `(lambda (&rest ,args)
+       (case (car ,args)
+         ,@(mapcar (lambda (clause)
+                     (let ((sel (car clause)))
+                       `(,(if (eq t sel)
+                              t
+                            `(,sel))
+                         (apply #',sel ,(if (eq t sel)
+                                            args
+                                          `(cdr ,args))))
+                       ))
+                   clauses)
+         ))))
 
 (defmacro dlambda* (&rest clauses)
   ;; The advantage provided by this LABELS implementation is that each
