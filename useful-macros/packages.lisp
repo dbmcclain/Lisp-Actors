@@ -84,15 +84,6 @@ THE SOFTWARE.
    #:lc
    ))
 
-(defpackage #:freev
-  (:use #:common-lisp)
-  (:export
-   #:with-lexical-closures
-   #:llet
-   #:llet*
-   #:lexical
-   ))
-
 (defpackage #:lexb
   (:use #:common-lisp)
   (:export
@@ -253,13 +244,6 @@ THE SOFTWARE.
 (defpackage #:useful-macros
   (:use #:common-lisp)
   (:nicknames #:um)
-  #|
-  (:import-from #:freev
-   #:with-lexical-closures
-   #:llet
-   #:llet*
-   #:lexical)
-  |#
   (:import-from #:lispworks
    #:true
    #:false
@@ -427,11 +411,13 @@ THE SOFTWARE.
 
    #:lc
    #:def-typed-fn
-   
+
+   #|
    #:with-lexical-closures
    #:llet
    #:llet*
    #:lexical
+   |#
    
    #:test-special
    #:?specials

@@ -104,7 +104,6 @@
   (let ((desc (make-rmw-desc
                :new-fn  new-fn
                :post-fn post-fn)))
-    (declare (dynamic-extent desc))
     (tagbody
      again
      (let ((old (rd obj)))
