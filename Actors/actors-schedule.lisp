@@ -77,23 +77,19 @@ THE SOFTWARE.
          (filter-message (&rest msg)
            (um:if-let (fn (and (not (in-ask-p))
                                ;; message arrived not by way of ASK
-                               (funcall conds-fn msg)))
+                               (apply conds-fn msg)))
                (process-message fn)
              ;; else
              (progn
                (push (whole-message) msg-queue)
-               (signal 'no-immedate-answer)
+               (signal 'no-immediate-answer)
                )))
          
          (handle-timeout ()
            ;; always executed in Actor context
            (setf timer nil)
-           (process-message (lambda ()
-                              (if timeout-fn
-                                  (funcall timeout-fn)
-                                (error 'timeout)))
-                            )))
-
+           (process-message timeout-fn)))
+      
       (setf user-fn (become #'filter-message)) ;; save prior handler
       (when timeout
         (setf timer (do-schedule-after timeout #'handle-timeout)))
@@ -103,29 +99,51 @@ THE SOFTWARE.
 ;; ---------------------------------------------------------------
 ;; RECV - for DLAMBDA style handlers
 
-(defmacro recv ((&key timeout) &rest clauses)
-  (let ((g!handler    (gensym (string 'handler)))
-        (g!tester     (gensym (string 'tester)))
-        (g!on-timeout (gensym (string 'on-timeout)))
-        (selectors    (mapcar 'first clauses)))
-    `(let ((,g!handler  nil))
-       (labels
-           ((,g!tester (msg)
-              (and ,(if (member t selectors)
-                        t
-                      `(member (car msg) ',selectors))
-                   (lambda ()
-                     (apply ,g!handler msg))))
-            (,g!on-timeout ()
-              ;; on timeout, handler will be handed a :ON-TIMEOUT message
-              (funcall ,g!handler :on-timeout))
-            (retry-recv ()
-              (do-recv #',g!tester #',g!on-timeout ,timeout)))
-         (setf ,g!handler (dlambda*
-                            ,@clauses))
-         (retry-recv)
-         ))
-    ))
+(defun default-timeout ()
+  (error 'timeout))
+
+(defmacro recv (&whole recv-form (&key timeout) &rest clauses)
+  (let* ((on-timeout nil)
+         (testers    (um:nlet clean ((mix clauses)
+                                     (ans nil))
+                       ;; Unlike a normal DLAMBA function, we convert
+                       ;; the clauses into simple selector pattern
+                       ;; matchers which return a functional closure
+                       ;; on a match. DO-RECV will execute the closure
+                       ;; if found.
+                       (if mix
+                           (destructuring-bind (hd . tl) mix
+                             (cond
+                              ((consp hd)
+                               (destructuring-bind (sel args &rest body) hd
+                                 (go-clean tl (cons `(,sel ,args (lambda ()
+                                                                   ,@body))
+                                                    ans))))
+                              ((eql hd :on-timeout)
+                               (unless on-timeout  ;; first one takes it
+                                 (setf on-timeout (car tl)))
+                               (go-clean (cdr tl) ans))
+                              ((eql hd :timeout) ;; allow old syntax too
+                               (unless timeout   ;; first one takes it
+                                 (setf timeout (car tl)))
+                               (go-clean (cdr tl) ans))
+                              (t
+                               (error "Syntax error in ~S" recv-form))
+                              ))
+                         ;; else - finished
+                         (nreverse ans)))
+                     ))
+    (lw:with-unique-names (handler timeout-fn new-timeout)
+      `(let (,handler
+             (,timeout-fn  ,(if on-timeout
+                                `(lambda ()
+                                   ,on-timeout)
+                              `'default-timeout)))
+         (flet ((retry-recv (&optional (,new-timeout ,timeout))
+                  (do-recv ,handler ,timeout-fn ,new-timeout)))
+           (setf ,handler (dlambda* ,@testers))
+           (retry-recv)))
+      )))
 
 #+:LISPWORKS
 (editor:setup-indent "recv" 1)
@@ -137,12 +155,15 @@ THE SOFTWARE.
                          (recv (:timeout 5)
                            (:diddly (x)
                             (pr x))
-                           (:on-timeout ()
-                            (pr :timed-out))))
+                           #|
+                           :on-timeout
+                           (pr :timed-out)
+                           |#
+                           ))
                         (:diddlyx (arg)
                          (pr arg)
                          arg))
                       :start)))
     (ask actor :diddly :dodad)))
-
+(tst-recv)
  |#
