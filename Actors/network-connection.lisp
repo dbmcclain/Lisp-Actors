@@ -24,7 +24,6 @@
             actors.security:secure-decoding
             actors.security:byte-decode-obj
             actors.security:crypto
-            actors.security:unexpected
             actors.security:make-u8-vector
             actors.security:convert-vector-to-integer
             actors.security:+MAX-FRAGMENT-SIZE+
@@ -169,6 +168,9 @@
 
 (defmacro expect (intf &rest clauses)
   `(do-expect ,intf (make-expect-handler ,@clauses)))
+
+(defun unexpected (msg)
+  (error "Unexpected Message: ~A" msg))
 
 (defmacro make-expect-handler (&rest clauses)
   `(dlambda*

@@ -264,7 +264,6 @@ THE SOFTWARE.
    #:secure-decoding
    #:byte-decode-obj
    #:crypto
-   #:unexpected
    #:make-u8-vector
    #:convert-vector-to-integer
    #:integer-of
