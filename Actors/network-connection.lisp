@@ -240,28 +240,32 @@
     (labels
         ((we-are-done ()
            (become-null-monitor :wr-actor))
-         
+
+         (transmit-next-buffer (state)
+           (comm:async-io-state-write-buffer state (pop buffers) #'write-next-buffer))
+           
          (write-next-buffer (state &rest ignored)
            (declare (ignore ignored))
-           (if (comm:async-io-state-write-status state)
-               (send writer 'actor-internal-message:wr-fail)
-             (if-let (next-buffer (pop buffers))
-                 (comm:async-io-state-write-buffer state next-buffer #'write-next-buffer)
-               (send writer 'actor-internal-message:wr-done))
-             )))
+           (cond ((comm:async-io-state-write-status state)
+                  (send writer 'actor-internal-message:wr-fail))
+                 (buffers
+                  (transmit-next-buffer state))
+                 (t
+                  (send writer 'actor-internal-message:wr-done))
+                 )))
       
       (perform-in-actor writer
         (cond
          ((ref:basic-cas io-running 1 2) ;; still running recieve?
-          (comm:async-io-state-write-buffer io-state (pop buffers) #'write-next-buffer)
+          (transmit-next-buffer io-state)
           (recv ()
-                (actor-internal-message:wr-done ()
-                   (when (zerop (funcall decr-io-count io-state))
-                     (we-are-done)))
-                (actor-internal-message:wr-fail ()
-                   (funcall decr-io-count io-state)
-                   (we-are-done))
-                ))
+            (actor-internal-message:wr-done ()
+              (when (zerop (funcall decr-io-count io-state))
+                (we-are-done)))
+            (actor-internal-message:wr-fail ()
+              (funcall decr-io-count io-state)
+              (we-are-done))
+            ))
          (t
           (we-are-done))
          )))))

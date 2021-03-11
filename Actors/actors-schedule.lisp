@@ -127,6 +127,8 @@ THE SOFTWARE.
          ))
     ))
 
+#+:LISPWORKS
+(editor:setup-indent "recv" 1)
 
 #|
 (defun tst-recv ()
