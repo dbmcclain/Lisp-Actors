@@ -149,7 +149,8 @@
   (with-slots (crypto dispatcher queue len-buf hmac-buf) reader
     (labels
         ((extract-bytes (buf start end)
-           (nlet iter ()
+           (prog ()
+             again
              (destructuring-bind
                  (&whole frag &optional frag-start frag-end . frag-bytes)
                  (pop-queue queue)
@@ -163,14 +164,14 @@
                                   :start1 start
                                   :start2 frag-start)
                          (incf start nb))
-                       (go-iter))
+                       (go again))
                       
                       ((= nb need)
                        (when (plusp need)
                          (replace buf frag-bytes
                                   :start1 start
                                   :start2 frag-start))
-                       end)
+                       (return end))
                       
                       (t ;; (> nb need)
                          (when (plusp need)
@@ -180,10 +181,10 @@
                                     :end1   end)
                            (incf (car frag) need))
                          (push-queue queue frag)
-                         end)
+                         (return end))
                       ))
                  ;; else
-                 start)))))
+                 (return start))))))
       
       (=flet
           ((read-buf (buf)
@@ -242,22 +243,25 @@
          
          (write-next-buffer (state &rest ignored)
            (declare (ignore ignored))
-           (if-let (next-buffer (pop buffers))
-               (comm:async-io-state-write-buffer state next-buffer #'write-next-buffer)
-             (send writer (if (or (funcall decr-io-count state)
-                                  (comm:async-io-state-write-status state))
-                              'actor-internal-message:wr-fail
-                            'actor-internal-message:wr-done)))))
+           (if (comm:async-io-state-write-status state)
+               (send writer 'actor-internal-message:wr-fail)
+             (if-let (next-buffer (pop buffers))
+                 (comm:async-io-state-write-buffer state next-buffer #'write-next-buffer)
+               (send writer 'actor-internal-message:wr-done))
+             )))
       
       (perform-in-actor writer
         (cond
          ((ref:basic-cas io-running 1 2) ;; still running recieve?
-          (write-next-buffer io-state)
+          (comm:async-io-state-write-buffer io-state (pop buffers) #'write-next-buffer)
           (recv ()
-            (actor-internal-message:wr-done ())
-            (actor-internal-message:wr-fail ()
-                                            (we-are-done))
-            ))
+                (actor-internal-message:wr-done ()
+                   (when (zerop (funcall decr-io-count io-state))
+                     (we-are-done)))
+                (actor-internal-message:wr-fail ()
+                   (funcall decr-io-count io-state)
+                   (we-are-done))
+                ))
          (t
           (we-are-done))
          )))))
@@ -566,10 +570,12 @@
                  ))
                
              (decr-io-count (io-state)
-               (when (zerop (ref:atomic-decf io-running)) ;; >0 is running
-                 (comm:close-async-io-state io-state)
-                 (log-info :SYSTEM-LOG "Connection Shutdown")
-                 (shutdown intf))))
+               (let ((ct (ref:atomic-decf io-running)))
+                 (when (zerop ct) ;; >0 is running
+                   (comm:close-async-io-state io-state)
+                   (log-info :SYSTEM-LOG "Connection Shutdown")
+                   (shutdown intf))
+                 ct)))
           
           (setf writer
                 (make-instance 'message-writer
