@@ -85,9 +85,12 @@
 ;; ----------------------------------------------------------------
 
 (defstruct queue
+  ;; queue is used to store incoming network fragments that will be
+  ;; reassembled by EXTRACT-BYTES
   hd tl)
 
 (defun push-queue (queue item)
+  ;; push a fragment back onto the front of the queue
   (let* ((cell     (queue-hd queue))
          (new-cell (cons item cell)))
     (setf (queue-hd queue) new-cell)
@@ -96,6 +99,7 @@
     ))
 
 (defun add-queue (queue item)
+  ;; add fragment to tail of queue
   (let ((cell     (queue-tl queue))
         (new-cell (list item)))
     (if cell
@@ -107,6 +111,7 @@
       )))
 
 (defun pop-queue (queue)
+  ;; get next fragment in FIFO order
   (let ((cell (queue-hd queue)))
     (when cell
       (setf (queue-hd queue) (cdr cell))
@@ -114,6 +119,52 @@
           (setf (queue-tl queue) nil)))
     (values (car cell) cell)))
 
+(defun extract-bytes (queue buf start end)
+  ;; extract fragments as needed to fill a buffer
+  (prog ()
+    again
+    (destructuring-bind
+        (&whole frag &optional frag-start frag-end . frag-bytes)
+        (pop-queue queue)
+      (if frag
+          ;; while there are still some fragments
+          (let ((nb   (- frag-end frag-start))
+                (need (- end start)))
+            (cond
+             ((< nb need)
+              ;; fragment is short of what we need
+              ;; so take what it has and ask for more
+              (when (plusp nb)
+                (replace buf frag-bytes
+                         :start1 start
+                         :start2 frag-start)
+                (incf start nb))
+              (go again))
+             
+             ((= nb need)
+              ;; fragment has exactly what we need
+              (when (plusp need)
+                (replace buf frag-bytes
+                         :start1 start
+                         :start2 frag-start))
+              (return end))
+             
+             (t ;; (> nb need)
+                ;; fragment has more than needed. Take what we need
+                ;; and put back the rest.
+                (when (plusp need)
+                  (replace buf frag-bytes
+                           :start1 start
+                           :start2 frag-start
+                           :end1   end)
+                  (incf (car frag) need))
+                (push-queue queue frag)
+                (return end))
+             ))
+        ;; else - no more fragments. Return the count extracted so far
+        (return start)))
+    ))
+       
 ;; ----------------------------------------------------------------
 
 (defmacro expect (intf &rest clauses)
@@ -147,86 +198,47 @@
 
 (defmethod initialize-instance :after ((reader message-reader) &key &allow-other-keys)
   (with-slots (crypto dispatcher queue len-buf hmac-buf) reader
-    (labels
-        ((extract-bytes (buf start end)
-           (prog ()
-             again
-             (destructuring-bind
-                 (&whole frag &optional frag-start frag-end . frag-bytes)
-                 (pop-queue queue)
-               (if frag
-                   (let ((nb   (- frag-end frag-start))
-                         (need (- end start)))
-                     (cond
-                      ((< nb need)
-                       (when (plusp nb)
-                         (replace buf frag-bytes
-                                  :start1 start
-                                  :start2 frag-start)
-                         (incf start nb))
-                       (go again))
-                      
-                      ((= nb need)
-                       (when (plusp need)
-                         (replace buf frag-bytes
-                                  :start1 start
-                                  :start2 frag-start))
-                       (return end))
-                      
-                      (t ;; (> nb need)
-                         (when (plusp need)
-                           (replace buf frag-bytes
-                                    :start1 start
-                                    :start2 frag-start
-                                    :end1   end)
-                           (incf (car frag) need))
-                         (push-queue queue frag)
-                         (return end))
-                      ))
-                 ;; else
-                 (return start))))))
+    (=flet
+        ((read-buf (buf)
+           ;; incoming byte stuffer and buffer reader
+           (let ((len (length buf)))
+             (nlet rd-wait ((start 0))
+               (let ((pos (extract-bytes queue buf start len)))
+                 (cond
+                  ((= pos len)
+                   (=values))
+                  
+                  (t
+                   (recv ()
+                     (actor-internal-message:rd-incoming (frag)
+                        (add-queue queue frag)
+                        (rd-wait pos))
+                     
+                     (actor-internal-message:rd-error ()
+                        (become-null-monitor :rd-actor))
+                     ))
+                  )))
+             )))
       
-      (=flet
-          ((read-buf (buf)
-             ;; incoming byte stuffer and buffer reader
-             (let ((len (length buf)))
-               (nlet rd-wait ((start 0))
-                 (let ((pos (extract-bytes buf start len)))
-                   (cond
-                    ((= pos len)
-                     (=values))
-                    
-                    (t
-                     (recv ()
-                       (actor-internal-message:rd-incoming (frag)
-                          (add-queue queue frag)
-                          (rd-wait pos))
-                       
-                       (actor-internal-message:rd-error ()
-                          (become-null-monitor :rd-actor))
-                       ))
-                    )))
-               )))
-        
-        ;; message asssembly and decoding from (len, payload, hmac)
-        (with-as-current-actor reader
-          (nlet read-next-message ()
-            (=bind ()
-                (read-buf len-buf)
-              (let ((len (convert-vector-to-integer len-buf)))
-                (if (> len +MAX-FRAGMENT-SIZE+)
-                    ;; and we are done... just hang up.
-                    (handle-message dispatcher '(actor-internal-message:discard))
-                  ;; else
-                  (let ((enc-buf  (make-u8-vector len)))
+      ;; message asssembly and decoding from (len, payload, hmac)
+      (with-as-current-actor reader
+        (nlet read-next-message ()
+          (=bind ()
+              (read-buf len-buf)
+            (let ((len (convert-vector-to-integer len-buf)))
+              (if (> len +MAX-FRAGMENT-SIZE+)
+                  ;; and we are done... just hang up.
+                  (handle-message dispatcher '(actor-internal-message:discard))
+                ;; else
+                (let ((enc-buf  (make-u8-vector len)))
+                  (=bind ()
+                      (read-buf enc-buf)
                     (=bind ()
-                        (read-buf enc-buf)
-                      (=bind ()
-                          (read-buf hmac-buf)
-                        (handle-message dispatcher (secure-decoding crypto len len-buf enc-buf hmac-buf))
-                        (read-next-message))
-                      ))
-                  )))))))))
+                        (read-buf hmac-buf)
+                      (handle-message dispatcher (secure-decoding crypto len len-buf enc-buf hmac-buf))
+                      (read-next-message))
+                    ))
+                ))))))))
 
 ;; -------------------------------------------------------------------------
 
@@ -245,6 +257,8 @@
            (comm:async-io-state-write-buffer state (pop buffers) #'write-next-buffer))
            
          (write-next-buffer (state &rest ignored)
+           ;; this is a callback routine, executed in the thread of
+           ;; the async collection
            (declare (ignore ignored))
            (cond ((comm:async-io-state-write-status state)
                   (send writer 'actor-internal-message:wr-fail))
@@ -337,6 +351,7 @@
       (mp:unschedule-timer timer))))
           
 ;; ------------------------------------------------------------------------
+;; Once a buffer fragment has been completely received, we examine what we have
 
 (define-actor-class message-dispatcher ()
   ((accum      :initform (make-instance 'scatter-vector))
@@ -352,14 +367,17 @@
       (dcase* whole-msg
         
         (actor-internal-message:discard (&rest msg)
+          ;; something went wrong, kill the connection
           (declare (ignore msg))
           (log-error :SYSTEM-LOG "Data framing error")
           (shutdown intf))
         
         (actor-internal-message:frag (frag)
+          ;; a partial buffer of a complete message
           (add-fragment accum frag))
         
         (actor-internal-message:last-frag (frag)
+           ;; the last buffer of a complete message
            (add-fragment accum frag)
            (handle-message dispatcher (byte-decode-obj
                                        (shiftf accum
@@ -377,15 +395,20 @@
            (spawn-worker 'server-negotiate-security-ecc crypto intf node-id))
 
         (actor-internal-message:forwarding-send (service &rest msg)
+           ;; the bridge from the other end has forwarded a message to
+           ;; an actor on this side
            (if-let (actor (find-actor service))
                (apply 'send actor msg)
              (socket-send intf 'actor-internal-message:no-service service (machine-instance))))
 
         (actor-internal-message:no-service (service node)
-           ;; sent to us on send to non-existent service
+           ;; sent to us from the other end on our send to
+           ;; non-existent service
            (mp:funcall-async 'no-service-alert service node))
         
         (actor-internal-message:forwarding-ask (service usti &rest msg)
+           ;; the bridge on the other end has relayed an ASK to our
+           ;; side
            (=bind (&rest ans)
                (if-let (actor (find-actor service))                                    
                    (apply 'send actor (apply 'assemble-ask-message =bind-cont msg))
@@ -394,10 +417,13 @@
              (apply 'socket-send intf 'actor-internal-message:forwarding-reply usti ans)))
            
         (actor-internal-message:forwarding-reply (usti &rest ans)
+           ;; An Actor on our side is replying to an ASK from the
+           ;; other end.
            (apply 'bridge-handle-reply usti ans))
 
         (t (&rest msg)
-           ;; other out-of-band messages
+           ;; other out-of-band messages - part of a private
+           ;; conversation between the two network interfaces
            #|
             (log-info :SYSTEM-LOG
                       "Incoming ~A Msg: ~A" title msg)
@@ -409,6 +435,7 @@
   (error "No Service ~A on Node ~A" service node))
 
 ;; ------------------------------------------------------------------------
+;; The main user-visible portion of a network interface
 
 (define-actor-class socket-interface ()
   ((title    :initarg :title)
