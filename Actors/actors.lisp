@@ -264,41 +264,36 @@ THE SOFTWARE.
   (let ((mbox  (actor-mailbox actor))
         (busy  (actor-busy actor)))
     (unwind-protect
-        (tagbody
-         again
-         (when (eq t (car busy)) ;; not terminated?
-           (multiple-value-bind (msg ok)
-               (next-message mbox)
-             (when ok  ;; until no more messages waiting
-               (with-simple-restart (abort "Run same Actor with next message")
-                 (apply #'dispatch-message msg))
-               (go again)))))
+        (prog ()
+          again
+          (when (eq t (car busy)) ;; not terminated?
+            (multiple-value-bind (msg ok)
+                (next-message mbox)
+              (when ok  ;; until no more messages waiting
+                (with-simple-restart (abort "Run same Actor with next message")
+                  (apply #'dispatch-message msg))
+                (go again)))))
       ;; unwind clause
-      (maybe-add-to-ready-queue actor))
-    ))
+      (when (eq t (car busy)) ;; not terminated
+        ;; <-- a message could have arrived here, but would have
+        ;; failed to enqueue the Actor.  So we double check before
+        ;; clearing the busy mark.
+        (with-actor-mailbox-locked mbox
+          (cond ((unsafe-mailbox-not-empty-p mbox)
+                 ;; leave marked busy and put back on ready queue
+                 (add-to-ready-queue actor))
+                
+                (t
+                 ;; might have been terminated - so conditionally unmark
+                 (sys:compare-and-swap (car busy) t nil))
+                )))
+      )))
 
 (defun %basic-run-actor-as-worker (actor class)
   (%basic-run-worker actor)
   ;; first call treats as worker, thereafter as actor
   (change-class actor class)
   (%basic-run-actor actor))
-
-(defun maybe-add-to-ready-queue (actor)
-  (let ((mbox (actor-mailbox actor))
-        (busy (actor-busy actor)))
-    (when (eq t (car busy)) ;; not terminated
-      ;; <-- a message could have arrived here, but would have
-      ;; failed to enqueue the Actor.  So we double check before
-      ;; clearing the busy mark.
-      (with-actor-mailbox-locked mbox
-        (cond ((unsafe-mailbox-not-empty-p mbox)
-               ;; leave marked busy and put back on ready queue
-               (add-to-ready-queue actor))
-              
-              (t
-               ;; might have been terminated - so conditionally unmark
-               (sys:compare-and-swap (car busy) t nil))
-              )))))
 
 ;; ----------------------------------------------------------------
 
