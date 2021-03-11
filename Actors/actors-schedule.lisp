@@ -102,6 +102,30 @@ THE SOFTWARE.
 (defun default-timeout ()
   (error 'timeout))
 
+(defmacro tlambda (&rest clauses)
+  ;; a variant on DLAMBDA - instead of executing a matching clause, it
+  ;; returns a closure that can do so later, or NIL of no clauses
+  ;; match.
+  (lw:with-unique-names (args)
+    `(labels*
+         ;; using LABELS allows any clause to invoke another by name
+         ,clauses
+       (lambda (&rest ,args)
+         (case (car ,args)
+           ,@(mapcar (lambda (clause)
+                       (let ((sel (car clause)))
+                         `(,(if (eq t sel)
+                                t
+                              `(,sel))
+                           (lambda ()
+                             (apply #',sel ,(if (eq t sel)
+                                                args
+                                              `(cdr ,args)))))
+                         ))
+                     clauses)
+           )))
+    ))
+
 (defmacro recv (&whole recv-form (&key timeout) &rest clauses)
   (let* ((on-timeout nil)
          (testers    (um:nlet clean ((mix clauses)
@@ -115,10 +139,7 @@ THE SOFTWARE.
                            (destructuring-bind (hd . tl) mix
                              (cond
                               ((consp hd)
-                               (destructuring-bind (sel args &rest body) hd
-                                 (go-clean tl (cons `(,sel ,args (lambda ()
-                                                                   ,@body))
-                                                    ans))))
+                               (go-clean tl (cons hd ans)))
                               ((eql hd :on-timeout)
                                (unless on-timeout  ;; first one takes it
                                  (setf on-timeout (car tl)))
@@ -141,7 +162,7 @@ THE SOFTWARE.
                               `'default-timeout)))
          (flet ((retry-recv (&optional (,new-timeout ,timeout))
                   (do-recv ,handler ,timeout-fn ,new-timeout)))
-           (setf ,handler (dlambda* ,@testers))
+           (setf ,handler (tlambda ,@testers))
            (retry-recv)))
       )))
 
@@ -155,10 +176,12 @@ THE SOFTWARE.
                          (recv (:timeout 5)
                            (:diddly (x)
                             (pr x))
-                           #|
+                           (t (a b)
+                              (+ a b))
+                           #||#
                            :on-timeout
                            (pr :timed-out)
-                           |#
+                           #||#
                            ))
                         (:diddlyx (arg)
                          (pr arg)
