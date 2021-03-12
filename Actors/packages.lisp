@@ -125,6 +125,9 @@ THE SOFTWARE.
    #:pmapcar
    #:parlet
    #:=non-blocking
+   #:par-any
+   #:=when-any
+   #:=unless-any
    
    #:set-maximum-age
    #:get-maximum-age

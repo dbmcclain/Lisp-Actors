@@ -152,3 +152,61 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ;; ----------------------------------------------------------------------
 
+(defmacro =when-any (args forms &body body)
+  ;; non-blocking
+  (lw:with-unique-names (timeout)
+    `(=bind ,args
+         (let ((,timeout *timeout*))
+           (spawn-worker (=lambda ()
+                           (let ((*timeout* ,timeout))
+                             (when-let (ans (par-any ,@(mapcar #`(lambda ()
+                                                                   ,a1)
+                                                               forms)))
+                               (=values ans))))
+                         =bind-cont))
+       ,@body)))
+
+(defmacro =unless-any (forms &body body)
+  ;; non-blocking
+  (lw:with-unique-names (timeout)
+    `(=bind ()
+         (let ((,timeout *timeout*))
+           (spawn-worker (=lambda ()
+                           (let ((*timeout* ,timeout))
+                             (let ((ans (par-any ,@(mapcar #`(lambda ()
+                                                               ,a1)
+                                                           forms))))
+                               (unless ans
+                                 (=values)))))
+                         =bind-cont))
+       ,@body)))
+
+(defun #1=par-any (&rest fns)
+  ;; Parallel execution of fns. First one to return a non-null result
+  ;; terminates the batch.
+  ;; NOTE: PAR-ANY is blocking wait for at least one worker to
+  ;; succeed, or for all workers to finish.
+  (when fns
+    (let ((count  (ref:ref (length fns)))
+          (actors nil))
+      (flet ((kill-all ()
+               (map nil 'terminate-actor actors)))
+        (handler-bind ((timeout (lambda (c)
+                                  (declare (ignore c))
+                                  (kill-all)
+                                  (return-from #1# nil))))
+          (=wait ((ans) :timeout *timeout* :errorp nil)
+              (flet ((done (ans)
+                       (when (or (zerop (ref:atomic-decf count))
+                                 ans)
+                         (=values ans))))
+                (setf actors (mapcar (lambda (fn)
+                                       (spawn-worker 
+                                        (lambda ()
+                                          (done (ignore-errors
+                                                  (funcall fn))))
+                                        ))
+                                     fns)))
+            (kill-all)
+            ans)
+          )))))
