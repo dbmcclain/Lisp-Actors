@@ -66,7 +66,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                (actors nil))
           (handler-bind ((timeout (lambda (c)
                                     (declare (ignore c))
-                                    (map nil 'terminate-actor actors))))
+                                    (terminate-actors actors))))
             (=wait (()
                     :timeout *timeout*
                     :errorp  t)
