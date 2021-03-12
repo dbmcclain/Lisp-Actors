@@ -183,10 +183,12 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
        ,@body)))
 
 (defun #1=par-any (&rest fns)
-  ;; Parallel execution of fns. First one to return a non-null result
-  ;; terminates the batch.
+  ;; Parallel execution of fns. First one to return a non-null result,
+  ;; timeout, or all fail, terminates the batch.
+  ;;
   ;; NOTE: PAR-ANY is blocking wait for at least one worker to
-  ;; succeed, or for all workers to finish.
+  ;; succeed, or for all workers to finish, or for timeout, whichever
+  ;; occurs first.
   (when fns
     (let ((count  (ref:ref (length fns)))
           (actors nil))
@@ -213,16 +215,17 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           )))))
 
 #|
-(par-any
- (lambda ()
-   (sleep 1)
-   1)
- (lambda ()
-   (sleep 1)
-   2)
- (lambda ()
-   (sleep 1)
-   3))
+(let ((*timeout* 1.5))
+  (par-any
+   (lambda ()
+     (sleep 1)
+     1)
+   (lambda ()
+     (sleep 1)
+     2)
+   (lambda ()
+     (sleep 1)
+     3)))
 
 (spawn (lambda ()
          (=when-any (ans)
