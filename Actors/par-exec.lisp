@@ -164,13 +164,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   (lw:with-unique-names (timeout)
     `(=bind ,args
          (let ((,timeout *timeout*))
-           (spawn-worker (=lambda ()
+           (spawn-worker (lambda ()
                            (let ((*timeout* ,timeout))
                              (when-let (ans (par-any ,@(mapcar #`(lambda ()
                                                                    ,a1)
                                                                forms)))
                                (=values ans))))
-                         =bind-cont))
+                         ))
        ,@body)))
 
 (defmacro =unless-any (forms &body body)
@@ -178,17 +178,17 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   (lw:with-unique-names (timeout)
     `(=bind ()
          (let ((,timeout *timeout*))
-           (spawn-worker (=lambda ()
+           (spawn-worker (lambda ()
                            (let ((*timeout* ,timeout))
                              (let ((ans (par-any ,@(mapcar #`(lambda ()
                                                                ,a1)
                                                            forms))))
                                (unless ans
                                  (=values)))))
-                         =bind-cont))
+                         ))
        ,@body)))
 
-(defun #1=par-any (&rest fns)
+(defun par-any (&rest fns)
   ;; Parallel execution of fns. First one to return a non-null result,
   ;; timeout, or all fail, terminates the batch.
   ;;
@@ -198,27 +198,23 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   (when fns
     (let ((count  (ref:ref (length fns)))
           (actors nil))
-      (flet ((kill-all ()
-               (map nil 'terminate-actor actors)))
-        (=wait ((ans)
-                :timeout    *timeout*
-                :on-timeout (progn
-                              (kill-all)
-                              (return-from #1# nil)))
-            (flet ((done (ans)
-                     (when (or (zerop (ref:atomic-decf count))
-                               ans)
-                       (=values ans))))
-                (setf actors (mapcar (lambda (fn)
-                                       (spawn-worker 
-                                        (lambda ()
-                                          (done (ignore-errors
-                                                  (funcall fn))))
-                                        ))
-                                     fns)))
-          (kill-all)
-          ans)
-        ))))
+      (=wait ((ans)
+              :timeout    *timeout*
+              :on-timeout (=values nil))
+          (flet ((done (ans)
+                   (when (or (zerop (ref:atomic-decf count))
+                             ans)
+                     (=values ans))))
+            (setf actors (mapcar (lambda (fn)
+                                   (spawn-worker 
+                                    (lambda ()
+                                      (done (ignore-errors
+                                              (funcall fn))))
+                                    ))
+                                 fns)))
+        (map nil 'terminate-actor actors)
+        ans)
+      )))
 
 #|
 (let ((*timeout* 1.5))

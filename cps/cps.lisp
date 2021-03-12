@@ -232,7 +232,7 @@
 ;; ----------------------------------------------------------------
 
 (defun do-wait (timeout errorp on-timeout fn cont)
-  (let ((mbox  (mp:make-mailbox :size 1)))
+  (let ((mbox  (mp:make-mailbox)))
     (funcall fn (lambda (&rest args)
                   (mp:mailbox-send mbox args)))
     (multiple-value-bind (ans ok)
@@ -246,19 +246,18 @@
           )))
     ))
 
-(defun prep-wait (do-fn args timeout errorp on-timeout expr body)
-  `(,do-fn ,timeout ,errorp
-           ,(if on-timeout
-                `(lambda ()
-                   ,on-timeout))
-           (lambda (%sk)
-             ,expr)
-           (lambda* ,args
-             ,@body)))
-
 (defmacro =wait ((args &key timeout errorp on-timeout) expr &body body)
-  ;; a version of =bind with blocking wait
-  (prep-wait 'do-wait args timeout errorp on-timeout expr body))
+  ;; A version of =BIND with blocking wait
+  ;; This version allows ON-TIMEOUT to use =VALUES
+  ;; We are blocking here, so no need for =CONT on the continuation.
+  `(let ((%sk (lambda* ,args ,@body)))
+     (do-wait ,timeout ,errorp
+              ,(when on-timeout
+                 `(lambda ()
+                    ,on-timeout))
+              (lambda (%sk)
+                ,expr)
+              %sk)))
 
 #+:LISPWORKS
 (editor:setup-indent "=wait" 2 2 4)
