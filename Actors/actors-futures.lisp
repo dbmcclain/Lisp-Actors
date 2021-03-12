@@ -35,7 +35,10 @@ arrives.
   (if-let (actor (current-actor))
       (lambda (&rest args)
         (apply 'inject actor fn args))
-    fn))
+    (lambda (&rest args)
+      (with-trampoline
+        (apply fn args)))
+    ))
 
 (lw:defadvice (=cont =cont-for-actors :around)
     (fn)

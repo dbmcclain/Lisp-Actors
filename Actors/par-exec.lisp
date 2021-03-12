@@ -29,6 +29,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   (import '(um:single
             um:call-capturing-ans-or-exn
             um:recover-ans-or-exn
+            um:when-let
             
             ref:ref
             ref:atomic-decf
@@ -210,3 +211,42 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             (kill-all)
             ans)
           )))))
+
+#|
+(par-any
+ (lambda ()
+   (sleep 1)
+   1)
+ (lambda ()
+   (sleep 1)
+   2)
+ (lambda ()
+   (sleep 1)
+   3))
+
+(spawn (lambda ()
+         (=when-any (ans)
+             ((progn
+                (sleep 1)
+                1)
+              (progn
+                (sleep 1)
+                2)
+              (progn
+                (sleep 1)
+                3))
+           (pr ans))))
+      
+(=when-any (ans)
+    ((progn
+       (sleep 1)
+       1)
+     (progn
+       (sleep 1)
+       2)
+     (progn
+       (sleep 1)
+       3))
+  (pr ans))
+ |#
+

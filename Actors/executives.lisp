@@ -87,11 +87,11 @@
 
   (:method :before ((actor actor))
    ;; prevent it from doing anything more, even if already running
-   (setf (actor-user-fn actor) 'do-nothing))
+   (setf (actor-user-fn actor) 'lw:do-nothing))
 
   (:method :before ((worker worker))
    ;; prevent it from doing its job if not already running
-   (setf (worker-dispatch-wrapper worker)  (list 'do-nothing)))
+   (setf (worker-dispatch-wrapper worker)  (list 'lw:do-nothing)))
   )
 
 ;; ------------------------------------
