@@ -295,7 +295,9 @@ Checks:
   ;; Phase-I: send local node ID
   (let* ((node-id (or (crypto-reneg-key crypto)
                       (machine-instance))))
-    (=wait ((p-key g-key salt bb) :timeout 5)
+    (=wait ((p-key g-key salt bb)
+            :timeout 5
+            :errorp  t)
         (client-request-negotiation-rsa intf =wait-cont node-id)
       ;; Phase-II: receive N,g,s,B
       ;; Compute: x = H32(s,ID,PassPhrase)
@@ -337,7 +339,9 @@ Checks:
                            (m+ a
                                (m* u x))))
                    (m1 (hash32 aa bb s)))
-              (=wait ((m2) :timeout 5)
+              (=wait ((m2)
+                      :timeout 5
+                      :errorp  t)
                   (funcall (intf-srp-ph2-reply intf) =wait-cont aa m1)
                 ;; Phase 3: receive M2
                 ;; Compute: Chk2  = H32(A,M1,S), check Chk2 = M2
@@ -487,7 +491,9 @@ Checks:
                (bb (m+ (m* 3 v) ;; we know that 3 cannot be a primitive root
                        (m^ g-key b))
                    ))
-          (=wait ((aa m1) :timeout 5)
+          (=wait ((aa m1)
+                  :timeout 5
+                  :errorp  t)
               (funcall (intf-srp-ph2-begin-rsa intf) =wait-cont p-key g-key salt bb)
             ;; Phase III: Receive A,M1
             ;; Compute: u     = H32(A,B)

@@ -489,7 +489,9 @@ THE SOFTWARE.
   (if (eq actor (current-actor))
       (apply 'self-call message)
     ;; else - blocking synchronous ASK with mailbox
-    (=wait ((ans) :timeout *timeout* :errorp t)
+    (=wait ((ans)
+            :timeout *timeout*
+            :errorp  t)
         (apply 'send actor (apply 'assemble-ask-message =wait-cont message))
       (recover-ans-or-exn ans))))
 

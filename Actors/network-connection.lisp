@@ -717,7 +717,9 @@
                 #+:USING-ECC-CRYPTO (client-negotiate-security-ecc crypto intf)
                 #-:USING-ECC-CRYPTO (client-negotiate-security-rsa crypto intf)
                 (socket-send intf 'actor-internal-message:client-info (machine-instance))
-                (=wait ((ans) :timeout 5 :errorp t)
+                (=wait ((ans)
+                        :timeout 5
+                        :errorp  t)
                     (expect intf
                       (actor-internal-message:server-info (server-node)
                           (bridge-register server-node intf)

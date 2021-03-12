@@ -114,7 +114,9 @@
     ;;
     ;; Phase-I: send local node ID
     ;;
-    (=wait ((bbc) :timeout 5)
+    (=wait ((bbc)
+            :timeout 5
+            :errorp  t)
         (client-request-negotiation-ecc intf =wait-cont node-id)
       ;;
       ;; Phase-II: receive B                  -- a random compressed ECC point on Curve1174
@@ -160,7 +162,9 @@
                         (values aac sc m1))
                       ))
                   ))
-            (=wait ((m2) :timeout 5)
+            (=wait ((m2)
+                    :timeout 5
+                    :errorp  t)
                 (funcall (intf-srp-ph2-reply intf) =wait-cont aac m1)
               ;;
               ;; Phase 3: receive M2 -- a Hash/256
@@ -217,7 +221,9 @@
       (let ((bbc (ed-compress-pt
                   (ed-add bb
                           (ed-mul gxc *k*)))))
-        (=wait ((aac m1) :timeout 5)
+        (=wait ((aac m1)
+                :timeout 5
+                :errorp  t)
             (funcall (intf-srp-ph2-begin-ecc intf) =wait-cont bbc)
           ;;
           ;; Phase III: Receive A,M1 -- A as compressed point, M1 as Hash/256

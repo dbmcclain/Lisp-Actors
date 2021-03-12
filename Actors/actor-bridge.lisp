@@ -278,7 +278,9 @@
 
 (defun network-ask (dest &rest message)
   ;; Blocking ASK across a network connection
-  (=wait ((ans) :timeout *timeout* :errorp t)
+  (=wait ((ans)
+          :timeout *timeout*
+          :errorp  t)
       (=apply 'bridge-ask-query dest message)
     (recover-ans-or-exn ans)))
 

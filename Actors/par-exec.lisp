@@ -67,7 +67,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           (handler-bind ((timeout (lambda (c)
                                     (declare (ignore c))
                                     (map nil 'terminate-actor actors))))
-            (=wait (() :timeout *timeout* :errorp t)
+            (=wait (()
+                    :timeout *timeout*
+                    :errorp  t)
                 (flet ((done (ix ans)
                          (setf (aref ansv ix) ans)
                          (when (zerop (ref:atomic-decf count))
@@ -115,6 +117,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ;; -------------------------------------------------------------------
 
 #|
+(handler-bind ((error (lambda (c)
+                        (Print :handled))))
+  (error "An error"))
+
 (par
   (print :doit1)
   (print :doit2))
@@ -194,15 +200,15 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           (actors nil))
       (flet ((kill-all ()
                (map nil 'terminate-actor actors)))
-        (handler-bind ((timeout (lambda (c)
-                                  (declare (ignore c))
-                                  (kill-all)
-                                  (return-from #1# nil))))
-          (=wait ((ans) :timeout *timeout* :errorp nil)
-              (flet ((done (ans)
-                       (when (or (zerop (ref:atomic-decf count))
-                                 ans)
-                         (=values ans))))
+        (=wait ((ans)
+                :timeout    *timeout*
+                :on-timeout (progn
+                              (kill-all)
+                              (return-from #1# nil)))
+            (flet ((done (ans)
+                     (when (or (zerop (ref:atomic-decf count))
+                               ans)
+                       (=values ans))))
                 (setf actors (mapcar (lambda (fn)
                                        (spawn-worker 
                                         (lambda ()
@@ -210,9 +216,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                                                   (funcall fn))))
                                         ))
                                      fns)))
-            (kill-all)
-            ans)
-          )))))
+          (kill-all)
+          ans)
+        ))))
 
 #|
 (let ((*timeout* 1.5))

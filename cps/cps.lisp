@@ -256,7 +256,7 @@
            (lambda* ,args
              ,@body)))
 
-(defmacro =wait ((args &key (timeout 60) (errorp t) on-timeout) expr &body body)
+(defmacro =wait ((args &key timeout errorp on-timeout) expr &body body)
   ;; a version of =bind with blocking wait
   (prep-wait 'do-wait args timeout errorp on-timeout expr body))
 
