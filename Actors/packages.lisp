@@ -117,6 +117,7 @@ THE SOFTWARE.
    #:find-names-for-actor
    
    #:terminate-actor
+   #:terminate-actors
 
    #:timeout
    #:*timeout*

@@ -212,7 +212,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                                               (funcall fn))))
                                     ))
                                  fns)))
-        (map nil 'terminate-actor actors)
+        (terminate-actors actors)
         ans)
       )))
 

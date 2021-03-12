@@ -67,6 +67,12 @@
   (when (eq actor *exec-actor*)
     (abort)))
 
+(defun exec-terminate-actors (actors)
+  ;; an interrupt handler - if we are running one of the actors,
+  ;; terminate it
+  (when (member *exec-actor* actors)
+    (abort)))
+
 ;; --------------------------------------------------------------
 
 #|
@@ -191,6 +197,16 @@
         (nullify actor)
         (dolist (exec executive-processes)
           (mp:process-interrupt exec 'exec-terminate-actor actor))))
+
+    (defun terminate-actors (actors)
+      ;; removes the need to loop with TERMINATE-ACTOR on a collection
+      ;; of actors to be terminated, becoming O(M) instead of O(N*M).
+      ;; Requires only one interrupt to each executive thread, instead
+      ;; of N of them.
+      (critical-section
+        (map nil 'nullify actors)
+        (dolist (exec executive-processes)
+          (mp:process-interrupt exec 'exec-terminate-actors actors))))
       
     (defun start-watchdog-timer ()
       (critical-section
