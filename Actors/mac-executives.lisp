@@ -207,7 +207,6 @@
       
 (defun add-to-ready-queue (actor)
   ;; use the busy cell to hold our wakeup time - for use by watchdog,
-  (setf (cdr (actor-busy actor)) (get-universal-time))
   (apply-with-gcd-and-group :DEFAULT NIL #'%run-actor actor))
 
 (defmacro without-watchdog (&body body)
