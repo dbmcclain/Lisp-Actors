@@ -27,81 +27,160 @@
             um:critical-or
             )))
 
-;; --------------------------------------------------------------------
-;; Executive Pool - actual system threads dedicated to running Actor code
-
-(defun default-watchdog-function (age)
-  (restart-case
-      (error "Actor Executives are stalled (blocked waiting or compute bound). ~&Last heartbeat was ~A sec ago."
-             age)
-    (:do-nothing-just-wait ()
-      :report "It's okay, just wait"
-      (start-watchdog-timer))
-    (:spawn-new-executive ()
-      :report "Spawn another Executive"
-      (push-new-executive))
-    (abort ()
-      :report "Terminate Actor system"
-      (kill-executives))
-    ))
-
-(defvar *watchdog-hook* 'default-watchdog-function)
-
-;; ------------------------------------------------------------
-;; Executive Actions
-
-(defvar *exec-actor*  nil)
-
-(defun executive-loop ()
-  ;; the main executive loop - more general, in that it will abosrb
-  ;; global settings of print-vars from dynamic environment process
-  ;; creator
-  (loop
-   (with-simple-restart (abort "Run next ready Actor")
-     (let ((*exec-actor* (next-actor)))
-       (%run-actor *exec-actor*)))
-   ))
-
-(defun exec-terminate-actor (actor)
-  ;; an interrupt handler - if the actor is ours, we terminate it
-  (when (eq actor *exec-actor*)
-    (abort)))
-
-(defun exec-terminate-actors (actors)
-  ;; an interrupt handler - if we are running one of the actors,
-  ;; terminate it
-  (when (member *exec-actor* actors)
-    (abort)))
-
-;; --------------------------------------------------------------
-
-#|
-(defun test-stall ()
-  (loop repeat (1+ (get-nbr-execs)) do 
-	(spawn (lambda () 
-		 (sleep 10) 
-		 (pr :hello (current-actor)))
-	       )))
-|#
-;; -------------------------------------------------------------
-;; Executive Control
 ;; ------------------------------------
+;; Borrowed shamelessly from LW example/grand-central-dispatch.lisp
 
-(defgeneric nullify (actor)
-  (:method ((actor <runnable>))
-   (sys:atomic-exchange (car (actor-busy actor)) :exit))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;; code ;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-  (:method :before ((actor actor))
-   ;; prevent it from doing anything more, even if already running
-   (setf (actor-user-fn actor) 'lw:do-nothing))
+;;; The argument type of the dispatch_* functions that take
+;;; a block. 
 
-  (:method :before ((worker worker))
-   ;; prevent it from doing its job if not already running
-   (setf (worker-dispatch-wrapper worker)  (list 'lw:do-nothing)))
+(fli:define-c-typedef dispatch-block-t fli:foreign-block-pointer)
+
+;;; The callable type for blocks by dispatch_* functions. 
+(fli:define-foreign-block-callable-type dispatch-block-callable
+                                        :void ())
+
+;;; A dummy C structure. Pointers to this structure can be passed to
+;;; DISPATCH-RELEASE and DISPATCH-RETAIN. We define all the dispatch
+;;; object types as pointers to it. 
+
+(fli:define-c-struct (dispatch-object-dummy-structure (:forward-reference-p t)))
+
+(fli:define-foreign-function dispatch-retain ((dop (:pointer dispatch-object-dummy-structure))))
+(fli:define-foreign-function dispatch-release ((dop (:pointer dispatch-object-dummy-structure))))
+
+;;; The timeout type
+(fli:define-c-typedef dispatch-time-t :uint64)
+(defconstant DISPATCH_TIME_NOW (fli:cast-integer  0 :uint64))
+(defconstant DISPATCH_TIME_FOREVER (fli:cast-integer (lognot 0) :uint64))
+
+  
+;;; The dispatch object types that we are going to use. 
+(fli:define-c-typedef dispatch-queue-t (:pointer dispatch-object-dummy-structure)) 
+(fli:define-c-typedef dispatch-group-t (:pointer dispatch-object-dummy-structure)) 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Getting a global queue ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defconstant DISPATCH_QUEUE_PRIORITY_HIGH 2)
+(defconstant DISPATCH_QUEUE_PRIORITY_DEFAULT 0)
+(defconstant DISPATCH_QUEUE_PRIORITY_LOW -2)
+
+(fli:define-foreign-function dispatch-get-global-queue
+    ((priority :long) ;DISPATCH_QUEUE_PRIORITY_*
+     (flags (:unsigned :long))) ;;; reserved, currently 0
+  :result-type dispatch-queue-t)
+
+(defun call-dispatch-get-global-queue (&optional priority)
+  (let ((dp (case priority
+             (:high DISPATCH_QUEUE_PRIORITY_HIGH)
+             ((:default nil) DISPATCH_QUEUE_PRIORITY_DEFAULT)
+             (:low DISPATCH_QUEUE_PRIORITY_LOW)
+             (t (error "CALL-DISPATCH-GET-GLOBAL-QUEUE: invaid priority : ~s" priority)))))
+    (dispatch-get-global-queue dp 0)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; dispatch functions that we are going to use ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(fli:define-foreign-function dispatch-async
+    ((queue dispatch-queue-t)
+     (block dispatch-block-t)))
+
+
+(fli:define-foreign-function dispatch-group-create
+    ()
+  :result-type dispatch-group-t)
+
+(fli:define-foreign-function dispatch-group-async 
+    ((group dispatch-group-t)
+     (queue dispatch-queue-t)
+     (block dispatch-block-t)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Waiting for a group to finish ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; The documentation of the timeout in dispatch-group-wait
+;;; is not clear. By stepping through it we found that it uses
+;;; mach absolute time (on Mac OS X).
+;;; Since we want the timeout to be relative in seconds
+;;; like all other waiting functions, we need to do
+;;; some computations. 
+
+(fli:define-c-struct mach-timebase-info-data-t
+  (numer (:unsigned :int))
+  (denom (:unsigned :int)))
+
+(fli:define-foreign-function mach-timebase-info ((p :pointer)))
+
+;;; This is fixed on any given machine, but can vary in principle if
+;;; the image is saved and restarted on another machine. If you use
+;;; this code in an application, make sure it is NIL on restart.
+
+(defparameter *seconds-to-mach-absolute-time-ratio* nil)
+
+;;; The info is how to convert absolute to nanos, we
+;;; go from seconds to absolute so invert the denum/numer
+;;; and multiply by billion. 
+(defun seconds-to-mach-absolute-time-ratio()
+  (or *seconds-to-mach-absolute-time-ratio*
+      (setq *seconds-to-mach-absolute-time-ratio* 
+            (* (expt 10 9)
+               (fli:with-dynamic-foreign-objects
+                   ((s mach-timebase-info-data-t))
+                 (mach-timebase-info s)
+                 (/ (fli:foreign-slot-value s 'denom)
+                    (fli:foreign-slot-value s 'numer)))))))
+  
+
+(fli:define-foreign-function mach-absolute-time ()
+  :result-type :uint64)
+
+(fli:define-foreign-function dispatch-group-wait 
+    ((group dispatch-group-t)
+     (time dispatch-time-t)) 
+  :result-type :long ; 0 on success, non-zero timeout 
   )
 
-;; ------------------------------------
+;;; This is the "proper" interface.
+(defun call-dispatch-group-wait (dg timeout)
+  (let ((ti (case timeout
+              (0 DISPATCH_TIME_NOW)
+              ((nil) DISPATCH_TIME_FOREVER)
+              (t (+ (truncate (* timeout (seconds-to-mach-absolute-time-ratio)))
+                    (mach-absolute-time))))))
+    (zerop (dispatch-group-wait dg ti))))
+    
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;  LISP side interface ;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; Actually doing the dispatch of FUNC and ARGS, using the queue
+;;; specified by the priority, which must be one of
+;;; :HIGH,:DEFAULT,:LOW or NIL. If the group is non-nil, it must be a
+;;; dispatch-group-t object, and we dispatch with it.
+
+(defun apply-with-gcd-and-group (priority group func &rest args)
+  (unless (mp:get-current-process)
+    (error "Trying to use GCD without multiprocessing"))
+  (let ((queue (call-dispatch-get-global-queue priority))
+        (block (apply 'fli:allocate-foreign-block 'dispatch-block-callable func args)))
+    (prog1
+        (if group
+            (dispatch-group-async group queue block)
+          (dispatch-async queue block))
+      (fli:free-foreign-block block))))
+
+;; ------------------------------------
+#|
 (defmonitor executives
     ((watchdog-inhibit    (ref:ref 0))     ;; >0 averts watchdog checking
      (watchdog-checking   (ref:ref nil))   ;; t when checking for system stalls
@@ -285,18 +364,6 @@
           (funcall fn)
         (ref:atomic-decf watchdog-inhibit)))
 
-    (defun add-to-ready-queue (actor)
-      ;; use the busy cell to hold our wakeup time - for use by watchdog,
-      (setf (cdr (actor-busy actor)) (get-universal-time))
-      (mp:mailbox-send actor-ready-queue actor)
-      ;; ensure executives are live
-      (critical-or executive-processes
-                   (setf executive-counter    0
-                         executive-processes  (loop repeat nbr-execs collect
-                                                    (make-new-executive)))
-                   (start-watchdog-timer)))
-      
-
     (defun next-actor ()
       (mp:mailbox-read actor-ready-queue "Waiting for Actor"))
     ))
@@ -304,5 +371,37 @@
 (defmacro without-watchdog (&body body)
   `(do-without-watchdog (lambda ()
                           ,@body)))
+|#
+
+;; -------------------------------------------------------------
+;; Executive Control
+;; ------------------------------------
+
+(defgeneric nullify (actor)
+  (:method ((actor <runnable>))
+   (sys:atomic-exchange (car (actor-busy actor)) :exit))
+
+  (:method :before ((actor actor))
+   ;; prevent it from doing anything more, even if already running
+   (setf (actor-user-fn actor) 'lw:do-nothing))
+
+  (:method :before ((worker worker))
+   ;; prevent it from doing its job if not already running
+   (setf (worker-dispatch-wrapper worker)  (list 'lw:do-nothing)))
+  )
+
+(defun terminate-actor (actor)
+  ;; if they will listen...
+  (nullify actor))
+
+(defun terminate-actors (actors)
+  ;; removes the need to loop with TERMINATE-ACTOR on a collection
+  ;; of actors to be terminated.
+  (map nil 'nullify actors))
+      
+(defun add-to-ready-queue (actor)
+  ;; use the busy cell to hold our wakeup time - for use by watchdog,
+  (setf (cdr (actor-busy actor)) (get-universal-time))
+  (apply-with-gcd-and-group :DEFAULT NIL #'%run-actor actor))
 
 ;; ----------------------------------------------------------------------------------

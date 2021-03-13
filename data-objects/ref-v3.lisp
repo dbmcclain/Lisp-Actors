@@ -108,9 +108,8 @@ THE SOFTWARE.
 ;; ====================================================================
 ;; REF - a mostly read-only indirect reference cell.
 
-(um:eval-always
-  (defstruct ref
-    val))
+(defstruct ref
+  val)
 
 (defmethod ref (obj)
   ;; we need this to be a defmethod for FSTM

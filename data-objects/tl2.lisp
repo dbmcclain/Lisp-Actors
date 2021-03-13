@@ -33,16 +33,13 @@
 
 ;; ----------------------------------------------------
 
-(um:eval-always
-  ;; CAS needs this struct defined at compile time
+(defvar *tvar-id*  0)
   
-  (defvar *tvar-id*  0)
-  
-  (defstruct (tvar
-              (:constructor make-tvar (&optional val)))
-    (order-id  (sys:atomic-fixnum-incf *tvar-id*) :read-only t :type fixnum)
-    (ver       0)
-    val)) ;; see NOTE below...
+(defstruct (tvar
+            (:constructor make-tvar (&optional val)))
+  (order-id  (sys:atomic-fixnum-incf *tvar-id*) :read-only t :type fixnum)
+  (ver       0)
+  val) ;; see NOTE below...
 
 ;; NOTE: Mutators should use COW semantics so that old not eq new.
 ;; E.g., it would be a mistake to perform:
