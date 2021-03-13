@@ -182,6 +182,11 @@ THE SOFTWARE.
    #:start
 
    #:defglobal-var
+
+   #:rwgate
+   #:make-resource-handle
+   #:with-shared-reading
+   #:with-exclusive-writing
    ))
 
 #-lispworks
@@ -340,5 +345,7 @@ THE SOFTWARE.
    #:assemble-ask-message
    ))
 
+(defpackage #:actors.rwgate
+  (:use #:common-lisp #:actors))
 
 
