@@ -75,32 +75,14 @@
 
 (defmethod exit-read ((gate rwgate) id)
   (perform-in-actor gate
-    (with-slots (readers pending-readers writer pending-writers) gate
+    (with-slots (readers pending-readers) gate
       (cond
        ((find id pending-readers)
         (setf pending-readers (delete id pending-readers :count 1)))
        
        ((find id readers)
         (setf readers (delete id readers :count 1))
-        (unless writer
-          ;; If there isn't currently a writer...
-          (flet ((enable-writer (wr)
-                   (push wr writer)
-                   (mp:mailbox-send wr wr)))
-            (cond
-             ;; Enable a writer if one pending, and no remaining readers
-             ((and (null readers)
-                   pending-writers)
-              (enable-writer (pop pending-writers)))
-
-             ;; Enable a writer if all the readers are the same,
-             ;; and one of the pending writers is also the same.
-             ((and (every (um:rcurry #'eql (car readers)) (cdr readers))
-                   (find (car readers) pending-writers))
-              (let ((wr (car readers)))
-                (setf pending-writers (delete wr pending-writers :count 1))
-                (enable-writer wr)))
-             ))))
+        (enable-rw gate))
        ))))
 
 (defmethod enter-write ((gate rwgate) mbox)
@@ -126,44 +108,48 @@
 
 (defmethod exit-write ((gate rwgate) id)
   (perform-in-actor gate
-    (with-slots (readers pending-readers writer pending-writers) gate
+    (with-slots (writer pending-writers) gate
       (cond
        ((find id pending-writers)
         (setf pending-writers (delete id pending-writers :count 1)))
        
        ((eql id (car writer))
         (pop writer)
-        (unless writer
-          ;; If no remaining writer. If pending writers, then grant
-          ;; writership if:
-          ;;   (A) there are no readers, or
-          ;;   (B) every reader is the same, and there is a pending
-          ;;   writer also the same
-          (flet ((enable-writer (wr)
-                   (push wr writer)
-                   (mp:mailbox-send wr wr)))
-
-            (cond
-             ((and pending-writers
-                   (null readers))
-              (enable-writer (pop pending-writers)))
-             
-             ((and readers
-                   (every (um:rcurry #'eql (car readers)) (cdr readers))
-                   (find (car readers) pending-writers))
-              (let ((wr (car readers)))
-                (setf pending-writers (delete wr pending-writers :count 1))
-                (enable-writer wr)))
-             
-             ;; Else, if there are pending readers, grant them
-             ;; all readership
-             (pending-readers
-              (dolist (reader pending-readers)
-                (mp:mailbox-send reader reader))
-              (setf readers         (nconc readers pending-readers)
-                    pending-readers nil))
-             ))))
+        (enable-rw gate))
        ))))
+
+(defun enable-rw (gate)
+  (with-slots (readers pending-readers writer pending-writers) gate
+    (unless writer
+      ;; If no remaining writer. If pending writers, then grant
+      ;; writership if:
+      ;;   (A) there are no readers, or
+      ;;   (B) every reader is the same, and there is a pending
+      ;;   writer also the same
+      (flet ((enable-writer (wr)
+               (push wr writer)
+               (mp:mailbox-send wr wr)))
+        
+        (cond
+         ((and pending-writers
+               (null readers))
+          (enable-writer (pop pending-writers)))
+         
+         ((and readers
+               (every (um:rcurry #'eql (car readers)) (cdr readers))
+               (find (car readers) pending-writers))
+          (let ((wr (car readers)))
+            (setf pending-writers (delete wr pending-writers :count 1))
+            (enable-writer wr)))
+         
+         ;; Else, if there are pending readers, grant them
+         ;; all readership
+         (pending-readers
+          (dolist (reader pending-readers)
+            (mp:mailbox-send reader reader))
+          (setf readers         (nconc readers pending-readers)
+                pending-readers nil))
+         )))))
 
 #|
 (defvar *rwgate* (make-instance 'rwgate))
