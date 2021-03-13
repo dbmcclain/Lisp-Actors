@@ -8,23 +8,6 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import '(actors.base:%run-actor
-
-            mp:make-timer
-            mp:schedule-timer-relative
-            mp:unschedule-timer
-            mp:funcall-async
-            mp:process-run-function
-            mp:process-interrupt
-            mp:process-terminate
-            mp:process-kill
-            mp:make-mailbox
-            mp:mailbox-read
-            mp:mailbox-send
-            mp:mailbox-peek
-            
-            um:defmonitor
-            um:critical-section
-            um:critical-or
             )))
 
 ;; ------------------------------------
