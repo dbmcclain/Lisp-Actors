@@ -66,24 +66,56 @@
 
 ;; --------------------------------------------------------
 
+#|
+;; This version is simple and direct... more or less...
+
+;; In practice, I find it to be consistently faster and use fewer CPU
+;; cycles than the more correct version below.
+;;
+;; However, it can theoretically require an unbounded number of
+;; attempts from any thread, in trying to establish its intended new
+;; value. If a thread is unlucky enough to have every CAS thwarted, it
+;; can be stalled indefinitely.
+ 
+(declaim (inline rd))
+
+(defun rd (obj)
+  (basic-val obj))
+
+(defmethod rmw (obj newfn)
+  (prog ()
+    again
+    (let ((old (basic-val obj)))
+      (unless (basic-cas obj old (funcall newfn old))
+        (go again)))
+    ))
+|#
+
+#| |#
+;; This version uses a 2-phase approach, where competing threads help
+;; complete an attempt in progress before launching their own.
+;;
+;; It has a theoretically bounded number of CAS attempts (= N+1) for N
+;; competing threads. If a thread cannot complete, another thread will
+;; do so for it.
 (defstruct rmw-desc
   ;; contains captured old value, and mutator function
-  old new-fn post-fn)
+  ;;
+  ;; WARNING! Mutator function can be called on any thread, and called
+  ;; concurrently. It must be side-effect free, and idempotent.
+  old new-fn)
 
 (defun rmw-help (obj desc)
-  ;; Here it is known that obj contained desc, but by now it might not
-  ;; still contain desc.
+  ;; Here it is known that obj did contain desc, but by now it might
+  ;; not still contain desc.
   ;;
   ;; NOTE: new-fn can be called repeatedly and from arbitrary threads,
   ;; so it should be idempotent, and don't let it fail...
   ;;
-  (with-slots (old new-fn post-fn) desc
-    (let ((new (funcall new-fn old)))
-      ;; the following CAS could fail if another thread already
-      ;; performed this task. That's okay.
-      (when (basic-cas obj desc new)
-        (funcall post-fn))
-    )))
+  (with-slots (old new-fn) desc
+    ;; the following CAS could fail if another thread already
+    ;; performed this task. That's okay.
+    (basic-cas obj desc (funcall new-fn old))))
 
 (defun rd (obj)
   (prog ()
@@ -97,13 +129,12 @@
             (t  (return v))
             ))))
            
-(defmethod rmw (obj new-fn &optional (post-fn #'lw:do-nothing))
+(defmethod rmw (obj new-fn)
   ;; NOTE: RMW does *NOT* return new val. It could be wrong to assume
   ;; that new val corresponds to what is currently stored in obj.
   ;; Remember we are in a dynamic SMP environment.
   (prog ((desc (make-rmw-desc
-                :new-fn  new-fn
-                :post-fn post-fn)))
+                :new-fn  new-fn)))
     again
     (let ((old (rd obj)))
       ;; <-- ABA could happen here
@@ -118,6 +149,7 @@
         ;; else - try again
         (go again)))
     ))
+#||#
 
 ;; -----------------------------------------------------
 
@@ -141,8 +173,7 @@
   ;; Since RMW uses an idempotent mutator function, that function
   ;; should be side-effect free. Hence, you won't mind if we never
   ;; happen to call it... (this might overwrite an open descriptor)
-  (basic-atomic-exch obj new)
-  (values))
+  (rmw obj (constantly new)))
 
 ;; ----------------------------------------------
 
@@ -223,4 +254,114 @@
          (iter 3))
        ))))
 |#
+#|
+(defun tst-rmw ()
+  (time
+   (let* ((lst (list (list nil nil nil nil nil)))
+          (n     1000000)
+          (ctr   (list 0)))
+     (ac:spawn-worker (lambda ()
+                        (dotimes (ix n)
+                          (rmw lst (lambda (lst)
+                                     (sys:atomic-incf (car ctr))
+                                     (destructuring-bind (a b c d e) lst
+                                       (list (cons ix a) b c d e)))))))
+     (ac:spawn-worker (lambda ()
+                        (dotimes (ix n)
+                          (rmw lst (lambda (lst)
+                                     (sys:atomic-incf (car ctr))
+                                     (destructuring-bind (a b c d e) lst
+                                       (list a (cons ix b) c d e)))))))
+     (ac:spawn-worker (lambda ()
+                        (dotimes (ix n)
+                          (rmw lst (lambda (lst)
+                                     (sys:atomic-incf (car ctr))
+                                     (destructuring-bind (a b c d e) lst
+                                       (list a b (cons ix c) d e)))))))
+     (ac:spawn-worker (lambda ()
+                        (dotimes (ix n)
+                          (rmw lst (lambda (lst)
+                                     (sys:atomic-incf (car ctr))
+                                     (destructuring-bind (a b c d e) lst
+                                       (list a b c (cons ix d) e)))))))
+     (ac:spawn-worker (lambda ()
+                        (dotimes (ix n)
+                          (rmw lst (lambda (lst)
+                                     (sys:atomic-incf (car ctr))
+                                     (destructuring-bind (a b c d e) lst
+                                       (list a b c d (cons ix e))))))))
+     (sleep 5)
+     (destructuring-bind ((a b c d e)) lst
+       (assert (= n
+                  (length a)
+                  (length b)
+                  (length c)
+                  (length d)
+                  (length e))))
+     ;; (inspect lst)
+     (list :count (car ctr))
+     )))
+#|
+(tst-rmw)
+|#
 
+(defun rmwx (obj newfn)
+  (prog ()
+    again
+    (let ((old (basic-val obj)))
+      (unless (basic-cas obj old (funcall newfn old))
+        (go again)))
+    ))
+
+(defun tst-rmwx ()
+  (time
+   (let* ((lst (list (list nil nil nil nil nil)))
+          (n  1000000)
+          (ctr (list 0)))
+     (ac:spawn-worker (lambda ()
+                        (dotimes (ix n)
+                          (rmwx lst (lambda (lst)
+                                      (sys:atomic-incf (car ctr))
+                                      (destructuring-bind (a b c d e) lst
+                                        (list (cons ix a) b c d e)))))))
+     (ac:spawn-worker (lambda ()
+                        (dotimes (ix n)
+                          (rmwx lst (lambda (lst)
+                                      (sys:atomic-incf (car ctr))
+                                      (destructuring-bind (a b c d e) lst
+                                        (list a (cons ix b) c d e)))))))
+     (ac:spawn-worker (lambda ()
+                        (dotimes (ix n)
+                          (rmwx lst (lambda (lst)
+                                      (sys:atomic-incf (car ctr))
+                                      (destructuring-bind (a b c d e) lst
+                                        (list a b (cons ix c) d e)))))))
+     (ac:spawn-worker (lambda ()
+                        (dotimes (ix n)
+                          (rmwx lst (lambda (lst)
+                                      (sys:atomic-incf (car ctr))
+                                      (destructuring-bind (a b c d e) lst
+                                        (list a b c (cons ix d) e)))))))
+     (ac:spawn-worker (lambda ()
+                        (dotimes (ix n)
+                          (rmwx lst (lambda (lst)
+                                      (sys:atomic-incf (car ctr))
+                                      (destructuring-bind (a b c d e) lst
+                                        (list a b c d (cons ix e))))))))
+     (sleep 5)
+     (destructuring-bind ((a b c d e)) lst
+       (assert (= n
+                  (length a)
+                  (length b)
+                  (length c)
+                  (length d)
+                  (length e))))
+     ;; (inspect lst)
+     (list :count (car ctr))
+     )))
+#|
+(tst-rmw)
+(tst-rmwx)
+|#
+
+|#
