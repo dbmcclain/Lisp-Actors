@@ -440,8 +440,12 @@ THE SOFTWARE.
     worker))
 
 #+:MACOSX
-(defun spawn-worker (fn &rest args)
-  (apply #'run-worker-direct fn args))
+(defgeneric spawn-worker (fn &rest args)
+  (:method ((fn function) &rest args)
+   (apply #'run-worker-direct fn args)
+   fn)
+  (:method ((fn symbol) &rest args)
+   (apply #'spawn-worker (symbol-function fn) args)))
 
 #-:MACOSX
 (defun spawn-worker (fn &rest args)

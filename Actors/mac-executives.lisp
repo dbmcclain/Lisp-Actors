@@ -234,11 +234,8 @@
         (apply #'dispatch-message msg)
       (%basic-run-actor *current-actor*))))
 
-(defmethod run-worker-direct ((fn function) &rest msg)
+(defun run-worker-direct (fn &rest msg)
   (apply #'apply-with-gcd-and-group :DEFAULT NIL #'%pre-run-worker-direct fn msg))
-
-(defmethod run-worker-direct ((fn symbol) &rest msg)
-  (apply #'run-worker-direct (symbol-function fn) msg))
 
 (defun %pre-run-worker-direct (*current-runnable* &rest msg)
   (apply *current-runnable* msg))
