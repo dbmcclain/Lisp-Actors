@@ -2,7 +2,8 @@
 (in-package :actors.base)
 
 (define-actor-class reactor ()
-  ((table  :reader reactor-table  :initform (make-hash-table))
+  ((table  :reader reactor-table  :initform (make-hash-table
+                                             :single-thread t))
    ))
 
 (defvar *reactor* (make-instance 'reactor))
@@ -30,7 +31,8 @@
     (perform-in-actor *reactor*
       (dolist (pair (gethash evt-kind table))
         (destructuring-bind (actor . cbfun) pair
-          (apply cbfun actor evt-data)))
+          (declare (ignore actor))
+          (apply cbfun evt-data)))
       )))
 
 (defmacro =subscribe (evt-kind)
@@ -50,11 +52,11 @@
 (defun decr-x ()
   (decf *x*)
   (notify '*x* *x*))
-(cps:=bind (me ct)
+(cps:=bind (ct)
     (=subscribe '*x*)
   (format t "~&*X* = ~A" ct))
 
-(defun prt (me ct)
+(defun prt (ct)
   (format t "~&*X* = ~A" ct))
 (subscribe '*x* nil 'prt)
 (incr-x)
