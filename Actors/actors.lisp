@@ -77,7 +77,7 @@ THE SOFTWARE.
 (defclass limited-actor-mailbox (actor-mailbox)
   ()
   (:default-initargs
-   %mailbox (mp:make-mailbox)
+   %mailbox (mp:make-mailbox :size 1)
    ))
 
 ;; -----------------------------------------------------
@@ -393,8 +393,13 @@ THE SOFTWARE.
       )))
 
 ;; ---------------------------------------------
-;; SPAWN a new Actor on a function with args
-;; This is the way we start all Actors in the system.
+;; SPAWN a new Actor using a function with args
+
+;; This is a less common way of starting an Actor. Most often we
+;; MAKE-ACTOR, then SEND messages to it. But this is a shortcut for
+;; that combo on the first message send.
+;;
+;; More commonly we only SPAWN-WORKER.
 
 (defun spawn (fn &rest args)
   (let ((actor (make-actor fn)))
