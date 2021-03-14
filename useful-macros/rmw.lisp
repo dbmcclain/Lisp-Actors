@@ -170,10 +170,12 @@
   ;; that new val corresponds to what is currently stored in obj.
   ;; Remember we are in a dynamic SMP environment.
   ;;
-  ;; Since RMW uses an idempotent mutator function, that function
+  ;; Since RMW uses an idempotent mutator function. That function
   ;; should be side-effect free. Hence, you won't mind if we never
-  ;; happen to call it... (this might overwrite an open descriptor)
-  (rmw obj (constantly new)))
+  ;; happen to call it... (this function might overwrite an open
+  ;; descriptor)
+  (basic-atomic-exch obj new)
+  (values))
 
 ;; ----------------------------------------------
 
