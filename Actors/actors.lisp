@@ -270,8 +270,7 @@ THE SOFTWARE.
             (multiple-value-bind (msg ok)
                 (next-message mbox)
               (when ok  ;; until no more messages waiting
-                (with-simple-restart (abort "Run same Actor with next message")
-                  (apply #'dispatch-message msg))
+                (apply #'dispatch-message msg)
                 (go again)))))
       ;; unwind clause
       (when (eq t (car busy)) ;; not terminated
