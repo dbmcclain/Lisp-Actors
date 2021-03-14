@@ -8,6 +8,9 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import '(actors.base:%run-actor
+            actors.base:%basic-run-actor
+            actors.base:dispatch-message
+            actors.base:*current-actor*
             )))
 
 ;; ------------------------------------
@@ -177,6 +180,10 @@
   (:method :before ((worker worker))
    ;; prevent it from doing its job if not already running
    (setf (worker-dispatch-wrapper worker)  (list 'lw:do-nothing)))
+
+  (:method ((fn function))
+   ;; for direct-run workers
+   nil)
   )
 
 (defvar *current-runnable* nil)
@@ -216,5 +223,24 @@
 
 (defun kill-executives ()
   nil)
+
+
+(defun run-actor-direct (actor &rest msg)
+  (apply #'apply-with-gcd-and-group :DEFAULT NIL #'%pre-run-actor-direct actor msg))
+
+(defun %pre-run-actor-direct (*current-runnable* &rest msg)
+  (let ((*current-actor* *current-runnable*))
+    (unwind-protect
+        (apply #'dispatch-message msg)
+      (%basic-run-actor *current-actor*))))
+
+(defmethod run-worker-direct ((fn function) &rest msg)
+  (apply #'apply-with-gcd-and-group :DEFAULT NIL #'%pre-run-worker-direct fn msg))
+
+(defmethod run-worker-direct ((fn symbol) &rest msg)
+  (apply #'run-worker-direct (symbol-function fn) msg))
+
+(defun %pre-run-worker-direct (*current-runnable* &rest msg)
+  (apply *current-runnable* msg))
 
 ;; ----------------------------------------------------------------------------------

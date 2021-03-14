@@ -316,6 +316,10 @@ THE SOFTWARE.
    #:without-watchdog
    #:*watchdog-hook*
    #:default-watchdog-function
+
+   ;; MAC GCD stuff
+   #:run-actor-direct
+   #:run-worker-direct
    ))
 
 (defpackage #:actors.par
@@ -340,10 +344,17 @@ THE SOFTWARE.
    #:recover-ans-or-exn
    #:rmw)
   (:import-from #:actors.executives
-   #:add-to-ready-queue)
+   #:add-to-ready-queue
+   #:run-actor-direct
+   #:run-worker-direct)
   (:export
    #:%run-actor
    #:assemble-ask-message
+
+   ;; MAC GCD stuff
+   #:dispatch-message
+   #:%basic-run-actor
+   #:*current-actor*
    ))
 
 (defpackage #:actors.rwgate

@@ -233,6 +233,18 @@ THE SOFTWARE.
 
 ;; --------------------------------------------------------
 
+#+:MACOSX
+(defmethod send ((actor actor) &rest msg)
+  (let ((mbox (actor-mailbox actor)))
+    (with-actor-mailbox-locked mbox
+      (if (sys:compare-and-swap (car (actor-busy actor)) nil t)
+          ;; First time firing up the Actor - just go direct
+          (apply #'run-actor-direct actor msg)
+        ;; else
+        (unsafe-send-message mbox msg))
+      )))
+
+#-:MACOSX
 (defmethod send ((actor actor) &rest msg)
   ;; send a message to an Actor and possibly activate it if not
   ;; already running. SMP-safe
@@ -242,17 +254,15 @@ THE SOFTWARE.
     (with-actor-mailbox-locked mbox
       (when (unsafe-send-message mbox msg)
         ;; If succeeded, notify actor of message
-        (notify-actor actor)
-        t)))) ;; indicate success
 
-(defun notify-actor (actor)
-  ;; Mark busy, if not already marked. And if it wasn't already
-  ;; marked, place it into the ready queue.
-  (when (sys:compare-and-swap (car (actor-busy actor)) nil t)
-    ;; The Ready Queue contains Actors awaiting a runtime
-    ;; thread. When dequeued, they will be sent to RUN by an
-    ;; executive thread.
-    (add-to-ready-queue actor)))
+        ;; Mark busy, if not already marked. And if it wasn't already
+        ;; marked, place it into the ready queue.
+        (when (sys:compare-and-swap (car (actor-busy actor)) nil t)
+          ;; The Ready Queue contains Actors awaiting a runtime
+          ;; thread. When dequeued, they will be sent to RUN by an
+          ;; executive thread.
+          (add-to-ready-queue actor))
+        t)))) ;; indicate success
 
 ;; ----------------------------------------------------------------
 
@@ -428,7 +438,12 @@ THE SOFTWARE.
                                           (cons fn args)))))
     (add-to-ready-queue worker)
     worker))
-  
+
+#+:MACOSX
+(defun spawn-worker (fn &rest args)
+  (apply #'run-worker-direct fn args))
+
+#-:MACOSX
 (defun spawn-worker (fn &rest args)
   (apply 'spawn-actor/worker 'worker fn args))
 
