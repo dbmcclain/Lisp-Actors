@@ -179,12 +179,14 @@
    (setf (worker-dispatch-wrapper worker)  (list 'lw:do-nothing)))
   )
 
+(defvar *current-runnable* nil)
+
 (defun kill-actor (actor)
-  (when (eq (current-actor) actor)
+  (when (eq *current-runnable* actor)
     (abort)))
 
 (defun kill-actors (actors)
-  (when (member (current-actor) actors)
+  (when (member *current-runnable* actors)
     (abort)))
 
 (defun terminate-actor (actor)
@@ -200,10 +202,13 @@
   (map nil 'nullify actors)
   (mp:map-processes (lambda (proc)
                       (mp:process-interrupt proc 'kill-actors actors))))
-      
+
+(defun %pre-run-actor (*current-runnable*)
+  (%run-actor *current-runnable*))
+
 (defun add-to-ready-queue (actor)
   ;; use the busy cell to hold our wakeup time - for use by watchdog,
-  (apply-with-gcd-and-group :DEFAULT NIL #'%run-actor actor))
+  (apply-with-gcd-and-group :DEFAULT NIL #'%pre-run-actor actor))
 
 (defmacro without-watchdog (&body body)
   `(progn
