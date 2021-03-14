@@ -179,14 +179,27 @@
    (setf (worker-dispatch-wrapper worker)  (list 'lw:do-nothing)))
   )
 
+(defun kill-actor (actor)
+  (when (eq (current-actor) actor)
+    (abort)))
+
+(defun kill-actors (actors)
+  (when (member (current-actor) actors)
+    (abort)))
+
 (defun terminate-actor (actor)
   ;; if they will listen...
-  (nullify actor))
+  (nullify actor)
+  (mp:map-processes (lambda (proc)
+                      (mp:process-interrupt proc 'kill-actor actor))
+                    ))
 
 (defun terminate-actors (actors)
   ;; removes the need to loop with TERMINATE-ACTOR on a collection
   ;; of actors to be terminated.
-  (map nil 'nullify actors))
+  (map nil 'nullify actors)
+  (mp:map-processes (lambda (proc)
+                      (mp:process-interrupt proc 'kill-actors actors))))
       
 (defun add-to-ready-queue (actor)
   ;; use the busy cell to hold our wakeup time - for use by watchdog,

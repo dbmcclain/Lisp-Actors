@@ -304,6 +304,7 @@ THE SOFTWARE.
   (:use #:common-lisp #:actors)
   (:export
    #:terminate-actor
+   #:terminate-actors
    #:set-heartbeat-interval
    #:get-heartbeat-interval
    #:set-maximum-age
