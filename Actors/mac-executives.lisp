@@ -190,24 +190,24 @@
     (abort)))
 
 (defun terminate-actor (actor)
-  ;; if they will listen...
   (nullify actor)
   (mp:map-processes (lambda (proc)
                       (mp:process-interrupt proc 'kill-actor actor))
                     ))
 
 (defun terminate-actors (actors)
-  ;; removes the need to loop with TERMINATE-ACTOR on a collection
+  ;; Removes the need to loop with TERMINATE-ACTOR on a collection
   ;; of actors to be terminated.
   (map nil 'nullify actors)
   (mp:map-processes (lambda (proc)
                       (mp:process-interrupt proc 'kill-actors actors))))
 
 (defun %pre-run-actor (*current-runnable*)
+  ;; gives us a handle on the current runnable for use by
+  ;; TERMINATE-ACTOR
   (%run-actor *current-runnable*))
 
 (defun add-to-ready-queue (actor)
-  ;; use the busy cell to hold our wakeup time - for use by watchdog,
   (apply-with-gcd-and-group :DEFAULT NIL #'%pre-run-actor actor))
 
 (defmacro without-watchdog (&body body)
