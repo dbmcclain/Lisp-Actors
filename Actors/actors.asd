@@ -45,7 +45,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "actors-futures")
                 (:file "actors-directory")
                 (:file "actors-lfm")
-                (:file "rw-gate")
                 (:file "actor-bridge")
                 (:file "network-security")
                 #+:USING-ECC-CRYPTO (:file "srp6-ecc")
