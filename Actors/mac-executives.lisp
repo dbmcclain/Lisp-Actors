@@ -9,7 +9,6 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import '(actors.base:%run-actor
             actors.base:%basic-run-actor
-            actors.base:dispatch-message
             )))
 
 ;; ------------------------------------
@@ -229,9 +228,7 @@
 
 (defun %pre-run-actor-direct (*current-runnable* &rest msg)
   (with-as-current-actor *current-runnable*
-    (unwind-protect
-        (apply #'dispatch-message msg)
-      (%basic-run-actor *current-runnable*))))
+    (%basic-run-actor *current-runnable* :initial-message msg)))
 
 (defun run-worker-direct (fn &rest msg)
   (apply #'apply-with-gcd-and-group :DEFAULT NIL #'%pre-run-worker-direct fn msg))

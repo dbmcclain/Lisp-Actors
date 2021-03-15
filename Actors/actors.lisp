@@ -270,11 +270,14 @@ THE SOFTWARE.
   (let ((form (worker-dispatch-wrapper worker)))
     (apply (car form) (cdr form))))
 
-(defun %basic-run-actor (actor)
+(defun %basic-run-actor (actor &key (initial-message nil initial-message-present-p))
   (let ((mbox  (actor-mailbox actor))
         (busy  (actor-busy actor)))
     (unwind-protect
         (prog ()
+          (when (and (eq t (car busy))
+                     initial-message-present-p)
+            (apply #'dispatch-message initial-message))
           again
           (when (eq t (car busy)) ;; not terminated?
             (multiple-value-bind (msg ok)

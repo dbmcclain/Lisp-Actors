@@ -352,7 +352,6 @@ THE SOFTWARE.
    #:assemble-ask-message
 
    ;; MAC GCD stuff
-   #:dispatch-message
    #:%basic-run-actor
    ))
 
