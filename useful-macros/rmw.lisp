@@ -480,10 +480,12 @@
              ;; this gives a compiler error for unused result
              ;;   (,exch-fn ,cas-accessor ,new)
              ;;   ,new
-             ;;;;; (setf (sys:globally-accessible ,accessor) ,new))
+             #|
              (or (and (,exch-fn ,cas-accessor ,new)
                       ,new)
-                 ,new))
+                 ,new)
+             |#
+             (setf (sys:globally-accessible ,accessor) ,new))
            
            (,deftype ,rmw-name ,rmw-args
              #F
