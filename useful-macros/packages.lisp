@@ -953,9 +953,37 @@ THE SOFTWARE.
    #:rd
    #:wr
    #:rmw
+   
    #:basic-atomic-exch
    #:basic-val
    #:basic-cas
+
+   #:rd-object
+   #:wr-object
+   #:rmw-object
+   
+   #:rd-car
+   #:wr-car
+   #:rmw-car
+
+   #:rd-cdr
+   #:wr-cdr
+   #:rmw-cdr
+
+   #:rd-symbol-value
+   #:wr-symbol-value
+   #:rmw-symbol-value
+
+   #:rd-svref
+   #:wr-svref
+   #:rmw-svref
+
+   #:gen-struct-rmw-funcs
+
+   #:cas
+   #:atomic-exch
+   #:atomic-incf
+   #:atomic-decf
    
    #:<lockable-mixin>
    #:<abstract-kv>

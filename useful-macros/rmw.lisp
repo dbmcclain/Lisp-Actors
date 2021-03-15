@@ -52,6 +52,16 @@
   (:method ((obj simple-vector))
    (svref obj 0)))
 
+(defgeneric set-basic-val (obj new)
+  (:method ((obj symbol) new)
+   (setf (sys:globally-accessible (symbol-value obj)) new))
+  (:method ((obj cons) new)
+   (setf (sys:globally-accessible (car obj)) new))
+  (:method ((obj simple-vector) new)
+   (setf (sys:globally-accessible (svref obj 0)) new)))
+
+(defsetf basic-val set-basic-val)
+
 #+:LISPWORKS
 (defgeneric basic-cas (obj old new)
   ;; BASIC-CAS serves as an atomic sync point. All pending loads and
@@ -105,6 +115,8 @@
   ;; concurrently. It must be side-effect free, and idempotent.
   old new-fn)
 
+#|
+  ;; --- See below for compiler optimized forms ---
 (defun rmw-help (obj desc)
   ;; Here it is known that obj did contain desc, but by now it might
   ;; not still contain desc.
@@ -149,7 +161,7 @@
         ;; else - try again
         (go again)))
     ))
-#||#
+|#
 
 ;; -----------------------------------------------------
 
@@ -165,6 +177,7 @@
   (:method ((obj simple-vector) val)
    (sys:atomic-exchange (svref obj 0) val)))
 
+#|
 (defmethod wr (obj new)
   ;; NOTE: WR does *NOT* return new val. It could be wrong to assume
   ;; that new val corresponds to what is currently stored in obj.
@@ -175,8 +188,8 @@
   ;; happen to call it... (this function might overwrite an open
   ;; descriptor)
   (basic-atomic-exch obj new)
-  (values))
-
+  new)
+|#
 ;; ----------------------------------------------
 
 ;; -- end of usefull_macros.lisp -- ;;
@@ -367,3 +380,202 @@
 |#
 
 |#
+;; ---------------------------------------------
+
+(defgeneric rd-object  (obj))
+(defgeneric wr-object  (obj new))
+(defgeneric rmw-object (obj new-fn))
+
+(defmacro gen-rmw-funcs (place)
+  (flet ((gen-name (kind &optional (placer (car place)))
+           (intern (format nil "~A-~A"
+                           (string kind)
+                           (string placer))
+                   )))
+    (lw:with-unique-names (obj ix v new new-fn desc old again)
+      (let* (type
+             (deftype     'defun)
+             rd-name
+             (rd-args     `(,obj))
+             wr-name
+             (wr-args     `(,obj ,new))
+             rmw-name
+             (rmw-args    `(,obj ,new-fn))
+             accessor
+             (cas-fn      'sys:compare-and-swap)
+             cas-accessor
+             (exch-fn     'sys:atomic-exchange)
+             extra-defs)
+        
+        (ecase (car place)
+          ((object)
+           (setf accessor     `(basic-val ,obj)
+                 cas-fn       'basic-cas
+                 cas-accessor obj
+                 exch-fn      `basic-atomic-exch
+                 deftype      'defmethod))
+          ((car)
+           (setf type         'cons
+                 accessor     `(car ,obj)))
+          ((cdr)
+           (setf type         'cons
+                 accessor     `(cdr ,obj)))
+          ((symbol-value)
+           (setf type         'symbol
+                 accessor     `(symbol-value ,obj)))
+          ((svref)
+           (setf type         'simple-vector
+                 rd-args      `(,obj ,ix)
+                 wr-args      `(,obj ,ix ,new)
+                 rmw-args     `(,obj ,ix ,new-fn)
+                 accessor     `(svref ,obj ,ix)))
+          ((struct)
+           (destructuring-bind (_ place-name struct-name accessor-fn) place
+             (declare (ignore _))
+             (setf type       struct-name
+                   rd-name    (gen-name :rd  place-name)
+                   wr-name    (gen-name :wr  place-name)
+                   rmw-name   (gen-name :rmw place-name)
+                   accessor   `(,accessor-fn ,obj)
+                   extra-defs `((defmethod rd-obj ((,obj ,struct-name))
+                                  (,rd-name ,obj))
+                                (defmethod wr-obj ((,obj ,struct-name) ,new)
+                                  (,wr-name ,obj ,new))
+                                (defmethod rmw-obj ((,obj ,struct-name) ,new-fn)
+                                  (,rmw-name ,obj ,new-fn))))
+             )))
+        
+        (macrolet ((set-default (sym form)
+                     `(unless ,sym
+                        (setf ,sym ,form))))
+          (set-default rd-name      (gen-name :rd))
+          (set-default wr-name      (gen-name :wr))
+          (set-default rmw-name     (gen-name :rmw))
+          (set-default cas-accessor accessor))
+        
+        ;; Same basic structure to all versions, so define the logic
+        ;; in just one place...
+        `(progn
+           (export '(,rd-name ,wr-name ,rmw-name))
+           (,deftype ,rd-name ,rd-args
+             #F
+             ,@(when type
+                 `((declare (,type ,obj))))
+             (prog ()
+               ,again
+               (let ((,v ,accessor))
+                 (cond ((rmw-desc-p ,v)
+                        (let ((,new (funcall (rmw-desc-new-fn ,v) (rmw-desc-old ,v))))
+                          (if (,cas-fn ,cas-accessor ,v ,new)
+                              (return ,new)
+                            (go ,again))
+                          ))
+                       (t
+                        (return ,v))
+                       ))))
+           
+           (,deftype ,wr-name ,wr-args
+             #F
+             (declare (,type ,obj))
+             ;; this gives a compiler error for unused result
+             ;;   (,exch-fn ,cas-accessor ,new)
+             ;;   ,new
+             ;;;;; (setf (sys:globally-accessible ,accessor) ,new))
+             (or (and (,exch-fn ,cas-accessor ,new)
+                      ,new)
+                 ,new))
+           
+           (,deftype ,rmw-name ,rmw-args
+             #F
+             (declare (,type ,obj))
+             (let ((,desc (make-rmw-desc
+                           :new-fn ,new-fn)))
+               (prog ()
+                 ,again
+                 (let ((,old (,rd-name ,@rd-args)))
+                   (setf (rmw-desc-old ,desc) ,old)
+                   (if (,cas-fn ,cas-accessor ,old ,desc)
+                       (,cas-fn ,cas-accessor ,desc (funcall ,new-fn ,old))
+                     (go ,again))
+                   ))))
+           ,@extra-defs)
+        ))))
+
+(defmacro gen-struct-rmw-funcs (place-name (struct-name accessor-fn))
+  `(gen-rmw-funcs (struct ,place-name ,struct-name ,accessor-fn)))
+
+(progn
+  (gen-rmw-funcs (object))
+  (gen-rmw-funcs (car obj))
+  (gen-rmw-funcs (cdr obj))
+  (gen-rmw-funcs (symbol-value obj))
+  (gen-rmw-funcs (svref obj ix)))
+
+(defmacro rd (place)
+  (cond ((consp place)
+         (destructuring-bind (placer obj &optional arg) place
+           (case placer
+             ((car)
+              `(rd-car ,obj))
+             ((cdr)
+              `(rd-cdr ,obj))
+             ((symbol-value)
+              `(rd-symbol-value ,obj))
+             ((svref)
+              `(rd-svref ,obj ,arg))
+             (t
+              `(rd-object ,place))
+             )))
+        (t
+         `(rd-object ,place))
+        ))
+
+(defmacro wr (place new)
+  (cond ((consp place)
+         (destructuring-bind (placer obj &optional arg) place
+           (case placer
+             ((car)
+              `(wr-car ,obj ,new))
+             ((cdr)
+              `(wr-cdr ,obj ,new))
+             ((symbol-value)
+              `(wr-symbol-value ,obj ,new))
+             ((svref)
+              `(wr-svref ,obj ,arg ,new))
+             (t
+              `(wr-object ,place ,new))
+             )))
+        (t
+         `(wr-object ,place ,new))
+        ))
+
+(defmacro rmw (place new-fn)
+  (cond ((consp place)
+         (destructuring-bind (placer obj &optional arg) place
+           (case placer
+             ((car)
+              `(rmw-car ,obj ,new-fn))
+             ((cdr)
+              `(rmw-cdr ,obj ,new-fn))
+             ((symbol-value)
+              `(rmw-symbol-value ,obj ,new-fn))
+             ((svref)
+              `(rmw-svref ,obj ,arg ,new-fn))
+             (t
+              `(rmw-object ,place ,new-fn))
+             )))
+        (t
+         `(rmw-object ,place ,new-fn))
+        ))
+
+(defgeneric cas (obj old new)
+  (:method (obj old new)
+   (basic-cas obj old new)))
+
+(defgeneric atomic-exch (obj new)
+  (:method (obj new)
+   (basic-atomic-exch obj new)))
+
+(defgeneric atomic-incf (obj))
+(defgeneric atomic-decf (obj))
+

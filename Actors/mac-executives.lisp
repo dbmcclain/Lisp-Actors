@@ -169,15 +169,16 @@
 
 (defgeneric nullify (actor)
   (:method ((actor <runnable>))
-   (sys:atomic-exchange (car (actor-busy actor)) :exit))
+   ;; (sys:atomic-exchange (car (actor-busy actor)) :exit)
+   (setf (sys:globally-accessible (car (actor-busy actor))) :exit))
 
   (:method :before ((actor actor))
    ;; prevent it from doing anything more, even if already running
-   (setf (actor-user-fn actor) 'lw:do-nothing))
+   (setf (sys:globally-accessible (actor-user-fn actor)) 'lw:do-nothing))
 
   (:method :before ((worker worker))
    ;; prevent it from doing its job if not already running
-   (setf (worker-dispatch-wrapper worker)  (list 'lw:do-nothing)))
+   (setf (sys:globally-accessible (worker-dispatch-wrapper worker))  (list 'lw:do-nothing)))
 
   (:method ((fn function))
    ;; for direct-run workers

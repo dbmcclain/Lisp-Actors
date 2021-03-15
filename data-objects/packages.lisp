@@ -73,7 +73,14 @@ THE SOFTWARE.
    #:basic-cas
    #:rmw
    #:rd
-   #:wr)
+   #:wr
+   #:cas
+   #:rmw-object
+   #:rd-object
+   #:wr-object
+   #:atomic-exch
+   #:atomic-incf
+   #:atomic-decf)
   (:export
    #:ref
    #:ref-val
@@ -101,6 +108,10 @@ THE SOFTWARE.
    #:alist-lst
    #:tree
    #:tree-lst
+
+   #:rd-ref
+   #:wr-ref
+   #:rmw-ref
    ))
 
 #| ;; for V2

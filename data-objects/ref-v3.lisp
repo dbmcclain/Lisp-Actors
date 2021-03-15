@@ -128,6 +128,9 @@ THE SOFTWARE.
 (defmethod basic-atomic-exch ((r ref) new)
   (sys:atomic-exchange (ref-val r) new))
 
+;; Tuned versions of RD-REF, WR-REF, and RMW-REF for REF objects
+(um:gen-struct-rmw-funcs ref (ref ref-val))
+
 ;; ---------------------------------------------------
 
 (defmethod val ((obj ref))
@@ -244,7 +247,7 @@ THE SOFTWARE.
 (defmethod atomic-decf ((obj cow))
   (rmw obj #'1-))
 
-(defmethod rmw :around ((obj cow) fn)
+(defmethod rmw-object :around ((obj cow) fn)
   (call-next-method obj (lambda (old-cell)
                           (cons (funcall fn (maybe-clone old-cell))
                                 t))
@@ -297,3 +300,4 @@ THE SOFTWARE.
   `(set-iaref ,obj (list ,@indices) ,val))
 
 
+;; ---------------------------------------------------
