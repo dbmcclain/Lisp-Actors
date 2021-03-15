@@ -199,8 +199,8 @@ THE SOFTWARE.
 ;; These methods can be called from any thread. SMP safe.
 
 (defmethod initialize-instance :after ((actor actor) &key properties &allow-other-keys)
-  (um:wr (slot-value actor 'properties-ref)
-         (maps:add-plist (maps:empty) properties))
+  (ref:wr-ref (slot-value actor 'properties-ref)
+              (maps:add-plist (maps:empty) properties))
   (clos:set-funcallable-instance-function actor
                                           (lambda (&rest args)
                                             (if (eq actor (current-actor))
@@ -219,17 +219,17 @@ THE SOFTWARE.
 
 (defmethod get-property ((actor actor) key &optional default)
   ;; SMP-safe
-  (maps:find (um:rd (actor-properties-ref actor)) key default))
+  (maps:find (ref:rd-ref (actor-properties-ref actor)) key default))
 
 (defmethod set-property ((actor actor) key value)
   ;; SMP-safe
-  (um:rmw (actor-properties-ref actor) (lambda (map)
-                                         (maps:add map key value)))
+  (ref:rmw-ref (actor-properties-ref actor) (lambda (map)
+                                              (maps:add map key value)))
   value)
 
 (defmethod remove-property ((actor actor) key)
-  (um:rmw (actor-properties-ref actor) (lambda (map)
-                                         (maps:remove map key))))
+  (ref:rmw-ref (actor-properties-ref actor) (lambda (map)
+                                              (maps:remove map key))))
 
 ;; --------------------------------------------------------
 
