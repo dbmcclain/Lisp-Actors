@@ -10,7 +10,6 @@
   (import '(actors.base:%run-actor
             actors.base:%basic-run-actor
             actors.base:dispatch-message
-            actors.base:*current-actor*
             )))
 
 ;; ------------------------------------
@@ -229,10 +228,10 @@
   (apply #'apply-with-gcd-and-group :DEFAULT NIL #'%pre-run-actor-direct actor msg))
 
 (defun %pre-run-actor-direct (*current-runnable* &rest msg)
-  (let ((*current-actor* *current-runnable*))
+  (with-as-current-actor *current-runnable*
     (unwind-protect
         (apply #'dispatch-message msg)
-      (%basic-run-actor *current-actor*))))
+      (%basic-run-actor *current-runnable*))))
 
 (defun run-worker-direct (fn &rest msg)
   (apply #'apply-with-gcd-and-group :DEFAULT NIL #'%pre-run-worker-direct fn msg))

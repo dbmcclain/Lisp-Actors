@@ -354,7 +354,6 @@ THE SOFTWARE.
    ;; MAC GCD stuff
    #:dispatch-message
    #:%basic-run-actor
-   #:*current-actor*
    ))
 
 (defpackage #:actors.rwgate
