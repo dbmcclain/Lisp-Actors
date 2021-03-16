@@ -25,6 +25,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ;; ... or feel free to not use ECC (uses RSA instead)
 (pushnew :using-ecc-crypto *features*)
+;; On MacOSX - use Grand Central Dispatch (or not...)
+(pushnew :using-mac-gcd *Features*)
 
 (asdf:defsystem "actors"
   :description "Actors Multiplexed on an OS Thread Pool"
@@ -36,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 #-:lispworks (:file "ansi-timer")
                 (:file "actors")
                 (:file "actor-class")
-                #-:MACOSX (:file "executives")
-                #+:MACOSX (:file "mac-executives")
+                #-:USING-MAC-GCD (:file "executives")
+                #+:USING-MAC-GCD (:file "mac-executives")
                 ;; (:file "erl-proc")
                 (:file "par-exec")
                 (:file "actors-schedule")

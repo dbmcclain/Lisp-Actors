@@ -236,7 +236,7 @@ THE SOFTWARE.
 
 ;; --------------------------------------------------------
 
-#+:MACOSX
+#+:USING-MAC-GCD
 (defmethod send ((actor actor) &rest msg)
   (let ((mbox (actor-mailbox actor)))
     (with-actor-mailbox-locked mbox
@@ -247,7 +247,7 @@ THE SOFTWARE.
         (unsafe-send-message mbox msg))
       )))
 
-#-:MACOSX
+#-:USING-MAC-GCD
 (defmethod send ((actor actor) &rest msg)
   ;; send a message to an Actor and possibly activate it if not
   ;; already running. SMP-safe
@@ -450,7 +450,7 @@ THE SOFTWARE.
     (add-to-ready-queue worker)
     worker))
 
-#+:MACOSX
+#+:USING-MAC-GCD
 (defgeneric spawn-worker (fn &rest args)
   (:method ((fn function) &rest args)
    (apply #'run-worker-direct fn args)
@@ -458,7 +458,7 @@ THE SOFTWARE.
   (:method ((fn symbol) &rest args)
    (apply #'spawn-worker (symbol-function fn) args)))
 
-#-:MACOSX
+#-:USING-MAC-GCD
 (defun spawn-worker (fn &rest args)
   (apply 'spawn-actor/worker 'worker fn args))
 

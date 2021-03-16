@@ -30,6 +30,7 @@
             um:get-number-of-processors
             um:atomic-incf
             um:atomic-decf
+            um:cas
             
             ref:ref
             ref:ref-val
@@ -225,7 +226,7 @@
           (setf heartbeat-timer
                 (make-timer (lambda ()
                               (when (and (zerop (rd (ref-val watchdog-inhibit)))
-                                         (ref:basic-cas watchdog-checking nil t))
+                                         (cas (ref-val watchdog-checking) nil t))
                                 (mp:funcall-async #'check-sufficient-execs)))
                             ))
           (schedule-timer-relative
