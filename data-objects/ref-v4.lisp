@@ -116,37 +116,25 @@ THE SOFTWARE.
   (make-ref
    :val obj))
 
-;; Tuned versions of RD-REF, WR-REF, and RMW-REF for REF objects when
-;; ued with ref-val accessor.
-(um:gen-rmw-funcs ref ref-val)
+;; Tuned versions of RD-REF-VAL and RMW-REF-VAL for REF objects when
+;; ued with REF-VAL accessor.
+(um:define-rmw-functions (ref-val obj))
 
 ;; Un-Tuned versions for use against whole ref
-(defmethod um:rd-object ((r ref))
-  (um:rd (ref-val r)))
+(defmethod rd-object ((r ref))
+  (rd (ref-val r)))
 
-(defmethod um:wr-object ((r ref) new)
-  (um:wr (ref-val r) new))
+(defmethod rmw-object ((r ref) new-fn)
+  (rmw (ref-val r) new-fn))
 
-(defmethod um:rmw-object ((r ref) new-fn)
-  (um:rmw (ref-val r) new-fn))
+(defmethod wr-object ((r ref) new)
+  (wr (ref-val r) new))
 
-(defmethod um:cas-object ((r ref) old new)
-  (um:cas (ref-val r) old new))
+(defmethod cas-object ((r ref) old new)
+  (sys:compare-and-swap (ref-val r) old new))
 
-(defmethod um:atomic-exch-object ((r ref) new)
-  (um:atomic-exch (ref-val r) new))
-
-(defmethod um:atomic-incf-object ((r ref))
-  (um:atomic-incf (ref-val r)))
-
-(defmethod um:atomic-decf-object ((r ref))
-  (um:atomic-decf (ref-val r)))
-
-(defmethod um:atomic-fixnum-incf-object ((r ref))
-  (um:atomic-fixnum-incf (ref-val r)))
-
-(defmethod um:atomic-fixnum-decf-object ((r ref))
-  (um:atomic-fixnum-decf (ref-val r)))
+(defmethod atomic-exch-object ((r ref) new)
+  (sys:atomic-exchange (ref-val r) new))
 
 ;; ---------------------------------------------------
 
@@ -250,18 +238,6 @@ THE SOFTWARE.
 
 (defmethod atomic-exch-object :around ((obj cow) val)
   (maybe-clone (call-next-method obj (cons val t))))
-
-(defmethod atomic-incf-object ((obj cow))
-  (rmw obj #'1+))
-
-(defmethod atomic-decf-object ((obj cow))
-  (rmw obj #'1-))
-
-(defmethod atomic-fixnum-incf-object ((obj cow))
-  (rmw obj #'1+))
-
-(defmethod atomic-fixnum-decf-object ((obj cow))
-  (rmw obj #'1-))
 
 (defmethod rmw-object :around ((obj cow) fn)
   (call-next-method obj (lambda (old-cell)

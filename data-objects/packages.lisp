@@ -71,19 +71,11 @@ THE SOFTWARE.
    #:rmw
    #:rd
    #:wr
-   #:cas
-   #:atomic-exch
-   #:atomic-incf
-   #:atomic-decf
    #:rd-object
    #:wr-object
    #:rmw-object
    #:cas-object
-   #:atomic-exch-object
-   #:atomic-incf-object
-   #:atomic-decf-object
-   #:atomic-fixnum-incf-object
-   #:atomic-fixnum-decf-object)
+   #:atomic-exch-object)
   (:export
    #:ref
    #:ref-val
@@ -93,19 +85,11 @@ THE SOFTWARE.
    #:rd
    #:wr
    #:rmw
-   #:cas
-   #:atomic-exch
-   #:atomic-incf
-   #:atomic-decf
    #:rd-object
    #:wr-object
    #:rmw-object
    #:cas-object
    #:atomic-exch-object
-   #:atomic-incf-object
-   #:atomic-decf-object
-   #:atomic-fixnum-incf-object
-   #:atomic-fixnum-decf-object
    #:cow
    #:cow-p
    #:clone

@@ -8,11 +8,6 @@
 
 (in-package :actors.directory)
 
-(um:eval-always
-  (import '(
-            um:when-let
-               )))
-
 ;; ------------------------------------------------------------
 
 (defgeneric acceptable-key (name)
@@ -33,24 +28,25 @@
 ;; The Directory utilizes a functional mapping (shareable, immutable).
 ;; But the pointer to the top of the map is not immutable. We use
 ;; lock-free accessors/mutators on that top node pointer.
+;; (Too bad we don't have Actors in place just yet...)
 
 (defglobal-var *actors-directory* (maps:empty))
 
 (defun clear-directory ()
-  (um:wr (symbol-value '*actors-directory*) (maps:empty)))
+  (um:wr *actors-directory* (maps:empty)))
 
 (defun current-directory ()
-  (um:rd (symbol-value '*actors-directory*)))
+  (um:rd *actors-directory*))
 
 (defun directory-foreach (fn)
   (maps:iter (current-directory) fn))
 
 (defun update-directory (mut-fn)
-  (um:rmw (symbol-value '*actors-directory*) mut-fn))
+  (um:rmw *actors-directory* mut-fn))
 
 (defun register-actor (name actor)
   ;; this simply overwrites any existing entry with actor
-  (when-let (key (acceptable-key name))
+  (um:when-let (key (acceptable-key name))
     (update-directory (um:rcurry 'maps:add key actor))
     actor))
 
@@ -59,7 +55,7 @@
 
 (defgeneric unregister-actor (actor)
   (:method (name)
-   (when-let (key (acceptable-key name))
+   (um:when-let (key (acceptable-key name))
      (%remove-key key)))
   (:method ((actor actor))
    (directory-foreach
@@ -82,7 +78,7 @@
   (:method ((actor actor))
    actor)
   (:method (name)
-   (when-let (key (acceptable-key name))
+   (um:when-let (key (acceptable-key name))
      (maps:find (current-directory) key))))
 
 (defun find-names-for-actor (actor)

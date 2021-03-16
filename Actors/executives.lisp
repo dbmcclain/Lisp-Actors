@@ -28,12 +28,6 @@
             um:critical-section
             um:critical-or
             um:get-number-of-processors
-            um:atomic-incf
-            um:atomic-decf
-            um:cas
-            
-            ref:ref
-            ref:ref-val
             )))
 
 ;; --------------------------------------------------------------------
@@ -113,8 +107,8 @@
 ;; ------------------------------------
 
 (defmonitor executives
-    ((watchdog-inhibit    (ref 0))         ;; >0 averts watchdog checking
-     (watchdog-checking   (ref nil))       ;; t when checking for system stalls
+    ((watchdog-inhibit    (list 0))        ;; >0 averts watchdog checking
+     (watchdog-checking   (list nil))      ;; t when checking for system stalls
      (heartbeat-timer     nil)             ;; current heartbeat timer
      (heartbeat-interval  1)               ;; how often (s) the watchdog should check for system stall
      (maximum-age         3)               ;; how long (s) before watchdog should bark, in seconds
@@ -141,8 +135,7 @@
 
   (labels
       ((resume-periodic-checking ()
-         ;; (ref:basic-atomic-exch watchdog-checking nil)
-         (wr (ref-val watchdog-checking) nil))
+         (wr (car watchdog-checking) nil))
          
        (check-sufficient-execs ()
          (critical-section
@@ -225,8 +218,8 @@
         (unless heartbeat-timer
           (setf heartbeat-timer
                 (make-timer (lambda ()
-                              (when (and (zerop (rd (ref-val watchdog-inhibit)))
-                                         (cas (ref-val watchdog-checking) nil t))
+                              (when (and (zerop (car watchdog-inhibit))
+                                         (sys:compare-and-swap (car watchdog-checking) nil t))
                                 (mp:funcall-async #'check-sufficient-execs)))
                             ))
           (schedule-timer-relative
@@ -291,10 +284,10 @@
           )))
       
     (defun do-without-watchdog (fn)
-      (atomic-incf (ref-val watchdog-inhibit))
+      (sys:atomic-fixnum-incf (car watchdog-inhibit))
       (unwind-protect
           (funcall fn)
-        (atomic-decf (ref-val watchdog-inhibit))))
+        (sys:atomic-fixnum-decf (car watchdog-inhibit))))
 
     (defun add-to-ready-queue (actor)
       ;; use the busy cell to hold our wakeup time - for use by watchdog,

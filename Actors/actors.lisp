@@ -200,7 +200,7 @@ THE SOFTWARE.
 
 (defmethod initialize-instance :after ((actor actor) &key properties &allow-other-keys)
   (wr (ref-val (slot-value actor 'properties-ref))
-      (maps:add-plist (maps:empty) properties))
+        (maps:add-plist (maps:empty) properties))
   (clos:set-funcallable-instance-function actor
                                           (lambda (&rest args)
                                             (if (eq actor (current-actor))

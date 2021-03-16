@@ -119,24 +119,26 @@ THE SOFTWARE.
 (defun mcas-help (mdesc)
   ;; minimum CAS algorithm, for N locations, needs only N+1 CAS
   (declare (mcas-desc mdesc))
-  (cas (ref-val mdesc) :undecided
-       (if (every (lambda (wdesc)
-                    (declare (word-desc wdesc))
-                    (prog ()
-                      again
-                      (multiple-value-bind (content value)
-                          (read-helper (word-desc-addr wdesc) mdesc)
-                        (return (or (eq content wdesc)
-                                    (and (eq value (word-desc-old wdesc))
-                                         (undecided-p mdesc)
-                                         (or (cas (ref-val (word-desc-addr wdesc))
-                                                  content wdesc)
-                                             (go again))
-                                         )))
-                        )))
-                  (mcas-desc-triples mdesc))
-           :successful
-         :failed))
+  (sys:compare-and-swap
+   (ref-val mdesc) :undecided
+   (if (every (lambda (wdesc)
+                (declare (word-desc wdesc))
+                (prog ()
+                  again
+                  (multiple-value-bind (content value)
+                      (read-helper (word-desc-addr wdesc) mdesc)
+                    (return (or (eq content wdesc)
+                                (and (eq value (word-desc-old wdesc))
+                                     (undecided-p mdesc)
+                                     (or (sys:compare-and-swap
+                                          (ref-val (word-desc-addr wdesc))
+                                          content wdesc)
+                                         (go again))
+                                     )))
+                    )))
+              (mcas-desc-triples mdesc))
+       :successful
+     :failed))
   (successful-p mdesc))
 
 (defun mcas (&rest triples)

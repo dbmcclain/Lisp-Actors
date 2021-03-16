@@ -175,17 +175,17 @@ THE SOFTWARE.
              (or (eq content wdesc)
                  (and (eq value (word-desc-old wdesc))
                       (trans-state-p trans :undecided)
-                      (or (um:cas (ref:ref-val var) content wdesc)
+                      (or (sys:compare-and-swap (ref:ref-val var) content wdesc)
                           (go-retry-word))
                       ))
              ))))
     
-    (um:cas (ref:ref-val (transaction-state-ref trans)) :undecided
-                  (if (and
-                       (every-ro-element trans (um:rcurry #'check-var trans))
-                       (every-rw-element trans #'acquire))
-                      :successful
-                    :failed))
+    (sys:compare-and-swap (ref:ref-val (transaction-state-ref trans)) :undecided
+                          (if (and
+                               (every-ro-element trans (um:rcurry #'check-var trans))
+                               (every-rw-element trans #'acquire))
+                              :successful
+                            :failed))
     (trans-state-p trans :successful)
     ))
 

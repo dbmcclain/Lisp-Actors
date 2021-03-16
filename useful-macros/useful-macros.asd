@@ -63,7 +63,7 @@ THE SOFTWARE.
                 (:file "bb")
                 (:file "useful-macros")
                 (:file "encstr")
-                (:file "rmw")
+                (:file "rmw-v2")
                 (:file "capture")
                 ;; (:file "scraps")
                 (:file "pandoric")

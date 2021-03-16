@@ -20,9 +20,7 @@
             um:dcase*
             um:nlet
             um:capture-ans-or-exn
-            um:cas
             um:wr
-            um:atomic-decf
             
             actors.security:secure-encoding
             actors.security:secure-decoding
@@ -46,10 +44,6 @@
 
             scatter-vec:scatter-vector
             scatter-vec:add-fragment
-
-            ref:ref
-            ref:ref-val
-            
 
             #-:USING-ECC-CRYPTO srp6-rsa:server-negotiate-security-rsa
             #-:USING-ECC-CRYPTO srp6-rsa:client-negotiate-security-rsa
@@ -280,7 +274,7 @@
       
       (perform-in-actor writer
         (cond
-         ((cas (ref-val io-running) 1 2) ;; still running recieve?
+         ((sys:compare-and-swap (car io-running) 1 2) ;; still running recieve?
           (transmit-next-buffer io-state)
           (recv ()
             (actor-internal-message:wr-done ()
@@ -459,7 +453,7 @@
    kill-timer
    monitor
    (stopped    :initform nil)
-   (io-running :initform (ref 1))))
+   (io-running :initform (list 1))))
 
 (defmethod do-expect ((intf socket-interface) handler)
   (perform-in-actor intf
@@ -486,7 +480,7 @@
       (unless (shiftf stopped t)
         (discard kill-timer)
         (kill-monitor monitor)
-        (wr (ref-val io-running) 0)
+        (wr (car io-running) 0)
         (comm:async-io-state-abort-and-close io-state)
         (bridge-unregister intf)
         (log-info :SYSTEM-LOG "Socket ~A shutting down: ~A" title intf)
@@ -611,7 +605,7 @@
                  ))
                
              (decr-io-count (io-state)
-               (let ((ct (atomic-decf (ref-val io-running))))
+               (let ((ct (sys:atomic-fixnum-decf (car io-running))))
                  (when (zerop ct) ;; >0 is running
                    (comm:close-async-io-state io-state)
                    (log-info :SYSTEM-LOG "Connection Shutdown")

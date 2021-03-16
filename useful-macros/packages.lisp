@@ -950,28 +950,20 @@ THE SOFTWARE.
    #:ensure-thread-eval
    #:ensure-thread-eval-def
 
+   #:define-rmw-functions
+
    #:rd
    #:wr
    #:rmw
    #:cas
    #:atomic-exch
-   #:atomic-incf
-   #:atomic-decf
-   #:atomic-fixnum-incf
-   #:atomic-fixnum-decf
    
    #:rd-object
    #:wr-object
    #:rmw-object
    #:cas-object
    #:atomic-exch-object
-   #:atomic-incf-object
-   #:atomic-decf-object
-   #:atomic-fixnum-incf-object
-   #:atomic-fixnum-decf-object
    
-   #:gen-rmw-funcs
-
    #:<lockable-mixin>
    #:<abstract-kv>
    #:<plist>
