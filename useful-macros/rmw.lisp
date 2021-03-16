@@ -96,8 +96,6 @@
       ;; Same basic structure to all versions, so define the logic
       ;; in just one place...
       `(progn
-         (export '(,rd-name ,wr-name ,rmw-name ,cas-name
-                            ,exch-name ,incf-name ,decf-name))
          (setf (gethash ',(car accessor) *rmw-tbl*)
                '(,rd-name ,wr-name ,rmw-name ,cas-name
                           ,exch-name ,incf-name ,decf-name))

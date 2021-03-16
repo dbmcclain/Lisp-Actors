@@ -72,25 +72,36 @@ THE SOFTWARE.
    #:rd
    #:wr
    #:cas
-   #:rmw-object
-   #:rd-object
-   #:wr-object
    #:atomic-exch
    #:atomic-incf
-   #:atomic-decf)
+   #:atomic-decf
+   #:rd-object
+   #:wr-object
+   #:rmw-object
+   #:cas-object
+   #:atomic-exch-object
+   #:atomic-incf-object
+   #:atomic-decf-object)
   (:export
    #:ref
    #:ref-val
    #:val
    #:wval
    #:ref-p
+   #:rd
+   #:wr
+   #:rmw
    #:cas
    #:atomic-exch
    #:atomic-incf
    #:atomic-decf
-   #:rd
-   #:wr
-   #:rmw
+   #:rd-object
+   #:wr-object
+   #:rmw-object
+   #:cas-object
+   #:atomic-exch-object
+   #:atomic-incf-object
+   #:atomic-decf-object
    #:cow
    #:cow-p
    #:clone
