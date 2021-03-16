@@ -141,6 +141,12 @@ THE SOFTWARE.
 (defmethod um:atomic-decf-object ((r ref))
   (um:atomic-decf (ref-val r)))
 
+(defmethod um:atomic-fixnum-incf-object ((r ref))
+  (um:atomic-fixnum-incf (ref-val r)))
+
+(defmethod um:atomic-fixnum-decf-object ((r ref))
+  (um:atomic-fixnum-decf (ref-val r)))
+
 ;; ---------------------------------------------------
 
 (defmethod val ((obj ref))
@@ -245,6 +251,12 @@ THE SOFTWARE.
   (rmw obj #'1+))
 
 (defmethod atomic-decf-object ((obj cow))
+  (rmw obj #'1-))
+
+(defmethod atomic-fixnum-incf-object ((obj cow))
+  (rmw obj #'1+))
+
+(defmethod atomic-fixnum-decf-object ((obj cow))
   (rmw obj #'1-))
 
 (defmethod rmw-object :around ((obj cow) fn)

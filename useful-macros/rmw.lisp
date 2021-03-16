@@ -65,6 +65,8 @@
 (defgeneric atomic-exch-object (obj new))
 (defgeneric atomic-incf-object (obj))
 (defgeneric atomic-decf-object (obj))
+(defgeneric atomic-fixnum-incf-object (obj))
+(defgeneric atomic-fixnum-decf-object (obj))
 
 ;; ------------------------------------------------------------------
 
@@ -76,17 +78,19 @@
                            (string kind)
                            (string accessor-fn))
                    )))
-    (let ((rd-args   '(obj))
-          (wr-args   '(obj new))
-          (rmw-args  '(obj new-fn))
-          (accessor  `(,accessor-fn obj))
-          (rd-name   (gen-name :rd))
-          (wr-name   (gen-name :wr))
-          (rmw-name  (gen-name :rmw))
-          (cas-name  (gen-name :cas))
-          (exch-name (gen-name :atomic-exch))
-          (incf-name (gen-name :atomic-incf))
-          (decf-name (gen-name :atomic-decf)))
+    (let ((rd-args       '(obj))
+          (wr-args       '(obj new))
+          (rmw-args      '(obj new-fn))
+          (accessor      `(,accessor-fn obj))
+          (rd-name       (gen-name :rd))
+          (wr-name       (gen-name :wr))
+          (rmw-name      (gen-name :rmw))
+          (cas-name      (gen-name :cas))
+          (exch-name     (gen-name :atomic-exch))
+          (incf-name     (gen-name :atomic-incf))
+          (decf-name     (gen-name :atomic-decf))
+          (fix-incf-name (gen-name :atomic-fixnum-incf))
+          (fix-decf-name (gen-name :atomic-fixnim-decf)))
       (when (eql type 'simple-vector)
         (setf  rd-args  '(obj ix)
                wr-args  '(obj ix new)
@@ -97,8 +101,10 @@
       ;; in just one place...
       `(progn
          (setf (gethash ',(car accessor) *rmw-tbl*)
-               '(,rd-name ,wr-name ,rmw-name ,cas-name
-                          ,exch-name ,incf-name ,decf-name))
+               '(,rd-name ,wr-name ,rmw-name
+                          ,cas-name ,exch-name
+                          ,incf-name ,decf-name
+                          ,fix-incf-name ,fix-decf-name))
            
          (defun ,rd-name ,rd-args
            #F
@@ -145,15 +151,25 @@
            (declare (,type obj))
            (sys:atomic-exchange ,accessor new))
 
-         (defun ,incf-name ,rd-args
+         (defun ,incf-name (,@rd-args &optional (delta 1))
            #F
            (declare (,type obj))
-           (sys:atomic-incf ,accessor))
+           (sys:atomic-incf ,accessor delta))
            
-         (defun ,decf-name ,rd-args
+         (defun ,decf-name (,@rd-args &optional (delta 1))
            #F
            (declare (,type obj))
-           (sys:atomic-decf ,accessor))
+           (sys:atomic-decf ,accessor delta))
+
+         (defun ,fix-incf-name (,@rd-args &optional (delta 1))
+           #F
+           (declare (,type obj))
+           (sys:atomic-fixnum-incf ,accessor delta))
+           
+         (defun ,fix-decf-name (,@rd-args &optional (delta 1))
+           #F
+           (declare (,type obj))
+           (sys:atomic-fixnum-decf ,accessor delta))
          ))))
 
 (progn
@@ -224,28 +240,52 @@
          `(atomic-exch-object ,place ,new))
         ))
 
-(defmacro atomic-incf (place)
+(defmacro atomic-incf (place &optional (delta 1))
   (cond ((consp place)
          (destructuring-bind (placer obj &rest args) place
            (let ((fns (gethash placer *rmw-tbl*)))
              (if fns
-                 `(,(sixth fns) ,obj ,@args)
-               `(atomic-incf-object ,place))
+                 `(,(sixth fns) ,obj ,@args ,delta)
+               `(atomic-incf-object ,place ,delta))
              )))
         (t
-         `(atomic-incf-object ,place))
+         `(atomic-incf-object ,place ,delta))
         ))
 
-(defmacro atomic-decf (place)
+(defmacro atomic-decf (place &optional (delta 1))
   (cond ((consp place)
          (destructuring-bind (placer obj &rest args) place
            (let ((fns (gethash placer *rmw-tbl*)))
              (if fns
-                 `(,(seventh fns) ,obj ,@args)
-               `(atomic-decf-object ,place))
+                 `(,(seventh fns) ,obj ,@args ,delta)
+               `(atomic-decf-object ,place ,delta))
              )))
         (t
-         `(atomic-decf-object ,place))
+         `(atomic-decf-object ,place ,delta))
+        ))
+
+(defmacro atomic-fixnum-incf (place &optional (delta 1))
+  (cond ((consp place)
+         (destructuring-bind (placer obj &rest args) place
+           (let ((fns (gethash placer *rmw-tbl*)))
+             (if fns
+                 `(,(eighth fns) ,obj ,@args ,delta)
+               `(atomic-fixnum-incf-object ,place ,delta))
+             )))
+        (t
+         `(atomic-fixnum-incf-object ,place ,delta))
+        ))
+
+(defmacro atomic-fixnum-decf (place &optional (delta 1))
+  (cond ((consp place)
+         (destructuring-bind (placer obj &rest args) place
+           (let ((fns (gethash placer *rmw-tbl*)))
+             (if fns
+                 `(,(ninth fns) ,obj ,@args ,delta)
+               `(atomic-fixnum-decf-object ,place ,delta))
+             )))
+        (t
+         `(atomic-fixnum-decf-object ,place ,delta))
         ))
 
 

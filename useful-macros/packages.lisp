@@ -957,6 +957,8 @@ THE SOFTWARE.
    #:atomic-exch
    #:atomic-incf
    #:atomic-decf
+   #:atomic-fixnum-incf
+   #:atomic-fixnum-decf
    
    #:rd-object
    #:wr-object
@@ -965,6 +967,8 @@ THE SOFTWARE.
    #:atomic-exch-object
    #:atomic-incf-object
    #:atomic-decf-object
+   #:atomic-fixnum-incf-object
+   #:atomic-fixnum-decf-object
    
    #:gen-rmw-funcs
 

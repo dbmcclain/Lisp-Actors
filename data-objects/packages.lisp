@@ -81,7 +81,9 @@ THE SOFTWARE.
    #:cas-object
    #:atomic-exch-object
    #:atomic-incf-object
-   #:atomic-decf-object)
+   #:atomic-decf-object
+   #:atomic-fixnum-incf-object
+   #:atomic-fixnum-decf-object)
   (:export
    #:ref
    #:ref-val
@@ -102,6 +104,8 @@ THE SOFTWARE.
    #:atomic-exch-object
    #:atomic-incf-object
    #:atomic-decf-object
+   #:atomic-fixnum-incf-object
+   #:atomic-fixnum-decf-object
    #:cow
    #:cow-p
    #:clone
