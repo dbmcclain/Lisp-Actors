@@ -127,8 +127,8 @@ THE SOFTWARE.
 (defmethod set-prop ((obj rubber-object) key val)
   ;; copy-on-write semantics. Any changes to properties
   ;; occur in the direct object, not in any of the inheritaned ancestors
-  (um:rmw (props-ref obj) (lambda (map)
-                            (maps:add map key val))))
+  (um:rmw (ref:ref-val (props-ref obj)) (lambda (map)
+                                          (maps:add map key val))))
 
 (defsetf prop set-prop)
 
@@ -189,7 +189,7 @@ THE SOFTWARE.
   (second (multiple-value-list (prop obj key))))
 
 (defmethod remove-direct-prop ((obj rubber-object) key)
-  (um:rmw (props-ref obj)
+  (um:rmw (ref:ref-val (props-ref obj))
           (lambda (map)
             (maps:remove map key))))
 

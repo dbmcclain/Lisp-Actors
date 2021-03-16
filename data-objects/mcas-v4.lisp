@@ -32,7 +32,7 @@ THE SOFTWARE.
 |#
 
 (in-package #:mcas)
-   
+
 (declaim (optimize (speed 3) #|(safety 0)|# #+:LISPWORKS (float 0)))
 
 ;; -------------------------------------------------------------------------------------
@@ -43,8 +43,8 @@ THE SOFTWARE.
 (defvar *mcas-index*  0)
 
 (defstruct (mcas-ref
-            (:include ref:ref)
-            (:constructor mcas-ref (ref:val)))
+            (:include ref)
+            (:constructor mcas-ref (val)))
   (id (incf *mcas-index*) :read-only t))
 
 (defmethod ord:compare ((a mcas-ref) (b mcas-ref))
@@ -59,17 +59,17 @@ THE SOFTWARE.
 ;; progress and help it along for final resolution.
 
 (defstruct (mcas-desc
-            (:include ref:ref)
+            (:include ref)
             (:constructor %make-mcas-desc))
   triples)
 
 (declaim (inline undecided-p successful-p))
 
 (defun undecided-p (mdesc)
-  (eq :undecided (um:basic-val mdesc)))
+  (eq :undecided (ref-val mdesc)))
 
 (defun successful-p (mdesc)
-  (eq :successful (um:basic-val mdesc)))
+  (eq :successful (ref-val mdesc)))
 
 (defstruct word-desc
   parent addr old new)
@@ -78,7 +78,7 @@ THE SOFTWARE.
   (let ((desc (%make-mcas-desc
                :val :undecided)))
     (setf (mcas-desc-triples desc)
-          (mapcar (um:lambda* ((mref old new))
+          (mapcar (lambda* ((mref old new))
                     (make-word-desc
                      :parent desc
                      :addr   mref
@@ -90,7 +90,7 @@ THE SOFTWARE.
 (defun read-helper (mref self)
   ;; mref must be an MCAS-REF
   (um:nlet retry-read ()
-    (let ((val (um:basic-val mref)))
+    (let ((val (ref-val mref)))
       (if (word-desc-p val)
           (let ((parent (word-desc-parent val)))
             (if (and (not (eq parent self))
@@ -118,7 +118,7 @@ THE SOFTWARE.
 (defun mcas-help (mdesc)
   ;; minimum CAS algorithm, for N locations, needs only N+1 CAS
   (declare (mcas-desc mdesc))
-  (um:basic-cas mdesc :undecided
+  (cas (ref-val mdesc) :undecided
                 (if (every (lambda (wdesc)
                              (declare (word-desc wdesc))
                              (um:nlet retry-word ()
@@ -127,7 +127,7 @@ THE SOFTWARE.
                                  (or (eq content wdesc)
                                      (and (eq value (word-desc-old wdesc))
                                           (undecided-p mdesc)
-                                          (or (um:basic-cas (word-desc-addr wdesc) content wdesc)
+                                          (or (um:cas (ref:ref-val (word-desc-addr wdesc)) content wdesc)
                                               (go-retry-word))
                                           ))
                                  )))

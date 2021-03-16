@@ -116,20 +116,6 @@ THE SOFTWARE.
   (make-ref
    :val obj))
 
-#|
-(defmethod basic-val ((obj ref))
-  (ref-val obj))
-
-(defmethod basic-set-val ((r ref) val)
-  (setf (ref-val r) val))
-
-(defmethod basic-cas ((r ref) old new)
-  (sys:compare-and-swap (ref-val r) old new))
-
-(defmethod basic-atomic-exch ((r ref) new)
-  (sys:atomic-exchange (ref-val r) new))
-|#
-
 ;; Tuned versions of RD-REF, WR-REF, and RMW-REF for REF objects
 (um:gen-struct-rmw-funcs ref ref-val)
 
@@ -163,20 +149,6 @@ THE SOFTWARE.
 
 (defmethod clone ((r ref))
   (ref (rd r)))
-
-#|
-(defmethod cas-object ((r ref) old new)
-  (basic-cas r old new))
-
-(defmethod atomic-exch-object ((r ref) new)
-  (basic-atomic-exch r new))
-
-(defmethod atomic-incf-object ((r ref))
-  (sys:atomic-fixnum-incf (ref-val r)))
-
-(defmethod atomic-decf-object ((r ref))
-  (sys:atomic-fixnum-decf (ref-val r)))
-|#
 
 ;; ---------------------------------------------------------------
 ;; COW - Copy on Write

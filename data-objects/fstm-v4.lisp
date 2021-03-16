@@ -59,7 +59,7 @@ THE SOFTWARE.
   x)
 
 (defun trans-state (trans)
-  (ref:basic-val (transaction-state-ref trans)))
+  (ref:ref-val (transaction-state-ref trans)))
 
 (defun trans-state-p (trans state)
   (eq state (trans-state trans)))
@@ -121,7 +121,7 @@ THE SOFTWARE.
               ;; else
               (values val
                       (if (trans-state-p parent :successful)
-                          (ref:basic-val (word-desc-new-ref val)) ;; low-level non-COW read
+                          (ref:ref-val (word-desc-new-ref val)) ;; low-level non-COW read
                         (word-desc-old val)))
               ))
         ;; else
@@ -175,12 +175,12 @@ THE SOFTWARE.
              (or (eq content wdesc)
                  (and (eq value (word-desc-old wdesc))
                       (trans-state-p trans :undecided)
-                      (or (um:basic-cas var content wdesc)
+                      (or (um:cas (ref:ref-val var) content wdesc)
                           (go-retry-word))
                       ))
              ))))
     
-    (um:basic-cas (transaction-state-ref trans) :undecided
+    (um:cas (ref:ref-val (transaction-state-ref trans)) :undecided
                   (if (and
                        (every-ro-element trans (um:rcurry #'check-var trans))
                        (every-rw-element trans #'acquire))

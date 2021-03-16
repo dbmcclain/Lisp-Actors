@@ -137,6 +137,12 @@ THE SOFTWARE.
 
 (defpackage #:mcas ;; for V3
   (:use #:common-lisp)
+  (:import-from #:ref
+   #:ref
+   #:val
+   #:ref-val)
+  (:import-from #:useful-macros
+   #:cas)
   (:export
    #:mcas-ref
    #:mcas-ref-p
