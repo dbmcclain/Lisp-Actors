@@ -119,9 +119,33 @@ THE SOFTWARE.
 ;; Tuned versions of RD-REF, WR-REF, and RMW-REF for REF objects
 (um:gen-rmw-funcs ref ref-val)
 
+;; Un-Tuned versions for use against whole ref
+(defmethod um:rd-object ((r ref))
+  (um:rd (ref-val r)))
+
+(defmethod um:wr-object ((r ref) new)
+  (um:wr (ref-val r) new))
+
+(defmethod um:rmw-object ((r ref) new-fn)
+  (um:rmw (ref-val r) new-fn))
+
+(defmethod um:cas-object ((r ref) old new)
+  (um:cas (ref-val r) old new))
+
+(defmethod um:atomic-exch-object ((r ref) new)
+  (um:atomic-exch (ref-val r) new))
+
+(defmethod um:atomic-incf-object ((r ref))
+  (um:atomic-incf (ref-val r)))
+
+(defmethod um:atomic-decf-object ((r ref))
+  (um:atomic-decf (ref-val r)))
+
 ;; ---------------------------------------------------
 
 (defmethod val ((obj ref))
+  ;; to get the actual value held in a ref, which is involved in RMW
+  ;; ops, always use VAL or perform a RD on the cell contents.
   (rd (ref-val obj)))
 
 (defmethod wval (obj)

@@ -89,24 +89,25 @@ THE SOFTWARE.
 
 (defun read-helper (mref self)
   ;; mref must be an MCAS-REF
-  (um:nlet retry-read ()
-    (let ((val (ref-val mref)))
-      (if (word-desc-p val)
-          (let ((parent (word-desc-parent val)))
-            (if (and (not (eq parent self))
-                     (undecided-p parent))
-                (progn
-                  (mcas-help parent)
-                  (go-retry-read))
-              ;; else
-              (values val
-                      (if (successful-p parent)
-                          (word-desc-new val)
-                        (word-desc-old val)))
-              ))
-        ;; else
-        (values val val))
-      )))
+  (prog ()
+   again
+   (let ((content (ref-val mref)))
+     (if (word-desc-p content)
+         (let ((parent (word-desc-parent content)))
+           (if (and (not (eq parent self))
+                    (undecided-p parent))
+               (progn
+                 (mcas-help parent)
+                 (go again))
+             ;; else
+             (return (values content
+                             (if (successful-p parent)
+                                 (word-desc-new content)
+                               (word-desc-old content))))
+             ))
+       ;; else - content was not an word descriptor, just a value
+       (return (values content content)))
+     )))
 
 (defun mcas-read (mref)
   ;; mref must be an MCAS-REF
@@ -119,21 +120,23 @@ THE SOFTWARE.
   ;; minimum CAS algorithm, for N locations, needs only N+1 CAS
   (declare (mcas-desc mdesc))
   (cas (ref-val mdesc) :undecided
-                (if (every (lambda (wdesc)
-                             (declare (word-desc wdesc))
-                             (um:nlet retry-word ()
-                               (multiple-value-bind (content value)
-                                   (read-helper (word-desc-addr wdesc) mdesc)
-                                 (or (eq content wdesc)
-                                     (and (eq value (word-desc-old wdesc))
-                                          (undecided-p mdesc)
-                                          (or (um:cas (ref:ref-val (word-desc-addr wdesc)) content wdesc)
-                                              (go-retry-word))
-                                          ))
-                                 )))
-                           (mcas-desc-triples mdesc))
-                    :successful
-                  :failed))
+       (if (every (lambda (wdesc)
+                    (declare (word-desc wdesc))
+                    (prog ()
+                      again
+                      (multiple-value-bind (content value)
+                          (read-helper (word-desc-addr wdesc) mdesc)
+                        (return (or (eq content wdesc)
+                                    (and (eq value (word-desc-old wdesc))
+                                         (undecided-p mdesc)
+                                         (or (cas (ref-val (word-desc-addr wdesc))
+                                                  content wdesc)
+                                             (go again))
+                                         )))
+                        )))
+                  (mcas-desc-triples mdesc))
+           :successful
+         :failed))
   (successful-p mdesc))
 
 (defun mcas (&rest triples)
@@ -147,10 +150,20 @@ THE SOFTWARE.
                     ))))
 
 (defmethod ref:val ((m mcas-ref))
+  ;; to get the current value of an mcas-ref
+  ;; always use either ref:val or mcas-read
   (mcas-read m))
 
 (defmethod um:cas-object ((m mcas-ref) old new)
   (mcas m old new))
 
 ;; -------------------------------------------------------------------------------------
+#|
+(let* ((a  (mcas-ref 15))
+       (b  (mcas-ref 16)))
+  (mcas  a 15 32
+         b 16 33)
+  (list (val a) (val b)))
+|#
 
+      
