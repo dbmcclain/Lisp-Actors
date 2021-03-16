@@ -958,47 +958,48 @@ THE SOFTWARE.
    #:atomic-incf
    #:atomic-decf
    
-   #:basic-atomic-exch
-   #:basic-val
-   #:basic-cas
-   #:basic-atomic-incf
-   #:basic-atomic-decf
-   
    #:rd-object
    #:wr-object
    #:rmw-object
    #:cas-object
    #:atomic-exch-object
+   #:atomic-incf-object
+   #:atomic-decf-object
    
    #:rd-car
    #:wr-car
    #:rmw-car
    #:cas-car
    #:atomic-exch-car
+   #:atomic-incf-car
+   #:atomic-decf-car
    
    #:rd-cdr
    #:wr-cdr
    #:rmw-cdr
    #:cas-cdr
    #:atomic-exch-cdr
+   #:atomic-incf-cdr
+   #:atomic-decf-cdr
    
    #:rd-symbol-value
    #:wr-symbol-value
    #:rmw-symbol-value
    #:cas-symbol-value
    #:atomic-exch-symbol-value
+   #:atomic-incf-symbol-value
+   #:atomic-decf-symbol-value
    
    #:rd-svref
    #:wr-svref
    #:rmw-svref
    #:cas-svref
    #:atomic-exch-svref
+   #:atomic-incf-svref
+   #:atomic-decf-svref
    
-   #:gen-struct-rmw-funcs
+   #:gen-rmw-funcs
 
-   #:atomic-incf
-   #:atomic-decf
-   
    #:<lockable-mixin>
    #:<abstract-kv>
    #:<plist>

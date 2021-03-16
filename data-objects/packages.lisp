@@ -68,9 +68,6 @@ THE SOFTWARE.
 (defpackage #:ref ;; for V3
   (:use #:common-lisp)
   (:import-from :um
-   #:basic-atomic-exch
-   #:basic-val
-   #:basic-cas
    #:rmw
    #:rd
    #:wr
@@ -87,10 +84,6 @@ THE SOFTWARE.
    #:val
    #:wval
    #:ref-p
-   #:basic-val
-   #:basic-set-val
-   #:basic-cas
-   #:basic-atomic-exch
    #:cas
    #:atomic-exch
    #:atomic-incf

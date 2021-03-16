@@ -117,7 +117,7 @@ THE SOFTWARE.
    :val obj))
 
 ;; Tuned versions of RD-REF, WR-REF, and RMW-REF for REF objects
-(um:gen-struct-rmw-funcs ref ref-val)
+(um:gen-rmw-funcs ref ref-val)
 
 ;; ---------------------------------------------------
 

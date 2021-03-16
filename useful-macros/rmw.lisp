@@ -70,201 +70,99 @@
 
 (defvar *rmw-tbl* (make-hash-table)) ;; compiler support table
 
-(defmacro gen-rmw-funcs (place)
-  (flet ((gen-name (kind &optional (placer (car place)))
+(defmacro gen-rmw-funcs (type accessor-fn)
+  (flet ((gen-name (kind)
            (intern (format nil "~A-~A"
                            (string kind)
-                           (string placer))
+                           (string accessor-fn))
                    )))
-    (lw:with-unique-names (obj ix v new new-fn desc old again)
-      (let* (type
-             (deftype     'defun)
-             rd-name
-             (rd-args     `(,obj))
-             wr-name
-             (wr-args     `(,obj ,new))
-             rmw-name
-             (rmw-args    `(,obj ,new-fn))
-             accessor
-             (cas-fn      'sys:compare-and-swap)
-             cas-accessor
-             (exch-fn     'sys:atomic-exchange)
-             cas-name
-             exch-name
-             incf-name
-             decf-name
-             (incf-fn     'sys:atomic-incf)
-             (decf-fn     'sys:atomic-decf)
-             extra-defs)
-        
-        (ecase (car place)
-          #|
-          ((object)
-           (setf accessor     `(basic-val ,obj)
-                 cas-fn       'basic-cas
-                 cas-accessor obj
-                 exch-fn      `basic-atomic-exch
-                 deftype      'defmethod
-                 incf-fn      'basic-atomic-incf
-                 decf-fn      'basic-atomic-decf))
-          |#
-          ((car)
-           (setf type         'cons
-                 accessor     `(car ,obj)))
-          ((cdr)
-           (setf type         'cons
-                 accessor     `(cdr ,obj)))
-          ((symbol-value)
-           (setf type         'symbol
-                 accessor     `(symbol-value ,obj)))
-          ((svref)
-           (setf type         'simple-vector
-                 rd-args      `(,obj ,ix)
-                 wr-args      `(,obj ,ix ,new)
-                 rmw-args     `(,obj ,ix ,new-fn)
-                 accessor     `(svref ,obj ,ix)))
-          ((struct)
-           (destructuring-bind (_ struct-name accessor-fn) place
-             (declare (ignore _))
-             (setf type       struct-name
-                   rd-name    (gen-name :rd  accessor-fn)
-                   wr-name    (gen-name :wr  accessor-fn)
-                   rmw-name   (gen-name :rmw accessor-fn)
-                   cas-name   (gen-name :cas accessor-fn)
-                   exch-name  (gen-name :atomic-exch accessor-fn)
-                   incf-name  (gen-name :atomic-incf accessor-fn)
-                   decf-name  (gen-name :atomic-decf accessor-fn)
-                   accessor   `(,accessor-fn ,obj)
-                   #|
-                   ;; It is probably wrong to assume that the entire
-                   ;; object wants to be ruled by one slot. If so, let
-                   ;; the constructor of the object supply additional
-                   ;; methods.
-                   extra-defs `((defmethod rd-object ((,obj ,struct-name))
-                                  (,rd-name ,obj))
-                                (defmethod wr-object ((,obj ,struct-name) ,new)
-                                  (,wr-name ,obj ,new))
-                                (defmethod rmw-object ((,obj ,struct-name) ,new-fn)
-                                  (,rmw-name ,obj ,new-fn))
-                                (defmethod cas-object ((,obj ,struct-name) ,old ,new)
-                                  (,cas-name ,obj ,old ,new))
-                                (defmethod atomic-exch-object ((,obj ,struct-name) ,new)
-                                  (,exch-name ,obj ,new))
-                                (defmethod atomic-incf-object ((,obj ,struct-name))
-                                  (,incf-name ,obj))
-                                (defmethod atomic-decf-object ((,obj ,struct-name))
-                                  (,decf-name ,obj)))
-                   |#
-                   ))))
-        
-        (macrolet ((set-default (sym form)
-                     `(unless ,sym
-                        (setf ,sym ,form))))
-          (set-default rd-name      (gen-name :rd))
-          (set-default wr-name      (gen-name :wr))
-          (set-default rmw-name     (gen-name :rmw))
-          (set-default cas-name     (gen-name :cas))
-          (set-default exch-name    (gen-name :atomic-exch))
-          (set-default incf-name    (gen-name :atomic-incf))
-          (set-default decf-name    (gen-name :atomic-decf))
-          (set-default cas-accessor accessor))
-
-        #|
-        (setf (gethash (car accessor) *rmw-tbl*)
-              (list rd-name wr-name rmw-name))
-        |#
-        
-        ;; Same basic structure to all versions, so define the logic
-        ;; in just one place...
-        `(progn
-           (export '(,rd-name ,wr-name ,rmw-name ,cas-name
-                              ,exch-name ,incf-name ,decf-name))
-           (setf (gethash ',(car accessor) *rmw-tbl*)
-                 (list ',rd-name ',wr-name ',rmw-name ',cas-name
-                       ',exch-name ',incf-name ',decf-name))
+    (let ((rd-args   '(obj))
+          (wr-args   '(obj new))
+          (rmw-args  '(obj new-fn))
+          (accessor  `(,accessor-fn obj))
+          (rd-name   (gen-name :rd))
+          (wr-name   (gen-name :wr))
+          (rmw-name  (gen-name :rmw))
+          (cas-name  (gen-name :cas))
+          (exch-name (gen-name :atomic-exch))
+          (incf-name (gen-name :atomic-incf))
+          (decf-name (gen-name :atomic-decf)))
+      (when (eql type 'simple-vector)
+        (setf  rd-args  '(obj ix)
+               wr-args  '(obj ix new)
+               rmw-args '(obj ix new-fn)
+               accessor '(svref obj ix)))
+      
+      ;; Same basic structure to all versions, so define the logic
+      ;; in just one place...
+      `(progn
+         (export '(,rd-name ,wr-name ,rmw-name ,cas-name
+                            ,exch-name ,incf-name ,decf-name))
+         (setf (gethash ',(car accessor) *rmw-tbl*)
+               '(,rd-name ,wr-name ,rmw-name ,cas-name
+                          ,exch-name ,incf-name ,decf-name))
            
-           (,deftype ,rd-name ,rd-args
-             #F
-             ,@(when type
-                 `((declare (,type ,obj))))
+         (defun ,rd-name ,rd-args
+           #F
+           (declare (,type obj))
+           (prog ()
+             again
+             (let ((v ,accessor))
+               (cond ((rmw-desc-p v)
+                      (let ((new (funcall (rmw-desc-new-fn v) (rmw-desc-old v))))
+                        (if (sys:compare-and-swap ,accessor v new)
+                            (return new)
+                          (go again))
+                        ))
+                     (t
+                      (return v))
+                     ))))
+           
+         (defun ,wr-name ,wr-args
+           #F
+           (declare (,type obj))
+           (setf (sys:globally-accessible ,accessor) new))
+           
+         (defun ,rmw-name ,rmw-args
+           #F
+           (declare (,type obj))
+           (let ((desc (make-rmw-desc
+                        :new-fn new-fn)))
              (prog ()
-               ,again
-               (let ((,v ,accessor))
-                 (cond ((rmw-desc-p ,v)
-                        (let ((,new (funcall (rmw-desc-new-fn ,v) (rmw-desc-old ,v))))
-                          (if (,cas-fn ,cas-accessor ,v ,new)
-                              (return ,new)
-                            (go ,again))
-                          ))
-                       (t
-                        (return ,v))
-                       ))))
-           
-           (,deftype ,wr-name ,wr-args
-             #F
-             ,@(when type
-                 `((declare (,type ,obj))))
-             ;; this gives a compiler error for unused result
-             ;;   (,exch-fn ,cas-accessor ,new)
-             ;;   ,new
-             #|
-             (or (and (,exch-fn ,cas-accessor ,new)
-                      ,new)
-                 ,new)
-             |#
-             (setf (sys:globally-accessible ,accessor) ,new))
-           
-           (,deftype ,rmw-name ,rmw-args
-             #F
-             ,@(when type
-                 `((declare (,type ,obj))))
-             (let ((,desc (make-rmw-desc
-                           :new-fn ,new-fn)))
-               (prog ()
-                 ,again
-                 (let ((,old (,rd-name ,@rd-args)))
-                   (setf (rmw-desc-old ,desc) ,old)
-                   (if (,cas-fn ,cas-accessor ,old ,desc)
-                       (,cas-fn ,cas-accessor ,desc (funcall ,new-fn ,old))
-                     (go ,again))
-                   ))))
+               again
+               (let ((old (,rd-name ,@rd-args)))
+                 (setf (rmw-desc-old desc) old)
+                 (if (sys:compare-and-swap ,accessor old desc)
+                     (sys:compare-and-swap ,accessor desc (funcall new-fn old))
+                   (go again))
+                 ))))
 
-           (,deftype ,cas-name (,@rd-args ,old ,new)
-              #F
-              ,@(when type
-                  `((declare (,type ,obj))))
-              (,cas-fn ,cas-accessor ,old ,new))
+         (defun ,cas-name (,@rd-args old new)
+           #F
+           (declare (,type obj))
+           (sys:compare-and-swap ,accessor old new))
 
-           (,deftype ,exch-name (,@rd-args ,new)
-              #F
-              ,@(when type
-                  `((declare (,type ,obj))))
-              (,exch-fn ,cas-accessor ,new))
+         (defun ,exch-name ,wr-args
+           #F
+           (declare (,type obj))
+           (sys:atomic-exchange ,accessor new))
 
-           (,deftype ,incf-name ,rd-args
-             #F
-             ,@(when type
-                 `((declare (,type ,obj))))
-             (,incf-fn ,cas-accessor))
+         (defun ,incf-name ,rd-args
+           #F
+           (declare (,type obj))
+           (sys:atomic-incf ,accessor))
            
-           (,deftype ,decf-name ,rd-args
-             #F
-             ,@(when type
-                 `((declare (,type ,obj))))
-             (,decf-fn ,cas-accessor))
-           
-           ,@extra-defs)
-        ))))
-
-(defmacro gen-struct-rmw-funcs (struct-name accessor-fn)
-  `(gen-rmw-funcs (struct ,struct-name ,accessor-fn)))
+         (defun ,decf-name ,rd-args
+           #F
+           (declare (,type obj))
+           (sys:atomic-decf ,accessor))
+         ))))
 
 (progn
-  ;; (gen-rmw-funcs (object))
-  (gen-rmw-funcs (car obj))
-  (gen-rmw-funcs (cdr obj))
-  (gen-rmw-funcs (symbol-value obj))
-  (gen-rmw-funcs (svref obj ix)))
+  (gen-rmw-funcs cons car)
+  (gen-rmw-funcs cons cdr)
+  (gen-rmw-funcs symbol symbol-value)
+  (gen-rmw-funcs simple-vector svref))
 
 ;; -----------------------------------------------------------------
 
