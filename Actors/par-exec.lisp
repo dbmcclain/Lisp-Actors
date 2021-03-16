@@ -33,6 +33,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             um:atomic-decf
             
             ref:ref
+            ref:ref-val
             )))
             
 ;; ------------------------------------------------------------------
