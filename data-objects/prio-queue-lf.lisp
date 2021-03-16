@@ -187,56 +187,56 @@ THE SOFTWARE.
     (cons (reverse tl) nil)))
 
 (defmethod addq ((q fifo) item &key &allow-other-keys)
-  (ref:rmw-ref q (lambda* ((hd . tl))
-                   (normalize-fifo hd (cons item tl)))
-               ))
+  (um:rmw (ref:ref-val q) (lambda* ((hd . tl))
+                            (normalize-fifo hd (cons item tl)))
+          ))
 
 (defmethod popq ((q fifo) &key &allow-other-keys)
   (let (ans
         found)
-    (ref:rmw-ref q (lambda* ((&whole cell hd . tl))
-                     (cond (hd
-                            (setf ans   (car hd)
-                                  found t)
-                            (normalize-fifo (cdr hd) tl))
-                           
-                           (t
-                            cell)
-                           )))
+    (um:rmw (ref:ref-val q) (lambda* ((&whole cell hd . tl))
+                              (cond (hd
+                                     (setf ans   (car hd)
+                                           found t)
+                                     (normalize-fifo (cdr hd) tl))
+                                    
+                                    (t
+                                     cell)
+                                    )))
     (values ans found)))
 
 (defmethod peekq ((q fifo) &key &allow-other-keys)
-  (let ((hd (car (ref:rd-ref q))))
+  (let ((hd (car (um:rd (ref:ref-val q)))))
     (values (car hd) hd)))
 
 (defmethod emptyq-p ((q fifo))
-  (null (car (ref:rd-ref q))))
+  (null (car (um:rd (ref:ref-val q)))))
 
 (defmethod contents ((q fifo))
   (let (pair)
-    (ref:rmw-ref q (lambda (qpair)
-                     (setf pair qpair)
-                     (cons nil nil)))
+    (um:rmw (ref:ref-val q) (lambda (qpair)
+                              (setf pair qpair)
+                              (cons nil nil)))
     (append (car pair) (reverse (cdr pair)))
     ))
 
 (defmethod set-contents ((q fifo) lst)
-  (ref:wr-ref q (cons lst nil)))
+  (um:wr (ref:ref-val q) (cons lst nil)))
 
 (defmethod findq ((q fifo) val &rest args)
-  (destructuring-bind (hd . tl) (ref:rd-ref q)
+  (destructuring-bind (hd . tl) (um:rd (ref:ref-val q))
     (or (apply 'find val hd args)
         (apply 'find val tl args))))
 
 (defmethod lastq ((q fifo))
-  (destructuring-bind (hd . tl) (ref:rd-ref q)
+  (destructuring-bind (hd . tl) (um:rd (ref:ref-val q))
     (if tl
         (car tl)
       (um:last1 hd))
     ))
 
 (defmethod countq ((q fifo))
-  (destructuring-bind (hd . tl) (ref:rd-ref q)
+  (destructuring-bind (hd . tl) (um:rd (ref:ref-val q))
     (+ (length hd) (length tl))
     ))
 
@@ -327,54 +327,55 @@ THE SOFTWARE.
    :val (maps:empty)))
 
 (defmethod addq ((q priq) item &key (prio 0))
-  (ref:rmw-ref q (lambda (tree)
-                   (let ((fq (maps:find tree prio)))
-                     (unless fq
-                       (setf fq (make-unsafe-fifo)))
-                     (addq fq item)
-                     (maps:add tree prio fq))) ;; MAPS:ADD replaces any existing entry
-               ))
+  (um:rmw (ref:ref-val q) (lambda (tree)
+                            (let ((fq (maps:find tree prio)))
+                              (unless fq
+                                (setf fq (make-unsafe-fifo)))
+                              (addq fq item)
+                              (maps:add tree prio fq))) ;; MAPS:ADD replaces any existing entry
+          ))
 
 (defmethod popq ((q priq) &key prio)
   (let (ans
         found)
-    (ref:rmw-ref q (lambda (tree)
-                     ;;
-                     ;; The beautiful thing about this is that while inside
-                     ;; this function, the use of purely functional data types
-                     ;; ensures that our view of tree won't change, and
-                     ;; nothing we do to it (if we play by functional rules!)
-                     ;; can be seen by any other processes until we are
-                     ;; finished.
-                     ;;
-                     ;; We might be called to perform this body of code more
-                     ;; than once in case someone else changed the underlying
-                     ;; data structure before we could finish. But each time
-                     ;; through, our view of tree is entirely ours.
-                     ;;
-                     (labels ((no ()
-                                tree)
-                              
-                              (yes (prio fq)
-                                (setf ans   (popq fq)
-                                      found t)
-                                (if (emptyq-p fq)
-                                    (maps:remove tree prio)
-                                  (maps:add tree prio fq))))
+    (um:rmw (ref:ref-val q)
+            (lambda (tree)
+              ;;
+              ;; The beautiful thing about this is that while inside
+              ;; this function, the use of purely functional data types
+              ;; ensures that our view of tree won't change, and
+              ;; nothing we do to it (if we play by functional rules!)
+              ;; can be seen by any other processes until we are
+              ;; finished.
+              ;;
+              ;; We might be called to perform this body of code more
+              ;; than once in case someone else changed the underlying
+              ;; data structure before we could finish. But each time
+              ;; through, our view of tree is entirely ours.
+              ;;
+              (labels ((no ()
+                         tree)
                        
-                       (cond ((maps:is-empty tree) (no))
-                             
-                             (prio
-                              (um:if-let (fq (maps:find tree prio))
-                                  (yes prio fq)
-                                (no)))
-                             
-                             (t 
-                              (let* ((node (sets:max-elt tree))
-                                     (prio (maps:map-cell-key node))
-                                     (fq   (maps:map-cell-val node)))
-                                (yes prio fq)))
-                             )) ))
+                       (yes (prio fq)
+                         (setf ans   (popq fq)
+                               found t)
+                         (if (emptyq-p fq)
+                             (maps:remove tree prio)
+                           (maps:add tree prio fq))))
+                
+                (cond ((maps:is-empty tree) (no))
+                      
+                      (prio
+                       (um:if-let (fq (maps:find tree prio))
+                           (yes prio fq)
+                         (no)))
+                      
+                      (t 
+                       (let* ((node (sets:max-elt tree))
+                              (prio (maps:map-cell-key node))
+                              (fq   (maps:map-cell-val node)))
+                         (yes prio fq)))
+                      )) ))
     (values ans found)))
 
 

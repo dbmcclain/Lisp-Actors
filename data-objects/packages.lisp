@@ -108,10 +108,6 @@ THE SOFTWARE.
    #:alist-lst
    #:tree
    #:tree-lst
-
-   #:rd-ref
-   #:wr-ref
-   #:rmw-ref
    ))
 
 #| ;; for V2

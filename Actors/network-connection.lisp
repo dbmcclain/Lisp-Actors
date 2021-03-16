@@ -611,7 +611,7 @@
                  ))
                
              (decr-io-count (io-state)
-               (let ((ct (atomic-decf io-running)))
+               (let ((ct (atomic-decf (ref-val io-running))))
                  (when (zerop ct) ;; >0 is running
                    (comm:close-async-io-state io-state)
                    (log-info :SYSTEM-LOG "Connection Shutdown")

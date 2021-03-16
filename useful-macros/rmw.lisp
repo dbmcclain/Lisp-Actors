@@ -389,6 +389,7 @@
 (defgeneric atomic-exch-object (obj new))
 (defgeneric atomic-incf-object (obj))
 (defgeneric atomic-decf-object (obj))
+
 (defgeneric basic-atomic-incf (obj))
 (defgeneric basic-atomic-decf (obj))
 
@@ -457,6 +458,11 @@
                    incf-name  (gen-name :atomic-incf accessor-fn)
                    decf-name  (gen-name :atomic-decf accessor-fn)
                    accessor   `(,accessor-fn ,obj)
+                   #|
+                   ;; It is probably wrong to assume that the entire
+                   ;; object wants to be ruled by one slot. If so, let
+                   ;; the constructor of the object supply additional
+                   ;; methods.
                    extra-defs `((defmethod rd-object ((,obj ,struct-name))
                                   (,rd-name ,obj))
                                 (defmethod wr-object ((,obj ,struct-name) ,new)
@@ -470,8 +476,9 @@
                                 (defmethod atomic-incf-object ((,obj ,struct-name))
                                   (,incf-name ,obj))
                                 (defmethod atomic-decf-object ((,obj ,struct-name))
-                                  (,decf-name ,obj))))
-             )))
+                                  (,decf-name ,obj)))
+                   |#
+                   ))))
         
         (macrolet ((set-default (sym form)
                      `(unless ,sym

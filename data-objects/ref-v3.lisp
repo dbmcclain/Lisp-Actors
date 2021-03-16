@@ -134,7 +134,7 @@ THE SOFTWARE.
 ;; ---------------------------------------------------
 
 (defmethod val ((obj ref))
-  (rd obj))
+  (rd (ref-val obj)))
 
 (defmethod wval (obj)
   ;; Used in prep for destructive ops.
@@ -148,7 +148,7 @@ THE SOFTWARE.
   ;; happen that another thread performs the mutation for us.)
   ;;
   ;; NOTE: unlike SETF, SET-VAL does *NOT* return the stored value
-  (wr r val))
+  (wr (ref-val r) val))
 
 ;; !!! In a departure from conventions (SETF (VAL place) newVal) and
 ;; (SETF (WVAL place) newVal) do *NOT* return newVal.
@@ -162,6 +162,7 @@ THE SOFTWARE.
 (defmethod clone ((r ref))
   (ref (rd r)))
 
+#|
 (defmethod cas-object ((r ref) old new)
   (basic-cas r old new))
 
@@ -173,6 +174,7 @@ THE SOFTWARE.
 
 (defmethod atomic-decf-object ((r ref))
   (sys:atomic-fixnum-decf (ref-val r)))
+|#
 
 ;; ---------------------------------------------------------------
 ;; COW - Copy on Write
