@@ -116,7 +116,8 @@ THE SOFTWARE.
   (make-ref
    :val obj))
 
-;; Tuned versions of RD-REF, WR-REF, and RMW-REF for REF objects
+;; Tuned versions of RD-REF, WR-REF, and RMW-REF for REF objects when
+;; ued with ref-val accessor.
 (um:gen-rmw-funcs ref ref-val)
 
 ;; Un-Tuned versions for use against whole ref
@@ -150,8 +151,11 @@ THE SOFTWARE.
 ;; ---------------------------------------------------
 
 (defmethod val ((obj ref))
-  ;; to get the actual value held in a ref, which is involved in RMW
-  ;; ops, always use VAL or perform a RD on the cell contents.
+  ;; To get the actual value held in a ref, which might be involved in
+  ;; RMW ops, always use VAL or perform a RD on the cell contents.
+  ;; This alwsays works, even if no RMW involved. But if RMW is
+  ;; invoked, you could end up seeing an intenal CAS descriptor if you
+  ;; just examine the (REF-VAL refobj).
   (rd (ref-val obj)))
 
 (defmethod wval (obj)
@@ -313,3 +317,4 @@ THE SOFTWARE.
 
 
 ;; ---------------------------------------------------
+
