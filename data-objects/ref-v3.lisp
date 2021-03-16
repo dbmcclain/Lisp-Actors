@@ -129,7 +129,7 @@ THE SOFTWARE.
   (sys:atomic-exchange (ref-val r) new))
 
 ;; Tuned versions of RD-REF, WR-REF, and RMW-REF for REF objects
-(um:gen-struct-rmw-funcs ref (ref ref-val))
+(um:gen-struct-rmw-funcs ref ref-val)
 
 ;; ---------------------------------------------------
 
@@ -162,16 +162,16 @@ THE SOFTWARE.
 (defmethod clone ((r ref))
   (ref (rd r)))
 
-(defmethod cas ((r ref) old new)
+(defmethod cas-object ((r ref) old new)
   (basic-cas r old new))
 
-(defmethod atomic-exch ((r ref) new)
+(defmethod atomic-exch-object ((r ref) new)
   (basic-atomic-exch r new))
 
-(defmethod atomic-incf ((r ref))
+(defmethod atomic-incf-object ((r ref))
   (sys:atomic-fixnum-incf (ref-val r)))
 
-(defmethod atomic-decf ((r ref))
+(defmethod atomic-decf-object ((r ref))
   (sys:atomic-fixnum-decf (ref-val r)))
 
 ;; ---------------------------------------------------------------
@@ -230,7 +230,7 @@ THE SOFTWARE.
 (defmethod set-val :around ((c cow) val)
   (call-next-method c (cons val t)))
 
-(defmethod cas :around ((obj cow) old new)
+(defmethod cas-object :around ((obj cow) old new)
   (call-next-method obj old (cons new t)))
 
 (defun maybe-clone (cell)
@@ -238,13 +238,13 @@ THE SOFTWARE.
       (car cell)
     (clone (car cell))))
 
-(defmethod atomic-exch :around ((obj cow) val)
+(defmethod atomic-exch-object :around ((obj cow) val)
   (maybe-clone (call-next-method obj (cons val t))))
 
-(defmethod atomic-incf ((obj cow))
+(defmethod atomic-incf-object ((obj cow))
   (rmw obj #'1+))
 
-(defmethod atomic-decf ((obj cow))
+(defmethod atomic-decf-object ((obj cow))
   (rmw obj #'1-))
 
 (defmethod rmw-object :around ((obj cow) fn)

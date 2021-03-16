@@ -179,7 +179,7 @@ THE SOFTWARE.
     :accessor  actor-user-fn
     :initarg   :user-fn))
   (:default-initargs
-   :properties-ref (ref:ref (maps:empty))
+   :properties-ref (ref (maps:empty))
    :user-fn        #'funcall
    ))
 
@@ -199,8 +199,8 @@ THE SOFTWARE.
 ;; These methods can be called from any thread. SMP safe.
 
 (defmethod initialize-instance :after ((actor actor) &key properties &allow-other-keys)
-  (ref:wr-ref (slot-value actor 'properties-ref)
-              (maps:add-plist (maps:empty) properties))
+  (wr (ref-val (slot-value actor 'properties-ref))
+      (maps:add-plist (maps:empty) properties))
   (clos:set-funcallable-instance-function actor
                                           (lambda (&rest args)
                                             (if (eq actor (current-actor))
@@ -219,17 +219,20 @@ THE SOFTWARE.
 
 (defmethod get-property ((actor actor) key &optional default)
   ;; SMP-safe
-  (maps:find (ref:rd-ref (actor-properties-ref actor)) key default))
+  (maps:find (rd (ref-val (actor-properties-ref actor)))
+             key default))
 
 (defmethod set-property ((actor actor) key value)
   ;; SMP-safe
-  (ref:rmw-ref (actor-properties-ref actor) (lambda (map)
-                                              (maps:add map key value)))
+  (rmw (ref-val (actor-properties-ref actor))
+       (lambda (map)
+         (maps:add map key value)))
   value)
 
 (defmethod remove-property ((actor actor) key)
-  (ref:rmw-ref (actor-properties-ref actor) (lambda (map)
-                                              (maps:remove map key))))
+  (rmw (ref-val (actor-properties-ref actor))
+       (lambda (map)
+         (maps:remove map key))))
 
 ;; --------------------------------------------------------
 

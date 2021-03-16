@@ -30,9 +30,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             um:call-capturing-ans-or-exn
             um:recover-ans-or-exn
             um:when-let
+            um:atomic-decf
             
             ref:ref
-            ref:atomic-decf
             )))
             
 ;; ------------------------------------------------------------------
@@ -61,7 +61,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
           (apply fn (car grps))
         ;; else
         (let* ((len    (length grps))
-               (count  (ref:ref len))
+               (count  (ref len))
                (ansv   (make-array len))
                (actors nil))
           (handler-bind ((timeout (lambda (c)
@@ -72,7 +72,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                     :errorp  t)
                 (flet ((done (ix ans)
                          (setf (aref ansv ix) ans)
-                         (when (zerop (ref:atomic-decf count))
+                         (when (zerop (atomic-decf (ref-val count)))
                            (=values))))
                   (setf actors (loop for grp in (cdr grps)
                                      for ix from 1
@@ -196,13 +196,13 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   ;; succeed, or for all workers to finish, or for timeout, whichever
   ;; occurs first.
   (when fns
-    (let ((count  (ref:ref (length fns)))
+    (let ((count  (ref (length fns)))
           (actors nil))
       (=wait ((ans)
               :timeout    *timeout*
               :on-timeout (=values nil))
           (flet ((done (ans)
-                   (when (or (zerop (ref:atomic-decf count))
+                   (when (or (zerop (atomic-decf (ref-val count)))
                              ans)
                      (=values ans))))
             (setf actors (mapcar (lambda (fn)

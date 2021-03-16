@@ -302,6 +302,10 @@ THE SOFTWARE.
 
 (defpackage #:actors.executives
   (:use #:common-lisp #:actors)
+  (:import-from #:useful-macros
+   #:rmw
+   #:rd
+   #:wr)
   (:export
    #:terminate-actor
    #:terminate-actors
@@ -342,7 +346,12 @@ THE SOFTWARE.
    #:capture-ans-or-exn
    #:call-capturing-ans-or-exn
    #:recover-ans-or-exn
-   #:rmw)
+   #:rmw
+   #:rd
+   #:wr)
+  (:import-from #:ref
+   #:ref
+   #:ref-val)
   (:import-from #:actors.executives
    #:add-to-ready-queue
    #:run-actor-direct
