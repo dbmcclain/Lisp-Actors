@@ -108,7 +108,7 @@
       `(rd-symbol-value ',place)
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(car pair) ,@(cdr place))
-      `(rdfx ,place))
+      `(rdf ,place))
     ))
 
 ;; -----------------------------------------------------
@@ -141,7 +141,7 @@
       `(rmw-symbol-value ',place ,new-fn)
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(cadr pair) ,@(cdr place) ,new-fn)
-      `(rmwfx ,place ,new-fn))
+      `(rmwf ,place ,new-fn))
     ))
 
 (defmacro define-rmw-functions (accessor-form)
