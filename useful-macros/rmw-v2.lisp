@@ -65,7 +65,19 @@
 ;; --------------------------------------------------------------------------
 
 (eval-always
-  (defvar *rmw-functions* (make-hash-table)))
+  (defvar *rmw-functions* (make-hash-table))
+  
+  (defun gen-fn-name (kind accessor)
+    (intern (format nil "~A-~A"
+                    (string kind)
+                    (string accessor))
+            ))
+  
+  (defun gen-fn-names (accessor)
+    (values
+     (gen-fn-name :rd  accessor)
+   (gen-fn-name :rmw accessor))))
+  
 
 (defmacro rdf (place)
   (multiple-value-bind (temps vals store-vars store-form access-form)
@@ -133,21 +145,16 @@
 
 (defmacro define-rmw-functions (accessor-form)
   (destructuring-bind (accessor . args) accessor-form
-    (flet ((gen-fn-name (kind)
-             (intern (format nil "~A-~A"
-                             (string kind)
-                             (string accessor))
-                     )))
-      (let ((rd-name  (gen-fn-name :rd))
-            (rmw-name (gen-fn-name :rmw)))
-        (lw:with-unique-names (new-fn)
-          `(progn
-             (add-rmw-functions ',accessor ',rd-name ',rmw-name)
-             (defun ,rd-name ,args
-               (rdf ,accessor-form))
-             (defun ,rmw-name (,@args ,new-fn)
-               (rmwf ,accessor-form ,new-fn)))
-          )))))
+    (multiple-value-bind (rd-name rmw-name)
+        (gen-fn-names accessor)
+      (lw:with-unique-names (new-fn)
+        `(progn
+           (defun ,rd-name ,args
+             (rdf ,accessor-form))
+           (defun ,rmw-name (,@args ,new-fn)
+             (rmwf ,accessor-form ,new-fn))
+           (add-rmw-functions ',accessor ',rd-name ',rmw-name))
+        ))))
 
 (progn
   (define-rmw-functions (car obj))
@@ -164,9 +171,52 @@
   `(sys:atomic-exchange ,place ,new))
 
 ;; -----------------------------------------------------
+;; Define a minimum footprint version for general structs
 
+(defun rd-struct (obj accessor-fn cas-fn)
+  (prog ()
+    again
+    (let ((v (funcall accessor-fn obj)))
+      (cond ((rmw-desc-p v)
+             (let ((new (funcall (rmw-desc-new-fn v) (rmw-desc-old v))))
+               (if (funcall cas-fn obj v new)
+                   (return new)
+                 (go again))))
+            (t
+             (return v))
+            ))))
+
+(defun rmw-struct (obj accessor-fn cas-fn new-fn)
+  (let ((desc (make-rmw-desc
+               :new-fn new-fn)))
+    (prog ()
+      again
+      (let ((old (rd-struct obj accessor-fn cas-fn)))
+        (setf (rmw-desc-old desc) old)
+        (if (funcall cas-fn obj old desc)
+            (funcall cas-fn obj desc (funcall new-fn old))
+          (go again))
+        ))))
+
+(defmacro define-struct-rmw-functions (accessor (type slot-name))
+  (multiple-value-bind (rd-name rmw-name)
+      (gen-fn-names accessor)
+    (lw:with-unique-names (obj new-fn cas-fn old new)
+      `(flet
+           ((,cas-fn (,obj ,old ,new)
+              (sys:compare-and-swap-structure-slot (,obj ,type ,slot-name) ,old ,new)))
+         (defun ,rd-name (,obj)
+           (rd-struct ,obj #',accessor #',cas-fn))
+         (defun ,rmw-name (,obj ,new-fn)
+           (rmw-struct ,obj #',accessor #',cas-fn ,new-fn))
+         (add-rmw-functions ',accessor ',rd-name ',rmw-name))
+      )))
+
+;; -----------------------------------------------------------------------------------
 
 #|
+(define-struct-rmw-functions ref:ref-val (ref:ref ref:val))
+
 (sys:atomic-exchange (diddly doodad) new)
 (let ((x 15))
   (sys:compare-and-swap x 32 16))
@@ -181,4 +231,16 @@
 
 (rmwf (ref:ref-val r) new-fn)
 
+(macroexpand '(sys:compare-and-swap (ref-val r) old new))
+(macroexpand '(sys:compare-and-swap *print-base* old new))
+(macroexpand '(sys:compare-and-swap (svref x 15) old new))
+(defun tst (accessor)
+  (let* ((exp (macroexpand-1 `(sys:compare-and-swap ,accessor old new)))
+         (form (third exp)))
+    (values (car form) (third form))))
+(tst '*print-base*)
+(tst '(car x))
+(tst '(cdr x))
+(tst '(svref x 15))
+(tst '(ref-val r))
 |#

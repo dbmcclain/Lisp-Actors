@@ -951,6 +951,7 @@ THE SOFTWARE.
    #:ensure-thread-eval-def
 
    #:define-rmw-functions
+   #:define-struct-rmw-functions
 
    #:rd
    #:wr

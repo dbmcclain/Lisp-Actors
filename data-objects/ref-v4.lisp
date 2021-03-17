@@ -118,7 +118,7 @@ THE SOFTWARE.
 
 ;; Tuned versions of RD-REF-VAL and RMW-REF-VAL for REF objects when
 ;; ued with REF-VAL accessor.
-(um:define-rmw-functions (ref-val obj))
+(um:define-struct-rmw-functions ref-val (ref val))
 
 ;; Un-Tuned versions for use against whole ref
 (defmethod rd-object ((r ref))
