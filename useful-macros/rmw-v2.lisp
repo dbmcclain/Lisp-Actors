@@ -129,6 +129,13 @@
 
 ;; ----------------------------------------------------------
 ;; User level macros
+;;
+;; Warning! These all accept a place argument. Treat them like SETF.
+;; That also means that a bare symbol argument will be accepted, but
+;; does not denote the value, but rather the symbol-value place.
+;;
+;; And since LW does not accept lexical vars as valid targets of
+;; COMPARE-AND-SWAP, these cannot either.
 
 (defmacro rd (place)
   (if (symbolp place)
