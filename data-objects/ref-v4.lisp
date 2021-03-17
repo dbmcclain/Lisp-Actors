@@ -118,7 +118,7 @@ THE SOFTWARE.
 
 ;; Tuned versions of RD-REF-VAL and RMW-REF-VAL for REF objects when
 ;; ued with REF-VAL accessor.
-(um:define-struct-rmw-functions ref-val (ref val))
+(um:define-struct-rmw-functions ref-val)
 
 ;; Un-Tuned versions for use against whole ref
 (defmethod rd-object ((r ref))
@@ -170,7 +170,7 @@ THE SOFTWARE.
 (defsetf wval set-val)
 
 (defmethod clone ((r ref))
-  (ref (rd r)))
+  (ref (rd (ref-val r))))
 
 ;; ---------------------------------------------------------------
 ;; COW - Copy on Write
@@ -208,7 +208,7 @@ THE SOFTWARE.
    :val (list obj)))
 
 (defmethod val ((obj cow))
-  (car (rd obj)))
+  (car (rd (ref-val obj))))
 
 (defmethod clone ((obj cow))
   (cow (val obj)))
@@ -217,7 +217,7 @@ THE SOFTWARE.
   ;; Using preemptive cloning on direct DEREF. Once deref'd we lose
   ;; any control over possible mutation in client code, so we opt for
   ;; conservative safety. We rely on this behavior below...
-  (let ((cell (rd obj)))
+  (let ((cell (rd (ref-val obj))))
     (if (cdr cell)
         (car cell)
       (progn

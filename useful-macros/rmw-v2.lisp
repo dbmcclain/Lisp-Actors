@@ -74,10 +74,16 @@
             ))
   
   (defun gen-fn-names (accessor)
-    (values
-     (gen-fn-name :rd  accessor)
-   (gen-fn-name :rmw accessor))))
+    (let ((rd-name  (gen-fn-name :rd accessor))
+          (rmw-name (gen-fn-name :rmw accessor)))
+      (add-rmw-functions accessor rd-name rmw-name)
+      (values rd-name rmw-name)))
   
+  (defun add-rmw-functions (accessor rd-fn rmw-fn)
+    ;; RMW functions should always be added in pairs for each accessor,
+    ;; since RMW depends on RD
+    (setf (gethash accessor *rmw-functions*) (list rd-fn rmw-fn))))
+
 
 (defmacro rdf (place)
   (multiple-value-bind (temps vals store-vars store-form access-form)
@@ -102,7 +108,7 @@
       `(rd-symbol-value ',place)
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(car pair) ,@(cdr place))
-      `(rdf ,place))
+      `(rdfx ,place))
     ))
 
 ;; -----------------------------------------------------
@@ -135,13 +141,8 @@
       `(rmw-symbol-value ',place ,new-fn)
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(cadr pair) ,@(cdr place) ,new-fn)
-      `(rmwf ,place ,new-fn))
+      `(rmwfx ,place ,new-fn))
     ))
-
-(defun add-rmw-functions (accessor rd-fn rmw-fn)
-  ;; RMW functions should always be added in pairs for each accessor,
-  ;; since RMW depends on RD
-  (setf (gethash accessor *rmw-functions*) (list rd-fn rmw-fn)))
 
 (defmacro define-rmw-functions (accessor-form)
   (destructuring-bind (accessor . args) accessor-form
@@ -152,8 +153,7 @@
            (defun ,rd-name ,args
              (rdf ,accessor-form))
            (defun ,rmw-name (,@args ,new-fn)
-             (rmwf ,accessor-form ,new-fn))
-           (add-rmw-functions ',accessor ',rd-name ',rmw-name))
+             (rmwf ,accessor-form ,new-fn)))
         ))))
 
 (progn
@@ -198,18 +198,16 @@
           (go again))
         ))))
 
-(defmacro define-struct-rmw-functions (accessor (type slot-name))
+(defmacro define-struct-rmw-functions (accessor)
   (multiple-value-bind (rd-name rmw-name)
       (gen-fn-names accessor)
     (lw:with-unique-names (obj new-fn cas-fn old new)
-      `(flet
-           ((,cas-fn (,obj ,old ,new)
-              (sys:compare-and-swap-structure-slot (,obj ,type ,slot-name) ,old ,new)))
+      `(flet ((,cas-fn (,obj ,old ,new)
+                (sys:compare-and-swap (,accessor ,obj) ,old ,new)))
          (defun ,rd-name (,obj)
            (rd-struct ,obj #',accessor #',cas-fn))
          (defun ,rmw-name (,obj ,new-fn)
-           (rmw-struct ,obj #',accessor #',cas-fn ,new-fn))
-         (add-rmw-functions ',accessor ',rd-name ',rmw-name))
+           (rmw-struct ,obj #',accessor #',cas-fn ,new-fn)))
       )))
 
 ;; -----------------------------------------------------------------------------------
