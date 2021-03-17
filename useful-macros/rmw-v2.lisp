@@ -51,6 +51,7 @@
 ;; It has a theoretically bounded number of CAS attempts (= N+1) for N
 ;; competing threads. If a thread cannot complete, another thread will
 ;; do so for it.
+
 (defstruct rmw-desc
   old     ;; captured old value
   new-fn) ;; mutator function
@@ -74,66 +75,56 @@
             ))
   
   (defun gen-fn-names (accessor)
-    (let ((rd-name  (gen-fn-name :rd accessor))
-          (rmw-name (gen-fn-name :rmw accessor)))
-      (add-rmw-functions accessor rd-name rmw-name)
-      (values rd-name rmw-name)))
+    (values (gen-fn-name :rd accessor)
+            (gen-fn-name :rmw accessor))))
   
-  (defun add-rmw-functions (accessor rd-fn rmw-fn)
-    ;; RMW functions should always be added in pairs for each accessor,
-    ;; since RMW depends on RD
-    (setf (gethash accessor *rmw-functions*) (list rd-fn rmw-fn))))
+(defun add-rmw-functions (accessor rd-fn rmw-fn)
+  ;; RMW functions should always be added in pairs for each accessor,
+  ;; since RMW depends on RD
+  (setf (gethash accessor *rmw-functions*) (list rd-fn rmw-fn)))
 
+;; -----------------------------------------------------------------------------------
+;; Define generalized RMW functions with logic defined just once for all cases
 
-(defmacro rdf (place)
-  (multiple-value-bind (temps vals store-vars store-form access-form)
-      (get-setf-expansion place)
-    (declare (ignore store-vars store-form))
-    (lw:with-unique-names (v new again)
-      `(prog ,(mapcar 'list temps vals)
-         ,again
-         (let ((,v ,access-form))
-           (cond ((rmw-desc-p ,v)
-                  (let ((,new (funcall (rmw-desc-new-fn ,v) (rmw-desc-old ,v))))
-                    (if (sys:compare-and-swap ,access-form ,v ,new)
-                        (return ,new)
-                      (go ,again))))
-                 (t
-                  (return ,v))
-                 )))
-      )))
+(defun rd-gen (rdr-fn cas-fn)
+  (prog ()
+    again
+    (let ((v (funcall rdr-fn)))
+      (cond ((rmw-desc-p v)
+             (let ((new (funcall (rmw-desc-new-fn v) (rmw-desc-old v))))
+               (if (funcall cas-fn v new)
+                   (return new)
+                 (go again))))
+            (t
+             (return v))
+            ))))
+
+(defun rmw-gen (rdr-fn cas-fn new-fn)
+  (let ((desc (make-rmw-desc
+               :new-fn new-fn)))
+    (prog ()
+      again
+      (let ((old (funcall rdr-fn)))
+        (setf (rmw-desc-old desc) old)
+        (if (funcall cas-fn old desc)
+            (funcall cas-fn desc (funcall new-fn old))
+          (go again))
+        ))))
+
+;; ----------------------------------------------------------
+;; User level macros
 
 (defmacro rd (place)
   (if (symbolp place)
       `(rd-symbol-value ',place)
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(car pair) ,@(cdr place))
-      `(rdf ,place))
-    ))
-
-;; -----------------------------------------------------
-
-(defmacro wr (place new)
-  `(setf (sys:globally-accessible ,place) ,new))
-
-;; -----------------------------------------------------
-
-(defmacro rmwf (place new-fn)
-  (multiple-value-bind (temps vals store-vars store-form access-form)
-      (get-setf-expansion place)
-    (declare (ignore store-vars store-form))
-    (lw:with-unique-names (desc old again)
-      (lw:rebinding (new-fn)
-        `(let* ((,desc (make-rmw-desc
-                        :new-fn ,new-fn)))
-           (prog ,(mapcar 'list temps vals)
-             ,again
-             (let ((,old (rd ,access-form)))
-               (setf (rmw-desc-old ,desc) ,old)
-               (if (sys:compare-and-swap ,access-form ,old ,desc)
-                   (sys:compare-and-swap ,access-form ,desc (funcall ,new-fn ,old))
-                 (go ,again))
-               )))
+      (lw:with-unique-names (old new rdr-fn cas-fn)
+        `(flet ((,rdr-fn ()
+                  ,place)
+                (,cas-fn (,old ,new)
+                  (sys:compare-and-swap ,place ,old ,new)))
+           (rd-gen #',rdr-fn #',cas-fn))
         ))))
 
 (defmacro rmw (place new-fn)
@@ -141,28 +132,18 @@
       `(rmw-symbol-value ',place ,new-fn)
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(cadr pair) ,@(cdr place) ,new-fn)
-      `(rmwf ,place ,new-fn))
-    ))
-
-(defmacro define-rmw-functions (accessor-form)
-  (destructuring-bind (accessor . args) accessor-form
-    (multiple-value-bind (rd-name rmw-name)
-        (gen-fn-names accessor)
-      (lw:with-unique-names (new-fn)
-        `(progn
-           (defun ,rd-name ,args
-             (rdf ,accessor-form))
-           (defun ,rmw-name (,@args ,new-fn)
-             (rmwf ,accessor-form ,new-fn)))
+      (lw:with-unique-names (old new rdr-fn rdr-fn2 cas-fn)
+        `(labels ((,cas-fn (,old ,new)
+                    (sys:compare-and-swap ,place ,old ,new))
+                  (,rdr-fn ()
+                    ,place)
+                  (,rdr-fn2 ()
+                    (rd-gen #',rdr-fn #',cas-fn)))
+           (rmw-gen #',rdr-fn2 #',cas-fn ,new-fn))
         ))))
 
-(progn
-  (define-rmw-functions (car obj))
-  (define-rmw-functions (cdr obj))
-  (define-rmw-functions (symbol-value sym))
-  (define-rmw-functions (svref sv ix)))
-
-;; -----------------------------------------------------
+(defmacro wr (place new)
+  `(setf (sys:globally-accessible ,place) ,new))
 
 (defmacro cas (place old new)
   `(sys:compare-and-swap ,place ,old ,new))
@@ -170,45 +151,25 @@
 (defmacro atomic-exch (place new)
   `(sys:atomic-exchange ,place ,new))
 
-;; -----------------------------------------------------
-;; Define a minimum footprint version for general structs
+;; ----------------------------------------------------
+;; Pre-built RD,RMW for common forms
 
-(defun rd-struct (obj accessor-fn cas-fn)
-  (prog ()
-    again
-    (let ((v (funcall accessor-fn obj)))
-      (cond ((rmw-desc-p v)
-             (let ((new (funcall (rmw-desc-new-fn v) (rmw-desc-old v))))
-               (if (funcall cas-fn obj v new)
-                   (return new)
-                 (go again))))
-            (t
-             (return v))
-            ))))
-
-(defun rmw-struct (obj accessor-fn cas-fn new-fn)
-  (let ((desc (make-rmw-desc
-               :new-fn new-fn)))
-    (prog ()
-      again
-      (let ((old (rd-struct obj accessor-fn cas-fn)))
-        (setf (rmw-desc-old desc) old)
-        (if (funcall cas-fn obj old desc)
-            (funcall cas-fn obj desc (funcall new-fn old))
-          (go again))
+(defmacro define-rmw-functions (accessor-form)
+  (destructuring-bind (accessor . args) accessor-form
+    (multiple-value-bind (rd-name rmw-name) (gen-fn-names accessor)
+      (lw:with-unique-names (new-fn)
+        `(progn
+           (defun ,rd-name ,args
+             (rd ,accessor-form))
+           (defun ,rmw-name (,@args ,new-fn)
+             (rmw ,accessor-form ,new-fn))
+           (add-rmw-functions ',accessor ',rd-name ',rmw-name))
         ))))
 
-(defmacro define-struct-rmw-functions (accessor)
-  (multiple-value-bind (rd-name rmw-name)
-      (gen-fn-names accessor)
-    (lw:with-unique-names (obj new-fn cas-fn old new)
-      `(flet ((,cas-fn (,obj ,old ,new)
-                (sys:compare-and-swap (,accessor ,obj) ,old ,new)))
-         (defun ,rd-name (,obj)
-           (rd-struct ,obj #',accessor #',cas-fn))
-         (defun ,rmw-name (,obj ,new-fn)
-           (rmw-struct ,obj #',accessor #',cas-fn ,new-fn)))
-      )))
+(define-rmw-functions (car cons))
+(define-rmw-functions (cdr cons))
+(define-rmw-functions (symbol-value sym))
+(define-rmw-functions (svref svec ix))
 
 ;; -----------------------------------------------------------------------------------
 
