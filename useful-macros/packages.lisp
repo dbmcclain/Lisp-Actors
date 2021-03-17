@@ -478,8 +478,6 @@ THE SOFTWARE.
    #:stack-probe
    #:safe-call-system ;; LWM bug fix DM/RAL 02/17
    
-   #:ref
-
    :defmonitor
    :critical-section
    :critical-or

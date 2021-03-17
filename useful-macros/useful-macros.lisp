@@ -419,12 +419,6 @@ THE SOFTWARE.
   `(setf (pointer-* ,addr) ,val))
 
 ;; ----------------------------------------------------------------------
-;; Ref Cells - also defines MAKE-REF, COPY-REF, REF-P, REF-VAL, and (SET REF-VAL)
-
-(defstruct ref
-  val)
-
-;; ----------------------------------------------------------------------
 
 (defmacro! nif (o!expr pos zero neg)
   `(cond ((plusp ,g!expr) ,pos)
