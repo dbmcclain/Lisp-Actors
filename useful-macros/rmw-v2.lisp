@@ -52,11 +52,6 @@
 ;; competing threads. If a thread cannot complete, another thread will
 ;; do so for it.
 
-(defstruct rmw-desc
-  old     ;; captured old value
-  new-fn) ;; mutator function
-          ;; - Warning! can be called multiple times and from arbitrary threads
-
 (defgeneric rd-object   (obj))
 (defgeneric wr-object   (obj new))
 (defgeneric rmw-object  (obj new-fn))
@@ -86,6 +81,11 @@
 ;; -----------------------------------------------------------------------------------
 ;; Define generalized RMW functions with logic defined just once for all cases
 
+(defstruct rmw-desc
+  old     ;; captured old value
+  new-fn) ;; mutator function
+          ;; - Warning! can be called multiple times and from arbitrary threads
+
 (defun rd-gen (rdr-fn cas-fn)
   (prog ()
     again
@@ -104,7 +104,7 @@
                :new-fn new-fn)))
     (prog ()
       again
-      (let ((old (funcall rdr-fn)))
+      (let ((old (rd-gen rdr-fn cas-fn)))
         (setf (rmw-desc-old desc) old)
         (if (funcall cas-fn old desc)
             (funcall cas-fn desc (funcall new-fn old))
@@ -132,14 +132,12 @@
       `(rmw-symbol-value ',place ,new-fn)
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(cadr pair) ,@(cdr place) ,new-fn)
-      (lw:with-unique-names (old new rdr-fn rdr-fn2 cas-fn)
-        `(labels ((,cas-fn (,old ,new)
-                    (sys:compare-and-swap ,place ,old ,new))
-                  (,rdr-fn ()
-                    ,place)
-                  (,rdr-fn2 ()
-                    (rd-gen #',rdr-fn #',cas-fn)))
-           (rmw-gen #',rdr-fn2 #',cas-fn ,new-fn))
+      (lw:with-unique-names (old new rdr-fn cas-fn)
+        `(flet ((,rdr-fn ()
+                  ,place)
+                (,cas-fn (,old ,new)
+                  (sys:compare-and-swap ,place ,old ,new)))
+           (rmw-gen #',rdr-fn #',cas-fn ,new-fn))
         ))))
 
 (defmacro wr (place new)
