@@ -112,6 +112,17 @@
         ))))
 
 ;; ----------------------------------------------------------
+;; helpers
+
+(defmacro rmw-template (place rmw-fn &rest args)
+  (lw:with-unique-names (old new rdr-fn cas-fn)
+    `(flet ((,rdr-fn ()
+              ,place)
+            (,cas-fn (,old ,new)
+              (sys:compare-and-swap ,place ,old ,new)))
+       (,rmw-fn #',rdr-fn #',cas-fn ,@args))))
+
+;; ----------------------------------------------------------
 ;; User level macros
 
 (defmacro rd (place)
@@ -119,26 +130,16 @@
       `(rd-symbol-value ',place)
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(car pair) ,@(cdr place))
-      (lw:with-unique-names (old new rdr-fn cas-fn)
-        `(flet ((,rdr-fn ()
-                  ,place)
-                (,cas-fn (,old ,new)
-                  (sys:compare-and-swap ,place ,old ,new)))
-           (rd-gen #',rdr-fn #',cas-fn))
-        ))))
+      `(rmw-template ,place rd-gen)
+      )))
 
 (defmacro rmw (place new-fn)
   (if (symbolp place)
       `(rmw-symbol-value ',place ,new-fn)
     (if-let (pair (gethash (car place) *rmw-functions*))
         `(,(cadr pair) ,@(cdr place) ,new-fn)
-      (lw:with-unique-names (old new rdr-fn cas-fn)
-        `(flet ((,rdr-fn ()
-                  ,place)
-                (,cas-fn (,old ,new)
-                  (sys:compare-and-swap ,place ,old ,new)))
-           (rmw-gen #',rdr-fn #',cas-fn ,new-fn))
-        ))))
+      `(rmw-template ,place rmw-gen ,new-fn)
+      )))
 
 (defmacro wr (place new)
   `(setf (sys:globally-accessible ,place) ,new))
