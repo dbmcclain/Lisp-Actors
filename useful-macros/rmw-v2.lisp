@@ -154,6 +154,7 @@
 
 (defmacro define-rmw-functions (accessor-form)
   (destructuring-bind (accessor . args) accessor-form
+    (remhash accessor *rmw-functions*) ;; to permit redefs
     (multiple-value-bind (rd-name rmw-name) (gen-fn-names accessor)
       (lw:with-unique-names (new-fn)
         `(progn
