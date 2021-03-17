@@ -115,12 +115,17 @@
 ;; helpers
 
 (defmacro rmw-template (place rmw-fn &rest args)
-  (lw:with-unique-names (old new rdr-fn cas-fn)
-    `(flet ((,rdr-fn ()
-              ,place)
-            (,cas-fn (,old ,new)
-              (sys:compare-and-swap ,place ,old ,new)))
-       (,rmw-fn #',rdr-fn #',cas-fn ,@args))))
+  (multiple-value-bind (vars vals store-vars writer-form reader-form)
+      (get-setf-expansion place)
+    (declare (ignore store-vars writer-form))
+    (lw:with-unique-names (old new rdr-fn cas-fn)
+      `(let* ,(mapcar #'list vars vals)
+         (flet ((,rdr-fn ()
+                  ,reader-form)
+                (,cas-fn (,old ,new)
+                  (sys:compare-and-swap ,reader-form ,old ,new)))
+           (,rmw-fn #',rdr-fn #',cas-fn ,@args)))
+      )))
 
 ;; ----------------------------------------------------------
 ;; User level macros
