@@ -26,6 +26,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ;; ... or feel free to not use ECC (uses RSA instead)
 (pushnew :using-ecc-crypto *features*)
 ;; On MacOSX - use Grand Central Dispatch (or not...)
+#+:MACOSX
 (pushnew :using-mac-gcd *Features*)
 
 (asdf:defsystem "actors"
