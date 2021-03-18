@@ -244,10 +244,17 @@ THE SOFTWARE.
 (defpackage #:useful-macros
   (:use #:common-lisp)
   (:nicknames #:um)
+  #+:LISPWORKS
   (:import-from #:lispworks
    #:true
    #:false
-   #:do-nothing)
+   #:do-nothing
+   #:nconcf
+   #:removef
+   #:appendf
+   #:if-let
+   #:when-let
+   #:when-let*)
   (:import-from :stub-functions
    :defstub
    :stub-function-p

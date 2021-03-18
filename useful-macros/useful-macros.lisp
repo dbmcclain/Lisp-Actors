@@ -70,12 +70,14 @@ THE SOFTWARE.
 (defmacro foreach (fn &rest seqs)
   `(map nil ,fn ,@seqs))
 
+#-:LISPWORKS
 (defmacro if-let ((var val) t-clause &optional f-clause)
   `(let ((,var ,val))
      (if ,var
          ,t-clause
        ,f-clause)))
 
+#-:LISPWORKS
 (defmacro when-let ((var val) &body body)
   `(let ((,var ,val))
      (when ,var
@@ -515,9 +517,11 @@ THE SOFTWARE.
 (define-modify-macro ashf (&rest args)
   ash)
 
+#-:LISPWORKS
 (define-modify-macro appendf (&rest args)
   append)
 
+#-:LISPWORKS
 (define-modify-macro nconcf (&rest args)
   nconc)
 
@@ -541,6 +545,7 @@ THE SOFTWARE.
                  (lambda (src)
                    `(delete-if ,pred ,src ,@args))))
 
+#-:LISPWORKS
 (defmacro removef (place item &rest args &environment env)
   (do-expansionf place env
                  (lambda (src)
@@ -601,6 +606,7 @@ THE SOFTWARE.
 ;;    let clauses are evaluated in the order stated, and short-circuit evaluation is performed
 ;;    so that a false let clause aborts the evaluation of all later let clauses.
 
+#-:LISPWORKS
 (defmacro when-let* (let-clauses &body body)
   (if (endp let-clauses)
     `(progn
@@ -609,9 +615,6 @@ THE SOFTWARE.
     `(when-let ,(first let-clauses)
        (when-let* ,(rest let-clauses) ,@body))
     ))
-
-#+:LISPWORKS
-(editor:setup-indent "when-let*" 1)
 
 #|
 (when-let* ((a ea) (b eb)) tc)
