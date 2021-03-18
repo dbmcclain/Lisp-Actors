@@ -339,59 +339,82 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------------
 ;; Nestable suggestion from Daniel Herring
 ;; rewritten (DM/RAL) using our state-machine macro
-;; Nesting fails on patterns like #"#"# where one expects #
+;; Use backslash for escaping literal chars
 
 (defun |reader-for-#"| (stream sub-char numarg)
    (declare (ignore sub-char numarg))
-   (let ((ans   (arun-fsm ((chars (make-rubber-vector ;; initial bindings
-                                                      :element-type 'character))
-                           (depth 1))
-                    (read-char stream)  ;; feeder clause
-                  (normal (curr)      ;; state machine clauses - initial first
-                          (cond ((char= curr #\#)
-                                 (state read-sharp)
-                                 (keep #\#))
-                                
-                                ((char= curr #\")
-                                 (state read-quote))
-                                
-                                (t (keep curr)) ))
-                  
-                  (read-sharp (curr)
-                              (cond ((char= curr #\")
-                                     (state normal)
-                                     (keep #\")
-                                     (incf depth))
-                                    
-                                    (t
-                                     (keep curr)
-                                     (state normal)) ))
-                  
-                  (read-quote (curr)
-                              (cond ((char= curr #\#)
-                                     (state normal)
-                                     (decf depth)
-                                     (when (zerop depth)
-                                       (finish (final-string)))
-                                     (keep #\")
-                                     (keep #\#))
-                                    
-                                    ((char= curr #\")
-                                     (keep #\"))
-                                    
-                                    (t (state normal)
-                                       (keep #\")
-                                       (keep curr)) ))
-                  
-                  ;; not a state, but becomes a labels clause that can be used
-                  (keep (ch) (vector-push-extend ch chars))
-                  (final-string ()
-                                (prog1
-                                    (coerce (subseq chars 0) 'string)
-                                  (setf (fill-pointer chars) 0)))
-                  )))
-     (unless *read-suppress*
-       ans)))
+   (arun-fsm
+       ;; initial bindings
+       ((chars (make-rubber-vector
+                :element-type 'character))
+        (depth 1))
+       ;; feeder clause
+       (read-char stream)
+     ;; state machine - initial state first
+     (normal (ch)
+             (case ch
+               ((#\#) 
+                (keep ch)
+                (state read-sharp))
+                   
+               ((#\") 
+                (state read-quote))
+                   
+               ((#\\)
+                (state read-escape))
+                   
+               (t
+                (keep ch))
+               ))
+     
+     (read-escape (ch)
+                  (keep ch)
+                  (state normal))
+     
+     (read-sharp (ch)
+                 (case ch
+                   ((#\")
+                    (keep ch)
+                    (incf depth)
+                    (state normal))
+                   
+                   ((#\\)
+                    (state read-escape))
+                       
+                    (t
+                     (keep ch)
+                     (state normal))
+                    ))
+     
+     (read-quote (ch)
+                 (case ch
+                   ((#\#)
+                    (decf depth)
+                    (when (zerop depth)
+                      (we-are-done))
+                    (keep #\")
+                    (keep #\#)
+                    (state normal))
+                       
+                   ((#\")
+                    (keep ch))
+
+                   ((#\\)
+                    (keep #\")
+                    (state read-escape))
+                       
+                   (t
+                    (keep #\")
+                    (keep ch)
+                    (state normal))
+                   ))
+     ;; not a state, but becomes a labels clause that can be used
+     (keep (ch)
+           (vector-push-extend ch chars))
+     (we-are-done ()
+                  (finish (unless *read-suppress*
+                            (coerce (subseq chars 0) 'string))))
+     ))
 
 (set-dispatch-macro-character
  #\# #\" '|reader-for-#"|)
@@ -399,37 +422,52 @@ THE SOFTWARE.
 ;; --------------------------------------------
 ;; Reader macro for #>
 ;; like the Bourne shell > to-lists for surrounding strings
-;;
-;; This version is from Martin Dirichs
 
 (defun |reader-for-#>| (stream sub-char numarg)
   (declare (ignore sub-char numarg))
-  (let (chars) ;; collect the end tag
-    (do ((curr (read-char stream)
-               (read-char stream)))
-        ((char= #\newline curr))
-      (push curr chars))
-    (let ((pattern (nreverse chars))
-          output)
-      ;; collect chars until a sequence of them
-      ;; matches the end-tag
-      (labels ((match (pos chars)
-                 (if (null chars)
-                     pos
-                   (if (char= (nth pos pattern) (car chars))
-                       (match (1+ pos) (cdr chars))
-                     (match 0 (cdr (append (subseq pattern 0 pos) chars)))))))
-        (do (curr
-             (pos 0))
-            ((= pos (length pattern)))
-          (setf curr (read-char stream)
-                pos (match pos (list curr)))
-          (push curr output))
-        (unless *read-suppress*
-          (coerce
-           (nreverse
-            (nthcdr (length pattern) output))
-           'string))))))
+  (arun-fsm
+      ;; bindings
+      (pattern
+       (patlen 0)
+       output
+       (outlen 0))
+      ;; feeder
+      (read-char stream)
+    ;; machine states - initial first
+    (start (ch)
+           ;; get stop-pattern
+           (cond ((char= ch #\newline)
+                  (phase2))
+
+                 ((lw:whitespace-char-p ch)
+                  (state skip-to-eol))
+
+                 (t 
+                  (push ch pattern)
+                  (incf patlen))
+                 ))
+    (skip-to-eol (ch)
+                 (when (char= ch #\newline)
+                   (phase2)))
+    (phase2 ()
+            (if (zerop patlen)
+                (we-are-done)
+              (state absorb)))
+    (absorb (ch)
+            ;; get string till stop-pattern
+            (push ch output)
+            (incf outlen)
+            (when (and (>= outlen patlen)
+                       (every #'char= pattern output))
+              (we-are-done)))
+    (we-are-done ()
+                 (finish (unless *read-suppress*
+                           (coerce
+                            (nreverse
+                             (nthcdr patlen output))
+                            'string)
+                           )))
+    ))
 
 (set-dispatch-macro-character
  #\# #\> '|reader-for-#>|)
