@@ -214,11 +214,11 @@
                   
                   (t
                    (recv ()
-                     (actors/internal-message:rd-incoming (frag)
+                     (actors/internal-message/network:rd-incoming (frag)
                         (add-queue queue frag)
                         (rd-wait pos))
                      
-                     (actors/internal-message:rd-error ()
+                     (actors/internal-message/network:rd-error ()
                         (become-null-monitor :rd-actor))
                      ))
                   )))
@@ -232,7 +232,7 @@
             (let ((len (convert-vector-to-integer len-buf)))
               (if (> len +MAX-FRAGMENT-SIZE+)
                   ;; and we are done... just hang up.
-                  (handle-message dispatcher '(actors/internal-message:discard))
+                  (handle-message dispatcher '(actors/internal-message/network:discard))
                 ;; else
                 (let ((enc-buf  (make-u8-vector len)))
                   (=bind ()
@@ -265,11 +265,11 @@
            ;; the async collection
            (declare (ignore ignored))
            (cond ((comm:async-io-state-write-status state)
-                  (send writer 'actors/internal-message:wr-fail))
+                  (send writer 'actors/internal-message/network:wr-fail))
                  (buffers
                   (transmit-next-buffer state))
                  (t
-                  (send writer 'actors/internal-message:wr-done))
+                  (send writer 'actors/internal-message/network:wr-done))
                  )))
       
       (perform-in-actor writer
@@ -277,10 +277,10 @@
          ((sys:compare-and-swap (car io-running) 1 2) ;; still running recieve?
           (transmit-next-buffer io-state)
           (recv ()
-            (actors/internal-message:wr-done ()
+            (actors/internal-message/network:wr-done ()
               (when (zerop (funcall decr-io-count io-state))
                 (we-are-done)))
-            (actors/internal-message:wr-fail ()
+            (actors/internal-message/network:wr-fail ()
               (funcall decr-io-count io-state)
               (we-are-done))
             ))
@@ -370,17 +370,17 @@
     (perform-in-actor dispatcher
       (dcase* whole-msg
         
-        (actors/internal-message:discard (&rest msg)
+        (actors/internal-message/network:discard (&rest msg)
           ;; something went wrong, kill the connection
           (declare (ignore msg))
           (log-error :SYSTEM-LOG "Data framing error")
           (shutdown intf))
         
-        (actors/internal-message:frag (frag)
+        (actors/internal-message/network:frag (frag)
           ;; a partial buffer of a complete message
           (add-fragment accum frag))
         
-        (actors/internal-message:last-frag (frag)
+        (actors/internal-message/network:last-frag (frag)
            ;; the last buffer of a complete message
            (add-fragment accum frag)
            (handle-message dispatcher (byte-decode-obj
@@ -389,28 +389,28 @@
                            ))
 
         #-:USING-ECC-CRYPTO
-        (actors/internal-message:srp-node-id-rsa (node-id)
+        (actors/internal-message/security:srp-node-id-rsa (node-id)
            ;; Client is requesting security negotiation
            (spawn-worker 'server-negotiate-security-rsa crypto intf node-id))
 
         #+:USING-ECC-CRYPTO
-        (actors/internal-message:srp-node-id-ecc (node-id)
+        (actors/internal-message/security:srp-node-id-ecc (node-id)
            ;; Client is requesting security negotiation
            (spawn-worker 'server-negotiate-security-ecc crypto intf node-id))
 
-        (actors/internal-message:forwarding-send (service &rest msg)
+        (actors/internal-message/bridge:forwarding-send (service &rest msg)
            ;; the bridge from the other end has forwarded a message to
            ;; an actor on this side
            (if-let (actor (find-actor service))
                (apply 'send actor msg)
-             (socket-send intf 'actors/internal-message:no-service service (machine-instance))))
+             (socket-send intf 'actors/internal-message/bridge:no-service service (machine-instance))))
 
-        (actors/internal-message:no-service (service node)
+        (actors/internal-message/bridge:no-service (service node)
            ;; sent to us from the other end on our send to
            ;; non-existent service
            (mp:funcall-async 'no-service-alert service node))
         
-        (actors/internal-message:forwarding-ask (service usti &rest msg)
+        (actors/internal-message/bridge:forwarding-ask (service usti &rest msg)
            ;; the bridge on the other end has relayed an ASK to our
            ;; side
            (=bind (&rest ans)
@@ -418,9 +418,9 @@
                    (apply 'send actor (apply 'assemble-ask-message =bind-cont msg))
                  (=values (capture-ans-or-exn
                             (no-service-alert service (machine-instance)))))
-             (apply 'socket-send intf 'actors/internal-message:forwarding-reply usti ans)))
+             (apply 'socket-send intf 'actors/internal-message/bridge:forwarding-reply usti ans)))
            
-        (actors/internal-message:forwarding-reply (usti &rest ans)
+        (actors/internal-message/bridge:forwarding-reply (usti &rest ans)
            ;; An Actor on our side is replying to an ASK from the
            ;; other end.
            (apply 'bridge-handle-reply usti ans))
@@ -432,7 +432,7 @@
             (log-info :SYSTEM-LOG
                       "Incoming ~A Msg: ~A" title msg)
             |#
-           (apply 'send intf 'actors/internal-message:incoming-msg msg))
+           (apply 'send intf 'actors/internal-message/network:incoming-msg msg))
         ))))
 
 (defun no-service-alert (service node)
@@ -458,7 +458,7 @@
 (defmethod do-expect ((intf socket-interface) handler)
   (perform-in-actor intf
     (recv ()
-      (actors/internal-message:incoming-msg (&rest msg)
+      (actors/internal-message/network:incoming-msg (&rest msg)
          (handler-bind ((error (lambda (err)
                                  (declare (ignore err))
                                  (log-error :SYSTEM-LOG "Expect Failure: ~A" msg)
@@ -491,9 +491,9 @@
   ;; Called by Client for crypto negotiation. Make it a continuation so
   ;; it can be initiated by message reader when deemed appropriate.
   (inject-into-actor intf
-    (socket-send intf 'actors/internal-message:srp-node-id-rsa node-id)
+    (socket-send intf 'actors/internal-message/security:srp-node-id-rsa node-id)
     (expect intf
-      (actors/internal-message:srp-phase2-rsa (p-key g-key salt bb)
+      (actors/internal-message/security:srp-phase2-rsa (p-key g-key salt bb)
          (funcall cont p-key g-key salt bb))
       )))
 
@@ -502,9 +502,9 @@
   ;; Called by Client for crypto negotiation. Make it a continuation so
   ;; it can be initiated by message reader when deemed appropriate.
   (inject-into-actor intf
-    (socket-send intf 'actors/internal-message:srp-node-id-ecc node-id)
+    (socket-send intf 'actors/internal-message/security:srp-node-id-ecc node-id)
     (expect intf
-      (actors/internal-message:srp-phase2-ecc (bb)
+      (actors/internal-message/security:srp-phase2-ecc (bb)
          (funcall cont bb))
       )))
 
@@ -525,33 +525,33 @@
           (#-:USING-ECC-CRYPTO
            (start-phase2-rsa (cont p-key g-key salt bb)
              ;; Called by server in response to request for crypto negotiation
-             (socket-send intf 'actors/internal-message:srp-phase2-rsa p-key g-key salt bb)
+             (socket-send intf 'actors/internal-message/security:srp-phase2-rsa p-key g-key salt bb)
              (expect intf
-               (actors/internal-message:srp-phase2-reply (aa m1)
+               (actors/internal-message/security:srp-phase2-reply (aa m1)
                   (funcall cont aa m1))
                ))
 
            #+:USING-ECC-CRYPTO
            (start-phase2-ecc (cont bb)
              ;; Called by server in response to request for crypto negotiation
-             (socket-send intf 'actors/internal-message:srp-phase2-ecc bb)
+             (socket-send intf 'actors/internal-message/security:srp-phase2-ecc bb)
              (expect intf
-               (actors/internal-message:srp-phase2-reply (aa m1)
+               (actors/internal-message/security:srp-phase2-reply (aa m1)
                                                         (funcall cont aa m1))
                ))
 
            (phase2-reply (cont aa m1)
              ;; Called by client after receiving server ack on crypto renegotiation
-             (socket-send intf 'actors/internal-message:srp-phase2-reply aa m1)
+             (socket-send intf 'actors/internal-message/security:srp-phase2-reply aa m1)
              (expect intf
-               (actors/internal-message:srp-phase3 (m2)
+               (actors/internal-message/security:srp-phase3 (m2)
                   (funcall cont m2))
                ))
            
            (start-phase3 (m2 final-fn)
              ;; sent by server as last message sent under old crypto during crypto negotiation
              ;; encrypt, set new crypto, then send - to avoid race conditions
-             (let ((enc (secure-encoding crypto `(actors/internal-message:srp-phase3 ,m2))))
+             (let ((enc (secure-encoding crypto `(actors/internal-message/security:srp-phase3 ,m2))))
                ;; init new crypto for incoming messages
                (funcall final-fn)
                ;; send old-encr message
@@ -593,14 +593,14 @@
                    ;; (log-info :SYSTEM-LOG "~A Incoming bytes: ~A" title buffer)
                    (if (> end +max-fragment-size+)
                        (setf err-too-large "Incoming packet too large")
-                     (send reader 'actors/internal-message:rd-incoming (list* 0 end (subseq buffer 0 end))))
+                     (send reader 'actors/internal-message/network:rd-incoming (list* 0 end (subseq buffer 0 end))))
                    (comm:async-io-state-discard state end))
                  (when-let (status (or (comm:async-io-state-read-status state)
                                        err-too-large))
                    ;; terminate on any error
                    (comm:async-io-state-finish state)
                    (log-error :SYSTEM-LOG "~A Incoming error state: ~A" title status)
-                   (send reader 'actors/internal-message:rd-error)
+                   (send reader 'actors/internal-message/network:rd-error)
                    (decr-io-count state))
                  ))
                
@@ -718,12 +718,12 @@
                 ;; connection will be authenticated/encrypted regardless of using SSL/TLS or not.
                 #+:USING-ECC-CRYPTO (client-negotiate-security-ecc crypto intf)
                 #-:USING-ECC-CRYPTO (client-negotiate-security-rsa crypto intf)
-                (socket-send intf 'actors/internal-message:client-info (machine-instance))
+                (socket-send intf 'actors/internal-message/network:client-info (machine-instance))
                 (=wait ((ans)
                         :timeout 5
                         :errorp  t)
                     (expect intf
-                      (actors/internal-message:server-info (server-node)
+                      (actors/internal-message/network:server-info (server-node)
                           (bridge-register server-node intf)
                           (bridge-register ip-addr intf)
                           (log-info :SYSTEM-LOG "Socket client starting up: ~A" intf)
@@ -753,9 +753,9 @@ See the discussion under START-CLIENT-MESSENGER for details."
                                  :crypto   crypto)))
 
     (expect intf
-      (actors/internal-message:client-info (client-node)
+      (actors/internal-message/network:client-info (client-node)
           (log-info :SYSTEM-LOG "Socket server starting up: ~A" intf)
-          (socket-send intf 'actors/internal-message:server-info (machine-instance))
+          (socket-send intf 'actors/internal-message/network:server-info (machine-instance))
           (bridge-register client-node intf))
       )))
 

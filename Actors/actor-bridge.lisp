@@ -203,7 +203,7 @@
 (defun forward-query (handler service cont &rest msg)
   ;; we should already be running in Bridge
   (let ((usti (create-and-add-usti cont handler)))
-    (apply #'socket-send handler 'actors/internal-message:forwarding-ask service usti msg)))
+    (apply #'socket-send handler 'actors/internal-message/bridge:forwarding-ask service usti msg)))
 
 (defun bridge-forward-message (dest &rest msg)
   ;; called by SEND as a last resort
@@ -215,7 +215,7 @@
          (apply #'forward-query handler service (cdr msg)))
         
         (otherwise
-         (apply #'socket-send handler 'actors/internal-message:forwarding-send service msg))
+         (apply #'socket-send handler 'actors/internal-message/bridge:forwarding-send service msg))
         ))))
 
 (=defun bridge-ask-query (dest &rest msg)

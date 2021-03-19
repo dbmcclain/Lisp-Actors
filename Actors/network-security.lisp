@@ -376,7 +376,7 @@
         :data vec))
     (error ()
       ;; (setf *bad-data* (copy-seq data))
-      `(actors/internal-message:discard))
+      `(actors/internal-message/network:discard))
     ))
   
 (defun insecure-prep (obj)
@@ -399,8 +399,8 @@
                  (rem    (- len nel))
                  (frag   (subseq enc start end))
                  (msg    (if (plusp rem)
-                             'actors/internal-message:frag
-                           'actors/internal-message:last-frag))
+                             'actors/internal-message/network:frag
+                           'actors/internal-message/network:last-frag))
                  (packet (loenc:encode (list msg frag)
                                        :align 16)))
             (acc packet)
@@ -447,7 +447,7 @@
       (loenc:decode enc-buf)
     (error ()
       ;; (setf *bad-data* (copy-seq data))
-      `(actors/internal-message:discard))
+      `(actors/internal-message/network:discard))
     ))
 
 (defun secure-decoding (crypto len len-buf enc-buf hmac-buf)
@@ -466,6 +466,6 @@
         (insecure-decoding enc-buf))
 
        (t
-        `(actors/internal-message:discard))
+        `(actors/internal-message/network:discard))
        ))))
 

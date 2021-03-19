@@ -200,21 +200,35 @@ THE SOFTWARE.
   (:export
    #:continuation
    #:ask
+   #:send-sync
+   ))
 
-   #:forwarding-send
-   #:forwarding-ask
-   #:forwarding-reply
-   #:no-service
-
-   #:discard
-   #:frag
-   #:last-frag
+(defpackage #:actors/internal-message/security
+  (:use #:common-lisp)
+  (:export
    #-:USING-ECC-CRYPTO #:srp-node-id-rsa
    #+:USING-ECC-CRYPTO #:srp-node-id-ecc
    #-:USING-ECC-CRYPTO #:srp-phase2-rsa
    #+:USING-ECC-CRYPTO #:srp-phase2-ecc
    #:srp-phase2-reply
    #:srp-phase3
+   ))
+
+(defpackage #:actors/internal-message/bridge
+  (:use #:common-lisp)
+  (:export
+   #:forwarding-send
+   #:forwarding-ask
+   #:forwarding-reply
+   #:no-service
+   ))
+
+(defpackage #:actors/internal-message/network
+  (:use #:common-lisp)
+  (:export
+   #:discard
+   #:frag
+   #:last-frag
    #:incoming-msg
 
    #:rd-incoming
@@ -225,9 +239,6 @@ THE SOFTWARE.
 
    #:client-info
    #:server-info
-
-   #:send-sync
-
    ))
 
 (defpackage #:actors/directory
