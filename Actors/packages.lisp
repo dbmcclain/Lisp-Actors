@@ -200,7 +200,7 @@ THE SOFTWARE.
    #:unschedule-timer
    ))
 
-(defpackage #:actor-internal-message
+(defpackage #:actors/internal-message
   (:use #:common-lisp)
   (:export
    #:continuation
@@ -235,17 +235,17 @@ THE SOFTWARE.
 
    ))
 
-(defpackage #:actors.directory
+(defpackage #:actors/directory
   (:use #:common-lisp #:actors))
 
-(defpackage #:actors.lfm
+(defpackage #:actors/lfm
   (:use #:common-lisp #:actors)
   (:export
    #:ensure-system-logger
    #:kill-system-logger
    ))
 
-(defpackage :actors.network
+(defpackage :actors/network
   (:use #:common-lisp #:actors)
   (:export
    #:*default-port*
@@ -263,7 +263,7 @@ THE SOFTWARE.
    #:intf-srp-ph3-begin
    ))
 
-(defpackage :actors.security
+(defpackage :actors/security
   (:use #:common-lisp #:actors)
   (:shadow #:random)
   (:export
@@ -288,7 +288,7 @@ THE SOFTWARE.
    #:m^
    ))
    
-(defpackage :actors.bridge
+(defpackage :actors/bridge
   (:use #:common-lisp #:actors)
   (:export
    #:actor-bridge
@@ -300,7 +300,7 @@ THE SOFTWARE.
    #:bridge-reset
    ))
 
-(defpackage #:actors.executives
+(defpackage #:actors/executives
   (:use #:common-lisp #:actors)
   (:import-from #:useful-macros
    #:rmw
@@ -326,10 +326,10 @@ THE SOFTWARE.
    #:run-worker-direct
    ))
 
-(defpackage #:actors.par
+(defpackage #:actors/par
   (:use #:common-lisp #:actors))
 
-(defpackage #:actors.base
+(defpackage #:actors/base
   (:use #:common-lisp #:actors
    #-:LISPWORKS
    #:ansi-timer)
@@ -352,7 +352,7 @@ THE SOFTWARE.
   (:import-from #:ref
    #:ref
    #:ref-val)
-  (:import-from #:actors.executives
+  (:import-from #:actors/executives
    #:add-to-ready-queue
    #:run-actor-direct
    #:run-worker-direct)
@@ -364,7 +364,10 @@ THE SOFTWARE.
    #:%basic-run-actor
    ))
 
-(defpackage #:actors.rwgate
+(defpackage #:actors/rwgate
+  (:use #:common-lisp #:actors))
+
+(defpackage #:actors/user
   (:use #:common-lisp #:actors))
 
 

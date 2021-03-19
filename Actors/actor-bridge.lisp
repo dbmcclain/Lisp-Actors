@@ -10,7 +10,7 @@
 ;; DM/RAL 10/20
 ;; -----------------------------------------------------------------------------
 
-(in-package :actors.bridge)
+(in-package :actors/bridge)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import '(
@@ -18,8 +18,8 @@
             um:when-let
             um:recover-ans-or-exn
 
-            actors.network:open-connection
-            actors.network:socket-send
+            actors/network:open-connection
+            actors/network:socket-send
             )))
 
 ;; ---------------------------------------------------------------------------------
@@ -203,18 +203,18 @@
 (defun forward-query (handler service cont &rest msg)
   ;; we should already be running in Bridge
   (let ((usti (create-and-add-usti cont handler)))
-    (apply 'socket-send handler 'actor-internal-message:forwarding-ask service usti msg)))
+    (apply 'socket-send handler 'actors/internal-message:forwarding-ask service usti msg)))
 
 (defun bridge-forward-message (dest &rest msg)
   ;; called by SEND as a last resort
   (in-bridge ()
     (with-valid-dest (service handler) dest
       (case (car msg)
-        ((actor-internal-message:ask)
+        ((actors/internal-message:ask)
          (apply 'forward-query handler service (cadr msg) (cddr msg)))
         
         (otherwise
-         (apply 'socket-send handler 'actor-internal-message:forwarding-send service msg))
+         (apply 'socket-send handler 'actors/internal-message:forwarding-send service msg))
         ))))
 
 (=defun bridge-ask-query (dest &rest msg)

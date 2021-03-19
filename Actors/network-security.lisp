@@ -8,7 +8,7 @@
 ;; DM/SD  08/08, 06-12/09
 ;; --------------------------------------------------------------------------------------
 
-(in-package #:actors.security)
+(in-package #:actors/security)
 
 ;; (pushnew :diddly *features*)
 
@@ -376,7 +376,7 @@
         :data vec))
     (error ()
       ;; (setf *bad-data* (copy-seq data))
-      `(actor-internal-message:discard))
+      `(actors/internal-message:discard))
     ))
   
 (defun insecure-prep (obj)
@@ -399,8 +399,8 @@
                  (rem    (- len nel))
                  (frag   (subseq enc start end))
                  (msg    (if (plusp rem)
-                             'actor-internal-message:frag
-                           'actor-internal-message:last-frag))
+                             'actors/internal-message:frag
+                           'actors/internal-message:last-frag))
                  (packet (loenc:encode (list msg frag)
                                        :align 16)))
             (acc packet)
@@ -447,7 +447,7 @@
       (loenc:decode enc-buf)
     (error ()
       ;; (setf *bad-data* (copy-seq data))
-      `(actor-internal-message:discard))
+      `(actors/internal-message:discard))
     ))
 
 (defun secure-decoding (crypto len len-buf enc-buf hmac-buf)
@@ -466,6 +466,6 @@
         (insecure-decoding enc-buf))
 
        (t
-        `(actor-internal-message:discard))
+        `(actors/internal-message:discard))
        ))))
 

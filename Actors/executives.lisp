@@ -4,7 +4,7 @@
 ;; DM/RAL  08/20 - latest update using the upgraded Hoare Monitors
 ;; ---------------------------------------------------------------
 
-(in-package :actors.executives)
+(in-package :actors/executives)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (import '(actors.base:%run-actor

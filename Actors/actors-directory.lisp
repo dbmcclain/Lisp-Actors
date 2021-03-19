@@ -6,7 +6,7 @@
 ;; non-essential service during Actor base startup, so we will make it
 ;; an Actor-based service after all the base code is in place.
 
-(in-package :actors.directory)
+(in-package :actors/directory)
 
 ;; ------------------------------------------------------------
 

@@ -1,5 +1,5 @@
 
-(in-package :actors.base)
+(in-package :actors/base)
 
 ;; For global binidings that are never dynamically rebound
 #+:LISPWORKS

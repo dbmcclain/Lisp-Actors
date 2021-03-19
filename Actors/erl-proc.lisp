@@ -49,7 +49,7 @@ How useful is this?
 |#
 ;; --------------------------------------------------------------
 
-(in-package :actors.erl)
+(in-package :actors/erl)
 
 (defclass process (actor)
   ((links

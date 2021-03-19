@@ -4,11 +4,10 @@
 ;; DM/RAL  08/20 - latest update using the upgraded Hoare Monitors
 ;; ---------------------------------------------------------------
 
-(in-package :actors.executives)
+(in-package :actors/executives)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (import '(actors.base:%run-actor
-            actors.base:%basic-run-actor
+  (import '(actors/base:%run-actor
             )))
 
 ;; ------------------------------------
@@ -228,8 +227,7 @@
   (apply #'apply-with-gcd-and-group :DEFAULT NIL #'%pre-run-actor-direct actor msg))
 
 (defun %pre-run-actor-direct (*current-runnable* &rest msg)
-  (with-as-current-actor *current-runnable*
-    (%basic-run-actor *current-runnable* :initial-message msg)))
+  (%run-actor *current-runnable* :initial-message msg))
 
 (defun run-worker-direct (fn &rest msg)
   (apply #'apply-with-gcd-and-group :DEFAULT NIL #'%pre-run-worker-direct fn msg))

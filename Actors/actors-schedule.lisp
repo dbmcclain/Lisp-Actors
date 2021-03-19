@@ -26,7 +26,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package #:actors.base)
+(in-package #:actors/base)
 
 (um:eval-always
   (import '(mp:make-timer

@@ -28,7 +28,7 @@ THE SOFTWARE.
 |#
 
 
-(in-package #:actors.base)
+(in-package #:actors/base)
 
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))
@@ -312,20 +312,17 @@ THE SOFTWARE.
 
 ;; ----------------------------------------------------------------
 
-(defgeneric %run-actor (actor)
-  (:method ((worker worker))
+(defgeneric %run-actor (actor &key &allow-other-keys)
+  (:method ((worker worker) &key &allow-other-keys)
    (%basic-run-worker worker))
   
-  (:method ((*current-actor* actor))
-   (declare (special *current-actor*))
-   (%basic-run-actor *current-actor*))
+  (:method ((*current-actor* actor) &rest args &key &allow-other-keys)
+   (apply #'%basic-run-actor *current-actor* args))
 
-  (:method ((*current-actor* actor-as-worker))
-   (declare (special *current-actor*))
+  (:method ((*current-actor* actor-as-worker) &key &allow-other-keys)
    (%basic-run-actor-as-worker *current-actor* 'actor))
 
-  (:method ((*current-actor* limited-actor-as-worker))
-   (declare (special *current-actor*))
+  (:method ((*current-actor* limited-actor-as-worker) &key &allow-other-keys)
    (%basic-run-actor-as-worker *current-actor* 'limited-actor)))
 
 ;; -----------------------------------------------
@@ -360,22 +357,22 @@ THE SOFTWARE.
   ())
 
 (defun assemble-ask-message (reply-to &rest msg)
-  (list* 'actor-internal-message:ask reply-to msg))
+  (list* 'actors/internal-message:ask reply-to msg))
 
 ;; ---------------------------------------------------------
 
 (defun dispatch-message (&rest *whole-message*)
   (with-trampoline
     (um:dcase *whole-message*
-      (actor-internal-message:continuation (fn &rest args)
+      (actors/internal-message:continuation (fn &rest args)
                                            ;; Used for callbacks into the Actor
                                            (apply fn args))
       
-      (actor-internal-message:send-sync (reply-to &rest sub-message)
+      (actors/internal-message:send-sync (reply-to &rest sub-message)
                                         (send reply-to t)
                                         (apply #'self-call sub-message))
       
-      (actor-internal-message:ask (reply-to &rest sub-msg)
+      (actors/internal-message:ask (reply-to &rest sub-msg)
                                   ;; Intercept restartable queries to send back a response
                                   ;; from the following message, reflecting any errors back to
                                   ;; the caller.
@@ -593,6 +590,6 @@ THE SOFTWARE.
    (if (eq actor (current-actor))
        (apply 'self-call message)
      (let ((mb (mp:make-mailbox)))
-       (apply 'send actor 'actor-internal-message:send-sync mb message)
+       (apply 'send actor 'actors/internal-message:send-sync mb message)
        (mp:mailbox-read mb))
      )))

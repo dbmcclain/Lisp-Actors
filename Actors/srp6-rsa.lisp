@@ -3,14 +3,14 @@
 ;; DM/RAL - split off from network-security.lisp 03/21
 ;; -----------------------------------------------------------------
 
-(defpackage #:srp6-rsa
+(defpackage #:actors/srp6-rsa
   (:use #:cl #:ac)
   (:import-from #:useful-macros
    #:when-let
    #:nlet)
-  (:shadowing-import-from #:actors.security
+  (:shadowing-import-from #:actors/security
    #:random)
-  (:import-from #:actors.security
+  (:import-from #:actors/security
    #:$VERSION
    #:random-between
    #:signature-mismatch-error
@@ -29,7 +29,7 @@
    #:m/
    #:minv
    #:m^)
-  (:import-from #:actors.network
+  (:import-from #:actors/network
    #:client-request-negotiation-rsa
    #:intf-srp-ph2-begin-rsa
    #:intf-srp-ph2-reply
@@ -39,7 +39,7 @@
    #:server-negotiate-security-rsa
    ))
 
-(in-package #:srp6-rsa)
+(in-package #:actors/srp6-rsa)
 
 ;; Primes checking...
 

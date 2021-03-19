@@ -3,7 +3,7 @@
 ;; DM/RAL 12/19
 ;; ----------------------------------------------------------
 
-(in-package :actors.base)
+(in-package :actors/base)
 
 #|
  === Be careful! ===

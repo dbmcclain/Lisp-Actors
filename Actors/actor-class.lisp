@@ -4,7 +4,7 @@
 ;; DM 09/20
 ;; ------------------------------------------------------------------------
 
-(in-package :actors.base)
+(in-package :actors/base)
 
 ;; ----------------------------------------------------------------------------
 
@@ -13,7 +13,7 @@
   (if (eq actor (current-actor))
       (apply fn args)
     ;; else
-    (apply 'send actor 'actor-internal-message:continuation fn args)))
+    (apply 'send actor 'actors/internal-message:continuation fn args)))
 
 (defun exec (actor fn &rest args)
   ;; Dispatch as a normal message, and like SELF-CALL, subjects thunk

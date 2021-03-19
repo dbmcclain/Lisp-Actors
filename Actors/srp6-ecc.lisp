@@ -3,7 +3,7 @@
 ;; DM/RAL 03/21
 ;; ------------------------------------------------
 
-(defpackage #:srp6-ecc
+(defpackage #:actors/srp6-ecc
   (:use #:cl #:ac)
   (:import-from #:core-crypto
    #:int
@@ -25,7 +25,7 @@
    #:ed-mul)
   (:import-from #:usec
    #:get-time-usec)
-  (:import-from #:actors.security
+  (:import-from #:actors/security
    #:$VERSION
    #:signature-mismatch-error
    #:crypto
@@ -33,7 +33,7 @@
    #:init-crypto-for-input
    #:init-crypto-for-output
    #:init-crypto-for-renegotiation)
-  (:import-from #:actors.network
+  (:import-from #:actors/network
    #:client-request-negotiation-ecc
    #:intf-srp-ph2-begin-ecc
    #:intf-srp-ph2-reply
@@ -43,7 +43,7 @@
    #:server-negotiate-security-ecc
    ))
 
-(in-package #:srp6-ecc)
+(in-package #:actors/srp6-ecc)
 
 (defvar *k* (modr
              (m+ 0 (int (hash/256 *ed-r* *ed-q*)))))
