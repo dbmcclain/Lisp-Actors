@@ -182,11 +182,6 @@ THE SOFTWARE.
    #:start
 
    #:defglobal-var
-
-   #:rwgate
-   #:make-resource-handle
-   #:with-shared-reading
-   #:with-exclusive-writing
    ))
 
 #-lispworks
@@ -359,9 +354,6 @@ THE SOFTWARE.
   (:export
    #:%run-actor
    #:assemble-ask-message
-
-   ;; MAC GCD stuff
-   #:%basic-run-actor
    ))
 
 (defpackage #:actors/rwgate

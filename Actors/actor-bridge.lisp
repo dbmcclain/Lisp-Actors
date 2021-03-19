@@ -203,7 +203,7 @@
 (defun forward-query (handler service cont &rest msg)
   ;; we should already be running in Bridge
   (let ((usti (create-and-add-usti cont handler)))
-    (apply 'socket-send handler 'actors/internal-message:forwarding-ask service usti msg)))
+    (apply #'socket-send handler 'actors/internal-message:forwarding-ask service usti msg)))
 
 (defun bridge-forward-message (dest &rest msg)
   ;; called by SEND as a last resort
@@ -211,17 +211,18 @@
     (with-valid-dest (service handler) dest
       (case (car msg)
         ((actors/internal-message:ask)
-         (apply 'forward-query handler service (cadr msg) (cddr msg)))
+         ;; form was (ASK reply-to &rest actual-message)
+         (apply #'forward-query handler service (cdr msg)))
         
         (otherwise
-         (apply 'socket-send handler 'actors/internal-message:forwarding-send service msg))
+         (apply #'socket-send handler 'actors/internal-message:forwarding-send service msg))
         ))))
 
 (=defun bridge-ask-query (dest &rest msg)
   ;; called by ASK as a last resort
   (in-bridge ()
     (with-valid-dest (service handler) dest
-      (apply 'forward-query handler service =bind-cont msg)
+      (apply #'forward-query handler service =bind-cont msg)
       )))
 
 (defun bridge-handle-reply (usti &rest reply)
@@ -256,10 +257,10 @@
   (let (actor)
     (cond
      ((setf actor (find-actor str))
-      (apply 'send actor message))
+      (apply #'send actor message))
      
      ((find #\@ str)
-      (apply 'bridge-forward-message str message))
+      (apply #'bridge-forward-message str message))
 
      (t
       (call-next-method))
@@ -267,11 +268,11 @@
 
 (defmethod send ((usti uuid:uuid) &rest message)
   (if-let (actor (find-actor usti))
-      (apply 'send actor message)
+      (apply #'send actor message)
     (call-next-method)))
 
 (defmethod send ((proxy proxy) &rest message)
-  (apply 'bridge-forward-message proxy message))
+  (apply #'bridge-forward-message proxy message))
 
 ;; ------------------------------------------
 ;; Blocking ASK across network connections
@@ -281,17 +282,17 @@
   (=wait ((ans)
           :timeout *timeout*
           :errorp  t)
-      (=apply 'bridge-ask-query dest message)
+      (=apply #'bridge-ask-query dest message)
     (recover-ans-or-exn ans)))
 
 (defmethod ask ((str string) &rest message)
   (let (actor)
     (cond
      ((setf actor (find-actor str))
-      (apply 'ask actor message))
+      (apply #'ask actor message))
      
      ((find #\@ str)
-      (apply 'network-ask str message))
+      (apply #'network-ask str message))
      
      (t
       (call-next-method))
@@ -299,11 +300,11 @@
 
 (defmethod ask ((usti uuid:uuid) &rest message)
   (if-let (actor (find-actor usti))
-      (apply 'ask actor message)
+      (apply #'ask actor message)
     (call-next-method)))
 
 (defmethod ask ((proxy proxy) &rest message)
-  (apply 'network-ask proxy message))
+  (apply #'network-ask proxy message))
 
 ;; -----------------------------------------------
 ;; Non-blocking ASK across network connections
@@ -311,17 +312,17 @@
 (=defun network-ask-nb (dest &rest message)
   ;; Non-blocking ASK across a network connection
   (=bind (ans)
-      (=apply 'bridge-ask-query dest message)
+      (=apply #'bridge-ask-query dest message)
     (=values (recover-ans-or-exn ans))))
 
 (=defmethod =ask ((str string) &rest message)
   (let (actor)
     (cond
      ((setf actor (find-actor str))
-      (=apply '=ask actor message))
+      (=apply #'=ask actor message))
      
      ((find #\@ str)
-      (=apply 'network-ask-nb str message))
+      (=apply #'network-ask-nb str message))
      
      (t
       (call-next-method))
@@ -329,11 +330,11 @@
 
 (=defmethod =ask ((usti uuid:uuid) &rest message)
   (if-let (actor (find-actor usti))
-      (=apply '=ask actor message)
+      (=apply #'=ask actor message)
     (call-next-method)))
 
 (=defmethod =ask ((proxy proxy) &rest message)
-  (=apply 'network-ask-nb proxy message))
+  (=apply #'network-ask-nb proxy message))
 
 ;; --------------------------------------------------------------------------------
 ;; USTI - Universal Send-Target Identifier
