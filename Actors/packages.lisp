@@ -43,19 +43,6 @@ THE SOFTWARE.
    #:timeout
    #:*timeout*)
 
-  (:import-from #:useful-macros
-   #:dynamic-wind
-   #:proceed
-   #:capture-dynamic-environment
-   #:with-dynamic-environment
-   #:call-with-dynamic-environment)
-  (:export
-   #:dynamic-wind
-   #:proceed
-   #:capture-dynamic-environment
-   #:with-dynamic-environment
-   #:call-with-dynamic-environment)
-
   (:export
    #:define-actor-class
    #:send
@@ -75,9 +62,6 @@ THE SOFTWARE.
    #:actor-properties-ref
    #:actor-mailbox
    #:actor-user-fn
-   #:limited-actor
-   #:actor-as-worker
-   #:limited-actor-as-worker
    #:make-actor
    #:make-limited-actor
 
@@ -90,8 +74,6 @@ THE SOFTWARE.
    #:spawn
    #:spawn-limited
    #:spawn-worker
-   #:spawn-actor-as-worker
-   #:spawn-limited-actor-as-worker
 
    #:invalid-send-target
 
@@ -337,8 +319,7 @@ THE SOFTWARE.
 
 (defpackage #:actors/base
   (:use #:common-lisp #:actors
-   #-:LISPWORKS
-   #:ansi-timer)
+   #-:LISPWORKS #:ansi-timer)
   (:import-from #:useful-macros
    #:curry
    #:rcurry

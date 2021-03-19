@@ -3,8 +3,7 @@
 
 (defpackage #:cps
   (:use #:cl)
-  (:import-from #:alexandria
-   #:parse-ordinary-lambda-list)
+
   (:import-from #:useful-macros
    #:symb
    #:if-let
@@ -15,6 +14,20 @@
    #:labels*
    #:flet*
    #:nlet)
+
+  (:import-from #:useful-macros
+   #:dynamic-wind
+   #:proceed
+   #:capture-dynamic-environment
+   #:with-dynamic-environment
+   #:call-with-dynamic-environment)
+  (:export
+   #:dynamic-wind
+   #:proceed
+   #:capture-dynamic-environment
+   #:with-dynamic-environment
+   #:call-with-dynamic-environment)
+
   (:export
    #:=bind
    #:=future

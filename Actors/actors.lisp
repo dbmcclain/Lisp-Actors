@@ -58,60 +58,65 @@ THE SOFTWARE.
 (define-symbol-macro self (current-actor))
 
 ;; ----------------------------------------------------
-;; An Actor mailbox contains a priority queue holding newly delivered
-;; messages, plus a list of previously stashed messages in arrival
-;; order. Stashed messages will be read before additional enqueued
-;; messages. Message may become stashed, e.g., during operation of a
-;; selective RECV.
+;; An Actor mailbox contains a queue holding newly delivered messages,
+;; plus a list of previously stashed messages in arrival order.
+;; Stashed messages will be read before additional enqueued messages.
+;; Message may become stashed, e.g., during operation of a selective
+;; RECV.
 
 (defclass actor-mailbox ()
+  ;; by default - a queue of indefinite capacity
   ((lock   :reader   actor-mailbox-lock
            :initform (mp:make-lock))
    (msgs   :reader   actor-msgs
-           :initarg  %mailbox)
+           :initarg  :queue)
    (replay :accessor actor-message-replay
            :initform nil))
   (:default-initargs
-   %mailbox (hcl:make-unlocked-queue)))
+   :queue (hcl:make-unlocked-queue)))
 
 (defclass limited-actor-mailbox (actor-mailbox)
+  ;; A queue with a limited capacity.  Additional SEND's will block
+  ;; waiting until they can deliver the message, or deliver a NIL
+  ;; result as a result of a timeout. By default the limit is one
+  ;; message.
   ()
   (:default-initargs
-   %mailbox (mp:make-mailbox :size 1)
+   :queue (mp:make-mailbox :size 1)
    ))
 
 ;; -----------------------------------------------------
+;; There is only ever one reader of the mailbox - the Actor.
 
 (defmacro with-actor-mailbox-locked (mbox &body body)
+  ;; When locked From the Actor reader side:
+  ;;  it blocks other SENDs
+  ;; When locked from a SEND:
+  ;;  it blocks other SENDs *and* prevents the Actor from accessing
+  ;;  messages in the queue.
   `(mp:with-lock ((actor-mailbox-lock ,mbox))
      ,@body))
 
-(defgeneric next-message (mbox)
+;; -----------------------------
+;; Actor reader-side actions
+
+(defgeneric next-queue-message (mbox)
   (:method ((mbox actor-mailbox))
-   (if (actor-message-replay mbox)
-       (values (pop (actor-message-replay mbox)) t)
-     ;; else
-     (with-actor-mailbox-locked mbox
-       (let ((queue (actor-msgs mbox)))
-         (when (hcl:unlocked-queue-ready queue)
-           (values (hcl:unlocked-queue-read queue) t))
-         ))))
+   (let ((queue (actor-msgs mbox)))
+     (when (hcl:unlocked-queue-ready queue)
+       (with-actor-mailbox-locked mbox
+         (values (hcl:unlocked-queue-read queue) t))
+       )))
   (:method ((mbox limited-actor-mailbox))
-   (if (actor-message-replay mbox)
-       (values (pop (actor-message-replay mbox)) t)
-     ;; else
-     (mp:mailbox-read (actor-msgs mbox) nil 0))))
+   ;; non-blocking with zero timeout
+   (mp:mailbox-read (actor-msgs mbox) nil 0)))
   
-(defgeneric unsafe-send-message (mbox msg)
-  ;; always called from within a locked condition,
-  ;; using that lock, makes this "safe"
-  (:method ((mbox actor-mailbox) msg)
-   ;; always succeeds
-   (hcl:unlocked-queue-send (actor-msgs mbox) msg)
-   t)
-  (:method ((mbox limited-actor-mailbox) msg)
-   ;; might not succeed
-   (mp:mailbox-send-limited (actor-msgs mbox) msg 1 *timeout*)))
+(defun next-message (mbox)
+  ;; Take the next message from the replay queue, else from the main
+  ;; mailbox queue
+  (if (actor-message-replay mbox)
+      (values (pop (actor-message-replay mbox)) t)
+    (next-queue-message mbox)))
 
 (defgeneric unsafe-mailbox-not-empty-p (mbox)
   ;; called only under lock by Actor itself
@@ -122,6 +127,21 @@ THE SOFTWARE.
   (:method ((mbox limited-actor-mailbox))
    (or (actor-message-replay mbox)
        (mp:mailbox-not-empty-p (actor-msgs mbox)))))
+
+;; ------------------------------
+;; SEND-side actions
+
+(defgeneric unsafe-send-message (mbox msg)
+  ;; should always called from within a lock. Using that lock, makes
+  ;; this become "safe"
+  (:method ((mbox actor-mailbox) msg)
+   ;; always succeeds
+   (hcl:unlocked-queue-send (actor-msgs mbox) msg)
+   t)
+  (:method ((mbox limited-actor-mailbox) msg)
+   ;; might not succeed - block until we can deliver, or else timeout
+   ;; waiting
+   (mp:mailbox-send-limited (actor-msgs mbox) msg 1 *timeout*)))
 
 ;; -----------------------------------------------------
 ;; Version 3... make the Actor's internal state more readily visible
@@ -140,7 +160,11 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:indent-like 'define-actor-class 'defclass)
 
+;; -----------------------------------------------------
+;; Actor class heirarchy
+
 (define-actor-class <runnable> (t)
+  ;; Parent class of all Actors and Workers
   ((busy
     ;; when non-nil this Actor is either already enqueued for running,
     ;; or is running. We use a CONS cell for the flag for SMP CAS
@@ -153,6 +177,9 @@ THE SOFTWARE.
    ))
 
 (define-actor-class worker (<runnable>)
+  ;; A Worker is simply a function that runs on an independent thread
+  ;; in the thread pool. It does not have a message queue. It is not
+  ;; an Actor, and cannot respond to external message SENDs.
   ((wrapper
     ;; contains a list whose CAR is a function and whose CDR is a list
     ;; of args, or contains NIL when nullified by terminate-actor
@@ -163,6 +190,13 @@ THE SOFTWARE.
    ))
 
 (define-actor-class actor (<runnable>)
+  ;; Actor with indefinite-size message queue. A kind of closure
+  ;; object that responds to messages sent to it. Actors enforce
+  ;; single-thread semantics on all of the code that runs under their
+  ;; supervision - including callback continuations.
+  ;;
+  ;; By default, it expects messages to be executable functions with
+  ;; args. Users can specify other behavior at construction time.
   ((properties-ref
     ;; globally visible properties on this Actor. SMP-safe methods are
     ;; provided for getting / setting
@@ -171,7 +205,7 @@ THE SOFTWARE.
    (mbox
     ;; the Actor's message queue. SMP-safe
     :reader    actor-mailbox
-    :initform  (make-instance 'actor-mailbox))
+    :initarg   :mailbox)
    (user-fn
     ;; points to the user code describing the behavior of this Actor.
     ;; This pointer is changed when the Actor performs a BECOME. Only
@@ -181,22 +215,11 @@ THE SOFTWARE.
   (:default-initargs
    :properties-ref (ref (maps:empty))
    :user-fn        #'funcall
+   :mailbox        (make-instance 'actor-mailbox)
    ))
-
-(define-actor-class limited-actor (actor)
-  ((mbox
-    :reader   actor-mailbox
-    :initform (make-instance 'limited-actor-mailbox))
-   ))
-
-(define-actor-class actor-as-worker (worker actor)
-  ())
-
-(define-actor-class limited-actor-as-worker (worker limited-actor)
-  ())
 
 ;; -----------------------------------------------------
-;; These methods can be called from any thread. SMP safe.
+;; Actor construction
 
 (defmethod initialize-instance :after ((actor actor) &key properties &allow-other-keys)
   (wr (ref-val (slot-value actor 'properties-ref))
@@ -212,10 +235,18 @@ THE SOFTWARE.
                  :user-fn    (or fn #'funcall)
                  :properties properties))
 
-(defun make-limited-actor (&optional fn &key properties)
-  (make-instance 'limited-actor
-                 :user-fn    (or fn #'funcall)
+(defun make-limited-actor (&key (mailbox-size 1)
+                                behavior
+                                properties)
+  (make-instance 'actor
+                 :mailbox    (make-instance 'limited-actor-mailbox
+                                            :queue  (mp:make-mailbox
+                                                     :size mailbox-size))
+                 :user-fn    (or behavior #'funcall)
                  :properties properties))
+
+;; -----------------------------------------------------
+;; These methods can be called from any thread. SMP safe.
 
 (defmethod get-property ((actor actor) key &optional default)
   ;; SMP-safe
@@ -235,6 +266,7 @@ THE SOFTWARE.
          (maps:remove map key))))
 
 ;; --------------------------------------------------------
+;; Core SEND to Actors
 
 #+:USING-MAC-GCD
 (defmethod send ((actor actor) &rest msg)
@@ -242,7 +274,8 @@ THE SOFTWARE.
     (with-actor-mailbox-locked mbox
       (if (sys:compare-and-swap (car (actor-busy actor)) nil t)
           ;; First time firing up the Actor - just go direct
-          (apply #'run-actor-direct actor msg)
+          (or (apply #'run-actor-direct actor msg)
+              t)
         ;; else
         (unsafe-send-message mbox msg))
       )))
@@ -268,62 +301,48 @@ THE SOFTWARE.
         t)))) ;; indicate success
 
 ;; ----------------------------------------------------------------
-
-(defun %basic-run-worker (worker)
-  (let ((form (worker-dispatch-wrapper worker)))
-    (apply (car form) (cdr form))))
-
-(defun %basic-run-actor (actor &key (initial-message nil initial-message-present-p))
-  (let ((mbox  (actor-mailbox actor))
-        (busy  (actor-busy actor)))
-    (unwind-protect
-        (prog ()
-          (when (and (eq t (car busy))
-                     initial-message-present-p)
-            (apply #'dispatch-message initial-message))
-          again
-          (when (eq t (car busy)) ;; not terminated?
-            (multiple-value-bind (msg ok)
-                (next-message mbox)
-              (when ok  ;; until no more messages waiting
-                (apply #'dispatch-message msg)
-                (go again)))))
-      ;; unwind clause
-      (when (eq t (car busy)) ;; not terminated
-        ;; <-- a message could have arrived here, but would have
-        ;; failed to enqueue the Actor.  So we double check before
-        ;; clearing the busy mark.
-        (with-actor-mailbox-locked mbox
-          (cond ((unsafe-mailbox-not-empty-p mbox)
-                 ;; leave marked busy and put back on ready queue
-                 (add-to-ready-queue actor))
-                
-                (t
-                 ;; might have been terminated - so conditionally unmark
-                 (sys:compare-and-swap (car busy) t nil))
-                )))
-      )))
-
-(defun %basic-run-actor-as-worker (actor class)
-  (%basic-run-worker actor)
-  ;; first call treats as worker, thereafter as actor
-  (change-class actor class)
-  (%basic-run-actor actor))
-
-;; ----------------------------------------------------------------
+;; Toplevel Actor / Worker behavior
 
 (defgeneric %run-actor (actor &key &allow-other-keys)
   (:method ((worker worker) &key &allow-other-keys)
-   (%basic-run-worker worker))
-  
-  (:method ((*current-actor* actor) &rest args &key &allow-other-keys)
-   (apply #'%basic-run-actor *current-actor* args))
+   ;; Just run the form with which it was consructed
+   (let ((form (worker-dispatch-wrapper worker)))
+     (apply (car form) (cdr form))))
 
-  (:method ((*current-actor* actor-as-worker) &key &allow-other-keys)
-   (%basic-run-actor-as-worker *current-actor* 'actor))
-
-  (:method ((*current-actor* limited-actor-as-worker) &key &allow-other-keys)
-   (%basic-run-actor-as-worker *current-actor* 'limited-actor)))
+  (:method ((*current-actor* actor)
+            &key (initial-message nil initial-message-present-p)
+            &allow-other-keys)
+   ;; An Actor can run an initial message, and loops on sent messages until
+   ;; no more are pending for it.
+   (let ((mbox  (actor-mailbox *current-actor*))
+         (busy  (actor-busy *current-actor*)))
+     (unwind-protect
+         (prog ()
+           (when (and (eq t (car busy))
+                      initial-message-present-p)
+             (apply #'dispatch-message initial-message))
+           again
+           (when (eq t (car busy)) ;; not terminated?
+             (multiple-value-bind (msg ok)
+                 (next-message mbox)
+               (when ok  ;; until no more messages waiting
+                 (apply #'dispatch-message msg)
+                 (go again)))))
+       ;; unwind clause
+       (when (eq t (car busy)) ;; not terminated
+         ;; <-- a message could have arrived here, but would have
+         ;; failed to enqueue the Actor.  So we double check before
+         ;; clearing the busy mark.
+         (with-actor-mailbox-locked mbox
+           (cond ((unsafe-mailbox-not-empty-p mbox)
+                  ;; leave marked busy and put back on ready queue
+                  (add-to-ready-queue *current-actor*))
+                 
+                 (t
+                  ;; might have been terminated - so conditionally unmark
+                  (sys:compare-and-swap (car busy) t nil))
+                 )))
+       ))))
 
 ;; -----------------------------------------------
 ;; Since these methods are called against (CURRENT-ACTOR) they can
@@ -360,44 +379,46 @@ THE SOFTWARE.
   (list* 'actors/internal-message:ask reply-to msg))
 
 ;; ---------------------------------------------------------
+;; Central Actor message handling
 
 (defun dispatch-message (&rest *whole-message*)
   (with-trampoline
     (um:dcase *whole-message*
       (actors/internal-message:continuation (fn &rest args)
-                                           ;; Used for callbacks into the Actor
-                                           (apply fn args))
+        ;; Used for callbacks into the Actor
+        (apply fn args))
       
       (actors/internal-message:send-sync (reply-to &rest sub-message)
-                                        (send reply-to t)
-                                        (apply #'self-call sub-message))
+        ;; tell sender we got the message before executing it
+        (send reply-to t)
+        (apply #'self-call sub-message))
       
       (actors/internal-message:ask (reply-to &rest sub-msg)
-                                  ;; Intercept restartable queries to send back a response
-                                  ;; from the following message, reflecting any errors back to
-                                  ;; the caller.
-                                  (let ((original-ask-message *whole-message*))
-                                    (dynamic-wind
-                                      (let ((*whole-message* original-ask-message)
-                                            (*in-ask*        t))
-                                        (handler-case
-                                            (send reply-to
-                                                  (capture-ans-or-exn
-                                                    (um:proceed
-                                                     (apply #'self-call sub-msg))))
-                                          
-                                          (no-immediate-answer ())
-                                          )))))
+        ;; Intercept restartable queries to send back a response
+        ;; from the following message, reflecting any errors back to
+        ;; the caller.
+        (let ((original-ask-message *whole-message*))
+          (dynamic-wind
+            (let ((*whole-message* original-ask-message)
+                  (*in-ask*        t))
+              (handler-case
+                  (send reply-to
+                        (capture-ans-or-exn
+                          (um:proceed
+                           (apply #'self-call sub-msg))))
+                
+                (no-immediate-answer ())
+                )))))
       
       (t (&rest msg)
-         ;; anything else is up to the programmer who constructed
-         ;; this Actor
-         (apply #'self-call msg))
+        ;; anything else is up to the programmer who constructed
+        ;; this Actor
+        (apply #'self-call msg))
       )))
 
 ;; ---------------------------------------------
 ;; SPAWN a new Actor using a function with args
-
+;;
 ;; This is a less common way of starting an Actor. Most often we
 ;; MAKE-ACTOR, then SEND messages to it. But this is a shortcut for
 ;; that combo on the first message send.
@@ -410,36 +431,23 @@ THE SOFTWARE.
     actor))
 
 (defun spawn-limited (fn &rest args)
-  (let ((actor (make-limited-actor fn)))
+  (let ((actor (make-limited-actor :behavior fn)))
     (apply 'send actor args)
     actor))
 
 ;; ----------------------------------------------
-;; WORKER and ACTOR-AS-WORKER exist as separate classes so that
-;; helper functions can be launched, yet disabled if necessary,
-;; before the Executive pool runs them.
-;;
 ;; WORKER is just a function that executes on an Executive pool
-;; thread. ACTOR-AS-WORKER can accept messages, but performs an
-;; initial function just like WORKER, and thereafter becomes a normal
-;; ACTOR.
+;; thread.
 ;;
 ;; WORKER is intended as a lightweight vehicle to perform non
 ;; Actor-centric duties, e.g., blocking I/O. It will see a null value
 ;; from (CURRENT-ACTOR), just like non-Actor code running on any other
-;; thread. They take advantage of the Executive thread pool to launch
-;; faster than constructing a full thread to run them.
-;;
-;; ACTOR-AS-WORKER will see itself as (CURRENT-ACTOR) and can run full
-;; Actor-centric facilities, if desired. In order to respond to
-;; anything other than system messages, it either needs to perform a
-;; RECV, or else a BECOME to enable message handling. It defaults to
-;; DO-NOTHING with messages.
-;;
-;; When in doubt, lauch as either ACTOR or ACTOR-AS-WORKER.
+;; thread. It takes advantage of the Executive thread pool to launch
+;; faster than fully constructing a thread to run them.
 
-(defun spawn-actor/worker (class fn &rest args)
-  (let ((worker (make-instance class
+#-:USING-MAC-GCD
+(defun spawn-worker (fn &rest args)
+  (let ((worker (make-instance 'worker
                                :busy    (list t)
                                :wrapper (if (consp fn)
                                             fn
@@ -454,16 +462,6 @@ THE SOFTWARE.
    fn)
   (:method ((fn symbol) &rest args)
    (apply #'spawn-worker (symbol-function fn) args)))
-
-#-:USING-MAC-GCD
-(defun spawn-worker (fn &rest args)
-  (apply 'spawn-actor/worker 'worker fn args))
-
-(defun spawn-actor-as-worker (fn &rest args)
-  (apply 'spawn-actor/worker 'actor-as-worker fn args))
-
-(defun spawn-limited-actor-as-worker (fn &rest args)
-  (apply 'spawn-actor/worker 'limited-actor-as-worker fn args))
 
 ;; ------------------------------------------
 ;; Sends directed to mailboxes, functions, etc.
