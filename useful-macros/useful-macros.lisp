@@ -3199,10 +3199,34 @@ or list acceptable to the reader macros #+ and #-."
 ;; ----------------------------------------------------
 
 #||#
-(defmacro ->> (arg &rest fn-forms)
-  (if fn-forms
-      `(->> (funcall ,(car fn-forms) ,arg) ,@(cdr fn-forms))
+(defmacro ->> (arg &rest ops)
+  "Pass arg into first ops form, where _ indicates the place of
+substitution, to produce another arg. Repeat until all ops are
+exhausted.
+  So this effects a progressive left to right operation, with each
+successive op using the result of the previous one for its _
+argument."
+  (if ops
+      (lw:rebinding (arg)
+        `(->> ,(subst arg '_ (car ops)
+                      :test #'string=
+                      :key  #'(lambda (x)
+                                (and (symbolp x) x)))
+              ,@(cdr ops)))
     arg))
+
+(defun ash-dpb (a nsh b)
+  "Arg A is shifted by NSH bits, then the low NSH bits are filled by the
+low NSH bits of arg B. Obviously, NSH should be a positive left shift."
+  #F
+  (declare (integer a b)
+           (fixnum nsh))
+  (let ((ans (ash a nsh)))
+    (declare (integer ans))
+    (setf (ldb (byte nsh 0) ans)
+          (ldb (byte nsh 0) b))
+    ans))
+
 #||#
 
 #|

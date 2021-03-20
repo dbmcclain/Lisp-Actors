@@ -475,24 +475,18 @@ built according code-char of each number in the uuid-string"
         ))
 
 (defun uuid-to-integer (id)
-  "Convert a UUID into a (big) integer... only in Lisp!"
-  ;; preserve the time order in a V1 UUID
-  (labels ((iter (accum n nshift)
-             (logior (ash accum nshift) n)))
-    (iter
-     (iter
-      (iter
-       (iter
-        (iter (time-high id)
-              (time-mid id) 16)
-        (time-low id) 32)
-       (clock-seq-var id) 8)
-      (clock-seq-low id) 8)
-     (node id) 48)))
+  "Convert a UUID into a (big) integer... only in Lisp!
+  Preserves the time order in a V1 UUID."
+  (um:->> (time-high id)
+          (um:ash-dpb _ 16 (time-mid id))
+          (um:ash-dpb _ 32 (time-low id))
+          (um:ash-dpb _  8 (clock-seq-var id))
+          (um:ash-dpb _  8 (clock-seq-low id))
+          (um:ash-dpb _ 48 (node id))))
 
 (defun integer-to-uuid (id)
-  "Convert an integer into a UUID"
-  ;; preserve the time order in a V1 UUID
+  "Convert an integer into a UUID.
+  Preserves the time order in a V1 UUID."
   (make-instance 'uuid
                  :time-low      (ldb (byte 32 64) id)
                  :time-mid      (ldb (byte 16 96) id)
@@ -506,9 +500,9 @@ built according code-char of each number in the uuid-string"
   (< (uuid-to-integer a) (uuid-to-integer b)))
 
 (defun uuid-time (id)
-  (dpb (ldb (byte 12 0) (time-high id)) (byte 12 48)
-       (dpb (time-mid id) (byte 16 32)
-            (time-low id))))
+  (um:->> (time-high id)
+          (um:ash-dpb _ 16 (time-mid id))
+          (um:ash-dpb _ 32 (time-low id))))
 
 (defun copy-v1-uuid-replacing-time (new-time uuid)
   (make-instance 'uuid
@@ -585,6 +579,5 @@ built according code-char of each number in the uuid-string"
                 )))))
 
 (defun uuid-string (uuid)
-  (with-output-to-string (s)
-    (princ uuid s)))
+  (princ-to-string uuid))
 
