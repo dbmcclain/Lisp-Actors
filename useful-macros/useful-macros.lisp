@@ -1050,28 +1050,17 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------
 ;; functional version of ACCUM macro...
-#||#
-(defun do-accum (fn)
-  #F
-  (declare (function fn))
-  (let* ((hd  (list nil))
-         (tl  hd))
-    (declare (cons hd tl))
-    (labels ((accum (val)
-               (setf tl
-                     (setf (cdr tl)
-                           (list val)))))
-      (funcall fn #'accum)
-      (cdr hd))))
-  
+
 (defmacro accum (accfn &body body)
-  (with-gensyms (gaccum garg)
-      `(do-accum (lambda (,gaccum)
-                   (declare (function ,gaccum))
-                   (labels ((,accfn (,garg)
-                              (funcall ,gaccum ,garg)))
-                     ,@body)))
-    ))
+  (lw:with-unique-names (hd tl item)
+    `(let* ((,hd (list nil))
+            (,tl ,hd))
+       (flet ((,accfn (,item)
+                (setf ,tl
+                      (setf (cdr ,tl)
+                            (list ,item)))))
+         ,@body)
+       (cdr ,hd))))
 #||#
 ;; -----------------------------------------------
 #|
@@ -2931,6 +2920,10 @@ This is C++ style enumerations."
 (defun rot-bits (val bytespec nrot)
   ;; (ROT-BITS val (BYTE width start) nrot)
   ;; ... a BYTEspec is a cons cell (width . start)
+  (lw:rotate-byte nrot bytespec val))
+
+#|
+(defun rot-bits (val bytespec nrot)
   (let* ((start   (cdr bytespec))
          (nbits   (car bytespec))
          (mask    (ash (1- (ash 1 nbits)) start))
@@ -2942,7 +2935,7 @@ This is C++ style enumerations."
          (lobits  (logand mask (ash bits nrsh))))
     (logior topbits hibits lobits)
     ))
-
+|#
 ;; --------------------------------------------
 
 #+:LISPWORKS
@@ -2994,10 +2987,15 @@ This is C++ style enumerations."
 (chkargs ((a integer) (b float)) (doit toit))
  |#
 
+(defun sfloat (x)
+  (if (realp x)
+      (coerce x 'single-float)
+    (check-type x real)))
+
 (defun dfloat (x)
   (if (realp x)
       (coerce x 'double-float)
-    (error "Real number expected (got ~A)"  x)))
+    (check-type x real)))
 
 ;; ----------------------------------------------------------
 
@@ -3006,7 +3004,6 @@ This is C++ style enumerations."
   (let ((cell (vector)))
     (declare (dynamic-extent cell))
     (format t "~%Stack: ~X" (sys:object-address cell))))
-
 
 ;; -----------------------------------------------
 
@@ -3023,11 +3020,14 @@ or list acceptable to the reader macros #+ and #-."
             (not  (assert (= 2 (length feature-expression)))
                   (not (featurep (second feature-expression))))))))
 
-
 ;; -----------------------------------------------
 
 (defmacro single-eval ((&rest names) &body body)
-  (let ((gensyms (loop for n in names collect (gensym n))))
+  `(lw:rebinding ,names ,@body))
+
+#|
+(defmacro single-eval ((&rest names) &body body)
+  (let ((gensyms (loop for n in names collect (gensym (string n)))))
     `(with-gensyms (,@gensyms)
       `(let (,,@(loop for g in gensyms
                       for n in names
@@ -3036,11 +3036,12 @@ or list acceptable to the reader macros #+ and #-."
                        for g in gensyms
                        collect `(,n ,g)))
            ,@body)))))
-
+|#
 #|
 (defmacro square (x)
   (single-eval (x)
     `(* ,x ,x)))
+(square x)
 |#
 
 ;; -----------------------------------------------
@@ -3094,7 +3095,7 @@ or list acceptable to the reader macros #+ and #-."
 
     (gathering
       (dotimes (i 5)
-        (gather i))
+        (gather i)))
     =>
     (0 1 2 3 4)
 
@@ -3105,85 +3106,9 @@ or list acceptable to the reader macros #+ and #-."
     (1 2 3 a b)
 
   "
-  (let ((result (gensym)))
-    `(let ((,result nil))
-       (flet ((gather (item)
-                (push item ,result)
-                item))
-         ,@body)
-       (nreverse ,result))))
+  `(accum gather ,@body))
 
 ;; --------------------------------------------------------------------
-;; Arrow -> - useful for chaining together functions
-
-#|
-(defmacro -> (form &optional next-form &rest other-forms)
-  ;; others should be a list of forms whose function will take the val
-  ;; as its first argument. Transforms to constant stack depth eval.
-  (cond ((consp next-form)
-         (destructuring-bind (fn . args) next-form
-           (if (consp form)
-               (let ((g!arg (gensym)))
-                 `(let ((,g!arg ,form))
-                    (-> (,fn ,g!arg ,@args) ,@other-forms)))
-             `(-> (,fn ,form ,@args) ,@other-forms)
-             )))
-        
-        ((null next-form)
-         form)
-        
-        (t
-         ;; acts like next-form was CONSTANTLY function form
-         `(-> ,next-form ,@other-forms))
-        ))
-
-(defmacro _> ((sym) form &optional next-form &rest other-forms)
-  ;; similar in spirit to ->, but allows for arbitrary placement of substitution
-  (cond (next-form
-         `(let ((,sym ,form))
-            (_> (,sym) ,next-form ,@other-forms)))
-        
-        ((null next-form)
-         form)
-        ))
-|#
-#|
-(-> start-val
-    (dosomething arg1 arg2)
-    (dosomething arg3 arg4))
-=>
-(LET ((#:G49408 (DOSOMETHING START-VAL ARG1 ARG2)))
-  (DOSOMETHING #:G49408 ARG3 ARG4))
-
-(-> (start-fn arg0)
-    (dosomething arg1 arg2)
-    (dosomething arg3 arg4))
-=>
-(LET ((#:G49412 (START-FN ARG0)))
-  (LET ((#:G49416 (DOSOMETHING #:G49412 ARG1 ARG2)))
-    (DOSOMETHING #:G49416 ARG3 ARG4)))
-
-(-> 15)
-
-(-> (maps:empty)
-    (maps:add :one 1)
-    (maps:add :two 2)
-    (maps:add :three 3))
-=>
-(LET ((#:G49420 (SETS:EMPTY)))
-  (LET ((#:G49424 (MAPS:ADD #:G49420 :ONE 1)))
-    (LET ((#:G49428 (MAPS:ADD #:G49424 :TWO 2)))
-      (MAPS:ADD #:G49428 :THREE 3))))
-
-(_> (_)
-    start-val
-    (dosomething _ arg1 _ arg2)
-    (dosomething _ arg3 arg4))
-=>
-(LET ((_ START-VAL))
-  (LET ((_ (DOSOMETHING _ ARG1 _ ARG2)))
-    (DOSOMETHING _ ARG3 ARG4)))
- |#
 
 (defun read-mailbox-with-timeout (mbox &key timeout errorp on-timeout)
   (multiple-value-bind (ans ok)
@@ -3198,7 +3123,6 @@ or list acceptable to the reader macros #+ and #-."
 
 ;; ----------------------------------------------------
 
-#||#
 (defmacro ->> (arg &rest ops)
   "Pass arg into first ops form, where _ indicates the place of
 substitution, to produce another arg. Repeat until all ops are
@@ -3227,28 +3151,6 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
           (ldb (byte nsh 0) b))
     ans))
 
-#||#
-
-#|
-(defmacro ->> (args &rest fn-forms)
-  (labels ((helper (arg &optional fn-form &rest fn-forms)
-             (if fn-form
-                 (if fn-forms
-                     (apply #'helper `(multiple-value-call ,fn-form ,arg) fn-forms)
-                   `(multiple-value-call ,fn-form ,arg))
-               arg)))
-    (apply #'helper `(values ,@args) fn-forms)))
-|#
-#|
-(->> (x)
-     (um:rcurry #'doit :yes)
-     (um:rcurry #'didit :no)
-     (um:rcurry #'mapcar #'1+))
-
-(->> (x)
-     #'identity)
-(->> (x))
-|#
 ;; -------------------------------------------------------------
 
 (defmacro doseq ((var coll &optional ret-form) &body body)
@@ -3260,34 +3162,29 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
      ,ret-form))
 
 (defmacro vbind (syms vec &body body)
-  (let ((gvec (gensym)))
-    `(let ((,gvec ,vec))
-       ,@(nlet iter ((syms syms)
-                     (pos  0))
-           (if (endp syms)
-               body
-             `((let ((,(car syms) (aref ,gvec ,pos)))
-                 ,@(iter (cdr syms) (1+ pos))))
-             ))
-       )))
+  (lw:rebinding (vec)
+    `(let ,(mapcar (let ((pos 0))
+                     (lambda (sym)
+                       (prog1
+                           `(,sym  (aref ,vec ,pos))
+                         (incf pos))))
+                   syms)
+       ,@body)))
 
 (defmacro vbind* (syms vec &body body)
-  (let ((gvec (gensym)))
-    `(let ((,gvec ,vec))
-       ,@(nlet iter ((syms syms)
-                     (pos  0))
-           (if (endp syms)
-               body
-             `((symbol-macrolet ((,(car syms) (aref ,gvec ,pos)))
-                 ,@(iter (cdr syms) (1+ pos))))
-             ))
-       )))
+  (lw:rebinding (vec)
+    `(symbol-macrolet ,(mapcar (let ((pos 0))
+                                 (lambda (sym)
+                                   (prog1
+                                       `(,sym (aref ,vec ,pos))
+                                     (incf pos))))
+                               syms)
+       ,@body)))
 
 (defmacro with-velems (bindings vec &body body)
-  (let ((gvec (gensym)))
-    `(let ((,gvec ,vec))
-       (symbol-macrolet ,(mapcar #`(,(car a1) (aref ,gvec ,(cadr a1))) bindings)
-         ,@body))
+  (lw:rebinding (vec)
+    `(symbol-macrolet ,(mapcar #`(,(car a1) (aref ,vec ,(cadr a1))) bindings)
+       ,@body)
     ))
        
 ;; -------------------------------------------------
@@ -3298,3 +3195,43 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
        (< ix hi)))
 
 
+#|
+(defun tst-null (n)
+  #F
+  (declare (fixnum n))
+  (loop for ix fixnum from 0 below n do
+        (progn ix))
+  (values))
+
+(defun tst-accum (n)
+  #F
+  (declare (fixnum n))
+  (accum acc
+    (loop for ix fixnum from 0 below n do
+          (acc ix)))
+  (values))
+
+(defun tst-gather (n)
+  #F
+  (declare (fixnum n))
+  (gathering
+    (loop for ix fixnum from 0 below n do
+          (gather ix)))
+  (values))
+
+(let ((times nil))
+  (dotimes (ix 1000)
+    (let ((start (usec:get-time-usec)))
+      ;; (tst-accum 1000000) ;; 3.097 ms
+      (tst-gather 1000000) ;; 5.600 ms
+      (let ((tm1 (usec:get-time-usec)))
+        (tst-null 1000000)
+        (let ((tm2 (usec:get-time-usec)))
+          (push (- (- tm1 start) (- tm2 tm1)) times)))))
+  (plt:histogram 'plt times :clear t)
+  (vm:median times))
+|#
+
+        
+        
+              

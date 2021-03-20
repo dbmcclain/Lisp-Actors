@@ -943,6 +943,7 @@ THE SOFTWARE.
    #:recover-ans-or-exn
 
    #:*top-function*
+   #:sfloat
    #:dfloat
    #:chktype
    #:chkarg
