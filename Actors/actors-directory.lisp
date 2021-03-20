@@ -24,6 +24,12 @@
   (:method ((usti uuid:uuid))
    usti))
 
+(defun need-acceptable-key (name)
+  (let ((key (acceptable-key name)))
+    (unless key
+      (error "Unacceptable name for Actor: ~S" name))
+    key))
+
         ;;; =========== ;;;
 ;; The Directory utilizes a functional mapping (shareable, immutable).
 ;; But the pointer to the top of the map is not immutable. We use
@@ -46,7 +52,7 @@
 
 (defun register-actor (name actor)
   ;; this simply overwrites any existing entry with actor
-  (um:when-let (key (acceptable-key name))
+  (let ((key (need-acceptable-key name)))
     (update-directory (um:rcurry 'maps:add key actor))
     actor))
 
@@ -88,6 +94,40 @@
        (when (eq v actor)
          (acc k)))
      )))
+
+;; -------------------------------------------------------
+;; in anticipation of networking and distributed SEND
+
+(defmethod ensured-identifier ((actor actor))
+  (if (eq actor (current-actor))
+      (ensure-identifiable actor)
+    (=wait ((id)
+            :errorp t
+            :timeout *timeout*)
+        (inject-into-actor actor
+          (=values (ensure-identifiable actor)))
+      id)))
+
+(defmethod ensure-identifiable ((actor actor) &optional id)
+  (when id
+    (setf id (need-acceptable-key id)))
+  (inject-into-actor actor
+    (let* ((id  (or (get-property actor :usti)
+                    (car (find-names-for-actor actor))
+                    id
+                    (uuid:make-v1-uuid)))
+           (found  (find-actor id)))
+      (when found
+        (unless (eq actor found)
+          (error "Conflicting ID for Actor: ~S" id)))
+      (unless (eql id (get-property actor :usti))
+        (setf (get-property actor :usti) id))
+      (unless found
+        (register-actor id actor))
+      id)))
+
+(defun self-identifier ()
+  (ensured-identifier (current-actor)))
 
 ;; ------------------------------------------
 

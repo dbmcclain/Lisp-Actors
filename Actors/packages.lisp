@@ -164,6 +164,10 @@ THE SOFTWARE.
    #:start
 
    #:defglobal-var
+
+   #:ensure-identifiable
+   #:ensured-identifier
+   #:self-identifier
    ))
 
 #-lispworks

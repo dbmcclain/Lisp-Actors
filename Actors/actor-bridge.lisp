@@ -366,6 +366,9 @@
   (:method ((obj uuid:uuid))
    (make-proxy
     :service obj))
+  (:method ((obj actor))
+   (make-proxy
+    :service (ensured-identifier obj)))
   (:method (obj)
    (make-proxy
     :service (ask-bridge ()
