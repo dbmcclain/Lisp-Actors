@@ -140,52 +140,57 @@ Encrypted data is marked as such by making the prefix count odd."
 
 ;; -------------------------------------------
 
-(defun encode (msg &key
+(defun encode (msg &rest args
+                   &key
+                   self-sync
                    use-magic
                    prefix-length
                    (align 1)
                    (reserve 0)
                    align-includes-prefix
                    use-buffer
-                   (backend 'loe-back-end))
+                   (backend 'loe-back-end)
+                   &allow-other-keys)
   "Serialize a message to a buffer of unsigned bytes."
   ;; preflen will be one of 1,2,4,8,16 or 0
-  (let* ((preflen (or (normalize-prefix-length prefix-length) 0))
-         (buf     (ubstream:with-output-to-ubyte-stream (s use-buffer)
-                    (labels ((pad-null (nel)
-                               (loop repeat nel do
-                                     (write-byte 0 s))))
-                      
-                      ;; reserve room for prefix count and encryption signature
-                      (setf (ubstream:stream-file-position s) (+ preflen reserve))
-
-                      (let ((bknd (if use-magic
-                                      (sdle-store:copy-backend backend
-                                                               :magic-number use-magic)
-                                    backend)))
-                        (sdle-store:store msg s bknd))
-                      
-                      ;; pad data to an even number of bytes
-                      (let* ((data-len (- (ubstream:stream-file-position s)
-                                          (if align-includes-prefix
-                                              0
-                                            preflen)))
-                             (npad     (- (um:align-pwr2 data-len align)
-                                          data-len)))
-                        (pad-null npad))
-                      ))))
-    
-    (when prefix-length
-      (encode-prefix-length buf prefix-length))
-    buf))
+  (if self-sync
+      (ubyte-streams:with-output-to-ubyte-stream (sout)
+        (self-sync:write-self-sync (apply #'encode msg
+                                          :self-sync nil
+                                          args)
+                                   sout))
+    (let* ((preflen (or (normalize-prefix-length prefix-length) 0))
+           (buf     (ubstream:with-output-to-ubyte-stream (s use-buffer)
+                      (labels ((pad-null (nel)
+                                 (loop repeat nel do
+                                       (write-byte 0 s))))
+                        
+                        ;; reserve room for prefix count and encryption signature
+                        (setf (ubstream:stream-file-position s) (+ preflen reserve))
+                        
+                        (let ((bknd (if use-magic
+                                        (sdle-store:copy-backend backend
+                                                                 :magic-number use-magic)
+                                      backend)))
+                          (sdle-store:store msg s bknd))
+                        
+                        ;; pad data to an even number of bytes
+                        (let* ((data-len (- (ubstream:stream-file-position s)
+                                            (if align-includes-prefix
+                                                0
+                                              preflen)))
+                               (npad     (- (um:align-pwr2 data-len align)
+                                            data-len)))
+                          (pad-null npad))
+                        ))))
+      
+      (when prefix-length
+        (encode-prefix-length buf prefix-length))
+      buf)))
 
 ;; -------------------------------------------
 
-(defun serialize (msg stream &key
-                      use-magic
-                      prefix-length
-                      use-buffer
-                      (backend 'loe-back-end))
+(defun serialize (msg stream &rest args)
   "Serialize a message to the output stream (usually a socket output port). The
 message is encoded as a long string of unsigned bytes, or base-chars, with a
 length prefix in network byte-order (big-endian). The prefix count does not include
@@ -193,12 +198,7 @@ the length of itself.
 
 Once the message and its prefix count is encoded in the buffer we peform a single
 I/O call to write the entire stream to the output port."
-  (write-sequence (encode msg
-                          :use-magic     use-magic
-                          :prefix-length prefix-length
-                          :use-buffer    use-buffer
-                          :backend       backend)
-                  stream))
+  (write-sequence (apply #'encode msg args) stream))
 
 ;; ---------------------------------------------------------------
 ;; ---------------------------------------------------------------
@@ -297,11 +297,14 @@ transmitted in network byte-order (big-endian)."
 
 ;; -----------------------------------------------------------------------------
 
-(defun deserialize (stream &key
+(defun deserialize (stream &rest args
+                           &key
+                           self-sync
                            use-magic
                            prefix-length
                            length
-                           (backend 'loe-back-end))
+                           (backend 'loe-back-end)
+                           &allow-other-keys)
   "Deserialize an encoded message from the input stream. The message will have a 4-byte
 prefix length in network byte-order (big-endian). We strip that count out into a stack
 allocated 4-byte array, then decode that length and request a buffer of at least that size
@@ -310,35 +313,35 @@ from the buffer manager.
 A single I/O read operation then reads the entire encoded message into that buffer, and then
 we recursively decode the contents of the buffer. The final decoded message object is returned after
 recycling that buffer for another use later. This is an attempt to avoid generating too much garbage."
-  (let ((preflen (normalize-prefix-length prefix-length))
-        (bknd    (if use-magic
-                     (sdle-store:copy-backend backend
-                                              :magic-number use-magic)
-                   backend)))
-    (cond (preflen
+  (if self-sync
+      (let ((seq (ubyte-streams:with-output-to-ubyte-stream (sout)
+                   (self-sync:read-self-sync stream sout))))
+        (ubyte-streams:with-input-from-ubyte-stream (sin seq)
+          (apply #'deserialize sin :self-sync nil args)))
+    ;; else
+    (let ((preflen (normalize-prefix-length prefix-length))
+          (bknd    (if use-magic
+                       (sdle-store:copy-backend backend
+                                                :magic-number use-magic)
+                     backend)))
+      (cond (preflen
            (deserialize-prefixed-stream stream preflen :backend bknd))
             
-          (length
-           (deserialize-for-length stream length :backend bknd))
-          
-          (t  (sdle-store:restore stream bknd))
-          )))
+            (length
+             (deserialize-for-length stream length :backend bknd))
+            
+            (t  (sdle-store:restore stream bknd))
+            ))))
 
 ;; -----------------------------------------------------------------------------
 
-(defun decode (arr &key
+(defun decode (arr &rest args
+                   &key
                    (start 0)
-                   use-magic
-                   prefix-length
-                   length
                    (reader 'xaref)
-                   (backend 'loe-back-end))
+                   &allow-other-keys)
   (ubstream:with-input-from-ubyte-stream (s arr :start start :reader reader)
-    (deserialize s
-                 :use-magic     use-magic
-                 :prefix-length prefix-length
-                 :length        length
-                 :backend       backend)))
+    (apply #'deserialize s args)))
 
 ;; -----------------------------------------------------------------------------
 

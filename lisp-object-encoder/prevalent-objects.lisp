@@ -79,6 +79,7 @@ inherit from this class."))
   (when-let (logfile (current-prevalent-logfile))
     (file-position logfile (system-logpos *prevalent-system*))
     (serialize obj logfile
+               :self-sync     t
                :prefix-length 4
                :backend       'prevo-back-end)
     (setf (system-logpos *prevalent-system*) (file-position logfile))
@@ -540,6 +541,7 @@ logging of changes to the database."
   (let ((last-pos 0))
     (handler-case
       (loop for ans = (deserialize f
+                                   :self-sync     t
                                    :prefix-length 4
                                    :backend 'prevo-back-end)
             do (setf last-pos (file-position f))
