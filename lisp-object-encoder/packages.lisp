@@ -9,6 +9,7 @@
    #:xaref
    #:xdefrag
    #:xsubseq
+   #:xposition
    #:add-fragment
    ))
 

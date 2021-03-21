@@ -10,6 +10,8 @@
    (length     :accessor scatter-vector-length     :initform 0)
    ))
 
+;; ----------------------------------------------------
+
 (defgeneric in-bounds-p (vec ix)
   (:method ((vec vector) ix)
    (array-in-bounds-p vec ix))
@@ -18,11 +20,80 @@
         (< ix (scatter-vector-length vec))
         )))
 
+(defun get-starting-ix-and-base (vec pos)
+  (let* ((cur-ix (scatter-vector-last-ix vec))
+         (base   (scatter-vector-last-base vec))
+         (off    (- pos base)))
+    (if (minusp off)
+        (values 0 0 pos)
+      (values cur-ix base off))))
+
+(defun get-current-frag-and-length (vec vix)
+  (let* ((cur-frag (aref (scatter-vector-frags vec) vix))
+         (nel      (xlength cur-frag)))
+    (values cur-frag nel)))
+
+;; -----------------------------------------------------
+
 (defgeneric xlength (vec)
   (:method ((vec vector))
    (length vec))
   (:method ((vec scatter-vector))
    (scatter-vector-length vec)))
+
+(defgeneric xposition (item vec &rest args &key &allow-other-keys)
+  (:method (item (vec vector) &rest args &key &allow-other-keys)
+   (apply #'position item vec args))
+  (:method (item (vec scatter-vector) &rest args
+                 &key (start 0)
+                 end
+                 from-end
+                 &allow-other-keys)
+   (cond (from-end
+          (um:nlet iter ((cur-ix (1- (length (scatter-vector-frags vec))))
+                         (vend   (xlength vec)))
+            (unless (minusp cur-ix)
+              (multiple-value-bind (cur-frag nel)
+                  (get-current-frag-and-length vec cur-ix)
+                (let ((base (- vend nel)))
+                  (if (and end
+                           (< end base))
+                      ;; not yet in starting frag
+                      (go-iter (1- cur-ix) base)
+                    ;; else - we are in starting frag
+                    (if-let (pos (apply #'xposition item cur-frag
+                                        :start (max (- start base) 0)
+                                        :end   (when end
+                                                 (- (min end vend) base))
+                                        args))
+                        (+ pos base) ;; found it
+                      ;; else - try next lower-case-p fragment
+                      (go-iter (1- cur-ix) base))
+                    )))
+              )))
+         (t
+          (multiple-value-bind (cur-ix base ix-rem)
+              (get-starting-ix-and-base vec start)
+            (um:nlet iter ((cur-ix cur-ix)
+                           (base   base)
+                           (ix-rem ix-rem))
+              (multiple-value-bind (cur-frag nel)
+                  (get-current-frag-and-length vec cur-ix)
+                (if (< ix-rem nel)
+                    (if-let (pos (apply #'xposition item cur-frag
+                                        :start ix-rem
+                                        :end   (when (and end
+                                                          (< end (+ base nel)))
+                                                 (- end base))
+                                        args))
+                        (+ pos base) ;; found it
+                      ;; else - not found in this segment
+                      (go-iter (1+ cur-ix) (+ base nel) 0))
+                  ;; else - not yet in start segment
+                  (go-iter (1+ cur-ix) (+ base nel) (- ix-rem nel)))
+                ))
+            ))
+         )))
 
 (defgeneric xaref (vec ix)
   (:method ((vec vector) ix)
@@ -30,16 +101,13 @@
   (:method ((vec scatter-vector) ix)
    ;; written to allow possibility of scatter-vector elements also
    ;; being scatter-vectors
-   (let ((ix-rem (- ix (scatter-vector-last-base vec))))
-     (when (minusp ix-rem)
-       ;; start over from front
-       (setf (scatter-vector-last-ix vec)   0
-             (scatter-vector-last-base vec) 0
-             ix-rem  ix))
-     (um:nlet iter ((cur-ix (scatter-vector-last-ix vec))
+   (multiple-value-bind (cur-ix base ix-rem)
+       (get-starting-ix-and-base vec ix)
+     (declare (ignore base))
+     (um:nlet iter ((cur-ix cur-ix)
                     (ix-rem ix-rem))
-       (let* ((cur-frag (aref (scatter-vector-frags vec) cur-ix))
-              (nel      (xlength cur-frag)))
+       (multiple-value-bind (cur-frag nel)
+           (get-current-frag-and-length vec cur-ix)
          (if (< ix-rem nel)
              (xaref cur-frag ix-rem)
            (progn
