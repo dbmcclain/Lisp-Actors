@@ -1,9 +1,4 @@
 
-(defpackage #:self-sync
-  (:export
-   #:write-self-sync
-   #:read-self-sync))
-
 (in-package #:self-sync)
 
 (defconstant +long-count-base+  #xfd)

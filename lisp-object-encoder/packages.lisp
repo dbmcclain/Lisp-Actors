@@ -13,6 +13,11 @@
    #:add-fragment
    ))
 
+(defpackage #:self-sync
+  (:export
+   #:write-self-sync
+   #:read-self-sync))
+
 (defpackage #:xzlib
   (:use #:cl #:scatter-vec)
   (:export

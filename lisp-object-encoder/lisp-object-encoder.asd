@@ -39,6 +39,7 @@ THE SOFTWARE.
                 (:file "managed-buffers")
                 (:file "scatter-vec")
 		(:file "ubyte-streams")
+                (:file "self-sync")
                 (:file "xzlib")
                 (:file "lzw")
                 (:file "lisp-object-encoder")
