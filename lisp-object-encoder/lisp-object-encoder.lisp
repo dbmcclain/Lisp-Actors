@@ -315,7 +315,10 @@ we recursively decode the contents of the buffer. The final decoded message obje
 recycling that buffer for another use later. This is an attempt to avoid generating too much garbage."
   (if self-sync
       (let ((seq (ubyte-streams:with-output-to-ubyte-stream (sout)
-                   (self-sync:read-self-sync stream sout))))
+                   (handler-case
+                       (self-sync:read-self-sync stream sout)
+                     (error ())
+                     ))))
         (ubyte-streams:with-input-from-ubyte-stream (sin seq)
           (apply #'deserialize sin :self-sync nil args)))
     ;; else
