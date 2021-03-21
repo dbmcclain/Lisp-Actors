@@ -7,7 +7,7 @@
 (in-package :actors/executives)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (import '(actors.base:%run-actor
+  (import '(actors/base:%run-actor
 
             mp:make-timer
             mp:schedule-timer-relative
