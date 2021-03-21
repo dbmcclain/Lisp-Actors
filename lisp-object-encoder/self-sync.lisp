@@ -169,11 +169,12 @@
   (flet ((finish (_)
            (declare (ignore _))
            (return-from #1#)))
-    (prog ((fsm (make-self-sync-fsm fout #'finish)))
-      again
-      (funcall fsm (read-byte fin))
-      (go again))
-    ))
+    (let ((fsm (make-self-sync-fsm fout #'finish)))
+      (loop for b = (read-byte fin nil fin)
+            until (eql b fin)
+            do
+            (funcall fsm b))
+      )))
 
 #|
 (defun tst (&optional (n 1000))
