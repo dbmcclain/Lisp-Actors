@@ -16,7 +16,10 @@
 (defpackage #:self-sync
   (:export
    #:write-self-sync
-   #:read-self-sync))
+   #:read-self-sync
+   #:make-self-sync-fsm
+   #:encoding
+   #:decoding))
 
 (defpackage #:xzlib
   (:use #:cl #:scatter-vec)

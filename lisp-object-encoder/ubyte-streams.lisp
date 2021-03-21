@@ -80,12 +80,13 @@ THE SOFTWARE.
   val)
 
 (defmethod stream-bytes ((stream ubyte-output-stream))
-  (uos-arr stream))
+  ;; this converts to simple-vector
+  (copy-seq (uos-arr stream)))
 
 (defun do-with-output-to-ubyte-stream (fn use-buffer)
   (let ((s (make-ubyte-output-stream use-buffer)))
     (funcall fn s)
-    (copy-seq (uos-arr s))))
+    (stream-bytes s)))
 
 (defmacro with-output-to-ubyte-stream ((stream-name &optional use-buffer) &body body)
   `(do-with-output-to-ubyte-stream (lambda (,stream-name) ,@body) ,use-buffer))
