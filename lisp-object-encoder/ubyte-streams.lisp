@@ -64,15 +64,26 @@ THE SOFTWARE.
          :initform (mgdbuf:make-buffer 1024))))
 
 (defun make-ubyte-output-stream (&optional use-buffer)
-  (if use-buffer
-      (make-instance 'ubyte-output-stream
-                     :buffer use-buffer)
-    (make-instance 'ubyte-output-stream)))
+  (cond (use-buffer
+            (unless (array-has-fill-pointer-p use-buffer)
+              (setf use-buffer (make-array (array-dimensions use-buffer)
+                                           :element-type (array-element-type use-buffer)
+                                           :fill-pointer 0
+                                           :displaced-to use-buffer
+                                           :displaced-index-offset 0)))
+          (make-instance 'ubyte-output-stream
+                         :buffer use-buffer))
+        (t
+         (make-instance 'ubyte-output-stream))
+        ))
 
 #+(or :LISPWORKS :CLOZURE :SBCL)
 (defmethod stream:stream-write-byte ((stream ubyte-output-stream) val)
-  (vector-push-extend val (uos-arr stream))
-  val)
+  (let ((arr (uos-arr stream)))
+    (if (adjustable-array-p arr)
+        (vector-push-extend val arr)
+      (vector-push val arr))
+    val))
 
 #+:ALLEGRO
 (defmethod excl:stream-write-byte ((stream ubyte-output-stream) val)
@@ -96,11 +107,14 @@ THE SOFTWARE.
 
 (defmethod (setf stream-file-position) (pos (stream ubyte-output-stream))
   (let ((arr (uos-arr stream)))
-    (if (array-in-bounds-p arr pos)
+    (if (or (array-in-bounds-p arr pos)
+            (not (adjustable-array-p arr)))
         (setf (fill-pointer arr) pos)
+      ;; else
       (adjust-array arr (max (* 2 (array-total-size arr))
                              (+ pos 128))
-                    :fill-pointer pos))))
+                    :fill-pointer pos))
+    ))
 
 ;; ------------------------------------------------------
 

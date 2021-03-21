@@ -210,9 +210,9 @@
        (enc  (loenc:encode data))
        (len-enc (loenc:encode (length enc)))
        (hash-enc (core-crypto:vec (core-crypto:hash/256 enc))))
-  (list (self-sync-encoding len-enc)
-        (self-sync-encoding enc)
-        (self-sync-encoding hash-enc)))
+  (list (encoding len-enc)
+        (encoding enc)
+        (encoding hash-enc)))
  |#
 ;; ------------------------------------------------------------
 #|
