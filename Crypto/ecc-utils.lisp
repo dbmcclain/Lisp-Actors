@@ -56,7 +56,7 @@ THE SOFTWARE.
       ans)))
 
 (defun shad2-file (fname)
-  (um:with-fast-impl
+  (um:with-fast-impl (fast-shad2-file)
    (fast-shad2-file fname)
    (let ((dig (ironclad:make-digest :sha256))
          (pre (make-ub-array 64

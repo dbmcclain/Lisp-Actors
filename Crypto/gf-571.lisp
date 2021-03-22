@@ -361,10 +361,12 @@ THE SOFTWARE.
    ((= 1 a)  b)
    ((= 1 b)  a)
    (t  (case *nbits*
-         (571 (with-fast-impl (c-gf571-mul a b)
+         (571 (with-fast-impl (c-gf571-mul)
+                              (c-gf571-mul a b)
                               (lisp-bin-gf* a b)))
          
-         (128 (with-fast-impl (c-gf128-mul a b)
+         (128 (with-fast-impl (c-gf128-mul)
+                              (c-gf128-mul a b)
                               (lisp-bin-gf* a b)))
          
          (t   (lisp-bin-gf* a b)) ))
@@ -499,10 +501,12 @@ THE SOFTWARE.
     (1  1)
     (t  ;; extended Euclidean algorithm
         (case *nbits*
-          (571 (with-fast-impl (c-gf571-inv x)
+          (571 (with-fast-impl (c-gf571-inv)
+                               (c-gf571-inv x)
                                (lisp-gfinv x)))
           
-          (128 (with-fast-impl (c-gf128-inv x)
+          (128 (with-fast-impl (c-gf128-inv)
+                               (c-gf128-inv x)
                                (lisp-gfinv x)))
           
           (t   (lisp-gfinv x)) ))
@@ -540,10 +544,12 @@ THE SOFTWARE.
                    (gf* a (gfinv b))))
           
           (case *nbits*
-            (571 (with-fast-impl (c-gf571-div a b)
+            (571 (with-fast-impl (c-gf571-div)
+                                 (c-gf571-div a b)
                                  (default-impl)))
             
-            (128 (with-fast-impl (c-gf128-div a b)
+            (128 (with-fast-impl (c-gf128-div)
+                                 (c-gf128-div a b)
                                  (default-impl)))
             
             (t (default-impl)) )))

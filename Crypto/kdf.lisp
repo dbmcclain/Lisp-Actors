@@ -42,8 +42,8 @@ THE SOFTWARE.
   (apply 'c-kdf nbits keys))
 
 (defun kdf (nbits &rest keys)
-  (with-fast-impl
-   (apply-c-kdf nbits keys)
+  (with-fast-impl (apply-c-kdf)
+                  (apply-c-kdf nbits keys)
    (let* ((nbytes (ceiling nbits 8))
           (ans    (make-ub-array nbytes
                                  :initial-element 0))

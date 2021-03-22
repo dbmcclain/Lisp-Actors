@@ -203,9 +203,9 @@ THE SOFTWARE.
     ((ecc-infinite-)  pt)
     ((ecc-pt-)
        (case *nbits*
-         (571  (with-fast-impl
-                (c-ecc571-add pt pt)
-                (ecc-affine-double pt)))
+         (571  (with-fast-impl (c-ecc571-add)
+                               (c-ecc571-add pt pt)
+                               (ecc-affine-double pt)))
          
          (t  (ecc-affine-double pt))
          ))
@@ -218,9 +218,9 @@ THE SOFTWARE.
   ;; otherwise projective is contageous
   (labels ((basic-affine-add (p1 p2)
              (case *nbits*
-               (571  (with-fast-impl
-                      (c-ecc571-add p1 p2)
-                      (ecc-affine-add p1 p2)))
+               (571  (with-fast-impl (c-ecc571-add)
+                                     (c-ecc571-add p1 p2)
+                                     (ecc-affine-add p1 p2)))
                (t  (ecc-affine-add p1 p2))
                )))
     
@@ -291,7 +291,8 @@ THE SOFTWARE.
     ((ecc-infinite-) pt)
     ((ecc-pt-)
        (case *nbits*
-         (571  (with-fast-impl (c-ecc571-mul pt n :alpha alpha)
+         (571  (with-fast-impl (c-ecc571-mul)
+                               (c-ecc571-mul pt n :alpha alpha)
                                (ecc-projective-mul pt n :alpha alpha)))
          (t (ecc-projective-mul pt n :alpha alpha))))
     ((ecc-projective-pt-)
