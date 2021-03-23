@@ -4,6 +4,7 @@
 (defpackage #:scatter-vec
   (:export
    #:scatter-vector
+   #:make-scatter-vector
    #:in-bounds-p
    #:xlength
    #:xaref
@@ -12,13 +13,14 @@
    #:xposition
    #:xdovec
    #:xupdate-digest
+   #:xwrite-sequence
    #:add-fragment
    ))
 
 (defpackage #:self-sync
   (:export
    #:write-record
-   #:read-record
+   #:make-reader
    #:make-fsm
    #:encode
    #:decode))

@@ -2,21 +2,28 @@
 (in-package #:self-sync)
 
 (um:eval-always
-  (import '(scatter-vec:scatter-vector
+  (import '(scatter-vec:make-scatter-vector
             scatter-vec:xlength
             scatter-vec:xaref
             scatter-vec:xposition
             scatter-vec:xdovec
             scatter-vec:xupdate-digest
+            scatter-vec:add-fragment
+            scatter-vec:xwrite-sequence
             
             ubyte-streams:make-ubyte-output-stream
-            ubyte-streams:stream-bytes)))
+            ubyte-streams:stream-bytes
+            ubyte-streams:with-output-to-ubyte-stream
+            ubyte-streams:with-input-from-ubyte-stream
+            )))
 
+;; ------------------------------------------------------------------
 (defconstant +long-count-base+  #xfd)
 (defconstant +max-short-count+  (1- +long-count-base+))
 (defconstant +max-long-count+   (1- (* +long-count-base+ +long-count-base+)))
 (defconstant +start-sequence+   #(#xfe #xfd))
 (defconstant +version+          #x100)
+;; ------------------------------------------------------------------
   
 (defun find-start-seq (enc start end)
   (when (< start (1- end))
@@ -49,8 +56,10 @@
           (setf ans (um:ash-dpb ans 8 (xaref vec ix))))
     ans))
 
+;; ------------------------------------------------------------------
+
 (defun write-record (enc fout)
-  (let* ((renc (make-instance 'scatter-vec:scatter-vector))
+  (let* ((renc (make-scatter-vector))
          (ver  (int-to-vec-le4 +version+))
          (len  (int-to-vec-le4 (xlength enc)))
          (crc  (let ((dig (ironclad:make-digest :crc32)))
@@ -58,10 +67,10 @@
                  (xupdate-digest dig len)
                  (xupdate-digest dig enc)
                  (ironclad:produce-digest dig))))
-    (scatter-vec:add-fragment renc crc)
-    (scatter-vec:add-fragment renc ver)
-    (scatter-vec:add-fragment renc len)
-    (scatter-vec:add-fragment renc enc)
+    (add-fragment renc crc)
+    (add-fragment renc ver)
+    (add-fragment renc len)
+    (add-fragment renc enc)
     (let* ((start     0)
            (end       (xlength renc))
            (pos       (find-start-seq renc 0 end))
@@ -70,8 +79,7 @@
            (nb        short-end))
       (write-sequence +start-sequence+ fout)
       (write-byte nb fout)
-      (loop for ix from 0 below short-end do
-            (write-byte (xaref renc ix) fout))
+      (xwrite-sequence renc fout :start 0 :end short-end)
       (setf start short-end)
       (um:while (< start end)
         (when (< nb max-ct)
@@ -87,11 +95,12 @@
             ;; in little-endian form
             (write-byte r fout)
             (write-byte q fout))
-          (loop for ix from start below long-end do
-                (write-byte (xaref renc ix) fout))
+          (xwrite-sequence renc fout :start start :end long-end)
           (setf start long-end)))
       )))
     
+;; ------------------------------------------------------------------
+
 (defun make-fsm (finish-fn)
   (um:alet ((ct)
             (nb)
@@ -254,23 +263,37 @@
            ))
         )))
 
-(defun #1=read-record (fin)
-  (flet ((finish (vec)
-           (return-from #1# vec)))
-    (let ((fsm (make-fsm #'finish)))
-      (loop for b = (read-byte fin nil :EOF)
-            do (funcall fsm b)
-            until (eql b :EOF))
-      #() )))
+;; ------------------------------------------------------------------
+
+(defun make-reader (fin)
+  (let (ans)
+    (flet ((finish (vec)
+             (setf ans vec)))
+      (let ((mach (make-fsm #'finish)))
+        (lambda ()
+          (setf ans nil)
+          (um:nlet iter ()
+            (let ((b (read-byte fin nil :EOF)))
+              (funcall mach b)
+              (cond ((eql b :EOF)
+                     (or ans :EOF))
+                    (ans)
+                    (t
+                     (go-iter))
+                    ))))
+        ))))
+
+;; ------------------------------------------------------------------
 
 (defun encode (vec)
-  (ubyte-streams:with-output-to-ubyte-stream (sout)
+  (with-output-to-ubyte-stream (sout)
     (write-record vec sout)))
 
 (defun decode (vec)
-  (ubyte-streams:with-input-from-ubyte-stream (sin vec)
-    (read-record sin)))
+  (with-input-from-ubyte-stream (sin vec)
+    (funcall (make-reader sin))))
 
+;; ------------------------------------------------------------------
 #|
 (defun tst (&optional (n 1000))
   (loop repeat n do
@@ -286,7 +309,24 @@
           )))
 
 (time (tst))
-        
+
+(defun cat-test ()
+  (let* ((data (loop repeat 1000 collect
+                     (lw:mt-random (ash 1 128))))
+         (enc  (loenc:encode data))
+         (ser-enc (with-output-to-ubyte-stream (sout)
+                    (write-record enc sout)
+                    (write-record enc sout)
+                    (write-record enc sout))))
+    (with-input-from-ubyte-stream (sin ser-enc)
+      (let ((fsm (make-reader sin)))
+        (dotimes (ix 3)
+          (let ((ans (funcall fsm)))
+            (assert (and (= (length enc)
+                            (length ans))
+                         (every #'eql enc ans)))
+            ))))))
+(cat-test)
 |#
 
 #|
@@ -315,8 +355,7 @@
 (defmethod initialize-instance :after ((reader message-reader) &key &allow-other-keys)
   (with-as-current-actor reader
     (with-slots (crypto dispatcher) reader
-      (let ((fsout (make-ubyte-output-stream))
-            (block-fsm  (um:alet (len
+      (let ((block-fsm  (um:alet (len
                                   len-buf
                                   enc-buf
                                   hmac-buf)
@@ -346,16 +385,14 @@
                                (state start)
                                (handle-message dispatcher (secure-decoding crypto len len-buf enc-buf hmac-buf)))
                               ))))
-        (labels ((fsm-finish (_)
-                   (declare (ignore _))
-                   (let ((bytes (stream-bytes fsout)))
-                     (handler-bind ((error (lambda (c)
-                                             (handle-message dispatcher
-                                                             '(actors/internal-message/network:discard))
-                                             (become-null-monitor :rd-actor))))
-                       (funcall block-fsm bytes))
-                     )))
-          (let ((fsm (self-sync:make-self-sync-fsm fsout #'fsm-finish)))
+        (labels ((fsm-finish (bytes)
+                   (handler-bind ((error (lambda (c)
+                                           (handle-message dispatcher
+                                                           '(actors/internal-message/network:discard))
+                                           (become-null-monitor :rd-actor))))
+                     (funcall block-fsm bytes))
+                   ))
+          (let ((fsm (self-sync:make-fsm #'fsm-finish)))
             (recv ()
               
               (actors/internal-message/network:rd-incoming
@@ -379,7 +416,7 @@
 
          (transmit-next-buffer (state)
            (comm:async-io-state-write-buffer state
-                                             (self-sync:encoding (pop buffers))
+                                             (self-sync:encode (pop buffers))
                                              #'write-next-buffer))
            
          (write-next-buffer (state &rest ignored)

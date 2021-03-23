@@ -538,17 +538,17 @@ logging of changes to the database."
 (defun replay-logfile (f)
   ;; by replaying the logfile we mutate the system up to its last
   ;; known state
-  (let ((last-pos 0))
+  (let ((reader (self-sync:make-reader f)))
     (handler-case
       (loop for ans = (deserialize f
-                                   :self-sync     t
+                                   :self-sync     reader
                                    :prefix-length 4
-                                   :backend 'prevo-back-end)
-            do (setf last-pos (file-position f))
-            until (eq ans f))  ;; reading returns stream f on EOF
+                                   :backend       'prevo-back-end)
+            ;; do (setf last-pos (file-position f))
+            until (eq ans f))
       (error (exn)
         (print (format-error exn))))
-    last-pos))
+    (file-position f)))
 
 ;; ------------------------------------------------------------
 

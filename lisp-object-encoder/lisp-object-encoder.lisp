@@ -312,13 +312,19 @@ A single I/O read operation then reads the entire encoded message into that buff
 we recursively decode the contents of the buffer. The final decoded message object is returned after
 recycling that buffer for another use later. This is an attempt to avoid generating too much garbage."
   (if self-sync
-      (let ((seq (self-sync:read-record stream)))
-        (ubyte-streams:with-input-from-ubyte-stream (sin seq)
-          (let ((ans (apply #'deserialize sin :self-sync nil args)))
-            (if (eql ans sin) ;; unexpected EOF?
-                stream ;; return the EOF indication expected by caller
-              ans))
-          ))
+      (let* ((reader (if (functionp self-sync)
+                         self-sync
+                       (self-sync:make-reader stream)))
+             (seq    (funcall reader)))
+        (cond ((eql seq :EOF)
+               stream)
+
+              (t
+               (unless (functionp self-sync)
+                 (file-position stream (1- (file-position stream))))
+               (ubyte-streams:with-input-from-ubyte-stream (sin seq)
+                 (apply #'deserialize sin :self-sync nil args)))
+              ))
     ;; else
     (let ((preflen (normalize-prefix-length prefix-length))
           (bknd    (if use-magic
