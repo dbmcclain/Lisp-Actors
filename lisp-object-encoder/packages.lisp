@@ -10,16 +10,18 @@
    #:xdefrag
    #:xsubseq
    #:xposition
+   #:xdovec
+   #:xupdate-digest
    #:add-fragment
    ))
 
 (defpackage #:self-sync
   (:export
-   #:write-self-sync
-   #:read-self-sync
-   #:make-self-sync-fsm
-   #:encoding
-   #:decoding))
+   #:write-record
+   #:read-record
+   #:make-fsm
+   #:encode
+   #:decode))
 
 (defpackage #:xzlib
   (:use #:cl #:scatter-vec)

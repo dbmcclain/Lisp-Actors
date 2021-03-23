@@ -154,11 +154,9 @@ Encrypted data is marked as such by making the prefix count odd."
   "Serialize a message to a buffer of unsigned bytes."
   ;; preflen will be one of 1,2,4,8,16 or 0
   (if self-sync
-      (ubyte-streams:with-output-to-ubyte-stream (sout)
-        (self-sync:write-self-sync (apply #'encode msg
-                                          :self-sync nil
-                                          args)
-                                   sout))
+      (self-sync:encode (apply #'encode msg
+                               :self-sync nil
+                               args))
     (let* ((preflen (or (normalize-prefix-length prefix-length) 0))
            (buf     (ubstream:with-output-to-ubyte-stream (s use-buffer)
                       (labels ((pad-null (nel)
@@ -314,12 +312,11 @@ A single I/O read operation then reads the entire encoded message into that buff
 we recursively decode the contents of the buffer. The final decoded message object is returned after
 recycling that buffer for another use later. This is an attempt to avoid generating too much garbage."
   (if self-sync
-      (let ((seq (ubyte-streams:with-output-to-ubyte-stream (sout)
-                   (self-sync:read-self-sync stream sout))))
+      (let ((seq (self-sync:read-record stream)))
         (ubyte-streams:with-input-from-ubyte-stream (sin seq)
           (let ((ans (apply #'deserialize sin :self-sync nil args)))
-            (if (eql ans sin)
-                stream
+            (if (eql ans sin) ;; unexpected EOF?
+                stream ;; return the EOF indication expected by caller
               ans))
           ))
     ;; else

@@ -1,119 +1,206 @@
 
 (in-package #:self-sync)
 
+(um:eval-always
+  (import '(scatter-vec:scatter-vector
+            scatter-vec:xlength
+            scatter-vec:xaref
+            scatter-vec:xposition
+            scatter-vec:xdovec
+            scatter-vec:xupdate-digest
+            
+            ubyte-streams:make-ubyte-output-stream
+            ubyte-streams:stream-bytes)))
+
 (defconstant +long-count-base+  #xfd)
 (defconstant +max-short-count+  (1- +long-count-base+))
 (defconstant +max-long-count+   (1- (* +long-count-base+ +long-count-base+)))
-(defconstant +start-sequence+   #(#xfd #xfe))
-
+(defconstant +start-sequence+   #(#xfe #xfd))
+(defconstant +version+          #x100)
+  
 (defun find-start-seq (enc start end)
   (when (< start (1- end))
-    (when-let (pos (scatter-vec:xposition #xfd enc
-                                          :start start))
+    (when-let (pos (xposition #xfe enc
+                              :start start))
       (when (< pos (1- end))
-        (if (eql #xfe (aref enc (1+ pos)))
+        (if (eql #xfd (xaref enc (1+ pos)))
             pos
           (find-start-seq enc (1+ pos) end))
         ))))
 
-(defun write-self-sync (enc fout)
-  (write-sequence +start-sequence+ fout)
-  (let* ((start     0)
-         (end       (length enc))
-         (pos       (find-start-seq enc start end))
-         (max-ct    +max-short-count+)
-         (short-end (min +max-short-count+ (or pos end)))
-         (nb        short-end))
-    (write-byte nb fout)
-    (loop for ix from 0 below short-end do
-          (write-byte (aref enc ix) fout))
-    (setf start short-end)
-    (um:while (< start end)
-      (when (< nb max-ct)
-        (incf start 2))
-      (when (and pos
-                 (< pos start))
-        (setf pos (find-start-seq enc start end)))
-      (setf max-ct +max-long-count+)
-      (let ((long-end (min (+ start +max-long-count+) (or pos end))))
-        (setf nb (- long-end start))
-        (multiple-value-bind (q r)
-            (truncate nb +long-count-base+)
-          (write-byte q fout)
-          (write-byte r fout))
-        (loop for ix from start below long-end do
-              (write-byte (aref enc ix) fout))
-        (setf start long-end)))
-    (write-sequence +start-sequence+ fout)))
+(defun make-ubv4 ()
+  (make-array 4
+              :element-type '(unsigned-byte 8)))
+
+(defun int-to-vec-le4 (n)
+  (let ((ans (make-ubv4)))
+    (um:nlet iter ((ix 0)
+                   (n  n))
+      (if (> ix 3)
+          ans
+        (multiple-value-bind (q r) (truncate n 256)
+          (setf (aref ans ix) r)
+          (go-iter (1+ ix) q)))
+      )))
+
+(defun vec-le4-to-int (vec)
+  (let ((ans 0))
+    (loop for ix from 3 downto 0 do
+          (setf ans (um:ash-dpb ans 8 (xaref vec ix))))
+    ans))
+
+(defun write-record (enc fout)
+  (let* ((renc (make-instance 'scatter-vec:scatter-vector))
+         (ver  (int-to-vec-le4 +version+))
+         (len  (int-to-vec-le4 (xlength enc)))
+         (crc  (let ((dig (ironclad:make-digest :crc32)))
+                 (xupdate-digest dig ver)
+                 (xupdate-digest dig len)
+                 (xupdate-digest dig enc)
+                 (ironclad:produce-digest dig))))
+    (scatter-vec:add-fragment renc crc)
+    (scatter-vec:add-fragment renc ver)
+    (scatter-vec:add-fragment renc len)
+    (scatter-vec:add-fragment renc enc)
+    (let* ((start     0)
+           (end       (xlength renc))
+           (pos       (find-start-seq renc 0 end))
+           (max-ct    +max-short-count+)
+           (short-end (min +max-short-count+ (or pos end)))
+           (nb        short-end))
+      (write-sequence +start-sequence+ fout)
+      (write-byte nb fout)
+      (loop for ix from 0 below short-end do
+            (write-byte (xaref renc ix) fout))
+      (setf start short-end)
+      (um:while (< start end)
+        (when (< nb max-ct)
+          (incf start 2))
+        (when (and pos
+                   (< pos start))
+          (setf pos (find-start-seq renc start end)))
+        (setf max-ct +max-long-count+)
+        (let ((long-end (min (+ start +max-long-count+) (or pos end))))
+          (setf nb (- long-end start))
+          (multiple-value-bind (q r)
+              (truncate nb +long-count-base+)
+            ;; in little-endian form
+            (write-byte r fout)
+            (write-byte q fout))
+          (loop for ix from start below long-end do
+                (write-byte (xaref renc ix) fout))
+          (setf start long-end)))
+      )))
     
-(defun make-self-sync-fsm (fout finish-fn)
-  (um:alet (ct nb max-ct
-               (fout-start (file-position fout)))
+(defun make-fsm (finish-fn)
+  (um:alet ((ct)
+            (nb)
+            (max-ct)
+            (crc  (make-ubv4))
+            (len  (make-ubv4))
+            (ver  (make-ubv4))
+            (cix)
+            (vix)
+            (lix)
+            (fout (make-ubyte-output-stream)))
       (um:alet-fsm
           ;; states - first one is starting state
           ;; ------------------------------------
-          (start
-           (b)
-           ;; looking for start pattern #xFD #xFE
-           (when (eql b #xFD)
-             (state check-start-fe)))
-          ;; -----------------------------------
-          (restart
-           (b)
-           (state start)
-           (start b))
-        ;; -------------------------------------
-        (check-start-fe
-         (b)
-         (case b
-           ((#xFE)
-            (state read-short-count))
-           (t
-            (restart b))
-           ))
         ;; -------------------------------------
         (read-short-count
          (b)
          (cond
-          ((<= b +max-short-count+)
+          ((and (integerp b)
+                (<= b +max-short-count+))
            ;; we got a valid short count byte
-           (setf nb b
-                 ct b
-                 max-ct +max-short-count+)
-           (file-position fout fout-start)
+           (setf nb  b
+                 ct  b
+                 max-ct +max-short-count+
+                 cix 0
+                 lix 0
+                 vix 0)
+           (file-position fout 0)
            (if (zerop ct)
                (state read-long-count)
              (state read-frag)))
           
           (t
-           (restart b))
+           (resync b))
           ))
+        ;; -----------------------------------
+        (stuff
+         (b)
+         (cond
+          ((< cix 4)
+           (setf (aref crc cix) b)
+           (incf cix))
+          ((< vix 4)
+           (setf (aref ver vix) b)
+           (incf vix))
+          ((< lix 4)
+           (setf (aref len lix) b)
+           (incf lix))
+          (t
+           (write-byte b fout))
+          ))
+        ;; -----------------------------------
+        (sync
+         (b)
+         ;; looking for start pattern #xFD #xFE
+         (case b
+           ((:EOF)
+            ;; re-init for fresh application of FSM
+            (state read-short-count))
+           ((#xFE)
+            ;; first byte of start pattern
+            (state check-start-fd))
+           ))
+        ;; -----------------------------------
+        (resync
+         (b)
+         (state sync)
+         (sync b))
+        ;; -------------------------------------
+        (check-start-fd
+         (b)
+         (case b
+           ((#xFD)
+            ;; 2nd byte of start pattern
+            (state read-short-count))
+           (t
+            (resync b))
+           ))
         ;; -------------------------------------
         (read-frag
          (b)
          (case b
-           ((#xFD)
+           ((:EOF)
+            ;; unexpected EOF - re-init for fresh start
+            (state read-short-count))
+           
+           ((#xFE)
             (if (> ct 1)
-                (state check-frag)
+                (state check-frag-fd)
               ;; else
               (progn
-                (write-byte b fout)
+                (stuff b)
                 (state read-long-count))
               ))
            (t
-            (write-byte b fout)
+            (stuff b)
             (when (zerop (decf ct))
               (state read-long-count)))
            ))
         ;; -------------------------------------
-        (check-frag
+        (check-frag-fd
          (b)
          (case b
-           ((#xfe)
-            ;; just saw a start pattern in the middle of our frag
+           ((:EOF #xFD)
+            ;; unexpected EOF or an unexpected start pattern
+            ;; in the midst of our frag - so setup to start anew
             (state read-short-count))
            (t
-            (write-byte #xfd fout)
+            (stuff #xFE)
             (decf ct)
             (state read-frag)
             (read-frag b))
@@ -122,59 +209,67 @@
         (read-long-count
          (b)
          (cond
-          ((< b +long-count-base+)
+          ((and (integerp b)
+                (< b +long-count-base+))
            ;; we hit a long-count byte
            (when (< nb max-ct)
-             (write-sequence +start-sequence+ fout))
+             (stuff #xFE)
+             (stuff #xFD))
            (setf nb b)
            (state read-long-count-2))
           
-          ((eql b #xfd)
-           (state chk-long-count))
-          
           (t
-           (restart b))
-          ))
-        ;; -------------------------------------
-        (chk-long-count
-         (b)
-         (cond
-          ((eql b #xfe)
-           ;; we just saw the ending start pattern
-           (state start)
-           (funcall finish-fn t))
-          
-          (t
-           (restart b))
+           (check-finished)
+           (resync b))
           ))
         ;; -------------------------------------        
         (read-long-count-2
          (b)
          (cond
-          ((< b +long-count-base+)
-           (setf nb (+ b (* +long-count-base+ nb))
-                 ct nb
+          ((and (integerp b)
+                (< b +long-count-base+))
+           (incf nb (* +long-count-base+ b))
+           (setf ct     nb
                  max-ct +max-long-count+)
            (if (zerop ct)
                (state read-long-count)
              (state read-frag)))
           
           (t
-           (restart b))
+           (resync b))
           ))
         ;; -------------------------------------        
+        (check-finished
+         ()
+         (let* ((ans (stream-bytes fout))
+                (chk (let ((dig (ironclad:make-digest :crc32)))
+                       (ironclad:update-digest dig ver)
+                       (ironclad:update-digest dig len)
+                       (ironclad:update-digest dig ans)
+                       (ironclad:produce-digest dig))))
+           (when (and (equalp crc chk)
+                      (= (vec-le4-to-int ver) #x100)
+                      (= (vec-le4-to-int len) (length ans)))
+             (funcall finish-fn ans))
+           ))
         )))
 
-(defun #1=read-self-sync (fin fout)
-  (flet ((finish (_)
-           (declare (ignore _))
-           (return-from #1#)))
-    (let ((fsm (make-self-sync-fsm fout #'finish)))
-      (loop for b = (read-byte fin nil fin)
-            until (eql b fin)
-            do
-            (funcall fsm b))
-      )))
+(defun #1=read-record (fin)
+  (flet ((finish (vec)
+           (return-from #1# vec)))
+    (let ((fsm (make-fsm #'finish)))
+      (loop for b = (read-byte fin nil :EOF)
+            do (funcall fsm b)
+            until (eql b :EOF))
+      #() )))
+
+(defun encode (vec)
+  (ubyte-streams:with-output-to-ubyte-stream (sout)
+    (write-record vec sout)))
+
+(defun decode (vec)
+  (ubyte-streams:with-input-from-ubyte-stream (sin vec)
+    (read-record sin)))
 
 #|
 (defun tst (&optional (n 1000))
@@ -182,11 +277,8 @@
         (let* ((data (loop repeat 1000 collect
                            (lw:mt-random (ash 1 128))))
                (enc  (loenc:encode data))
-               (ser-enc (ubyte-streams:with-output-to-ubyte-stream (s)
-                          (write-self-sync enc s)))
-               (ser-dec (ubyte-streams:with-output-to-ubyte-stream (sout)
-                          (ubyte-streams:with-input-from-ubyte-stream (sin ser-enc)
-                            (read-self-sync sin sout)))))
+               (ser-enc (encode enc))
+               (ser-dec (decode ser-enc)))
           (princ #\.)
           (assert (and (= (length enc)
                           (length ser-dec))
@@ -196,15 +288,6 @@
 (time (tst))
         
 |#
-
-(defun encoding (vec)
-  (ubyte-streams:with-output-to-ubyte-stream (sout)
-    (write-self-sync vec sout)))
-
-(defun decoding (vec)
-  (ubyte-streams:with-output-to-ubyte-stream (sout)
-    (ubyte-streams:with-input-from-ubyte-stream (sin vec)
-      (read-self-sync sin sout))))
 
 #|
 (let* ((data '("this" is #\a :test))
@@ -232,7 +315,7 @@
 (defmethod initialize-instance :after ((reader message-reader) &key &allow-other-keys)
   (with-as-current-actor reader
     (with-slots (crypto dispatcher) reader
-      (let ((fsout (ubyte-streams:make-ubyte-output-stream))
+      (let ((fsout (make-ubyte-output-stream))
             (block-fsm  (um:alet (len
                                   len-buf
                                   enc-buf
