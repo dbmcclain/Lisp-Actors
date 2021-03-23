@@ -22,7 +22,6 @@
 (defconstant +max-short-count+  (1- +long-count-base+))
 (defconstant +max-long-count+   (1- (* +long-count-base+ +long-count-base+)))
 (defconstant +start-sequence+   #(#xfe #xfd))
-(defconstant +version+          #x100)
 ;; ------------------------------------------------------------------
   
 (defun find-start-seq (enc start end)
@@ -60,15 +59,12 @@
 
 (defun write-record (enc fout)
   (let* ((renc (make-scatter-vector))
-         (ver  (int-to-vec-le4 +version+))
          (len  (int-to-vec-le4 (xlength enc)))
          (crc  (let ((dig (ironclad:make-digest :crc32)))
-                 (xupdate-digest dig ver)
                  (xupdate-digest dig len)
                  (xupdate-digest dig enc)
                  (ironclad:produce-digest dig))))
     (add-fragment renc crc)
-    (add-fragment renc ver)
     (add-fragment renc len)
     (add-fragment renc enc)
     (let* ((start     0)
@@ -107,9 +103,7 @@
             (max-ct)
             (crc  (make-ubv4))
             (len  (make-ubv4))
-            (ver  (make-ubv4))
             (cix)
-            (vix)
             (lix)
             (fout (make-ubyte-output-stream)))
       (um:alet-fsm
@@ -126,8 +120,7 @@
                  ct  b
                  max-ct +max-short-count+
                  cix 0
-                 lix 0
-                 vix 0)
+                 lix 0)
            (file-position fout 0)
            (if (zerop ct)
                (state read-long-count)
@@ -143,9 +136,6 @@
           ((< cix 4)
            (setf (aref crc cix) b)
            (incf cix))
-          ((< vix 4)
-           (setf (aref ver vix) b)
-           (incf vix))
           ((< lix 4)
            (setf (aref len lix) b)
            (incf lix))
@@ -252,12 +242,10 @@
          ()
          (let* ((ans (stream-bytes fout))
                 (chk (let ((dig (ironclad:make-digest :crc32)))
-                       (ironclad:update-digest dig ver)
                        (ironclad:update-digest dig len)
                        (ironclad:update-digest dig ans)
                        (ironclad:produce-digest dig))))
            (when (and (equalp crc chk)
-                      (= (vec-le4-to-int ver) #x100)
                       (= (vec-le4-to-int len) (length ans)))
              (funcall finish-fn ans))
            ))
