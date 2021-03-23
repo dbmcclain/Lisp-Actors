@@ -275,11 +275,9 @@
           (um:nlet iter ()
             (let ((b (read-byte fin nil :EOF)))
               (funcall mach b)
-              (cond ((eql b :EOF)
-                     (or ans :EOF))
-                    (ans)
-                    (t
-                     (go-iter))
+              (cond (ans)
+                    ((eql b :EOF) :EOF)
+                    (t  (go-iter))
                     ))))
         ))))
 
