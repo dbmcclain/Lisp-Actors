@@ -21,7 +21,7 @@
   (:export
    #:write-record
    #:make-reader
-   #:make-fsm
+   #:reader-fsm
    #:encode
    #:decode))
 

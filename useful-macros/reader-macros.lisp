@@ -42,7 +42,7 @@ THE SOFTWARE.
   (editor:setup-indent "aif*" 2 2 4)
   (editor:setup-indent "awhen" 2 2 4)
   (editor:setup-indent "alet" 2)
-  (editor:setup-indent "alet-fsm" 2)
+  (editor:setup-indent "alet-fsm" 0)
   (editor:setup-indent "arun-fsm" 2 2 4)
   (editor:setup-indent "with-slot-accessors" 2 2 4)
   (editor:setup-indent "define-bind*-handler" 2 2)

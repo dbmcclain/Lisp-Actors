@@ -3151,6 +3151,12 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
           (ldb (byte nsh 0) b))
     ans))
 
+(defmacro ash-dpbf (place nsh b &environment env)
+  (do-expansionf place env
+                 (lambda (src)
+                   `(ash-dpb ,src ,nsh ,b))))
+
+
 ;; -------------------------------------------------------------
 
 (defmacro doseq ((var coll &optional ret-form) &body body)
