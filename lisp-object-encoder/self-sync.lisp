@@ -112,184 +112,143 @@
 ;; Input Alphabet: [#x00-#xFF, :EOF]
 ;;
 
+(um:defmacro! fsm-states (&rest clauses)
+  (let ((first-name (caar clauses)))
+    `(macrolet ((,a!state (s)
+                `(setq ,',a!this #',s)))
+       (labels
+           ,(mapcar (lambda (clause)
+                      (destructuring-bind (name arg &rest cases) clause
+                        `(,name ,arg
+                                (cond
+                                 ,@(mapcar (lambda (pair)
+                                             (destructuring-bind (pred form) pair
+                                               (if (consp pred)
+                                                   `(,pred ,form)
+                                                 (if (and (symbolp pred)
+                                                          (string= (string pred) "_"))
+                                                     `(t ,form)
+                                                   `((eql ,(car arg) ,pred) ,form)))))
+                                           (um:group cases 2))))
+                        ))
+                    clauses)
+         #',first-name))
+    ))
+
 (defun reader-fsm (finish-fn)
-  (alet ((ct)
-         (nb)
-         (max-ct)
-         (crc  (make-ubv 4))
-         (len  (make-ubv 4))
-         (cix)
-         (lix)
-         (aout (make-ubv 256
+  (alet ((ct)     ;; remaining count of bytes to stuff
+         (nb)     ;; length of current frag
+         (max-ct) ;; max possible frag length
+         (crc  (make-ubv 4)) ;; crc buffer
+         (len  (make-ubv 4)) ;; record length buffer
+         (cix)    ;; crc buffer index
+         (lix)    ;; len buffer index
+         (aout (make-ubv 256 ;; stuff accumulator
                          :fill-pointer 0
                          :adjustable   t)))
-      (alet-fsm
-        ;; ------------------------------------
-        ;; states - first one is starting state
-        ;; ------------------------------------
-        (read-version
-         (b)
-         (case b
-           ((#x01) ;; this state machine is for Version 1
-            (state read-short-count))
-           
-           ;; future versions can splay from here
-           (t
-            (resync b))
-           ))
-        ;; -------------------------------------
-        (read-short-count
-         (b)
-         (cond
-          ((valid-count? b)
-           (init-buffers b))
+      (labels
+          ;; ------------------------------------
+          ;; helper functions
+          ;; ------------------------------------
+          ((init-bufs (b)
+             ;; called at start of short frag
+             (setf nb  b
+                   ct  b
+                   max-ct +max-short-count+
+                   cix 0
+                   lix 0
+                   (fill-pointer aout) 0))
+           ;; -----------------------------------
+           (stuff (b)
+             ;; byte stuffer
+             (decf ct)
+             (cond
+              ((< cix 4) ;; crc comes first
+               (setf (aref crc cix) b)
+               (incf cix))
+              ((< lix 4) ;; followed by 4-byte length
+               (setf (aref len lix) b)
+               (incf lix))
+              (t         ;; followed by actual data
+               (vector-push-extend b aout))
+              ))
+           ;; -----------------------------------
+           (maybe-stuff-fefd ()
+             ;; if frag was shorter than mox possible length
+             ;; then it was because a start sequence was found
+             ;; in the data - so put it back.
+             (when (< nb max-ct)
+               (stuff #xFE)
+               (stuff #xFD)))
+           ;; -----------------------------------
+           (init-frag (b)
+             ;; called at start of long frag
+             (incf nb (* +long-count-base+ b))
+             (setf ct     nb
+                   max-ct +max-long-count+))
+           ;; -------------------------------------        
+           (check-finish ()
+             ;; see if we've found the end of a record
+             (let* ((ans (copy-seq aout))
+                    (chk (crc32 len ans)))
+               (when (and (equalp crc chk)
+                          (= (vec-le4-to-int len) (length ans)))
+                 (funcall finish-fn ans))
+               )))
+        ;; ------------------------------------------------------
+        (fsm-states
+         ;; ------------------------------------
+         ;; states - first one is starting state
+         ;; All clauses end with setting state, or calling something which does.
+         ;; ------------------------------------
+         (start  ;; check version
+          (b)
+          #x01          (state read-short-count)
+          ;; additional versions splay out from here
+          _             (sync b))
+         
+         (sync  ;; find a start sequence
+          (b)   
+          :EOF          (state start)
+          #xFE          (state check-start-fd)
+          _             (state sync))
+         
+         (check-start-fd
+          (b)
+          #xFD          (state start)
+          _             (sync b))
+         
+         (read-short-count ;; first frag is always short
+          (b)
+          :EOF          (state start) ;; frag was truncated
+          (<= 0 b #xFC) (progn (init-bufs b) (state read-frag))
+          _             (sync b))     ;; frag was clobbered
+         
+         (read-long-count  ;; remaining frags are long
+          (b)
+          :EOF          (progn (check-finish) (state start))  ;; end of record / end of file
+          (<= 0 b #xFC) (progn (maybe-stuff-fefd) (setf nb b) (state read-long-count-2))
+          _             (progn (check-finish) (sync b)))      ;; end of record, start of new?
+         
+         (read-long-count-2
+          (b)
+          :EOF          (state start) ;; the frag was truncated
+          (<= 0 b #xFC) (progn (init-frag b) (state read-frag))
+          _             (sync b))     ;; the frag was clobbered
+         
+         (read-frag
+          (b)
+          (zerop ct)    (read-long-count b)
+          :EOF          (state start) ;; the frag was truncated
+          (= ct 1)      (progn (stuff b) (state read-long-count))
+          #xFE          (state check-frag-fd)
+          _             (progn (stuff b) (state read-frag)))
           
-          (t
-           (resync b))
-          ))
-        ;; -----------------------------------
-        (sync
-         (b)
-         ;; looking for start pattern #xFD #xFE
-         (case b
-           ((:EOF)
-            ;; re-init for fresh application of FSM
-            (state read-version))
-
-           ((#xFE)
-            ;; first byte of start pattern
-            (state check-start-fd))
-           ))
-        ;; -------------------------------------
-        (check-start-fd
-         (b)
-         (case b
-           ((#xFD)
-            ;; 2nd byte of start pattern
-            (state read-version))
-           
-           (t
-            (resync b))
-           ))
-        ;; -------------------------------------
-        (read-frag
-         (b)
-         (cond 
-           ((eql b :EOF)
-            ;; unexpected EOF - re-init for fresh start
-            (state read-version))
-           
-           ((and (eql b #xFE)
-                 (> ct 1))
-            (state check-frag-fd))
-
-           (t
-            (stuff b)
-            (when (zerop ct)
-              (state read-long-count)))
-           ))
-        ;; -------------------------------------
-        (check-frag-fd
-         (b)
-         (case b
-           ((:EOF #xFD)
-            ;; unexpected EOF or an unexpected start pattern
-            ;; in the midst of our frag - so setup to start anew
-            (state read-version))
-           
-           (t
-            (stuff #xFE)
-            (state read-frag)
-            (read-frag b))
-           ))
-        ;; -------------------------------------
-        (read-long-count
-         (b)
-         (cond
-          ((valid-count? b)
-           (maybe-stuff-fefd)
-           (setf nb b)
-           (state read-long-count-2))
-          
-          (t
-           (check-finished)
-           (resync b))
-          ))
-        ;; -------------------------------------        
-        (read-long-count-2
-         (b)
-         (cond
-          ((valid-count? b)
-           (setup-long-frag-count b))
-          
-          (t
-           (resync b))
-          ))
-        ;; -----------------------------------
-        ;; end of states - start of helpers
-        ;; -----------------------------------
-        (init-buffers
-         (b)
-         (setf nb  b
-               ct  b
-               max-ct +max-short-count+
-               cix 0
-               lix 0
-               (fill-pointer aout) 0)
-         (start-frag))
-        ;; -----------------------------------
-        (stuff
-         (b)
-         (decf ct)
-         (cond
-          ((< cix 4)
-           (setf (aref crc cix) b)
-           (incf cix))
-          ((< lix 4)
-           (setf (aref len lix) b)
-           (incf lix))
-          (t
-           (vector-push-extend b aout))
-          ))
-        ;; -----------------------------------
-        (valid-count?
-         (b)
-         (and (integerp b)
-              (< b +long-count-base+)))
-        ;; -----------------------------------
-        (maybe-stuff-fefd
-         ()
-         (when (< nb max-ct)
-           (stuff #xFE)
-           (stuff #xFD)))
-        ;; -----------------------------------
-        (setup-long-frag-count
-         (b)
-         (incf nb (* +long-count-base+ b))
-         (setf ct     nb
-               max-ct +max-long-count+)
-         (start-frag))
-        ;; -----------------------------------
-        (start-frag
-         ()
-         (if (zerop ct)
-             (state read-long-count)
-           (state read-frag)))
-        ;; -----------------------------------
-        (resync
-         (b)
-         (state sync)
-         (sync b))
-        ;; -------------------------------------        
-        (check-finished
-         ()
-         (let* ((ans (copy-seq aout))
-                (chk (crc32 len ans)))
-           (when (and (equalp crc chk)
-                      (= (vec-le4-to-int len) (length ans)))
-             (funcall finish-fn ans))
-           ))
-        )))
+         (check-frag-fd
+          (b)
+          #xFD          (state start)  ;; the frag was clobbered - just saw another start seq
+          _             (progn (stuff #xFE) (read-frag b)))
+         ))))
 
 ;; ------------------------------------------------------------------
 
