@@ -28,7 +28,6 @@
 (defconstant +max-short-count+  (1- +long-count-base+))
 (defconstant +max-long-count+   (1- (* +long-count-base+ +long-count-base+)))
 (defconstant +start-sequence+   #(#xfe #xfd))
-(defconstant +version+          1)
 ;; ------------------------------------------------------------------
   
 (defun find-start-seq (enc start end)
@@ -70,6 +69,9 @@
     (ironclad:produce-digest dig)))
 
 ;; ------------------------------------------------------------------
+;; Self-Sync Record Writing - soft migration to new versions is
+;; possible so long as every version has the same starting sequence
+;; #(#xFE #xFD <versionByte>). Beyond that can be version dependent.
 
 (defun write-record (enc fout)
   (let* ((renc (make-scatter-vector))
@@ -85,7 +87,7 @@
            (short-end (min +max-short-count+ (or pos end)))
            (nb        short-end))
       (write-sequence +start-sequence+ fout)
-      (write-byte +version+ fout)
+      (write-byte #x01 fout) ;; this code encodes Version 1
       (write-byte nb fout)
       (xwrite-sequence renc fout :start 0 :end short-end)
       (setf start short-end)
