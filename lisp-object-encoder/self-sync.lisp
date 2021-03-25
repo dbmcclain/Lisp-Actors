@@ -41,12 +41,13 @@
         (find-start-seq enc (1+ pos) end))
       )))
 
-(defun make-ubv4 ()
-  (make-array 4
-              :element-type '(unsigned-byte 8)))
+(defun make-ubv (size &rest args)
+  (apply #'make-array size
+         :element-type '(unsigned-byte 8)
+         args))
 
 (defun int-to-vec-le4 (n)
-  (let ((ans (make-ubv4)))
+  (let ((ans (make-ubv 4)))
     (nlet iter ((ix 0)
                 (n  n))
       (if (> ix 3)
@@ -109,16 +110,19 @@
 ;; ------------------------------------------------------------------
 ;; State Machine for reading self-sync encoded data
 ;; Input Alphabet: [#x00-#xFF, :EOF]
+;;
 
 (defun reader-fsm (finish-fn)
   (alet ((ct)
          (nb)
          (max-ct)
-         (crc  (make-ubv4))
-         (len  (make-ubv4))
+         (crc  (make-ubv 4))
+         (len  (make-ubv 4))
          (cix)
          (lix)
-         (fout (make-ubyte-output-stream)))
+         (aout (make-ubv 256
+                         :fill-pointer 0
+                         :adjustable   t)))
       (alet-fsm
         ;; ------------------------------------
         ;; states - first one is starting state
@@ -129,7 +133,7 @@
            ((#x01) ;; this state machine is for Version 1
             (state read-short-count))
            
-           ;; future versions will splay from here
+           ;; future versions can splay from here
            (t
             (resync b))
            ))
@@ -137,9 +141,7 @@
         (read-short-count
          (b)
          (cond
-          ((and (integerp b)
-                (<= b +max-short-count+))
-           ;; we got a valid short count byte
+          ((valid-count? b)
            (init-buffers b))
           
           (t
@@ -183,7 +185,7 @@
 
            (t
             (stuff b)
-            (when (zerop (decf ct))
+            (when (zerop ct)
               (state read-long-count)))
            ))
         ;; -------------------------------------
@@ -197,7 +199,6 @@
            
            (t
             (stuff #xFE)
-            (decf ct)
             (state read-frag)
             (read-frag b))
            ))
@@ -205,9 +206,7 @@
         (read-long-count
          (b)
          (cond
-          ((and (integerp b)
-                (< b +long-count-base+))
-           ;; we hit a long-count byte
+          ((valid-count? b)
            (maybe-stuff-fefd)
            (setf nb b)
            (state read-long-count-2))
@@ -220,8 +219,7 @@
         (read-long-count-2
          (b)
          (cond
-          ((and (integerp b)
-                (< b +long-count-base+))
+          ((valid-count? b)
            (setup-long-frag-count b))
           
           (t
@@ -236,12 +234,13 @@
                ct  b
                max-ct +max-short-count+
                cix 0
-               lix 0)
-         (file-position fout 0)
+               lix 0
+               (fill-pointer aout) 0)
          (start-frag))
         ;; -----------------------------------
         (stuff
          (b)
+         (decf ct)
          (cond
           ((< cix 4)
            (setf (aref crc cix) b)
@@ -250,8 +249,13 @@
            (setf (aref len lix) b)
            (incf lix))
           (t
-           (write-byte b fout))
+           (vector-push-extend b aout))
           ))
+        ;; -----------------------------------
+        (valid-count?
+         (b)
+         (and (integerp b)
+              (< b +long-count-base+)))
         ;; -----------------------------------
         (maybe-stuff-fefd
          ()
@@ -279,7 +283,7 @@
         ;; -------------------------------------        
         (check-finished
          ()
-         (let* ((ans (stream-bytes fout))
+         (let* ((ans (copy-seq aout))
                 (chk (crc32 len ans)))
            (when (and (equalp crc chk)
                       (= (vec-le4-to-int len) (length ans)))

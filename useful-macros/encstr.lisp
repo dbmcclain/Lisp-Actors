@@ -54,78 +54,82 @@
   ;; use embedded !n, !r, !p, !t, !xnnnn, !!
   (with-output-to-string (s nil
                             :element-type 'character)
-    (let ((hex-inp   0)
-          (hex-ct    0)
-          hex-enc  
-          state-fn)
-      (labels
-          ((stash (ch)
-             (princ ch s))
-           (state (fn)
-             (setf state-fn fn))
-           (start (ch)
-             (case ch
-               ((#\!)
-                (state #'escape))
-               ((:eos))
-               (otherwise
-                (stash ch))
-               ))
-           (escape (ch)
-             (let ((enc '((#\n . #\newline)
-                          (#\r . #\return)
-                          (#\t . #\tab)
-                          (#\f . #\page)
-                          (#\v . #\vt)
-                          (#\a . #\bell)
-                          (#\b . #\backspace)
-                          (#\0 . #\null)
-                          (#\! . #\!))))
-               (state #'start)
-               (um:if-let (pair (assoc ch enc))
-                   (stash (cdr pair))
-                 (if (or (eql ch #\u)
-                         (eql ch #\x))
-                     (progn
-                       (setf hex-enc ch)
-                       (state #'collect-hexcode))
-                   (start ch))
-                 )))
-           (stash-hex ()
-             (case hex-enc
-               ((#\x)
-                ;; Direct Unicode
-                (stash (code-char hex-inp)))
-               ((#\u)
-                ;; UTF-8 Encoding
-                (map nil #'stash (utf-8-code-chars hex-inp)))
-               ))
-           (collect-hexcode (ch)
-             ;; #\u+3bb = Greek Lambda char
-             ;; it won't fit in a simple-base-string
-             (um:if-let (v (and (characterp ch)
-                                (digit-char-p ch 16)))
-                 (progn
-                   (setf hex-inp (+ (ash hex-inp 4) v))
-                   (incf hex-ct)
-                   (when (>= hex-ct 4)
-                     (stash-hex)
-                     (setf hex-ct  0
-                           hex-inp 0)
-                     (state #'start)))
-               (progn
-                 (when (plusp hex-ct)
-                   (stash-hex)
-                   (setf hex-ct  0
-                         hex-inp 0))
-                 (state #'start)
-                 (start ch)))))
-        
-        (state #'start)
-        (dostring (ch str)
-          (funcall state-fn ch))
-        (funcall state-fn :eos)
-        ))))
+    (let ((mach
+           (alet ((hex-inp   0)
+                  (hex-ct    0)
+                  hex-enc  
+                  state-fn)
+               (alet-fsm
+                 ;; --------------------------------------
+                 ;; states - first one is start
+                 ;; --------------------------------------
+                 (start (ch)
+                        (case ch
+                          ((#\\)
+                           (state escape))
+                          ((:eos))
+                          (t
+                           (stash ch))
+                          ))
+                 (escape (ch)
+                         (let ((enc '((#\n . #\newline)
+                                      (#\r . #\return)
+                                      (#\t . #\tab)
+                                      (#\f . #\page)
+                                      (#\v . #\vt)
+                                      (#\a . #\bell)
+                                      (#\b . #\backspace)
+                                      (#\0 . #\null)
+                                      (#\\ . #\\))))
+                           (state start)
+                           (um:if-let (pair (assoc ch enc))
+                               (stash (cdr pair))
+                             (if (or (eql ch #\u)
+                                     (eql ch #\x))
+                                 (progn
+                                   (setf hex-enc ch)
+                                   (state collect-hexcode))
+                               (start ch))
+                             )))
+                 (collect-hexcode (ch)
+                                  ;; #\u+3bb = Greek Lambda char
+                                  ;; it won't fit in a simple-base-string
+                                  (um:if-let (v (and (characterp ch)
+                                                     (digit-char-p ch 16)))
+                                      (progn
+                                        (ash-dpbf hex-inp 4 v)
+                                        (incf hex-ct)
+                                        (when (>= hex-ct 4)
+                                          (stash-hex)
+                                          (setf hex-ct  0
+                                                hex-inp 0)
+                                          (state start)))
+                                    (progn
+                                      (when (plusp hex-ct)
+                                        (stash-hex)
+                                        (setf hex-ct  0
+                                              hex-inp 0))
+                                      (state start)
+                                      (start ch))))
+                 ;; --------------------------------------
+                 ;; helper functions
+                 ;; --------------------------------------
+                 (stash (ch)
+                        (princ ch s))
+                 (stash-hex ()
+                            (case hex-enc
+                              ((#\x)
+                               ;; Direct Unicode
+                               (stash (code-char hex-inp)))
+                              ((#\u)
+                               ;; UTF-8 Encoding
+                               (map nil #'stash (utf-8-code-chars hex-inp)))
+                              ))
+                 ))))
+      (dostring (ch str)
+        (funcall mach ch))
+      (funcall mach :eos)
+      )))
 
 ;; ---------------------------------------------
 ;; SBS - convert string to UTF-8 simple-base-string
@@ -226,7 +230,7 @@
   #|
   (write-string
    ;; (map 'simple-base-string #'code-char '(#x80 #x90 #xA0 #xB0 #xC0 #xD0 #xE0 #xF0))
-   ;; (encstr "!x3bb")
+   ;; (encstr "\x3bb")
    (coerce
     (loop for ix from 0 below 256 collect (code-char ix))
     'string)
@@ -243,6 +247,6 @@
            (λ (x)
              (/ (sin x) x))
            :clear t
-           :title (encstr "Wavelength !x3bb"))
+           :title (encstr "Wavelength \\x3bb"))
  |#
 
