@@ -112,28 +112,34 @@
 ;; Input Alphabet: [#x00-#xFF, :EOF]
 ;;
 
+(um:eval-always
+  (defun %fsm-case (arg case)
+    (destructuring-bind (pred form) case
+      (if (consp pred)
+          `(,pred ,form)
+        (if (and (symbolp pred)
+                 (string= (string pred) "_"))
+            `(t ,form)
+          `((eql ,arg ,pred) ,form)))))
+  
+  (defun %fsm-state (clause)
+    (destructuring-bind (name arg &rest cases) clause
+      `(,name ,arg
+              (cond
+               ,@(mapcar (um:curry #'%fsm-case (car arg))
+                         (um:group cases 2))))
+      )))
+
 (um:defmacro! fsm-states (&rest clauses)
   (let ((first-name (caar clauses)))
     `(macrolet ((,a!state (s)
                 `(setq ,',a!this #',s)))
        (labels
-           ,(mapcar (lambda (clause)
-                      (destructuring-bind (name arg &rest cases) clause
-                        `(,name ,arg
-                                (cond
-                                 ,@(mapcar (lambda (pair)
-                                             (destructuring-bind (pred form) pair
-                                               (if (consp pred)
-                                                   `(,pred ,form)
-                                                 (if (and (symbolp pred)
-                                                          (string= (string pred) "_"))
-                                                     `(t ,form)
-                                                   `((eql ,(car arg) ,pred) ,form)))))
-                                           (um:group cases 2))))
-                        ))
-                    clauses)
+           ,(mapcar #'%fsm-state clauses)
          #',first-name))
     ))
+
+;; ------------------------------------------------------------------
 
 (defun reader-fsm (finish-fn)
   (alet ((ct)     ;; remaining count of bytes to stuff
