@@ -24,18 +24,18 @@
             )))
 
 ;; ------------------------------------------------------------------
-(defconstant +long-count-base+  #xfd)
+(defconstant +long-count-base+  #xFD)
 (defconstant +max-short-count+  (1- +long-count-base+))
 (defconstant +max-long-count+   (1- (* +long-count-base+ +long-count-base+)))
-(defconstant +start-sequence+   #(#xfe #xfd))
+(defconstant +start-sequence+   #(#xFE #xFD))
 ;; ------------------------------------------------------------------
   
 (defun find-start-seq (enc start end)
   (when (< start (1- end))
-    (when-let (pos (xposition #xfe enc
+    (when-let (pos (xposition #xFE enc
                               :start start
                               :end   (1- end)))
-      (if (eql #xfd (xaref enc (1+ pos)))
+      (if (eql #xFD (xaref enc (1+ pos)))
           pos
         (find-start-seq enc (1+ pos) end))
       )))
@@ -143,66 +143,56 @@
 
 ;; ------------------------------------------------------------------
 
-(defun reader-fsm (finish-fn)
+(defun make-reader-fsm (finish-fn &key max-reclen)
   (alet ((ct)     ;; remaining count of bytes to stuff
-         (nb)     ;; length of current frag
-         (max-ct) ;; max possible frag length
-         (crc  (make-ubv 4)) ;; crc buffer
-         (len  (make-ubv 4)) ;; record length buffer
-         (cix)    ;; crc buffer index
-         (lix)    ;; len buffer index
-         (aout (make-ubv 256 ;; stuff accumulator
-                         :fill-pointer 0
-                         :adjustable   t)))
+         (needs-fefd?)
+         (aout (if max-reclen ;; max allowed record size
+                   (make-ubv (+ max-reclen 8)
+                             :fill-pointer 0)
+                 (make-ubv 256 ;; stuffer accumulator
+                           :fill-pointer 0
+                           :adjustable   t))))
       (labels
           ;; ------------------------------------
           ;; helper functions
           ;; ------------------------------------
-          ((init-bufs (b)
+          ((init-buf (b)
              ;; called at start of short frag
-             (setf nb  b
-                   ct  b
-                   max-ct +max-short-count+
-                   cix 0
-                   lix 0
+             (setf ct  b
+                   needs-fefd? (< ct +max-short-count+)
                    (fill-pointer aout) 0))
            ;; -----------------------------------
            (stuff (b)
              ;; byte stuffer
-             (decf ct)
-             (cond
-              ((< cix 4) ;; crc comes first
-               (setf (aref crc cix) b)
-               (incf cix))
-              ((< lix 4) ;; followed by 4-byte length
-               (setf (aref len lix) b)
-               (incf lix))
-              (t         ;; followed by actual data
+             (if max-reclen
+                 (vector-push b aout)
                (vector-push-extend b aout))
-              ))
+             (decf ct))
            ;; -----------------------------------
            (maybe-stuff-fefd ()
              ;; if frag was shorter than mox possible length
              ;; then it was because a start sequence was found
              ;; in the data - so put it back.
-             (when (< nb max-ct)
+             (when needs-fefd?
                (stuff #xFE)
                (stuff #xFD)))
            ;; -----------------------------------
            (init-frag (b)
              ;; called at start of long frag
-             (incf nb (* +long-count-base+ b))
-             (setf ct     nb
-                   max-ct +max-long-count+))
+             (incf ct (* +long-count-base+ b))
+             (setf needs-fefd? (< ct +max-long-count+)))
            ;; -------------------------------------        
            (check-finish ()
              ;; see if we've found the end of a record
-             (let* ((ans (copy-seq aout))
-                    (chk (crc32 len ans)))
-               (when (and (equalp crc chk)
-                          (= (vec-le4-to-int len) (length ans)))
-                 (funcall finish-fn ans))
-               )))
+             (when (>= (length aout) 8)
+               (let* ((crc (subseq aout 0 4))
+                      (len (subseq aout 4 8))
+                      (ans (subseq aout 8))
+                      (chk (crc32 len ans)))
+                 (when (and (equalp crc chk)
+                            (= (vec-le4-to-int len) (length ans)))
+                   (funcall finish-fn ans))
+                 ))))
         ;; ------------------------------------------------------
         (fsm-states
          ;; ------------------------------------
@@ -229,13 +219,13 @@
          (read-short-count ;; first frag is always short
           (b)
           :EOF          (state start) ;; frag was truncated
-          (<= 0 b #xFC) (progn (init-bufs b) (state read-frag))
+          (<= 0 b #xFC) (progn (init-buf b) (state read-frag))
           _             (sync b))     ;; frag was clobbered
          
          (read-long-count  ;; remaining frags are long
           (b)
           :EOF          (progn (check-finish) (state start))  ;; end of record / end of file
-          (<= 0 b #xFC) (progn (maybe-stuff-fefd) (setf nb b) (state read-long-count-2))
+          (<= 0 b #xFC) (progn (maybe-stuff-fefd) (setf ct b) (state read-long-count-2))
           _             (progn (check-finish) (sync b)))      ;; end of record, start of new?
          
          (read-long-count-2
@@ -260,11 +250,11 @@
 
 ;; ------------------------------------------------------------------
 
-(defun make-reader (fin)
+(defun make-reader (fin &rest args)
   (let* ((ans)
          (mach  (flet ((finish (vec)
                          (setf ans vec)))
-                  (reader-fsm #'finish))))
+                  (apply #'make-reader-fsm #'finish args))))
     (lambda ()
       (setf ans nil)
       (nlet iter ()
