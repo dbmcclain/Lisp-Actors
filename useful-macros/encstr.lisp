@@ -57,8 +57,7 @@
     (let ((mach
            (alet ((hex-inp   0)
                   (hex-ct    0)
-                  hex-enc  
-                  state-fn)
+                  hex-enc)
                (alet-fsm
                  ;; --------------------------------------
                  ;; states - first one is start
