@@ -42,14 +42,18 @@
        ,promise)))
 
 (defun realize (promise &optional (timeout *timeout*))
-  (let ((ans (mp:mailbox-read (promise-mbox promise) "Waiting to realize a promise" timeout)))
+  (let ((ans (mp:mailbox-read (promise-mbox promise)
+                              "Waiting to realize a promise" timeout)))
     (cond (ans
            ;; a real answer will never be NIL
            (mp:mailbox-send (promise-mbox promise) ans) ;; in case of repeated REALIZE
            (um:recover-ans-or-exn ans))
           (t
            ;; we had a timeout - can't just return NIL since that
-           ;; might be mistaken for an actual reply
+           ;; might be mistaken for an actual reply. Can't return a
+           ;; flag because there may be multiple values already
+           ;; expected. Better to have caller wrap with TIMEOUT
+           ;; handlers.
            (error 'timeout))
           )))
 
