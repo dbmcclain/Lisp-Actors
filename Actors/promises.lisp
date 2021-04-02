@@ -41,10 +41,17 @@
                                              ,@body))))
        ,promise)))
 
-(defun realize (promise)
-  (let ((ans (mp:mailbox-read (promise-mbox promise))))
-    (mp:mailbox-send (promise-mbox promise) ans) ;; in case of repeated REALIZE
-    (um:recover-ans-or-exn ans)))
+(defun realize (promise &optional (timeout *timeout*))
+  (let ((ans (mp:mailbox-read (promise-mbox promise) "Waiting to realize a promise" timeout)))
+    (cond (ans
+           ;; a real answer will never be NIL
+           (mp:mailbox-send (promise-mbox promise) ans) ;; in case of repeated REALIZE
+           (um:recover-ans-or-exn ans))
+          (t
+           ;; we had a timeout - can't just return NIL since that
+           ;; might be mistaken for an actual reply
+           (error 'timeout))
+          )))
 
 #|
 ;; demonstrate chained promises
