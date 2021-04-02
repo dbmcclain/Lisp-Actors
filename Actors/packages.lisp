@@ -168,6 +168,9 @@ THE SOFTWARE.
    #:ensure-identifiable
    #:ensured-identifier
    #:self-identifier
+
+   #:promise
+   #:realize
    ))
 
 #-lispworks
@@ -353,6 +356,9 @@ THE SOFTWARE.
    ))
 
 (defpackage #:actors/rwgate
+  (:use #:common-lisp #:actors))
+
+(defpackage #:actors/promises
   (:use #:common-lisp #:actors))
 
 (defpackage #:actors/user

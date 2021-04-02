@@ -46,6 +46,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "actors-schedule")
                 (:file "actors-machines")
                 (:file "actors-futures")
+                (:file "promises")
                 (:file "actors-directory")
                 (:file "actors-lfm")
                 (:file "actor-bridge")

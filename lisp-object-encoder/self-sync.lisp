@@ -151,7 +151,8 @@
                              :fill-pointer 0)
                  (make-ubv 256 ;; stuffer accumulator
                            :fill-pointer 0
-                           :adjustable   t))))
+                           :adjustable   t)))
+         (pusher (if max-reclen #'vector-push #'vector-push-extend)))
       (labels
           ;; ------------------------------------
           ;; helper functions
@@ -164,9 +165,7 @@
            ;; -----------------------------------
            (stuff (b)
              ;; byte stuffer
-             (if max-reclen
-                 (vector-push b aout)
-               (vector-push-extend b aout))
+             (funcall pusher b aout)
              (decf ct))
            ;; -----------------------------------
            (maybe-stuff-fefd ()
@@ -322,3 +321,112 @@
         (encode hash-enc)))
  |#
 ;; ------------------------------------------------------------
+#|
+(defun make-reader-fsm (finish-fn &key max-reclen)
+  ;; try a version, inspired by Prolog implementation, where all
+  ;; states have state info held locally.
+  (alet ()
+      (labels
+          ((make-buf (len)
+             (make-ubv (or max-reclen
+                           (max len 256))
+                       :fill-pointer 0
+                       :adjustable   (not max-reclen)))
+           (stuff (b buf)
+             (if max-reclen
+                 (vector-push b buf)
+               (vector-push-extend b buf)))
+           (check-finish (buf)
+             ;; see if we've found the end of a record
+             (when (>= (length buf) 8)
+               (let* ((crc (subseq buf 0 4))
+                      (len (subseq buf 4 8))
+                      (ans (subseq buf 8))
+                      (chk (crc32 len ans)))
+                 (when (and (equalp crc chk)
+                            (= (vec-le4-to-int len) (length ans)))
+                   (funcall finish-fn ans))
+                 ))))
+        (fsm-states
+         ;; ------------------------------------
+         ;; states - first one is starting state
+         ;; All clauses end with setting state, or calling something which does.
+         ;; ------------------------------------
+         (start  ;; check version
+           (b)
+           
+           #x01          (state read-short-count)
+           ;; additional versions splay out from here
+           _             (sync b))   
+         ;; --------------------------
+         (sync  ;; find a start sequence
+           (b)
+           
+           :EOF          (state start)
+           #xFE          (state check-start-fd)
+           _             (state sync))
+         ;; --------------------------
+         (check-start-fd
+          (b)
+          
+          #xFD          (state start)
+          _             (sync b))
+         ;; --------------------------
+         (read-short-count ;; first frag is always short
+          (ct)
+     
+          :EOF           (state start) ;; frag was truncated
+          (<= 0 ct #xFC) (let ((needs-fefd (< ct #xFC))
+                               (buf        (make-buf ct)))
+                           (state (lambda (b)
+                                    (read-frag b needs-fefd buf ct))))
+          _              (sync ct))     ;; frag was clobbered
+         ;; --------------------------
+         (read-long-count  ;; remaining frags are long
+          (b0 needs-fefd buf)
+                           
+          :EOF           (progn (check-finish buf) (state start))  ;; end of record / end of file
+          (<= 0 b0 #xFC) (progn
+                           (when needs-fefd
+                             (stuff #xFE buf)
+                             (stuff #xFD buf))
+                           (state (lambda (b1)
+                                    (read-long-count-2 b1 buf b0))))
+          _              (progn (check-finish buf) (sync b0)))      ;; end of record, start of new?
+         ;; --------------------------
+         (read-long-count-2
+          (b1 buf b0)
+          
+          :EOF           (state start) ;; the frag was truncated
+          (<= 0 b1 #xFC) (let* ((ct         (+ b0 (* #xFD b1)))
+                                (needs-fefd (< ct #.(1- (* #xFD #xFD)))))
+                           (state (lambda (b)
+                                    (read-frag b needs-fefd buf ct))))
+          _              (sync b1))     ;; the frag was clobbered
+         ;; --------------------------
+         (read-frag
+          (b needs-fefd buf ct)
+          
+          (zerop ct)    (read-long-count b needs-fefd buf)
+          :EOF          (state start) ;; the frag was truncated
+          (= ct 1)      (progn
+                          (stuff b buf)
+                          (state (lambda (b)
+                                   (read-long-count b needs-fefd buf))))
+          #xFE          (state (lambda (b)
+                                 (check-frag-fd b needs-fefd buf ct)))
+          _             (progn
+                          (stuff b buf)
+                          (state (lambda (b)
+                                   (read-frag b needs-fefd buf (1- ct)))
+                                 )))
+         ;; --------------------------         
+         (check-frag-fd
+          (b needs-fefd buf ct)
+          
+          #xFD          (state start)  ;; the frag was clobbered - just saw another start seq
+          _             (progn
+                          (stuff #xFE buf)
+                          (read-frag b needs-fefd buf (1- ct))))
+         ))))
+|#
