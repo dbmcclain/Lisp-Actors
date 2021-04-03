@@ -1062,6 +1062,8 @@ THE SOFTWARE.
 
    :ash-dpb
    :ash-dpbf
+
+   :check/lock/check
    ))
 
 #|

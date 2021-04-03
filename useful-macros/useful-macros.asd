@@ -35,6 +35,7 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "editor-extensions")
                 (:file "packages")
                 (:file "eval-always")
+                (:file "clc")
                 (:file "sharp-f")
                 (:file "stub-functions")
                 (:file "basic-useful")

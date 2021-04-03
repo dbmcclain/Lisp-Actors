@@ -85,19 +85,14 @@
   (with-accessors ((ans    promise-ans)
                    (cxlock promise-cxlock)
                    (cxvar  promise-cxvar)) promise
-    (flet ((realization ()
-             (um:recover-ans-or-exn ans)))
-      (iF ans
-          (realization)
-        (mp:with-lock (cxlock)
-          (if ans
-              (realization)
-            (if (mp:condition-variable-wait cxvar cxlock
-                                        :timeout     timeout
-                                        :wait-reason "Waiting for promise")
-                (realization)
-              (error 'timeout))))
-        ))))
+    (um:recover-ans-or-exn
+     (um:check/lock/check ans cxlock
+       (if (mp:condition-variable-wait cxvar cxlock
+                                       :timeout     timeout
+                                       :wait-reason "Waiting for promise")
+           ans
+         (error 'timeout))
+       ))))
 
 #|
 ;; demonstrate chained promises

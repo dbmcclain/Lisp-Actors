@@ -174,6 +174,8 @@ THE SOFTWARE.
      ,@body))
 
 (defmacro critical-or (&optional clause-1 &rest clauses)
+  ;; another variant of the CHECK/LOCK/CHECK pattern for SMP
+  ;; multiprocessing.
   (when clause-1
     (let ((g!clause-1  (gensym)))
       `(flet ((,g!clause-1 ()
