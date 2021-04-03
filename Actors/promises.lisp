@@ -43,6 +43,9 @@
 
 
 (defun do-fulfill (promise fn)
+  ;; while a promise yet to be fulfilled can be handed off to any
+  ;; number of threads, only the first one completing a fulfillment
+  ;; will affect the resulting realization of a promise.
   (with-accessors ((ans    promise-ans)
                    (cxlock promise-cxlock)
                    (cxvar  promise-cxvar)) promise
