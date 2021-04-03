@@ -69,7 +69,9 @@
      ,promise))
 
 #+:LISPWORKS
-(editor:setup-indent "with-promise" 1)
+(progn
+  (editor:setup-indent "with-promise" 1)
+  (editor:setup-indent "fulfill" 1))
 
 (defmacro promise (&body body)
   ;; perform body in another thread, return the promise object
@@ -77,7 +79,7 @@
     `(with-promise ,promise
        (spawn-worker (lambda ()
                        (fulfill ,promise
-                                ,@body))))
+                         ,@body))))
     ))
 
 (defun realize (promise &optional (timeout *timeout*))
