@@ -50,8 +50,7 @@
                    (cxlock promise-cxlock)
                    (cxvar  promise-cxvar)) promise
     (when (sys:compare-and-swap ans nil
-                                (um:capture-ans-or-exn
-                                  (funcall fn)))
+                                (um:call-capturing-ans-or-exn fn))
       (mp:with-lock (cxlock)
         (mp:condition-variable-broadcast cxvar))
       )))
