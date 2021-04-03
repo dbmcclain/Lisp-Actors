@@ -31,6 +31,10 @@
 ;; WITH-PROMISE returns a new promise object to the caller of the
 ;; form.
 ;;
+;; Interesting aside... Apart from the SPAWN-WORKER in PROMISE, this
+;; code has general utility and is otherwise independent of Actors.
+;; Also does not depend on CPS.
+;;
 ;; DM/RAL 04/21
 ;; -------------------------------------------------
 
