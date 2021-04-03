@@ -24,38 +24,77 @@
 ;; promise to any other thread for realization. Promises can yield
 ;; multiple values.
 ;;
+;; Added FULFILL to grant more flexibility in fulfilling promises. Use
+;; with WITH-PROMISE around a body of code. That body is responsible
+;; for calling FULFILL on the named promise arg of the WITH-PROMISE.
+;; That code can run anywhere you deem most appropriate. The
+;; WITH-PROMISE returns a new promise object to the caller of the
+;; form.
+;;
 ;; DM/RAL 04/21
 ;; -------------------------------------------------
 
 (in-package :actors/promises)
 
 (defstruct promise
-  (mbox (mp:make-mailbox)))
+  (ans    nil)
+  (cxlock (mp:make-lock)               :read-only t)
+  (cxvar  (mp:make-condition-variable) :read-only t))
+
+
+(defun do-fulfill (promise fn)
+  (with-accessors ((ans    promise-ans)
+                   (cxlock promise-cxlock)
+                   (cxvar  promise-cxvar)) promise
+    (when (sys:compare-and-swap ans nil
+                                (um:capture-ans-or-exn
+                                  (funcall fn)))
+      (mp:with-lock (cxlock)
+        (mp:condition-variable-broadcast cxvar))
+      )))
+  
+(defmacro fulfill (promise &body body)
+  ;; fulfill a promise, waking up any waiting threads
+  `(do-fulfill ,promise (lambda () ,@body)))
+
+(defmacro with-promise (promise &body body)
+  ;; promise should be a symbol, body must cause promise to be
+  ;; fulfilled, return the new promise object
+  `(let ((,promise (make-promise)))
+     (funcall (lambda ()
+                ,@body))
+     ,promise))
+
+#+:LISPWORKS
+(editor:setup-indent "with-promise" 1)
 
 (defmacro promise (&body body)
+  ;; perform body in another thread, return the promise object
   (lw:with-unique-names (promise)
-    `(let ((,promise (make-promise)))
-       (ac:spawn-worker (lambda ()
-                          (mp:mailbox-send (promise-mbox ,promise)
-                                           (um:capture-ans-or-exn
-                                             ,@body))))
-       ,promise)))
+    `(with-promise ,promise
+       (spawn-worker (lambda ()
+                       (fulfill ,promise
+                                ,@body))))
+    ))
 
 (defun realize (promise &optional (timeout *timeout*))
-  (let ((ans (mp:mailbox-read (promise-mbox promise)
-                              "Waiting to realize a promise" timeout)))
-    (cond (ans
-           ;; a real answer will never be NIL
-           (mp:mailbox-send (promise-mbox promise) ans) ;; in case of repeated REALIZE
-           (um:recover-ans-or-exn ans))
-          (t
-           ;; we had a timeout - can't just return NIL since that
-           ;; might be mistaken for an actual reply. Can't return a
-           ;; flag because there may be multiple values already
-           ;; expected. Better to have caller wrap with TIMEOUT
-           ;; handlers.
-           (error 'timeout))
-          )))
+  ;; wait for a pomise to be fulfilled
+  (with-accessors ((ans    promise-ans)
+                   (cxlock promise-cxlock)
+                   (cxvar  promise-cxvar)) promise
+    (flet ((realization ()
+             (um:recover-ans-or-exn ans)))
+      (iF ans
+          (realization)
+        (mp:with-lock (cxlock)
+          (if ans
+              (realization)
+            (if (mp:condition-variable-wait cxvar cxlock
+                                        :timeout     timeout
+                                        :wait-reason "Waiting for promise")
+                (realization)
+              (error 'timeout))))
+        ))))
 
 #|
 ;; demonstrate chained promises

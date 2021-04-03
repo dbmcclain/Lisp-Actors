@@ -170,6 +170,8 @@ THE SOFTWARE.
    #:self-identifier
 
    #:promise
+   #:with-promise
+   #:fulfill
    #:realize
    ))
 
