@@ -63,8 +63,7 @@
   ;; promise should be a symbol, body must cause promise to be
   ;; fulfilled, return the new promise object
   `(let ((,promise (make-promise)))
-     (progn
-       ,@body)
+     ,@body
      ,promise))
 
 #+:LISPWORKS
