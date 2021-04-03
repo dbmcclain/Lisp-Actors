@@ -13,10 +13,11 @@
 ;;
 ;; If a new promise is based on first realizing a previous promise,
 ;; just remember that the body of code doing the realizing may need
-;; its own handlers, since it will be running in a separate thread
-;; from the main running thread.
+;; its own handlers, since it might be running in a separate thread
+;; from the main running thread. (It will be if REALIZE is wrapped by
+;; PROMISE.)
 ;;
-;; If you try to REALIZE a promise before it has been delivered, you
+;; If you try to REALIZE a promise before it has been fulfilled, you
 ;; will block waiting for its delivery.
 ;;
 ;; A promise can be realized any number of times, and each time will
@@ -24,6 +25,7 @@
 ;; promise to any other thread for realization. Promises can yield
 ;; multiple values.
 ;;
+;; -------------------
 ;; Added FULFILL to grant more flexibility in fulfilling promises. Use
 ;; with WITH-PROMISE around a body of code. That body is responsible
 ;; for calling FULFILL on the named promise arg of the WITH-PROMISE.
