@@ -162,7 +162,7 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------
 
 (defun m= (a b)
-  (= (mmod a) (mmod b)))
+  (zerop (m- a b)))
 
 ;; ------------------------------------------------------------
 
@@ -265,17 +265,28 @@ THE SOFTWARE.
           (values (minv base) (- exp))
         (values (mmod base) exp))
     (declare (integer x exp))
-    (cond
-     ((< x 2)     x) ;; x = 0,1
-     ((zerop exp) 1)
-     ((= 1 exp)   x)
-     ((= 2 exp)   (msqr x))
-     (t 
-      (generalized-windowed-exponentiation x exp
-                                           :window-nbits 4
-                                           :op-mul       'm*
-                                           :op-sqr       'msqr))
-     )))
+    (if (< x 2)
+        x ;; x = 0,1
+      (um:nlet iter ((exp exp)
+                     (ans 1))
+        (declare (integer exp ans))
+        (if (zerop exp)
+            ans
+          ;; we know that x^q = x, so x^(n*q+r) = x^n * x^r
+          (multiple-value-bind (q r) (truncate exp *m*)
+            (declare (integer q r))
+            (let ((rans (case r
+                         (0  1)
+                         (1  x)
+                         (2  (msqr x))
+                         (t  (generalized-windowed-exponentiation x r
+                                                                  :window-nbits 4
+                                                                  :op-mul       'm*
+                                                                  :op-sqr       'msqr))
+                         )))
+              (go-iter q (m* ans rans))
+              ))))
+      )))
 
 ;; ------------------------------------------------------------
 
@@ -403,11 +414,9 @@ THE SOFTWARE.
                             (declare (integer base))
                             (lambda ()
                               (cond
-                               ((= 3 (the fixnum (logand base 3)))
-                                (let ((p (ash (the integer (1+ base)) -2)))
-                                  (declare (integer p))
+                               ((= 3 (ldb (byte 2 0) base))
+                                (let ((p (ash (1+ base) -2)))
                                   (lambda (x)
-                                    (declare (integer x))
                                     (m^ x p))))
                                 (t 'tonelli-shanks)
                                ;; (t 'fast-cipolla)
@@ -442,21 +451,39 @@ THE SOFTWARE.
     ))
 |#
 
-(defun msqrt (x)
-  (declare (integer x))
-  (let* ((x   (mmod x))
+(define-condition non-square-residue (error)
+  ((arg :initarg :arg))
+  (:report report-non-square-residue))
+
+(defun report-non-square-residue (cx stream)
+  (format stream "Not a square residue: ~A" (slot-value cx 'arg)))
+
+(defun msqrt (arg)
+  (declare (integer arg))
+  (let* ((x   (mmod arg))
          (xrt (funcall (get-msqrt-fn) x)))
     (declare (integer x xrt))
     (if (= x (msqr xrt))
-      xrt
-      (error "Not a square residue"))))
+        xrt
+      (error 'non-square-residue :arg arg))
+    ))
 
 (defun msigned (x)
   (let ((mx (m- x)))
     (if (< x mx)
         x
       (- mx))))
-                
+
+(defun msqrt* (arg)
+  ;; return an element in the quadratic extension field, if necessary
+  (handler-case
+      (msqrt arg)
+    (non-square-residue ()
+      (let* ((im^2 (third (get-tonelli-shanks-params)))
+             (k    (msqrt (m/ arg im^2))))
+        (cons 0 k)))
+    ))
+        
 ;; -----------------------------------------------------------
 
 (defun get-tonelli-shanks-params ()
@@ -482,10 +509,10 @@ THE SOFTWARE.
                                   (declare (integer z))
                                   (list q s z)))))))
 
-(defun tonelli-shanks (x)
+(defun tonelli-shanks (arg)
   "Tonelli-Shanks algorithm for Sqrt in prime field"
-  (declare (integer x))
-  (let ((x (mmod x)))
+  (declare (integer arg))
+  (let ((x (mmod arg)))
     (declare (integer x))
     (if (< x 2)
         x
@@ -507,7 +534,7 @@ THE SOFTWARE.
                    (let* ((i  (um:nlet iteri ((i  1)
                                               (x  (msqr tt)))
                                 (declare (integer i x))
-                                (cond ((= i m)  (error "Not a quadratic residue"))
+                                (cond ((= i m)  (error 'non-square-residue :arg arg))
                                       ((= x 1)  i)
                                       (t        (go-iteri (1+ i) (msqr x)))
                                       )))

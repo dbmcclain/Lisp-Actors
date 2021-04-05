@@ -54,10 +54,26 @@ THE SOFTWARE.
    :quadratic-residue-p
    :m!
 
+   :msqrt*
    :mmax
    :mmin
    :bezout
    :msigned
+
+   :with-qf
+   :qf-re
+   :qf-im
+   :qfmod
+   :qf=
+   :qf-conj
+   :qf+
+   :qf-
+   :qf*
+   :qf/
+   :qf^
+   :qfsqr
+   :qf-abssqr
+   :qfsqrt
    ))
 
 #|
