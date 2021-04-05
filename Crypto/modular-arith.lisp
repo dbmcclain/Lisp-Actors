@@ -267,26 +267,19 @@ THE SOFTWARE.
     (declare (integer x exp))
     (if (< x 2)
         x ;; x = 0,1
-      (um:nlet iter ((exp exp)
-                     (ans 1))
-        (declare (integer exp ans))
-        (if (zerop exp)
-            ans
-          ;; we know that x^q = x, so x^(n*q+r) = x^n * x^r
-          (multiple-value-bind (q r) (truncate exp *m*)
-            (declare (integer q r))
-            (let ((rans (case r
-                         (0  1)
-                         (1  x)
-                         (2  (msqr x))
-                         (t  (generalized-windowed-exponentiation x r
-                                                                  :window-nbits 4
-                                                                  :op-mul       'm*
-                                                                  :op-sqr       'msqr))
-                         )))
-              (go-iter q (m* ans rans))
-              ))))
-      )))
+      ;; we know that x^(q-1) = 1, so x^(n*(q-1) + r) = x^r
+      (let ((exp (mod exp (1- *m*))))
+        (declare (integer exp))
+        (case exp
+          (0  1)
+          (1  x)
+          (2  (msqr x))
+          (t  (generalized-windowed-exponentiation x exp
+                                                   :window-nbits 4
+                                                   :op-mul       'm*
+                                                   :op-sqr       'msqr))
+          )))
+    ))
 
 ;; ------------------------------------------------------------
 
