@@ -137,16 +137,16 @@
 
 ;; -------------------------------------------------------------------------
 #|
-(defun re-im-aref (arr re im)
+(defun pt-aref (arr pt)
   ;; fix addressing for Quadrant-I viewing when printing array
   (let ((nrows (array-dimension arr 0)))
-    (aref arr (- nrows 1 im) re)))
+    (aref arr (- nrows 1 (qf-im pt)) (qf-re pt))))
 
-(defun set-re-im-aref (arr re im val)
+(defun set-pt-aref (arr pt val)
   (let ((nrows (array-dimension arr 0)))
-    (setf (aref arr (- nrows 1 im) re) val)))
+    (setf (aref arr (- nrows 1 (qf-im pt)) (qf-re pt)) val)))
 
-(defsetf re-im-aref set-re-im-aref)
+(defsetf pt-aref set-pt-aref)
 
 (defun zap (arr)
   (loop for ix from 0 below (array-total-size arr) do
@@ -162,21 +162,22 @@
   (case which
     ((show-pos)
      (let ((pt  '(4 . 3)))
-       (incf (re-im-aref arr (qf-re pt) (qf-im pt)))))
+       (incf (pt-aref arr pt))))
 
     ((show-pwrs)
      (let ((pt '(3 . 3))) ;; (3 . 3) can serve as generator for P=19
        (with-qf p
          (loop for ix from 0 below (* 19 19) do
                (let ((y (qf^ pt ix)))
-                 (incf (re-im-aref arr (qf-re y) (qf-im y)))
+                 (incf (pt-aref arr y))
                  )))))
     ((show-sqrs)
      (with-qf p
        (loop for ix from 0 below p do
              (loop for iy from 0 below p do
                    (let ((y (qf^ (cons iy ix) 2)))
-                     (incf (re-im-aref arr (qf-re y) (qf-im y))))))))
+                     (incf (pt-aref arr y))
+                     )))))
     )
   (zap arr)
   arr)
