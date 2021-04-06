@@ -155,17 +155,17 @@
 
 ;; -----------------------------------------------
 
-(let* ((p 17)
+(let* ((p 19)
        (arr (make-array (list p p)
                         :initial-element 0))
-       (which 'show-sqrs))
+       (which 'show-pwrs))
   (case which
     ((show-pos)
      (let ((pt  '(4 . 3)))
        (incf (pt-aref arr pt))))
 
     ((show-pwrs)
-     (let ((pt '(3 . 3))) ;; (3 . 3) can serve as generator for P=19
+     (let ((pt '(2 . 1))) ;; (3 . 3) can serve as generator for P=19
        (with-qf p
          (loop for ix from 0 below (* 19 19) do
                (let ((y (qf^ pt ix)))
@@ -210,13 +210,13 @@ Im 3 (2 _ 2 / 2 2 _ _ _ 2 | 2 _ _ _ 2 2 \ 2 _)2
              Re ->
 
 When q = 3 mod 4:
- square roots exist for:
+ square roots exist in F(q^2) for:
    - all purely real, and
    - all purely imag elements, but
    - none exist along the diagonals where re = +/- im
 
 When q = 1 mod 4:
-  square roots exist for:
+  square roots exist in F(q^2) for:
     - all purely real, but
     - none of the purely imag elements, and
     - all diagonal elements where re = +/- im
@@ -232,7 +232,7 @@ When q = 1 mod 4:
   -6 (_ _ 2 _ _ 2 2 2 _ | _ 2 2 2 _ _ 2 _)_
   -7 (_ _ _ 2 _ _ 2 2 2 | 2 2 2 _ _ 2 _ _)_
   -8 (_ 2 2 2 _ _ _ _ 2 | 2 _ _ _ _ 2 2 2)_
-    -------------------|------------------
+     -------------------|------------------
    8 (_ 2 2 2 _ _ _ _ 2 | 2 _ _ _ _ 2 2 2)_
    7 (_ _ _ 2 _ _ 2 2 2 | 2 2 2 _ _ 2 _ _)_
    6 (_ _ 2 _ _ 2 2 2 _ | _ 2 2 2 _ _ 2 _)_
@@ -246,4 +246,3 @@ Im 1 (_ 2 2 _ 2 _ 2 _ _ | _ _ 2 _ 2 _ 2 2)_
        Re ->
 |#
 |#
-

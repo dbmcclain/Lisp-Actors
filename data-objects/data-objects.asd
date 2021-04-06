@@ -54,6 +54,7 @@ THE SOFTWARE.
                 (:file "rpsx")
                 (:file "btree-clos")
                 (:file "memory-btrees-clos")
+                (:file "trie")
 		#+(AND :COM.RAL :LISPWORKS) (:file "protocols")
                 )
   :serial t

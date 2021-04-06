@@ -869,3 +869,14 @@ THE SOFTWARE.
    #:find-containing
    ))
 
+(defpackage #:trie
+  (:use #:common-lisp)
+  (:export
+   #:*trie*
+   #:trie-find
+   #:trie-insert
+   #:trie-delete
+   #:trie-catalog
+   #:trie-autocomplete
+   #:view-trie
+   ))
