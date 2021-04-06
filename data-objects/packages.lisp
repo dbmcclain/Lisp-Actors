@@ -873,6 +873,7 @@ THE SOFTWARE.
   (:use #:common-lisp)
   (:export
    #:*trie*
+   #:make-node
    #:trie-find
    #:trie-insert
    #:trie-delete
