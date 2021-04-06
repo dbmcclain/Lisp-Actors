@@ -9,52 +9,52 @@
 
 (defconstant +empty+ "empty")
 
-(defstruct node
+(defstruct trie
   ch children
   (val +empty+))
 
-(defvar *trie* (make-node))
+(defvar *trie* (make-trie))
 
 (defun trie-find-node (node str &optional (pos 0))
   (if (>= pos (length str))
       node
     (let ((ch (char str pos)))
-      (um:when-let (child (find ch (node-children node)
-                                :key #'node-ch))
+      (um:when-let (child (find ch (trie-children node)
+                                :key #'trie-ch))
         (trie-find-node child str (1+ pos))))
     ))
 
 (defun trie-find (node str)
   (um:when-let (child (trie-find-node node str))
-    (unless (eq (node-val child) +empty+)
-      (values (node-val child) t))))
+    (unless (eq (trie-val child) +empty+)
+      (values (trie-val child) t))))
 
 (defun trie-insert (node str val &optional (pos 0))
   (if (>= pos (length str))
-      (setf (node-val node) val)
+      (setf (trie-val node) val)
     (let* ((ch    (char str pos))
-           (child (find ch (node-children node)
-                        :key #'node-ch)))
+           (child (find ch (trie-children node)
+                        :key #'trie-ch)))
       (unless child
-        (setf child (make-node :ch ch)
-              (node-children node) (sort (cons child (node-children node)) #'char-lessp
-                                         :key #'node-ch)
+        (setf child (make-trie :ch ch)
+              (trie-children node) (sort (cons child (trie-children node)) #'char-lessp
+                                         :key #'trie-ch)
               ))
       (trie-insert child str val (1+ pos)))
     ))
 
 (defun trie-delete (node str)
   (um:when-let (child (trie-find-node node str))
-    (setf (node-val child) +empty+)))
+    (setf (trie-val child) +empty+)))
 
 (defun trie-catalog (node &optional chars coll)
   ;; post-order traversal collection
-  (dolist (child (reverse (node-children node)))
-    (let ((chars (cons (node-ch child) chars)))
+  (dolist (child (reverse (trie-children node)))
+    (let ((chars (cons (trie-ch child) chars)))
       (setf coll (trie-catalog child chars coll))
-      (unless (eq (node-val child) +empty+)
+      (unless (eq (trie-val child) +empty+)
         (let ((str (coerce (reverse chars) 'string)))
-          (push (cons str (node-val child)) coll)
+          (push (cons str (trie-val child)) coll)
           ))))
   coll)
 
@@ -65,31 +65,24 @@
 ;; ----------------------------------------------------------
 ;; Visualization
 
-(defmethod trie-children (trie layout)
-  nil)
-
-(defmethod trie-children ((trie node) layout)
-  (node-children trie))
-
 (defmethod print-node (x)
   nil)
 
-(defmethod print-node ((trie node))
+(defmethod print-node ((trie trie))
   (with-standard-io-syntax
-    (if (eq (node-val trie) +empty+)
-        (prin1-to-string (node-ch trie))
-      (format nil "~S ~S" (node-ch trie) (node-val trie))
+    (if (eq (trie-val trie) +empty+)
+        (prin1-to-string (trie-ch trie))
+      (format nil "~S ~S" (trie-ch trie) (trie-val trie))
       )))
 
 #+:LISPWORKS
-(defmethod view-trie ((s node) &key (layout :left-right))
+(defmethod view-trie ((s trie) &key (layout :left-right))
   (capi:contain
    (make-instance 'capi:graph-pane
                   :layout-function layout
                   :roots (list s)
 
-                  :children-function #'(lambda (node)
-                                         (trie-children node layout))
+                  :children-function #'trie-children
                   :print-function    #'(lambda (node)
                                          (print-node node))
                   :action-callback (lambda (item intf)
