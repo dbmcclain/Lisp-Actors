@@ -51,15 +51,31 @@ How useful is this?
 
 (in-package :actors/erl)
 
-(defclass process (actor)
+(um:eval-always
+  (import '(um:when-let
+               um:if-let
+             um:dlambda*
+             dlam:dcase*
+             um:deletef
+             )))
+          
+;; --------------------------------------------------------------
+
+(define-actor-class process ()
   ((links
     :accessor process-links
-    :initarg  :links
-    :initform nil)
+    :initarg  :links)
    (trapping-exits
     :accessor trapping-exits
-    :initarg  :trap-exits
-    :initform nil)
+    :initarg  :trap-exits)
+   (process-fn
+    :accessor process-fn
+    :initarg  :process-fn))
+  (:default-initargs
+   :user-fn       #'erl-dispatch
+   :process-fn    #'funcall
+   :trap-exits    nil
+   :process-links nil
    ))
 
 ;; --------------------------------------------------
@@ -68,7 +84,7 @@ How useful is this?
   (pushnew proc (process-links (current-actor))))
 
 (defun unlink-from (proc)
-  (um:deletef (process-links (current-actor)) proc))
+  (deletef (process-links (current-actor)) proc))
 
 (defun make-process (fn &key properties link monitor trap-exits)
   (let ((links (if (listp link)
@@ -84,18 +100,18 @@ How useful is this?
         (proc    nil))
     (when monitor
       (push (dlambda*
-              (:link (proc)
-               (declare (ignore proc))
-               )
-              (:unlink (proc)
-               (declare (ignore proc))
-               )
-              (:exit (from reason)
-               (send monitor :down proc from reason)))
+             (:link (proc)
+              (declare (ignore proc))
+              )
+             (:unlink (proc)
+              (declare (ignore proc))
+              )
+             (:exit (from reason)
+              (send monitor :down proc from reason)))
             links))
     (prog1
         (setf proc (make-instance 'process
-                                  :user-fn    fn
+                                  :process-fn fn
                                   :properties properties
                                   :trap-exits trap-exits
                                   :links      links
@@ -106,62 +122,77 @@ How useful is this?
 
 ;; --------------------------------------------------
 
-(defmethod dispatch-message :around ((*current-actor* process) &rest msg)
-  (declare (special *current-actor*))
-  (flet ((handle-below ()
-           (handler-case
-               (call-next-method)
-             (error (c)
-               (dispatch-message *current-actor* :exit *current-actor* c))
-             )))
-    (dcase* msg
-      
-      (:link (proc)
-       ;; proc should be a SEND target that understands :UNLINK and
-       ;; :EXIT messages
-       (link-to proc))
-      
-      (:unlink (proc)
-       (unlink-from proc))
-      
-      (:exit (from reason)
-       (flet ((kill-and-propagate ()
-                (nullify *current-actor*)
-                (let ((links (shiftf (process-links *current-actor*) nil)))
-                  (dolist (proc links)
-                    (send proc :exit from reason))
-                  (unless links
-                    (when (typep reason 'error)
-                      (error reason)))
-                  (abort))
-                ))
-         (unlink-from from)
-         (cond
-          ((or (eq from *current-actor*)
-               (eq reason :kill))
-           ;; if we sent :exit, or anyone sent us :kill
-           (kill-and-propagate))
-          
-          ((eq reason :normal)
-           ;; if someone else died normally, ignore unless we are
-           ;; trapping exits
-           (when (trapping-exits *current-actor*)
-             (handle-below))) 
-          
-          ((trapping-exits *current-actor*)
-           ;; someone else died for some reason and we are trapping exits
-           (handle-below))
-          
-          (t
-           ;; someone else died for some reason and we are not trapping exits
-           (kill-and-propagate))
-          )))
+(defun invoke-user-handler (&rest msg)
+  (handler-case
+      (apply (process-fn (current-actor)) msg)
+    (error (c)
+      (self-call :exit (current-actor) c))
+    ))
 
-      (t (&rest _)
-         (declare (ignore _))
-         ;; any other message
-         (handle-below))
-      )))
+(defmethod actors/base:select-handler ((proc process) conds-fn &rest msg)
+  ;; dual use message dispatch - for normal Actor behavior, and for
+  ;; RECV
+  (or
+   (dcase* msg
+     ;; These kinds of messages (:LINK, :UNLINK, :EXIT) will not be
+     ;; bypassed by a RECV form
+     
+     (:link (proc)
+      ;; proc should be a SEND target that understands :UNLINK and
+      ;; :EXIT messages
+      (lambda ()
+        (link-to proc)))
+     
+     (:unlink (proc)
+      (lambda ()
+        (unlink-from proc)))
+       
+     (:exit (from reason)
+      (lambda ()
+        (flet ((kill-and-propagate ()
+                 (actors/executives:nullify (current-actor))
+                 (let ((links (shiftf (process-links (current-actor)) nil)))
+                   (dolist (proc links)
+                     (send proc :exit from reason))
+                   (unless links
+                     (when (typep reason 'error)
+                       (error reason)))
+                   (abort))
+                 ))
+          (unlink-from from)
+          (cond
+           ((or (eq from (current-actor))
+                (eq reason :kill))
+            ;; if we sent :exit, or anyone sent us :kill
+            (kill-and-propagate))
+           
+           ((eq reason :normal)
+            ;; if someone else died normally, ignore unless we are
+            ;; trapping exits
+            (when (trapping-exits (current-actor))
+              (apply #'invoke-user-handler msg)))
+           
+           ((trapping-exits (current-actor))
+            ;; someone else died for some reason and we are trapping exits
+            (apply #'invoke-user-handler msg))
+           
+           (t
+            ;; someone else died for some reason and we are not trapping exits
+            (kill-and-propagate))
+           ))))
+     
+     (t (&rest _)
+        (declare (ignore _))
+        nil))
+     ;; else
+     (call-next-method)
+     ))
+  
+(defun erl-dispatch (&rest msg)
+  (if-let (handler (apply #'actors/base:select-handler
+                          (current-actor) (constantly nil) msg))
+      (funcall handler)
+    (apply #'invoke-user-handler msg)))
 
 ;; --------------------------------------------------
 

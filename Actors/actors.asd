@@ -41,7 +41,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "actor-class")
                 #-:USING-MAC-GCD (:file "executives")
                 #+:USING-MAC-GCD (:file "mac-executives")
-                ;; (:file "erl-proc")
                 (:file "par-exec")
                 (:file "actors-schedule")
                 (:file "actors-machines")
@@ -54,6 +53,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 #+:USING-ECC-CRYPTO (:file "srp6-ecc")
                 #-:USING-ECC-CRYPTO (:file "srp6-rsa")
                 (:file "network-connection")
+                (:file "erl-proc")
                 (:file "reactor"))
   :SERIAL T
   :depends-on   ("data-objects"

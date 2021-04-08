@@ -77,7 +77,7 @@ THE SOFTWARE.
          (filter-message (&rest msg)
            (um:if-let (fn (and (not (in-ask-p))
                                ;; message arrived not by way of ASK
-                               (apply conds-fn msg)))
+                               (apply #'select-handler (current-actor) conds-fn msg)))
                (process-message fn)
              ;; else
              (progn
@@ -95,6 +95,9 @@ THE SOFTWARE.
         (setf timer (do-schedule-after timeout #'handle-timeout)))
       (signal 'no-immediate-answer)
       )))
+
+(defmethod select-handler ((actor actor) conds-fn &rest msg)
+  (apply conds-fn msg))
 
 ;; ---------------------------------------------------------------
 ;; RECV - for DLAMBDA style handlers

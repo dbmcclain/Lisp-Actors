@@ -304,6 +304,7 @@ THE SOFTWARE.
    #:rd
    #:wr)
   (:export
+   #:nullify
    #:terminate-actor
    #:terminate-actors
    #:set-heartbeat-interval
@@ -355,6 +356,7 @@ THE SOFTWARE.
   (:export
    #:%run-actor
    #:assemble-ask-message
+   #:select-handler
    ))
 
 (defpackage #:actors/rwgate
@@ -362,6 +364,23 @@ THE SOFTWARE.
 
 (defpackage #:actors/promises
   (:use #:common-lisp #:actors))
+
+
+(defpackage #:actors/erl
+  (:use #:common-lisp #:actors)
+  (:export
+   #:process
+   #:make-process
+   #:spawn-link
+   #:spawn-monitor
+   #:link-between
+   #:unlink-between
+   #:link-to
+   #:unlink-from
+   #:link
+   #:unlink
+   #:exit
+   #:trap-exits))
 
 (defpackage #:actors/user
   (:use #:common-lisp #:actors))
