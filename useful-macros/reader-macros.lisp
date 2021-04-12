@@ -131,16 +131,19 @@ THE SOFTWARE.
            (send   (aref gend   3))
            (sfrac  (aref gstart 4)))
         (ignore-errors
-          (let* ((hh (read-from-string (subseq s hstart hend)))
-                 (mm (read-from-string (subseq s mstart mend)))
-                 (ss (if sstart
-                         (read-from-string (delete-separators
-                                            (subseq s (1+ sstart) send)))
-                       0))
-                 (val  (+ (* 60 (+ (* 60 hh) mm))
-                          (if sfrac
-                              (float ss 1d0)
-                            ss))))
+          (let* ((hh   (read-from-string (subseq s hstart hend)))
+                 (mm   (read-from-string (subseq s mstart mend)))
+                 (valm (+ mm (* 60 hh)))
+                 (ss   (if sstart
+                           (read-from-string (delete-separators
+                                              (subseq s (1+ sstart) send)))
+                         0))
+                 (val  (if sstart
+                           (+ (* 60 valm)
+                              (if sfrac
+                                  (float ss 1d0)
+                                ss))
+                         valm)))
             (if (and sign
                      (char= (char s sign) #\-))
                 (- val)
