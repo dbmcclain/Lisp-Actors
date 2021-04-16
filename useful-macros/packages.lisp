@@ -1064,6 +1064,8 @@ THE SOFTWARE.
    :ash-dpbf
 
    :check/lock/check
+
+   :make-encapsulated-type
    ))
 
 #|
