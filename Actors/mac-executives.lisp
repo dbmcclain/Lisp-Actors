@@ -233,6 +233,7 @@
   (apply #'apply-with-gcd-and-group :DEFAULT NIL #'%pre-run-worker-direct fn msg))
 
 (defun %pre-run-worker-direct (*current-runnable* &rest msg)
-  (apply *current-runnable* msg))
+  (with-simple-restart (abort "Exit worker")
+    (apply *current-runnable* msg)))
 
 ;; ----------------------------------------------------------------------------------

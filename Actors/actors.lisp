@@ -307,7 +307,7 @@ THE SOFTWARE.
   (:method ((worker worker) &key &allow-other-keys)
    ;; Just run the form with which it was consructed
    (let ((form (worker-dispatch-wrapper worker)))
-     (with-simple-restart (abort "Continue")
+     (with-simple-restart (abort "Exit worker")
        (apply (car form) (cdr form)))))
 
   (:method ((*current-actor* actor)
