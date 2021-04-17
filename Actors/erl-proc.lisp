@@ -67,13 +67,8 @@ How useful is this?
     :initarg  :links)
    (trapping-exits
     :accessor trapping-exits
-    :initarg  :trap-exits)
-   (process-fn
-    :accessor process-fn
-    :initarg  :process-fn))
+    :initarg  :trap-exits))
   (:default-initargs
-   :user-fn       #'erl-dispatch
-   :process-fn    #'funcall
    :trap-exits    nil
    :process-links nil
    ))
@@ -86,7 +81,7 @@ How useful is this?
 (defun unlink-from (proc)
   (deletef (process-links (current-actor)) proc))
 
-(defun make-process (fn &key properties link monitor trap-exits)
+(defun make-process (&optional fn &key properties link monitor trap-exits)
   (let ((links (if (listp link)
                    link
                  ;; else
@@ -111,7 +106,7 @@ How useful is this?
             links))
     (prog1
         (setf proc (make-instance 'process
-                                  :process-fn fn
+                                  :user-fn    (or fn #'funcall)
                                   :properties properties
                                   :trap-exits trap-exits
                                   :links      links
@@ -124,15 +119,16 @@ How useful is this?
 
 (defun invoke-user-handler (&rest msg)
   (handler-case
-      (apply (process-fn (current-actor)) msg)
+      (apply (user-fn (current-actor)) msg)
     (error (c)
       (self-call :exit (current-actor) c))
     ))
 
-(defmethod actors/base:select-handler ((proc process) conds-fn &rest msg)
+(defmethod get-message-dispatch-handler :around ((proc process) &rest msg)
   ;; dual use message dispatch - for normal Actor behavior, and for
   ;; RECV
   (or
+   (call-next-method)
    (dcase* msg
      ;; These kinds of messages (:LINK, :UNLINK, :EXIT) will not be
      ;; bypassed by a RECV form
@@ -179,21 +175,9 @@ How useful is this?
            (t
             ;; someone else died for some reason and we are not trapping exits
             (kill-and-propagate))
-           ))))
-     
-     (t (&rest _)
-        (declare (ignore _))
-        nil))
-     ;; else
-     (call-next-method)
-     ))
+           )))) )
+   ))
   
-(defun erl-dispatch (&rest msg)
-  (if-let (handler (apply #'actors/base:select-handler
-                          (current-actor) (constantly nil) msg))
-      (funcall handler)
-    (apply #'invoke-user-handler msg)))
-
 ;; --------------------------------------------------
 
 (defun spawn-link (fn &rest args)

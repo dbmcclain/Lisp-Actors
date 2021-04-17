@@ -322,14 +322,14 @@ THE SOFTWARE.
            (when (and (eq t (car busy))
                       initial-message-present-p)
              (with-simple-restart (abort "Handle next message")
-               (apply #'dispatch-message initial-message)))
+               (apply #'dispatch-message *current-actor* initial-message)))
            again
            (when (eq t (car busy)) ;; not terminated?
              (multiple-value-bind (msg ok)
                  (next-message mbox)
                (when ok  ;; until no more messages waiting
                  (with-simple-restart (abort "Handle next message")
-                   (apply #'dispatch-message msg))
+                   (apply #'dispatch-message *current-actor* msg))
                  (go again)))))
        ;; unwind clause
        (when (eq t (car busy)) ;; not terminated
@@ -384,40 +384,49 @@ THE SOFTWARE.
 ;; ---------------------------------------------------------
 ;; Central Actor message handling
 
-(defun dispatch-message (&rest *whole-message*)
+(defun dispatch-message (actor &rest *whole-message*)
   (with-trampoline
-    (um:dcase *whole-message*
-      (actors/internal-message:continuation (fn &rest args)
-        ;; Used for callbacks into the Actor
-        (apply fn args))
+    (if-let (handler (apply #'get-message-dispatch-handler actor *whole-message*))
+        (funcall handler)
+      ;; else - anything else is up to the programmer who constructed
+      ;; this Actor, and possibly redirected by BECOME
+      (apply #'self-call *whole-message*))))
+
+(defmethod get-message-dispatch-handler ((actor actor) &rest msg)
+  ;; Compute a pre-user handler thunk based on the incoming message
+  ;; pattern.  Make it into a METHOD so we can augment by Actor class
+  ;; with :AROUND methods.  These methods will always be invoked if
+  ;; necessary, despite user function replacement by BECOME.
+  (um:dcase msg
+    (actors/internal-message:continuation (fn &rest args)
+       ;; Used for callbacks into the Actor
+       (lambda ()
+         (apply fn args)))
+    
+    (actors/internal-message:send-sync (reply-to &rest sub-message)
+       ;; tell sender we got the message before executing it
+       (lambda ()
+         (send reply-to t)
+         (apply #'self-call sub-message)))
       
-      (actors/internal-message:send-sync (reply-to &rest sub-message)
-        ;; tell sender we got the message before executing it
-        (send reply-to t)
-        (apply #'self-call sub-message))
-      
-      (actors/internal-message:ask (reply-to &rest sub-msg)
-        ;; Intercept restartable queries to send back a response
-        ;; from the following message, reflecting any errors back to
-        ;; the caller.
-        (let ((original-ask-message *whole-message*))
-          (dynamic-wind
-            (let ((*whole-message* original-ask-message)
-                  (*in-ask*        t))
-              (handler-case
-                  (send reply-to
-                        (capture-ans-or-exn
-                          (um:proceed
-                           (apply #'self-call sub-msg))))
-                
-                (no-immediate-answer ())
-                )))))
-      
-      (t (&rest msg)
-        ;; anything else is up to the programmer who constructed
-        ;; this Actor
-        (apply #'self-call msg))
-      )))
+    (actors/internal-message:ask (reply-to &rest sub-msg)
+       ;; Intercept restartable queries to send back a response
+       ;; from the following message, reflecting any errors back to
+       ;; the caller.
+       (lambda ()
+         (let ((original-ask-message *whole-message*))
+           (dynamic-wind
+             (let ((*whole-message* original-ask-message)
+                   (*in-ask*        t))
+               (handler-case
+                   (send reply-to
+                         (capture-ans-or-exn
+                           (um:proceed
+                            (apply #'self-call sub-msg))))
+                 
+                 (no-immediate-answer ())
+                 ))))))
+    ))
 
 ;; ---------------------------------------------
 ;; SPAWN a new Actor using a function with args

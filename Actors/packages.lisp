@@ -173,6 +173,8 @@ THE SOFTWARE.
    #:with-promise
    #:fulfill
    #:realize
+
+   #:get-message-dispatch-handler
    ))
 
 #-lispworks
@@ -356,7 +358,6 @@ THE SOFTWARE.
   (:export
    #:%run-actor
    #:assemble-ask-message
-   #:select-handler
    ))
 
 (defpackage #:actors/rwgate
