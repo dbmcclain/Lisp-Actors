@@ -235,18 +235,18 @@
 (defmethod addq ((ft E) x)
   (writeq ft #'addq x))
 
-(defvar *unique* "unique")
+(defconstant +unique+ "unique")
 
 (defun readq (ft reader-fn)
   (let (ans)
     (um:rmw (D ft) (lambda (tree)
-                     (setf ans *unique*)
+                     (setf ans +unique+)
                      (when tree
                        (multiple-value-bind (x treex)
                            (funcall reader-fn tree)
                          (setf ans x)
                          treex))))
-    (if (eq ans *unique*)
+    (if (eq ans +unique+)
         (values)
       (values ans t))))
 
