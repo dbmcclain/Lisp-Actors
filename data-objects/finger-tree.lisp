@@ -6,6 +6,10 @@
    #:popq
    #:addq
    #:getq
+   #:is-empty?
+   #:not-empty?
+   #:make-finger-tree
+   #:copy-finger-tree
    ))
 
 (in-package #:finger-tree)
@@ -190,4 +194,58 @@
 
 
 ;; ------------------------------------------------------
+;; Sharable Mutable Tree
+;;
+;; The tree proper is never mutated, only the top level reference to it.
+;; Copies of the top level tree node pointer represent an immutable persistent tree
+;; in the state that it had when read.
+
+(um:make-encapsulated-type E E? D)
+
+(defun make-finger-tree ()
+  (E nil))
+
+(defun rdq (ft)
+  (um:rd (D ft)))
+
+(defmethod copy-finger-tree ((ft E))
+  (E (rdq ft)))
+
+(defmethod is-empty? ((ft E))
+  (null (rdq ft)))
+
+(defmethod not-empty? ((ft E))
+  (rdq ft))
+
+(defun writeq (ft writer-fn val)
+  (um:rmw (D ft) (lambda (tree)
+                   (funcall writer-fn tree val))))
+
+(defmethod pushq ((ft E) x)
+  (writeq ft #'pushq x))
+
+(defmethod addq ((ft E) x)
+  (writeq ft #'addq x))
+
+(defvar *unique* "unique")
+
+(defun readq (ft reader-fn)
+  (let ((ans *unique*))
+    (um:rmw (D ft) (lambda (tree)
+                     (when tree
+                       (multiple-value-bind (x treex)
+                           (funcall reader-fn tree)
+                         (setf ans x)
+                         treex))))
+    (if (eq ans *unique*)
+        (values)
+      (values ans t))))
+
+(defmethod popq ((ft E))
+  (readq ft #'popq))
+
+(defmethod getq ((ft E))
+  (readq ft #'getq))
+
+
 
