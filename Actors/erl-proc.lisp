@@ -119,9 +119,9 @@ How useful is this?
 
 (defun invoke-user-handler (&rest msg)
   (handler-case
-      (apply (user-fn (current-actor)) msg)
+      (apply #'self-call msg)
     (error (c)
-      (self-call :exit (current-actor) c))
+      (self-dispatch :exit (current-actor) c))
     ))
 
 (defmethod get-message-dispatch-handler :around ((proc process) &rest msg)

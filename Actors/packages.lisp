@@ -175,6 +175,7 @@ THE SOFTWARE.
    #:realize
 
    #:get-message-dispatch-handler
+   #:self-dispatch
    ))
 
 #-lispworks

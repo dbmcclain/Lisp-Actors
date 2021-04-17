@@ -361,6 +361,11 @@ THE SOFTWARE.
   ;; call this, an error will result.
   (apply (actor-user-fn (current-actor)) msg))
 
+(defun self-dispatch (&rest msg)
+  ;; send a message to myself, immediate execution. If an Actor didn't
+  ;; call this, an error will result.
+  (apply #'dispatch-message (current-actor) msg))
+
 ;; ---------------------------------------------------------
 ;; ASK Infrastructure...
 
