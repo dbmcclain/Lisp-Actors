@@ -8,7 +8,8 @@
 (defpackage #:ffs
   (:use #:common-lisp)
   (:export
-   #:set-ffs-translations
+   #:mappings
+   #:map-filename
    ))
 
 (in-package #:ffs)
@@ -37,16 +38,16 @@
        (return (pathname str))
        ))))
 
-(defvar *ffs*
+(defvar mappings
   '(("projects:" . "~/projects/")
     ("lisp:"     . "projects:Lispworks/")
     ("actors:"   . "lisp:actors/")))
 
-(defun ffs-reader (stream)
-  (prefix-translation (string (read stream)) *ffs*))
+(defun map-filename (fname)
+  (prefix-translation fname mappings))
 
-(defun set-ffs-translations (lst)
-  (setf *ffs* lst))
+(defun ffs-reader (stream)
+  (map-filename (string (read stream))))
 
 (um:set-/-dispatch-reader 'ffs #'ffs-reader)
 
