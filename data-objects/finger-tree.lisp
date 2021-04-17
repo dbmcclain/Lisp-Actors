@@ -16,6 +16,14 @@
 
 ;; --------------------------------------
 #|
+(defvar *tst* (make-finger-tree))
+
+(inspect
+ (progn
+   (dolist (item '(a b c d e f g h i j k l m n o p q r s t u))
+     (addq *tst* item))
+   *tst*))
+
 (inspect
  (um:nlet iter ((tree nil)
                 (items '(a b c d e f g h i j k l m n o p q r s t u)))
@@ -230,8 +238,9 @@
 (defvar *unique* "unique")
 
 (defun readq (ft reader-fn)
-  (let ((ans *unique*))
+  (let (ans)
     (um:rmw (D ft) (lambda (tree)
+                     (setf ans *unique*)
                      (when tree
                        (multiple-value-bind (x treex)
                            (funcall reader-fn tree)
