@@ -307,7 +307,8 @@ THE SOFTWARE.
   (:method ((worker worker) &key &allow-other-keys)
    ;; Just run the form with which it was consructed
    (let ((form (worker-dispatch-wrapper worker)))
-     (apply (car form) (cdr form))))
+     (with-simple-restart (abort "Continue")
+       (apply (car form) (cdr form)))))
 
   (:method ((*current-actor* actor)
             &key (initial-message nil initial-message-present-p)
@@ -320,13 +321,15 @@ THE SOFTWARE.
          (prog ()
            (when (and (eq t (car busy))
                       initial-message-present-p)
-             (apply #'dispatch-message initial-message))
+             (with-simple-restart (abort "Handle next message")
+               (apply #'dispatch-message initial-message)))
            again
            (when (eq t (car busy)) ;; not terminated?
              (multiple-value-bind (msg ok)
                  (next-message mbox)
                (when ok  ;; until no more messages waiting
-                 (apply #'dispatch-message msg)
+                 (with-simple-restart (abort "Handle next message")
+                   (apply #'dispatch-message msg))
                  (go again)))))
        ;; unwind clause
        (when (eq t (car busy)) ;; not terminated
