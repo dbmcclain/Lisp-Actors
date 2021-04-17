@@ -59,6 +59,7 @@ THE SOFTWARE.
                 (:file "bang-macros")
                 (:file "ppcre-reader")
                 (:file "reader-macros")
+                (:file "ffs")
                 (:file "safe-read-from-string")
                 #+(AND :COM.RAL :LISPWORKS) (:file "ctypes")
                 (:file "dlambder")
