@@ -321,15 +321,13 @@ THE SOFTWARE.
          (prog ()
            (when (and (eq t (car busy))
                       initial-message-present-p)
-             (with-simple-restart (abort "Handle next message")
-               (apply #'dispatch-message *current-actor* initial-message)))
+             (apply #'dispatch-message *current-actor* initial-message))
            again
            (when (eq t (car busy)) ;; not terminated?
              (multiple-value-bind (msg ok)
                  (next-message mbox)
                (when ok  ;; until no more messages waiting
-                 (with-simple-restart (abort "Handle next message")
-                   (apply #'dispatch-message *current-actor* msg))
+                 (apply #'dispatch-message *current-actor* msg)
                  (go again)))))
        ;; unwind clause
        (when (eq t (car busy)) ;; not terminated
@@ -390,12 +388,14 @@ THE SOFTWARE.
 ;; Central Actor message handling
 
 (defun dispatch-message (actor &rest *whole-message*)
-  (with-trampoline
-    (if-let (handler (apply #'get-message-dispatch-handler actor *whole-message*))
-        (funcall handler)
-      ;; else - anything else is up to the programmer who constructed
-      ;; this Actor, and possibly redirected by BECOME
-      (apply #'self-call *whole-message*))))
+  (with-simple-restart (abort "Handle next message")
+    (with-trampoline
+      (if-let (handler (apply #'get-message-dispatch-handler actor *whole-message*))
+          (funcall handler)
+        ;; else - anything else is up to the programmer who constructed
+        ;; this Actor, and possibly redirected by BECOME
+        (apply #'self-call *whole-message*))
+      )))
 
 (defmethod get-message-dispatch-handler ((actor actor) &rest msg)
   ;; Compute a pre-user handler thunk based on the incoming message
