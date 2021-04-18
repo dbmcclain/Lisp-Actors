@@ -124,6 +124,197 @@ THE SOFTWARE.
       (go-iter (cdr ks) (cdr vs)))
     map))
 
+;; ----------------------------------------------
+;; Unshared variant
+
+(um:make-encapsulated-type UE UE? UD)
+
+(defun make-unshared-map ()
+  (UE (empty)))
+
+(defmethod copy ((map UE))
+  (UE (UD map)))
+
+(defmethod is-empty ((map UE))
+  (is-empty (UD map)))
+
+(defmethod add ((map UE) key val &key (replace t))
+  (setf (UD map) (add (UD map) key val :replace replace)))
+
+(defmethod remove ((map UE) key)
+  (setf (UD map) (remove (UD map) key)))
+
+(defmethod mem ((map UE) key)
+  (mem (UD map) key))
+
+(defmethod diff ((map1 UE) (map2 UE))
+  (UE (diff (UD map1) (UD map2))))
+
+(defmethod intersection ((map1 UE) (map2 UE))
+  (UE (intersection (UD map1) (UD map2))))
+
+(defmethod union ((map1 UE) (map2 UE))
+  (UE (union (UD map1) (UD map2))))
+
+(defmethod cardinal ((map UE))
+  (cardinal (UD map)))
+
+(defmethod view-set ((map UE) &rest args &key &allow-other-keys)
+  (apply #'view-set (UD map) args))
+
+(defmethod find ((map UE) key &optional default)
+  (find (UD map) key default))
+
+(defmethod fold ((map UE) f accu)
+  (fold (UD map) f accu))
+
+(defmethod mapi ((map UE) f)
+  (mapi (UD map) f))
+
+(defmethod map ((map UE) f)
+  (map (UD map) f))
+
+(defmethod iter ((map UE) f)
+  (iter (UD map) f))
+
+(defmethod add-plist ((map UE) plist)
+  (setf (UD map) (add-plist (UD map) plist)))
+
+(defmethod add-alist ((map UE) alist)
+  (setf (UD map) (add-alist (UD map) alist)))
+
+(defmethod add-hashtable ((map UE) hashtable)
+  (setf (UD map) (add-hashtable (UD map) hashtable)))
+
+(defmethod add-keys-vals ((map UE) keys vals)
+  (setf (UD map) (add-keys-vals (UD map) keys vals)))
+
+;; ----------------------------------------------
+;; Shared variant - lock free
+
+(um:make-encapsulated-type SE SE? SD)
+
+(defun make-shared-map ()
+  (SE (empty)))
+
+(defun rd-map (map)
+  (um:rd (SD map)))
+
+(defmacro with-map ((m map) &body body)
+  `(let ((,m (rd-map ,map)))
+     ,@body))
+
+#+:LISPWORKS
+(editor:setup-indent "with-map" 1)
+
+(defun %rmw-map (map fn)
+  (um:rmw (SD map) fn))
+
+(defmacro rmw-map ((m map) &body body)
+  `(%rmw-map ,map (lambda (,m)
+                    ,@body)))
+
+#+:LISPWORKS
+(editor:setup-indent "rmw-map" 1)
+
+(defmethod copy ((map SE))
+  (with-map (m map)
+    (SE m)))
+
+(defmethod remove ((map SE) key)
+  (rmw-map (m map)
+    (remove m key)))
+
+(defmethod mem ((map SE) key)
+  (with-map (m map)
+    (mem m key)))
+
+(defmethod diff ((map1 SE) (map2 SE))
+  (with-map (m1 map1)
+    (with-map (m2 map2)
+      (SE (diff m1 m2)))))
+
+(defmethod intersection ((map1 SE) (map2 SE))
+  (with-map (m1 map1)
+    (with-map (m2 map2)
+      (SE (intersection m1 m2)))))
+
+(defmethod union ((map1 SE) (map2 SE))
+  (with-map (m1 map1)
+    (with-map (m2 map2)
+      (SE (union m1 m2)))))
+
+(defmethod cardinal ((map SE))
+  (with-map (m map)
+    (cardinal m)))
+
+(defmethod view-set ((map SE) &rest args &key &allow-other-keys)
+  (with-map (m map)
+    (apply #'view-set m args)))
+
+(defmethod add ((map SE) key val &key (replace t))
+  (rmw-map (m map)
+    (add m key val :replace replace)))
+
+(defmethod find ((map SE) key &optional default)
+  (with-map (m map)
+    (find m key default)))
+
+(defmethod fold ((map SE) f accu)
+  (with-map (m map)
+    (fold m f accu)))
+
+(defmethod mapi ((map SE) f)
+  (with-map (m map)
+    (mapi m f)))
+
+(defmethod map ((map SE) f)
+  (with-map (m map)
+    (map m f)))
+
+(defmethod iter ((map SE) f)
+  (with-map (m map)
+    (iter m f)))
+
+(defmethod add-plist ((map SE) plist)
+  (rmw-map (m map)
+    (add-plist m plist)))
+
+(defmethod add-alist ((map SE) alist)
+  (rmw-map (m map)
+    (add-alist m alist)))
+
+(defmethod add-hashtable ((map SE) hashtable)
+  (rmw-map (m map)
+    (add-hashtable m hashtable)))
+
+(defmethod add-keys-vals ((map SE) keys vals)
+  (rmw-map (m map)
+    (add-keys-vals m keys vals)))
+
+
+(defmethod copy-as-shared ((map SE))
+  (copy map))
+
+(defmethod copy-as-unshared ((map SE))
+  (with-map (m map)
+    (UE m)))
+
+(defmethod copy-as-unshared ((map UE))
+  (copy map))
+
+(defmethod copy-as-shared ((map UE))
+  (SE (UD map)))
+
+(defmethod erase ((map SE))
+  (rmw-map (m map)
+    (declare (ignore m))
+    (empty)))
+
+(defmethod erase ((map UE))
+  (setf (UD map) (empty)))
+
+;; ----------------------------------------------
 
 #|
 ;; test code for map
@@ -140,6 +331,8 @@ THE SOFTWARE.
         nil))
   |#
 #||#
+;; ----------------------------------------------
+
 #+:LISPWORKS
 (defmethod lispworks:get-inspector-values ((map sets:node) (mode (eql 'list-form)))
   (declare (ignore mode))

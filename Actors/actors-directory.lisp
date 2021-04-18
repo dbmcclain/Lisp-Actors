@@ -10,25 +10,8 @@
 
 ;; ------------------------------------------------------------
 
-(defgeneric acceptable-key (name)
-  (:method (obj)
-   nil)
-  (:method ((obj (eql nil)))
-   nil)
-  (:method ((sym symbol))
-   (acceptable-key (string sym)))
-  (:method ((str string))
-   (string-upcase str))
-  (:method ((index integer))
-   index)
-  (:method ((usti uuid:uuid))
-   usti))
-
-(defun need-acceptable-key (name)
-  (let ((key (acceptable-key name)))
-    (unless key
-      (error "Unacceptable name for Actor: ~S" name))
-    key))
+(defun acceptable-key (obj)
+  (string-upcase (princ-to-string obj)))
 
         ;;; =========== ;;;
 ;; The Directory utilizes a functional mapping (shareable, immutable).
@@ -36,45 +19,33 @@
 ;; lock-free accessors/mutators on that top node pointer.
 ;; (Too bad we don't have Actors in place just yet...)
 
-(defglobal-var *actors-directory* (maps:empty))
+(defglobal-var *actors-directory* (maps:make-shared-map))
 
 (defun clear-directory ()
-  (um:wr *actors-directory* (maps:empty)))
-
-(defun current-directory ()
-  (um:rd *actors-directory*))
-
-(defun directory-foreach (fn)
-  (maps:iter (current-directory) fn))
-
-(defun update-directory (mut-fn)
-  (um:rmw *actors-directory* mut-fn))
+  (maps:erase *actors-directory*))
 
 (defun register-actor (name actor)
   ;; this simply overwrites any existing entry with actor
-  (let ((key (need-acceptable-key name)))
-    (update-directory (um:rcurry 'maps:add key actor))
+  (let ((key (acceptable-key name)))
+    (setf (get-property actor 'directory-keys)
+          (adjoin key (get-property actor 'directory-keys)
+                  :test #'string-equal))
+    (maps:add *actors-directory* key actor)
     actor))
-
-(defun %remove-key (key)
-  (update-directory (um:rcurry 'maps:remove key)))
 
 (defgeneric unregister-actor (actor)
   (:method (name)
    (um:when-let (key (acceptable-key name))
-     (%remove-key key)))
+     (maps:remove *actors-directory* key)))
   (:method ((actor actor))
-   (directory-foreach
-    (lambda (k v)
-      (when (eq v actor)
-        (%remove-key k)))
-    )))
+   (dolist (key (get-property actor 'directory-keys))
+     (maps:remove *actors-directory* key))))
 
 (defun get-actors ()
   (um:accum acc
-    (directory-foreach
-     (lambda (k v)
-       (acc (cons k v))))
+    (maps:iter *actors-directory*
+               (lambda (k v)
+                 (acc (cons k v))))
     ))
 
 (defun get-actor-names ()
@@ -84,16 +55,11 @@
   (:method ((actor actor))
    actor)
   (:method (name)
-   (um:when-let (key (acceptable-key name))
-     (maps:find (current-directory) key))))
+   (let ((key (acceptable-key name)))
+     (maps:find *actors-directory* key))))
 
 (defun find-names-for-actor (actor)
-  (um:accum acc
-    (directory-foreach
-     (lambda (k v)
-       (when (eq v actor)
-         (acc k)))
-     )))
+  (get-property actor 'directory-keys))
 
 ;; -------------------------------------------------------
 ;; in anticipation of networking and distributed SEND
@@ -110,7 +76,7 @@
 
 (defmethod ensure-identifiable ((actor actor) &optional id)
   (when id
-    (setf id (need-acceptable-key id)))
+    (setf id (acceptable-key id)))
   (inject-into-actor actor
     (let* ((id  (or (get-property actor :usti)
                     (car (find-names-for-actor actor))

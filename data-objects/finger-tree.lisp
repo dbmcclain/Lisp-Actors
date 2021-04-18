@@ -10,7 +10,10 @@
    #:not-empty?
    #:make-shared-finger-tree
    #:make-unshared-finger-tree
-   #:copy-finger-tree
+   #:copy
+   #:erase
+   #:copy-as-shared
+   #:copy-as-unshared
    ))
 
 (in-package #:finger-tree)
@@ -203,7 +206,7 @@
 
 
 ;; ------------------------------------------------------
-;; Sharable Mutable Tree
+;; Sharable Mutable Tree - lock free
 ;;
 ;; The tree proper is never mutated, only the top level reference to it.
 ;; Copies of the top level tree node pointer represent an immutable persistent tree
@@ -217,7 +220,7 @@
 (defun rdq (ft)
   (um:rd (SD ft)))
 
-(defmethod copy-finger-tree ((ft SE))
+(defmethod copy ((ft SE))
   (SE (rdq ft)))
 
 (defmethod is-empty? ((ft SE))
@@ -228,7 +231,7 @@
 
 (defmethod writeq ((ft SE) writer-fn val)
   (um:rmw (SD ft) (lambda (tree)
-                   (funcall writer-fn tree val))))
+                    (funcall writer-fn tree val))))
 
 (defmethod pushq ((ft SE) x)
   (writeq ft #'pushq x))
@@ -257,6 +260,9 @@
 (defmethod getq ((ft SE))
   (readq ft #'getq))
 
+(defmethod erase ((ft SE))
+  (writeq ft (constantly nil) nil))
+
 ;; ---------------------------------------------------------
 ;; Unshared variant
 
@@ -265,7 +271,7 @@
 (defun make-unshared-finger-tree ()
   (UE nil))
 
-(defmethod copy-finger-tree ((ft UE))
+(defmethod copy ((ft UE))
   (UE (UD ft)))
 
 (defmethod is-empty? ((ft UE))
@@ -295,5 +301,20 @@
 
 (defmethod getq ((ft UE))
   (readq ft #'getq))
+
+(defmethod erase ((ft UE))
+  (setf (UD ft) nil))
+
+(defmethod copy-as-shared ((ft UE))
+  (SE (UD ft)))
+
+(defmethod copy-as-unshared ((ft UE))
+  (copy ft))
+
+(defmethod copy-as-shared ((ft SE))
+  (copy ft))
+
+(defmethod copy-as-unshared ((ft SE))
+  (UE (rdq ft)))
 
 ;; ---------------------------------------------------------

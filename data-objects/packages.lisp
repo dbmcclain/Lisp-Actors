@@ -581,6 +581,12 @@ THE SOFTWARE.
    #:=tlet
    #:trampoline)
   (:export
+   #:make-shared-set
+   #:make-unshared-set
+   #:erase
+   #:copy
+   #:copy-as-shared
+   #:copy-as-unshared
    #:tree
    #:empty
    #:node
@@ -627,6 +633,10 @@ THE SOFTWARE.
   (:import-from #:sets
    #:tree
    #:empty
+   #:copy
+   #:copy-as-shared
+   #:copy-as-unshared
+   #:erase
    #:singleton
    #:is-empty
    #:mem
@@ -636,8 +646,17 @@ THE SOFTWARE.
    #:with-node-bindings
    #:key-fn
    #:removef)
-  (:shadowing-import-from #:sets #:equal #:remove #:union #:intersection)
+  (:shadowing-import-from #:sets
+   #:remove
+   #:union
+   #:intersection)
   (:export
+   #:make-shared-map
+   #:make-unshared-map
+   #:copy
+   #:copy-as-shared
+   #:copy-as-unshared
+   #:erase
    #:map-cell
    #:map-cell-key
    #:map-cell-val
@@ -657,7 +676,6 @@ THE SOFTWARE.
    #:map
    #:mapi
    #:fold
-   #:equal
    #:cardinal
    #:view-set
    #:with-node-bindings

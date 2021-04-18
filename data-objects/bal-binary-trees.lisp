@@ -28,7 +28,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+LIABILITY, WHETHER IN AN ACTION OF CONTRAT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
@@ -70,6 +70,8 @@ THE SOFTWARE.
 
 (defun empty ()
   +empty+)
+
+(declaim (inline empty))
 
 ;; -------------------------------
 
@@ -714,19 +716,18 @@ THE SOFTWARE.
   item)
 
 #+:LISPWORKS
-(defmethod view-set ((s tree) &key (key #'key-fn) (layout :left-right))
+(defmethod view-set ((s tree) &key (key #'key-fn) (layout :left-right) &allow-other-keys)
   (capi:contain
    (make-instance 'capi:graph-pane
-                  :layout-function layout
-                  :roots (list s)
-
+                  :layout-function   layout
+                  :roots             (list s)
                   :children-function #'(lambda (node)
                                          (set-children node layout))
                   :print-function    #'(lambda (node)
                                          (print-node node key))
-                  :action-callback (lambda (item intf)
-                                     (declare (ignore intf))
-                                     (inspect item))
+                  :action-callback   #'(lambda (item intf)
+                                         (declare (ignore intf))
+                                         (inspect item))
                   )))
 
 #|
@@ -752,3 +753,220 @@ THE SOFTWARE.
     ))
 (time (tsth 1000000))
 |#
+
+;; --------------------------------------------------
+;; Unshared variant
+
+(um:make-encapsulated-type UE UE? UD)
+
+(defun make-unshared-set ()
+  (UE (empty)))
+
+(defmethod copy ((set UE))
+  (UE (UD set)))
+
+(defmethod add ((set UE) x)
+  (setf (UD set) (add (UD set) x)))
+
+(defmethod min-elt ((set UE))
+  (min-elt (UD set)))
+
+(defmethod max-elt ((set UE))
+  (max-elt (UD set)))
+
+(defmethod mem ((set UE) x)
+  (mem (UD set) x))
+
+(defmethod remove ((set UE) x)
+  (setf (UD set) (remove (UD set) x)))
+
+(defmethod union ((set1 UE) (set2 UE))
+  (UE (union (UD set1) (UD set2))))
+
+(defmethod intersection ((set1 UE) (set2 UE))
+  (UE (intersection (UD set1) (UD set2))))
+
+(defmethod diff ((set1 UE) (set2 UE))
+  (UE (diff (UD set1) (UD set2))))
+
+(defmethod ord:compare ((set1 UE) (set2 UE))
+  (ord:compare (UD set1) (UD set2)))
+
+(defmethod subset ((set1 UE) (set2 UE))
+  (subset (UD set1) (UD set2)))
+
+(defmethod iter ((set UE) fn)
+  (iter (UD set) fn))
+
+(defmethod fold ((set UE) fn accu)
+  (fold (UD set) fn accu))
+
+(defmethod every ((set UE) pred)
+  (every (UD set) pred))
+
+(defmethod some ((set UE) pred)
+  (some (UD set) pred))
+
+(defmethod filter ((set UE) pred)
+  (UE (filter (UD set) pred)))
+
+(defmethod partition ((set UE) pred)
+  (destructuring-bind (tp fp)
+      (partition (UD set) pred)
+    (list (UE tp) (UE fp))
+    ))
+
+(defmethod cardinal ((set UE))
+  (cardinal (UD set)))
+
+(defmethod elements ((set UE))
+  (elements (UD set)))
+
+(defmethod choose ((set UE))
+  (choose (UD set)))
+
+(defmethod view-set ((set UE) &rest args &key &allow-other-keys)
+  (apply #'view-set (UD set) args))
+
+;; --------------------------------------------------
+;; Shared variant - lock free
+
+(um:make-encapsulated-type SE SE? SD)
+
+(defun make-shared-set ()
+  (SE (empty)))
+
+(defun rd-set (set)
+  (um:rd (SD set)))
+
+(defmacro with-set ((s set) &body body)
+  `(let ((,s (rd-set ,set)))
+     ,@body))
+
+#+:LISPWORKS
+(editor:setup-indent "with-set" 1)
+
+(defun %rmw-set (set fn)
+  (um:rmw (SD set) fn))
+
+(defmacro rmw-set ((s set) &body body)
+  `(%rmw-set ,set (lambda (,s)
+                    ,@body)))
+
+#+:LISPWORKS
+(editor:setup-indent "rmw-set" 1)
+
+(defmethod copy ((set SE))
+  (with-set (s set)
+    (SE s)))
+
+(defmethod add ((set SE) x)
+  (rmw-set (s set)
+    (add s x)))
+
+(defmethod min-elt ((set SE))
+  (with-set (s set)
+    (min-elt s)))
+
+(defmethod max-elt ((set SE))
+  (with-set (s set)
+    (max-elt s)))
+
+(defmethod mem ((set SE) x)
+  (with-set (s set)
+    (mem s x)))
+
+(defmethod remove ((set SE) x)
+  (rmw-set (s set)
+    (remove s x)))
+
+(defmethod union ((set1 SE) (set2 SE))
+  (with-set (s1 set1)
+    (with-set (s2 set2)
+      (SE (union s1 s2)))))
+
+(defmethod intersection ((set1 SE) (set2 SE))
+  (with-set (s1 set1)
+    (with-set (s2 set2)
+      (SE (intersection s1 s2)))))
+
+(defmethod diff ((set1 SE) (set2 SE))
+  (with-set (s1 set1)
+    (with-set (s2 set2)
+      (SE (diff s1 s2)))))
+
+(defmethod ord:compare ((set1 SE) (set2 SE))
+  (with-set (s1 set1)
+    (with-set (s2 set2)
+      (ord:compare s1 s2))))
+
+(defmethod subset ((set1 SE) (set2 SE))
+  (with-set (s1 set1)
+    (with-set (s2 set2)
+      (subset s1 s2))))
+
+(defmethod iter ((set SE) fn)
+  (with-set (s set)
+    (iter s fn)))
+
+(defmethod fold ((set SE) fn accu)
+  (with-set (s set)
+    (fold s fn accu)))
+
+(defmethod every ((set SE) pred)
+  (with-set (s set)
+    (every s pred)))
+
+(defmethod some ((set SE) pred)
+  (with-set (s set)
+    (some s pred)))
+
+(defmethod filter ((set SE) pred)
+  (with-set (s set)
+    (SE (filter s pred))))
+
+(defmethod partition ((set SE) pred)
+  (with-set (s set)
+    (destructuring-bind (tp fp)
+        (partition s pred)
+      (list (SE tp) (SE fp))
+      )))
+
+(defmethod cardinal ((set SE))
+  (with-set (s set)
+    (cardinal s)))
+
+(defmethod elements ((set SE))
+  (with-set (s set)
+    (elements s)))
+
+(defmethod choose ((set SE))
+  (with-set (s set)
+    (choose s)))
+
+(defmethod view-set ((set SE) &rest args &key &allow-other-keys)
+  (with-set (s set)
+    (apply #'view-set s args)))
+
+(defmethod copy-as-shared ((set SE))
+  (copy set))
+
+(defmethod copy-as-shared ((set UE))
+  (SE (UD set)))
+
+(defmethod copy-as-unshared ((set SE))
+  (with-set (s set)
+    (UE s)))
+
+(defmethod copy-as-unshared ((set UE))
+  (copy set))
+
+(defmethod erase ((set SE))
+  (rmw-set (s set)
+    (declare (ignore s))
+    (empty)))
+
+(defmethod erase ((set UE))
+  (setf (UD set) (empty)))
+
+

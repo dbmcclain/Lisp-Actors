@@ -186,7 +186,7 @@ THE SOFTWARE.
     :accessor worker-dispatch-wrapper
     :initarg :wrapper))
   (:default-initargs
-   :wrapper (list 'lw:do-nothing)
+   :wrapper (list #'lw:do-nothing)
    ))
 
 (define-actor-class actor (<runnable>)
@@ -197,11 +197,11 @@ THE SOFTWARE.
   ;;
   ;; By default, it expects messages to be executable functions with
   ;; args. Users can specify other behavior at construction time.
-  ((properties-ref
+  ((properties
     ;; globally visible properties on this Actor. SMP-safe methods are
     ;; provided for getting / setting
-    :reader    actor-properties-ref
-    :initarg   :properties-ref)
+    :reader    actor-properties
+    :initform  (maps:make-shared-map))
    (mbox
     ;; the Actor's message queue. SMP-safe
     :reader    actor-mailbox
@@ -213,17 +213,16 @@ THE SOFTWARE.
     :accessor  actor-user-fn
     :initarg   :user-fn))
   (:default-initargs
-   :properties-ref (ref (maps:empty))
-   :user-fn        #'funcall
-   :mailbox        (make-instance 'actor-mailbox)
+   :user-fn    #'funcall
+   :mailbox    (make-instance 'actor-mailbox)
    ))
 
 ;; -----------------------------------------------------
 ;; Actor construction
 
 (defmethod initialize-instance :after ((actor actor) &key properties &allow-other-keys)
-  (wr (ref-val (slot-value actor 'properties-ref))
-        (maps:add-plist (maps:empty) properties))
+  (when properties
+    (maps:add-plist (actor-properties actor) properties))
   (clos:set-funcallable-instance-function actor
                                           (lambda (&rest args)
                                             (if (eq actor (current-actor))
@@ -250,20 +249,15 @@ THE SOFTWARE.
 
 (defmethod get-property ((actor actor) key &optional default)
   ;; SMP-safe
-  (maps:find (rd (ref-val (actor-properties-ref actor)))
-             key default))
+  (maps:find (actor-properties actor) key default))
 
 (defmethod set-property ((actor actor) key value)
   ;; SMP-safe
-  (rmw (ref-val (actor-properties-ref actor))
-       (lambda (map)
-         (maps:add map key value)))
+  (maps:add (actor-properties actor) key value)
   value)
 
 (defmethod remove-property ((actor actor) key)
-  (rmw (ref-val (actor-properties-ref actor))
-       (lambda (map)
-         (maps:remove map key))))
+  (maps:remove (actor-properties actor) key))
 
 ;; --------------------------------------------------------
 ;; Core SEND to Actors
