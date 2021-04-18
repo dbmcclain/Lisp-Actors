@@ -57,6 +57,7 @@
       )))
 |#
 ;; --------------------------------------------------------
+;; Vector-based skeletal elements to cut down on consing.
 
 (declaim (inline \1f \2f \3f \4f st ft \1f? \4f?))
 
@@ -222,8 +223,8 @@
 ;;
 ;; Those contents could either be further skeletal finger tree nodes,
 ;; or user vectors of arbitrary kind. There is no way to discern the
-;; difference, except to know that if we entered from the top, thenm
-;; we know when they should represent skeletal elements.
+;; difference, except to know that if we entered from the top, then we
+;; know when they should represent skeletal elements.
 
 (defmethod cardinal ((tree null))
   0)
@@ -253,9 +254,10 @@
 ;; ------------------------------------------------------
 ;; Sharable Mutable Tree - lock free
 ;;
-;; The tree proper is never mutated, only the top level reference to it.
-;; Copies of the top level tree node pointer represent an immutable persistent tree
-;; in the state that it had when read.
+;; The tree proper is never mutated, only the top level reference to
+;; it.  Copies of the top level tree node pointer represent an
+;; immutable persistent tree in the state that it had when it was
+;; read.
 
 (um:make-encapsulated-type SE SE? SD)
 
@@ -363,6 +365,7 @@
   (elements (UD ft)))
 
 ;; --------------------------------------------
+;; Encapsulation coercion
 
 (defmethod copy-as-shared ((ft UE))
   (SE (UD ft)))
