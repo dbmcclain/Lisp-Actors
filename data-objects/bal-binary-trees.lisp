@@ -828,6 +828,9 @@ THE SOFTWARE.
 (defmethod view-set ((set UE) &rest args &key &allow-other-keys)
   (apply #'view-set (UD set) args))
 
+(defmethod erase ((set UE))
+  (setf (UD set) (empty)))
+
 ;; --------------------------------------------------
 ;; Shared variant - lock free
 
@@ -948,6 +951,14 @@ THE SOFTWARE.
   (with-set (s set)
     (apply #'view-set s args)))
 
+(defmethod erase ((set SE))
+  (rmw-set (s set)
+    (declare (ignore s))
+    (empty)))
+
+;; ------------------------------------------
+;; Encapsulation coercion
+
 (defmethod copy-as-shared ((set SE))
   (copy set))
 
@@ -961,12 +972,5 @@ THE SOFTWARE.
 (defmethod copy-as-unshared ((set UE))
   (copy set))
 
-(defmethod erase ((set SE))
-  (rmw-set (s set)
-    (declare (ignore s))
-    (empty)))
-
-(defmethod erase ((set UE))
-  (setf (UD set) (empty)))
 
 

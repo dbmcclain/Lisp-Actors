@@ -189,6 +189,9 @@ THE SOFTWARE.
 (defmethod add-keys-vals ((map UE) keys vals)
   (setf (UD map) (add-keys-vals (UD map) keys vals)))
 
+(defmethod erase ((map UE))
+  (setf (UD map) (empty)))
+
 ;; ----------------------------------------------
 ;; Shared variant - lock free
 
@@ -292,6 +295,13 @@ THE SOFTWARE.
   (rmw-map (m map)
     (add-keys-vals m keys vals)))
 
+(defmethod erase ((map SE))
+  (rmw-map (m map)
+    (declare (ignore m))
+    (empty)))
+
+;; -----------------------------------------
+;; Encapsulation coercion
 
 (defmethod copy-as-shared ((map SE))
   (copy map))
@@ -305,14 +315,6 @@ THE SOFTWARE.
 
 (defmethod copy-as-shared ((map UE))
   (SE (UD map)))
-
-(defmethod erase ((map SE))
-  (rmw-map (m map)
-    (declare (ignore m))
-    (empty)))
-
-(defmethod erase ((map UE))
-  (setf (UD map) (empty)))
 
 ;; ----------------------------------------------
 

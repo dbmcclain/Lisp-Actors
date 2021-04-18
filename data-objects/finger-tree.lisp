@@ -14,6 +14,8 @@
    #:erase
    #:copy-as-shared
    #:copy-as-unshared
+   #:cardinal
+   #:elements
    ))
 
 (in-package #:finger-tree)
@@ -204,7 +206,31 @@
                ))
       )))
 
+(defmethod cardinal ((tree null))
+  0)
 
+(defmethod cardinal ((tree vector))
+  (um:nlet iter ((tree tree)
+                 (ct   0))
+    (if (null tree)
+        ct
+      (multiple-value-bind (x treex) (getq tree)
+        (declare (ignore x))
+        (go-iter treex (1+ ct)))
+      )))
+              
+(defmethod elements ((tree null))
+  nil)
+
+(defmethod elements ((tree vector))
+  (um:nlet iter ((tree tree)
+                 (acc  nil))
+    (if (null tree)
+        acc
+      (multiple-value-bind (x treex) (getq tree)
+        (go-iter treex (cons x acc)))
+      )))
+     
 ;; ------------------------------------------------------
 ;; Sharable Mutable Tree - lock free
 ;;
@@ -263,6 +289,12 @@
 (defmethod erase ((ft SE))
   (writeq ft (constantly nil) nil))
 
+(defmethod cardinal ((ft SE))
+  (cardinal (rdq ft)))
+
+(defmethod elements ((ft SE))
+  (elements (rdq ft)))
+
 ;; ---------------------------------------------------------
 ;; Unshared variant
 
@@ -304,6 +336,14 @@
 
 (defmethod erase ((ft UE))
   (setf (UD ft) nil))
+
+(defmethod cardinal ((ft UE))
+  (cardinal (UD ft)))
+
+(defmethod elements ((ft UE))
+  (elements (UD ft)))
+
+;; --------------------------------------------
 
 (defmethod copy-as-shared ((ft UE))
   (SE (UD ft)))
