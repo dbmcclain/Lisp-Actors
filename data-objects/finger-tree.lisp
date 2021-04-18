@@ -206,6 +206,25 @@
                ))
       )))
 
+;; Unfortunately, while the Finger Tree represents amortized immutable
+;; queue/stack behavior, it becomes expensive O(N) for counting
+;; occupancy or retrieving whole contents.
+;;
+;; A Finger Tree can only be safely accessed from its top node, which
+;; then gives assurance that all subnodes are proper elements of that
+;; Finger Tree skeleton. But jumping into the niddle and analyzing its
+;; contents becomes fraught with danger...
+;;
+;; What about when a Finger Tree queue contains independent Finger
+;; trees as elements? Or worse, when a Finger Tree contains innocent
+;; vectors of another kind. We cannot safely examine the elements of
+;; finger vectors (\1F \2F \3F \4F)
+;;
+;; Those contents could either be further skeletal finger tree nodes,
+;; or user vectors of arbitrary kind. There is no way to discern the
+;; difference, except to know that if we entered from the top, thenm
+;; we know when they should represent skeletal elements.
+
 (defmethod cardinal ((tree null))
   0)
 
