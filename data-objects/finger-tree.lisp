@@ -8,7 +8,8 @@
    #:getq
    #:is-empty?
    #:not-empty?
-   #:make-finger-tree
+   #:make-shared-finger-tree
+   #:make-unshared-finger-tree
    #:copy-finger-tree
    ))
 
@@ -208,38 +209,38 @@
 ;; Copies of the top level tree node pointer represent an immutable persistent tree
 ;; in the state that it had when read.
 
-(um:make-encapsulated-type E E? D)
+(um:make-encapsulated-type SE SE? SD)
 
-(defun make-finger-tree ()
-  (E nil))
+(defun make-shared-finger-tree ()
+  (SE nil))
 
 (defun rdq (ft)
-  (um:rd (D ft)))
+  (um:rd (SD ft)))
 
-(defmethod copy-finger-tree ((ft E))
-  (E (rdq ft)))
+(defmethod copy-finger-tree ((ft SE))
+  (SE (rdq ft)))
 
-(defmethod is-empty? ((ft E))
+(defmethod is-empty? ((ft SE))
   (null (rdq ft)))
 
-(defmethod not-empty? ((ft E))
+(defmethod not-empty? ((ft SE))
   (rdq ft))
 
-(defun writeq (ft writer-fn val)
-  (um:rmw (D ft) (lambda (tree)
+(defmethod writeq ((ft SE) writer-fn val)
+  (um:rmw (SD ft) (lambda (tree)
                    (funcall writer-fn tree val))))
 
-(defmethod pushq ((ft E) x)
+(defmethod pushq ((ft SE) x)
   (writeq ft #'pushq x))
 
-(defmethod addq ((ft E) x)
+(defmethod addq ((ft SE) x)
   (writeq ft #'addq x))
 
 (defconstant +unique+ "unique")
 
-(defun readq (ft reader-fn)
+(defmethod readq ((ft SE) reader-fn)
   (let (ans)
-    (um:rmw (D ft) (lambda (tree)
+    (um:rmw (SD ft) (lambda (tree)
                      (setf ans +unique+)
                      (when tree
                        (multiple-value-bind (x treex)
@@ -250,11 +251,49 @@
         (values)
       (values ans t))))
 
-(defmethod popq ((ft E))
+(defmethod popq ((ft SE))
   (readq ft #'popq))
 
-(defmethod getq ((ft E))
+(defmethod getq ((ft SE))
   (readq ft #'getq))
 
+;; ---------------------------------------------------------
+;; Unshared variant
 
+(um:make-encapsulated-type UE UE? UD)
 
+(defun make-unshared-finger-tree ()
+  (UE nil))
+
+(defmethod copy-finger-tree ((ft UE))
+  (UE (UD ft)))
+
+(defmethod is-empty? ((ft UE))
+  (null (UD ft)))
+
+(defmethod not-empty? ((ft UE))
+  (UD ft))
+
+(defmethod writeq ((ft UE) writer-fn val)
+  (setf (UD ft) (funcall writer-fn (UD ft) val)))
+
+(defmethod pushq ((ft UE) x)
+  (writeq ft #'pushq x))
+
+(defmethod addq ((ft UE) x)
+  (writeq ft #'addq x))
+
+(defmethod readq ((ft UE) reader-fn)
+  (if (UD ft)
+      (multiple-value-bind (x udp) (funcall reader-fn (UD ft))
+        (setf (UD ft) udp)
+        (values x t))
+    (values)))
+
+(defmethod popq ((ft UE))
+  (readq ft #'popq))
+
+(defmethod getq ((ft UE))
+  (readq ft #'getq))
+
+;; ---------------------------------------------------------
