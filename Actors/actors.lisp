@@ -425,6 +425,27 @@ THE SOFTWARE.
                  
                  (no-immediate-answer ())
                  ))))))
+    
+    (:become-remote (remote-addr)
+     (lambda ()
+       (let (prev-beh
+             (remote-addr (if (stringp remote-addr)
+                              (make-proxy :addr remote-addr)
+                            remote-addr)))
+         (setf prev-beh
+               (become (um:dlambda
+                         (:become-local ()
+                          (become prev-beh))
+                         (t (&rest msg)
+                            (if *in-ask*
+                                (progn
+                                  (apply #'actors/bridge::=bridge-ask-query
+                                         (cadr *whole-message*) remote-addr msg)
+                                  (signal 'no-immediate-answer))
+                              ;; else
+                              (apply #'actors/bridge:bridge-forward-message remote-addr msg))
+                            ))))
+         )))
     ))
 
 ;; ---------------------------------------------
