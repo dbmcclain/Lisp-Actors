@@ -418,7 +418,8 @@
                    (apply 'send actor (apply 'assemble-ask-message =bind-cont msg))
                  (=values (capture-ans-or-exn
                             (no-service-alert service (machine-instance)))))
-             (apply 'socket-send intf 'actors/internal-message/bridge:forwarding-reply usti ans)))
+             (apply 'socket-send intf 'actors/internal-message/bridge:forwarding-reply usti
+                    (ensure-safe-answer ans))))
            
         (actors/internal-message/bridge:forwarding-reply (usti &rest ans)
            ;; An Actor on our side is replying to an ASK from the
@@ -437,6 +438,16 @@
 
 (defun no-service-alert (service node)
   (error "No Service ~A on Node ~A" service node))
+
+(defun ensure-safe-answer (ans)
+  (handler-case
+      (progn
+        (loenc:encode ans) ;; tickle error
+        ans)
+    (error (e)
+      (list (capture-ans-or-exn
+              (error (um:format-error e)))))
+    ))
 
 ;; ------------------------------------------------------------------------
 ;; The main user-visible portion of a network interface
