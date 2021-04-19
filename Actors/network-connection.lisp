@@ -418,8 +418,7 @@
                    (apply 'send actor (apply 'assemble-ask-message =bind-cont msg))
                  (=values (capture-ans-or-exn
                             (no-service-alert service (machine-instance)))))
-             (apply 'socket-send intf 'actors/internal-message/bridge:forwarding-reply usti
-                    (ensure-safe-answer ans))))
+             (apply 'socket-send-reply intf usti ans)))
            
         (actors/internal-message/bridge:forwarding-reply (usti &rest ans)
            ;; An Actor on our side is replying to an ASK from the
@@ -438,16 +437,6 @@
 
 (defun no-service-alert (service node)
   (error "No Service ~A on Node ~A" service node))
-
-(defun ensure-safe-answer (ans)
-  (handler-case
-      (progn
-        (loenc:encode ans) ;; tickle error
-        ans)
-    (error (e)
-      (list (capture-ans-or-exn
-              (error (um:format-error e)))))
-    ))
 
 ;; ------------------------------------------------------------------------
 ;; The main user-visible portion of a network interface
@@ -483,6 +472,24 @@
     (perform-in-actor intf
       (resched kill-timer)
       (write-message writer (secure-encoding crypto msg)))))
+
+(defun socket-send-reply (intf usti &rest ans)
+  (with-slots (crypto writer kill-timer) intf
+    (perform-in-actor intf
+      (resched kill-timer)
+      (write-message writer
+                     (ensure-safe-answer crypto
+                                         'actors/internal-message/bridge:forwarding-reply usti ans)))))
+
+(defun ensure-safe-answer (crypto msg-kind usti ans)
+  (handler-case
+      (secure-encoding crypto (list* msg-kind usti ans)) ;; tickle error
+    (error (e)
+      (secure-encoding crypto (list msg-kind usti
+                                    (capture-ans-or-exn
+                                      (error (um:format-error e))))
+                       ))
+    ))
 
 (defmethod shutdown ((intf socket-interface))
   ;; define as a Continuation to get past any active RECV
