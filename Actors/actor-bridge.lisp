@@ -390,23 +390,3 @@
 (test-usti)
  |#
 
-#|
-(defstruct remote-address
-  svc ip port)
-
-(define-actor-class remote-actor ()
-  ((link  :reader remote-actor-link :initarg :link))
-  (:default-initargs
-   :user-fn #'forward-to-remote))
-
-(defun forward-to-remote (&rest msg)
-  (apply #'bridge-forward-message (remote-actor-link (current-actor)) msg)
-  (signal 'no-immedaite-answer))
-
-(defgeneric make-remote-actor (node)
-  (:method ((node string))
-   (make-remote-actor (parse-remote-address node)))
-  (:method ((node remote-address))
-   (make-instance 'remote-actor
-                  :link node))
-|#

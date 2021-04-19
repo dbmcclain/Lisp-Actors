@@ -244,6 +244,11 @@ THE SOFTWARE.
                  :user-fn    (or behavior #'funcall)
                  :properties properties))
 
+(defun make-foreign-actor (remote-addr)
+  (let ((actor (make-actor)))
+    (send actor :become-remote remote-addr)
+    actor))
+
 ;; -----------------------------------------------------
 ;; These methods can be called from any thread. SMP safe.
 
@@ -443,7 +448,8 @@ THE SOFTWARE.
                                          (cadr *whole-message*) remote-addr msg)
                                   (signal 'no-immediate-answer))
                               ;; else
-                              (apply #'actors/bridge:bridge-forward-message remote-addr msg))
+                              (apply #'actors/bridge:bridge-forward-message
+                                     remote-addr msg))
                             ))))
          )))
     ))
