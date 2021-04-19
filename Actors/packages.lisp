@@ -64,7 +64,7 @@ THE SOFTWARE.
    #:actor-user-fn
    #:make-actor
    #:make-limited-actor
-   #:make-foregn-actor
+   #:make-foreign-actor
    
    #:become
    #:self-call
