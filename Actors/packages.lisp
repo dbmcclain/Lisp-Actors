@@ -65,12 +65,14 @@ THE SOFTWARE.
    #:make-actor
    #:make-limited-actor
    #:make-foreign-actor
-   
+
+   #:current-behavior
    #:become
    #:self-call
    #:in-ask-p
    #:whole-message
    #:dispatch-message
+   #:repeat-send
 
    #:spawn
    #:spawn-limited
@@ -138,12 +140,14 @@ THE SOFTWARE.
    #:start-tcp-server
    #:terminate-server
 
+   #|
    #:subscribe
    #:unsubscribe
    #:notify
    #:=subscribe
    #:=unsubscribe
-
+   |#
+   
    #:=async
    #:=async/err
 
@@ -177,6 +181,10 @@ THE SOFTWARE.
 
    #:get-message-dispatch-handler
    #:self-dispatch
+
+   #:subscribe
+   #:notify
+   #:unsubscribe
    ))
 
 #-lispworks
@@ -384,6 +392,14 @@ THE SOFTWARE.
    #:unlink
    #:exit
    #:trap-exits))
+
+(defpackage #:actors/notifications
+  (:use #:common-lisp #:actors)
+  (:export
+   #:subscribe
+   #:notify
+   #:unsubscribe
+   ))
 
 (defpackage #:actors/user
   (:use #:common-lisp #:actors))

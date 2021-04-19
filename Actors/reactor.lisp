@@ -1,3 +1,8 @@
+;; reactor.lisp -- A subscription/notification system
+;; Built on mutable private state in the monitor
+;;
+;; DM/RAL 01/21
+;; -----------------------------------------------------
 
 (in-package :actors/base)
 

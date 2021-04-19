@@ -54,7 +54,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 #-:USING-ECC-CRYPTO (:file "srp6-rsa")
                 (:file "network-connection")
                 (:file "erl-proc")
-                (:file "reactor"))
+                (:file "subscribe")
+                ;; (:file "reactor")
+                )
   :SERIAL T
   :depends-on   ("data-objects"
                  "trivia"

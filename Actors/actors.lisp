@@ -355,6 +355,9 @@ THE SOFTWARE.
 ;; Since these methods are called against (CURRENT-ACTOR) they can
 ;; only be called from within a currently active Actor.
 
+(defun current-behavior ()
+  (actor-user-fn (current-actor)))
+
 (defun become (new-fn)
   ;; change behavior, returning old. If an Actor didn't call this, an
   ;; error will result.
@@ -383,6 +386,9 @@ THE SOFTWARE.
 
 (defun whole-message ()
   *whole-message*)
+
+(defun repeat-send (dest)
+  (apply #'send dest *whole-message*))
 
 (define-condition no-immediate-answer ()
   ())
