@@ -15,6 +15,15 @@
 ;; ------------------------------------------------------
 ;; A self organizing chain of event handlers
 
+(defun event-subtype? (obj type)
+  (let (super)
+    (or (eq type t)
+        (equalp obj type)
+        (and (symbolp type)
+             (setf super (find-class type nil))
+             (closer-mop:subclassp (class-of obj) super))
+        )))
+
 (defun respond-to-prune (from)
   (send from :pruned (current-behavior)))
 
@@ -31,13 +40,13 @@
 (defun make-subject-beh (about from next)
   (dlambda
     (:attach (an-about a-from)
-     (unless (and (eq an-about about)
-                  (eq a-from   from))
+     (unless (and (equalp an-about about)
+                  (eq     a-from   from))
        (repeat-send next)))
     
     (:detach (an-about a-from)
-     (cond ((and (eq about an-about)
-                 (eq from  a-from))
+     (cond ((and (equalp about an-about)
+                 (eq     from  a-from))
             (become (make-prune-beh next))
             (send next :prune (current-actor)))
            
@@ -47,7 +56,7 @@
 
     (:notify (an-about &rest args)
      (declare (ignore args))
-     (when (eq an-about about)
+     (when (event-subtype? an-about about)
        (repeat-send from))
      (repeat-send next))
 
