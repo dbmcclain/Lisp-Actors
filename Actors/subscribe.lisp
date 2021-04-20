@@ -39,6 +39,12 @@
 
 (defun make-subject-beh (about from next)
   (dlambda
+    (:notify (an-about &rest args)
+     (declare (ignore args))
+     (repeat-send next)
+     (when (event-subtype? an-about about)
+       (repeat-send from)))
+
     (:attach (an-about a-from)
      (unless (and (equalp an-about about)
                   (eq     a-from   from))
@@ -53,12 +59,6 @@
            (t
             (repeat-send next))
            ))
-
-    (:notify (an-about &rest args)
-     (declare (ignore args))
-     (when (event-subtype? an-about about)
-       (repeat-send from))
-     (repeat-send next))
 
     (:prune (prev)
      (respond-to-prune prev))
