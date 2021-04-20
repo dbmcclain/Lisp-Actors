@@ -204,6 +204,7 @@ THE SOFTWARE.
 ;; Toplevel Actor / Worker behavior
 
 (defgeneric %run-actor (actor)
+  #-:USING-MAC-GCD
   (:method ((worker worker))
    ;; Just run the form with which it was consructed
    (let ((form (worker-dispatch-wrapper worker)))
@@ -371,10 +372,12 @@ THE SOFTWARE.
     (apply 'send actor args)
     actor))
 
+#|
 (defun spawn-limited (fn &rest args)
   (let ((actor (make-limited-actor :behavior fn)))
     (apply 'send actor args)
     actor))
+|#
 
 ;; ----------------------------------------------
 ;; WORKER is just a function that executes on an Executive pool
