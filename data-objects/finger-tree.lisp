@@ -8,14 +8,15 @@
    #:getq
    #:is-empty?
    #:not-empty?
-   #:make-shared-finger-tree
-   #:make-unshared-finger-tree
+   #:make-shared-queue
+   #:make-unshared-queue
    #:copy
    #:erase
    #:copy-as-shared
    #:copy-as-unshared
    #:cardinal
    #:elements
+   #:combine-queues
    ))
 
 (in-package #:finger-tree)
@@ -115,6 +116,9 @@
        ))
     ))
 
+(defmethod pushq ((pair cons) x)
+  (cons (pushq (car pair) x) (cdr pair)))
+
 (defmethod popq ((tree vector))
   (symbol-macrolet ((sel (svref tree 0))
                     (a   (svref tree 1))
@@ -147,6 +151,13 @@
                ))
       )))
 
+(defmethod popq ((pair cons))
+  (multiple-value-bind (x new-car) (popq (car pair))
+    (if new-car
+        (values x (cons new-car (cdr pair)))
+      (values x (cdr pair)))
+    ))
+
 (defmethod addq ((tree null) x)
   (st x))
 
@@ -174,6 +185,9 @@
                (ft p q (addq r x))
                ))
       )))
+
+(defmethod addq ((pair cons) x)
+  (cons (car pair) (addq (cdr pair) x)))
 
 (defmethod getq ((tree vector))
   (symbol-macrolet ((sel (svref tree 0))
@@ -206,6 +220,22 @@
                  (values x (ft p q rr)))
                ))
       )))
+
+(defmethod getq ((pair cons))
+  (multiple-value-bind (x new-cdr) (getq (cdr pair))
+    (if new-cdr
+        (values x (cons (car pair) new-cdr))
+      (values x (car pair)))
+    ))
+
+(defmethod combine-queues ((tree-front null) tree-back)
+  tree-back)
+
+(defmethod combine-queues (tree-front (tree-back null))
+  tree-front)
+
+(defmethod combine-queues (tree-front tree-back)
+  (cons tree-front tree-back))
 
 ;; Unfortunately, while the Finger Tree represents amortized immutable
 ;; queue/stack behavior, it becomes expensive O(N) for counting
@@ -261,7 +291,7 @@
 
 (um:make-encapsulated-type SE SE? SD)
 
-(defun make-shared-finger-tree ()
+(defun make-shared-queue ()
   (SE nil))
 
 (defun rdq (ft)
@@ -320,7 +350,7 @@
 
 (um:make-encapsulated-type UE UE? UD)
 
-(defun make-unshared-finger-tree ()
+(defun make-unshared-queue ()
   (UE nil))
 
 (defmethod copy ((ft UE))
@@ -379,3 +409,20 @@
   (UE (rdq ft)))
 
 ;; ---------------------------------------------------------
+
+(defmethod combine-queues ((ft1 UE) (ft2 UE))
+  (UE (combine-queues (UD ft1) (UD ft2))))
+
+(defmethod combine-queues ((ft1 UE) (ft2 SE))
+  ;; mutate the shared operand
+  (um:rmw (SD ft2) (lambda (ft)
+                     (combine-queues (UD ft1) ft))
+          ))
+
+(defmethod combine-queues ((ft1 SE) (ft2 UE))
+  ;; mutate the shared operand
+  (um:rmw (SD ft1) (lambda (ft)
+                     (combine-queues ft (UD ft2)))
+          ))
+
+

@@ -58,17 +58,16 @@ THE SOFTWARE.
 ;;
 (defun do-recv (conds-fn timeout-fn timeout)
   (let ((dyn-env (um:capture-dynamic-environment))
-        user-fn msg-queue timer)
+        user-fn
+        (msg-queue (finger-tree:make-unshared-queue))
+        timer)
     (labels
         ((restore-actor ()
            (when timer
              (mp:unschedule-timer timer))
            (become user-fn)
-           (let ((mbox (actor-mailbox (current-actor))))
-             (setf (actor-message-replay mbox)
-                   (nconc (nreverse msg-queue)
-                          (actor-message-replay mbox)))
-             ))
+           (finger-tree:combine-queues msg-queue
+                                       (actor-mailbox (current-actor))))
 
          (process-message (fn)
            (restore-actor)
@@ -81,7 +80,7 @@ THE SOFTWARE.
                (process-message fn)
              ;; else
              (progn
-               (push (whole-message) msg-queue)
+               (finger-tree:addq msg-queue (whole-message))
                (signal 'no-immediate-answer)
                )))
          

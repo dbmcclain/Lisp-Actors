@@ -222,7 +222,6 @@
 (defun kill-executives ()
   nil)
 
-
 (defun run-actor-direct (actor &rest msg)
   (apply #'apply-with-gcd-and-group :DEFAULT NIL #'%pre-run-actor-direct actor msg))
 
