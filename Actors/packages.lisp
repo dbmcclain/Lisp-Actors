@@ -64,7 +64,7 @@ THE SOFTWARE.
    #:actor-user-fn
    #:make-actor
    #:make-limited-actor
-   #:make-foreign-actor
+   #:make-remote-actor
 
    #:current-behavior
    #:become

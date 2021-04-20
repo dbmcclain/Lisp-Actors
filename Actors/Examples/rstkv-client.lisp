@@ -371,6 +371,13 @@ storage and network transmission.
   (let ((trans (rollback)))
     (get-key trans :pi)))
 
+(rstkv-server:make-stkv-server)
+(send :rstkv :become-remote "rstkv@rincon.local")
+(send :rstkv :become-local)
+
+(let ((trans (rollback)))
+    (get-key trans :pi))
+
 (with-server ("rstkv@arroyo.local")
   (let ((trans (rollback)))
     (get-key trans :pi)))
@@ -398,7 +405,7 @@ storage and network transmission.
     (setf (get-key trans :e) (exp 1.0))
     (commit trans)))
 
-(rstkv-server:make-remote-stkv-service)
+(rstkv-server:make-stkv-server)
 |#
 ;; -----------------------------------------------------
 
@@ -415,7 +422,7 @@ storage and network transmission.
                  :key 'make-readable-entry))
 
 #|
-(make-remote-stkv-service)
+(make-stkv-server)
 (setf tran (rollback))
 (setf (get-key tran :dog)   :cat
       (get-key tran :cat)   :mouse

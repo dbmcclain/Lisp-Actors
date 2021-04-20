@@ -69,7 +69,8 @@ THE SOFTWARE.
                      (t                          superclasses))
      ,slots
      ,@options
-     (:metaclass clos:funcallable-standard-class)))
+     ;; (:metaclass clos:funcallable-standard-class)
+     ))
 
 #+:LISPWORKS
 (editor:indent-like 'define-actor-class 'defclass)
@@ -137,6 +138,7 @@ THE SOFTWARE.
 ;; -----------------------------------------------------
 ;; Actor construction
 
+#|
 (defmethod initialize-instance :after ((actor actor) &key properties &allow-other-keys)
   (when properties
     (maps:add-plist (actor-properties actor) properties))
@@ -145,6 +147,10 @@ THE SOFTWARE.
                                             (if (eq actor (current-actor))
                                                 (apply #'self-call args)
                                               (apply #'send actor args)))))
+|#
+(defmethod initialize-instance :after ((actor actor) &key properties &allow-other-keys)
+  (when properties
+    (maps:add-plist (actor-properties actor) properties)))
 
 (defun make-actor (&optional fn &key properties)
   (make-instance 'actor
@@ -163,7 +169,7 @@ THE SOFTWARE.
                  :properties properties))
 |#
 
-(defun make-foreign-actor (remote-addr)
+(defun make-remote-actor (remote-addr)
   (let ((actor (make-actor)))
     (send actor :become-remote remote-addr)
     actor))

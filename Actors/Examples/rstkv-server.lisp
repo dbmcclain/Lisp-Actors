@@ -55,7 +55,7 @@ storage and network transmission.
    #:unregister-service
    #:log-info)
   (:export
-   #:make-remote-stkv-service
+   #:make-stk-server
    #:rollback
    #:commit
    #:get-key
@@ -109,6 +109,7 @@ storage and network transmission.
             ac:unregister-actor
             ac:log-info
             ac:find-actor
+            ac:self
             
             cps:=wait
             cps:=values
@@ -120,7 +121,8 @@ storage and network transmission.
    (path       :initarg  :path)
    sync)
   (:default-initargs
-   :path  (default-database-pathname)
+   :path    (default-database-pathname)
+   :user-fn (make-remote-api)
    ))
 
 (defmethod initialize-instance :after ((server stkv-server) &key &allow-other-keys)
@@ -133,6 +135,40 @@ storage and network transmission.
           (setf (main-table-ver main-table) (get-ver))
           (save-database server))
         ))))
+
+(defun make-remote-api ()
+  (dlambda*
+   (:shutdown ()
+    (:save)
+    (:quit))
+   
+   (:open ()
+    (open-trans self))
+   
+   (:commit (ver adds dels)
+    (commit-trans self ver adds dels))
+   
+   (:get-key (ver key)
+    (get-database-key self ver key))
+   
+   (:get-keys (ver keys)
+    (get-database-keys self ver keys))
+   
+   (:get-all-keys (ver)
+    (get-all-database-keys self ver))
+   
+   (:save ()
+    (save-database self))
+   
+   (:revert ()
+    (revert-database self))
+   
+   (:quit ()
+    (unregister-actor self))
+   
+   (t (&rest msg)
+      (apply #'funcall msg))
+   ))
 
 (defmethod open-trans ((server stkv-server))
   ;; return a new trans
@@ -387,87 +423,32 @@ storage and network transmission.
 (defvar *stkv-monitor*  (make-instance 'hoare-monitor))
 (defvar *stkv-servers*  (maps:empty))
 
-(defun make-local-stkv-server (&rest args
-                                     &key (path (default-database-pathname))
-                                     &allow-other-keys)
-  (=wait ((server is-new))
-      (perform-in-actor *stkv-monitor*
-        (cond ((probe-file path)
-               (let* ((key    (namestring (truename path)))
-                      (server (maps:find *stkv-servers* key)))
-                 (if server
-                     (=values server nil)
-                   ;; else
-                   (progn
-                     (setf server (apply 'make-instance 'stkv-server :path path args))
-                     (maps:addf *stkv-servers* key server)
-                     (=values server t))
-                   )))
-              
-              (t
-               (let* ((server (apply 'make-instance 'stkv-server :path path args))
-                      (key    (namestring (truename path))))
-                 (maps:addf *stkv-servers* key server)
-                 (=values server t)))
-              ))
-    (values server is-new)))
-
-(defun make-remote-stkv-service (&rest args
-                                       &key
-                                       path
-                                       (registration *service-id*))
-  (declare (ignore path))
+(defun make-stkv-server (&rest args
+                               &key
+                               (path (default-database-pathname))
+                               (registration *service-id*))
   (=wait ((server))
       (perform-in-actor *stkv-monitor*
-        (multiple-value-bind (server is-new)
-            (apply 'make-local-stkv-server args)
-          (if registration
-              ;; if you aren't requesting registration, then you won't
-              ;; need the network neutral interface
-              (perform-in-actor server
-                ;; have the server mutate itself, to prevent it
-                ;; happening while in use by another client
-                (register-actor registration server)
-                (when is-new
-                  (let (prev-handler)
-                    (setf prev-handler
-                          (become (dlambda*
-                                   (:shutdown ()
-                                    (:save)
-                                    (:quit))
-                                   
-                                   (:open ()
-                                    (open-trans server))
-                                   
-                                   (:commit (ver adds dels)
-                                    (commit-trans server ver adds dels))
-                                   
-                                   (:get-key (ver key)
-                                    (get-database-key server ver key))
-                                   
-                                   (:get-keys (ver keys)
-                                    (get-database-keys server ver keys))
-                                   
-                                   (:get-all-keys (ver)
-                                    (get-all-database-keys server ver))
-                                   
-                                   (:save ()
-                                    (save-database server))
-                                   
-                                   (:revert ()
-                                    (revert-database server))
-                                   
-                                   (:quit ()
-                                    (unregister-actor server))
-                                   
-                                   (t (&rest msg)
-                                      (apply prev-handler msg))
-                                   )))
-                    ))
-                ;; server performs this
-                (=values server))
-
-            ;; monitor performs this
-            (=values server))))
+        (flet ((make-new-server ()
+                 (let* ((server (apply 'make-instance 'stkv-server :path path args))
+                        (key    (namestring (truename path))))
+                   (maps:addf *stkv-servers* key server)
+                   (=values server))
+                 ))
+          
+          (cond ((probe-file path)
+                 (let* ((key    (namestring (truename path)))
+                        (server (maps:find *stkv-servers* key)))
+                   (if server
+                       (=values server)
+                     ;; else
+                     (make-new-server))
+                   ))
+                (t
+                 (make-new-server))
+                )))
+    (when registration
+      (register-actor registration server))
     server))
 
+;; --------------------------------------------------------------

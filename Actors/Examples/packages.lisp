@@ -15,8 +15,7 @@
    #:shutdown-server
    #:quit-server
    
-   #:make-local-stkv-server
-   #:make-remote-stkv-service
+   #:make-stkv-server
    ))
 
 (defpackage #:rstkv-client
