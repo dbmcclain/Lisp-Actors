@@ -289,9 +289,8 @@
 (defconstant +unique+ "unique")
 
 (defmethod readq ((ft SE) reader-fn)
-  (let (ans)
+  (let ((ans +unique+))
     (um:rmw (SD ft) (lambda (tree)
-                     (setf ans +unique+)
                      (when tree
                        (multiple-value-bind (x treex)
                            (funcall reader-fn tree)
