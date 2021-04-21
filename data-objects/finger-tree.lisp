@@ -289,7 +289,7 @@
     (addq qb item))
   (elements (join (UD qf) (UD qb))))
 |#
-
+;; ----------------------------------------------------------
 ;; Unfortunately, while the Finger Tree represents amortized immutable
 ;; queue/stack behavior, it becomes expensive O(N) for counting
 ;; occupancy or retrieving whole contents.
@@ -320,10 +320,7 @@
        (multiple-value-bind (x ftx) (getq ft)
          (declare (ignore x))
          (go-iter ftx (1+ ct)))
-       )))
-  (:method ((ft cons))
-   (+ (cardinal (car ft))
-      (cardinal (cdr ft)))))
+       ))))
                 
 (defgeneric elements (ft)
   (:method ((ft null))
@@ -335,10 +332,7 @@
          acc
        (multiple-value-bind (x ftx) (getq ft)
          (go-iter ftx (cons x acc)))
-       )))
-  (:method ((ft cons))
-   (append (elements (car ft))
-           (elements (cdr ft)))))
+       ))))
      
 ;; ------------------------------------------------------
 ;; Sharable Mutable Tree - lock free
