@@ -199,39 +199,55 @@
                 ))
        ))))
 
-(defgeneric join3 (ft-front elts ft-back)
-  (:method ((ft-front null) elts ft-back)
-   (pushq-elts ft-back elts))
-  (:method (ft-front elts (ft-back null))
-   (addq-elts ft-front elts))
-  (:method ((ft-front vector) elts (ft-back vector))
-   (cond ((st? ft-front)
-          (pushq (pushq-elts ft-back elts) (svref ft-front 1)))
-         ((st? ft-back)
-          (addq (addq-elts ft-front elts) (svref ft-back 1)))
-         (t
-          (symbol-macrolet ((pf (svref ft-front 1))
-                            (qf (svref ft-front 2))
-                            (rf (svref ft-front 3))
-                            (pb (svref ft-back 1))
-                            (qb (svref ft-back 2))
-                            (rb (svref ft-back 3)))
-            (ft pf (join3 qf (nodes (cat rf elts pb)) qb) rb)))
-         )))
+;; --------------------------------------------------------
+;; Concatenation of two Finger-Tree queues
+
+(defun join (ft-front ft-back)
+  (join3 ft-front nil ft-back))
+
+;; internal suport routines...
+(defun join3 (ft-front elts ft-back)
+  (symbol-macrolet ((af (svref ft-front 1))
+                    (ab (svref ft-back 1)))
+    (cond ((null ft-front)
+           (pushq-elts ft-back elts))
+          ((null ft-back)
+           (addq-elts ft-front elts))
+          ((st? ft-front)
+           (pushq (pushq-elts ft-back elts) af))
+          ((st? ft-back)
+           (addq (addq-elts ft-front elts) ab))
+          (t
+           (symbol-macrolet ((pf (svref ft-front 1)) ;; p,q,r front
+                             (qf (svref ft-front 2))
+                             (rf (svref ft-front 3))
+                             (pb (svref ft-back 1)) ;; p,q,r back
+                             (qb (svref ft-back 2))
+                             (rb (svref ft-back 3)))
+             ;; new tree is the join of the front R, elts list, back P,
+             ;; sandwiched between the P of the front and the R of the back.
+             (ft pf
+                 (join3 qf (nodes (cat rf elts pb)) qb)
+                 rb)))
+          )))
 
 (defun cat (l ms r)
   ;; Here it is inown that ms is a (possibly empty) list of "elements"
-  ;; and l & r are one of the finger vectors 1f..4f.
+  ;; and l & r are both one of the finger vectors 1f..4f.
   ;;
   ;; Cat must extract the elements of the finger vectors as lists of elements,
   ;; and concat them all as (ls ++ ms ++ rs).
-  (append (cdr (coerce l 'list))
-          (append ms (cdr (coerce r 'list)))))
+  ;;
+  ;; This is the last time we will see the ms list, so okay to
+  ;; destructively concat.
+  (nconc (cdr (coerce l 'list))
+         (nconc ms (cdr (coerce r 'list)))
+         ))
 
 (defun nodes (elts)
   ;; nodes must take a list of "elements" and convert into a
   ;; partitioned list of finger vectors.
-  (format t "~%Nodes: (~D) ~S" (length elts) elts)
+  ;; (format t "~%Nodes: (~D) ~S" (length elts) elts)
   (case (length elts)
     ((0)  nil)
     ((1)  (destructuring-bind (a) elts
@@ -247,17 +263,22 @@
     ))
 
 (defun pushq-elts (ft elts)
-  (dolist (elt (reverse elts))
+  ;; Here elts is a list in-order. We must push these elements into a
+  ;; back-end queue. So to preserve order we must process the pushq's
+  ;; in reverse order.
+  ;;
+  ;; This is the last time the elements list will be seen, so okay to
+  ;; perform destructive reversal.
+  (dolist (elt (nreverse elts))
     (setf ft (pushq ft elt)))
   ft)
 
 (defun addq-elts (ft elts)
+  ;; Here we are adding elements to the back of a front queue,
+  ;; so in-order proecessing is called for.
   (dolist (elt elts)
     (setf ft (addq ft elt)))
   ft)
-
-(defun join (ft-front ft-back)
-  (join3 ft-front nil ft-back))
 
 #|
 (let* ((qf (make-unshared-queue))
