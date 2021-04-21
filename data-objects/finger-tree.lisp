@@ -18,6 +18,7 @@
    #:elements
    #:appendq
    #:prependq
+   #:with-exclusive-access
    ))
 
 (in-package #:finger-tree)
@@ -356,8 +357,8 @@
 (defmethod is-empty? ((ft SE))
   (null (rdq ft)))
 
-(defmethod not-empty? ((ft SE))
-  (rdq ft))
+(defun not-empty? (ft)
+  (not (is-empty? ft)))
 
 (defmethod writeq ((ft SE) writer-fn val)
   (um:rmw (SD ft) (lambda (tree)
@@ -398,6 +399,16 @@
 (defmethod elements ((ft SE))
   (elements (rdq ft)))
 
+(defmacro with-exclusive-access ((tree ft) &rest body)
+  ;; user of this macro has the responsibility to produce the new
+  ;; state of the queue as the result of their body clauses.
+  `(um:rmw (SD ,ft)
+           (lambda (,tree)
+             ,@body)))
+
+#+:LISPWORKS
+(editor:setup-indent "with-shared-mutation" 1)
+
 ;; ---------------------------------------------------------
 ;; Unshared variant
 
@@ -411,9 +422,6 @@
 
 (defmethod is-empty? ((ft UE))
   (null (UD ft)))
-
-(defmethod not-empty? ((ft UE))
-  (UD ft))
 
 (defmethod writeq ((ft UE) writer-fn val)
   (setf (UD ft) (funcall writer-fn (UD ft) val)))
