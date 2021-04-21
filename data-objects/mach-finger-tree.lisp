@@ -1,5 +1,12 @@
 ;;; ...because I could...
 
+(defpackage #:mach-finger-tree
+  (:use #:common-lisp)
+  (:export
+   ))
+
+(in-package #:mach-finger-tree)
+
 ;; ----------------------------
 ;; Finger Types = 1 to 4 elements
 
@@ -253,3 +260,18 @@
   (with-rmw (qb qback)
     (join (UD qfront) qb)))
 
+;; -------------------------------------------------------           
+ #|
+ ;; This closure-based version runs about 10x slower than the vector based one in finger-tree.lisp.
+ ;; Here, the shared queue runs about 4x slower than the unshared queues.
+ ;;
+(defun tst (&optional (n 1000000))
+  (let ((q (make-shared-queue)))
+    (dotimes (ix n)
+      (addq q ix))
+    (dotimes (ix n)
+      (assert (= ix (popq q))))))
+
+(time (tst))
+
+ |#

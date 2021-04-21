@@ -61,7 +61,7 @@
 ;; --------------------------------------------------------
 ;; Vector-based skeletal elements to cut down on consing.
 
-(declaim (inline \1f \2f \3f \4f st ft \1f? \4f?))
+(declaim (inline \1f \2f \3f \4f st ft \1f? \4f? st?))
 
 (defun \1f (a)        (vector '\1f a))
 (defun \2f (a b)      (vector '\2f a b))
@@ -71,6 +71,7 @@
 (defun ft (p q r)     (vector 'ft p q r))
 (defun \1f? (x)       (eq '\1f (svref x 0)))
 (defun \4f? (x)       (eq '\4f (svref x 0)))
+(defun st? (x)        (eq 'st (svref x 0)))
 
 ;; -----------------------------------------------------
 
@@ -95,14 +96,13 @@
                                     (pb (svref p 2))
                                     (pc (svref p 3))
                                     (pd (svref p 4)))
-                    (let ((qq (pushq q (\3f pb pc pd))))
-                      (ft (\2f x pa) qq r)
-                      ))
+                    (ft (\2f x pa)
+                        (pushq q (\3f pb pc pd))
+                        r))
+                ;; else
                 (ft (pushq p x) q r))
         ))
-     ))
-  (:method ((ft cons) x)
-   (cons (pushq (car ft) x) (cdr ft))))
+     )))
 
 (defgeneric popq (ft)
   (:method ((ft vector))
@@ -135,11 +135,7 @@
                 (multiple-value-bind (x pp) (popq p)
                   (values x (ft pp q r)))
                 ))
-       )))
-  (:method ((ft cons))
-   (multiple-value-bind (x new-car) (popq (car ft))
-     (values x (join new-car (cdr ft)))
-     )))
+       ))))
 
 (defgeneric addq (ft x)
   (:method ((ft null) x)
@@ -162,14 +158,13 @@
                                     (rb (svref r 2))
                                     (rc (svref r 3))
                                     (rd (svref r 4)))
-                    (let ((qq (addq q (\3f ra rb rc))))
-                      (ft p qq (\2f rd x))
-                      ))
+                    (ft p
+                        (addq q (\3f ra rb rc))
+                        (\2f rd x)))
+                ;; else
                 (ft p q (addq r x))
                 ))
-       )))
-  (:method ((ft cons) x)
-   (cons (car ft) (addq (cdr ft) x))))
+       ))))
 
 (defgeneric getq (ft)
   (:method ((ft vector))
@@ -202,19 +197,41 @@
                 (multiple-value-bind (x rr) (getq r)
                   (values x (ft p q rr)))
                 ))
-       )))
-  (:method ((ft cons))
-   (multiple-value-bind (x new-cdr) (getq (cdr ft))
-     (values x (join (car ft) new-cdr))
-     )))
+       ))))
 
 (defgeneric join (ft-front ft-back)
   (:method ((ft-front null) ft-back)
    ft-back)
   (:method (ft-front (ft-back null))
    ft-front)
-  (:method (ft-front ft-back)
-   (cons ft-front ft-back)))
+  (:method ((ft-front vector) (ft-back vector))
+   (cond ((st? ft-front)
+          (pushq ft-back (svref ft-front 1)))
+         ((st? ft-back)
+          (addq ft-front (svref ft-back 1)))
+         (t
+          (symbol-macrolet ((pf (svref ft-front 1))
+                            (qf (svref ft-front 2))
+                            (rf (svref ft-front 3))
+                            (pb (svref ft-back 1))
+                            (qb (svref ft-back 2))
+                            (rb (svref ft-back 3)))
+            (let* ((qm  (um:nlet iter ((qm (addq nil pb))
+                                       (qr qb))
+                          (if (null qr)
+                              qm
+                            (multiple-value-bind (x qrr) (popq qr)
+                              (go-iter (addq qm x) qrr)))
+                          ))
+                   (qm  (um:nlet iter ((qm (pushq qm rf))
+                                       (qp qf))
+                          (if (null qp)
+                              qm
+                            (multiple-value-bind (x qpp) (getq qp)
+                              (go-iter (pushq qm x) qpp)))
+                          )))
+              (ft pf qm rb))))
+         )))
 
 ;; Unfortunately, while the Finger Tree represents amortized immutable
 ;; queue/stack behavior, it becomes expensive O(N) for counting
@@ -405,3 +422,19 @@
                          (join (UD ft-front) ft))
           ))
 
+#|
+  ;; This vector version of Finger Trees runs aboutr 10x faster than the
+  ;; closure based version in mach-finger-tree.lisp.
+  ;;
+  ;; Here, the unshared queues are about 3x faster than shared queues.
+  ;;
+(defun tst (&optional (n 1000000))
+  (let ((q (make-shared-queue)))
+    (dotimes (ix n)
+      (addq q ix))
+    (dotimes (ix n)
+      (assert (= ix (popq q))))))
+
+(time (tst))
+
+ |#
