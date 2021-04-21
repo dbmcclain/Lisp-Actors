@@ -66,8 +66,8 @@ THE SOFTWARE.
            (when timer
              (mp:unschedule-timer timer))
            (become user-fn)
-           (finger-tree:combine-queues msg-queue
-                                       (actor-mailbox (current-actor))))
+           (finger-tree:prependq msg-queue
+                                 (actor-mailbox (current-actor))))
 
          (process-message (fn)
            (restore-actor)
