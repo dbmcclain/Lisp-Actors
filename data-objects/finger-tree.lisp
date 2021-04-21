@@ -199,16 +199,16 @@
                 ))
        ))))
 
-(defgeneric join (ft-front ft-back)
-  (:method ((ft-front null) ft-back)
-   ft-back)
-  (:method (ft-front (ft-back null))
-   ft-front)
-  (:method ((ft-front vector) (ft-back vector))
+(defgeneric join3 (ft-front elts ft-back)
+  (:method ((ft-front null) elts ft-back)
+   (pushq-elts ft-back elts))
+  (:method (ft-front elts (ft-back null))
+   (addq-elts ft-front elts))
+  (:method ((ft-front vector) elts (ft-back vector))
    (cond ((st? ft-front)
-          (pushq ft-back (svref ft-front 1)))
+          (pushq (pushq-elts ft-back elts) (svref ft-front 1)))
          ((st? ft-back)
-          (addq ft-front (svref ft-back 1)))
+          (addq (addq-elts ft-front elts) (svref ft-back 1)))
          (t
           (symbol-macrolet ((pf (svref ft-front 1))
                             (qf (svref ft-front 2))
@@ -216,22 +216,58 @@
                             (pb (svref ft-back 1))
                             (qb (svref ft-back 2))
                             (rb (svref ft-back 3)))
-            (let* ((qm  (um:nlet iter ((qm (addq nil pb))
-                                       (qr qb))
-                          (if (null qr)
-                              qm
-                            (multiple-value-bind (x qrr) (popq qr)
-                              (go-iter (addq qm x) qrr)))
-                          ))
-                   (qm  (um:nlet iter ((qm (pushq qm rf))
-                                       (qp qf))
-                          (if (null qp)
-                              qm
-                            (multiple-value-bind (x qpp) (getq qp)
-                              (go-iter (pushq qm x) qpp)))
-                          )))
-              (ft pf qm rb))))
+            (ft pf (join3 qf (nodes (cat rf elts pb)) qb) rb)))
          )))
+
+(defun cat (l ms r)
+  ;; Here it is inown that ms is a (possibly empty) list of "elements"
+  ;; and l & r are one of the finger vectors 1f..4f.
+  ;;
+  ;; Cat must extract the elements of the finger vectors as lists of elements,
+  ;; and concat them all as (ls ++ ms ++ rs).
+  (append (cdr (coerce l 'list))
+          (append ms (cdr (coerce r 'list)))))
+
+(defun nodes (elts)
+  ;; nodes must take a list of "elements" and convert into a
+  ;; partitioned list of finger vectors.
+  (format t "~%Nodes: (~D) ~S" (length elts) elts)
+  (case (length elts)
+    ((0)  nil)
+    ((1)  (destructuring-bind (a) elts
+            (list (\1f a))))
+    ((2)  (destructuring-bind (a b) elts
+            (list (\2f a b))))
+    ((3)  (destructuring-bind (a b c) elts
+            (list (\3f a b c))))
+    ((4)  (destructuring-bind (a b c d) elts
+            (list (\2f a b) (\2f c d))))
+    (t    (destructuring-bind (a b c . rest) elts
+            (cons (\3f a b c) (nodes rest))))
+    ))
+
+(defun pushq-elts (ft elts)
+  (dolist (elt (reverse elts))
+    (setf ft (pushq ft elt)))
+  ft)
+
+(defun addq-elts (ft elts)
+  (dolist (elt elts)
+    (setf ft (addq ft elt)))
+  ft)
+
+(defun join (ft-front ft-back)
+  (join3 ft-front nil ft-back))
+
+#|
+(let* ((qf (make-unshared-queue))
+       (qb (make-unshared-queue)))
+  (dolist (item '(a b c d e f g h i j k l m n o p q r s t u))
+    (addq qf item))
+  (dolist (item '(1 2 3 3 4 5 6 7 9 10 11 12 13))
+    (addq qb item))
+  (elements (join (UD qf) (UD qb))))
+|#
 
 ;; Unfortunately, while the Finger Tree represents amortized immutable
 ;; queue/stack behavior, it becomes expensive O(N) for counting
