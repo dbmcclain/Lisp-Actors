@@ -76,7 +76,7 @@
 (defun add-rmw-functions (accessor rd-fn rmw-fn)
   ;; RMW functions should always be added in pairs for each accessor,
   ;; since RMW depends on RD
-  (setf (gethash accessor *rmw-functions*) (list rd-fn rmw-fn)))
+  (setf (gethash accessor *rmw-functions*) (cons rd-fn rmw-fn)))
 
 ;; -----------------------------------------------------------------------------------
 ;; Define generalized RMW functions with logic defined just once for all cases
@@ -102,6 +102,7 @@
 (defun rmw-gen (rdr-fn cas-fn new-fn)
   (let ((desc (make-rmw-desc
                :new-fn new-fn)))
+    ;; NOTE: desc cannot be dynamic-extent
     (prog ()
       again
       (let ((old (rd-gen rdr-fn cas-fn)))
@@ -124,6 +125,7 @@
                   ,reader-form)
                 (,cas-fn (,old ,new)
                   (sys:compare-and-swap ,reader-form ,old ,new)))
+           (declare (dynamic-extent #',rdr-fn #',cas-fn))
            (,rmw-fn #',rdr-fn #',cas-fn ,@args)))
       )))
 
@@ -149,7 +151,7 @@
   (if (symbolp place)
       `(rmw-symbol-value ',place ,new-fn)
     (if-let (pair (gethash (car place) *rmw-functions*))
-        `(,(cadr pair) ,@(cdr place) ,new-fn)
+        `(,(cdr pair) ,@(cdr place) ,new-fn)
       `(rmw-template ,place rmw-gen ,new-fn)
       )))
 
