@@ -18,7 +18,6 @@
    #:elements
    #:appendq
    #:prependq
-   #:with-exclusive-access
    ))
 
 (in-package #:finger-tree)
@@ -403,16 +402,6 @@
 
 (defmethod elements ((ft SE))
   (elements (rdq ft)))
-
-(defmacro with-exclusive-access ((tree ft) &rest body)
-  ;; user of this macro has the responsibility to produce the new
-  ;; state of the queue as the result of their body clauses.
-  `(um:rmw (SD ,ft)
-           (lambda (,tree)
-             ,@body)))
-
-#+:LISPWORKS
-(editor:setup-indent "with-shared-mutation" 1)
 
 ;; ---------------------------------------------------------
 ;; Unshared variant
