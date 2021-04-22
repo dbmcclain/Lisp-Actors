@@ -211,7 +211,8 @@
       (respond-to-prune prev))
      
      (:get-intf (dest-ip dest-port reply-to)
-      (send reply-to (open-connection dest-ip dest-port)))
+      (spawn-worker (lambda ()
+                      (send reply-to (open-connection dest-ip dest-port)))))
      ))
 
 (defvar *intf-map*
@@ -248,10 +249,10 @@
   ;; as arguments.
   (when (and service
              ip)
-    (send *intf-map* :get-intf ip port
-          (lambda (intf)
-            (when intf
-              (funcall fn service intf))))
+    (=bind (intf)
+        (send *intf-map* :get-intf ip port =bind-cont)
+      (when intf
+        (funcall fn service intf)))
     ))
 
 ;; -------------------------------------------
@@ -287,7 +288,6 @@
 ;; -----------------------------------------------------------------------
 
 (defun forward-query (handler service cont &rest msg)
-  ;; we should already be running in Bridge
   (let ((usti (create-and-add-usti cont handler)))
     (apply #'socket-send handler 'actors/internal-message/bridge:forwarding-ask service usti msg)))
 
