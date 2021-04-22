@@ -1,5 +1,6 @@
-;; Actors.lisp -- An implementation of Actors - single thread
-;; semantics across multithreaded systems
+;; Actors.lisp -- An implementation of Actors
+;;
+;; Single thread semantics across multithreaded and SMP systems
 ;;
 ;; DM/RAL  12/17
 ;; -----------------------------------------------------------
@@ -69,7 +70,6 @@ THE SOFTWARE.
                      (t                          superclasses))
      ,slots
      ,@options
-     ;; (:metaclass clos:funcallable-standard-class)
      ))
 
 #+:LISPWORKS
@@ -117,13 +117,13 @@ THE SOFTWARE.
     ;; provided for getting / setting
     :reader    actor-properties
     :initform  (maps:make-shared-map))
-   (lock
-    :reader    actor-lock
-    :initform  (mp:make-lock))
    (mbox
     ;; the Actor's message queue. SMP-safe
     :reader    actor-mailbox
     :initarg   :mailbox)
+   (lock
+    :reader actor-lock
+    :initform (mp:make-lock))
    (user-fn
     ;; points to the user code describing the behavior of this Actor.
     ;; This pointer is changed when the Actor performs a BECOME. Only
@@ -138,16 +138,6 @@ THE SOFTWARE.
 ;; -----------------------------------------------------
 ;; Actor construction
 
-#|
-(defmethod initialize-instance :after ((actor actor) &key properties &allow-other-keys)
-  (when properties
-    (maps:add-plist (actor-properties actor) properties))
-  (clos:set-funcallable-instance-function actor
-                                          (lambda (&rest args)
-                                            (if (eq actor (current-actor))
-                                                (apply #'self-call args)
-                                              (apply #'send actor args)))))
-|#
 (defmethod initialize-instance :after ((actor actor) &key properties &allow-other-keys)
   (when properties
     (maps:add-plist (actor-properties actor) properties)))
@@ -199,15 +189,95 @@ THE SOFTWARE.
 ;; --------------------------------------------------------
 ;; Core SEND to Actors
 
+;; Caution!! It is not safe to enable an Actor if its message queue
+;; appears empty. It might still be runinng the last message
+;; presented. We need to ensure single-thread semantics for all
+;; Actors. That's why there is a busy-bit.
+;;
+;; That busy bit gets unset only after the Actor has completed message
+;; processing and no more messages remain in its message queue.
+
+#|
+(defmethod send ((actor actor) &rest msg)
+  (finger-tree:with-exclusive-access (q (actor-mailbox actor))
+    ;; Everything in this body may be executed (as a closure)
+    ;; concurrently by more than one CPU core. We need to ensure that
+    ;; is okay.
+    ;;
+    ;; It is, in this case, because only the first of any possible CAS
+    ;; will take effect and plant the Actor on the ready queue.
+    ;;
+    ;; And the message queue is an immutable data structure. All
+    ;; possible executions will produce the same outcome for new
+    ;; message queue state. The new message will be delivered just
+    ;; once.
+    ;;
+    (when (sys:compare-and-swap (car (actor-busy actor)) nil t)
+      (add-to-ready-queue actor))
+    (finger-tree:addq q msg))
+  t)
+|#
+
 (defmethod send ((actor actor) &rest msg)
   (mp:with-lock ((actor-lock actor))
     (finger-tree:addq (actor-mailbox actor) msg)
     (when (sys:compare-and-swap (car (actor-busy actor)) nil t)
-      (add-to-ready-queue actor))
-    t))
+      (add-to-ready-queue actor)))
+  t)
 
 ;; ----------------------------------------------------------------
 ;; Toplevel Actor / Worker behavior
+
+#|
+(defgeneric %run-actor (actor)
+  #-:USING-MAC-GCD
+  (:method ((worker worker))
+   ;; Just run the form with which it was consructed
+   (let ((form (worker-dispatch-wrapper worker)))
+     (with-simple-restart (abort "Exit worker")
+       (apply (car form) (cdr form)))))
+
+  (:method ((*current-actor* actor))
+   ;; An Actor loops on sent messages until no more are pending for
+   ;; it.
+   (let ((mbox  (actor-mailbox *current-actor*))
+         (busy  (actor-busy *current-actor*)))
+     (symbol-macrolet ((not-terminated? (eq t (car busy))))
+       (unwind-protect
+           (tagbody
+            again
+            (when not-terminated?
+              (multiple-value-bind (msg ok) (finger-tree:popq mbox)
+                (when ok
+                  (apply #'dispatch-message *current-actor* msg)
+                  (go again))
+                )))
+         (when not-terminated?
+           (let (more-msgs)
+             (finger-tree:with-exclusive-access (q mbox)
+               ;; Everything in this body may be executed (as a
+               ;; closure) concurrently by more than one CPU core. We
+               ;; need to ensure that is okay.
+               ;;
+               ;; It is, in this case, because only the first of any
+               ;; possible CAS will take effect and retire the Actor
+               ;; when the message queue is empty.
+               ;;
+               ;; And we are not changing the state of the message
+               ;; queue.  We are just sensing if it is empty or not.
+               ;; All possible executions are presented with the same
+               ;; message queue state, and all will store the same
+               ;; result in more-msgs.
+               ;;
+               (unless (setf more-msgs q)
+                 ;; mark us conditionally retired
+                 ;; (we might have been terminated)
+                 (sys:compare-and-swap (car busy) t nil))
+               q)
+             (when more-msgs
+               (add-to-ready-queue *current-actor*))
+             )))))))
+|#
 
 (defgeneric %run-actor (actor)
   #-:USING-MAC-GCD
@@ -218,8 +288,8 @@ THE SOFTWARE.
        (apply (car form) (cdr form)))))
 
   (:method ((*current-actor* actor))
-   ;; An Actor can run an initial message, and loops on sent messages until
-   ;; no more are pending for it.
+   ;; An Actor loops on sent messages until no more are pending for
+   ;; it.
    (let ((mbox  (actor-mailbox *current-actor*))
          (busy  (actor-busy *current-actor*)))
      (symbol-macrolet ((not-terminated? (eq t (car busy))))
@@ -227,25 +297,20 @@ THE SOFTWARE.
            (tagbody
             again
             (when not-terminated?
-              (multiple-value-bind (msg ok)
-                  (finger-tree:popq mbox)
+              (multiple-value-bind (msg ok) (finger-tree:popq mbox)
                 (when ok
                   (apply #'dispatch-message *current-actor* msg)
-                  (go again)))))
-         ;; unwind clause
+                  (go again))
+                )))
          (when not-terminated?
-           ;; <-- a message could have arrived here, but would have
-           ;; failed to enqueue the Actor.  So we double check before
-           ;; clearing the busy mark.
            (mp:with-lock ((actor-lock *current-actor*))
-             (cond ((finger-tree:not-empty? mbox)
-                    ;; leave marked busy and put back on ready queue
-                    (add-to-ready-queue *current-actor*))
-                   
-                   (t
-                    ;; might have been terminated - so conditionally unmark
-                    (sys:compare-and-swap (car busy) t nil))
-                   )))
+             (if (finger-tree:is-empty? mbox)
+                 ;; mark us conditionally retired
+                 ;; (we might have been terminated)
+                 (sys:compare-and-swap (car busy) t nil)
+               ;; else
+               (add-to-ready-queue *current-actor*))
+             ))
          )))))
 
 ;; -----------------------------------------------
@@ -537,7 +602,9 @@ THE SOFTWARE.
   (:method ((actor actor) &rest message)
    (if (eq actor (current-actor))
        (apply 'self-call message)
-     (let ((mb (mp:make-mailbox)))
-       (apply 'send actor 'actors/internal-message:send-sync mb message)
-       (mp:mailbox-read mb))
+     (=wait ((&rest _)
+             :timeout *timeout*
+             :errorp  t)
+         (apply 'send actor 'actors/internal-message:send-sync =wait-cont message)
+       (declare (ignore _)))
      )))
