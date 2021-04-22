@@ -121,11 +121,9 @@ THE SOFTWARE.
     ;; the Actor's message queue. SMP-safe
     :reader    actor-mailbox
     :initarg   :mailbox)
-   #||#
-   (lock
+  (lock
     :reader actor-lock
-    :initform (mp:make-lock))
-   #||#
+    :initform (mp:make-lock :sharing t))
    (user-fn
     ;; points to the user code describing the behavior of this Actor.
     ;; This pointer is changed when the Actor performs a BECOME. Only
@@ -199,8 +197,14 @@ THE SOFTWARE.
 ;; That busy bit gets unset only after the Actor has completed message
 ;; processing and no more messages remain in its message queue.
 
+(defun was-retired? (actor)
+  (sys:compare-and-swap (car (actor-busy actor)) nil t))
+
+(defun retire (actor)
+  (sys:compare-and-swap (car (actor-busy actor)) t nil))
+
 (defmethod send ((actor actor) &rest msg)
-  (mp:with-lock ((actor-lock actor))
+  (mp:with-sharing-lock ((actor-lock actor))
     (finger-tree:addq (actor-mailbox actor) msg)
     (when (sys:compare-and-swap (car (actor-busy actor)) nil t)
       (add-to-ready-queue actor)))
@@ -233,7 +237,7 @@ THE SOFTWARE.
                   (go again))
                 )))
          (when not-terminated?
-           (mp:with-lock ((actor-lock *current-actor*))
+           (mp:with-exclusive-lock ((actor-lock *current-actor*))
              (if (finger-tree:is-empty? mbox)
                  ;; mark us conditionally retired
                  ;; (we might have been terminated)
