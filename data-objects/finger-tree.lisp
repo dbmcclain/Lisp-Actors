@@ -248,7 +248,12 @@
 (defun nodes (elts)
   ;; nodes must take a list of "elements" and convert into a
   ;; partitioned list of finger vectors.
-  ;; (format t "~%Nodes: (~D) ~S" (length elts) elts)
+  ;;
+  ;; Beginning with an empty list, the most that can be added in one
+  ;; iteration is 4 elements to the front, plus 4 elements to the back.
+  ;; Partition that into groups of 3 and you get that the longest this
+  ;; list of nodes can ever become is 4 elements.
+  ;;
   (case (length elts)
     ((0)  nil)
     ((1)  (destructuring-bind (a) elts
