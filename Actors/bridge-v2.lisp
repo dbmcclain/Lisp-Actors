@@ -121,18 +121,15 @@
 (defparameter *nocont-beh*
    (um:dlambda
      (:attach (usti cont intf)
-      (dbg  "NoCont/attach")
       (let ((next (make-actor (current-behavior))))
         (become (make-cont-beh usti cont intf next))
         ))
 
      (:prune (prev)
-      (dbg  "NoCont/prune")
       (respond-to-prune prev))
 
      (:find-and-remove (usti reply-to)
       (declare (ignore usti))
-      (dbg  "NoCont/find-and-remove")
       (send reply-to nil))
      ))
 
@@ -143,21 +140,17 @@
   (um:dlambda
     (:attach (usti cont intf)
      (declare (ignore usti cont intf))
-     (dbg  "Cont/attach")
      (repeat-send next))
 
     (:detach (an-intf)
-     (dbg  "Cont/detach")
      (repeat-send next)
      (when (eq an-intf intf)
        (detach-myself next)))
 
     (:prune (prev)
-     (dbg  "Cont/prune")
      (respond-to-prune prev))
 
     (:handle-reply (a-usti reply)
-     (dbg  "Cont/handle-reply")
      (cond ((uuid:uuid= a-usti usti)
             (detach-myself next)
             (apply cont reply))
@@ -165,7 +158,6 @@
             (repeat-send next))))
 
     (:find-and-remove (a-usti reply-to)
-     (dbg  "Cont/find-and-remove")
      (cond ((uuid:uuid= a-usti usti)
             (detach-myself next)
             (send reply-to cont))
@@ -177,12 +169,10 @@
 (defun make-detached-beh (next)
   (um:dlambda
     (:pruned (beh)
-     (dbg  "Detached/pruned")
      (become beh))
 
     (t (&rest _)
        (declare (ignore _))
-       (dbg  "Detached/t")
        (repeat-send next))
     ))
 
@@ -214,16 +204,13 @@
 (defparameter *nodev-beh*
    (um:dlambda
      (:attach (ip-addr intf)
-      (dbg  "NoDev/attach")
       (let ((next (make-actor (current-behavior))))
         (become (make-dest-beh ip-addr intf next))
         ))
      (:prune (prev)
-      (dbg  "NoDev/prune")
       (respond-to-prune prev))
      
      (:get-intf (dest-ip dest-port reply-to)
-      (dbg  "NoDev/get-intf")
       (send reply-to (open-connection dest-ip dest-port)))
      ))
 
@@ -233,27 +220,23 @@
 (defun make-dest-beh (ip-addr intf next)
   (um:dlambda
     (:attach (an-ip-addr an-intf)
-     (dbg  "Dev/attach")
      (cond ((same-ip? ip-addr an-ip-addr)
             (setf intf an-intf))
            (t
             (repeat-send next))
            ))
     (:detach (an-intf)
-     (dbg  "Dev/detach")
      (cond ((eq an-intf intf)
             (detach-myself next))
            (t
             (repeat-send next))
            ))
     (:prune (prev)
-     (dbg  "Dev/prune")
      (respond-to-prune prev))
 
     (:get-intf (an-ip-addr a-port reply-to)
      ;; TODO - clean up re ports
      (declare (ignore a-port))
-     (dbg  "Dev/get-intf")
      (if (same-ip? ip-addr an-ip-addr)
          (send reply-to intf)
        (repeat-send next)))
