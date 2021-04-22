@@ -198,15 +198,17 @@ THE SOFTWARE.
 ;; processing and no more messages remain in its message queue.
 
 (defun was-retired? (actor)
+  ;; if was retired, also mark now active
   (sys:compare-and-swap (car (actor-busy actor)) nil t))
 
 (defun retire (actor)
+  ;; if not terminated, mark us retired
   (sys:compare-and-swap (car (actor-busy actor)) t nil))
 
 (defmethod send ((actor actor) &rest msg)
   (mp:with-sharing-lock ((actor-lock actor))
     (finger-tree:addq (actor-mailbox actor) msg)
-    (when (sys:compare-and-swap (car (actor-busy actor)) nil t)
+    (when (was-retired? actor)
       (add-to-ready-queue actor)))
   t)
 
@@ -239,10 +241,7 @@ THE SOFTWARE.
          (when not-terminated?
            (mp:with-exclusive-lock ((actor-lock *current-actor*))
              (if (finger-tree:is-empty? mbox)
-                 ;; mark us conditionally retired
-                 ;; (we might have been terminated)
-                 (sys:compare-and-swap (car busy) t nil)
-               ;; else
+                 (retire *current-actor*)
                (add-to-ready-queue *current-actor*))
              ))
          )))))
