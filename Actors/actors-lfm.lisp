@@ -468,10 +468,10 @@
 (defmethod log-message ((actor lfm) entry-kind msg timestamp who-from)
   (with-slots (printer stream) actor
     (perform-in-actor actor
-      (stream:with-stream-output-lock stream
-        (princ (with-output-to-string (s)
-                 (funcall printer s entry-kind msg timestamp who-from))
-               stream)
-        (force-output stream))
-      )))
+      (let ((s (with-output-to-string (s)
+                 (funcall printer s entry-kind msg timestamp who-from))))
+        (stream:with-stream-output-lock stream
+          (princ s stream)
+          (force-output stream))
+        ))))
 

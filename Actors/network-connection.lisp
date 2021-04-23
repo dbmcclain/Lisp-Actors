@@ -717,7 +717,7 @@
                                    (lambda (ctx)
                                      (comm:set-ssl-ctx-cert-cb ctx 'my-find-certificate)))
          #||#
-         :handshake-timeout 5
+         :handshake-timeout 10
          #-:WINDOWS :ipv6    #-:WINDOWS nil)
     (if io-state
           (let* ((crypto  (make-instance 'crypto))

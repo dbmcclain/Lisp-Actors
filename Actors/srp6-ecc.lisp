@@ -115,7 +115,7 @@
     ;; Phase-I: send local node ID
     ;;
     (=wait ((bbc)
-            :timeout 5
+            :timeout 10
             :errorp  t)
         (client-request-negotiation-ecc intf =wait-cont node-id)
       ;;
