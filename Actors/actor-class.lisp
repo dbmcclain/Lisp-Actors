@@ -64,7 +64,8 @@
 
 (defun pr (&rest args)
   (prt
-   (if (cdr args)
-       (print args)
-     (print (car args)))
-   ))
+    (stream:with-stream-output-lock *standard-output*
+      (if (cdr args)
+          (print args)
+        (print (car args)))
+      )))
