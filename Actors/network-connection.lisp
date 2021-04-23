@@ -421,8 +421,7 @@
              (apply 'socket-send-reply intf usti ans)))
            
         (actors/internal-message/bridge:forwarding-reply (usti &rest ans)
-           ;; An Actor on our side is replying to an ASK from the
-           ;; other end.
+           ;; An Actor from the other side is replying to an ASK from our side.
            (apply 'bridge-handle-reply usti ans))
 
         (t (&rest msg)

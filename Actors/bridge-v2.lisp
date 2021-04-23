@@ -108,7 +108,6 @@
     (equalp (proxy-ip ip1) (proxy-ip ip2))))
 
 ;; -------------------------------------------
-;; Bridge Intf/Continuations mapper
 
 #+diddly
 (defun dbg (from)
@@ -118,9 +117,14 @@
 (defmacro dbg (from)
   (declare (ignore from)))
 
+;; -------------------------------------------
+;; Bridge Intf/Continuations mapper
+
 (defparameter *nocont-beh*
    (um:dlambda
      (:attach (usti cont intf)
+      ;; hand off our beh to new next in line,
+      ;; assume response for the new entry
       (let ((next (make-actor (current-behavior))))
         (become (make-cont-beh usti cont intf next))
         ))
@@ -129,6 +133,8 @@
       (respond-to-prune prev))
 
      (:find-and-remove (usti reply-to)
+      ;; Called by FIND-ACTOR.
+      ;; End of line response - nil
       (declare (ignore usti))
       (send reply-to nil))
      ))
@@ -138,11 +144,16 @@
 
 (defun make-cont-beh (usti cont intf next)
   (um:dlambda
-    (:attach (usti cont intf)
-     (declare (ignore usti cont intf))
-     (repeat-send next))
+    (:attach (a-usti a-cont an-intf)
+     ;; hand off our beh to new next in line,
+     ;; assume response for the new entry
+     (let ((new-next (make-actor (current-behavior))))
+       (become (make-cont-beh a-usti a-cont an-intf new-next))
+       ))
 
     (:detach (an-intf)
+     ;; called when an interface is retiring
+     ;; remove all continuations registered to that intf
      (repeat-send next)
      (when (eq an-intf intf)
        (detach-myself next)))
@@ -150,14 +161,22 @@
     (:prune (prev)
      (respond-to-prune prev))
 
-    (:handle-reply (a-usti reply)
+    (:handle-reply (a-usti &rest reply)
+     ;; if we match the USTI, perform the continuation with the reply
+     ;; and remove ourselves. Mappings are one-time use.
      (cond ((uuid:uuid= a-usti usti)
             (detach-myself next)
-            (apply cont reply))
+            ;; Spawn...just in case cont is a brute closure and not an
+            ;; Actor continuation. Happens when =BIND is called from a
+            ;; non-Actor.  Possibly indefinite work load.
+            (spawn-worker #'apply cont reply))
            (t
             (repeat-send next))))
 
     (:find-and-remove (a-usti reply-to)
+     ;; Called by FIND-ACTOR
+     ;; If we match the USTI, send it along to reply-to and remove
+     ;; ourselves. Mappings are one-time use only.
      (cond ((uuid:uuid= a-usti usti)
             (detach-myself next)
             (send reply-to cont))
@@ -195,8 +214,8 @@
     usti))
 
 (defun bridge-handle-reply (usti &rest reply)
-  ;; called by socket handler when a reply arrives
-  (send *cont-map* :handle-reply usti reply))
+  ;; called by socket handler when an ASK reply arrives
+  (apply #'send *cont-map* :handle-reply usti reply))
 
 ;; -------------------------------------------
 ;; Bridge IP/Intf mapper
@@ -204,6 +223,7 @@
 (defparameter *nodev-beh*
    (um:dlambda
      (:attach (ip-addr intf)
+      ;; called by the network interface upon successful connection
       (let ((next (make-actor (current-behavior))))
         (become (make-dest-beh ip-addr intf next))
         ))
@@ -211,7 +231,9 @@
       (respond-to-prune prev))
      
      (:get-intf (dest-ip dest-port reply-to)
+      ;; no interface found - try to connect and create a new interface
       (spawn-worker (lambda ()
+                      ;; spawned since there may be significant delay
                       (send reply-to (open-connection dest-ip dest-port)))))
      ))
 
@@ -221,22 +243,27 @@
 (defun make-dest-beh (ip-addr intf next)
   (um:dlambda
     (:attach (an-ip-addr an-intf)
+      ;; Called by the network interface upon successful connection.
+      ;; There may be multiple ip-addr (strings, keywords, etc) assoc
+      ;; to each intf. But each ip-addr points to only one intf.
      (cond ((same-ip? ip-addr an-ip-addr)
             (setf intf an-intf))
            (t
             (repeat-send next))
            ))
     (:detach (an-intf)
-     (cond ((eq an-intf intf)
-            (detach-myself next))
-           (t
-            (repeat-send next))
-           ))
+     ;; Called by the network intf when it shuts down
+     ;; NOTE: multiple ip-addr may correspond to one intf
+     (repeat-send next)
+     (when (eq an-intf intf)
+       (detach-myself next)))
+
     (:prune (prev)
      (respond-to-prune prev))
 
     (:get-intf (an-ip-addr a-port reply-to)
-     ;; TODO - clean up re ports
+     ;; Called by SEND on our side to find the network intf to use for
+     ;; message forwarding.  TODO - clean up re ports
      (declare (ignore a-port))
      (if (same-ip? ip-addr an-ip-addr)
          (send reply-to intf)
