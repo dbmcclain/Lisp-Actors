@@ -175,7 +175,9 @@ storage and network transmission.
   ;; and commit.
   (let* ((server  (if server-provided-p
                       *service-id*
-                    trans))
+                    (if trans
+                        (trans-db trans)
+                      *service-id*)))
          (new-ver (open-trans server)))
     (cond (trans
            (with-accessors ((db    trans-db)
@@ -372,11 +374,19 @@ storage and network transmission.
     (get-key trans :pi)))
 
 (rstkv-server:make-stkv-server)
-(send :rstkv :become-remote "rstkv@rincon.local")
-(send :rstkv :become-local)
+(ac:become-remote :rstkv "rstkv@rincon.local")
+(ac:become-local  :rstkv)
 
 (let ((trans (rollback)))
     (get-key trans :pi))
+
+(defvar srv (ac:find-actor :RSTKV))
+(ac:watch srv)
+(ac:unwatch srv)
+
+(with-server (srv)
+  (let ((trans (rollback)))
+    (get-key trans :pi)))
 
 (with-server ("rstkv@arroyo.local")
   (let ((trans (rollback)))

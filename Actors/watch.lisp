@@ -8,6 +8,7 @@
 ;; ----------------------------------------
 ;; Watch incoming message traffic for Actor
 
+#|
 (defun do-watch (actor wr-fn title)
   (funcall wr-fn (make-actor
                   (um:dlambda
@@ -16,7 +17,8 @@
                     (t (&rest msg)
                        (declare (ignore msg))
                        (log-info :SYSTEM-LOG "~A: ~S" title (whole-message))
-                       (repeat-send actor))
+                       (repeat-send actor)
+                       (signal 'no-immediate-answer))
                     ))
            ))
 
@@ -29,6 +31,10 @@
                    ,writer-form)
                  ,title))
     ))
+|#
+
+(defun watch (actor)
+  (send actor 'actors/internal-message:watch))
 
 (defun unwatch (actor)
   (send actor 'actors/internal-message:unwatch))

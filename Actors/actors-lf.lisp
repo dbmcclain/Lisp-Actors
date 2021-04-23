@@ -161,9 +161,15 @@ THE SOFTWARE.
 
 (defun make-remote-actor (remote-addr)
   (let ((actor (make-actor)))
-    (send actor :become-remote remote-addr)
+    (become-remote actor remote-addr)
     actor))
 
+(defun become-remote (actor remote-addr)
+  (send actor 'actors/internal-message:become-remote remote-addr))
+
+(defun become-local (actor)
+  (send actor 'actors/internal-message:become-local))
+  
 #|
 ;; e.g.,
 (register-actor :rincon-eval
@@ -339,7 +345,7 @@ THE SOFTWARE.
                  (no-immediate-answer ())
                  ))))))
     
-    (:become-remote (remote-addr)
+    (actors/internal-message:become-remote (remote-addr)
      (lambda ()
        (let (prev-beh
              (remote-addr (if (stringp remote-addr)
@@ -347,18 +353,32 @@ THE SOFTWARE.
                             remote-addr)))
          (setf prev-beh
                (become (um:dlambda
-                         (:become-local ()
+                         (actors/internal-message:become-local ()
                           (become prev-beh))
                          (t (&rest msg)
-                            (if *in-ask*
-                                (progn
-                                  (apply #'actors/bridge::=bridge-ask-query
-                                         (cadr *whole-message*) remote-addr msg)
-                                  (signal 'no-immediate-answer))
-                              ;; else
-                              (apply #'actors/bridge:bridge-forward-message
-                                     remote-addr msg))
-                            ))))
+                            (cond (*in-ask*
+                                   (spawn-worker
+                                    (let ((whole (whole-message)))
+                                      (lambda ()
+                                        (apply #'actors/bridge:bridge-forward-message remote-addr whole))))
+                                   (signal 'no-immediate-answer))
+                                  (t
+                                   (apply #'actors/bridge:bridge-forward-message remote-addr msg))
+                                  ))
+                         )))
+         )))
+
+    (actors/internal-message:watch (&optional (title "watch"))
+     (lambda ()
+       (let (prev-beh)
+         (setf prev-beh
+               (become (um:dlambda
+                         (actors/internal-message:unwatch ()
+                            (become prev-beh))
+                         (t (&rest msg)
+                            (log-info :SYSTEM-LOG "~A: ~S" title (whole-message))
+                            (apply prev-beh msg))
+                         )))
          )))
     ))
 

@@ -28,6 +28,12 @@
     ;; else
     (apply 'send actor fn args)))
 
+(defun query (actor fn &rest args)
+  (if (eq actor (current-actor))
+      (apply fn args)
+    ;; else
+    (apply 'ask actor fn args)))
+
 (defmacro perform-in-actor (actor &body body)
   `(exec ,actor (lambda ()
                   ,@body)))
@@ -37,7 +43,7 @@
                     ,@body)))
 
 (defmacro query-actor (actor &body body)
-  `(ask ,actor (lambda ()
+  `(query ,actor (lambda ()
                    ,@body)))
 
 (defmacro with-as-current-actor (actor &body body)

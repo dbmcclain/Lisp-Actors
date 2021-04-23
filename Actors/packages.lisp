@@ -87,6 +87,7 @@ THE SOFTWARE.
    
    #:inject
    #:exec
+   #:query
    #:perform-in-actor
    #:inject-into-actor
    #:query-actor
@@ -186,6 +187,9 @@ THE SOFTWARE.
    #:notify
    #:unsubscribe
 
+   #:become-remote
+   #:become-local
+   
    #:watch
    #:unwatch
    ))
@@ -207,7 +211,10 @@ THE SOFTWARE.
    #:continuation
    #:ask
    #:send-sync
+   #:watch
    #:unwatch
+   #:become-remote
+   #:become-local
    ))
 
 (defpackage #:actors/internal-message/security
