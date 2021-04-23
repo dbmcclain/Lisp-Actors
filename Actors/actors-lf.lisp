@@ -325,7 +325,8 @@ THE SOFTWARE.
        ;; tell sender we got the message before executing it
        (lambda ()
          (send reply-to t)
-         (apply #'self-call sub-message)))
+         (let ((*whole-message* sub-message))
+           (apply #'self-call sub-message))))
       
     (actors/internal-message:ask (reply-to &rest sub-msg)
        ;; Intercept restartable queries to send back a response
@@ -356,15 +357,11 @@ THE SOFTWARE.
                          (actors/internal-message:become-local ()
                           (become prev-beh))
                          (t (&rest msg)
-                            (cond (*in-ask*
-                                   (spawn-worker
-                                    (let ((whole (whole-message)))
-                                      (lambda ()
-                                        (apply #'actors/bridge:bridge-forward-message remote-addr whole))))
-                                   (signal 'no-immediate-answer))
-                                  (t
-                                   (apply #'actors/bridge:bridge-forward-message remote-addr msg))
-                                  ))
+                            (declare (ignore msg))
+                            (let ((whole *whole-message*))
+                              (spawn-worker (lambda ()
+                                              (apply #'actors/bridge:bridge-forward-message remote-addr whole)))
+                              (signal 'no-immediate-answer)))
                          )))
          )))
 
