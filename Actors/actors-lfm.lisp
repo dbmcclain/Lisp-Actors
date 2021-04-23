@@ -133,25 +133,24 @@
 ;; Server behavior
 
 (defun default-printer (f entry-kind msg timestamp from-pid)
-  (ac:prt
-   (let* ((hdr (case entry-kind
-                 (:ERROR     "ERROR REPORT")
-                 (:WARNING   "WARNING REPORT")
-                 (:INFO      "INFORMATION REPORT")
-                 (:STARTUP   "STARTUP REPORT")
-                 (:SHUTDOWN  "SHUTDOWN REPORT")
-                 (otherwise  "??? UNKNOWN REPORT")))
-          (*print-circle* t))
-     (stream:with-stream-output-lock f
-       (format f "~&=~A==== ~A ===~%" hdr timestamp)
-       (format f "Node: ~A~%" (machine-instance))
-       (format f "From: ~A~%" from-pid)
-       (format f "~A~%~%" msg)
-       ;; (xprint msg f)
-       ;; (describe msg f)
-       ;; (terpri f)
-       ;; (terpri f)
-       (force-output f)) )))
+  (let* ((hdr (case entry-kind
+                (:ERROR     "ERROR REPORT")
+                (:WARNING   "WARNING REPORT")
+                (:INFO      "INFORMATION REPORT")
+                (:STARTUP   "STARTUP REPORT")
+                (:SHUTDOWN  "SHUTDOWN REPORT")
+                (otherwise  "??? UNKNOWN REPORT")))
+         (*print-circle* t))
+    (progn ;; stream:with-stream-output-lock f
+      (format f "~&=~A==== ~A ===~%" hdr timestamp)
+      (format f "Node: ~A~%" (machine-instance))
+      (format f "From: ~A~%" from-pid)
+      (format f "~A~%~%" msg)
+      ;; (xprint msg f)
+      ;; (describe msg f)
+      ;; (terpri f)
+      ;; (terpri f)
+      ) ))
   
 ;; -----------------------------------------------------------------
 #|
@@ -470,6 +469,9 @@
   (with-slots (printer stream) actor
     (perform-in-actor actor
       (stream:with-stream-output-lock stream
-        (funcall printer stream entry-kind msg timestamp who-from)
-        ))))
+        (princ (with-output-to-string (s)
+                 (funcall printer s entry-kind msg timestamp who-from))
+               stream)
+        (force-output stream))
+      )))
 
