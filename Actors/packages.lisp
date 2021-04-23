@@ -207,6 +207,7 @@ THE SOFTWARE.
    #:continuation
    #:ask
    #:send-sync
+   #:unwatch
    ))
 
 (defpackage #:actors/internal-message/security

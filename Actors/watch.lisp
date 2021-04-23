@@ -11,7 +11,7 @@
 (defun do-watch (actor wr-fn title)
   (funcall wr-fn (make-actor
                   (um:dlambda
-                    (:unwatch ()
+                    (actors/internal-message:unwatch ()
                      (funcall wr-fn actor))
                     (t (&rest msg)
                        (declare (ignore msg))
@@ -31,6 +31,6 @@
     ))
 
 (defun unwatch (actor)
-  (send actor :unwatch))
+  (send actor 'actors/internal-message:unwatch))
 
                
