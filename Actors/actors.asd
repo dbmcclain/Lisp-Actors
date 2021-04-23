@@ -39,6 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 #-:lispworks (:file "ansi-timer")
                 ;; (:file "actors")
                 (:file "actors-lf")
+                (:file "watch")
                 (:file "actor-class")
                 #-:USING-MAC-GCD (:file "executives")
                 #+:USING-MAC-GCD (:file "mac-executives")

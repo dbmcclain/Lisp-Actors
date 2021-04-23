@@ -185,6 +185,9 @@ THE SOFTWARE.
    #:subscribe
    #:notify
    #:unsubscribe
+
+   #:watch
+   #:unwatch
    ))
 
 #-lispworks
