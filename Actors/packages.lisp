@@ -192,6 +192,8 @@ THE SOFTWARE.
    
    #:watch
    #:unwatch
+
+   #:with-worker
    ))
 
 #-lispworks

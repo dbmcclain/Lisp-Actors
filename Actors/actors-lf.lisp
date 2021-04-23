@@ -173,7 +173,7 @@ THE SOFTWARE.
 #|
 ;; e.g.,
 (register-actor :rincon-eval
-                (make-foreign-actor "eval@rincon.local"))
+                (make-remote-actor "eval@rincon.local"))
 (ask :rincon-eval '(get-actor-names))
 (ask :rincon-eval '(get-actors)) ;; should present an error
  |#
@@ -291,6 +291,16 @@ THE SOFTWARE.
 (defun repeat-send (dest)
   (apply #'send dest *whole-message*))
 
+(defmacro with-worker (bindings &body body)
+  (let ((args (mapcar #'first bindings))
+        (vals (mapcar #'second bindings)))
+    `(spawn-worker (lambda ,args
+                     ,@body) ,@vals)
+    ))
+
+#+:LISPWORKS
+(editor:setup-indent "with-worker" 1)
+
 (define-condition no-immediate-answer ()
   ())
 
@@ -358,10 +368,9 @@ THE SOFTWARE.
                           (become prev-beh))
                          (t (&rest msg)
                             (declare (ignore msg))
-                            (let ((whole *whole-message*))
-                              (spawn-worker (lambda ()
-                                              (apply #'actors/bridge:bridge-forward-message remote-addr whole)))
-                              (signal 'no-immediate-answer)))
+                            (with-worker ((whole *whole-message*))
+                              (apply #'actors/bridge:bridge-forward-message remote-addr whole))
+                            (signal 'no-immediate-answer))
                          )))
          )))
 
