@@ -479,7 +479,7 @@
     :service (create-and-add-usti obj)
     )))
 
-(defmethod find-actor ((usti uuid:uuid))
+(defmethod find-actor ((usti uuid:uuid) &key directory)
   (or (when (uuid:one-of-mine? usti)
         (=wait ((cont))
             (send *cont-map* :find-and-remove usti =wait-cont)

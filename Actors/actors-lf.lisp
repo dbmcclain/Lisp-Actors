@@ -159,11 +159,11 @@ THE SOFTWARE.
                  :properties properties))
 |#
 
-(defun make-remote-actor (remote-addr &key register)
+(defun make-remote-actor (remote-addr &key register directory)
   (let ((actor (make-actor)))
     (become-remote actor remote-addr)
     (when register
-      (register-actor register actor))
+      (register-actor register actor :directory directory))
     actor))
 
 (defun become-remote (actor remote-addr)
