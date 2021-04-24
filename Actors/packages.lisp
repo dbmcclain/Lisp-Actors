@@ -214,9 +214,7 @@ THE SOFTWARE.
    #:continuation
    #:ask
    #:send-sync
-   #:watch
    #:unwatch
-   #:become-remote
    #:become-local
    ))
 

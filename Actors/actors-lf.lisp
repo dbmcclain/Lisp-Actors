@@ -273,16 +273,6 @@ THE SOFTWARE.
 (defun repeat-send (dest)
   (apply #'send dest *whole-message*))
 
-(defmacro with-worker (bindings &body body)
-  (let ((args (mapcar #'first bindings))
-        (vals (mapcar #'second bindings)))
-    `(spawn-worker (lambda ,args
-                     ,@body) ,@vals)
-    ))
-
-#+:LISPWORKS
-(editor:setup-indent "with-worker" 1)
-
 (define-condition no-immediate-answer ()
   ())
 
@@ -384,6 +374,16 @@ THE SOFTWARE.
    fn)
   (:method ((fn symbol) &rest args)
    (apply #'spawn-worker (symbol-function fn) args)))
+
+(defmacro with-worker (bindings &body body)
+  (let ((args (mapcar #'first bindings))
+        (vals (mapcar #'second bindings)))
+    `(spawn-worker (lambda ,args
+                     ,@body) ,@vals)
+    ))
+
+#+:LISPWORKS
+(editor:setup-indent "with-worker" 1)
 
 ;; ------------------------------------------
 ;; Sends directed to mailboxes, functions, etc.
