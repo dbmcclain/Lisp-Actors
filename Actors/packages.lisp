@@ -382,6 +382,7 @@ THE SOFTWARE.
   (:export
    #:%run-actor
    #:assemble-ask-message
+   #:no-immediate-answer
    ))
 
 (defpackage #:actors/rwgate

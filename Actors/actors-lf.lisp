@@ -349,33 +349,28 @@ THE SOFTWARE.
                )))))
     
     (actors/internal-message:become-remote (remote-addr)
-       (let (prev-beh
+       (let ((prev-beh (current-behavior))
              (remote-addr (if (stringp remote-addr)
                               (make-proxy :addr remote-addr)
                             remote-addr)))
-         (setf prev-beh
-               (become (um:dlambda
-                           (actors/internal-message:become-local ()
-                              (become prev-beh))
-                           (t (&rest msg)
-                              (declare (ignore msg))
-                              (with-worker ((whole *whole-message*))
-                                (apply #'actors/bridge:bridge-forward-message remote-addr whole))
-                              (signal 'no-immediate-answer))
-                           )))
-         ))
+         (become (um:dlambda
+                   (actors/internal-message:become-local ()
+                       (become prev-beh))
+                   (t (&rest msg)
+                       (declare (ignore msg))
+                       (apply #'actors/bridge:bridge-forward-message remote-addr *whole-message*)
+                       ))
+                 )))
 
     (actors/internal-message:watch (&optional (title "watch"))
-       (let (prev-beh)
-         (setf prev-beh
-               (become (um:dlambda
-                         (actors/internal-message:unwatch ()
-                            (become prev-beh))
-                         (t (&rest msg)
-                            (log-info :SYSTEM-LOG "~A: ~S" title (whole-message))
-                            (apply prev-beh msg))
-                         )))
-         ))
+         (let ((prev-beh (current-behavior)))
+           (become (um:dlambda
+                     (actors/internal-message:unwatch ()
+                       (become prev-beh))
+                     (t (&rest msg)
+                        (log-info :SYSTEM-LOG "~A: ~S" title (whole-message))
+                        (apply prev-beh msg))
+                     ))))
     ))
 
 ;; ---------------------------------------------
