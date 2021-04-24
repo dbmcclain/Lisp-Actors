@@ -159,13 +159,6 @@ THE SOFTWARE.
                  :properties properties))
 |#
 
-#|
-;; e.g.,
-(register-actor :rincon-eval
-                (make-remote-actor "eval@rincon.local"))
-(ask :rincon-eval '(get-actor-names))
-(ask :rincon-eval '(get-actors)) ;; should present an error
- |#
 ;; -----------------------------------------------------
 ;; These methods can be called from any thread. SMP safe.
 

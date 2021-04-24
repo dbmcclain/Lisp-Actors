@@ -528,3 +528,10 @@
 (defun become-local (actor)
   (send actor 'actors/internal-message:become-local))
   
+#|
+;; e.g.,
+(make-remote-actor "eval@rincon.local"
+                   :register :rincon-eval)
+(ask :rincon-eval '(get-actor-names))
+(ask :rincon-eval '(get-actors)) ;; should present an error
+ |#
