@@ -91,7 +91,6 @@ THE SOFTWARE.
    #:perform-in-actor
    #:inject-into-actor
    #:query-actor
-   #:with-as-current-actor
    #:hoare-monitor
 
    #:make-actor-directory

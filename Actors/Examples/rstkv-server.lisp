@@ -100,7 +100,7 @@ storage and network transmission.
 
             ac:define-actor-class
             ac:actor
-            ac:with-as-current-actor
+            ac:inject-into-actor
             ac:become
             ac:hoare-monitor
             ac:perform-in-actor
@@ -129,8 +129,8 @@ storage and network transmission.
 
 (defmethod initialize-instance :after ((server stkv-server) &key &allow-other-keys)
   (with-slots (main-table path sync) server
-    (with-as-current-actor server
-      (setf sync (mp:make-timer 'mp:funcall-async 'save-database server))
+    (inject-into-actor server
+      (setf sync (mp:make-timer 'mp:funcall-async 'send server :save))
       (if (probe-file path)
           (s-revert-database server)
         (progn

@@ -225,7 +225,7 @@
              )))
       
       ;; message asssembly and decoding from (len, payload, hmac)
-      (with-as-current-actor reader
+      (inject-into-actor reader
         (nlet read-next-message ()
           (=bind ()
               (read-buf len-buf)
@@ -537,7 +537,7 @@
                #+:USING-ECC-CRYPTO srp-ph2-begin-ecc
                srp-ph2-reply
                srp-ph3-begin) intf
-    (with-as-current-actor intf ;; for =cont
+    (inject-into-actor intf ;; for =cont
       (flet
           (#-:USING-ECC-CRYPTO
            (start-phase2-rsa (cont p-key g-key salt bb)

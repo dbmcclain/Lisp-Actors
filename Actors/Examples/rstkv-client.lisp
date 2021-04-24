@@ -381,7 +381,7 @@ storage and network transmission.
 (ac:become-local  :rstkv)
 
 (let ((trans (rollback)))
-    (get-key trans :pi))
+  (get-key trans :pi))
 
 (defvar srv (ac:find-actor :RSTKV))
 (ac:watch srv)

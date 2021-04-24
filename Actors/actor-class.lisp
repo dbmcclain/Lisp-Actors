@@ -46,18 +46,16 @@
   `(query ,actor (lambda ()
                    ,@body)))
 
-(defmacro with-as-current-actor (actor &body body)
-  `(let ((*current-actor* ,actor))
-     ,@body))
-
-(define-actor-class hoare-monitor ()
-  ())
-
 #+:LISPWORKS
 (progn
   (editor:setup-indent "perform-in-actor" 1)
   (editor:setup-indent "inject-into-actor" 1)
-  (editor:setup-indent "with-as-current-actor" 1))
+  (editor:setup-indent "query-actor" 1))
+
+;; --------------------------------------------------
+
+(define-actor-class hoare-monitor ()
+  ())
 
 (define-actor-class printer ()
   ())
