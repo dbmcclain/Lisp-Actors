@@ -21,6 +21,9 @@
 
 (defglobal-var *actors-directory* (maps:make-shared-map))
 
+(defun make-actor-directory ()
+  (maps:make-shared-map))
+
 (defun clear-directory (&key (directory *actors-directory*))
   (maps:erase directory))
 

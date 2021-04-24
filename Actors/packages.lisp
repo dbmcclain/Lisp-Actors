@@ -94,6 +94,7 @@ THE SOFTWARE.
    #:with-as-current-actor
    #:hoare-monitor
 
+   #:make-actor-directory
    #:clear-directory
    #:register-actor
    #:unregister-actor

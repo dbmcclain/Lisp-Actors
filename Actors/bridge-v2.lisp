@@ -480,6 +480,7 @@
     )))
 
 (defmethod find-actor ((usti uuid:uuid) &key directory)
+  (declare (ignore directory))
   (or (when (uuid:one-of-mine? usti)
         (=wait ((cont))
             (send *cont-map* :find-and-remove usti =wait-cont)
