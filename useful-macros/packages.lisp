@@ -111,7 +111,8 @@ THE SOFTWARE.
    #:dcase*
    #:replace-handlers
    #:set-handler
-   #:computed-closure
+   #:tlambda
+   #:tcase
    ))
 
 (defpackage #:um.cache
@@ -404,7 +405,8 @@ THE SOFTWARE.
    #:dcase
    #:dlambda*
    #:dcase*
-   #:computed-closure)
+   #:tlambda
+   #:tcase)
 
   (:import-from #:alexandria
    #:curry
@@ -802,7 +804,8 @@ THE SOFTWARE.
    #:dcase
    #:dlambda*
    #:dcase*
-   #:computed-closure
+   #:tlambda
+   #:tcase
    
    #:segment-reader
 

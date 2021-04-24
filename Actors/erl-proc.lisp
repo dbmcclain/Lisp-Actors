@@ -129,7 +129,7 @@ How useful is this?
   ;; RECV
   (or
    (call-next-method)
-   (um:computed-closure msg
+   (um:tcase msg
      ;; These kinds of messages (:LINK, :UNLINK, :EXIT) will not be
      ;; bypassed by a RECV form
      

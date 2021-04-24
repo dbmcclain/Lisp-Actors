@@ -44,19 +44,20 @@ THE SOFTWARE.
 (defun invsel (msg)
   (error "Invalid selector ~A" (car msg)))
 
-(um:defmacro! dlambda (&rest ds)
+(um:defmacro! dlambda (&rest clauses)
   `(lambda (&rest ,g!args)
      (case (car ,g!args)
        ,@(mapcar
-          (lambda (d)
-            `(,(if (eq t (car d))
-                   t
-                 (list (car d)))
-              (apply (lambda* ,@(cdr d))
-                     ,(if (eq t (car d))
-                          g!args
-                        `(cdr ,g!args))) ))
-          ds)
+          (lambda (clause)
+            (let ((sel (car clause)))
+              `(,(if (eq t sel)
+                     t
+                   `(,sel))
+                (apply (lambda* ,@(cdr clause))
+                       ,(if (eq t sel)
+                            g!args
+                          `(cdr ,g!args))) )))
+          clauses)
        )))
 
 (defmacro dcase (args &rest clauses)
@@ -64,15 +65,7 @@ THE SOFTWARE.
             ,@clauses)
           ,args))
 
-(defmacro computed-closure (args &rest clauses)
-  ;; like DLAMBDA, but instead of executing a matching clause,
-  ;; it returns a qualified closure thunk that will execute that clause.
-  `(dcase ,args ,@(mapcar (lambda (clause)
-                            `(,(car clause)
-                              ,(cadr clause)
-                              (lambda ()
-                                ,@(cddr clause))))
-                          clauses)))
+;; -------------------------------------------
 
 (defun dlambda*-actors-helper (clauses)
   ;; split out in anticipation of Actors special needs...
@@ -108,9 +101,41 @@ THE SOFTWARE.
             ,@clauses)
           ,args))
 
+;; -------------------------------------------
+
+(defmacro tlambda (&rest clauses)
+  ;; a variant on DLAMBDA - instead of executing a matching clause, it
+  ;; returns a closure that can do so later, or NIL of no clauses
+  ;; match.
+  (lw:with-unique-names (args)
+    `(labels*
+         ;; using LABELS allows any clause to invoke another by name
+         ,clauses
+       (lambda (&rest ,args)
+         (case (car ,args)
+           ,@(mapcar (lambda (clause)
+                       (let ((sel (car clause)))
+                         `(,(if (eq t sel)
+                                t
+                              `(,sel))
+                           (lambda ()
+                             (apply #',sel ,(if (eq t sel)
+                                                args
+                                              `(cdr ,args)))))
+                         ))
+                     clauses)
+           )))
+    ))
+
+(defmacro tcase (args &rest clauses)
+  `(apply (tlambda
+           ,@clauses)
+          ,args))
+
 #+:LISPWORKS
 (progn
-  (editor:indent-like 'computed-closure 'case)
+  (editor:indent-like 'tlambda 'progn)
+  (editor:indent-like 'tcase   'case)
   (editor:indent-like 'dlambda 'progn)
   (editor:indent-like 'dlambda* 'progn)
   (editor:indent-like 'dcase  'case)

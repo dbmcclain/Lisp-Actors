@@ -320,7 +320,7 @@ THE SOFTWARE.
   ;; pattern.  Make it into a METHOD so we can augment by Actor class
   ;; with :AROUND methods.  These methods will always be invoked if
   ;; necessary, despite user function replacement by BECOME.
-  (um:computed-closure msg
+  (um:tcase msg
     (actors/internal-message:continuation (fn &rest args)
        ;; Used for callbacks into the Actor
        (apply fn args))
