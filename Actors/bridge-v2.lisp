@@ -21,7 +21,6 @@
             actors/network:open-connection
             actors/network:socket-send
 
-            actors/base:*in-ask*
             actors/base:no-immediate-answer
             )))
 
@@ -328,7 +327,7 @@
       ((actors/internal-message:ask)
        ;; form was (ASK reply-to &rest actual-message)
        (apply #'forward-query handler service (cdr msg))
-       (when *in-ask*
+       (when (in-ask-p)
          (signal 'no-immediate-answer)))
       
       (otherwise
@@ -534,4 +533,9 @@
                    :register :rincon-eval)
 (ask :rincon-eval '(get-actor-names))
 (ask :rincon-eval '(get-actors)) ;; should present an error
+
+(become-remote :eval "eval@rincon.local")
+(=wait ((ans) :timeout 5)
+    (send :eval `(send ,(usti =wait-cont) :hello))
+  (pr ans))
  |#

@@ -375,6 +375,10 @@ storage and network transmission.
 
 (ac:make-remote-actor "rstkv@rincon.local"
                       :register :RSTKV)
+(let ((trans (rollback)))
+  (get-key trans :pi))
+
+
 
 (rstkv-server:make-stkv-server)
 (ac:become-remote :rstkv "rstkv@rincon.local")

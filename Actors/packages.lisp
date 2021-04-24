@@ -380,7 +380,6 @@ THE SOFTWARE.
    #:%run-actor
    #:assemble-ask-message
    #:no-immediate-answer
-   #:*in-ask*
    ))
 
 (defpackage #:actors/rwgate
