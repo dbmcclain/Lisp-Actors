@@ -88,7 +88,7 @@ storage and network transmission.
   (ver  (uuid:make-null-uuid))
   (chk  (uuid:make-null-uuid)))
 
-(defun get-ver ()
+(defun new-ver ()
   (uuid:make-v1-uuid))
 
 ;; ------------------------------------------------
@@ -110,6 +110,8 @@ storage and network transmission.
             ac:log-info
             ac:find-actor
             ac:self
+            ac:send
+            ac:ask
             
             cps:=wait
             cps:=values
@@ -130,10 +132,10 @@ storage and network transmission.
     (with-as-current-actor server
       (setf sync (mp:make-timer 'mp:funcall-async 'save-database server))
       (if (probe-file path)
-          (revert-database server)
+          (s-revert-database server)
         (progn
-          (setf (main-table-ver main-table) (get-ver))
-          (save-database server))
+          (setf (main-table-ver main-table) (new-ver))
+          (s-save-database server))
         ))))
 
 (defun make-remote-api ()
@@ -143,110 +145,88 @@ storage and network transmission.
     (:quit))
    
    (:open ()
-    (open-trans self))
+    (s-open-trans self))
    
    (:commit (ver adds dels)
-    (commit-trans self ver adds dels))
+    (s-commit-trans self ver adds dels))
    
    (:get-key (ver key)
-    (get-database-key self ver key))
+    (s-get-database-key self ver key))
    
    (:get-keys (ver keys)
-    (get-database-keys self ver keys))
+    (s-get-database-keys self ver keys))
    
    (:get-all-keys (ver)
-    (get-all-database-keys self ver))
+    (s-get-all-database-keys self ver))
    
    (:save ()
-    (save-database self))
+    (s-save-database self))
    
    (:revert ()
-    (revert-database self))
+    (s-revert-database self))
    
    (:quit ()
     (unregister-actor self))
-   
-   (t (&rest msg)
-      (apply #'funcall msg))
    ))
 
-(defmethod open-trans ((server stkv-server))
+(defmethod s-open-trans ((server stkv-server))
   ;; return a new trans
   (with-slots (main-table) server
     (main-table-ver main-table)))
 
-(defmethod open-trans (server)
-  (when-let (actor (find-actor server))
-    (open-trans actor)))
-
-(defmethod get-database-key ((server stkv-server) ver key)
+(defmethod s-get-database-key ((server stkv-server) ver key)
   (with-slots (main-table) server
     (declare (main-table main-table))
     (with-accessors ((tbl-ver main-table-ver)
                      (tbl     main-table-tbl)) main-table
-      (query-actor server
-        (cond ((uuid:uuid< ver tbl-ver)
-               ;; nope - outdated, try again
-               (error +rollback-exception+))
-              
-              (t
-               (maps:find tbl key))
-              )))))
+      (cond ((uuid:uuid< ver tbl-ver)
+             ;; nope - outdated, try again
+             (error +rollback-exception+))
+            
+            (t
+             (maps:find tbl key))
+            ))))
 
-(defmethod get-database-key (server ver key)
-  (when-let (actor (find-actor server))
-    (get-database-key actor ver key)))
-
-(defmethod get-database-keys ((server stkv-server) ver keys)
+(defmethod s-get-database-keys ((server stkv-server) ver keys)
   (with-slots (main-table) server
     (declare (main-table main-table))
     (with-accessors ((tbl-ver main-table-ver)
                      (tbl     main-table-tbl)) main-table
-      (query-actor server
-        (cond ((uuid:uuid< ver tbl-ver)
-               ;; nope - outdated, try again
-               (error +rollback-exception+))
-              
-              (t
-               (um:accum acc
-                 (mapc (lambda (key)
-                         (acc (cons key
-                                    (multiple-value-list
-                                     (maps:find tbl key)))
-                              ))
-                       keys)))
-              )))))
+      (cond ((uuid:uuid< ver tbl-ver)
+             ;; nope - outdated, try again
+             (error +rollback-exception+))
+            
+            (t
+             (um:accum acc
+               (mapc (lambda (key)
+                       (acc (cons key
+                                  (multiple-value-list
+                                   (maps:find tbl key)))
+                            ))
+                     keys)))
+            ))))
 
-(defmethod get-database-keys (server ver keys)
-  (when-let (actor (find-actor server))
-    (get-database-keys actor ver keys)))
-
-(defmethod get-all-database-keys ((server stkv-server) ver)
+(defmethod s-get-all-database-keys ((server stkv-server) ver)
   (with-slots (main-table) server
     (declare (main-table main-table))
     (with-accessors ((tbl-ver main-table-ver)
                      (tbl  main-table-tbl)) main-table
-      (query-actor server
-        (cond ((uuid:uuid< ver tbl-ver)
-               ;; nope - outdated, try again
-               (error +rollback-exception+))
-              
-              (t
-               (um:accum acc
-                 (maps:iter tbl
-                            (lambda (k v)
-                              (declare (ignore v))
-                              (acc k)))
-                 ))
-              )))))
-
-(defmethod get-all-database-keys (server ver)
-  (when-let (actor (find-actor server))
-    (get-all-database-keys actor ver)))
+      (cond ((uuid:uuid< ver tbl-ver)
+             ;; nope - outdated, try again
+             (error +rollback-exception+))
+            
+            (t
+             (um:accum acc
+               (maps:iter tbl
+                          (lambda (k v)
+                            (declare (ignore v))
+                            (acc k)))
+               ))
+            ))))
 
 (defvar *writeback-delay*  10)
 
-(defmethod commit-trans ((server stkv-server) ver adds dels)
+(defmethod s-commit-trans ((server stkv-server) ver adds dels)
   ;; either update main table with trans and return a new ID, or
   ;; else signal a rollback error - client needs to start again
   ;; with a fresh :open-trans
@@ -255,35 +235,30 @@ storage and network transmission.
     (declare (main-table main-table))
     (with-accessors ((tbl-ver main-table-ver)
                      (tbl     main-table-tbl)) main-table
-      (query-actor server
-        (cond ((uuid:uuid< ver tbl-ver)
-               ;; nope - outdated, try again
-               (error +rollback-exception+))
-              
-              ((and (sets:is-empty adds)
-                    (sets:is-empty dels))
-               tbl-ver)
-              
-              (t
-               (mp:unschedule-timer sync)
-               ;; the map adds, and the set dels, must alrady be using
-               ;; normalized key reprs
-               (prog1
-                   ;; first remove all overlapping keys before adding back
-                   ;; in new values, since we can't control which cell
-                   ;; gets planted in a union.
-                   (setf tbl (sets:union
-                              (sets:diff
-                               (sets:diff tbl dels)
-                               adds)
-                              adds)
-                         tbl-ver (get-ver))
-                 (mp:schedule-timer-relative sync *writeback-delay*)))
-              )))))
-
-(defmethod commit-trans (server ver adds dels)
-  (when-let (actor (find-actor server))
-    (commit-trans actor ver adds dels)))
+      (cond ((uuid:uuid< ver tbl-ver)
+             ;; nope - outdated, try again
+             (error +rollback-exception+))
+            
+            ((and (sets:is-empty adds)
+                  (sets:is-empty dels))
+             tbl-ver)
+            
+            (t
+             (mp:unschedule-timer sync)
+             ;; the map adds, and the set dels, must alrady be using
+             ;; normalized key reprs
+             (prog1
+                 ;; first remove all overlapping keys before adding back
+                 ;; in new values, since we can't control which cell
+                 ;; gets planted in a union.
+                 (setf tbl (sets:union
+                            (sets:diff
+                             (sets:diff tbl dels)
+                             adds)
+                            adds)
+                       tbl-ver (new-ver))
+               (mp:schedule-timer-relative sync *writeback-delay*)))
+            ))))
 
 ;; ----------------------------------------------------------------
 
@@ -294,73 +269,87 @@ storage and network transmission.
                    #+:LINUX
                    #P"~/Documents/"))
 
-(defmethod revert-database ((server stkv-server))
+(defmethod s-revert-database ((server stkv-server))
   (with-slots (main-table path) server
     (declare (main-table main-table))
     (with-accessors ((ver  main-table-ver)
                      (chk  main-table-chk)
                      (tbl  main-table-tbl)) main-table
-      (perform-in-actor server
-        (if (probe-file path)
-            (with-open-file (f path
-                               :direction :input
-                               :element-type '(unsigned-byte 8))
+      (if (probe-file path)
+          (with-open-file (f path
+                             :direction :input
+                             :element-type '(unsigned-byte 8))
+            
+            (optima:match (loenc:deserialize f
+                                             :use-magic (um:magic-word "STKV"))
+              ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
+               (setf tbl (lzw:decompress new-table)
+                     ver new-ver
+                     chk new-ver)
+               (log-info :system-log
+                         (format nil "Loaded STKV Store ~A:~A" path new-ver)))
               
-              (optima:match (loenc:deserialize f
-                                               :use-magic (um:magic-word "STKV"))
-                ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
-                 (setf tbl (lzw:decompress new-table)
-                       ver new-ver
-                       chk new-ver)
-                 (log-info :system-log
-                           (format nil "Loaded STKV Store ~A:~A" path new-ver)))
-                
-                (_
-                 ;; else
-                 (error "Not an STKV Persistent Store: ~A" path))
-                ))
-          ;; else - no persistent copy, just reset to initial state
-          (setf tbl  (maps:empty)
-                ver  (uuid:make-null-uuid)
-                chk  ver))
-        ))))
+              (_
+               ;; else
+               (error "Not an STKV Persistent Store: ~A" path))
+              ))
+        ;; else - no persistent copy, just reset to initial state
+        (setf tbl  (maps:empty)
+              ver  (uuid:make-null-uuid)
+              chk  ver))
+      )))
 
-(defmethod revert-database (server)
-  (when-let (actor (find-actor server))
-    (revert-database actor)))
-
-(defmethod save-database ((server stkv-server))
+(defmethod s-save-database ((server stkv-server))
   (with-slots (main-table path) server
     (declare (main-table main-table))
     (with-accessors ((ver   main-table-ver)
                      (chk   main-table-chk)
                      (tbl   main-table-tbl)) main-table
-      (perform-in-actor server
-        (unless (uuid:uuid= ver chk) ;; anything actually changed?
-          (ensure-directories-exist path)
-          (with-open-file (f path
-                             :direction :output
-                             :if-exists :rename
-                             :if-does-not-exist :create
-                             :element-type '(unsigned-byte 8))
-            
-            (loenc:serialize
-             (list +stkv-signature+
-                   (format nil
-                           " --- This is an STKV-SERVER Persistent Store, Version: ~A, Created: ~A --- "
-                           ver (uuid:when-created ver))
-                   ver
-                   (lzw:compress tbl))
-             f
-             :use-magic (um:magic-word "STKV"))
-            (setf chk ver)
-            (log-info :system-log
-                      (format nil "Saved STKV Store ~A:~A" path ver))
-            ))))))
+      (unless (uuid:uuid= ver chk) ;; anything actually changed?
+        (ensure-directories-exist path)
+        (with-open-file (f path
+                           :direction :output
+                           :if-exists :rename
+                           :if-does-not-exist :create
+                           :element-type '(unsigned-byte 8))
+          
+          (loenc:serialize
+           (list +stkv-signature+
+                 (format nil
+                         " --- This is an STKV-SERVER Persistent Store, Version: ~A, Created: ~A --- "
+                         ver (uuid:when-created ver))
+                 ver
+                 (lzw:compress tbl))
+           f
+           :use-magic (um:magic-word "STKV"))
+          (setf chk ver)
+          (log-info :system-log
+                    (format nil "Saved STKV Store ~A:~A" path ver))
+          )))))
+
+;; --------------------------------------------
+;; User API
+
+(defmethod open-trans (server)
+  (ask server :open))
+
+(defmethod get-database-key (server ver key)
+  (ask server :get-key ver key))
+
+(defmethod get-database-keys (server ver keys)
+  (ask server :get-keys ver keys))
+
+(defmethod get-all-database-keys (server ver)
+  (ask server :get-all-keys ver))
+
+(defmethod commit-trans (server ver adds dels)
+  (ask server :commit ver adds dels))
+
+(defmethod revert-database (server)
+  (send server :revert))
 
 (defmethod save-database (server)
-  (when-let (actor (find-actor server))
-    (save-database actor)))
+  (send server :save))
 
 ;; ---------------------------------------------------------------
 ;; bare minimum services offered - keeps comm traffic to a minimum
