@@ -64,6 +64,16 @@ THE SOFTWARE.
             ,@clauses)
           ,args))
 
+(defmacro computed-closure (args &rest clauses)
+  ;; like DLAMBDA, but instead of executing a matching clause,
+  ;; it returns a qualified closure thunk that will execute that clause.
+  `(dcase ,args ,@(mapcar (lambda (clause)
+                            `(,(car clause)
+                              ,(cadr clause)
+                              (lambda ()
+                                ,@(cddr clause))))
+                          clauses)))
+
 (defun dlambda*-actors-helper (clauses)
   ;; split out in anticipation of Actors special needs...
   (lw:with-unique-names (args)
@@ -100,7 +110,10 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (progn
-  (editor:indent-like 'dcase 'case)
+  (editor:indent-like 'computed-closure 'case)
+  (editor:indent-like 'dlambda 'progn)
+  (editor:indent-like 'dlambda* 'progn)
+  (editor:indent-like 'dcase  'case)
   (editor:indent-like 'dcase* 'case))
 
 #| |#
@@ -175,5 +188,12 @@ THE SOFTWARE.
                            args)))
                 ix)))
   
+(let ((fn  (dhandler
+            (:one () 1)
+            (:two () 2)
+            (t  (&rest args) :What?))))
+  ;; (inspect fn)
+  (funcall fn :zero))
+
          
  |#

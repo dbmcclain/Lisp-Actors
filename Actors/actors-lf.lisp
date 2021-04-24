@@ -327,57 +327,52 @@ THE SOFTWARE.
   ;; pattern.  Make it into a METHOD so we can augment by Actor class
   ;; with :AROUND methods.  These methods will always be invoked if
   ;; necessary, despite user function replacement by BECOME.
-  (um:dcase msg
+  (um:computed-closure msg
     (actors/internal-message:continuation (fn &rest args)
        ;; Used for callbacks into the Actor
-       (lambda ()
-         (apply fn args)))
+       (apply fn args))
     
     (actors/internal-message:send-sync (reply-to &rest sub-message)
        ;; tell sender we got the message before executing it
-       (lambda ()
-         (send reply-to t)
-         (let ((*whole-message* sub-message))
-           (apply #'self-call sub-message))))
+       (send reply-to t)
+       (let ((*whole-message* sub-message))
+         (apply #'self-call sub-message)))
       
     (actors/internal-message:ask (reply-to &rest sub-msg)
        ;; Intercept restartable queries to send back a response
        ;; from the following message, reflecting any errors back to
        ;; the caller.
-       (lambda ()
-         (let ((original-ask-message *whole-message*))
-           (dynamic-wind
-             (let ((*whole-message* original-ask-message)
-                   (*in-ask*        t))
-               (handler-case
-                   (send reply-to
-                         (capture-ans-or-exn
-                           (um:proceed
-                            (apply #'self-call sub-msg))))
-                 
-                 (no-immediate-answer ())
-                 ))))))
+       (let ((original-ask-message *whole-message*))
+         (dynamic-wind
+           (let ((*whole-message* original-ask-message)
+                 (*in-ask*        t))
+             (handler-case
+                 (send reply-to
+                       (capture-ans-or-exn
+                         (um:proceed
+                          (apply #'self-call sub-msg))))
+               
+               (no-immediate-answer ())
+               )))))
     
     (actors/internal-message:become-remote (remote-addr)
-     (lambda ()
        (let (prev-beh
              (remote-addr (if (stringp remote-addr)
                               (make-proxy :addr remote-addr)
                             remote-addr)))
          (setf prev-beh
                (become (um:dlambda
-                         (actors/internal-message:become-local ()
-                          (become prev-beh))
-                         (t (&rest msg)
-                            (declare (ignore msg))
-                            (with-worker ((whole *whole-message*))
-                              (apply #'actors/bridge:bridge-forward-message remote-addr whole))
-                            (signal 'no-immediate-answer))
-                         )))
-         )))
+                           (actors/internal-message:become-local ()
+                              (become prev-beh))
+                           (t (&rest msg)
+                              (declare (ignore msg))
+                              (with-worker ((whole *whole-message*))
+                                (apply #'actors/bridge:bridge-forward-message remote-addr whole))
+                              (signal 'no-immediate-answer))
+                           )))
+         ))
 
     (actors/internal-message:watch (&optional (title "watch"))
-     (lambda ()
        (let (prev-beh)
          (setf prev-beh
                (become (um:dlambda
@@ -387,7 +382,7 @@ THE SOFTWARE.
                             (log-info :SYSTEM-LOG "~A: ~S" title (whole-message))
                             (apply prev-beh msg))
                          )))
-         )))
+         ))
     ))
 
 ;; ---------------------------------------------

@@ -111,6 +111,7 @@ THE SOFTWARE.
    #:dcase*
    #:replace-handlers
    #:set-handler
+   #:computed-closure
    ))
 
 (defpackage #:um.cache
@@ -402,7 +403,8 @@ THE SOFTWARE.
    #:dlambda
    #:dcase
    #:dlambda*
-   #:dcase*)
+   #:dcase*
+   #:computed-closure)
 
   (:import-from #:alexandria
    #:curry
@@ -800,7 +802,8 @@ THE SOFTWARE.
    #:dcase
    #:dlambda*
    #:dcase*
-
+   #:computed-closure
+   
    #:segment-reader
 
    #:make-state-machine
