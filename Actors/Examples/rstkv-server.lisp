@@ -327,30 +327,6 @@ storage and network transmission.
                     (format nil "Saved STKV Store ~A:~A" path ver))
           )))))
 
-;; --------------------------------------------
-;; User API
-
-(defmethod open-trans (server)
-  (ask server :open))
-
-(defmethod get-database-key (server ver key)
-  (ask server :get-key ver key))
-
-(defmethod get-database-keys (server ver keys)
-  (ask server :get-keys ver keys))
-
-(defmethod get-all-database-keys (server ver)
-  (ask server :get-all-keys ver))
-
-(defmethod commit-trans (server ver adds dels)
-  (ask server :commit ver adds dels))
-
-(defmethod revert-database (server)
-  (send server :revert))
-
-(defmethod save-database (server)
-  (send server :save))
-
 ;; ---------------------------------------------------------------
 ;; bare minimum services offered - keeps comm traffic to a minimum
 ;; across network. Puts burden on clients to do most of the work
