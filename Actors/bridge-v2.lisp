@@ -21,6 +21,7 @@
             actors/network:open-connection
             actors/network:socket-send
 
+            actors/base:*in-ask*
             actors/base:no-immediate-answer
             )))
 
@@ -327,7 +328,8 @@
       ((actors/internal-message:ask)
        ;; form was (ASK reply-to &rest actual-message)
        (apply #'forward-query handler service (cdr msg))
-       (signal 'no-immediate-answer))
+       (when *in-ask*
+         (signal 'no-immediate-answer)))
       
       (otherwise
        (apply #'socket-send handler 'actors/internal-message/bridge:forwarding-send service msg))
