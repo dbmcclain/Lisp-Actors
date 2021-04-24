@@ -213,13 +213,6 @@ THE SOFTWARE.
   ;; if not terminated, mark us retired
   (sys:compare-and-swap (car (actor-busy actor)) t nil))
 
-(defmethod send ((actor actor) &rest msg)
-  (mp:with-sharing-lock ((actor-lock actor))
-    (finger-tree:addq (actor-mailbox actor) msg)
-    (when (was-retired? actor)
-      (add-to-ready-queue actor)))
-  t)
-
 ;; ----------------------------------------------------------------
 ;; Toplevel Actor / Worker behavior
 
@@ -437,23 +430,41 @@ THE SOFTWARE.
 ;; ------------------------------------------
 ;; Sends directed to mailboxes, functions, etc.
 
-(defmethod send ((mbox mp:mailbox) &rest message)
-  (mp:mailbox-send mbox message))
+(defgeneric send (obj &rest message)
+  
+  (:method ((actor actor) &rest msg)
+   (mp:with-sharing-lock ((actor-lock actor))
+     (finger-tree:addq (actor-mailbox actor) msg)
+     (when (was-retired? actor)
+       (add-to-ready-queue actor)))
+   t)
+  
+  (:method ((mbox mp:mailbox) &rest message)
+   (mp:mailbox-send mbox message))
 
-(defmethod send ((fn function) &rest message)
-  (apply fn message))
+  (:method ((fn function) &rest message)
+   (apply fn message))
 
-(defmethod send ((sym symbol) &rest message)
-  (let (actor)
-    (cond
-     ((setf actor (find-actor sym))
-      (apply 'send actor message))
-     
-     ((fboundp sym)
-      (apply sym message))
+  (:method ((sym symbol) &rest message)
+   (let (actor)
+     (cond
+      ((setf actor (find-actor sym))
+       (apply 'send actor message))
+      
+      ((fboundp sym)
+       (apply sym message))
+      
+      (t
+       (call-next-method))
+      )))
 
-     (t
-      (call-next-method))
+  (:method (other-obj &rest message)
+   ;; E.g., Smalltalk'ish (send 7 'truncate 4)
+   (let ((mfn (car message)))
+     (if (funcallable-p mfn)
+         (apply mfn other-obj (cdr message))
+       ;; else
+       (error 'invalid-send-target :target other-obj))
      )))
 
 (defun funcallable-p (obj)
@@ -467,52 +478,45 @@ THE SOFTWARE.
   (:report (lambda (condition stream)
 	     (format stream "~%Invalid SEND target: ~&  ~S" (target condition)))))
 
-(defmethod send (other-obj &rest message)
-  ;; E.g., Smalltalk'ish (send 7 'truncate 4)
-  (let ((mfn (car message)))
-    (if (funcallable-p mfn)
-        (apply mfn other-obj (cdr message))
-      ;; else
-      (error 'invalid-send-target :target other-obj))
-    ))
-
 ;; ----------------------------------------------
 ;; ASK - RPC with an Actor. Any errors incurred during the message
 ;; handling are reflected back to the caller
 
-(defmethod ask ((actor actor) &rest message)
-  (if (eq actor (current-actor))
-      (apply 'self-call message)
-    ;; else - blocking synchronous ASK with mailbox
-    (=wait ((ans)
-            :timeout *timeout*
-            :errorp  t)
-        (apply 'send actor (apply 'assemble-ask-message =wait-cont message))
-      (recover-ans-or-exn ans))))
+(defgeneric ask (obj &rest message)
+  
+  (:method ((actor actor) &rest message)
+   (if (eq actor (current-actor))
+       (apply 'self-call message)
+     ;; else - blocking synchronous ASK with mailbox
+     (=wait ((ans)
+             :timeout *timeout*
+             :errorp  t)
+         (apply 'send actor (apply 'assemble-ask-message =wait-cont message))
+       (recover-ans-or-exn ans))))
 
-(defmethod ask ((fn function) &rest message)
-  (apply fn message))
+  (:method ((fn function) &rest message)
+   (apply fn message))
 
-(defmethod ask ((sym symbol) &rest message)
-  (let (actor)
-    (cond
-     ((setf actor (find-actor sym))
-      (apply 'ask actor message))
-     
-     ((fboundp sym)
-      (apply sym message))
-     
-     (t
-      (call-next-method))
-     )))
-
-(defmethod ask (obj &rest message)
-  (let ((mfn (car message)))
-    (if (funcallable-p mfn)
-        (apply mfn obj (cdr message))
-      ;; else
-      (error 'invalid-send-target :target obj)
+  (:method ((sym symbol) &rest message)
+   (let (actor)
+     (cond
+      ((setf actor (find-actor sym))
+       (apply 'ask actor message))
+      
+      ((fboundp sym)
+       (apply sym message))
+      
+      (t
+       (call-next-method))
       )))
+
+  (:method (obj &rest message)
+   (let ((mfn (car message)))
+     (if (funcallable-p mfn)
+         (apply mfn obj (cdr message))
+       ;; else
+       (error 'invalid-send-target :target obj)
+       ))))
 
 ;; ----------------------------------------------------------------
 ;; Non-blocking ASK for use in =BIND
