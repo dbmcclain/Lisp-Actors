@@ -110,16 +110,6 @@
     (equalp (proxy-ip ip1) (proxy-ip ip2))))
 
 ;; -------------------------------------------
-
-#+diddly
-(defun dbg (from)
-  (log-info :SYSTEM-LOG "~A: ~S" from (whole-message)))
-
-#-diddly
-(defmacro dbg (from)
-  (declare (ignore from)))
-
-;; -------------------------------------------
 ;; Bridge Intf/Continuations mapper
 
 (defparameter *nocont-beh*
@@ -305,10 +295,14 @@
   (:method ((dest string) fn)
    (multiple-value-bind (service dest-ip dest-port)
        (parse-destination dest)
-     (call-with-valid-ip service dest-ip dest-port fn)))
+     (call-with-valid-ip (make-proxy
+                          :service service
+                          :ip      dest-ip
+                          :port    dest-port)
+                         dest-ip dest-port fn)))
   (:method ((dest proxy) fn)
-   (with-slots (service ip port) dest
-     (call-with-valid-ip service ip port fn))))
+   (with-slots (ip port) dest
+     (call-with-valid-ip dest ip port fn))))
 
 (defmacro with-valid-dest ((service handler) dest &body body)
   `(call-with-valid-dest ,dest (lambda (,service ,handler)
@@ -381,7 +375,9 @@
     (call-next-method)))
 
 (defmethod send ((proxy proxy) &rest message)
-  (apply #'bridge-forward-message proxy message))
+  (if (string-equal (machine-instance) (proxy-ip proxy))
+      (apply #'send (proxy-service proxy) message)
+    (apply #'bridge-forward-message proxy message)))
 
 ;; ------------------------------------------
 ;; Blocking ASK across network connections
@@ -413,7 +409,9 @@
     (call-next-method)))
 
 (defmethod ask ((proxy proxy) &rest message)
-  (apply #'network-ask proxy message))
+  (if (string-equal (machine-instance) (proxy-ip proxy))
+      (apply #'ask (proxy-service proxy) message)
+    (apply #'network-ask proxy message)))
 
 ;; -----------------------------------------------
 ;; Non-blocking ASK across network connections
@@ -443,45 +441,26 @@
     (call-next-method)))
 
 (=defmethod =ask ((proxy proxy) &rest message)
-  (=apply #'network-ask-nb proxy message))
+  (if (string-equal (machine-instance) (proxy-ip proxy))
+      (=apply #'=ask (proxy-service proxy) message)
+    (=apply #'network-ask-nb proxy message)))
 
-;; --------------------------------------------------------------------------------
-;; USTI - Universal Send-Target Identifier
+;; -------------------------------------------
+;; USTI - transient identifiers for possible send targets
 ;;
-;; While ASK uses a known syntax, where the reply-to field is in a
-;; known position of the message, and the Bridge takes care of
-;; translating that into a USTI for network transmission, we need
-;; something else for general messages that may contain a callback to
-;; some closure or mailbox.
+;; Functions, Actors, continuations, etc. cannot be transported across
+;; the network. So we need to translate them to a USTI for transport.
 ;;
-;; In that case, it is up to the caller to form an explicit USTI in
-;; the message, which will be looked up on return.
+;; For ASK, the recipient is automatically translated. Any other SEND
+;; targets in a transmitted message must be manually translated before
+;; being sent in a message.
 ;;
-;; Here we use UUID's for USTI's. UUID's have a very short network
-;; encoding, compared to some struct that would enclose a UUID to
-;; serve as a USTI type envelope. Since USTI's are only used as
-;; targets of SEND across a network connection, it seems reasonable to
-;; just use UUID's here.
+;; USTI live in the cache until used. They have single-use semantics.
+;; But if never used they just linger...
 
-(defgeneric usti (obj)
-  (:method ((obj proxy))
-   obj)
-  (:method ((obj string))
-   (make-proxy
-    :service obj))
-  (:method ((obj symbol))
-   (make-proxy
-    :service obj))
-  (:method ((obj uuid:uuid))
-   (make-proxy
-    :service obj))
-  (:method ((obj actor))
-   (make-proxy
-    :service (ensured-identifier obj)))
-  (:method (obj)
-   (make-proxy
-    :service (create-and-add-usti obj)
-    )))
+(defun usti (obj)
+  (make-proxy
+   :service (create-and-add-usti obj)))
 
 (defmethod find-actor ((usti uuid:uuid) &key directory)
   (declare (ignore directory))
@@ -491,12 +470,17 @@
           cont))
       (call-next-method)))
 
+(defmethod find-actor ((proxy proxy) &key directory)
+  (if (string-equal (machine-instance) (proxy-ip proxy))
+      (find-actor (proxy-service proxy) :directory directory)
+    (call-next-method)))
+
 #|
 (defun test-usti ()
   (=wait ((ans))
       (send "eval@rincon.local"
             `(send ,(usti =wait-cont) 15))
-    (print ans)))
+    ans))
 (test-usti)
  |#
 

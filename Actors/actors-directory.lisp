@@ -85,38 +85,3 @@
                 (list name))))
           (get-property actor 'directory-keys)))
 
-;; -------------------------------------------------------
-;; in anticipation of networking and distributed SEND
-
-(defmethod ensured-identifier ((actor actor) &key directory id)
-  (if (current-actor)
-      (ensure-identifiable actor :directory directory :id id)
-    (=wait ((id)
-            :errorp t
-            :timeout *timeout*)
-        (inject-into-actor actor
-          (=values (ensure-identifiable actor :directory directory :id id)))
-      id)))
-
-(defmethod ensure-identifiable ((actor actor) &key directory id)
-  (let ((id  (when id (acceptable-key id))))
-    (inject-into-actor actor
-      (let* ((id  (or (get-property actor :usti)
-                      (car (find-names-for-actor actor :directory directory))
-                      id
-                      (uuid:make-v1-uuid)))
-             (found  (find-actor id :directory directory)))
-        (when found
-          (unless (eq actor found)
-            (error "Conflicting ID for Actor: ~S" id)))
-        (unless (eql id (get-property actor :usti))
-          (setf (get-property actor :usti) id))
-        (unless found
-          (register-actor id actor :directory directory))
-        id))))
-
-(defun self-identifier ()
-  (ensured-identifier (current-actor)))
-
-;; ------------------------------------------
-

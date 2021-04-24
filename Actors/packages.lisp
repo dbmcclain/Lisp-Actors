@@ -156,6 +156,7 @@ THE SOFTWARE.
    #:pr
 
    #:usti
+   #:usti=
    #:proxy
    #:make-proxy
 
@@ -170,10 +171,6 @@ THE SOFTWARE.
    #:start
 
    #:defglobal-var
-
-   #:ensure-identifiable
-   #:ensured-identifier
-   #:self-identifier
 
    #:promise
    #:with-promise
