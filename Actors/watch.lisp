@@ -33,8 +33,16 @@
     ))
 |#
 
-(defun watch (actor)
-  (send actor 'actors/internal-message:watch))
+(defun watch (actor &optional (title "watch"))
+  (inject-into-actor actor
+    (let ((prev-beh (current-behavior)))
+      (become (um:dlambda
+                (actors/internal-message:unwatch ()
+                   (become prev-beh))
+                (t (&rest msg)
+                   (log-info :SYSTEM-LOG "~A: ~S" title (whole-message))
+                   (apply prev-beh msg))
+                )))))
 
 (defun unwatch (actor)
   (send actor 'actors/internal-message:unwatch))

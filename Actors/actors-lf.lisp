@@ -159,19 +159,6 @@ THE SOFTWARE.
                  :properties properties))
 |#
 
-(defun make-remote-actor (remote-addr &key register directory)
-  (let ((actor (make-actor)))
-    (become-remote actor remote-addr)
-    (when register
-      (register-actor register actor :directory directory))
-    actor))
-
-(defun become-remote (actor remote-addr)
-  (send actor 'actors/internal-message:become-remote remote-addr))
-
-(defun become-local (actor)
-  (send actor 'actors/internal-message:become-local))
-  
 #|
 ;; e.g.,
 (register-actor :rincon-eval
@@ -347,30 +334,6 @@ THE SOFTWARE.
                
                (no-immediate-answer ())
                )))))
-    
-    (actors/internal-message:become-remote (remote-addr)
-       (let ((prev-beh (current-behavior))
-             (remote-addr (if (stringp remote-addr)
-                              (make-proxy :addr remote-addr)
-                            remote-addr)))
-         (become (um:dlambda
-                   (actors/internal-message:become-local ()
-                       (become prev-beh))
-                   (t (&rest msg)
-                       (declare (ignore msg))
-                       (apply #'actors/bridge:bridge-forward-message remote-addr *whole-message*)
-                       ))
-                 )))
-
-    (actors/internal-message:watch (&optional (title "watch"))
-         (let ((prev-beh (current-behavior)))
-           (become (um:dlambda
-                     (actors/internal-message:unwatch ()
-                       (become prev-beh))
-                     (t (&rest msg)
-                        (log-info :SYSTEM-LOG "~A: ~S" title (whole-message))
-                        (apply prev-beh msg))
-                     ))))
     ))
 
 ;; ---------------------------------------------

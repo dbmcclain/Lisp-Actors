@@ -501,3 +501,30 @@
 (test-usti)
  |#
 
+;; ------------------------------------------------------
+
+(defun make-remote-actor (remote-addr &key register directory)
+  (let ((actor (make-actor)))
+    (become-remote actor remote-addr)
+    (when register
+      (register-actor register actor :directory directory))
+    actor))
+
+(defun become-remote (actor remote-addr)
+  (inject-into-actor actor
+    (let ((prev-beh (current-behavior))
+          (remote-addr (if (stringp remote-addr)
+                           (make-proxy :addr remote-addr)
+                         remote-addr)))
+      (become (um:dlambda
+                (actors/internal-message:become-local ()
+                   (become prev-beh))
+                (t (&rest msg)
+                   (declare (ignore msg))
+                   (apply #'actors/bridge:bridge-forward-message remote-addr (whole-message))
+                   ))
+              ))))
+
+(defun become-local (actor)
+  (send actor 'actors/internal-message:become-local))
+  
