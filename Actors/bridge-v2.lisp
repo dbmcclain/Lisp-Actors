@@ -112,14 +112,20 @@
 ;; -------------------------------------------
 ;; Bridge Intf/Continuations mapper
 
+(defun make-new-cont-entry (usti cont intf)
+  ;; We hold cont objects in a weak vector so that if the cont object
+  ;; disappears, we have a way of knowing to purge the entry for it.
+  (let ((next  (make-actor (current-behavior)))
+        (contv (make-array 1 :initial-element cont :weak (null intf))))
+    (become (make-cont-beh usti contv intf next))
+    ))
+
 (defparameter *nocont-beh*
    (um:dlambda
      (:attach (usti cont intf)
       ;; hand off our beh to new next in line,
       ;; assume response for the new entry
-      (let ((next (make-actor (current-behavior))))
-        (become (make-cont-beh usti cont intf next))
-        ))
+      (make-new-cont-entry usti cont intf))
 
      (:prune (prev)
       (respond-to-prune prev))
@@ -131,51 +137,67 @@
       (send reply-to nil))
      ))
 
+(defparameter *cont-gateway*
+  (let ((next (make-actor *nocont-beh*)))
+    (um:dlambda
+      (t (&rest msg)
+         (declare (ignore msg))
+         (repeat-send next)))))
+
 (defvar *cont-map*
-  (make-actor *nocont-beh*))
+  (make-actor *cont-gateway*))
 
-(defun make-cont-beh (usti cont intf next)
-  (um:dlambda
-    (:attach (a-usti a-cont an-intf)
-     ;; hand off our beh to new next in line,
-     ;; assume response for the new entry
-     (let ((new-next (make-actor (current-behavior))))
-       (become (make-cont-beh a-usti a-cont an-intf new-next))
-       ))
-
-    (:detach (an-intf)
-     ;; called when an interface is retiring
-     ;; remove all continuations registered to that intf
-     (repeat-send next)
-     (when (eq an-intf intf)
-       (detach-myself next)))
-
-    (:prune (prev)
-     (respond-to-prune prev))
-
-    (:handle-reply (a-usti &rest reply)
-     ;; if we match the USTI, perform the continuation with the reply
-     ;; and remove ourselves. Mappings are one-time use.
-     (cond ((uuid:uuid= a-usti usti)
-            (detach-myself next)
-            ;; Spawn...just in case cont is a brute closure and not an
-            ;; Actor continuation. Happens when =BIND is called from a
-            ;; non-Actor.  Possibly indefinite work load.
-            (spawn-worker #'apply cont reply))
-           (t
-            (repeat-send next))))
-
-    (:find-and-remove (a-usti reply-to)
-     ;; Called by FIND-ACTOR
-     ;; If we match the USTI, send it along to reply-to and remove
-     ;; ourselves. Mappings are one-time use only.
-     (cond ((uuid:uuid= a-usti usti)
-            (detach-myself next)
-            (send reply-to cont))
-           (t
-            (repeat-send next))
-           ))
-    ))
+(defun make-cont-beh (usti contv intf next)
+  ;; We hold cont objects in a weak vector so that if the cont object
+  ;; disappears, we have a way of knowing to purge the entry for it.
+  (flet ((check-purge ()
+           (unless (aref contv 0)
+             (detach-myself next))))
+    (um:dlambda
+      (:attach (a-usti a-cont an-intf)
+       ;; hand off our beh to new next in line,
+       ;; assume response for the new entry
+       (make-new-cont-entry a-usti a-cont an-intf))
+      
+      (:detach (an-intf)
+       ;; called when an interface is retiring
+       ;; remove all continuations registered to that intf
+       (repeat-send next)
+       (if (eq an-intf intf)
+           (detach-myself next)
+         (check-purge)))
+      
+      (:prune (prev)
+       (respond-to-prune prev))
+      
+      (:handle-reply (a-usti &rest reply)
+       ;; if we match the USTI, perform the continuation with the reply
+       ;; and remove ourselves. Mappings are one-time use.
+       (cond ((uuid:uuid= a-usti usti)
+              (detach-myself next)
+              ;; Spawn...just in case cont is a brute closure and not an
+              ;; Actor continuation. Happens when =BIND is called from a
+              ;; non-Actor.  Possibly indefinite work load.
+              (let ((cont (aref contv 0)))
+                (when cont
+                  (spawn-worker #'apply cont reply))))
+             (t
+              (repeat-send next)
+              (check-purge))
+             ))
+      
+      (:find-and-remove (a-usti reply-to)
+       ;; Called by FIND-ACTOR
+       ;; If we match the USTI, send it along to reply-to and remove
+       ;; ourselves. Mappings are one-time use only.
+       (cond ((uuid:uuid= a-usti usti)
+              (detach-myself next)
+              (send reply-to (aref contv 0)))
+             (t
+              (repeat-send next)
+              (check-purge))
+             ))
+      )))
 
 (defun make-detached-beh (next)
   (um:dlambda
@@ -451,12 +473,14 @@
 ;; Functions, Actors, continuations, etc. cannot be transported across
 ;; the network. So we need to translate them to a USTI for transport.
 ;;
-;; For ASK, the recipient is automatically translated. Any other SEND
-;; targets in a transmitted message must be manually translated before
-;; being sent in a message.
+;; For ASK, the recipient continuation is automatically translated.
+;; Any other SEND targets in a transmitted message must be manually
+;; translated before being sent in a message.
 ;;
 ;; USTI live in the cache until used. They have single-use semantics.
-;; But if never used they just linger...
+;; But if never used they just linger... so... we hold onto these USTI
+;; entries with a weak-vector, so that periodic scanning of the cache
+;; can identify objects that have been discarded.
 
 (defun usti (obj)
   (make-proxy

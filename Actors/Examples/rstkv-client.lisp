@@ -1,4 +1,4 @@
-;; remote-tkv-server.lisp -- a Key-Value service aimed at minimizing
+7;; remote-tkv-server.lisp -- a Key-Value service aimed at minimizing
 ;; network traffic
 ;;
 ;; DM/RAL 11/17 - original version
@@ -78,7 +78,7 @@ storage and network transmission.
             actors:send
             actors:ask
 
-            timeout:*timeout*
+            timeout:with-timeout
             )))
 
 ;; ---------------------------------------------------------------
@@ -89,7 +89,7 @@ storage and network transmission.
   `(let ((*service-id* ,server))
      ,@body))
 
-(defvar *rstkv-timeout*  10)
+(defvar *rstkv-timeout*  5)
 
 (defstruct trans
   (db     *service-id*)
@@ -112,7 +112,7 @@ storage and network transmission.
   (apply 'send (get-server trans) msg))
 
 (defun !?kv (trans &rest msg)
-  (let ((*timeout* *rstkv-timeout*))
+  (with-timeout *rstkv-timeout*
     (apply 'ask (get-server trans) msg)))
 
 ;; ---------------------------------------------

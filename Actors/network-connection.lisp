@@ -55,7 +55,7 @@
 ;; -----------------------------------------------------------------------
 
 (defvar *default-port*            65001)
-(defvar *socket-timeout-period*   60)
+(defvar *socket-timeout-period*   20)
 (defvar *ws-collection*           nil)
 (defvar *aio-accepting-handle*    nil)
 
@@ -717,7 +717,7 @@
                                    (lambda (ctx)
                                      (comm:set-ssl-ctx-cert-cb ctx 'my-find-certificate)))
          #||#
-         :handshake-timeout 10
+         :handshake-timeout 5
          #-:WINDOWS :ipv6    #-:WINDOWS nil)
     (if io-state
           (let* ((crypto  (make-instance 'crypto))

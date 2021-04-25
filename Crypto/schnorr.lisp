@@ -89,7 +89,7 @@
 ;; ----------------------------------------------------
 
 Evil Collective Signature Coordinator Attack
-  - Coordinator sends MSG1 to all participants
+  - Coordinator sends msg to all participants
   - Coordinator collects randomness K_i, forms H(K_sum | msg)
   - Coordinator sends H(K_sum | msg) ta all participants
   - Participants form u_i and send back to coordinator
