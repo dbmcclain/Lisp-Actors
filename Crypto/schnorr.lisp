@@ -6,10 +6,13 @@
 
 (defvar *ssig-nonce*  (int (ecc::make-nonce)))
 
+(defun ssig-nonce ()
+  (sys:atomic-incf *ssig-nonce*))
+
 (defun gen-sig-random (msg)
   ;; making r depend on message ensures that no two messages will have the same r, sans hash collisions
   ;; making r depend on incrementing nonce thwarts the evil collective signature coordinator attack
-  (int (hash/256 (incf *ssig-nonce*) *my-skey* msg)))
+  (int (hash/256 (ssig-nonce) *my-skey* msg)))
 
 (defun ssig-sign (msg)
   ;; generate det random, r
@@ -36,7 +39,7 @@
 ;; ------------------------------------------------------------
 ;; Collective Schnorr Signatures
 
-(defun collective-sig-cloaker (&optional (nonce (incf *ssig-nonce*)))
+(defun collective-sig-cloaker (&optional (nonce (ssig-nonce)))
   (values  (int (hash/256 nonce *my-skey*))
            nonce))
 
