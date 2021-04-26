@@ -27,7 +27,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 (pushnew :using-ecc-crypto *features*)
 ;; On MacOSX - use Grand Central Dispatch (or not...)
 #+:MACOSX
-(pushnew :using-mac-gcd *Features*)
+(pushnew :using-mac-gcdx *Features*)
 
 (asdf:defsystem "actors"
   :description "Actors Multiplexed on an OS Thread Pool"
@@ -41,7 +41,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "actors-lf")
                 (:file "actor-class")
                 (:file "watch")
-                #-:USING-MAC-GCD (:file "executives")
+                #-(OR :USING-MAC-GCD :USING-STACTORS) (:file "executives")
                 #+:USING-MAC-GCD (:file "mac-executives")
                 (:file "par-exec")
                 (:file "actors-schedule")

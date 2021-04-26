@@ -752,11 +752,9 @@
 ;; -------------------------------------------------------------
 
 (defun start-server-messenger (accepting-handle io-state)
-  "Internal routine to start a server messenger tree. A messenger tree
-consists of two threads.  One thread is a dedicated socket reader, and
-the other thread is a dispatcher between incoming and outgoing
-messages. This much is just like a client messenger tree. The only
-distinction is found in the details of the initial handshake dance.
+  "Internal routine to start a network interface from the server side.
+The interface is identical to that on the client side, but the
+connection handshake differs from this side.
 
 See the discussion under START-CLIENT-MESSENGER for details."
 
