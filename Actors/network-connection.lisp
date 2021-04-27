@@ -752,56 +752,6 @@
 
 |#
 #||# ;; -------------------------------
-#|
-(defun open-connection (ip-addr &optional ip-port)
-  ;; Called from client side wishing to connect to a server
-  (=wait ((io-state))
-      (comm:create-async-io-state-and-connected-tcp-socket
-         *ws-collection*
-         ip-addr
-         (or ip-port *default-port*)
-         (lambda (state args)
-           (when args
-             (apply 'log-error :SYSTEM-LOG args))
-           (=values (if args nil state)))
-         #||#
-         :ssl-ctx (when +using-ssl+ :tls-v1)
-         :ctx-configure-callback (when +using-ssl+
-                                   (lambda (ctx)
-                                     (comm:set-ssl-ctx-cert-cb ctx 'my-find-certificate)))
-         #||#
-         :handshake-timeout 5
-         #-:WINDOWS :ipv6    #-:WINDOWS nil)
-    (if io-state
-          (let* ((crypto  (make-instance 'crypto))
-                 (intf    (make-instance 'socket-interface
-                                         :title    "Client"
-                                         :io-state io-state
-                                         :crypto   crypto)))
-            (handler-bind ((error (lambda (c)
-                                    ;; if any negotiation errors we shut down immediately
-                                    (declare (ignore c))
-                                    (log-error :SYSTEM-LOG "Can't connect")
-                                    (shutdown intf))
-                                  ))
-              (progn
-                ;; connection will be authenticated/encrypted regardless of using SSL/TLS or not.
-                #+:USING-ECC-CRYPTO (client-negotiate-security-ecc crypto intf)
-                #-:USING-ECC-CRYPTO (client-negotiate-security-rsa crypto intf)
-                (socket-send intf 'actors/internal-message/network:client-info (machine-instance))
-                (=wait ((ans)
-                        :timeout 5
-                        :errorp  t)
-                    (expect intf
-                      (actors/internal-message/network:server-info (server-node)
-                          (bridge-register server-node intf)
-                          (bridge-register ip-addr intf)
-                          (log-info :SYSTEM-LOG "Socket client starting up: ~A" intf)
-                          (=values intf)))
-                  ans))))
-      ;; else
-      (error "Can't connect to: ~A" ip-addr))))
-|#
 
 (defun open-connection (reply-to ip-addr &optional ip-port)
   ;; Called from client side wishing to connect to a server
