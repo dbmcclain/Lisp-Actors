@@ -617,49 +617,45 @@
           (#-:USING-ECC-CRYPTO
            (start-phase2-rsa (cont p-key g-key salt bb)
              ;; Called by server in response to request for crypto negotiation
-             (inject-into-actor intf
-               (prio-socket-send intf 'actors/internal-message/security:srp-phase2-rsa p-key g-key salt bb)
-               (expect intf
-                 (actors/internal-message/security:srp-phase2-reply (aa m1)
+             (prio-socket-send intf 'actors/internal-message/security:srp-phase2-rsa p-key g-key salt bb)
+             (expect intf
+               (actors/internal-message/security:srp-phase2-reply (aa m1)
                     (funcall cont aa m1))
-                 )))
+               ))
 
            #+:USING-ECC-CRYPTO
            (start-phase2-ecc (cont bb)
              ;; Called by server in response to request for crypto negotiation
-             (inject-into-actor intf
-               (prio-socket-send intf 'actors/internal-message/security:srp-phase2-ecc bb)
-               (expect intf
-                 (actors/internal-message/security:srp-phase2-reply (aa m1)
+             (prio-socket-send intf 'actors/internal-message/security:srp-phase2-ecc bb)
+             (expect intf
+               (actors/internal-message/security:srp-phase2-reply (aa m1)
                                                         (funcall cont aa m1))
-                 )))
+               ))
 
            (phase2-reply (cont aa m1)
              ;; Called by client after receiving server ack on crypto renegotiation
-             (inject-into-actor intf
-               (prio-socket-send intf 'actors/internal-message/security:srp-phase2-reply aa m1)
-               (expect intf
-                 (actors/internal-message/security:srp-phase3 (m2)
+             (prio-socket-send intf 'actors/internal-message/security:srp-phase2-reply aa m1)
+             (expect intf
+               (actors/internal-message/security:srp-phase3 (m2)
                   (funcall cont m2))
-                 )))
+               ))
            
            (start-phase3 (m2 final-fn)
              ;; sent by server as last message sent under old crypto during crypto negotiation
              ;; encrypt, set new crypto, then send - to avoid race conditions
-             (inject-into-actor intf
-               (let ((enc (secure-encoding crypto `(actors/internal-message/security:srp-phase3 ,m2))))
-                 ;; init new crypto for incoming messages
-                 (funcall final-fn)
-                 ;; send old-encr message
-                 (write-message writer enc)))))
+             (let ((enc (secure-encoding crypto `(actors/internal-message/security:srp-phase3 ,m2))))
+               ;; init new crypto for incoming messages
+               (funcall final-fn)
+               ;; send old-encr message
+               (write-message writer enc))))
         
         #+:USING-ECC-CRYPTO
-        (setf srp-ph2-begin-ecc #'start-phase2-ecc)
+        (setf srp-ph2-begin-ecc (=cont #'start-phase2-ecc))
         #-:USING-ECC-CRYPTO
-        (setf srp-ph2-begin-rsa #'start-phase2-rsa)
+        (setf srp-ph2-begin-rsa (=cont #'start-phase2-rsa))
         
-        (setf srp-ph2-reply     #'phase2-reply
-              srp-ph3-begin     #'start-phase3
+        (setf srp-ph2-reply     (=cont #'phase2-reply)
+              srp-ph3-begin     (=cont #'start-phase3)
               kill-timer        (make-instance 'kill-timer
                                                :timer-fn #'(lambda ()
                                                              (mp:funcall-async
