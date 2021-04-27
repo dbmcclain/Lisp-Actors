@@ -1,0 +1,121 @@
+
+<RUNNABLE>
+----------------------------------------------
+ADT for all of the Actor heirarchy.
+Carries an indication of BUSY and when it was first placed in the ready queue.
+BUSY: NIL - not busy, no messages pending
+      T   - busy messages pending, already in queue, or currently running
+      :EXIT - terminated by calling TERMINATE-ACTOR
+
+
+WORKER
+------
+Executes a function on some available Executive thread, then exits.
+
+
+ACTOR 
+-------
+Waits for messages, then dispatches that message to a handler.
+
+Default handler is to expect the message to be function followed by
+arguments.  That function is applied to the arguments in the context
+of the running Actor on some Executive thread. 
+
+After completion of all pending message handling, control goes back to
+waiting for messages, which may have the effect of swapping in another
+ready Actor on the Executive thread. The next invocation of the Actor
+may be on an entirely different Executive thread.
+
+No limit on number of pending messages. 
+
+SEND always returns T, except in the case where a message is NIL. A
+NIL message can never be sent.
+
+MAKE-INSTANCE of an Actor class provides this default message handler.
+
+MAKE-ACTOR requires to specify a message handler function. The
+function argument signature should be (MSG &REST ARGS).
+
+When an Actor is handling a message on some Executive thread, the
+function CURRENT-ACTOR points to itself. Symbol SELF is a synonym for
+this function. Code can sense whether or not it is being exexuted in
+the context of an Actor when these are non-NIL.
+
+It is important to realize that CURRENT-PROCESS is mostly meaningless
+to Actor code, but that CURRENT-ACTOR carries real significance. It
+indicates the continuation of its single logical thread of an Actor,
+regardless of which system thread on which that is happening. Actor
+code is solely executed on one system thread at a time. Never more
+than one running occurrence, guaranteeing single-thread semantics for
+is code.
+
+Message handlers can be exchanged at runtime by calling BECOME from
+the running Actor. BECOME returns the prior handler, in case you want
+to chain to it from your new handler.
+
+Actors can generate continuations with =CONT and external agents can
+execute those continuations, which has the effect of sending the
+continuation code back to the original Actor for execution along with
+any arguments provided. This keeps the Actor system single-thread
+semantics for all activity within the Actor.
+
+When =CONT is executed from within a running Actor context, it wraps
+the continuation code with a special message send back to the
+currently running Actor. When =CONT is applied to a function outside
+of the context of a running Actor it simply returns the function
+argument.
+
+While most messages are filtered by the message handler, a
+continuation is unconditionally accepted and executed by an Actor,
+skipping any message filtering by the message handler. A continuation
+message is a functional closure accompanied by arguments.
+
+Unhandled errors that occur during message handling cause a debugger
+to show the error and ask for how it should be handled. Abort causes
+the current message handling to terminate and the next available
+message is processed.
+
+External agents can ASK to see the result of a message. This is a
+blocking wait call until the result is available. Any errors that
+occur from handling the message become reflected back to the asker and
+are handled / debugged in their thread.
+
+Actors can execute a RECV clause which causes its message handler to
+be exchanged for a selectve receive for the duration to the
+next message which matches one of the RECV clauses.
+
+Messages which don't match are saved for later processing. 
+
+On receipt of a matching message, the handler is restored to its
+previous function, and then the new message is handled in that RECV
+clause.
+
+You can RETRY-RECV while in the handler clause, if you want to repeat
+the RECV.  
+
+Once the RECV is exited, usual message dispatch occurs on the saved
+unprocessed messages, as well as new incoming messages.
+
+While handling a message which was the subject of an ASK, the function
+IN-ASK-P returns true, and the entire ASK message is available from
+function WHOLE-MESSAGE, which includes the asking portion.
+
+
+LIMITED-ACTOR
+-------------
+As with Actor, but can only accommodate a single message in its queue.
+Attempts to SEND to an already occupied message queue are rejected.
+Send returns T/F.
+
+
+ACTOR-AS-WORKER
+---------------
+Acts like a WORKER to run an initial function, then reverts to being
+an ACTOR
+
+
+LIMITED-ACTOR-AS-WORKER
+-----------------------
+As ACTOR-AS-WORKER, but message queue limited to one message.
+
+

@@ -1,0 +1,190 @@
+
+Programming in Actors and Reppy Channels
+------------------------------------------
+
+
+Actors bring the notion of lightweight threads and single-thread
+semantics to Actor code. They behave much like Threads, but exist
+apart from them. Actors are bodies of code and data that become
+multiplexed across a pool of Executive threads that exist solely to
+run the next ready Actor in the ready queue. Actors are redied by
+sending messages to them with SEND. If an actor to which a message is
+sent is not already enabled or running, it will be placed on the ready
+queue to be run at the next possible opportunity by one of the
+Executive threads. Actors run in FIFO order from the ready queue.
+There is a pool of 8 or so Executive threads all feeding from that
+system ready queue.
+
+As long as the code in the Actor body does not block, the threads
+running them won't either. But it is impossible, in general, to know
+if a piece of code will block. And blocking depends on the perspective
+of the reader. If a piece of code performs blocking disk or network
+I/O then you could reasonably expect an indeterminate amount of
+blocking wait for the operation to complete. But blocking could also
+appear to happen as a result of a long duration computation.
+
+So while blocking activities are discouraged in Actor code, it cannot
+be forbidden. If it happens, it ties up the Executive thread currently
+running that Actor code.
+
+Message SEND is asynchronous and always completes without delay. In an
+effort to provide for non-blocking activities in Actor code, one can
+resort to asynchronous I/O with callbacks. When coded with callbacks
+in FUTURES it is guaranteed that the callback routine will execute in
+the single thread context of the original Actor. But the activity code
+being performed asynchronously might also share access to Actor
+private data. Breaking out of the single thread context is implicit
+with asynchronous actions when performed by the Actor body code. One
+must be aware of this and take precautions as you would with mutable
+shared data.
+
+Reppy Channels used between two Threads provides for synchronous
+operation. Senders and Receivers always block waiting for a
+rendezvous.  But when one of the participants is an Actor, the actions
+are once again asynchronous with callbacks, for the Actor participant,
+while remaining synchronous for non-Actor Threads. And two Actors
+could also rendezvous across a Reppy Channel, in which case the
+operation is asynchronous for both participants.
+
+However, Reppy Channels are an ideal interface between Threads and
+Actors, mitigating the division of the world between asynchronous
+Actors and synchronous Threads. But from the two perspectives, Reppy
+Channels behave differently. Calling SYNC on an event tree from a
+Thread provides blocking wait for rendezvous, and the data exchanged
+in the rendezvous is returned at the end of the wait. For Actors, the
+SYNC completes immediately, after setting up to call callback handlers
+when the rendezvous actually happens. No useful value is returned from
+SYNC when performed in Actor code. A callback is needed to make use of
+exchanged data at the time of rendezvous.
+
+Like Threads, no useful value results from running off the end of
+their code for Actors. Actors can maintain mutable private state in
+response to received messages, and can communicate information to
+external agents via any number of mechanisms. But waiting for an Actor
+body to complete is a meaningless concept. Actors behave like Threads
+which can be retriggered with message SEND. They formalize the way to
+communicate with a potential thread. And the thread becomes realized
+when the Actor is removed from the ready queue and performed by an
+Executive thread. Native Threads have no such defined formal
+communication scheme, although they could arrange to provide a
+protocol between themselves with mailboxes or other means.
+
+Programming with Native Threads already means that the programmer must
+protect shared mutable data from simultaneous access by more than one
+thread. With Actors, no such precautions are needed against
+Actor-owned data. Only the Actor will access that data directly. Actor
+code can assume single-thread semantics, except in cases where the
+Actor invites paralllel execution of some of its code.
+
+Parallel execution in Actors is provided for with macros that allow
+simple description of callback routines and the parallel construct to
+be performed. These macros depend on the parallel code performing an
+=VALUES operation on the values to be returned to the Actor callback
+routine. The programmer has considerable freedom in the placement
+location of the =VALUES call.
+
+In contrast, Reppy Channel event trees formalize an operation in a
+more purely functional form. A rendezvous can only exchange one piece
+of information between sender and receiver participants. But event
+trees are fully composable objects, and the final composite tree only
+operates when SYNC is called. Whichever branch of an event tree has a
+successful rendezvous will return the data exchanged, possibly
+operated on by a chain of WRAP handlers on the way back to the SYNC
+level. All other leaf nodes of the event tree will perform WITH-ABORT
+handlers to clean up after an unsuccessful rendezvous in those
+branches of the event tree.
+
+In order to accommodate both asynchronous Actors and synchronous
+Threads across a Reppy Channel rendezvous, all actions can only safely
+be performed in the single-thread context of the Actor. The Thread
+participant on the other side could easily perform WRAP-ABORT clauses
+in a separate thread while it goes on to consume the exchanged data.
+But that is not default behaviour. So a rendezvous, by default, pays
+not only the cost of data post-processing on the exchanged data, but
+also the cancellation code on all other branches of the event tree
+which did not manage to rendezvous.
+
+The message queue of an Actor is an implicit component of the Actor
+itself. You SEND message diretly to an Actor. Reppy Channels separate
+the message queues into CHANNEL objects which contain two queues - one
+for SEND and one for RECV events. Communication to other participants
+via a Reppy Channel occurs by SEND events to a CHANNEL object, and
+RECV events from a CHANNEL object. There is no direct association
+between thread participants until an event tree is reified with SYNC.
+And that happens separately for each side of the exchange when
+participants perform the SYNC operation.
+
+Both methods could peform equivalent work, but in the case of Reppy
+Channels, only the rendezvous exchange of information is formalized.
+Shared mutable data still needs to be protected as in general Thread
+programming. With Actors, however, the body of the Actor code has
+exclusive access to all data owned by the Actor, and the code executes
+solely in a single-thread semantics context. No need for locks and
+mutexes once inside a running Actor body.
+
+
+CAPTURE-ANS-OR-EXN and RECOVER-ANS-OR-EXN
+------------------------------------------ 
+
+These two functions work in pairs as a team. In Lisp code, functions
+can return multiple values, and sometimes they can trigger errors.
+When exchanging information across a process boundary, such as between
+two Actors, two Threads, or an Actor and a Thread, we want to receive
+all of the multiple values generated by the source function, and if an
+error is triggered, that error should be reflected back to the
+requestor of the function execution, regardless of what thread
+actually performs the code.
+
+That is the purpose of CAPTURE-ANS-OR-EXN. It takes as arguments a
+function and arguments. It calls that function against the arguments,
+but captures all multiple return values or an exception that gets
+generated during the function exeuction. It produces a single obtect
+encoding this information, and that single object can be transferred
+anywhere.
+
+On the other side at the recieving end of this information, a call to
+RECOVER-ANS-OR-EXN takes that packed item and re-inflates to multiple
+return values, or alse signals the error object.
+
+You can call RECOVER-ANS-OR-EXN on any object, however, and if it
+isn't one of the Capture objects, it simply returns the original
+argument.
+
+If you want to signal any recovered errors but return only a single
+item representing all returned values, the following idiom is useful:
+
+  (multiple-value-list
+      (recover-ans-or-exn obj))
+
+It is often the case that a server Actor or Thread can take requests
+to perform some action. If that action invokes an error, it wouldn't
+be fair to blame the server. So servers almost always encapsulate the
+requested action in a CAPTURE-ANS-OR-EXN for returning the result back
+to the original caller. That way, if an error happens, it doesn't kill
+the server.
+
+Servers are great for serializing access to shared resources, such as
+shared lists, or hardware objects, like printers.
+
+The Actor system has a Directory of available server Actors, to which
+messages can be sent, by name - a string or symbol naming the Actor.
+Whenever you send a message to symbol or a string, it looks up the
+name in the Actor directory to find the actual Actor object.
+
+The SEND operator has been overloaded to represent the sending of any
+message to any object. Targets could be Actors, Reppy Channels,
+mailboxes, even functions. The semantics of SEND require asynchronous
+non-blocking behavior.
+
+Getting information from an Actor server can be tricky, depending on
+what you are. If you are a Thread then calling GET establishes a local
+mailbox for the server to send the reply, and after SEND of the query
+to the Actor you wait for a response on that mailbox.
+
+But if you are another Actor, then since SEND is asychronous, and we
+like to avoid blocking wait operations, we need another approach. For
+that we use FUTURES with callback handlers. The SEND executes without
+delay, allowing following code to execute immediately. When the reply
+finally arrives from the server, the callback handler will be invoked
+with the reply as an argument. And that callback performs in the
+single-thread context of the orignal Actor who sent the query.

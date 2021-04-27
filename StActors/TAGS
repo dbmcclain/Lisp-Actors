@@ -1,0 +1,422 @@
+
+/Users/davidmcclain/projects/Lispworks/Actors/actors-schedule.lisp,143
+(defun do-schedule-after 38,1452
+(defmacro schedule-after 44,1625
+(defun do-recv 59,2280
+(defmacro recv 106,3932
+(defun tst-recv 132,4819
+
+/Users/davidmcclain/projects/Lispworks/Actors/reactor.lisp,269
+(defclass reactor 4,23
+(defvar *reactor* 8,119
+(defun subscribe 10,164
+(defun unsubscribe 25,720
+(defun notify 28,801
+(defmacro =subscribe 36,1052
+(defun =unsubscribe 42,1266
+(defvar *x* 46,1343
+(defun incr-x 47,1358
+(defun decr-x 50,1409
+(defun prt 57,1532
+
+/Users/davidmcclain/projects/Lispworks/Actors/actor-class.lisp,316
+(defun inject 11,312
+(defun exec 18,557
+(defmacro perform-in-actor 31,1056
+(defmacro inject-into-actor 35,1158
+(defmacro query-actor 39,1265
+(defmacro with-as-current-actor 43,1362
+(defclass hoare-monitor 47,1463
+(defclass printer 56,1665
+(defvar *printer* 59,1698
+(defmacro prt 61,1743
+(defun pr 65,1816
+
+/Users/davidmcclain/projects/Lispworks/Actors/actors-futures.lisp,258
+(defmacro =async 74,2767
+(defmacro =async/err 79,2884
+(defstruct future 87,3127
+(defun call-future 91,3162
+(defmacro future 99,3403
+(defun %forced-future-val 103,3489
+(defgeneric force 114,3788
+(defun call-forcing 127,4218
+(defmacro =fwait 131,4406
+
+/Users/davidmcclain/projects/Lispworks/Actors/actors-directory.lisp,423
+(defgeneric acceptable-key 18,514
+(defvar actors-directory 34,829
+(defun clear-directory 36,869
+(defun current-directory 39,938
+(defun directory-foreach 42,996
+(defun update-directory 45,1065
+(defun register-actor 48,1136
+(defun %remove-key 54,1337
+(defgeneric unregister-actor 57,1414
+(defun get-actors 68,1662
+(defun get-actor-names 75,1775
+(defgeneric find-actor 78,1833
+(defun find-names-for-actor 85,2005
+
+/Users/davidmcclain/projects/Lispworks/Actors/executives.lisp,298
+(defun default-watchdog-function 33,985
+(defvar *watchdog-hook* 48,1451
+(defvar *exec-actor* 53,1590
+(defun executive-loop 55,1618
+(defun exec-terminate-actor 65,1937
+(defun test-stall 73,2156
+(defgeneric nullify 84,2426
+(defmonitor executives 99,2883
+(defmacro without-watchdog 287,10331
+
+/Users/davidmcclain/projects/Lispworks/Actors/tests.lisp,0
+
+/Users/davidmcclain/projects/Lispworks/Actors/erl-proc.lisp,363
+(defclass process 54,2118
+(defun link-to 67,2377
+(defun unlink-from 70,2450
+(defun make-process 73,2530
+(defmethod dispatch-message 109,3732
+(defun spawn-link 168,5605
+(defun spawn-monitor 178,5966
+(defun link-between 190,6367
+(defun unlink-between 195,6496
+(defun link 202,6686
+(defun unlink 205,6745
+(defun exit 210,6863
+(defun trap-exits 213,6962
+
+/Users/davidmcclain/projects/Lispworks/Actors/actors.lisp,2022
+(defgeneric send 38,1490
+(defgeneric ask 39,1524
+(defgeneric get-property 40,1558
+(defgeneric set-property 41,1612
+(defgeneric remove-property 42,1654
+(defsetf get-property 44,1694
+(defvar *current-actor* 50,1824
+(defun current-actor 52,1854
+(define-symbol-macro self 58,2061
+(defclass actor-mailbox 67,2454
+(defclass limited-actor-mailbox 77,2752
+(defmacro with-actor-mailbox-locked 85,2921
+(defgeneric next-message 89,3036
+(defgeneric unsafe-send-message 105,3591
+(defgeneric unsafe-mailbox-not-empty-p 116,3978
+(defclass <runnable> 130,4523
+(defclass worker 142,4939
+(defclass actor 152,5242
+(defclass limited-actor 173,5965
+(defclass actor-as-worker 179,6095
+(defclass limited-actor-as-worker 182,6143
+(defmethod initialize-instance 188,6323
+(defun make-actor 192,6508
+(defun make-limited-actor 197,6671
+(defmethod get-property 202,6850
+(defmethod set-property 206,6991
+(defmethod remove-property 212,7186
+(defmethod send 218,7414
+(defun notify-actor 230,7872
+(defun %basic-run-worker 241,8317
+(defun %basic-run-actor 245,8437
+(defun %basic-run-actor-as-worker 261,9036
+(defun maybe-add-to-ready-queue 267,9224
+(defgeneric %run-actor 286,9986
+(defun become 306,10674
+(defun self-call 311,10843
+(defvar *in-ask* 319,11116
+(defvar *whole-message* 320,11145
+(defun in-ask-p 324,11218
+(defun whole-message 327,11250
+(define-condition no-immediate-answer 330,11294
+(defun assemble-ask-message 333,11342
+(defgeneric dispatch-message 338,11506
+(defun spawn 376,12877
+(defun spawn-limited 381,12981
+(defun spawn-actor/worker 410,14230
+(defun spawn-worker 419,14575
+(defun spawn-actor-as-worker 422,14659
+(defun spawn-limited-actor-as-worker 425,14761
+(defmethod send 431,14974
+(defmethod send 434,15059
+(defmethod send 437,15128
+(defun funcallable-p 450,15367
+(define-condition invalid-send-target 455,15471
+(defmethod send 461,15804
+(defmethod ask 474,16232
+(defmethod ask 482,16555
+(defmethod ask 485,16623
+(defmethod ask 498,16865
+(defgeneric send-sync 546,18140
+
+/Users/davidmcclain/projects/Lispworks/Actors/actors-machines.lisp,164
+(defun find-kw-assoc 39,1528
+(defun parse-clauses 56,2128
+(defun parse-pattern-clauses 66,2491
+(defun parse-recv-clauses 80,3016
+(defmacro recv-match 102,3946
+
+/Users/davidmcclain/projects/Lispworks/Actors/network-security.lisp,2946
+(deftype vector-ub8 36,1154
+(defun make-u8-vector 39,1219
+(defun string-to-vector 42,1301
+(defun convert-vector-to-integer 45,1368
+(defun convert-integer-to-vector 54,1593
+(defun vec-n 65,1936
+(defmethod integer-of 78,2301
+(defmethod integer-of 81,2343
+(defmethod integer-of 84,2412
+(defmethod integer-of 87,2469
+(defmethod vector-of 92,2552
+(defmethod vector-of 96,2651
+(defmethod vector-of 99,2710
+(defmethod vector-of 102,2769
+(defvar *base* 107,2890
+(defmacro with-mod 109,2907
+(defun m+ 113,2984
+(defun m- 118,3056
+(defun m* 123,3128
+(defun m/ 128,3200
+(defun minv 133,3267
+(defun m^ 138,3336
+(defvar *mod128* 153,3724
+(defun prep-interpolation-shares 155,3765
+(defun make-lagrange-interpolator 169,4290
+(defun fill-to-132 187,4905
+(defun low-129 190,4974
+(defun share-uuid 193,5018
+(defun uuid-str-from-shares 205,5547
+(defun assemble-sks 211,5834
+(defmacro def-cached-var 224,6316
+(def-cached-var ctr-hash-prng 236,6702
+(defmonitor rand-monitor 242,6912
+(defun rand-between 248,7112
+(defun ensure-simple-array 255,7314
+(defclass crypto 265,7590
+(defclass server-crypto 276,8171
+(defclass client-crypto 279,8211
+(defmethod init-crypto-for-input 282,8251
+(defmethod init-crypto-for-output 289,8559
+(defmethod init-crypto-for-hmac 296,8869
+(defmethod init-crypto-for-renegotiation 299,8984
+(define-condition signature-mismatch-exn 308,9369
+(defun signature-mismatch-error 313,9497
+(defun do-with-error-logging 318,9661
+(defmacro with-error-logging 323,9809
+(defun hash-objects-to-digest 328,9948
+(defun hash32 334,10158
+(defun generate-hmac 337,10227
+(defun vector-append 382,11669
+(defun vector-append1 395,12176
+(defun make-empty-vector 407,12568
+(defun make-vector-with-elt 414,12779
+(defun vector-append1-new 423,13057
+(defun vector-append-new 430,13259
+(deftype octet 434,13383
+(defun build-dictionary 439,13488
+(defun lzw-compress-octets 450,13828
+(defun  472,14713
+(defgeneric lzw-compress 493,15673
+(defun lzw-decompress-to-string 503,15870
+(defun test 508,15970
+(defun cvt-intvec-to-octets 516,16225
+(defun cvt-octets-to-intvec 540,17201
+(defun encode 557,17860
+(defun decode 560,17965
+(defconstant +MAX-FRAGMENT-SIZE+ 565,18109
+(defun insecure-prep 567,18150
+(defun secure-encoding 596,19225
+(defun insecure-decoding 630,20747
+(defun secure-decoding 641,21008
+(defun factor-out 663,21752
+(defun perfect-square? 673,22059
+(defun perfect-square? 678,22133
+(defun jacobi-symbol 689,22476
+(defun probabilistic-lucas-test 712,23117
+(defun make-strong-miller-rabin-liar-test 745,24290
+(defun is-prime? 766,24923
+(defun check-prime-modulus 784,25510
+(defun check-generator 794,25829
+(defun check-public-key 805,26246
+(defvar $VERSION 899,29981
+(defun srp6-x 902,30113
+(defun srp6-u 908,30215
+(defun unexpected 912,30272
+(defmethod client-negotiate-security 917,30417
+(defun select-public-keys 991,33326
+(defmethod server-negotiate-security 1085,58774
+
+/Users/davidmcclain/projects/Lispworks/Actors/ansi-timer.lisp,393
+(defvar *timeout-queue* 3,26
+(defvar *cancel-queue* 4,69
+(defvar *cycle-bits* 5,112
+(defvar *last-check* 6,144
+(defvar *timeout-tree* 7,172
+(defclass timer 9,212
+(defun make-timer 26,764
+(defmethod schedule-timer 31,879
+(defmethod schedule-timer-relative 36,1044
+(defmethod unschedule-timer 42,1275
+(defun  46,1357
+(defun make-master-timer 94,3239
+(defvar *master-timer* 102,3398
+
+/Users/davidmcclain/projects/Lispworks/Actors/par-exec.lisp,107
+(defun pmapcar 54,2204
+(defmacro par 88,3843
+(defmacro =non-blocking 96,4127
+(defmacro parlet 141,5567
+
+/Users/davidmcclain/projects/Lispworks/Actors/actor-bridge.lisp,923
+(defclass actor-bridge 27,849
+(defvar *bridge* 32,1013
+(defun actor-bridge 34,1062
+(defmacro in-bridge 39,1224
+(defmacro ask-bridge 43,1302
+(defun parse-destination 50,1481
+(defun make-proxy 74,2225
+(defun find-handler 97,2983
+(defun call-with-valid-ip 101,3139
+(defgeneric call-with-valid-dest 107,3310
+(defmacro with-valid-dest 116,3640
+(defun find-and-remove-usti 120,3805
+(defun create-and-add-usti 126,3971
+(defun bridge-register 135,4268
+(defun bridge-unregister 142,4478
+(defun bridge-reset 156,4913
+(defun forward-query 166,5178
+(defun bridge-forward-message 171,5419
+(defun bridge-handle-reply 190,6019
+(defun cmpfn 205,6465
+(defmethod send 216,6762
+(defmethod send 229,7026
+(defmethod send 234,7171
+(defun network-ask 239,7313
+(defmethod ask 244,7477
+(defmethod ask 257,7733
+(defmethod ask 262,7876
+(defgeneric usti 311,9508
+(defmethod find-actor 329,9855
+(defun test-usti 336,10023
+
+/Users/davidmcclain/projects/Lispworks/Actors/network-connection.lisp,1852
+(defvar *default-port* 48,1720
+(defvar *socket-timeout-period* 49,1761
+(defvar *ws-collection* 50,1799
+(defvar *aio-accepting-handle* 51,1838
+(defconstant +using-ssl+ 53,1878
+(defvar *watch-input* 58,2007
+(defvar *watch-output* 59,2035
+(defun watch-io 61,2064
+(defun watch-input 65,2143
+(defun watch-output 70,2312
+(defstruct queue 79,2637
+(defun push-queue 82,2664
+(defun add-queue 90,2872
+(defun pop-queue 101,3156
+(defmacro expect 111,3450
+(defmacro make-expect-handler 114,3543
+(defun become-null-monitor 126,3805
+(defclass message-reader 133,4043
+(defmethod initialize-instance 140,4279
+(defclass message-writer 224,7654
+(defmethod write-message 229,7811
+(defclass kill-timer 259,8985
+(defmethod initialize-instance 262,9026
+(defmethod resched 266,9184
+(defmethod discard 272,9361
+(defclass message-dispatcher 281,9609
+(defmethod handle-message 288,9854
+(defun no-service-alert 341,12192
+(defclass socket-interface 346,12360
+(defmethod do-expect 357,12692
+(defmethod socket-send 369,13154
+(defmethod shutdown 375,13375
+(defmethod client-request-negotiation 386,13887
+(defmethod initialize-instance 396,14333
+(defun tst 484,18469
+(defun tst 498,19090
+(defun tst 515,19599
+(defun open-connection 539,20065
+(defun start-server-messenger 583,21971
+(defvar *ssl-context* 612,23284
+(defvar *sks* 613,23312
+(define-symbol-macro *actors-version* 618,23660
+(defun filename-in-ssl-server-directory 620,23721
+(defun verify-client-certificate 626,23995
+(defun my-configure-ssl-ctx 636,24326
+(defun initialize-the-ctx 660,24987
+(defvar *cert-key-pairs* 668,25245
+(defun my-find-certificate 670,25276
+(defun terminate-server 698,26627
+(defun start-tcp-server 702,26697
+(defun reset-global-state 725,27454
+(defun lw-start-tcp-server 733,27684
+(defun lw-reset-actor-system 746,28171
+(defun ac:start 772,28955
+
+/Users/davidmcclain/projects/Lispworks/Actors/async-io.lisp,316
+(defpackage :async-io 2,1
+(defclass async-io 14,176
+(defvar *async-io* 17,274
+(defun do-async-open 20,360
+(defun report-invalid-io-command 25,503
+(define-condition invalid-io-command 28,623
+(defun do-async-io 32,752
+(defun open-stream 86,3319
+(define-condition stream-closed 89,3435
+(defun exec-io 92,3482
+
+/Users/davidmcclain/projects/Lispworks/Actors/actors-lfm.lisp,1336
+(defmethod make-logging-handler 17,634
+(defmethod make-logging-handler 21,800
+(defun log-error 28,1059
+(defun log-warning 31,1149
+(defun log-info 34,1243
+(defmethod tell-logger 37,1331
+(defmethod tell-logger 45,1598
+(defun normalized-tell-logger 58,2127
+(defun get-background-stream 67,2424
+(defun effective-stream 72,2575
+(defun timestamp 81,2866
+(defmethod xprint 98,3449
+(defmethod xprint 107,3733
+(defmethod xprint 110,3840
+(defun xprint-struct 113,3946
+(defmethod xprint 126,4491
+(defun default-printer 133,4679
+(defstruct state 156,5514
+(defun stream-based-logging 163,5645
+(defun sign-on 168,5837
+(defun sign-off 177,6132
+(defun terminate-stream 188,6457
+(defun make-stream-logging-handler 195,6661
+(defun get-oldest-and-newest 240,7941
+(defun todays-filename 259,8642
+(defun get-wild-filename 275,9220
+(defun file-written-today? 284,9601
+(defun decide-which-output-logfile 300,10068
+(defun open-logfile-for-output 361,12610
+(defmethod make-logging-handler 367,12865
+(defmethod make-logging-handler 370,13003
+(defun file-based-logging 373,13143
+(defclass lfm 420,14878
+(defvar *syslog* 435,15468
+(defun lfm 437,15492
+(defun ensure-system-logger 440,15519
+(defun kill-system-logger 445,15655
+(defmethod set-printer 449,15741
+(defmethod set-stream 458,16050
+(defmethod log-message 467,16322
+
+/Users/davidmcclain/projects/Lispworks/Actors/packages.lisp,297
+(defpackage  32,1259
+(defpackage  181,3566
+(defpackage  191,3730
+(defpackage  223,4153
+(defpackage  226,4218
+(defpackage :actors.network 233,4343
+(defpackage :actors.security 249,4676
+(defpackage :actors.bridge 266,5033
+(defpackage  278,5265
+(defpackage  295,5628
+(defpackage  298,5687
