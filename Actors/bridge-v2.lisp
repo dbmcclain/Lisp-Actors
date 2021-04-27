@@ -184,7 +184,7 @@
               (check-purge))
              ))
 
-      (:deliver-message (a-usti if-cant-sent-fn &rest msg)
+      (:deliver-message (a-usti if-cant-send-fn &rest msg)
        (cond ((uuid:uuid= a-usti usti)
               (detach-myself next)
               (handler-case

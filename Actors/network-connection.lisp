@@ -36,6 +36,7 @@
             actors/bridge:bridge-unregister
             actors/bridge:bridge-handle-reply
             actors/bridge:bridge-reset
+            actors/bridge:bridge-deliver-message
 
             actors/lfm:ensure-system-logger
             actors/lfm:kill-system-logger
@@ -352,24 +353,27 @@
   (with-slots (timer) mon
     (setf timer (mp:make-timer (lambda ()
                                  (check-reneg mon))))
-    (mp:schedule-timer-relative timer (random (* 2 +monitor-interval+)))
-    ))
+    (resched-random-timeout timer)))
+
+(defun resched-random-timeout (timer)
+  (mp:schedule-timer-relative timer (+ 10 (random (* 2 +monitor-interval+)))))
 
 (defmethod check-reneg ((mon crypto-monitor))
   (with-slots (crypto intf timer) mon
     (perform-in-actor mon
       (when (time-to-renegotiate? crypto)
-        (handler-bind ((error (lambda (c)
-                                ;; if any negotiation errors we shut down immediately
-                                (declare (ignore c))
-                                (log-error :SYSTEM-LOG "Renegotiation failure")
-                                (shutdown intf))
-                              ))
-          #+:USING-ECC-CRYPTO (client-negotiate-security-ecc crypto intf)
-          #-:USING-ECC-CRYPTO (client-negotiate-security-rsa crypto intf)
-          ))
-      (mp:schedule-timer-relative timer (random (* 2 +monitor-interval+))))
-    ))
+        (inject-into-actor intf
+          (handler-bind ((error (lambda (c)
+                                  ;; if any negotiation errors we shut down immediately
+                                  (declare (ignore c))
+                                  (log-error :SYSTEM-LOG "Renegotiation failure")
+                                  (shutdown intf))
+                                ))
+            #+:USING-ECC-CRYPTO (client-negotiate-security-ecc crypto intf)
+            #-:USING-ECC-CRYPTO (client-negotiate-security-rsa crypto intf)
+            ))
+        (resched-random-timeout timer))
+      )))
 
 (defmethod kill-monitor ((mon crypto-monitor))
   (with-slots (timer) mon

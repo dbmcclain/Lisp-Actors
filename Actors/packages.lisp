@@ -312,6 +312,7 @@ THE SOFTWARE.
    #:bridge-register
    #:bridge-unregister
    #:bridge-forward-message
+   #:bridge-deliver-message
    #:bridge-ask-query
    #:bridge-handle-reply
    #:bridge-reset

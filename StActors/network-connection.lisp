@@ -308,7 +308,7 @@
   (with-slots (crypto intf timer) mon
     (perform-in-actor mon
       (when (time-to-renegotiate? crypto)
-        (with-worker ()
+        (inject-into-actor intf
             (handler-bind ((error (lambda (c)
                                     ;; if any negotiation errors we shut down immediately
                                     (declare (ignore c))
