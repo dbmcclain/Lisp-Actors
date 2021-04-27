@@ -2,7 +2,7 @@ This folder contains the start of an experiment in minimalism. Just
 how simple can an Actors system become? And what are the benefits of
 it?
 
-It is now a fully functioning version, sans ASK and Parallel launch
+This is now a fully functioning version, sans ASK and Parallel launch
 for mapping and iteration. Everything Actors runs in a single thread.
 Concurrency is very much alive by chopping your tasks into bite-sized
 comprehensible subtasks, and using SEND to activate the portions.
@@ -23,13 +23,13 @@ which offer three fundamental operations: MAKE, SEND, and BECOME. Make
 them as small as you like, with minimal runtime overhead. Make more of
 them too.
 
-A benchmark test in shown in Examples/micro-actors.lisp at the bottom.
+A benchmark test is shown in Examples/micro-actors.lisp at the bottom.
 The test consists of an Actor which recursively creates a chain of up
-to N Actor. Then when the chain has been constructed, the first Actor
+to N Actors. Then when the chain has been constructed, the first Actor
 records the NOW time, and tells the last Actor to send a message back
 along the chain. When that message arrives back at the first Actor the
-time is recorded, and the average time-cost of SEND is computed and
-printed.
+time is recorded, and the average time-cost of SEND/activate is
+computed and printed.
 
 For my machine, running compiled Lispworks Mac/64, a chain of 1
 Million Actors show that the average SEND/activate time is 3
