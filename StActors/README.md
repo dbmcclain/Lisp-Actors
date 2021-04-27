@@ -40,3 +40,8 @@ microsec. A captive Executive thread pool is desirable for maximum
 speed.
 
 - DM
+
+[ And yes.. Even the async network interface is working here. I am
+amazed that it was possible to provide the full system without
+resorting to multi-threading. Actors are so simple, and yet quite
+powerful. ]
