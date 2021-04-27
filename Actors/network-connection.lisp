@@ -163,7 +163,7 @@
 
 (defmethod initialize-instance :after ((reader message-reader)
                                        &key crypto dispatcher &allow-other-keys)
-  (let ((queue        (finger-tree:make-shared-queue))
+  (let ((queue        (finger-tree:make-unshared-queue))
         (len-buf      (make-u8-vector 4))
         (hmac-buf     (make-u8-vector 32))
         (len          0)
