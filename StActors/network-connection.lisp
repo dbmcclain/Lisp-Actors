@@ -440,7 +440,13 @@
 
 (defmethod socket-send ((intf socket-interface) &rest msg)
   (with-slots (crypto writer kill-timer) intf
-    (inject-into-actor intf ;; perform-in-actor intf
+    (perform-in-actor intf
+      (resched kill-timer)
+      (write-message writer (secure-encoding crypto msg)))))
+
+(defmethod prio-socket-send ((intf socket-interface) &rest msg)
+  (with-slots (crypto writer kill-timer) intf
+    (inject-into-actor intf
       (resched kill-timer)
       (write-message writer (secure-encoding crypto msg)))))
 
@@ -462,7 +468,7 @@
   ;; Called by Client for crypto negotiation. Make it a continuation so
   ;; it can be initiated by message reader when deemed appropriate.
   (inject-into-actor intf
-    (socket-send intf 'actors/internal-message/security:srp-node-id-rsa node-id)
+    (prio-socket-send intf 'actors/internal-message/security:srp-node-id-rsa node-id)
     (expect intf
       (actors/internal-message/security:srp-phase2-rsa (p-key g-key salt bb)
          (funcall cont p-key g-key salt bb))
@@ -473,7 +479,7 @@
   ;; Called by Client for crypto negotiation. Make it a continuation so
   ;; it can be initiated by message reader when deemed appropriate.
   (inject-into-actor intf
-    (socket-send intf 'actors/internal-message/security:srp-node-id-ecc node-id)
+    (prio-socket-send intf 'actors/internal-message/security:srp-node-id-ecc node-id)
     (expect intf
       (actors/internal-message/security:srp-phase2-ecc (bb)
          (funcall cont bb))
@@ -497,7 +503,7 @@
            (start-phase2-rsa (cont p-key g-key salt bb)
              ;; Called by server in response to request for crypto negotiation
              (inject-into-actor intf
-               (socket-send intf 'actors/internal-message/security:srp-phase2-rsa p-key g-key salt bb)
+               (prio-socket-send intf 'actors/internal-message/security:srp-phase2-rsa p-key g-key salt bb)
                (expect intf
                  (actors/internal-message/security:srp-phase2-reply (aa m1)
                   (funcall cont aa m1))
@@ -507,7 +513,7 @@
            (start-phase2-ecc (cont bb)
              ;; Called by server in response to request for crypto negotiation
              (inject-into-actor intf
-               (socket-send intf 'actors/internal-message/security:srp-phase2-ecc bb)
+               (prio-socket-send intf 'actors/internal-message/security:srp-phase2-ecc bb)
                (expect intf
                  (actors/internal-message/security:srp-phase2-reply (aa m1)
                                                                     (funcall cont aa m1))
@@ -516,7 +522,7 @@
            (phase2-reply (cont aa m1)
              ;; Called by client after receiving server ack on crypto renegotiation
              (inject-into-actor intf
-               (socket-send intf 'actors/internal-message/security:srp-phase2-reply aa m1)
+               (prio-socket-send intf 'actors/internal-message/security:srp-phase2-reply aa m1)
                (expect intf
                  (actors/internal-message/security:srp-phase3 (m2)
                                                               (funcall cont m2))
@@ -533,12 +539,12 @@
                  (write-message writer enc)))))
         
         #+:USING-ECC-CRYPTO
-        (setf srp-ph2-begin-ecc (=cont #'start-phase2-ecc))
+        (setf srp-ph2-begin-ecc #'start-phase2-ecc)
         #-:USING-ECC-CRYPTO
-        (setf srp-ph2-begin-rsa (=cont #'start-phase2-rsa))
+        (setf srp-ph2-begin-rsa #'start-phase2-rsa)
         
-        (setf srp-ph2-reply     (=cont #'phase2-reply)
-              srp-ph3-begin     (=cont #'start-phase3)
+        (setf srp-ph2-reply     #'phase2-reply
+              srp-ph3-begin     #'start-phase3
               kill-timer        (make-instance 'kill-timer
                                                :timer-fn #'(lambda ()
                                                              (mp:funcall-async

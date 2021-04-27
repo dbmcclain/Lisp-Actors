@@ -84,7 +84,7 @@
 ;; -------------------------------------------------------------
 ;; Channel Handler
 ;; ----------------------------------------------------------------
-
+#|
 (defstruct queue
   ;; queue is used to store incoming network fragments that will be
   ;; reassembled by EXTRACT-BYTES
@@ -119,6 +119,7 @@
       (when (eq cell (queue-tl queue))
           (setf (queue-tl queue) nil)))
     (values (car cell) cell)))
+|#
 
 (defun extract-bytes (queue buf start end)
   ;; extract fragments as needed to fill a buffer
@@ -126,7 +127,7 @@
     again
     (destructuring-bind
         (&whole frag &optional frag-start frag-end . frag-bytes)
-        (pop-queue queue)
+        (finger-tree:popq queue)
       (if frag
           ;; while there are still some fragments
           (let ((nb   (- frag-end frag-start))
@@ -159,7 +160,7 @@
                            :start2 frag-start
                            :end1   end)
                   (incf (car frag) need))
-                (push-queue queue frag)
+                (finger-tree:pushq queue frag)
                 (return end))
              ))
         ;; else - no more fragments. Return the count extracted so far
@@ -193,10 +194,77 @@
 
 ;; -------------------------------------------------------------------------
 
+#||#
+(define-actor-class message-reader ()
+  ())
+
+(defmethod initialize-instance :after ((reader message-reader)
+                                       &key crypto dispatcher &allow-other-keys)
+  (let ((queue        (finger-tree:make-shared-queue))
+        (len-buf      (make-u8-vector 4))
+        (hmac-buf     (make-u8-vector 32))
+        (gather-actor nil)
+        (len          0)
+        (pos          0)
+        (enc-buf      nil)
+        (ndata        nil)
+        (rd-len-beh   nil)
+        (rd-data-beh  nil)
+        (rd-hmac-beh  nil))
+    (setf rd-len-beh
+          (um:dlambda
+            (:check-incoming ()
+                  (setf pos (extract-bytes queue len-buf pos len))
+                  (when (= pos len)
+                    (setf pos   0
+                          ndata (convert-vector-to-integer len-buf))
+                    (when (> ndata +MAX-FRAGMENT-SIZE+)
+                      ;; and we are done... just hang up.
+                      (handle-message dispatcher '(actors/internal-message/network:discard))
+                      (become-null-monitor :rd-actor))
+                      (setf enc-buf (make-u8-vector ndata))
+                    (become rd-data-beh)
+                    (self-call :check-incoming))))
+            
+          rd-data-beh
+          (um:dlambda
+            (:check-incoming ()
+                  (setf pos (extract-bytes queue enc-buf pos ndata))
+                  (when (= pos ndata)
+                    (setf pos 0
+                          len (length hmac-buf))
+                    (become rd-hmac-beh)
+                    (self-call :check-incoming))))
+
+          rd-hmac-beh
+          (um:dlambda
+            (:check-incoming ()
+                  (setf pos (extract-bytes queue hmac-buf pos len))
+                  (when (= pos len)
+                      (handle-message dispatcher (secure-decoding crypto ndata len-buf enc-buf hmac-buf))
+                      (setf pos 0
+                            len (length len-buf))
+                      (become rd-len-beh)
+                      (self-call :check-incoming))))
+
+          len          (length len-buf)
+          gather-actor (make-actor rd-len-beh)
+          (actor-user-fn reader)
+          (um:dlambda
+            (actors/internal-message/network:rd-incoming (frag)
+                  (finger-tree:addq queue frag)
+                  (send gather-actor :check-incoming))
+            (actors/internal-message/network:rd-error ()
+                  (become-null-monitor :rd-actor)))
+          )))
+#||#
+
+;; -------------------------------------------------------------------------
+#|
 (define-actor-class message-reader ()
   ((crypto     :initarg :crypto)
    (dispatcher :initarg :dispatcher)
-   (queue      :initform (make-queue))
+   (queue      :initform (finger-tree:make-shared-queue))
    (len-buf    :initform (make-u8-vector 4))
    (hmac-buf   :initform (make-u8-vector 32))))
 
@@ -215,7 +283,8 @@
                   (t
                    (recv ()
                      (actors/internal-message/network:rd-incoming (frag)
-                        (add-queue queue frag)
+                        ;; (add-queue queue frag)
+                        (finger-tree:addq queue frag)
                         (rd-wait pos))
                      
                      (actors/internal-message/network:rd-error ()
@@ -243,7 +312,7 @@
                       (read-next-message))
                     ))
                 ))))))))
-
+|#
 ;; -------------------------------------------------------------------------
 
 (define-actor-class message-writer ()
@@ -466,6 +535,12 @@
            (apply handler msg))
          ))))
 
+(defmethod prio-socket-send ((intf socket-interface) &rest msg)
+  (with-slots (crypto writer kill-timer) intf
+    (inject-into-actor intf
+      (resched kill-timer)
+      (write-message writer (secure-encoding crypto msg)))))
+
 (defmethod socket-send ((intf socket-interface) &rest msg)
   (with-slots (crypto writer kill-timer) intf
     (perform-in-actor intf
@@ -542,45 +617,49 @@
           (#-:USING-ECC-CRYPTO
            (start-phase2-rsa (cont p-key g-key salt bb)
              ;; Called by server in response to request for crypto negotiation
-             (socket-send intf 'actors/internal-message/security:srp-phase2-rsa p-key g-key salt bb)
-             (expect intf
-               (actors/internal-message/security:srp-phase2-reply (aa m1)
-                  (funcall cont aa m1))
-               ))
+             (inject-into-actor intf
+               (prio-socket-send intf 'actors/internal-message/security:srp-phase2-rsa p-key g-key salt bb)
+               (expect intf
+                 (actors/internal-message/security:srp-phase2-reply (aa m1)
+                    (funcall cont aa m1))
+                 )))
 
            #+:USING-ECC-CRYPTO
            (start-phase2-ecc (cont bb)
              ;; Called by server in response to request for crypto negotiation
-             (socket-send intf 'actors/internal-message/security:srp-phase2-ecc bb)
-             (expect intf
-               (actors/internal-message/security:srp-phase2-reply (aa m1)
+             (inject-into-actor intf
+               (prio-socket-send intf 'actors/internal-message/security:srp-phase2-ecc bb)
+               (expect intf
+                 (actors/internal-message/security:srp-phase2-reply (aa m1)
                                                         (funcall cont aa m1))
-               ))
+                 )))
 
            (phase2-reply (cont aa m1)
              ;; Called by client after receiving server ack on crypto renegotiation
-             (socket-send intf 'actors/internal-message/security:srp-phase2-reply aa m1)
-             (expect intf
-               (actors/internal-message/security:srp-phase3 (m2)
+             (inject-into-actor intf
+               (prio-socket-send intf 'actors/internal-message/security:srp-phase2-reply aa m1)
+               (expect intf
+                 (actors/internal-message/security:srp-phase3 (m2)
                   (funcall cont m2))
-               ))
+                 )))
            
            (start-phase3 (m2 final-fn)
              ;; sent by server as last message sent under old crypto during crypto negotiation
              ;; encrypt, set new crypto, then send - to avoid race conditions
-             (let ((enc (secure-encoding crypto `(actors/internal-message/security:srp-phase3 ,m2))))
-               ;; init new crypto for incoming messages
-               (funcall final-fn)
-               ;; send old-encr message
-               (write-message writer enc))))
+             (inject-into-actor intf
+               (let ((enc (secure-encoding crypto `(actors/internal-message/security:srp-phase3 ,m2))))
+                 ;; init new crypto for incoming messages
+                 (funcall final-fn)
+                 ;; send old-encr message
+                 (write-message writer enc)))))
         
         #+:USING-ECC-CRYPTO
-        (setf srp-ph2-begin-ecc (=cont #'start-phase2-ecc))
+        (setf srp-ph2-begin-ecc #'start-phase2-ecc)
         #-:USING-ECC-CRYPTO
-        (setf srp-ph2-begin-rsa (=cont #'start-phase2-rsa))
+        (setf srp-ph2-begin-rsa #'start-phase2-rsa)
         
-        (setf srp-ph2-reply     (=cont #'phase2-reply)
-              srp-ph3-begin     (=cont #'start-phase3)
+        (setf srp-ph2-reply     #'phase2-reply
+              srp-ph3-begin     #'start-phase3
               kill-timer        (make-instance 'kill-timer
                                                :timer-fn #'(lambda ()
                                                              (mp:funcall-async
