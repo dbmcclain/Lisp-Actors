@@ -891,17 +891,17 @@ indicated port number."
 (let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))
 
   (lw:define-action "Initialize LispWorks Tools"
-                    "Start up Actor Server"
+                    "Start up StActor Server"
                     'lw-start-tcp-server
                     :after "Run the environment start up functions"
                     :once)
 
   (lw:define-action "Save Session Before"
-                    "Reset Actors"
+                    "Reset StActors"
                     'lw-reset-actor-system)
 
   (lw:define-action "Save Session After"
-                    "Restart Actor System"
+                    "Restart StActor System"
                     'lw-start-tcp-server)
   )
 
@@ -911,11 +911,9 @@ indicated port number."
 #|
 (make-remote-actor "eval@rincon.local"
                    :register :rincon-eval)
-(ensure-system-logger)
 (register-actor :listener
                 (make-actor (lambda (&rest msg)
                               (log-info :system-log "Listener: ~S" msg))))
-(reset-global-state)
 (stac:start)
 (send :rincon-eval `(send ,(make-proxy :service :listener) :hello-from (machine-instance)))
 (send :eval `(send ,(make-proxy :service :listener) :hello-from (machine-instance)))
