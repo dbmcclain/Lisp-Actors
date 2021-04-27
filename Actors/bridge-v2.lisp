@@ -244,9 +244,7 @@
      
      (:get-intf (dest-ip dest-port reply-to)
       ;; no interface found - try to connect and create a new interface
-      (with-worker ()
-        ;; spawned since there may be significant delay
-        (send reply-to (open-connection dest-ip dest-port))))
+      (open-connection reply-to dest-ip dest-port))
      ))
 
 (defvar *intf-map*

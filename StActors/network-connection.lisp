@@ -362,7 +362,7 @@
         #-:USING-ECC-CRYPTO
         (actors/internal-message/security:srp-node-id-rsa (node-id)
            ;; Client is requesting security negotiation
-           (with-worker ()
+           (inject-into-actor intf ;; with-worker ()
              (handler-bind ((error (lambda (c)
                                      ;; if any negotiation errors we shut down immediately
                                      (declare (ignore c))
@@ -374,7 +374,7 @@
         #+:USING-ECC-CRYPTO
         (actors/internal-message/security:srp-node-id-ecc (node-id)
            ;; Client is requesting security negotiation
-           (with-worker ()
+           (inject-into-actor intf ;; with-worker ()
              (handler-bind ((error (lambda (c)
                                      ;; if any negotiation errors we shut down immediately
                                      (declare (ignore c))
@@ -485,6 +485,9 @@
          (funcall cont bb))
       )))
 
+(defun =contx (x)
+  x)
+
 (defmethod initialize-instance :after ((intf socket-interface) &key &allow-other-keys)
   (with-slots (title
                io-state
@@ -502,45 +505,49 @@
           (#-:USING-ECC-CRYPTO
            (start-phase2-rsa (cont p-key g-key salt bb)
              ;; Called by server in response to request for crypto negotiation
+             (progn ;; inject-into-actor intf
              (prio-socket-send intf 'actors/internal-message/security:srp-phase2-rsa p-key g-key salt bb)
              (expect intf
                (actors/internal-message/security:srp-phase2-reply (aa m1)
                   (funcall cont aa m1))
-               ))
+               )))
 
            #+:USING-ECC-CRYPTO
            (start-phase2-ecc (cont bb)
              ;; Called by server in response to request for crypto negotiation
+             (progn ;; inject-into-actor intf
              (prio-socket-send intf 'actors/internal-message/security:srp-phase2-ecc bb)
              (expect intf
                (actors/internal-message/security:srp-phase2-reply (aa m1)
                                                                     (funcall cont aa m1))
-               ))
+               )))
 
            (phase2-reply (cont aa m1)
              ;; Called by client after receiving server ack on crypto renegotiation
+             (progn ;; inject-into-actor intf
              (prio-socket-send intf 'actors/internal-message/security:srp-phase2-reply aa m1)
              (expect intf
                (actors/internal-message/security:srp-phase3 (m2)
                                                               (funcall cont m2))
-               ))
+               )))
            
            (start-phase3 (m2 final-fn)
              ;; sent by server as last message sent under old crypto during crypto negotiation
              ;; encrypt, set new crypto, then send - to avoid race conditions
+             (progn ;; inject-into-actor intf
              (let ((enc (secure-encoding crypto `(actors/internal-message/security:srp-phase3 ,m2))))
                ;; init new crypto for incoming messages
                (funcall final-fn)
                ;; send old-encr message
-               (write-message writer enc))))
+               (write-message writer enc)))))
         
         #+:USING-ECC-CRYPTO
-        (setf srp-ph2-begin-ecc (=cont #'start-phase2-ecc))
+        (setf srp-ph2-begin-ecc (=contx #'start-phase2-ecc))
         #-:USING-ECC-CRYPTO
-        (setf srp-ph2-begin-rsa (=cont #'start-phase2-rsa))
+        (setf srp-ph2-begin-rsa (=contx #'start-phase2-rsa))
         
-        (setf srp-ph2-reply     (=cont #'phase2-reply)
-              srp-ph3-begin     (=cont #'start-phase3)
+        (setf srp-ph2-reply     (=contx #'phase2-reply)
+              srp-ph3-begin     (=contx #'start-phase3)
               kill-timer        (make-instance 'kill-timer
                                                :timer-fn #'(lambda ()
                                                              (mp:funcall-async
@@ -686,6 +693,7 @@
                                          :title    "Client"
                                          :io-state io-state
                                          :crypto   crypto)))
+            (inject-into-actor intf
             (handler-bind ((error (lambda (c)
                                     ;; if any negotiation errors we shut down immediately
                                     (declare (ignore c))
@@ -697,14 +705,14 @@
                   #+:USING-ECC-CRYPTO (client-negotiate-security-ecc crypto intf =bind-cont)
                   ;; #-:USING-ECC-CRYPTO (client-negotiate-security-rsa crypto intf =bind-cont)
                   ;; (=values)
-                (socket-send intf 'actors/internal-message/network:client-info (machine-instance))
+                (prio-socket-send intf 'actors/internal-message/network:client-info (machine-instance))
                 (expect intf
                   (actors/internal-message/network:server-info (server-node)
                           (bridge-register server-node intf)
                           (bridge-register ip-addr intf)
                           (log-info :SYSTEM-LOG "Socket client starting up: ~A" intf)
                           (send reply-to intf)))
-                )))
+                ))))
       ;; else
       (error "Can't connect to: ~A" ip-addr))))
 

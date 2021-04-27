@@ -106,7 +106,7 @@
   (or (gethash mach-id *member-tbl*)
       (error 'no-member-info :node-id mach-id)))
 
-(defmethod client-negotiate-security-ecc ((crypto crypto) intf)
+(defmethod client-negotiate-security-ecc ((crypto crypto) intf &optional cont)
   ;; No second chances - any error shuts down the connection
   ;; immediately.
   (let* ((node-id (machine-instance))
@@ -114,10 +114,8 @@
     ;;
     ;; Phase-I: send local node ID
     ;;
-    (=wait ((bbc)
-            :timeout 10
-            :errorp  t)
-        (client-request-negotiation-ecc intf =wait-cont node-id)
+    (=bind (bbc)
+        (client-request-negotiation-ecc intf =bind-cont node-id)
       ;;
       ;; Phase-II: receive B                  -- a random compressed ECC point on Curve1174
       ;;
@@ -162,10 +160,8 @@
                         (values aac sc m1))
                       ))
                   ))
-            (=wait ((m2)
-                    :timeout 5
-                    :errorp  t)
-                (funcall (intf-srp-ph2-reply intf) =wait-cont aac m1)
+            (=bind (m2)
+                (funcall (intf-srp-ph2-reply intf) =bind-cont aac m1)
               ;;
               ;; Phase 3: receive M2 -- a Hash/256
               ;;
@@ -193,6 +189,8 @@
                 (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
                 (init-crypto-for-output crypto key-out (subseq my-initv  0 16))
                 (init-crypto-for-renegotiation crypto (vec sc))
+                (when cont
+                  (funcall cont))
                 ))
             ))))
     ))
@@ -221,10 +219,8 @@
       (let ((bbc (ed-compress-pt
                   (ed-add bb
                           (ed-mul gxc *k*)))))
-        (=wait ((aac m1)
-                :timeout 5
-                :errorp  t)
-            (funcall (intf-srp-ph2-begin-ecc intf) =wait-cont bbc)
+        (=bind (aac m1)
+            (funcall (intf-srp-ph2-begin-ecc intf) =bind-cont bbc)
           ;;
           ;; Phase III: Receive A,M1 -- A as compressed point, M1 as Hash/256
           ;;
