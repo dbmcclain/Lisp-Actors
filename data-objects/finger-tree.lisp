@@ -475,6 +475,14 @@
                          (join (UD ft-front) ft))
           ))
 
+(defmethod prependq ((ft-front UE) (ft-back UE))
+  ;; we modify the shared back
+  ;;
+  ;; Typically used to filter a shared queue, front-to-back,
+  ;; appending elements into an unshared queue, then rejoining the
+  ;; new front with the remains of the shared queue as the back.
+  (setf (UD ft-back) (join (UD ft-front) (UD ft-back))))
+
 #|
   ;; This vector version of Finger Trees runs aboutr 10x faster than the
   ;; closure based version in mach-finger-tree.lisp.

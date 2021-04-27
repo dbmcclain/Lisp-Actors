@@ -126,7 +126,7 @@ THE SOFTWARE.
 
 (defvar *event-lock*   (mp:make-lock))
 (defvar *event-signal* (mp:make-condition-variable))
-(defvar *event-queue*  (finger-tree:make-shared-queue))
+(defvar *event-queue*  (finger-tree:make-unshared-queue))
 
 (defvar *run-thread* nil)
 
