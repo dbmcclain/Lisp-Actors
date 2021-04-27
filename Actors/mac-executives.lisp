@@ -173,7 +173,7 @@
 
   (:method :before ((actor actor))
    ;; prevent it from doing anything more, even if already running
-   (setf (sys:globally-accessible (actor-user-fn actor)) 'lw:do-nothing))
+   (setf (sys:globally-accessible (actor-beh actor)) 'lw:do-nothing))
 
   (:method :before ((worker worker))
    ;; prevent it from doing its job if not already running

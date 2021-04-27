@@ -130,11 +130,9 @@
      (:prune (prev)
       (respond-to-prune prev))
 
-     (:find-and-remove (usti reply-to)
-      ;; Called by FIND-ACTOR.
-      ;; End of line response - nil
-      (declare (ignore usti))
-      (send reply-to nil))
+     (:deliver-message (a-usti if-cant-send-fn &rest msg)
+      (declare (ignore a-usti msg))
+      (funcall if-cant-send-fn))
      ))
 
 (defparameter *cont-gateway*
@@ -185,14 +183,14 @@
               (repeat-send next)
               (check-purge))
              ))
-      
-      (:find-and-remove (a-usti reply-to)
-       ;; Called by FIND-ACTOR
-       ;; If we match the USTI, send it along to reply-to and remove
-       ;; ourselves. Mappings are one-time use only.
+
+      (:deliver-message (a-usti if-cant-sent-fn &rest msg)
        (cond ((uuid:uuid= a-usti usti)
               (detach-myself next)
-              (send reply-to (aref contv 0)))
+              (handler-case
+                  (apply #'send (aref contv 0) msg)
+                (error ()
+                  (funcall if-cant-send-fn))))
              (t
               (repeat-send next)
               (check-purge))
@@ -356,6 +354,21 @@
     (apply #'forward-query handler service =bind-cont msg)
     ))
 
+(defmethod bridge-deliver-message ((dest proxy) if-cant-send-fn &rest msg)
+  ;; a message arrived from across the network. try to dispatch.
+  (if (string-equal (machine-instance) (proxy-ip dest))
+      (apply #'bridge-deliver-message (proxy-service dest) if-cant-send-fn msg)
+    (apply #'bridge-forward-message dest msg)))
+
+(defmethod bridge-deliver-message ((dest uuid:uuid) if-cant-send-fn &rest msg)
+  (apply #'send *cont-map* :deliver-message dest if-cant-send-fn msg))
+
+(defmethod bridge-deliver-message (dest if-cant-send-fn &rest msg)
+  (handler-case
+      (apply #'send dest msg)
+    (error ()
+      (funcall if-cant-send-fn))))
+
 ;; -----------------------------------------------------------------------
 ;; Default services: ECHO and EVAL
 
@@ -485,14 +498,6 @@
 (defun usti (obj)
   (make-proxy
    :service (create-and-add-usti obj)))
-
-(defmethod find-actor ((usti uuid:uuid) &key directory)
-  (declare (ignore directory))
-  (or (when (uuid:one-of-mine? usti)
-        (=wait ((cont))
-            (send *cont-map* :find-and-remove usti =wait-cont)
-          cont))
-      (call-next-method)))
 
 (defmethod find-actor ((proxy proxy) &key directory)
   (if (string-equal (machine-instance) (proxy-ip proxy))

@@ -121,17 +121,17 @@ THE SOFTWARE.
     ;; the Actor's message queue. SMP-safe
     :reader    actor-mailbox
     :initarg   :mailbox)
-  (lock
+   (lock
     :reader actor-lock
     :initform (mp:make-lock :sharing t))
-   (user-fn
+   (behavior
     ;; points to the user code describing the behavior of this Actor.
     ;; This pointer is changed when the Actor performs a BECOME. Only
     ;; the Actor queries this slot so SMP safety not a concern.
-    :accessor  actor-user-fn
-    :initarg   :user-fn))
+    :accessor  actor-beh
+    :initarg   :beh))
   (:default-initargs
-   :user-fn    #'funcall
+   :beh        #'funcall
    :mailbox    (finger-tree:make-shared-queue)
    ))
 
@@ -144,7 +144,7 @@ THE SOFTWARE.
 
 (defun make-actor (&optional fn &key properties)
   (make-instance 'actor
-                 :user-fn    (or fn #'funcall)
+                 :beh        (or fn #'funcall)
                  :properties properties))
 
 #|
@@ -155,7 +155,7 @@ THE SOFTWARE.
                  :mailbox    (make-instance 'limited-actor-mailbox
                                             :queue  (mp:make-mailbox
                                                      :size mailbox-size))
-                 :user-fn    (or behavior #'funcall)
+                 :beh        (or behavior #'funcall)
                  :properties properties))
 |#
 
@@ -232,17 +232,17 @@ THE SOFTWARE.
 ;; only be called from within a currently active Actor.
 
 (defun current-behavior ()
-  (actor-user-fn (current-actor)))
+  (actor-beh (current-actor)))
 
 (defun become (new-fn)
   ;; change behavior, returning old. If an Actor didn't call this, an
   ;; error will result.
-  (shiftf (actor-user-fn (current-actor)) new-fn))
+  (shiftf (actor-beh (current-actor)) new-fn))
 
 (defun self-call (&rest msg)
   ;; send a message to myself, immediate execution. If an Actor didn't
   ;; call this, an error will result.
-  (apply (actor-user-fn (current-actor)) msg))
+  (apply (actor-beh (current-actor)) msg))
 
 (defun self-dispatch (&rest msg)
   ;; send a message to myself, immediate execution. If an Actor didn't

@@ -58,14 +58,14 @@ THE SOFTWARE.
 ;;
 (defun do-recv (conds-fn timeout-fn timeout)
   (let ((dyn-env (um:capture-dynamic-environment))
-        user-fn
+        prev-beh
         (msg-queue (finger-tree:make-unshared-queue))
         timer)
     (labels
         ((restore-actor ()
            (when timer
              (mp:unschedule-timer timer))
-           (become user-fn)
+           (become prev-beh)
            (finger-tree:prependq msg-queue
                                  (actor-mailbox (current-actor))))
 
@@ -89,7 +89,7 @@ THE SOFTWARE.
            (setf timer nil)
            (process-message timeout-fn)))
       
-      (setf user-fn (become #'filter-message)) ;; save prior handler
+      (setf prev-beh (become #'filter-message)) ;; save prior handler
       (when timeout
         (setf timer (do-schedule-after timeout #'handle-timeout)))
       (signal 'no-immediate-answer)

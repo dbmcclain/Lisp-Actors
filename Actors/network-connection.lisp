@@ -84,42 +84,6 @@
 ;; -------------------------------------------------------------
 ;; Channel Handler
 ;; ----------------------------------------------------------------
-#|
-(defstruct queue
-  ;; queue is used to store incoming network fragments that will be
-  ;; reassembled by EXTRACT-BYTES
-  hd tl)
-
-(defun push-queue (queue item)
-  ;; push a fragment back onto the front of the queue
-  (let* ((cell     (queue-hd queue))
-         (new-cell (cons item cell)))
-    (setf (queue-hd queue) new-cell)
-    (unless cell
-      (setf (queue-tl queue) new-cell))
-    ))
-
-(defun add-queue (queue item)
-  ;; add fragment to tail of queue
-  (let ((cell     (queue-tl queue))
-        (new-cell (list item)))
-    (if cell
-        (setf (queue-tl queue)
-              (setf (cdr cell) new-cell))
-      ;; else
-      (setf (queue-hd queue)
-            (setf (queue-tl queue) new-cell))
-      )))
-
-(defun pop-queue (queue)
-  ;; get next fragment in FIFO order
-  (let ((cell (queue-hd queue)))
-    (when cell
-      (setf (queue-hd queue) (cdr cell))
-      (when (eq cell (queue-tl queue))
-          (setf (queue-tl queue) nil)))
-    (values (car cell) cell)))
-|#
 
 (defun extract-bytes (queue buf start end)
   ;; extract fragments as needed to fill a buffer
@@ -194,7 +158,6 @@
 
 ;; -------------------------------------------------------------------------
 
-#||#
 (define-actor-class message-reader ()
   ())
 
@@ -203,61 +166,51 @@
   (let ((queue        (finger-tree:make-shared-queue))
         (len-buf      (make-u8-vector 4))
         (hmac-buf     (make-u8-vector 32))
-        (gather-actor nil)
         (len          0)
         (pos          0)
         (enc-buf      nil)
         (ndata        nil)
-        (rd-len-beh   nil)
-        (rd-data-beh  nil)
-        (rd-hmac-beh  nil))
-    (setf rd-len-beh
-          (um:dlambda
-            (:check-incoming ()
-                  (setf pos (extract-bytes queue len-buf pos len))
-                  (when (= pos len)
-                    (setf pos   0
-                          ndata (convert-vector-to-integer len-buf))
-                    (when (> ndata +MAX-FRAGMENT-SIZE+)
+        (statefn      nil))
+    (macrolet ((check ()
+                 `(funcall statefn))
+               (state (fn)
+                 `(progn
+                    (setf statefn #',fn
+                          pos     0)
+                    (check))))
+      (labels
+          ((rd-len ()
+             (setf pos (extract-bytes queue len-buf pos len))
+             (when (= pos len)
+               (setf ndata (convert-vector-to-integer len-buf))
+               (cond ((> ndata +MAX-FRAGMENT-SIZE+)
                       ;; and we are done... just hang up.
-                      (handle-message dispatcher '(actors/internal-message/network:discard))
-                      (become-null-monitor :rd-actor))
+                      (handle-message dispatcher '(actors/internal-message/network:discard)))
+                     (t
                       (setf enc-buf (make-u8-vector ndata))
-                    (become rd-data-beh)
-                    (self-call :check-incoming))))
-            
-          rd-data-beh
-          (um:dlambda
-            (:check-incoming ()
-                  (setf pos (extract-bytes queue enc-buf pos ndata))
-                  (when (= pos ndata)
-                    (setf pos 0
-                          len (length hmac-buf))
-                    (become rd-hmac-beh)
-                    (self-call :check-incoming))))
-
-          rd-hmac-beh
-          (um:dlambda
-            (:check-incoming ()
-                  (setf pos (extract-bytes queue hmac-buf pos len))
-                  (when (= pos len)
-                      (handle-message dispatcher (secure-decoding crypto ndata len-buf enc-buf hmac-buf))
-                      (setf pos 0
-                            len (length len-buf))
-                      (become rd-len-beh)
-                      (self-call :check-incoming))))
-
-          len          (length len-buf)
-          gather-actor (make-actor rd-len-beh)
-          (actor-user-fn reader)
-          (um:dlambda
-            (actors/internal-message/network:rd-incoming (frag)
+                      (state rd-data))
+                     )))
+           (rd-data ()
+             (setf pos (extract-bytes queue enc-buf pos ndata))
+             (when (= pos ndata)
+               (setf len (length hmac-buf))
+               (state rd-hmac)))
+           (rd-hmac ()
+             (setf pos (extract-bytes queue hmac-buf pos len))
+             (when (= pos len)
+               (handle-message dispatcher (secure-decoding crypto ndata len-buf enc-buf hmac-buf))
+               (setf len (length len-buf))
+               (state rd-len))))
+        (setf len     (length len-buf)
+              statefn #'rd-len
+              (actor-beh reader)
+              (um:dlambda
+                (actors/internal-message/network:rd-incoming (frag)
                   (finger-tree:addq queue frag)
-                  (send gather-actor :check-incoming))
-            (actors/internal-message/network:rd-error ()
+                  (check))
+                (actors/internal-message/network:rd-error ()
                   (become-null-monitor :rd-actor)))
-          )))
-#||#
+              )))))
 
 ;; -------------------------------------------------------------------------
 #|
@@ -470,9 +423,16 @@
         (actors/internal-message/bridge:forwarding-send (service &rest msg)
            ;; the bridge from the other end has forwarded a message to
            ;; an actor on this side
+           (=bind ()
+               (apply #'bridge-deliver-message service =bind-cont msg)
+             (socket-send intf 'actors/internal-message/bridge:no-service
+                          service (machine-instance)))
+           #|
            (if-let (actor (find-actor service))
                (apply 'send actor msg)
-             (socket-send intf 'actors/internal-message/bridge:no-service service (machine-instance))))
+             (socket-send intf 'actors/internal-message/bridge:no-service service (machine-instance)))
+           |#
+           )
 
         (actors/internal-message/bridge:no-service (service node)
            ;; sent to us from the other end on our send to

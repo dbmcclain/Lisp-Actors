@@ -123,8 +123,8 @@ storage and network transmission.
    (path       :initarg  :path)
    sync)
   (:default-initargs
-   :path    (default-database-pathname)
-   :user-fn (make-remote-api)
+   :path  (default-database-pathname)
+   :beh   (make-remote-api)
    ))
 
 (defmethod initialize-instance :after ((server stkv-server) &key &allow-other-keys)

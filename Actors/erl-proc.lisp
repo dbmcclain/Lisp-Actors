@@ -106,7 +106,7 @@ How useful is this?
             links))
     (prog1
         (setf proc (make-instance 'process
-                                  :user-fn    (or fn #'funcall)
+                                  :beh       (or fn #'funcall)
                                   :properties properties
                                   :trap-exits trap-exits
                                   :links      links

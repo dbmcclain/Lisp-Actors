@@ -61,7 +61,7 @@ THE SOFTWARE.
    #:actor
    #:actor-properties-ref
    #:actor-mailbox
-   #:actor-user-fn
+   #:actor-beh
    #:make-actor
    #:make-limited-actor
    #:make-remote-actor
