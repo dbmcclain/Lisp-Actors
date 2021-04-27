@@ -123,7 +123,7 @@ THE SOFTWARE.
     :initarg   :mailbox)
    (lock
     :reader actor-lock
-    :initform (mp:make-lock :sharing t))
+    :initform (mp:make-lock))
    (behavior
     ;; points to the user code describing the behavior of this Actor.
     ;; This pointer is changed when the Actor performs a BECOME. Only
@@ -132,7 +132,7 @@ THE SOFTWARE.
     :initarg   :beh))
   (:default-initargs
    :beh        #'funcall
-   :mailbox    (finger-tree:make-shared-queue)
+   :mailbox    (finger-tree:make-unshared-queue)
    ))
 
 ;; -----------------------------------------------------
@@ -207,23 +207,26 @@ THE SOFTWARE.
   (:method ((*current-actor* actor))
    ;; An Actor loops on sent messages until no more are pending for
    ;; it.
-   (let ((mbox  (actor-mailbox *current-actor*))
-         (busy  (actor-busy *current-actor*)))
+   (let ((mbox  (actor-mailbox self))
+         (busy  (actor-busy self))
+         (lock  (actor-lock self)))
      (symbol-macrolet ((not-terminated? (eq t (car busy))))
        (unwind-protect
            (tagbody
             again
             (when not-terminated?
-              (multiple-value-bind (msg ok) (finger-tree:popq mbox)
+              (multiple-value-bind (msg ok)
+                  (mp:with-lock (lock)
+                    (finger-tree:popq mbox))
                 (when ok
                   (apply #'dispatch-message *current-actor* msg)
                   (go again))
                 )))
          (when not-terminated?
-           (mp:with-exclusive-lock ((actor-lock *current-actor*))
+           (mp:with-lock (lock)
              (if (finger-tree:is-empty? mbox)
-                 (retire *current-actor*)
-               (add-to-ready-queue *current-actor*))
+                 (retire self)
+               (add-to-ready-queue self))
              ))
          )))))
 
@@ -382,7 +385,7 @@ THE SOFTWARE.
 ;; Sends directed to mailboxes, functions, etc.
 
 (defmethod send ((actor actor) &rest msg)
-  (mp:with-sharing-lock ((actor-lock actor))
+  (mp:with-lock ((actor-lock actor))
     (finger-tree:addq (actor-mailbox actor) msg)
     (when (was-retired? actor)
       (add-to-ready-queue actor)))
