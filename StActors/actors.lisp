@@ -130,6 +130,13 @@ THE SOFTWARE.
 
 (defvar *run-thread* nil)
 
+(defvar *whole-message* nil)
+
+(declaim (inline whole-message))
+
+(defun whole-message ()
+  *whole-message*)
+
 (defun get-next-event ()
   (mp:with-lock (*event-lock*)
     (when (finger-tree:is-empty? *event-queue*)
@@ -145,10 +152,10 @@ THE SOFTWARE.
            (lambda ()
              (unwind-protect
                  (loop
-                  (destructuring-bind (*self* . message)
+                  (destructuring-bind (*self* . *whole-message*)
                       (get-next-event)
                     (with-simple-restart (abort "Process next event")
-                      (apply #'dispatch-message self message))
+                      (apply #'dispatch-message self *whole-message*))
                     ))
                (setf *run-thread* nil)))
            ))))
@@ -176,29 +183,19 @@ THE SOFTWARE.
   ;; call this, an error will result.
   (apply #'dispatch-message self msg))
 
-;; ---------------------------------------------------------
-;; ASK Infrastructure...
-
-(defvar *whole-message* nil)
-
-(declaim (inline whole-message))
-
-(defun whole-message ()
-  *whole-message*)
-
 (defun repeat-send (dest)
   (apply #'send dest *whole-message*))
 
 ;; ---------------------------------------------------------
 ;; Central Actor message handling
 
-(defun dispatch-message (actor &rest *whole-message*)
+(defun dispatch-message (actor &rest message)
   (with-trampoline
-    (if-let (handler (apply #'get-message-dispatch-handler actor *whole-message*))
+    (if-let (handler (apply #'get-message-dispatch-handler actor message))
         (funcall handler)
       ;; else - anything else is up to the programmer who constructed
       ;; this Actor, and possibly redirected by BECOME
-      (apply #'self-call *whole-message*))
+      (apply #'self-call message))
     ))
 
 (defmethod get-message-dispatch-handler ((actor actor) &rest msg)
