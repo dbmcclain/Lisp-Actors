@@ -61,6 +61,7 @@ THE SOFTWARE.
    #:actor
    #:actor-properties-ref
    #:actor-mailbox
+   #:actor-affinity
    #:actor-beh
    #:make-actor
    #:make-limited-actor
@@ -378,6 +379,7 @@ THE SOFTWARE.
    #:%run-actor
    #:assemble-ask-message
    #:no-immediate-answer
+   #:prepend-events
    ))
 
 (defpackage #:stactors/rwgate

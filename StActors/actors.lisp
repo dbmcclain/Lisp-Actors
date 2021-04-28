@@ -51,6 +51,74 @@ THE SOFTWARE.
 (define-symbol-macro self     *self*)
 (define-symbol-macro self-beh (actor-beh self))
 
+(define-condition no-immediate-answer ()
+  ())
+
+;; ----------------------------------------------------------------
+;; Toplevel Actor / Worker behavior
+
+(defvar *nbr-execs*     (um:ceiling-pwr2 8))
+(defvar *event-queues*)
+(defvar *event-queue*)
+(defvar *run-threads*   nil)
+(defvar *affinity*      0)
+(defvar *whole-message* nil)
+(defvar *mailboxes*)
+(defvar *mailbox*)
+
+(declaim (inline whole-message))
+
+(defun whole-message ()
+  *whole-message*)
+
+(defun get-next-event ()
+  (or (finger-tree:popq *event-queue*)
+      (mp:mailbox-read *mailbox*)))
+
+(defun run (affinity)
+  (let ((next-affinity (logand (1+ affinity) (1- *nbr-execs*)))
+        (mailbox       (aref *mailboxes* affinity))
+        (queue         (aref *event-queues* affinity)))
+    (mp:process-run-function
+     (format nil "MicroActor Run ~D" affinity)
+     ()
+     (lambda (affinity *affinity* *event-queue* *mailbox*)
+       (loop
+        (let* ((pair            (get-next-event))
+               (*self*          (car pair))
+               (*whole-message* (cdr pair)))
+          (declare (cons pair))
+          (with-simple-restart (abort "Process next event")
+            (apply #'dispatch-message self *whole-message*))
+          )))
+     affinity
+     next-affinity
+     queue
+     mailbox)))
+
+(defun prepend-events (events)
+  (finger-tree:prependq events *event-queue*))
+
+(defun terminate-actors ()
+  (let ((threads (shiftf *run-threads* nil)))
+    (when threads
+      (loop for exec across threads do
+            (mp:process-terminate exec)))))
+#|
+(terminate-actors)
+|#
+
+(defun startup-actors ()
+  (terminate-actors)
+  (setf *event-queues* (make-array *nbr-execs*)
+        *run-threads*  (make-array *nbr-execs*)
+        *mailboxes*    (make-array *nbr-execs*))
+  (dotimes (ix *nbr-execs*)
+    (setf (aref *event-queues* ix) (finger-tree:make-unshared-queue)
+          (aref *mailboxes*    ix) (mp:make-mailbox)
+          (aref *run-threads*  ix) (run ix))))
+(startup-actors)
+
 ;; -----------------------------------------------------
 ;; Version 3... make the Actor's internal state more readily visible
 ;; to debuggers. Use a CLOS object instead of closed over lambda vars.
@@ -84,6 +152,9 @@ THE SOFTWARE.
     ;; provided for getting / setting
     :reader    actor-properties
     :initform  (maps:make-shared-map))
+   (affinity
+    :reader    actor-affinity
+    :initform  (random *nbr-execs*))
    (behavior
     ;; points to the user code describing the behavior of this Actor.
     ;; This pointer is changed when the Actor performs a BECOME. Only
@@ -120,49 +191,6 @@ THE SOFTWARE.
 
 (defmethod remove-property ((actor actor) key)
   (maps:remove (actor-properties actor) key))
-
-;; ----------------------------------------------------------------
-;; Toplevel Actor / Worker behavior
-
-(defvar *event-lock*   (mp:make-lock))
-(defvar *event-signal* (mp:make-condition-variable))
-(defvar *event-queue*  (finger-tree:make-unshared-queue))
-
-(defvar *run-thread* nil)
-
-(defvar *whole-message* nil)
-
-(declaim (inline whole-message))
-
-(defun whole-message ()
-  *whole-message*)
-
-(defun get-next-event ()
-  (mp:with-lock (*event-lock*)
-    (when (finger-tree:is-empty? *event-queue*)
-      (mp:condition-variable-wait *event-signal* *event-lock*))
-    (finger-tree:popq *event-queue*)))
-
-(defun run ()
-  (when (sys:compare-and-swap *run-thread* nil t)
-    (setf *run-thread*
-          (mp:process-run-function
-           "MicroActor Run"
-           ()
-           (lambda ()
-             (unwind-protect
-                 (loop
-                  (destructuring-bind (*self* . *whole-message*)
-                      (get-next-event)
-                    (with-simple-restart (abort "Process next event")
-                      (apply #'dispatch-message self *whole-message*))
-                    ))
-               (setf *run-thread* nil)))
-           ))))
-(run)
-
-(define-condition no-immediate-answer ()
-  ())
 
 ;; -----------------------------------------------
 ;; Since these methods are called against self they can
@@ -250,9 +278,14 @@ THE SOFTWARE.
 ;; Sends directed to mailboxes, functions, etc.
 
 (defmethod send ((actor actor) &rest msg)
-  (mp:with-lock (*event-lock*)
-    (finger-tree:addq *event-queue* (cons actor msg))
-    (mp:condition-variable-signal *event-signal*)))
+  (let* ((affinity (actor-affinity actor))
+         (queue    (aref *event-queues* affinity))
+         (proc     (aref *run-threads* affinity)))
+    (cond ((eq mp:*current-process* proc)
+           (finger-tree:addq queue (cons actor msg)))
+          (t
+           (mp:mailbox-send (aref *mailboxes* affinity) (cons actor msg)))
+          )))
   
 (defmethod send ((mbox mp:mailbox) &rest message)
   (mp:mailbox-send mbox message))

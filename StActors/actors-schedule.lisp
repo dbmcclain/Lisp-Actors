@@ -66,8 +66,7 @@ THE SOFTWARE.
            (when timer
              (mp:unschedule-timer timer))
            (become prev-beh)
-           (finger-tree:prependq msg-queue
-                                 stactors/base::*event-queue*))
+           (prepend-events msg-queue))
 
          (process-message (fn)
            (restore-actor)

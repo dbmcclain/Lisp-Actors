@@ -913,12 +913,12 @@ indicated port number."
   (lw-start-tcp-server))
 
 #|
+(stac:start)
 (make-remote-actor "eval@rincon.local"
                    :register :rincon-eval)
 (register-actor :listener
                 (make-actor (lambda (&rest msg)
                               (log-info :system-log "Listener: ~S" msg))))
-(stac:start)
 (send :rincon-eval `(send ,(make-proxy :service :listener) :hello-from (machine-instance)))
 (send :eval `(send ,(make-proxy :service :listener) :hello-from (machine-instance)))
 
