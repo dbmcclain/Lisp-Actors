@@ -56,7 +56,8 @@ THE SOFTWARE.
   ;; running in that thread
   *current-actor*)
 
-(define-symbol-macro self (current-actor))
+(define-symbol-macro self     *current-actor*)
+(define-symbol-macro self-beh (actor-beh self))
 
 ;; -----------------------------------------------------
 ;; Version 3... make the Actor's internal state more readily visible
@@ -235,22 +236,22 @@ THE SOFTWARE.
 ;; only be called from within a currently active Actor.
 
 (defun current-behavior ()
-  (actor-beh (current-actor)))
+  self-beh)
 
 (defun become (new-fn)
   ;; change behavior, returning old. If an Actor didn't call this, an
   ;; error will result.
-  (shiftf (actor-beh (current-actor)) new-fn))
+  (shiftf self-beh new-fn))
 
 (defun self-call (&rest msg)
   ;; send a message to myself, immediate execution. If an Actor didn't
   ;; call this, an error will result.
-  (apply (actor-beh (current-actor)) msg))
+  (apply self-beh msg))
 
 (defun self-dispatch (&rest msg)
   ;; send a message to myself, immediate execution. If an Actor didn't
   ;; call this, an error will result.
-  (apply #'dispatch-message (current-actor) msg))
+  (apply #'dispatch-message self msg))
 
 ;; ---------------------------------------------------------
 ;; ASK Infrastructure...

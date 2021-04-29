@@ -68,6 +68,7 @@ THE SOFTWARE.
 
    #:current-behavior
    #:become
+   #:self-beh
    #:self-call
    #:in-ask-p
    #:whole-message

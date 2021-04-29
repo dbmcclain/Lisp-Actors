@@ -112,61 +112,71 @@
 ;; -------------------------------------------
 ;; Bridge Intf/Continuations mapper
 
-(defvar *cont-map*
-  (make-actor 
-   ;; We hold cont objects in a weak vector so that if the cont object
-   ;; disappears, we have a way of knowing to purge the entry for it.
-   (let (tbl)
-     (labels ((check-purge ()
-                (setf tbl (delete-if (lambda (triple)
-                                       (null (aref (second triple) 0)))
-                                     tbl)))
-              (find-usti (usti)
-                (let ((triple (find usti (check-purge)
-                                    :key #'first
-                                    :test #'uuid:uuid=)))
-                  (when triple
-                    (setf tbl (delete triple tbl)))
-                  triple)))
-       (um:dlambda
-         (:attach (a-usti a-cont an-intf)
-          ;; hand off our beh to new next in line,
-          ;; assume response for the new entry
-          (check-purge)
-          (let ((contv (make-array 1
-                                   :initial-element a-cont
-                                   :weak (null an-intf))))
-            (push (list a-usti contv an-intf) tbl)))
-         
-         (:detach (an-intf)
-          ;; called when an interface is retiring
-          ;; remove all continuations registered to that intf
-          (setf tbl (delete an-intf (check-purge)
-                            :key #'third)))
+(defun make-cont-entry (usti cont intf)
+  ;; We hold cont objects in a weak vector so that if the cont object
+  ;; disappears, we have a way of knowing to purge the entry for it.
+  (list usti
+        (make-array 1 :initial-element cont :weak (null intf))
+        intf))
 
-         (:reset ()
-          (setf tbl nil))
+(defun make-empty-cont-beh ()
+  (um:dlambda
+    (:attach (usti cont intf)
+     (become (make-cont-beh (list (make-cont-entry usti cont intf)))))
+
+    (:deliver-message (a-usti if-cant-send-fn &rest msg)
+     (declare (ignore a-usti msg))
+     (ignore-errors
+       (funcall if-cant-send-fn)))
+    ))
+
+(defun make-cont-beh (tbl)
+  (labels ((purge ()
+             (remove nil tbl :key #'(lambda (triple)
+                                      (aref (second triple) 0))))
+           (new-state (new-tbl)
+             (unless (eq tbl new-tbl)
+               (become (if new-tbl
+                           (make-cont-beh new-tbl)
+                         (make-empty-cont-beh)))))
+
+           (find-usti (usti)
+             (let* ((new-tbl (purge))
+                    (triple  (find usti new-tbl :key #'first :test #'uuid:uuid=)))
+               (cond (triple
+                      (new-state (remove triple new-tbl))
+                      (aref (second triple) 0))
+                     
+                     (t
+                      (new-state new-tbl)
+                      nil)
+                     ))))
+    (um:dlambda
+      (:attach (usti cont intf)
+       (become (make-cont-beh (cons (make-cont-entry usti cont intf)
+                                    (purge)))))
+      (:detach (intf)
+       (new-state (remove intf (purge) :key #'third)))
+      
+      (:rest ()
+       (become (make-empty-cont-beh)))
+      
+      (:handle-reply (usti &rest reply)
+       ;; if we match the USTI, perform the continuation with the reply
+       ;; and remove ourselves. Mappings are one-time use.
+       (ignore-errors
+         (apply (find-usti usti) reply)))
          
-         (:handle-reply (a-usti &rest reply)
-          ;; if we match the USTI, perform the continuation with the reply
-          ;; and remove ourselves. Mappings are one-time use.
-          (let ((triple (find-usti a-usti)))
-            (symbol-macrolet ((cont (aref (second triple) 0)))
-              (when triple
-                (ignore-errors
-                  (apply cont reply)))
-              )))
-         
-         (:deliver-message (a-usti if-cant-send-fn &rest msg)
-          (let ((triple (find-usti a-usti)))
-            (symbol-macrolet ((cont (aref (second triple) 0)))
-              (when triple
-                (handler-case
-                    (apply #'send cont msg)
-                  (error ()
-                    (funcall if-cant-send-fn))))
-              )))
-         )))))
+      (:deliver-message (usti if-cant-send-fn &rest msg)
+       (handler-case
+           (apply #'send (find-usti usti) msg)
+         (error ()
+           (ignore-errors
+             (funcall if-cant-send-fn)))
+         ))
+      )))
+    
+(defvar *cont-map* (make-actor (make-empty-cont-beh)))
 
 ;; ------------------------------------------
 
@@ -186,41 +196,59 @@
 ;; -------------------------------------------
 ;; Bridge IP/Intf mapper
 
-(defvar *intf-map*
-  (make-actor
-   (let (tbl)
-     (labels ((find-ip (ip)
-                (assoc ip tbl :test #'same-ip?)))
-       (um:dlambda
-         (:attach (an-ip-addr an-intf)
-          ;; Called by the network interface upon successful connection.
-          ;; There may be multiple ip-addr (strings, keywords, etc) assoc
-          ;; to each intf. But each ip-addr points to only one intf.
-          (let ((pair (find-ip an-ip-addr)))
-            (if pair
-                (setf (cdr pair) an-intf)
-              (setf tbl (acons an-ip-addr an-intf tbl))
-            )))
-         
-         (:detach (an-intf)
-          ;; Called by the network intf when it shuts down
-          ;; NOTE: multiple ip-addr may correspond to one intf
-          (setf tbl (delete an-intf tbl
-                            :key  #'cdr
-                            :test #'eq)))
-         
-         (:reset ()
-          (setf tbl nil))
-         
-         (:call-with-intf (an-ip-addr a-port fwd-fn)
-          ;; Called by SEND on our side to find the network intf to use for
-          ;; message forwarding.  TODO - clean up re ports
-          (let ((pair (find-ip an-ip-addr)))
-            (if pair
-                (funcall fwd-fn (cdr pair))
-              (open-connection fwd-fn an-ip-addr a-port))
-            ))
-         )))))
+(defun make-empty-intf-beh ()
+  (um:dlambda
+    (:attach (ip intf)
+     (become (make-intf-beh (acons ip intf nil) self)))
+
+    (:call-with-intf (ip port fwd-fn)
+     (open-connection fwd-fn ip port))
+    ))
+
+(defun make-intf-beh (tbl next)
+  (labels ((new-state (new-tbl)
+             (unless (eq tbl new-tbl)
+               (if new-tbl
+                   (become (make-intf-beh new-tbl next))
+                 (become (make-empty-intf-beh)))))
+
+           (find-ip (ip)
+             (assoc ip tbl :test #'same-ip?)))
+    
+    (um:dlambda
+      (:attach (ip intf)
+       ;; Called by the network interface upon successful connection.
+       ;; There may be multiple ip-addr (strings, keywords, etc) assoc
+       ;; to each intf. But each ip-addr points to only one intf.
+       (let ((pair (find-ip ip)))
+         (if pair
+             (setf (cdr pair) intf)
+           (setf tbl (acons ip intf tbl))
+           )))
+      
+      (:detach (intf)
+       ;; Called by the network intf when it shuts down
+       ;; NOTE: multiple ip-addr may correspond to one intf
+       (new-state (remove intf tbl
+                          :key  #'cdr
+                          :test #'eq)))
+      
+      (:reset ()
+       (become (make-empty-intf-beh)))
+      
+      (:call-with-intf (ip port fwd-fn)
+       ;; Called by SEND on our side to find the network intf to use for
+       ;; message forwarding.  TODO - clean up re ports
+       (declare (ignore port))
+       (let ((pair (find-ip ip)))
+         (if pair
+             (ignore-errors
+               (funcall fwd-fn (cdr pair)))
+           (repeat-send next))
+         ))
+      )))
+
+(defvar *intf-map* (make-actor (make-empty-intf-beh)))
 
 (defun call-with-valid-ip (service ip port fn)
   ;; Find or create a connection Actor for the IP Addr. If successful,
