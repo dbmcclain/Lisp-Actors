@@ -130,12 +130,6 @@
      (:prune (prev)
       (respond-to-prune prev))
 
-     (:find-and-remove (usti reply-to)
-      ;; Called by FIND-ACTOR.
-      ;; End of line response - nil
-      (declare (ignore usti))
-      (send reply-to nil))
-
      (:deliver-message (a-usti if-cant-send-fn &rest msg)
       (declare (ignore a-usti msg))
       (funcall if-cant-send-fn))
@@ -372,7 +366,9 @@
      )))
 
 (defmethod send ((usti uuid:uuid) &rest message)
-  (apply #'send *cont-map* :deliver-message usti message))
+  (if-let (actor (find-actor usti))
+      (apply #'send actor message)
+    (call-next-method)))
 
 (defmethod send ((proxy proxy) &rest message)
   (if (string-equal (machine-instance) (proxy-ip proxy))
@@ -397,14 +393,6 @@
 (defun usti (obj)
   (make-proxy
    :service (create-and-add-usti obj)))
-
-(defmethod find-actor ((usti uuid:uuid) &key directory)
-  (declare (ignore directory))
-  (or (when (uuid:one-of-mine? usti)
-        (=wait ((cont))
-            (send *cont-map* :find-and-remove usti =wait-cont)
-          cont))
-      (call-next-method)))
 
 (defmethod find-actor ((proxy proxy) &key directory)
   (if (string-equal (machine-instance) (proxy-ip proxy))
