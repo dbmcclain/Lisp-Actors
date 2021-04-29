@@ -135,6 +135,16 @@
 (let* ((actor (ac:make-actor (make-test-beh-ac 1000000 nil))))
   (ac:send actor :start actor))
 
+(defun tstx (n)
+  (labels ((fact (x &optional (ans 1))
+             (if (plusp x)
+                 (fact (1- x) (* x ans))
+               ans)))
+    (let (ans)
+      (loop for ix from 1 to n do
+            (setf ans (* (fact 40) (sin (* pi (/ (ash ix 15) ix)))))))))
+  
+(time (tstx 1000000))
 
 |#
 

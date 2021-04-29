@@ -18,15 +18,16 @@
    (let ((start 0))
      (lambda ()
        (loop
-        (let ((val (mp:process-wait-for-event)))
-          (ac:with-worker ()
-            (princ (format nil "~%Elapsed Time: ~F"
+        (let* ((val (mp:process-wait-for-event))
+               (msg (format nil "~%Elapsed Time: ~F"
                            (- val (shiftf start val)))))
+          (ac:with-worker ()
+            (princ msg))
           ))))
    ))
 
 (defun log-time ()
-  (mp:process-send *stopwatch* (usec:get-time-usec)))
+  (mp:process-send *stopwatch* #|(usec:get-time-usec)|# (get-universal-time)))
 
 (defun make-test-beh (ct &optional prev)
   (let (start)
@@ -46,10 +47,11 @@
          (progn
            (log-time)
            (format t "~%Finshed: ~F" (/ (- (usec:get-time-usec)
-                                           start) ct))))) 
+                                           start) ct 4.0))))) 
       )))
   
-(let ((actor (make-actor (make-test-beh 100000))))
+(let ((actor (make-actor (make-test-beh 100000)))
+      (mbox  (mp:make-mailbox)))
   (send actor :start actor))
 
 (defun make-test-beh-ac (ct &optional prev)
@@ -69,10 +71,10 @@
            (ac:send prev :end)
          (progn
            (log-time)
-           (format t "~%Finshed: ~F" (/ (- (usec:get-time-usec) start) ct)))))
+           (format t "~%Finshed: ~F" (/ (- (usec:get-time-usec) start) 4.0 ct)))))
       )))
 
-(let ((actor (ac:make-actor (make-test-beh-ac 100000))))
+(let ((actor (ac:make-actor (make-test-beh-ac 1000000))))
   (ac:send actor :start actor))
 
 

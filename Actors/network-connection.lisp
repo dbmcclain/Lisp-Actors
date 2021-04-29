@@ -506,7 +506,7 @@
    (io-running :initform (list 1))))
 
 (defmethod do-expect ((intf socket-interface) handler)
-  (perform-in-actor intf
+  (inject-into-actor intf
     (recv ()
       (actors/internal-message/network:incoming-msg (&rest msg)
          (handler-bind ((error (lambda (err)
