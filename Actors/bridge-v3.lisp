@@ -122,9 +122,12 @@
                                        (null (aref (second triple) 0)))
                                      tbl)))
               (find-usti (usti)
-                (find usti (check-purge)
-                      :key #'first
-                      :test #'uuid:uuid=)))
+                (let ((triple (find usti (check-purge)
+                                    :key #'first
+                                    :test #'uuid:uuid=)))
+                  (when triple
+                    (setf tbl (delete triple tbl)))
+                  triple)))
        (um:dlambda
          (:attach (a-usti a-cont an-intf)
           ;; hand off our beh to new next in line,
