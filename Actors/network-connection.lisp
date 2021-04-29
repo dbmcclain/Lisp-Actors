@@ -445,16 +445,11 @@
         (actors/internal-message/bridge:forwarding-send (service &rest msg)
            ;; the bridge from the other end has forwarded a message to
            ;; an actor on this side
-           (=bind ()
-               (apply #'bridge-deliver-message service =bind-cont msg)
-             (socket-send intf 'actors/internal-message/bridge:no-service
-                          service (machine-instance)))
-           #|
-           (if-let (actor (find-actor service))
-               (apply 'send actor msg)
-             (socket-send intf 'actors/internal-message/bridge:no-service service (machine-instance)))
-           |#
-           )
+           (apply #'bridge-deliver-message service
+                  (lambda ()
+                    (socket-send intf 'actors/internal-message/bridge:no-service
+                                 service (machine-instance)))
+                  msg))
 
         (actors/internal-message/bridge:no-service (service node)
            ;; sent to us from the other end on our send to
