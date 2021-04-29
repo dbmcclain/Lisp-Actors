@@ -40,98 +40,130 @@ THE SOFTWARE.
 (in-package #:dlam)
 
 ;; ----------------------------------------------------------------------
-
+#|
 (defun invsel (msg)
   (error "Invalid selector ~A" (car msg)))
+|#
 
-(um:defmacro! dlambda (&rest clauses)
-  `(lambda (&rest ,g!args)
-     (case (car ,g!args)
-       ,@(mapcar
-          (lambda (clause)
-            (let ((sel (car clause)))
-              `(,(if (eq t sel)
-                     t
-                   `(,sel))
-                (apply (lambda* ,@(cdr clause))
-                       ,(if (eq t sel)
-                            g!args
-                          `(cdr ,g!args))) )))
-          clauses)
-       )))
+(defun dlam-parser (gargs)
+  (lambda* (&whole clause (sel args &rest body))
+    (cond ((eq t sel)
+           `(t (apply (lambda* ,args ,@body) ,gargs)))
+          ((eq 'when (car body))
+           `((and (eql ',sel (car ,gargs))
+                  (apply (lambda* ,args ,(second body)) (cdr ,gargs)))
+             (apply (lambda* ,args ,@(cddr body)) (cdr ,gargs))))
+          (t
+           `((eql ',sel (car ,gargs))
+             (apply (lambda* ,args ,@body) (cdr ,gargs))))
+          )))
+
+(defmacro dlambda (&rest clauses)
+  (lw:with-unique-names (args)
+    (let ((parser (dlam-parser args)))
+      `(lambda (&rest ,args)
+         (cond
+          ,@(mapcar parser clauses)))
+      )))
 
 (defmacro dcase (args &rest clauses)
   `(apply (dlambda
             ,@clauses)
           ,args))
 
+#|
+(dlambda
+  (:x (a) when (eq a 'this)
+   (doit a))
+  (:y (b)
+   (doit b)))
+
+ |#
 ;; -------------------------------------------
 
-(defun dlambda*-actors-helper (clauses)
-  ;; split out in anticipation of Actors special needs...
-  (lw:with-unique-names (args)
-    `(lambda (&rest ,args)
-       (case (car ,args)
-         ,@(mapcar (lambda (clause)
-                     (let ((sel (car clause)))
-                       `(,(if (eq t sel)
-                              t
-                            `(,sel))
-                         (apply #',sel ,(if (eq t sel)
-                                            args
-                                          `(cdr ,args))))
-                       ))
-                   clauses)
-         ))))
+(defun dlam*-parser (gargs &optional (resfn #'identity))
+  (lambda* ((sel args &rest body))
+    (cond ((eq t sel)
+           `(t ,(funcall resfn `(apply #',sel ,gargs))))
+          ((eq 'when (car body))
+           `((and (eql ',sel (car ,gargs))
+                  (apply (lambda* ,args ,(second body)) (cdr ,gargs)))
+             ,(funcall resfn `(apply #',sel (cdr ,gargs)))))
+          (t
+           `((eql ',sel (car ,gargs))
+             ,(funcall resfn `(apply #',sel (cdr ,gargs)))))
+          )))
+
+(defun filter-when (clauses)
+  (mapcan (lambda* (&whole clause (sel args &body body))
+            (if (eql (car body) 'when)
+                `((,sel ,args ,@(cddr body)))
+              clause))
+          clauses))
 
 (defmacro dlambda* (&rest clauses)
   ;; The advantage provided by this LABELS implementation is that each
   ;; clause can directly call on each other when needed.
   ;; But each tag must be a symbol.
-  (if (notevery (um:compose 'symbolp 'car) clauses)
-      `(dlambda ,@clauses)
-    ;; else
-    `(labels*
-         ,clauses
-       ,(dlambda*-actors-helper clauses))
-    ))
+  (lw:with-unique-names (args)
+    (let ((parser (dlam*-parser args)))
+      (if (notevery (um:compose 'symbolp 'car) clauses)
+          `(dlambda ,@clauses)
+        ;; else
+        `(labels*
+             ,(filter-when clauses)
+           (lambda (&rest ,args)
+             (cond
+              ,@(mapcar parser clauses))))
+        ))))
 
 (defmacro dcase* (args &rest clauses)
   `(apply (dlambda*
             ,@clauses)
           ,args))
 
+#|
+(dlambda*
+  (:x (a) when (eq a 'this)
+   (doit a))
+  (:y (b)
+   (doit b)))
+
+ |#
 ;; -------------------------------------------
+
+(defun tlam-parser (gargs)
+  (dlam*-parser gargs (lambda (form)
+                       `(lambda () ,form))))
 
 (defmacro tlambda (&rest clauses)
   ;; a variant on DLAMBDA - instead of executing a matching clause, it
   ;; returns a closure that can do so later, or NIL of no clauses
   ;; match.
   (lw:with-unique-names (args)
-    `(labels*
-         ;; using LABELS allows any clause to invoke another by name
-         ,clauses
-       (lambda (&rest ,args)
-         (case (car ,args)
-           ,@(mapcar (lambda (clause)
-                       (let ((sel (car clause)))
-                         `(,(if (eq t sel)
-                                t
-                              `(,sel))
-                           (lambda ()
-                             (apply #',sel ,(if (eq t sel)
-                                                args
-                                              `(cdr ,args)))))
-                         ))
-                     clauses)
-           )))
-    ))
+    (let ((parser (tlam-parser args)))
+      `(labels*
+           ;; using LABELS allows any clause to invoke another by name
+           ,(filter-when clauses)
+         (lambda (&rest ,args)
+           (cond
+            ,@(mapcar parser clauses))))
+      )))
 
 (defmacro tcase (args &rest clauses)
   `(apply (tlambda
            ,@clauses)
           ,args))
 
+#|
+(tlambda
+  (:x (a) when (eq a 'this)
+   (doit a))
+  (:y (b)
+   (doit b)))
+
+ |#
+;; ----------------------------------------------------
 #+:LISPWORKS
 (progn
   (editor:indent-like 'tlambda 'progn)
@@ -140,9 +172,6 @@ THE SOFTWARE.
   (editor:indent-like 'dlambda* 'progn)
   (editor:indent-like 'dcase  'case)
   (editor:indent-like 'dcase* 'case))
-
-#| |#
-
 ;; ----------------------------------------------------------------------
 #|
 ;; equiv to #F
@@ -220,5 +249,10 @@ THE SOFTWARE.
   ;; (inspect fn)
   (funcall fn :zero))
 
-         
+(dlambda
+  (:x (a) :when (eq a 'this)
+   (doit a))
+  (:y (b)
+   (doit b)))
+
  |#
