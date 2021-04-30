@@ -86,54 +86,6 @@
 ;; Channel Handler
 ;; ----------------------------------------------------------------
 
-(defun extract-bytes (queue buf start end)
-  ;; extract fragments as needed to fill a buffer
-  (prog ()
-    again
-    (destructuring-bind
-        (&whole frag &optional frag-start frag-end . frag-bytes)
-        (finger-tree:popq queue)
-      (if frag
-          ;; while there are still some fragments
-          (let ((nb   (- frag-end frag-start))
-                (need (- end start)))
-            (cond
-             ((< nb need)
-              ;; fragment is short of what we need
-              ;; so take what it has and ask for more
-              (when (plusp nb)
-                (replace buf frag-bytes
-                         :start1 start
-                         :start2 frag-start)
-                (incf start nb))
-              (go again))
-             
-             ((= nb need)
-              ;; fragment has exactly what we need
-              (when (plusp need)
-                (replace buf frag-bytes
-                         :start1 start
-                         :start2 frag-start))
-              (return end))
-             
-             (t ;; (> nb need)
-                ;; fragment has more than needed. Take what we need
-                ;; and put back the rest.
-                (when (plusp need)
-                  (replace buf frag-bytes
-                           :start1 start
-                           :start2 frag-start
-                           :end1   end)
-                  (incf (car frag) need))
-                (finger-tree:pushq queue frag)
-                (return end))
-             ))
-        ;; else - no more fragments. Return the count extracted so far
-        (return start)))
-    ))
-       
-;; ----------------------------------------------------------------
-
 (defmacro expect (intf &rest clauses)
   `(do-expect ,intf (make-expect-handler ,@clauses)))
 
@@ -157,61 +109,123 @@
             (log-info :SYSTEM-LOG
                       "Null Monitor ~A Msg: ~A" name msg))))
 
+;; -----------------------------------------------------------
+
+(defun extract-bytes (queue buf start end)
+  ;; extract fragments as needed to fill a buffer
+  (if (null queue)
+      (values start nil)
+    (multiple-value-bind (frag new-queue)
+        (finger-tree:popq queue)
+      (destructuring-bind (frag-start frag-end . frag-bytes) frag
+        ;; while there are still some fragments
+        (let ((nb   (- frag-end frag-start))
+              (need (- end start)))
+          (cond
+           ((< nb need)
+            ;; fragment is short of what we need
+            ;; so take what it has and ask for more
+            (when (plusp nb)
+              (replace buf frag-bytes
+                       :start1 start
+                       :start2 frag-start)
+              (extract-bytes new-queue buf (+ start nb) end)))
+             
+           ((= nb need)
+            ;; fragment has exactly what we need
+            (when (plusp need)
+              (replace buf frag-bytes
+                       :start1 start
+                       :start2 frag-start))
+            (values end new-queue))
+             
+           (t ;; (> nb need)
+              ;; fragment has more than needed. Take what we need
+              ;; and put back the rest.
+              (when (plusp need)
+                (replace buf frag-bytes
+                         :start1 start
+                         :start2 frag-start
+                         :end1   end)
+                (values end
+                        (finger-tree:pushq
+                         new-queue
+                         (list* (+ frag-start need) frag-end frag-bytes))
+                        )))
+           ))))
+    ))
+       
 ;; -------------------------------------------------------------------------
 
 (define-actor-class message-reader ()
   ())
 
+(defconstant +len-prefix-length+  4)
+(defconstant +hmac-length+       32)
+
 (defmethod initialize-instance :after ((reader message-reader)
                                        &key crypto dispatcher &allow-other-keys)
-  (let ((queue        (finger-tree:make-unshared-queue))
-        (len-buf      (make-u8-vector 4))
-        (hmac-buf     (make-u8-vector 32))
-        (len          0)
-        (pos          0)
-        (enc-buf      nil)
-        (ndata        nil)
-        (statefn      nil))
-    (macrolet ((check ()
-                 `(funcall statefn))
-               (state (fn)
-                 `(progn
-                    (setf statefn #',fn
-                          pos     0)
-                    (check))))
-      (labels
-          ((rd-len ()
-             (setf pos (extract-bytes queue len-buf pos len))
-             (when (= pos len)
-               (setf ndata (convert-vector-to-integer len-buf))
-               (cond ((> ndata +MAX-FRAGMENT-SIZE+)
-                      ;; and we are done... just hang up.
-                      (handle-message dispatcher '(actors/internal-message/network:discard)))
-                     (t
-                      (setf enc-buf (make-u8-vector ndata))
-                      (state rd-data))
-                     )))
-           (rd-data ()
-             (setf pos (extract-bytes queue enc-buf pos ndata))
-             (when (= pos ndata)
-               (setf len (length hmac-buf))
-               (state rd-hmac)))
-           (rd-hmac ()
-             (setf pos (extract-bytes queue hmac-buf pos len))
-             (when (= pos len)
-               (handle-message dispatcher (secure-decoding crypto ndata len-buf enc-buf hmac-buf))
-               (setf len (length len-buf))
-               (state rd-len))))
-        (setf len     (length len-buf)
-              statefn #'rd-len
-              (actor-beh reader)
+  (let ((len-buf  (make-u8-vector +len-prefix-length+))
+        (hmac-buf (make-u8-vector +hmac-length+)))
+    (labels
+        ((absorb-frag-and-read-bytes (frag queue buf pos limit)
+           (extract-bytes (if frag
+                              (finger-tree:addq queue frag)
+                            queue)
+                          buf pos limit))
+
+         (make-rd-len-beh (pos queue)
+           (lambda (frag)
+             (multiple-value-bind (new-pos new-queue)
+                 (absorb-frag-and-read-bytes frag queue len-buf pos +len-prefix-length+)
+               (unless (= pos new-pos)
+                 (if (< new-pos +len-prefix-length+)
+                     (become (make-rd-len-beh new-pos new-queue))
+                   (let ((ndata (convert-vector-to-integer len-buf)))
+                     (cond ((> ndata +MAX-FRAGMENT-SIZE+)
+                            ;; possible DOS attack - and we are done... just hang up.
+                            (handle-message dispatcher '(actors/internal-message/network:discard)))
+                           (t
+                            (let ((enc-buf (make-u8-vector ndata)))
+                              (become (make-rd-data-beh 0 new-queue enc-buf ndata))
+                              (send self nil)))
+                           ))))
+               )))
+         
+         (make-rd-data-beh (pos queue enc-buf ndata)
+           (lambda (frag)
+             (multiple-value-bind (new-pos new-queue)
+                 (absorb-frag-and-read-bytes frag queue enc-buf pos ndata)
+               (unless (= pos new-pos)
+                 (if (< new-pos ndata)
+                     (become (make-rd-data-beh new-pos new-queue enc-buf ndata))
+                   (progn
+                     (become (make-rd-hmac-beh 0 new-queue enc-buf ndata))
+                     (send self nil))))
+               )))
+         
+         (make-rd-hmac-beh (pos queue enc-buf ndata)
+           (lambda (frag)
+             (multiple-value-bind (new-pos new-queue)
+                 (absorb-frag-and-read-bytes frag queue hmac-buf pos +hmac-length+)
+               (unless (= new-pos pos)
+                 (if (< new-pos +hmac-length+)
+                     (become (make-rd-hmac-beh new-pos new-queue enc-buf ndata))
+                   (progn
+                     (handle-message dispatcher (secure-decoding crypto ndata len-buf enc-buf hmac-buf))
+                     (become (make-rd-len-beh 0 new-queue))
+                     (send self nil))
+                   ))
+               ))))
+      (setf (actor-beh reader)
+            (let ((buf-actor (make-actor (make-rd-len-beh 0 nil))))
               (um:dlambda
                 (actors/internal-message/network:rd-incoming (frag)
-                  (finger-tree:addq queue frag)
-                  (check))
+                  (send buf-actor frag))
                 (actors/internal-message/network:rd-error ()
-                  (become-null-monitor :rd-actor)))
-              )))))
+                  (become-null-monitor :rd-actor))
+                )))
+      )))
 
 ;; -------------------------------------------------------------------------
 

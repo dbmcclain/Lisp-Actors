@@ -216,18 +216,16 @@
                      (become (make-rd-len-beh 0 new-queue))
                      (send self nil))
                    ))
-               )))
-         
-         (make-reader-beh ()
-           (let ((buf-actor (make-actor (make-rd-len-beh 0 nil))))
-             (um:dlambda
-               (actors/internal-message/network:rd-incoming (frag)
-                  (send buf-actor frag))
-               (actors/internal-message/network:rd-error ()
-                  (become-null-monitor :rd-actor))
                ))))
-        (setf (actor-beh reader) (make-reader-beh))
-        )))
+      (setf (actor-beh reader)
+            (let ((buf-actor (make-actor (make-rd-len-beh 0 nil))))
+              (um:dlambda
+                (actors/internal-message/network:rd-incoming (frag)
+                  (send buf-actor frag))
+                (actors/internal-message/network:rd-error ()
+                  (become-null-monitor :rd-actor))
+                )))
+      )))
 
 ;; -------------------------------------------------------------------------
 #|
