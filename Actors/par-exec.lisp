@@ -61,8 +61,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                (count  (list len))
                (ansv   (make-array len))
                (actors nil))
-          (handler-bind ((timeout (lambda (c)
-                                    (declare (ignore c))
+          (handler-bind ((timeout (lambda* _
                                     (terminate-actors actors))))
             (=wait (()
                     :timeout *timeout*

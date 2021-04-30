@@ -95,12 +95,6 @@ How useful is this?
         (proc    nil))
     (when monitor
       (push (dlambda*
-             (:link (proc)
-              (declare (ignore proc))
-              )
-             (:unlink (proc)
-              (declare (ignore proc))
-              )
              (:exit (from reason)
               (send monitor :down proc from reason)))
             links))

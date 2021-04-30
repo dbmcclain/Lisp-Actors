@@ -377,9 +377,8 @@
     (perform-in-actor mon
       (when (time-to-renegotiate? crypto)
         (inject-into-actor intf
-          (handler-bind ((error (lambda (c)
+          (handler-bind ((error (lambda* _
                                   ;; if any negotiation errors we shut down immediately
-                                  (declare (ignore c))
                                   (log-error :SYSTEM-LOG "Renegotiation failure")
                                   (shutdown intf))
                                 ))
@@ -410,9 +409,8 @@
     (perform-in-actor dispatcher
       (dcase* whole-msg
         
-        (actors/internal-message/network:discard (&rest msg)
+        (actors/internal-message/network:discard _
           ;; something went wrong, kill the connection
-          (declare (ignore msg))
           (log-error :SYSTEM-LOG "Data framing error")
           (shutdown intf))
         
@@ -432,9 +430,8 @@
         (actors/internal-message/security:srp-node-id-rsa (node-id)
            ;; Client is requesting security negotiation
            (inject-into-actor intf
-             (handler-bind ((error (lambda (c)
+             (handler-bind ((error (lambda* _
                                      ;; if any negotiation errors we shut down immediately
-                                     (declare (ignore c))
                                      (log-error :SYSTEM-LOG "Can't connect")
                                      (shutdown intf))
                                    ))
@@ -446,9 +443,8 @@
         (actors/internal-message/security:srp-node-id-ecc (node-id)
            ;; Client is requesting security negotiation
            (inject-into-actor intf
-             (handler-bind ((error (lambda (c)
+             (handler-bind ((error (lambda* _
                                      ;; if any negotiation errors we shut down immediately
-                                     (declare (ignore c))
                                      (log-error :SYSTEM-LOG "Can't connect")
                                      (shutdown intf))
                                    ))
@@ -518,8 +514,7 @@
   (inject-into-actor intf
     (recv ()
       (actors/internal-message/network:incoming-msg (&rest msg)
-         (handler-bind ((error (lambda (err)
-                                 (declare (ignore err))
+         (handler-bind ((error (lambda* _
                                  (log-error :SYSTEM-LOG "Expect Failure: ~A" msg)
                                  (shutdown intf))
                                ))
@@ -792,9 +787,8 @@
                                          :io-state io-state
                                          :crypto   crypto)))
             (inject-into-actor intf
-            (handler-bind ((error (lambda (c)
+            (handler-bind ((error (lambda* _
                                     ;; if any negotiation errors we shut down immediately
-                                    (declare (ignore c))
                                     (log-error :SYSTEM-LOG "Can't connect")
                                     (shutdown intf))
                                   ))
@@ -970,9 +964,9 @@ indicated port number."
         *aio-accepting-handle* nil
         *cert-key-pairs*       nil))
 
-(defun lw-start-tcp-server (&rest ignored)
+(defun* lw-start-tcp-server _
   ;; called by Action list with junk args
-  (declare (ignore ignored))
+  ;;
   ;; We need to delay the construction of the system logger till this
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
@@ -983,8 +977,7 @@ indicated port number."
   (ensure-system-logger)
   (start-tcp-server))
 
-(defun lw-reset-actor-system (&rest ignored)
-  (declare (ignore ignored))
+(defun* lw-reset-actor-system _
   (terminate-server)
   (bridge-reset)
   (kill-system-logger)

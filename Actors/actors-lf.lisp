@@ -520,9 +520,8 @@ THE SOFTWARE.
   (:method ((actor actor) &rest message)
    (if (eq actor (current-actor))
        (apply 'self-call message)
-     (=wait ((&rest _)
+     (=wait (_
              :timeout *timeout*
              :errorp  t)
          (apply 'send actor 'actors/internal-message:send-sync =wait-cont message)
-       (declare (ignore _)))
-     )))
+       ) )))
