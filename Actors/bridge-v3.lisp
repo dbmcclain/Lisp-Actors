@@ -122,7 +122,7 @@
 (defun make-empty-cont-beh ()
   (um:dlambda
     (:attach (usti cont intf)
-     (become (make-cont-beh (list (make-cont-entry usti cont intf)))))
+     (become (make-cont-beh (list (make-cont-entry usti cont intf)) self)))
 
     (:deliver-message (a-usti if-cant-send-fn &rest msg)
      (declare (ignore a-usti msg))
@@ -130,14 +130,14 @@
        (funcall if-cant-send-fn)))
     ))
 
-(defun make-cont-beh (tbl)
+(defun make-cont-beh (tbl next)
   (labels ((purge ()
              (remove nil tbl :key #'(lambda (triple)
                                       (aref (second triple) 0))))
            (new-state (new-tbl)
              (unless (eq tbl new-tbl)
                (become (if new-tbl
-                           (make-cont-beh new-tbl)
+                           (make-cont-beh new-tbl next)
                          (make-empty-cont-beh)))))
 
            (find-usti (usti)
@@ -153,12 +153,12 @@
                      ))))
     (um:dlambda
       (:attach (usti cont intf)
-       (become (make-cont-beh (cons (make-cont-entry usti cont intf)
-                                    (purge)))))
+       (setf tbl (cons (make-cont-entry usti cont intf)
+                       (purge))))
       (:detach (intf)
        (new-state (remove intf (purge) :key #'third)))
       
-      (:rest ()
+      (:reset ()
        (become (make-empty-cont-beh)))
       
       (:handle-reply (usti &rest reply)
@@ -171,8 +171,7 @@
        (handler-case
            (apply #'send (find-usti usti) msg)
          (error ()
-           (ignore-errors
-             (funcall if-cant-send-fn)))
+           (repeat-send next))
          ))
       )))
     
