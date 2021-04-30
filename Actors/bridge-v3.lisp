@@ -493,8 +493,7 @@
       (become (um:dlambda
                 (actors/internal-message:become-local ()
                    (become prev-beh))
-                (t (&rest msg)
-                   (declare (ignore msg))
+                (t _
                    (apply #'actors/bridge:bridge-forward-message remote-addr (whole-message))
                    (signal 'no-immediate-answer)
                    ))

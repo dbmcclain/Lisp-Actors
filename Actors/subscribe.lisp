@@ -69,9 +69,8 @@
     (:pruned (beh)
      (become beh))
 
-    (t (&rest _)
+    (t _
        ;; simple forwarding
-       (declare (ignore _))
        (repeat-send next))
     ))
 

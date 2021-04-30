@@ -57,8 +57,8 @@ THE SOFTWARE.
 ;; delivery, ahead of new messages in the Actor mailbox.
 ;;
 (defun do-recv (conds-fn timeout-fn timeout)
-  (let ((dyn-env (um:capture-dynamic-environment))
-        prev-beh
+  (let ((dyn-env   (um:capture-dynamic-environment))
+        (prev-beh  self-beh)
         (msg-queue (finger-tree:make-unshared-queue))
         timer)
     (labels
@@ -66,8 +66,7 @@ THE SOFTWARE.
            (when timer
              (mp:unschedule-timer timer))
            (become prev-beh)
-           (finger-tree:prependq msg-queue
-                                 (actor-mailbox (current-actor))))
+           (prepend-messages msg-queue))
 
          (process-message (fn)
            (restore-actor)
@@ -89,7 +88,7 @@ THE SOFTWARE.
            (setf timer nil)
            (process-message timeout-fn)))
       
-      (setf prev-beh (become #'filter-message)) ;; save prior handler
+      (become #'filter-message)
       (when timeout
         (setf timer (do-schedule-after timeout #'handle-timeout)))
       (signal 'no-immediate-answer)

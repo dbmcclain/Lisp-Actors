@@ -45,17 +45,30 @@ THE SOFTWARE.
   (error "Invalid selector ~A" (car msg)))
 |#
 
+(defun is-underscore? (x)
+  (and (symbolp x)
+       (string= "_" (string x))))
+
+(defun decl-us (args)
+  (when (is-underscore? args)
+      `((declare (ignore _)))))
+
+(defun us-conv (args)
+  (if (is-underscore? args)
+      `(&rest _)
+    args))
+
 (defun dlam-parser (gargs)
-  (lambda* (&whole clause (sel args &rest body))
+  (lambda* ((sel args &rest body))
     (cond ((eq t sel)
-           `(t (apply (lambda* ,args ,@body) ,gargs)))
+           `(t (apply (lambda* ,(us-conv args) ,@(decl-us args) ,@body) ,gargs)))
           ((eq 'when (car body))
            `((and (eql ',sel (car ,gargs))
                   (apply (lambda* ,args ,(second body)) (cdr ,gargs)))
              (apply (lambda* ,args ,@(cddr body)) (cdr ,gargs))))
           (t
            `((eql ',sel (car ,gargs))
-             (apply (lambda* ,args ,@body) (cdr ,gargs))))
+             (apply (lambda* ,(us-conv args) ,@(decl-us args) ,@body) (cdr ,gargs))))
           )))
 
 (defmacro dlambda (&rest clauses)
@@ -76,7 +89,9 @@ THE SOFTWARE.
   (:x (a) when (eq a 'this)
    (doit a))
   (:y (b)
-   (doit b)))
+   (doit b))
+  (t _
+     (x)))
 
  |#
 ;; -------------------------------------------
@@ -95,10 +110,11 @@ THE SOFTWARE.
           )))
 
 (defun filter-when (clauses)
-  (mapcan (lambda* (&whole clause (sel args &body body))
+  (mapcan (lambda* ((sel args &body body))
             (if (eql (car body) 'when)
-                `((,sel ,args ,@(cddr body)))
-              clause))
+                `((,sel ,(us-conv args) ,@(decl-us args) ,@(cddr body)))
+              `((,sel ,(us-conv args) ,@(decl-us args) ,@body))
+              ))
           clauses))
 
 (defmacro dlambda* (&rest clauses)
@@ -127,7 +143,9 @@ THE SOFTWARE.
   (:x (a) when (eq a 'this)
    (doit a))
   (:y (b)
-   (doit b)))
+   (doit b))
+  (t _
+     (x)))
 
  |#
 ;; -------------------------------------------
@@ -160,7 +178,9 @@ THE SOFTWARE.
   (:x (a) when (eq a 'this)
    (doit a))
   (:y (b)
-   (doit b)))
+   (doit b))
+  (t _
+     (x)))
 
  |#
 ;; ----------------------------------------------------

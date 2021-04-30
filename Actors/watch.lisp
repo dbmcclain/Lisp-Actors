@@ -14,8 +14,7 @@
                   (um:dlambda
                     (actors/internal-message:unwatch ()
                      (funcall wr-fn actor))
-                    (t (&rest msg)
-                       (declare (ignore msg))
+                    (t _
                        (log-info :SYSTEM-LOG "~A: ~S" title (whole-message))
                        (repeat-send actor)
                        (signal 'no-immediate-answer))

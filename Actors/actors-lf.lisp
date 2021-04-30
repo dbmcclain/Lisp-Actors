@@ -276,6 +276,10 @@ THE SOFTWARE.
 (defun assemble-ask-message (reply-to &rest msg)
   (list* 'actors/internal-message:ask reply-to msg))
 
+(defun prepend-messages (msgs)
+  (mp:with-lock ((actor-lock self))
+    (finger-tree:prependq msgs (actor-mailbox self))))
+    
 ;; ---------------------------------------------------------
 ;; Central Actor message handling
 
@@ -410,6 +414,9 @@ THE SOFTWARE.
      (t
       (call-next-method))
      )))
+
+(defmethod send ((lst cons) &rest message)
+  (multiple-value-call #'send (values-list lst) (values-list message)))
 
 (defmethod send (other-obj &rest message)
   ;; E.g., Smalltalk'ish (send 7 'truncate 4)

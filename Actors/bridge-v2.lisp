@@ -138,8 +138,7 @@
 (defparameter *cont-gateway*
   (let ((next (make-actor *nocont-beh*)))
     (um:dlambda
-      (t (&rest msg)
-         (declare (ignore msg))
+      (t _
          (repeat-send next)))))
 
 (defvar *cont-map*
@@ -202,8 +201,7 @@
     (:pruned (beh)
      (become beh))
 
-    (t (&rest _)
-       (declare (ignore _))
+    (t _
        (repeat-send next))
     ))
 
@@ -529,8 +527,7 @@
       (become (um:dlambda
                 (actors/internal-message:become-local ()
                    (become prev-beh))
-                (t (&rest msg)
-                   (declare (ignore msg))
+                (t _
                    (apply #'actors/bridge:bridge-forward-message remote-addr (whole-message))
                    ))
               ))))
