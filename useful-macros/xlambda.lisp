@@ -7,10 +7,24 @@
 
 (in-package :xlambda)
 
+(defun is-underscore? (x)
+  (and (symbolp x)
+       (string= "_" (string x))))
+
+(defun decl-us (args)
+  (when (is-underscore? args)
+      `((declare (ignore _)))))
+
+(defun us-conv (args)
+  (if (is-underscore? args)
+      `(&rest _)
+    args))
+
 (defun destr-lambda-list-p (args)
-  (or (eq (car args) '&whole)
-      (some 'consp (subseq args 0
-                           (position-if (um:rcurry 'find lambda-list-keywords) args)))))
+  (and (not (is-underscore? args))
+       (or (eq (car args) '&whole)
+           (some 'consp (subseq args 0
+                                (position-if (um:rcurry 'find lambda-list-keywords) args))))))
 
 (defun wrap-assembly (name args &rest body)
   (if (destr-lambda-list-p args)
@@ -24,7 +38,7 @@
                     ,@body-forms))
           ))
     ;; else
-    `(,name ,args ,@body)))
+    `(,name ,(us-conv args) ,@(decl-us args) ,@body)))
 
 (let ((lw:*handle-warn-on-redefinition* nil))
   
