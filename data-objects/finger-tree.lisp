@@ -18,6 +18,7 @@
    #:elements
    #:appendq
    #:prependq
+   #:join
    ))
 
 (in-package #:finger-tree)

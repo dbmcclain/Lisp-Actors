@@ -61,7 +61,15 @@ THE SOFTWARE.
 (defun dlam-parser (gargs)
   (lambda* ((sel args &rest body))
     (cond ((eq t sel)
-           `(t (apply (lambda* ,(us-conv args) ,@(decl-us args) ,@body) ,gargs)))
+           (if (eq 'when (car body))
+               `((apply (lambda* ,args
+                          (declare (ignorable ,@args))
+                          ,(second body))
+                        ,gargs)
+                 (apply (lambda* ,args ,@(cddr body)) ,gargs))
+             ;; else
+             `(t (apply (lambda* ,(us-conv args) ,@(decl-us args) ,@body) ,gargs))
+             ))
           ((eq 'when (car body))
            `((and (eql ',sel (car ,gargs))
                   (apply (lambda* ,args ,(second body)) (cdr ,gargs)))
@@ -99,7 +107,15 @@ THE SOFTWARE.
 (defun dlam*-parser (gargs &optional (resfn #'identity))
   (lambda* ((sel args &rest body))
     (cond ((eq t sel)
-           `(t ,(funcall resfn `(apply #',sel ,gargs))))
+           (if (eq 'when (car body))
+               `((apply (lambda* ,args
+                          (declare (ignorable ,@args))
+                          ,(second body))
+                        ,gargs)
+                 ,(funcall resfn `(apply #',sel ,gargs)))
+             ;; else
+             `(t ,(funcall resfn `(apply #',sel ,gargs)))
+             ))
           ((eq 'when (car body))
            `((and (eql ',sel (car ,gargs))
                   (apply (lambda* ,args ,(second body)) (cdr ,gargs)))
