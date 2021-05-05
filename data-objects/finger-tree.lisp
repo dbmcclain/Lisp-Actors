@@ -484,6 +484,9 @@
   ;; new front with the remains of the shared queue as the back.
   (setf (UD ft-back) (join (UD ft-front) (UD ft-back))))
 
+(defmethod prependq (ft-front (ft-back UE))
+  (setf (UD ft-back) (join ft-front (UD ft-back))))
+
 #|
   ;; This vector version of Finger Trees runs aboutr 10x faster than the
   ;; closure based version in mach-finger-tree.lisp.
