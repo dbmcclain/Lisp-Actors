@@ -72,7 +72,10 @@ THE SOFTWARE.
              ))
           ((eq 'when (car body))
            `((and (eql ',sel (car ,gargs))
-                  (apply (lambda* ,args ,(second body)) (cdr ,gargs)))
+                  (apply (lambda* ,args
+                           (declare (ignorable ,@args))
+                           ,(second body))
+                         (cdr ,gargs)))
              (apply (lambda* ,args ,@(cddr body)) (cdr ,gargs))))
           (t
            `((eql ',sel (car ,gargs))
@@ -118,7 +121,10 @@ THE SOFTWARE.
              ))
           ((eq 'when (car body))
            `((and (eql ',sel (car ,gargs))
-                  (apply (lambda* ,args ,(second body)) (cdr ,gargs)))
+                  (apply (lambda* ,args
+                           (declare (ignorable ,@args))
+                           ,(second body))
+                         (cdr ,gargs)))
              ,(funcall resfn `(apply #',sel (cdr ,gargs)))))
           (t
            `((eql ',sel (car ,gargs))
