@@ -56,5 +56,5 @@ Doing this also keeps the system lively, and permits completely unrelated Actors
 
 This last aspect of a many-component Actor system, coupled with the temporal separation of Actor continuations via the SEND event queue, enables a single-threaded implementation to provide the magic once thought only possible with multi-threaded systems.
 
-For more insight into the use of Classical Actors, I highly recommend Dale Schunacher's BLOG pages at: http://www.dalnefre.com/wp/
+For more insight into the use of Classical Actors, I highly recommend Dale Schumacher's BLOG pages at: http://www.dalnefre.com/wp/
 
