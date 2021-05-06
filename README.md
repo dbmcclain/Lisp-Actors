@@ -1,6 +1,6 @@
 # Lisp-Actors
 -- Classical Actors (in TActors folder) --
-
+-------------
 You will become amazed at this, but Classical Actors run in a single thread, and yet, accomplish what we had all thought was a necessary use case for multi-threaded code. Classical Actors prove the contrary.
 
 A Classical Actor has these features:
@@ -64,3 +64,14 @@ In his Blog, he describes a virtual pure Actor machine, and his blog, entitled "
 
 Such a machine, coupled with the innate security of Actor identities as capabilities tokens, could become unhackable by malevolent adversaries. Dale has simulations of this written for ARM processors, using very fast and clever coding at the ARM Assembly level. It is really worth your time to study his writings.
 
+--------------
+
+So now, let's re-invoke multiple threads to take advantage of parallel opportunities. The code in TActors now implements a single event queue, but feeds mutliple RUN dispatchers. Actors must be logically atomic. And so if an Actor is busy executing, new events arriving for that Actor must be delayed. RUN can then try to dispatch a different message to a different Actor.
+
+Actor graphs must respond properly to messages that can arrive at any time, and in any order (or not at all). When you need a particular order for arrival, you have to arrange for that to happen with gatekeepers in the Actor graph.
+
+Actor graphs (collections of cooperating Actors) describe a state / message dependent state machine, if you use this information to change state and behavior with BECOME. The Network Socket Reader is a good example. The outer Reader - the one seen by the Async Driver in Lisp, sequences the processing of arriving packets. Each packet is really 3 components: Prefix Length (4 bytes), Encrypted Data (ndata bytes), and HMAC (32 bytes). 
+
+Data arriving from the Async Driver gets enqueued in a buffer manager whose job is to parcel out successive bytes into reader-supplied buffers for so many bytes in each buffer. You can't have the reader request the data portion until it knows the length, and you can't ask for HMAC bytes until all the data bytes have been taken. So sequential state is maintained by using BECOME in a circular manner.
+
+My original code scheduled rapid delivery of Data and HMAC once it knew the data length. But that meant that the Buffer Manager could fire off multiple SENDs when data was available. And I was only watching for the arrival of the final HMAC sub-packet. I began getting data framing errors because my code had the implicit assumption that messages would arrive in temporal order. But my new RUN manager decided to use a simple LIFO stack for enqueued message SENDS. And that meant that it delivered some messages in reverse temporal order. The Actor graph should not have cared, but it did. So that needed fixing.
