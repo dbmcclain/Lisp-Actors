@@ -71,3 +71,20 @@
 
 (defun get-actor-names (cust)
   (send *actors-directory* :get-actor-names cust))
+
+;; ------------------------------------------
+;; Sends directed to mailboxes, functions, etc.
+
+(defmethod send (rcvr &rest msg)
+  (let ((k-cont (actor (a)
+                  (if (actor-p a)
+                      (send* a msg)
+                    (error 'invalid-send-target :target rcvr)))))
+    (find-actor k-cont rcvr)))
+
+(define-condition invalid-send-target (simple-error)
+  ((target :initarg :target :initform nil :accessor target))
+  (:documentation "An error indicating a target of SEND that cannot be resolved into something valid.")
+  (:report (lambda (condition stream)
+	     (format stream "~%Invalid SEND target: ~&  ~S" (target condition)))))
+

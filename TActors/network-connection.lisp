@@ -239,14 +239,16 @@
                         (send assembler 'actors/internal-message/network:discard))
                        (t
                         (let ((enc-buf (make-u8-vector ndata)))
-                          (send buf-actor :get-multiple
-                                (list
-                                 (list (sink)
-                                       enc-buf 0 ndata)
-                                 (list (make-actor (make-rd-hmac-beh enc-buf ndata))
-                                       hmac-buf 0 +hmac-length+)))
+                          (send buf-actor :get
+                                (make-actor (make-rd-data-beh enc-buf ndata))
+                                enc-buf 0 ndata)
                           ))
                        ))))
+           (make-rd-data-beh (enc-buf ndata)
+             (lambda ()
+               (send buf-actor :get
+                     (make-actor (make-rd-hmac-beh enc-buf ndata))
+                     hmac-buf 0 +hmac-length+)))
            (make-rd-hmac-beh (enc-buf ndata)
              (lambda ()
                (send* assembler (secure-decoding crypto ndata len-buf enc-buf hmac-buf))

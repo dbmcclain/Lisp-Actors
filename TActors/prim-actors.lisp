@@ -37,7 +37,7 @@
             (funcall fn))
         (become (make-recv-beh
                  ;; (finger-tree:addq msgs msg)
-                 (finger-tree:addq msgs (cons self msg))
+                 (cons (cons self msg) msgs)
                  prev-beh tstfn)))
       )))
 
