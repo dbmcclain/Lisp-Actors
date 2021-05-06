@@ -8,9 +8,9 @@ A Classical Actor has these features:
 * Immutability, except for BECOME. The only way to effect a change of state for an Actor is to construct fresh state from a copy of existing state, and also possibly change its behavior. Actor identity remains immutable.
 
 * Three fundamental operations: 
-*   BECOME - change its state and/or behavior 
-*   SEND - send a message to another Actor 
-*   CREATE - construct a new Actor with some initial state and behavior
+**   BECOME - change its state and/or behavior 
+**   SEND - send a message to another Actor 
+**   CREATE - construct a new Actor with some initial state and behavior
 
 * All effects are validated within Actor bodies, but no visible change occurs until the Actor body finishes. It is transactional. Any errors revert the actions scheduled at exit. That means the externally visible effects of an Actor: CREATE, BECOME, and SEND, are delayed until Actor body exit.
 
