@@ -120,7 +120,7 @@ THE SOFTWARE.
                  (*send-evts*   nil)
                  (*pref-msgs*   nil))
              (with-simple-restart (abort "Handle next event")
-               (apply self-beh *whole-message*)
+               (apply *new-beh* *whole-message*)
                (dolist (evt *send-evts*)
                  (mp:mailbox-send *evt-mbox* evt))
                (setf self-beh *new-beh*))
