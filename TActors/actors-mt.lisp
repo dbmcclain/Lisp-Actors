@@ -52,21 +52,21 @@ THE SOFTWARE.
 (define-symbol-macro self-beh (actor-beh self))
 
 ;; --------------------------------------
-;; A Safe-Function, as a behavior, is one that does not invoke BECOME,
+;; A Safe-Beh, as a behavior, is one that does not invoke BECOME,
 ;; i.e., no state changes in the Actor.  And which causes no damaging
 ;; side effects.  Examples are LABEL-BEH, TAG-BEH, CONST-BEH, FWD-BEH.
 ;; Actors with such behavior can support simultaneous parallel
 ;; execution.
 
-(defclass safe-function ()
+(defclass safe-beh ()
   ()
   (:metaclass clos:funcallable-standard-class))
 
-(defmethod initialize-instance ((obj safe-function) &key fn &allow-other-keys)
+(defmethod initialize-instance ((obj safe-beh) &key fn &allow-other-keys)
   (clos:set-funcallable-instance-function obj fn))
 
-(defun make-safe-function (fn)
-  (make-instance 'safe-function
+(defun make-safe-beh (fn)
+  (make-instance 'safe-beh
                  :fn fn))
 
 ;; --------------------------------------
@@ -120,7 +120,7 @@ THE SOFTWARE.
    (let ((evt (mp:mailbox-read *evt-mbox*)))
      (destructuring-bind (*current-actor* . *whole-message*) evt
        (let ((*new-beh*  self-beh))
-         (if (or (typep *new-beh* 'safe-function)
+         (if (or (typep *new-beh* 'safe-beh)
                  (sys:compare-and-swap (actor-busy *current-actor*) nil t))
              (let ((*send-evts*   nil)
                    (*pref-msgs*   nil))

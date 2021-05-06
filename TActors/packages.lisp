@@ -59,8 +59,8 @@ THE SOFTWARE.
    #:current-actor
    #:self
 
-   #:safe-function
-   #:make-safe-function
+   #:safe-beh
+   #:make-safe-beh
    
    #:<runnable>
    #:actor-busy

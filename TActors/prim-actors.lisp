@@ -59,7 +59,7 @@
 ;; Non-Sink Behaviors
 
 (defun make-const-beh (&rest msg)
-  (make-safe-function
+  (make-safe-beh
    (lambda (cust)
      (send* cust msg))))
 
@@ -79,7 +79,7 @@
 ;; ---------------------
 
 (defun make-send-to-all-beh (&rest actors)
-  (make-safe-function
+  (make-safe-beh
    (lambda (&rest msg)
      (dolist (cust actors)
        (send* cust msg)))))
@@ -90,7 +90,7 @@
 ;; ---------------------
 
 (defun make-race-beh (&rest actors)
-  (make-safe-function
+  (make-safe-beh
    (lambda (cust &rest msg)
      (let ((gate (one-shot cust)))
        (dolist (actor actors)
@@ -103,7 +103,7 @@
 ;; ---------------------
 
 (defun make-fwd-beh (actor)
-  (make-safe-function
+  (make-safe-beh
    (lambda (&rest msg)
      (send* actor msg))))
 
@@ -113,7 +113,7 @@
 ;; ---------------------
 
 (defun make-label-beh (cust lbl)
-  (make-safe-function
+  (make-safe-beh
    (lambda (&rest msg)
      (send* cust lbl msg))))
 
@@ -123,7 +123,7 @@
 ;; ---------------------
 
 (defun make-tag-beh (cust)
-  (make-safe-function
+  (make-safe-beh
    (lambda (&rest msg)
      (send* cust self msg))))
 
@@ -244,7 +244,8 @@
 (defun make-scheduled-message-beh (cust dt &rest msg)
   (let ((timer (apply #'mp:make-timer #'send cust msg)))
     (lambda* _
-      (mp:schedule-timer-relative timer dt))))
+      (mp:schedule-timer-relative timer dt)
+      (become (make-sink-beh)))))
 
 (defun scheduled-message (cust dt &rest msg)
   (make-actor (apply #'make-scheduled-message-beh cust dt msg)))
