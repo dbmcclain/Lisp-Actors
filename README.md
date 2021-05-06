@@ -74,4 +74,4 @@ Actor graphs (collections of cooperating Actors) describe a state / message depe
 
 Data arriving from the Async Driver gets enqueued in a buffer manager whose job is to parcel out successive bytes into reader-supplied buffers for so many bytes in each buffer. You can't have the reader request the data portion until it knows the length, and you can't ask for HMAC bytes until all the data bytes have been taken. So sequential state is maintained by using BECOME in a circular manner.
 
-My original code scheduled rapid delivery of Data and HMAC once it knew the data length. But that meant that the Buffer Manager could fire off multiple SENDs when data was available. And I was only watching for the arrival of the final HMAC sub-packet. I began getting data framing errors because my code had the implicit assumption that messages would arrive in temporal order. But my new RUN manager decided to use a simple LIFO stack for enqueued message SENDS. And that meant that it delivered some messages in reverse temporal order. The Actor graph should not have cared, but it did. So that needed fixing.
+
