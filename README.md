@@ -5,11 +5,14 @@ You will become amazed at this, but Classical Actors run in a single thread, and
 
 A Classical Actor has these features:
 
-Immutability, except for BECOME. The only way to effect a change of state for an Actor is to construct fresh state from a copy of existing state, and also possibly change its behavior. Actor identity remains immutable.
+* Immutability, except for BECOME. The only way to effect a change of state for an Actor is to construct fresh state from a copy of existing state, and also possibly change its behavior. Actor identity remains immutable.
 
-Three fundamental operations: BECOME - change its state and/or behavior SEND - send a message to another Actor CREATE - construct a new Actor with some initial state and behavior
+* Three fundamental operations: 
+*   BECOME - change its state and/or behavior 
+*   SEND - send a message to another Actor 
+*   CREATE - construct a new Actor with some initial state and behavior
 
-All effects are validated within Actor bodies, but no visible change occurs until the Actor body finishes. It is transactional. Any errors revert the actions scheduled at exit. That means the externally visible effects of an Actor: CREATE, BECOME, and SEND, are delayed until Actor body exit.
+* All effects are validated within Actor bodies, but no visible change occurs until the Actor body finishes. It is transactional. Any errors revert the actions scheduled at exit. That means the externally visible effects of an Actor: CREATE, BECOME, and SEND, are delayed until Actor body exit.
 
 The single-threaded implementation means that it is impossible for reentrant code to be simultaneously executed in parallel. There is no need for locking and taking measure to protect state against SMP parallel execution.
 
