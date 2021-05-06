@@ -468,10 +468,6 @@
 ;; Functions, Actors, continuations, etc. cannot be transported across
 ;; the network. So we need to translate them to a USTI for transport.
 ;;
-;; For ASK, the recipient continuation is automatically translated.
-;; Any other SEND targets in a transmitted message must be manually
-;; translated before being sent in a message.
-;;
 ;; USTI live in the cache until used. They have single-use semantics.
 ;; But if never used they just linger... so... we hold onto these USTI
 ;; entries with a weak-vector, so that periodic scanning of the cache
