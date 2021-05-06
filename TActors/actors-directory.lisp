@@ -1,0 +1,73 @@
+;; ----------------------------------------------------------
+;; Actors directory -- only for Actors with symbol names or string
+;; names.
+;;
+(in-package :actors/directory)
+
+;; ------------------------------------------------------------
+
+(defun acceptable-key (obj)
+  (string-upcase (princ-to-string obj)))
+
+        ;;; =========== ;;;
+;; Directories utilize a purely functional (immutable) mapping
+;; A directory is itself an Actor.
+
+(defun make-directory-beh (&optional (dir (maps:empty)))
+  (um:dlambda
+    (:register (name actor)
+     (let ((key (acceptable-key name)))
+       (become (make-directory-beh (maps:add dir key actor)))
+       ))
+    (:unregister (name/actor)
+     (if (actor-p name/actor)
+         (let ((new-dir (maps:fold dir
+                                   (lambda (k v acc)
+                                     (if (eq v name/actor)
+                                         acc
+                                       (maps:add acc k v)))
+                                   (maps:empty))))
+           (become (make-directory-beh new-dir)))
+       (let ((key (acceptable-key name/actor)))
+         (become (make-directory-beh (maps:remove dir key))))
+       ))
+    (:clear ()
+     (become (make-directory-beh (maps:empty))))
+    
+    (:get-actors (cust)
+     (send cust (um:accum acc
+                  (maps:iter dir
+                             (lambda (k v)
+                               (acc (cons k v)))))
+           ))
+    (:get-actor-names (cust)
+     (send cust (um:accum acc
+                  (maps:iter dir
+                             (lambda (k v)
+                               (declare (ignore v))
+                               (acc k))))
+           ))
+    (:find-actor (cust name)
+     (let ((key (acceptable-key name)))
+       (send cust (maps:find dir key))))
+
+    (:find-names-for-actor (cust actor)
+     (send cust (um:accum acc
+                  (maps:iter dir
+                             (lambda (k v)
+                               (when (eq actor v)
+                                 (acc k)))))
+           ))
+    ))
+
+(defvar *actors-directory*
+  (make-actor (make-directory-beh)))
+
+(defmethod find-actor ((cust actor) name)
+  (send *actors-directory* :find-actor cust name))
+
+(defun register-actor (name actor)
+  (send *actors-directory* :register name actor))
+
+(defun get-actor-names (cust)
+  (send *actors-directory* :get-actor-names cust))
