@@ -31,6 +31,7 @@ Actor identities represent security capabilities. An Actor can become known to t
 * A SEND can include the identity of other Actors.
 
 * An Actor that CREATES a new Actor knows the identity of the new Actor.
+
 By being careful about disclosing the identity of newly constructed Actors, you can ensure safety and privacy. The only way to SEND a message to an Actor is to know its identity.
 
 In a Classical Actor machine, nothing more than these capabilities will be present. In a Lisp simulation of an Actor machine, you do have access to mechanisms that could break these guidelines. So it becomes necessary to exert discipline in programming Actor bodies in Lisp.
