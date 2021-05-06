@@ -60,5 +60,5 @@ As an example: the code in the TActors folder includes a fully performant TCP/IP
 
 For more insight into the use of Classical Actors, I highly recommend Dale Schumacher's BLOG pages at: http://www.dalnefre.com/wp/m Dale has been working deeply with Actors for decades, beginning with Hewitt, and continuing in a very fruitful direction. 
 
-In his Blog, he describes a virtual pure Actor machine, and his blog, entitled "It's Actors All The Way Down", is a very illuminating discussion of just what can be accomplished in a pure Actor machine. Imagine an FPGA implementation, where CREATE, SEND, and BECOME are single machine instructions of a native instruction set. Dale has simulations of this written for ARM processors, using very clever coding at the ARM Assembly level. It is really worth your time to study his writings.
+In his Blog, he describes a virtual pure Actor machine, and his blog, entitled "It's Actors All The Way Down", is a very illuminating discussion of just what can be accomplished in a pure Actor machine. Imagine an FPGA implementation, where CREATE, SEND, and BECOME are single machine instructions of a native instruction set. Dale has simulations of this written for ARM processors, using very fast and clever coding at the ARM Assembly level. It is really worth your time to study his writings.
 
