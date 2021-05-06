@@ -190,11 +190,6 @@
     (send *cont-map* :attach usti obj handler)
     usti))
 
-#|
-(defun bridge-handle-reply (usti &rest reply)
-  ;; called by socket handler when an ASK reply arrives
-  (send* *cont-map* :handle-reply usti reply))
-|#
 ;; -------------------------------------------
 ;; Bridge IP/Intf mapper
 
@@ -415,29 +410,6 @@
                                  ,@body)))
 
 ;; -----------------------------------------------------------------------
-#|
-(defun forward-query (handler service cont &rest msg)
-  (let ((usti (create-and-add-usti cont handler)))
-    (apply #'socket-send handler 'actors/internal-message/bridge:forwarding-ask service usti msg)))
-
-(defun bridge-forward-message (dest &rest msg)
-  ;; called by SEND as a last resort
-  (with-valid-dest (service handler) dest
-    (case (car msg)
-      ((actors/internal-message:ask)
-       ;; form was (ASK reply-to &rest actual-message)
-       (apply #'forward-query handler service (cdr msg)))
-      
-      (otherwise
-       (apply #'socket-send handler 'actors/internal-message/bridge:forwarding-send service msg))
-      )))
-
-(=defun bridge-ask-query (dest &rest msg)
-  ;; called by ASK as a last resort
-  (with-valid-dest (service handler) dest
-    (apply #'forward-query handler service =bind-cont msg)
-    ))
-|#
 
 (defun bridge-forward-message (dest &rest msg)
   ;; called by SEND as a last resort
@@ -479,21 +451,6 @@
 ;; ----------------------------------------------------------------------
 ;; SEND across network connections - never blocks.
 
-#|
-(defmethod send ((str string) &rest message)
-  (let (actor)
-    (cond
-     ((setf actor (find-actor str))
-      (send* actor message))
-     
-     ((find #\@ str)
-      (apply #'bridge-forward-message str message))
-
-     (t
-      (call-next-method))
-     )))
-|#
-
 (defmethod send ((usti uuid:uuid) &rest message)
   (bridge-deliver-message usti
                           (lambda ()
@@ -504,73 +461,6 @@
   (if (string-equal (machine-instance) (proxy-ip proxy))
       (send* (proxy-service proxy) message)
     (apply #'bridge-forward-message proxy message)))
-
-;; ------------------------------------------
-;; Blocking ASK across network connections
-#|
-(defun network-ask (dest &rest message)
-  ;; Blocking ASK across a network connection
-  (=wait ((ans)
-          :timeout *timeout*
-          :errorp  t)
-      (=apply #'bridge-ask-query dest message)
-    (recover-ans-or-exn ans)))
-
-(defmethod ask ((str string) &rest message)
-  (let (actor)
-    (cond
-     ((setf actor (find-actor str))
-      (apply #'ask actor message))
-     
-     ((find #\@ str)
-      (apply #'network-ask str message))
-     
-     (t
-      (call-next-method))
-     )))
-
-(defmethod ask ((usti uuid:uuid) &rest message)
-  (if-let (actor (find-actor usti))
-      (apply #'ask actor message)
-    (call-next-method)))
-
-(defmethod ask ((proxy proxy) &rest message)
-  (if (string-equal (machine-instance) (proxy-ip proxy))
-      (apply #'ask (proxy-service proxy) message)
-    (apply #'network-ask proxy message)))
-
-;; -----------------------------------------------
-;; Non-blocking ASK across network connections
-
-(=defun network-ask-nb (dest &rest message)
-  ;; Non-blocking ASK across a network connection
-  (=bind (ans)
-      (=apply #'bridge-ask-query dest message)
-    (=values (recover-ans-or-exn ans))))
-
-(=defmethod =ask ((str string) &rest message)
-  (let (actor)
-    (cond
-     ((setf actor (find-actor str))
-      (=apply #'=ask actor message))
-     
-     ((find #\@ str)
-      (=apply #'network-ask-nb str message))
-     
-     (t
-      (call-next-method))
-     )))
-
-(=defmethod =ask ((usti uuid:uuid) &rest message)
-  (if-let (actor (find-actor usti))
-      (=apply #'=ask actor message)
-    (call-next-method)))
-
-(=defmethod =ask ((proxy proxy) &rest message)
-  (if (string-equal (machine-instance) (proxy-ip proxy))
-      (=apply #'=ask (proxy-service proxy) message)
-    (=apply #'network-ask-nb proxy message)))
-|#
 
 ;; -------------------------------------------
 ;; USTI - transient identifiers for possible send targets
