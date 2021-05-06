@@ -59,8 +59,9 @@
 ;; Non-Sink Behaviors
 
 (defun make-const-beh (&rest msg)
-  (lambda (cust)
-    (send* cust msg)))
+  (make-safe-function
+   (lambda (cust)
+     (send* cust msg))))
 
 (defun const (&rest msg)
   (make-actor (apply #'make-const-beh msg)))
@@ -78,9 +79,10 @@
 ;; ---------------------
 
 (defun make-send-to-all-beh (&rest actors)
-  (lambda (&rest msg)
-    (dolist (cust actors)
-      (send* cust msg))))
+  (make-safe-function
+   (lambda (&rest msg)
+     (dolist (cust actors)
+       (send* cust msg)))))
 
 (defun send-to-all (&rest actors)
   (make-actor (apply #'make-send-to-all-beh actors)))
@@ -88,11 +90,12 @@
 ;; ---------------------
 
 (defun make-race-beh (&rest actors)
-  (lambda (cust &rest msg)
-    (let ((gate (one-shot cust)))
-      (dolist (actor actors)
-        (send* actor gate msg))
-      )))
+  (make-safe-function
+   (lambda (cust &rest msg)
+     (let ((gate (one-shot cust)))
+       (dolist (actor actors)
+         (send* actor gate msg))
+       ))))
 
 (defun race (&rest actors)
   (make-actor (apply #'make-race-beh actors)))
@@ -100,8 +103,9 @@
 ;; ---------------------
 
 (defun make-fwd-beh (actor)
-  (lambda (&rest msg)
-    (send* actor msg)))
+  (make-safe-function
+   (lambda (&rest msg)
+     (send* actor msg))))
 
 (defun fwd (actor)
   (make-actor (make-fwd-beh actor)))
@@ -109,8 +113,9 @@
 ;; ---------------------
 
 (defun make-label-beh (cust lbl)
-  (lambda (&rest msg)
-    (send* cust lbl msg)))
+  (make-safe-function
+   (lambda (&rest msg)
+     (send* cust lbl msg))))
 
 (defun label (cust lbl)
   (make-actor (make-label-beh cust lbl)))
@@ -118,8 +123,9 @@
 ;; ---------------------
 
 (defun make-tag-beh (cust)
-  (lambda (&rest msg)
-    (send* cust self msg)))
+  (make-safe-function
+   (lambda (&rest msg)
+     (send* cust self msg))))
 
 (defun tag (cust)
   (make-actor (make-tag-beh cust)))

@@ -58,6 +58,9 @@ THE SOFTWARE.
    #:remove-property
    #:current-actor
    #:self
+
+   #:safe-function
+   #:make-safe-function
    
    #:<runnable>
    #:actor-busy

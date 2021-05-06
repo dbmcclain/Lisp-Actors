@@ -52,6 +52,24 @@ THE SOFTWARE.
 (define-symbol-macro self-beh (actor-beh self))
 
 ;; --------------------------------------
+;; A Safe-Function, as a behavior, is one that does not invoke BECOME,
+;; i.e., no state changes in the Actor.  And which causes no damaging
+;; side effects.  Examples are LABEL-BEH, TAG-BEH, CONST-BEH, FWD-BEH.
+;; Actors with such behavior can support simultaneous parallel
+;; execution.
+
+(defclass safe-function ()
+  ()
+  (:metaclass clos:funcallable-standard-class))
+
+(defmethod initialize-instance ((obj safe-function) &key fn &allow-other-keys)
+  (clos:set-funcallable-instance-function obj fn))
+
+(defun make-safe-function (fn)
+  (make-instance 'safe-function
+                 :fn fn))
+
+;; --------------------------------------
 
 (defmacro actor (args &body body)
   `(make-actor
@@ -68,20 +86,6 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (editor:setup-indent "actors" 1)
-
-;; -----------------------------------------------------
-;; These methods can be called from any thread. SMP safe.
-
-(defmethod get-property ((actor actor) key &optional default)
-  ;; SMP-safe
-  nil)
-
-(defmethod set-property ((actor actor) key value)
-  ;; SMP-safe
-  nil)
-
-(defmethod remove-property ((actor actor) key)
-  nil)
 
 ;; --------------------------------------------------------
 ;; Core SEND to Actors
@@ -115,7 +119,8 @@ THE SOFTWARE.
   (loop
    (let ((evt (mp:mailbox-read *evt-mbox*)))
      (destructuring-bind (*current-actor* . *whole-message*) evt
-       (if (sys:compare-and-swap (actor-busy *current-actor*) nil t)
+       (if (or (typep self-beh 'safe-function)
+               (sys:compare-and-swap (actor-busy *current-actor*) nil t))
            (let ((*new-beh*     self-beh)
                  (*send-evts*   nil)
                  (*pref-msgs*   nil))
