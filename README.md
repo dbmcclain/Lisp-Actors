@@ -74,4 +74,4 @@ Actor graphs (collections of cooperating Actors) describe a state / message depe
 
 Data arriving from the Async Driver gets enqueued in a buffer manager whose job is to parcel out successive bytes into reader-supplied buffers for so many bytes in each buffer. You can't have the reader request the data portion until it knows the length, and you can't ask for HMAC bytes until all the data bytes have been taken. So sequential state is maintained by using BECOME in a circular manner.
 
-
+Some Actor behaviors are inherently safe for parallel execution. These Actors do not call BECOME, and so no state changes. Examples are CONST-BEH, FWD-BEH, TAG-BEH, and LABEL-BEH. So I defined a subclass of FUNCTION called SAFE-BEH. If an event for one of these Actors is seen, it is permitted to execute even if it were already handling a prior event.
