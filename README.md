@@ -55,3 +55,6 @@ A proper design style for Classical Actors is to avoid dumping huge state and ca
 Doing this also keeps the system lively, and permits completely unrelated Actors to operate on other tasks, concurrently with the actions of an Actor service collection.
 
 This last aspect of a many-component Actor system, coupled with the temporal separation of Actor continuations via the SEND event queue, enables a single-threaded implementation to provide the magic once thought only possible with multi-threaded systems.
+
+For more insight into the use of Classical Actors, I highly recommend Dale Schunacher's BLOG pages at: http://www.dalnefre.com/wp/
+
