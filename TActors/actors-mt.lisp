@@ -105,7 +105,6 @@ THE SOFTWARE.
 (defvar *evt-mbox*      (mp:make-mailbox))
 (defvar *new-beh*       nil)
 (defvar *send-evts*     nil)
-(defvar *pref-msgs*     nil)
 (defvar *whole-message* nil)
 
 (declaim (inline whole-message))
@@ -113,18 +112,9 @@ THE SOFTWARE.
 (defun whole-message ()
   *whole-message*)
 
-(defgeneric send-msgs (msgs)
-  (:method ((lst cons))
-   (dolist (evt lst)
-     (mp:mailbox-send *evt-mbox* evt)))
-  (:method ((q vector))
-   ;; actually... a raw Finger Tree Queue
-   (um:while q
-     (multiple-value-bind (evt new-q)
-         (finger-tree:popq q)
-       (mp:mailbox-send *evt-mbox* evt)
-       (setf q new-q))
-     )))
+(defun send-msgs (msgs)
+  (dolist (evt msgs)
+    (mp:mailbox-send *evt-mbox* evt)))
 
 (defun run-actors ()
   (loop
@@ -134,7 +124,8 @@ THE SOFTWARE.
          (cond ((or (typep *new-beh* 'safe-beh)
                     (sys:compare-and-swap (actor-busy *current-actor*) nil t))
                 (let ((*send-evts*   nil)
-                      (*pref-msgs*   nil))
+                      ;; (*pref-msgs*   nil)
+                      )
                   (with-simple-restart (abort "Handle next event")
                     (apply *new-beh* *whole-message*)
                     ;; effects commit...
@@ -144,8 +135,8 @@ THE SOFTWARE.
                   ;; ----------------------------
                   ;; for all executing Actors, failed or not
                   (setf (actor-busy self) nil)
-                  (when *pref-msgs*
-                    (send-msgs *pref-msgs*))
+                  ;; (when *pref-msgs*
+                  ;;  (send-msgs *pref-msgs*))
                   ))
                (t
                 ;; else - actor was busy
@@ -199,13 +190,6 @@ THE SOFTWARE.
   (when self
     (send* dest *whole-message*)))
 
-(defun redeliver-messages (msgs)
-  ;; save message for later retry
-  (when self
-    ;; (setf *pref-msgs* (finger-tree:join *pref-msgs* msgs))
-    (setf *pref-msgs* (append *pref-msgs* msgs))
-    ))
-    
 ;; ----------------------------------------------
 ;; WORKER is just a function that executes on an Executive pool
 ;; thread.

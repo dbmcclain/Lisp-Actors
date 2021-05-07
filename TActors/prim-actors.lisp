@@ -25,37 +25,6 @@
 (defun println ()
   *println*)
 
-;; --------------------------------------
-#|
-(defun make-recv-beh (msgs prev-beh tstfn)
-  (lambda (&rest msg)
-    (let ((fn (apply tstfn msg)))
-      (if fn
-          (progn
-            (become prev-beh)
-            (redeliver-messages msgs)
-            ;; avoid fn's problems from becoming our own
-            (send (make-actor fn)))
-        ;; else
-        (become (make-recv-beh
-                 (finger-tree:addq msgs (cons self msg))
-                 prev-beh tstfn)))
-      )))
-
-(defmacro become-recv (&rest clauses)
-  ;; good for one matching message delivery, then revert to previous behavior
-  ;; stash non-matching messages for later re-delivery.
-  (lw:with-unique-names (handler)
-    `(let (,handler)
-       (flet ((retry-recv ()
-                (become (make-recv-beh nil self-beh ,handler))))
-         (setf ,handler (um:tlambda ,@clauses))
-         (retry-recv)))
-    ))
-|#
-#|
-(send (println) :hello)
- |#
 ;; -------------------------------------
 ;; Non-Sink Behaviors
 

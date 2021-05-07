@@ -35,15 +35,7 @@ THE SOFTWARE.
 (declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))
 
 ;; --------------------------------------------------------------------
-
 (defgeneric send (obj &rest msg))
-;; (defgeneric ask  (obj &rest msg))
-(defgeneric get-property (obj key &optional default))
-(defgeneric set-property (obj key value))
-(defgeneric remove-property (obj key))
-
-(defsetf get-property set-property)
-
 ;; ------------------------------------------------------
 
 (defvar *current-actor* nil)
@@ -94,20 +86,6 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "actors" 1)
 
-;; -----------------------------------------------------
-;; These methods can be called from any thread. SMP safe.
-
-(defmethod get-property ((actor actor) key &optional default)
-  ;; SMP-safe
-  nil)
-
-(defmethod set-property ((actor actor) key value)
-  ;; SMP-safe
-  nil)
-
-(defmethod remove-property ((actor actor) key)
-  nil)
-
 ;; --------------------------------------------------------
 ;; Core SEND to Actors
 
@@ -128,7 +106,6 @@ THE SOFTWARE.
 (defvar *evt-queue*     nil)
 (defvar *new-beh*       nil)
 (defvar *send-evts*     nil)
-(defvar *pref-msgs*     nil)
 (defvar *whole-message* nil)
 
 (declaim (inline whole-message))
@@ -153,16 +130,11 @@ THE SOFTWARE.
               ))
      (destructuring-bind (*current-actor* . *whole-message*) evt
        (let ((*new-beh*   self-beh)
-             (*send-evts* nil)
-             (*pref-msgs* nil))
+             (*send-evts* nil))
          (with-simple-restart (abort "Process next event")
            (apply *new-beh* *whole-message*)
            (effect-changes))
-         (when *pref-msgs*
-           (mp:with-lock (*evt-lock*)
-             (setf *evt-queue*
-                   (finger-tree:join *pref-msgs* *evt-queue*)))
-           )))
+         ))
      )))
 
 (defun irq (actor &rest msg)
@@ -221,12 +193,6 @@ THE SOFTWARE.
   (when self
     (send* dest *whole-message*)))
 
-(defun redeliver-messages (msgs)
-  ;; save message for later retry
-  (when self
-    (setf *pref-msgs* (finger-tree:join msgs *pref-msgs*))
-    ))
-    
 (defun effect-changes ()
   (setf self-beh *new-beh*)
   (mp:with-lock (*evt-lock*)

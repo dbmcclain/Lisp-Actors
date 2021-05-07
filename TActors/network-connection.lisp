@@ -375,7 +375,7 @@
            (send serial self item))
           
           ((and (eql item :fail)
-                (eq  (car msg) starter))
+                (eq (car msg) starter))
            ;; Error condition flagged by :FAIL from Starter
            (become (make-sink-beh)))
           )))
