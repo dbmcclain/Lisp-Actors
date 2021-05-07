@@ -147,14 +147,13 @@
      (repeat-send next)
      (prune-self next))
     
-    (:deliver-message (a-usti if-cant-send-fn &rest msg) when (uuid:uuid= a-usti usti)
+    (:deliver-message (a-usti if-cant-send &rest msg) when (uuid:uuid= a-usti usti)
      (declare (ignore a-usti))
      (prune-self next)
      (handler-case
          (send* (aref contv 0) msg)
        (error ()
-         (ignore-errors
-           (funcall if-cant-send-fn)))
+         (send if-cant-send))
        ))
     (t _
        (unless (aref contv 0)
@@ -171,10 +170,9 @@
     (:prune (prev)
      (send prev :pruned self-beh))
     
-    (:deliver-message (usti if-cant-send-fn &rest msg)
+    (:deliver-message (usti if-cant-send &rest msg)
      (declare (ignore usti msg))
-     (ignore-errors
-       (funcall if-cant-send-fn)))
+     (send if-cant-send))
     ))
 
 (defvar *cont-map* (make-actor (make-empty-cont-beh)))
@@ -414,22 +412,25 @@
 (defun bridge-forward-message (dest &rest msg)
   ;; called by SEND as a last resort
   (with-valid-dest (service handler) dest
-    (apply #'socket-send handler 'actors/internal-message/bridge:forwarding-send service msg)))
+    (apply #'socket-send handler :forwarding-send service msg)))
 
-(defmethod bridge-deliver-message ((dest proxy) if-cant-send-fn &rest msg)
+(defun my-node? (proxy)
+  (string-equal (machine-instance) (proxy-ip proxy)))
+
+(defmethod bridge-deliver-message ((dest proxy) if-cant-send &rest msg)
   ;; a message arrived from across the network. try to dispatch.
-  (if (string-equal (machine-instance) (proxy-ip dest))
-      (apply #'bridge-deliver-message (proxy-service dest) if-cant-send-fn msg)
+  (if (my-node? dest)
+      (apply #'bridge-deliver-message (proxy-service dest) if-cant-send msg)
     (apply #'bridge-forward-message dest msg)))
 
-(defmethod bridge-deliver-message ((dest uuid:uuid) if-cant-send-fn &rest msg)
-  (send* *cont-map* :deliver-message dest if-cant-send-fn msg))
+(defmethod bridge-deliver-message ((dest uuid:uuid) if-cant-send &rest msg)
+  (send* *cont-map* :deliver-message dest if-cant-send msg))
 
-(defmethod bridge-deliver-message (dest if-cant-send-fn &rest msg)
+(defmethod bridge-deliver-message (dest if-cant-send &rest msg)
   (handler-case
-      (apply #'sendx t dest msg)
+      (apply #'send dest msg)
     (error ()
-      (funcall if-cant-send-fn))))
+      (send if-cant-send))))
 
 ;; -----------------------------------------------------------------------
 ;; Default services: ECHO and EVAL
@@ -453,12 +454,12 @@
 
 (defmethod send ((usti uuid:uuid) &rest message)
   (bridge-deliver-message usti
-                          (lambda ()
+                          (actor ()
                             (error "No service: ~S" usti))
                           message))
 
 (defmethod send ((proxy proxy) &rest message)
-  (if (string-equal (machine-instance) (proxy-ip proxy))
+  (if (my-node? proxy)
       (send* (proxy-service proxy) message)
     (apply #'bridge-forward-message proxy message)))
 
@@ -478,7 +479,7 @@
    :service (create-and-add-usti obj)))
 
 (defmethod find-actor ((cust actor) (proxy proxy))
-  (if (string-equal (machine-instance) (proxy-ip proxy))
+  (if (my-node? proxy)
       (find-actor cust (proxy-service proxy))
     (call-next-method)))
 
@@ -504,7 +505,7 @@
                          (make-proxy :addr remote-addr)
                        remote-addr)))
     (lambda (&rest msg)
-      (apply #'actors/bridge:bridge-forward-message remote-addr msg))
+      (apply #'bridge-forward-message remote-addr msg))
     ))
   
 #|
