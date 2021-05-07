@@ -192,7 +192,7 @@
 
 (defun make-empty-buffer-beh (custs ctr)
   (um:dlambda
-    (:add (lbl frag)
+    (actors/internal-message/network:rd-incoming (lbl frag)
      (cond ((= ctr lbl)
             (drain-buffer custs (addq nil frag) (incf ctr)))
            (t
@@ -204,7 +204,7 @@
 
 (defun make-nonempty-buffer-beh (custs frags ctr)
   (um:dlambda
-    (:add (lbl frag)
+    (actors/internal-message/network:rd-incoming (lbl frag)
      (cond ((= ctr lbl)
             (drain-buffer custs (addq frags frag) (incf ctr)))
            (t
@@ -291,14 +291,6 @@
                     (dolist (frag frags)
                       (add-fragment vec frag))
                     (send dispatcher (byte-decode-obj vec))))
-               ))
-           (make-reader-beh ()
-             (um:dlambda
-               (actors/internal-message/network:rd-incoming (lbl frag)
-                  (send buf-actor :add lbl frag))
-               
-               (actors/internal-message/network:rd-error ()
-                  (become (make-sink-beh)))
                )))
 
         (setf buf-actor   (make-actor (make-empty-buffer-beh nil 1))
@@ -306,7 +298,7 @@
               assembler   (make-actor (make-packet-assembler-beh nil)))
         (send buf-actor
               :get rdr-actor len-buf 0 +len-prefix-length+)
-        (make-actor (make-reader-beh))
+        buf-actor
         ))))
 
 ;; -------------------------------------------------------------------------
@@ -622,7 +614,6 @@
                      ;; terminate on any error
                      (comm:async-io-state-finish state)
                      (log-error :SYSTEM-LOG "~A Incoming error state: ~A" title status)
-                     (send reader 'actors/internal-message/network:rd-error)
                      (decr-io-count state))
                    ))
                
