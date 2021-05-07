@@ -26,7 +26,7 @@
   *println*)
 
 ;; --------------------------------------
-
+#|
 (defun make-recv-beh (msgs prev-beh tstfn)
   (lambda (&rest msg)
     (let ((fn (apply tstfn msg)))
@@ -52,7 +52,7 @@
          (setf ,handler (um:tlambda ,@clauses))
          (retry-recv)))
     ))
-
+|#
 #|
 (send (println) :hello)
  |#

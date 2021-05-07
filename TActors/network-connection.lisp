@@ -214,6 +214,18 @@
     
 ;; -------------------------------------------------------------------------
 ;; Packet Reader
+;;          +-------+    +------------+
+;;  ISR --->| Entry |--->| Buffer Mgr |
+;;          +-------+    +------------+
+;;                             ^
+;;                             |
+;;                             v
+;;                         +-----------------+
+;;            Prefix Len   | +-----------------+
+;;             Encr Data   +-| +-----------------+    +---------------+
+;;                HMAC       +-| Packet Assembly |--->| Frag Assembly |---> Msg Dispatcher
+;;                             +-----------------+    +---------------+
+;;
 
 (defconstant +len-prefix-length+  4)
 (defconstant +hmac-length+       32)
@@ -306,48 +318,76 @@
 
 ;; -------------------------------------------------------------------------
 ;; Socket writer
+;;                                          ISR
+;;      +-------+     +------------+    +---------+    +---------+
+;;  --->| Entry |<--->| Serializer |--->| Starter |--->| EndSync |--+
+;;      +-------+     +------------+    +---------+    +---------+  |
+;;                          ^                                       |
+;;                          |                                       |
+;;                          +---------------------------------------+
+;;
+
+
+(defun make-write-starter-beh (state write-end)
+  (lambda (cust buffers)
+    (with-accessors ((io-state   intf-state-io-state)
+                     (io-running intf-state-io-running)) state
+      (labels
+          ((transmit-next-buffer (state)
+             (comm:async-io-state-write-buffer state (pop buffers) #'write-next-buffer))
+           
+           (write-next-buffer (state &rest ignored)
+             ;; this is a callback routine, executed in the thread of
+             ;; the async collection
+             (declare (ignore ignored))
+             (cond ((comm:async-io-state-write-status state)
+                    (send write-end 'actors/internal-message/network:wr-fail cust))
+                   (buffers
+                    (transmit-next-buffer state))
+                   (t
+                    (send write-end 'actors/internal-message/network:wr-done cust))
+                   )))
+        (cond
+         ((sys:compare-and-swap (car io-running) 1 2) ;; still running recieve?
+          (transmit-next-buffer io-state))
+         (t
+          (send cust :fail self))
+         )))))
+
+(defun make-write-end-beh (state starter)
+  (with-accessors ((io-state         intf-state-io-state)
+                   (decr-io-count-fn intf-state-decr-io-count-fn)) state
+    (um:dlambda
+      (actors/internal-message/network:wr-done (cust)
+         (if (zerop (funcall decr-io-count-fn io-state))
+             (send cust :fail starter)
+           (send cust :ok starter)))
+    
+      (actors/internal-message/network:wr-fail (cust)
+         (funcall decr-io-count-fn io-state)
+         (send cust :fail starter))
+      )))
+
+(defun make-write-entry-beh (starter)
+  (let ((ser (serializer starter)))
+    (lambda (item &rest msg)
+      (cond ((consp item)
+             ;; A list of buffers to write
+             (send ser self item))
+            
+            ((and (eql item :fail)
+                  (eq  (car msg) starter))
+             ;; Error condition flagged by :FAIL from Starter
+             (become (make-sink-beh)))
+            ))
+    ))
 
 (defun make-writer (state)
-  (actor (buffers)
-    (with-accessors ((io-state         intf-state-io-state)
-                     (io-running       intf-state-io-running)
-                     (decr-io-count-fn intf-state-decr-io-count-fn)) state
-      (let ((writer self))
-        (labels
-            ((we-are-done ()
-               (become (make-sink-beh)))
-
-             (transmit-next-buffer (state)
-               (comm:async-io-state-write-buffer state (pop buffers) #'write-next-buffer))
-             
-             (write-next-buffer (state &rest ignored)
-               ;; this is a callback routine, executed in the thread of
-               ;; the async collection
-               (declare (ignore ignored))
-               (cond ((comm:async-io-state-write-status state)
-                      (send writer 'actors/internal-message/network:wr-fail))
-                     (buffers
-                      (transmit-next-buffer state))
-                     (t
-                      (send writer 'actors/internal-message/network:wr-done))
-                     )))
-          (cond
-           ((sys:compare-and-swap (car io-running) 1 2) ;; still running recieve?
-            (transmit-next-buffer io-state)
-            (become-recv
-
-             (actors/internal-message/network:wr-done ()
-                (when (zerop (funcall decr-io-count-fn io-state))
-                  (we-are-done)))
-    
-             (actors/internal-message/network:wr-fail ()
-                (funcall decr-io-count-fn io-state)
-                (we-are-done))
-             ))
-           (t
-            (we-are-done))
-           ))))))
-
+  (actors ((starter  (make-write-starter-beh state sync-end))
+           (sync-end (make-write-end-beh state starter))
+           (entry    (make-write-entry-beh starter)))
+    entry))
+      
 ;; -------------------------------------------------------------------------
 
 (defun make-kill-timer (timer-fn)
