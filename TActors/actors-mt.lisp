@@ -158,7 +158,7 @@ THE SOFTWARE.
 (defun start-actors-system ()
   (unless (sponsor-threads *sponsor-mt*)
     (dotimes (ix +nbr-threads+)
-      (push (mp:process-run-function (format nil "Actor Thread ~D" ix)
+      (push (mp:process-run-function (format nil "ActorMT Thread ~D" ix)
                                      ()
                                      #'run-actors *sponsor-mt*)
             (sponsor-threads *sponsor-mt*)))
