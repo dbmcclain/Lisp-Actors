@@ -41,7 +41,7 @@
 
             actors/lfm:ensure-system-logger
             actors/lfm:kill-system-logger
-            
+
             scatter-vec:scatter-vector
             scatter-vec:add-fragment
 
@@ -190,27 +190,24 @@
         ))
 
 (defun make-empty-buffer-beh (custs)
-  (um:dlambda
-    (:add (frag)
-     (drain-buffer custs (addq nil frag)))
-    (:get (&rest msg)
-     (become (make-empty-buffer-beh (addq custs msg))))
-    (:get-multiple (lst)
-     (become (make-empty-buffer-beh (reduce #'addq lst
-                                            :initial-value custs))))
-    ))
+  (lambda (cust &rest msg)
+    (um:dcase msg
+      (:add (frag)
+       (send cust)
+       (drain-buffer custs (addq nil frag)))
+      (:get (&rest msg)
+       (become (make-empty-buffer-beh (addq custs msg))))
+    )))
 
 (defun make-nonempty-buffer-beh (custs frags)
-  (um:dlambda
+  (lambda (cust &rest msg)
+    (um:dcase msg
     (:add (frag)
+     (send cust)
      (drain-buffer custs (addq frags frag)))
     (:get (&rest msg)
      (drain-buffer (addq custs msg) frags))
-    (:get-multiple (lst)
-     (drain-buffer (reduce #'addq lst
-                           :initial-value custs)
-                   frags))
-    ))
+    )))
     
 ;; -------------------------------------------------------------------------
 ;; Socket Reader
@@ -219,7 +216,7 @@
 ;;          +-------+    +------------+
 ;;                             ^
 ;;                             |
-;;                             v
+;;                             v  cyclic
 ;;                     +-----------------+
 ;;        Prefix Len   | +-----------------+
 ;;         Encr Data   +-| +-----------------+    +---------------+
@@ -230,7 +227,7 @@
 (defconstant +len-prefix-length+  4)
 (defconstant +hmac-length+       32)
 
-(defun make-reader (state)
+(defun make-reader (state mbox)
   ;; An entire subsystem to respond to incoming socket data, assemble
   ;; bytes into packets (len, data, hmac) decode packets into
   ;; messages, then forward decoded messages on to dispatcher.
@@ -250,35 +247,24 @@
                         ;; possible DOS attack - and we are done... just hang up.
                         (log-error :SYSTEM-LOG "NData = ~D" ndata)
                         (send assembler 'actors/internal-message/network:discard :E-NDATA))
-                       #|
                        (t
                         (let ((enc-buf (make-u8-vector ndata)))
-                          (send buf-actor :get
-                                (make-actor (make-rd-data-beh enc-buf ndata))
-                                enc-buf 0 ndata))
-                        )))))
-           (make-rd-data-beh (enc-buf ndata)
-             (lambda ()
-               (send buf-actor :get
-                     (make-actor (make-rd-hmac-beh enc-buf ndata))
-                     hmac-buf 0 +hmac-length+)))
-           |#
-#||#
-                       (t
-                        (let ((enc-buf (make-u8-vector ndata)))
-                          (send buf-actor :get-multiple
-                                (list
-                                 (list (sink)
-                                       enc-buf 0 ndata)
-                                 (list (make-actor (make-rd-hmac-beh enc-buf ndata))
-                                       hmac-buf 0 +hmac-length+)))
+                          (send buf-actor (sink)
+                                :get (make-actor (make-rd-data-beh enc-buf ndata))
+                                enc-buf 0 ndata)
                           ))
                        ))))
-#||#
+           (make-rd-data-beh (enc-buf ndata)
+             (lambda ()
+               (send buf-actor (sink) 
+                     :get (make-actor (make-rd-hmac-beh enc-buf ndata))
+                     hmac-buf 0 +hmac-length+)))
            (make-rd-hmac-beh (enc-buf ndata)
              (lambda ()
-               (send* assembler (secure-decoding crypto ndata len-buf enc-buf hmac-buf))
-               (send buf-actor :get rdr-actor len-buf 0 +len-prefix-length+)
+               (send* assembler
+                      (secure-decoding crypto ndata len-buf enc-buf hmac-buf))
+               (send buf-actor (sink) 
+                     :get rdr-actor len-buf 0 +len-prefix-length+)
                ))
 
            (make-packet-assembler-beh (accum)
@@ -300,20 +286,26 @@
                     (dolist (frag frags)
                       (add-fragment vec frag))
                     (send dispatcher (byte-decode-obj vec))))
-               )))
+               ))
+           (make-reader-beh ()
+             (lambda ()
+               (if (mp:mailbox-empty-p mbox)
+                   (send self)
+                 (um:dcase (mp:mailbox-read mbox)
+                   
+                   (actors/internal-message/network:rd-incoming (frag)
+                      (send buf-actor self :add frag))
+                 
+                   (actors/internal-message/network:rd-error () )
+                   )))))
 
-        (setf buf-actor   (make-actor (make-empty-buffer-beh nil))
-              rdr-actor   (make-actor (make-rd-lenbuf-beh))
-              assembler   (make-actor (make-packet-assembler-beh nil)))
-        (send buf-actor :get rdr-actor
-              len-buf 0 +len-prefix-length+)
-        (actor (&rest msg)
-          (um:dcase msg
-            (actors/internal-message/network:rd-incoming (frag)
-               (send buf-actor :add frag))
-            (actors/internal-message/network:rd-error ()
-               (become (make-sink-beh)))
-            ))
+        (setf buf-actor (make-actor (make-empty-buffer-beh nil))
+              rdr-actor (make-actor (make-rd-lenbuf-beh))
+              assembler (make-actor (make-packet-assembler-beh nil)))
+        (send buf-actor (sink)
+              :get rdr-actor len-buf 0 +len-prefix-length+)
+
+        (send (make-actor (make-reader-beh)))
         ))))
 
 ;; -------------------------------------------------------------------------
@@ -348,10 +340,15 @@
                     (send write-end 'actors/internal-message/network:wr-done cust))
                    )))
         (cond
+         ((eq cust self)
+          (become (make-sink-beh)))
+
          ((sys:compare-and-swap (car io-running) 1 2) ;; still running recieve?
           (transmit-next-buffer io-state))
+
          (t
-          (send cust :fail self))
+          (send cust :fail self)
+          (become (make-sink-beh)))
          )))))
 
 (defun make-write-end-beh (state starter)
@@ -360,12 +357,15 @@
     (um:dlambda
       (actors/internal-message/network:wr-done (cust)
          (if (zerop (funcall decr-io-count-fn io-state))
-             (send cust :fail starter)
+             (progn
+               (send cust :fail starter)
+               (send starter starter))
            (send cust :ok starter)))
     
       (actors/internal-message/network:wr-fail (cust)
          (funcall decr-io-count-fn io-state)
-         (send cust :fail starter))
+         (send cust :fail starter)
+         (send starter starter))
       )))
 
 (defun make-write-entry-beh (serial starter)
@@ -597,7 +597,8 @@
                               (shutdown intf)))
               dispatcher (make-dispatcher state))
         
-        (let ((reader (make-reader state)))
+        (let ((mbox  (mp:make-mailbox)))
+          (make-reader state mbox)
           (labels
               ((rd-callback-fn (state buffer end)
                  ;; callback for I/O thread - on continuous async read
@@ -611,15 +612,15 @@
                      ;; (log-info :SYSTEM-LOG "~A Incoming bytes: ~A" title buffer)
                      (if (> end +max-fragment-size+)
                          (setf err-too-large "Incoming packet too large")
-                       (send reader 'actors/internal-message/network:rd-incoming
-                             (list* 0 end (subseq buffer 0 end))))
+                       (mp:mailbox-send mbox `(actors/internal-message/network:rd-incoming
+                                               ,(list* 0 end (subseq buffer 0 end)))))
                      (comm:async-io-state-discard state end))
                    (when-let (status (or (comm:async-io-state-read-status state)
                                          err-too-large))
                      ;; terminate on any error
                      (comm:async-io-state-finish state)
                      (log-error :SYSTEM-LOG "~A Incoming error state: ~A" title status)
-                     (send reader 'actors/internal-message/network:rd-error)
+                     (mp:mailbox-send mbox `(actors/internal-message/network:rd-error))
                      (decr-io-count state))
                    ))
                
@@ -653,8 +654,10 @@
   (with-accessors ((crypto     intf-state-crypto)
                    (writer     intf-state-writer)
                    (kill-timer intf-state-kill-timer)) state
+    
     (send kill-timer :resched)
-    (send writer (secure-encoding crypto msg))))
+    (send writer (secure-encoding crypto msg))
+    ))
 
 (defun shutdown (intf)
   (send intf :shutdown))

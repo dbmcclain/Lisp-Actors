@@ -69,6 +69,9 @@
 (defun register-actor (name actor)
   (send *actors-directory* :register name actor))
 
+(defun unregister-actor (name)
+  (send *actors-directory* :unregister name))
+
 (defun get-actor-names (cust)
   (send *actors-directory* :get-actor-names cust))
 

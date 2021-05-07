@@ -101,8 +101,17 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------
 ;; Toplevel Actor / Worker behavior
 
-(defvar *run-threads*   nil)
-(defvar *evt-mbox*      (mp:make-mailbox))
+(defstruct sponsor
+  (mbox  (mp:make-mailbox))
+  threads)
+
+(defvar *sponsor-st*
+  (make-sponsor))
+
+(defvar *sponsor-mt*
+  (make-sponsor))
+
+(defvar *evt-mbox*      (sponsor-mbox *sponsor-mt*))
 (defvar *new-beh*       nil)
 (defvar *send-evts*     nil)
 (defvar *whole-message* nil)
@@ -116,49 +125,58 @@ THE SOFTWARE.
   (dolist (evt msgs)
     (mp:mailbox-send *evt-mbox* evt)))
 
-(defun run-actors ()
-  (loop
-   (let ((evt (mp:mailbox-read *evt-mbox*)))
-     (destructuring-bind (*current-actor* . *whole-message*) evt
-       (let ((*new-beh*  self-beh))
-         (cond ((or (typep *new-beh* 'safe-beh)
-                    (sys:compare-and-swap (actor-busy *current-actor*) nil t))
-                (let ((*send-evts*   nil)
+(defun run-actors (sponsor)
+  (let ((*evt-mbox*  (sponsor-mbox sponsor)))
+    (loop
+     (let ((evt (mp:mailbox-read *evt-mbox*)))
+       (destructuring-bind (*current-actor* . *whole-message*) evt
+         (let ((*new-beh*  self-beh))
+           (cond ((or (typep *new-beh* 'safe-beh)
+                      (sys:compare-and-swap (actor-busy *current-actor*) nil t))
+                  (let ((*send-evts*   nil)
                       ;; (*pref-msgs*   nil)
                       )
-                  (with-simple-restart (abort "Handle next event")
-                    (apply *new-beh* *whole-message*)
-                    ;; effects commit...
-                    (when *send-evts*
-                      (send-msgs *send-evts*))
-                    (setf self-beh *new-beh*))
-                  ;; ----------------------------
-                  ;; for all executing Actors, failed or not
-                  (setf (actor-busy self) nil)
-                  ;; (when *pref-msgs*
-                  ;;  (send-msgs *pref-msgs*))
-                  ))
-               (t
-                ;; else - actor was busy
-                (mp:mailbox-send *evt-mbox* evt))
-               ))))))
+                    (with-simple-restart (abort "Handle next event")
+                      (apply *new-beh* *whole-message*)
+                      ;; effects commit...
+                      (when *send-evts*
+                        (send-msgs *send-evts*))
+                      (setf self-beh *new-beh*))
+                    ;; ----------------------------
+                    ;; for all executing Actors, failed or not
+                    (setf (actor-busy self) nil)
+                    ;; (when *pref-msgs*
+                    ;;  (send-msgs *pref-msgs*))
+                    ))
+                 (t
+                  ;; else - actor was busy
+                  (mp:mailbox-send *evt-mbox* evt))
+                 )))))))
 
 (defconstant +nbr-threads+  8)
 
 (defun start-actors-system ()
-  (unless *run-threads*
+  (unless (sponsor-threads *sponsor-mt*)
     (dotimes (ix +nbr-threads+)
       (push (mp:process-run-function (format nil "Actor Thread ~D" ix)
                                      ()
-                                     #'run-actors)
-            *run-threads*))))
+                                     #'run-actors *sponsor-mt*)
+            (sponsor-threads *sponsor-mt*)))
+    ;; A single thread for code that must be run that way
+    (push (mp:process-run-function "ActorST Thread"
+                                   ()
+                                   #'run-actors *sponsor-st*)
+          (sponsor-threads *sponsor-st*))
+    ))
 #|
 (start-actors-system)
 (kill-executives)
  |#
 
 (defun kill-executives ()
-  (dolist (thr (shiftf *run-threads* nil))
+  (dolist (thr (shiftf (sponsor-threads *sponsor-mt*) nil))
+    (mp:process-terminate thr))
+  (dolist (thr (shiftf (sponsor-threads *sponsor-st*) nil))
     (mp:process-terminate thr)))
 
 ;; -----------------------------------------------
@@ -190,6 +208,33 @@ THE SOFTWARE.
   (when self
     (send* dest *whole-message*)))
 
+;; ----------------------------------------------------------------
+;; Using Sponsors
+
+(defun effective-sponsor (spon)
+  (cond ((sponsor-p spon) spon)
+        ((or (eq t spon)
+             (eq :mt spon))
+         *sponsor-mt*)
+        ((or (null spon)
+             (eq :st spon))
+         *sponsor-st*)
+        (t
+         (error "Not a Sponsor: ~S" spon))
+        ))
+
+(defmacro with-sponsor (sponsor &body body)
+  `(let ((*evt-mbox* (sponsor-mbox (effective-sponsor ,sponsor))))
+     ,@body))
+
+#+:LISPWORKS
+(editor:setup-indent "with-sponsor" 1)
+
+(defun sendx (sponsor actor &rest msg)
+  ;; cross-sponsor SEND
+  (with-sponsor sponsor
+    (send* actor msg)))
+
 ;; ----------------------------------------------
 ;; WORKER is just a function that executes on an Executive pool
 ;; thread.
@@ -212,5 +257,19 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (editor:setup-indent "with-worker" 1)
+
+(defmacro with-single-thread (&body body)
+  (lw:with-unique-names (k-cont)
+    `(let ((,k-cont (actor ()
+                      ,@body)))
+       (sendx nil ,k-cont))
+    ))
+
+(defmacro with-multiple-threads (&body body)
+  (lw:with-unique-names (k-cont)
+    `(let ((,k-cont (actor ()
+                      ,@body)))
+       (sendx t ,k-cont))
+    ))
 
 ;; ----------------------------------------------

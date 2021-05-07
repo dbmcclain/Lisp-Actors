@@ -427,7 +427,7 @@
 
 (defmethod bridge-deliver-message (dest if-cant-send-fn &rest msg)
   (handler-case
-      (send* dest msg)
+      (apply #'sendx t dest msg)
     (error ()
       (funcall if-cant-send-fn))))
 

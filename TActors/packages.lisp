@@ -46,6 +46,12 @@ THE SOFTWARE.
    #:*timeout*)
 
   (:export
+   #:sponsor
+   #:with-sponsor
+   #:sendx
+   #:with-single-thread
+   #:with-multiple-threads
+   
    #:*bitpit*
    #:*println*
    #:define-actor-class

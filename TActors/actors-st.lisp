@@ -115,9 +115,9 @@ THE SOFTWARE.
 
 (defun run-actors ()
   (loop
-   (let ((evt (prog ()
-                again
-                (mp:with-lock (*evt-lock*)
+   (let ((evt (mp:with-lock (*evt-lock*)
+                (prog ()
+                  again
                   (cond (*evt-queue*
                          (multiple-value-bind (evt new-queue)
                              (finger-tree:popq *evt-queue*)

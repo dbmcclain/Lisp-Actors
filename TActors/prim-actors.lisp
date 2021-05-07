@@ -7,7 +7,8 @@
 ;; Sink Behaviors
 
 (defun make-sink-beh ()
-  #'lw:do-nothing)
+  (make-safe-beh
+   #'lw:do-nothing))
 
 (defvar *bitpit*
   (make-actor (make-sink-beh)))

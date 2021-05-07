@@ -10,7 +10,7 @@
 (ac:make-remote-actor "eval@arroyo.local"
                       :register :REVAL)
 
-(loop repeat 10 do
+(loop repeat 5 do
       (send :reval (ac:usti (println)) `(machine-instance)))
 
 #|
