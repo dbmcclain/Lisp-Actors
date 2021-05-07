@@ -73,7 +73,6 @@
   io-state
   accepting-handle
   crypto
-  reader
   writer
   dispatcher
   kill-timer
@@ -169,7 +168,7 @@
            ))))
     ))
        
-(defun drain-buffer (custs frags)
+(defun drain-buffer (custs frags new-ctr)
   (cond (custs
          (multiple-value-bind (rec new-custs) (popq custs)
            (destructuring-bind (cust buf pos limit) rec
@@ -178,37 +177,42 @@
                (if (>= new-pos limit)
                    (progn
                      (send cust)
-                     (drain-buffer new-custs new-frags))
+                     (drain-buffer new-custs new-frags new-ctr))
                  ;; else
                  (become (make-empty-buffer-beh
                           (pushq new-custs
-                                 (list cust buf new-pos limit))))
+                                 (list cust buf new-pos limit))
+                          new-ctr))
                  )))))
         (t
          (if frags
-             (become (make-nonempty-buffer-beh nil frags))
-           (become (make-empty-buffer-beh nil))))
+             (become (make-nonempty-buffer-beh nil frags new-ctr))
+           (become (make-empty-buffer-beh nil new-ctr))))
         ))
 
-(defun make-empty-buffer-beh (custs)
-  (lambda (cust &rest msg)
-    (um:dcase msg
-      (:add (frag)
-       (send cust)
-       (drain-buffer custs (addq nil frag)))
-      (:get (&rest msg)
-       (become (make-empty-buffer-beh (addq custs msg))))
-    )))
-
-(defun make-nonempty-buffer-beh (custs frags)
-  (lambda (cust &rest msg)
-    (um:dcase msg
-    (:add (frag)
-     (send cust)
-     (drain-buffer custs (addq frags frag)))
+(defun make-empty-buffer-beh (custs ctr)
+  (um:dlambda
+    (:add (lbl frag)
+     (cond ((= ctr lbl)
+            (drain-buffer custs (addq nil frag) (incf ctr)))
+           (t
+            (repeat-send self))
+           ))
     (:get (&rest msg)
-     (drain-buffer (addq custs msg) frags))
-    )))
+     (become (make-empty-buffer-beh (addq custs msg) ctr)))
+    ))
+
+(defun make-nonempty-buffer-beh (custs frags ctr)
+  (um:dlambda
+    (:add (lbl frag)
+     (cond ((= ctr lbl)
+            (drain-buffer custs (addq frags frag) (incf ctr)))
+           (t
+            (repeat-send self))
+           ))
+    (:get (&rest msg)
+     (drain-buffer (addq custs msg) frags ctr))
+    ))
     
 ;; -------------------------------------------------------------------------
 ;; Socket Reader
@@ -228,20 +232,18 @@
 (defconstant +len-prefix-length+  4)
 (defconstant +hmac-length+       32)
 
-(defun make-reader (state mbox)
+(defun make-reader (state)
   ;; An entire subsystem to respond to incoming socket data, assemble
   ;; bytes into packets (len, data, hmac) decode packets into
   ;; messages, then forward decoded messages on to dispatcher.
   (with-accessors ((crypto     intf-state-crypto)
                    (dispatcher intf-state-dispatcher)
-                   (reader     intf-state-reader)
                    (intf       intf-state-intf)) state
     (let ((len-buf  (make-u8-vector +len-prefix-length+))
           (hmac-buf (make-u8-vector +hmac-length+))
           buf-actor
           rdr-actor
-          assembler
-          irq-handler)
+          assembler)
       (labels
           ((make-rd-lenbuf-beh ()
              (lambda ()
@@ -252,21 +254,21 @@
                         (send assembler 'actors/internal-message/network:discard :E-NDATA))
                        (t
                         (let ((enc-buf (make-u8-vector ndata)))
-                          (send buf-actor (sink)
+                          (send buf-actor
                                 :get (make-actor (make-rd-data-beh enc-buf ndata))
                                 enc-buf 0 ndata)
                           ))
                        ))))
            (make-rd-data-beh (enc-buf ndata)
              (lambda ()
-               (send buf-actor (sink) 
+               (send buf-actor
                      :get (make-actor (make-rd-hmac-beh enc-buf ndata))
                      hmac-buf 0 +hmac-length+)))
            (make-rd-hmac-beh (enc-buf ndata)
              (lambda ()
                (send* assembler
                       (secure-decoding crypto ndata len-buf enc-buf hmac-buf))
-               (send buf-actor (sink) 
+               (send buf-actor
                      :get rdr-actor len-buf 0 +len-prefix-length+)
                ))
 
@@ -291,24 +293,20 @@
                     (send dispatcher (byte-decode-obj vec))))
                ))
            (make-reader-beh ()
-             (lambda ()
-               (with-worker ()
-                 (um:dcase (mp:mailbox-read mbox)
-                   
-                   (actors/internal-message/network:rd-incoming (frag)
-                      (send buf-actor irq-handler :add frag))
-                 
-                   (actors/internal-message/network:rd-error () )
-                   )))))
+             (um:dlambda
+               (actors/internal-message/network:rd-incoming (lbl frag)
+                  (send buf-actor :add lbl frag))
+               
+               (actors/internal-message/network:rd-error ()
+                  (become (make-sink-beh)))
+               )))
 
-        (setf buf-actor   (make-actor (make-empty-buffer-beh nil))
+        (setf buf-actor   (make-actor (make-empty-buffer-beh nil 1))
               rdr-actor   (make-actor (make-rd-lenbuf-beh))
-              assembler   (make-actor (make-packet-assembler-beh nil))
-              irq-handler (make-actor (make-reader-beh))
-              reader      mbox)
-        (send buf-actor (sink)
+              assembler   (make-actor (make-packet-assembler-beh nil)))
+        (send buf-actor
               :get rdr-actor len-buf 0 +len-prefix-length+)
-        (send irq-handler)
+        (make-actor (make-reader-beh))
         ))))
 
 ;; -------------------------------------------------------------------------
@@ -600,8 +598,8 @@
                               (shutdown intf)))
               dispatcher (make-dispatcher state))
         
-        (let ((mbox  (mp:make-mailbox)))
-          (make-reader state mbox)
+        (let ((lbl    0)
+              (reader (make-reader state)))
           (labels
               ((rd-callback-fn (state buffer end)
                  ;; callback for I/O thread - on continuous async read
@@ -615,15 +613,16 @@
                      ;; (log-info :SYSTEM-LOG "~A Incoming bytes: ~A" title buffer)
                      (if (> end +max-fragment-size+)
                          (setf err-too-large "Incoming packet too large")
-                       (mp:mailbox-send mbox `(actors/internal-message/network:rd-incoming
-                                               ,(list* 0 end (subseq buffer 0 end)))))
+                       (send reader 'actors/internal-message/network:rd-incoming
+                             (incf lbl)
+                             (list* 0 end (subseq buffer 0 end))))
                      (comm:async-io-state-discard state end))
                    (when-let (status (or (comm:async-io-state-read-status state)
                                          err-too-large))
                      ;; terminate on any error
                      (comm:async-io-state-finish state)
                      (log-error :SYSTEM-LOG "~A Incoming error state: ~A" title status)
-                     (mp:mailbox-send mbox `(actors/internal-message/network:rd-error))
+                     (send reader 'actors/internal-message/network:rd-error)
                      (decr-io-count state))
                    ))
                
@@ -671,7 +670,6 @@
                    (io-running       intf-state-io-running)
                    (io-state         intf-state-io-state)
                    (accepting-handle intf-state-accepting-handle)
-                   (reader           intf-state-reader)
                    (title            intf-state-title)) state
     (send kill-timer :discard)
     ;; (kill-monitor monitor)
@@ -679,7 +677,6 @@
     (comm:async-io-state-abort-and-close io-state)
     (when accepting-handle
       (um:deletef (comm:accepting-handle-user-info accepting-handle) self))
-    (mp:mailbox-send reader '(actors/internal-message/network:rd-error))
     (bridge-unregister self)
     (log-info :SYSTEM-LOG "Socket ~A shutting down: ~A" title self)
     (become (make-sink-beh))
