@@ -261,7 +261,8 @@
 ;; It would be useful in a single-threaded implementation which must
 ;; continue to dispatch messages to remain lively.
 
-(defun make-empty-serializer-beh (service)
+(defun make-serializer-beh (service)
+  ;; initial empty state
   (lambda (cust &rest msg)
     (let ((tag  (tag self)))
       (send* service tag msg)
@@ -282,14 +283,14 @@
                             service tag next-cust new-queue))
                    ))
                ;; else
-               (become (make-empty-serializer-beh service))))
+               (become (make-serializer-beh service))))
           (t
            (become (make-enqueued-serializer-beh
                     service tag in-cust (finger-tree:addq queue (cons cust msg)))))
           )))
 
 (defun serializer (service)
-  (make-actor (make-empty-serializer-beh service)))
+  (make-actor (make-serializer-beh service)))
 
 ;; --------------------------------------
 

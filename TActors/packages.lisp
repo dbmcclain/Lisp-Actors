@@ -201,7 +201,8 @@ THE SOFTWARE.
    #:make-tag-beh
    #:make-wrapping-beh
    #:make-scheduled-message-beh
-
+   #:make-serializer-beh
+   
    #:call-future
    #:force
    #:call-forcing

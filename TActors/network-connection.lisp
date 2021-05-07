@@ -213,18 +213,18 @@
     ))
     
 ;; -------------------------------------------------------------------------
-;; Packet Reader
+;; Socket Reader
 ;;          +-------+    +------------+
 ;;  ISR --->| Entry |--->| Buffer Mgr |
 ;;          +-------+    +------------+
 ;;                             ^
 ;;                             |
 ;;                             v
-;;                         +-----------------+
-;;            Prefix Len   | +-----------------+
-;;             Encr Data   +-| +-----------------+    +---------------+
-;;                HMAC       +-| Packet Assembly |--->| Frag Assembly |---> Msg Dispatcher
-;;                             +-----------------+    +---------------+
+;;                     +-----------------+
+;;        Prefix Len   | +-----------------+
+;;         Encr Data   +-| +-----------------+    +---------------+
+;;            HMAC       +-| Packet Assembly |--->| Frag Assembly |---> Msg Dispatcher
+;;                         +-----------------+    +---------------+
 ;;
 
 (defconstant +len-prefix-length+  4)
@@ -368,24 +368,23 @@
          (send cust :fail starter))
       )))
 
-(defun make-write-entry-beh (starter)
-  (let ((ser (serializer starter)))
-    (lambda (item &rest msg)
-      (cond ((consp item)
-             ;; A list of buffers to write
-             (send ser self item))
-            
-            ((and (eql item :fail)
-                  (eq  (car msg) starter))
-             ;; Error condition flagged by :FAIL from Starter
-             (become (make-sink-beh)))
-            ))
-    ))
+(defun make-write-entry-beh (serial starter)
+  (lambda (item &rest msg)
+    (cond ((consp item)
+           ;; A list of buffers to write
+           (send serial self item))
+          
+          ((and (eql item :fail)
+                (eq  (car msg) starter))
+           ;; Error condition flagged by :FAIL from Starter
+           (become (make-sink-beh)))
+          )))
 
 (defun make-writer (state)
   (actors ((starter  (make-write-starter-beh state sync-end))
            (sync-end (make-write-end-beh state starter))
-           (entry    (make-write-entry-beh starter)))
+           (serial   (make-serializer-beh starter))
+           (entry    (make-write-entry-beh serial starter)))
     entry))
       
 ;; -------------------------------------------------------------------------
