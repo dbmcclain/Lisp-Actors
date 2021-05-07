@@ -73,6 +73,7 @@
   io-state
   accepting-handle
   crypto
+  reader
   writer
   dispatcher
   kill-timer
@@ -233,12 +234,14 @@
   ;; messages, then forward decoded messages on to dispatcher.
   (with-accessors ((crypto     intf-state-crypto)
                    (dispatcher intf-state-dispatcher)
+                   (reader     intf-state-reader)
                    (intf       intf-state-intf)) state
     (let ((len-buf  (make-u8-vector +len-prefix-length+))
           (hmac-buf (make-u8-vector +hmac-length+))
           buf-actor
           rdr-actor
-          assembler)
+          assembler
+          irq-handler)
       (labels
           ((make-rd-lenbuf-beh ()
              (lambda ()
@@ -289,23 +292,23 @@
                ))
            (make-reader-beh ()
              (lambda ()
-               (if (mp:mailbox-empty-p mbox)
-                   (send self)
+               (with-worker ()
                  (um:dcase (mp:mailbox-read mbox)
                    
                    (actors/internal-message/network:rd-incoming (frag)
-                      (send buf-actor self :add frag))
+                      (send buf-actor irq-handler :add frag))
                  
                    (actors/internal-message/network:rd-error () )
                    )))))
 
-        (setf buf-actor (make-actor (make-empty-buffer-beh nil))
-              rdr-actor (make-actor (make-rd-lenbuf-beh))
-              assembler (make-actor (make-packet-assembler-beh nil)))
+        (setf buf-actor   (make-actor (make-empty-buffer-beh nil))
+              rdr-actor   (make-actor (make-rd-lenbuf-beh))
+              assembler   (make-actor (make-packet-assembler-beh nil))
+              irq-handler (make-actor (make-reader-beh))
+              reader      mbox)
         (send buf-actor (sink)
               :get rdr-actor len-buf 0 +len-prefix-length+)
-
-        (send (make-actor (make-reader-beh)))
+        (send irq-handler)
         ))))
 
 ;; -------------------------------------------------------------------------
@@ -668,6 +671,7 @@
                    (io-running       intf-state-io-running)
                    (io-state         intf-state-io-state)
                    (accepting-handle intf-state-accepting-handle)
+                   (reader           intf-state-reader)
                    (title            intf-state-title)) state
     (send kill-timer :discard)
     ;; (kill-monitor monitor)
@@ -675,6 +679,7 @@
     (comm:async-io-state-abort-and-close io-state)
     (when accepting-handle
       (um:deletef (comm:accepting-handle-user-info accepting-handle) self))
+    (mp:mailbox-send reader '(actors/internal-message/network:rd-error))
     (bridge-unregister self)
     (log-info :SYSTEM-LOG "Socket ~A shutting down: ~A" title self)
     (become (make-sink-beh))
