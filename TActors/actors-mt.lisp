@@ -102,8 +102,6 @@ THE SOFTWARE.
 ;; Toplevel Actor / Worker behavior
 
 (defvar *run-threads*   nil)
-(defvar *evt-cx*        (mp:make-condition-variable))
-(defvar *evt-lock*      (mp:make-lock))
 (defvar *evt-mbox*      (mp:make-mailbox))
 (defvar *new-beh*       nil)
 (defvar *send-evts*     nil)
@@ -115,32 +113,44 @@ THE SOFTWARE.
 (defun whole-message ()
   *whole-message*)
 
+(defgeneric send-msgs (msgs)
+  (:method ((lst cons))
+   (dolist (evt lst)
+     (mp:mailbox-send *evt-mbox* evt)))
+  (:method ((q vector))
+   ;; actually... a raw Finger Tree Queue
+   (um:while q
+     (multiple-value-bind (evt new-q)
+         (finger-tree:popq q)
+       (mp:mailbox-send *evt-mbox* evt)
+       (setf q new-q))
+     )))
+
 (defun run-actors ()
   (loop
    (let ((evt (mp:mailbox-read *evt-mbox*)))
      (destructuring-bind (*current-actor* . *whole-message*) evt
        (let ((*new-beh*  self-beh))
-         (if (or (typep *new-beh* 'safe-beh)
-                 (sys:compare-and-swap (actor-busy *current-actor*) nil t))
-             (let ((*send-evts*   nil)
-                   (*pref-msgs*   nil))
-               (with-simple-restart (abort "Handle next event")
-                 (apply *new-beh* *whole-message*)
-                 ;; effects commit...
-                 (when *send-evts*
-                   (dolist (evt *send-evts*)
-                     (mp:mailbox-send *evt-mbox* evt)))
-                 (setf self-beh *new-beh*))
-               ;; ----------------------------
-               ;; for all executing Actors, failed or not
-               (setf (actor-busy self) nil)
-               (when *pref-msgs*
-                 (dolist (evt *pref-msgs*)
-                   (mp:mailbox-send *evt-mbox* evt))
-                 ))
-           ;; else - actor was busy
-           (mp:mailbox-send *evt-mbox* evt))
-         )))))
+         (cond ((or (typep *new-beh* 'safe-beh)
+                    (sys:compare-and-swap (actor-busy *current-actor*) nil t))
+                (let ((*send-evts*   nil)
+                      (*pref-msgs*   nil))
+                  (with-simple-restart (abort "Handle next event")
+                    (apply *new-beh* *whole-message*)
+                    ;; effects commit...
+                    (when *send-evts*
+                      (send-msgs *send-evts*))
+                    (setf self-beh *new-beh*))
+                  ;; ----------------------------
+                  ;; for all executing Actors, failed or not
+                  (setf (actor-busy self) nil)
+                  (when *pref-msgs*
+                    (send-msgs *pref-msgs*))
+                  ))
+               (t
+                ;; else - actor was busy
+                (mp:mailbox-send *evt-mbox* evt))
+               ))))))
 
 (defconstant +nbr-threads+  8)
 
@@ -161,7 +171,7 @@ THE SOFTWARE.
     (mp:process-terminate thr)))
 
 ;; -----------------------------------------------
-;; Since these methods are called against (CURRENT-ACTOR) they can
+;; Since these methods are called against SELF they can
 ;; only be called from within a currently active Actor.
 
 (defun become (new-fn)
@@ -178,7 +188,9 @@ THE SOFTWARE.
   ;; (prin1 (cons actor msg))
   ;; (terpri)
   (cond (self
-         (push (cons actor msg) *send-evts*))
+         ;; (setf *send-evts* (finger-tree:addq *send-evts* (cons actor msg)))
+         (push (cons actor msg) *send-evts*)
+         )
         (t
          (mp:mailbox-send *evt-mbox* (cons actor msg)))
         ))
@@ -190,7 +202,9 @@ THE SOFTWARE.
 (defun redeliver-messages (msgs)
   ;; save message for later retry
   (when self
-    (um:appendf *pref-msgs* msgs)))
+    ;; (setf *pref-msgs* (finger-tree:join *pref-msgs* msgs))
+    (setf *pref-msgs* (append *pref-msgs* msgs))
+    ))
     
 ;; ----------------------------------------------
 ;; WORKER is just a function that executes on an Executive pool

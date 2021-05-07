@@ -46,15 +46,7 @@ THE SOFTWARE.
 
 ;; ------------------------------------------------------
 
-(declaim (inline current-actor))
-
 (defvar *current-actor* nil)
-
-(defun current-actor ()
-  ;; each running thread will have its own version of this global
-  ;; value. But, if non-nil, it points to the currently active Actor
-  ;; running in that thread
-  *current-actor*)
 
 (defstruct (actor
                (:constructor %make-actor))
@@ -65,6 +57,24 @@ THE SOFTWARE.
 
 (define-symbol-macro self     *current-actor*)
 (define-symbol-macro self-beh (actor-beh self))
+
+;; --------------------------------------
+;; A Safe-Beh, as a behavior, is one that does not invoke BECOME,
+;; i.e., no state changes in the Actor.  And which causes no damaging
+;; side effects.  Examples are LABEL-BEH, TAG-BEH, CONST-BEH, FWD-BEH.
+;; Actors with such behavior can support simultaneous parallel
+;; execution.
+
+(defclass safe-beh ()
+  ()
+  (:metaclass clos:funcallable-standard-class))
+
+(defmethod initialize-instance ((obj safe-beh) &key fn &allow-other-keys)
+  (clos:set-funcallable-instance-function obj fn))
+
+(defun make-safe-beh (fn)
+  (make-instance 'safe-beh
+                 :fn fn))
 
 ;; --------------------------------------
 
@@ -146,7 +156,7 @@ THE SOFTWARE.
              (*send-evts* nil)
              (*pref-msgs* nil))
          (with-simple-restart (abort "Process next event")
-           (apply self-beh *whole-message*)
+           (apply *new-beh* *whole-message*)
            (effect-changes))
          (when *pref-msgs*
            (mp:with-lock (*evt-lock*)
@@ -171,7 +181,12 @@ THE SOFTWARE.
                                            (run-actors)
                                          (setf *run-thread* nil)))
                                    ))))
+(defun kill-executives ()
+  (when *run-thread*
+    (mp:process-terminate *run-thread* nil)))
+
 #|
+(kill-executives)
 (start-actors-system)
  |#
 
@@ -243,19 +258,3 @@ THE SOFTWARE.
 (editor:setup-indent "with-worker" 1)
 
 ;; ------------------------------------------
-;; Sends directed to mailboxes, functions, etc.
-
-(defmethod send (rcvr &rest msg)
-  (let ((k-cont (actor (a)
-                  (if (actor-p a)
-                      (send* a msg)
-                    (error 'invalid-send-target :target rcvr)))))
-    (find-actor k-cont rcvr)))
-
-(define-condition invalid-send-target (simple-error)
-  ((target :initarg :target :initform nil :accessor target))
-  (:documentation "An error indicating a target of SEND that cannot be resolved into something valid.")
-  (:report (lambda (condition stream)
-	     (format stream "~%Invalid SEND target: ~&  ~S" (target condition)))))
-
-;; ----------------------------------------------

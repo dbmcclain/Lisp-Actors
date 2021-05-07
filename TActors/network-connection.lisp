@@ -236,7 +236,22 @@
                (let ((ndata (convert-vector-to-integer len-buf)))
                  (cond ((> ndata +MAX-FRAGMENT-SIZE+)
                         ;; possible DOS attack - and we are done... just hang up.
-                        (send assembler 'actors/internal-message/network:discard))
+                        (log-error :SYSTEM-LOG "NData = ~D" ndata)
+                        (send assembler 'actors/internal-message/network:discard :E-NDATA))
+                       #|
+                       (t
+                        (let ((enc-buf (make-u8-vector ndata)))
+                          (send buf-actor :get
+                                (make-actor (make-rd-data-beh enc-buf ndata))
+                                enc-buf 0 ndata))
+                        )))))
+           (make-rd-data-beh (enc-buf ndata)
+             (lambda ()
+               (send buf-actor :get
+                     (make-actor (make-rd-hmac-beh enc-buf ndata))
+                     hmac-buf 0 +hmac-length+)))
+           |#
+#||#
                        (t
                         (let ((enc-buf (make-u8-vector ndata)))
                           (send buf-actor :get-multiple
@@ -247,6 +262,7 @@
                                        hmac-buf 0 +hmac-length+)))
                           ))
                        ))))
+#||#
            (make-rd-hmac-beh (enc-buf ndata)
              (lambda ()
                (send* assembler (secure-decoding crypto ndata len-buf enc-buf hmac-buf))
@@ -255,9 +271,9 @@
 
            (make-packet-assembler-beh (accum)
              (um:dlambda
-               (actors/internal-message/network:discard _
+               (actors/internal-message/network:discard (err)
                   ;; something went wrong, kill the connection
-                  (log-error :SYSTEM-LOG "Data framing error")
+                  (log-error :SYSTEM-LOG "Data framing error: ~A" err)
                   (shutdown intf))
       
                (actors/internal-message/network:frag (frag)

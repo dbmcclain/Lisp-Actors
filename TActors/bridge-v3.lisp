@@ -493,7 +493,7 @@
 
 ;; ------------------------------------------------------
 
-(defun make-remote-actor (remote-addr &key register directory)
+(defun make-remote-actor (remote-addr &key register)
   (let ((actor (make-actor (make-remote-actor-beh remote-addr))))
     (when register
       (register-actor register actor))

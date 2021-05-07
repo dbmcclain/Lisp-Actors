@@ -54,7 +54,7 @@
      (cond ((and (equalp about an-about)
                  (eq     from  a-from))
             (become (make-prune-beh next))
-            (send next :prune (current-actor)))
+            (send next :prune self))
            
            (t
             (repeat-send next))

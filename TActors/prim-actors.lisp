@@ -34,10 +34,11 @@
           (progn
             (become prev-beh)
             (redeliver-messages msgs)
-            (funcall fn))
+            ;; avoid fn's problems from becoming our own
+            (send (make-actor fn)))
+        ;; else
         (become (make-recv-beh
-                 ;; (finger-tree:addq msgs msg)
-                 (cons (cons self msg) msgs)
+                 (finger-tree:addq msgs (cons self msg))
                  prev-beh tstfn)))
       )))
 

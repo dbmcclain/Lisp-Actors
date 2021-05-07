@@ -144,8 +144,8 @@
          (*print-circle* t))
     (progn ;; stream:with-stream-output-lock f
       (format f "~%=~A==== ~A ===" hdr timestamp)
-      (format f "~%Node: ~A" (machine-instance))
-      (format f "~%From: ~A" from-pid)
+      ;; (format f "~%Node: ~A" (machine-instance))
+      ;; (format f "~%From: ~A" from-pid)
       (format f "~%~A~%" msg)
       ;; (xprint msg f)
       ;; (describe msg f)
