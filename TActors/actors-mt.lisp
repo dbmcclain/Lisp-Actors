@@ -57,6 +57,8 @@ THE SOFTWARE.
 (defun make-actor (&optional (beh #'funcall))
   (%make-actor :beh beh))
 
+(declaim (inline actor-beh))
+
 ;; --------------------------------------
 ;; A Safe-Beh, as a behavior, is one that does not invoke BECOME,
 ;; i.e., no state changes in the Actor.  And which causes no damaging
@@ -64,7 +66,7 @@ THE SOFTWARE.
 ;; Actors with such behavior can support simultaneous parallel
 ;; execution.
 
-(defclass safe-beh ()
+(defclass safe-beh ()  ;; A Typed-Function
   ()
   (:metaclass clos:funcallable-standard-class))
 
@@ -146,7 +148,7 @@ THE SOFTWARE.
                       ;; effects commit...
                       (when *send-evts*
                         (dolist (evt *send-evts*)
-                          (mp:mailbox-send *evt-mbox* evt)))
+                          (apply #'mp:mailbox-send evt)))
                       (setf (actor-beh self) *new-beh*))
                     ))
                  (t
@@ -206,7 +208,7 @@ THE SOFTWARE.
 (defmethod send ((actor actor) &rest msg)
   (cond (self
          ;; Actor SENDs are staged.
-         (push (cons actor msg) *send-evts*))
+         (push (list *evt-mbox* (cons actor msg)) *send-evts*))
         (t
          ;; Non-Actor SENDs take effect immediately.
          (mp:mailbox-send *evt-mbox* (cons actor msg)))
