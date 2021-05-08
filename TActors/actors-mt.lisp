@@ -153,16 +153,22 @@ THE SOFTWARE.
            (cond ((and self-beh
                        (or (typep self-beh 'safe-beh)
                            (sys:compare-and-swap (actor-beh self) self-beh nil)))
+
+                  ;; NIL Beh slot indicates busy Actor
                   (let ((*new-beh*     self-beh)
                         (*send-evts*   nil))
+                    ;; ---------------------------------
                     (with-simple-restart (abort "Handle next event")
                       (apply self-beh *whole-message*)
-                      ;; effects commit...
+
+                      ;; Effects Commit...
                       (when *send-evts*
-                        (dolist (evt *send-evts*)
+                        (dolist (evt *send-evts*)     ;; staged SENDs
                           (apply #'mp:mailbox-send evt)))
-                      (setf (actor-beh self) *new-beh*))
-                    ))
+                      (setf *current-beh* *new-beh*)) ;; staged BECOME
+                    ;; ---------------------------------                    
+                  (setf self-beh *current-beh*))) ;; restore Not-Busy
+
                  (t
                   ;; else - actor was busy
                   (mp:mailbox-send *evt-mbox* evt))
