@@ -193,34 +193,31 @@
           assembler)
       (labels
           ((make-rd-lenbuf-beh ()
-             (make-safe-beh
-              (lambda ()
-                (let ((ndata (convert-vector-to-integer len-buf)))
-                  (cond ((> ndata +MAX-FRAGMENT-SIZE+)
-                         ;; possible DOS attack - and we are done... just hang up.
-                         (log-error :SYSTEM-LOG "NData = ~D" ndata)
-                         (send assembler :discard :E-NDATA))
-                        (t
-                         (let ((enc-buf (make-u8-vector ndata)))
-                           (send buf-actor
-                                 :get (make-actor (make-rd-data-beh enc-buf ndata))
-                                 enc-buf 0 ndata)
-                           ))
-                        )))))
+             (lambda ()
+               (let ((ndata (convert-vector-to-integer len-buf)))
+                 (cond ((> ndata +MAX-FRAGMENT-SIZE+)
+                        ;; possible DOS attack - and we are done... just hang up.
+                        (log-error :SYSTEM-LOG "NData = ~D" ndata)
+                        (send assembler :discard :E-NDATA))
+                       (t
+                        (let ((enc-buf (make-u8-vector ndata)))
+                          (send buf-actor
+                                :get (make-actor (make-rd-data-beh enc-buf ndata))
+                                enc-buf 0 ndata)
+                          ))
+                       ))))
            (make-rd-data-beh (enc-buf ndata)
-             (make-safe-beh
-              (lambda ()
-                (send buf-actor
-                      :get (make-actor (make-rd-hmac-beh enc-buf ndata))
-                      hmac-buf 0 +hmac-length+))))
+             (lambda ()
+               (send buf-actor
+                     :get (make-actor (make-rd-hmac-beh enc-buf ndata))
+                     hmac-buf 0 +hmac-length+)))
            (make-rd-hmac-beh (enc-buf ndata)
-             (make-safe-beh
-              (lambda ()
-                (send* assembler
-                       (secure-decoding crypto ndata len-buf enc-buf hmac-buf))
-                (send buf-actor
-                      :get rdr-actor len-buf 0 +len-prefix-length+)
-                )))
+             (lambda ()
+               (send* assembler
+                      (secure-decoding crypto ndata len-buf enc-buf hmac-buf))
+               (send buf-actor
+                     :get rdr-actor len-buf 0 +len-prefix-length+)
+               ))
 
            (make-packet-assembler-beh (accum)
              (um:dlambda
@@ -296,19 +293,19 @@
 (defun make-write-end-beh (state starter)
   (with-accessors ((io-state         intf-state-io-state)
                    (decr-io-count-fn intf-state-decr-io-count-fn)) state
-    (um:dlambda
-      (:wr-done (cust)
+    (flet ((send-fail (cust)
+             (send cust :fail starter)
+             (send starter starter)))
+      (um:dlambda
+        (:wr-done (cust)
          (if (zerop (funcall decr-io-count-fn io-state))
-             (progn
-               (send cust :fail starter)
-               (send starter starter))
+             (send-fail cust)
            (send cust :ok starter)))
     
-      (:wr-fail (cust)
+        (:wr-fail (cust)
          (funcall decr-io-count-fn io-state)
-         (send cust :fail starter)
-         (send starter starter))
-      )))
+         (send-fail cust))
+        ))))
 
 (defun make-write-entry-beh (serial starter)
   (lambda (item &rest msg)
@@ -323,8 +320,8 @@
           )))
 
 (defun make-writer (state)
-  (actors ((starter  (make-write-starter-beh state sync-end))
-           (sync-end (make-write-end-beh state starter))
+  (actors ((starter  (make-write-starter-beh state ender))
+           (ender    (make-write-end-beh state starter))
            (serial   (make-serializer-beh starter))
            (entry    (make-write-entry-beh serial starter)))
     entry))
