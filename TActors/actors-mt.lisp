@@ -220,7 +220,7 @@ THE SOFTWARE.
 
 (defmacro send* (&rest msg)
   ;; to be used when final arg is a list
-  ;; saves typing APPLY #'SEND
+  ;; saves typing APPLY #'SEND, analogous to LIST*
   `(apply #'send ,@msg))
 
 (defmethod send ((actor actor) &rest msg)
@@ -233,7 +233,7 @@ THE SOFTWARE.
         ))
 
 (defun repeat-send (dest)
-  ;; send the current event message to another Actor
+  ;; Send the current event message to another Actor
   (when self
     (send* dest *whole-message*)))
 
@@ -264,7 +264,7 @@ THE SOFTWARE.
 (editor:setup-indent "with-sponsor" 1)
 
 (defun sendx (sponsor actor &rest msg)
-  ;; cross-sponsor SEND
+  ;; Cross-sponsor SEND
   (with-sponsor sponsor
     (send* actor msg)))
 
