@@ -160,7 +160,11 @@
     (:get (&rest msg)
      (drain-buffer (addq custs msg) frags ctr))
     ))
-    
+
+(defun make-buffer-manager ()
+  (make-actor
+   (make-empty-buffer-beh nil 1)))
+
 ;; -------------------------------------------------------------------------
 ;; Socket Reader
 ;;                 +------------+
@@ -179,74 +183,70 @@
 (defconstant +len-prefix-length+  4)
 (defconstant +hmac-length+       32)
 
+(defun make-frag-assembler (state)
+  (with-accessors ((dispatcher intf-state-dispatcher)
+                   (intf       intf-state-intf)) state
+    (let ((frags (make-instance 'scatter-vector)))
+      (make-actor
+       (um:dlambda
+         (:discard (err)
+          ;; something went wrong, kill the connection
+          (log-error :SYSTEM-LOG "Data framing error: ~A" err)
+          (shutdown intf))
+         
+         (:frag (frag)
+          ;; a partial buffer of a complete message
+          (add-fragment frags frag))
+         
+         (:last-frag (frag)
+          ;; the last buffer of a complete message
+          (add-fragment frags frag)
+          (send dispatcher (byte-decode-obj frags))
+          (setf frags (make-instance 'scatter-vector)))
+         )))))
+
 (defun make-reader (state)
   ;; An entire subsystem to respond to incoming socket data, assemble
   ;; bytes into packets (len, data, hmac) decode packets into
   ;; messages, then forward decoded messages on to dispatcher.
-  (with-accessors ((crypto     intf-state-crypto)
-                   (dispatcher intf-state-dispatcher)
-                   (intf       intf-state-intf)) state
-    (let ((len-buf  (make-u8-vector +len-prefix-length+))
-          (hmac-buf (make-u8-vector +hmac-length+))
-          buf-actor
-          rdr-actor
-          assembler)
-      (labels
-          ((make-rd-lenbuf-beh ()
-             (lambda ()
-               (let ((ndata (convert-vector-to-integer len-buf)))
-                 (cond ((> ndata +MAX-FRAGMENT-SIZE+)
-                        ;; possible DOS attack - and we are done... just hang up.
-                        (log-error :SYSTEM-LOG "NData = ~D" ndata)
-                        (send assembler :discard :E-NDATA))
-                       (t
-                        (let ((enc-buf (make-u8-vector ndata)))
-                          (send buf-actor
-                                :get (make-actor (make-rd-data-beh enc-buf ndata))
-                                enc-buf 0 ndata)
-                          ))
-                       ))))
-           (make-rd-data-beh (enc-buf ndata)
-             (lambda ()
-               (send buf-actor
-                     :get (make-actor (make-rd-hmac-beh enc-buf ndata))
-                     hmac-buf 0 +hmac-length+)))
-           (make-rd-hmac-beh (enc-buf ndata)
-             (lambda ()
-               (send* assembler
-                      (secure-decoding crypto ndata len-buf enc-buf hmac-buf))
-               (send buf-actor
-                     :get rdr-actor len-buf 0 +len-prefix-length+)
-               ))
-
-           (make-packet-assembler-beh (accum)
-             (um:dlambda
-               (:discard (err)
-                  ;; something went wrong, kill the connection
-                  (log-error :SYSTEM-LOG "Data framing error: ~A" err)
-                  (shutdown intf))
-      
-               (:frag (frag)
-                  ;; a partial buffer of a complete message
-                  (become (make-packet-assembler-beh (cons frag accum))))
-        
-               (:last-frag (frag)
-                  ;; the last buffer of a complete message
-                  (become (make-packet-assembler-beh nil))
-                  (let* ((frags (reverse (cons frag accum)))
-                         (vec   (make-instance 'scatter-vector)))
-                    (dolist (frag frags)
-                      (add-fragment vec frag))
-                    (send dispatcher (byte-decode-obj vec))))
-               )))
-
-        (setf buf-actor   (make-actor (make-empty-buffer-beh nil 1))
-              rdr-actor   (make-actor (make-rd-lenbuf-beh))
-              assembler   (make-actor (make-packet-assembler-beh nil)))
-        (send buf-actor
-              :get rdr-actor len-buf 0 +len-prefix-length+)
-        buf-actor
-        ))))
+  (let ((len-buf  (make-u8-vector +len-prefix-length+))
+        (hmac-buf (make-u8-vector +hmac-length+))
+        (buf-mgr  (make-buffer-manager))
+        (frag-asm (make-frag-assembler state))
+        k-len)
+    (with-accessors ((crypto  intf-state-crypto)) state
+      (flet ((start-cycle ()
+               (send buf-mgr
+                     :get k-len len-buf 0 +len-prefix-length+)))
+        (setf k-len
+              (actor ()
+                (let ((ndata (convert-vector-to-integer len-buf)))
+                  (cond
+                   ((> ndata +MAX-FRAGMENT-SIZE+)
+                    ;; possible DOS attack - and we are done... just hang up.
+                    (log-error :SYSTEM-LOG "NData = ~D" ndata)
+                    (send frag-asm :discard :E-NDATA))
+                   
+                   (t
+                    ;; Actor Continuation Style (ACS)
+                    (let* ((enc-buf (make-u8-vector ndata))
+                           (k-data
+                            (actor ()
+                              (let ((k-hmac
+                                     (actor ()
+                                       (send* frag-asm
+                                              (secure-decoding crypto ndata
+                                                               len-buf enc-buf hmac-buf))
+                                       (start-cycle))))
+                                (send buf-mgr
+                                      :get k-hmac hmac-buf 0 +hmac-length+)))
+                            ))
+                      (send buf-mgr
+                            :get k-data enc-buf 0 ndata)
+                      ))
+                   ))))
+        (start-cycle)
+        buf-mgr)))) ;; return buf-mgr to caller as ISR interface
 
 ;; -------------------------------------------------------------------------
 ;; Socket writer
