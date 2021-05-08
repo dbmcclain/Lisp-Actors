@@ -38,17 +38,25 @@ THE SOFTWARE.
 (defgeneric send (obj &rest msg))
 ;; ------------------------------------------------------
 
-(defvar *current-actor* nil)
-(defvar *current-beh*   nil)
-
-(define-symbol-macro self     *current-actor*)
-(define-symbol-macro self-beh *current-beh*)
-
 ;; -----------------------------------------------------
 ;; Actors are simply indirect refs to a beh closure (= function + state).
 ;;
 ;; Actor behavior/state can change without affecting the identity of
 ;; the Actor.
+;;               +------+-----+
+;;  Actor Ref -->| Type | Beh |
+;;               +------+-----+
+;;                  |      |
+;;                  |      v      Closure
+;;                  |    +----+-------+
+;;                  v    | Fn | State |
+;;             T(Actor)  +----+-------+     Bindings
+;;                         |      |      +------+-----+-----+---
+;;                         |      +----->| Data | ... | ... |
+;;                         |             +------+-----+-----|---
+;;                         |    +------+-----+-----+---
+;;                         +--->| Code | ... | ... |
+;;                              +------+-----+-----+---
 
 (defstruct (actor
                (:constructor %make-actor))
@@ -110,28 +118,32 @@ THE SOFTWARE.
 ;; to the :MT Sponsor event queue for maximum parallelism.
 
 (defstruct sponsor
-  (mbox  (mp:make-mailbox))
+  (mbox    (mp:make-mailbox))
   threads)
 
-(defvar *sponsor-st*
+(defvar *sponsor-st* ;; Single-Threaded
   (make-sponsor))
 
-(defvar *sponsor-mt*
+(defvar *sponsor-mt* ;; Multiple-Threaded
   (make-sponsor))
 
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
 
+;; Sponsor-wide Event Queue across sponsor threads
 (defvar *evt-mbox*      (sponsor-mbox *sponsor-mt*))
-(defvar *new-beh*       nil)
-(defvar *send-evts*     nil)
-(defvar *whole-message* nil)
 
-(declaim (inline whole-message))
+;; Per-Thread for Activated Actor
+(defvar *new-beh*       nil)   ;; Staging for BECOME
+(defvar *send-evts*     nil)   ;; Staging for SEND
+(defvar *whole-message* nil)   ;; Current Event Message
+(defvar *current-actor* nil)   ;; Current Actor
+(defvar *current-beh*   nil)   ;; Current Behavior
 
-(defun whole-message ()
-  *whole-message*)
+(define-symbol-macro self     *current-actor*)
+(define-symbol-macro self-beh *current-beh*)
 
+;; Generic RUN for all threads, across all Sponsors
 (defun run-actors (sponsor)
   (let ((*evt-mbox*  (sponsor-mbox sponsor)))
     (loop
