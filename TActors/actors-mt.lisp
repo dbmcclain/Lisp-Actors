@@ -140,7 +140,7 @@ THE SOFTWARE.
          (let ((*current-beh* (actor-beh self)))
            (cond ((and self-beh
                        (or (typep self-beh 'safe-beh)
-                           (sys:compare-and-swap (actor-beh self) *current-beh* nil)))
+                           (sys:compare-and-swap (actor-beh self) self-beh nil)))
                   (let ((*new-beh*     self-beh)
                         (*send-evts*   nil))
                     (with-simple-restart (abort "Handle next event")
