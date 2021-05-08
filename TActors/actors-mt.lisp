@@ -167,7 +167,7 @@ THE SOFTWARE.
                           (apply #'mp:mailbox-send evt)))
                       (setf *current-beh* *new-beh*)) ;; staged BECOME
                     ;; ---------------------------------                    
-                  (setf self-beh *current-beh*))) ;; restore Not-Busy
+                  (setf (actor-beh self) *current-beh*))) ;; restore Not-Busy
 
                  (t
                   ;; else - actor was busy
