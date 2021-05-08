@@ -39,17 +39,23 @@ THE SOFTWARE.
 ;; ------------------------------------------------------
 
 (defvar *current-actor* nil)
+(defvar *current-beh*   nil)
+
+(define-symbol-macro self     *current-actor*)
+(define-symbol-macro self-beh *current-beh*)
+
+;; -----------------------------------------------------
+;; Actors are simply indirect refs to a beh closure (= function + state).
+;;
+;; Actor behavior/state can change without affecting the identity of
+;; the Actor.
 
 (defstruct (actor
                (:constructor %make-actor))
-  busy
   beh)
 
 (defun make-actor (&optional (beh #'funcall))
   (%make-actor :beh beh))
-
-(define-symbol-macro self     *current-actor*)
-(define-symbol-macro self-beh (actor-beh self))
 
 ;; --------------------------------------
 ;; A Safe-Beh, as a behavior, is one that does not invoke BECOME,
@@ -70,6 +76,7 @@ THE SOFTWARE.
                  :fn fn))
 
 ;; --------------------------------------
+;; ACTOR in function position acts like a higher level LAMBDA expression
 
 (defmacro actor (args &body body)
   `(make-actor
@@ -79,7 +86,12 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "actor" 1)
 
+;; ------------------------------------
+;; ACTORS macro allows for defining new Actors which recursively
+;; references each other in their initial state
+
 (defmacro actors (bindings &body body)
+  ;; Binding values should be behavior closures
   `(let ,(mapcar #`(,(car a1) (make-actor)) bindings)
      ,@(mapcar #`(setf (actor-beh ,(car a1)) ,(cadr a1)) bindings)
      ,@body))
@@ -87,19 +99,13 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "actors" 1)
 
-;; --------------------------------------------------------
-;; Core SEND to Actors
-
-;; Caution!! It is not safe to enable an Actor if its message queue
-;; appears empty. It might still be runinng the last message
-;; presented. We need to ensure single-thread semantics for all
-;; Actors. That's why there is a busy-bit.
+;; ----------------------------------
+;; SPONSORS -- offer event queues and have associated runtime threads
+;; to perform RUN dispatching of Actor events.
 ;;
-;; That busy bit gets unset only after the Actor has completed message
-;; processing and no more messages remain in its message queue.
-
-;; ----------------------------------------------------------------
-;; Toplevel Actor / Worker behavior
+;; We have two main Sponsors - a single-threaded one (denoted as :ST
+;; or NIL), and a multi-threaded one (denoted as :MT or T). We default
+;; to the :MT Sponsor event queue for maximum parallelism.
 
 (defstruct sponsor
   (mbox  (mp:make-mailbox))
@@ -111,6 +117,9 @@ THE SOFTWARE.
 (defvar *sponsor-mt*
   (make-sponsor))
 
+;; --------------------------------------------------------
+;; Core RUN for Actors
+
 (defvar *evt-mbox*      (sponsor-mbox *sponsor-mt*))
 (defvar *new-beh*       nil)
 (defvar *send-evts*     nil)
@@ -121,32 +130,24 @@ THE SOFTWARE.
 (defun whole-message ()
   *whole-message*)
 
-(defun send-msgs (msgs)
-  (dolist (evt msgs)
-    (mp:mailbox-send *evt-mbox* evt)))
-
 (defun run-actors (sponsor)
   (let ((*evt-mbox*  (sponsor-mbox sponsor)))
     (loop
      (let ((evt (mp:mailbox-read *evt-mbox*)))
        (destructuring-bind (*current-actor* . *whole-message*) evt
-         (let ((*new-beh*  self-beh))
-           (cond ((or (typep *new-beh* 'safe-beh)
-                      (sys:compare-and-swap (actor-busy *current-actor*) nil t))
-                  (let ((*send-evts*   nil)
-                      ;; (*pref-msgs*   nil)
-                      )
+         (let ((*current-beh* (actor-beh self)))
+           (cond ((and self-beh
+                       (or (typep self-beh 'safe-beh)
+                           (sys:compare-and-swap (actor-beh self) *current-beh* nil)))
+                  (let ((*new-beh*     self-beh)
+                        (*send-evts*   nil))
                     (with-simple-restart (abort "Handle next event")
-                      (apply *new-beh* *whole-message*)
+                      (apply self-beh *whole-message*)
                       ;; effects commit...
                       (when *send-evts*
-                        (send-msgs *send-evts*))
-                      (setf self-beh *new-beh*))
-                    ;; ----------------------------
-                    ;; for all executing Actors, failed or not
-                    (setf (actor-busy self) nil)
-                    ;; (when *pref-msgs*
-                    ;;  (send-msgs *pref-msgs*))
+                        (dolist (evt *send-evts*)
+                          (mp:mailbox-send *evt-mbox* evt)))
+                      (setf (actor-beh self) *new-beh*))
                     ))
                  (t
                   ;; else - actor was busy
@@ -158,7 +159,7 @@ THE SOFTWARE.
 (defun start-actors-system ()
   (unless (sponsor-threads *sponsor-mt*)
     (dotimes (ix +nbr-threads+)
-      (push (mp:process-run-function (format nil "ActorMT Thread ~D" ix)
+      (push (mp:process-run-function (format nil "ActorMT Thread ~D" (1+ ix))
                                      ()
                                      #'run-actors *sponsor-mt*)
             (sponsor-threads *sponsor-mt*)))
@@ -168,10 +169,6 @@ THE SOFTWARE.
                                    #'run-actors *sponsor-st*)
           (sponsor-threads *sponsor-st*))
     ))
-#|
-(start-actors-system)
-(kill-executives)
- |#
 
 (defun kill-executives ()
   (dolist (thr (shiftf (sponsor-threads *sponsor-mt*) nil))
@@ -179,32 +176,44 @@ THE SOFTWARE.
   (dolist (thr (shiftf (sponsor-threads *sponsor-st*) nil))
     (mp:process-terminate thr)))
 
+#|
+(kill-executives)
+(start-actors-system)
+ |#
+
 ;; -----------------------------------------------
-;; Since these methods are called against SELF they can
+;; SEND/BECOME - Since these methods are called against SELF they can
 ;; only be called from within a currently active Actor.
+;;
+;; SEND and BECOME are transactionally staged, and will commit *ONLY*
+;; upon error free completion of the Actor body code. So if you need
+;; them to take effect, even as you call potentially unsafe functions,
+;; then surround your function calls with HANDLER-CASE, HANDLER-BIND,
+;; or IGNORE-ERRORS.
 
 (defun become (new-fn)
-  ;; change behavior, returning old. Only meaningful if an Actor calls
+  ;; Change behavior/state. Only meaningful if an Actor calls
   ;; this.
   (when self
+    ;; BECOME is staged.
     (setf *new-beh* new-fn)))
 
 (defmacro send* (&rest msg)
   ;; to be used when final arg is a list
+  ;; saves typing APPLY #'SEND
   `(apply #'send ,@msg))
 
 (defmethod send ((actor actor) &rest msg)
-  ;; (prin1 (cons actor msg))
-  ;; (terpri)
   (cond (self
-         ;; (setf *send-evts* (finger-tree:addq *send-evts* (cons actor msg)))
-         (push (cons actor msg) *send-evts*)
-         )
+         ;; Actor SENDs are staged.
+         (push (cons actor msg) *send-evts*))
         (t
+         ;; Non-Actor SENDs take effect immediately.
          (mp:mailbox-send *evt-mbox* (cons actor msg)))
         ))
 
 (defun repeat-send (dest)
+  ;; send the current event message to another Actor
   (when self
     (send* dest *whole-message*)))
 
@@ -212,13 +221,17 @@ THE SOFTWARE.
 ;; Using Sponsors
 
 (defun effective-sponsor (spon)
-  (cond ((sponsor-p spon) spon)
+  (cond ((sponsor-p spon)
+         spon)
+        
         ((or (eq t spon)
              (eq :mt spon))
          *sponsor-mt*)
+
         ((or (null spon)
              (eq :st spon))
          *sponsor-st*)
+
         (t
          (error "Not a Sponsor: ~S" spon))
         ))
@@ -235,29 +248,6 @@ THE SOFTWARE.
   (with-sponsor sponsor
     (send* actor msg)))
 
-;; ----------------------------------------------
-;; WORKER is just a function that executes on an Executive pool
-;; thread.
-;;
-;; WORKER is intended as a lightweight vehicle to perform non
-;; Actor-centric duties, e.g., blocking I/O. It will see a null value
-;; from (CURRENT-ACTOR), just like non-Actor code running on any other
-;; thread. It takes advantage of the Executive thread pool to launch
-;; faster than fully constructing a thread to run them.
-
-(defun spawn-worker (fn &rest args)
-  (apply #'mp:funcall-async fn args))
-
-(defmacro with-worker (bindings &body body)
-  (let ((args (mapcar #'first bindings))
-        (vals (mapcar #'second bindings)))
-    `(spawn-worker (lambda ,args
-                     ,@body) ,@vals)
-    ))
-
-#+:LISPWORKS
-(editor:setup-indent "with-worker" 1)
-
 (defmacro with-single-thread (&body body)
   (lw:with-unique-names (k-cont)
     `(let ((,k-cont (actor ()
@@ -271,5 +261,27 @@ THE SOFTWARE.
                       ,@body)))
        (sendx t ,k-cont))
     ))
+
+;; ----------------------------------------------
+;; WORKER is just a function that executes on an external thread.
+;;
+;; WORKER is intended as a lightweight vehicle to perform non
+;; Actor-centric duties, e.g., blocking I/O. It will see a null value
+;; from SELF, just like non-Actor code running on any other
+;; thread.
+
+(defun spawn-worker (fn &rest args)
+  (apply #'mp:funcall-async fn args))
+
+(defmacro with-worker (bindings &body body)
+  (let ((args (mapcar #'first bindings))
+        (vals (mapcar #'second bindings)))
+    `(spawn-worker (lambda* ,args
+                     ,@body)
+                   ,@vals)
+    ))
+
+#+:LISPWORKS
+(editor:setup-indent "with-worker" 1)
 
 ;; ----------------------------------------------
