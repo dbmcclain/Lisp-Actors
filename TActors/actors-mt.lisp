@@ -63,6 +63,7 @@ THE SOFTWARE.
   beh)
 
 (defun make-actor (&optional (beh #'funcall))
+  (check-type beh function)
   (%make-actor :beh beh))
 
 (declaim (inline actor-beh))
@@ -82,6 +83,7 @@ THE SOFTWARE.
   (clos:set-funcallable-instance-function obj fn))
 
 (defun make-safe-beh (fn)
+  (check-type fn function)
   (make-instance 'safe-beh
                  :fn fn))
 
@@ -214,6 +216,7 @@ THE SOFTWARE.
 (defun become (new-fn)
   ;; Change behavior/state. Only meaningful if an Actor calls
   ;; this.
+  (check-type new-fn function)
   (when self
     ;; BECOME is staged.
     (setf *new-beh* new-fn)))
