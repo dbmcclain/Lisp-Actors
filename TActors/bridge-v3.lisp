@@ -435,19 +435,17 @@
 ;; -----------------------------------------------------------------------
 ;; Default services: ECHO and EVAL
 
-(register-actor :echo
-                (blk (&rest msg)
-                  msg))
-
-;; -----------------------------------------------------------------
-
 (defun cmpfn (&rest args)
   (compile nil `(lambda ()
                   ,@args)))
 
-(register-actor :eval
-                (blk (&rest msg)
-                  (funcall (apply #'cmpfn msg))))
+(defun make-basic-services ()
+  (register-actor :echo
+                  (blk (&rest msg)
+                    msg))
+  (register-actor :eval
+                  (blk (&rest msg)
+                    (funcall (apply #'cmpfn msg)))))
 
 ;; ----------------------------------------------------------------------
 ;; SEND across network connections - never blocks.

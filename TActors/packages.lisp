@@ -46,6 +46,7 @@ THE SOFTWARE.
    #:*timeout*)
 
   (:export
+   #:α
    #:sponsor
    #:with-sponsor
    #:sendx

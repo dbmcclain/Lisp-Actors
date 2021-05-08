@@ -715,6 +715,7 @@ indicated port number."
   (assert (null *cert-key-pairs*))
   (actors/base::start-actors-system)
   (ensure-system-logger)
+  (actors/bridge::make-basic-services)
   (start-tcp-server))
 
 (defun* lw-reset-actor-system _
