@@ -100,6 +100,23 @@
                                (α (make-data-point-beh dut #'dataprep))))
         (println)))
 
+;; -----------------------------------------------
+;; CPS Direct Funcall Version
+
+(defun run-direct-funcall-tree-bomb (n)
+  (cond ((zerop n))
+        (t
+         (run-direct-funcall-tree-bomb (1- n))
+         (run-direct-funcall-tree-bomb (1- n)))
+        ))
+
+(defun make-cps-fbomb-beh (logn niter)
+  ;; a DUT function parameterized by Sponsor and Log2N
+  (lambda (cust)
+    (loop repeat niter do
+          (run-direct-funcall-tree-bomb logn))
+    (send cust)))
+
 ;; --------------
 (let ((dut (um:curry #'make-fbomb-beh nil)))
   (send (α (make-collector-beh 5 24 1
@@ -134,7 +151,7 @@
           ))))
 
 (let ((dut   (um:curry #'make-fbomb-beh nil))
-      (limit 20))
+      (limit 21))
   (send (α (make-collector-beh 5 limit 1
                                (α (make-data-point-beh dut #'dataprep))
                                ))
@@ -165,6 +182,116 @@
                                 :legend "8 MultiThread"
                                 :symbol :circle
                                 :plot-joined t))
+                    (let ((dut (um:rcurry #'make-cps-fbomb-beh 200)))
+                      (send (α (make-collector-beh 5 limit 1
+                                                   (α (make-data-point-beh dut #'dataprep))
+                                                   ))
+                            (actor (tbl)
+                              (let ((xs (map 'vector #'first tbl))
+                                    (ys (map 'vector #'second tbl)))
+                                (plt:plot 'plt xs ys
+                                          :color :blue
+                                          :legend "200x CPS Funcall"
+                                          :symbol :circle
+                                          :plot-joined t)
+                                ))))
                     )))
           )))
+
+;; -----------------------------------------------------
+;; Erfc Fork-Bomb
+
+(defun burn-time ()
+  (loop repeat 1000 do
+        (user::erfc (random 1d0))))
+
+(defun make-erfc-tree-beh ()
+  (lambda (cust n)
+    (cond ((zerop n)
+           (burn-time)
+           (send cust))
+          (t
+           (send (α (make-erfc-tree-beh)) self (1- n))
+           (send (α (make-erfc-tree-beh)) self (1- n))
+           (become (lambda* _
+                     (become (lambda* _
+                               (send cust))))))
+          )))
+
+(defun make-erfc-fbomb-beh (spon logn)
+  ;; a DUT function parameterized by Sponsor and Log2N
+  (lambda (cust)
+    (let ((top  (α (make-erfc-tree-beh))))
+      (sendx spon top cust logn))))
+
+
+(defun run-cps-erfc-tree (n)
+  (cond ((zerop n)
+         (burn-time))
+        (t
+         (run-cps-erfc-tree (1- n))
+         (run-cps-erfc-tree (1- n)))
+        ))
+          
+(defun make-cps-erfc-adapter-beh (logn niter)
+  ;; a DUT function parameterized by Sponsor and Log2N
+  (lambda (cust)
+    (loop repeat niter do
+          (run-cps-erfc-tree logn))
+    (send cust)))
+
+(defun* dataprep ((logn dt))
+  (list logn         ;; = nbr of Actors in tree
+        (/ (float dt 1d0) ;; = time per Actor
+           1e3 (ash 1 logn))
+        ))
+
+(let ((dut   (um:curry #'make-erfc-fbomb-beh nil))
+      (limit 12))
+  (send (α (make-collector-beh 3 limit 1
+                               (α (make-data-point-beh dut #'dataprep))
+                               ))
+        (actor (tbl)
+          ;; (break)
+          (let ((xs (map 'vector #'first tbl))
+                (ys (map 'vector #'second tbl)))
+            (plt:plot 'plt xs ys
+                      :clear t
+                      :title  "Erfc Fork-Bomb Timings"
+                      :xtitle "Log2[N Actors]"
+                      :ytitle "Time per Actor [ms]"
+                      :yrange '(0.0 4.0)
+                      :legend "SingleThread"
+                      :symbol :circle
+                      :plot-joined t))
+          (let ((dut   (um:curry #'make-erfc-fbomb-beh t)))
+            (send (α (make-collector-beh 3 limit 1
+                                         (α (make-data-point-beh dut #'dataprep))
+                                         ))
+                  (actor (tbl)
+                    ;; (break)
+                    (let ((xs (map 'vector #'first tbl))
+                          (ys (map 'vector #'second tbl)))
+                      (plt:plot 'plt xs ys
+                                :color :red
+                                :legend "8 MultiThread"
+                                :symbol :circle
+                                :plot-joined t))
+                    (let ((dut (um:rcurry #'make-cps-erfc-adapter-beh 1)))
+                      (send (α (make-collector-beh 3 limit 1
+                                                   (α (make-data-point-beh dut #'dataprep))
+                                                   ))
+                            (actor (tbl)
+                              ;; (break)
+                              (let ((xs (map 'vector #'first tbl))
+                                    (ys (map 'vector #'second tbl)))
+                                (plt:plot 'plt xs ys
+                                          :color :blue
+                                          :legend "CPS Funcall"
+                                          :symbol :circle
+                                          :plot-joined t)
+                                ))))
+                    )))
+        )))
+
 |#
