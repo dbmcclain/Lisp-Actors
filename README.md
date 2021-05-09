@@ -100,7 +100,7 @@ For direct comparison with CPS-style direct function-call code, we find that an 
 Just imagine a machine in an FPGA, whose basic instructions are MAKE-ACTOR, SEND, BECOME. No stacks and stack frames to manage, no memory overruns, no dangling pointers, no shared mutable data, no thread switching overhead, no crashes (ever!). Impossible to hack.
 
 -----------------
-So lets FBomb the CPU again, but this time with a real workload. This time, I have all the interior nodes just generating two child nodes. But every child node is loaded down with computing Erfc(x) with 1,000 random values of x between 0.0 and 1.0.
+So lets FBomb the CPU again, but this time with a real workload. This time, I have all the interior nodes just generating two child nodes. But every leaf node is loaded down with computing Erfc(x) with 1,000 random values of x between 0.0 and 1.0.
 
 
 <img width="399" alt="Screen Shot 2021-05-09 at 1 02 42 PM" src="https://user-images.githubusercontent.com/3160577/117585778-1b6d6000-b0c9-11eb-81c5-3c15dd5a5663.png">
