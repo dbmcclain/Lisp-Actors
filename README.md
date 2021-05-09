@@ -85,4 +85,4 @@ Liveness of an Actor system is guaranteed by making many small Actors and doing 
 
 <img width="405" alt="Screen Shot 2021-05-09 at 7 50 54 AM" src="https://user-images.githubusercontent.com/3160577/117578055-62475f80-b0a1-11eb-8d5a-86a809956815.png">
 
-This example shows a comparison of an do-nothing Fork Bomb that constructs up to 33 Million Actors sending messages from every node back up to the top node.
+This example shows a comparison of an do-nothing Fork Bomb that constructs up to 33 Million Actors, where every Actor sends a message back up the tree to the root node.
