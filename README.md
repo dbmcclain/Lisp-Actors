@@ -77,7 +77,9 @@ Data arriving from the Async Driver gets enqueued in a buffer manager whose job 
 Some Actor behaviors are inherently safe for parallel execution. These Actors do not call BECOME, and so no state changes. Examples are CONST-BEH, FWD-BEH, TAG-BEH, and LABEL-BEH. So I defined a subclass of FUNCTION called SAFE-BEH. If an event for one of these Actors is seen, it is permitted to execute even if it were already handling a prior event.
 
 ----------------------
-After much experimentation with various ways of managing multiple CPU Cores, I have settled upon using Sponsors, which manage Actor threads and event queues. There are two Sponsors defined - Single Threaded and Multi-Threaded. Once an Actor is launched in one Sponsor, then all further activity occurs among that Sponsor's threads, unless an explicity Sponsor change is performed using SENDX. This is very useful behavior.
+After much experimentation with various ways of managing multiple CPU Cores, I have settled upon using Sponsors, which manage Actor threads and event queues. There are two Sponsors defined - Single Threaded and Multi-Threaded. Once an Actor is launched in one Sponsor, then all further activity occurs among that Sponsor's threads, unless an explicit Sponsor change is performed using SENDX. Jumping tracks from single-thread to multi-thread and vice versa. This is very useful behavior.
+
+(To get accurate wall-clock timings, unpolluted by multi-core contributions, you must perform the measurement using a timer in a single thread. That's Apple, not me. But your test code can run in any Sponsor among any number of threads. The timer widget is provided to automatically manage this requirement.)
 
 Liveness of an Actor system is guaranteed by making many small Actors and doing frequent Sends. The Actors are multiplexed from the event queue(s). You don't need multiple threads to peform actions that were previously thought to require threading. But when you do have multiple Sponsor threads, you get concurrency plus parallelism for some degree of speedup.
 
