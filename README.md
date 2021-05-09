@@ -75,3 +75,12 @@ Actor graphs (collections of cooperating Actors) describe a state / message depe
 Data arriving from the Async Driver gets enqueued in a buffer manager whose job is to parcel out successive bytes into reader-supplied buffers for so many bytes in each buffer. You can't have the reader request the data portion until it knows the length, and you can't ask for HMAC bytes until all the data bytes have been taken. So sequential state is maintained by using BECOME in a circular manner.
 
 Some Actor behaviors are inherently safe for parallel execution. These Actors do not call BECOME, and so no state changes. Examples are CONST-BEH, FWD-BEH, TAG-BEH, and LABEL-BEH. So I defined a subclass of FUNCTION called SAFE-BEH. If an event for one of these Actors is seen, it is permitted to execute even if it were already handling a prior event.
+
+----------------------
+After much experimentation with various ways of managing multiple CPU Cores, I have settled upon using Sponsors, which manage Actor threads and event queues. There are two Sponsors defined - Single Threaded and Multi-Threaded. Once an Actor is launched in one Sponsor, then all further activity occurs among that Sponsor's threads, unless an explicity Sponsor change is performed using SENDX. This is very useful behavior.
+
+Liveness of an Actor system is guaranteed by making many small Actors and doing frequent Sends. The Actors are multiplexed from the event queue(s). You don't need multiple threads to peform actions that were previously thought to require threading. But when you do have multiple Sponsor threads, you get concurrency plus parallelism for some degree of speedup.
+
+<img width="405" alt="Screen Shot 2021-05-09 at 7 50 54 AM" src="https://user-images.githubusercontent.com/3160577/117578055-62475f80-b0a1-11eb-8d5a-86a809956815.png">
+
+This example shows a comparison of an empty Fork Bomb that constructs up to 33 Million Actors sending messages from every node back up to the top node.
