@@ -85,7 +85,7 @@ Liveness of an Actor system is guaranteed by making many small Actors and doing 
 
 <img width="405" alt="Screen Shot 2021-05-09 at 7 50 54 AM" src="https://user-images.githubusercontent.com/3160577/117578055-62475f80-b0a1-11eb-8d5a-86a809956815.png">
 
-This example shows a comparison of a do-nothing Fork Bomb that constructs up to 33 Million Actors, where every Actor sends a message back up the tree to the root node. The timings show the cost per Actor for MAKE-ACTOR / SEND / RUN-dispatch / SEND / RUN-dispatch. In the mutli-thread test, you can clearly see the overhead cost of thread switching when there is very light loading. 
+This example shows a comparison of a do-nothing Fork Bomb that constructs up to 33 Million Actors, where every Actor sends a message back up the tree to the root node. The timings show the cost per Actor for [MAKE-ACTOR / MAKE-ACTOR / SEND / SEND / BECOME / RUN-dispatch / BECOME / RUN-dispatch / SEND / RUN-dispatch]. In the mutli-thread test, you can clearly see the overhead cost of thread switching when there is very light loading. 
 
 The gradual incline in both tests at higher loads shows the increasing cost of GC. 33 Million Actors takes about 500 MB of memory (16 bytes / Actor in a 64-bit system), and the system is barely breaking a sweat with all 8 cores lit up to max utilization. The Lisp system remains responsive to keyboard and editing chores while the tests are running. Imagine running 33 Million live socket connections.
 
