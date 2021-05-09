@@ -98,3 +98,15 @@ The gradual incline in both tests at higher loads shows the increasing cost of G
 For direct comparison with CPS-style direct function-call code, we find that an equivalent CPS Fork Bomb runs about 200 times faster. But it opens the gates to callback-hell, while Actors remain so easy to use. And remember that these Fork Bomb Actors aren't loaded with any task computations. Any additional loading in the Actors and the equivalent CPS direct functions will decrese this disparity. 
 
 Just imagine a machine in an FPGA, whose basic instructions are MAKE-ACTOR, SEND, BECOME. No stacks and stack frames to manage, no memory overruns, no dangling pointers, no shared mutable data, no thread switching overhead, no crashes (ever!). Impossible to hack.
+
+-----------------
+So lets FBomb the CPU again, but this time with a real workload. This time, I have all the interior nodes just generating two child nodes. But every child node is loaded down with computing Erfc(x) with 1,000 random values of x between 0.0 and 1.0.
+
+
+<img width="399" alt="Screen Shot 2021-05-09 at 1 02 42 PM" src="https://user-images.githubusercontent.com/3160577/117585778-1b6d6000-b0c9-11eb-81c5-3c15dd5a5663.png">
+
+That inner compute load nominally takes 2.3 microsec per Erfc(x) call. So from the REPL the workload should take about 2.3 ms. You see the single-threaded version of Actors taking pretty much that nominal time. Which means the effort constructing the tree and sending all those messages is buried by the workload and benefits from natural concurrency among Actors, even though it runs in a single thread.
+
+The multi-threaded Actors gain further by parallel execution, but only by 2x, not the availabe 8x potential. (aw shucks..)
+
+But notice that the native code CPS Funcall version, which is necessarily single-threaded, and has no inherent opportunities for concurrency, actually takes longer than any of the Actors versions. There is no 200x looping of the Erfc going on here. Just the same load of 1,000 random samples as for the Actors.  So my computer runs native code to accomplish absolutely nothing, 200 times faster than Actors can accomplish the same nothing. But when faced with real work, the Actors win out.
