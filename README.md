@@ -97,4 +97,4 @@ The gradual incline in both tests at higher loads shows the increasing cost of G
 
 For direct comparison with CPS-style direct function-call code, we find that an equivalent CPS Fork Bomb runs about 200 times faster. But it opens the gates to callback-hell, while Actors remain so easy to use. And remember that these Fork Bomb Actors aren't loaded with any task computations. Any additional loading in the Actors and the equivalent CPS direct functions will decrese this disparity. 
 
-Just imagine a machine in an FPGA, whose basic instructions are MAKE-ACTOR, SEND, BECOME. No stacks and stack frames to manage, no memory overruns, no dangling pointers, no shared mutable data, no crashes (ever!). Impossible to hack.
+Just imagine a machine in an FPGA, whose basic instructions are MAKE-ACTOR, SEND, BECOME. No stacks and stack frames to manage, no memory overruns, no dangling pointers, no shared mutable data, no thread switching overhead, no crashes (ever!). Impossible to hack.
