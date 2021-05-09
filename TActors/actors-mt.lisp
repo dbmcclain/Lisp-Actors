@@ -38,6 +38,24 @@ THE SOFTWARE.
 (defgeneric send (obj &rest msg))
 ;; ------------------------------------------------------
 
+;; --------------------------------------
+;; A Par-Behavior is one that does not invoke BECOME, i.e., no state
+;; changes in the Actor.  And which causes no damaging side effects.
+;; Examples are LABEL-BEH, TAG-BEH, CONST-BEH, FWD-BEH.  Actors with
+;; such behavior can support simultaneous parallel execution.
+
+(defclass par-behavior ()  ;; A Typed-Function
+  ()
+  (:metaclass clos:funcallable-standard-class))
+
+(defmethod initialize-instance :after ((obj par-behavior) &key fn &allow-other-keys)
+  (clos:set-funcallable-instance-function obj fn))
+
+(defun make-par-behavior (fn)
+  (check-type fn function)
+  (make-instance 'par-behavior
+                 :fn fn))
+
 ;; -----------------------------------------------------
 ;; Actors are simply indirect refs to a beh closure (= function + state).
 ;;
@@ -62,32 +80,13 @@ THE SOFTWARE.
                (:constructor %make-actor))
   beh)
 
-(defun make-actor (&optional (beh #'funcall))
+(defun make-actor (&optional (beh #'lw:do-nothing))
   (check-type beh function)
   (%make-actor :beh beh))
 
 (defun α (&optional (beh #'funcall))
   (make-actor beh))
   
-;; --------------------------------------
-;; A Safe-Beh, as a behavior, is one that does not invoke BECOME,
-;; i.e., no state changes in the Actor.  And which causes no damaging
-;; side effects.  Examples are LABEL-BEH, TAG-BEH, CONST-BEH, FWD-BEH.
-;; Actors with such behavior can support simultaneous parallel
-;; execution.
-
-(defclass safe-beh ()  ;; A Typed-Function
-  ()
-  (:metaclass clos:funcallable-standard-class))
-
-(defmethod initialize-instance ((obj safe-beh) &key fn &allow-other-keys)
-  (clos:set-funcallable-instance-function obj fn))
-
-(defun make-safe-beh (fn)
-  (check-type fn function)
-  (make-instance 'safe-beh
-                 :fn fn))
-
 ;; --------------------------------------
 ;; ACTOR in function position acts like a higher level LAMBDA expression
 
@@ -98,6 +97,9 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (editor:setup-indent "actor" 1)
+
+(defmacro def-α (args &body body)
+  `(actor ,args ,@body))
 
 ;; ------------------------------------
 ;; ACTORS macro allows for defining new Actors which recursively
@@ -161,7 +163,7 @@ THE SOFTWARE.
      (destructuring-bind (*current-actor* . *whole-message*) evt
        (let ((*current-beh* (actor-beh self)))
          (cond ((and self-beh
-                     (or (typep self-beh 'safe-beh)
+                     (or (typep self-beh 'par-behavior)
                          (sys:compare-and-swap (actor-beh self) self-beh nil)))
                 
                 ;; NIL Beh slot indicates busy Actor

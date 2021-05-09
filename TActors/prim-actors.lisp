@@ -7,7 +7,7 @@
 ;; Sink Behaviors
 
 (defun make-sink-beh ()
-  (make-safe-beh
+  (make-par-behavior
    #'lw:do-nothing))
 
 (defvar *bitpit*
@@ -30,7 +30,7 @@
 ;; Non-Sink Behaviors
 
 (defun make-const-beh (&rest msg)
-  (make-safe-beh
+  (make-par-behavior
    (lambda (cust)
      (send* cust msg))))
 
@@ -50,7 +50,7 @@
 ;; ---------------------
 
 (defun make-send-to-all-beh (&rest actors)
-  (make-safe-beh
+  (make-par-behavior
    (lambda (&rest msg)
      (dolist (cust actors)
        (send* cust msg)))))
@@ -61,7 +61,7 @@
 ;; ---------------------
 
 (defun make-race-beh (&rest actors)
-  (make-safe-beh
+  (make-par-behavior
    (lambda (cust &rest msg)
      (let ((gate (one-shot cust)))
        (dolist (actor actors)
@@ -74,7 +74,7 @@
 ;; ---------------------
 
 (defun make-fwd-beh (actor)
-  (make-safe-beh
+  (make-par-behavior
    (lambda (&rest msg)
      (send* actor msg))))
 
@@ -84,7 +84,7 @@
 ;; ---------------------
 
 (defun make-label-beh (cust lbl)
-  (make-safe-beh
+  (make-par-behavior
    (lambda (&rest msg)
      (send* cust lbl msg))))
 
@@ -94,7 +94,7 @@
 ;; ---------------------
 
 (defun make-tag-beh (cust)
-  (make-safe-beh
+  (make-par-behavior
    (lambda (&rest msg)
      (send* cust self msg))))
 

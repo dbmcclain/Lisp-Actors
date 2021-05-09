@@ -66,8 +66,8 @@ THE SOFTWARE.
    #:current-actor
    #:self
 
-   #:safe-beh
-   #:make-safe-beh
+   #:par-behavior
+   #:make-par-behavior
    
    #:<runnable>
    #:actor-busy
