@@ -93,4 +93,6 @@ In the mutli-thread test, you can clearly see the overhead cost of OSX thread sw
 
 The gradual incline in both tests at higher loads shows the increasing cost of GC. 33 Million Actors takes about 500 MB of memory (16 bytes / Actor in a 64-bit system), and the system is barely breaking a sweat with all 8 cores lit up to max utilization. The Lisp system remains responsive to keyboard and editing chores while the tests are running. Imagine running 33 Million live socket connections.
 
-For direct comparison with CPS-style direct function-call code, we find that an equivalent CPS Fork Bomb runs about 400 times faster. But it opens the gates to callback-hell, while Actors remain so easy to use. Just imagine a machine in an FPGA, whose basic instructions are MAKE-ACTOR, SEND, BECOME. No stacks and stack frames to manage, no memory overruns, no dangling pointers, no shared mutable data, no crashes (ever!). Impossible to hack.
+For direct comparison with CPS-style direct function-call code, we find that an equivalent CPS Fork Bomb runs about 400 times faster. But it opens the gates to callback-hell, while Actors remain so easy to use. And remember that these Fork Bomb Actors aren't loaded with any task computations. Any additional loading in the Actors and the equivalent CPS direct functions will decrese this disparity. 
+
+Just imagine a machine in an FPGA, whose basic instructions are MAKE-ACTOR, SEND, BECOME. No stacks and stack frames to manage, no memory overruns, no dangling pointers, no shared mutable data, no crashes (ever!). Impossible to hack.
