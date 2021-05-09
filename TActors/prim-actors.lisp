@@ -132,7 +132,9 @@
 
 (defmacro blk (args &rest clauses)
   (lw:with-unique-names (cust)
-    `(actor (,cust ,@args)
+    `(actor ,(if (consp args)
+                 `(,cust ,@args)
+               `(,cust &rest ,args)) ;; handle (BLK _ ...)
        (send ,cust
              (progn
                ,@clauses)))
@@ -265,20 +267,22 @@
 ;; --------------------------------------
 
 (defun make-timer-beh ()
-  ;; To be useful, this needs a SENDX NIL to run in the single-thread
-  ;; Sponsor.
   ;; On :START it records the start time and awaits a :STOP command.
   ;; On :STOP it sends the elapsed time in microsec to cust.
   (um:dlambda
     (:start ()
-     (let ((start (usec:get-time-usec)))
+     (let* ((k-st  (actor ()
+                     (let ((start (usec:get-time-usec)))
+                       (become (lambda (spon cust)
+                                 (let ((stop (usec:get-time-usec)))
+                                   (with-sponsor spon
+                                     (send cust (- stop start)))))
+                               )))))
        (become (um:dlambda
                  (:stop (cust)
-                  (let ((stop (usec:get-time-usec)))
-                    (become (make-timer-beh))
-                    (send cust (- stop start))))
-                 ))
-       ))))
+                  (sendx nil k-st (current-sponsor) cust))))
+       (sendx nil k-st))
+     )))
 
 (defun timer ()
   (α (make-timer-beh)))

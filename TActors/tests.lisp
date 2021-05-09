@@ -32,33 +32,6 @@
 (get-actor-names (println))
 (find-actor (println) :reval)
 
-;; -----------------------------------------------------
-;; Do-Nothing Fork-Bomb
-
-(defun make-tree-beh ()
-  (lambda (cust n)
-    (cond ((zerop n)
-           (send cust))
-          (t
-           (send (α (make-tree-beh)) self (1- n))
-           (send (α (make-tree-beh)) self (1- n))
-           (become (lambda* _
-                     (become (lambda* _
-                               (send cust))))))
-          )))
-
-(let* ((top   (α (make-tree-beh)))
-       (timer (α (make-timer-beh)))
-       (me    (actor _
-                (let ((k-show (actor (dt)
-                                (send (println)
-                                      (format nil "dt = ~,2F"
-                                              (* 1e-6 dt))))))
-                  (sendx nil timer :stop k-show)))
-              ))
-  ;; Test 33.6 Million Actors
-  (sendx nil timer :start)
-  (sendx nil top me 24))
 
 ;; -----------------------------------------------------
 ;; Direct Function Call Empty Fork-Bomb
@@ -76,10 +49,10 @@
                                 (send (println)
                                       (format nil "dt = ~,2F"
                                               (* 1e-6 dt))))))
-                  (sendx nil timer :stop k-show)))
+                  (send timer :stop k-show)))
               ))
   ;; Test 400 * 33.6 Million Funcalls => 33 sec
-  (sendx nil timer :start)
+  (send timer :start)
   (dotimes (ix 400)  ;; Funcalls are 400x faster
     (run-direct-funcall-tree-bomb 24))
   (send me))
@@ -111,9 +84,9 @@
                                 (send (println)
                                       (format nil "dt = ~,2F"
                                               (* 1e-6 dt))))))
-                  (sendx nil timer :stop k-show)))
+                  (send timer :stop k-show)))
               ))
-  (sendx nil timer :start)
+  (send timer :start)
   (sendx t top me 10))
 
 ;; ---------------------------------------------------

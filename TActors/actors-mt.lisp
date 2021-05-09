@@ -38,24 +38,6 @@ THE SOFTWARE.
 (defgeneric send (obj &rest msg))
 ;; ------------------------------------------------------
 
-;; --------------------------------------
-;; A Par-Behavior is one that does not invoke BECOME, i.e., no state
-;; changes in the Actor.  And which causes no damaging side effects.
-;; Examples are LABEL-BEH, TAG-BEH, CONST-BEH, FWD-BEH.  Actors with
-;; such behavior can support simultaneous parallel execution.
-
-(defclass par-behavior ()  ;; A Typed-Function
-  ()
-  (:metaclass clos:funcallable-standard-class))
-
-(defmethod initialize-instance :after ((obj par-behavior) &key fn &allow-other-keys)
-  (clos:set-funcallable-instance-function obj fn))
-
-(defun make-par-behavior (fn)
-  (check-type fn function)
-  (make-instance 'par-behavior
-                 :fn fn))
-
 ;; -----------------------------------------------------
 ;; Actors are simply indirect refs to a beh closure (= function + state).
 ;;
@@ -114,6 +96,24 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "actors" 1)
 
+;; --------------------------------------
+;; A Par-Behavior is one that does not invoke BECOME, i.e., no state
+;; changes in the Actor.  And which causes no damaging side effects.
+;; Examples are LABEL-BEH, TAG-BEH, CONST-BEH, FWD-BEH.  Actors with
+;; such behavior can support simultaneous parallel execution.
+
+(defclass par-behavior ()  ;; A Typed-Function
+  ()
+  (:metaclass clos:funcallable-standard-class))
+
+(defmethod initialize-instance :after ((obj par-behavior) &key fn &allow-other-keys)
+  (clos:set-funcallable-instance-function obj fn))
+
+(defun make-par-behavior (fn)
+  (check-type fn function)
+  (make-instance 'par-behavior
+                 :fn fn))
+
 ;; ----------------------------------
 ;; SPONSORS -- offer event queues and have associated runtime threads
 ;; to perform RUN dispatching of Actor events.
@@ -138,14 +138,10 @@ THE SOFTWARE.
 
 (defvar *current-sponsor* nil)
 
-(defun evt-mbox ()
-  (let ((mboxes (sponsor-mboxes *current-sponsor*)))
-    (with-accessors ((ctr  sponsor-ctr)) *current-sponsor*
-      (let ((ix (logand (the fixnum (1- (the fixnum (length mboxes))))
-                        (the fixnum (sys:atomic-fixnum-incf (the fixnum ctr))))))
-        (declare (fixnum ix))
-        (svref mboxes ix)))))
-        
+(defun current-sponsor ()
+  (or *current-sponsor*
+      *sponsor-mt*))
+
 ;; Per-Thread for Activated Actor
 (defvar *new-beh*       nil)   ;; Staging for BECOME
 (defvar *send-evts*     nil)   ;; Staging for SEND
@@ -236,6 +232,14 @@ THE SOFTWARE.
 ;; then surround your function calls with HANDLER-CASE, HANDLER-BIND,
 ;; or IGNORE-ERRORS.
 
+(defun evt-mbox ()
+  (let ((mboxes (sponsor-mboxes *current-sponsor*)))
+    (with-accessors ((ctr  sponsor-ctr)) *current-sponsor*
+      (let ((ix (logand (the fixnum (1- (the fixnum (length mboxes))))
+                        (the fixnum (sys:atomic-fixnum-incf (the fixnum ctr))))))
+        (declare (fixnum ix))
+        (svref mboxes ix)))))
+        
 (defun become (new-fn)
   ;; Change behavior/state. Only meaningful if an Actor calls
   ;; this.
@@ -255,8 +259,7 @@ THE SOFTWARE.
          (push (list (evt-mbox) (cons actor msg)) *send-evts*))
         (t
          ;; Non-Actor SENDs take effect immediately.
-         (let ((*current-sponsor* (or *current-sponsor*
-                                      *sponsor-mt*)))
+         (let ((*current-sponsor* (current-sponsor)))
            (mp:mailbox-send (evt-mbox) (cons actor msg))))
         ))
 

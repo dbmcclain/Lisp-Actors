@@ -47,6 +47,7 @@ THE SOFTWARE.
 
   (:export
    #:α
+   #:current-sponsor
    #:sponsor
    #:with-sponsor
    #:sendx
