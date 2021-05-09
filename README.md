@@ -75,3 +75,24 @@ Actor graphs (collections of cooperating Actors) describe a state / message depe
 Data arriving from the Async Driver gets enqueued in a buffer manager whose job is to parcel out successive bytes into reader-supplied buffers for so many bytes in each buffer. You can't have the reader request the data portion until it knows the length, and you can't ask for HMAC bytes until all the data bytes have been taken. So sequential state is maintained by using BECOME in a circular manner.
 
 Some Actor behaviors are inherently safe for parallel execution. These Actors do not call BECOME, and so no state changes. Examples are CONST-BEH, FWD-BEH, TAG-BEH, and LABEL-BEH. So I defined a subclass of FUNCTION called SAFE-BEH. If an event for one of these Actors is seen, it is permitted to execute even if it were already handling a prior event.
+
+----------------------
+After much experimentation with various ways of managing multiple CPU Cores, I have settled upon using Sponsors, which manage Actor threads and event queues. Every event queue in the Sponsor has a dedicated thread running Actors. SEND multiplexes messages across event queues in round-robin fashion.
+
+There are two Sponsors defined - Single Threaded and Multi-Threaded. Once an Actor is launched in one Sponsor, then all further activity occurs among that Sponsor's threads, unless an explicit Sponsor change is performed using SENDX. Jumping tracks from single-thread to multi-thread and vice versa. This is very useful behavior.
+
+(To get accurate wall-clock timings, unpolluted by multi-core contributions, you must perform the measurement using a timer in a single thread. That's Apple, not me. But your test code can run in any Sponsor among any number of threads. The timer widget is provided to automatically manage this requirement.)
+
+Liveness of an Actor system is guaranteed by making many small Actors and doing frequent Sends. The Actors are multiplexed from the event queue(s). You don't need multiple threads to peform actions that were previously thought to require threading. But when you do have multiple Sponsor threads, you get concurrency plus parallelism for some degree of speedup.
+
+<img width="405" alt="Screen Shot 2021-05-09 at 7 50 54 AM" src="https://user-images.githubusercontent.com/3160577/117578055-62475f80-b0a1-11eb-8d5a-86a809956815.png">
+
+This example shows a comparison of a do-nothing Fork Bomb that constructs up to 33 Million Actors, where every Actor sends a message back up the tree to the root node. The timings show the cost per Actor for [MAKE-ACTOR / MAKE-ACTOR / SEND / SEND / BECOME / RUN-dispatch / BECOME / RUN-dispatch / SEND / RUN-dispatch] at every interior Actor node, and [SEND / RUN-dispatch] at the leaves. At its largest, there are (2^24 -  1) interior Actor nodes, and 2^24 leaves. 
+
+In the mutli-thread test, you can clearly see the overhead cost of OSX thread switching when there is very light loading. This overhead declines as the event queues become saturated.
+
+The gradual incline in both tests at higher loads shows the increasing cost of GC. 33 Million Actors takes about 500 MB of memory (16 bytes / Actor in a 64-bit system), and the system is barely breaking a sweat with all 8 cores lit up to max utilization. The Lisp system remains responsive to keyboard and editing chores while the tests are running. Imagine running 33 Million live socket connections.
+
+For direct comparison with CPS-style direct function-call code, we find that an equivalent CPS Fork Bomb runs about 400 times faster. But it opens the gates to callback-hell, while Actors remain so easy to use. And remember that these Fork Bomb Actors aren't loaded with any task computations. Any additional loading in the Actors and the equivalent CPS direct functions will decrese this disparity. 
+
+Just imagine a machine in an FPGA, whose basic instructions are MAKE-ACTOR, SEND, BECOME. No stacks and stack frames to manage, no memory overruns, no dangling pointers, no shared mutable data, no crashes (ever!). Impossible to hack.
