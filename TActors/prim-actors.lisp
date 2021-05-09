@@ -263,3 +263,29 @@
   (make-actor (make-serializer-beh service)))
 
 ;; --------------------------------------
+
+(defun make-timer-beh ()
+  ;; To be useful, this needs a SENDX NIL to run in the single-thread
+  ;; Sponsor.
+  ;; On :START it records the start time and awaits a :STOP command.
+  ;; On :STOP it sends the elapsed time in microsec to cust.
+  (um:dlambda
+    (:start ()
+     (let ((start (usec:get-time-usec)))
+       (become (um:dlambda
+                 (:stop (cust)
+                  (let ((stop (usec:get-time-usec)))
+                    (become (make-timer-beh))
+                    (send cust (- stop start))))
+                 ))
+       ))))
+
+(defun timer ()
+  (α (make-timer-beh)))
+
+#|
+(let ((timer (α (make-timer-beh))))
+  (sendx nil timer :start)
+  (sleep 1)
+  (sendx nil timer :stop (println)))
+  |#

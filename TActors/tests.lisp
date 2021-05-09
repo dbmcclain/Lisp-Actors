@@ -32,6 +32,9 @@
 (get-actor-names (println))
 (find-actor (println) :reval)
 
+;; -----------------------------------------------------
+;; Do-Nothing Fork-Bomb
+
 (defun make-tree-beh ()
   (lambda (cust n)
     (cond ((zerop n)
@@ -44,11 +47,45 @@
                                (send cust))))))
           )))
 
-(let ((top (α (make-tree-beh)))
-      (me  (actor _
-             (send (println) :DONE))))
-  (sendx t top me 24))
+(let* ((top   (α (make-tree-beh)))
+       (timer (α (make-timer-beh)))
+       (me    (actor _
+                (let ((k-show (actor (dt)
+                                (send (println)
+                                      (format nil "dt = ~,2F"
+                                              (* 1e-6 dt))))))
+                  (sendx nil timer :stop k-show)))
+              ))
+  ;; Test 33.6 Million Actors
+  (sendx nil timer :start)
+  (sendx nil top me 24))
 
+;; -----------------------------------------------------
+;; Direct Function Call Empty Fork-Bomb
+
+(defun run-direct-funcall-tree-bomb (n)
+  (cond ((zerop n))
+        (t
+         (run-direct-funcall-tree-bomb (1- n))
+         (run-direct-funcall-tree-bomb (1- n)))
+        ))
+
+(let* ((timer (α (make-timer-beh)))
+       (me    (actor _
+                (let ((k-show (actor (dt)
+                                (send (println)
+                                      (format nil "dt = ~,2F"
+                                              (* 1e-6 dt))))))
+                  (sendx nil timer :stop k-show)))
+              ))
+  ;; Test 400 * 33.6 Million Funcalls => 33 sec
+  (sendx nil timer :start)
+  (dotimes (ix 400)  ;; Funcalls are 400x faster
+    (run-direct-funcall-tree-bomb 24))
+  (send me))
+
+;; -----------------------------------------------------
+;; Erfc Fork-Bomb
 
 (defun burn-time ()
   (loop repeat 10000 do
@@ -67,47 +104,17 @@
                                (send cust))))))
           )))
 
-
-(let ((top (α (make-erfc-tree-beh)))
-      (me  (actor _
-             (send (println) :DONE))))
+(let* ((top   (α (make-erfc-tree-beh)))
+       (timer (α (make-timer-beh)))
+       (me    (actor _
+                (let ((k-show (actor (dt)
+                                (send (println)
+                                      (format nil "dt = ~,2F"
+                                              (* 1e-6 dt))))))
+                  (sendx nil timer :stop k-show)))
+              ))
+  (sendx nil timer :start)
   (sendx t top me 10))
 
-(progn
-  (defun make-empty-sort-beh (x)
-    (lambda (y)
-    (if (< y x)
-        (become (make-lt-sort-beh x (α (make-empty-sort-beh y))))
-      (become (make-ge-sort-beh x (α (make-empty-sort-beh y)))))))
-  
-  (defun make-lt-sort-beh (x lt)
-    (lambda (y)
-      (if (< y x)
-          (send lt y)
-        (become (make-sort-beh x lt (α (make-empty-sort-beh y)))))))
-  
-  (defun make-ge-sort-beh (x ge)
-    (lambda (y)
-      (if (< y x)
-          (become (make-sort-beh x (α (make-empty-sort-beh y)) ge))
-        (send ge y))))
+;; ---------------------------------------------------
 
-  (defun make-sort-beh (x lt ge)
-    (lambda (y)
-      (if (< y x)
-          (send lt y)
-        (send ge y)))))
-
-(defun tst (n)
-  (um:nlet iter ((ix  0)
-                 (top nil))
-    (when (< ix n)
-      (let ((x  (random #.(ash 1 60))))
-        (cond (top
-               (sendx nil top x)
-               (go-iter (1+ ix) top))
-              (t
-               (go-iter (1+ ix) (α (make-empty-sort-beh x))))
-              )))))
-
-(time (tst 1000000))
