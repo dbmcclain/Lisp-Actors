@@ -133,3 +133,32 @@ Dale Shumacher has defined his virtual Actor machines in such a way that there a
 But significantly, Actors can exercise judgement in terms of what other Actors they inform about the existence of Actors they have Created. Without the address of an Actor as a SEND target, you cannot disturb them in any way. An Actor's address is a security token - a capability that is handed out or not. And a single Actor can represent an entire sub-graph of cooperating Actors arranged to effect a particular task. Clients are unable to discern if their service is provided by a single Actor, or by some component Actor of a graph of Actors behind a gatekeeper Actor.
 
 Small Actors are easy to prove as correct. Assemblies of Actors in a graph can likewise be proven correct if each component is known to be correct. At most one only needs to verify sequencing of cooperating Actors in a graph behind a gatekeeper Actor. Hence the entire assemblage can easily be proven correct. So Actor systems can represent inherently safe and indestructable computing systems.
+
+--------------------
+The threading anomaly has been tracked down and partially rectified...
+
+In an effort to track down the source of the anomaly, I benchmarked a test that splays out a 10 layer Fork Bomb Tree, where each leaf node execues a varying number of time eater iterations (N iterations of RANDOM(1.0)). I then varied N looking to see if there were particular values that tickled an inversion of the speed relation between single-thread (ST) and multi-thread (MT) code tests. I normalized all reported runtime durations by the number of interations N.
+
+I fully expected to see a more or less horizontal line for the ST case, and a more or less horizontal switching square wave, sometimes above ST and sometimes below ST performance in the MT tests. But instead, this is what I found:
+
+<img width="400" alt="Screen Shot 2021-05-10 at 4 09 12 AM" src="https://user-images.githubusercontent.com/3160577/117666447-b95c3b80-b158-11eb-882b-3f65d8b26132.png">
+
+I am gobsmacked by this result! MT performance consistently worse than ST performance. And also, not horizontal lines, but asymptotically so.
+
+So, this system is using Mailboxes as the event queues. A Mailbox has a contention Lock plus a Condition Variable for signaling waiting threads when new items are enqueued in the Mailbox. But that Lock gives OSX a chance to steal the remainder of a thread's timeslice, even though the duration of any contention is deminimus. That might be great for background tasks, but overly punitive to us during our tests.
+
+So instead of using Mailbox queues, I implemented a version of the Actors system using Shared Finger-Tree Queues for all event queues. These are lock-free queues with guaranteed forward progress. If a mutation is in progress when reading the queue, we help that mutation to completion and look again. The only trouble comes when looking for an event from an empty queue.
+
+If we just spin waiting for an event to arrive, we end up generating a lot of head with every core running near 100% utilization. That is wasteful. One step back would be to voluntarily relinquish our timeslice with (SLEEP 0), hinting to the system that we want the CPU back quickly. But we are at the mercy of OSX to give it back to us. Still, that generates a fair amount of heat, but now my 4 physical (8 hyperthreading) cores are showing roughly 200% overall utilization. So we give background tasks a fighting chance to run, with miminized delays to our own code.
+
+And this is the result:
+
+[PastedGraphic-1.pdf](https://github.com/dbmcclain/Lisp-Actors/files/6452416/PastedGraphic-1.pdf)
+
+This graph shows our Lock-Free Finger-Tree Queues, with (SLEEP 0) on empty queues, and only 4 MT threads. Using 4 MT threads has shown to offer the widest performance spread between ST and MT test runs. Using fewer MT threads narrows that performance gap, as does using more MT threads. The ideal seems to be to match the number of physical cores with MT threads.
+
+But that leaves the sole ST thread on the side. And indeed, some thread switching will be required to allow the ST thread its chance to see if any events arrived for it. It is running the same code for queue control as the MT threads. And that thread switching degrades the performance of ST tests, even as the MT threads are not being utilized. The degradation is about 33%. 
+
+So the performance of MT is best in this case, and offers 200-300% improvement over ST. But that's also because ST performance has been degraded. Against a baseline of only a single ST thread and no MT threads, the best case MT is only 200% improvement. 4 cores, but only 200% improvement. That 50% utilization of theoretical capacity is disappointing (as is the hype about HyperThreading).
+
+What we need instead, is to evict OSX, marry dedicated dispatching threads to each physical CPU core, and run pure Actors. No thread switching ever, no register save / restore needed. No CPU state save / restore needed. No memory partitioning needed, so no MMU remapping between processes. Just pure dedicated dispatching threads on each core, each of them running against their own event queue, and running a gazillion atomic Actors. No need for MS Windows, OSX, or Linux. Those old goats are bloated impediments to true progress, and after all their hype, they can't even keep us safe.
