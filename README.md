@@ -157,6 +157,8 @@ And this is the result:
 
 This graph shows our Lock-Free Finger-Tree Queues, with (SLEEP 0) on empty queues, and only 4 MT threads. Using 4 MT threads has shown to offer the widest performance spread between ST and MT test runs. Using fewer MT threads narrows that performance gap, as does using more MT threads. The ideal seems to be to match the number of physical cores with MT threads.
 
+(The astute observer would notice the nearly 10x scale change in the vertical axis... Sad but true. We can guarantee superior MT peformance over ST, but only by degrading everyone by 10x. So the optimal answer is (A) use only a single thread - we have shown it to be adequate, or (B) use MT with mailbox queues and accept that some workloads will have MT running slower than ST.)
+
 But that leaves the sole ST thread on the side. And indeed, some thread switching will be required to allow the ST thread its chance to see if any events arrived for it. It is running the same code for queue control as the MT threads. And that thread switching degrades the performance of ST tests, even as the MT threads are not being utilized. The degradation is about 33%. 
 
 So the performance of MT is best in this case, and offers 200-300% improvement over ST. But that's also because ST performance has been degraded. Against a baseline of only a single ST thread and no MT threads, the best case MT is only 200% improvement. 4 cores, but only 200% improvement. That 50% utilization of theoretical capacity is disappointing (as is the hype about HyperThreading).
