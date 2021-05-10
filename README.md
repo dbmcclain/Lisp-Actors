@@ -82,7 +82,7 @@ There are two Sponsors defined - Single Threaded and Multi-Threaded. Once an Act
 
 (To get accurate wall-clock timings, unpolluted by multi-core contributions, you must perform the measurement using a timer in a single thread. That's Apple, not me. But your test code can run in any Sponsor among any number of threads. The timer widget is provided to automatically manage this requirement.)
 
-Liveness of an Actor system is guaranteed by making many small Actors and doing frequent Sends. The Actors are multiplexed from the event queue(s). You don't need multiple threads to peform actions that were previously thought to require threading. But when you do have multiple Sponsor threads, you get concurrency plus parallelism for some degree of speedup.
+Liveness of an Actor system is guaranteed by making many small Actors and doing frequent Sends. The Actors are multiplexed from the event queue(s). You don't need multiple threads to peform actions that were previously thought to require threading. There is no need for saving / restoring banks of registers and CPU state, as with thread managers. But when you do have multiple Sponsor threads, you get concurrency plus parallelism for some degree of speedup.
 
 <img width="405" alt="Screen Shot 2021-05-09 at 7 50 54 AM" src="https://user-images.githubusercontent.com/3160577/117578055-62475f80-b0a1-11eb-8d5a-86a809956815.png">
 
