@@ -1,3 +1,4 @@
+<img width="396" alt="Screen Shot 2021-05-10 at 6 48 08 AM" src="https://user-images.githubusercontent.com/3160577/117669453-c3336e00-b15b-11eb-96b2-9022021136e9.png">
 -- Lisp-Actors - Classical Actors (in TActors folder) --
 -------------
 You will become amazed at this, but Classical Actors can run in a single thread, and yet, accomplish what we had all thought was a necessary use case for multi-threaded code. Classical Actors prove the contrary.
@@ -153,7 +154,7 @@ If we just spin waiting for an event to arrive, we end up generating a lot of he
 
 And this is the result:
 
-[PastedGraphic-1.pdf](https://github.com/dbmcclain/Lisp-Actors/files/6452416/PastedGraphic-1.pdf)
+<img width="396" alt="Screen Shot 2021-05-10 at 6 48 08 AM" src="https://user-images.githubusercontent.com/3160577/117669491-cb8ba900-b15b-11eb-9264-1f1f13651145.png">
 
 This graph shows our Lock-Free Finger-Tree Queues, with (SLEEP 0) on empty queues, and only 4 MT threads. Using 4 MT threads has shown to offer the widest performance spread between ST and MT test runs. Using fewer MT threads narrows that performance gap, as does using more MT threads. The ideal seems to be to match the number of physical cores with MT threads.
 
