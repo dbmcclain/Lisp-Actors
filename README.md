@@ -168,7 +168,7 @@ What we need instead, is to evict OSX, marry dedicated dispatching threads to ea
 -------------------
 When in doubt... use a different algorithm.
 
-[PastedGraphic-2.pdf](https://github.com/dbmcclain/Lisp-Actors/files/6453125/PastedGraphic-2.pdf)
+<img width="398" alt="Screen Shot 2021-05-10 at 8 55 11 AM" src="https://user-images.githubusercontent.com/3160577/117688266-78baed00-b16d-11eb-9865-20dff887e648.png">
 
 This time we are using a Banker's Queue for the event queues. There is never any contention on the Head of the queue. But when it runs dry we must take the Tail (if anything), using ATOMIC-EXCH with NIL, and reverse it and shove that onto the HD of the queue. The TL might be empty, in which case we grab a Lock (the thing that allows Apple to steal our timeslice), and then look again - maybe something just arrived. Otherwise we wait on a condition variable. When that condition variable becomes signaled we try again, under Lock.
 
