@@ -1,6 +1,6 @@
 -- Lisp-Actors - Classical Actors (in TActors folder) --
 -------------
-You will become amazed at this, but Classical Actors run in a single thread, and yet, accomplish what we had all thought was a necessary use case for multi-threaded code. Classical Actors prove the contrary.
+You will become amazed at this, but Classical Actors can run in a single thread, and yet, accomplish what we had all thought was a necessary use case for multi-threaded code. Classical Actors prove the contrary.
 
 A Classical Actor has these features:
 
