@@ -111,7 +111,7 @@ The multi-threaded Actors gain further by parallel execution, but only by 2x, no
 
 But notice that the native code CPS Funcall version, which is necessarily single-threaded, and has no inherent opportunities for concurrency, actually takes longer than any of the Actors versions. There is no 200x looping of the Erfc going on here. Just the same load of 1,000 random samples as for the Actors.  So my computer runs native code to accomplish absolutely nothing, 200 times faster than Actors can accomplish the same nothing. But when faced with real work, the Actors win out.
 
-Further tests show that we can reduce the number of Erfc() executions all the way down to one, and the Actors consistently remain faster than direct CPS Funcall code. So the critical workload that equalizes the performance is considerably less than the work required to compute Erfc through a continue fraction expansion.
+Further tests show that we can reduce the number of Erfc() executions all the way down to one, and the Actors consistently remain faster than direct CPS Funcall code. So the critical workload that equalizes the performance is considerably less than the work required to compute Erfc through a continued fraction expansion.
 
 So dropping down to more elementary groups of instructions, I have found that instead of Erfc(), just generating 256 samples of RANDOM(1.0) is sufficient to equalize the performance of CPS Funcall with Single-threaded Actors:
 
