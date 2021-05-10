@@ -117,5 +117,5 @@ So dropping down to more elementary groups of instructions, I have found that in
 
 <img width="401" alt="Screen Shot 2021-05-09 at 5 27 21 PM" src="https://user-images.githubusercontent.com/3160577/117592795-d78d5180-b0ee-11eb-94d9-58817bd87ef9.png">
 
-But now we have an anomaly in the multi-threaded timing. My code never performs any thread switching. A thread continuously runs the RUN dispatcher against its own dedicated event queue. At most my threads will pause while waiting for more events, or briefly, when there is a short contention period on the event queue between a sender and the event dispatcher thread. So this anomaly appears to be induced by OSX stealing timeslices away from RUN dispatchers and giving them to unrelated background tasks on the machine.
+But now we have an anomaly in the multi-threaded timing. My code never performs any thread switching. A thread continuously runs the RUN dispatcher against its own dedicated event queue. At most my threads will pause while waiting for more events, or briefly, when there is a short contention period on the event queue between a sender and the event dispatcher thread. So this anomaly appears to be induced by OSX stealing unused remains of timeslices away from RUN dispatchers and giving them to unrelated background tasks on the machine.
 
