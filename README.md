@@ -62,6 +62,11 @@ For more insight into the use of Classical Actors, I highly recommend Dale Schum
 
 In his Blog, he describes a virtual pure Actor machine, and his blog, entitled "It's Actors All The Way Down", is a very illuminating discussion of just what can be accomplished in a pure Actor machine. Imagine an FPGA implementation, where CREATE, SEND, and BECOME are single machine instructions of a native instruction set. 
 
+So dropping down to more elementary groups of instructions, I have found that instead of Erfc(), just generating 256 samples of RANDOM(1.0) is sufficient to equalize the performance of CPS Funcall with Single-threaded Actors:
+
+<img width="401" alt="Screen Shot 2021-05-09 at 5 27 21 PM" src="https://user-images.githubusercontent.com/3160577/117592795-d78d5180-b0ee-11eb-94d9-58817bd87ef9.png">
+
+
 Such a machine, coupled with the innate security of Actor identities as capabilities tokens, could become unhackable by malevolent adversaries. Dale has simulations of this written for ARM processors, using very fast and clever coding at the ARM Assembly level. It is really worth your time to study his writings.
 
 --------------
