@@ -115,6 +115,37 @@ THE SOFTWARE.
                  :fn fn))
 
 ;; ----------------------------------
+#|
+(defstruct queue
+  hd
+  tl
+  (lock  (mp:make-lock))
+  (cx    (mp:make-condition-variable)))
+
+(defun #1=read-next-event (mbox)
+  (flet ((try ()
+           (let ((evt (pop (queue-hd mbox))))
+             (when evt
+               (return-from #1# evt)))
+           (let ((evts (sys:atomic-exchange (queue-tl mbox) nil)))
+             (when evts
+               (setf (queue-hd mbox) (cdr evts))
+               (return-from #1# (car evts))))
+           ))
+    (try)
+    (mp:with-lock ((queue-lock mbox))
+      (loop
+       (try)
+       (mp:condition-variable-wait (queue-cx mbox) (queue-lock mbox))))
+      ))
+
+(defun send-event (mbox evt)
+  (mp:with-lock ((queue-lock mbox))
+    (sys:atomic-push evt (queue-tl mbox))
+    (mp:condition-variable-signal (queue-cx mbox))
+    ))
+|#
+;; ----------------------------------
 ;; SPONSORS -- offer event queues and have associated runtime threads
 ;; to perform RUN dispatching of Actor events.
 ;;
@@ -126,12 +157,10 @@ THE SOFTWARE.
 
 (defstruct (sponsor
             (:constructor %make-sponsor))
-  mboxes
-  threads
-  ctr)
+  (mbox   (mp:make-mailbox))
+  thread)
 
 (defvar *sponsor-st* nil) ;; Single-Threaded
-(defvar *sponsor-mt* nil) ;; Multiple-Threaded
 
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
@@ -140,7 +169,7 @@ THE SOFTWARE.
 
 (defun current-sponsor ()
   (or *current-sponsor*
-      *sponsor-mt*))
+      *sponsor-st*))
 
 ;; Per-Thread for Activated Actor
 (defvar *new-beh*       nil)   ;; Staging for BECOME
@@ -153,69 +182,58 @@ THE SOFTWARE.
 (define-symbol-macro self-beh *current-beh*)
 
 ;; Generic RUN for all threads, across all Sponsors
-(defun run-actors (*current-sponsor* mbox)
-  (loop
-   (let ((evt (mp:mailbox-read mbox)))
-     (destructuring-bind (*current-actor* . *whole-message*) evt
-       (let ((*current-beh* (actor-beh self)))
-         (cond ((and self-beh
-                     (or (typep self-beh 'par-behavior)
-                         (sys:compare-and-swap (actor-beh self) self-beh nil)))
-                
-                ;; NIL Beh slot indicates busy Actor
-                (let ((*new-beh*     self-beh)
-                      (*send-evts*   nil))
-                  ;; ---------------------------------
-                  (with-simple-restart (abort "Handle next event")
-                    (apply self-beh *whole-message*)
-                    
-                    ;; Effects Commit...
-                    (when *send-evts*
-                      (dolist (evt *send-evts*)     ;; staged SENDs
-                        (apply #'mp:mailbox-send evt)))
-                    (setf *current-beh* *new-beh*)) ;; staged BECOME
-                  ;; ---------------------------------                    
-                  (setf (actor-beh self) *current-beh*))) ;; restore Not-Busy
-               
-               (t
-                ;; else - actor was busy
-                (mp:mailbox-send mbox evt))
-               ))))))
+(defun run-actors (*current-sponsor*)
+  (let ((mbox (sponsor-mbox *current-sponsor*)))
+    (loop
+     (let ((evt (mp:mailbox-read mbox)))
+       (destructuring-bind (*current-actor* . *whole-message*) evt
+         (let ((*current-beh* (actor-beh self)))
+           (cond ((and self-beh
+                       (or (typep self-beh 'par-behavior)
+                           (sys:compare-and-swap (actor-beh self) self-beh nil)))
+                  
+                  ;; NIL Beh slot indicates busy Actor
+                  (let ((*new-beh*     self-beh)
+                        (*send-evts*   nil))
+                    ;; ---------------------------------
+                    (with-simple-restart (abort "Handle next event")
+                      (apply self-beh *whole-message*)
+                      
+                      ;; Effects Commit...
+                      (when *send-evts*
+                        (dolist (evt *send-evts*)     ;; staged SENDs
+                          (apply #'mp:mailbox-send evt)))
+                      (setf *current-beh* *new-beh*)) ;; staged BECOME
+                    ;; ---------------------------------                    
+                    (setf (actor-beh self) *current-beh*))) ;; restore Not-Busy
+                 
+                 (t
+                  ;; else - actor was busy
+                  (mp:mailbox-send mbox evt)
+                  ))))))))
 
 ;; ----------------------------------------------------------
 
 (defun start-actors-system ()
-  (unless *sponsor-mt*
-    (setf *sponsor-mt* (make-sponsor +nbr-threads+ "ActorMT Thread ~D")
-          *sponsor-st* (make-sponsor 1             "ActorST Thread"))))
+  (unless *sponsor-st*
+    (setf *sponsor-st* (make-sponsor "Actor Thread"))))
 
 (defun kill-executives ()
-  (when *sponsor-mt*
-    (kill-sponsor (shiftf *sponsor-mt* nil))
+  (when *sponsor-st*
     (kill-sponsor (shiftf *sponsor-st* nil))))
 
 ;; ----------------------------------------------------------
 
-(defun make-sponsor (nbr-threads title)
-  (let ((new-sponsor (%make-sponsor
-                      :ctr     0
-                      :threads (make-array nbr-threads)
-                      :mboxes  (make-array nbr-threads))))
-    (dotimes (ix nbr-threads)
-      (let ((mbox (mp:make-mailbox)))
-        (setf (aref (sponsor-mboxes  new-sponsor) ix) mbox
-              (aref (sponsor-threads new-sponsor) ix)
-              (mp:process-run-function (if (> nbr-threads 1)
-                                           (format nil title (1+ ix))
-                                         title)
-                                       ()
-                                       #'run-actors new-sponsor mbox)
-              )))
+(defun make-sponsor (title)
+  (let ((new-sponsor (%make-sponsor)))
+    (setf (sponsor-thread new-sponsor) 
+          (mp:process-run-function title
+                                   ()
+                                   #'run-actors new-sponsor))
     new-sponsor))
 
 (defun kill-sponsor (sponsor)
-  (loop for thread across (sponsor-threads sponsor) do
-        (mp:process-terminate thread)))
+  (mp:process-terminate (sponsor-thread sponsor)))
 
 #|
 (kill-executives)
@@ -233,12 +251,7 @@ THE SOFTWARE.
 ;; or IGNORE-ERRORS.
 
 (defun evt-mbox ()
-  (let ((mboxes (sponsor-mboxes *current-sponsor*)))
-    (with-accessors ((ctr  sponsor-ctr)) *current-sponsor*
-      (let ((ix (logand (the fixnum (1- (the fixnum (length mboxes))))
-                        (the fixnum (sys:atomic-fixnum-incf (the fixnum ctr))))))
-        (declare (fixnum ix))
-        (svref mboxes ix)))))
+  (sponsor-mbox *current-sponsor*))
         
 (defun become (new-fn)
   ;; Change behavior/state. Only meaningful if an Actor calls
@@ -271,24 +284,8 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------
 ;; Using Sponsors
 
-(defun effective-sponsor (spon)
-  (cond ((sponsor-p spon)
-         spon)
-        
-        ((or (eq t spon)
-             (eq :mt spon))
-         *sponsor-mt*)
-
-        ((or (null spon)
-             (eq :st spon))
-         *sponsor-st*)
-
-        (t
-         (error "Not a Sponsor: ~S" spon))
-        ))
-
 (defmacro with-sponsor (sponsor &body body)
-  `(let ((*current-sponsor* (effective-sponsor ,sponsor)))
+  `(let ((*current-sponsor* ,sponsor))
      ,@body))
 
 #+:LISPWORKS
@@ -298,20 +295,6 @@ THE SOFTWARE.
   ;; Cross-sponsor SEND
   (with-sponsor sponsor
     (send* actor msg)))
-
-(defmacro with-single-thread (&body body)
-  (lw:with-unique-names (k-cont)
-    `(let ((,k-cont (actor ()
-                      ,@body)))
-       (sendx nil ,k-cont))
-    ))
-
-(defmacro with-multiple-threads (&body body)
-  (lw:with-unique-names (k-cont)
-    `(let ((,k-cont (actor ()
-                      ,@body)))
-       (sendx t ,k-cont))
-    ))
 
 ;; ----------------------------------------------
 ;; WORKER is just a function that executes on an external thread.

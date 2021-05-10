@@ -273,15 +273,14 @@
     (:start ()
      (let* ((k-st  (actor ()
                      (let ((start (usec:get-time-usec)))
-                       (become (lambda (spon cust)
+                       (become (lambda (cust)
                                  (let ((stop (usec:get-time-usec)))
-                                   (with-sponsor spon
-                                     (send cust (- stop start)))))
-                               )))))
+                                   (send cust (- stop start)))))
+                       ))))
        (become (um:dlambda
                  (:stop (cust)
-                  (sendx nil k-st (current-sponsor) cust))))
-       (sendx nil k-st))
+                  (send k-st cust))))
+       (send k-st))
      )))
 
 (defun timer ()

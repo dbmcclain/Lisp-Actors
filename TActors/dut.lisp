@@ -9,11 +9,11 @@
 (defun make-timing-beh (dut)
   ;; An Actor to collect the timing in microsec of a DUT
   (lambda (cust)
-    (let* ((timer (timer))
-           (me    (actor _
-                    (send timer :stop cust))))
+    (let* ((timer  (timer))
+           (k-stop (actor _
+                     (send timer :stop cust))))
       (send timer :start)
-      (send dut me))))
+      (send dut k-stop))))
 
 (defun make-med3-beh (dut)
   ;; Call DUT 3 times and return median of its data values
@@ -65,30 +65,31 @@
 ;; Example:
 ;; Do-Nothing Fork-Bomb
 
-(defun make-tree-beh ()
-  (lambda (cust n)
-    (cond ((zerop n)
-           (send cust))
-          (t
-           (send (α (make-tree-beh)) self (1- n))
-           (send (α (make-tree-beh)) self (1- n))
-           (become (lambda* _
-                     (become (lambda* _
-                               (send cust))))))
-          )))
+(progn
+  (defun make-tree-beh ()
+    (lambda (cust n)
+      (cond ((zerop n)
+             (send cust))
+            (t
+             (send (α (make-tree-beh)) self (1- n))
+             (send (α (make-tree-beh)) self (1- n))
+             (become (lambda* _
+                       (become (lambda* _
+                                 (send cust))))))
+            )))
+  
+  (defun make-fbomb-beh (spon logn)
+    ;; a DUT function parameterized by Sponsor and Log2N
+    (lambda (cust)
+      (let ((top  (α (make-tree-beh))))
+        (sendx spon top cust logn))))
+  
 
-(defun make-fbomb-beh (spon logn)
-  ;; a DUT function parameterized by Sponsor and Log2N
-  (lambda (cust)
-    (let ((top  (α (make-tree-beh))))
-      (sendx spon top cust logn))))
-
-
-(defun* dataprep ((logn dt))
-  (list (1+ logn)         ;; = nbr of Actors in tree
-        (/ (float dt 1d0) ;; = time per Actor
+  (defun* dataprep ((logn dt))
+    (list (1+ logn)         ;; = nbr of Actors in tree
+          (/ (float dt 1d0) ;; = time per Actor
            (1- (ash 2 logn)))
-        ))
+          )))
 
 ;; --------------
 
@@ -202,8 +203,8 @@
 ;; Erfc Fork-Bomb
 
 (defun burn-time ()
-  (loop repeat 1000 do
-        (user::erfc (random 1d0))))
+  (loop repeat 64 do
+        (random 1d0)))
 
 (defun make-erfc-tree-beh ()
   (lambda (cust n)
@@ -243,11 +244,11 @@
 (defun* dataprep ((logn dt))
   (list logn         ;; = nbr of Actors in tree
         (/ (float dt 1d0) ;; = time per Actor
-           1e3 (ash 1 logn))
+           (ash 1 logn))
         ))
 
 (let ((dut   (um:curry #'make-erfc-fbomb-beh nil))
-      (limit 12))
+      (limit 18))
   (send (α (make-collector-beh 3 limit 1
                                (α (make-data-point-beh dut #'dataprep))
                                ))
@@ -257,10 +258,10 @@
                 (ys (map 'vector #'second tbl)))
             (plt:plot 'plt xs ys
                       :clear t
-                      :title  "Erfc Fork-Bomb Timings"
+                      :title  "(64x RANDOM) Fork-Bomb Timings"
                       :xtitle "Log2[N Actors]"
-                      :ytitle "Time per Actor [ms]"
-                      :yrange '(0.0 4.0)
+                      :ytitle "Time per Actor [µs]"
+                      :yrange '(0.0 20)
                       :legend "SingleThread"
                       :symbol :circle
                       :plot-joined t))
@@ -295,3 +296,187 @@
         )))
 
 |#
+#|
+;; -----------------------------------------------------
+;; Looking for MT Performance Resonance
+
+(progn
+  (defun burn-time (niter)
+    (loop repeat niter do
+          (random 1d0)))
+  
+  (defun make-erfc-tree-beh (niter)
+    (lambda (cust n)
+      (cond ((zerop n)
+             (burn-time niter)
+             (send cust))
+            (t
+             (send (α (make-erfc-tree-beh niter)) self (1- n))
+             (send (α (make-erfc-tree-beh niter)) self (1- n))
+             (become (lambda* _
+                       (become (lambda* _
+                                 (send cust))))))
+            )))
+  
+  (defun make-erfc-fbomb-beh (spon niter)
+    ;; a DUT function parameterized by Sponsor and Log2N
+    (lambda (cust)
+      (let ((top  (α (make-erfc-tree-beh niter))))
+        ;; (sendx spon top cust 10)
+        (send top cust 10)
+        )))
+  
+  (defun* dataprep ((niter dt))
+    (list niter             ;; = nbr of Actors in tree
+          (/ (float dt 1d0) ;; = time per Actor
+             #.(ash 1 10) #|niter|#))))
+
+(let ((dut   (um:curry #'make-erfc-fbomb-beh nil))
+      (limit 256)
+      (plt 'plt2))
+  (send (α (make-collector-beh 1 limit 1
+                               (α (make-data-point-beh dut #'dataprep))
+                               ))
+        (actor (tbl)
+          ;; (break)
+          (let ((xs (map 'vector #'first tbl))
+                (ys (map 'vector #'second tbl)))
+            (plt:plot plt xs ys
+                      :clear t
+                      :title  "10-ply Workload Fork-Bomb Timings"
+                      :xtitle "N [Iters of RANDOM]"
+                      :ytitle "Time per Iter [µs]"
+                      :ylog t
+                      :xlog t
+                      ;; :yrange '(0.0 20)
+                      :legend "SingleThread"
+                      :symbol :circle
+                      :plot-joined t))
+          (let ((dut   (um:curry #'make-erfc-fbomb-beh t)))
+            (send (α (make-collector-beh 1 limit 1
+                                         (α (make-data-point-beh dut #'dataprep))
+                                         ))
+                  (actor (tbl)
+                    ;; (break)
+                    (let ((xs (map 'vector #'first tbl))
+                          (ys (map 'vector #'second tbl)))
+                      (plt:plot plt xs ys
+                                :color :red
+                                :legend "8 MultiThread"
+                                :symbol :circle
+                                :plot-joined t)))))
+          )))
+|#
+#|
+;; Iterate with Actors instead of DO-LOOP
+(progn
+  (defun make-erfc-tree-beh (niter)
+    (lambda (cust n)
+      (cond ((zerop n)
+             (let ((k-iter (actor (nn)
+                             (if (zerop nn)
+                                 (send cust)
+                               (progn
+                                 (random 1d0)
+                                 (send self (1- nn)))))))
+               (send k-iter niter)))
+            (t
+             (send (α (make-erfc-tree-beh niter)) self (1- n))
+             (send (α (make-erfc-tree-beh niter)) self (1- n))
+             (become (lambda* _
+                       (become (lambda* _
+                               (send cust))))))
+            )))
+  
+  (defun make-erfc-fbomb-beh (spon niter)
+    ;; a DUT function parameterized by Sponsor and Log2N
+    (lambda (cust)
+      (let ((top  (α (make-erfc-tree-beh niter))))
+        (sendx spon top cust 10))))
+  
+  (defun* dataprep ((niter dt))
+    (list niter         ;; = nbr of Actors in tree
+          (/ (float dt 1d0) ;; = time per Actor
+             niter))))
+
+(let ((dut   (um:curry #'make-erfc-fbomb-beh nil))
+      (limit 256))
+  (send (α (make-collector-beh 1 limit 1
+                               (α (make-data-point-beh dut #'dataprep))
+                               ))
+        (actor (tbl)
+          ;; (break)
+          (let ((xs (map 'vector #'first tbl))
+                (ys (map 'vector #'second tbl)))
+            (plt:plot 'plt xs ys
+                      :clear t
+                      :title  "10-ply Workload Fork-Bomb Timings"
+                      :xtitle "N [Iters of RANDOM]"
+                      :ytitle "Time per Iter [µs]"
+                      :ylog t
+                      :xlog t
+                      ;; :yrange '(0.0 20)
+                      :legend "SingleThread"
+                      :symbol :circle
+                      :plot-joined t))
+          (let ((dut   (um:curry #'make-erfc-fbomb-beh t)))
+            (send (α (make-collector-beh 1 limit 1
+                                         (α (make-data-point-beh dut #'dataprep))
+                                         ))
+                  (actor (tbl)
+                    ;; (break)
+                    (let ((xs (map 'vector #'first tbl))
+                          (ys (map 'vector #'second tbl)))
+                      (plt:plot 'plt xs ys
+                                :color :red
+                                :legend "8 MultiThread"
+                                :symbol :circle
+                                :plot-joined t)))))
+          )))
+|#
+#|
+(progn
+  (defun make-tst-beh (niter)
+    (lambda (cust)
+      (let ((k-cont (actor (nn)
+                      (if (zerop nn)
+                          (send cust)
+                        (send self (1- nn))))
+                    ))
+        (send k-cont niter))))
+
+  (defun make-stat-beh (npts niter dut)
+    (let ((ans (make-array npts :element-type 'single-float))
+          (ix  0))
+      (lambda (cust)
+        (let ((k-cont (actor (dt)
+                        (setf (aref ans ix) (coerce (/ dt niter) 'single-float))
+                        (incf ix)
+                        (if (>= ix npts)
+                            (send cust ans)
+                          (send dut self))
+                        )))
+          (send dut k-cont)))
+      )))
+
+(let* ((niter 10000)
+       (npts  10000)
+       (dut   (α (make-stat-beh npts niter
+                                (α (make-med3-beh
+                                    (α (make-timing-beh
+                                        (α (make-tst-beh niter))))))))))
+  (send dut (actor (arr)
+              (plt:histogram 'plt arr
+                             :clear t
+                             :title "Send/Dispatch Timing"
+                             :xtitle "Time [µs]"
+                             :ytitle "Counts"
+                             :xrange '(0.14 0.25)
+                             )
+              (send (println) (list
+                               :mean   (vm:mean arr)
+                               :stdev  (vm:stdev arr)
+                               :median (vm:median arr)
+                               :mad    (vm:mad arr)))
+              )))
+ |#
