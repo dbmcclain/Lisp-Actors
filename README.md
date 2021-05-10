@@ -1,4 +1,4 @@
-# Lisp-Actors
+v# Lisp-Actors
 -- Classical Actors (in TActors folder) --
 -------------
 You will become amazed at this, but Classical Actors run in a single thread, and yet, accomplish what we had all thought was a necessary use case for multi-threaded code. Classical Actors prove the contrary.
@@ -110,3 +110,5 @@ That inner compute load nominally takes 2.3 microsec per Erfc(x) call. So from t
 The multi-threaded Actors gain further by parallel execution, but only by 2x, not the availabe 8x potential. (aw shucks..)
 
 But notice that the native code CPS Funcall version, which is necessarily single-threaded, and has no inherent opportunities for concurrency, actually takes longer than any of the Actors versions. There is no 200x looping of the Erfc going on here. Just the same load of 1,000 random samples as for the Actors.  So my computer runs native code to accomplish absolutely nothing, 200 times faster than Actors can accomplish the same nothing. But when faced with real work, the Actors win out.
+
+Further tests show that we can reduce the number of Erfc() executions all the way down to one, and the Actors consistently remain faster than direct CPS Funcall code. So the critical workload that equalizes the performance is considerably less than the work required to compute Erfc through a continue fraction expansion.
