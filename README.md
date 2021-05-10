@@ -1,7 +1,6 @@
-v# Lisp-Actors
--- Classical Actors (in TActors folder) --
+-- Lisp-Actors - Classical Actors (in TActors folder) --
 -------------
-You will become amazed at this, but Classical Actors run in a single thread, and yet, accomplish what we had all thought was a necessary use case for multi-threaded code. Classical Actors prove the contrary.
+You will become amazed at this, but Classical Actors can run in a single thread, and yet, accomplish what we had all thought was a necessary use case for multi-threaded code. Classical Actors prove the contrary.
 
 A Classical Actor has these features:
 
@@ -83,7 +82,7 @@ There are two Sponsors defined - Single Threaded and Multi-Threaded. Once an Act
 
 (To get accurate wall-clock timings, unpolluted by multi-core contributions, you must perform the measurement using a timer in a single thread. That's Apple, not me. But your test code can run in any Sponsor among any number of threads. The timer widget is provided to automatically manage this requirement.)
 
-Liveness of an Actor system is guaranteed by making many small Actors and doing frequent Sends. The Actors are multiplexed from the event queue(s). You don't need multiple threads to peform actions that were previously thought to require threading. But when you do have multiple Sponsor threads, you get concurrency plus parallelism for some degree of speedup.
+Liveness of an Actor system is guaranteed by making many small Actors and doing frequent Sends. The Actors are multiplexed from the event queue(s). You don't need multiple threads to peform actions that were previously thought to require threading. There is no need for saving / restoring banks of registers and CPU state, as with thread managers. But when you do have multiple Sponsor threads, you get concurrency plus parallelism for some degree of speedup.
 
 <img width="405" alt="Screen Shot 2021-05-09 at 7 50 54 AM" src="https://user-images.githubusercontent.com/3160577/117578055-62475f80-b0a1-11eb-8d5a-86a809956815.png">
 
@@ -111,10 +110,69 @@ The multi-threaded Actors gain further by parallel execution, but only by 2x, no
 
 But notice that the native code CPS Funcall version, which is necessarily single-threaded, and has no inherent opportunities for concurrency, actually takes longer than any of the Actors versions. There is no 200x looping of the Erfc going on here. Just the same load of 1,000 random samples as for the Actors.  So my computer runs native code to accomplish absolutely nothing, 200 times faster than Actors can accomplish the same nothing. But when faced with real work, the Actors win out.
 
-Further tests show that we can reduce the number of Erfc() executions all the way down to one, and the Actors consistently remain faster than direct CPS Funcall code. So the critical workload that equalizes the performance is considerably less than the work required to compute Erfc through a continue fraction expansion.
+Further tests show that we can reduce the number of Erfc() executions all the way down to one, and the Actors consistently remain faster than direct CPS Funcall code. So the critical workload that equalizes the performance is considerably less than the work required to compute Erfc through a continued fraction expansion.
 
-So dropping down to more elementary groups of instructions, I have found that instead of Erfc(), just generating 256 samples of RANDOM(1.0) is sufficient to equalize the performance of CPS Funcall with Single-threaded Actors:
+So dropping down to more elementary groups of instructions, I found that instead of Erfc(), just generating 64 samples of RANDOM(1.0) is sufficient to equalize the performance of CPS Funcall with Single-threaded Actors:
 
-<img width="401" alt="Screen Shot 2021-05-09 at 5 27 21 PM" src="https://user-images.githubusercontent.com/3160577/117592795-d78d5180-b0ee-11eb-94d9-58817bd87ef9.png">
+<img width="399" alt="Screen Shot 2021-05-09 at 6 42 36 PM" src="https://user-images.githubusercontent.com/3160577/117595685-55089000-b0f6-11eb-9e5b-053d0de07059.png">
+
+But now we have an anomaly in the multi-threaded timing. My code never performs any thread switching. A thread continuously runs the RUN dispatcher against its own dedicated event queue. At most my threads will pause while waiting for more events, or briefly, when there is a short contention period on the event queue between a sender and the event dispatcher thread. So this anomaly appears to be induced by OSX stealing unused remains of timeslices away from RUN dispatchers and giving them to unrelated background tasks on the machine.
+
+So, by now it should be clear that there are indeed speed benefits to Actors for many real-world workloads. and at least no serious penalties. But there are two competing design goals that oppose each other for performance. On the one hand, very tiny Actors lend to increased concurrency, but with larger overhead from SEND, BECOME, CREATE, and RUN dispatch. On the other hand large service Actors lend toward increased speed, hiding whatever Actor overhead there is as some small fraction of overall runtime. But large Actors miss out on the benefits of concurrency - liveness, overlapped overhead, etc.
+
+An Actors Machine, where CREATE, BECOME, and SEND are native instructions, and the RUN dispatch loop is innate to the machine, would benefit very much from microscopic Actors - the fundamental particle Actors of the Universe. But in a simulated Actors machine on X86 and other processors, that becomes much too costly for performant systems, and we are driven to larger Actors where more work can be accomplished, burying the dispatch mechanism in the noise. Call them Actor "Atoms" or "Molecules". We need bigger Actors in the simulated environments, but not too big. Certainly the Erlang style Actors-as-a-Service are much too large.
+
+All of these graphs and benchmark tests were performed by a collection of Actor widgets that automate the running and data collection activities as a small dataflow engine. Those feel like just about the right-sized Actors. There is an Actor to wrap a timer around the "device under test" (DUT). Another Actor runs a benchmark with one set of parameters, repeating three times to take a median of 3 as the measurement. The next Actor in the chain takes those measured values and applies data pre-processing to them - in this case dividing by the number of Actors involved to get per-Actor timings. Another Actor runs the median timed DUT tests with varying parameters, collecting the results into a table of (X,Y) values for downstream analysis. And my final Actor is the graphing display of the table.
+
+Those Actors form a useful general purpose test and measurement facility. All you need to furnish is a DUT to measure, and then specify the parameters and their ranges. Then hit go and sit back and relax while data is automatically collected and displayed for viewing across a range of parameters.
+
+But backing away and viewing from some distance, we have seen this all before. Using different terminology, Actors and event queues represent a trampolined CPS simulation with a high degree of nondeterminism. CPS continuations become interleaved in their event queue ordering. And in fact, the event dispatcher is free to reorder events when it finds that the target Actor is busy evaluating a prior event. Actors are special continuations with transactional semantics. They either perform as expected, or not at all - leaving no footprints in the event of failure.
+
+Dale Shumacher has defined his virtual Actor machines in such a way that there are never any errors. All functions are total. They either produce an expected sort of result, or UNDEFINED. And no function bombs out on UNDEFINED arguments - they just propagate the UNDEFINED. Actors can choose whether to continue after an UNDEFNED result, or error-out which bypasses the commitment of staged SENDs and BECOMEs. Messages with wrong number of arguments, or invalid send target arguments are silently ignored - they just fail to match expected message patterns. Such a machine never crashes. It might give an incorrect answer, but it cannot bomb out. All Actor state is immutable. Local mutations can be performed on newly created local bindings, but these are not visible to the outside world. You can only discern an Actor's external behavior, not its inner workings.
+
+But significantly, Actors can exercise judgement in terms of what other Actors they inform about the existence of Actors they have Created. Without the address of an Actor as a SEND target, you cannot disturb them in any way. An Actor's address is a security token - a capability that is handed out or not. And a single Actor can represent an entire sub-graph of cooperating Actors arranged to effect a particular task. Clients are unable to discern if their service is provided by a single Actor, or by some component Actor of a graph of Actors behind a gatekeeper Actor.
+
+Small Actors are easy to prove as correct. Assemblies of Actors in a graph can likewise be proven correct if each component is known to be correct. At most one only needs to verify sequencing of cooperating Actors in a graph behind a gatekeeper Actor. Hence the entire assemblage can easily be proven correct. So Actor systems can represent inherently safe and indestructable computing systems.
+
+--------------------
+The threading anomaly has been tracked down and partially rectified...
+
+In an effort to track down the source of the anomaly, I benchmarked a test that splays out a 10 layer Fork Bomb Tree, where each leaf node execues a varying number of time eater iterations (N iterations of RANDOM(1.0)). I then varied N looking to see if there were particular values that tickled an inversion of the speed relation between single-thread (ST) and multi-thread (MT) code tests. I normalized all reported runtime durations by the number of interations N.
+
+I fully expected to see a more or less horizontal line for the ST case, and a more or less horizontal switching square wave, sometimes above ST and sometimes below ST performance in the MT tests. But instead, this is what I found:
+
+<img width="400" alt="Screen Shot 2021-05-10 at 4 09 12 AM" src="https://user-images.githubusercontent.com/3160577/117666447-b95c3b80-b158-11eb-882b-3f65d8b26132.png">
+
+I am gobsmacked by this result! MT performance consistently worse than ST performance. And also, not horizontal lines, but asymptotically so.
+
+So, this system is using Mailboxes as the event queues. A Mailbox has a contention Lock plus a Condition Variable for signaling waiting threads when new items are enqueued in the Mailbox. But that Lock gives OSX a chance to steal the remainder of a thread's timeslice, even though the duration of any contention is deminimus. That might be great for background tasks, but overly punitive to us during our tests.
+
+So instead of using Mailbox queues, I implemented a version of the Actors system using Shared Finger-Tree Queues for all event queues. These are lock-free queues with guaranteed forward progress. If a mutation is in progress when reading the queue, we help that mutation to completion and look again. The only trouble comes when looking for an event from an empty queue.
+
+If we just spin waiting for an event to arrive, we end up generating a lot of heat with every core running near 100% utilization. That is wasteful. One step back would be to voluntarily relinquish our timeslice with (SLEEP 0), hinting to the system that we want the CPU back quickly. But we are at the mercy of OSX to give it back to us. Still, that generates a fair amount of heat, but now my 4 physical (8 HyperThreading) cores are showing roughly 200% overall utilization. So we give background tasks a fighting chance to run, with miminized delays to our own code.
+
+And this is the result:
+
+<img width="396" alt="Screen Shot 2021-05-10 at 6 48 08 AM" src="https://user-images.githubusercontent.com/3160577/117669491-cb8ba900-b15b-11eb-9264-1f1f13651145.png">
+
+This graph shows our Lock-Free Finger-Tree Queues, with (SLEEP 0) on empty queues, and only 4 MT threads. Using 4 MT threads has shown to offer the widest performance spread between ST and MT test runs. Using fewer MT threads narrows that performance gap, as does using more MT threads. The ideal seems to be to match the number of physical cores with MT threads.
+
+But that leaves the sole ST thread on the side. And indeed, some thread switching will be required to allow the ST thread its chance to see if any events arrived for it. It is running the same code for queue control as the MT threads. And that thread switching degrades the performance of ST tests, even as the MT threads are not being utilized. The degradation is about 33%. 
+
+So the performance of MT is best in this case, and offers 200-300% improvement over ST. But that's also because ST performance has been degraded. Against a baseline of only a single ST thread and no MT threads, the best case MT is only 200% improvement. 4 cores, but only 200% improvement. That 50% utilization of theoretical capacity is disappointing (as is the hype about HyperThreading).
+
+(The astute observer would notice the nearly 10x scale change in the vertical axis... Sad but true. We can guarantee superior MT peformance over ST, but only by degrading everyone by 10x. So the optimal answer is (A) use only a single thread - we have shown it to be adequate, or (B) use MT with mailbox queues and accept that some workloads will have MT running slower than ST.)
+
+What we need instead, is to evict OSX, marry dedicated dispatching threads to each physical CPU core, and run pure Actors. No thread switching ever, no register save / restore needed. No CPU state save / restore needed. No memory partitioning needed, so no MMU remapping between processes. Just pure dedicated dispatching threads on each core, each of them running against their own event queue, and running a gazillion atomic Actors. No need for MS Windows, OSX, or Linux. Those old goats are bloated impediments to true progress, and after all their hype, they can't even keep us safe.
+
+-------------------
+When in doubt... use a different algorithm.
+
+<img width="398" alt="Screen Shot 2021-05-10 at 8 55 11 AM" src="https://user-images.githubusercontent.com/3160577/117688266-78baed00-b16d-11eb-9865-20dff887e648.png">
+
+This time we are using a Banker's Queue for the event queues. There is never any contention on the Head of the queue. But when it runs dry we must take the Tail (if anything), using ATOMIC-EXCH with NIL, and reverse it and shove that onto the HD of the queue. The TL might be empty, in which case we grab a Lock (the thing that allows Apple to steal our timeslice), and then look again - maybe something just arrived. Otherwise we wait on a condition variable. When that condition variable becomes signaled we try again, under Lock.
+
+SEND does an ATOMIC-PUSH to TL and signals the condition variable.
 
 
+Sending an event entails grabbing the Lock - which is now hopefully contended only rarely, 
