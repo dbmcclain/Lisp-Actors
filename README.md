@@ -164,3 +164,15 @@ So the performance of MT is best in this case, and offers 200-300% improvement o
 (The astute observer would notice the nearly 10x scale change in the vertical axis... Sad but true. We can guarantee superior MT peformance over ST, but only by degrading everyone by 10x. So the optimal answer is (A) use only a single thread - we have shown it to be adequate, or (B) use MT with mailbox queues and accept that some workloads will have MT running slower than ST.)
 
 What we need instead, is to evict OSX, marry dedicated dispatching threads to each physical CPU core, and run pure Actors. No thread switching ever, no register save / restore needed. No CPU state save / restore needed. No memory partitioning needed, so no MMU remapping between processes. Just pure dedicated dispatching threads on each core, each of them running against their own event queue, and running a gazillion atomic Actors. No need for MS Windows, OSX, or Linux. Those old goats are bloated impediments to true progress, and after all their hype, they can't even keep us safe.
+
+-------------------
+When in doubt... use a different algorithm.
+
+[PastedGraphic-2.pdf](https://github.com/dbmcclain/Lisp-Actors/files/6453125/PastedGraphic-2.pdf)
+
+This time we are using a Banker's Queue for the event queues. There is never any contention on the Head of the queue. But when it runs dry we must take the Tail (if anything), using ATOMIC-EXCH with NIL, and reverse it and shove that onto the HD of the queue. The TL might be empty, in which case we grab a Lock (the thing that allows Apple to steal our timeslice), and then look again - maybe something just arrived. Otherwise we wait on a condition variable. When that condition variable becomes signaled we try again, under Lock.
+
+SEND does an ATOMIC-PUSH to TL and signals the condition variable.
+
+
+Sending an event entails grabbing the Lock - which is now hopefully contended only rarely, 
