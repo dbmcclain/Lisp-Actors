@@ -149,7 +149,7 @@ So, this system is using Mailboxes as the event queues. A Mailbox has a contenti
 
 So instead of using Mailbox queues, I implemented a version of the Actors system using Shared Finger-Tree Queues for all event queues. These are lock-free queues with guaranteed forward progress. If a mutation is in progress when reading the queue, we help that mutation to completion and look again. The only trouble comes when looking for an event from an empty queue.
 
-If we just spin waiting for an event to arrive, we end up generating a lot of head with every core running near 100% utilization. That is wasteful. One step back would be to voluntarily relinquish our timeslice with (SLEEP 0), hinting to the system that we want the CPU back quickly. But we are at the mercy of OSX to give it back to us. Still, that generates a fair amount of heat, but now my 4 physical (8 hyperthreading) cores are showing roughly 200% overall utilization. So we give background tasks a fighting chance to run, with miminized delays to our own code.
+If we just spin waiting for an event to arrive, we end up generating a lot of heat with every core running near 100% utilization. That is wasteful. One step back would be to voluntarily relinquish our timeslice with (SLEEP 0), hinting to the system that we want the CPU back quickly. But we are at the mercy of OSX to give it back to us. Still, that generates a fair amount of heat, but now my 4 physical (8 hyperthreading) cores are showing roughly 200% overall utilization. So we give background tasks a fighting chance to run, with miminized delays to our own code.
 
 And this is the result:
 
