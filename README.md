@@ -112,7 +112,7 @@ But notice that the native code CPS Funcall version, which is necessarily single
 
 Further tests show that we can reduce the number of Erfc() executions all the way down to one, and the Actors consistently remain faster than direct CPS Funcall code. So the critical workload that equalizes the performance is considerably less than the work required to compute Erfc through a continued fraction expansion.
 
-So dropping down to more elementary groups of instructions, I have found that instead of Erfc(), just generating 64 samples of RANDOM(1.0) is sufficient to equalize the performance of CPS Funcall with Single-threaded Actors:
+So dropping down to more elementary groups of instructions, I found that instead of Erfc(), just generating 64 samples of RANDOM(1.0) is sufficient to equalize the performance of CPS Funcall with Single-threaded Actors:
 
 <img width="399" alt="Screen Shot 2021-05-09 at 6 42 36 PM" src="https://user-images.githubusercontent.com/3160577/117595685-55089000-b0f6-11eb-9e5b-053d0de07059.png">
 
