@@ -115,7 +115,7 @@ Further tests show that we can reduce the number of Erfc() executions all the wa
 
 So dropping down to more elementary groups of instructions, I have found that instead of Erfc(), just generating 256 samples of RANDOM(1.0) is sufficient to equalize the performance of CPS Funcall with Single-threaded Actors:
 
-<img width="401" alt="Screen Shot 2021-05-09 at 5 27 21 PM" src="https://user-images.githubusercontent.com/3160577/117592795-d78d5180-b0ee-11eb-94d9-58817bd87ef9.png">
+<img width="401" alt="Screen Shot 2021-05-09 at 6 09 36 PM" src="https://user-images.githubusercontent.com/3160577/117593876-bbd77a80-b0f1-11eb-92c0-460accea22ee.png">
 
 But now we have an anomaly in the multi-threaded timing. My code never performs any thread switching. A thread continuously runs the RUN dispatcher against its own dedicated event queue. At most my threads will pause while waiting for more events, or briefly, when there is a short contention period on the event queue between a sender and the event dispatcher thread. So this anomaly appears to be induced by OSX stealing unused remains of timeslices away from RUN dispatchers and giving them to unrelated background tasks on the machine.
 
