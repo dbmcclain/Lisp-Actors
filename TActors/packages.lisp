@@ -56,7 +56,6 @@ THE SOFTWARE.
    #:with-multiple-threads
 
    #:@bind
-   #:@cust
    #:@values
    
    #:*bitpit*
@@ -72,8 +71,8 @@ THE SOFTWARE.
    #:current-actor
    #:self
 
-   #:par-behavior
-   #:make-par-behavior
+   #:par-safe-behavior
+   #:make-par-save-behavior
    
    #:<runnable>
    #:actor-busy
@@ -202,7 +201,7 @@ THE SOFTWARE.
    #:par
    #:scheduled-message
    #:serializer
-   #:timer
+   #:new-timer
    
    #:make-sink-beh
    #:make-println-beh

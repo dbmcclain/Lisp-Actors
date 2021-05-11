@@ -66,7 +66,7 @@ THE SOFTWARE.
   (check-type beh function)
   (%make-actor :beh beh))
 
-(defun α (&optional (beh #'funcall))
+(defun α (&optional (beh #'lw:do-nothing))
   (make-actor beh))
   
 ;; --------------------------------------
@@ -82,7 +82,8 @@ THE SOFTWARE.
 
 ;; ------------------------------------
 ;; ACTORS macro allows for defining new Actors which recursively
-;; reference each other in their initial state
+;; reference each other in their initial state. Like LETREC, but one
+;; more layer of indirection here.
 
 (defmacro actors (bindings &body body)
   ;; Binding values should be behavior closures
@@ -99,49 +100,18 @@ THE SOFTWARE.
 ;; Examples are LABEL-BEH, TAG-BEH, CONST-BEH, FWD-BEH.  Actors with
 ;; such behavior can support simultaneous parallel execution.
 
-(defclass par-behavior ()  ;; A Typed-Function
+(defclass par-safe-behavior ()  ;; A Typed-Function
   ()
   (:metaclass clos:funcallable-standard-class))
 
-(defmethod initialize-instance :after ((obj par-behavior) &key fn &allow-other-keys)
+(defmethod initialize-instance :after ((obj par-safe-behavior) &key fn &allow-other-keys)
   (clos:set-funcallable-instance-function obj fn))
 
-(defun make-par-behavior (fn)
+(defun make-par-safe-behavior (fn)
   (check-type fn function)
-  (make-instance 'par-behavior
+  (make-instance 'par-safe-behavior
                  :fn fn))
 
-;; ----------------------------------
-#|
-(defstruct queue
-  hd
-  tl
-  (lock  (mp:make-lock))
-  (cx    (mp:make-condition-variable)))
-
-(defun #1=read-next-event (mbox)
-  (flet ((try ()
-           (let ((evt (pop (queue-hd mbox))))
-             (when evt
-               (return-from #1# evt)))
-           (let ((evts (sys:atomic-exchange (queue-tl mbox) nil)))
-             (when evts
-               (setf (queue-hd mbox) (cdr evts))
-               (return-from #1# (car evts))))
-           ))
-    (try)
-    (mp:with-lock ((queue-lock mbox))
-      (loop
-       (try)
-       (mp:condition-variable-wait (queue-cx mbox) (queue-lock mbox))))
-      ))
-
-(defun send-event (mbox evt)
-  (mp:with-lock ((queue-lock mbox))
-    (sys:atomic-push evt (queue-tl mbox))
-    (mp:condition-variable-signal (queue-cx mbox))
-    ))
-|#
 ;; ----------------------------------
 ;; SPONSORS -- offer event queues and have associated runtime threads
 ;; to perform RUN dispatching of Actor events.
@@ -186,7 +156,7 @@ THE SOFTWARE.
        (destructuring-bind (*current-actor* . *whole-message*) evt
          (let ((*current-beh* (actor-beh self)))
            (cond ((and self-beh
-                       (or (typep self-beh 'par-behavior)
+                       (or (typep self-beh 'par-safe-behavior)
                            (sys:compare-and-swap (actor-beh self) self-beh nil)))
                   
                   ;; NIL Beh slot indicates busy Actor
@@ -318,14 +288,14 @@ THE SOFTWARE.
 ;; ----------------------------------------------
 
 (defmacro @bind (args form &body body)
-  `(let ((@cust (α (lambda* ,args ,@body))))
+  `(let ((@bind  (α (lambda* ,args ,@body))))
      ,form))
 
 #+:LISPWORKS
 (editor:indent-like "@bind" 'destructuring-bind)
 
 (defmacro @values (&rest retvals)
-  `(send @cust ,@retvals))
+  `(send @bind ,@retvals))
      
 ;; ----------------------------------------------
 

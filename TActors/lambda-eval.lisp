@@ -98,7 +98,7 @@
                 ($lam 'x ($ident 'x))
                 ($const 42))
                ))
-  (send example (println) :eval *empty-env*))
+  (send example println :eval *empty-env*))
 |#
 
 ;; -----------------------------------------------------
@@ -210,7 +210,7 @@
 
 (defun assert-eq-beh (tstval)
   (lambda (val)
-    (send (println) val)
+    (send println val)
     (assert (eql val tstval))))
 
 (defun $assert-eq (tstval)
@@ -231,7 +231,7 @@
                                                      *empty-env*))
                             *empty-env*))
                   ))
-  (send ($apply ($IDENT 'zero?) ($CONST 0)) (println) :eval global-env))
+  (send ($apply ($IDENT 'zero?) ($CONST 0)) println :eval global-env))
 
 
  |#

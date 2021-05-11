@@ -9,24 +9,26 @@
 (defun make-timing-beh (dut)
   ;; An Actor to collect the timing in microsec of a DUT
   (lambda (cust)
-    (let* ((timer  (timer))
-           (k-stop (actor _
-                     (send timer :stop cust))))
+    (let* ((timer  (new-timer)))
       (send timer :start)
-      (send dut k-stop))))
+      (@bind _
+          (send dut @bind)
+        (send timer :stop cust))
+      )))
 
 (defun make-med3-beh (dut)
   ;; Call DUT 3 times and return median of its data values
   (lambda (cust)
     (let* ((data   (make-array 3))
-           (ix     2)
-           (k-cont (actor (datum)
-                     (setf (aref data ix) datum)
-                     (decf ix)
-                     (if (minusp ix)
-                         (send cust (vmath:median data))
-                       (send dut self)))))
-      (send dut k-cont))))
+           (ix     2))
+      (@bind (datum)
+          (send dut @bind)
+        (setf (aref data ix) datum)
+        (decf ix)
+        (if (minusp ix)
+            (send cust (vmath:median data))
+          (send dut self)))
+      )))
 
 (defun make-data-point-beh (dutfn &optional (dataprep #'identity))
   ;; Actor to make pairs (X, Y) of data coming from a DUT.
@@ -35,30 +37,29 @@
   ;; parameter as its only paramter. DUTFN is called to construct a
   ;; DUT Actor that expects only a Customer arg in a message,
   (lambda (cust logn)
-    (let ((k-cont (actor (dt)
-                    ;; dt represents Median of 3 timings
-                    (send cust
-                          ;; send crafted (X,Y) to customer
-                          (funcall dataprep (list logn dt)))
-                    ))
-          (dut  (α (make-timing-beh
+    (let ((dut  (α (make-timing-beh
                     (α (funcall dutfn logn))))))
-      (send (α (make-med3-beh dut)) k-cont)
+      (@bind (dt)
+          (send (α (make-med3-beh dut)) @bind)
+        ;; dt represents Median of 3 timings
+        (send cust
+              ;; send crafted (X,Y) to customer
+              (funcall dataprep (list logn dt))))
       )))
 
 (defun make-collector-beh (from to by datapt)
   ;; Automated collection of data pairs (X, Y) from a DUT
   (lambda (cust)
     (let* ((data   nil)
-           (x      from)
-           (k-cont (actor (pair)
-                     (push pair data)
-                     (incf x by)
-                     (if (> x to)
-                         (send cust (nreverse data))
-                       (send datapt self x))
-                     )))
-      (send datapt k-cont x))))
+           (x      from))
+      (@bind (pair)
+          (send datapt @bind x)
+        (push pair data)
+        (incf x by)
+        (if (> x to)
+            (send cust (nreverse data))
+          (send datapt self x)))
+      )))
 
 (defun make-simple-collector-beh (npts niter dut)
   ;; collect a large number of samples, npts, all normalized by niters
@@ -67,14 +68,14 @@
   (let ((ans (make-array npts :element-type 'single-float))
         (ix  0))
     (lambda (cust)
-      (let ((k-cont (actor (dt)
-                      (setf (aref ans ix) (coerce (/ dt niter) 'single-float))
-                      (incf ix)
-                      (if (>= ix npts)
-                          (send cust ans)
-                        (send dut self))
-                      )))
-        (send dut k-cont)))
+      (@bind (dt)
+          (send dut @bind)
+        (setf (aref ans ix) (coerce (/ dt niter) 'single-float))
+        (incf ix)
+        (if (>= ix npts)
+            (send cust ans)
+          (send dut self))
+        ))
     ))
 
 (defun make-histo-beh ()
@@ -129,12 +130,12 @@
 ;; --------------
 
 (let ((dut (um:curry #'make-fbomb-beh nil)))
-  (send (α (make-data-point-beh dut #'dataprep)) (println) 10))
+  (send (α (make-data-point-beh dut #'dataprep)) println 10))
 
 (let ((dut (um:curry #'make-fbomb-beh nil)))
   (send (α (make-collector-beh 5 10 1
                                (α (make-data-point-beh dut #'dataprep))))
-        (println)))
+        println))
 
 ;; -----------------------------------------------
 ;; CPS Direct Funcall Version
@@ -364,43 +365,31 @@
   (defun* dataprep ((niter dt))
     (list niter             ;; = nbr of Actors in tree
           (/ (float dt 1d0) ;; = time per Actor
-             #.(ash 1 10) #|niter|#))))
+             #.(ash 1 10) niter))))
 
 (let ((dut   (um:curry #'make-erfc-fbomb-beh nil))
       (limit 256)
       (plt 'plt2))
-  (send (α (make-collector-beh 1 limit 1
-                               (α (make-data-point-beh dut #'dataprep))
-                               ))
-        (actor (tbl)
-          ;; (break)
-          (let ((xs (map 'vector #'first tbl))
-                (ys (map 'vector #'second tbl)))
-            (plt:plot plt xs ys
-                      :clear t
-                      :title  "10-ply Workload Fork-Bomb Timings"
-                      :xtitle "N [Iters of RANDOM]"
-                      :ytitle "Time per Iter [µs]"
-                      :ylog t
-                      :xlog t
-                      ;; :yrange '(0.0 20)
-                      :legend "SingleThread"
-                      :symbol :circle
-                      :plot-joined t))
-          (let ((dut   (um:curry #'make-erfc-fbomb-beh t)))
-            (send (α (make-collector-beh 1 limit 1
-                                         (α (make-data-point-beh dut #'dataprep))
-                                         ))
-                  (actor (tbl)
-                    ;; (break)
-                    (let ((xs (map 'vector #'first tbl))
-                          (ys (map 'vector #'second tbl)))
-                      (plt:plot plt xs ys
-                                :color :red
-                                :legend "8 MultiThread"
-                                :symbol :circle
-                                :plot-joined t)))))
-          )))
+  (@bind (tbl)
+      (send (α (make-collector-beh 1 limit 1
+                                   (α (make-data-point-beh dut #'dataprep))
+                                   ))
+            @bind)
+    ;; (break)
+    (let ((xs (map 'vector #'first tbl))
+          (ys (map 'vector #'second tbl)))
+      (plt:plot plt xs ys
+                :clear t
+                :title  "10-ply Workload Fork-Bomb Timings"
+                :xtitle "N [Iters of RANDOM]"
+                :ytitle "Time per Iter [µs]"
+                :ylog t
+                :xlog t
+                ;; :yrange '(0.0 20)
+                :legend "SingleThread"
+                :symbol :circle
+                :plot-joined t))
+    ))
 |#
 #|
 ;; Iterate with Actors instead of DO-LOOP
@@ -473,12 +462,12 @@
 (progn
   (defun make-tst-beh (niter)
     (lambda (cust)
-      (let ((k-cont (actor (nn)
-                      (if (zerop nn)
-                          (send cust)
-                        (send self (1- nn))))
-                    ))
-        (send k-cont niter)))))
+      (@bind (nn)
+          (send @bind niter)
+        (if (zerop nn)
+            (send cust)
+          (send self (1- nn))))
+      )))
 
 (let* ((niter 10000)
        (npts  10000)
@@ -486,14 +475,15 @@
                                             (α (make-med3-beh
                                                 (α (make-timing-beh
                                                     (α (make-tst-beh niter))))))))))
-  (send dut (actor (arr)
-              (send (α (make-histo-beh)) arr)
-              (send (α (make-statistics-beh)) (println) arr)
-              (plt:histogram 'plt2 arr
-                             :clear t
-                             :title "Send/Dispatch Timing"
-                             :xtitle "Time [µs]"
-                             :ytitle "Counts"
-                             :xrange '(0.14 0.25)
-                             ))))
+  (@bind (arr)
+      (send dut @bind)
+    (send (α (make-histo-beh)) arr)
+    (send (α (make-statistics-beh)) println arr)
+    (plt:histogram 'plt2 arr
+                   :clear t
+                   :title "Send/Dispatch Timing"
+                   :xtitle "Time [µs]"
+                   :ytitle "Counts"
+                   :xrange '(0.14 0.25)
+                   )))
 |#

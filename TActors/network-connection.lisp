@@ -513,12 +513,11 @@
          (apply #'%socket-send state msg))
        (become prev-beh))
       
-      (:incoming-msg (&rest msg)
-       (um:dcase msg
-         (:sec-send (@cust &rest msg)
-          (let ((actor (cdr (assoc @cust tbl :test #'uuid:uuid=))))
-            (send* actor msg)))
-         ))
+      (:incoming-msg (msgkind &rest msg) when (eq msgkind :SEC-SEND)
+       (declare (ignore msgkind))
+       (destructuring-bind (@cust . submsg) msg
+         (let ((actor (cdr (assoc @cust tbl :test #'uuid:uuid=))))
+           (send* actor submsg))))
       
       (t (&rest msg)
          (error "Unknown message: ~S" msg))
@@ -540,12 +539,11 @@
        (become (make-sec-beh state self-beh))
        (client-negotiate-security-ecc crypto self cust))
 
-      (:incoming-msg (&rest msg)
-       (um:dcase msg
-         (:request-srp-negotiation (@rcust sender-id)
-          (become (make-sec-beh state self-beh))
-          (server-negotiate-security-ecc crypto self @rcust sender-id))
-         ))
+      (:incoming-msg (msgkind &rest msg) when (eq msgkind :request-srp-negotiation)
+       (declare (ignore msgkind))
+       (destructuring-bind (@rcust sender-id) msg
+         (become (make-sec-beh state self-beh))
+         (server-negotiate-security-ecc crypto self @rcust sender-id)))
       
       (t (&rest msg)
          (error "Unknown message: ~S" msg)
@@ -557,15 +555,12 @@
 (defun make-client-beh (state)
   (let ((nom-socket (make-socket-beh state)))
     (um:dlambda
-      (:incoming-msg (&rest msg)
-         (um:dcase msg
-           (:server-info (server-node)
-              (bridge-register server-node self)
-              (log-info :SYSTEM-LOG "Socket client starting up: ~A" self)
-              (become nom-socket))
-           (t (&rest msg)
-              (apply nom-socket :incoming-msg msg))
-           ))
+      (:incoming-msg (msgkind &rest msg) when (eq msgkind :SERVER-INFO)
+       (declare (ignore msgkind))
+       (let ((server-node (car msg)))
+         (bridge-register server-node self)
+         (log-info :SYSTEM-LOG "Socket client starting up: ~A" self)
+         (become nom-socket)))
       (t (&rest msg)
          (apply nom-socket msg))
       )))
@@ -581,7 +576,7 @@
                                         :io-state io-state
                                         :crypto   crypto)))
                          (@bind ()
-                             (send intf :client-request-srp @cust)
+                             (send intf :client-request-srp @bind)
                            (bridge-pre-register ip-addr intf) ;; anchor for GC
                            (socket-send intf :client-info (machine-instance))))
                      ;; else
@@ -609,16 +604,13 @@
 (defun make-server-beh (state)
   (let ((nom-socket (make-socket-beh state)))
     (um:dlambda
-      (:incoming-msg (&rest msg)
-         (um:dcase msg
-           (:client-info (client-node)
-              (log-info :SYSTEM-LOG "Socket server starting up: ~A" self)
-              (socket-send self :server-info (machine-instance))
-              (bridge-register client-node self)
-              (become nom-socket))
-           (t (&rest msg)
-              (apply nom-socket :incoming-msg msg))
-           ))
+      (:incoming-msg (msgkind &rest msg) when (eq msgkind :CLIENT-INFO)
+       (declare (ignore msgkind))
+       (let ((client-node (car msg)))
+         (log-info :SYSTEM-LOG "Socket server starting up: ~A" self)
+         (socket-send self :server-info (machine-instance))
+         (bridge-register client-node self)
+         (become nom-socket)))
       (t (&rest msg)
          (apply nom-socket msg))
       )))
@@ -789,7 +781,7 @@ indicated port number."
   (start-tcp-server))
 
 (defun* lw-reset-actor-system _
-  (terminate-server (sink))
+  (terminate-server sink)
   (bridge-reset)
   (kill-system-logger)
   (kill-executives)

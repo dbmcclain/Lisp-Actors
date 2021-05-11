@@ -11,14 +11,34 @@
                       :register :REVAL)
 
 (loop repeat 5 do
-      (send :reval (ac:usti (println)) `(machine-instance)))
+      (send :reval (ac:usti println) `(machine-instance)))
 
 (let ((a (make-actor
           (lambda ()
             (print :hello)))))
   (send a))
-(get-actor-names (println))
+(get-actor-names println)
 
-(find-actor (println) :reval)
+(find-actor println :reval)
 
 
+(send cust (+ a b))
+
+(@bind (+)
+    (send + :eval @bind)
+  (@bind (a)
+      (send a :eval @bind)
+    (@bind (b)
+        (send b :eval @bind)
+      (send + :apply cust a b))))
+
+(@bind ((+ a b))
+    (send (par + a b) :eval @bind)
+  (send + :apply cust a b))
+          
+
+(defun list-beh (lst)
+  (um:dlambda
+    (:eval (cust)
+     (send (@bind vals
+               (send (par lst) :eval

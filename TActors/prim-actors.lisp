@@ -7,30 +7,24 @@
 ;; Sink Behaviors
 
 (defun make-sink-beh ()
-  (make-par-behavior
+  (make-par-safe-behavior
    #'lw:do-nothing))
 
-(defvar *bitpit*
-  (make-actor (make-sink-beh)))
-
-(defun sink ()
-  *bitpit*)
+(defvar sink
+  (α (make-sink-beh)))
 
 ;; --------------------------------------
 
-(defvar *println*
+(defvar println
   (actor (&rest msg)
     (format t "~&~{~A~^ ~}~%" msg)
     (values)))
-
-(defun println ()
-  *println*)
 
 ;; -------------------------------------
 ;; Non-Sink Behaviors
 
 (defun make-const-beh (&rest msg)
-  (make-par-behavior
+  (make-par-safe-behavior
    (lambda (cust)
      (send* cust msg))))
 
@@ -50,7 +44,7 @@
 ;; ---------------------
 
 (defun make-send-to-all-beh (&rest actors)
-  (make-par-behavior
+  (make-par-safe-behavior
    (lambda (&rest msg)
      (dolist (cust actors)
        (send* cust msg)))))
@@ -61,7 +55,7 @@
 ;; ---------------------
 
 (defun make-race-beh (&rest actors)
-  (make-par-behavior
+  (make-par-safe-behavior
    (lambda (cust &rest msg)
      (let ((gate (one-shot cust)))
        (dolist (actor actors)
@@ -74,7 +68,7 @@
 ;; ---------------------
 
 (defun make-fwd-beh (actor)
-  (make-par-behavior
+  (make-par-safe-behavior
    (lambda (&rest msg)
      (send* actor msg))))
 
@@ -84,7 +78,7 @@
 ;; ---------------------
 
 (defun make-label-beh (cust lbl)
-  (make-par-behavior
+  (make-par-safe-behavior
    (lambda (&rest msg)
      (send* cust lbl msg))))
 
@@ -94,7 +88,7 @@
 ;; ---------------------
 
 (defun make-tag-beh (cust)
-  (make-par-behavior
+  (make-par-safe-behavior
    (lambda (&rest msg)
      (send* cust self msg))))
 
@@ -114,6 +108,8 @@
           )))
 
 (defun future (actor &rest msg)
+  ;; Return an Actor that represents the future value. Send that value
+  ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST)
   (actors ((fut (make-future-wait-beh tag nil))
            (tag (make-tag-beh fut)))
     (send* actor tag msg)
@@ -122,6 +118,8 @@
 ;; -----------------------------------------
 
 (defun lazy (actor &rest msg)
+  ;; Like FUTURE, but delays evaluation of the Actor with message
+  ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
   (actor (cust)
     (let ((tag (tag self)))
       (become (make-future-wait-beh tag (list cust)))
@@ -131,8 +129,9 @@
 ;; ----------------------------------------
 
 (defmacro blk (args &rest clauses)
+  ;; Makes an Actor from a PROGN block of Lisp
   (lw:with-unique-names (cust)
-    `(actor ,(if (consp args)
+    `(actor ,(if (listp args)
                  `(,cust ,@args)
                `(,cust &rest ,args)) ;; handle (BLK _ ...)
        (send ,cust
@@ -144,72 +143,90 @@
 (editor:setup-indent "blk" 1)
 
 ;; --------------------------------------
+;; SER - make an Actor that evaluates a series of blocks sequentially
+;; - i.e., without concurrency between them.  Each block is fed the
+;; same initial message, and the results from each block are sent as
+;; an ordered collection to cust.
 
-(defun ser-pair (blk1 blk2)
-  (actor (cust &rest msg)
-    (send* blk1
-           (actor (&rest msg1)
-             (send* blk2 cust msg1))
-           msg)))
+(defun make-ser-beh ()
+  (make-par-safe-behavior
+   (lambda (cust lst &rest msg)
+     (if (null lst)
+         (send cust)
+       (destructuring-bind (hd . tl) lst
+         (let ((me self))
+           (@bind (&rest msg-hd)
+               (send* hd @bind msg)
+             (@bind (&rest msg-tl)
+                 (send* me @bind tl msg)
+               (multiple-value-call #'send cust (values-list msg-hd) (values-list msg-tl))))
+           ))))))
 
-(defmacro ser (blk &rest blks)
-  (if blks
-      `(ser-pair ,blk (ser ,@blks))
-    blk))
-
+(defvar ser
+  ;; since SER is par-behavior safe, and is not parameterized we only
+  ;; need one
+  (α (make-ser-beh)))
+  
 ;; -----------------------------------
+;; PAR - make an Actor that evaluates a series of blocks concurrently.
+;; Each block is fed the same initial message, and the results from
+;; each block are sent as an ordered collection to cust.
 
 (defun make-join-beh (cust lbl1 lbl2)
   (declare (ignore lbl2))
   (lambda (lbl &rest msg)
     (cond ((eq lbl lbl1)
            (become (lambda (_ &rest msg2)
-                     (declare (ignore _))
+                     (declare (ignore _)) ;; _ = lbl arg
                      (multiple-value-call #'send cust (values-list msg) (values-list msg2)))
                    ))
           (t ;; (eq lbl lbl2)
            (become (lambda (_ &rest msg1)
-                     (declare (ignore _))
+                     (declare (ignore _)) ;; _ = lbl arg
                      (multiple-value-call #'send cust (values-list msg1) (values-list msg)))
                    ))
           )))
 
-(defun par-pair (blk1 blk2)
-  (actor (cust)
-    (actors ((join (make-join-beh cust lbl1 lbl2))
-             (lbl1 (make-tag-beh join))
-             (lbl2 (make-tag-beh join)))
-      (send blk1 lbl1)
-      (send blk2 lbl2))
-    ))
+(defun make-par-beh ()
+  (make-par-safe-behavior
+   (lambda (cust lst &rest msg)
+     (if (null lst)
+         (send cust)
+       (destructuring-bind (hd . tl) lst
+         (actors ((join (make-join-beh cust lbl1 lbl2))
+                  (lbl1 (make-tag-beh join))
+                  (lbl2 (make-tag-beh join)))
+           (send* hd lbl1 msg)
+           (send* self lbl2 tl msg)))
+       ))))
 
-(defmacro par (blk &rest blks)
-  (if blks
-    `(par-pair ,blk (par ,@blks))
-    blk))
+(defvar par
+  ;; since PAR is par-behavior safe, and is not parameterized, we only
+  ;; need one
+  (α (make-par-beh)))
 
+;; ---------------------------------------------------------
 #|
-(ser blk1 blk2 blk3)
-(send (par
+(send par println
+      (list
        (blk ()
          :blk1)
        (blk ()
          :blk2)
        (blk ()
-         :blk3))
-      (println))
+         :blk3)))
                
-(send (par
+(send par println
+      (list
        (blk ()
          :blk1)
        (blk ()
-         :blk2))
-      (println))
+         :blk2)))
 
 (let* ((actor (make-actor (lambda (cust) (sleep 2) (send cust :ok))))
        (fut   (future actor)))
-  (send fut (println))
-  (send fut (println)))
+  (send fut println)
+  (send fut println))
  |#
 ;; -----------------------------------------
 ;; Delayed Trigger
@@ -269,26 +286,20 @@
 (defun make-timer-beh ()
   ;; On :START it records the start time and awaits a :STOP command.
   ;; On :STOP it sends the elapsed time in microsec to cust.
-  (um:dlambda
-    (:start ()
-     (let* ((k-st  (actor ()
-                     (let ((start (usec:get-time-usec)))
-                       (become (lambda (cust)
-                                 (let ((stop (usec:get-time-usec)))
-                                   (send cust (- stop start)))))
-                       ))))
-       (become (um:dlambda
-                 (:stop (cust)
-                  (send k-st cust))))
-       (send k-st))
-     )))
+  (let ((start 0))
+    (um:dlambda
+      (:start ()
+       (setf start (usec:get-time-usec)))
+      (:stop (cust)
+       (send cust (- (usec:get-time-usec) start)))
+      )))
 
-(defun timer ()
+(defun new-timer ()
   (α (make-timer-beh)))
 
 #|
 (let ((timer (α (make-timer-beh))))
   (sendx nil timer :start)
   (sleep 1)
-  (sendx nil timer :stop (println)))
+  (sendx nil timer :stop println))
   |#
