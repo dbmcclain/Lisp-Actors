@@ -22,7 +22,8 @@
    #:make-deterministic-keys
    #:ed-add
    #:ed-sub
-   #:ed-mul)
+   #:ed-mul
+   #:ed-pt=)
   (:import-from #:usec
    #:get-time-usec)
   (:import-from #:actors/security
@@ -33,11 +34,6 @@
    #:init-crypto-for-input
    #:init-crypto-for-output
    #:init-crypto-for-renegotiation)
-  (:import-from #:actors/network
-   #:client-request-negotiation-ecc
-   #:intf-srp-ph2-begin-ecc
-   #:intf-srp-ph2-reply
-   #:intf-srp-ph3-begin)
   (:export
    #:client-negotiate-security-ecc
    #:server-negotiate-security-ecc
@@ -68,22 +64,29 @@
 
 (progn
   (add-member '("RAMBO"
-                45856201371453790338684476625774037518018348616596977538111467812341557771426
+                111359185718774473234263171213664782667961806995809606040329125855375068237677
                 #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 4109462784809415756608148087493293195494253484169838025065489294992891936759)))
+                   :CX 3048372172690304076654247831317757393464732363531197621440925794873999139018)))
   (add-member '("Rincon.local"
-                7374906492199582768186917522243095222278956196110340325819761741469008931898
+                97308094470404514392702034881350532955848808853024587654007127531464649675822
                 #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 3701637139218678945650869305201356630109196577234174017024796712469667985034)))
+                   :CX 675674428011803626943160706574540523843302588141853758067300457361484064080)))
   (add-member '("Arroyo.local"
-                106029884373403939073501875292406545473531818604404964185342374082620578855260
+                77520660937938258103724384941954485037525808631321044717521707989795738576118
                 #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 4723142539931161713001162285185296666487924957940488481520777516455453944074))))
+                   :CX 4035517786989866824095025259200618926751666752792981150207975910989323175725))))
 
 #|
 (let ((*print-readably* t))
   (let ((salt (int (hash/256 (usec:get-time-usec))))
         (mach (machine-instance)))
+    (multiple-value-bind (x gx)
+        (gen-info mach salt)
+      (pprint (list mach salt (ed-compress-pt gx))))))
+
+(let ((*print-readably* t))
+  (let ((salt (int (hash/256 (usec:get-time-usec))))
+        (mach "RAMBO"))
     (multiple-value-bind (x gx)
         (gen-info mach salt)
       (pprint (list mach salt (ed-compress-pt gx))))))
@@ -106,7 +109,18 @@
   (or (gethash mach-id *member-tbl*)
       (error 'no-member-info :node-id mach-id)))
 
-(defmethod client-negotiate-security-ecc ((crypto crypto) intf &optional cont)
+;; Client Side initiates
+;; :request-srp-negotiation -> intf -> :request-srp-negotiation @cust node-id -> socket
+;; @cust <-- @rcust bbc
+;; @cust aac m1 -> @rcust
+;; @cust <-- m2
+;; :srp-done --> intf
+
+;; Server Side responds
+;; 
+
+
+(defmethod client-negotiate-security-ecc ((crypto crypto) intf cust)
   ;; No second chances - any error shuts down the connection
   ;; immediately.
   (let* ((node-id (machine-instance))
@@ -114,8 +128,8 @@
     ;;
     ;; Phase-I: send local node ID
     ;;
-    (=bind (bbc)
-        (client-request-negotiation-ecc intf =bind-cont node-id)
+    (@bind (@rcust bbc)
+        (send intf :request-srp-negotiation @cust node-id)
       ;;
       ;; Phase-II: receive B                  -- a random compressed ECC point on Curve1174
       ;;
@@ -160,8 +174,9 @@
                         (values aac sc m1))
                       ))
                   ))
-            (=bind (m2)
-                (funcall (intf-srp-ph2-reply intf) =bind-cont aac m1)
+            (@bind (m2)
+                (send intf :sec-send @rcust @cust aac m1)
+
               ;;
               ;; Phase 3: receive M2 -- a Hash/256
               ;;
@@ -181,7 +196,7 @@
                      (key-out   (vec (hash/256 bbc sc aac)))
                      (his-initv (vec (hash/256 m1 sc)))
                      (my-initv  (vec (hash/256 m2 sc))))
-                
+
                 (unless (hash= chk2 m2)
                   (signature-mismatch-error))
                 
@@ -189,13 +204,12 @@
                 (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
                 (init-crypto-for-output crypto key-out (subseq my-initv  0 16))
                 (init-crypto-for-renegotiation crypto (vec sc))
-                (when cont
-                  (funcall cont))
-                ))
+                (send intf :srp-done)
+                (send cust)))
             ))))
     ))
 
-(defmethod server-negotiate-security-ecc ((crypto crypto) intf node-id)
+(defmethod server-negotiate-security-ecc ((crypto crypto) intf @rcust node-id)
   ;; No second chances - any error shuts down the connection
   ;; immediately.
   ;;
@@ -219,8 +233,8 @@
       (let ((bbc (ed-compress-pt
                   (ed-add bb
                           (ed-mul gxc *k*)))))
-        (=bind (aac m1)
-            (funcall (intf-srp-ph2-begin-ecc intf) =bind-cont bbc)
+        (@bind (@rcust aac m1)
+            (send intf :sec-send @rcust @cust bbc)
           ;;
           ;; Phase III: Receive A,M1 -- A as compressed point, M1 as Hash/256
           ;;
@@ -265,12 +279,12 @@
                      (his-initv (vec (hash/256 m2 sc)))
                      (my-initv  (vec (hash/256 m1 sc))))
                 
-                (funcall (intf-srp-ph3-begin intf) m2
-                         (lambda ()
-                           (init-crypto-for-hmac   crypto my-initv his-initv)
-                           (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
-                           (init-crypto-for-output crypto key-out (subseq my-initv  0 16))
-                           (init-crypto-for-renegotiation crypto (vec sc))
-                           ))
+                (@bind ()
+                    (send intf :srp-ph3-begin @rcust @cust m2)
+                  (init-crypto-for-hmac   crypto my-initv his-initv)
+                  (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
+                  (init-crypto-for-output crypto key-out (subseq my-initv  0 16))
+                  (init-crypto-for-renegotiation crypto (vec sc))
+                  (send intf :srp-done))
                 ))))
         ))))

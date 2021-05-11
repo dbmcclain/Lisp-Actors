@@ -316,3 +316,16 @@ THE SOFTWARE.
 (editor:setup-indent "with-worker" 1)
 
 ;; ----------------------------------------------
+
+(defmacro @bind (args form &body body)
+  `(let ((@cust (α (lambda* ,args ,@body))))
+     ,form))
+
+#+:LISPWORKS
+(editor:indent-like "@bind" 'destructuring-bind)
+
+(defmacro @values (&rest retvals)
+  `(send @cust ,@retvals))
+     
+;; ----------------------------------------------
+

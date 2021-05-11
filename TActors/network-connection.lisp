@@ -44,6 +44,9 @@
             finger-tree:addq
             finger-tree:popq
             finger-tree:pushq
+
+            actors/srp6-ecc:client-negotiate-security-ecc
+            actors/srp6-ecc:server-negotiate-security-ecc
             )))
 
 ;; -----------------------------------------------------------------------
@@ -479,29 +482,92 @@
 
 ;; ------------------------------------------------------------------------
 
-(defun make-deaf-socket-beh (state)
-  (um:dlambda
-    (:send (&rest msg)
-     (apply #'%socket-send state msg))
-    (:shutdown ()
-     (%shutdown state))
-    (t (&rest msg)
-       (error "Unknown message: ~S" msg)
-       (apply #'funcall msg))
-    ))
+(defun make-sec-beh (state prev-beh)
+  (let (tbl
+        msgs)
+    (um:dlambda
+      (:send (&rest msg)
+       (push msg msgs))
+      
+      (:shutdown ()
+       (%shutdown state))
+      
+      (:sec-send (@rcust @cust &rest msg)
+       (let ((usti (uuid:make-v1-uuid)))
+         (um:aconsf tbl usti @cust)
+         (apply #'%socket-send state :sec-send @rcust usti msg)))
+      
+      (:request-srp-negotiation (@cust node-id)
+       ;; send from client
+       (let ((usti (uuid:make-v1-uuid)))
+         (um:aconsf tbl usti @cust)
+         (%socket-send state :request-srp-negotiation usti node-id)))
+      
+      (:srp-ph3-begin (@rcust @cust m2)
+       ;; send from server
+       (%socket-send state :sec-send @rcust m2)
+       (send @cust))
+      
+      (:srp-done ()
+       (dolist (msg msgs)
+         (apply #'%socket-send state msg))
+       (become prev-beh))
+      
+      (:incoming-msg (&rest msg)
+       (um:dcase msg
+         (:sec-send (@cust &rest msg)
+          (let ((actor (cdr (assoc @cust tbl :test #'uuid:uuid=))))
+            (send* actor msg)))
+         ))
+      
+      (t (&rest msg)
+         (error "Unknown message: ~S" msg))
+      )))
+
+(defun client-request-negotiation-ecc ()
+  )
+
+(defun make-socket-beh (state)
+  (with-accessors ((crypto  intf-state-crypto)) state
+    (um:dlambda
+      (:send (&rest msg)
+       (apply #'%socket-send state msg))
+    
+      (:shutdown ()
+       (%shutdown state))
+      
+      (:client-request-srp (cust)
+       (become (make-sec-beh state self-beh))
+       (client-negotiate-security-ecc crypto self cust))
+
+      (:incoming-msg (&rest msg)
+       (um:dcase msg
+         (:request-srp-negotiation (@rcust sender-id)
+          (become (make-sec-beh state self-beh))
+          (server-negotiate-security-ecc crypto self @rcust sender-id))
+         ))
+      
+      (t (&rest msg)
+         (error "Unknown message: ~S" msg)
+         (apply #'funcall msg))
+      )))
+
+;; -------------------------------------------------------------
 
 (defun make-client-beh (state)
-  (let ((deaf-actor (make-actor (make-deaf-socket-beh state))))
+  (let ((nom-socket (make-socket-beh state)))
     (um:dlambda
       (:incoming-msg (&rest msg)
          (um:dcase msg
            (:server-info (server-node)
               (bridge-register server-node self)
               (log-info :SYSTEM-LOG "Socket client starting up: ~A" self)
-              (become (make-deaf-socket-beh state)))
+              (become nom-socket))
+           (t (&rest msg)
+              (apply nom-socket :incoming-msg msg))
            ))
       (t (&rest msg)
-         (send* deaf-actor msg))
+         (apply nom-socket msg))
       )))
 
 (defun open-connection (ip-addr &optional ip-port)
@@ -514,8 +580,10 @@
                                         :title    "Client"
                                         :io-state io-state
                                         :crypto   crypto)))
-                         (bridge-pre-register ip-addr intf) ;; anchor for GC
-                         (socket-send intf :client-info (machine-instance)))
+                         (@bind ()
+                             (send intf :client-request-srp @cust)
+                           (bridge-pre-register ip-addr intf) ;; anchor for GC
+                           (socket-send intf :client-info (machine-instance))))
                      ;; else
                      (error "Can't connect to: ~A" ip-addr))
                    )))
@@ -539,7 +607,7 @@
 ;; -------------------------------------------------------------
 
 (defun make-server-beh (state)
-  (let ((deaf-actor (make-actor (make-deaf-socket-beh state))))
+  (let ((nom-socket (make-socket-beh state)))
     (um:dlambda
       (:incoming-msg (&rest msg)
          (um:dcase msg
@@ -547,10 +615,12 @@
               (log-info :SYSTEM-LOG "Socket server starting up: ~A" self)
               (socket-send self :server-info (machine-instance))
               (bridge-register client-node self)
-              (become (make-deaf-socket-beh state)))
+              (become nom-socket))
+           (t (&rest msg)
+              (apply nom-socket :incoming-msg msg))
            ))
       (t (&rest msg)
-         (send* deaf-actor msg))
+         (apply nom-socket msg))
       )))
 
 (defun start-server-messenger (accepting-handle io-state)

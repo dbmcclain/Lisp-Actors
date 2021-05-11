@@ -24,7 +24,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 |#
 
 ;; ... or feel free to not use ECC (uses RSA instead)
-(pushnew :using-ecc-cryptox *features*)
+(pushnew :using-ecc-crypto *features*)
 ;; On MacOSX - use Grand Central Dispatch (or not...)
 #+:MACOSX
 (pushnew :using-mac-gcdx *Features*)
@@ -53,7 +53,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 ;; (:file "actor-bridge")
                 (:file "bridge-v3")
                 (:file "network-security")
-                ;; #+:USING-ECC-CRYPTO (:file "srp6-ecc")
+                #+:USING-ECC-CRYPTO (:file "srp6-ecc")
                 ;; #-:USING-ECC-CRYPTO (:file "srp6-rsa")
                 (:file "network-connection")
                 ;; (:file "erl-proc")

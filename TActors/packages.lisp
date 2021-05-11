@@ -54,6 +54,10 @@ THE SOFTWARE.
    #:sendx
    #:with-single-thread
    #:with-multiple-threads
+
+   #:@bind
+   #:@cust
+   #:@values
    
    #:*bitpit*
    #:*println*
@@ -269,12 +273,6 @@ THE SOFTWARE.
 (defpackage #:actors/internal-message/security
   (:use #:common-lisp)
   (:export
-   #-:USING-ECC-CRYPTO #:srp-node-id-rsa
-   #+:USING-ECC-CRYPTO #:srp-node-id-ecc
-   #-:USING-ECC-CRYPTO #:srp-phase2-rsa
-   #+:USING-ECC-CRYPTO #:srp-phase2-ecc
-   #:srp-phase2-reply
-   #:srp-phase3
    ))
 
 (defpackage #:actors/internal-message/bridge
@@ -326,10 +324,6 @@ THE SOFTWARE.
    #:*default-port*
    #-:USING-ECC-CRYPTO #:client-request-negotiation-rsa
    #+:USING-ECC-CRYPTO #:client-request-negotiation-ecc
-   #-:USING-ECC-CRYPTO #:intf-srp-ph2-begin-rsa
-   #+:USING-ECC-CRYPTO #:intf-srp-ph2-begin-ecc
-   #:intf-srp-ph2-reply
-   #:intf-srp-ph3-begin
    ))
 
 (defpackage :actors/security
