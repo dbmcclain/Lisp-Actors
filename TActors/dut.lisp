@@ -60,6 +60,41 @@
                      )))
       (send datapt k-cont x))))
 
+(defun make-simple-collector-beh (npts niter dut)
+  ;; collect a large number of samples, npts, all normalized by niters
+  ;; which are the number of iterations of the DUT being measured. At
+  ;; the end it feeds the collected data values to customer.
+  (let ((ans (make-array npts :element-type 'single-float))
+        (ix  0))
+    (lambda (cust)
+      (let ((k-cont (actor (dt)
+                      (setf (aref ans ix) (coerce (/ dt niter) 'single-float))
+                      (incf ix)
+                      (if (>= ix npts)
+                          (send cust ans)
+                        (send dut self))
+                      )))
+        (send dut k-cont)))
+    ))
+
+(defun make-histo-beh ()
+  (lambda (arr)
+    (plt:histogram 'plt arr
+                   :clear t
+                   :title  "Timing Histogram"
+                   :xtitle "Time [µs]"
+                   :ytitle "Counts"
+                   )))
+
+(defun make-statistics-beh ()
+  (lambda (cust arr)
+    (send cust (list
+                :mean   (vm:mean arr)
+                :stdev  (vm:stdev arr)
+                :median (vm:median arr)
+                :mad    (vm:mad arr)
+                ))))
+    
 ;; ---------------------------------------------------------------
 #|
 ;; Example:
@@ -443,40 +478,22 @@
                           (send cust)
                         (send self (1- nn))))
                     ))
-        (send k-cont niter))))
-
-  (defun make-stat-beh (npts niter dut)
-    (let ((ans (make-array npts :element-type 'single-float))
-          (ix  0))
-      (lambda (cust)
-        (let ((k-cont (actor (dt)
-                        (setf (aref ans ix) (coerce (/ dt niter) 'single-float))
-                        (incf ix)
-                        (if (>= ix npts)
-                            (send cust ans)
-                          (send dut self))
-                        )))
-          (send dut k-cont)))
-      )))
+        (send k-cont niter)))))
 
 (let* ((niter 10000)
        (npts  10000)
-       (dut   (α (make-stat-beh npts niter
-                                (α (make-med3-beh
-                                    (α (make-timing-beh
-                                        (α (make-tst-beh niter))))))))))
+       (dut   (α (make-simple-collector-beh npts niter
+                                            (α (make-med3-beh
+                                                (α (make-timing-beh
+                                                    (α (make-tst-beh niter))))))))))
   (send dut (actor (arr)
-              (plt:histogram 'plt arr
+              (send (α (make-histo-beh)) arr)
+              (send (α (make-statistics-beh)) (println) arr)
+              (plt:histogram 'plt2 arr
                              :clear t
                              :title "Send/Dispatch Timing"
                              :xtitle "Time [µs]"
                              :ytitle "Counts"
                              :xrange '(0.14 0.25)
-                             )
-              (send (println) (list
-                               :mean   (vm:mean arr)
-                               :stdev  (vm:stdev arr)
-                               :median (vm:median arr)
-                               :mad    (vm:mad arr)))
-              )))
- |#
+                             ))))
+|#

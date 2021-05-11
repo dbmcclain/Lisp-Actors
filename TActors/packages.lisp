@@ -49,6 +49,7 @@ THE SOFTWARE.
    #:α
    #:current-sponsor
    #:sponsor
+   #:*sponsor*
    #:with-sponsor
    #:sendx
    #:with-single-thread

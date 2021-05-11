@@ -80,12 +80,9 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "actor" 1)
 
-(defmacro def-α (args &body body)
-  `(actor ,args ,@body))
-
 ;; ------------------------------------
 ;; ACTORS macro allows for defining new Actors which recursively
-;; references each other in their initial state
+;; reference each other in their initial state
 
 (defmacro actors (bindings &body body)
   ;; Binding values should be behavior closures
@@ -160,7 +157,7 @@ THE SOFTWARE.
   (mbox   (mp:make-mailbox))
   thread)
 
-(defvar *sponsor-st* nil) ;; Single-Threaded
+(defvar *sponsor* nil) ;; Single-Threaded
 
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
@@ -169,7 +166,7 @@ THE SOFTWARE.
 
 (defun current-sponsor ()
   (or *current-sponsor*
-      *sponsor-st*))
+      *sponsor*))
 
 ;; Per-Thread for Activated Actor
 (defvar *new-beh*       nil)   ;; Staging for BECOME
@@ -215,12 +212,12 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------
 
 (defun start-actors-system ()
-  (unless *sponsor-st*
-    (setf *sponsor-st* (make-sponsor "Actor Thread"))))
+  (unless *sponsor*
+    (setf *sponsor* (make-sponsor "Actor Thread"))))
 
 (defun kill-executives ()
-  (when *sponsor-st*
-    (kill-sponsor (shiftf *sponsor-st* nil))))
+  (when *sponsor*
+    (kill-sponsor (shiftf *sponsor* nil))))
 
 ;; ----------------------------------------------------------
 
