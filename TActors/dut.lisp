@@ -9,17 +9,18 @@
 (defun med3 (dut)
   ;; Call DUT 3 times and return median of its data values
   (make-actor
-   (lambda (cust &rest parms)
-     (let* ((data   (make-array 3))
-            (ix     2))
-       (@bind (datum)
-           (send* dut @bind parms)
-         (setf (aref data ix) datum)
-         (decf ix)
-         (if (minusp ix)
-             (send cust (vmath:median data))
-           (send* dut self parms)))
-       ))))
+   (make-par-safe-behavior
+    (lambda (cust &rest parms)
+      (let* ((data   (make-array 3))
+             (ix     2))
+        (@bind (datum)
+            (send* dut @bind parms)
+          (setf (aref data ix) datum)
+          (decf ix)
+          (if (minusp ix)
+              (send cust (vmath:median data))
+            (send* dut self parms)))
+        )))))
 
 (defun data-point (dut &optional (dataprep #'identity))
   ;; Actor to make pairs (X, Y) of data coming from a DUT.
@@ -28,64 +29,69 @@
   ;; parameter as its only paramter. DUTFN is called to construct a
   ;; DUT Actor that expects only a Customer arg in a message,
   (make-actor
-   (lambda (cust param)
-     (@bind (y)
-         (send dut @bind param)
-       (send cust (funcall dataprep (list param y)))
-       ))))
+   (make-par-safe-behavior
+    (lambda (cust param)
+      (@bind (y)
+          (send dut @bind param)
+        (send cust (funcall dataprep (list param y)))
+        )))))
 
 (defun pairs-collector (from to by datapt)
   ;; Automated collection of data pairs (X, Y) from a DUT
   (make-actor
-   (lambda (cust)
-     (let* ((data   nil)
-            (x      from))
-       (@bind (pair)
-           (send datapt @bind x)
-         (push pair data)
-         (incf x by)
-         (if (> x to)
-             (send cust (nreverse data))
-           (send datapt self x)))
-      ))))
+   (make-par-safe-behavior
+    (lambda (cust)
+      (let* ((data   nil)
+             (x      from))
+        (@bind (pair)
+            (send datapt @bind x)
+          (push pair data)
+          (incf x by)
+          (if (> x to)
+              (send cust (nreverse data))
+            (send datapt self x)))
+        )))))
 
 (defun simple-collector (npts niter dut)
   ;; collect a large number of samples, npts, all normalized by niters
   ;; which are the number of iterations of the DUT being measured. At
   ;; the end it feeds the collected data values to customer.
   (make-actor
-   (lambda (cust &rest parms)
-     (let ((arr (make-array npts :element-type 'single-float))
-           (ix  0))
-       (@bind (x)
-           (send* dut @bind parms)
-         (setf (aref arr ix) (coerce (/ x niter) 'single-float))
-         (incf ix)
-         (if (>= ix npts)
-             (send cust arr)
-           (send* dut self parms))
-         ))
-     )))
+   (make-par-safe-behavior
+    (lambda (cust &rest parms)
+      (let ((arr (make-array npts :element-type 'single-float))
+            (ix  0))
+        (@bind (x)
+            (send* dut @bind parms)
+          (setf (aref arr ix) (coerce (/ x niter) 'single-float))
+          (incf ix)
+          (if (>= ix npts)
+              (send cust arr)
+            (send* dut self parms))
+          ))
+      ))))
 
 (defun histogram ()
   (make-actor
-   (lambda (arr)
-     (plt:histogram 'plt arr
-                    :clear t
-                    :title  "Timing Histogram"
-                    :xtitle "Time [µs]"
-                    :ytitle "Counts"
-                   ))))
+   (make-par-safe-behavior
+    (lambda (arr)
+      (plt:histogram 'plt arr
+                     :clear t
+                     :title  "Timing Histogram"
+                     :xtitle "Time [µs]"
+                     :ytitle "Counts"
+                     )))))
 
 (defun statistics ()
   (make-actor
-   (lambda (cust arr)
-     (send cust (list
-                 :mean   (vm:mean arr)
-                 :stdev  (vm:stdev arr)
-                 :median (vm:median arr)
-                 :mad    (vm:mad arr)
-                 )))))
+   (make-par-safe-behavior
+    (lambda (cust arr)
+      (send cust (list
+                  :mean   (vm:mean arr)
+                  :stdev  (vm:stdev arr)
+                  :median (vm:median arr)
+                  :mad    (vm:mad arr)
+                  ))))))
     
 ;; ---------------------------------------------------------------
 ;; Looking for MT Performance Resonance
@@ -232,6 +238,6 @@
                                   (make-send-self-tst))))))
   (@bind (arr)
       (send dut @bind niter)
-    (send (α (make-histo-beh)) arr)
-    (send (α (make-statistics-beh)) println arr)))
+    (send (histogram) arr)
+    (send (statistics) println arr)))
 |#

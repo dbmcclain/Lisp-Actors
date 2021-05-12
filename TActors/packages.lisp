@@ -72,7 +72,7 @@ THE SOFTWARE.
    #:self
 
    #:par-safe-behavior
-   #:make-par-save-behavior
+   #:make-par-safe-behavior
    
    #:<runnable>
    #:actor-busy
