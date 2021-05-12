@@ -283,23 +283,22 @@
 
 ;; --------------------------------------
 
-(defun make-timer-beh ()
-  ;; On :START it records the start time and awaits a :STOP command.
-  ;; On :STOP it sends the elapsed time in microsec to cust.
-  (let ((start 0))
-    (um:dlambda
-      (:start ()
-       (setf start (usec:get-time-usec)))
-      (:stop (cust)
-       (send cust (- (usec:get-time-usec) start)))
+(defun make-timing-beh (dut)
+  (lambda (cust &rest msg)
+    (let ((start (usec:get-time-usec)))
+      (@bind _
+          (send* dut @bind msg)
+        (send cust (- (usec:get-time-usec) start)))
       )))
 
-(defun new-timer ()
-  (α (make-timer-beh)))
+(defun timing (dut)
+  (α (make-timing-beh dut)))
 
 #|
-(let ((timer (α (make-timer-beh))))
-  (sendx nil timer :start)
-  (sleep 1)
-  (sendx nil timer :stop println))
-  |#
+(let* ((dut (actor (cust nsec)
+             (sleep nsec)
+             (send cust)))
+      (timer (timing dut)))
+  (send timer println 1))
+|#
+

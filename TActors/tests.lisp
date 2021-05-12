@@ -15,30 +15,35 @@
 
 (let ((a (make-actor
           (lambda ()
+            ;; (print args)
             (print :hello)))))
   (send a))
 (get-actor-names println)
-
 (find-actor println :reval)
 
+;; --------------------------------------
+;; Arg pattern convention has customer first, followed by message and
+;; args
 
+;; to break (+ a b) down into elementary particle Actors...
 (send cust (+ a b))
 
 (@bind (+)
-    (send + :eval @bind)
+    (send + @bind :eval)
   (@bind (a)
-      (send a :eval @bind)
+      (send a @bind :eval)
     (@bind (b)
-        (send b :eval @bind)
-      (send + :apply cust a b))))
+        (send b @bind :eval)
+      (send + cust :apply a b))))
 
 (@bind ((+ a b))
-    (send (par + a b) :eval @bind)
-  (send + :apply cust a b))
+    (send par @bind '(+ a b) :eval)
+  (send + cust :apply a b))
           
 
 (defun list-beh (lst)
   (um:dlambda
     (:eval (cust)
      (send (@bind vals
-               (send (par lst) :eval
+               (send par lst :eval
+

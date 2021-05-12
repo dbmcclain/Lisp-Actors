@@ -201,7 +201,7 @@ THE SOFTWARE.
    #:par
    #:scheduled-message
    #:serializer
-   #:new-timer
+   #:timing
    
    #:make-sink-beh
    #:make-println-beh
@@ -215,7 +215,7 @@ THE SOFTWARE.
    #:make-wrapping-beh
    #:make-scheduled-message-beh
    #:make-serializer-beh
-   #:make-timer-beh
+   #:make-timing-beh
    
    #:call-future
    #:force

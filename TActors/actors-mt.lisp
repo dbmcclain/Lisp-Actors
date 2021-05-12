@@ -127,20 +127,20 @@ THE SOFTWARE.
   (mbox   (mp:make-mailbox))
   thread)
 
-(defvar *sponsor* nil) ;; Single-Threaded
-
-;; --------------------------------------------------------
-;; Core RUN for Actors
-
+(defvar *sponsor*         nil) ;; Single-Threaded
 (defvar *current-sponsor* nil)
 
 (defun current-sponsor ()
   (or *current-sponsor*
       *sponsor*))
 
+;; --------------------------------------------------------
+;; Core RUN for Actors
+
 ;; Per-Thread for Activated Actor
 (defvar *new-beh*       nil)   ;; Staging for BECOME
 (defvar *send-evts*     nil)   ;; Staging for SEND
+(defvar *sendx-evts*    nil)   ;; Staging for SENDX
 (defvar *whole-message* nil)   ;; Current Event Message
 (defvar *current-actor* nil)   ;; Current Actor
 (defvar *current-beh*   nil)   ;; Current Behavior
@@ -150,34 +150,54 @@ THE SOFTWARE.
 
 ;; Generic RUN for all threads, across all Sponsors
 (defun run-actors (*current-sponsor*)
-  (let ((mbox (sponsor-mbox *current-sponsor*)))
+  (let ((mbox    (sponsor-mbox *current-sponsor*))
+        (queue   nil)
+        (retries nil)
+        (ctr     16))
+    (declare (fixnum ctr)
+             (list   queue retries))
     (loop
-     (let ((evt (mp:mailbox-read mbox)))
-       (destructuring-bind (*current-actor* . *whole-message*) evt
-         (let ((*current-beh* (actor-beh self)))
-           (cond ((and self-beh
-                       (or (typep self-beh 'par-safe-behavior)
-                           (sys:compare-and-swap (actor-beh self) self-beh nil)))
-                  
-                  ;; NIL Beh slot indicates busy Actor
-                  (let ((*new-beh*     self-beh)
-                        (*send-evts*   nil))
-                    ;; ---------------------------------
-                    (with-simple-restart (abort "Handle next event")
-                      (apply self-beh *whole-message*)
+     (let ((evt (or (pop queue)
+                    (progn
+                      (shiftf queue retries nil)
+                      (pop queue))
+                    (mp:mailbox-read mbox))))
+       (declare (cons evt))
+       (let* ((*current-actor* (car evt))
+              (*whole-message* (cdr evt))
+              (*current-beh*   (actor-beh self)))
+         (cond ((and self-beh
+                     (or (typep self-beh 'par-safe-behavior)
+                         (sys:compare-and-swap (actor-beh self) self-beh nil)))
+                
+                ;; NIL Beh slot indicates busy Actor
+                (let ((*new-beh*     self-beh)
+                      (*send-evts*   nil)
+                      (*sendx-evts*  nil))
+                  (declare (list *send-evts* *sendx-evts*))
+                  ;; ---------------------------------
+                  (with-simple-restart (abort "Handle next event")
+                    (apply self-beh *whole-message*)
                       
-                      ;; Effects Commit...
-                      (when *send-evts*
-                        (dolist (evt *send-evts*)     ;; staged SENDs
-                          (apply #'mp:mailbox-send evt)))
-                      (setf *current-beh* *new-beh*)) ;; staged BECOME
-                    ;; ---------------------------------                    
-                    (setf (actor-beh self) *current-beh*))) ;; restore Not-Busy
-                 
-                 (t
-                  ;; else - actor was busy
-                  (mp:mailbox-send mbox evt)
-                  ))))))))
+                    ;; Effects Commit...
+                    (setf queue (nconc *send-evts* queue))
+                    (when *sendx-evts*
+                      (dolist (evt *sendx-evts*)
+                        (apply #'mp:mailbox-send evt)))
+                    (when (zerop (decf ctr))
+                      (setf ctr 16)
+                      (when (mp:mailbox-not-empty-p mbox)
+                        (push (mp:mailbox-read mbox) queue)))
+                    (setf *current-beh* *new-beh*)) ;; staged BECOME
+                  ;; ---------------------------------                    
+                  (setf (actor-beh self) *current-beh*))) ;; restore Not-Busy
+               
+               (t
+                ;; else - actor was busy
+                ;; (mp:mailbox-send mbox evt)
+                ;; (hcl:unlocked-queue-send queue evt)
+                (push evt retries))
+               ))))))
 
 ;; ----------------------------------------------------------
 
@@ -217,9 +237,6 @@ THE SOFTWARE.
 ;; then surround your function calls with HANDLER-CASE, HANDLER-BIND,
 ;; or IGNORE-ERRORS.
 
-(defun evt-mbox ()
-  (sponsor-mbox *current-sponsor*))
-        
 (defun become (new-fn)
   ;; Change behavior/state. Only meaningful if an Actor calls
   ;; this.
@@ -236,11 +253,21 @@ THE SOFTWARE.
 (defmethod send ((actor actor) &rest msg)
   (cond (self
          ;; Actor SENDs are staged.
-         (push (list (evt-mbox) (cons actor msg)) *send-evts*))
+         (push (cons actor msg) *send-evts*))
         (t
          ;; Non-Actor SENDs take effect immediately.
-         (let ((*current-sponsor* (current-sponsor)))
-           (mp:mailbox-send (evt-mbox) (cons actor msg))))
+         (apply #'sendx (current-sponsor) actor msg))
+        ))
+
+(defmethod sendx ((spon sponsor) (actor actor) &rest msg)
+  ;; cross-sponsor sends
+  (cond (self
+         (push (list (sponsor-mbox spon)
+                     (cons actor msg))
+               *sendx-evts*))
+        (t
+         (mp:mailbox-send (sponsor-mbox spon)
+                          (cons actor msg)))
         ))
 
 (defun repeat-send (dest)
@@ -257,11 +284,6 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (editor:setup-indent "with-sponsor" 1)
-
-(defun sendx (sponsor actor &rest msg)
-  ;; Cross-sponsor SEND
-  (with-sponsor sponsor
-    (send* actor msg)))
 
 ;; ----------------------------------------------
 ;; WORKER is just a function that executes on an external thread.
