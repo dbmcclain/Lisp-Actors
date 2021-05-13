@@ -301,4 +301,11 @@
       (timer (timing dut)))
   (send timer println 1))
 |#
+;; ---------------------------------------------
+;; Actor composition. All actors must obey (SEND ACTOR CUST &rest MSG)
+
+(defmacro recv (args (actor &rest msg) &body body)
+  `(β ,args
+       (send ,actor β ,@msg)
+     ,@body))
 

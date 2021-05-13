@@ -13,15 +13,15 @@
 
 (defun decl-us (args)
   (when (is-underscore? args)
-      `((declare (ignore _)))))
+      `((declare (ignore ,args)))))
 
 (defun us-conv (args)
-  (if (is-underscore? args)
-      `(&rest _)
-    args))
+  (cond ((eq nil args)  nil)
+        ((symbolp args) `(&rest ,args))
+        (t              args)))
 
 (defun destr-lambda-list-p (args)
-  (and (not (is-underscore? args))
+  (and (consp args)
        (or (eq (car args) '&whole)
            (some 'consp (subseq args 0
                                 (position-if (um:rcurry 'find lambda-list-keywords) args))))))
