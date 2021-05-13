@@ -47,8 +47,11 @@ THE SOFTWARE.
 
   (:export
    #:α
+   #:β
    #:current-sponsor
+   #:*current-sponsor*
    #:sponsor
+   #:make-sponsor
    #:*sponsor*
    #:with-sponsor
    #:sendx
@@ -63,6 +66,8 @@ THE SOFTWARE.
    #:define-actor-class
    #:send
    #:send*
+   #:sendx
+   #:sendx*
    #:ask
    #:=ask
    #:get-property

@@ -236,8 +236,11 @@
                                 (med3
                                  (timing
                                   (make-send-self-tst))))))
-  (@bind (arr)
-      (send dut @bind niter)
-    (send (histogram) arr)
-    (send (statistics) println arr)))
+  (let ((act (actor (cust)
+               (β (arr)
+                   (send dut β niter)
+                 (send (histogram) arr)
+                 (send (statistics) println arr)
+                 (send cust)))))
+    (send (timing act) println)))
 |#

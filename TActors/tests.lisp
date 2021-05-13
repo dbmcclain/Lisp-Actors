@@ -40,10 +40,18 @@
     (send par @bind '(+ a b) :eval)
   (send + cust :apply a b))
           
+(let ((junk 15))
+  (defun tst ()
+    (+ junk 1))
+  (defun tst2 ()
+    (+ junk 2)))
 
-(defun list-beh (lst)
-  (um:dlambda
-    (:eval (cust)
-     (send (@bind vals
-               (send par lst :eval
-
+(let ((junk 15))
+  (defun tst ()
+    (um:dlambda
+      (:a (x)
+       (send junk x 32))
+      (:B (y)
+       (send junk y 33))
+      )))
+(inspect #'tst)

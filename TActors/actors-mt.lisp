@@ -148,56 +148,105 @@ THE SOFTWARE.
 (define-symbol-macro self     *current-actor*)
 (define-symbol-macro self-beh *current-beh*)
 
+;; Simple Direct Queue ~140ns
+
+;; -----------------------------------------------------------------
+(defun make-queue ()
+  (list nil))
+
+(defun emptyq? (queue)
+  (declare (cons queue))
+  (null (car queue)))
+
+(defun popq (queue)
+  (declare (cons queue))
+  (let ((cell (car queue)))
+    (when cell
+      (unless (setf (car queue) (cdr (the cons cell)))
+        (setf (cdr queue) nil))
+      (car (the cons cell)))))
+
+(defun addq (queue elt)
+  (declare (cons queue))
+  (let ((cell (list elt)))
+    (if (cdr queue)
+        (setf (cdr queue)
+              (setf (cddr queue) cell))
+      (setf (car queue)
+            (setf (cdr queue) cell)))))
+
+(defun appendq (qhd qtl)
+  (declare (cons qhd qtl))
+  (when (car qtl)
+    (if (car qhd)
+        (setf (cddr qhd) (car qtl))
+      (setf (car qhd) (car qtl)))
+    (setf (cdr qhd) (cdr qtl))
+    ))
+
+;; -----------------------------------------------------------------
+#||#
 ;; Generic RUN for all threads, across all Sponsors
 (defun run-actors (*current-sponsor*)
   (let ((mbox    (sponsor-mbox *current-sponsor*))
-        (queue   nil)
-        (retries nil)
-        (ctr     16))
-    (declare (fixnum ctr)
-             (list   queue retries))
+        (queue   (make-queue))
+        ;; (ctr     16)
+        )
+    ;; (declare (fixnum ctr))
     (loop
-     (let ((evt (or (pop queue)
-                    (progn
-                      (shiftf queue retries nil)
-                      (pop queue))
+     (let ((evt (or (popq queue)
                     (mp:mailbox-read mbox))))
        (declare (cons evt))
        (let* ((*current-actor* (car evt))
               (*whole-message* (cdr evt))
-              (*current-beh*   (actor-beh self)))
-         (cond ((and self-beh
+              (*current-beh*   (sys:atomic-exchange (actor-beh (the actor self)) nil)))
+         (cond (self-beh
+                #|
+                (and self-beh
                      (or (typep self-beh 'par-safe-behavior)
                          (sys:compare-and-swap (actor-beh self) self-beh nil)))
+                |#
                 
                 ;; NIL Beh slot indicates busy Actor
                 (let ((*new-beh*     self-beh)
                       (*send-evts*   nil)
                       (*sendx-evts*  nil))
-                  (declare (list *send-evts* *sendx-evts*))
+                  (declare (list *sendx-evts*))
                   ;; ---------------------------------
                   (with-simple-restart (abort "Handle next event")
-                    (apply self-beh *whole-message*)
+                    (apply (the function self-beh) *whole-message*)
                       
                     ;; Effects Commit...
-                    (setf queue (nconc *send-evts* queue))
+                    (when *send-evts*
+                      (appendq queue *send-evts*))
                     (when *sendx-evts*
                       (dolist (evt *sendx-evts*)
                         (apply #'mp:mailbox-send evt)))
+                    (when (mp:mailbox-not-empty-p mbox)
+                      (addq queue
+                            (mp:mailbox-read mbox)))
+                    #|
                     (when (zerop (decf ctr))
                       (setf ctr 16)
                       (when (mp:mailbox-not-empty-p mbox)
-                        (push (mp:mailbox-read mbox) queue)))
+                        (addq queue
+                              (mp:mailbox-read mbox))))
+                    |#
                     (setf *current-beh* *new-beh*)) ;; staged BECOME
                   ;; ---------------------------------                    
-                  (setf (actor-beh self) *current-beh*))) ;; restore Not-Busy
+                  (setf (actor-beh (the actor self)) *current-beh*))) ;; restore Not-Busy
                
                (t
                 ;; else - actor was busy
                 ;; (mp:mailbox-send mbox evt)
                 ;; (hcl:unlocked-queue-send queue evt)
-                (push evt retries))
+                (addq queue evt))
                ))))))
+#||#
+#|
+(kill-executives)
+(start-actors-system)
+ |#
 
 ;; ----------------------------------------------------------
 
@@ -221,11 +270,6 @@ THE SOFTWARE.
 
 (defun kill-sponsor (sponsor)
   (mp:process-terminate (sponsor-thread sponsor)))
-
-#|
-(kill-executives)
-(start-actors-system)
- |#
 
 ;; -----------------------------------------------
 ;; SEND/BECOME - Since these methods are called against SELF they can
@@ -253,11 +297,16 @@ THE SOFTWARE.
 (defmethod send ((actor actor) &rest msg)
   (cond (self
          ;; Actor SENDs are staged.
-         (push (cons actor msg) *send-evts*))
+         (unless *send-evts*
+           (setf *send-evts* (make-queue)))
+         (addq *send-evts* (cons actor msg)))
         (t
          ;; Non-Actor SENDs take effect immediately.
          (apply #'sendx (current-sponsor) actor msg))
         ))
+
+(defmacro sendx* (&rest msg)
+  `(apply #'sendx ,@msg))
 
 (defmethod sendx ((spon sponsor) (actor actor) &rest msg)
   ;; cross-sponsor sends
@@ -311,6 +360,10 @@ THE SOFTWARE.
 
 (defmacro @bind (args form &body body)
   `(let ((@bind  (α (lambda* ,args ,@body))))
+     ,form))
+
+(defmacro β (args form &body body)
+  `(let ((β  (α (lambda* ,args ,@body))))
      ,form))
 
 #+:LISPWORKS
