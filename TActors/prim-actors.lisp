@@ -295,13 +295,3 @@
 
 ;; -----------------------------------------------
 
-(defmacro d2lambda ((cust) &rest clauses)
-  (lw:with-unique-names (msg)
-    `(lambda (,cust &rest ,msg)
-       (um:dcase ,msg
-         ,@clauses))
-    ))
-
-#+:LISPWORKS
-(editor:indent-like "d2lambda" 'prog)
-

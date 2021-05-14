@@ -12,12 +12,14 @@
 
 (in-package :actors/bridge)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
+(um:eval-always
   (import '(
             um:if-let
             um:when-let
             um:recover-ans-or-exn
-
+             
+            actors/base:retry-send
+            
             actors/network:open-connection
             actors/network:socket-send
             )))
@@ -460,6 +462,12 @@
   (if (my-node? proxy)
       (send* (proxy-service proxy) message)
     (apply #'bridge-forward-message proxy message)))
+
+(defmethod retry-send ((proxy proxy) &rest message)
+  (send* proxy message))
+
+(defmethod retry-send ((usti uuid:uuid) &rest message)
+  (send* usti message))
 
 ;; -------------------------------------------
 ;; USTI - transient identifiers for possible send targets

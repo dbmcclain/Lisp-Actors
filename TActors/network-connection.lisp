@@ -189,24 +189,33 @@
 (defun make-frag-assembler (state)
   (with-accessors ((dispatcher intf-state-dispatcher)
                    (intf       intf-state-intf)) state
-    (let ((frags (make-instance 'scatter-vector)))
+    (let ((frags (make-instance 'scatter-vector))
+          (ctr   0))
       (make-actor
-       (um:dlambda
-         (:discard (err)
-          ;; something went wrong, kill the connection
-          (log-error :SYSTEM-LOG "Data framing error: ~A" err)
-          (shutdown intf))
+       (lambda (in-ctr &rest msg)
+         (cond ((= in-ctr ctr)
+                (incf ctr)
+                (um:dcase msg
+                  (:discard (err)
+                   ;; something went wrong, kill the connection
+                   (log-error :SYSTEM-LOG "Data framing error: ~A" err)
+                   (shutdown intf))
+                  
+                  (:frag (frag)
+                   ;; a partial buffer of a complete message
+                   (add-fragment frags frag))
          
-         (:frag (frag)
-          ;; a partial buffer of a complete message
-          (add-fragment frags frag))
-         
-         (:last-frag (frag)
-          ;; the last buffer of a complete message
-          (add-fragment frags frag)
-          (send dispatcher (byte-decode-obj frags))
-          (setf frags (make-instance 'scatter-vector)))
-         )))))
+                  (:last-frag (frag)
+                   ;; the last buffer of a complete message
+                   (add-fragment frags frag)
+                   (send dispatcher (byte-decode-obj frags))
+                   (setf frags (make-instance 'scatter-vector)))
+                  ))
+               (t
+                ;; ctr out of sync, go around again
+                (repeat-send self))
+               ))
+       ))))
 
 (defun make-reader (state)
   ;; An entire subsystem to respond to incoming socket data, assemble
@@ -216,40 +225,37 @@
         (hmac-buf (make-u8-vector +hmac-length+))
         (buf-mgr  (make-buffer-manager))
         (frag-asm (make-frag-assembler state))
-        k-len)
+        (ctr      0))
     (with-accessors ((crypto  intf-state-crypto)) state
-      (flet ((start-cycle ()
-               (send buf-mgr
-                     :get k-len len-buf 0 +len-prefix-length+)))
-        (setf k-len
-              (actor ()
-                (let ((ndata (convert-vector-to-integer len-buf)))
-                  (cond
-                   ((> ndata +MAX-FRAGMENT-SIZE+)
-                    ;; possible DOS attack - and we are done... just hang up.
-                    (log-error :SYSTEM-LOG "NData = ~D" ndata)
-                    (send frag-asm :discard :E-NDATA))
-                   
-                   (t
-                    ;; Actor Continuation Style (ACS)
-                    (let* ((enc-buf (make-u8-vector ndata))
-                           (k-data
-                            (actor ()
-                              (let ((k-hmac
-                                     (actor ()
-                                       (send* frag-asm
-                                              (secure-decoding crypto ndata
-                                                               len-buf enc-buf hmac-buf))
-                                       (start-cycle))))
-                                (send buf-mgr
-                                      :get k-hmac hmac-buf 0 +hmac-length+)))
-                            ))
-                      (send buf-mgr
-                            :get k-data enc-buf 0 ndata)
-                      ))
-                   ))))
-        (start-cycle)
-        buf-mgr)))) ;; return buf-mgr to caller as ISR interface
+      (β ()
+          (send buf-mgr
+                :get β len-buf 0 +len-prefix-length+)
+        (let ((ndata (convert-vector-to-integer len-buf)))
+          (cond
+           ((> ndata +MAX-FRAGMENT-SIZE+)
+            ;; possible DOS attack - and we are done... just hang up.
+            (log-error :SYSTEM-LOG "NData = ~D" ndata)
+            (send frag-asm :discard :E-NDATA))
+           
+           (t
+            ;; Actor Continuation Style (ACS)
+            (let* ((me      self)
+                   (enc-buf (make-u8-vector ndata)))
+              (β ()
+                  (send buf-mgr
+                        :get β enc-buf 0 ndata)
+                (β ()
+                    (send buf-mgr
+                          :get β hmac-buf 0 +hmac-length+)
+                  (send* frag-asm ctr
+                         (secure-decoding crypto ndata
+                                          len-buf enc-buf hmac-buf))
+                  (incf ctr)
+                  (send buf-mgr
+                        :get me len-buf 0 +len-prefix-length+)
+                  ))))
+           )))
+      buf-mgr)))  ;; return buf-mgr to caller as ISR interface
 
 ;; -------------------------------------------------------------------------
 ;; Socket writer

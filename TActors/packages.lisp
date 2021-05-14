@@ -431,6 +431,7 @@ THE SOFTWARE.
    #:%run-actor
    #:assemble-ask-message
    #:no-immediate-answer
+   #:retry-send
    ))
 
 (defpackage #:actors/rwgate
