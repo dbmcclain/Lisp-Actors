@@ -48,7 +48,7 @@ THE SOFTWARE.
   (:export
    #:α
    #:β
-   #:d2lambda
+   #:io
    #:current-sponsor
    #:*current-sponsor*
    #:sponsor

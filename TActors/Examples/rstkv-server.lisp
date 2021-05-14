@@ -101,9 +101,10 @@ storage and network transmission.
             )))
 
 (defun make-remote-api-beh (tbl)
-  (let ((io-ser (serializer
-                 (α (cust fn)
-                   (funcall fn cust)))
+  (let ((io-ser (io (serializer
+                     (α (cust fn)
+                       (funcall fn cust))
+                     ))
                 ))
     (lambda (cust &rest msg)
       (um:dcase msg
@@ -260,6 +261,8 @@ storage and network transmission.
                    #+:LINUX
                    #P"~/Documents/"))
 
+;; -----------------------------
+
 (defun s-revert-database (cust main-table)
   (declare (main-table main-table))
   (with-accessors ((ver  main-table-ver)
@@ -267,33 +270,34 @@ storage and network transmission.
                    (tbl  main-table-tbl)
                    (path main-table-path)) main-table
     (if (probe-file path)
-        (send (α ()
-                (handler-case
-                    (with-open-file (f path
-                                       :direction :input
-                                       :element-type '(unsigned-byte 8))
-                      
-                      (optima:match (loenc:deserialize f
-                                                       :use-magic (um:magic-word "STKV"))
-                        ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
-                         (setf tbl (lzw:decompress new-table)
-                               ver new-ver
-                               chk new-ver)
-                         (log-info :system-log
-                                   (format nil "Loaded STKV Store ~A:~A" path new-ver))
-                         (send cust new-ver))
-                        
-                        (_
-                         (error "Not an STKV Persistent Store: ~A" path))
-                        ))
-                  (error ()
-                    (send cust :UNDEFINED))
-                  )))
+        (handler-case
+            (with-open-file (f path
+                               :direction :input
+                               :element-type '(unsigned-byte 8))
+              
+              (optima:match (loenc:deserialize f
+                                               :use-magic (um:magic-word "STKV"))
+                ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
+                 (setf tbl (lzw:decompress new-table)
+                       ver new-ver
+                       chk new-ver)
+                 (log-info :system-log
+                           (format nil "Loaded STKV Store ~A:~A" path new-ver))
+                 (send cust new-ver))
+                
+                (_
+                 (error "Not an STKV Persistent Store: ~A" path))
+                ))
+          (error ()
+            (send cust :UNDEFINED))
+          )
       ;; else - no persistent copy, just reset to initial state
       (send cust (setf tbl  (maps:empty)
                        ver  (uuid:make-null-uuid)
                        chk  ver))
       )))
+
+;; ---------------------------------
 
 (defun s-save-database (cust main-table)
   (declare (main-table main-table))
@@ -404,20 +408,18 @@ storage and network transmission.
             (let* ((tbl    (make-main-table
                             :path  path))
                    (server (make-actor (make-remote-api-beh tbl)))
-                   (key    (namestring (truename path))))
+                   (key    (namestring (truename path)))
+                   (fwd    (α _
+                             (maps:addf *stkv-servers* key server)
+                             (send cust server))))
               (setf (main-table-sync tbl)
                     (mp:make-timer 'mp:funcall-async #'send server (sink) :save))
               (if (probe-file path)
-                  (β _
-                      (s-revert-database β tbl)
-                    (maps:addf *stkv-servers* key server)
-                    (send cust server))
+                  (s-revert-database fwd tbl)
                 (progn
+                  ;; file doesn't exist - so create it
                   (setf (main-table-ver tbl) (new-ver))
-                  (β _
-                      (s-save-database β tbl)
-                    (maps:addf *stkv-servers* key server)
-                    (send cust server))))
+                  (s-save-database fwd tbl)))
               )))
          (get-new-or-existing
           (α (cust)

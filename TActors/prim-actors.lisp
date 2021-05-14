@@ -16,7 +16,7 @@
 ;; --------------------------------------
 
 (defvar println
-  (actor (&rest msg)
+  (α (&rest msg)
     (format t "~&~{~A~^ ~}~%" msg)
     (values)))
 
@@ -120,7 +120,7 @@
 (defun lazy (actor &rest msg)
   ;; Like FUTURE, but delays evaluation of the Actor with message
   ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
-  (actor (cust)
+  (α (cust)
     (let ((tag (tag self)))
       (become (make-future-wait-beh tag (list cust)))
       (send* actor tag msg))
@@ -131,7 +131,7 @@
 (defmacro blk (args &rest clauses)
   ;; Makes an Actor from a PROGN block of Lisp
   (lw:with-unique-names (cust)
-    `(actor ,(if (listp args)
+    `(α ,(if (listp args)
                  `(,cust ,@args)
                `(,cust &rest ,args)) ;; handle (BLK _ ...)
        (send ,cust
@@ -282,7 +282,7 @@
   (make-actor (make-timing-beh dut)))
 
 #|
-(let* ((dut (actor (cust nsec)
+(let* ((dut (α (cust nsec)
              (sleep nsec)
              (send cust)))
       (timer (timing dut)))
@@ -290,8 +290,18 @@
 |#
 (defun sponsor-switch (spons)
   ;; Switch to other Sponsor for rest of processing
-  (actor msg
+  (α msg
     (sendx* spons msg)))
 
+(defun io (svc)
+  (α (cust &rest msg)
+    (let ((spons *current-sponsor*))
+      (sendx* *slow-sponsor*
+              svc
+              (α ans
+                (sendx* spons cust ans))
+              msg)
+      )))
+      
 ;; -----------------------------------------------
 
