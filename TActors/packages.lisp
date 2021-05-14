@@ -48,6 +48,7 @@ THE SOFTWARE.
   (:export
    #:α
    #:β
+   #:d2lambda
    #:current-sponsor
    #:*current-sponsor*
    #:sponsor
@@ -207,6 +208,7 @@ THE SOFTWARE.
    #:scheduled-message
    #:serializer
    #:timing
+   #:sponsor-switch
    
    #:make-sink-beh
    #:make-println-beh

@@ -155,10 +155,8 @@
          (send cust)
        (destructuring-bind (hd . tl) lst
          (let ((me self))
-           (@bind (&rest msg-hd)
-               (send* hd @bind msg)
-             (@bind (&rest msg-tl)
-                 (send* me @bind tl msg)
+           (β msg-hd (send* hd β msg)
+             (β msg-tl (send* me β tl msg)
                (multiple-value-call #'send cust (values-list msg-hd) (values-list msg-tl))))
            ))))))
 
@@ -286,8 +284,7 @@
 (defun make-timing-beh (dut)
   (lambda (cust &rest msg)
     (let ((start (usec:get-time-usec)))
-      (@bind _
-          (send* dut @bind msg)
+      (β _ (send* dut β msg)
         (send cust (- (usec:get-time-usec) start)))
       )))
 
@@ -301,11 +298,20 @@
       (timer (timing dut)))
   (send timer println 1))
 |#
-;; ---------------------------------------------
-;; Actor composition. All actors must obey (SEND ACTOR CUST &rest MSG)
+(defun sponsor-switch (spons)
+  ;; Switch to other Sponsor for rest of processing
+  (actor msg
+    (sendx* spons msg)))
 
-(defmacro recv (args (actor &rest msg) &body body)
-  `(β ,args
-       (send ,actor β ,@msg)
-     ,@body))
+;; -----------------------------------------------
+
+(defmacro d2lambda (cust &rest clauses)
+  (lw:with-unique-names (msg)
+    `(lambda (,cust &rest ,msg)
+       (um:dcase ,msg
+         ,@clauses))
+    ))
+
+#+:LISPWORKS
+(editor:indent-like "d2lambda" 'prog)
 
