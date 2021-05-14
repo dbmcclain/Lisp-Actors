@@ -54,6 +54,7 @@ THE SOFTWARE.
    #:sponsor
    #:make-sponsor
    #:*sponsor*
+   #:*slow-sponsor*
    #:with-sponsor
    #:sendx
    #:with-single-thread

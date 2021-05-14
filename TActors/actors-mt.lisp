@@ -66,9 +66,14 @@ THE SOFTWARE.
   (check-type beh function)
   (%make-actor :beh beh))
 
-(defun α (&optional (beh #'lw:do-nothing))
-  (make-actor beh))
-  
+(defmacro α (args &body body)
+  `(make-actor
+    (lambda* ,args
+      ,@body)))
+
+#+:LISPWORKS
+(editor:indent-like "α" 'lambda)
+
 ;; --------------------------------------
 ;; ACTOR in function position acts like a higher level LAMBDA expression
 
@@ -132,6 +137,7 @@ THE SOFTWARE.
   thread)
 
 (defvar *sponsor*         nil) ;; Single-Threaded
+(defvar *slow-sponsor*    nil)
 (defvar *current-sponsor* nil)
 
 (defun current-sponsor ()
@@ -256,11 +262,13 @@ THE SOFTWARE.
 
 (defun start-actors-system ()
   (unless *sponsor*
-    (setf *sponsor* (make-sponsor "Actor Thread"))))
+    (setf *sponsor*      (make-sponsor "Actor Thread")
+          *slow-sponsor* (make-sponsor "Actor IO Thread"))))
 
 (defun kill-executives ()
   (when *sponsor*
-    (kill-sponsor (shiftf *sponsor* nil))))
+    (kill-sponsor (shiftf *sponsor* nil))
+    (kill-sponsor (shiftf *slow-sponsor* nil))))
 
 ;; ----------------------------------------------------------
 
@@ -363,11 +371,11 @@ THE SOFTWARE.
 ;; ----------------------------------------------
 
 (defmacro @bind (args form &body body)
-  `(let ((@bind  (α (lambda* ,args ,@body))))
+  `(let ((@bind  (α ,args ,@body)))
      ,form))
 
 (defmacro β (args form &body body)
-  `(let ((β  (α (lambda* ,args ,@body))))
+  `(let ((β  (α ,args ,@body)))
      ,form))
 
 #+:LISPWORKS

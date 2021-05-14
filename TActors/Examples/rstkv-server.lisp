@@ -101,40 +101,67 @@ storage and network transmission.
             )))
 
 (defun make-remote-api-beh (tbl)
-  (lambda (cust &rest msg)
-    (um:dcase msg
-      (:shutdown ()
-       (s-save-database tbl)
-       (unregister-actor self)
-       (send cust))
+  (let ((io-ser (serializer
+                 (α (cust fn)
+                   (funcall fn cust)))
+                ))
+    (lambda (cust &rest msg)
+      (um:dcase msg
+        (:shutdown ()
+         (unregister-actor self)
+         (send io-ser cust
+               (lambda (cust)
+                 (s-save-database cust tbl))))
       
-      (:open ()
-       (send cust (s-open-trans tbl)))
+        (:open ()
+         (send cust (s-open-trans tbl)))
       
-      (:commit (ver adds dels)
-       (send cust (s-commit-trans tbl ver adds dels)))
+        (:commit (kbad ver adds dels)
+         (handler-case
+             (send cust (s-commit-trans tbl ver adds dels))
+           (error ()
+             (send kbad))))
       
-      (:get-key (ver key)
-       (send cust (s-get-database-key tbl ver key)))
+        (:get-key (kbad ver key)
+         (handler-case
+             (send cust (s-get-database-key tbl ver key))
+           (error ()
+             (send kbad))))
       
-      (:get-keys (ver keys)
-       (send cust (s-get-database-keys tbl ver keys)))
+        (:get-keys (kbad ver keys)
+         (handler-case
+             (send cust (s-get-database-keys tbl ver keys))
+           (error ()
+             (send kbad))))
       
-      (:get-all-keys (ver)
-       (send cust (s-get-all-database-keys tbl ver)))
+        (:get-all-keys (kbad ver)
+         (handler-case
+             (send cust (s-get-all-database-keys tbl ver))
+           (error ()
+             (send kbad))))
       
-      (:save ()
-       (s-save-database tbl)
-       (send cust))
+        (:save ()
+         (send io-ser cust
+               (lambda (cust)
+                 (s-save-database cust tbl))
+               ))
       
-      (:revert ()
-       (s-revert-database tbl)
-       (send cust))
+        (:revert (kbad)
+         (let ((my-cust (α msg
+                          (um:dcase msg
+                            (:UNDEFINED _
+                             (send kbad))
+                            (t _
+                             (repeat-send cust))
+                            ))))
+           (send io-ser my-cust
+               (lambda (cust)
+                 (s-revert-database cust tbl)))))
       
-      (:quit ()
-       (unregister-actor tbl)
-       (send cust))
-      )))
+        (:quit ()
+         (unregister-actor tbl)
+         (send cust))
+        ))))
 
 (defun s-open-trans (main-table)
   ;; return a new trans
@@ -233,63 +260,81 @@ storage and network transmission.
                    #+:LINUX
                    #P"~/Documents/"))
 
-(defun s-revert-database (main-table)
+(defun s-revert-database (cust main-table)
   (declare (main-table main-table))
   (with-accessors ((ver  main-table-ver)
                    (chk  main-table-chk)
                    (tbl  main-table-tbl)
                    (path main-table-path)) main-table
     (if (probe-file path)
-        (with-open-file (f path
-                           :direction :input
-                           :element-type '(unsigned-byte 8))
-          
-          (optima:match (loenc:deserialize f
-                                           :use-magic (um:magic-word "STKV"))
-            ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
-             (setf tbl (lzw:decompress new-table)
-                   ver new-ver
-                   chk new-ver)
-             (log-info :system-log
-                       (format nil "Loaded STKV Store ~A:~A" path new-ver)))
-            
-            (_
-             ;; else
-             (error "Not an STKV Persistent Store: ~A" path))
-            ))
+        (send (α ()
+                (handler-case
+                    (with-open-file (f path
+                                       :direction :input
+                                       :element-type '(unsigned-byte 8))
+                      
+                      (optima:match (loenc:deserialize f
+                                                       :use-magic (um:magic-word "STKV"))
+                        ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
+                         (setf tbl (lzw:decompress new-table)
+                               ver new-ver
+                               chk new-ver)
+                         (log-info :system-log
+                                   (format nil "Loaded STKV Store ~A:~A" path new-ver))
+                         (send cust new-ver))
+                        
+                        (_
+                         (error "Not an STKV Persistent Store: ~A" path))
+                        ))
+                  (error ()
+                    (send cust :UNDEFINED))
+                  )))
       ;; else - no persistent copy, just reset to initial state
-      (setf tbl  (maps:empty)
-            ver  (uuid:make-null-uuid)
-            chk  ver))
-    ))
+      (send cust (setf tbl  (maps:empty)
+                       ver  (uuid:make-null-uuid)
+                       chk  ver))
+      )))
 
-(defun s-save-database (main-table)
+(defun s-save-database (cust main-table)
   (declare (main-table main-table))
   (with-accessors ((ver   main-table-ver)
                    (chk   main-table-chk)
                    (tbl   main-table-tbl)
                    (path  main-table-path)) main-table
-    (unless (uuid:uuid= ver chk) ;; anything actually changed?
-      (ensure-directories-exist path)
-      (with-open-file (f path
-                         :direction :output
-                         :if-exists :rename
-                         :if-does-not-exist :create
-                         :element-type '(unsigned-byte 8))
-        
-        (loenc:serialize
-         (list +stkv-signature+
-               (format nil
-                       " --- This is an STKV-SERVER Persistent Store, Version: ~A, Created: ~A --- "
-                       ver (uuid:when-created ver))
-               ver
-               (lzw:compress tbl))
-         f
-         :use-magic (um:magic-word "STKV"))
-        (setf chk ver)
-        (log-info :system-log
-                  (format nil "Saved STKV Store ~A:~A" path ver))
-        ))))
+    (if (uuid:uuid= ver chk) ;; anything actually changed?
+        (send cust ver)
+      (β ()
+          (send (α (cust)
+                  (ensure-directories-exist path)
+                  (send cust))
+                β)
+        (β ()
+            (send (α (cust)
+                    (handler-case
+                        (with-open-file (f path
+                                           :direction :output
+                                           :if-exists :rename
+                                           :if-does-not-exist :create
+                                           :element-type '(unsigned-byte 8))
+                          
+                          (loenc:serialize
+                           (list +stkv-signature+
+                                 (format nil
+                                         " --- This is an STKV-SERVER Persistent Store, Version: ~A, Created: ~A --- "
+                                         ver (uuid:when-created ver))
+                                 ver
+                                 (lzw:compress tbl))
+                           f
+                           :use-magic (um:magic-word "STKV"))
+                          (send cust))
+                      (error ()
+                        (send cust :UNDEFINED))))
+                  β)
+          (setf chk ver)
+          (log-info :system-log
+                    (format nil "Saved STKV Store ~A:~A" path ver))
+          (send cust ver)))
+      )))
 
 ;; ---------------------------------------------------------------
 ;; bare minimum services offered - keeps comm traffic to a minimum
@@ -350,48 +395,63 @@ storage and network transmission.
 (defvar *service-id*    :RSTKV)
 (defvar *stkv-servers*  (maps:empty))
 
-(defun make-stkv-server (&key
+(defun make-stkv-server (cust
+                         &key
                         (path (default-database-pathname))
                         (registration *service-id*))
-  (flet ((make-new-server ()
-           (let* ((tbl    (make-main-table
-                           :path  path))
-                  (server (α (make-remote-api-beh tbl)))
-                  (key    (namestring (truename path))))
-             (setf (main-table-sync tbl)
-                   (mp:make-timer 'mp:funcall-async #'send server (sink) :save))
-             (if (probe-file path)
-                 (s-revert-database tbl)
-               (progn
-                 (setf (main-table-ver tbl) (new-ver))
-                 (s-save-database tbl)))
-             (maps:addf *stkv-servers* key server)
-             server)))
-    (let ((server (cond ((probe-file path)
-                         (let* ((key    (namestring (truename path)))
-                                (server (maps:find *stkv-servers* key)))
-                           (or server
-                               (make-new-server))))
-                        (t
-                         (make-new-server))
-                        )))
+  (let* ((make-new-server
+          (α (cust)
+            (let* ((tbl    (make-main-table
+                            :path  path))
+                   (server (make-actor (make-remote-api-beh tbl)))
+                   (key    (namestring (truename path))))
+              (setf (main-table-sync tbl)
+                    (mp:make-timer 'mp:funcall-async #'send server (sink) :save))
+              (if (probe-file path)
+                  (β _
+                      (s-revert-database β tbl)
+                    (maps:addf *stkv-servers* key server)
+                    (send cust server))
+                (progn
+                  (setf (main-table-ver tbl) (new-ver))
+                  (β _
+                      (s-save-database β tbl)
+                    (maps:addf *stkv-servers* key server)
+                    (send cust server))))
+              )))
+         (get-new-or-existing
+          (α (cust)
+            (cond ((probe-file path)
+                   (let* ((key    (namestring (truename path)))
+                          (server (maps:find *stkv-servers* key)))
+                     (if server
+                         (send cust server)
+                       (send make-new-server cust))))
+                  (t
+                   (send make-new-server cust))
+                  ))))
+    (β (server)
+        (send get-new-or-existing β)
       (when registration
         (register-actor registration server))
-      server)))
+      (send cust server))))
 #|
-(make-stkv-server)
+(make-stkv-server (sink))
 (find-actor println :rstkv)
 
-(β (rstkv)
-    (find-actor β :rstkv)
-  (β (ver)
-      (send rstkv β :open)
-    (β (keys)
-        (send rstkv β :get-all-keys ver)
-      (send println (mapcar #'loenc:decode keys))
-      (β (data)
-          (send rstkv β :get-key ver (loenc:encode :pi))
-        (send println (lzw:decompress data))))))
+(let ((kbad (α ()
+              (send println "Rollback Exception"))))
+  (β (rstkv)
+      (find-actor β :rstkv)
+    (β (ver)
+        (send rstkv β :open)
+        ;; (send β 0)
+      (β (keys)
+          (send rstkv β :get-all-keys kbad ver)
+        (send println (mapcar #'loenc:decode keys))
+        (β (data)
+            (send rstkv β :get-key kbad ver (loenc:encode :pi))
+          (send println (lzw:decompress data)))))))
 |#
 
 

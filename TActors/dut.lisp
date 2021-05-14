@@ -107,8 +107,8 @@
              (burn-time niter)
              (send cust))
             (t
-             (send (α (make-erfc-tree-beh (1- nlev))) self niter)
-             (send (α (make-erfc-tree-beh (1- nlev))) self niter)
+             (send (make-actor (make-erfc-tree-beh (1- nlev))) self niter)
+             (send (make-actor (make-erfc-tree-beh (1- nlev))) self niter)
              (become (lambda* _
                        (become (lambda* _
                                  (send cust))))))
@@ -118,7 +118,7 @@
     ;; a DUT function parameterized by Log2(N)
     (make-actor
      (lambda (cust niter)
-       (let ((top  (α (make-erfc-tree-beh 10))))
+       (let ((top  (make-actor (make-erfc-tree-beh 10))))
          (send top cust niter)
          ))))
   
@@ -165,8 +165,8 @@
                                  (send self (1- nn)))))))
                (send k-iter niter)))
             (t
-             (send (α (make-erfc-tree-beh niter)) self (1- n))
-             (send (α (make-erfc-tree-beh niter)) self (1- n))
+             (send (make-actor (make-erfc-tree-beh niter)) self (1- n))
+             (send (make-actor (make-erfc-tree-beh niter)) self (1- n))
              (become (lambda* _
                        (become (lambda* _
                                (send cust))))))
@@ -175,7 +175,7 @@
   (defun make-erfc-fbomb-beh (spon niter)
     ;; a DUT function parameterized by Sponsor and Log2N
     (lambda (cust)
-      (let ((top  (α (make-erfc-tree-beh niter))))
+      (let ((top  (make-actor (make-erfc-tree-beh niter))))
         (sendx spon top cust 10))))
   
   (defun* dataprep ((niter dt))
@@ -185,9 +185,9 @@
 
 (let ((dut   (um:curry #'make-erfc-fbomb-beh nil))
       (limit 256))
-  (send (α (make-collector-beh 1 limit 1
-                               (α (make-data-point-beh dut #'dataprep))
-                               ))
+  (send (make-actor (make-collector-beh 1 limit 1
+                                        (make-actor (make-data-point-beh dut #'dataprep))
+                                        ))
         (actor (tbl)
           ;; (break)
           (let ((xs (map 'vector #'first tbl))
@@ -204,9 +204,9 @@
                       :symbol :circle
                       :plot-joined t))
           (let ((dut   (um:curry #'make-erfc-fbomb-beh t)))
-            (send (α (make-collector-beh 1 limit 1
-                                         (α (make-data-point-beh dut #'dataprep))
-                                         ))
+            (send (make-actor (make-collector-beh 1 limit 1
+                                                  (make-actor (make-data-point-beh dut #'dataprep))
+                                                  ))
                   (actor (tbl)
                     ;; (break)
                     (let ((xs (map 'vector #'first tbl))

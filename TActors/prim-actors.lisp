@@ -11,7 +11,7 @@
    #'lw:do-nothing))
 
 (defun sink ()
-  (α (make-sink-beh)))
+  (make-actor (make-sink-beh)))
 
 ;; --------------------------------------
 
@@ -149,7 +149,7 @@
 ;; an ordered collection to cust.
 
 (defun ser ()
-  (α
+  (make-actor
    (make-par-safe-behavior
     (lambda (cust lst &rest msg)
       (if (null lst)
@@ -181,7 +181,7 @@
           )))
 
 (defun par ()
-  (α
+  (make-actor
    (make-par-safe-behavior
     (lambda (cust lst &rest msg)
       (if (null lst)
@@ -279,7 +279,7 @@
       )))
 
 (defun timing (dut)
-  (α (make-timing-beh dut)))
+  (make-actor (make-timing-beh dut)))
 
 #|
 (let* ((dut (actor (cust nsec)
