@@ -305,7 +305,7 @@
 
 ;; -----------------------------------------------
 
-(defmacro d2lambda (cust &rest clauses)
+(defmacro d2lambda ((cust) &rest clauses)
   (lw:with-unique-names (msg)
     `(lambda (,cust &rest ,msg)
        (um:dcase ,msg

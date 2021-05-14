@@ -14,7 +14,7 @@
 ;; A directory is itself an Actor.
 
 (defun make-directory-beh (&optional (dir (maps:empty)))
-  (d2lambda cust
+  (d2lambda (cust)
     (:register (name actor)
      (let ((key (acceptable-key name)))
        (become (make-directory-beh (maps:add dir key actor)))
