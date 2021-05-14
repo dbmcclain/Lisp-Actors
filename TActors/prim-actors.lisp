@@ -148,22 +148,18 @@
 ;; same initial message, and the results from each block are sent as
 ;; an ordered collection to cust.
 
-(defun make-ser-beh ()
-  (make-par-safe-behavior
-   (lambda (cust lst &rest msg)
-     (if (null lst)
-         (send cust)
-       (let ((me self))
-         (β msg-hd (send* (car lst) β msg)
-           (β msg-tl (send* me β (cdr lst) msg)
-             (multiple-value-call #'send cust (values-list msg-hd) (values-list msg-tl))))
-         )))))
-
 (defun ser ()
-  ;; since SER is par-behavior safe, and is not parameterized we only
-  ;; need one
-  (α (make-ser-beh)))
-  
+  (α
+   (make-par-safe-behavior
+    (lambda (cust lst &rest msg)
+      (if (null lst)
+          (send cust)
+        (let ((me self))
+          (β msg-hd (send* (car lst) β msg)
+            (β msg-tl (send* me β (cdr lst) msg)
+              (multiple-value-call #'send cust (values-list msg-hd) (values-list msg-tl))))
+          ))))))
+
 ;; -----------------------------------
 ;; PAR - make an Actor that evaluates a series of blocks concurrently.
 ;; Each block is fed the same initial message, and the results from
@@ -184,23 +180,18 @@
                    ))
           )))
 
-(defun make-par-beh ()
-  (make-par-safe-behavior
-   (lambda (cust lst &rest msg)
-     (if (null lst)
-         (send cust)
-       (destructuring-bind (hd . tl) lst
-         (actors ((join (make-join-beh cust lbl1 lbl2))
-                  (lbl1 (make-tag-beh join))
-                  (lbl2 (make-tag-beh join)))
-           (send* hd lbl1 msg)
-           (send* self lbl2 tl msg)))
-       ))))
-
 (defun par ()
-  ;; since PAR is par-behavior safe, and is not parameterized, we only
-  ;; need one
-  (α (make-par-beh)))
+  (α
+   (make-par-safe-behavior
+    (lambda (cust lst &rest msg)
+      (if (null lst)
+          (send cust)
+        (actors ((join (make-join-beh cust lbl1 lbl2))
+                 (lbl1 (make-tag-beh join))
+                 (lbl2 (make-tag-beh join)))
+          (send* (car lst) lbl1 msg)
+          (send* self lbl2 (cdr lst) msg)))
+      ))))
 
 ;; ---------------------------------------------------------
 #|
