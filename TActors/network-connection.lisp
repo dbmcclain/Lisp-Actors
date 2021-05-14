@@ -781,7 +781,7 @@ indicated port number."
   (start-tcp-server))
 
 (defun* lw-reset-actor-system _
-  (terminate-server sink)
+  (terminate-server (sink))
   (bridge-reset)
   (kill-system-logger)
   (kill-executives)

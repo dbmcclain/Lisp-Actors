@@ -10,7 +10,7 @@
   (make-par-safe-behavior
    #'lw:do-nothing))
 
-(defvar sink
+(defun sink ()
   (α (make-sink-beh)))
 
 ;; --------------------------------------
@@ -153,14 +153,13 @@
    (lambda (cust lst &rest msg)
      (if (null lst)
          (send cust)
-       (destructuring-bind (hd . tl) lst
-         (let ((me self))
-           (β msg-hd (send* hd β msg)
-             (β msg-tl (send* me β tl msg)
-               (multiple-value-call #'send cust (values-list msg-hd) (values-list msg-tl))))
-           ))))))
+       (let ((me self))
+         (β msg-hd (send* (car lst) β msg)
+           (β msg-tl (send* me β (cdr lst) msg)
+             (multiple-value-call #'send cust (values-list msg-hd) (values-list msg-tl))))
+         )))))
 
-(defvar ser
+(defun ser ()
   ;; since SER is par-behavior safe, and is not parameterized we only
   ;; need one
   (α (make-ser-beh)))
@@ -198,14 +197,14 @@
            (send* self lbl2 tl msg)))
        ))))
 
-(defvar par
+(defun par ()
   ;; since PAR is par-behavior safe, and is not parameterized, we only
   ;; need one
   (α (make-par-beh)))
 
 ;; ---------------------------------------------------------
 #|
-(send par println
+(send (par) println
       (list
        (blk ()
          :blk1)
@@ -214,7 +213,7 @@
        (blk ()
          :blk3)))
                
-(send par println
+(send (par) println
       (list
        (blk ()
          :blk1)

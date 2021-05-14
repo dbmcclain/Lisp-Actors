@@ -99,7 +99,8 @@ THE SOFTWARE.
 ;; changes in the Actor.  And which causes no damaging side effects.
 ;; Examples are LABEL-BEH, TAG-BEH, CONST-BEH, FWD-BEH.  Actors with
 ;; such behavior can support simultaneous parallel execution.
-
+#|
+;; Unused in thie vesion...
 (defclass par-safe-behavior ()  ;; A Typed-Function
   ()
   (:metaclass clos:funcallable-standard-class))
@@ -111,6 +112,9 @@ THE SOFTWARE.
   (check-type fn function)
   (make-instance 'par-safe-behavior
                  :fn fn))
+|#
+(defun make-par-safe-behavior (fn)
+  fn)
 
 ;; ----------------------------------
 ;; SPONSORS -- offer event queues and have associated runtime threads
