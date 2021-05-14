@@ -14,7 +14,7 @@
 ;; A directory is itself an Actor.
 
 (defun make-directory-beh (&optional (dir (maps:empty)))
-  (um:dlambda
+  (d2lambda cust
     (:register (name actor)
      (let ((key (acceptable-key name)))
        (become (make-directory-beh (maps:add dir key actor)))
@@ -34,24 +34,24 @@
     (:clear ()
      (become (make-directory-beh (maps:empty))))
     
-    (:get-actors (cust)
+    (:get-actors ()
      (send cust (um:accum acc
                   (maps:iter dir
                              (lambda (k v)
                                (acc (cons k v)))))
            ))
-    (:get-actor-names (cust)
+    (:get-actor-names ()
      (send cust (um:accum acc
                   (maps:iter dir
                              (lambda (k v)
                                (declare (ignore v))
                                (acc k))))
            ))
-    (:find-actor (cust name)
+    (:find-actor (name)
      (let ((key (acceptable-key name)))
        (send cust (maps:find dir key))))
 
-    (:find-names-for-actor (cust actor)
+    (:find-names-for-actor (actor)
      (send cust (um:accum acc
                   (maps:iter dir
                              (lambda (k v)
@@ -64,16 +64,16 @@
   (make-actor (make-directory-beh)))
 
 (defmethod find-actor ((cust actor) name)
-  (send *actors-directory* :find-actor cust name))
+  (send *actors-directory* cust :find-actor name))
 
 (defun register-actor (name actor)
-  (send *actors-directory* :register name actor))
+  (send *actors-directory* sink :register name actor))
 
 (defun unregister-actor (name)
-  (send *actors-directory* :unregister name))
+  (send *actors-directory* sink :unregister name))
 
 (defun get-actor-names (cust)
-  (send *actors-directory* :get-actor-names cust))
+  (send *actors-directory* cust :get-actor-names))
 
 ;; ------------------------------------------
 ;; Sends directed to mailboxes, functions, etc.
