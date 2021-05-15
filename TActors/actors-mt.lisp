@@ -380,7 +380,7 @@ THE SOFTWARE.
   (let ((ref (list t)))
     (declare (cons ref))
     (lambda* msg
-      (if (sys:atomic-exchange (car ref) nil)
+      (if (sys:compare-and-swap (car ref) t nil)
           (unwind-protect
               (apply beh msg)
             (setf (car ref) t))
