@@ -109,7 +109,10 @@ THE SOFTWARE.
   (:metaclass clos:funcallable-standard-class))
 
 (defun %make-par-safe-beh (beh)
+  #F
+  (declare (function beh))
   (let ((ref (list beh)))
+    (declare (cons ref))
     (lambda* msg
       (if (sys:atomic-exchange (car ref) nil)
           (unwind-protect
@@ -166,13 +169,16 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------------------
 (defun make-queue ()
+  #F
   (list nil))
 
 (defun emptyq? (queue)
+  #F
   (declare (cons queue))
   (null (car queue)))
 
 (defun popq (queue)
+  #F
   (declare (cons queue))
   (let ((cell (car queue)))
     (when cell
@@ -181,6 +187,7 @@ THE SOFTWARE.
       (car (the cons cell)))))
 
 (defun addq (queue elt)
+  #F
   (declare (cons queue))
   (let ((cell (list elt)))
     (if (cdr queue)
@@ -190,6 +197,7 @@ THE SOFTWARE.
             (setf (cdr queue) cell)))))
 
 (defun appendq (qhd qtl)
+  #F
   (declare (cons qhd qtl))
   (when (car qtl)
     (if (car qhd)
@@ -202,14 +210,21 @@ THE SOFTWARE.
 ;; Generic RUN for all threads, across all Sponsors
 
 (defun run-actors (*current-sponsor*)
+  #F
   (let ((mbox    (sponsor-mbox *current-sponsor*))
         (queue   (make-queue)))
     (loop
      (with-simple-restart (abort "Handle next event")
        (loop
+        ;; Get a Foreign SEND event if any
+        (when (mp:mailbox-not-empty-p mbox)
+          (addq queue
+                (mp:mailbox-read mbox)))
+        ;; Fetch next event from event queue
         (let ((evt (or (popq queue)
                        (mp:mailbox-read mbox))))
           (declare (cons evt))
+          ;; Setup Actor context
           (let* ((*current-actor* (car evt))
                  (*whole-message* (cdr evt))
                  (*new-beh*       self-beh)
@@ -219,18 +234,19 @@ THE SOFTWARE.
                      (function *new-beh*)
                      (list     *whole-message* *sendx-evts*))
             ;; ---------------------------------
+            ;; Dispatch to Actor behavior with message args
             (apply *new-beh* *whole-message*)
             
-            ;; Effects Commit...
+            ;; Commit SEND / BECOME effects
             (when *send-evts*
+              ;; Handle local SENDs
               (appendq queue *send-evts*))
             (when *sendx-evts*
+              ;; Handle cross-Sponsor SENDs
               (dolist (evt *sendx-evts*)
                 (apply #'mp:mailbox-send evt)))
-            (when (mp:mailbox-not-empty-p mbox)
-              (addq queue
-                    (mp:mailbox-read mbox)))
-            (setf self-beh *new-beh*)) ;; staged BECOME
+            ;; Apply staged BECOME
+            (setf self-beh *new-beh*))
           ))))))
 
 #|
@@ -276,6 +292,7 @@ THE SOFTWARE.
 (defun become (new-fn)
   ;; Change behavior/state. Only meaningful if an Actor calls
   ;; this.
+  #F
   (check-type new-fn function)
   ;; BECOME is staged.
   (when self
@@ -287,11 +304,12 @@ THE SOFTWARE.
   `(apply #'send ,@msg))
 
 (defmethod send ((actor actor) &rest msg)
+  #F
   (cond (self
          ;; Actor SENDs are staged.
-         (unless *send-evts*
-           (setf *send-evts* (make-queue)))
-         (addq *send-evts* (cons actor msg)))
+         (addq (or *send-evts*
+                   (setf *send-evts* (make-queue)))
+               (cons actor msg)))
         (t
          ;; Non-Actor SENDs take effect immediately.
          (apply #'sendx (current-sponsor) actor msg))
@@ -302,10 +320,11 @@ THE SOFTWARE.
 
 (defmethod sendx ((spon sponsor) (actor actor) &rest msg)
   ;; cross-sponsor sends
+  #F
   (cond (self
          (push (list (sponsor-mbox spon)
                      (cons actor msg))
-               *sendx-evts*))
+               (the list *sendx-evts*)))
         (t
          (mp:mailbox-send (sponsor-mbox spon)
                           (cons actor msg)))
@@ -313,8 +332,9 @@ THE SOFTWARE.
 
 (defun repeat-send (dest)
   ;; Send the current event message to another Actor
+  #F
   (when self
-    (send* dest *whole-message*)))
+    (send* dest (the list *whole-message*))))
 
 ;; ----------------------------------------------------------------
 ;; Using Sponsors
