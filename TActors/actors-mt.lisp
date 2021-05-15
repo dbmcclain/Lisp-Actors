@@ -362,28 +362,18 @@ THE SOFTWARE.
 ;; instances across multiple SMP threads. Only one thread at a time is
 ;; permitted to execute the behavior code.
 
-(defclass par-safe-behavior ()  ;; A Typed-Function
-  ()
-  (:metaclass clos:funcallable-standard-class))
-
-(defmethod initialize-instance :after ((obj par-safe-behavior) &key beh &allow-other-keys)
-  (clos:set-funcallable-instance-function obj (%make-par-safe-beh beh)))
-
-(defun ensure-par-safe-behavior (fn)
-  (check-type fn function)
-  (make-instance 'par-safe-behavior
-                 :beh fn))
-
-(defun %make-par-safe-beh (beh)
-  #F
-  (declare (function beh))
-  (let ((ref (list t)))
-    (declare (cons ref))
-    (lambda* msg
-      (if (sys:compare-and-swap (car ref) t nil)
-          (unwind-protect
-              (apply beh msg)
-            (setf (car ref) t))
-        (repeat-send self))) ;; try again later
-    ))
+(defun ensure-par-safe-behavior (beh)
+  (check-type beh function)
+  (locally
+    #F
+    (declare (function beh))
+    (let ((ref (list t)))
+      (declare (cons ref))
+      (lambda* msg
+        (if (sys:compare-and-swap (car ref) t nil)
+            (unwind-protect
+                (apply beh msg)
+              (setf (car ref) t))
+          (repeat-send self))) ;; try again later
+      )))
        
