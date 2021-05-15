@@ -270,7 +270,7 @@ storage and network transmission.
                    (tbl  main-table-tbl)
                    (path main-table-path)) main-table
     (if (probe-file path)
-        (handler-case
+        (restart-case
             (with-open-file (f path
                                :direction :input
                                :element-type '(unsigned-byte 8))
@@ -288,7 +288,7 @@ storage and network transmission.
                 (_
                  (error "Not an STKV Persistent Store: ~A" path))
                 ))
-          (error ()
+          (abort ()
             (send cust :UNDEFINED))
           )
       ;; else - no persistent copy, just reset to initial state
@@ -312,9 +312,9 @@ storage and network transmission.
                   (ensure-directories-exist path)
                   (send cust))
                 β)
-        (β ()
+        (β msg
             (send (α (cust)
-                    (handler-case
+                    (restart-case
                         (with-open-file (f path
                                            :direction :output
                                            :if-exists :rename
@@ -330,15 +330,20 @@ storage and network transmission.
                                  (lzw:compress tbl))
                            f
                            :use-magic (um:magic-word "STKV"))
+                          (setf chk ver)
                           (send cust))
-                      (error ()
+                      (abort ()
                         (send cust :UNDEFINED))))
                   β)
-          (setf chk ver)
-          (log-info :system-log
-                    (format nil "Saved STKV Store ~A:~A" path ver))
-          (send cust ver)))
-      )))
+          (um:dcase msg
+            (:UNDEFINED _
+             (repeat-send cust))
+            (t _
+               (log-info :system-log
+                         (format nil "Saved STKV Store ~A:~A" path ver))
+               (send cust ver))
+            ))))
+    ))
 
 ;; ---------------------------------------------------------------
 ;; bare minimum services offered - keeps comm traffic to a minimum

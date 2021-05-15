@@ -4,11 +4,12 @@
 ;; ------------------------------------------------------
 (in-package :actors/base)
 ;; ------------------------------------------------------
+
+;; --------------------------------------
 ;; Sink Behaviors
 
 (defun make-sink-beh ()
-  (make-par-safe-behavior
-   #'lw:do-nothing))
+  #'lw:do-nothing)
 
 (defun sink ()
   (make-actor (make-sink-beh)))
@@ -16,51 +17,44 @@
 ;; --------------------------------------
 
 (defvar println
-  (α (&rest msg)
-    (format t "~&~{~A~^ ~}~%" msg)
-    (values)))
+  (make-actor
+   (ensure-par-safe-behavior
+    (lambda* msg
+      (format t "~&~{~A~^ ~}~%" msg))
+    )))
 
 ;; -------------------------------------
 ;; Non-Sink Behaviors
 
 (defun make-const-beh (&rest msg)
-  (make-par-safe-behavior
-   (lambda (cust)
-     (send* cust msg))))
+  (lambda (cust)
+    (send* cust msg)))
 
 (defun const (&rest msg)
   (make-actor (apply #'make-const-beh msg)))
 
 ;; ---------------------
 
-(defun make-one-shot-beh (cust)
+(defun make-once-beh (cust)
   (lambda (&rest msg)
     (send* cust msg)
     (become (make-sink-beh))))
 
-(defun one-shot (cust)
-  (make-actor (make-one-shot-beh cust)))
+(defun once (cust)
+  (make-actor (make-once-beh cust)))
 
 ;; ---------------------
 
-(defun make-send-to-all-beh (&rest actors)
-  (make-par-safe-behavior
-   (lambda (&rest msg)
-     (dolist (cust actors)
-       (send* cust msg)))))
-
-(defun send-to-all (&rest actors)
-  (make-actor (apply #'make-send-to-all-beh actors)))
+(defun send-to-all (actors &rest msg)
+  (dolist (actor actors)
+    (send* actor msg)))
 
 ;; ---------------------
 
 (defun make-race-beh (&rest actors)
-  (make-par-safe-behavior
-   (lambda (cust &rest msg)
-     (let ((gate (one-shot cust)))
-       (dolist (actor actors)
-         (send* actor gate msg))
-       ))))
+  (lambda (cust &rest msg)
+    (let ((gate (once cust)))
+      (apply #'send-to-all actors gate msg))))
 
 (defun race (&rest actors)
   (make-actor (apply #'make-race-beh actors)))
@@ -68,9 +62,8 @@
 ;; ---------------------
 
 (defun make-fwd-beh (actor)
-  (make-par-safe-behavior
-   (lambda (&rest msg)
-     (send* actor msg))))
+  (lambda (&rest msg)
+    (send* actor msg)))
 
 (defun fwd (actor)
   (make-actor (make-fwd-beh actor)))
@@ -78,9 +71,8 @@
 ;; ---------------------
 
 (defun make-label-beh (cust lbl)
-  (make-par-safe-behavior
-   (lambda (&rest msg)
-     (send* cust lbl msg))))
+  (lambda (&rest msg)
+    (send* cust lbl msg)))
 
 (defun label (cust lbl)
   (make-actor (make-label-beh cust lbl)))
@@ -88,9 +80,8 @@
 ;; ---------------------
 
 (defun make-tag-beh (cust)
-  (make-par-safe-behavior
-   (lambda (&rest msg)
-     (send* cust self msg))))
+  (lambda (&rest msg)
+    (send* cust self msg)))
 
 (defun tag (cust)
   (make-actor (make-tag-beh cust)))
@@ -101,8 +92,7 @@
   (lambda (cust &rest msg)
     (cond ((eq cust tag)
            (become (apply #'make-const-beh msg))
-           (dolist (cust custs)
-             (send self cust)))
+           (apply #'send-to-all custs msg))
           (t
            (become (make-future-wait-beh tag (cons cust custs))))
           )))
@@ -128,7 +118,7 @@
 
 ;; ----------------------------------------
 
-(defmacro blk (args &rest clauses)
+(defmacro blk (args &body body)
   ;; Makes an Actor from a PROGN block of Lisp
   (lw:with-unique-names (cust)
     `(α ,(if (listp args)
@@ -136,7 +126,7 @@
                `(,cust &rest ,args)) ;; handle (BLK _ ...)
        (send ,cust
              (progn
-               ,@clauses)))
+               ,@body)))
     ))
 
 #+:LISPWORKS
@@ -150,15 +140,18 @@
 
 (defun ser ()
   (make-actor
-   (make-par-safe-behavior
-    (lambda (cust lst &rest msg)
-      (if (null lst)
-          (send cust)
-        (let ((me self))
-          (β msg-hd (send* (car lst) β msg)
-            (β msg-tl (send* me β (cdr lst) msg)
-              (multiple-value-call #'send cust (values-list msg-hd) (values-list msg-tl))))
-          ))))))
+   (lambda (cust lst &rest msg)
+     (if (null lst)
+         (send cust)
+       (let ((me self))
+         (β msg-hd (send* (car lst) β msg)
+           (β msg-tl (send* me β (cdr lst) msg)
+             (send-combined-msg cust msg-hd msg-tl)))
+         )))
+   ))
+
+(defun send-combined-msg (cust msg1 msg2)
+  (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
 
 ;; -----------------------------------
 ;; PAR - make an Actor that evaluates a series of blocks concurrently.
@@ -171,27 +164,26 @@
     (cond ((eq lbl lbl1)
            (become (lambda (_ &rest msg2)
                      (declare (ignore _)) ;; _ = lbl arg
-                     (multiple-value-call #'send cust (values-list msg) (values-list msg2)))
+                     (send-combined-msg cust msg msg2))
                    ))
           (t ;; (eq lbl lbl2)
            (become (lambda (_ &rest msg1)
                      (declare (ignore _)) ;; _ = lbl arg
-                     (multiple-value-call #'send cust (values-list msg1) (values-list msg)))
+                     (send-combined-msg cust msg1 msg))
                    ))
           )))
 
 (defun par ()
   (make-actor
-   (make-par-safe-behavior
-    (lambda (cust lst &rest msg)
-      (if (null lst)
-          (send cust)
-        (actors ((join (make-join-beh cust lbl1 lbl2))
-                 (lbl1 (make-tag-beh join))
-                 (lbl2 (make-tag-beh join)))
-          (send* (car lst) lbl1 msg)
-          (send* self lbl2 (cdr lst) msg)))
-      ))))
+   (lambda (cust lst &rest msg)
+     (if (null lst)
+         (send cust)
+       (actors ((join (make-join-beh cust lbl1 lbl2))
+                (lbl1 (make-tag-beh join))
+                (lbl2 (make-tag-beh join)))
+         (send* (car lst) lbl1 msg)
+         (send* self lbl2 (cdr lst) msg)))
+     )))
 
 ;; ---------------------------------------------------------
 #|

@@ -78,8 +78,7 @@ THE SOFTWARE.
    #:current-actor
    #:self
 
-   #:par-safe-behavior
-   #:make-par-safe-behavior
+   #:ensure-par-safe-behavior
    
    #:<runnable>
    #:actor-busy
@@ -214,8 +213,8 @@ THE SOFTWARE.
    #:make-sink-beh
    #:make-println-beh
    #:make-const-beh
-   #:make-one-shot-beh
-   #:make-send-to-all-beh
+   #:make-once-beh
+   #:send-to-all
    #:make-race-beh
    #:make-fwd-beh
    #:make-label-beh

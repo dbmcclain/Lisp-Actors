@@ -100,26 +100,31 @@ THE SOFTWARE.
 (editor:setup-indent "actors" 1)
 
 ;; --------------------------------------
-;; A Par-Behavior is one that does not invoke BECOME, i.e., no state
-;; changes in the Actor.  And which causes no damaging side effects.
-;; Examples are LABEL-BEH, TAG-BEH, CONST-BEH, FWD-BEH.  Actors with
-;; such behavior can support simultaneous parallel execution.
-#|
-;; Unused in thie vesion...
+;; A Par-Safe-Behavior is guaranteed safe for sharing of single
+;; instances across multiple SMP threads. Only one thread at a time is
+;; permitted to execute the behavior code.
+
 (defclass par-safe-behavior ()  ;; A Typed-Function
   ()
   (:metaclass clos:funcallable-standard-class))
 
-(defmethod initialize-instance :after ((obj par-safe-behavior) &key fn &allow-other-keys)
-  (clos:set-funcallable-instance-function obj fn))
+(defun %make-par-safe-beh (beh)
+  (let ((ref (list beh)))
+    (lambda* msg
+      (if (sys:atomic-exchange (car ref) nil)
+          (unwind-protect
+              (apply beh msg)
+            (setf (car ref) beh))
+        (repeat-send self))) ;; try again later
+    ))
+       
+(defmethod initialize-instance :after ((obj par-safe-behavior) &key beh &allow-other-keys)
+  (clos:set-funcallable-instance-function obj (%make-par-safe-beh beh)))
 
-(defun make-par-safe-behavior (fn)
+(defun ensure-par-safe-behavior (fn)
   (check-type fn function)
   (make-instance 'par-safe-behavior
-                 :fn fn))
-|#
-(defun make-par-safe-behavior (fn)
-  fn)
+                 :beh fn))
 
 ;; ----------------------------------
 ;; SPONSORS -- offer event queues and have associated runtime threads
@@ -128,8 +133,6 @@ THE SOFTWARE.
 ;; We have two main Sponsors - a single-threaded one (denoted as :ST
 ;; or NIL), and a multi-threaded one (denoted as :MT or T). We default
 ;; to the :MT Sponsor event queue for maximum parallelism.
-
-(defconstant +nbr-threads+  8)
 
 (defstruct (sponsor
             (:constructor %make-sponsor))
@@ -153,10 +156,11 @@ THE SOFTWARE.
 (defvar *sendx-evts*    nil)   ;; Staging for SENDX
 (defvar *whole-message* nil)   ;; Current Event Message
 (defvar *current-actor* nil)   ;; Current Actor
-(defvar *current-beh*   nil)   ;; Current Behavior
+;; (defvar *current-beh*   nil)   ;; Current Behavior
 
 (define-symbol-macro self     *current-actor*)
-(define-symbol-macro self-beh *current-beh*)
+;; (define-symbol-macro self-beh *current-beh*)
+(define-symbol-macro self-beh (actor-beh self))
 
 ;; Simple Direct Queue ~140ns
 
@@ -195,64 +199,40 @@ THE SOFTWARE.
     ))
 
 ;; -----------------------------------------------------------------
-#||#
 ;; Generic RUN for all threads, across all Sponsors
+
 (defun run-actors (*current-sponsor*)
   (let ((mbox    (sponsor-mbox *current-sponsor*))
-        (queue   (make-queue))
-        ;; (ctr     16)
-        )
-    ;; (declare (fixnum ctr))
+        (queue   (make-queue)))
     (loop
-     (let ((evt (or (popq queue)
-                    (mp:mailbox-read mbox))))
-       (declare (cons evt))
-       (let* ((*current-actor* (car evt))
-              (*whole-message* (cdr evt))
-              (*current-beh*   (sys:atomic-exchange (actor-beh (the actor self)) nil)))
-         (cond (self-beh
-                #|
-                (and self-beh
-                     (or (typep self-beh 'par-safe-behavior)
-                         (sys:compare-and-swap (actor-beh self) self-beh nil)))
-                |#
-                
-                ;; NIL Beh slot indicates busy Actor
-                (let ((*new-beh*     self-beh)
-                      (*send-evts*   nil)
-                      (*sendx-evts*  nil))
-                  (declare (list *sendx-evts*))
-                  ;; ---------------------------------
-                  (with-simple-restart (abort "Handle next event")
-                    (apply (the function self-beh) *whole-message*)
-                      
-                    ;; Effects Commit...
-                    (when *send-evts*
-                      (appendq queue *send-evts*))
-                    (when *sendx-evts*
-                      (dolist (evt *sendx-evts*)
-                        (apply #'mp:mailbox-send evt)))
-                    (when (mp:mailbox-not-empty-p mbox)
-                      (addq queue
-                            (mp:mailbox-read mbox)))
-                    #|
-                    (when (zerop (decf ctr))
-                      (setf ctr 16)
-                      (when (mp:mailbox-not-empty-p mbox)
-                        (addq queue
-                              (mp:mailbox-read mbox))))
-                    |#
-                    (setf *current-beh* *new-beh*)) ;; staged BECOME
-                  ;; ---------------------------------                    
-                  (setf (actor-beh (the actor self)) *current-beh*))) ;; restore Not-Busy
-               
-               (t
-                ;; else - actor was busy
-                ;; (mp:mailbox-send mbox evt)
-                ;; (hcl:unlocked-queue-send queue evt)
-                (addq queue evt))
-               ))))))
-#||#
+     (with-simple-restart (abort "Handle next event")
+       (loop
+        (let ((evt (or (popq queue)
+                       (mp:mailbox-read mbox))))
+          (declare (cons evt))
+          (let* ((*current-actor* (car evt))
+                 (*whole-message* (cdr evt))
+                 (*new-beh*       self-beh)
+                 (*send-evts*     nil)
+                 (*sendx-evts*    nil))
+            (declare (actor    *current-actor*)
+                     (function *new-beh*)
+                     (list     *whole-message* *sendx-evts*))
+            ;; ---------------------------------
+            (apply *new-beh* *whole-message*)
+            
+            ;; Effects Commit...
+            (when *send-evts*
+              (appendq queue *send-evts*))
+            (when *sendx-evts*
+              (dolist (evt *sendx-evts*)
+                (apply #'mp:mailbox-send evt)))
+            (when (mp:mailbox-not-empty-p mbox)
+              (addq queue
+                    (mp:mailbox-read mbox)))
+            (setf self-beh *new-beh*)) ;; staged BECOME
+          ))))))
+
 #|
 (kill-executives)
 (start-actors-system)
