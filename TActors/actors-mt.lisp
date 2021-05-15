@@ -377,13 +377,13 @@ THE SOFTWARE.
 (defun %make-par-safe-beh (beh)
   #F
   (declare (function beh))
-  (let ((ref (list beh)))
+  (let ((ref (list t)))
     (declare (cons ref))
     (lambda* msg
       (if (sys:atomic-exchange (car ref) nil)
           (unwind-protect
               (apply beh msg)
-            (setf (car ref) beh))
+            (setf (car ref) t))
         (repeat-send self))) ;; try again later
     ))
        
