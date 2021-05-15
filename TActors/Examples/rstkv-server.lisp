@@ -71,10 +71,12 @@ storage and network transmission.
   (ver  (uuid:make-null-uuid))
   (chk  (uuid:make-null-uuid)))
 
-(defstruct state
+(defstruct (state
+            (:constructor %make-state))
   main-table
   path
-  sync)
+  sync
+  io-ser)
 
 (defun new-ver ()
   (uuid:make-v1-uuid))
@@ -89,20 +91,24 @@ storage and network transmission.
             um:magic-word
             )))
 
+(defun make-state (&key main-table path)
+  (%make-state
+   :path       path
+   :main-table main-table
+   :io-ser     (io (serializer
+                    (α (cust fn)
+                      (funcall fn cust))))
+   ))
+
 (defun make-remote-api-beh (state)
-  (ensure-par-safe-behavior
-   (let ((io-ser (io (serializer
-                      (α (cust fn)
-                        (funcall fn cust))
-                      ))
-                 ))
-     (dlambda
-       (:shutdown (cust)
-        (unregister-actor self)
-        (send io-ser cust
-              (lambda (cust)
-                (s-save-database cust state))))
-       
+  (ensure-par-safe-behavior ;; because we peform BECOME
+   (dlambda
+     (:shutdown (cust)
+      (unregister-actor self)
+      (send (state-io-ser state) cust
+            (lambda (cust)
+              (s-save-database cust state))))
+     
        (:open (cust) ;; open a transaction
         (send cust (s-open-trans state)))
        
@@ -131,7 +137,7 @@ storage and network transmission.
             (send kbad))))
        
        (:save (cust)
-        (send io-ser cust
+        (send (state-io-ser state) cust
               (lambda (cust)
                 (s-save-database cust state))
               ))
@@ -144,14 +150,14 @@ storage and network transmission.
                            (t _
                               (repeat-send cust))
                            ))))
-          (send io-ser my-cust
+          (send (state-io-ser state) my-cust
                 (lambda (cust)
                   (s-revert-database cust state)))))
          
        (:quit (cust)
         (unregister-actor state)
         (send cust))
-       ))))
+       )))
 
 (defun s-open-trans (state)
   ;; return a new trans
@@ -232,17 +238,23 @@ storage and network transmission.
              (mp:unschedule-timer sync)
              ;; the map adds, and the set dels, must alrady be using
              ;; normalized key reprs
-             (prog1
-                 ;; first remove all overlapping keys before adding back
-                 ;; in new values, since we can't control which cell
-                 ;; gets planted in a union.
-                 (setf tbl (sets:union
-                            (sets:diff
-                             (sets:diff tbl dels)
-                             adds)
-                            adds)
-                       tbl-ver (new-ver))
-               (mp:schedule-timer-relative sync *writeback-delay*)))
+
+             ;; first remove all overlapping keys before adding back
+             ;; in new values, since we can't control which cell
+             ;; gets planted in a union.
+             (let ((new-ver   (new-ver))
+                   (new-tbl   (copy-main-table tbl))
+                   (new-state (copy-state state)))
+               (setf (state-main-table new-state) new-tbl
+                     (main-table-ver new-tbl)     new-ver
+                     (main-table-tbl new-tbl)     (sets:union
+                                                   (sets:diff
+                                                    (sets:diff (main-table-tbl tbl) dels)
+                                                    adds)
+                                                   adds))
+               (become (make-remote-api-beh new-state))
+               (mp:schedule-timer-relative (state-sync state) *writeback-delay*)
+               new-ver))
             ))))
 
 ;; ----------------------------------------------------------------

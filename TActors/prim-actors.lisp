@@ -220,35 +220,41 @@
 ;;
 ;; It would be useful in a single-threaded implementation which must
 ;; continue to dispatch messages to remain lively.
+;;
+;; We default to shared par-safe behavior because SERIALIZERs are
+;; frequently used for shared access to a resource. And since we use
+;; BECOME, we have to make the SERIALIZER have par-safe behavior.
 
 (defun make-serializer-beh (service)
   ;; initial empty state
-  (lambda (cust &rest msg)
-    (let ((tag  (tag self)))
-      (send* service tag msg)
-      (become (make-enqueued-serializer-beh
-               service tag cust nil))
-      )))
+  (ensure-par-safe-behavior
+   (lambda (cust &rest msg)
+     (let ((tag  (tag self)))
+       (send* service tag msg)
+       (become (make-enqueued-serializer-beh
+                service tag cust nil))
+       ))))
 
 (defun make-enqueued-serializer-beh (service tag in-cust queue)
-  (lambda (cust &rest msg)
-    (cond ((eq cust tag)
-           (send* in-cust msg)
-           (if queue
-               (multiple-value-bind (next-req new-queue)
-                   (finger-tree:popq queue)
-                 (destructuring-bind (next-cust . next-msg) next-req
-                   (send* service tag next-msg)
-                   (become (make-enqueued-serializer-beh
-                            service tag next-cust new-queue))
-                   ))
-               ;; else
-               (become (make-serializer-beh service))))
-          (t
-           (become (make-enqueued-serializer-beh
-                    service tag in-cust (finger-tree:addq queue (cons cust msg)))))
-          )))
-
+  (ensure-par-safe-behavior
+   (lambda (cust &rest msg)
+     (cond ((eq cust tag)
+            (send* in-cust msg)
+            (if queue
+                (multiple-value-bind (next-req new-queue)
+                    (finger-tree:popq queue)
+                  (destructuring-bind (next-cust . next-msg) next-req
+                    (send* service tag next-msg)
+                    (become (make-enqueued-serializer-beh
+                             service tag next-cust new-queue))
+                    ))
+              ;; else
+              (become (make-serializer-beh service))))
+           (t
+            (become (make-enqueued-serializer-beh
+                     service tag in-cust (finger-tree:addq queue (cons cust msg)))))
+           ))))
+  
 (defun serializer (service)
   (make-actor (make-serializer-beh service)))
 

@@ -200,15 +200,14 @@ THE SOFTWARE.
           ;; Setup Actor context
           (let* ((*current-actor* (car evt))
                  (*whole-message* (cdr evt))
-                 (*new-beh*       self-beh)
+                 (*new-beh*       nil)
                  (*send-evts*     nil)
                  (*sendx-evts*    nil))
             (declare (actor    *current-actor*)
-                     (function *new-beh*)
                      (list     *whole-message* *sendx-evts*))
             ;; ---------------------------------
             ;; Dispatch to Actor behavior with message args
-            (apply *new-beh* *whole-message*)
+            (apply self-beh *whole-message*)
             
             ;; Commit SEND / BECOME effects
             (when *send-evts*
@@ -218,8 +217,9 @@ THE SOFTWARE.
               ;; Handle cross-Sponsor SENDs
               (dolist (evt *sendx-evts*)
                 (apply #'mp:mailbox-send evt)))
-            ;; Apply staged BECOME
-            (setf self-beh *new-beh*))
+            ;; Apply staged become
+            (when *new-beh*
+              (setf self-beh *new-beh*)))
           ))))))
 
 #|
@@ -367,13 +367,22 @@ THE SOFTWARE.
   (locally
     #F
     (declare (function beh))
-    (let ((ref (list t)))
-      (declare (cons ref))
-      (lambda* msg
-        (if (sys:compare-and-swap (car ref) t nil)
-            (unwind-protect
-                (apply beh msg)
-              (setf (car ref) t))
-          (repeat-send self))) ;; try again later
-      )))
-       
+    ;; Take care to avoid race conditition as a result of BECOME
+    (labels ((go-around-beh (&rest msg)
+               (send* self msg))
+             (restore-behavior (cx)
+               (declare (ignore cx))
+               (setf (actor-beh self) #'swap-out-beh))
+             (swap-out-beh (&rest msg)
+               (if (sys:compare-and-swap (actor-beh self)
+                                         #'swap-out-beh
+                                         #'go-around-beh)
+                   (handler-bind ((error #'restore-behavior))
+                     (progn
+                       (apply beh msg)
+                       (setf (actor-beh self) (or (shiftf *new-beh* nil)
+                                                  #'swap-out-beh))))
+                 ;; else -- something changed beh behind our backs...
+                 (repeat-send self))))
+      #'swap-out-beh)))
+
