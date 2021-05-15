@@ -93,23 +93,10 @@ THE SOFTWARE.
    #:get-actor-names
    #:find-names-for-actor
    
-   #:terminate-actor
-   #:terminate-actors
-
    #:timeout
    #:*timeout*
 
-   #:set-maximum-age
-   #:get-maximum-age
-   #:set-heartbeat-interval
-   #:get-heartbeat-interval
-   #:get-nbr-execs
-   #:set-executive-pool
-
-   #:default-watchdog-function
-   #:*watchdog-hook*
-   #:without-watchdog
-   
+   #:start-actors-system
    #:kill-executives
 
    #:schedule-after
@@ -121,22 +108,9 @@ THE SOFTWARE.
    #:set-printer
    #:set-stream
 
+   #:start
    #:start-tcp-server
    #:terminate-server
-
-   #|
-   #:subscribe
-   #:unsubscribe
-   #:notify
-   #:=subscribe
-   #:=unsubscribe
-   |#
-   
-   #:=async
-   #:=async/err
-
-   #:prt
-   #:pr
 
    #:usti
    #:usti=
@@ -167,7 +141,6 @@ THE SOFTWARE.
    #:make-sink-beh
    #:make-const-beh
    #:make-once-beh
-   #:send-to-all
    #:make-race-beh
    #:make-fwd-beh
    #:make-label-beh
@@ -177,35 +150,13 @@ THE SOFTWARE.
    #:make-serializer-beh
    #:make-timing-beh
    
-   #:call-future
-   #:force
-   #:call-forcing
-   #:=fwait
-
-   #:send-sync
-
-   #:start
-
-   #:defglobal-var
-
-   #:promise
-   #:with-promise
-   #:fulfill
-   #:realize
-
-   #:get-message-dispatch-handler
-
    #:subscribe
    #:notify
    #:unsubscribe
 
-   #:become-remote
-   #:become-local
-   
    #:watch
    #:unwatch
 
-   #:with-worker
    ))
 
 #-lispworks
