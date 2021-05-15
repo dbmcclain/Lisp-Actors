@@ -581,8 +581,8 @@
                                         :title    "Client"
                                         :io-state io-state
                                         :crypto   crypto)))
-                         (@bind ()
-                             (send intf :client-request-srp @bind)
+                         (β ()
+                             (send intf :client-request-srp β)
                            (bridge-pre-register ip-addr intf) ;; anchor for GC
                            (socket-send intf :client-info (machine-instance))))
                      ;; else

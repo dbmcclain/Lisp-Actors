@@ -53,7 +53,7 @@
   (actor (cust arr)
      (β (ffts) (send (fft-farm) β)
        (let ((dst-arr (make-array (reverse (array-dimensions arr)))))
-         (β _ (send (par) β ffts arr dst-arr)
+         (β _ (send par β ffts arr dst-arr)
            (send cust dst-arr)))
        )))
 

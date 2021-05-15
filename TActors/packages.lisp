@@ -56,71 +56,33 @@ THE SOFTWARE.
    #:*sponsor*
    #:*slow-sponsor*
    #:with-sponsor
-   #:sendx
-   #:with-single-thread
-   #:with-multiple-threads
 
    #:@bind
    #:@values
    
-   #:*bitpit*
-   #:*println*
-   #:define-actor-class
    #:send
    #:send*
    #:sendx
    #:sendx*
-   #:ask
-   #:=ask
-   #:get-property
-   #:set-property
-   #:remove-property
-   #:current-actor
    #:self
-
+   #:self-beh
+   
    #:ensure-par-safe-behavior
    
-   #:<runnable>
-   #:actor-busy
    #:worker
-   #:worker-dispatch-wrapper
    #:actor
    #:actor-p
-   #:actor-properties-ref
-   #:actor-mailbox
    #:actor-beh
    #:make-actor
-   #:make-limited-actor
    #:make-remote-actor
    
-   #:current-behavior
    #:become
-   #:self-beh
-   #:in-ask-p
-   #:whole-message
-   #:dispatch-message
    #:repeat-send
-   #:redeliver-messages
-   #:become-recv
    
-   #:spawn
-   #:spawn-limited
    #:spawn-worker
-
-   #:invalid-send-target
-
-   #:schedule-after
-   #:recv
-   #:recv-match
-   #:retry-recv
+   #:with-worker
    
-   #:inject
-   #:exec
-   #:query
-   #:perform-in-actor
-   #:inject-into-actor
-   #:query-actor
-   #:hoare-monitor
+   #:invalid-send-target
 
    #:make-actor-directory
    #:clear-directory
@@ -137,14 +99,6 @@ THE SOFTWARE.
    #:timeout
    #:*timeout*
 
-   #:par
-   #:pmapcar
-   #:parlet
-   #:=non-blocking
-   #:par-any
-   #:=when-any
-   #:=unless-any
-   
    #:set-maximum-age
    #:get-maximum-age
    #:set-heartbeat-interval
@@ -211,7 +165,6 @@ THE SOFTWARE.
    #:sponsor-switch
    
    #:make-sink-beh
-   #:make-println-beh
    #:make-const-beh
    #:make-once-beh
    #:send-to-all

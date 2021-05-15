@@ -216,6 +216,7 @@
 ;; SEND/Dispatch Timing
 #|
 (defun make-send-self-tst ()
+  #F
   (make-actor
    (lambda (cust niter)
      (declare (fixnum niter))

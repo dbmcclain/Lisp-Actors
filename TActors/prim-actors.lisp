@@ -4,7 +4,14 @@
 ;; ------------------------------------------------------
 (in-package :actors/base)
 ;; ------------------------------------------------------
-
+;; There are, broadly, two conventions followed for Actor messages:
+;;
+;;  1. When the Actor behavior is a DLAMBDA-style body, the message
+;;     selector is always the first arg of the message. If a customer
+;;     is indicated, it will be the second arg.
+;;
+;;  2. Otherwise, when a customer is sent, it is generally the first arg.
+;;
 ;; --------------------------------------
 ;; Sink Behaviors
 
@@ -16,12 +23,12 @@
 
 ;; --------------------------------------
 
-(defvar println
-  (make-actor
-   (ensure-par-safe-behavior
-    (lambda* msg
-      (format t "~&~{~A~^ ~}~%" msg))
-    )))
+(setf (symbol-value 'println)
+      (make-actor
+       (ensure-par-safe-behavior
+        (lambda* msg
+          (format t "~&~{~A~^ ~}~%" msg))
+        )))
 
 ;; -------------------------------------
 ;; Non-Sink Behaviors
@@ -116,39 +123,23 @@
       (send* actor tag msg))
     ))
 
-;; ----------------------------------------
-
-(defmacro blk (args &body body)
-  ;; Makes an Actor from a PROGN block of Lisp
-  (lw:with-unique-names (cust)
-    `(α ,(if (listp args)
-                 `(,cust ,@args)
-               `(,cust &rest ,args)) ;; handle (BLK _ ...)
-       (send ,cust
-             (progn
-               ,@body)))
-    ))
-
-#+:LISPWORKS
-(editor:setup-indent "blk" 1)
-
 ;; --------------------------------------
 ;; SER - make an Actor that evaluates a series of blocks sequentially
 ;; - i.e., without concurrency between them.  Each block is fed the
 ;; same initial message, and the results from each block are sent as
 ;; an ordered collection to cust.
 
-(defun ser ()
-  (make-actor
-   (lambda (cust lst &rest msg)
-     (if (null lst)
-         (send cust)
-       (let ((me self))
-         (β msg-hd (send* (car lst) β msg)
-           (β msg-tl (send* me β (cdr lst) msg)
-             (send-combined-msg cust msg-hd msg-tl)))
+(setf (symbol-value 'ser)
+      (make-actor
+       (lambda (cust lst &rest msg)
+         (if (null lst)
+             (send cust)
+           (let ((me self))
+             (β msg-hd (send* (car lst) β msg)
+               (β msg-tl (send* me β (cdr lst) msg)
+                 (send-combined-msg cust msg-hd msg-tl)))
          )))
-   ))
+       ))
 
 (defun send-combined-msg (cust msg1 msg2)
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
@@ -173,21 +164,21 @@
                    ))
           )))
 
-(defun par ()
-  (make-actor
-   (lambda (cust lst &rest msg)
-     (if (null lst)
-         (send cust)
-       (actors ((join (make-join-beh cust lbl1 lbl2))
-                (lbl1 (make-tag-beh join))
-                (lbl2 (make-tag-beh join)))
-         (send* (car lst) lbl1 msg)
-         (send* self lbl2 (cdr lst) msg)))
-     )))
+(setf (symbol-value 'par)
+      (make-actor
+       (lambda (cust lst &rest msg)
+         (if (null lst)
+             (send cust)
+           (actors ((join (make-join-beh cust lbl1 lbl2))
+                    (lbl1 (make-tag-beh join))
+                    (lbl2 (make-tag-beh join)))
+             (send* (car lst) lbl1 msg)
+             (send* self lbl2 (cdr lst) msg)))
+         )))
 
 ;; ---------------------------------------------------------
 #|
-(send (par) println
+(send ser println
       (list
        (blk ()
          :blk1)
@@ -196,7 +187,7 @@
        (blk ()
          :blk3)))
                
-(send (par) println
+(send par println
       (list
        (blk ()
          :blk1)

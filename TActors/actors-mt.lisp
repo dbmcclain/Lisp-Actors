@@ -99,36 +99,6 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "actors" 1)
 
-;; --------------------------------------
-;; A Par-Safe-Behavior is guaranteed safe for sharing of single
-;; instances across multiple SMP threads. Only one thread at a time is
-;; permitted to execute the behavior code.
-
-(defclass par-safe-behavior ()  ;; A Typed-Function
-  ()
-  (:metaclass clos:funcallable-standard-class))
-
-(defun %make-par-safe-beh (beh)
-  #F
-  (declare (function beh))
-  (let ((ref (list beh)))
-    (declare (cons ref))
-    (lambda* msg
-      (if (sys:atomic-exchange (car ref) nil)
-          (unwind-protect
-              (apply beh msg)
-            (setf (car ref) beh))
-        (repeat-send self))) ;; try again later
-    ))
-       
-(defmethod initialize-instance :after ((obj par-safe-behavior) &key beh &allow-other-keys)
-  (clos:set-funcallable-instance-function obj (%make-par-safe-beh beh)))
-
-(defun ensure-par-safe-behavior (fn)
-  (check-type fn function)
-  (make-instance 'par-safe-behavior
-                 :beh fn))
-
 ;; ----------------------------------
 ;; SPONSORS -- offer event queues and have associated runtime threads
 ;; to perform RUN dispatching of Actor events.
@@ -168,6 +138,9 @@ THE SOFTWARE.
 ;; Simple Direct Queue ~140ns
 
 ;; -----------------------------------------------------------------
+
+(declaim (inline make-queue emptyq?))
+
 (defun make-queue ()
   #F
   (list nil))
@@ -384,5 +357,33 @@ THE SOFTWARE.
 (defmacro @values (&rest retvals)
   `(send @bind ,@retvals))
      
-;; ----------------------------------------------
+;; --------------------------------------
+;; A Par-Safe-Behavior is guaranteed safe for sharing of single
+;; instances across multiple SMP threads. Only one thread at a time is
+;; permitted to execute the behavior code.
 
+(defclass par-safe-behavior ()  ;; A Typed-Function
+  ()
+  (:metaclass clos:funcallable-standard-class))
+
+(defmethod initialize-instance :after ((obj par-safe-behavior) &key beh &allow-other-keys)
+  (clos:set-funcallable-instance-function obj (%make-par-safe-beh beh)))
+
+(defun ensure-par-safe-behavior (fn)
+  (check-type fn function)
+  (make-instance 'par-safe-behavior
+                 :beh fn))
+
+(defun %make-par-safe-beh (beh)
+  #F
+  (declare (function beh))
+  (let ((ref (list beh)))
+    (declare (cons ref))
+    (lambda* msg
+      (if (sys:atomic-exchange (car ref) nil)
+          (unwind-protect
+              (apply beh msg)
+            (setf (car ref) beh))
+        (repeat-send self))) ;; try again later
+    ))
+       

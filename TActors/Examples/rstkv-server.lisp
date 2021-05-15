@@ -44,30 +44,13 @@ storage and network transmission.
 
 |#
 
-#|
-(defpackage #:remote-tkv-server
-  (:use #:common-lisp)
-  (:nicknames #:rstkv)
-  (:import-from #:bfly
-   #:!
-   #:!?
-   #:make-service
-   #:unregister-service
-   #:log-info)
+(defpackage #:rstkv-server
+  (:use #:common-lisp #:actors)
   (:export
-   #:make-stk-server
-   #:rollback
-   #:commit
-   #:get-key
-   #:get-keys
-   #:set-key
-   #:delete-key
-   #:map-locally
-   #:save
-   #:revert
-   #:rollback-exception
+   #:*service-id*
+   #:*writeback-delay*
+   #:make-stkv-server
    ))
-|#
 
 (in-package #:rstkv-server)
 
@@ -84,10 +67,13 @@ storage and network transmission.
 ;; ------------------------------------------------
 
 (defstruct main-table
-  path
   (tbl  (maps:empty))
   (ver  (uuid:make-null-uuid))
-  (chk  (uuid:make-null-uuid))
+  (chk  (uuid:make-null-uuid)))
+
+(defstruct state
+  main-table
+  path
   sync)
 
 (defun new-ver ()
@@ -97,160 +83,167 @@ storage and network transmission.
 ;; Server Class as an Actor
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (import '(um:when-let
+  (import '(um:dcase
+            um:dlambda
+            um:accum
+            um:magic-word
             )))
 
-(defun make-remote-api-beh (tbl)
-  (let ((io-ser (io (serializer
-                     (α (cust fn)
-                       (funcall fn cust))
-                     ))
-                ))
-    (lambda (cust &rest msg)
-      (um:dcase msg
-        (:shutdown ()
-         (unregister-actor self)
-         (send io-ser cust
-               (lambda (cust)
-                 (s-save-database cust tbl))))
-      
-        (:open ()
-         (send cust (s-open-trans tbl)))
-      
-        (:commit (kbad ver adds dels)
-         (handler-case
-             (send cust (s-commit-trans tbl ver adds dels))
-           (error ()
-             (send kbad))))
-      
-        (:get-key (kbad ver key)
-         (handler-case
-             (send cust (s-get-database-key tbl ver key))
-           (error ()
-             (send kbad))))
-      
-        (:get-keys (kbad ver keys)
-         (handler-case
-             (send cust (s-get-database-keys tbl ver keys))
-           (error ()
-             (send kbad))))
-      
-        (:get-all-keys (kbad ver)
-         (handler-case
-             (send cust (s-get-all-database-keys tbl ver))
-           (error ()
-             (send kbad))))
-      
-        (:save ()
-         (send io-ser cust
-               (lambda (cust)
-                 (s-save-database cust tbl))
-               ))
-      
-        (:revert (kbad)
-         (let ((my-cust (α msg
-                          (um:dcase msg
-                            (:UNDEFINED _
-                             (send kbad))
-                            (t _
-                             (repeat-send cust))
-                            ))))
-           (send io-ser my-cust
-               (lambda (cust)
-                 (s-revert-database cust tbl)))))
-      
-        (:quit ()
-         (unregister-actor tbl)
-         (send cust))
-        ))))
+(defun make-remote-api-beh (state)
+  (ensure-par-safe-behavior
+   (let ((io-ser (io (serializer
+                      (α (cust fn)
+                        (funcall fn cust))
+                      ))
+                 ))
+     (dlambda
+       (:shutdown (cust)
+        (unregister-actor self)
+        (send io-ser cust
+              (lambda (cust)
+                (s-save-database cust state))))
+       
+       (:open (cust) ;; open a transaction
+        (send cust (s-open-trans state)))
+       
+       (:commit (cust kbad ver adds dels)
+        (handler-case
+            (send cust (s-commit-trans state ver adds dels))
+          (error ()
+            (send kbad))))
+       
+       (:get-key (cust kbad ver key)
+        (handler-case
+            (send cust (s-get-database-key state ver key))
+          (error ()
+            (send kbad))))
+       
+       (:get-keys (cust kbad ver keys)
+        (handler-case
+            (send cust (s-get-database-keys state ver keys))
+          (error ()
+            (send kbad))))
+         
+       (:get-all-keys (cust kbad ver)
+        (handler-case
+            (send cust (s-get-all-database-keys state ver))
+          (error ()
+            (send kbad))))
+       
+       (:save (cust)
+        (send io-ser cust
+              (lambda (cust)
+                (s-save-database cust state))
+              ))
+         
+       (:revert (cust kbad)
+        (let ((my-cust (α msg
+                         (dcase msg
+                           (:UNDEFINED _
+                            (send kbad))
+                           (t _
+                              (repeat-send cust))
+                           ))))
+          (send io-ser my-cust
+                (lambda (cust)
+                  (s-revert-database cust state)))))
+         
+       (:quit (cust)
+        (unregister-actor state)
+        (send cust))
+       ))))
 
-(defun s-open-trans (main-table)
+(defun s-open-trans (state)
   ;; return a new trans
-  (main-table-ver main-table))
+  (with-accessors ((main-table state-main-table)) state
+    (main-table-ver main-table)))
 
-(defun s-get-database-key (main-table ver key)
-  (declare (main-table main-table))
-  (with-accessors ((tbl-ver main-table-ver)
-                   (tbl     main-table-tbl)) main-table
-    (cond ((uuid:uuid< ver tbl-ver)
-           ;; nope - outdated, try again
-           (error +rollback-exception+))
-          
-          (t
-           (maps:find tbl key))
-          )))
-
-(defun s-get-database-keys (main-table ver keys)
-  (declare (main-table main-table))
-  (with-accessors ((tbl-ver main-table-ver)
-                   (tbl     main-table-tbl)) main-table
-    (cond ((uuid:uuid< ver tbl-ver)
-           ;; nope - outdated, try again
-           (error +rollback-exception+))
+(defun s-get-database-key (state ver key)
+  (with-accessors ((main-table state-main-table)) state
+    (declare (main-table main-table))
+    (with-accessors ((tbl-ver main-table-ver)
+                     (tbl     main-table-tbl)) main-table
+      (cond ((uuid:uuid< ver tbl-ver)
+             ;; nope - outdated, try again
+             (error +rollback-exception+))
             
-          (t
-           (um:accum acc
-             (mapc (lambda (key)
-                     (acc (cons key
-                                (multiple-value-list
-                                 (maps:find tbl key)))
-                          ))
-                   keys)))
-          )))
+            (t
+             (maps:find tbl key))
+            ))))
 
-(defun s-get-all-database-keys (main-table ver)
-  (declare (main-table main-table))
-  (with-accessors ((tbl-ver main-table-ver)
-                   (tbl  main-table-tbl)) main-table
-    (cond ((uuid:uuid< ver tbl-ver)
-           ;; nope - outdated, try again
-           (error +rollback-exception+))
-          
-          (t
-           (um:accum acc
-             (maps:iter tbl
-                        (lambda (k v)
-                          (declare (ignore v))
-                          (acc k)))
-             ))
-          )))
+(defun s-get-database-keys (state ver keys)
+  (with-accessors ((main-table state-main-table)) state
+    (declare (main-table main-table))
+    (with-accessors ((tbl-ver main-table-ver)
+                     (tbl     main-table-tbl)) main-table
+      (cond ((uuid:uuid< ver tbl-ver)
+             ;; nope - outdated, try again
+             (error +rollback-exception+))
+            
+            (t
+             (accum acc
+               (mapc (lambda (key)
+                       (acc (cons key
+                                  (multiple-value-list
+                                   (maps:find tbl key)))
+                            ))
+                     keys)))
+            ))))
+
+(defun s-get-all-database-keys (state ver)
+  (with-accessors ((main-table state-main-table)) state
+    (declare (main-table main-table))
+    (with-accessors ((tbl-ver main-table-ver)
+                     (tbl  main-table-tbl)) main-table
+      (cond ((uuid:uuid< ver tbl-ver)
+             ;; nope - outdated, try again
+             (error +rollback-exception+))
+            
+            (t
+             (accum acc
+               (maps:iter tbl
+                          (lambda (k v)
+                            (declare (ignore v))
+                            (acc k)))
+               ))
+            ))))
 
 (defvar *writeback-delay*  10)
 
-(defun s-commit-trans (main-table ver adds dels)
+(defun s-commit-trans (state ver adds dels)
   ;; either update main table with trans and return a new ID, or
   ;; else signal a rollback error - client needs to start again
   ;; with a fresh :open-trans
 
   ;; commit changes, returning new version ID
-  (declare (main-table main-table))
-  (with-accessors ((tbl-ver main-table-ver)
-                   (tbl     main-table-tbl)
-                   (sync    main-table-sync)) main-table
-    (cond ((uuid:uuid< ver tbl-ver)
-           ;; nope - outdated, try again
-           (error +rollback-exception+))
-          
-          ((and (sets:is-empty adds)
-                (sets:is-empty dels))
-           tbl-ver)
-          
-          (t
-           (mp:unschedule-timer sync)
-           ;; the map adds, and the set dels, must alrady be using
-           ;; normalized key reprs
-           (prog1
-               ;; first remove all overlapping keys before adding back
-               ;; in new values, since we can't control which cell
-               ;; gets planted in a union.
-               (setf tbl (sets:union
-                          (sets:diff
-                           (sets:diff tbl dels)
-                           adds)
-                          adds)
-                     tbl-ver (new-ver))
-             (mp:schedule-timer-relative sync *writeback-delay*)))
-          )))
+  (with-accessors ((tbl   state-main-table)
+                   (sync  state-sync)) state
+    (declare (main-table main-table))
+    (with-accessors ((tbl-ver main-table-ver)) tbl
+      (cond ((uuid:uuid< ver tbl-ver)
+             ;; nope - outdated, try again
+             (error +rollback-exception+))
+            
+            ((and (sets:is-empty adds)
+                  (sets:is-empty dels))
+             tbl-ver)
+            
+            (t
+             (mp:unschedule-timer sync)
+             ;; the map adds, and the set dels, must alrady be using
+             ;; normalized key reprs
+             (prog1
+                 ;; first remove all overlapping keys before adding back
+                 ;; in new values, since we can't control which cell
+                 ;; gets planted in a union.
+                 (setf tbl (sets:union
+                            (sets:diff
+                             (sets:diff tbl dels)
+                             adds)
+                            adds)
+                       tbl-ver (new-ver))
+               (mp:schedule-timer-relative sync *writeback-delay*)))
+            ))))
 
 ;; ----------------------------------------------------------------
 
@@ -263,87 +256,89 @@ storage and network transmission.
 
 ;; -----------------------------
 
-(defun s-revert-database (cust main-table)
-  (declare (main-table main-table))
-  (with-accessors ((ver  main-table-ver)
-                   (chk  main-table-chk)
-                   (tbl  main-table-tbl)
-                   (path main-table-path)) main-table
-    (if (probe-file path)
-        (restart-case
-            (with-open-file (f path
-                               :direction :input
-                               :element-type '(unsigned-byte 8))
+(defun s-revert-database (cust state)
+  (with-accessors ((main-table  state-main-table)
+                   (path        state-path)) state
+    (declare (main-table main-table))
+    (with-accessors ((ver  main-table-ver)
+                     (chk  main-table-chk)
+                     (tbl  main-table-tbl)) main-table
+      (if (probe-file path)
+          (restart-case
+              (with-open-file (f path
+                                 :direction :input
+                                 :element-type '(unsigned-byte 8))
               
-              (optima:match (loenc:deserialize f
-                                               :use-magic (um:magic-word "STKV"))
-                ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
-                 (setf tbl (lzw:decompress new-table)
-                       ver new-ver
-                       chk new-ver)
-                 (log-info :system-log
-                           (format nil "Loaded STKV Store ~A:~A" path new-ver))
-                 (send cust new-ver))
+                (optima:match (loenc:deserialize f
+                                                 :use-magic (magic-word "STKV"))
+                  ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
+                   (setf tbl (lzw:decompress new-table)
+                         ver new-ver
+                         chk new-ver)
+                   (log-info :system-log
+                             (format nil "Loaded STKV Store ~A:~A" path new-ver))
+                   (send cust new-ver))
                 
-                (_
-                 (error "Not an STKV Persistent Store: ~A" path))
-                ))
-          (abort ()
-            (send cust :UNDEFINED))
-          )
-      ;; else - no persistent copy, just reset to initial state
-      (send cust (setf tbl  (maps:empty)
-                       ver  (uuid:make-null-uuid)
-                       chk  ver))
-      )))
+                  (_
+                   (error "Not an STKV Persistent Store: ~A" path))
+                  ))
+            (abort ()
+              (send cust :UNDEFINED))
+            )
+        ;; else - no persistent copy, just reset to initial state
+        (send cust (setf tbl  (maps:empty)
+                         ver  (uuid:make-null-uuid)
+                         chk  ver))
+        ))))
 
 ;; ---------------------------------
 
-(defun s-save-database (cust main-table)
-  (declare (main-table main-table))
-  (with-accessors ((ver   main-table-ver)
-                   (chk   main-table-chk)
-                   (tbl   main-table-tbl)
-                   (path  main-table-path)) main-table
-    (if (uuid:uuid= ver chk) ;; anything actually changed?
-        (send cust ver)
-      (β ()
-          (send (α (cust)
-                  (ensure-directories-exist path)
-                  (send cust))
-                β)
-        (β msg
+(defun s-save-database (cust state)
+  (with-accessors ((main-table state-main-table)
+                   (path       state-path)) state
+    (declare (main-table main-table))
+    (with-accessors ((ver   main-table-ver)
+                     (chk   main-table-chk)
+                     (tbl   main-table-tbl)) main-table
+      (if (uuid:uuid= ver chk) ;; anything actually changed?
+          (send cust ver)
+        (β ()
             (send (α (cust)
-                    (restart-case
-                        (with-open-file (f path
-                                           :direction :output
-                                           :if-exists :rename
-                                           :if-does-not-exist :create
-                                           :element-type '(unsigned-byte 8))
-                          
-                          (loenc:serialize
-                           (list +stkv-signature+
-                                 (format nil
-                                         " --- This is an STKV-SERVER Persistent Store, Version: ~A, Created: ~A --- "
-                                         ver (uuid:when-created ver))
-                                 ver
-                                 (lzw:compress tbl))
-                           f
-                           :use-magic (um:magic-word "STKV"))
-                          (setf chk ver)
-                          (send cust))
-                      (abort ()
-                        (send cust :UNDEFINED))))
+                    (ensure-directories-exist path)
+                    (send cust))
                   β)
-          (um:dcase msg
-            (:UNDEFINED _
-             (repeat-send cust))
-            (t _
-               (log-info :system-log
-                         (format nil "Saved STKV Store ~A:~A" path ver))
-               (send cust ver))
-            ))))
-    ))
+          (β msg
+              (send (α (cust)
+                      (restart-case
+                          (with-open-file (f path
+                                             :direction :output
+                                             :if-exists :rename
+                                             :if-does-not-exist :create
+                                             :element-type '(unsigned-byte 8))
+                          
+                            (loenc:serialize
+                             (list +stkv-signature+
+                                   (format nil
+                                           " --- This is an STKV-SERVER Persistent Store, Version: ~A, Created: ~A --- "
+                                           ver (uuid:when-created ver))
+                                   ver
+                                   (lzw:compress tbl))
+                             f
+                             :use-magic (magic-word "STKV"))
+                            (setf chk ver)
+                            (send cust :OK))
+                        (abort ()
+                          (send cust :UNDEFINED))))
+                    β)
+            (dcase msg
+              (:UNDEFINED _
+               (repeat-send cust))
+              (t _
+                 (log-info :system-log
+                           (format nil "Saved STKV Store ~A:~A" path ver))
+                 (send cust :OK ver))
+              ))))
+      )))
 
 ;; ---------------------------------------------------------------
 ;; bare minimum services offered - keeps comm traffic to a minimum
@@ -410,21 +405,23 @@ storage and network transmission.
                         (registration *service-id*))
   (let* ((make-new-server
           (α (cust)
-            (let* ((tbl    (make-main-table
-                            :path  path))
-                   (server (make-actor (make-remote-api-beh tbl)))
+            (let* ((tbl    (make-main-table))
+                   (state  (make-state
+                            :path       path
+                            :main-table tbl))
+                   (server (make-actor (make-remote-api-beh state)))
                    (key    (namestring (truename path)))
                    (fwd    (α _
                              (maps:addf *stkv-servers* key server)
                              (send cust server))))
-              (setf (main-table-sync tbl)
+              (setf (state-sync state)
                     (mp:make-timer 'mp:funcall-async #'send server (sink) :save))
               (if (probe-file path)
-                  (s-revert-database fwd tbl)
+                  (s-revert-database fwd state)
                 (progn
                   ;; file doesn't exist - so create it
                   (setf (main-table-ver tbl) (new-ver))
-                  (s-save-database fwd tbl)))
+                  (s-save-database fwd state)))
               )))
          (get-new-or-existing
           (α (cust)
@@ -444,20 +441,22 @@ storage and network transmission.
       (send cust server))))
 #|
 (make-stkv-server (sink))
-(find-actor println :rstkv)
+(β (act)
+    (find-actor β :rstkv)
+  (inspect act))
 
 (let ((kbad (α ()
               (send println "Rollback Exception"))))
   (β (rstkv)
       (find-actor β :rstkv)
     (β (ver)
-        (send rstkv β :open)
+        (send rstkv :open β)
         ;; (send β 0)
       (β (keys)
-          (send rstkv β :get-all-keys kbad ver)
+          (send rstkv :get-all-keys β kbad ver)
         (send println (mapcar #'loenc:decode keys))
         (β (data)
-            (send rstkv β :get-key kbad ver (loenc:encode :pi))
+            (send rstkv :get-key β kbad ver (loenc:encode :pi))
           (send println (lzw:decompress data)))))))
 |#
 

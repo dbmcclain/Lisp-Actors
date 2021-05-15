@@ -443,11 +443,11 @@
 
 (defun make-basic-services ()
   (register-actor :echo
-                  (blk (&rest msg)
-                    msg))
+                  (actor (cust &rest msg)
+                    (send cust msg)))
   (register-actor :eval
-                  (blk (&rest msg)
-                    (funcall (apply #'cmpfn msg)))))
+                  (actor (cust &rest msg)
+                    (send cust (funcall (apply #'cmpfn msg))))))
 
 ;; ----------------------------------------------------------------------
 ;; SEND across network connections - never blocks.
