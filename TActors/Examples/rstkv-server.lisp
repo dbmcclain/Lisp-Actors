@@ -415,7 +415,7 @@ storage and network transmission.
                              (maps:addf *stkv-servers* key server)
                              (send cust server))))
               (setf (state-sync state)
-                    (mp:make-timer 'mp:funcall-async #'send server (sink) :save))
+                    (mp:make-timer #'mp:funcall-async #'send server :save (sink)))
               (if (probe-file path)
                   (s-revert-database fwd state)
                 (progn
