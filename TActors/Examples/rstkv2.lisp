@@ -193,7 +193,7 @@ storage and network transmission.
 
 (defun rem-ks (map ks)
   (dolist (k ks)
-    (setf map (rem-kv map k)))
+    (setf map (rem-k map k)))
   map)
 
 (defun find-k (map k)
@@ -394,15 +394,18 @@ storage and network transmission.
                 ))))
          (get-new-or-existing
           (α (cust)
-            (cond ((probe-file path)
-                   (let* ((key    (namestring (truename path)))
-                          (server (maps:find *stkv-servers* key)))
-                     (if server
-                         (send cust server)
-                       (send make-new-server cust))))
-                  (t
-                   (send make-new-server cust))
-                  ))))
+            (β (tf)
+                (mp:funcall-async (lambda ()
+                                    (send β (probe-file path))))
+              (cond (tf
+                     (let* ((key    (namestring (truename path)))
+                            (server (maps:find *stkv-servers* key)))
+                       (if server
+                           (send cust server)
+                         (send make-new-server cust))))
+                    (t
+                     (send make-new-server cust))
+                    )))))
     (β (server)
         (send get-new-or-existing β)
       (when registration

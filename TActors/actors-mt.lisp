@@ -129,15 +129,13 @@ THE SOFTWARE.
 (defvar *sendx-evts*    nil)   ;; Staging for SENDX
 (defvar *whole-message* nil)   ;; Current Event Message
 (defvar *current-actor* nil)   ;; Current Actor
-;; (defvar *current-beh*   nil)   ;; Current Behavior
 
 (define-symbol-macro self     *current-actor*)
-;; (define-symbol-macro self-beh *current-beh*)
 (define-symbol-macro self-beh (actor-beh self))
 
-;; Simple Direct Queue ~140ns
-
 ;; -----------------------------------------------------------------
+;; Fast Imperative Queue
+;; Simple Direct Queue ~74ns SEND/dispatch
 
 (declaim (inline make-queue emptyq?))
 
