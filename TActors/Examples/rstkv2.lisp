@@ -308,7 +308,9 @@ storage and network transmission.
            (become (make-sync-beh server state tag))
            )))
       (:write (state) when (eq cust tag)
-       (mp:funcall-async #'save-database state))
+       (send (io (α _
+                   (save-database state)))
+             (sink)))
       )))
   
 ;; ---------------------------------------------------------------
@@ -386,7 +388,9 @@ storage and network transmission.
   (let* ((make-new-server
           (α (cust)
             (β (state)
-                (mp:funcall-async #'read-database β path)
+                (send (io (α (cust)
+                            (read-database cust path)))
+                      β)
               (actors ((server (make-kv-database-beh state sync))
                        (sync   (make-sync-beh server nil nil)))
                 (maps:addf *stkv-servers* (kv-state-path state) server)
@@ -395,8 +399,9 @@ storage and network transmission.
          (get-new-or-existing
           (α (cust)
             (β (tf)
-                (mp:funcall-async (lambda ()
-                                    (send β (probe-file path))))
+                (send (io (α (cust)
+                            (send cust (probe-file path))))
+                      β)
               (cond (tf
                      (let* ((key    (namestring (truename path)))
                             (server (maps:find *stkv-servers* key)))
