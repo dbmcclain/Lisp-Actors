@@ -79,26 +79,37 @@ storage and network transmission.
 (defstruct kv-state
   path
   (ver  (uuid:make-null-uuid))
-  (map  (maps:empty))
-  sync)
+  (map  (maps:empty)))
 
-(defun copy-state-with (state &key path ver map sync)
+(defun copy-state-with (state &key path ver map)
   (make-kv-state
    :path (or path (kv-state-path state))
    :ver  (or ver  (kv-state-ver  state))
    :map  (or map  (kv-state-map  state))
-   :sync (or sync (kv-state-sync state))))
+   ))
+
+;; ---------------------------------------------------
+;; Purely Functional Banker's Queue
+;; Empty Queue is NIL
+
+(defun q-norm (q)
+  (if (car q)
+      q
+    (when (cdr q)
+      (list (reverse (cdr q))) )))
+
+(defun q-put (q x)
+  (q-norm (cons (car q) (cons x (cdr q)))))
+
+(defun q-take (q)
+  (if q
+      (values (caar q)
+              (q-norm (cons (cdar q) (cdr q))))
+    (error "Empty Queue")))
 
 ;; ---------------------------------------------------
 
-(defun make-kv-setup-beh (state creator)
-  (lambda (cust &rest msg)
-    (um:dcase msg
-      (:USE-SYNC (sync) when (eq cust creator)
-       (become (make-kv-database-beh (copy-state-with state :sync sync))))
-      )))
-
-(defun make-kv-database-beh (state)
+(defun make-kv-database-beh (state sync)
   (with-accessors ((kv-map  kv-state-map)) state
     (lambda (cust &rest msg)
       (um:dcase msg
@@ -111,14 +122,13 @@ storage and network transmission.
         (:write (updatefn)
          (let ((writer (make-writer cust updatefn kv-map )))
            (send writer self)
-           (become (make-locked-db-beh writer state nil))))
+           (become (make-locked-db-beh writer state sync nil))))
         ))))
 
 ;; ---------------------------------------------------
 
-(defun make-locked-db-beh (writer state pend-wr)
-  (with-accessors ((kv-map  kv-state-map)
-                   (kv-sync kv-state-sync)) state
+(defun make-locked-db-beh (writer state sync pend-wr)
+  (with-accessors ((kv-map  kv-state-map)) state
     (lambda (cust &rest msg)
       (um:dcase msg
         
@@ -128,9 +138,9 @@ storage and network transmission.
            (send cust (funcall queryfn kv-map) )))
       
         (:write (updatefn)
-         (become (make-locked-db-beh writer state
-                                     (finger-tree:addq pend-wr
-                                                       (cons cust updatefn) ))))
+         (become (make-locked-db-beh writer state sync
+                                     (q-put pend-wr
+                                            (cons cust updatefn) ))))
         
         (:update (new-map wr-cust) when (eq cust writer)
          (send wr-cust self)
@@ -141,18 +151,18 @@ storage and network transmission.
                        (let ((new-state (copy-state-with state
                                                          :map new-map
                                                          :ver (new-ver))))
-                         (send kv-sync self :update new-state)
+                         (send sync self :update new-state)
                          new-state))
                       )))
            (cond (pend-wr
                   (multiple-value-bind (pair new-queue)
-                      (finger-tree:popq pend-wr)
+                      (q-take pend-wr)
                     (let ((new-writer (make-writer (car pair) (cdr pair) new-map)))
                       (send new-writer self)
-                      (become (make-locked-db-beh new-writer new-state new-queue))
+                      (become (make-locked-db-beh new-writer new-state sync new-queue))
                       )))
                  (t
-                  (become (make-kv-database-beh new-state)))
+                  (become (make-kv-database-beh new-state sync)))
                  )))
         ))))
 
@@ -230,7 +240,7 @@ storage and network transmission.
 
 ;; -----------------------------
 
-(defun read-database (path)
+(defun read-database (cust path)
   (if (probe-file path)
       (with-open-file (f path
                          :direction :input
@@ -241,10 +251,10 @@ storage and network transmission.
           ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
            (log-info :system-log
                      (format nil "Loaded STKV Store ~A~%Created: ~A" path (uuid:when-created new-ver)))
-           (make-kv-state
-            :path (namestring (truename path))
-            :map  (lzw:decompress new-table)
-            :ver  new-ver))
+           (send cust (make-kv-state
+                       :path (namestring (truename path))
+                       :map  (lzw:decompress new-table)
+                       :ver  new-ver)))
           
           (_
            (error "Not an STKV Persistent Store: ~A" path))
@@ -253,8 +263,8 @@ storage and network transmission.
     (let ((tmp-state (make-kv-state
                       :path  path)))
       (save-database tmp-state)
-      (make-kv-state
-       :path  (namestring (truename path))))
+      (send cust (make-kv-state
+                  :path  (namestring (truename path)))))
     ))
 
 ;; ---------------------------------
@@ -375,13 +385,13 @@ storage and network transmission.
                         (registration *service-id*))
   (let* ((make-new-server
           (α (cust)
-            (let* ((state  (read-database path))
-                   (server (make-actor (make-kv-setup-beh state self)))
-                   (sync   (make-actor (make-sync-beh server nil nil))))
-              (send server self :use-sync sync)
-              (maps:addf *stkv-servers* (kv-state-path state) server)
-              (send cust server)
-              )))
+            (β (state)
+                (mp:funcall-async #'read-database β path)
+              (actors ((server (make-kv-database-beh state sync))
+                       (sync   (make-sync-beh server nil nil)))
+                (maps:addf *stkv-servers* (kv-state-path state) server)
+                (send cust server)
+                ))))
          (get-new-or-existing
           (α (cust)
             (cond ((probe-file path)
