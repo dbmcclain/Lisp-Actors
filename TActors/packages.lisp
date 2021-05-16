@@ -69,18 +69,15 @@ THE SOFTWARE.
    
    #:ensure-par-safe-behavior
    
-   #:worker
    #:actor
    #:actor-p
    #:actor-beh
    #:make-actor
    #:make-remote-actor
+   #:with-worker
    
    #:become
    #:repeat-send
-   
-   #:spawn-worker
-   #:with-worker
    
    #:invalid-send-target
 

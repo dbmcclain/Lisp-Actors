@@ -317,27 +317,10 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "with-sponsor" 1)
 
-;; ----------------------------------------------
-;; WORKER is just a function that executes on an external thread.
-;;
-;; WORKER is intended as a lightweight vehicle to perform non
-;; Actor-centric duties, e.g., blocking I/O. It will see a null value
-;; from SELF, just like non-Actor code running on any other
-;; thread.
-
-(defun spawn-worker (fn &rest args)
-  (apply #'mp:funcall-async fn args))
-
-(defmacro with-worker (bindings &body body)
-  (let ((args (mapcar #'first bindings))
-        (vals (mapcar #'second bindings)))
-    `(spawn-worker (lambda* ,args
-                     ,@body)
-                   ,@vals)
-    ))
-
-#+:LISPWORKS
-(editor:setup-indent "with-worker" 1)
+(defmacro with-worker (&body body)
+  `(β _
+       (send β)
+     ,@body))
 
 ;; ----------------------------------------------
 
@@ -352,9 +335,6 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:indent-like "@bind" 'destructuring-bind)
 
-(defmacro @values (&rest retvals)
-  `(send @bind ,@retvals))
-     
 ;; --------------------------------------
 ;; A Par-Safe-Behavior is guaranteed safe for sharing of single
 ;; instances across multiple SMP threads. Only one thread at a time is

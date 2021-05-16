@@ -115,9 +115,8 @@ storage and network transmission.
       (um:dcase msg
         
         (:read (queryfn)
-         (β ()
-             (send β)
-           (send cust (funcall queryfn kv-map) )))
+         (with-worker
+          (send cust (funcall queryfn kv-map) )))
 
         (:write (updatefn)
          (let ((writer (make-writer cust updatefn kv-map )))
@@ -133,8 +132,7 @@ storage and network transmission.
       (um:dcase msg
         
         (:read (queryfn)
-         (β ()
-             (send β)
+         (with-worker
            (send cust (funcall queryfn kv-map) )))
       
         (:write (updatefn)
@@ -165,6 +163,23 @@ storage and network transmission.
                   (become (make-kv-database-beh new-state sync)))
                  )))
         ))))
+
+;; ---------------------------------------------
+
+(defun make-writer (cust updatefn map)
+  (make-actor
+   (lambda (db)
+     ;; We need to return a map to release the locked db.
+     ;; If anything goes wrong, just return the original.
+     (let ((ans (or (handler-case
+                        (let ((new-map (funcall updatefn map)))
+                          (maps:find new-map #()) ;; will err if new-map isn't a MAP
+                          new-map)
+                      (error ()
+                        nil))
+                    map)))
+       (send db self :update ans cust)
+     ))))
 
 ;; ---------------------------------------------------
 
@@ -213,24 +228,6 @@ storage and network transmission.
 (defun is-map? (map)
   ;; just try to tickle an error if map isn't a map
   (maps:find map #()))
-
-;; ---------------------------------------------
-
-(defun make-writer (cust updatefn map)
-  (make-actor
-   (lambda (db)
-     (send db self :update
-           ;; we need to return a map to release the locked db
-           ;; if anything goes wrong, just return the original
-           (or (handler-case
-                   (let ((new-map (funcall updatefn map)))
-                     (maps:find new-map #()) ;; will err if new-map isn't a map
-                     new-map)
-                 (error ()
-                   nil))
-               map)
-           cust)
-     )))
 
 (defun query (cust kv-serv query-fn)
   (send kv-serv cust :read query-fn))
