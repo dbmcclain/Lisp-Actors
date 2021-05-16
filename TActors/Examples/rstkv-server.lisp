@@ -91,73 +91,118 @@ storage and network transmission.
             um:magic-word
             )))
 
-(defun make-state (&key main-table path)
+;; ------------------------------------------------
+
+(defun make-initial-state (&key main-table path)
   (%make-state
    :path       path
    :main-table main-table
+   ;; io-ser needs to persist across BECOME
    :io-ser     (io (serializer
                     (α (cust fn)
                       (funcall fn cust))))
    ))
 
-(defun make-remote-api-beh (state)
-  (ensure-par-safe-behavior ;; because we peform BECOME
-   (dlambda
-     (:shutdown (cust)
-      (unregister-actor self)
-      (send (state-io-ser state) cust
-            (lambda (cust)
-              (s-save-database cust state))))
-     
-       (:open (cust) ;; open a transaction
-        (send cust (s-open-trans state)))
-       
-       (:commit (cust kbad ver adds dels)
-        (handler-case
-            (send cust (s-commit-trans state ver adds dels))
-          (error ()
-            (send kbad))))
-       
-       (:get-key (cust kbad ver key)
-        (handler-case
-            (send cust (s-get-database-key state ver key))
-          (error ()
-            (send kbad))))
-       
-       (:get-keys (cust kbad ver keys)
-        (handler-case
-            (send cust (s-get-database-keys state ver keys))
-          (error ()
-            (send kbad))))
+(defun finalize-state (state server)
+  (setf (state-sync state)
+        (mp:make-timer #'mp:funcall-async #'send server :save (sink) )))
+
+;; ------------------------------------------------
+
+(defun make-kv-server-beh (state)
+  ;; Actual (internal) kv-store server
+  (with-accessors ((io-ser  state-io-ser)) state
+    (ensure-par-safe-behavior
+     ;; -- because we mutate local state
+     (lambda (cust &rest msg)
+       (um:dcase msg
+         (:open () ;; open a transaction
+          (send cust (s-open-trans state)))
          
-       (:get-all-keys (cust kbad ver)
-        (handler-case
-            (send cust (s-get-all-database-keys state ver))
-          (error ()
-            (send kbad))))
-       
-       (:save (cust)
-        (send (state-io-ser state) cust
-              (lambda (cust)
-                (s-save-database cust state))
-              ))
+         (:commit (kbad ver adds dels)
+          (handler-case
+              (send cust (s-commit-trans state ver adds dels))
+            (error ()
+              (send kbad))))
          
-       (:revert (cust kbad)
-        (let ((my-cust (α msg
+         (:get-key (kbad ver key)
+          (handler-case
+              (send cust (s-get-database-key state ver key))
+            (error ()
+              (send kbad))))
+         
+         (:get-keys (kbad ver keys)
+          (handler-case
+              (send cust (s-get-database-keys state ver keys))
+            (error ()
+              (send kbad))))
+         
+         (:get-all-keys (kbad ver)
+          (handler-case
+              (send cust (s-get-all-database-keys state ver))
+            (error ()
+              (send kbad))))
+         
+         (:save ()
+          (send io-ser cust
+                (lambda (cust)
+                  (s-save-database cust state))
+                ))
+         
+         (:revert (kbad)
+          (let ((my-cust (α msg
                          (dcase msg
                            (:UNDEFINED _
                             (send kbad))
                            (t _
                               (repeat-send cust))
                            ))))
-          (send (state-io-ser state) my-cust
-                (lambda (cust)
-                  (s-revert-database cust state)))))
-         
-       (:quit (cust)
-        (unregister-actor state)
-        (send cust))
-       )))
+            (send io-ser my-cust
+                  (lambda (cust)
+                    (s-revert-database cust state)))))
+         )))))
+  
+(defun make-remote-api-beh (kv-ser)
+  ;; Gateway service using a RW Serializer
+  (lambda (cust &rest msg)
+    (um:dcase msg
+      (:open ()
+       ;; open a transaction - returns current version
+       (send kv-ser cust :read :open))
+    
+      (:get-key (kbad ver key)
+       (send kv-ser cust :read :get-key kbad ver key))
+      
+      (:get-keys (kbad ver keys)
+       (send kv-ser cust :read :get-keys kbad ver keys))
+      
+      (:get-all-keys (kbad ver)
+       (send kv-ser cust :read :get-all-keys kbad ver))
+      
+      (:commit (kbad ver adds dels)
+       ;; update with eventual save
+       (send kv-ser cust :write :commit kbad ver adds dels))
+      
+      (:save ()
+       ;; save now
+       (send kv-ser cust :write :save))
+      
+      (:revert (kbad)
+       ;; revert now
+       (send kv-ser cust :write :revert kbad))
+      
+      (:shutdown ()
+       ;; orderly shutdown with save
+       (unregister-actor self)
+       (send kv-ser cust :write :save))
+    
+      (:kill ()
+       ;; stop serving - database in indeterminate state
+       (unregister-actor self)
+       (send cust :killed))
+      )))
+
+;; ------------------------------------------------
 
 (defun s-open-trans (state)
   ;; return a new trans
@@ -222,10 +267,11 @@ storage and network transmission.
   ;; with a fresh :open-trans
 
   ;; commit changes, returning new version ID
-  (with-accessors ((tbl   state-main-table)
-                   (sync  state-sync)) state
+  (with-accessors ((main-table  state-main-table)
+                   (sync        state-sync)) state
     (declare (main-table main-table))
-    (with-accessors ((tbl-ver main-table-ver)) tbl
+    (with-accessors ((tbl-ver main-table-ver)
+                     (tbl     main-table-tbl)) main-table
       (cond ((uuid:uuid< ver tbl-ver)
              ;; nope - outdated, try again
              (error +rollback-exception+))
@@ -242,19 +288,14 @@ storage and network transmission.
              ;; first remove all overlapping keys before adding back
              ;; in new values, since we can't control which cell
              ;; gets planted in a union.
-             (let ((new-ver   (new-ver))
-                   (new-tbl   (copy-main-table tbl))
-                   (new-state (copy-state state)))
-               (setf (state-main-table new-state) new-tbl
-                     (main-table-ver new-tbl)     new-ver
-                     (main-table-tbl new-tbl)     (sets:union
-                                                   (sets:diff
-                                                    (sets:diff (main-table-tbl tbl) dels)
-                                                    adds)
-                                                   adds))
-               (become (make-remote-api-beh new-state))
-               (mp:schedule-timer-relative (state-sync state) *writeback-delay*)
-               new-ver))
+             (setf tbl-ver (new-ver)
+                   tbl     (sets:union
+                            (sets:diff
+                             (sets:diff tbl dels)
+                             adds)
+                            adds))
+             (mp:schedule-timer-relative (state-sync state) *writeback-delay*)
+             tbl-ver)
             ))))
 
 ;; ----------------------------------------------------------------
@@ -269,39 +310,35 @@ storage and network transmission.
 ;; -----------------------------
 
 (defun s-revert-database (cust state)
-  (with-accessors ((main-table  state-main-table)
-                   (path        state-path)) state
-    (declare (main-table main-table))
-    (with-accessors ((ver  main-table-ver)
-                     (chk  main-table-chk)
-                     (tbl  main-table-tbl)) main-table
-      (if (probe-file path)
-          (restart-case
-              (with-open-file (f path
-                                 :direction :input
-                                 :element-type '(unsigned-byte 8))
+  (with-accessors ((path  state-path)) state
+    (if (probe-file path)
+        (restart-case
+            (with-open-file (f path
+                               :direction :input
+                               :element-type '(unsigned-byte 8))
               
-                (optima:match (loenc:deserialize f
-                                                 :use-magic (magic-word "STKV"))
-                  ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
-                   (setf tbl (lzw:decompress new-table)
-                         ver new-ver
-                         chk new-ver)
+              (optima:match (loenc:deserialize f
+                                               :use-magic (magic-word "STKV"))
+                ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
+                 (let ((new-main-table (make-main-table
+                                        :tbl (lzw:decompress new-table)
+                                        :ver new-ver
+                                        :chk new-ver)))
+                   (setf (state-main-table state) new-main-table)
                    (log-info :system-log
                              (format nil "Loaded STKV Store ~A:~A" path new-ver))
-                   (send cust new-ver))
+                   (send cust new-ver)))
                 
-                  (_
-                   (error "Not an STKV Persistent Store: ~A" path))
-                  ))
-            (abort ()
-              (send cust :UNDEFINED))
-            )
-        ;; else - no persistent copy, just reset to initial state
-        (send cust (setf tbl  (maps:empty)
-                         ver  (uuid:make-null-uuid)
-                         chk  ver))
-        ))))
+                (_
+                 (error "Not an STKV Persistent Store: ~A" path))
+                ))
+          (abort ()
+            (send cust :UNDEFINED)))
+      ;; else - no persistent copy, just reset to initial state
+      (let ((new-tbl (make-main-table)))
+        (setf (state-main-table state) new-tbl)
+        (send cust (main-table-ver new-tbl))))
+    ))
 
 ;; ---------------------------------
 
@@ -417,23 +454,24 @@ storage and network transmission.
                         (registration *service-id*))
   (let* ((make-new-server
           (α (cust)
-            (let* ((tbl    (make-main-table))
-                   (state  (make-state
-                            :path       path
-                            :main-table tbl))
-                   (server (make-actor (make-remote-api-beh state)))
-                   (key    (namestring (truename path)))
-                   (fwd    (α _
-                             (maps:addf *stkv-servers* key server)
-                             (send cust server))))
-              (setf (state-sync state)
-                    (mp:make-timer #'mp:funcall-async #'send server :save (sink)))
+            (let* ((tbl       (make-main-table))
+                   (state     (make-initial-state
+                               :path       path
+                               :main-table tbl))
+                   (kv-server (make-actor (make-kv-server-beh state)))
+                   (kv-rwgate (rw-serializer kv-server))
+                   (server    (make-actor (make-remote-api-beh kv-rwgate)))
+                   (key       (namestring (truename path)))
+                   (fwd       (α _
+                                (maps:addf *stkv-servers* key server)
+                                (send cust server))))
+              (finalize-state state server)
               (if (probe-file path)
-                  (s-revert-database fwd state)
+                  (send server fwd :revert (sink))
                 (progn
                   ;; file doesn't exist - so create it
                   (setf (main-table-ver tbl) (new-ver))
-                  (s-save-database fwd state)))
+                  (send server fwd :save)))
               )))
          (get-new-or-existing
           (α (cust)
@@ -462,14 +500,14 @@ storage and network transmission.
   (β (rstkv)
       (find-actor β :rstkv)
     (β (ver)
-        (send rstkv :open β)
-        ;; (send β 0)
+        (send rstkv β :open)
       (β (keys)
-          (send rstkv :get-all-keys β kbad ver)
+          (send rstkv β :get-all-keys kbad ver)
         (send println (mapcar #'loenc:decode keys))
         (β (data)
-            (send rstkv :get-key β kbad ver (loenc:encode :pi))
+            (send rstkv β :get-key kbad ver (loenc:encode :pi))
           (send println (lzw:decompress data)))))))
+
 |#
 
 

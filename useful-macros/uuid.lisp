@@ -285,6 +285,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
        (um:nlet iter ()
          (let ((time-now ;; (+ (* (get-universal-time) 10000000) 100103040000000000)
                          (+ (* 10 (the integer (usec:get-universal-time-usec)))
+                            #N|02_208_988_800_0000000|  ;; time offseet between 1970-01-01 and 1900-01-01
                             #N|10_010_304_000_0000000|) ;; time offset in 100ns increments
                          ))  ;; 10_010_304_000 is time between 1582-10-15 and 1900-01-01 in seconds
            (declare (integer time-now))
@@ -500,7 +501,8 @@ built according code-char of each number in the uuid-string"
   (< (uuid-to-integer a) (uuid-to-integer b)))
 
 (defun uuid-time (id)
-  (um:->> (time-high id)
+  (um:->> 0
+          (um:ash-dpb _ 12 (time-high id))
           (um:ash-dpb _ 16 (time-mid id))
           (um:ash-dpb _ 32 (time-low id))))
 
@@ -531,7 +533,10 @@ built according code-char of each number in the uuid-string"
     a))
 
 (defun uuid-to-universal-time (id)
-  (truncate (- (uuid-time id) 100103040000000000) 10000000))
+  (truncate (- (uuid-time id)
+               #N|02_208_988_800_0000000|
+               #N|10_010_304_000_0000000|)
+            10000000))
 
 (defmethod make-load-form ((uuid uuid) &optional environment)
   (declare (ignore environment))

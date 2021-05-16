@@ -135,6 +135,7 @@ THE SOFTWARE.
    #:par
    #:scheduled-message
    #:serializer
+   #:rw-serializer
    #:timing
    #:sponsor-switch
    
@@ -148,6 +149,7 @@ THE SOFTWARE.
    #:make-wrapping-beh
    #:make-scheduled-message-beh
    #:make-serializer-beh
+   #:make-rw-serializer-beh
    #:make-timing-beh
    
    #:subscribe

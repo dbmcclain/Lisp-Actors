@@ -6,11 +6,11 @@
 ;; ------------------------------------------------------
 ;; There are, broadly, two conventions followed for Actor messages:
 ;;
-;;  1. When the Actor behavior is a DLAMBDA-style body, the message
-;;     selector is always the first arg of the message. If a customer
-;;     is indicated, it will be the second arg.
+;;  1. When an Actor expects a customer argument, it is always in
+;;  first position.
 ;;
-;;  2. Otherwise, when a customer is sent, it is generally the first arg.
+;;  2. When an Actor uses DCASE, it expects the dispatch token in
+;;  second position when a customer arg is present.
 ;;
 ;; --------------------------------------
 ;; Sink Behaviors
@@ -258,6 +258,109 @@
 (defun serializer (service)
   (make-actor (make-serializer-beh service)))
 
+;; --------------------------------------
+#|
+(defun make-rw-serializer-beh (service)
+  ;; initial empty state
+  (ensure-par-safe-behavior
+   ;; because we use BECOME
+   (lambda (cust &rest msg)
+     (um:dcase msg
+       (:read (&rest msg)
+        (let ((tag (tag self)))
+          (send* service tag msg)
+          (become (make-busy-rd-serializer-beh
+                   service
+                   (acons tag cust nil)
+                   nil))
+          ))
+       (:write (&rest msg)
+        (let ((tag (tag self)))
+          (send* service tag msg)
+          (become (make-busy-wr-serializer-beh
+                   service tag cust nil nil))
+          ))
+       ))))
+
+(defun rw-serializer (service)
+  (make-actor (make-rw-serializer-beh service)))
+
+(defun make-busy-rd-serializer-beh (service tags pend-wr)
+  (ensure-par-safe-behavior
+   ;; because we use BECOME
+   (lambda (cust &rest msg)
+     (um:dcase msg
+       (:read (&rest msg)
+        (let ((tag (tag self)))
+          (send* service tag msg)
+          (become (make-busy-rd-serializer-beh
+                   service
+                   (acons tag cust tags)
+                   pend-wr))))
+       (:write (&rest msg)
+        (become (make-busy-rd-serializer-beh
+                 service
+                 tags
+                 (finger-tree:addq pend-wr (cons cust msg))
+                 )))
+       (t _
+          (let ((pair (assoc cust tags)))
+            (when pair
+              (send* (cdr pair) msg)
+              (let ((new-tags (remove pair tags)))
+                (cond (new-tags
+                       (become (make-busy-rd-serializer-beh service new-tags pend-wr)))
+                      
+                      (pend-wr
+                       (let ((tag (tag self)))
+                         (multiple-value-bind (pair new-queue)
+                             (finger-tree:popq pend-wr)
+                           (send* service tag (cdr pair))
+                           (become (make-busy-wr-serializer-beh service tag (car pair) new-queue nil))
+                           )))
+                     (t
+                      (become (make-rw-serializer-beh service)))
+                     )))))
+       ))))
+
+(defun make-busy-wr-serializer-beh (service tag in-cust pend-wr pend-rd)
+  (ensure-par-safe-behavior
+   ;; because we use BECOME
+   (lambda (cust &rest msg)
+     (um:dcase msg
+       (:read (&rest msg)
+        (become (make-busy-wr-serializer-beh
+                 service tag cust pend-wr
+                 (cons (cons cust msg) pend-rd))))
+       (:write (&rest msg)
+        (become (make-busy-wr-serializer-beh
+                 service tag cust
+                 (finger-tree:addq pend-wr (cons cust msg))
+                 pend-rd)))
+       (t _
+          (when (eq cust tag)
+            (send* in-cust msg)
+            (cond (pend-wr
+                   (multiple-value-bind (ent new-queue)
+                       (finger-tree:popq pend-wr)
+                     (let ((tag (tag self)))
+                       (send* service tag (cdr ent))
+                       (become (make-busy-wr-serializer-beh service tag (car ent) new-queue pend-rd))
+                       )))
+                  (pend-rd
+                   (let ((tags nil))
+                     (dolist (ent pend-rd)
+                       (let ((tag (tag self)))
+                         (um:aconsf tags tag (car ent))
+                         (send* service tag (cdr ent))
+                         ))
+                     (become (make-busy-rd-serializer-beh service tags nil))
+                     ))
+                  (t
+                   (become (make-rw-serializer-beh service)))
+                  )))
+       ))))
+|#
 ;; --------------------------------------
 
 (defun make-timing-beh (dut)
