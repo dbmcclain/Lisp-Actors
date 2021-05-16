@@ -18,17 +18,18 @@
 (defun make-sink-beh ()
   #'lw:do-nothing)
 
-(defun sink ()
+(defvar sink
   (make-actor (make-sink-beh)))
 
 ;; --------------------------------------
 
-(setf (symbol-value 'println)
-      (make-actor
-       (ensure-par-safe-behavior
-        (lambda* msg
-          (format t "~&~{~A~^ ~}~%" msg))
-        )))
+(defvar println
+  (make-actor
+   (ensure-par-safe-behavior
+    ;; because we are managing an output stream
+    (lambda* msg
+      (format t "~&~{~A~^ ~}~%" msg))
+    )))
 
 ;; -------------------------------------
 ;; Non-Sink Behaviors
@@ -129,17 +130,17 @@
 ;; same initial message, and the results from each block are sent as
 ;; an ordered collection to cust.
 
-(setf (symbol-value 'ser)
-      (make-actor
-       (lambda (cust lst &rest msg)
-         (if (null lst)
-             (send cust)
-           (let ((me self))
-             (β msg-hd (send* (car lst) β msg)
-               (β msg-tl (send* me β (cdr lst) msg)
-                 (send-combined-msg cust msg-hd msg-tl)))
+(defvar ser
+  (make-actor
+   (lambda (cust lst &rest msg)
+     (if (null lst)
+         (send cust)
+       (let ((me self))
+         (β msg-hd (send* (car lst) β msg)
+           (β msg-tl (send* me β (cdr lst) msg)
+             (send-combined-msg cust msg-hd msg-tl)))
          )))
-       ))
+   ))
 
 (defun send-combined-msg (cust msg1 msg2)
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
@@ -164,17 +165,17 @@
                    ))
           )))
 
-(setf (symbol-value 'par)
-      (make-actor
-       (lambda (cust lst &rest msg)
-         (if (null lst)
-             (send cust)
-           (actors ((join (make-join-beh cust lbl1 lbl2))
-                    (lbl1 (make-tag-beh join))
-                    (lbl2 (make-tag-beh join)))
-             (send* (car lst) lbl1 msg)
-             (send* self lbl2 (cdr lst) msg)))
-         )))
+(defvar par
+  (make-actor
+   (lambda (cust lst &rest msg)
+     (if (null lst)
+         (send cust)
+       (actors ((join (make-join-beh cust lbl1 lbl2))
+                (lbl1 (make-tag-beh join))
+                (lbl2 (make-tag-beh join)))
+         (send* (car lst) lbl1 msg)
+         (send* self lbl2 (cdr lst) msg)))
+     )))
 
 ;; ---------------------------------------------------------
 #|
@@ -283,11 +284,15 @@
     (sendx* spons msg)))
 
 (defun io (svc)
+  ;; svc should be an Actor expecting a customer and args from msg
   (α (cust &rest msg)
     (let ((spons *current-sponsor*))
+      ;; forward to svc on IO thread
+      ;; send result back to customer on current thread
       (sendx* *slow-sponsor*
               svc
               (α ans
+                ;; forwarding customer for svc
                 (sendx* spons cust ans))
               msg)
       )))

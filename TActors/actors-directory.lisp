@@ -71,10 +71,10 @@
   (send *actors-directory* cust :find-actor name))
 
 (defun register-actor (name actor)
-  (send *actors-directory* (sink) :register name actor))
+  (send *actors-directory* sink :register name actor))
 
 (defun unregister-actor (name)
-  (send *actors-directory* (sink) :unregister name))
+  (send *actors-directory* sink :unregister name))
 
 (defun get-actor-names (cust)
   (send *actors-directory* cust :get-actor-names))

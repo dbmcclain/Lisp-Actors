@@ -241,30 +241,34 @@ storage and network transmission.
 ;; -----------------------------
 
 (defun read-database (cust path)
-  (if (probe-file path)
-      (with-open-file (f path
-                         :direction :input
-                         :element-type '(unsigned-byte 8))
-        
-        (optima:match (loenc:deserialize f
-                                         :use-magic (magic-word "STKV"))
-          ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
-           (log-info :system-log
-                     (format nil "Loaded STKV Store ~A~%Created: ~A" path (uuid:when-created new-ver)))
-           (send cust (make-kv-state
-                       :path (namestring (truename path))
-                       :map  (lzw:decompress new-table)
-                       :ver  new-ver)))
-          
-          (_
-           (error "Not an STKV Persistent Store: ~A" path))
-          ))
-    ;; else - no persistent copy, just reset to initial state
-    (let ((tmp-state (make-kv-state
-                      :path  path)))
-      (save-database tmp-state)
-      (send cust (make-kv-state
-                  :path  (namestring (truename path)))))
+  (let ((doit (α (cust)
+                (if (probe-file path)
+                    (with-open-file (f path
+                                       :direction :input
+                                       :element-type '(unsigned-byte 8))
+                      
+                      (optima:match (loenc:deserialize f
+                                                       :use-magic (magic-word "STKV"))
+                        ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
+                         (log-info :system-log
+                                   (format nil "Loaded STKV Store ~A~%Created: ~A"
+                                           path (uuid:when-created new-ver)))
+                         (send cust (make-kv-state
+                                     :path (namestring (truename path))
+                                     :map  (lzw:decompress new-table)
+                                     :ver  new-ver)))
+                        
+                   (_
+                    (error "Not an STKV Persistent Store: ~A" path))
+                   ))
+                  ;; else - no persistent copy, just reset to initial state
+                  (let ((tmp-state (make-kv-state
+                                    :path  path)))
+                    (save-database tmp-state)
+                    (send cust (make-kv-state
+                                :path  (namestring (truename path)))))
+                  ))))
+    (send (io doit) cust)
     ))
 
 ;; ---------------------------------
@@ -274,24 +278,28 @@ storage and network transmission.
   (with-accessors ((map    kv-state-map)
                    (path   kv-state-path)
                    (ver    kv-state-ver)) state
-    (ensure-directories-exist path)
-    (with-open-file (f path
-                       :direction :output
-                       :if-exists :rename
-                       :if-does-not-exist :create
-                       :element-type '(unsigned-byte 8))
-      (loenc:serialize
-       (list +stkv-signature+
-             (format nil
-                     " --- This is an STKV-SERVER Persistent Store, Version: ~A, Created: ~A --- "
-                     ver (uuid:when-created ver))
-             ver
-             (lzw:compress map))
-       f
-       :use-magic (magic-word "STKV")))
-    (log-info :system-log
-              (format nil "Saved STKV Store ~A~%Created: ~A" path (uuid:when-created ver)))
-    ))
+    (let ((doit (α _
+                  (ensure-directories-exist path)
+                  (with-open-file (f path
+                                     :direction :output
+                                     :if-exists :rename
+                                     :if-does-not-exist :create
+                                     :element-type '(unsigned-byte 8))
+                    (loenc:serialize
+                     (list +stkv-signature+
+                           (format nil
+                                   " --- This is an STKV-SERVER Persistent Store, Version: ~A, Created: ~A --- "
+                                   ver (uuid:when-created ver))
+                           ver
+                           (lzw:compress map))
+                     f
+                     :use-magic (magic-word "STKV")))
+                  (log-info :system-log
+                            (format nil "Saved STKV Store ~A~%Created: ~A"
+                                    path (uuid:when-created ver)))
+                  )))
+      (send (io doit) sink)
+      )))
 
 ;; ----------------------------------------
 
@@ -308,9 +316,7 @@ storage and network transmission.
            (become (make-sync-beh server state tag))
            )))
       (:write (state) when (eq cust tag)
-       (send (io (α _
-                   (save-database state)))
-             (sink)))
+       (save-database state))
       )))
   
 ;; ---------------------------------------------------------------
@@ -388,20 +394,19 @@ storage and network transmission.
   (let* ((make-new-server
           (α (cust)
             (β (state)
-                (send (io (α (cust)
-                            (read-database cust path)))
-                      β)
+                (read-database β path)
               (actors ((server (make-kv-database-beh state sync))
                        (sync   (make-sync-beh server nil nil)))
                 (maps:addf *stkv-servers* (kv-state-path state) server)
                 (send cust server)
                 ))))
+         (prober
+          (α (cust)
+            (send cust (probe-file path))))
          (get-new-or-existing
           (α (cust)
             (β (tf)
-                (send (io (α (cust)
-                            (send cust (probe-file path))))
-                      β)
+                (send (io prober) β)
               (cond (tf
                      (let* ((key    (namestring (truename path)))
                             (server (maps:find *stkv-servers* key)))
@@ -417,7 +422,7 @@ storage and network transmission.
         (register-actor registration server))
       (send cust server))))
 #|
-(make-stkv-server (sink))
+(make-stkv-server sink)
 
 (β (act)
     (find-actor β :rstkv)
