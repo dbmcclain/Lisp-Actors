@@ -232,8 +232,8 @@
                                  (timing
                                   (make-send-self-tst))))))
   (let ((act (actor (cust)
-               (β (arr)
-                   (send dut β niter)
+               (beta (arr)
+                   (send dut beta niter)
                  (send (histogram) arr)
                  (send (statistics) println arr)
                  (send cust)))))

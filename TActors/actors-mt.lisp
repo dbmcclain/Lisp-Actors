@@ -66,13 +66,13 @@ THE SOFTWARE.
   (check-type beh function)
   (%make-actor :beh beh))
 
-(defmacro α (args &body body)
+(defmacro alpha (args &body body)
   `(make-actor
     (lambda* ,args
       ,@body)))
 
 #+:LISPWORKS
-(editor:indent-like "α" 'lambda)
+(editor:indent-like "alpha" 'lambda)
 
 ;; --------------------------------------
 ;; ACTOR in function position acts like a higher level LAMBDA expression
@@ -318,22 +318,130 @@ THE SOFTWARE.
 (editor:setup-indent "with-sponsor" 1)
 
 (defmacro with-worker (&body body)
-  `(β _
-       (send β)
+  `(beta _
+       (send beta)
      ,@body))
 
 ;; ----------------------------------------------
 
 (defmacro @bind (args form &body body)
-  `(let ((@bind  (α ,args ,@body)))
+  `(let ((@bind  (alpha ,args ,@body)))
      ,form))
 
-(defmacro β (args form &body body)
-  `(let ((β  (α ,args ,@body)))
-     ,form))
+;; ----------------------------------------------
+
+(defun parse-list-pat (pat)
+  ;; Convert a proper list to itself and return LIST as the pattern
+  ;; combiner. Convert an improper list to a proper list and furnish
+  ;; LIST* as the pattern combiner.
+  (um:nlet iter ((pat  pat)
+                 (ans  nil))
+    (if (cdr pat)
+        (if (consp (cdr pat))
+            (go-iter (cdr pat) (cons (car pat) ans))
+          (values (nreverse (cons (cdr pat) (cons (car pat) ans)))
+                  'list*))
+      (values (nreverse (cons (car pat) ans))
+              'list))
+    ))
+
+(defun parse-beta-args (args)
+  (when (consp args)
+    (let* ((proper-list (parse-list-pat args))
+           (pos         (position-if (lambda (x)
+                                       (and (symbolp x)
+                                            (string= (symbol-name x) "/")))
+                                     proper-list)))
+      
+      (when pos
+        (values (subseq proper-list 0 pos)
+                (subseq proper-list (1+ pos)))
+        ))))
+
+;; -------------------------------------------------------
+;; BETA Forms - A BETA form takes advantage of a Common Lisp pun, to
+;; define an anonymous Actor which can be referred to in a subsequent
+;; SEND, or some function which will eventually SEND, by the name
+;; BETA, up until the next BETA form, which rebinds BETA. (BETA, cf. B
+;; for Binding)
+;;
+;; ALPHA serves the same purpose for Actors that LAMBDA serves for
+;; functions. ALPHA generates an anonymous Actor that can be LET bound
+;; to some named binding.
+;;
+;; BETA extends this by providing a binding form for message arguments
+;; that would arrive from a subsequent SEND, and then allows the body
+;; function of the Actor to describe actions utilizing those message
+;; args when they arrive. So BETA sets up an Actor continuation.
+;;
+;; BETA forms are nothing more than syntax sugar to make the use of
+;; continuation Actors more readable. You could instead just define
+;; the continuation Actor with a LET binding and then SEND a message
+;; referring to it as an eventual message customer. But that separates
+;; the Actor from the SEND which generates an eventual message to the
+;; Actor. The BETA form allows their relationship to be more directly
+;; discerned.
+;;
+;; BETA forms have a syntax reminiscent of DESTRUCTURING-BIND and
+;; MULTIPLE-VALUE-BIND. The bindings are on the first line, followed
+;; by a generator form - a SEND which will use this BETA Actor as a
+;; message argument - and then follows the body of the Actor's
+;; behavior function.
+;;
+;;  (BETA (args)
+;;     (SEND diddly BETA)
+;;    body-of-Actor-behavior)
+;;
+;; BETA forms come it two varieties. Just as Actors can be
+;; parameterized by local state, as well as from message arguments, so
+;; too can BETA forms. The normal argument list, like that just shown
+;; above, for a BETA form describes an Actor which can only accept
+;; message arguments for its parameterization - in addition to those
+;; also provided by capture from the enclosing lexical context.
+;;
+;; But when an argument list contains a group of symbols followed by
+;; "/" then those symbols before the slash separator are taken to mean
+;; Actor parameters furnished at Actor construction time. Those args
+;; following the separator represent message args as a result of a
+;; SEND.
+;;
+;;   (BETA (param / arg)
+;;       (SEND diddly (BETA paramVal))
+;;     body-of-Actor-behavior)
+;;
+;; For the unparameterized version of BETA forms, you mention the Actor
+;; by BETA in a SEND. But in a parameterized version you must make a
+;; function call to BETA with parameter args, as in (BETA arg1 arg2 ...). In
+;; effect, the parameterized version of BETA actually represents an Actor
+;; generating function.
+;;
+;; When you need to refer explicitly to that generating function it
+;; goes by the name #'BETA-gen. But in normal use a function call form
+;; with BETA in first position serves to call #'BETA-gen. The values
+;; of BETA and #'BETA-gen are available to the body code of the Actor
+;; up until they are rebound by an inner BETA form.
+
+(defmacro beta (args form &body body)
+  (multiple-value-bind (params binding-args)
+      (parse-beta-args args)
+    (if params
+        ;; must use LET not LABELS here, because we still need beta as a
+        ;; macro function
+        `(labels ((beta-gen ,params
+                    (alpha ,binding-args
+                      ,@body)))
+           (macrolet ((beta (&rest args)
+                        `(beta-gen ,@args)))
+             ,form))
+      ;; else
+      `(let ((beta  (alpha ,args ,@body)))
+         ,form)
+      )))
 
 #+:LISPWORKS
-(editor:indent-like "@bind" 'destructuring-bind)
+(progn
+  (editor:indent-like "@bind" 'destructuring-bind)
+  (editor:indent-like "beta" 'destructuring-bind))
 
 ;; --------------------------------------
 ;; A Par-Safe-Behavior is guaranteed safe for sharing of single
@@ -364,3 +472,22 @@ THE SOFTWARE.
                  (repeat-send self))))
       #'swap-out-beh)))
 
+;; ------------------------------------------------------
+;; ALAMBDA -- a behavior lambda for Actors with pattern matching on
+;; messages
+
+(defmacro alambda (&rest clauses)
+  (lw:with-unique-names (msg)
+    `(lambda (&rest ,msg)
+       (optima:match ,msg
+         ,@(mapcar (lambda (clause)
+                     (destructuring-bind (pat . body)
+                         clause
+                       (if (consp pat)
+                           (multiple-value-bind (elts list-kind)
+                               (parse-list-pat pat)
+                             `((,list-kind ,@elts) ,@body))
+                         `(,pat ,@body))
+                       ))
+                   clauses)))
+    ))

@@ -141,26 +141,26 @@
         ))
 
 (defun make-empty-buffer-beh (custs ctr)
-  (um:dlambda
-    (:add-bytes (lbl frag)
+  (alambda
+    ((:add-bytes lbl frag)
      (cond ((= ctr lbl)
             (drain-buffer custs (addq nil frag) (incf ctr)))
            (t
             (repeat-send self))
            ))
-    (:get (&rest msg)
+    ((:get . msg)
      (become (make-empty-buffer-beh (addq custs msg) ctr)))
     ))
 
 (defun make-nonempty-buffer-beh (custs frags ctr)
-  (um:dlambda
-    (:add-bytes (lbl frag)
+  (alambda
+    ((:add-bytes lbl frag)
      (cond ((= ctr lbl)
             (drain-buffer custs (addq frags frag) (incf ctr)))
            (t
             (repeat-send self))
            ))
-    (:get (&rest msg)
+    ((:get . msg)
      (drain-buffer (addq custs msg) frags ctr))
     ))
 
@@ -192,30 +192,35 @@
     (let ((frags (make-instance 'scatter-vector))
           (ctr   0))
       (make-actor
-       (lambda (in-ctr &rest msg)
+       (alambda
+        
+        ((_ :discard err)
+         ;; something went wrong, kill the connection
+         (log-error :SYSTEM-LOG "Data framing error: ~A" err)
+         (shutdown intf))
+
+        ((in-ctr :frag frag)
          (cond ((= in-ctr ctr)
                 (incf ctr)
-                (um:dcase msg
-                  (:discard (err)
-                   ;; something went wrong, kill the connection
-                   (log-error :SYSTEM-LOG "Data framing error: ~A" err)
-                   (shutdown intf))
-                  
-                  (:frag (frag)
-                   ;; a partial buffer of a complete message
-                   (add-fragment frags frag))
-         
-                  (:last-frag (frag)
-                   ;; the last buffer of a complete message
-                   (add-fragment frags frag)
-                   (send dispatcher (byte-decode-obj frags))
-                   (setf frags (make-instance 'scatter-vector)))
-                  ))
+                ;; a partial buffer of a complete message
+                (add-fragment frags frag))
+               (t
+                (repeat-send self))
+               ))
+               
+        ((in-ctr :last-frag frag)
+         (cond ((= in-ctr ctr)
+                (incf ctr)
+                ;; the last buffer of a complete message
+                (add-fragment frags frag)
+                (send dispatcher (byte-decode-obj frags))
+                (setf frags (make-instance 'scatter-vector)))
                (t
                 ;; ctr out of sync, go around again
                 (repeat-send self))
                ))
-       ))))
+        ))
+      )))
 
 (defun make-reader (state)
   ;; An entire subsystem to respond to incoming socket data, assemble
@@ -224,12 +229,11 @@
   (let ((len-buf  (make-u8-vector +len-prefix-length+))
         (hmac-buf (make-u8-vector +hmac-length+))
         (buf-mgr  (make-buffer-manager))
-        (frag-asm (make-frag-assembler state))
-        (ctr      0))
+        (frag-asm (make-frag-assembler state)))
     (with-accessors ((crypto  intf-state-crypto)) state
-      (β ()
+      (beta (ctr / )
           (send buf-mgr
-                :get β len-buf 0 +len-prefix-length+)
+                :get (beta 0) len-buf 0 +len-prefix-length+)
         (let ((ndata (convert-vector-to-integer len-buf)))
           (cond
            ((> ndata +MAX-FRAGMENT-SIZE+)
@@ -239,20 +243,20 @@
            
            (t
             ;; Actor Continuation Style (ACS)
-            (let* ((me      self)
+            (let* ((me      #'beta-gen)
                    (enc-buf (make-u8-vector ndata)))
-              (β ()
+              (beta ()
                   (send buf-mgr
-                        :get β enc-buf 0 ndata)
-                (β ()
+                        :get beta enc-buf 0 ndata)
+                (beta ()
                     (send buf-mgr
-                          :get β hmac-buf 0 +hmac-length+)
+                          :get beta hmac-buf 0 +hmac-length+)
                   (send* frag-asm ctr
                          (secure-decoding crypto ndata
                                           len-buf enc-buf hmac-buf))
-                  (incf ctr)
+                  ;; (incf ctr)
                   (send buf-mgr
-                        :get me len-buf 0 +len-prefix-length+)
+                        :get (funcall me (1+ ctr)) len-buf 0 +len-prefix-length+)
                   ))))
            )))
       buf-mgr)))  ;; return buf-mgr to caller as ISR interface
@@ -305,16 +309,16 @@
     (flet ((send-fail (cust)
              (send cust :fail starter)
              (send starter starter)))
-      (um:dlambda
-        (:wr-done (cust)
-         (if (zerop (funcall decr-io-count-fn io-state))
-             (send-fail cust)
-           (send cust :ok starter)))
+      (alambda
+       ((:wr-done cust)
+        (if (zerop (funcall decr-io-count-fn io-state))
+            (send-fail cust)
+          (send cust :ok starter)))
     
-        (:wr-fail (cust)
-         (funcall decr-io-count-fn io-state)
-         (send-fail cust))
-        ))))
+       ((:wr-fail cust)
+        (funcall decr-io-count-fn io-state)
+        (send-fail cust))
+       ))))
 
 (defun make-write-entry-beh (serial starter)
   (lambda (item &rest msg)
@@ -581,8 +585,8 @@
                                         :title    "Client"
                                         :io-state io-state
                                         :crypto   crypto)))
-                         (β ()
-                             (send intf :client-request-srp β)
+                         (beta ()
+                             (send intf :client-request-srp beta)
                            (bridge-pre-register ip-addr intf) ;; anchor for GC
                            (socket-send intf :client-info (machine-instance))))
                      ;; else

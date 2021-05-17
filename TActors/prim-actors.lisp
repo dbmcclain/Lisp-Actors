@@ -118,7 +118,7 @@
 (defun lazy (actor &rest msg)
   ;; Like FUTURE, but delays evaluation of the Actor with message
   ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
-  (α (cust)
+  (alpha (cust)
     (let ((tag (tag self)))
       (become (make-future-wait-beh tag (list cust)))
       (send* actor tag msg))
@@ -136,8 +136,8 @@
      (if (null lst)
          (send cust)
        (let ((me self))
-         (β msg-hd (send* (car lst) β msg)
-           (β msg-tl (send* me β (cdr lst) msg)
+         (beta msg-hd (send* (car lst) beta msg)
+           (beta msg-tl (send* me beta (cdr lst) msg)
              (send-combined-msg cust msg-hd msg-tl)))
          )))
    ))
@@ -264,7 +264,8 @@
 (defun make-timing-beh (dut)
   (lambda (cust &rest msg)
     (let ((start (usec:get-time-usec)))
-      (β _ (send* dut β msg)
+      (beta _
+            (send* dut beta msg)
         (send cust (- (usec:get-time-usec) start)))
       )))
 
@@ -272,7 +273,7 @@
   (make-actor (make-timing-beh dut)))
 
 #|
-(let* ((dut (α (cust nsec)
+(let* ((dut (alpha (cust nsec)
              (sleep nsec)
              (send cust)))
       (timer (timing dut)))
@@ -280,22 +281,25 @@
 |#
 (defun sponsor-switch (spons)
   ;; Switch to other Sponsor for rest of processing
-  (α msg
+  (alpha msg
     (sendx* spons msg)))
 
 (defun io (svc)
   ;; svc should be an Actor expecting a customer and args from msg
-  (α (cust &rest msg)
+  (alpha (cust &rest msg)
     (let ((spons *current-sponsor*))
-      ;; forward to svc on IO thread
-      ;; send result back to customer on current thread
-      (sendx* *slow-sponsor*
-              svc
-              (α ans
-                ;; forwarding customer for svc
-                (sendx* spons cust ans))
-              msg)
-      )))
+      (if (eq spons *slow-sponsor*)
+          (send* svc cust msg)
+        
+        ;; Else - forward to svc on IO thread
+        ;; send result back to customer on current thread
+        (sendx* *slow-sponsor*
+                svc
+                (alpha ans
+                  ;; forwarding customer for svc
+                  (sendx* spons cust ans))
+                msg)
+        ))))
       
 ;; -----------------------------------------------
 

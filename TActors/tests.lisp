@@ -15,7 +15,6 @@
 
 (let ((a (make-actor
           (lambda ()
-            ;; (print args)
             (print :hello)))))
   (send a))
 (get-actor-names println)
@@ -55,3 +54,10 @@
        (send junk y 33))
       )))
 (inspect #'tst)
+
+
+(let* ((sleeper (α (cust) (send (io (α (cust) (sleep 1) (send cust :done))) cust)))
+       (timeout (α (cust) (send (scheduled-message cust 1.005 :timeout))))
+       (racer   (race sleeper timeout)))
+  (send racer println))
+

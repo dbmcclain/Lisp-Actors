@@ -17,52 +17,56 @@
 ;; A directory is itself an Actor.
 
 (defun make-directory-beh (&optional (dir (maps:empty)))
-  (lambda (cust &rest msg)
-    (um:dcase msg
-      (:register (name actor)
-       (let ((key (acceptable-key name)))
-         (become (make-directory-beh (maps:add dir key actor)))
-         ))
-      (:unregister (name/actor)
-       (if (actor-p name/actor)
-           (let ((new-dir (maps:fold dir
-                                     (lambda (k v acc)
-                                       (if (eq v name/actor)
-                                           acc
-                                         (maps:add acc k v)))
-                                     (maps:empty))))
-             (become (make-directory-beh new-dir)))
-         (let ((key (acceptable-key name/actor)))
-           (become (make-directory-beh (maps:remove dir key))))
-         ))
-      (:clear ()
-       (become (make-directory-beh (maps:empty))))
-      
-      (:get-actors ()
-       (send cust (um:accum acc
-                    (maps:iter dir
-                               (lambda (k v)
-                                 (acc (cons k v)))))
-             ))
-      (:get-actor-names ()
-       (send cust (um:accum acc
-                    (maps:iter dir
-                               (lambda (k v)
-                               (declare (ignore v))
-                               (acc k))))
-             ))
-      (:find-actor (name)
-       (let ((key (acceptable-key name)))
-         (send cust (maps:find dir key))))
-      
-      (:find-names-for-actor (actor)
-       (send cust (um:accum acc
-                    (maps:iter dir
-                               (lambda (k v)
-                                 (when (eq actor v)
-                                   (acc k)))))
-             ))
-      )))
+  (alambda
+   
+   ((cust :register name actor)
+    (let ((key (acceptable-key name)))
+      (become (make-directory-beh (maps:add dir key actor)))
+      (send cust)
+      ))
+   
+   ((cust :unregister name/actor)
+    (if (actor-p name/actor)
+        (let ((new-dir (maps:fold dir
+                                  (lambda (k v acc)
+                                    (if (eq v name/actor)
+                                        acc
+                                      (maps:add acc k v)))
+                                  (maps:empty))))
+          (become (make-directory-beh new-dir)))
+      (let ((key (acceptable-key name/actor)))
+        (become (make-directory-beh (maps:remove dir key)))))
+    (send cust))
+   
+   ((cust :clear)
+    (become (make-directory-beh (maps:empty)))
+    (send cust))
+   
+   ((cust :get-actors)
+    (send cust (um:accum acc
+                 (maps:iter dir
+                            (lambda (k v)
+                              (acc (cons k v)))))
+          ))
+   ((cust :get-actor-names)
+    (send cust (um:accum acc
+                 (maps:iter dir
+                            (lambda (k v)
+                              (declare (ignore v))
+                              (acc k))))
+          ))
+   ((cust :find-actor name)
+    (let ((key (acceptable-key name)))
+      (send cust (maps:find dir key))))
+   
+   ((cust :find-names-for-actor actor)
+    (send cust (um:accum acc
+                 (maps:iter dir
+                            (lambda (k v)
+                              (when (eq actor v)
+                                (acc k)))))
+          ))
+   ))
 
 (defvar *actors-directory*
   (make-actor (make-directory-beh)))
@@ -96,7 +100,7 @@
   (error 'invalid-send-target :target obj))
 
 (defmethod send (rcvr &rest msg)
-  (β (a)
-      (find-actor β rcvr)
+  (beta (a)
+      (find-actor beta rcvr)
     (apply #'retry-send a msg)))
 

@@ -131,25 +131,25 @@
   (make-array 1 :initial-element cont :weak (null intf)))
 
 (defun make-cont-beh (usti contv intf next)
-  (um:dlambda
-    (:attach (a-usti a-cont an-intf)
+  (alambda
+    ((:attach a-usti a-cont an-intf)
      (send next :check-purge)
      (become (make-cont-beh a-usti (make-cont-entry a-cont an-intf)
                             an-intf (make-actor self-beh))))
     
-    (:detach (an-intf) when (eq an-intf intf)
+    ((:detach an-intf) when (eq an-intf intf)
      (declare (ignore an-intf))
      (repeat-send next)
      (prune-self next))
     
-    (:prune (prev)
+    ((:prune prev)
      (send prev :pruned self-beh))
     
-    (:reset ()
+    ((:reset)
      (repeat-send next)
      (prune-self next))
     
-    (:deliver-message (a-usti if-cant-send &rest msg) when (uuid:uuid= a-usti usti)
+    ((:deliver-message a-usti if-cant-send . msg) when (uuid:uuid= a-usti usti)
      (declare (ignore a-usti))
      (prune-self next)
      (handler-case
@@ -157,23 +157,22 @@
        (error ()
          (send if-cant-send))
        ))
-    (t _
+    ( _
        (unless (aref contv 0)
          (prune-self next))
        (repeat-send next))
     ))
     
 (defun make-empty-cont-beh ()
-  (um:dlambda
-    (:attach (usti cont intf)
+  (alambda
+    ((:attach usti cont intf)
      (become (make-cont-beh usti (make-cont-entry cont intf)
                             intf (make-actor self-beh))))
 
-    (:prune (prev)
+    ((:prune prev)
      (send prev :pruned self-beh))
     
-    (:deliver-message (usti if-cant-send &rest msg)
-     (declare (ignore usti msg))
+    ((:deliver-message _ if-cant-send . _)
      (send if-cant-send))
     ))
 
@@ -206,38 +205,37 @@
   ;; On first request, one of these Actors holds the info for a
   ;; pending connection. Additional subscribers are enqueued in the
   ;; pending list.
-  (um:dlambda
-    (:attach (an-ip intf) when (same-ip? an-ip ip)
+  (alambda
+    ((:attach an-ip intf) when (same-ip? an-ip ip)
      ;; successful attachment, change state to normal table lookup
      (declare (ignore an-ip))
      (dolist (cust pend)
        (send cust intf))
      (become (make-intf-beh ip intf next)))
 
-    (:fail (a-tok) when (eq a-tok tok)
+    ((:fail a-tok) when (eq a-tok tok)
      ;; we timed out waiting for attachment
      (declare (ignore a-tok))
      (prune-self next))
 
-    (:prune (prev)
+    ((:prune prev)
      (send prev :pruned self-beh))
     
-    (:reset ()
+    ((:reset)
      (repeat-send next)
      (prune-self next))
     
-    (:pre-regiser (an-ip intf) when (same-ip? an-ip ip)
+    ((:pre-regiser an-ip intf) when (same-ip? an-ip ip)
      ;; seen by the client side while awaiting attachment. We hold on
      ;; to the pending interface to protect against GC.
      (declare (ignore an-ip))
      (become (make-prereg-intf-beh ip intf tok pend next)))
 
-    (:call-with-intf (cust an-ip a-port) when (same-ip? an-ip ip)
+    ((:call-with-intf cust an-ip _) when (same-ip? an-ip ip)
      ;; new incoming request for a pending socket connection
-     (declare (ignore an-ip a-port))
      (become (make-pending-intf-beh ip tok (cons cust pend) next)))
 
-    (t _
+    ( _
        (repeat-send next))))
 
 (defun make-prereg-intf-beh (ip intf tok pend next)
@@ -245,76 +243,72 @@
   ;; interface is successfuly constructed. But until the interface
   ;; completes its handshake with the server, it remains in pending
   ;; status. This Actor simply anchors the intf against GC.
-  (um:dlambda
-    (:attach (an-ip an-intf) when (same-ip? an-ip ip)
+  (alambda
+    ((:attach an-ip an-intf) when (same-ip? an-ip ip)
      ;; successful attachment, change state to normal table lookup.
      (declare (ignore an-ip))
      (dolist (cust pend)
        (send cust an-intf))
      (become (make-intf-beh ip an-intf next)))
 
-    (:detach (an-intf) when (eq an-intf intf)
+    ((:detach an-intf) when (eq an-intf intf)
      ;; seen on unsuccessful connection negotiation
      (declare (ignore an-intf))
      (repeat-send next)
      (prune-self next))
 
-    (:fail (a-tok) when (eq a-tok tok)
+    ((:fail a-tok) when (eq a-tok tok)
      ;; we timed out waiting for attachment
      (declare (ignore a-tok))
      (prune-self next))
 
-    (:prune (prev)
+    ((:prune prev)
      (send prev :pruned self-beh))
 
-    (:reset ()
+    ((:reset)
      (repeat-send next)
      (prune-self next))
     
-    (:pre-register (an-ip an-intf) when (same-ip? an-ip ip)
+    ((:pre-register an-ip an-intf) when (same-ip? an-ip ip)
      ;; this should not orinarily be seen from this state
-     (declare (ignore an-ip))
      (become (make-prereg-intf-beh ip an-intf tok pend next)))
 
-    (:call-with-intf (cust an-ip a-port) when (same-ip? an-ip ip)
+    ((:call-with-intf cust an-ip _) when (same-ip? an-ip ip)
      ;; new incoming request for a pending socket connection
-     (declare (ignore an-ip a-port))
      (become (make-prereg-intf-beh ip intf tok (cons cust pend) next)))
 
-    (t _
+    ( _
        (repeat-send next))))
     
 (defun make-intf-beh (ip intf next)
   ;; A fully live interface connection.
-  (um:dlambda
-    (:attach (an-ip an-intf) when (same-ip? an-ip ip)
+  (alambda
+    ((:attach an-ip an-intf) when (same-ip? an-ip ip)
      ;; Called by the network interface upon successful connection.
      ;; There may be multiple ip-addr (strings, keywords, etc) assoc
      ;; to each intf. But each ip-addr points to only one intf.
-     (declare (ignore an-ip))
      (become (make-intf-beh ip an-intf next)))
     
-    (:detach (an-intf) when (eq an-intf intf)
+    ((:detach an-intf) when (eq an-intf intf)
      ;; Called by the network intf when it shuts down
      ;; NOTE: multiple ip-addr may correspond to one intf
      (declare (ignore an-intf))
      (repeat-send next)
      (prune-self next))
 
-    (:prune (prev)
+    ((:prune prev)
      (send prev :pruned self-beh))
     
-    (:reset ()
+    ((:reset)
      (repeat-send next)
      (prune-self next))
     
-    (:call-with-intf (cust an-ip a-port) when (same-ip? an-ip ip)
+    ((:call-with-intf cust an-ip _) when (same-ip? an-ip ip)
      ;; Called by SEND on our side to find the network intf to use for
      ;; message forwarding.  TODO - clean up re ports
-     (declare (ignore an-ip a-port))
      (send cust intf))
 
-    (t _
+    ( _
        (repeat-send next))
     ))
 
@@ -330,13 +324,13 @@
                                                          :fail sched)))
                (send sched :go)
                sched)))
-    (um:dlambda
-      (:attach (ip intf)
+    (alambda
+      ((:attach ip intf)
        ;; server side sees this message from this state, but client side
        ;; ordinarily pre-registers before the attach.
        (become (make-intf-beh ip intf (make-actor self-beh))))
       
-      (:pre-regiser (ip intf)
+      ((:pre-regiser ip intf)
        ;; we should never ordinarily see this message from empty state.
        ;; But go to pre-register state and give us a timeout in case we
        ;; fail to attach.
@@ -345,7 +339,7 @@
                                      nil
                                      (make-actor self-beh))))
       
-      (:call-with-intf (cust ip port)
+      ((:call-with-intf cust ip port)
        ;; this is the place where a new connection is attempted. We now
        ;; go to pending state, with a timeout.
        (become (make-pending-intf-beh ip
@@ -355,7 +349,7 @@
        (progn ;; with-worker ()
          (open-connection ip port)))
       
-      (:prune (prev)
+      ((:prune prev)
        (send prev :pruned self-beh))
       )))
 

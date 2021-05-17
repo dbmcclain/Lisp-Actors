@@ -111,36 +111,34 @@ storage and network transmission.
 
 (defun make-kv-database-beh (state sync)
   (with-accessors ((kv-map  kv-state-map)) state
-    (lambda (cust &rest msg)
-      (um:dcase msg
-        
-        (:read (queryfn)
-         (with-worker
-          (send cust (funcall queryfn kv-map) )))
+    (alambda
 
-        (:write (updatefn)
-         (let ((writer (make-writer cust updatefn kv-map )))
-           (send writer self)
-           (become (make-locked-db-beh writer state sync nil))))
-        ))))
+     ((cust :read queryfn)
+      (with-worker
+        (send cust (funcall queryfn kv-map))))
+
+     ((cust :write updatefn)
+      (let ((writer (make-writer cust updatefn kv-map )))
+        (send writer self)
+        (become (make-locked-db-beh writer state sync nil))))
+     )))
 
 ;; ---------------------------------------------------
 
 (defun make-locked-db-beh (writer state sync pend-wr)
   (with-accessors ((kv-map  kv-state-map)) state
-    (lambda (cust &rest msg)
-      (um:dcase msg
-        
-        (:read (queryfn)
-         (with-worker
-           (send cust (funcall queryfn kv-map) )))
+    (alambda
+     
+     ((cust :read queryfn)
+      (with-worker
+        (send cust (funcall queryfn kv-map) )))
       
-        (:write (updatefn)
-         (become (make-locked-db-beh writer state sync
-                                     (q-put pend-wr
-                                            (cons cust updatefn) ))))
-        
-        (:update (new-map wr-cust) when (eq cust writer)
+     ((cust :write updatefn)
+      (become (make-locked-db-beh writer state sync
+                                  (q-put pend-wr
+                                         (cons cust updatefn) ))))
+      
+      ((cust :update new-map wr-cust) when (eq cust writer)
          (send wr-cust self)
          (let ((new-state
                 (cond ((eq new-map kv-map)
@@ -162,7 +160,7 @@ storage and network transmission.
                  (t
                   (become (make-kv-database-beh new-state sync)))
                  )))
-        ))))
+      )))
 
 ;; ---------------------------------------------
 
@@ -180,6 +178,25 @@ storage and network transmission.
                     map)))
        (send db self :update ans cust)
      ))))
+
+;; ----------------------------------------
+
+(defvar *writeback-delay* 10)
+
+(defun make-sync-beh (server last-state tag)
+  (alambda
+
+   ((cust :update state) when (eq cust server)
+    (unless (eq state last-state)
+      (let* ((tag      (tag self))
+             (reminder (scheduled-message tag *writeback-delay* :write state)))
+        (send reminder)
+        (become (make-sync-beh server state tag))
+        )))
+   
+   ((cust :write state) when (eq cust tag)
+    (save-database sink state))
+   ))
 
 ;; ---------------------------------------------------
 
@@ -225,9 +242,9 @@ storage and network transmission.
               ))
           ks))
 
-(defun is-map? (map)
-  ;; just try to tickle an error if map isn't a map
-  (maps:find map #()))
+;; ----------------------------
+;; QUERY & UPDATE -- The two fundamental ways to operate with the KV
+;; store.
 
 (defun query (cust kv-serv query-fn)
   (send kv-serv cust :read query-fn))
@@ -238,7 +255,7 @@ storage and network transmission.
 ;; -----------------------------
 
 (defun read-database (cust path)
-  (let ((doit (α (cust)
+  (let ((doit (alpha (cust)
                 (if (probe-file path)
                     (with-open-file (f path
                                        :direction :input
@@ -255,27 +272,29 @@ storage and network transmission.
                                      :map  (lzw:decompress new-table)
                                      :ver  new-ver)))
                         
-                   (_
-                    (error "Not an STKV Persistent Store: ~A" path))
-                   ))
+                        (_
+                         (error "Not an STKV Persistent Store: ~A" path))
+                        ))
                   ;; else - no persistent copy, just reset to initial state
                   (let ((tmp-state (make-kv-state
                                     :path  path)))
-                    (save-database tmp-state)
-                    (send cust (make-kv-state
-                                :path  (namestring (truename path)))))
+                    (beta _
+                        (save-database beta tmp-state)
+                      (send cust (make-kv-state
+                                  :path  (namestring (truename path))))
+                      ))
                   ))))
     (send (io doit) cust)
     ))
 
 ;; ---------------------------------
 
-(defun save-database (state)
+(defun save-database (cust state)
   (declare (kv-state state))
   (with-accessors ((map    kv-state-map)
                    (path   kv-state-path)
                    (ver    kv-state-ver)) state
-    (let ((doit (α _
+    (let ((doit (alpha (cust)
                   (ensure-directories-exist path)
                   (with-open-file (f path
                                      :direction :output
@@ -294,28 +313,11 @@ storage and network transmission.
                   (log-info :system-log
                             (format nil "Saved STKV Store ~A~%Created: ~A"
                                     path (uuid:when-created ver)))
+                  (send cust)
                   )))
-      (send (io doit) sink)
+      (send (io doit) cust)
       )))
 
-;; ----------------------------------------
-
-(defvar *writeback-delay* 10)
-
-(defun make-sync-beh (server last-state tag)
-  (lambda (cust &rest msg)
-    (um:dcase msg
-      (:update (state) when (eq cust server)
-       (unless (eq state last-state)
-         (let* ((tag      (tag self))
-                (reminder (scheduled-message tag *writeback-delay* :write state)))
-           (send reminder)
-           (become (make-sync-beh server state tag))
-           )))
-      (:write (state) when (eq cust tag)
-       (save-database state))
-      )))
-  
 ;; ---------------------------------------------------------------
 ;; bare minimum services offered - keeps comm traffic to a minimum
 ;; across network. Puts burden on clients to do most of the work
@@ -389,23 +391,26 @@ storage and network transmission.
                         (path (default-database-pathname))
                         (registration *service-id*))
   (let* ((make-new-server
-          (α (cust)
-            (β (state)
-                (read-database β path)
+          (alpha (cust)
+            (beta (state)
+                (read-database beta path)
               (actors ((server (make-kv-database-beh state sync))
                        (sync   (make-sync-beh server nil nil)))
                 (maps:addf *stkv-servers* (kv-state-path state) server)
                 (send cust server)
                 ))))
          (prober
-          (α (cust)
-            (send cust (probe-file path))))
+          (alpha (cust)
+            (send cust
+                  (when (probe-file path)
+                    ;; file exists, so we can get its true name
+                    (truename path)))))
          (get-new-or-existing
-          (α (cust)
-            (β (tf)
-                (send (io prober) β)
-              (cond (tf
-                     (let* ((key    (namestring (truename path)))
+          (alpha (cust)
+            (beta (true-path)
+                (send (io prober) beta)
+              (cond (true-path
+                     (let* ((key    (namestring true-path))
                             (server (maps:find *stkv-servers* key)))
                        (if server
                            (send cust server)
@@ -413,16 +418,20 @@ storage and network transmission.
                     (t
                      (send make-new-server cust))
                     )))))
-    (β (server)
-        (send get-new-or-existing β)
+    (beta (server)
+        (send get-new-or-existing beta)
       (when registration
         (register-actor registration server))
       (send cust server))))
 #|
 (make-stkv-server sink)
+(make-stkv-server sink :path "dumstkv" :registration :dummy)
+(update println :dummy
+        (lambda (tbl)
+          (add-kv tbl :diddly :doright)))
 
-(β (act)
-    (find-actor β :rstkv)
+(beta (act)
+    (find-actor beta :rstkv)
   (inspect act))
 
 (query println :rstkv 
@@ -442,6 +451,7 @@ storage and network transmission.
 (query println :rstkv
        (lambda (tbl)
          (find-ks tbl '(:dog :cat :pi :diddly))))
+
 |#
 
 

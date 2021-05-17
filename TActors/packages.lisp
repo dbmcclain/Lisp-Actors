@@ -46,8 +46,10 @@ THE SOFTWARE.
    #:*timeout*)
 
   (:export
-   #:α
-   #:β
+   #:alpha
+   #:beta
+   #:beta-gen
+   #:alambda
    #:io
    #:current-sponsor
    #:*current-sponsor*
