@@ -416,10 +416,13 @@ THE SOFTWARE.
 ;; generating function.
 ;;
 ;; When you need to refer explicitly to that generating function it
-;; goes by the name #'BETA-gen. But in normal use a function call form
-;; with BETA in first position serves to call #'BETA-gen. The values
+;; goes by the name #'BETA-GEN. But in normal use a function call form
+;; with BETA in first position serves to call #'BETA-GEN. The values
 ;; of BETA and #'BETA-gen are available to the body code of the Actor
 ;; up until they are rebound by an inner BETA form.
+;;
+;; For use by BECOME, the parameterized behavior generator is named
+;; #'BETA-BEH.
 
 (defmacro beta (args form &body body)
   (multiple-value-bind (params binding-args)
@@ -427,11 +430,14 @@ THE SOFTWARE.
     (if params
         ;; must use LET not LABELS here, because we still need beta as a
         ;; macro function
-        `(labels ((beta-gen ,params
-                    (alpha ,binding-args
-                      ,@body)))
+        `(labels ((beta-beh ,params
+                    (lambda* ,binding-args
+                      ,@body))
+                  (beta-gen ,params
+                    (make-actor (beta-beh ,@params))))
            (macrolet ((beta (&rest args)
                         `(beta-gen ,@args)))
+             ;; this beta binding lasts only for the next form
              ,form))
       ;; else
       `(let ((beta  (alpha ,args ,@body)))

@@ -48,6 +48,7 @@ THE SOFTWARE.
   (:export
    #:alpha
    #:beta
+   #:beta-beh
    #:beta-gen
    #:alambda
    #:io

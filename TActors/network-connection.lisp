@@ -243,8 +243,9 @@
            
            (t
             ;; Actor Continuation Style (ACS)
-            (let* ((me      #'beta-gen)
-                   (enc-buf (make-u8-vector ndata)))
+            (let ((beta-len self)
+                  (enc-buf  (make-u8-vector ndata)))
+              (become (beta-beh (1+ ctr)))
               (beta ()
                   (send buf-mgr
                         :get beta enc-buf 0 ndata)
@@ -254,9 +255,8 @@
                   (send* frag-asm ctr
                          (secure-decoding crypto ndata
                                           len-buf enc-buf hmac-buf))
-                  ;; (incf ctr)
                   (send buf-mgr
-                        :get (funcall me (1+ ctr)) len-buf 0 +len-prefix-length+)
+                        :get beta-len len-buf 0 +len-prefix-length+)
                   ))))
            )))
       buf-mgr)))  ;; return buf-mgr to caller as ISR interface
