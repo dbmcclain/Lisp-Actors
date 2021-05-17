@@ -97,7 +97,10 @@
 
 (defmethod retry-send (obj &rest msg)
   (declare (ignore msg))
-  (error 'invalid-send-target :target obj))
+  ;; This is not a good idea from a security standpoint...
+  ;; Better to just remain silent.
+  ;; (error 'invalid-send-target :target obj)
+  )
 
 (defmethod send (rcvr &rest msg)
   (beta (a)

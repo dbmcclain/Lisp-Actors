@@ -61,3 +61,5 @@
        (racer   (race sleeper timeout)))
   (send racer println))
 
+: 2+ ( cust x -- )
+  2             v+ send ;
