@@ -144,7 +144,7 @@
   (alambda
     ((:add-bytes lbl frag)
      (cond ((= ctr lbl)
-            (drain-buffer custs (addq nil frag) (incf ctr)))
+            (drain-buffer custs (addq nil frag) (1+ ctr)))
            (t
             (repeat-send self))
            ))
@@ -156,7 +156,7 @@
   (alambda
     ((:add-bytes lbl frag)
      (cond ((= ctr lbl)
-            (drain-buffer custs (addq frags frag) (incf ctr)))
+            (drain-buffer custs (addq frags frag) (1+ ctr)))
            (t
             (repeat-send self))
            ))
