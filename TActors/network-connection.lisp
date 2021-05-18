@@ -499,10 +499,10 @@
    ((:shutdown)
     (%shutdown state))
       
-   ((:sec-send rcust cust . msg)
+   ((rcust :sec-send cust . msg)
     (let ((usti (uuid:make-v1-uuid)))
       (become (make-sec-beh state prev-beh (acons usti cust tbl) msgs))
-      (apply #'%socket-send state :sec-perform rcust usti msg)))
+      (apply #'%socket-send state rcust :sec-perform usti msg)))
    
    ((cust :request-srp-negotiation node-id)
     ;; send from client
@@ -512,7 +512,7 @@
    
    ((cust :srp-ph3-begin rcust m2)
     ;; send from server
-    (%socket-send state :sec-perform rcust m2)
+    (%socket-send state rcust :sec-perform m2)
     (send cust))
       
    ((:srp-done)
@@ -520,7 +520,7 @@
       (apply #'%socket-send state msg))
     (become prev-beh))
    
-   ((:incoming-msg :sec-perform cust . submsg)
+   ((:incoming-msg cust :sec-perform . submsg)
     (let ((actor (cdr (assoc cust tbl :test #'uuid:uuid=))))
       (send* actor submsg)))
    ))

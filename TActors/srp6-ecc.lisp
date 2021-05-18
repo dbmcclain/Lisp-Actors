@@ -174,7 +174,7 @@
                       ))
                   ))
             (beta (m2)
-                (send intf :sec-send rcust beta aac m1)
+                (send intf rcust :sec-send beta aac m1)
 
               ;;
               ;; Phase 3: receive M2 -- a Hash/256
@@ -233,7 +233,7 @@
                   (ed-add bb
                           (ed-mul gxc *k*)))))
         (beta (rcust aac m1)
-            (send intf :sec-send rcust beta bbc)
+            (send intf rcust :sec-send beta bbc)
           ;;
           ;; Phase III: Receive A,M1 -- A as compressed point, M1 as Hash/256
           ;;
