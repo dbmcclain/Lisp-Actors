@@ -280,11 +280,11 @@
              ;; the async collection
              (declare (ignore ignored))
              (cond ((comm:async-io-state-write-status state)
-                    (send write-end :wr-fail cust))
+                    (send write-end cust :wr-fail))
                    (buffers
                     (transmit-next-buffer state))
                    (t
-                    (send write-end :wr-done cust))
+                    (send write-end cust :wr-done))
                    )))
         (cond
          ((eq cust self)
@@ -305,12 +305,12 @@
              (send cust :fail starter)
              (send starter starter)))
       (alambda
-       ((:wr-done cust)
+       ((cust :wr-done)
         (if (zerop (funcall decr-io-count-fn io-state))
             (send-fail cust)
           (send cust :ok starter)))
     
-       ((:wr-fail cust)
+       ((cust :wr-fail)
         (funcall decr-io-count-fn io-state)
         (send-fail cust))
        ))))
@@ -499,29 +499,29 @@
    ((:shutdown)
     (%shutdown state))
       
-   ((:sec-send @rcust @cust . msg)
+   ((:sec-send rcust cust . msg)
     (let ((usti (uuid:make-v1-uuid)))
-      (become (make-sec-beh state prev-beh (acons usti @cust tbl) msgs))
-      (apply #'%socket-send state :sec-send @rcust usti msg)))
+      (become (make-sec-beh state prev-beh (acons usti cust tbl) msgs))
+      (apply #'%socket-send state :sec-perform rcust usti msg)))
    
-   ((:request-srp-negotiation @cust node-id)
+   ((cust :request-srp-negotiation node-id)
     ;; send from client
     (let ((usti (uuid:make-v1-uuid)))
-      (become (make-sec-beh state prev-beh (acons usti @cust tbl) msgs))
-      (%socket-send state :request-srp-negotiation usti node-id)))
+      (become (make-sec-beh state prev-beh (acons usti cust tbl) msgs))
+      (%socket-send state usti :request-srp-negotiation node-id)))
    
-   ((:srp-ph3-begin @rcust @cust m2)
+   ((cust :srp-ph3-begin rcust m2)
     ;; send from server
-    (%socket-send state :sec-send @rcust m2)
-    (send @cust))
+    (%socket-send state :sec-perform rcust m2)
+    (send cust))
       
    ((:srp-done)
     (dolist (msg msgs)
       (apply #'%socket-send state msg))
     (become prev-beh))
    
-   ((:incoming-msg :sec-send @cust . submsg)
-    (let ((actor (cdr (assoc @cust tbl :test #'uuid:uuid=))))
+   ((:incoming-msg :sec-perform cust . submsg)
+    (let ((actor (cdr (assoc cust tbl :test #'uuid:uuid=))))
       (send* actor submsg)))
    ))
 
@@ -537,13 +537,13 @@
       ((:shutdown)
        (%shutdown state))
       
-      ((:client-request-srp cust)
+      ((cust :client-request-srp)
        (become (make-sec-beh state self-beh nil nil))
        (client-negotiate-security-ecc crypto self cust))
 
-      ((:incoming-msg :request-srp-negotiation @rcust sender-id)
+      ((:incoming-msg rcust :request-srp-negotiation sender-id)
        (become (make-sec-beh state self-beh nil nil))
-       (server-negotiate-security-ecc crypto self @rcust sender-id))
+       (server-negotiate-security-ecc crypto self rcust sender-id))
       )))
 
 ;; -------------------------------------------------------------
@@ -569,7 +569,7 @@
                                         :io-state io-state
                                         :crypto   crypto)))
                          (beta ()
-                             (send intf :client-request-srp beta)
+                             (send intf beta :client-request-srp)
                            (bridge-pre-register ip-addr intf) ;; anchor for GC
                            (socket-send intf :client-info (machine-instance))))
                      ;; else
