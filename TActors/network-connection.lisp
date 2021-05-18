@@ -520,10 +520,9 @@
       (apply #'%socket-send state msg))
     (become prev-beh))
    
-   ((:incoming-msg msgkind . msg) when (eq msgkind :SEC-SEND)
-    (destructuring-bind (@cust . submsg) msg
-      (let ((actor (cdr (assoc @cust tbl :test #'uuid:uuid=))))
-        (send* actor submsg))))
+   ((:incoming-msg :sec-send @cust . submsg)
+    (let ((actor (cdr (assoc @cust tbl :test #'uuid:uuid=))))
+      (send* actor submsg)))
    ))
 
 (defun client-request-negotiation-ecc ()
@@ -542,21 +541,19 @@
        (become (make-sec-beh state self-beh nil nil))
        (client-negotiate-security-ecc crypto self cust))
 
-      ((:incoming-msg msgkind . msg) when (eq msgkind :request-srp-negotiation)
-       (destructuring-bind (@rcust sender-id) msg
-         (become (make-sec-beh state self-beh nil nil))
-         (server-negotiate-security-ecc crypto self @rcust sender-id)))
+      ((:incoming-msg :request-srp-negotiation @rcust sender-id)
+       (become (make-sec-beh state self-beh nil nil))
+       (server-negotiate-security-ecc crypto self @rcust sender-id))
       )))
 
 ;; -------------------------------------------------------------
 
 (defun make-client-beh (nom-socket-beh)
   (alambda
-   ((:incoming-msg msgkind . msg) when (eq msgkind :SERVER-INFO)
-    (let ((server-node (car msg)))
-      (bridge-register server-node self)
-      (log-info :SYSTEM-LOG "Socket client starting up: ~A" self)
-      (become nom-socket-beh)))
+   ((:incoming-msg :server-info server-node)
+    (bridge-register server-node self)
+    (log-info :SYSTEM-LOG "Socket client starting up: ~A" self)
+    (become nom-socket-beh))
    ( msg
      (apply nom-socket-beh msg))
    ))
@@ -599,12 +596,11 @@
 
 (defun make-server-beh (nom-socket-beh)
   (alambda
-   ((:incoming-msg msgkind . msg) when (eq msgkind :CLIENT-INFO)
-    (let ((client-node (car msg)))
-      (log-info :SYSTEM-LOG "Socket server starting up: ~A" self)
-      (socket-send self :server-info (machine-instance))
-      (bridge-register client-node self)
-      (become nom-socket-beh)))
+   ((:incoming-msg :client-info client-node)
+    (log-info :SYSTEM-LOG "Socket server starting up: ~A" self)
+    (socket-send self :server-info (machine-instance))
+    (bridge-register client-node self)
+    (become nom-socket-beh))
    ( msg
      (apply nom-socket-beh msg))
    ))
