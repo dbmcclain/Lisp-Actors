@@ -208,14 +208,11 @@
   (alambda
     ((:attach an-ip intf) when (same-ip? an-ip ip)
      ;; successful attachment, change state to normal table lookup
-     (declare (ignore an-ip))
-     (dolist (cust pend)
-       (send cust intf))
+     (send-to-all pend intf)
      (become (make-intf-beh ip intf next)))
 
     ((:fail a-tok) when (eq a-tok tok)
      ;; we timed out waiting for attachment
-     (declare (ignore a-tok))
      (prune-self next))
 
     ((:prune prev)
@@ -228,7 +225,6 @@
     ((:pre-regiser an-ip intf) when (same-ip? an-ip ip)
      ;; seen by the client side while awaiting attachment. We hold on
      ;; to the pending interface to protect against GC.
-     (declare (ignore an-ip))
      (become (make-prereg-intf-beh ip intf tok pend next)))
 
     ((:call-with-intf cust an-ip _) when (same-ip? an-ip ip)
@@ -246,20 +242,16 @@
   (alambda
     ((:attach an-ip an-intf) when (same-ip? an-ip ip)
      ;; successful attachment, change state to normal table lookup.
-     (declare (ignore an-ip))
-     (dolist (cust pend)
-       (send cust an-intf))
+     (send-to-all pend an-intf)
      (become (make-intf-beh ip an-intf next)))
 
     ((:detach an-intf) when (eq an-intf intf)
      ;; seen on unsuccessful connection negotiation
-     (declare (ignore an-intf))
      (repeat-send next)
      (prune-self next))
 
     ((:fail a-tok) when (eq a-tok tok)
      ;; we timed out waiting for attachment
-     (declare (ignore a-tok))
      (prune-self next))
 
     ((:prune prev)
@@ -292,7 +284,6 @@
     ((:detach an-intf) when (eq an-intf intf)
      ;; Called by the network intf when it shuts down
      ;; NOTE: multiple ip-addr may correspond to one intf
-     (declare (ignore an-intf))
      (repeat-send next)
      (prune-self next))
 
@@ -346,7 +337,7 @@
                                       (schedule-timeout)
                                       (list cust)
                                       (make-actor self-beh)))
-       (progn ;; with-worker ()
+       (with-worker
          (open-connection ip port)))
       
       ((:prune prev)
