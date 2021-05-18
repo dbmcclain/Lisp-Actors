@@ -186,41 +186,40 @@
 (defconstant +len-prefix-length+  4)
 (defconstant +hmac-length+       32)
 
-(defun make-frag-assembler (state)
+(defun make-frag-assembler-beh (state ctr frags)
   (with-accessors ((dispatcher intf-state-dispatcher)
                    (intf       intf-state-intf)) state
-    (let ((frags (make-instance 'scatter-vector))
-          (ctr   0))
-      (make-actor
-       (alambda
-        
-        ((_ :discard err)
-         ;; something went wrong, kill the connection
-         (log-error :SYSTEM-LOG "Data framing error: ~A" err)
-         (shutdown intf))
+    (alambda
+     
+     ((_ :discard err)
+      ;; something went wrong, kill the connection
+      (log-error :SYSTEM-LOG "Data framing error: ~A" err)
+      (become (make-sink-beh))
+      (shutdown intf))
+     
+     ((in-ctr :frag frag)
+      (cond ((= in-ctr ctr)
+             (become (make-frag-assembler-beh state (1+ ctr) (cons frag frags))))
+            (t
+             (repeat-send self))
+            ))
+     
+     ((in-ctr :last-frag frag)
+      (cond ((= in-ctr ctr)
+             (become (make-frag-assembler-beh state (1+ ctr) nil))
+             (with-worker
+               (let ((fragv (make-instance 'scatter-vector)))
+                 (dolist (frag (reverse (cons frag frags)))
+                   (add-fragment fragv frag))
+                 (send dispatcher (byte-decode-obj fragv)))))
+            (t
+             ;; ctr out of sync, go around again
+             (repeat-send self))
+            ))
+     )))
 
-        ((in-ctr :frag frag)
-         (cond ((= in-ctr ctr)
-                (incf ctr)
-                ;; a partial buffer of a complete message
-                (add-fragment frags frag))
-               (t
-                (repeat-send self))
-               ))
-               
-        ((in-ctr :last-frag frag)
-         (cond ((= in-ctr ctr)
-                (incf ctr)
-                ;; the last buffer of a complete message
-                (add-fragment frags frag)
-                (send dispatcher (byte-decode-obj frags))
-                (setf frags (make-instance 'scatter-vector)))
-               (t
-                ;; ctr out of sync, go around again
-                (repeat-send self))
-               ))
-        ))
-      )))
+(defun make-frag-assembler (state)
+  (make-actor (make-frag-assembler-beh state 0 nil)))
 
 (defun make-reader (state)
   ;; An entire subsystem to respond to incoming socket data, assemble
