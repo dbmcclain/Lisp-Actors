@@ -320,16 +320,16 @@
        ))))
 
 (defun make-write-entry-beh (serial starter)
-  (lambda (item &rest msg)
-    (cond ((consp item)
-           ;; A list of buffers to write
-           (send serial self item))
-          
-          ((and (eql item :fail)
-                (eq (car msg) starter))
-           ;; Error condition flagged by :FAIL from Starter
-           (become (make-sink-beh)))
-          )))
+  (alambda
+
+   ((:fail tag) when (eq tag starter)
+    ;; Error condition flagged by :FAIL from Starter
+    (become (make-sink-beh)))
+
+   ((buffers)
+    ;; A list of buffers to write
+    (send serial self buffers))
+   ))
 
 (defun make-writer (state)
   (actors ((starter  (make-write-starter-beh state ender))

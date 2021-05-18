@@ -493,7 +493,7 @@ THE SOFTWARE.
                            (multiple-value-bind (elts list-kind)
                                (parse-list-pat pat)
                              `((,list-kind ,@elts) ,@body))
-                         `(,pat ,@body))
+                         `((list* ,pat) ,@body))
                        ))
                    clauses)))
     ))
