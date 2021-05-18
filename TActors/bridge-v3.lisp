@@ -123,7 +123,7 @@
 
 (defun prune-self (next)
   (become (make-pruned-beh next))
-  (send next :prune self))
+  (send next self :prune))
 
 (defun make-cont-entry (cont intf)
   ;; We hold cont objects in a weak vector so that if the cont object
@@ -142,7 +142,7 @@
      (repeat-send next)
      (prune-self next))
     
-    ((:prune prev)
+    ((prev :prune)
      (send prev :pruned self-beh))
     
     ((:reset)
@@ -169,7 +169,7 @@
      (become (make-cont-beh usti (make-cont-entry cont intf)
                             intf (make-actor self-beh))))
 
-    ((:prune prev)
+    ((prev :prune)
      (send prev :pruned self-beh))
     
     ((:deliver-message _ if-cant-send . _)
@@ -215,7 +215,7 @@
      ;; we timed out waiting for attachment
      (prune-self next))
 
-    ((:prune prev)
+    ((prev :prune)
      (send prev :pruned self-beh))
     
     ((:reset)
@@ -227,7 +227,7 @@
      ;; to the pending interface to protect against GC.
      (become (make-prereg-intf-beh ip intf tok pend next)))
 
-    ((:call-with-intf cust an-ip _) when (same-ip? an-ip ip)
+    ((cust :call-with-intf an-ip _) when (same-ip? an-ip ip)
      ;; new incoming request for a pending socket connection
      (become (make-pending-intf-beh ip tok (cons cust pend) next)))
 
@@ -254,7 +254,7 @@
      ;; we timed out waiting for attachment
      (prune-self next))
 
-    ((:prune prev)
+    ((prev :prune)
      (send prev :pruned self-beh))
 
     ((:reset)
@@ -265,7 +265,7 @@
      ;; this should not orinarily be seen from this state
      (become (make-prereg-intf-beh ip an-intf tok pend next)))
 
-    ((:call-with-intf cust an-ip _) when (same-ip? an-ip ip)
+    ((cust :call-with-intf an-ip _) when (same-ip? an-ip ip)
      ;; new incoming request for a pending socket connection
      (become (make-prereg-intf-beh ip intf tok (cons cust pend) next)))
 
@@ -287,14 +287,14 @@
      (repeat-send next)
      (prune-self next))
 
-    ((:prune prev)
+    ((prev :prune)
      (send prev :pruned self-beh))
     
     ((:reset)
      (repeat-send next)
      (prune-self next))
     
-    ((:call-with-intf cust an-ip _) when (same-ip? an-ip ip)
+    ((cust :call-with-intf an-ip _) when (same-ip? an-ip ip)
      ;; Called by SEND on our side to find the network intf to use for
      ;; message forwarding.  TODO - clean up re ports
      (send cust intf))
@@ -330,7 +330,7 @@
                                      nil
                                      (make-actor self-beh))))
       
-      ((:call-with-intf cust ip port)
+      ((cust :call-with-intf ip port)
        ;; this is the place where a new connection is attempted. We now
        ;; go to pending state, with a timeout.
        (become (make-pending-intf-beh ip
@@ -340,7 +340,7 @@
        (with-worker
          (open-connection ip port)))
       
-      ((:prune prev)
+      ((prev :prune)
        (send prev :pruned self-beh))
       )))
 
@@ -352,8 +352,9 @@
   ;; as arguments.
   (when (and service
              ip)
-    (send *intf-map* :call-with-intf
+    (send *intf-map*
           (make-actor (um:curry fn service))
+          :call-with-intf
           ip port)
     ))
 
