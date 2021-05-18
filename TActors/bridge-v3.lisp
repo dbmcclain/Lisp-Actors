@@ -113,11 +113,11 @@
 ;; Bridge Intf/Continuations mapper
 
 (defun make-pruned-beh (next)
-  (um:dlambda
-    (:pruned (beh)
+  (alambda
+    ((:pruned beh)
      (become beh))
 
-    (t _
+    ( _
        (repeat-send next))
     ))
 

@@ -211,7 +211,7 @@
                (let ((fragv (make-instance 'scatter-vector)))
                  (dolist (frag (reverse (cons frag frags)))
                    (add-fragment fragv frag))
-                 (send dispatcher (byte-decode-obj fragv)))))
+                 (send* dispatcher (byte-decode-obj fragv)))))
             (t
              ;; ctr out of sync, go around again
              (repeat-send self))
@@ -343,14 +343,14 @@
 
 (defun make-kill-timer (timer-fn)
   (let ((timer (mp:make-timer #'mp:funcall-async timer-fn)))
-    (actor (&rest msg)
-      (um:dcase msg
-        (:resched ()
-         (mp:schedule-timer-relative timer *socket-timeout-period*))
-        (:discard ()
-         (mp:unschedule-timer timer)
-         (become (make-sink-beh)))
-        ))))
+    (make-actor
+     (alambda
+      ((:resched)
+       (mp:schedule-timer-relative timer *socket-timeout-period*))
+      ((:discard)
+       (mp:unschedule-timer timer)
+       (become (make-sink-beh)))
+      ))))
 
 ;; ------------------------------------------------------------------------
 ;; Once a buffer fragment has been completely received, we examine what we have
@@ -359,35 +359,38 @@
   (error "No Service ~S on Node ~A" service node))
 
 (defun make-dispatcher (state)
-  (actor (whole-msg)
-    (with-accessors ((kill-timer  intf-state-kill-timer)
-                     (intf        intf-state-intf)) state
-      (send kill-timer :resched)
-      (dcase* whole-msg
-        (:forwarding-send (service &rest msg)
-             ;; the bridge from the other end has forwarded a message to
-             ;; an actor on this side
-             (apply #'bridge-deliver-message service
-                    (make-actor (lambda ()
-                                  (socket-send intf :no-service
-                                               service (machine-instance))
-                                  ))
-                    msg))
-
-        (:no-service (service node)
-             ;; sent to us from the other end on our send to
-             ;; non-existent service
-             (mp:funcall-async #'no-service-alert service node))
-          
-        (t (&rest msg)
-             ;; other out-of-band messages - part of a private
-             ;; conversation between the two network interfaces
-             #|
-             (log-info :SYSTEM-LOG
-                       "Incoming ~A Msg: ~A" title msg)
-             |#
-             (send* intf :incoming-msg msg))
-        ))))
+  (with-accessors ((kill-timer  intf-state-kill-timer)
+                   (intf        intf-state-intf)) state
+    (make-actor
+     (alambda
+      
+      ((:forwarding-send service . msg)
+       ;; the bridge from the other end has forwarded a message to
+       ;; an actor on this side
+       (send kill-timer :resched)
+       (apply #'bridge-deliver-message service
+              (make-actor (lambda ()
+                            (socket-send intf :no-service
+                                         service (machine-instance))
+                            ))
+              msg))
+      
+      ((:no-service service node)
+       ;; sent to us from the other end on our send to
+       ;; non-existent service
+       (send kill-timer :resched)
+       (mp:funcall-async #'no-service-alert service node))
+      
+      (msg
+       ;; other out-of-band messages - part of a private
+       ;; conversation between the two network interfaces
+       #|
+       (log-info :SYSTEM-LOG
+                 "Incoming ~A Msg: ~A" title msg)
+       |#
+       (send kill-timer :resched)
+       (send* intf :incoming-msg msg))
+      )))) 
 
 ;; ------------------------------------------------------------------------
 ;; The main user-visible portion of a network interface
