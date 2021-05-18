@@ -89,25 +89,6 @@ storage and network transmission.
    ))
 
 ;; ---------------------------------------------------
-;; Purely Functional Banker's Queue
-;; Empty Queue is NIL
-
-(defun q-norm (q)
-  (if (car q)
-      q
-    (when (cdr q)
-      (list (reverse (cdr q))) )))
-
-(defun q-put (q x)
-  (q-norm (cons (car q) (cons x (cdr q)))))
-
-(defun q-take (q)
-  (if q
-      (values (caar q)
-              (q-norm (cons (cdar q) (cdr q))))
-    (error "Empty Queue")))
-
-;; ---------------------------------------------------
 
 (defun make-kv-database-beh (state sync)
   (with-accessors ((kv-map  kv-state-map)) state
@@ -135,8 +116,8 @@ storage and network transmission.
       
      ((cust :write updatefn)
       (become (make-locked-db-beh writer state sync
-                                  (q-put pend-wr
-                                         (cons cust updatefn) ))))
+                                  (bankers-queue:q-add pend-wr
+                                                       (cons cust updatefn) ))))
       
       ((cust :update new-map wr-cust) when (eq cust writer)
          (send wr-cust self)
@@ -152,7 +133,7 @@ storage and network transmission.
                       )))
            (cond (pend-wr
                   (multiple-value-bind (pair new-queue)
-                      (q-take pend-wr)
+                      (bankers-queue:q-pop pend-wr)
                     (let ((new-writer (make-writer (car pair) (cdr pair) new-map)))
                       (send new-writer self)
                       (become (make-locked-db-beh new-writer new-state sync new-queue))

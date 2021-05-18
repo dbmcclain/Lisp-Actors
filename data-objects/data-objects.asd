@@ -31,6 +31,7 @@ THE SOFTWARE.
                 (:file "orderable")
                 (:file "ref-v4")
                 (:file "ord")
+                (:file "bankers-queue")
                 (:file "finger-tree")
                 (:file "bal-binary-trees")
                 ;; (:file "bal-binary-trees-cps")

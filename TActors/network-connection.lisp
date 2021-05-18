@@ -13,10 +13,6 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (shadowing-import '(actors/security:random))
   (import '(um:when-let
-            um:dlambda
-            um:dlambda*
-            um:dcase
-            um:dcase*
             um:wr
             
             actors/security:secure-encoding
