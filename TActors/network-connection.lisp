@@ -401,7 +401,8 @@
                  :crypto   crypto
                  :io-state io-state
                  :accepting-handle accepting-handle))
-         (intf  (make-actor (funcall make-beh-fn state))))
+         (intf  (make-actor (funcall make-beh-fn
+                                     (make-socket-beh state)))))
     (with-accessors ((title            intf-state-title)
                      (io-state         intf-state-io-state)
                      (kill-timer       intf-state-kill-timer)
@@ -494,88 +495,75 @@
 
 ;; ------------------------------------------------------------------------
 
-(defun make-sec-beh (state prev-beh)
-  (let (tbl
-        msgs)
-    (um:dlambda
-      (:send (&rest msg)
-       (push msg msgs))
+(defun make-sec-beh (state prev-beh tbl msgs)
+  (alambda
+   ((:send . msg)
+    (become (make-sec-beh state prev-beh tbl (cons msg msgs))))
       
-      (:shutdown ()
-       (%shutdown state))
+   ((:shutdown)
+    (%shutdown state))
       
-      (:sec-send (@rcust @cust &rest msg)
-       (let ((usti (uuid:make-v1-uuid)))
-         (um:aconsf tbl usti @cust)
-         (apply #'%socket-send state :sec-send @rcust usti msg)))
+   ((:sec-send @rcust @cust . msg)
+    (let ((usti (uuid:make-v1-uuid)))
+      (become (make-sec-beh state prev-beh (acons usti @cust tbl) msgs))
+      (apply #'%socket-send state :sec-send @rcust usti msg)))
+   
+   ((:request-srp-negotiation @cust node-id)
+    ;; send from client
+    (let ((usti (uuid:make-v1-uuid)))
+      (become (make-sec-beh state prev-beh (acons usti @cust tbl) msgs))
+      (%socket-send state :request-srp-negotiation usti node-id)))
+   
+   ((:srp-ph3-begin @rcust @cust m2)
+    ;; send from server
+    (%socket-send state :sec-send @rcust m2)
+    (send @cust))
       
-      (:request-srp-negotiation (@cust node-id)
-       ;; send from client
-       (let ((usti (uuid:make-v1-uuid)))
-         (um:aconsf tbl usti @cust)
-         (%socket-send state :request-srp-negotiation usti node-id)))
-      
-      (:srp-ph3-begin (@rcust @cust m2)
-       ;; send from server
-       (%socket-send state :sec-send @rcust m2)
-       (send @cust))
-      
-      (:srp-done ()
-       (dolist (msg msgs)
-         (apply #'%socket-send state msg))
-       (become prev-beh))
-      
-      (:incoming-msg (msgkind &rest msg) when (eq msgkind :SEC-SEND)
-       (declare (ignore msgkind))
-       (destructuring-bind (@cust . submsg) msg
-         (let ((actor (cdr (assoc @cust tbl :test #'uuid:uuid=))))
-           (send* actor submsg))))
-      
-      (t (&rest msg)
-         (error "Unknown message: ~S" msg))
-      )))
+   ((:srp-done)
+    (dolist (msg msgs)
+      (apply #'%socket-send state msg))
+    (become prev-beh))
+   
+   ((:incoming-msg msgkind . msg) when (eq msgkind :SEC-SEND)
+    (destructuring-bind (@cust . submsg) msg
+      (let ((actor (cdr (assoc @cust tbl :test #'uuid:uuid=))))
+        (send* actor submsg))))
+   ))
 
 (defun client-request-negotiation-ecc ()
   )
 
 (defun make-socket-beh (state)
   (with-accessors ((crypto  intf-state-crypto)) state
-    (um:dlambda
-      (:send (&rest msg)
+    (alambda
+      ((:send . msg)
        (apply #'%socket-send state msg))
     
-      (:shutdown ()
+      ((:shutdown)
        (%shutdown state))
       
-      (:client-request-srp (cust)
-       (become (make-sec-beh state self-beh))
+      ((:client-request-srp cust)
+       (become (make-sec-beh state self-beh nil nil))
        (client-negotiate-security-ecc crypto self cust))
 
-      (:incoming-msg (msgkind &rest msg) when (eq msgkind :request-srp-negotiation)
-       (declare (ignore msgkind))
+      ((:incoming-msg msgkind . msg) when (eq msgkind :request-srp-negotiation)
        (destructuring-bind (@rcust sender-id) msg
-         (become (make-sec-beh state self-beh))
+         (become (make-sec-beh state self-beh nil nil))
          (server-negotiate-security-ecc crypto self @rcust sender-id)))
-      
-      (t (&rest msg)
-         (error "Unknown message: ~S" msg)
-         (apply #'funcall msg))
       )))
 
 ;; -------------------------------------------------------------
 
-(defun make-client-beh (state)
-  (let ((nom-socket (make-socket-beh state)))
-    (um:dlambda
-      (:incoming-msg (msgkind &rest msg) when (eq msgkind :SERVER-INFO)
-       (declare (ignore msgkind))
-       (let ((server-node (car msg)))
-         (bridge-register server-node self)
-         (log-info :SYSTEM-LOG "Socket client starting up: ~A" self)
-         (become nom-socket)))
-      (t (&rest msg)
-         (apply nom-socket msg))
-      )))
+(defun make-client-beh (nom-socket-beh)
+  (alambda
+   ((:incoming-msg msgkind . msg) when (eq msgkind :SERVER-INFO)
+    (let ((server-node (car msg)))
+      (bridge-register server-node self)
+      (log-info :SYSTEM-LOG "Socket client starting up: ~A" self)
+      (become nom-socket-beh)))
+   ( msg
+     (apply nom-socket-beh msg))
+   ))
 
 (defun open-connection (ip-addr &optional ip-port)
   ;; Called from client side wishing to connect to a server
@@ -613,19 +601,17 @@
 
 ;; -------------------------------------------------------------
 
-(defun make-server-beh (state)
-  (let ((nom-socket (make-socket-beh state)))
-    (um:dlambda
-      (:incoming-msg (msgkind &rest msg) when (eq msgkind :CLIENT-INFO)
-       (declare (ignore msgkind))
-       (let ((client-node (car msg)))
-         (log-info :SYSTEM-LOG "Socket server starting up: ~A" self)
-         (socket-send self :server-info (machine-instance))
-         (bridge-register client-node self)
-         (become nom-socket)))
-      (t (&rest msg)
-         (apply nom-socket msg))
-      )))
+(defun make-server-beh (nom-socket-beh)
+  (alambda
+   ((:incoming-msg msgkind . msg) when (eq msgkind :CLIENT-INFO)
+    (let ((client-node (car msg)))
+      (log-info :SYSTEM-LOG "Socket server starting up: ~A" self)
+      (socket-send self :server-info (machine-instance))
+      (bridge-register client-node self)
+      (become nom-socket-beh)))
+   ( msg
+     (apply nom-socket-beh msg))
+   ))
 
 (defun start-server-messenger (accepting-handle io-state)
   "Internal routine to start a network interface from the server side.
