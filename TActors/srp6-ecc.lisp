@@ -127,8 +127,8 @@
     ;;
     ;; Phase-I: send local node ID
     ;;
-    (beta (rcust bbc)
-        (send intf beta :request-srp-negotiation node-id)
+    (beta (bbc)
+        (send intf beta :sec-send :request-srp-negotiation node-id)
       ;;
       ;; Phase-II: receive B                  -- a random compressed ECC point on Curve1174
       ;;
@@ -174,7 +174,7 @@
                       ))
                   ))
             (beta (m2)
-                (send intf rcust :sec-send beta aac m1)
+                (send intf beta :sec-send aac m1)
 
               ;;
               ;; Phase 3: receive M2 -- a Hash/256
@@ -208,7 +208,7 @@
             ))))
     ))
 
-(defmethod server-negotiate-security-ecc ((crypto crypto) intf rcust node-id)
+(defmethod server-negotiate-security-ecc ((crypto crypto) intf node-id)
   ;; No second chances - any error shuts down the connection
   ;; immediately.
   ;;
@@ -232,8 +232,8 @@
       (let ((bbc (ed-compress-pt
                   (ed-add bb
                           (ed-mul gxc *k*)))))
-        (beta (rcust aac m1)
-            (send intf rcust :sec-send beta bbc)
+        (beta (aac m1)
+            (send intf beta :sec-send bbc)
           ;;
           ;; Phase III: Receive A,M1 -- A as compressed point, M1 as Hash/256
           ;;
@@ -279,7 +279,7 @@
                      (my-initv  (vec (hash/256 m1 sc))))
                 
                 (beta ()
-                    (send intf beta :srp-ph3-begin rcust m2)
+                    (send intf beta :srp-ph3-begin m2)
                   (init-crypto-for-hmac   crypto my-initv his-initv)
                   (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
                   (init-crypto-for-output crypto key-out (subseq my-initv  0 16))

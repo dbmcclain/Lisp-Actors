@@ -491,28 +491,21 @@
 
 ;; ------------------------------------------------------------------------
 
-(defun make-sec-beh (state prev-beh tbl msgs)
+(defun make-sec-beh (state prev-beh in-cust msgs)
   (alambda
    ((:send . msg)
-    (become (make-sec-beh state prev-beh tbl (cons msg msgs))))
+    (become (make-sec-beh state prev-beh in-cust (cons msg msgs))))
       
    ((:shutdown)
     (%shutdown state))
       
-   ((rcust :sec-send cust . msg)
-    (let ((usti (uuid:make-v1-uuid)))
-      (become (make-sec-beh state prev-beh (acons usti cust tbl) msgs))
-      (apply #'%socket-send state rcust :sec-perform usti msg)))
+   ((cust :sec-send . msg)
+    (become (make-sec-beh state prev-beh cust msgs))
+    (apply #'%socket-send state msg))
    
-   ((cust :request-srp-negotiation node-id)
-    ;; send from client
-    (let ((usti (uuid:make-v1-uuid)))
-      (become (make-sec-beh state prev-beh (acons usti cust tbl) msgs))
-      (%socket-send state usti :request-srp-negotiation node-id)))
-   
-   ((cust :srp-ph3-begin rcust m2)
-    ;; send from server
-    (%socket-send state rcust :sec-perform m2)
+   ((cust :srp-ph3-begin m2)
+    ;; sent by server
+    (%socket-send state m2)
     (send cust))
       
    ((:srp-done)
@@ -520,9 +513,8 @@
       (apply #'%socket-send state msg))
     (become prev-beh))
    
-   ((:incoming-msg cust :sec-perform . submsg)
-    (let ((actor (cdr (assoc cust tbl :test #'uuid:uuid=))))
-      (send* actor submsg)))
+   ((:incoming-msg . submsg)
+    (send* in-cust submsg))
    ))
 
 (defun client-request-negotiation-ecc ()
@@ -541,9 +533,9 @@
        (become (make-sec-beh state self-beh nil nil))
        (client-negotiate-security-ecc crypto self cust))
 
-      ((:incoming-msg rcust :request-srp-negotiation sender-id)
+      ((:incoming-msg :request-srp-negotiation sender-id)
        (become (make-sec-beh state self-beh nil nil))
-       (server-negotiate-security-ecc crypto self rcust sender-id))
+       (server-negotiate-security-ecc crypto self sender-id))
       )))
 
 ;; -------------------------------------------------------------
