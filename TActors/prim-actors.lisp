@@ -304,4 +304,50 @@
         ))))
       
 ;; -----------------------------------------------
+;; For sequenced message delivery
+;;
+;; When a messages arrives out of order, send it with :WAIT to the
+;; pending items list. When you are ready for any particular sequence
+;; number or label, then send :START with that seequence number to the
+;; pending list. If it had previously arrived, it will be re-sent.
+;;
+;; The purpose of this Actor is to avoid spinning on messages,
+;; needlessly using CPU cycles.
+
+(defun pruned-beh (next)
+  (alambda
+   ((:pruned beh)
+    (become beh))
+
+   ( msg
+     (send* next msg))
+   ))
+
+(defun no-pend-beh ()
+  (alambda
+   ((prev :prune)
+    (send prev :pruned self-beh))
+
+   ((:wait ctr . msg)
+    (let ((next (make-actor
+                 (no-pend-beh))))
+      (become (pend-beh ctr msg next))))
+   ))
+
+(defun pend-beh (ctr msg next)
+  (alambda
+   ((prev :prune)
+    (send prev :pruned self-beh))
+
+   ((cust :ready in-ctr) when (eql ctr in-ctr)
+    (send* cust ctr msg)
+    (become (pruned-beh next))
+    (send next self :prune))
+
+   ( msg
+     (send* next msg))
+   ))
+    
+(defun sequenced-delivery ()
+  (make-actor (no-pend-beh)))
 

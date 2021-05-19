@@ -137,6 +137,7 @@ THE SOFTWARE.
    #:serializer
    #:timing
    #:sponsor-switch
+   #:sequenced-delivery
    
    #:make-sink-beh
    #:make-const-beh
@@ -149,6 +150,8 @@ THE SOFTWARE.
    #:make-scheduled-message-beh
    #:make-serializer-beh
    #:make-timing-beh
+   #:pruned-beh
+   #:pend-beh
    
    #:subscribe
    #:notify

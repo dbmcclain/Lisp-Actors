@@ -165,47 +165,9 @@
 (defun make-buffer-manager ()
   (make-actor
    (make-empty-buffer-beh nil 1
-                          (make-actor
-                           (no-pend-beh)))
+                          (sequenced-delivery))
    ))
 
-;; -------------------------------------------------------------------------
-;; For ordered delivery of messages...
-
-(defun pruned-beh (next)
-  (alambda
-   ((:pruned beh)
-    (become beh))
-
-   ( msg
-     (send* next msg))
-   ))
-
-(defun no-pend-beh ()
-  (alambda
-   ((prev :prune)
-    (send prev :pruned self-beh))
-
-   ((:wait ctr . msg)
-    (let ((next (make-actor
-                 (no-pend-beh))))
-      (become (pend-beh ctr msg next))))
-   ))
-
-(defun pend-beh (ctr msg next)
-  (alambda
-   ((prev :prune)
-    (send prev :pruned self-beh))
-
-   ((cust :ready in-ctr) when (eql ctr in-ctr)
-    (send* cust ctr msg)
-    (become (pruned-beh next))
-    (send next self :prune))
-
-   ( msg
-     (send* next msg))
-   ))
-    
 ;; -------------------------------------------------------------------------
 ;; Socket Reader
 ;;                 +------------+
@@ -261,9 +223,8 @@
 
 (defun make-frag-assembler (state)
   (make-actor (make-frag-assembler-beh state 0 nil
-                                       (make-actor
-                                        (no-pend-beh))
-                                       )))
+                                       (sequenced-delivery))
+              ))
 
 (defun make-reader (state)
   ;; An entire subsystem to respond to incoming socket data, assemble
