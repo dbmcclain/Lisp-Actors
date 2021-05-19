@@ -491,16 +491,19 @@
 
 ;; ------------------------------------------------------------------------
 
-(defun make-sec-beh (state prev-beh in-cust msgs)
+(defun make-sec-beh (state prev-beh in-cust dels)
   (alambda
    ((:send . msg)
-    (become (make-sec-beh state prev-beh in-cust (cons msg msgs))))
+    (let ((delayed (actor ()
+                     (apply #'socket-send self msg))))
+      (become (make-sec-beh state prev-beh in-cust (cons delayed dels)))
+      ))
       
    ((:shutdown)
     (%shutdown state))
       
    ((cust :sec-send . msg)
-    (become (make-sec-beh state prev-beh cust msgs))
+    (become (make-sec-beh state prev-beh cust dels))
     (apply #'%socket-send state msg))
    
    ((cust :srp-ph3-begin m2)
@@ -509,12 +512,11 @@
     (send cust))
       
    ((:srp-done)
-    (dolist (msg msgs)
-      (apply #'%socket-send state msg))
-    (become prev-beh))
+    (become prev-beh)
+    (send-to-all dels))
    
-   ((:incoming-msg . submsg)
-    (send* in-cust submsg))
+   ((:incoming-msg . msg)
+    (send* in-cust msg))
    ))
 
 (defun client-request-negotiation-ecc ()
