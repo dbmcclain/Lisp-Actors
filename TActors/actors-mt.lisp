@@ -293,9 +293,13 @@ THE SOFTWARE.
   ;; cross-sponsor sends
   #F
   (cond (self
-         (push (list (sponsor-mbox spon)
-                     (cons actor msg))
-               (the list *sendx-evts*)))
+         (if (eq spon *current-sponsor*)
+             (send* actor msg)
+           (push (list (sponsor-mbox spon)
+                       (cons actor msg))
+                 (the list *sendx-evts*))
+           ))
+
         (t
          (mp:mailbox-send (sponsor-mbox spon)
                           (cons actor msg)))
@@ -475,7 +479,7 @@ THE SOFTWARE.
                        (setf (actor-beh self) (or (shiftf *new-beh* nil)
                                                   #'swap-out-beh))))
                  ;; else -- something changed beh behind our backs...
-                 (repeat-send self))))
+                 (send* self msg))))
       #'swap-out-beh)))
 
 ;; ------------------------------------------------------

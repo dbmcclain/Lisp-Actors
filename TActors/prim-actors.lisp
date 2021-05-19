@@ -244,8 +244,8 @@
             (if queue
                 (multiple-value-bind (next-req new-queue)
                     (finger-tree:popq queue)
-                  (destructuring-bind (next-cust . next-msg) next-req
-                    (send* service tag next-msg)
+                  (destructuring-bind (spon next-cust . next-msg) next-req
+                    (sendx* spon service tag next-msg)
                     (become (make-enqueued-serializer-beh
                              service tag next-cust new-queue))
                     ))
@@ -253,7 +253,9 @@
               (become (make-serializer-beh service))))
            (t
             (become (make-enqueued-serializer-beh
-                     service tag in-cust (finger-tree:addq queue (cons cust msg)))))
+                     service tag in-cust
+                     (finger-tree:addq queue
+                                       (list* *current-sponsor* cust msg)))))
            ))))
   
 (defun serializer (service)
