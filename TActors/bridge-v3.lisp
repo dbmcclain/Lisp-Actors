@@ -112,19 +112,6 @@
 ;; -------------------------------------------
 ;; Bridge Intf/Continuations mapper
 
-(defun make-pruned-beh (next)
-  (alambda
-    ((:pruned beh)
-     (become beh))
-
-    ( _
-       (repeat-send next))
-    ))
-
-(defun prune-self (next)
-  (become (make-pruned-beh next))
-  (send next self :prune))
-
 (defun make-cont-entry (cont intf)
   ;; We hold cont objects in a weak vector so that if the cont object
   ;; disappears, we have a way of knowing to purge the entry for it.

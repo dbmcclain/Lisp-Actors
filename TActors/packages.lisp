@@ -138,6 +138,7 @@ THE SOFTWARE.
    #:timing
    #:sponsor-switch
    #:sequenced-delivery
+   #:prune-self
    
    #:make-sink-beh
    #:make-const-beh

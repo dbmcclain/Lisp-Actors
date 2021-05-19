@@ -323,6 +323,10 @@
      (send* next msg))
    ))
 
+(defun prune-self (next)
+  (become (pruned-beh next))
+  (send next self :prune))
+
 (defun no-pend-beh ()
   (alambda
    ((prev :prune)
@@ -341,8 +345,7 @@
 
    ((cust :ready in-ctr) when (eql ctr in-ctr)
     (send* cust ctr msg)
-    (become (pruned-beh next))
-    (send next self :prune))
+    (prune-self next))
 
    ( msg
      (send* next msg))
