@@ -114,7 +114,7 @@
            ))))
     ))
        
-(defun drain-buffer (custs frags new-ctr)
+(defun drain-buffer (custs frags new-ctr pend)
   (cond (custs
          (multiple-value-bind (rec new-custs) (popq custs)
            (destructuring-bind (cust buf pos limit) rec
@@ -123,47 +123,89 @@
                (if (>= new-pos limit)
                    (progn
                      (send cust)
-                     (drain-buffer new-custs new-frags new-ctr))
+                     (drain-buffer new-custs new-frags new-ctr pend))
                  ;; else
                  (become (make-empty-buffer-beh
                           (pushq new-custs
                                  (list cust buf new-pos limit))
-                          new-ctr))
+                          new-ctr pend))
                  )))))
         (t
          (if frags
-             (become (make-nonempty-buffer-beh nil frags new-ctr))
-           (become (make-empty-buffer-beh nil new-ctr))))
+             (become (make-nonempty-buffer-beh nil frags new-ctr pend))
+           (become (make-empty-buffer-beh nil new-ctr pend))))
         ))
 
-(defun make-empty-buffer-beh (custs ctr)
+(defun make-empty-buffer-beh (custs ctr pend)
   (alambda
-    ((:add-bytes lbl frag)
+    ((lbl :add-bytes frag)
      (cond ((= ctr lbl)
-            (drain-buffer custs (addq nil frag) (1+ ctr)))
+            (send pend self :ready (1+ ctr))
+            (drain-buffer custs (addq nil frag) (1+ ctr) pend))
            (t
-            (repeat-send self))
+            (send pend :wait lbl :add-bytes frag))
            ))
     ((:get . msg)
-     (become (make-empty-buffer-beh (addq custs msg) ctr)))
+     (become (make-empty-buffer-beh (addq custs msg) ctr pend)))
     ))
 
-(defun make-nonempty-buffer-beh (custs frags ctr)
+(defun make-nonempty-buffer-beh (custs frags ctr pend)
   (alambda
-    ((:add-bytes lbl frag)
+    ((lbl :add-bytes frag)
      (cond ((= ctr lbl)
-            (drain-buffer custs (addq frags frag) (1+ ctr)))
+            (send pend self :ready (1+ ctr))
+            (drain-buffer custs (addq frags frag) (1+ ctr) pend))
            (t
-            (repeat-send self))
+            (send pend :wait lbl :add-bytes frag))
            ))
     ((:get . msg)
-     (drain-buffer (addq custs msg) frags ctr))
+     (drain-buffer (addq custs msg) frags ctr pend))
     ))
 
 (defun make-buffer-manager ()
   (make-actor
-   (make-empty-buffer-beh nil 1)))
+   (make-empty-buffer-beh nil 1
+                          (make-actor
+                           (no-pend-beh)))
+   ))
 
+;; -------------------------------------------------------------------------
+;; For ordered delivery of messages...
+
+(defun pruned-beh (next)
+  (alambda
+   ((:pruned beh)
+    (become beh))
+
+   ( msg
+     (send* next msg))
+   ))
+
+(defun no-pend-beh ()
+  (alambda
+   ((prev :prune)
+    (send prev :pruned self-beh))
+
+   ((:wait ctr . msg)
+    (let ((next (make-actor
+                 (no-pend-beh))))
+      (become (pend-beh ctr msg next))))
+   ))
+
+(defun pend-beh (ctr msg next)
+  (alambda
+   ((prev :prune)
+    (send prev :pruned self-beh))
+
+   ((cust :ready in-ctr) when (eql ctr in-ctr)
+    (send* cust ctr msg)
+    (become (pruned-beh next))
+    (send next self :prune))
+
+   ( msg
+     (send* next msg))
+   ))
+    
 ;; -------------------------------------------------------------------------
 ;; Socket Reader
 ;;                 +------------+
@@ -182,8 +224,9 @@
 (defconstant +len-prefix-length+  4)
 (defconstant +hmac-length+       32)
 
-(defun make-frag-assembler-beh (state ctr frags)
+(defun make-frag-assembler-beh (state ctr frags pend)
   (with-accessors ((dispatcher intf-state-dispatcher)
+                   (kill-timer intf-state-kill-timer)
                    (intf       intf-state-intf)) state
     (alambda
      
@@ -195,27 +238,32 @@
      
      ((in-ctr :frag frag)
       (cond ((= in-ctr ctr)
-             (become (make-frag-assembler-beh state (1+ ctr) (cons frag frags))))
+             (become (make-frag-assembler-beh state (1+ ctr) (cons frag frags) pend))
+             (send pend self :ready (1+ ctr)))
             (t
-             (repeat-send self))
+             (send pend :wait in-ctr :frag frag))
             ))
      
      ((in-ctr :last-frag frag)
       (cond ((= in-ctr ctr)
-             (become (make-frag-assembler-beh state (1+ ctr) nil))
+             (become (make-frag-assembler-beh state (1+ ctr) nil pend))
+             (send pend self :ready (1+ ctr))
+             (send kill-timer :resched)
              (with-worker
                (let ((fragv (make-instance 'scatter-vector)))
                  (dolist (frag (reverse (cons frag frags)))
                    (add-fragment fragv frag))
                  (send* dispatcher (byte-decode-obj fragv)))))
             (t
-             ;; ctr out of sync, go around again
-             (repeat-send self))
+             (send pend :wait in-ctr :last-frag frag))
             ))
      )))
 
 (defun make-frag-assembler (state)
-  (make-actor (make-frag-assembler-beh state 0 nil)))
+  (make-actor (make-frag-assembler-beh state 0 nil
+                                       (make-actor
+                                        (no-pend-beh))
+                                       )))
 
 (defun make-reader (state)
   ;; An entire subsystem to respond to incoming socket data, assemble
@@ -355,15 +403,13 @@
   (error "No Service ~S on Node ~A" service node))
 
 (defun make-dispatcher (state)
-  (with-accessors ((kill-timer  intf-state-kill-timer)
-                   (intf        intf-state-intf)) state
+  (with-accessors ((intf  intf-state-intf)) state
     (make-actor
      (alambda
       
       ((:forwarding-send service . msg)
        ;; the bridge from the other end has forwarded a message to
        ;; an actor on this side
-       (send kill-timer :resched)
        (apply #'bridge-deliver-message service
               (make-actor (lambda ()
                             (socket-send intf :no-service
@@ -374,7 +420,6 @@
       ((:no-service service node)
        ;; sent to us from the other end on our send to
        ;; non-existent service
-       (send kill-timer :resched)
        (mp:funcall-async #'no-service-alert service node))
       
       (msg
@@ -384,9 +429,8 @@
        (log-info :SYSTEM-LOG
                  "Incoming ~A Msg: ~A" title msg)
        |#
-       (send kill-timer :resched)
        (send* intf :incoming-msg msg))
-      )))) 
+      ))))
 
 ;; ------------------------------------------------------------------------
 ;; The main user-visible portion of a network interface
@@ -428,7 +472,7 @@
                    ;; (log-info :SYSTEM-LOG "~A Incoming bytes: ~A" title buffer)
                    (if (> end +max-fragment-size+)
                        (setf err-too-large "Incoming packet too large")
-                     (send reader :add-bytes (incf lbl)
+                     (send reader (incf lbl) :add-bytes
                            (list* 0 end (subseq buffer 0 end))))
                    (comm:async-io-state-discard state end))
                  (when-let (status (or (comm:async-io-state-read-status state)
