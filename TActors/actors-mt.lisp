@@ -125,10 +125,10 @@ THE SOFTWARE.
 
 ;; Per-Thread for Activated Actor
 (defvar *new-beh*       nil)   ;; Staging for BECOME
-(defvar *send-evts*     nil)   ;; Staging for SEND
 (defvar *sendx-evts*    nil)   ;; Staging for SENDX
 (defvar *whole-message* nil)   ;; Current Event Message
 (defvar *current-actor* nil)   ;; Current Actor
+(defvar *evt-queue*     nil)   ;; Current Event Queue
 
 (define-symbol-macro self     *current-actor*)
 (define-symbol-macro self-beh (actor-beh self))
@@ -179,43 +179,45 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------------------
 ;; Generic RUN for all threads, across all Sponsors
-
+;;
+;; SENDs are optimistically committed to the event queue. In case of
+;; error, the tail of the queue is rolled back.
+;;
 (defun run-actors (*current-sponsor*)
   #F
-  (let ((mbox    (sponsor-mbox *current-sponsor*))
-        (queue   (make-queue)))
+  (let ((mbox         (sponsor-mbox *current-sponsor*))
+        (*evt-queue*  (make-queue))
+        (current-tail nil)) ;; rollback pointer
     (loop
+     (when (setf (cdr *evt-queue*) current-tail)
+       (setf (cdr current-tail) nil))
      (with-simple-restart (abort "Handle next event")
        (loop
         ;; Get a Foreign SEND event if any
         (when (mp:mailbox-not-empty-p mbox)
-          (addq queue
+          (addq *evt-queue*
                 (mp:mailbox-read mbox)))
         ;; Fetch next event from event queue
-        (let ((evt (or (popq queue)
+        (let ((evt (or (popq *evt-queue*)
                        (mp:mailbox-read mbox))))
           (declare (cons evt))
+          (setf current-tail (cdr *evt-queue*)) ;; grab queue tail for possible rollback
           ;; Setup Actor context
           (let* ((*current-actor* (car evt))
                  (*whole-message* (cdr evt))
                  (*new-beh*       nil)
-                 (*send-evts*     nil)
                  (*sendx-evts*    nil))
             (declare (actor    *current-actor*)
                      (list     *whole-message* *sendx-evts*))
             ;; ---------------------------------
             ;; Dispatch to Actor behavior with message args
             (apply self-beh *whole-message*)
-            
-            ;; Commit SEND / BECOME effects
-            (when *send-evts*
-              ;; Handle local SENDs
-              (appendq queue *send-evts*))
+
             (when *sendx-evts*
               ;; Handle cross-Sponsor SENDs
               (dolist (evt *sendx-evts*)
                 (apply #'mp:mailbox-send evt)))
-            ;; Apply staged become
+            ;; Apply staged BECOME
             (when *new-beh*
               (setf self-beh *new-beh*)))
           ))))))
@@ -278,8 +280,7 @@ THE SOFTWARE.
   #F
   (cond (self
          ;; Actor SENDs are staged.
-         (addq (or *send-evts*
-                   (setf *send-evts* (make-queue)))
+         (addq *evt-queue*
                (cons actor msg)))
         (t
          ;; Non-Actor SENDs take effect immediately.
