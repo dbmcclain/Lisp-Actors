@@ -38,6 +38,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "adapters")
                 #-:lispworks (:file "ansi-timer")
                 (:file "actors-mt")
+                (:file "macros")
                 (:file "prim-actors")
                 ;; (:file "actor-class")
                 ;; (:file "watch")

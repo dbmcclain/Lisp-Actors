@@ -46,6 +46,11 @@ THE SOFTWARE.
    #:*timeout*)
 
   (:export
+   #:pipe
+   #:tee
+   #:ret
+   #:ret*
+   
    #:alpha
    #:beta
    #:beta-beh
@@ -60,9 +65,6 @@ THE SOFTWARE.
    #:*slow-sponsor*
    #:with-sponsor
 
-   #:@bind
-   #:@values
-   
    #:send
    #:send*
    #:sendx
@@ -215,6 +217,9 @@ THE SOFTWARE.
    #:client-info
    #:server-info
    ))
+
+(defpackage #:actors/macros
+  (:use #:common-lisp #:actors))
 
 (defpackage #:actors/directory
   (:use #:common-lisp #:actors))

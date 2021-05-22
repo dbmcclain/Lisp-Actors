@@ -118,7 +118,7 @@
 (defun lazy (actor &rest msg)
   ;; Like FUTURE, but delays evaluation of the Actor with message
   ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
-  (alpha (cust)
+  (actor (cust)
     (let ((tag (tag self)))
       (become (make-future-wait-beh tag (list cust)))
       (send* actor tag msg))
@@ -275,7 +275,7 @@
   (make-actor (make-timing-beh dut)))
 
 #|
-(let* ((dut (alpha (cust nsec)
+(let* ((dut (actor (cust nsec)
              (sleep nsec)
              (send cust)))
       (timer (timing dut)))
@@ -283,12 +283,12 @@
 |#
 (defun sponsor-switch (spons)
   ;; Switch to other Sponsor for rest of processing
-  (alpha msg
+  (actor msg
     (sendx* spons msg)))
 
 (defun io (svc)
   ;; svc should be an Actor expecting a customer and args from msg
-  (alpha (cust &rest msg)
+  (actor (cust &rest msg)
     (let ((spons *current-sponsor*))
       (if (eq spons *slow-sponsor*)
           (send* svc cust msg)
@@ -297,7 +297,7 @@
         ;; send result back to customer on current thread
         (sendx* *slow-sponsor*
                 svc
-                (alpha ans
+                (actor ans
                   ;; forwarding customer for svc
                   (sendx* spons cust ans))
                 msg)
