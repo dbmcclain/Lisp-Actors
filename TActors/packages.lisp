@@ -46,12 +46,14 @@ THE SOFTWARE.
    #:*timeout*)
 
   (:export
-   #:pipe
-   #:tee
    #:ret
    #:ret*
+   #:γlambda
+   #:γactor
+   #:γ
+   #:pipe
    
-   #:alpha
+   #:β
    #:beta
    #:beta-beh
    #:beta-gen

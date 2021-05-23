@@ -151,7 +151,6 @@
 ;; ALAMBDA -- a behavior lambda for Actors with pattern matching on
 ;; messages
 
-
 (defmacro alambda (&rest clauses)
   (lw:with-unique-names (msg)
     `(lambda (&rest ,msg)
@@ -168,25 +167,34 @@
                    clauses)))
     ))
 
+;; ------------------------------------------------------
+
 (defmacro ret (&rest ans)
   `(send γ ,@ans))
 
 (defmacro ret* (&rest ans)
   `(send* γ ,@ans))
 
-(defmacro tee (&rest custs)
-  (lw:with-unique-names (others msg)
-    `(let ((,others (list ,@custs)))
-       (actor (γ &rest ,msg)
-         (apply #'send-to-all (cons γ ,others) ,msg)))
+(defmacro γlambda (&rest clauses)
+  (lw:with-unique-names (msg)
+    `(lambda (γ &rest ,msg) ;; use RET or RET* instead of SEND CUST
+       (optima:match ,msg
+         ,@(mapcar (lambda (clause)
+                     (destructuring-bind (pat . body)
+                         clause
+                       (if (consp pat)
+                           (multiple-value-bind (elts list-kind)
+                               (parse-list-pat pat)
+                             `((,list-kind ,@elts) ,@body))
+                         `((list* ,pat) ,@body))
+                       ))
+                   clauses)))
     ))
-
-(defmacro pipe (&rest custs)
-  (lw:with-unique-names (msg ans k-cont)
-    (cond ((null custs) nil)
-          ((null (cdr custs)) (car custs))
-          (t  `(actor (γ &rest ,msg)
-                 (let ((,k-cont (actor ,ans
-                                  (send* (pipe ,@(cdr custs)) γ ,ans))))
-                   (send* ,(car custs) ,k-cont ,msg))))
-          )))
+  
+(defmacro γactor (args &body body)
+  ;; use RET or RET* instead of SEND CUST
+  `(make-actor
+    (lambda* (γ ,@(if (consp args)
+                      args
+                    `(&rest ,args)))
+      ,@body)))

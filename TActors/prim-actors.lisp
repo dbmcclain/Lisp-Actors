@@ -354,3 +354,26 @@
 (defun sequenced-delivery ()
   (make-actor (no-pend-beh)))
 
+;; ----------------------------------------------
+;; PIPE - Data processing pipelines
+
+(defun working-pipe-beh (cust elts)
+  (lambda (&rest ans)
+    (cond ((cdr elts)
+           (send* (car elts) self ans)
+           (become (working-pipe-beh cust (cdr elts))))
+          (t
+           (send* (car elts) cust ans))
+          )))
+
+(defun pipe (&rest elts)
+  (cond ((cdr elts)
+         (actor (cust &rest msg)
+           (send* (car elts) self msg)
+           (become (working-pipe-beh cust (cdr elts)))
+           ))
+        (elts  (car elts))
+        (t     (actor (cust &rest msg)
+                 (send* cust msg)))
+        ))
+
