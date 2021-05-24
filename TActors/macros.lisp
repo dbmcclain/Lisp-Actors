@@ -151,20 +151,26 @@
 ;; ALAMBDA -- a behavior lambda for Actors with pattern matching on
 ;; messages
 
+(defmacro list-match (lst &rest clauses)
+  `(optima:match ,lst
+     ,@(mapcar (lambda (clause)
+                 (destructuring-bind (pat . body)
+                     clause
+                   (if (consp pat)
+                       (multiple-value-bind (elts list-kind)
+                           (parse-list-pat pat)
+                         `((,list-kind ,@elts) ,@body))
+                     `((list* ,pat) ,@body))
+                   ))
+               clauses)))
+
+#+:LISPWORKS
+(editor:setup-indent "list-match" 1)
+  
 (defmacro alambda (&rest clauses)
   (lw:with-unique-names (msg)
     `(lambda (&rest ,msg)
-       (optima:match ,msg
-         ,@(mapcar (lambda (clause)
-                     (destructuring-bind (pat . body)
-                         clause
-                       (if (consp pat)
-                           (multiple-value-bind (elts list-kind)
-                               (parse-list-pat pat)
-                             `((,list-kind ,@elts) ,@body))
-                         `((list* ,pat) ,@body))
-                       ))
-                   clauses)))
+       (list-match ,msg ,@clauses))
     ))
 
 ;; ------------------------------------------------------
@@ -178,19 +184,9 @@
 (defmacro γlambda (&rest clauses)
   (lw:with-unique-names (msg)
     `(lambda (γ &rest ,msg) ;; use RET or RET* instead of SEND CUST
-       (optima:match ,msg
-         ,@(mapcar (lambda (clause)
-                     (destructuring-bind (pat . body)
-                         clause
-                       (if (consp pat)
-                           (multiple-value-bind (elts list-kind)
-                               (parse-list-pat pat)
-                             `((,list-kind ,@elts) ,@body))
-                         `((list* ,pat) ,@body))
-                       ))
-                   clauses)))
+       (list-match ,msg ,@clauses))
     ))
-  
+
 (defmacro γactor (args &body body)
   ;; use RET or RET* instead of SEND CUST
   `(make-actor

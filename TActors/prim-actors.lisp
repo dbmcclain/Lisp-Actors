@@ -165,17 +165,24 @@
                    ))
           )))
 
+(defun fork (left right)
+  (actor (cust lreq rreq)
+    (let ((tag-l (tag self))
+          (tag-r (tag self)))
+      (become (make-join-beh cust tag-l tag-r))
+      (send* left tag-l lreq)
+      (send* right tag-r rreq))))
+
 (defvar par
-  (make-actor
-   (lambda (cust lst &rest msg)
-     (if (null lst)
-         (send cust)
-       (actors ((join (make-join-beh cust lbl1 lbl2))
-                (lbl1 (make-tag-beh join))
-                (lbl2 (make-tag-beh join)))
-         (send* (car lst) lbl1 msg)
-         (send* self lbl2 (cdr lst) msg)))
-     )))
+  (actor (cust lst &rest msg)
+    (if (null lst)
+        (send cust)
+      (actors ((join (make-join-beh cust lbl1 lbl2))
+               (lbl1 (make-tag-beh join))
+               (lbl2 (make-tag-beh join)))
+        (send* (car lst) lbl1 msg)
+        (send* self lbl2 (cdr lst) msg)))
+    ))
 
 ;; ---------------------------------------------------------
 #|
@@ -356,6 +363,7 @@
 
 ;; ----------------------------------------------
 ;; PIPE - Data processing pipelines
+;; (cust . msg) -> {A} -> {B} -> {C} -> {cust}
 
 (defun working-pipe-beh (cust elts)
   (lambda (&rest ans)

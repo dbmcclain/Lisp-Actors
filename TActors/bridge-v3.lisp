@@ -144,6 +144,18 @@
        (error ()
          (send if-cant-send))
        ))
+
+    ((cust :show)
+     (beta (ans)
+         (send next beta :show)
+       (send cust
+             (let ((cont (aref contv 0)))
+               (if cont
+                   (cons (list 'make-cont-entry :usti usti :intf intf :cont cont)
+                         ans)
+                 ans)))
+       ))
+    
     ( _
        (unless (aref contv 0)
          (prune-self next))
@@ -161,10 +173,16 @@
     
     ((:deliver-message _ if-cant-send . _)
      (send if-cant-send))
+
+    ((cust :show)
+     (send cust nil))
     ))
 
 (defvar *cont-map* (make-actor (make-empty-cont-beh)))
 
+#|
+(send *cont-map* println :Show)
+|#
 ;; ------------------------------------------
 
 (defun create-and-add-usti (obj &optional handler)

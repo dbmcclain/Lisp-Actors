@@ -17,26 +17,26 @@
           (lambda ()
             (print :hello)))))
   (send a))
+(send println :hello)
 (get-actor-names println)
 (find-actor println :reval)
 
 ;; --------------------------------------
-;; Arg pattern convention has customer first, followed by message and
-;; args
+;; Arg pattern convention has customer first, followed by message args
 
 ;; to break (+ a b) down into elementary particle Actors...
 (send cust (+ a b))
 
-(@bind (+)
-    (send + @bind :eval)
-  (@bind (a)
-      (send a @bind :eval)
-    (@bind (b)
-        (send b @bind :eval)
+(beta (+)
+    (send + beta :eval)
+  (beta (a)
+      (send a beta :eval)
+    (beta (b)
+        (send b beta :eval)
       (send + cust :apply a b))))
 
-(@bind ((+ a b))
-    (send par @bind '(+ a b) :eval)
+(beta ((+ a b))
+    (send par beta '(+ a b) :eval)
   (send + cust :apply a b))
           
 (let ((junk 15))
@@ -62,4 +62,4 @@
   (send racer println))
 
 : 2+ ( cust x -- )
-  2             v+ send ;
+  2 v+ send ;

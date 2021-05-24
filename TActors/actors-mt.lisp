@@ -173,12 +173,13 @@ THE SOFTWARE.
           (let* ((*current-actor* (car evt))
                  (*whole-message* (cdr evt))
                  (*new-beh*       nil)
+                 ;; (*new-beh*       self-beh)
                  (*sendx-evts*    nil))
             (declare (actor    *current-actor*)
                      (list     *whole-message* *sendx-evts*))
             ;; ---------------------------------
             ;; Dispatch to Actor behavior with message args
-            (apply self-beh *whole-message*)
+            (apply #|*new-beh*|# self-beh *whole-message*)
 
             (when *sendx-evts*
               ;; Handle cross-Sponsor SENDs
@@ -298,7 +299,13 @@ THE SOFTWARE.
 ;; A Par-Safe-Behavior is guaranteed safe for sharing of single
 ;; instances across multiple SMP threads. Only one thread at a time is
 ;; permitted to execute the behavior code.
+;;
+;; This becomes important when a single instance of an Actor is shared
+;; among multiple event handlers (multiple threads) and the Actor
+;; exercises BECOME, or otherwise mutates its internal state. BECOME
+;; mutates internal state.
 
+#|
 (defun ensure-par-safe-behavior (beh)
   (check-type beh function)
   (locally
@@ -322,4 +329,29 @@ THE SOFTWARE.
                  ;; else -- something changed beh behind our backs...
                  (send* self msg))))
       #'swap-out-beh)))
-
+|#
+#||#
+(defun ensure-par-safe-behavior (beh)
+  (check-type beh function)
+  (locally
+    #F
+    (declare (function beh))
+    (let ((lock  (mp:make-lock))
+	  this-beh)
+      (setf this-beh
+	    #'(lambda (&rest msg)
+		(let ((wait-dur (if (and (emptyq? *evt-queue*)
+					 (mp:mailbox-empty-p
+                                          (sponsor-mbox *current-sponsor*)))
+				    nil  ;; no pending work, so just wait
+                                  0)))   ;; other work to do, so go around again if can't lock immed
+		  (unless (mp:with-lock (lock nil wait-dur)
+			    (when (eq self-beh this-beh) ;; behavior changed while waiting?
+			      (apply beh msg)
+			      (when *new-beh* ;; must perform staged BECOME before releasing lock
+				(setf self-beh (shiftf *new-beh* nil)))
+			      t))
+		    (send* self msg))) ;; go around again, or perform other work
+		))
+      )))
+#||#

@@ -52,6 +52,8 @@ THE SOFTWARE.
    #:γactor
    #:γ
    #:pipe
+   #:fork
+   #:list-match
    
    #:β
    #:beta
