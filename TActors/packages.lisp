@@ -54,6 +54,7 @@ THE SOFTWARE.
    #:pipe
    #:fork
    #:list-match
+   #:actor-nlet
    
    #:β
    #:beta

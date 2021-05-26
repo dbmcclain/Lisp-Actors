@@ -194,3 +194,16 @@
                       args
                     `(&rest ,args)))
       ,@body)))
+
+;; ----------------------------------------------------
+;; Like NLET for functions, only this defines a locally named Actor
+;; and then SENDs to it immediately.
+
+(defmacro actor-nlet (name bindings &body body)
+  `(let (,name)
+     (setf ,name (actor ,(mapcar #'first bindings)
+                   ,@body))
+     (send ,name ,@(mapcar #'second bindings))))
+
+#+:LISPWORKS
+(editor:indent-like "actor-nlet" 'nlet)
