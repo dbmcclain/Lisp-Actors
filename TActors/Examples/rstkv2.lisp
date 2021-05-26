@@ -120,7 +120,7 @@ storage and network transmission.
                                                        (cons cust updatefn) ))))
       
       ((cust :update new-map wr-cust) when (eq cust writer)
-         (send wr-cust self)
+         (send wr-cust self (not (eq map new-map)))
          (let ((new-state
                 (cond ((eq new-map kv-map)
                        state)
@@ -150,15 +150,18 @@ storage and network transmission.
    (lambda (db)
      ;; We need to return a map to release the locked db.
      ;; If anything goes wrong, just return the original.
-     (let ((ans (or (handler-case
-                        (let ((new-map (funcall updatefn map)))
-                          (maps:find new-map #()) ;; will err if new-map isn't a MAP
-                          new-map)
-                      (error ()
-                        nil))
-                    map)))
-       (send db self :update ans cust)
-     ))))
+     ;; Implement a 1 sec timeout.
+     (let ((gate  (once db)))
+       (schedule-after gate 1 self :update map cust)
+       (let ((ans  (or (handler-case
+                           (let ((new-map (funcall updatefn map)))
+                             (maps:find new-map #()) ;; will err if new-map isn't a MAP
+                             new-map)
+                         (error ()
+                           nil))
+                       map)))
+         (send gate self :update ans cust)
+         )))))
 
 ;; ----------------------------------------
 
@@ -169,9 +172,8 @@ storage and network transmission.
 
    ((cust :update state) when (eq cust server)
     (unless (eq state last-state)
-      (let* ((tag      (tag self))
-             (reminder (scheduled-message tag *writeback-delay* :write state)))
-        (send reminder)
+      (let* ((tag  (tag self)))
+        (schedule-after tag *writeback-delay* :write state)))
         (become (make-sync-beh server state tag))
         )))
    

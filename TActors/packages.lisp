@@ -130,7 +130,7 @@ THE SOFTWARE.
    #:sink
    #:const
    #:println
-   #:one-shot
+   #:once
    #:send-to-all
    #:race
    #:fwd
@@ -141,6 +141,7 @@ THE SOFTWARE.
    #:ser
    #:par
    #:scheduled-message
+   #:schedule-after
    #:serializer
    #:timing
    #:sponsor-switch

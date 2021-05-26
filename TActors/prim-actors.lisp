@@ -219,6 +219,10 @@
 (defun scheduled-message (cust dt &rest msg)
   (make-actor (apply #'make-scheduled-message-beh cust dt msg)))
 
+(defun schedule-after (cust dt &rest msg)
+  (let ((timer (apply #'mp:make-timer #'send cust msg)))
+    (mp:schedule-timer-relative timer dt)))
+
 ;; -----------------------------------------
 ;; Serializer Gateway
 ;;
