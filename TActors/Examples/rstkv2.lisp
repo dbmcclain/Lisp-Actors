@@ -120,7 +120,7 @@ storage and network transmission.
                                                        (cons cust updatefn) ))))
       
       ((cust :update new-map wr-cust) when (eq cust writer)
-         (send wr-cust self (not (eq map new-map)))
+         (send wr-cust self (not (eq kv-map new-map)))
          (let ((new-state
                 (cond ((eq new-map kv-map)
                        state)
@@ -172,8 +172,8 @@ storage and network transmission.
 
    ((cust :update state) when (eq cust server)
     (unless (eq state last-state)
-      (let* ((tag  (tag self)))
-        (schedule-after tag *writeback-delay* :write state)))
+      (let ((tag  (tag self)))
+        (schedule-after tag *writeback-delay* :write state)
         (become (make-sync-beh server state tag))
         )))
    
@@ -238,7 +238,7 @@ storage and network transmission.
 ;; -----------------------------
 
 (defun read-database (cust path)
-  (let ((doit (alpha (cust)
+  (let ((doit (actor (cust)
                 (if (probe-file path)
                     (with-open-file (f path
                                        :direction :input
@@ -277,7 +277,7 @@ storage and network transmission.
   (with-accessors ((map    kv-state-map)
                    (path   kv-state-path)
                    (ver    kv-state-ver)) state
-    (let ((doit (alpha (cust)
+    (let ((doit (actor (cust)
                   (ensure-directories-exist path)
                   (with-open-file (f path
                                      :direction :output
@@ -374,7 +374,7 @@ storage and network transmission.
                         (path (default-database-pathname))
                         (registration *service-id*))
   (let* ((make-new-server
-          (alpha (cust)
+          (actor (cust)
             (beta (state)
                 (read-database beta path)
               (actors ((server (make-kv-database-beh state sync))
@@ -383,13 +383,13 @@ storage and network transmission.
                 (send cust server)
                 ))))
          (prober
-          (alpha (cust)
+          (actor (cust)
             (send cust
                   (when (probe-file path)
                     ;; file exists, so we can get its true name
                     (truename path)))))
          (get-new-or-existing
-          (alpha (cust)
+          (actor (cust)
             (beta (true-path)
                 (send (io prober) beta)
               (cond (true-path
