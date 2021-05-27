@@ -219,8 +219,8 @@
 (defun scheduled-message (cust dt &rest msg)
   (make-actor (apply #'make-scheduled-message-beh cust dt msg)))
 
-(defun schedule-after (cust dt &rest msg)
-  (let ((timer (apply #'mp:make-timer #'send cust msg)))
+(defun send-after (dt &rest msg)
+  (let ((timer (apply #'mp:make-timer #'send msg)))
     (mp:schedule-timer-relative timer dt)))
 
 ;; -----------------------------------------
@@ -341,7 +341,7 @@
 (defun no-pend-beh ()
   (alambda
    ((prev :prune)
-    (send prev :pruned self-beh))
+    (send prev :pruned (no-pend-beh)))
 
    ((:wait ctr . msg)
     (let ((next (make-actor
@@ -352,7 +352,7 @@
 (defun pend-beh (ctr msg next)
   (alambda
    ((prev :prune)
-    (send prev :pruned self-beh))
+    (send prev :pruned (pend-beh ctr msg next)))
 
    ((cust :ready in-ctr) when (eql ctr in-ctr)
     (send* cust ctr msg)

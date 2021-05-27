@@ -554,7 +554,7 @@
     (log-info :SYSTEM-LOG "Socket client starting up: ~A" self)
     (become nom-socket-beh))
    ( msg
-     (apply nom-socket-beh msg))
+     (apply nom-socket-beh :delegate (make-client-beh nom-socket-beh) msg))
    ))
 
 (defun open-connection (ip-addr &optional ip-port)

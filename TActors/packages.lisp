@@ -106,7 +106,7 @@ THE SOFTWARE.
    #:start-actors-system
    #:kill-executives
 
-   #:schedule-after
+   #:send-after
 
    #:lfm
    #:log-info

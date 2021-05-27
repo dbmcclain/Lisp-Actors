@@ -24,9 +24,6 @@
              (closer-mop:subclassp (class-of obj) super))
         )))
 
-(defun respond-to-prune (from)
-  (send from :pruned self-beh))
-
 (defun make-empty-subject-beh ()
   (dlambda
     (:attach (about from)
@@ -34,7 +31,7 @@
        (become (make-subject-beh about from next))))
     
     (:prune (prev)
-     (respond-to-prune prev))
+     (send prev :pruned (make-empty-subject-beh)))
     ))
 
 (defun make-subject-beh (about from next)
@@ -61,7 +58,7 @@
            ))
 
     (:prune (prev)
-     (respond-to-prune prev))
+     (send prev :pruned (make-subject-beh about from next)))
     ))
 
 (defun make-prune-beh (next)

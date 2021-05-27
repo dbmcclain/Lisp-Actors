@@ -152,7 +152,7 @@ storage and network transmission.
      ;; If anything goes wrong, just return the original.
      ;; Implement a 1 sec timeout.
      (let ((gate  (once db)))
-       (schedule-after gate 1 self :update map cust)
+       (send-after 1 gate self :update map cust)
        (let ((ans  (or (handler-case
                            (let ((new-map (funcall updatefn map)))
                              (maps:find new-map #()) ;; will err if new-map isn't a MAP
@@ -173,11 +173,11 @@ storage and network transmission.
    ((cust :update state) when (eq cust server)
     (unless (eq state last-state)
       (let ((tag  (tag self)))
-        (schedule-after tag *writeback-delay* :write state)
+        (send-after *writeback-delay* tag :write state)
         (become (make-sync-beh server state tag))
         )))
    
-   ((cust :write state) when (eq cust tag)
+   ((a-tag :write state) when (eq a-tag tag)
     (save-database sink state))
    ))
 

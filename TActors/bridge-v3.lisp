@@ -122,7 +122,9 @@
     ((:attach a-usti a-cont an-intf)
      (send next :check-purge)
      (become (make-cont-beh a-usti (make-cont-entry a-cont an-intf)
-                            an-intf (make-actor self-beh))))
+                            an-intf
+                            (make-actor (make-cont-beh usti contv intf next)))
+             ))
     
     ((:detach an-intf) when (eq an-intf intf)
      (declare (ignore an-intf))
@@ -130,7 +132,7 @@
      (prune-self next))
     
     ((prev :prune)
-     (send prev :pruned self-beh))
+     (send prev :pruned (make-cont-beh usti contv intf next)))
     
     ((:reset)
      (repeat-send next)
@@ -165,11 +167,14 @@
 (defun make-empty-cont-beh ()
   (alambda
     ((:attach usti cont intf)
-     (become (make-cont-beh usti (make-cont-entry cont intf)
-                            intf (make-actor self-beh))))
+     (become (make-cont-beh usti
+                            (make-cont-entry cont intf)
+                            intf
+                            (make-actor (make-empty-cont-beh))
+                            )))
 
     ((prev :prune)
-     (send prev :pruned self-beh))
+     (send prev :pruned (make-empty-cont-beh)))
     
     ((:deliver-message _ if-cant-send . _)
      (send if-cant-send))
@@ -206,7 +211,7 @@
 
 (defvar *allowable-pending-delay* 5)
 
-(defun make-pending-intf-beh (ip tok pend next)
+(defun make-pending-intf-beh (ip tag pend next)
   ;; On first request, one of these Actors holds the info for a
   ;; pending connection. Additional subscribers are enqueued in the
   ;; pending list.
@@ -216,12 +221,12 @@
      (send-to-all pend intf)
      (become (make-intf-beh ip intf next)))
 
-    ((:fail a-tok) when (eq a-tok tok)
+    ((a-tag :fail) when (eq a-tag tag)
      ;; we timed out waiting for attachment
      (prune-self next))
 
     ((prev :prune)
-     (send prev :pruned self-beh))
+     (send prev :pruned (make-pending-intf-beh ip tag pend next)))
     
     ((:reset)
      (repeat-send next)
@@ -230,16 +235,16 @@
     ((:pre-regiser an-ip intf) when (same-ip? an-ip ip)
      ;; seen by the client side while awaiting attachment. We hold on
      ;; to the pending interface to protect against GC.
-     (become (make-prereg-intf-beh ip intf tok pend next)))
+     (become (make-prereg-intf-beh ip intf tag pend next)))
 
     ((cust :call-with-intf an-ip _) when (same-ip? an-ip ip)
      ;; new incoming request for a pending socket connection
-     (become (make-pending-intf-beh ip tok (cons cust pend) next)))
+     (become (make-pending-intf-beh ip tag (cons cust pend) next)))
 
     ( _
        (repeat-send next))))
 
-(defun make-prereg-intf-beh (ip intf tok pend next)
+(defun make-prereg-intf-beh (ip intf tag pend next)
   ;; Client-side requests are pre-registered when the physical
   ;; interface is successfuly constructed. But until the interface
   ;; completes its handshake with the server, it remains in pending
@@ -255,12 +260,12 @@
      (repeat-send next)
      (prune-self next))
 
-    ((:fail a-tok) when (eq a-tok tok)
+    ((a-tag :fail) when (eq a-tag tag)
      ;; we timed out waiting for attachment
      (prune-self next))
 
     ((prev :prune)
-     (send prev :pruned self-beh))
+     (send prev :pruned (make-prereg-intf-beh ip intf tag pend next)))
 
     ((:reset)
      (repeat-send next)
@@ -268,11 +273,11 @@
     
     ((:pre-register an-ip an-intf) when (same-ip? an-ip ip)
      ;; this should not orinarily be seen from this state
-     (become (make-prereg-intf-beh ip an-intf tok pend next)))
+     (become (make-prereg-intf-beh ip an-intf tag pend next)))
 
     ((cust :call-with-intf an-ip _) when (same-ip? an-ip ip)
      ;; new incoming request for a pending socket connection
-     (become (make-prereg-intf-beh ip intf tok (cons cust pend) next)))
+     (become (make-prereg-intf-beh ip intf tag (cons cust pend) next)))
 
     ( _
        (repeat-send next))))
@@ -293,7 +298,7 @@
      (prune-self next))
 
     ((prev :prune)
-     (send prev :pruned self-beh))
+     (send prev :pruned (make-intf-beh ip intf next)))
     
     ((:reset)
      (repeat-send next)
@@ -315,16 +320,16 @@
   ;; to cause a state change. Otherwise the pending state becomes
   ;; removed from the mapping list.
   (labels ((schedule-timeout ()
-             (actors ((sched (make-scheduled-message-beh self
-                                                         *allowable-pending-delay*
-                                                         :fail sched)))
-               (send sched :go)
-               sched)))
+             (let ((tag (tag self)))
+               (send-after *allowable-pending-delay* tag :fail)
+               tag)))
     (alambda
       ((:attach ip intf)
        ;; server side sees this message from this state, but client side
        ;; ordinarily pre-registers before the attach.
-       (become (make-intf-beh ip intf (make-actor self-beh))))
+       (become (make-intf-beh ip intf
+                              (make-actor (make-empty-intf-beh)))
+               ))
       
       ((:pre-regiser ip intf)
        ;; we should never ordinarily see this message from empty state.
@@ -333,7 +338,8 @@
        (become (make-prereg-intf-beh ip intf
                                      (schedule-timeout)
                                      nil
-                                     (make-actor self-beh))))
+                                     (make-actor (make-empty-intf-beh)))
+               ))
       
       ((cust :call-with-intf ip port)
        ;; this is the place where a new connection is attempted. We now
@@ -341,12 +347,12 @@
        (become (make-pending-intf-beh ip
                                       (schedule-timeout)
                                       (list cust)
-                                      (make-actor self-beh)))
+                                      (make-actor (make-empty-intf-beh))))
        (with-worker
          (open-connection ip port)))
       
       ((prev :prune)
-       (send prev :pruned self-beh))
+       (send prev :pruned (make-empty-intf-beh)))
       )))
 
 (defvar *intf-map* (make-actor (make-empty-intf-beh)))
