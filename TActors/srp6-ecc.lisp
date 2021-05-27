@@ -56,9 +56,13 @@
   (setf (gethash (car info) *member-tbl*) (cdr info)))
 
 (defun gen-info (machine-instance salt)
-  (make-deterministic-keys (int (hash/256 salt
-                                          machine-instance
-                                          $VERSION))))
+  (let ((x (with-open-file (f "~/.melech"
+                              :direction :input)
+             (read f))))
+    (make-deterministic-keys (int (hash/256 salt
+                                            x
+                                            machine-instance
+                                            $VERSION)))))
 
 (progn
   (add-member '("RAMBO"
@@ -66,13 +70,13 @@
                 #S(EDWARDS-ECC::ECC-CMPR-PT
                    :CX 1273371386386608212524824066008103082487850570605984373323016206756589646975)))
   (add-member '("Rincon.local"
-                91143934066267379107449156587394017781715397241428517149908010260754618351577
+                49160856559683250145117127317339402884552938745976685476155965553792824590246
                 #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 6946211988895729231432229477437593907959485561556140153791350558574597365662)))
+                   :CX 5256622018528387048159252137593810767950738720060654184341614458947029247089)))
   (add-member '("Arroyo.local"
-                51998828478681372180374497272385492537368488066756046430597211323536450486145
+                91389651149087596318059674813816386831405868598342284783144785470548472227704
                 #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 1050860519361362858299609932690926232544890377433018845591174635619906368855))))
+                   :CX 4538818218850249608518200528322279140227183572500646731156234029741265604064))))
 
 #|
 (let ((*print-readably* t))
@@ -84,8 +88,8 @@
 
 (let ((*print-readably* t))
   (let ((salt (int (hash/256 (usec:get-time-usec))))
-        (mach "RAMBO")
-        ;; (mach "Rincon.local")
+        ;; (mach "RAMBO")
+        (mach "Rincon.local")
         ;; (mach "Arroyo.local")
         )
     (multiple-value-bind (x gx)
@@ -102,6 +106,15 @@
   (multiple-value-bind (x gx)
       (gen-info node-id salt)
     (send println node-id salt (ed-compress-pt gx))))
+
+(let ((*print-readably* t)
+      (salt (int (hash/256 (usec:get-time-usec)))))
+  (with-open-file (f "~/.melech"
+                     :direction :output
+                     :if-exists :overwrite
+                     :if-does-not-exist :create)
+    (prin1 salt f)))
+
 |#
 
 (define-condition no-member-info (error)
