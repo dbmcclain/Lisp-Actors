@@ -786,7 +786,7 @@ THE SOFTWARE.
  |#
 ;; -----------------------------------------------------------------
 
-#|
+#||#
 (defmethod hashable ((x ecc-proj-pt))
   (hashable (ed-compress-pt x :enc :lev)))
 
@@ -795,7 +795,7 @@ THE SOFTWARE.
 
 (defmethod hashable ((x ecc-cmpr-pt))
   (hashable (ed-projective x)))
-|#
+#||#
 
 ;; -----------------------------------------------------------
 

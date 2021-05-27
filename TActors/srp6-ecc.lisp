@@ -56,25 +56,23 @@
   (setf (gethash (car info) *member-tbl*) (cdr info)))
 
 (defun gen-info (machine-instance salt)
-  (let ((id  (uuid:make-v1-uuid)))
-    (make-deterministic-keys (int (hash/256 salt
-                                            (uuid:uuid-mac id)
-                                            machine-instance
-                                            $VERSION)))))
+  (make-deterministic-keys (int (hash/256 salt
+                                          machine-instance
+                                          $VERSION))))
 
 (progn
   (add-member '("RAMBO"
-                111359185718774473234263171213664782667961806995809606040329125855375068237677
+                43704056591638149278964689227822341061242041243186903678486247117516002199075
                 #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 3048372172690304076654247831317757393464732363531197621440925794873999139018)))
+                   :CX 1273371386386608212524824066008103082487850570605984373323016206756589646975)))
   (add-member '("Rincon.local"
-                97308094470404514392702034881350532955848808853024587654007127531464649675822
+                91143934066267379107449156587394017781715397241428517149908010260754618351577
                 #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 675674428011803626943160706574540523843302588141853758067300457361484064080)))
+                   :CX 6946211988895729231432229477437593907959485561556140153791350558574597365662)))
   (add-member '("Arroyo.local"
-                77520660937938258103724384941954485037525808631321044717521707989795738576118
+                51998828478681372180374497272385492537368488066756046430597211323536450486145
                 #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 4035517786989866824095025259200618926751666752792981150207975910989323175725))))
+                   :CX 1050860519361362858299609932690926232544890377433018845591174635619906368855))))
 
 #|
 (let ((*print-readably* t))
@@ -86,7 +84,10 @@
 
 (let ((*print-readably* t))
   (let ((salt (int (hash/256 (usec:get-time-usec))))
-        (mach "RAMBO"))
+        (mach "RAMBO")
+        ;; (mach "Rincon.local")
+        ;; (mach "Arroyo.local")
+        )
     (multiple-value-bind (x gx)
         (gen-info mach salt)
       (pprint (list mach salt (ed-compress-pt gx))))))
@@ -95,6 +96,12 @@
     (gen-info (machine-instance)
               58092113895438756482702715951169183950349033817880824399631344333284986728915)
   (ed-compress-pt gx))
+
+(let* ((node-id (machine-instance))
+       (salt    (car (get-keying node-id))))
+  (multiple-value-bind (x gx)
+      (gen-info node-id salt)
+    (send println node-id salt (ed-compress-pt gx))))
 |#
 
 (define-condition no-member-info (error)

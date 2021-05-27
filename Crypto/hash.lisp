@@ -60,10 +60,10 @@ THE SOFTWARE.
 ;; -------------------------------------------------
 ;; what to hash of various types
 
-(defun hashable (x)
+(defmethod hashable (x)
   (loenc:encode x))
 
-#|
+#||#
 (defgeneric hashable (x)
   (:method ((x ub8v-obj))
    (bev-vec x))
@@ -81,7 +81,7 @@ THE SOFTWARE.
    (hashable (namestring x)))
   (:method (x)
    (loenc:encode x)))
-|#
+#||#
 
 ;; -------------------------------------------------
 
