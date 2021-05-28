@@ -152,17 +152,18 @@ THE SOFTWARE.
   #F
   (let ((mbox         (sponsor-mbox *current-sponsor*))
         (*evt-queue*  (list nil))
-        (qcopy        (list nil))) ;; rollback copy
-    (declare (dynamic-extent *evt-queue* qcopy))
+        (qsave        nil)) ;; rollback copy
+    (declare (dynamic-extent *evt-queue* qsave))
     (loop
      (with-simple-restart (abort "Handle next event")
        (handler-bind
            ((error (lambda (c)
                      (declare (ignore c))
                      ;; unroll the committed SENDS and BECOME
-                     (setf (car *evt-queue*) (car qcopy)
-                           (cdr *evt-queue*) (cdr qcopy)
-                           (actor-beh self)  self-beh))
+                     (if (setf (cdr *evt-queue*) qsave)
+                         (setf (cddr qsave) nil)
+                       (setf (car *evt-queue*) nil))
+                     (setf (actor-beh self)  self-beh))
                    ))
            (loop
             ;; Get a Foreign SEND event if any
@@ -175,8 +176,7 @@ THE SOFTWARE.
                            (mp:mailbox-read mbox))))
               (declare (cons evt)
                        (dynamic-extent evt))
-              (setf (car qcopy) (car *evt-queue*)  ;; grab for possible rollback
-                    (cdr qcopy) (cdr *evt-queue*)) 
+              (setf qsave (cdr *evt-queue*))  ;; grab for possible rollback
               ;; Setup Actor context
               (let* ((*current-actor*    (car evt))
                      (*current-behavior* (actor-beh self))
@@ -195,8 +195,7 @@ THE SOFTWARE.
                            (mp:mailbox-read mbox))))
               (declare (cons evt)
                        (dynamic-extent evt))
-              (setf (car qcopy) (car *evt-queue*)  ;; grab for possible rollback
-                    (cdr qcopy) (cdr *evt-queue*)) 
+              (setf qsave (cdr *evt-queue*))  ;; grab for possible rollback
               ;; Setup Actor context
               (let* ((*current-actor*    (car evt))
                      (*current-behavior* (actor-beh self))
