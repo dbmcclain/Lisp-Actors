@@ -84,10 +84,6 @@ THE SOFTWARE.
 (defvar *slow-sponsor*    nil)
 (defvar *current-sponsor* nil)
 
-(defun current-sponsor ()
-  (or *current-sponsor*
-      *sponsor*))
-
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
 
@@ -102,10 +98,14 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------------------
 ;; Fast Imperative Queue
-;; Simple Direct Queue ~74ns SEND/dispatch
+;; Simple Direct Queue ~54ns SEND/dispatch
 ;; Simple CONS cell for queue: CAR = head, CDR = last
 
 (declaim (inline make-queue emptyq?))
+
+(defun make-queue ()
+  #F
+  (list nil))
 
 (defun emptyq? (queue)
   #F
@@ -130,16 +130,6 @@ THE SOFTWARE.
               (setf (cddr queue) cell))
       (setf (car queue)
             (setf (cdr queue) cell)))))
-
-(defun appendq (qhd qtl)
-  #F
-  (declare (cons qhd qtl))
-  (when (car qtl)
-    (if (car qhd)
-        (setf (cddr qhd) (car qtl))
-      (setf (car qhd) (car qtl)))
-    (setf (cdr qhd) (cdr qtl))
-    ))
 
 ;; -----------------------------------------------------------------
 ;; Generic RUN for all threads, across all Sponsors
@@ -281,7 +271,7 @@ THE SOFTWARE.
                (cons actor msg)))
         (t
          ;; Non-Actor SENDs take effect immediately.
-         (apply #'sendx (current-sponsor) actor msg))
+         (apply #'sendx *sponsor* actor msg))
         ))
 
 (defmacro sendx* (&rest msg)
@@ -301,7 +291,7 @@ THE SOFTWARE.
                           (cons actor msg)))
         ))
 
-(defun repeat-send (dest)
+(defmethod repeat-send ((dest actor))
   ;; Send the current event message to another Actor
   #F
   (when self
