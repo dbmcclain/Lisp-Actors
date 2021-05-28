@@ -73,7 +73,7 @@
      (plt:histogram 'plt arr
                     :clear t
                     :title  "Timing Histogram"
-                    :xtitle "Time [µs]"
+                    :xtitle "Time [μs]"
                     :ytitle "Counts"
                     ))))
 

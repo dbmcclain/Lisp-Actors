@@ -103,12 +103,9 @@ THE SOFTWARE.
 ;; -----------------------------------------------------------------
 ;; Fast Imperative Queue
 ;; Simple Direct Queue ~74ns SEND/dispatch
+;; Simple CONS cell for queue: CAR = head, CDR = last
 
 (declaim (inline make-queue emptyq?))
-
-(defun make-queue ()
-  #F
-  (list nil))
 
 (defun emptyq? (queue)
   #F
@@ -154,16 +151,19 @@ THE SOFTWARE.
 (defun run-actors (*current-sponsor*)
   #F
   (let ((mbox         (sponsor-mbox *current-sponsor*))
-        (*evt-queue*  (make-queue))
-        (current-tail nil)) ;; rollback pointer
+        (*evt-queue*  (list nil))
+        (qcopy        (list nil))) ;; rollback copy
+    (declare (dynamic-extent *evt-queue* qcopy))
     (loop
      (with-simple-restart (abort "Handle next event")
        (handler-bind
            ((error (lambda (c)
                      (declare (ignore c))
-                     (when (setf (cdr *evt-queue*) current-tail)
-                       (setf (cdr current-tail) nil))
-                     (setf (actor-beh self) self-beh))))
+                     ;; unroll the committed SENDS and BECOME
+                     (setf (car *evt-queue*) (car qcopy)
+                           (cdr *evt-queue*) (cdr qcopy)
+                           (actor-beh self)  self-beh))
+                   ))
            (loop
             ;; Get a Foreign SEND event if any
             (when (mp:mailbox-not-empty-p mbox)
@@ -173,15 +173,18 @@ THE SOFTWARE.
             ;; Fetch next event from event queue
             (let ((evt (or (popq *evt-queue*)
                            (mp:mailbox-read mbox))))
-              (declare (cons evt))
-              (setf current-tail (cdr *evt-queue*)) ;; grab queue tail for possible rollback
+              (declare (cons evt)
+                       (dynamic-extent evt))
+              (setf (car qcopy) (car *evt-queue*)  ;; grab for possible rollback
+                    (cdr qcopy) (cdr *evt-queue*)) 
               ;; Setup Actor context
               (let* ((*current-actor*    (car evt))
                      (*current-behavior* (actor-beh self))
                      (*whole-message*    (cdr evt)))
                 (declare (actor    *current-actor*)
                          (function *current-behavior*)
-                         (list     *whole-message*))
+                         (list     *whole-message*)
+                         (dynamic-extent *current-actor* *current-behavior* *whole-message*))
                 ;; ---------------------------------
                 ;; Dispatch to Actor behavior with message args
                 (apply self-beh *whole-message*)
@@ -190,15 +193,18 @@ THE SOFTWARE.
             ;; Fetch next event from event queue
             (let ((evt (or (popq *evt-queue*)
                            (mp:mailbox-read mbox))))
-              (declare (cons evt))
-              (setf current-tail (cdr *evt-queue*)) ;; grab queue tail for possible rollback
+              (declare (cons evt)
+                       (dynamic-extent evt))
+              (setf (car qcopy) (car *evt-queue*)  ;; grab for possible rollback
+                    (cdr qcopy) (cdr *evt-queue*)) 
               ;; Setup Actor context
               (let* ((*current-actor*    (car evt))
                      (*current-behavior* (actor-beh self))
                      (*whole-message*    (cdr evt)))
                 (declare (actor    *current-actor*)
                          (function *current-behavior*)
-                         (list     *whole-message*))
+                         (list     *whole-message*)
+                         (dynamic-extent *current-actor* *current-behavior* *whole-message*))
                 ;; ---------------------------------
                 ;; Dispatch to Actor behavior with message args
                 (apply self-beh *whole-message*)
