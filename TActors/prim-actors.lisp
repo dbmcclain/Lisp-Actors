@@ -341,7 +341,7 @@
 (defun no-pend-beh ()
   (alambda
    ((prev :prune)
-    (send prev :pruned (no-pend-beh)))
+    (send prev :pruned self-beh))
 
    ((:wait ctr . msg)
     (let ((next (make-actor
@@ -352,7 +352,7 @@
 (defun pend-beh (ctr msg next)
   (alambda
    ((prev :prune)
-    (send prev :pruned (pend-beh ctr msg next)))
+    (send prev :pruned self-beh))
 
    ((cust :ready in-ctr) when (eql ctr in-ctr)
     (send* cust ctr msg)

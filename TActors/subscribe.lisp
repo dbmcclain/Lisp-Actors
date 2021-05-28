@@ -31,7 +31,7 @@
        (become (make-subject-beh about from next))))
     
     (:prune (prev)
-     (send prev :pruned (make-empty-subject-beh)))
+     (send prev :pruned self-beh))
     ))
 
 (defun make-subject-beh (about from next)
@@ -58,7 +58,7 @@
            ))
 
     (:prune (prev)
-     (send prev :pruned (make-subject-beh about from next)))
+     (send prev :pruned self-beh))
     ))
 
 (defun make-prune-beh (next)

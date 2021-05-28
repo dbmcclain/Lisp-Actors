@@ -123,8 +123,7 @@
      (send next :check-purge)
      (become (make-cont-beh a-usti (make-cont-entry a-cont an-intf)
                             an-intf
-                            (make-actor (make-cont-beh usti contv intf next)))
-             ))
+                            (make-actor self-beh))))
     
     ((:detach an-intf) when (eq an-intf intf)
      (declare (ignore an-intf))
@@ -132,7 +131,7 @@
      (prune-self next))
     
     ((prev :prune)
-     (send prev :pruned (make-cont-beh usti contv intf next)))
+     (send prev :pruned self-beh))
     
     ((:reset)
      (repeat-send next)
@@ -170,11 +169,10 @@
      (become (make-cont-beh usti
                             (make-cont-entry cont intf)
                             intf
-                            (make-actor (make-empty-cont-beh))
-                            )))
+                            (make-actor self-beh))))
 
     ((prev :prune)
-     (send prev :pruned (make-empty-cont-beh)))
+     (send prev :pruned self-beh))
     
     ((:deliver-message _ if-cant-send . _)
      (send if-cant-send))
@@ -226,7 +224,7 @@
      (prune-self next))
 
     ((prev :prune)
-     (send prev :pruned (make-pending-intf-beh ip tag pend next)))
+     (send prev :pruned self-beh))
     
     ((:reset)
      (repeat-send next)
@@ -265,7 +263,7 @@
      (prune-self next))
 
     ((prev :prune)
-     (send prev :pruned (make-prereg-intf-beh ip intf tag pend next)))
+     (send prev :pruned self-beh))
 
     ((:reset)
      (repeat-send next)
@@ -298,7 +296,7 @@
      (prune-self next))
 
     ((prev :prune)
-     (send prev :pruned (make-intf-beh ip intf next)))
+     (send prev :pruned self-beh))
     
     ((:reset)
      (repeat-send next)
@@ -328,8 +326,7 @@
        ;; server side sees this message from this state, but client side
        ;; ordinarily pre-registers before the attach.
        (become (make-intf-beh ip intf
-                              (make-actor (make-empty-intf-beh)))
-               ))
+                              (make-actor self-beh))))
       
       ((:pre-regiser ip intf)
        ;; we should never ordinarily see this message from empty state.
@@ -338,8 +335,7 @@
        (become (make-prereg-intf-beh ip intf
                                      (schedule-timeout)
                                      nil
-                                     (make-actor (make-empty-intf-beh)))
-               ))
+                                     (make-actor self-beh))))
       
       ((cust :call-with-intf ip port)
        ;; this is the place where a new connection is attempted. We now
@@ -347,7 +343,7 @@
        (become (make-pending-intf-beh ip
                                       (schedule-timeout)
                                       (list cust)
-                                      (make-actor (make-empty-intf-beh))))
+                                      (make-actor self-beh)))
        (with-worker
          (open-connection ip port)))
       
