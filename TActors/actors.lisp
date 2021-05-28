@@ -77,7 +77,8 @@ THE SOFTWARE.
 (defstruct (sponsor
             (:constructor %make-sponsor))
   (mbox   (mp:make-mailbox))
-  thread)
+  thread
+  msg-send)
 
 (defvar *sponsor*         nil) ;; Single-Threaded
 (defvar *slow-sponsor*    nil)
@@ -91,7 +92,6 @@ THE SOFTWARE.
 ;; Core RUN for Actors
 
 ;; Per-Thread for Activated Actor
-(defvar *sendx-evts*       nil) ;; Staging for SENDX
 (defvar *whole-message*    nil) ;; Current Event Message
 (defvar *current-actor*    nil) ;; Current Actor
 (defvar *current-behavior* nil) ;; Current Actor's behavior
@@ -164,34 +164,46 @@ THE SOFTWARE.
                      (when (setf (cdr *evt-queue*) current-tail)
                        (setf (cdr current-tail) nil))
                      (setf (actor-beh self) self-beh))))
-         (loop
-          ;; Get a Foreign SEND event if any
-          (when (mp:mailbox-not-empty-p mbox)
-            (addq *evt-queue*
-                  (mp:mailbox-read mbox)))
-          ;; Fetch next event from event queue
-          (let ((evt (or (popq *evt-queue*)
-                         (mp:mailbox-read mbox))))
-            (declare (cons evt))
-            (setf current-tail (cdr *evt-queue*)) ;; grab queue tail for possible rollback
-            ;; Setup Actor context
-            (let* ((*current-actor*    (car evt))
-                   (*current-behavior* (actor-beh self))
-                   (*whole-message*    (cdr evt))
-                   (*sendx-evts*       nil))
-              (declare (actor    *current-actor*)
-                       (function *current-behavior*)
-                       (list     *whole-message* *sendx-evts*))
-              ;; ---------------------------------
-              ;; Dispatch to Actor behavior with message args
-              (apply self-beh *whole-message*)
-              
-              (when *sendx-evts*
-                ;; Handle cross-Sponsor SENDs
-                (dolist (evt *sendx-evts*)
-                  (apply #'mp:mailbox-send evt)))
-              )))
-         )))
+           (loop
+            ;; Get a Foreign SEND event if any
+            (when (mp:mailbox-not-empty-p mbox)
+              (addq *evt-queue*
+                    (mp:mailbox-read mbox)))
+            
+            ;; Fetch next event from event queue
+            (let ((evt (or (popq *evt-queue*)
+                           (mp:mailbox-read mbox))))
+              (declare (cons evt))
+              (setf current-tail (cdr *evt-queue*)) ;; grab queue tail for possible rollback
+              ;; Setup Actor context
+              (let* ((*current-actor*    (car evt))
+                     (*current-behavior* (actor-beh self))
+                     (*whole-message*    (cdr evt)))
+                (declare (actor    *current-actor*)
+                         (function *current-behavior*)
+                         (list     *whole-message*))
+                ;; ---------------------------------
+                ;; Dispatch to Actor behavior with message args
+                (apply self-beh *whole-message*)
+                ))
+            
+            ;; Fetch next event from event queue
+            (let ((evt (or (popq *evt-queue*)
+                           (mp:mailbox-read mbox))))
+              (declare (cons evt))
+              (setf current-tail (cdr *evt-queue*)) ;; grab queue tail for possible rollback
+              ;; Setup Actor context
+              (let* ((*current-actor*    (car evt))
+                     (*current-behavior* (actor-beh self))
+                     (*whole-message*    (cdr evt)))
+                (declare (actor    *current-actor*)
+                         (function *current-behavior*)
+                         (list     *whole-message*))
+                ;; ---------------------------------
+                ;; Dispatch to Actor behavior with message args
+                (apply self-beh *whole-message*)
+                ))
+            ))))
     ))
 
 #|
@@ -213,9 +225,17 @@ THE SOFTWARE.
 
 ;; ----------------------------------------------------------
 
+(defun msg-send-beh (mbox)
+  #F
+  (lambda (&rest msg)
+    (mp:mailbox-send mbox msg)))
+
 (defun make-sponsor (title)
   (let ((new-sponsor (%make-sponsor)))
-    (setf (sponsor-thread new-sponsor) 
+    (setf (sponsor-msg-send new-sponsor)
+          (make-actor (msg-send-beh (sponsor-mbox new-sponsor)))
+
+          (sponsor-thread new-sponsor) 
           (mp:process-run-function title
                                    ()
                                    #'run-actors new-sponsor))
@@ -268,9 +288,7 @@ THE SOFTWARE.
   (cond (self
          (if (eq spon *current-sponsor*)
              (send* actor msg)
-           (push (list (sponsor-mbox spon)
-                       (cons actor msg))
-                 (the list *sendx-evts*))
+           (send* (sponsor-msg-send spon) actor msg)
            ))
 
         (t
