@@ -435,6 +435,15 @@ storage and network transmission.
        (lambda (tbl)
          (find-ks tbl '(:dog :cat :pi :diddly))))
 
+(defun tst (n)
+  (time
+   (loop repeat n do
+         (beta _
+             (query sink :rstkv
+                    (lambda (tbl)
+                      (send beta))))
+         )))
+(tst 1000000)
 |#
 
 

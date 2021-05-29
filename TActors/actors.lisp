@@ -151,7 +151,7 @@ THE SOFTWARE.
                      (declare (ignore c))
                      ;; unroll the committed SENDS and BECOME
                      (if (setf (cdr *evt-queue*) qsave)
-                         (setf (cddr qsave) nil)
+                         (setf (cdr qsave) nil)
                        (setf (car *evt-queue*) nil))
                      (setf (actor-beh self)  self-beh))
                    ))
