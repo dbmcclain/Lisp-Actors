@@ -254,7 +254,6 @@ THE SOFTWARE.
   ;; this.
   #F
   (check-type new-fn function)
-  ;; BECOME is staged.
   (when self
     (setf (actor-beh self) new-fn)))
 
@@ -266,11 +265,9 @@ THE SOFTWARE.
 (defmethod send ((actor actor) &rest msg)
   #F
   (cond (self
-         ;; Actor SENDs are staged.
          (addq *evt-queue*
                (cons actor msg)))
         (t
-         ;; Non-Actor SENDs take effect immediately.
          (apply #'sendx *sponsor* actor msg))
         ))
 
