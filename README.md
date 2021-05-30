@@ -90,13 +90,13 @@ Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the perfo
 ;; -------------------------------------------
 ;; Actors $CONS
 
-(defun $append (cust $cons lst)
+(defun $append (cust $cons $lst)
   (actor-typecase $cons
-    (nil-beh  () (send cust lst))
+    (nil-beh  () (send cust $lst))
     (cons-beh (car $cdr)
-              (beta (ans)
-                  ($append beta $cdr lst)
-                (send cust ($cons car ans))
+              (beta ($ans)
+                  ($append beta $cdr $lst)
+                (send cust ($cons car $ans))
                 ))
     ))
 
@@ -110,13 +110,13 @@ Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the perfo
   %car %cdr)
 
 
-(defun %append (cust %cons lst)
+(defun %append (cust %cons %lst)
   (typecase %cons
-    (%nil (funcall cust lst))
+    (%nil (funcall cust %lst))
     (%cons 
-     (flet ((k-cont (ans)
-              (funcall cust (%cons (%cons-%car %cons) ans))))
-       (%append #'k-cont (%cons-%cdr %cons) lst)))
+     (flet ((k-cont (%ans)
+              (funcall cust (%cons (%cons-%car %cons) %ans))))
+       (%append #'k-cont (%cons-%cdr %cons) %lst)))
     ))
 ```
 
