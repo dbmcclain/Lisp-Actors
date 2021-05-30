@@ -86,7 +86,7 @@ But it isn't quite as bad as that... I tested a manually written $APPEND against
 
 Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the performance ratio is only 30x, not 400x:
 ```
-(defun $append (cust $cons lst)
+(defun $append (cust $cons lst)  ;; Actors $CONS
   (actor-typecase $cons
     (nil-beh  () (send cust lst))
     (cons-beh (car $cdr)
@@ -96,7 +96,7 @@ Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the perfo
                 ))
     ))
 
-(defun %append (cust cons lst)
+(defun %append (cust cons lst)  ;; CPS Lisp CONS
   (cond (cons
          (flet ((k-cont (ans)
                   (funcall cust (cons (car cons) ans))))
