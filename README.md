@@ -82,11 +82,15 @@ So the answer is that using Actors for elementary data types costs about 400x in
 
 But it isn't quite as bad as that... I tested a manually written $APPEND against the high performance built-in APPEND from my Lispworks system. Suppose, instead, we test the Actors against a similarly expressed Lisp function using the same kind of algorithm with CPS coding conventions. This would be a more fair comparison.
 
-<img width="400" alt="Screen Shot 2021-05-30 at 6 28 35 AM" src="https://user-images.githubusercontent.com/3160577/120106039-4ff49a80-c110-11eb-9453-952f7925a368.png">
+<img width="400" alt="Screen Shot 2021-05-30 at 6 43 49 AM" src="https://user-images.githubusercontent.com/3160577/120106581-7287b300-c112-11eb-87b6-df8a9263a742.png">
+
 
 Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the performance ratio is only 30x, not 400x:
 ```
-(defun $append (cust $cons lst)  ;; Actors $CONS
+;; -------------------------------------------
+;; Actors $CONS
+
+(defun $append (cust $cons lst)
   (actor-typecase $cons
     (nil-beh  () (send cust lst))
     (cons-beh (car $cdr)
@@ -96,15 +100,17 @@ Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the perfo
                 ))
     ))
 
-(defun %append (cust cons lst)  ;; CPS Lisp CONS
-  (cond (cons
-         (flet ((k-cont (ans)
-                  (funcall cust (cons (car cons) ans))))
-           (%append #'k-cont (cdr cons) lst)))
-        (t
-         (funcall cust lst))
-        ))
+;; -------------------------------------------
+;; CPS Lisp CONS
 
+(defun %append (cust cons lst)
+  (typecase cons
+    (null (funcall cust lst))
+    (cons 
+     (flet ((k-cont (ans)
+              (funcall cust (cons (car cons) ans))))
+       (%append #'k-cont (cdr cons) lst)))
+    ))
 ```
 
 
