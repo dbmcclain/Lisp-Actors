@@ -85,7 +85,7 @@ But it isn't quite as bad as that... I tested a manually written $APPEND against
 <img width="397" alt="Screen Shot 2021-05-30 at 7 22 16 AM" src="https://user-images.githubusercontent.com/3160577/120107938-d1036000-c117-11eb-9595-c4c7948edbfa.png">
 
 
-Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the performance ratio is only 26x, not 400x:
+Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the performance ratio is now 26x, not 400x:
 ```
 ;; -------------------------------------------
 ;; Actors $CONS
