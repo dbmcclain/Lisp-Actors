@@ -78,7 +78,7 @@ For comparison I did a test of the native (compiled) Lisp performance of APPEND 
 
 <img width="401" alt="Screen Shot 2021-05-30 at 5 42 17 AM" src="https://user-images.githubusercontent.com/3160577/120104555-d35ebd80-c109-11eb-94ab-701fb69a7469.png">
 
-So the answer is that using Actors for elementary data types costs about 400x in performance. For me, that is completely unacceptable. On a different archetecture of hardware you might get the reverse situation. But we are stuck for now with conventional Von Neumann computers. 
+So the answer is that using Actors for elementary data types costs about 400x in performance. For me, that is completely unacceptable. On a different architecture of hardware you might get the reverse situation. But we are stuck for now with conventional Von Neumann computers. 
 
 But Actors greatly simplify many programming tasks, and provide safe concurrency without bothering with issues surrounding threading and multi-tasking. Just write simple single-threaded code and you automatically get high levels of concurrency. You do have to exercise care in your algorithms to make them robust in the face of concurrent activity. You still have READ-MODIFY-WRITE concerns since between a separated READ and WRITE you may have any number of other Actors trying to do the same thing. There are no locks, semaphores, etc. But you do have to learn how to write concurrent Actor code.
 
