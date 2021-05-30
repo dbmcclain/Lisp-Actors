@@ -80,6 +80,34 @@ For comparison I did a test of the native (compiled) Lisp performance of APPEND 
 
 So the answer is that using Actors for elementary data types costs about 400x in performance. For me, that is completely unacceptable. On a different architecture of hardware you might get the reverse situation. But we are stuck for now with conventional Von Neumann computers. 
 
+But it isn't quite as bad as that... I tested a manually written $APPEND against the high performance built-in APPEND from my Lispworks system. Suppose, instead, we test the Actors against a similarly expressed Lisp function using the same kind of algorithm with CPS coding conventions.
+
+<img width="400" alt="Screen Shot 2021-05-30 at 6 28 35 AM" src="https://user-images.githubusercontent.com/3160577/120106039-4ff49a80-c110-11eb-9453-952f7925a368.png">
+
+Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp):
+```
+(defun $append (cust $cons lst)
+  (actor-typecase $cons
+    (nil-beh  () (send cust lst))
+    (cons-beh (car $cdr)
+              (beta (ans)
+                  ($append beta $cdr lst)
+                (send cust ($cons car ans))
+                ))
+    ))
+
+(defun %append (cust cons lst)
+  (cond (cons
+         (flet ((k-cont (ans)
+                  (funcall cust (cons (car cons) ans))))
+           (%append #'k-cont (cdr cons) lst)))
+        (t
+         (funcall cust lst))
+        ))
+
+```
+
+
 But Actors greatly simplify many programming tasks, and provide safe concurrency without bothering with issues surrounding threading and multi-tasking. Just write simple single-threaded code and you automatically get high levels of concurrency. You do have to exercise care in your algorithms to make them robust in the face of concurrent activity. You still have READ-MODIFY-WRITE concerns since between a separated READ and WRITE you may have any number of other Actors trying to do the same thing. There are no locks, semaphores, etc. But you do have to learn how to write concurrent Actor code.
 
 So there are clear benefits to Actors programming. You just have to have them perform more substantial activity on balance, or invoke them with less intensity.
