@@ -105,10 +105,10 @@ Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the perfo
 
 (defstruct (%nil
             (:constructor %nil ())))
-
 (defstruct (%cons
             (:constructor %cons (%car %cdr)))
   %car %cdr)
+
 
 (defun %append (cust cons lst)
   (typecase cons
