@@ -93,10 +93,10 @@ Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the perfo
 (defun $append (cust $cons $lst)
   (actor-typecase $cons
     (nil-beh  () (send cust $lst))
-    (cons-beh (car $cdr)
+    (cons-beh ($car $cdr)
               (beta ($ans)
                   ($append beta $cdr $lst)
-                (send cust ($cons car $ans))
+                (send cust ($cons $car $ans))
                 ))
     ))
 
