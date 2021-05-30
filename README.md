@@ -120,7 +120,7 @@ Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the perfo
     ))
 ```
 
-So on your own (higher level) data types, Actors might be a useful alternative. Not only is the reasoning simpler with Actors compared to CPS coding style, but you get automatic interleaved concurrency with Actors. You get no concurrency from CPS coding.
+So on your own (higher level) data types, Actors might be a useful alternative. Not only is the reasoning simpler with Actors compared to CPS coding style, but you get automatic interleaved concurrency with Actors, and (mostly) purely functional code. You get no concurrency from CPS coding, and purely functional is up to you to enforce.
 
 Actors greatly simplify many programming tasks, and provide safe concurrency without bothering with issues surrounding threading and multi-tasking. Just write simple single-threaded code and you automatically get high levels of concurrency. You do have to exercise care in your algorithms to make them robust in the face of concurrent activity. You still have READ-MODIFY-WRITE concerns since between a separated READ and WRITE you may have any number of other Actors trying to do the same thing. There are no locks, semaphores, etc. But you do have to learn how to write concurrent Actor code.
 
