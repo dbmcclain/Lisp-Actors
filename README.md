@@ -78,7 +78,7 @@ For comparison I did a test of the native (compiled) Lisp performance of APPEND 
 
 <img width="401" alt="Screen Shot 2021-05-30 at 5 42 17 AM" src="https://user-images.githubusercontent.com/3160577/120104555-d35ebd80-c109-11eb-94ab-701fb69a7469.png">
 
-So the answer is that using Actors for elementary data types costs about 400x in performance. For me, that is completely unacceptable. On a different architecture of hardware you might get the reverse situation. But we are stuck for now with conventional Von Neumann computers. 
+So the answer is that using Actors for elementary data types costs about 400x in performance. For me, that is completely unacceptable. On a different hardware architecture you might get the reverse situation. But we are stuck for now with conventional Von Neumann computers. 
 
 But it isn't quite as bad as that... I tested a manually written $APPEND against the high performance built-in APPEND from my Lispworks system. Suppose instead, we test the Actors against a similarly expressed Lisp function using the same kind of algorithm with CPS coding conventions, and against our own %CONS defined via DEFSTRUCT. We are testing Actors against CPS coding for some comparable higher-level datatype of our own making. This would be a more fair comparison.
 
