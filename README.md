@@ -108,7 +108,7 @@ Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the speed
 ```
 
 
-But Actors greatly simplify many programming tasks, and provide safe concurrency without bothering with issues surrounding threading and multi-tasking. Just write simple single-threaded code and you automatically get high levels of concurrency. You do have to exercise care in your algorithms to make them robust in the face of concurrent activity. You still have READ-MODIFY-WRITE concerns since between a separated READ and WRITE you may have any number of other Actors trying to do the same thing. There are no locks, semaphores, etc. But you do have to learn how to write concurrent Actor code.
+Actors greatly simplify many programming tasks, and provide safe concurrency without bothering with issues surrounding threading and multi-tasking. Just write simple single-threaded code and you automatically get high levels of concurrency. You do have to exercise care in your algorithms to make them robust in the face of concurrent activity. You still have READ-MODIFY-WRITE concerns since between a separated READ and WRITE you may have any number of other Actors trying to do the same thing. There are no locks, semaphores, etc. But you do have to learn how to write concurrent Actor code.
 
 So there are clear benefits to Actors programming. You just have to have them perform more substantial activity on balance, or invoke them with less intensity.
 
