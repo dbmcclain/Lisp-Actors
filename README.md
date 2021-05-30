@@ -134,7 +134,8 @@ So there are clear benefits to Actors programming. You just have to have them pe
        (dut   (simple-collector npts niter
                                 (med3
                                  (timing
-                                  (make-append-self-tst lst)))))) ;; <-- Plug in your test here...
+                                  (make-append-self-tst lst) ;; <-- Plug in your test here...
+                                  )))))
   (let ((act (actor (cust)
                (beta (arr)
                    (send dut beta niter)
