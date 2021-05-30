@@ -84,7 +84,7 @@ But it isn't quite as bad as that... I tested a manually written $APPEND against
 
 <img width="400" alt="Screen Shot 2021-05-30 at 6 28 35 AM" src="https://user-images.githubusercontent.com/3160577/120106039-4ff49a80-c110-11eb-9453-952f7925a368.png">
 
-Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the speed difference is only 30x, not 400x:
+Here we are comparing $APPEND (Actors) against %APPEND (CPS Lisp), and the performance ratio is only 30x, not 400x:
 ```
 (defun $append (cust $cons lst)
   (actor-typecase $cons
