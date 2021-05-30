@@ -64,6 +64,28 @@ In his Blog, he describes a virtual pure Actor machine, and his blog, entitled "
 Such a machine, coupled with the innate security of Actor identities as capabilities tokens, could become unhackable by malevolent adversaries. Dale has simulations of this written for ARM processors, using very fast and clever coding at the ARM Assembly level. It is really worth your time to study his writings.
 
 --------------
+Tons of experiments later, much careful tuning, and we now have an Actors machine in Lisp that performs basic SEND/activate of Actors at the rate of 20M Actors/sec. I looked closely at using a single thread of Actor activation vs multiple threads across up to 4 CPU cores on a 4 Core Intel i7. Any one Actor can only be active on one core at a time. But multiple activities across several Actors could feasibly be peformed in parallel on several CPU cores. 
+
+The net result of my tests show that the highest performance comes from using only a single thread. Of course blocking I/O activity needs to run on a separate thread to avoid throttling the main Actors thread. But there is a considerable cost (> 2x) to spreading the Actors across multiple threads. You get the highest concurrency from running a gazillion small Actors on a single thread, and relying on the inter-SEND interleaving of their activities in the event queue to provide the greatest throughput. Concurrent yes, Parallel no. There is no overt task switching, no cooperative YIELD between them. Actors just send messages to each other and their messages get interleaved in the event queue.
+
+But there is an obvious cost to interposing the event queue between Actors, compared to direct function call. Where is a sensible division between making lots of small Actors versus fewer larger Actors that do more work on each invocation? To test that, consider the extreme situation where every elemental data type in the program is represented by Actors - the pure Actors machine.
+
+I wrote a $CONS Actor to represent the Lisp CONS cell. And then I wrote a ton of list operations in Actor form against chains of these $CONS cells. The graph below shows the result of timing tests on $APPEND of a 1,000 element $LIST. The graph shows a histogram of median-3 measurements of the $APPEND operation on these 1,000 $CONS cells, so the cost per $CONS is 1/1,000 of the abscissa values.
+
+<img width="397" alt="Screen Shot 2021-05-30 at 5 40 36 AM" src="https://user-images.githubusercontent.com/3160577/120104504-9abee400-c109-11eb-8979-88a5589abcb3.png">
+
+For comparison I did a test of the native (compiled) Lisp performance of APPEND on a list of 1,000 CONS cells:
+
+<img width="401" alt="Screen Shot 2021-05-30 at 5 42 17 AM" src="https://user-images.githubusercontent.com/3160577/120104555-d35ebd80-c109-11eb-94ab-701fb69a7469.png">
+
+So the answer is that using Actors for elementary data types costs about 400x in performance. For me, that is completely unacceptable. 
+
+But Actors greatly simplify many programming tasks, and provide safe concurrency without bothering with issues surrounding threading and multi-tasking. Just write simple single-threaded code and you automatically get high levels of concurrency. You do have to exercise care in your algorithms to make them robust in the face of concurrent activity. You still have READ-MODIFY-WRITE concerns since between a separated READ and WRITE you may have any number of other Actors trying to do the same thing. But there are no locks, semaphores, etc. So you have to learn how to write concurrent Actor code.
+
+So there are clear benefits to Actors programming. You just have to have them perform more substantial activity on balance, or invoke them with less intensity.
+
+
+
 
 So now, let's re-invoke multiple threads to take advantage of parallel opportunities. The code in TActors now implements a single event queue, but feeds mutliple RUN dispatchers. Actors must be logically atomic. And so if an Actor is busy executing, new events arriving for that Actor must be delayed. RUN can then try to dispatch a different message to a different Actor.
 
