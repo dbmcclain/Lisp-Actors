@@ -173,7 +173,7 @@ The three versions are:
 
 * An Actor version that uses a multi-level FP-pure Red-Black Tree. This has the same atomic semantics as our multi-level ALIST tables. The only difference, apart from morphology, is that while multi-level ALIST tables permit entries with duplicate keying (prepending the duplicates), our Red-Black Trees only allow one element per key, so ADD-ITEM is the same as REPLACE-ITEM. Again, this has no concurrency during the table modification operations.
 
-I then generated 1,000 quads of random numbers between 0 and 10, and timed the duration that it took to construct a 3-key table, adding initial entries, and then additional iterations merely repeat the process against the populated table with REPLACE-ITEM.
+I then generated 1,000 quads of random numbers between 0 and 10, and timed the duration that it took to construct a 3-key (3-levels) table, adding initial entries, and then additional iterations merely repeat the process against the populated table with REPLACE-ITEM.
 
 All three of the lookup tables are FP, which means that REPLACE has to regenerate the table along the lookup path. And with 1,000 keysets using keys ranging from 0 to 10, I fully expect many replacements, both during initial table loading, and then most assuredly during the successive re-entry passes of the benchmark.
 
