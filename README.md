@@ -159,7 +159,7 @@ So there are clear benefits to Actors programming. You just need to have them pe
 ]
 --------------------------------------------------------------
 Closing the Performance Gap
-
+-----
 So what kind of workload in our Actors does it take to narrow the performance gap between direct function calls and Actor SEND? 
 
 I created 3 versions of a multi-level lookup table. I can categorize data with any number of keys, and each intermediate level operates on another instance of the same kind of table. The leaf nodes contain the data. The code for all of this is stored in file "lookup.lisp". The three versions are:
