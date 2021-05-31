@@ -477,7 +477,7 @@
 
 (defparameter *quads*
   (loop for ix from 0 below 1000 collect
-        (map 'list #'round (vm:unoise 4 100))))
+        (map 'list #'round (vm:unoise 4 10))))
 
 (let* ((quads *quads*)
        (niter 2)
