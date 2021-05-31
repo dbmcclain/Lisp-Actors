@@ -177,6 +177,6 @@ I then generated 1,000 quads of random numbers between 0 and 100, and timed the 
 
 All three of the lookup tables are FP, which means that REPLACE has to regenerate the table along the lookup path. And with 1,000 keysets using keys ranging from 0 to 100, I fully expect many replacements, both during initial table loading, and then most assuredly during the successive re-entry passes of the benchmark.
 
-The results, per item timing, shows that the multi-level FP ALIST performs fastest, at about 2 microsec / element. The FP Red-Black Tree performs second fastest, at around 5.5 microsec / item. And the multi-level Spread-Actor table came in last, at around 8.5 microsec / element: a performance cost of 2-4 for maximal concurrency.
+The results, per item timing, shows that the multi-level FP ALIST performs fastest, at about 2 microsec / element. The FP Red-Black Tree performs second fastest, at around 5.5 microsec / item. And the multi-level Spread-Actor table came in last, at around 8.5 microsec / element: a performance cost of 2x-4x for maximal concurrency.
 
 Now I don't consider this sort of data structure to be extremely abstract and high level. I would consider it to be midway between a high-level data structure and an elemental data type in the language. And here we see a decent choice ahead of us. Either we seek raw speed and zero concurrency during composite operations in the table, or we can opt for maximum concurrency and only pay a factor of 2x-4x in speed. In any event we have transactional semantics with FP-pure data.
