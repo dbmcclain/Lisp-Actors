@@ -157,6 +157,7 @@ So there are clear benefits to Actors programming. You just need to have them pe
     (send (timing act) println)))
 ```
 ]
+
 --------------------------------------------------------------
 Closing the Performance Gap
 -----
