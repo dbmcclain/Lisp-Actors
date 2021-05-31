@@ -157,3 +157,23 @@ So there are clear benefits to Actors programming. You just need to have them pe
     (send (timing act) println)))
 ```
 ]
+--------------------------------------------------------------
+Closing the Performance Gap
+
+So what kind of workload in our Actors does it take to narrow the performance gap between direct function calls and Actor SEND? 
+
+I created 3 versions of a multi-level lookup table. I can categorize data with any number of keys, and each intermediate level operates on another instance of the same kind of table. The leaf nodes contain the data. The code for all of this is stored in file "lookup.lisp". The three versions are:
+
+* An Actors version of one-element-per-Actor, which I connote by Spread-Actor tables. This one has the highest degree of concurrency of the three variations. In a multi-key modification to the table, you have to queue up additional requests for modification while one is already under way. Lookups can continue during the modification, but we have to guard against the concurrent READ-MODIFY-WRITE - without resorting to locks. This provides an example of lock-free concurrent-safe READ-MODIFY-WRITE algorithms for Actors.
+
+* An Actor version that uses a multi-level FP-pure ALIST. This is logically atomic for every operation and no need to write special concurrent access code as we did for the Spead-Actor tables. There is no concurrency happening during any table modification operation.
+
+* An Actor version that uses a multi-level FP-pure Red-Black Tree. This has the same atomic semantics as our multi-level ALIST tables. The only difference, apart from morphology, is that while multi-level ALIST tables permit entries with duplicate keying (prepending the duplicates), our Red-Black Trees only allow one element per key, so ADD-ITEM is the same as REPLACE-ITEM. Again, this has no concurrency during the table modification operations.
+
+I then generated 1,000 quads of random numbers between 0 and 100, and timed the duration that it took to construct a 3-key table, adding initial entries, and then additional iterations merely repeat the process against the populated table with REPLACE-ITEM.
+
+All three of the lookup tables are FP, which means that REPLACE has to regenerate the table along the lookup path. And with 1,000 keysets using keys ranging from 0 to 100, I fully expect many replacements, both during initial table loading, and then most assuredly during the successive re-entry passes of the benchmark.
+
+The results, per item timing, shows that the multi-level FP ALIST performs fastest, at about 2 microsec / element. The FP Red-Black Tree performs second fastest, at around 5.5 microsec / item. And the multi-level Spread-Actor table came in last, at around 8.5 microsec / element: a performance cost of 2-4 for maximal concurrency.
+
+Now I don't consider this sort of data structure to be extremely abstract and high level. I would consider it to be midway between a high-level data structure and an elemental data type in the language. And here we see a decent choice ahead of us. Either we seek raw speed and zero concurrency during composite operations in the table, or we can opt for maximum concurrency and only pay a factor of 2-4 in speed. In any event we have transactional semantics with FP-pure data.
