@@ -163,7 +163,7 @@ Closing the Performance Gap
 -----
 So what kind of workload in our Actors does it take to narrow the performance gap between direct function calls and Actor SEND? 
 
-I created 3 versions of a multi-level lookup table. I can categorize data with any number of keys, and each intermediate level operates on another instance of the same kind of table. The leaf nodes contain the data. The code for all of this is stored in file "TActors/lookup.lisp". The three versions are:
+I created 3 versions of a multi-level lookup table. I can categorize data with any number of keys, and each intermediate level operates on another instance of the same kind of table. The leaf nodes contain the data. All three variations construct functionally pure data structures. The code for all of this is stored in file "TActors/lookup.lisp". The three versions are:
 
 * An Actors version of one-element-per-Actor, which I connote by Spread-Actor Tables. This one has the highest degree of concurrency of the three variations. In a multi-key modification to the table, you have to queue up additional requests for modification while one is already under way. Lookups can continue during the modification, but we have to guard against the concurrent READ-MODIFY-WRITE - without resorting to locks. This provides an example of lock-free concurrent-safe READ-MODIFY-WRITE algorithms for Actors.
 
