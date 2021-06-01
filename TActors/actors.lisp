@@ -331,7 +331,7 @@ THE SOFTWARE.
 		(let ((wait-dur (if (and (empty-evq? *evt-queue*)
 					 (mp:mailbox-empty-p
                                           (sponsor-mbox *current-sponsor*)))
-				    nil  ;; no pending work, so just wait
+				    0.1  ;; no pending work, so just wait
                                   0)))   ;; other work to do, so go around again if can't lock immed
 		  (unless (mp:with-lock (lock nil wait-dur)
 			    (when (eq (actor-beh self) this-beh) ;; behavior changed while waiting?
