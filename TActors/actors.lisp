@@ -59,12 +59,12 @@ THE SOFTWARE.
 ;;                              +------+-----+-----+---
 
 (defstruct (actor
-               (:constructor %make-actor))
+               (:constructor %make-actor (beh)))
   beh)
 
 (defun make-actor (&optional (beh #'lw:do-nothing))
   (check-type beh function)
-  (%make-actor :beh beh))
+  (%make-actor beh))
 
 ;; ----------------------------------
 ;; SPONSORS -- offer event queues and have associated runtime threads
