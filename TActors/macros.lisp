@@ -147,6 +147,11 @@
   (editor:indent-like "@bind" 'destructuring-bind)
   (editor:indent-like "beta" 'destructuring-bind))
 
+(defmacro with-worker (&body body)
+  `(beta _
+       (send beta)
+     ,@body))
+
 ;; ------------------------------------------------------
 ;; ALAMBDA -- a behavior lambda for Actors with pattern matching on
 ;; messages

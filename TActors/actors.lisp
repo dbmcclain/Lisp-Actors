@@ -101,7 +101,7 @@ THE SOFTWARE.
 ;; Simple Direct Queue ~54ns SEND/dispatch
 ;; Simple CONS cell for queue: CAR = head, CDR = last
 
-(declaim (inline make-evqueue empty-evq?))
+(declaim (inline make-evqueue empty-evq? become))
 
 (defun make-evqueue ()
   #F
@@ -253,47 +253,39 @@ THE SOFTWARE.
   ;; Change behavior/state. Only meaningful if an Actor calls
   ;; this.
   #F
-  (when self
-    (setf (actor-beh self) new-fn)))
+  (setf (actor-beh self) new-fn))
 
 (defmacro send* (&rest msg)
   ;; to be used when final arg is a list
   ;; saves typing APPLY #'SEND, analogous to LIST*
   `(apply #'send ,@msg))
 
-(defmethod send ((actor actor) &rest msg)
-  #F
-  (declare (dynamic-extent msg))
-  (cond (self
-         (add-evq *evt-queue*
-                  (cons actor (the list msg))))
-        (t
-         (apply #'sendx *sponsor* actor (the list msg)))
-        ))
-
 (defmacro sendx* (&rest msg)
   `(apply #'sendx ,@msg))
 
-(defmethod sendx ((spon sponsor) (actor actor) &rest msg)
-  ;; cross-sponsor sends
+(defmethod send ((actor actor) &rest msg)
   #F
-  (declare (dynamic-extent msg))
-  (cond (self
-         (if (eq spon *current-sponsor*)
-             (send* actor (the list msg))
-           (send* (sponsor-msg-send spon) actor (the list msg))
-           ))
+  (if self
+      (add-evq *evt-queue*
+               (cons actor (the list msg)))
+    (apply #'sendx *sponsor* actor (the list msg))
+    ))
 
-        (t
-         (mp:mailbox-send (sponsor-mbox spon)
-                          (cons actor (the list msg))))
-        ))
+(defmethod sendx ((spon sponsor) (actor actor) &rest msg)
+  ;; Cross-Sponsor SEND
+  #F
+  (if self
+      (if (eq spon *current-sponsor*)
+          (send* actor (the list msg))
+        (send* (sponsor-msg-send spon) actor (the list msg)))
+    (mp:mailbox-send (sponsor-mbox spon)
+                     (cons actor (the list msg)))
+    ))
 
 (defmethod repeat-send ((dest actor))
   ;; Send the current event message to another Actor
   #F
-  (when self
-    (send* dest (the list *whole-message*))))
+  (send* dest (the list *whole-message*)))
 
 ;; ----------------------------------------------------------------
 ;; Using Sponsors
@@ -305,11 +297,6 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "with-sponsor" 1)
 
-(defmacro with-worker (&body body)
-  `(beta _
-       (send beta)
-     ,@body))
-
 ;; --------------------------------------
 ;; A Par-Safe-Behavior is guaranteed safe for sharing of single
 ;; instances across multiple SMP threads. Only one thread at a time is
@@ -320,24 +307,21 @@ THE SOFTWARE.
 ;; exercises BECOME, or otherwise mutates its internal state. BECOME
 ;; mutates internal state.
 
-(defun ensure-par-safe-behavior (beh)
-  (check-type beh function)
-  (locally
-    #F
-    (declare (function beh))
-    (let ((lock  (mp:make-lock))
-	  this-beh)
-      (setf this-beh
-	    #'(lambda (&rest msg)
-		(let ((wait-dur (if (and (empty-evq? *evt-queue*)
-					 (mp:mailbox-empty-p
-                                          (sponsor-mbox *current-sponsor*)))
-				    0.1  ;; no pending work, so just wait
-                                  0)))   ;; other work to do, so go around again if can't lock immed
-		  (unless (mp:with-lock (lock nil wait-dur)
-			    (when (eq (actor-beh self) this-beh) ;; behavior changed while waiting?
-			      (apply beh msg)
-			      t))
-		    (send* self msg))) ;; go around again, or perform other work
-		))
-      )))
+(defmethod ensure-par-safe-behavior ((beh function))
+  #F
+  (let ((lock  (mp:make-lock))
+        this-beh)
+    (setf this-beh
+          #'(lambda (&rest msg)
+              (let ((wait-dur (if (and (empty-evq? *evt-queue*)
+                                       (mp:mailbox-empty-p
+                                        (sponsor-mbox *current-sponsor*)))
+                                  0.1  ;; no pending work, so just wait
+                                0)))   ;; other work to do, so go around again if can't lock immed
+                (unless (mp:with-lock (lock nil wait-dur)
+                          (when (eq (actor-beh self) this-beh) ;; behavior changed while waiting?
+                            (apply beh msg)
+                            t))
+                  (send* self msg))) ;; go around again, or perform other work
+              ))
+    ))

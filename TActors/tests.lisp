@@ -14,6 +14,7 @@
                    :register :REVAL)
 
 (loop repeat 5 do
+      ;; remote EVAL, print result on our local printer
       (send :reval (ac:usti println) `(machine-instance)))
 
 (let ((a (make-actor
