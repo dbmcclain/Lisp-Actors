@@ -290,7 +290,7 @@
                 (multiple-value-bind (next-req new-queue)
                     (finger-tree:popq queue)
                   (destructuring-bind (spon next-cust . next-msg) next-req
-                    (sendx* spon service tag next-msg)
+                    (send* spon service tag next-msg)
                     (become (make-enqueued-serializer-beh
                              service tag next-cust new-queue))
                     ))
@@ -329,7 +329,7 @@
 (defun sponsor-switch (spons)
   ;; Switch to other Sponsor for rest of processing
   (actor msg
-    (sendx* spons msg)))
+    (send* spons msg)))
 
 (defun io (svc)
   ;; svc should be an Actor expecting a customer and args from msg
@@ -337,12 +337,12 @@
     (let ((spons *current-sponsor*))
       ;; Forward to svc on IO thread
       ;; send result back to customer on current thread
-      (sendx* *slow-sponsor*
-              svc
-              (actor ans
-                ;; forwarding customer for svc
-                (sendx* spons cust ans))
-              msg)
+      (send* *slow-sponsor*
+             svc
+             (actor ans
+               ;; forwarding customer for svc
+               (send* spons cust ans))
+             msg)
       )))
       
 ;; -----------------------------------------------

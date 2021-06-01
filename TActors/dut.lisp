@@ -170,7 +170,7 @@
     ;; a DUT function parameterized by Sponsor and Log2N
     (lambda (cust)
       (let ((top  (make-actor (make-erfc-tree-beh niter))))
-        (sendx spon top cust 10))))
+        (send spon top cust 10))))
   
   (defun* dataprep ((niter dt))
     (list niter         ;; = nbr of Actors in tree

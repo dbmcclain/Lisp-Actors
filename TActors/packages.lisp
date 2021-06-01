@@ -76,8 +76,6 @@ THE SOFTWARE.
 
    #:send
    #:send*
-   #:sendx
-   #:sendx*
    #:self
    #:self-beh
    

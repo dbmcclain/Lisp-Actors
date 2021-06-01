@@ -260,26 +260,28 @@ THE SOFTWARE.
   ;; saves typing APPLY #'SEND, analogous to LIST*
   `(apply #'send ,@msg))
 
-(defmacro sendx* (&rest msg)
-  `(apply #'sendx ,@msg))
-
 (defmethod send ((actor actor) &rest msg)
   #F
   (if self
       (add-evq *evt-queue*
                (cons actor (the list msg)))
-    (apply #'sendx *sponsor* actor (the list msg))
+    (apply #'send *sponsor* actor (the list msg))
     ))
 
-(defmethod sendx ((spon sponsor) (actor actor) &rest msg)
+(defvar *sponsor-send-gateway*
+  ;; allow us to re-interpret SEND target in *current-sponsor*
+  (make-actor #'send))
+
+(defmethod send ((spon sponsor) &rest msg)
   ;; Cross-Sponsor SEND
+  ;; First msg component is typically an Actor...
   #F
   (if self
       (if (eq spon *current-sponsor*)
-          (send* actor (the list msg))
-        (send* (sponsor-msg-send spon) actor (the list msg)))
+          (send* (the list msg))
+        (send* (sponsor-msg-send spon) *sponsor-send-gateway* (the list msg)))
     (mp:mailbox-send (sponsor-mbox spon)
-                     (cons actor (the list msg)))
+                     (cons *sponsor-send-gateway* (the list msg)))
     ))
 
 (defmethod repeat-send ((dest actor))
