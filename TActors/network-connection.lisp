@@ -37,10 +37,6 @@
             scatter-vec:scatter-vector
             scatter-vec:add-fragment
 
-            finger-tree:addq
-            finger-tree:popq
-            finger-tree:pushq
-
             actors/srp6-ecc:client-negotiate-security-ecc
             actors/srp6-ecc:server-negotiate-security-ecc
             )))

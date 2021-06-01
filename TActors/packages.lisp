@@ -55,6 +55,10 @@ THE SOFTWARE.
    #:fork
    #:list-match
    #:actor-nlet
+
+   #:addq
+   #:pushq
+   #:popq
    
    #:β
    #:beta

@@ -223,6 +223,40 @@
   (let ((timer (apply #'mp:make-timer #'send msg)))
     (mp:schedule-timer-relative timer dt)))
 
+;; -------------------------------------------
+;; A cheap FP Banker's queue - empty queue is NIL
+;; When all you need is ADDQ, PUSHQ, POPQ...
+
+(defun qnorm (q)
+  ;; on entry q is never NIL
+  ;; if queue is empty we return NIL
+  ;; otherwise, something is left in (CAR Q)
+  (if (car q)
+      q
+    (when (cdr q)
+      (list (reverse (cdr q)))
+      )))
+
+(defun addq (q item)
+  ;; add item to tail, return new queue
+  (if q
+      (cons (car q) (cons item (cdr q)))
+    (list (list item))))
+
+(defun pushq (q item)
+  ;; add item to head, return new queue
+  (if q
+      (cons (cons item (car q)) (cdr q))
+    (list (list item))))
+
+(defun popq (q)
+  (when q
+    ;; return next item, and new queue
+    (let ((item (caar q))
+          (newq (qnorm (cons (cdar q) (cdr q)))))
+      (values item newq t)
+      )))
+
 ;; -----------------------------------------
 ;; Serializer Gateway
 ;;
@@ -389,3 +423,4 @@
                  (send* cust msg)))
         ))
 
+;; --------------------------------------------------

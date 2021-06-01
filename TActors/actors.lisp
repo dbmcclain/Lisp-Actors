@@ -101,18 +101,18 @@ THE SOFTWARE.
 ;; Simple Direct Queue ~54ns SEND/dispatch
 ;; Simple CONS cell for queue: CAR = head, CDR = last
 
-(declaim (inline make-queue emptyq?))
+(declaim (inline make-evqueue empty-evq?))
 
-(defun make-queue ()
+(defun make-evqueue ()
   #F
   (list nil))
 
-(defun emptyq? (queue)
+(defun empty-evq? (queue)
   #F
   (declare (cons queue))
   (null (car queue)))
 
-(defun popq (queue)
+(defun pop-evq (queue)
   #F
   (declare (cons queue))
   (let ((cell (car queue)))
@@ -121,7 +121,7 @@ THE SOFTWARE.
         (setf (cdr queue) nil))
       (car (the cons cell)))))
 
-(defun addq (queue elt)
+(defun add-evq (queue elt)
   #F
   (declare (cons queue))
   (let ((cell (list elt)))
@@ -158,11 +158,11 @@ THE SOFTWARE.
            (loop
             ;; Get a Foreign SEND event if any
             (when (mp:mailbox-not-empty-p mbox)
-              (addq *evt-queue*
-                    (mp:mailbox-read mbox)))
+              (add-evq *evt-queue*
+                       (mp:mailbox-read mbox)))
             
             ;; Fetch next event from event queue
-            (let ((evt (or (popq *evt-queue*)
+            (let ((evt (or (pop-evq *evt-queue*)
                            (mp:mailbox-read mbox))))
               (declare (cons evt)
                        (dynamic-extent evt))
@@ -181,7 +181,7 @@ THE SOFTWARE.
                 ))
             
             ;; Fetch next event from event queue
-            (let ((evt (or (popq *evt-queue*)
+            (let ((evt (or (pop-evq *evt-queue*)
                            (mp:mailbox-read mbox))))
               (declare (cons evt)
                        (dynamic-extent evt))
@@ -265,8 +265,8 @@ THE SOFTWARE.
 (defmethod send ((actor actor) &rest msg)
   #F
   (cond (self
-         (addq *evt-queue*
-               (cons actor msg)))
+         (add-evq *evt-queue*
+                  (cons actor msg)))
         (t
          (apply #'sendx *sponsor* actor msg))
         ))
@@ -328,7 +328,7 @@ THE SOFTWARE.
 	  this-beh)
       (setf this-beh
 	    #'(lambda (&rest msg)
-		(let ((wait-dur (if (and (emptyq? *evt-queue*)
+		(let ((wait-dur (if (and (empty-evq? *evt-queue*)
 					 (mp:mailbox-empty-p
                                           (sponsor-mbox *current-sponsor*)))
 				    nil  ;; no pending work, so just wait

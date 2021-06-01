@@ -119,33 +119,6 @@
       (send tbl cust :find key))
     ))
 
-;; -------------------------------------------
-;; A cheap FP Banker's queue - empty queue is NIL
-
-(defun qnorm (q)
-  ;; on entry q is never NIL
-  ;; if queue is empty we return NIL
-  ;; otherwise, something is left in (CAR Q)
-  (if (car q)
-      q
-    (when (cdr q)
-      (list (reverse (cdr q)))
-      )))
-
-(defun addq (q item)
-  ;; add item, return new queue
-  (if q
-      (cons (car q) (cons item (cdr q)))
-    (list (list item))))
-
-(defun popq (q)
-  (when q
-    ;; return next item, and new queue
-    (let ((item (caar q))
-          (newq (qnorm (cons (cdar q) (cdr q)))))
-      (values item newq t)
-      )))
-
 ;; -----------------------
 
 (defun n-level-upd-beh (tbl wr-cust writer pend)

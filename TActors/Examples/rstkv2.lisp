@@ -116,8 +116,8 @@ storage and network transmission.
       
      ((cust :write updatefn)
       (become (make-locked-db-beh writer state sync
-                                  (bankers-queue:q-add pend-wr
-                                                       (cons cust updatefn) ))))
+                                  (addq pend-wr
+                                        (cons cust updatefn) ))))
       
       ((cust :update new-map wr-cust) when (eq cust writer)
          (send wr-cust self (not (eq kv-map new-map)))
@@ -133,7 +133,7 @@ storage and network transmission.
                       )))
            (cond (pend-wr
                   (multiple-value-bind (pair new-queue)
-                      (bankers-queue:q-pop pend-wr)
+                      (popq pend-wr)
                     (let ((new-writer (make-writer (car pair) (cdr pair) new-map)))
                       (send new-writer self)
                       (become (make-locked-db-beh new-writer new-state sync new-queue))
