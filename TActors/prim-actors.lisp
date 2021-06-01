@@ -335,18 +335,15 @@
   ;; svc should be an Actor expecting a customer and args from msg
   (actor (cust &rest msg)
     (let ((spons *current-sponsor*))
-      (if (eq spons *slow-sponsor*)
-          (send* svc cust msg)
-        
-        ;; Else - forward to svc on IO thread
-        ;; send result back to customer on current thread
-        (sendx* *slow-sponsor*
-                svc
-                (actor ans
-                  ;; forwarding customer for svc
-                  (sendx* spons cust ans))
-                msg)
-        ))))
+      ;; Forward to svc on IO thread
+      ;; send result back to customer on current thread
+      (sendx* *slow-sponsor*
+              svc
+              (actor ans
+                ;; forwarding customer for svc
+                (sendx* spons cust ans))
+              msg)
+      )))
       
 ;; -----------------------------------------------
 ;; For sequenced message delivery

@@ -249,11 +249,10 @@ THE SOFTWARE.
 ;; then surround your function calls with HANDLER-CASE, HANDLER-BIND,
 ;; or IGNORE-ERRORS.
 
-(defun become (new-fn)
+(defmethod become ((new-fn function))
   ;; Change behavior/state. Only meaningful if an Actor calls
   ;; this.
   #F
-  (check-type new-fn function)
   (when self
     (setf (actor-beh self) new-fn)))
 
@@ -264,11 +263,12 @@ THE SOFTWARE.
 
 (defmethod send ((actor actor) &rest msg)
   #F
+  (declare (dynamic-extent msg))
   (cond (self
          (add-evq *evt-queue*
-                  (cons actor msg)))
+                  (cons actor (the list msg))))
         (t
-         (apply #'sendx *sponsor* actor msg))
+         (apply #'sendx *sponsor* actor (the list msg)))
         ))
 
 (defmacro sendx* (&rest msg)
@@ -277,15 +277,16 @@ THE SOFTWARE.
 (defmethod sendx ((spon sponsor) (actor actor) &rest msg)
   ;; cross-sponsor sends
   #F
+  (declare (dynamic-extent msg))
   (cond (self
          (if (eq spon *current-sponsor*)
-             (send* actor msg)
-           (send* (sponsor-msg-send spon) actor msg)
+             (send* actor (the list msg))
+           (send* (sponsor-msg-send spon) actor (the list msg))
            ))
 
         (t
          (mp:mailbox-send (sponsor-mbox spon)
-                          (cons actor msg)))
+                          (cons actor (the list msg))))
         ))
 
 (defmethod repeat-send ((dest actor))
