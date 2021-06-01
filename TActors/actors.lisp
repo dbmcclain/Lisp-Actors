@@ -35,7 +35,10 @@ THE SOFTWARE.
 (declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))
 
 ;; --------------------------------------------------------------------
+(defgeneric become (new-beh))
 (defgeneric send (obj &rest msg))
+(defgeneric repeat-send (dest))
+(defgeneric ensure-par-safe-behavior (beh))
 ;; ------------------------------------------------------
 
 ;; -----------------------------------------------------
