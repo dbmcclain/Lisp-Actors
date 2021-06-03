@@ -104,7 +104,7 @@ THE SOFTWARE.
 ;; Simple Direct Queue ~54ns SEND/dispatch
 ;; Simple CONS cell for queue: CAR = head, CDR = last
 
-(declaim (inline make-evqueue empty-evq? become))
+(declaim (inline make-evqueue empty-evq?))
 
 (defun make-evqueue ()
   #F

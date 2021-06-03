@@ -95,6 +95,9 @@
 (defmethod retry-send ((obj actor) &rest msg)
   (send* obj msg))
 
+(defmethod retry-send ((obj sponsor) &rest msg)
+  (send* obj msg))
+
 (defmethod retry-send (obj &rest msg)
   (declare (ignore msg))
   ;; This is not a good idea from a security standpoint...

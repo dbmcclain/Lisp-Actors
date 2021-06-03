@@ -278,29 +278,29 @@
      (let ((tag  (tag self)))
        (send* service tag msg)
        (become (make-enqueued-serializer-beh
-                service tag cust nil))
+                service tag *current-sponsor* cust nil))
        ))))
 
-(defun make-enqueued-serializer-beh (service tag in-cust queue)
+(defun make-enqueued-serializer-beh (service tag in-spon in-cust queue)
   (ensure-par-safe-behavior
    (lambda (cust &rest msg)
      (cond ((eq cust tag)
-            (send* in-cust msg)
+            (send* in-spon in-cust msg)
             (if queue
                 (multiple-value-bind (next-req new-queue)
-                    (finger-tree:popq queue)
-                  (destructuring-bind (spon next-cust . next-msg) next-req
-                    (send* spon service tag next-msg)
+                    (popq queue)
+                  (destructuring-bind (next-spon next-cust . next-msg) next-req
+                    (send* next-spon service tag next-msg)
                     (become (make-enqueued-serializer-beh
-                             service tag next-cust new-queue))
+                             service tag next-spon next-cust new-queue))
                     ))
               ;; else
               (become (make-serializer-beh service))))
            (t
             (become (make-enqueued-serializer-beh
-                     service tag in-cust
-                     (finger-tree:addq queue
-                                       (list* *current-sponsor* cust msg)))))
+                     service tag in-spon in-cust
+                     (addq queue
+                           (list* *current-sponsor* cust msg)))))
            ))))
   
 (defun serializer (service)
