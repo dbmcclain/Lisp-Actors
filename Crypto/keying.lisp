@@ -215,7 +215,7 @@
     write wrong yard year yellow you young youth zebra zero zone
     zoo
     .end))
-    (coerce (um:split-string s :delims '(#\space #\return #\newline #\tab)) 'vector)
+    (sort (map 'vector #'string-downcase (um:tokens s)) #'string-lessp)
     ))
 
 (defun convert-int-to-wordlist (val &key nbits)
