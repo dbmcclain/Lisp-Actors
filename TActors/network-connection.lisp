@@ -43,8 +43,8 @@
 
 ;; -----------------------------------------------------------------------
 
-(defvar *default-port*            65001)
-(defvar *socket-timeout-period*   20)
+(defvar *default-port*            65001.)
+(defvar *socket-timeout-period*   20.)
 (defvar *ws-collection*           nil)
 (defvar *aio-accepting-handle*    nil)
 
@@ -180,7 +180,7 @@
 ;;
 
 (defconstant +len-prefix-length+  4)
-(defconstant +hmac-length+       32)
+(defconstant +hmac-length+       32.)
 
 (defun make-frag-assembler-beh (state ctr frags pend)
   (with-accessors ((dispatcher intf-state-dispatcher)

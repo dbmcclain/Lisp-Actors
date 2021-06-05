@@ -66,17 +66,17 @@
 
 (progn
   (add-member '("RAMBO"
-                43704056591638149278964689227822341061242041243186903678486247117516002199075
+                43704056591638149278964689227822341061242041243186903678486247117516002199075.
                 #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 1273371386386608212524824066008103082487850570605984373323016206756589646975)))
+                   :CX 1273371386386608212524824066008103082487850570605984373323016206756589646975.)))
   (add-member '("Rincon.local"
-                49160856559683250145117127317339402884552938745976685476155965553792824590246
+                49160856559683250145117127317339402884552938745976685476155965553792824590246.
                 #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 5256622018528387048159252137593810767950738720060654184341614458947029247089)))
+                   :CX 5256622018528387048159252137593810767950738720060654184341614458947029247089.)))
   (add-member '("Arroyo.local"
-                91389651149087596318059674813816386831405868598342284783144785470548472227704
+                91389651149087596318059674813816386831405868598342284783144785470548472227704.
                 #S(EDWARDS-ECC::ECC-CMPR-PT
-                   :CX 4538818218850249608518200528322279140227183572500646731156234029741265604064))))
+                   :CX 4538818218850249608518200528322279140227183572500646731156234029741265604064.))))
 
 #|
 (let ((*print-readably* t))
@@ -98,7 +98,7 @@
 
 (multiple-value-bind (x gx)
     (gen-info (machine-instance)
-              58092113895438756482702715951169183950349033817880824399631344333284986728915)
+              58092113895438756482702715951169183950349033817880824399631344333284986728915.)
   (ed-compress-pt gx))
 
 (let* ((node-id (machine-instance))
@@ -220,8 +220,8 @@
                   (signature-mismatch-error))
                 
                 (init-crypto-for-hmac   crypto his-initv my-initv)
-                (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
-                (init-crypto-for-output crypto key-out (subseq my-initv  0 16))
+                (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16.))
+                (init-crypto-for-output crypto key-out (subseq my-initv  0 16.))
                 (init-crypto-for-renegotiation crypto (vec sc))
                 (send intf :srp-done)
                 (send cust)))
@@ -301,8 +301,8 @@
                 (beta ()
                     (send intf beta :srp-ph3-begin m2)
                   (init-crypto-for-hmac   crypto my-initv his-initv)
-                  (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16))
-                  (init-crypto-for-output crypto key-out (subseq my-initv  0 16))
+                  (init-crypto-for-input  crypto key-in  (subseq his-initv 0 16.))
+                  (init-crypto-for-output crypto key-out (subseq my-initv  0 16.))
                   (init-crypto-for-renegotiation crypto (vec sc))
                   (send intf :srp-done))
                 ))))

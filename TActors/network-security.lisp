@@ -229,7 +229,7 @@
 (defun uuid-str-from-shares (share1 share2 share3)
   (uuid:uuid-string
    (uuid:integer-to-uuid
-    (with-mod #.(- (ash 1 264) 275)
+    (with-mod #.(- (ash 1 264.) 275.)
       (solve-shares 0 `((1 . ,share1)
                         (2 . ,share2)
                         (3 . ,share3)))))
@@ -248,7 +248,7 @@
 |#
 ;; -------------------------------------------------
 
-(defconstant +reneg-interval+ 600) ;; 10 minutes
+(defconstant +reneg-interval+ 600.) ;; 10 minutes
 
 (defclass crypto ()
   ((cypher-in    :accessor crypto-cypher-in    :initform nil)
@@ -257,7 +257,7 @@
    (sequence-out :accessor crypto-sequence-out :initform 0)
    (hmac-key     :accessor crypto-hmac-key     :initform (hash32 (vector-of "default HMAC key")))
    (reneg-key    :accessor crypto-reneg-key    :initform nil)
-   (reneg-period :accessor crypto-reneg-period :initform (random #.(ash 1 63)))
+   (reneg-period :accessor crypto-reneg-period :initform (random #.(ash 1 63.)))
    (reneg-time   :accessor crypto-reneg-time   :initform (+ (get-universal-time)
                                                             (random (* 2 +reneg-interval+))))
    ))
@@ -283,7 +283,7 @@
   (setf (crypto-reneg-key    crypto) (hash32 s)
         (crypto-sequence-in  crypto) 0
         (crypto-sequence-out crypto) 0
-        (crypto-reneg-period crypto) (random #.(ash 1 63))
+        (crypto-reneg-period crypto) (random #.(ash 1 63.))
         (crypto-reneg-time   crypto) (+ (get-universal-time)
                                         (random (* 2 +reneg-interval+)))
         ))
@@ -363,7 +363,7 @@
 
 ;; ------------------------------------------------------------
 
-(defconstant +MAX-FRAGMENT-SIZE+ 65536)
+(defconstant +MAX-FRAGMENT-SIZE+ 65536.)
 
 (defun byte-encode-obj (obj)
   (lzw:zl-compressed-data
@@ -388,7 +388,7 @@
   ;; prefixed re-encodings.
   (let ((enc    (byte-encode-obj obj))
         (maxlen (load-time-value
-                 (- +max-fragment-size+ 64)
+                 (- +max-fragment-size+ 64.)
                  t)))
     (um:accum acc
       (nlet iter ((len   (length enc))
@@ -402,7 +402,7 @@
                              :frag
                            :last-frag))
                  (packet (loenc:encode (list msg frag)
-                                       :align 16)))
+                                       :align 16.)))
             (acc packet)
             (go-iter rem end)
             )))

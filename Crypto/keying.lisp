@@ -225,15 +225,15 @@
                  (lst nil))
     (if (not (plusp nb))
         lst
-      (let ((bits (ldb (byte 11 0) v)))
-        (go-iter (ash v -11) (- nb 11) (cons (aref *wordlist* bits) lst))
+      (let ((bits (ldb (byte 11. 0) v)))
+        (go-iter (ash v -11.) (- nb 11.) (cons (aref *wordlist* bits) lst))
         ))
     ))
 
 (defun binary-search (wrd)
   (let ((not-found "Not found: ~A"))
     (um:nlet iter ((lo 0)
-                   (hi 2048))
+                   (hi 2048.))
       (let* ((mid (ash (+ lo hi) -1))
              (chk (aref *wordlist* mid)))
         (cond ((string-equal wrd chk) mid)
@@ -253,13 +253,13 @@
     (if (endp lst)
         v
       (go-iter (cdr lst)
-               (logior (ash v 11)
+               (logior (ash v 11.)
                        (binary-search (car lst))))
       )))
 
 #|
 (progn
-  (assert (= 2048 (length *wordlist*)))
+  (assert (= 2048. (length *wordlist*)))
   (loop for wrd across *wordlist* do (binary-search wrd))
   (assert (eq :ok (handler-case
                       (binary-search "AAA")
@@ -275,6 +275,6 @@
                       :ok))))
   (assert (null (convert-int-to-wordlist 0)))
   (assert (zerop (convert-wordlist-to-int nil)))
-  (let ((val (random-between 0 (ash 1 256))))
+  (let ((val (random-between 0 (ash 1 256.))))
     (assert (= val (convert-wordlist-to-int (convert-int-to-wordlist val))))))
  |#
