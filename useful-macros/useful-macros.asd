@@ -31,6 +31,7 @@ THE SOFTWARE.
                 #+:CLOZURE (:file "clozure-compat")
   	        #+:SBCL    (:file "sbcl-compat")
 		#+:ALLEGRO (:file "allegro-compat")
+                #+:LISPWORKS (:file "underscore")
                 #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
                 #+:LISPWORKS (:file "editor-extensions")
                 (:file "packages")
