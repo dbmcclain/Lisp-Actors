@@ -15,7 +15,9 @@
                   (ans2  (multiple-value-list (read-from-string namex nil nil))))
              (if (and (numberp (car ans2))
                       (eql (cadr ans2) (length namex)))
-                 (apply #'values (car ans2) (cdr ans))
+                 (progn
+                   (unintern (car ans))
+                   (apply #'values (car ans2) (cdr ans)))
                (apply #'values ans))
              ))
           (t
