@@ -28,6 +28,8 @@ THE SOFTWARE.
 
 (defpackage #:bblk
   (:use #:common-lisp)
+  (:import-from #:def*
+   #:lambda*)
   (:export
    #:bb
    #:define-handler
@@ -160,7 +162,7 @@ THE SOFTWARE.
 
 (defmacro define-bblet-handler ((symbol clauses-args clause) &body body)
   `(setf (get ,symbol 'bblet-handler)
-         (um:lambda* (,clauses-args ,clause)
+         (lambda* (,clauses-args ,clause)
            ,@body)))
 
 (defmacro bblet (bindings &body body)

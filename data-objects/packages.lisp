@@ -128,7 +128,7 @@ THE SOFTWARE.
 |#
 
 (defpackage #:mcas ;; for V3
-  (:use #:common-lisp)
+  (:use #:common-lisp #:def*)
   (:import-from #:ref
    #:ref
    #:val
@@ -163,7 +163,7 @@ THE SOFTWARE.
    ))
 
 (defpackage #:priq
-  (:use #:common-lisp)
+  (:use #:common-lisp #:def*)
   #-OPENMCL (:import-from :mpcompat
    :CAS)
   (:export
@@ -260,7 +260,7 @@ THE SOFTWARE.
 |#
 
 (defpackage #:fstm ;; for V3 REF
-  (:use #:common-lisp)
+  (:use #:common-lisp #:def*)
   (:import-from :orderable
    #:<orderable-mixin>
    #:order-id)

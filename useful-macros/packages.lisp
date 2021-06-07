@@ -25,14 +25,7 @@ THE SOFTWARE.
 (in-package "CL-USER")
 
 (defpackage :xlambda
-  (:use :cl)
-  (:import-from :cl
-   :defun*
-   :lambda*
-   :labels*
-   :flet*
-   :λ*
-   :define*)
+  (:use :cl :def*)
   (:export
    :defun*
    :lambda*
@@ -99,7 +92,7 @@ THE SOFTWARE.
    ))
 
 (defpackage #:dlam
-  (:use #:common-lisp)
+  (:use #:common-lisp #:def*)
   (:export
    #:dlam-fun
    #:dlam-keys
@@ -244,7 +237,7 @@ THE SOFTWARE.
    :reset-error))
 
 (defpackage #:useful-macros
-  (:use #:common-lisp)
+  (:use #:common-lisp #:def*)
   (:nicknames #:um)
   #+:LISPWORKS
   (:import-from #:lispworks
@@ -263,12 +256,6 @@ THE SOFTWARE.
    :with-fast-impl
    :use-slow-code
    :reset-error)
-  (:import-from #:xlambda
-   #:defun*
-   #:lambda*
-   #:λ*
-   #:labels*
-   #:flet*)
   (:import-from #:timeout
    #:*timeout*
    #:timeout

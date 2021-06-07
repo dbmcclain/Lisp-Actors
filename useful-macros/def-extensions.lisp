@@ -3,7 +3,23 @@
 ;; DM/RAL 02/21
 ;; ----------------------------------
 
-(in-package :cl)
+(defpackage #:def*
+  (:export
+   #:defun*
+   #:define
+   #:define*
+   #:define-macro
+   #:define-generic
+   #:define-method
+   #:lambda*
+   #:flet*
+   #:labels*
+   #:defun*
+   #:λ
+   #:λ*
+   ))
+
+(in-package #:def*)
 
 #||#
 (defmacro λ (&body body)
@@ -37,16 +53,10 @@
   (editor:setup-indent "define" 1)
   (editor:setup-indent "define-macro" 1)
   (editor:setup-indent "define-generic" 1)
-  (editor:setup-indent "define-method" 1))
+  (editor:setup-indent "define-method" 1)
+  (editor:setup-indent "lambda*" 1 2 8)
+  (editor:setup-indent "defun*"  2 2 7)
+  (editor:setup-indent "labels*" 1 2 4 'flet)
+  (editor:setup-indent "flet*"   1 2 4 'flet)
+  (editor:setup-indent "define*" 1))
 
-(export '(λ
-          define
-          define-macro
-          define-generic
-          define-method
-          λ*
-          lambda*
-          define*
-          defun*
-          labels*
-          flet*))

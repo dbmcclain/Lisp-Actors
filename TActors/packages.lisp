@@ -31,7 +31,7 @@ THE SOFTWARE.
 
 (defpackage #:actors
   (:nicknames #:ac)
-  (:use #:common-lisp)
+  (:use #:common-lisp #:def*)
   #|
   (:use #:common-lisp #:cps)
   #.`(:export
@@ -195,12 +195,12 @@ THE SOFTWARE.
    ))
 
 (defpackage #:actors/internal-message/security
-  (:use #:common-lisp)
+  (:use #:common-lisp #:def*)
   (:export
    ))
 
 (defpackage #:actors/internal-message/bridge
-  (:use #:common-lisp)
+  (:use #:common-lisp #:def*)
   (:export
    #:forwarding-send
    #:forwarding-ask
@@ -209,7 +209,7 @@ THE SOFTWARE.
    ))
 
 (defpackage #:actors/internal-message/network
-  (:use #:common-lisp)
+  (:use #:common-lisp #:def*)
   (:export
    #:discard
    #:frag
@@ -227,20 +227,20 @@ THE SOFTWARE.
    ))
 
 (defpackage #:actors/macros
-  (:use #:common-lisp #:actors))
+  (:use #:common-lisp #:actors #:def*))
 
 (defpackage #:actors/directory
-  (:use #:common-lisp #:actors))
+  (:use #:common-lisp #:actors #:def*))
 
 (defpackage #:actors/lfm
-  (:use #:common-lisp #:actors)
+  (:use #:common-lisp #:actors #:def*)
   (:export
    #:ensure-system-logger
    #:kill-system-logger
    ))
 
 (defpackage :actors/network
-  (:use #:common-lisp #:actors)
+  (:use #:common-lisp #:actors #:def*)
   (:export
    #:*default-port*
    #:*socket-timeout-period*
@@ -254,7 +254,7 @@ THE SOFTWARE.
    ))
 
 (defpackage :actors/security
-  (:use #:common-lisp #:actors)
+  (:use #:common-lisp #:actors #:def*)
   (:shadow #:random)
   (:export
    #:$VERSION
@@ -279,7 +279,7 @@ THE SOFTWARE.
    ))
    
 (defpackage :actors/bridge
-  (:use #:common-lisp #:actors)
+  (:use #:common-lisp #:actors #:def*)
   (:export
    #:actor-bridge
    #:bridge-register
@@ -293,7 +293,7 @@ THE SOFTWARE.
    ))
 
 (defpackage #:actors/executives
-  (:use #:common-lisp #:actors)
+  (:use #:common-lisp #:actors #:def*)
   (:import-from #:useful-macros
    #:rmw
    #:rd
@@ -320,11 +320,12 @@ THE SOFTWARE.
    ))
 
 (defpackage #:actors/par
-  (:use #:common-lisp #:actors))
+  (:use #:common-lisp #:actors #:def*))
 
 (defpackage #:actors/base
   (:use #:common-lisp #:actors
-   #-:LISPWORKS #:ansi-timer)
+   #-:LISPWORKS #:ansi-timer
+   #:def*)
   (:import-from #:useful-macros
    #:curry
    #:rcurry
@@ -356,14 +357,14 @@ THE SOFTWARE.
    ))
 
 (defpackage #:actors/rwgate
-  (:use #:common-lisp #:actors))
+  (:use #:common-lisp #:actors #:def*))
 
 (defpackage #:actors/promises
-  (:use #:common-lisp #:actors))
+  (:use #:common-lisp #:actors #:def*))
 
 
 (defpackage #:actors/erl
-  (:use #:common-lisp #:actors)
+  (:use #:common-lisp #:actors #:def*)
   (:export
    #:process
    #:make-process
@@ -379,7 +380,7 @@ THE SOFTWARE.
    #:trap-exits))
 
 (defpackage #:actors/notifications
-  (:use #:common-lisp #:actors)
+  (:use #:common-lisp #:actors #:def*)
   (:export
    #:subscribe
    #:notify
@@ -387,6 +388,6 @@ THE SOFTWARE.
    ))
 
 (defpackage #:actors/user
-  (:use #:common-lisp #:actors))
+  (:use #:common-lisp #:actors #:def*))
 
 

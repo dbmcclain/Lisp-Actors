@@ -2,7 +2,7 @@
 (in-package #:cl-user)
 
 (defpackage #:cps
-  (:use #:cl)
+  (:use #:cl #:def*)
 
   (:import-from #:useful-macros
    #:symb
