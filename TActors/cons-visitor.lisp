@@ -219,18 +219,56 @@
       )))
 |#
 
-(defun $append (cust $cons lst)
+(defun $append1 (cust $cons $lst)
   (actor-typecase $cons
-    (nil-beh  () (send cust lst))
+    (nil-beh  ()
+              (send cust $lst))
     (cons-beh (car $cdr)
-              (beta (ans)
-                  ($append beta $cdr lst)
-                (send cust ($cons car ans))
+              (beta ($ans)
+                  ($append1 beta $cdr $lst)
+                (send cust ($cons car $ans))
                 ))
     ))
 
+(defun $appendx (cust $car &rest lsts)
+  (if lsts
+      (beta ($ans)
+          (apply #'$appendx beta (car lsts) (cdr lsts))
+        ($append1 cust $car $ans))
+    (send cust $car)))
+
+(defun $append (cust &rest lsts)
+  (if lsts
+      (apply #'$appendx cust lsts)
+    (send cust $NIL)))
+
+(defun $append-all-in-one (cust &rest lsts)
+  (if lsts
+      (actor-nlet iter ((cust  cust)
+                        ($cons (car lsts))
+                        (lsts  (cdr lsts)))
+        (if lsts
+            (beta ($lst)
+                (send iter beta (car lsts) (cdr lsts))
+              (actor-nlet inner ((cust  cust)
+                                 ($cons $cons))
+                (actor-typecase $cons
+                  (nil-beh ()
+                           (send cust $lst))
+                  (cons-beh (car $cdr)
+                            (beta ($ans)
+                                (send inner beta $cdr)
+                              (send cust ($cons car $ans))))
+                  )))
+          (send cust $cons)))
+    (send cust $nil)))
+              
+;; -----------------------------------------
+
 (defstruct (%nil
             (:constructor %nil ())))
+
+(defvar %nil (%nil))
 
 (defstruct (%cons
             (:constructor %cons (%car %cdr)))
@@ -241,16 +279,53 @@
                           (%cons elt ans))
                         lst
                         :from-end t
-                        :initial-value (%nil))))
+                        :initial-value %nil)))
 
-(defun %append (cust cons lst)
-  (typecase cons
-    (%nil (funcall cust lst))
+(defun %append1 (cust %cons %lst)
+  (typecase %cons
+    (%nil
+     (funcall cust %lst))
     (%cons 
-     (flet ((k-cont (ans)
-              (funcall cust (%cons (%cons-%car cons) ans))))
-       (%append #'k-cont (%cons-%cdr cons) lst)))
+     (flet ((k-cont (%ans)
+              (funcall cust (%cons (%cons-%car %cons) %ans))))
+       (%append1 #'k-cont (%cons-%cdr %cons) %lst)))
     ))
+
+(defun %appendx (cust %car &rest lsts)
+  (if lsts
+      (flet ((k-cont (%ans)
+               (%append1 cust %car %ans)))
+        (apply #'%appendx #'k-cont (car lsts) (cdr lsts)))
+    (funcall cust %car)
+    ))
+
+(defun %append (cust &rest lsts)
+  (if lsts
+      (apply #'%appendx cust lsts)
+    (funcall cust %nil)))
+
+(defun %append-all-in-one (cust &rest lsts)
+  (if lsts
+      (um:nlet iter ((cust cust)
+                     (%cons (car lsts))
+                     (lsts  (cdr lsts)))
+        (if lsts
+            (flet ((k-cont (%lst)
+                     (um:nlet inner ((cust  cust)
+                                     (%cons %cons))
+                       (typecase %cons
+                         (%nil
+                          (funcall cust %lst))
+                         (%cons
+                          (flet ((k-cont (%ans)
+                                   (funcall cust (%cons (%cons-%car %cons) %ans))))
+                            (inner #'k-cont (%cons-%cdr %cons))))
+                         ))))
+              (iter #'k-cont (car lsts) (cdr lsts)))
+          (funcall cust %cons)))
+    (funcall cust %nil)))
+        
+;; -----------------------------------------------
 
 (defun $do (cust $cons svc)
   (actor-typecase $cons

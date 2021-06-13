@@ -425,3 +425,10 @@
         ))
 
 ;; --------------------------------------------------
+
+(defun mbox-sender-beh (mbox)
+  (lambda (&rest ans)
+    (mp:mailbox-send mbox ans)))
+
+(defun mbox-sender (mbox)
+  (make-actor (mbox-sender-beh mbox)))

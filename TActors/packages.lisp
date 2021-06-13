@@ -72,12 +72,13 @@ THE SOFTWARE.
    #:make-sponsor
    #:*sponsor*
    #:*slow-sponsor*
-   #:with-sponsor
 
    #:send
    #:send*
    #:self
    #:self-beh
+   #:send-now
+   #:ask
    
    #:ensure-par-safe-behavior
    
@@ -149,6 +150,7 @@ THE SOFTWARE.
    #:sponsor-switch
    #:sequenced-delivery
    #:prune-self
+   #:mbox-sender
    
    #:make-sink-beh
    #:make-const-beh
@@ -163,6 +165,7 @@ THE SOFTWARE.
    #:make-timing-beh
    #:pruned-beh
    #:pend-beh
+   #:mbox-sender-beh
    
    #:subscribe
    #:notify

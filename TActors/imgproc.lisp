@@ -8,6 +8,7 @@
           'vector))
 
 (defun farmer-fft (spons-ix)
+  ;; perform transform on row, transposing to cols on output
   (actor (cust arr dst-arr)
     (destructuring-bind (nrows ncols)
         (array-dimensions arr)
@@ -23,7 +24,7 @@
               (progn
                 (replace vec rmarr :start2 (* ncols row))
                 (let ((fvec (vm:shifth (fft:fwd vec))))
-                  (plt:cmplx-plot spons-ix fvec :clear t)
+                  ;; (plt:cmplx-plot spons-ix fvec :clear t)
                   (loop for ix from 0 below ncols do
                         (setf (aref dst-arr ix row)
                               (aref fvec ix)))
@@ -37,8 +38,8 @@
            (fft    (farmer-fft spons-ix))
            (sw-out (sponsor-switch *current-sponsor*)))
 
-       (β _ (send sw-in β)
-         (β _ (send fft β arr dst-arr)
+       (beta _ (send sw-in beta)
+         (beta _ (send fft beta arr dst-arr)
            (send sw-out cust)))
        )))
 
@@ -51,9 +52,9 @@
 
 (defun par-fft ()
   (actor (cust arr)
-     (β (ffts) (send (fft-farm) β)
+     (beta (ffts) (send (fft-farm) beta)
        (let ((dst-arr (make-array (reverse (array-dimensions arr)))))
-         (β _ (send par β ffts arr dst-arr)
+         (beta _ (send par beta ffts arr dst-arr)
            (send cust dst-arr)))
        )))
 
@@ -72,15 +73,18 @@
                    (coerce
                     (log (max 1e-3 (abs (row-major-aref img ix))))
                     'single-float)))
-       (plt:tvscl 'imgm mimg :magn 4)) ;; (vm:shifth mimg))))
+       (plt:tvscl 'imgm
+                  mimg
+                  ;; (vm:shifth mimg)
+                  :magn 4))
      ))
 
 #|
 (send (actor (cust)
         (let ((spon *current-sponsor*))
-          (β _ (send (sponsor-switch (aref *farm* 3)) β)
+          (beta _ (send (sponsor-switch (aref *farm* 3)) beta)
             (send println *current-sponsor*)
-            (β _ (send (sponsor-switch spon) β)
+            (beta _ (send (sponsor-switch spon) beta)
               (send cust *current-sponsor*)))))
       println)
       
@@ -93,16 +97,20 @@
              (setf (aref img row col) 1f0)))
   (plt:window 'img :xsize 1024 :ysize 1024)
   (plt:window 'imgm :xsize 1024 :ysize 1024)
+  (plt:window 'imgmx :xsize 1024 :ysize 1024)
   (plt:tvscl 'img img :magn 4)
-  #|
+  #||#
   (send (timing 
          (actor (cust)
-           (β (ans-img) (send (par-fft) β img)
-             (send (show-mag-img) ans-img)
-             (send cust))))
+           (beta (ans-img) (send (par-fft) beta img)
+             (beta (ans-img) (send (par-fft) beta ans-img)
+               (send (show-mag-img) ans-img)
+               (send cust)))))
         println)
-  |#
-  (let ((fimg (fft2d:fwd-magnitude img)))
-    (plt:tvscl 'imgm fimg :magn 4))
+  #||#
+  #||#
+  (let ((fimg (time (vm:shifth (fft2d:fwd-magnitude img)))))
+    (plt:tvscl 'imgmx fimg :magn 4))
+  #||#
   )
 |#

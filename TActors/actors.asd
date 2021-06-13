@@ -40,6 +40,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "actors")
                 (:file "macros")
                 (:file "prim-actors")
+                #+(AND :MACOSX :COM.RAL) (:file "fft-fixup")
                 ;; (:file "actor-class")
                 ;; (:file "watch")
                 ;; #-(OR :USING-MAC-GCD :USING-STACTORS) (:file "executives")

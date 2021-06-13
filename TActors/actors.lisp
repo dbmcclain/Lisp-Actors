@@ -287,20 +287,28 @@ THE SOFTWARE.
                      (cons *sponsor-send-gateway* (the list msg)))
     ))
 
+(defmethod send ((mbox mp:mailbox) &rest msg)
+  (mp:mailbox-send mbox msg))
+
 (defmethod repeat-send ((dest actor))
   ;; Send the current event message to another Actor
   #F
   (send* dest (the list *whole-message*)))
 
-;; ----------------------------------------------------------------
-;; Using Sponsors
+(defmethod send-now ((spon sponsor) (actor actor) &rest msg)
+  ;; bypass the delayed SEND mechanism to force an immediate SEND
+  (mp:mailbox-send (sponsor-mbox spon) (list* actor msg)))
 
-(defmacro with-sponsor (sponsor &body body)
-  `(let ((*current-sponsor* ,sponsor))
-     ,@body))
-
-#+:LISPWORKS
-(editor:setup-indent "with-sponsor" 1)
+(defmethod ask ((spon sponsor) (actor actor) &rest msg)
+  ;; The bridge between Actors and imperative style code...
+  ;;
+  ;; Actor cannot call upon anything in the *current-sponsor* for
+  ;; itself - that will cauase a hang-waiting lockup of the current
+  ;; sponsor while it awaits its answer in the local mailbox.
+  (assert (not (eq spon *current-sponsor*)))
+  (let ((mbox (mp:make-mailbox)))
+    (apply #'send-now spon actor mbox msg)
+    (values-list (mp:mailbox-read mbox))))
 
 ;; --------------------------------------
 ;; A Par-Safe-Behavior is guaranteed safe for sharing of single
