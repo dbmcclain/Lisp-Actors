@@ -297,7 +297,7 @@ THE SOFTWARE.
 
 (defmethod send-now ((spon sponsor) (actor actor) &rest msg)
   ;; bypass the delayed SEND mechanism to force an immediate SEND
-  (mp:mailbox-send (sponsor-mbox spon) (list* actor msg)))
+  (mp:mailbox-send (sponsor-mbox spon) (cons actor msg)))
 
 (defmethod ask ((spon sponsor) (actor actor) &rest msg)
   ;; The bridge between Actors and imperative style code...
