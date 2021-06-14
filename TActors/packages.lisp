@@ -140,7 +140,6 @@ THE SOFTWARE.
    #:label
    #:wrapping
    #:tag
-   #:blk
    #:ser
    #:par
    #:scheduled-message

@@ -188,19 +188,14 @@
 #|
 (send ser println
       (list
-       (blk ()
-         :blk1)
-       (blk ()
-         :blk2)
-       (blk ()
-         :blk3)))
-               
+       (const :blk1)
+       (const :blk2)
+       (const :blk3)))
+
 (send par println
       (list
-       (blk ()
-         :blk1)
-       (blk ()
-         :blk2)))
+       (const :blk1)
+       (const :blk2)))
 
 (let* ((actor (make-actor (lambda (cust) (sleep 2) (send cust :ok))))
        (fut   (future actor)))
