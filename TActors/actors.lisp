@@ -223,15 +223,17 @@ THE SOFTWARE.
 
 ;; ----------------------------------------------------------
 
-(defun msg-send-beh (mbox)
-  #F
-  (lambda (&rest msg)
-    (mp:mailbox-send mbox msg)))
+(defun mbox-sender-beh (mbox)
+  (lambda (&rest ans)
+    (mp:mailbox-send mbox ans)))
+
+(defun mbox-sender (mbox)
+  (make-actor (mbox-sender-beh mbox)))
 
 (defun make-sponsor (title)
   (let ((new-sponsor (%make-sponsor)))
     (setf (sponsor-msg-send new-sponsor)
-          (make-actor (msg-send-beh (sponsor-mbox new-sponsor)))
+          (mbox-sender (sponsor-mbox new-sponsor))
 
           (sponsor-thread new-sponsor) 
           (mp:process-run-function title

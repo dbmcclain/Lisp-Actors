@@ -354,7 +354,7 @@
 ;;
 ;; When a messages arrives out of order, send it with :WAIT to the
 ;; pending items list. When you are ready for any particular sequence
-;; number or label, then send :START with that seequence number to the
+;; number or label, then send :READY with that seequence number to the
 ;; pending list. If it had previously arrived, it will be re-sent.
 ;;
 ;; The purpose of this Actor is to avoid spinning on messages,
@@ -426,9 +426,3 @@
 
 ;; --------------------------------------------------
 
-(defun mbox-sender-beh (mbox)
-  (lambda (&rest ans)
-    (mp:mailbox-send mbox ans)))
-
-(defun mbox-sender (mbox)
-  (make-actor (mbox-sender-beh mbox)))

@@ -14,10 +14,10 @@
 ;; We make use of LW's Special Free Actions called by the GC to remove
 ;; these C structs, but only after they have aged at least 30 sec.
 ;; This avoids constantly creating and releasing in quick succession.
-;; Chances are pretty good that if you used a particular size FFT you
-;; will use that same size (or larger) again. By keeping them alive
-;; for at least 30 sec we keep the overhead of constructing them to
-;; acceptably low frequency.
+;; Chances are pretty good that, if you used a particular size FFT,
+;; you will use that same size (or larger) again. By keeping them
+;; alive for at least 30 sec we keep the overhead of constructing them
+;; to acceptably low frequency.
 
 (in-package :fft)
 
@@ -101,12 +101,15 @@
     (ac:ask ac:*slow-sponsor* twids-actor :get-twids prec lg2nx)))
 
 (defun get-stwids (nx)
+  ;; called by FFT routines
   (get-twids nx 'single-float))
 
 (defun get-dtwids (nx)
+  ;; called by FFT routines
   (get-twids nx 'double-float))
 
 (defun free-twids (obj)
+  ;; already recorded as a special free action
   (when (twids-p obj)
     (ac:send ac:*slow-sponsor* twids-actor :release-twids obj)))
 
