@@ -32,37 +32,25 @@
         (send cust)
         ))))
 
-(defun fft-block (spons-ix)
+(defun fft-block (fft)
   (actor (cust arr dst-arr)
-    (send (sponsored-actor (aref *farm* spons-ix)
-                           (farmer-fft spons-ix))
+    (send fft
           (sponsored-actor self-sponsor
                            cust)
           arr dst-arr)))
-#|
-     (let ((sw-in  (sponsor-switch (aref *farm* spons-ix)))
-           (fft    (farmer-fft spons-ix))
-           (sw-out (sponsor-switch *current-sponsor*)))
 
-       (beta _ (send sw-in beta)
-         (beta _ (send fft beta arr dst-arr)
-           (send sw-out cust)))
-       )))
-|#
 (defun fft-farm ()
-  (actor (cust)
-     (send cust
-           (loop for ix from 0 below *nfarm* collect
-                 (fft-block ix)))
-   ))
+  (loop for ix from 0 below *nfarm* collect
+        (fft-block (sponsored-actor (aref *farm* ix)
+                                    (farmer-fft ix)))
+        ))
 
-(defun par-fft ()
+(defun par-fft (ffts)
   (actor (cust arr)
-     (beta (ffts) (send (fft-farm) beta)
-       (let ((dst-arr (make-array (reverse (array-dimensions arr)))))
-         (beta _ (send par beta ffts arr dst-arr)
-           (send cust dst-arr)))
-       )))
+    (let ((dst-arr (make-array (reverse (array-dimensions arr)))))
+      (beta _ (send par beta ffts arr dst-arr)
+        (send cust dst-arr)))
+    ))
 
 (defun inspector ()
   (actor msg
@@ -97,7 +85,9 @@
  
 (let ((img (make-array '(256 256)
                        :initial-element 0f0
-                       :element-type 'single-float)))
+                       :element-type 'single-float))
+      (pfft (par-fft (fft-farm))))
+  
   (loop for row from 126 to 130 do
         (loop for col from 126 to 130 do
              (setf (aref img row col) 1f0)))
@@ -108,8 +98,8 @@
   #||#
   (send (timing 
          (actor (cust)
-           (beta (ans-img) (send (par-fft) beta img)
-             (beta (ans-img) (send (par-fft) beta ans-img)
+           (beta (ans-img) (send pfft beta img)
+             (beta (ans-img) (send pfft beta ans-img)
                (send (show-mag-img) ans-img)
                (send cust)))))
         println)
