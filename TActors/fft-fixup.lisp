@@ -113,5 +113,3 @@
   (when (twids-p obj)
     (ac:send ac:*slow-sponsor* twids-actor :release-twids obj)))
 
-                                           
-  
