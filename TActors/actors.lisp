@@ -96,8 +96,14 @@ THE SOFTWARE.
 (defvar *current-behavior* nil) ;; Current Actor's behavior
 (defvar *evt-queue*        nil) ;; Current Event Queue
 
-(define-symbol-macro self     *current-actor*)
-(define-symbol-macro self-beh *current-behavior*)
+(define-symbol-macro self         *current-actor*)
+(define-symbol-macro self-beh     *current-behavior*)
+(define-symbol-macro self-sponsor *current-sponsor*)
+
+(defstruct (sponsored-actor
+            (:constructor sponsored-actor (spon act)))
+  spon
+  act)
 
 ;; -----------------------------------------------------------------
 ;; Fast Imperative Queue
@@ -288,6 +294,9 @@ THE SOFTWARE.
     (mp:mailbox-send (sponsor-mbox spon)
                      (cons *sponsor-send-gateway* (the list msg)))
     ))
+
+(defmethod send ((dest sponsored-actor) &rest msg)
+  (send* (sponsored-actor-spon dest) (sponsored-actor-act dest) msg))
 
 (defmethod send ((mbox mp:mailbox) &rest msg)
   (mp:mailbox-send mbox msg))

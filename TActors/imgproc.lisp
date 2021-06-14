@@ -34,6 +34,12 @@
 
 (defun fft-block (spons-ix)
   (actor (cust arr dst-arr)
+    (send (sponsored-actor (aref *farm* spons-ix)
+                           (farmer-fft spons-ix))
+          (sponsored-actor self-sponsor
+                           cust)
+          arr dst-arr)))
+#|
      (let ((sw-in  (sponsor-switch (aref *farm* spons-ix)))
            (fft    (farmer-fft spons-ix))
            (sw-out (sponsor-switch *current-sponsor*)))
@@ -42,7 +48,7 @@
          (beta _ (send fft beta arr dst-arr)
            (send sw-out cust)))
        )))
-
+|#
 (defun fft-farm ()
   (actor (cust)
      (send cust

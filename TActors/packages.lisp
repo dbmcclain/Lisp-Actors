@@ -77,6 +77,8 @@ THE SOFTWARE.
    #:send*
    #:self
    #:self-beh
+   #:self-sponsor
+   #:sponsored-actor
    #:send-now
    #:ask
    
