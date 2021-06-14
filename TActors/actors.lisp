@@ -87,6 +87,11 @@ THE SOFTWARE.
 (defvar *slow-sponsor*    nil)
 (defvar *current-sponsor* nil)
 
+(defstruct (sponsored-actor
+            (:constructor sponsored-actor (spon act)))
+  spon
+  act)
+
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
 
@@ -99,11 +104,6 @@ THE SOFTWARE.
 (define-symbol-macro self         *current-actor*)
 (define-symbol-macro self-beh     *current-behavior*)
 (define-symbol-macro self-sponsor *current-sponsor*)
-
-(defstruct (sponsored-actor
-            (:constructor sponsored-actor (spon act)))
-  spon
-  act)
 
 ;; -----------------------------------------------------------------
 ;; Fast Imperative Queue
