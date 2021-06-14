@@ -110,9 +110,9 @@ THE SOFTWARE.
 ;; Simple Direct Queue ~54ns SEND/dispatch
 ;; Simple CONS cell for queue: CAR = head, CDR = last
 
-(declaim (inline make-evqueue empty-evq?))
+(declaim (inline make-evq empty-evq?))
 
-(defun make-evqueue ()
+(defun make-evq ()
   #F
   (list nil))
 
@@ -150,9 +150,9 @@ THE SOFTWARE.
 (defun run-actors (*current-sponsor*)
   #F
   (let ((mbox         (sponsor-mbox *current-sponsor*))
-        (*evt-queue*  (list nil))
+        (*evt-queue*  (make-evq))
         (qsave        nil)) ;; rollback copy
-    (declare (dynamic-extent *evt-queue* qsave))
+    (declare (dynamic-extent mbox *evt-queue* qsave))
     (loop
      (with-simple-restart (abort "Handle next event")
        (handler-bind
