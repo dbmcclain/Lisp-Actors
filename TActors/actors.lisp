@@ -133,12 +133,13 @@ THE SOFTWARE.
 (defun add-evq (queue elt)
   #F
   (declare (cons queue))
-  (let ((cell (list elt)))
-    (if (cdr queue)
-        (setf (cdr queue)
-              (setf (cddr queue) cell))
-      (setf (car queue)
-            (setf (cdr queue) cell)))))
+  (let ((cell (list elt))
+        (tail (cdr queue)))
+    (setf (cdr queue)
+          (if tail
+              (setf (cdr (the cons tail)) cell)
+            (setf (car queue) cell)))
+    ))
 
 ;; -----------------------------------------------------------------
 ;; Generic RUN for all threads, across all Sponsors
