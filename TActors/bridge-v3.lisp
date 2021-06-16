@@ -216,11 +216,13 @@
   (alambda
     ((:attach an-ip intf) when (same-ip? an-ip ip)
      ;; successful attachment, change state to normal table lookup
+     ;;; (send println "Attach from pending-intf-beh")
      (send-to-all pend intf)
      (become (make-intf-beh ip intf next)))
 
     ((a-tag :fail) when (eq a-tag tag)
      ;; we timed out waiting for attachment
+     ;;; (send println "Fail from pending-intf-beh")
      (prune-self next))
 
     ((prev :prune)
@@ -230,13 +232,15 @@
      (repeat-send next)
      (prune-self next))
     
-    ((:pre-regiser an-ip intf) when (same-ip? an-ip ip)
+    ((:pre-register an-ip intf) when (same-ip? an-ip ip)
      ;; seen by the client side while awaiting attachment. We hold on
      ;; to the pending interface to protect against GC.
+     ;;; (send println "Pre-Register from pending-intf-beh")
      (become (make-prereg-intf-beh ip intf tag pend next)))
 
     ((cust :call-with-intf an-ip _) when (same-ip? an-ip ip)
      ;; new incoming request for a pending socket connection
+     ;;; (send println "call-with-intf from pending-intf-beh")
      (become (make-pending-intf-beh ip tag (cons cust pend) next)))
 
     ( _
@@ -248,18 +252,27 @@
   ;; completes its handshake with the server, it remains in pending
   ;; status. This Actor simply anchors the intf against GC.
   (alambda
+   #|
     ((:attach an-ip an-intf) when (same-ip? an-ip ip)
      ;; successful attachment, change state to normal table lookup.
      (send-to-all pend an-intf)
      (become (make-intf-beh ip an-intf next)))
+    |#
+    ((:attach _ an-intf) when (eql an-intf intf)
+     ;;; (send println "Attach from prereg-intf-beh")
+     ;; successful attachment, change state to normal table lookup.
+     (send-to-all pend intf)
+     (become (make-intf-beh ip intf next)))
 
     ((:detach an-intf) when (eq an-intf intf)
      ;; seen on unsuccessful connection negotiation
+     ;;; (send println "detach from prereg-intf-beh")
      (repeat-send next)
      (prune-self next))
 
     ((a-tag :fail) when (eq a-tag tag)
      ;; we timed out waiting for attachment
+     ;;; (send println "fail from prereg-intf-beh")
      (prune-self next))
 
     ((prev :prune)
@@ -271,10 +284,12 @@
     
     ((:pre-register an-ip an-intf) when (same-ip? an-ip ip)
      ;; this should not orinarily be seen from this state
+     ;;; (send println "Pre-Register from prereg-intf-beh")
      (become (make-prereg-intf-beh ip an-intf tag pend next)))
 
     ((cust :call-with-intf an-ip _) when (same-ip? an-ip ip)
      ;; new incoming request for a pending socket connection
+     ;;; (send println "call-with-intf from preref-intf-beh")
      (become (make-prereg-intf-beh ip intf tag (cons cust pend) next)))
 
     ( _
@@ -287,11 +302,13 @@
      ;; Called by the network interface upon successful connection.
      ;; There may be multiple ip-addr (strings, keywords, etc) assoc
      ;; to each intf. But each ip-addr points to only one intf.
+     ;;; (send println "Attach from intf-beh")
      (become (make-intf-beh ip an-intf next)))
     
     ((:detach an-intf) when (eq an-intf intf)
      ;; Called by the network intf when it shuts down
      ;; NOTE: multiple ip-addr may correspond to one intf
+     ;;; (send println "detach from intf-beh")
      (repeat-send next)
      (prune-self next))
 
@@ -305,6 +322,7 @@
     ((cust :call-with-intf an-ip _) when (same-ip? an-ip ip)
      ;; Called by SEND on our side to find the network intf to use for
      ;; message forwarding.  TODO - clean up re ports
+     ;;; (send println "call-with-intf from intf-beh")
      (send cust intf))
 
     ( _
@@ -325,13 +343,15 @@
       ((:attach ip intf)
        ;; server side sees this message from this state, but client side
        ;; ordinarily pre-registers before the attach.
+       ;;; (send println "Attach from empty-intf-beh")
        (become (make-intf-beh ip intf
                               (make-actor self-beh))))
       
-      ((:pre-regiser ip intf)
+      ((:pre-register ip intf)
        ;; we should never ordinarily see this message from empty state.
        ;; But go to pre-register state and give us a timeout in case we
        ;; fail to attach.
+       ;;; (send println "Pre-Register from emtpy-intf-beh")
        (become (make-prereg-intf-beh ip intf
                                      (schedule-timeout)
                                      nil
@@ -340,6 +360,7 @@
       ((cust :call-with-intf ip port)
        ;; this is the place where a new connection is attempted. We now
        ;; go to pending state, with a timeout.
+       ;;; (send println "call-with-intf from empty-intf-beh")
        (become (make-pending-intf-beh ip
                                       (schedule-timeout)
                                       (list cust)
@@ -383,6 +404,11 @@
   (send *intf-map* :reset)
   (send *cont-map* :reset))
 
+(defvar *myself* nil)
+
+(defun bridge-know-self (self-ip)
+  (pushnew self-ip *myself* :test #'string-equal))
+
 ;; --------------------------------------------
 
 (defgeneric call-with-valid-dest (dest fn)
@@ -410,7 +436,9 @@
     (apply #'socket-send handler :forwarding-send service msg)))
 
 (defun my-node? (proxy)
-  (string-equal (machine-instance) (proxy-ip proxy)))
+  (find (proxy-ip proxy) *myself* :test #'string-equal)
+  ;; (string-equal (machine-instance) (proxy-ip proxy))
+  )
 
 (defmethod bridge-deliver-message ((dest proxy) if-cant-send &rest msg)
   ;; a message arrived from across the network. try to dispatch.

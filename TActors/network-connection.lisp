@@ -30,6 +30,7 @@
             actors/bridge:bridge-unregister
             actors/bridge:bridge-reset
             actors/bridge:bridge-deliver-message
+            actors/bridge:bridge-know-self
 
             actors/lfm:ensure-system-logger
             actors/lfm:kill-system-logger
@@ -565,8 +566,9 @@
                                         :crypto   crypto)))
                          (beta ()
                              (send intf beta :client-request-srp)
+                             ;;; (send beta)
                            (bridge-pre-register ip-addr intf) ;; anchor for GC
-                           (socket-send intf :client-info (machine-instance))))
+                           (socket-send intf :client-info (machine-instance) ip-addr)))
                      ;; else
                      (error "Can't connect to: ~A" ip-addr))
                    )))
@@ -591,10 +593,11 @@
 
 (defun make-server-beh (nom-socket-beh)
   (alambda
-   ((:incoming-msg :client-info client-node)
+   ((:incoming-msg :client-info client-node my-ip-addr)
     (log-info :SYSTEM-LOG "Socket server starting up: ~A" self)
-    (socket-send self :server-info (machine-instance))
+    (socket-send self :server-info client-node)
     (bridge-register client-node self)
+    (bridge-know-self my-ip-addr)
     (become nom-socket-beh))
    ( msg
      (apply nom-socket-beh msg))

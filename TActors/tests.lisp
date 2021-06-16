@@ -10,7 +10,7 @@
 (make-remote-actor "eval@arroyo.local"
                    :register :REVAL)
 
-(make-remote-actor "eval@RAMBO"
+(make-remote-actor "eval@10.0.0.142"
                    :register :REVAL)
 
 (loop repeat 5 do
@@ -24,4 +24,6 @@
 (send println :hello)
 (get-actor-names println)
 (find-actor println :reval)
-
+(beta (actor)
+    (find-actor beta :reval)
+  (inspect actor))

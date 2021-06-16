@@ -294,6 +294,7 @@ THE SOFTWARE.
    #:bridge-ask-query
    #:bridge-handle-reply
    #:bridge-reset
+   #:bridge-know-self
    ))
 
 (defpackage #:actors/executives
