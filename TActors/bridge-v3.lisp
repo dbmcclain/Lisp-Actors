@@ -436,9 +436,8 @@
     (apply #'socket-send handler :forwarding-send service msg)))
 
 (defun my-node? (proxy)
-  (find (proxy-ip proxy) *myself* :test #'string-equal)
-  ;; (string-equal (machine-instance) (proxy-ip proxy))
-  )
+  (or (string-equal (machine-instance) (proxy-ip proxy))
+      (find (proxy-ip proxy) *myself* :test #'string-equal)))
 
 (defmethod bridge-deliver-message ((dest proxy) if-cant-send &rest msg)
   ;; a message arrived from across the network. try to dispatch.

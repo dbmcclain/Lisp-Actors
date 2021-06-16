@@ -546,8 +546,8 @@
 
 (defun make-client-beh (nom-socket-beh)
   (alambda
-   ((:incoming-msg :server-info server-node)
-    (bridge-register server-node self)
+   ((:incoming-msg :server-info client-ip-addr)
+    (bridge-register client-ip-addr self)
     (log-info :SYSTEM-LOG "Socket client starting up: ~A" self)
     (become nom-socket-beh))
    ( msg
