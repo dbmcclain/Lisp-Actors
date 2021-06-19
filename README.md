@@ -188,7 +188,7 @@ So, What are Actors Really About?
 
 Having spent some time with them, solving a variety of problems, and looking for a good partition between normal call/return coding style and Actors coding... What we actually have with Actors is another way to perform CPS coding style. But whereas conventional CPS coding merely replaces Call/Return with continuation jumps, the Actors event queue enables fine-grained concurrency among possibly unrelated tasks all within one machine thread. 
 
-Pressure to invoke additional threads is reduced. Concurrency (but not parallelism) is increased over what you would get with cooperative multi-tasking where task switching is driven by manually planting YIELD at various locations in the code. With Actors there is no need to be aware of other tasks, no need for YIELD because it is implicit in the event queue dispating routine.
+Pressure to invoke additional threads is reduced. Concurrency (but not parallelism) is increased over what you would get with cooperative multi-tasking where task switching is driven by manually planting YIELD at various locations in the code. With Actors there is no need to be aware of other tasks, no need for YIELD because it is implicit in the event queue dispatching routine.
 
 A message SEND is essentially a deferred function call; one that competes with other pending SENDS for execution. Activation order is non-deterministic. Between any two Actor activations other events may arrive from other threads via the Sponsor mailbox. Scheduling of activations is fair and free from starvation, but precise ordering cannot be predicted.
 
