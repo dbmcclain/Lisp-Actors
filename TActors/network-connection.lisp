@@ -567,8 +567,9 @@
                          (beta ()
                              (send intf beta :client-request-srp)
                              ;;; (send beta)
-                           (bridge-pre-register ip-addr intf) ;; anchor for GC
-                           (socket-send intf :client-info (machine-instance) ip-addr)))
+                             (beta () ;; avoid a potential race condition
+                                 (bridge-pre-register beta ip-addr intf) ;; anchor for GC
+                               (socket-send intf :client-info (machine-instance) ip-addr))))
                      ;; else
                      (error "Can't connect to: ~A" ip-addr))
                    )))

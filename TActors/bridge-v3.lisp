@@ -232,11 +232,12 @@
      (repeat-send next)
      (prune-self next))
     
-    ((:pre-register an-ip intf) when (same-ip? an-ip ip)
+    ((cust :pre-register an-ip intf) when (same-ip? an-ip ip)
      ;; seen by the client side while awaiting attachment. We hold on
      ;; to the pending interface to protect against GC.
      ;;; (send println "Pre-Register from pending-intf-beh")
-     (become (make-prereg-intf-beh ip intf tag pend next)))
+     (become (make-prereg-intf-beh ip intf tag pend next))
+     (send cust))
 
     ((cust :call-with-intf an-ip _) when (same-ip? an-ip ip)
      ;; new incoming request for a pending socket connection
@@ -282,10 +283,11 @@
      (repeat-send next)
      (prune-self next))
     
-    ((:pre-register an-ip an-intf) when (same-ip? an-ip ip)
+    ((cust :pre-register an-ip an-intf) when (same-ip? an-ip ip)
      ;; this should not orinarily be seen from this state
      ;;; (send println "Pre-Register from prereg-intf-beh")
-     (become (make-prereg-intf-beh ip an-intf tag pend next)))
+     (become (make-prereg-intf-beh ip an-intf tag pend next))
+     (send cust))
 
     ((cust :call-with-intf an-ip _) when (same-ip? an-ip ip)
      ;; new incoming request for a pending socket connection
@@ -347,7 +349,7 @@
        (become (make-intf-beh ip intf
                               (make-actor self-beh))))
       
-      ((:pre-register ip intf)
+      ((cust :pre-register ip intf)
        ;; we should never ordinarily see this message from empty state.
        ;; But go to pre-register state and give us a timeout in case we
        ;; fail to attach.
@@ -355,7 +357,8 @@
        (become (make-prereg-intf-beh ip intf
                                      (schedule-timeout)
                                      nil
-                                     (make-actor self-beh))))
+                                     (make-actor self-beh)))
+       (send cust))
       
       ((cust :call-with-intf ip port)
        ;; this is the place where a new connection is attempted. We now
@@ -389,8 +392,8 @@
 ;; -------------------------------------------
 ;; Register / Connect to socket handler
 
-(defun bridge-pre-register (ip-addr intf)
-  (send *intf-map* :pre-register ip-addr intf))
+(defun bridge-pre-register (cust ip-addr intf)
+  (send *intf-map* cust :pre-register ip-addr intf))
 
 (defun bridge-register (ip-addr handler)
   (send *intf-map* :attach ip-addr handler))
