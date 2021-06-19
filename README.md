@@ -190,6 +190,8 @@ Having spent some time with them, solving a variety of problems, and looking for
 
 Pressure to invoke additional threads is reduced. Concurrency (but not parallelism) is increased over what you would get with cooperative multi-tasking where task switching is driven by manually planting YIELD at various locations in the code. With Actors there is no need to be aware of other tasks, no need for YIELD because it is implicit in the event queue dispatching routine.
 
+Because Actors are prevented from executing simultaneously (in some cases) in multiple threads, we can write our code in single-thread style without worrying about simultaneous access to private state information. Indeed, with discipline, you can make all your Actor code into purely functional style, with the only mutation permitted being via BECOME. And with transactional semantics on BECOME and SEND, if anything goes wrong in the behavior code, the state remains in a predictable condition. Functional Actors without state mutation can be safely executed in parallel on multiple threads.
+
 A message SEND is essentially a deferred function call; one that competes with other pending SENDS for execution. Activation order is non-deterministic. Between any two Actor activations other events may arrive from other threads via the Sponsor mailbox. Scheduling of activations is fair and free from starvation, but precise ordering cannot be predicted.
 
 In detail, everything computed on a processor is via continuations. Call/Return style merely places the continuation address on the runtime stack (i.e., the return address). And Call/Return decides for you what the continuation will be. With Actor SEND you have the freedom to specify your own choice of Actor continuation.
