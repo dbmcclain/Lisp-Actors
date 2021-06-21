@@ -47,13 +47,6 @@
 ;; -------------------------------------------
 ;; Bridge IP/Intf mapper
 
-(defvar *undefined-actor*  
-  (actor (&rest msg)
-    (error "Send to Undefined Actor: ~S" msg)))
-       
-(defun undefined ()
-  *undefined-actor*)
-
 (defvar *allowable-pending-delay* 5)
 
 (defun make-pending-intf-beh (ip tag pend next)
@@ -259,6 +252,7 @@
 ;; SEND across network connections - never blocks.
 
 (defvar *machines*
+  ;; (MACHINE-INSTANCE  IP-ADDR  PORT)
   '(("Arroyo.local" "Arroyo.local" :default)
     ("Rincon.local" "Rincon.local" :default)
     ("Rambo"        "10.0.0.142"   :default)))
@@ -270,9 +264,10 @@
 (defmethod hosted-actor (mach (act hosted-actor))
   act)
 
-(defvar *hosted-lock*  (mp:make-lock))
-(defvar *hosted-actors-by-actor* (make-hash-table))
-(defvar *hosted-actors-by-name*  (make-hash-table :test #'string-equal))
+(defvar *hosted-lock*            (mp:make-lock))
+(defvar *hosted-index*           0)
+(defvar *hosted-actors-by-actor* (make-hash-table :weak-kind :key))
+(defvar *hosted-actors-by-name*  (make-hash-table :weak-kind :value))
 
 (defmethod hosted-actor (mach act)
   (cond ((string-equal (string mach) (machine-instance))
@@ -280,7 +275,7 @@
            (unless sym
              (mp:with-lock (*hosted-lock*)
                (unless (setf sym (gethash act *hosted-actors-by-actor*))
-                 (setf sym (uuid:uuid-string (uuid:make-v1-uuid))
+                 (setf sym (incf *hosted-index*)
                        (gethash act *hosted-actors-by-actor*) sym
                        (gethash sym *hosted-actors-by-name*)  act))
                ))
@@ -321,6 +316,8 @@
       (send (hosted-actor :rincon.local :eval) println '(machine-instance)))
 (loop repeat 5 do
       (send (hosted-actor :arroyo.local :eval) println '(machine-instance)))
+(loop repeat 5 do
+      (send (hosted-actor :rambo :eval) println '(machine-instance)))
 |#
 
 
