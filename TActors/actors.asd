@@ -53,7 +53,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "actors-directory")
                 (:file "lfm")
                 ;; (:file "actor-bridge")
-                (:file "bridge-v3")
+                (:file "bridge-v4")
                 (:file "network-security")
                 #+:USING-ECC-CRYPTO (:file "srp6-ecc")
                 ;; #-:USING-ECC-CRYPTO (:file "srp6-rsa")

@@ -29,8 +29,6 @@
             actors/bridge:bridge-pre-register
             actors/bridge:bridge-unregister
             actors/bridge:bridge-reset
-            actors/bridge:bridge-deliver-message
-            actors/bridge:bridge-know-self
 
             actors/lfm:ensure-system-logger
             actors/lfm:kill-system-logger
@@ -368,13 +366,8 @@
       ((:forwarding-send service . msg)
        ;; the bridge from the other end has forwarded a message to
        ;; an actor on this side
-       (apply #'bridge-deliver-message service
-              (make-actor (lambda ()
-                            (socket-send intf :no-service
-                                         service (machine-instance))
-                            ))
-              msg))
-      
+       (send* service msg))
+
       ((:no-service service node)
        ;; sent to us from the other end on our send to
        ;; non-existent service
@@ -569,7 +562,7 @@
                              ;;; (send beta)
                              (beta () ;; avoid a potential race condition
                                  (bridge-pre-register beta ip-addr intf) ;; anchor for GC
-                               (socket-send intf :client-info (machine-instance) ip-addr))))
+                               (socket-send intf :client-info (machine-instance)))))
                      ;; else
                      (error "Can't connect to: ~A" ip-addr))
                    )))
@@ -594,11 +587,10 @@
 
 (defun make-server-beh (nom-socket-beh)
   (alambda
-   ((:incoming-msg :client-info client-node my-ip-addr)
+   ((:incoming-msg :client-info client-node)
     (log-info :SYSTEM-LOG "Socket server starting up: ~A" self)
     (socket-send self :server-info client-node)
     (bridge-register client-node self)
-    (bridge-know-self my-ip-addr)
     (become nom-socket-beh))
    ( msg
      (apply nom-socket-beh msg))

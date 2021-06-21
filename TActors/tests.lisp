@@ -4,6 +4,12 @@
 (make-remote-actor "echo@rincon.local"
                    :register :RECHO)
 
+(make-remote-actor "echo@localhost"
+                   :register :RECHO)
+
+(make-remote-actor "echo@127.0.0.1"
+                   :register :RECHO)
+
 (make-remote-actor "eval@rincon.local"
                    :register :REVAL)
 
@@ -11,6 +17,9 @@
                    :register :REVAL)
 
 (make-remote-actor "eval@10.0.0.142"
+                   :register :REVAL)
+
+(make-remote-actor "eval@rambo.local"
                    :register :REVAL)
 
 (loop repeat 5 do
@@ -46,6 +55,8 @@
 (funcall fact 5)
 
 
+
+;; --------------------------------------------------------------------
 
 (defmacro self-recursive (name args &body body)
   (lw:with-unique-names (f!rec g!hrec)
