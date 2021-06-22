@@ -290,14 +290,12 @@
 (defmethod hosted-actor ((act symbol) &optional (mach (machine-instance)))
   (make-hosted-actor
    :mach (string mach)
-   :act  (if (keywordp act)
-             act
-           (intern (symbol-name act) (find-package :keyword)))))
+   :act  (um:kwsymb act)))
 
 (defmethod hosted-actor ((act string) &optional (mach (machine-instance)))
   (make-hosted-actor
    :mach (string mach)
-   :act  (intern act (find-package :keyword))))
+   :act  (um:kwsymb act)))
 
 (defmethod send ((ha hosted-actor) &rest msg)
   (cond ((string-equal (hosted-actor-mach ha) (machine-instance))
