@@ -261,33 +261,43 @@
   mach
   act)
 
-(defmethod hosted-actor (mach (act hosted-actor))
+(defgeneric hosted-actor (actor &optional host-machine))
+
+(defmethod hosted-actor ((act hosted-actor) &optional ignored)
+  (declare (ignore ignored))
   act)
 
 (defvar *hosted-lock*            (mp:make-lock))
 (defvar *hosted-index*           0)
-(defvar *hosted-actors-by-actor* (make-hash-table :weak-kind :key))
+(defvar *hosted-names-by-actor*  (make-hash-table :weak-kind :key))
 (defvar *hosted-actors-by-name*  (make-hash-table :weak-kind :value))
 
-(defmethod hosted-actor (mach act)
-  (cond ((string-equal (string mach) (machine-instance))
-         (let ((sym (gethash act *hosted-actors-by-actor*)))
-           (unless sym
-             (mp:with-lock (*hosted-lock*)
-               (unless (setf sym (gethash act *hosted-actors-by-actor*))
+(defmethod hosted-actor ((act actor) &optional ignored)
+  ;; actor class includes sponsored-actors
+  (declare (ignore ignored))
+  (let ((sym (gethash act *hosted-names-by-actor*)))
+    (unless sym
+      (mp:with-lock (*hosted-lock*)
+        (unless (setf sym (gethash act *hosted-names-by-actor*))
                  (setf sym (incf *hosted-index*)
-                       (gethash act *hosted-actors-by-actor*) sym
-                       (gethash sym *hosted-actors-by-name*)  act))
-               ))
-           (make-hosted-actor
-            :mach (string mach)
-            :act  sym)))
-
-        (t
-         (make-hosted-actor
-          :mach (string mach)
-          :act  act))
+                       (gethash act *hosted-names-by-actor*) sym
+                       (gethash sym *hosted-actors-by-name*) act))
         ))
+    (make-hosted-actor
+     :mach (machine-instance)
+     :act  sym)))
+
+(defmethod hosted-actor ((act symbol) &optional (mach (machine-instance)))
+  (make-hosted-actor
+   :mach (string mach)
+   :act  (if (keywordp act)
+             act
+           (intern (symbol-name act) (find-package :keyword)))))
+
+(defmethod hosted-actor ((act string) &optional (mach (machine-instance)))
+  (make-hosted-actor
+   :mach (string mach)
+   :act  (intern act (find-package :keyword))))
 
 (defmethod send ((ha hosted-actor) &rest msg)
   (cond ((string-equal (hosted-actor-mach ha) (machine-instance))
@@ -296,28 +306,30 @@
                (send* act msg)
              (send* (hosted-actor-act ha) msg))))
         (t
-         (destructuring-bind (_ ip port) (find (hosted-actor-mach ha) *machines*
-                                               :test #'string-equal
-                                               :key  #'first)
-           (declare (ignore _ port))
-           (beta (intf)
-               (send *intf-map* beta :get-intf ip nil)
-             (apply #'socket-send intf :forwarding-send ha
-                    (mapcar (lambda (elt)
-                              (if (actor-p elt)
-                                  (hosted-actor (machine-instance) elt)
-                                elt))
-                            msg)))
-             ))
+         (let ((triple (find (hosted-actor-mach ha) *machines*
+                             :test #'string-equal
+                             :key  #'first)))
+           (when triple
+             (let ((ip  (second triple)))
+               (beta (intf)
+                   (send *intf-map* beta :get-intf ip nil)
+                 (apply #'socket-send intf :forwarding-send ha
+                        (mapcar (lambda (elt)
+                                  (if (actor-p elt)
+                                      (hosted-actor elt)
+                                    elt))
+                                msg)))
+               ))
+           ))
         ))
 
 #|
 (loop repeat 5 do
-      (send (hosted-actor :rincon.local :eval) println '(machine-instance)))
+      (send (hosted-actor :eval :rincon.local) println '(machine-instance)))
 (loop repeat 5 do
-      (send (hosted-actor :arroyo.local :eval) println '(machine-instance)))
+      (send (hosted-actor :eval :arroyo.local) println '(machine-instance)))
 (loop repeat 5 do
-      (send (hosted-actor :rambo :eval) println '(machine-instance)))
+      (send (hosted-actor :eval :rambo) println '(machine-instance)))
 |#
 
 
