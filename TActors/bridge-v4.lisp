@@ -221,17 +221,17 @@
 ;; Register / Connect to socket handler
 
 (defun bridge-pre-register (cust ip-addr intf)
-  (send *intf-map* cust :pre-register ip-addr intf))
+  (send *sponsor* *intf-map* cust :pre-register ip-addr intf))
 
 (defun bridge-register (ip-addr handler)
-  (send *intf-map* :attach ip-addr handler))
+  (send *sponsor* *intf-map* :attach ip-addr handler))
 
 (defun bridge-unregister (handler)
-  (send *intf-map* :detach handler))
+  (send *sponsor* *intf-map* :detach handler))
 
 (defun bridge-reset ()
   ;; called when *all* socket I/O is shutdown
-  (send *intf-map* :reset))
+  (send *sponsor* *intf-map* :reset))
 
 ;; -----------------------------------------------------------------------
 ;; Default services: ECHO and EVAL
@@ -310,7 +310,7 @@
            (when triple
              (let ((ip  (second triple)))
                (beta (intf)
-                   (send *intf-map* beta :get-intf ip nil)
+                   (send *sponsor* *intf-map* beta :get-intf ip nil)
                  (apply #'socket-send intf :forwarding-send ha
                         (mapcar (lambda (elt)
                                   (if (actor-p elt)
