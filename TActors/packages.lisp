@@ -360,6 +360,7 @@ THE SOFTWARE.
    #:assemble-ask-message
    #:no-immediate-answer
    #:retry-send
+   #:*whole-message*
    ))
 
 (defpackage #:actors/rwgate

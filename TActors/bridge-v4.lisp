@@ -340,9 +340,9 @@
 (defmethod repeat-send ((dest hosted-actor))
   ;; Send the current event message to another Actor
   #F
-  (send* dest (the list *whole-message*)))
+  (send* dest (the list actors/base:*whole-message*)))
 
-(defmethod retry-send ((obj hosted-actor) &rest msg)
+(defmethod actors/base:retry-send ((obj hosted-actor) &rest msg)
   (send* obj msg))
 
 #|
