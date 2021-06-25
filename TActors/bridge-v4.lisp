@@ -215,23 +215,31 @@
        (send prev :pruned (make-empty-intf-beh)))
       )))
 
-(defvar *intf-map* (make-actor (make-empty-intf-beh)))
+;; N.B.: can't just make *intf-map* into a sponsored Actor here
+;; because *sponsor* is not yet init. It only becomes init after
+;; multiprocessing is up and running.
+(defvar *intf-map*
+  (let ((intf-map (make-actor (make-empty-intf-beh))))
+    (make-actor
+     (lambda (&rest msg)
+       (send* *sponsor* intf-map msg)))
+    ))
 
 ;; -------------------------------------------
 ;; Register / Connect to socket handler
 
 (defun bridge-pre-register (cust ip-addr intf)
-  (send *sponsor* *intf-map* cust :pre-register ip-addr intf))
+  (send *intf-map* cust :pre-register ip-addr intf))
 
 (defun bridge-register (ip-addr handler)
-  (send *sponsor* *intf-map* :attach ip-addr handler))
+  (send *intf-map* :attach ip-addr handler))
 
 (defun bridge-unregister (handler)
-  (send *sponsor* *intf-map* :detach handler))
+  (send *intf-map* :detach handler))
 
 (defun bridge-reset ()
   ;; called when *all* socket I/O is shutdown
-  (send *sponsor* *intf-map* :reset))
+  (send *intf-map* :reset))
 
 ;; -----------------------------------------------------------------------
 ;; Default services: ECHO and EVAL
@@ -273,8 +281,16 @@
 (defvar *hosted-actors-by-name*  (make-hash-table :weak-kind :value))
 
 (defmethod hosted-actor ((act actor) &optional ignored)
-  ;; actor class includes sponsored-actors
+  ;; actor class is distinct from sponsored-actors
   (declare (ignore ignored))
+  (hosted-actor-for-my-actors act))
+
+(defmethod hosted-actor ((act sponsored-actor) &optional ignored)
+  ;; sponsored-actor class is distinct from actors
+  (declare (ignore ignored))
+  (hosted-actor-for-my-actors act))
+
+(defun hosted-actor-for-my-actors (act)
   (let ((sym (gethash act *hosted-names-by-actor*)))
     (unless sym
       (mp:with-lock (*hosted-lock*)
@@ -310,7 +326,7 @@
            (when triple
              (let ((ip  (second triple)))
                (beta (intf)
-                   (send *sponsor* *intf-map* beta :get-intf ip nil)
+                   (send *intf-map* beta :get-intf ip nil)
                  (apply #'socket-send intf :forwarding-send ha
                         (mapcar (lambda (elt)
                                   (if (actor-p elt)
@@ -320,6 +336,14 @@
                ))
            ))
         ))
+
+(defmethod repeat-send ((dest hosted-actor))
+  ;; Send the current event message to another Actor
+  #F
+  (send* dest (the list *whole-message*)))
+
+(defmethod retry-send ((obj hosted-actor) &rest msg)
+  (send* obj msg))
 
 #|
 (loop repeat 5 do

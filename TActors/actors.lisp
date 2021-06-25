@@ -277,7 +277,7 @@ THE SOFTWARE.
   (if self
       (add-evq *evt-queue*
                (cons actor (the list msg)))
-    (apply #'send *sponsor* actor (the list msg))
+    (send* *sponsor* actor msg)
     ))
 
 (defvar *sponsor-send-gateway*
@@ -302,10 +302,19 @@ THE SOFTWARE.
 (defmethod send ((mbox mp:mailbox) &rest msg)
   (mp:mailbox-send mbox msg))
 
+;; ------------------------------------------------
+
 (defmethod repeat-send ((dest actor))
   ;; Send the current event message to another Actor
   #F
   (send* dest (the list *whole-message*)))
+
+(defmethod repeat-send ((dest sponsored-actor))
+  ;; Send the current event message to another Actor
+  #F
+  (send* dest (the list *whole-message*)))
+
+;; ------------------------------------------------
 
 (defmethod send-now ((spon sponsor) (actor actor) &rest msg)
   ;; bypass the delayed SEND mechanism to force an immediate SEND
@@ -333,20 +342,8 @@ THE SOFTWARE.
 ;; mutates internal state.
 
 (defmethod ensure-par-safe-behavior ((beh function))
-  #F
-  (let ((lock  (mp:make-lock))
-        this-beh)
-    (setf this-beh
-          #'(lambda (&rest msg)
-              (let ((wait-dur (if (and (empty-evq? *evt-queue*)
-                                       (mp:mailbox-empty-p
-                                        (sponsor-mbox *current-sponsor*)))
-                                  0.1  ;; no pending work, so just wait
-                                0)))   ;; other work to do, so go around again if can't lock immed
-                (unless (mp:with-lock (lock nil wait-dur)
-                          (when (eq (actor-beh self) this-beh) ;; behavior changed while waiting?
-                            (apply beh msg)
-                            t))
-                  (send* self msg))) ;; go around again, or perform other work
-              ))
+  ;; no need for locks (implicit in cross-thread mailbox sends)
+  (let ((act (make-actor beh)))
+    (lambda (&rest msg)
+      (send* *sponsor* act msg))
     ))
