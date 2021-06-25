@@ -26,7 +26,7 @@
       ))
    
    ((cust :unregister name/actor)
-    (if (actor-p name/actor)
+    (if (actor-trait-p name/actor)
         (let ((new-dir (maps:fold dir
                                   (lambda (k v acc)
                                     (if (eq v name/actor)
@@ -71,7 +71,7 @@
 (defvar *actors-directory*
   (make-actor (make-directory-beh)))
 
-(defmethod find-actor ((cust actor) name)
+(defmethod find-actor ((cust actor-trait) name)
   (send *actors-directory* cust :find-actor name))
 
 (defun register-actor (name actor)
@@ -92,13 +92,10 @@
   (:report (lambda (condition stream)
 	     (format stream "~%Invalid SEND target: ~&  ~S" (target condition)))))
 
-(defmethod retry-send ((obj actor) &rest msg)
+(defmethod retry-send ((obj actor-trait) &rest msg)
   (send* obj msg))
 
 (defmethod retry-send ((obj sponsor) &rest msg)
-  (send* obj msg))
-
-(defmethod retry-send ((obj sponsored-actor) &rest msg)
   (send* obj msg))
 
 (defmethod retry-send (obj &rest msg)

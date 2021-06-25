@@ -265,7 +265,8 @@
     ("Rincon.local" "Rincon.local" :default)
     ("Rambo"        "10.0.0.142"   :default)))
 
-(defstruct hosted-actor
+(defstruct (hosted-actor
+            (:include actor-trait))
   mach
   act)
 
@@ -280,17 +281,8 @@
 (defvar *hosted-names-by-actor*  (make-hash-table :weak-kind :key))
 (defvar *hosted-actors-by-name*  (make-hash-table :weak-kind :value))
 
-(defmethod hosted-actor ((act actor) &optional ignored)
-  ;; actor class is distinct from sponsored-actors
+(defmethod hosted-actor ((act local-actor-trait) &optional ignored)
   (declare (ignore ignored))
-  (hosted-actor-for-my-actors act))
-
-(defmethod hosted-actor ((act sponsored-actor) &optional ignored)
-  ;; sponsored-actor class is distinct from actors
-  (declare (ignore ignored))
-  (hosted-actor-for-my-actors act))
-
-(defun hosted-actor-for-my-actors (act)
   (let ((sym (gethash act *hosted-names-by-actor*)))
     (unless sym
       (mp:with-lock (*hosted-lock*)
@@ -329,21 +321,13 @@
                    (send *intf-map* beta :get-intf ip nil)
                  (apply #'socket-send intf :forwarding-send ha
                         (mapcar (lambda (elt)
-                                  (if (actor-p elt)
+                                  (if (local-actor-trait-p elt)
                                       (hosted-actor elt)
                                     elt))
                                 msg)))
                ))
            ))
         ))
-
-(defmethod repeat-send ((dest hosted-actor))
-  ;; Send the current event message to another Actor
-  #F
-  (send* dest (the list actors/base:*whole-message*)))
-
-(defmethod actors/base:retry-send ((obj hosted-actor) &rest msg)
-  (send* obj msg))
 
 #|
 (loop repeat 5 do

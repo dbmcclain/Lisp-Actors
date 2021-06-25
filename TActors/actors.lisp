@@ -61,7 +61,21 @@ THE SOFTWARE.
 ;;                         +--->| Code | ... | ... |
 ;;                              +------+-----+-----+---
 
+; -----------------------------------------------------------------
+;; ACTOR-TRAIT distinguishes objects that can behave like Actors. This
+;; includes Actors, SPONSORED-ACTORS, and HOSTED-ACTORS.
+(defstruct actor-trait)
+
+;; LOCAL-ACTOR-TRAIT distinguishes objects that behave as Actors on
+;; the current host machine. This includes Actors and
+;; SPONSORED-ACTORS, but not HOSTED-ACTORS.
+(defstruct (local-actor-trait
+            (:include actor-trait)))
+
+;; ------------------------------------------------------------------
+
 (defstruct (actor
+               (:include local-actor-trait)
                (:constructor %make-actor (beh)))
   beh)
 
@@ -88,6 +102,7 @@ THE SOFTWARE.
 (defvar *current-sponsor* nil)
 
 (defstruct (sponsored-actor
+            (:include local-actor-trait)
             (:constructor sponsored-actor (spon act)))
   spon
   act)
@@ -304,12 +319,7 @@ THE SOFTWARE.
 
 ;; ------------------------------------------------
 
-(defmethod repeat-send ((dest actor))
-  ;; Send the current event message to another Actor
-  #F
-  (send* dest (the list *whole-message*)))
-
-(defmethod repeat-send ((dest sponsored-actor))
+(defmethod repeat-send ((dest actor-trait))
   ;; Send the current event message to another Actor
   #F
   (send* dest (the list *whole-message*)))

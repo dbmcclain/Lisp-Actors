@@ -84,7 +84,11 @@ THE SOFTWARE.
    #:ask
    
    #:ensure-par-safe-behavior
-   
+
+   #:actor-trait
+   #:actor-trait-p
+   #:local-actor-trait
+   #:local-actor-trait-p
    #:actor
    #:actor-p
    #:actor-beh
