@@ -72,6 +72,18 @@ THE SOFTWARE.
 (defstruct (local-actor-trait
             (:include actor-trait)))
 
+;; Actor Traits
+;;
+;;    ACTOR-TRAIT
+;;        |
+;;        +-- LOCAL-ACTOR-TRAIT
+;;        |       |
+;;        |       +-- ACTOR
+;;        |       |
+;;        |       +-- SPONSORED-ACTOR
+;;        |
+;;        +-- HOSTED-ACTOR
+;;
 ;; ------------------------------------------------------------------
 
 (defstruct (actor

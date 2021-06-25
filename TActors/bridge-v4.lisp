@@ -215,15 +215,10 @@
        (send prev :pruned (make-empty-intf-beh)))
       )))
 
-;; N.B.: can't just make *intf-map* into a sponsored Actor here
-;; because *sponsor* is not yet init. It only becomes init after
-;; multiprocessing is up and running.
 (defvar *intf-map*
-  (let ((intf-map (make-actor (make-empty-intf-beh))))
-    (make-actor
-     (lambda (&rest msg)
-       (send* *sponsor* intf-map msg)))
-    ))
+  (make-actor
+   (ensure-par-safe-behavior
+    (make-empty-intf-beh))))
 
 ;; -------------------------------------------
 ;; Register / Connect to socket handler

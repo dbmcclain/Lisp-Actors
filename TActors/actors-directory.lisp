@@ -71,7 +71,7 @@
 (defvar *actors-directory*
   (make-actor (make-directory-beh)))
 
-(defmethod find-actor ((cust actor-trait) name)
+(defun find-actor (cust name)
   (send *actors-directory* cust :find-actor name))
 
 (defun register-actor (name actor)
