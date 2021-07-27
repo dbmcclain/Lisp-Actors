@@ -2,25 +2,28 @@
 (in-package :useful-macros)
 
 (defun %i-nlet (whole go-name name bindings decls+body)
-  (let ((gs   (gensyms bindings))
-        (gn   (gensym))
-        (vars (mapcar #'car bindings)))
+  (let* ((gs    (gensyms bindings))
+         (gn    (gensym))
+         (vars  (mapcar #'car bindings))
+         (xvars (loop repeat (length vars) collect (gensym))))
     (multiple-value-bind (body decls doc)
         (parse-body decls+body :documentation t :whole whole)
-      `(labels ((,name ,vars
+      `(labels ((,name ,xvars
                   ,@doc
-                  ,@decls
                   (macrolet ((,go-name ,gs
                                `(progn
                                   (psetq
                                    ,@(mapcan 'list
-                                             ',vars
+                                             ',xvars
                                              (list ,@gs)))
                                   (go ,',gn))
                                ))
                     (tagbody
                      ,gn
-                     (return-from ,name (progn ,@body)))
+                     (return-from ,name
+                       (let ,(mapcar #'list vars xvars)
+                         ,@decls
+                         ,@body)))
                     )))
          (,name ,@(mapcar #'second bindings)))
       )))

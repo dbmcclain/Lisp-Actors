@@ -256,7 +256,9 @@
 
 (defvar *machines*
   ;; (MACHINE-INSTANCE  IP-ADDR  PORT)
-  '(("Arroyo.local" "Arroyo.local" :default)
+  '(("Arroyo"       "10.0.0.212"   :default)
+    ("Arroyo.local" "Arroyo.local" :default)
+    ("Rincon"       "10.0.0.204"   :default)
     ("Rincon.local" "Rincon.local" :default)
     ("Rambo"        "10.0.0.142"   :default)))
 
@@ -282,9 +284,9 @@
     (unless sym
       (mp:with-lock (*hosted-lock*)
         (unless (setf sym (gethash act *hosted-names-by-actor*))
-                 (setf sym (incf *hosted-index*)
-                       (gethash act *hosted-names-by-actor*) sym
-                       (gethash sym *hosted-actors-by-name*) act))
+          (setf sym (incf *hosted-index*)
+                (gethash act *hosted-names-by-actor*) sym
+                (gethash sym *hosted-actors-by-name*) act))
         ))
     (make-hosted-actor
      :mach (machine-instance)
@@ -326,7 +328,7 @@
 
 #|
 (loop repeat 5 do
-      (send (hosted-actor :eval :rincon.local) println '(machine-instance)))
+      (send (hosted-actor :eval :rincon) println '(machine-instance)))
 (loop repeat 5 do
       (send (hosted-actor :eval :arroyo.local) println '(machine-instance)))
 (loop repeat 5 do
