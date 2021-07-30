@@ -21,7 +21,7 @@
                     (tagbody
                      ,gn
                      (return-from ,name
-                       (let ,(mapcar #'list vars xvars)
+                       (symbol-macrolet ,(mapcar #'list vars xvars)
                          ,@decls
                          ,@body)))
                     )))
@@ -31,12 +31,15 @@
 (defmacro nlet (&whole whole name bindings &body decls+body)
   (%i-nlet whole (symb :go- name) name bindings decls+body))
 
+#|
+ ;; deprecated...
 (defmacro nlet-tail (&whole whole name bindings &body decls+body)
   (%i-nlet whole name name bindings decls+body))
+|#
 
 #|
-(nnlet iter ((a a-init)
-             (b b-init))
+(nlet iter ((a a-init)
+            (b b-init))
   (declare (fixnum a b))
   (clause1)
   (go-iter xx yy))
