@@ -302,6 +302,10 @@
    :mach (string mach)
    :act  (um:kwsymb act)))
 
+(defmethod hosted-actor ((mbox mp:mailbox) &optional ignored)
+  (declare (ignore ignored))
+  (hosted-actor (mbox-sender mbox)))
+
 (defmethod send ((ha hosted-actor) &rest msg)
   (cond ((string-equal (hosted-actor-mach ha) (machine-instance))
          (let ((act (gethash (hosted-actor-act ha) *hosted-actors-by-name*)))
@@ -328,7 +332,7 @@
 
 #|
 (loop repeat 5 do
-      (send (hosted-actor :eval :rincon) println '(machine-instance)))
+      (send (hosted-actor :eval :rincon.local) println '(machine-instance)))
 (loop repeat 5 do
       (send (hosted-actor :eval :arroyo.local) println '(machine-instance)))
 (loop repeat 5 do

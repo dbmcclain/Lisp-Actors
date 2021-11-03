@@ -79,6 +79,8 @@ THE SOFTWARE.
    #:self-beh
    #:self-sponsor
    #:sponsored-actor
+   #:sponsored-actor-spon
+   #:sponsored-actor-act
    #:hosted-actor
    #:send-now
    #:ask

@@ -316,7 +316,7 @@ THE SOFTWARE.
   ;; First msg component is typically an Actor...
   #F
   (if self
-      (if (eq spon *current-sponsor*)
+      (if (eq spon self-sponsor)
           (send* (the list msg))
         (send* (sponsor-msg-send spon) *sponsor-send-gateway* (the list msg)))
     (mp:mailbox-send (sponsor-mbox spon)
@@ -327,7 +327,7 @@ THE SOFTWARE.
   (send* (sponsored-actor-spon dest) (sponsored-actor-act dest) msg))
 
 (defmethod send ((mbox mp:mailbox) &rest msg)
-  (mp:mailbox-send mbox msg))
+  (send* (mbox-sender mbox) msg))
 
 ;; ------------------------------------------------
 
@@ -338,19 +338,36 @@ THE SOFTWARE.
 
 ;; ------------------------------------------------
 
-(defmethod send-now ((spon sponsor) (actor actor) &rest msg)
+(defmethod send-now ((spon sponsor) (actor actor-trait) &rest msg)
   ;; bypass the delayed SEND mechanism to force an immediate SEND
-  (mp:mailbox-send (sponsor-mbox spon) (cons actor msg)))
+  (mp:mailbox-send (sponsor-mbox spon) (list* *sponsor-send-gateway* actor msg)))
 
-(defmethod ask ((spon sponsor) (actor actor) &rest msg)
+(defmethod ask ((act actor-trait) &rest msg)
+  ;; this method handles ordinary Actors and Hosted-Actors
+  (apply 'do-ask
+         (if (eq self-sponsor *sponsor*)
+             *slow-sponsor* *sponsor*)
+         act msg))
+
+(defmethod ask ((act sponsored-actor) &rest msg)
+  (apply 'do-ask (sponsored-actor-spon act) (sponsored-actor-act act) msg))
+
+(defmethod ask ((spon sponsor) &rest msg)
+  ;; expect first msg arg to be actor
+  (apply 'do-ask spon msg))
+
+(defun do-ask (spon actor &rest msg)
   ;; The bridge between Actors and imperative style code...
   ;;
   ;; Actor cannot call upon anything in the *current-sponsor* for
   ;; itself - that will cauase a hang-waiting lockup of the current
   ;; sponsor while it awaits its answer in the local mailbox.
-  (assert (not (eq spon *current-sponsor*)))
+  ;;
+  ;; Asked Actors must expect a cust first arg in message handler.
+  ;;
+  (assert (not (eq spon self-sponsor)))
   (let ((mbox (mp:make-mailbox)))
-    (apply #'send-now spon actor mbox msg)
+    (apply #'send-now spon actor (mbox-sender mbox) msg)
     (values-list (mp:mailbox-read mbox))))
 
 ;; --------------------------------------
