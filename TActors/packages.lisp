@@ -187,6 +187,7 @@ THE SOFTWARE.
    #:suspend-beh
    #:resume-beh
    #:redirect
+   #:seq-beta
    ))
 
 #-lispworks

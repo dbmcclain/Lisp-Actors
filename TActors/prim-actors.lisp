@@ -483,5 +483,23 @@
 ;; its prior behavior, and handles all the enqueued messages.
 |#
       
+(defmacro seq-beta (args form &body body)
+  ;; build an embedded BETA form that acts sequentially with host
+  ;; Actor, instead of concurrently.
+  (lw:with-unique-names (tag)
+    `(let ((,tag (suspend-beh)))
+       (beta ,args
+           (symbol-macrolet ((seq-beta (redirect ,tag beta t)))
+             ,form)
+         (resume-beh ,tag)
+         ,@body))
+    ))
 
-   
+#|
+  ;; Example
+  (let ((me self))
+    (seq-beta (ans)
+        (send host (sponsored-actor self-sponsor seq-beta) :fwd port-id cmd)
+      (port-write-bytes-flush port ans)
+      (send me :check-client)))
+|#
