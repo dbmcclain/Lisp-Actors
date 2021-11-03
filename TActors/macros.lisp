@@ -121,6 +121,25 @@
 ;;
 ;; For use by BECOME, the parameterized behavior generator is named
 ;; #'BETA-BEH.
+;;
+;; ------------------------------------------------------------------
+;; NOTE: Watch out for the following trap... A BETA form in an Actor
+;; effectively spawns a new Actor, and the containing host Actor
+;; simply skips over the BETA form.
+;;
+;; The containing Actor could exit, then respond to a new message in
+;; parallel with a waiting BETA Actor.  That could also modify the
+;; conditions, e.g., external hardware ports could get closed, before
+;; the BETA form executes. And that BETA form might be expecting a
+;; continuity of external conditions. You might need IGNORE-ERRORS
+;; inside that BETA form.
+;;
+;; A BETA form *does not* force serialized execution!! They operate
+;; concurrently with the host Actor. Nested BETA forms, however, do
+;; operate sequentially.
+;;
+;; See also: DEFERRED-EXEC, SUSPEND-BEH, RESUME-BEH, and REDIRECT in
+;; prim-actors.lisp
 
 (defmacro beta (args form &body body)
   (multiple-value-bind (params binding-args)

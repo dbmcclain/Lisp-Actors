@@ -59,6 +59,8 @@ THE SOFTWARE.
    #:addq
    #:pushq
    #:popq
+   #:iterq
+   #:do-queue
    
    #:β
    #:beta
@@ -182,6 +184,9 @@ THE SOFTWARE.
    #:watch
    #:unwatch
 
+   #:suspend-beh
+   #:resume-beh
+   #:redirect
    ))
 
 #-lispworks
