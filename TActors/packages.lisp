@@ -67,7 +67,9 @@ THE SOFTWARE.
    #:beta-beh
    #:beta-gen
    #:alambda
+   #:par-safe
    #:io
+   #:in-sponsor
    #:current-sponsor
    #:*current-sponsor*
    #:sponsor

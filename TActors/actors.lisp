@@ -371,14 +371,14 @@ THE SOFTWARE.
     (values-list (mp:mailbox-read mbox))))
 
 ;; --------------------------------------
-;; A Par-Safe-Behavior is guaranteed safe for sharing of single
-;; instances across multiple SMP threads. Only one thread at a time is
-;; permitted to execute the behavior code.
+;; A Par-Safe-Behavior is guaranteed safe for sharing of single Actors
+;; across multiple SMP threads. Only one thread at a time is permitted
+;; to execute the behavior code.
 ;;
-;; This becomes important when a single instance of an Actor is shared
-;; among multiple event handlers (multiple threads) and the Actor
-;; exercises BECOME, or otherwise mutates its internal state. BECOME
-;; mutates internal state.
+;; This becomes important when a single Actor is shared among multiple
+;; event handlers (multiple threads) and the Actor exercises BECOME,
+;; or otherwise mutates its internal state. BECOME mutates internal
+;; state.
 
 (defmethod ensure-par-safe-behavior ((beh function))
   ;; no need for locks (implicit in cross-thread mailbox sends)

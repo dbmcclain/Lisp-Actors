@@ -22,14 +22,48 @@
   (make-actor (sink-beh)))
 
 ;; --------------------------------------
+;; Alternative for par-safe Actor construction
+
+(defun par-safe-beh (actor)
+  ;; If actor uses cust args for replies, these cust args should be
+  ;; sponsored-actors, which fully specifies to which sponsor the
+  ;; reply should be sent. Lacking that, the reply will be handled in
+  ;; *SPONSOR*.
+  (lambda* msg
+    (send* *sponsor* actor msg)))
+
+(defun par-safe (actor)
+  (make-actor (par-safe-beh actor)))
+
+
+(defun io-beh (actor)
+  ;; I/O is frequently blocking, as well as needing to be thread-safe.
+  ;; We use *SLOW-SPONSOR* for this. Same remarks apply here as for
+  ;; PAR-SAFE-BEH above.
+  (lambda* msg
+    (send* *slow-sponsor* actor msg)))
+
+(defun io (actor)
+  (make-actor (io-beh actor)))
+
+
+(defun in-sponsor-beh (sponsor actor)
+  ;; for actors dedicated to specific sponsors
+  (lambda* msg
+    (send* sponsor actor msg)))
+
+(defun in-sponsor (sponsor actor)
+  (make-actor (in-sponsor-beh sponsor actor)))
+
+;; --------------------------------------
 
 (defvar println
-  (make-actor
-   (ensure-par-safe-behavior
+  (io
     ;; because we are managing an output stream
-    (lambda* msg
-      (format t "~&~{~A~^ ~}~%" msg))
-    )))
+    (make-actor
+     (lambda* msg
+       (format t "~&~{~A~^ ~}~%" msg))
+     )))
 
 ;; -------------------------------------
 ;; Non-Sink Behaviors
@@ -277,41 +311,42 @@
 ;; We default to shared par-safe behavior because SERIALIZERs are
 ;; frequently used for shared access to a resource. And since we use
 ;; BECOME, we have to make the SERIALIZER have par-safe behavior.
+;;
+;; As with PAR-SAFE and IO, any cust args should be fully specified
+;; sponsored-actors.
 
 (defun serializer-beh (service)
   ;; initial empty state
-  (ensure-par-safe-behavior
-   (lambda (cust &rest msg)
-     (let ((tag  (tag self)))
-       (send* service tag msg)
-       (become (enqueued-serializer-beh
-                service tag *current-sponsor* cust nil))
-       ))))
+  (lambda (cust &rest msg)
+    (let ((tag  (tag self)))
+      (send* service tag msg)
+      (become (enqueued-serializer-beh
+               service tag cust nil))
+      )))
 
-(defun enqueued-serializer-beh (service tag in-spon in-cust queue)
-  (ensure-par-safe-behavior
-   (lambda (cust &rest msg)
-     (cond ((eq cust tag)
-            (send* in-spon in-cust msg)
-            (if queue
-                (multiple-value-bind (next-req new-queue)
-                    (popq queue)
-                  (destructuring-bind (next-spon next-cust . next-msg) next-req
-                    (send* next-spon service tag next-msg)
-                    (become (enqueued-serializer-beh
-                             service tag next-spon next-cust new-queue))
-                    ))
-              ;; else
-              (become (serializer-beh service))))
-           (t
-            (become (enqueued-serializer-beh
-                     service tag in-spon in-cust
-                     (addq queue
-                           (list* *current-sponsor* cust msg)))))
-           ))))
-  
+(defun enqueued-serializer-beh (service tag in-cust queue)
+  (lambda (cust &rest msg)
+    (cond ((eq cust tag)
+           (send* in-cust msg)
+           (if queue
+               (multiple-value-bind (next-req new-queue)
+                   (popq queue)
+                 (destructuring-bind (next-cust . next-msg) next-req
+                   (send* service tag next-msg)
+                   (become (enqueued-serializer-beh
+                            service tag next-cust new-queue))
+                   ))
+             ;; else
+             (become (serializer-beh service))))
+          (t
+           (become (enqueued-serializer-beh
+                    service tag in-cust
+                    (addq queue
+                          (cons cust msg))) ))
+          )))
+
 (defun serializer (service)
-  (make-actor (serializer-beh service)))
+  (par-safe (make-actor (serializer-beh service))))
 
 ;; --------------------------------------
 
@@ -342,6 +377,7 @@
   (actor msg
     (send* spons msg)))
 
+#|
 (defun io (svc)
   ;; svc should be an Actor expecting a customer and args from msg
   (actor (cust &rest msg)
@@ -355,7 +391,8 @@
                (send* spons cust ans))
              msg)
       )))
-      
+|#
+
 ;; -----------------------------------------------
 ;; For sequenced message delivery
 ;;
