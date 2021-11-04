@@ -1,4 +1,4 @@
--- Lisp-Actors - Classical Actors (Bare Essentials in xTActors folder)
+-- Lisp-Actors - Classical Actors (Bare Essentials in xTActors folder - Nov 2021)
 --------------
 
 What happens if we get rid of all the crud from our previous "2nd System Syndrome" and cut everything back to essentials? 
@@ -17,7 +17,7 @@ It is refreshing to chop away needless complexity...
 
 
 
--- Lisp-Actors - Classical Actors (in TActors folder) --
+-- Lisp-Actors - Classical Actors (in TActors folder - Earlier in 2021) --
 -------------
 You will become amazed at this, but Classical Actors can run in a single thread, and yet, accomplish what we had all thought was a necessary use case for multi-threaded code. Classical Actors prove the contrary.
 
