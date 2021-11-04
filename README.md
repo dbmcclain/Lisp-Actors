@@ -1,4 +1,23 @@
--- Lisp-Actors - Classical Actors (in TActors folder) --
+-- Lisp-Actors - Classical Actors (Bare Essentials in xTActors folder - Nov 2021)
+--------------
+
+What happens if we get rid of all the crud from our previous "2nd System Syndrome" and cut everything back to essentials? 
+
+That's what we have in folder xTActors. Everything is an Actor, including Sponsors. No subtypes of Actors. An Actor is simply an encapsulated functional closure - called its Behavior - with code and state data. While the Behavior of an Actor can change by its calling BECOME, the Actor itself has unchanging identity. Once you have the address of an Actor, that will never change. 
+
+Sponsors are ordinary Actors whose state consists of a mailbox and a thread that runs the RUN event dispatch loop. The thread shares that same mailbox. Any messages sent to a Sponsor Actor are stuffed into that mailbox and retrieved by its RUN loop. That allows us to have cross-Sponsor SEND without any extra baggage involving Actor subtypes.
+
+Actors can be tied to a specific Sponsor by using `(IN-SPONSOR <sponsor> <actor>)` which creates another ordinary Actor. Anything sent to this new Actor gets shipped over to the indicated Sponsor before forwarding the message to the Actor. Actors, in themselves, have no notion of threads. They are just simple encapsulated functional closures. They can be executed on any thread.
+  
+In a multi-threaded environment, some Actors must not be permitted to execute in parallel on more than one thread. This is so when an Actor might execute a BECOME to mutate its behavior. Race conditions would result if multiple threads ran the Actor code at the same time. The easy solution to this is to simply use IN-SPONSOR, giving us an Actor tied to one agreed upon specific Sponsor. Operator `(PAR-SAFE <actor>)` does just that. Within each Sponsor you have a single thread of execution. Multiple threads wanting to execute the Actor will have their SENDS queued up in the event queue of that Sponsor, and given serialized access to the Actor code.
+
+As before, SEND and BECOME are transactional, taking effect only at the successful exit of Actor code. Newly created Actors are hidden from the outside world until you send them to someone. If an uncaught error occurs in the body of executing Actor code, all SENDS and BECOMES since entry to the code will be discarded, and it will be as though the message that produced the error was never delivered. Functionally pure Actors. If an Actor needs to mutate its state, it is best to simply use BECOME to generate fresh behavior. The only mutated item is the behavior pointer inside the Actor encapsulation.
+
+It is refreshing to chop away needless complexity...
+
+
+
+-- Lisp-Actors - Classical Actors (in TActors folder - Earlier in 2021) --
 -------------
 You will become amazed at this, but Classical Actors can run in a single thread, and yet, accomplish what we had all thought was a necessary use case for multi-threaded code. Classical Actors prove the contrary.
 
