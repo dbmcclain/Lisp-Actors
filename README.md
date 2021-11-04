@@ -5,7 +5,7 @@ What happens if we get rid of all the crud from our previous "2nd System Syndrom
 
 That's what we have in folder xTActors. Everything is an Actor, including Sponsors. No subtypes of Actors. An Actor is simply an encapsulated functional closure - called its Behavior - with code and state data. While the Behavior of an Actor can change by its calling BECOME, the Actor itself has unchanging identity. Once you have the address of an Actor, that will never change. 
 
-Sponsors are Actors whose state consists of a mailbox and a thread that runs the RUN event dispatch loop. The thread shares that same mailbox. Any messages sent to a Sponsor Actor are stuffed into that mailbox and retrieved by its RUN loop. That allows us to have cross-Sponsor SEND without any extra baggage around Actor subtypes.
+Sponsors are ordinary Actors whose state consists of a mailbox and a thread that runs the RUN event dispatch loop. The thread shares that same mailbox. Any messages sent to a Sponsor Actor are stuffed into that mailbox and retrieved by its RUN loop. That allows us to have cross-Sponsor SEND without any extra baggage around Actor subtypes.
 
 Actors can be tied to a specific Sponsor by using `(IN-SPONSOR <sponsor> <actor>)` which creates another normal Actor. Anything sent to this new Actor gets shipped over to the indicated Sponsor before forwarding the message to the Actor. Actors, in themselves, have no notion of threads. They are just simple encapsulated functional closures. They can be executed on any thread.
   
