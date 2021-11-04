@@ -49,6 +49,7 @@
 
 (defun in-sponsor-beh (sponsor actor)
   ;; for actors dedicated to specific sponsors
+  ;; these are inherently thread-safe too.
   (lambda* msg
     (send* sponsor actor msg)))
 
@@ -315,6 +316,10 @@
 ;; As with PAR-SAFE and IO, any cust args should be fully specified
 ;; sponsored-actors.
 
+#|
+  ;; This version takes advantage of the already existing event queue
+  ;; in the sponsor. However, it also causes the CPU to spin
+  ;; needlessly.
 (defun serializer-beh (service)
   ;; initial empty state
   (lambda (cust &rest msg)
@@ -333,8 +338,9 @@
           (t
            (repeat-send self))
           )))
-
-#|
+|#
+#||#
+;; This version does not cause the CPU to spin
 (defun serializer-beh (service)
   ;; initial empty state
   (lambda (cust &rest msg)
@@ -364,7 +370,7 @@
                     (addq queue
                           (cons cust msg))) ))
           )))
-|#
+#||#
 
 (defun serializer (service)
   (par-safe (make-actor (serializer-beh service))))
