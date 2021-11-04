@@ -4,13 +4,13 @@
 ;; use common function for inheritable behavior - delegation, instead of inheritance
 
 (defparameter melech (make-actor
-                      (make-sink-beh)))
+                      (sink-beh)))
 
 (defun gatekeeper-beh (svc owner)
   (lambda (&rest msg)
     (list-match msg
       ((arg) when (eq arg owner)
-       (become (make-sink-beh)))
+       (become (sink-beh)))
       ( _
         (send* svc msg))
       )))

@@ -15,11 +15,11 @@
 ;; --------------------------------------
 ;; Sink Behaviors
 
-(defun make-sink-beh ()
+(defun sink-beh ()
   #'lw:do-nothing)
 
 (defvar sink
-  (make-actor (make-sink-beh)))
+  (make-actor (sink-beh)))
 
 ;; --------------------------------------
 
@@ -34,22 +34,22 @@
 ;; -------------------------------------
 ;; Non-Sink Behaviors
 
-(defun make-const-beh (&rest msg)
+(defun const-beh (&rest msg)
   (lambda (cust)
     (send* cust msg)))
 
 (defun const (&rest msg)
-  (make-actor (apply #'make-const-beh msg)))
+  (make-actor (apply #'const-beh msg)))
 
 ;; ---------------------
 
-(defun make-once-beh (cust)
+(defun once-beh (cust)
   (lambda (&rest msg)
     (send* cust msg)
-    (become (make-sink-beh))))
+    (become (sink-beh))))
 
 (defun once (cust)
-  (make-actor (make-once-beh cust)))
+  (make-actor (once-beh cust)))
 
 ;; ---------------------
 
@@ -59,57 +59,57 @@
 
 ;; ---------------------
 
-(defun make-race-beh (&rest actors)
+(defun race-beh (&rest actors)
   (lambda (cust &rest msg)
     (let ((gate (once cust)))
       (apply #'send-to-all actors gate msg))))
 
 (defun race (&rest actors)
-  (make-actor (apply #'make-race-beh actors)))
+  (make-actor (apply #'race-beh actors)))
 
 ;; ---------------------
 
-(defun make-fwd-beh (actor)
+(defun fwd-beh (actor)
   (lambda (&rest msg)
     (send* actor msg)))
 
 (defun fwd (actor)
-  (make-actor (make-fwd-beh actor)))
+  (make-actor (fwd-beh actor)))
 
 ;; ---------------------
 
-(defun make-label-beh (cust lbl)
+(defun label-beh (cust lbl)
   (lambda (&rest msg)
     (send* cust lbl msg)))
 
 (defun label (cust lbl)
-  (make-actor (make-label-beh cust lbl)))
+  (make-actor (label-beh cust lbl)))
 
 ;; ---------------------
 
-(defun make-tag-beh (cust)
+(defun tag-beh (cust)
   (lambda (&rest msg)
     (send* cust self msg)))
 
 (defun tag (cust)
-  (make-actor (make-tag-beh cust)))
+  (make-actor (tag-beh cust)))
 
 ;; -------------------------------------------------
 
-(defun make-future-wait-beh (tag custs)
+(defun future-wait-beh (tag custs)
   (lambda (cust &rest msg)
     (cond ((eq cust tag)
-           (become (apply #'make-const-beh msg))
+           (become (apply #'const-beh msg))
            (apply #'send-to-all custs msg))
           (t
-           (become (make-future-wait-beh tag (cons cust custs))))
+           (become (future-wait-beh tag (cons cust custs))))
           )))
 
 (defun future (actor &rest msg)
   ;; Return an Actor that represents the future value. Send that value
   ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST)
-  (actors ((fut (make-future-wait-beh tag nil))
-           (tag (make-tag-beh fut)))
+  (actors ((fut (future-wait-beh tag nil))
+           (tag (tag-beh fut)))
     (send* actor tag msg)
     fut))
 
@@ -120,7 +120,7 @@
   ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
   (actor (cust)
     (let ((tag (tag self)))
-      (become (make-future-wait-beh tag (list cust)))
+      (become (future-wait-beh tag (list cust)))
       (send* actor tag msg))
     ))
 
@@ -150,7 +150,7 @@
 ;; Each block is fed the same initial message, and the results from
 ;; each block are sent as an ordered collection to cust.
 
-(defun make-join-beh (cust lbl1 lbl2)
+(defun join-beh (cust lbl1 lbl2)
   (declare (ignore lbl2))
   (lambda (lbl &rest msg)
     (cond ((eq lbl lbl1)
@@ -169,7 +169,7 @@
   (actor (cust lreq rreq)
     (let ((tag-l (tag self))
           (tag-r (tag self)))
-      (become (make-join-beh cust tag-l tag-r))
+      (become (join-beh cust tag-l tag-r))
       (send* left tag-l lreq)
       (send* right tag-r rreq))))
 
@@ -177,9 +177,9 @@
   (actor (cust lst &rest msg)
     (if (null lst)
         (send cust)
-      (actors ((join (make-join-beh cust lbl1 lbl2))
-               (lbl1 (make-tag-beh join))
-               (lbl2 (make-tag-beh join)))
+      (actors ((join (join-beh cust lbl1 lbl2))
+               (lbl1 (tag-beh join))
+               (lbl2 (tag-beh join)))
         (send* (car lst) lbl1 msg)
         (send* self lbl2 (cdr lst) msg)))
     ))
@@ -205,14 +205,14 @@
 ;; -----------------------------------------
 ;; Delayed Trigger
 
-(defun make-scheduled-message-beh (cust dt &rest msg)
+(defun scheduled-message-beh (cust dt &rest msg)
   (let ((timer (apply #'mp:make-timer #'send cust msg)))
     (lambda* _
       (mp:schedule-timer-relative timer dt)
-      (become (make-sink-beh)))))
+      (become (sink-beh)))))
 
 (defun scheduled-message (cust dt &rest msg)
-  (make-actor (apply #'make-scheduled-message-beh cust dt msg)))
+  (make-actor (apply #'scheduled-message-beh cust dt msg)))
 
 (defun send-after (dt &rest msg)
   (let ((timer (apply #'mp:make-timer #'send msg)))
@@ -278,17 +278,17 @@
 ;; frequently used for shared access to a resource. And since we use
 ;; BECOME, we have to make the SERIALIZER have par-safe behavior.
 
-(defun make-serializer-beh (service)
+(defun serializer-beh (service)
   ;; initial empty state
   (ensure-par-safe-behavior
    (lambda (cust &rest msg)
      (let ((tag  (tag self)))
        (send* service tag msg)
-       (become (make-enqueued-serializer-beh
+       (become (enqueued-serializer-beh
                 service tag *current-sponsor* cust nil))
        ))))
 
-(defun make-enqueued-serializer-beh (service tag in-spon in-cust queue)
+(defun enqueued-serializer-beh (service tag in-spon in-cust queue)
   (ensure-par-safe-behavior
    (lambda (cust &rest msg)
      (cond ((eq cust tag)
@@ -298,24 +298,24 @@
                     (popq queue)
                   (destructuring-bind (next-spon next-cust . next-msg) next-req
                     (send* next-spon service tag next-msg)
-                    (become (make-enqueued-serializer-beh
+                    (become (enqueued-serializer-beh
                              service tag next-spon next-cust new-queue))
                     ))
               ;; else
-              (become (make-serializer-beh service))))
+              (become (serializer-beh service))))
            (t
-            (become (make-enqueued-serializer-beh
+            (become (enqueued-serializer-beh
                      service tag in-spon in-cust
                      (addq queue
                            (list* *current-sponsor* cust msg)))))
            ))))
   
 (defun serializer (service)
-  (make-actor (make-serializer-beh service)))
+  (make-actor (serializer-beh service)))
 
 ;; --------------------------------------
 
-(defun make-timing-beh (dut)
+(defun timing-beh (dut)
   (lambda (cust &rest msg)
     (let ((start (usec:get-time-usec))
           (spon  *current-sponsor*))
@@ -328,7 +328,7 @@
         ))))
 
 (defun timing (dut)
-  (make-actor (make-timing-beh dut)))
+  (make-actor (timing-beh dut)))
 
 #|
 (let* ((dut (actor (cust nsec)
@@ -489,10 +489,12 @@
   (lw:with-unique-names (tag)
     `(let ((,tag (suspend-beh)))
        (beta ,args
-           (symbol-macrolet ((seq-beta (redirect ,tag beta t)))
-             ,form)
-         (resume-beh ,tag)
-         ,@body))
+           (progn
+             (redirect ,tag beta t)
+             (symbol-macrolet ((seq-beta ,tag))
+             ,form))
+         ,@body
+         (resume-beh ,tag) ))
     ))
 
 #|

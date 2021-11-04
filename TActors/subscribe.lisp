@@ -24,17 +24,17 @@
              (closer-mop:subclassp (class-of obj) super))
         )))
 
-(defun make-empty-subject-beh ()
+(defun empty-subject-beh ()
   (dlambda
     (:attach (about from)
      (let ((next (make-actor self-beh)))
-       (become (make-subject-beh about from next))))
+       (become (subject-beh about from next))))
     
     (:prune (prev)
      (send prev :pruned self-beh))
     ))
 
-(defun make-subject-beh (about from next)
+(defun subject-beh (about from next)
   (dlambda
     (:notify (an-about &rest args)
      (declare (ignore args))
@@ -50,7 +50,7 @@
     (:detach (an-about a-from)
      (cond ((and (equalp about an-about)
                  (eq     from  a-from))
-            (become (make-prune-beh next))
+            (become (prune-beh next))
             (send next :prune self))
            
            (t
@@ -61,7 +61,7 @@
      (send prev :pruned self-beh))
     ))
 
-(defun make-prune-beh (next)
+(defun prune-beh (next)
   (dlambda
     (:pruned (beh)
      (become beh))
@@ -71,7 +71,7 @@
        (repeat-send next))
     ))
 
-(defvar *subscribers* (make-actor (make-empty-subject-beh)))
+(defvar *subscribers* (make-actor (empty-subject-beh)))
 
 (defun subscribe (about from)
   (send *subscribers* :attach about from))

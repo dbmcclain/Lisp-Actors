@@ -162,17 +162,17 @@ THE SOFTWARE.
    #:prune-self
    #:mbox-sender
    
-   #:make-sink-beh
-   #:make-const-beh
-   #:make-once-beh
-   #:make-race-beh
-   #:make-fwd-beh
-   #:make-label-beh
-   #:make-tag-beh
-   #:make-wrapping-beh
-   #:make-scheduled-message-beh
-   #:make-serializer-beh
-   #:make-timing-beh
+   #:sink-beh
+   #:const-beh
+   #:once-beh
+   #:race-beh
+   #:fwd-beh
+   #:label-beh
+   #:tag-beh
+   #:wrapping-beh
+   #:scheduled-message-beh
+   #:serializer-beh
+   #:timing-beh
    #:pruned-beh
    #:pend-beh
    #:mbox-sender-beh

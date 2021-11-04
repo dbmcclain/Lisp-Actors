@@ -95,14 +95,14 @@
     (loop repeat niter do
           (random 1d0)))
   
-  (defun make-erfc-tree-beh (nlev)
+  (defun erfc-tree-beh (nlev)
     (lambda (cust niter)
       (cond ((zerop nlev)
              (burn-time niter)
              (send cust))
             (t
-             (send (make-actor (make-erfc-tree-beh (1- nlev))) self niter)
-             (send (make-actor (make-erfc-tree-beh (1- nlev))) self niter)
+             (send (make-actor (erfc-tree-beh (1- nlev))) self niter)
+             (send (make-actor (erfc-tree-beh (1- nlev))) self niter)
              (become (lambda* _
                        (become (lambda* _
                                  (send cust))))))
@@ -112,7 +112,7 @@
     ;; a DUT function parameterized by Log2(N)
     (make-actor
      (lambda (cust niter)
-       (let ((top  (make-actor (make-erfc-tree-beh 10))))
+       (let ((top  (make-actor (erfc-tree-beh 10))))
          (send top cust niter)
          ))))
   
@@ -148,7 +148,7 @@
 ;; Iterate with Actors instead of DO-LOOP
 #|
 (progn
-  (defun make-erfc-tree-beh (niter)
+  (defun erfc-tree-beh (niter)
     (lambda (cust n)
       (cond ((zerop n)
              (let ((k-iter (actor (nn)
@@ -159,17 +159,17 @@
                                  (send self (1- nn)))))))
                (send k-iter niter)))
             (t
-             (send (make-actor (make-erfc-tree-beh niter)) self (1- n))
-             (send (make-actor (make-erfc-tree-beh niter)) self (1- n))
+             (send (make-actor (erfc-tree-beh niter)) self (1- n))
+             (send (make-actor (erfc-tree-beh niter)) self (1- n))
              (become (lambda* _
                        (become (lambda* _
                                (send cust))))))
             )))
   
-  (defun make-erfc-fbomb-beh (spon niter)
+  (defun erfc-fbomb-beh (spon niter)
     ;; a DUT function parameterized by Sponsor and Log2N
     (lambda (cust)
-      (let ((top  (make-actor (make-erfc-tree-beh niter))))
+      (let ((top  (make-actor (erfc-tree-beh niter))))
         (send spon top cust 10))))
   
   (defun* dataprep ((niter dt))
@@ -177,10 +177,10 @@
           (/ (float dt 1d0) ;; = time per Actor
              niter))))
 
-(let ((dut   (um:curry #'make-erfc-fbomb-beh nil))
+(let ((dut   (um:curry #'erfc-fbomb-beh nil))
       (limit 256))
-  (send (make-actor (make-collector-beh 1 limit 1
-                                        (make-actor (make-data-point-beh dut #'dataprep))
+  (send (make-actor (collector-beh 1 limit 1
+                                        (make-actor (data-point-beh dut #'dataprep))
                                         ))
         (actor (tbl)
           ;; (break)
@@ -197,9 +197,9 @@
                       :legend "SingleThread"
                       :symbol :circle
                       :plot-joined t))
-          (let ((dut   (um:curry #'make-erfc-fbomb-beh t)))
-            (send (make-actor (make-collector-beh 1 limit 1
-                                                  (make-actor (make-data-point-beh dut #'dataprep))
+          (let ((dut   (um:curry #'erfc-fbomb-beh t)))
+            (send (make-actor (collector-beh 1 limit 1
+                                                  (make-actor (data-point-beh dut #'dataprep))
                                                   ))
                   (actor (tbl)
                     ;; (break)

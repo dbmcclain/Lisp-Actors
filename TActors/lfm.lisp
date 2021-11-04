@@ -432,7 +432,7 @@
 (defun lfm ()
   *syslog*)
 
-(defun make-logger-beh (state)         
+(defun logger-beh (state)         
   (um:dlambda
     (:log-message (entry-kind msg timestamp who-from)
      (let ((s (with-output-to-string (s)
@@ -447,7 +447,7 @@
       (:set-printer (new-printer)
        (let ((new-state (copy-lfm state)))
          (setf (lfm-printer new-state) new-printer)
-         (become (make-logger-beh new-state))
+         (become (logger-beh new-state))
          ))
 
       (:set-stream (new-stream &optional new-needs-close)
@@ -456,14 +456,14 @@
              (new-state    (copy-lfm state)))
          (setf (lfm-needs-close new-state) new-needs-close
                (lfm-stream new-state) new-stream)
-         (become (make-logger-beh new-state))
+         (become (logger-beh new-state))
          (when needed-close
            (close old-stream))))
       ))
 
 (defun make-logger ()
   (make-actor
-   (make-logger-beh
+   (logger-beh
     (make-lfm))))
 
 (defun ensure-system-logger ()

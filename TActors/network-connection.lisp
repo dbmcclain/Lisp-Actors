@@ -120,18 +120,18 @@
                      (send cust)
                      (drain-buffer new-custs new-frags new-ctr pend))
                  ;; else
-                 (become (make-empty-buffer-beh
+                 (become (empty-buffer-beh
                           (pushq new-custs
                                  (list cust buf new-pos limit))
                           new-ctr pend))
                  )))))
         (t
          (if frags
-             (become (make-nonempty-buffer-beh nil frags new-ctr pend))
-           (become (make-empty-buffer-beh nil new-ctr pend))))
+             (become (nonempty-buffer-beh nil frags new-ctr pend))
+           (become (empty-buffer-beh nil new-ctr pend))))
         ))
 
-(defun make-empty-buffer-beh (custs ctr pend)
+(defun empty-buffer-beh (custs ctr pend)
   (alambda
     ((lbl :add-bytes frag)
      (cond ((= ctr lbl)
@@ -141,10 +141,10 @@
             (send pend :wait lbl :add-bytes frag))
            ))
     ((:get . msg)
-     (become (make-empty-buffer-beh (addq custs msg) ctr pend)))
+     (become (empty-buffer-beh (addq custs msg) ctr pend)))
     ))
 
-(defun make-nonempty-buffer-beh (custs frags ctr pend)
+(defun nonempty-buffer-beh (custs frags ctr pend)
   (alambda
     ((lbl :add-bytes frag)
      (cond ((= ctr lbl)
@@ -159,7 +159,7 @@
 
 (defun make-buffer-manager ()
   (make-actor
-   (make-empty-buffer-beh nil 1
+   (empty-buffer-beh nil 1
                           (sequenced-delivery))
    ))
 
@@ -181,7 +181,7 @@
 (defconstant +len-prefix-length+  4)
 (defconstant +hmac-length+       32.)
 
-(defun make-frag-assembler-beh (state ctr frags pend)
+(defun frag-assembler-beh (state ctr frags pend)
   (with-accessors ((dispatcher intf-state-dispatcher)
                    (kill-timer intf-state-kill-timer)
                    (intf       intf-state-intf)) state
@@ -190,12 +190,12 @@
      ((_ :discard err)
       ;; something went wrong, kill the connection
       (log-error :SYSTEM-LOG "Data framing error: ~A" err)
-      (become (make-sink-beh))
+      (become (sink-beh))
       (shutdown intf))
      
      ((in-ctr :frag frag)
       (cond ((= in-ctr ctr)
-             (become (make-frag-assembler-beh state (1+ ctr) (cons frag frags) pend))
+             (become (frag-assembler-beh state (1+ ctr) (cons frag frags) pend))
              (send pend self :ready (1+ ctr)))
             (t
              (send pend :wait in-ctr :frag frag))
@@ -203,7 +203,7 @@
      
      ((in-ctr :last-frag frag)
       (cond ((= in-ctr ctr)
-             (become (make-frag-assembler-beh state (1+ ctr) nil pend))
+             (become (frag-assembler-beh state (1+ ctr) nil pend))
              (send pend self :ready (1+ ctr))
              (send kill-timer :resched)
              (with-worker
@@ -217,7 +217,7 @@
      )))
 
 (defun make-frag-assembler (state)
-  (make-actor (make-frag-assembler-beh state 0 nil
+  (make-actor (frag-assembler-beh state 0 nil
                                        (sequenced-delivery))
               ))
 
@@ -271,7 +271,7 @@
 ;;                          +---------------------------------------+
 ;;
 
-(defun make-write-starter-beh (state write-end)
+(defun write-starter-beh (state write-end)
   (lambda (cust buffers)
     (with-accessors ((io-state   intf-state-io-state)
                      (io-running intf-state-io-running)) state
@@ -292,17 +292,17 @@
                    )))
         (cond
          ((eq cust self)
-          (become (make-sink-beh)))
+          (become (sink-beh)))
 
          ((sys:compare-and-swap (car io-running) 1 2) ;; still running recieve?
           (transmit-next-buffer io-state))
 
          (t
           (send cust :fail self)
-          (become (make-sink-beh)))
+          (become (sink-beh)))
          )))))
 
-(defun make-write-end-beh (state starter)
+(defun write-end-beh (state starter)
   (with-accessors ((io-state         intf-state-io-state)
                    (decr-io-count-fn intf-state-decr-io-count-fn)) state
     (flet ((send-fail (cust)
@@ -319,12 +319,12 @@
         (send-fail cust))
        ))))
 
-(defun make-write-entry-beh (serial starter)
+(defun write-entry-beh (serial starter)
   (alambda
 
    ((:fail tag) when (eq tag starter)
     ;; Error condition flagged by :FAIL from Starter
-    (become (make-sink-beh)))
+    (become (sink-beh)))
 
    ((buffers)
     ;; A list of buffers to write
@@ -332,10 +332,10 @@
    ))
 
 (defun make-writer (state)
-  (actors ((starter  (make-write-starter-beh state ender))
-           (ender    (make-write-end-beh state starter))
-           (serial   (make-serializer-beh starter))
-           (entry    (make-write-entry-beh serial starter)))
+  (actors ((starter  (write-starter-beh state ender))
+           (ender    (write-end-beh state starter))
+           (serial   (serializer-beh starter))
+           (entry    (write-entry-beh serial starter)))
     entry))
       
 ;; -------------------------------------------------------------------------
@@ -349,7 +349,7 @@
        (mp:schedule-timer-relative timer *socket-timeout-period*))
       ((:discard)
        (mp:unschedule-timer timer)
-       (become (make-sink-beh)))
+       (become (sink-beh)))
       ))))
 
 ;; ------------------------------------------------------------------------
@@ -393,7 +393,7 @@
                  :io-state io-state
                  :accepting-handle accepting-handle))
          (intf  (make-actor (funcall make-beh-fn
-                                     (make-socket-beh state)))))
+                                     (socket-beh state)))))
     (with-accessors ((title            intf-state-title)
                      (io-state         intf-state-io-state)
                      (kill-timer       intf-state-kill-timer)
@@ -481,21 +481,21 @@
       (um:deletef (comm:accepting-handle-user-info accepting-handle) self))
     (bridge-unregister self)
     (log-info :SYSTEM-LOG "Socket ~A shutting down: ~A" title self)
-    (become (make-sink-beh))
+    (become (sink-beh))
     ))
 
 ;; ------------------------------------------------------------------------
 
-(defun make-sec-beh (state prev-beh in-cust msgs)
+(defun sec-beh (state prev-beh in-cust msgs)
   (alambda
    ((:send . msg)
-      (become (make-sec-beh state prev-beh in-cust (cons msg msgs))))
+      (become (sec-beh state prev-beh in-cust (cons msg msgs))))
       
    ((:shutdown)
     (%shutdown state))
       
    ((cust :sec-send . msg)
-    (become (make-sec-beh state prev-beh cust msgs))
+    (become (sec-beh state prev-beh cust msgs))
     (apply #'%socket-send state msg))
    
    ((cust :srp-ph3-begin m2)
@@ -517,7 +517,7 @@
 (defun client-request-negotiation-ecc ()
   )
 
-(defun make-socket-beh (state)
+(defun socket-beh (state)
   (with-accessors ((crypto  intf-state-crypto)) state
     (alambda
       ((:send . msg)
@@ -527,17 +527,17 @@
        (%shutdown state))
       
       ((cust :client-request-srp)
-       (become (make-sec-beh state self-beh nil nil))
+       (become (sec-beh state self-beh nil nil))
        (client-negotiate-security-ecc crypto self cust))
 
       ((:incoming-msg :request-srp-negotiation sender-id)
-       (become (make-sec-beh state self-beh nil nil))
+       (become (sec-beh state self-beh nil nil))
        (server-negotiate-security-ecc crypto self sender-id))
       )))
 
 ;; -------------------------------------------------------------
 
-(defun make-client-beh (nom-socket-beh)
+(defun client-beh (nom-socket-beh)
   (alambda
    ((:incoming-msg :server-info client-ip-addr)
     (bridge-register client-ip-addr self)
@@ -553,13 +553,13 @@
                    (if io-state
                        (let* ((crypto  (make-instance 'crypto))
                               (intf    (create-socket-intf
-                                        #'make-client-beh
+                                        #'client-beh
                                         :title    "Client"
                                         :io-state io-state
                                         :crypto   crypto)))
                          (beta ()
-                             (send intf beta :client-request-srp)
-                             ;;; (send beta)
+                             ;;; (send intf beta :client-request-srp)
+                             (send beta)
                              (beta () ;; avoid a potential race condition
                                  (bridge-pre-register beta ip-addr intf) ;; anchor for GC
                                (socket-send intf :client-info (machine-instance)))))
@@ -585,7 +585,7 @@
 
 ;; -------------------------------------------------------------
 
-(defun make-server-beh (nom-socket-beh)
+(defun server-beh (nom-socket-beh)
   (alambda
    ((:incoming-msg :client-info client-node)
     (log-info :SYSTEM-LOG "Socket server starting up: ~A" self)
@@ -606,7 +606,7 @@ See the discussion under START-CLIENT-MESSENGER for details."
   ;; this is a callback function from the socket event loop manager
   ;; so we can't dilly dally...
   (let* ((crypto  (make-instance 'crypto))
-         (intf    (create-socket-intf #'make-server-beh
+         (intf    (create-socket-intf #'server-beh
                                       :title    "Server"
                                       :io-state io-state
                                       :accepting-handle accepting-handle

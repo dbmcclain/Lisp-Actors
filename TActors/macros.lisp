@@ -125,7 +125,8 @@
 ;; ------------------------------------------------------------------
 ;; NOTE: Watch out for the following trap... A BETA form in an Actor
 ;; effectively spawns a new Actor, and the containing host Actor
-;; simply skips over the BETA form.
+;; simply skips over the BETA form. The host Actor and the BETA actor
+;; run concurrently.
 ;;
 ;; The containing Actor could exit, then respond to a new message in
 ;; parallel with a waiting BETA Actor.  That could also modify the
