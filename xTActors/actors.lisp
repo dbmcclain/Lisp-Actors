@@ -192,57 +192,6 @@ THE SOFTWARE.
             ))))
     ))
 
-;; ----------------------------------------------------------
-;; SPONSORS -- offer an event queue and have an associated runtime
-;; thread performing RUN dispatching of Actor events.
-;;
-
-(defun primordial-sponsor-beh ()
-  (lambda (mbox thread)
-    (become (sponsor-beh mbox thread))))
-
-(defun sponsor-beh (mbox thread)
-  (alambda
-   ((:shutdown)
-    (become #'lw:do-nothing)
-    (mp:process-terminate thread))
-
-   (msg
-    (mp:mailbox-send mbox msg))
-   ))
-
-(defun make-sponsor (title)
-  (let ((spon (make-actor)))
-    (restart-sponsor spon title)))
-
-(defun kill-sponsor (sponsor)
-  (foreign-send sponsor :shutdown))
-
-(defun restart-sponsor (sponsor title)
-  (setf (actor-beh sponsor) (primordial-sponsor-beh))
-  (let* ((mbox   (mp:make-mailbox))
-         (thread (mp:process-run-function title () #'run-actors sponsor mbox)))
-    (mp:mailbox-send mbox (list sponsor mbox thread))
-    sponsor))
-
-;; ----------------------------------------------------------------
-
-(defvar base-sponsor (make-actor))
-(defvar slow-sponsor (make-actor))
-
-(defun restart-actors-system ()
-  (restart-sponsor base-sponsor "Actor Thread")
-  (restart-sponsor slow-sponsor "Actor I/O Thread"))
-
-(defun kill-actors-system ()
-  (kill-sponsor base-sponsor)
-  (kill-sponsor slow-sponsor))
-
-#|
-(kill-actors-system)
-(restart-actors-system)
- |#
-
 ;; -----------------------------------------------
 ;; SEND/BECOME
 ;;
@@ -256,6 +205,8 @@ THE SOFTWARE.
 ;; HANDLER-CASE, HANDLER-BIND, or IGNORE-ERRORS. Otherwise, an error
 ;; will make it seem that the message causing the error was never
 ;; delivered.
+
+(declaim (inline become send repeat-send))
 
 (defun become (new-beh)
   ;; Change behavior/state. Only meaningful if an Actor calls
@@ -277,6 +228,52 @@ THE SOFTWARE.
   ;; Send the current event message to another Actor
   #F
   (send* dest (the list *whole-message*)))
+
+;; ----------------------------------------------------------
+;; SPONSORS -- offer an event queue and have an associated runtime
+;; thread performing RUN dispatching of Actor events.
+;;
+
+(defun sponsor-beh (mbox thread)
+  (alambda
+   ((:shutdown)
+    (become #'lw:do-nothing)
+    (mp:process-terminate thread))
+
+   (msg
+    (mp:mailbox-send mbox msg))
+   ))
+
+(defun make-sponsor (title)
+  (let ((spon (make-actor)))
+    (restart-sponsor spon title)))
+
+(defun kill-sponsor (sponsor)
+  (foreign-send sponsor :shutdown))
+
+(defun restart-sponsor (sponsor title)
+  (let* ((mbox   (mp:make-mailbox))
+         (thread (mp:process-run-function title () #'run-actors sponsor mbox)))
+    (setf (actor-beh sponsor) (sponsor-beh mbox thread))
+    sponsor))
+
+;; ----------------------------------------------------------------
+
+(defvar base-sponsor (make-actor))
+(defvar slow-sponsor (make-actor))
+
+(defun restart-actors-system ()
+  (restart-sponsor base-sponsor "Actor Thread")
+  (restart-sponsor slow-sponsor "Actor I/O Thread"))
+
+(defun kill-actors-system ()
+  (kill-sponsor base-sponsor)
+  (kill-sponsor slow-sponsor))
+
+#|
+(kill-actors-system)
+(restart-actors-system)
+ |#
 
 ;; -------------------------------------------------------
 ;; Cross-sponsor sends
