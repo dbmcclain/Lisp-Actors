@@ -452,12 +452,13 @@
     (become (suspended-beh prev-beh tag proc (addq queue msg) once)))
    ))
    
-(defun suspend-actor ()
+(defun suspend ()
+  ;; to be used only inside of Actor behavior code
   (let ((tag (tag self)))
     (become (suspended-beh self-beh tag sink nil nil))
     tag))
 
-(defun resume-actor (tag)
+(defun resume (tag)
   (send tag :revert-beh))
 
 (defun redirect (tag new-actor &optional once)
@@ -487,14 +488,12 @@
   ;; build an embedded BETA form that acts sequentially with host
   ;; Actor, instead of concurrently.
   (lw:with-unique-names (tag)
-    `(let ((,tag (suspend-actor)))
+    `(let ((,tag (suspend)))
        (beta ,args
-           (progn
-             (redirect ,tag beta t)
-             (symbol-macrolet ((seq-beta ,tag))
-             ,form))
+           (let ((seq-beta (redirect ,tag beta t)))
+             ,form)
          ,@body
-         (resume-actor ,tag) ))
+         (resume ,tag) ))
     ))
 
 #|

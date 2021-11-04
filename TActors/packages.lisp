@@ -184,8 +184,8 @@ THE SOFTWARE.
    #:watch
    #:unwatch
 
-   #:suspend-actor
-   #:resume-actor
+   #:suspend
+   #:resume
    #:redirect
    #:seq-beta
    ))
