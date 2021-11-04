@@ -433,7 +433,7 @@
 
 ;; --------------------------------------------------
 
-(defun suspended-exec-beh (prev-beh tag proc queue once)
+(defun suspended-beh (prev-beh tag proc queue once)
   (alambda
    ((atag :revert-beh) when (eq tag atag)
     (become prev-beh)
@@ -441,20 +441,20 @@
       (send* self item)))
 
    ((atag :redirect-proc new-proc once) when (eq tag atag)
-    (become (suspended-exec-beh prev-beh tag new-proc queue once)))
+    (become (suspended-beh prev-beh tag new-proc queue once)))
 
    ((atag . msg) when (eq tag atag)
     (send* proc msg)
     (when once
-      (become (suspended-exec-beh prev-beh tag sink queue nil))))
+      (become (suspended-beh prev-beh tag sink queue nil))))
 
    (msg
-    (become (suspended-exec-beh prev-beh tag proc (addq queue msg) once)))
+    (become (suspended-beh prev-beh tag proc (addq queue msg) once)))
    ))
    
 (defun suspend-actor ()
   (let ((tag (tag self)))
-    (become (suspended-exec-beh self-beh tag sink nil nil))
+    (become (suspended-beh self-beh tag sink nil nil))
     tag))
 
 (defun resume-actor (tag)
@@ -465,7 +465,7 @@
   tag)
 
 #|
-;; Example of using suspended-exec-beh to serialize host Actor with
+;; Example of using suspended-beh to serialize host Actor with
 ;; embedded Beta forms:
 
   ... ;; inside host Actor
