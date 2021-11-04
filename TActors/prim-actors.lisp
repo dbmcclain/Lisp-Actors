@@ -433,7 +433,7 @@
 
 ;; --------------------------------------------------
 
-(defun deferred-exec (prev-beh tag proc queue once)
+(defun suspended-exec-beh (prev-beh tag proc queue once)
   (alambda
    ((atag :revert-beh) when (eq tag atag)
     (become prev-beh)
@@ -441,23 +441,23 @@
       (send* self item)))
 
    ((atag :redirect-proc new-proc once) when (eq tag atag)
-    (become (deferred-exec prev-beh tag new-proc queue once)))
+    (become (suspended-exec-beh prev-beh tag new-proc queue once)))
 
    ((atag . msg) when (eq tag atag)
     (send* proc msg)
     (when once
-      (become (deferred-exec prev-beh tag sink queue nil))))
+      (become (suspended-exec-beh prev-beh tag sink queue nil))))
 
    (msg
-    (become (deferred-exec prev-beh tag proc (addq queue msg) once)))
+    (become (suspended-exec-beh prev-beh tag proc (addq queue msg) once)))
    ))
    
-(defun suspend-beh ()
+(defun suspend-actor ()
   (let ((tag (tag self)))
-    (become (deferred-exec self-beh tag sink nil nil))
+    (become (suspended-exec-beh self-beh tag sink nil nil))
     tag))
 
-(defun resume-beh (tag)
+(defun resume-actor (tag)
   (send tag :revert-beh))
 
 (defun redirect (tag new-actor &optional once)
@@ -465,15 +465,15 @@
   tag)
 
 #|
-;; Example of using deferred-exec to serialize host Actor with
+;; Example of using suspended-exec-beh to serialize host Actor with
 ;; embedded Beta forms:
 
   ... ;; inside host Actor
-  (let ((tag (suspend-beh)))
+  (let ((tag (suspend-actor)))
     (beta (ans)
         (send some-actor (redirect tag beta t) msg))
       .... beta body forms...
-      (resume-beh tag)
+      (resume-actor tag)
       ))
 
 ;; Now, instead of the beta form operating concurrently with the
@@ -487,14 +487,14 @@
   ;; build an embedded BETA form that acts sequentially with host
   ;; Actor, instead of concurrently.
   (lw:with-unique-names (tag)
-    `(let ((,tag (suspend-beh)))
+    `(let ((,tag (suspend-actor)))
        (beta ,args
            (progn
              (redirect ,tag beta t)
              (symbol-macrolet ((seq-beta ,tag))
              ,form))
          ,@body
-         (resume-beh ,tag) ))
+         (resume-actor ,tag) ))
     ))
 
 #|
