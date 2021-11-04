@@ -321,6 +321,26 @@
     (let ((tag  (tag self)))
       (send* service tag msg)
       (become (enqueued-serializer-beh
+               service tag cust))
+      )))
+
+(defun enqueued-serializer-beh (service tag in-cust)
+  (lambda (cust &rest msg)
+    (cond ((eq cust tag)
+           (send* in-cust msg)
+           (become (serializer-beh service)))
+
+          (t
+           (repeat-send self))
+          )))
+
+#|
+(defun serializer-beh (service)
+  ;; initial empty state
+  (lambda (cust &rest msg)
+    (let ((tag  (tag self)))
+      (send* service tag msg)
+      (become (enqueued-serializer-beh
                service tag cust nil))
       )))
 
@@ -344,6 +364,7 @@
                     (addq queue
                           (cons cust msg))) ))
           )))
+|#
 
 (defun serializer (service)
   (par-safe (make-actor (serializer-beh service))))

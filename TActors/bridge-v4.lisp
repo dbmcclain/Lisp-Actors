@@ -216,9 +216,7 @@
       )))
 
 (defvar *intf-map*
-  (make-actor
-   (ensure-par-safe-behavior
-    (empty-intf-beh))))
+  (par-safe (make-actor (empty-intf-beh))))
 
 ;; -------------------------------------------
 ;; Register / Connect to socket handler

@@ -22,8 +22,8 @@
 (in-package :fft)
 
 (defvar twids-actor
-  (ac:make-actor
-   (ac:ensure-par-safe-behavior ;; because we mutate local state
+  (ac:par-safe ;; because we mutate local state
+   (ac:make-actor
     (let ((stwids (make-array 22
                               :initial-element nil
                               :adjustable t
