@@ -433,74 +433,40 @@
 
 ;; --------------------------------------------------
 
-(defun suspended-beh (prev-beh tag proc queue once)
+(defun suspended-beh (prev-beh tag queue)
   (alambda
-   ((atag :revert-beh) when (eq tag atag)
+   ((atag) when (eq tag atag)
     (become prev-beh)
     (do-queue (item queue)
       (send* self item)))
 
-   ((atag :redirect-proc new-proc once) when (eq tag atag)
-    (become (suspended-beh prev-beh tag new-proc queue once)))
-
-   ((atag . msg) when (eq tag atag)
-    (send* proc msg)
-    (when once
-      (become (suspended-beh prev-beh tag sink queue nil))))
-
    (msg
-    (become (suspended-beh prev-beh tag proc (addq queue msg) once)))
+    (become (suspended-beh prev-beh tag (addq queue msg))))
    ))
    
 (defun suspend ()
-  ;; to be used only inside of Actor behavior code
+  ;; To be used only inside of Actor behavior code.
+  ;; Just send to the tag to resume the Actor.
   (let ((tag (tag self)))
-    (become (suspended-beh self-beh tag sink nil nil))
+    (become (suspended-beh self-beh tag nil))
     tag))
 
-(defun resume (tag)
-  (send tag :revert-beh))
-
-(defun redirect (tag new-actor &optional once)
-  (send tag :redirect-proc new-actor once)
-  tag)
-
 #|
-;; Example of using suspended-beh to serialize host Actor with
+;; Example of using SUSPENDED-BEH to serialize host Actor with
 ;; embedded Beta forms:
 
   ... ;; inside host Actor
-  (let ((tag (suspend-actor)))
+  (let ((resume (suspend)))
     (beta (ans)
-        (send some-actor (redirect tag beta t) msg))
+        (send some-actor beta msg))
       .... beta body forms...
-      (resume-actor tag)
+      (send resume)
       ))
 
-;; Now, instead of the beta form operating concurrently with the
-;; enclosing host Actor, the host Actor suspends its normal message
-;; handling, enqueueing all arriving messages except those that arrive
-;; via the tag. Once RESUME-BEH is performed, the host Actor resumes
-;; its prior behavior, and handles all the enqueued messages.
-|#
-      
-(defmacro seq-beta (args form &body body)
-  ;; build an embedded BETA form that acts sequentially with host
-  ;; Actor, instead of concurrently.
-  (lw:with-unique-names (tag)
-    `(let ((,tag (suspend)))
-       (beta ,args
-           (let ((seq-beta (redirect ,tag beta t)))
-             ,form)
-         ,@body
-         (resume ,tag) ))
-    ))
-
-#|
-  ;; Example
-  (let ((me self))
-    (seq-beta (ans)
-        (send host (sponsored-actor self-sponsor seq-beta) :fwd port-id cmd)
-      (port-write-bytes-flush port ans)
-      (send me :check-client)))
+;; Afer SUSPEND, instead of the beta form operating concurrently with
+;; the enclosing host Actor, the host Actor suspends its normal
+;; message handling, enqueueing all arriving messages except those
+;; that arrive via the tag. Once the send to the resume tag happens,
+;; the host Actor resumes its prior behavior, and handles all the
+;; enqueued messages.
 |#

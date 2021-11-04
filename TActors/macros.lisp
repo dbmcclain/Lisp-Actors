@@ -139,8 +139,7 @@
 ;; concurrently with the host Actor. Nested BETA forms, however, do
 ;; operate sequentially.
 ;;
-;; See also: SUSPENDED-BEH, SUSPEND, RESUME, REDIRECT, and SEQ-BETA,
-;; in prim-actors.lisp
+;; See also: SUSPENDED-BEH, and SUSPEND, in prim-actors.lisp
 
 (defmacro beta (args form &body body)
   (multiple-value-bind (params binding-args)

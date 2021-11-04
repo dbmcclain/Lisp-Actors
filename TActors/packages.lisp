@@ -185,9 +185,6 @@ THE SOFTWARE.
    #:unwatch
 
    #:suspend
-   #:resume
-   #:redirect
-   #:seq-beta
    ))
 
 #-lispworks
