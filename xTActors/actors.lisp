@@ -296,8 +296,18 @@ THE SOFTWARE.
 (defun in-sponsor (sponsor actor)
   (make-actor (in-sponsor-beh sponsor actor)))
 
+;; -------------
+
+(defun par-safe-beh (actor)
+  (in-sponsor-beh base-sponsor actor))
+
 (defun par-safe (actor)
   (in-sponsor base-sponsor actor))
+
+;; -------------
+
+(defun io-beh (actor)
+  (in-sponsor-beh slow-sponsor actor))
 
 (defun io (actor)
   (in-sponsor slow-sponsor actor))
@@ -317,7 +327,7 @@ THE SOFTWARE.
     ;; because we are managing an output stream
     (make-actor
      (lambda* msg
-       (format t "~&~{~A~^ ~}~%" msg))
+       (format t "~&~{~A~%~^ ~}" msg))
      )))
 
 ;; ------------------------------------------------

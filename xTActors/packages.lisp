@@ -69,9 +69,14 @@ THE SOFTWARE.
    #:beta-beh
    #:beta-gen
    #:alambda
-   #:par-safe
-   #:io
+
+   #:in-sponsor-beh
    #:in-sponsor
+   #:par-safe-beh
+   #:par-safe
+   #:io-beh
+   #:io
+
    #:current-sponsor
    #:*current-sponsor*
    #:sponsor
@@ -154,7 +159,6 @@ THE SOFTWARE.
    #:schedule-after
    #:serializer
    #:timing
-   #:sponsor-switch
    #:sequenced-delivery
    #:prune-self
    #:mbox-sender
