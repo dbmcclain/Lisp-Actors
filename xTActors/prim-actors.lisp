@@ -202,44 +202,36 @@
 ;; A cheap FP Banker's queue - empty queue is NIL
 ;; When all you need is ADDQ, PUSHQ, POPQ...
 
-(defun qnorm (q)
-  ;; on entry q is never NIL
-  ;; if queue is empty we return NIL
-  ;; otherwise, something is left in (CAR Q)
+(defconstant +emptyq+ (list nil)) ;; strictly speaking, but NIL is okay in CL too.
+(defconstant +doneq+  #())
+
+(defun normq (q)
   (if (car q)
       q
-    (when (cdr q)
-      (list (reverse (cdr q)))
-      )))
+    (list (reverse (cdr q)))))
 
 (defun addq (q item)
   ;; add item to tail, return new queue
-  (if q
-      (cons (car q) (cons item (cdr q)))
-    (list (list item))))
+  (normq (cons (car q) (cons item (cdr q)))))
 
 (defun pushq (q item)
   ;; add item to head, return new queue
-  (if q
-      (cons (cons item (car q)) (cdr q))
-    (list (list item))))
+  (cons (cons item (car q)) (cdr q)))
 
 (defun popq (q)
-  (when q
-    ;; return next item, and new queue
-    (let ((item (caar q))
-          (newq (qnorm (cons (cdar q) (cdr q)))))
-      (values item newq t)
-      )))
+  (if (car q)
+      (values (caar q)
+              (normq (cons (cdar q) (cdr q))))
+    +doneq+))
 
 (defun iterq (q fn)
   (um:nlet iter ((q q))
-    (when q
-      (multiple-value-bind (item new-q)
-          (popq q)
+    (multiple-value-bind (item new-q)
+        (popq q)
+      (unless (eq item +doneq+)
         (funcall fn item)
-        (go-iter new-q)))
-    ))
+        (go-iter new-q))
+      )))
 
 (defmacro do-queue ((item q) &body body)
   `(iterq ,q (lambda (,item) ,@body)))
@@ -292,23 +284,22 @@
     (let ((tag  (tag self)))
       (send* service tag msg)
       (become (enqueued-serializer-beh
-               service tag cust nil))
+               service tag cust +emptyq+))
       )))
 
 (defun enqueued-serializer-beh (service tag in-cust queue)
   (lambda (cust &rest msg)
     (cond ((eq cust tag)
            (send* in-cust msg)
-           (if queue
-               (multiple-value-bind (next-req new-queue)
-                   (popq queue)
-                 (destructuring-bind (next-cust . next-msg) next-req
-                   (send* service tag next-msg)
-                   (become (enqueued-serializer-beh
-                            service tag next-cust new-queue))
-                   ))
-             ;; else
-             (become (serializer-beh service))))
+           (multiple-value-bind (next-req new-queue)
+               (popq queue)
+             (if (eq next-req +doneq+)
+                 (become (serializer-beh service))
+               (destructuring-bind (next-cust . next-msg) next-req
+                 (send* service tag next-msg)
+                 (become (enqueued-serializer-beh
+                          service tag next-cust new-queue))
+                 ))))
           (t
            (become (enqueued-serializer-beh
                     service tag in-cust
