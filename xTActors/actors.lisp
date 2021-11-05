@@ -212,7 +212,11 @@ THE SOFTWARE.
   ;; Change behavior/state. Only meaningful if an Actor calls
   ;; this.
   #F
-  (setf (actor-beh self) new-beh))
+  (check-type self actor)
+  (check-type new-beh function)
+  (locally
+    (declare (actor self))
+    (setf (actor-beh self) new-beh)))
 
 (defmacro send* (actor &rest msg)
   ;; to be used when final arg is a list
@@ -222,6 +226,8 @@ THE SOFTWARE.
 (defun send (actor &rest msg)
   ;; msg should always start with an Actor
   #F
+  (check-type actor actor)
+  (check-type *evt-queue* cons)
   (add-evq *evt-queue* (cons actor msg)))
 
 (defun repeat-send (dest)
@@ -240,8 +246,9 @@ THE SOFTWARE.
     (become #'lw:do-nothing)
     (mp:process-terminate thread))
 
-   (msg
-    (mp:mailbox-send mbox msg))
+   ((actor . msg)
+    (check-type actor actor)
+    (mp:mailbox-send mbox (cons actor msg)))
    ))
 
 (defun make-sponsor (title)
@@ -252,6 +259,7 @@ THE SOFTWARE.
   (foreign-send sponsor :shutdown))
 
 (defun restart-sponsor (sponsor title)
+  (check-type sponsor actor)
   (let* ((mbox   (mp:make-mailbox))
          (thread (mp:process-run-function title () #'run-actors sponsor mbox)))
     (setf (actor-beh sponsor) (sponsor-beh mbox thread))
@@ -316,6 +324,7 @@ THE SOFTWARE.
 ;; The bridge between imperative code and the Actors world
 
 (defun foreign-send (actor &rest msg)
+  (check-type actor actor)
   (if self
       (send* actor msg)
     ;; this only works because we know how simple the sponsor code is.
@@ -326,11 +335,13 @@ THE SOFTWARE.
     (mp:mailbox-send mbox ans)))
 
 (defun mbox-sender (mbox)
+  (check-type mbox mp:mailbox)
   (make-actor (mbox-sender-beh mbox)))
 
 (defun foreign-ask (actor &rest msg)
   ;; Actor should expect a cust arg in first position. Here, the
   ;; mailbox.
+  (check-type actor actor)
   (if self
       ;; Counterproductive when called from an Actor, except for
       ;; possible side effects. Should use BETA forms if you want the
