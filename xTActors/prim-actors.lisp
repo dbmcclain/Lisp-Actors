@@ -337,15 +337,11 @@
 
 (defun timing-beh (dut)
   (lambda (cust &rest msg)
-    (let ((start (usec:get-time-usec))
-          (spon  *current-sponsor*))
+    (let ((start (usec:get-time-usec)))
       (beta _
-            (send* dut beta msg)
-        (beta _
-            ;; ensure we are back in the start thread to get proper timings
-            (send spon beta)
-          (send cust (- (usec:get-time-usec) start)))
-        ))))
+          (send* dut beta msg)
+        (send cust (- (usec:get-time-usec) start)))
+      )))
 
 (defun timing (dut)
   (make-actor (timing-beh dut)))
