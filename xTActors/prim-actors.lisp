@@ -448,7 +448,7 @@
   ;; To be used only inside of Actor behavior code.
   ;; Just send to the tag to resume the Actor.
   (let ((tag (tag self)))
-    (become (suspended-beh self-beh tag nil))
+    (become (suspended-beh self-beh tag +emptyq+))
     tag))
 
 #|
