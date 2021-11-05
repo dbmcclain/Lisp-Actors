@@ -324,24 +324,22 @@ THE SOFTWARE.
 ;; The bridge between imperative code and the Actors world
 
 (defun foreign-send (actor &rest msg)
-  (check-type actor actor)
   (if self
       (send* actor msg)
     ;; this only works because we know how simple the sponsor code is.
     (apply (actor-beh base-sponsor) actor msg))) 
 
 (defun mbox-sender-beh (mbox)
+  (check-type mbox mp:mailbox)
   (lambda (&rest ans)
     (mp:mailbox-send mbox ans)))
 
 (defun mbox-sender (mbox)
-  (check-type mbox mp:mailbox)
   (make-actor (mbox-sender-beh mbox)))
 
 (defun foreign-ask (actor &rest msg)
   ;; Actor should expect a cust arg in first position. Here, the
   ;; mailbox.
-  (check-type actor actor)
   (if self
       ;; Counterproductive when called from an Actor, except for
       ;; possible side effects. Should use BETA forms if you want the
