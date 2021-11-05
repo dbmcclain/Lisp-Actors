@@ -278,13 +278,12 @@
   ;; needlessly.
 (defun serializer-beh (service)
   ;; initial empty state
-  (par-safe-beh
-   (actor (cust . msg)
-     (let ((tag  (tag self)))
-       (send* service tag msg)
-       (become (enqueued-serializer-beh
-                service tag cust))
-       ))))
+  (lambda (cust &rest msg)
+    (let ((tag  (tag (par-safe self))))
+      (send* service tag msg)
+      (become (enqueued-serializer-beh
+               service tag cust))
+      )))
 
 (defun enqueued-serializer-beh (service tag in-cust)
   (lambda (cust &rest msg)
@@ -443,7 +442,7 @@
 (defun suspend ()
   ;; To be used only inside of Actor behavior code.
   ;; Just send to the tag to resume the Actor.
-  (let ((tag (tag self)))
+  (let ((tag (tag (in-this-sponsor self))))
     (become (suspended-beh self-beh tag +emptyq+))
     tag))
 
