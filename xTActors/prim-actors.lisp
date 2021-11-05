@@ -300,14 +300,12 @@
 ;; This version does not cause the CPU to spin
 (defun serializer-beh (service)
   ;; initial empty state
-  (par-safe-beh
-   (actor (cust &rest msg)
-     (let ((tag  (tag self)))
-       (send* service tag msg)
-       (become (enqueued-serializer-beh
-                service tag cust +emptyq+))
-       ))
-   ))
+  (lambda (cust &rest msg)
+    (let ((tag  (tag (par-safe self))))
+      (send* service tag msg)
+      (become (enqueued-serializer-beh
+               service tag cust +emptyq+))
+      )))
 
 (defun enqueued-serializer-beh (service tag in-cust queue)
   (lambda (cust &rest msg)
@@ -331,7 +329,7 @@
 #||#
 
 (defun serializer (service)
-  (make-actor (serializer-beh service)))
+  (par-safe (make-actor (serializer-beh service))))
 
 ;; --------------------------------------
 
