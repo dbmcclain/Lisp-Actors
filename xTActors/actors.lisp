@@ -333,15 +333,16 @@ THE SOFTWARE.
   ;; mailbox.
   (if self
       ;; Counterproductive when called from an Actor, except for
-      ;; possible side effects
-      (mp:funcall-async (lambda ()
-                          (apply 'foreign-send actor sink msg)))
+      ;; possible side effects. Should use BETA forms if you want the
+      ;; answer.
+      (send* actor sink msg)
     (let ((mbox (mp:make-mailbox)))
       (apply 'foreign-send actor (mbox-sender mbox) msg)
       (values-list (mp:mailbox-read mbox)))
     ))
 
 ;; ----------------------------------------
+;; We must defer startup until the MP system has been instantiated.
 
 (defun lw-start-actors (&rest _)
   (declare (ignore _))
