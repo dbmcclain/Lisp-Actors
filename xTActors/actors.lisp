@@ -296,8 +296,11 @@ THE SOFTWARE.
 (defun in-sponsor (sponsor actor)
   (make-actor (in-sponsor-beh sponsor actor)))
 
+;; ------------
+
 (defun in-this-sponsor (actor)
-  (make-actor (in-sponsor-beh self-sponsor actor)))
+  (check-type self-sponsor actor)
+  (in-sponsor self-sponsor actor))
 
 ;; -------------
 
