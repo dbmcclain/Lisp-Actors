@@ -214,15 +214,15 @@ THE SOFTWARE.
   #F
   (setf (actor-beh self) new-beh))
 
-(defmacro send* (&rest msg)
+(defmacro send* (actor &rest msg)
   ;; to be used when final arg is a list
   ;; saves typing APPLY #'SEND, analogous to LIST*
-  `(apply #'send ,@msg))
+  `(apply #'send ,actor ,@msg))
 
-(defun send (&rest msg)
+(defun send (actor &rest msg)
   ;; msg should always start with an Actor
   #F
-  (add-evq *evt-queue* msg))
+  (add-evq *evt-queue* (cons actor msg)))
 
 (defun repeat-send (dest)
   ;; Send the current event message to another Actor
@@ -315,12 +315,11 @@ THE SOFTWARE.
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world
 
-(defun foreign-send (&rest msg)
-  ;; msg should always start with an Actor
+(defun foreign-send (actor &rest msg)
   (if self
-      (send* base-sponsor msg)
+      (send* actor msg)
     ;; this only works because we know how simple the sponsor code is.
-    (apply (actor-beh base-sponsor) msg))) 
+    (apply (actor-beh base-sponsor) actor msg))) 
 
 (defun mbox-sender-beh (mbox)
   (lambda (&rest ans)
