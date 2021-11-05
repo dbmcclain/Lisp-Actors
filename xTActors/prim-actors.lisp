@@ -199,7 +199,7 @@
     (mp:schedule-timer-relative timer dt)))
 
 ;; -------------------------------------------
-;; A cheap FP Banker's queue - empty queue is NIL
+;; A cheap FP Banker's queue
 ;; When all you need is ADDQ, PUSHQ, POPQ...
 
 (defconstant +emptyq+ (list nil)) ;; strictly speaking, but NIL is okay in CL too.

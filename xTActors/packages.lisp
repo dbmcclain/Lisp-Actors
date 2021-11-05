@@ -56,6 +56,8 @@ THE SOFTWARE.
    #:list-match
    #:actor-nlet
 
+   #:+emptyq+
+   #:+doneq+
    #:addq
    #:pushq
    #:popq
