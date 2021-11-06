@@ -25,9 +25,8 @@
 
 (def-beh once-beh (cust)
   (lambda (&rest msg)
-    (using-become ()
-      (send* cust msg)
-      (become (sink-beh)))))
+    (send* cust msg)
+    (become (sink-beh))))
 
 (defun once (cust)
   (make-actor (once-beh cust)))
@@ -79,13 +78,12 @@
 
 (def-beh future-wait-beh (tag &rest custs)
   (lambda (cust &rest msg)
-    (using-become ()
-      (cond ((eq cust tag)
-             (become (apply #'const-beh msg))
-             (apply #'send-to-all custs msg))
-            (t
-             (become (apply 'future-wait-beh tag cust custs)))
-            ))))
+    (cond ((eq cust tag)
+           (become (apply #'const-beh msg))
+           (apply #'send-to-all custs msg))
+          (t
+           (become (apply 'future-wait-beh tag cust custs)))
+          )))
 
 (def-beh future (actor &rest msg)
   ;; Return an Actor that represents the future value. Send that value
@@ -136,18 +134,17 @@
   ;; messages, because in use, our Actor is ephemeral and anonymous. So no
   ;; other incoming messages are possible.
   (lambda (lbl &rest msg)
-    (using-become ()
-      (cond ((eq lbl lbl1)
-             (become (lambda (_ &rest msg2)
+    (cond ((eq lbl lbl1)
+           (become (lambda (_ &rest msg2)
+                     (declare (ignore _))
+                     (send-combined-msg cust msg msg2))
+                   ))
+          (t ;; could only be lbl2
+             (become (lambda (_ &rest msg1)
                        (declare (ignore _))
-                       (send-combined-msg cust msg msg2))
+                       (send-combined-msg cust msg1 msg))
                      ))
-            (t ;; could only be lbl2
-               (become (lambda (_ &rest msg1)
-                         (declare (ignore _))
-                         (send-combined-msg cust msg1 msg))
-                       ))
-            ))))
+          )))
 
 (defun fork (left right)
   ;; Accept two message lists, lreq and rreq, sending lreq to left,
@@ -273,19 +270,17 @@
 (def-beh serializer-beh (service)
   ;; initial empty state
   (lambda (cust &rest msg)
-    (using-become ()
-      (let ((tag  (tag self)))
-        (send* service tag msg)
-        (become (enqueued-serializer-beh
-                 service tag cust))
-        ))))
+    (let ((tag  (tag self)))
+      (send* service tag msg)
+      (become (enqueued-serializer-beh
+               service tag cust))
+      )))
 
 (def-beh enqueued-serializer-beh (service tag in-cust)
   (lambda (cust &rest msg)
     (cond ((eq cust tag)
-           (using-become ()
-             (send* in-cust msg)
-             (become (serializer-beh service))))
+           (send* in-cust msg)
+           (become (serializer-beh service)))
 
           (t
            (repeat-send self))
@@ -297,33 +292,31 @@
 (def-beh serializer-beh (service)
   ;; initial empty state
   (lambda (cust &rest msg)
-    (using-become ()
-      (let ((tag  (tag self)))
-        (send* service (once tag) msg)
-        (become (enqueued-serializer-beh
-                 service tag cust +emptyq+))
-        ))))
+    (let ((tag  (tag self)))
+      (send* service (once tag) msg)
+      (become (enqueued-serializer-beh
+               service tag cust +emptyq+))
+      )))
 
 (def-beh enqueued-serializer-beh (service tag in-cust queue)
   (lambda (cust &rest msg)
-    (using-become ()
-      (cond ((eq cust tag)
-             (send* in-cust msg)
-             (multiple-value-bind (next-req new-queue)
-                 (popq queue)
-               (if (eq next-req +doneq+)
-                   (become (serializer-beh service))
-                 (destructuring-bind (next-cust . next-msg) next-req
-                   (send* service (once tag) next-msg)
-                   (become (enqueued-serializer-beh
-                            service tag next-cust new-queue))
-                   ))))
-            (t
-             (become (enqueued-serializer-beh
-                      service tag in-cust
-                      (addq queue
-                      (cons cust msg))) ))
-            ))))
+    (cond ((eq cust tag)
+           (send* in-cust msg)
+           (multiple-value-bind (next-req new-queue)
+               (popq queue)
+             (if (eq next-req +doneq+)
+                 (become (serializer-beh service))
+               (destructuring-bind (next-cust . next-msg) next-req
+                 (send* service (once tag) next-msg)
+                 (become (enqueued-serializer-beh
+                          service tag next-cust new-queue))
+                 ))))
+          (t
+           (become (enqueued-serializer-beh
+                    service tag in-cust
+                    (addq queue
+                          (cons cust msg))) ))
+          )))
 #||#
 
 (defun serializer (service)
@@ -364,17 +357,15 @@
 (def-beh pruned-beh (next)
   (alambda
    ((:pruned beh)
-    (using-become ()
-      (become beh)))
+    (become beh))
 
    (msg
      (send* next msg))
    ))
 
 (def-beh prune-self (next)
-  (using-become (self-sponsor)
-    (become (pruned-beh next))
-    (send next self :prune)))
+  (become (pruned-beh next))
+  (send next self :prune))
 
 (def-beh no-pend-beh ()
   (alambda
@@ -382,10 +373,9 @@
     (send prev :pruned self-beh))
 
    ((:wait ctr . msg)
-    (using-become ()
-      (let ((next (make-actor
-                   (no-pend-beh))))
-        (become (pend-beh ctr msg next)))))
+    (let ((next (make-actor
+                 (no-pend-beh))))
+      (become (pend-beh ctr msg next))))
    ))
 
 (def-beh pend-beh (ctr msg next)
@@ -394,9 +384,8 @@
     (send prev :pruned self-beh))
 
    ((cust :ready in-ctr) when (eql ctr in-ctr)
-    (using-become ()
-      (send* cust ctr msg)
-      (prune-self next)))
+    (send* cust ctr msg)
+    (prune-self next))
 
    (msg
      (send* next msg))
@@ -413,9 +402,8 @@
   (lambda (&rest ans)
     (let ((rest (cdr elts)))
       (cond (rest
-             (using-become ()
-               (send* (car elts) (once self) ans)
-               (become (working-pipe-beh cust rest))))
+             (send* (car elts) (once self) ans)
+             (become (working-pipe-beh cust rest)))
             (t
              (send* (car elts) cust ans))
             ))))
@@ -434,23 +422,20 @@
 (def-beh suspended-beh (prev-beh tag queue)
   (alambda
    ((atag) when (eq tag atag)
-    (using-become ()
-      (become prev-beh)
-      (do-queue (item queue)
-        (send* self item))))
+    (become prev-beh)
+    (do-queue (item queue)
+      (send* self item)))
 
    (msg
-    (using-become ()
-      (become (suspended-beh prev-beh tag (addq queue msg)))))
+    (become (suspended-beh prev-beh tag (addq queue msg))))
    ))
    
 (def-beh suspend ()
   ;; To be used only inside of Actor behavior code.
   ;; Just send to the tag to resume the Actor.
   (let ((tag (tag (in-this-sponsor self))))
-    (using-become (self-sponsor)
-      (become (suspended-beh self-beh tag +emptyq+))
-      tag)))
+    (become (suspended-beh self-beh tag +emptyq+))
+    tag))
 
 #|
 ;; Example of using SUSPENDED-BEH to serialize host Actor with
@@ -471,3 +456,22 @@
 ;; the host Actor resumes its prior behavior, and handles all the
 ;; enqueued messages.
 |#
+;; ------------------------------------------
+
+(def-beh ret-beh (spon cust)
+  (lambda* ans
+    (with-sponsor (spon)
+      (send* cust ans))
+    ))
+
+(defun make-ret (cust)
+  (make-actor (ret-beh self-sponsor cust)))
+
+(def-beh ioreq-beh (actor)
+  ;; send to actor, return its reply to cust in its original sponsor.
+  ;; typically, actor with be (IO actor)
+  (lambda (cust &rest msg)
+    (send* actor (once (make-ret cust)) msg)))
+
+(defun ioreq (actor)
+  (make-actor (ioreq-beh actor)))

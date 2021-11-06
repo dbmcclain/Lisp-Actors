@@ -59,7 +59,7 @@ THE SOFTWARE.
    #:def-beh
    #:def-sponsor
    #:behavior
-   #:using-become
+   #:in-sponsor
    
    #:+emptyq+
    #:+doneq+
@@ -94,6 +94,7 @@ THE SOFTWARE.
    #:restart-actors-system
    #:kill-actors-system
 
+   #:with-sponsor
    #:become   
    #:send
    #:send*
@@ -166,6 +167,7 @@ THE SOFTWARE.
    #:sequenced-delivery
    #:prune-self
    #:mbox-sender
+   #:ioreq
    
    #:sink-beh
    #:const-beh
@@ -361,18 +363,7 @@ THE SOFTWARE.
    #:rmw
    #:rd
    #:wr)
-  (:import-from #:ref
-   #:ref
-   #:ref-val)
-  (:import-from #:actors/executives
-   #:add-to-ready-queue
-   #:run-actor-direct
-   #:run-worker-direct)
   (:export
-   #:%run-actor
-   #:assemble-ask-message
-   #:no-immediate-answer
-   #:retry-send
    #:*current-actor*
    #:*current-sponsor*
    #:*whole-message*

@@ -152,17 +152,13 @@
                     (lambda* ,binding-args
                       ,@body))
                   (beta-gen ,params
-                    (once
-                     (in-this-sponsor
-                      (make-actor (beta-beh ,@params))))))
+                    (make-actor (beta-beh ,@params))))
            (macrolet ((beta (&rest args)
                         `(beta-gen ,@args)))
              ;; this beta binding lasts only for the next form
              ,form))
       ;; else
-      `(let ((beta  (once
-                     (in-this-sponsor
-                      (actor ,args ,@body)))))
+      `(let ((beta  (actor ,args ,@body)))
          ,form)
       )))
 

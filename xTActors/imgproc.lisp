@@ -40,8 +40,8 @@
 
 (defun fft-farm ()
   (loop for ix from 0 below *nfarm* collect
-        (fft-block (in-sponsor (aref *farm* ix)
-                               (farmer-fft ix)))
+        (fft-block (ioreq (in-sponsor (aref *farm* ix)
+                                      (farmer-fft ix))))
         ))
 
 (defun par-fft (ffts)

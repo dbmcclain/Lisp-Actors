@@ -231,24 +231,22 @@ THE SOFTWARE.
     (declare (actor *current-actor*))
     (setf (actor-beh *current-actor*) new-beh)))
 
-(defun %do-using-become (where fn)
+(defun %do-with-sponsor (where fn)
   (let ((spon (or where base-sponsor)))
     (if (eq spon *current-sponsor*)
         (funcall fn)
       (%send* spon *current-actor* *whole-message*))))
 
-(defmacro %using-become (where &body body)
+(defmacro %with-sponsor (where &body body)
   ;; Properly belongs just after message detection which might trigger
   ;; BECOME. Should be used ahead of any side-effecting code in the
   ;; handler clause.
-  `(%do-using-become ,where
+  `(%do-with-sponsor ,where
                      (lambda ()
-                       (macrolet ((become (new-beh)
-                                    `(%become ,new-beh)))
-                         ,@body))) )
+                       ,@body)))
 
 #+:LISPWORKS
-(editor:setup-indent "using-become" 1)
+(editor:setup-indent "with-sponsor" 1)
 
 (defmacro behavior (&body body)
   `(macrolet ((send (actor &rest msg)
@@ -259,8 +257,10 @@ THE SOFTWARE.
                 `(%repeat-send ,actor))
               (send-combined-msg (cust msg1 msg2)
                 `(%send-combined-msg ,cust ,msg1 ,msg2))
-              (using-become ((&optional where) &body body)
-                `(%using-become ,where ,@body)))
+              (with-sponsor ((&optional spons) &body body)
+                `(%with-sponsor ,spons ,@body))
+              (become (new-beh)
+                `(%become ,new-beh)))
      ,@body))
 
 (defmacro def-beh (name args &body body)
@@ -279,9 +279,8 @@ THE SOFTWARE.
   ;; this one is just slightly special
   (alambda
    ((:shutdown)
-    (using-become ()
-      (become #'lw:do-nothing)
-      (mp:process-terminate thread)))
+    (become #'lw:do-nothing)
+    (mp:process-terminate thread))
    
    ((actor . msg)
     (check-type actor actor)

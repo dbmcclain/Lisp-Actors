@@ -99,11 +99,10 @@ storage and network transmission.
         (send cust (funcall queryfn kv-map))))
 
      ((cust :write updatefn)
-      (using-become ()
-        (let ((writer (make-writer cust updatefn kv-map)))
-          (send writer (once self))
-          (become (locked-db-beh writer state sync +emptyq+))))
-      ))))
+      (let ((writer (make-writer cust updatefn kv-map)))
+        (send writer self)
+        (become (locked-db-beh writer state sync +emptyq+))))
+     )))
 
 ;; ---------------------------------------------------
 
@@ -116,33 +115,31 @@ storage and network transmission.
         (send cust (funcall queryfn kv-map) )))
       
      ((cust :write updatefn)
-      (using-become ()
-        (become (locked-db-beh writer state sync
-                               (addq pend-wr
-                                     (cons cust updatefn) )))))
-      
+      (become (locked-db-beh writer state sync
+                             (addq pend-wr
+                                   (cons cust updatefn) ))))
+    
       ((cust :update new-map wr-cust) when (eq cust writer)
-       (using-become ()
-         (let ((unchanged (eq kv-map new-map)))
-           (send wr-cust self (not unchanged))
-           (let ((new-state (if unchanged
-                                state
-                              (let ((new-state (copy-state-with state
-                                                                :map new-map
-                                                                :ver (new-ver))))
-                                (send sync self :update new-state)
-                                new-state))))
-             (if (emptyq? pend-wr)
-                 (become (kv-database-beh new-state sync))
-               (multiple-value-bind (pair new-queue)
-                   (popq pend-wr)
-                 (destructuring-bind (new-cust . new-updatefn) pair
-                   (let ((new-writer (make-writer new-cust new-updatefn new-map)))
-                     (send new-writer (once self))
-                     (become (locked-db-beh new-writer new-state sync new-queue))
-                     )))
-               )))))
-      )))
+       (let ((unchanged (eq kv-map new-map)))
+         (send wr-cust self (not unchanged))
+         (let ((new-state (if unchanged
+                              state
+                            (let ((new-state (copy-state-with state
+                                                              :map new-map
+                                                              :ver (new-ver))))
+                              (send sync self :update new-state)
+                              new-state))))
+           (if (emptyq? pend-wr)
+               (become (kv-database-beh new-state sync))
+             (multiple-value-bind (pair new-queue)
+                 (popq pend-wr)
+               (destructuring-bind (new-cust . new-updatefn) pair
+                 (let ((new-writer (make-writer new-cust new-updatefn new-map)))
+                   (send new-writer self)
+                   (become (locked-db-beh new-writer new-state sync new-queue))
+                   )))
+             )))))
+    ))
 
 ;; ---------------------------------------------
 
@@ -150,16 +147,17 @@ storage and network transmission.
   (actor (db)
     ;; We need to return a map to release the locked db.
     ;; If anything goes wrong, just return the original.
-    ;; Implement a 1 sec timeout. customer db is a once.
-    (send-after 1 db self :update map cust)
-    (let ((ans  (handler-case
-                    (let ((new-map (funcall updatefn map)))
-                      (maps:find new-map #()) ;; will err if new-map isn't a MAP
-                      new-map)
-                  (error ()
-                    map))))
-      (send db self :update ans cust)
-      )))
+    ;; Implement a 1 sec timeout. customer db is a once gate.
+    (let ((gate (once db)))
+      (send-after 1 gate self :update map cust)
+      (let ((ans  (handler-case
+                      (let ((new-map (funcall updatefn map)))
+                        (maps:find new-map #()) ;; will err if new-map isn't a MAP
+                        new-map)
+                    (error ()
+                      map))))
+        (send gate self :update ans cust)
+        ))))
 
 ;; ----------------------------------------
 
@@ -169,12 +167,11 @@ storage and network transmission.
   (alambda
 
    ((cust :update state) when (eq cust server)
-    (using-become ()
-      (unless (eq state last-state)
-        (let ((tag  (tag self)))
-          (send-after *writeback-delay* tag :write state)
-          (become (sync-beh server state tag))
-          ))))
+    (unless (eq state last-state)
+      (let ((tag  (tag self)))
+        (send-after *writeback-delay* tag :write state)
+        (become (sync-beh server state tag))
+        )))
    
    ((a-tag :write state) when (eq a-tag tag)
     (let ((saver (make-database-saver state)))
@@ -272,7 +269,7 @@ storage and network transmission.
       )))
 
 (defun make-database-reader (path)
-  (io (make-actor (database-reader-beh path))))
+  (ioreq (io (make-actor (database-reader-beh path)))))
 
 ;; ---------------------------------
 
@@ -306,7 +303,7 @@ storage and network transmission.
       )))
 
 (defun make-database-saver (state)
-  (io (make-actor (database-saver-beh state))))
+  (ioreq (io (make-actor (database-saver-beh state)))))
 
 ;; ---------------------------------------------------------------
 ;; bare minimum services offered - keeps comm traffic to a minimum
@@ -389,11 +386,11 @@ storage and network transmission.
                   (send cust server)
                   ))))
            (prober
-            (io (actor (cust)
-                  (send cust
-                        (when (probe-file path)
-                          ;; file exists, so we can get its true name
-                          (truename path))))))
+            (ioreq (io (actor (cust)
+                         (send cust
+                               (when (probe-file path)
+                                 ;; file exists, so we can get its true name
+                                 (truename path)))))))
            (get-new-or-existing
             (actor (cust)
               (beta (true-path)
