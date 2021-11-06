@@ -15,6 +15,26 @@ As before, SEND and BECOME are transactional, taking effect only at the successf
 
 It is refreshing to chop away needless complexity...
 
+Notes from the field:
+---------------------
+
+I have an application for these Actors in the lab, controlling lab equipment from a remote workstation. They work exceedingly well, with huge simplification to the logic of the program. And that field work has shown some lessons along the way.
+
+Probably the most important lesson has been the complexity, even here with Actors, provided by SMP multithreaded environments. In Actors we forego using Locks. There are still some locks implicit in the mailboxes used to converse across sponsor boundaries. But mostly we rely on the sponsor event queues to prevent parallel access to critical code. Each sponsor is a single thread, and so any code executing in a sponsor is also single threaded and thread-safe - provided only one copy of that code can be running in one sponsor at a time. 
+
+But code is code, and it runs just fine on any thread, even in parallel (simultaneously with SMP). To prevent critical code from running in more than one sponsor, we can arrange that some particular behavior code is only allowed to run in one specific sponsor thread. If the code detects that the current thread belongs to a different sponsor, then it re-sends the message to itself in the desired sponsor and exits immediately. That queues up the message along with all other possible contenders in the chosen sponsor's event queue. Each event takes its turn in the code. We have concurrency, but not parallelism.
+
+We have IN-SPONSOR, PAR-SAFE, and IO primitives that do this sponsor switching ahead of running an Actor. But these solutions are often too coarse, and it becomes confusing to reason about which sponsor a particular Actor will be running on, especially when these are nested actions. A PAR-SAFE against an Actor that has been prefixed by IN-SPONSOR, etc. The chains become potentially endless, and SELF only refers to the final Actor actually running. It does not refer to any outermost IN-SPONSOR wrapper Actor, and becomes unsafe to hand out in message SEND. It becomes very confusing to reason about.
+
+Furthermore, there is nothing wrong with allowing some non-mutating sections of Actor code to run in arbitrary threads, and in parallel. And so it may be too severe to force the sponsor switching for all sections of the code. That really only needs to happen in sections that may be induced to perform a BECOME operation. Only those sections can lead to race conditions if allowed to run in parallel across multiple threads. (Assuming you are being good about writing FPL code)
+
+The solution I finally chose, was to require the use of USING-BECOME in those critical message handlers of Actor behavior code, before allowing the use of BECOME. That macro tells the system which Sponsor the following critical code needs to be running on. If the code is being executed in a different sponsor then we re-send the message to ourself on the desired sponsor, and then exit immediately.
+
+We make sure that happens by hiding BECOME inside of the USING-BECOME macro. It is not otherwise visible to the programmer. And USING-BECOME is likewise hidden inside the BEHAVIOR macro which also makes SEND available to Actor behavior code. BEHAVIOR is automatically invoked when defining new behavior code with DEF-BEH. Without a BEHAVIOR form, none of SEND, USING-BECOME, and BECOME is visible to the programmer.
+
+In practice this works beautifully well. Gone is the confusion caused by nested IN-SPONSOR prefixes. There is no question about which Actor the SELF refers to now. And no need to use PAR-SAFE, or worry about whether we should. It becomes always safe to hand out the SELF to other actors via SEND. The Actor code, via USING-BECOME specifies exactly what needs to happen for just that section of code.
+
+
 
 
 -- Lisp-Actors - Classical Actors (in TActors folder - Earlier in 2021) --
