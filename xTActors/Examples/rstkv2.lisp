@@ -145,9 +145,10 @@ storage and network transmission.
 
 (defun make-writer (cust updatefn map)
   (actor (db)
-    ;; We need to return a map to release the locked db.
-    ;; If anything goes wrong, just return the original.
-    ;; Implement a 1 sec timeout. customer db is a once gate.
+    ;; We need to return a map to release the locked db.  If anything
+    ;; goes wrong, just return the original.  Implement a 1 sec
+    ;; timeout. We use a once gate to ensure that only the first
+    ;; response gets sent back to the database Actor.
     (let ((gate (once db)))
       (send-after 1 gate self :update map cust)
       (let ((ans  (handler-case
