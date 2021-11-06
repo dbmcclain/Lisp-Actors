@@ -36,7 +36,7 @@ In practice this works beautifully well. Gone is the confusion caused by nested 
 
 None of this would be necessary in a machine with only a single thread of execution. But multi-threaded applications, and especially SMP, pose a much higher level of complexity. I thought Actors would fix this, but it ends up being its own kind of complexity. I think the USING-BECOME, and being careful to write FPL pure code, makes things about as simple as can be.
 
-Example, from a database handler during write locking. While undergoing write modification (FPL style) the database remains intact and available for readers. Additional writers must be enqueued for later execution, after the current writer has finished. So the handler behavior code has selective use of USING-BECOME, allowing readers to proceed without any sponsor switching.
+Example, from a database handler during write locking. While undergoing write modification (FPL style) the database remains intact and available for readers. Additional writers must be enqueued for later execution, after the current writer has finished. So the handler behavior code has selective use of USING-BECOME, allowing readers to proceed in parallel, without any sponsor switching.
 ```
 (def-beh locked-db-beh (writer state sync pend-wr)
   (with-accessors ((kv-map  kv-state-map)) state
