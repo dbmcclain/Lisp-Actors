@@ -234,11 +234,14 @@
               (normq (cons (cdar q) (cdr q))))
     +doneq+))
 
+(defun emptyq? (q)
+  (null (car q)))
+
 (defun iterq (q fn)
   (um:nlet iter ((q q))
-    (multiple-value-bind (item new-q)
-        (popq q)
-      (unless (eq item +doneq+)
+    (unless (emptyq? q)
+      (multiple-value-bind (item new-q)
+          (popq q)
         (funcall fn item)
         (go-iter new-q))
       )))

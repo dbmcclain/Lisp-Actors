@@ -66,6 +66,7 @@ THE SOFTWARE.
    #:addq
    #:pushq
    #:popq
+   #:emptyq?
    #:iterq
    #:do-queue
    
