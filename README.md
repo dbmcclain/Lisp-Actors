@@ -28,15 +28,24 @@ We have IN-SPONSOR, PAR-SAFE, and IO wrappers that do this sponsor switching ahe
 
 Furthermore, there is nothing wrong with allowing some non-mutating sections of Actor code to run in arbitrary threads, and in parallel. And so it may be too severe to force the sponsor switching for all sections of the code. That really only needs to happen in sections that may be induced to perform a BECOME operation. Only those sections can lead to race conditions if allowed to run in parallel across multiple threads. (Assuming you are being good about writing FPL code)
 
-The solution I finally chose, was to require the use of USING-BECOME in those critical message handlers of Actor behavior code, before allowing the use of BECOME. That macro tells the system which Sponsor the following critical code needs to be running on. If the code is being executed in a different sponsor then we re-send the message to ourself on the desired sponsor, and then exit immediately. By default it uses BASE-SPONSOR, but applications can specify which sponsor if they want to.
+The solution I finally chose, was to use WITH-SPONSOR in those critical message handlers of Actor behavior code, ahead of any code that performs BECOME. That macro tells the system which Sponsor the following critical code needs to be running on. If the code is being executed in a different sponsor then we re-send the message to ourself on the desired sponsor, and then exit immediately. By default it uses BASE-SPONSOR, but applications can specify which sponsor if they want to.
 
-We make sure that happens by hiding BECOME inside of the USING-BECOME macro. It is not otherwise visible to the programmer. And USING-BECOME is likewise hidden inside the BEHAVIOR macro, which also makes SEND available to Actor behavior code. BEHAVIOR is automatically invoked when defining new behavior code with DEF-BEH. Without a BEHAVIOR form, none of SEND, USING-BECOME, nor BECOME is visible to the programmer.
+But there is a second possible solution, which might be simpler, so long as one abides by conventions. That is to consider that Actors are inherently single threaded. So program them that way entirely, and assume that they run in just one sponsor. This will generally be in the BASE-SPONSOR, unless wrapped with IN-SPONSOR. When you have an Actor that will be directed to run on another sponser, via IN-SPONSOR, wrap that Actor further with IOREQ, which arranges to send messages to the Actor with a customer argument likewise wrapped by IN-SPONSOR using the sender's own sponser. That way results are sent on to the customer in the original sender's sponsor, which will generally be the single thread of BASE-SPONSOR.
 
-In practice this works beautifully well. Gone is the confusion caused by nested IN-SPONSOR wrappers. There is no question about which Actor the SELF refers to now. And no need to use PAR-SAFE, nor worry about whether we should. It becomes always safe to hand out the SELF to other actors via SEND. The Actor code, via USING-BECOME, specifies exactly what needs to happen for just that section of code.
+In practice both of these solutons work beautifully well. Gone is the confusion caused by nested IN-SPONSOR wrappers. For the solution using WITH-SPONSOR inside the message handlers, this method makes the Actor inherently capable of running properly in a multi-threaded system with lots of traffic going cross-sponsor. There is no question about which Actor the SELF refers to now. And no need to use PAR-SAFE, nor worry about whether we should. It becomes always safe to hand out the SELF to other actors via SEND. The Actor code, via WITH-SPONSOR, specifies exactly what needs to happen for just that section of code.
 
-None of this would be necessary in a machine with only a single thread of execution. But multi-threaded applications, and especially SMP, pose a much higher level of complexity. I thought Actors would fix this, but it ends up being its own kind of complexity. I think the USING-BECOME, and being careful to write FPL pure code, makes things about as simple as can be.
+None of this would be necessary in a machine with only a single thread of execution. But multi-threaded applications, and especially SMP, pose a much higher level of complexity. I thought Actors would fix this, but it ends up being its own kind of complexity. I think the WITH-SPONSOR, and being careful to write FPL pure code, makes things about as simple as can be.
 
-Example, from a database handler during write locking. While undergoing write modification (FPL style) the database remains intact and available for readers. Additional writers must be enqueued for later execution, after the current writer has finished. So the handler behavior code has selective use of USING-BECOME, allowing readers to proceed in parallel, without any sponsor switching.
+---
+
+Fully multithread-capable example: from a database handler during write locking. While undergoing write modification (FPL style) the database remains intact and available for readers. Additional writers must be enqueued for later execution, after the current writer has finished. 
+
+So the handler behavior code has selective use of WITH-SPONSOR, allowing readers to proceed in parallel, without any sponsor switching. Since the database is updated in one step, all update modifications from the writer are instantiated fully at once. No readers ever need to be blocked.
+
+The underlying database uses a purely functional RB-Tree to store key/value pairs. So writers can freely and incrementally update the tree, while readers use the original intact.
+
+The code can be called from multiple simultaneous sponsors. When critical updates are necessary we simply ensure that we are running in the single thread of BASE-SPONSOR.
+
 ```
 (def-beh locked-db-beh (writer state sync pend-wr)
   (with-accessors ((kv-map  kv-state-map)) state
@@ -47,13 +56,13 @@ Example, from a database handler during write locking. While undergoing write mo
         (send cust (funcall queryfn kv-map) )))
       
      ((cust :write updatefn)
-      (using-become ()
+      (with-sponsor ()
         (become (locked-db-beh writer state sync
                                (addq pend-wr
                                      (cons cust updatefn) )))))
       
       ((cust :update new-map wr-cust) when (eq cust writer)
-       (using-become ()
+       (with-sponsor ()
          (let ((unchanged (eq kv-map new-map)))
            (send wr-cust self (not unchanged))
            (let ((new-state (if unchanged
