@@ -1,15 +1,12 @@
 
 (in-package :actors/macros)
 
-(defmacro %become (new-beh)
-  (lw:with-unique-names (gbeh)
-    `(let ((,gbeh ,new-beh))
-       (check-type ,gbeh function)
-       (check-type self actor)
-       (locally
-         (declare (actor self))
-         (setf (actor-beh self) ,gbeh)))
-    ))
+(defun %become (new-beh)
+  (check-type new-beh function)
+  (check-type self actor)
+  (locally
+    (declare (actor self))
+    (setf (actor-beh self) new-beh)))
 
 (defmacro %using-become (where &body body)
   (lw:with-unique-names (spon)
@@ -25,39 +22,20 @@
 #+:LISPWORKS
 (editor:setup-indent "using-become" 1)
 
-(defmacro %send (actor &rest msg)
-  (lw:with-unique-names (gactor)
-    `(let ((,gactor ,actor))
-       (check-type ,gactor actor)
-       (check-type self actor) ;; check we are running in an Actor behavior
-       (actors/base:add-evq actors/base:*evt-queue* (list ,gactor ,@msg)))
-    ))
+(defun %send (actor &rest msg)
+  (check-type actor actor)
+  (check-type self actor) ;; check we are running in an Actor behavior
+  (actors/base:add-evq actors/base:*evt-queue* (cons actor msg)))
 
 (defmacro %send* (actor &rest msg)
-  (lw:with-unique-names (gactor)
-    `(let ((,gactor ,actor))
-       (check-type ,gactor actor)
-       (check-type self actor)
-       (actors/base:add-evq actors/base:*evt-queue* (list* ,gactor ,@msg)))
-    ))
+  `(apply #'%send ,actor ,@msg))
 
-(defmacro %repeat-send (actor)
-  (lw:with-unique-names (gactor)
-    `(let ((,gactor ,actor))
-       (check-type ,gactor actor)
-       (check-type self actor)
-       (actors/base:add-evq actors/base:*evt-queue* (cons ,gactor actors/base:*whole-message*)))
-    ))
+(defun %repeat-send (actor)
+  (%send* actor actors/base:*whole-message*))
 
-(defmacro %send-combined-msg (actor msg1 msg2)
-  (lw:with-unique-names (gactor)
-    `(let ((,gactor ,actor))
-       (check-type ,gactor actor)
-       (check-type self actor)
-       (actors/base:add-evq actors/base:*evt-queue* (cons ,gactor (append ,msg1 ,msg2))))
-    ))
-
-#||#
+(defun %send-combined-msg (cust msg1 msg2)
+  (multiple-value-call #'%send cust (values-list msg1) (values-list msg2)))
+  
 (defmacro behavior (&body body)
   `(macrolet ((send (actor &rest msg)
                 `(%send ,actor ,@msg))
