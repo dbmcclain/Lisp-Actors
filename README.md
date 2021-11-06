@@ -36,7 +36,14 @@ In practice both of these solutons work beautifully well. Gone is the confusion 
 
 None of this would be necessary in a machine with only a single thread of execution. But multi-threaded applications, and especially SMP, pose a much higher level of complexity. I thought Actors would fix this, but it ends up being its own kind of complexity. I think the WITH-SPONSOR, and being careful to write FPL pure code, makes things about as simple as can be.
 
-Fully multithread-capable example: from a database handler during write locking. While undergoing write modification (FPL style) the database remains intact and available for readers. Additional writers must be enqueued for later execution, after the current writer has finished. So the handler behavior code has selective use of WITH-SPONSOR, allowing readers to proceed in parallel, without any sponsor switching. Since the database is updated in one step, all update modifications from the writer are instantiated fully at once. No readers ever need to be blocked.
+---
+
+Fully multithread-capable example: from a database handler during write locking. While undergoing write modification (FPL style) the database remains intact and available for readers. Additional writers must be enqueued for later execution, after the current writer has finished. 
+
+So the handler behavior code has selective use of WITH-SPONSOR, allowing readers to proceed in parallel, without any sponsor switching. Since the database is updated in one step, all update modifications from the writer are instantiated fully at once. No readers ever need to be blocked.
+
+The underlying database uses a purely functional RB-Tree to store key/value pairs. So writers can freely and incrementally update the tree, while readers use the original intact.
+
 ```
 (def-beh locked-db-beh (writer state sync pend-wr)
   (with-accessors ((kv-map  kv-state-map)) state
