@@ -32,10 +32,9 @@ The solution I finally chose, was to require the use of USING-BECOME in those cr
 
 We make sure that happens by hiding BECOME inside of the USING-BECOME macro. It is not otherwise visible to the programmer. And USING-BECOME is likewise hidden inside the BEHAVIOR macro which also makes SEND available to Actor behavior code. BEHAVIOR is automatically invoked when defining new behavior code with DEF-BEH. Without a BEHAVIOR form, none of SEND, USING-BECOME, and BECOME is visible to the programmer.
 
-None of this would be necessary in a machine with only a single thread of execution. But multi-threaded applications, and especially SMP, pose a much higher level of complexity. I thought Actors would fix this, but it ends up being its own kind of complexity. I think the USING-BECOME, and being careful to write FPL pure code, makes things about as simple as can be.
-
 In practice this works beautifully well. Gone is the confusion caused by nested IN-SPONSOR prefixes. There is no question about which Actor the SELF refers to now. And no need to use PAR-SAFE, or worry about whether we should. It becomes always safe to hand out the SELF to other actors via SEND. The Actor code, via USING-BECOME specifies exactly what needs to happen for just that section of code.
 
+None of this would be necessary in a machine with only a single thread of execution. But multi-threaded applications, and especially SMP, pose a much higher level of complexity. I thought Actors would fix this, but it ends up being its own kind of complexity. I think the USING-BECOME, and being careful to write FPL pure code, makes things about as simple as can be.
 
 
 
