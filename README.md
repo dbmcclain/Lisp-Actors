@@ -44,6 +44,8 @@ So the handler behavior code has selective use of WITH-SPONSOR, allowing readers
 
 The underlying database uses a purely functional RB-Tree to store key/value pairs. So writers can freely and incrementally update the tree, while readers use the original intact.
 
+The code can be called from multiple simultaneous sponsors. When critical updates are necessary we simply ensure that we are running in the single thread of BASE-SPONSOR.
+
 ```
 (def-beh locked-db-beh (writer state sync pend-wr)
   (with-accessors ((kv-map  kv-state-map)) state
