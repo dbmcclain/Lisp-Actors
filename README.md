@@ -55,7 +55,7 @@ Example, from a database handler during write locking. While undergoing write mo
       ((cust :update new-map wr-cust) when (eq cust writer)
        (using-become ()
          (let ((unchanged (eq kv-map new-map)))
-           (send wr-cust (par-safe self) (not unchanged))
+           (send wr-cust self (not unchanged))
            (let ((new-state
                   (cond (unchanged
                          state)
