@@ -15,7 +15,70 @@ As before, SEND and BECOME are transactional, taking effect only at the successf
 
 It is refreshing to chop away needless complexity...
 
+Notes from the field:
+---------------------
 
+I have an application for these Actors in the lab, controlling lab equipment from a remote workstation. They work exceedingly well, with huge simplification to the logic of the program. And that field work has shown some lessons along the way.
+
+Probably the most important lesson has been the complexity, even here with Actors, provided by SMP multithreaded environments. In Actors we forego using Locks. There are still some locks implicit in the mailboxes used to converse across sponsor boundaries. But mostly we rely on the sponsor event queues to prevent parallel access to critical code. Each sponsor is a single thread, and so any code executing in a sponsor is also single threaded and thread-safe - provided only one copy of that code can be running in one sponsor at a time. 
+
+But code is code, and it runs just fine on any thread, even in parallel (even simultaneously, with SMP). To prevent critical code from running in more than one sponsor, we can arrange that some particular behavior code is only allowed to run in one specific sponsor thread. If the code detects that the current thread belongs to a different sponsor, then it re-sends the message to itself in the desired sponsor and exits immediately. That queues up the message along with all other possible contenders in the chosen sponsor's event queue. Each event takes its turn in the code. We have concurrency, but not parallelism.
+
+We have IN-SPONSOR, PAR-SAFE, and IO wrappers that do this sponsor switching ahead of running an Actor. But these solutions are often too coarse, and it becomes confusing to reason about which sponsor a particular Actor will be running on, especially when these are nested actions. A PAR-SAFE wrapping an Actor that has been wrapped by IN-SPONSOR, etc. The chains become potentially endless, occupies needless runtime with all the sponsor-switching re-sends, and SELF only refers to the final Actor actually running. It does not refer to any outermost IN-SPONSOR wrapper Actor, and becomes unsafe to hand out in message SEND, without rewrapping it first. It becomes very confusing to reason about.
+
+Furthermore, there is nothing wrong with allowing some non-mutating sections of Actor code to run in arbitrary threads, and in parallel. And so it may be too severe to force the sponsor switching for all sections of the code. That really only needs to happen in sections that may be induced to perform a BECOME operation. Only those sections can lead to race conditions if allowed to run in parallel across multiple threads. (Assuming you are being good about writing FPL code)
+
+The solution I finally chose, was to require the use of USING-BECOME in those critical message handlers of Actor behavior code, before allowing the use of BECOME. That macro tells the system which Sponsor the following critical code needs to be running on. If the code is being executed in a different sponsor then we re-send the message to ourself on the desired sponsor, and then exit immediately. By default it uses BASE-SPONSOR, but applications can specify which sponsor if they want to.
+
+We make sure that happens by hiding BECOME inside of the USING-BECOME macro. It is not otherwise visible to the programmer. And USING-BECOME is likewise hidden inside the BEHAVIOR macro, which also makes SEND available to Actor behavior code. BEHAVIOR is automatically invoked when defining new behavior code with DEF-BEH. Without a BEHAVIOR form, none of SEND, USING-BECOME, nor BECOME is visible to the programmer.
+
+In practice this works beautifully well. Gone is the confusion caused by nested IN-SPONSOR wrappers. There is no question about which Actor the SELF refers to now. And no need to use PAR-SAFE, nor worry about whether we should. It becomes always safe to hand out the SELF to other actors via SEND. The Actor code, via USING-BECOME, specifies exactly what needs to happen for just that section of code.
+
+None of this would be necessary in a machine with only a single thread of execution. But multi-threaded applications, and especially SMP, pose a much higher level of complexity. I thought Actors would fix this, but it ends up being its own kind of complexity. I think the USING-BECOME, and being careful to write FPL pure code, makes things about as simple as can be.
+
+Example, from a database handler during write locking. While undergoing write modification (FPL style) the database remains intact and available for readers. Additional writers must be enqueued for later execution, after the current writer has finished. So the handler behavior code has selective use of USING-BECOME, allowing readers to proceed without any sponsor switching.
+```
+(def-beh locked-db-beh (writer state sync pend-wr)
+  (with-accessors ((kv-map  kv-state-map)) state
+    (alambda
+     
+     ((cust :read queryfn)
+      (with-worker
+        (send cust (funcall queryfn kv-map) )))
+      
+     ((cust :write updatefn)
+      (using-become ()
+        (become (locked-db-beh writer state sync
+                               (addq pend-wr
+                                     (cons cust updatefn) )))))
+      
+      ((cust :update new-map wr-cust) when (eq cust writer)
+       (using-become ()
+         (let ((unchanged (eq kv-map new-map)))
+           (send wr-cust self (not unchanged))
+           (let ((new-state
+                  (cond (unchanged
+                         state)
+                        (t
+                         (let ((new-state (copy-state-with state
+                                                           :map new-map
+                                                           :ver (new-ver))))
+                           (send sync self :update new-state)
+                           new-state))
+                        )))
+             (multiple-value-bind (pair new-queue)
+                 (popq pend-wr)
+               (if (eq pair +doneq+)
+                   (become (kv-database-beh new-state sync))
+                 (let ((new-writer (make-writer (car pair) (cdr pair) new-map)))
+                   (send new-writer (once self))
+                   (become (locked-db-beh new-writer new-state sync new-queue))
+                   ))
+               )))))
+      )))
+```      
+      
+---------------
 
 -- Lisp-Actors - Classical Actors (in TActors folder - Earlier in 2021) --
 -------------
