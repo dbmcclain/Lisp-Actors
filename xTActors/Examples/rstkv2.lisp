@@ -125,24 +125,22 @@ storage and network transmission.
        (using-become ()
          (let ((unchanged (eq kv-map new-map)))
            (send wr-cust self (not unchanged))
-           (let ((new-state
-                  (cond (unchanged
-                         state)
-                        (t
-                         (let ((new-state (copy-state-with state
-                                                           :map new-map
-                                                           :ver (new-ver))))
-                           (send sync self :update new-state)
-                           new-state))
-                        )))
+           (let ((new-state (if unchanged
+                                state
+                              (let ((new-state (copy-state-with state
+                                                                :map new-map
+                                                                :ver (new-ver))))
+                                (send sync self :update new-state)
+                                new-state))))
              (multiple-value-bind (pair new-queue)
                  (popq pend-wr)
                (if (eq pair +doneq+)
                    (become (kv-database-beh new-state sync))
-                 (let ((new-writer (make-writer (car pair) (cdr pair) new-map)))
-                   (send new-writer (once self))
-                   (become (locked-db-beh new-writer new-state sync new-queue))
-                   ))
+                 (destructuring-bind (new-cust . new-updatefn) pair
+                   (let ((new-writer (make-writer new-cust new-updatefn new-map)))
+                     (send new-writer (once self))
+                     (become (locked-db-beh new-writer new-state sync new-queue))
+                     )))
                )))))
       )))
 
