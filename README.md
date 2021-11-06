@@ -78,7 +78,7 @@ Example, from a database handler during write locking. While undergoing write mo
       )))
       ```
       
-
+---------------
 
 -- Lisp-Actors - Classical Actors (in TActors folder - Earlier in 2021) --
 -------------
