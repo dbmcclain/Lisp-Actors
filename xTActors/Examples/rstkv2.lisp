@@ -124,7 +124,7 @@ storage and network transmission.
       ((cust :update new-map wr-cust) when (eq cust writer)
        (using-become ()
          (let ((unchanged (eq kv-map new-map)))
-           (send wr-cust (par-safe self) (not unchanged))
+           (send wr-cust self (not unchanged))
            (let ((new-state
                   (cond (unchanged
                          state)
@@ -173,7 +173,7 @@ storage and network transmission.
    ((cust :update state) when (eq cust server)
     (using-become ()
       (unless (eq state last-state)
-        (let ((tag  (tag (par-safe self))))
+        (let ((tag  (tag self)))
           (send-after *writeback-delay* tag :write state)
           (become (sync-beh server state tag))
           ))))
@@ -385,12 +385,11 @@ storage and network transmission.
             (actor (cust)
               (beta (state)
                   (send reader beta)
-                (actors ((server (kv-database-beh state (par-safe sync)))
+                (actors ((server (kv-database-beh state sync))
                          (sync   (sync-beh server nil nil)))
-                  (let ((safe-server (par-safe server)))
-                    (maps:addf *stkv-servers* (kv-state-path state) safe-server)
-                    (send cust safe-server)
-                    )))))
+                  (maps:addf *stkv-servers* (kv-state-path state) server)
+                  (send cust server)
+                  ))))
            (prober
             (io (actor (cust)
                   (send cust

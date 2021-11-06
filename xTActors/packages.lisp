@@ -57,6 +57,7 @@ THE SOFTWARE.
    #:actor-nlet
 
    #:def-beh
+   #:def-sponsor
    #:behavior
    #:using-become
    
