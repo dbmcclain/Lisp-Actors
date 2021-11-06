@@ -124,11 +124,6 @@
             (send-combined-msg cust msg-hd msg-tl)))
         ))))
 
-#|
-(defun send-combined-msg (cust msg1 msg2)
-  (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
-|#
-
 ;; -----------------------------------
 ;; PAR - make an Actor that evaluates a series of blocks concurrently.
 ;; Each block is fed the same initial message, and the results from
@@ -293,6 +288,7 @@
            (repeat-send self))
           )))
 |#
+
 #||#
 ;; This version does not cause the CPU to spin
 (def-beh serializer-beh (service)
@@ -412,14 +408,14 @@
 
 (def-beh working-pipe-beh (cust elts)
   (lambda (&rest ans)
-    (using-become ()
-      (let ((rest (cdr elts)))
-        (cond (rest
+    (let ((rest (cdr elts)))
+      (cond (rest
+             (using-become ()
                (send* (car elts) (once self) ans)
-               (become (working-pipe-beh cust rest)))
-              (t
-               (send* (car elts) cust ans))
-              )))))
+               (become (working-pipe-beh cust rest))))
+            (t
+             (send* (car elts) cust ans))
+            ))))
 
 (defun pipe (&rest elts)
   (cond ((cdr elts)
@@ -436,9 +432,9 @@
   (alambda
    ((atag) when (eq tag atag)
     (using-become ()
-      (become prev-beh))
-    (do-queue (item queue)
-      (send* self item)))
+      (become prev-beh)
+      (do-queue (item queue)
+        (send* self item))))
 
    (msg
     (using-become ()

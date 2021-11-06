@@ -205,52 +205,23 @@ THE SOFTWARE.
 ;; HANDLER-CASE, HANDLER-BIND, or IGNORE-ERRORS. Otherwise, an error
 ;; will make it seem that the message causing the error was never
 ;; delivered.
-
-;; (declaim (inline become send repeat-send))
-
-#|
-(defun become (new-beh)
-  ;; Change behavior/state. Only meaningful if an Actor calls
-  ;; this.
-  #F
-  (check-type self actor)
-  (check-type new-beh function)
-  (locally
-    (declare (actor self))
-    (setf (actor-beh self) new-beh)))
-
-(defmacro send* (actor &rest msg)
-  ;; to be used when final arg is a list
-  ;; saves typing APPLY #'SEND, analogous to LIST*
-  `(apply #'send ,actor ,@msg))
-
-(defun send (actor &rest msg)
-  ;; msg should always start with an Actor
-  #F
-  (check-type actor actor)
-  (check-type *evt-queue* cons)
-  (add-evq *evt-queue* (cons actor msg)))
-
-(defun repeat-send (dest)
-  ;; Send the current event message to another Actor
-  #F
-  (send* dest (the list *whole-message*)))
-|#
+;;
+;; These operations have been placed into macros which makes them
+;; unavailable as user level symbols. But they become visible to the
+;; body of behavior code, introduced by DEF-BEH and BEHAVIOR forms.
 
 ;; ----------------------------------------------------------
 ;; SPONSORS -- offer an event queue and have an associated runtime
 ;; thread performing RUN dispatching of Actor events.
 ;;
 
-(defun sponsor-beh (mbox thread)
+(def-beh sponsor-beh (mbox thread)
   ;; this one is just slightly special
   (alambda
    ((:shutdown)
-    (behavior
-      (using-become ()
-        (become #'lw:do-nothing)
-        (mp:process-terminate thread)
-        )))
+    (using-become ()
+      (become #'lw:do-nothing)
+      (mp:process-terminate thread)))
    
    ((actor . msg)
     (check-type actor actor)
