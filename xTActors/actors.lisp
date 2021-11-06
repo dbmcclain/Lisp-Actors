@@ -266,6 +266,9 @@ THE SOFTWARE.
     sponsor))
 
 ;; ----------------------------------------------------------------
+;; Start with two Sponsors: there is no difference between them. But
+;; we envision that the SLOW-SPONSOR will be used to run Actors with
+;; blocking actions, e.g., I/O.
 
 (defvar base-sponsor (make-actor))
 (defvar slow-sponsor (make-actor))

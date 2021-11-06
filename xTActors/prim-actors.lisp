@@ -89,9 +89,9 @@
   ;; Return an Actor that represents the future value. Send that value
   ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST)
   (actors ((fut (future-wait-beh tag))
-           (tag (tag-beh (par-safe fut))))
-    (send* actor tag msg)
-    fut))
+           (tag (tag-beh fut)))
+    (send* actor (once tag) msg)
+    (par-safe fut)))
 
 ;; -----------------------------------------
 
@@ -100,8 +100,8 @@
   ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
   (actor (cust)
     (actors ((fut  (future-wait-beh tag cust))
-             (tag  (tag-beh (par-safe fut))))
-      (send* actor tag msg))
+             (tag  (tag-beh fut)))
+      (send* actor (once tag) msg))
     ))
 
 ;; --------------------------------------
@@ -116,8 +116,10 @@
      (if (null lst)
          (send cust)
        (let ((me self))
-         (beta msg-hd (send* (car lst) beta msg)
-           (beta msg-tl (send* me beta (cdr lst) msg)
+         (beta msg-hd
+             (send* (car lst) beta msg)
+           (beta msg-tl
+               (send* me beta (cdr lst) msg)
              (send-combined-msg cust msg-hd msg-tl)))
          )))
    ))
@@ -136,20 +138,16 @@
   ;; another label. There are only two possible incoming incoming
   ;; messages, because in use, our Actor is ephemeral and anonymous. So no
   ;; other incoming messages are possible.
+  (declare (ignore lbl2))
   (lambda (lbl &rest msg)
     (cond ((eq lbl lbl1)
            (become (lambda (lbl &rest msg2)
-                     (when (eq lbl lbl2) ;; guard against repeated lbl1 messages
-                        (send-combined-msg cust msg msg2)
-                        (become (sink-beh)))) ;; go silent after completion
+                     (send-combined-msg cust msg msg2))
                    ))
-          ((eq lbl lbl2)
+          (t ;; could only be lbl2
            (become (lambda (lbl &rest msg1)
-                     (when (eq lbl lbl1) ;; guard against repeated lbl2 messages
-                       (send-combined-msg cust msg1 msg)
-                       (become (sink-beh)))) ;; go silent after completion
+                     (send-combined-msg cust msg1 msg))
                    ))
-          ;; ignore any other funny business
           )))
 
 (defun fork (left right)
@@ -157,12 +155,11 @@
   ;; and rreq to right, collecting combined results into one ordered
   ;; response.
   (actor (cust lreq rreq)
-    (actors ((join      (join-beh cust tag-l tag-r))
-             (safe-join (par-safe-beh join))
-             (tag-l     (tag-beh safe-join))
-             (tag-r     (tag-beh safe-join)))
-      (send* left tag-l lreq)
-      (send* right tag-r rreq))
+    (actors ((join   (join-beh cust tag-l tag-r))
+             (tag-l  (tag-beh join))
+             (tag-r  (tag-beh join)))
+      (send* left (once tag-l) lreq)
+      (send* right (once tag-r) rreq))
     ))
 
 (defvar par
@@ -171,12 +168,11 @@
   (actor (cust lst &rest msg)
     (if (null lst)
         (send cust)
-      (actors ((join      (join-beh cust tag-car tag-cdr))
-               (safe-join (par-safe-beh join))
-               (tag-car   (tag-beh safe-join))
-               (tag-cdr   (tag-beh safe-join)))
-        (send* (car lst) tag-car msg)
-        (send* self tag-cdr (cdr lst) msg)))
+      (actors ((join     (join-beh cust tag-car tag-cdr))
+               (tag-car  (tag-beh join))
+               (tag-cdr  (tag-beh join)))
+        (send* (car lst) (once tag-car) msg)
+        (send* self (once tag-cdr) (cdr lst) msg)))
     ))
 
 ;; ---------------------------------------------------------
@@ -203,12 +199,11 @@
 (defun scheduled-message-beh (cust dt &rest msg)
   (let ((timer (apply #'mp:make-timer #'foreign-send cust msg)))
     (lambda* _
-      (mp:schedule-timer-relative timer dt)
-      (become (sink-beh)))
+      (mp:schedule-timer-relative timer dt))
     ))
 
 (defun scheduled-message (cust dt &rest msg)
-  (par-safe (make-actor (apply #'scheduled-message-beh cust dt msg))))
+  (make-actor (apply #'scheduled-message-beh cust dt msg)))
 
 (defun send-after (dt actor &rest msg)
   (let ((timer (apply #'mp:make-timer #'foreign-send actor msg)))
@@ -297,8 +292,8 @@
 (defun serializer-beh (service)
   ;; initial empty state
   (lambda (cust &rest msg)
-    (let ((tag  (tag (par-safe self))))
-      (send* service tag msg)
+    (let ((tag  (tag self)))
+      (send* service (once tag) msg)
       (become (enqueued-serializer-beh
                service tag cust +emptyq+))
       )))
@@ -312,7 +307,7 @@
              (if (eq next-req +doneq+)
                  (become (serializer-beh service))
                (destructuring-bind (next-cust . next-msg) next-req
-                 (send* service tag next-msg)
+                 (send* service (once tag) next-msg)
                  (become (enqueued-serializer-beh
                           service tag next-cust new-queue))
                  ))))
@@ -397,7 +392,7 @@
    ))
     
 (defun sequenced-delivery ()
-  (make-actor (no-pend-beh)))
+  (par-safe (make-actor (no-pend-beh))))
 
 ;; ----------------------------------------------
 ;; PIPE - Data processing pipelines
@@ -405,19 +400,18 @@
 
 (defun working-pipe-beh (cust elts)
   (lambda (&rest ans)
-    (cond ((cdr elts)
-           (send* (car elts) self ans)
-           (become (working-pipe-beh cust (cdr elts))))
-          (t
-           (send* (car elts) cust ans))
-          )))
+    (let ((rest (cdr elts)))
+      (cond (rest
+             (send* (car elts) (once self) ans)
+             (become (working-pipe-beh cust rest)))
+            (t
+             (send* (car elts) cust ans))
+            ))))
 
 (defun pipe (&rest elts)
   (cond ((cdr elts)
          (actor (cust &rest msg)
-           (send* (car elts) self msg)
-           (become (working-pipe-beh cust (cdr elts)))
-           ))
+           (send* (make-actor (working-pipe-beh cust elts)) msg)))
         (elts  (car elts))
         (t     (actor (cust &rest msg)
                  (send* cust msg)))
