@@ -1,63 +1,6 @@
 
 (in-package :actors/macros)
 
-(defun %become (new-beh)
-  (check-type new-beh function)
-  (check-type self actor)
-  (locally
-    (declare (actor self))
-    (setf (actor-beh self) new-beh)))
-
-(defun %do-using-become (where fn)
-  (let ((spon (or where base-sponsor)))
-    (if (eq spon self-sponsor)
-        (funcall fn)
-      (%send* spon self actors/base:*whole-message*))))
-
-(defmacro %using-become (where &body body)
-  ;; Properly belongs just after message detection which might trigger
-  ;; BECOME. Should be used ahead of any side-effecting code in the
-  ;; handler clause.
-  `(%do-using-become ,where
-                     (lambda ()
-                       (macrolet ((become (new-beh)
-                                    `(%become ,new-beh)))
-                         ,@body))) )
-
-#+:LISPWORKS
-(editor:setup-indent "using-become" 1)
-
-(defun %send (actor &rest msg)
-  (check-type actor actor)
-  (check-type self actor) ;; check we are running in an Actor behavior
-  (actors/base:add-evq actors/base:*evt-queue* (cons actor msg)))
-
-(defmacro %send* (actor &rest msg)
-  `(apply #'%send ,actor ,@msg))
-
-(defun %repeat-send (actor)
-  (%send* actor actors/base:*whole-message*))
-
-(defun %send-combined-msg (cust msg1 msg2)
-  (multiple-value-call #'%send cust (values-list msg1) (values-list msg2)))
-  
-(defmacro behavior (&body body)
-  `(macrolet ((send (actor &rest msg)
-                `(%send ,actor ,@msg))
-              (send* (actor &rest msg)
-                `(%send* ,actor ,@msg))
-              (repeat-send (actor)
-                `(%repeat-send ,actor))
-              (send-combined-msg (cust msg1 msg2)
-                `(%send-combined-msg ,cust ,msg1 ,msg2))
-              (using-become ((&optional where) &body body)
-                `(%using-become ,where ,@body)))
-     ,@body))
-
-(defmacro def-beh (name args &body body)
-  `(defun ,name ,args
-     (behavior ,@body)))
-
 ;; --------------------------------------
 ;; ACTOR in function position acts like a higher level LAMBDA expression
 

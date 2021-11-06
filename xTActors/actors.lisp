@@ -210,6 +210,63 @@ THE SOFTWARE.
 ;; unavailable as user level symbols. But they become visible to the
 ;; body of behavior code, introduced by DEF-BEH and BEHAVIOR forms.
 
+(defun %send (actor &rest msg)
+  (check-type actor actor)
+  (check-type *current-actor* actor) ;; check we are running in an Actor behavior
+  (add-evq *evt-queue* (cons actor msg)))
+
+(defmacro %send* (actor &rest msg)
+  `(apply #'%send ,actor ,@msg))
+
+(defun %repeat-send (actor)
+  (%send* actor *whole-message*))
+
+(defun %send-combined-msg (cust msg1 msg2)
+  (multiple-value-call #'%send cust (values-list msg1) (values-list msg2)))
+  
+(defun %become (new-beh)
+  (check-type new-beh function)
+  (check-type *current-actor* actor)
+  (locally
+    (declare (actor *current-actor*))
+    (setf (actor-beh *current-actor*) new-beh)))
+
+(defun %do-using-become (where fn)
+  (let ((spon (or where base-sponsor)))
+    (if (eq spon *current-sponsor*)
+        (funcall fn)
+      (%send* spon *current-actor* *whole-message*))))
+
+(defmacro %using-become (where &body body)
+  ;; Properly belongs just after message detection which might trigger
+  ;; BECOME. Should be used ahead of any side-effecting code in the
+  ;; handler clause.
+  `(%do-using-become ,where
+                     (lambda ()
+                       (macrolet ((become (new-beh)
+                                    `(%become ,new-beh)))
+                         ,@body))) )
+
+#+:LISPWORKS
+(editor:setup-indent "using-become" 1)
+
+(defmacro behavior (&body body)
+  `(macrolet ((send (actor &rest msg)
+                `(%send ,actor ,@msg))
+              (send* (actor &rest msg)
+                `(%send* ,actor ,@msg))
+              (repeat-send (actor)
+                `(%repeat-send ,actor))
+              (send-combined-msg (cust msg1 msg2)
+                `(%send-combined-msg ,cust ,msg1 ,msg2))
+              (using-become ((&optional where) &body body)
+                `(%using-become ,where ,@body)))
+     ,@body))
+
+(defmacro def-beh (name args &body body)
+  `(defun ,name ,args
+     (behavior ,@body)))
+
 ;; ----------------------------------------------------------
 ;; SPONSORS -- offer an event queue and have an associated runtime
 ;; thread performing RUN dispatching of Actor events.

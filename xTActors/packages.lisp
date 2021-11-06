@@ -82,8 +82,6 @@ THE SOFTWARE.
    #:io-beh
    #:io
 
-   #:current-sponsor
-   #:*current-sponsor*
    #:sponsor
    #:make-sponsor
    #:kill-sponsor
@@ -373,9 +371,11 @@ THE SOFTWARE.
    #:assemble-ask-message
    #:no-immediate-answer
    #:retry-send
+   #:*current-actor*
+   #:*current-sponsor*
    #:*whole-message*
-   #:add-evq
    #:*evt-queue*
+   #:add-evq
    ))
 
 (defpackage #:actors/rwgate
