@@ -1,13 +1,88 @@
 
 (in-package :actors/macros)
 
+(defmacro %become (new-beh)
+  (lw:with-unique-names (gbeh)
+    `(let ((,gbeh ,new-beh))
+       (check-type ,gbeh function)
+       (check-type self actor)
+       (locally
+         (declare (actor self))
+         (setf (actor-beh self) ,gbeh)))
+    ))
+
+(defmacro %using-become (where &body body)
+  (lw:with-unique-names (spon)
+    `(let ((,spon (or ,where base-sponsor)))
+       (if (eq self-sponsor ,spon)
+           (macrolet ((become (new-beh)
+                        `(%become ,new-beh)))
+             ,@body)
+         ;; else
+         (send* ,spon self actors/base:*whole-message*)))
+    ))
+
+#+:LISPWORKS
+(editor:setup-indent "using-become" 1)
+
+(defmacro %send (actor &rest msg)
+  (lw:with-unique-names (gactor)
+    `(let ((,gactor ,actor))
+       (check-type ,gactor actor)
+       (check-type self actor) ;; check we are running in an Actor behavior
+       (actors/base:add-evq actors/base:*evt-queue* (list ,gactor ,@msg)))
+    ))
+
+(defmacro %send* (actor &rest msg)
+  (lw:with-unique-names (gactor)
+    `(let ((,gactor ,actor))
+       (check-type ,gactor actor)
+       (check-type self actor)
+       (actors/base:add-evq actors/base:*evt-queue* (list* ,gactor ,@msg)))
+    ))
+
+(defmacro %repeat-send (actor)
+  (lw:with-unique-names (gactor)
+    `(let ((,gactor ,actor))
+       (check-type ,gactor actor)
+       (check-type self actor)
+       (actors/base:add-evq actors/base:*evt-queue* (cons ,gactor actors/base:*whole-message*)))
+    ))
+
+(defmacro %send-combined-msg (actor msg1 msg2)
+  (lw:with-unique-names (gactor)
+    `(let ((,gactor ,actor))
+       (check-type ,gactor actor)
+       (check-type self actor)
+       (actors/base:add-evq actors/base:*evt-queue* (cons ,gactor (append ,msg1 ,msg2))))
+    ))
+
+#||#
+(defmacro behavior (&body body)
+  `(macrolet ((send (actor &rest msg)
+                `(%send ,actor ,@msg))
+              (send* (actor &rest msg)
+                `(%send* ,actor ,@msg))
+              (repeat-send (actor)
+                `(%repeat-send ,actor))
+              (send-combined-msg (cust msg1 msg2)
+                `(%send-combined-msg ,cust ,msg1 ,msg2))
+              (using-become ((&optional where) &body body)
+                `(%using-become ,where ,@body)))
+     ,@body))
+
+(defmacro def-beh (name args &body body)
+  `(defun ,name ,args
+     (behavior ,@body)))
+
 ;; --------------------------------------
 ;; ACTOR in function position acts like a higher level LAMBDA expression
 
 (defmacro actor (args &body body)
   `(make-actor
     (lambda* ,args
-      ,@body)))
+      (behavior
+        ,@body))))
 
 #+:LISPWORKS
 (editor:setup-indent "actor" 1)
@@ -233,3 +308,11 @@
 
 #+:LISPWORKS
 (editor:indent-like "actor-nlet" 'nlet)
+
+;; ----------------------------------------------------
+
+#|
+(behavior
+  (using-become ()
+    (become (make-beh 15))))
+|#

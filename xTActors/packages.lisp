@@ -56,6 +56,10 @@ THE SOFTWARE.
    #:list-match
    #:actor-nlet
 
+   #:def-beh
+   #:behavior
+   #:using-become
+   
    #:+emptyq+
    #:+doneq+
    #:addq
@@ -90,8 +94,12 @@ THE SOFTWARE.
    #:restart-actors-system
    #:kill-actors-system
 
+   #:become   
    #:send
    #:send*
+   #:repeat-send
+   #:send-combined-msg
+   
    #:self
    #:self-beh
    #:self-sponsor
@@ -106,11 +114,6 @@ THE SOFTWARE.
    #:make-remote-actor
    #:with-worker
    
-   #:become
-   #:repeat-send
-   
-   #:invalid-send-target
-
    #:make-actor-directory
    #:clear-directory
    #:register-actor
@@ -371,6 +374,8 @@ THE SOFTWARE.
    #:no-immediate-answer
    #:retry-send
    #:*whole-message*
+   #:add-evq
+   #:*evt-queue*
    ))
 
 (defpackage #:actors/rwgate

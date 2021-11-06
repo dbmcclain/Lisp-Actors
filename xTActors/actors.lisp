@@ -206,8 +206,9 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(declaim (inline become send repeat-send))
+;; (declaim (inline become send repeat-send))
 
+#|
 (defun become (new-beh)
   ;; Change behavior/state. Only meaningful if an Actor calls
   ;; this.
@@ -234,6 +235,7 @@ THE SOFTWARE.
   ;; Send the current event message to another Actor
   #F
   (send* dest (the list *whole-message*)))
+|#
 
 ;; ----------------------------------------------------------
 ;; SPONSORS -- offer an event queue and have an associated runtime
@@ -241,11 +243,15 @@ THE SOFTWARE.
 ;;
 
 (defun sponsor-beh (mbox thread)
+  ;; this one is just slightly special
   (alambda
    ((:shutdown)
-    (become #'lw:do-nothing)
-    (mp:process-terminate thread))
-
+    (behavior
+      (using-become ()
+        (become #'lw:do-nothing)
+        (mp:process-terminate thread)
+        )))
+   
    ((actor . msg)
     (check-type actor actor)
     (mp:mailbox-send mbox (cons actor msg)))
@@ -289,7 +295,7 @@ THE SOFTWARE.
 ;; -------------------------------------------------------
 ;; Cross-sponsor sends
 
-(defun in-sponsor-beh (sponsor actor)
+(def-beh in-sponsor-beh (sponsor actor)
   (lambda* msg
     (if (eq sponsor self-sponsor)
         (send* actor msg)
@@ -334,17 +340,17 @@ THE SOFTWARE.
 (defvar println
   (io
     ;; because we are managing an output stream
-    (make-actor
-     (lambda* msg
+    (actor msg
        (format t "~&~{~A~%~^ ~}" msg))
-     )))
+     ))
 
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world
 
 (defun foreign-send (actor &rest msg)
   (if self
-      (send* actor msg)
+      (behavior
+        (send* actor msg))
     ;; this only works because we know how simple the sponsor code is.
     (apply (actor-beh base-sponsor) actor msg))) 
 
@@ -363,7 +369,8 @@ THE SOFTWARE.
       ;; Counterproductive when called from an Actor, except for
       ;; possible side effects. Should use BETA forms if you want the
       ;; answer.
-      (send* actor sink msg)
+      (behavior
+        (send* actor sink msg))
     (let ((mbox (mp:make-mailbox)))
       (apply 'foreign-send actor (mbox-sender mbox) msg)
       (values-list (mp:mailbox-read mbox)))
