@@ -8,16 +8,21 @@
     (declare (actor self))
     (setf (actor-beh self) new-beh)))
 
+(defun %do-using-become (where fn)
+  (let ((spon (or where base-sponsor)))
+    (if (eq spon self-sponsor)
+        (funcall fn)
+      (%send* spon self actors/base:*whole-message*))))
+
 (defmacro %using-become (where &body body)
-  (lw:with-unique-names (spon)
-    `(let ((,spon (or ,where base-sponsor)))
-       (if (eq self-sponsor ,spon)
-           (macrolet ((become (new-beh)
-                        `(%become ,new-beh)))
-             ,@body)
-         ;; else
-         (send* ,spon self actors/base:*whole-message*)))
-    ))
+  ;; Properly belongs just after message detection which might trigger
+  ;; BECOME. Should be used ahead of any side-effecting code in the
+  ;; handler clause.
+  `(%do-using-become ,where
+                     (lambda ()
+                       (macrolet ((become (new-beh)
+                                    `(%become ,new-beh)))
+                         ,@body))) )
 
 #+:LISPWORKS
 (editor:setup-indent "using-become" 1)
