@@ -90,7 +90,7 @@
   ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST)
   (actors ((fut (future-wait-beh tag))
            (tag (tag-beh fut)))
-    (send* actor (once tag) msg)
+    (send* actor tag msg)
     fut))
 
 ;; -----------------------------------------
@@ -101,7 +101,7 @@
   (actor (cust)
     (actors ((fut  (future-wait-beh tag cust))
              (tag  (tag-beh fut)))
-      (send* actor (once tag) msg))
+      (send* actor tag msg))
     ))
 
 ;; --------------------------------------
@@ -154,8 +154,8 @@
     (actors ((join   (join-beh cust tag-l))
              (tag-l  (tag-beh join))
              (tag-r  (tag-beh join)))
-      (send* left (once tag-l) lreq)
-      (send* right (once tag-r) rreq))
+      (send* left tag-l lreq)
+      (send* right tag-r rreq))
     ))
 
 (defvar par
@@ -167,8 +167,8 @@
       (actors ((join     (join-beh cust tag-car))
                (tag-car  (tag-beh join))
                (tag-cdr  (tag-beh join)))
-        (send* (car lst) (once tag-car) msg)
-        (send* self (once tag-cdr) (cdr lst) msg)))
+        (send* (car lst) tag-car msg)
+        (send* self tag-cdr (cdr lst) msg)))
     ))
 
 ;; ---------------------------------------------------------
@@ -293,7 +293,7 @@
   ;; initial empty state
   (lambda (cust &rest msg)
     (let ((tag  (tag self)))
-      (send* service (once tag) msg)
+      (send* service tag msg)
       (become (enqueued-serializer-beh
                service tag cust +emptyq+))
       )))
@@ -307,7 +307,7 @@
              (if (eq next-req +doneq+)
                  (become (serializer-beh service))
                (destructuring-bind (next-cust . next-msg) next-req
-                 (send* service (once tag) next-msg)
+                 (send* service tag next-msg)
                  (become (enqueued-serializer-beh
                           service tag next-cust new-queue))
                  ))))
@@ -402,7 +402,7 @@
   (lambda (&rest ans)
     (let ((rest (cdr elts)))
       (cond (rest
-             (send* (car elts) (once self) ans)
+             (send* (car elts) self ans)
              (become (working-pipe-beh cust rest)))
             (t
              (send* (car elts) cust ans))
@@ -458,20 +458,11 @@
 |#
 ;; ------------------------------------------
 
-(def-beh ret-beh (spon cust)
-  (lambda* ans
-    (with-sponsor (spon)
-      (send* cust ans))
-    ))
-
-(defun make-ret (cust)
-  (make-actor (ret-beh self-sponsor cust)))
-
 (def-beh ioreq-beh (actor)
   ;; send to actor, return its reply to cust in its original sponsor.
   ;; typically, actor with be (IO actor)
   (lambda (cust &rest msg)
-    (send* actor (once (make-ret cust)) msg)))
+    (send* actor (in-sponsor self-sponsor cust) msg)))
 
 (defun ioreq (actor)
   (make-actor (ioreq-beh actor)))
