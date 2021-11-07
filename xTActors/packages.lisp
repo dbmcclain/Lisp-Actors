@@ -141,6 +141,10 @@ THE SOFTWARE.
    #:sink
    #:const
    #:println
+   #:logged
+   #:logger
+   #:atrace
+   
    #:once
    #:send-to-all
    #:race

@@ -303,15 +303,11 @@ THE SOFTWARE.
 ;; -------------------------------------------------------
 ;; Cross-sponsor sends
 
-(defun in-sponsor-beh (sponsor actor)
-  (lambda* msg
+(defun in-sponsor (sponsor actor)
+  (actor msg
     (if (eq sponsor self-sponsor)
         (send* actor msg)
-      (send* sponsor actor msg))
-    ))
-
-(defun in-sponsor (sponsor actor)
-  (make-actor (in-sponsor-beh sponsor actor)))
+      (send* sponsor actor msg))))
 
 ;; ------------
 
@@ -320,16 +316,10 @@ THE SOFTWARE.
 
 ;; -------------
 
-(defun par-safe-beh (actor)
-  (in-sponsor-beh base-sponsor actor))
-
 (defun par-safe (actor)
   (in-sponsor base-sponsor actor))
 
 ;; -------------
-
-(defun io-beh (actor)
-  (in-sponsor-beh slow-sponsor actor))
 
 (defun io (actor)
   (in-sponsor slow-sponsor actor))
@@ -355,7 +345,7 @@ THE SOFTWARE.
   (io
     ;; because we are managing an output stream
     (actor msg
-       (format t "~&~{~A~%~^ ~}" msg))
+       (format t "~&~{~A~%~^~}" msg))
      ))
 
 ;; ------------------------------------------------
