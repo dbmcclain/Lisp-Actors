@@ -56,10 +56,18 @@ THE SOFTWARE.
    #:list-match
    #:actor-nlet
 
-   #:def-beh
+   #:make-sponsor
+   #:kill-sponsor
+   #:restart-sponsor
+   #:base-sponsor
+   #:slow-sponsor
    #:def-sponsor
-   #:behavior
    #:in-sponsor
+   #:in-this-sponsor
+   #:io
+   #:ioreq
+   #:par-safe
+   #:with-sponsor
    
    #:+emptyq+
    #:+doneq+
@@ -76,38 +84,20 @@ THE SOFTWARE.
    #:beta-gen
    #:alambda
 
-   #:in-sponsor-beh
-   #:in-sponsor
-   #:in-this-sponsor
-   #:par-safe-beh
-   #:par-safe
-   #:io-beh
-   #:io
-
-   #:sponsor
-   #:make-sponsor
-   #:kill-sponsor
-   #:restart-sponsor
-   #:base-sponsor
-   #:slow-sponsor
-
    #:restart-actors-system
    #:kill-actors-system
 
-   #:with-sponsor
    #:become   
    #:send
    #:send*
    #:repeat-send
    #:send-combined-msg
+   #:ask
    
    #:self
    #:self-beh
    #:self-sponsor
 
-   #:foreign-send
-   #:foreign-ask
-   
    #:actor
    #:actor-p
    #:actor-beh

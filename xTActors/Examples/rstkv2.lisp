@@ -90,7 +90,7 @@ storage and network transmission.
 
 ;; ---------------------------------------------------
 
-(def-beh kv-database-beh (state sync)
+(defun kv-database-beh (state sync)
   (with-accessors ((kv-map  kv-state-map)) state
     (alambda
 
@@ -99,14 +99,15 @@ storage and network transmission.
         (send cust (funcall queryfn kv-map))))
 
      ((cust :write updatefn)
-      (let ((writer (make-writer cust updatefn kv-map)))
-        (send writer self)
-        (become (locked-db-beh writer state sync +emptyq+))))
-     )))
+      (with-sponsor ()
+        (let ((writer (make-writer cust updatefn kv-map)))
+          (send writer self)
+          (become (locked-db-beh writer state sync +emptyq+))))
+      ))))
 
 ;; ---------------------------------------------------
 
-(def-beh locked-db-beh (writer state sync pend-wr)
+(defun locked-db-beh (writer state sync pend-wr)
   (with-accessors ((kv-map  kv-state-map)) state
     (alambda
      
@@ -115,31 +116,33 @@ storage and network transmission.
         (send cust (funcall queryfn kv-map) )))
       
      ((cust :write updatefn)
-      (become (locked-db-beh writer state sync
-                             (addq pend-wr
-                                   (cons cust updatefn) ))))
-    
+      (with-sponsor ()
+        (become (locked-db-beh writer state sync
+                               (addq pend-wr
+                                     (cons cust updatefn) )))))
+      
       ((cust :update new-map wr-cust) when (eq cust writer)
-       (let ((unchanged (eq kv-map new-map)))
-         (send wr-cust self (not unchanged))
-         (let ((new-state (if unchanged
-                              state
-                            (let ((new-state (copy-state-with state
-                                                              :map new-map
-                                                              :ver (new-ver))))
-                              (send sync self :update new-state)
-                              new-state))))
-           (if (emptyq? pend-wr)
-               (become (kv-database-beh new-state sync))
-             (multiple-value-bind (pair new-queue)
-                 (popq pend-wr)
-               (destructuring-bind (new-cust . new-updatefn) pair
-                 (let ((new-writer (make-writer new-cust new-updatefn new-map)))
-                   (send new-writer self)
-                   (become (locked-db-beh new-writer new-state sync new-queue))
-                   )))
-             )))))
-    ))
+       (with-sponsor ()
+         (let ((unchanged (eq kv-map new-map)))
+           (send wr-cust self (not unchanged))
+           (let ((new-state (if unchanged
+                                state
+                              (let ((new-state (copy-state-with state
+                                                                :map new-map
+                                                                :ver (new-ver))))
+                                (send sync self :update new-state)
+                                new-state))))
+             (if (emptyq? pend-wr)
+                 (become (kv-database-beh new-state sync))
+               (multiple-value-bind (pair new-queue)
+                   (popq pend-wr)
+                 (destructuring-bind (new-cust . new-updatefn) pair
+                   (let ((new-writer (make-writer new-cust new-updatefn new-map)))
+                     (send new-writer self)
+                     (become (locked-db-beh new-writer new-state sync new-queue))
+                     ))))
+             ))))
+      )))
 
 ;; ---------------------------------------------
 
@@ -164,7 +167,7 @@ storage and network transmission.
 
 (defvar *writeback-delay* 10)
 
-(def-beh sync-beh (server last-state tag)
+(defun sync-beh (server last-state tag)
   (alambda
 
    ((cust :update state) when (eq cust server)
@@ -227,15 +230,15 @@ storage and network transmission.
 ;; QUERY & UPDATE -- The two fundamental ways to operate with the KV
 ;; store.
 
-(def-beh query (cust kv-serv query-fn)
+(defun query (cust kv-serv query-fn)
   (send kv-serv cust :read query-fn))
 
-(def-beh update (cust kv-serv update-fn)
+(defun update (cust kv-serv update-fn)
   (send kv-serv cust :write update-fn))
 
 ;; -----------------------------
 
-(def-beh database-reader-beh (path)
+(defun database-reader-beh (path)
   (lambda (cust)
     (if (probe-file path)
         (with-open-file (f path
@@ -274,7 +277,7 @@ storage and network transmission.
 
 ;; ---------------------------------
 
-(def-beh database-saver-beh (state)
+(defun database-saver-beh (state)
   (declare (kv-state state))
   (lambda (cust)
     (with-accessors ((map    kv-state-map)
@@ -374,7 +377,7 @@ storage and network transmission.
 (defvar *service-id*    :RSTKV)
 (defvar *stkv-servers*  (maps:empty))
 
-(def-beh stkv-server-factory-beh (path registration)
+(defun stkv-server-factory-beh (path registration)
   (lambda (cust)
     (let* ((reader (make-database-reader path))
            (make-new-server
@@ -413,9 +416,9 @@ storage and network transmission.
       )))
 
 (defun make-stkv-server-factory (&key 
-                        (path (default-database-pathname))
-                        (registration *service-id*))
-  (par-safe (make-actor (stkv-server-factory-beh path registration))))
+                                 (path (default-database-pathname))
+                                 (registration *service-id*))
+  (ioreq (par-safe (make-actor (stkv-server-factory-beh path registration)))))
 
 ;; ---------------------------------------------------------
 ;; Imperative code for outside world
@@ -424,8 +427,7 @@ storage and network transmission.
                         (path (default-database-pathname))
                         (registration *service-id*))
   (let ((factory (make-stkv-server-factory :path path :registration registration)))
-    (foreign-ask factory)
-    ))
+    (ask factory)))
 
 #|
 (make-stkv-server sink)
@@ -434,20 +436,21 @@ storage and network transmission.
         (lambda (tbl)
           (add-kv tbl :diddly :doright)))
 
-(inspect (foreign-ask (actor (cust)
-                        (find-actor cust :rstkv))))
+(inspect (ask (actor (cust)
+                (find-actor cust :rstkv))))
 
-(foreign-ask (make-stkv-server-factory))
+(ask (make-stkv-server-factory))
 
-(let ((server (make-stkv-server)))
-  (foreign-send (actor _
-                  (query println server
-                         (lambda (tbl)
-                           (maps:fold tbl (lambda (k v acc)
-                                            (cons (cons (prin1-to-string (dec-key k))
-                                                        (prin1-to-string (dec-val v)))
-                                                  acc))
-                                      nil))))))
+(beta (server)
+    (send (make-stkv-server-factory) beta)
+  (query println server
+         (lambda (tbl)
+           (maps:fold tbl (lambda (k v acc)
+                            (cons (cons (prin1-to-string (dec-key k))
+                                        (prin1-to-string (dec-val v)))
+                                  acc))
+                      nil))))
+
 (update println :rstkv
         (lambda (tbl)
           (add-kv tbl "Pussy" "Galore")))

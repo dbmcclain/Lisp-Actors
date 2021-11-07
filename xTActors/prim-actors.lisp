@@ -14,7 +14,7 @@
 ;;
 ;; -------------------------------------------------------
 
-(def-beh const-beh (&rest msg)
+(defun const-beh (&rest msg)
   (lambda (cust)
     (send* cust msg)))
 
@@ -23,7 +23,7 @@
 
 ;; ---------------------
 
-(def-beh once-beh (cust)
+(defun once-beh (cust)
   (lambda (&rest msg)
     (send* cust msg)
     (become (sink-beh))))
@@ -33,13 +33,13 @@
 
 ;; ---------------------
 
-(def-beh send-to-all (actors &rest msg)
+(defun send-to-all (actors &rest msg)
   (dolist (actor actors)
     (send* actor msg)))
 
 ;; ---------------------
 
-(def-beh race-beh (&rest actors)
+(defun race-beh (&rest actors)
   (lambda (cust &rest msg)
     (let ((gate (once cust)))
       (apply #'send-to-all actors gate msg))))
@@ -49,7 +49,7 @@
 
 ;; ---------------------
 
-(def-beh fwd-beh (actor)
+(defun fwd-beh (actor)
   (lambda (&rest msg)
     (send* actor msg)))
 
@@ -58,7 +58,7 @@
 
 ;; ---------------------
 
-(def-beh label-beh (cust lbl)
+(defun label-beh (cust lbl)
   (lambda (&rest msg)
     (send* cust lbl msg)))
 
@@ -67,7 +67,7 @@
 
 ;; ---------------------
 
-(def-beh tag-beh (cust)
+(defun tag-beh (cust)
   (lambda (&rest msg)
     (send* cust self msg)))
 
@@ -76,7 +76,7 @@
 
 ;; -------------------------------------------------
 
-(def-beh future-wait-beh (tag &rest custs)
+(defun future-wait-beh (tag &rest custs)
   (lambda (cust &rest msg)
     (cond ((eq cust tag)
            (become (apply #'const-beh msg))
@@ -85,7 +85,7 @@
            (become (apply 'future-wait-beh tag cust custs)))
           )))
 
-(def-beh future (actor &rest msg)
+(defun future (actor &rest msg)
   ;; Return an Actor that represents the future value. Send that value
   ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST)
   (actors ((fut (future-wait-beh tag))
@@ -127,7 +127,7 @@
 ;; Each block is fed the same initial message, and the results from
 ;; each block are sent as an ordered collection to cust.
 
-(def-beh join-beh (cust lbl1)
+(defun join-beh (cust lbl1)
   ;; Join a pair of two possible messages into one response. One of the
   ;; incoming messages will be labeled lbl1, while the other has
   ;; another label. There are only two possible incoming incoming
@@ -267,7 +267,7 @@
   ;; This version takes advantage of the already existing event queue
   ;; in the sponsor. However, it also causes the CPU to spin
   ;; needlessly.
-(def-beh serializer-beh (service)
+(defun serializer-beh (service)
   ;; initial empty state
   (lambda (cust &rest msg)
     (let ((tag  (tag self)))
@@ -276,7 +276,7 @@
                service tag cust))
       )))
 
-(def-beh enqueued-serializer-beh (service tag in-cust)
+(defun enqueued-serializer-beh (service tag in-cust)
   (lambda (cust &rest msg)
     (cond ((eq cust tag)
            (send* in-cust msg)
@@ -289,7 +289,7 @@
 
 #||#
 ;; This version does not cause the CPU to spin
-(def-beh serializer-beh (service)
+(defun serializer-beh (service)
   ;; initial empty state
   (lambda (cust &rest msg)
     (let ((tag  (tag self)))
@@ -298,7 +298,7 @@
                service tag cust +emptyq+))
       )))
 
-(def-beh enqueued-serializer-beh (service tag in-cust queue)
+(defun enqueued-serializer-beh (service tag in-cust queue)
   (lambda (cust &rest msg)
     (cond ((eq cust tag)
            (send* in-cust msg)
@@ -324,7 +324,7 @@
 
 ;; --------------------------------------
 
-(def-beh timing-beh (dut)
+(defun timing-beh (dut)
   (lambda (cust &rest msg)
     (let ((start (usec:get-time-usec)))
       (beta _
@@ -354,7 +354,7 @@
 ;; The purpose of this Actor is to avoid spinning on messages,
 ;; needlessly using CPU cycles.
 
-(def-beh pruned-beh (next)
+(defun pruned-beh (next)
   (alambda
    ((:pruned beh)
     (become beh))
@@ -363,11 +363,11 @@
      (send* next msg))
    ))
 
-(def-beh prune-self (next)
+(defun prune-self (next)
   (become (pruned-beh next))
   (send next self :prune))
 
-(def-beh no-pend-beh ()
+(defun no-pend-beh ()
   (alambda
    ((prev :prune)
     (send prev :pruned self-beh))
@@ -378,7 +378,7 @@
       (become (pend-beh ctr msg next))))
    ))
 
-(def-beh pend-beh (ctr msg next)
+(defun pend-beh (ctr msg next)
   (alambda
    ((prev :prune)
     (send prev :pruned self-beh))
@@ -398,7 +398,7 @@
 ;; PIPE - Data processing pipelines
 ;; (cust . msg) -> {A} -> {B} -> {C} -> {cust}
 
-(def-beh working-pipe-beh (cust elts)
+(defun working-pipe-beh (cust elts)
   (lambda (&rest ans)
     (let ((rest (cdr elts)))
       (cond (rest
@@ -419,7 +419,7 @@
 
 ;; --------------------------------------------------
 
-(def-beh suspended-beh (prev-beh tag queue)
+(defun suspended-beh (prev-beh tag queue)
   (alambda
    ((atag) when (eq tag atag)
     (become prev-beh)
@@ -430,10 +430,10 @@
     (become (suspended-beh prev-beh tag (addq queue msg))))
    ))
    
-(def-beh suspend ()
+(defun suspend ()
   ;; To be used only inside of Actor behavior code.
   ;; Just send to the tag to resume the Actor.
-  (let ((tag (tag (in-this-sponsor self))))
+  (let ((tag (tag self)))
     (become (suspended-beh self-beh tag +emptyq+))
     tag))
 
@@ -458,11 +458,3 @@
 |#
 ;; ------------------------------------------
 
-(def-beh ioreq-beh (actor)
-  ;; send to actor, return its reply to cust in its original sponsor.
-  ;; typically, actor with be (IO actor)
-  (lambda (cust &rest msg)
-    (send* actor (in-sponsor self-sponsor cust) msg)))
-
-(defun ioreq (actor)
-  (make-actor (ioreq-beh actor)))

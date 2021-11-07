@@ -87,13 +87,13 @@
   (plt:window 'imgmx :xsize 1024 :ysize 1024)
   (plt:tvscl 'img img :magn 4)
   #||#
-  (foreign-send (timing 
-                 (actor (cust)
-                   (beta (ans-img) (send pfft beta img)
-                     (beta (ans-img) (send pfft beta ans-img)
-                       (send (show-mag-img) ans-img)
-                       (send cust)))))
-                println)
+  (send (timing 
+         (actor (cust)
+           (beta (ans-img) (send pfft beta img)
+             (beta (ans-img) (send pfft beta ans-img)
+               (send (show-mag-img) ans-img)
+               (send cust)))))
+        println)
   #||#
   #||#
   (let ((fimg (time (vm:shifth (fft2d:fwd-magnitude img)))))

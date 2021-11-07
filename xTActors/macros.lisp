@@ -7,8 +7,7 @@
 (defmacro actor (args &body body)
   `(make-actor
     (lambda* ,args
-      (behavior
-        ,@body))))
+      ,@body)))
 
 #+:LISPWORKS
 (editor:setup-indent "actor" 1)

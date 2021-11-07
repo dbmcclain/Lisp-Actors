@@ -205,67 +205,45 @@ THE SOFTWARE.
 ;; HANDLER-CASE, HANDLER-BIND, or IGNORE-ERRORS. Otherwise, an error
 ;; will make it seem that the message causing the error was never
 ;; delivered.
-;;
-;; These operations have been placed into macros which makes them
-;; unavailable as user level symbols. But they become visible to the
-;; body of behavior code, introduced by DEF-BEH and BEHAVIOR forms.
 
-(defun %send (actor &rest msg)
+(defun send (actor &rest msg)
   (check-type actor actor)
-  (check-type *current-actor* actor) ;; check we are running in an Actor behavior
-  (add-evq *evt-queue* (cons actor msg)))
+  (if self
+      (add-evq *evt-queue* (cons actor msg))
+    (apply (actor-beh base-sponsor) actor msg)))
 
-(defmacro %send* (actor &rest msg)
-  `(apply #'%send ,actor ,@msg))
+(defmacro send* (actor &rest msg)
+  `(apply #'send ,actor ,@msg))
 
-(defun %repeat-send (actor)
-  (%send* actor *whole-message*))
+(defun repeat-send (actor)
+  (send* actor *whole-message*))
 
-(defun %send-combined-msg (cust msg1 msg2)
-  (multiple-value-call #'%send cust (values-list msg1) (values-list msg2)))
+(defun send-combined-msg (cust msg1 msg2)
+  (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
   
-(defun %become (new-beh)
+(defun become (new-beh)
   (check-type new-beh function)
   (check-type *current-actor* actor)
   (locally
     (declare (actor *current-actor*))
     (setf (actor-beh *current-actor*) new-beh)))
 
-(defun %do-with-sponsor (where fn)
+(defun do-with-sponsor (where fn)
   (let ((spon (or where base-sponsor)))
-    (if (eq spon *current-sponsor*)
+    (if (eq spon self-sponsor)
         (funcall fn)
-      (%send* spon *current-actor* *whole-message*))))
+      (send* spon self *whole-message*))))
 
-(defmacro %with-sponsor (where &body body)
+(defmacro with-sponsor (where &body body)
   ;; Properly belongs just after message detection which might trigger
   ;; BECOME. Should be used ahead of any side-effecting code in the
   ;; handler clause.
-  `(%do-with-sponsor ,where
-                     (lambda ()
-                       ,@body)))
+  `(do-with-sponsor ,where
+                    (lambda ()
+                      ,@body)))
 
 #+:LISPWORKS
 (editor:setup-indent "with-sponsor" 1)
-
-(defmacro behavior (&body body)
-  `(macrolet ((send (actor &rest msg)
-                `(%send ,actor ,@msg))
-              (send* (actor &rest msg)
-                `(%send* ,actor ,@msg))
-              (repeat-send (actor)
-                `(%repeat-send ,actor))
-              (send-combined-msg (cust msg1 msg2)
-                `(%send-combined-msg ,cust ,msg1 ,msg2))
-              (with-sponsor ((&optional spons) &body body)
-                `(%with-sponsor ,spons ,@body))
-              (become (new-beh)
-                `(%become ,new-beh)))
-     ,@body))
-
-(defmacro def-beh (name args &body body)
-  `(defun ,name ,args
-     (behavior ,@body)))
 
 (defmacro def-sponsor (name)
   `(defvar ,name (make-actor)))
@@ -275,7 +253,7 @@ THE SOFTWARE.
 ;; thread performing RUN dispatching of Actor events.
 ;;
 
-(def-beh sponsor-beh (mbox thread)
+(defun sponsor-beh (mbox thread)
   ;; this one is just slightly special
   (alambda
    ((:shutdown)
@@ -292,7 +270,7 @@ THE SOFTWARE.
     (restart-sponsor spon title)))
 
 (defun kill-sponsor (sponsor)
-  (foreign-send sponsor :shutdown))
+  (send sponsor :shutdown))
 
 (defun restart-sponsor (sponsor title)
   (check-type sponsor actor)
@@ -325,7 +303,7 @@ THE SOFTWARE.
 ;; -------------------------------------------------------
 ;; Cross-sponsor sends
 
-(def-beh in-sponsor-beh (sponsor actor)
+(defun in-sponsor-beh (sponsor actor)
   (lambda* msg
     (if (eq sponsor self-sponsor)
         (send* actor msg)
@@ -338,7 +316,6 @@ THE SOFTWARE.
 ;; ------------
 
 (defun in-this-sponsor (actor)
-  (check-type self-sponsor actor)
   (in-sponsor self-sponsor actor))
 
 ;; -------------
@@ -356,6 +333,13 @@ THE SOFTWARE.
 
 (defun io (actor)
   (in-sponsor slow-sponsor actor))
+
+
+(defun ioreq (actor)
+  ;; send to actor, return its reply to cust in sender's original sponsor.
+  ;; typically, actor with be (IO actor)
+  (actor (cust &rest msg)
+    (send* actor (in-this-sponsor cust) msg)))
 
 ;; --------------------------------------
 
@@ -377,13 +361,6 @@ THE SOFTWARE.
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world
 
-(defun foreign-send (actor &rest msg)
-  (if self
-      (behavior
-        (send* actor msg))
-    ;; this only works because we know how simple the sponsor code is.
-    (apply (actor-beh base-sponsor) actor msg))) 
-
 (defun mbox-sender-beh (mbox)
   (check-type mbox mp:mailbox)
   (lambda (&rest ans)
@@ -392,17 +369,16 @@ THE SOFTWARE.
 (defun mbox-sender (mbox)
   (make-actor (mbox-sender-beh mbox)))
 
-(defun foreign-ask (actor &rest msg)
+(defun ask (actor &rest msg)
   ;; Actor should expect a cust arg in first position. Here, the
   ;; mailbox.
   (if self
       ;; Counterproductive when called from an Actor, except for
       ;; possible side effects. Should use BETA forms if you want the
       ;; answer.
-      (behavior
-        (send* actor sink msg))
+      (send* actor sink msg)
     (let ((mbox (mp:make-mailbox)))
-      (apply 'foreign-send actor (mbox-sender mbox) msg)
+      (send* actor (mbox-sender mbox) msg)
       (values-list (mp:mailbox-read mbox)))
     ))
 
