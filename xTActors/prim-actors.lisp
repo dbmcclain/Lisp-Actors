@@ -473,6 +473,7 @@
     (send println
           "-----"
           (format nil "Logger: at ~A" (logger-timestamp))
+          (format nil "  In Sponsor: ~A" self-sponsor)
           (format nil "  To: ~A" (car msg))
           (format nil "  With: ~A" (cdr msg)))))
 
