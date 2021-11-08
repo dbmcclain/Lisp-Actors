@@ -193,7 +193,7 @@
 ;; Delayed Trigger
 
 (defun scheduled-message-beh (cust dt &rest msg)
-  (let ((timer (apply #'mp:make-timer #'foreign-send cust msg)))
+  (let ((timer (apply #'mp:make-timer #'send cust msg)))
     (lambda* _
       (mp:schedule-timer-relative timer dt))
     ))
@@ -202,7 +202,7 @@
   (make-actor (apply #'scheduled-message-beh cust dt msg)))
 
 (defun send-after (dt actor &rest msg)
-  (let ((timer (apply #'mp:make-timer #'foreign-send actor msg)))
+  (let ((timer (apply #'mp:make-timer #'send actor msg)))
     (mp:schedule-timer-relative timer dt)))
 
 ;; -------------------------------------------
@@ -458,15 +458,16 @@
 |#
 ;; ------------------------------------------
 
+(defun format-usec (usec)
+  (multiple-value-bind (utc frac)
+      (truncate usec 1000000)
+    (multiple-value-bind (ss mm hh d m y dow)
+        (decode-universal-time utc 0)
+      (declare (ignore d m y dow))
+      (format nil "~{~2,'0D~^\:~}.~6,'0D" (list hh mm ss) frac))))
+  
 (defun logger-timestamp ()
-  (let ((now (usec:get-universal-time-usec)))
-    (multiple-value-bind (utc frac)
-        (truncate now 1000000)
-      (multiple-value-bind (ss mm hh d m y dow)
-          (decode-universal-time utc 0)
-        (declare (ignore d m y dow))
-        (format nil "~{~2,'0D~^\:~}.~6,'0D" (list hh mm ss) frac))
-      )))
+  (format-usec (usec:get-universal-time-usec)))
 
 (defvar logger
   (actor msg
@@ -506,3 +507,10 @@
 
 (hcl:delete-advice send send-tracer)
 |#
+
+(defun time-tag-beh (actor)
+  (lambda* msg
+    (send* actor (usec:get-universal-time-usec) msg)))
+
+(defun time-tag (actor)
+  (make-actor (time-tag-beh actor)))

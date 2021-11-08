@@ -150,7 +150,6 @@ THE SOFTWARE.
    #:race
    #:fwd
    #:label
-   #:wrapping
    #:tag
    #:ser
    #:par
@@ -162,6 +161,10 @@ THE SOFTWARE.
    #:prune-self
    #:mbox-sender
    #:ioreq
+   #:time-tag
+   
+   #:format-usec
+   #:logger-timestamp
    
    #:sink-beh
    #:const-beh
@@ -170,7 +173,7 @@ THE SOFTWARE.
    #:fwd-beh
    #:label-beh
    #:tag-beh
-   #:wrapping-beh
+   #:time-tag-beh
    #:scheduled-message-beh
    #:serializer-beh
    #:timing-beh

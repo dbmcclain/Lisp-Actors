@@ -215,7 +215,7 @@ storage and network transmission.
 (defun find-k (map k)
   (let ((val (maps:find map (enc-key k))))
     (when val
-      (values (lzw:decompress val) t))))
+      (values (dec-val val) t))))
 
 (defun find-ks (map ks)
   (mapcan (lambda (k)
@@ -225,16 +225,6 @@ storage and network transmission.
                 `((,k . ,val)))
               ))
           ks))
-
-;; ----------------------------
-;; QUERY & UPDATE -- The two fundamental ways to operate with the KV
-;; store.
-
-(defun query (cust kv-serv query-fn)
-  (send kv-serv cust :read query-fn))
-
-(defun update (cust kv-serv update-fn)
-  (send kv-serv cust :write update-fn))
 
 ;; -----------------------------
 
@@ -248,11 +238,10 @@ storage and network transmission.
           (optima:match (loenc:deserialize f
                                            :use-magic (magic-word "STKV"))
             ((list signature _ new-ver new-table) when (string= +stkv-signature+ signature)
-             #|
-             (log-info :system-log
-                       (format nil "Loaded STKV Store ~A~%Created: ~A"
-                               path (uuid:when-created new-ver)))
-             |#
+             (send println 
+                   (format nil "----- INFO ~A ----" (logger-timestamp))
+                   (format nil "Loaded STKV Store ~A~%Created: ~A"
+                           path (uuid:when-created new-ver)))
              (send cust (make-kv-state
                          :path (namestring (truename path))
                          :map  (lzw:decompress new-table)
@@ -298,11 +287,10 @@ storage and network transmission.
                (lzw:compress map))
          f
          :use-magic (magic-word "STKV")))
-      #|
-      (log-info :system-log
-                (format nil "Saved STKV Store ~A~%Created: ~A"
-                        path (uuid:when-created ver)))
-      |#
+      (send println
+            (format nil "----- INFO ~A ----" (logger-timestamp))
+            (format nil "Saved STKV Store ~A~%Created: ~A"
+                    path (uuid:when-created ver)))
       (send cust)
       )))
 
@@ -441,15 +429,24 @@ storage and network transmission.
 
 (ask (make-stkv-server-factory))
 
+;; ------------------------------------------------
 (beta (server)
     (send (make-stkv-server-factory) beta)
-  (query println server
-         (lambda (tbl)
-           (maps:fold tbl (lambda (k v acc)
-                            (cons (cons (prin1-to-string (dec-key k))
-                                        (prin1-to-string (dec-val v)))
-                                  acc))
-                      nil))))
+  (send server println :read
+        (lambda (tbl)
+          (maps:fold tbl (lambda (k v acc)
+                           (cons (cons (prin1-to-string (dec-key k))
+                                       (prin1-to-string (dec-val v)))
+                                 acc))
+                     nil))))
+
+(beta (server)
+    (send (make-stkv-server-factory) beta)
+  (send server println :write
+        (lambda (tbl)
+          (add-kv tbl :clight 300e8))))
+
+;; ------------------------------------------------
 
 (update println :rstkv
         (lambda (tbl)
