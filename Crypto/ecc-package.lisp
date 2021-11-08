@@ -301,6 +301,7 @@ THE SOFTWARE.
    
    :ed-convert-int-to-lev
    :ed-convert-lev-to-int
+   :make-deterministic-keys
    :compute-deterministic-skey
    :compute-schnorr-deterministic-random
    :ed-dsa

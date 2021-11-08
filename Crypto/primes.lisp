@@ -1140,7 +1140,7 @@ THE SOFTWARE.
         (declare (integer p q))
       )))
 
-#+(AND :COM.RAL :LISPWORKS :ACTORS)
+#+(AND :COM.RAL :LISPWORKS :xACTORS)
 (defun par-attack (fn &optional timeout)
   (let ((mbox  (mp:make-mailbox))
         (procs nil))
@@ -1154,13 +1154,13 @@ THE SOFTWARE.
           (ac:terminate-actor proc)))
       )))
 
-#+(AND :COM.RAL :LISPWORKS :ACTORS)
+#+(AND :COM.RAL :LISPWORKS :xACTORS)
 (defun par-gen-safe-prime (nbits)
   (declare (fixnum nbits))
   (par-attack (lambda ()
                 (generate-safe-prime nbits))))
 
-#+(AND :COM.RAL :LISPWORKS :ACTORS)
+#+(AND :COM.RAL :LISPWORKS :xACTORS)
 (defun par-gen-safe-primes (nbits nprimes)
   (loop repeat nprimes collect (print (par-gen-safe-prime nbits))))
 
@@ -1584,7 +1584,7 @@ THE SOFTWARE.
   (/ (big-log n)))
 
 
-#+(AND :COM.RAL :LISPWORKS :ACTORS)
+#+(AND :COM.RAL :LISPWORKS :xACTORS)
 (defun sieve-2q+1 (nbits &optional (mr-iters 50))
   ;; If P = 2*Q+1, for Q prime, and all higher primes are 6*k+/-1, then
   ;;   if Q = 6*k-1 then P = 12*k-1
@@ -1671,7 +1671,7 @@ THE SOFTWARE.
             (return k)))
     ))
 
-#+(AND :COM.RAL :LISPWORKS)
+#+(AND :COM.RAL :LISPWORKS :xACTORS)
 (defun collect-safe-primes (nprimes nbits &optional (mr-iters 50))
   (declare (fixnum nprimes nbits mr-iters))
   (um:nlet iter ((primes nil))
