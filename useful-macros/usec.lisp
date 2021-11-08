@@ -42,7 +42,7 @@ THE SOFTWARE.
 
 ;;--- MAC OS/X ---
 
-
+#-:WIN32
 (defun adjust-to-standard-universal-time-usec (tm)
   (declare (integer tm))
   (+ tm #.(* 1000000 (encode-universal-time 0 0 0 1 1 1970 0))))
@@ -153,6 +153,56 @@ THE SOFTWARE.
       ()
     :result-type :int
     :calling-convention :stdcall)
+
+  (fli:define-foreign-function (_queryPerformanceCounter "QueryPerformanceCounter" :source)
+      ((ans :pointer))
+    :result-type :int
+    :calling-convention :stdcall)
+
+  (defun queryPerformanceCounter ()
+    (fli:with-dynamic-foreign-objects ()
+      (let ((ctr  (fli:allocate-dynamic-foreign-object
+                   :type   :long-long
+                   :nelems 1
+                   :fill   0)))
+        (_queryPerformanceCounter ctr)
+        (fli:dereference ctr))))
+  
+  
+  (fli:define-foreign-function (_queryPerformanceFrequency "QueryPerformanceFrequency" :source)
+      ((ans :pointer))
+    :result-type :int
+    :calling-convention :stdcall)
+
+  (defun queryPerformanceFrequency ()
+    (fli:with-dynamic-foreign-objects ()
+      (let ((ctr  (fli:allocate-dynamic-foreign-object
+                   :type   :long-long
+                   :nelems 1
+                   :fill   0)))
+        (_queryPerformanceFrequency ctr)
+        (fli:dereference ctr))))
+  
+  
+  (fli:define-foreign-function (_GetSystemTimeAsFileTime "GetSystemTimeAsFileTime" :source)
+      ((ans :pointer))
+    :result-type :int
+    :calling-convention :stdcall)
+
+  (defun getSystemTimeAsFileTime ()
+    ;; returns time in 100ns units - but seems only good to 1ms
+    (fli:with-dynamic-foreign-objects ()
+      (let ((ctr  (fli:allocate-dynamic-foreign-object
+                   :type   '(:unsigned :long)
+                   :nelems 2
+                   :fill   0)))
+        (_GetSystemTimeAsFileTime ctr)
+        (logior (ash (fli:dereference ctr :index 1) 32)
+                (fli:dereference ctr :index 0))
+        )))
+  
+
+  #|
   
   (defvar *last-time* 0)
   (defvar *time-incr* 0)
@@ -163,8 +213,36 @@ THE SOFTWARE.
 	  (incf *time-incr*)
 	(setf *time-incr* 0
 	      *last-time* now))
-      (+ (* now 1000000) *time-incr*)))
+      (+ (* now 1000 1000) *time-incr*)))
   
   (defun adjust-to-standard-universal-time-usec (tm)
-    tm))
+    tm)
+  |#
+  #|
+  (defun get-time-usec ()
+    (round (getSystemTimeAsFileTime) 10))
 
+  (defun adjust-to-standard-universal-time-usec (tm)
+    (declare (integer tm))
+    (- tm #.(* 1000000 9435484800)))
+  |#
+
+  (defvar *rate* nil)
+  (defvar *utc-offs* nil)
+  
+  (defun get-time-usec ()
+    (let ((rate (or *rate*
+                    (setf *rate* (queryPerformanceFrequency)))))
+      (round (* (queryPerformanceCounter) 1000000) rate)))
+
+  (defun adjust-to-standard-universal-time-usec (tm)
+    (declare (integer tm))
+    (let ((offs (or *utc-offs*
+                    (setf *utc-offs* (- (* 1000000 (get-universal-time))
+                                        (get-time-usec))))))
+      (+ tm offs)))
+  )
+
+#|
+(- (truncate (get-time-usec) 1000000) (get-universal-time))
+|#

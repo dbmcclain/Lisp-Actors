@@ -206,6 +206,13 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
+(defmacro def-sponsor (name)
+  `(defvar ,name (make-actor)))
+
+(def-sponsor base-sponsor)
+(def-sponsor slow-sponsor)
+
+
 (defun send (actor &rest msg)
   (check-type actor actor)
   (if self
@@ -245,9 +252,6 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "with-sponsor" 1)
 
-(defmacro def-sponsor (name)
-  `(defvar ,name (make-actor)))
-
 ;; ----------------------------------------------------------
 ;; SPONSORS -- offer an event queue and have an associated runtime
 ;; thread performing RUN dispatching of Actor events.
@@ -283,9 +287,6 @@ THE SOFTWARE.
 ;; Start with two Sponsors: there is no difference between them. But
 ;; we envision that the SLOW-SPONSOR will be used to run Actors with
 ;; blocking actions, e.g., I/O.
-
-(def-sponsor base-sponsor)
-(def-sponsor slow-sponsor)
 
 (defun restart-actors-system ()
   (restart-sponsor base-sponsor "Actor Thread")
