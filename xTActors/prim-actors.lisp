@@ -475,7 +475,7 @@
           (format nil "----- Logger at ~A -----" (logger-timestamp))
           (format nil "  In Sponsor: ~A" self-sponsor)
           (format nil "  To: ~A" (car msg))
-          (format nil "  With: ~A" (cdr msg)))))
+          (format nil "  With: ~S" (cdr msg)))))
 
 (defun logged (actor)
   (actor msg
@@ -494,7 +494,7 @@
                                    (format nil "  In Sponsor: ~A" self-sponsor)
                                    (format nil "  From: ~A" self)
                                    (format nil "  To: ~A" (car msg))
-                                   (format nil "  With: ~A" (cdr msg)))
+                                   (format nil "  With: ~S" (cdr msg)))
             ))
   (apply #'lw:call-next-advice msg))
 
@@ -502,6 +502,7 @@
   (setf *atrace* do-tracing))
 
 #|
+(setf *print-length* 10)
 (atrace)
 (atrace nil)
 

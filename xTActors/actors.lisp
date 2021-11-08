@@ -349,6 +349,13 @@ THE SOFTWARE.
        (format t "~&~{~A~%~^~}" msg))
      ))
 
+(defvar writeln
+  (io
+    ;; because we are managing an output stream
+    (actor msg
+       (format t "~&~{~S~%~^~}" msg))
+     ))
+
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world
 
