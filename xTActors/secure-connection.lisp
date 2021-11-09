@@ -62,6 +62,12 @@
     (apply fn (append reqd trimmed))
     ))
 
+(defun pt->int (ecc-pt)
+  (int (ed-compress-pt ecc-pt)))
+
+(defun int->pt (int)
+  (ed-decompress-pt int))
+
 ;; --------------------------------------------------------------------
 ;; Client side
 
@@ -82,13 +88,13 @@
       (beta (server-cnx bpt)
           (send server beta :connect
                 server-pkey
-                (int (ed-compress-pt client-pkey))
-                (int (ed-compress-pt apt)))
-        (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
+                (pt->int client-pkey)
+                (pt->int apt))
+        (let* ((ekey  (hash/256 (ed-mul (int->pt bpt) arand)))
                (client-cnx (make-actor (client-connect-beh
                                         :ekey        ekey
                                         :client-skey client-skey
-                                        :server-pkey (ed-decompress-pt server-pkey)
+                                        :server-pkey (int->pt server-pkey)
                                         :server-cnx  server-cnx
                                         :admin-tag   admin-tag))))
           (send cust (secure-send client-cnx))
@@ -202,18 +208,18 @@
   (alambda
    ((cust :connect server-pkey client-pkey apt)
     (let ((my-pkey     (ed-mul *ed-gen* server-skey))
-          (server-pkey (ed-decompress-pt server-pkey)))
+          (server-pkey (int->pt server-pkey)))
       (when (ed-pt= my-pkey server-pkey) ;; did client have correct server-pkey?
         (let* ((brand  (int (ctr-drbg 32)))
                (bpt    (ed-mul *ed-gen* brand))
-               (ekey   (hash/256 (ed-mul (ed-decompress-pt apt) brand)))
+               (ekey   (hash/256 (ed-mul (int->pt apt) brand)))
                (cnx    (make-actor (server-connect-beh
                                     :ekey        ekey
-                                    :client-pkey (ed-decompress-pt client-pkey)
+                                    :client-pkey (int->pt client-pkey)
                                     :server-skey server-skey
                                     :services    services
                                     :admin-tag   admin-tag))))
-          (send cust cnx (int (ed-compress-pt bpt)))
+          (send cust cnx (pt->int bpt))
           (become (reapply #'server-crypto-gate-beh nil args
                            :cnxs (cons cnx cnxs)))
           ))))
@@ -343,21 +349,21 @@
     (loenc:decode (map 'vector #'logxor emsg mask))))
 
 (defun make-signature (seq emsg skey)
-  (with-mod *ed-r*
-    (let* ((pkey  (ed-mul *ed-gen* skey))
-           (krand (int (hash/256 seq emsg skey pkey)))
-           (kpt   (ed-mul *ed-gen* krand))
-           (h     (int (hash/256 seq emsg kpt pkey)))
-           (u     (m+ krand (m* h skey)))
-           (upt   (ed-mul *ed-gen* u)))
-      (list (int (ed-compress-pt upt)) krand)
-      )))
+  (let* ((pkey  (ed-mul *ed-gen* skey))
+         (krand (int (hash/256 seq emsg skey pkey)))
+         (kpt   (ed-mul *ed-gen* krand))
+         (h     (int (hash/256 seq emsg kpt pkey)))
+         (u     (with-mod *ed-r*
+                  (m+ krand (m* h skey))))
+         (upt   (ed-mul *ed-gen* u)))
+    (list (pt->int upt) krand)
+    ))
 
 (defun check-signature (seq emsg auth pkey)
   (destructuring-bind (upt krand) auth
     (let* ((kpt  (ed-mul *ed-gen* krand))
            (h    (int (hash/256 seq emsg kpt pkey))))
-      (ed-pt= (ed-decompress-pt upt) (ed-add kpt (ed-mul pkey h)))
+      (ed-pt= (int->pt upt) (ed-add kpt (ed-mul pkey h)))
       )))
 
 #|
@@ -405,7 +411,7 @@
             (make-client-crypto-gate client-skey)
 
           (beta (cnx)
-              (send client-gate beta :connect server-gate (int (ed-compress-pt server-pkey)))
+              (send client-gate beta :connect server-gate (pt->int server-pkey))
             (send cnx writeln :available-services)
             ))))))
 
