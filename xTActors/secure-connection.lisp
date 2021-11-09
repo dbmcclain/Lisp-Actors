@@ -267,12 +267,11 @@
   ;;
   ;; We add one more service to the list, which enables a client to
   ;; ask for available services to get their names.
-  (let* ((query (actor (cust)
-                  (send cust (mapcar #'car services))))
-         (services (acons :available-services query services)))
+  (let ((avail (actor (cust)
+                 (send cust (mapcar #'car services)))))
     (actors ((server    (server-crypto-gate-beh
                          :server-skey server-skey
-                         :services    services
+                         :services    (acons :available-services avail services)
                          :admin-tag   admin-tag))
              (admin-tag (tag-beh server)))
       (values server admin-tag)
