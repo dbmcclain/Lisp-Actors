@@ -190,6 +190,8 @@ THE SOFTWARE.
    #:unwatch
 
    #:suspend
+
+   #:*whole-message*
    ))
 
 #-lispworks
@@ -364,7 +366,6 @@ THE SOFTWARE.
   (:export
    #:*current-actor*
    #:*current-sponsor*
-   #:*whole-message*
    #:*evt-queue*
    #:add-evq
    ))

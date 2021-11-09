@@ -43,18 +43,21 @@
 ;; ------------------------------------------------------------------
 
 (defun plist-keys (plist)
+  (declare (list plist))
   (do ((lst  plist (cddr lst))
        (keys nil))
-    ((endp lst) keys)
+      ((endp lst) keys)
+    (declare (list lst keys))
     (push (car lst) keys)))
 
 (defun reapply (fn reqd restargs &rest parms)
   ;; Like APPLY, but used to substitute new keyword args for old,
   ;; removing all the old kw args to prevent accumulation of old stuff
   ;; and prevent its GC.
+  (declare (list reqd restargs parms))
   (multiple-value-call fn (values-list reqd) (values-list parms)
     (values-list (apply #'alexandria:remove-from-plist restargs
-                                   (plist-keys parms)))
+                        (plist-keys parms)))
     ))
 
 (defun pt->int (ecc-pt)

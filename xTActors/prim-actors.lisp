@@ -473,9 +473,10 @@
   (actor msg
     (send println
           (format nil "----- Logger at ~A -----" (logger-timestamp))
-          (format nil "  In Sponsor: ~A" self-sponsor)
           (format nil "  To: ~A" (car msg))
-          (format nil "  With: ~S" (cdr msg)))))
+          (format nil "  With: ~S" (cdr msg))
+          (format nil "  In Sponsor: ~A" self-sponsor)
+          )))
 
 (defun logged (actor)
   (actor msg
@@ -491,11 +492,11 @@
     (&rest msg)
   (when *atrace*
     (format t "~&~{~A~%~^~}" (list (format nil "----- Send at ~A -----" (logger-timestamp))
-                                   (format nil "  In Sponsor: ~A" self-sponsor)
                                    (format nil "  From: ~A" self)
                                    (format nil "  To: ~A" (car msg))
-                                   (format nil "  With: ~S" (cdr msg)))
-            ))
+                                   (format nil "  With: ~S" (cdr msg))
+                                   (format nil "  In Sponsor: ~A" self-sponsor)
+                                   )))
   (apply #'lw:call-next-advice msg))
 
 (defun atrace (&optional (do-tracing t))
