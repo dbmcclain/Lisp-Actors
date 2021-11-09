@@ -52,12 +52,10 @@
   ;; Like APPLY, but used to substitute new keyword args for old,
   ;; removing all the old kw args to prevent accumulation of old stuff
   ;; and prevent its GC.
-  (apply fn (append reqd
-                    (append parms
-                            (apply #'alexandria:remove-from-plist restargs
-                                   (plist-keys parms))
-                            ))
-         ))
+  (multiple-value-call fn (values-list reqd) (values-list parms)
+    (values-list (apply #'alexandria:remove-from-plist restargs
+                                   (plist-keys parms)))
+    ))
 
 (defun pt->int (ecc-pt)
   (int (ed-compress-pt ecc-pt)))
