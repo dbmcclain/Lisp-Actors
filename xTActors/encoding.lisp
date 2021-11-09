@@ -112,7 +112,7 @@
            (id      (uuid:make-v1-uuid)))
       (send cust :init id nchunks size)
       (do ((offs  0  (+ offs max-size)))
-          ((> offs size))
+          ((>= offs size))
         (send cust :chunk id offs
               (subseq byte-vec offs (min size (+ offs max-size)))))
       )))
