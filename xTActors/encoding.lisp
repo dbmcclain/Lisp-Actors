@@ -57,19 +57,19 @@
 
 ;; --------------------------------------------------
 
-(defun marshal-encoding ()
+(defun marshal-encoder ()
   (actor (cust &rest msg)
     (send cust (loenc:encode msg))))
 
-(defun marshal-decoding ()
+(defun marshal-decoder ()
   (actor (cust msg)
     (send* cust (loenc:decode msg))))
 
-(defun marshal-compress ()
+(defun marshal-compressor ()
   (actor (cust &rest msg)
     (send cust (lzw:zl-compress msg))))
 
-(defun marshal-decompress ()
+(defun marshal-decompressor ()
   (actor (cust msg)
     (send* cust (lzw:decompress msg))))
 
@@ -97,11 +97,11 @@
     (let ((ans (decrypt ekey seq emsg)))
       (send* cust ans))))
 
-(defun self-sync-encoding ()
+(defun self-sync-encoder ()
   (actor (cust bytevec)
     (send cust (self-sync:encode bytevec))))
 
-(defun self-sync-decoding ()
+(defun self-sync-decoder ()
   (actor (cust bytevec)
     (send cust (self-sync:decode bytevec))))
 
@@ -226,33 +226,33 @@
     (send* cust msg)))
 
 (defun netw-encoder (ekey skey &key (max-chunk 65536))
-  (chain (marshal-encoder)   ;; to get arb msg objects into bytevecc form
+  (chain (marshal-encoder)       ;; to get arb msg objects into bytevecc form
          (chunker :max-size max-chunk) ;; we want to limit network message sizes
          ;; --- then, for each chunk... ---
-         (marshal-compress)   ;; generates a compressed data struct
-         (encryptor ekey)     ;; generates seq, enctext
-         (signing skey)       ;; generates seq, enctext, sig
-         (marshal-encoder))) ;; to turn seq, etext, sig into byte vector
+         (marshal-compressor)    ;; generates a compressed data struct
+         (encryptor ekey)        ;; generates seq, enctext
+         (signing skey)          ;; generates seq, enctext, sig
+         (marshal-encoder)))     ;; to turn seq, etext, sig into byte vector
 
 (defun netw-decoder (ekey pkey)
-  (chain (marshal-decoder)    ;; decodes byte vector into seq, enc text, sig
+  (chain (marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
          (signature-validation pkey) ;; pass along seq, enc text
-         (decryptor ekey)      ;; generates a compressed data struct
-         (marshal-decompress)  ;; generates a byte vector
-         (dechunker)           ;; de-chunking back into original byte vector
-         (marshal-decoder)))  ;; decode byte vector into message objects
+         (decryptor ekey)        ;; generates a compressed data struct
+         (marshal-decompressor)  ;; generates a byte vector
+         (dechunker)             ;; de-chunking back into original byte vector
+         (marshal-decoder)))     ;; decode byte vector into message objects
 
 (defun disk-encoder (&key (max-chunk 65536))
-  (chain (marshal-encoder) ;; to get arb msg into bytevec form
+  (chain (marshal-encoder)       ;; to get arb msg into bytevec form
          (chunker :max-size max-chunk)
-         (marshal-compress)
-         (marshal-encoder) ;; to get lzw data struct into bytevec form
+         (marshal-compressor)
+         (marshal-encoder)       ;; to get lzw data struct into bytevec form
          (self-sync-encoder)))
                      
 (defun disk-decoder ()
   (chain (self-sync-decoder)
          (marshal-decoder)
-         (marshal-decompress)
+         (marshal-decompressor)
          (dechunker)
          (marshal-decoder)))
 
