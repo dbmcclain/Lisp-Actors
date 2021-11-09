@@ -46,6 +46,17 @@
   ;; Like APPLY, but used to substitute new keyword args for old,
   ;; removing all the old kw args to prevent accumulation of old stuff
   ;; and prevent its GC.
+  (apply fn (append reqd
+                    (append parms
+                            (alexandria:alist-plist
+                             (set-difference (alexandria:plist-alist restargs)
+                                             (alexandria:plist-alist parms)
+                                             :key #'car))))))
+#|
+(defun reapply (fn reqd restargs &rest parms)
+  ;; Like APPLY, but used to substitute new keyword args for old,
+  ;; removing all the old kw args to prevent accumulation of old stuff
+  ;; and prevent its GC.
   (let* ((keys (um:nlet iter ((lst parms)
                               (ans nil))
                  (if lst
@@ -61,6 +72,7 @@
                      ans))))
     (apply fn (append reqd trimmed))
     ))
+|#
 
 (defun pt->int (ecc-pt)
   (int (ed-compress-pt ecc-pt)))
@@ -257,7 +269,7 @@
   ;; ask for available services to get their names.
   (let* ((query (actor (cust)
                   (send cust (mapcar #'car services))))
-         (services (cons (cons :available-services query) services)))
+         (services (acons :available-services query services)))
     (actors ((server    (server-crypto-gate-beh
                          :server-skey server-skey
                          :services    services
@@ -380,9 +392,10 @@
        )))
 
 (defun tst-beh (&rest args &key a b c)
+  ;; show the need to trim away prior garbage
   (alambda
    ((:show)
-    (send println args)
+    (send writeln args)
     (when (eql a 1)
       (become (apply #'tst-beh
                      :a 2
