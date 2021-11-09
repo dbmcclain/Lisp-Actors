@@ -142,8 +142,7 @@
     (send* cust pend)
     (prune-self next))
 
-   (msg
-    (declare (ignore msg))
+   ( _
     (repeat-send next))
    ))
 
@@ -156,8 +155,7 @@
     (send* cust pend)
     (prune-self next))
 
-   (msg
-    (declare (ignore msg))
+   ( _
     (repeat-send next))
    ))
 
@@ -174,8 +172,8 @@
                         :delivery delivery))
                (send delivery self :chunk? id))
 
-              (msg
-               (send* delivery msg))
+              ( _ 
+               (repeat-send delivery))
               ))
 
            (dechunker-beh (&rest args &key vec id nchunks (ctr 0) delivery)
@@ -192,8 +190,8 @@
                                        :ctr (1+ ctr)))
                       (send delivery self :chunk? id))
                      ))
-              (msg
-               (send* delivery self msg))
+              ( _
+               (repeat-send delivery))
               )))
     (let ((delivery (make-actor (null-ordered-delivery-beh))))
       (make-actor (initial-dechunker-beh delivery))

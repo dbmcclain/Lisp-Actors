@@ -217,7 +217,8 @@ THE SOFTWARE.
   (check-type actor actor)
   (if self
       (add-evq *evt-queue* (cons actor msg))
-    (apply (actor-beh base-sponsor) actor msg)))
+    (apply (actor-beh base-sponsor) actor msg))
+  (values))
 
 (defmacro send* (actor &rest msg)
   `(apply #'send ,actor ,@msg))
