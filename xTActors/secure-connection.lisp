@@ -42,37 +42,22 @@
 
 ;; ------------------------------------------------------------------
 
+(defun plist-keys (plist)
+  (do ((lst  plist (cddr lst))
+       (keys nil))
+    ((endp lst) keys)
+    (push (car lst) keys)))
+
 (defun reapply (fn reqd restargs &rest parms)
   ;; Like APPLY, but used to substitute new keyword args for old,
   ;; removing all the old kw args to prevent accumulation of old stuff
   ;; and prevent its GC.
   (apply fn (append reqd
                     (append parms
-                            (alexandria:alist-plist
-                             (set-difference (alexandria:plist-alist restargs)
-                                             (alexandria:plist-alist parms)
-                                             :key #'car))))))
-#|
-(defun reapply (fn reqd restargs &rest parms)
-  ;; Like APPLY, but used to substitute new keyword args for old,
-  ;; removing all the old kw args to prevent accumulation of old stuff
-  ;; and prevent its GC.
-  (let* ((keys (um:nlet iter ((lst parms)
-                              (ans nil))
-                 (if lst
-                     (go-iter (cddr lst) (cons (car lst) ans))
-                   ans)))
-        (trimmed (um:nlet iter ((lst restargs)
-                                (ans parms))
-                   (if lst
-                       (go-iter (cddr lst)
-                                (if (find (car lst) keys)
-                                    ans
-                                  (cons (car lst) (cons (cadr lst) ans))))
-                     ans))))
-    (apply fn (append reqd trimmed))
-    ))
-|#
+                            (apply #'alexandria:remove-from-plist restargs
+                                   (plist-keys parms))
+                            ))
+         ))
 
 (defun pt->int (ecc-pt)
   (int (ed-compress-pt ecc-pt)))
