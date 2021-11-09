@@ -226,42 +226,42 @@
     (send* cust msg)))
 
 (defun netw-encoder (ekey skey &key (max-chunk 65536))
-  (chain (marshal-encoding)   ;; to get arb msg objects into bytevecc form
+  (chain (marshal-encoder)   ;; to get arb msg objects into bytevecc form
          (chunker :max-size max-chunk) ;; we want to limit network message sizes
          ;; --- then, for each chunk... ---
          (marshal-compress)   ;; generates a compressed data struct
          (encryptor ekey)     ;; generates seq, enctext
          (signing skey)       ;; generates seq, enctext, sig
-         (marshal-encoding))) ;; to turn seq, etext, sig into byte vector
+         (marshal-encoder))) ;; to turn seq, etext, sig into byte vector
 
 (defun netw-decoder (ekey pkey)
-  (chain (marshal-decoding)    ;; decodes byte vector into seq, enc text, sig
+  (chain (marshal-decoder)    ;; decodes byte vector into seq, enc text, sig
          (signature-validation pkey) ;; pass along seq, enc text
          (decryptor ekey)      ;; generates a compressed data struct
          (marshal-decompress)  ;; generates a byte vector
          (dechunker)           ;; de-chunking back into original byte vector
-         (marshal-decoding)))  ;; decode byte vector into message objects
+         (marshal-decoder)))  ;; decode byte vector into message objects
 
 (defun disk-encoder (&key (max-chunk 65536))
-  (chain (marshal-encoding) ;; to get arb msg into bytevec form
+  (chain (marshal-encoder) ;; to get arb msg into bytevec form
          (chunker :max-size max-chunk)
          (marshal-compress)
-         (marshal-encoding) ;; to get lzw data struct into bytevec form
-         (self-sync-encoding)))
+         (marshal-encoder) ;; to get lzw data struct into bytevec form
+         (self-sync-encoder)))
                      
 (defun disk-decoder ()
-  (chain (self-sync-decoding)
-         (marshal-decoding)
+  (chain (self-sync-decoder)
+         (marshal-decoder)
          (marshal-decompress)
          (dechunker)
-         (marshal-decoding)))
+         (marshal-decoder)))
 
 (defun encr-disk-encoder (ekey skey &key (max-chunk 65536))
   (chain (netw-encoder ekey skey :max-chunk max-chunk)
-         (self-sync-encoding)))
+         (self-sync-encoder)))
 
 (defun encr-disk-decoder (ekey pkey)
-  (chain (self-sync-decoding)
+  (chain (self-sync-decoder)
          (netw-decoder ekey pkey)))
 
 ;; Reed-Solomon? anyone?... TBD
