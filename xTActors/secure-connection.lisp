@@ -40,16 +40,14 @@
 
 (in-package :ac-secure-comm)
 
-;; ------------------------------------------------------------------
+;; --------------------------------------------------------------------
+;; Crypto Primitives
 
 (defun pt->int (ecc-pt)
   (int (ed-compress-pt ecc-pt)))
 
 (defun int->pt (int)
   (ed-decompress-pt int))
-
-;; --------------------------------------------------------------------
-;; Crypto Primitives
 
 (defun get-random-seq ()
   (ecc-crypto-b571:ctr-drbg 256))
