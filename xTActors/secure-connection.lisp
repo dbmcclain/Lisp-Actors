@@ -66,6 +66,108 @@
   (ed-decompress-pt int))
 
 ;; --------------------------------------------------------------------
+;; Crypto Primitives
+
+(defun get-random-seq ()
+  (ecc-crypto-b571:ctr-drbg 256))
+
+(defun encrypt (ekey seq bytevec)
+  (let ((mask (vec (get-hash-nbytes (length bytevec) ekey seq))))
+    (map 'vector #'logxor bytevec mask)))
+
+(defun decrypt (ekey seq emsg)
+  (let ((mask  (vec (get-hash-nbytes (length emsg) ekey seq))))
+    (map 'vector #'logxor emsg mask)))
+
+(defun make-signature (seq emsg skey)
+  (let* ((pkey  (ed-mul *ed-gen* skey))
+         (krand (int (hash/256 seq emsg skey pkey)))
+         (kpt   (ed-mul *ed-gen* krand))
+         (h     (int (hash/256 seq emsg kpt pkey)))
+         (u     (with-mod *ed-r*
+                  (m+ krand (m* h skey))))
+         (upt   (ed-mul *ed-gen* u)))
+    (list (pt->int upt) krand)
+    ))
+
+(defun check-signature (seq emsg auth pkey)
+  (destructuring-bind (upt krand) auth
+    (let* ((kpt  (ed-mul *ed-gen* krand))
+           (h    (int (hash/256 seq emsg kpt pkey))))
+      (ed-pt= (int->pt upt) (ed-add kpt (ed-mul pkey h)))
+      )))
+
+;; ----------------------------------------------
+;; Actor crypto component blocks
+
+(defun marshal-encoder ()
+  (actor (cust &rest msg)
+    (send cust (loenc:encode msg))))
+
+(defun marshal-decoder ()
+  (actor (cust msg)
+    (send* cust (loenc:decode msg))))
+
+(defun encryptor (ekey)
+  ;; Since we are encrypting via XOR by a mask, we must ensure that no
+  ;; two messages are ever encrypted with the same keying. We do that
+  ;; by ensuring that every encryption is by way of a new mask chosen
+  ;; from a PRF.
+  ;;
+  ;; We use SHA3 as that PRF, and compute the next seq as the hash of
+  ;; the current one.  The likelihood of seeing the same key arise is
+  ;; the same as the likelihood of finding a SHA3 collision. Not very
+  ;; likely...
+  ;;
+  ;; The initial seq is chosen randomly over the field of 256 bit
+  ;; integer, using NIST Hash DRBG.
+  ;;
+  ;; The master key never changes, but the keying used for any message
+  ;; is the hash of the master key concatenated with the seq. The seq
+  ;; is sent along as part of the message so that someone sharing the
+  ;; same master key will be able to decrypt the message.
+  ;;
+  (labels ((encryptor-beh (ekey seq)
+             (lambda (cust bytevec)
+               (let ((emsg (encrypt ekey seq bytevec)))
+                 (send cust seq emsg)
+                 (let ((new-seq (hash:hash/256 seq)))
+                   (become (encryptor-beh ekey new-seq)))
+                 ))))
+    (make-actor (encryptor-beh ekey (get-random-seq)))
+    ))
+
+(defun decryptor (ekey)
+  (actor (cust seq emsg)
+    (let ((ans (decrypt ekey seq emsg)))
+      (send cust ans))))
+
+(defun signing (skey)
+  (actor (cust seq emsg)
+    (let ((sig (make-signature seq emsg skey)))
+      (send cust seq emsg sig))))
+
+(defun signature-validation (pkey)
+  (actor (cust seq emsg sig)
+    (when (check-signature seq emsg sig pkey)
+      (send cust seq emsg))))
+
+;; ---------------------------------------------------
+;; Composite Actor chains
+
+(defun secure-sender (ekey skey)
+  (chain (marshal-encoder)
+         (encryptor ekey)
+         (signing   skey)
+         (marshal-encoder)))
+
+(defun secure-reader (ekey pkey)
+  (chain (marshal-decoder)
+         (signature-validation pkey)
+         (decryptor ekey)
+         (marshal-decoder)))
+
+;; --------------------------------------------------------------------
 ;; Client side
 
 (defun client-crypto-gate-beh (&rest args &key client-skey admin-tag cnxs)
@@ -79,7 +181,7 @@
   ;; key.
   (alambda
    ((cust :connect server server-pkey)
-    (let* ((arand       (int (ctr-drbg 32)))
+    (let* ((arand       (int (ctr-drbg 256)))
            (apt         (ed-mul *ed-gen* arand))
            (client-pkey (ed-mul *ed-gen* client-skey)))
       (beta (server-cnx bpt)
@@ -89,12 +191,12 @@
                 (pt->int apt))
         (let* ((ekey  (hash/256 (ed-mul (int->pt bpt) arand)))
                (client-cnx (make-actor (client-connect-beh
-                                        :ekey        ekey
-                                        :client-skey client-skey
-                                        :server-pkey (int->pt server-pkey)
-                                        :server-cnx  server-cnx
-                                        :admin-tag   admin-tag))))
-          (send cust (secure-send client-cnx))
+                                        :encryptor   (chain
+                                                      (secure-sender ekey client-skey)
+                                                      server-cnx)
+                                        :decryptor   (secure-reader ekey (int->pt server-pkey))
+                                        :admin       self))))
+          (send cust (secure-send client-cnx)) ;; our local customer
           (become (reapply #'client-crypto-gate-beh () args
                            :cnxs (cons client-cnx cnxs)))
           ))))
@@ -121,14 +223,10 @@
 
 ;; ---------------------------------------------------
 
-(defun client-connect-beh (&rest args &key
-                                 ekey
-                                 client-skey
-                                 server-pkey
-                                 server-cnx
-                                 (seq 0)
-                                 admin-tag
-                                 decs)
+(defun client-connect-beh (&key
+                           encryptor
+                           decryptor
+                           admin)
   ;; One of these serves as a client-local private portal with an
   ;; established connection to a server. It encrypts and signs a
   ;; request message for a server service. It also instantiates a
@@ -139,55 +237,13 @@
   ;; incrementing sequence number to ensure a change of encryption
   ;; keying for every new message.
   (alambda
-   ((cust :send service-name . msg) ;; client send to a server service by name
-    (let* ((full-msg (cons service-name msg))
-           (emsg     (encrypt ekey seq full-msg))
-           (sig      (make-signature seq emsg client-skey))
-           (dec      (make-actor (decryptor-beh
-                                  :cust        cust
-                                  :ekey        ekey
-                                  :seq         seq
-                                  :server-pkey server-pkey
-                                  :admin       self))))
-      (become (reapply #'client-connect-beh nil args
-                     :seq  (1+ seq)
-                     :decs (cons dec decs)))
-      (send server-cnx dec seq emsg sig)
+   ((cust :send verb . msg) ;; client send to a server service by name
+    (let ((ccust  (chain decryptor cust)))
+      (send* encryptor ccust verb msg)
       ))
 
-   ((dec :forward . msg) when (find dec decs)
-    (become (reapply #'client-connect-beh nil args
-                   :decs (remove dec decs)))
-    (send* msg))
-
-   ((tag :shutdown) when (eq tag admin-tag)
-    (become (sink-beh))
-    (send-to-all decs self :shutdown))
-   ))
-
-(defun decryptor-beh (&key cust
-                           ekey
-                           seq
-                           server-pkey
-                           admin)
-  ;; This is a private decrypting customer, sent along to the server
-  ;; as the customer for our request. One of these for every request
-  ;; made through our private connection.
-  ;;
-  ;; It authenticates a reply from the server, decrypts it with the
-  ;; roving encryption key, and forwards the reply to the local
-  ;; customer on the client.
-  (alambda
-   ((tag :shutdown) when (eq tag admin)
+   ((cust :shutdown) when (eq cust admin)
     (become (sink-beh)))
-
-   ((aseq ereply sig)
-    (when (and (eql seq aseq)
-               (check-signature seq ereply sig server-pkey))
-      (let ((reply (decrypt ekey seq ereply)))
-        (send* admin self :forward cust reply)
-        (become (sink-beh))
-        )))
    ))
 
 ;; ------------------------------------------------------------------
@@ -207,16 +263,16 @@
     (let ((my-pkey     (ed-mul *ed-gen* server-skey))
           (server-pkey (int->pt server-pkey)))
       (when (ed-pt= my-pkey server-pkey) ;; did client have correct server-pkey?
-        (let* ((brand  (int (ctr-drbg 32)))
-               (bpt    (ed-mul *ed-gen* brand))
-               (ekey   (hash/256 (ed-mul (int->pt apt) brand)))
-               (cnx    (make-actor (server-connect-beh
-                                    :ekey        ekey
-                                    :client-pkey (int->pt client-pkey)
-                                    :server-skey server-skey
-                                    :services    services
-                                    :admin-tag   admin-tag))))
-          (send cust cnx (pt->int bpt))
+        (let* ((brand     (int (ctr-drbg 256)))
+               (bpt       (ed-mul *ed-gen* brand))
+               (ekey      (hash/256 (ed-mul (int->pt apt) brand)))
+               (encryptor (secure-sender ekey server-skey))
+               (decryptor (secure-reader ekey (int->pt client-pkey)))
+               (cnx       (make-actor (server-connect-beh
+                                       :encryptor   encryptor
+                                       :admin       self
+                                       :services    services))))
+          (send cust (chain decryptor cnx) (pt->int bpt))
           (become (reapply #'server-crypto-gate-beh nil args
                            :cnxs (cons cnx cnxs)))
           ))))
@@ -227,7 +283,7 @@
                                (cdr services))))
       (become (reapply #'server-crypto-gate-beh nil args
                      :services new-services))
-      (send-to-all cnxs admin-tag :update-services new-services)
+      (send-to-all cnxs self :update-services new-services)
       ))
 
    ((tag :remove-service name) when (eq tag admin-tag)
@@ -236,7 +292,7 @@
                         ))
       (become (reapply #'server-crypto-gate-beh nil args
                      :services new-services))
-      (send-to-all cnxs admin-tag :update-services new-services)
+      (send-to-all cnxs self :update-services new-services)
       ))
 
    ((tag :shutdown) when (eq tag admin-tag)
@@ -265,12 +321,9 @@
 ;; ----------------------------------------------------------------
 
 (defun server-connect-beh (&rest args &key
-                                 ekey
-                                 client-pkey
-                                 server-skey
-                                 services
-                                 admin-tag
-                                 encs)
+                                 encryptor
+                                 admin
+                                 services)
   ;; This is a private portal for exchanges with a foreign client.
   ;; One of these exist for each connection established through the
   ;; main crypto gate.
@@ -281,86 +334,21 @@
   ;; customer, and pass that along as the local customer for the
   ;; request to the local service.
   (alambda
-   ((tag :shutdown) when (eq tag admin-tag)
-    (become (sink-beh))
-    (send-to-all encs self :shutdown))
+   ((tag :shutdown) when (eq tag admin)
+    (become (sink-beh)))
 
-   ((tag :update-services new-services) when (eq tag admin-tag)
+   ((tag :update-services new-services) when (eq tag admin)
     (become (reapply #'server-connect-beh nil args
                    :services new-services)))
 
-   ((enc :forward . msg) when (find enc encs)
-    (become (reapply #'server-connect-beh nil args
-                     :encs (remove enc encs)))
-    (send* msg))
-   
-   ((cust seq emsg sig)
-    (when (check-signature seq emsg sig client-pkey)
-      (let* ((msg  (decrypt ekey seq emsg))
-             (svc  (sys:cdr-assoc (car msg) services)))
-        (when svc
-          (let ((enc  (make-actor (encryptor-beh
-                                   :cust        cust
-                                   :ekey        ekey
-                                   :seq         seq
-                                   :server-skey server-skey
-                                   :admin       self))))
-            (send* svc enc (cdr msg))
-            (become (reapply #'server-connect-beh nil args
-                           :encs (cons enc encs)))
-            )))
-      ))
-   ))
-
-(defun encryptor-beh (&key cust
-                           ekey
-                           seq
-                           server-skey
-                           admin)
-  ;; One of these is instantiated for each request arriving through
-  ;; our private channel with the client. It serves as an encrypting
-  ;; forwarding customer, back to the client, carrying replies from
-  ;; the local service request.
-  (alambda
-   ((tag :shutdown) when (eq tag admin)
-    (become (sink-beh)))
-   
-   (reply
-    (let* ((ereply (encrypt ekey seq reply))
-           (sig    (make-signature seq ereply server-skey)))
-      (send admin self :forward cust seq ereply sig)
-      (become (sink-beh))
-      ))
+   ((cust verb . msg)
+    (let ((svc  (sys:cdr-assoc verb services)))
+      (when svc
+        (send* svc (chain encryptor cust) msg)
+        )))
    ))
 
 ;; ------------------------------------------------------------
-
-(defun encrypt (ekey seq msg)
-  (let* ((enc  (loenc:encode msg))
-         (mask (vec (get-hash-nbytes (length enc) ekey seq))))
-    (map 'vector #'logxor enc mask)))
-
-(defun decrypt (ekey seq emsg)
-  (let ((mask  (vec (get-hash-nbytes (length emsg) ekey seq))))
-    (loenc:decode (map 'vector #'logxor emsg mask))))
-
-(defun make-signature (seq emsg skey)
-  (let* ((pkey  (ed-mul *ed-gen* skey))
-         (krand (int (hash/256 seq emsg skey pkey)))
-         (kpt   (ed-mul *ed-gen* krand))
-         (h     (int (hash/256 seq emsg kpt pkey)))
-         (u     (with-mod *ed-r*
-                  (m+ krand (m* h skey))))
-         (upt   (ed-mul *ed-gen* u)))
-    (list (pt->int upt) krand)
-    ))
-
-(defun check-signature (seq emsg auth pkey)
-  (destructuring-bind (upt krand) auth
-    (let* ((kpt  (ed-mul *ed-gen* krand))
-           (h    (int (hash/256 seq emsg kpt pkey))))
-      (ed-pt= (int->pt upt) (ed-add kpt (ed-mul pkey h)))
-      )))
 
 #|
 (let* ((msg :diddly)

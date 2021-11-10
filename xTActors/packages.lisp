@@ -192,6 +192,7 @@ THE SOFTWARE.
    #:suspend
 
    #:*whole-message*
+   #:chain
    ))
 
 #-lispworks

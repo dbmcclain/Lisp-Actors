@@ -72,13 +72,36 @@
   (actor (cust msg)
     (send* cust (lzw:decompress msg))))
 
+(defun get-random-seq ()
+  (ecc-crypto-b571:ctr-drbg 256))
+
 (defun encryptor (ekey)
+  ;; Since we are encrypting via XOR by a mask, we must ensure that no
+  ;; two messages are ever encrypted with the same keying. We do that
+  ;; by ensuring that every encryption is by way of a new mask chosen
+  ;; from a PRF.
+  ;;
+  ;; We use SHA3 as that PRF, and compute the next seq as the hash of
+  ;; the current one.  The likelihood of seeing the same key arise is
+  ;; the same as the likelihood of finding a SHA3 collision. Not very
+  ;; likely...
+  ;;
+  ;; The initial seq is chosen randomly over the field of 256 bit
+  ;; integer, using NIST Hash DRBG.
+  ;;
+  ;; The master key never changes, but the keying used for any message
+  ;; is the hash of the master key concatenated with the seq. The seq
+  ;; is sent along as part of the message so that someone sharing the
+  ;; same master key will be able to decrypt the message.
+  ;;
   (labels ((encryptor-beh (ekey seq)
              (lambda (cust &rest msg)
                (let ((emsg (encrypt ekey seq msg)))
                  (send cust seq emsg)
-                 (become (encryptor-beh ekey (1+ seq)))))))
-    (make-actor (encryptor-beh ekey 0))
+                 (let ((new-seq (hash:hash/256 seq)))
+                   (become (encryptor-beh ekey new-seq)))
+                 ))))
+    (make-actor (encryptor-beh ekey (get-random-seq)))
     ))
 
 (defun signing (skey)
@@ -196,22 +219,6 @@
       (make-actor (initial-dechunker-beh delivery))
       )))
 
-;; ------------------------------------------------------------
-
-(defun chain (&rest elts)
-  (labels ((chain-beh (a b)
-             (lambda (cust &rest msg)
-               (beta ans
-                   (send* a beta msg)
-                 (send* b cust ans)))
-             ))
-    (cond ((cdr elts)
-           (make-actor (chain-beh (car elts)
-                                  (apply #'chain (cdr elts)))))
-          (elts  (car elts))
-          (t     sink)
-          )))
-
 ;; -----------------------------------------------------------
 
 (defun printer ()
@@ -282,5 +289,10 @@
   (beta (ans)
       (send (chain (chunker :max-size 16) (dechunker)) beta junk)
     (send println (if (equalp ans junk) :yes :no))))
+
+(multiple-value-bind (skey pkey)
+    (edec:make-deterministic-keys :test)
+  (let ((ekey (hash:hash/256 skey pkey)))
+    (send (encryptor ekey) println "This is a test")))
 |#
 

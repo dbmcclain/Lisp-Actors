@@ -40,6 +40,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "macros")
                 (:file "actors")
                 (:file "prim-actors")
+                (:file "actors-directory")
+
                 ;; #+(AND :MACOSX :COM.RAL) (:file "fft-fixup")
                 ;; (:file "actor-class")
                 ;; (:file "watch")
@@ -51,7 +53,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 ;; (:file "actors-futures")
                 ;; (:file "promises")
                 #| -------------------------------------------
-                (:file "actors-directory")
                 (:file "lfm")
                 ;; (:file "actor-bridge")
                 (:file "bridge-v4")

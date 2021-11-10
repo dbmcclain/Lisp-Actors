@@ -516,3 +516,20 @@
 
 (defun time-tag (actor)
   (make-actor (time-tag-beh actor)))
+
+;; -------------------------------------
+
+(defun chain (&rest elts)
+  (labels ((chain-beh (a b)
+             (lambda (cust &rest msg)
+               (beta ans
+                   (send* a beta msg)
+                 (send* b cust ans)))
+             ))
+    (cond ((cdr elts)
+           (make-actor (chain-beh (car elts)
+                                  (apply #'chain (cdr elts)))))
+          (elts  (car elts))
+          (t     sink)
+          )))
+
