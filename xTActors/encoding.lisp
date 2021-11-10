@@ -4,24 +4,6 @@
 ;; ----------------------------------------------------
 ;; Useful primitives...
 
-(defun addnew-to-plist (plist-start plist-adds)
-  (let ((unique #()))
-    (do ((pa  plist-adds  (cddr pa))
-         (pd  plist-start))
-        ((endp pa) pd)
-      (when (eq unique (getf pd (car pa) unique))
-        (setf pd (list* (car pa) (cadr pa) pd)))
-      )))
-
-(defun reapply (fn reqd restargs &rest parms)
-  ;; Like APPLY, but used to substitute new keyword args for old,
-  ;; removing all the old kw args to prevent accumulation of old stuff
-  ;; and their GC.
-  (declare (list reqd restargs parms))
-  (multiple-value-call fn (values-list reqd)
-    (values-list (addnew-to-plist parms restargs))
-    ))
-
 (defun encrypt (ekey seq bytevec)
   ;; takes a bytevec and produces an encrypted bytevec
   ;;

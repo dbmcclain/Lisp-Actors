@@ -1082,6 +1082,9 @@ THE SOFTWARE.
    ;; #:wild-pattern-p
    ;; #:meta-match
    #:collect
+
+   #:addnew-to-plist
+   #:reapply
    ))
 
 (defpackage #:engfmt
