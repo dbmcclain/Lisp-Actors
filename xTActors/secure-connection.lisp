@@ -43,17 +43,18 @@
 ;; ------------------------------------------------------------------
 
 (defun addnew-to-plist (plist-start plist-adds)
-  (do ((pa  plist-adds  (cddr pa))
-       (pd  plist-start))
-      ((endp pa) pd)
-    (when (eq pa (getf pd (car pa) pa))
-      (setf pd (list* (car pa) (cadr pa) pd)))
-    ))
+  (let ((unique #()))
+    (do ((pa  plist-adds  (cddr pa))
+         (pd  plist-start))
+        ((endp pa) pd)
+      (when (eq unique (getf pd (car pa) unique))
+        (setf pd (list* (car pa) (cadr pa) pd)))
+      )))
 
 (defun reapply (fn reqd restargs &rest parms)
   ;; Like APPLY, but used to substitute new keyword args for old,
   ;; removing all the old kw args to prevent accumulation of old stuff
-  ;; and prevent its GC.
+  ;; and allow their GC.
   (declare (list reqd restargs parms))
   (multiple-value-call fn (values-list reqd)
     (values-list (addnew-to-plist parms restargs))
@@ -72,14 +73,26 @@
   (ecc-crypto-b571:ctr-drbg 256))
 
 (defun encrypt (ekey seq bytevec)
+  ;; takes a bytevec and produces an encrypted bytevec
+  ;;
+  ;; One-time-pad encryption via XOR with random mask. Take care to
+  ;; never re-use the same mask.
   (let ((mask (vec (get-hash-nbytes (length bytevec) ekey seq))))
     (map 'vector #'logxor bytevec mask)))
 
 (defun decrypt (ekey seq emsg)
+  ;; takes an encrypted bytevec and produces a bytevec
   (let ((mask  (vec (get-hash-nbytes (length emsg) ekey seq))))
     (map 'vector #'logxor emsg mask)))
 
 (defun make-signature (seq emsg skey)
+  ;; Generate and append a Schnorr signature - signature includes seq
+  ;; and emsg.
+  ;;
+  ;; We take care to use deterministic hashing so that the same
+  ;; message and seq always produces the same signature, for the given
+  ;; secret key, skey. This is doubly cautious here, since seq is only
+  ;; ever supposed to be used just once.
   (let* ((pkey  (ed-mul *ed-gen* skey))
          (krand (int (hash/256 seq emsg skey pkey)))
          (kpt   (ed-mul *ed-gen* krand))
@@ -91,6 +104,8 @@
     ))
 
 (defun check-signature (seq emsg auth pkey)
+  ;; takes seq, emsg, and sig (a Schnorr signature on seq+emsg), and
+  ;; produce t/f on signature as having come from pkey.
   (destructuring-bind (upt krand) auth
     (let* ((kpt  (ed-mul *ed-gen* krand))
            (h    (int (hash/256 seq emsg kpt pkey))))
@@ -99,25 +114,32 @@
 
 ;; ----------------------------------------------
 ;; Actor crypto component blocks
+;;
+;; The term "Arbitrary Objects" here refers to serializable objects -
+;; just about anything, except compiled closures.
 
 (defun marshal-encoder ()
+  ;; takes arbitrary objects and produces an encoded bytevec
   (actor (cust &rest msg)
     (send cust (loenc:encode msg))))
 
 (defun marshal-decoder ()
+  ;; takes an encoded bytevec and produces arbitrary objects
   (actor (cust msg)
     (send* cust (loenc:decode msg))))
 
 (defun encryptor (ekey)
+  ;; Takes a bytevec and produces an encrypted bytevec
+  ;;
   ;; Since we are encrypting via XOR with a random mask, we must
   ;; ensure that no two messages are ever encrypted with the same
   ;; keying. We do that by ensuring that every encryption is by way of
-  ;; a new mask chosen from a PRF.
+  ;; a new mask chosen from a PRF. This is a one-time-pad encryption.
   ;;
-  ;; We use SHA3 as that PRF, and compute the next seq as the hash of
-  ;; the current one. The likelihood of seeing the same key arise is
-  ;; the same as the likelihood of finding a SHA3 collision. Not very
-  ;; likely...
+  ;; We use SHA3/256 as that PRF, and compute the next seq as the hash
+  ;; of the current one. The likelihood of seeing a same key arise is
+  ;; the same as the likelihood of finding a SHA3/256 hash collision.
+  ;; Not very likely...
   ;;
   ;; The initial seq is chosen randomly over the field of 256 bit
   ;; integers, using NIST Hash DRBG.
@@ -138,16 +160,19 @@
     ))
 
 (defun decryptor (ekey)
+  ;; takes an encrypted bytevec and produces a bytevec
   (actor (cust seq emsg)
     (let ((ans (decrypt ekey seq emsg)))
       (send cust ans))))
 
 (defun signing (skey)
+  ;; takes seq, enc msg, and produces seq, enc msg, sig
   (actor (cust seq emsg)
     (let ((sig (make-signature seq emsg skey)))
       (send cust seq emsg sig))))
 
 (defun signature-validation (pkey)
+  ;; takes seq, enc msg, sig and produces seq, enc msg
   (actor (cust seq emsg sig)
     (when (check-signature seq emsg sig pkey)
       (send cust seq emsg))))

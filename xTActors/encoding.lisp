@@ -5,28 +5,33 @@
 ;; Useful primitives...
 
 (defun addnew-to-plist (plist-start plist-adds)
-  (do ((pa  plist-adds  (cddr pa))
-       (pd  plist-start))
-      ((endp pa) pd)
-    (when (eq pa (getf pd (car pa) pa))
-      (setf pd (list* (car pa) (cadr pa) pd)))
-    ))
+  (let ((unique #()))
+    (do ((pa  plist-adds  (cddr pa))
+         (pd  plist-start))
+        ((endp pa) pd)
+      (when (eq unique (getf pd (car pa) unique))
+        (setf pd (list* (car pa) (cadr pa) pd)))
+      )))
 
 (defun reapply (fn reqd restargs &rest parms)
   ;; Like APPLY, but used to substitute new keyword args for old,
   ;; removing all the old kw args to prevent accumulation of old stuff
-  ;; and prevent its GC.
+  ;; and their GC.
   (declare (list reqd restargs parms))
   (multiple-value-call fn (values-list reqd)
     (values-list (addnew-to-plist parms restargs))
     ))
 
 (defun encrypt (ekey seq bytevec)
+  ;; takes a bytevec and produces an encrypted bytevec
+  ;;
+  ;; One-time-pad encryption via XOR with random mask. Take care to
+  ;; never re-use the same mask.
   (let ((mask (vec-repr:vec (hash:get-hash-nbytes (length bytevec) ekey seq))))
     (map 'vector #'logxor bytevec mask)))
 
 (defun decrypt (ekey seq emsg)
-  ;; produces a bytevec result
+  ;; takes an encrypted bytevec and produces a bytevec
   (let ((mask  (vec-repr:vec (hash:get-hash-nbytes (length emsg) ekey seq))))
     (map 'vector #'logxor emsg mask)))
 
@@ -37,6 +42,13 @@
   (edec:ed-decompress-pt int))
 
 (defun make-signature (seq emsg skey)
+  ;; Generate and append a Schnorr signature - signature includes seq
+  ;; and emsg.
+  ;;
+  ;; We take care to use deterministic hashing so that the same
+  ;; message and seq always produces the same signature, for the given
+  ;; secret key, skey. This is doubly cautious here, since seq is only
+  ;; ever supposed to be used just once.
   (let* ((pkey  (edec:ed-mul edec:*ed-gen* skey))
          (krand (vec-repr:int (hash:hash/256 seq emsg skey pkey)))
          (kpt   (edec:ed-mul edec:*ed-gen* krand))
@@ -48,6 +60,8 @@
     ))
 
 (defun check-signature (seq emsg auth pkey)
+  ;; takes seq, emsg, and sig (a Schnorr signature on seq+emsg), and
+  ;; produce t/f on signature as having come from pkey.
   (destructuring-bind (upt krand) auth
     (let* ((kpt  (edec:ed-mul edec:*ed-gen* krand))
            (h    (vec-repr:int (hash:hash/256 seq emsg kpt pkey))))
@@ -55,20 +69,26 @@
       )))
 
 ;; --------------------------------------------------
+;; The term "Arbitrary Objects" here refers to serializable objects -
+;; just about anything, except compiled closures.
 
 (defun marshal-encoder ()
   (actor (cust &rest msg)
+    ;; takes arbitrary objects and producdes an encoded bytevec
     (send cust (loenc:encode msg))))
 
 (defun marshal-decoder ()
+  ;; takes an encoded bytevec and produces arbitrary objects
   (actor (cust msg)
     (send* cust (loenc:decode msg))))
 
 (defun marshal-compressor ()
+  ;; takes arbitrary objects and produces a compressor data struct
   (actor (cust &rest msg)
     (send cust (lzw:zl-compress msg))))
 
 (defun marshal-decompressor ()
+  ;; takes a compressor data struct and produces arbitrary objects
   (actor (cust msg)
     (send* cust (lzw:decompress msg))))
 
@@ -76,15 +96,17 @@
   (ecc-crypto-b571:ctr-drbg 256))
 
 (defun encryptor (ekey)
-  ;; Since we are encrypting via XOR by a mask, we must ensure that no
-  ;; two messages are ever encrypted with the same keying. We do that
-  ;; by ensuring that every encryption is by way of a new mask chosen
-  ;; from a PRF.
+  ;; Takes a bytevec and produces an encrypted bytevec.
   ;;
-  ;; We use SHA3 as that PRF, and compute the next seq as the hash of
-  ;; the current one.  The likelihood of seeing the same key arise is
-  ;; the same as the likelihood of finding a SHA3 collision. Not very
-  ;; likely...
+  ;; Since we are encrypting via XOR with a random mask, we must
+  ;; ensure that no two messages are ever encrypted with the same
+  ;; keying. We do that by ensuring that every encryption is by way of
+  ;; a new mask chosen from a PRF. This is a one-time-pad encryption.
+  ;;
+  ;; We use SHA3/256 as that PRF, and compute the next seq as the hash
+  ;; of the current one.  The likelihood of seeing a same key arise is
+  ;; the same as the likelihood of finding a SHA3/256 hash collision.
+  ;; Not very likely...
   ;;
   ;; The initial seq is chosen randomly over the field of 256 bit
   ;; integer, using NIST Hash DRBG.
@@ -105,6 +127,7 @@
     ))
 
 (defun decryptor (ekey)
+  ;; Takes an encrypted bytevec and produces a bytevec
   (actor (cust seq emsg)
     (let ((ans (decrypt ekey seq emsg)))
       (send cust ans))))
@@ -120,14 +143,17 @@
       (send cust seq emsg))))
 
 (defun self-sync-encoder ()
+  ;; takes a bytevec and produces a self-sync bytevec
   (actor (cust bytevec)
     (send cust (self-sync:encode bytevec))))
 
 (defun self-sync-decoder ()
+  ;; takes a self-sync bytevec and produces a bytevec
   (actor (cust bytevec)
     (send cust (self-sync:decode bytevec))))
 
 (defun chunker (&key (max-size 65536))
+  ;; takes a bytevec and produces a sequence of chunk encodings
   (actor (cust byte-vec)
     (let* ((size    (length byte-vec))
            (nchunks (ceiling size max-size))
@@ -183,6 +209,7 @@
 
 (defun dechunker ()
   ;; No assumptions about chunk or init delivery order.
+  ;; Takes a sequence of chunk encodings and produces a bytevec
   (labels ((initial-dechunker-beh (delivery)
              (alambda
               ((_ :init id nchunks size)
@@ -222,35 +249,40 @@
 ;; -----------------------------------------------------------
 
 (defun printer ()
+  ;; prints the message and forwards to cust
   (actor (cust &rest msg)
     (send* println msg)
     (send* cust msg)))
 
 (defun writer ()
+  ;; prints the message and forwards to cust
   (actor (cust &rest msg)
     (send* writeln msg)
     (send* cust msg)))
 
 (defun netw-encoder (ekey skey &key (max-chunk 65536))
+  ;; takes arbitrary objects and produces a bytevec
   (chain (marshal-encoder)       ;; to get arb msg objects into bytevecc form
          (chunker :max-size max-chunk) ;; we want to limit network message sizes
          ;; --- then, for each chunk... ---
          (marshal-compressor)    ;; generates a compressed data struct
-         (marshal-encoder)
+         (marshal-encoder)       ;; encryptor needs bytevec
          (encryptor ekey)        ;; generates seq, enctext
          (signing skey)          ;; generates seq, enctext, sig
-         (marshal-encoder)))     ;; to turn seq, etext, sig into byte vector
+         (marshal-encoder)))     ;; turn seq, etext, sig into byte vector
 
 (defun netw-decoder (ekey pkey)
+  ;; takes a bytevec and produces arbitrary objects
   (chain (marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
          (signature-validation pkey) ;; pass along seq, enc text
-         (decryptor ekey)        ;; generates a compressed data struct
-         (marshal-decoder)
+         (decryptor ekey)        ;; generates a bytevec
+         (marshal-decoder)       ;; produces compressor data struct
          (marshal-decompressor)  ;; generates a byte vector
          (dechunker)             ;; de-chunking back into original byte vector
          (marshal-decoder)))     ;; decode byte vector into message objects
 
 (defun disk-encoder (&key (max-chunk 65536))
+  ;; takes arbitrary objects and produces a bytevec
   (chain (marshal-encoder)       ;; to get arb msg into bytevec form
          (chunker :max-size max-chunk)
          (marshal-compressor)
@@ -258,6 +290,7 @@
          (self-sync-encoder)))
                      
 (defun disk-decoder ()
+  ;; takes a bytevec and produces arbitrary objects
   (chain (self-sync-decoder)
          (marshal-decoder)
          (marshal-decompressor)
@@ -265,10 +298,12 @@
          (marshal-decoder)))
 
 (defun encr-disk-encoder (ekey skey &key (max-chunk 65536))
+  ;; takes arbitrary objects and produces a bytevec
   (chain (netw-encoder ekey skey :max-chunk max-chunk)
          (self-sync-encoder)))
 
 (defun encr-disk-decoder (ekey pkey)
+  ;; takes a bytevec and produces arbitrary objects
   (chain (self-sync-decoder)
          (netw-decoder ekey pkey)))
 
