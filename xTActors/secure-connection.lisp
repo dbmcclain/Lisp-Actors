@@ -238,9 +238,7 @@
   ;; keying for every new message.
   (alambda
    ((cust :send verb . msg) ;; client send to a server service by name
-    (let ((ccust  (chain decryptor cust))) ;; cust = local client cust
-      (send* encryptor ccust verb msg)
-      ))
+    (send* encryptor (chain decryptor cust) verb msg))
 
    ((cust :shutdown) when (eq cust admin)
     (become (sink-beh)))
@@ -263,7 +261,6 @@
     (let ((my-pkey     (ed-mul *ed-gen* server-skey))
           (server-pkey (int->pt server-pkey)))
       (when (ed-pt= my-pkey server-pkey) ;; did client have correct server-pkey?
-        (send println "Making connection")
         (let* ((brand     (int (ctr-drbg 256)))
                (bpt       (ed-mul *ed-gen* brand))
                (ekey      (hash/256 (ed-mul (int->pt apt) brand)))
@@ -278,12 +275,10 @@
                            :cnxs (cons cnx cnxs)))
           ))))
 
-   ((tag :add-service name _) when (eq tag admin-tag)
-    (send println (format nil "Adding service: ~s" name))
+   ((tag :add-service . _) when (eq tag admin-tag)
     (repeat-send services))
 
-   ((tag :remove-service name) when (eq tag admin-tag)
-    (send println (format nil "Removing service: ~S" name))
+   ((tag :remove-service . _) when (eq tag admin-tag)
     (repeat-send services))
 
    ((tag :shutdown) when (eq tag admin-tag)
@@ -309,16 +304,10 @@
     (become (sink-beh)))
 
    ((cust :available-services)
-    (send println "Server responding to :AVAILABLE-SERVICES")
     (send services (chain encryptor cust) :available-services nil))
 
    ((cust verb . msg) ;; remote client cust
-    (send println (format nil "server responding to: ~S" verb))
-    (beta (handler)
-        (send services beta :get-handler verb)
-      (when handler
-        (send* handler (chain encryptor cust) msg))
-      ))
+    (send* services (chain encryptor cust) :send verb msg))
    ))
 
 ;; ---------------------------------------------------------------
@@ -343,7 +332,7 @@
       )))
 
 (defvar *server-gateway* nil) ;; this can be shared
-(defvar *server-admin*   nil)   ;; this cannot be shared
+(defvar *server-admin*   nil) ;; this cannot be shared
 
 (defconstant *server-id*    "7a1efb26-bc60-123a-a2d6-24f67702cdaa")
 (defconstant *server-pkey*  #x7EBC0A8D8FFC77F24E7F271F12FC827415F0B66CC6A4C1144070A32133455F1)
@@ -363,6 +352,7 @@
           *server-admin*   admin)))
   
 ;; ----------------------------------------------------------------
+;; Self-organizing list of services for Server and connection Actors
 
 (defun null-service-list-beh ()
   (alambda
@@ -370,7 +360,7 @@
     (send cust :pruned self-beh))
 
    ((cust :available-services lst)
-    (send cust lst))
+    (send cust (reverse lst)))
 
    ((_ :add-service name handler)
     (let ((next (make-actor self-beh)))
@@ -382,8 +372,11 @@
    ((cust :prune)
     (send cust :pruned self-beh))
 
-   ((cust :get-handler aname) when (eql aname name)
-    (send cust handler))
+   ((cust :send verb . msg) when (eql verb name)
+    (send* handler cust msg))
+
+   ((_ :add-service aname new-handler) when (eql aname name)
+    (become (service-list-beh name new-handler next)))
    
    ((_ :remove-service aname) when (eql aname name)
     (prune-self next))
