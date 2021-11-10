@@ -95,14 +95,19 @@
   ;; same master key will be able to decrypt the message.
   ;;
   (labels ((encryptor-beh (ekey seq)
-             (lambda (cust &rest msg)
-               (let ((emsg (encrypt ekey seq msg)))
+             (lambda (cust bytevec)
+               (let ((emsg (encrypt ekey seq bytevec)))
                  (send cust seq emsg)
                  (let ((new-seq (hash:hash/256 seq)))
                    (become (encryptor-beh ekey new-seq)))
                  ))))
     (make-actor (encryptor-beh ekey (get-random-seq)))
     ))
+
+(defun decryptor (ekey)
+  (actor (cust seq emsg)
+    (let ((ans (decrypt ekey seq emsg)))
+      (send cust ans))))
 
 (defun signing (skey)
   (actor (cust seq emsg)
@@ -113,11 +118,6 @@
   (actor (cust seq emsg sig)
     (when (check-signature seq emsg sig pkey)
       (send cust seq emsg))))
-
-(defun decryptor (ekey)
-  (actor (cust seq emsg)
-    (let ((ans (decrypt ekey seq emsg)))
-      (send* cust ans))))
 
 (defun self-sync-encoder ()
   (actor (cust bytevec)
