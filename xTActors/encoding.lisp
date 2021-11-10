@@ -217,8 +217,8 @@
                       (send delivery self :init?))
 
                      (t
-                      (become (reapply #'dechunker-beh nil args
-                                       :ctr (1+ ctr)))
+                      (become (um:reapply #'dechunker-beh nil args
+                                          :ctr (1+ ctr)))
                       (send delivery self :chunk? id))
                      ))
               ( _

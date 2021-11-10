@@ -204,8 +204,8 @@
                                         :decryptor   (secure-reader ekey (int->pt server-pkey))
                                         :admin       self))))
           (send cust (secure-send client-cnx)) ;; our local customer
-          (become (reapply #'client-crypto-gate-beh () args
-                           :cnxs (cons client-cnx cnxs)))
+          (become (um:reapply #'client-crypto-gate-beh () args
+                              :cnxs (cons client-cnx cnxs)))
           ))))
    
    ((tag :shutdown) when (eq tag admin-tag)
@@ -278,8 +278,8 @@
                                        :services    services
                                        :admin       self))))
           (send cust (chain decryptor cnx) (pt->int bpt)) ;; remote client cust
-          (become (reapply #'server-crypto-gate-beh nil args
-                           :cnxs (cons cnx cnxs)))
+          (become (um:reapply #'server-crypto-gate-beh nil args
+                              :cnxs (cons cnx cnxs)))
           ))))
 
    ((tag :add-service . _) when (eq tag admin-tag)
