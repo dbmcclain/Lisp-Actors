@@ -46,7 +46,7 @@
   (do ((pa  plist-adds  (cddr pa))
        (pd  plist-start))
       ((endp pa) pd)
-    (unless (getf pd (car pa))
+    (when (eq pa (getf pd (car pa) pa))
       (setf pd (list* (car pa) (cadr pa) pd)))
     ))
 
