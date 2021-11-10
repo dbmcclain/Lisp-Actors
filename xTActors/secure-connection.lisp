@@ -109,18 +109,18 @@
     (send* cust (loenc:decode msg))))
 
 (defun encryptor (ekey)
-  ;; Since we are encrypting via XOR by a mask, we must ensure that no
-  ;; two messages are ever encrypted with the same keying. We do that
-  ;; by ensuring that every encryption is by way of a new mask chosen
-  ;; from a PRF.
+  ;; Since we are encrypting via XOR with a random mask, we must
+  ;; ensure that no two messages are ever encrypted with the same
+  ;; keying. We do that by ensuring that every encryption is by way of
+  ;; a new mask chosen from a PRF.
   ;;
   ;; We use SHA3 as that PRF, and compute the next seq as the hash of
-  ;; the current one.  The likelihood of seeing the same key arise is
+  ;; the current one. The likelihood of seeing the same key arise is
   ;; the same as the likelihood of finding a SHA3 collision. Not very
   ;; likely...
   ;;
   ;; The initial seq is chosen randomly over the field of 256 bit
-  ;; integer, using NIST Hash DRBG.
+  ;; integers, using NIST Hash DRBG.
   ;;
   ;; The master key never changes, but the keying used for any message
   ;; is the hash of the master key concatenated with the seq. The seq
@@ -238,7 +238,7 @@
   ;; keying for every new message.
   (alambda
    ((cust :send verb . msg) ;; client send to a server service by name
-    (let ((ccust  (chain decryptor cust)))
+    (let ((ccust  (chain decryptor cust))) ;; cust = local client cust
       (send* encryptor ccust verb msg)
       ))
 
@@ -263,6 +263,7 @@
     (let ((my-pkey     (ed-mul *ed-gen* server-skey))
           (server-pkey (int->pt server-pkey)))
       (when (ed-pt= my-pkey server-pkey) ;; did client have correct server-pkey?
+        (send println "Making connection")
         (let* ((brand     (int (ctr-drbg 256)))
                (bpt       (ed-mul *ed-gen* brand))
                (ekey      (hash/256 (ed-mul (int->pt apt) brand)))
@@ -270,60 +271,30 @@
                (decryptor (secure-reader ekey (int->pt client-pkey)))
                (cnx       (make-actor (server-connect-beh
                                        :encryptor   encryptor
-                                       :admin       self
-                                       :services    services))))
-          (send cust (chain decryptor cnx) (pt->int bpt))
+                                       :services    services
+                                       :admin       self))))
+          (send cust (chain decryptor cnx) (pt->int bpt)) ;; remote client cust
           (become (reapply #'server-crypto-gate-beh nil args
                            :cnxs (cons cnx cnxs)))
           ))))
 
-   ((tag :add-service name handler) when (eq tag admin-tag)
-    (let ((new-services (list* (car services)
-                               (cons name handler)
-                               (cdr services))))
-      (become (reapply #'server-crypto-gate-beh nil args
-                     :services new-services))
-      (send-to-all cnxs self :update-services new-services)
-      ))
+   ((tag :add-service name _) when (eq tag admin-tag)
+    (send println (format nil "Adding service: ~s" name))
+    (repeat-send services))
 
    ((tag :remove-service name) when (eq tag admin-tag)
-    (let ((new-services (list* (car services)
-                               (remove name (cdr services) :key #'car))
-                        ))
-      (become (reapply #'server-crypto-gate-beh nil args
-                     :services new-services))
-      (send-to-all cnxs self :update-services new-services)
-      ))
+    (send println (format nil "Removing service: ~S" name))
+    (repeat-send services))
 
    ((tag :shutdown) when (eq tag admin-tag)
     (become (sink-beh))
     (send-to-all cnxs self :shutdown))
    ))
 
-(defun make-server-crypto-gate (server-skey services)
-  ;; Make a server side crypto gate. Services is an ALIST of service
-  ;; Actors on the server side, associating a name with the actual
-  ;; service. Names can be marshalled across a network connection,
-  ;; service handlers cannot.
-  ;;
-  ;; We add one more service to the list, which enables a client to
-  ;; ask for available services to get their names.
-  (let ((avail (actor (cust)
-                 (send cust (mapcar #'car services)))))
-    (actors ((server    (server-crypto-gate-beh
-                         :server-skey server-skey
-                         :services    (acons :available-services avail services)
-                         :admin-tag   admin-tag))
-             (admin-tag (tag-beh server)))
-      (values server admin-tag)
-      )))
-
-;; ----------------------------------------------------------------
-
-(defun server-connect-beh (&rest args &key
-                                 encryptor
-                                 admin
-                                 services)
+(defun server-connect-beh (&key
+                           encryptor
+                           services
+                           admin)
   ;; This is a private portal for exchanges with a foreign client.
   ;; One of these exist for each connection established through the
   ;; main crypto gate.
@@ -337,17 +308,93 @@
    ((tag :shutdown) when (eq tag admin)
     (become (sink-beh)))
 
-   ((tag :update-services new-services) when (eq tag admin)
-    (become (reapply #'server-connect-beh nil args
-                   :services new-services)))
+   ((cust :available-services)
+    (send println "Server responding to :AVAILABLE-SERVICES")
+    (send services (chain encryptor cust) :available-services nil))
 
-   ((cust verb . msg)
-    (let ((svc  (sys:cdr-assoc verb services)))
-      (when svc
-        (send* svc (chain encryptor cust) msg)
-        )))
+   ((cust verb . msg) ;; remote client cust
+    (send println (format nil "server responding to: ~S" verb))
+    (beta (handler)
+        (send services beta :get-handler verb)
+      (when handler
+        (send* handler (chain encryptor cust) msg))
+      ))
    ))
 
+;; ---------------------------------------------------------------
+
+(defun make-server-crypto-gate (server-skey services)
+  ;; Make a server side crypto gate. Services is an ALIST of service
+  ;; Actors on the server side, associating a name with the actual
+  ;; service. Names can be marshalled across a network connection,
+  ;; service handlers cannot.
+  ;;
+  ;; We add one more service to the list, which enables a client to
+  ;; ask for available services to get their names.
+  (let ((service-list (make-actor (null-service-list-beh))))
+    (dolist (pair services)
+      (send service-list :add-service (car pair) (cdr pair)))
+    (actors ((server    (server-crypto-gate-beh
+                         :server-skey server-skey
+                         :services    service-list
+                         :admin-tag   admin-tag))
+             (admin-tag (tag-beh server)))
+      (values server admin-tag)
+      )))
+
+(defvar *server-gateway* nil) ;; this can be shared
+(defvar *server-admin*   nil)   ;; this cannot be shared
+
+(defconstant *server-id*    "7a1efb26-bc60-123a-a2d6-24f67702cdaa")
+(defconstant *server-pkey*  #x7EBC0A8D8FFC77F24E7F271F12FC827415F0B66CC6A4C1144070A32133455F1)
+
+#|
+(multiple-value-bind (skey pkey)
+    (make-deterministic-keys *server-id*)
+  (with-standard-io-syntax
+    (format t "~%skey: #x~x" skey)
+    (format t "~%pkey: #x~x" (pt->int pkey))))
+|#
+
+(defun start-server ()
+  (multiple-value-bind (gateway admin)
+      (make-server-crypto-gate #x4504E460D7822B3B0E6E3774F07F85698E0EBEFFDAA35180D19D758C2DEF09 nil)
+    (setf *server-gateway* gateway
+          *server-admin*   admin)))
+  
+;; ----------------------------------------------------------------
+
+(defun null-service-list-beh ()
+  (alambda
+   ((cust :prune)
+    (send cust :pruned self-beh))
+
+   ((cust :available-services lst)
+    (send cust lst))
+
+   ((_ :add-service name handler)
+    (let ((next (make-actor self-beh)))
+      (become (service-list-beh name handler next))))
+   ))
+
+(defun service-list-beh (name handler next)
+  (alambda
+   ((cust :prune)
+    (send cust :pruned self-beh))
+
+   ((cust :get-handler aname) when (eql aname name)
+    (send cust handler))
+   
+   ((_ :remove-service aname) when (eql aname name)
+    (prune-self next))
+
+   ((cust :available-services lst)
+    (send next cust :available-services (cons name lst)))
+
+   ( _
+     (repeat-send next))
+   ))
+    
 ;; ------------------------------------------------------------
 
 #|
@@ -380,25 +427,32 @@
 ;; ---------------------------------
 ;; try it out...
 
-(defun tst ()
-  (multiple-value-bind (server-skey server-pkey)
-      (make-deterministic-keys :server)
+(defun make-mock-service ()
+  (actor ()
+    (start-server)
+    (send *server-admin* :add-service :println println)
+    (send *server-admin* :add-service :writeln writeln)
+    (send (make-connection))))
     
+(defun make-connection ()
+  (actor ()
     (multiple-value-bind (client-skey client-pkey)
         (make-deterministic-keys :client)
+      
+      (multiple-value-bind (client-gate client-admin-tag)
+          (make-client-crypto-gate client-skey)
+        
+        (beta (cnx)
+            (send client-gate beta :connect *server-gateway* *server-pkey*)
+          (beta (ans)
+              (send cnx beta :available-services)
+            (send println (format nil "  from server: Services: ~S" ans))
+            (send *server-admin* :remove-service :println)
+            (send *server-admin* :remove-service :writeln))
+          )))))
 
-      (multiple-value-bind (server-gate server-admin-tag)
-          (make-server-crypto-gate server-skey
-                                   `((:println ,println)
-                                     (:logged  #'logged)))
-
-        (multiple-value-bind (client-gate client-admin-tag)
-            (make-client-crypto-gate client-skey)
-
-          (beta (cnx)
-              (send client-gate beta :connect server-gate (pt->int server-pkey))
-            (send cnx writeln :available-services)
-            ))))))
+(defun tst ()
+  (send (make-mock-service)))
 
 (tst)
  
