@@ -21,14 +21,14 @@
     (values-list (addnew-to-plist parms restargs))
     ))
 
-(defun encrypt (ekey seq msg)
-  (let* ((enc  (loenc:encode msg))
-         (mask (vec-repr:vec (hash:get-hash-nbytes (length enc) ekey seq))))
-    (map 'vector #'logxor enc mask)))
+(defun encrypt (ekey seq bytevec)
+  (let ((mask (vec-repr:vec (hash:get-hash-nbytes (length bytevec) ekey seq))))
+    (map 'vector #'logxor bytevec mask)))
 
 (defun decrypt (ekey seq emsg)
+  ;; produces a bytevec result
   (let ((mask  (vec-repr:vec (hash:get-hash-nbytes (length emsg) ekey seq))))
-    (loenc:decode (map 'vector #'logxor emsg mask))))
+    (map 'vector #'logxor emsg mask)))
 
 (defun pt->int (ecc-pt)
   (vec-repr:int (edec:ed-compress-pt ecc-pt)))
@@ -236,6 +236,7 @@
          (chunker :max-size max-chunk) ;; we want to limit network message sizes
          ;; --- then, for each chunk... ---
          (marshal-compressor)    ;; generates a compressed data struct
+         (marshal-encoder)
          (encryptor ekey)        ;; generates seq, enctext
          (signing skey)          ;; generates seq, enctext, sig
          (marshal-encoder)))     ;; to turn seq, etext, sig into byte vector
@@ -244,6 +245,7 @@
   (chain (marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
          (signature-validation pkey) ;; pass along seq, enc text
          (decryptor ekey)        ;; generates a compressed data struct
+         (marshal-decoder)
          (marshal-decompressor)  ;; generates a byte vector
          (dechunker)             ;; de-chunking back into original byte vector
          (marshal-decoder)))     ;; decode byte vector into message objects
@@ -293,6 +295,6 @@
 (multiple-value-bind (skey pkey)
     (edec:make-deterministic-keys :test)
   (let ((ekey (hash:hash/256 skey pkey)))
-    (send (encryptor ekey) println "This is a test")))
+    (send (chain (marshal-encoder) (encryptor ekey)) println "This is a test")))
 |#
 
