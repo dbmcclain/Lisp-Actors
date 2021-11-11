@@ -505,24 +505,10 @@
   (make-actor (time-tag-beh actor)))
 
 ;; -------------------------------------
-
-#|
-(defun pipe (&rest elts)
-  (labels ((pipe-beh (a b)
-             (lambda (cust &rest msg)
-               (beta ans
-                   (send* a beta msg)
-                 (send* b cust ans)))
-             ))
-    (cond ((cdr elts)
-           (make-actor (pipe-beh (car elts)
-                                 (apply #'pipe (cdr elts)))))
-          (elts  (car elts))
-          (t     sink)
-          )))
-|#
+;; Systolic Processing Pipelines
 
 (defun acurry-beh (actor &rest largs)
+  ;; like Curried functions, but for Actors
   (lambda (&rest rargs)
     (multiple-value-call #'send actor (values-list largs) (values-list rargs))))
 
@@ -537,6 +523,9 @@
   (make-actor (apply #'racurry-beh actor rargs)))
 
 (defun pipe-beh (&rest elts)
+  ;; Hmmm... constructs a new pipe every time invoked. But is this any
+  ;; worse than a sequence of nested Beta forms? Same effect, just
+  ;; performed in advance here.
   (lambda (cust &rest msg)
     (send* (reduce #'acurry elts
                    :from-end t
@@ -544,8 +533,6 @@
            msg)))
 
 (defun pipe (&rest elts)
-  ;; Hmmm... constructs a new pipe every time invoked. But is this
-  ;; any worse than a sequence of nested Beta forms?
   (make-actor (apply #'pipe-beh elts)))
 
 

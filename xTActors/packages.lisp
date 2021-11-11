@@ -94,6 +94,7 @@ THE SOFTWARE.
    #:repeat-send
    #:send-combined-msg
    #:ask
+   #:maybe-safe-ask
    
    #:self
    #:self-beh

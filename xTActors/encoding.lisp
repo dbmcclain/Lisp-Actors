@@ -78,9 +78,51 @@
   (actor (cust cmprvec)
     (send cust (xzlib:uncompress cmprvec))))
 
+;; ---------------------------------------------------------------
+
+(defun noncer ()
+  (let ((fname "~/.actors-nonce"))
+    (labels ((wr-nonce (nonce)
+               (with-open-file (f fname
+                                  :direction :output
+                                  :if-does-not-exist :create
+                                  :if-exists :supersede)
+                 (write nonce :stream f)))
+             (rd-nonce ()
+               (handler-case
+                   (with-open-file (f fname
+                                      :direction :input)
+                     (read f))
+                 (error ()
+                   (let ((seq (vec-repr:vec
+                               (hash:hash/256
+                                (uuid:make-v1-uuid)
+                                (ecc-crypto-b571:ctr-drbg 256)))))
+                     (wr-nonce seq)
+                     seq))
+                 ))
+             (noncer-beh (nonce tag)
+               (alambda
+                ((cust :get-nonce)
+                 (send cust nonce)
+                 (let ((new-nonce (vec-repr:vec
+                                   (hash:hash/256 nonce)))
+                       (tag       (tag self)))
+                   (send (scheduled-message (io tag) 10 :write-nonce))
+                   (become (noncer-beh new-nonce tag))))
+                
+                ((cust :write-nonce) when (eq cust tag)
+                 (wr-nonce nonce))
+                )))
+      (make-actor (noncer-beh (rd-nonce) #() ))
+      )))
+
+(defvar *noncer* (noncer))
+
+;; ---------------------------------------------------------------------
+
 (defun get-random-seq ()
-  (hash:hash/256 (uuid:make-v1-uuid)
-                 (ecc-crypto-b571:ctr-drbg 256)))
+  (maybe-safe-ask *noncer* :get-nonce))
 
 (defun encryptor (ekey)
   ;; Takes a bytevec and produces an encrypted bytevec.

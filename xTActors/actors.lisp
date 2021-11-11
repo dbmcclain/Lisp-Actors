@@ -390,6 +390,27 @@ THE SOFTWARE.
       (values-list (mp:mailbox-read mbox)))
     ))
 
+(defun maybe-safe-ask (actor &rest msg)
+  ;; For Actors calling upon other Actors in a functional manner,
+  ;; instead of using continuation Actors. This is to be seriously
+  ;; discouraged...
+  ;;
+  ;; Maybe it will work, or maybe not... As long as the target Actor
+  ;; executes entirely in one sponsor, then this will work. Otherwise,
+  ;; maybe...  Still, this is blocking wait, and poor form for Actors
+  ;; code. If the target Actor winds up trying to run in our sponsor,
+  ;; then we become deadlocked.
+  (if self
+      (let ((spon  (if (eq self-sponsor base-sponsor)
+                       ;; choose not our sponsor
+                       slow-sponsor
+                     base-sponsor))
+            (mbox (mp:make-mailbox)))
+        (apply (actor-beh spon) actor (mbox-sender mbox) msg)
+        (values-list (mp:mailbox-read mbox)))
+    ;; else
+    (apply #'ask actor msg)))
+
 ;; ----------------------------------------
 ;; We must defer startup until the MP system has been instantiated.
 
