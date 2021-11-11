@@ -243,17 +243,17 @@
               ((cust :chunk an-id ix offs chunk-vec) when (and (uuid:uuid= an-id id)
                                                                (= ix ctr))
                (replace vec chunk-vec :start1 offs)
-               (cond ((>= (1+ ctr) nchunks)
-                      (send cust vec)
-                      (become (initial-dechunker-beh delivery))
-                      (send delivery self :init?))
+               (let ((next-ctr (1+ ctr)))
+                 (cond ((>= next-ctr nchunks)
+                        (send cust vec)
+                        (become (initial-dechunker-beh delivery))
+                        (send delivery self :init?))
 
-                     (t
-                      (let ((next-ctr (1+ ctr)))
+                       (t
                         (become (um:reapply #'dechunker-beh nil args
                                             :ctr next-ctr))
-                        (send delivery self :chunk? id next-ctr)))
-                     ))
+                        (send delivery self :chunk? id next-ctr))
+                       )))
               ( _
                 (repeat-send delivery))
               )))
