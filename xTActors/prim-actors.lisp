@@ -469,13 +469,20 @@
 (defun logger-timestamp ()
   (format-usec (usec:get-universal-time-usec)))
 
+(defun decode-sponsor (spon)
+  (let ((pair (rassoc spon *all-sponsors*)))
+    (if pair
+        (car pair)
+      (format nil "~X" (sys:object-address spon))
+      )))
+
 (defvar logger
   (actor msg
     (send println
           (format nil "----- Logger at ~A -----" (logger-timestamp))
           (format nil "  To: ~A" (car msg))
           (format nil "  With: ~S" (cdr msg))
-          (format nil "  In Sponsor: ~A" self-sponsor)
+          (format nil "  In Sponsor: ~S" (decode-sponsor self-sponsor))
           )))
 
 (defun logged (actor)
@@ -495,7 +502,7 @@
                                    (format nil "  From: ~A" self)
                                    (format nil "  To: ~A" (car msg))
                                    (format nil "  With: ~S" (cdr msg))
-                                   (format nil "  In Sponsor: ~A" self-sponsor)
+                                   (format nil "  In Sponsor: ~S" (decode-sponsor self-sponsor))
                                    )))
   (apply #'lw:call-next-advice msg))
 

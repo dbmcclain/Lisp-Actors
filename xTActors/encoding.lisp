@@ -1,5 +1,9 @@
+;; encoding.lisp -- extensions for primitive Actors
+;;
+;; DM/RAL 11/21
+;; -------------------------------------------------
 
-(in-package :ac)
+(in-package :actors/base)
 
 ;; ----------------------------------------------------
 ;; Useful primitives...
@@ -242,6 +246,12 @@
     (send* writeln msg)
     (send* cust msg)))
 
+(defun logger ()
+  ;; provides a log output as the message is passed along
+  (actor (cust &rest msg)
+    (send* logger cust msg)
+    (send* cust msg)))
+      
 (defun netw-encoder (ekey skey &key (max-chunk 65536))
   ;; takes arbitrary objects and produces a bytevec
   (chain (marshal-encoder)       ;; to get arb msg objects into bytevecc form

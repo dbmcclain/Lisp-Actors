@@ -193,6 +193,31 @@ THE SOFTWARE.
 
    #:*whole-message*
    #:chain
+
+   #:marshal-encoder
+   #:marshal-decoder
+   #:marshal-compressor
+   #:marshal-decompressor
+   #:encryptor
+   #:decryptor
+   #:signing
+   #:signature-validation
+   #:self-sync-encoder
+   #:self-sync-decoder
+   #:chunker
+   #:dechunker
+   #:printer
+   #:writer
+   #:logger
+
+   #:netw-encoder
+   #:netw-decoder
+   #:disk-encoder
+   #:disk-decoder
+   #:encr-disk-encoder
+   #:encr-disk-decoder
+   #:pt->int
+   #:int->pt
    ))
 
 #-lispworks
@@ -369,6 +394,7 @@ THE SOFTWARE.
    #:*current-sponsor*
    #:*evt-queue*
    #:add-evq
+   #:*all-sponsors*
    ))
 
 (defpackage #:actors/rwgate

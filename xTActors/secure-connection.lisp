@@ -43,6 +43,7 @@
 ;; --------------------------------------------------------------------
 ;; Crypto Primitives
 
+#|
 (defun pt->int (ecc-pt)
   (int (ed-compress-pt ecc-pt)))
 
@@ -156,7 +157,7 @@
   (actor (cust seq emsg sig)
     (when (check-signature seq emsg sig pkey)
       (send cust seq emsg))))
-
+|#
 ;; ---------------------------------------------------
 ;; Composite Actor chains
 
@@ -444,13 +445,15 @@
             (send client-gate beta :connect *server-gateway* *server-pkey*)
           (beta (ans)
               (send cnx beta :available-services)
-            (send println (format nil "  from server: Services: ~S" ans))
+            (send println (format nil "from server: Services: ~S" ans))
             (send *server-admin* :remove-service :println)
             (send *server-admin* :remove-service :writeln))
           )))))
 
 (defun tst ()
   (send (make-mock-service)))
+
+(send (logged (make-mock-service)))
 
 (tst)
  

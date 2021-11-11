@@ -192,6 +192,53 @@ THE SOFTWARE.
             ))))
     ))
 
+;; ----------------------------------------------------------
+;; SPONSORS -- offer an event queue and have an associated runtime
+;; thread performing RUN dispatching of Actor events.
+;;
+
+(defvar *all-sponsors* nil)
+
+(defun add-to-sponsors (name spon)
+  (let ((pair (assoc name *all-sponsors*)))
+    (if pair
+        (setf (cdr pair) spon)
+      (setf *all-sponsors* (acons name spon *all-sponsors*)))))
+
+(defmacro def-sponsor (name)
+  `(progn
+     (defvar ,name (make-actor))
+     (add-to-sponsors ',name ,name)))
+
+(def-sponsor base-sponsor)
+(def-sponsor slow-sponsor)
+
+(defun sponsor-beh (mbox thread)
+  ;; this one is just slightly special
+  (alambda
+   ((:shutdown)
+    (become #'lw:do-nothing)
+    (mp:process-terminate thread))
+   
+   ((actor . msg)
+    (check-type actor actor)
+    (mp:mailbox-send mbox (cons actor msg)))
+   ))
+
+(defun make-sponsor (title)
+  (let ((spon (make-actor)))
+    (restart-sponsor spon title)))
+
+(defun kill-sponsor (sponsor)
+  (send sponsor :shutdown))
+
+(defun restart-sponsor (sponsor title)
+  (check-type sponsor actor)
+  (let* ((mbox   (mp:make-mailbox))
+         (thread (mp:process-run-function title () #'run-actors sponsor mbox)))
+    (setf (actor-beh sponsor) (sponsor-beh mbox thread))
+    sponsor))
+
 ;; -----------------------------------------------
 ;; SEND/BECOME
 ;;
@@ -205,13 +252,6 @@ THE SOFTWARE.
 ;; HANDLER-CASE, HANDLER-BIND, or IGNORE-ERRORS. Otherwise, an error
 ;; will make it seem that the message causing the error was never
 ;; delivered.
-
-(defmacro def-sponsor (name)
-  `(defvar ,name (make-actor)))
-
-(def-sponsor base-sponsor)
-(def-sponsor slow-sponsor)
-
 
 (defun send (actor &rest msg)
   (check-type actor actor)
@@ -252,37 +292,6 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (editor:setup-indent "with-sponsor" 1)
-
-;; ----------------------------------------------------------
-;; SPONSORS -- offer an event queue and have an associated runtime
-;; thread performing RUN dispatching of Actor events.
-;;
-
-(defun sponsor-beh (mbox thread)
-  ;; this one is just slightly special
-  (alambda
-   ((:shutdown)
-    (become #'lw:do-nothing)
-    (mp:process-terminate thread))
-   
-   ((actor . msg)
-    (check-type actor actor)
-    (mp:mailbox-send mbox (cons actor msg)))
-   ))
-
-(defun make-sponsor (title)
-  (let ((spon (make-actor)))
-    (restart-sponsor spon title)))
-
-(defun kill-sponsor (sponsor)
-  (send sponsor :shutdown))
-
-(defun restart-sponsor (sponsor title)
-  (check-type sponsor actor)
-  (let* ((mbox   (mp:make-mailbox))
-         (thread (mp:process-run-function title () #'run-actors sponsor mbox)))
-    (setf (actor-beh sponsor) (sponsor-beh mbox thread))
-    sponsor))
 
 ;; ----------------------------------------------------------------
 ;; Start with two Sponsors: there is no difference between them. But
