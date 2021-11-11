@@ -121,9 +121,6 @@
 
 ;; ---------------------------------------------------------------------
 
-(defun get-random-seq ()
-  (maybe-safe-ask *noncer* :get-nonce))
-
 (defun encryptor (ekey)
   ;; Takes a bytevec and produces an encrypted bytevec.
   ;;
@@ -160,15 +157,10 @@
   ;; plaintext. But seeing one, or even multiple, encryption XOR masks
   ;; is not helpful in any way to them.
   ;;
-  (labels ((encryptor-beh (ekey seq)
-             (lambda (cust bytevec)
-               (let ((emsg (encrypt ekey seq bytevec)))
-                 (send cust seq emsg)
-                 (let ((new-seq (hash:hash/256 seq)))
-                   (become (encryptor-beh ekey new-seq)))
-                 ))))
-    (make-actor (encryptor-beh ekey (get-random-seq)))
-    ))
+  (actor (cust bytevec)
+    (beta (seq)
+        (send *noncer* beta :get-nonce)
+      (send cust seq (encrypt ekey seq bytevec)))))
 
 (defun decryptor (ekey)
   ;; Takes an encrypted bytevec and produces a bytevec
