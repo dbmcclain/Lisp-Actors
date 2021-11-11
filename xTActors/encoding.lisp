@@ -254,50 +254,50 @@
       
 (defun netw-encoder (ekey skey &key (max-chunk 65536))
   ;; takes arbitrary objects and produces a bytevec
-  (chain (marshal-encoder)       ;; to get arb msg objects into bytevecc form
-         (chunker :max-size max-chunk) ;; we want to limit network message sizes
-         ;; --- then, for each chunk... ---
-         (marshal-compressor)    ;; generates a compressed data struct
-         (marshal-encoder)       ;; encryptor needs bytevec
-         (encryptor ekey)        ;; generates seq, enctext
-         (signing skey)          ;; generates seq, enctext, sig
-         (marshal-encoder)))     ;; turn seq, etext, sig into byte vector
+  (pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
+        (chunker :max-size max-chunk) ;; we want to limit network message sizes
+        ;; --- then, for each chunk... ---
+        (marshal-compressor)    ;; generates a compressed data struct
+        (marshal-encoder)       ;; encryptor needs bytevec
+        (encryptor ekey)        ;; generates seq, enctext
+        (signing skey)          ;; generates seq, enctext, sig
+        (marshal-encoder)))     ;; turn seq, etext, sig into byte vector
 
 (defun netw-decoder (ekey pkey)
   ;; takes a bytevec and produces arbitrary objects
-  (chain (marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
-         (signature-validation pkey) ;; pass along seq, enc text
-         (decryptor ekey)        ;; generates a bytevec
-         (marshal-decoder)       ;; produces compressor data struct
-         (marshal-decompressor)  ;; generates a byte vector
-         (dechunker)             ;; de-chunking back into original byte vector
-         (marshal-decoder)))     ;; decode byte vector into message objects
+  (pipe (marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
+        (signature-validation pkey) ;; pass along seq, enc text
+        (decryptor ekey)        ;; generates a bytevec
+        (marshal-decoder)       ;; produces compressor data struct
+        (marshal-decompressor)  ;; generates a byte vector
+        (dechunker)             ;; de-chunking back into original byte vector
+        (marshal-decoder)))     ;; decode byte vector into message objects
 
 (defun disk-encoder (&key (max-chunk 65536))
   ;; takes arbitrary objects and produces a bytevec
-  (chain (marshal-encoder)       ;; to get arb msg into bytevec form
-         (chunker :max-size max-chunk)
-         (marshal-compressor)
-         (marshal-encoder)       ;; to get lzw data struct into bytevec form
-         (self-sync-encoder)))
-                     
+  (pipe (marshal-encoder)       ;; to get arb msg into bytevec form
+        (chunker :max-size max-chunk)
+        (marshal-compressor)
+        (marshal-encoder)       ;; to get lzw data struct into bytevec form
+        (self-sync-encoder)))
+
 (defun disk-decoder ()
   ;; takes a bytevec and produces arbitrary objects
-  (chain (self-sync-decoder)
-         (marshal-decoder)
-         (marshal-decompressor)
-         (dechunker)
-         (marshal-decoder)))
+  (pipe (self-sync-decoder)
+        (marshal-decoder)
+        (marshal-decompressor)
+        (dechunker)
+        (marshal-decoder)))
 
 (defun encr-disk-encoder (ekey skey &key (max-chunk 65536))
   ;; takes arbitrary objects and produces a bytevec
-  (chain (netw-encoder ekey skey :max-chunk max-chunk)
-         (self-sync-encoder)))
+  (pipe (netw-encoder ekey skey :max-chunk max-chunk)
+        (self-sync-encoder)))
 
 (defun encr-disk-decoder (ekey pkey)
   ;; takes a bytevec and produces arbitrary objects
-  (chain (self-sync-decoder)
-         (netw-decoder ekey pkey)))
+  (pipe (self-sync-decoder)
+        (netw-decoder ekey pkey)))
 
 ;; Reed-Solomon? anyone?... TBD
 
@@ -307,21 +307,21 @@
 (multiple-value-bind (skey pkey)
     (edec:make-deterministic-keys :test)
   (let ((ekey (hash:hash/256 skey pkey)))
-    (send (chain (encr-disk-encoder ekey skey :max-chunk 16)
-                 (writer)
-                 (encr-disk-decoder ekey pkey)
-                 (writer))
+    (send (pipe (encr-disk-encoder ekey skey :max-chunk 16)
+                (writer)
+                (encr-disk-decoder ekey pkey)
+                (writer))
           sink "This is a test")))
 
 (let ((junk (make-array 1022
                         :element-type '(unsigned-byte 8))))
   (beta (ans)
-      (send (chain (chunker :max-size 16) (dechunker)) beta junk)
+      (send (pipe (chunker :max-size 16) (dechunker)) beta junk)
     (send println (if (equalp ans junk) :yes :no))))
 
 (multiple-value-bind (skey pkey)
     (edec:make-deterministic-keys :test)
   (let ((ekey (hash:hash/256 skey pkey)))
-    (send (chain (marshal-encoder) (encryptor ekey)) println "This is a test")))
+    (send (pipe (marshal-encoder) (encryptor ekey)) println "This is a test")))
 |#
 

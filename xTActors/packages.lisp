@@ -192,7 +192,6 @@ THE SOFTWARE.
    #:suspend
 
    #:*whole-message*
-   #:chain
 
    #:marshal-encoder
    #:marshal-decoder
@@ -218,6 +217,9 @@ THE SOFTWARE.
    #:encr-disk-decoder
    #:pt->int
    #:int->pt
+
+   #:acurry
+   #:racurry
    ))
 
 #-lispworks

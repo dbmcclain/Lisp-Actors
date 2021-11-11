@@ -394,29 +394,6 @@
 (defun sequenced-delivery ()
   (make-actor (no-pend-beh)))
 
-;; ----------------------------------------------
-;; PIPE - Data processing pipelines
-;; (cust . msg) -> {A} -> {B} -> {C} -> {cust}
-
-(defun working-pipe-beh (cust elts)
-  (lambda (&rest ans)
-    (let ((rest (cdr elts)))
-      (cond (rest
-             (send* (car elts) self ans)
-             (become (working-pipe-beh cust rest)))
-            (t
-             (send* (car elts) cust ans))
-            ))))
-
-(defun pipe (&rest elts)
-  (cond ((cdr elts)
-         (actor (cust &rest msg)
-           (send* (make-actor (working-pipe-beh cust elts)) msg)))
-        (elts  (car elts))
-        (t     (actor (cust &rest msg)
-                 (send* cust msg)))
-        ))
-
 ;; --------------------------------------------------
 
 (defun suspended-beh (prev-beh tag queue)
@@ -526,17 +503,36 @@
 
 ;; -------------------------------------
 
-(defun chain (&rest elts)
-  (labels ((chain-beh (a b)
+#|
+(defun pipe (&rest elts)
+  (labels ((pipe-beh (a b)
              (lambda (cust &rest msg)
                (beta ans
                    (send* a beta msg)
                  (send* b cust ans)))
              ))
     (cond ((cdr elts)
-           (make-actor (chain-beh (car elts)
-                                  (apply #'chain (cdr elts)))))
+           (make-actor (pipe-beh (car elts)
+                                 (apply #'pipe (cdr elts)))))
           (elts  (car elts))
           (t     sink)
           )))
+|#
+
+(defun acurry (actor &rest largs)
+  (actor rargs
+    (multiple-value-call #'send actor (values-list largs) (values-list rargs))))
+
+(defun racurry (actor &rest rargs)
+  (actor largs
+    (multiple-value-call #'send actor (values-list largs) (values-list rargs))))
+
+(defun pipe (&rest elts)
+  ;; Hmmm... constructs a new pipe every time invoked. But is this
+  ;; any worse than a sequence of nested Beta forms?
+  (actor (cust &rest msg)
+    (send* (reduce #'acurry elts
+                   :from-end t
+                   :initial-value cust)
+           msg)))
 

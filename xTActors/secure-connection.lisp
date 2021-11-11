@@ -159,19 +159,19 @@
       (send cust seq emsg))))
 |#
 ;; ---------------------------------------------------
-;; Composite Actor chains
+;; Composite Actor pipes
 
 (defun secure-sender (ekey skey)
-  (chain (marshal-encoder)
-         (encryptor ekey)
-         (signing   skey)
-         (marshal-encoder)))
+  (pipe (marshal-encoder)
+        (encryptor ekey)
+        (signing   skey)
+        (marshal-encoder)))
 
 (defun secure-reader (ekey pkey)
-  (chain (marshal-decoder)
-         (signature-validation pkey)
-         (decryptor ekey)
-         (marshal-decoder)))
+  (pipe (marshal-decoder)
+        (signature-validation pkey)
+        (decryptor ekey)
+        (marshal-decoder)))
 
 ;; --------------------------------------------------------------------
 ;; Client side
@@ -197,7 +197,7 @@
                 (pt->int apt))
         (let* ((ekey  (hash/256 (ed-mul (int->pt bpt) arand)))
                (client-cnx (make-actor (client-connect-beh
-                                        :encryptor   (chain
+                                        :encryptor   (pipe
                                                       (secure-sender ekey client-skey)
                                                       server-cnx)
                                         :decryptor   (secure-reader ekey (int->pt server-pkey))
@@ -244,7 +244,7 @@
   ;; keying for every new message.
   (alambda
    ((cust :send verb . msg) ;; client send to a server service by name
-    (send* encryptor (chain decryptor cust) verb msg))
+    (send* encryptor (pipe decryptor cust) verb msg))
 
    ((cust :shutdown) when (eq cust admin)
     (become (sink-beh)))
@@ -276,7 +276,7 @@
                                        :encryptor   encryptor
                                        :services    services
                                        :admin       self))))
-          (send cust (chain decryptor cnx) (pt->int bpt)) ;; remote client cust
+          (send cust (pipe decryptor cnx) (pt->int bpt)) ;; remote client cust
           (become (um:reapply #'server-crypto-gate-beh nil args
                               :cnxs (cons cnx cnxs)))
           ))))
@@ -310,10 +310,10 @@
     (become (sink-beh)))
 
    ((cust :available-services)
-    (send services (chain encryptor cust) :available-services nil))
+    (send services (pipe encryptor cust) :available-services nil))
 
    ((cust verb . msg) ;; remote client cust
-    (send* services (chain encryptor cust) :send verb msg))
+    (send* services (pipe encryptor cust) :send verb msg))
    ))
 
 ;; ---------------------------------------------------------------
