@@ -8,18 +8,13 @@
 ;; ----------------------------------------------------
 ;; Useful primitives...
 
-(defun encrypt (ekey seq bytevec)
-  ;; takes a bytevec and produces an encrypted bytevec
+(defun encrypt/decrypt (ekey seq bytevec)
+  ;; takes a bytevec and produces an encrypted/decrypted bytevec
   ;;
   ;; One-time-pad encryption via XOR with random mask. Take care to
-  ;; never re-use the same mask.
+  ;; never re-use the same mask, which is the hash of the ekey concat with seq.
   (let ((mask (vec-repr:vec (hash:get-hash-nbytes (length bytevec) ekey seq))))
     (map 'vector #'logxor bytevec mask)))
-
-(defun decrypt (ekey seq emsg)
-  ;; takes an encrypted bytevec and produces a bytevec
-  (let ((mask  (vec-repr:vec (hash:get-hash-nbytes (length emsg) ekey seq))))
-    (map 'vector #'logxor emsg mask)))
 
 (defun pt->int (ecc-pt)
   (vec-repr:int (edec:ed-compress-pt ecc-pt)))
@@ -108,6 +103,7 @@
                  (let ((new-nonce (vec-repr:vec
                                    (hash:hash/256 nonce)))
                        (tag       (tag self)))
+                   ;; sync to disk in 10s from most recent get-nonce
                    (send (scheduled-message (io tag) 10 :write-nonce))
                    (become (noncer-beh new-nonce tag))))
                 
@@ -160,13 +156,12 @@
   (actor (cust bytevec)
     (beta (seq)
         (send *noncer* beta :get-nonce)
-      (send cust seq (encrypt ekey seq bytevec)))))
+      (send cust seq (encrypt/decrypt ekey seq bytevec)))))
 
 (defun decryptor (ekey)
   ;; Takes an encrypted bytevec and produces a bytevec
   (actor (cust seq emsg)
-    (let ((ans (decrypt ekey seq emsg)))
-      (send cust ans))))
+    (send cust (encrypt/decrypt ekey seq emsg))))
 
 (defun signing (skey)
   (actor (cust seq emsg)
