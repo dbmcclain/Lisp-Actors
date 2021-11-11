@@ -20,7 +20,7 @@ Notes from the field:
 
 I have an application for these Actors in the lab, controlling lab equipment from a remote workstation. They work exceedingly well, with huge simplification to the logic of the program. And that field work has shown some lessons along the way.
 
-One challenge with Actor concurrency: no guarantees on message delivery ordering, except that an Actor won't respond to a message before it has been sent. Your code must not make any assumptions about the order of arrival for related messages. We are generally unaccustomed to programming in such conditions, coming from procedural function oriented coding. This is different.
+One challenge with Actor concurrency: no guarantees on message delivery ordering, except that an Actor won't respond to a message before it has been sent. Your code must not make any assumptions about the order of arrival for related messages. We are generally unaccustomed to programming in such conditions, coming from imperative function oriented coding. This is different.
 
 Probably the most important lesson has been the complexity, even here with Actors, provided by SMP multithreaded environments. In Actors we forego using Locks. There are still some locks implicit in the mailboxes used to converse across sponsor boundaries. But mostly we rely on the sponsor event queues to prevent parallel access to critical code. Each sponsor is a single thread, and so any code executing in a sponsor is also single threaded and thread-safe - provided only one copy of that code can be running in one sponsor at a time. 
 
