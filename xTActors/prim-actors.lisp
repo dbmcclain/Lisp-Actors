@@ -462,11 +462,14 @@
           (format nil "  In Sponsor: ~S" (decode-sponsor self-sponsor))
           )))
 
-(defun logged (actor)
-  (actor msg
+(defun logged-beh (actor)
+  (lambda (&rest msg)
     (send* logger actor msg)
     (send* actor msg)))
 
+(defun logged (actor)
+  (make-actor (logged-beh actor)))
+  
 ;; ---------------------------------------------------------
 ;; For use in debugging
 
@@ -519,20 +522,30 @@
           )))
 |#
 
+(defun acurry-beh (actor &rest largs)
+  (lambda (&rest rargs)
+    (multiple-value-call #'send actor (values-list largs) (values-list rargs))))
+
 (defun acurry (actor &rest largs)
-  (actor rargs
+  (make-actor (apply #'acurry-beh actor largs)))
+
+(defun racurry-beh (actor &rest rargs)
+  (lambda (&rest largs)
     (multiple-value-call #'send actor (values-list largs) (values-list rargs))))
 
 (defun racurry (actor &rest rargs)
-  (actor largs
-    (multiple-value-call #'send actor (values-list largs) (values-list rargs))))
+  (make-actor (apply #'racurry-beh actor rargs)))
 
-(defun pipe (&rest elts)
-  ;; Hmmm... constructs a new pipe every time invoked. But is this
-  ;; any worse than a sequence of nested Beta forms?
-  (actor (cust &rest msg)
+(defun pipe-beh (&rest elts)
+  (lambda (cust &rest msg)
     (send* (reduce #'acurry elts
                    :from-end t
                    :initial-value cust)
            msg)))
+
+(defun pipe (&rest elts)
+  ;; Hmmm... constructs a new pipe every time invoked. But is this
+  ;; any worse than a sequence of nested Beta forms?
+  (make-actor (apply #'pipe-beh elts)))
+
 

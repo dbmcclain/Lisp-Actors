@@ -51,6 +51,7 @@ THE SOFTWARE.
    #:γlambda
    #:γactor
    #:γ
+   #:pipe-beh
    #:pipe
    #:fork
    #:list-match
@@ -142,6 +143,7 @@ THE SOFTWARE.
    #:const
    #:println
    #:writeln
+   #:logged-beh
    #:logged
    #:logger
    #:atrace
@@ -207,6 +209,7 @@ THE SOFTWARE.
    #:dechunker
    #:printer
    #:writer
+   #:marker
    #:logger
 
    #:netw-encoder
@@ -218,6 +221,8 @@ THE SOFTWARE.
    #:pt->int
    #:int->pt
 
+   #:acurry-beh
+   #:racurry-beh
    #:acurry
    #:racurry
    ))
