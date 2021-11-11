@@ -12,7 +12,8 @@
   ;; takes a bytevec and produces an encrypted/decrypted bytevec
   ;;
   ;; One-time-pad encryption via XOR with random mask. Take care to
-  ;; never re-use the same mask, which is the hash of the ekey concat with seq.
+  ;; never re-use the same mask for encryption, which is the hash of
+  ;; the ekey concat with seq.
   (let ((mask (vec-repr:vec (hash:get-hash-nbytes (length bytevec) ekey seq))))
     (map 'vector #'logxor bytevec mask)))
 
@@ -82,17 +83,16 @@
                                   :direction :output
                                   :if-does-not-exist :create
                                   :if-exists :supersede)
-                 (write nonce :stream f)))
+                 (with-standard-io-syntax
+                   (write nonce :stream f))))
              (rd-nonce ()
                (handler-case
                    (with-open-file (f fname
                                       :direction :input)
-                     (read f))
+                     (with-standard-io-syntax
+                       (read f)))
                  (error ()
-                   (let ((seq (vec-repr:vec
-                               (hash:hash/256
-                                (uuid:make-v1-uuid)
-                                (ecc-crypto-b571:ctr-drbg 256)))))
+                   (let ((seq (vec-repr:int (hash:hash/256 (uuid:make-v1-uuid)))))
                      (wr-nonce seq)
                      seq))
                  ))
@@ -100,10 +100,24 @@
                (alambda
                 ((cust :get-nonce)
                  (send cust nonce)
-                 (let ((new-nonce (vec-repr:vec
-                                   (hash:hash/256 nonce)))
+                 ;; update nonce to increment of current one.
+                 ;;
+                 ;; Nonces start out as the numeric value of the
+                 ;; hash/256 of the UUID of the host machine, at the
+                 ;; start time.
+                 ;;
+                 ;; We increment by 2^256, thereby assuring that we
+                 ;; never coincide with nonces generated previously on
+                 ;; any machine.
+                 ;;
+                 ;; We use the hash/256 of the UUID to preserve
+                 ;; anonymity in the nonces.
+                 ;;
+                 (let ((new-nonce (+ #.(ash 1 256) nonce))
                        (tag       (tag self)))
-                   ;; sync to disk in 10s from most recent get-nonce
+                   ;; sync to disk 10s after most recent get-nonce. If
+                   ;; another happens during that time window, the
+                   ;; sync is rescheduled.
                    (send (scheduled-message (io tag) 10 :write-nonce))
                    (become (noncer-beh new-nonce tag))))
                 
