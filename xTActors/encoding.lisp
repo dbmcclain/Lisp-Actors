@@ -241,16 +241,20 @@
 (defun chunker (&key (max-size 65536))
   ;; takes a bytevec and produces a sequence of chunk encodings
   (actor (cust byte-vec)
-    (let* ((size    (length byte-vec))
-           (nchunks (ceiling size max-size))
-           (id      (uuid:make-v1-uuid)))
-      (send cust :init id nchunks size)
-      (do ((offs  0  (+ offs max-size))
-           (ix    0  (1+ ix)))
-          ((>= offs size))
-        (send cust :chunk id ix offs
-              (subseq byte-vec offs (min size (+ offs max-size)))))
-      )))
+    (let ((size (length byte-vec)))
+      (cond ((<= size max-size)
+             (send cust :pass byte-vec))
+            (t
+             (let* ((nchunks (ceiling size max-size))
+                    (id      (uuid:make-v1-uuid)))
+               (send cust :init id nchunks size)
+               (do ((offs  0  (+ offs max-size))
+                    (ix    0  (1+ ix)))
+                   ((>= offs size))
+                 (send cust :chunk id ix offs
+                       (subseq byte-vec offs (min size (+ offs max-size)))))
+               ))
+            ))))
 
 ;; ------------------------------------
 
@@ -318,6 +322,9 @@
                         :delivery delivery))
                (send delivery self :chunk? id 0))
 
+              ((cust :pass bytevec)
+               (send cust bytevec))
+
               ( _ 
                (repeat-send delivery))
               ))
@@ -338,6 +345,10 @@
                                             :ctr next-ctr))
                         (send delivery self :chunk? id next-ctr))
                        )))
+
+              ((cust :pass bytevec)
+               (send cust bytevec))
+              
               ( _
                 (repeat-send delivery))
               )))
