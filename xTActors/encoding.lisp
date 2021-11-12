@@ -17,12 +17,6 @@
   (let ((mask (vec-repr:vec (hash:get-hash-nbytes (length bytevec) ekey seq))))
     (map-into mask #'logxor bytevec mask)))
 
-(defun pt->int (ecc-pt)
-  (vec-repr:int (edec:ed-compress-pt ecc-pt)))
-
-(defun int->pt (int)
-  (edec:ed-decompress-pt int))
-
 (defun make-signature (seq emsg skey)
   ;; Generate and append a Schnorr signature - signature includes seq
   ;; and emsg.
@@ -38,7 +32,7 @@
          (u     (modmath:with-mod edec:*ed-r*
                   (modmath:m+ krand (modmath:m* h skey))))
          (upt   (edec:ed-mul edec:*ed-gen* u)))
-    (list (pt->int upt) krand)
+    (list (vec-repr:int upt) krand)
     ))
 
 (defun check-signature (seq emsg auth pkey)
@@ -47,7 +41,7 @@
   (destructuring-bind (upt krand) auth
     (let* ((kpt  (edec:ed-mul edec:*ed-gen* krand))
            (h    (vec-repr:int (hash:hash/256 seq emsg kpt pkey))))
-      (edec:ed-pt= (int->pt upt) (edec:ed-add kpt (edec:ed-mul pkey h)))
+      (edec:ed-pt= (edec:ed-decompress-pt upt) (edec:ed-add kpt (edec:ed-mul pkey h)))
       )))
 
 ;; --------------------------------------------------

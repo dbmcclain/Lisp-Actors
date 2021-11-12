@@ -219,8 +219,6 @@ THE SOFTWARE.
    #:disk-decoder
    #:encr-disk-encoder
    #:encr-disk-decoder
-   #:pt->int
-   #:int->pt
 
    #:acurry-beh
    #:racurry-beh
