@@ -15,22 +15,8 @@
   ;; never re-use the same mask for encryption, which is the hash of
   ;; the ekey concat with seq.
   (let* ((nel  (length bytevec))
-         (ans  (make-array nel
-                           :element-type '(unsigned-byte 8))))
-    (do ((offs  0  (+ offs 32)))
-        ((>= offs nel) ans)
-      (let* ((mask   (vec-repr:vec (hash:hash/256 ekey seq offs)))
-             (limit  (min 32 (- nel offs)))
-             (src    (make-array limit
-                                 :element-type '(unsigned-byte 8)
-                                 :displaced-to bytevec
-                                 :displaced-index-offset offs))
-             (dst    (make-array limit
-                                 :element-type '(unsigned-byte 8)
-                                 :displaced-to ans
-                                 :displaced-index-offset offs)))
-        (map-into dst #'logxor mask src)
-        ))))
+         (mask (vec-repr:vec (hash:get-hash-nbytes nel ekey seq))))
+    (map-into mask #'logxor bytevec mask)))
 
 (defun make-signature (seq emsg skey)
   ;; Generate and append a Schnorr signature - signature includes seq

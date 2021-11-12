@@ -111,12 +111,30 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------
 
+#|
+  ;; Ironclad SHAKE is broken (DM/RAL 11/21) and refuses to reliably
+  ;; return more than 200 bytes. So for now we will use iterated
+  ;; SHA3/256.
 (defun get-raw-hash-nbytes (nb &rest seeds)
   ;; returns a vector of nb raw-bytes
   (let ((dig (ironclad:make-digest :shake256 :output-length nb)))
     (dolist (seed seeds)
       (ironclad:update-digest dig (hashable seed)))
     (ironclad:produce-digest dig)))
+|#
+(defun get-raw-hash-nbytes (nb &rest seeds)
+  ;; returns a vector of nb raw-bytes
+  (let ((ans (make-array nb
+                         :element-type '(unsigned-byte 8))))
+    (do ((offs  0  (+ offs 32)))
+        ((>= offs nb) ans)
+      (let ((dig (ironclad:make-digest :sha3/256)))
+        (dolist (seed (cons offs seeds))
+          (ironclad:update-digest dig (hashable seed)))
+        (let ((bytes  (ironclad:produce-digest dig)))
+          (replace ans bytes :start1 offs)
+          )))
+    ))
 
 (defun make-bare-hash (vec fn)
   (values
