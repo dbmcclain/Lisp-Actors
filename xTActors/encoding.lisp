@@ -14,8 +14,9 @@
   ;; One-time-pad encryption via XOR with random mask. Take care to
   ;; never re-use the same mask for encryption, which is the hash of
   ;; the ekey concat with seq.
-  (let ((ans  (copy-seq bytevec))
-        (nel  (length bytevec)))
+  (let* ((nel  (length bytevec))
+         (ans  (make-array nel
+                           :element-type '(unsigned-byte 8))))
     (do ((offs  0  (+ offs 32)))
         ((>= offs nel) ans)
       (let* ((mask   (vec-repr:vec (hash:hash/256 ekey seq offs)))
