@@ -15,7 +15,7 @@
   ;; never re-use the same mask for encryption, which is the hash of
   ;; the ekey concat with seq.
   (let ((mask (vec-repr:vec (hash:get-hash-nbytes (length bytevec) ekey seq))))
-    (map 'vector #'logxor bytevec mask)))
+    (map-into mask #'logxor bytevec mask)))
 
 (defun pt->int (ecc-pt)
   (vec-repr:int (edec:ed-compress-pt ecc-pt)))
@@ -67,7 +67,7 @@
 (defun marshal-compressor ()
   ;; takes bytevec and produces bytevec
   (actor (cust bytevec)
-    (send cust (xzlib:compress bytevec :fixed))))
+    (send cust (subseq (xzlib:compress bytevec :fixed) 0))))
 
 (defun marshal-decompressor ()
   ;; takes a bytevec and produces a bytevec
@@ -77,6 +77,16 @@
 ;; ---------------------------------------------------------------
 
 (defun noncer ()
+  ;; The initial seq nonce is chosen as the SHA3/256 hash of a unique
+  ;; 128-bit UUID, which includes the MAC Address of the machine, and
+  ;; the time of creation to 100ns precision.
+  ;;
+  ;; The nonce is incremented after every use, in a manner to avoid
+  ;; ever coinciding with a nonce generated previously on any machine,
+  ;; assuming they all use the same nonce maintenance mechanism.
+  ;;
+  ;; Nonces are maintained on disk for continued use across multiple
+  ;; Lisp sessions.
   (let ((fname "~/.actors-nonce"))
     (labels ((wr-nonce (nonce)
                (with-open-file (f fname
@@ -155,23 +165,28 @@
   ;; value, and immediately increments it before the next request.
   ;;
   ;; So even if the same master encryption key is reused, every
-  ;; encryption will be using its own unique XOR mask.
+  ;; encryption will be using its own unique keying to generate the
+  ;; XOR mask.
+  ;;
+  ;; -----------------------
   ;;
   ;; But even with perfectly random sampling of a finite number field,
   ;; hash collisions are a remote possibility, and could occur after
   ;; roughly 2^128 (~3e38) hashes, even if they all use unique keying.
+  ;; We are mapping, via hashing, some 512 bits of key information,
+  ;; down to 256 bits of hash mask. So there must be an enormous
+  ;; number of hash collision preimages.
   ;;
-  ;; To see a hash collision in the XOR masking, with only a 1 in a
-  ;; million chance of happening, would require encrypting messages
-  ;; every microsecond, 24/7, for the next 2.8 billion years.
+  ;; On average, every hash mask corresponds to at least 2^256
+  ;; different possible key patterns. But from an initial field of 512
+  ;; bits, those 2^256 synonyms would be rare to find.
   ;;
-  ;; The initial seq nonce is chosen as the SHA3/256 hash of a unique
-  ;; 128-bit UUID, which includes the MAC Address of the machine, and
-  ;; the time of creation to 100ns precision. The nonce is incremented
-  ;; after every use, in a manner to avoid ever coinciding with a
-  ;; nonce generated previously on any machine, assuming they all use
-  ;; the same nonce maintenance mechanism. Nonces are maintained on
-  ;; disk for continued use across multiple Lisp sessions.
+  ;; To see a hash collision in the XOR masking, with its 256 bits,
+  ;; with only a 1:1,000,000 chance of happening, would require
+  ;; encrypting messages every microsecond, 24/7, for the next 2.8
+  ;; billion years.
+  ;;
+  ;; -----------------------
   ;;
   ;; Secrecy is protected because of the one-wayness of the Sha3/256
   ;; hash function. It is infeasible to determine a hash preimage from
@@ -189,14 +204,14 @@
   ;; brute force attack over the field of possible master encryption
   ;; keys. So it is incumbant on us to maintain sufficiently large
   ;; master encryption keys. For that purpose we also use randomly
-  ;; generated Sha3/256 hash values. With 256 bits of keying, it
-  ;; becomes infeasible to mount a brute-force attack.
+  ;; generated Sha3/256 hash values. With 256 bits of master keying,
+  ;; it becomes infeasible to mount a brute-force attack.
   ;;
   ;; By default, we use Diffie-Hellman secret key agreement between
   ;; client and server, based on Elliptic Curve Ed1174, which has a
   ;; field size of 2^249 bits. A random point, of size 2^251 bits,
   ;; from Curve Ed1174, is fed to SHA3/256 to derive the master
-  ;; encryption key for the session. Those field are still large
+  ;; encryption key for the session. Those fields are still large
   ;; enough to prevent brute-force attacks.
   ;;
   (actor (cust bytevec)
