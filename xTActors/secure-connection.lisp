@@ -193,14 +193,14 @@
       (beta (server-cnx bpt)
           (send server beta :connect
                 server-pkey
-                (pt->int client-pkey)
-                (pt->int apt))
-        (let* ((ekey  (hash/256 (ed-mul (int->pt bpt) arand)))
+                (int client-pkey)
+                (int apt))
+        (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
                (client-cnx (make-actor (client-connect-beh
                                         :encryptor   (pipe
                                                       (secure-sender ekey client-skey)
                                                       server-cnx)
-                                        :decryptor   (secure-reader ekey (int->pt server-pkey))
+                                        :decryptor   (secure-reader ekey (ed-decompress-pt server-pkey))
                                         :admin       self))))
           (send cust (secure-send client-cnx)) ;; our local customer
           (become (um:reapply #'client-crypto-gate-beh () args
@@ -265,18 +265,18 @@
   (alambda
    ((cust :connect server-pkey client-pkey apt)
     (let ((my-pkey     (ed-mul *ed-gen* server-skey))
-          (server-pkey (int->pt server-pkey)))
+          (server-pkey (ed-decompress-pt server-pkey)))
       (when (ed-pt= my-pkey server-pkey) ;; did client have correct server-pkey?
         (let* ((brand     (int (ctr-drbg 256)))
                (bpt       (ed-mul *ed-gen* brand))
-               (ekey      (hash/256 (ed-mul (int->pt apt) brand)))
+               (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)))
                (encryptor (secure-sender ekey server-skey))
-               (decryptor (secure-reader ekey (int->pt client-pkey)))
+               (decryptor (secure-reader ekey (ed-decompress-pt client-pkey)))
                (cnx       (make-actor (server-connect-beh
                                        :encryptor   encryptor
                                        :services    services
                                        :admin       self))))
-          (send cust (pipe decryptor cnx) (pt->int bpt)) ;; remote client cust
+          (send cust (pipe decryptor cnx) (int bpt)) ;; remote client cust
           (become (um:reapply #'server-crypto-gate-beh nil args
                               :cnxs (cons cnx cnxs)))
           ))))
@@ -348,7 +348,7 @@
     (make-deterministic-keys *server-id*)
   (with-standard-io-syntax
     (format t "~%skey: #x~x" skey)
-    (format t "~%pkey: #x~x" (pt->int pkey))))
+    (format t "~%pkey: #x~x" (int pkey))))
 |#
 
 (defun start-server ()
