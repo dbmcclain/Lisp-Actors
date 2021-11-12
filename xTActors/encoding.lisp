@@ -14,8 +14,22 @@
   ;; One-time-pad encryption via XOR with random mask. Take care to
   ;; never re-use the same mask for encryption, which is the hash of
   ;; the ekey concat with seq.
-  (let ((mask (vec-repr:vec (hash:get-hash-nbytes (length bytevec) ekey seq))))
-    (map-into mask #'logxor bytevec mask)))
+  (let ((ans  (copy-seq bytevec))
+        (nel  (length bytevec)))
+    (do ((offs  0  (+ offs 32)))
+        ((>= offs nel) ans)
+      (let* ((mask   (vec-repr:vec (hash:hash/256 ekey seq offs)))
+             (limit  (min 32 (- nel offs)))
+             (src    (make-array limit
+                                 :element-type '(unsigned-byte 8)
+                                 :displaced-to bytevec
+                                 :displaced-index-offset offs))
+             (dst    (make-array limit
+                                 :element-type '(unsigned-byte 8)
+                                 :displaced-to ans
+                                 :displaced-index-offset offs)))
+        (map-into dst #'logxor mask src)
+        ))))
 
 (defun make-signature (seq emsg skey)
   ;; Generate and append a Schnorr signature - signature includes seq
@@ -166,7 +180,7 @@
   ;;
   ;; But even with perfectly random sampling of a finite number field,
   ;; hash collisions are a remote possibility, and could occur after
-  ;; roughly 2^128 (~3e38) hashes, even if they all use unique keying.
+  ;; roughly 2^128 (~3e38) hashes, even as they all use unique keying.
   ;; We are mapping, via hashing, some 512 bits of key information,
   ;; down to 256 bits of hash mask. So there must be an enormous
   ;; number of hash collision preimages.
@@ -177,7 +191,7 @@
   ;;
   ;; To see a hash collision in the XOR masking, with its 256 bits,
   ;; with only a 1:1,000,000 chance of happening, would require
-  ;; encrypting messages every microsecond, 24/7, for the next 2.8
+  ;; encrypting messages every microsecond, 24/7, for the next 2.5
   ;; billion years.
   ;;
   ;; -----------------------
@@ -452,5 +466,60 @@
     (edec:make-deterministic-keys :test)
   (let ((ekey (hash:hash/256 skey pkey)))
     (send (pipe (marshal-encoder) (encryptor ekey)) println "This is a test")))
+
+(let ((x (hcl:file-string "./xTActors/encoding.lisp"))
+      ;; (x "test string")
+      )
+  (multiple-value-bind (skey pkey)
+      (edec:make-deterministic-keys :test)
+    (let ((ekey (hash:hash/256 skey pkey))
+          (inp  nil))
+      (beta (ans)
+          (send (encr-disk-encoder ekey skey) beta x)
+          ;; (send (disk-encoder) beta x)
+          ;; (send (netw-encoder ekey skey) beta x)
+          #|
+          (send (pipe (marshal-encoder)
+                      (chunker)
+                      (writer)
+                      (marshal-encoder)
+                      (marshal-compressor)
+                      (writer)
+                      (actor (cust bytvec)
+                        (setf inp bytvec)
+                        (send cust bytvec))
+                      (encryptor ekey)
+                      (signing skey)
+                      (writer)
+                      (signature-validation pkey)
+                      (decryptor ekey)
+                      (writer)
+                      (actor (cust bytvec)
+                        (let ((diff (map 'vector #'logxor bytvec inp)))
+                          (send println diff)
+                          (send println (position-if-not #'zerop diff))
+                          (send cust bytvec)))
+                      (marshal-decompressor)
+                      (marshal-decoder)
+                      (dechunker)
+                      (marshal-decoder))
+                beta x)
+          |#
+        (send (encr-disk-decoder ekey pkey) println ans)
+        ;; (send (disk-decoder) println ans)
+        ;; (send (netw-decoder ekey pkey) println ans)
+        ;; (send println ans)
+        
+        (send println (format nil "x-size: ~A" (length x)))
+        (send println (format nil "enc-size: ~A" (length ans)))
+        ))))
+
+(let* ((x   (hcl:file-string "./xTActors/encoding.lisp"))
+       (xe  (loenc:encode x))
+       (xc  (subseq (xzlib:compress xe :fixed) 0))
+       (xx  (xzlib:uncompress xc))
+       (xd  (loenc:decode xx)))
+  (print xd))
+
 |#
 
