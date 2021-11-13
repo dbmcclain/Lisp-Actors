@@ -68,6 +68,42 @@
 ;; The term "Arbitrary Objects" here refers to serializable objects -
 ;; just about anything, except compiled closures.
 
+;; ---------------------------------------------------------------------
+;; Useful Actors
+
+(defun list-imploder ()
+  ;; take a sequence of args and send to cust as one list
+  (actor (cust &rest msg)
+    (send cust msg)))
+
+(defun list-exploder ()
+  ;; take one list and send to cust as a sequence of args
+  (actor (cust msg-list)
+    (send* cust msg-list)))
+
+(defun printer ()
+  ;; prints the message and forwards to cust
+  (actor (cust &rest msg)
+    (send* println msg)
+    (send* cust msg)))
+
+(defun writer ()
+  ;; prints the message and forwards to cust
+  (actor (cust &rest msg)
+    (send* writeln msg)
+    (send* cust msg)))
+
+(defun logger ()
+  ;; provides a log output as the message is passed along
+  (actor (cust &rest msg)
+    (send* logger cust msg)
+    (send* cust msg)))
+
+(defun marker (&rest txt)
+  (actor (cust &rest msg)
+    (send* println txt)
+    (send* cust msg)))
+
 (defun marshal-encoder ()
   (actor (cust &rest msg)
     ;; takes arbitrary objects and producdes an encoded bytevec
@@ -153,7 +189,7 @@
 
 (defvar *noncer* (noncer))
 
-;; ---------------------------------------------------------------------
+;; -------------------------------------------------------------------
 
 (defun encryptor (ekey)
   ;; Takes a bytevec and produces an encrypted bytevec.
@@ -389,29 +425,6 @@
 
 ;; -----------------------------------------------------------
 
-(defun printer ()
-  ;; prints the message and forwards to cust
-  (actor (cust &rest msg)
-    (send* println msg)
-    (send* cust msg)))
-
-(defun writer ()
-  ;; prints the message and forwards to cust
-  (actor (cust &rest msg)
-    (send* writeln msg)
-    (send* cust msg)))
-
-(defun logger ()
-  ;; provides a log output as the message is passed along
-  (actor (cust &rest msg)
-    (send* logger cust msg)
-    (send* cust msg)))
-
-(defun marker (&rest txt)
-  (actor (cust &rest msg)
-    (send* println txt)
-    (send* cust msg)))
-
 (defun netw-encoder (ekey skey &key (max-chunk 65536))
   ;; takes arbitrary objects and produces a bytevec
   (pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
@@ -620,40 +633,22 @@
   (ioreq
    (io
     (actor (cust &rest msg)
-      (let ((simple-enc (pipe (marshal-encoder)
-                              (self-sync-encoder))))
-        (beta (pkey-vec data-packet aont-vec)
-            (send* (aont-encoder skey ekey) beta msg)
-          (beta (pkey-enc)
-              (send simple-enc beta :pkey pkey-vec)
-            (beta (data-enc)
-                (send simple-enc beta :text data-packet)
-              (beta (aont-enc)
-                  (send simple-enc beta :aont aont-vec)
-                (with-open-file (fd fname
-                                    :direction :output
-                                    :if-exists :supersede
-                                    :if-does-not-exist :create
-                                    :element-type '(unsigned-byte 8))
-                  (write-sequence +AONT-FILE-TYPE-ID+ fd)
-                  (write-sequence pkey-enc fd)
-                  (write-sequence data-enc fd)
-                  (write-sequence aont-enc fd)
-                  (send cust :ok))
-                )))))))))
+      (beta (packet)
+          (send* (pipe (aont-encoder skey ekey)
+                       (marshal-encoder)
+                       (self-sync-encoder))
+                 beta msg)
+        (with-open-file (fd fname
+                            :direction :output
+                            :if-exists :supersede
+                            :if-does-not-exist :create
+                            :element-type '(unsigned-byte 8))
+          (write-sequence +AONT-FILE-TYPE-ID+ fd)
+          (write-sequence packet fd)
+          (send cust :ok)
+          )))
+    )))
 
-(defun packet-reader (reader-fn)
-  ;; A packet is a marshaled List of two elements - a kind keyword and
-  ;; data
-  (lambda (kind)
-    (let ((packet (loenc:decode (funcall reader-fn))))
-      (if (consp packet)
-          (if (eq kind (car packet))
-              (cadr packet)
-            (error "packet-reader: sync failure"))
-        (error "packet-reader: data failure"))
-      )))
-    
 (defun aont-file-reader (fname)
   ;; Reads a single AONT record from a file
   (ioreq
@@ -665,11 +660,10 @@
         (let ((file-type (make-ubv 16)))
           (read-sequence file-type fd)
           (if (equalp +AONT-FILE-TYPE-ID+ file-type)
-              (let ((reader (packet-reader (self-sync:make-reader fd))))
-                (let* ((pkey-vec    (funcall reader :pkey))
-                       (data-packet (funcall reader :text))
-                       (aont-vec    (funcall reader :aont)))
-                  (send (aont-decoder) cust pkey-vec data-packet aont-vec)))
+              (let ((reader (self-sync:make-reader fd)))
+                (send (pipe (marshal-decoder)
+                            (aont-decoder))
+                      cust (funcall reader)))
             (error "~A: Not an AONT encoded file" fname))
           )))
     )))

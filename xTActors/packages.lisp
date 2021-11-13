@@ -229,6 +229,9 @@ THE SOFTWARE.
    #:aont-decoder
    #:aont-file-writer
    #:aont-file-reader
+
+   #:list-imploder
+   #:list-exploder
    ))
 
 #-lispworks
