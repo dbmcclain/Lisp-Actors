@@ -593,7 +593,8 @@
 
 (defun aont-encoder (skey ekey)
   (actor (cust &rest msg)
-    ;; takes arbitrary Lisp data items and encodes as a list
+    ;; takes arbitrary Lisp data items and sends as an encrypted
+    ;; single list to cust, along with AONT parameters
     (let ((pkey-vec (vec (ed-mul *ed-gen* skey))))
       (beta (data-packet)
           (send* (pipe (marshal-encoder)
@@ -609,7 +610,7 @@
       )))
 
 (defun aont-decoder ()
-  ;; returns a list of original Lisp data items
+  ;; sends a sequence of original Lisp data items to cust
   (actor (cust pkey-vec data-packet aont-vec)
     (let ((pkey  (ed-decompress-pt pkey-vec))
           (ekey  (vec (hash/256 pkey-vec data-packet))))
@@ -646,7 +647,8 @@
     )))
 
 (defun aont-file-reader (fname)
-  ;; Reads a single AONT record from a file
+  ;; Reads a single AONT record from a file, sending the original data
+  ;; items as a sequence of args to cust.
   (ioreq
    (io
     (actor (cust)
@@ -706,5 +708,107 @@
       (assert (string= dmsg msg))
       (send writeln dmsg)
       )))
+(tst)
+
+(defun tst ()
+  ;; Look at the frequency of occurrence of duplicate bytes in 32-byte
+  ;; hashes...  ... about 86% of them have at least one duplicate
+  ;; byte. 99.8% of them have 5 or fewer duplicates. None were
+  ;; detected, in 10,000 trials, having more than 8 duplicates.
+  ;;
+  ;; 13.2% have no duplicates (about 1 in 7)
+  ;; 29.4% of them have just one duplicate (almost 1 in 3)
+  ;; 29.0% have 2 duplicates (about 1 in 3)
+  ;; 17.9% have 3 duplicates (about 1 in 5)
+  ;;  7.3% have 4 duplicates (about 1 in 14)
+  ;;  2.4% have 5 duplicates (about 1 in 40)
+  ;;  0.64% have 6 duplicates (about 1 in 160)
+  ;;  0.06% have 7 duplicates (about 1 in 1700)
+  ;;  - four were found to have 8 duplicates out of 10,000 trials
+  ;;  - none were found with more than 8 duplicates
+  ;;
+  ;; Birthday Paradox would have predicted that among 32 candidates
+  ;; from an alphabet of 256, we should see duplicates around 86.5% of
+  ;; the time. Pdup(r; d) = (1 - Exp(-r^2/(2*d)))
+  ;;
+  ;; So to this extent it appears that SHA3/256 rehashings constitute
+  ;; a reasonable PRF, doing about what you would have expected of
+  ;; purely random sampling.
+  ;;
+  (let ((arr (make-array 33
+                         :initial-element 0))
+        (syms (make-array 256
+                          :initial-element 0))
+        (h (hash/256 :test)))
+    (loop repeat 10000 do
+          (let ((ix (- 32 (length (remove-duplicates (vec h))))))
+            (incf (aref arr ix) 0.0001)
+            (loop for sym across (vec h) do
+                  (incf (aref syms sym) (/ 256 320_000)))
+            (setf h (hash/256 h))
+            ))
+    (plt:plot 'syms syms
+              :clear t
+              :title "Distribution of Symbols in Hash (Uniform=1)"
+              :xtitle "Symbol value"
+              :ytitle "Fraction of cases"
+              :thick 2
+              :line-type :stepped
+              :yrange '(0 3)
+              )
+    (plt:plot 'hist arr
+              :clear t
+              :title "Probability of duplicate bytes in SHA3/256 hash"
+              :xtitle "Number of duplicates"
+              :ytitle "Fraction of cases"
+              :thick 2
+              :line-type :stepped)
+    (let ((carr (copy-seq arr)))
+      (loop for ix from 1 to 32 do
+            (setf (aref carr ix) (+ (aref carr ix)
+                                    (aref carr (1- ix)))))
+      (plt:plot 'cum carr
+                :clear t
+                :title "Cumulative Probability of duplicate bytes in SHA3/256 hash"
+                :xtitle "Number of duplicates"
+                :ytitle "Fraction of cases"
+                :thick 2
+                :line-type :stepped))
+    (list arr
+          (vm:mean syms)
+          (vm:stdev syms))
+    ))
+
+(tst)
+
+(defun tst ()
+  ;; Testing QOE - Quality of Encryption - looking for pattern
+  ;; irregularities in the encrypted output. There are none to be
+  ;; found. See QOE.pdf.
+  (let* ((img (make-array '(512 512)
+                          :element-type '(unsigned-byte 8)))
+         (h   (hash/256 :test)))
+    (loop for ix from 0 below (array-total-size img) by 32 do
+          (let ((v  (vec h)))
+            (loop for jx from ix
+                  for kx from 0 below 32
+                  do
+                  (setf (row-major-aref img jx) (aref v kx))
+                  ))
+          (setf h (hash/256 h)))
+    (plt:tvscl 'img img)
+    (let ((ekey (hash/256 :again)))
+      (beta (seq enc chk)
+          (send (pipe (marshal-encoder)
+                      (encryptor ekey))
+                beta img)
+        (declare (ignore seq chk))
+        (let ((dimg (make-array (array-dimensions img)
+                                :element-type (array-element-type img)
+                                :displaced-to enc
+                                :displaced-index-offset 0)))
+          (plt:tvscl 'dimg dimg)
+          )))
+    ))
 (tst)
   |#
