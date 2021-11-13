@@ -5,6 +5,25 @@
 
 (in-package :actors/base)
 
+(um:eval-always
+  (import '(vec-repr:vec
+            vec-repr:int
+            vec-repr:hex
+            hash:hash/256
+            hash:get-hash-nbytes
+            edec:ed-mul
+            edec:ed-add
+            edec:ed-compress-pt
+            edec:ed-decompress-pt
+            edec:make-deterministic-keys
+            edec:*ed-gen*
+            edec:*ed-r*
+            edec:ed-pt=
+            modmath:with-mod
+            modmath:m+
+            modmath:m*
+            )))
+
 ;; ----------------------------------------------------
 ;; Useful primitives...
 
@@ -15,10 +34,10 @@
   ;; never re-use the same mask for encryption, which is the hash of
   ;; the ekey concat with seq.
   (let* ((nel  (length bytevec))
-         (mask (vec-repr:vec (hash:get-hash-nbytes nel ekey seq))))
+         (mask (vec (get-hash-nbytes nel (vec ekey) seq))))
     (map-into mask #'logxor bytevec mask)))
 
-(defun make-signature (seq emsg skey)
+(defun make-signature (seq emsg chk skey)
   ;; Generate and append a Schnorr signature - signature includes seq
   ;; and emsg.
   ;;
@@ -26,23 +45,23 @@
   ;; message and seq always produces the same signature, for the given
   ;; secret key, skey. This is doubly cautious here, since seq is only
   ;; ever supposed to be used just once.
-  (let* ((pkey  (edec:ed-mul edec:*ed-gen* skey))
-         (krand (vec-repr:int (hash:hash/256 seq emsg skey pkey)))
-         (kpt   (edec:ed-mul edec:*ed-gen* krand))
-         (h     (vec-repr:int (hash:hash/256 seq emsg kpt pkey)))
-         (u     (modmath:with-mod edec:*ed-r*
-                  (modmath:m+ krand (modmath:m* h skey))))
-         (upt   (edec:ed-mul edec:*ed-gen* u)))
-    (list (vec-repr:int upt) krand)
+  (let* ((pkey  (ed-mul *ed-gen* skey))
+         (krand (int (hash/256 seq emsg chk skey pkey)))
+         (kpt   (ed-mul *ed-gen* krand))
+         (h     (int (hash/256 seq emsg chk kpt pkey)))
+         (u     (with-mod *ed-r*
+                  (m+ krand (m* h skey))))
+         (upt   (ed-mul *ed-gen* u)))
+    (list (int upt) krand)
     ))
 
-(defun check-signature (seq emsg auth pkey)
-  ;; takes seq, emsg, and sig (a Schnorr signature on seq+emsg), and
-  ;; produce t/f on signature as having come from pkey.
-  (destructuring-bind (upt krand) auth
-    (let* ((kpt  (edec:ed-mul edec:*ed-gen* krand))
-           (h    (vec-repr:int (hash:hash/256 seq emsg kpt pkey))))
-      (edec:ed-pt= (edec:ed-decompress-pt upt) (edec:ed-add kpt (edec:ed-mul pkey h)))
+(defun check-signature (seq emsg chk sig pkey)
+  ;; takes seq, emsg, chk, and sig (a Schnorr signature on seq+emsg+chk),
+  ;; and produce t/f on signature as having come from pkey.
+  (destructuring-bind (upt krand) sig
+    (let* ((kpt  (ed-mul *ed-gen* krand))
+           (h    (int (hash/256 seq emsg chk kpt pkey))))
+      (ed-pt= (ed-decompress-pt upt) (ed-add kpt (ed-mul pkey h)))
       )))
 
 ;; --------------------------------------------------
@@ -97,7 +116,7 @@
                      (with-standard-io-syntax
                        (read f)))
                  (error ()
-                   (let ((seq (vec-repr:int (hash:hash/256 (uuid:make-v1-uuid)))))
+                   (let ((seq (vec-repr:int (hash/256 (uuid:make-v1-uuid)))))
                      (wr-nonce seq)
                      seq))
                  ))
@@ -212,22 +231,30 @@
   (actor (cust bytevec)
     (beta (seq)
         (send *noncer* beta :get-nonce)
-      (send cust seq (encrypt/decrypt ekey seq bytevec)))))
+      (let ((chk (vec (hash/256 bytevec))))
+        (send cust seq (encrypt/decrypt ekey seq bytevec) chk)
+        ))))
 
 (defun decryptor (ekey)
   ;; Takes an encrypted bytevec and produces a bytevec
-  (actor (cust seq emsg)
-    (send cust (encrypt/decrypt ekey seq emsg))))
+  (actor (cust seq emsg chk)
+    (let* ((bytvec (encrypt/decrypt ekey seq emsg))
+           (dchk   (vec (hash/256 bytvec))))
+      (if (equalp dchk chk)
+          (send cust bytvec)
+        (error "decryptor: failure")
+        ))))
 
 (defun signing (skey)
-  (actor (cust seq emsg)
-    (let ((sig (make-signature seq emsg skey)))
-      (send cust seq emsg sig))))
+  (actor (cust seq emsg chk)
+    (let ((sig (make-signature seq emsg chk skey)))
+      (send cust seq emsg chk sig))))
 
 (defun signature-validation (pkey)
-  (actor (cust seq emsg sig)
-    (when (check-signature seq emsg sig pkey)
-      (send cust seq emsg))))
+  (actor (cust seq emsg chk sig)
+    (if (check-signature seq emsg chk sig pkey)
+        (send cust seq emsg chk)
+      (error "signature-validation: failure"))))
 
 (defun self-sync-encoder ()
   ;; takes a bytevec and produces a self-sync bytevec
@@ -247,7 +274,7 @@
              (send cust :pass byte-vec))
             (t
              (let* ((nchunks (ceiling size max-size))
-                    (id      (uuid:make-v1-uuid)))
+                    (id      (int (hash/256 (uuid:make-v1-uuid)))))
                (send cust :init id nchunks size)
                (do ((offs  0  (+ offs max-size))
                     (ix    0  (1+ ix)))
@@ -435,8 +462,8 @@
 
 #|
 (multiple-value-bind (skey pkey)
-    (edec:make-deterministic-keys :test)
-  (let ((ekey (hash:hash/256 skey pkey)))
+    (make-deterministic-keys :test)
+  (let ((ekey (hash/256 skey pkey)))
     (send (pipe (encr-disk-encoder ekey skey :max-chunk 16)
                 (writer)
                 (encr-disk-decoder ekey pkey)
@@ -450,16 +477,16 @@
     (send println (if (equalp ans junk) :yes :no))))
 
 (multiple-value-bind (skey pkey)
-    (edec:make-deterministic-keys :test)
-  (let ((ekey (hash:hash/256 skey pkey)))
+    (make-deterministic-keys :test)
+  (let ((ekey (hash/256 skey pkey)))
     (send (pipe (marshal-encoder) (encryptor ekey)) println "This is a test")))
 
 (let ((x (hcl:file-string "./xTActors/encoding.lisp"))
       ;; (x "test string")
       )
   (multiple-value-bind (skey pkey)
-      (edec:make-deterministic-keys :test)
-    (let ((ekey (hash:hash/256 skey pkey))
+      (make-deterministic-keys :test)
+    (let ((ekey (hash/256 skey pkey))
           (inp  nil))
       (beta (ans)
           (send (encr-disk-encoder ekey skey) beta x)
@@ -468,7 +495,6 @@
           #|
           (send (pipe (marshal-encoder)
                       (chunker)
-                      (writer)
                       (marshal-encoder)
                       (marshal-compressor)
                       (writer)
@@ -509,4 +535,175 @@
   (print xd))
 
 |#
+;; -----------------------------------------------------------------------
+#|
+;; -------------------------------------------------------------------
+;; Encrypted Disk Files - AONT Encoding
+;;
+;; File is saved in self-sync encoding. That doesn't help much if the
+;; encrypted portions of the file get clobbered, but could help in the
+;; recovery of remaining items. File uses flexible length encodings
+;; rather than fixed allocations.
 
+    +-------------------+
+    | File Type UUID    | = AONT type {b532fc4e-bf2b-123a-9307-24f67702cdaa}
+    +-------------------+
+    | (:PKEY pkey-vec)  | = public key of file creator, used for signature validation
+    +-------------------+
+    | (:TEXT encr-data) | = encryped, compressed, marhsaled Lisp items, using master-key
+    +-------------------+
+    | (:AONT aont-vec)  | = SHA3/256(pkey-vec | encr-data) XOR master-key
+    +-------------------+
+
+  The encr-data in the :TEXT section is a marshal encoding of a list of 4 items:
+   (LIST seq cipher-text chk sig)
+  where,
+    seq = the subkey of this encryption. Actual encryption key is H(master-key | seq).
+    cipher-text = encrypted, compressed, marshaled list of Lisp data items.
+    chk = SHA3/256 hash of pre-encryption compressed, marshaled, data.
+    sig = signature on (seq cipher-text chk) and validated against pkey.
+
+  The chk serves to indicate whether or not decryption has succeeded.
+  The sig is an authentication of the written data.
+  Encryption is by way of XOR with one-time pad.
+  
+  There is no relation between pkey and the master encryption key. The
+  skey and pkey can be chosen independently from the master encryption
+  key. skey and pkey of creator are related through EdEC Curve1174.
+
+  This is *Confidential* encoding, not *SECRET*. Anyone can read this
+  data, provided they read all of it first, and can then derive the
+  master encryption key. This takes special effort, and so the data is
+  not visible to the casual reader.
+
+|#
+
+(defconstant *AONT-FILE-TYPE-ID* (vec #/uuid/{b532fc4e-bf2b-123a-9307-24f67702cdaa}))
+
+(defun aont-encoder (ekey skey)
+  (actor (cust &rest msg)
+    ;; takes arbitrary Lisp data items and encodes as a list
+    (let ((pkey-vec (vec (ed-mul *ed-gen* skey))))
+      (beta (data-packet)
+          (send (pipe (marshal-encoder)
+                      (marshal-compressor)
+                      (encryptor ekey)
+                      (signing skey)
+                      (marshal-encoder))
+                beta msg)
+          (let* ((aont-vec (vec (hash/256 pkey-vec data-packet))))
+            (map-into aont-vec #'logxor aont-vec ekey)
+            (send cust pkey-vec data-packet aont-vec)
+            ))
+      )))
+
+(defun aont-writer (fname)
+  (io
+   (actor (pkey-vec data-packet aont-vec)
+     (let ((enc (pipe (marshal-encoder) (self-sync-encoder))))
+       (beta (pkey-enc)
+           (send enc beta :pkey pkey-vec)
+         (beta (data-enc)
+             (send enc beta :text data-packet)
+           (beta (aont-enc)
+               (send enc beta :aont aont-vec)
+             (with-open-file (fd fname
+                                 :direction :output
+                                 :if-exists :supersede
+                                 :if-does-not-exist :create
+                                 :element-type '(unsigned-byte 8))
+               (write-sequence *AONT-FILE-TYPE-ID* fd)
+               (write-sequence pkey-enc fd)
+               (write-sequence data-enc fd)
+               (write-sequence aont-enc fd))
+             )))))))
+
+(defun packet-reader (reader-fn)
+  (lambda (kind)
+    (let ((packet (loenc:decode (funcall reader-fn))))
+      (if (consp packet)
+          (if (eq kind (car packet))
+              (cadr packet)
+            (error "packet-reader: sync failure"))
+        (error "packet-reader: data failure"))
+      )))
+    
+(defun aont-reader (fname)
+  (ioreq
+   (io
+    (actor (cust)
+      (with-open-file (fd fname
+                          :direction :input
+                          :element-type '(unsigned-byte 8))
+        (let ((file-type (make-array 16
+                                     :element-type '(unsigned-byte 8))))
+          (read-sequence file-type fd)
+          (if (equalp *AONT-FILE-TYPE-ID* file-type)
+              (let ((reader (packet-reader (self-sync:make-reader fd))))
+                (let* ((pkey-vec    (funcall reader :pkey))
+                       (data-packet (funcall reader :text))
+                       (aont-vec    (funcall reader :aont)))
+                  (send (aont-decoder) cust pkey-vec data-packet aont-vec)))
+            (error "~A: Not an AONT encoded file" fname))
+          )))
+    )))
+
+(defun aont-decoder ()
+  ;; returns a list of original Lisp data items
+  (actor (cust pkey-vec data-packet aont-vec)
+    (let ((pkey  (ed-decompress-pt pkey-vec))
+          (ekey  (vec (hash/256 pkey-vec data-packet))))
+      (map-into ekey #'logxor ekey aont-vec)
+      (send (pipe (marshal-decoder)
+                  (signature-validation pkey)
+                  (decryptor ekey)
+                  (marshal-decompressor)
+                  (marshal-decoder))
+            cust data-packet)
+      )))
+
+#|
+(defun tst ()
+  (let ((msg (hcl:file-string "./xTActors/encoding.lisp")))
+    (multiple-value-bind (skey pkey)
+        (make-deterministic-keys :test)
+      (let ((ekey (vec (hash/256 skey pkey))))
+        (beta (pkey-vec data-packet aont-vec)
+            (send (aont-encoder ekey skey) beta msg)
+          (send writeln (list pkey-vec data-packet aont-vec))
+          (beta (dmsg)
+              (send (aont-decoder) beta pkey-vec data-packet aont-vec)
+            (send writeln dmsg)
+            (assert (equalp msg (car dmsg)))
+            )))
+      )))
+(tst)
+
+
+(let ((msg (hcl:file-string "./xTActors/encoding.lisp"))
+      (fout "./xTActors/aont-test"))
+  (multiple-value-bind (skey pkey)
+      (make-deterministic-keys :test)
+    (let ((ekey (vec (hash/256 skey pkey))))
+      (send (aont-encoder ekey skey)
+            (aont-writer fout)
+            msg)
+      )))
+
+(defun tst ()
+  (let ((msg (hcl:file-string "./xTActors/encoding.lisp"))
+        (finp "./xTActors/aont-test")
+        (fout "./xTActors/aont-test-result.txt"))
+    (beta (dmsg)
+        (send (aont-reader finp) beta)
+      (with-open-file (fd fout
+                          :direction :output
+                          :if-exists :supersede
+                          :if-does-not-exist :create)
+        (write-string (car dmsg) fd))
+      
+      (assert (string= (car dmsg) msg))
+      (send writeln dmsg)
+      )))
+(tst)
+  |#
