@@ -224,6 +224,11 @@ THE SOFTWARE.
    #:racurry-beh
    #:acurry
    #:racurry
+
+   #:aont-encoder
+   #:aont-decoder
+   #:aont-file-writer
+   #:aont-file-reader
    ))
 
 #-lispworks

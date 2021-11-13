@@ -450,7 +450,8 @@
   (let ((pair (rassoc spon *all-sponsors*)))
     (if pair
         (car pair)
-      (format nil "~X" (sys:object-address spon))
+      (and spon
+           (format nil "~X" (sys:object-address spon)))
       )))
 
 (defvar logger

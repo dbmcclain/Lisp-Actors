@@ -582,7 +582,7 @@
 
 (defconstant +AONT-FILE-TYPE-ID+ (vec #/uuid/{b532fc4e-bf2b-123a-9307-24f67702cdaa}))
 
-(defun aont-encoder (ekey skey)
+(defun aont-encoder (skey ekey)
   (actor (cust &rest msg)
     ;; takes arbitrary Lisp data items and encodes as a list
     (let ((pkey-vec (vec (ed-mul *ed-gen* skey))))
@@ -599,28 +599,52 @@
             ))
       )))
 
-(defun aont-writer (fname)
-  (io
-   (actor (pkey-vec data-packet aont-vec)
-     (let ((enc (pipe (marshal-encoder) (self-sync-encoder))))
-       (beta (pkey-enc)
-           (send enc beta :pkey pkey-vec)
-         (beta (data-enc)
-             (send enc beta :text data-packet)
-           (beta (aont-enc)
-               (send enc beta :aont aont-vec)
-             (with-open-file (fd fname
-                                 :direction :output
-                                 :if-exists :supersede
-                                 :if-does-not-exist :create
-                                 :element-type '(unsigned-byte 8))
-               (write-sequence +AONT-FILE-TYPE-ID+ fd)
-               (write-sequence pkey-enc fd)
-               (write-sequence data-enc fd)
-               (write-sequence aont-enc fd))
-             )))))))
+(defun aont-decoder ()
+  ;; returns a list of original Lisp data items
+  (actor (cust pkey-vec data-packet aont-vec)
+    (let ((pkey  (ed-decompress-pt pkey-vec))
+          (ekey  (vec (hash/256 pkey-vec data-packet))))
+      (map-into ekey #'logxor ekey aont-vec)
+      (send (pipe (marshal-decoder)
+                  (signature-validation pkey)
+                  (decryptor ekey)
+                  (marshal-decompressor)
+                  (marshal-decoder))
+            cust data-packet)
+      )))
+
+;; ------------------------------------------------------
+
+(defun aont-file-writer (fname skey ekey)
+  ;; writes a single AONT record to a file
+  (ioreq
+   (io
+    (actor (cust &rest msg)
+      (let ((simple-enc (pipe (marshal-encoder)
+                              (self-sync-encoder))))
+        (beta (pkey-vec data-packet aont-vec)
+            (send* (aont-encoder skey ekey) beta msg)
+          (beta (pkey-enc)
+              (send simple-enc beta :pkey pkey-vec)
+            (beta (data-enc)
+                (send simple-enc beta :text data-packet)
+              (beta (aont-enc)
+                  (send simple-enc beta :aont aont-vec)
+                (with-open-file (fd fname
+                                    :direction :output
+                                    :if-exists :supersede
+                                    :if-does-not-exist :create
+                                    :element-type '(unsigned-byte 8))
+                  (write-sequence +AONT-FILE-TYPE-ID+ fd)
+                  (write-sequence pkey-enc fd)
+                  (write-sequence data-enc fd)
+                  (write-sequence aont-enc fd)
+                  (send cust :ok))
+                )))))))))
 
 (defun packet-reader (reader-fn)
+  ;; A packet is a marshaled List of two elements - a kind keyword and
+  ;; data
   (lambda (kind)
     (let ((packet (loenc:decode (funcall reader-fn))))
       (if (consp packet)
@@ -630,7 +654,8 @@
         (error "packet-reader: data failure"))
       )))
     
-(defun aont-reader (fname)
+(defun aont-file-reader (fname)
+  ;; Reads a single AONT record from a file
   (ioreq
    (io
     (actor (cust)
@@ -649,20 +674,7 @@
           )))
     )))
 
-(defun aont-decoder ()
-  ;; returns a list of original Lisp data items
-  (actor (cust pkey-vec data-packet aont-vec)
-    (let ((pkey  (ed-decompress-pt pkey-vec))
-          (ekey  (vec (hash/256 pkey-vec data-packet))))
-      (map-into ekey #'logxor ekey aont-vec)
-      (send (pipe (marshal-decoder)
-                  (signature-validation pkey)
-                  (decryptor ekey)
-                  (marshal-decompressor)
-                  (marshal-decoder))
-            cust data-packet)
-      )))
-
+;; -----------------------------------------------------------------
 #|
 (defun tst ()
   (let ((msg (hcl:file-string "./xTActors/encoding.lisp")))
@@ -670,7 +682,7 @@
         (make-deterministic-keys :test)
       (let ((ekey (vec (hash/256 skey pkey))))
         (beta (pkey-vec data-packet aont-vec)
-            (send (aont-encoder ekey skey) beta msg)
+            (send (aont-encoder skey ekey) beta msg)
           (send writeln (list pkey-vec data-packet aont-vec))
           (beta (dmsg)
               (send (aont-decoder) beta pkey-vec data-packet aont-vec)
@@ -686,9 +698,7 @@
   (multiple-value-bind (skey pkey)
       (make-deterministic-keys :test)
     (let ((ekey (vec (hash/256 skey pkey))))
-      (send (aont-encoder ekey skey)
-            (aont-writer fout)
-            msg)
+      (send (aont-file-writer fout skey ekey) println msg)
       )))
 
 (defun tst ()
@@ -696,7 +706,7 @@
         (finp "./xTActors/aont-test")
         (fout "./xTActors/aont-test-result.txt"))
     (beta (dmsg)
-        (send (aont-reader finp) beta)
+        (send (aont-file-reader finp) beta)
       (with-open-file (fd fout
                           :direction :output
                           :if-exists :supersede
