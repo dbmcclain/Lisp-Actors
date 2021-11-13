@@ -580,7 +580,7 @@
 
 |#
 
-(defconstant *AONT-FILE-TYPE-ID* (vec #/uuid/{b532fc4e-bf2b-123a-9307-24f67702cdaa}))
+(defconstant +AONT-FILE-TYPE-ID+ (vec #/uuid/{b532fc4e-bf2b-123a-9307-24f67702cdaa}))
 
 (defun aont-encoder (ekey skey)
   (actor (cust &rest msg)
@@ -614,7 +614,7 @@
                                  :if-exists :supersede
                                  :if-does-not-exist :create
                                  :element-type '(unsigned-byte 8))
-               (write-sequence *AONT-FILE-TYPE-ID* fd)
+               (write-sequence +AONT-FILE-TYPE-ID+ fd)
                (write-sequence pkey-enc fd)
                (write-sequence data-enc fd)
                (write-sequence aont-enc fd))
@@ -639,7 +639,7 @@
                           :element-type '(unsigned-byte 8))
         (let ((file-type (make-ubv 16)))
           (read-sequence file-type fd)
-          (if (equalp *AONT-FILE-TYPE-ID* file-type)
+          (if (equalp +AONT-FILE-TYPE-ID+ file-type)
               (let ((reader (packet-reader (self-sync:make-reader fd))))
                 (let* ((pkey-vec    (funcall reader :pkey))
                        (data-packet (funcall reader :text))
