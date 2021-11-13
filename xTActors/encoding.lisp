@@ -596,12 +596,12 @@
     ;; takes arbitrary Lisp data items and encodes as a list
     (let ((pkey-vec (vec (ed-mul *ed-gen* skey))))
       (beta (data-packet)
-          (send (pipe (marshal-encoder)
-                      (marshal-compressor)
-                      (encryptor ekey)
-                      (signing skey)
-                      (marshal-encoder))
-                beta msg)
+          (send* (pipe (marshal-encoder)
+                       (marshal-compressor)
+                       (encryptor ekey)
+                       (signing skey)
+                       (marshal-encoder))
+                 beta msg)
           (let* ((aont-vec (vec (hash/256 pkey-vec data-packet))))
             (map-into aont-vec #'logxor aont-vec ekey)
             (send cust pkey-vec data-packet aont-vec)
@@ -701,9 +701,9 @@
                           :direction :output
                           :if-exists :supersede
                           :if-does-not-exist :create)
-        (write-string (car dmsg) fd))
+        (write-string dmsg fd))
       
-      (assert (string= (car dmsg) msg))
+      (assert (string= dmsg msg))
       (send writeln dmsg)
       )))
 (tst)
