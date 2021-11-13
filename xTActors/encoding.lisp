@@ -336,6 +336,10 @@
     (repeat-send next))
    ))
 
+(defun make-ubv (nb)
+  (make-array nb
+              :element-type '(unsigned-byte 8)))
+
 (defun dechunker ()
   ;; No assumptions about chunk or init delivery order.
   ;; Takes a sequence of chunk encodings and produces a bytevec
@@ -343,8 +347,7 @@
              (alambda
               ((_ :init id nchunks size)
                (become (dechunker-beh
-                        :vec      (make-array size
-                                              :element-type '(unsigned-byte 8))
+                        :vec      (make-ubv size)
                         :id       id
                         :nchunks  nchunks
                         :delivery delivery))
@@ -470,8 +473,7 @@
                 (writer))
           sink "This is a test")))
 
-(let ((junk (make-array 1022
-                        :element-type '(unsigned-byte 8))))
+(let ((junk (make-ubv 1022)))
   (beta (ans)
       (send (pipe (chunker :max-size 16) (dechunker)) beta junk)
     (send println (if (equalp ans junk) :yes :no))))
@@ -635,8 +637,7 @@
       (with-open-file (fd fname
                           :direction :input
                           :element-type '(unsigned-byte 8))
-        (let ((file-type (make-array 16
-                                     :element-type '(unsigned-byte 8))))
+        (let ((file-type (make-ubv 16)))
           (read-sequence file-type fd)
           (if (equalp *AONT-FILE-TYPE-ID* file-type)
               (let ((reader (packet-reader (self-sync:make-reader fd))))
