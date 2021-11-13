@@ -560,15 +560,11 @@
 ;; recovery of remaining items. File uses flexible length encodings
 ;; rather than fixed allocations.
 
-    +-------------------+
-    | File Type UUID    | = AONT type {b532fc4e-bf2b-123a-9307-24f67702cdaa}
-    +-------------------+
-    | (:PKEY pkey-vec)  | = public key of file creator, used for signature validation
-    +-------------------+
-    | (:TEXT encr-data) | = encryped, compressed, marhsaled Lisp items, using master-key
-    +-------------------+
-    | (:AONT aont-vec)  | = SHA3/256(pkey-vec | encr-data) XOR master-key
-    +-------------------+
+    +------------------------------------+
+    | File Type UUID                     | = AONT type {b532fc4e-bf2b-123a-9307-24f67702cdaa}
+    +------------------------------------+
+    | (LIST pkey-vec encr-data aont-vec) |
+    +------------------------------------+
 
   The encr-data in the :TEXT section is a marshal encoding of a list of 4 items:
    (LIST seq cipher-text chk sig)
