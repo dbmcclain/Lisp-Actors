@@ -202,8 +202,7 @@
   (make-actor (apply #'scheduled-message-beh cust dt msg)))
 
 (defun send-after (dt actor &rest msg)
-  (let ((timer (apply #'mp:make-timer #'send actor msg)))
-    (mp:schedule-timer-relative timer dt)))
+  (send (apply #'scheduled-message actor dt msg)))
 
 ;; -------------------------------------------
 ;; A cheap FP Banker's queue

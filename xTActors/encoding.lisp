@@ -178,7 +178,7 @@
                    ;; sync to disk 10s after most recent get-nonce. If
                    ;; another happens during that time window, the
                    ;; sync is rescheduled.
-                   (send (scheduled-message (io tag) 10 :write-nonce))
+                   (send-after 10 (io tag) :write-nonce)
                    (become (noncer-beh new-nonce tag))))
                 
                 ((cust :write-nonce) when (eq cust tag)

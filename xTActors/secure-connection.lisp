@@ -73,28 +73,41 @@
 ;; time-to-live, after which they become purged from the list of local
 ;; ephemeral services.
 
-(defun empty-local-service-beh ()
+(defvar *dbg* nil)
+
+(defmacro dbg (&body body)
+  `(if *dbg*
+       (progn
+         ,@body)))
+
+(defvar *default-ephemeral-ttl*  10)
+(defvar *default-services-ttl*   20)
+
+(defun empty-local-service-beh (top)
   (alambda
    ((cust :prune)
     (send cust :pruned self-beh))
 
-   ((cust :add-service actor id)
+   ((cust :add-service actor)
     ;; used for connection handlers
-    (let ((next (make-actor self-beh))
-          (tag  (tag self)))
-      (become (local-service-beh actor id tag next))
-      ;; initial lease is for 60 sec.
-      (send (scheduled-message tag 60 sink :remove-service))
-      (send cust :ok)
+    (let ((next  (make-actor self-beh))
+          (tag   (tag top))
+          (id    (uuid:make-v1-uuid)))
+      (become (local-service-beh actor id tag top next))
+      (send-after *default-services-ttl* tag :lease-expired)
+      (dbg (send println (format nil "Service added: ~A" id)))
+      (send cust id)
       ))
    
-   ((cust :add-ephemeral-service actor id ttl)
+   ((cust :add-ephemeral-service actor ttl)
     ;; used for transient customer proxies
-    (let ((next (make-actor self-beh)))
+    (let ((next (make-actor self-beh))
+          (id   (uuid:make-v1-uuid)))
       (become (local-ephemeral-service-beh actor id next))
-      (send cust :ok)
+      (send cust id)
       (when ttl
-        (send (scheduled-message self ttl sink :remove-service id)))
+        (send-after ttl top sink :remove-service id))
+      (dbg (send println (format nil "Ephemeral service added: ~A" id)))
       ))
 
    ((cust :list lst)
@@ -107,12 +120,14 @@
     (send cust :pruned self-beh))
 
    ((cust :send an-id . msg) when (uuid:uuid= an-id id)
+    (dbg (send println (format nil "Ephemeral service used: ~A" id)))
     (send* actor msg)
     (send cust :ok)
     (prune-self next))
     
    ((cust :remove-service an-id) when (uuid:uuid= an-id id)
     (send cust :ok)
+    (dbg (send println (format nil "Ephemeral service removed: ~A" id)))
     (prune-self next))
 
    ((cust :list lst)
@@ -122,25 +137,26 @@
     (repeat-send next))
    ))
 
-(defun local-service-beh (actor id tag next)
+(defun local-service-beh (actor id tag top next)
   (alambda
    ((cust :prune)
     (send cust :pruned self-beh))
 
    ((cust :send an-id . msg) when (uuid:uuid= an-id id)
     ;; we do not automatically remove this entry once used.
-    (send* actor msg)
-    (let ((tag (tag self)))
-      (become (local-service-beh actor id tag next))
-      ;; renew lease for another 60 sec.
-      (send (scheduled-message tag 60 :remove-service))
+    (let ((tag  (tag top)))
+      (dbg (send println (format nil "Service used: ~A" id)))
+      (become (local-service-beh actor id tag top next))
+      (send-after *default-services-ttl* tag :lease-expired)
+      (send* actor msg)
       (send cust :ok)))
-    
+
+   ((a-tag :lease-expired) when (eq a-tag tag)
+    (dbg (send println (format nil "Service lease expired: ~A" id)))
+    (prune-self next))
+   
    ((cust :remove-service an-id) when (uuid:uuid= an-id id)
     (send cust :ok)
-    (prune-self next))
-
-   ((cust :remove-service) when (eq cust tag)
     (prune-self next))
 
    ((cust :list lst)
@@ -150,17 +166,15 @@
     (repeat-send next))
    ))
 
-(defvar *local-services* (make-actor (empty-local-service-beh)))
+(defvar *local-services*
+  (actors ((svcs (empty-local-service-beh svcs)))
+    svcs))
 
-(defun create-ephemeral-proxy-service (cust &key (ttl 10))
-  (let ((id  (uuid:make-v1-uuid))) ;; the symbolic name
-    (send *local-services* sink :add-ephemeral-service cust id ttl)
-    id))
+(defun create-ephemeral-proxy-service (cust svc &key (ttl *default-ephemeral-ttl*))
+  (send *local-services* cust :add-ephemeral-service svc ttl))
 
-(defun create-proxy-service (cust)
-  (let ((id  (uuid:make-v1-uuid))) ;; the symbolic name
-    (send *local-services* sink :add-service cust id)
-    id))
+(defun create-proxy-service (cust svc)
+  (send *local-services* cust :add-service svc))
 
 ;; ---------------------------------------------------
 ;; Composite Actor pipes
@@ -193,24 +207,28 @@
    ((cust :connect socket server-pkey)
     (let* ((arand       (int (ctr-drbg 256)))
            (apt         (ed-mul *ed-gen* arand))
-           (client-pkey (ed-mul *ed-gen* client-skey)))
-      (beta (server-cnx bpt)
-          (send socket (create-ephemeral-proxy-service beta)
-                :connect
-                server-pkey
-                (int client-pkey)
-                (int apt))
-        (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
-               (client-cnx (make-actor (client-connect-beh
-                                        :encryptor   (pipe
-                                                      (secure-sender ekey client-skey)
-                                                      (create-proxy-cust server-cnx socket))
-                                        :decryptor   (secure-reader ekey (ed-decompress-pt server-pkey))
-                                        :admin       self))))
-          (send cust (secure-send client-cnx)) ;; our local customer
-          (become (um:reapply #'client-crypto-gate-beh () args
-                              :cnxs (cons client-cnx cnxs)))
-          ))))
+           (client-pkey (ed-mul *ed-gen* client-skey))
+           (me          self)
+           (responder
+            (actor (server-cnx bpt)
+              (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
+                     (client-cnx (make-actor (client-connect-beh
+                                              :encryptor   (pipe
+                                                            (secure-sender ekey client-skey)
+                                                            (create-proxy-cust server-cnx socket))
+                                              :decryptor   (secure-reader ekey (ed-decompress-pt server-pkey))
+                                              :admin       me))))
+                (send cust (secure-send client-cnx)) ;; our local customer
+                (send admin-tag :add-cnx client-cnx)
+                ))))
+      (beta (id)
+          (create-ephemeral-proxy-service beta responder)
+        (send socket id :connect server-pkey (int client-pkey) (int apt))
+        )))
+
+   ((tag :add-cnx cnx) when (eq tag admin-tag)
+    (become (um:reapply #'client-crypto-gate-beh () args
+                        :cnxs (cons cnx cnxs))))
    
    ((tag :shutdown) when (eq tag admin-tag)
     (become (sink-beh))
@@ -249,9 +267,9 @@
   ;; keying for every new message.
   (alambda
    ((cust :send verb . msg) ;; client send to a server service by name
-    (send* encryptor
-           (create-ephemeral-proxy-service (pipe decryptor cust))
-           verb msg))
+    (beta (id)
+        (create-ephemeral-proxy-service beta (pipe decryptor cust))
+      (send* encryptor id verb msg)))
 
    ((cust :shutdown) when (eq cust admin)
     (become (sink-beh)))
@@ -279,18 +297,24 @@
                (bpt       (ed-mul *ed-gen* brand))
                (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)))
                (encryptor (secure-sender ekey server-skey))
-               (decryptor (secure-reader ekey (ed-decompress-pt client-pkey)))
                (cnx       (make-actor (server-connect-beh
                                        :socket      socket
                                        :encryptor   encryptor
                                        :services    services
-                                       :admin       self))))
-          (send (create-proxy-cust cust socket)  ;; remote client cust
-                (create-proxy-service (pipe decryptor cnx))
-                (int bpt))
-          (become (um:reapply #'server-crypto-gate-beh nil args
-                              :cnxs (cons cnx cnxs)))
+                                       :admin       self)))
+               (decryptor (pipe
+                           (secure-reader ekey (ed-decompress-pt client-pkey))
+                           cnx)))
+          (beta (id)
+              (create-proxy-service beta decryptor)
+            (send (create-proxy-cust cust socket)  ;; remote client cust
+                  id (int bpt))
+            (send admin-tag :add-cnx cnx))
           ))))
+
+   ((tag :add-cnx cnx) when (eq tag admin-tag)
+    (become (um:reapply #'server-crypto-gate-beh nil args
+                        :cnxs (cons cnx cnxs))))
 
    ((tag :add-service . _) when (eq tag admin-tag)
     (repeat-send services))
@@ -442,6 +466,8 @@
 ;; try it out...
 
 (defun fake-socket ()
+  ;; Uses a shared *local-services* between fake client and fake
+  ;; server.  But that's okay because all entries have unique ID's.
   (make-actor
    (alambda
     ((cust :connect . msg)
@@ -481,9 +507,12 @@
 
 (send (logged (make-mock-service)))
 
+(atrace)
+(atrace nil)
 (tst)
 (send *local-services* writeln :list nil)
- 
+(setf *dbg* t)
+(setf *dbg* nil)
 
  |#
 
