@@ -796,9 +796,10 @@
                   (setf (row-major-aref img jx) (aref v kx))
                   ))
           (setf h (hash/256 h)))
-    (loop for ix from 150 below 250 do
+    (loop for ix from 250 below 350 do
           (loop for iy from 200 below 300 do
                 (setf (aref img ix iy) 0)))
+    (plt:window 'img :width 512 :height 512)
     (plt:tvscl 'img img)
     (let ((ekey (hash/256 :again)))
       (beta (seq enc chk)
@@ -810,9 +811,60 @@
                                 :element-type (array-element-type img)
                                 :displaced-to enc
                                 :displaced-index-offset 0)))
+          (plt:window 'dimg :width 512 :height 512)
           (plt:tvscl 'dimg dimg)
           )))
     ))
 
+(tst)
+
+(defun tst ()
+  ;; Testing QOE - Quality of Encryption - XOR of two encryptions to
+  ;; show that no hint of the original documents leaks through. See
+  ;; QOE.pdf.
+  (let* ((img1 (make-array '(512 512)
+                           :element-type '(unsigned-byte 8)))
+         (img2 (make-array '(512 512)
+                           :element-type '(unsigned-byte 8)))
+         (h   (hash/256 :test)))
+    (loop for ix from 0 below (array-total-size img1) by 32 do
+          (let ((v  (vec h)))
+            (loop for jx from ix
+                  for kx from 0 below 32
+                  do
+                  (setf (row-major-aref img2 jx)
+                        (setf (row-major-aref img1 jx) (aref v kx)))
+                  ))
+          (setf h (hash/256 h)))
+    (loop for ix from 250 below 350 do
+          (loop for iy from 200 below 300 do
+                (setf (aref img1 ix iy) 0)))
+    (loop for ix from 125 below 175 do
+          (loop for iy from 125 below 175 do
+                (setf (aref img2 ix iy) 0)))
+    (plt:window 'img1 :width 512 :height 512)
+    (plt:tvscl 'img1 img1)
+    (plt:window 'img2 :width 512 :height 512)
+    (plt:tvscl 'img2 img2)
+    (let ((ekey (hash/256 :again)))
+      (beta (seq enc1 chk)
+          (send (pipe (marshal-encoder)
+                      (encryptor ekey))
+                beta img1)
+        (declare (ignore seq chk))
+        (beta (sec enc2 chk)
+            (send (pipe (marshal-encoder)
+                        (encryptor ekey))
+                  beta img2)
+          (declare (ignore seq chk))
+        (let ((dimg1 (make-array (array-dimensions img1)
+                                 :element-type (array-element-type img1)
+                                 :displaced-to enc1
+                                 :displaced-index-offset 0)))
+          (map-into enc1 #'logxor enc1 enc2)
+          (plt:window 'xor :width 512 :height 512)
+          (plt:tvscl 'xor dimg1)
+          )))
+      )))
 (tst)
   |#
