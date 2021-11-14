@@ -796,6 +796,9 @@
                   (setf (row-major-aref img jx) (aref v kx))
                   ))
           (setf h (hash/256 h)))
+    (loop for ix from 150 below 250 do
+          (loop for iy from 200 below 300 do
+                (setf (aref img ix iy) 0)))
     (plt:tvscl 'img img)
     (let ((ekey (hash/256 :again)))
       (beta (seq enc chk)
@@ -810,5 +813,6 @@
           (plt:tvscl 'dimg dimg)
           )))
     ))
+
 (tst)
   |#
