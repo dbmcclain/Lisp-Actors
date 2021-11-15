@@ -53,10 +53,15 @@
 ;; We want to avoid inventing subtypes of Actors for this. Instead, we
 ;; manufacture stand-in Actors.
 
-(defun create-cust-proxy (cust socket)
+(defun create-cust-send-proxy (cust socket)
   ;; cust here is a symbolic reference
   (actor (&rest msg)
     (send* socket cust :send msg)))
+
+(defun create-cust-reply-proxy (cust socket)
+  ;; cust here is a symbolic reference
+  (actor (&rest msg)
+    (send* socket cust :reply msg)))
 
 ;; Similarly, on the sending side, we can't just send along a cust
 ;; field of a message because it is an Actor, and contains a
@@ -214,7 +219,7 @@
                      (client-cnx (make-actor (client-connect-beh
                                               :encryptor   (pipe
                                                             (secure-sender ekey client-skey)
-                                                            (create-cust-proxy server-cnx socket))
+                                                            (create-cust-send-proxy server-cnx socket))
                                               :decryptor   (secure-reader ekey (ed-decompress-pt server-pkey))
                                               :admin       me))))
                 (send cust (secure-send client-cnx)) ;; our local customer
@@ -306,7 +311,7 @@
                            cnx)))
           (beta (id)
               (create-service-proxy beta decryptor)
-            (send (create-cust-proxy cust socket)  ;; remote client cust
+            (send (create-cust-reply-proxy cust socket)  ;; remote client cust
                   id (int bpt))
             (send admin-tag :add-cnx cnx))
           ))))
@@ -345,11 +350,11 @@
     (become (sink-beh)))
 
    ((cust :available-services)
-    (let ((proxy (create-cust-proxy cust socket)))
+    (let ((proxy (create-cust-reply-proxy cust socket)))
       (send services (pipe encryptor proxy) :available-services nil)))
 
    ((cust verb . msg) ;; remote client cust
-    (let ((proxy (create-cust-proxy cust socket)))
+    (let ((proxy (create-cust-reply-proxy cust socket)))
       (send* services (pipe encryptor proxy) :send verb msg)))
    ))
 
@@ -464,27 +469,73 @@
 ;; ---------------------------------
 ;; try it out...
 
-(defun fake-socket ()
+(defun chunker-outp ()
+  (pipe (marshal-encoder)
+        (chunker :max-size 65000)
+        (marshal-encoder)))
+
+(defun ether ()
+  (actor (cust &rest msg)
+    (send* cust msg)))
+
+(defun chunker-inp ()
+  (pipe (marshal-decoder)
+        (dechunker)
+        (marshal-decoder)))
+
+(defun fake-client-to-server ()
+  (pipe (chunker-outp)
+        (ether)
+        (chunker-inp)
+        (fake-server)))
+
+(defun fake-server-to-client ()
+  (pipe (chunker-outp)
+        (ether)
+        (chunker-inp)
+        (fake-client)))
+
+(defun fake-server ()
   ;; Uses a shared *local-services* between fake client and fake
   ;; server.  But that's okay because all entries have unique ID's.
   (make-actor
    (alambda
     ((cust :connect . msg)
      (send* *server-gateway* cust :connect msg))
-     
+    
     ((cust :send . msg)
      (send* *local-services* sink :send cust msg))
+    
+    ((cust :reply . msg)
+     (send* (fake-server-to-client) cust :reply msg))
     )))
+
+(defun fake-client ()
+  ;; Uses a shared *local-services* between fake client and fake
+  ;; server.  But that's okay because all entries have unique ID's.
+  (let ((fake-cnx (fake-client-to-server)))
+    (make-actor
+     (alambda
+      ((cust :connect . msg)
+       (send* fake-cnx cust :connect msg))
+       
+      ((cust :send . msg)
+       (send* fake-cnx cust :send msg))
+
+      ((cust :reply . msg)
+       (send* *local-services* sink :send cust msg))
+      ))))
      
 (defun make-mock-service ()
   (actor ()
-    (let ((socket (fake-socket)))
-      (start-server socket)
+    (let ((server-socket (fake-server))
+          (client-socket (fake-client)))
+      (start-server server-socket)
       (send *server-admin* :add-service :println println)
       (send *server-admin* :add-service :writeln writeln)
-      (send (make-connection socket)))))
+      (send (make-connection client-socket)))))
     
-(defun make-connection (socket)
+(defun make-connection (client-socket)
   (actor ()
     (multiple-value-bind (client-skey client-pkey)
         (make-deterministic-keys :client)
@@ -493,7 +544,7 @@
           (make-client-crypto-gate client-skey)
         
         (beta (cnx)
-            (send client-gate beta :connect socket *server-pkey*)
+            (send client-gate beta :connect client-socket *server-pkey*)
           (beta (ans)
               (send cnx beta :available-services)
             (send println (format nil "from server: Services: ~S" ans))
