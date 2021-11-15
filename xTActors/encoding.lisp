@@ -358,8 +358,7 @@
    ((cust :prune)
     (send cust :pruned self-beh))
 
-   ((cust :chunk? id ix) when (and (uuid:uuid= id (third pend))
-                                   (= ix (fourth pend)))
+   ((cust :chunk? id) when (uuid:uuid= id (third pend))
     (send* cust pend)
     (prune-self next))
 
@@ -387,7 +386,7 @@
                         :id       id
                         :nchunks  nchunks
                         :delivery delivery))
-               (send delivery self :chunk? id 0))
+               (send delivery self :chunk? id))
 
               ((cust :pass bytevec)
                (send cust bytevec))
@@ -396,22 +395,30 @@
                (repeat-send delivery))
               ))
 
-           (dechunker-beh (&rest args &key vec id nchunks (ctr 0) delivery)
+           (dechunker-beh (&rest args &key vec id nchunks chunks-seen (ctr 0) delivery)
              (alambda
-              ((cust :chunk an-id ix offs chunk-vec) when (and (uuid:uuid= an-id id)
-                                                               (= ix ctr))
-               (replace vec chunk-vec :start1 offs)
-               (let ((next-ctr (1+ ctr)))
-                 (cond ((>= next-ctr nchunks)
-                        (send cust vec)
-                        (become (initial-dechunker-beh delivery))
-                        (send delivery self :init?))
-
-                       (t
-                        (become (um:reapply #'dechunker-beh nil args
-                                            :ctr next-ctr))
-                        (send delivery self :chunk? id next-ctr))
-                       )))
+              ((cust :chunk an-id ix offs chunk-vec) when (uuid:uuid= an-id id)
+               (cond ((member offs chunks-seen)
+                      ;; do nothing - discard duplicate chunk
+                      ;; might happen with UDP networks...
+                      )
+                     
+                     (t
+                      (replace vec chunk-vec :start1 offs)
+                      (let* ((new-chunks-seen (adjoin offs chunks-seen))
+                             (next-ctr        (length new-chunks-seen)))
+                        (cond ((>= next-ctr nchunks)
+                               (send cust vec)
+                               (become (initial-dechunker-beh delivery))
+                               (send delivery self :init?))
+                              
+                              (t
+                               (become (um:reapply #'dechunker-beh nil args
+                                                   :chunks-seen new-chunks-seen
+                                                   :ctr         next-ctr))
+                               (send delivery self :chunk? id))
+                              )))
+                     ))
 
               ((cust :pass bytevec)
                (send cust bytevec))
