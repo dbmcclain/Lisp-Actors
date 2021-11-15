@@ -684,7 +684,7 @@
           (beta (dmsg)
               (send (aont-decoder) beta pkey-vec data-packet aont-vec)
             (send writeln dmsg)
-            (assert (equalp msg (car dmsg)))
+            (assert (equalp msg dmsg))
             )))
       )))
 (tst)
