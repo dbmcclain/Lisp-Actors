@@ -186,12 +186,10 @@
 (defun secure-sender (ekey skey)
   (pipe (marshal-encoder)
         (encryptor ekey)
-        (signing   skey)
-        (marshal-encoder)))
+        (signing   skey)))
 
 (defun secure-reader (ekey pkey)
-  (pipe (marshal-decoder)
-        (signature-validation pkey)
+  (pipe (signature-validation pkey)
         (decryptor ekey)
         (marshal-decoder)))
 
