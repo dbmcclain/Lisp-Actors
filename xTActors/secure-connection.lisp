@@ -53,7 +53,7 @@
 ;; We want to avoid inventing subtypes of Actors for this. Instead, we
 ;; manufacture stand-in Actors.
 
-(defun create-proxy-cust (cust socket)
+(defun create-cust-proxy (cust socket)
   ;; cust here is a symbolic reference
   (actor (&rest msg)
     (send* socket cust :send msg)))
@@ -76,9 +76,8 @@
 (defvar *dbg* nil)
 
 (defmacro dbg (&body body)
-  `(if *dbg*
-       (progn
-         ,@body)))
+  `(when *dbg*
+     ,@body))
 
 (defvar *default-ephemeral-ttl*  10)
 (defvar *default-services-ttl*   20)
@@ -170,10 +169,10 @@
   (actors ((svcs (empty-local-service-beh svcs)))
     svcs))
 
-(defun create-ephemeral-proxy-service (cust svc &key (ttl *default-ephemeral-ttl*))
+(defun create-ephemeral-service-proxy (cust svc &key (ttl *default-ephemeral-ttl*))
   (send *local-services* cust :add-ephemeral-service svc ttl))
 
-(defun create-proxy-service (cust svc)
+(defun create-service-proxy (cust svc)
   (send *local-services* cust :add-service svc))
 
 ;; ---------------------------------------------------
@@ -215,14 +214,14 @@
                      (client-cnx (make-actor (client-connect-beh
                                               :encryptor   (pipe
                                                             (secure-sender ekey client-skey)
-                                                            (create-proxy-cust server-cnx socket))
+                                                            (create-cust-proxy server-cnx socket))
                                               :decryptor   (secure-reader ekey (ed-decompress-pt server-pkey))
                                               :admin       me))))
                 (send cust (secure-send client-cnx)) ;; our local customer
                 (send admin-tag :add-cnx client-cnx)
                 ))))
       (beta (id)
-          (create-ephemeral-proxy-service beta responder)
+          (create-ephemeral-service-proxy beta responder)
         (send socket id :connect server-pkey (int client-pkey) (int apt))
         )))
 
@@ -268,7 +267,7 @@
   (alambda
    ((cust :send verb . msg) ;; client send to a server service by name
     (beta (id)
-        (create-ephemeral-proxy-service beta (pipe decryptor cust))
+        (create-ephemeral-service-proxy beta (pipe decryptor cust))
       (send* encryptor id verb msg)))
 
    ((cust :shutdown) when (eq cust admin)
@@ -306,8 +305,8 @@
                            (secure-reader ekey (ed-decompress-pt client-pkey))
                            cnx)))
           (beta (id)
-              (create-proxy-service beta decryptor)
-            (send (create-proxy-cust cust socket)  ;; remote client cust
+              (create-service-proxy beta decryptor)
+            (send (create-cust-proxy cust socket)  ;; remote client cust
                   id (int bpt))
             (send admin-tag :add-cnx cnx))
           ))))
@@ -346,11 +345,11 @@
     (become (sink-beh)))
 
    ((cust :available-services)
-    (let ((proxy (create-proxy-cust cust socket)))
+    (let ((proxy (create-cust-proxy cust socket)))
       (send services (pipe encryptor proxy) :available-services nil)))
 
    ((cust verb . msg) ;; remote client cust
-    (let ((proxy (create-proxy-cust cust socket)))
+    (let ((proxy (create-cust-proxy cust socket)))
       (send* services (pipe encryptor proxy) :send verb msg)))
    ))
 
