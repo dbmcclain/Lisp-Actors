@@ -395,7 +395,7 @@
                (repeat-send delivery))
               ))
 
-           (dechunker-beh (&rest args &key vec id nchunks chunks-seen (ctr 0) delivery)
+           (dechunker-beh (&rest args &key vec id nchunks chunks-seen delivery)
              (alambda
               ((cust :chunk an-id ix offs chunk-vec) when (uuid:uuid= an-id id)
                (cond ((member offs chunks-seen)
@@ -405,17 +405,15 @@
                      
                      (t
                       (replace vec chunk-vec :start1 offs)
-                      (let* ((new-chunks-seen (adjoin offs chunks-seen))
-                             (next-ctr        (length new-chunks-seen)))
-                        (cond ((>= next-ctr nchunks)
+                      (let ((new-chunks-seen (cons offs chunks-seen)))
+                        (cond ((>= (length new-chunks) nchunks)
                                (send cust vec)
                                (become (initial-dechunker-beh delivery))
                                (send delivery self :init?))
                               
                               (t
                                (become (um:reapply #'dechunker-beh nil args
-                                                   :chunks-seen new-chunks-seen
-                                                   :ctr         next-ctr))
+                                                   :chunks-seen new-chunks-seen))
                                (send delivery self :chunk? id))
                               )))
                      ))
