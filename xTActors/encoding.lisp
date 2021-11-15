@@ -107,13 +107,7 @@
 (defun marshal-encoder ()
   (actor (cust &rest msg)
     ;; takes arbitrary objects and producdes an encoded bytevec
-    (let ((enc  (loenc:encode msg)))
-      (beta (cmpr)
-          (send (marshal-compressor) beta enc)
-        (send cust (if (<= (length enc) (length cmpr))
-                       enc
-                     cmpr))
-        ))))
+    (send (marshal-compressor) cust (loenc:encode msg))))
 
 (defun uncompressed? (vec)
   (and (>= (length vec) 4)
@@ -123,9 +117,7 @@
   ;; takes an encoded bytevec and produces arbitrary objects
   (actor (cust msg)
     (beta (enc)
-        (if (uncompressed? msg)
-            (send beta msg)
-          (send (marshal-decompressor) beta msg))
+        (send (marshal-decompressor) beta msg)
       (send* cust (loenc:decode enc)))))
 
 (defun marshal-compressor ()
@@ -141,6 +133,7 @@
                      (error (c)
                        (warn "~%XZLIB: compression failure")
                        bytevec))
+                 ;; else - already compressed
                  bytevec))))
 
 (defun marshal-decompressor ()
