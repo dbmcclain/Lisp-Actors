@@ -107,22 +107,45 @@
 (defun marshal-encoder ()
   (actor (cust &rest msg)
     ;; takes arbitrary objects and producdes an encoded bytevec
-    (send cust (loenc:encode msg))))
+    (let ((enc  (loenc:encode msg)))
+      (beta (cmpr)
+          (send (marshal-compressor) beta enc)
+        (send cust (if (<= (length enc) (length cmpr))
+                       enc
+                     cmpr))
+        ))))
+
+(defun uncompressed? (vec)
+  (and (>= (length vec) 4)
+       (equalp #(82. 65. 76. 69.) (subseq vec 0 4)))) ;; "RALE"
 
 (defun marshal-decoder ()
   ;; takes an encoded bytevec and produces arbitrary objects
   (actor (cust msg)
-    (send* cust (loenc:decode msg))))
+    (beta (enc)
+        (if (uncompressed? msg)
+            (send beta msg)
+          (send (marshal-decompressor) beta msg))
+      (send* cust (loenc:decode enc)))))
 
 (defun marshal-compressor ()
   ;; takes bytevec and produces bytevec
   (actor (cust bytevec)
-    (send cust (subseq (xzlib:compress bytevec :fixed) 0))))
+    (send cust (if (uncompressed? bytevec)
+                   (handler-case
+                       ;; sometimes xzlib fails...
+                       (subseq (xzlib:compress bytevec :fixed) 0)
+                     (error (c)
+                       (format *error-output* "~%XZLIB: compression failure")
+                       bytevec))
+                 bytevec))))
 
 (defun marshal-decompressor ()
   ;; takes a bytevec and produces a bytevec
   (actor (cust cmprvec)
-    (send cust (xzlib:uncompress cmprvec))))
+    (send cust (if (uncompressed? cmprvec)
+                   cmprvec
+                 (xzlib:uncompress cmprvec)))))
 
 ;; ---------------------------------------------------------------
 
@@ -312,10 +335,9 @@
              (let* ((nchunks (ceiling size max-size))
                     (id      (int (hash/256 (uuid:make-v1-uuid)))))
                (send cust :init id nchunks size)
-               (do ((offs  0  (+ offs max-size))
-                    (ix    0  (1+ ix)))
+               (do ((offs  0  (+ offs max-size)))
                    ((>= offs size))
-                 (send cust :chunk id ix offs
+                 (send cust :chunk id offs
                        (subseq byte-vec offs (min size (+ offs max-size)))))
                ))
             ))))
@@ -362,8 +384,8 @@
     (send* cust pend)
     (prune-self next))
 
-   ((_ :chunk id ix . _) when (and (uuid:uuid= id (third pend))
-                                   (= ix (fourth pend)))
+   ((_ :chunk id offs . _) when (and (uuid:uuid= id (third pend))
+                                   (= offs (fourth pend)))
     ;; duplicate - just ignore
     )
 
@@ -397,7 +419,7 @@
 
            (dechunker-beh (&rest args &key vec id nchunks chunks-seen delivery)
              (alambda
-              ((cust :chunk an-id ix offs chunk-vec) when (uuid:uuid= an-id id)
+              ((cust :chunk an-id offs chunk-vec) when (uuid:uuid= an-id id)
                (cond ((member offs chunks-seen)
                       ;; do nothing - discard duplicate chunk
                       ;; might happen with UDP networks...
@@ -406,7 +428,7 @@
                      (t
                       (replace vec chunk-vec :start1 offs)
                       (let ((new-chunks-seen (cons offs chunks-seen)))
-                        (cond ((>= (length new-chunks) nchunks)
+                        (cond ((>= (length new-chunks-seen) nchunks)
                                (send cust vec)
                                (become (initial-dechunker-beh delivery))
                                (send delivery self :init?))
@@ -436,7 +458,6 @@
         (chunker :max-size max-chunk) ;; we want to limit network message sizes
         ;; --- then, for each chunk... ---
         (marshal-encoder)       ;; generates bytevec from chunker encoding
-        (marshal-compressor)    ;; generates a compressed data vec
         (encryptor ekey)        ;; generates seq, enctext
         (signing skey)          ;; generates seq, enctext, sig
         (marshal-encoder)))     ;; turn seq, etext, sig into byte vector
@@ -446,7 +467,6 @@
   (pipe (marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
         (signature-validation pkey) ;; pass along seq, enc text
         (decryptor ekey)        ;; generates a bytevec
-        (marshal-decompressor)  ;; generates a byte vector
         (marshal-decoder)       ;; generates chunker encoding
         (dechunker)             ;; de-chunking back into original byte vector
         (marshal-decoder)))     ;; decode byte vector into message objects
@@ -456,13 +476,11 @@
   (pipe (marshal-encoder)       ;; to get arb msg into bytevec form
         (chunker :max-size max-chunk)
         (marshal-encoder)
-        (marshal-compressor)
         (self-sync-encoder)))
 
 (defun disk-decoder ()
   ;; takes a bytevec and produces arbitrary objects
   (pipe (self-sync-decoder)
-        (marshal-decompressor)
         (marshal-decoder)
         (dechunker)
         (marshal-decoder)))
@@ -516,7 +534,6 @@
           (send (pipe (marshal-encoder)
                       (chunker)
                       (marshal-encoder)
-                      (marshal-compressor)
                       (writer)
                       (actor (cust bytvec)
                         (setf inp bytvec)
@@ -532,7 +549,6 @@
                           (send println diff)
                           (send println (position-if-not #'zerop diff))
                           (send cust bytvec)))
-                      (marshal-decompressor)
                       (marshal-decoder)
                       (dechunker)
                       (marshal-decoder))
@@ -603,7 +619,6 @@
     (let ((pkey-vec (vec (ed-mul *ed-gen* skey))))
       (beta (data-packet)
           (send* (pipe (marshal-encoder)
-                       (marshal-compressor)
                        (encryptor ekey)
                        (signing skey)
                        (marshal-encoder))
@@ -623,7 +638,6 @@
       (send (pipe (marshal-decoder)
                   (signature-validation pkey)
                   (decryptor ekey)
-                  (marshal-decompressor)
                   (marshal-decoder))
             cust data-packet)
       )))

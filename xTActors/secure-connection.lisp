@@ -468,29 +468,34 @@
 ;; try it out...
 
 (defun chunker-outp ()
+  ;; expects general objects
+  ;; produces a byte stream
   (pipe (marshal-encoder)
         (chunker :max-size 65000)
         (marshal-encoder)))
+
+(defun dechunker-inp ()
+  ;; expects a byte stream
+  ;; supplies general objecst
+  (pipe (marshal-decoder)
+        (dechunker)
+        (marshal-decoder)))
 
 (defun ether ()
   (actor (cust &rest msg)
     (send* cust msg)))
 
-(defun chunker-inp ()
-  (pipe (marshal-decoder)
-        (dechunker)
-        (marshal-decoder)))
-
-(defun fake-client-to-server ()
+(defun channel ()
   (pipe (chunker-outp)
         (ether)
-        (chunker-inp)
+        (dechunker-inp)))
+
+(defun fake-client-to-server ()
+  (pipe (channel)
         (fake-server)))
 
 (defun fake-server-to-client ()
-  (pipe (chunker-outp)
-        (ether)
-        (chunker-inp)
+  (pipe (channel)
         (fake-client)))
 
 (defun fake-server ()
