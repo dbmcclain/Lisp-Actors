@@ -134,9 +134,12 @@
     (send cust (if (uncompressed? bytevec)
                    (handler-case
                        ;; sometimes xzlib fails...
-                       (subseq (xzlib:compress bytevec :fixed) 0)
+                       (let ((cmpr (subseq (xzlib:compress bytevec :fixed) 0) ))
+                         ;; we'd like to know if compression ever mimics uncompressed...
+                         (assert (not (uncompressed? cmpr)))
+                         cmpr)
                      (error (c)
-                       (format *error-output* "~%XZLIB: compression failure")
+                       (warn "~%XZLIB: compression failure")
                        bytevec))
                  bytevec))))
 
