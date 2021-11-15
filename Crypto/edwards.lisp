@@ -813,8 +813,8 @@ THE SOFTWARE.
     (declare (ignore _))
     hval))
 
-(defun make-deterministic-keys (seed)
-  (let* ((skey  (compute-deterministic-skey seed))
+(defun make-deterministic-keys (&rest seeds)
+  (let* ((skey  (compute-deterministic-skey seeds))
          (pkey  (ed-mul *ed-gen* skey)))
     (values skey pkey)))
 

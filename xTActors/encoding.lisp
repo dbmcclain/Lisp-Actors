@@ -16,7 +16,7 @@
             edec:ed-compress-pt
             edec:ed-decompress-pt
             edec:make-deterministic-keys
-            edec:*ed-gen*
+            edec:ed-nth-pt
             edec:*ed-r*
             edec:ed-pt=
             modmath:with-mod
@@ -45,13 +45,13 @@
   ;; message and seq always produces the same signature, for the given
   ;; secret key, skey. This is doubly cautious here, since seq is only
   ;; ever supposed to be used just once.
-  (let* ((pkey  (ed-mul *ed-gen* skey))
+  (let* ((pkey  (ed-nth-pt skey))
          (krand (int (hash/256 seq emsg chk skey pkey)))
-         (kpt   (ed-mul *ed-gen* krand))
+         (kpt   (ed-nth-pt krand))
          (h     (int (hash/256 seq emsg chk kpt pkey)))
          (u     (with-mod *ed-r*
                   (m+ krand (m* h skey))))
-         (upt   (ed-mul *ed-gen* u)))
+         (upt   (ed-nth-pt u)))
     (list (int upt) krand)
     ))
 
@@ -59,7 +59,7 @@
   ;; takes seq, emsg, chk, and sig (a Schnorr signature on seq+emsg+chk),
   ;; and produce t/f on signature as having come from pkey.
   (destructuring-bind (upt krand) sig
-    (let* ((kpt  (ed-mul *ed-gen* krand))
+    (let* ((kpt  (ed-nth-pt krand))
            (h    (int (hash/256 seq emsg chk kpt pkey))))
       (ed-pt= (ed-decompress-pt upt) (ed-add kpt (ed-mul pkey h)))
       )))
@@ -612,7 +612,7 @@
   (actor (cust &rest msg)
     ;; takes arbitrary Lisp data items and sends as an encrypted
     ;; single list to cust, along with AONT parameters
-    (let ((pkey-vec (vec (ed-mul *ed-gen* skey))))
+    (let ((pkey-vec (vec (ed-nth-pt skey))))
       (beta (data-packet)
           (send* (pipe (marshal-encoder)
                        (encryptor ekey)

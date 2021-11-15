@@ -69,6 +69,8 @@ THE SOFTWARE.
    (bev-vec x))
   (:method ((x integer))
    (hashable (bev x)))
+  (:method ((x cons))
+   (loenc:encode (mapcar #'hashable x)))
   (:method ((x sequence))
    (or (ignore-errors
          (coerce x 'ub8-vector))
@@ -122,6 +124,7 @@ THE SOFTWARE.
       (ironclad:update-digest dig (hashable seed)))
     (ironclad:produce-digest dig)))
 |#
+#||#
 (defun get-raw-hash-nbytes (nb &rest seeds)
   ;; returns a vector of nb raw-bytes
   (let ((ans (make-array nb
@@ -135,6 +138,7 @@ THE SOFTWARE.
           (replace ans bytes :start1 offs)
           )))
     ))
+#||#
 
 (defun make-bare-hash (vec fn)
   (values
