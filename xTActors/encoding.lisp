@@ -175,10 +175,9 @@
                      (wr-nonce seq)
                      seq))
                  ))
-             (noncer-beh (nonce tag)
+             (noncer-beh (nonce tag nonce-writer)
                (alambda
                 ((cust :get-nonce)
-                 (send cust nonce)
                  ;; update nonce to increment of current one.
                  ;;
                  ;; Nonces start out as the numeric value of the
@@ -192,18 +191,21 @@
                  ;; We use the hash/256 of the UUID to preserve
                  ;; anonymity in the nonces.
                  ;;
-                 (let ((new-nonce (+ #.(ash 1 256) nonce))
-                       (tag       (tag self)))
+                 (send cust nonce)
+                 (let ((new-tag   (tag self))
+                       (new-nonce (+ nonce #.(ash 1 256))))
+                   (become (noncer-beh new-nonce new-tag nonce-writer))
                    ;; sync to disk 10s after most recent get-nonce. If
                    ;; another happens during that time window, the
                    ;; sync is rescheduled.
-                   (send-after 10 (io tag) :write-nonce)
-                   (become (noncer-beh new-nonce tag))))
+                   (send-after 10 new-tag :write-nonce)))
                 
                 ((cust :write-nonce) when (eq cust tag)
-                 (wr-nonce nonce))
+                 (send nonce-writer nonce))
                 )))
-      (make-actor (noncer-beh (rd-nonce) #() ))
+      ;; all of the following will likely happen before MP has started...
+      (make-actor (noncer-beh (rd-nonce) #()
+                              (io (make-actor #'wr-nonce)) ))
       )))
 
 (defvar *noncer* (noncer))
