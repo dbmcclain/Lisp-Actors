@@ -339,112 +339,83 @@
             ))))
 
 ;; ------------------------------------
+;; Dechunker - can operate on multiple interleaved chunk systems with
+;; duplicates
 
-(defun null-ordered-delivery-beh ()
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
-
-   ((_ :init . _)
-    (let ((next (make-actor self-beh)))
-      (become (ordered-init-delivery-beh *whole-message* next)) ))
-
-   ((_ :chunk . _)
-    (let ((next (make-actor self-beh)))
-      (become (ordered-chunk-delivery-beh *whole-message* next)) ))
-   ))
-
-(defun ordered-init-delivery-beh (pend next)
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
-
-   ((cust :init?)
-    (send* cust pend)
-    (prune-self next))
-
-   ((_ :init id . _) when (uuid:uuid= id (third pend))
-    ;; duplicate - just ignore
-    )
-
-   ( _
-    (repeat-send next))
-   ))
-
-(defun ordered-chunk-delivery-beh (pend next)
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
-
-   ((cust :chunk? id) when (uuid:uuid= id (third pend))
-    (send* cust pend)
-    (prune-self next))
-
-   ((_ :chunk id offs . _) when (and (uuid:uuid= id (third pend))
-                                   (= offs (fourth pend)))
-    ;; duplicate - just ignore
-    )
-
-   ( _
-    (repeat-send next))
-   ))
+(defun dechunk-assembler-beh (nchunks chunks-seen out-vec)
+  (lambda (cust offs byte-vec)
+    (unless (member offs chunks-seen) ;; toss duplicates
+      (replace out-vec byte-vec :start1 offs)
+      (let ((new-chunks-seen (cons offs chunks-seen)))
+        (cond ((>= (length new-chunks-seen) nchunks)
+               (send cust out-vec)
+               (become (sink-beh)))
+              
+              (t
+               (become (dechunk-assembler-beh nchunks new-chunks-seen out-vec)))
+              ))
+      )))
 
 (defun make-ubv (nb)
   (make-array nb
               :element-type '(unsigned-byte 8)))
 
+(defun make-dechunk-assembler (nchunks size)
+  (make-actor (dechunk-assembler-beh nchunks nil (make-ubv size) )))
+
+(defun dechunk-interceptor-beh (id assembler next)
+  (alambda
+   ((cust :chunk an-id offs byte-vec) when (uuid:uuid= an-id id)
+    (send assembler cust offs byte-vec))
+
+   ((_ :init an-id . _) when (uuid:uuid= an-id id)
+    ;; toss duplicates
+    )
+   
+   (_
+    (repeat-send next))
+   ))
+
+(defun dechunk-pending-beh (id pend next)
+  (alambda
+   ((_ :init an-id nchunks size) when (uuid:uuid= an-id id)
+    (let ((assembler (make-dechunk-assembler nchunks size)))
+      (become (dechunk-interceptor-beh id assembler next))
+      (dolist (args pend)
+        (send* assembler args))
+      ))
+
+   ((cust :chunk an-id offs byte-vec) when (uuid:uuid= an-id id)
+    (become (dechunk-pending-beh id (cons (list cust offs byte-vec) pend) next)))
+
+   (_
+    (repeat-send next))
+   ))
+
+(defun null-dechunk-beh ()
+  (alambda
+   ((cust :pass bytevec)
+    (send cust bytevec))
+
+   ((_ :init id nchunks size)
+    (let ((next      (make-actor self-beh))
+          (assembler (make-dechunk-assembler nchunks size)))
+      (become (dechunk-interceptor-beh id assembler next))
+      ))
+
+   ((cust :chunk id offs byte-vec)
+    (let ((next (make-actor self-beh)))
+      (become (dechunk-pending-beh id
+                                   (list
+                                    (list cust offs byte-vec))
+                                   next))
+      ))
+   ))
+
 (defun dechunker ()
   ;; No assumptions about chunk or init delivery order.
   ;; Takes a sequence of chunk encodings and produces a bytevec
-  (labels ((initial-dechunker-beh (delivery)
-             (alambda
-              ((_ :init id nchunks size)
-               (become (dechunker-beh
-                        :vec      (make-ubv size)
-                        :id       id
-                        :nchunks  nchunks
-                        :delivery delivery))
-               (send delivery self :chunk? id))
-
-              ((cust :pass bytevec)
-               (send cust bytevec))
-
-              ( _ 
-               (repeat-send delivery))
-              ))
-
-           (dechunker-beh (&rest args &key vec id nchunks chunks-seen delivery)
-             (alambda
-              ((cust :chunk an-id offs chunk-vec) when (uuid:uuid= an-id id)
-               (cond ((member offs chunks-seen)
-                      ;; do nothing - discard duplicate chunk
-                      ;; might happen with UDP networks...
-                      )
-                     
-                     (t
-                      (replace vec chunk-vec :start1 offs)
-                      (let ((new-chunks-seen (cons offs chunks-seen)))
-                        (cond ((>= (length new-chunks-seen) nchunks)
-                               (send cust vec)
-                               (become (initial-dechunker-beh delivery))
-                               (send delivery self :init?))
-                              
-                              (t
-                               (become (um:reapply #'dechunker-beh nil args
-                                                   :chunks-seen new-chunks-seen))
-                               (send delivery self :chunk? id))
-                              )))
-                     ))
-
-              ((cust :pass bytevec)
-               (send cust bytevec))
-              
-              ( _
-                (repeat-send delivery))
-              )))
-    (let ((delivery (make-actor (null-ordered-delivery-beh))))
-      (make-actor (initial-dechunker-beh delivery))
-      )))
+  (make-actor (null-dechunk-beh)))
 
 ;; -----------------------------------------------------------
 
