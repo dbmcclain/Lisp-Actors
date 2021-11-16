@@ -58,6 +58,14 @@
 (defun check-signature (seq emsg chk sig pkey)
   ;; takes seq, emsg, chk, and sig (a Schnorr signature on seq+emsg+chk),
   ;; and produce t/f on signature as having come from pkey.
+  ;;
+  ;; Note: we are already wise to small group attacks. Anytime we are
+  ;; handed an ECC compressed point as an argument we multiply by the
+  ;; cofactor to get the actual point that will be used. If the point
+  ;; were bogus, this would produce the neutral point.
+  ;;
+  ;; Similarly, when we compress a point to hand off to someone, we
+  ;; divide by the cofactor before compression.
   (destructuring-bind (upt krand) sig
     (let* ((kpt  (ed-nth-pt krand))
            (h    (int (hash/256 seq emsg chk kpt pkey))))
@@ -178,7 +186,10 @@
              (noncer-beh (nonce tag nonce-writer)
                (alambda
                 ((cust :get-nonce)
-                 ;; update nonce to increment of current one.
+                 ;; Send nonce to customer, then immediately increment
+                 ;; nonce to prevent re-use. The best we can do is
+                 ;; furnish a fresh nonce when asked. It is still up
+                 ;; to the customer to be sure it won't be reused.
                  ;;
                  ;; Nonces start out as the numeric value of the
                  ;; hash/256 of the UUID of the host machine, at the
