@@ -339,36 +339,37 @@
             ))))
 
 ;; ------------------------------------
-;; Dechunker - can operate on multiple interleaved chunk systems with
-;; duplicates
+;; Dechunker - With message delivery not guaranteed in any order,
+;; multiple concurrent dechunkings can be happening, interleaved, some
+;; with data preceding their init records, and possible duplicate
+;; deliveries. We need to be robust against every possibility.
 
-(defun dechunk-assembler-beh (nchunks chunks-seen out-vec)
-  (lambda (cust offs byte-vec)
+(defun dechunk-assembler-beh (cust nchunks chunks-seen out-vec)
+  ;; Assemblers are constructed as soon as we have the init record
+  (lambda (offs byte-vec)
     (unless (member offs chunks-seen) ;; toss duplicates
-      (replace out-vec byte-vec :start1 offs)
-      (let ((new-chunks-seen (cons offs chunks-seen)))
-        (cond ((>= (length new-chunks-seen) nchunks)
-               (send cust out-vec)
-               (become (sink-beh)))
-              
-              (t
-               (become (dechunk-assembler-beh nchunks new-chunks-seen out-vec)))
-              ))
+      (replace out-vec byte-vec :start1 offs) ;; sorrry about non FPL code
+      (push offs chunks-seen)                 ;; but nobody else can see it happening
+      (when (>= (length chunks-seen) nchunks)
+        (send cust out-vec)
+        (become (sink-beh)))
       )))
 
 (defun make-ubv (nb)
   (make-array nb
               :element-type '(unsigned-byte 8)))
 
-(defun make-dechunk-assembler (nchunks size)
-  (make-actor (dechunk-assembler-beh nchunks nil (make-ubv size) )))
+(defun make-dechunk-assembler (cust nchunks size)
+  (make-actor (dechunk-assembler-beh cust nchunks nil (make-ubv size) )))
 
 (defun dechunk-interceptor-beh (id assembler next)
+  ;; A node that intercepts incoming chunks for a given id, once the
+  ;; init record has been received
   (alambda
-   ((cust :chunk an-id offs byte-vec) when (uuid:uuid= an-id id)
-    (send assembler cust offs byte-vec))
+   ((_ :chunk an-id offs byte-vec) when (eql an-id id)
+    (send assembler offs byte-vec))
 
-   ((_ :init an-id . _) when (uuid:uuid= an-id id)
+   ((_ :init an-id . _) when (eql an-id id)
     ;; toss duplicates
     )
    
@@ -377,16 +378,18 @@
    ))
 
 (defun dechunk-pending-beh (id pend next)
+  ;; A node that enqueues data chunks for a given id, while we await
+  ;; the arrival of the init record.
   (alambda
-   ((_ :init an-id nchunks size) when (uuid:uuid= an-id id)
-    (let ((assembler (make-dechunk-assembler nchunks size)))
+   ((cust :init an-id nchunks size) when (eql an-id id)
+    (let ((assembler (make-dechunk-assembler cust nchunks size)))
       (become (dechunk-interceptor-beh id assembler next))
       (dolist (args pend)
         (send* assembler args))
       ))
 
-   ((cust :chunk an-id offs byte-vec) when (uuid:uuid= an-id id)
-    (become (dechunk-pending-beh id (cons (list cust offs byte-vec) pend) next)))
+   ((_ :chunk an-id offs byte-vec) when (eql an-id id)
+    (push (list offs byte-vec) pend))
 
    (_
     (repeat-send next))
@@ -397,17 +400,17 @@
    ((cust :pass bytevec)
     (send cust bytevec))
 
-   ((_ :init id nchunks size)
+   ((cust :init id nchunks size)
     (let ((next      (make-actor self-beh))
-          (assembler (make-dechunk-assembler nchunks size)))
+          (assembler (make-dechunk-assembler cust nchunks size)))
       (become (dechunk-interceptor-beh id assembler next))
       ))
 
-   ((cust :chunk id offs byte-vec)
+   ((_ :chunk id offs byte-vec)
     (let ((next (make-actor self-beh)))
       (become (dechunk-pending-beh id
                                    (list
-                                    (list cust offs byte-vec))
+                                    (list offs byte-vec))
                                    next))
       ))
    ))
@@ -465,7 +468,7 @@
 ;; Reed-Solomon? anyone?... TBD
 
 ;; -------------------------------------------------------------
-
+;; Tests...
 #|
 (multiple-value-bind (skey pkey)
     (make-deterministic-keys :test)
@@ -538,7 +541,6 @@
   (print xd))
 
 |#
-;; -----------------------------------------------------------------------
 #|
 ;; -------------------------------------------------------------------
 ;; Encrypted Disk Files - AONT Encoding
@@ -653,6 +655,7 @@
     )))
 
 ;; -----------------------------------------------------------------
+;; Tests...
 #|
 (defun tst ()
   (let ((msg (hcl:file-string "./xTActors/encoding.lisp")))
