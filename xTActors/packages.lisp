@@ -53,6 +53,9 @@ THE SOFTWARE.
    #:γ
    #:pipe-beh
    #:pipe
+   #:sink-pipe
+   #:pass
+   #:pass-beh
    #:fork
    #:list-match
    #:actor-nlet
@@ -293,95 +296,17 @@ THE SOFTWARE.
 (defpackage #:actors/directory
   (:use #:common-lisp #:actors #:def*))
 
-(defpackage #:actors/lfm
-  (:use #:common-lisp #:actors #:def*)
-  (:export
-   #:ensure-system-logger
-   #:kill-system-logger
-   ))
-
 (defpackage :actors/network
   (:use #:common-lisp #:actors #:def*)
   (:export
    #:*default-port*
    #:*socket-timeout-period*
-   #:socket-send
-   #:open-connection
    #:start-tcp-server
    #:terminate-server
    #:*default-port*
-   #-:USING-ECC-CRYPTO #:client-request-negotiation-rsa
-   #+:USING-ECC-CRYPTO #:client-request-negotiation-ecc
-   ))
-
-(defpackage :actors/security
-  (:use #:common-lisp #:actors #:def*)
-  (:shadow #:random)
-  (:export
-   #:$VERSION
-   #:random
-   #:secure-encoding
-   #:secure-decoding
-   #:byte-decode-obj
-   #:crypto
-   #:make-u8-vector
-   #:convert-vector-to-integer
-   #:integer-of
    #:+MAX-FRAGMENT-SIZE+
-   #:assemble-sks
-   #:time-to-renegotiate?
-   #:with-mod
-   #:m+
-   #:m-
-   #:m*
-   #:m/
-   #:minv
-   #:m^
+   #:client-connector
    ))
-   
-(defpackage :actors/bridge
-  (:use #:common-lisp #:actors #:def*)
-  (:export
-   #:actor-bridge
-   #:bridge-register
-   #:bridge-pre-register
-   #:bridge-unregister
-   #:bridge-forward-message
-   #:bridge-deliver-message
-   #:bridge-ask-query
-   #:bridge-handle-reply
-   #:bridge-reset
-   #:bridge-know-self
-   ))
-
-(defpackage #:actors/executives
-  (:use #:common-lisp #:actors #:def*)
-  (:import-from #:useful-macros
-   #:rmw
-   #:rd
-   #:wr)
-  (:export
-   #:nullify
-   #:terminate-actor
-   #:terminate-actors
-   #:set-heartbeat-interval
-   #:get-heartbeat-interval
-   #:set-maximum-age
-   #:get-maximum-age
-   #:set-executive-pool
-   #:get-nbr-execs
-   #:add-to-ready-queue
-   #:without-watchdog
-   #:*watchdog-hook*
-   #:default-watchdog-function
-
-   ;; MAC GCD stuff
-   #:run-actor-direct
-   #:run-worker-direct
-   ))
-
-(defpackage #:actors/par
-  (:use #:common-lisp #:actors #:def*))
 
 (defpackage #:actors/base
   (:use #:common-lisp #:actors
@@ -409,37 +334,6 @@ THE SOFTWARE.
    #:*evt-queue*
    #:add-evq
    #:*all-sponsors*
-   ))
-
-(defpackage #:actors/rwgate
-  (:use #:common-lisp #:actors #:def*))
-
-(defpackage #:actors/promises
-  (:use #:common-lisp #:actors #:def*))
-
-
-(defpackage #:actors/erl
-  (:use #:common-lisp #:actors #:def*)
-  (:export
-   #:process
-   #:make-process
-   #:spawn-link
-   #:spawn-monitor
-   #:link-between
-   #:unlink-between
-   #:link-to
-   #:unlink-from
-   #:link
-   #:unlink
-   #:exit
-   #:trap-exits))
-
-(defpackage #:actors/notifications
-  (:use #:common-lisp #:actors #:def*)
-  (:export
-   #:subscribe
-   #:notify
-   #:unsubscribe
    ))
 
 (defpackage #:actors/user

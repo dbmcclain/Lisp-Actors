@@ -416,22 +416,24 @@ THE SOFTWARE.
 
 (defun lw-start-actors (&rest _)
   (declare (ignore _))
-  (restart-actors-system))
+  (restart-actors-system)
+  (print "Actors are alive!"))
 
 (defun lw-kill-actors (&rest _)
   (declare (ignore _))
-  (kill-actors-system))
+  (kill-actors-system)
+  (print "Actors have been shut down."))
 
 (let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))
 
   (lw:define-action "Initialize LispWorks Tools"
-                    "Start up Actor Server"
+                    "Start up Actor System"
                     'lw-start-actors
                     :after "Run the environment start up functions"
                     :once)
 
   (lw:define-action "Save Session Before"
-                    "Reset Actors"
+                    "Stop Actor System"
                     'lw-kill-actors)
 
   (lw:define-action "Save Session After"

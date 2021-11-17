@@ -535,4 +535,16 @@
 (defun pipe (&rest elts)
   (make-actor (apply #'pipe-beh elts)))
 
+(defun sink-pipe (&rest elts)
+  (let ((pipe (reduce #'acurry (butlast elts)
+                      :from-end t
+                      :initial-value (um:last1 elts))))
+    (actor (&rest msg)
+      (send* pipe msg))))
 
+(defun pass-beh ()
+  (lambda (cust &rest msg)
+    (send* cust msg)))
+
+(defun pass ()
+  (make-actor (pass-beh)))
