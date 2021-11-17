@@ -129,9 +129,8 @@
     ((:connect cust-id . msg)
      (send* (server-gateway) :connect cust-id sender msg))
 
-    ((cust-id :send rcvr-id . msg)
-     ;; (send println (format nil "server handler: ~S" *whole-message*))
-     (send* (local-services) cust-id :send rcvr-id msg))
+    ((_ :send . _)
+     (send* (local-services) *whole-message*))
     )))
 
 (defun create-socket-intf (&key kind io-state accepting-handle)
@@ -145,7 +144,7 @@
                              (marshal-encoder)
                              (make-writer state)))
          (handler (if (eq kind :client)
-                      (local-services)
+                      (local-services)  ; clients only hear :reply
                     (make-server-handler encoder)))
          (decoder (sink-pipe (marshal-decoder)
                              (dechunker)
