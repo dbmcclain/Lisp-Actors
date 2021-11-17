@@ -123,11 +123,17 @@
     (send cust (funcall (cmpfn form)))))
     
 (defun make-initial-global-services ()
-  (beta _
-      (send (global-services) beta :add-service :echo (make-echo))
-    (beta _
-        (send (global-services) beta :add-service :eval (make-eval))
-      (send (global-services) println :list nil))))
+  (send* (actor (&rest svcs)
+           (when svcs
+             (let ((me   self)
+                   (svc  (car svcs)))
+               (beta _
+                   (send* (global-services) beta :add-service (car svcs))
+                 (send* me (cdr svcs))
+                 ))))
+         `((:echo ,(make-echo))
+           (:eval ,(make-eval)))
+         ))
 
 (defun start-server-gateway ()
   (setf *server-gateway*  nil

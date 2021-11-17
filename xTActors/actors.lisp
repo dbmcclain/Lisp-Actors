@@ -419,6 +419,13 @@ THE SOFTWARE.
   (restart-actors-system)
   (print "Actors are alive!"))
 
+(if (mp:get-current-process)
+    (when (eq (actor-beh base-sponsor) #'lw:do-nothing)
+      (lw-start-actors))
+  ;; else
+  (pushnew '("Start Actors" () lw-start-actors) mp:*initial-processes*
+           :key #'third))
+
 (defun lw-kill-actors (&rest _)
   (declare (ignore _))
   (kill-actors-system)

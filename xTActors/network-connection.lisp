@@ -408,3 +408,9 @@ indicated port number."
 
 (defun ac:start ()
   (lw-start-tcp-server))
+
+(if (mp:get-current-process)
+    (unless *ws-collection*
+      (lw-start-tcp-server))
+  (pushnew '("Start Actor Server" () lw-start-tcp-server) mp:*initial-processes*
+           :key #'third))
