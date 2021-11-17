@@ -91,15 +91,11 @@
 
 (defun printer ()
   ;; prints the message and forwards to cust
-  (actor (cust &rest msg)
-    (send* println msg)
-    (send* cust msg)))
+  (pass println))
 
 (defun writer ()
   ;; prints the message and forwards to cust
-  (actor (cust &rest msg)
-    (send* writeln msg)
-    (send* cust msg)))
+  (pass writeln))
 
 (defun logger ()
   ;; provides a log output as the message is passed along

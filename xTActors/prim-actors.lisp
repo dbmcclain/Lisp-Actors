@@ -536,15 +536,20 @@
   (make-actor (apply #'pipe-beh elts)))
 
 (defun sink-pipe (&rest elts)
-  (let ((pipe (reduce #'acurry (butlast elts)
-                      :from-end t
-                      :initial-value (um:last1 elts))))
-    (actor (&rest msg)
-      (send* pipe msg))))
+  ;; for pipelines whose last block are sinks
+  (reduce #'acurry (butlast elts)
+          :from-end t
+          :initial-value (um:last1 elts)))
 
-(defun pass-beh ()
-  (lambda (cust &rest msg)
-    (send* cust msg)))
+(defun pass-beh (&optional sink-blk)
+  ;; can be used to convert a sink into a filter component
+  ;; A sink-block is one that does not take a cust arg in messages.
+  (if sink-blk
+      (lambda (cust &rest msg)
+        (send* sink-blk msg)
+        (send* cust msg))
+    (lambda (cust &rest msg)
+      (send* cust msg))))
 
-(defun pass ()
-  (make-actor (pass-beh)))
+(defun pass (&optional sink-blk)
+  (make-actor (pass-beh sink-blk)))
