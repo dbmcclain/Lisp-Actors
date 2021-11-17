@@ -1,4 +1,4 @@
-;; prim-actors.lisp - A collection of useful primitive Actors
+; prim-actors.lisp - A collection of useful primitive Actors
 ;;
 ;; DM/RAL 05/21
 ;; ------------------------------------------------------
@@ -192,14 +192,14 @@
 ;; -----------------------------------------
 ;; Delayed Trigger
 
-(defun scheduled-message-beh (cust dt &rest msg)
-  (let ((timer (apply #'mp:make-timer #'send cust msg)))
+(defun scheduled-message-beh (actor dt &rest msg)
+  (let ((timer (apply #'mp:make-timer #'send actor msg)))
     (lambda* _
       (mp:schedule-timer-relative timer dt))
     ))
 
-(defun scheduled-message (cust dt &rest msg)
-  (make-actor (apply #'scheduled-message-beh cust dt msg)))
+(defun scheduled-message (actor dt &rest msg)
+  (make-actor (apply #'scheduled-message-beh actor dt msg)))
 
 (defun send-after (dt actor &rest msg)
   (send (apply #'scheduled-message actor dt msg)))
@@ -298,24 +298,39 @@
       )))
 
 (defun enqueued-serializer-beh (service tag in-cust queue)
-  (lambda (cust &rest msg)
-    (cond ((eq cust tag)
-           (send* in-cust msg)
-           (multiple-value-bind (next-req new-queue)
-               (popq queue)
-             (if (eq next-req +doneq+)
+  (labels ((do-next ()
+             (if (emptyq? queue)
                  (become (serializer-beh service))
-               (destructuring-bind (next-cust . next-msg) next-req
-                 (send* service tag next-msg)
-                 (become (enqueued-serializer-beh
-                          service tag next-cust new-queue))
-                 ))))
-          (t
-           (become (enqueued-serializer-beh
-                    service tag in-cust
-                    (addq queue
-                          (cons cust msg))) ))
-          )))
+               (multiple-value-bind (next-req new-queue) (popq queue)
+                 (destructuring-bind (next-cust . next-msg) next-req
+                   (send* service tag next-msg)
+                   (become (enqueued-serializer-beh
+                            service tag next-cust new-queue))
+                   ))
+               )))
+    (alambda
+     ((cust :abort chk) when (and (eq cust tag)
+                                  (eq chk tag))
+      ;; use (send cust :abort cust) to abort. Don't tell the current
+      ;; customer - leave it hanging, and go on to the next one.
+      (do-next))
+
+     ((cust &rest msg)
+      (cond ((eq cust tag)
+             (send* in-cust msg)
+             (do-next))
+            (t
+             (become (enqueued-serializer-beh
+                      service tag in-cust
+                      (addq queue (cons cust msg)))))
+            ))
+     )))
+
+(defun serializer-abort (cust)
+  ;; Cause the serializer to abort, don't report back to original
+  ;; customer, and move on to the next one.
+  (send cust :abort cust))
+
 #||#
 
 (defun serializer (service)
@@ -455,12 +470,15 @@
 
 (defvar logger
   (actor msg
-    (send println
-          (format nil "----- Logger at ~A -----" (logger-timestamp))
-          (format nil "  To: ~A" (car msg))
-          (format nil "  With: ~S" (cdr msg))
-          (format nil "  In Sponsor: ~S" (decode-sponsor self-sponsor))
-          )))
+    (send* println
+           (mapcar (lambda (args)
+                     (apply #'format nil args))
+                   `(("----- Logger at ~A -----" ,(logger-timestamp))
+                     ("  To: ~A" ,(car msg))
+                     ("  With: ~S" ,(cdr msg))
+                     ("  In Sponsor: ~S" ,(decode-sponsor self-sponsor))
+                     ))
+           )))
 
 (defun logged-beh (actor)
   (lambda (&rest msg)
@@ -478,12 +496,16 @@
 (lw:defadvice (send send-tracer :around)
     (&rest msg)
   (when *atrace*
-    (format t "~&~{~A~%~^~}" (list (format nil "----- Send at ~A -----" (logger-timestamp))
-                                   (format nil "  From: ~A" self)
-                                   (format nil "  To: ~A" (car msg))
-                                   (format nil "  With: ~S" (cdr msg))
-                                   (format nil "  In Sponsor: ~S" (decode-sponsor self-sponsor))
-                                   )))
+    (with-printer
+      (format t "~&~{~A~%~^~}"
+              (mapcar (lambda (args)
+                        (apply #'format nil args))
+                      `(("----- Send at ~A -----" ,(logger-timestamp))
+                        ("  From: ~A" ,self)
+                        ("  To: ~A" ,(car msg))
+                        ("  With: ~S" ,(cdr msg))
+                        ("  In Sponsor: ~S" ,(decode-sponsor self-sponsor))
+                        )))))
   (apply #'lw:call-next-advice msg))
 
 (defun atrace (&optional (do-tracing t))
@@ -553,3 +575,58 @@
 
 (defun pass (&optional sink-blk)
   (make-actor (pass-beh sink-blk)))
+
+(defun err (&rest args)
+  ;; args should be format string and args, suitable for ERROR
+  ;; reporting.
+  ;;
+  ;; We spin this off in an anonymous thread to get it out of the way
+  ;; of all the other concurrent Actors. Otherwise,we would halt the
+  ;; system until the error is dismissed.
+  ;;
+  ;; Use IO so that it serializes with PRINTLN, WRITELN, etc.
+  (send (io (actor ()
+              (apply #'mp:funcall-async #'error args)))))
+
+;; ---------------------------------------------------------
+
+(defun ticketed-perform-beh ()
+  (alambda
+   ((cust :req)
+    (let ((tag  (tag self)))
+      (become (pending-perform-beh tag +emptyq+))
+      (send cust tag)
+      (send-after 1 tag :done)
+      ))
+   ))
+
+(defun pending-perform-beh (tag pend)
+  (alambda
+   ((cust :done) when (eq cust tag)
+    (if (emptyq? pend)
+        (become (ticketed-perform-beh))
+      (multiple-value-bind (next-cust new-queue) (popq pend)
+        (let ((new-tag (tag self)))
+          (send next-cust new-tag)
+          (send-after 1 new-tag :done)
+          (become (pending-perform-beh new-tag new-queue)))
+        )))
+
+   ((cust :req)
+    (become (pending-perform-beh tag (addq pend cust))))
+   ))
+
+(defun ticketed-perform ()
+  (make-actor (ticketed-perform-beh)))
+
+(defmacro with-ticket (ticket-master &body body)
+  (lw:with-unique-names (tag)
+    `(beta (,tag)
+         (send ,ticket-master self :req)
+       ,@body
+       (send ,tag :done))
+    ))
+
+#+:LISPWORKS
+(editor:setup-indent "with-ticket" 1)
+

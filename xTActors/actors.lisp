@@ -352,18 +352,27 @@ THE SOFTWARE.
 
 ;; --------------------------------------
 
+;; alas, with MPX we still needs locks sometimes
+(defvar *printer-lock* (mp:make-lock))
+
+(defmacro with-printer (&body body)
+  `(mp:with-lock (*printer-lock*)
+     ,@body))
+
 (defvar println
   (io
     ;; because we are managing an output stream
     (actor msg
-       (format t "~&~{~A~%~^~}" msg))
+      (with-printer
+       (format t "~&~{~A~%~^~}" msg)))
      ))
 
 (defvar writeln
   (io
     ;; because we are managing an output stream
     (actor msg
-       (format t "~&~{~S~%~^~}" msg))
+      (with-printer
+       (format t "~&~{~S~%~^~}" msg)))
      ))
 
 ;; ------------------------------------------------

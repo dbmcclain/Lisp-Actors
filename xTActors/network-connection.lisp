@@ -103,8 +103,9 @@
    ))
 
 (defun make-writer (state)
-  (let ((phys-write (make-actor (physical-writer-beh state))))
-    (make-actor (writer-beh state phys-write)) ))
+  (actors ((writer     (writer-beh state phys-write))
+           (phys-write (physical-writer-beh state)))
+    writer))
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
@@ -207,46 +208,6 @@
 
 ;; -------------------------------------------------------------
 
-(defun empty-connections-list ()
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
-
-   ((cust :add-connection ip-addr ip-port state sender)
-    (let ((next (make-actor self-beh)))
-      (become (connection-node ip-addr ip-port state sender next))
-      (send cust :ok)))
-
-   ((cust :find-sender . _)
-    (send cust nil))
-
-   ((cust :remove . _)
-    (send cust :ok))
-   ))
-
-(defun connection-node (ip-addr ip-port state sender next)
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
-
-   ((cust :find-sender an-ip-addr an-ip-port) when (and (eql an-ip-addr ip-addr)
-                                                        (eql an-ip-port ip-port))
-    (send cust sender))
-
-   ((cust :remove a-state) when (eq a-state state)
-    (prune-self next)
-    (send cust :ok))
-   
-   (_
-    (repeat-send next))
-   ))
-
-(defvar *connections* nil)
-
-(defun connections ()
-  (or *connections*
-      (setf *connections* (make-actor (empty-connections-list)))))
-
 (defun make-socket-shutdown (state)
   (actor ()
     (with-accessors ((kill-timer       intf-state-kill-timer)
@@ -266,6 +227,53 @@
 
 ;; -------------------------------------------------------------
 
+(defun empty-connections-list ()
+  (alambda
+   ((cust :prune)
+    (send cust :pruned self-beh))
+
+   ((cust :add-connection ip-addr ip-port state sender)
+    (let ((next (make-actor self-beh)))
+      (become (connection-node ip-addr ip-port state sender next))
+      (send cust :ok)))
+
+   ((:on-find-sender _ _ _ if-not-found)
+    (send if-not-found))
+
+   ((cust :remove . _)
+    (send cust :ok))
+   ))
+
+(defun connection-node (ip-addr ip-port state sender next)
+  (alambda
+   ((cust :prune)
+    (send cust :pruned self-beh))
+
+   ((cust :add-connection an-ip-addr an-ip-port new-state new-sender) when (and (eql an-ip-addr ip-addr)
+                                                                                (eql an-ip-port ip-port))
+    (become (connection-node ip-addr ip-port new-state new-sender next))
+    (send cust :ok))
+
+   ((:on-find-sender an-ip-addr an-ip-port cust . _) when (and (eql an-ip-addr ip-addr)
+                                                               (eql an-ip-port ip-port))
+    (send cust sender))
+
+   ((cust :remove a-state) when (eq a-state state)
+    (prune-self next)
+    (send cust :ok))
+   
+   (_
+    (repeat-send next))
+   ))
+
+(defvar *connections* nil)
+
+(defun connections ()
+  (or *connections*
+      (setf *connections* (make-actor (empty-connections-list)))))
+
+;; -------------------------------------------------------------
+
 (defun canon-ip-addr (ip-addr)
   (comm:get-host-entry ip-addr :fields '(:address)))
 
@@ -277,36 +285,49 @@
       ))
 
 (defun make-client-connector ()
-  (actor (cust ip-addr &optional (ip-port *default-port*))
-    ;; Called from client side wishing to connect to a server
-    (let ((clean-ip-addr (canon-ip-addr ip-addr)))
-      (unless clean-ip-addr
-        (error "Unknown host: ~A" ip-addr))
-      (beta (sender)
-          (send (connections) beta :find-sender clean-ip-addr ip-port)
-        (if sender
-            (send cust sender)
-          (let ((k-start (actor (io-state)
-                           (if io-state
-                               (multiple-value-bind (state sender)
-                                   (create-socket-intf :kind     :client
-                                                       :io-state io-state)
-                                 (beta _
-                                     (send (connections) beta :add-connection
-                                           clean-ip-addr ip-port state sender)
-                                   (send cust sender)))
-                                       (error "Can't connect to: ~A" ip-addr)))
-                         ))
-            (comm:create-async-io-state-and-connected-tcp-socket
-             *ws-collection*
-             clean-ip-addr ip-port
-             (lambda (state args)
-               (when args
-                 (send* println :CONNECTION-ERROR args))
-               (send k-start (if args nil state)))
-             :handshake-timeout 5
-             #-:WINDOWS :ipv6    #-:WINDOWS nil))
-          )))))
+  (serializer
+   (actor (cust ip-addr &optional (ip-port *default-port*))
+     ;; Called from client side wishing to connect to a server.
+     ;;
+     ;; Because we are serialized, one way or another, we have to exit
+     ;; by sending to cust, or execute serializer-abort.
+     (let ((clean-ip-addr (canon-ip-addr ip-addr)))
+       (cond ((null clean-ip-addr)
+              (serializer-abort cust)
+              (err "Unknown host: ~A" ip-addr))
+             (t
+              (send (connections) :on-find-sender clean-ip-addr ip-port
+                    cust      ;; send to cust if found
+                    (actor () ;; else send to this if not found
+                      (let ((k-stop  (actor ()
+                                       (serializer-abort cust)
+                                       (err "Can't connect to: ~A" ip-addr)))
+                            (k-start (actor (io-state)
+                                       (multiple-value-bind (state sender)
+                                           (create-socket-intf :kind     :client
+                                                               :io-state io-state)
+                                         (beta _
+                                             (send (connections) beta :add-connection
+                                                   clean-ip-addr ip-port state sender)
+                                           (send cust sender)))
+                                       )))
+                        (mp:funcall-async
+                         (lambda ()
+                           (comm:create-async-io-state-and-connected-tcp-socket
+                            *ws-collection*
+                            clean-ip-addr ip-port
+                            (lambda (state args)
+                              (cond (args
+                                     (send println :CONNECTION-ERROR
+                                           (apply #'format nil args))
+                                     (send k-stop))
+                                    (t
+                                     (send k-start state))
+                                    ))
+                            :handshake-timeout 5
+                            #-:WINDOWS :ipv6    #-:WINDOWS nil)))
+                        ))))
+             )))))
 
 ;; -------------------------------------------------------------
 

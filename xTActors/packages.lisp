@@ -72,6 +72,7 @@ THE SOFTWARE.
    #:ioreq
    #:par-safe
    #:with-sponsor
+   #:err
    
    #:+emptyq+
    #:+doneq+
@@ -145,6 +146,9 @@ THE SOFTWARE.
    #:lazy
    #:sink
    #:const
+   #:with-printer
+   #:with-ticket
+   #:ticketed-perform
    #:println
    #:writeln
    #:logged-beh
@@ -163,6 +167,7 @@ THE SOFTWARE.
    #:scheduled-message
    #:schedule-after
    #:serializer
+   #:serializer-abort
    #:timing
    #:sequenced-delivery
    #:prune-self
