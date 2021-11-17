@@ -149,4 +149,21 @@
 (tst)
 (atrace)
 (atrace nil)
- |#
+
+
+(defun tst ()
+  (let ((reval (remote-service :eval
+                               ;; "localhost"
+                               ;; "arroyo.local"
+                               "rincon.local"
+                               )))
+    (start-server-gateway)
+    (sleep 1)
+    (beta (ans)
+        ;; (send reval beta '(list (get-universal-time) (machine-instance)))
+        (send reval beta '(um:capture-ans-or-exn
+                            (error "test-error")))
+      (send println (format nil "reval sez: ~S" (um:recover-ans-or-exn ans))))
+    ))
+(tst)
+|#

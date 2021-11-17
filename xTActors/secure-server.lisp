@@ -120,7 +120,7 @@
 
 (defun make-eval ()
   (actor (cust form)
-    (send cust (funcall (apply #'cmpfn form)))))
+    (send cust (funcall (cmpfn form)))))
     
 (defun make-initial-global-services ()
   (beta _
