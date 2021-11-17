@@ -61,7 +61,7 @@
                                                 :decryptor   (pipe
                                                               ;; (pass)
                                                               (secure-reader ekey (ed-decompress-pt server-pkey))
-                                                              ;; (show-client-inbound)
+                                                              ;; (show-client-inbound) ;; ***
                                                               )
                                                 :admin       me))))
                   (send cust (secure-send client-cnx)) ;; our local customer
@@ -141,8 +141,6 @@
                                ;; "arroyo.local"
                                "rincon.local"
                                )))
-    (start-server-gateway)
-    (sleep 1)
     (beta (ans)
         (send recho beta :hello)
       (send println (format nil "(send recho println ~S) sez: ~S" :hello ans)))))
@@ -157,8 +155,6 @@
                                ;; "arroyo.local"
                                "rincon.local"
                                )))
-    (start-server-gateway)
-    (sleep 1)
     (beta (ans)
         ;; (send reval beta '(list (get-universal-time) (machine-instance)))
         (send reval beta '(um:capture-ans-or-exn

@@ -315,7 +315,7 @@
       ;; customer - leave it hanging, and go on to the next one.
       (do-next))
 
-     ((cust &rest msg)
+     ((cust . msg)
       (cond ((eq cust tag)
              (send* in-cust msg)
              (do-next))

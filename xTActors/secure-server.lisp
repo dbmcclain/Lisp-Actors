@@ -43,7 +43,7 @@
                (decryptor (sink-pipe
                            ;; (pass)
                            (secure-reader ekey (ed-decompress-pt client-pkey))
-                           ;; (show-server-inbound)
+                           ;; (show-server-inbound) ;; ***
                            cnx)))
           (beta (id)
               (create-service-proxy beta decryptor)
