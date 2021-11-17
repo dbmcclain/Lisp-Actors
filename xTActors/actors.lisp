@@ -426,7 +426,7 @@ THE SOFTWARE.
 (defun lw-start-actors (&rest _)
   (declare (ignore _))
   (restart-actors-system)
-  (print "Actors are alive!"))
+  (princ "Actors are alive!"))
 
 (if (mp:get-current-process)
     (when (eq (actor-beh base-sponsor) #'lw:do-nothing)

@@ -156,9 +156,11 @@
                                "rincon.local"
                                )))
     (beta (ans)
-        ;; (send reval beta '(list (get-universal-time) (machine-instance)))
+        (send reval beta '(list (get-universal-time) (machine-instance)))
+      #|
         (send reval beta '(um:capture-ans-or-exn
                             (error "test-error")))
+        |#
       (send println (format nil "reval sez: ~S" (um:recover-ans-or-exn ans))))
     ))
 (tst)
