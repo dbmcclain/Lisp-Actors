@@ -142,7 +142,7 @@
 (defvar *default-ephemeral-ttl*  10)
 (defvar *default-services-ttl*   20)
 
-(defun empty-local-service-beh (top)
+(defun empty-local-service-beh ()
   (alambda
    ((cust :prune)
     (send cust :pruned self-beh))
@@ -150,9 +150,9 @@
    ((cust :add-service actor)
     ;; used for connection handlers
     (let ((next  (make-actor self-beh))
-          (tag   (tag top))
+          (tag   (tag (local-services)))
           (id    (uuid:make-v1-uuid)))
-      (become (local-service-beh actor id tag top next))
+      (become (local-service-beh actor id tag next))
       (send-after *default-services-ttl* tag :lease-expired)
       (dbg (send println (format nil "Service added: ~A" id)))
       (send cust id)
@@ -165,7 +165,7 @@
       (become (local-ephemeral-client-beh actor id next))
       (send cust id)
       (when ttl
-        (send-after ttl top sink :remove-service id))
+        (send-after ttl (local-services) sink :remove-service id))
       (dbg (send println (format nil "Ephemeral service added: ~A" id)))
       ))
 
@@ -200,7 +200,7 @@
     (repeat-send next))
    ))
 
-(defun local-service-beh (actor id tag top next)
+(defun local-service-beh (actor id tag next)
   ;; used by servers to hold proxies for local service channels
   (alambda
    ((cust :prune)
@@ -210,9 +210,9 @@
     ;; We do not automatically remove this entry once used. Instead,
     ;; we renew the lease. Client messages are directed here via proxy
     ;; serv-id, to find the actual target channel.
-    (let ((tag  (tag top)))
+    (let ((tag  (tag (local-services))))
       (dbg (send println (format nil "Service used: ~A" id)))
-      (become (local-service-beh actor id tag top next))
+      (become (local-service-beh actor id tag next))
       (send-after *default-services-ttl* tag :lease-expired)
       (send* actor client-id msg)))
 
@@ -235,8 +235,7 @@
 
 (defun local-services ()
   (or *local-services*
-      (setf *local-services* (actors ((svcs (empty-local-service-beh svcs)))
-                               svcs))
+      (setf *local-services* (make-actor (empty-local-service-beh)))
       ))
 
 (defun create-ephemeral-client-proxy (cust svc &key (ttl *default-ephemeral-ttl*))
