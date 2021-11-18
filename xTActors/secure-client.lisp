@@ -49,8 +49,8 @@
            (send cust chan)
          ;; else - negotiate a connection with the server
          (let* ((arand       (int (ctr-drbg 256)))
-                (apt         (ed-mul *ed-gen* arand))
-                (client-pkey (ed-mul *ed-gen* client-skey))
+                (apt         (ed-nth-pt arand))
+                (client-pkey (ed-nth-pt client-skey))
                 ;; (socket      (show-client-outbound socket)) ;; ***
                 (responder
                  (actor (server-id bpt)
@@ -62,7 +62,7 @@
                                        :decryptor   (secure-reader ekey (ed-decompress-pt *server-pkey*))
                                        )))
                      (beta _
-                         (send (actors/network:connections) beta :add-connection socket chan)
+                         (send (actors/network:connections) beta :add-channel socket chan)
                        (send cust chan)) ;; to our local customer
                      ))))
            (beta (client-id)

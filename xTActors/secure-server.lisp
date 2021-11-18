@@ -27,11 +27,11 @@
   (make-actor
    (alambda
     ((:connect cust-id socket server-pkey client-pkey apt)
-     (let ((my-pkey     (ed-mul *ed-gen* server-skey))
+     (let ((my-pkey     (ed-nth-pt server-skey))
            (server-pkey (ed-decompress-pt server-pkey)))
        (when (ed-pt= my-pkey server-pkey) ;; did client have correct server-pkey?
          (let* ((brand     (int (ctr-drbg 256)))
-                (bpt       (ed-mul *ed-gen* brand))
+                (bpt       (ed-nth-pt brand))
                 (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)))
                 ;; (socket    (show-server-outbound socket))  ;; ***
                 (encryptor (secure-sender ekey server-skey))

@@ -248,22 +248,23 @@
     (send cust :ok))
    ))
 
-(defun connection-node (ip-addr ip-port state sender cnx next)
+(defun connection-node (ip-addr ip-port state sender chan next)
   (alambda
    ((cust :prune)
     (send cust :pruned self-beh))
 
    ((cust :add-socket an-ip-addr an-ip-port new-state new-sender) when (and (eql an-ip-addr ip-addr)
                                                                                 (eql an-ip-port ip-port))
-    (become (connection-node ip-addr ip-port new-state new-sender cnx next))
+    ;; replacing the sender and state - kills the old chan and has to be renegotiated
+    (become (connection-node ip-addr ip-port new-state new-sender nil next))
     (send cust :ok))
 
    ((:on-find-sender an-ip-addr an-ip-port cust . _) when (and (eql an-ip-addr ip-addr)
                                                                (eql an-ip-port ip-port))
-    (send cust sender cnx))
+    (send cust sender chan))
 
-   ((cust :add-connection a-sender new-cnx) when (eq a-sender sender)
-    (become (connection-node ip-addr ip-port state sender new-cnx next))
+   ((cust :add-channel a-sender new-chan) when (eq a-sender sender)
+    (become (connection-node ip-addr ip-port state sender new-chan next))
     (send cust :ok))
 
    ((cust :remove a-state) when (eq a-state state)
