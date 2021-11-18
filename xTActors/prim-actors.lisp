@@ -640,9 +640,16 @@
                            ((tag . ans) when (eq tag tag-ok)
                             (send* cust ans))
                            (_
-                            (send on-timeout))))
+                            (send on-timeout cust))))
              (gate        (once-beh arbiter)))
       (send* action tag-ok msg)
       (send-after timeout tag-timeout)
       )))
 
+#|
+(send (with-timeout 2.1 (actor (cust)
+                        (send-after 2 cust :ok))
+                    (actor ()
+                      (send println :nah)))
+      println)
+ |#

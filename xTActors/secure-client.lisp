@@ -14,10 +14,10 @@
   (or *client-gateway*
       (setf *client-gateway*
             (let ((skey  (make-deterministic-keys (machine-instance) (uuid:make-v1-uuid))))
-              (actors ((gate  (client-crypto-gate-beh
-                               :client-skey  skey
-                               :admin-tag    admin))
-                       (admin (tag-beh gate))
+              (actors ((gate     (client-crypto-gate-beh
+                                  :client-skey  skey
+                                  :admin-tag    admin))
+                       (admin    (tag-beh gate))
                        (ser-gate (serializer-beh gate)))
                 (setf *client-admin* admin)
                 ser-gate))
@@ -46,7 +46,7 @@
    ((cust :connect host-ip-addr server-pkey)
     (beta (socket cnx)
         (send (with-timeout 6 (actors/network:client-connector)
-                (actor ()
+                (actor _
                   (serializer-abort cust)))
               beta host-ip-addr)
       (if cnx
