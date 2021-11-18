@@ -417,8 +417,6 @@ indicated port number."
   ;; We need to delay the construction of the system logger till this
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
-  (assert (null *ws-collection*))
-  (assert (null *aio-accepting-handle*))
   (start-server-gateway)
   (start-tcp-server))
 
