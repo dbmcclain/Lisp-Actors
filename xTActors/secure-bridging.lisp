@@ -174,14 +174,16 @@
    ))
 
 (defun local-ephemeral-client-beh (actor id next)
+  ;; used by clients to hold ephemeral reply proxies
   (alambda
    ((cust :prune)
     (send cust :pruned self-beh))
 
-   ((serv-id :send client-id . msg) when (uuid:uuid= serv-id id)
-    (send* actor client-id msg))
-   
    ((:reply client-id . msg) when (uuid:uuid= client-id id)
+    ;; Server replies are directed here via the client proxy id, to
+    ;; find the actual client channel. Once a reply is received, this
+    ;; proxy is destroyed. It is also removed after a timeout and no
+    ;; reply forthcoming.
     (dbg (send println (format nil "Ephemeral service used: ~A" id)))
     (send* actor msg)
     (prune-self next))
@@ -199,20 +201,15 @@
    ))
 
 (defun local-service-beh (actor id tag top next)
+  ;; used by servers to hold proxies for local service channels
   (alambda
    ((cust :prune)
     (send cust :pruned self-beh))
 
-   ((:reply client-id . msg) when (uuid:uuid= client-id id)
-    ;; we do not automatically remove this entry once used.
-    (let ((tag  (tag top)))
-      (dbg (send println (format nil "Service used: ~A" id)))
-      (become (local-service-beh actor id tag top next))
-      (send-after *default-services-ttl* tag :lease-expired)
-      (send* actor msg)))
-
    ((serv-id :send client-id . msg) when (uuid:uuid= serv-id id)
-    ;; we do not automatically remove this entry once used.
+    ;; We do not automatically remove this entry once used. Instead,
+    ;; we renew the lease. Client messages are directed here via proxy
+    ;; serv-id, to find the actual target channel.
     (let ((tag  (tag top)))
       (dbg (send println (format nil "Service used: ~A" id)))
       (become (local-service-beh actor id tag top next))
