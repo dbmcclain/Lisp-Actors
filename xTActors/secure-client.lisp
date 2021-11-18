@@ -109,7 +109,7 @@
   ;; keying for every new message.
   (alambda
    ((cust :send verb . msg) ;; client send to a server service by name
-    ;; (send println (format nil "trying to send: ~S" actors:*whole-message*))
+    ;; (send println (format nil "trying to send: ~S" self-msg))
     (beta (cust-id)
         (create-ephemeral-service-proxy beta (sink-pipe decryptor cust))
       (send* encryptor cust-id verb msg)))

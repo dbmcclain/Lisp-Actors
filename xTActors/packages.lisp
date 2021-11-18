@@ -202,7 +202,7 @@ THE SOFTWARE.
 
    #:suspend
 
-   #:*whole-message*
+   #:self-msg
 
    #:marshal-encoder
    #:marshal-decoder

@@ -131,7 +131,7 @@
      (send* (server-gateway) :connect cust-id sender msg))
 
     ((_ :send . _)
-     (send* (local-services) *whole-message*))
+     (send* (local-services) self-msg))
     )))
 
 (defun create-socket-intf (&key kind io-state accepting-handle)

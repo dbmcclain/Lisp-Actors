@@ -78,6 +78,7 @@ THE SOFTWARE.
 (define-symbol-macro self         *current-actor*)
 (define-symbol-macro self-beh     *current-behavior*)
 (define-symbol-macro self-sponsor *current-sponsor*)
+(define-symbol-macro self-msg     *whole-message*)
 
 ;; -----------------------------------------------------------------
 ;; Fast Imperative Queue
@@ -264,7 +265,7 @@ THE SOFTWARE.
   `(apply #'send ,actor ,@msg))
 
 (defun repeat-send (actor)
-  (send* actor *whole-message*))
+  (send* actor self-msg))
 
 (defun send-combined-msg (cust msg1 msg2)
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
@@ -280,7 +281,7 @@ THE SOFTWARE.
   (let ((spon (or where base-sponsor)))
     (if (eq spon self-sponsor)
         (funcall fn)
-      (send* spon self *whole-message*))))
+      (send* spon self self-msg))))
 
 (defmacro with-sponsor (where &body body)
   ;; Properly belongs just after message detection which might trigger

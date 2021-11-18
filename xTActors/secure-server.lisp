@@ -77,7 +77,7 @@
       (send (global-services) (sink-pipe encryptor proxy) :available-services nil)))
 
    ((cust-id verb . msg) ;; remote client cust
-    ;; (send println (format nil "server rec'd req: ~S" *whole-message*))
+    ;; (send println (format nil "server rec'd req: ~S" self-msg))
     (let ((proxy (server-side-client-proxy cust-id socket)))
       (send* (global-services) (sink-pipe encryptor proxy) :send verb msg)))
    ))
