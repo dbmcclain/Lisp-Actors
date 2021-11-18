@@ -254,7 +254,7 @@
     (send cust :pruned self-beh))
 
    ((cust :add-socket an-ip-addr an-ip-port new-state new-sender) when (and (eql an-ip-addr ip-addr)
-                                                                                (eql an-ip-port ip-port))
+                                                                            (eql an-ip-port ip-port))
     ;; replacing the sender and state - kills the old chan and has to be renegotiated
     (become (connection-node ip-addr ip-port new-state new-sender nil next))
     (send cust :ok))
@@ -362,11 +362,12 @@ See the discussion under START-CLIENT-MESSENGER for details."
                           :accepting-handle accepting-handle)
     ;; for server side, this user-info is the only reference to intf
     ;; until we get registered into the ip-mapping table.
-    (send (connections) :add-socket nil nil state sender)
-    (push state (comm:accepting-handle-user-info accepting-handle))
-    (send println
-          (format nil "Server Socket (~S) starting up"
-                  (intf-state-ip-addr state)))
+    (beta _
+        (send (connections) beta :add-socket nil nil state sender)
+      (push state (comm:accepting-handle-user-info accepting-handle))
+      (send println
+            (format nil "Server Socket (~S) starting up"
+                    (intf-state-ip-addr state))))
     ))
 
 ;; --------------------------------------------------------------

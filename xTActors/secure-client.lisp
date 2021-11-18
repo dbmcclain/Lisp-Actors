@@ -96,9 +96,9 @@
 
 (defun remote-service (name host-ip-addr)
   (actor (cust &rest msg)
-    (beta (sender)
+    (beta (chan)
         (send (client-gateway) beta host-ip-addr)
-      (send* sender cust name msg))))
+      (send* chan cust name msg))))
 
 ;; ------------------------------------------------------------
 #|
