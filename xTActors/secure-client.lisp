@@ -147,7 +147,8 @@
   (let ((reval (remote-service :eval
                                ;; "localhost"
                                ;; "arroyo.local"
-                               "rincon.local"
+                               ;; "rincon.local"
+                               "rambo.local"
                                )))
     (beta (ans)
         (send reval beta '(list (get-universal-time) (machine-instance)))

@@ -220,7 +220,7 @@
       (comm:async-io-state-abort-and-close io-state)
       (when accepting-handle
         (um:deletef (comm:accepting-handle-user-info accepting-handle) state))
-      (send println (format nil "Socket ~A shutting down: ~A" title (sys:object-address state)))
+      (send println (format nil "~A Socket (~X) shutting down" title (sys:object-address state)))
       (send (connections) sink :remove state)
       (become (sink-beh))
       )))
@@ -313,6 +313,9 @@
                                          (beta _
                                              (send (connections) beta :add-socket
                                                    clean-ip-addr ip-port state sender)
+                                           (send println
+                                                 (format nil "Client Socket (~X) starting up"
+                                                         (sys:object-address state)))
                                            (send cust sender nil)))
                                        )))
                         (mp:funcall-async
@@ -352,6 +355,9 @@ See the discussion under START-CLIENT-MESSENGER for details."
     ;; until we get registered into the ip-mapping table.
     (send (connections) :add-socket nil nil state sender)
     (push state (comm:accepting-handle-user-info accepting-handle))
+    (send println
+          (format nil "Server Socket (~X) starting up"
+                  (sys:object-address state)))
     ))
 
 ;; --------------------------------------------------------------
