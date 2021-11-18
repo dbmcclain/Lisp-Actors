@@ -240,6 +240,8 @@ THE SOFTWARE.
 
    #:list-imploder
    #:list-exploder
+
+   #:with-timeout
    ))
 
 #-lispworks
@@ -311,6 +313,7 @@ THE SOFTWARE.
    #:*default-port*
    #:+MAX-FRAGMENT-SIZE+
    #:client-connector
+   #:connections
    ))
 
 (defpackage #:actors/base
@@ -339,6 +342,17 @@ THE SOFTWARE.
    #:*evt-queue*
    #:add-evq
    #:*all-sponsors*
+   ))
+
+(defpackage :ac-secure-comm
+  (:use #:common-lisp #:actors #:core-crypto #:edec)
+  (:export
+   #:local-services
+   #:global-services
+   #:server-gateway
+   #:start-server-gateway
+   #:client-gateway
+   #:remote-service
    ))
 
 (defpackage #:actors/user

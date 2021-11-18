@@ -17,9 +17,10 @@
               (actors ((gate  (client-crypto-gate-beh
                                :client-skey  skey
                                :admin-tag    admin))
-                       (admin (tag-beh gate)))
+                       (admin (tag-beh gate))
+                       (ser-gate (serializer-beh gate)))
                 (setf *client-admin* admin)
-                gate))
+                ser-gate))
             )))
 
 (defun show-client-outbound (socket)
@@ -43,34 +44,43 @@
   ;; key.
   (alambda
    ((cust :connect host-ip-addr server-pkey)
-    (beta (socket)
-        (send (actors/network:client-connector) beta host-ip-addr)
-      (let* ((arand       (int (ctr-drbg 256)))
-             (apt         (ed-mul *ed-gen* arand))
-             (client-pkey (ed-mul *ed-gen* client-skey))
-             (me          self)
-             ;; (socket      (show-client-outbound socket)) ;; ***
-             (responder
-              (actor (server-id bpt)
-                (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
-                       (client-cnx (make-actor (client-connect-beh
-                                                :encryptor   (sink-pipe
-                                                              ;; (pass)
-                                                              (secure-sender ekey client-skey)
-                                                              (client-side-server-proxy server-id socket))
-                                                :decryptor   (pipe
-                                                              ;; (pass)
-                                                              (secure-reader ekey (ed-decompress-pt server-pkey))
-                                                              ;; (show-client-inbound) ;; ***
-                                                              )
-                                                :admin       me))))
-                  (send cust (secure-send client-cnx)) ;; our local customer
-                  ))))
-        (beta (client-id)
-            (create-ephemeral-service-proxy beta responder)
-          (send socket :connect client-id server-pkey (int client-pkey) (int apt))
-          ))))
-
+    (beta (socket cnx)
+        (send (with-timeout 6 (actors/network:client-connector)
+                (actor ()
+                  (serializer-abort cust)))
+              beta host-ip-addr)
+      (if cnx
+          (send cust cnx)
+        ;; else - negotiate a connection with the server
+        (let* ((arand       (int (ctr-drbg 256)))
+               (apt         (ed-mul *ed-gen* arand))
+               (client-pkey (ed-mul *ed-gen* client-skey))
+               (me          self)
+               ;; (socket      (show-client-outbound socket)) ;; ***
+               (responder
+                (actor (server-id bpt)
+                  (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
+                         (client-cnx (make-actor (client-connect-beh
+                                                  :encryptor   (sink-pipe
+                                                                ;; (pass)
+                                                                (secure-sender ekey client-skey)
+                                                                (client-side-server-proxy server-id socket))
+                                                  :decryptor   (pipe
+                                                                ;; (pass)
+                                                                (secure-reader ekey (ed-decompress-pt server-pkey))
+                                                                ;; (show-client-inbound) ;; ***
+                                                                )
+                                                  :admin       me)))
+                         (user-sender (secure-send client-cnx)))
+                    (beta _
+                        (send (actors/network:connections) beta :add-connection socket user-sender)
+                      (send cust user-sender)) ;; to our local customer
+                    ))))
+          (beta (client-id)
+              (create-ephemeral-service-proxy beta responder)
+            (send socket :connect client-id server-pkey (int client-pkey) (int apt))
+            )))))
+   
    ((tag :shutdown) when (eq tag admin-tag)
     (become (sink-beh)))
    ))

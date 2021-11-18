@@ -182,7 +182,7 @@
                      (send decoder (subseq buffer 0 end))
                      (send kill-timer :resched)))
                  (comm:async-io-state-discard state end))
-               (when-let (status (or (comm:async-io-state-read-status state)
+               (um:when-let (status (or (comm:async-io-state-read-status state)
                                      err-too-large))
                  ;; terminate on any error
                  (comm:async-io-state-finish state)
@@ -232,9 +232,9 @@
    ((cust :prune)
     (send cust :pruned self-beh))
 
-   ((cust :add-connection ip-addr ip-port state sender)
+   ((cust :add-socket ip-addr ip-port state sender)
     (let ((next (make-actor self-beh)))
-      (become (connection-node ip-addr ip-port state sender next))
+      (become (connection-node ip-addr ip-port state sender nil next))
       (send cust :ok)))
 
    ((:on-find-sender _ _ _ if-not-found)
@@ -244,19 +244,23 @@
     (send cust :ok))
    ))
 
-(defun connection-node (ip-addr ip-port state sender next)
+(defun connection-node (ip-addr ip-port state sender cnx next)
   (alambda
    ((cust :prune)
     (send cust :pruned self-beh))
 
-   ((cust :add-connection an-ip-addr an-ip-port new-state new-sender) when (and (eql an-ip-addr ip-addr)
+   ((cust :add-socket an-ip-addr an-ip-port new-state new-sender) when (and (eql an-ip-addr ip-addr)
                                                                                 (eql an-ip-port ip-port))
-    (become (connection-node ip-addr ip-port new-state new-sender next))
+    (become (connection-node ip-addr ip-port new-state new-sender cnx next))
     (send cust :ok))
 
    ((:on-find-sender an-ip-addr an-ip-port cust . _) when (and (eql an-ip-addr ip-addr)
                                                                (eql an-ip-port ip-port))
-    (send cust sender))
+    (send cust sender cnx))
+
+   ((cust :add-connection a-sender new-cnx) when (eq a-sender sender)
+    (become (connection-node ip-addr ip-port state sender new-cnx next))
+    (send cust :ok))
 
    ((cust :remove a-state) when (eq a-state state)
     (prune-self next)
@@ -307,9 +311,9 @@
                                            (create-socket-intf :kind     :client
                                                                :io-state io-state)
                                          (beta _
-                                             (send (connections) beta :add-connection
+                                             (send (connections) beta :add-socket
                                                    clean-ip-addr ip-port state sender)
-                                           (send cust sender)))
+                                           (send cust sender nil)))
                                        )))
                         (mp:funcall-async
                          (lambda ()
@@ -346,7 +350,7 @@ See the discussion under START-CLIENT-MESSENGER for details."
                           :accepting-handle accepting-handle)
     ;; for server side, this user-info is the only reference to intf
     ;; until we get registered into the ip-mapping table.
-    (send (connections) :add-connection nil nil state sender)
+    (send (connections) :add-socket nil nil state sender)
     (push state (comm:accepting-handle-user-info accepting-handle))
     ))
 

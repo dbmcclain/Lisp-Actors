@@ -33,17 +33,6 @@
 ;; DM/RAL 11/21
 ;; --------------------------------------------------------------------------
 
-(defpackage :ac-secure-comm
-  (:use #:common-lisp #:actors #:core-crypto #:edec)
-  (:export
-   #:local-services
-   #:global-services
-   #:server-gateway
-   #:start-server-gateway
-   #:client-gateway
-   #:remote-service
-   ))
-
 (in-package :ac-secure-comm)
 
 (defconstant *server-id*    "7a1efb26-bc60-123a-a2d6-24f67702cdaa")

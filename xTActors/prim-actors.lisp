@@ -630,3 +630,19 @@
 #+:LISPWORKS
 (editor:setup-indent "with-ticket" 1)
 
+;; -------------------------------------------------------
+
+(defun with-timeout (timeout action on-timeout)
+  (actor (cust &rest msg)
+    (actors ((tag-ok      (tag-beh gate))
+             (tag-timeout (tag-beh gate))
+             (arbiter     (alambda
+                           ((tag . ans) when (eq tag tag-ok)
+                            (send* cust ans))
+                           (_
+                            (send on-timeout))))
+             (gate        (once-beh arbiter)))
+      (send* action tag-ok msg)
+      (send-after timeout tag-timeout)
+      )))
+
