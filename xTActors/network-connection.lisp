@@ -417,8 +417,9 @@ indicated port number."
   ;; We need to delay the construction of the system logger till this
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
-  (start-server-gateway)
-  (start-tcp-server))
+  (unless *ws-collection*
+    (start-server-gateway)
+    (start-tcp-server)))
 
 (defun* lw-reset-actor-system _
   (terminate-server sink)
@@ -445,8 +446,10 @@ indicated port number."
 (defun ac:start ()
   (lw-start-tcp-server))
 
-(if (mp:get-current-process)
-    (unless *ws-collection*
-      (lw-start-tcp-server))
-  (pushnew '("Start Actor Server" () lw-start-tcp-server) mp:*initial-processes*
-           :key #'third))
+#| ;; for manual loading mode
+(unless *ws-collection*
+  (if (mp:get-current-process)
+      (lw-start-tcp-server)
+    (pushnew '("Start Actor Server" () lw-start-tcp-server) mp:*initial-processes*
+             :key #'third)))
+|#

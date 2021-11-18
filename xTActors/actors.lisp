@@ -429,13 +429,6 @@ THE SOFTWARE.
   (restart-actors-system)
   (princ "Actors are alive!"))
 
-(if (mp:get-current-process)
-    (when (eq (actor-beh base-sponsor) #'lw:do-nothing)
-      (lw-start-actors))
-  ;; else
-  (pushnew '("Start Actors" () lw-start-actors) mp:*initial-processes*
-           :key #'third))
-
 (defun lw-kill-actors (&rest _)
   (declare (ignore _))
   (kill-actors-system)
@@ -458,3 +451,12 @@ THE SOFTWARE.
                     'lw-start-actors)
   )
 
+#| ;; for manual loading mode...
+(when (eq (actor-beh base-sponsor) #'lw:do-nothing)
+  (if (mp:get-current-process)
+      (lw-start-actors)
+    ;; else
+    (pushnew '("Start Actors" () lw-start-actors) mp:*initial-processes*
+             :key #'third)))
+
+|#
