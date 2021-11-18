@@ -8,20 +8,12 @@
 ;; Client side
 
 (defvar *client-gateway*  nil)
-(defvar *client-admin*    nil)
 
 (defun client-gateway ()
   (or *client-gateway*
       (setf *client-gateway*
-            (let ((skey  (make-deterministic-keys (machine-instance) (uuid:make-v1-uuid))))
-              (actors ((gate     (client-crypto-gate-beh
-                                  :client-skey  skey
-                                  :admin-tag    admin))
-                       (admin    (tag-beh gate))
-                       (ser-gate (serializer-beh gate)))
-                (setf *client-admin* admin)
-                ser-gate))
-            )))
+            (client-crypto-gate (make-deterministic-keys (uuid:make-v1-uuid))))
+      ))
 
 (defun show-client-outbound (socket)
   (actor (&rest msg)
@@ -33,71 +25,55 @@
     (send println (format nil "c/in: ~S" msg))
     (send* cust msg)))
 
-(defun client-crypto-gate-beh (&key client-skey admin-tag)
+(defun client-crypto-gate (client-skey)
   ;; This is the main local client service used to initiate
   ;; connections with foreign servers. We develop a DHE shared secret
   ;; encryption key for use across a private connection portal with
   ;; the server.
   ;;
-  ;; One of these is constructed for each different key set on the
-  ;; client. That way we avoid sending messages that contain a secret
-  ;; key.
-  (alambda
-   ((cust :connect host-ip-addr server-pkey)
-    (beta (socket cnx)
-        (send (with-timeout 6 (actors/network:client-connector)
-                (actor _
-                  (serializer-abort cust)))
-              beta host-ip-addr)
-      (if cnx
-          (send cust cnx)
-        ;; else - negotiate a connection with the server
-        (let* ((arand       (int (ctr-drbg 256)))
-               (apt         (ed-mul *ed-gen* arand))
-               (client-pkey (ed-mul *ed-gen* client-skey))
-               (me          self)
-               ;; (socket      (show-client-outbound socket)) ;; ***
-               (responder
-                (actor (server-id bpt)
-                  (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
-                         (client-cnx (make-actor (client-connect-beh
-                                                  :encryptor   (sink-pipe
-                                                                ;; (pass)
-                                                                (secure-sender ekey client-skey)
-                                                                (client-side-server-proxy server-id socket))
-                                                  :decryptor   (pipe
-                                                                ;; (pass)
-                                                                (secure-reader ekey (ed-decompress-pt server-pkey))
-                                                                ;; (show-client-inbound) ;; ***
-                                                                )
-                                                  :admin       me)))
-                         (user-sender (secure-send client-cnx)))
-                    (beta _
-                        (send (actors/network:connections) beta :add-connection socket user-sender)
-                      (send cust user-sender)) ;; to our local customer
-                    ))))
-          (beta (client-id)
-              (create-ephemeral-service-proxy beta responder)
-            (send socket :connect client-id server-pkey (int client-pkey) (int apt))
-            )))))
-   
-   ((tag :shutdown) when (eq tag admin-tag)
-    (become (sink-beh)))
+  ;; A Connection consists of a Socket and a Channel. A Socket merely
+  ;; supports the tranport of data across a network. It does not
+  ;; specify any data protocol. It may marshal objects and compress
+  ;; the resulting byte stream before sending. A Channel is an
+  ;; encryptor/decryptor married to a Socket.
+  (serializer
+   (actor (cust host-ip-addr)
+     (beta (socket chan)
+         (send (with-timeout 6 (actors/network:client-connector)
+                             (actor _
+                               (serializer-abort cust)))
+               beta host-ip-addr)
+       (if chan
+           (send cust chan)
+         ;; else - negotiate a connection with the server
+         (let* ((arand       (int (ctr-drbg 256)))
+                (apt         (ed-mul *ed-gen* arand))
+                (client-pkey (ed-mul *ed-gen* client-skey))
+                ;; (socket      (show-client-outbound socket)) ;; ***
+                (responder
+                 (actor (server-id bpt)
+                   (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
+                          (chan  (client-channel
+                                       :encryptor   (sink-pipe
+                                                     (secure-sender ekey client-skey)
+                                                     (client-side-server-proxy server-id socket))
+                                       :decryptor   (secure-reader ekey (ed-decompress-pt *server-pkey*))
+                                       )))
+                     (beta _
+                         (send (actors/network:connections) beta :add-connection socket chan)
+                       (send cust chan)) ;; to our local customer
+                     ))))
+           (beta (client-id)
+               (create-ephemeral-client-proxy beta responder)
+             (send socket :connect client-id *server-pkey* (int client-pkey) (int apt))
+             )))))
    ))
-
-(defun secure-send (cnx)
-  ;; Make a user freindly interface to a remote connection.
-  ;; Instead of writing:     (send cnx cust :send :verb . data)
-  ;; we can do like always:  (send cnx cust :verb . data)
-  (actor (cust service-name &rest msg)
-    (send* cnx cust :send service-name msg)))
 
 ;; ---------------------------------------------------
 
-(defun client-connect-beh (&key
-                           encryptor
-                           decryptor
-                           admin)
+(defun client-channel (&key
+                       encryptor
+                       decryptor)
   ;; One of these serves as a client-local private portal with an
   ;; established connection to a server. It encrypts and signs a
   ;; request message for a server service. It also instantiates a
@@ -107,16 +83,11 @@
   ;; Every request to the server sent from here carries an
   ;; incrementing sequence number to ensure a change of encryption
   ;; keying for every new message.
-  (alambda
-   ((cust :send verb . msg) ;; client send to a server service by name
+  (actor (cust verb &rest msg)
     ;; (send println (format nil "trying to send: ~S" self-msg))
     (beta (cust-id)
-        (create-ephemeral-service-proxy beta (sink-pipe decryptor cust))
-      (send* encryptor cust-id verb msg)))
-
-   ((cust :shutdown) when (eq cust admin)
-    (become (sink-beh)))
-   ))
+        (create-ephemeral-client-proxy beta (sink-pipe decryptor cust))
+      (send* encryptor cust-id verb msg))))
 
 ;; ------------------------------------------------------------------
 ;; User side of Client Interface
@@ -124,7 +95,7 @@
 (defun remote-service (name host-ip-addr)
   (actor (cust &rest msg)
     (beta (sender)
-        (send (client-gateway) beta :connect host-ip-addr *server-pkey*)
+        (send (client-gateway) beta host-ip-addr)
       (send* sender cust name msg))))
 
 ;; ------------------------------------------------------------
@@ -147,8 +118,8 @@
   (let ((reval (remote-service :eval
                                ;; "localhost"
                                ;; "arroyo.local"
-                               "rincon.local"
-                               ;; "rambo.local"
+                               ;; "rincon.local"
+                               "rambo.local"
                                )))
     (beta (ans)
         (send reval beta '(list (get-universal-time) (machine-instance)))

@@ -17,48 +17,39 @@
     (send println (format nil "s/in: ~S" msg))
     (send* cust msg)))
 
-(defun server-crypto-gate-beh (&key
-                               server-skey
-                               admin-tag)
+(defun server-crypto-gate (server-skey)
   ;; Foreign clients first make contact with us here. They send us
   ;; their public key and a random ECC point. We develop a unique DHE
   ;; encryption key shared secretly between us and furnish a private handler
   ;; for encrypted requests along with our own random ECC point.
-  (alambda
-   ((:connect cust-id socket server-pkey client-pkey apt)
-    (let ((my-pkey     (ed-mul *ed-gen* server-skey))
-          (server-pkey (ed-decompress-pt server-pkey)))
-      (when (ed-pt= my-pkey server-pkey) ;; did client have correct server-pkey?
-        (let* ((brand     (int (ctr-drbg 256)))
-               (bpt       (ed-mul *ed-gen* brand))
-               (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)))
-               ;; (socket    (show-server-outbound socket))  ;; ***
-               (encryptor ;; (pass)
-                          (secure-sender ekey server-skey)
-                          )
-               (cnx       (make-actor (server-connect-beh
-                                       :socket      socket
-                                       :encryptor   encryptor
-                                       :admin       self)))
-               (decryptor (sink-pipe
-                           ;; (pass)
-                           (secure-reader ekey (ed-decompress-pt client-pkey))
-                           ;; (show-server-inbound) ;; ***
-                           cnx)))
-          (beta (id)
-              (create-service-proxy beta decryptor)
-            (send (server-side-client-proxy cust-id socket)  ;; remote client cust
-                  id (int bpt)))
-          ))))
+  (make-actor
+   (alambda
+    ((:connect cust-id socket server-pkey client-pkey apt)
+     (let ((my-pkey     (ed-mul *ed-gen* server-skey))
+           (server-pkey (ed-decompress-pt server-pkey)))
+       (when (ed-pt= my-pkey server-pkey) ;; did client have correct server-pkey?
+         (let* ((brand     (int (ctr-drbg 256)))
+                (bpt       (ed-mul *ed-gen* brand))
+                (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)))
+                ;; (socket    (show-server-outbound socket))  ;; ***
+                (encryptor (secure-sender ekey server-skey))
+                (chan      (server-channel
+                            :socket      socket
+                            :encryptor   encryptor))
+                (decryptor (sink-pipe
+                            (secure-reader ekey (ed-decompress-pt client-pkey))
+                            ;; (show-server-inbound) ;; ***
+                            chan)))
+           (beta (id)
+               (create-service-proxy beta decryptor)
+             (send (server-side-client-proxy cust-id socket)  ;; remote client cust
+                   id (int bpt)))
+           ))))
+    )))
 
-   ((tag :shutdown) when (eq tag admin-tag)
-    (become (sink-beh)))
-   ))
-
-(defun server-connect-beh (&key
-                           socket
-                           encryptor
-                           admin)
+(defun server-channel (&key
+                       socket
+                       encryptor)
   ;; This is a private portal for exchanges with a foreign client.
   ;; One of these exist for each connection established through the
   ;; main crypto gate.
@@ -68,24 +59,21 @@
   ;; request we make an encrypting forwarder back to the client
   ;; customer, and pass that along as the local customer for the
   ;; request to the local service.
-  (alambda
-   ((tag :shutdown) when (eq tag admin)
-    (become (sink-beh)))
-
-   ((cust-id :available-services)
-    (let ((proxy (server-side-client-proxy cust-id socket)))
-      (send (global-services) (sink-pipe encryptor proxy) :available-services nil)))
-
-   ((cust-id verb . msg) ;; remote client cust
-    ;; (send println (format nil "server rec'd req: ~S" self-msg))
-    (let ((proxy (server-side-client-proxy cust-id socket)))
-      (send* (global-services) (sink-pipe encryptor proxy) :send verb msg)))
-   ))
+  (make-actor
+   (alambda
+    ((cust-id :available-services)
+     (let ((proxy (server-side-client-proxy cust-id socket)))
+       (send (global-services) (sink-pipe encryptor proxy) :available-services nil)))
+    
+    ((cust-id verb . msg) ;; remote client cust
+     ;; (send println (format nil "server rec'd req: ~S" self-msg))
+     (let ((proxy (server-side-client-proxy cust-id socket)))
+       (send* (global-services) (sink-pipe encryptor proxy) :send verb msg)))
+    )))
 
 ;; ---------------------------------------------------------------
 
 (defvar *server-gateway* nil) ;; this can be shared
-(defvar *server-admin*   nil) ;; this cannot be shared
 
 #|
 (multiple-value-bind (skey pkey)
@@ -98,12 +86,7 @@
 (defun server-gateway ()
   (or *server-gateway*
       (setf *server-gateway*
-            (actors ((gate (server-crypto-gate-beh
-                            :server-skey *server-skey*
-                            :admin-tag   admin))
-                     (admin (tag-beh gate)))
-              (setf *server-admin* admin)
-              gate))
+            (server-crypto-gate *server-skey*))
       ))
 
 (defun make-echo ()

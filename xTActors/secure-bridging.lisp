@@ -158,11 +158,11 @@
       (send cust id)
       ))
    
-   ((cust :add-ephemeral-service actor ttl)
+   ((cust :add-ephemeral-client actor ttl)
     ;; used for transient customer proxies
     (let ((next (make-actor self-beh))
           (id   (uuid:make-v1-uuid)))
-      (become (local-ephemeral-service-beh actor id next))
+      (become (local-ephemeral-client-beh actor id next))
       (send cust id)
       (when ttl
         (send-after ttl top sink :remove-service id))
@@ -173,7 +173,7 @@
     (send cust lst))
    ))
 
-(defun local-ephemeral-service-beh (actor id next)
+(defun local-ephemeral-client-beh (actor id next)
   (alambda
    ((cust :prune)
     (send cust :pruned self-beh))
@@ -242,10 +242,12 @@
                                svcs))
       ))
 
-(defun create-ephemeral-service-proxy (cust svc &key (ttl *default-ephemeral-ttl*))
-  (send (local-services) cust :add-ephemeral-service svc ttl))
+(defun create-ephemeral-client-proxy (cust svc &key (ttl *default-ephemeral-ttl*))
+  ;; used by client side
+  (send (local-services) cust :add-ephemeral-client svc ttl))
 
 (defun create-service-proxy (cust svc)
+  ;; used by server side
   (send (local-services) cust :add-service svc))
 
 ;; ---------------------------------------------------
