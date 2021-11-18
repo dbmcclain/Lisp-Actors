@@ -87,7 +87,7 @@
 
 (defun pending-writer-beh (state phys-write pend)
   (alambda
-   ((:send byte-vec)
+   ((byte-vec)
     (become (pending-writer-beh state phys-write (addq pend byte-vec))))
 
    ((a-cust :ok) when (eq a-cust phys-write)
@@ -129,7 +129,7 @@
   (make-actor
    (alambda
     ((:connect cust-id . msg)
-     (send* (server-gateway) :connect cust-id sender msg))
+     (send* (server-gateway) cust-id sender msg))
 
     ((_ :send . _)
      (send* (local-services) self-msg))

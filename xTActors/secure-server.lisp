@@ -24,30 +24,27 @@
   ;; their public key and a random ECC point. We develop a unique DHE
   ;; encryption key shared secretly between us and furnish a private handler
   ;; for encrypted requests along with our own random ECC point.
-  (make-actor
-   (alambda
-    ((:connect cust-id socket server-pkey client-pkey apt)
-     (let ((my-pkey     (ed-nth-pt server-skey))
-           (server-pkey (ed-decompress-pt server-pkey)))
-       (when (ed-pt= my-pkey server-pkey) ;; did client have correct server-pkey?
-         (let* ((brand     (int (ctr-drbg 256)))
-                (bpt       (ed-nth-pt brand))
-                (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)))
-                ;; (socket    (show-server-outbound socket))  ;; ***
-                (encryptor (secure-sender ekey server-skey))
-                (chan      (server-channel
-                            :socket      socket
-                            :encryptor   encryptor))
-                (decryptor (sink-pipe
-                            (secure-reader ekey (ed-decompress-pt client-pkey))
-                            ;; (show-server-inbound) ;; ***
-                            chan)))
-           (beta (id)
-               (create-service-proxy beta decryptor)
-             (send (server-side-client-proxy cust-id socket)  ;; remote client cust
-                   id (int bpt)))
-           ))))
-    )))
+  (actor (cust-id socket server-pkey client-pkey apt)
+    (let ((my-pkey     (ed-nth-pt server-skey))
+          (server-pkey (ed-decompress-pt server-pkey)))
+      (when (ed-pt= my-pkey server-pkey) ;; did client have correct server-pkey?
+        (let* ((brand     (int (ctr-drbg 256)))
+               (bpt       (ed-nth-pt brand))
+               (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)))
+               ;; (socket    (show-server-outbound socket))  ;; ***
+               (encryptor (secure-sender ekey server-skey))
+               (chan      (server-channel
+                           :socket      socket
+                           :encryptor   encryptor))
+               (decryptor (sink-pipe
+                           (secure-reader ekey (ed-decompress-pt client-pkey))
+                           ;; (show-server-inbound) ;; ***
+                           chan)))
+          (beta (id)
+              (create-service-proxy beta decryptor)
+            (send (server-side-client-proxy cust-id socket)  ;; remote client cust
+                  id (int bpt)))
+          )))))
 
 (defun server-channel (&key
                        socket
