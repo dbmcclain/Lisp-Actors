@@ -15,6 +15,7 @@
             (client-crypto-gate (make-deterministic-keys (uuid:make-v1-uuid))))
       ))
 
+#| ;; for debugging
 (defun show-client-outbound (socket)
   (actor (&rest msg)
     (send println (format nil "c/out: ~S" msg))
@@ -24,6 +25,7 @@
   (actor (cust &rest msg)
     (send println (format nil "c/in: ~S" msg))
     (send* cust msg)))
+|#
 
 (defun client-crypto-gate (client-skey)
   ;; This is the main local client service used to initiate
@@ -100,27 +102,21 @@
 
 ;; ------------------------------------------------------------
 #|
-(defun tst ()
-  (let ((recho (remote-service :echo
-                               ;; "localhost"
-                               ;; "arroyo.local"
-                               "rincon.local"
-                               )))
+(defun tst (host)
+  (let ((recho (remote-service :echo host)))
     (beta (ans)
         (send recho beta :hello)
       (send println (format nil "(send recho println ~S) sez: ~S" :hello ans)))))
-(tst)
+(tst "localhost")
+(tst "arroyo.local")
+(tst "rincon.local")
+(tst "rambo.local")
 (atrace)
 (atrace nil)
 
 
-(defun tst ()
-  (let ((reval (remote-service :eval
-                               ;; "localhost"
-                               ;; "arroyo.local"
-                               ;; "rincon.local"
-                               "rambo.local"
-                               )))
+(defun tst (host)
+  (let ((reval (remote-service :eval host)))
     (beta (ans)
         (send reval beta '(list (get-universal-time) (machine-instance)))
       #|
@@ -129,5 +125,8 @@
         |#
       (send println (format nil "reval sez: ~S" (um:recover-ans-or-exn ans))))
     ))
-(tst)
+(tst "localhost")
+(tst "arroyo.local")
+(tst "rincon.local")
+(tst "rambo.local")
 |#

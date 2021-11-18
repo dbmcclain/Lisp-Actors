@@ -7,6 +7,7 @@
 ;; ------------------------------------------------------------------
 ;; Server side
 
+#| ;; for debugging
 (defun show-server-outbound (socket)
   (actor (&rest msg)
     (send println (format nil "s/out: ~S" msg))
@@ -16,6 +17,7 @@
   (actor (cust &rest msg)
     (send println (format nil "s/in: ~S" msg))
     (send* cust msg)))
+|#
 
 (defun server-crypto-gate (server-skey)
   ;; Foreign clients first make contact with us here. They send us
@@ -89,6 +91,9 @@
             (server-crypto-gate *server-skey*))
       ))
 
+;; -----------------------------------------------
+;; Simple Services
+
 (defun make-echo ()
   (actor (cust msg)
     ;; (send println (format nil "echo got: ~S" msg))
@@ -101,7 +106,9 @@
 (defun make-eval ()
   (actor (cust form)
     (send cust (funcall (cmpfn form)))))
-    
+
+;; -----------------------------------------------
+
 (defun make-initial-global-services ()
   (send* (actor (&rest svcs)
            (when svcs
