@@ -343,6 +343,8 @@
 
 ;; -------------------------------------------------------------
 
+(defvar *server-count* 0)
+
 (defun start-server-messenger (accepting-handle io-state)
   "Internal routine to start a network interface from the server side.
 The interface is identical to that on the client side, but the
@@ -354,7 +356,7 @@ See the discussion under START-CLIENT-MESSENGER for details."
   ;; so we can't dilly dally...
   (multiple-value-bind (state sender)
       (create-socket-intf :kind             :server
-                          :ip-addr          (machine-instance)
+                          :ip-addr          (format nil "~A#~D" (machine-instance) (incf *server-count*))
                           :io-state         io-state
                           :accepting-handle accepting-handle)
     ;; for server side, this user-info is the only reference to intf
