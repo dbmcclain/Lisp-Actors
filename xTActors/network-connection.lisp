@@ -33,6 +33,7 @@
 
 (defstruct intf-state
   title
+  ip-addr
   io-state
   accepting-handle
   kill-timer
@@ -134,10 +135,11 @@
      (send* (local-services) self-msg))
     )))
 
-(defun create-socket-intf (&key kind io-state accepting-handle)
+(defun create-socket-intf (&key kind ip-addr io-state accepting-handle)
   (let* ((title (if (eq kind :client) "Client" "Server"))
          (state (make-intf-state
                  :title            title
+                 :ip-addr          ip-addr
                  :io-state         io-state
                  :accepting-handle accepting-handle))
          (encoder (sink-pipe (marshal-encoder)
@@ -214,13 +216,15 @@
                      (io-running       intf-state-io-running)
                      (io-state         intf-state-io-state)
                      (accepting-handle intf-state-accepting-handle)
-                     (title            intf-state-title)) state
+                     (title            intf-state-title)
+                     (ip-addr          intf-state-ip-addr)) state
       (send kill-timer :discard)
       (wr (car io-running) 0)
       (comm:async-io-state-abort-and-close io-state)
       (when accepting-handle
         (um:deletef (comm:accepting-handle-user-info accepting-handle) state))
-      (send println (format nil "~A Socket (~X) shutting down" title (sys:object-address state)))
+      (send println (format nil "~A Socket (~S) shutting down"
+                            title ip-addr))
       (send (connections) sink :remove state)
       (become (sink-beh))
       )))
@@ -309,13 +313,14 @@
                             (k-start (actor (io-state)
                                        (multiple-value-bind (state sender)
                                            (create-socket-intf :kind     :client
+                                                               :ip-addr  ip-addr
                                                                :io-state io-state)
                                          (beta _
                                              (send (connections) beta :add-socket
                                                    clean-ip-addr ip-port state sender)
                                            (send println
-                                                 (format nil "Client Socket (~X) starting up"
-                                                         (sys:object-address state)))
+                                                 (format nil "Client Socket (~S) starting up"
+                                                         (intf-state-ip-addr state)))
                                            (send cust sender nil)))
                                        )))
                         (mp:funcall-async
@@ -349,6 +354,7 @@ See the discussion under START-CLIENT-MESSENGER for details."
   ;; so we can't dilly dally...
   (multiple-value-bind (state sender)
       (create-socket-intf :kind             :server
+                          :ip-addr          (machine-instance)
                           :io-state         io-state
                           :accepting-handle accepting-handle)
     ;; for server side, this user-info is the only reference to intf
@@ -356,8 +362,8 @@ See the discussion under START-CLIENT-MESSENGER for details."
     (send (connections) :add-socket nil nil state sender)
     (push state (comm:accepting-handle-user-info accepting-handle))
     (send println
-          (format nil "Server Socket (~X) starting up"
-                  (sys:object-address state)))
+          (format nil "Server Socket (~S) starting up"
+                  (intf-state-ip-addr state)))
     ))
 
 ;; --------------------------------------------------------------
