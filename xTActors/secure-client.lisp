@@ -121,27 +121,11 @@
 ;; ------------------------------------------------------------------
 ;; User side of Client Interface
 
-(defun resolved-remote-service-beh (name sender)
-  (lambda (cust &rest msg)
-    ;; (send println (format nil "rsend message was: ~S" (cons cust msg)))
-    (send* sender cust name msg)))
-
-(defun unresolved-remote-service-beh (name host-ip-addr)
-  (alambda
-   ((cust :xform beh msg) when (eq cust self)
-    (become beh)
-    (send* self msg))
-   
-   (msg
-    (let ((me self))
-      (beta (sender)
-          (send (client-gateway) beta :connect host-ip-addr *server-pkey*)
-        (send me me :xform (resolved-remote-service-beh name sender) msg)
-        )))
-   ))
-
-(defun remote-service (name host-ip)
-  (make-actor (unresolved-remote-service-beh name host-ip)))
+(defun remote-service (name host-ip-addr)
+  (actor (cust &rest msg)
+    (beta (sender)
+        (send (client-gateway) beta :connect host-ip-addr *server-pkey*)
+      (send* sender cust name msg))))
 
 ;; ------------------------------------------------------------
 #|
