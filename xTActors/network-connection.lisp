@@ -39,6 +39,7 @@
   kill-timer
   (io-running (list 1))
   decr-io-count-fn
+  writer
   shutdown)
 
 ;; -------------------------------------------------------------------------
@@ -80,13 +81,22 @@
            ))))))
 
 (defun writer-beh (state phys-write)
-  (lambda (byte-vec)
+  (alambda
+   ((:discard)
+    ;; sent from shutdown
+    (become (sink-beh)))
+   
+   ((byte-vec)
     (send phys-write self byte-vec)
-    (become (pending-writer-beh state phys-write +emptyq+))
-    ))
+    (become (pending-writer-beh state phys-write +emptyq+)))
+   ))
 
 (defun pending-writer-beh (state phys-write pend)
   (alambda
+   ((:discard)
+    ;; sent from shutdown
+    (become (sink-beh)))
+   
    ((byte-vec)
     (become (pending-writer-beh state phys-write (addq pend byte-vec))))
 
@@ -142,10 +152,11 @@
                  :ip-addr          ip-addr
                  :io-state         io-state
                  :accepting-handle accepting-handle))
+         (writer  (make-writer state))
          (encoder (sink-pipe (marshal-encoder)
                              (chunker :max-size (- +max-fragment-size+ 500))
                              (marshal-encoder)
-                             (make-writer state)))
+                             writer))
          (handler (if (eq kind :client)
                       (local-services)  ; clients only hear :reply
                     (make-server-handler encoder)))
@@ -153,7 +164,7 @@
                              (dechunker)
                              (marshal-decoder)
                              handler))
-         (shutdown (make-socket-shutdown state)))
+         (shutdown (once (make-socket-shutdown state))))
 
     (with-accessors ((title            intf-state-title)
                      (io-state         intf-state-io-state)
@@ -165,6 +176,7 @@
                         #'(lambda ()
                             (send println "Inactivity shutdown request")
                             (send shutdown)))
+            (intf-state-writer   state) writer
             (intf-state-shutdown state) shutdown)
         
       (labels
@@ -216,17 +228,19 @@
                      (io-running       intf-state-io-running)
                      (io-state         intf-state-io-state)
                      (accepting-handle intf-state-accepting-handle)
+                     (writer           intf-state-writer)
                      (title            intf-state-title)
                      (ip-addr          intf-state-ip-addr)) state
+      (send println (format nil "~A Socket (~S) shutting down"
+                            title ip-addr))
       (send kill-timer :discard)
+      (send writer :discard)
+      (send (connections) sink :remove state)
+      ;; ---------------------
       (wr (car io-running) 0)
       (comm:async-io-state-abort-and-close io-state)
       (when accepting-handle
         (um:deletef (comm:accepting-handle-user-info accepting-handle) state))
-      (send println (format nil "~A Socket (~S) shutting down"
-                            title ip-addr))
-      (send (connections) sink :remove state)
-      (become (sink-beh))
       )))
 
 ;; -------------------------------------------------------------

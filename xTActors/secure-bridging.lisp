@@ -113,7 +113,8 @@
     (send* socket server-id :send msg)))
 
 (defun server-side-client-proxy (client-id socket)
-  ;; Used to setup a target proxy, on the client, for server replies.
+  ;; Used to setup a target proxy, on the server, for sending replies
+  ;; back to client.
   (actor (&rest msg)
     ;; (send println (format nil "s/reply: ~S" msg))
     (send* socket :reply client-id msg)))
