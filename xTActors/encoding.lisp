@@ -11,6 +11,7 @@
             vec-repr:hex
             hash:hash/256
             hash:get-hash-nbytes
+            hash:in-place-otp
             edec:ed-mul
             edec:ed-add
             edec:ed-compress-pt
@@ -27,20 +28,6 @@
 ;; ----------------------------------------------------
 ;; Useful primitives...
 
-(defun in-place-otp (bytevec &rest keys)
-  (let ((nel  (length bytevec))
-        (ekey (apply #'hash/256 keys)))
-    (loop for offs from 0 below nel by 32 do
-          (let ((mask (vec (hash/256 ekey offs)))
-                (nmax (min 32 (- nel offs))))
-            (loop for ix from 0 below nmax
-                  for jx from offs
-                  do
-                  (setf (aref bytevec jx)
-                        (logxor (aref bytevec jx) (aref mask ix)))
-                  )))
-    bytevec))
-          
 (defun encrypt/decrypt (ekey seq bytevec)
   ;; takes a bytevec and produces an encrypted/decrypted bytevec
   ;;
@@ -388,9 +375,10 @@
         (become (sink-beh)))
       )))
 
-(defun make-ubv (nb)
-  (make-array nb
-              :element-type '(unsigned-byte 8)))
+(defun make-ubv (nb &rest args)
+  (apply #'make-array nb
+         :element-type '(unsigned-byte 8)
+         args))
 
 (defun make-dechunk-assembler (cust nchunks size)
   (make-actor (dechunk-assembler-beh cust nchunks nil (make-ubv size) )))

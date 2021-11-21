@@ -216,3 +216,20 @@ THE SOFTWARE.
 
 (defmethod hash-function-of-hash ((h hash/var))
   (hash-fn h))
+
+;; -------------------------------------------------------
+
+(defun in-place-otp (bytevec &rest keys)
+  (let* ((nel  (length bytevec))
+         (ovly (make-array nel
+                           :element-type (array-element-type bytevec)
+                           :adjustable   t
+                           :displaced-to bytevec))
+         (ekey (apply #'hash/256 keys)))
+    (do ((offs  0  (+ offs 32)))
+        ((>= offs nel) bytevec)
+      (let ((mask  (vec (hash/256 ekey offs))))
+        (adjust-array ovly (min 32 (- nel offs))
+                      :displaced-index-offset offs)
+        (map-into ovly #'logxor ovly mask))
+      )))

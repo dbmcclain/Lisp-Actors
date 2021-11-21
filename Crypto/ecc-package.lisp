@@ -165,6 +165,7 @@ THE SOFTWARE.
    :hash-check
    :hash=
    :hash-function-of-hash
+   :in-place-otp
    ))
 
 (defpackage :ecc-crypto-b571
