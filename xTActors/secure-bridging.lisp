@@ -35,9 +35,10 @@
 
 (in-package :ac-secure-comm)
 
-(defconstant *server-id*    "7a1efb26-bc60-123a-a2d6-24f67702cdaa")
-(defconstant *server-skey*  #x4504E460D7822B3B0E6E3774F07F85698E0EBEFFDAA35180D19D758C2DEF09)
-(defconstant *server-pkey*  #x7EBC0A8D8FFC77F24E7F271F12FC827415F0B66CC6A4C1144070A32133455F1)
+(defconstant +server-id+          "7a1efb26-bc60-123a-a2d6-24f67702cdaa")
+(defconstant +server-skey+        #x4504E460D7822B3B0E6E3774F07F85698E0EBEFFDAA35180D19D758C2DEF09)
+(defconstant +server-pkey+        #x7EBC0A8D8FFC77F24E7F271F12FC827415F0B66CC6A4C1144070A32133455F1)
+(defconstant +server-connect-id+  #/uuid/{66895052-c57f-123a-9571-0a2cb67da316})
 
 ;; ----------------------------------------------------------------
 ;; Self-organizing list of services for Server and connection Actors
@@ -144,18 +145,21 @@
 (defvar *default-ephemeral-ttl*  10)
 (defvar *default-services-ttl*   20)
 
-(defun empty-local-service-beh ()
+(defun empty-local-service-beh (top)
   (alambda
    ((cust :prune)
     (send cust :pruned self-beh))
 
+   ((cust :add-service-with-id id actor)
+    (let ((next  (make-actor self-beh)))
+      (become (local-service-beh id actor next))
+      (send cust id)))
+   
    ((cust :add-service actor)
     ;; used for connection handlers
     (let ((next  (make-actor self-beh))
-          (tag   (tag (local-services)))
           (id    (uuid:make-v1-uuid)))
-      (become (local-service-beh actor id tag next))
-      (send-after *default-services-ttl* tag :lease-expired)
+      (become (local-service-beh id actor next))
       (dbg (send println (format nil "Service added: ~A" id)))
       (send cust id)
       ))
@@ -164,10 +168,10 @@
     ;; used for transient customer proxies
     (let ((next (make-actor self-beh))
           (id   (uuid:make-v1-uuid)))
-      (become (local-ephemeral-client-beh actor id next))
+      (become (local-ephemeral-client-beh id actor next))
       (send cust id)
       (when ttl
-        (send-after ttl (local-services) sink :remove-service id))
+        (send-after ttl top sink :remove-service id))
       (dbg (send println (format nil "Ephemeral service added: ~A" id)))
       ))
 
@@ -175,7 +179,7 @@
     (send cust lst))
    ))
 
-(defun local-ephemeral-client-beh (actor id next)
+(defun local-ephemeral-client-beh (id actor next)
   ;; used by clients to hold ephemeral reply proxies
   (alambda
    ((cust :prune)
@@ -202,26 +206,19 @@
     (repeat-send next))
    ))
 
-(defun local-service-beh (actor id tag next)
+(defun local-service-beh (id actor next)
   ;; used by servers to hold proxies for local service channels
   (alambda
    ((cust :prune)
     (send cust :pruned self-beh))
 
-   ((serv-id :send client-id . msg) when (uuid:uuid= serv-id id)
+   ((serv-id :send . msg) when (uuid:uuid= serv-id id)
     ;; We do not automatically remove this entry once used. Instead,
     ;; we renew the lease. Client messages are directed here via proxy
     ;; serv-id, to find the actual target channel.
-    (let ((tag  (tag (local-services))))
-      (dbg (send println (format nil "Service used: ~A" id)))
-      (become (local-service-beh actor id tag next))
-      (send-after *default-services-ttl* tag :lease-expired)
-      (send* actor client-id msg)))
+    (dbg (send println (format nil "Service used: ~A" id)))
+    (send* actor msg))
 
-   ((a-tag :lease-expired) when (eq a-tag tag)
-    (dbg (send println (format nil "Service lease expired: ~A" id)))
-    (prune-self next))
-   
    ((cust :remove-service an-id) when (uuid:uuid= an-id id)
     (send cust :ok)
     (prune-self next))
@@ -233,20 +230,17 @@
     (repeat-send next))
    ))
 
-(defvar *local-services* nil)
+(defun make-local-services ()
+  (actors ((svcs  (empty-local-service-beh svcs)))
+    svcs))
 
-(defun local-services ()
-  (or *local-services*
-      (setf *local-services* (make-actor (empty-local-service-beh)))
-      ))
-
-(defun create-ephemeral-client-proxy (cust svc &key (ttl *default-ephemeral-ttl*))
+(defun create-ephemeral-client-proxy (cust local-services svc &key (ttl *default-ephemeral-ttl*))
   ;; used by client side
-  (send (local-services) cust :add-ephemeral-client svc ttl))
+  (send local-services cust :add-ephemeral-client svc ttl))
 
-(defun create-service-proxy (cust svc)
+(defun create-service-proxy (cust local-services svc)
   ;; used by server side
-  (send (local-services) cust :add-service svc))
+  (send local-services cust :add-service svc))
 
 ;; ---------------------------------------------------
 ;; Composite Actor pipes

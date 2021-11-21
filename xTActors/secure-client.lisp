@@ -40,14 +40,13 @@
   ;; encryptor/decryptor married to a Socket.
   (serializer
    (actor (cust host-ip-addr)
-     (beta (socket chan)
+     (beta (socket chan local-services)
          (send (with-timeout 6 (actors/network:client-connector)
                              (actor _
                                (serializer-abort cust)))
                beta host-ip-addr)
-       (if chan
-           (send cust chan)
-         ;; else - negotiate a connection with the server
+       (if (eq chan socket)
+         ;; just have a bare channel - negotiate a connection with the server
          (let* ((arand       (int (ctr-drbg 256)))
                 (apt         (ed-nth-pt arand))
                 (client-pkey (ed-nth-pt client-skey))
@@ -56,24 +55,29 @@
                  (actor (server-id bpt)
                    (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
                           (chan  (client-channel
-                                       :encryptor   (sink-pipe
-                                                     (secure-sender ekey client-skey)
-                                                     (client-side-server-proxy server-id socket))
-                                       :decryptor   (secure-reader ekey (ed-decompress-pt *server-pkey*))
-                                       )))
+                                  :local-services  local-services
+                                  :encryptor       (sink-pipe
+                                                    (secure-sender ekey client-skey)
+                                                    (client-side-server-proxy server-id socket))
+                                  :decryptor       (secure-reader ekey (ed-decompress-pt +server-pkey+))
+                                  )))
                      (beta _
                          (send (actors/network:connections) beta :add-channel socket chan)
                        (send cust chan)) ;; to our local customer
                      ))))
            (beta (client-id)
-               (create-ephemeral-client-proxy beta responder)
-             (send socket :connect client-id *server-pkey* (int client-pkey) (int apt))
-             )))))
-   ))
+               (create-ephemeral-client-proxy beta local-services responder)
+             (send (client-side-server-proxy +server-connect-id+ socket)
+                   client-id +server-pkey+ (int client-pkey) (int apt))
+             ))
+         ;; else we already have a secure channel
+         (send cust chan))
+       ))))
 
 ;; ---------------------------------------------------
 
 (defun client-channel (&key
+                       local-services
                        encryptor
                        decryptor)
   ;; One of these serves as a client-local private portal with an
@@ -87,11 +91,12 @@
   ;; keying for every new message.
   (actor (cust verb &rest msg)
     ;; (send println (format nil "trying to send: ~S" self-msg))
-    (if cust
-        (beta (cust-id)
-            (create-ephemeral-client-proxy beta (sink-pipe decryptor cust))
-          (send* encryptor cust-id verb msg))
-      (send* encryptor nil verb msg))))
+    (if (is-pure-sink? cust)
+        (send* encryptor nil verb msg)
+      (beta (cust-id)
+          (create-ephemeral-client-proxy beta local-services (sink-pipe decryptor cust))
+        (send* encryptor cust-id verb msg))
+      )))
 
 ;; ------------------------------------------------------------------
 ;; User side of Client Interface

@@ -59,6 +59,7 @@ THE SOFTWARE.
    #:fork
    #:list-match
    #:actor-nlet
+   #:is-pure-sink?
 
    #:make-sponsor
    #:kill-sponsor
@@ -347,12 +348,14 @@ THE SOFTWARE.
 (defpackage :ac-secure-comm
   (:use #:common-lisp #:actors #:core-crypto #:edec)
   (:export
-   #:local-services
+   #:make-local-services
    #:global-services
-   #:server-gateway
-   #:start-server-gateway
+   #:server-crypto-gateway
    #:client-gateway
    #:remote-service
+   #:+server-connect-id+
+   #:+server-skey+
+   #:start-server-gateway
    ))
 
 (defpackage #:actors/user

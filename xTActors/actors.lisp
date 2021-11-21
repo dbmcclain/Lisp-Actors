@@ -214,6 +214,10 @@ THE SOFTWARE.
 (def-sponsor base-sponsor)
 (def-sponsor slow-sponsor)
 
+(defun is-pure-sink? (actor)
+  (or (null actor)
+      (eq (actor-beh actor) #'lw:do-nothing)))
+
 (defun sponsor-beh (mbox thread)
   ;; this one is just slightly special
   (alambda
@@ -222,7 +226,7 @@ THE SOFTWARE.
     (mp:process-terminate thread))
    
    ((actor . msg)
-    (when actor
+    (unless (is-pure-sink? actor)
       (check-type actor actor)
       (mp:mailbox-send mbox (cons actor msg))))
    ))
@@ -257,6 +261,8 @@ THE SOFTWARE.
 
 (defun send (actor &rest msg)
   (when actor ;; so now, NIL acts like and can connote SINK
+    ;; In truth this should be a test for IS-PURE-SINK? but for speed,
+    ;; we just want a fast test against NIL here.
     (check-type actor actor)
     (if self
         (add-evq *evt-queue* (cons actor msg))
