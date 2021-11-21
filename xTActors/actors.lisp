@@ -222,8 +222,9 @@ THE SOFTWARE.
     (mp:process-terminate thread))
    
    ((actor . msg)
-    (check-type actor actor)
-    (mp:mailbox-send mbox (cons actor msg)))
+    (when actor
+      (check-type actor actor)
+      (mp:mailbox-send mbox (cons actor msg))))
    ))
 
 (defun make-sponsor (title)
@@ -255,10 +256,11 @@ THE SOFTWARE.
 ;; delivered.
 
 (defun send (actor &rest msg)
-  (check-type actor actor)
-  (if self
-      (add-evq *evt-queue* (cons actor msg))
-    (apply (actor-beh base-sponsor) actor msg))
+  (when actor ;; so now, NIL acts like and can connote SINK
+    (check-type actor actor)
+    (if self
+        (add-evq *evt-queue* (cons actor msg))
+      (apply (actor-beh base-sponsor) actor msg)))
   (values))
 
 (defmacro send* (actor &rest msg)

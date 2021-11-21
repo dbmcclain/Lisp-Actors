@@ -115,9 +115,10 @@
 (defun server-side-client-proxy (client-id socket)
   ;; Used to setup a target proxy, on the server, for sending replies
   ;; back to client.
-  (actor (&rest msg)
-    ;; (send println (format nil "s/reply: ~S" msg))
-    (send* socket :reply client-id msg)))
+  (when client-id
+    (actor (&rest msg)
+      ;; (send println (format nil "s/reply: ~S" msg))
+      (send* socket :reply client-id msg))))
 
 ;; Similarly, on the sending side, we can't just send along a cust
 ;; field of a message because it is an Actor, and contains a

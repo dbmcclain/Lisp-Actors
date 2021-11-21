@@ -60,14 +60,15 @@
   ;; request to the local service.
   (make-actor
    (alambda
-    ((cust-id :available-services)
-     (let ((proxy (server-side-client-proxy cust-id socket)))
-       (send (global-services) (sink-pipe encryptor proxy) :available-services nil)))
-    
+    ;; A significant difference between LAMBDA and ALAMBDA - if an
+    ;; incoming arg list does not match what LAMBDA expects, it
+    ;; produces an error. ALAMBDA uses pattern matching, and anything
+    ;; arriving that does not match is simply ignored.
     ((cust-id verb . msg) ;; remote client cust
      ;; (send println (format nil "server rec'd req: ~S" self-msg))
-     (let ((proxy (server-side-client-proxy cust-id socket)))
-       (send* (global-services) (sink-pipe encryptor proxy) :send verb msg)))
+     (let ((proxy (when cust-id
+                    (sink-pipe encryptor (server-side-client-proxy cust-id socket)))))
+       (send* (global-services) proxy :send verb msg)))
     )))
 
 ;; ---------------------------------------------------------------
@@ -104,6 +105,10 @@
   (actor (cust form)
     (send cust (funcall (cmpfn form)))))
 
+(defun make-avail ()
+  (actor (cust)
+    (send (global-services) cust :available-services nil)))
+
 ;; -----------------------------------------------
 
 (defun make-initial-global-services ()
@@ -114,8 +119,9 @@
                    (send* (global-services) beta :add-service (car svcs))
                  (send* me (cdr svcs))
                  ))))
-         `((:echo ,(make-echo))
-           (:eval ,(make-eval)))
+         `((:echo               ,(make-echo))
+           (:eval               ,(make-eval))
+           (:available-services ,(make-avail)))
          ))
 
 (defun start-server-gateway ()

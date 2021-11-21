@@ -87,9 +87,11 @@
   ;; keying for every new message.
   (actor (cust verb &rest msg)
     ;; (send println (format nil "trying to send: ~S" self-msg))
-    (beta (cust-id)
-        (create-ephemeral-client-proxy beta (sink-pipe decryptor cust))
-      (send* encryptor cust-id verb msg))))
+    (if cust
+        (beta (cust-id)
+            (create-ephemeral-client-proxy beta (sink-pipe decryptor cust))
+          (send* encryptor cust-id verb msg))
+      (send* encryptor nil verb msg))))
 
 ;; ------------------------------------------------------------------
 ;; User side of Client Interface

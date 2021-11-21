@@ -27,6 +27,29 @@
 ;; ----------------------------------------------------
 ;; Useful primitives...
 
+(defun in-place-otp (bytevec &rest keys)
+  (let ((nel  (length bytevec))
+        (ekey (apply #'hash/256 keys)))
+    (loop for offs from 0 below nel by 32 do
+          (let ((mask (vec (hash/256 ekey offs)))
+                (nmax (min 32 (- nel offs))))
+            (loop for ix from 0 below nmax
+                  for jx from offs
+                  do
+                  (setf (aref bytevec jx)
+                        (logxor (aref bytevec jx) (aref mask ix)))
+                  )))
+    bytevec))
+          
+(defun encrypt/decrypt (ekey seq bytevec)
+  ;; takes a bytevec and produces an encrypted/decrypted bytevec
+  ;;
+  ;; One-time-pad encryption via XOR with random mask. Take care to
+  ;; never re-use the same mask for encryption, which is the hash of
+  ;; the ekey concat with seq.
+  (in-place-otp bytevec ekey seq))
+
+#|
 (defun encrypt/decrypt (ekey seq bytevec)
   ;; takes a bytevec and produces an encrypted/decrypted bytevec
   ;;
@@ -36,6 +59,7 @@
   (let* ((nel  (length bytevec))
          (mask (vec (get-hash-nbytes nel (vec ekey) seq))))
     (map-into mask #'logxor bytevec mask)))
+|#
 
 (defun make-signature (seq emsg chk skey)
   ;; Generate and append a Schnorr signature - signature includes seq
