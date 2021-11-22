@@ -135,116 +135,53 @@
        (become (sink-beh)))
       ))))
 
-;; ------------------------------------------------------------------------
-;; The main user-visible portion of a network interface
-
-(defun create-socket-intf (&key kind ip-addr ip-port io-state accepting-handle report-ip-addr)
-  (actor (cust)
-    (let* ((title (if (eq kind :client) "Client" "Server"))
-           (local-services (make-local-services))
-           (state (make-intf-state
-                   :title            title
-                   :ip-addr          report-ip-addr
-                   :io-state         io-state
-                   :accepting-handle accepting-handle
-                   :local-services   local-services))
-           (writer  (make-writer state))
-           (encoder (sink-pipe (marshal-encoder)
-                               (chunker :max-size (- +max-fragment-size+ 500))
-                               (marshal-encoder)
-                               writer))
-           (decoder (sink-pipe (marshal-decoder)
-                               (dechunker)
-                               (marshal-decoder)
-                               local-services))
-           (shutdown (once (make-socket-shutdown state))))
-      (beta _
-          ;; provide a service to establish an encrypted channel
-          (send local-services beta :add-service-with-id +server-connect-id+
-                (server-crypto-gateway +server-skey+ encoder local-services))
-
-        (beta _
-            (send (connections) beta :add-socket ip-addr ip-port state encoder)
-          
-          (with-accessors ((title            intf-state-title)
-                           (io-state         intf-state-io-state)
-                           (kill-timer       intf-state-kill-timer)
-                           (io-running       intf-state-io-running)
-                           (decr-io-count-fn intf-state-decr-io-count-fn)) state
-            
-            (setf kill-timer (make-kill-timer
-                              #'(lambda ()
-                                  (send println "Inactivity shutdown request")
-                                  (send shutdown)))
-                  (intf-state-writer   state) writer
-                  (intf-state-shutdown state) shutdown)
-            
-            (labels
-                ((rd-callback-fn (state buffer end)
-                   ;; callback for I/O thread - on continuous async read
-                   #|
-                   (send println (format nil "Socket Reader Callback (STATUS = ~A, END = ~A)"
-                                         (comm:async-io-state-read-status state)
-                                         end))
-                   |#
-                   (let (err-too-large)
-                     (when (plusp end)
-                       ;; (send println (format nil "~A Incoming bytes: ~A" title buffer))
-                       (if (> end +max-fragment-size+)
-                           (setf err-too-large "Incoming packet too large")
-                         (progn
-                           (send decoder (subseq buffer 0 end))
-                           (send kill-timer :resched)))
-                       (comm:async-io-state-discard state end))
-                     (um:when-let (status (or (comm:async-io-state-read-status state)
-                                              err-too-large))
-                       ;; terminate on any error
-                       (comm:async-io-state-finish state)
-                       (send println (format nil "~A Incoming error state: ~A" title status))
-                       (decr-io-count state))
-                     ))
-                 
-                 (decr-io-count (io-state)
-                   (let ((ct (sys:atomic-fixnum-decf (car io-running))))
-                     (when (zerop ct) ;; >0 is running
-                       (comm:close-async-io-state io-state)
-                       (send println "Connection Shutdown")
-                       (send shutdown))
-                     ct)))
-              
-              (setf decr-io-count-fn #'decr-io-count)
-              
-              (send kill-timer :resched)
-              (comm:async-io-state-read-with-checking io-state #'rd-callback-fn
-                                                      :element-type '(unsigned-byte 8))
-              (send cust state encoder local-services)
-              )))))))
-  
 ;; -------------------------------------------------------------
-
-(defun make-socket-shutdown (state)
-  (actor ()
-    (with-accessors ((kill-timer       intf-state-kill-timer)
-                     (io-running       intf-state-io-running)
-                     (io-state         intf-state-io-state)
-                     (accepting-handle intf-state-accepting-handle)
-                     (writer           intf-state-writer)
-                     (title            intf-state-title)
-                     (ip-addr          intf-state-ip-addr)) state
-      (send println (format nil "~A Socket (~S) shutting down"
-                            title ip-addr))
-      (send kill-timer :discard)
-      (send writer :discard)
-      (send (connections) sink :remove state)
-      ;; ---------------------
-      (wr (car io-running) 0)
-      (comm:async-io-state-abort-and-close io-state)
-      (when accepting-handle
-        (um:deletef (comm:accepting-handle-user-info accepting-handle) state))
-      )))
-
-;; -------------------------------------------------------------
-
+;; List of currently active sockets
+;;
+;; The socket is denoted externally by the encoder Actor used for
+;; sending data through the socket. It is recorded here along with the
+;; socket state, and an Actor to be used for its "Channel". Initially
+;; both the socket and its channel are the same.
+;;
+;; Sockets marshal encode, whatever is being sent, into streams of
+;; unsigned bytes, possibly compressed for network efficiency, then
+;; chopped into packets of length no larger than 64KB. The original
+;; data encoding is reassembled at the receiving end, then
+;; decompressed and unmarshalled back into Lisp objects.
+;;
+;; Every socket also has an associated list of local-services, which
+;; records session duration services, along with ephemeral reply
+;; proxies on the client. An initial service is provided to enable a
+;; negotiation for a secure encrypted channel. Encryption is a layer
+;; above this socket layer. We have nothing to do with it here, except
+;; to offer the initial per-socket local negotiation service.
+;;
+;; In this model, clients send commands and requests to a server.
+;; Servers may or may not reply. Initially, only globally advertised
+;; services are available at the server. But once a connection has
+;; been established, parties are free to invent their own
+;; sub-protocols.
+;;
+;; Received messages are dispatched to local-services.
+;;
+;; Message structure for clients:
+;;      (SEND chan rcvr-id :SEND cust-id . message)
+;;                |-------------------------------|
+;;                         = message sent to server local services list.
+;;
+;; Message structure for server replies:
+;;      (SEND chan :REPLY cust-id . message)
+;;                |------------------------|
+;;                         = message sent to client local services list
+;;
+;; chan represents either the socket Actor or another (typ. encrypted)
+;; channel Actor on the socket.
+;;
+;; rcvr-id and cust-id are locally generated UUID's denoting proxy
+;; Actors registered in the local services list for the socket.
+;; rcvr-id would be registered at the receiving server, and cust-id
+;; will be registered at the sending client end.
+;;
 (defun empty-connections-list ()
   (alambda
    ((cust :prune)
@@ -297,6 +234,118 @@
 
 ;; -------------------------------------------------------------
 
+(defun make-socket-shutdown (state)
+  (actor ()
+    (with-accessors ((kill-timer       intf-state-kill-timer)
+                     (io-running       intf-state-io-running)
+                     (io-state         intf-state-io-state)
+                     (accepting-handle intf-state-accepting-handle)
+                     (writer           intf-state-writer)
+                     (title            intf-state-title)
+                     (ip-addr          intf-state-ip-addr)) state
+      (send fmt-println "~A Socket (~S) shutting down"
+            title ip-addr)
+      (send kill-timer :discard)
+      (send writer :discard)
+      (send (connections) sink :remove state)
+      ;; ---------------------
+      (wr (car io-running) 0)
+      (comm:async-io-state-abort-and-close io-state)
+      (when accepting-handle
+        (um:deletef (comm:accepting-handle-user-info accepting-handle) state))
+      )))
+
+;; ------------------------------------------------------------------------
+;; For both clients and servers, we assemble the socket state, make
+;; initial encoder/decoder which marshals and compresses and fragments
+;; into 64kB packets. Set up the initial negotiation service in a per
+;; socket local-services, start the socket reader going, and return
+;; the state, enccoder, and local-services to the customer.
+
+(defun create-socket-intf (&key kind ip-addr ip-port io-state accepting-handle report-ip-addr)
+  (actor (cust)
+    (let* ((title (if (eq kind :client) "Client" "Server"))
+           (local-services (make-local-services))
+           (state (make-intf-state
+                   :title            title
+                   :ip-addr          report-ip-addr
+                   :io-state         io-state
+                   :accepting-handle accepting-handle
+                   :local-services   local-services))
+           (writer  (make-writer state))
+           (encoder (sink-pipe (marshal-encoder)
+                               (chunker :max-size (- +max-fragment-size+ 500))
+                               (marshal-encoder)
+                               writer))
+           (decoder (sink-pipe (marshal-decoder)
+                               (dechunker)
+                               (marshal-decoder)
+                               local-services))
+           (shutdown (once (make-socket-shutdown state))))
+      (beta _
+          ;; provide a service to establish an encrypted channel
+          (send local-services beta :add-service-with-id +server-connect-id+
+                (server-crypto-gateway +server-skey+ encoder local-services))
+
+        (beta _
+            (send (connections) beta :add-socket ip-addr ip-port state encoder)
+          
+          (with-accessors ((title            intf-state-title)
+                           (io-state         intf-state-io-state)
+                           (kill-timer       intf-state-kill-timer)
+                           (io-running       intf-state-io-running)
+                           (decr-io-count-fn intf-state-decr-io-count-fn)) state
+            
+            (setf kill-timer (make-kill-timer
+                              #'(lambda ()
+                                  (send println "Inactivity shutdown request")
+                                  (send shutdown)))
+                  (intf-state-writer   state) writer
+                  (intf-state-shutdown state) shutdown)
+            
+            (labels
+                ((rd-callback-fn (state buffer end)
+                   ;; callback for I/O thread - on continuous async read
+                   #|
+                   (send fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
+                         (comm:async-io-state-read-status state)
+                         end)
+                   |#
+                   (let (err-too-large)
+                     (when (plusp end)
+                       ;; (send fmt-println "~A Incoming bytes: ~A" title buffer)
+                       (if (> end +max-fragment-size+)
+                           (setf err-too-large "Incoming packet too large")
+                         (progn
+                           (send decoder (subseq buffer 0 end))
+                           (send kill-timer :resched)))
+                       (comm:async-io-state-discard state end))
+                     (um:when-let (status (or (comm:async-io-state-read-status state)
+                                              err-too-large))
+                       ;; terminate on any error
+                       (comm:async-io-state-finish state)
+                       (send fmt-println "~A Incoming error state: ~A" title status)
+                       (decr-io-count state))
+                     ))
+                 
+                 (decr-io-count (io-state)
+                   (let ((ct (sys:atomic-fixnum-decf (car io-running))))
+                     (when (zerop ct) ;; >0 is running
+                       (comm:close-async-io-state io-state)
+                       (send println "Connection Shutdown")
+                       (send shutdown))
+                     ct)))
+              
+              (setf decr-io-count-fn #'decr-io-count)
+              
+              (send kill-timer :resched)
+              (comm:async-io-state-read-with-checking io-state #'rd-callback-fn
+                                                      :element-type '(unsigned-byte 8))
+              (send cust state encoder local-services)
+              )))))))
+  
+;; -------------------------------------------------------------
+
 (defun canon-ip-addr (ip-addr)
   (comm:get-host-entry ip-addr :fields '(:address)))
 
@@ -334,8 +383,7 @@
                                                                      :io-state       io-state)
                                                  beta)
                                          (declare (ignore state))
-                                         (send println
-                                               (format nil "Client Socket (~S) starting up" ip-addr))
+                                         (send fmt-println "Client Socket (~S) starting up" ip-addr)
                                          (send cust sender sender local-services))
                                        )))
                         (mp:funcall-async
@@ -351,7 +399,7 @@
                                     (t
                                      (send k-start state))
                                     ))
-                            :handshake-timeout 5
+                            :connect-timeout 5
                             #-:WINDOWS :ipv6    #-:WINDOWS nil)))
                         ))))
              )))))
@@ -380,8 +428,7 @@ See the discussion under START-CLIENT-MESSENGER for details."
       ;; until we get registered into the ip-mapping table.
       (declare (ignore sender local-services))
       (push state (comm:accepting-handle-user-info accepting-handle))
-      (send println
-            (format nil "Server Socket (~S) starting up" server-name))
+      (send fmt-println "Server Socket (~S) starting up" server-name)
       )))
 
 ;; --------------------------------------------------------------
@@ -415,7 +462,7 @@ indicated port number."
                           #'start-server-messenger
                           :ipv6    nil
                           ))
-                   (send println (format nil "Actor Server started on port ~A" tcp-port-number)))))
+                   (send fmt-println "Actor Server started on port ~A" tcp-port-number))))
     (terminate-server starter)))
 
 ;; --------------------------------------------------

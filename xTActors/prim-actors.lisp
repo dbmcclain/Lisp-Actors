@@ -14,6 +14,13 @@
 ;;
 ;; -------------------------------------------------------
 
+(defvar fmt-println
+  (actor (fmt-str &rest args)
+    (send println (apply #'format nil fmt-str args))
+    ))
+
+;; ---------------------
+
 (defun const-beh (&rest msg)
   (lambda (cust)
     (send* cust msg)))

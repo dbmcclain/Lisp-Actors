@@ -137,4 +137,5 @@
 (tst "rincon.local")
 (tst "rambo.local")
 (tst "dachshund.local")
+(tst "honeypot.local")
 |#

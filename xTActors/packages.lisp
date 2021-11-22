@@ -152,6 +152,7 @@ THE SOFTWARE.
    #:ticketed-perform
    #:println
    #:writeln
+   #:fmt-println
    #:logged-beh
    #:logged
    #:logger
