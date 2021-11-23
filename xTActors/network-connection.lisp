@@ -165,22 +165,22 @@
 ;; Received messages are dispatched to local-services.
 ;;
 ;; Message structure for clients:
-;;      (SEND chan rcvr-id :SEND cust-id . message)
-;;                |-------------------------------|
+;;      (SEND chan srv-id :SEND cust-id . message)
+;;                |------------------------------|
 ;;                         = message sent to server local services list.
 ;;
 ;; Message structure for server replies:
-;;      (SEND chan :REPLY cust-id . message)
-;;                |------------------------|
+;;      (SEND chan cust-id :SEND . message)
+;;                |-----------------------|
 ;;                         = message sent to client local services list
 ;;
 ;; chan represents either the socket Actor or another (typ. encrypted)
 ;; channel Actor on the socket.
 ;;
-;; rcvr-id and cust-id are locally generated UUID's denoting proxy
-;; Actors registered in the local services list for the socket.
-;; rcvr-id would be registered at the receiving server, and cust-id
-;; will be registered at the sending client end.
+;; srv-id and cust-id are locally generated UUID's denoting proxy
+;; Actors registered in the local services list for the socket on
+;; either side.  srv-id would be registered at the receiving server,
+;; and cust-id will be registered at the sending client end.
 ;;
 (defun empty-connections-list ()
   (alambda
@@ -349,60 +349,94 @@
 (defun canon-ip-addr (ip-addr)
   (comm:get-host-entry ip-addr :fields '(:address)))
 
-(defvar *client-connector* nil)
-
 (defun client-connector ()
-  (or *client-connector*
-      (setf *client-connector* (make-client-connector))
+  (actor (cust ip-addr &optional (ip-port *default-port*))
+    ;; Called from client side wishing to connect to a server.
+    ;;
+    ;; Because we are serialized, one way or another, we have to exit
+    ;; by sending to cust, or execute serializer-abort.
+    (let ((clean-ip-addr (canon-ip-addr ip-addr)))
+      (cond ((null clean-ip-addr)
+             (err "Unknown host: ~A" ip-addr))
+            (t
+             (beta _
+                 (send (connections) :on-find-sender clean-ip-addr ip-port cust beta)
+               (send (pending-connections) cust :connect clean-ip-addr ip-port ip-addr)))
+            ))))
+
+(defvar *pending-connections*  nil)
+
+(defun pending-connections ()
+  (or *pending-connections*
+      (setf *pending-connections* (make-actor (empty-pending-connections-beh)))
       ))
 
-(defun make-client-connector ()
-  (serializer
-   (actor (cust ip-addr &optional (ip-port *default-port*))
-     ;; Called from client side wishing to connect to a server.
-     ;;
-     ;; Because we are serialized, one way or another, we have to exit
-     ;; by sending to cust, or execute serializer-abort.
-     (let ((clean-ip-addr (canon-ip-addr ip-addr)))
-       (cond ((null clean-ip-addr)
-              (serializer-abort cust)
-              (err "Unknown host: ~A" ip-addr))
-             (t
-              (send (connections) :on-find-sender clean-ip-addr ip-port
-                    cust      ;; send to cust if found
-                    (actor () ;; else send to this if not found
-                      (let ((k-stop  (actor ()
-                                       (serializer-abort cust)
-                                       (err "Can't connect to: ~A" ip-addr)))
-                            (k-start (actor (io-state)
-                                       (beta (state sender local-services)
-                                           (send (create-socket-intf :kind           :client
-                                                                     :ip-addr        clean-ip-addr
-                                                                     :ip-port        ip-port
-                                                                     :report-ip-addr ip-addr
-                                                                     :io-state       io-state)
-                                                 beta)
-                                         (declare (ignore state))
-                                         (send fmt-println "Client Socket (~S) starting up" ip-addr)
-                                         (send cust sender sender local-services))
-                                       )))
-                        (mp:funcall-async
-                         (lambda ()
-                           (comm:create-async-io-state-and-connected-tcp-socket
-                            *ws-collection*
-                            clean-ip-addr ip-port
-                            (lambda (state args)
-                              (cond (args
-                                     (send println :CONNECTION-ERROR
-                                           (apply #'format nil args))
-                                     (send k-stop))
-                                    (t
-                                     (send k-start state))
-                                    ))
-                            :connect-timeout 5
-                            #-:WINDOWS :ipv6    #-:WINDOWS nil)))
-                        ))))
-             )))))
+(defun empty-pending-connections-beh ()
+  (alambda
+   ((cust :prune)
+    (send cust :pruned self-beh))
+
+   ((cust :connect ip-addr ip-port report-ip-addr)
+    (let ((next (make-actor self-beh)))
+      (become (pending-connections-beh ip-addr ip-port report-ip-addr (list cust) next))
+      (send (make-socket-connection) self ip-addr ip-port report-ip-addr)
+      ))
+   ))
+
+(defun pending-connections-beh (ip-addr ip-port report-ip-addr custs next)
+  (alambda
+   ((cust :prune)
+    (send cust :pruned self-beh))
+
+   ((cust :connect an-ip-addr an-ip-port . _) when (and (eql an-ip-addr ip-addr)
+                                                        (eql an-ip-port ip-port))
+    (let ((next (make-actor self-beh)))
+      (become (pending-connections-beh ip-addr ip-port report-ip-addr (cons cust custs) next))
+      ))
+   
+   ((:ready an-ip-addr an-ip-port sender local-services) when (and (eql an-ip-addr ip-addr)
+                                                                   (eql an-ip-port ip-port))
+    (prune-self next)
+    (send fmt-println "Client Socket (~A) starting up" report-ip-addr)
+    (send-to-all custs sender sender local-services))
+
+   ((:abort an-ip-addr an-ip-port) when (and (eql an-ip-addr ip-addr)
+                                             (eql an-ip-port ip-port))
+    (prune-self next)
+    (err "Can't connect to: ~A" report-ip-addr))
+
+   (_
+    (repeat-send next))
+   ))
+
+(defun make-socket-connection ()
+  (actor (cust ip-addr ip-port report-ip-addr)
+    (beta (io-state)
+        (mp:funcall-async
+         (lambda ()
+           (comm:create-async-io-state-and-connected-tcp-socket
+            *ws-collection*
+            ip-addr ip-port
+            (lambda (state args)
+              (cond (args
+                     (send println :CONNECTION-ERROR
+                           (apply #'format nil args))
+                     (send cust :abort ip-addr ip-port))
+                    (t
+                     (send beta state))
+                    ))
+            :connect-timeout 5
+            #-:WINDOWS :ipv6    #-:WINDOWS nil)))
+      (beta (intf-state sender local-services)
+          (send (create-socket-intf :kind           :client
+                                    :ip-addr        ip-addr
+                                    :ip-port        ip-port
+                                    :report-ip-addr report-ip-addr
+                                    :io-state       io-state)
+                beta)
+        (declare (ignore intf-state))
+        (send cust :ready ip-addr ip-port sender local-services)
+        ))))
 
 ;; -------------------------------------------------------------
 

@@ -42,7 +42,7 @@
                            chan)))
           (beta (id)
               (create-service-proxy beta local-services decryptor)
-            (send (server-side-client-proxy cust-id socket)  ;; remote client cust
+            (send (remote-actor-proxy cust-id socket)  ;; remote client cust
                   id (int bpt)))
           )))))
 
@@ -67,7 +67,7 @@
     ((cust-id verb . msg) ;; remote client cust
      ;; (send println (format nil "server rec'd req: ~S" self-msg))
      (let ((proxy (when cust-id
-                    (sink-pipe encryptor (server-side-client-proxy cust-id socket)))))
+                    (sink-pipe encryptor (remote-actor-proxy cust-id socket)))))
        (send* (global-services) proxy :send verb msg)))
     )))
 

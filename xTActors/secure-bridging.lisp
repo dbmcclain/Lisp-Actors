@@ -106,20 +106,13 @@
 ;; We want to avoid inventing subtypes of Actors for this. Instead, we
 ;; manufacture stand-in Actors.
 
-(defun client-side-server-proxy (server-id socket)
-  ;; Used to setup a server proxy, on the client, for sending queries
-  ;; to server.
-  (actor (&rest msg)
-    ;; (send println (format nil "c/query: ~S" msg))
-    (send* socket server-id :send msg)))
-
-(defun server-side-client-proxy (client-id socket)
-  ;; Used to setup a target proxy, on the server, for sending replies
-  ;; back to client.
-  (when client-id
+(defun remote-actor-proxy (actor-id socket)
+  ;; Used to setup a target proxy for sending information across the
+  ;; socket to them.
+  (when actor-id
     (actor (&rest msg)
       ;; (send println (format nil "s/reply: ~S" msg))
-      (send* socket :reply client-id msg))))
+      (send* socket actor-id :send msg))))
 
 ;; Similarly, on the sending side, we can't just send along a cust
 ;; field of a message because it is an Actor, and contains a
@@ -185,7 +178,7 @@
    ((cust :prune)
     (send cust :pruned self-beh))
 
-   ((:reply client-id . msg) when (uuid:uuid= client-id id)
+   ((client-id :send . msg) when (uuid:uuid= client-id id)
     ;; Server replies are directed here via the client proxy id, to
     ;; find the actual client channel. Once a reply is received, this
     ;; proxy is destroyed. It is also removed after a timeout and no

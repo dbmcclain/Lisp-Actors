@@ -38,41 +38,37 @@
   ;; specify any data protocol. It may marshal objects and compress
   ;; the resulting byte stream before sending. A Channel is an
   ;; encryptor/decryptor married to a Socket.
-  (serializer
-   (actor (cust host-ip-addr)
-     (beta (socket chan local-services)
-         (send (with-timeout 6 (actors/network:client-connector)
-                             (actor _
-                               (serializer-abort cust)))
-               beta host-ip-addr)
-       (if (eq chan socket)
-         ;; just have a bare channel - negotiate a connection with the server
-         (let* ((arand       (int (ctr-drbg 256)))
-                (apt         (ed-nth-pt arand))
-                (client-pkey (ed-nth-pt client-skey))
-                ;; (socket      (show-client-outbound socket)) ;; ***
-                (responder
-                 (actor (server-id bpt)
-                   (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
-                          (chan  (client-channel
-                                  :local-services  local-services
-                                  :encryptor       (sink-pipe
-                                                    (secure-sender ekey client-skey)
-                                                    (client-side-server-proxy server-id socket))
-                                  :decryptor       (secure-reader ekey (ed-decompress-pt +server-pkey+))
-                                  )))
-                     (beta _
-                         (send (actors/network:connections) beta :add-channel socket chan)
-                       (send cust chan)) ;; to our local customer
-                     ))))
-           (beta (client-id)
-               (create-ephemeral-client-proxy beta local-services responder)
-             (send (client-side-server-proxy +server-connect-id+ socket)
-                   client-id +server-pkey+ (int client-pkey) (int apt))
-             ))
-         ;; else we already have a secure channel
-         (send cust chan))
-       ))))
+  (actor (cust host-ip-addr)
+    (beta (socket chan local-services)
+        (send (actors/network:client-connector) beta host-ip-addr)
+      (if (eq chan socket)
+          ;; just have a bare channel - negotiate a connection with the server
+          (let* ((arand       (int (ctr-drbg 256)))
+                 (apt         (ed-nth-pt arand))
+                 (client-pkey (ed-nth-pt client-skey))
+                 ;; (socket      (show-client-outbound socket)) ;; ***
+                 (responder
+                  (actor (server-id bpt)
+                    (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
+                           (chan  (client-channel
+                                   :local-services  local-services
+                                   :encryptor       (sink-pipe
+                                                     (secure-sender ekey client-skey)
+                                                     (remote-actor-proxy server-id socket))
+                                   :decryptor       (secure-reader ekey (ed-decompress-pt +server-pkey+))
+                                   )))
+                      (beta _
+                          (send (actors/network:connections) beta :add-channel socket chan)
+                        (send cust chan)) ;; to our local customer
+                      ))))
+            (beta (client-id)
+                (create-ephemeral-client-proxy beta local-services responder)
+              (send (remote-actor-proxy +server-connect-id+ socket)
+                    client-id +server-pkey+ (int client-pkey) (int apt))
+              ))
+        ;; else we already have a secure channel
+        (send cust chan))
+      )))
 
 ;; ---------------------------------------------------
 
