@@ -154,9 +154,17 @@
 (defun marshal-decompressor ()
   ;; takes a bytevec and produces a bytevec
   (actor (cust cmprvec)
-    (send cust (if (uncompressed? cmprvec)
+    (let ((vec (if (uncompressed? cmprvec)
                    cmprvec
-                 (xzlib:uncompress cmprvec)))))
+                 (handler-case
+                     (xzlib:uncompress cmprvec) ;; Windows version has been producing some errors...
+                   (error (c)
+                     (err c)
+                     nil))
+                 )))
+      (when vec
+        (send cust vec))
+      )))
 
 ;; ---------------------------------------------------------------
 
