@@ -51,10 +51,12 @@
 
 (defun pending-negotiations (client-skey)
   (or *pending-negotiations*
-      (setf *pending-negotiations* (make-actor (empty-pending-negotiations-beh client-skey)))
+      (setf *pending-negotiations*
+            (actors ((negotiator (empty-pending-negotiations-beh negotiator client-skey)))
+              negotiator))
       ))
 
-(defun empty-pending-negotiations-beh (client-skey)
+(defun empty-pending-negotiations-beh (top client-skey)
   (alambda
    ((cust :prune)
     (send cust :pruned self-beh))
@@ -62,7 +64,7 @@
    ((cust :get-chan socket local-services)
     (let ((next (make-actor self-beh)))
       (become (pending-negotiation-beh socket (list cust) next))
-      (send (negotiate-secure-channel) self client-skey socket local-services)))
+      (send (negotiate-secure-channel) top client-skey socket local-services)))
    ))
 
 (defun pending-negotiation-beh (socket custs next)

@@ -368,10 +368,12 @@
 
 (defun pending-connections ()
   (or *pending-connections*
-      (setf *pending-connections* (make-actor (empty-pending-connections-beh)))
+      (setf *pending-connections*
+            (actors ((pend (empty-pending-connections-beh pend)))
+              pend))
       ))
 
-(defun empty-pending-connections-beh ()
+(defun empty-pending-connections-beh (top)
   (alambda
    ((cust :prune)
     (send cust :pruned self-beh))
@@ -379,7 +381,7 @@
    ((cust :connect ip-addr ip-port report-ip-addr)
     (let ((next (make-actor self-beh)))
       (become (pending-connections-beh ip-addr ip-port report-ip-addr (list cust) next))
-      (send (make-socket-connection) self ip-addr ip-port report-ip-addr)
+      (send (make-socket-connection) top ip-addr ip-port report-ip-addr)
       ))
    ))
 

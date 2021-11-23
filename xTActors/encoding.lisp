@@ -120,6 +120,14 @@
     (send* cust msg)))
 
 (defun marshal-encoder ()
+  (actor (cust &rest args)
+    (send cust (loenc:encode args))))
+
+(defun marshal-decoder ()
+  (actor (cust vec)
+    (send* cust (loenc:decode vec))))
+
+(defun marshal-cmpr-encoder ()
   (actor (cust &rest msg)
     ;; takes arbitrary objects and producdes an encoded bytevec
     (send (marshal-compressor) cust (loenc:encode msg))))
@@ -128,7 +136,7 @@
   (and (>= (length vec) 4)
        (equalp #(82. 65. 76. 69.) (subseq vec 0 4)))) ;; "RALE"
 
-(defun marshal-decoder ()
+(defun marshal-decmpr-decoder ()
   ;; takes an encoded bytevec and produces arbitrary objects
   (actor (cust msg)
     (beta (enc)
@@ -140,13 +148,14 @@
   (actor (cust bytevec)
     (send cust (if (uncompressed? bytevec)
                    (handler-case
-                       ;; sometimes xzlib fails...
-                       (let ((cmpr (subseq (xzlib:compress bytevec :fixed) 0) ))
+                       ;; sometimes zlib fails...
+                       (let ((cmpr (subseq (zlib:compress bytevec :fixed) 0) ))
                          ;; we'd like to know if compression ever mimics uncompressed...
                          (assert (not (uncompressed? cmpr)))
                          cmpr)
                      (error (c)
-                       (warn "~%XZLIB: compression failure")
+                       (declare (ignore c))
+                       (warn "~%ZLIB: compression failure")
                        bytevec))
                  ;; else - already compressed
                  bytevec))))
@@ -157,9 +166,11 @@
     (let ((vec (if (uncompressed? cmprvec)
                    cmprvec
                  (handler-case
-                     (xzlib:uncompress cmprvec) ;; Windows version has been producing some errors...
+                     (zlib:uncompress cmprvec) ;; Windows version has been producing some errors...
                    (error (c)
-                     (err c)
+                     (declare (ignore c))
+                     (warn "~%ZLIB: decompression failure")
+                     ;; (err c)
                      nil))
                  )))
       (when vec
@@ -454,6 +465,7 @@
 (defun netw-encoder (ekey skey &key (max-chunk 65536))
   ;; takes arbitrary objects and produces a bytevec
   (pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
+        (marshal-compressor)
         (chunker :max-size max-chunk) ;; we want to limit network message sizes
         ;; --- then, for each chunk... ---
         (marshal-encoder)       ;; generates bytevec from chunker encoding
@@ -468,11 +480,13 @@
         (decryptor ekey)        ;; generates a bytevec
         (marshal-decoder)       ;; generates chunker encoding
         (dechunker)             ;; de-chunking back into original byte vector
+        (marshal-decompressor)
         (marshal-decoder)))     ;; decode byte vector into message objects
 
 (defun disk-encoder (&key (max-chunk 65536))
   ;; takes arbitrary objects and produces a bytevec
   (pipe (marshal-encoder)       ;; to get arb msg into bytevec form
+        (marshal-compressor)
         (chunker :max-size max-chunk)
         (marshal-encoder)
         (self-sync-encoder)))
@@ -482,6 +496,7 @@
   (pipe (self-sync-decoder)
         (marshal-decoder)
         (dechunker)
+        (marshal-decompressor)
         (marshal-decoder)))
 
 (defun encr-disk-encoder (ekey skey &key (max-chunk 65536))
@@ -617,6 +632,7 @@
     (let ((pkey-vec (vec (ed-nth-pt skey))))
       (beta (data-packet)
           (send* (pipe (marshal-encoder)
+                       (marshal-compressor)
                        (encryptor ekey)
                        (signing skey)
                        (marshal-encoder))
@@ -636,6 +652,7 @@
       (send (pipe (marshal-decoder)
                   (signature-validation pkey)
                   (decryptor ekey)
+                  (marshal-decompressor)
                   (marshal-decoder))
             cust data-packet)
       )))
