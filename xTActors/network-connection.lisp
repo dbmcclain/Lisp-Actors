@@ -357,7 +357,7 @@
     ;; by sending to cust, or execute serializer-abort.
     (let ((clean-ip-addr (canon-ip-addr ip-addr)))
       (cond ((null clean-ip-addr)
-             (err "Unknown host: ~A" ip-addr))
+             (err "Unknown host: ~S" ip-addr))
             (t
              (beta _
                  (send (connections) :on-find-sender clean-ip-addr ip-port cust beta)
@@ -399,13 +399,13 @@
    ((:ready an-ip-addr an-ip-port sender local-services) when (and (eql an-ip-addr ip-addr)
                                                                    (eql an-ip-port ip-port))
     (prune-self next)
-    (send fmt-println "Client Socket (~A) starting up" report-ip-addr)
+    (send fmt-println "Client Socket (~S) starting up" report-ip-addr)
     (send-to-all custs sender sender local-services))
 
    ((:abort an-ip-addr an-ip-port) when (and (eql an-ip-addr ip-addr)
                                              (eql an-ip-port ip-port))
     (prune-self next)
-    (err "Can't connect to: ~A" report-ip-addr))
+    (err "Can't connect to: ~S" report-ip-addr))
 
    (_
     (repeat-send next))
