@@ -421,7 +421,8 @@
             ip-addr ip-port
             (lambda (state args)
               (cond (args
-                     (send println :CONNECTION-ERROR
+                     (send println
+                           (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
                            (apply #'format nil args))
                      (send cust :abort ip-addr ip-port))
                     (t

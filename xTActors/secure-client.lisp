@@ -176,4 +176,5 @@
 (tst "rambo.local")
 (tst "dachshund.local")
 (tst "honeypot.local")
+(tst "david-pc.local")
 |#
