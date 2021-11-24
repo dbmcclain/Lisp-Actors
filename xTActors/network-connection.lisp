@@ -507,8 +507,8 @@ indicated port number."
 (defun reset-global-state ()
   (setf *ws-collection*        nil
         *aio-accepting-handle* nil
-        *connections*          nil
-        *client-connector*     nil))
+        *pending-connections*  nil
+        *connections*          nil))
 
 (defun* lw-start-tcp-server _
   ;; called by Action list with junk args
