@@ -26,7 +26,7 @@
 (defun destr-lambda-list-p (args)
   (and (consp args)
        (or (eq (car args) '&whole)
-           (not (alexandria:proper-list-p args))
+           (lw:dotted-list-p args)
            (some 'consp (subseq args 0
                                 (position-if #'is-lambda-list-keyword args))
                  ))))
