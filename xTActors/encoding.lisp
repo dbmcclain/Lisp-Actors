@@ -127,6 +127,7 @@
   (actor (cust vec)
     (send* cust (loenc:decode vec))))
 
+#|
 (defun marshal-cmpr-encoder ()
   (actor (cust &rest msg)
     ;; takes arbitrary objects and producdes an encoded bytevec
@@ -176,6 +177,18 @@
       (when vec
         (send cust vec))
       )))
+|#
+
+;; try using Google's SNAPPY
+(defun marshal-compressor ()
+  (actor (cust vec)
+    (multiple-value-bind (outvec nb)
+        (snappy:compress vec 0 (length vec))
+      (send cust (subseq outvec 0 nb)))))
+
+(defun marshal-decompressor ()
+  (actor (cust vec)
+    (send cust (snappy:uncompress vec 0 (length vec)))))
 
 ;; ---------------------------------------------------------------
 

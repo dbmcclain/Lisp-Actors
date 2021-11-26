@@ -73,6 +73,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                  "cps"
                  "lisp-object-encoder"
                  #+:USING-ECC-CRYPTO "core-crypto"
-                 "zlib"
+                 ;; "zlib"
+                 "snappy"
                  ))
 
