@@ -136,7 +136,6 @@
      ,@body))
 
 (defvar *default-ephemeral-ttl*  10)
-(defvar *default-services-ttl*   20)
 
 (defun empty-local-service-beh (top)
   (alambda
@@ -240,11 +239,13 @@
 
 (defun secure-sender (ekey skey)
   (pipe (marshal-encoder)
+        (marshal-compressor)
         (encryptor ekey)
         (signing   skey)))
 
 (defun secure-reader (ekey pkey)
   (pipe (signature-validation pkey)
         (decryptor ekey)
+        (marshal-decompressor)
         (marshal-decoder)))
 
