@@ -7,14 +7,28 @@
 ;; --------------------------------------------------------------------
 ;; Client side
 
-(defvar *client-gateway*  nil)
-
-(defun client-gateway ()
-  (or *client-gateway*
-      (setf *client-gateway*
-            (client-crypto-gate (make-deterministic-keys (uuid:make-v1-uuid))))
-      ))
-
+(def-singleton-actor client-gateway ()
+  ;; This is the main local client service used to initiate
+  ;; connections with foreign servers. We develop a DHE shared secret
+  ;; encryption key for use across a private connection portal with
+  ;; the server.
+  ;;
+  ;; A Connection consists of a Socket and a Channel. A Socket merely
+  ;; supports the tranport of data across a network. It does not
+  ;; specify any data protocol. It may marshal objects and compress
+  ;; the resulting byte stream before sending. A Channel is an
+  ;; encryptor/decryptor married to a Socket.
+  (let ((skey (make-deterministic-keys (uuid:make-v1-uuid))))
+    (actors ((pending-negotiations (empty-pending-negotiations-beh pending-negotiations skey)))
+      (actor (cust host-ip-addr)
+        (beta (socket chan local-services)
+            (send (actors/network:client-connector) beta host-ip-addr)
+          (if (eq chan socket)
+              (send pending-negotiations cust :get-chan socket local-services)
+            (send cust chan)
+            ))
+        ))))
+    
 #| ;; for debugging
 (defun show-client-outbound (socket)
   (actor (&rest msg)
@@ -27,42 +41,13 @@
     (send* cust msg)))
 |#
 
-(defun client-crypto-gate (client-skey)
-  ;; This is the main local client service used to initiate
-  ;; connections with foreign servers. We develop a DHE shared secret
-  ;; encryption key for use across a private connection portal with
-  ;; the server.
-  ;;
-  ;; A Connection consists of a Socket and a Channel. A Socket merely
-  ;; supports the tranport of data across a network. It does not
-  ;; specify any data protocol. It may marshal objects and compress
-  ;; the resulting byte stream before sending. A Channel is an
-  ;; encryptor/decryptor married to a Socket.
-  (actor (cust host-ip-addr)
-    (beta (socket chan local-services)
-        (send (actors/network:client-connector) beta host-ip-addr)
-      (if (eq chan socket)
-          (send (pending-negotiations client-skey) cust :get-chan socket local-services)
-        (send cust chan)
-        ))
-    ))
-
-(defvar *pending-negotiations*  nil)
-
-(defun pending-negotiations (client-skey)
-  (or *pending-negotiations*
-      (setf *pending-negotiations*
-            (actors ((negotiator (empty-pending-negotiations-beh negotiator client-skey)))
-              negotiator))
-      ))
-
 (defun empty-pending-negotiations-beh (top client-skey)
   (prunable-alambda
 
    ((cust :get-chan socket local-services)
     (let ((next (make-actor self-beh)))
       (become (pending-negotiation-beh socket (list cust) next))
-      (send (negotiate-secure-channel) top client-skey socket local-services)))
+      (send (negotiate-secure-channel client-skey socket local-services) top)))
    ))
 
 (defun pending-negotiation-beh (socket custs next)
@@ -79,8 +64,8 @@
     (repeat-send next))
    ))
 
-(defun negotiate-secure-channel ()
-  (actor (cust client-skey socket local-services)
+(defun negotiate-secure-channel (client-skey socket local-services)
+  (actor (cust)
     (let* ((arand       (int (ctr-drbg 256)))
            (apt         (ed-nth-pt arand))
            (client-pkey (ed-nth-pt client-skey))
@@ -134,6 +119,8 @@
 ;; User side of Client Interface
 
 (defun remote-service (name host-ip-addr)
+  ;; An Actor and send target. Connection to remote service
+  ;; established on demand.
   (actor (cust &rest msg)
     (beta (chan)
         (send (client-gateway) beta host-ip-addr)

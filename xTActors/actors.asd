@@ -42,6 +42,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "prim-actors")
                 (:file "actors-directory")
                 (:file "encoding")
+                (:file "singletons")
                 
                 ;; #+(AND :MACOSX :COM.RAL) (:file "fft-fixup")
                 ;; (:file "actor-class")

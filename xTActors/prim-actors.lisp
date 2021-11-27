@@ -579,8 +579,7 @@
       (lambda (cust &rest msg)
         (send* sink-blk msg)
         (send* cust msg))
-    (lambda (cust &rest msg)
-      (send* cust msg))))
+    #'send))
 
 (defun pass (&optional sink-blk)
   (make-actor (pass-beh sink-blk)))

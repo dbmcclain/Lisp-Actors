@@ -182,12 +182,13 @@
 ;; either side.  srv-id would be registered at the receiving server,
 ;; and cust-id will be registered at the sending client end.
 ;;
-(defun empty-connections-list ()
+
+(defun empty-connections-list-beh ()
   (prunable-alambda
 
    ((cust :add-socket ip-addr ip-port state sender)
     (let ((next (make-actor self-beh)))
-      (become (connection-node ip-addr ip-port state sender sender next))
+      (become (connection-node-beh ip-addr ip-port state sender sender next))
       (send cust :ok)))
 
    ((:on-find-sender _ _ _ if-not-found)
@@ -197,21 +198,21 @@
     (send cust :ok))
    ))
 
-(defun connection-node (ip-addr ip-port state sender chan next)
+(defun connection-node-beh (ip-addr ip-port state sender chan next)
   (prunable-alambda
 
    ((cust :add-socket an-ip-addr an-ip-port new-state new-sender) when (and (eql an-ip-addr ip-addr)
                                                                             (eql an-ip-port ip-port))
     ;; replacing the sender and state - kills the old chan and has to be renegotiated
-    (become (connection-node ip-addr ip-port new-state new-sender new-sender next))
+    (become (connection-node-beh ip-addr ip-port new-state new-sender new-sender next))
     (send cust :ok))
 
-   ((:on-find-sender an-ip-addr an-ip-port cust . _) when (and (eql an-ip-addr ip-addr)
-                                                               (eql an-ip-port ip-port))
-    (send cust sender chan (intf-state-local-services state)))
+   ((:on-find-sender an-ip-addr an-ip-port if-found . _) when (and (eql an-ip-addr ip-addr)
+                                                                   (eql an-ip-port ip-port))
+    (send if-found sender chan (intf-state-local-services state)))
 
    ((cust :set-channel a-sender new-chan) when (eq a-sender sender)
-    (become (connection-node ip-addr ip-port state sender new-chan next))
+    (become (connection-node-beh ip-addr ip-port state sender new-chan next))
     (send cust :ok))
 
    ((cust :remove a-state) when (eq a-state state)
@@ -222,11 +223,8 @@
     (repeat-send next))
    ))
 
-(defvar *connections* nil)
-
-(defun connections ()
-  (or *connections*
-      (setf *connections* (make-actor (empty-connections-list)))))
+(def-singleton-actor connections ()
+  (make-actor (empty-connections-list-beh)))
 
 ;; -------------------------------------------------------------
 
@@ -345,29 +343,21 @@
 (defun canon-ip-addr (ip-addr)
   (comm:get-host-entry ip-addr :fields '(:address)))
 
-(defun client-connector ()
-  (actor (cust ip-addr &optional (ip-port *default-port*))
-    ;; Called from client side wishing to connect to a server.
-    ;;
-    ;; Because we are serialized, one way or another, we have to exit
-    ;; by sending to cust, or execute serializer-abort.
-    (let ((clean-ip-addr (canon-ip-addr ip-addr)))
-      (cond ((null clean-ip-addr)
-             (err "Unknown host: ~S" ip-addr))
-            (t
-             (beta _
-                 (send (connections) :on-find-sender clean-ip-addr ip-port cust beta)
-               (send (pending-connections) cust :connect clean-ip-addr ip-port ip-addr)))
-            ))))
-
-(defvar *pending-connections*  nil)
-
-(defun pending-connections ()
-  (or *pending-connections*
-      (setf *pending-connections*
-            (actors ((pend (empty-pending-connections-beh pend)))
-              pend))
-      ))
+(def-singleton-actor client-connector ()
+  (actors ((pending-connections (empty-pending-connections-beh pending-connections)))
+    (actor (cust ip-addr &optional (ip-port *default-port*))
+      ;; Called from client side wishing to connect to a server.
+      ;;
+      ;; Because we are serialized, one way or another, we have to exit
+      ;; by sending to cust, or execute serializer-abort.
+      (let ((clean-ip-addr (canon-ip-addr ip-addr)))
+        (cond ((null clean-ip-addr)
+               (err "Unknown host: ~S" ip-addr))
+              (t
+               (beta _
+                   (send (connections) :on-find-sender clean-ip-addr ip-port cust beta)
+                 (send pending-connections cust :connect clean-ip-addr ip-port ip-addr)))
+              )))))
 
 (defun empty-pending-connections-beh (top)
   (prunable-alambda
@@ -375,7 +365,7 @@
    ((cust :connect ip-addr ip-port report-ip-addr)
     (let ((next (make-actor self-beh)))
       (become (pending-connections-beh ip-addr ip-port report-ip-addr (list cust) next))
-      (send (make-socket-connection) top ip-addr ip-port report-ip-addr)
+      (send (make-socket-connection ip-addr ip-port report-ip-addr) top)
       ))
    ))
 
@@ -401,8 +391,8 @@
     (repeat-send next))
    ))
 
-(defun make-socket-connection ()
-  (actor (cust ip-addr ip-port report-ip-addr)
+(defun make-socket-connection (ip-addr ip-port report-ip-addr)
+  (actor (cust) 
     (beta (io-state)
         (mp:funcall-async
          (lambda ()
@@ -497,9 +487,8 @@ indicated port number."
 
 (defun reset-global-state ()
   (setf *ws-collection*        nil
-        *aio-accepting-handle* nil
-        *pending-connections*  nil
-        *connections*          nil))
+        *aio-accepting-handle* nil)
+  (reset-singleton-actors))
 
 (defun* lw-start-tcp-server _
   ;; called by Action list with junk args
@@ -508,7 +497,6 @@ indicated port number."
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
   (unless *ws-collection*
-    (start-server-gateway)
     (start-tcp-server)))
 
 (defun* lw-reset-actor-system _

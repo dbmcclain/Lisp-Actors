@@ -82,13 +82,43 @@
      (repeat-send next))
    ))
 
-(defvar *global-services*  nil)
+;; -----------------------------------------------
+;; Simple Services
 
-(defun global-services ()
-  (or *global-services*
-      (setf *global-services* (make-actor (null-service-list-beh)))
-      ))
+(defun make-echo ()
+  (actor (cust msg)
+    ;; (send println (format nil "echo got: ~S" msg))
+    (send cust msg)))
 
+(defun cmpfn (&rest args)
+  (compile nil `(lambda ()
+                  ,@args)))
+
+(defun make-eval ()
+  (actor (cust form)
+    (send cust (funcall (cmpfn form)))))
+
+(defun make-avail ()
+  (actor (cust)
+    (send (global-services) cust :available-services nil)))
+
+;; -----------------------------------------------
+
+(def-singleton-actor global-services ()
+  (let ((gs  (make-actor (null-service-list-beh))))
+    (send* (actor (&rest svcs)
+             (when svcs
+               (let ((me  self))
+                 (beta _
+                     (send* gs beta :add-service (car svcs))
+                   (send* me (cdr svcs))
+                   ))))
+           `((:echo               ,(make-echo))
+             (:eval               ,(make-eval))
+             (:available-services ,(make-avail)))
+           )
+    gs))
+    
 ;; ------------------------------------------------------------
 ;; When the socket connection (server or client side) receives an
 ;; incoming message, the cust field of the message will contain a

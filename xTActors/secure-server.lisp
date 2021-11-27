@@ -81,47 +81,6 @@
     (format t "~%pkey: #x~x" (int pkey))))
 |#
 
-;; -----------------------------------------------
-;; Simple Services
-
-(defun make-echo ()
-  (actor (cust msg)
-    ;; (send println (format nil "echo got: ~S" msg))
-    (send cust msg)))
-
-(defun cmpfn (&rest args)
-  (compile nil `(lambda ()
-                  ,@args)))
-
-(defun make-eval ()
-  (actor (cust form)
-    (send cust (funcall (cmpfn form)))))
-
-(defun make-avail ()
-  (actor (cust)
-    (send (global-services) cust :available-services nil)))
-
-;; -----------------------------------------------
-
-(defun make-initial-global-services ()
-  (send* (actor (&rest svcs)
-           (when svcs
-             (let ((me  self))
-               (beta _
-                   (send* (global-services) beta :add-service (car svcs))
-                 (send* me (cdr svcs))
-                 ))))
-         `((:echo               ,(make-echo))
-           (:eval               ,(make-eval))
-           (:available-services ,(make-avail)))
-         ))
-
-(defun start-server-gateway ()
-  (setf *client-gateway*       nil
-        *pending-negotiations* nil
-        *global-services*      nil)
-  (make-initial-global-services))
-  
 ;; ------------------------------------------------------------
 #|
 (let* ((msg :diddly)

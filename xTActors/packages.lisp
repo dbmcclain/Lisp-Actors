@@ -245,6 +245,9 @@ THE SOFTWARE.
    #:list-exploder
 
    #:with-timeout
+
+   #:def-singleton-actor
+   #:reset-singleton-actors
    ))
 
 #-lispworks
