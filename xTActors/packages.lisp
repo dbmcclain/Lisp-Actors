@@ -173,6 +173,7 @@ THE SOFTWARE.
    #:timing
    #:sequenced-delivery
    #:prune-self
+   #:prunable-alambda
    #:mbox-sender
    #:ioreq
    #:time-tag

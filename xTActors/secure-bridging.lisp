@@ -44,9 +44,7 @@
 ;; Self-organizing list of services for Server and connection Actors
 
 (defun null-service-list-beh ()
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
+  (prunable-alambda
 
    ((cust :available-services lst)
     (send cust (reverse lst)))
@@ -61,9 +59,7 @@
    ))
 
 (defun service-list-beh (name handler next)
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
+  (prunable-alambda
 
    ((cust :send verb . msg) when (eql verb name)
     (send* handler cust msg))
@@ -138,9 +134,7 @@
 (defvar *default-ephemeral-ttl*  10)
 
 (defun empty-local-service-beh (top)
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
+  (prunable-alambda
 
    ((cust :add-service-with-id id actor)
     (let ((next  (make-actor self-beh)))
@@ -173,9 +167,7 @@
 
 (defun local-ephemeral-client-beh (id actor next)
   ;; used by clients to hold ephemeral reply proxies
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
+  (prunable-alambda
 
    ((client-id :send . msg) when (uuid:uuid= client-id id)
     ;; Server replies are directed here via the client proxy id, to
@@ -200,9 +192,7 @@
 
 (defun local-service-beh (id actor next)
   ;; used by servers to hold proxies for local service channels
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
+  (prunable-alambda
 
    ((serv-id :send . msg) when (uuid:uuid= serv-id id)
     ;; We do not automatically remove this entry once used. Instead,

@@ -388,10 +388,14 @@
   (become (pruned-beh next))
   (send next self :prune))
 
+(defmacro prunable-alambda (&body clauses)
+  `(alambda
+    ((cust :prune)
+     (send cust :pruned self-beh))
+    ,@clauses))
+
 (defun no-pend-beh ()
-  (alambda
-   ((prev :prune)
-    (send prev :pruned self-beh))
+  (prunable-alambda
 
    ((:wait ctr . msg)
     (let ((next (make-actor
@@ -400,9 +404,7 @@
    ))
 
 (defun pend-beh (ctr msg next)
-  (alambda
-   ((prev :prune)
-    (send prev :pruned self-beh))
+  (prunable-alambda
 
    ((cust :ready in-ctr) when (eql ctr in-ctr)
     (send* cust ctr msg)

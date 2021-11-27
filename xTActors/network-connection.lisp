@@ -183,9 +183,7 @@
 ;; and cust-id will be registered at the sending client end.
 ;;
 (defun empty-connections-list ()
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
+  (prunable-alambda
 
    ((cust :add-socket ip-addr ip-port state sender)
     (let ((next (make-actor self-beh)))
@@ -200,9 +198,7 @@
    ))
 
 (defun connection-node (ip-addr ip-port state sender chan next)
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
+  (prunable-alambda
 
    ((cust :add-socket an-ip-addr an-ip-port new-state new-sender) when (and (eql an-ip-addr ip-addr)
                                                                             (eql an-ip-port ip-port))
@@ -374,9 +370,7 @@
       ))
 
 (defun empty-pending-connections-beh (top)
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
+  (prunable-alambda
 
    ((cust :connect ip-addr ip-port report-ip-addr)
     (let ((next (make-actor self-beh)))
@@ -386,9 +380,7 @@
    ))
 
 (defun pending-connections-beh (ip-addr ip-port report-ip-addr custs next)
-  (alambda
-   ((cust :prune)
-    (send cust :pruned self-beh))
+  (prunable-alambda
 
    ((cust :connect an-ip-addr an-ip-port . _) when (and (eql an-ip-addr ip-addr)
                                                         (eql an-ip-port ip-port))
