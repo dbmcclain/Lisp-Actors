@@ -392,9 +392,7 @@
 
    ((cust :connect an-ip-addr an-ip-port . _) when (and (eql an-ip-addr ip-addr)
                                                         (eql an-ip-port ip-port))
-    (let ((next (make-actor self-beh)))
-      (become (pending-connections-beh ip-addr ip-port report-ip-addr (cons cust custs) next))
-      ))
+    (become (pending-connections-beh ip-addr ip-port report-ip-addr (cons cust custs) next)))
    
    ((:ready an-ip-addr an-ip-port sender local-services) when (and (eql an-ip-addr ip-addr)
                                                                    (eql an-ip-port ip-port))
