@@ -19,7 +19,6 @@
              ac-secure-comm:server-crypto-gateway
              ac-secure-comm:+server-connect-id+
              ac-secure-comm:+server-skey+
-             ac-secure-comm:start-server-gateway
              )))
 
 ;; -----------------------------------------------------------------------
@@ -497,6 +496,7 @@ indicated port number."
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
   (unless *ws-collection*
+    (global-services) ;; to get them pre-filled with basic services
     (start-tcp-server)))
 
 (defun* lw-reset-actor-system _
