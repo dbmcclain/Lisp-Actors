@@ -214,7 +214,7 @@
                                                                (eql an-ip-port ip-port))
     (send cust sender chan (intf-state-local-services state)))
 
-   ((cust :add-channel a-sender new-chan) when (eq a-sender sender)
+   ((cust :set-channel a-sender new-chan) when (eq a-sender sender)
     (become (connection-node ip-addr ip-port state sender new-chan next))
     (send cust :ok))
 

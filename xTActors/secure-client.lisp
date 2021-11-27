@@ -73,9 +73,7 @@
     (send cust :pruned self-beh))
 
    ((cust :get-chan a-socket . _) when (eq a-socket socket)
-    (let ((next (make-actor self-beh)))
-      (become (pending-negotiation-beh socket (cons cust custs) next))
-      ))
+    (become (pending-negotiation-beh socket (cons cust custs) next)))
 
    ((:use-chan a-socket chan) when (eq a-socket socket)
     (prune-self next)
@@ -102,7 +100,7 @@
                              :decryptor       (secure-reader ekey (ed-decompress-pt +server-pkey+))
                              )))
                 (beta _
-                    (send (actors/network:connections) beta :add-channel socket chan)
+                    (send (actors/network:connections) beta :set-channel socket chan)
                   (send cust :use-chan socket chan)) ;; to our local customer
                 ))))
       (beta (client-id)
