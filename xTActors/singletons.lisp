@@ -18,7 +18,7 @@
     ))
 
 (defun reset-singleton-actors ()
-  ;; useful for resume after save-image
+  ;; useful for reset ahead of save-image
   (dolist (actor *singleton-actors*)
     (setf (symbol-value actor) nil)))
 
