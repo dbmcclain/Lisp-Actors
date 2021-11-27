@@ -117,8 +117,9 @@
          ))
 
 (defun start-server-gateway ()
-  (setf *client-gateway*  nil
-        *global-services* nil)
+  (setf *client-gateway*       nil
+        *pending-negotiations* nil
+        *global-services*      nil)
   (make-initial-global-services))
   
 ;; ------------------------------------------------------------
