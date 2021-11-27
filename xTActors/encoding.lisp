@@ -179,16 +179,24 @@
       )))
 |#
 
+(defun simple-compress (vec)
+  ;; vec is UB8
+  (multiple-value-bind (outvec nb)
+      (snappy:compress vec 0 (length vec))
+    (subseq outvec 0 nb)))
+
+(defun simple-uncompress (vec)
+  ;; vec is UB8
+  (snappy:uncompress vec 0 (length vec)))
+
 ;; try using Google's SNAPPY
 (defun marshal-compressor ()
   (actor (cust vec)
-    (multiple-value-bind (outvec nb)
-        (snappy:compress vec 0 (length vec))
-      (send cust (subseq outvec 0 nb)))))
+    (send cust (simple-compress vec))))
 
 (defun marshal-decompressor ()
   (actor (cust vec)
-    (send cust (snappy:uncompress vec 0 (length vec)))))
+    (send cust (simple-uncompress vec))))
 
 ;; ---------------------------------------------------------------
 
