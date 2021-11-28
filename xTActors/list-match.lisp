@@ -100,7 +100,7 @@
 (editor:setup-indent "match" 1)
 
 #|
-(list-match '(2 :a 15)
+(match '(2 :a 15)
   ((x :a y) when (oddp x)
    (+ x y))
   ((x :a y)
@@ -109,7 +109,7 @@
    :what)
   )
   
-(LIST-MATCH #:MSG4106
+(MATCH #:MSG4106
               ((ACTORS/BASE::CUST :PRUNE) (SEND ACTORS/BASE::CUST :PRUNED SELF-BEH))
               ((CUST :SEND VERB . MSG) WHEN (EQL VERB NAME) (SEND* HANDLER CUST MSG))
               ((CUST :ADD-SERVICE ANAME NEW-HANDLER)
