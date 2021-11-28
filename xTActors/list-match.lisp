@@ -5,22 +5,28 @@
 
 (in-package :list-match)
 
+(defun dont-care-p (sym)
+  (and (symbolp sym)
+       (string= sym "_")))
+
 (defun match-pat (msg pat)
   ;; collect binding values in reverse order
   (um:nlet iter ((pat  pat)
                  (msg  msg)
                  (vals nil))
     (cond  ((atom pat) ;; NIL (as in ENDP) is also an atom
-            (cond ((null pat)      (values (null msg) vals)) ;; NIL is also a symbol (!!)
-                  ((eql '_ pat)    (values t vals))
-                  ((keywordp pat)  (values (eql msg pat) vals))
-                  ((symbolp pat)   (values t (cons msg vals)))
-                  (t               (values (equalp msg pat) vals))
+            (cond ((null pat)         (values (null msg) vals)) ;; NIL is also a symbol (!!)
+                  ((dont-care-p pat)  (values t vals))
+                  ((keywordp pat)     (values (eql msg pat) vals))
+                  ((symbolp pat)      (values t (cons msg vals)))
+                  (t                  (values (equalp msg pat) vals))
                   ))
            ((eql 'quote (car pat))
             (values (equalp msg (cadr pat)) vals))
            ((eql 'function (car pat))
-            (values (eq msg (cadr pat)) vals))
+            (values (and (symbolp (cadr pat))
+                         (eq msg (symbol-function (cadr pat))))
+                    vals))
            ((consp msg)
             (multiple-value-bind (ok new-vals)
                 (iter (car pat) (car msg) vals)
@@ -32,6 +38,7 @@
 #|
 (match-pat '(1 2 3 (4 15 16 17 18 19) 20 21 22)
            '(a b _ (c 15 d . e) . f))
+(match-pat (list 1 #'1+ 3) '(a #'1+ b))
 |#
 
 (defun match-clause (msg pat tst fn)
@@ -49,7 +56,7 @@
                  (args nil))
     (cond ((atom pat)
            (cond ((null pat)        args)
-                 ((eql '_ pat)      args)
+                 ((dont-care-p pat) args)
                  ((keywordp pat)    args)
                  ((symbolp pat)     (cons pat args))
                  (t                 args)
@@ -64,7 +71,7 @@
           )))
 
 #|
-(collect-args '(a b _ (c 15 d . f) . f))
+(collect-args '(a b _ (c 15 d . e) . f))
 |#
 
 (defun parse-match-clause (lbl fail msg clause)
