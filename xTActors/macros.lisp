@@ -173,6 +173,7 @@
 ;; ALAMBDA -- a behavior lambda for Actors with pattern matching on
 ;; messages
 
+#| ;; when using Optima MATCH
 (defmacro list-match (lst &rest clauses)
   `(optima:match ,lst
      ,@(mapcar (lambda (clause)
@@ -194,6 +195,12 @@
     `(lambda (&rest ,msg)
        (list-match ,msg ,@clauses))
     ))
+|#
+
+(defmacro alambda (&rest clauses)
+  (lw:with-unique-names (msg)
+    `(lambda (&rest ,msg)
+       (match ,msg ,@clauses))))
 
 ;; ------------------------------------------------------
 
@@ -203,10 +210,17 @@
 (defmacro ret* (&rest ans)
   `(send* γ ,@ans))
 
+#| -- when using Optima
 (defmacro γlambda (&rest clauses)
   (lw:with-unique-names (msg)
     `(lambda (γ &rest ,msg) ;; use RET or RET* instead of SEND CUST
        (list-match ,msg ,@clauses))
+    ))
+|#
+(defmacro γlambda (&rest clauses)
+  (lw:with-unique-names (msg)
+    `(lambda (γ &rest ,msg) ;; use RET or RET* instead of SEND CUST
+       (match ,msg ,@clauses))
     ))
 
 (defmacro γactor (args &body body)

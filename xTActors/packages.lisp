@@ -29,6 +29,12 @@ THE SOFTWARE.
 
 (in-package :CL-USER)
 
+(defpackage #:list-match
+  (:use #:common-lisp)
+  (:export
+   #:match
+   #:match-fail))
+
 (defpackage #:actors
   (:nicknames #:ac)
   (:use #:common-lisp #:def*)
@@ -41,6 +47,9 @@ THE SOFTWARE.
   (:import-from #:timeout
    #:timeout
    #:*timeout*)
+  (:import-from #:list-match
+   #:match
+   #:match-fail)
   (:export
    #:timeout
    #:*timeout*)
@@ -57,7 +66,9 @@ THE SOFTWARE.
    #:pass
    #:pass-beh
    #:fork
-   #:list-match
+   #:match
+   #:match-fail
+   ;; #:list-match
    #:actor-nlet
    #:is-pure-sink?
 
