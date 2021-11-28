@@ -183,7 +183,7 @@
   ;; vec is UB8
   (multiple-value-bind (outvec nb)
       (snappy:compress vec 0 (length vec))
-    (subseq outvec 0 nb)))
+    (adjust-array outvec nb)))
 
 (defun simple-uncompress (vec)
   ;; vec is UB8
