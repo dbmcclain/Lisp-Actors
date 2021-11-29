@@ -83,8 +83,7 @@
       (unless (equalp args
                       (remove-duplicates args))
         (warn "duplicate binding names in match pattern: ~A" args))
-      (when (and (consp body)
-                 (eql 'when (car body)))
+      (when (eql 'when (car body))
         (setf tst  `(lambda ,args
                       (declare (ignorable ,@args))
                       ,(cadr body))
