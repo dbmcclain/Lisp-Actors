@@ -95,8 +95,8 @@ storage and network transmission.
     (alambda
 
      ((cust :read queryfn)
-      (with-worker
-        (send cust (funcall queryfn kv-map))))
+      (concurrently
+       (send cust (funcall queryfn kv-map))))
 
      ((cust :write updatefn)
       (with-sponsor ()
@@ -112,8 +112,8 @@ storage and network transmission.
     (alambda
      
      ((cust :read queryfn)
-      (with-worker
-        (send cust (funcall queryfn kv-map) )))
+      (concurrently
+       (send cust (funcall queryfn kv-map) )))
       
      ((cust :write updatefn)
       (with-sponsor ()

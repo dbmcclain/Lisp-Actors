@@ -121,7 +121,7 @@ THE SOFTWARE.
    #:actor-beh
    #:make-actor
    #:make-remote-actor
-   #:with-worker
+   #:concurrently
    
    #:make-actor-directory
    #:clear-directory

@@ -154,7 +154,7 @@
                     (make-actor (beta-beh ,@params))))
            (macrolet ((beta (&rest args)
                         `(beta-gen ,@args)))
-             ;; this beta binding lasts only for the next form
+             ;; this beta redef lasts only for the next form
              ,form))
       ;; else
       `(let ((beta  (actor ,args ,@body)))
@@ -164,10 +164,9 @@
 #+:LISPWORKS
 (editor:indent-like "beta" 'destructuring-bind)
 
-(defmacro with-worker (&body body)
-  `(beta _
-       (send beta)
-     ,@body))
+(defmacro concurrently (&body body)
+  ;; spawn a new concurrent Actor to perform the body
+  `(send (actor () ,@body)))
 
 ;; ------------------------------------------------------
 ;; ALAMBDA -- a behavior lambda for Actors with pattern matching on
