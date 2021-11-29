@@ -217,12 +217,20 @@ THE SOFTWARE.
 (defstruct zl-compressed
   data)
 
+(defun simple-compress (ub8v)
+  (multiple-value-bind (outvec nb)
+      (snappy:compress ub8v 0 (length ub8v))
+    (adjust-array outvec nb)))
+
+(defun simple-decompress (ub8v)
+  (snappy:uncompress ub8v 0 (length ub8v)))
+
 (defun zl-compress (x)
   (make-zl-compressed
-   :data (xzlib:compress (loenc:encode x) :fixed)))
+   :data (simple-compress (loenc:encode x))))
 
 (defmethod decompress ((x zl-compressed))
   (loenc:decode
-   (xzlib:uncompress
+   (simple-decompress
     (zl-compressed-data x))))
 

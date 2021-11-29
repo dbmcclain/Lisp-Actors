@@ -767,7 +767,7 @@ position. INDEX is the index to the current position in BUFFER"
             (setq temp-length (min (- (length buffer) index)
                                    (- (min index (+ position +max-length+))
                                       position)))
-            (format t "~&Full match")
+            ;; (format t "~&Full match")
             (when (and (> temp-length length) (>= temp-length 3))
               (setf length temp-length
                     final-position position))))

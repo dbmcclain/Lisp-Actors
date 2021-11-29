@@ -30,55 +30,59 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------------
 
-(um:defconstant+ +empty+      #())
-(um:defconstant+ +empty-cell+ (list +empty+))
+(um:defconstant+ +uniq+ #())
 
 (defun cache (fn &key (test #'equal))
   ;; provide a simple 2-way associative cache on function fn
-  (let* ((cache (vector +empty-cell+ ;; = (cons +empty+ nil)
-                        +empty-cell+))
-         (ix    0))
+  (let* ((cache (vector (list +uniq+) (list +uniq+)))
+         (ix    0)) ;; MRU index
     (declare (fixnum ix)
              ((vector cons 2) cache))
-    (um:dlambda*
-     (:clear ()
-      (fill cache +empty-cell+))
-     
-     (:toggle-ix ()
-      (setf ix (logxor ix 1)))
-     
-     (:set-values (vals &rest args)
-      (assert (listp vals))
-      (values-list
-       (let* ((v1 (aref cache ix)))
-         (if (funcall test args (car v1))
-             (setf (cdr v1) vals)
-           ;; else
-           (let ((v2  (aref cache (the fixnum (:toggle-ix)))))
-             (setf (car v2) args
-                   (cdr v2) vals)
-             )))))
-     
-     (:set (val &rest args)
-      (apply #':set-values (list val) args))
-     
-     (t (&rest args)
-        (values-list
-         (let* ((v1 (aref cache ix)))
-           (declare (cons v1))
-           (if (funcall test args (car v1))
-               (cdr v1)
-             ;; else
-             (let ((v2  (aref cache (the fixnum (:toggle-ix)))))
-               (declare (cons v2))
-               (if (funcall test args (car v2))
-                   (cdr v2)
-                 ;; else
-                 (let ((ans (multiple-value-list (apply fn args))))
-                   (setf (car v2) args
-                         (cdr v2) ans))
-                 ))))))
-     )))
+    (labels ((tst (x cx)
+               (and (not (eq cx +uniq+)) ;; can't allow +uniq+ to be abused
+                    (funcall test x cx)))
+             (zap (cell)
+               (setf (car cell) +uniq+
+                     (cdr cell) nil))
+             (find-cell (args)
+               (let ((cell (aref cache ix)))
+                 (declare (cons cell))
+                 (if (tst args (car cell))
+                     (values cell t)
+                   (aref cache (setf ix (logxor ix 1))))
+                 )))
+      (dlam:dlambda*
+        (:clear ()
+         (map nil #'zap cache))
+        
+        (:set-values (vals &rest args)
+         (assert (listp vals))
+         ;; check MRU cell first as most likely
+         (values-list
+          (let ((cell (find-cell args)))
+            (declare (cons cell))
+            (setf (car cell) args
+                  (cdr cell) vals)
+            )))
+        
+        (:set (val &rest args)
+         (apply #':set-values (list val) args))
+        
+        (t (&rest args)
+           ;; check MRU cell first as most likely
+           (values-list
+            (multiple-value-bind (cell checked)
+                (find-cell args)
+              (declare (cons cell))
+              (if checked
+                  (cdr cell)
+                (if (tst args (car cell))
+                    (cdr cell)
+                  (let ((ans (multiple-value-list (apply fn args))))
+                    (setf (car cell) args
+                          (cdr cell) ans))
+                  )))))
+        ))))
 
 (defun cacheize (fn-name)
   (unless (get fn-name 'cacheized)
@@ -95,8 +99,8 @@ THE SOFTWARE.
 ;; -----------------------------------------------------------
 #|
 (defclass 2-way-cache ()
-  ((cache   :accessor 2-way-cache       :initform (vector (cons +empty+ nil)
-                                                          (cons +empty+ nil)))
+  ((cache   :accessor 2-way-cache       :initform (vector (cons +uniq+ nil)
+                                                          (cons +uniq+ nil)))
    (ix      :accessor 2-way-cache-ix    :initform 0)
    (test    :accessor 2-way-cache-test  :initarg :test :initform 'eql)
    ))
@@ -111,11 +115,11 @@ THE SOFTWARE.
              ((vector t 2) cache)
              (cons v1))
     
-    ;; must check for +empty+ cache cell, since
+    ;; must check for +uniq+ cache cell, since
     ;; we have no idea what the user's test-fn will try to do...
-    ;; e.g., it might ask for the (string key) and +empty+ cannot be coerced to string
+    ;; e.g., it might ask for the (string key) and +uniq+ cannot be coerced to string
     (labels ((test-key (k)
-               (and (not (eq +empty+ k))
+               (and (not (eq +uniq+ k))
                     (funcall test-fn key k))))
     
       (if (test-key k1)
@@ -152,8 +156,8 @@ THE SOFTWARE.
 (defmethod clear-cache ((obj 2-way-cache))
   (let ((cache (2-way-cache obj)))
     (declare ((vector t 2) cache))
-    (setf (car (the cons (aref cache 0))) +empty+  ;; reset the key (car) into something unique
-          (car (the cons (aref cache 1))) +empty+)
+    (setf (car (the cons (aref cache 0))) +uniq+  ;; reset the key (car) into something unique
+          (car (the cons (aref cache 1))) +uniq+)
     ))
 |#
 ;; ---------------------------------------------------
@@ -173,8 +177,8 @@ THE SOFTWARE.
   (let ((cache (make-array nlines)))
     (dotimes (ix nlines)
       (setf (aref cache ix) (vector 1
-                                    +empty-cell+ ;; = (cons +empty+ nil)
-                                    +empty-cell+) ))
+                                    (list +uniq+)
+                                    (list +uniq+)) ))
     (setf (slot-value obj 'cache-lines) cache
           (slot-value obj 'row-fn)      (if (= 1 nlines)
                                             (constantly (aref cache 0))
@@ -196,11 +200,11 @@ THE SOFTWARE.
              ((vector t 3) line)
              (cons v1))
 
-    ;; must check for +empty+ cache cell, since we have
+    ;; must check for +uniq+ cache cell, since we have
     ;; no idea what the user's test-fn will try to do...
-    ;; e.g., it might ask for the (string key) and +empty+ cannot be coerced to string
+    ;; e.g., it might ask for the (string key) and +uniq+ cannot be coerced to string
     (labels ((test-key (k)
-               (and (not (eq +empty+ k))
+               (and (not (eq +uniq+ k))
                     (funcall test-fn key k))))
       
       (if (test-key (car v1))
@@ -238,7 +242,7 @@ THE SOFTWARE.
 (defmethod clear-cache ((obj 2-way-cache))
   #F
   (loop for line of-type (vector t 3) across (the vector (cache-lines obj)) do
-        (setf (aref line 1) +empty-cell+  ;; make the keys unique
-              (aref line 2) +empty-cell+)))
+        (setf (aref line 1) (list +uniq+)  ;; make the keys unique
+              (aref line 2) (list +uniq+))))
          
 ;; ----------------------------------------------------------

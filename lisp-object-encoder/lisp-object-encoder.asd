@@ -40,7 +40,7 @@ THE SOFTWARE.
                 (:file "scatter-vec")
 		(:file "ubyte-streams")
                 (:file "self-sync")
-                (:file "xzlib")
+                (:file "xzlib") ;; ZLIB adapted to scatter vectors
                 (:file "lzw")
                 (:file "lisp-object-encoder")
                 (:file "safe-marshaling")
@@ -54,6 +54,7 @@ THE SOFTWARE.
                  "ironclad"
                  "sdle-store"
                  "babel"
+                 "snappy"
                  ;; "zlib"
                  ))
 
