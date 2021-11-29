@@ -24,9 +24,10 @@
            ((eql 'quote (car pat))
             (values (equalp msg (cadr pat)) vals))
            ((eql 'function (car pat))
-            (values (and (symbolp (cadr pat))
-                         (eq msg (symbol-function (cadr pat))))
-                    vals))
+            (let ((desig (cadr pat)))
+              (values (and (symbolp desig)
+                           (eq msg (symbol-function desig)))
+                      vals)))
            ((consp msg)
             (multiple-value-bind (ok new-vals)
                 (iter (car pat) (car msg) vals)
@@ -39,6 +40,7 @@
 (match-pat '(1 2 3 (4 15 16 17 18 19) 20 21 22)
            '(a b _ (c 15 d . e) . f))
 (match-pat (list 1 #'1+ 3) '(a #'1+ b))
+(match-pat 1 'x)
 |#
 
 (defun match-clause (msg pat tst fn)
@@ -81,7 +83,8 @@
       (unless (equalp args
                       (remove-duplicates args))
         (warn "duplicate binding names in match pattern: ~A" args))
-      (when (eql 'when (car body))
+      (when (and (consp body)
+                 (eql 'when (car body)))
         (setf tst  `(lambda ,args
                       (declare (ignorable ,@args))
                       ,(cadr body))
