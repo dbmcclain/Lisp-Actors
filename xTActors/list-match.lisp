@@ -93,8 +93,9 @@
                        (lambda ,args
                          (declare (ignorable ,@args))
                          (return-from ,lbl
-                           (progn
-                             ,@body)))
+                           (values t
+                                   (progn
+                                     ,@body))))
                        ))
       )))
 
