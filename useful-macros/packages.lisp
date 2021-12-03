@@ -70,6 +70,12 @@ THE SOFTWARE.
    |#
    ))
 
+(defpackage #:list-match
+  (:use #:common-lisp)
+  (:export
+   #:match
+   #:match-fail))
+
 (defpackage #:list-comprehensions
   (:use #:common-lisp)
   (:nicknames #:lc)
@@ -250,6 +256,12 @@ THE SOFTWARE.
    #:if-let
    #:when-let
    #:when-let*)
+  (:import-from :list-match
+   #:match
+   #:match-fail)
+  (:export
+   #:match
+   #:match-fail)
   (:import-from :stub-functions
    :defstub
    :stub-function-p

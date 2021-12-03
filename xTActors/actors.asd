@@ -37,7 +37,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :components  ((:file "packages")
                 ;; (:file "adapters")
                 #-:lispworks (:file "ansi-timer")
-                (:file "list-match")
                 (:file "macros")
                 (:file "actors")
                 (:file "prim-actors")

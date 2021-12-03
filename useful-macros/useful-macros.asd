@@ -64,6 +64,7 @@ THE SOFTWARE.
                 (:file "safe-read-from-string")
                 #+(AND :COM.RAL :LISPWORKS) (:file "ctypes")
                 (:file "dlambder")
+                (:file "list-match")
                 (:file "bb")
                 (:file "useful-macros")
                 (:file "encstr")

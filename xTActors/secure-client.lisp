@@ -158,4 +158,5 @@
 (tst "dachshund.local")
 (tst "honeypot.local")
 (tst "david-pc.local")
+(tst "umbra.local")
 |#
