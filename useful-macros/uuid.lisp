@@ -63,6 +63,7 @@ THE SOFTWARE.
    ;; the following only make sense for Version 1 UUID's
    #:uuid<
    #:uuid-time
+   #:uuid-universal-time
    #:uuid-mac
    #:uuid-time<
    #:max-uuid
@@ -283,11 +284,13 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
      "Get timestamp, compensate nanoseconds intervals"
      (critical-section
        (um:nlet iter ()
+         ;; while the standard may call for times measured from 1582-10-15, we make our times
+         ;; measure from 1900-01-01 to be compatible with Lisp universal time measurement.
          (let ((time-now ;; (+ (* (get-universal-time) 10000000) 100103040000000000)
                          (+ (* 10 (the integer (usec:get-universal-time-usec)))
-                            #N|02_208_988_800_0000000|  ;; time offseet between 1970-01-01 and 1900-01-01
-                            #N|10_010_304_000_0000000|) ;; time offset in 100ns increments
-                         ))  ;; 10_010_304_000 is time between 1582-10-15 and 1900-01-01 in seconds
+                            ;; #N|02_208_988_800_0000000|  ;; time offseet between 1970-01-01 and 1900-01-01
+                            #N|10_010_304_000_0000000| ;; time offset in 100ns increments
+                         )))  ;; 10_010_304_000 is time between 1582-10-15 and 1900-01-01 in seconds
            (declare (integer time-now))
            (cond ((/= last-time time-now)
                   (setf uuids-this-tick 0
@@ -501,10 +504,18 @@ built according code-char of each number in the uuid-string"
   (< (uuid-to-integer a) (uuid-to-integer b)))
 
 (defun uuid-time (id)
+  ;; return a BigInt that represents the 100ns increments since
+  ;; 1582-10-15 (for v1 only)
   (um:->> 0
           (um:ash-dpb _ 12 (time-high id))
           (um:ash-dpb _ 16 (time-mid id))
           (um:ash-dpb _ 32 (time-low id))))
+
+(defun uuid-universal-time (id)
+  ;; return an int representing the seconds since 1900-01-01 and a
+  ;; rounding remainder in 100ns units. This is compatible with Lisp
+  ;; universal-time keeping.
+  (round (- (uuid-time id) #N|10_010_304_000_0000000.|) 10_000_000.))
 
 (defun copy-v1-uuid-replacing-time (new-time uuid)
   (make-instance 'uuid
@@ -533,10 +544,7 @@ built according code-char of each number in the uuid-string"
     a))
 
 (defun uuid-to-universal-time (id)
-  (truncate (- (uuid-time id)
-               #N|02_208_988_800_0000000|
-               #N|10_010_304_000_0000000|)
-            10000000))
+  (uuid-universal-time id))
 
 (defmethod make-load-form ((uuid uuid) &optional environment)
   (declare (ignore environment))
@@ -570,6 +578,9 @@ built according code-char of each number in the uuid-string"
   ;; for Type-1 UUID's
   (multiple-value-bind (utc frac)
       (uuid-to-universal-time uuid)
+    (when (minusp frac)
+      (decf utc)
+      (incf frac 10_000_000.))
     (multiple-value-bind (ss mm hh d m y dow)
         (decode-universal-time utc 0)
       (let ((mac (uuid-mac uuid))
