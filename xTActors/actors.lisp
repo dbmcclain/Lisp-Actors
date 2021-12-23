@@ -59,7 +59,7 @@ THE SOFTWARE.
 
 (defstruct (actor
                (:constructor %make-actor (beh)))
-  beh)
+  (beh #'lw:do-nothing :type function))
 
 (defun make-actor (&optional (beh #'lw:do-nothing))
   (check-type beh function)
@@ -248,7 +248,8 @@ THE SOFTWARE.
 ;; -----------------------------------------------
 ;; SEND/BECOME
 ;;
-;; SEND & BECOME can only be called from within an Actor.
+;; SEND can only be called on an Actor. BECOME can only be called from
+;; within an Actor.
 ;;
 ;; SEND and BECOME are transactionally staged, and will commit *ONLY*
 ;; upon error free completion of the Actor body code.
@@ -260,7 +261,7 @@ THE SOFTWARE.
 ;; delivered.
 
 (defun send (actor &rest msg)
-  (when actor ;; so now, NIL acts like and can connote SINK
+  (when actor ;; so now, NIL acts like, and can connote, SINK
     ;; In truth this should be a test for IS-PURE-SINK? but for speed,
     ;; we just want a fast test against NIL here.
     (check-type actor actor)

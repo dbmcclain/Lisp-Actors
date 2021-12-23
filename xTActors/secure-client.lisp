@@ -159,4 +159,5 @@
 (tst "honeypot.local")
 (tst "david-pc.local")
 (tst "umbra.local")
+(tst "zircon.local")
 |#

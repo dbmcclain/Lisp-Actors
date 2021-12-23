@@ -375,11 +375,15 @@
                                                         (eql an-ip-port ip-port))
     (become (pending-connections-beh ip-addr ip-port report-ip-addr (cons cust custs) next)))
    
-   ((:ready an-ip-addr an-ip-port sender local-services) when (and (eql an-ip-addr ip-addr)
-                                                                   (eql an-ip-port ip-port))
+   ((:ready an-ip-addr an-ip-port intf-state sender local-services) when (and (eql an-ip-addr ip-addr)
+                                                                              (eql an-ip-port ip-port))
     (prune-self next)
-    (send fmt-println "Client Socket (~S) starting up" report-ip-addr)
-    (send-to-all custs sender sender local-services))
+
+    (multiple-value-bind (peer-ip peer-port)
+        (comm:socket-connection-peer-address (intf-state-io-state intf-state))
+      (send fmt-println "Client Socket (~S->~A:~D) starting up" report-ip-addr
+            (comm:ip-address-string peer-ip) peer-port)
+    (send-to-all custs sender sender local-services)))
 
    ((:abort an-ip-addr an-ip-port) when (and (eql an-ip-addr ip-addr)
                                              (eql an-ip-port ip-port))
@@ -416,8 +420,8 @@
                                     :report-ip-addr report-ip-addr
                                     :io-state       io-state)
                 beta)
-        (declare (ignore intf-state))
-        (send cust :ready ip-addr ip-port sender local-services)
+        ;; (declare (ignore intf-state))
+        (send cust :ready ip-addr ip-port intf-state sender local-services)
         ))))
 
 ;; -------------------------------------------------------------
@@ -444,8 +448,11 @@ See the discussion under START-CLIENT-MESSENGER for details."
       ;; until we get registered into the ip-mapping table.
       (declare (ignore sender local-services))
       (push state (comm:accepting-handle-user-info accepting-handle))
-      (send fmt-println "Server Socket (~S) starting up" server-name)
-      )))
+      (multiple-value-bind (peer-ip peer-port)
+          (comm:socket-connection-peer-address io-state)
+        (send fmt-println "Server Socket (~S->~A:~D) starting up" server-name
+              (comm:ip-address-string peer-ip) peer-port)
+        ))))
 
 ;; --------------------------------------------------------------
 
