@@ -29,10 +29,6 @@
 
      ((atag) when (eql atag tag-write)
       (send (io saver) :save db))
-
-     ((atag :shutdown) when (eql atag saver)
-      (send (io saver) :save db)
-      (become (sink-beh)))
      )))
 
 (defun nascent-database-beh (custs saver)
@@ -52,8 +48,7 @@
 
 ;; -----------------------------------------------------------
 
-(defvar *db-id*          #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
-(defvar *unstorable-key* #/uuid/{e5ae746c-6479-11ec-8ecb-24f67702cdaa})
+(defvar *db-id*  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
 (defun save-database-beh (trans-gate path last-db)
   (alambda
@@ -77,7 +72,7 @@
    
    ((:save new-db) when (not (eql new-db last-db))
     (ensure-directories-exist path)
-    (let ((trimmed (maps:remove new-db *unstorable-key*)))
+    (let ((trimmed (remove-unstorable new-db)))
       (with-open-file (f path
                          :direction         :output
                          :if-exists         :new-version
@@ -88,6 +83,19 @@
         (become (save-database-beh trans-gate path new-db)))))
    ))
 
+(defun remove-unstorable (map)
+  (maps:fold map (lambda (key val accu)
+                   (handler-case
+                       (progn
+                         (loenc:encode (list key val))
+                         (maps:add accu key val))
+                     (error ()
+                       accu)))
+             (maps:empty)))
+
+(defun deep-copy (obj)
+  (loenc:decode (loenc:encode obj)))
+
 ;; -----------------------------------------------------------
 
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
@@ -97,11 +105,6 @@
   (actors ((trans  (nascent-database-beh nil saver))
            (saver  (save-database-beh trans nil nil)))
     (send (io saver) :open db-path)
-    (lw:define-action "When quitting image"
-                      "Save database"
-                      (lambda (&rest args)
-                        (declare (ignore args))
-                        (send trans saver :shutdown)))
     trans))
 
 (defvar *db* (make-trans-gate *db-path*))
@@ -112,46 +115,22 @@
   (send *db* cust :req
         (actor (db commit rollback &rest retry-info)
           (declare (ignore rollback))
-          (let ((new-db (handler-case
-                            (progn
-                              (loenc:encode val) ;; tickle any possible encoding error
-                              (maps:add db key val))
-                          (error ()
-                            (let* ((db          (maps:remove db key))
-                                   (unstorables (or (maps:find db *unstorable-key*)
-                                                    (maps:empty))))
-                              (maps:add db *unstorable-key* (maps:add unstorables key val))
-                              ))
-                          )))
-            (send* commit db new-db retry-info))
-          )))
+          (send* commit db (maps:add db key val) retry-info))
+        ))
 
 (defun remove-rec (cust key)
   (send *db* cust :req
         (actor (db commit rollback &rest retry-info)
           (declare (ignore rollback))
-          (let* ((new-db      (maps:remove db key))
-                 (unstorables (maps:find new-db *unstorable-key*)))
-            (when unstorables
-              (let ((new-unstorables (maps:remove unstorables key)))
-                (unless (eq new-unstorables unstorables)
-                  (setf new-db (maps:add new-db *unstorable-key* new-unstorables))
-                  )))
-            (send* commit db new-db retry-info)))
+          (send* commit db (maps:remove db key) retry-info))
         ))
 
 (defun lookup (cust key &optional default)
   (send *db* cust :req
         (actor (db &rest ignored)
           (declare (ignore ignored))
-          (let ((val (maps:find db key self)))
-            (when (eq val self)
-              (let ((unstorables (or (maps:find db *unstorable-key*)
-                                     (maps:empty))))
-                (setf val (maps:find unstorables key default))
-                ))
-            (send cust val)
-            ))))
+          (send cust (maps:find db key default)))
+        ))
 
 (defun show-db ()
   (send *db* nil :req
@@ -200,4 +179,5 @@
 (let ((m (sets:empty)))
   (setf m (sets:add m :dave))
   (eql m (sets:add m :dave)))
+
 |#               
