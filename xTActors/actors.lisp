@@ -280,7 +280,6 @@ THE SOFTWARE.
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
   
 (defun become (new-beh)
-  (check-type new-beh function)
   (check-type *current-actor* actor)
   (locally
     (declare (actor *current-actor*))

@@ -99,7 +99,9 @@
     (send (io saver) :open db-path)
     (lw:define-action "When quitting image"
                       "Save database"
-                      '(send trans saver :shutdown))
+                      (lambda (&rest args)
+                        (declare (ignore args))
+                        (send trans saver :shutdown)))
     trans))
 
 (defvar *db* (make-trans-gate *db-path*))
