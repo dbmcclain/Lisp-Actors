@@ -2,7 +2,7 @@
 ;; Actors directory -- only for Actors with symbol names or string
 ;; names.
 ;;
-(in-package :actors/directory)
+(in-package :com.ral.actors.directory)
 
 ;; ------------------------------------------------------------
 

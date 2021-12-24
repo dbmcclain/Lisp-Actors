@@ -29,15 +29,8 @@ THE SOFTWARE.
 
 (in-package :CL-USER)
 
-(defpackage #:actors
-  (:nicknames #:ac)
+(defpackage #:com.ral.actors
   (:use #:common-lisp #:def*)
-  #|
-  (:use #:common-lisp #:cps)
-  #.`(:export
-      ,@(loop for sym being the external-symbols of :cps
-              collect sym))
-  |#
   (:import-from #:timeout
    #:timeout
    #:*timeout*)
@@ -251,6 +244,9 @@ THE SOFTWARE.
 
    #:def-singleton-actor
    #:reset-singleton-actors
+
+   #:kvdb
+   #:deep-copy
    ))
 
 #-lispworks
@@ -264,56 +260,14 @@ THE SOFTWARE.
    #:unschedule-timer
    ))
 
-(defpackage #:actors/internal-message
-  (:use #:common-lisp)
-  (:export
-   #:continuation
-   #:foreign-ask
-   #:send-sync
-   #:unwatch
-   #:become-local
-   ))
+(defpackage #:com.ral.actors.macros
+  (:use #:common-lisp #:com.ral.actors #:def*))
 
-(defpackage #:actors/internal-message/security
-  (:use #:common-lisp #:def*)
-  (:export
-   ))
+(defpackage #:com.ral.actors.directory
+  (:use #:common-lisp #:com.ral.actors #:def*))
 
-(defpackage #:actors/internal-message/bridge
-  (:use #:common-lisp #:def*)
-  (:export
-   #:forwarding-send
-   #:forwarding-ask
-   #:forwarding-reply
-   #:no-service
-   ))
-
-(defpackage #:actors/internal-message/network
-  (:use #:common-lisp #:def*)
-  (:export
-   #:discard
-   #:frag
-   #:last-frag
-   #:incoming-msg
-
-   #:rd-incoming
-   #:rd-error
-
-   #:wr-fail
-   #:wr-done
-
-   #:client-info
-   #:server-info
-   ))
-
-(defpackage #:actors/macros
-  (:use #:common-lisp #:actors #:def*))
-
-(defpackage #:actors/directory
-  (:use #:common-lisp #:actors #:def*))
-
-(defpackage :actors/network
-  (:use #:common-lisp #:actors #:def*)
+(defpackage :com.ral.actors.network
+  (:use #:common-lisp #:com.ral.actors #:def*)
   (:export
    #:*default-port*
    #:*socket-timeout-period*
@@ -325,8 +279,8 @@ THE SOFTWARE.
    #:connections
    ))
 
-(defpackage #:actors/base
-  (:use #:common-lisp #:actors
+(defpackage #:com.ral.actors.base
+  (:use #:common-lisp #:com.ral.actors
    #-:LISPWORKS #:ansi-timer
    #:def*)
   (:import-from #:useful-macros
@@ -353,8 +307,8 @@ THE SOFTWARE.
    #:*all-sponsors*
    ))
 
-(defpackage :ac-secure-comm
-  (:use #:common-lisp #:actors #:core-crypto #:edec)
+(defpackage :com.ral.actors.secure-comm
+  (:use #:common-lisp #:com.ral.actors #:core-crypto #:edec)
   (:export
    #:make-local-services
    #:global-services
@@ -366,7 +320,13 @@ THE SOFTWARE.
    #:start-server-gateway
    ))
 
-(defpackage #:actors/user
-  (:use #:common-lisp #:actors #:def*))
+(defpackage com.ral.actors.kv-database
+  (:use #:cl #:com.ral.actors)
+  (:export
+   #:kvdb
+  ))
+   
+(defpackage #:com.ral.actors.user
+  (:use #:common-lisp #:com.ral.actors #:def*))
 
 

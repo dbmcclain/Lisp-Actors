@@ -33,7 +33,7 @@
 ;; DM/RAL 11/21
 ;; --------------------------------------------------------------------------
 
-(in-package :ac-secure-comm)
+(in-package :com.ral.actors.secure-comm)
 
 (defconstant +server-id+          "7a1efb26-bc60-123a-a2d6-24f67702cdaa")
 (defconstant +server-skey+        #x4504E460D7822B3B0E6E3774F07F85698E0EBEFFDAA35180D19D758C2DEF09)

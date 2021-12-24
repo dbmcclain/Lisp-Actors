@@ -43,6 +43,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "actors-directory")
                 (:file "encoding")
                 (:file "singletons")
+                (:file "transactional-db")
                 
                 ;; #+(AND :MACOSX :COM.RAL) (:file "fft-fixup")
                 ;; (:file "actor-class")

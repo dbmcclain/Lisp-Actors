@@ -3,7 +3,7 @@
 ;; DM/RAL 11/21
 ;; -------------------------------------------------
 
-(in-package :actors/base)
+(in-package :com.ral.actors.base)
 
 (um:eval-always
   (import '(vec-repr:vec

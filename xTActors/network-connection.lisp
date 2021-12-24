@@ -8,17 +8,17 @@
 ;; DM/SD  08/08, 06-12/09
 ;; --------------------------------------------------------------------------------------
 
-(in-package #:actors/network)
+(in-package #:com.ral.actors.network)
 
 (um:eval-always
   (import '(um:when-let
             um:wr
 
-             ac-secure-comm:make-local-services
-             ac-secure-comm:global-services
-             ac-secure-comm:server-crypto-gateway
-             ac-secure-comm:+server-connect-id+
-             ac-secure-comm:+server-skey+
+             com.ral.actors.secure-comm:make-local-services
+             com.ral.actors.secure-comm:global-services
+             com.ral.actors.secure-comm:server-crypto-gateway
+             com.ral.actors.secure-comm:+server-connect-id+
+             com.ral.actors.secure-comm:+server-skey+
              )))
 
 ;; -----------------------------------------------------------------------
@@ -528,7 +528,7 @@ indicated port number."
                     'lw-start-tcp-server)
   )
 
-(defun ac:start ()
+(defun com.ral.actors:start ()
   (lw-start-tcp-server))
 
 #| ;; for manual loading mode

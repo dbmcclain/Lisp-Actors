@@ -2,7 +2,7 @@
 ;;
 ;; DM/RAL 05/21
 ;; ------------------------------------------------------
-(in-package :actors/base)
+(in-package :com.ral.actors.base)
 ;; ------------------------------------------------------
 ;; There are, broadly, two conventions followed for Actor messages:
 ;;

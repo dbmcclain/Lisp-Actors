@@ -2,7 +2,7 @@
 ;; via secure channel
 ;;
 
-(in-package :ac-secure-comm)
+(in-package :com.ral.actors.secure-comm)
 
 ;; --------------------------------------------------------------------
 ;; Client side
@@ -22,7 +22,7 @@
     (actors ((pending-negotiations (empty-pending-negotiations-beh pending-negotiations skey)))
       (actor (cust host-ip-addr)
         (beta (socket chan local-services)
-            (send (actors/network:client-connector) beta host-ip-addr)
+            (send (com.ral.actors.network:client-connector) beta host-ip-addr)
           (if (eq chan socket)
               (send pending-negotiations cust :get-chan socket local-services)
             (send cust chan)
@@ -81,7 +81,7 @@
                              :decryptor       (secure-reader ekey (ed-decompress-pt +server-pkey+))
                              )))
                 (beta _
-                    (send (actors/network:connections) beta :set-channel socket chan)
+                    (send (com.ral.actors.network:connections) beta :set-channel socket chan)
                   (send cust :use-chan socket chan)) ;; to our local customer
                 ))))
       (beta (client-id)

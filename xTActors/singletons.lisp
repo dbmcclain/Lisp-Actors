@@ -1,5 +1,5 @@
 
-(in-package :actors)
+(in-package :com.ral.actors.base)
 
 ;; -----------------------------------------------
 

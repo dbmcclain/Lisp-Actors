@@ -5,7 +5,7 @@
 ;; Using an FPL-pure RB-tree as the database. Hence the database
 ;; serves as its own transaction ID. Lock-free design.
 
-(in-package :ac)
+(in-package com.ral.actors.kv-database)
   
 (defun trans-gate-beh (tag-commit tag-rollback tag-write saver db)
   (flet ((try (cust target args)
@@ -75,7 +75,7 @@
     (let ((trimmed (remove-unstorable new-db)))
       (with-open-file (f path
                          :direction         :output
-                         :if-exists         :new-version
+                         :if-exists         :rename
                          :if-does-not-exist :create
                          :element-type      '(unsigned-byte 8))
         (write-sequence (uuid:uuid-to-byte-array *db-id*) f)
@@ -101,39 +101,37 @@
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
                                     (sys:get-folder-path :appdata)))
 
-(defun make-trans-gate (db-path)
+(def-singleton-actor db ()
   (actors ((trans  (nascent-database-beh nil saver))
            (saver  (save-database-beh trans nil nil)))
-    (send (io saver) :open db-path)
+    (send (io saver) :open *db-path*)
     trans))
-
-(defvar *db* (make-trans-gate *db-path*))
 
 ;; -----------------------------------------------------------
 
 (defun add-rec (cust key val)
-  (send *db* cust :req
+  (send (db) cust :req
         (actor (db commit rollback &rest retry-info)
           (declare (ignore rollback))
           (send* commit db (maps:add db key val) retry-info))
         ))
 
 (defun remove-rec (cust key)
-  (send *db* cust :req
+  (send (db) cust :req
         (actor (db commit rollback &rest retry-info)
           (declare (ignore rollback))
           (send* commit db (maps:remove db key) retry-info))
         ))
 
 (defun lookup (cust key &optional default)
-  (send *db* cust :req
+  (send (db) cust :req
         (actor (db &rest ignored)
           (declare (ignore ignored))
           (send cust (maps:find db key default)))
         ))
 
 (defun show-db ()
-  (send *db* nil :req
+  (send (db) nil :req
         (actor (db &rest ignored)
           (declare (ignore ignored))
           (sets:view-set db))))
@@ -154,7 +152,7 @@
      (remove-rec cust key))
 
     ((cust :req action-actor)
-     (repeat-send *db*))
+     (repeat-send (db)))
     )))
 
 

@@ -1,5 +1,5 @@
 
-(in-package :actors/macros)
+(in-package :com.ral.actors.macros)
 
 ;; --------------------------------------
 ;; ACTOR in function position acts like a higher level LAMBDA expression

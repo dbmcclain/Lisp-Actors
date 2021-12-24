@@ -2,7 +2,7 @@
 ;; via secure channel
 ;;
 
-(in-package :ac-secure-comm)
+(in-package :com.ral.actors.secure-comm)
 
 ;; ------------------------------------------------------------------
 ;; Server side
