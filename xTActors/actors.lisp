@@ -348,7 +348,7 @@ THE SOFTWARE.
 
 (defun ioreq (actor)
   ;; send to actor, return its reply to cust in sender's original sponsor.
-  ;; typically, actor with be (IO actor)
+  ;; typically, actor will be (IO actor)
   (actor (cust &rest msg)
     (send* actor (in-this-sponsor cust) msg)))
 
