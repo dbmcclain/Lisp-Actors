@@ -657,7 +657,7 @@
 #|
 (send (with-timeout 2.1 (actor (cust)
                         (send-after 2 cust :ok))
-                    (actor ()
+                    (actor _
                       (send println :nah)))
       println)
  |#
