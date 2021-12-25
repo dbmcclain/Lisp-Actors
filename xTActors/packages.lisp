@@ -247,6 +247,10 @@ THE SOFTWARE.
 
    #:kvdb
    #:deep-copy
+
+   #:fn-actor
+   #:fsend
+   #:fsend*
    ))
 
 #-lispworks
