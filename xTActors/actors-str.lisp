@@ -418,30 +418,11 @@ THE SOFTWARE.
     (apply #'ask actor msg)))
 
 ;; -----------------------------------------------------
-;; FN-ACTOR, FSEND -- convert any Lisp function into an Actor
+;; FN-EVAL - eval function and send results to customer
 
-(defun fn-actor (fn)
-  ;; Because function Actors carry no state, we only need one instance
-  ;; of them.
-  (flet ((actor-of (fn)
-           ;; A canonical Actor: customer as first arg
-           (actor (cust &rest args)
-             (send* cust (multiple-value-list (apply fn args))))
-           ))
-    (cond ((symbolp fn)
-           (or (get fn 'fn-actor)
-               (setf (get fn 'fn-actor) (actor-of fn))
-               ))
-          (t
-           (actor-of fn))
-          )))
-        
-(defmacro fsend (fn &rest args)
-  `(send (fn-actor ,fn) ,@args))
-
-(defmacro fsend* (fn &rest args)
-  ;; Like SEND* - use when last arg is known list
-  `(send* (fn-actor ,fn) ,@args))
+(defvar fn-eval (make-actor
+                 (lambda (cust fn &rest args)
+                   (send* cust (multiple-value-list (apply fn args))))))
 
 ;; ----------------------------------------
 ;; We must defer startup until the MP system has been instantiated.
