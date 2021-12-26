@@ -156,39 +156,36 @@ THE SOFTWARE.
                  (list     *whole-message*)
                  (dynamic-extent *current-evt* *current-actor*
                                  *current-behavior* *whole-message*))
-        (flet ((dispatch ()
-                 ;; Fetch next event from event queue - ideally, this
-                 ;; would be just a handful of simple register/memory
-                 ;; moves and direct jump. No call/return needed, and
-                 ;; stack useful only for a microcoding assist. Our
-                 ;; depth is never more than one Actor at a time,
-                 ;; before trampolining back here.
-                 (setf *current-evt* (or (pop-evq)
-                                         (mp:mailbox-read mbox))
-                       qsave (and qhd qtl)  ;; queue state for possible rollback
-                       ;; Setup Actor context
-                       *current-actor*    (msg-actor *current-evt*)
-                       *current-behavior* (actor-beh self)
-                       *whole-message*    (msg-args  *current-evt*))
-                 ;; ---------------------------------
-                 ;; Dispatch to Actor behavior with message args
-                 (apply self-beh *whole-message*)))
-          (loop
-             (with-simple-restart (abort "Handle next event")
-               ;; unroll the committed SENDS and BECOME
-               (loop
-                  ;; Get a Foreign SEND event if any
-                  (when (mp:mailbox-not-empty-p mbox)
-                    (add-evq (mp:mailbox-read mbox)))
-                  (dispatch)
-                  (dispatch)))
-             ;; ------------------------------------
-             ;; we come here on Abort - back out optimistic commits of SEND/BECOME
-             (if (setf qtl qsave)
-                 (setf (msg-link (the msg qsave)) nil)
-               (setf qhd nil))
-             (setf (actor-beh self)  self-beh)
-             )))
+        (loop
+           (with-simple-restart (abort "Handle next event")
+             ;; unroll the committed SENDS and BECOME
+             (loop
+                ;; Get a Foreign SEND event if any
+                (when (mp:mailbox-not-empty-p mbox)
+                  (add-evq (mp:mailbox-read mbox)))
+                ;; Fetch next event from event queue - ideally, this
+                ;; would be just a handful of simple register/memory
+                ;; moves and direct jump. No call/return needed, and
+                ;; stack useful only for a microcoding assist. Our
+                ;; depth is never more than one Actor at a time,
+                ;; before trampolining back here.
+                (setf *current-evt* (or (pop-evq)
+                                        (mp:mailbox-read mbox))
+                      qsave (and qhd qtl)  ;; queue state for possible rollback
+                      ;; Setup Actor context
+                      *current-actor*    (msg-actor *current-evt*)
+                      *current-behavior* (actor-beh self)
+                      *whole-message*    (msg-args  *current-evt*))
+                ;; ---------------------------------
+                ;; Dispatch to Actor behavior with message args
+                (apply self-beh *whole-message*)))
+           ;; ------------------------------------
+           ;; we come here on Abort - back out optimistic commits of SEND/BECOME
+           (if (setf qtl qsave)
+               (setf (msg-link (the msg qsave)) nil)
+             (setf qhd nil))
+           (setf (actor-beh self)  self-beh)
+           ))
       )))
 
 ;; ----------------------------------------------------------
