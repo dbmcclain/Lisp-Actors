@@ -58,12 +58,8 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------
 
 (defstruct (actor
-               (:constructor %make-actor (beh)))
+               (:constructor make-actor (&optional (beh #'lw:do-nothing))))
   (beh #'lw:do-nothing :type function))
-
-(defun make-actor (&optional (beh #'lw:do-nothing))
-  (check-type beh function)
-  (%make-actor beh))
 
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
@@ -72,7 +68,6 @@ THE SOFTWARE.
 (defvar *whole-message*    nil) ;; Current Event Message
 (defvar *current-actor*    nil) ;; Current Actor
 (defvar *current-behavior* nil) ;; Current Actor's behavior
-(defvar *evt-queue*        nil) ;; Current Event Queue
 (defvar *current-sponsor*  nil) ;; Current Sponsor active during Actor exec
 
 (define-symbol-macro self         *current-actor*)
@@ -90,9 +85,9 @@ THE SOFTWARE.
 
 (defstruct (msg
             (:constructor msg (actor args)))
-  (link  nil          :type (or null msg))
+  link
   (actor (make-actor) :type actor)
-  (args  nil          :type list))
+  args)
 
 (defvar *current-evt*  nil) ;; message frame just processed
 
@@ -111,120 +106,90 @@ THE SOFTWARE.
           )))
 
 ;; -----------------------------------------------------------------
-;; Fast Imperative Queue - no consing
-;; Simple Direct Queue ~54ns SEND/dispatch
-;; Msg frames carry their own link slot.
-;; Simple CONS cell for queue: CAR = head, CDR = last
-
-(declaim (inline make-evq empty-evq?))
-
-(defun make-evq ()
-  #F
-  (list nil))
-
-(defun empty-evq? (queue)
-  #F
-  (declare (cons queue))
-  (null (car queue)))
-
-(defun pop-evq (queue)
-  #F
-  (declare (cons queue))
-  (let ((msg (car queue)))
-    (when msg
-      (setf (car queue) (msg-link (the msg msg))))
-    msg))
-
-(defun add-evq (queue msg)
-  #F
-  (declare (cons queue)
-           (msg  msg))
-  (setf (msg-link msg) nil)
-  (if (car queue)
-      (setf (cdr queue)
-            (setf (msg-link (the msg (cdr queue))) msg))
-    (setf (car queue)
-          (setf (cdr queue) msg))
-    ))
-
-;; -----------------------------------------------------------------
 ;; Generic RUN for all threads, across all Sponsors
 ;;
 ;; SENDs and BECOME are optimistically committed.  In more uncommon
 ;; case of error, the tail of the event queue is rolled back, and the
 ;; Actor behavior of the current Actor is restored.
 ;;
+
+(defvar *send*
+  (lambda (actor &rest msg)
+    (apply (actor-beh base-sponsor) actor msg)
+    (values)))
+    
 (defun run-actors (*current-sponsor* mbox)
   #F
-  (let ((*evt-queue*    (make-evq))
-        (qsave          nil)) ;; rollback copy
-    (declare (dynamic-extent *evt-queue* qsave))
-    (loop
-     (with-simple-restart (abort "Handle next event")
-       (handler-bind
-           ((error (lambda (c)
-                     (declare (ignore c))
-                     ;; unroll the committed SENDS and BECOME
-                     (if (setf (cdr *evt-queue*) qsave)
-                         (setf (msg-link (the msg qsave)) nil)
-                       (setf (car *evt-queue*) nil))
-                     (setf (actor-beh self)  self-beh))
+  (let ((qhd  nil)
+        (qtl  nil))
+    (flet ((add-evq (msg)
+             (declare (msg msg))
+             (setf (msg-link msg) nil
+                   qtl            (if qhd
+                                      (setf (msg-link (the msg qtl)) msg)
+                                    (setf qhd msg))
                    ))
-           (loop
-            ;; Get a Foreign SEND event if any
-            (when (mp:mailbox-not-empty-p mbox)
-              (add-evq *evt-queue*
-                       (mp:mailbox-read mbox)))
-            
-            ;; Fetch next event from event queue
-            (let ((*current-evt* (or (pop-evq *evt-queue*)
-                                     (mp:mailbox-read mbox))))
-
-              (declare (msg *current-evt*)
-                       (dynamic-extent *current-evt*))
-
-              (setf qsave (and (car *evt-queue*)
-                               (cdr *evt-queue*)))  ;; grab for possible rollback
-              ;; Setup Actor context
-              (let* ((*current-actor*    (msg-actor *current-evt*))
-                     (*current-behavior* (actor-beh self))
-                     (*whole-message*    (msg-args  *current-evt*)))
-              
-                (declare (actor    *current-actor*)
-                         (function *current-behavior*)
-                         (list     *whole-message*)
-                         (dynamic-extent *current-actor* *current-behavior* *whole-message*))
-
-                ;; ---------------------------------
-                ;; Dispatch to Actor behavior with message args
-                (apply self-beh *whole-message*)
-                ))
-            
-            ;; Fetch next event from event queue
-            (let ((*current-evt* (or (pop-evq *evt-queue*)
-                                     (mp:mailbox-read mbox))))
-              
-              (declare (msg *current-evt*)
-                       (dynamic-extent *current-evt*))
-
-              (setf qsave (and (car *evt-queue*)
-                               (cdr *evt-queue*)))  ;; grab for possible rollback
-              ;; Setup Actor context
-              (let* ((*current-actor*    (msg-actor *current-evt*))
-                     (*current-behavior* (actor-beh self))
-                     (*whole-message*    (msg-args  *current-evt*)))
-
-                (declare (actor    *current-actor*)
-                         (function *current-behavior*)
-                         (list     *whole-message*)
-                         (dynamic-extent *current-actor* *current-behavior* *whole-message*))
-                
-                ;; ---------------------------------
-                ;; Dispatch to Actor behavior with message args
-                (apply self-beh *whole-message*)
-                ))
-            ))))
-    ))
+           (pop-evq ()
+             (let ((msg qhd))
+               (when msg
+                 (setf qhd (msg-link (the msg msg)))
+                 msg))))
+      ;; -------------------------------------------------------
+      ;; Think of these global vars as dedicated registers of a
+      ;; special architecture CPU which uses a FIFO queue for its
+      ;; instruction stream, instead of linear memory, and which
+      ;; executes breadth-first instead of depth-first. This maximizes
+      ;; concurrency.
+      (let* ((qsave              nil) ;; rollback copy
+             (*current-evt*      (msg (make-actor) nil))
+             (*current-actor*    (make-actor))
+             (*current-behavior* #'lw:do-nothing)
+             (*whole-message*    nil)
+             (*send*             (lambda (actor &rest msg)
+                                   (and actor
+                                        (add-evq (new-msg actor msg))))
+                                 ))
+        
+        (declare (msg      *current-evt*)
+                 (actor    *current-actor*)
+                 (function *current-behavior*)
+                 (list     *whole-message*)
+                 (dynamic-extent *current-evt* *current-actor*
+                                 *current-behavior* *whole-message*))
+        (flet ((dispatch ()
+                 ;; Fetch next event from event queue - ideally, this
+                 ;; would be just a handful of simple register/memory
+                 ;; moves and direct jump. No call/return needed, and
+                 ;; stack useful only for a microcoding assist. Our
+                 ;; depth is never more than one Actor at a time,
+                 ;; before trampolining back here.
+                 (setf *current-evt* (or (pop-evq)
+                                         (mp:mailbox-read mbox))
+                       qsave (and qhd qtl)  ;; queue state for possible rollback
+                       ;; Setup Actor context
+                       *current-actor*    (msg-actor *current-evt*)
+                       *current-behavior* (actor-beh self)
+                       *whole-message*    (msg-args  *current-evt*))
+                 ;; ---------------------------------
+                 ;; Dispatch to Actor behavior with message args
+                 (apply self-beh *whole-message*)))
+          (loop
+             (with-simple-restart (abort "Handle next event")
+               ;; unroll the committed SENDS and BECOME
+               (loop
+                  ;; Get a Foreign SEND event if any
+                  (when (mp:mailbox-not-empty-p mbox)
+                    (add-evq (mp:mailbox-read mbox)))
+                  (dispatch)
+                  (dispatch)))
+             ;; ------------------------------------
+             ;; we come here on Abort - back out optimistic commits of SEND/BECOME
+             (if (setf qtl qsave)
+                 (setf (msg-link (the msg qsave)) nil)
+               (setf qhd nil))
+             (setf (actor-beh self)  self-beh)
+             )))
+      )))
 
 ;; ----------------------------------------------------------
 ;; SPONSORS -- offer an event queue and have an associated runtime
@@ -260,7 +225,6 @@ THE SOFTWARE.
    
    ((actor . msg)
     (unless (is-pure-sink? actor)
-      (check-type actor actor)
       (mp:mailbox-send mbox (new-msg actor msg))
       ))
    ))
@@ -295,13 +259,7 @@ THE SOFTWARE.
 ;; delivered.
 
 (defun send (actor &rest msg)
-  (when actor ;; so now, NIL acts like, and can connote, SINK
-    ;; In truth this should be a test for IS-PURE-SINK? but for speed,
-    ;; we just want a fast test against NIL here.
-    (if self
-        (add-evq *evt-queue* (new-msg actor msg))
-      (apply (actor-beh base-sponsor) actor msg)))
-  (values))
+  (apply *send* actor msg))
 
 (defmacro send* (actor &rest msg)
   `(apply #'send ,actor ,@msg))
@@ -313,10 +271,7 @@ THE SOFTWARE.
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
   
 (defun become (new-beh)
-  (check-type *current-actor* actor)
-  (locally
-    (declare (actor *current-actor*))
-    (setf (actor-beh *current-actor*) new-beh)))
+  (setf (actor-beh *current-actor*) new-beh))
 
 (defun do-with-sponsor (where fn)
   (let ((spon (or where base-sponsor)))
@@ -461,6 +416,32 @@ THE SOFTWARE.
         (values-list (mp:mailbox-read mbox)))
     ;; else
     (apply #'ask actor msg)))
+
+;; -----------------------------------------------------
+;; FN-ACTOR, FSEND -- convert any Lisp function into an Actor
+
+(defun fn-actor (fn)
+  ;; Because function Actors carry no state, we only need one instance
+  ;; of them.
+  (flet ((actor-of (fn)
+           ;; A canonical Actor: customer as first arg
+           (actor (cust &rest args)
+             (send* cust (multiple-value-list (apply fn args))))
+           ))
+    (cond ((symbolp fn)
+           (or (get fn 'fn-actor)
+               (setf (get fn 'fn-actor) (actor-of fn))
+               ))
+          (t
+           (actor-of fn))
+          )))
+        
+(defmacro fsend (fn &rest args)
+  `(send (fn-actor ,fn) ,@args))
+
+(defmacro fsend* (fn &rest args)
+  ;; Like SEND* - use when last arg is known list
+  `(send* (fn-actor ,fn) ,@args))
 
 ;; ----------------------------------------
 ;; We must defer startup until the MP system has been instantiated.

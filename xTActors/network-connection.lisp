@@ -13,13 +13,12 @@
 (um:eval-always
   (import '(um:when-let
             um:wr
-
-             com.ral.actors.secure-comm:make-local-services
-             com.ral.actors.secure-comm:global-services
-             com.ral.actors.secure-comm:server-crypto-gateway
-             com.ral.actors.secure-comm:+server-connect-id+
-             com.ral.actors.secure-comm:+server-skey+
-             )))
+            com.ral.actors.secure-comm:make-local-services
+            com.ral.actors.secure-comm:global-services
+            com.ral.actors.secure-comm:server-crypto-gateway
+            com.ral.actors.secure-comm:+server-connect-id+
+            com.ral.actors.secure-comm:+server-skey+
+            )))
 
 ;; -----------------------------------------------------------------------
 
