@@ -249,6 +249,8 @@ THE SOFTWARE.
    #:deep-copy
 
    #:fn-eval
+   #:reactive-obj-beh
+   #:reactive-obj
    ))
 
 #-lispworks
