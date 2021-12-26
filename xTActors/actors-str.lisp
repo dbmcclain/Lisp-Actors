@@ -122,18 +122,25 @@ THE SOFTWARE.
   #F
   (let ((qhd  nil)
         (qtl  nil))
-    (flet ((add-evq (msg)
-             (declare (msg msg))
-             (setf (msg-link msg) nil
-                   qtl            (if qhd
-                                      (setf (msg-link (the msg qtl)) msg)
-                                    (setf qhd msg))
-                   ))
-           (pop-evq ()
-             (let ((msg qhd))
-               (when msg
-                 (setf qhd (msg-link (the msg msg)))
-                 msg))))
+    (labels ((add-evq (msg)
+               (declare (msg msg))
+               (setf (msg-link msg) nil
+                     qtl            (if qhd
+                                        (setf (msg-link (the msg qtl)) msg)
+                                      (setf qhd msg))
+                     ))
+             (pop-evq ()
+               (let ((msg qhd))
+                 (when msg
+                   (setf qhd (msg-link (the msg msg)))
+                   msg)))
+             
+             (send (actor &rest msg)
+               (and actor
+                    (add-evq (new-msg actor msg)))))
+      
+      (declare (dynamic-extent #'add-evq #'pop-evq #'send))
+      
       ;; -------------------------------------------------------
       ;; Think of these global vars as dedicated registers of a
       ;; special architecture CPU which uses a FIFO queue for its
@@ -145,17 +152,12 @@ THE SOFTWARE.
              (*current-actor*    (make-actor))
              (*current-behavior* #'lw:do-nothing)
              (*whole-message*    nil)
-             (*send*             (lambda (actor &rest msg)
-                                   (and actor
-                                        (add-evq (new-msg actor msg))))
-                                 ))
+             (*send*             #'send))
         
         (declare (msg      *current-evt*)
-                 (actor    *current-actor*)
                  (function *current-behavior*)
-                 (list     *whole-message*)
-                 (dynamic-extent *current-evt* *current-actor*
-                                 *current-behavior* *whole-message*))
+                 (list     *whole-message*))
+
         (loop
            (with-simple-restart (abort "Handle next event")
              ;; unroll the committed SENDS and BECOME
@@ -163,6 +165,7 @@ THE SOFTWARE.
                 ;; Get a Foreign SEND event if any
                 (when (mp:mailbox-not-empty-p mbox)
                   (add-evq (mp:mailbox-read mbox)))
+                
                 ;; Fetch next event from event queue - ideally, this
                 ;; would be just a handful of simple register/memory
                 ;; moves and direct jump. No call/return needed, and
