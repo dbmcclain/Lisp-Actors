@@ -251,6 +251,11 @@ THE SOFTWARE.
    #:fn-eval
    #:reactive-obj-beh
    #:reactive-obj
+
+   #:side-job
+   #:guard
+   #:close-file
+   #:secure-erase
    ))
 
 #-lispworks

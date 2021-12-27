@@ -45,6 +45,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "singletons")
                 (:file "transactional-db")
                 (:file "reactive")
+                (:file "resource")
                 
                 ;; #+(AND :MACOSX :COM.RAL) (:file "fft-fixup")
                 ;; (:file "actor-class")
