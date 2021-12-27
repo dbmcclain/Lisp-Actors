@@ -256,6 +256,7 @@ THE SOFTWARE.
    #:guard
    #:close-file
    #:secure-erase
+   #:perform
    ))
 
 #-lispworks
