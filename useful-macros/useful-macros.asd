@@ -28,14 +28,19 @@ THE SOFTWARE.
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2008 by Refined Audiometrics Laboratory, LLC. All rights reserved."
   :components  ((:file "def-extensions")
+
                 #+:CLOZURE (:file "clozure-compat")
   	        #+:SBCL    (:file "sbcl-compat")
 		#+:ALLEGRO (:file "allegro-compat")
+                
                 #+:LISPWORKS (:file "underscore")
-                #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
+
+                ;; #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
                 #+:LISPWORKS (:file "editor-extensions")
+
                 (:file "packages")
                 (:file "eval-always")
+                (:file "deflex")
                 (:file "encaps-type")
                 (:file "clc")
                 (:file "sharp-f")
@@ -53,8 +58,10 @@ THE SOFTWARE.
                 #+(AND :COM.RAL :LISPWORKS) (:file "lexb4")
                 ;; (:file "freev")
                 #+(AND :COM.RAL :LISPWORKS) (:file "safe-call-system")
-                (:file "hierarchical-packages")
+
+                ;; (:file "hierarchical-packages")
                 (:file "package-aliases")
+
                 (:file "nlet")
                 (:file "sharp-quasiquote-reader")
                 (:file "bang-macros")
@@ -103,12 +110,15 @@ THE SOFTWARE.
                       (AND :MACOSX :ALLEGRO)) (:file "OSX-UUID-Generate")
                 ;; (:file "xfli")
 		;; (:file "rubber-objects")
+                
                 (:file "abbrev-bignums")
+
                 (:file "sep")
                 (:file "handlers")
                 (:file "defalias")
                 (:file "wordlist")
                 (:file "call-fwd")
+
                 (:file "fixmes")
                 )
   :serial       t

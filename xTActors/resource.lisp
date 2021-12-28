@@ -71,7 +71,7 @@
 #|
 ;; Example - carefully controlling the use of a secret key: Copy key
 ;; from environment into buffer, use the key, ensure buffer is zapped
-;; after use. We received my-cust and on-fail earlier.
+;; after use.
 ;;
 (defun with-open-vault (vault)
   (actor (cust on-fail &rest args)

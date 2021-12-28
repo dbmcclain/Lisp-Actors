@@ -777,13 +777,32 @@ THE SOFTWARE.
 (defun tokens-if-not (test-not str &rest args)
   (apply 'tokens str :test-not test-not args))
 
+#|
 (defun split-string (str &key delims (start 0) end key)
   (if delims
       (tokens-if-not (rcurry 'find #|c|# delims) str
                      :start start :end end :key key)
     (tokens str :start start :end end :key key)
     ))
-
+|#
+(defun split-string (str &key delims (start 0) end key)
+  (cond (delims
+         (let ((nc   (- (if end
+                            (min end (length str))
+                          (length str))
+                        start))
+               (prep (or key #'identity))
+               (strs (tokens-if-not (rcurry 'find #|c|# delims) str
+                                    :start start :end end :key key)))
+           (when (plusp nc)
+             (when (find (funcall prep (aref str start)) delims)
+               (push "" strs))
+             (when (find (funcall prep (aref str (+ start nc -1))) delims)
+               (lw:push-end "" strs)))
+           strs))
+        (t
+         (tokens str :start start :end end :key key))
+        ))
 
 (defun paste-strings (delim &rest args)
   (with-output-to-string (s)
@@ -3260,4 +3279,34 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
     (values-list (addnew-to-plist parms restargs))
     ))
 
-              
+
+(defun merge-plist (new-plist old-plist)
+  ;; return a plist that has all the new content plus all the old
+  ;; content that wasn't mentioned in the new.
+  (labels ((trim (plist ans)
+             (if plist
+                 (destructuring-bind (key val &rest tl) plist
+                   (if (eq #'trim (getf ans key #'trim))
+                       (trim tl (list* key val ans))
+                     (trim tl ans)))
+               ans)))
+    (trim old-plist (trim new-plist nil))))
+
+#|
+(merge-plist '(:a 1 :b 2 :c 3) '(:a 10 :a 20 :c 13 :d 15))
+|#
+
+(defun merge-alist (new-alist old-alist)
+  (labels ((trim (alist ans)
+             (if alist
+                 (destructuring-bind (hd . tl) alist
+                   (if (assoc (car hd) ans)
+                       (trim tl ans)
+                     (trim tl (cons hd ans))))
+               ans)))
+    (trim old-alist (trim new-alist nil))))
+
+#|
+(merge-alist '((:a . 1) (:b . 2) (:c . 3)) '((:a . 10) (:a . 20) (:c . 13) (:d . 15)))
+|#
+

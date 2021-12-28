@@ -506,6 +506,8 @@ THE SOFTWARE.
    :flet-shared
    |#
 
+   #:deflex
+   
    #:with
    #:letp
    #:wholepart
@@ -1074,6 +1076,10 @@ THE SOFTWARE.
 
    #:addnew-to-plist
    #:reapply
+
+   #:merge-alist
+   #:merge-plist
+   #:string-interp
    ))
 
 #|

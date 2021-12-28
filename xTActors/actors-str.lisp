@@ -344,7 +344,7 @@ THE SOFTWARE.
 (defun sink-beh ()
   #'lw:do-nothing)
 
-(defvar sink
+(deflex sink
   (make-actor (sink-beh)))
 
 ;; --------------------------------------
@@ -356,7 +356,7 @@ THE SOFTWARE.
   `(mp:with-lock (*printer-lock*)
      ,@body))
 
-(defvar println
+(deflex println
   (io
     ;; because we are managing an output stream
     (actor msg
@@ -364,7 +364,7 @@ THE SOFTWARE.
        (format t "~&~{~A~%~^~}" msg)))
      ))
 
-(defvar writeln
+(deflex writeln
   (io
     ;; because we are managing an output stream
     (actor msg
@@ -420,7 +420,7 @@ THE SOFTWARE.
 ;; -----------------------------------------------------
 ;; FN-EVAL - eval function and send results to customer
 
-(defvar fn-eval (make-actor
+(deflex fn-eval (make-actor
                  (lambda (cust fn &rest args)
                    (send* cust (multiple-value-list (apply fn args))))))
 

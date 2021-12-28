@@ -200,7 +200,7 @@
 
 ;; ---------------------------------------------------------------
 
-(defun noncer ()
+(defun make-noncer ()
   ;; The initial seq nonce is chosen as the SHA3/256 hash of a unique
   ;; 128-bit UUID, which includes the MAC Address of the machine, and
   ;; the time of creation to 100ns precision.
@@ -266,7 +266,7 @@
                               (io (make-actor #'wr-nonce)) ))
       )))
 
-(defvar *noncer* (noncer))
+(deflex noncer (make-noncer))
 
 ;; -------------------------------------------------------------------
 
@@ -345,7 +345,7 @@
   ;;
   (actor (cust bytevec)
     (beta (seq)
-        (send *noncer* beta :get-nonce)
+        (send noncer beta :get-nonce)
       (let ((chk (vec (hash/256 bytevec))))
         (send cust seq (encrypt/decrypt ekey seq bytevec) chk)
         ))))

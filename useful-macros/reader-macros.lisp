@@ -340,9 +340,37 @@ THE SOFTWARE.
        )))
 
 ;; ----------------------------------------------------------------------
+;; Swift-like string interpolation
+
+(defmacro string-interp (str)
+  (let* ((pat   #.(lw:precompile-regexp "«.*»"))
+         (nel   (length str))
+         (parts nil)
+         (fmt-str (with-output-to-string (s)
+                    (um:nlet iter ((start  0))
+                      (if (< start nel)
+                          (multiple-value-bind (pos len)
+                              (lw:find-regexp-in-string pat str :start start)
+                            (cond (pos
+                                   (let ((end (+ pos len)))
+                                     (princ (subseq str start pos) s)
+                                     (princ "~A" s)
+                                     (push (read-from-string (subseq str (1+ pos) (1- end))) parts)
+                                     (go-iter end)))
+                                  (t
+                                   (princ (subseq str start) s))
+                                  ))
+                        (princ (subseq str start) s)
+                        )))))
+    `(format nil ,fmt-str ,@(nreverse parts))
+    ))
+
+;; ----------------------------------------------------------------------
 ;; Nestable suggestion from Daniel Herring
 ;; rewritten (DM/RAL) using our state-machine macro
-;; Use backslash for escaping literal chars
+;; Use backslash for escaping literal chars.
+;; E.g., #"this is a "test" of...."#
+;; DM/RAL 12/21 - now incorporates Swift-style string interpolation.
 
 (defun |reader-for-#"| (stream sub-char numarg)
    (declare (ignore sub-char numarg))
@@ -416,9 +444,29 @@ THE SOFTWARE.
            (vector-push-extend ch chars))
      (we-are-done ()
                   (finish (unless *read-suppress*
-                            (coerce (subseq chars 0) 'string))))
+                            `(string-interp ,(split-and-trim chars)))
+                          ))
      ))
 
+(defun split-and-trim (vec &optional (ignore-first-line t))
+  ;; vec is vector of character (aka string)
+  ;;
+  ;; Split vector at #\newlines, count minimum leading whitespace,
+  ;; then remove that much whitespace from each line, then concatenate
+  ;; the lines back to one vector.
+  (labels ((leading-ws-count (line)
+             (or (position-if (complement #'lw:whitespace-char-p) line)
+                 (length line))))
+    (let* ((lines  (split-string vec :delims '(#\newline)))
+           (lines-to-test (if ignore-first-line (cdr lines) lines))
+           (nws     (reduce #'min (or (mapcar #'leading-ws-count lines-to-test) (list 0))))
+           (trimmer (um:rcurry #'subseq nws))
+           (trimmed (mapcar trimmer lines-to-test)))
+      (when ignore-first-line
+        (push (car lines) trimmed))
+      (apply #'um:paste-strings #\newline trimmed)
+      )))
+   
 (set-dispatch-macro-character
  #\# #\" '|reader-for-#"|)
   
@@ -465,12 +513,20 @@ THE SOFTWARE.
               (we-are-done)))
     (we-are-done ()
                  (finish (unless *read-suppress*
-                           (coerce
-                            (nreverse
-                             (nthcdr patlen output))
-                            'string)
+                           (split-and-trim
+                            (coerce
+                             (nreverse
+                              (nthcdr patlen output))
+                             'string)
+                            nil)
                            )))
     ))
+
+#|
+(defun first-arg (a &rest ignored)
+  (declare (ignore ignored))
+  a)
+|#
 
 (set-dispatch-macro-character
  #\# #\> '|reader-for-#>|)

@@ -14,7 +14,7 @@
 ;;
 ;; -------------------------------------------------------
 
-(defvar fmt-println
+(deflex fmt-println
   (actor (fmt-str &rest args)
     (send println (apply #'format nil fmt-str args))
     ))
@@ -117,7 +117,7 @@
 ;; same initial message, and the results from each block are sent as
 ;; an ordered collection to cust.
 
-(defvar ser
+(deflex ser
   (actor (cust lst &rest msg)
     (if (null lst)
         (send cust)
@@ -165,7 +165,7 @@
       (send* right tag-r rreq))
     ))
 
-(defvar par
+(deflex par
   ;; Send same msg to all actors in the lst, running them
   ;; concurrently, and collect the results into one ordered response.
   (actor (cust lst &rest msg)
@@ -477,7 +477,7 @@
            (format nil "~X" (sys:object-address spon)))
       )))
 
-(defvar logger
+(deflex logger
   (actor msg
     (send* println
            (mapcar (lambda (args)
