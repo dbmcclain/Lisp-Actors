@@ -311,27 +311,35 @@ THE SOFTWARE.
 ;; -------------------------------------------------------
 ;; Cross-sponsor sends
 
-(defun in-sponsor (sponsor actor)
-  (actor msg
+(defun in-sponsor-beh (sponsor actor)
+  (lambda* msg
     (if (eq sponsor self-sponsor)
         (send* actor msg)
       (send* sponsor actor msg))))
+
+(defun in-sponsor (sponsor actor)
+  (make-actor (in-sponsor-beh sponsor actor)))
+
+;; -------------
+
+(defun par-safe-beh (actor)
+  (in-sponsor-beh base-sponsor actor))
+
+(defun par-safe (actor)
+  (make-actor (par-safe-beh actor)))
+
+;; -------------
+
+(defun io-beh (actor)
+  (in-sponsor-beh slow-sponsor actor))
+
+(defun io (actor)
+  (make-actor (io-beh actor)))
 
 ;; ------------
 
 (defun in-this-sponsor (actor)
   (in-sponsor self-sponsor actor))
-
-;; -------------
-
-(defun par-safe (actor)
-  (in-sponsor base-sponsor actor))
-
-;; -------------
-
-(defun io (actor)
-  (in-sponsor slow-sponsor actor))
-
 
 (defun ioreq (actor)
   ;; send to actor, return its reply to cust in sender's original sponsor.

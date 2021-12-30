@@ -69,10 +69,13 @@ THE SOFTWARE.
    #:base-sponsor
    #:slow-sponsor
    #:def-sponsor
+   #:in-sponsor-beh
    #:in-sponsor
    #:in-this-sponsor
+   #:io-beh
    #:io
    #:ioreq
+   #:par-safe-beh
    #:par-safe
    #:with-sponsor
    #:err
@@ -336,7 +339,7 @@ THE SOFTWARE.
    ))
 
 (defpackage com.ral.actors.kv-database
-  (:use #:cl #:com.ral.actors)
+  (:use #:cl #:def* #:com.ral.actors)
   (:export
    #:kvdb
   ))
