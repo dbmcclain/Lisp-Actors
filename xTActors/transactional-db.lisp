@@ -16,8 +16,9 @@
      
      ((atag db-old db-new cust retry-target . args) when (eql atag tag-commit)
       (cond ((eql db-old db)
-             (let ((tag-write (tag self)))
-               (become (trans-gate-beh tag-commit tag-rollback tag-write saver db-new))
+             (let ((tag-write    (tag self))
+                   (versioned-db (maps:add db-new 'version (uuid:make-v1-uuid))))
+               (become (trans-gate-beh tag-commit tag-rollback tag-write saver versioned-db))
                (send-after 10 tag-write)
                (send cust :ok)))
             (t
@@ -139,25 +140,25 @@
 ;; ------------------------------------------------------------------
 ;; more usable public face - can use ASK against this
 
-(def-singleton-actor kvdb ()
-  (make-actor
-   (alambda
-    ((cust :lookup key . default)
-     (apply #'lookup cust key default))
-
-    ((cust :add key val)
-     (add-rec cust key val))
-
-    ((cust :remove key)
-     (remove-rec cust key))
-
-    ((cust :req action-actor)
-     (repeat-send (db)))
-    )))
+(deflex kvdb
+        (make-actor
+         (alambda
+          ((cust :lookup key . default)
+           (apply #'lookup cust key default))
+          
+          ((cust :add key val)
+           (add-rec cust key val))
+          
+          ((cust :remove key)
+           (remove-rec cust key))
+          
+          ((cust :req action-actor)
+           (repeat-send (db)))
+          )))
 
 
 #|
-(ask (kvdb) :lookup :dave)
+(ask kvdb :lookup :dave)
 (dotimes (ix 5)
   (add-rec println ix ix))
 (add-rec println :dave :chara)

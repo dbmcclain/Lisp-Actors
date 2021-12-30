@@ -155,6 +155,8 @@ THE SOFTWARE.
    #:logged-beh
    #:logged
    #:logger
+   #:install-atrace
+   #:uninstall-atrace
    #:atrace
    
    #:once
