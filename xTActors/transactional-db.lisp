@@ -10,88 +10,87 @@
 (defun trans-gate-beh (tag-commit tag-rollback tag-write saver db)
   (flet ((try (cust target args)
            (send* target db tag-commit tag-rollback cust target args)))
-    (lambda* msg
+    (alambda
+     ((cust :req target . args)
+      (try cust target args))
+     
+     ((atag db-old db-new cust retry-target . args) when (eql atag tag-commit)
       (with-sponsor base-sponsor
-        (match msg
-          ((cust :req target . args)
-           (try cust target args))
+        (cond ((eql db-old db)
+               (unless (eql db-old db-new)
+                 (let ((tag-write    (tag self))
+                       (versioned-db (maps:add db-new 'version (uuid:make-v1-uuid))))
+                   ;; version key = 'com.ral.actors.kv-database::version
+                   (become (trans-gate-beh tag-commit tag-rollback tag-write saver versioned-db))
+                   (send-after 10 tag-write)))
+               (send cust :ok))
+              
+              (t
+               (try cust retry-target args))
+              )))
      
-          ((atag db-old db-new cust retry-target . args) when (eql atag tag-commit)
-           (cond ((eql db-old db)
-                  (unless (eql db-old db-new)
-                    (let ((tag-write    (tag self))
-                          (versioned-db (maps:add db-new 'version (uuid:make-v1-uuid))))
-                      ;; version key = 'com.ral.actors.kv-database::version
-                      (become (trans-gate-beh tag-commit tag-rollback tag-write saver versioned-db))
-                      (send-after 10 tag-write)))
-                  (send cust :ok))
-                 
-                 (t
-                  (try cust retry-target args))
-                 ))
+     ((atag cust retry-target . args) when (eql atag tag-rollback)
+      (try cust retry-target args))
      
-          ((atag cust retry-target . args) when (eql atag tag-rollback)
-           (try cust retry-target args))
-          
-          ((atag) when (eql atag tag-write)
-           (send saver :save db))
-          )))))
+     ((atag) when (eql atag tag-write)
+      (send saver :save db))
+     )))
 
 (defun nascent-database-beh (custs saver)
-  (lambda* msg
+  (alambda
+   ((atag :open db) when (eql atag saver)
     (with-sponsor base-sponsor
-      (match msg
-        ((atag :open db) when (eql atag saver)
-         (let ((tag-write  (tag self))
-               (tag-commit (tag self))
-               (tag-retry  (tag self)))
-           (become (trans-gate-beh tag-commit tag-retry tag-write saver db))
-           (dolist (cust custs)
-             (send* self cust))
-           ))
-        
-        (msg
-         (become (nascent-database-beh (cons msg custs) saver)))
-        ))))
+      (let ((tag-write  (tag self))
+            (tag-commit (tag self))
+            (tag-retry  (tag self)))
+        (become (trans-gate-beh tag-commit tag-retry tag-write saver db))
+        (dolist (cust custs)
+          (send* self cust))
+        )))
+   
+   (msg
+    (with-sponsor base-sponsor
+      (become (nascent-database-beh (cons msg custs) saver))))
+   ))
 
 ;; -----------------------------------------------------------
 
 (defconstant +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
 (defun save-database-beh (trans-gate path last-db)
-  (lambda* msg
+  (alambda
+   ((:open db-path)
     (with-sponsor slow-sponsor
-      (match msg
-        ((:open db-path)
-         (let ((db (maps:empty)))
-           (ignore-errors
-             (with-open-file (f db-path
-                                :direction         :input
-                                :if-does-not-exist :error
-                                :element-type      '(unsigned-byte 8))
-               (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
-                      (id   (make-array (length sig)
-                                        :element-type '(unsigned-byte 8)
-                                        :initial-element 0)))
-                 (read-sequence id f)
-                 (when (equalp id sig)
-                   (setf db (loenc:deserialize f)))
-                 )))
-           (become (save-database-beh trans-gate db-path db))
-           (send trans-gate self :open db)))
-        
-        ((:save new-db) when (not (eql new-db last-db))
-         (ensure-directories-exist path)
-         (let ((trimmed (remove-unstorable new-db)))
-           (with-open-file (f path
-                              :direction         :output
-                              :if-exists         :rename
-                              :if-does-not-exist :create
-                              :element-type      '(unsigned-byte 8))
-             (write-sequence (uuid:uuid-to-byte-array +db-id+) f)
-             (loenc:serialize trimmed f)
-             (become (save-database-beh trans-gate path new-db)))))
-        ))))
+      (let ((db (maps:empty)))
+        (ignore-errors
+          (with-open-file (f db-path
+                             :direction         :input
+                             :if-does-not-exist :error
+                             :element-type      '(unsigned-byte 8))
+            (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
+                   (id   (make-array (length sig)
+                                     :element-type '(unsigned-byte 8)
+                                     :initial-element 0)))
+              (read-sequence id f)
+              (when (equalp id sig)
+                (setf db (loenc:deserialize f)))
+              )))
+        (become (save-database-beh trans-gate db-path db))
+        (send trans-gate self :open db))))
+   
+   ((:save new-db) when (not (eql new-db last-db))
+    (with-sponsor slow-sponsor
+      (ensure-directories-exist path)
+      (let ((trimmed (remove-unstorable new-db)))
+        (with-open-file (f path
+                           :direction         :output
+                           :if-exists         :rename
+                           :if-does-not-exist :create
+                           :element-type      '(unsigned-byte 8))
+          (write-sequence (uuid:uuid-to-byte-array +db-id+) f)
+          (loenc:serialize trimmed f)
+          (become (save-database-beh trans-gate path new-db))))))
+   ))
 
 (defun remove-unstorable (map)
   (maps:fold map (lambda (key val accu)
