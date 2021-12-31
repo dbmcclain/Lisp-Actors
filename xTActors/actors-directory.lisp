@@ -17,27 +17,30 @@
   (alambda
    
    ((cust :register name actor)
-    (let ((key (acceptable-key name)))
-      (become (directory-beh (maps:add dir key actor)))
-      (send cust)
-      ))
+    (with-sponsor base-sponsor
+      (let ((key (acceptable-key name)))
+        (become (directory-beh (maps:add dir key actor)))
+        (send cust)
+        )))
    
    ((cust :unregister name/actor)
-    (if (actor-p name/actor)
-        (let ((new-dir (maps:fold dir
-                                  (lambda (k v acc)
-                                    (if (eq v name/actor)
-                                        acc
-                                      (maps:add acc k v)))
-                                  (maps:empty))))
-          (become (directory-beh new-dir)))
-      (let ((key (acceptable-key name/actor)))
-        (become (directory-beh (maps:remove dir key)))))
-    (send cust))
+    (with-sponsor base-sponsor
+      (if (actor-p name/actor)
+          (let ((new-dir (maps:fold dir
+                                    (lambda (k v acc)
+                                      (if (eq v name/actor)
+                                          acc
+                                        (maps:add acc k v)))
+                                    (maps:empty))))
+            (become (directory-beh new-dir)))
+        (let ((key (acceptable-key name/actor)))
+          (become (directory-beh (maps:remove dir key)))))
+      (send cust)))
    
    ((cust :clear)
-    (become (directory-beh (maps:empty)))
-    (send cust))
+    (with-sponsor base-sponsor
+      (become (directory-beh (maps:empty)))
+      (send cust)))
     
    ((cust :get-actors)
     (send cust (um:accum acc

@@ -58,11 +58,13 @@
       )))
 
 ;; Some must-do's
-(defvar close-file (actor (fp)
-                     (close fp)))
+(deflex close-file
+        (once (actor (fp)
+                (close fp))))
 
-(defvar secure-erase (actor (buf)
-                       (fill buf 0)))
+(deflex secure-erase
+        (once (actor (buf)
+                (fill buf 0))))
 
 (defun perform (fn)
   (actor (&rest args)
