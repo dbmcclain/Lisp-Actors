@@ -82,41 +82,39 @@
            ))))))
 
 (defun writer-beh (state phys-write)
-  (lambda* msg
-    (with-sponsor base-sponsor
-      (match msg
-        ((:discard)
-         ;; sent from shutdown
-         (become (sink-beh)))
-        
-        ((byte-vec)
-         (send phys-write self byte-vec)
-         (become (pending-writer-beh state phys-write +emptyq+)))
-        ))))
+  (with-mutable-beh ()
+    (alambda
+     ((:discard)
+      ;; sent from shutdown
+      (become (sink-beh)))
+     
+     ((byte-vec)
+      (send phys-write self byte-vec)
+      (become (pending-writer-beh state phys-write +emptyq+)))
+     )))
 
 (defun pending-writer-beh (state phys-write pend)
-  (lambda* msg
-    (with-sponsor base-sponsor
-      (match msg
-        ((:discard)
-         ;; sent from shutdown
-         (become (sink-beh)))
-        
-        ((byte-vec)
-         (become (pending-writer-beh state phys-write (addq pend byte-vec))))
-        
-        ((a-cust :ok) when (eq a-cust phys-write)
-         (if (emptyq? pend)
-             (become (writer-beh state phys-write))
-           (multiple-value-bind (byte-vec new-queue) (popq pend)
-             (send phys-write self byte-vec)
-             (become (pending-writer-beh state phys-write new-queue))
-             )))
-        
-        ((a-cust :fail) when (eq a-cust phys-write)
-         (send (intf-state-shutdown state))
-         (become (sink-beh)))
-        ))))
+  (with-mutable-beh ()
+    (alambda
+     ((:discard)
+      ;; sent from shutdown
+      (become (sink-beh)))
+     
+     ((byte-vec)
+      (become (pending-writer-beh state phys-write (addq pend byte-vec))))
+     
+     ((a-cust :ok) when (eq a-cust phys-write)
+      (if (emptyq? pend)
+          (become (writer-beh state phys-write))
+        (multiple-value-bind (byte-vec new-queue) (popq pend)
+          (send phys-write self byte-vec)
+          (become (pending-writer-beh state phys-write new-queue))
+          )))
+     
+     ((a-cust :fail) when (eq a-cust phys-write)
+      (send (intf-state-shutdown state))
+      (become (sink-beh)))
+     )))
 
 (defun make-writer (state)
   (actors ((writer     (writer-beh state phys-write))
@@ -129,14 +127,14 @@
 (defun make-kill-timer (timer-fn)
   (let ((timer (mp:make-timer #'mp:funcall-async timer-fn)))
     (make-actor
-     (alambda
-      ((:resched)
-       (mp:schedule-timer-relative timer *socket-timeout-period*))
-      ((:discard)
-       (with-sponsor base-sponsor
+     (with-mutable-beh ()
+       (alambda
+        ((:resched)
+         (mp:schedule-timer-relative timer *socket-timeout-period*))
+        ((:discard)
          (mp:unschedule-timer timer)
-         (become (sink-beh))))
-      ))))
+         (become (sink-beh)))
+        )))))
 
 ;; -------------------------------------------------------------
 ;; List of currently active sockets
@@ -187,7 +185,7 @@
 ;;
 
 (defun empty-connections-list-beh ()
-  (prunable-alambda
+  (prunable-alambda ()
 
    ((cust :add-socket ip-addr ip-port state sender)
     (let ((next (make-actor self-beh)))
@@ -202,7 +200,7 @@
    ))
 
 (defun connection-node-beh (ip-addr ip-port state sender chan next)
-  (prunable-alambda
+  (prunable-alambda ()
 
    ((cust :add-socket an-ip-addr an-ip-port new-state new-sender) when (and (eql an-ip-addr ip-addr)
                                                                             (eql an-ip-port ip-port))
@@ -363,7 +361,7 @@
               )))))
 
 (defun empty-pending-connections-beh (top)
-  (prunable-alambda
+  (prunable-alambda ()
 
    ((cust :connect ip-addr ip-port report-ip-addr)
     (let ((next (make-actor self-beh)))
@@ -373,7 +371,7 @@
    ))
 
 (defun pending-connections-beh (ip-addr ip-port report-ip-addr custs next)
-  (prunable-alambda
+  (prunable-alambda ()
 
    ((cust :connect an-ip-addr an-ip-port . _) when (and (eql an-ip-addr ip-addr)
                                                         (eql an-ip-port ip-port))

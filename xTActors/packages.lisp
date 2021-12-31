@@ -78,6 +78,7 @@ THE SOFTWARE.
    #:par-safe-beh
    #:par-safe
    #:with-sponsor
+   #:with-mutable-beh
    #:err
    
    #:+emptyq+

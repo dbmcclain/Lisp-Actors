@@ -270,9 +270,6 @@ THE SOFTWARE.
 (defun send-combined-msg (cust msg1 msg2)
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
   
-(defun become (new-beh)
-  (setf (actor-beh *current-actor*) new-beh))
-
 (defun do-with-sponsor (where fn)
   (let ((spon (or where base-sponsor)))
     (if (eq spon self-sponsor)
@@ -289,6 +286,18 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (editor:setup-indent "with-sponsor" 1)
+
+(defmacro with-mutable-beh ((&optional preferred-sponsor) beh)
+  (lw:with-unique-names (msg)
+    `(lambda* ,msg
+       (with-sponsor ,preferred-sponsor
+         (macrolet ((become (new-beh)
+                      `(setf (actor-beh self) ,new-beh)))
+           (apply ,beh ,msg))))
+    ))
+
+#+:LISPWORKS
+(editor:setup-indent "with-mutable-beh" 1)
 
 ;; ----------------------------------------------------------------
 ;; Start with two Sponsors: there is no difference between them. But

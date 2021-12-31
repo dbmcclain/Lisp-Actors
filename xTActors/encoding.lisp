@@ -231,25 +231,25 @@
                      seq))
                  ))
              (noncer-beh (nonce tag nonce-writer)
-               (alambda
-                ((cust :get-nonce)
-                 ;; Send nonce to customer, then immediately increment
-                 ;; nonce to prevent re-use. The best we can do is
-                 ;; furnish a fresh nonce when asked. It is still up
-                 ;; to the customer to be sure it won't be reused.
-                 ;;
-                 ;; Nonces start out as the numeric value of the
-                 ;; hash/256 of the UUID of the host machine, at the
-                 ;; start time.
-                 ;;
-                 ;; We increment by 2^256, thereby assuring that we
-                 ;; never coincide with nonces generated previously on
-                 ;; any machine.
-                 ;;
-                 ;; We use the hash/256 of the UUID to preserve
-                 ;; anonymity in the nonces.
-                 ;;
-                 (with-sponsor base-sponsor
+               (with-mutable-beh ()
+                 (alambda
+                  ((cust :get-nonce)
+                   ;; Send nonce to customer, then immediately increment
+                   ;; nonce to prevent re-use. The best we can do is
+                   ;; furnish a fresh nonce when asked. It is still up
+                   ;; to the customer to be sure it won't be reused.
+                   ;;
+                   ;; Nonces start out as the numeric value of the
+                   ;; hash/256 of the UUID of the host machine, at the
+                   ;; start time.
+                   ;;
+                   ;; We increment by 2^256, thereby assuring that we
+                   ;; never coincide with nonces generated previously on
+                   ;; any machine.
+                   ;;
+                   ;; We use the hash/256 of the UUID to preserve
+                   ;; anonymity in the nonces.
+                   ;;
                    (send cust nonce)
                    (let ((new-tag   (tag self))
                          (new-nonce (+ nonce #.(ash 1 256))))
@@ -257,11 +257,11 @@
                      ;; sync to disk 10s after most recent get-nonce. If
                      ;; another happens during that time window, the
                      ;; sync is rescheduled.
-                     (send-after 10 new-tag :write-nonce))))
-                
-                ((cust :write-nonce) when (eq cust tag)
-                 (send nonce-writer nonce))
-                )))
+                     (send-after 10 new-tag :write-nonce)))
+                 
+                  ((cust :write-nonce) when (eq cust tag)
+                   (send nonce-writer nonce))
+                  ))))
       ;; all of the following will likely happen before MP has started...
       (make-actor (noncer-beh (rd-nonce) #()
                               (io (make-actor #'wr-nonce)) ))
@@ -407,8 +407,8 @@
 
 (defun dechunk-assembler-beh (cust nchunks chunks-seen out-vec)
   ;; Assemblers are constructed as soon as we have the init record
-  (lambda (offs byte-vec)
-    (with-sponsor base-sponsor
+  (with-mutable-beh ()
+    (lambda (offs byte-vec)
       (unless (member offs chunks-seen) ;; toss duplicates
         (replace out-vec byte-vec :start1 offs) ;; sorrry about non FPL code
         (push offs chunks-seen)                 ;; but nobody else can see it happening
@@ -443,46 +443,44 @@
 (defun dechunk-pending-beh (id pend next)
   ;; A node that enqueues data chunks for a given id, while we await
   ;; the arrival of the init record.
-  (lambda* msg
-    (with-sponsor base-sponsor
-      (match msg
-        ((cust :init an-id nchunks size) when (eql an-id id)
-         (let ((assembler (make-dechunk-assembler cust nchunks size)))
-           (become (dechunk-interceptor-beh id assembler next))
-           (dolist (args pend)
-             (send* assembler args))
-           ))
-
-        ((_ :chunk an-id offs byte-vec) when (eql an-id id)
-         (become (dechunk-pending-beh id
-                                      (cons (list offs byte-vec) pend)
-                                      next)))
-
-        (_
-         (repeat-send next))
-        ))))
+  (with-mutable-beh ()
+    (alambda
+     ((cust :init an-id nchunks size) when (eql an-id id)
+      (let ((assembler (make-dechunk-assembler cust nchunks size)))
+        (become (dechunk-interceptor-beh id assembler next))
+        (dolist (args pend)
+          (send* assembler args))
+        ))
+     
+     ((_ :chunk an-id offs byte-vec) when (eql an-id id)
+      (become (dechunk-pending-beh id
+                                   (cons (list offs byte-vec) pend)
+                                   next)))
+     
+     (_
+      (repeat-send next))
+     )))
 
 (defun null-dechunk-beh ()
-  (lambda* msg
-    (with-sponsor base-sponsor
-      (match msg
-        ((cust :pass bytevec)
-         (send cust bytevec))
-        
-        ((cust :init id nchunks size)
-         (let ((next      (make-actor self-beh))
-               (assembler (make-dechunk-assembler cust nchunks size)))
-           (become (dechunk-interceptor-beh id assembler next))
-           ))
-        
-        ((_ :chunk id offs byte-vec)
-         (let ((next (make-actor self-beh)))
-           (become (dechunk-pending-beh id
-                                        (list
-                                         (list offs byte-vec))
-                                        next))
-           ))
-        ))))
+  (with-mutable-beh ()
+    (alambda
+     ((cust :pass bytevec)
+      (send cust bytevec))
+     
+     ((cust :init id nchunks size)
+      (let ((next      (make-actor self-beh))
+            (assembler (make-dechunk-assembler cust nchunks size)))
+        (become (dechunk-interceptor-beh id assembler next))
+        ))
+     
+     ((_ :chunk id offs byte-vec)
+      (let ((next (make-actor self-beh)))
+        (become (dechunk-pending-beh id
+                                     (list
+                                      (list offs byte-vec))
+                                     next))
+        ))
+     )))
 
 (defun dechunker ()
   ;; No assumptions about chunk or init delivery order.

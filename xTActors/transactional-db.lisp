@@ -8,16 +8,16 @@
 (in-package com.ral.actors.kv-database)
   
 (defun trans-gate-beh (tag-commit tag-rollback saver db)
-  (flet ((try (cust target args)
-           (send* target db tag-commit tag-rollback cust target args)))
-    (alambda
-     ((cust :req target . args)
-      ;; general entry for external clients
-      (try cust target args))
-     
-     ((a-tag db-old db-new cust retry-target . args) when (eql a-tag tag-commit)
-      ;; client called the commit portal
-      (with-sponsor base-sponsor
+  (with-mutable-beh ()
+    (flet ((try (cust target args)
+             (send* target db tag-commit tag-rollback cust target args)))
+      (alambda
+       ((cust :req target . args)
+        ;; general entry for external clients
+        (try cust target args))
+       
+       ((a-tag db-old db-new cust retry-target . args) when (eql a-tag tag-commit)
+        ;; client called the commit portal
         (cond ((eql db-old db) ;; commit consistency?
                (unless (eql db-old db-new) ;; anything changed?
                  (let ((versioned-db (maps:add db-new 'version (uuid:make-v1-uuid))))
@@ -28,50 +28,49 @@
               
               (t
                (try cust retry-target args))
-              )))
-     
-     ((a-tag cust retry-target . args) when (eql a-tag tag-rollback)
-      ;; client called the rollback portal
-      (try cust retry-target args))
-     
-     ((a-tag a-db) when (and (eql a-tag saver)
-                             (eql a-db  db))
-      ;; We are the only one that knows the identity of saver, so this
-      ;; can't be forged by malicious clients. Also, a-db will only
-      ;; eql db if there have been no updates within the last 10 sec.
-      (send saver db))
-     )))
+              ))
+       
+       ((a-tag cust retry-target . args) when (eql a-tag tag-rollback)
+        ;; client called the rollback portal
+        (try cust retry-target args))
+       
+       ((a-tag a-db) when (and (eql a-tag saver)
+                               (eql a-db  db))
+        ;; We are the only one that knows the identity of saver, so this
+        ;; can't be forged by malicious clients. Also, a-db will only
+        ;; eql db if there have been no updates within the last 10 sec.
+        (send saver db))
+       ))))
 
 (defun nascent-database-beh (custs saver)
-  (alambda
-   ((a-tag db) when (eql a-tag saver)
-    ;; We are the only one that knows the identity of saver. So this
-    ;; message could not have come from anywhere except saver itself.
-    (with-sponsor base-sponsor
+  (with-mutable-beh ()
+    (alambda
+     ((a-tag db) when (eql a-tag saver)
+      ;; We are the only one that knows the identity of saver. So this
+      ;; message could not have come from anywhere except saver itself.
       (let ((tag-commit (tag self))
             (tag-retry  (tag self)))
         (become (trans-gate-beh tag-commit tag-retry saver db))
         ;; now open for business, resubmit pending client requests
         (dolist (cust custs)
           (send* self cust))
-        )))
-   
-   (msg
-    (with-sponsor base-sponsor
+        ))
+     
+     (msg
       ;; accumulate client requests until we open for business
-      (become (nascent-database-beh (cons msg custs) saver))))
-   ))
+      (become (nascent-database-beh (cons msg custs) saver)))
+     )))
 
 ;; -----------------------------------------------------------
 
 (defconstant +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
 (defun save-database-beh (path last-db)
-  (alambda
-   ((new-db) when (not (eql new-db last-db))
-    ;; The db gateway is the only one that knows saver's identity.
-    ;; Don't bother doing anything unless the db has changed.
-    (with-sponsor slow-sponsor
+  (with-mutable-beh ()
+    (alambda
+     ((new-db) when (not (eql new-db last-db))
+      ;; The db gateway is the only one that knows saver's identity.
+      ;; Don't bother doing anything unless the db has changed.
       (ensure-directories-exist path)
       (let ((trimmed (remove-unstorable new-db)))
         (with-open-file (f path
@@ -81,14 +80,14 @@
                            :element-type      '(unsigned-byte 8))
           (write-sequence (uuid:uuid-to-byte-array +db-id+) f)
           (loenc:serialize trimmed f)
-          (become (save-database-beh path new-db))))))
-   ))
+          (become (save-database-beh path new-db)))))
+     )))
 
 (defun unopened-database-beh (trans-gate)
-  (alambda
-   ((db-path)
-    ;; message from kick-off starter routine
-    (with-sponsor slow-sponsor
+  (with-mutable-beh ()
+    (alambda
+     ((db-path)
+      ;; message from kick-off starter routine
       (let ((db (maps:empty)))
         (ignore-errors
           (with-open-file (f db-path
@@ -104,8 +103,8 @@
                 (setf db (loenc:deserialize f)))
               )))
         (become (save-database-beh db-path db))
-        (send trans-gate self db))))
-   ))
+        (send trans-gate self db)))
+     )))
 
 (defun remove-unstorable (map)
   (maps:fold map (lambda (key val accu)

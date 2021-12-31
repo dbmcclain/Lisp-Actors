@@ -42,7 +42,7 @@
 |#
 
 (defun empty-pending-negotiations-beh (top client-skey)
-  (prunable-alambda
+  (prunable-alambda ()
 
    ((cust :get-chan socket local-services)
     (let ((next (make-actor self-beh)))
@@ -51,7 +51,7 @@
    ))
 
 (defun pending-negotiation-beh (socket custs next)
-  (prunable-alambda
+  (prunable-alambda ()
 
    ((cust :get-chan a-socket . _) when (eq a-socket socket)
     (become (pending-negotiation-beh socket (cons cust custs) next)))
