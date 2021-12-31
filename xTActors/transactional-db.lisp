@@ -12,12 +12,14 @@
            (send* target db tag-commit tag-rollback cust target args)))
     (alambda
      ((cust :req target . args)
+      ;; general entry for external clients
       (try cust target args))
      
      ((a-tag db-old db-new cust retry-target . args) when (eql a-tag tag-commit)
+      ;; client called the commit portal
       (with-sponsor base-sponsor
-        (cond ((eql db-old db)
-               (unless (eql db-old db-new)
+        (cond ((eql db-old db) ;; commit consistency?
+               (unless (eql db-old db-new) ;; anything changed?
                  (let ((versioned-db (maps:add db-new 'version (uuid:make-v1-uuid))))
                    ;; version key = 'com.ral.actors.kv-database::version
                    (become (trans-gate-beh tag-commit tag-rollback saver versioned-db))
@@ -29,26 +31,34 @@
               )))
      
      ((a-tag cust retry-target . args) when (eql a-tag tag-rollback)
+      ;; client called the rollback portal
       (try cust retry-target args))
      
      ((a-tag a-db) when (and (eql a-tag saver)
                              (eql a-db  db))
+      ;; We are the only one that knows the identity of saver, so this
+      ;; can't be forged by malicious clients. Also, a-db will only
+      ;; eql db if there have been no updates within the last 10 sec.
       (send saver db))
      )))
 
 (defun nascent-database-beh (custs saver)
   (alambda
    ((a-tag db) when (eql a-tag saver)
+    ;; We are the only one that knows the identity of saver. So this
+    ;; message could not have come from anywhere except saver itself.
     (with-sponsor base-sponsor
       (let ((tag-commit (tag self))
             (tag-retry  (tag self)))
         (become (trans-gate-beh tag-commit tag-retry saver db))
+        ;; now open for business, resubmit pending client requests
         (dolist (cust custs)
           (send* self cust))
         )))
    
    (msg
     (with-sponsor base-sponsor
+      ;; accumulate client requests until we have opened for business
       (become (nascent-database-beh (cons msg custs) saver))))
    ))
 
@@ -59,6 +69,8 @@
 (defun save-database-beh (path last-db)
   (alambda
    ((new-db) when (not (eql new-db last-db))
+    ;; The db gateway is the only one that knows saver's identity.
+    ;; Don't bother doing anything unless the db has changed.
     (with-sponsor slow-sponsor
       (ensure-directories-exist path)
       (let ((trimmed (remove-unstorable new-db)))
@@ -75,6 +87,7 @@
 (defun unopened-database-beh (trans-gate)
   (alambda
    ((db-path)
+    ;; message from kick-off starter routine
     (with-sponsor slow-sponsor
       (let ((db (maps:empty)))
         (ignore-errors
