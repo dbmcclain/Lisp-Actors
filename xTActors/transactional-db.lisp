@@ -153,7 +153,7 @@
         (make-actor
          (alambda
           ((cust :lookup key . default)
-           (apply #'lookup cust key default))
+           (apply 'lookup cust key default))
           
           ((cust :add key val)
            (add-rec cust key val))
@@ -165,7 +165,7 @@
            (repeat-send (db)))
           )))
 
-
+;; -----------------------------------------------------------
 #|
 (ask kvdb :lookup :dave)
 (uuid:when-created (ask kvdb :lookup 'version))
