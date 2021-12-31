@@ -187,7 +187,7 @@ THE SOFTWARE.
            (if (setf qtl qsave)
                (setf (msg-link (the msg qsave)) nil)
              (setf qhd nil))
-           (setf (actor-beh self)  self-beh)
+           ;; (setf (actor-beh self)  self-beh)
            ))
       )))
 
@@ -288,6 +288,28 @@ THE SOFTWARE.
 (editor:setup-indent "with-sponsor" 1)
 
 (defmacro with-mutable-beh ((&optional preferred-sponsor) beh)
+  ;; This version does not force execution onto a sponsor unless it
+  ;; was specified as preferred-sponsor. Possibly takes better
+  ;; advantage of multiple threads?
+  (lw:with-unique-names (lock msg sav-beh)
+    `(let ((,lock (list nil)))
+       (lambda* ,msg
+         (with-sponsor (or ,preferred-sponsor self-sponsor)
+           (if (sys:compare-and-swap (car ,lock) nil t)
+               (unwind-protect
+                   (let ((,sav-beh self-beh))
+                     (apply (macrolet ((become (new-beh)
+                                         `(setf ,',sav-beh ,new-beh)))
+                              ,beh)
+                            ,msg)
+                     (setf (actor-beh self) ,sav-beh))
+                 (setf (car ,lock) nil))
+             (send* self ,msg)))
+         ))
+    ))
+
+#|
+(defmacro with-mutable-beh ((&optional preferred-sponsor) beh)
   (lw:with-unique-names (msg)
     `(lambda* ,msg
        (with-sponsor ,preferred-sponsor
@@ -295,6 +317,7 @@ THE SOFTWARE.
                       `(setf (actor-beh self) ,new-beh)))
            (apply ,beh ,msg))))
     ))
+|#
 
 #+:LISPWORKS
 (editor:setup-indent "with-mutable-beh" 1)

@@ -392,16 +392,19 @@
       (send* next msg))
      )))
 
-(defun prune-self (next)
-  (setf (actor-beh self) (pruned-beh next))
-  (send next self :prune))
-
 (defmacro prunable-alambda ((&optional preferred-sponsor) &body clauses)
-  `(with-mutable-beh (,preferred-sponsor)
-     (alambda 
-      ((cust :prune)
-       (send cust :pruned self-beh))
-      ,@clauses)))
+  (lw:with-unique-names (tmp)
+    `(with-mutable-beh (,preferred-sponsor)
+       (macrolet ((prune-self (next)
+                    `(let ((,',tmp ,next))
+                       (become (pruned-beh ,',tmp))
+                       (send ,',tmp self :prune))
+                    ))
+         (alambda 
+          ((cust :prune)
+           (send cust :pruned self-beh))
+          ,@clauses)
+         ))))
 
 (defun no-pend-beh ()
   (prunable-alambda ()
