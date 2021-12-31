@@ -69,6 +69,7 @@ THE SOFTWARE.
 (defvar *current-actor*    nil) ;; Current Actor
 (defvar *current-behavior* nil) ;; Current Actor's behavior
 (defvar *current-sponsor*  nil) ;; Current Sponsor active during Actor exec
+(defvar *new-beh*          nil) ;; result of BECOME
 
 (define-symbol-macro self         *current-actor*)
 (define-symbol-macro self-beh     *current-behavior*)
@@ -152,6 +153,7 @@ THE SOFTWARE.
             (*current-actor*    (make-actor))
             (*current-behavior* #'lw:do-nothing)
             (*whole-message*    nil)
+            (*new-beh*          nil)
             (*send*             #'send))
         
         (declare (msg      *current-evt*)
@@ -174,20 +176,27 @@ THE SOFTWARE.
                 ;; before trampolining back here.
                 (setf *current-evt* (or (pop-evq)
                                         (mp:mailbox-read mbox))
-                      qsave (and qhd qtl)  ;; queue state for possible rollback
                       ;; Setup Actor context
-                      *current-actor*    (msg-actor *current-evt*)
-                      *current-behavior* (actor-beh self)
-                      *whole-message*    (msg-args  *current-evt*))
-                ;; ---------------------------------
-                ;; Dispatch to Actor behavior with message args
-                (apply self-beh *whole-message*)))
+                      self     (msg-actor *current-evt*)
+                      self-beh (sys:atomic-exchange (actor-beh self) nil))
+                (cond (self-beh
+                       ;; ---------------------------------
+                       ;; Dispatch to Actor behavior with message args
+                       (setf qsave           (and qhd qtl)  ;; queue state for possible rollback
+                             *whole-message* (msg-args  *current-evt*)
+                             *new-beh*       self-beh)
+                       (apply self-beh *whole-message*)
+                       (setf  (actor-beh self) *new-beh*))
+                      
+                      (t
+                       (add-evq *current-evt*))
+                      )))
            ;; ------------------------------------
            ;; we come here on Abort - back out optimistic commits of SEND/BECOME
+           (setf (actor-beh self) self-beh)
            (if (setf qtl qsave)
                (setf (msg-link (the msg qsave)) nil)
              (setf qhd nil))
-           ;; (setf (actor-beh self)  self-beh)
            ))
       )))
 
@@ -291,36 +300,18 @@ THE SOFTWARE.
   ;; This version does not force execution onto a sponsor unless it
   ;; was specified as preferred-sponsor. Possibly takes better
   ;; advantage of multiple threads?
-  (lw:with-unique-names (lock msg sav-beh)
-    (flet ((gen-body ()
-             `(if (sys:compare-and-swap (car ,lock) nil t)
-                  (unwind-protect
-                      (let ((,sav-beh self-beh))
-                        (apply (macrolet ((become (new-beh)
-                                            `(setf ,',sav-beh ,new-beh)))
-                                 ,beh)
-                               ,msg)
-                        (setf (actor-beh self) ,sav-beh))
-                    (setf (car ,lock) nil))
-                (send* self ,msg))))
-      `(let ((,lock (list nil)))
-         (lambda* ,msg
-           ,(if preferred-sponsor
-                `(with-sponsor ,preferred-sponsor ,(gen-body))
-              (gen-body))
-           ))
-      )))
-
-#|
-(defmacro with-mutable-beh ((&optional preferred-sponsor) beh)
   (lw:with-unique-names (msg)
-    `(lambda* ,msg
-       (with-sponsor ,preferred-sponsor
-         (macrolet ((become (new-beh)
-                      `(setf (actor-beh self) ,new-beh)))
-           (apply ,beh ,msg))))
-    ))
-|#
+    (flet ((gen-body ()
+             `(apply (macrolet ((become (new-beh)
+                                  `(setf *new-beh* ,new-beh)))
+                       ,beh)
+                     ,msg)
+             ))
+      `(lambda* ,msg
+         ,(if preferred-sponsor
+              `(with-sponsor ,preferred-sponsor ,(gen-body))
+            (gen-body)))
+      )))
 
 #+:LISPWORKS
 (editor:setup-indent "with-mutable-beh" 1)

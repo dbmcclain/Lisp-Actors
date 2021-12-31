@@ -108,7 +108,7 @@
   (let ((gs  (make-actor (null-service-list-beh))))
     (send* (actor (&rest svcs)
              (when svcs
-               (let ((me  self))
+               (let ((me self))
                  (beta _
                      (send* gs beta :add-service (car svcs))
                    (send* me (cdr svcs))
