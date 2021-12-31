@@ -58,7 +58,7 @@
    
    (msg
     (with-sponsor base-sponsor
-      ;; accumulate client requests until we have opened for business
+      ;; accumulate client requests until we open for business
       (become (nascent-database-beh (cons msg custs) saver))))
    ))
 

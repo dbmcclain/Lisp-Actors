@@ -113,7 +113,7 @@
 
 (defun make-handler-bind-case-without-no-error-case (form cases)
   (let ((block-name (gensym "HANDLER-BIND-CASE-BLOCK")))
-    (flet ((make-hander-binding (case)
+    (flet ((make-handler-binding (case)
              (destructuring-bind (type lambda-list . body) case
                `(,type (lambda ,lambda-list
                          (return-from ,block-name (locally ,@body))))
