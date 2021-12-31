@@ -59,6 +59,22 @@
 
 (defun save-database-beh (trans-gate path last-db)
   (alambda
+   ((:save new-db) when (not (eql new-db last-db))
+    (with-sponsor slow-sponsor
+      (ensure-directories-exist path)
+      (let ((trimmed (remove-unstorable new-db)))
+        (with-open-file (f path
+                           :direction         :output
+                           :if-exists         :rename
+                           :if-does-not-exist :create
+                           :element-type      '(unsigned-byte 8))
+          (write-sequence (uuid:uuid-to-byte-array +db-id+) f)
+          (loenc:serialize trimmed f)
+          (become (save-database-beh trans-gate path new-db))))))
+   ))
+
+(defun unopened-database-beh (trans-gate)
+  (alambda
    ((:open db-path)
     (with-sponsor slow-sponsor
       (let ((db (maps:empty)))
@@ -77,19 +93,6 @@
               )))
         (become (save-database-beh trans-gate db-path db))
         (send trans-gate self :open db))))
-   
-   ((:save new-db) when (not (eql new-db last-db))
-    (with-sponsor slow-sponsor
-      (ensure-directories-exist path)
-      (let ((trimmed (remove-unstorable new-db)))
-        (with-open-file (f path
-                           :direction         :output
-                           :if-exists         :rename
-                           :if-does-not-exist :create
-                           :element-type      '(unsigned-byte 8))
-          (write-sequence (uuid:uuid-to-byte-array +db-id+) f)
-          (loenc:serialize trimmed f)
-          (become (save-database-beh trans-gate path new-db))))))
    ))
 
 (defun remove-unstorable (map)
@@ -112,7 +115,7 @@
 
 (def-singleton-actor db ()
   (actors ((trans  (nascent-database-beh nil saver))
-           (saver  (save-database-beh trans nil nil)))
+           (saver  (unopened-database-beh trans)))
     (send saver :open *db-path*)
     trans))
 
