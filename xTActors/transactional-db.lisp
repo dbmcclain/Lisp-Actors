@@ -66,7 +66,7 @@
 (defconstant +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
 (defun save-database-beh (path last-db)
-  (with-mutable-beh ()
+  (with-mutable-beh (slow-sponsor)
     (alambda
      ((new-db) when (not (eql new-db last-db))
       ;; The db gateway is the only one that knows saver's identity.
@@ -84,7 +84,7 @@
      )))
 
 (defun unopened-database-beh (trans-gate)
-  (with-mutable-beh ()
+  (with-mutable-beh (slow-sponsor)
     (alambda
      ((db-path)
       ;; message from kick-off starter routine
