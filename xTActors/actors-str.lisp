@@ -292,21 +292,24 @@ THE SOFTWARE.
   ;; was specified as preferred-sponsor. Possibly takes better
   ;; advantage of multiple threads?
   (lw:with-unique-names (lock msg sav-beh)
-    `(let ((,lock (list nil)))
-       (lambda* ,msg
-         (with-sponsor (or ,preferred-sponsor self-sponsor)
-           (if (sys:compare-and-swap (car ,lock) nil t)
-               (unwind-protect
-                   (let ((,sav-beh self-beh))
-                     (apply (macrolet ((become (new-beh)
-                                         `(setf ,',sav-beh ,new-beh)))
-                              ,beh)
-                            ,msg)
-                     (setf (actor-beh self) ,sav-beh))
-                 (setf (car ,lock) nil))
-             (send* self ,msg)))
-         ))
-    ))
+    (flet ((gen-body ()
+             `(if (sys:compare-and-swap (car ,lock) nil t)
+                  (unwind-protect
+                      (let ((,sav-beh self-beh))
+                        (apply (macrolet ((become (new-beh)
+                                            `(setf ,',sav-beh ,new-beh)))
+                                 ,beh)
+                               ,msg)
+                        (setf (actor-beh self) ,sav-beh))
+                    (setf (car ,lock) nil))
+                (send* self ,msg))))
+      `(let ((,lock (list nil)))
+         (lambda* ,msg
+           ,(if preferred-sponsor
+                `(with-sponsor ,preferred-sponsor ,(gen-body))
+              (gen-body))
+           ))
+      )))
 
 #|
 (defmacro with-mutable-beh ((&optional preferred-sponsor) beh)
