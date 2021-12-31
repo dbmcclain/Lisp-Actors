@@ -7,43 +7,42 @@
 
 (in-package com.ral.actors.kv-database)
   
-(defun trans-gate-beh (tag-commit tag-rollback tag-write saver db)
+(defun trans-gate-beh (tag-commit tag-rollback saver db)
   (flet ((try (cust target args)
            (send* target db tag-commit tag-rollback cust target args)))
     (alambda
      ((cust :req target . args)
       (try cust target args))
      
-     ((atag db-old db-new cust retry-target . args) when (eql atag tag-commit)
+     ((a-tag db-old db-new cust retry-target . args) when (eql a-tag tag-commit)
       (with-sponsor base-sponsor
         (cond ((eql db-old db)
                (unless (eql db-old db-new)
-                 (let ((tag-write    (tag self))
-                       (versioned-db (maps:add db-new 'version (uuid:make-v1-uuid))))
+                 (let ((versioned-db (maps:add db-new 'version (uuid:make-v1-uuid))))
                    ;; version key = 'com.ral.actors.kv-database::version
-                   (become (trans-gate-beh tag-commit tag-rollback tag-write saver versioned-db))
-                   (send-after 10 tag-write)))
+                   (become (trans-gate-beh tag-commit tag-rollback saver versioned-db))
+                   (send-after 10 self saver versioned-db)))
                (send cust :ok))
               
               (t
                (try cust retry-target args))
               )))
      
-     ((atag cust retry-target . args) when (eql atag tag-rollback)
+     ((a-tag cust retry-target . args) when (eql a-tag tag-rollback)
       (try cust retry-target args))
      
-     ((atag) when (eql atag tag-write)
-      (send saver :save db))
+     ((a-tag a-db) when (and (eql a-tag saver)
+                             (eql a-db  db))
+      (send saver db))
      )))
 
 (defun nascent-database-beh (custs saver)
   (alambda
-   ((atag :open db) when (eql atag saver)
+   ((a-tag db) when (eql a-tag saver)
     (with-sponsor base-sponsor
-      (let ((tag-write  (tag self))
-            (tag-commit (tag self))
+      (let ((tag-commit (tag self))
             (tag-retry  (tag self)))
-        (become (trans-gate-beh tag-commit tag-retry tag-write saver db))
+        (become (trans-gate-beh tag-commit tag-retry saver db))
         (dolist (cust custs)
           (send* self cust))
         )))
@@ -57,9 +56,9 @@
 
 (defconstant +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
-(defun save-database-beh (trans-gate path last-db)
+(defun save-database-beh (path last-db)
   (alambda
-   ((:save new-db) when (not (eql new-db last-db))
+   ((new-db) when (not (eql new-db last-db))
     (with-sponsor slow-sponsor
       (ensure-directories-exist path)
       (let ((trimmed (remove-unstorable new-db)))
@@ -70,12 +69,12 @@
                            :element-type      '(unsigned-byte 8))
           (write-sequence (uuid:uuid-to-byte-array +db-id+) f)
           (loenc:serialize trimmed f)
-          (become (save-database-beh trans-gate path new-db))))))
+          (become (save-database-beh path new-db))))))
    ))
 
 (defun unopened-database-beh (trans-gate)
   (alambda
-   ((:open db-path)
+   ((db-path)
     (with-sponsor slow-sponsor
       (let ((db (maps:empty)))
         (ignore-errors
@@ -91,8 +90,8 @@
               (when (equalp id sig)
                 (setf db (loenc:deserialize f)))
               )))
-        (become (save-database-beh trans-gate db-path db))
-        (send trans-gate self :open db))))
+        (become (save-database-beh db-path db))
+        (send trans-gate self db))))
    ))
 
 (defun remove-unstorable (map)
@@ -116,7 +115,7 @@
 (def-singleton-actor db ()
   (actors ((trans  (nascent-database-beh nil saver))
            (saver  (unopened-database-beh trans)))
-    (send saver :open *db-path*)
+    (send saver *db-path*)
     trans))
 
 ;; -----------------------------------------------------------
