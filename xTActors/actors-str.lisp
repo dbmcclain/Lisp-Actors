@@ -124,6 +124,8 @@ THE SOFTWARE.
 ;; sponsor.
 
 (defun get-actor-beh (actor)
+  ;; ... in the unlikely case that the actor is executing when we
+  ;; ask...
   (do ((beh  (actor-beh actor)  (actor-beh actor)))
       (beh beh)))
 
@@ -293,6 +295,7 @@ THE SOFTWARE.
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
 
 (defun become (new-beh)
+  (check-type new-beh function)
   (setf *new-beh* new-beh))
 
 #|
