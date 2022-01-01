@@ -1,7 +1,7 @@
 -- Lisp-Actors (xTActors) - Classical Actors (Jan 2022)
 ----------
 
-Actors are now completely thread-safe, and can perform with identical behavior on any Sponsor thread, but on only one Sponsor at any moment. Sponsors are responsible for running the message dispatch loop and for setting up the Actor context before invoking its behavior code on messages. An Actor runs in a given Sponsor by virtue of a message arriving in the Sponsor event queue which specifies the Actor. The only possible distinction between an Actor running on different Sponsor threads is the queue response time. 
+Actors are now completely thread-safe, and can perform with identical behavior on any Sponsor thread, but run on only one Sponsor at any moment. Sponsors are responsible for running the message dispatch loop and for setting up the Actor context before invoking its behavior code on messages. An Actor runs in a given Sponsor by virtue of a message arriving in the Sponsor event queue which specifies the Actor. The only possible distinction between an Actor running on different Sponsor threads is the queue response time. 
 
 The base-sponsor is envisioned as the primary Sponsor thread. The slow-sponsor, which is identical to base-sponosor in all respects, was planned as the thread in which blocking I/O activities might be directed - hence the name "slow-sponsor". When you send a message from outside of the Actor framework, as from a foreign thread, or the REPL, that message is delivered to base-sponsor. By having two running Sponsors, muticore machines can potentially run these activities in parallel. But that is really up to the OS thread scheduler.
 
