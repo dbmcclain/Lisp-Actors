@@ -379,7 +379,10 @@
     (prune-self next)
 
     (multiple-value-bind (peer-ip peer-port)
+        #+:LISPWORKS8
         (comm:socket-connection-peer-address (intf-state-io-state intf-state))
+        #+:LISPWORKS7
+        (comm:get-socket-peer-address (slot-value (intf-state-io-state intf-state) 'comm::object))
       (send fmt-println "Client Socket (~S->~A:~D) starting up" report-ip-addr
             (comm:ip-address-string peer-ip) peer-port)
     (send-to-all custs sender sender local-services)))
@@ -448,7 +451,10 @@ See the discussion under START-CLIENT-MESSENGER for details."
       (declare (ignore sender local-services))
       (push state (comm:accepting-handle-user-info accepting-handle))
       (multiple-value-bind (peer-ip peer-port)
+          #+:LISPWORKS8
           (comm:socket-connection-peer-address io-state)
+          #+:LISPWORKS7
+          (comm:get-socket-peer-address (slot-value io-state 'comm::object))
         (send fmt-println "Server Socket (~S->~A:~D) starting up" server-name
               (comm:ip-address-string peer-ip) peer-port)
         ))))

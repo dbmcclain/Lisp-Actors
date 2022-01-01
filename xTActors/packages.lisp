@@ -31,6 +31,7 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.actors
   (:use #:common-lisp #:def*)
+  (:nicknames #:ac)
   (:import-from #:timeout
    #:timeout
    #:*timeout*)

@@ -123,9 +123,13 @@ THE SOFTWARE.
 ;; that case, it would be better to always perform on a stated
 ;; sponsor.
 
+(defun get-actor-beh (actor)
+  (do ((beh  (actor-beh actor)  (actor-beh actor)))
+      (beh beh)))
+
 (defvar *send*
   (lambda (actor &rest msg)
-    (apply (actor-beh base-sponsor) actor msg)
+    (apply (get-actor-beh base-sponsor) actor msg)
     (values)))
     
 (defun run-actors (*current-sponsor* mbox)
@@ -232,7 +236,7 @@ THE SOFTWARE.
 
 (defun is-pure-sink? (actor)
   (or (null actor)
-      (eq (actor-beh actor) #'lw:do-nothing)))
+      (eq (get-actor-beh actor) #'lw:do-nothing)))
 
 (defun sponsor-beh (mbox thread)
   ;; this one is just slightly special
@@ -460,7 +464,7 @@ THE SOFTWARE.
                        slow-sponsor
                      base-sponsor))
             (mbox (mp:make-mailbox)))
-        (apply (actor-beh spon) actor (mbox-sender mbox) msg)
+        (apply (get-actor-beh spon) actor (mbox-sender mbox) msg)
         (values-list (mp:mailbox-read mbox)))
     ;; else
     (apply #'ask actor msg)))
@@ -503,7 +507,7 @@ THE SOFTWARE.
   )
 
 #| ;; for manual loading mode...
-(when (eq (actor-beh base-sponsor) #'lw:do-nothing)
+(when (eq (get-actor-beh base-sponsor) #'lw:do-nothing)
   (if (mp:get-current-process)
       (lw-start-actors)
     ;; else
