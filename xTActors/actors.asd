@@ -40,7 +40,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "macros")
                 (:file "actors-str")
                 (:file "prim-actors")
-                (:file "actors-directory")
+                ;; (:file "actors-directory")
                 (:file "encoding")
                 (:file "singletons")
                 (:file "transactional-db")
