@@ -57,8 +57,8 @@
   (lw:defadvice (send send-tracer :before)
       (&rest msg)
     (when *atrace*
-      (with-printer
-        (format t "~&~{~A~%~^~}"
+      (with-printer (s *standard-output*)
+        (format s "~&~{~A~%~^~}"
                 (mapcar (lambda (args)
                           (apply #'format nil args))
                         `(("----- Send at ~A -----" ,(logger-timestamp))
