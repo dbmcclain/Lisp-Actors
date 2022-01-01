@@ -113,6 +113,15 @@ THE SOFTWARE.
 ;; case of error, the tail of the event queue is rolled back, and the
 ;; Actor behavior of the current Actor is restored.
 ;;
+;; Actors are now completely thread-safe - only one sponsor at a time
+;; can be running any given Actor. But that also means there is no
+;; longer any parallel execution of Actors, even when a non-mutating
+;; behavior would be safe to run in parallel.
+;;
+;; We are also now open to potential spin-lock loops if an Actor is
+;; popular among multiple sponsors and takes too long to perform. In
+;; that case, it would be better to always perform on a stated
+;; sponsor.
 
 (defvar *send*
   (lambda (actor &rest msg)
@@ -278,7 +287,11 @@ THE SOFTWARE.
 
 (defun send-combined-msg (cust msg1 msg2)
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
-  
+
+(defun become (new-beh)
+  (setf *new-beh* new-beh))
+
+#|
 (defun do-with-sponsor (where fn)
   (let ((spon (or where base-sponsor)))
     (if (eq spon self-sponsor)
@@ -315,6 +328,7 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (editor:setup-indent "with-mutable-beh" 1)
+|#
 
 ;; ----------------------------------------------------------------
 ;; Start with two Sponsors: there is no difference between them. But
@@ -347,13 +361,13 @@ THE SOFTWARE.
   (make-actor (in-sponsor-beh sponsor actor)))
 
 ;; -------------
-
+#|
 (defun par-safe-beh (actor)
   (in-sponsor-beh base-sponsor actor))
 
 (defun par-safe (actor)
   (make-actor (par-safe-beh actor)))
-
+|#
 ;; -------------
 
 (defun io-beh (actor)

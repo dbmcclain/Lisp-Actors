@@ -75,10 +75,10 @@ THE SOFTWARE.
    #:io-beh
    #:io
    #:ioreq
-   #:par-safe-beh
-   #:par-safe
-   #:with-sponsor
-   #:with-mutable-beh
+   ;; #:par-safe-beh
+   ;; #:par-safe
+   ;; #:with-sponsor
+   ;; #:with-mutable-beh
    #:err
    
    #:+emptyq+

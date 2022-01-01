@@ -31,10 +31,9 @@
 ;; ---------------------
 
 (defun once-beh (cust)
-  (with-mutable-beh ()
-    (lambda (&rest msg)
-      (send* cust msg)
-      (become (sink-beh)))))
+  (lambda (&rest msg)
+    (send* cust msg)
+    (become (sink-beh))))
 
 (defun once (cust)
   (make-actor (once-beh cust)))
@@ -85,14 +84,13 @@
 ;; -------------------------------------------------
 
 (defun future-wait-beh (tag &rest custs)
-  (with-mutable-beh ()
-    (lambda (cust &rest msg)
-      (cond ((eq cust tag)
-             (become (apply #'const-beh msg))
-             (apply #'send-to-all custs msg))
-            (t
-             (become (apply 'future-wait-beh tag cust custs)))
-            ))))
+  (lambda (cust &rest msg)
+    (cond ((eq cust tag)
+           (become (apply #'const-beh msg))
+           (apply #'send-to-all custs msg))
+          (t
+           (become (apply 'future-wait-beh tag cust custs)))
+          )))
 
 (defun future (actor &rest msg)
   ;; Return an Actor that represents the future value. Send that value
@@ -142,19 +140,18 @@
   ;; another label. There are only two possible incoming incoming
   ;; messages, because in use, our Actor is ephemeral and anonymous. So no
   ;; other incoming messages are possible.
-  (with-mutable-beh ()
-    (lambda (lbl &rest msg)
-      (cond ((eq lbl lbl1)
-             (become (lambda (_ &rest msg2)
+  (lambda (lbl &rest msg)
+    (cond ((eq lbl lbl1)
+           (become (lambda (_ &rest msg2)
+                     (declare (ignore _))
+                     (send-combined-msg cust msg msg2))
+                   ))
+          (t ;; could only be lbl2
+             (become (lambda (_ &rest msg1)
                        (declare (ignore _))
-                       (send-combined-msg cust msg msg2))
+                       (send-combined-msg cust msg1 msg))
                      ))
-            (t ;; could only be lbl2
-               (become (lambda (_ &rest msg1)
-                         (declare (ignore _))
-                         (send-combined-msg cust msg1 msg))
-                       ))
-            ))))
+          )))
 
 (defun fork (left right)
   ;; Accept two message lists, lreq and rreq, sending lreq to left,
@@ -278,67 +275,63 @@
   ;; needlessly.
 (defun serializer-beh (service)
   ;; initial empty state
-  (with-mutable-beh ()
-    (lambda (cust &rest msg)
-      (let ((tag  (tag self)))
-        (send* service tag msg)
-        (become (enqueued-serializer-beh
-                 service tag cust))
-        ))))
+  (lambda (cust &rest msg)
+    (let ((tag  (tag self)))
+      (send* service tag msg)
+      (become (enqueued-serializer-beh
+               service tag cust))
+      )))
 
 (defun enqueued-serializer-beh (service tag in-cust)
-  (with-mutable-beh ()
-    (lambda (cust &rest msg)
-      (cond ((eq cust tag)
-             (send* in-cust msg)
-             (become (serializer-beh service)))
-            
-            (t
-             (repeat-send self))
-            ))))
+  (lambda (cust &rest msg)
+    (cond ((eq cust tag)
+           (send* in-cust msg)
+           (become (serializer-beh service)))
+          
+          (t
+           (repeat-send self))
+          )))
 |#
 
 #||#
 ;; This version does not cause the CPU to spin
 (defun serializer-beh (service)
   ;; initial empty state
-  (with-mutable-beh ()
-    (lambda (cust &rest msg)
-      (let ((tag  (tag self)))
-        (send* service tag msg)
-        (become (enqueued-serializer-beh
-                 service tag cust +emptyq+))
-        ))))
+  (lambda (cust &rest msg)
+    (let ((tag  (tag self)))
+      (send* service tag msg)
+      (become (enqueued-serializer-beh
+               service tag cust +emptyq+))
+      )))
 
 (defun enqueued-serializer-beh (service tag in-cust queue)
-  (with-mutable-beh ()
-    (labels ((do-next ()
-               (if (emptyq? queue)
-                   (become (serializer-beh service))
-                 (multiple-value-bind (next-req new-queue) (popq queue)
-                   (destructuring-bind (next-cust . next-msg) next-req
-                     (send* service tag next-msg)
-                     (become (enqueued-serializer-beh
-                              service tag next-cust new-queue))
-                     ))
-                 )))
-      (alambda
-       ((cust :abort chk) when (and (eq cust tag)
-                                    (eq chk tag))
-        ;; use (send cust :abort cust) to abort. Don't tell the current
-        ;; customer - leave it hanging, and go on to the next one.
-        (do-next))
-       
-       ((cust . msg)
-        (cond ((eq cust tag)
-               (send* in-cust msg)
-               (do-next))
-              (t
-               (become (enqueued-serializer-beh
-                        service tag in-cust
-                        (addq queue (cons cust msg)))))
-              ))
-       ))))
+  (labels ((do-next ()
+             (if (emptyq? queue)
+                 (become (serializer-beh service))
+               (multiple-value-bind (next-req new-queue) (popq queue)
+                 (destructuring-bind (next-cust . next-msg) next-req
+                   (send* service tag next-msg)
+                   (become (enqueued-serializer-beh
+                            service tag next-cust new-queue))
+                   ))
+               )))
+    (alambda
+     ((cust :abort chk) when (and (eq cust tag)
+                                  (eq chk tag))
+      ;; use (send cust :abort cust) to abort. Don't tell the current
+      ;; customer - leave it hanging, and go on to the next one.
+      (do-next))
+     
+     ((cust . msg)
+      (cond ((eq cust tag)
+             (send* in-cust msg)
+             (do-next))
+            (t
+             (become (enqueued-serializer-beh
+                      service tag in-cust
+                      (addq queue (cons cust msg)))))
+            ))
+     )))
 
 (defun serializer-abort (cust)
   ;; Cause the serializer to abort, don't report back to original
@@ -383,28 +376,26 @@
 ;; needlessly using CPU cycles.
 
 (defun pruned-beh (next)
-  (with-mutable-beh ()
-    (alambda
-     ((:pruned beh)
-      (become beh))
-     
-     (msg
-      (send* next msg))
-     )))
+  (alambda
+   ((:pruned beh)
+    (become beh))
+   
+   (msg
+    (send* next msg))
+   ))
 
 (defmacro prunable-alambda ((&optional preferred-sponsor) &body clauses)
   (lw:with-unique-names (tmp)
-    `(with-mutable-beh (,preferred-sponsor)
-       (macrolet ((prune-self (next)
-                    `(let ((,',tmp ,next))
-                       (become (pruned-beh ,',tmp))
-                       (send ,',tmp self :prune))
-                    ))
-         (alambda 
-          ((cust :prune)
-           (send cust :pruned self-beh))
-          ,@clauses)
-         ))))
+    `(macrolet ((prune-self (next)
+                  `(let ((,',tmp ,next))
+                     (become (pruned-beh ,',tmp))
+                     (send ,',tmp self :prune))
+                  ))
+       (alambda 
+        ((cust :prune)
+         (send cust :pruned self-beh))
+        ,@clauses)
+       )))
 
 (defun no-pend-beh ()
   (prunable-alambda ()
@@ -432,16 +423,15 @@
 ;; --------------------------------------------------
 
 (defun suspended-beh (prev-beh tag queue)
-  (with-mutable-beh ()
-    (alambda
-     ((atag) when (eq tag atag)
-      (become prev-beh)
-      (do-queue (item queue)
-        (send* self item)))
-     
-     (msg
-      (become (suspended-beh prev-beh tag (addq queue msg))))
-     )))
+  (alambda
+   ((atag) when (eq tag atag)
+    (become prev-beh)
+    (do-queue (item queue)
+      (send* self item)))
+   
+   (msg
+    (become (suspended-beh prev-beh tag (addq queue msg))))
+   ))
    
 (defun suspend ()
   ;; To be used only inside of Actor behavior code.
@@ -534,32 +524,30 @@
 ;; ---------------------------------------------------------
 
 (defun ticketed-perform-beh ()
-  (with-mutable-beh ()
-    (alambda
-     ((cust :req)
-      (let ((tag  (tag self)))
-        (become (pending-perform-beh tag +emptyq+))
-        (send cust tag)
-        (send-after 1 tag :done)
-        ))
-     )))
+  (alambda
+   ((cust :req)
+    (let ((tag  (tag self)))
+      (become (pending-perform-beh tag +emptyq+))
+      (send cust tag)
+      (send-after 1 tag :done)
+      ))
+   ))
 
 (defun pending-perform-beh (tag pend)
-  (with-mutable-beh ()
-    (alambda
-     ((cust :done) when (eq cust tag)
-      (if (emptyq? pend)
-          (become (ticketed-perform-beh))
-        (multiple-value-bind (next-cust new-queue) (popq pend)
-          (let ((new-tag (tag self)))
-            (send next-cust new-tag)
-            (send-after 1 new-tag :done)
-            (become (pending-perform-beh new-tag new-queue)))
-          )))
-     
-     ((cust :req)
-      (become (pending-perform-beh tag (addq pend cust))))
-     )))
+  (alambda
+   ((cust :done) when (eq cust tag)
+    (if (emptyq? pend)
+        (become (ticketed-perform-beh))
+      (multiple-value-bind (next-cust new-queue) (popq pend)
+        (let ((new-tag (tag self)))
+          (send next-cust new-tag)
+          (send-after 1 new-tag :done)
+          (become (pending-perform-beh new-tag new-queue)))
+        )))
+   
+   ((cust :req)
+    (become (pending-perform-beh tag (addq pend cust))))
+   ))
 
 (defun ticketed-perform ()
   (make-actor (ticketed-perform-beh)))

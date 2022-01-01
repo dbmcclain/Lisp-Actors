@@ -82,39 +82,37 @@
            ))))))
 
 (defun writer-beh (state phys-write)
-  (with-mutable-beh ()
-    (alambda
-     ((:discard)
-      ;; sent from shutdown
-      (become (sink-beh)))
-     
-     ((byte-vec)
-      (send phys-write self byte-vec)
-      (become (pending-writer-beh state phys-write +emptyq+)))
-     )))
+  (alambda
+   ((:discard)
+    ;; sent from shutdown
+    (become (sink-beh)))
+   
+   ((byte-vec)
+    (send phys-write self byte-vec)
+    (become (pending-writer-beh state phys-write +emptyq+)))
+   ))
 
 (defun pending-writer-beh (state phys-write pend)
-  (with-mutable-beh ()
-    (alambda
-     ((:discard)
-      ;; sent from shutdown
-      (become (sink-beh)))
-     
-     ((byte-vec)
-      (become (pending-writer-beh state phys-write (addq pend byte-vec))))
-     
-     ((a-cust :ok) when (eq a-cust phys-write)
-      (if (emptyq? pend)
-          (become (writer-beh state phys-write))
-        (multiple-value-bind (byte-vec new-queue) (popq pend)
-          (send phys-write self byte-vec)
-          (become (pending-writer-beh state phys-write new-queue))
-          )))
-     
-     ((a-cust :fail) when (eq a-cust phys-write)
-      (send (intf-state-shutdown state))
-      (become (sink-beh)))
-     )))
+  (alambda
+   ((:discard)
+    ;; sent from shutdown
+    (become (sink-beh)))
+   
+   ((byte-vec)
+    (become (pending-writer-beh state phys-write (addq pend byte-vec))))
+   
+   ((a-cust :ok) when (eq a-cust phys-write)
+    (if (emptyq? pend)
+        (become (writer-beh state phys-write))
+      (multiple-value-bind (byte-vec new-queue) (popq pend)
+        (send phys-write self byte-vec)
+        (become (pending-writer-beh state phys-write new-queue))
+        )))
+   
+   ((a-cust :fail) when (eq a-cust phys-write)
+    (send (intf-state-shutdown state))
+    (become (sink-beh)))
+   ))
 
 (defun make-writer (state)
   (actors ((writer     (writer-beh state phys-write))
@@ -127,14 +125,13 @@
 (defun make-kill-timer (timer-fn)
   (let ((timer (mp:make-timer #'mp:funcall-async timer-fn)))
     (make-actor
-     (with-mutable-beh ()
-       (alambda
-        ((:resched)
-         (mp:schedule-timer-relative timer *socket-timeout-period*))
-        ((:discard)
-         (mp:unschedule-timer timer)
-         (become (sink-beh)))
-        )))))
+     (alambda
+      ((:resched)
+       (mp:schedule-timer-relative timer *socket-timeout-period*))
+      ((:discard)
+       (mp:unschedule-timer timer)
+       (become (sink-beh)))
+      ))))
 
 ;; -------------------------------------------------------------
 ;; List of currently active sockets
