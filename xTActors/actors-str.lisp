@@ -185,12 +185,11 @@ THE SOFTWARE.
                            ;; pointer in the current Actor, and that needs to be restored, sooner
                            ;; rather than later, in case a user handler wants to use the Actor
                            ;; for some reason.
-                           (setf (actor-beh self) self-beh)
-                           (if (setf qtl qsave)
+                           (setf (actor-beh self) self-beh) ;; restore behavior, ignoring BECOME
+                           (if (setf qtl qsave)             ;; unwind the SENDs
                                (setf (msg-link (the msg qsave)) nil)
                              (setf qhd nil))
                            )))
-               ;; unroll the committed SENDS and BECOME
                (loop
                   ;; Get a Foreign SEND event if any
                   (when (mp:mailbox-not-empty-p mbox)
