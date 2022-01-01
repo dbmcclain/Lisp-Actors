@@ -177,43 +177,51 @@ THE SOFTWARE.
 
         (loop
            (with-simple-restart (abort "Handle next event")
-             ;; unroll the committed SENDS and BECOME
-             (loop
-                ;; Get a Foreign SEND event if any
-                (when (mp:mailbox-not-empty-p mbox)
-                  (add-evq (mp:mailbox-read mbox)))
-                
-                ;; Fetch next event from event queue - ideally, this
-                ;; would be just a handful of simple register/memory
-                ;; moves and direct jump. No call/return needed, and
-                ;; stack useful only for a microcoding assist. Our
-                ;; depth is never more than one Actor at a time,
-                ;; before trampolining back here.
-                (setf *current-evt* (or (pop-evq)
-                                        (mp:mailbox-read mbox))
-                      ;; Setup Actor context
-                      self     (msg-actor *current-evt*)
-                      self-beh (sys:atomic-exchange (actor-beh self) nil))
-                (cond (self-beh
-                       ;; ---------------------------------
-                       ;; Dispatch to Actor behavior with message args
-                       (setf qsave           (and qhd qtl)  ;; queue state for possible rollback
-                             *whole-message* (msg-args  *current-evt*)
-                             *new-beh*       self-beh)
-                       (apply self-beh *whole-message*)
-                       (setf  (actor-beh self) *new-beh*))
-                      
-                      (t
-                       (add-evq *current-evt*))
-                      )))
-           ;; ------------------------------------
-           ;; we come here on Abort - back out optimistic commits of SEND/BECOME
-           (setf (actor-beh self) self-beh)
-           (if (setf qtl qsave)
-               (setf (msg-link (the msg qsave)) nil)
-             (setf qhd nil))
-           ))
-      )))
+             (handler-bind
+                 ((error (lambda (c)
+                           (declare (ignore c))
+                           ;; We come here on error - back out optimistic commits of SEND/BECOME.
+                           ;; We really do need a HANDLER-BIND here since we nulled out the behavior
+                           ;; pointer in the current Actor, and that needs to be restored, sooner
+                           ;; rather than later, in case a user handler wants to use the Actor
+                           ;; for some reason.
+                           (setf (actor-beh self) self-beh)
+                           (if (setf qtl qsave)
+                               (setf (msg-link (the msg qsave)) nil)
+                             (setf qhd nil))
+                           )))
+               ;; unroll the committed SENDS and BECOME
+               (loop
+                  ;; Get a Foreign SEND event if any
+                  (when (mp:mailbox-not-empty-p mbox)
+                    (add-evq (mp:mailbox-read mbox)))
+                  
+                  ;; Fetch next event from event queue - ideally, this
+                  ;; would be just a handful of simple register/memory
+                  ;; moves and direct jump. No call/return needed, and
+                  ;; stack useful only for a microcoding assist. Our
+                  ;; depth is never more than one Actor at a time,
+                  ;; before trampolining back here.
+                  (setf *current-evt* (or (pop-evq)
+                                          (mp:mailbox-read mbox))
+                        ;; Setup Actor context
+                        self     (msg-actor *current-evt*)
+                        self-beh (sys:atomic-exchange (actor-beh self) nil))
+                  (cond (self-beh
+                         ;; ---------------------------------
+                         ;; Dispatch to Actor behavior with message args
+                         (setf qsave           (and qhd qtl)  ;; queue state for possible rollback
+                               *whole-message* (msg-args  *current-evt*)
+                               *new-beh*       self-beh)
+                         (apply self-beh *whole-message*)
+                         (setf  (actor-beh self) *new-beh*))
+                        
+                        (t
+                         (add-evq *current-evt*))
+                        ))
+               )))
+        ;; ------------------------------------
+        ))))
 
 ;; ----------------------------------------------------------
 ;; SPONSORS -- offer an event queue and have an associated runtime
