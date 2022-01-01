@@ -9,6 +9,8 @@ I bit the bullet after many variations, and after tiring of the constant need to
 
 You should still try to program by the discipline of FPL. Even though we are thread safe, if you write imperative mutation code against your Actor parameters, instead of using BECOME, you violate the principle that upon any error the system behaves as though the message was never received. SENDs and BECOMEs are always backed out on error, but your imperative mutations would not be.
 
+This go-around behavior on seeing a null behavior pointer, potentially opens us up to spin-live-lock, where a long running Actor hogs the thread and other threads that want to run the Actor keep spinning, waiting for a non-null behavior pointer. You can alleviate this possibility by keeping Actor behaviors very short. If your Actor needs a significant computation, you can fling that off into a new ephemeral Actor, with its own copies of the parameters. If you, instead, tried using a continuation Actor via BETA, you would be sharing state between two different Actors, both of which could be executing in parallel. Once again, as long as you never mutate your parameters, that would be fine too.
+
 
 
 
