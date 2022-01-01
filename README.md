@@ -1,3 +1,17 @@
+-- Lisp-Actors (xTActors) - Classical Actors (Jan 2022)
+----------
+
+Actors are now completely thread-safe, and can perform with identical behavior on any Sponsor thread. Sponsors are responsible running the message dispatch loop and for setting up the Actor context before invoking its behavior code on messages. An Actor runs in a given Sponsor by virtue of a message arriving in the Sponsor event queue which specifies the Actor. The only possible distinction between an Actor running on different Sponsor threads is the queue response time. 
+
+The base-sponsor is envisioned as the primary Sponsor thread. The slow-sponsor, which is identical to base-sponosor in all respects, was planned as the thread in which blocking I/O activities might be directed - hence the name "slow-sponsor". When you send a message from outside of the Actor framework, as from a foreign thread, or the REPL, that message is delivered to base-sponsor. By having two running Sponsors, muticore machines can potentially run these activities in parallel. But that is really up to the OS thread scheduler.
+
+I bit the bullet after many variations, and after tiring of the constant need to be aware of the Sponsor thread. I use an ATOMIC-EXCHANGE in the run loop to simutaneously grab the Actor behavior address and null it out. Any other thread seeing that null behavior pointer knows to just put the message back in its event queue and go around for a later retry. The runtime overhead of the ATOMIC-EXCHANGE isn't all that bad after all. And now we never need to concern ourselves with what Sponsor we are running on.
+
+You should still try to program by the discipline of FPL. Even though we are thread safe, if you write imperative mutation code against your Actor parameters, instead of using BECOME, you violate the principle that upon any error the system behaves as though the message was never received. SENDs and BECOMEs are always backed out on error, but your imperative mutations would not be.
+
+
+
+
 -- Lisp-Actors - Classical Actors (Bare Essentials in xTActors folder - Nov 2021)
 --------------
 
