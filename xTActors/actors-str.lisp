@@ -163,13 +163,13 @@ THE SOFTWARE.
       ;; instruction stream, instead of linear memory, and which
       ;; executes breadth-first instead of depth-first. This maximizes
       ;; concurrency.
-      (let ((qsave              nil) ;; rollback copy
-            (*current-evt*      (msg (make-actor) nil))
-            (*current-actor*    (make-actor))
-            (*current-behavior* #'lw:do-nothing)
-            (*whole-message*    nil)
-            (*new-beh*          nil)
-            (*send*             #'send))
+      (let* ((qsave              nil) ;; rollback copy
+             (*current-actor*    (make-actor))
+             (*whole-message*    nil)
+             (*current-evt*      (msg *current-actor* *whole-message*))
+             (*current-behavior* (actor-beh *current-actor*))
+             (*new-beh*          *current-behavior*)
+             (*send*             #'send))
         
         (declare (msg      *current-evt*)
                  (function *current-behavior*)
