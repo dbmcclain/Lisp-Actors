@@ -397,27 +397,27 @@ THE SOFTWARE.
 
 ;; --------------------------------------
 
-;; alas, with MPX we still needs locks sometimes
-(defvar *printer-lock* (mp:make-lock))
-
-(defmacro with-printer (&body body)
-  `(mp:with-lock (*printer-lock*)
-     ,@body))
+;; alas, with MPX we still need locks sometimes
+(defmacro with-printer ((var stream) &body body)
+  `(stream:apply-with-output-lock
+    (lambda (,var)
+      ,@body)
+    ,stream))
 
 (deflex println
   (io
     ;; because we are managing an output stream
     (actor msg
-      (with-printer
-       (format t "~&~{~A~%~^~}" msg)))
+      (with-printer (s *standard-output*)
+       (format s "~&~{~A~%~^~}" msg)))
      ))
 
 (deflex writeln
   (io
     ;; because we are managing an output stream
     (actor msg
-      (with-printer
-       (format t "~&~{~S~%~^~}" msg)))
+      (with-printer (s *standard-output*)
+       (format s "~&~{~S~%~^~}" msg)))
      ))
 
 ;; ------------------------------------------------
