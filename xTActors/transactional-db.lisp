@@ -170,8 +170,8 @@
          (additions (maps:fold (sets:diff new-db old-db) 'acons nil))
          (changes   (maps:fold new-db
                                (lambda (k v accu)
-                                 (let ((old-val (maps:find old-db k #'show-diffs)))
-                                   (cond ((eql old-val #'show-diffs) accu) ;; missing entry
+                                 (let ((old-val (maps:find old-db k new-db)))
+                                   (cond ((eql old-val new-db) accu) ;; missing entry
                                          ((eql old-val v) accu)
                                          (t (acons k v accu))
                                          )))
