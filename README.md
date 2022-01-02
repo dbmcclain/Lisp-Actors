@@ -1,3 +1,26 @@
+-- Lisp-Actors (xTActors) - Classical Actors (2 Jan 2022)
+----------
+
+Major breakthrough - dispensing entirely with the concept of Sponsors. There are simply a number of threads in a pool, each running the message dispatch loop. All are feeding off of a central mailbox as *the* event queue. I have 4 such threads, chosen ad-hoc to match the most common number of CPU cores. But this isn't necessarily the right answer. More investigations to follow. But the notion of performing an Actor in a given Sponsor thread is now obviated. Actors just run, on whatever thread can run them.
+
+At any rate, the speed remains very good, no measurable performance degradation. In part that is because of several considerations:
+1. Most Actors SEND at least one message
+2. Most Actors in a dynamic trace SEND only one message
+3. We optimistically cache the SENDs pending successful return from an Actor. At that time, we can consider the SENDs as having been accomplished. They reside in a thread-local event queue.
+4. When we cycle the dispatch loop looking for the next event, I pop one from the local event queue. But I also pop all remaining events and send those others over to the centrail mailbox event queue to give other threads a crack at them.
+5. The thread dispatches on that first event for itself.
+
+So, for the most part, the dispatch loop feeds from its own local event queue, until it runs dry, and then it waits on the central mailbox event queue.
+The result has nearly the same performance characteristics as for when we used dedicatd Sponsor threads. But now the degree of parallelism is significantly higher. An Actor runs on whatever thread is available. 
+
+The only impediment to full parallel execution is the fact that Actors can only run on one thread at any moment. If two or more threads want to run the same Actor, only one of them succeeds. The others return the event to the tail of the central mailbox queue and look for another event to run.
+
+So this is now a tuned variant of the very first original Actors system. It is tuned because of the local dynamic runtime characteristics matching a local thread event queue most of the time. Actors do not have mailboxes. Actors never block waiting on each other. The only time an Actor blocks is if some function it calls ends up blocking, as for I/O. If an Actor is blocked, there is a good likelihood that another dispatch thread is ready to run other Actors awaiting execution.
+
+So how many threads to place in the dispatch thread pool? Four is a good start. There may be good reason, due to I/O blocking activity to have more threads than physical CPU cores. OTOH, maybe 4 threads already reaches the point of diminishing returns? TBD...
+
+
+
 -- Lisp-Actors (xTActors) - Classical Actors (Jan 2022)
 ----------
 
