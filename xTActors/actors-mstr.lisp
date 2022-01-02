@@ -127,11 +127,23 @@ THE SOFTWARE.
 (def-sponsor base-sponsor)
 (def-sponsor slow-sponsor)
 
+(defvar *central-mail*  (mp:make-mailbox))
+
+(defun #1=get-actor-beh (actor)
+  ;; ... in the unlikely case that the actor is executing when we
+  ;; ask...
+  (tagbody
+   again
+   (let ((beh (actor-beh actor)))
+     (when beh
+       (return-from #1# beh)))
+   (go again)))
+   
 (defun is-pure-sink? (actor)
   (or (null actor)
       (eq (get-actor-beh actor) #'lw:do-nothing)))
 
-(defun sponsor-beh (mbox thread)
+(defun sponsor-beh (thread)
   ;; this one is just slightly special
   (alambda
    ((:shutdown)
@@ -140,7 +152,7 @@ THE SOFTWARE.
    
    ((actor . msg)
     (unless (is-pure-sink? actor)
-      (mp:mailbox-send mbox (new-msg actor msg))
+      (mp:mailbox-send *central-mail* (msg actor msg))
       ))
    ))
 
@@ -153,24 +165,13 @@ THE SOFTWARE.
 
 (defun restart-sponsor (sponsor title)
   (check-type sponsor actor)
-  (let* ((mbox   (mp:make-mailbox))
-         (thread (mp:process-run-function title () #'run-actors sponsor mbox)))
-    (setf (actor-beh sponsor) (sponsor-beh mbox thread))
+  (let ((thread (mp:process-run-function title () #'run-actors sponsor)))
+    (setf (actor-beh sponsor) (sponsor-beh thread))
     sponsor))
 
-(defun #1=get-actor-beh (actor)
-  ;; ... in the unlikely case that the actor is executing when we
-  ;; ask...
-  (tagbody
-   again
-   (let ((beh (actor-beh actor)))
-     (when beh
-       (return-from #1# beh)))
-   (go again)))
-   
 (defvar *send*
   (lambda (actor &rest msg)
-    (apply (get-actor-beh base-sponsor) actor msg)
+    (mp:mailbox-send *central-mail* (msg actor msg))
     (values)))
     
 ;; -----------------------------------------------------------------
@@ -190,7 +191,7 @@ THE SOFTWARE.
 ;; that case, it would be better to always perform on a stated
 ;; sponsor.
 
-(defun run-actors (*current-sponsor* mbox)
+(defun run-actors (*current-sponsor*)
   #F
   (let ((qhd  nil)
         (qtl  nil))
@@ -201,17 +202,24 @@ THE SOFTWARE.
                                         (setf (msg-link (the msg qtl)) msg)
                                       (setf qhd msg))
                      ))
-             (pop-evq ()
+             (pop1-evq ()
                (let ((msg qhd))
                  (when msg
                    (setf qhd (msg-link (the msg msg)))
                    msg)))
-             
+
+             (pop-evq ()
+               (let ((evt (pop1-evq)))
+                 (loop for next-evt = (pop1-evq)
+                       while next-evt
+                       do (mp:mailbox-send *central-mail* next-evt))
+                 evt))
+
              (send (actor &rest msg)
                (and actor
                     (add-evq (new-msg actor msg)))))
       
-      (declare (dynamic-extent #'add-evq #'pop-evq #'send))
+      (declare (dynamic-extent #'add-evq #'pop1-evq #'pop-evq #'send))
       
       ;; -------------------------------------------------------
       ;; Think of these global vars as dedicated registers of a
@@ -247,10 +255,6 @@ THE SOFTWARE.
                              (setf qhd nil))
                            )))
                (loop
-                  ;; Get a Foreign SEND event if any
-                  (when (mp:mailbox-not-empty-p mbox)
-                    (add-evq (mp:mailbox-read mbox)))
-                  
                   ;; Fetch next event from event queue - ideally, this
                   ;; would be just a handful of simple register/memory
                   ;; moves and direct jump. No call/return needed, and
@@ -258,7 +262,7 @@ THE SOFTWARE.
                   ;; depth is never more than one Actor at a time,
                   ;; before trampolining back here.
                   (setf *current-evt* (or (pop-evq)
-                                          (mp:mailbox-read mbox))
+                                          (mp:mailbox-read *central-mail*))
                         ;; Setup Actor context
                         self     (msg-actor *current-evt*)
                         self-beh (sys:atomic-exchange (actor-beh self) nil))
@@ -272,7 +276,7 @@ THE SOFTWARE.
                          (setf  (actor-beh self) *new-beh*))
                         
                         (t
-                         (add-evq *current-evt*))
+                         (mp:mailbox-send *central-mail* *current-evt*))
                         ))
                )))
         ;; ------------------------------------
@@ -353,13 +357,20 @@ THE SOFTWARE.
 ;; we envision that the SLOW-SPONSOR will be used to run Actors with
 ;; blocking actions, e.g., I/O.
 
+(def-sponsor sponsor3)
+(def-sponsor sponsor4)
+
 (defun restart-actors-system ()
-  (restart-sponsor base-sponsor "Actor Thread")
-  (restart-sponsor slow-sponsor "Actor I/O Thread"))
+  (restart-sponsor base-sponsor "Actor Thread #1")
+  (restart-sponsor slow-sponsor "Actor Thread #2")
+  (restart-sponsor sponsor3     "Actor Thread #3")
+  (restart-sponsor sponsor4     "Actor Thread #4"))
 
 (defun kill-actors-system ()
   (kill-sponsor base-sponsor)
-  (kill-sponsor slow-sponsor))
+  (kill-sponsor slow-sponsor)
+  (kill-sponsor sponsor3)
+  (kill-sponsor sponsor4))
 
 #|
 (kill-actors-system)
@@ -369,6 +380,7 @@ THE SOFTWARE.
 ;; -------------------------------------------------------
 ;; Cross-sponsor sends
 
+#|
 (defun in-sponsor-beh (sponsor actor)
   (lambda* msg
     (if (eq sponsor self-sponsor)
@@ -377,6 +389,11 @@ THE SOFTWARE.
 
 (defun in-sponsor (sponsor actor)
   (make-actor (in-sponsor-beh sponsor actor)))
+|#
+
+(defmacro in-sponsor (sponsor actor)
+  (declare (ignore sponsor))
+  actor)
 
 ;; -------------
 #|
@@ -388,6 +405,7 @@ THE SOFTWARE.
 |#
 ;; -------------
 
+#|
 (defun io-beh (actor)
   (in-sponsor-beh slow-sponsor actor))
 
@@ -404,6 +422,13 @@ THE SOFTWARE.
   ;; typically, actor will be (IO actor)
   (actor (cust &rest msg)
     (send* actor (in-this-sponsor cust) msg)))
+|#
+
+(defmacro io (actor)
+  actor)
+
+(defmacro ioreq (actor)
+  actor)
 
 ;; --------------------------------------
 
