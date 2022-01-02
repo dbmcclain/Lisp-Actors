@@ -43,6 +43,9 @@
       ;; can't be forged by malicious clients. Also, a-db will only
       ;; eql db if there have been no updates within the last 10 sec.
       (send trimmer saver db))
+
+     (('maint-full-save)
+      (send (io saver) :full-save))
      )))
 
 (defun nascent-database-beh (custs saver)
@@ -69,6 +72,9 @@
 
 (defun save-database-beh (path last-db)
   (alambda
+   ((:full-save)
+    (full-save path last-db))
+
    ((new-db) when (not (eql new-db last-db))
     ;; The db gateway is the only one that knows saver's identity.
     ;; Don't bother doing anything unless the db has changed.
@@ -85,9 +91,6 @@
         (error ()
           (full-save path new-db)))
     (become (save-database-beh path new-db)))
-
-   ((:full-save)
-    (full-save path last-db))
    ))
 
 (defun unopened-database-beh (trans-gate)
@@ -227,6 +230,9 @@
           (declare (ignore ignored))
           (sets:view-set db))))
 
+(defun maint-full-save ()
+  (send (db) 'maint-full-save))
+
 ;; ------------------------------------------------------------------
 ;; more usable public face - can use ASK against this
 
@@ -275,4 +281,35 @@
       (actor (db . _)
         (maps:iter db (lambda (k v)
                         (send writeln (list k v))))))
+
+(maint-full-save)
+
+;; ------------------------------------------------------
+(with-open-file (f "~/junk.tst"
+                     :direction :output
+                     :if-does-not-exist :create
+                     :if-exists :supersede
+                     :element-type '(unsigned-byte 8))
+  (dotimes (ix 10)
+    (let ((str (format nil "This is test ~D!" ix)))
+      (loenc:serialize str f
+                       :self-sync t))))
+
+;; Now go ahead and trash the file - see that we skip the damaged
+;; records, often two adjacent records, but manage to pick up the
+;; following ones just fine. Self-sync is great!!
+;;
+;; Even though we are encoded with LOENC:ENCODE, the trashed contents
+;; don't generate an exception. We just silently skip the trashed
+;; records and pick up what we can.
+
+(with-open-file (f "~/junk.tst"
+                     :direction :input
+                     :if-does-not-exist :error
+                     :element-type '(unsigned-byte 8))
+  (let ((reader (self-sync:make-reader f)))
+    (loop for ans = (loenc:deserialize f :self-sync reader)
+            until (eq ans f)
+            collect ans)))
+
 |#               
