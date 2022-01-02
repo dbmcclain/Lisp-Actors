@@ -17,6 +17,8 @@ The only impediment to full parallel execution is the fact that Actors can only 
 
 So this is now a tuned variant of the very first original Actors system. It is tuned because of the local dynamic runtime characteristics matching a local thread event queue most of the time. Actors do not have mailboxes. Actors never block waiting on each other. The only time an Actor blocks is if some function it calls ends up blocking, as for I/O. If an Actor is blocked, there is a good likelihood that another dispatch thread is ready to run other Actors awaiting execution.
 
+Actors can be logically blocked, which happens when they are a customer and no message has been sent to it, pending some other outcome. The customer Actor is logically blocked at that point, but not physically blocked. The concepts of AWAIT and ASYNC, as offered in other languages recently, seem unnecessary. There is never any need for an Actor to AWAIT. And Actors are inherently *always* ASYNC.
+
 So how many threads to place in the dispatch thread pool? Four is a good start. There may be good reason, due to I/O blocking activity to have more threads than physical CPU cores. OTOH, maybe 4 threads already reaches the point of diminishing returns? TBD...
 
 
