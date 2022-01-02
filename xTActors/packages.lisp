@@ -64,22 +64,6 @@ THE SOFTWARE.
    #:actor-nlet
    #:is-pure-sink?
    
-   #:make-sponsor
-   #:kill-sponsor
-   #:restart-sponsor
-   #:base-sponsor
-   #:slow-sponsor
-   #:def-sponsor
-   #:in-sponsor-beh
-   #:in-sponsor
-   #:in-this-sponsor
-   #:io-beh
-   #:io
-   #:ioreq
-   ;; #:par-safe-beh
-   ;; #:par-safe
-   ;; #:with-sponsor
-   ;; #:with-mutable-beh
    #:err
    
    #:+emptyq+
@@ -106,11 +90,9 @@ THE SOFTWARE.
    #:repeat-send
    #:send-combined-msg
    #:ask
-   #:maybe-safe-ask
    
    #:self
    #:self-beh
-   #:self-sponsor
 
    #:actor
    #:actor-p
@@ -119,32 +101,11 @@ THE SOFTWARE.
    #:make-remote-actor
    #:concurrently
    
-   #:make-actor-directory
-   #:clear-directory
-   #:register-actor
-   #:unregister-actor
-   #:find-actor
-   #:get-actors
-   #:get-actor-names
-   #:find-names-for-actor
-   
    #:send-after
-
-   #:lfm
-   #:log-info
-   #:log-warning
-   #:log-error
-   #:set-printer
-   #:set-stream
 
    #:start
    #:start-tcp-server
    #:terminate-server
-
-   #:usti
-   #:usti=
-   #:proxy
-   #:make-proxy
 
    #:actors
    #:future
@@ -283,9 +244,6 @@ THE SOFTWARE.
 (defpackage #:com.ral.actors.macros
   (:use #:common-lisp #:com.ral.actors #:def*))
 
-(defpackage #:com.ral.actors.directory
-  (:use #:common-lisp #:com.ral.actors #:def*))
-
 (defpackage :com.ral.actors.network
   (:use #:common-lisp #:com.ral.actors #:def*)
   (:export
@@ -321,10 +279,6 @@ THE SOFTWARE.
    #:wr)
   (:export
    #:*current-actor*
-   #:*current-sponsor*
-   #:*evt-queue*
-   #:add-evq
-   #:*all-sponsors*
    ))
 
 (defpackage :com.ral.actors.secure-comm

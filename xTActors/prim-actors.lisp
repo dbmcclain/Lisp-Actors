@@ -516,8 +516,8 @@
   ;; system until the error is dismissed.
   ;;
   ;; Use IO so that it serializes with PRINTLN, WRITELN, etc.
-  (send (io (actor ()
-              (apply #'mp:funcall-async #'error args)))))
+  (send (actor ()
+          (apply #'mp:funcall-async #'error args))))
 
 ;; ---------------------------------------------------------
 

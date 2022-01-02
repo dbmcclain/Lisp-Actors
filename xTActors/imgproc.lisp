@@ -2,10 +2,6 @@
 (in-package :com.ral.actors)
 
 (defvar *nfarm*  4)
-(defvar *farm*
-  (coerce (loop for ix from 0 below *nfarm* collect
-                (make-sponsor (format nil "Farm Sponsor ~d" (1+ ix))))
-          'vector))
 
 (defun farmer-fft (spons-ix)
   ;; perform transform on row, transposing to cols on output
@@ -40,8 +36,7 @@
 
 (defun fft-farm ()
   (loop for ix from 0 below *nfarm* collect
-        (fft-block (ioreq (in-sponsor (aref *farm* ix)
-                                      (farmer-fft ix))))
+        (fft-block (farmer-fft ix))
         ))
 
 (defun par-fft (ffts)

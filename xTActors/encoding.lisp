@@ -263,7 +263,7 @@
                 )))
       ;; all of the following will likely happen before MP has started...
       (make-actor (noncer-beh (rd-nonce) #()
-                              (io (make-actor #'wr-nonce)) ))
+                              (make-actor #'wr-nonce) ))
       )))
 
 (deflex noncer (make-noncer))
@@ -684,44 +684,38 @@
 
 (defun aont-file-writer (fname skey ekey)
   ;; writes a single AONT record to a file
-  (ioreq
-   (io
-    (actor (cust &rest msg)
-      (beta (packet)
-          (send* (pipe (aont-encoder skey ekey)
-                       (marshal-encoder)
-                       (self-sync-encoder))
-                 beta msg)
-        (with-open-file (fd fname
-                            :direction :output
-                            :if-exists :supersede
-                            :if-does-not-exist :create
-                            :element-type '(unsigned-byte 8))
-          (write-sequence +AONT-FILE-TYPE-ID+ fd)
-          (write-sequence packet fd)
-          (send cust :ok)
-          )))
-    )))
+  (actor (cust &rest msg)
+    (beta (packet)
+        (send* (pipe (aont-encoder skey ekey)
+                     (marshal-encoder)
+                     (self-sync-encoder))
+               beta msg)
+      (with-open-file (fd fname
+                          :direction :output
+                          :if-exists :supersede
+                          :if-does-not-exist :create
+                          :element-type '(unsigned-byte 8))
+        (write-sequence +AONT-FILE-TYPE-ID+ fd)
+        (write-sequence packet fd)
+        (send cust :ok)
+        ))))
 
 (defun aont-file-reader (fname)
   ;; Reads a single AONT record from a file, sending the original data
   ;; items as a sequence of args to cust.
-  (ioreq
-   (io
-    (actor (cust)
-      (with-open-file (fd fname
-                          :direction :input
-                          :element-type '(unsigned-byte 8))
-        (let ((file-type (make-ubv 16)))
-          (read-sequence file-type fd)
-          (if (equalp +AONT-FILE-TYPE-ID+ file-type)
-              (let ((reader (self-sync:make-reader fd)))
-                (send (pipe (marshal-decoder)
-                            (aont-decoder))
-                      cust (funcall reader)))
-            (error "~A: Not an AONT encoded file" fname))
-          )))
-    )))
+  (actor (cust)
+    (with-open-file (fd fname
+                        :direction :input
+                        :element-type '(unsigned-byte 8))
+      (let ((file-type (make-ubv 16)))
+        (read-sequence file-type fd)
+        (if (equalp +AONT-FILE-TYPE-ID+ file-type)
+            (let ((reader (self-sync:make-reader fd)))
+              (send (pipe (marshal-decoder)
+                          (aont-decoder))
+                    cust (funcall reader)))
+          (error "~A: Not an AONT encoded file" fname))
+        ))))
 
 ;; -----------------------------------------------------------------
 ;; Tests...

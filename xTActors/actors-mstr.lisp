@@ -68,12 +68,10 @@ THE SOFTWARE.
 (defvar *whole-message*    nil) ;; Current Event Message
 (defvar *current-actor*    nil) ;; Current Actor
 (defvar *current-behavior* nil) ;; Current Actor's behavior
-(defvar *current-sponsor*  nil) ;; Current Sponsor active during Actor exec
 (defvar *new-beh*          nil) ;; result of BECOME
 
 (define-symbol-macro self         *current-actor*)
 (define-symbol-macro self-beh     *current-behavior*)
-(define-symbol-macro self-sponsor *current-sponsor*)
 (define-symbol-macro self-msg     *whole-message*)
 
 ;; -------------------------------------------------
@@ -106,68 +104,7 @@ THE SOFTWARE.
            (msg actor args))
           )))
 
-;; ----------------------------------------------------------
-;; SPONSORS -- offer an event queue and have an associated runtime
-;; thread performing RUN dispatching of Actor events.
-;;
-
-(defvar *all-sponsors* nil)
-
-(defun add-to-sponsors (name spon)
-  (let ((pair (assoc name *all-sponsors*)))
-    (if pair
-        (setf (cdr pair) spon)
-      (setf *all-sponsors* (acons name spon *all-sponsors*)))))
-
-(defmacro def-sponsor (name)
-  `(progn
-     (defvar ,name (make-actor))
-     (add-to-sponsors ',name ,name)))
-
-(def-sponsor base-sponsor)
-(def-sponsor slow-sponsor)
-
 (defvar *central-mail*  (mp:make-mailbox))
-
-(defun #1=get-actor-beh (actor)
-  ;; ... in the unlikely case that the actor is executing when we
-  ;; ask...
-  (tagbody
-   again
-   (let ((beh (actor-beh actor)))
-     (when beh
-       (return-from #1# beh)))
-   (go again)))
-   
-(defun is-pure-sink? (actor)
-  (or (null actor)
-      (eq (get-actor-beh actor) #'lw:do-nothing)))
-
-(defun sponsor-beh (thread)
-  ;; this one is just slightly special
-  (alambda
-   ((:shutdown)
-    (become #'lw:do-nothing)
-    (mp:process-terminate thread))
-   
-   ((actor . msg)
-    (unless (is-pure-sink? actor)
-      (mp:mailbox-send *central-mail* (msg actor msg))
-      ))
-   ))
-
-(defun make-sponsor (title)
-  (let ((spon (make-actor)))
-    (restart-sponsor spon title)))
-
-(defun kill-sponsor (sponsor)
-  (send sponsor :shutdown))
-
-(defun restart-sponsor (sponsor title)
-  (check-type sponsor actor)
-  (let ((thread (mp:process-run-function title () #'run-actors sponsor)))
-    (setf (actor-beh sponsor) (sponsor-beh thread))
-    sponsor))
 
 (defvar *send*
   (lambda (actor &rest msg)
@@ -191,7 +128,7 @@ THE SOFTWARE.
 ;; that case, it would be better to always perform on a stated
 ;; sponsor.
 
-(defun run-actors (*current-sponsor*)
+(defun run-actors ()
   #F
   (let ((qhd  nil)
         (qtl  nil))
@@ -282,6 +219,20 @@ THE SOFTWARE.
         ;; ------------------------------------
         ))))
 
+(defun #1=get-actor-beh (actor)
+  ;; ... in the unlikely case that the actor is executing when we
+  ;; ask...
+  (tagbody
+   again
+   (let ((beh (actor-beh actor)))
+     (when beh
+       (return-from #1# beh)))
+   (go again)))
+   
+(defun is-pure-sink? (actor)
+  (or (null actor)
+      (eq (get-actor-beh actor) #'lw:do-nothing)))
+
 ;; -----------------------------------------------
 ;; SEND/BECOME
 ;;
@@ -313,122 +264,29 @@ THE SOFTWARE.
   (check-type new-beh function)
   (setf *new-beh* new-beh))
 
-#|
-(defun do-with-sponsor (where fn)
-  (let ((spon (or where base-sponsor)))
-    (if (eq spon self-sponsor)
-        (funcall fn)
-      (send* spon self self-msg))))
-
-(defmacro with-sponsor (where &body body)
-  ;; Properly belongs just after message detection which might trigger
-  ;; BECOME. Should be used ahead of any side-effecting code in the
-  ;; handler clause.
-  `(do-with-sponsor ,where
-                    (lambda ()
-                      ,@body)))
-
-#+:LISPWORKS
-(editor:setup-indent "with-sponsor" 1)
-
-(defmacro with-mutable-beh ((&optional preferred-sponsor) beh)
-  ;; This version does not force execution onto a sponsor unless it
-  ;; was specified as preferred-sponsor. Possibly takes better
-  ;; advantage of multiple threads?
-  (lw:with-unique-names (msg)
-    (flet ((gen-body ()
-             `(apply (macrolet ((become (new-beh)
-                                  `(setf *new-beh* ,new-beh)))
-                       ,beh)
-                     ,msg)
-             ))
-      `(lambda* ,msg
-         ,(if preferred-sponsor
-              `(with-sponsor ,preferred-sponsor ,(gen-body))
-            (gen-body)))
-      )))
-
-#+:LISPWORKS
-(editor:setup-indent "with-mutable-beh" 1)
-|#
-
 ;; ----------------------------------------------------------------
 ;; Start with two Sponsors: there is no difference between them. But
 ;; we envision that the SLOW-SPONSOR will be used to run Actors with
 ;; blocking actions, e.g., I/O.
 
-(def-sponsor sponsor3)
-(def-sponsor sponsor4)
+(defvar *evt-threads* nil)
+(defvar *nbr-pool*    4)
 
 (defun restart-actors-system ()
-  (restart-sponsor base-sponsor "Actor Thread #1")
-  (restart-sponsor slow-sponsor "Actor Thread #2")
-  (restart-sponsor sponsor3     "Actor Thread #3")
-  (restart-sponsor sponsor4     "Actor Thread #4"))
+  (dotimes (ix *nbr-pool*)
+    (push (mp:process-run-function (format nil "Actor Thread #~D" (1+ ix))
+                                   ()
+                                   'run-actors)
+          *evt-threads*)))
 
 (defun kill-actors-system ()
-  (kill-sponsor base-sponsor)
-  (kill-sponsor slow-sponsor)
-  (kill-sponsor sponsor3)
-  (kill-sponsor sponsor4))
+  (dolist (proc *evt-threads*)
+    (mp:process-terminate proc)))
 
 #|
 (kill-actors-system)
 (restart-actors-system)
  |#
-
-;; -------------------------------------------------------
-;; Cross-sponsor sends
-
-#|
-(defun in-sponsor-beh (sponsor actor)
-  (lambda* msg
-    (if (eq sponsor self-sponsor)
-        (send* actor msg)
-      (send* sponsor actor msg))))
-
-(defun in-sponsor (sponsor actor)
-  (make-actor (in-sponsor-beh sponsor actor)))
-|#
-
-(defmacro in-sponsor (sponsor actor)
-  (declare (ignore sponsor))
-  actor)
-
-;; -------------
-#|
-(defun par-safe-beh (actor)
-  (in-sponsor-beh base-sponsor actor))
-
-(defun par-safe (actor)
-  (make-actor (par-safe-beh actor)))
-|#
-;; -------------
-
-#|
-(defun io-beh (actor)
-  (in-sponsor-beh slow-sponsor actor))
-
-(defun io (actor)
-  (make-actor (io-beh actor)))
-
-;; ------------
-
-(defun in-this-sponsor (actor)
-  (in-sponsor self-sponsor actor))
-
-(defun ioreq (actor)
-  ;; send to actor, return its reply to cust in sender's original sponsor.
-  ;; typically, actor will be (IO actor)
-  (actor (cust &rest msg)
-    (send* actor (in-this-sponsor cust) msg)))
-|#
-
-(defmacro io (actor)
-  actor)
-
-(defmacro ioreq (actor)
-  actor)
 
 ;; --------------------------------------
 
@@ -448,20 +306,14 @@ THE SOFTWARE.
     ,stream))
 
 (deflex println
-  (io
-    ;; because we are managing an output stream
-    (actor msg
-      (with-printer (s *standard-output*)
-       (format s "~&~{~A~%~^~}" msg)))
-     ))
+        (actor msg
+          (with-printer (s *standard-output*)
+            (format s "~&~{~A~%~^~}" msg))))
 
 (deflex writeln
-  (io
-    ;; because we are managing an output stream
-    (actor msg
-      (with-printer (s *standard-output*)
-       (format s "~&~{~S~%~^~}" msg)))
-     ))
+        (actor msg
+          (with-printer (s *standard-output*)
+            (format s "~&~{~S~%~^~}" msg))))
 
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world
@@ -486,27 +338,6 @@ THE SOFTWARE.
       (send* actor (mbox-sender mbox) msg)
       (values-list (mp:mailbox-read mbox)))
     ))
-
-(defun maybe-safe-ask (actor &rest msg)
-  ;; For Actors calling upon other Actors in a functional manner,
-  ;; instead of using continuation Actors. This is to be seriously
-  ;; discouraged...
-  ;;
-  ;; Maybe it will work, or maybe not... As long as the target Actor
-  ;; executes entirely in one sponsor, then this will work. Otherwise,
-  ;; maybe...  Still, this is blocking wait, and poor form for Actors
-  ;; code. If the target Actor winds up trying to run in our sponsor,
-  ;; then we become deadlocked.
-  (if self
-      (let ((spon  (if (eq self-sponsor base-sponsor)
-                       ;; choose not our sponsor
-                       slow-sponsor
-                     base-sponsor))
-            (mbox (mp:make-mailbox)))
-        (apply (get-actor-beh spon) actor (mbox-sender mbox) msg)
-        (values-list (mp:mailbox-read mbox)))
-    ;; else
-    (apply #'ask actor msg)))
 
 ;; -----------------------------------------------------
 ;; FN-EVAL - eval function and send results to customer
@@ -546,7 +377,7 @@ THE SOFTWARE.
   )
 
 #| ;; for manual loading mode...
-(when (eq (get-actor-beh base-sponsor) #'lw:do-nothing)
+(unless *evt-threads*
   (if (mp:get-current-process)
       (lw-start-actors)
     ;; else

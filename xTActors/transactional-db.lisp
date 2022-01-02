@@ -8,8 +8,8 @@
 (in-package com.ral.actors.kv-database)
   
 (deflex trimmer
-        (io (actor (cust db)
-              (send cust (remove-unstorable db)))))
+        (actor (cust db)
+          (send cust (remove-unstorable db))))
 
 (defun trans-gate-beh (tag-commit tag-rollback saver db)
   (flet ((try (cust target args)
@@ -45,7 +45,7 @@
       (send trimmer saver db))
 
      (('maint-full-save)
-      (send (io saver) :full-save))
+      (send saver :full-save))
      )))
 
 (defun nascent-database-beh (custs saver)
@@ -135,7 +135,7 @@
         (error ()
           (full-save db-path (maps:empty))))
       (become (save-database-beh db-path db))
-      (send base-sponsor trans-gate self db)))
+      (send trans-gate self db)))
    ))
 
 (defun full-save (db-path db)
@@ -194,7 +194,7 @@
 (def-singleton-actor db ()
   (actors ((trans  (nascent-database-beh nil saver))
            (saver  (unopened-database-beh trans)))
-    (send (io saver) *db-path*)
+    (send saver *db-path*)
     trans))
 
 ;; -----------------------------------------------------------
