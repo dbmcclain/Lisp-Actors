@@ -207,7 +207,11 @@
   (send (db) cust :req
         (actor (db commit rollback &rest retry-info)
           (declare (ignore rollback))
-          (send* commit db (maps:remove db key) retry-info))
+          (let* ((val    (maps:find db key self))
+                 (new-db (if (eql val self)
+                             db
+                           (maps:remove db key))))
+            (send* commit db new-db retry-info)))
         ))
 
 (defun lookup (cust key &optional default)
