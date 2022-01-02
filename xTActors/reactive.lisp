@@ -4,10 +4,10 @@
 (defun reactive-obj-beh (getter setter subscribers)
   (alambda
    ((cust :subscribe)
-    (become (reactive-obj-beh obj (adjoin cust subscribers))))
+    (become (reactive-obj-beh getter setter (adjoin cust subscribers))))
    
    ((cust :unsubscribe)
-    (become (reactive-obj-beh obj (remove cust subscribers))))
+    (become (reactive-obj-beh getter setter (remove cust subscribers))))
    
    ((cust :get)
     (send cust (funcall getter)))

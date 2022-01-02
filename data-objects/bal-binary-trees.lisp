@@ -211,6 +211,7 @@ THE SOFTWARE.
                       ;; in zero case - to support maps (see below)
                       ;; ensure that new map value is substituted for old
                       ;; value - use x instead of v for value field of result.
+                      ;; This is still FP pure - it makes a new tree.
                       (if (funcall *replace-p* v x)
                           (make-instance 'node
                                          :l l :v x :r r :h h)
@@ -704,7 +705,7 @@ THE SOFTWARE.
             ))))
 
 (defmethod print-node (x keyfn)
-  nil)
+  "")
 
 (defmethod print-node ((tree node) keyfn)
   (with-node-bindings (_ v) tree

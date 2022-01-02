@@ -49,8 +49,14 @@ THE SOFTWARE.
 
 ;; ----------------------------------------------
 
+(defmethod different-value ((a map-cell) (b map-cell))
+  (not (eql (map-cell-val a) (map-cell-val b))))
+
+(defmethod different-value (a b)
+  t)
+
 (defmethod add ((map tree) key val &key (replace t))
-  (sets:with-replacement-p replace
+  (sets:with-replacement-p (and replace 'different-value)
     (sets:add map
               (map-cell key val))
     ))

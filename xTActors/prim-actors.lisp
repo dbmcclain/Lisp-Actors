@@ -384,7 +384,7 @@
     (send* next msg))
    ))
 
-(defmacro prunable-alambda ((&optional preferred-sponsor) &body clauses)
+(defmacro prunable-alambda (&rest clauses)
   (lw:with-unique-names (tmp)
     `(macrolet ((prune-self (next)
                   `(let ((,',tmp ,next))
@@ -398,8 +398,7 @@
        )))
 
 (defun no-pend-beh ()
-  (prunable-alambda ()
-    
+  (prunable-alambda
     ((:wait ctr . msg)
      (let ((next (make-actor
                   (no-pend-beh))))
@@ -407,8 +406,7 @@
     ))
 
 (defun pend-beh (ctr msg next)
-  (prunable-alambda ()
-    
+  (prunable-alambda
     ((cust :ready in-ctr) when (eql ctr in-ctr)
      (send* cust ctr msg)
      (prune-self next))

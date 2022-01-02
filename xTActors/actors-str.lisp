@@ -106,6 +106,73 @@ THE SOFTWARE.
            (msg actor args))
           )))
 
+;; ----------------------------------------------------------
+;; SPONSORS -- offer an event queue and have an associated runtime
+;; thread performing RUN dispatching of Actor events.
+;;
+
+(defvar *all-sponsors* nil)
+
+(defun add-to-sponsors (name spon)
+  (let ((pair (assoc name *all-sponsors*)))
+    (if pair
+        (setf (cdr pair) spon)
+      (setf *all-sponsors* (acons name spon *all-sponsors*)))))
+
+(defmacro def-sponsor (name)
+  `(progn
+     (defvar ,name (make-actor))
+     (add-to-sponsors ',name ,name)))
+
+(def-sponsor base-sponsor)
+(def-sponsor slow-sponsor)
+
+(defun is-pure-sink? (actor)
+  (or (null actor)
+      (eq (get-actor-beh actor) #'lw:do-nothing)))
+
+(defun sponsor-beh (mbox thread)
+  ;; this one is just slightly special
+  (alambda
+   ((:shutdown)
+    (become #'lw:do-nothing)
+    (mp:process-terminate thread))
+   
+   ((actor . msg)
+    (unless (is-pure-sink? actor)
+      (mp:mailbox-send mbox (new-msg actor msg))
+      ))
+   ))
+
+(defun make-sponsor (title)
+  (let ((spon (make-actor)))
+    (restart-sponsor spon title)))
+
+(defun kill-sponsor (sponsor)
+  (send sponsor :shutdown))
+
+(defun restart-sponsor (sponsor title)
+  (check-type sponsor actor)
+  (let* ((mbox   (mp:make-mailbox))
+         (thread (mp:process-run-function title () #'run-actors sponsor mbox)))
+    (setf (actor-beh sponsor) (sponsor-beh mbox thread))
+    sponsor))
+
+(defun #1=get-actor-beh (actor)
+  ;; ... in the unlikely case that the actor is executing when we
+  ;; ask...
+  (tagbody
+   again
+   (let ((beh (actor-beh actor)))
+     (when beh
+       (return-from #1# beh)))
+   (go again)))
+   
+(defvar *send*
+  (lambda (actor &rest msg)
+    (apply (get-actor-beh base-sponsor) actor msg)
+    (values)))
+    
 ;; -----------------------------------------------------------------
 ;; Generic RUN for all threads, across all Sponsors
 ;;
@@ -123,17 +190,6 @@ THE SOFTWARE.
 ;; that case, it would be better to always perform on a stated
 ;; sponsor.
 
-(defun get-actor-beh (actor)
-  ;; ... in the unlikely case that the actor is executing when we
-  ;; ask...
-  (do ((beh  (actor-beh actor)  (actor-beh actor)))
-      (beh beh)))
-
-(defvar *send*
-  (lambda (actor &rest msg)
-    (apply (get-actor-beh base-sponsor) actor msg)
-    (values)))
-    
 (defun run-actors (*current-sponsor* mbox)
   #F
   (let ((qhd  nil)
@@ -221,58 +277,6 @@ THE SOFTWARE.
                )))
         ;; ------------------------------------
         ))))
-
-;; ----------------------------------------------------------
-;; SPONSORS -- offer an event queue and have an associated runtime
-;; thread performing RUN dispatching of Actor events.
-;;
-
-(defvar *all-sponsors* nil)
-
-(defun add-to-sponsors (name spon)
-  (let ((pair (assoc name *all-sponsors*)))
-    (if pair
-        (setf (cdr pair) spon)
-      (setf *all-sponsors* (acons name spon *all-sponsors*)))))
-
-(defmacro def-sponsor (name)
-  `(progn
-     (defvar ,name (make-actor))
-     (add-to-sponsors ',name ,name)))
-
-(def-sponsor base-sponsor)
-(def-sponsor slow-sponsor)
-
-(defun is-pure-sink? (actor)
-  (or (null actor)
-      (eq (get-actor-beh actor) #'lw:do-nothing)))
-
-(defun sponsor-beh (mbox thread)
-  ;; this one is just slightly special
-  (alambda
-   ((:shutdown)
-    (become #'lw:do-nothing)
-    (mp:process-terminate thread))
-   
-   ((actor . msg)
-    (unless (is-pure-sink? actor)
-      (mp:mailbox-send mbox (new-msg actor msg))
-      ))
-   ))
-
-(defun make-sponsor (title)
-  (let ((spon (make-actor)))
-    (restart-sponsor spon title)))
-
-(defun kill-sponsor (sponsor)
-  (send sponsor :shutdown))
-
-(defun restart-sponsor (sponsor title)
-  (check-type sponsor actor)
-  (let* ((mbox   (mp:make-mailbox))
-         (thread (mp:process-run-function title () #'run-actors sponsor mbox)))
-    (setf (actor-beh sponsor) (sponsor-beh mbox thread))
-    sponsor))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME

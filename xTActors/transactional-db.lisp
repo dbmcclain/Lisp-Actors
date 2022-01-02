@@ -7,6 +7,10 @@
 
 (in-package com.ral.actors.kv-database)
   
+(deflex trimmer
+        (io (actor (cust db)
+              (send cust (remove-unstorable db)))))
+
 (defun trans-gate-beh (tag-commit tag-rollback saver db)
   (flet ((try (cust target args)
            (send* target db tag-commit tag-rollback cust target args)))
@@ -38,7 +42,7 @@
       ;; We are the only one that knows the identity of saver, so this
       ;; can't be forged by malicious clients. Also, a-db will only
       ;; eql db if there have been no updates within the last 10 sec.
-      (send (io saver) db))
+      (send trimmer saver db))
      )))
 
 (defun nascent-database-beh (custs saver)
@@ -68,16 +72,22 @@
    ((new-db) when (not (eql new-db last-db))
     ;; The db gateway is the only one that knows saver's identity.
     ;; Don't bother doing anything unless the db has changed.
-    (ensure-directories-exist path)
-    (let ((trimmed (remove-unstorable new-db)))
-      (with-open-file (f path
-                         :direction         :output
-                         :if-exists         :rename
-                         :if-does-not-exist :create
-                         :element-type      '(unsigned-byte 8))
-        (write-sequence (uuid:uuid-to-byte-array +db-id+) f)
-        (loenc:serialize trimmed f)
-        (become (save-database-beh path new-db)))))
+    (handler-case
+        (with-open-file (f path
+                           :direction         :output
+                           :if-exists         :append
+                           :if-does-not-exist :error
+                           :element-type      '(unsigned-byte 8))
+          (let ((delta (get-diffs last-db new-db)))
+            (loenc:serialize delta f
+                             :self-sync t)
+            ))
+        (error ()
+          (full-save path new-db)))
+    (become (save-database-beh path new-db)))
+
+   ((:full-save)
+    (full-save path last-db))
    ))
 
 (defun unopened-database-beh (trans-gate)
@@ -85,7 +95,7 @@
    ((db-path)
     ;; message from kick-off starter routine
     (let ((db (maps:empty)))
-      (ignore-errors
+      (handler-case
         (with-open-file (f db-path
                            :direction         :input
                            :if-does-not-exist :error
@@ -95,17 +105,53 @@
                                    :element-type '(unsigned-byte 8)
                                    :initial-element 0)))
             (read-sequence id f)
-            (when (equalp id sig)
-              (setf db (loenc:deserialize f)))
-            )))
+            (cond ((equalp id sig)
+                   (setf db (loenc:deserialize f))
+                   (let ((reader (self-sync:make-reader f)))
+                     (handler-case
+                         (loop for ans = (loenc:deserialize f
+                                                            :self-sync  reader)
+                               until (eq ans f)
+                               do
+                                 (destructuring-bind (removals additions changes) ans
+                                   (dolist (key removals)
+                                     (maps:removef db key))
+                                   (dolist (pair additions)
+                                     (destructuring-bind (key . val) pair
+                                       (maps:addf db key val)))
+                                   (dolist (pair changes)
+                                     (destructuring-bind (key . val) pair
+                                       (maps:addf db key val)))
+                                   ))
+                       (error (exn)
+                         (send println (um:format-error exn)))
+                       )))
+                  (t
+                   (error "Not a db file"))
+                  )))
+        (error ()
+          (full-save db-path (maps:empty))))
       (become (save-database-beh db-path db))
       (send base-sponsor trans-gate self db)))
    ))
+
+(defun full-save (db-path db)
+  (ensure-directories-exist db-path)
+  (with-open-file (f db-path
+                     :direction :output
+                     :if-does-not-exist :create
+                     :if-exists :supersede
+                     :element-type '(unsigned-byte 8))
+    (let ((sig (uuid:uuid-to-byte-array +db-id+)))
+      (write-sequence sig f)
+      (loenc:serialize db f))
+    ))
 
 (defun remove-unstorable (map)
   (maps:fold map (lambda (key val accu)
                    (handler-case
                        (progn
+                         ;; this will barf if either key or val is unstorable
                          (loenc:encode (list key val))
                          (maps:add accu key val))
                      (error ()
@@ -114,6 +160,28 @@
 
 (defun deep-copy (obj)
   (loenc:decode (loenc:encode obj)))
+
+(defun get-diffs (old-db new-db)
+  (let* ((removals  (maps:fold (sets:diff old-db new-db)
+                               (lambda (k v acc)
+                                 (declare (ignore v))
+                                 (cons k acc))
+                               nil))
+         (additions (maps:fold (sets:diff new-db old-db) 'acons nil))
+         (changes   (maps:fold new-db
+                               (lambda (k v accu)
+                                 (let ((old-val (maps:find old-db k #'show-diffs)))
+                                   (cond ((eql old-val #'show-diffs) accu) ;; missing entry
+                                         ((eql old-val v) accu)
+                                         (t (acons k v accu))
+                                         )))
+                               nil))
+         (log       (list
+                     (nreverse removals)
+                     (nreverse additions)
+                     (nreverse changes))))
+    (send writeln log)
+    log))
 
 ;; -----------------------------------------------------------
 
