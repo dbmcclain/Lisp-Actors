@@ -226,7 +226,7 @@
        (send self cust (1- niter))))
    ))
 
-(let* ((niter 1000)
+(let* ((niter 10000)
        (npts  1000)
        (dut   (simple-collector npts niter
                                 (med3

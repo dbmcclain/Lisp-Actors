@@ -52,14 +52,14 @@
                             evt)
                     do
                       (setf self      (msg-actor (the msg evt))
-                            self-beh  (sys:atomic-exchange (actor-beh self) nil))
+                            self-beh  (sys:atomic-exchange (actor-beh (the actor self)) nil))
                       (cond
                        (self-beh
                         (setf *whole-message* (msg-args (the msg evt))
                               qsav            (and qhd qtl)
                               pend-beh        self-beh)
                         (apply (the function self-beh) *whole-message*)
-                        (setf (actor-beh self) pend-beh))
+                        (setf (actor-beh self) (the function pend-beh)))
                        
                        (t
                         (send* self *whole-message*))
