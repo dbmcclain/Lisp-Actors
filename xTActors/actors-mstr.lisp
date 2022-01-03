@@ -153,7 +153,6 @@ THE SOFTWARE.
              (*send*             #'send))
         
         (declare (msg      *current-evt*)
-                 ;; (function *current-behavior*)
                  (list     *whole-message*))
 
         (loop
