@@ -15,7 +15,7 @@ The result has nearly the same performance characteristics as for when we used d
 
 _**[HOWEVER:**
 
-_**Performing your own first message can be shown to lead to potentially unlimited growth of the central message queue. This is tantamount to a depth-first execution path of potentially unlimited length, and where extra messages generated along the way will never be tended to. Bad news!!**
+_**Performing your own first message can be shown to lead to potentially unlimited growth of the central message queue. This is tantamount to a depth-first execution path of potentially unlimited length, and where extra messages generated along the way will never be tended to. Bad news!!_**
 
 _**The only controlled (and fair) approach is to dump all SEND messages into the central mailbox queue. That means that new messages are always at the tail of the queue, and any extra messages generated along the way will be incrementally handled. This becomes a breadth-first execution strategy, and will eventually drain the event queue, provided that we are dealing with a bounded execution graph. Bounded execution = NOT a fork-bomb, bounded message fanout.** 
 
