@@ -18,14 +18,6 @@
 (defun logger-timestamp ()
   (format-usec (usec:get-universal-time-usec)))
 
-(defun decode-sponsor (spon)
-  (let ((pair (rassoc spon *all-sponsors*)))
-    (if pair
-        (car pair)
-      (and spon
-           (format nil "~X" (sys:object-address spon)))
-      )))
-
 (deflex logger
   (actor msg
     (send* println
@@ -34,7 +26,6 @@
                    `(("----- Logger at ~A -----" ,(logger-timestamp))
                      ("  To: ~A" ,(car msg))
                      ("  With: ~S" ,(cdr msg))
-                     ("  In Sponsor: ~S" ,(decode-sponsor self-sponsor))
                      ))
            )))
 
@@ -65,7 +56,6 @@
                           ("  From: ~A" ,self)
                           ("  To: ~A" ,(car msg))
                           ("  With: ~S" ,(cdr msg))
-                          ("  In Sponsor: ~S" ,(decode-sponsor self-sponsor))
                           )))
         ))))
 

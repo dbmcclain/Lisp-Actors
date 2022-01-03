@@ -68,7 +68,6 @@ THE SOFTWARE.
 (defvar *whole-message*    nil) ;; Current Event Message
 (defvar *current-actor*    nil) ;; Current Actor
 (defvar *current-behavior* nil) ;; Current Actor's behavior
-(defvar *new-beh*          nil) ;; result of BECOME
 
 (define-symbol-macro self         *current-actor*)
 (define-symbol-macro self-beh     *current-behavior*)
@@ -90,11 +89,46 @@ THE SOFTWARE.
 
 (defvar *central-mail*  (mp:make-mailbox))
 
-(defvar *send*
+;; -----------------------------------------------
+;; SEND/BECOME
+;;
+;; SEND can only be called on an Actor. BECOME can only be called from
+;; within an Actor.
+;;
+;; SEND and BECOME are transactionally staged, and will commit *ONLY*
+;; upon error free completion of the Actor body code.
+;;
+;; So if you need them to take effect, even as you call potentially
+;; unsafe functions, then surround your function calls with
+;; HANDLER-CASE, HANDLER-BIND, or IGNORE-ERRORS. Otherwise, an error
+;; will make it seem that the message causing the error was never
+;; delivered.
+
+(defparameter *send*
   (lambda (actor &rest msg)
     (mp:mailbox-send *central-mail* (msg actor msg))
     (values)))
+
+(defun send (actor &rest msg)
+  (apply *send* actor msg))
+
+(defmacro send* (actor &rest msg)
+  `(apply #'send ,actor ,@msg))
+
+(defun repeat-send (actor)
+  (send* actor self-msg))
+
+(defun send-combined-msg (cust msg1 msg2)
+  (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
+
+(defparameter *become*
+  (lambda (new-beh)
+    (declare (ignore new-beh))
+    (error "not in an Actor")))
     
+(defun become (new-beh)
+  (funcall *become* new-beh))
+
 ;; -----------------------------------------------------------------
 ;; Generic RUN for all threads, across all Sponsors
 ;;
@@ -114,8 +148,7 @@ THE SOFTWARE.
 
 (defun run-actors ()
   #F
-  (let ((sends nil)
-        (evt   nil))
+  (let (sends evt pend-beh)
     (flet ((send (actor &rest msg)
              (when actor
                (if evt
@@ -124,10 +157,13 @@ THE SOFTWARE.
                          (msg-args  (the msg evt)) msg
                          sends      evt
                          evt        nil)
-                 (setf sends (msg actor msg sends))))
-             ))
-      
-      (declare (dynamic-extent #'send))
+                 ;; else
+                 (setf sends (msg actor msg sends)))))
+
+           (become (new-beh)
+             (setf pend-beh new-beh)))
+
+      (declare (dynamic-extent #'send #'become))
       
       ;; -------------------------------------------------------
       ;; Think of these global vars as dedicated registers of a
@@ -135,11 +171,11 @@ THE SOFTWARE.
       ;; instruction stream, instead of linear memory, and which
       ;; executes breadth-first instead of depth-first. This maximizes
       ;; concurrency.
-      (let* ((*current-actor*    (make-actor))
+      (let* ((*current-actor*    nil)
              (*whole-message*    nil)
-             (*current-behavior* (actor-beh *current-actor*))
-             (*new-beh*          *current-behavior*)
-             (*send*             #'send))
+             (*current-behavior* nil)
+             (*send*             #'send)
+             (*become*           #'become))
         
         (declare (list *whole-message*))
 
@@ -163,7 +199,7 @@ THE SOFTWARE.
                   ;; stack useful only for a microcoding assist. Our
                   ;; depth is never more than one Actor at a time,
                   ;; before trampolining back here.
-                  (setf evt (mp:mailbox-read *central-mail*)
+                  (setf evt      (mp:mailbox-read *central-mail*)
                         ;; Setup Actor context
                         self     (msg-actor (the msg evt))
                         self-beh (sys:atomic-exchange (actor-beh self) nil))
@@ -171,9 +207,9 @@ THE SOFTWARE.
                          ;; ---------------------------------
                          ;; Dispatch to Actor behavior with message args
                          (setf *whole-message* (msg-args (the msg evt))
-                               *new-beh*       self-beh)
+                               pend-beh        self-beh)
                          (apply (the function self-beh) *whole-message*)
-                         (setf  (actor-beh self) *new-beh*)
+                         (setf  (actor-beh self) pend-beh)
                          (loop for msg = sends
                                  while msg
                                  do
@@ -200,37 +236,6 @@ THE SOFTWARE.
 (defun is-pure-sink? (actor)
   (or (null actor)
       (eq (get-actor-beh actor) #'lw:do-nothing)))
-
-;; -----------------------------------------------
-;; SEND/BECOME
-;;
-;; SEND can only be called on an Actor. BECOME can only be called from
-;; within an Actor.
-;;
-;; SEND and BECOME are transactionally staged, and will commit *ONLY*
-;; upon error free completion of the Actor body code.
-;;
-;; So if you need them to take effect, even as you call potentially
-;; unsafe functions, then surround your function calls with
-;; HANDLER-CASE, HANDLER-BIND, or IGNORE-ERRORS. Otherwise, an error
-;; will make it seem that the message causing the error was never
-;; delivered.
-
-(defun send (actor &rest msg)
-  (apply *send* actor msg))
-
-(defmacro send* (actor &rest msg)
-  `(apply #'send ,actor ,@msg))
-
-(defun repeat-send (actor)
-  (send* actor self-msg))
-
-(defun send-combined-msg (cust msg1 msg2)
-  (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
-
-(defun become (new-beh)
-  (check-type new-beh function)
-  (setf *new-beh* new-beh))
 
 ;; ----------------------------------------------------------------
 ;; Start with two Sponsors: there is no difference between them. But

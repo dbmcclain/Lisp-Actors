@@ -90,6 +90,8 @@ THE SOFTWARE.
    #:repeat-send
    #:send-combined-msg
    #:ask
+   #:stsend
+   #:with-single-thread
    
    #:self
    #:self-beh
