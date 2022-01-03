@@ -2,6 +2,7 @@
 (in-package :com.ral.actors.base)
 
 (defun stsend (actor &rest msg)
+  #F
   ;; Single-threaded SEND - runs entirely in the thread of the caller.
   ;;
   ;; We still need to abide by the single-thread-only exclusive
@@ -9,19 +10,18 @@
   ;; this running, or else some of the multithreaded versions.
   (let (qhd qtl qsav evt pend-beh)
     (flet ((send (actor &rest msg)
-             (when actor
-               (cond (evt
-                      (setf (msg-actor (the msg evt)) actor
-                            (msg-args  (the msg evt)) msg
-                            (msg-link  (the msg evt)) nil))
-                     (t
-                      (setf evt (msg actor msg))) )
-               (setf qtl
-                     (if qhd
-                         (setf (msg-link (the msg qtl)) evt)
-                       (setf qhd evt))
-                     evt nil)
-               ))
+             (cond (evt
+                    (setf (msg-actor (the msg evt)) (the actor actor)
+                          (msg-args  (the msg evt)) (the list msg)
+                          (msg-link  (the msg evt)) nil))
+                   (t
+                    (setf evt (msg (the actor actor) (the list msg)))) )
+             (setf qtl
+                   (if qhd
+                       (setf (msg-link (the msg qtl)) evt)
+                     (setf qhd evt))
+                   evt nil))
+
            (become (new-beh)
              (setf pend-beh new-beh)))
       
@@ -58,7 +58,7 @@
                         (setf *whole-message* (msg-args (the msg evt))
                               qsav            (and qhd qtl)
                               pend-beh        self-beh)
-                        (apply (the function self-beh) *whole-message*)
+                        (apply (the function self-beh) (the list *whole-message*))
                         (setf (actor-beh self) (the function pend-beh)))
                        
                        (t

@@ -85,7 +85,7 @@ THE SOFTWARE.
             (:constructor msg (actor args &optional link)))
   link
   (actor (make-actor) :type actor)
-  args)
+  (args  nil          :type list))
 
 (defvar *central-mail*  (mp:make-mailbox))
 
@@ -106,11 +106,15 @@ THE SOFTWARE.
 
 (defparameter *send*
   (lambda (actor &rest msg)
-    (mp:mailbox-send *central-mail* (msg actor msg))
+    #F
+    (mp:mailbox-send *central-mail* (msg (the actor actor) (the list msg)))
     (values)))
 
 (defun send (actor &rest msg)
-  (apply *send* actor msg))
+  #F
+  (when actor
+    (check-type actor actor)
+    (apply *send* actor (the list msg))))
 
 (defmacro send* (actor &rest msg)
   `(apply #'send ,actor ,@msg))
@@ -127,6 +131,8 @@ THE SOFTWARE.
     (error "not in an Actor")))
     
 (defun become (new-beh)
+  #F
+  (check-type new-beh function)
   (funcall *become* new-beh))
 
 ;; -----------------------------------------------------------------
@@ -150,15 +156,14 @@ THE SOFTWARE.
   #F
   (let (sends evt pend-beh)
     (flet ((send (actor &rest msg)
-             (when actor
-               (if evt
-                   (setf (msg-link  (the msg evt)) sends
-                         (msg-actor (the msg evt)) actor
-                         (msg-args  (the msg evt)) msg
-                         sends      evt
-                         evt        nil)
-                 ;; else
-                 (setf sends (msg actor msg sends)))))
+             (if evt
+                 (setf (msg-link  (the msg evt)) sends
+                       (msg-actor (the msg evt)) (the actor actor)
+                       (msg-args  (the msg evt)) (the list msg)
+                       sends      evt
+                       evt        nil)
+               ;; else
+               (setf sends (msg (the actor actor) (the list msg) sends))))
 
            (become (new-beh)
              (setf pend-beh new-beh)))
@@ -208,7 +213,7 @@ THE SOFTWARE.
                          ;; Dispatch to Actor behavior with message args
                          (setf *whole-message* (msg-args (the msg evt))
                                pend-beh        self-beh)
-                         (apply (the function self-beh) *whole-message*)
+                         (apply (the function self-beh) (the list *whole-message*))
                          (setf  (actor-beh self) (the function pend-beh))
                          (loop for msg = sends
                                  while msg
