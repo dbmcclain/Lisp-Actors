@@ -15,12 +15,12 @@ The result has nearly the same performance characteristics as for when we used d
 
 [HOWEVER: 
 ----
-``Performing your own first message can be shown to lead to potentially unlimited growth of the central message queue. This is tantamount to a depth-first path of potentially unlimited length, and where extra messages generated along the way will never be tended to. Bad news!!
-
+Performing your own first message can be shown to lead to potentially unlimited growth of the central message queue. This is tantamount to a depth-first path of potentially unlimited length, and where extra messages generated along the way will never be tended to. Bad news!!
+---
 The only controlled (and fair) approach is to dump all SEND messages into the central mailbox queue. That means that new messages are always at the tail of the queue, and any extra messages generated along the way will be incrementally handled. This becomes a breadth-first execution strategy, and will eventually drain the event queue, provided that we are dealing with a bounded execution graph. Bounded execution = NOT a fork-bomb. 
-
-Sadly, in the face of SMP this implies a severe slowdown compared to single-thread execution. But frankly, the benefits of SMP outweigh the speed advantage in my mind, and the only way to incorporate fast, controlled SMP, is to reinvent Sponsors. I'm tired of Sponsors and I'd rather have parallelism and no bother in programming with Sponsors. Just my 2c... '']
-
+---
+Sadly, in the face of SMP this implies a severe slowdown compared to single-thread execution. But frankly, the benefits of SMP outweigh the speed advantage in my mind, and the only way to incorporate fast, controlled SMP, is to reinvent Sponsors. I'm tired of Sponsors and I'd rather have parallelism and no bother in programming with Sponsors. Just my 2c...]
+---
 The only impediment to full parallel execution is the fact that Actors can only run on one thread at any moment. If two or more threads want to run the same Actor, only one of them succeeds. The others return the event to the tail of the central mailbox queue and look for another event to run.
 
 So this is now a tuned variant of the very first original Actors system. It is tuned because of the local dynamic runtime characteristics matching a local thread event queue most of the time. Actors do not have mailboxes. Actors never block waiting on each other. The only time an Actor blocks is if some function it calls ends up blocking, as for I/O. If an Actor is blocked, there is a good likelihood that another dispatch thread is ready to run other Actors awaiting execution.
