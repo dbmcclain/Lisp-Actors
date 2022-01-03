@@ -21,7 +21,7 @@ _**[HOWEVER:**_
 
 **_Sadly, in the face of SMP this implies a severe slowdown compared to single-thread execution. But frankly, the benefits of SMP outweigh the speed advantage in my mind, and the only way to incorporate fast, controlled SMP, is to reinvent Sponsors. I'm tired of Sponsors and I'd rather have parallelism and no bother in programming with Sponsors. Just my 2c...]_**
 
-**So, what's the bloody problem with Sponsors? The problem is that Actors are simple functional closures. Sponsors are threads of execution. The two have nothing in common. And once an Actor begins executing on a Sponsor thread, all its SENDS produce messages also destined for the same Sponsor. So you can easily construct a boundary Actor that will transfer messages on to some specified Sponsor thread. But how do you get back to the original Sponsor. Actors carry no indication of who sent the message.**
+**So, what's the bloody problem with Sponsors? The problem is that Actors are simple functional closures. Sponsors are threads of execution. The two have nothing in common. And once an Actor begins executing on a Sponsor thread, all its SENDS produce messages also destined for the same Sponsor. So you can easily construct a boundary Actor that will transfer messages on to some specified Sponsor thread. But how do you get back to the original Sponsor. Actor messages carry no indication of who sent the message.**
 
 The only impediment to full parallel execution is the fact that Actors can only run on one thread at any moment. If two or more threads want to run the same Actor, only one of them succeeds. The others return the event to the tail of the central mailbox queue and look for another event to run.
 
