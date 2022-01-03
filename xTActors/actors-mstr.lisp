@@ -136,26 +136,22 @@ THE SOFTWARE.
   (funcall *become* new-beh))
 
 ;; -----------------------------------------------------------------
-;; Generic RUN for all threads, across all Sponsors
+;; Generic RUN for all threads
 ;;
-;; SENDs and BECOME are optimistically committed.  In more uncommon
-;; case of error, the tail of the event queue is rolled back, and the
-;; Actor behavior of the current Actor is restored.
+;; SENDs and BECOME are staged for commit.
 ;;
-;; Actors are now completely thread-safe - only one sponsor at a time
+;; Actors are now completely thread-safe - only one thread at a time
 ;; can be running any given Actor. But that also means there is no
 ;; longer any parallel execution of Actors, even when a non-mutating
 ;; behavior would be safe to run in parallel.
 ;;
 ;; We are also now open to potential spin-lock loops if an Actor is
-;; popular among multiple sponsors and takes too long to perform. In
-;; that case, it would be better to always perform on a stated
-;; sponsor.
+;; popular among multiple sponsors and takes too long to perform.
 
 (defun run-actors ()
   #F
   (let (sends evt pend-beh)
-    (flet ((send (actor &rest msg)
+    (flet ((%send (actor &rest msg)
              (if evt
                  (setf (msg-link  (the msg evt)) sends
                        (msg-actor (the msg evt)) (the actor actor)
@@ -165,10 +161,10 @@ THE SOFTWARE.
                ;; else
                (setf sends (msg (the actor actor) (the list msg) sends))))
 
-           (become (new-beh)
+           (%become (new-beh)
              (setf pend-beh new-beh)))
 
-      (declare (dynamic-extent #'send #'become))
+      (declare (dynamic-extent #'%send #'%become))
       
       ;; -------------------------------------------------------
       ;; Think of these global vars as dedicated registers of a
@@ -179,8 +175,8 @@ THE SOFTWARE.
       (let* ((*current-actor*    nil)
              (*whole-message*    nil)
              (*current-behavior* nil)
-             (*send*             #'send)
-             (*become*           #'become))
+             (*send*             #'%send)
+             (*become*           #'%become))
         
         (declare (list *whole-message*))
 
@@ -195,7 +191,7 @@ THE SOFTWARE.
                            ;; rather than later, in case a user handler wants to use the Actor
                            ;; for some reason.
                            (setf (actor-beh self) self-beh ;; restore behavior, ignoring BECOME
-                                 sends            nil)) ;; discard SENDs
+                                 sends            nil))    ;; discard SENDs
                          ))
                (loop
                   ;; Fetch next event from event queue - ideally, this
@@ -222,11 +218,13 @@ THE SOFTWARE.
                                  (mp:mailbox-send *central-mail* msg)))
                         
                         (t
+                         ;; Actor was in use, go around
                          (mp:mailbox-send *central-mail* evt))
                         ))
                )))
-        ;; ------------------------------------
         ))))
+
+;; ---------------------------------------------------
 
 (defun #1=get-actor-beh (actor)
   ;; ... in the unlikely case that the actor is executing when we
@@ -239,13 +237,11 @@ THE SOFTWARE.
    (go again)))
    
 (defun is-pure-sink? (actor)
+  ;; used by networking code to avoid sending useless data
   (or (null actor)
       (eq (get-actor-beh actor) #'lw:do-nothing)))
 
 ;; ----------------------------------------------------------------
-;; Start with two Sponsors: there is no difference between them. But
-;; we envision that the SLOW-SPONSOR will be used to run Actors with
-;; blocking actions, e.g., I/O.
 
 (defvar *evt-threads* nil)
 (defvar *nbr-pool*    4)
@@ -307,15 +303,14 @@ THE SOFTWARE.
 (defun ask (actor &rest msg)
   ;; Actor should expect a cust arg in first position. Here, the
   ;; mailbox.
-  (if self
+  (unless self
       ;; Counterproductive when called from an Actor, except for
       ;; possible side effects. Should use BETA forms if you want the
       ;; answer.
-      (send* actor sink msg)
-    (let ((mbox (mp:make-mailbox)))
-      (send* actor (mbox-sender mbox) msg)
-      (values-list (mp:mailbox-read mbox)))
-    ))
+      (let ((mbox (mp:make-mailbox)))
+        (send* actor (mbox-sender mbox) msg)
+        (values-list (mp:mailbox-read mbox)))
+      ))
 
 ;; -----------------------------------------------------
 ;; FN-EVAL - eval function and send results to customer
