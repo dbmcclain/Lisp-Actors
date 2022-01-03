@@ -83,25 +83,26 @@ THE SOFTWARE.
 ;; are sent by the Actor, then the message frame becomes garbage.
 
 (defstruct (msg
-            (:constructor msg (actor args)))
+            (:constructor msg (actor args &optional link)))
   link
   (actor (make-actor) :type actor)
   args)
 
 (defvar *current-evt*  nil) ;; message frame just processed
 
-(defun new-msg (actor args)
+(defun new-msg (actor args &optional link)
   ;; try to re-use the last message frame
   #F
   (let ((msg *current-evt*))
     (cond (msg
            (setf *current-evt* nil
                  (msg-actor (the msg msg)) actor
-                 (msg-args  (the msg msg)) args)
+                 (msg-args  (the msg msg)) args
+                 (msg-link  (the msg msg)) link)
            msg)
 
           (t
-           (msg actor args))
+           (msg actor args link))
           )))
 
 (defvar *central-mail*  (mp:make-mailbox))
@@ -130,33 +131,13 @@ THE SOFTWARE.
 
 (defun run-actors ()
   #F
-  (let ((qhd  nil)
-        (qtl  nil))
-    (labels ((add-evq (msg)
-               (declare (msg msg))
-               (setf (msg-link msg) nil
-                     qtl            (if qhd
-                                        (setf (msg-link (the msg qtl)) msg)
-                                      (setf qhd msg))
-                     ))
-             (pop1-evq ()
-               (let ((msg qhd))
-                 (when msg
-                   (setf qhd (msg-link (the msg msg)))
-                   msg)))
-
-             (pop-evq ()
-               (let ((evt (pop1-evq)))
-                 (loop for next-evt = (pop1-evq)
-                       while next-evt
-                       do (mp:mailbox-send *central-mail* next-evt))
-                 evt))
-
-             (send (actor &rest msg)
-               (and actor
-                    (add-evq (new-msg actor msg)))))
+  (let ((sends  nil))
+    (flet ((send (actor &rest msg)
+             (and actor
+                  (setf sends (new-msg actor msg sends))
+                  )))
       
-      (declare (dynamic-extent #'add-evq #'pop1-evq #'pop-evq #'send))
+      (declare (dynamic-extent #'send))
       
       ;; -------------------------------------------------------
       ;; Think of these global vars as dedicated registers of a
@@ -164,8 +145,7 @@ THE SOFTWARE.
       ;; instruction stream, instead of linear memory, and which
       ;; executes breadth-first instead of depth-first. This maximizes
       ;; concurrency.
-      (let* ((qsave              nil) ;; rollback copy
-             (*current-actor*    (make-actor))
+      (let* ((*current-actor*    (make-actor))
              (*whole-message*    nil)
              (*current-evt*      (msg *current-actor* *whole-message*))
              (*current-behavior* (actor-beh *current-actor*))
@@ -186,11 +166,9 @@ THE SOFTWARE.
                            ;; pointer in the current Actor, and that needs to be restored, sooner
                            ;; rather than later, in case a user handler wants to use the Actor
                            ;; for some reason.
-                           (setf (actor-beh self) self-beh) ;; restore behavior, ignoring BECOME
-                           (if (setf qtl qsave)             ;; unwind the SENDs
-                               (setf (msg-link (the msg qsave)) nil)
-                             (setf qhd nil))
-                           )))
+                           (setf (actor-beh self) self-beh ;; restore behavior, ignoring BECOME
+                                 sends            nil)) ;; discard SENDs
+                         ))
                (loop
                   ;; Fetch next event from event queue - ideally, this
                   ;; would be just a handful of simple register/memory
@@ -198,19 +176,22 @@ THE SOFTWARE.
                   ;; stack useful only for a microcoding assist. Our
                   ;; depth is never more than one Actor at a time,
                   ;; before trampolining back here.
-                  (setf *current-evt* (or (pop-evq)
-                                          (mp:mailbox-read *central-mail*))
+                  (setf *current-evt* (mp:mailbox-read *central-mail*)
                         ;; Setup Actor context
                         self     (msg-actor *current-evt*)
                         self-beh (sys:atomic-exchange (actor-beh self) nil))
                   (cond (self-beh
                          ;; ---------------------------------
                          ;; Dispatch to Actor behavior with message args
-                         (setf qsave           (and qhd qtl)  ;; queue state for possible rollback
-                               *whole-message* (msg-args  *current-evt*)
+                         (setf *whole-message* (msg-args  *current-evt*)
                                *new-beh*       self-beh)
                          (apply (the function self-beh) *whole-message*)
-                         (setf  (actor-beh self) *new-beh*))
+                         (setf  (actor-beh self) *new-beh*)
+                         (loop for msg = sends
+                                 while msg
+                                 do
+                                 (setf sends (msg-link (the msg msg)))
+                                 (mp:mailbox-send *central-mail* msg)))
                         
                         (t
                          (mp:mailbox-send *central-mail* *current-evt*))
