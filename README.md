@@ -17,7 +17,7 @@ _**[HOWEVER:**_
 
 **_Performing your own first message can be shown to lead to potentially unlimited growth of the central message queue. This is tantamount to a depth-first execution path of potentially unlimited length, and where extra messages generated along the way will never be tended to. Bad news!!_**
 
-**_The only controlled (and fair) approach is to dump all SEND messages into the central mailbox queue. That means that new messages are always at the tail of the queue, and any extra messages generated along the way will be incrementally handled. This becomes a breadth-first execution strategy, and will eventually drain the event queue, provided that we are dealing with a bounded execution graph. Bounded execution = NOT a fork-bomb, bounded message fanout._** 
+**_The only controlled (and fair) approach is to dump all SEND messages into the central mailbox queue. That means that new messages are always at the tail of the queue, and any extra messages generated along the way will be incrementally handled. This becomes a breadth-first execution strategy, and will eventually drain the event queue, provided that we are dealing with a bounded execution graph. Bounded execution = NOT a fork-bomb, i.e., a bounded message fanout._** 
 
 **_Sadly, in the face of SMP this implies a severe slowdown compared to single-thread execution. But frankly, the benefits of SMP outweigh the speed advantage in my mind, and the only way to incorporate fast, controlled SMP, is to reinvent Sponsors. I'm tired of Sponsors and I'd rather have parallelism and no bother in programming with Sponsors. Just my 2c...]_**
 
