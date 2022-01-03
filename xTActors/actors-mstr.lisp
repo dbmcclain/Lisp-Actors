@@ -88,23 +88,6 @@ THE SOFTWARE.
   (actor (make-actor) :type actor)
   args)
 
-(defvar *current-evt*  nil) ;; message frame just processed
-
-(defun new-msg (actor args &optional link)
-  ;; try to re-use the last message frame
-  #F
-  (let ((msg *current-evt*))
-    (cond (msg
-           (setf *current-evt* nil
-                 (msg-actor (the msg msg)) actor
-                 (msg-args  (the msg msg)) args
-                 (msg-link  (the msg msg)) link)
-           msg)
-
-          (t
-           (msg actor args link))
-          )))
-
 (defvar *central-mail*  (mp:make-mailbox))
 
 (defvar *send*
@@ -131,11 +114,18 @@ THE SOFTWARE.
 
 (defun run-actors ()
   #F
-  (let ((sends  nil))
+  (let ((sends nil)
+        (evt   nil))
     (flet ((send (actor &rest msg)
-             (and actor
-                  (setf sends (new-msg actor msg sends))
-                  )))
+             (when actor
+               (if evt
+                   (setf (msg-link  (the msg evt)) sends
+                         (msg-actor (the msg evt)) actor
+                         (msg-args  (the msg evt)) msg
+                         sends      evt
+                         evt        nil)
+                 (setf sends (msg actor msg sends))))
+             ))
       
       (declare (dynamic-extent #'send))
       
@@ -147,13 +137,11 @@ THE SOFTWARE.
       ;; concurrency.
       (let* ((*current-actor*    (make-actor))
              (*whole-message*    nil)
-             (*current-evt*      (msg *current-actor* *whole-message*))
              (*current-behavior* (actor-beh *current-actor*))
              (*new-beh*          *current-behavior*)
              (*send*             #'send))
         
-        (declare (msg      *current-evt*)
-                 (list     *whole-message*))
+        (declare (list *whole-message*))
 
         (loop
            (with-simple-restart (abort "Handle next event")
@@ -175,14 +163,14 @@ THE SOFTWARE.
                   ;; stack useful only for a microcoding assist. Our
                   ;; depth is never more than one Actor at a time,
                   ;; before trampolining back here.
-                  (setf *current-evt* (mp:mailbox-read *central-mail*)
+                  (setf evt (mp:mailbox-read *central-mail*)
                         ;; Setup Actor context
-                        self     (msg-actor *current-evt*)
+                        self     (msg-actor (the msg evt))
                         self-beh (sys:atomic-exchange (actor-beh self) nil))
                   (cond (self-beh
                          ;; ---------------------------------
                          ;; Dispatch to Actor behavior with message args
-                         (setf *whole-message* (msg-args  *current-evt*)
+                         (setf *whole-message* (msg-args (the msg evt))
                                *new-beh*       self-beh)
                          (apply (the function self-beh) *whole-message*)
                          (setf  (actor-beh self) *new-beh*)
@@ -193,7 +181,7 @@ THE SOFTWARE.
                                  (mp:mailbox-send *central-mail* msg)))
                         
                         (t
-                         (mp:mailbox-send *central-mail* *current-evt*))
+                         (mp:mailbox-send *central-mail* evt))
                         ))
                )))
         ;; ------------------------------------
