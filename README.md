@@ -12,7 +12,7 @@ That's where we are today. There is never any need for ASYNC/AWAIT. Actors are a
 
 Actors can mutate their behavior based on updated state, but state is never mutated. Mutated behavior never changes the identity of an Actor. Functional purity pays off handsomely, and SEND/BECOME are transactional. In the event of any errors in an Actor execution, its scheduled SENDs and BECOMEs are rolled back. As long as the Actor body code is FPL pure, an exception looks like the message was never delivered in the first place.
 
-This is radical simplification of complex problems. You solve the bigger problem using incremental small behaviors that can be combined in creative ways to effect the solution to the larger problem. Each little behavior is easy to test and verify that it is correct. Complex behaviors can hide behind public gateways that offer simple API's.
+This is radical simplification of complex problems. You solve the bigger problem using incremental small behaviors that can be combined in creative ways to effect the solution to the larger problem. Each little behavior is easy to test and verify that it is correct. Complex behaviors can hide behind public gateways that offer simple API's, and appear to the user as a unit. These units can themselves be combined into larger units, each of which were incrementally built up and tested along the way.
 
 
 -- Lisp-Actors (xTActors) - Classical Actors (4 Jan 2022)
