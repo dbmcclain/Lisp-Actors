@@ -18,7 +18,7 @@ Sponsored Actors have runtime dispatch performance almost equal to the high-perf
 
 The default substrate is the multi-threaded pool of dispatching threads. And in a pinch, it can always be used where the others might achieve better overall performance and efficiency. But when you know you are facing particular use cases, the other two substrates may perform better, and / or waste fewer CPU cycles.
 
-Since Actors are just code, they have little sense of what thread they run on. But once they SEND additional messages, those messages are handled by the same substrate. Only a send to a Sponsor will cause explicit thread switching. In the default SMP pool substrate, Actors run any any and all of the substrate pool threads.
+Since Actors are just code, they have little sense of what thread they run on. But once they SEND additional messages, those messages are handled by the same substrate. Only a send to a Sponsor will cause explicit thread switching. In the default SMP pool substrate, Actors run on any and all of the substrate pool threads.
 
 
 -- Lisp-Actors (xTActors) - Classical Actors (2 Jan 2022)
