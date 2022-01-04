@@ -20,6 +20,10 @@ The default substrate is the multi-threaded pool of dispatching threads. And in 
 
 Since Actors are just code, they have little notion of what thread they run on. And when they SEND additional messages, those messages are handled by the same substrate. Only a send to a Sponsor will cause explicit thread switching. In the default SMP pool substrate, Actors run on any and all of the substrate pool threads. In the single-thread and Sponsored substrates all messages are handled by the same dispatch thread.
 
+When messsages are sent from foreign (non-Actor) threads, and from asynchronous timer and I/O callback routines, those messages are always first directed to the SMP pool dispatchers. From there they may go on to Sponsored Actors, or not. Foreign threads can never directly send to a single-thread substrate. 
+
+But note that the same Actor can run on any thread. And this offers a back-channel between threads. A message can carry information to an Actor currently running in a single-thread substrate, while the same Actor can later be queried by ASK from a foreign non-Actor thread, and reveal that information. This could be good or bad, depending on your stance on system security. Just something to be aware of...
+
 
 -- Lisp-Actors (xTActors) - Classical Actors (2 Jan 2022)
 ----------
