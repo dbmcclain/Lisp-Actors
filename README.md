@@ -19,7 +19,9 @@ This is radical simplification of complex problems. You solve the bigger problem
 ----------
 Finally, a justifiable use-case for Sponsored Actors...
 
-We now have 3 substrates for running Actors. The first one is the most general, and simply spawns a bunch of executive threads in a pool, each running a message dispatch loop, and each watching a communal mailbox for new messages. SEND sends new messages to the communal mailbox, whether messages originate from foreign threads or from local message processing.  This default substrate offers maximum parallelism. Concurrency is assured, in any substrate, because our Actors use small building blocks, and messages from Actors are multiplexed from a FIFO queue, which offers breadth-first computation no matter the degree of parallelism.
+We now have 3 substrates for running Actors. The first one is the most general, and simply spawns a bunch of executive threads in a pool, each running a message dispatch loop, and each watching a communal mailbox for new messages. SEND sends new messages to the communal mailbox, whether messages originate from foreign threads or from local message processing.  
+
+This default substrate offers maximum parallelism. Concurrency is assured, in any substrate, because our Actors use small building blocks, and messages from Actors are multiplexed from a FIFO queue, which offers breadth-first computation no matter the degree of parallelism.
 
 For this substrate, the ARM M1 just slightly outperforms the substrate running on Intel i7 (1.04x faster) under best circumstances. But M1 on Apple seems more prone to background workload modulation, and can vary by 2:1 (SEND/dispatch timing of 250ns to 440ns) under typical situations. Intel i7 seems to vary from 260ns to 330ns for the same kinds of system workload variations.
 
