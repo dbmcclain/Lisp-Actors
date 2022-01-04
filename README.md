@@ -37,7 +37,7 @@ By isolating these I/O ports to their own Sponsors (threads) any message sent to
 
 Sponsored Actors have runtime dispatch performance almost equal to the high-performance of single-thread substrates.
 
-In every case, the same Actors are used. There is no such thing as a substrate-specific Actor, with the single possible exception of Sponsors. Actors are simply code. Substrates are how they become executed.
+In every case, the same Actors are used. There is no such thing as a substrate-specific Actor. Even Sponsors, with that priveleged name, are nothing more than Actors of the same variety as any other Actor. Sponsors just happen to know the maibox and thread identity of a dispatching thread, and they know how to inject messages into that mailbox so the thread can take it from there. But Actors are simply code. Substrates are how they become executed.
 
 The default substrate is the multi-threaded pool of dispatching threads. And in a pinch, it can always be used where the others might achieve better overall performance and efficiency. But when you know you are facing particular use cases, the other two substrates may perform better, and / or waste fewer CPU cycles.
 
