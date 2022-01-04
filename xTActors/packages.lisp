@@ -84,6 +84,13 @@ THE SOFTWARE.
    #:restart-actors-system
    #:kill-actors-system
    #:add-executives
+
+   #:*current-sponsor*
+   #:sponsor-beh
+   #:make-sponsor
+   #:in-sponsor
+   #:in-this-sponsor
+   #:self-sponsor
    
    #:become   
    #:send
