@@ -1,3 +1,16 @@
+-- A Commentary on Progress for the Actors Project
+----
+When I began the Actors project several years ago, my hope was to find an organizing principle and a collection of widgets that could enable one to more easily write complex real-world programs. I think I am now finally achieving that goal. 
+
+My first cut was very much like the "Actors" you now find in other languages like Swift, or any which offer ASYNC/AWAIT. It was an organizing principle, but just barely simplified anything. Instead you end up with a tower of new complexity, CPS callback management, and the need for ASYNC/AWAIT-like behavior in the system. I look back on that now as a sad misunderstanding of what Hewitt originally intended. And I currently think other languages are going of the same deep end that I originally did. This is not to be applauded.
+
+Along the way I discovered information provided by one of Hewitt's original collaborators, and he taught me a whole different approach, far simpler, no tower of new complexity, but requires a different mindset than I began with. Dale Shumacher ( http://www.dalnefre.com/wp/2011/10/erlang-style-mailboxes/ ) showed me that Actors should be tiny, intelligent little widgets, that each individually perform useful functions, but in combination can provide huge capabilities that others can only envy. Concurrency is maximized beyond your wildest dreams. It becomes possible, in a single thread of execution, to do things you always thought were absolutely use cases for multiprocessing, and perform at unbelievable speeds.
+
+That's where we are today. There is never any need for ASYNC/AWAIT. Actors are always asynchronous widgets. Actors never need to wait on other Actors. Messages are not like Call/Return from imperative languages. Messages tell some Actor to activate itself with some provided arguments, and to send its results to some other Actor, usually not back to the SENDER. Functional purity pays off handsomely, and SEND/BECOME are transactional. In the event of any errors in an Actor execution, its scheduled SENDs and BECOMEs are rolled back. As long as the Actor body code is FPL pure, an exception looks like the message was never delivered in the first place.
+
+This is radical simplification of complex problems. You solve the bigger problem using incremental small behaviors that can be combined in creative ways to effect the solution to the larger problem. Each little behavior is easy to test and verify that it is correct. Complex behaviors can hide behind public gateways that offer simple API's.
+
+
 -- Lisp-Actors (xTActors) - Classical Actors (4 Jan 2022)
 ----------
 Finally, a justifiable use-case for Sponsored Actors...
