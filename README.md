@@ -10,7 +10,7 @@ Even though this is a single-thread substrate, you can have as many running as y
 
 Finally we have Sponsored Actors - which are perfect for dedicated I/O port processing. In such case, we spend a lot of time, of indefinite duration, blocked and waiting for activity to arise on the I/O port. Since Actors can only run on one thread at a time, any Actor tied up waiting for I/O will block its use from other threads, causing them to enter weak spin-livelock in the worst case.
 
-By isolating these I/O ports to their own Sponsors (threads) any messages sent to the Sponsor is just a quick mailbox send. This frees up other threads who no longer have to wait in a spin-loop for the Actor (the Sponsor is also an Actor) to become available.
+By isolating these I/O ports to their own Sponsors (threads) any message sent to the Sponsor is just a quick mailbox send. This frees up other threads who no longer have to wait in a spin-loop for the Actor (the Sponsor is also an Actor) to become available.
 
 Sponsored Actors have runtime dispatch performance almost equal to the high-performance of single-thread substrates.
 
