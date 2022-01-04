@@ -25,15 +25,19 @@ This default substrate offers maximum parallelism. Concurrency is assured, in an
 
 For this substrate, the ARM M1 just slightly outperforms the substrate running on Intel i7 (1.04x faster) under best circumstances. But M1 on Apple seems more prone to background workload modulation, and can vary by 2:1 (SEND/dispatch timing of 250ns to 440ns) under typical situations. Intel i7 seems to vary from 260ns to 330ns for the same kinds of system workload variations.
 
-The second one is an overt single-threaded substrate, which runs all its Actors using a fast thread-local event queue. It is very fast, almost 5x faster than the general pool substrate on Intel processors (2x on ARM). _*(Timing for SEND/dispatch on Intel i7 is 50ns, and 105ns on ARM M1.)*_ This is most useful when you know that you have an Actor workload that is delimited and mostly 1-1 fanout of new messages. Examples would be processing pipelines (systolic arrays of Actors), and systems which don't rely heavily on outside asynchronous events, such as I/O ports, user interaction, and timer callbacks.
+The second one is an overt single-threaded substrate, which runs all its Actors using a fast thread-local event queue. It is very fast, almost 5x faster than the general pool substrate on Intel processors (2x on ARM). _*(Timing for SEND/dispatch on Intel i7 is 50ns, and 105ns on ARM M1.)*_ It offers the same degree of concurrency, but no parallelism if using only one instance of the substrate. 
 
-Even though this is a single-thread substrate, you can have as many running as you like, in different threads. They are triggered by either calling STSEND (single-thread SEND), or by wrapping your code with (WITH-SINGLE-THREAD &body body). In the wrapped situation, it dynamically rebinds SEND so that it becomes a substrate running the message and all subsequent messages arising from this processing. It runs until no more messages await, then returns to the SEND caller.
+This is most useful when you know that you have an Actor workload that is delimited and mostly 1-1 fanout of new messages. Examples would be processing pipelines (systolic arrays of Actors), and systems which don't rely heavily on outside asynchronous events, such as I/O ports, user interaction, and timer callbacks.
+
+But even though this is a single-thread substrate, you can have as many running as you like, in different threads. They are triggered by either calling STSEND (single-thread SEND), or by wrapping your code with (WITH-SINGLE-THREAD &body body). In the wrapped situation, it dynamically rebinds SEND so that it becomes a substrate running the message and all subsequent messages arising from this processing. It runs until no more messages await, then returns to the SEND caller.
 
 Finally we have Sponsored Actors - which are perfect for dedicated I/O port processing. In such case, we spend a lot of time, of indefinite duration, blocked and waiting for activity to arise on the I/O port. Since Actors can only run on one thread at a time, any Actor tied up waiting for I/O will block its use from other threads, causing them to enter weak spin-livelock in the worst case.
 
 By isolating these I/O ports to their own Sponsors (threads) any message sent to the Sponsor is just a quick mailbox send. This frees up other threads who no longer have to wait in a spin-loop for the Actor (the Sponsor is also an Actor) to become available.
 
 Sponsored Actors have runtime dispatch performance almost equal to the high-performance of single-thread substrates.
+
+In every case, the same Actors are used. There is no such thing as a substrate-specific Actor, with the single possible exception of Sponsors. Actors are simply code. Substrates are how they become executed.
 
 The default substrate is the multi-threaded pool of dispatching threads. And in a pinch, it can always be used where the others might achieve better overall performance and efficiency. But when you know you are facing particular use cases, the other two substrates may perform better, and / or waste fewer CPU cycles.
 
