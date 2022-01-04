@@ -254,9 +254,16 @@ THE SOFTWARE.
           *evt-threads*)))
 
 (defun kill-actors-system ()
-  (dolist (proc *evt-threads*)
+  (dolist (proc (shiftf *evt-threads* nil))
     (mp:process-terminate proc)))
 
+(defun add-executives (n)
+  (let ((ctr (length *evt-threads*)))
+    (dotimes (ix n)
+      (push (mp:process-run-function (format nil "Actor Thread #~D" (incf ctr))
+                                     ()
+                                     'run-actors)
+            *evt-threads*))))
 #|
 (kill-actors-system)
 (restart-actors-system)

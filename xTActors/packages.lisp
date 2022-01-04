@@ -83,7 +83,8 @@ THE SOFTWARE.
 
    #:restart-actors-system
    #:kill-actors-system
-
+   #:add-executives
+   
    #:become   
    #:send
    #:send*

@@ -10,16 +10,28 @@
   ;; Call DUT 3 times and return median of its data values
   (make-actor
    (lambda (cust &rest parms)
-     (let* ((data   (make-array 3))
-            (ix     2))
-       (beta (datum)
+     (beta (y1)
+         (send* dut beta parms)
+       (beta (y2)
            (send* dut beta parms)
-         (setf (aref data ix) datum)
-         (decf ix)
-         (if (minusp ix)
-             (send cust (vmath:median data))
-           (send* dut self parms)))
-       ))))
+         (beta (y3)
+             (send* dut beta parms)
+           (let ((minv (min y1 y2 y3))
+                 (maxv (max y1 y2 y3)))
+             (send cust (- (+ y1 y2 y3) minv maxv))
+             )))))))
+
+(defun minum (dut)
+  (make-actor
+   (lambda (cust &rest parms)
+     (beta (datum1)
+         (send* dut beta parms)
+       (beta (datum2)
+           (send* dut beta parms)
+         (beta (datum3)
+             (send* dut beta parms)
+           (send cust (min datum1 datum2 datum3))
+           ))))))
 
 (defun data-point (dut &optional (dataprep #'identity))
   ;; Actor to make pairs (X, Y) of data coming from a DUT.
@@ -86,6 +98,7 @@
                  :stdev  (vm:stdev arr)
                  :median (vm:median arr)
                  :mad    (vm:mad arr)
+                 :min    (reduce #'min arr)
                  )))))
     
 ;; ---------------------------------------------------------------
@@ -229,7 +242,7 @@
 (let* ((niter 10000)
        (npts  1000)
        (dut   (simple-collector npts niter
-                                (med3
+                                (minum ;; med3
                                  (timing
                                   (make-send-self-tst))))))
   (let ((act (actor (cust)
@@ -243,7 +256,7 @@
 (let* ((niter 10000)
        (npts  1000)
        (dut   (simple-collector npts niter
-                                (med3
+                                (minum ;; med3
                                  (timing
                                   (make-send-self-tst))))))
   (let ((act (actor (cust)
@@ -253,4 +266,9 @@
                  (send (statistics) println arr)
                  (send cust)))))
     (stsend (timing act) println)))
+
+(let ((v (vm:gnoise 10000)))
+  (list (vm:median v)
+        (vm:mad v)))
+
 |#
