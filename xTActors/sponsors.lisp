@@ -80,7 +80,6 @@
               (*send*             #'%send)
               (*become*           #'%become))
           
-          (send* actor msg)
           (loop
              (with-simple-restart (abort "Handle next event")
                (handler-bind

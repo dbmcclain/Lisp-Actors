@@ -112,8 +112,7 @@ THE SOFTWARE.
 
 (defun send (actor &rest msg)
   #F
-  (when actor
-    (check-type actor actor)
+  (when (actor-p actor)
     (apply *send* actor (the list msg))))
 
 (defmacro send* (actor &rest msg)
@@ -310,6 +309,7 @@ THE SOFTWARE.
 (defun ask (actor &rest msg)
   ;; Actor should expect a cust arg in first position. Here, the
   ;; mailbox.
+  (check-type actor actor)
   (unless self
       ;; Counterproductive when called from an Actor, except for
       ;; possible side effects. Should use BETA forms if you want the
