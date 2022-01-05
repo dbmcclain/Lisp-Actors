@@ -107,13 +107,13 @@ THE SOFTWARE.
 (defparameter *send*
   (lambda (actor &rest msg)
     #F
-    (mp:mailbox-send *central-mail* (msg (the actor actor) (the list msg)))
+    (mp:mailbox-send *central-mail* (msg (the actor actor) msg))
     (values)))
 
 (defun send (actor &rest msg)
   #F
   (when (actor-p actor)
-    (apply *send* actor (the list msg))))
+    (apply *send* actor msg)))
 
 (defmacro send* (actor &rest msg)
   `(apply #'send ,actor ,@msg))
@@ -154,11 +154,11 @@ THE SOFTWARE.
              (if evt
                  (setf (msg-link  (the msg evt)) sends
                        (msg-actor (the msg evt)) (the actor actor)
-                       (msg-args  (the msg evt)) (the list msg)
+                       (msg-args  (the msg evt)) msg
                        sends      evt
                        evt        nil)
                ;; else
-               (setf sends (msg (the actor actor) (the list msg) sends))))
+               (setf sends (msg (the actor actor) msg sends))))
 
            (%become (new-beh)
              (setf pend-beh new-beh)))
@@ -208,7 +208,7 @@ THE SOFTWARE.
                          ;; Dispatch to Actor behavior with message args
                          (setf *whole-message* (msg-args (the msg evt))
                                pend-beh        self-beh)
-                         (apply (the function self-beh) (the list *whole-message*))
+                         (apply (the function self-beh) *whole-message*)
                          (setf  (actor-beh self) (the function pend-beh))
                          (loop for msg = sends
                                  while msg

@@ -62,10 +62,10 @@
                (cond (evt
                       ;; reuse last message frame if possible
                       (setf (msg-actor (the msg evt)) (the actor actor)
-                            (msg-args  (the msg evt)) (the list msg)
+                            (msg-args  (the msg evt)) msg
                             (msg-link  (the msg evt)) nil))
                      (t
-                      (setf evt (msg (the actor actor) (the list msg)))) )
+                      (setf evt (msg (the actor actor) msg))) )
                (addq evt)
                (setf evt nil))
 
@@ -79,6 +79,7 @@
               (*current-behavior* nil)
               (*send*             #'%send)
               (*become*           #'%become))
+          (declare (list *whole-message*))
           
           (loop
              (with-simple-restart (abort "Handle next event")
@@ -105,7 +106,7 @@
                       (setf *whole-message* (msg-args (the msg evt))
                             qsav            (and qhd qtl)
                             pend-beh        self-beh)
-                      (apply (the function self-beh) (the list *whole-message*))
+                      (apply (the function self-beh) *whole-message*)
                       (setf (actor-beh self) (the function pend-beh)))
                      
                      (t
