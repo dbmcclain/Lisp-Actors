@@ -1,3 +1,53 @@
+-- A Commentary on Progress for the Actors Project
+----
+When I began the Actors project several years ago, my hope was to find an organizing principle and a collection of widgets that could enable one to more easily write complex real-world programs. I think I am now finally achieving that goal. 
+
+My first cut was very much like the "Actors" you now find in other languages like Swift, or any which offer ASYNC/AWAIT. It was an organizing principle, but just barely simplified anything. Instead you end up with a tower of new complexity, CPS callback management, and the need for ASYNC/AWAIT-like behavior in the system. I look back on that now as a sad misunderstanding of what Hewitt originally intended. And I currently think other languages are going off the same deep end that I originally did. This is not to be applauded.
+
+I think this tendency might be a consequence of the OOPL style of programming that you find in C++. There, one is expected to decompose the problem into Classes that provide a host of services. And complexity eventually builds up, services expand, and you end up with whole menus of features in primary Classes that rival the menus found in Chinese restaurants.
+
+Along the way I discovered information provided by one of Hewitt's original collaborators, and he taught me a whole different approach, far simpler, no tower of new complexity, but requires a different mindset than I began with. Dale Shumacher (http://www.dalnefre.com/wp/) showed me that Actors should be tiny, intelligent little widgets, that each individually perform useful functions, but in combination can provide huge capabilities that others can only envy. Concurrency is maximized beyond your wildest dreams. It becomes possible, in a single thread of execution, to do things you always thought were absolutely use cases for multiprocessing, and perform at unbelievable speeds.
+
+That's where we are today. There is never any need for ASYNC/AWAIT. Actors are always asynchronous widgets. Actors never need to wait on other Actors. Messages are not like Call/Return from imperative languages. Messages tell some Actor to activate itself with some provided arguments, and to send its results to some other Actor, usually not back to the SENDER. 
+
+Actors can mutate their behavior based on updated state, but state is never mutated. Mutated behavior never changes the identity of an Actor. Functional purity pays off handsomely, and SEND/BECOME are transactional. In the event of any errors in an Actor execution, its scheduled SENDs and BECOMEs are rolled back. As long as the Actor body code is FPL pure, an exception looks like the message was never delivered in the first place.
+
+This is radical simplification of complex problems. You solve the bigger problem using incremental small behaviors that can be combined in creative ways to effect the solution to the larger problem. Each little behavior is easy to test and verify that it is correct. Complex behaviors can hide behind public gateways that offer simple API's, and appear to the user as a unit. These units can themselves be combined into larger units, each of which were incrementally built up and tested along the way.
+
+
+-- Lisp-Actors (xTActors) - Classical Actors (4 Jan 2022)
+----------
+Finally, a justifiable use-case for Sponsored Actors...
+
+We now have 3 substrates for running Actors. The first one is the most general, and simply spawns a bunch of executive threads in a pool, each running a message dispatch loop, and each watching a communal mailbox for new messages. SEND sends new messages to the communal mailbox, whether messages originate from foreign threads or from local message processing.  
+
+This default substrate offers maximum parallelism. Concurrency is assured, in any substrate, because our Actors use small building blocks, and messages from Actors are multiplexed from a FIFO queue, which offers breadth-first computation no matter the degree of parallelism.
+
+For this substrate, the ARM M1 just slightly outperforms the substrate running on Intel i7 (1.04x faster) under best circumstances. But M1 on Apple seems more prone to background workload modulation, and can vary by 2:1 (SEND/dispatch timing of 250ns to 440ns) under typical situations. Intel i7 seems to vary from 260ns to 330ns for the same kinds of system workload variations.
+
+The second one is an overt single-threaded substrate, which runs all its Actors using a fast thread-local event queue. It is very fast, almost 5x faster than the general pool substrate on Intel processors (2x on ARM). _*(Timing for SEND/dispatch on Intel i7 is 50ns, and 105ns on ARM M1.)*_ It offers the same degree of concurrency, but no parallelism if using only one instance of the substrate. 
+
+This is most useful when you know that you have an Actor workload that is delimited and mostly 1-1 fanout of new messages. Examples would be processing pipelines (systolic arrays of Actors), and systems which don't rely heavily on outside asynchronous events, such as I/O ports, user interaction, and timer callbacks.
+
+But even though this is a single-thread substrate, you can have as many running as you like, in different threads. They are triggered by either calling STSEND (single-thread SEND), or by wrapping your code with (WITH-SINGLE-THREAD &body body). In the wrapped situation, it dynamically rebinds SEND so that it becomes a substrate running the message and all subsequent messages arising from this processing. It runs until no more messages await, then returns to the SEND caller.
+
+Finally we have Sponsored Actors - which are perfect for dedicated I/O port processing. In such case, we spend a lot of time, of indefinite duration, blocked and waiting for activity to arise on the I/O port. Since Actors can only run on one thread at a time, any Actor tied up waiting for I/O will block its use from other threads, causing them to enter weak spin-livelock in the worst case.
+
+By isolating these I/O ports to their own Sponsors (threads) any message sent to the Sponsor is just a quick mailbox send. This frees up other threads who no longer have to wait in a spin-loop for the Actor (the Sponsor is also an Actor) to become available.
+
+Sponsored Actors have runtime dispatch performance almost equal to the high-performance of single-thread substrates.
+
+In every case, the same Actors are used. There is no such thing as a substrate-specific Actor. Even Sponsors, with that priveleged name, are nothing more than Actors of the same variety as any other Actor. Sponsors just happen to know the maibox and thread identity of a dispatching thread. And they know how to inject messages into that mailbox so the thread can take it from there. But Actors are simply code. Substrates are how they become executed.
+
+The default substrate is the multi-threaded pool of dispatching threads. And in a pinch, it can always be used where the others might achieve better overall performance and efficiency. But when you know you are facing particular use cases, the other two substrates may perform better, and / or waste fewer CPU cycles.
+
+Since Actors are just code, they have little notion of what thread they run on. And when they SEND additional messages, those messages are handled by the same substrate. Only a send to a Sponsor will cause explicit thread switching. In the default SMP pool substrate, Actors run on any and all of the substrate pool threads. In the single-thread and Sponsored substrates all messages are handled by the same dispatch thread.
+
+When messsages are sent from foreign (non-Actor) threads, and from asynchronous timer and I/O callback routines, those messages are always first directed to the SMP pool dispatchers. From there they may go on to Sponsored Actors, or not. Foreign threads can never directly send to a single-thread substrate. 
+
+But note that the same Actor can run on any thread. And this offers a back-channel between threads. A message can carry information to an Actor currently running in a single-thread substrate, while the same Actor can later be queried by ASK from a foreign non-Actor thread, and reveal that information. This could be good or bad, depending on your stance toward system security. Just something to be aware of...
+
+
 -- Lisp-Actors (xTActors) - Classical Actors (2 Jan 2022)
 ----------
 
