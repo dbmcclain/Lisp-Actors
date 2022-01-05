@@ -40,6 +40,7 @@
 (defun in-this-sponsor (actor)
   (in-sponsor self-sponsor actor))
 
+#|
 (defun run-sponsor (*current-sponsor* mbox)
   #F
   ;; Single-threaded - runs entirely in the thread of the Sponsor.
@@ -115,4 +116,83 @@
                      ))
                  ))))
         ))))
+|#
+
+(defun run-sponsor (*current-sponsor* mbox)
+  #F
+  ;; Single-threaded - runs entirely in the thread of the Sponsor.
+  ;;
+  ;; We still need to abide by the single-thread-only exclusive
+  ;; execution of Actors. There might be several other instances of
+  ;; this running, or else some of the multithreaded versions.
+  ;;
+  ;; SENDs are optimistically committed in the event queue. In case of
+  ;; error these are rolled back.
+  ;;
+  (let (qhd qtl qsav evt pend-beh)
+    (macrolet ((addq (evt)
+                 `(setf qtl
+                        (if qhd
+                            (setf (msg-link (the msg qtl)) ,evt)
+                          (setf qhd ,evt)))
+                 )
+               (qreset ()
+                 `(if (setf qtl qsav)
+                      (setf (msg-link (the msg qtl)) nil)
+                    (setf qhd nil))))
+      (flet ((%send (actor &rest msg)
+               (cond (evt
+                      ;; reuse last message frame if possible
+                      (setf (msg-actor (the msg evt)) (the actor actor)
+                            (msg-args  (the msg evt)) msg
+                            (msg-link  (the msg evt)) nil))
+                     (t
+                      (setf evt (msg (the actor actor) msg))) )
+               (addq evt)
+               (setf evt nil))
+
+             (%become (new-beh)
+               (setf pend-beh new-beh)))
+        
+        (declare (dynamic-extent #'%send #'%become))
+        
+        (let ((*current-actor*    nil)
+              (*whole-message*    nil)
+              (*current-behavior* nil)
+              (*send*             #'%send)
+              (*become*           #'%become))
+          (declare (list *whole-message*))
+          
+          (loop
+             (with-simple-restart (abort "Handle next event")
+               (handler-bind
+                   ((error (lambda (c)
+                             (declare (ignore c))
+                             (qreset)) ;; unroll SENDs
+                           ))
+                 (loop
+                    (when (mp:mailbox-not-empty-p mbox)
+                      (let ((evt (mp:mailbox-read mbox)))
+                        (addq evt)))
+                    (if (setf evt qhd)
+                        (setf qhd (msg-link (the msg evt)))
+                      (setf evt (mp:mailbox-read mbox)))
+                    (setf self      (msg-actor (the msg evt))
+                          *whole-message* (msg-args (the msg evt))
+                          qsav      (and qhd qtl))
+                    (tagbody
+                     again
+                     (setf pend-beh (actor-beh (the actor self))
+                           self-beh pend-beh)
+                     (apply (the function pend-beh) *whole-message*)
+                     (cond ((or (eq pend-beh self-beh)
+                                (sys:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh)))
+
+                           (t
+                            ;; Actor was mutated beneath us, go again
+                            (qreset)
+                            (go again))
+                           )))
+                 )))
+          )))))
 
