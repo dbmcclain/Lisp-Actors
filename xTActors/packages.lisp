@@ -97,6 +97,7 @@ THE SOFTWARE.
    #:send*
    #:repeat-send
    #:send-combined-msg
+   #:send-to-pool
    #:ask
    #:stsend
    #:with-single-thread

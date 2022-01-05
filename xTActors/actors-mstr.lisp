@@ -104,11 +104,13 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defparameter *send*
-  (lambda (actor &rest msg)
-    #F
-    (mp:mailbox-send *central-mail* (msg (the actor actor) msg))
-    (values)))
+(defun send-to-pool (actor &rest msg)
+  #F
+  (check-type actor actor)
+  (mp:mailbox-send *central-mail* (msg (the actor actor) msg))
+  (values))
+
+(defparameter *send*  #'send-to-pool)
 
 (defun send (actor &rest msg)
   #F
