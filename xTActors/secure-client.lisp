@@ -18,16 +18,24 @@
   ;; specify any data protocol. It may marshal objects and compress
   ;; the resulting byte stream before sending. A Channel is an
   ;; encryptor/decryptor married to a Socket.
-  (let ((skey (make-deterministic-keys (uuid:make-v1-uuid))))
-    (actors ((pending-negotiations (empty-pending-negotiations-beh pending-negotiations skey)))
+  (let ((skey (make-deterministic-keys (uuid:make-v1-uuid)))
+        (lock (list nil)))
+    (actors ((pending-negotiations (empty-pending-negotiations-beh pending-negotiations skey))
+             (reset-lock           (lambda () (setf (car lock) nil))))
       (actor (cust host-ip-addr)
-        (beta (socket chan local-services)
-            (send (com.ral.actors.network:client-connector) beta host-ip-addr)
-          (if (eq chan socket)
-              (send pending-negotiations cust :get-chan socket local-services)
-            (send cust chan)
-            ))
-        ))))
+        (if (sys:compare-and-swap (car lock) nil t)
+            ;; protect against concurrent access...
+            (let ((side (side-job cust reset-lock)))
+              ;; what happens if side is never sent anything? (TBD)
+              (beta (socket chan local-services)
+                  (send (com.ral.actors.network:client-connector) beta host-ip-addr)
+                (if (eq chan socket)
+                    (send pending-negotiations side :get-chan socket local-services)
+                  (send side chan))
+                ))
+          ;; else
+          (repeat-send self)))
+      )))
     
 #| ;; for debugging
 (defun show-client-outbound (socket)
