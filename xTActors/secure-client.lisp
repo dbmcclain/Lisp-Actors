@@ -7,36 +7,15 @@
 ;; --------------------------------------------------------------------
 ;; Client side
 
-(def-singleton-actor client-gateway ()
-  ;; This is the main local client service used to initiate
-  ;; connections with foreign servers. We develop a DHE shared secret
-  ;; encryption key for use across a private connection portal with
-  ;; the server.
-  ;;
-  ;; A Connection consists of a Socket and a Channel. A Socket merely
-  ;; supports the tranport of data across a network. It does not
-  ;; specify any data protocol. It may marshal objects and compress
-  ;; the resulting byte stream before sending. A Channel is an
-  ;; encryptor/decryptor married to a Socket.
-  (let ((skey (make-deterministic-keys (uuid:make-v1-uuid)))
-        (lock (list nil)))
-    (actors ((pending-negotiations (empty-pending-negotiations-beh pending-negotiations skey))
-             (reset-lock           (lambda () (setf (car lock) nil))))
-      (actor (cust host-ip-addr)
-        (if (sys:compare-and-swap (car lock) nil t)
-            ;; protect against concurrent access...
-            (let ((side (side-job cust reset-lock)))
-              ;; what happens if side is never sent anything? (TBD)
-              (beta (socket chan local-services)
-                  (send (com.ral.actors.network:client-connector) beta host-ip-addr)
-                (if (eq chan socket)
-                    (send pending-negotiations side :get-chan socket local-services)
-                  (send side chan))
-                ))
-          ;; else
-          (repeat-send self)))
+(defun client-connect-beh (pending-cx)
+  (lambda (cust host-ip-addr)
+    (beta (socket chan local-services)
+        (send (com.ral.actors.network:client-connector) beta host-ip-addr)
+      (if (eq chan socket)
+          (send pending-cx cust :get-chan socket local-services)
+        (send cust chan))
       )))
-    
+
 #| ;; for debugging
 (defun show-client-outbound (socket)
   (actor (&rest msg)
@@ -99,6 +78,22 @@
         ))
     ))
 
+(deflex client-gateway
+        ;; This is the main local client service used to initiate
+        ;; connections with foreign servers. We develop a DHE shared secret
+        ;; encryption key for use across a private connection portal with
+        ;; the server.
+        ;;
+        ;; A Connection consists of a Socket and a Channel. A Socket merely
+        ;; supports the tranport of data across a network. It does not
+        ;; specify any data protocol. It may marshal objects and compress
+        ;; the resulting byte stream before sending. A Channel is an
+        ;; encryptor/decryptor married to a Socket.
+        (let ((skey (make-deterministic-keys (uuid:make-v1-uuid))))
+          (actors ((cx         (client-connect-beh pending-cx))
+                   (pending-cx (empty-pending-negotiations-beh pending-cx skey)))
+            cx)))
+    
 ;; ---------------------------------------------------
 
 (defun client-channel (&key
@@ -131,7 +126,7 @@
   ;; established on demand.
   (actor (cust &rest msg)
     (beta (chan)
-        (send (client-gateway) beta host-ip-addr)
+        (send client-gateway beta host-ip-addr)
       (send* chan cust name msg))))
 
 ;; ------------------------------------------------------------
