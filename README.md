@@ -1,6 +1,6 @@
 --- New Ideas on Classical Actors (2022/01/06)
 ---
-Since the benefits of FPL pure Actors are so great, there is really no reason then to avoid running Actors entirely in parallel. But there is still one race condition that can arise because ultimately the effect of BECOME is to mutate the behavior slot of an Actor. Now we can avoid that race condition entirely by demanding that Actors can run in only one thread at a time. Or else, we can adopt some of the ideas from Lock-Free programming.
+Since the benefits of FPL pure Actors are so great, there is really no reason then to avoid running Actors entirely in parallel. But there is still one race condition that can arise because ultimately the effect of BECOME is to mutate the behavior slot of an Actor. Now we can avoid that race condition entirely by demanding that Actors can run in only one thread at a time. Or else, we can adopt some of the ideas from Lock-Free programming, and enjoy the benefits of maximum parallel execution.
 
 In Lock-Free, it is commonplace to use CAS to effect an atomic mutation. And when another thread wants to do the same thing at the same time, you can use a claim against the cell. When other threads see that claim, they can use it to help achieve your original goal, and then they can turn around and do their mutation.
 
