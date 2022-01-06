@@ -82,37 +82,55 @@
            ))))))
 
 (defun writer-beh (state phys-write)
-  (alambda
-   ((:discard)
-    ;; sent from shutdown
-    (become (sink-beh)))
-   
-   ((byte-vec)
-    (send phys-write self byte-vec)
-    (become (pending-writer-beh state phys-write +emptyq+)))
-   ))
+  (let ((lock (list nil)))
+    (lambda* msg
+      (if (sys:compare-and-swap (car lock) nil t)
+          ;; guard against parallel access
+          (match msg
+            ((:discard)
+             ;; sent from shutdown
+             (become (sink-beh)))
+            
+            ((byte-vec)
+             (send phys-write self byte-vec)
+             (become (pending-writer-beh state phys-write +emptyq+)))
+
+            (_
+             (setf (car lock) nil)))
+        ;; else
+        (repeat-send self)))
+    ))
 
 (defun pending-writer-beh (state phys-write pend)
-  (alambda
-   ((:discard)
-    ;; sent from shutdown
-    (become (sink-beh)))
-   
-   ((byte-vec)
-    (become (pending-writer-beh state phys-write (addq pend byte-vec))))
-   
-   ((a-cust :ok) when (eq a-cust phys-write)
-    (if (emptyq? pend)
-        (become (writer-beh state phys-write))
-      (multiple-value-bind (byte-vec new-queue) (popq pend)
-        (send phys-write self byte-vec)
-        (become (pending-writer-beh state phys-write new-queue))
-        )))
-   
-   ((a-cust :fail) when (eq a-cust phys-write)
-    (send (intf-state-shutdown state))
-    (become (sink-beh)))
-   ))
+  (let ((lock (list nil)))
+    (lambda* msg
+      (if (sys:compare-and-swap (car lock) nil t)
+          ;; guard against parallel access
+          (match msg
+            ((:discard)
+             ;; sent from shutdown
+             (become (sink-beh)))
+     
+            ((byte-vec)
+             (become (pending-writer-beh state phys-write (addq pend byte-vec))))
+     
+            ((a-cust :ok) when (eq a-cust phys-write)
+             (if (emptyq? pend)
+                 (become (writer-beh state phys-write))
+               (multiple-value-bind (byte-vec new-queue) (popq pend)
+                 (send phys-write self byte-vec)
+                 (become (pending-writer-beh state phys-write new-queue))
+                 )))
+     
+            ((a-cust :fail) when (eq a-cust phys-write)
+             (send (intf-state-shutdown state))
+             (become (sink-beh)))
+
+            (_
+             (setf (car lock) nil)) )
+        ;; else
+        (repeat-send self)))
+    ))
 
 (defun make-writer (state)
   (actors ((writer     (writer-beh state phys-write))
