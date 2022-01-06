@@ -8,7 +8,7 @@ At the start of message dispatch, you have to construct a claim object that cont
 
 This is only really needed if you are going to perform a BECOME, but we can't know from the dispatcher whether or not this will happen. And so it has to do this on every message dispatch. That is simply too much overhead on every message dispatch. And the probability of simultaneous mutating executions of Actors is much too low to justify this overhead.
 
-So instead, the idea is that we go ahead and just try a direct mutation with CAS when committing BECOME. If that doesn't work, then simply retry the Actor at that point. Chances are, this will use a different execution path in the Actor, second time around. 
+So instead, the idea is that we go ahead and just try a direct mutation with CAS when committing BECOME. If that doesn't work, then simply retry the Actor at that point. Chances are, this will use a different execution path in the Actor, second time around, and that may lead to no BECOME operations. 
 
 Because we stage SEND and BECOME for commit, and so they can be rolled back, and because we are committed to FPL pure Actor bodies, there is no harm in parallel execution, provided we use atomic mutation with execution retry on a failed mutation. But Lisp doesn't automatically enforce the use of FPL pure programming. That is up to us to be on our guard as we write code.
 
