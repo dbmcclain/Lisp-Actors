@@ -29,9 +29,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2021 by Refined Audiometrics Laboratory. MIT License terms apply."
   :components  ((:file "secure-bridging")
+                (:file "network-connection")
                 (:file "secure-client")
-                (:file "secure-server")
-                (:file "network-connection"))
+                (:file "secure-server"))
   :SERIAL T
   :depends-on   ("actors"))
 

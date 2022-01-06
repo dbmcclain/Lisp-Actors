@@ -221,8 +221,8 @@
     (repeat-send next))
    ))
 
-(def-singleton-actor connections ()
-  (make-actor (empty-connections-list-beh)))
+(deflex connections
+        (make-actor (empty-connections-list-beh)))
 
 ;; -------------------------------------------------------------
 
@@ -239,7 +239,7 @@
             title ip-addr)
       (send kill-timer :discard)
       (send writer :discard)
-      (send (connections) sink :remove state)
+      (send connections sink :remove state)
       ;; ---------------------
       (wr (car io-running) 0)
       (comm:async-io-state-abort-and-close io-state)
@@ -280,7 +280,7 @@
                 (server-crypto-gateway +server-skey+ encoder local-services))
 
         (beta _
-            (send (connections) beta :add-socket ip-addr ip-port state encoder)
+            (send connections beta :add-socket ip-addr ip-port state encoder)
           
           (with-accessors ((title            intf-state-title)
                            (io-state         intf-state-io-state)
@@ -340,22 +340,6 @@
 
 (defun canon-ip-addr (ip-addr)
   (comm:get-host-entry ip-addr :fields '(:address)))
-
-(def-singleton-actor client-connector ()
-  (actors ((pending-connections (empty-pending-connections-beh pending-connections)))
-    (actor (cust ip-addr &optional (ip-port *default-port*))
-      ;; Called from client side wishing to connect to a server.
-      ;;
-      ;; Because we are serialized, one way or another, we have to exit
-      ;; by sending to cust, or execute serializer-abort.
-      (let ((clean-ip-addr (canon-ip-addr ip-addr)))
-        (cond ((null clean-ip-addr)
-               (err "Unknown host: ~S" ip-addr))
-              (t
-               (beta _
-                   (send (connections) :on-find-sender clean-ip-addr ip-port cust beta)
-                 (send pending-connections cust :connect clean-ip-addr ip-port ip-addr)))
-              )))))
 
 (defun empty-pending-connections-beh (top)
   (prunable-alambda
@@ -425,6 +409,22 @@
         ;; (declare (ignore intf-state))
         (send cust :ready ip-addr ip-port intf-state sender local-services)
         ))))
+
+(deflex client-connector
+  (actors ((pending-connections (empty-pending-connections-beh pending-connections)))
+    (actor (cust ip-addr &optional (ip-port *default-port*))
+      ;; Called from client side wishing to connect to a server.
+      ;;
+      ;; Because we are serialized, one way or another, we have to exit
+      ;; by sending to cust, or execute serializer-abort.
+      (let ((clean-ip-addr (canon-ip-addr ip-addr)))
+        (cond ((null clean-ip-addr)
+               (err "Unknown host: ~S" ip-addr))
+              (t
+               (beta _
+                   (send connections :on-find-sender clean-ip-addr ip-port cust beta)
+                 (send pending-connections cust :connect clean-ip-addr ip-port ip-addr)))
+              )))))
 
 ;; -------------------------------------------------------------
 

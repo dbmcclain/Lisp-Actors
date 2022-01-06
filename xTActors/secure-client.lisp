@@ -10,7 +10,7 @@
 (defun client-connect-beh (pending-cx)
   (lambda (cust host-ip-addr)
     (beta (socket chan local-services)
-        (send (com.ral.actors.network:client-connector) beta host-ip-addr)
+        (send com.ral.actors.network:client-connector beta host-ip-addr)
       (if (eq chan socket)
           (send pending-cx cust :get-chan socket local-services)
         (send cust chan))
@@ -68,7 +68,7 @@
                              :decryptor       (secure-reader ekey (ed-decompress-pt +server-pkey+))
                              )))
                 (beta _
-                    (send (com.ral.actors.network:connections) beta :set-channel socket chan)
+                    (send com.ral.actors.network:connections beta :set-channel socket chan)
                   (send cust :use-chan socket chan)) ;; to our local customer
                 ))))
       (beta (client-id)
