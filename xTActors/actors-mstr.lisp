@@ -141,90 +141,11 @@ THE SOFTWARE.
 ;;
 ;; SENDs and BECOME are staged for commit.
 ;;
-;; Actors are now completely thread-safe - only one thread at a time
-;; can be running any given Actor. But that also means there is no
-;; longer any parallel execution of Actors, even when a non-mutating
-;; behavior would be safe to run in parallel.
-;;
-;; We are also now open to potential spin-lock loops if an Actor is
-;; popular among multiple sponsors and takes too long to perform.
-#|
-(defun run-actors ()
-  #F
-  (let (sends evt pend-beh)
-    (flet ((%send (actor &rest msg)
-             (if evt
-                 (setf (msg-link  (the msg evt)) sends
-                       (msg-actor (the msg evt)) (the actor actor)
-                       (msg-args  (the msg evt)) msg
-                       sends      evt
-                       evt        nil)
-               ;; else
-               (setf sends (msg (the actor actor) msg sends))))
-
-           (%become (new-beh)
-             (setf pend-beh new-beh)))
-
-      (declare (dynamic-extent #'%send #'%become))
-      
-      ;; -------------------------------------------------------
-      ;; Think of these global vars as dedicated registers of a
-      ;; special architecture CPU which uses a FIFO queue for its
-      ;; instruction stream, instead of linear memory, and which
-      ;; executes breadth-first instead of depth-first. This maximizes
-      ;; concurrency.
-      (let* ((*current-actor*    nil)
-             (*whole-message*    nil)
-             (*current-behavior* nil)
-             (*send*             #'%send)
-             (*become*           #'%become))
-        
-        (declare (list *whole-message*))
-
-        (loop
-           (with-simple-restart (abort "Handle next event")
-             (handler-bind
-                 ((error (lambda (c)
-                           (declare (ignore c))
-                           ;; We come here on error - back out optimistic commits of SEND/BECOME.
-                           ;; We really do need a HANDLER-BIND here since we nulled out the behavior
-                           ;; pointer in the current Actor, and that needs to be restored, sooner
-                           ;; rather than later, in case a user handler wants to use the Actor
-                           ;; for some reason.
-                           (setf (actor-beh self) self-beh ;; restore behavior, ignoring BECOME
-                                 sends            nil))    ;; discard SENDs
-                         ))
-               (loop
-                  ;; Fetch next event from event queue - ideally, this
-                  ;; would be just a handful of simple register/memory
-                  ;; moves and direct jump. No call/return needed, and
-                  ;; stack useful only for a microcoding assist. Our
-                  ;; depth is never more than one Actor at a time,
-                  ;; before trampolining back here.
-                  (setf evt      (mp:mailbox-read *central-mail*)
-                        ;; Setup Actor context
-                        self     (msg-actor (the msg evt))
-                        self-beh (sys:atomic-exchange (actor-beh (the actor self)) nil))
-                  (cond (self-beh
-                         ;; ---------------------------------
-                         ;; Dispatch to Actor behavior with message args
-                         (setf *whole-message* (msg-args (the msg evt))
-                               pend-beh        self-beh)
-                         (apply (the function self-beh) *whole-message*)
-                         (setf  (actor-beh self) (the function pend-beh))
-                         (loop for msg = sends
-                                 while msg
-                                 do
-                                 (setf sends (msg-link (the msg msg)))
-                                 (mp:mailbox-send *central-mail* msg)))
-                        
-                        (t
-                         ;; Actor was in use, go around
-                         (mp:mailbox-send *central-mail* evt))
-                        ))
-               )))
-        ))))
-|#
+;; Actors are now completely thread-safe, FPL pure, SENDs and BECOMEs
+;; are staged for commit or rollback. Actors can run completely in
+;; parallel among different threads. If BECOME cannot commit, the
+;; Actor is retried after rolling back the BECOME and SENDs. This is
+;; maximum parallelism.
 
 (defun run-actors ()
   #F
