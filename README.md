@@ -1,3 +1,22 @@
+--- New Ideas on Classical Actors (2022/01/06)
+---
+Since the benefits of FPL pure Actors are so great, there is really no reason to avoid running Actors entirely in parallel. But there is still one race condition that can arise because ultimately the effect of BECOME is to mutate the behavior slot of an Actor. Now we can avoid that race condition entirely by demanding that Actors can run in only one thread at a time. Or else, we can adopt some of the ideas from Lock-Free programming, and enjoy the benefits of maximum parallel execution.
+
+In Lock-Free, it is commonplace to use CAS to effect an atomic mutation. And when another thread wants to do the same thing at the same time, you can use a claim against the cell. When other threads see that claim, they can use it to help achieve your original goal, and then they can turn around and do their mutation. But that comes at relatively high performance cost. 
+
+At the start of message dispatch, you have to construct a claim object that contains the old value of the behavior slot, and a function that may try to mutate that slot - the entire Actor body which might contain a BECOME. The claim is then inserted into the slot using a CAS spin loop with the aforementioned help-along algorithm. 
+
+This is only really needed if you are going to perform a BECOME, but we can't know from the dispatcher whether or not this will happen. And so it has to do this on every message dispatch. That is simply too much overhead on every message dispatch. And the probability of simultaneous mutating executions of Actors is much too low to justify this overhead.
+
+So instead, the idea is that we go ahead and just try a direct mutation with CAS when committing BECOME. If that doesn't work, then simply retry the Actor at that point. Chances are, this will use a different execution path in the Actor, second time around. 
+
+Because we stage SEND and BECOME for commit, and so they can be rolled back, and because we are committed to FPL pure Actor bodies, there is no harm in parallel execution, provided we use atomic mutation with execution retry on a failed mutation. But Lisp doesn't automatically enforce the use of FPL pure programming. That is up to us to be on our guard as we write code.
+
+The speed of message dispatch has a significant impact on our Actors. Our Actors benefit from inidividually doing small jobs, and gluing together a lot of these little Actors to effect useful ensemble behaviors. This is also how you maximize concurrency, regardless of parallelism. So the runtime of many (most?) Actors will be very short, and possibly comparable to the duration of the message dispatch. Hence message dispatch sets an upper limit on how fast our Actor system can be.
+
+A simple measuring tool that I built shows that on my Intel i7 and i9 iMac machines, I'm reaching a max rate of message dispatch around 20M/sec (50ns duration). The new M1 iMac shows a rate of 6-9 M/sec (110ns - 150ns), and it varies more strongly with the mix of background jobs in the iMac. These are single-thread timings. In multi-thread situations, which are far more commonplace, the two sets of machine architectures converge toward 250ns-300ns, or 3-4 M/sec.
+
+
 -- A Commentary on Progress for the Actors Project
 ----
 When I began the Actors project several years ago, my hope was to find an organizing principle and a collection of widgets that could enable one to more easily write complex real-world programs. I think I am now finally achieving that goal. 
