@@ -4,7 +4,7 @@ Since the benefits of FPL pure Actors are so great, there is really no reason to
 
 In Lock-Free, it is commonplace to use CAS to effect an atomic mutation. And when another thread wants to do the same thing at the same time, you can use a claim against the cell. When other threads see that claim, they can use it to help achieve your original goal, and then they can turn around and do their mutation. But that comes at relatively high performance cost. 
 
-At the start of message dispatch, you have to construct a claim object that contains the old value of the behavior slot, and a function that may try to mutate that slot - the entire Actor body which might contain a BECOME. The claim is then inserted into the slot using a CAS spin loop with the aforementioned help-along algorithm. 
+At the start of message dispatch, you have to construct a claim object that contains the old value of the behavior slot, and a function that may try to mutate that slot - the entire Actor body which might contain a BECOME. The claim is then inserted into the slot using a CAS spin loop with the aforementioned help-along algorithm. Every instance of mutation takes two CAS operations - one for the claim, and one for the mutation value.
 
 This is only really needed if you are going to perform a BECOME, but we can't know from the dispatcher whether or not this will happen. And so it has to do this on every message dispatch. That is simply too much overhead on every message dispatch. And the probability of simultaneous mutating executions of Actors is much too low to justify this overhead.
 
