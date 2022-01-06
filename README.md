@@ -6,7 +6,7 @@ In Lock-Free, it is commonplace to use CAS to effect an atomic mutation. And whe
 
 That won't work here, because the Actors rely on dynamic binding context that is unique per thread. SELF, SELF-BEH, and '*WHOLE-MESSAGE*' are dynamic bindings. If another thread tried to help along the mutation of your thread, then the execution of your Actor body would change completely.
 
-So instead, the idea is that we go ahead and just try a direct mutation with CAS when committing BECOME. If that doesn't work, then simply retry the Actor at that point. Chances are, this will use a different execution path in the Actor, second time around. But realize too that the cost of the Lock-Free claim protocol is probably much too high to apply to every message dispatch, and the probability of simultaneous execution of Actors is much too low to justify this overhead.
+So instead, the idea is that we go ahead and just try a direct mutation with CAS when committing BECOME. If that doesn't work, then simply retry the Actor at that point. Chances are, this will use a different execution path in the Actor, second time around. And realize too that the cost of the Lock-Free claim protocol is probably much too high to apply to every message dispatch, and the probability of simultaneous execution of Actors is much too low to justify this overhead.
 
 Because we stage SEND and BECOME for commit, and so they can be rolled back, and because we are committed to FPL pure Actor bodies, there is no harm in parallel execution, provided we use atomic mutation with execution retry on a failed mutation. But Lisp doesn't automatically enforce the use of FPL pure programming. That is up to us to be on our guard as we write code.
 
