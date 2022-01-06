@@ -12,7 +12,7 @@ Because we stage SEND and BECOME for commit, and so they can be rolled back, and
 
 The speed of message dispatch has a significant impact on our Actors. Our Actors benefit from inidividually doing small jobs, and gluing together a lot of these little Actors to effect useful ensemble behaviors. This is also how you maximize concurrency, regardless of parallelism. So the runtime of many (most?) Actors will be very short, and possibly comparable to the duration of the message dispatch. Hence message dispatch sets an upper limit on how fast our Actor system can be.
 
-A simple measuring tool that I built shows that on my Intel i7 and i9 iMac machines, I'm reaching a max rate of message dispatch around 20M/sec (50ns duration). The new M1 iMac shows a rate of 6-9 M/sec (110ns - 150ns), and it varies more strongly with the mix of background jobs in the iMac. These are single-thread timings. In multi-thread situation, which are far more commonplace, the two sets of machine architectures converge toward 250ns-300ns, or 3-4 M/sec.
+A simple measuring tool that I built shows that on my Intel i7 and i9 iMac machines, I'm reaching a max rate of message dispatch around 20M/sec (50ns duration). The new M1 iMac shows a rate of 6-9 M/sec (110ns - 150ns), and it varies more strongly with the mix of background jobs in the iMac. These are single-thread timings. In multi-thread situations, which are far more commonplace, the two sets of machine architectures converge toward 250ns-300ns, or 3-4 M/sec.
 
 
 -- A Commentary on Progress for the Actors Project
