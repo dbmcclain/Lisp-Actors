@@ -297,7 +297,8 @@ THE SOFTWARE.
                                   (mp:mailbox-send *central-mail* msg)))
                          (t
                           ;; try again...
-                          (setf sends nil)
+                          (setf evt   (or evt sends)
+                                sends nil)
                           (go again))
                          )))
                )))

@@ -146,6 +146,7 @@
                                
                                (t
                                 ;; Actor was in use, try again
+                                (setf evt (or evt qtl))
                                 (qreset)
                                 (go again))
                                )))

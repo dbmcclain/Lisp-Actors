@@ -190,6 +190,7 @@
 
                            (t
                             ;; Actor was mutated beneath us, go again
+                            (setf evt (or evt qtl))
                             (qreset)
                             (go again))
                            )))

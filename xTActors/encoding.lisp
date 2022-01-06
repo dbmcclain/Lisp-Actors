@@ -408,12 +408,14 @@
   ;; Assemblers are constructed as soon as we have the init record
   (lambda (offs byte-vec)
     (unless (member offs chunks-seen) ;; toss duplicates
-      (replace out-vec byte-vec :start1 offs) ;; sorrry about non FPL code
-      (push offs chunks-seen)                 ;; but nobody else can see it happening
-      (when (>= (length chunks-seen) nchunks)
-        (send cust out-vec)
-        (become (sink-beh)))
-      )))
+      (replace out-vec byte-vec :start1 offs) 
+      (let ((new-seen (cons offs chunks-seen)))
+        (cond ((>= (length new-seen) nchunks)
+               (send cust out-vec)
+               (become (sink-beh)))
+              (t
+               (become (dechunk-assembler-beh cust nchunks new-seen out-vec)))
+              )))))
 
 (defun make-ubv (nb &rest args)
   (apply #'make-array nb
