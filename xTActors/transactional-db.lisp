@@ -291,6 +291,15 @@
         (maps:iter db (lambda (k v)
                         (send writeln (list k v))))))
 
+(let ((x '(1 2 3)))
+  (send kvdb println :add :tst1 x)
+  (send kvdb println :add :tst2 x))
+
+(let ((x1 (ask kvdb :lookup :tst1))
+      (x2 (ask kvdb :lookup :tst2)))
+  (send println (list x1 x2 (eq x1 x2))))
+
+
 (maint-full-save)
 
 ;; ------------------------------------------------------

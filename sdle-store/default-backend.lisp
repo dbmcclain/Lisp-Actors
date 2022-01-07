@@ -54,6 +54,7 @@
 (defconstant +proper-list-code+         (register-code 39 'proper-list))
 (defconstant +unbound-slot-code+        (register-code 40 'unbound-slot))
 (defconstant +rawbytes-code+            (register-code 41 'rawbytes))
+(defconstant +tree-code+                (register-code 42 'tree))
 
 (um:defconstant+ $unbound-marker #(:unbound-marker))
 
@@ -525,17 +526,51 @@
           (setf (cdr tail) last1)))
     ret))
 
+#|
 (defstore-sdle-store (list cons stream)
   (multiple-value-bind (length last) (safe-length list)
     (if last
         (dump-general-list list length last stream)
       (dump-proper-list list length stream))))
+|#
+#|
+(defun dump-tree (list stream)
+  (um:nlet iter ((lst  list)
+                 (len  1))
+    (let ((tl (cdr lst)))
+      (cond ((null tl)
+             (dump-proper-list list len stream))
+            ((get-ref tl)
+             (dump-general-list list len tl stream))
+            ((consp tl)
+             (go-iter tl (1+ len)))
+            (t
+             (dump-general-list list len tl stream))
+            ))
+    ))
+|#
+
+(defun dump-tree (list stream)
+  (output-type-code +tree-code+ stream)
+  (store-object (car list) stream)
+  (store-object (cdr list) stream))
+
+(defun restore-tree (stream)
+  (let* ((hd (restore-object stream))
+         (tl (restore-object stream)))
+    (cons hd tl)))
+
+(defstore-sdle-store (list cons stream)
+  (dump-tree list stream))
 
 (defrestore-sdle-store (cons stream)
   (restore-general-list stream))
 
 (defrestore-sdle-store (proper-list stream)
   (restore-proper-list stream))
+
+(defrestore-sdle-store (tree stream)
+  (restore-tree stream))
 
 
 ;; -------------------------------------------------------
