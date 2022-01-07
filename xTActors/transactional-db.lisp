@@ -10,6 +10,9 @@
 ;; be restored in future sessions.
 ;;
 ;; Keys can be anything that has an order relation defined in ORD.
+;;
+;; If two persistable items are EQ when added to the KV database, they
+;; remain EQ in future sessions.
 
 (in-package com.ral.actors.kv-database)
   
