@@ -4,6 +4,12 @@
 ;; ----------------------------------------------------------------------
 ;; Using an FPL-pure RB-tree as the database. Hence the database
 ;; serves as its own transaction ID. Lock-free design.
+;;
+;; You can save anything you like in the KV database. But if it can't
+;; be persisted then it won't be saved in the backing store, and won't
+;; be restored in future sessions.
+;;
+;; Keys can be anything that has an order relation defined in ORD.
 
 (in-package com.ral.actors.kv-database)
   
