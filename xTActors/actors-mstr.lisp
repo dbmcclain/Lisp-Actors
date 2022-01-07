@@ -104,13 +104,9 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defun send-to-pool (actor &rest msg)
-  #F
-  (check-type actor actor)
-  (mp:mailbox-send *central-mail* (msg (the actor actor) msg))
-  (values))
-
-(defparameter *send*  #'send-to-pool)
+(defvar *nbr-pool*    4)
+(defvar *evt-threads* nil)
+(defvar *send*        nil)
 
 (defun send (actor &rest msg)
   #F
@@ -125,6 +121,21 @@ THE SOFTWARE.
 
 (defun send-combined-msg (cust msg1 msg2)
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
+
+(defun send-to-pool (actor &rest msg)
+  #F
+  (check-type actor actor)
+  (mp:mailbox-send *central-mail* (msg (the actor actor) msg))
+  (values))
+
+(defun startup-send (actor &rest msg)
+  (unless *evt-threads*
+    (restart-actors-system))
+  (setf *send* #'send-to-pool)
+  (send* actor msg))
+
+(unless *send*
+  (setf *send* #'startup-send))
 
 (defparameter *become*
   (lambda (new-beh)
@@ -243,9 +254,6 @@ THE SOFTWARE.
       (eq (get-actor-beh actor) #'lw:do-nothing)))
 
 ;; ----------------------------------------------------------------
-
-(defvar *evt-threads* nil)
-(defvar *nbr-pool*    4)
 
 (defun restart-actors-system ()
   (dotimes (ix *nbr-pool*)
