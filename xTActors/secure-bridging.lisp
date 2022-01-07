@@ -104,7 +104,7 @@
 
 ;; -----------------------------------------------
 
-(def-singleton-actor global-services ()
+(def-singleton-actor global-services
   (let ((gs  (make-actor (null-service-list-beh))))
     (send* (actor (&rest svcs)
              (when svcs

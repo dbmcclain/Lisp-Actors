@@ -191,7 +191,7 @@
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
                                     (sys:get-folder-path :appdata)))
 
-(def-singleton-actor db ()
+(def-singleton-actor db
   (actors ((trans  (nascent-database-beh nil saver))
            (saver  (unopened-database-beh trans)))
     (send saver *db-path*)
