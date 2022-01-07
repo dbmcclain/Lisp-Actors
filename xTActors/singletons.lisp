@@ -8,13 +8,15 @@
 
 (defmacro def-singleton-actor (name &body body)
   ;; useful for defining Actors that behave as a global list
-  (lw:with-unique-names (actor)
+  (let ((backing (intern (format nil "*~A-backing-store*" (symbol-name name))))
+        (fetch   (intern (format nil "fetch-~A-backing-store" (symbol-name name)))))
     `(progn
-       (defvar ,actor  nil)
-       (defun ,name ()
-         (or ,actor
-             (singleton-actor ',actor (lambda () ,@body))
-             )))
+       (defvar ,backing nil)
+       (defun ,fetch ()
+         (or ,backing
+             (singleton-actor ',backing (lambda () ,@body))
+             ))
+       (define-symbol-macro ,name (,fetch)))
     ))
 
 (defun singleton-actor (sym fn)

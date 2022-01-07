@@ -508,7 +508,7 @@ indicated port number."
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
   (unless *ws-collection*
-    (global-services) ;; to get them pre-filled with basic services
+    global-services ;; to get basic services installed
     (start-tcp-server)))
 
 (defun* lw-reset-actor-system _

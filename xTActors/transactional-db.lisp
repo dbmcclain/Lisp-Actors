@@ -200,14 +200,14 @@
 ;; -----------------------------------------------------------
 
 (defun add-rec (cust key val)
-  (send (db) cust :req
+  (send db cust :req
         (actor (db commit rollback &rest retry-info)
           (declare (ignore rollback))
           (send* commit db (maps:add db key val) retry-info))
         ))
 
 (defun remove-rec (cust key)
-  (send (db) cust :req
+  (send db cust :req
         (actor (db commit rollback &rest retry-info)
           (declare (ignore rollback))
           (let* ((val    (maps:find db key self))
@@ -218,20 +218,20 @@
         ))
 
 (defun lookup (cust key &optional default)
-  (send (db) cust :req
+  (send db cust :req
         (actor (db &rest ignored)
           (declare (ignore ignored))
           (send cust (maps:find db key default)))
         ))
 
 (defun show-db ()
-  (send (db) nil :req
+  (send db nil :req
         (actor (db &rest ignored)
           (declare (ignore ignored))
           (sets:view-set db))))
 
 (defun maint-full-save ()
-  (send (db) 'maint-full-save))
+  (send db 'maint-full-save))
 
 ;; ------------------------------------------------------------------
 ;; more usable public face - can use ASK against this
@@ -249,7 +249,7 @@
            (remove-rec cust key))
           
           ((cust :req action-actor)
-           (repeat-send (db)))
+           (repeat-send db))
           )))
 
 ;; -----------------------------------------------------------
@@ -277,7 +277,7 @@
   (setf m (sets:add m :dave))
   (eql m (sets:add m :dave)))
 
-(send (db) nil :req
+(send db nil :req
       (actor (db . _)
         (maps:iter db (lambda (k v)
                         (send writeln (list k v))))))

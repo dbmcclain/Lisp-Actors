@@ -98,10 +98,6 @@
   (actor (cust form)
     (send cust (funcall (cmpfn form)))))
 
-(defun make-avail ()
-  (actor (cust)
-    (send (global-services) cust :available-services nil)))
-
 ;; -----------------------------------------------
 
 (def-singleton-actor global-services
@@ -119,6 +115,10 @@
            )
     gs))
     
+(defun make-avail ()
+  (actor (cust)
+    (send global-services cust :available-services nil)))
+
 ;; ------------------------------------------------------------
 ;; When the socket connection (server or client side) receives an
 ;; incoming message, the cust field of the message will contain a
