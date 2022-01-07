@@ -238,20 +238,10 @@ THE SOFTWARE.
 
 ;; ---------------------------------------------------
 
-(defun #1=get-actor-beh (actor)
-  ;; ... in the unlikely case that the actor is executing when we
-  ;; ask...
-  (tagbody
-   again
-   (let ((beh (actor-beh actor)))
-     (when beh
-       (return-from #1# beh)))
-   (go again)))
-   
 (defun is-pure-sink? (actor)
   ;; used by networking code to avoid sending useless data
   (or (null actor)
-      (eq (get-actor-beh actor) #'lw:do-nothing)))
+      (eq (actor-beh actor) #'lw:do-nothing)))
 
 ;; ----------------------------------------------------------------
 
