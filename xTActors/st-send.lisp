@@ -58,14 +58,14 @@
                               (setf qhd (msg-link (the msg evt)))
                               evt)
                       do
-                        (setf self            (msg-actor (the msg evt))
-                              *whole-message* (msg-args (the msg evt))
-                              qsav            (and qhd qtl))
+                        (setf self     (msg-actor (the msg evt))
+                              self-msg (msg-args (the msg evt))
+                              qsav     (and qhd qtl))
                         (tagbody
                          again
                          (setf pend-beh (actor-beh (the actor self))
                                self-beh pend-beh)
-                         (apply (the function pend-beh) *whole-message*)
+                         (apply (the function pend-beh) self-msg)
                          (cond ((or (eq pend-beh self-beh)
                                     (sys:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh)))
                                

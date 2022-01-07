@@ -200,7 +200,7 @@ THE SOFTWARE.
                   ;; before trampolining back here.
                   (setf evt      (mp:mailbox-read *central-mail*)
                         self     (msg-actor (the msg evt))
-                        *whole-message* (msg-args (the msg evt)))
+                        self-msg (msg-args (the msg evt)))
                   (tagbody
                    again
                    ;; Setup Actor context
@@ -208,7 +208,7 @@ THE SOFTWARE.
                          self-beh pend-beh)
                    ;; ---------------------------------
                    ;; Dispatch to Actor behavior with message args
-                   (apply (the function pend-beh) *whole-message*)
+                   (apply (the function pend-beh) self-msg)
                    (cond ((or (eq self-beh pend-beh)
                               (sys:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh))
                           (loop for msg = sends
