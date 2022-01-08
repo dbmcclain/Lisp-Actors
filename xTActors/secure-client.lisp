@@ -37,6 +37,11 @@
       (send (negotiate-secure-channel client-skey socket local-services) top)))
    ))
 
+(defun init-pending-negotiations-beh (client-skey)
+  (lambda* _
+    (become (empty-pending-negotiations-beh self client-skey))
+    (repeat-send self)))
+
 (defun pending-negotiation-beh (socket custs next)
   (prunable-alambda
 
@@ -78,6 +83,14 @@
         ))
     ))
 
+(defun init-gateway-beh ()
+  (lambda* _
+    (let* ((skey (make-deterministic-keys (uuid:make-v1-uuid)))
+           (pend (make-actor (init-pending-negotiations-beh skey))))
+      (become (client-connect-beh pend))
+      (repeat-send self))
+    ))
+    
 (deflex client-gateway
         ;; This is the main local client service used to initiate
         ;; connections with foreign servers. We develop a DHE shared secret
@@ -89,12 +102,7 @@
         ;; specify any data protocol. It may marshal objects and compress
         ;; the resulting byte stream before sending. A Channel is an
         ;; encryptor/decryptor married to a Socket.
-        (actor _
-          (let ((skey (make-deterministic-keys (uuid:make-v1-uuid))))
-            (actors ((pending-cx (empty-pending-negotiations-beh pending-cx skey)))
-              (become (client-connect-beh pending-cx))
-              (repeat-send self))
-            )))
+        (make-actor (init-gateway-beh)))
     
 ;; ---------------------------------------------------
 

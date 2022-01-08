@@ -350,6 +350,11 @@
       ))
    ))
 
+(defun init-pending-connections-beh ()
+  (lambda* _
+    (become (empty-pending-connections-beh self))
+    (repeat-send self)))
+
 (defun pending-connections-beh (ip-addr ip-port report-ip-addr custs next)
   (prunable-alambda
 
@@ -423,14 +428,16 @@
                (send pending-connections cust :connect clean-ip-addr ip-port ip-addr)))
             )))
    ))
+
+(defun init-connector-beh ()
+  (lambda* _
+    (let ((pends (make-actor (init-pending-connections-beh))))
+      (become (client-connector-beh pends))
+      (repeat-send self))))
     
 (deflex client-connector
         ;; Called from client side wishing to connect to a server.
-        (actor _
-          (actors ((pending-connections (empty-pending-connections-beh pending-connections)))
-            (become (client-connector-beh pending-connections))
-            (repeat-send self))
-          ))
+        (make-actor (init-connector-beh)))
 
 ;; -------------------------------------------------------------
 

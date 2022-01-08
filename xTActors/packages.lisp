@@ -287,7 +287,7 @@ THE SOFTWARE.
    ))
 
 (defpackage :com.ral.actors.secure-comm
-  (:use #:common-lisp #:com.ral.actors #:core-crypto #:edec)
+  (:use #:common-lisp #:com.ral.actors #:core-crypto #:edec #:def*)
   (:export
    #:make-local-services
    #:global-services
