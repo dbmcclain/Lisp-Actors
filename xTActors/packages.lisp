@@ -224,9 +224,6 @@ THE SOFTWARE.
 
    #:with-timeout
 
-   #:def-singleton-actor
-   #:reset-singleton-actors
-
    #:kvdb
    #:deep-copy
 

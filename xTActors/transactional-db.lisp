@@ -200,11 +200,14 @@
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
                                     (sys:get-folder-path :appdata)))
 
-(def-singleton-actor db
-  (actors ((trans  (nascent-database-beh nil saver))
-           (saver  (unopened-database-beh trans)))
-    (send saver *db-path*)
-    trans))
+(defun db-svc-init (path)
+  (actor _
+    (let ((saver (make-actor (unopened-database-beh self))))
+      (send saver path)
+      (become (nascent-database-beh nil saver))
+      (repeat-send self))))
+
+(deflex db   (db-svc-init *db-path*))
 
 ;; -----------------------------------------------------------
 

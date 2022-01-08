@@ -14,7 +14,6 @@
   (import '(um:when-let
             um:wr
             com.ral.actors.secure-comm:make-local-services
-            com.ral.actors.secure-comm:global-services
             com.ral.actors.secure-comm:server-crypto-gateway
             com.ral.actors.secure-comm:+server-connect-id+
             com.ral.actors.secure-comm:+server-skey+
@@ -508,7 +507,6 @@ indicated port number."
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
   (unless *ws-collection*
-    global-services ;; to get basic services installed
     (start-tcp-server)))
 
 (defun* lw-reset-actor-system _

@@ -100,25 +100,34 @@
 
 ;; -----------------------------------------------
 
-(def-singleton-actor global-services
-  (let ((gs  (make-actor (null-service-list-beh))))
-    (send* (actor (&rest svcs)
-             (when svcs
-               (let ((me self))
+(defun global-services-init (svcs)
+  ;; lazy init - on demand with first message
+  (actor msg
+    (become (null-service-list-beh))
+    (let ((gs self))
+      (send* (actor (&rest svcs)
+               (if svcs
+                   (let ((me self))
+                     (beta _
+                         (send* gs beta :add-service (car svcs))
+                       (send* me (cdr svcs))
+                       ))
+                 ;; else
                  (beta _
-                     (send* gs beta :add-service (car svcs))
-                   (send* me (cdr svcs))
-                   ))))
-           `((:echo               ,(make-echo))
-             (:eval               ,(make-eval))
-             (:available-services ,(make-avail)))
-           )
-    gs))
-    
-(defun make-avail ()
-  (actor (cust)
-    (send global-services cust :available-services nil)))
+                     (send gs beta :add-service
+                           :available-services
+                           (actor (cust)
+                             (send gs cust :available-services nil)))
+                   (send* gs msg))
+                 ))
+             svcs)
+      )))
 
+(deflex global-services (global-services-init
+                         `((:echo ,(make-echo))
+                           (:eval ,(make-eval)))
+                         ))
+        
 ;; ------------------------------------------------------------
 ;; When the socket connection (server or client side) receives an
 ;; incoming message, the cust field of the message will contain a
