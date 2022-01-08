@@ -171,7 +171,7 @@
                    (error (c)
                      (declare (ignore c))
                      (warn "~%ZLIB: decompression failure")
-                     ;; (err c)
+                     ;; (error c)
                      nil))
                  )))
       (when vec

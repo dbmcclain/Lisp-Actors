@@ -373,7 +373,7 @@
    ((:abort an-ip-addr an-ip-port) when (and (eql an-ip-addr ip-addr)
                                              (eql an-ip-port ip-port))
     (prune-self next)
-    (err "Can't connect to: ~S" report-ip-addr))
+    (error "Can't connect to: ~S" report-ip-addr))
 
    (_
     (repeat-send next))
@@ -405,25 +405,32 @@
                                     :report-ip-addr report-ip-addr
                                     :io-state       io-state)
                 beta)
-        ;; (declare (ignore intf-state))
         (send cust :ready ip-addr ip-port intf-state sender local-services)
         ))))
 
+(defun client-connector-beh (pending-connections)
+  (alambda
+   ((cust ip-addr)
+    (send self cust ip-addr *default-port*))
+
+   ((cust ip-addr ip-port)
+    (let ((clean-ip-addr (canon-ip-addr ip-addr)))
+      (cond ((null clean-ip-addr)
+             (error "Unknown host: ~S" ip-addr))
+            (t
+             (beta _
+                 (send connections :on-find-sender clean-ip-addr ip-port cust beta)
+               (send pending-connections cust :connect clean-ip-addr ip-port ip-addr)))
+            )))
+   ))
+    
 (deflex client-connector
-  (actors ((pending-connections (empty-pending-connections-beh pending-connections)))
-    (actor (cust ip-addr &optional (ip-port *default-port*))
-      ;; Called from client side wishing to connect to a server.
-      ;;
-      ;; Because we are serialized, one way or another, we have to exit
-      ;; by sending to cust, or execute serializer-abort.
-      (let ((clean-ip-addr (canon-ip-addr ip-addr)))
-        (cond ((null clean-ip-addr)
-               (err "Unknown host: ~S" ip-addr))
-              (t
-               (beta _
-                   (send connections :on-find-sender clean-ip-addr ip-port cust beta)
-                 (send pending-connections cust :connect clean-ip-addr ip-port ip-addr)))
-              )))))
+        ;; Called from client side wishing to connect to a server.
+        (actor _
+          (actors ((pending-connections (empty-pending-connections-beh pending-connections)))
+            (become (client-connector-beh pending-connections))
+            (repeat-send self))
+          ))
 
 ;; -------------------------------------------------------------
 

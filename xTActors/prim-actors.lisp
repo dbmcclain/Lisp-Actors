@@ -296,49 +296,34 @@
 #||#
 ;; This version does not cause the CPU to spin
 (defun serializer-beh (service)
-  ;; initial empty state
-  (lambda (cust &rest msg)
-    (let ((tag  (tag self)))
-      (send* service tag msg)
-      (become (enqueued-serializer-beh
-               service tag cust +emptyq+))
-      )))
+   ;; initial non-busy state
+   (alambda
+    ((cust &rest msg)
+     (let ((tag  (tag self)))
+       (send* service tag msg)
+       (become (busy-serializer-beh
+                service tag cust +emptyq+))
+       ))))
 
-(defun enqueued-serializer-beh (service tag in-cust queue)
-  (labels ((do-next ()
-             (if (emptyq? queue)
-                 (become (serializer-beh service))
-               (multiple-value-bind (next-req new-queue) (popq queue)
-                 (destructuring-bind (next-cust . next-msg) next-req
-                   (send* service tag next-msg)
-                   (become (enqueued-serializer-beh
-                            service tag next-cust new-queue))
-                   ))
-               )))
-    (alambda
-     ((cust :abort chk) when (and (eq cust tag)
-                                  (eq chk tag))
-      ;; use (send cust :abort cust) to abort. Don't tell the current
-      ;; customer - leave it hanging, and go on to the next one.
-      (do-next))
-     
-     ((cust . msg)
-      (cond ((eq cust tag)
-             (send* in-cust msg)
-             (do-next))
-            (t
-             (become (enqueued-serializer-beh
-                      service tag in-cust
-                      (addq queue (cons cust msg)))))
-            ))
-     )))
+(defun busy-serializer-beh (service tag in-cust queue)
+  (alambda
+   ((atag . ans) when (eql atag tag)
+    (send* in-cust ans)
+    (if (emptyq? queue)
+        (become (serializer-beh service))
+      (multiple-value-bind (next-req new-queue) (popq queue)
+        (destructuring-bind (next-cust . next-msg) next-req
+          (send* service tag next-msg)
+          (become (busy-serializer-beh
+                   service tag next-cust new-queue))
+          ))
+      ))
 
-(defun serializer-abort (cust)
-  ;; Cause the serializer to abort, don't report back to original
-  ;; customer, and move on to the next one.
-  (send cust :abort cust))
-
-#||#
+   ((cust . msg)
+    (become (busy-serializer-beh
+             service tag in-cust
+             (addq queue (cons cust msg)))))
+   ))
 
 (defun serializer (service)
   (make-actor (serializer-beh service)))
@@ -506,18 +491,6 @@
 
 (defun pass (&optional sink-blk)
   (make-actor (pass-beh sink-blk)))
-
-(defun err (&rest args)
-  ;; args should be format string and args, suitable for ERROR
-  ;; reporting.
-  ;;
-  ;; We spin this off in an anonymous thread to get it out of the way
-  ;; of all the other concurrent Actors. Otherwise,we would halt the
-  ;; system until the error is dismissed.
-  ;;
-  ;; Use IO so that it serializes with PRINTLN, WRITELN, etc.
-  (send (actor ()
-          (apply #'mp:funcall-async #'error args))))
 
 ;; ---------------------------------------------------------
 

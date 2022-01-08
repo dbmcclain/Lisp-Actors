@@ -64,8 +64,6 @@ THE SOFTWARE.
    #:actor-nlet
    #:is-pure-sink?
    
-   #:err
-   
    #:+emptyq+
    #:+doneq+
    #:addq
@@ -147,7 +145,6 @@ THE SOFTWARE.
    #:scheduled-message
    #:schedule-after
    #:serializer
-   #:serializer-abort
    #:timing
    #:sequenced-delivery
    #:prune-self
