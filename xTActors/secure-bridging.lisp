@@ -102,26 +102,43 @@
 
 (defun global-services-init (svcs)
   ;; lazy init - on demand with first message
-  (actor msg
-    (become (null-service-list-beh))
-    (let ((gs self))
-      (send* (actor (&rest svcs)
-               (if svcs
-                   (let ((me self))
-                     (beta _
-                         (send* gs beta :add-service (car svcs))
-                       (send* me (cdr svcs))
-                       ))
-                 ;; else
-                 (beta _
-                     (send gs beta :add-service
-                           :available-services
-                           (actor (cust)
-                             (send gs cust :available-services nil)))
-                   (send* gs msg))
-                 ))
-             svcs)
+  (actor _
+    (let* ((tag         (tag self))
+           (init-helper (gs-init-helper tag self))
+           (next        (make-actor (null-service-list-beh))))
+      (become (init-gs-beh tag +emptyq+ next))
+      (send* init-helper svcs)
+      (repeat-send self)
       )))
+
+(defun gs-init-helper (tag gs)
+  (actor svcs
+    (if svcs
+        (let ((me self))
+          (beta _
+              (send* tag beta (car svcs))
+            (send* me (cdr svcs))))
+      ;; else
+      (beta _
+          (send tag beta
+                :available-services
+                (actor (cust)
+                  (send gs cust :available-services nil)))
+        (send tag :finish)))))
+
+(defun init-gs-beh (tag queue next)
+  (prunable-alambda
+   ((atag cust name handler) when (eql atag tag)
+    (send next cust :add-service name handler))
+   
+   ((atag :finish) when (eql atag tag)
+    (prune-self next)
+    (do-queue (msg queue)
+      (send* self msg)))
+
+   (msg
+    (become (init-gs-beh tag (addq queue msg) next)))
+   ))
 
 (deflex global-services (global-services-init
                          `((:echo ,(make-echo))
