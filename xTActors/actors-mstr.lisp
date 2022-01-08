@@ -157,6 +157,18 @@ THE SOFTWARE.
 ;; parallel among different threads. If BECOME cannot commit, the
 ;; Actor is retried after rolling back the BECOME and SENDs. This is
 ;; maximum parallelism.
+;;
+;; NOTE on SEND Ordering: Since all SENDs are staged for commit upon
+;; successful return from Actors, there is no logical distinction
+;; between when each of them is sent, when there were more than one
+;; arising from the Actor execution. They are all sent logically at
+;; once - even though there may be some underyling ordering in the
+;; event queue.
+;;
+;; You should not depend on any particular ordering of messages,
+;; except that message sent from an earlier Actor activation will
+;; appear in in the event queue in front of messages sent by a later
+;; Actor activation. The event queue is a FIFO queue.
 
 (defun run-actors ()
   #F
