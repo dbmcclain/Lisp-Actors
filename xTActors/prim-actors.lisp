@@ -313,10 +313,11 @@
         (become (serializer-beh service))
       (multiple-value-bind (next-req new-queue) (popq queue)
         (destructuring-bind (next-cust . next-msg) next-req
-          (send* service tag next-msg)
-          (become (busy-serializer-beh
-                   service tag next-cust new-queue))
-          ))
+          (let ((new-tag (tag self)))
+            (send* service new-tag next-msg)
+            (become (busy-serializer-beh
+                     service new-tag next-cust new-queue))
+            )))
       ))
 
    ((cust . msg)
