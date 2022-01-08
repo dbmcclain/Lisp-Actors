@@ -75,7 +75,7 @@
 ;; For generating key-pairs...
 #|
 (multiple-value-bind (skey pkey)
-    (make-deterministic-keys +server-id+)
+    (make-deterministic-keys (uuid:make-v1-uuid)) ;; +server-id+)
   (with-standard-io-syntax
     (format t "~%skey: #x~x" skey)
     (format t "~%pkey: #x~x" (int pkey))))

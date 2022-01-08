@@ -295,7 +295,7 @@ THE SOFTWARE.
    #:client-gateway
    #:remote-service
    #:+server-connect-id+
-   #:+server-skey+
+   #:server-skey
    #:start-server-gateway
    ))
 

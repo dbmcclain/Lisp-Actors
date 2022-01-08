@@ -16,7 +16,7 @@
             com.ral.actors.secure-comm:make-local-services
             com.ral.actors.secure-comm:server-crypto-gateway
             com.ral.actors.secure-comm:+server-connect-id+
-            com.ral.actors.secure-comm:+server-skey+
+            com.ral.actors.secure-comm:server-skey
             )))
 
 ;; -----------------------------------------------------------------------
@@ -276,7 +276,7 @@
       (beta _
           ;; provide a service to establish an encrypted channel
           (send local-services beta :add-service-with-id +server-connect-id+
-                (server-crypto-gateway +server-skey+ encoder local-services))
+                (server-crypto-gateway (server-skey) encoder local-services))
 
         (beta _
             (send connections beta :add-socket ip-addr ip-port state encoder)

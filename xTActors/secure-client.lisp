@@ -61,6 +61,7 @@
     (let* ((arand       (int (ctr-drbg 256)))
            (apt         (ed-nth-pt arand))
            (client-pkey (ed-nth-pt client-skey))
+           (srv-pkey    (server-pkey))
            ;; (socket      (show-client-outbound socket)) ;; ***
            (responder
             (actor (server-id bpt)
@@ -70,7 +71,7 @@
                              :encryptor       (sink-pipe
                                                (secure-sender ekey client-skey)
                                                (remote-actor-proxy server-id socket))
-                             :decryptor       (secure-reader ekey (ed-decompress-pt +server-pkey+))
+                             :decryptor       (secure-reader ekey (ed-decompress-pt srv-pkey))
                              )))
                 (beta _
                     (send com.ral.actors.network:connections beta :set-channel socket chan)
@@ -79,7 +80,7 @@
       (beta (client-id)
           (create-ephemeral-client-proxy beta local-services responder)
         (send (remote-actor-proxy +server-connect-id+ socket)
-              client-id +server-pkey+ (int client-pkey) (int apt))
+              client-id srv-pkey (int client-pkey) (int apt))
         ))
     ))
 
