@@ -112,21 +112,28 @@
       )))
 
 (defun gs-init-helper (tag gs)
+  ;; send across the pairs (name, handler) one by one
   (actor svcs
     (if svcs
         (let ((me self))
+          ;; send one handler pair
           (beta _
               (send* tag beta (car svcs))
+            ;; now do the rest of them
             (send* me (cdr svcs))))
       ;; else
       (beta _
+          ;; add summarizer handler
           (send tag beta
                 :available-services
                 (actor (cust)
                   (send gs cust :available-services nil)))
+        ;; we are done
         (send tag :finish)))))
 
 (defun init-gs-beh (tag queue next)
+  ;; The face of Global Services - stand as a gateway against async
+  ;; requests until we have finished initializing the global services
   (prunable-alambda
    ((atag cust name handler) when (eql atag tag)
     (send next cust :add-service name handler))
