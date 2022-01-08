@@ -36,6 +36,7 @@
 (in-package :com.ral.actors.secure-comm)
 
 (defconstant +server-id+          "7a1efb26-bc60-123a-a2d6-24f67702cdaa")
+;; HEY! Move this outa here!
 (defconstant +server-skey+        #x4504E460D7822B3B0E6E3774F07F85698E0EBEFFDAA35180D19D758C2DEF09)
 (defconstant +server-pkey+        #x7EBC0A8D8FFC77F24E7F271F12FC827415F0B66CC6A4C1144070A32133455F1)
 (defconstant +server-connect-id+  #/uuid/{66895052-c57f-123a-9571-0a2cb67da316})

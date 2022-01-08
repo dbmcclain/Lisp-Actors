@@ -72,7 +72,7 @@
     )))
 
 ;; ---------------------------------------------------------------
-
+;; For generating key-pairs...
 #|
 (multiple-value-bind (skey pkey)
     (make-deterministic-keys +server-id+)
