@@ -89,10 +89,12 @@
         ;; specify any data protocol. It may marshal objects and compress
         ;; the resulting byte stream before sending. A Channel is an
         ;; encryptor/decryptor married to a Socket.
-        (let ((skey (make-deterministic-keys (uuid:make-v1-uuid))))
-          (actors ((cx         (client-connect-beh pending-cx))
-                   (pending-cx (empty-pending-negotiations-beh pending-cx skey)))
-            cx)))
+        (actor _
+          (let ((skey (make-deterministic-keys (uuid:make-v1-uuid))))
+            (actors ((pending-cx (empty-pending-negotiations-beh pending-cx skey)))
+              (become (client-connect-beh pending-cx))
+              (repeat-send self))
+            )))
     
 ;; ---------------------------------------------------
 
