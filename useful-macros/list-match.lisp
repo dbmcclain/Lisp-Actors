@@ -83,9 +83,25 @@
 (defun lambda-list-keyword-p (arg)
   (member arg lambda-list-keywords))
 
+(defun transform-&rest (pat)
+  ;; It is an all too easy mistake to make in writing patterns, that
+  ;; one uses &REST for the tail of a list, instead of writing a
+  ;; dotted list pattern.  We translate those mistakes here to dotted
+  ;; list patterns.
+  (cond ((atom pat) pat)
+        ((and (eql '&rest (car pat))
+              (eql (length pat) 2)
+              (symbolp (cadr pat)))
+         (cadr pat))
+        (t
+         (cons (transform-&rest (car pat))
+               (transform-&rest (cdr pat))))
+        ))
+
 (defun parse-match-clause (lbl fail msg clause)
   (destructuring-bind (pat . body) clause
-    (let ((tst  nil)
+    (let ((pat  (transform-&rest pat))
+          (tst  nil)
           (args (collect-args pat)))
       (when (duplicates-exist-p args)
         (warn "duplicate binding names in match pattern: ~A" args))
