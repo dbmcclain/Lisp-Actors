@@ -48,7 +48,7 @@
     (map-into mask #'logxor bytevec mask)))
 |#
 
-(defun make-signature (seq emsg chk skey)
+(defun make-signature (seq emsg skey)
   ;; Generate and append a Schnorr signature - signature includes seq
   ;; and emsg.
   ;;
@@ -57,17 +57,17 @@
   ;; secret key, skey. This is doubly cautious here, since seq is only
   ;; ever supposed to be used just once.
   (let* ((pkey  (ed-nth-pt skey))
-         (krand (int (hash/256 seq emsg chk skey pkey)))
+         (krand (int (hash/256 seq emsg skey pkey)))
          (kpt   (ed-nth-pt krand))
-         (h     (int (hash/256 seq emsg chk kpt pkey)))
+         (h     (int (hash/256 seq emsg kpt pkey)))
          (u     (with-mod *ed-r*
                   (m+ krand (m* h skey))))
          (upt   (ed-nth-pt u)))
     (list (int upt) krand)
     ))
 
-(defun check-signature (seq emsg chk sig pkey)
-  ;; takes seq, emsg, chk, and sig (a Schnorr signature on seq+emsg+chk),
+(defun check-signature (seq emsg sig pkey)
+  ;; takes seq, emsg, and sig (a Schnorr signature on seq+emsg),
   ;; and produce t/f on signature as having come from pkey.
   ;;
   ;; Note: we are already wise to small group attacks. Anytime we are
@@ -79,7 +79,7 @@
   ;; divide by the cofactor before compression.
   (destructuring-bind (upt krand) sig
     (let* ((kpt  (ed-nth-pt krand))
-           (h    (int (hash/256 seq emsg chk kpt pkey))))
+           (h    (int (hash/256 seq emsg kpt pkey))))
       (ed-pt= (ed-decompress-pt upt) (ed-add kpt (ed-mul pkey h)))
       )))
 
@@ -378,29 +378,25 @@
   (actor (cust bytevec)
     (beta (seq)
         (send noncer beta :get-nonce)
-      (let ((chk (vec (hash/256 bytevec))))
-        (send cust seq (encrypt/decrypt ekey seq bytevec) chk)
-        ))))
+      (send cust seq (encrypt/decrypt ekey seq bytevec))
+      )))
 
 (defun decryptor (ekey)
   ;; Takes an encrypted bytevec and produces a bytevec
-  (actor (cust seq emsg chk)
-    (let* ((bytvec (encrypt/decrypt ekey seq emsg))
-           (dchk   (vec (hash/256 bytvec))))
-      (if (equalp dchk chk)
-          (send cust bytvec)
-        (error "decryptor: failure")
-        ))))
+  (actor (cust seq emsg)
+    (let ((bytvec (encrypt/decrypt ekey seq emsg)))
+      (send cust bytvec)
+      )))
 
 (defun signing (skey)
-  (actor (cust seq emsg chk)
-    (let ((sig (make-signature seq emsg chk skey)))
-      (send cust seq emsg chk sig))))
+  (actor (cust seq emsg)
+    (let ((sig (make-signature seq emsg skey)))
+      (send cust seq emsg sig))))
 
 (defun signature-validation (pkey)
-  (actor (cust seq emsg chk sig)
-    (if (check-signature seq emsg chk sig pkey)
-        (send cust seq emsg chk)
+  (actor (cust seq emsg sig)
+    (if (check-signature seq emsg sig pkey)
+        (send cust seq emsg)
       (error "signature-validation: failure"))))
 
 (defun self-sync-encoder ()
@@ -657,15 +653,13 @@
     | (LIST pkey-vec encr-data aont-vec) |
     +------------------------------------+
 
-  The encr-data in the :TEXT section is a marshal encoding of a list of 4 items:
-   (LIST seq cipher-text chk sig)
+  The encr-data in the :TEXT section is a marshal encoding of a list of 3 items:
+   (LIST seq cipher-text sig)
   where,
     seq = the subkey of this encryption. Actual encryption key is H(master-key | seq).
     cipher-text = encrypted, compressed, marshaled list of Lisp data items.
-    chk = SHA3/256 hash of pre-encryption compressed, marshaled, data.
-    sig = signature on (seq cipher-text chk) and validated against pkey.
+    sig = signature on (seq cipher-text) and validated against pkey.
 
-  The chk serves to indicate whether or not decryption has succeeded.
   The sig is an authentication of the written data.
   Encryption is by way of XOR with one-time pad.
   
@@ -888,11 +882,11 @@
     (plt:window 'img :width 512 :height 512)
     (plt:tvscl 'img img)
     (let ((ekey (hash/256 :again)))
-      (beta (seq enc chk)
+      (beta (seq enc)
           (send (pipe (marshal-encoder)
                       (encryptor ekey))
                 beta img)
-        (declare (ignore seq chk))
+        (declare (ignore seq))
         (let ((dimg (make-array (array-dimensions img)
                                 :element-type (array-element-type img)
                                 :displaced-to enc
@@ -933,16 +927,16 @@
     (plt:window 'img2 :width 512 :height 512)
     (plt:tvscl 'img2 img2)
     (let ((ekey (hash/256 :again)))
-      (beta (seq enc1 chk)
+      (beta (seq enc1)
           (send (pipe (marshal-encoder)
                       (encryptor ekey))
                 beta img1)
-        (declare (ignore seq chk))
-        (beta (sec enc2 chk)
+        (declare (ignore seq))
+        (beta (sec enc2)
             (send (pipe (marshal-encoder)
                         (encryptor ekey))
                   beta img2)
-          (declare (ignore seq chk))
+          (declare (ignore seq))
         (let ((dimg1 (make-array (array-dimensions img1)
                                  :element-type (array-element-type img1)
                                  :displaced-to enc1
