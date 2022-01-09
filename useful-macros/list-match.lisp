@@ -6,11 +6,13 @@
 (in-package :list-match)
 
 (defun dont-care-p (sym)
+  #F
   (and (symbolp sym)
        (string= sym "_")))
 
 (defun match-pat (msg pat)
   ;; collect binding values in reverse order
+  #F
   (um:nlet iter ((pat  pat)
                  (msg  msg)
                  (vals nil))
@@ -28,7 +30,7 @@
               (values (and (symbolp desig)
                            (eq msg (symbol-function desig)))
                       vals)))
-           ((consp msg)
+           (t
             (multiple-value-bind (ok new-vals)
                 (iter (car pat) (car msg) vals)
               (when ok
@@ -44,6 +46,7 @@
 |#
 
 (defun match-clause (msg pat tst fn)
+  #F
   (multiple-value-bind (ok vals)
       (match-pat msg pat)
     (when (and ok
