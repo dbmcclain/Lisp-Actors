@@ -105,13 +105,12 @@
 
 (defun global-services-init (svcs)
   ;; lazy init - on demand with first message
-  (actor _
+  (actor msg
     (let* ((tag         (tag self))
            (init-helper (gs-init-helper tag self))
            (next        (make-actor (null-service-list-beh))))
-      (become (init-gs-beh tag +emptyq+ next))
+      (become (init-gs-beh tag (list msg) next))
       (send* init-helper svcs)
-      (repeat-send self)
       )))
 
 (defun gs-init-helper (tag gs)
@@ -134,7 +133,7 @@
         ;; we are done
         (send tag :finish)))))
 
-(defun init-gs-beh (tag queue next)
+(defun init-gs-beh (tag msgs next)
   ;; The face of Global Services - stand as a gateway against async
   ;; requests until we have finished initializing the global services
   (prunable-alambda
@@ -143,11 +142,11 @@
    
    ((atag :finish) when (eql atag tag)
     (prune-self next)
-    (do-queue (msg queue)
+    (dolist (msg msgs)
       (send* self msg)))
 
    (msg
-    (become (init-gs-beh tag (addq queue msg) next)))
+    (become (init-gs-beh tag (cons msg msgs) next)))
    ))
 
 (deflex global-services (global-services-init
