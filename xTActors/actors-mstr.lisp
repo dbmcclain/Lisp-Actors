@@ -112,7 +112,7 @@ THE SOFTWARE.
   #F
   (when (actor-p actor)
     (apply *send* actor msg)))
-
+  
 (defmacro send* (actor &rest msg)
   `(apply #'send ,actor ,@msg))
 
