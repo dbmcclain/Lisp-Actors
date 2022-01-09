@@ -30,7 +30,7 @@
               (values (and (symbolp desig)
                            (eq msg (symbol-function desig)))
                       vals)))
-           (t
+           ((consp msg)
             (multiple-value-bind (ok new-vals)
                 (iter (car pat) (car msg) vals)
               (when ok
@@ -103,9 +103,9 @@
 
 (defun parse-match-clause (lbl fail msg clause)
   (destructuring-bind (pat . body) clause
-    (let ((pat  (transform-&rest pat))
-          (tst  nil)
-          (args (collect-args pat)))
+    (let* ((pat  (transform-&rest pat))
+           (tst  nil)
+           (args (collect-args pat)))
       (when (duplicates-exist-p args)
         (warn "duplicate binding names in match pattern: ~A" args))
       (when (some 'lambda-list-keyword-p args)
