@@ -298,14 +298,14 @@ THE SOFTWARE.
     ,stream))
 
 (deflex println
-        (actor msg
-          (with-printer (s *standard-output*)
-            (format s "~&~{~A~%~^~}" msg))))
+  (actor msg
+    (with-printer (s *standard-output*)
+      (format s "~&~{~A~%~^~}" msg))))
 
 (deflex writeln
-        (actor msg
-          (with-printer (s *standard-output*)
-            (format s "~&~{~S~%~^~}" msg))))
+  (actor msg
+    (with-printer (s *standard-output*)
+      (format s "~&~{~S~%~^~}" msg))))
 
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world
@@ -334,9 +334,9 @@ THE SOFTWARE.
 ;; -----------------------------------------------------
 ;; FN-EVAL - eval function and send results to customer
 
-(deflex fn-eval (make-actor
-                 (lambda (cust fn &rest args)
-                   (send* cust (multiple-value-list (apply fn args))))))
+(deflex fn-eval
+  (actor (cust fn &rest args)
+    (send* cust (multiple-value-list (apply fn args)))))
 
 ;; ----------------------------------------
 ;; We must defer startup until the MP system has been instantiated.

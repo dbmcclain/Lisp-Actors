@@ -40,3 +40,5 @@
   ;;; OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 )
 
+#+:LISPWORKS
+(editor:setup-indent "deflex" 1 2 4)

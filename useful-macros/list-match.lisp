@@ -76,13 +76,21 @@
 (collect-args '(a b _ (c 15 d . e) . f))
 |#
 
+(defun duplicates-exist-p (lst)
+  (let ((nel (length lst)))
+    (not (eql nel (length (remove-duplicates lst))))))
+
+(defun lambda-list-keyword-p (arg)
+  (member arg lambda-list-keywords))
+
 (defun parse-match-clause (lbl fail msg clause)
   (destructuring-bind (pat . body) clause
     (let ((tst  nil)
           (args (collect-args pat)))
-      (unless (equalp args
-                      (remove-duplicates args))
+      (when (duplicates-exist-p args)
         (warn "duplicate binding names in match pattern: ~A" args))
+      (when (some 'lambda-list-keyword-p args)
+        (warn "lambda list keywords are not valid pattern elements"))
       (when (eql 'when (car body))
         (setf tst  `(lambda ,args
                       (declare (ignorable ,@args))

@@ -559,5 +559,43 @@
       println)
  |#
 
+(defun long-running-beh (action)
+  (flet ((doit (cust args)
+           (let ((tag  (tag self)))
+             (become (busy-running-beh action tag cust +emptyq+))
+             (send* action tag args))))
+    (alambda
+     ((cust :run . args)
+      (doit cust args))
+
+     ((cust :run-immediately . args)
+      (doit cust args))
+     )))
+
+(defun busy-running-beh (action tag cust queue)
+  ;; action should send back non-nil first arg in reply to indicate
+  ;; success..
+  (alambda
+   ((atag . ans) when (eql atag tag)
+    (send* cust ans)
+    (if (emptyq? queue)
+        (become (long-runinng-beh action))
+      (multiple-value-bind (next-up new-queue) (popq queue)
+        (destructuring-bind (next-cust . next-args) next-up
+          (let ((new-tag  (tag self)))
+            (become (busy-running-beh action new-tag next-cust new-queue))
+            (send* action new-tag next-args))
+          ))))
+
+   ((acust :run . args)
+    (become (busy-running-beh action tag cust (addq queue (cons acust args)))))
+
+   ((cust :run-immediately . _)
+    (send cust nil))
+   ))
+
+(defun make-long-running (action)
+  (make-actor (long-running-beh action)))
+
 ;; ------------------------------------------------------
 
