@@ -694,7 +694,7 @@
             ))
       )))
 
-(defun aont-decoder ()
+(deflex aont-decoder
   ;; sends a sequence of original Lisp data items to cust
   (actor (cust pkey-vec data-packet aont-vec)
     (let ((pkey  (ed-decompress-pt pkey-vec))
@@ -713,18 +713,15 @@
 (defun aont-file-writer (fname skey ekey)
   ;; writes a single AONT record to a file
   (actor (cust &rest msg)
-    (beta (packet)
-        (send* (pipe (aont-encoder skey ekey)
-                     (marshal-encoder)
-                     (self-sync-encoder))
-               beta msg)
+    (beta vecs
+        (send* (aont-encoder skey ekey) beta msg)
       (with-open-file (fd fname
                           :direction :output
                           :if-exists :supersede
                           :if-does-not-exist :create
                           :element-type '(unsigned-byte 8))
         (write-sequence +AONT-FILE-TYPE-ID+ fd)
-        (write-sequence packet fd)
+        (loenc:serialize vecs fd)
         (send cust :ok)
         ))))
 
@@ -738,10 +735,7 @@
       (let ((file-type (make-ubv 16)))
         (read-sequence file-type fd)
         (if (equalp +AONT-FILE-TYPE-ID+ file-type)
-            (let ((reader (self-sync:make-reader fd)))
-              (send (pipe (marshal-decoder)
-                          (aont-decoder))
-                    cust (funcall reader)))
+            (send* aont-decoder cust (loenc:deserialize fd))
           (error "~A: Not an AONT encoded file" fname))
         ))))
 
