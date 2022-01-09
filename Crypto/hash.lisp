@@ -33,6 +33,10 @@ THE SOFTWARE.
         :reader hash-bytes
         :initarg :vec)))
 
+(defmethod make-load-form ((ahash hash) &optional env)
+  (make-load-form-saving-slots ahash :environment env))
+
+
 (defclass hash/ripemd/160 (hash)
   ())
 
@@ -230,6 +234,9 @@ THE SOFTWARE.
         ((>= offs nel) bytevec)
       (let ((mask  (vec (hash/256 ekey offs))))
         (adjust-array ovly (min 32 (- nel offs))
+                      :displaced-to bytevec  ;; now req'd in LW 8.0
                       :displaced-index-offset offs)
         (map-into ovly #'logxor ovly mask))
       )))
+
+

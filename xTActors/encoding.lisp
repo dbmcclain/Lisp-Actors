@@ -926,7 +926,7 @@
                       (encryptor ekey))
                 beta img1)
         (declare (ignore seq))
-        (beta (sec enc2)
+        (beta (seq enc2)
             (send (pipe (marshal-encoder)
                         (encryptor ekey))
                   beta img2)

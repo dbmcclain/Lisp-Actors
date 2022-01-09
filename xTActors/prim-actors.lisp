@@ -298,7 +298,7 @@
 (defun serializer-beh (service)
    ;; initial non-busy state
    (alambda
-    ((cust &rest msg)
+    ((cust . msg)
      (let ((tag  (tag self)))
        (send* service tag msg)
        (become (busy-serializer-beh
