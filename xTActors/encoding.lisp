@@ -199,7 +199,7 @@
     (send cust (simple-uncompress vec))))
 
 ;; ---------------------------------------------------------------
-
+#|
 (defun make-noncer ()
   ;; The initial seq nonce is chosen as the SHA3/256 hash of a unique
   ;; 128-bit UUID, which includes the MAC Address of the machine, and
@@ -265,8 +265,40 @@
       (make-actor (noncer-beh (rd-nonce) #()
                               (make-actor #'wr-nonce) ))
       )))
+|#
+(defun noncer-beh (nonce)
+  (alambda
+   ((cust :get-nonce)
+    ;; The initial seq nonce is chosen as the SHA3/256 hash of a unique
+    ;; 128-bit UUID, which includes the MAC Address of the machine, and
+    ;; the time of creation to 100ns precision.
+    ;;
+    ;; The nonce is incremented before every use, in a manner to avoid
+    ;; ever coinciding with a nonce generated previously on any machine,
+    ;; assuming they all use the same nonce maintenance mechanism.
+    ;;
+    ;; Increment nonce and send to customer. The best we can do is
+    ;; furnish a fresh nonce when asked. It is still up to the
+    ;; customer to be sure it won't be reused.
+    ;;
+    ;; Nonces start out as the numeric value of the hash/256 of the
+    ;; UUID of the host machine, at the start time.
+    ;;
+    ;; We increment by 2^256, thereby assuring that we never coincide
+    ;; with nonces generated previously on any machine.
+    ;;
+    ;; We use the hash/256 of the UUID to preserve anonymity in the
+    ;; nonces.
+    ;;
+    (let ((new-nonce (+ nonce #.(ash 1 256))))
+      (send cust new-nonce)
+      (become (noncer-beh new-nonce))))
+   ))
 
-(deflex noncer (make-noncer))
+(deflex noncer (make-actor
+                (noncer-beh
+                 (vec-repr:int (hash/256 (uuid:make-v1-uuid)))
+                 )))
 
 ;; -------------------------------------------------------------------
 
