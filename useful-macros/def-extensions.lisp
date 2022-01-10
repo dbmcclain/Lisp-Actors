@@ -45,6 +45,30 @@ arguments when given."
        (go :declarations)))
     (values body (nreverse decls) doc)))
 
+(defun is-lambda-list-keyword? (arg)
+  (member arg lambda-list-keywords))
+
+(defun destr-lambda-list-p (args)
+  (and (consp args)
+       (or (eq (car args) '&whole)
+           (lw:dotted-list-p args)
+           (some 'consp (subseq args 0
+                                (position-if #'is-lambda-list-keyword? args))
+                 ))))
+
+(defun us-conv (args)
+  (cond ((eq nil args)  nil)
+        ((symbolp args) `(&rest ,args))
+        (t              args)))
+
+(defun is-underscore? (x)
+  (and (symbolp x)
+       (string= "_" (string x))))
+
+(defun decl-us (args)
+  (when (is-underscore? args)
+      `((declare (ignore ,args)))))
+
 (defun wrap-assembly (name args &rest body)
   (if (destr-lambda-list-p args)
       (let ((g!args (gensym)))
@@ -58,30 +82,6 @@ arguments when given."
           ))
     ;; else
     `(,name ,(us-conv args) ,@(decl-us args) ,@body)))
-
-(defun is-underscore? (x)
-  (and (symbolp x)
-       (string= "_" (string x))))
-
-(defun decl-us (args)
-  (when (is-underscore? args)
-      `((declare (ignore ,args)))))
-
-(defun us-conv (args)
-  (cond ((eq nil args)  nil)
-        ((symbolp args) `(&rest ,args))
-        (t              args)))
-
-(defun is-lambda-list-keyword? (arg)
-  (member arg lambda-list-keywords))
-
-(defun destr-lambda-list-p (args)
-  (and (consp args)
-       (or (eq (car args) '&whole)
-           (lw:dotted-list-p args)
-           (some 'consp (subseq args 0
-                                (position-if #'is-lambda-list-keyword? args))
-                 ))))
 
 (defun wrap-bindings (hd bindings body)
   `(,hd ,(mapcar (lambda (form)
