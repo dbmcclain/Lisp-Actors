@@ -240,4 +240,3 @@
 (editor:setup-indent "α" 1)
 (editor:indent-like "β" 'destructuring-bind)
 
-

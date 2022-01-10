@@ -17,10 +17,10 @@
 (in-package com.ral.actors.kv-database)
   
 (deflex trimmer
-        (actor (cust db)
-          (send cust (remove-unstorable db))))
+  (α (cust db)
+    (send cust (remove-unstorable db))))
 
-(defun trans-gate-beh (tag-commit tag-rollback saver db)
+(∂ (trans-gate-beh tag-commit tag-rollback saver db)
   (flet ((try (cust target args)
            (send* target db tag-commit tag-rollback cust target args)))
     (alambda
@@ -57,7 +57,7 @@
       (send saver :full-save))
      )))
 
-(defun nascent-database-beh (custs saver)
+(∂ (nascent-database-beh custs saver)
   (alambda
    ((a-tag db) when (eql a-tag saver)
     ;; We are the only one that knows the identity of saver. So this
@@ -79,7 +79,7 @@
 
 (defconstant +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
-(defun save-database-beh (path last-db)
+(∂ (save-database-beh path last-db)
   (alambda
    ((:full-save)
     (full-save path last-db))
@@ -102,7 +102,7 @@
     (become (save-database-beh path new-db)))
    ))
 
-(defun unopened-database-beh (trans-gate)
+(∂ (unopened-database-beh trans-gate)
   (alambda
    ((db-path)
     ;; message from kick-off starter routine
@@ -147,7 +147,7 @@
       (send trans-gate self db)))
    ))
 
-(defun full-save (db-path db)
+(∂ (full-save db-path db)
   (ensure-directories-exist db-path)
   (with-open-file (f db-path
                      :direction :output
@@ -159,8 +159,8 @@
       (loenc:serialize db f))
     ))
 
-(defun remove-unstorable (map)
-  (maps:fold map (lambda (key val accu)
+(∂ (remove-unstorable map)
+  (maps:fold map (λ (key val accu)
                    (handler-case
                        (progn
                          ;; this will barf if either key or val is unstorable
@@ -170,18 +170,18 @@
                        accu)))
              (maps:empty)))
 
-(defun deep-copy (obj)
+(∂ (deep-copy obj)
   (loenc:decode (loenc:encode obj)))
 
-(defun get-diffs (old-db new-db)
+(∂ (get-diffs old-db new-db)
   (let* ((removals  (maps:fold (sets:diff old-db new-db)
-                               (lambda (k v acc)
+                               (λ (k v acc)
                                  (declare (ignore v))
                                  (cons k acc))
                                nil))
          (additions (maps:fold (sets:diff new-db old-db) 'acons nil))
          (changes   (maps:fold new-db
-                               (lambda (k v accu)
+                               (λ (k v accu)
                                  (let ((old-val (maps:find old-db k new-db)))
                                    (cond ((eql old-val new-db) accu) ;; missing entry
                                          ((eql old-val v) accu)
@@ -200,8 +200,8 @@
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
                                     (sys:get-folder-path :appdata)))
 
-(defun db-svc-init (path)
-  (actor _
+(∂ (db-svc-init path)
+  (α _
     (let ((saver (make-actor (unopened-database-beh self))))
       (send saver path)
       (become (nascent-database-beh nil saver))
@@ -211,16 +211,16 @@
 
 ;; -----------------------------------------------------------
 
-(defun add-rec (cust key val)
+(∂ (add-rec cust key val)
   (send db cust :req
-        (actor (db commit rollback &rest retry-info)
+        (α (db commit rollback &rest retry-info)
           (declare (ignore rollback))
           (send* commit db (maps:add db key val) retry-info))
         ))
 
-(defun remove-rec (cust key)
+(∂ (remove-rec cust key)
   (send db cust :req
-        (actor (db commit rollback &rest retry-info)
+        (α (db commit rollback &rest retry-info)
           (declare (ignore rollback))
           (let* ((val    (maps:find db key self))
                  (new-db (if (eql val self)
@@ -229,20 +229,20 @@
             (send* commit db new-db retry-info)))
         ))
 
-(defun lookup (cust key &optional default)
+(∂ (lookup cust key &optional default)
   (send db cust :req
-        (actor (db &rest ignored)
+       (α (db &rest ignored)
           (declare (ignore ignored))
           (send cust (maps:find db key default)))
         ))
 
-(defun show-db ()
+(∂ (show-db)
   (send db nil :req
-        (actor (db &rest ignored)
+        (α (db &rest ignored)
           (declare (ignore ignored))
           (sets:view-set db))))
 
-(defun maint-full-save ()
+(∂ (maint-full-save)
   (send db 'maint-full-save))
 
 ;; ------------------------------------------------------------------
@@ -277,9 +277,7 @@
 (show-db)
 (dotimes (ix 10)
   (remove-rec println ix))
-(add-rec println :tst (lambda (&rest args)
-                        (declare (ignore args))
-                        ))
+(add-rec println :tst (λ* _))
 (lookup writeln :tst)
 
 (let ((m (maps:empty)))
@@ -290,8 +288,8 @@
   (eql m (sets:add m :dave)))
 
 (send db nil :req
-      (actor (db . _)
-        (maps:iter db (lambda (k v)
+      (α (db . _)
+        (maps:iter db (λ (k v)
                         (send writeln (list k v))))))
 
 (let ((x '(1 2 3)))
