@@ -58,21 +58,28 @@
 (defun collect-args (pat)
   ;; collect binding args in reverse order
   (um:nlet iter ((pat  pat)
-                 (args nil))
+                 (args nil)
+                 (lsts nil))
     (cond ((atom pat)
-           (cond ((null pat)        args)
-                 ((dont-care-p pat) args)
-                 ((keywordp pat)    args)
-                 ((symbolp pat)     (cons pat args))
-                 (t                 args)
+           (cond ((null pat)        (values args lsts))
+                 ((dont-care-p pat) (values args lsts))
+                 ((keywordp pat)    (values args lsts))
+                 ((symbolp pat)     (values (cons pat args) lsts))
+                 (t                 (values args lsts))
                  ))
-          ((eql 'quote (car pat))    args)
-          ((eql 'function (car pat)) args)
+          ((eql 'quote (car pat))    (values args lsts))
+          ((eql 'function (car pat)) (values args lsts))
           (t
            (let ((hd (car pat))
                  (tl (cdr pat)))
-             (go-iter tl (iter hd args))
-             ))
+             (multiple-value-bind (new-args new-lsts)
+                 (iter hd args lsts)
+               (when (and tl
+                          (symbolp tl)
+                          (not (dont-care-p tl)))
+                 (push tl new-lsts))
+               (go-iter tl new-args new-lsts)
+               )))
           )))
 
 #|
@@ -104,26 +111,31 @@
 (defun parse-match-clause (lbl fail msg clause)
   (destructuring-bind (pat . body) clause
     (let* ((pat  (transform-&rest pat))
-           (tst  nil)
-           (args (collect-args pat)))
-      (when (duplicates-exist-p args)
-        (warn "duplicate binding names in match pattern: ~A" args))
-      (when (some 'lambda-list-keyword-p args)
-        (warn "lambda list keywords are not valid pattern elements"))
-      (when (eql 'when (car body))
-        (setf tst  `(lambda ,args
-                      (declare (ignorable ,@args))
-                      ,(cadr body))
-              body (cddr body)))
-      `(block ,fail
-         (match-clause ,msg ',pat ,tst
-                       (lambda ,args
-                         (declare (ignorable ,@args))
-                         (return-from ,lbl
-                           (progn
-                             ,@body)))
-                       ))
-      )))
+           (tst  nil))
+      (multiple-value-bind (args lsts)
+          (collect-args pat)
+        (when (duplicates-exist-p args)
+          (warn "duplicate binding names in match pattern: ~A" args))
+        (when (some 'lambda-list-keyword-p args)
+          (warn "lambda list keywords are not valid pattern elements"))
+        (when (eql 'when (car body))
+          (setf tst  `(lambda ,args
+                        (declare (ignorable ,@args))
+                        ,@(if lsts
+                             `((declare (list ,@lsts))))
+                        ,(cadr body))
+                body (cddr body)))
+        `(block ,fail
+           (match-clause ,msg ',pat ,tst
+                         (lambda ,args
+                           (declare (ignorable ,@args))
+                           ,@(if lsts
+                                `((declare (list ,@lsts))))
+                           (return-from ,lbl
+                             (progn
+                               ,@body)))
+                         ))
+        ))))
 
 (defmacro match (msg &body clauses)
   (lw:with-unique-names (lbl fail gmsg)
@@ -138,6 +150,9 @@
 (editor:setup-indent "match" 1)
 
 #|
+(match msg
+  ((a b . c) (doit a b c))
+  )
 (match '(2 :a 15)
   ((x :a y) when (oddp x)
    (+ x y))
