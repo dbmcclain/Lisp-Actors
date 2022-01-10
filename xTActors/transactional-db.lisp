@@ -20,7 +20,7 @@
   (α (cust db)
     (send cust (remove-unstorable db))))
 
-(∂ (trans-gate-beh tag-commit tag-rollback saver db)
+(∂ trans-gate-beh (tag-commit tag-rollback saver db)
   (flet ((try (cust target args)
            (send* target db tag-commit tag-rollback cust target args)))
     (alambda
@@ -57,7 +57,7 @@
       (send saver :full-save))
      )))
 
-(∂ (nascent-database-beh custs saver)
+(∂ nascent-database-beh (custs saver)
   (alambda
    ((a-tag db) / (eql a-tag saver)
     ;; We are the only one that knows the identity of saver. So this
@@ -79,7 +79,7 @@
 
 (defconstant +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
-(∂ (save-database-beh path last-db)
+(∂ save-database-beh (path last-db)
   (alambda
    ((:full-save)
     (full-save path last-db))
@@ -102,7 +102,7 @@
     (become (save-database-beh path new-db)))
    ))
 
-(∂ (unopened-database-beh trans-gate)
+(∂ unopened-database-beh (trans-gate)
   (alambda
    ((db-path)
     ;; message from kick-off starter routine
@@ -147,7 +147,7 @@
       (send trans-gate self db)))
    ))
 
-(∂ (full-save db-path db)
+(∂ full-save (db-path db)
   (ensure-directories-exist db-path)
   (with-open-file (f db-path
                      :direction :output
@@ -159,7 +159,7 @@
       (loenc:serialize db f))
     ))
 
-(∂ (remove-unstorable map)
+(∂ remove-unstorable (map)
   (maps:fold map (λ (key val accu)
                    (handler-case
                        (progn
@@ -170,10 +170,10 @@
                        accu)))
              (maps:empty)))
 
-(∂ (deep-copy obj)
+(∂ deep-copy (obj)
   (loenc:decode (loenc:encode obj)))
 
-(∂ (get-diffs old-db new-db)
+(∂ get-diffs (old-db new-db)
   (let* ((removals  (maps:fold (sets:diff old-db new-db)
                                (λ (k _ acc)
                                  (cons k acc))
@@ -199,7 +199,7 @@
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
                                     (sys:get-folder-path :appdata)))
 
-(∂ (db-svc-init path)
+(∂ db-svc-init (path)
   (α _
     (let ((saver (make-actor (unopened-database-beh self))))
       (send saver path)
@@ -210,13 +210,13 @@
 
 ;; -----------------------------------------------------------
 
-(∂ (add-rec cust key val)
+(∂ add-rec (cust key val)
   (send db cust :req
         (α (db commit _ . retry-info)
           (send* commit db (maps:add db key val) retry-info))
         ))
 
-(∂ (remove-rec cust key)
+(∂ remove-rec (cust key)
   (send db cust :req
         (α (db commit _  . retry-info)
           (let* ((val    (maps:find db key self))
@@ -226,18 +226,18 @@
             (send* commit db new-db retry-info)))
         ))
 
-(∂ (lookup cust key &optional default)
+(∂ lookup (cust key &optional default)
   (send db cust :req
        (α (db . _)
           (send cust (maps:find db key default)))
         ))
 
-(∂ (show-db)
+(∂ show-db ()
   (send db nil :req
         (α (db . _)
           (sets:view-set db))))
 
-(∂ (maint-full-save)
+(∂ maint-full-save ()
   (send db 'maint-full-save))
 
 ;; ------------------------------------------------------------------

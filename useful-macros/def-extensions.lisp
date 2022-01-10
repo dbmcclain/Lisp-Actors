@@ -5,13 +5,12 @@
 
 (in-package #:def*)
 
+#+:LISPWORKS
 (progn
   (editor:bind-string-to-key "λ" #\not-sign) ;; Option-L on Mac keyboard
   (editor:setup-indent "µ" 1)
   (editor:setup-indent "∂" 1)
-  ;; (editor:setup-indent "∂*" 1)
   (editor:setup-indent "λ" 1)
-  ;; (editor:setup-indent "λ*" 1)
   (editor:setup-indent "define" 1)
   (editor:setup-indent "define-macro" 1)
   (editor:setup-indent "define-generic" 1)
@@ -20,7 +19,8 @@
   (editor:setup-indent "defun*"  2 2 7)
   (editor:setup-indent "labels*" 1 2 4 'flet)
   (editor:setup-indent "flet*"   1 2 4 'flet)
-  (editor:setup-indent "define*" 1))
+  (editor:setup-indent "define*" 1)
+  (editor:setup-indent "deflex" 1 2 4))
 
 ;; --------------------------------------------------
 
@@ -56,80 +56,102 @@ arguments when given."
                                 (position-if #'is-lambda-list-keyword? args))
                  ))))
 
-(defun us-conv (args)
-  (cond ((eq nil args)  nil)
-        ((symbolp args) `(&rest ,args))
-        (t              args)))
-
 (defun is-underscore? (x)
   (and (symbolp x)
        (string= "_" (string x))))
 
-(defun decl-us (args)
-  (when (is-underscore? args)
-      `((declare (ignore ,args)))))
+(defun us-conv (args)
+  (labels ((conv (args igns)
+             (cond ((atom args)
+                    (if (is-underscore? args)
+                        (let ((usarg (gensym)))
+                          (values usarg (cons usarg igns)))
+                      (values args igns)))
+                   (t
+                    (multiple-value-bind (new-hd new-igns)
+                        (conv (car args) igns)
+                      (multiple-value-bind (new-tl new-igns)
+                          (conv (cdr args) new-igns)
+                        (values (cons new-hd new-tl) new-igns))))
+                   )))
+    (multiple-value-bind (new-args igns)
+        (conv args nil)
+      (if (listp new-args)
+          (values new-args igns)
+        (values `(&rest ,new-args) igns))
+      )))
+
+(defun decl-us (igns)
+  (when igns
+    `((declare (ignore ,@igns)))
+    ))
 
 (defun wrap-assembly (name args &rest body)
-  (if (destr-lambda-list-p args)
-      (let ((g!args (gensym)))
-        (multiple-value-bind (body-forms decls docstr)
-            (parse-body body :documentation t)
-          `(,name (&rest ,g!args)
-                  ,@docstr
-                  (destructuring-bind ,args ,g!args
-                    ,@decls
-                    ,@body-forms))
-          ))
-    ;; else
-    `(,name ,(us-conv args) ,@(decl-us args) ,@body)))
-
+  (multiple-value-bind (wargs wigns)
+      (us-conv args)
+    (if (destr-lambda-list-p wargs)
+        (let ((g!args (gensym)))
+          (multiple-value-bind (body-forms decls docstr)
+              (parse-body body :documentation t)
+            `(,name (&rest ,g!args)
+                    ,@docstr
+                    (destructuring-bind ,wargs ,g!args
+                      ,@decls
+                      ,@(decl-us wigns)
+                      ,@body-forms))
+            ))
+      ;; else
+      `(,name ,wargs ,@(decl-us wigns) ,@body))
+    ))
+  
 (defun wrap-bindings (hd bindings body)
   `(,hd ,(mapcar (lambda (form)
                    (apply #'wrap-assembly form))
                  bindings)
         ,@body))
 
-(defmacro µ ((name . args) &body body)
+;; ---------------------------------------
+
+(defmacro µ (name args &body body)
   `(defmacro ,name ,args ,@body))
+
+(defmacro ∂ (name args &body body)
+  `(defun* ,name ,args ,@body))
+
+(defmacro λ (args &body body)
+  `(lambda* ,args ,@body))
 
 ;; ---------------------------------------
 
-(µ (defun* name args &body body)
+(µ defun* (name args &body body)
   `(defun ,@(apply #'wrap-assembly name args body)))
 
-(µ (∂ (name . args) &body body)
-  `(defun* ,name ,args ,@body))
-
-(µ (lambda* args &body body)
+(µ lambda* (args &body body)
   (apply #'wrap-assembly 'lambda args body))
   
-(µ (λ &body body)
-  `(lambda* ,@body))
-
-;; Scheme did some things right...
-(µ (define item &body body)
+(µ define (item &body body)
   (if (consp item)
       `(defun ,(car item) ,(cdr item) ,@body)
-    `(defparameter ,item ,@body)))
+    `(deflex ,item ,@body)))
   
-(µ (define* (name . args) &body body)
+(µ define* ((name . args) &body body)
   `(defun* ,name ,args ,@body))
 
-(µ (define-macro (name . args) &body body)
+(µ define-macro ((name . args) &body body)
   `(defmacro ,name ,args ,@body))
 
-(µ (define-generic (name . args) &body body)
+(µ define-generic ((name . args) &body body)
   `(defgeneric ,name ,args ,@body))
 
-(µ (define-method (name . args) &body body)
+(µ define-method ((name . args) &body body)
   (if (keywordp (car args))
       `(defmethod ,name ,(car args) ,(cdr args) ,@body)
     `(defmethod ,name ,args ,@body)))
 
-(µ (labels* bindings &body body)
+(µ labels* (bindings &body body)
   (wrap-bindings 'labels bindings body))
   
-(µ (flet* bindings &body body)
+(µ flet* (bindings &body body)
   (wrap-bindings 'flet bindings body))
   
 (defmacro deflex (var val &optional (doc nil docp))
@@ -171,5 +193,3 @@ arguments when given."
   ;;; OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 )
 
-#+:LISPWORKS
-(editor:setup-indent "deflex" 1 2 4)
