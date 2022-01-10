@@ -42,6 +42,7 @@ THE SOFTWARE.
    #:parse-body
    #:is-underscore?
    #:is-lambda-list-keyword?
+   #:deflex
    ))
 
 (defpackage :lambda-parsing
@@ -516,8 +517,6 @@ THE SOFTWARE.
    :flet-shared
    |#
 
-   #:deflex
-   
    #:with
    #:letp
    #:wholepart
@@ -1032,7 +1031,8 @@ THE SOFTWARE.
    #:parse-body
    #:is-underscore?
    #:is-lambda-list-keyword?
-
+   #:deflex
+   
    :->
    :_>
    :=>

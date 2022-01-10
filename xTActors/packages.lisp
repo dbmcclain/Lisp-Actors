@@ -38,10 +38,6 @@ THE SOFTWARE.
   (:export
    #:timeout
    #:*timeout*)
-  (:import-from #:useful-macros
-   #:deflex)
-  (:export
-   #:deflex)
   (:import-from #:list-match
    #:match
    #:match-fail)
@@ -64,7 +60,9 @@ THE SOFTWARE.
    #:fork
    #:actor-nlet
    #:is-pure-sink?
-   
+   #:deflex
+   #:µ
+   #:∂
    #:+emptyq+
    #:+doneq+
    #:addq
