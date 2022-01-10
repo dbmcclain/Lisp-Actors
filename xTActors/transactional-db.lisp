@@ -175,8 +175,7 @@
 
 (∂ (get-diffs old-db new-db)
   (let* ((removals  (maps:fold (sets:diff old-db new-db)
-                               (λ (k v acc)
-                                 (declare (ignore v))
+                               (λ (k _ acc)
                                  (cons k acc))
                                nil))
          (additions (maps:fold (sets:diff new-db old-db) 'acons nil))
@@ -213,15 +212,13 @@
 
 (∂ (add-rec cust key val)
   (send db cust :req
-        (α (db commit rollback &rest retry-info)
-          (declare (ignore rollback))
+        (α (db commit _ . retry-info)
           (send* commit db (maps:add db key val) retry-info))
         ))
 
 (∂ (remove-rec cust key)
   (send db cust :req
-        (α (db commit rollback &rest retry-info)
-          (declare (ignore rollback))
+        (α (db commit _  . retry-info)
           (let* ((val    (maps:find db key self))
                  (new-db (if (eql val self)
                              db
@@ -231,15 +228,13 @@
 
 (∂ (lookup cust key &optional default)
   (send db cust :req
-       (α (db &rest ignored)
-          (declare (ignore ignored))
+       (α (db . _)
           (send cust (maps:find db key default)))
         ))
 
 (∂ (show-db)
   (send db nil :req
-        (α (db &rest ignored)
-          (declare (ignore ignored))
+        (α (db . _)
           (sets:view-set db))))
 
 (∂ (maint-full-save)
