@@ -118,7 +118,7 @@
           (warn "duplicate binding names in match pattern: ~A" args))
         (when (some 'lambda-list-keyword-p args)
           (warn "lambda list keywords are not valid pattern elements"))
-        (when (eql 'when (car body))
+        (when (member (car body) '(when /))
           (setf tst  `(lambda ,args
                         (declare (ignorable ,@args))
                         ,@(if lsts

@@ -28,7 +28,7 @@
       ;; general entry for external clients
       (try cust target args))
      
-     ((a-tag db-old db-new cust retry-target . args) when (eql a-tag tag-commit)
+     ((a-tag db-old db-new cust retry-target . args) / (eql a-tag tag-commit)
       ;; client called the commit portal
       (cond ((eql db-old db) ;; commit consistency?
              (unless (eql db-old db-new) ;; anything changed?
@@ -42,12 +42,12 @@
              (try cust retry-target args))
             ))
      
-     ((a-tag cust retry-target . args) when (eql a-tag tag-rollback)
+     ((a-tag cust retry-target . args) / (eql a-tag tag-rollback)
       ;; client called the rollback portal
       (try cust retry-target args))
      
-     ((a-tag a-db) when (and (eql a-tag saver)
-                             (eql a-db  db))
+     ((a-tag a-db) / (and (eql a-tag saver)
+                          (eql a-db  db))
       ;; We are the only one that knows the identity of saver, so this
       ;; can't be forged by malicious clients. Also, a-db will only
       ;; eql db if there have been no updates within the last 10 sec.
@@ -59,7 +59,7 @@
 
 (∂ (nascent-database-beh custs saver)
   (alambda
-   ((a-tag db) when (eql a-tag saver)
+   ((a-tag db) / (eql a-tag saver)
     ;; We are the only one that knows the identity of saver. So this
     ;; message could not have come from anywhere except saver itself.
     (let ((tag-commit (tag self))
@@ -84,7 +84,7 @@
    ((:full-save)
     (full-save path last-db))
 
-   ((new-db) when (not (eql new-db last-db))
+   ((new-db) / (not (eql new-db last-db))
     ;; The db gateway is the only one that knows saver's identity.
     ;; Don't bother doing anything unless the db has changed.
     (handler-case
@@ -249,20 +249,20 @@
 ;; more usable public face - can use ASK against this
 
 (deflex kvdb
-        (make-actor
-         (alambda
-          ((cust :lookup key . default)
-           (apply 'lookup cust key default))
-          
-          ((cust :add key val)
-           (add-rec cust key val))
-          
-          ((cust :remove key)
-           (remove-rec cust key))
-          
-          ((cust :req action-actor)
-           (repeat-send db))
-          )))
+  (make-actor
+   (alambda
+    ((cust :lookup key . default)
+     (apply 'lookup cust key default))
+    
+    ((cust :add key val)
+     (add-rec cust key val))
+    
+    ((cust :remove key)
+     (remove-rec cust key))
+    
+    ((cust :req action-actor)
+     (repeat-send db))
+    )))
 
 ;; -----------------------------------------------------------
 #|
