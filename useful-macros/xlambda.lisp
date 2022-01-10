@@ -7,6 +7,7 @@
 
 (in-package :xlambda)
 
+#|
 (defun is-underscore? (x)
   (and (symbolp x)
        (string= "_" (string x))))
@@ -64,5 +65,65 @@
   (wrap-bindings 'flet bindings body))
   
 (define-macro (define* name args &body body)
+  `(defun* ,name ,args ,@body))
+|#
+
+(∂ (is-underscore? x)
+  (and (symbolp x)
+       (string= "_" (string x))))
+
+(∂ (decl-us args)
+  (when (is-underscore? args)
+      `((declare (ignore ,args)))))
+
+(∂ (us-conv args)
+  (cond ((eq nil args)  nil)
+        ((symbolp args) `(&rest ,args))
+        (t              args)))
+
+(∂ (is-lambda-list-keyword arg)
+  (member arg lambda-list-keywords))
+
+(∂ (destr-lambda-list-p args)
+  (and (consp args)
+       (or (eq (car args) '&whole)
+           (lw:dotted-list-p args)
+           (some 'consp (subseq args 0
+                                (position-if #'is-lambda-list-keyword args))
+                 ))))
+
+(∂ (wrap-assembly name args &rest body)
+  (if (destr-lambda-list-p args)
+      (let ((g!args (gensym)))
+        (multiple-value-bind (body-forms decls docstr)
+            (um:parse-body body :documentation t)
+          `(,name (&rest ,g!args)
+                  ,@docstr
+                  (destructuring-bind ,args ,g!args
+                    ,@decls
+                    ,@body-forms))
+          ))
+    ;; else
+    `(,name ,(us-conv args) ,@(decl-us args) ,@body)))
+
+(∂ (wrap-bindings hd bindings body)
+  `(,hd ,(mapcar (λ (form)
+                   (apply #'wrap-assembly form))
+                 bindings)
+        ,@body))
+  
+(µ (lambda* args &body body)
+  (apply #'wrap-assembly 'lambda args body))
+  
+(µ (defun* name args &body body)
+  `(defun ,@(apply #'wrap-assembly name args body)))
+  
+(µ (labels* bindings &body body)
+  (wrap-bindings 'labels bindings body))
+  
+(µ (flet* bindings &body body)
+  (wrap-bindings 'flet bindings body))
+  
+(µ (define* (name . args) &body body)
   `(defun* ,name ,args ,@body))
 

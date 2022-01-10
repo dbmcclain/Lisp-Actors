@@ -24,6 +24,24 @@ THE SOFTWARE.
 
 (in-package "CL-USER")
 
+(defpackage #:def*
+  (:export
+   #:defun*
+   #:define
+   #:define*
+   #:define-macro
+   #:define-generic
+   #:define-method
+   #:lambda*
+   #:flet*
+   #:labels*
+   #:defun*
+   #:λ
+   #:λ*
+   #:µ
+   #:∂
+   ))
+
 (defpackage :xlambda
   (:use :cl :def*)
   (:export

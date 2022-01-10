@@ -3,51 +3,47 @@
 ;; DM/RAL 02/21
 ;; ----------------------------------
 
-(defpackage #:def*
-  (:export
-   #:defun*
-   #:define
-   #:define*
-   #:define-macro
-   #:define-generic
-   #:define-method
-   #:lambda*
-   #:flet*
-   #:labels*
-   #:defun*
-   #:λ
-   #:λ*
-   ))
-
 (in-package #:def*)
 
+(defmacro µ ((name . args) &body body)
+  `(defmacro ,name ,args ,@body))
+
+(µ (∂ (name . args) &body body)
+  `(defun ,name ,args ,@body))
+
+(µ (∂* (name . args) &body body)
+  `(defun* ,name ,args ,@body))
+
 #||#
-(defmacro λ (&body body)
+(µ (λ &body body)
   `(lambda ,@body))
 
-(defmacro λ* (&body body)
+(µ (λ* &body body)
   `(lambda* ,@body))
 #||#
 
 ;; Scheme did some things right...
-(defmacro define (item &body body)
+(µ (define item &body body)
   (if (consp item)
       `(defun ,(car item) ,(cdr item) ,@body)
     `(defparameter ,item ,@body)))
-
-(defmacro define-macro ((name &rest args) &body body)
+  
+(µ (define-macro (name . args) &body body)
   `(defmacro ,name ,args ,@body))
 
-(defmacro define-generic ((name &rest args) &body body)
+(µ (define-generic (name . args) &body body)
   `(defgeneric ,name ,args ,@body))
 
-(defmacro define-method ((name &rest args) &body body)
+(µ (define-method (name . args) &body body)
   (if (keywordp (car args))
       `(defmethod ,name ,(car args) ,(cdr args) ,@body)
     `(defmethod ,name ,args ,@body)))
 
 (progn
   (editor:bind-string-to-key "λ" #\not-sign) ;; Option-L on Mac keyboard
+  (editor:setup-indent "µ" 1)
+  (editor:setup-indent "∂" 1)
+  (editor:setup-indent "∂*" 1)
   (editor:setup-indent "λ" 1)
   (editor:setup-indent "λ*" 1)
   (editor:setup-indent "define" 1)

@@ -27,7 +27,9 @@ THE SOFTWARE.
   :version     "1.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2008 by Refined Audiometrics Laboratory, LLC. All rights reserved."
-  :components  ((:file "def-extensions")
+  :components  ((:file "packages")
+                (:file "eval-always")
+                (:file "def-extensions")
 
                 #+:CLOZURE (:file "clozure-compat")
   	        #+:SBCL    (:file "sbcl-compat")
@@ -38,8 +40,6 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
                 #+:LISPWORKS (:file "editor-extensions")
 
-                (:file "packages")
-                (:file "eval-always")
                 (:file "deflex")
                 (:file "encaps-type")
                 (:file "clc")

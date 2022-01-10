@@ -50,6 +50,7 @@ THE SOFTWARE.
    #:match-fail)
 
   (:export
+   #:α
    #:ret
    #:ret*
    #:γlambda

@@ -228,3 +228,16 @@
 
 ;; ----------------------------------------------------
 
+(µ (α args &body body)
+  ;; α is to actor, what λ is to lambda
+  `(actor ,args ,@body))
+
+(µ (β args form &body body)
+  ;; β is to beta
+  `(let ((β  (α ,args ,@body)))
+     ,form))
+
+(editor:setup-indent "α" 1)
+(editor:indent-like "β" 'destructuring-bind)
+
+
