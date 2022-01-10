@@ -64,9 +64,10 @@ THE SOFTWARE.
 ;; -------------------------------------------------
 ;; what to hash of various types
 
+#|
 (defmethod hashable (x)
   (loenc:encode x))
-
+|#
 #||#
 (defgeneric hashable (x)
   (:method ((x ub8v-obj))
@@ -82,7 +83,7 @@ THE SOFTWARE.
   (:method ((x string))
    (hashable (map 'vector 'char-code x)))
   (:method ((x symbol))
-   (hashable (symbol-name x)))
+   (hashable (prin1-to-string x)))
   (:method ((x pathname))
    (hashable (namestring x)))
   (:method (x)
@@ -234,7 +235,7 @@ THE SOFTWARE.
         ((>= offs nel) bytevec)
       (let ((mask  (vec (hash/256 ekey offs))))
         (adjust-array ovly (min 32 (- nel offs))
-                      :displaced-to bytevec  ;; now req'd in LW 8.0
+                      :displaced-to bytevec
                       :displaced-index-offset offs)
         (map-into ovly #'logxor ovly mask))
       )))
