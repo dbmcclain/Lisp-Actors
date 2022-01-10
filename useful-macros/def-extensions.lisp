@@ -100,27 +100,11 @@ arguments when given."
 (µ (∂ (name . args) &body body)
   `(defun* ,name ,args ,@body))
 
-#|
-(µ (∂ (name . args) &body body)
-  `(defun ,name ,args ,@body))
-
-(µ (∂* (name . args) &body body)
-  `(defun* ,name ,args ,@body))
-|#
-
 (µ (lambda* args &body body)
   (apply #'wrap-assembly 'lambda args body))
   
 (µ (λ &body body)
   `(lambda* ,@body))
-
-#|
-(µ (λ &body body)
-  `(lambda ,@body))
-
-(µ (λ* &body body)
-  `(lambda* ,@body))
-|#
 
 ;; Scheme did some things right...
 (µ (define item &body body)
