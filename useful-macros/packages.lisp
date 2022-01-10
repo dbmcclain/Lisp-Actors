@@ -37,20 +37,12 @@ THE SOFTWARE.
    #:labels*
    #:defun*
    #:λ
-   #:λ*
    #:µ
    #:∂
+   #:parse-body
+   #:is-underscore?
+   #:is-lambda-list-keyword?
    ))
-
-(defpackage :xlambda
-  (:use :cl :def*)
-  (:export
-   :defun*
-   :lambda*
-   :λ*
-   :labels*
-   :flet*
-   :define*))
 
 (defpackage :lambda-parsing
   (:use :cl)
@@ -1024,11 +1016,22 @@ THE SOFTWARE.
    #:sepi
    #:sepfp
 
-   :defun*
-   :lambda*
-   :λ*
-   :labels*
-   :flet*
+   #:defun*
+   #:define
+   #:define*
+   #:define-macro
+   #:define-generic
+   #:define-method
+   #:lambda*
+   #:flet*
+   #:labels*
+   #:defun*
+   #:λ
+   #:µ
+   #:∂
+   #:parse-body
+   #:is-underscore?
+   #:is-lambda-list-keyword?
 
    :->
    :_>

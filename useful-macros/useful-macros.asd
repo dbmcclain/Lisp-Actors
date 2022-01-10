@@ -46,12 +46,10 @@ THE SOFTWARE.
                 (:file "sharp-f")
                 (:file "stub-functions")
                 (:file "basic-useful")
-                ;; (:file "lambda-parsing")
+
                 (:file "nbr-cpus")
                 (:file "dflet")
-                (:file "parse-body")
-                (:file "xlambda")
-                ;; (:file "xlambda-part2")
+
                 (:file "timeout")
                 (:file "dynamic-wind")
 		(:file "comprehensions")

@@ -5,11 +5,6 @@
 
 (in-package :list-match)
 
-(defun dont-care-p (sym)
-  #F
-  (and (symbolp sym)
-       (string= sym "_")))
-
 (defun match-pat (msg pat)
   ;; collect binding values in reverse order
   #F
@@ -17,11 +12,11 @@
                  (msg  msg)
                  (vals nil))
     (cond  ((atom pat) ;; NIL (as in ENDP) is also an atom
-            (cond ((null pat)         (values (null msg) vals)) ;; NIL is also a symbol (!!)
-                  ((dont-care-p pat)  (values t vals))
-                  ((keywordp pat)     (values (eql msg pat) vals))
-                  ((symbolp pat)      (values t (cons msg vals)))
-                  (t                  (values (equalp msg pat) vals))
+            (cond ((null pat)               (values (null msg) vals)) ;; NIL is also a symbol (!!)
+                  ((um:is-underscore? pat)  (values t vals))
+                  ((keywordp pat)           (values (eql msg pat) vals))
+                  ((symbolp pat)            (values t (cons msg vals)))
+                  (t                        (values (equalp msg pat) vals))
                   ))
            ((eql 'quote (car pat))
             (values (equalp msg (cadr pat)) vals))
@@ -61,11 +56,11 @@
                  (args nil)
                  (lsts nil))
     (cond ((atom pat)
-           (cond ((null pat)        (values args lsts))
-                 ((dont-care-p pat) (values args lsts))
-                 ((keywordp pat)    (values args lsts))
-                 ((symbolp pat)     (values (cons pat args) lsts))
-                 (t                 (values args lsts))
+           (cond ((null pat)              (values args lsts))
+                 ((um:is-underscore? pat) (values args lsts))
+                 ((keywordp pat)          (values args lsts))
+                 ((symbolp pat)           (values (cons pat args) lsts))
+                 (t                       (values args lsts))
                  ))
           ((eql 'quote (car pat))    (values args lsts))
           ((eql 'function (car pat)) (values args lsts))
@@ -76,7 +71,7 @@
                  (iter hd args lsts)
                (when (and tl
                           (symbolp tl)
-                          (not (dont-care-p tl)))
+                          (not (um:is-underscore? tl)))
                  (push tl new-lsts))
                (go-iter tl new-args new-lsts)
                )))
@@ -89,9 +84,6 @@
 (defun duplicates-exist-p (lst)
   (let ((nel (length lst)))
     (not (eql nel (length (remove-duplicates lst))))))
-
-(defun lambda-list-keyword-p (arg)
-  (member arg lambda-list-keywords))
 
 (defun transform-&rest (pat)
   ;; It is an all too easy mistake to make in writing patterns, that
@@ -116,7 +108,7 @@
           (collect-args pat)
         (when (duplicates-exist-p args)
           (warn "duplicate binding names in match pattern: ~A" args))
-        (when (some 'lambda-list-keyword-p args)
+        (when (some 'um:is-lambda-list-keyword? args)
           (warn "lambda list keywords are not valid pattern elements"))
         (when (member (car body) '(when /))
           (setf tst  `(lambda ,args
