@@ -35,7 +35,7 @@ THE SOFTWARE.
                 
                 #+:LISPWORKS (:file "underscore")
 
-                ;; #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
+                #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
                 #+:LISPWORKS (:file "editor-extensions")
 
                 (:file "packages")
@@ -59,7 +59,7 @@ THE SOFTWARE.
                 ;; (:file "freev")
                 #+(AND :COM.RAL :LISPWORKS) (:file "safe-call-system")
 
-                ;; (:file "hierarchical-packages")
+                (:file "hierarchical-packages")
                 (:file "package-aliases")
 
                 (:file "nlet")

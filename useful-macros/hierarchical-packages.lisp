@@ -41,8 +41,7 @@ THE SOFTWARE.
   (let ((name (cond ((packagep name)
                      (package-name name))
                     ((stringp name)
-                     #+:LISPWORKS (string-upcase name)
-                     #-:LISPWORKS name)
+                     (correct-for-symbol-character-case name))
                     (t
                      (string name))
                     )))
@@ -124,7 +123,7 @@ THE SOFTWARE.
   ;; used by editor to set buffer package
   (declare (optimize speed))
   ;; (format t "find-package-without-lod: ~S" (editor:variable-value 'editor::current-package) )
-  (or (lw:call-next-advice)
+  (or (lw:call-next-advice name)
       (lw:call-next-advice (package-relative-name name))))
 
 ;; ------------------------------------------------------------

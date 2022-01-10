@@ -10,6 +10,7 @@
 ;;; Y 6Oct95 symbol-name$symbol -> sys::symbol-name$symbol 
 ;;; Y 27Jan97 use string= and don't call editor-string
 
+#+:LISPWORKS7
 (setf (symbol-function 'complete-symbol)
       (lambda (symbol &key
                       predicate 
