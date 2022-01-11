@@ -1,3 +1,18 @@
+--- A Mental Model of an Ideal Actor Machine
+---
+It can be helpful to keep in mind, as you write Actors code, a mental picture of the ideal Actor machine model. In this machine there are only 3 operations: CREATE, SEND, BECOME, plus Actor activation from message events carrying arguments.
+
+The machine, unlike a typical CPU, takes its instruction stream from a FIFO queue, not linear memory. So the PC (program counter) is not used here. The FIFO queue is affected by SEND operations becoming committed. We do have pattern matching, variable binding, conditional execution (IF), and basic blocks of instructions. But even these could be synthesized from a pure Actor machine sending messages to micro-Actors.
+
+Within an Actor body, all operations within a program block (e.g., LET, PROGN, COND clauses) effectively execute in parallel. All happen at the same logical instant of time. The code is FPL pure, and so ordering of operations within program blocks is irrelevant. There is no SETF operation. Variables are bound just once and are foreverafter immutable.
+
+The three operations (CREATE, SEND, BECOME) are staged for commit at the successful end of the Actor execution. On commit, SEND's add their messages to the FIFO queue, BECOME mutates the Actor behavior *(this is the sole mutation in the entire system)*, and CREATE reifies new Actors. But unless you tell someone about the newly CREATEd Actors, by SENDing a message containing a reference to them - either as SEND target or as messaage argument, they will simply vanish and become collected by the GC.
+
+Failed Actor execution causes staged operations to be rolled back. On rollback, no observable change will have occurred to the Actor - the SENDs will be cancelled, the BECOMEs also cancelled, and the CREATEs cannot be seen by anything external to the Actor. The garbage collector will reclaim the messages constructed by SENDs, and Actors constructed from CREATEs. It will be as though the errant message were never delivered.
+
+Such a machine is very unlike what we are accustomed to today. Perhaps someday such a machine will exist in Silicon. Today we have to emulate its behavior using lambda calculus. And of course, in the underlying microcode of the emulator you find plenty of use for SETF and mutation. But externally, these are not visible.
+
+
 --- Important References
 ---
 Carl Hewitt (2012 ?) writing about the essential characteristics of what I refer to as "Classical Actors":
