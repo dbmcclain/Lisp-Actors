@@ -2,7 +2,9 @@
 ---
 It can be helpful to keep in mind, as you write Actors code, a mental picture of the ideal Actor machine model. In this machine there are only 3 operations: CREATE, SEND, BECOME, plus Actor activation from message events carrying arguments.
 
-The machine, unlike a typical CPU, takes its instruction stream from a FIFO queue, not linear memory. So the PC (program counter) is not used here. The FIFO queue is affected by SEND operations becoming committed. An "Instruction Cycle" consists of sending the next message to an Actor and running the Actor body. Within an Actor we do have pattern matching, variable binding, conditional execution (IF), and basic blocks of instructions. But even these could be synthesized from a pure Actor machine sending messages to micro-Actors.
+The machine, unlike a typical CPU, takes its instruction stream from a FIFO queue, not linear memory. So the PC (program counter) is not used here. The FIFO queue is affected by SEND operations becoming committed. An "Instruction Cycle" consists of sending the next message to an Actor and running the Actor body. 
+
+There is no CALL/RETURN, except possibly at the microcode level. Within an Actor we do have pattern matching, variable binding, conditional execution (IF), and basic blocks of instructions. But even these could be synthesized from a pure Actor machine sending messages to micro-Actors.
 
 Within an Actor body, all operations within a program block (e.g., LET, PROGN, COND clauses) effectively execute in parallel. All happen at the same logical instant of time. The code is FPL pure, and so ordering of operations within program blocks is irrelevant. There is no SETF operation. Variables are bound just once and are foreverafter immutable.
 
