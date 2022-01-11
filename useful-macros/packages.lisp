@@ -26,12 +26,13 @@ THE SOFTWARE.
 
 (defpackage #:def*
   (:export
-   #:defun*
+   #|
    #:define
    #:define*
    #:define-macro
    #:define-generic
    #:define-method
+   |#
    #:lambda*
    #:flet*
    #:labels*
@@ -1015,12 +1016,13 @@ THE SOFTWARE.
    #:sepi
    #:sepfp
 
-   #:defun*
+   #|
    #:define
    #:define*
    #:define-macro
    #:define-generic
    #:define-method
+   |#
    #:lambda*
    #:flet*
    #:labels*

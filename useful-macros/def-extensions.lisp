@@ -11,15 +11,17 @@
   (editor:setup-indent "µ" 1)
   (editor:setup-indent "∂" 1)
   (editor:setup-indent "λ" 1)
+  #|
   (editor:setup-indent "define" 1)
+  (editor:setup-indent "define*" 1)
   (editor:setup-indent "define-macro" 1)
   (editor:setup-indent "define-generic" 1)
   (editor:setup-indent "define-method" 1)
+  |#
   (editor:setup-indent "lambda*" 1 2 8)
   (editor:setup-indent "defun*"  2 2 7)
   (editor:setup-indent "labels*" 1 2 4 'flet)
   (editor:setup-indent "flet*"   1 2 4 'flet)
-  (editor:setup-indent "define*" 1)
   (editor:setup-indent "deflex" 1 2 4))
 
 ;; --------------------------------------------------
@@ -128,7 +130,8 @@ arguments when given."
 
 (µ lambda* (args &body body)
   (apply #'wrap-assembly 'lambda args body))
-  
+
+#|
 (µ define (item &body body)
   (if (consp item)
       `(defun ,(car item) ,(cdr item) ,@body)
@@ -147,6 +150,7 @@ arguments when given."
   (if (keywordp (car args))
       `(defmethod ,name ,(car args) ,(cdr args) ,@body)
     `(defmethod ,name ,args ,@body)))
+|#
 
 (µ labels* (bindings &body body)
   (wrap-bindings 'labels bindings body))

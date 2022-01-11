@@ -4,7 +4,7 @@
 
 ;; ---------------------------------------------------------
 
-(define (utf-8-encoding char-code)
+(defun utf-8-encoding (char-code)
   (cond ((< char-code #x80)
          (list char-code))
         ((< char-code #x800)
@@ -31,16 +31,16 @@
                   (ldb (byte 6 0) char-code))))
         ))
 
-(define (utf-8-code-chars char-code)
+(defun utf-8-code-chars (char-code)
   (let ((codes (utf-8-encoding char-code)))
     (map-into codes #'code-char codes)))
 
 ;; ---------------------------------------------
 
-(define-macro (dostring (ch str) &body body)
+(defmacro dostring ((ch str) &body body)
   `(loop for ,ch across ,str do ,@body))
 
-(define-macro (dovector (x vec) &body body)
+(defmacro dovector ((x vec) &body body)
   `(loop for ,x across ,vec do ,@body))
 
 #+:LISPWORKS
@@ -50,7 +50,7 @@
 
 ;; ---------------------------------------------
 
-(define (encstr str)
+(defun encstr (str)
   ;; use embedded !n, !r, !p, !t, !xnnnn, !!
   (with-output-to-string (s nil
                             :element-type 'character)
@@ -133,7 +133,7 @@
 ;; ---------------------------------------------
 ;; SBS - convert string to UTF-8 simple-base-string
 
-(define-generic (sbs str)
+(defgeneric sbs (str)
   (:method (str)
    str)
   (:method ((str string))
@@ -152,7 +152,7 @@
 ;; ---------------------------------------------
 ;; UCS - convert UTF-8 string to Unicode
 
-(define-generic (ucs str)
+(defgeneric ucs (str)
   (:method ((str string))
    str)
   (:method ((str simple-base-string))
