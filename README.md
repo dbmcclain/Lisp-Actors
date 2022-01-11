@@ -16,6 +16,10 @@ Notice that there is no mention of threads. No such concept is needed. And you c
 
 Such a machine is very unlike what we are accustomed to today. Perhaps someday such a machine will exist in Silicon. Today we have to emulate its behavior using lambda calculus. And of course, in the underlying microcode of the emulator you find plenty of use for SETF and mutation, and machine threads. We do have operation ordering. Not everything happens at the same physical instant of time. But externally, these are not visible.
 
+It might well happen that Lisp is the ideal implementation language for Actor machine emulators. Actors are untyped. BECOME requires the formation of functional closures which get stored in the behavior slot of Actors. Certainly, micro-ops in the Actor bodies can be typed with respect to their required arguments, or dynamically typed as with Lisp. CALL/RETURN is useful in the Actor bodies for performing assembly of new messages and state vectors. But the overriding important capability is that of forming functional closures on demand - lambda forms in Lisp, capturing whatever free variables are needed in the lambda form body.
+
+As I look around at the new iterations of languages, C++, Swift, Rust - none of these implement functional closures to the level of completeness, nor as succinctly as what you find in Lisp. There always seem to be a list of gotchas about using closures in those languges. There never is in Lisp.
+
 
 --- Important References
 ---
