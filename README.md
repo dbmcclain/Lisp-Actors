@@ -1,3 +1,17 @@
+--- Important References
+---
+Carl Hewitt (2009) writing about the essential characteristics of what I refer to as "Classical Actors":
+https://arxiv.org/pdf/1008.1459.pdf
+
+These are *not* the kinds of "Actors" you find in my earliest works, nor in Swift, nor in just about every other extant system called "Actors". It is Hewitt's contention that Actors form a more universal description of computing than the lambda calculus, simply because they represent the first instance of a computational system that cannot be described by lambda calculus. 
+
+My own experience with Classical Actors is that they allow for breathtaking simplification of complex systems: an example is the remote radio control system in my laboratory here, and also in the asynchronous secure network (socket) interface distributed in the code found in folder xTActors.
+
+Dale Shcumacher's website is an important elicidation of the concepts discussed in Carl Hewitt's paper above:
+http://www.dalnefre.com/wp/
+
+
+
 --- New Ideas on Classical Actors (2022/01/06)
 ---
 Since the benefits of FPL pure Actors are so great, there is really no reason to avoid running Actors entirely in parallel. But there is still one race condition that can arise because ultimately the effect of BECOME is to mutate the behavior slot of an Actor. Now we can avoid that race condition entirely by demanding that Actors can run in only one thread at a time. Or else, we can adopt some of the ideas from Lock-Free programming, and enjoy the benefits of maximum parallel execution.
