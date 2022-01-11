@@ -7,7 +7,7 @@ These are *not* the kinds of "Actors" you find in my earliest works, nor in Swif
 
 My own experience with Classical Actors is that they allow for breathtaking simplification of complex systems: an example is the remote radio control system in my laboratory here, and also in the asynchronous secure network (socket) interface distributed in the code found in folder xTActors.
 
-Dale Shcumacher's website is an important elucidation of the concepts discussed in Carl Hewitt's paper above:
+Dale Schumacher's website is an important elucidation of the concepts discussed in Carl Hewitt's paper above:
 http://www.dalnefre.com/wp/
 
 Dale, mentioned in Hewitt's paper, is one of many collaborators with Hewitt in helping to refine the meaning of Actors computation.
