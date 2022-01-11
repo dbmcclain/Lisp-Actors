@@ -12,7 +12,7 @@ The three operations (CREATE, SEND, BECOME) are staged for commit at the success
 
 Failed Actor execution causes staged operations to be rolled back. On rollback, no observable change will have occurred to the Actor - the SENDs will be cancelled, the BECOMEs also cancelled, and the CREATEs cannot be seen by anything external to the Actor. The garbage collector will reclaim the messages constructed by SENDs, and Actors constructed from CREATEs. It will be as though the errant message were never delivered.
 
-Notice that there is no mention of threads. No such concept is needed.
+Notice that there is no mention of threads. No such concept is needed. But you cannot depend on specific ordering of message delivery. In some cases, messages will never be delivered - think about the behavior of real networks as the medium for message delivery. And you have to take active measures to protect order sensitive clusters of Actors against concurrent activities. That requires a different way of thinking about coding.
 
 Such a machine is very unlike what we are accustomed to today. Perhaps someday such a machine will exist in Silicon. Today we have to emulate its behavior using lambda calculus. And of course, in the underlying microcode of the emulator you find plenty of use for SETF and mutation, and machine threads. We do have operation ordering. Not everything happens at the same physical instant of time. But externally, these are not visible.
 
