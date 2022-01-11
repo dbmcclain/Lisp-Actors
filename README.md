@@ -1,6 +1,7 @@
 --- Important References
 ---
 Carl Hewitt (2012 ?) writing about the essential characteristics of what I refer to as "Classical Actors":
+
 https://arxiv.org/pdf/1008.1459.pdf
 
 These are *not* the kinds of "Actors" you find in my earliest works, nor in Swift, nor in just about every other extant system called "Actors". It is Hewitt's contention that Actors form a more universal description of computing than lambda calculus, simply because they (Actors concurrency) represent an instance of a computational system that cannot be described by lambda calculus. 
@@ -8,11 +9,13 @@ These are *not* the kinds of "Actors" you find in my earliest works, nor in Swif
 My own experience with Classical Actors is that they allow for breathtaking simplification of complex systems: an example is the remote radio control system in my laboratory here, and also in the asynchronous secure network (socket) interface distributed in the code found in folder xTActors.
 
 Dale Schumacher's website is an important elucidation of the concepts discussed in Carl Hewitt's paper above:
+
 http://www.dalnefre.com/wp/
 
 Dale, mentioned in Hewitt's paper, is one of many collaborators with Hewitt in helping to refine the meaning of Actors computation.
 
 Microsoft Research has been actively pursuing Actors, in particular their framework called Orleans:
+
 https://docs.microsoft.com/en-us/shows/reactor/an-introduction-to-orleans
 
 https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Orleans-MSR-TR-2014-41.pdf
