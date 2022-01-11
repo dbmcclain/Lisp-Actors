@@ -14,6 +14,7 @@ Dale, mentioned in Hewitt's paper, is one of many collaborators with Hewitt in h
 
 Microsoft Research has been actively pursuing Actors, in particular their framework called Orleans:
 https://docs.microsoft.com/en-us/shows/reactor/an-introduction-to-orleans
+
 https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Orleans-MSR-TR-2014-41.pdf
 
 --- New Ideas on Classical Actors (2022/01/06)
