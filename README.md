@@ -3,7 +3,7 @@
 Carl Hewitt (2012 ?) writing about the essential characteristics of what I refer to as "Classical Actors":
 https://arxiv.org/pdf/1008.1459.pdf
 
-These are *not* the kinds of "Actors" you find in my earliest works, nor in Swift, nor in just about every other extant system called "Actors". It is Hewitt's contention that Actors form a more universal description of computing than the lambda calculus, simply because they represent the first instance of a computational system that cannot be described by lambda calculus. 
+These are *not* the kinds of "Actors" you find in my earliest works, nor in Swift, nor in just about every other extant system called "Actors". It is Hewitt's contention that Actors form a more universal description of computing than lambda calculus, simply because they (Actors concurrency) represent an instance of a computational system that cannot be described by lambda calculus. 
 
 My own experience with Classical Actors is that they allow for breathtaking simplification of complex systems: an example is the remote radio control system in my laboratory here, and also in the asynchronous secure network (socket) interface distributed in the code found in folder xTActors.
 
