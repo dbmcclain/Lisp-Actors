@@ -12,6 +12,8 @@ http://www.dalnefre.com/wp/
 
 Dale, mentioned in Hewitt's paper, is one of many collaborators with Hewitt in helping to refine the meaning of Actors computation.
 
+Microsoft Research has been actively pursuing Actors, in particular their framework called Orleans:
+https://docs.microsoft.com/en-us/shows/reactor/an-introduction-to-orleans
 
 
 --- New Ideas on Classical Actors (2022/01/06)
