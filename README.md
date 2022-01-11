@@ -10,7 +10,7 @@ My own experience with Classical Actors is that they allow for breathtaking simp
 Dale Shcumacher's website is an important elucidation of the concepts discussed in Carl Hewitt's paper above:
 http://www.dalnefre.com/wp/
 
-Dale, mentioned in Hewitts paper, is one of many collaborators with Hewitt in helping to refine the meaning of Actors computation.
+Dale, mentioned in Hewitt's paper, is one of many collaborators with Hewitt in helping to refine the meaning of Actors computation.
 
 
 
