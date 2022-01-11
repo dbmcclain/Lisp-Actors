@@ -20,6 +20,8 @@ https://docs.microsoft.com/en-us/shows/reactor/an-introduction-to-orleans
 
 https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Orleans-MSR-TR-2014-41.pdf
 
+While Orleans shows clear heritage from the Actors world, it also shows distinctly OOPL design, and clearly does not abide by the notion of FPL purity inside the Actors. I can't say what their SEND/BECOME behavior is, whether transactional or not. But it appears much less fluid that my Classical Actors whose existence can range from single-message ephemeral, to permanent, and which never have a rigid OOPL Class structure. Classical Actors have no "Methods". They simply respond to message patterns, or not. There is no need on the part of Senders to know anything at all about what the recipient Actor looks like, nor in many instances what its purpose is. The recipient is just some Customer to which an Actor has been directed to send its computed results, based on whatever message it is handling.
+
 --- New Ideas on Classical Actors (2022/01/06)
 ---
 Since the benefits of FPL pure Actors are so great, there is really no reason to avoid running Actors entirely in parallel. But there is still one race condition that can arise because ultimately the effect of BECOME is to mutate the behavior slot of an Actor. Now we can avoid that race condition entirely by demanding that Actors can run in only one thread at a time. Or else, we can adopt some of the ideas from Lock-Free programming, and enjoy the benefits of maximum parallel execution.
