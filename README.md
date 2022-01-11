@@ -1,3 +1,27 @@
+--- Important References
+---
+Carl Hewitt (2012 ?) writing about the essential characteristics of what I refer to as "Classical Actors":
+
+https://arxiv.org/pdf/1008.1459.pdf
+
+These are *not* the kinds of "Actors" you find in my earliest works, nor in Swift, nor in just about every other extant system called "Actors". It is Hewitt's contention that Actors form a more universal description of computing than lambda calculus, simply because they (Actors concurrency) represent an instance of a computational system that cannot be described by lambda calculus. 
+
+My own experience with Classical Actors is that they allow for breathtaking simplification of complex systems: an example is the remote radio control system in my laboratory here, and also in the asynchronous secure network (socket) interface distributed in the code found in folder xTActors.
+
+Dale Schumacher's website is an important elucidation of the concepts discussed in Carl Hewitt's paper above:
+
+http://www.dalnefre.com/wp/
+
+Dale, mentioned in Hewitt's paper, is one of many collaborators with Hewitt in helping to refine the meaning of Actors computation.
+
+Microsoft Research has been actively pursuing Actors, in particular their framework called Orleans:
+
+https://docs.microsoft.com/en-us/shows/reactor/an-introduction-to-orleans
+
+https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/Orleans-MSR-TR-2014-41.pdf
+
+While Orleans shows clear heritage from the Actors world, it also shows distinctly OOPL design, and clearly does not abide by the notion of FPL purity inside the Actors. I can't say what their SEND/BECOME behavior is, whether transactional or not. But it appears much less fluid than my Classical Actors whose existence can range from single-message ephemeral, to permanent, and which never have a rigid OOPL Class structure. Classical Actors have no "Methods". They simply respond to message patterns, or not. There is no need on the part of Senders to know anything at all about what the recipient Actor looks like, nor in many instances what its purpose is. The recipient is often just some Customer to which an Actor has been directed to send its computed results, based on whatever message it is handling.
+
 --- New Ideas on Classical Actors (2022/01/06)
 ---
 Since the benefits of FPL pure Actors are so great, there is really no reason to avoid running Actors entirely in parallel. But there is still one race condition that can arise because ultimately the effect of BECOME is to mutate the behavior slot of an Actor. Now we can avoid that race condition entirely by demanding that Actors can run in only one thread at a time. Or else, we can adopt some of the ideas from Lock-Free programming, and enjoy the benefits of maximum parallel execution.
