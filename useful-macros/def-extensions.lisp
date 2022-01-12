@@ -123,6 +123,15 @@ arguments when given."
 (defmacro λ (args &body body)
   `(lambda* ,args ,@body))
 
+(dspec:define-dspec-alias µ (name)
+  `(defmacro ,name))
+
+(dspec:define-dspec-alias ∂ (name)
+  `(defun ,name))
+
+(dspec:define-dspec-alias defun* (name)
+  `(defun ,name))
+
 ;; ---------------------------------------
 
 (µ defun* (name args &body body)

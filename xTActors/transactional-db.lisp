@@ -62,7 +62,7 @@
     (send trimmer saver :full-save db))
    ))
 
-(defun nascent-database-beh (msgs tag saver)
+(defun nascent-database-beh (tag saver msgs)
   (alambda
    ;; -------------------
    ;; We are the only one that knows the identity of tag and saver. So
@@ -77,7 +77,7 @@
    ;; -------------------
    ;; accumulate client requests until we open for business
    (msg
-    (become (nascent-database-beh (cons msg msgs) tag saver)))
+    (become (nascent-database-beh tag saver (cons msg msgs) )))
    ))
 
 ;; -----------------------------------------------------------
@@ -212,7 +212,7 @@
     (let ((tag   (tag self))
           (saver (serializer (make-actor (unopened-database-beh)))))
       (send saver tag :open path)
-      (become (nascent-database-beh nil tag saver))
+      (become (nascent-database-beh tag saver nil))
       (repeat-send self))))
 
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
