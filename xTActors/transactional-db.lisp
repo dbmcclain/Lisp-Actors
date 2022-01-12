@@ -185,10 +185,9 @@
   (loenc:decode (loenc:encode obj)))
 
 (defun get-diffs (old-db new-db)
-  (let* ((removals  (maps:fold (sets:diff old-db new-db)
-                               (λ (k _ acc)
-                                 (cons k acc))
-                               nil))
+  (let* ((removals  (mapcar 'maps:map-cell-key
+                            (sets:elements
+                             (sets:diff old-db new-db))))
          (additions (maps:fold (sets:diff new-db old-db) 'acons nil))
          (changes   (maps:fold new-db
                                (λ (k v accu)
@@ -199,7 +198,7 @@
                                          )))
                                nil))
          (log       (list
-                     (nreverse removals)
+                     removals
                      (nreverse additions)
                      (nreverse changes))))
     (send writeln log)
