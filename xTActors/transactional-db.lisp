@@ -1,4 +1,4 @@
-;; transactional-db.lisp -- transactional database processing in Actors
+ ;; transactional-db.lisp -- transactional database processing in Actors
 ;;
 ;; DM/RAL 12/21
 ;; ----------------------------------------------------------------------
@@ -20,47 +20,47 @@
   (α (cust db)
     (send cust (remove-unstorable db))))
 
-(∂ trans-gate-beh (tag-commit tag-rollback saver db)
-  (flet ((try (cust target args)
-           (send* target db tag-commit tag-rollback cust target args)))
-    (alambda
-     ;; -------------------
-     ;; general entry for external clients
-     ((cust :req target . args)
-      (try cust target args))
-     
-     ;; -------------------
-     ;; client called the commit portal
-     ((a-tag db-old db-new cust retry-target . args) / (eql a-tag tag-commit)
-      (cond ((eql db-old db) ;; commit consistency?
-             (unless (eql db-old db-new) ;; anything changed?
-               (let ((versioned-db (maps:add db-new 'version (uuid:make-v1-uuid))))
-                 ;; version key = 'com.ral.actors.kv-database::version
-                 (become (trans-gate-beh tag-commit tag-rollback saver versioned-db))
-                 (send-after 10 self saver versioned-db)))
-             (send cust :ok))
-            
-            (t
-             (try cust retry-target args))
-            ))
-     
-     ;; -------------------
-     ;; client called the rollback portal
-     ((a-tag cust retry-target . args) / (eql a-tag tag-rollback)
-      (try cust retry-target args))
-     
-     ;; -------------------
-     ;; We are the only one that knows the identity of saver, so this
-     ;; can't be forged by malicious clients. Also, a-db will only
-     ;; eql db if there have been no updates within the last 10 sec.
-     ((a-tag a-db) / (and (eql a-tag saver)
-                          (eql a-db  db))
-      (send trimmer saver db))
+(∂ trans-gate-beh (saver db)
+  (alambda
+   ;; -------------------
+   ;; general entry for external clients
+   ((cust :req)
+    (send cust db))
 
-     ;; -------------------
-     (('maint-full-save)
-      (send saver :full-save))
-     )))
+   ;; -------------------
+   ;; commit after update
+   ((cust :commit old-db new-db retry)
+    (cond ((eql old-db db) ;; make sure we have correct version
+           (cond ((eql new-db db)
+                  ;; no real change
+                  (send cust new-db))
+                 
+                 (t
+                  ;; changed db, so commit new
+                  (let ((versioned-db (maps:add new-db 'version (uuid:make-v1-uuid))))
+                    ;; version key is actually 'com.ral.actors.kv-database::version
+                    (become (trans-gate-beh saver versioned-db))
+                    (send-after 10 self saver versioned-db)
+                    (send cust versioned-db)))
+                 ))
+          
+          (t
+           ;; had wrong version for old-db
+           (send retry db))
+          ))
+     
+   ;; -------------------
+   ;; We are the only one that knows the identity of saver, so this
+   ;; can't be forged by malicious clients. Also, a-db will only
+   ;; eql db if there have been no updates within the last 10 sec.
+   ((a-tag a-db) / (and (eql a-tag saver)
+                        (eql a-db  db))
+    (send trimmer saver db))
+   
+   ;; -------------------
+   (('maint-full-save)
+    (send saver :full-save))
+   ))
 
 (∂ nascent-database-beh (custs saver)
   (alambda
@@ -68,13 +68,10 @@
    ;; We are the only one that knows the identity of saver. So this
    ;; message could not have come from anywhere except saver itself.
    ((a-tag db) / (eql a-tag saver)
-    (let ((tag-commit (tag self))
-          (tag-retry  (tag self)))
-      (become (trans-gate-beh tag-commit tag-retry saver db))
-      ;; now open for business, resubmit pending client requests
-      (dolist (cust custs)
-        (send* self cust))
-      ))
+    (become (trans-gate-beh saver db))
+    ;; now open for business, resubmit pending client requests
+    (dolist (cust custs)
+      (send* self cust)))
    
    ;; -------------------
    ;; accumulate client requests until we open for business
@@ -206,9 +203,6 @@
 
 ;; -----------------------------------------------------------
 
-(defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
-                                    (sys:get-folder-path :appdata)))
-
 (∂ db-svc-init (path)
   (α _
     (let ((saver (make-actor (unopened-database-beh self))))
@@ -216,39 +210,42 @@
       (become (nascent-database-beh nil saver))
       (repeat-send self))))
 
-(deflex db   (db-svc-init *db-path*))
+(defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
+                                    (sys:get-folder-path :appdata)))
+
+(deflex dbmgr   (db-svc-init *db-path*))
 
 ;; -----------------------------------------------------------
 
 (∂ add-rec (cust key val)
-  (send db cust :req
-        (α (db commit _ . retry-info)
-          (send* commit db (maps:add db key val) retry-info))
-        ))
+  (β (db)
+      (send dbmgr β :req)
+    (send dbmgr cust :commit db (maps:add db key val) self)
+    ))
 
 (∂ remove-rec (cust key)
-  (send db cust :req
-        (α (db commit _  . retry-info)
-          (let* ((val    (maps:find db key self))
-                 (new-db (if (eql val self)
-                             db
-                           (maps:remove db key))))
-            (send* commit db new-db retry-info)))
-        ))
+  (β (db)
+      (send dbmgr β :req)
+    (let* ((val  (maps:find db key self))
+           (new-db (if (eql val self)
+                       db
+                     (maps:remove db key))))
+      (send dbmgr cust :commit db new-db self)
+      )))
 
 (∂ lookup (cust key &optional default)
-  (send db cust :req
-       (α (db . _)
-          (send cust (maps:find db key default)))
-        ))
+  (β (db)
+      (send dbmgr β :req)
+    (send cust (maps:find db key default))
+    ))
 
 (∂ show-db ()
-  (send db nil :req
-        (α (db . _)
-          (sets:view-set db))))
+  (β (db)
+      (send dbmgr β :req)
+    (sets:view-set db)))
 
 (∂ maint-full-save ()
-  (send db 'maint-full-save))
+  (send dbmgr 'maint-full-save))
 
 ;; ------------------------------------------------------------------
 ;; more usable public face - can use ASK against this
@@ -265,8 +262,12 @@
     ((cust :remove key)
      (remove-rec cust key))
     
-    ((cust :req action-actor)
-     (repeat-send db))
+    ((cust :req)
+     (repeat-send dbmgr))
+
+    ((cust :commit old-db new-db retry)
+     (declare (ignore cust old-db new-db retry))
+     (repeat-send dbmgr))
     )))
 
 ;; -----------------------------------------------------------
@@ -292,10 +293,10 @@
   (setf m (sets:add m :dave))
   (eql m (sets:add m :dave)))
 
-(send db nil :req
-      (α (db . _)
-        (maps:iter db (λ (k v)
-                        (send writeln (list k v))))))
+(β (db)
+    (send dbmgr β :req)
+  (maps:iter db (λ (k v)
+                  (send writeln (list k v)))))
 
 (let ((x '(1 2 3)))
   (send kvdb println :add :tst1 x)
