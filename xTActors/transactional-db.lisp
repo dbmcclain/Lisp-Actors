@@ -38,7 +38,8 @@
 ;; turn, requires that your senders provide a customer (even if SINK)
 ;; and that the resource Actor respond to the customer in every
 ;; situation, good or bad. This frees up the SERIALIZER for the next
-;; waiting activity.
+;; waiting activity, since it interposes between sender and resource
+;; Actor.
 ;;
 ;; (3) If you can't manage to produce FPL pure Actor code, then it too
 ;; needs to be driven from a SERIALIZER, and the same provisos about
