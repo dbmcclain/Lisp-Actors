@@ -1,3 +1,28 @@
+--- A Mental Model of an Ideal Actor Machine
+---
+It can be helpful to keep in mind, as you write Actors code, a mental picture of the ideal Actor machine model. In this machine there are only 3 operations: CREATE, SEND, BECOME, plus Actor activation from message events carrying arguments.
+
+The machine, unlike a typical CPU, takes its instruction stream from a FIFO queue, not linear memory. So the PC (program counter) is not used here. The FIFO queue is affected by SEND operations becoming committed. An "Instruction Cycle" consists of sending the next message to an Actor and running the Actor body. 
+
+There is no CALL/RETURN, except possibly at the microcode level. Actors can be told to send their result messages to some other Actor, e.g., CALL/FWD. Within an Actor we do have pattern matching, variable binding, conditional execution (IF), and basic blocks of instructions. But even these could be synthesized from a pure Actor machine sending messages to micro-Actors.
+
+Within an Actor body, all operations within a program block (e.g., LET, PROGN, COND clauses) effectively execute in parallel. All happen at the same logical instant of time. The code is FPL pure, and so ordering of operations within program blocks is irrelevant. There is no SETF operation. Variables are bound just once and are foreverafter immutable.
+
+The three operations (CREATE, SEND, BECOME) are staged for commit at the successful end of the Actor execution. On commit, SEND's add their messages to the FIFO queue, BECOME mutates the Actor behavior *(this is the sole mutation in the entire system)*, and CREATE reifies new Actors. But unless you tell someone about the newly CREATEd Actors, by SENDing a message containing a reference to them - either as SEND target or as message argument, or use them as arguments to a BECOME, they will simply vanish and become collected by the GC.
+
+Failed Actor execution causes staged operations to be rolled back. On rollback, no observable change will have occurred to the Actor - the SENDs will be cancelled, the BECOMEs also cancelled, and the CREATEs cannot be seen by anything external to the Actor. The garbage collector will reclaim the messages constructed by SENDs, and Actors constructed from CREATEs. It will be as though the errant message were never delivered.
+
+Notice that there is no mention of threads. No such concept is needed. And you cannot depend on specific ordering of message delivery. In some cases, messages might never be delivered - think about the behavior of real networks as the medium for message delivery. And you have to take active measures to protect order sensitive clusters of Actors against concurrent activities. That requires a different way of thinking about coding.
+
+Such a machine is very unlike what we are accustomed to today. Perhaps someday such a machine will exist in Silicon. Today we have to emulate its behavior using lambda calculus. And of course, in the underlying microcode of the emulator you find plenty of use for SETF and mutation, and machine threads. We do have operation ordering. Not everything happens at the same physical instant of time. But externally, these are not visible.
+
+It might well happen that Lisp is the ideal implementation language for Actor machine emulators. Actors are untyped. BECOME requires the formation of functional closures which get stored in the behavior slot of Actors. Messages are arbitrary lists or tuples of arguments, as are state vectors. 
+
+Certainly, micro-ops in the Actor bodies can be typed with respect to their required arguments, or dynamically typed as with Lisp. CALL/RETURN is useful in the Actor bodies for performing assembly of new messages and state vectors. But the overriding important capability is that of allowing arbitrary lists of arbitrary items, and forming functional closures on demand - lambda forms in Lisp, capturing whatever free variables are needed in the lambda form body.
+
+As I look around at the new iterations of languages: C++, Swift, Rust - none of these implement functional closures to the level of completeness, nor as succinctly as what you find in Lisp. There always seem to be a list of gotchas about using closures in those languges. There never is in Lisp. And you have to actively defeat the typing mechanisms in those languages to produce messages and state vectors.
+
+
 --- Important References
 ---
 Carl Hewitt (2012 ?) writing about the essential characteristics of what I refer to as "Classical Actors":
