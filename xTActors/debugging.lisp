@@ -45,6 +45,7 @@
 (defvar *atrace*  nil)
 
 (defun install-atrace ()
+  (setf *atrace* t)
   (lw:defadvice (send send-tracer :before)
       (&rest msg)
     (when *atrace*
@@ -60,6 +61,7 @@
         ))))
 
 (defun uninstall-atrace ()
+  (setf *atrace* nil)
   (hcl:delete-advice send send-tracer))
 
 (defun atrace (&optional (do-tracing t))

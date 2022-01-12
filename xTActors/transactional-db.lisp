@@ -1,4 +1,4 @@
- ;; transactional-db.lisp -- transactional database processing in Actors
+;; transactional-db.lisp -- transactional database processing in Actors
 ;;
 ;; DM/RAL 12/21
 ;; ----------------------------------------------------------------------
@@ -17,10 +17,10 @@
 (in-package com.ral.actors.kv-database)
   
 (deflex trimmer
-  (α (cust db)
-    (send cust (remove-unstorable db))))
+  (α (cust cmd db)
+    (send cust sink cmd (remove-unstorable db))))
 
-(∂ trans-gate-beh (saver db)
+(defun trans-gate-beh (saver db)
   (alambda
    ;; -------------------
    ;; general entry for external clients
@@ -55,44 +55,47 @@
    ;; eql db if there have been no updates within the last 10 sec.
    ((a-tag a-db) / (and (eql a-tag saver)
                         (eql a-db  db))
-    (send trimmer saver db))
+    (send trimmer saver :save-log db))
    
    ;; -------------------
    (('maint-full-save)
-    (send saver :full-save))
+    (send trimmer saver :full-save db))
    ))
 
-(∂ nascent-database-beh (custs saver)
+(defun nascent-database-beh (msgs tag saver)
   (alambda
    ;; -------------------
-   ;; We are the only one that knows the identity of saver. So this
-   ;; message could not have come from anywhere except saver itself.
-   ((a-tag db) / (eql a-tag saver)
+   ;; We are the only one that knows the identity of tag and saver. So
+   ;; this message could not have come from anywhere except saver
+   ;; itself.
+   ((a-tag :opened db) / (eql a-tag tag)
     (become (trans-gate-beh saver db))
     ;; now open for business, resubmit pending client requests
-    (dolist (cust custs)
-      (send* self cust)))
+    (dolist (msg msgs)
+      (send* self msg)))
    
    ;; -------------------
    ;; accumulate client requests until we open for business
    (msg
-    (become (nascent-database-beh (cons msg custs) saver)))
+    (become (nascent-database-beh (cons msg msgs) tag saver)))
    ))
 
 ;; -----------------------------------------------------------
 
 (defconstant +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
-(∂ save-database-beh (path last-db)
+(defun save-database-beh (path last-db)
   (alambda
    ;; -------------------
-   ((:full-save)
-    (full-save path last-db))
+   ((cust :full-save db)
+    (become (save-database-beh path db))
+    (full-save path db)
+    (send cust :ok))
 
    ;; -------------------
    ;; The db gateway is the only one that knows saver's identity.
    ;; Don't bother doing anything unless the db has changed.
-   ((new-db) / (not (eql new-db last-db))
+   ((cust :save-log new-db) / (not (eql new-db last-db))
     (handler-case
         (with-open-file (f path
                            :direction         :output
@@ -105,14 +108,15 @@
             ))
         (error ()
           (full-save path new-db)))
-    (become (save-database-beh path new-db)))
+    (become (save-database-beh path new-db))
+    (send cust :ok))
    ))
 
-(∂ unopened-database-beh (trans-gate)
+(defun unopened-database-beh ()
   (alambda
    ;; -------------------
    ;; message from kick-off starter routine
-   ((db-path)
+   ((cust :open db-path)
     (let ((db (maps:empty)))
       (handler-case
         (with-open-file (f db-path
@@ -151,10 +155,10 @@
         (error ()
           (full-save db-path (maps:empty))))
       (become (save-database-beh db-path db))
-      (send trans-gate self db)))
+      (send cust :opened db)))
    ))
 
-(∂ full-save (db-path db)
+(defun full-save (db-path db)
   (ensure-directories-exist db-path)
   (with-open-file (f db-path
                      :direction :output
@@ -166,7 +170,7 @@
       (loenc:serialize db f))
     ))
 
-(∂ remove-unstorable (map)
+(defun remove-unstorable (map)
   (maps:fold map (λ (key val accu)
                    (handler-case
                        (progn
@@ -177,10 +181,10 @@
                        accu)))
              (maps:empty)))
 
-(∂ deep-copy (obj)
+(defun deep-copy (obj)
   (loenc:decode (loenc:encode obj)))
 
-(∂ get-diffs (old-db new-db)
+(defun get-diffs (old-db new-db)
   (let* ((removals  (maps:fold (sets:diff old-db new-db)
                                (λ (k _ acc)
                                  (cons k acc))
@@ -203,27 +207,29 @@
 
 ;; -----------------------------------------------------------
 
-(∂ db-svc-init (path)
+(defun db-svc-init (path)
   (α _
-    (let ((saver (make-actor (unopened-database-beh self))))
-      (send saver path)
-      (become (nascent-database-beh nil saver))
+    (let ((tag   (tag self))
+          (saver (serializer (make-actor (unopened-database-beh)))))
+      (send saver tag :open path)
+      (become (nascent-database-beh nil tag saver))
       (repeat-send self))))
 
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
                                     (sys:get-folder-path :appdata)))
 
-(deflex dbmgr   (db-svc-init *db-path*))
+(deflex dbmgr
+  (db-svc-init *db-path*))
 
 ;; -----------------------------------------------------------
 
-(∂ add-rec (cust key val)
+(defun add-rec (cust key val)
   (β (db)
       (send dbmgr β :req)
     (send dbmgr cust :commit db (maps:add db key val) self)
     ))
 
-(∂ remove-rec (cust key)
+(defun remove-rec (cust key)
   (β (db)
       (send dbmgr β :req)
     (let* ((val  (maps:find db key self))
@@ -233,18 +239,18 @@
       (send dbmgr cust :commit db new-db self)
       )))
 
-(∂ lookup (cust key &optional default)
+(defun lookup (cust key &optional default)
   (β (db)
       (send dbmgr β :req)
     (send cust (maps:find db key default))
     ))
 
-(∂ show-db ()
+(defun show-db ()
   (β (db)
       (send dbmgr β :req)
     (sets:view-set db)))
 
-(∂ maint-full-save ()
+(defun maint-full-save ()
   (send dbmgr 'maint-full-save))
 
 ;; ------------------------------------------------------------------
