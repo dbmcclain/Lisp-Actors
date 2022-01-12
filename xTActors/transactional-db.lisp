@@ -13,6 +13,43 @@
 ;;
 ;; If two persistable items are EQ when added to the KV database, they
 ;; remain EQ in future sessions.
+;;
+;; ----------------------------------------------------------------------
+;; Notes about Parallel Execution...
+;;
+;; Under the current Actors system, as long as you write FPL pure
+;; Actor bodies it is possible for two or more threads to be executing
+;; the same body of code at the same time. This is physically true for
+;; SMP multi-core architectures, and logically true always. There are
+;; some things to be aware of...
+;;
+;; (1) Code that performs SENDS and BECOMES are staged for commit at
+;; Actor body exit. Nothing happens until that time. SENDs will simply
+;; interleave, but BECOME is a mutation of the Actor behavior slot and
+;; so only one thread can succeed at this, using CAS semantics. The
+;; other threads will discard their SENDS and retry the Actor body
+;; execution until they can succeed. Code that never executes a BECOME
+;; always succeeds.
+;;
+;; (2) If you have a resource that cannot be shared in parallel, e.g.,
+;; file I/O, then you must use a SERIALIZER Actor around the Actor
+;; performing resource usage. SERIALIZER effectively makes the
+;; resource Actor execute in a single thread at a time. But this, in
+;; turn, requires that your senders provide a customer (even if SINK)
+;; and that the resource Actor respond to the customer in every
+;; situation, good or bad. This frees up the SERIALIZER for the next
+;; waiting activity.
+;;
+;; (3) If you can't manage to produce FPL pure Actor code, then it too
+;; needs to be driven from a SERIALIZER, and the same provisos about
+;; customers hold here too.
+;;
+;; (4) It is always better to fail early. If you might have to retry a
+;; whole chain of Actor executions in some situations, you can't just
+;; rely on the BECOME CAS retry. You should detect the possibility of
+;; retry as soon as possible and take overt actions to perform the
+;; retry. Waiting for BECOME to arbitrate is probably too late.
+;; ----------------------------------------------------------------------
 
 (in-package com.ral.actors.kv-database)
   
