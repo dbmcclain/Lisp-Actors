@@ -266,7 +266,6 @@
      (repeat-send dbmgr))
 
     ((cust :commit old-db new-db retry)
-     (declare (ignore cust old-db new-db retry))
      (repeat-send dbmgr))
     )))
 
