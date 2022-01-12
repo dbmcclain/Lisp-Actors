@@ -44,7 +44,12 @@
 
 ;; -------------------------------------------------------------------------
 ;; Socket writer
-
+;;
+;;            pseudo-customer
+;;  byte-vec  +------------+   +------------+    +------------+    +-------------+
+;;     ------>| LABEL SINK |-->| Serializer |<-->| Write Gate |<-->| Phys Writer |
+;;            +------------+   +------------+    +------------+    +-------------+
+;;
 (defun physical-writer-beh (state)
   (with-accessors ((decr-io-count  intf-state-decr-io-count-fn)
                    (state-io-state intf-state-io-state)
@@ -80,43 +85,34 @@
             (send cust self :fail))
            ))))))
 
-(defun writer-beh (state phys-write)
+(defun write-gate-beh (state ser-gate phys-writer)
   (alambda
-   ((:discard)
-    ;; sent from shutdown
-    (become (sink-beh)))
-   
-   ((byte-vec)
-    (send phys-write self byte-vec)
-    (become (pending-writer-beh state phys-write +emptyq+)))
-   ))
+   ((a-tag :fail) / (eql a-tag phys-writer)
+    ;; no reply to serializer, keeps it locked up
+    (send (intf-state-shutdown state)))
 
-(defun pending-writer-beh (state phys-write pend)
-  (alambda
-   ((:discard)
-    ;; sent from shutdown
-    (become (sink-beh)))
-   
-   ((byte-vec)
-    (become (pending-writer-beh state phys-write (addq pend byte-vec))))
-   
-   ((a-cust :ok) when (eq a-cust phys-write)
-    (if (emptyq? pend)
-        (become (writer-beh state phys-write))
-      (multiple-value-bind (byte-vec new-queue) (popq pend)
-        (send phys-write self byte-vec)
-        (become (pending-writer-beh state phys-write new-queue))
-        )))
-   
-   ((a-cust :fail) when (eq a-cust phys-write)
-    (send (intf-state-shutdown state))
-    (become (sink-beh)))
+   ((a-tag :ok) / (eql a-tag phys-writer)
+    ;; reply to serializer to prod next message
+    (send ser-gate :ok))
+
+   ((a-tag byte-vec)
+    ;; next message from serializer, its tag is injected as customer.
+    ;; Forward byte-vec to phys-writer, injecting ourself as customer.
+    (become (write-gate-beh state a-tag phys-writer))
+    (send phys-writer self byte-vec))
    ))
 
 (defun make-writer (state)
-  (actors ((writer     (writer-beh state phys-write))
-           (phys-write (physical-writer-beh state)))
-    writer))
+  ;; serializer needs a customer on every message, so it can interpose
+  ;; between senders and the serialized Actor. We use a LABEL to
+  ;; inject SINK as the customer on write-messages, which are simply
+  ;; byte vectors and no customer.
+  (actors ((phys-writer (physical-writer-beh state))
+           (ser-gate    (serializer-beh
+                         (make-actor
+                          (write-gate-beh state nil phys-writer))))
+           (labeler     (label-beh ser-gate sink)))
+    labeler))
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
@@ -512,7 +508,8 @@ indicated port number."
 (defun reset-global-state ()
   (setf *ws-collection*        nil
         *aio-accepting-handle* nil)
-  (reset-singleton-actors))
+  ;; (reset-singleton-actors)
+  )
 
 (defun* lw-start-tcp-server _
   ;; called by Action list with junk args
