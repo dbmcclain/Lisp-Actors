@@ -215,7 +215,7 @@
     (send cust :ok))
    
    (_
-    (repeat-send next))
+    (repeat-send next)) ;; <-- THIS! opens us up to possible data race conditions
    ))
 
 (deflex connections
@@ -379,7 +379,7 @@
     (send cust :ok))
 
    (_
-    (repeat-send next))
+    (repeat-send next)) ;; <-- THIS! opens us up to possible data race conditions
    ))
 
 (defun make-socket-connection (ip-addr ip-port report-ip-addr)
