@@ -83,7 +83,7 @@
     (send next cust :list (cons name lst)))
 
    ( _
-     (repeat-send next))
+     (repeat-send next)) ;; <-- THIS! opens us up to possible data race conditions
    ))
 
 ;; -----------------------------------------------
@@ -251,7 +251,7 @@
     (send next cust :list (cons (list :ephemeral id actor) lst)))
    
    (_
-    (repeat-send next))
+    (repeat-send next)) ;; <-- THIS! opens us up to possible data race conditions
    ))
 
 (defun local-service-beh (id actor next)
@@ -274,7 +274,7 @@
     (send next cust :list (cons (list :service id actor) lst)))
    
    (_
-    (repeat-send next))
+    (repeat-send next)) ;; <-- THIS! opens us up to possible data race conditions
    ))
 
 (defun make-local-services ()
