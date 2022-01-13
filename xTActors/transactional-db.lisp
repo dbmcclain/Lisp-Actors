@@ -59,7 +59,7 @@
 ;; So not only does the code have to be written in FPL-pure fashion,
 ;; any state changes must appear logically atomic to all outside
 ;; observers. And the only way to effect that, in the case of
-;; temporally separated read / mutate is to halt concurrent activity
+;; temporally separated read / mutate, is to halt concurrent activity
 ;; during that interrim period, at least within the mutating Actor.
 ;;
 ;; That is the purpose of SERIALIZER. It permits only one thread of
