@@ -45,9 +45,9 @@
 ;; So if there is any temporal separation between the act of reading
 ;; state, and modifying state, we open ourselves up to potential data
 ;; race conditions. Here, time can be measured by the number of
-;; message dispatches that occur between two positions in time. To
-;; appear logically atomic, a state change must occur entirely within
-;; one message dispatch period.
+;; message dispatches activating a particular Actor, that occur
+;; between two positions in time. To appear logically atomic, a state
+;; change must occur entirely within one activation of an Actor.
 ;;
 ;; So if, e.g., we have a system where the shared Actor is queried in
 ;; one message, the answer is viewed, and then an update message is
@@ -59,8 +59,8 @@
 ;; So not only does the code have to be written in FPL-pure fashion,
 ;; any state changes must appear logically atomic to all outside
 ;; observers. And the only way to effect that, in the case of
-;; temporally separated read / mutate, is to halt concurrent activity
-;; during that interrim period, at least within the mutating Actor.
+;; temporally separated read / mutate, is to halt concurrent activity,
+;; during that interrim period, within the mutating Actor.
 ;;
 ;; That is the purpose of SERIALIZER. It permits only one thread of
 ;; execution at a time to proceeed beyond to the Actor subsystem under
