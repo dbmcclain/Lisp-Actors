@@ -25,16 +25,16 @@
 ;; But even if we restrict the execution to a single machine thread,
 ;; which dispenses with SMP parallelism, we still have concurrency.
 ;; Two or more separate threads of execution can be running, logically
-;; simultaneously against the same code.
+;; simultaneously, against the same code.
 ;;
 ;; And, any time you have concurrency, you run the risk of data race
 ;; conditions between separate threads of execution.
 ;;
-;; Great, you say, I'll just make sure I write FPL-pure code. Well,
+;; Great! You say. I'll just make sure I write FPL-pure code. Well,
 ;; for SMP parallel code, in the absence of using locks, that is
-;; certainly a minimum requirement. But that won't be enough.
+;; certainly a minimum requirement. But that may not be enough.
 ;;
-;; Imagine two threads (parallel or not) which share reference to an
+;; Imagine two threads (parallel or not) which share a reference to an
 ;; Actor whose state may evolve in response to messsages sent to it.
 ;; The Actor is written in perectly FPL-pure fashion; it never mutates
 ;; its state variables, and only uses BECOME to evolve to a new state.
@@ -49,6 +49,13 @@
 ;; between two positions in time. To appear logically atomic, a state
 ;; change must occur entirely within one activation of an Actor.
 ;;
+;; In such case, the CAS semantics on BECOME will be enough to protect
+;; against data races. But if there is temporal separation between
+;; reading state, and writing state, as measured in separate Actor
+;; activations, then the CAS semantics will only retry the final
+;; BECOME mutation. That could leave us inconsistent. We actually need
+;; to retry from the point in time of initially reading the state.
+;;
 ;; So if, e.g., we have a system where the shared Actor is queried in
 ;; one message, the answer is viewed, and then an update message is
 ;; sent, that occupies at least two message dispatches and cannot be
@@ -59,7 +66,7 @@
 ;; So not only does the code have to be written in FPL-pure fashion,
 ;; any state changes must appear logically atomic to all outside
 ;; observers. And the only way to effect that, in the case of
-;; temporally separated read / mutate, is to halt concurrent activity,
+;; temporally separated read / mutate, is to halt concurrent activity
 ;; during that interrim period, within the mutating Actor.
 ;;
 ;; That is the purpose of SERIALIZER. It permits only one thread of
