@@ -75,7 +75,7 @@
 (with-single-thread
   ;; Single-Thread Concurrency - Correct Serialized Solution
   (let* ((cell        (make-actor (cell-beh 0)))
-         (counter-svc (serializer (make-actor (counter-svc-beh cell)))))
+         (counter-svc (SERIALIZER (make-actor (counter-svc-beh cell)))))
     (send (actor ()
             (send counter-svc println 1)
             (send counter-svc println 10)
@@ -96,7 +96,7 @@
 (progn
   ;; Parallel SMP Concurrency - Correct Serialized Solution
   (let* ((cell        (make-actor (cell-beh 0)))
-         (counter-svc (serializer (make-actor (counter-svc-beh cell)))))
+         (counter-svc (SERIALIZER (make-actor (counter-svc-beh cell)))))
     (send (actor ()
             (send counter-svc println 1)
             (send counter-svc println 10)
