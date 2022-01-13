@@ -17,40 +17,71 @@
 ;; ----------------------------------------------------------------------
 ;; Notes about Concurrent (Parallel and Single-Threaded) Execution...
 ;;
-;; Under the current Actors system, as long as you write FPL pure
-;; Actor bodies it is possible for two or more threads of execution to
-;; be running the same body of code at the same time. This is
-;; physically true for SMP multi-core architectures, and logically
-;; true always. There are some things to be aware of...
+;; Under the current Actors system we have concurrency and parallelism
+;; with multicore SMP. It is entirely possible for two tasks to be
+;; running in the same code simultaneously, both logically and
+;; physically.
 ;;
-;; (1) Code that performs SENDS and BECOMES are staged for commit at
-;; Actor body exit. Nothing happens until that time. SENDs will simply
-;; interleave, but BECOME is a mutation of the Actor behavior slot and
-;; so only one thread can succeed at this, using CAS semantics. The
-;; other threads will discard their SENDS and retry the Actor body
-;; execution until they can succeed. Code that never executes a BECOME
-;; always succeeds. The CAS protocol protects against parallel mutation.
+;; But even if we restrict the execution to a single machine thread,
+;; which dispenses with SMP parallelism, we still have concurrency.
+;; Two or more separate threads of execution can be running, logically
+;; simultaneously against the same code.
 ;;
-;; (2) If you have a resource that cannot be shared in parallel, e.g.,
-;; file I/O, then you must use a SERIALIZER Actor around the Actor
-;; performing resource usage. SERIALIZER effectively makes the
-;; resource Actor execute in a single thread at a time. But this, in
-;; turn, requires that your senders provide a customer (even if SINK)
-;; and that the resource Actor respond to the customer in every
-;; situation, good or bad. This frees up the SERIALIZER for the next
-;; waiting activity, since it interposes between sender and resource
-;; Actor. SERIALIZER protects against parallel and single-threaded
-;; concurrent execution.
+;; And, any time you have concurrency, you run the risk of data race
+;; conditions between separate threads of execution.
 ;;
-;; (3) If you can't manage to produce FPL pure Actor code, then it too
-;; needs to be driven from a SERIALIZER, and the same provisos about
-;; customers hold here too.
+;; Great, you say, I'll just make sure I write FPL-pure code. Well,
+;; for SMP parallel code, in the absence of using locks, that is
+;; certainly a minimum requirement. But that won't be enough.
 ;;
-;; (4) It is always better to fail early. If you might have to retry a
-;; whole chain of Actor executions in some situations, you can't just
-;; rely on the BECOME CAS retry. You should detect the possibility of
-;; retry as soon as possible and take overt actions to perform the
-;; retry. Waiting for BECOME to arbitrate is probably too late.
+;; Imagine two threads (parallel or not) which share reference to an
+;; Actor whose state may evolve in response to messsages sent to it.
+;; The Actor is written in perectly FPL-pure fashion; it never mutates
+;; its state variables, and only uses BECOME to evolve to a new state.
+;; Yet, outside observers only see that indeed the state has mutated.
+;; They can't actually observe the internal state, but they can
+;; observe a change in behavior.
+;;
+;; So if there is any temporal separation between the act of reading
+;; state, and modifying state, we open ourselves up to potential data
+;; race conditions. Here, time can be measured by the number of
+;; message dispatches that occur between two positions in time. To
+;; appear logically atomic, a state change must occur entirely within
+;; one message dispatch period.
+;;
+;; So if, e.g., we have a system where the shared Actor is queried in
+;; one message, the answer is viewed, and then an update message is
+;; sent, that occupies at least two message dispatches and cannot be
+;; seen as atomic. Another thread could sneak in there with the same
+;; intention, but with different purpose, and interfere with the first
+;; thread's plans. The result would be a system inconsistency.
+;;
+;; So not only does the code have to be written in FPL-pure fashion,
+;; any state changes must appear logically atomic to all outside
+;; observers. And the only way to effect that, in the case of
+;; temporally separated read / mutate is to halt concurrent activity
+;; during that interrim period, at least within the mutating Actor.
+;;
+;; That is the purpose of SERIALIZER. It permits only one thread of
+;; execution at a time to proceeed beyond to the Actor subsystem under
+;; its control. All others are enqueued for execution only after a
+;; response is seen from the Actor subsystem, a reply back to the
+;; currently executing thread of execution.
+;;
+;; All client code must provide a customer to which a response will be
+;; sent, even if only SINK. And the Actor system under control of the
+;; SERIALIZER must send a reply to customers under all circumstances.
+;; This is necessary so that the SERIALIZER can interpose between
+;; client and Actor and know on the way out to enable the next waiting
+;; thread of execution against the Actor subsystem.
+;;
+;; Subtle bugs can seep into the code if you don't pay careful
+;; attention to the possibility of data race conditions.
+;;
+;; More obvious cases requiring only a single thread of execution
+;; would be situations in which a physical resource cannot be
+;; reasonably shared in parallel. E.g. file I/O. So again, a
+;; SERIALIZER is called for.
 ;; ----------------------------------------------------------------------
 
 (in-package com.ral.actors.kv-database)
