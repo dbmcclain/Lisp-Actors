@@ -267,7 +267,7 @@
            (decoder (sink-pipe (marshal-decoder)
                                (dechunker)
                                (marshal-decoder)
-                               local-services))
+                               (label local-services sink)))
            (shutdown (once (make-socket-shutdown state))))
       (beta _
           ;; provide a service to establish an encrypted channel

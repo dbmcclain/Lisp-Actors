@@ -64,8 +64,9 @@
 (defun service-list-beh (name handler next)
   (prunable-alambda
 
-   ((cust :send verb . msg) when (eql verb name)
-    (send* handler cust msg))
+   ((cust rem-cust :send verb . msg) when (eql verb name)
+    (send* handler rem-cust msg)
+    (send cust :ok))
 
    ((cust :add-service aname new-handler) when (eql aname name)
     (become (service-list-beh name new-handler next))
@@ -109,7 +110,7 @@
     (let* ((tag         (tag self))
            (init-helper (gs-init-helper tag self))
            (next        (make-actor (null-service-list-beh))))
-      (become (init-gs-beh tag (list msg) next))
+      (become (init-gs-beh tag msg next))
       (send* init-helper svcs)
       )))
 
@@ -133,7 +134,7 @@
         ;; we are done
         (send tag :finish)))))
 
-(defun init-gs-beh (tag msgs next)
+(defun init-gs-beh (tag msg next)
   ;; The face of Global Services - stand as a gateway against async
   ;; requests until we have finished initializing the global services
   (prunable-alambda
@@ -142,17 +143,14 @@
    
    ((atag :finish) when (eql atag tag)
     (prune-self next)
-    (dolist (msg msgs)
-      (send* self msg)))
-
-   (msg
-    (become (init-gs-beh tag (cons msg msgs) next)))
+    (send* next msg))
    ))
 
-(deflex global-services (global-services-init
-                         `((:echo ,(make-echo))
-                           (:eval ,(make-eval)))
-                         ))
+(deflex global-services (serializer
+                         (global-services-init
+                          `((:echo ,(make-echo))
+                            (:eval ,(make-eval)))
+                          )))
         
 ;; ------------------------------------------------------------
 ;; When the socket connection (server or client side) receives an
@@ -198,7 +196,7 @@
 
 (defvar *default-ephemeral-ttl*  10)
 
-(defun empty-local-service-beh (top)
+(defun empty-local-services-beh (top)
   (prunable-alambda
 
    ((cust :add-service-with-id id actor)
@@ -230,18 +228,26 @@
     (send cust lst))
    ))
 
+(defun init-local-services-beh ()
+  (λ _
+    (become (serializer-beh
+             (make-actor
+              (empty-local-services-beh self))))
+    (repeat-send self)))
+
 (defun local-ephemeral-client-beh (id actor next)
   ;; used by clients to hold ephemeral reply proxies
   (prunable-alambda
 
-   ((client-id :send . msg) when (uuid:uuid= client-id id)
+   ((cust client-id :send . msg) when (uuid:uuid= client-id id)
     ;; Server replies are directed here via the client proxy id, to
     ;; find the actual client channel. Once a reply is received, this
     ;; proxy is destroyed. It is also removed after a timeout and no
     ;; reply forthcoming.
     (dbg (send println (format nil "Ephemeral service used: ~A" id)))
     (send* actor msg)
-    (prune-self next))
+    (prune-self next)
+    (send cust :ok))
     
    ((cust :remove-service an-id) when (uuid:uuid= an-id id)
     (send cust :ok)
@@ -259,12 +265,13 @@
   ;; used by servers to hold proxies for local service channels
   (prunable-alambda
 
-   ((serv-id :send . msg) when (uuid:uuid= serv-id id)
+   ((cust serv-id :send . msg) when (uuid:uuid= serv-id id)
     ;; We do not automatically remove this entry once used. Instead,
     ;; we renew the lease. Client messages are directed here via proxy
     ;; serv-id, to find the actual target channel.
     (dbg (send println (format nil "Service used: ~A" id)))
-    (send* actor msg))
+    (send* actor msg)
+    (send cust :ok))
 
    ((cust :remove-service an-id) when (uuid:uuid= an-id id)
     (send cust :ok)
@@ -278,8 +285,7 @@
    ))
 
 (defun make-local-services ()
-  (actors ((svcs  (empty-local-service-beh svcs)))
-    svcs))
+  (make-actor (init-local-services-beh)))
 
 (defun create-ephemeral-client-proxy (cust local-services svc &key (ttl *default-ephemeral-ttl*))
   ;; used by client side
