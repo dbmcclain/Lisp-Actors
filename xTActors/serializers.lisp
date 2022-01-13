@@ -14,8 +14,8 @@
   ;; A shared "mutable" value cell
   ;;
   ;; Notice that even though we never physically mutate the value
-  ;; parameter, to outside observers the cell does get mutated via
-  ;; BECOME.
+  ;; parameter, to outside observers the cell state does appear
+  ;; mutated via BECOME.
   (alambda
    ((cust :read)
     (send cust value))
