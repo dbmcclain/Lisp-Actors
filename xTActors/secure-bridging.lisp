@@ -228,13 +228,6 @@
     (send cust lst))
    ))
 
-(defun init-local-services-beh ()
-  (λ _
-    (become (serializer-beh
-             (make-actor
-              (empty-local-services-beh self))))
-    (repeat-send self)))
-
 (defun local-ephemeral-client-beh (id actor next)
   ;; used by clients to hold ephemeral reply proxies
   (prunable-alambda
@@ -285,7 +278,9 @@
    ))
 
 (defun make-local-services ()
-  (make-actor (init-local-services-beh)))
+  (actors ((svc (serializer-beh
+                 (make-actor (empty-local-services-beh svc)))))
+    svc))
 
 (defun create-ephemeral-client-proxy (cust local-services svc &key (ttl *default-ephemeral-ttl*))
   ;; used by client side
