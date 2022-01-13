@@ -184,8 +184,9 @@
       (become (connection-node-beh ip-addr ip-port state sender sender next))
       (send cust :ok)))
 
-   ((:on-find-sender _ _ _ if-not-found)
-    (send if-not-found))
+   ((cust :on-find-sender _ _ _ if-not-found)
+    (send if-not-found)
+    (send cust :ok))
 
    ((cust :remove . _)
     (send cust :ok))
@@ -200,9 +201,10 @@
     (become (connection-node-beh ip-addr ip-port new-state new-sender new-sender next))
     (send cust :ok))
 
-   ((:on-find-sender an-ip-addr an-ip-port if-found . _) when (and (eql an-ip-addr ip-addr)
+   ((cust :on-find-sender an-ip-addr an-ip-port if-found . _) when (and (eql an-ip-addr ip-addr)
                                                                    (eql an-ip-port ip-port))
-    (send if-found sender chan (intf-state-local-services state)))
+    (send if-found sender chan (intf-state-local-services state))
+    (send cust :ok))
 
    ((cust :set-channel a-sender new-chan) when (eq a-sender sender)
     (become (connection-node-beh ip-addr ip-port state sender new-chan next))
@@ -217,7 +219,7 @@
    ))
 
 (deflex connections
-        (make-actor (empty-connections-list-beh)))
+  (serializer (make-actor (empty-connections-list-beh))))
 
 ;; -------------------------------------------------------------
 
@@ -336,30 +338,27 @@
 (defun canon-ip-addr (ip-addr)
   (comm:get-host-entry ip-addr :fields '(:address)))
 
-(defun empty-pending-connections-beh (top)
+(defun empty-pending-connections-beh (pends)
   (prunable-alambda
 
-   ((cust :connect ip-addr ip-port report-ip-addr)
+   ((cust cx-cust :connect ip-addr ip-port report-ip-addr)
     (let ((next (make-actor self-beh)))
-      (become (pending-connections-beh ip-addr ip-port report-ip-addr (list cust) next))
-      (send (make-socket-connection ip-addr ip-port report-ip-addr) top)
+      (become (pending-connections-beh ip-addr ip-port report-ip-addr (list cx-cust) next))
+      (send (make-socket-connection ip-addr ip-port report-ip-addr) pends)
+      (send cust :ok)
       ))
    ))
-
-(defun init-pending-connections-beh ()
-  (lambda* _
-    (become (empty-pending-connections-beh self))
-    (repeat-send self)))
 
 (defun pending-connections-beh (ip-addr ip-port report-ip-addr custs next)
   (prunable-alambda
 
-   ((cust :connect an-ip-addr an-ip-port . _) when (and (eql an-ip-addr ip-addr)
-                                                        (eql an-ip-port ip-port))
-    (become (pending-connections-beh ip-addr ip-port report-ip-addr (cons cust custs) next)))
+   ((cust cx-cust :connect an-ip-addr an-ip-port . _) when (and (eql an-ip-addr ip-addr)
+                                                                (eql an-ip-port ip-port))
+    (become (pending-connections-beh ip-addr ip-port report-ip-addr (cons cx-cust custs) next))
+    (send cust :ok))
    
-   ((:ready an-ip-addr an-ip-port intf-state sender local-services) when (and (eql an-ip-addr ip-addr)
-                                                                              (eql an-ip-port ip-port))
+   ((cust :ready an-ip-addr an-ip-port intf-state sender local-services) when (and (eql an-ip-addr ip-addr)
+                                                                                   (eql an-ip-port ip-port))
     (prune-self next)
 
     (multiple-value-bind (peer-ip peer-port)
@@ -369,20 +368,23 @@
         (comm:get-socket-peer-address (slot-value (intf-state-io-state intf-state) 'comm::object))
       (send fmt-println "Client Socket (~S->~A:~D) starting up" report-ip-addr
             (comm:ip-address-string peer-ip) peer-port)
-    (send-to-all custs sender sender local-services)))
+    (send-to-all custs sender sender local-services)
+    (send cust :ok)))
 
-   ((:abort an-ip-addr an-ip-port) when (and (eql an-ip-addr ip-addr)
-                                             (eql an-ip-port ip-port))
+   ((cust :abort an-ip-addr an-ip-port) when (and (eql an-ip-addr ip-addr)
+                                                  (eql an-ip-port ip-port))
     (prune-self next)
-    (error "Can't connect to: ~S" report-ip-addr))
+    (send (α ()
+            (error "Can't connect to: ~S" report-ip-addr)))
+    (send cust :ok))
 
    (_
     (repeat-send next))
    ))
 
 (defun make-socket-connection (ip-addr ip-port report-ip-addr)
-  (actor (cust) 
-    (beta (io-state)
+  (actor (pends) 
+    (β (io-state)
         (mp:funcall-async
          (lambda ()
            (comm:create-async-io-state-and-connected-tcp-socket
@@ -393,20 +395,20 @@
                      (send println
                            (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
                            (apply #'format nil args))
-                     (send cust :abort ip-addr ip-port))
+                     (send pends sink :abort ip-addr ip-port))
                     (t
-                     (send beta state))
+                     (send β state))
                     ))
             :connect-timeout 5
             #-:WINDOWS :ipv6    #-:WINDOWS nil)))
-      (beta (intf-state sender local-services)
+      (β (intf-state sender local-services)
           (send (create-socket-intf :kind           :client
                                     :ip-addr        ip-addr
                                     :ip-port        ip-port
                                     :report-ip-addr report-ip-addr
                                     :io-state       io-state)
-                beta)
-        (send cust :ready ip-addr ip-port intf-state sender local-services)
+                β)
+        (send pends sink :ready ip-addr ip-port intf-state sender local-services)
         ))))
 
 (defun client-connector-beh (pending-connections)
@@ -419,21 +421,22 @@
       (cond ((null clean-ip-addr)
              (error "Unknown host: ~S" ip-addr))
             (t
-             (beta _
-                 (send connections :on-find-sender clean-ip-addr ip-port cust beta)
-               (send pending-connections cust :connect clean-ip-addr ip-port ip-addr)))
+             (β _
+                 (send connections sink :on-find-sender clean-ip-addr ip-port cust β)
+               (send pending-connections sink cust :connect clean-ip-addr ip-port ip-addr)))
             )))
    ))
 
 (defun init-connector-beh ()
   (lambda* _
-    (let ((pends (make-actor (init-pending-connections-beh))))
+    (actors ((pends (serializer-beh
+                     (make-actor (empty-pending-connections-beh pends)))))
       (become (client-connector-beh pends))
       (repeat-send self))))
     
 (deflex client-connector
-        ;; Called from client side wishing to connect to a server.
-        (make-actor (init-connector-beh)))
+  ;; Called from client side wishing to connect to a server.
+  (make-actor (init-connector-beh)))
 
 ;; -------------------------------------------------------------
 
