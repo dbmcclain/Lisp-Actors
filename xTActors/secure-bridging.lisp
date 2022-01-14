@@ -64,9 +64,8 @@
 (defun service-list-beh (name handler next)
   (prunable-alambda
 
-   ((cust rem-cust :send verb . msg) when (eql verb name)
-    (send* handler rem-cust msg)
-    (send cust :ok))
+   ((rem-cust :send verb . msg) when (eql verb name)
+    (send* handler rem-cust msg))
 
    ((cust :add-service aname new-handler) when (eql aname name)
     (become (service-list-beh name new-handler next))
@@ -231,15 +230,14 @@
   ;; used by clients to hold ephemeral reply proxies
   (prunable-alambda
 
-   ((cust client-id :send . msg) when (uuid:uuid= client-id id)
+   ((client-id :send . msg) when (uuid:uuid= client-id id)
     ;; Server replies are directed here via the client proxy id, to
     ;; find the actual client channel. Once a reply is received, this
     ;; proxy is destroyed. It is also removed after a timeout and no
     ;; reply forthcoming.
     (dbg (send println (format nil "Ephemeral service used: ~A" id)))
     (send* actor msg)
-    (prune-self next)
-    (send cust :ok))
+    (prune-self next))
     
    ((cust :remove-service an-id) when (uuid:uuid= an-id id)
     (send cust :ok)
@@ -257,13 +255,12 @@
   ;; used by servers to hold proxies for local service channels
   (prunable-alambda
 
-   ((cust serv-id :send . msg) when (uuid:uuid= serv-id id)
+   ((serv-id :send . msg) when (uuid:uuid= serv-id id)
     ;; We do not automatically remove this entry once used. Instead,
     ;; we renew the lease. Client messages are directed here via proxy
     ;; serv-id, to find the actual target channel.
     (dbg (send println (format nil "Service used: ~A" id)))
-    (send* actor msg)
-    (send cust :ok))
+    (send* actor msg))
 
    ((cust :remove-service an-id) when (uuid:uuid= an-id id)
     (send cust :ok)
