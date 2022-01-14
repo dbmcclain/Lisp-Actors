@@ -215,11 +215,11 @@
     (send cust :ok))
    
    (_
-    (repeat-send next)) ;; <-- THIS! opens us up to possible data race conditions
+    (repeat-send next))
    ))
 
 (deflex connections
-  (serializer (make-actor (empty-connections-list-beh))))
+  (make-actor (empty-connections-list-beh)))
 
 ;; -------------------------------------------------------------
 
@@ -379,7 +379,7 @@
     (send cust :ok))
 
    (_
-    (repeat-send next)) ;; <-- THIS! opens us up to possible data race conditions
+    (repeat-send next))
    ))
 
 (defun make-socket-connection (ip-addr ip-port report-ip-addr)
@@ -429,8 +429,7 @@
 
 (defun init-connector-beh ()
   (lambda* _
-    (actors ((pends (serializer-beh
-                     (make-actor (empty-pending-connections-beh pends)))))
+    (actors ((pends (empty-pending-connections-beh pends)))
       (become (client-connector-beh pends))
       (repeat-send self))))
     

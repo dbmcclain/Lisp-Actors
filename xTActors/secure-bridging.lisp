@@ -83,7 +83,7 @@
     (send next cust :list (cons name lst)))
 
    ( _
-     (repeat-send next)) ;; <-- THIS! opens us up to possible data race conditions
+     (repeat-send next))
    ))
 
 ;; -----------------------------------------------
@@ -146,11 +146,10 @@
     (send* next msg))
    ))
 
-(deflex global-services (serializer
-                         (global-services-init
-                          `((:echo ,(make-echo))
-                            (:eval ,(make-eval)))
-                          )))
+(deflex global-services (global-services-init
+                         `((:echo ,(make-echo))
+                           (:eval ,(make-eval)))
+                         ))
         
 ;; ------------------------------------------------------------
 ;; When the socket connection (server or client side) receives an
@@ -251,7 +250,7 @@
     (send next cust :list (cons (list :ephemeral id actor) lst)))
    
    (_
-    (repeat-send next)) ;; <-- THIS! opens us up to possible data race conditions
+    (repeat-send next))
    ))
 
 (defun local-service-beh (id actor next)
@@ -278,8 +277,7 @@
    ))
 
 (defun make-local-services ()
-  (actors ((svc (serializer-beh
-                 (make-actor (empty-local-services-beh svc)))))
+  (actors ((svc (empty-local-services-beh svc)))
     svc))
 
 (defun create-ephemeral-client-proxy (cust local-services svc &key (ttl *default-ephemeral-ttl*))
