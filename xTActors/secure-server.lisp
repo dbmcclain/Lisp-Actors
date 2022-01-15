@@ -24,7 +24,7 @@
   ;; their public key and a random ECC point. We develop a unique DHE
   ;; encryption key shared secretly between us and furnish a private handler
   ;; for encrypted requests along with our own random ECC point.
-  (actor (cust-id server-pkey client-pkey apt)
+  (α (cust-id server-pkey client-pkey apt)
     (let ((my-pkey     (ed-nth-pt server-skey))
           (server-pkey (ed-decompress-pt server-pkey)))
       (when (ed-pt= my-pkey server-pkey) ;; did client have correct server-pkey?
@@ -40,8 +40,8 @@
                            (secure-reader ekey (ed-decompress-pt client-pkey))
                            ;; (show-server-inbound) ;; ***
                            chan)))
-          (beta (id)
-              (create-service-proxy beta local-services decryptor)
+          (β (id)
+              (create-service-proxy β local-services decryptor)
             (send (remote-actor-proxy cust-id socket)  ;; remote client cust
                   id (int bpt)))
           )))))

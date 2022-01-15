@@ -89,7 +89,7 @@
 ;; Simple Services
 
 (defun make-echo ()
-  (actor (cust msg)
+  (α (cust msg)
     ;; (send println (format nil "echo got: ~S" msg))
     (send cust msg)))
 
@@ -98,14 +98,14 @@
                   ,@args)))
 
 (defun make-eval ()
-  (actor (cust form)
+  (α (cust form)
     (send cust (funcall (cmpfn form)))))
 
 ;; -----------------------------------------------
 
 (defun global-services-init (svcs)
   ;; lazy init - on demand with first message
-  (actor msg
+  (α msg
     (let* ((tag         (tag self))
            (init-helper (gs-init-helper tag self))
            (next        (make-actor (null-service-list-beh))))
@@ -115,18 +115,18 @@
 
 (defun gs-init-helper (tag gs)
   ;; send across the pairs (name, handler) one by one
-  (actor svcs
+  (α svcs
     (if svcs
         (let ((me self))
           ;; send one handler pair
-          (beta _
-              (send* tag beta (car svcs))
+          (β _
+              (send* tag β (car svcs))
             ;; now do the rest of them
             (send* me (cdr svcs))))
       ;; else
-      (beta _
+      (β _
           ;; add summarizer handler
-          (send tag beta
+          (send tag β
                 :available-services
                 (actor (cust)
                   (send gs cust :available-services nil)))
@@ -167,7 +167,7 @@
   ;; Used to setup a target proxy for sending information across the
   ;; socket to them.
   (when actor-id
-    (actor (&rest msg)
+    (α (&rest msg)
       ;; (send println (format nil "s/reply: ~S" msg))
       (send* socket actor-id :send msg))))
 

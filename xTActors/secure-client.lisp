@@ -8,9 +8,9 @@
 ;; Client side
 
 (defun client-connect-beh (pending-cx)
-  (lambda (cust host-ip-addr)
-    (beta (socket chan local-services)
-        (send com.ral.actors.network:client-connector beta host-ip-addr)
+  (λ (cust host-ip-addr)
+    (β (socket chan local-services)
+        (send com.ral.actors.network:client-connector β host-ip-addr)
       (if (eq chan socket)
           (send pending-cx cust :get-chan socket local-services)
         (send cust chan))
@@ -18,12 +18,12 @@
 
 #| ;; for debugging
 (defun show-client-outbound (socket)
-  (actor (&rest msg)
+  (α (&rest msg)
     (send println (format nil "c/out: ~S" msg))
     (send* socket msg)))
 
 (defun show-client-inbound ()
-  (actor (cust &rest msg)
+  (α (cust &rest msg)
     (send println (format nil "c/in: ~S" msg))
     (send* cust msg)))
 |#
@@ -38,7 +38,7 @@
    ))
 
 (defun init-pending-negotiations-beh (client-skey)
-  (lambda* _
+  (λ _
     (become (empty-pending-negotiations-beh self client-skey))
     (repeat-send self)))
 
@@ -57,14 +57,14 @@
    ))
 
 (defun negotiate-secure-channel (client-skey socket local-services)
-  (actor (cust)
+  (α (cust)
     (let* ((arand       (int (ctr-drbg 256)))
            (apt         (ed-nth-pt arand))
            (client-pkey (ed-nth-pt client-skey))
            (srv-pkey    (server-pkey))
            ;; (socket      (show-client-outbound socket)) ;; ***
            (responder
-            (actor (server-id bpt)
+            (α (server-id bpt)
               (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
                      (chan  (client-channel
                              :local-services  local-services
@@ -73,19 +73,19 @@
                                                (remote-actor-proxy server-id socket))
                              :decryptor       (secure-reader ekey (ed-decompress-pt srv-pkey))
                              )))
-                (beta _
-                    (send com.ral.actors.network:connections beta :set-channel socket chan)
+                (β _
+                    (send com.ral.actors.network:connections β :set-channel socket chan)
                   (send cust :use-chan socket chan)) ;; to our local customer
                 ))))
-      (beta (client-id)
-          (create-ephemeral-client-proxy beta local-services responder)
+      (β (client-id)
+          (create-ephemeral-client-proxy β local-services responder)
         (send (remote-actor-proxy +server-connect-id+ socket)
               client-id srv-pkey (int client-pkey) (int apt))
         ))
     ))
 
 (defun init-gateway-beh ()
-  (lambda* _
+  (λ _
     (let* ((skey (make-deterministic-keys (uuid:make-v1-uuid)))
            (pend (make-actor (init-pending-negotiations-beh skey))))
       (become (client-connect-beh pend))
@@ -93,17 +93,17 @@
     ))
     
 (deflex client-gateway
-        ;; This is the main local client service used to initiate
-        ;; connections with foreign servers. We develop a DHE shared secret
-        ;; encryption key for use across a private connection portal with
-        ;; the server.
-        ;;
-        ;; A Connection consists of a Socket and a Channel. A Socket merely
-        ;; supports the tranport of data across a network. It does not
-        ;; specify any data protocol. It may marshal objects and compress
-        ;; the resulting byte stream before sending. A Channel is an
-        ;; encryptor/decryptor married to a Socket.
-        (make-actor (init-gateway-beh)))
+  ;; This is the main local client service used to initiate
+  ;; connections with foreign servers. We develop a DHE shared secret
+  ;; encryption key for use across a private connection portal with
+  ;; the server.
+  ;;
+  ;; A Connection consists of a Socket and a Channel. A Socket merely
+  ;; supports the tranport of data across a network. It does not
+  ;; specify any data protocol. It may marshal objects and compress
+  ;; the resulting byte stream before sending. A Channel is an
+  ;; encryptor/decryptor married to a Socket.
+  (make-actor (init-gateway-beh)))
     
 ;; ---------------------------------------------------
 
@@ -120,12 +120,12 @@
   ;; Every request to the server sent from here carries an
   ;; incrementing sequence number to ensure a change of encryption
   ;; keying for every new message.
-  (actor (cust verb &rest msg)
+  (α (cust verb &rest msg)
     ;; (send println (format nil "trying to send: ~S" self-msg))
     (if (is-pure-sink? cust)
         (send* encryptor nil verb msg)
-      (beta (cust-id)
-          (create-ephemeral-client-proxy beta local-services (sink-pipe decryptor cust))
+      (β (cust-id)
+          (create-ephemeral-client-proxy β local-services (sink-pipe decryptor cust))
         (send* encryptor cust-id verb msg))
       )))
 
@@ -135,17 +135,17 @@
 (defun remote-service (name host-ip-addr)
   ;; An Actor and send target. Connection to remote service
   ;; established on demand.
-  (actor (cust &rest msg)
-    (beta (chan)
-        (send client-gateway beta host-ip-addr)
+  (α (cust &rest msg)
+    (β (chan)
+        (send client-gateway β host-ip-addr)
       (send* chan cust name msg))))
 
 ;; ------------------------------------------------------------
 #|
 (defun tst (host)
   (let ((recho (remote-service :echo host)))
-    (beta (ans)
-        (send recho beta :hello)
+    (β (ans)
+        (send recho β :hello)
       (send println (format nil "(send recho println ~S) sez: ~S" :hello ans)))))
 (tst "localhost")
 (tst "arroyo.local")
@@ -157,10 +157,10 @@
 
 (defun tst (host)
   (let ((reval (remote-service :eval host)))
-    (beta (ans)
-        (send reval beta '(list (get-universal-time) (machine-instance)))
+    (β (ans)
+        (send reval β '(list (get-universal-time) (machine-instance)))
       #|
-        (send reval beta '(um:capture-ans-or-exn
+        (send reval β '(um:capture-ans-or-exn
                             (error "test-error")))
         |#
       (send println (format nil "reval sez: ~S" (um:recover-ans-or-exn ans))))
