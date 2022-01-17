@@ -17,6 +17,7 @@
             com.ral.actors.secure-comm:server-crypto-gateway
             com.ral.actors.secure-comm:+server-connect-id+
             com.ral.actors.secure-comm:server-skey
+            ;; com.ral.actors.base::dbg-println
             )))
 
 ;; -----------------------------------------------------------------------
@@ -98,8 +99,32 @@
    ((a-tag byte-vec)
     ;; next message from serializer, its tag is injected as customer.
     ;; Forward byte-vec to phys-writer, injecting ourself as customer.
+    ;; (send dbg-println "-- send across network ~D --" (length byte-vec))
     (become (write-gate-beh state a-tag phys-writer))
     (send phys-writer self byte-vec))
+   ))
+
+(defun prefixing-write-beh (writer)
+  (λ (a-tag byte-vec)
+    (let ((pref (make-array 4 :element-type '(unsigned-byte 8)))
+          (size (length byte-vec)))
+      (dotimes (ix 4)
+        (setf (aref pref ix) (ldb (byte 8 (ash ix 3)) size)))
+      (send writer self pref)
+      (become (pend-prefixing-write-beh a-tag byte-vec writer))
+      )))
+
+(defun pend-prefixing-write-beh (tag byte-vec writer)
+  (λ _
+    (send writer tag byte-vec)
+    (become (prefixing-write-beh writer))))
+
+(defun discarder-beh (ser-gate)
+  (alambda
+   ((:discard)
+    (become (sink-beh)))
+   (msg
+    (send* ser-gate sink msg))
    ))
 
 (defun make-writer (state)
@@ -108,11 +133,124 @@
   ;; inject SINK as the customer on write-messages, which are simply
   ;; byte vectors and no customer.
   (actors ((phys-writer (physical-writer-beh state))
-           (ser-gate    (serializer-beh
+           (writer      (write-gate-beh state nil phys-writer))
+           (prefixer    (serializer-beh
                          (make-actor
-                          (write-gate-beh state nil phys-writer))))
-           (labeler     (label-beh ser-gate sink)))
-    labeler))
+                          (prefixing-write-beh writer))))
+           (discarder   (discarder-beh prefixer)))
+    discarder))
+
+;; -------------------------------------------------------------------------
+;; Packet Aggregation
+
+(defun empty-packet-accum-beh ()
+  (alambda
+   ((cust :req buf nb)
+    (become (pend-packet-accum-beh cust buf nb 0 +emptyq+)))
+   ((byte-vec)
+    (let ((nel (length byte-vec)))
+      (become (holding-accum-beh nel (addq +emptyq+ (list byte-vec 0 nel))))))
+   ))
+
+(defun holding-accum-beh (tbytes queue)
+  (alambda
+   ((cust :req buf nb)
+    (cond ((> tbytes nb)
+           (let ((new-queue (fill-req buf nb queue)))
+             (send cust buf)
+             (become (holding-accum-beh (- tbytes nb) new-queue))
+             ))
+
+          ((= tbytes nb)
+           (fill-req buf nb queue)
+           (send cust buf)
+           (become (empty-packet-accum-beh)))
+
+          (t
+           (become (pend-packet-accum-beh cust buf nb tbytes queue)))
+          ))
+
+   ((byte-vec)
+    (let* ((nel       (length byte-vec))
+           (new-queue (addq queue (list byte-vec 0 nel))))
+      (become (holding-accum-beh (+ tbytes nel) new-queue))
+      ))
+   ))
+
+(defun pend-packet-accum-beh (cust buf nbreq tbytes queue)
+  (λ (byte-vec)
+    (let* ((nel        (length byte-vec))
+           (new-queue  (addq queue (list byte-vec 0 nel)))
+           (new-tbytes (+ tbytes nel)))
+      (cond ((> new-tbytes nbreq)
+             (let ((new-queue (fill-req buf nbreq new-queue)))
+               (send cust buf)
+               (become (holding-accum-beh (- new-tbytes nbreq) new-queue))
+               ))
+
+            ((= new-tbytes nbreq)
+             (fill-req buf nbreq new-queue)
+             (send cust buf)
+             (become (empty-packet-accum-beh)))
+
+            (t
+             (become (pend-packet-accum-beh cust buf nbreq new-tbytes new-queue)))
+            ))))
+
+(defun fill-req (buf nb queue)
+  (um:nlet iter ((offs  0)
+                 (queue queue))
+    (if (>= offs nb)
+        queue
+      (multiple-value-bind (triple new-queue) (popq queue)
+        (destructuring-bind (byte-vec bv-off bv-nel) triple
+          (let ((nwant (- nb offs))
+                (nhave (- bv-nel bv-off)))
+            (cond ((> nhave nwant)
+                   (replace buf byte-vec
+                            :start1 offs :end1 nb
+                            :start2 bv-off :end2 bv-nel)
+                   (pushq new-queue (list byte-vec (+ bv-off nwant) bv-nel)))
+
+                ((= nhave nwant)
+                 (replace buf byte-vec
+                          :start1 offs :end1 nb
+                          :start2 bv-off :end2 bv-nel)
+                 new-queue)
+
+                (t
+                 (replace buf byte-vec
+                          :start1 offs :end1 nb
+                          :start2 bv-off :end2 bv-nel)
+                 (go-iter (+ offs nhave) new-queue))
+                ))
+          ))
+      )))
+
+(defun make-packet-accum ()
+  (make-actor (empty-packet-accum-beh)))
+
+(defun socket-reader-beh (decoder accum)
+  (λ _
+    (let ((buf (make-array 4 :element-type '(unsigned-byte 8))))
+      (β  _
+          (send accum β :req buf 4)
+        (let ((len 0))
+          (dotimes (ix 4)
+            (setf len (dpb (aref buf ix) (byte 8 (ash ix 3)) len)))
+          (let ((buf (make-array len
+                                 :element-type '(unsigned-byte 8))))
+            (β _
+                (send accum β :req buf len)
+              (send decoder buf)
+              (become (socket-reader-beh decoder accum))
+              (send self))
+            )))
+      )))
+
+(defun make-reader (decoder accum)
+  (let ((reader (make-actor (socket-reader-beh decoder accum))))
+    (send reader)))
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
@@ -268,7 +406,9 @@
                                (dechunker)
                                (marshal-decoder)
                                local-services))
+           (accum    (make-packet-accum))
            (shutdown (once (make-socket-shutdown state))))
+      (make-reader decoder accum)
       (beta _
           ;; provide a service to establish an encrypted channel
           (send local-services beta :add-service-with-id +server-connect-id+
@@ -304,7 +444,8 @@
                        (if (> end +max-fragment-size+)
                            (setf err-too-large "Incoming packet too large")
                          (progn
-                           (send decoder (subseq buffer 0 end))
+                           ;; (send dbg-println "-- recv from network ~D --" end)
+                           (send accum (subseq buffer 0 end))
                            (send kill-timer :resched)))
                        (comm:async-io-state-discard state end))
                      (um:when-let (status (or (comm:async-io-state-read-status state)

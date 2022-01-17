@@ -151,9 +151,16 @@
 (tst "arroyo.local")
 (tst "rincon.local")
 (tst "rambo.local")
+(install-atrace)
 (atrace)
 (atrace nil)
 
+(defun tst (host)
+  (let ((recho (remote-service :echo host))
+        (txt   (hcl:file-string "./xTActors/encoding.lisp")))
+    (β (ans)
+        (send recho β txt)
+      (send println (string= txt ans)))))
 
 (defun tst (host)
   (let ((reval (remote-service :eval host)))

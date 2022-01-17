@@ -291,12 +291,16 @@
 (defun secure-sender (ekey skey)
   (pipe (marshal-encoder)
         (marshal-compressor)
+        (chunker :max-size 65000)
+        (marshal-encoder)
         (encryptor ekey)
         (signing   skey)))
 
 (defun secure-reader (ekey pkey)
   (pipe (signature-validation pkey)
         (decryptor ekey)
+        (marshal-decoder)
+        (dechunker)
         (marshal-decompressor)
         (marshal-decoder)))
 
