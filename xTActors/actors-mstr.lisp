@@ -167,7 +167,7 @@ THE SOFTWARE.
 ;;
 ;; You should not depend on any particular ordering of messages,
 ;; except that message sent from an earlier Actor activation will
-;; appear in in the event queue in front of messages sent by a later
+;; appear in the event queue in front of messages sent by a later
 ;; Actor activation. The event queue is a FIFO queue.
 
 (defun run-actors ()
