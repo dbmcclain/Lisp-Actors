@@ -182,7 +182,7 @@ only store the package name")
                 ((member val (old-magic-numbers backend))
                  (restore-error "Stream contains an object stored with an ~
 incompatible version of backend ~A." (name backend)))
-                (t (restore-error "Stream does not contain a stored object~
+                (t (restore-error "Stream does not contain a stored object ~
  for backend ~A."
                                   (name backend))))))))
   (:documentation   
