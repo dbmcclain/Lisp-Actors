@@ -18,6 +18,7 @@
             com.ral.actors.secure-comm:+server-connect-id+
             com.ral.actors.secure-comm:server-skey
             ;; com.ral.actors.base::dbg-println
+            com.ral.actors.base::make-ubv
             )))
 
 ;; -----------------------------------------------------------------------
@@ -46,10 +47,9 @@
 ;; -------------------------------------------------------------------------
 ;; Socket writer
 ;;
-;;            pseudo-customer
-;;  byte-vec  +------------+   +------------+    +------------+    +-------------+
-;;     ------>| LABEL SINK |-->| Serializer |<-->| Write Gate |<-->| Phys Writer |
-;;            +------------+   +------------+    +------------+    +-------------+
+;;  byte-vec  +-----------+   +------------+    +---------------+    +------------+    +-------------+
+;;     ------>| Discarder |-->| Serializer |<-->| Prefix Writer |<-->| Write Gate |<-->| Phys Writer |
+;;            +-----------+   +------------+    +---------------+    +------------+    +-------------+
 ;;
 (defun physical-writer-beh (state)
   (with-accessors ((decr-io-count  intf-state-decr-io-count-fn)
@@ -105,8 +105,10 @@
    ))
 
 (defun prefixing-write-beh (writer)
+  ;; writes a 4-byte Little-Endian prefix count
+  ;; and stages the write of the byte-vec afterward
   (λ (a-tag byte-vec)
-    (let ((pref (make-array 4 :element-type '(unsigned-byte 8)))
+    (let ((pref (make-ubv 4))
           (size (length byte-vec)))
       (dotimes (ix 4)
         (setf (aref pref ix) (ldb (byte 8 (ash ix 3)) size)))
@@ -115,23 +117,26 @@
       )))
 
 (defun pend-prefixing-write-beh (tag byte-vec writer)
+  ;; writes the actual byte vector
   (λ _
     (send writer tag byte-vec)
     (become (prefixing-write-beh writer))))
 
 (defun discarder-beh (ser-gate)
+  ;; pass thru byte-vecs until we get a :DISCARD signal
   (alambda
    ((:discard)
     (become (sink-beh)))
    (msg
+    ;; provide SINK pseudo-customer for SERIALIZER
     (send* ser-gate sink msg))
    ))
 
 (defun make-writer (state)
   ;; serializer needs a customer on every message, so it can interpose
-  ;; between senders and the serialized Actor. We use a LABEL to
-  ;; inject SINK as the customer on write-messages, which are simply
-  ;; byte vectors and no customer.
+  ;; between senders and the serialized Actor. We inject SINK as the
+  ;; customer on write-messages, which are simply byte vectors and no
+  ;; customer.
   (actors ((phys-writer (physical-writer-beh state))
            (writer      (write-gate-beh state nil phys-writer))
            (prefixer    (serializer-beh
@@ -141,7 +146,8 @@
     discarder))
 
 ;; -------------------------------------------------------------------------
-;; Packet Aggregation
+;; Incoming Packet Aggregation - maintain a queue of incoming packet fragments
+;; and peel off as requested by reader.
 
 (defun empty-packet-accum-beh ()
   (alambda
@@ -230,16 +236,18 @@
 (defun make-packet-accum ()
   (make-actor (empty-packet-accum-beh)))
 
+;; ------------------------------------------------------------
+;; Socket Reader
+
 (defun socket-reader-beh (decoder accum)
   (λ _
-    (let ((buf (make-array 4 :element-type '(unsigned-byte 8))))
+    (let ((buf (make-ubv 4)))
       (β  _
           (send accum β :req buf 4)
         (let ((len 0))
           (dotimes (ix 4)
             (setf len (dpb (aref buf ix) (byte 8 (ash ix 3)) len)))
-          (let ((buf (make-array len
-                                 :element-type '(unsigned-byte 8))))
+          (let ((buf (make-ubv len)))
             (β _
                 (send accum β :req buf len)
               (send decoder buf)
