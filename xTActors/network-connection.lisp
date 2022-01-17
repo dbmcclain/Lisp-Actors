@@ -239,9 +239,10 @@
 ;; ------------------------------------------------------------
 ;; Socket Reader
 
-(defun socket-reader-beh (decoder accum)
-  (λ _
-    (let ((buf (make-ubv 4)))
+(defun socket-reader (decoder accum)
+  (α _
+    (let ((me  self)
+          (buf (make-ubv 4)))
       (β  _
           (send accum β :req buf 4)
         (let ((len 0))
@@ -251,14 +252,12 @@
             (β _
                 (send accum β :req buf len)
               (send decoder buf)
-              (become (socket-reader-beh decoder accum))
-              (send self))
+              (send me))
             )))
       )))
 
 (defun make-reader (decoder accum)
-  (let ((reader (make-actor (socket-reader-beh decoder accum))))
-    (send reader)))
+  (send (socket-reader decoder accum)))
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
