@@ -56,7 +56,11 @@
                    (state-io-state intf-state-io-state)
                    (io-running     intf-state-io-running)
                    (kill-timer     intf-state-kill-timer)) state
-    (lambda (cust byte-vec)
+    (alambda
+     ((:discard)
+      (become (sink-beh)))
+     
+     ((cust byte-vec)
       (let ((me  self))
         (labels
             ((finish-fail (io-state)
@@ -84,7 +88,7 @@
            
            (t
             (send cust self :fail))
-           ))))))
+           )))))))
 
 (defun write-gate-beh (state ser-gate phys-writer)
   (alambda
@@ -122,10 +126,11 @@
     (send writer tag byte-vec)
     (become (prefixing-write-beh writer))))
 
-(defun discarder-beh (ser-gate)
+(defun discarder-beh (ser-gate phys-writer)
   ;; pass thru byte-vecs until we get a :DISCARD signal
   (alambda
    ((:discard)
+    (send phys-writer :discard)
     (become (sink-beh)))
    (msg
     ;; provide SINK pseudo-customer for SERIALIZER
@@ -142,7 +147,7 @@
            (prefixer    (serializer-beh
                          (make-actor
                           (prefixing-write-beh writer))))
-           (discarder   (discarder-beh prefixer)))
+           (discarder   (discarder-beh prefixer phys-writer)))
     discarder))
 
 ;; -------------------------------------------------------------------------
