@@ -142,3 +142,6 @@ THE SOFTWARE.
     (name &rest args)
   (declare (optimize speed))
   (apply #'lw:call-next-advice (package-relative-name name) args))
+
+(pushnew :relative-package-names *features*)
+

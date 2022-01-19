@@ -56,7 +56,7 @@ THE SOFTWARE.
                 ;; (:file "freev")
                 #+(AND :COM.RAL :LISPWORKS) (:file "safe-call-system")
 
-                (:file "hierarchical-packages")
+                #-:relative-package-names (:file "hierarchical-packages")
                 (:file "package-aliases")
 
                 (:file "nlet")
