@@ -158,9 +158,12 @@
   (alambda
    ((cust :req buf nb)
     (become (pend-packet-accum-beh cust buf nb 0 +emptyq+)))
-   ((byte-vec)
+   
+   ((sender byte-vec)
+    (send sender :ok)
     (let ((nel (length byte-vec)))
-      (become (holding-accum-beh nel (addq +emptyq+ (list byte-vec 0 nel))))))
+      (become (holding-accum-beh nel (addq +emptyq+ (list byte-vec 0 nel)) ))
+      ))
    ))
 
 (defun holding-accum-beh (tbytes queue)
@@ -181,7 +184,8 @@
            (become (pend-packet-accum-beh cust buf nb tbytes queue)))
           ))
 
-   ((byte-vec)
+   ((sender byte-vec)
+    (send sender :ok)
     (let* ((nel       (length byte-vec))
            (new-queue (addq queue (list byte-vec 0 nel))))
       (become (holding-accum-beh (+ tbytes nel) new-queue))
@@ -189,7 +193,8 @@
    ))
 
 (defun pend-packet-accum-beh (cust buf nbreq tbytes queue)
-  (λ (byte-vec)
+  (λ (sender byte-vec)
+    (send sender :ok)
     (let* ((nel        (length byte-vec))
            (new-queue  (addq queue (list byte-vec 0 nel)))
            (new-tbytes (+ tbytes nel)))
@@ -238,16 +243,60 @@
           ))
       )))
 
-(defun make-packet-accum ()
+(defun make-accum ()
   (make-actor (empty-packet-accum-beh)))
 
+;; ----------------------------------------------
+;; In-order packet delivery - ensure that packets are delivered in
+;; arrival order
+
+(defun empty-ordered-delivery-beh (deliv acceptor)
+  (prunable-alambda
+   ((:req ix)
+    (let ((next (make-actor self-beh)))
+      (become (waiting-ordered-delivery-beh deliv acceptor ix next))))
+   
+   ((:deliver ix packet)
+    (let ((next (make-actor self-beh)))
+      (become (packet-delivery-beh deliv acceptor ix packet next))))
+   ))
+
+(defun waiting-ordered-delivery-beh (deliv acceptor ix next)
+  (prunable-alambda
+   ((:deliver an-ix packet) / (eql an-ix ix)
+    (prune-self next)
+    (β _
+        (send acceptor β packet)
+      (send deliv :req (1+ ix))))
+
+   (_
+    (repeat-send next))
+   ))
+
+(defun packet-delivery-beh (deliv acceptor ix packet next)
+  (prunable-alambda
+   ((:req an-ix) / (eql an-ix ix)
+    (prune-self next)
+    (β _
+        (send acceptor β packet)
+      (send deliv :req (1+ ix))))
+
+   (_
+    (repeat-send next))
+   ))
+
+(defun make-in-order-delivery (client)
+  (actors ((deliv (empty-ordered-delivery-beh deliv client)))
+    (send deliv :req 1)
+    deliv))
+
 ;; ------------------------------------------------------------
-;; Socket Reader
+;; Socket Reader - an autonomous socket reader loop
 
 (defun socket-reader (decoder accum)
   (α _
-    (let ((me  self)
-          (buf (make-ubv 4)))
+    (let ((again self)
+          (buf   (make-ubv 4)))
       (β  _
           (send accum β :req buf 4)
         (let ((len 0))
@@ -257,12 +306,15 @@
             (β _
                 (send accum β :req buf len)
               (send decoder buf)
-              (send me))
+              (send again))
             )))
       )))
 
-(defun make-reader (decoder accum)
-  (send (socket-reader decoder accum)))
+(defun make-reader (decoder)
+  (let* ((accum (make-accum))
+         (deliv (make-in-order-delivery accum)))
+    (send (socket-reader decoder accum))
+    deliv))
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
@@ -418,9 +470,9 @@
                                (dechunker)
                                (marshal-decoder)
                                local-services))
-           (accum    (make-packet-accum))
+           (accum    (make-reader decoder))
+           (packet-ctr 0)
            (shutdown (once (make-socket-shutdown state))))
-      (make-reader decoder accum)
       (beta _
           ;; provide a service to establish an encrypted channel
           (send local-services beta :add-service-with-id +server-connect-id+
@@ -457,7 +509,7 @@
                            (setf err-too-large "Incoming packet too large")
                          (progn
                            ;; (send dbg-println "-- recv from network ~D --" end)
-                           (send accum (subseq buffer 0 end))
+                           (send accum :deliver (incf packet-ctr) (subseq buffer 0 end))
                            (send kill-timer :resched)))
                        (comm:async-io-state-discard state end))
                      (um:when-let (status (or (comm:async-io-state-read-status state)
