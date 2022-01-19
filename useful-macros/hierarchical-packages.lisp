@@ -87,9 +87,8 @@ THE SOFTWARE.
 (lw:defadvice (cl:find-package :hierarchical-packages :around)
     (name/package)
     (declare (optimize speed))          ;this is critical code
-    (or (lw:call-next-advice name/package)
-        (lw:call-next-advice
-         (package-relative-name name/package)) ))
+    (lw:call-next-advice
+     (package-relative-name name/package)) )
 
 ;; ----------------------------------------------------------
 ;; editor::pathetic-parse-symbol -- allow symbol completion to
@@ -117,6 +116,7 @@ THE SOFTWARE.
 ;; this primitive is actually called by FIND-PACKAGE,
 ;; and so it will override any actions in the advice on FIND-PACKAGE.
 
+#|
 #+:LISPWORKS
 (lw:defadvice (sys::find-package-without-lod :hierarchical-packages :around)
     (name)
@@ -125,6 +125,7 @@ THE SOFTWARE.
   ;; (format t "find-package-without-lod: ~S" (editor:variable-value 'editor::current-package) )
   (or (lw:call-next-advice name)
       (lw:call-next-advice (package-relative-name name))))
+|#
 
 ;; ------------------------------------------------------------
 ;; cdp
@@ -135,3 +136,9 @@ THE SOFTWARE.
 
 (export 'cdp)
 
+
+#+:LISPWORKS8
+(lw:defadvice (sys::%in-package :hierarchical-packages :around)
+    (name &rest args)
+  (declare (optimize speed))
+  (apply #'lw:call-next-advice (package-relative-name name) args))
