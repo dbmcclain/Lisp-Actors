@@ -28,6 +28,11 @@ A SERIALIZER is an Actor which maintains a FIFO queue of messages sent to it. It
 
 So every pathway in the supervised Actor must culminate with a SEND back to that TAG, to enable the next message in the FIFO queue to proceed. Messages sent to a SERIALIZER should include a customer argument. The reply from the supervised Actor back to the SERIALIZER gets forwarded to the original customer by the SERIALIZER.
 
+Debugging Actors code is challenging because for every delivered message to an Actor, there is no clue about who sent it. There is no call/return in Actor code. There is a kind of call/forward at play here. You tell the Actor where to send its results.
+
+Everything in an Actor body execution can be considered Atomic from the viewpoint of the Actors system. An instruction cycle consists of a message dispatch, then everything performed in the Actor body, and culminating in committing of SENDS and BECOME. It's when you have a chain of coordinated messages that you break atomicity in the Actor system. And that's precisely when you need to control concurrency. 
+
+Concurrency can still be running at full speed elsewhere in the system, but along the logical thread under supervision by a SERIALIZER, there is only one concurrent thread of activity. Of course, the supervised Actor can spawn a whole slew of concurrent actions on its own. But no outside messages will be permitted until the Actor chain is ready, as signaled by replying to the SERIALIZER TAG.
 
 --- A Mental Model of an Ideal Actor Machine
 ---
