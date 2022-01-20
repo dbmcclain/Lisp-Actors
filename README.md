@@ -38,7 +38,7 @@ For debugging, you can insert printout messages in various places. But those mes
 
 There really is no definite concept of a thread of execution that could be watched. Logical threads of execution merely arise as a consequence of an Actor doing multiple SENDs. Each one of those SENDs spawns a new logical thread of execution.
 
-In a whole Actors system, even something as "simple" as the secure networking interface, produces a blizzard of logical threads. Pages and pages of ATRACE log messages arise from a single round-trip transaction. Thankfully, once you understand the rules of concurrency and full-blown asynchrony, it is really simple to write Actors systems that perform well, and provide features that would boggle the mind if done in Call/Return programming.
+In a whole Actors system, even something as "simple" as the secure networking interface, produces a blizzard of logical threads. Pages and pages of ATRACE log messages arise from a single round-trip transaction. Thankfully, once you understand the rules of concurrency and full-blown asynchrony, it is really simple to write Actors systems that perform well, have amazing amounts of concurrency, full-on parallel execution, and provide features that would boggle the mind if you had to use Call/Return programming.
 
 Just as an aside, the Lispworks system has a distant cousin of Actors already in place. They call them Actions and Action Lists.
 
