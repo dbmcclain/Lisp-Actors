@@ -20,7 +20,7 @@ Actor-lists are usually constructed using PRUNABLE-ALAMBDA for their Actor bodie
 
 But the act of mutating an Actor-list, using PRUNE-SELF, is actually a short chain of message SENDs that effects the pruning, culminating with a final BECOME, which causes the pruned node to assume the behavior and state of the NEXT node, which bypasses the NEXT node itself, and then discards the NEXT as garbage to be GC'd. 
 
-The fact that this pruning requires multiple SEND operations is the clue. **(Any time a state mutation takes more than one coordinated message dispatch, that sequence of messages needs to be protected by a SERIALIZER to avoid concurrency state races.)** 
+The fact that this pruning requires multiple SEND operations is the clue. **Any time a state mutation takes more than one coordinated message dispatch, that sequence of messages needs to be protected by a SERIALIZER to avoid concurrency state races.** 
 
 It all seems so clear in hindsight, but believe me, it took a while for the reality to become so clear.
 
