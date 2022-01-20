@@ -24,7 +24,7 @@ But the act of mutating an Actor-list, using PRUNE-SELF, is actually a short cha
 
 It all seems so clear in hindsight, but believe me, it took a while for the reality to become so clear.
 
-A SERIALIZER is an Actor which maintains a FIFO queue of messages sent to it. It takes the first message and forwards it to the Actor under its supervision. That Actor can do whatever it needs to do, send any number of messages, and no additional external messages will be sent to it from the SERIALIZER until that Actor replies back to the SERIALIZER through a provided TAG argument. 
+A SERIALIZER is an Actor which maintains a FIFO queue of messages sent to it. It takes the first message and forwards it to the Actor under its supervision. That Actor can do whatever it needs to do, send any number of messages, and no additional external messages will be sent to it from the SERIALIZER until that Actor replies back to the SERIALIZER through a provided TAG argument in customer argument position. 
 
 So every pathway in the supervised Actor must culminate with a SEND back to that TAG, to enable the next message in the FIFO queue to proceed. Messages sent to a SERIALIZER should include a customer argument. The reply from the supervised Actor back to the SERIALIZER gets forwarded to the original customer by the SERIALIZER.
 
