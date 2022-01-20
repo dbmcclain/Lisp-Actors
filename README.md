@@ -1,3 +1,24 @@
+--- Debugging Actors Code
+---
+While Actors radically simplify many things, debugging is a whole new universe, compared to what we are accustomed to with function call/return-style debugging. Totally!
+
+I spent the better part of one full day trying to track down why my secure network connections were acting flaky - sometimes working, sometimes working several times in a row, till they stopped working. It all comes down to concurrency races.
+
+We all have a pretty good idea of what a data race is. But this is another level beyond data races. In FPL pure code, there can be no data races, and I was careful the ensure that I wrote FPL pure code for my Actors bodies. But there is one overt, intentional data race possible in fully parallel code - the action of committing a BECOME on exit from the Actor body. But we alreay have that covered with CAS/retry.
+
+But at a higher level, despite these precautions, it is still possible to have concurrency races, where the actions of several coordinated messages effect a mutation of state in the system. And unless you limit these actions to sections where concurrency is restricted, by using classical SERIALIZERs, you still run the risk of currency state races. And figuring out just where to restrict concurrency can be a challenge.
+
+So when do you need a SERIALIZER? Certainly when you are addressing a shared resource, like a disk file. Only one logical thread of execution can be permitted to write to the file at any one time. A logical thread of execution is a serial chain of SEND's that will have an effect of mutating the state of the shared resource. That one is easy. Same too for shared I/O ports, as in the connections to my radios in the lab here.
+
+In the past we often dedicated an entire system thread to a shared resource, just to be sure to restrict concurrency against that resource. With Actors code this is wasteful and unnecessary. But you still need to restrict concurrency when mucking with the shared state of the device or resource. And we do that by ensuring that all logical threads of execution reach that resource through a SERIALIZER. 
+
+(One system thread can support an unlimited number of logical Actor threads. But Actor code doesn't describe itself in terms of logical threads. These logical threads just grow organically as a result of greater-than-one fanout with SENDs.)
+
+But here is the tricky one... We have self-maintaining Actor-lists, a kind of list formed by a chain of Actors, each referencing the next Actor via their local state, typically called NEXT. A self-maintaining Actor-list can grow new nodes, usually done at the tail of the list, and they can also remove interior nodes through cooperation with the NEXT node, using PRUNE-SELF. Actor-lists are usually constructed using PRUNABLE-ALAMBDA for their Actor bodies. And each node in the Actor-list can have a different personality, which makes them really useful.
+
+But the act of mutating an Actor-list, using PRUNE-SELF, is actually a short chain of message SENDs that effects the pruning, culminating with a final BECOME, which causes the pruned node to assume the character of the NEXT node, and discards the NEXT as garbage to be GC'd. The fact that this pruning requires multiple SEND operations is the clue. Any time a state mutation takes more than one message dispatch, that sequence of messages needs to be protected by a SERIALIZER to avoid concurrency state races. It all seems so clear in hindsight, but believe me, it took a while for the reality to become so clear.
+
+
 --- A Mental Model of an Ideal Actor Machine
 ---
 It can be helpful to keep in mind, as you write Actors code, a mental picture of the ideal Actor machine model. In this machine there are only 3 operations: CREATE, SEND, BECOME, plus Actor activation from message events carrying arguments.
