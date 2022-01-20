@@ -16,7 +16,7 @@ In the past we often dedicated an entire system thread to a shared resource, jus
 
 But here is the tricky one... We have self-maintaining Actor-lists, a kind of list formed by a chain of Actors, each referencing the next Actor via their local state, typically called NEXT. A self-maintaining Actor-list can grow new nodes, usually done at the tail of the list, and they can also remove interior nodes through cooperation with the NEXT node, using PRUNE-SELF. 
 
-Actor-lists are usually constructed using PRUNABLE-ALAMBDA for their Actor bodies. PRUNABLE-ALAMBDA is a convenience macro that defines PRUNE-SELF, provides a messaage handler to respond to the PRUNE message, and then inserts your other message pattern handlers. Each node in an Actor-list can have a different personality (behavior), which makes the Actor-lists really useful.
+Actor-lists are usually constructed using PRUNABLE-ALAMBDA for their Actor bodies. PRUNABLE-ALAMBDA is a convenience macro that defines PRUNE-SELF, provides a messaage handler to respond to the PRUNE message, and then inserts your other message pattern handlers. Each node in an Actor-list can have a different personality (behavior), which makes these Actor-lists really useful.
 
 But the act of mutating an Actor-list, using PRUNE-SELF, is actually a short chain of message SENDs that effects the pruning, culminating with a final BECOME, which causes the pruned node to assume the behavior and state of the NEXT node, which bypasses the NEXT node itself, and then discards the NEXT as garbage to be GC'd. The fact that this pruning requires multiple SEND operations is the clue. 
 
