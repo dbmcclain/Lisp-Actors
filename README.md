@@ -54,6 +54,11 @@ Such a machine is very unlike what we are accustomed to today. Perhaps someday s
 
 It might well happen that Lisp is the ideal implementation language for Actor machine emulators. Actors are untyped. BECOME requires the formation of functional closures which get stored in the behavior slot of Actors. Messages are arbitrary lists or tuples of arguments, as are state vectors. 
 
+For debugging, you can insert printout messages in various places. But those messages pop out in peculiar order. There seems to concept of causality if that is all you see. We have ATRACE to watch every SEND, but those are not yet committed. ATRACE messages do show when and from whom a message has been sent. But it is often too much information. It takes a lot of patience to sift through a stack of ATRACE log messages. 
+
+There really is no definite concept of a thread of execution that could be watched. Logical threads of execution merely arise as a consequence of an Actor doing multiple SENDs. Each one of those SENDs spawns a new logical thread of execution.
+
+
 Certainly, micro-ops in the Actor bodies can be typed with respect to their required arguments, or dynamically typed as with Lisp. CALL/RETURN is useful in the Actor bodies for performing assembly of new messages and state vectors. But the overriding important capability is that of allowing arbitrary lists of arbitrary items, and forming functional closures on demand - lambda forms in Lisp, capturing whatever free variables are needed in the lambda form body.
 
 As I look around at the new iterations of languages: C++, Swift, Rust - none of these implement functional closures to the level of completeness, nor as succinctly as what you find in Lisp. There always seem to be a list of gotchas about using closures in those languges. There never is in Lisp. And you have to actively defeat the typing mechanisms in those languages to produce messages and state vectors.
