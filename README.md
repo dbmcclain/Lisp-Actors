@@ -34,6 +34,11 @@ Everything in an Actor body execution can be considered Atomic from the viewpoin
 
 Concurrency can still be running at full speed elsewhere in the system, but along the logical thread under supervision by a SERIALIZER, there is only one concurrent thread of activity. Of course, the supervised Actor can spawn a whole slew of concurrent actions on its own. But no outside messages will be permitted until the Actor chain is ready, as signaled by replying to the SERIALIZER TAG.
 
+For debugging, you can insert printout messages in various places. But those messages pop out in peculiar order. There seems to concept of causality if that is all you see. We have ATRACE to watch every SEND, but those are not yet committed. ATRACE messages do show when and from whom a message has been sent. But it is often too much information. It takes a lot of patience to sift through a stack of ATRACE log messages. 
+
+There really is no definite concept of a thread of execution that could be watched. Logical threads of execution merely arise as a consequence of an Actor doing multiple SENDs. Each one of those SENDs spawns a new logical thread of execution.
+
+
 --- A Mental Model of an Ideal Actor Machine
 ---
 It can be helpful to keep in mind, as you write Actors code, a mental picture of the ideal Actor machine model. In this machine there are only 3 operations: CREATE, SEND, BECOME, plus Actor activation from message events carrying arguments.
@@ -53,11 +58,6 @@ Notice that there is no mention of threads. No such concept is needed. And you c
 Such a machine is very unlike what we are accustomed to today. Perhaps someday such a machine will exist in Silicon. Today we have to emulate its behavior using lambda calculus. And of course, in the underlying microcode of the emulator you find plenty of use for SETF and mutation, and machine threads. We do have operation ordering. Not everything happens at the same physical instant of time. But externally, these are not visible.
 
 It might well happen that Lisp is the ideal implementation language for Actor machine emulators. Actors are untyped. BECOME requires the formation of functional closures which get stored in the behavior slot of Actors. Messages are arbitrary lists or tuples of arguments, as are state vectors. 
-
-For debugging, you can insert printout messages in various places. But those messages pop out in peculiar order. There seems to concept of causality if that is all you see. We have ATRACE to watch every SEND, but those are not yet committed. ATRACE messages do show when and from whom a message has been sent. But it is often too much information. It takes a lot of patience to sift through a stack of ATRACE log messages. 
-
-There really is no definite concept of a thread of execution that could be watched. Logical threads of execution merely arise as a consequence of an Actor doing multiple SENDs. Each one of those SENDs spawns a new logical thread of execution.
-
 
 Certainly, micro-ops in the Actor bodies can be typed with respect to their required arguments, or dynamically typed as with Lisp. CALL/RETURN is useful in the Actor bodies for performing assembly of new messages and state vectors. But the overriding important capability is that of allowing arbitrary lists of arbitrary items, and forming functional closures on demand - lambda forms in Lisp, capturing whatever free variables are needed in the lambda form body.
 
