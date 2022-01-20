@@ -36,7 +36,7 @@ Concurrency can still be running at full speed elsewhere in the system, but alon
 
 For debugging, you can insert printout messages in various places. But those messages pop out in peculiar order. There seems no underlying causality if that is all you see. We have ATRACE to watch every SEND, but those are not yet committed. ATRACE messages do show when and from whom a message has been sent. But it is often too much information. It takes a lot of patience to sift through a stack of ATRACE log messages. 
 
-There really is no definite concept of a thread of execution that could be watched. Logical threads of execution merely arise as a consequence of an Actor doing multiple SENDs. Each one of those SENDs spawns a new logical thread of execution.
+There really is no definite concept of a thread of execution that could be watched. Logical threads of execution arise merely as a consequence of an Actor doing multiple SENDs. Each one of those SENDs spawns a new logical thread of execution.
 
 In a whole Actors system, even something as "simple" as the secure networking interface, produces a blizzard of logical threads. Pages and pages of ATRACE log messages arise from a single round-trip transaction. Thankfully, once you understand the rules of concurrency and full-blown asynchrony, it is really simple to write Actors systems that perform well, have amazing amounts of concurrency, enjoy full-on parallel execution with no system-thread management needed, no locking, and provide features that would boggle the mind if you had to use Call/Return programming.
 
