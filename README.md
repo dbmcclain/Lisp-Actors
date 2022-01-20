@@ -34,7 +34,7 @@ Everything in an Actor body execution can be considered Atomic from the viewpoin
 
 Concurrency can still be running at full speed elsewhere in the system, but along the logical thread under supervision by a SERIALIZER, there is only one concurrent thread of activity. Of course, the supervised Actor can spawn a whole slew of concurrent actions on its own. But no outside messages will be permitted until the Actor chain is ready, as signaled by replying to the SERIALIZER TAG.
 
-For debugging, you can insert printout messages in various places. But those messages pop out in peculiar order. There seems to concept of causality if that is all you see. We have ATRACE to watch every SEND, but those are not yet committed. ATRACE messages do show when and from whom a message has been sent. But it is often too much information. It takes a lot of patience to sift through a stack of ATRACE log messages. 
+For debugging, you can insert printout messages in various places. But those messages pop out in peculiar order. There seems no underlying causality if that is all you see. We have ATRACE to watch every SEND, but those are not yet committed. ATRACE messages do show when and from whom a message has been sent. But it is often too much information. It takes a lot of patience to sift through a stack of ATRACE log messages. 
 
 There really is no definite concept of a thread of execution that could be watched. Logical threads of execution merely arise as a consequence of an Actor doing multiple SENDs. Each one of those SENDs spawns a new logical thread of execution.
 
