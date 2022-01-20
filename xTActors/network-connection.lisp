@@ -19,7 +19,15 @@
             com.ral.actors.secure-comm:server-skey
             ;; com.ral.actors.base::dbg-println
             com.ral.actors.base::make-ubv
+
+            com.ral.actors.base::with-printer
             )))
+
+(defun dbg-println (fmtstr &rest args)
+  (with-printer (s *standard-output*)
+    (apply #'format s fmtstr args)
+    (terpri s)
+    (finish-output s)))
 
 ;; -----------------------------------------------------------------------
 
@@ -114,6 +122,7 @@
   (λ (a-tag byte-vec)
     (let ((pref (make-ubv 4))
           (size (length byte-vec)))
+      (dbg-println "send ~d" size)
       (dotimes (ix 4)
         (setf (aref pref ix) (ldb (byte 8 (ash ix 3)) size)))
       (send writer self pref)
@@ -154,166 +163,121 @@
 ;; Incoming Packet Aggregation - maintain a queue of incoming packet fragments
 ;; and peel off as requested by reader.
 
-(defun empty-packet-accum-beh ()
+(defun holding-accum-beh (deliv pkt-ix scrap start2 end2)
   (alambda
    ((cust :req buf nb)
-    (become (pend-packet-accum-beh cust buf nb 0 +emptyq+)))
-   
-   ((sender byte-vec)
-    (send sender :ok)
-    (let ((nel (length byte-vec)))
-      (become (holding-accum-beh nel (addq +emptyq+ (list byte-vec 0 nel)) ))
-      ))
+    (let ((nel (min (- end2 start2) nb)))
+      (replace buf scrap
+               :start1 0 :end1 nel
+               :start2 start2 :end2 end2)
+      (cond ((= nb nel)
+             (send cust buf)
+             (become (holding-accum-beh deliv pkt-ix scrap (+ start2 nel) end2)))
+            
+            (t
+             (let ((new-pkt-ix (1+ pkt-ix)))
+               (send deliv self :req new-pkt-ix)
+               (become (pend-packet-accum-beh deliv new-pkt-ix cust buf nel nb))))
+            )))
    ))
 
-(defun holding-accum-beh (tbytes queue)
-  (alambda
-   ((cust :req buf nb)
-    (cond ((> tbytes nb)
-           (let ((new-queue (fill-req buf nb queue)))
+(defun pend-packet-accum-beh (deliv pkt-ix cust buf start1 end1)
+  (λ (byte-vec)
+    (dbg-println "Got pkt ~d" pkt-ix)
+    (let* ((nel   (length byte-vec))
+           (nwant (- end1 start1))
+           (nb    (min nwant nel)))
+      (replace buf byte-vec
+               :start1 start1 :end1 end1
+               :start2 0      :end2 nel)
+      (cond ((>= nel nwant)
              (send cust buf)
-             (become (holding-accum-beh (- tbytes nb) new-queue))
-             ))
-
-          ((= tbytes nb)
-           (fill-req buf nb queue)
-           (send cust buf)
-           (become (empty-packet-accum-beh)))
-
-          (t
-           (become (pend-packet-accum-beh cust buf nb tbytes queue)))
-          ))
-
-   ((sender byte-vec)
-    (send sender :ok)
-    (let* ((nel       (length byte-vec))
-           (new-queue (addq queue (list byte-vec 0 nel))))
-      (become (holding-accum-beh (+ tbytes nel) new-queue))
-      ))
-   ))
-
-(defun pend-packet-accum-beh (cust buf nbreq tbytes queue)
-  (λ (sender byte-vec)
-    (send sender :ok)
-    (let* ((nel        (length byte-vec))
-           (new-queue  (addq queue (list byte-vec 0 nel)))
-           (new-tbytes (+ tbytes nel)))
-      (cond ((> new-tbytes nbreq)
-             (let ((new-queue (fill-req buf nbreq new-queue)))
-               (send cust buf)
-               (become (holding-accum-beh (- new-tbytes nbreq) new-queue))
-               ))
-
-            ((= new-tbytes nbreq)
-             (fill-req buf nbreq new-queue)
-             (send cust buf)
-             (become (empty-packet-accum-beh)))
+             (become (holding-accum-beh deliv pkt-ix byte-vec nb nel)))
 
             (t
-             (become (pend-packet-accum-beh cust buf nbreq new-tbytes new-queue)))
+             (let ((new-pkt-ix  (1+ pkt-ix)))
+               (send deliv self :req new-pkt-ix)
+               (become (pend-packet-accum-beh deliv new-pkt-ix cust buf (+ start1 nb) end1))
+               ))
             ))))
-
-(defun fill-req (buf nb queue)
-  (um:nlet iter ((offs  0)
-                 (queue queue))
-    (if (>= offs nb)
-        queue
-      (multiple-value-bind (triple new-queue) (popq queue)
-        (destructuring-bind (byte-vec bv-off bv-nel) triple
-          (let ((nwant (- nb offs))
-                (nhave (- bv-nel bv-off)))
-            (cond ((> nhave nwant)
-                   (replace buf byte-vec
-                            :start1 offs :end1 nb
-                            :start2 bv-off :end2 bv-nel)
-                   (pushq new-queue (list byte-vec (+ bv-off nwant) bv-nel)))
-
-                ((= nhave nwant)
-                 (replace buf byte-vec
-                          :start1 offs :end1 nb
-                          :start2 bv-off :end2 bv-nel)
-                 new-queue)
-
-                (t
-                 (replace buf byte-vec
-                          :start1 offs :end1 nb
-                          :start2 bv-off :end2 bv-nel)
-                 (go-iter (+ offs nhave) new-queue))
-                ))
-          ))
-      )))
-
-(defun make-accum ()
-  (make-actor (empty-packet-accum-beh)))
 
 ;; ----------------------------------------------
 ;; In-order packet delivery - ensure that packets are delivered in
 ;; arrival order
 
-(defun empty-ordered-delivery-beh (deliv acceptor)
+(defun empty-ordered-delivery-beh ()
   (prunable-alambda
-   ((:req ix)
+   ((sender cust :req ix)
+    (send sender :ok)
+    (dbg-println "req pkt ~D" ix) 
     (let ((next (make-actor self-beh)))
-      (become (waiting-ordered-delivery-beh deliv acceptor ix next))))
+      (become (waiting-ordered-delivery-beh cust ix next))
+      ))
    
-   ((:deliver ix packet)
+   ((sender :deliver ix packet)
+    (send sender :ok)
+    (dbg-println "recv pkt ~D (~D)" ix (length packet))
     (let ((next (make-actor self-beh)))
-      (become (packet-delivery-beh deliv acceptor ix packet next))))
+      (become (packet-delivery-beh ix packet next))
+      ))
    ))
 
-(defun waiting-ordered-delivery-beh (deliv acceptor ix next)
+(defun waiting-ordered-delivery-beh (cust ix next)
   (prunable-alambda
-   ((:deliver an-ix packet) / (eql an-ix ix)
+   ((sender :deliver an-ix packet) / (eql an-ix ix)
+    (send sender :ok)
+    (dbg-println "recv pkt ~D (~D)" ix (length packet))
     (prune-self next)
-    (β _
-        (send acceptor β packet)
-      (send deliv :req (1+ ix))))
+    (send cust packet))
 
    (_
     (repeat-send next))
    ))
 
-(defun packet-delivery-beh (deliv acceptor ix packet next)
+(defun packet-delivery-beh (ix packet next)
   (prunable-alambda
-   ((:req an-ix) / (eql an-ix ix)
+   ((sender cust :req an-ix) / (eql an-ix ix)
+    (send sender :ok)
+    (dbg-println "req pkt ~D" ix) 
     (prune-self next)
-    (β _
-        (send acceptor β packet)
-      (send deliv :req (1+ ix))))
+    (send cust packet))
 
    (_
     (repeat-send next))
    ))
 
-(defun make-in-order-delivery (client)
-  (actors ((deliv (empty-ordered-delivery-beh deliv client)))
-    (send deliv :req 1)
-    deliv))
+(defun init-packet-delivery-beh (deliv decoder)
+  (λ _
+    (actors ((accum  (holding-accum-beh deliv 0 nil 0 0))
+             (reader (socket-reader-beh reader decoder accum)))
+      (become (empty-ordered-delivery-beh))
+      (send reader)
+      (repeat-send self))
+    ))
 
 ;; ------------------------------------------------------------
 ;; Socket Reader - an autonomous socket reader loop
 
-(defun socket-reader (decoder accum)
-  (α _
-    (let ((again self)
-          (buf   (make-ubv 4)))
+(defun socket-reader-beh (reader decoder accum)
+  (λ _
+    (let ((buf (make-ubv 4)))
       (β  _
           (send accum β :req buf 4)
         (let ((len 0))
           (dotimes (ix 4)
             (setf len (dpb (aref buf ix) (byte 8 (ash ix 3)) len)))
+          (dbg-println "Req ~D bytes" len)
           (let ((buf (make-ubv len)))
             (β _
                 (send accum β :req buf len)
+              (dbg-println "Decoding")
               (send decoder buf)
-              (send again))
+              (send reader))
             )))
       )))
 
 (defun make-reader (decoder)
-  (let* ((accum (make-accum))
-         (deliv (make-in-order-delivery accum)))
-    (send (socket-reader decoder accum))
+  (actors ((deliv (label-beh (serializer (make-actor (init-packet-delivery-beh deliv decoder))) nil)))
     deliv))
 
 ;; -------------------------------------------------------------------------
@@ -509,7 +473,10 @@
                            (setf err-too-large "Incoming packet too large")
                          (progn
                            ;; (send dbg-println "-- recv from network ~D --" end)
-                           (send accum :deliver (incf packet-ctr) (subseq buffer 0 end))
+                           (if nil
+                               (send accum #|:deliver (incf packet-ctr)|# (subseq buffer 0 end))
+                             ;; else
+                             (send accum :deliver (incf packet-ctr) (subseq buffer 0 end)))
                            (send kill-timer :resched)))
                        (comm:async-io-state-discard state end))
                      (um:when-let (status (or (comm:async-io-state-read-status state)
