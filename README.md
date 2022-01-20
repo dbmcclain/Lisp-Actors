@@ -4,7 +4,7 @@ While Actors radically simplify many things, debugging is a whole new universe, 
 
 I spent the better part of one full day trying to track down why my secure network connections were acting flaky - sometimes working, sometimes working several times in a row, till they stopped working. It all comes down to concurrency races.
 
-We all have a pretty good idea of what a data race is. But this is another level beyond data races. In FPL pure code, there can be no data races, and I was careful the ensure that I wrote FPL pure code for my Actors bodies. But there is one overt, intentional data race possible in fully parallel code - the action of committing a BECOME on exit from the Actor body. But we alreay have that covered with CAS/retry.
+We all have a pretty good idea of what a data race is. But this is another level beyond data races. In FPL pure code, there can be no data races, and I was careful the ensure that I wrote FPL pure code for my Actors bodies. But there is one overt, intentional data race possible in fully parallel code - the action of committing a BECOME on exit from the Actor body. But we already have that covered with CAS/retry.
 
 But at a higher level, despite these precautions, it is still possible to have concurrency races, where the actions of several coordinated messages effect a mutation of state in the system. And unless you limit these actions to sections where concurrency is restricted, by using classical SERIALIZERs, you still run the risk of concurrency state races. And figuring out just where to restrict concurrency can be a challenge.
 
