@@ -68,7 +68,7 @@
      ;; (send println (format nil "server rec'd req: ~S" self-msg))
      (let ((proxy (when cust-id
                     (sink-pipe encryptor (remote-actor-proxy cust-id socket)))))
-       (send* global-services proxy :send verb msg)))
+       (send* global-services nil proxy :send verb msg)))
     )))
 
 ;; ---------------------------------------------------------------

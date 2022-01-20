@@ -64,16 +64,16 @@
 (defun service-list-beh (name handler next)
   (prunable-alambda
 
-   ((rem-cust :send verb . msg) when (eql verb name)
-    (send* handler rem-cust msg))
+   ((cust rem-cust :send verb . msg) when (eql verb name)
+    (send* handler rem-cust msg)
+    (send cust :ok))
 
    ((cust :add-service aname new-handler) when (eql aname name)
     (become (service-list-beh name new-handler next))
     (send cust :ok))
    
    ((cust :remove-service aname) when (eql aname name)
-    (prune-self next)
-    (send cust :ok))
+    (prune-self next cust))
 
    ((cust :available-services lst)
     (send next cust :available-services (cons name lst)))
@@ -141,14 +141,16 @@
     (send next cust :add-service name handler))
    
    ((atag :finish) when (eql atag tag)
-    (prune-self next)
-    (send* next msg))
+    (β _
+        (prune-self next β)
+      (send* next msg)))
    ))
 
-(deflex global-services (global-services-init
-                         `((:echo ,(make-echo))
-                           (:eval ,(make-eval)))
-                         ))
+(deflex global-services (serializer
+                         (global-services-init
+                          `((:echo ,(make-echo))
+                            (:eval ,(make-eval)))
+                          )))
         
 ;; ------------------------------------------------------------
 ;; When the socket connection (server or client side) receives an
@@ -230,19 +232,18 @@
   ;; used by clients to hold ephemeral reply proxies
   (prunable-alambda
 
-   ((client-id :send . msg) when (uuid:uuid= client-id id)
+   ((cust client-id :send . msg) when (uuid:uuid= client-id id)
     ;; Server replies are directed here via the client proxy id, to
     ;; find the actual client channel. Once a reply is received, this
     ;; proxy is destroyed. It is also removed after a timeout and no
     ;; reply forthcoming.
     (dbg (send println (format nil "Ephemeral service used: ~A" id)))
     (send* actor msg)
-    (prune-self next))
+    (prune-self next cust))
     
    ((cust :remove-service an-id) when (uuid:uuid= an-id id)
-    (send cust :ok)
     (dbg (send println (format nil "Ephemeral service removed: ~A" id)))
-    (prune-self next))
+    (prune-self next cust))
 
    ((cust :list lst)
     (send next cust :list (cons (list :ephemeral id actor) lst)))
@@ -255,16 +256,16 @@
   ;; used by servers to hold proxies for local service channels
   (prunable-alambda
 
-   ((serv-id :send . msg) when (uuid:uuid= serv-id id)
+   ((cust serv-id :send . msg) when (uuid:uuid= serv-id id)
     ;; We do not automatically remove this entry once used. Instead,
     ;; we renew the lease. Client messages are directed here via proxy
     ;; serv-id, to find the actual target channel.
     (dbg (send println (format nil "Service used: ~A" id)))
-    (send* actor msg))
+    (send* actor msg)
+    (send cust :ok))
 
    ((cust :remove-service an-id) when (uuid:uuid= an-id id)
-    (send cust :ok)
-    (prune-self next))
+    (prune-self next cust))
 
    ((cust :list lst)
     (send next cust :list (cons (list :service id actor) lst)))
@@ -275,7 +276,7 @@
 
 (defun make-local-services ()
   (actors ((svc (empty-local-services-beh svc)))
-    svc))
+    (serializer svc)))
 
 (defun create-ephemeral-client-proxy (cust local-services svc &key (ttl *default-ephemeral-ttl*))
   ;; used by client side

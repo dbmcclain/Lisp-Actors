@@ -60,7 +60,8 @@ THE SOFTWARE.
 (defstruct (actor
                (:constructor make-actor (&optional (beh #'lw:do-nothing))))
   (beh #'lw:do-nothing :type function)
-  busy)
+  ;; busy
+  )
 
 ;; --------------------------------------------------------
 ;; Core RUN for Actors

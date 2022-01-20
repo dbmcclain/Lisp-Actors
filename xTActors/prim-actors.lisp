@@ -361,9 +361,10 @@
 ;; The purpose of this Actor is to avoid spinning on messages,
 ;; needlessly using CPU cycles.
 
-(defun pruned-beh (next)
+(defun pruned-beh (next cust)
   (alambda
    ((:pruned beh)
+    (send cust :ok)
     (become beh))
    
    (msg
@@ -371,11 +372,12 @@
    ))
 
 (defmacro prunable-alambda (&rest clauses)
-  (lw:with-unique-names (tmp)
-    `(macrolet ((prune-self (next)
-                  `(let ((,',tmp ,next))
-                     (become (pruned-beh ,',tmp))
-                     (send ,',tmp self :prune))
+  (lw:with-unique-names (tmp-next tmp-cust)
+    `(macrolet ((prune-self (next &optional cust)
+                  `(let ((,',tmp-next ,next)
+                         (,',tmp-cust ,cust))
+                     (become (pruned-beh ,',tmp-next ,',tmp-cust))
+                     (send ,',tmp-next self :prune))
                   ))
        (alambda 
         ((cust :prune)
