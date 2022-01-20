@@ -1,3 +1,48 @@
+--- Debugging Actors Code
+---
+While Actors radically simplify many things, debugging is a whole new universe, compared to what we are accustomed to with function call/return-style debugging. Totally!
+
+I spent the better part of one full day trying to track down why my secure network connections were acting flaky - sometimes working, sometimes working several times in a row, till they stopped working. It all comes down to concurrency races.
+
+We all have a pretty good idea of what a data race is. But this is another level beyond data races. In FPL pure code, there can be no data races, and I was careful the ensure that I wrote FPL pure code for my Actors bodies. But there is one overt, intentional data race possible in fully parallel code - the action of committing a BECOME on exit from the Actor body. But we already have that covered with CAS/retry.
+
+But at a higher level, despite these precautions, and even when running in just one machine thread, it is still possible to have concurrency races, where the actions of several coordinated messages effect a mutation of state in the system. And unless you limit these actions to sections where concurrency is restricted, by using classical SERIALIZERs, you still run the risk of concurrency state races. And figuring out just where to restrict concurrency can be a challenge.
+
+So when do you need a SERIALIZER? Certainly when you are addressing a shared resource, like a disk file. Only one logical thread of execution can be permitted to write to the file at any one time. A logical thread of execution is a serial chain of SEND's that will have an effect of mutating the state of the shared resource. That one is easy. Same too for shared I/O ports, as in the connections to my radios in the lab here.
+
+In the past we often dedicated an entire system thread to a shared resource, just to be sure to restrict concurrency against that resource. With Actors code this is wasteful and unnecessary. But you still need to restrict concurrency when mucking with the shared state of the device or resource. And we do that by ensuring that all logical threads of execution reach that resource through a SERIALIZER. 
+
+(One system thread can support an unlimited number of logical Actor threads. But Actor code doesn't describe itself in terms of logical threads. These logical threads just grow organically as a result of greater-than-one fanout with SENDs.)
+
+But here is the tricky one... We have self-maintaining Actor-lists, a kind of list formed by a chain of Actors, each referencing the next Actor via their local state, typically called NEXT. A self-maintaining Actor-list can grow new nodes, usually done at the tail of the list, and they can also remove interior nodes through cooperation with the NEXT node, using PRUNE-SELF. 
+
+Actor-lists are usually constructed using PRUNABLE-ALAMBDA for their Actor bodies. PRUNABLE-ALAMBDA is a convenience macro that defines PRUNE-SELF, provides a messaage handler to respond to the PRUNE message, and then inserts your other message pattern handlers. Each node in an Actor-list can have a different personality (behavior), which makes these Actor-lists really useful.
+
+But the act of mutating an Actor-list, using PRUNE-SELF, is actually a short chain of message SENDs that effects the pruning, culminating with a final BECOME, which causes the pruned node to assume the behavior and state of the NEXT node, which bypasses the NEXT node itself, and then discards the NEXT as garbage to be GC'd. The fact that this pruning requires multiple SEND operations is the clue. 
+
+**Any time a state mutation takes more than one coordinated message dispatch, that sequence of messages needs to be protected by a SERIALIZER to avoid concurrency state races.** 
+
+It all seems so clear in hindsight, but believe me, it took a while for the reality to become so clear.
+
+A SERIALIZER is an Actor which maintains a FIFO queue of messages sent to it. It takes the first message and forwards it to the Actor under its supervision. That Actor can do whatever it needs to do, send any number of messages, and no additional external messages will be sent to it from the SERIALIZER until that Actor replies back to the SERIALIZER through a provided TAG in customer argument position. 
+
+So every pathway in the supervised Actor must culminate with a SEND back to that TAG, to enable the next message in the FIFO queue to proceed. Messages sent to a SERIALIZER should include a customer argument. The reply from the supervised Actor back to the SERIALIZER gets forwarded to the original customer by the SERIALIZER.
+
+Debugging Actors code is challenging because for every delivered message to an Actor, there is no clue about who sent it. There is no call/return in Actor code. There is a kind of call/forward at play here. You tell the Actor where to send its results.
+
+Everything in an Actor body execution can be considered Atomic from the viewpoint of the Actors system. An instruction cycle consists of a message dispatch, then everything performed in the Actor body, and culminating in committing of SENDS and BECOME. It's when you have a chain of coordinated messages that you break atomicity in the Actor system. And that's precisely when you need to control concurrency. 
+
+Concurrency can still be running at full speed elsewhere in the system, but along the logical thread under supervision by a SERIALIZER, there is only one concurrent thread of activity. Of course, the supervised Actor can spawn a whole slew of concurrent actions on its own. But no outside messages will be permitted until the Actor chain is ready, as signaled by replying to the SERIALIZER TAG.
+
+For debugging, you can insert printout messages in various places. But those messages pop out in peculiar order. There seems no underlying causality if that is all you see. We have ATRACE to watch every SEND, but those are not yet committed. ATRACE messages do show when and from whom a message has been sent. But it is often too much information. It takes a lot of patience to sift through a stack of ATRACE log messages. 
+
+There really is no definite concept of a thread of execution that could be watched. Logical threads of execution arise merely as a consequence of an Actor doing multiple SENDs. Each one of those SENDs spawns a new logical thread of execution.
+
+In a whole Actors system, even something as "simple" as the secure networking interface, produces a blizzard of logical threads. Pages and pages of ATRACE log messages arise from a single round-trip transaction. Thankfully, once you understand the rules of concurrency and full-blown asynchrony, it is really simple to write Actors systems that perform well, have amazing amounts of concurrency, enjoy full-on parallel execution with no system-thread management needed, no locking, and provide features that would boggle the mind if you had to use Call/Return programming.
+
+Just as an aside, the Lispworks system has a distant cousin of Actors already in place. They call them Actions and Action Lists.
+
+
 --- A Mental Model of an Ideal Actor Machine
 ---
 It can be helpful to keep in mind, as you write Actors code, a mental picture of the ideal Actor machine model. In this machine there are only 3 operations: CREATE, SEND, BECOME, plus Actor activation from message events carrying arguments.
