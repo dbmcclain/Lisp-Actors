@@ -20,14 +20,16 @@
             ;; com.ral.actors.base::dbg-println
             com.ral.actors.base::make-ubv
 
-            com.ral.actors.base::with-printer
+            ;; com.ral.actors.base::with-printer
             )))
 
+#|
 (defun dbg-println (fmtstr &rest args)
   (with-printer (s *standard-output*)
     (apply #'format s fmtstr args)
     (terpri s)
     (finish-output s)))
+|#
 
 ;; -----------------------------------------------------------------------
 
@@ -122,7 +124,6 @@
   (λ (a-tag byte-vec)
     (let ((pref (make-ubv 4))
           (size (length byte-vec)))
-      ;; (dbg-println "send ~d" size)
       (dotimes (ix 4)
         (setf (aref pref ix) (ldb (byte 8 (ash ix 3)) size)))
       (send writer self pref)
@@ -183,7 +184,6 @@
 
 (defun pend-packet-accum-beh (deliv pkt-ix cust buf start1 end1)
   (λ (byte-vec)
-    ;; (dbg-println "Got pkt ~d" pkt-ix)
     (let* ((nel   (length byte-vec))
            (nwant (- end1 start1))
            (nb    (min nwant nel)))
@@ -205,53 +205,32 @@
 ;; In-order packet delivery - ensure that packets are delivered in
 ;; arrival order
 
-(defun empty-ordered-delivery-beh ()
-  (prunable-alambda
-   ((sender cust :req ix)
-    (send sender :ok)
-    ;; (dbg-println "req pkt ~D" ix) 
-    (let ((next (make-actor self-beh)))
-      (become (waiting-ordered-delivery-beh cust ix next))
-      ))
-   
-   ((sender :deliver ix packet)
-    (send sender :ok)
-    ;; (dbg-println "recv pkt ~D (~D)" ix (length packet))
-    (let ((next (make-actor self-beh)))
-      (become (packet-delivery-beh ix packet next))
-      ))
+(defun base-ordered-delivery-beh (packets)
+  (alambda
+   ((cust :req ix)
+    (let ((pair (assoc ix packets)))
+      (cond (pair
+             (let ((new-packets (remove pair packets)))
+               (send cust (cdr pair))
+               (become (base-ordered-delivery-beh new-packets))))
+            (t
+             (become (waiting-ordered-delivery-beh cust ix packets)))
+            )))
+
+   ((:deliver ix packet)
+    (become (base-ordered-delivery-beh (acons ix packet packets))))
    ))
 
-(defun waiting-ordered-delivery-beh (cust ix next)
-  (prunable-alambda
-   ((sender :deliver an-ix packet) / (eql an-ix ix)
-    ;; (dbg-println "recv pkt ~D (~D)" ix (length packet))
-    (prune-self next sender)
-    (send cust packet))
+(defun waiting-ordered-delivery-beh (cust ix packets)
+  (alambda
+   ((:deliver an-ix packet)
+    (cond ((eql ix an-ix)
+           (send cust packet)
+           (become (base-ordered-delivery-beh packets)))
 
-   (_
-    (repeat-send next))
-   ))
-
-(defun packet-delivery-beh (ix packet next)
-  (prunable-alambda
-   ((sender cust :req an-ix) / (eql an-ix ix)
-    ;; (dbg-println "req pkt ~D" ix) 
-    (prune-self next sender)
-    (send cust packet))
-
-   (_
-    (repeat-send next))
-   ))
-
-(defun init-packet-delivery-beh (deliv decoder)
-  (λ _
-    (actors ((accum  (holding-accum-beh deliv 0 nil 0 0))
-             (reader (socket-reader-beh reader decoder accum)))
-      (become (empty-ordered-delivery-beh))
-      (send reader)
-      (repeat-send self))
-    ))
+          (t
+           (become (waiting-ordered-delivery-beh cust ix (acons an-ix packet packets))))
+          ))))
 
 ;; ------------------------------------------------------------
 ;; Socket Reader - an autonomous socket reader loop
@@ -264,19 +243,22 @@
         (let ((len 0))
           (dotimes (ix 4)
             (setf len (dpb (aref buf ix) (byte 8 (ash ix 3)) len)))
-          ;; (dbg-println "Req ~D bytes" len)
           (let ((buf (make-ubv len)))
             (β _
                 (send accum β :req buf len)
-              ;; (dbg-println "Decoding")
               (send decoder buf)
               (send reader))
             )))
       )))
 
 (defun make-reader (decoder)
-  (actors ((deliv (label-beh (serializer (make-actor (init-packet-delivery-beh deliv decoder))) nil)))
-    deliv))
+  (α _
+    (actors ((accum  (holding-accum-beh self 0 nil 0 0))
+             (reader (socket-reader-beh reader decoder accum)))
+      (become (base-ordered-delivery-beh nil))
+      (send reader)
+      (repeat-send self))
+    ))
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
@@ -340,49 +322,84 @@
 ;; and cust-id will be registered at the sending client end.
 ;;
 
-(defun empty-connections-list-beh ()
-  (prunable-alambda
+(defstruct connection-rec
+  ip-addr ip-port state sender chan)
 
+(defun find-connection-from-ip (lst ip-addr ip-port)
+  (find-if (lambda (rec)
+             (and (eql ip-addr (connection-rec-ip-addr rec))
+                  (eql ip-port (connection-rec-ip-port rec))))
+           lst))
+
+(defun find-connection-from-state (lst state)
+  (find-if (lambda (rec)
+             (eql state (connection-rec-state rec)))
+           lst))
+
+(defun find-connection-from-sender (lst sender)
+  (find-if (lambda (rec)
+             (eql sender (connection-rec-sender rec)))
+           lst))
+
+(defun connections-list-beh (lst)
+  (alambda
    ((cust :add-socket ip-addr ip-port state sender)
-    (let ((next (make-actor self-beh)))
-      (become (connection-node-beh ip-addr ip-port state sender sender next))
-      (send cust :ok)))
+    (let ((rec (find-connection-from-ip lst ip-addr ip-port)))
+      (cond (rec
+             (let ((new-rec (copy-connection-rec rec))
+                   (new-lst (remove rec lst)))
+               (setf (connection-rec-state  new-rec) state
+                     (connection-rec-sender new-rec) sender
+                     (connection-rec-chan   new-rec) sender)
+               (become (connections-list-beh (cons new-rec new-lst)))
+               (send cust :ok)
+               ))
+            (t
+             (let ((new-rec (make-connection-rec
+                             :ip-addr  ip-addr
+                             :ip-port  ip-port
+                             :state    state
+                             :sender   sender
+                             :chan     sender)))
+             (become (connections-list-beh (cons new-rec lst)))
+             (send cust :ok)
+             ))
+            )))
 
-   ((cust :on-find-sender _ _ _ if-not-found)
-    (send if-not-found)
-    (send cust :ok))
+   ((:on-find-sender ip-addr ip-port if-found if-not-found)
+    (let ((rec (find-connection-from-ip lst ip-addr ip-port)))
+      (cond (rec
+             (send if-found
+                   (connection-rec-sender rec)
+                   (connection-rec-chan   rec)
+                   (intf-state-local-services (connection-rec-state rec))))
+            (t
+             (send if-not-found))
+            )))
 
-   ((cust :remove . _)
-    (send cust :ok))
-   ))
-
-(defun connection-node-beh (ip-addr ip-port state sender chan next)
-  (prunable-alambda
-
-   ((cust :add-socket an-ip-addr an-ip-port new-state new-sender) when (and (eql an-ip-addr ip-addr)
-                                                                            (eql an-ip-port ip-port))
-    ;; replacing the sender and state - kills the old chan and has to be renegotiated
-    (become (connection-node-beh ip-addr ip-port new-state new-sender new-sender next))
-    (send cust :ok))
-
-   ((cust :on-find-sender an-ip-addr an-ip-port if-found . _) when (and (eql an-ip-addr ip-addr)
-                                                                   (eql an-ip-port ip-port))
-    (send if-found sender chan (intf-state-local-services state))
-    (send cust :ok))
-
-   ((cust :set-channel a-sender new-chan) when (eq a-sender sender)
-    (become (connection-node-beh ip-addr ip-port state sender new-chan next))
-    (send cust :ok))
-
-   ((cust :remove a-state) when (eq a-state state)
-    (prune-self next cust))
-   
-   (_
-    (repeat-send next))
+   ((cust :set-channel sender chan)
+    (let ((rec (find-connection-from-sender lst sender)))
+      (when rec
+        (let ((new-rec (copy-connection-rec rec))
+              (new-lst (remove rec lst)))
+          (setf (connection-rec-chan new-rec) chan)
+          (become (connections-list-beh (cons new-rec new-lst)))
+          ))
+      (send cust :ok)
+      ))
+            
+   ((cust :remove state)
+    (let ((rec (find-connection-from-state lst state)))
+      (cond (rec
+             (become (connections-list-beh (remove rec lst)))
+             (send cust :ok))
+            (t
+             (send cust :ok))
+            )))
    ))
 
 (deflex connections
-  (serializer (make-actor (empty-connections-list-beh))))
+  (make-actor (connections-list-beh nil)))
 
 ;; -------------------------------------------------------------
 
@@ -507,47 +524,62 @@
 (defun canon-ip-addr (ip-addr)
   (comm:get-host-entry ip-addr :fields '(:address)))
 
-(defun empty-pending-connections-beh (pends)
-  (prunable-alambda
+(defstruct pending-connection-rec
+  ip-addr ip-port report-ip-addr custs)
 
-   ((admin cx-cust :connect ip-addr ip-port report-ip-addr)
-    (let ((next (make-actor self-beh)))
-      (become (pending-connections-beh ip-addr ip-port report-ip-addr (list cx-cust) next))
-      (send (make-socket-connection ip-addr ip-port report-ip-addr) pends)
-      (send admin :ok)
+(defun find-pending-connection-from-ip (lst ip-addr ip-port)
+  (find-if (lambda (rec)
+             (and (eql ip-addr (pending-connection-rec-ip-addr rec))
+                  (eql ip-port (pending-connection-rec-ip-port rec))))
+           lst))
+
+(defun pending-connections-list-beh (lst)
+  (alambda
+   ((cx-cust :connect ip-addr ip-port report-ip-addr)
+    (let ((rec (find-pending-connection-from-ip lst ip-addr ip-port)))
+      (cond (rec
+             (let ((new-rec (copy-pending-connection-rec rec))
+                   (new-lst (remove rec lst)))
+               (push cx-cust (pending-connection-rec-custs new-rec))
+               (become (pending-connections-list-beh (cons new-rec new-lst)))
+               ))
+            (t
+             (let ((new-rec (make-pending-connection-rec
+                             :ip-addr ip-addr
+                             :ip-port ip-port
+                             :report-ip-addr report-ip-addr
+                             :custs   (list cx-cust))))
+               (become (pending-connections-list-beh (cons new-rec lst)))
+               (send (make-socket-connection ip-addr ip-port report-ip-addr) self)
+               ))
+            )))
+
+   ((:ready ip-addr ip-port intf-state sender local-services)
+    (let ((rec (find-pending-connection-from-ip lst ip-addr ip-port)))
+      (when rec
+        (become (pending-connections-list-beh (remove rec lst)))
+
+        (multiple-value-bind (peer-ip peer-port)
+            #+:LISPWORKS8
+          (comm:socket-connection-peer-address (intf-state-io-state intf-state))
+          #+:LISPWORKS7
+          (comm:get-socket-peer-address (slot-value (intf-state-io-state intf-state) 'comm::object))
+          (send fmt-println "Client Socket (~S->~A:~D) starting up"
+                (pending-connection-rec-report-ip-addr rec)
+                (comm:ip-address-string peer-ip) peer-port)
+          (send-to-all (pending-connection-rec-custs rec) sender sender local-services)
+          ))
       ))
-   ))
 
-(defun pending-connections-beh (ip-addr ip-port report-ip-addr custs next)
-  (prunable-alambda
-
-   ((admin cx-cust :connect an-ip-addr an-ip-port . _) when (and (eql an-ip-addr ip-addr)
-                                                           (eql an-ip-port ip-port))
-    (become (pending-connections-beh ip-addr ip-port report-ip-addr (cons cx-cust custs) next))
-    (send admin :ok))
-   
-   ((admin :ready an-ip-addr an-ip-port intf-state sender local-services) when (and (eql an-ip-addr ip-addr)
-                                                                                    (eql an-ip-port ip-port))
-    (prune-self next admin)
-    
-    (multiple-value-bind (peer-ip peer-port)
-        #+:LISPWORKS8
-      (comm:socket-connection-peer-address (intf-state-io-state intf-state))
-      #+:LISPWORKS7
-      (comm:get-socket-peer-address (slot-value (intf-state-io-state intf-state) 'comm::object))
-      (send fmt-println "Client Socket (~S->~A:~D) starting up" report-ip-addr
-            (comm:ip-address-string peer-ip) peer-port)
-      (send-to-all custs sender sender local-services)
+   ((:abort ip-addr ip-port)
+    (let ((rec (find-pending-connection-from-ip lst ip-addr ip-port)))
+      (when rec
+        (become (pending-connections-list-beh (remove rec lst)))
+        (send (α ()
+                (error "Can't connect to: ~S"
+                       (pending-connection-rec-report-ip-addr rec)))
+              ))
       ))
-
-   ((admin :abort an-ip-addr an-ip-port) when (and (eql an-ip-addr ip-addr)
-                                                   (eql an-ip-port ip-port))
-    (prune-self next admin)
-    (send (α ()
-            (error "Can't connect to: ~S" report-ip-addr))))
-
-   (_
-    (repeat-send next))
    ))
 
 (defun make-socket-connection (ip-addr ip-port report-ip-addr)
@@ -563,7 +595,7 @@
                      (send println
                            (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
                            (apply #'format nil args))
-                     (send pends nil :abort ip-addr ip-port))
+                     (send pends :abort ip-addr ip-port))
                     (t
                      (send β state))
                     ))
@@ -576,7 +608,7 @@
                                     :report-ip-addr report-ip-addr
                                     :io-state       io-state)
                 β)
-        (send pends nil :ready ip-addr ip-port intf-state sender local-services)
+        (send pends :ready ip-addr ip-port intf-state sender local-services)
         ))))
 
 (defun client-connector-beh (pending-connections)
@@ -590,20 +622,16 @@
              (error "Unknown host: ~S" ip-addr))
             (t
              (β _
-                 (send connections nil :on-find-sender clean-ip-addr ip-port cust β)
-               (send pending-connections nil cust :connect clean-ip-addr ip-port ip-addr)))
+                 (send connections :on-find-sender clean-ip-addr ip-port cust β)
+               (send pending-connections cust :connect clean-ip-addr ip-port ip-addr)))
             )))
    ))
 
-(defun init-connector-beh ()
-  (lambda* _
-    (actors ((pends (serializer-beh (make-actor (empty-pending-connections-beh pends)))))
-      (become (client-connector-beh pends))
-      (repeat-send self))))
-    
 (deflex client-connector
   ;; Called from client side wishing to connect to a server.
-  (make-actor (init-connector-beh)))
+  (α _
+    (become (client-connector-beh (make-actor (pending-connections-list-beh nil))))
+    (repeat-send self)))
 
 ;; -------------------------------------------------------------
 
