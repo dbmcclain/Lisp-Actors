@@ -449,7 +449,7 @@
            (decoder (sink-pipe (marshal-decoder)
                                (dechunker)
                                (marshal-decoder)
-                               (label local-services nil)))
+                               local-services))
            (accum    (make-reader decoder))
            (packet-ctr 0)
            (shutdown (once (make-socket-shutdown state))))
