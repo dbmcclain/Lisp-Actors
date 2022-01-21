@@ -332,14 +332,10 @@
            lst))
 
 (defun find-connection-from-state (lst state)
-  (find-if (lambda (rec)
-             (eql state (connection-rec-state rec)))
-           lst))
+  (find state lst :key #'connection-rec-state))
 
 (defun find-connection-from-sender (lst sender)
-  (find-if (lambda (rec)
-             (eql sender (connection-rec-sender rec)))
-           lst))
+  (find sender lst :key #'connection-rec-sender))
 
 (defun connections-list-beh (lst)
   (alambda

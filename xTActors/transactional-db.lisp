@@ -184,6 +184,7 @@
                              :self-sync t)
             ))
         (error ()
+          ;; expected possible error due to file not existing yet
           (full-save path new-db)))
     (become (save-database-beh path new-db))
     (send cust :ok))

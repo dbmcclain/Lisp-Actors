@@ -143,60 +143,58 @@
 
 (defvar *default-ephemeral-ttl*  10)
 
-(defun local-services-beh (svcs ephem)
+(defstruct (local-service
+            (:constructor local-service (handler)))
+  handler)
+
+(defstruct (ephem-service
+            (:include local-service)
+            (:constructor ephem-service (handler)))
+  )
+
+(defun local-services-beh (svcs)
   (alambda
    ((cust :add-service-with-id id actor)
-    (become (local-services-beh (acons id actor svcs) ephem))
+    (become (local-services-beh (acons id (local-service actor) svcs) ))
     (send cust id))
 
    ((cust :add-service actor)
     ;; used for connection handlers
     (let ((id  (uuid:make-v1-uuid)))
-      (become (local-services-beh (acons id actor svcs) ephem))
+      (become (local-services-beh (acons id (local-service actor) svcs) ))
       (send cust id)
       ))
    
    ((cust :add-ephemeral-client actor ttl)
     ;; used for transient customer proxies
     (let ((id   (uuid:make-v1-uuid)))
-      (become (local-services-beh svcs (acons id actor ephem)))
+      (become (local-services-beh (acons id (ephem-service actor) svcs) ))
       (send cust id)
       (when ttl
         (send-after ttl self sink :remove-service id))
       ))
     
    ((cust :remove-service id)
-    (let ((pair (assoc id ephem :test #'uuid:uuid=)))
-      (if pair
-          (become (local-services-beh svcs (remove pair ephem)))
-        (let ((pair (assoc id svcs :test #'uuid:uuid=)))
-          (when pair
-            (become (local-services-beh (remove pair svcs) ephem))
-            )))
+    (let ((pair (assoc id svcs :test #'uuid:uuid=)))
+      (when pair
+        (become (local-services-beh (remove pair svcs))))
       (send cust :ok)))
    
    ((client-id :send . msg)
-    (let ((pair (assoc client-id ephem :test #'uuid:uuid=)))
-      (if pair
-          ;; Server replies are directed here via the client proxy id, to
-          ;; find the actual client channel. Once a reply is received, this
-          ;; proxy is destroyed. It is also removed after a timeout and no
-          ;; reply forthcoming.
-          (progn
-            (send* (cdr pair) msg)
-            (become (local-services-beh svcs (remove pair ephem))))
-        ;; else
-        (let ((pair (assoc client-id svcs :test #'uuid:uuid=)))
-          (when pair
-            ;; We do not automatically remove this entry once used. Instead,
-            ;; we renew the lease. Client messages are directed here via proxy
-            ;; serv-id, to find the actual target channel.
-            (send* (cdr pair) msg)))
+    (let ((pair (assoc client-id svcs :test #'uuid:uuid=)))
+      (when pair
+        ;; Server replies are directed here via the client proxy id, to
+        ;; find the actual client channel. Once a reply is received, this
+        ;; proxy is destroyed. It is also removed after a timeout and no
+        ;; reply forthcoming.
+        (send* (local-service-handler (cdr pair)) msg)
+        (when (ephem-service-p (cdr pair))
+          (become (local-services-beh (remove pair svcs))))
         )))
    ))
 
 (defun make-local-services ()
-  (make-actor (local-services-beh nil nil)))
+  (make-actor (local-services-beh nil)))
 
 
 (defun create-ephemeral-client-proxy (cust local-services svc &key (ttl *default-ephemeral-ttl*))
