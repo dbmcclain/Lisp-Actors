@@ -32,6 +32,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 #-:lispworks (:file "ansi-timer")
                 (:file "macros")
                 (:file "actors-mstr")
+                ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
                 (:file "prim-actors")
                 (:file "debugging")
                 (:file "encoding")
