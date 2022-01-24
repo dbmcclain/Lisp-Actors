@@ -248,7 +248,7 @@
   (let ((act (actor (cust)
                (beta (arr)
                    (send dut beta niter)
-                 (send (histogram) arr :xrange '(0 0.5))
+                 (send (histogram) arr :xrange '(0 0.1))
                  (send (statistics) println arr)
                  (send cust)))))
     (send (timing act) println)))

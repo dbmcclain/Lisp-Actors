@@ -89,8 +89,56 @@ THE SOFTWARE.
   (actor (make-actor) :type actor)
   (args  nil          :type list))
 
-(defvar *central-mail*  (mp:make-mailbox))
+#|
+(defstruct mbox
+  (lock  (mp:make-lock))
+  msgqhd
+  msgqtl
+  thrq)
 
+(defvar *central-mail*  (make-mbox))
+
+(defun mbox-send (mbox msg)
+  #F
+  (declare (mbox mbox)
+           (msg  msg))
+  (mp:with-lock ((mbox-lock mbox))
+    (let (cell)
+      (cond ((setf cell (pop (the list (mbox-thrq mbox))))
+             (setf (sys:globally-accessible (car (the cons cell))) msg))
+            
+            (t
+             (setf (msg-link msg) nil
+                   (mbox-msgqtl mbox)
+                   (if (mbox-msgqhd mbox)
+                       (setf (msg-link (the msg (mbox-msgqtl mbox))) msg)
+                     (setf (mbox-msgqhd mbox) msg))
+                   ))
+            ))))
+
+(defun #1=mbox-recv (mbox)
+  #F
+  (declare (mbox mbox))
+  (let ((cell  (list nil)))
+    (declare (cons cell)
+             (dynamic-extent cell))
+    (mp:with-lock ((mbox-lock mbox))
+      (let (msg)
+        (cond ((setf msg (mbox-msgqhd mbox))
+               (unless (setf (mbox-msgqhd mbox) (msg-link (the msg msg)))
+                 (setf (mbox-msgqtl mbox) nil))
+               (return-from #1# msg))
+
+              (t
+               (push cell (the list (mbox-thrq mbox))))
+              )))
+    (loop until (car cell) do (mp:process-allow-scheduling))
+    (car cell)
+    ))
+|#
+#||#
+(defvar *central-mail*  (mp:make-mailbox))
+#||#
 ;; -----------------------------------------------
 ;; SEND/BECOME
 ;;
@@ -128,6 +176,7 @@ THE SOFTWARE.
   #F
   (check-type actor actor)
   (mp:mailbox-send *central-mail* (msg (the actor actor) msg))
+  ;; (mbox-send *central-mail* (msg (the actor actor) msg))
   (values))
 
 (defun startup-send (actor &rest msg)
@@ -224,10 +273,14 @@ THE SOFTWARE.
                   ;; depth is never more than one Actor at a time,
                   ;; before trampolining back here.
                   (setf evt      (mp:mailbox-read *central-mail*)
-                        self     (msg-actor (the msg evt))
-                        self-msg (msg-args (the msg evt)))
+                                 ;; (mbox-recv *central-mail*)
+                                 )
                   (tagbody
-                   again
+                   next
+                   (setf self     (msg-actor (the msg evt))
+                         self-msg (msg-args (the msg evt)))
+
+                   retry
                    (setf pend-beh (actor-beh (the actor self))
                          self-beh pend-beh)
                    ;; ---------------------------------
@@ -235,16 +288,35 @@ THE SOFTWARE.
                    (apply (the function pend-beh) self-msg)
                    (cond ((or (eq self-beh pend-beh)
                               (sys:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh))
-                          (loop for msg = sends
-                                while msg
-                                do
-                                  (setf sends (msg-link (the msg msg)))
-                                  (mp:mailbox-send *central-mail* msg)))
+                          (cond ((mp:mailbox-empty-p *central-mail*)
+                                 ;; No messages await, we are front of queue,
+                                 ;; so grab first message for ourself.
+                                 ;; This is the most common case at runtime,
+                                 ;; giving us a dispatch timing of only 55ns.
+                                 (when (setf evt sends)
+                                   (setf sends (msg-link (the msg evt)))
+                                   (loop for msg = sends
+                                           while msg
+                                           do
+                                           (setf sends (msg-link (the msg msg)))
+                                           (mp:mailbox-send *central-mail* msg))
+                                   (go next)))
+
+                                (t
+                                 ;; else - we are not front of queue
+                                 (loop for msg = sends
+                                       while msg
+                                       do
+                                         (setf sends (msg-link (the msg msg)))
+                                         (mp:mailbox-send *central-mail* msg)
+                                         ;; (mbox-send *central-mail* msg)
+                                         ))
+                                ))
                          (t
                           ;; try again...
                           (setf evt      (or evt sends)
                                 sends    nil)
-                          (go again))
+                          (go retry))
                          )))
                )))
         ))))
