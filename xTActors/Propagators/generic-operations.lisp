@@ -1,8 +1,12 @@
+;; generic-operations.lisp - Predicative Dispatch of Generic Arithmetic Ops
+;;
+;; DM/RAL  02/22
+;; ---------------------------------------------------------------------------
 
 (in-package :propagators)
 
 ;; ----------------------------------------------
-;; Generic Operators
+;; Generic Operators using Predicative Dispatch
 
 (defmacro make-generic-operator (name arity default-oper)
   (lw:with-unique-names (args)
