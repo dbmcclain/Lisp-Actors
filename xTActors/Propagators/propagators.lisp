@@ -9,16 +9,6 @@
 ;; asking for the results of a network computation may depend on when
 ;; you ask.
 ;;
-;; Now using Ball arithmetic instead of Interval arithmetic, for
-;; better statistical information as knowledge is increased. There are
-;; no longer contradictions, but variance of results can grow as a
-;; result of poor data being admixed.
-;;
-;; Note: Our Balls use standard deviation measures for radii.
-;; Operations combine uncertainties as incoherent sums of variance
-;; terms, each scaled by the square of the partial derivative of the
-;; function with respect to each operand. This corresponds to
-;; independent uncorrelated measurements.
 ;; --------------------------------------------------------------------------------
 
 (in-package :cl-user)
@@ -37,7 +27,7 @@
 (defun nothing? (thing)
   (eql nothing thing))
 
-(defun cell-beh (neighbors content)
+(defun interval-cell-beh (neighbors content)
   ;; cell's internal content is an interval. And this accommodates
   ;; both intervals and numbers.
   (alambda
@@ -45,7 +35,7 @@
     (cond ((member new-neighbor neighbors)
            (send cust :ok))
           (t
-           (become (cell-beh (cons new-neighbor neighbors) content))
+           (become (interval-cell-beh (cons new-neighbor neighbors) content))
            (send cust :ok))
           ))
 
@@ -53,23 +43,19 @@
     (cond ((nothing? increment)
            (send cust :ok))
           ((nothing? content)
-           (become (cell-beh neighbors (->ball increment)))
+           (become (interval-cell-beh neighbors (->interval increment)))
            (β _
                (send par β neighbors :propagate)
              (send cust :ok)))
           (t
-           (let* ((ball-incr (->ball increment))
-                  (new-range (merge-balls content ball-incr)))
-             (cond ((ball-eql? new-range content)
+           (let* ((interval-incr (->interval increment))
+                  (new-range (intersect-intervals content interval-incr)))
+             (cond ((interval-eql? new-range content)
                     (send cust :ok))
-                   #| ;; already handled with assertions in merge-balls
-                   ((and (zerop (ball-rad content))
-                         (zerop (ball-rad ball-incr)))
-                    ;; (empty-interval? new-range)
+                   ((empty-interval? new-range)
                     (error "Ack! Inconsistency!"))
-                   |#
                    (t
-                    (become (cell-beh neighbors new-range))
+                    (become (interval-cell-beh neighbors new-range))
                     (β _
                         (send par β neighbors :propagate)
                       (send cust :ok)))
@@ -81,7 +67,7 @@
    ))
 
 (defun cell ()
-  (make-actor (cell-beh nil nothing)))
+  (make-actor (interval-cell-beh nil nothing)))
 
 ;; -----------------------------------------
 
@@ -190,10 +176,18 @@
 (defun interval? (x)
   (interval-p x))
 
+(defun abs-diff (a b)
+  (abs (- a b)))
+
+(defvar *max-abs-err*  1e-3)
+
 (defun interval-eql? (a b)
-  ;; we need EQUALP in order that 1 and 1.0 identify
-  (and (equalp (interval-lo a) (interval-lo b))
-       (equalp (interval-hi a) (interval-hi b))))
+  ;; we have to take care with floating point numbers, equality
+  ;; testing is rarely useful - and in this case, with feedback, it
+  ;; can lead to infinite loops on values that are essentially equal,
+  ;; but not literally equal...
+  (and (< (abs-diff (interval-lo a) (interval-lo b)) *max-abs-err*)
+       (< (abs-diff (interval-hi a) (interval-hi b)) *max-abs-err*)))
 
 (defun ->interval (x)
   (if (interval-p x)
@@ -243,109 +237,13 @@
 (defmacro defprop (name op)
   `(deflex ,name (function->propagator-constructor ',op)))
 
-#|
 (defprop adder      add-interval)
 (defprop subtractor sub-interval)
 (defprop multiplier mul-interval)
 (defprop divider    div-interval)
 (defprop squarer    sq-interval)
-(defprop sqrter     sart-interval)
-|#
+(defprop sqrter     sqrt-interval)
 
-;; ------------------------------------------------
-;; Ball Numbers
+;; -------------------------------------------------------
+;; Proceed to manual execution of section-3.lisp and section-4.lisp
 
-(defstruct (ball
-            (:constructor ball (ctr rad)))
-  ctr rad)
-
-(defun ball? (x)
-  (ball-p x))
-
-(defun ball-eql? (a b)
-  ;; we need EQUALP in order that 1 and 1.0 identify
-  (and (equalp (ball-ctr a) (ball-ctr b))
-       (equalp (ball-rad a) (ball-rad b))))
-
-(defun ->ball (x)
-  (cond ((ball-p x)
-         x)
-        ((interval-p x)
-         ;; assume interval bounds are 1-sigma values
-         (ball (/ (+ (interval-lo x) (interval-hi x)) 2)
-               (/ (- (interval-hi x) (interval-lo x)) 2)))
-        ((realp x)
-         (ball x 0))
-        (t
-         (error "Can't convert to BALL: ~S" x))
-        ))
-
-(defun rss (a b)
-  (abs (complex a b)))
-
-(defun abs-rss (a b)
-  (rss (ball-rad a) (ball-rad b)))
-
-(defun rel-rss (a b)
-  (rss (/ (ball-rad a) (ball-ctr a))
-       (/ (ball-rad b) (ball-ctr b))))
-
-(defun add-ball (a b)
-  (ball (+ (ball-ctr a) (ball-ctr b))
-        (abs-rss a b)))
-
-(defun sub-ball (a b)
-  (ball (- (ball-ctr a) (ball-ctr b))
-        (abs-rss a b)))
-
-(defun mul-ball (a b)
-  (let ((prod (* (ball-ctr a) (ball-ctr b))))
-    (ball prod
-          (* prod (rel-rss a b)))
-    ))
-
-(defun div-ball (a b)
-  (let ((quot (/ (ball-ctr a) (ball-ctr b))))
-    (ball quot
-          (* quot (rel-rss a b)))
-    ))
-
-(defun sq-ball (a)
-  (ball (sq (ball-ctr a))
-        (* 2 (ball-ctr a) (ball-rad a))))
-
-(defun sqrt-ball (a)
-  (let ((rt (sqrt (ball-ctr a))))
-    (ball rt
-          (/ (ball-rad a) rt 2))
-    ))
-
-(defun merge-balls (a b)
-  ;; combine two Ball estimates to 
-  ;; produce Ball at variance-weighted ctr
-  (cond ((zerop (ball-rad a))
-         (assert (or (plusp (ball-rad b))
-                     (equalp (ball-ctr a) (ball-ctr b))
-                     ))
-         a)
-        ((zerop (ball-rad b)) b)
-        (t
-         (let* ((wa   (/ (sq (ball-rad a))))
-                (wb   (/ (sq (ball-rad b))))
-                (wtot (+ wa wb))
-                (ctr  (/ (+ (* wa (ball-ctr a))
-                            (* wb (ball-ctr b)))
-                         wtot)))
-           (ball ctr
-                 (/ (sqrt wtot)))
-           ))
-        ))
-
-(defprop adder      add-ball)
-(defprop subtractor sub-ball)
-(defprop multiplier mul-ball)
-(defprop divider    div-ball)
-(defprop squarer    sq-ball)
-(defprop sqrter     sart-ball)
-
-;; ------------------------------------------------
