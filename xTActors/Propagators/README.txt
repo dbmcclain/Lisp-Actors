@@ -13,3 +13,15 @@ To try out using statistical Ball arithmetic, load up ball-cells.lisp
 after propagators.lisp, and manually execute the exercises in
 section-3.lisp and section-4.lisp.
 
+Next, load up generic-operations.lisp and retry examples in
+section-3.lisp and section-4.lisp. This version uses generic
+arithmetic operations to make cells usable with any of balls,
+intervals, and/or number arguments. Some care was also taken to ensure
+correct behavior in the complex domain - setting the state for
+electrical circuit simulations.
+
+We will extend the generic operations shortly for sections 6 and
+beyond.
+
+- DM/RAL 02/22
+

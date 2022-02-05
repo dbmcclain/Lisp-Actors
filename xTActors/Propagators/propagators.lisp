@@ -179,20 +179,31 @@
 (defun abs-diff (a b)
   (abs (- a b)))
 
-(defvar *max-abs-err*  1e-3)
+(defvar *tolerance* 1e-3)
+
+(defgeneric number-eql? (a b)
+  (:method (a b)
+   nil)
+  (:method ((a rational) (b rational))
+   (eql a b))
+  (:method ((a number) (b number))
+   (< (abs-diff a b) *tolerance*))
+  )
 
 (defun interval-eql? (a b)
   ;; we have to take care with floating point numbers, equality
   ;; testing is rarely useful - and in this case, with feedback, it
   ;; can lead to infinite loops on values that are essentially equal,
   ;; but not literally equal...
-  (and (< (abs-diff (interval-lo a) (interval-lo b)) *max-abs-err*)
-       (< (abs-diff (interval-hi a) (interval-hi b)) *max-abs-err*)))
+  (and (number-eql? (interval-lo a) (interval-lo b))
+       (number-eql? (interval-hi a) (interval-hi b))))
 
-(defun ->interval (x)
-  (if (interval-p x)
-      x
-    (interval x x)))
+(defgeneric ->interval (x)
+  (:method ((x interval))
+   x)
+  (:method ((x number))
+   (interval x x))
+  )
 
 (defun coercing (coercer f)
   (lambda (&rest args)

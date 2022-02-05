@@ -73,24 +73,33 @@
   (ball-p x))
 
 (defun ball-eql? (a b)
-  ;; careful here, we have floating point numbers where equality
-  ;; testing is less than useful.
-  (and (<= (abs-diff (ball-ctr a) (ball-ctr b)) *max-abs-err*)
-       (<= (abs-diff (ball-rad a) (ball-rad b)) *max-abs-err*)
-       ))
+  (and (number-eql? (ball-ctr a) (ball-ctr b))
+       (number-eql? (ball-rad a) (ball-rad b))))
 
-(defun ->ball (x)
-  (cond ((ball-p x)
-         x)
-        ((interval-p x)
-         ;; assume interval bounds are 1-sigma values
-         (ball (/ (+ (interval-lo x) (interval-hi x)) 2)
-               (/ (- (interval-hi x) (interval-lo x)) 2)))
-        ((realp x)
-         (ball x 0))
-        (t
-         (error "Can't convert to BALL: ~S" x))
-        ))
+(defgeneric ->ball (x)
+  (:method ((x ball))
+   x)
+  (:method ((x number))
+   (ball x 0))
+  (:method ((x interval))
+   ;; assume interval bounds are 1-sigma values
+   (let ((diam (- (interval-hi x) (interval-lo x))))
+     (ball (+ (interval-lo x) (/ diam 2))
+           (/ (abs diam) 2))
+     ))
+  )
+
+(defmethod ->interval ((x ball))
+  ;; This is *not* the unique inverse of ->ball for intervals in the complex domain
+  ;; We have: ball == (->ball (->interval ball))
+  ;; But we don't necessarily have: interval =?= (->interval (->ball interval))
+  ;; Resulting interval will be aligned along the ray from origin to ball ctr.
+  (let ((frac (/ (ball-rad x) (abs (ball-ctr x)))))
+    (interval (* (ball-ctr x) (- 1 frac))
+              (* (ball-ctr x) (+ 1 frac)))
+    ))
+
+;; -----------------------------------------------
 
 (defun rss (a b)
   (abs (complex a b)))
