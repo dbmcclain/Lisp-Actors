@@ -17,7 +17,7 @@ Next, load up generic-operations.lisp and retry examples in
 section-3.lisp and section-4.lisp. This version uses generic
 arithmetic operations to make cells usable with any of balls,
 intervals, and/or number arguments. Some care was also taken to ensure
-correct behavior in the complex domain - setting the state for
+correct behavior in the complex domain - setting the stage for
 electrical circuit simulations.
 
 We will extend the generic operations shortly for sections 6 and
