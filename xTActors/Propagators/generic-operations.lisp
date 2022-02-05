@@ -9,7 +9,9 @@
 
 (deflex the-contradiction (list 'contradiction))
 
-(defun contradictory? (x) (eq x the-contradiction))
+(defgeneric  contradictory? (x)
+  (:method (x)
+   (eql x the-contradiction)))
 
 ;; ---------------------------------------------
 ;; Test for point within an interval
@@ -53,10 +55,12 @@
    (number-eql? a b))
   
   (:method ((a interval) (b interval))
-   (interval-eql? a b))
+   (or (eql a b)
+       (interval-eql? a b)))
   
   (:method ((a ball) (b ball))
-   (ball-eql? a b))
+   (or (eql a b)
+       (ball-eql? a b)))
   
   (:method ((a interval) (b number))
    (interval-eql? a (->interval b)))
