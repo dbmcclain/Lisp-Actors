@@ -1,4 +1,4 @@
---- Now for something new... Radul & Sussman Propagator Networks
+--- Feb 2022 - Now for something new... Radul & Sussman Propagator Networks
 ---
 Folder: xTActors/Propagators
 
