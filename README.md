@@ -1,3 +1,11 @@
+--- Now for something new... Radul & Sussman Propagator Networks
+---
+Actors are perfect as a substrate for implementing R&S Propagator Networks. And this is an exciting new territory for programming. No longer bound by strict logic, you can write programs that provide justification for their decisions, even in the face of contradictory information - just like the real world. 
+
+..(As a quick aside, work your way through Section 4 of the R&S Propagators paper, and see how trivial it is to perform multi-directional computations, as you find in Prolog and Erlang. No need to specify separate routines showing arity and direction of function arguments. Simple state Propagator legs in the various orders, and when it becomes possible to compute something new, it just happens.)..
+
+
+
 --- Debugging Actors Code
 ---
 While Actors radically simplify many things, debugging is a whole new universe, compared to what we are accustomed to with function call/return-style debugging. Totally!
