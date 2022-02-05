@@ -241,6 +241,7 @@
         (op-ball     (um:symb name "-ball")))
     `(progn
        (defgeneric ,op-number (b a)
+         ;; here it is known that a is number
          (:method ((b number) a)
           (,nbr-op a b))
          (:method ((b interval) a)
@@ -248,6 +249,7 @@
          (:method ((b ball) a)
           (,ball-op (->ball a) b)))
        (defgeneric ,op-interval (b a)
+         ;; here it is known that a is interval
          (:method ((b number) a)
           (,interval-op a (->interval b)))
          (:method ((b interval) a)
@@ -255,6 +257,7 @@
          (:method ((b ball) a)
           (,ball-op (->ball a) b)))
        (defgeneric ,op-ball (b a)
+         ;; here it is known that a is ball
          (:method ((b number) a)
           (,ball-op a (->ball b)))
          (:method ((b interval) a)
@@ -262,6 +265,7 @@
          (:method ((b ball) a)
           (,ball-op a b)))
        (defgeneric ,name (a b)
+         ;; the primary generic operator - first classify a
          (:method ((a number) b)
           (,op-number b a))
          (:method ((a interval) b)

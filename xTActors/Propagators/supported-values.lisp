@@ -70,6 +70,7 @@
   (v&s-merge (supported a nil) b))
 
 (defgeneric merge-info-supported (b a)
+  ;; here it is known that a is supported
   (:method (b a)
    (v&s-merge a (supported b nil)))
   (:method ((b (eql nothing)) a)
@@ -101,83 +102,32 @@
 
 ;; ----------------------------
 
-(defmethod generic-+ ((a supported) b)
-  (generic-+-supported b a))
+(defmacro add-supported-binop (name)
+  (let ((op-number    (um:symb name "-number"))
+        (op-interval  (um:symb name "-interval"))
+        (op-ball      (um:symb name "-ball"))
+        (op-supported (um:symb name "-supported")))
+    `(progn
+       (defmethod ,name ((a supported) b)
+         (,op-supported b a))
+       (defgeneric ,op-supported (b a)
+         ;; here it is known that a is supported
+         (:method (b a)
+          (supported-binop ',name a (supported b nil)))
+         (:method ((b supported) a)
+          (supported-binop ',name a b)))
+       (defmethod ,op-number ((b supported) a)
+         (supported-binop ',name (supported a nil) b))
+       (defmethod ,op-interval ((b supported) a)
+         (supported-binop ',name (supported a nil) b))
+       (defmethod ,op-ball ((b supported) a)
+         (supported-binop ',name (supported a nil) b)))
+    ))
 
-(defgeneric generic-+-supported (b a)
-  (:method (b a)
-   (supported-binop 'generic-+ a (supported b nil)))
-  (:method ((b supported) a)
-   (supported-binop 'generic-+ a b)))
-
-(defmethod generic-+-number ((b supported) a)
-  (supported-binop 'generic-+ (supported a nil) b))
-
-(defmethod generic-+-interval ((b supported) a)
-  (supported-binop 'generic-+ (supported a nil) b))
-
-(defmethod generic-+-ball ((b supported) a)
-  (supported-binop 'generic-+ (supported a nil) b))
-
-;; ----------------------------
-
-(defmethod generic-- ((a supported) b)
-  (generic---supported b a))
-
-(defgeneric generic---supported (b a)
-  (:method (b a)
-   (supported-binop 'generic-- a (supported b nil)))
-  (:method ((b supported) a)
-   (supported-binop 'generic-- a b)))
-
-(defmethod generic---number ((b supported) a)
-  (supported-binop 'generic-- (supported a nil) b))
-
-(defmethod generic---interval ((b supported) a)
-  (supported-binop 'generic-- (supported a nil) b))
-
-(defmethod generic---ball ((b supported) a)
-  (supported-binop 'generic-- (supported a nil) b))
-
-;; ----------------------------
-
-(defmethod generic-* ((a supported) b)
-  (generic-*-supported b a))
-
-(defgeneric generic-*-supported (b a)
-  (:method (b a)
-   (supported-binop 'generic-* a (supported b nil)))
-  (:method ((b supported) a)
-   (supported-binop 'generic-* a b)))
-
-(defmethod generic-*-number ((b supported) a)
-  (supported-binop 'generic-* (supported a nil) b))
-
-(defmethod generic-*-interval ((b supported) a)
-  (supported-binop 'generic-* (supported a nil) b))
-
-(defmethod generic-*-ball ((b supported) a)
-  (supported-binop 'generic-* (supported a nil) b))
-
-;; ----------------------------
-
-(defmethod generic-/ ((a supported) b)
-  (generic-/-supported b a))
-
-(defgeneric generic-/-supported (b a)
-  (:method (b a)
-   (supported-binop 'generic-/ a (supported b nil)))
-  (:method ((b supported) a)
-   (supported-binop 'generic-/ a b)))
-
-(defmethod generic-/-number ((b supported) a)
-  (supported-binop 'generic-/ (supported a nil) b))
-
-(defmethod generic-/-interval ((b supported) a)
-  (supported-binop 'generic-/ (supported a nil) b))
-
-(defmethod generic-/-ball ((b supported) a)
-  (supported-binop 'generic-/ (supported a nil) b))
+(add-supported-binop generic-+)
+(add-supported-binop generic--)
+(add-supported-binop generic-*)
+(add-supported-binop generic-/)
 
 ;; ----------------------------
 
