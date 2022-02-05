@@ -57,14 +57,25 @@
                       (merge-supports v&s1 v&s2)))
           )))
 
-(defmethod merge-info ((a supported) (b supported))
-  (v&s-merge a b))
-
 (defmethod merge-info ((a supported) b)
-  (v&s-merge a (supported b nil)))
+  (merge-info-supported b a))
 
-(defmethod merge-info (a (b supported))
+(defmethod merge-info-number ((b supported) a)
   (v&s-merge (supported a nil) b))
+
+(defmethod merge-info-interval ((b supported) a)
+  (v&s-merge (supported a nil) b))
+
+(defmethod merge-info-ball ((b supported) a)
+  (v&s-merge (supported a nil) b))
+
+(defgeneric merge-info-supported (b a)
+  (:method (b a)
+   (v&s-merge a (supported b nil)))
+  (:method ((b (eql nothing)) a)
+   a)
+  (:method ((b supported) a)
+   (v&s-merge a b)))
 
 ;; ------------------------------------------------------------
 ;; Operator extensions for Supported values
@@ -73,15 +84,13 @@
   (:method (x)
    x)
   (:method ((x supported))
-   (supported-val x))
-  )
+   (supported-val x)))
 
 (defgeneric provenance (x)
   (:method (x)
    nil)
   (:method ((x supported))
-   (supported-sup x))
-  )
+   (supported-sup x)))
  
 (defun supported-binop (op a b)
   (supported (funcall op (arith-val a) (arith-val b))
@@ -90,34 +99,87 @@
 (defun supported-unop (op x)
   (supported (funcall op (arith-val x)) (provenance x)))
 
+;; ----------------------------
 
 (defmethod generic-+ ((a supported) b)
-  (supported-binop 'generic-+ a b))
+  (generic-+-supported b a))
 
-(defmethod generic-+ (a (b supported))
-  (supported-binop 'generic-+ a b))
+(defgeneric generic-+-supported (b a)
+  (:method (b a)
+   (supported-binop 'generic-+ a (supported b nil)))
+  (:method ((b supported) a)
+   (supported-binop 'generic-+ a b)))
 
+(defmethod generic-+-number ((b supported) a)
+  (supported-binop 'generic-+ (supported a nil) b))
+
+(defmethod generic-+-interval ((b supported) a)
+  (supported-binop 'generic-+ (supported a nil) b))
+
+(defmethod generic-+-ball ((b supported) a)
+  (supported-binop 'generic-+ (supported a nil) b))
+
+;; ----------------------------
 
 (defmethod generic-- ((a supported) b)
-  (supported-binop 'generic-- a b))
+  (generic---supported b a))
 
-(defmethod generic-- (a (b supported))
-  (supported-binop 'generic-- a b))
+(defgeneric generic---supported (b a)
+  (:method (b a)
+   (supported-binop 'generic-- a (supported b nil)))
+  (:method ((b supported) a)
+   (supported-binop 'generic-- a b)))
 
+(defmethod generic---number ((b supported) a)
+  (supported-binop 'generic-- (supported a nil) b))
+
+(defmethod generic---interval ((b supported) a)
+  (supported-binop 'generic-- (supported a nil) b))
+
+(defmethod generic---ball ((b supported) a)
+  (supported-binop 'generic-- (supported a nil) b))
+
+;; ----------------------------
 
 (defmethod generic-* ((a supported) b)
-  (supported-binop 'generic-* a b))
+  (generic-*-supported b a))
 
-(defmethod generic-* (a (b supported))
-  (supported-binop 'generic-* a b))
+(defgeneric generic-*-supported (b a)
+  (:method (b a)
+   (supported-binop 'generic-* a (supported b nil)))
+  (:method ((b supported) a)
+   (supported-binop 'generic-* a b)))
 
+(defmethod generic-*-number ((b supported) a)
+  (supported-binop 'generic-* (supported a nil) b))
+
+(defmethod generic-*-interval ((b supported) a)
+  (supported-binop 'generic-* (supported a nil) b))
+
+(defmethod generic-*-ball ((b supported) a)
+  (supported-binop 'generic-* (supported a nil) b))
+
+;; ----------------------------
 
 (defmethod generic-/ ((a supported) b)
-  (supported-binop 'generic-/ a b))
+  (generic-/-supported b a))
 
-(defmethod generic-/ (a (b supported))
-  (supported-binop 'generic-/ a b))
+(defgeneric generic-/-supported (b a)
+  (:method (b a)
+   (supported-binop 'generic-/ a (supported b nil)))
+  (:method ((b supported) a)
+   (supported-binop 'generic-/ a b)))
 
+(defmethod generic-/-number ((b supported) a)
+  (supported-binop 'generic-/ (supported a nil) b))
+
+(defmethod generic-/-interval ((b supported) a)
+  (supported-binop 'generic-/ (supported a nil) b))
+
+(defmethod generic-/-ball ((b supported) a)
+  (supported-binop 'generic-/ (supported a nil) b))
+
+;; ----------------------------
 
 (defmethod generic-sq ((x supported))
   (supported-unop 'generic-sq x))

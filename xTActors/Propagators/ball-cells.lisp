@@ -142,8 +142,21 @@
     ))
 
 (defun merge-balls (a b)
-  ;; combine two Ball estimates to 
-  ;; produce Ball at variance-weighted ctr
+  ;; combine two Ball estimates to produce Ball at variance-weighted
+  ;; ctr
+  ;;
+  ;; Ugh! This is bad... Imagine a CELL containing a BALL as its
+  ;; content, given to it by some Propagator. Now imagine the same
+  ;; Propagator gets redundantly executed again, and hands our CELL
+  ;; the exact same BALL, again, to stuff into its content slot.
+  ;;
+  ;; What will our CELL do with this repeated information? It will
+  ;; merge the "new" BALL with its own content BALL, giving it the
+  ;; same BALL ctr, but with half the original variance.
+  ;;
+  ;; Our knowledge claims to be improving, when absolutely nothing
+  ;; new was presented to it...
+  ;;
   (cond ((zerop (ball-rad a))
          (assert (or (plusp (ball-rad b))
                      (equalp (ball-ctr a) (ball-ctr b))

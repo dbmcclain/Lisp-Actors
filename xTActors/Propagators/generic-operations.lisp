@@ -28,7 +28,7 @@
          ((number-eql? (interval-lo interval) (interval-hi interval))
           the-contradiction)
          (t
-          ;; test for number along ray from interval-lo to interval-hi
+          ;; test for number inside ray from interval-lo to interval-hi
           (let* ((test-ray (- number (interval-lo interval)))
                  (diam     (- (interval-hi interval) (interval-lo interval)))
                  (frac     (collapse-to-real (/ test-ray diam))))
@@ -46,83 +46,146 @@
   )
 
 ;; ------------------------------------------------------
+;; Using staged computations to avoid Cartesian explosion of
+;; cross-type comparisons
 
 (defgeneric default-equal? (a b)
   (:method (a b)
    (eql a b))
   
-  (:method ((a number) (b number))
+  (:method ((a number) b)
+   (default-equal-number? b a))
+  
+  (:method ((a interval) b)
+   (default-equal-interval? b a))
+  
+  (:method ((a ball) b)
+   (default-equal-ball? b a))
+  )
+
+(defgeneric default-equal-number? (b a)
+  ;; here it is known that a is a number
+  (:method (b a)
+   nil)
+  
+  (:method ((b number) a)
    (number-eql? a b))
-  
-  (:method ((a interval) (b interval))
-   (or (eql a b)
-       (interval-eql? a b)))
-  
-  (:method ((a ball) (b ball))
-   (or (eql a b)
-       (ball-eql? a b)))
-  
-  (:method ((a interval) (b number))
-   (interval-eql? a (->interval b)))
-  
-  (:method ((a number) (b interval))
+
+  (:method ((b interval) a)
    (interval-eql? (->interval a) b))
-  
-  (:method ((a ball) (b number))
-   (ball-eql? a (->ball b)))
-  
-  (:method ((a number) (b ball))
+
+  (:method ((b ball) a)
    (ball-eql? (->ball a) b))
-  
-  (:method ((a ball) (b interval))
-   (interval-eql? (->interval a) b))
-  
-  (:method ((a interval) (b ball))
+  )
+
+(defgeneric default-equal-interval? (b a)
+  ;; here it is known that a is an interval
+  (:method (b a)
+   nil)
+
+  (:method ((b number) a)
    (interval-eql? a (->interval b)))
+
+  (:method ((b interval) a)
+   (interval-eql? a b))
+
+  (:method ((b ball) a)
+   (ball-eql? (->ball a) b))
+  )
+
+(defgeneric default-equal-ball? (b a)
+  ;; here it is known that a is a ball
+  (:method (b a)
+   nil)
+
+  (:method ((b number) a)
+   (ball-eql? a (->ball b)))
+
+  (:method ((b interval) a)
+   (ball-eql? a (->ball b)))
+
+  (:method ((b ball) a)
+   (ball-eql? a b))
   )
 
 ;; ------------------------------------------------------
 
-(defgeneric merge-info (content increment)
+(defun unspec-merge (content increment)
+  (if (default-equal? content increment)
+      content
+    the-contradiction))
 
+(defgeneric merge-info (content increment)
   (:method (content increment)
-   (if (default-equal? content increment)
-       content
-     the-contradiction))
-  
-  (:method (content (increment (eql nothing)))
-   content)
-  
+   (unspec-merge content increment))
+
   (:method ((content (eql nothing)) increment)
    increment)
+
+  (:method ((content number) increment)
+   (merge-info-number increment content))
+
+  (:method ((content interval) increment)
+   (merge-info-interval increment content))
+
+  (:method ((content ball) increment)
+   (merge-info-ball increment content))
+  )
+
+(defgeneric merge-info-number (increment content)
+  ;; here it is known that content is a number
+  (:method (increment content)
+   (unspec-merge content increment))
+
+  (:method ((increment (eql nothing)) content)
+   content)
+
+  (:method ((increment interval) content)
+   (ensure-inside increment content))
+
+  (:method ((increment ball) content)
+   content) ;; however unlikely...
+  )
+
+(defgeneric merge-info-interval (increment content)
+  ;; here it is known that content is an interval
+  (:method (increment content)
+   (unspec-merge content increment))
   
-  (:method ((content interval) (increment interval))
+  (:method ((increment (eql nothing)) content)
+   content)
+
+  (:method ((increment number) content)
+   (ensure-inside content increment))
+
+  (:method ((increment interval) content)
    (let ((new-range (intersect-intervals content increment)))
      (cond ((interval-eql? new-range content) content)
            ((interval-eql? new-range increment) increment)
            ((empty-interval? new-range) the-contradiction)
            (t new-range)
            )))
-  
-  (:method ((content number) (increment interval))
-   (ensure-inside increment content))
-  
-  (:method ((content interval) (increment number))
-   (ensure-inside content increment))
-  
-  (:method ((content ball) (increment number))
-   increment) ;; no ontradictions, however unlikely
-  
-  (:method ((content number) (increment ball))
-   content) ;; no contradictions, however unlikely
-  
-  (:method ((content interval) (increment ball))
-   (let ((new-ball (->ball content)))
-     (merge-balls new-ball increment)))
 
-  (:method ((content ball) (increment interval))
-   (let ((new-ball (->ball increment)))
-     (merge-balls new-ball content)))
+  (:method ((increment ball) content)
+   (merge-balls (->ball content) increment))
+  )
+
+(defgeneric merge-info-ball (increment content) 
+  ;; here it is known that content is a ball
+  (:method (increment content)
+   (unspec-merge content increment))
+  
+  (:method ((increment (eql nothing)) content)
+   content)
+
+  (:method ((increment number) content)
+   increment) ;; no contradiction, however unlikely
+
+  (:method ((increment interval) content)
+   (merge-balls content (->ball increment)))
+
+  (:method ((increment ball) content)
+   (merge-balls content increment))
   )
 
 ;; ---------------------------------------------
@@ -173,26 +236,39 @@
 (gen-unop generic-sqrt sqrt sqrt-interval sqrt-ball)
 
 (defmacro gen-binop (name nbr-op interval-op ball-op)
-  `(defgeneric ,name (a b)
-     (:method ((a number) (b number))
-      (,nbr-op a b))
-     (:method ((a interval) (b interval))
-      (,interval-op a b))
-     (:method ((a interval) (b number))
-      (,interval-op a (->interval b)))
-     (:method ((a number) (b interval))
-      (,interval-op (->interval a) b))
-     (:method ((a ball) (b ball))
-      (,ball-op a b))
-     (:method ((a ball) (b interval))
-      (,ball-op a (->ball b)))
-     (:method ((a interval) (b ball))
-      (,ball-op (->ball a) b))
-     (:method ((a ball) (b number))
-      (,ball-op a (->ball b)))
-     (:method ((a number) (b ball))
-      (,ball-op (->ball a) b))
-     ))
+  (let ((op-number   (um:symb name "-numnber"))
+        (op-interval (um:symb name "-interval"))
+        (op-ball     (um:symb name "-ball")))
+    `(progn
+       (defgeneric ,op-number (b a)
+         (:method ((b number) a)
+          (,nbr-op a b))
+         (:method ((b interval) a)
+          (,interval-op (->interval a) b))
+         (:method ((b ball) a)
+          (,ball-op (->ball a) b)))
+       (defgeneric ,op-interval (b a)
+         (:method ((b number) a)
+          (,interval-op a (->interval b)))
+         (:method ((b interval) a)
+          (,interval-op a b))
+         (:method ((b ball) a)
+          (,ball-op (->ball a) b)))
+       (defgeneric ,op-ball (b a)
+         (:method ((b number) a)
+          (,ball-op a (->ball b)))
+         (:method ((b interval) a)
+          (,ball-op a (->ball b)))
+         (:method ((b ball) a)
+          (,ball-op a b)))
+       (defgeneric ,name (a b)
+         (:method ((a number) b)
+          (,op-number b a))
+         (:method ((a interval) b)
+          (,op-interval b a))
+         (:method ((a ball) b)
+          (,op-ball b a))))
+    ))
 
 (gen-binop generic-+ + add-interval add-ball)
 (gen-binop generic-- - sub-interval sub-ball)
