@@ -208,9 +208,8 @@
              (error "Ack! Inconsistency!"))
             (t
              (become (cell-beh neighbors ans))
-             (β _
-                 (send par β neighbors :propagate)
-               (send cust :ok)))
+             (send-to-all neighbors nil :propagate)
+             (send cust :ok))
             )))
 
    ((cust :content)

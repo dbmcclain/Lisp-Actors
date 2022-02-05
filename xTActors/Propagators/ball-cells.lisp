@@ -29,31 +29,24 @@
           ))
 
    ((cust :add-content increment)
-    (cond ((nothing? increment)
-           (send cust :ok))
-          ((nothing? content)
-           (become (ball-cell-beh neighbors (->ball increment)))
-           (β _
-               (send par β neighbors :propagate)
-             (send cust :ok)))
-          (t
-           (let* ((ball-incr (->ball increment))
-                  (new-range (merge-balls content ball-incr)))
-             (cond ((ball-eql? new-range content)
-                    (send cust :ok))
-                   #| ;; already handled with assertions in merge-balls
-                   ((and (zerop (ball-rad content))
-                         (zerop (ball-rad ball-incr)))
-                    ;; (empty-interval? new-range)
-                    (error "Ack! Inconsistency!"))
-                   |#
-                   (t
-                    (become (ball-cell-beh neighbors new-range))
-                    (β _
-                        (send par β neighbors :propagate)
-                      (send cust :ok)))
-                   )))
-          ))
+    (labels ((notify-neighbors ()
+               (send-to-all neighbors nil :propagate)
+               (send cust :ok)))
+      (cond ((nothing? increment)
+             (send cust :ok))
+            ((nothing? content)
+             (become (ball-cell-beh neighbors (->ball increment)))
+             (notify-neighbors))
+            (t
+             (let* ((ball-incr (->ball increment))
+                    (new-range (merge-balls content ball-incr)))
+               (cond ((ball-eql? new-range content)
+                      (send cust :ok))
+                     (t
+                      (become (ball-cell-beh neighbors new-range))
+                      (notify-neighbors))
+                     )))
+            )))
 
    ((cust :content)
     (send cust content))

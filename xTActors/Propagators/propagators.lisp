@@ -14,7 +14,7 @@
 (in-package :cl-user)
 
 (defpackage :propagators
-  (:use :cl :ac)
+  (:use :cl :ac :def*)
   (:export
    ))
 
@@ -22,10 +22,10 @@
 
 ;; ---------------------------------------------
 
-(deflex nothing sink)
+(deflex nothing (list 'the-nothing))
 
 (defun nothing? (thing)
-  (eql nothing thing))
+  (eql thing nothing))
 
 (defun interval-cell-beh (neighbors content)
   ;; cell's internal content is an interval. And this accommodates
@@ -40,13 +40,14 @@
           ))
 
    ((cust :add-content increment)
-    (cond ((nothing? increment)
-           (send cust :ok))
-          ((nothing? content)
-           (become (interval-cell-beh neighbors (->interval increment)))
-           (β _
-               (send par β neighbors :propagate)
-             (send cust :ok)))
+    (labels ((notify-neighbors ()
+               (send-to-all neighbors nil :propagate)
+               (send cust :ok)))
+      (cond ((nothing? increment)
+             (send cust :ok))
+            ((nothing? content)
+             (become (interval-cell-beh neighbors (->interval increment)))
+             (notify-neighbors))
           (t
            (let* ((interval-incr (->interval increment))
                   (new-range (intersect-intervals content interval-incr)))
@@ -56,11 +57,9 @@
                     (error "Ack! Inconsistency!"))
                    (t
                     (become (interval-cell-beh neighbors new-range))
-                    (β _
-                        (send par β neighbors :propagate)
-                      (send cust :ok)))
+                    (notify-neighbors))
                    )))
-          ))
+          )))
 
    ((cust :content)
     (send cust content))
@@ -83,9 +82,8 @@
 ;; -----------------------------------------
 
 (defun propagator (to-do &rest neighbors)
-  (β _
-      (send par β neighbors :new-neighbor! to-do)
-    (send to-do nil :propagate)))
+  (send-to-all neighbors nil :new-neighbor! to-do)
+  (send to-do nil :propagate))
 
 (defun lift-to-cell-contents (f)
   (lambda (&rest args)
@@ -109,27 +107,7 @@
              inputs)
       )))
 
-#|
-(let* ((a (cell))
-       (b (cell))
-       (c (cell))
-       (adder (function->propagator-constructor '+)))
-  (funcall adder a b c)
-  (β _
-      (send a β :add-content 15)
-    ;; (send a println :content)
-    (β _
-        (send b β :add-content 2)
-      ;; (send b println :content)
-      (send c println :content))
-    ))
-|#
-
-(defun sq (x)
-  (* x x))
-
-(defun konst (value)
-  (function->propagator-constructor (constantly value)))
+;; ---------------------------------------------------------
 
 (defun switch (predicate if-true output)
   (conditional predicate if-true (cell) output))
@@ -154,17 +132,23 @@
    p if-true if-false))
 
 (defun compound-propagator (to-build &rest neighbors)
-  (labels ((done-beh ()
+  (labels ((network-installed-beh ()
+             (λ (cust . _)
+               (send cust :ok)))
+           (install-network-beh ()
              (alambda
               ((cust :propagate)
-               (send cust :ok))))
-           (not-done-beh ()
-             (alambda
-              ((cust :propagate)
-               (become (done-beh))
-               (funcall to-build))
+               (become (network-installed-beh))
+               (funcall to-build)
+               (send cust :ok))
               )))
-    (apply 'propagator (make-actor (not-done-beh)) neighbors)))
+    (apply 'propagator
+           (make-actor
+            (install-network-beh))
+           neighbors)))
+
+(defun konst (value)
+  (function->propagator-constructor (constantly value)))
 
 ;; ------------------------------------------------
 ;; Interval Arithmetic
@@ -228,6 +212,9 @@
                 (interval (/ (interval-hi y))
                           (/ (interval-lo y)))
                 ))
+
+(defun sq (x)
+  (* x x))
 
 (defun sq-interval (x)
   ;; assumes positive bounds
