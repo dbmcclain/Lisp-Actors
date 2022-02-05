@@ -1,3 +1,19 @@
+--- Feb 2022 - Now for something new... Radul & Sussman Propagator Networks
+---
+Folder: xTActors/Propagators
+
+Actors are perfect as a substrate for implementing R&S Propagator Networks. And this is an exciting new territory for programming. No longer bound by strict logic, you can write programs that provide justification for their decisions, even in the face of contradictory information - just like the real world. 
+
+**(As a quick aside, work your way through Section 4 of the R&S Propagators paper, and see how trivial it is to perform multi-directional computations, as you find in Prolog and Erlang. No need to specify separate routines showing arity and direction of function arguments. Simply state Propagator legs in the various directions, changing which CELLS are inputs vs output, and when it becomes possible to compute something new, it just happens.)**
+
+The real magic begins to happen in Section 6 of the paper, where it is shown a simple implementation for dealing with mutually inconsistent information.
+
+The code in Folder xTActors/Propagators is my quick translation of Sussman's Scheme code into Lisp Actors code. It just works, and it is so simple to do. 
+
+"Supported" values might offer yet another possible way to debug the complexity of large asynchronous Actor systems, by having data carry along its tag information, and showing the provenance of resulting computations.
+
+
+
 --- Debugging Actors Code
 ---
 While Actors radically simplify many things, debugging is a whole new universe, compared to what we are accustomed to with function call/return-style debugging. Totally!
