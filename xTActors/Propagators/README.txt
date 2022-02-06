@@ -17,7 +17,7 @@ underlying network remains hidden, except for the source code
 specifying the operator interconnections between CELLS.
 
 PROPAGATORS are also implemented as Actors beneath the network. They
-use a pull-model to collext operator arguments from their input CELLS
+use a pull-model to collect operator arguments from their input CELLS
 (via :CONTENT messages), whenever they are ping'd. And they, in turn,
 send new information to their output CELL, which might cause a cascade
 of asynchronous computation in other legs of the network.
