@@ -8,9 +8,9 @@ each other without having to nudge them to do so.
 
 We have CELLS as the only user visible components. These are
 implemented as Actors. Their local state contains their current value
-and a list of connections to other CELLS through operators. You affect
-CELLS by setting new information into them with ADD-CONTENT, or into
-another CELL connected via an underlying Propagator network.
+and a list of connections to other CELLS through PROPAGATORS. You
+affect CELLS by setting new information into them with ADD-CONTENT, or
+into another CELL connected via an underlying Propagator network.
 
 You can examine the data content of a cell using CONTENT. The
 underlying network remains hidden, except for the source code
