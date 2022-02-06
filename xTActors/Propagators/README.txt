@@ -33,13 +33,16 @@ exercises in section-2.lisp.
 Interval Arithmetic
 
   After loading propagators.lisp, load interval-cells.lisp and execute
-the exercises in section-3.lisp and section-4.lisp. Section 4
-introduces multi-directional evaluation, much like you find in Prolog
-and Erlang. Only we have it much easier...
+the exercises in section-3.lisp and section-4.lisp. 
+
+Section 4 introduces multi-directional evaluation, much like you find
+in Prolog and Erlang. Only we have it much easier...
 
   ...just restate the cell arguments in different orders and use a
 propagator in parallel with all the others that computes the inverse
-functions.
+functions. Also widen the composite-propagator cells list to include
+the former output cell - it can now be an input cell in reverse. When
+something can be computed and updated, it will be.
 
 ------------------
 Ball (Statistical) Arithmetic:
