@@ -2,32 +2,6 @@
 ;; from "The Art of the Propagator", Alexey Radul and Gerald Jay Sussman, MIT-CSAIL-TR-2009-002, Jan 26, 2009.
 ;;
 ;; DM/RAL 02/22
-;;
-;; Actors represent an ideal platform for Propagators, since they are
-;; inherently asynchronous. However, a network of propagators with
-;; feedback faces the possibility of never-ending computation. So
-;; asking for the results of a network computation may depend on when
-;; you ask.
-;;
-;; The public face of a Propagator Network is a collection of CELLS
-;; (Actors), which contain values that can be queried and updated with
-;; new information.
-;;
-;; Hidden PROPAGATORS (Actors) connect CELLS together with
-;; transforming functions to form a Propagator Network. A PROPAGATOR
-;; can have any number of input CELLS and just one output CELL.
-;;
-;; By conventon, PROPAGATORS are set up via oridinary functions
-;; relating the CELL argumens. The last CELL argument is the output
-;; CELL, and all the others are input CELLS.
-;;
-;; Whenever a CELL value is updated, it triggers the PROPAGATORS
-;; connecting the CELL to other CELLS. The PROPAGATORS query each
-;; input CELL for its value, and if the collection of input CELLS
-;; altogether have useful values, then the PROPAGATOR computes a
-;; function of these values and updates its output CELL. That may, in
-;; turn, trigger other PROPAGATORS.
-;;
 ;; --------------------------------------------------------------------------------
 
 (in-package :propagators)

@@ -27,23 +27,36 @@ network.
 Start:
 
   To use: first load up propagators.lisp. Then manually execute the
-exercises in section-3.lisp and section-4.lisp.
+exercises in section-2.lisp.
+
+-------------------
+Interval Arithmetic
+
+  After loading propagators.lisp, load interval-cells.lisp and execute
+the exercises in section-3.lisp and section-4.lisp. Section 4
+introduces multi-directional evaluation, much like you find in Prolog
+and Erlang. Only we have it much easier...
+
+  ...just restate the cell arguments in different orders and use a
+propagator in parallel with all the others that computes the inverse
+functions.
 
 ------------------
 Ball (Statistical) Arithmetic:
 
   To try out using statistical Ball arithmetic, load up
-ball-cells.lisp after propagators.lisp, and manually execute the
-exercises in section-3.lisp and section-4.lisp.
+ball-cells.lisp after propagators.lisp, and interval-cells.lisp, and
+manually execute the exercises in section-3.lisp and section-4.lisp.
 
 ------------------ 
 Generic Operations to support mixed Numbers, Intervals, and Ball
 (Statistical) Arithmetic
 
-  Next, load up generic-operations.lisp and retry examples in
-section-3.lisp and section-4.lisp. This version uses generic
-arithmetic operations to make cells usable with any of balls,
-intervals, and/or number arguments. 
+  Next, load up generic-operations.lisp (needs propagators,
+interval-cells, and ball-cells), and retry examples in section-3.lisp
+and section-4.lisp. This version uses generic arithmetic operations to
+make cells usable with any of balls, intervals, and/or number
+arguments.
 
   Some care was also taken to ensure correct behavior in the complex
 domain - setting the stage for electrical circuit simulations.
@@ -51,9 +64,10 @@ domain - setting the stage for electrical circuit simulations.
 ------------------ 
 Supported Values and Provenance Tracking
 
-  Now, load up supported-values.lisp and try out the examples in
-section-6.1.lisp. This provides for a simple provenance trail, but can
-arrive at some nonsensical supports.
+  Now, load up supported-values.lisp (needs propagators,
+interval-cells, ball-cells, generic-operations), and try out the
+examples in section-6.1.lisp. This provides for a simple provenance
+trail, but can arrive at some nonsensical supports.
 
 ------------------ 
 
