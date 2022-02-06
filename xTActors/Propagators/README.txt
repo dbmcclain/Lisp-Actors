@@ -40,7 +40,7 @@ in Prolog and Erlang. Only we have it much easier...
 
   ...just restate the cell arguments in different orders and use a
 propagator in parallel with all the others that computes the inverse
-functions. Also widen the composite-propagator cells list to include
+functions. Also widen the compound-propagator cells list to include
 the former output cell - it can now be an input cell in reverse. When
 something can be computed and updated, it will be.
 
