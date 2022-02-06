@@ -10,6 +10,8 @@ The real magic begins to happen in Section 6 of the paper, where it is shown a s
 
 The code in Folder xTActors/Propagators is my quick translation of Sussman's Scheme code into Lisp Actors code. It just works, and it is so simple to do. 
 
+**[The latest incarnation of code has been vastly simplified using Lisp and Actors capabilities, and departs further from the R&S Scheme given in their paper. But the behavior is the same.]**
+
 "Supported" values might offer yet another possible way to debug the complexity of large asynchronous Actor systems, by having data carry along its tag information, and showing the provenance of resulting computations.
 
 
