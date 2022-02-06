@@ -9,6 +9,25 @@
 ;; asking for the results of a network computation may depend on when
 ;; you ask.
 ;;
+;; The public face of a Propagator Network is a collection of CELLS
+;; (Actors), which contain values that can be queried and updated with
+;; new information.
+;;
+;; Hidden PROPAGATORS (Actors) connect CELLS together with
+;; transforming functions to form a Propagator Network. A PROPAGATOR
+;; can have any number of input CELLS and just one output CELL.
+;;
+;; By conventon, PROPAGATORS are set up via oridinary functions
+;; relating the CELL argumens. The last CELL argument is the output
+;; CELL, and all the others are input CELLS.
+;;
+;; Whenever a CELL value is updated, it triggers the PROPAGATORS
+;; connecting the CELL to other CELLS. The PROPAGATORS query each
+;; input CELL for its value, and if the collection of input CELLS
+;; altogether have useful values, then the PROPAGATOR computes a
+;; function of these values and updates its output CELL. That may, in
+;; turn, trigger other PROPAGATORS.
+;;
 ;; --------------------------------------------------------------------------------
 
 (in-package :cl-user)
@@ -27,37 +46,30 @@
 (defun nothing? (thing)
   (eql thing nothing))
 
-(defun interval-cell-beh (neighbors content)
+(defun interval-cell-beh (propagators content)
   ;; cell's internal content is an interval. And this accommodates
   ;; both intervals and numbers.
   (alambda
-   ((cust :new-neighbor! new-neighbor)
-    (cond ((member new-neighbor neighbors)
-           (send cust :ok))
-          (t
-           (become (interval-cell-beh (cons new-neighbor neighbors) content))
-           (send cust :ok))
-          ))
+   ((:new-propagator new-propagator)
+    (unless (member new-propagator propagators)
+      (become (interval-cell-beh (cons new-propagator propagators) content))))
 
-   ((cust :add-content increment)
-    (labels ((notify-neighbors ()
-               (send-to-all neighbors nil :propagate)
-               (send cust :ok)))
-      (cond ((nothing? increment)
-             (send cust :ok))
+   ((:add-content increment)
+    (labels ((notify-propagators ()
+               (send-to-all propagators)))
+      (cond ((nothing? increment))
             ((nothing? content)
-             (become (interval-cell-beh neighbors (->interval increment)))
-             (notify-neighbors))
+             (become (interval-cell-beh propagators (->interval increment)))
+             (notify-propagators))
           (t
            (let* ((interval-incr (->interval increment))
                   (new-range (intersect-intervals content interval-incr)))
-             (cond ((interval-eql? new-range content)
-                    (send cust :ok))
+             (cond ((interval-eql? new-range content))
                    ((empty-interval? new-range)
                     (error "Ack! Inconsistency!"))
                    (t
-                    (become (interval-cell-beh neighbors new-range))
-                    (notify-neighbors))
+                    (become (interval-cell-beh propagators new-range))
+                    (notify-propagators))
                    )))
           )))
 
@@ -65,47 +77,44 @@
     (send cust content))
    ))
 
-(defun cell ()
-  (make-actor (interval-cell-beh nil nothing)))
+(defun cell (&optional (value nothing))
+  (make-actor (interval-cell-beh nil (->interval value))))
 
 ;; -----------------------------------------
+;; User (REPL) Interface to CELLS. Actors use message sends.
 
-(defmacro defcell (name)
-  `(deflex ,name (cell)))
+(defmacro defcell (name &optional (value nothing))
+  `(deflex ,name (cell ,value)))
 
 (defun add-content (cell val)
-  (send cell nil :add-content val))
+  (send cell :add-content val))
 
 (defun content (cell)
   (ask cell :content))
 
 ;; -----------------------------------------
 
-(defun propagator (to-do &rest neighbors)
-  (send-to-all neighbors nil :new-neighbor! to-do)
-  (send to-do nil :propagate))
+(defmacro defprop (name fn)
+  (lw:with-unique-names (cells)
+    `(defun ,name (&rest ,cells)
+       (attach-propagator-fn ',fn ,cells))
+    ))
 
-(defun lift-to-cell-contents (f)
-  (lambda (&rest args)
-    (if (some 'nothing? args)
-        nothing
-      (apply f args))))
+(defun attach-propagator (prop &rest cells)
+  (send-to-all cells :new-propagator prop)
+  (send prop))
 
-(defun function->propagator-constructor (f)
-  (lambda (&rest cells)
-    (let ((output   (car (last cells)))
-          (inputs   (butlast cells))
-          (lifted-f (lift-to-cell-contents f)))
-      (apply 'propagator
-             (make-actor
-              (alambda
-               ((cust :propagate)
-                (β  args
-                    (send par β inputs :content)
-                  (send output cust :add-content (apply lifted-f args))))
-               ))
-             inputs)
-      )))
+(defun attach-propagator-fn (fn cells)
+  (let* ((output (car (last cells)))
+         (inputs (butlast cells))
+         (prop   (make-actor
+                  (lambda ()
+                    (β  args
+                        (send par β inputs :content)
+                      (unless (some 'nothing? args)
+                        (send output :add-content (apply fn args))))
+                    ))))
+    (apply 'attach-propagator prop inputs)))
 
 ;; ---------------------------------------------------------
 
@@ -113,42 +122,21 @@
   (conditional predicate if-true (cell) output))
 
 (defun conditional (p if-true if-false output)
-  (propagator
-   (make-actor
-    (alambda
-     ((cust :propagate)
-      (β (predicate)
-          (send p β :content)
-        (unless (nothing? predicate)
-          (if predicate
-              (β  (tval)
-                  (send if-true β :content)
-                (send output cust :add-content tval))
-            (β (fval)
-                (send if-false β :content)
-              (send output cust :add-content fval))
-            ))))
-     ))
-   p if-true if-false))
-
-(defun compound-propagator (to-build &rest neighbors)
-  (labels ((network-installed-beh ()
-             (λ (cust . _)
-               (send cust :ok)))
-           (install-network-beh ()
-             (alambda
-              ((cust :propagate)
-               (become (network-installed-beh))
-               (funcall to-build)
-               (send cust :ok))
-              )))
-    (apply 'propagator
-           (make-actor
-            (install-network-beh))
-           neighbors)))
-
-(defun konst (value)
-  (function->propagator-constructor (constantly value)))
+  (let ((prop  (make-actor
+                (lambda ()
+                  (β  (pred)
+                      (send p β :content)
+                    (unless (nothing? pred)
+                      (β  (val)
+                          (send (if pred
+                                    if-true
+                                  if-false)
+                                β :content)
+                        (unless (nothing? val)
+                          (send output :add-content val)))
+                      )))
+                )))
+    (attach-propagator prop p if-true if-false)))
 
 ;; ------------------------------------------------
 ;; Interval Arithmetic
@@ -183,6 +171,8 @@
        (number-eql? (interval-hi a) (interval-hi b))))
 
 (defgeneric ->interval (x)
+  (:method ((x (eql nothing)))
+   x)
   (:method ((x interval))
    x)
   (:method ((x number))
@@ -231,9 +221,6 @@
 (defun intersect-intervals (x y)
   (interval (max (interval-lo x) (interval-lo y))
             (min (interval-hi x) (interval-hi y))))
-
-(defmacro defprop (name op)
-  `(deflex ,name (function->propagator-constructor ',op)))
 
 (defprop adder      add-interval)
 (defprop subtractor sub-interval)

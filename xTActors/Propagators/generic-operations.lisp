@@ -190,34 +190,28 @@
 
 ;; ---------------------------------------------
 
-(defun cell-beh (neighbors content)
+(defun cell-beh (propagators content)
   (alambda
-   ((cust :new-neighbor! new-neighbor)
-    (cond ((member new-neighbor neighbors)
-           (send cust :ok))
-          (t
-           (become (cell-beh (cons new-neighbor neighbors) content))
-           (send cust :ok))
-          ))
+   ((:new-propagator new-propagator)
+    (unless (member new-propagator propagators)
+      (become (cell-beh (cons new-propagator propagators) content))))
 
-   ((cust :add-content increment)
+   ((:add-content increment)
     (let ((ans (merge-info content increment)))
-      (cond ((default-equal? ans content)
-             (send cust :ok))
+      (cond ((default-equal? ans content))
             ((contradictory? ans)
              (error "Ack! Inconsistency!"))
             (t
-             (become (cell-beh neighbors ans))
-             (send-to-all neighbors nil :propagate)
-             (send cust :ok))
+             (become (cell-beh propagators ans))
+             (send-to-all propagators))
             )))
 
    ((cust :content)
     (send cust content))
    ))
 
-(defun cell ()
-  (make-actor (cell-beh nil nothing)))
+(defun cell (&optional (value nothing))
+  (make-actor (cell-beh nil value)))
 
 ;; ----------------------------------------------
 
@@ -235,7 +229,7 @@
 (gen-unop generic-sqrt sqrt sqrt-interval sqrt-ball)
 
 (defmacro gen-binop (name nbr-op interval-op ball-op)
-  (let ((op-number   (um:symb name "-numnber"))
+  (let ((op-number   (um:symb name "-number"))
         (op-interval (um:symb name "-interval"))
         (op-ball     (um:symb name "-ball")))
     `(progn

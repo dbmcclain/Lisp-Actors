@@ -16,44 +16,38 @@
 
 (in-package :propagators)
 
-(defun ball-cell-beh (neighbors content)
+(defun ball-cell-beh (propagators content)
   ;; cell's internal content is an interval. And this accommodates
   ;; both intervals and numbers.
   (alambda
-   ((cust :new-neighbor! new-neighbor)
-    (cond ((member new-neighbor neighbors)
-           (send cust :ok))
-          (t
-           (become (ball-cell-beh (cons new-neighbor neighbors) content))
-           (send cust :ok))
-          ))
+   ((:new-propagator new-propagator)
+    (unless (member new-propagator propagators)
+      (become (ball-cell-beh (cons new-propagator propagators) content))
+      ))
 
-   ((cust :add-content increment)
-    (labels ((notify-neighbors ()
-               (send-to-all neighbors nil :propagate)
-               (send cust :ok)))
-      (cond ((nothing? increment)
-             (send cust :ok))
+   ((:add-content increment)
+    (labels ((notify-propagators ()
+               (send-to-all propagators)))
+      (cond ((nothing? increment))
             ((nothing? content)
-             (become (ball-cell-beh neighbors (->ball increment)))
-             (notify-neighbors))
+             (become (ball-cell-beh propagators (->ball increment)))
+             (notify-propagators))
             (t
              (let* ((ball-incr (->ball increment))
                     (new-range (merge-balls content ball-incr)))
-               (cond ((ball-eql? new-range content)
-                      (send cust :ok))
+               (cond ((ball-eql? new-range content))
                      (t
-                      (become (ball-cell-beh neighbors new-range))
-                      (notify-neighbors))
+                      (become (ball-cell-beh propagators new-range))
+                      (notify-propagators))
                      )))
             )))
-
+   
    ((cust :content)
     (send cust content))
    ))
 
-(defun cell ()
-  (make-actor (ball-cell-beh nil nothing)))
+(defun cell (&optional (value nothing))
+  (make-actor (ball-cell-beh nil (->ball value))))
 
 ;; ------------------------------------------------
 ;; Ball Numbers
@@ -70,6 +64,8 @@
        (number-eql? (ball-rad a) (ball-rad b))))
 
 (defgeneric ->ball (x)
+  (:method ((x (eql nothing)))
+   x)
   (:method ((x ball))
    x)
   (:method ((x number))
