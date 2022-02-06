@@ -12,13 +12,14 @@
 (in-package :propagators)
 
 (defun fall-duration (dt ht)
-  (let ((g        (konst (interval 9.789 9.832)))
-        (one-half (konst 1/2))
-        (t^2      (cell))
-        (gt^2     (cell)))
-    (squarer dt t^2)
-    (multiplier g t^2 gt^2)
-    (multiplier one-half gt^2 ht)
+  (compound-propagator (dt)
+    (let ((g        (konst (interval 9.789 9.832)))
+          (one-half (konst 1/2))
+          (t^2      (cell))
+          (gt^2     (cell)))
+      (squarer dt t^2)
+      (multiplier g t^2 gt^2)
+      (multiplier one-half gt^2 ht))
     ))
 
 (defcell fall-time)
@@ -32,9 +33,11 @@
 ;; Solve for building-height barometer similar triangles...
 
 (defun similar-triangles (s-ba h-ba s h)
-  (let ((ratio (cell)))
-    (divider h-ba s-ba ratio)
-    (multiplier s ratio h)))
+  (compound-propagator (s-ba h-ba s)
+    (let ((ratio (cell)))
+      (divider h-ba s-ba ratio)
+      (multiplier s ratio h))
+    ))
 
 (defcell barometer-height)
 (defcell barometer-shadow)

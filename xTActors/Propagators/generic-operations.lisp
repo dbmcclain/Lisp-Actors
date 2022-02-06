@@ -19,14 +19,14 @@
 
 (defun collapse-to-real (x)
   (let ((re  (realpart x)))
-    (if (number-eql? x (complex re 0))
+    (if (default-equal? x (complex re 0))
         re
       x)))
 
 (defgeneric ensure-inside (interval number)
   (:method ((interval interval) (number number))
-   (cond ((number-eql? number (interval-lo interval)) number)
-         ((number-eql? (interval-lo interval) (interval-hi interval))
+   (cond ((default-equal? number (interval-lo interval)) number)
+         ((default-equal? (interval-lo interval) (interval-hi interval))
           the-contradiction)
          (t
           ;; test for number inside ray from interval-lo to interval-hi
@@ -44,69 +44,6 @@
    (if (<= (abs (- number (ball-ctr interval))) (ball-rad interval))
        number
      the-contradiction))
-  )
-
-;; ------------------------------------------------------
-;; Using staged computations to avoid Cartesian explosion of
-;; cross-type comparisons
-
-(defgeneric default-equal? (a b)
-  (:method (a b)
-   (eql a b))
-  
-  (:method ((a number) b)
-   (default-equal-number? b a))
-  
-  (:method ((a interval) b)
-   (default-equal-interval? b a))
-  
-  (:method ((a ball) b)
-   (default-equal-ball? b a))
-  )
-
-(defgeneric default-equal-number? (b a)
-  ;; here it is known that a is a number
-  (:method (b a)
-   nil)
-  
-  (:method ((b number) a)
-   (number-eql? a b))
-
-  (:method ((b interval) a)
-   (interval-eql? (->interval a) b))
-
-  (:method ((b ball) a)
-   (ball-eql? (->ball a) b))
-  )
-
-(defgeneric default-equal-interval? (b a)
-  ;; here it is known that a is an interval
-  (:method (b a)
-   nil)
-
-  (:method ((b number) a)
-   (interval-eql? a (->interval b)))
-
-  (:method ((b interval) a)
-   (interval-eql? a b))
-
-  (:method ((b ball) a)
-   (ball-eql? (->ball a) b))
-  )
-
-(defgeneric default-equal-ball? (b a)
-  ;; here it is known that a is a ball
-  (:method (b a)
-   nil)
-
-  (:method ((b number) a)
-   (ball-eql? a (->ball b)))
-
-  (:method ((b interval) a)
-   (ball-eql? a (->ball b)))
-
-  (:method ((b ball) a)
-   (ball-eql? a b))
   )
 
 ;; ------------------------------------------------------
@@ -161,8 +98,8 @@
 
   (:method ((increment interval) content)
    (let ((new-range (intersect-intervals content increment)))
-     (cond ((interval-eql? new-range content) content)
-           ((interval-eql? new-range increment) increment)
+     (cond ((default-equal? new-range content) content)
+           ((default-equal? new-range increment) increment)
            ((empty-interval? new-range) the-contradiction)
            (t new-range)
            )))

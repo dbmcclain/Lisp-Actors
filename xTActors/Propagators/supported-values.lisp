@@ -37,6 +37,9 @@
 (defmethod default-equal? ((a supported) b)
   (default-equal-supported? b a))
 
+(defmethod default-equal-rational? ((b supported) a)
+  (default-equal-rational? (arith-val b) a))
+
 (defmethod default-equal-number? ((b supported) a)
   (default-equal-number? (arith-val b) a))
 

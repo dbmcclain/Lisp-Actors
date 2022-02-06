@@ -34,7 +34,7 @@
           (t
            (let* ((ball-incr (->ball increment))
                   (new-range (merge-balls content ball-incr)))
-             (cond ((ball-eql? new-range content))
+             (cond ((default-equal? new-range content))
                    (t
                     (become (ball-cell-beh propagators new-range))
                     (send-to-all propagators))
@@ -61,10 +61,29 @@
 (defun ball? (x)
   (ball-p x))
 
-(defun ball-eql? (a b)
-  (and (number-eql? (ball-ctr a) (ball-ctr b))
-       (number-eql? (ball-rad a) (ball-rad b))))
+(defmethod default-equal? ((a ball) b)
+  (default-equal-ball? b a))
 
+(defgeneric default-equal-ball? (b a)
+  (:method (b a)
+   nil)
+  (:method ((b number) a)
+   t) ;; however unlikely...
+  (:method ((b interval) a)
+   t) ;l however unlikely...
+  (:method ((b ball) a)
+   (and (default-equal? (ball-ctr a) (ball-ctr b))
+        (default-equal? (ball-rad a) (ball-rad b)))))
+
+(defmethod default-equal-rational? ((b ball) a)
+  t) ;; however unlikely...
+
+(defmethod default-equal-number? ((b ball) a)
+  t) ;; however unlikely...
+
+(defmethod default-equal-interval? ((b ball) a)
+  t) ;; however unlikely...
+  
 (defgeneric ->ball (x)
   (:method ((x (eql nothing)))
    x)
