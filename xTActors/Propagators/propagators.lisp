@@ -41,7 +41,7 @@
 
 ;; ---------------------------------------------
 
-(deflex nothing (list 'the-nothing))
+(defconstant nothing (list 'the-nothing))
 
 (defun nothing? (thing)
   (eql thing nothing))
@@ -83,7 +83,7 @@
 ;; -----------------------------------------
 ;; User (REPL) Interface to CELLS. Actors use message sends.
 
-(defmacro defcell (name &optional (value nothing))
+(defmacro defcell (name &optional (value 'nothing))
   `(deflex ,name (cell ,value)))
 
 (defun add-content (cell val)
