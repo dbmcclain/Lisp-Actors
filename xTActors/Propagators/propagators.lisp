@@ -55,12 +55,10 @@
       (become (interval-cell-beh (cons new-propagator propagators) content))))
 
    ((:add-content increment)
-    (labels ((notify-propagators ()
-               (send-to-all propagators)))
-      (cond ((nothing? increment))
-            ((nothing? content)
-             (become (interval-cell-beh propagators (->interval increment)))
-             (notify-propagators))
+    (cond ((nothing? increment))
+          ((nothing? content)
+           (become (interval-cell-beh propagators (->interval increment)))
+           (send-to-all propagators))
           (t
            (let* ((interval-incr (->interval increment))
                   (new-range (intersect-intervals content interval-incr)))
@@ -69,9 +67,9 @@
                     (error "Ack! Inconsistency!"))
                    (t
                     (become (interval-cell-beh propagators new-range))
-                    (notify-propagators))
+                    (send-to-all propagators))
                    )))
-          )))
+          ))
 
    ((cust :content)
     (send cust content))

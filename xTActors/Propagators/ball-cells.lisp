@@ -26,21 +26,19 @@
       ))
 
    ((:add-content increment)
-    (labels ((notify-propagators ()
-               (send-to-all propagators)))
-      (cond ((nothing? increment))
-            ((nothing? content)
-             (become (ball-cell-beh propagators (->ball increment)))
-             (notify-propagators))
-            (t
-             (let* ((ball-incr (->ball increment))
-                    (new-range (merge-balls content ball-incr)))
-               (cond ((ball-eql? new-range content))
-                     (t
-                      (become (ball-cell-beh propagators new-range))
-                      (notify-propagators))
-                     )))
-            )))
+    (cond ((nothing? increment))
+          ((nothing? content)
+           (become (ball-cell-beh propagators (->ball increment)))
+           (send-to-all propagators))
+          (t
+           (let* ((ball-incr (->ball increment))
+                  (new-range (merge-balls content ball-incr)))
+             (cond ((ball-eql? new-range content))
+                   (t
+                    (become (ball-cell-beh propagators new-range))
+                    (send-to-all propagators))
+                   )))
+          ))
    
    ((cust :content)
     (send cust content))
