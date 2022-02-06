@@ -48,6 +48,13 @@ Ball (Statistical) Arithmetic:
 ball-cells.lisp after propagators.lisp, and interval-cells.lisp, and
 manually execute the exercises in section-3.lisp and section-4.lisp.
 
+OTOH, just skip the exercises. There is a difference between
+scientifically accounting for multiple measuremeents of varying
+variance weight, and facing these Propagator networks which might
+present duplicate data. Duplicate data is seen by Balls arithmetic as
+a confirming instance, which further tightens the balls, when it
+probably shouldn't be...
+
 ------------------ 
 Generic Operations to support mixed Numbers, Intervals, and Ball
 (Statistical) Arithmetic
