@@ -2,7 +2,7 @@
 ;;
 ;; DM/RAL 02/22
 ;; ------------------------------------------------
-;; Load this file, then execute contents of secion-6.1.lisp 
+;; Load this file after generic-operations.lisp, then execute contents of secion-6.1.lisp 
 
 (in-package :propagators)
 
@@ -10,18 +10,61 @@
             (:constructor supported (val sup)))
   val sup)
 
-(defmethod contradictory? ((x supported))
-  (contradictory? (supported-val x)))
+(defgeneric ->supported (x)
+  (:method ((x (eql nothing)))
+   x)
+  (:method ((x supported))
+   x)
+  (:method (x)
+   (supported x nil)))
 
+(defgeneric arith-val (x)
+  (:method (x)
+   x)
+  (:method ((x supported))
+   (supported-val x)))
+
+(defgeneric provenance (x)
+  (:method (x)
+   nil)
+  (:method ((x supported))
+   (supported-sup x)))
+ 
 (defun lset= (a b)
   (and (subsetp a b)
        (subsetp b a)))
 
-(defmethod default-equal? ((a supported) (b supported))
-  (or (eql a b)
-      (and (default-equal? (supported-val a) (supported-val b))
-           (lset= (supported-sup a) (supported-sup b)))
-      ))
+(defmethod default-equal? ((a supported) b)
+  (default-equal-supported? b a))
+
+(defmethod default-equal-number? ((b supported) a)
+  (default-equal-number? (arith-val b) a))
+
+(defmethod default-equal-interval? ((b supported) a)
+  (default-equal-interval? (arith-val b) a))
+
+(defmethod default-equal-ball? ((b supported) a)
+  (default-equal-ball? (arith-val b) a))
+
+(defgeneric default-equal-supported? (b a)
+  (:method (b a)
+   nil)
+  (:method ((b number) a)
+   (default-equal? (supported-val a) b))
+  (:method ((b interval) a)
+   (default-equal? (supported-val a) b))
+  (:method ((b ball) a)
+   (default-equal? (supported-val a) b))
+  (:method ((b supported) a)
+   (or (eql a b)
+       (and (default-equal? (supported-val a) (supported-val b))
+            (lset= (supported-sup a) (supported-sup b)))
+       )))
+
+;; --------------------------------------------
+   
+(defmethod contradictory? ((x supported))
+  (contradictory? (supported-val x)))
 
 (defun more-informative-support? (s1 s2)
   ;; true if s1 is a strict subset of s2
@@ -81,18 +124,6 @@
 ;; ------------------------------------------------------------
 ;; Operator extensions for Supported values
 
-(defgeneric arith-val (x)
-  (:method (x)
-   x)
-  (:method ((x supported))
-   (supported-val x)))
-
-(defgeneric provenance (x)
-  (:method (x)
-   nil)
-  (:method ((x supported))
-   (supported-sup x)))
- 
 (defun supported-binop (op a b)
   (supported (funcall op (arith-val a) (arith-val b))
              (union (provenance a) (provenance b))))
@@ -113,15 +144,15 @@
        (defgeneric ,op-supported (b a)
          ;; here it is known that a is supported
          (:method (b a)
-          (supported-binop ',name a (supported b nil)))
+          (supported-binop ',name a (->supported b)))
          (:method ((b supported) a)
           (supported-binop ',name a b)))
        (defmethod ,op-number ((b supported) a)
-         (supported-binop ',name (supported a nil) b))
+         (supported-binop ',name (->supported a) b))
        (defmethod ,op-interval ((b supported) a)
-         (supported-binop ',name (supported a nil) b))
+         (supported-binop ',name (->supported a) b))
        (defmethod ,op-ball ((b supported) a)
-         (supported-binop ',name (supported a nil) b)))
+         (supported-binop ',name (->supported a) b)))
     ))
 
 (add-supported-binop generic-+)

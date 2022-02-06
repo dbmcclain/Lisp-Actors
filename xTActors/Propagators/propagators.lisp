@@ -40,11 +40,14 @@
 (in-package :propagators)
 
 ;; ---------------------------------------------
+;; The unique value representing no contents
 
 (defconstant nothing (list 'the-nothing))
 
 (defun nothing? (thing)
   (eql thing nothing))
+
+;; ---------------------------------------------
 
 (defun interval-cell-beh (propagators content)
   ;; cell's internal content is an interval. And this accommodates
@@ -78,11 +81,30 @@
 (defun cell (&optional (value nothing))
   (make-actor (interval-cell-beh nil (->interval value))))
 
-;; -----------------------------------------
-;; User (REPL) Interface to CELLS. Actors use message sends.
-
 (defmacro defcell (name &optional (value 'nothing))
   `(deflex ,name (cell ,value)))
+
+;; -----------------------------------------
+
+(defun konst-beh (propagators content)
+  (alambda
+   ((:new-propagator new-propagator)
+    (unless (member new-propagator propagators)
+      (become (konst-beh (cons new-propagator propagators) content))
+      ))
+
+   ((cust :content)
+    (send cust content))
+   ))
+
+(defun konst (val)
+  (make-actor (konst-beh nil (->interval val))))
+
+(defmacro defkonst (name val)
+  `(deflex ,name (konst ,val)))
+
+;; -----------------------------------------
+;; User (REPL) Interface to CELLS. Actors use message sends.
 
 (defun add-content (cell val)
   (send cell :add-content val))
@@ -92,17 +114,11 @@
 
 ;; -----------------------------------------
 
-(defmacro defprop (name fn)
-  (lw:with-unique-names (cells)
-    `(defun ,name (&rest ,cells)
-       (attach-propagator-fn ',fn ,cells))
-    ))
-
 (defun attach-propagator (prop &rest cells)
   (send-to-all cells :new-propagator prop)
   (send prop))
 
-(defun attach-propagator-fn (fn cells)
+(defun attach-propagator-fn (fn &rest cells)
   (let* ((output (car (last cells)))
          (inputs (butlast cells))
          (prop   (make-actor
@@ -114,10 +130,13 @@
                     ))))
     (apply 'attach-propagator prop inputs)))
 
-;; ---------------------------------------------------------
+(defmacro defprop (name fn)
+  (lw:with-unique-names (cells)
+    `(defun ,name (&rest ,cells)
+       (apply 'attach-propagator-fn ',fn ,cells))
+    ))
 
-(defun switch (predicate if-true output)
-  (conditional predicate if-true (cell) output))
+;; ---------------------------------------------------------
 
 (defun conditional (p if-true if-false output)
   (let ((prop  (make-actor
@@ -135,6 +154,9 @@
                       )))
                 )))
     (attach-propagator prop p if-true if-false)))
+
+(defun switch (predicate if-true output)
+  (conditional predicate if-true (cell) output))
 
 ;; ------------------------------------------------
 ;; Interval Arithmetic

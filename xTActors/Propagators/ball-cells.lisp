@@ -13,6 +13,7 @@
 ;; function with respect to each operand. This corresponds to
 ;; independent uncorrelated measurements.
 ;; ------------------------------------------------
+;; Load this file afer propagators.lisp, and rerun examples in section-3.lisp
 
 (in-package :propagators)
 
@@ -46,6 +47,9 @@
 
 (defun cell (&optional (value nothing))
   (make-actor (ball-cell-beh nil (->ball value))))
+
+(defun konst (val)
+  (make-actor (konst-beh nil (->ball val))))
 
 ;; ------------------------------------------------
 ;; Ball Numbers

@@ -12,8 +12,8 @@
 (in-package :propagators)
 
 (defun fall-duration (dt ht)
-  (let ((g        (cell (interval 9.789 9.832)))
-        (one-half (cell 1/2))
+  (let ((g        (konst (interval 9.789 9.832)))
+        (one-half (konst 1/2))
         (t^2      (cell))
         (gt^2     (cell)))
     (squarer dt t^2)

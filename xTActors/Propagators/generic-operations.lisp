@@ -2,6 +2,7 @@
 ;;
 ;; DM/RAL  02/22
 ;; ---------------------------------------------------------------------------
+;; Load this file after ball-cells.lisp, then execute contents of section-4.lisp
 
 (in-package :propagators)
 
@@ -212,6 +213,9 @@
 
 (defun cell (&optional (value nothing))
   (make-actor (cell-beh nil value)))
+
+(defun konst (val)
+  (make-actor (konst-beh nil val)))
 
 ;; ----------------------------------------------
 
