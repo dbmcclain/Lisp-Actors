@@ -1,3 +1,28 @@
+-- Feb 8 2022 -- Reppy Channels in Actors!
+--
+
+I find this totally amazing! I just did the essentials of Reppy Channels - composable synchronous rendezvous events -- in about a page of Actors code. Compare that with the original Lisp implememntation I did about 10 years ago - a mass of horribly complicated SMP code. Using Actors, which are completely FPL and asynchronous, and yet we can have composable synchronous events.
+
+Imagine waiting for some I/O on one of several I/O ports. You don't know which one will trigger, but one of them will. And you need to cancel the wait on the remaining ports when that happens. Oh! And you would also like to limit your waits with a timeout. Easy peasy, with Reppy Channels:
+
+``
+(let ((ch1 (chan))
+      (ch2 (chan))
+      (ch3 (chan)))
+  (sync (timeout-evt 2
+                     (choose-evt (recv-evt ch1)
+                                 (recv-evt ch2)
+                                 (recv-evt ch3)))
+        println)
+  (sleep 2)
+  (sync (timeout-evt 2
+                     (choose-evt (send-evt ch3 3)
+                                 (send-evt ch2 2)
+                                 (send-evt ch1 1)))
+        println))
+        ``
+        
+
 --- Feb 2022 - Now for something new... Radul & Sussman Propagator Networks
 ---
 Folder: xTActors/Propagators
