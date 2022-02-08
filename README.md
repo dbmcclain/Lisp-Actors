@@ -1,5 +1,6 @@
 -- Feb 8 2022 -- Reppy Channels in Actors!
 --
+File: xTActors/sync-msg.lisp
 
 I find this totally amazing! I just did the essentials of Reppy Channels - composable synchronous rendezvous events -- in about a page of Actors code. Compare that with the original Lisp implememntation I did about 10 years ago - a mass of horribly complicated SMP code. Using Actors, which are completely FPL and asynchronous, and yet we can have composable synchronous events.
 
