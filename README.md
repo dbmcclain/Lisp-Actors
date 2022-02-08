@@ -5,7 +5,7 @@ I find this totally amazing! I just did the essentials of Reppy Channels - compo
 
 Imagine waiting for some I/O on one of several I/O ports. You don't know which one will trigger, but one of them will. And you need to cancel the wait on the remaining ports when that happens. Oh! And you would also like to limit your waits with a timeout. Easy peasy, with Reppy Channels:
 
-``
+`
 (let ((ch1 (chan))
       (ch2 (chan))
       (ch3 (chan)))
@@ -20,7 +20,7 @@ Imagine waiting for some I/O on one of several I/O ports. You don't know which o
                                  (send-evt ch2 2)
                                  (send-evt ch1 1)))
         println))
-        ``
+        `
         
 
 --- Feb 2022 - Now for something new... Radul & Sussman Propagator Networks
