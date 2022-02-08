@@ -19,9 +19,9 @@ Imagine waiting for some I/O on one of several I/O ports. You don't know which o
                      (choose-evt (send-evt ch3 3)
                                  (send-evt ch2 2)
                                  (send-evt ch1 1)))
-        println))
-        ```
-        
+         println))
+```
+
 
 --- Feb 2022 - Now for something new... Radul & Sussman Propagator Networks
 ---
