@@ -145,24 +145,21 @@
     
     ((cust :sync)
      (labels ((rcvr-beh (ct)
-                (alambda
-                 ((:reset)
-                  (become (sink-beh))
-                  (send-to-all evts :reset))
-                 
-                 (ans
+                (λ ans
                   (cond ((eq (car ans) cancellation)
                          (let ((new-ct (1- ct)))
-                           (if (zerop new-ct)
-                               (send cust cancellation)
-                             (become (rcvr-beh new-ct)))
-                           ))
+                           (cond ((zerop new-ct)
+                                  (become (sink-beh))
+                                  (send cust cancellation))
+                                 (t
+                                  (become (rcvr-beh new-ct)))
+                                 )))
                         
                         (t
                          (become (sink-beh))
                          (send-to-all evts :reset)
                          (send* cust ans))
-                        )))))
+                        ))))
        (let ((rcvr (make-actor (rcvr-beh (length evts)))))
          (send-to-all evts rcvr :sync)
          ))))))
