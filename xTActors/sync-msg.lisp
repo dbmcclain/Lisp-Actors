@@ -1,17 +1,36 @@
 ;; sync-msg.lisp -- Composable Synchronous Events in Actors (AKA Reppy Channels)
 ;;
-;; This is amazing! In about a page of code we can reproduce the essentials of Reppy Channels, using Actors!
-;; Reppy Channels are composable synchronous rendezvous events, and Actors are completely asynchronous.
+;; T.his is amazing! In about a page of code we can reproduce the
+;; essentials of Reppy Channels, using Actors!  Reppy Channels are
+;; composable synchronous rendezvous events, and Actors are completely
+;; asynchronous.
 ;;
 ;; DM/RAL  02/22
 ;; -----------------------------------------
+;; Be mindful that information flows in two directions among these
+;; composed event networks. Control signals, (:SYNC and :RESET) flow
+;; into the network, while channel responses flow back out of the
+;; network and into the customer Actor.
+;;
+;; The ultimate sink, for both senders and receivers, is generally a
+;; Channel - a rendezvous point.
+;;
+;; In general, we should make sure to allow information to flow back
+;; to customer only once. And we need to protect against multiple
+;; logical readers or writers from entering a rendezvous. So we make
+;; reader and writer ports to channels go throughn a serializer, and
+;; many wrapper events have Once protection on information flowing
+;; back to the customer.
+;;
+;; Customer Actors should be prepared to handle rendezvous failures in
+;; addition to normal traffic - at both ends, sender and receiver.
 
 (in-package :ac)
 
 ;;------------------------------------------
 ;; Comoposable Synchronous Events in Actors
 
-(defconstant cancellation (list 'cancellation))
+(defconstant +fail+ (list 'rendezvous-failure))
 
 (defun sync-chan-beh ()
   (alambda
@@ -29,8 +48,8 @@
     (send* cust msg)
     (become (sync-chan-beh)))
 
-   ((cancel?) / (eq cancel? cancellation)
-    (send cust cancellation)
+   ((:reset)
+    (send cust +fail+)
     (become (sync-chan-beh)))
    ))
 
@@ -41,8 +60,8 @@
     (send* cust msg)
     (become (sync-chan-beh)))
 
-   ((cancel?)  / (eq cancel? cancellation)
-    (send sender cancellation)
+   ((:reset)
+    (send sender +fail+)
     (become (sync-chan-beh)))
    ))
 
@@ -60,9 +79,6 @@
      :ctrl  ch)
     ))
 
-(defun cancel (chan)
-  (send (chan-ctrl chan) cancellation))
-
 ;; ------------------------------------------
 ;; Composable Events - Actors that expect a (customer :sync) to trigger their actions
 
@@ -70,7 +86,7 @@
   (make-actor
    (alambda
     ((:reset)
-     (cancel chan))
+     (send (chan-ctrl chan) :reset))
     
     ((cust :sync)
      (send (chan-read chan) cust :get))
@@ -80,7 +96,7 @@
   (make-actor
    (alambda
     ((:reset)
-     (cancel chan))
+     (send (chan-ctrl chan) :reset))
     
     ((cust :sync)
      (send* (chan-write chan) cust :put msg))
@@ -95,8 +111,8 @@
     ((cust :sync)
      (β  ans
          (send evt (once β) :sync)
-       (if (eq (car ans) cancellation)
-           (send cust cancellation)
+       (if (eq (car ans) +fail+)
+           (send cust +fail+)
          (send* actor cust ans))))
     )))
 
@@ -109,9 +125,9 @@
     ((cust :sync)
      (β  ans
          (send evt (once β) :sync)
-       (cond ((eq (car ans) cancellation)
+       (cond ((eq (car ans) +fail+)
               (send actor)
-              (send cust cancellation))
+              (send cust +fail+))
              
              (t
               (send* cust ans))
@@ -127,8 +143,8 @@
     ((cust :sync)
      (β  ans
          (send evt (once β) :sync)
-       (cond ((eq (car ans) cancellation)
-              (send cust cancellation))
+       (cond ((eq (car ans) +fail+)
+              (send cust +fail+))
              (t
               (send actor)
               (send* cust ans))
@@ -146,11 +162,11 @@
     ((cust :sync)
      (labels ((rcvr-beh (ct)
                 (λ ans
-                  (cond ((eq (car ans) cancellation)
+                  (cond ((eq (car ans) +fail+)
                          (let ((new-ct (1- ct)))
                            (cond ((zerop new-ct)
                                   (become (sink-beh))
-                                  (send cust cancellation))
+                                  (send cust +fail+))
                                  (t
                                   (become (rcvr-beh new-ct)))
                                  )))
@@ -175,10 +191,10 @@
                    (send* cust ans)))))
       (become (timeout-pending-beh dt evt kill))
       (send evt kill :sync)
-      (send-after dt kill cancellation)))
+      (send-after dt kill +fail+)))
    
    ((:reset)
-    (send tag cancellation))
+    (send tag +fail+))
    ))
     
 (defun timeout-evt (dt evt)
