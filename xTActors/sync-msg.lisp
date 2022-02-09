@@ -24,6 +24,9 @@
 ;;
 ;; Customer Actors should be prepared to handle rendezvous failures in
 ;; addition to normal traffic - at both ends, sender and receiver.
+;;
+;; Events (here Actors) are mappings A: f(E) -> E, with composition
+;; defined by, f • g = f(g(E)).
 
 (in-package :ac)
 
