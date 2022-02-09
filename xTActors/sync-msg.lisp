@@ -1,9 +1,10 @@
 ;; sync-msg.lisp -- Composable Synchronous Events in Actors (AKA Reppy Channels)
 ;;
-;; T.his is amazing! In about a page of code we can reproduce the
+;; This is amazing! In about a page of code we can reproduce the
 ;; essentials of Reppy Channels, using Actors!  Reppy Channels are
 ;; composable synchronous rendezvous events, and Actors are completely
-;; asynchronous.
+;; asynchronous. This is a parallel, concurrent, lock-free, FPL
+;; design, written with a fraction of the effort.
 ;;
 ;; DM/RAL  02/22
 ;; -----------------------------------------
