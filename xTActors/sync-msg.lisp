@@ -25,8 +25,16 @@
 ;; Customer Actors should be prepared to handle rendezvous failures in
 ;; addition to normal traffic - at both ends, sender and receiver.
 ;;
-;; Events, E, (here Actors) are mappings f: f(E) -> E, with
-;; composition defined by, f • g = f(g(E)).
+;; Events, E, (here Actors) are produced by mappings f: f(E) -> E,
+;; with composition defined by, f • g = f(g(E)).
+;;
+;; SEND-EVT        : CHAN -> E
+;; RECV-EVT        : CHAN -> E
+;; WRAP-EVT        : E -> E
+;; WRAP-ABORT-EVT  : E -> E
+;; ON-EVT          : E -> E
+;; CHOOSE-EVT      : E+ -> E
+;; TIMEOUT-EVT     : E -> E
 
 (in-package :ac)
 
