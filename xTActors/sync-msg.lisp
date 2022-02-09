@@ -94,7 +94,7 @@
     
     ((cust :sync)
      (β  ans
-         (send evt β :sync)
+         (send evt (once β) :sync)
        (if (eq (car ans) cancellation)
            (send cust cancellation)
          (send* actor cust ans))))
@@ -108,7 +108,7 @@
     
     ((cust :sync)
      (β  ans
-         (send evt β :sync)
+         (send evt (once β) :sync)
        (cond ((eq (car ans) cancellation)
               (send actor)
               (send cust cancellation))
@@ -126,7 +126,7 @@
 
     ((cust :sync)
      (β  ans
-         (send evt β :sync)
+         (send evt (once β) :sync)
        (cond ((eq (car ans) cancellation)
               (send cust cancellation))
              (t
