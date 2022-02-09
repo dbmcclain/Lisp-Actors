@@ -64,7 +64,7 @@
   (send (chan-ctrl chan) cancellation))
 
 ;; ------------------------------------------
-;; Composable Events - Actors that expect a customer to trigger their actions
+;; Composable Events - Actors that expect a (customer :sync) to trigger their actions
 
 (defun recv-evt (chan)
   (make-actor
@@ -72,7 +72,7 @@
     ((:reset)
      (cancel chan))
     
-    ((cust)
+    ((cust :sync)
      (send (chan-read chan) cust :get))
     )))
 
@@ -82,8 +82,8 @@
     ((:reset)
      (cancel chan))
     
-    ((sender)
-     (send* (chan-write chan) sender :put msg))
+    ((cust :sync)
+     (send* (chan-write chan) cust :put msg))
     )))
 
 (defun wrap-evt (evt actor)
@@ -92,9 +92,9 @@
     ((:reset)
      (send evt :reset))
     
-    ((cust)
+    ((cust :sync)
      (β  ans
-         (send evt β)
+         (send evt β :sync)
        (if (eq (car ans) cancellation)
            (send cust cancellation)
          (send* actor cust ans))))
@@ -106,9 +106,9 @@
     ((:reset)
      (send evt :reset))
     
-    ((cust)
+    ((cust :sync)
      (β  ans
-         (send evt β)
+         (send evt β :sync)
        (cond ((eq (car ans) cancellation)
               (send actor)
               (send cust cancellation))
@@ -124,9 +124,9 @@
     ((:reset)
      (send evt :reset))
 
-    ((cust)
+    ((cust :sync)
      (β  ans
-         (send evt β)
+         (send evt β :sync)
        (cond ((eq (car ans) cancellation)
               (send cust cancellation))
              (t
@@ -135,15 +135,22 @@
              )))
     )))
 
+;; ---------------------------
+
 (defun choose-evt (&rest evts)
   (make-actor
    (alambda
     ((:reset)
      (send-to-all evts :reset))
     
-    ((cust)
+    ((cust :sync)
      (labels ((rcvr-beh (ct)
-                (λ ans
+                (alambda
+                 ((:reset)
+                  (become (sink-beh))
+                  (send-to-all evts :reset))
+                 
+                 (ans
                   (cond ((eq (car ans) cancellation)
                          (let ((new-ct (1- ct)))
                            (if (zerop new-ct)
@@ -155,33 +162,36 @@
                          (become (sink-beh))
                          (send-to-all evts :reset)
                          (send* cust ans))
-                        ))))
+                        )))))
        (let ((rcvr (make-actor (rcvr-beh (length evts)))))
-         (send-to-all evts rcvr)
+         (send-to-all evts rcvr :sync)
          ))))))
 
-(defun timeout-evt (dt evt)
-  (make-actor
-   (alambda
-    ((:reset)
-     (send evt :reset))
-    
-    ((cust)
-     (let ((kill (α ans
-                   (become (sink-beh))
+;; ---------------------------
+
+(defun timeout-pending-beh (dt evt &optional tag)
+  (alambda
+   ((cust :sync)
+    (let ((kill (once
+                 (α ans
                    (send evt :reset)
-                   (send* cust ans))
-                 ))
-       (send evt kill)
-       (send-after dt kill cancellation)
-       ))
-    )))
+                   (send* cust ans)))))
+      (become (timeout-pending-beh dt evt kill))
+      (send evt kill :sync)
+      (send-after dt kill cancellation)))
+   
+   ((:reset)
+    (send tag cancellation))
+   ))
+    
+(defun timeout-evt (dt evt)
+  (make-actor (timeout-pending-beh dt evt)))
 
 ;; -----------------------------------------
 ;; Trigger an event, evaluate the event graph, by sending the customer
 
 (defun sync (evt cust)
-  (send evt cust))
+  (send evt cust :sync))
 
 ;; -----------------------------------------
 #|
@@ -197,7 +207,7 @@
                                  (recv-evt ch2)
                                  (recv-evt ch3)))
         println)
-  (sleep 2)
+  (sleep 1)
   (sync (timeout-evt 2
                      (choose-evt (send-evt ch3 3)
                                  (send-evt ch2 2)
