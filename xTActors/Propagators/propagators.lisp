@@ -106,11 +106,6 @@
 
 (defun konst-beh (propagators content)
   (alambda
-   ((:new-propagator new-propagator)
-    (unless (member new-propagator propagators)
-      (become (konst-beh (cons new-propagator propagators) content))
-      ))
-
    ((cust :content)
     (send cust content))
    ))
