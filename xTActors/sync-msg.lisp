@@ -95,6 +95,7 @@
 ;; Composable Events - Actors that expect a (customer :sync) to trigger their actions
 
 (defun recv-evt (chan)
+  ;; Define the receive side of a rendezvous event
   (make-actor
    (alambda
     ((:reset)
@@ -105,6 +106,7 @@
     )))
 
 (defun send-evt (chan &rest msg)
+  ;; Define the send side of a rendezvous event
   (make-actor
    (alambda
     ((:reset)
@@ -115,6 +117,8 @@
     )))
 
 (defun wrap-evt (evt actor)
+  ;; on successful rendezvous, filter the transferred data through an
+  ;; Actor on the way back to customer.
   (make-actor
    (alambda
     ((:reset)
@@ -129,6 +133,7 @@
     )))
 
 (defun wrap-abort-evt (evt actor)
+  ;; On a failed rendezvous, call on Actor
   (make-actor
    (alambda
     ((:reset)
@@ -147,6 +152,8 @@
     )))
           
 (defun on-evt (evt actor)
+  ;; On a successful rendezvous, send the transferred data to the
+  ;; customer, and also perform Actor
   (make-actor
    (alambda
     ((:reset)
@@ -166,6 +173,12 @@
 ;; ---------------------------
 
 (defun choose-evt (&rest evts)
+  ;; Make a collection of events into a single event, If any one of
+  ;; the collecton has a successful rendezvous we send the transferred
+  ;; data back to customer, and cancel the rendezvous attempts on the
+  ;; other events in the collection. If some event in the collection
+  ;; has a failed rendezvous, we ignore that until all of them have
+  ;; failed.
   (make-actor
    (alambda
     ((:reset)
@@ -195,6 +208,9 @@
 ;; ---------------------------
 
 (defun timeout-pending-beh (dt evt &optional tag)
+  ;; Wrap an event with a timeout watchdog. If the timeout occurs
+  ;; before a successful rendezvous or a rendezvous failure, we cancel
+  ;; the rendezvous attempt and send failure back to the customer.
   (alambda
    ((cust :sync)
     (let ((kill (once
@@ -216,6 +232,8 @@
 ;; Trigger an event, evaluate the event graph, by sending the customer
 
 (defun sync (evt cust)
+  ;; Trigger an event network, sending data or rendezvous failure
+  ;; ultimately on to customer.
   (send evt cust :sync))
 
 ;; -----------------------------------------
