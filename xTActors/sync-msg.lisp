@@ -185,7 +185,7 @@
      (send-to-all evts :reset))
     
     ((cust :sync)
-0     (labels ((rcvr-beh (ct)
+     c(labels ((rcvr-beh (ct)
                 (λ ans
                   (cond ((eq (car ans) +fail+)
                          (let ((new-ct (1- ct)))
