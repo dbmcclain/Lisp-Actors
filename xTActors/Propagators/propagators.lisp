@@ -104,14 +104,14 @@
 
 ;; -----------------------------------------
 
-(defun konst-beh (propagators content)
+(defun konst-beh (content)
   (alambda
    ((cust :content)
     (send cust content))
    ))
 
 (defun konst (val)
-  (make-actor (konst-beh nil val)))
+  (make-actor (konst-beh val)))
 
 (defmacro defkonst (name val)
   `(deflex ,name (konst ,val)))
