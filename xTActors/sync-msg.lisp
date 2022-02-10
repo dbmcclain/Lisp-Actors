@@ -232,7 +232,7 @@
 ;; Trigger an event, evaluate the event graph, by sending the customer
 
 (defun sync (evt cust)
-  ;; Trigger an event network, sending data or rendezvous failure
+  ;; Trigger an event network, sending rendezvous data or failure
   ;; ultimately on to customer.
   (send evt (once cust) :sync))
 
