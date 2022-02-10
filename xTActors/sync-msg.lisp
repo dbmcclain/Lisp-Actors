@@ -207,7 +207,7 @@
 
 ;; ---------------------------
 
-(defun timeout-pending-beh (dt evt &optional tag)
+(defun timeout-evt-beh (dt evt &optional tag)
   ;; Wrap an event with a timeout watchdog. If the timeout occurs
   ;; before a successful rendezvous or a rendezvous failure, we cancel
   ;; the rendezvous attempt and send failure back to the customer.
@@ -217,7 +217,7 @@
                  (α ans
                    (send evt :reset)
                    (send* cust ans)))))
-      (become (timeout-pending-beh dt evt kill))
+      (become (timeout-evt-beh dt evt kill))
       (send evt kill :sync)
       (send-after dt kill +fail+)))
    
@@ -226,7 +226,7 @@
    ))
     
 (defun timeout-evt (dt evt)
-  (make-actor (timeout-pending-beh dt evt)))
+  (make-actor (timeout-evt-beh dt evt)))
 
 ;; -----------------------------------------
 ;; Trigger an event, evaluate the event graph, by sending the customer
