@@ -98,22 +98,22 @@
   ;; Define the receive side of a rendezvous event
   (make-actor
    (alambda
-    ((:reset)
-     (send (chan-ctrl chan) :reset))
-    
     ((cust :sync)
      (send (chan-read chan) cust :get))
-    )))
+
+        ((:reset)
+     (send (chan-ctrl chan) :reset))    
+        )))
 
 (defun send-evt (chan &rest msg)
   ;; Define the send side of a rendezvous event
   (make-actor
    (alambda
-    ((:reset)
-     (send (chan-ctrl chan) :reset))
-    
     ((cust :sync)
      (send* (chan-write chan) cust :put msg))
+
+    ((:reset)
+     (send (chan-ctrl chan) :reset))    
     )))
 
 (defun wrap-evt (evt actor)
@@ -121,24 +121,22 @@
   ;; Actor on the way back to customer.
   (make-actor
    (alambda
-    ((:reset)
-     (send evt :reset))
-    
     ((cust :sync)
      (β  ans
          (send evt (once β) :sync)
        (if (eq (car ans) +fail+)
            (send cust +fail+)
          (send* actor cust ans))))
+
+    ((:reset)
+     (send evt :reset))
+    
     )))
 
 (defun wrap-abort-evt (evt actor)
   ;; On a failed rendezvous, call on Actor
   (make-actor
    (alambda
-    ((:reset)
-     (send evt :reset))
-    
     ((cust :sync)
      (β  ans
          (send evt (once β) :sync)
@@ -149,6 +147,9 @@
              (t
               (send* cust ans))
              )))
+
+    ((:reset)
+     (send evt :reset))    
     )))
           
 (defun on-evt (evt actor)
@@ -156,9 +157,6 @@
   ;; customer, and also perform Actor
   (make-actor
    (alambda
-    ((:reset)
-     (send evt :reset))
-
     ((cust :sync)
      (β  ans
          (send evt (once β) :sync)
@@ -168,6 +166,9 @@
               (send actor)
               (send* cust ans))
              )))
+
+    ((:reset)
+     (send evt :reset))
     )))
 
 ;; ---------------------------
@@ -181,9 +182,6 @@
   ;; failed.
   (make-actor
    (alambda
-    ((:reset)
-     (send-to-all evts :reset))
-    
     ((cust :sync)
      (labels ((rcvr-beh (ct)
                 (λ ans
@@ -203,7 +201,11 @@
                         ))))
        (let ((rcvr (make-actor (rcvr-beh (length evts)))))
          (send-to-all evts rcvr :sync)
-         ))))))
+         )))
+
+    ((:reset)
+     (send-to-all evts :reset))
+    )))
 
 ;; ---------------------------
 
