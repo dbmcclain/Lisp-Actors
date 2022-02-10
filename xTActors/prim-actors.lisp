@@ -496,7 +496,7 @@
   (make-actor (pass-beh sink-blk)))
 
 ;; ---------------------------------------------------------
-
+#|
 (defun ticketed-perform-beh ()
   (alambda
    ((cust :req)
@@ -536,8 +536,9 @@
 
 #+:LISPWORKS
 (editor:setup-indent "with-ticket" 1)
+|#
 
-;; -------------------------------------------------------
+;; ------------------------------------------------
 
 (defun with-timeout (timeout action on-timeout)
   (actor (cust &rest msg)
@@ -547,7 +548,7 @@
                            ((tag . ans) when (eq tag tag-ok)
                             (send* cust ans))
                            (_
-                            (send on-timeout cust))))
+                            (send on-timeout))))
              (gate        (once-beh arbiter)))
       (send* action tag-ok msg)
       (send-after timeout tag-timeout)
@@ -560,7 +561,7 @@
                       (send println :nah)))
       println)
  |#
-
+#|
 (defun long-running-beh (action)
   (flet ((doit (cust args)
            (let ((tag  (tag self)))
@@ -598,6 +599,6 @@
 
 (defun make-long-running (action)
   (make-actor (long-running-beh action)))
-
+|#
 ;; ------------------------------------------------------
 

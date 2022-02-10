@@ -121,8 +121,8 @@ THE SOFTWARE.
    #:sink
    #:const
    #:with-printer
-   #:with-ticket
-   #:ticketed-perform
+   ;; #:with-ticket
+   ;; #:ticketed-perform
    #:println
    #:writeln
    #:fmt-println
@@ -150,7 +150,6 @@ THE SOFTWARE.
    #:prunable-alambda
    #:mbox-sender
    #:time-tag
-   #:long-running-action
    
    #:format-usec
    #:logger-timestamp
