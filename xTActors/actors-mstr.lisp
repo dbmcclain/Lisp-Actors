@@ -158,6 +158,8 @@ THE SOFTWARE.
 (defvar *evt-threads* nil)
 (defvar *send*        nil)
 
+;; ---------------------------------
+
 (defun send (actor &rest msg)
   #F
   (when (actor-p actor)
@@ -172,14 +174,16 @@ THE SOFTWARE.
 (defun send-combined-msg (cust msg1 msg2)
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
 
+;; ---------------------------------
+
 (defun send-to-pool (actor &rest msg)
+  ;; the default SEND for foreign threads
   #F
-  (check-type actor actor)
-  (mp:mailbox-send *central-mail* (msg (the actor actor) msg))
-  ;; (mbox-send *central-mail* (msg (the actor actor) msg))
-  (values))
+  (when (actor-p actor)
+    (mp:mailbox-send *central-mail* (msg (the actor actor) msg))))
 
 (defun startup-send (actor &rest msg)
+  ;; the boot version of SEND
   (unless *evt-threads*
     (restart-actors-system))
   (setf *send* #'send-to-pool)
@@ -188,7 +192,9 @@ THE SOFTWARE.
 (unless *send*
   (setf *send* #'startup-send))
 
-(defparameter *become*
+;; ---------------------------------------
+
+(defvar *become*
   (lambda (new-beh)
     (declare (ignore new-beh))
     (error "not in an Actor")))
