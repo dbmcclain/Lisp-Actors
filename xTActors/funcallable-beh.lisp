@@ -45,7 +45,7 @@
 (defmethod spair ((beh seq-beh) cust)
   (let ((a  (seq-hd beh)))
     (β  (rb)
-        (get-tl beh β)
+        (stl beh β)
       (send cust a rb)
       )))
 
@@ -54,7 +54,7 @@
          (send cust (seq-hd beh)))
         (t
          (β (next)
-             (get-tl beh β)
+             (stl beh β)
            (send next 'snth cust (1- n))))
         ))
 
@@ -63,7 +63,7 @@
          (send cust self))
         (t
          (β (next)
-             (get-tl beh β)
+             (stl beh β)
            (send next 'snthtl cust (1- n)))
          )))
 
