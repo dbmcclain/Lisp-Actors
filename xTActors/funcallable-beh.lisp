@@ -89,11 +89,10 @@
         (β (c)
             (send rc 'shd β)
           (let ((ord (or (ignore-errors
-                           (round (log (max 1e-20
-                                            (- (/ (- a c)
-                                                  (- b c))
-                                               1))
-                                       2)))
+                           (round (log (- (/ (- a c)
+                                             (- b c))
+                                          1 )
+                                       2 )))
                          100)))
             (send cust ord)
             )))
