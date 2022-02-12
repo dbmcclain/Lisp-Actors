@@ -36,13 +36,13 @@
   ((hd  :reader seq-hd  :initarg :hd)
    (tl  :reader seq-tl  :initarg :tl)))
 
-(defmethod get-hd ((beh seq-beh) cust)
+(defmethod shd ((beh seq-beh) cust)
   (send cust (seq-hd beh)))
 
-(defmethod get-tl ((beh seq-beh) cust)
+(defmethod stl ((beh seq-beh) cust)
   (send (seq-tl beh) cust))
 
-(defmethod get-pair ((beh seq-beh) cust)
+(defmethod spair ((beh seq-beh) cust)
   (let ((a  (seq-hd beh)))
     (β  (rb)
         (get-tl beh β)
@@ -60,7 +60,7 @@
 
 (defmethod snthtl ((beh seq-beh) cust n)
   (cond ((zerop n)
-         (send cust (seq-tl beh)))
+         (send cust self))
         (t
          (β (next)
              (get-tl beh β)
@@ -83,11 +83,11 @@
 (deflex order
   (α (cust seq)
     (β  (a rb)
-        (send seq 'get-pair β)
+        (send seq 'spair β)
       (β  (b rc)
-          (send rb 'get-pair β)
+          (send rb 'spair β)
         (β (c)
-            (send rc 'get-hd β)
+            (send rc 'shd β)
           (let ((ord (or (ignore-errors
                            (round (log (max 1e-20
                                             (- (/ (- a c)
@@ -102,9 +102,9 @@
 (deflex within
   (α (cust eps s)
     (β  (a rb)
-        (send s 'get-pair β)
+        (send s 'spair β)
       (β (b)
-          (send rb 'get-hd β)
+          (send rb 'shd β)
         (cond ((<= (abs (- a b)) eps)
                (send cust b))
               (t
