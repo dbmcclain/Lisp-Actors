@@ -244,11 +244,11 @@
   (α (cust fn s)
     (β  (a rb)
         (send (fork s s) β '(:hd) '(:tl))
-      (send cust (seq (funcall f a)
+      (send cust (seq (funcall fn a)
                       (α (acust)
-                        (send map acust fn rb))
+                        (send smap acust fn rb))
                       ))
-      )))
+      )))∑
 
 (deflex foldl
   (α (cust fn init s)
@@ -276,11 +276,10 @@
         (β (c)
             (send rc β :hd)
           (let ((ord (or (ignore-errors
-                           (round (log (max 1e-20
-                                            (- (/ (- a c)
-                                                  (- b c))
-                                               1))
-                                       2)))
+                           (round (log (- (/ (- a c)
+                                             (- b c))
+                                          1 )
+                                       2 )))
                          100)))
             (send cust ord)
             )))
@@ -301,7 +300,7 @@
 (deflex improve
   (α (cust s)
     (β (ord)
-        (order s β)
+        (send order β s)
       (send elimerror cust ord s))
     ))
 
