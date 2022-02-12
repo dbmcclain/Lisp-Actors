@@ -106,10 +106,10 @@
   ;; Like FUTURE, but delays evaluation of the Actor with message
   ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
   (actor (cust)
-    (actors ((fut  (future-wait-beh tag cust))
-             (tag  (tag-beh fut)))
-      (send* actor tag msg))
-    ))
+    (let ((tag (tag self)))
+      (become (future-wait-beh tag cust))
+      (send* actor tag msg)
+      )))
 
 ;; --------------------------------------
 ;; SER - make an Actor that evaluates a series of blocks sequentially
