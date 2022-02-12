@@ -1,7 +1,8 @@
 ;; funcallable-beh.lisp -- What happens if we make Behavior functions into Funcallable Classes?
 ;;
 ;; A new style of message format, and a different way of building up
-;; Actor behaviors that can be extensible and inheritable.
+;; Actor behaviors that can be extensible and inheritable. We can also
+;; avoid the overhead of pattern matching on messages.
 ;;
 ;; DM/RAL 02/22
 ;; --------------------------------------------
