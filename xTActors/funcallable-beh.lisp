@@ -16,6 +16,7 @@
   (:metaclass clos:funcallable-standard-class))
 
 (defmethod initialize-instance :after ((beh <behavior>) &key &allow-other-keys)
+  ;; Watch Out! Unlike ALAMBDA behaviors, we don't ignore unrecognized messages
   (clos:set-funcallable-instance-function beh
                                           (lambda (fn &rest args)
                                             (apply fn beh args))
@@ -32,10 +33,38 @@
 (editor:setup-indent "defbeh" 2)
 
 ;; -----------------------------------------------------------
+;; Example - Infinite Sequences
+;;
+;;   shd  stl
+;;  +---+----+
+;;  | a | rb |  refs are initially LAZY Actors, become CONST ptrs
+;;  +---+----+  (A LAZY Actor is only ever executed just once)
+;;   fst   |
+;;         v
+;;       +---+----+
+;;       | b | rc |
+;;       +---+----+
+;;        snd  |
+;;             v
+;;           +---+----+
+;;           | c | rd |
+;;           +---+----+
+;;            thd  |
+;;                 v
 
 (defbeh seq-beh ()
   ((hd  :reader seq-hd  :initarg :hd)
    (tl  :reader seq-tl  :initarg :tl)))
+
+(defun seq (a α-cust)
+  ;; construct a sequence given first element, and Actor to produce
+  ;; next element
+  (make-actor (make-instance 'seq-beh
+                             :hd  a
+                             :tl  (lazy α-cust))))
+
+;; ----------------------------------------
+;; SEQ Behavior Message Handlers
 
 (defmethod shd ((beh seq-beh) cust)
   (send cust (seq-hd beh)))
@@ -68,14 +97,10 @@
            (send next 'snthtl cust (1- n)))
          )))
 
-(defun seq (a α-cust)
-  (make-actor (make-instance 'seq-beh
-                             :hd  a
-                             :tl  (lazy α-cust))))
-
 ;; -----------------------------------------------
 
 (deflex repeat
+  ;; construct a sequence: a, f(a), f(f(a)), ...
   (α (cust a f)
     (send cust (seq a (α (acust)
                         (β (fa)
@@ -84,6 +109,7 @@
                     ))))
 
 (deflex order
+  ;; compute order of convergence of sequence
   (α (cust seq)
     (β  (a rb)
         (send seq 'spair β)
@@ -102,6 +128,8 @@
       )))
 
 (deflex within
+  ;; recursive probing until two consecutive values differ by less
+  ;; than eps
   (α (cust eps s)
     (β  (a rb)
         (send s 'spair β)
@@ -110,11 +138,11 @@
         (cond ((<= (abs (- a b)) eps)
                (send cust b))
               (t
-               ;; (send order println s)
                (send within cust eps rb))
               )))))
 
 (deflex ssqrt
+  ;; Heron's method for SQRT (= Newton's Method)
   (α (cust a0 eps n)
     (β  (s)
         (send repeat β
