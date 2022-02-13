@@ -119,12 +119,12 @@
     (send* println txt)
     (send* cust msg)))
 
-(deflex dbg-println
-  (label (serializer
-          (α (cust . msg)
-            (send* fmt-println msg)
-            (send cust :ok)))
-         sink))
+(defactor dbg-println
+  (label-beh (serializer
+              (α (cust . msg)
+                (send* fmt-println msg)
+                (send cust :ok)))
+             sink))
    
 (defun marshal-encoder ()
   (actor (cust &rest args)

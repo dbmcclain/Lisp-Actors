@@ -14,8 +14,8 @@
 ;;
 ;; -------------------------------------------------------
 
-(deflex fmt-println
-  (actor (fmt-str &rest args)
+(defactor fmt-println
+  (λ (fmt-str &rest args)
     (send println (apply #'format nil fmt-str args))
     ))
 
@@ -117,8 +117,8 @@
 ;; same initial message, and the results from each block are sent as
 ;; an ordered collection to cust.
 
-(deflex ser
-  (actor (cust lst &rest msg)
+(defactor ser
+  (λ (cust lst &rest msg)
     (if (null lst)
         (send cust)
       (let ((me self))
@@ -165,10 +165,10 @@
       (send* right tag-r rreq))
     ))
 
-(deflex par
+(defactor par
   ;; Send same msg to all actors in the lst, running them
   ;; concurrently, and collect the results into one ordered response.
-  (actor (cust lst &rest msg)
+  (λ (cust lst &rest msg)
     (if (null lst)
         (send cust)
       (actors ((join     (join-beh cust tag-car))

@@ -422,8 +422,8 @@ THE SOFTWARE.
 (defun sink-beh ()
   #'lw:do-nothing)
 
-(deflex sink
-  (make-actor (sink-beh)))
+(defactor sink
+  (sink-beh))
 
 ;; --------------------------------------
 
@@ -434,13 +434,13 @@ THE SOFTWARE.
       ,@body)
     ,stream))
 
-(deflex println
-  (actor msg
+(defactor println
+  (λ msg
     (with-printer (s *standard-output*)
       (format s "~&~{~A~%~^~}" msg))))
 
-(deflex writeln
-  (actor msg
+(defactor writeln
+  (λ msg
     (with-printer (s *standard-output*)
       (format s "~&~{~S~%~^~}" msg))))
 
@@ -471,8 +471,8 @@ THE SOFTWARE.
 ;; -----------------------------------------------------
 ;; FN-EVAL - eval function and send results to customer
 
-(deflex fn-eval
-  (actor (cust fn &rest args)
+(defactor fn-eval
+  (λ (cust fn &rest args)
     (send* cust (multiple-value-list (apply fn args)))))
 
 ;; ----------------------------------------

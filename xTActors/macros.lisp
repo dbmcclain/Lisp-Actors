@@ -240,3 +240,12 @@
 (editor:setup-indent "α" 1)
 (editor:indent-like "β" 'destructuring-bind)
 
+;; ---------------------------------------------------
+
+(defmacro defactor (name beh)
+  `(deflex ,name (make-actor ,beh)))
+
+#+:LISPWORKS
+(editor:setup-indent "defactor" 2)
+
+;; ----------------------------------------------------

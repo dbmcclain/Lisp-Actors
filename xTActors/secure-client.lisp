@@ -92,7 +92,7 @@
       (repeat-send self))
     ))
     
-(deflex client-gateway
+(defactor client-gateway
   ;; This is the main local client service used to initiate
   ;; connections with foreign servers. We develop a DHE shared secret
   ;; encryption key for use across a private connection portal with
@@ -103,7 +103,7 @@
   ;; specify any data protocol. It may marshal objects and compress
   ;; the resulting byte stream before sending. A Channel is an
   ;; encryptor/decryptor married to a Socket.
-  (make-actor (init-gateway-beh)))
+  (init-gateway-beh))
     
 ;; ---------------------------------------------------
 

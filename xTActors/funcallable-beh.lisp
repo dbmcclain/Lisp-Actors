@@ -51,17 +51,34 @@
 ;;           +---+----+
 ;;            thd  |
 ;;                 v
+;;
+;; NOTE: Notice that, in the following code, except for the relatively
+;; infrequent computation using Lisp call/return function processing,
+;; the vast majority of the code is simply a sequence of SEND
+;; operations.
+;;
+;; You could think of Lisp call/return as microcode, and SEND as
+;; higher level, Actor-land, GOTO.
+;;
+;; Also, the extensive use of Actors, in place of Lisp functions,
+;; makes all the following code very similar to CPS-style coding. Here
+;; the continuations are anonymous Actors, instead of anonymous Lambda
+;; closures. But, except for this new funcallable behavior approach,
+;; an Actor usually *is* a simply-encapsulated Lambda closure.
 
 (defbeh seq-beh ()
   ((hd  :reader seq-hd  :initarg :hd)
    (tl  :reader seq-tl  :initarg :tl)))
 
-(defun seq (a α-cust)
+(defactor seq
   ;; construct a sequence given first element, and Actor to produce
   ;; next element
-  (make-actor (make-instance 'seq-beh
-                             :hd  a
-                             :tl  (lazy α-cust))))
+  (λ (cust a α-cust)
+    (send cust (make-actor
+                (make-instance 'seq-beh
+                               :hd  a
+                               :tl  (lazy α-cust))))
+    ))
 
 ;; ----------------------------------------
 ;; SEQ Behavior Message Handlers
@@ -99,18 +116,19 @@
 
 ;; -----------------------------------------------
 
-(deflex repeat
+(defactor repeat
   ;; construct a sequence: a, f(a), f(f(a)), ...
-  (α (cust a f)
-    (send cust (seq a (α (acust)
-                        (β (fa)
-                            (send f β a)
-                          (send repeat acust fa f)))
-                    ))))
+  (λ (cust a f)
+    (send seq cust a
+          (α (acust)
+            (β (fa)
+                (send f β a)
+              (send repeat acust fa f))))
+    ))
 
-(deflex order
+(defactor order
   ;; compute order of convergence of sequence
-  (α (cust seq)
+  (λ (cust seq)
     (β  (a rb)
         (send seq 'spair β)
       (β  (b rc)
@@ -127,10 +145,10 @@
             )))
       )))
 
-(deflex within
+(defactor within
   ;; recursive probing until two consecutive values differ by less
   ;; than eps
-  (α (cust eps s)
+  (λ (cust eps s)
     (β  (a rb)
         (send s 'spair β)
       (β (b)
@@ -141,14 +159,14 @@
                (send within cust eps rb))
               )))))
 
-(deflex ssqrt
+(defactor ssqrt
   ;; Heron's method for SQRT (= Newton's Method)
-  (α (cust a0 eps n)
+  (λ (cust a0 eps n)
     (β  (s)
         (send repeat β
               a0
-              (α (cust x)
-                (send cust (/ (+ x (/ n x)) 2))))
+              (α (acust x)
+                (send acust (/ (+ x (/ n x)) 2))))
       (send within cust eps s))
     ))
 
@@ -162,38 +180,38 @@
 |#
 ;; -----------------------------------------------
 
-(deflex elimerror
-  (α (cust n s)
+(defactor elimerror
+  (λ (cust n s)
     (β (a rb)
         (send s 'spair β)
       (β (b)
           (send rb 'shd β)
         (let ((2^n (expt 2 n)))
-          (send cust (seq (/ (- (* b 2^n) a) (- 2^n 1))
-                          (α (acust)
-                            (send elimerror acust n rb))))
+          (send seq cust (/ (- (* b 2^n) a) (- 2^n 1))
+                (α (acust)
+                  (send elimerror acust n rb)))
           )))))
 
-(deflex improve
-  (α (cust s)
+(defactor improve
+  (λ (cust s)
     (β (ord)
         (send order β s)
       (send elimerror cust ord s))
     ))
 
-(deflex fst
-  (α (cust s)
+(defactor fst
+  (λ (cust s)
     (send s 'shd cust)))
 
-(deflex snd
-  (α (cust s)
+(defactor snd
+  (λ (cust s)
     (β (rb)
         (send s 'stl β)
       (send rb 'shd cust)
       )))
 
-(deflex thd
-  (α (cust s)
+(defactor thd
+  (λ (cust s)
     (β  (rb)
         (send s 'stl β)
       (β  (rc)
@@ -201,20 +219,20 @@
         (send rc 'shd cust)
         ))))
 
-(deflex smap
-  (α (cust afn s)
+(defactor smap
+  (λ (cust afn s)
     (β  (a rb)
         (send s 'spair β)
       (β  (ma)
           (send afn β a)
-        (send cust (seq ma
-                        (α (acust)
-                          (send smap acust afn rb))
-                        ))
+        (send seq cust ma
+              (α (acust)
+                (send smap acust afn rb))
+              )
         ))))
 
-(deflex aitken
-  (α (cust s)
+(defactor aitken
+  (λ (cust s)
   ;; Aitken's delta-squared process
   (β  (a rb)
       (send s 'spair β)
@@ -229,21 +247,21 @@
                           c
                         (- c (/ (* c-b c-b) den)))))
           (declare (real a b c c-b den c-new))
-          (send cust (seq c-new
-                          (α (acust)
-                            (send aitken acust rb))))
+          (send seq cust c-new
+                (α (acust)
+                  (send aitken acust rb)))
           )))
     )))
 
-(deflex accelerate
-  (α (cust xform s)
+(defactor accelerate
+  (λ (cust xform s)
     (β  (xs)
         (send repeat β s xform)
       (send smap cust snd xs)
       )))
 
-(deflex fsecond
-  (α (cust lst)
+(defactor fsecond
+  (λ (cust lst)
     (send cust (second lst))))
 
 ;; ----------------------------------------------------------------------
@@ -286,10 +304,10 @@
           (send cust (list (1+ ix) (/ p0 q0) p0 q0 p1 q1))
           )))))
 
-(deflex erf-stream
+(defactor erf-stream
   ;; cfrac is: x|1-2*x^2|3+4*x^2|5-6*x^2|7+ ...
   ;; use when x <= 1.7
-  (α (cust x)
+  (λ (cust x)
     (labels ((fnxy (ix)
                  (let ((sgn (- 1 (* 2 (logand ix 1)))))
                    (list (* sgn 2 ix x x) (+ 1 ix ix))
@@ -299,10 +317,10 @@
         (send smap cust fsecond s)
         ))))
 
-(deflex erfc-stream
+(defactor erfc-stream
   ;; cfrac is: 1|x+(1/2)|x+(2/2)|x+(3/2)|x+ ...
   ;; use when x > 1.7
-  (α (cust x)
+  (λ (cust x)
     (labels ((fnxy (ix)
                (list (/ ix 2) x)))
       (β  (s)
@@ -310,9 +328,9 @@
         (send smap cust fsecond s)
         ))))
 
-(deflex erf-raw
+(defactor erf-raw
   ;; use when x <= 1.7
-  (α (cust x eps)
+  (λ (cust x eps)
     (β  (s)
         (send erf-stream β x)
       (β  (as)
@@ -323,9 +341,9 @@
                         (/ 2.0d0 (sqrt pi) (exp (* x x)))))
           )))))
 
-(deflex erfc-raw
+(defactor erfc-raw
   ;; use when x > 1.7
-  (α (cust x eps)
+  (λ (cust x eps)
     (β  (s)
         (send erfc-stream β x)
       (β  (as)
@@ -343,9 +361,9 @@
 ;; based on the magnitude of the argument x. When abs(x) = 1.7 both raw
 ;; definitions require about the same number of accelerated iterations for convergence.
 ;;
-(deflex erfc
+(defactor erfc
   ;; 2/Sqrt(Pi)*Integral(Exp(-t^2), {t, x, inf}) = 1 - erf(x)
-  (α (cust x &optional (eps 1e-8))
+  (λ (cust x &optional (eps 1e-8))
     (let ((z  (abs (float x 1d0))))
       (cond ((> z 1.7d0)
              (β  (ans)
@@ -364,9 +382,9 @@
                ))
             ))))
 
-(deflex erf
+(defactor erf
   ;; 2/Sqrt(Pi)*Integral(Exp(-t^2), {t, 0, x}) = 1 - erfc(x)
-  (α (cust x &optional (eps 1d-8))
+  (λ (cust x &optional (eps 1d-8))
     (let ((z  (abs (float x 1.0d0))))
       (cond ((> z 1.7d0)
              (β  (ans)
@@ -386,12 +404,16 @@
                ))
             ))))
 
+;; ---------------------------------------
+;; functional interface
+
 (defun fn-erfc (x &optional (eps 1e-12))
   (ask erfc x eps))
 
 (defun fn-erf (x &optional (eps 1e-12))
   (ask erf x eps))
 
+;; ----------------------------------------
 #| ;check it out...
 (let ((domain '(-3.0d0 3.0d0)))
   (plt:fplot 1 domain #'fn-erfc

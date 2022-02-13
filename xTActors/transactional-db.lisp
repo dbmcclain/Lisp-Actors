@@ -93,8 +93,8 @@
 
 (in-package com.ral.actors.kv-database)
   
-(deflex trimmer
-  (α (cust cmd db)
+(defactor trimmer
+  (λ (cust cmd db)
     (send cust sink cmd (remove-unstorable db))))
 
 (defun trans-gate-beh (saver db)
@@ -284,8 +284,8 @@
 
 ;; -----------------------------------------------------------
 
-(defun db-svc-init (path)
-  (α _
+(defun db-svc-init-beh (path)
+  (λ _
     (let ((tag   (tag self))
           (saver (serializer (make-actor (unopened-database-beh)))))
       (send saver tag :open path)
@@ -295,8 +295,8 @@
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
                                     (sys:get-folder-path :appdata)))
 
-(deflex dbmgr
-  (db-svc-init *db-path*))
+(defactor dbmgr
+  (db-svc-init-beh *db-path*))
 
 ;; -----------------------------------------------------------
 
@@ -333,24 +333,23 @@
 ;; ------------------------------------------------------------------
 ;; more usable public face - can use ASK against this
 
-(deflex kvdb
-  (make-actor
-   (alambda
-    ((cust :lookup key . default)
-     (apply 'lookup cust key default))
-    
-    ((cust :add key val)
-     (add-rec cust key val))
-    
-    ((cust :remove key)
-     (remove-rec cust key))
-    
-    ((cust :req)
-     (repeat-send dbmgr))
-
-    ((cust :commit old-db new-db retry)
-     (repeat-send dbmgr))
-    )))
+(defactor kvdb
+  (alambda
+   ((cust :lookup key . default)
+    (apply 'lookup cust key default))
+   
+   ((cust :add key val)
+    (add-rec cust key val))
+   
+   ((cust :remove key)
+    (remove-rec cust key))
+   
+   ((cust :req)
+    (repeat-send dbmgr))
+   
+   ((cust :commit old-db new-db retry)
+    (repeat-send dbmgr))
+   ))
 
 ;; -----------------------------------------------------------
 #|

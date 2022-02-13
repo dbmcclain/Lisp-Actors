@@ -394,8 +394,8 @@
             )))
    ))
 
-(deflex connections
-  (make-actor (connections-list-beh nil)))
+(defactor connections
+  (connections-list-beh nil))
 
 ;; -------------------------------------------------------------
 
@@ -623,9 +623,9 @@
             )))
    ))
 
-(deflex client-connector
+(defactor client-connector
   ;; Called from client side wishing to connect to a server.
-  (α _
+  (λ _
     (become (client-connector-beh (make-actor (pending-connections-list-beh nil))))
     (repeat-send self)))
 

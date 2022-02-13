@@ -363,6 +363,7 @@ THE SOFTWARE.
 (editor:setup-indent "run-state-machine" 2 4)
 |#
 ;; ----------------------------------------------------------------------
+;; COPY-WITH -- Structure Copying with Slot Changes
 
 #+:LISPWORKS
 (defun copy-with (s &rest bindings)
@@ -3309,4 +3310,5 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
 #|
 (merge-alist '((:a . 1) (:b . 2) (:c . 3)) '((:a . 10) (:a . 20) (:c . 13) (:d . 15)))
 |#
+;; --------------------------------------------------------
 

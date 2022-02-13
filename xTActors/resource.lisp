@@ -58,12 +58,12 @@
       )))
 
 ;; Some must-do's
-(deflex close-file
-        (once (actor (fp)
+(defactor close-file
+    (once-beh (actor (fp)
                 (close fp))))
 
-(deflex secure-erase
-        (once (actor (buf)
+(defactor secure-erase
+    (once-beh (actor (buf)
                 (fill buf 0))))
 
 (defun perform (fn)
