@@ -246,6 +246,6 @@
   `(deflex ,name (make-actor ,beh)))
 
 #+:LISPWORKS
-(editor:setup-indent "defactor" 2)
+(editor:setup-indent "defactor" 1)
 
 ;; ----------------------------------------------------
