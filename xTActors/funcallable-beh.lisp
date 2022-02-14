@@ -261,8 +261,7 @@
       )))
 
 (defactor fsecond
-  (λ (cust lst)
-    (send cust (second lst))))
+    (fn-actor-beh 'second))
 
 ;; ----------------------------------------------------------------------
 ;; cfrac-iter -- an evaluator for continued fraction approximations,

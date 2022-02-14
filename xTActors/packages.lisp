@@ -223,7 +223,8 @@ THE SOFTWARE.
    #:kvdb
    #:deep-copy
 
-   #:fn-eval
+   #:fn-actor-beh
+   #:fn-actor
    #:reactive-obj-beh
    #:reactive-obj
 

@@ -468,12 +468,22 @@ THE SOFTWARE.
         (values-list (mp:mailbox-read mbox)))
       ))
 
-;; -----------------------------------------------------
-;; FN-EVAL - eval function and send results to customer
+;; ------------------------------------------------------
+;; FN-ACTOR - the most general way of computing something is to send
+;; the result of an Actor execution to a customer. That may involve an
+;; indefinite number of message sends along with continuation Actors
+;; before arriving at the result to send to the customer.
+;;
+;; But sometimes all we need is a simple direct function call against
+;; some args. In order to unify these two situations, we make
+;; FN-ACTORs which encapsulate a function call inside of an Actor.
 
-(defactor fn-eval
-  (λ (cust fn &rest args)
+(defun fn-actor-beh (fn)
+  (λ (cust . args)
     (send* cust (multiple-value-list (apply fn args)))))
+
+(defun fn-actor (fn)
+  (make-actor (fn-actor-beh fn)))
 
 ;; ----------------------------------------
 ;; We must defer startup until the MP system has been instantiated.
