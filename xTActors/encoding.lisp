@@ -283,8 +283,8 @@
                  (send nonce-writer nonce))
                 )))
       ;; all of the following will likely happen before MP has started...
-      (make-actor (noncer-beh (rd-nonce) #()
-                              (make-actor #'wr-nonce) ))
+      (create (noncer-beh (rd-nonce) #()
+                          (create #'wr-nonce) ))
       )))
 |#
 (defun noncer-beh (nonce)
@@ -316,7 +316,7 @@
       (become (noncer-beh new-nonce))))
    ))
 
-(deflex noncer (make-actor
+(deflex noncer (create
                 (noncer-beh
                  (vec-repr:int (hash/256 (uuid:make-v1-uuid)))
                  )))
@@ -502,7 +502,7 @@
          args))
 
 (defun make-dechunk-assembler (cust nchunks size)
-  (make-actor (dechunk-assembler-beh cust nchunks nil (make-ubv size) )))
+  (create (dechunk-assembler-beh cust nchunks nil (make-ubv size) )))
 
 (defun dechunk-interceptor-beh (id assembler next)
   ;; A node that intercepts incoming chunks for a given id, once the
@@ -551,14 +551,14 @@
    
    ((cust :init id nchunks size)
     ;; (send dbg-println "Null Dechunker: INIT id ~A ~D chunks, ~D bytes" id nchunks size)
-    (let ((next      (make-actor self-beh))
+    (let ((next      (create self-beh))
           (assembler (make-dechunk-assembler cust nchunks size)))
       (become (dechunk-interceptor-beh id assembler next))
       ))
    
    ((_ :chunk id offs byte-vec)
     ;; (send dbg-println "Null Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
-    (let ((next (make-actor self-beh)))
+    (let ((next (create self-beh)))
       (become (dechunk-pending-beh id
                                    (list
                                     (list offs byte-vec))
@@ -569,7 +569,7 @@
 (defun dechunker ()
   ;; No assumptions about chunk or init delivery order.
   ;; Takes a sequence of chunk encodings and produces a bytevec
-  (make-actor (null-dechunk-beh)))
+  (create (null-dechunk-beh)))
 
 ;; -----------------------------------------------------------
 

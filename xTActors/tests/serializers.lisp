@@ -54,8 +54,8 @@
 
 (with-single-thread
   ;; Single-Thread No Concurrency - Works okay, correct answer is 111.
-  (let* ((cell        (make-actor (cell-beh 0)))
-         (counter-svc (make-actor (counter-svc-beh cell))))
+  (let* ((cell        (create (cell-beh 0)))
+         (counter-svc (create (counter-svc-beh cell))))
     (send counter-svc println 1)
     (send counter-svc println 10)
     (send counter-svc println 100)))
@@ -65,8 +65,8 @@
 
 (with-single-thread
   ;; Single-Thread Concurrency - Incorrect Solution
-  (let* ((cell        (make-actor (cell-beh 0)))
-         (counter-svc (make-actor (counter-svc-beh cell))))
+  (let* ((cell        (create (cell-beh 0)))
+         (counter-svc (create (counter-svc-beh cell))))
     (send (actor ()
             (send counter-svc println 1)
             (send counter-svc println 10)
@@ -74,8 +74,8 @@
 
 (with-single-thread
   ;; Single-Thread Concurrency - Correct Serialized Solution
-  (let* ((cell        (make-actor (cell-beh 0)))
-         (counter-svc (SERIALIZER (make-actor (counter-svc-beh cell)))))
+  (let* ((cell        (create (cell-beh 0)))
+         (counter-svc (SERIALIZER (create (counter-svc-beh cell)))))
     (send (actor ()
             (send counter-svc println 1)
             (send counter-svc println 10)
@@ -86,8 +86,8 @@
 
 (progn
   ;; Parallel SMP Concurrency - Incorrect Solution
-  (let* ((cell        (make-actor (cell-beh 0)))
-         (counter-svc (make-actor (counter-svc-beh cell))))
+  (let* ((cell        (create (cell-beh 0)))
+         (counter-svc (create (counter-svc-beh cell))))
     (send (actor ()
             (send counter-svc println 1)
             (send counter-svc println 10)
@@ -95,8 +95,8 @@
 
 (progn
   ;; Parallel SMP Concurrency - Correct Serialized Solution
-  (let* ((cell        (make-actor (cell-beh 0)))
-         (counter-svc (SERIALIZER (make-actor (counter-svc-beh cell)))))
+  (let* ((cell        (create (cell-beh 0)))
+         (counter-svc (SERIALIZER (create (counter-svc-beh cell)))))
     (send (actor ()
             (send counter-svc println 1)
             (send counter-svc println 10)

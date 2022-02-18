@@ -58,7 +58,7 @@
   ;; request we make an encrypting forwarder back to the client
   ;; customer, and pass that along as the local customer for the
   ;; request to the local service.
-  (make-actor
+  (create
    (alambda
     ;; A significant difference between LAMBDA and ALAMBDA - if an
     ;; incoming arg list does not match what LAMBDA expects, it
@@ -107,7 +107,7 @@
       (send self :show)))
    ))
 
-(send (make-actor (tst-beh :a 1 :b 2 :c 3)) :show)
+(send (create (tst-beh :a 1 :b 2 :c 3)) :show)
 
  |#
 

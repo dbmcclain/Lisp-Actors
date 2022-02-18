@@ -84,7 +84,7 @@
   read write ctrl)
             
 (defun chan ()
-  (let ((ch (make-actor (sync-chan-beh))))
+  (let ((ch (create (sync-chan-beh))))
     (make-chan
      :read  (serializer ch)
      :write (serializer ch)
@@ -96,7 +96,7 @@
 
 (defun recv-evt (chan)
   ;; Define the receive side of a rendezvous event
-  (make-actor
+  (create
    (alambda
     ((cust :sync)
      (send (chan-read chan) cust :get))
@@ -107,7 +107,7 @@
 
 (defun send-evt (chan &rest msg)
   ;; Define the send side of a rendezvous event
-  (make-actor
+  (create
    (alambda
     ((cust :sync)
      (send* (chan-write chan) cust :put msg))
@@ -119,7 +119,7 @@
 (defun wrap-evt (evt actor)
   ;; on successful rendezvous, filter the transferred data through an
   ;; Actor on the way back to customer.
-  (make-actor
+  (create
    (alambda
     ((cust :sync)
      (β  ans
@@ -135,7 +135,7 @@
 
 (defun wrap-abort-evt (evt actor)
   ;; On a failed rendezvous, call on Actor
-  (make-actor
+  (create
    (alambda
     ((cust :sync)
      (β  ans
@@ -155,7 +155,7 @@
 (defun on-evt (evt actor)
   ;; On a successful rendezvous, send the transferred data to the
   ;; customer, and also perform Actor
-  (make-actor
+  (create
    (alambda
     ((cust :sync)
      (β  ans
@@ -180,7 +180,7 @@
   ;; other events in the collection. If some event in the collection
   ;; has a failed rendezvous, we ignore that until all of them have
   ;; failed.
-  (make-actor
+  (create
    (alambda
     ((cust :sync)
      (labels ((rcvr-beh (ct)
@@ -199,7 +199,7 @@
                          (send-to-all evts :reset)
                          (send* cust ans))
                         ))))
-       (let ((rcvr (make-actor (rcvr-beh (length evts)))))
+       (let ((rcvr (create (rcvr-beh (length evts)))))
          (send-to-all evts rcvr :sync)
          )))
 
@@ -228,7 +228,7 @@
    ))
     
 (defun timeout-evt (dt evt)
-  (make-actor (timeout-evt-beh dt evt)))
+  (create (timeout-evt-beh dt evt)))
 
 ;; -----------------------------------------
 ;; Trigger an event, evaluate the event graph, by sending the customer

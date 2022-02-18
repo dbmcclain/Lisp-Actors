@@ -8,7 +8,7 @@
 
 (defun med3 (dut)
   ;; Call DUT 3 times and return median of its data values
-  (make-actor
+  (create
    (lambda (cust &rest parms)
      (beta (y1)
          (send* dut beta parms)
@@ -22,7 +22,7 @@
              )))))))
 
 (defun minum (dut)
-  (make-actor
+  (create
    (lambda (cust &rest parms)
      (beta (datum1)
          (send* dut beta parms)
@@ -39,7 +39,7 @@
   ;; The DUTFN is a behavior creation function that expects the logN
   ;; parameter as its only paramter. DUTFN is called to construct a
   ;; DUT Actor that expects only a Customer arg in a message,
-  (make-actor
+  (create
    (lambda (cust param)
      (beta (y)
          (send dut beta param)
@@ -48,7 +48,7 @@
 
 (defun pairs-collector (from to by datapt)
   ;; Automated collection of data pairs (X, Y) from a DUT
-  (make-actor
+  (create
    (lambda (cust)
      (let* ((data   nil)
             (x      from))
@@ -65,7 +65,7 @@
   ;; collect a large number of samples, npts, all normalized by niters
   ;; which are the number of iterations of the DUT being measured. At
   ;; the end it feeds the collected data values to customer.
-  (make-actor
+  (create
    (lambda (cust &rest parms)
      (let ((arr (make-array npts :element-type 'single-float))
            (ix  0))
@@ -80,7 +80,7 @@
      )))
 
 (defun histogram ()
-  (make-actor
+  (create
    (lambda (arr &rest args)
      (apply #'plt:histogram 'plt arr
             :clear t
@@ -91,7 +91,7 @@
             ))))
 
 (defun statistics ()
-  (make-actor
+  (create
    (lambda (cust arr)
      (send cust (list
                  :mean   (vm:mean arr)
@@ -115,8 +115,8 @@
              (burn-time niter)
              (send cust))
             (t
-             (send (make-actor (erfc-tree-beh (1- nlev))) self niter)
-             (send (make-actor (erfc-tree-beh (1- nlev))) self niter)
+             (send (create (erfc-tree-beh (1- nlev))) self niter)
+             (send (create (erfc-tree-beh (1- nlev))) self niter)
              (become (lambda* _
                        (become (lambda* _
                                  (send cust))))))
@@ -124,9 +124,9 @@
   
   (defun make-erfc-fbomb ()
     ;; a DUT function parameterized by Log2(N)
-    (make-actor
+    (create
      (lambda (cust niter)
-       (let ((top  (make-actor (erfc-tree-beh 10))))
+       (let ((top  (create (erfc-tree-beh 10))))
          (send top cust niter)
          ))))
   
@@ -173,8 +173,8 @@
                                  (send self (1- nn)))))))
                (send k-iter niter)))
             (t
-             (send (make-actor (erfc-tree-beh niter)) self (1- n))
-             (send (make-actor (erfc-tree-beh niter)) self (1- n))
+             (send (create (erfc-tree-beh niter)) self (1- n))
+             (send (create (erfc-tree-beh niter)) self (1- n))
              (become (lambda* _
                        (become (lambda* _
                                (send cust))))))
@@ -183,7 +183,7 @@
   (defun erfc-fbomb-beh (spon niter)
     ;; a DUT function parameterized by Sponsor and Log2N
     (lambda (cust)
-      (let ((top  (make-actor (erfc-tree-beh niter))))
+      (let ((top  (create (erfc-tree-beh niter))))
         (send spon top cust 10))))
   
   (defun* dataprep ((niter dt))
@@ -193,8 +193,8 @@
 
 (let ((dut   (um:curry #'erfc-fbomb-beh nil))
       (limit 256))
-  (send (make-actor (collector-beh 1 limit 1
-                                        (make-actor (data-point-beh dut #'dataprep))
+  (send (create (collector-beh 1 limit 1
+                                        (create (data-point-beh dut #'dataprep))
                                         ))
         (actor (tbl)
           ;; (break)
@@ -212,8 +212,8 @@
                       :symbol :circle
                       :plot-joined t))
           (let ((dut   (um:curry #'erfc-fbomb-beh t)))
-            (send (make-actor (collector-beh 1 limit 1
-                                                  (make-actor (data-point-beh dut #'dataprep))
+            (send (create (collector-beh 1 limit 1
+                                                  (create (data-point-beh dut #'dataprep))
                                                   ))
                   (actor (tbl)
                     ;; (break)
@@ -231,7 +231,7 @@
 #|
 (defun make-send-self-tst ()
   #F
-  (make-actor
+  (create
    (lambda (cust niter)
      (declare (fixnum niter))
      (if (zerop niter)

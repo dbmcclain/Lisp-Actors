@@ -60,7 +60,7 @@ THE SOFTWARE.
 (defvar *actor-instance-counter*  0)
 
 (defstruct (actor
-               (:constructor make-actor (&optional (beh #'lw:do-nothing))))
+               (:constructor create (&optional (beh #'lw:do-nothing))))
   (beh #'lw:do-nothing :type function)
   (id  (sys:atomic-incf *actor-instance-counter*))  ;; to counter ABA problems
   ;; busy
@@ -89,8 +89,8 @@ THE SOFTWARE.
 (defstruct (msg
             (:constructor msg (actor args &optional link)))
   link
-  (actor (make-actor) :type actor)
-  (args  nil          :type list))
+  (actor (create)  :type actor)
+  (args  nil       :type list))
 
 (defvar *central-mail*  (mp:make-mailbox))
 (defvar *recording*  nil)
@@ -453,7 +453,7 @@ THE SOFTWARE.
     (mp:mailbox-send mbox ans)))
 
 (defun mbox-sender (mbox)
-  (make-actor (mbox-sender-beh mbox)))
+  (create (mbox-sender-beh mbox)))
 
 (defun ask (actor &rest msg)
   ;; Actor should expect a cust arg in first position. Here, the
@@ -483,7 +483,7 @@ THE SOFTWARE.
     (send* cust (multiple-value-list (apply fn args)))))
 
 (defun fn-actor (fn)
-  (make-actor (fn-actor-beh fn)))
+  (create (fn-actor-beh fn)))
 
 ;; ----------------------------------------
 ;; We must defer startup until the MP system has been instantiated.

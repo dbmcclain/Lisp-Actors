@@ -35,7 +35,7 @@
     (send* actor msg)))
 
 (defun logged (actor)
-  (make-actor (logged-beh actor)))
+  (create (logged-beh actor)))
   
 ;; ---------------------------------------------------------
 ;; For use in debugging - ATRACE is not initially installed because it
@@ -80,5 +80,5 @@
     (send* actor (usec:get-universal-time-usec) msg)))
 
 (defun time-tag (actor)
-  (make-actor (time-tag-beh actor)))
+  (create (time-tag-beh actor)))
 

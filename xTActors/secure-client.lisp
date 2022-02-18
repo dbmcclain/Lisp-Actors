@@ -32,7 +32,7 @@
   (prunable-alambda
 
    ((cust :get-chan socket local-services)
-    (let ((next (make-actor self-beh)))
+    (let ((next (create self-beh)))
       (become (pending-negotiation-beh socket (list cust) next))
       (send (negotiate-secure-channel client-skey socket local-services) top)))
    ))
@@ -87,7 +87,7 @@
 (defun init-gateway-beh ()
   (λ _
     (let* ((skey (make-deterministic-keys (uuid:make-v1-uuid)))
-           (pend (make-actor (init-pending-negotiations-beh skey))))
+           (pend (create (init-pending-negotiations-beh skey))))
       (become (client-connect-beh pend))
       (repeat-send self))
     ))

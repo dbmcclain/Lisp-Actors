@@ -155,7 +155,7 @@
   (actors ((phys-writer (physical-writer-beh state))
            (writer      (write-gate-beh state nil phys-writer))
            (prefixer    (serializer-beh
-                         (make-actor
+                         (create
                           (prefixing-write-beh writer))))
            (discarder   (discarder-beh prefixer phys-writer)))
     discarder))
@@ -265,7 +265,7 @@
 
 (defun make-kill-timer (timer-fn)
   (let ((timer (mp:make-timer #'mp:funcall-async timer-fn)))
-    (make-actor
+    (create
      (alambda
       ((:resched)
        (mp:schedule-timer-relative timer *socket-timeout-period*))
@@ -626,7 +626,7 @@
 (defactor client-connector
   ;; Called from client side wishing to connect to a server.
   (λ _
-    (become (client-connector-beh (make-actor (pending-connections-list-beh nil))))
+    (become (client-connector-beh (create (pending-connections-list-beh nil))))
     (repeat-send self)))
 
 ;; -------------------------------------------------------------

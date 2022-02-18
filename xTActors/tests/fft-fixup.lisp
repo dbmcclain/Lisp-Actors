@@ -23,7 +23,7 @@
 
 (defvar twids-actor
   (ac:par-safe ;; because we mutate local state
-   (ac:make-actor
+   (ac:create
     (let ((stwids (make-array 22
                               :initial-element nil
                               :adjustable t

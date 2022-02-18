@@ -25,7 +25,7 @@
    ))
 
 (defun make-sponsor (name)
-  (let* ((spon   (make-actor))
+  (let* ((spon   (create))
          (mbox   (mp:make-mailbox))
          (thread (mp:process-run-function name () 'run-sponsor spon mbox)))
     (setf (actor-beh spon) (sponsor-beh mbox thread))

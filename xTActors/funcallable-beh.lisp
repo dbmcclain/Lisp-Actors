@@ -74,7 +74,7 @@
   ;; construct a sequence given first element, and Actor to produce
   ;; next element
   (λ (cust a α-cust)
-    (send cust (make-actor
+    (send cust (create
                 (make-instance 'seq-beh
                                :hd  a
                                :tl  (lazy α-cust))))
@@ -186,8 +186,9 @@
         (send s 'spair β)
       (β (b)
           (send rb 'shd β)
-        (let ((2^n (expt 2 n)))
-          (send seq cust (/ (- (* b 2^n) a) (- 2^n 1))
+        (let* ((2^n   (expt 2 n))
+               (new-a (/ (- (* b 2^n) a) (- 2^n 1))))
+          (send seq cust new-a
                 (α (acust)
                   (send elimerror acust n rb)))
           )))))

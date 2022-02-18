@@ -194,7 +194,7 @@
    ))
 
 (defun make-local-services ()
-  (make-actor (local-services-beh nil)))
+  (create (local-services-beh nil)))
 
 
 (defun create-ephemeral-client-proxy (cust local-services svc &key (ttl *default-ephemeral-ttl*))

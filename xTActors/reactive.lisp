@@ -21,5 +21,5 @@
    ))
 
 (defun reactive-obj (getter setter)
-  (make-actor (reactive-obj-beh getter setter nil)))
+  (create (reactive-obj-beh getter setter nil)))
 

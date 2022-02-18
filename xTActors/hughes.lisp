@@ -26,7 +26,7 @@
 
 #|
 (deflex nil-actor
-  (make-actor
+  (create
    (alambda
     ((cust :repr)
      (send cust nil))
@@ -54,7 +54,7 @@
    ))
 
 (defun encons (car cdr)
-  (make-actor (cons-beh car cdr)))
+  (create (cons-beh car cdr)))
 
 
 (let ((lst (encons 1 (encons 2 (encons 3 nil-actor)))))
@@ -86,7 +86,7 @@
           ))
    ))
 
-(send (make-actor (heron-beh 1)) println 50)
+(send (create (heron-beh 1)) println 50)
 
 ;; --------------------------------------------
 
@@ -122,7 +122,7 @@
            (send cust self))
           (t
            (let* ((x1   (funcall fn x0))
-                  (next (make-actor (start-seq-beh x1 fn))))
+                  (next (create (start-seq-beh x1 fn))))
              (become (seq-beh x0 next))
              (send next cust :nth (1- n))))
           ))
@@ -143,7 +143,7 @@
    ))
 
 (defun seq (x0 fn)
-  (make-actor (start-seq-beh x0 fn)))
+  (create (start-seq-beh x0 fn)))
 
 (β (nth)
     (send (seq 0 '1+) β :nth 15)
@@ -226,7 +226,7 @@
      )))
 
 (defun seq (a α-cust)
-  (make-actor (seq-beh a α-cust)))
+  (create (seq-beh a α-cust)))
 
 ;; -----------------------------------------------------
 ;; Operators - singleton Actors that act on other Actors to produce new Actors

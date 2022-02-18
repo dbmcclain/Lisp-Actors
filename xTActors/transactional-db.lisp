@@ -287,7 +287,7 @@
 (defun db-svc-init-beh (path)
   (λ _
     (let ((tag   (tag self))
-          (saver (serializer (make-actor (unopened-database-beh)))))
+          (saver (serializer (create (unopened-database-beh)))))
       (send saver tag :open path)
       (become (nascent-database-beh tag saver nil))
       (repeat-send self))))

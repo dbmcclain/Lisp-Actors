@@ -106,7 +106,7 @@ THE SOFTWARE.
    #:actor
    #:actor-p
    #:actor-beh
-   #:make-actor
+   #:create
    #:make-remote-actor
    #:concurrently
    

@@ -5,7 +5,7 @@
 ;; ACTOR in function position acts like a higher level LAMBDA expression
 
 (defmacro actor (args &body body)
-  `(make-actor
+  `(create
     (lambda* ,args
       ,@body)))
 
@@ -30,7 +30,7 @@
 
 (defmacro actors (bindings &body body)
   ;; Binding values should be behavior closures
-  `(let ,(mapcar #`(,(car a1) (make-actor)) bindings)
+  `(let ,(mapcar #`(,(car a1) (create)) bindings)
      #+:LISPWORKS7+
      ,@(mapcar #`(setf (actor-beh ,(car a1)) ,(cadr a1)) bindings)
      #-:LISPWORKS7+
@@ -165,7 +165,7 @@
                     (lambda* ,binding-args
                       ,@body))
                   (beta-gen ,params
-                    (make-actor (beta-beh ,@params))))
+                    (create (beta-beh ,@params))))
            (macrolet ((beta (&rest args)
                         `(beta-gen ,@args)))
              ;; this beta redef lasts only for the next form
@@ -207,7 +207,7 @@
 
 (defmacro γactor (args &body body)
   ;; use RET or RET* instead of SEND CUST
-  `(make-actor
+  `(create
     (lambda* (γ ,@(if (consp args)
                       args
                     `(&rest ,args)))
@@ -243,7 +243,7 @@
 ;; ---------------------------------------------------
 
 (defmacro defactor (name beh)
-  `(deflex ,name (make-actor ,beh)))
+  `(deflex ,name (create ,beh)))
 
 #+:LISPWORKS
 (editor:setup-indent "defactor" 1)

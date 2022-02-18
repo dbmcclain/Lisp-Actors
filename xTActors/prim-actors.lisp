@@ -26,7 +26,7 @@
     (send* cust msg)))
 
 (defun const (&rest msg)
-  (make-actor (apply #'const-beh msg)))
+  (create (apply #'const-beh msg)))
 
 ;; ---------------------
 
@@ -36,7 +36,7 @@
     (become (sink-beh))))
 
 (defun once (cust)
-  (make-actor (once-beh cust)))
+  (create (once-beh cust)))
 
 ;; ---------------------
 
@@ -52,7 +52,7 @@
       (apply #'send-to-all actors gate msg))))
 
 (defun race (&rest actors)
-  (make-actor (apply #'race-beh actors)))
+  (create (apply #'race-beh actors)))
 
 ;; ---------------------
 
@@ -61,7 +61,7 @@
     (send* actor msg)))
 
 (defun fwd (actor)
-  (make-actor (fwd-beh actor)))
+  (create (fwd-beh actor)))
 
 ;; ---------------------
 
@@ -70,7 +70,7 @@
     (send* cust lbl msg)))
 
 (defun label (cust lbl)
-  (make-actor (label-beh cust lbl)))
+  (create (label-beh cust lbl)))
 
 ;; ---------------------
 
@@ -79,7 +79,7 @@
     (send* cust self msg)))
 
 (defun tag (cust)
-  (make-actor (tag-beh cust)))
+  (create (tag-beh cust)))
 
 ;; -------------------------------------------------
 
@@ -191,7 +191,7 @@
        (const :blk1)
        (const :blk2)))
 
-(let* ((actor (make-actor (lambda (cust) (sleep 2) (send cust :ok))))
+(let* ((actor (create (lambda (cust) (sleep 2) (send cust :ok))))
        (fut   (future actor)))
   (send fut println)
   (send fut println))
@@ -206,7 +206,7 @@
     ))
 
 (defun scheduled-message (actor dt &rest msg)
-  (make-actor (apply #'scheduled-message-beh actor dt msg)))
+  (create (apply #'scheduled-message-beh actor dt msg)))
 
 (defun send-after (dt actor &rest msg)
   (send (apply #'scheduled-message actor dt msg)))
@@ -327,7 +327,7 @@
    ))
 
 (defun serializer (service)
-  (make-actor (serializer-beh service)))
+  (create (serializer-beh service)))
 
 ;; --------------------------------------
 
@@ -340,7 +340,7 @@
       )))
 
 (defun timing (dut)
-  (make-actor (timing-beh dut)))
+  (create (timing-beh dut)))
 
 #|
 (let* ((dut (actor (cust nsec)
@@ -388,7 +388,7 @@
 (defun no-pend-beh ()
   (prunable-alambda
     ((:wait ctr . msg)
-     (let ((next (make-actor
+     (let ((next (create
                   (no-pend-beh))))
        (become (pend-beh ctr msg next))))
     ))
@@ -404,7 +404,7 @@
     ))
     
 (defun sequenced-delivery ()
-  (make-actor (no-pend-beh)))
+  (create (no-pend-beh)))
 
 ;; --------------------------------------------------
 
@@ -455,14 +455,14 @@
     (multiple-value-call #'send actor (values-list largs) (values-list rargs))))
 
 (defun acurry (actor &rest largs)
-  (make-actor (apply #'acurry-beh actor largs)))
+  (create (apply #'acurry-beh actor largs)))
 
 (defun racurry-beh (actor &rest rargs)
   (lambda (&rest largs)
     (multiple-value-call #'send actor (values-list largs) (values-list rargs))))
 
 (defun racurry (actor &rest rargs)
-  (make-actor (apply #'racurry-beh actor rargs)))
+  (create (apply #'racurry-beh actor rargs)))
 
 (defun pipe-beh (&rest elts)
   ;; Hmmm... constructs a new pipe every time invoked. But is this any
@@ -475,7 +475,7 @@
            msg)))
 
 (defun pipe (&rest elts)
-  (make-actor (apply #'pipe-beh elts)))
+  (create (apply #'pipe-beh elts)))
 
 (defun sink-pipe (&rest elts)
   ;; for pipelines whose last block are sinks
@@ -493,7 +493,7 @@
     #'send))
 
 (defun pass (&optional sink-blk)
-  (make-actor (pass-beh sink-blk)))
+  (create (pass-beh sink-blk)))
 
 ;; ---------------------------------------------------------
 #|
@@ -524,7 +524,7 @@
    ))
 
 (defun ticketed-perform ()
-  (make-actor (ticketed-perform-beh)))
+  (create (ticketed-perform-beh)))
 
 (defmacro with-ticket (ticket-master &body body)
   (lw:with-unique-names (tag)
@@ -598,7 +598,7 @@
    ))
 
 (defun make-long-running (action)
-  (make-actor (long-running-beh action)))
+  (create (long-running-beh action)))
 |#
 ;; ------------------------------------------------------
 
