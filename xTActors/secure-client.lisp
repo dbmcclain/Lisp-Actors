@@ -10,11 +10,15 @@
 (defun client-connect-beh (pending-cx)
   (λ (cust host-ip-addr)
     (β (socket chan local-services)
-        (send com.ral.actors.network:client-connector β host-ip-addr)
-      (if (eq chan socket)
-          (send pending-cx cust :get-chan socket local-services)
-        (send cust chan))
-      )))
+        (send netw:client-connector β host-ip-addr)
+      (cond ((eq chan socket)
+             ;; all we have is an insecure channel
+             (send pending-cx cust :get-chan socket local-services))
+            (t
+             (send pending-cx :clear-res socket)
+             (send cust chan))
+            ))
+    ))
 
 #| ;; for debugging
 (defun show-client-outbound (socket)
@@ -28,32 +32,43 @@
     (send* cust msg)))
 |#
 
-(defun empty-pending-negotiations-beh (top client-skey)
-  (prunable-alambda
-
+(defun pending-negotiations-beh (client-skey &optional pendings resolved)
+  (alambda
    ((cust :get-chan socket local-services)
-    (let ((next (create self-beh)))
-      (become (pending-negotiation-beh socket (list cust) next))
-      (send (negotiate-secure-channel client-skey socket local-services) top)))
-   ))
+    (let ((res (find socket resolved :key 'car)))
+      (cond (res
+             (send cust (cadr res)))
+            (t
+             (let ((pends (find socket pendings :key 'car)))
+               (cond (pends
+                      (let ((new-pendings (cons (list* socket cust (cdr pends))
+                                                (remove pends pendings))))
+                        (become (pending-negotiations-beh client-skey new-pendings resolved))
+                        ))
+                     (t
+                      (let ((new-pendings (cons (list socket cust) pendings)))
+                        (send (negotiate-secure-channel client-skey socket local-services) self)
+                        (become (pending-negotiations-beh client-skey new-pendings resolved))
+                        ))
+                     )))
+            )))
 
-(defun init-pending-negotiations-beh (client-skey)
-  (λ _
-    (become (empty-pending-negotiations-beh self client-skey))
-    (repeat-send self)))
+   ((:use-chan socket chan)
+    (let ((new-res (cons (list socket chan)
+                         (remove socket resolved :key 'car)))
+          (pends   (find socket pendings :key 'car)))
+      (cond (pends
+             (send-to-all (cdr pends) chan)
+             (become (pending-negotiations-beh client-skey (remove pends pendings) new-res)))
+            (t
+             (become (pending-negotiations-beh client-skey pendings new-res)))
+            )))
 
-(defun pending-negotiation-beh (socket custs next)
-  (prunable-alambda
-
-   ((cust :get-chan a-socket . _) when (eq a-socket socket)
-    (become (pending-negotiation-beh socket (cons cust custs) next)))
-
-   ((:use-chan a-socket chan) when (eq a-socket socket)
-    (prune-self next)
-    (send-to-all custs chan))
-
-   (_
-    (repeat-send next))
+   ((:clear-res socket)
+    (when (find socket resolved :key 'car)
+      (let ((new-res (remove socket resolved :key 'car)))
+        (become (pending-negotiations-beh client-skey pendings new-res))
+        )))
    ))
 
 (defun negotiate-secure-channel (client-skey socket local-services)
@@ -74,7 +89,7 @@
                              :decryptor       (secure-reader ekey (ed-decompress-pt srv-pkey))
                              )))
                 (β _
-                    (send com.ral.actors.network:connections β :set-channel socket chan)
+                    (send netw:connections β :set-channel socket chan)
                   (send cust :use-chan socket chan)) ;; to our local customer
                 ))))
       (β (client-id)
@@ -84,14 +99,6 @@
         ))
     ))
 
-(defun init-gateway-beh ()
-  (λ _
-    (let* ((skey (make-deterministic-keys (uuid:make-v1-uuid)))
-           (pend (create (init-pending-negotiations-beh skey))))
-      (become (client-connect-beh pend))
-      (repeat-send self))
-    ))
-    
 (defactor client-gateway
   ;; This is the main local client service used to initiate
   ;; connections with foreign servers. We develop a DHE shared secret
@@ -103,7 +110,12 @@
   ;; specify any data protocol. It may marshal objects and compress
   ;; the resulting byte stream before sending. A Channel is an
   ;; encryptor/decryptor married to a Socket.
-  (init-gateway-beh))
+  (λ _
+    (let* ((skey (make-deterministic-keys (uuid:make-v1-uuid)))
+           (pend (create (pending-negotiations-beh skey))))
+      (become (client-connect-beh pend))
+      (repeat-send self))
+    ))
     
 ;; ---------------------------------------------------
 

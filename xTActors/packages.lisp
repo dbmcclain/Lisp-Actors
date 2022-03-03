@@ -187,6 +187,8 @@ THE SOFTWARE.
    #:marshal-decompressor
    #:encryptor
    #:decryptor
+   #:rep-signing
+   #:rep-sig-validation
    #:signing
    #:signature-validation
    #:self-sync-encoder
@@ -288,6 +290,8 @@ THE SOFTWARE.
 
 (defpackage :com.ral.actors.secure-comm
   (:use #:common-lisp #:com.ral.actors #:core-crypto #:edec #:def*)
+  (:local-nicknames
+   (#:netw  #:com.ral.actors.network))
   (:export
    #:make-local-services
    #:global-services
