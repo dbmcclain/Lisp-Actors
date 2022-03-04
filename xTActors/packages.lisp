@@ -264,6 +264,22 @@ THE SOFTWARE.
    #:connections
    ))
 
+(defpackage :com.ral.actors.secure-comm
+  (:use #:common-lisp #:com.ral.actors #:core-crypto #:edec #:def*)
+  (:import-from #:com.ral.actors.network
+   #:connections
+   #:client-connector)
+  (:export
+   #:make-local-services
+   #:global-services
+   #:server-crypto-gateway
+   #:client-gateway
+   #:remote-service
+   #:+server-connect-id+
+   #:server-skey
+   #:start-server-gateway
+   ))
+
 (defpackage #:com.ral.actors.base
   (:use #:common-lisp #:com.ral.actors
    #-:LISPWORKS #:ansi-timer
@@ -286,21 +302,6 @@ THE SOFTWARE.
    #:wr)
   (:export
    #:*current-actor*
-   ))
-
-(defpackage :com.ral.actors.secure-comm
-  (:use #:common-lisp #:com.ral.actors #:core-crypto #:edec #:def*)
-  (:local-nicknames
-   (#:netw  #:com.ral.actors.network))
-  (:export
-   #:make-local-services
-   #:global-services
-   #:server-crypto-gateway
-   #:client-gateway
-   #:remote-service
-   #:+server-connect-id+
-   #:server-skey
-   #:start-server-gateway
    ))
 
 (defpackage com.ral.actors.kv-database

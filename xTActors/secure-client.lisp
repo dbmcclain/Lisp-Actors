@@ -10,7 +10,7 @@
 (defun client-connect-beh (pending-cx)
   (λ (cust host-ip-addr)
     (β (socket chan local-services)
-        (send netw:client-connector β host-ip-addr)
+        (send client-connector β host-ip-addr)
       (cond ((eq chan socket)
              ;; all we have is an insecure channel
              (send pending-cx cust :get-chan socket local-services))
@@ -89,7 +89,7 @@
                              :decryptor       (secure-reader ekey (ed-decompress-pt srv-pkey))
                              )))
                 (β _
-                    (send netw:connections β :set-channel socket chan)
+                    (send connections β :set-channel socket chan)
                   (send cust :use-chan socket chan)) ;; to our local customer
                 ))))
       (β (client-id)
