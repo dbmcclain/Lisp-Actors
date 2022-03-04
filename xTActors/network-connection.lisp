@@ -326,7 +326,8 @@
 ;;
 
 (defstruct connection-rec
-  ip-addr ip-port state sender chan)
+  ip-addr ip-port state sender chan
+  report-ip-addr custs)
 
 (defun find-connection-from-ip (cnx-lst ip-addr ip-port)
   (find-if (lambda (rec)
@@ -340,93 +341,82 @@
 (defun find-connection-from-sender (cnx-lst sender)
   (find sender cnx-lst :key #'connection-rec-sender))
 
-(defstruct pending-connection-rec
-  ip-addr ip-port report-ip-addr custs)
-
-(defun find-pending-connection-from-ip (pend-lst ip-addr ip-port)
-  (find-if (lambda (rec)
-             (and (eql ip-addr (pending-connection-rec-ip-addr rec))
-                  (eql ip-port (pending-connection-rec-ip-port rec))))
-           pend-lst))
-
-(defun connections-list-beh (&optional cnx-lst pend-lst)
+(defun connections-list-beh (&optional cnx-lst)
   (alambda
    ((cust :add-socket ip-addr ip-port state sender)
     (send cust :ok)
-    (let ((new-pends pend-lst)
-          (pend      (find-pending-connection-from-ip pend-lst ip-addr ip-port)))
-      (when pend
-        (setf new-pends (remove pend pend-lst))
-        (multiple-value-bind (peer-ip peer-port)
-            #+:LISPWORKS8
-          (comm:socket-connection-peer-address (intf-state-io-state state))
-          #+:LISPWORKS7
-          (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
-          (send fmt-println "Client Socket (~S->~A:~D) starting up"
-                (pending-connection-rec-report-ip-addr pend)
-                (comm:ip-address-string peer-ip) peer-port))
-        (send-to-all (pending-connection-rec-custs pend)
-                     sender
-                     sender
-                     (intf-state-local-services state)))
-      
-      (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
-        (if rec
-            (let* ((new-rec  (um:copy-with rec
-                                           :state  state
-                                           :sender sender
-                                           :chan   sender))
-                   (new-cnxs (cons new-rec (remove rec cnx-lst))))
-              (become (connections-list-beh new-cnxs new-pends))
-              (let ((old-state (connection-rec-state rec)))
-                (unless (eql old-state state)
-                  (send (intf-state-shutdown old-state)))
-                ))
-          ;; else
-          (let ((new-rec (make-connection-rec
-                          :ip-addr  ip-addr
-                          :ip-port  ip-port
-                          :state    state
-                          :sender   sender
-                          :chan     sender)))
-            (become (connections-list-beh (cons new-rec cnx-lst) new-pends))
-            ))
-        )))
+    (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
+      (if rec
+          (let* ((custs     (connection-rec-custs rec))
+                 (old-state (connection-rec-state rec))
+                 (new-rec   (um:copy-with rec
+                                          :state  state
+                                          :sender sender
+                                          :chan   sender
+                                          :custs  nil))
+                 (new-lst (cons new-rec (remove rec cnx-lst))))
+            (when custs
+              (multiple-value-bind (peer-ip peer-port)
+                  #+:LISPWORKS8
+                (comm:socket-connection-peer-address (intf-state-io-state state))
+                #+:LISPWORKS7
+                (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
+                (send fmt-println "Client Socket (~S->~A:~D) starting up"
+                      (connection-rec-report-ip-addr rec)
+                      (comm:ip-address-string peer-ip) peer-port))
+              (send-to-all custs
+                           sender
+                           sender
+                           (intf-state-local-services state)))
+            (unless (or (null old-state)
+                        (eql old-state state))
+              (send (intf-state-shutdown old-state)))
+            (become (connections-list-beh new-lst)))
+        ;; else
+        (let ((new-rec (make-connection-rec
+                        :ip-addr  ip-addr
+                        :ip-port  ip-port
+                        :state    state
+                        :sender   sender
+                        :chan     sender)))
+          (become (connections-list-beh (cons new-rec cnx-lst)))
+          ))
+      ))
 
    ((cust :find-socket ip-addr ip-port report-ip-addr)
     (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
       (if rec
-          (send cust
-                (connection-rec-sender rec)
-                (connection-rec-chan   rec)
-                (intf-state-local-services (connection-rec-state rec)))
+          (let ((custs (connection-rec-custs rec)))
+            (if custs
+                (let* ((new-rec (um:copy-with rec
+                                              :custs (cons cust custs)))
+                       (new-lst (cons new-rec (remove rec cnx-lst))))
+                  (become (connections-list-beh new-lst)))
+              ;; else
+              (send cust
+                    (connection-rec-sender rec)
+                    (connection-rec-chan   rec)
+                    (intf-state-local-services (connection-rec-state rec)))
+              ))
         ;; else
-        (let ((pend (find-pending-connection-from-ip pend-lst ip-addr ip-port)))
-          (if pend
-              (let* ((new-pend (um:copy-with pend
-                                             :custs (cons cust
-                                                          (pending-connection-rec-custs pend))))
-                     (new-pends (cons new-pend (remove pend pend-lst))))
-                (become (connections-list-beh cnx-lst new-pends)))
-            ;; else
-            (let* ((new-pend (make-pending-connection-rec
-                              :ip-addr        ip-addr
-                              :ip-port        ip-port
-                              :report-ip-addr report-ip-addr
-                              :custs          (list cust)))
-                   (new-pends (cons new-pend pend-lst)))
-              (become (connections-list-beh cnx-lst new-pends))
-              (send (make-socket-connection ip-addr ip-port report-ip-addr))
-              )))
-        )))
+        (let* ((new-rec (make-connection-rec
+                         :ip-addr        ip-addr
+                         :ip-port        ip-port
+                         :report-ip-addr report-ip-addr
+                         :custs          (list cust)))
+               (new-lst (cons new-rec cnx-lst)))
+          (become (connections-list-beh new-lst))
+          (send (make-socket-connection ip-addr ip-port report-ip-addr))
+          ))
+      ))
 
    ((:abort ip-addr ip-port)
-    (let ((pend (find-pending-connection-from-ip pend-lst ip-addr ip-port)))
-      (when pend
-        (become (connections-list-beh cnx-lst (remove pend pend-lst)))
+    (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
+      (when rec
+        (become (connections-list-beh (remove rec cnx-lst)))
         (send (α ()
                 (error "Can't connect to: ~S"
-                       (pending-connection-rec-report-ip-addr pend)))
+                       (connection-rec-report-ip-addr rec)))
               ))
       ))
 
@@ -437,7 +427,7 @@
         (let* ((new-rec  (um:copy-with rec
                                        :chan  chan))
                (new-cnxs (cons new-rec (remove rec cnx-lst))))
-          (become (connections-list-beh new-cnxs pend-lst))
+          (become (connections-list-beh new-cnxs))
           ))
       ))
             
@@ -445,7 +435,7 @@
     (send cust :ok)
     (let ((rec (find-connection-from-state cnx-lst state)))
       (when rec
-        (become (connections-list-beh (remove rec cnx-lst) pend-lst)))
+        (become (connections-list-beh (remove rec cnx-lst))))
       ))
    ))
 
@@ -617,7 +607,7 @@ See the discussion under START-CLIENT-MESSENGER for details."
 
   ;; this is a callback function from the socket event loop manager
   ;; so we can't dilly dally...
-  (declare (ingore accepting-handle))
+  (declare (ignore accepting-handle))
   (let ((server-name (format nil "~A#~D" (machine-instance) (incf *server-count*))))
     (create-socket-intf :kind             :server
                         :report-ip-addr   server-name
