@@ -609,9 +609,6 @@ See the discussion under START-CLIENT-MESSENGER for details."
   ;; so we can't dilly dally...
   (declare (ignore accepting-handle))
   (let ((server-name (format nil "~A#~D" (machine-instance) (incf *server-count*))))
-    (create-socket-intf :kind             :server
-                        :report-ip-addr   server-name
-                        :io-state         io-state)
     (multiple-value-bind (peer-ip peer-port)
         #+:LISPWORKS8
       (comm:socket-connection-peer-address io-state)
@@ -619,6 +616,11 @@ See the discussion under START-CLIENT-MESSENGER for details."
       (comm:get-socket-peer-address (slot-value io-state 'comm::object))
       (send fmt-println "Server Socket (~S->~A:~D) starting up" server-name
             (comm:ip-address-string peer-ip) peer-port)
+      (create-socket-intf :kind             :server
+                          :ip-addr          peer-ip
+                          :ip-port          peer-port
+                          :report-ip-addr   server-name
+                          :io-state         io-state)
       )))
 
 ;; --------------------------------------------------------------
