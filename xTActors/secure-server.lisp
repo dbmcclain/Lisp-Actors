@@ -19,34 +19,37 @@
     (send* cust msg)))
 |#
 
-(defun server-crypto-gateway (server-skey socket local-services)
+(defun server-crypto-gateway (socket local-services)
   ;; Foreign clients first make contact with us here. They send us
-  ;; their public key and a random ECC point. We develop a unique DHE
-  ;; encryption key shared secretly between us and furnish a private handler
-  ;; for encrypted requests along with our own random ECC point.
-  (α (cust-id server-pkey apt)
-    (let ((my-pkey     (ed-nth-pt server-skey))
-          (server-pkey (ed-decompress-pt server-pkey)))
-      (when (ed-pt= my-pkey server-pkey) ;; did client have correct server-pkey?
-        (let* ((brand     (int (ctr-drbg 256)))
-               (bpt       (ed-nth-pt brand))
-               (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)))
-               ;; (socket    (show-server-outbound socket))  ;; ***
-               (encryptor (secure-sender ekey))
-               (chan      (server-channel
-                           :socket      socket
-                           :encryptor   encryptor))
-               (decryptor (sink-pipe
-                           (secure-reader ekey)
-                           ;; (show-server-inbound) ;; ***
-                           chan)))
-          (β (id)
-              (create-service-proxy β local-services decryptor)
-            (let* ((ibpt (int bpt))
-                   (sig  (com.ral.actors.base::make-signature id ibpt server-skey)))  
-              (send (remote-actor-proxy cust-id socket)  ;; remote client cust
-                    id ibpt sig)))
-          )))))
+  ;; their client-id for this exchange, a random ECC point, and a
+  ;; valid signature on these items using our shared keying.
+  ;;
+  ;; We develop a unique ECDH encryption key shared secretly between
+  ;; us and furnish a private handler for encrypted requests along
+  ;; with our own random ECC point.
+  (create
+   (alambda ;; silently ignore other attempts
+    ((client-id apt sig) / (com.ral.actors.base::check-signature client-id apt sig (server-pkey))
+     (let* ((brand     (int (ctr-drbg 256)))
+            (bpt       (ed-nth-pt brand))
+            (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)))
+            ;; (socket    (show-server-outbound socket))  ;; ***
+            (encryptor (secure-sender ekey))
+            (chan      (server-channel
+                        :socket      socket
+                        :encryptor   encryptor))
+            (decryptor (sink-pipe
+                        (secure-reader ekey)
+                        ;; (show-server-inbound) ;; ***
+                        chan)))
+       (β (cnx-id)
+           (create-service-proxy β local-services decryptor)
+         (let* ((ibpt (int bpt))
+                (sig  (com.ral.actors.base::make-signature cnx-id ibpt (server-skey)))) 
+           (send (remote-actor-proxy client-id socket)  ;; remote client cust
+                 cnx-id ibpt sig)))
+       ))
+    )))
 
 (defun server-channel (&key
                        socket

@@ -20,7 +20,6 @@
             sec-comm:make-local-services
             sec-comm:server-crypto-gateway
             sec-comm:+server-connect-id+
-            sec-comm:server-skey
             ;; act-base::dbg-println
             act-base::make-ubv
 
@@ -498,7 +497,7 @@
       (β  _
           ;; provide a service to establish an encrypted channel
           (send local-services β :add-service-with-id +server-connect-id+
-                (server-crypto-gateway (server-skey) encoder local-services))
+                (server-crypto-gateway encoder local-services))
         
         (β  _
             (send connections β :add-socket ip-addr ip-port state encoder)
