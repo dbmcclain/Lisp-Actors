@@ -21,9 +21,9 @@
                      (chan  (client-channel
                              :local-services  local-services
                              :encryptor       (sink-pipe
-                                               (secure-sender ekey client-skey)
+                                               (secure-sender ekey)
                                                (remote-actor-proxy server-id socket))
-                             :decryptor       (secure-reader ekey (ed-decompress-pt srv-pkey))
+                             :decryptor       (secure-reader ekey)
                              )))
                 (send connections cust :set-channel socket chan)
                 ))))

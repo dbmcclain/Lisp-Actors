@@ -50,14 +50,13 @@
 |#
 
 (defun make-repudiable-signature (ekey seq emsg)
-  ;; only someone who knows the current encryption key could have sent
-  ;; this message - if I didn't send it to myself, then it must have been
-  ;; the other party to the conversation.
-  ;;
   ;; We only need a secure non-repudiable signature on the initial DH Keying
   (hash/256 ekey seq emsg))
 
 (defun check-repudiable-signature (ekey seq emsg sig)
+  ;; Only someone who knows the current encryption key could have sent
+  ;; this message - if I didn't send it to myself, then it must have been
+  ;; the other party to the conversation.
   (hash= sig (hash/256 ekey seq emsg)))
 
 ;; Schnorr Signatures - Non-Repudiable
@@ -426,12 +425,15 @@
 
 (defun rep-signing (ekey)
   (actor (cust seq emsg)
-    (send cust (make-repudiable-signature ekey seq emsg))
+    (let ((sig (make-repudiable-signature ekey seq emsg)))
+      (send cust seq emsg sig))
     ))
 
 (defun rep-sig-validation (ekey)
   (actor (cust seq emsg sig)
-    (send cust (check-repudiable-signature ekey seq emsg sig))
+    (if (check-repudiable-signature ekey seq emsg sig)
+        (send cust seq emsg)
+      (error "signature-validation failure"))
     ))
 
 (defun signing (skey)

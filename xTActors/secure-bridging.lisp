@@ -208,16 +208,16 @@
 ;; ---------------------------------------------------
 ;; Composite Actor pipes
 
-(defun secure-sender (ekey skey)
+(defun secure-sender (ekey)
   (pipe (marshal-encoder)
         (marshal-compressor)
         (chunker :max-size 65000)
         (marshal-encoder)
         (encryptor ekey)
-        (signing   skey)))
+        (rep-signing ekey)))
 
-(defun secure-reader (ekey pkey)
-  (pipe (signature-validation pkey)
+(defun secure-reader (ekey)
+  (pipe (rep-sig-validation ekey)
         (decryptor ekey)
         (marshal-decoder)
         (dechunker)

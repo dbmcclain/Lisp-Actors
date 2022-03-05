@@ -32,12 +32,12 @@
                (bpt       (ed-nth-pt brand))
                (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)))
                ;; (socket    (show-server-outbound socket))  ;; ***
-               (encryptor (secure-sender ekey server-skey))
+               (encryptor (secure-sender ekey))
                (chan      (server-channel
                            :socket      socket
                            :encryptor   encryptor))
                (decryptor (sink-pipe
-                           (secure-reader ekey (ed-decompress-pt client-pkey))
+                           (secure-reader ekey)
                            ;; (show-server-inbound) ;; ***
                            chan)))
           (β (id)
