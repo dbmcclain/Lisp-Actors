@@ -15,7 +15,9 @@
            (srv-pkey    (server-pkey))
            ;; (socket      (show-client-outbound socket)) ;; ***
            (responder
-            (α (server-id bpt)
+            (α (server-id bpt sig)
+              (unless (com.ral.actors.base::check-signature server-id bpt sig srv-pkey)
+                (error "Server can't be authenticated"))
               (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
                      (chan  (client-channel
                              :local-services  local-services

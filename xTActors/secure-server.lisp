@@ -42,8 +42,10 @@
                            chan)))
           (β (id)
               (create-service-proxy β local-services decryptor)
-            (send (remote-actor-proxy cust-id socket)  ;; remote client cust
-                  id (int bpt)))
+            (let* ((ibpt (int bpt))
+                   (sig  (com.ral.actors.base::make-signature id ibpt server-skey)))  
+              (send (remote-actor-proxy cust-id socket)  ;; remote client cust
+                    id ibpt sig)))
           )))))
 
 (defun server-channel (&key
