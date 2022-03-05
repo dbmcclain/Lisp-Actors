@@ -12,7 +12,6 @@
   (λ (cust socket local-services)
     (let* ((arand       (int (ctr-drbg 256)))
            (apt         (ed-nth-pt arand))
-           (client-pkey (ed-nth-pt client-skey))
            (srv-pkey    (server-pkey))
            ;; (socket      (show-client-outbound socket)) ;; ***
            (responder
@@ -30,7 +29,7 @@
       (β (client-id)
           (create-ephemeral-client-proxy β local-services responder)
         (send (remote-actor-proxy +server-connect-id+ socket)
-              client-id srv-pkey (int client-pkey) (int apt))
+              client-id srv-pkey (int apt))
         ))
     ))
 
