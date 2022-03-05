@@ -327,7 +327,7 @@
 
 (defstruct connection-rec
   ip-addr ip-port state sender chan
-  report-ip-addr custs)
+  report-ip-addr handshake custs)
 
 (defun find-connection-from-ip (cnx-lst ip-addr ip-port)
   (find-if (lambda (rec)
@@ -347,27 +347,11 @@
     (send cust :ok)
     (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
       (if rec
-          (let* ((custs     (connection-rec-custs rec))
-                 (old-state (connection-rec-state rec))
+          (let* ((old-state (connection-rec-state rec))
                  (new-rec   (um:copy-with rec
                                           :state  state
-                                          :sender sender
-                                          :chan   sender
-                                          :custs  nil))
+                                          :sender sender))
                  (new-lst (cons new-rec (remove rec cnx-lst))))
-            (when custs
-              (multiple-value-bind (peer-ip peer-port)
-                  #+:LISPWORKS8
-                (comm:socket-connection-peer-address (intf-state-io-state state))
-                #+:LISPWORKS7
-                (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
-                (send fmt-println "Client Socket (~S->~A:~D) starting up"
-                      (connection-rec-report-ip-addr rec)
-                      (comm:ip-address-string peer-ip) peer-port))
-              (send-to-all custs
-                           sender
-                           sender
-                           (intf-state-local-services state)))
             (unless (or (null old-state)
                         (eql old-state state))
               (send (intf-state-shutdown old-state)))
@@ -377,13 +361,12 @@
                         :ip-addr  ip-addr
                         :ip-port  ip-port
                         :state    state
-                        :sender   sender
-                        :chan     sender)))
+                        :sender   sender)))
           (become (connections-list-beh (cons new-rec cnx-lst)))
           ))
       ))
 
-   ((cust :find-socket ip-addr ip-port report-ip-addr)
+   ((cust :find-socket ip-addr ip-port report-ip-addr handshake)
     (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
       (if rec
           (let ((custs (connection-rec-custs rec)))
@@ -393,16 +376,14 @@
                        (new-lst (cons new-rec (remove rec cnx-lst))))
                   (become (connections-list-beh new-lst)))
               ;; else
-              (send cust
-                    (connection-rec-sender rec)
-                    (connection-rec-chan   rec)
-                    (intf-state-local-services (connection-rec-state rec)))
+              (send cust (connection-rec-chan rec))
               ))
         ;; else
         (let* ((new-rec (make-connection-rec
                          :ip-addr        ip-addr
                          :ip-port        ip-port
                          :report-ip-addr report-ip-addr
+                         :handshake      handshake
                          :custs          (list cust)))
                (new-lst (cons new-rec cnx-lst)))
           (become (connections-list-beh new-lst))
@@ -420,14 +401,38 @@
               ))
       ))
 
+   ((cust :negotiate ip-addr ip-port)
+    (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
+      (if rec
+        (let ((handshake (connection-rec-handshake rec))
+              (socket    (connection-rec-sender rec))
+              (state     (connection-rec-state rec)))
+          (send handshake cust socket (intf-state-local-services state)))
+        ;; else
+        (send cust :ok))
+      ))
+
    ((cust :set-channel sender chan)
     (send cust :ok)
     (let ((rec (find-connection-from-sender cnx-lst sender)))
       (when rec
-        (let* ((new-rec  (um:copy-with rec
-                                       :chan  chan))
+        (let* ((custs    (connection-rec-custs rec))
+               (state    (connection-rec-state rec))
+               (new-rec  (um:copy-with rec
+                                       :chan  chan
+                                       :custs nil))
                (new-cnxs (cons new-rec (remove rec cnx-lst))))
           (become (connections-list-beh new-cnxs))
+          (when custs
+            (multiple-value-bind (peer-ip peer-port)
+                #+:LISPWORKS8
+              (comm:socket-connection-peer-address (intf-state-io-state state))
+              #+:LISPWORKS7
+              (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
+              (send fmt-println "Client Socket (~S->~A:~D) starting up"
+                    (connection-rec-report-ip-addr rec)
+                    (comm:ip-address-string peer-ip) peer-port))
+            (send-to-all custs chan))
           ))
       ))
             
@@ -470,89 +475,91 @@
 ;; the state, enccoder, and local-services to the customer.
 
 (defun create-socket-intf (&key kind ip-addr ip-port io-state report-ip-addr)
-  (let* ((title (if (eq kind :client) "Client" "Server"))
-         (local-services (make-local-services))
-         (state (make-intf-state
-                 :title            title
-                 :ip-addr          report-ip-addr
-                 :io-state         io-state
-                 :local-services   local-services))
-         (writer  (make-writer state))
-         (encoder (sink-pipe (marshal-encoder)
-                             (chunker :max-size (- +max-fragment-size+ 500))
-                             (marshal-encoder)
-                             writer))
-         (decoder (sink-pipe (marshal-decoder)
-                             (dechunker)
-                             (marshal-decoder)
+  (α (cust)
+    (let* ((title (if (eq kind :client) "Client" "Server"))
+           (local-services (make-local-services))
+           (state (make-intf-state
+                   :title            title
+                   :ip-addr          report-ip-addr
+                   :io-state         io-state
+                   :local-services   local-services))
+           (writer  (make-writer state))
+           (encoder (sink-pipe (marshal-encoder)
+                               (chunker :max-size (- +max-fragment-size+ 500))
+                               (marshal-encoder)
+                               writer))
+           (decoder (sink-pipe (marshal-decoder)
+                               (dechunker)
+                               (marshal-decoder)
                                local-services))
-         (accum    (make-reader decoder))
-         (packet-ctr 0)
-         (shutdown (once (make-socket-shutdown state))))
-    (β  _
-        ;; provide a service to establish an encrypted channel
-        (send local-services β :add-service-with-id +server-connect-id+
-              (server-crypto-gateway (server-skey) encoder local-services))
-      
+           (accum    (make-reader decoder))
+           (packet-ctr 0)
+           (shutdown (once (make-socket-shutdown state))))
       (β  _
-          (send connections β :add-socket ip-addr ip-port state encoder)
+          ;; provide a service to establish an encrypted channel
+          (send local-services β :add-service-with-id +server-connect-id+
+                (server-crypto-gateway (server-skey) encoder local-services))
         
-        (with-accessors ((title            intf-state-title)
-                         (io-state         intf-state-io-state)
-                         (kill-timer       intf-state-kill-timer)
-                         (io-running       intf-state-io-running)
-                         (decr-io-count-fn intf-state-decr-io-count-fn)) state
+        (β  _
+            (send connections β :add-socket ip-addr ip-port state encoder)
           
-          (setf kill-timer (make-kill-timer
-                            #'(lambda ()
-                                (send println "Inactivity shutdown request")
+          (with-accessors ((title            intf-state-title)
+                           (io-state         intf-state-io-state)
+                           (kill-timer       intf-state-kill-timer)
+                           (io-running       intf-state-io-running)
+                           (decr-io-count-fn intf-state-decr-io-count-fn)) state
+            
+            (setf kill-timer (make-kill-timer
+                              #'(lambda ()
+                                  (send println "Inactivity shutdown request")
                                   (send shutdown)))
-                (intf-state-writer   state) writer
-                (intf-state-shutdown state) shutdown)
-          
-          (labels
-              ((rd-callback-fn (state buffer end)
-                 ;; callback for I/O thread - on continuous async read
-                 #|
-                 (send fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
-                       (comm:async-io-state-read-status state)
-                       end)
-                 |#
-                 (let (err-too-large)
-                   (when (plusp end)
-                     ;; (send fmt-println "~A Incoming bytes: ~A" title buffer)
-                     (if (> end +max-fragment-size+)
-                         (setf err-too-large "Incoming packet too large")
-                       (progn
-                         ;; (send dbg-println "-- recv from network ~D --" end)
-                         (if nil
-                             (send accum #|:deliver (incf packet-ctr)|# (subseq buffer 0 end))
-                           ;; else
-                           (send accum :deliver (incf packet-ctr) (subseq buffer 0 end)))
-                         (send kill-timer :resched)))
-                     (comm:async-io-state-discard state end))
-                   (um:when-let (status (or (comm:async-io-state-read-status state)
-                                            err-too-large))
-                     ;; terminate on any error
-                     (comm:async-io-state-finish state)
-                     (send fmt-println "~A Incoming error state: ~A" title status)
-                     (decr-io-count state))
-                   ))
-               
-               (decr-io-count (io-state)
-                 (let ((ct (sys:atomic-fixnum-decf (car io-running))))
-                   (when (zerop ct) ;; >0 is running
-                     (comm:close-async-io-state io-state)
-                     (send println "Connection Shutdown")
-                     (send shutdown))
-                   ct)))
+                  (intf-state-writer   state) writer
+                  (intf-state-shutdown state) shutdown)
             
-            (setf decr-io-count-fn #'decr-io-count)
-            
-            (send kill-timer :resched)
-            (comm:async-io-state-read-with-checking io-state #'rd-callback-fn
-                                                    :element-type '(unsigned-byte 8))
-            ))))))
+            (labels
+                ((rd-callback-fn (state buffer end)
+                   ;; callback for I/O thread - on continuous async read
+                   #|
+                   (send fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
+                         (comm:async-io-state-read-status state)
+                         end)
+                   |#
+                   (let (err-too-large)
+                     (when (plusp end)
+                       ;; (send fmt-println "~A Incoming bytes: ~A" title buffer)
+                       (if (> end +max-fragment-size+)
+                           (setf err-too-large "Incoming packet too large")
+                         (progn
+                           ;; (send dbg-println "-- recv from network ~D --" end)
+                           (if nil
+                               (send accum #|:deliver (incf packet-ctr)|# (subseq buffer 0 end))
+                             ;; else
+                             (send accum :deliver (incf packet-ctr) (subseq buffer 0 end)))
+                           (send kill-timer :resched)))
+                       (comm:async-io-state-discard state end))
+                     (um:when-let (status (or (comm:async-io-state-read-status state)
+                                              err-too-large))
+                       ;; terminate on any error
+                       (comm:async-io-state-finish state)
+                       (send fmt-println "~A Incoming error state: ~A" title status)
+                       (decr-io-count state))
+                     ))
+                 
+                 (decr-io-count (io-state)
+                   (let ((ct (sys:atomic-fixnum-decf (car io-running))))
+                     (when (zerop ct) ;; >0 is running
+                       (comm:close-async-io-state io-state)
+                       (send println "Connection Shutdown")
+                       (send shutdown))
+                     ct)))
+              
+              (setf decr-io-count-fn #'decr-io-count)
+              
+              (send kill-timer :resched)
+              (comm:async-io-state-read-with-checking io-state #'rd-callback-fn
+                                                      :element-type '(unsigned-byte 8))
+              (send cust :ok)
+              )))))))
   
 ;; -------------------------------------------------------------
 
@@ -578,20 +585,23 @@
                     ))
             :connect-timeout 5
             #-:WINDOWS :ipv6    #-:WINDOWS nil)))
-      (create-socket-intf :kind           :client
-                          :ip-addr        ip-addr
-                          :ip-port        ip-port
-                          :report-ip-addr report-ip-addr
-                          :io-state       io-state)
-      )))
+      (β _
+          (send (create-socket-intf :kind           :client
+                                    :ip-addr        ip-addr
+                                    :ip-port        ip-port
+                                    :report-ip-addr report-ip-addr
+                                    :io-state       io-state)
+                β)
+        (send connections nil :negotiate ip-addr ip-port)
+        ))))
 
 (defactor client-connector
   ;; Called from client side wishing to connect to a server.
-  (λ (cust ip-addr &optional (ip-port *default-port*))
+  (λ (cust handshake ip-addr &optional (ip-port *default-port*))
     (let ((clean-ip-addr (canon-ip-addr ip-addr)))
       (unless clean-ip-addr
         (error "Unknown host: ~S" ip-addr))
-      (send connections cust :find-socket clean-ip-addr ip-port ip-addr)
+      (send connections cust :find-socket clean-ip-addr ip-port ip-addr handshake)
       )))
 
 ;; -------------------------------------------------------------
@@ -616,11 +626,12 @@ See the discussion under START-CLIENT-MESSENGER for details."
       (comm:get-socket-peer-address (slot-value io-state 'comm::object))
       (send fmt-println "Server Socket (~S->~A:~D) starting up" server-name
             (comm:ip-address-string peer-ip) peer-port)
-      (create-socket-intf :kind             :server
-                          :ip-addr          peer-ip
-                          :ip-port          peer-port
-                          :report-ip-addr   server-name
-                          :io-state         io-state)
+      (send (create-socket-intf :kind             :server
+                                :ip-addr          peer-ip
+                                :ip-port          peer-port
+                                :report-ip-addr   server-name
+                                :io-state         io-state)
+            nil)
       )))
 
 ;; --------------------------------------------------------------

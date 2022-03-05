@@ -7,72 +7,9 @@
 ;; --------------------------------------------------------------------
 ;; Client side
 
-(defun client-connect-beh (pending-cx)
-  (λ (cust host-ip-addr)
-    (β (socket chan local-services)
-        (send client-connector β host-ip-addr)
-      (cond ((eq chan socket)
-             ;; all we have is an insecure channel
-             (send pending-cx cust :get-chan socket local-services))
-            (t
-             (send pending-cx :clear-res socket)
-             (send cust chan))
-            ))
-    ))
-
-#| ;; for debugging
-(defun show-client-outbound (socket)
-  (α (&rest msg)
-    (send println (format nil "c/out: ~S" msg))
-    (send* socket msg)))
-
-(defun show-client-inbound ()
-  (α (cust &rest msg)
-    (send println (format nil "c/in: ~S" msg))
-    (send* cust msg)))
-|#
-
-(defun pending-negotiations-beh (client-skey &optional pendings resolved)
-  (alambda
-   ((cust :get-chan socket local-services)
-    (let ((res (find socket resolved :key 'car)))
-      (cond (res
-             (send cust (cadr res)))
-            (t
-             (let ((pends (find socket pendings :key 'car)))
-               (cond (pends
-                      (let ((new-pendings (cons (list* socket cust (cdr pends))
-                                                (remove pends pendings))))
-                        (become (pending-negotiations-beh client-skey new-pendings resolved))
-                        ))
-                     (t
-                      (let ((new-pendings (cons (list socket cust) pendings)))
-                        (send (negotiate-secure-channel client-skey socket local-services) self)
-                        (become (pending-negotiations-beh client-skey new-pendings resolved))
-                        ))
-                     )))
-            )))
-
-   ((:use-chan socket chan)
-    (let ((new-res (cons (list socket chan)
-                         (remove socket resolved :key 'car)))
-          (pends   (find socket pendings :key 'car)))
-      (cond (pends
-             (send-to-all (cdr pends) chan)
-             (become (pending-negotiations-beh client-skey (remove pends pendings) new-res)))
-            (t
-             (become (pending-negotiations-beh client-skey pendings new-res)))
-            )))
-
-   ((:clear-res socket)
-    (when (find socket resolved :key 'car)
-      (let ((new-res (remove socket resolved :key 'car)))
-        (become (pending-negotiations-beh client-skey pendings new-res))
-        )))
-   ))
-
-(defun negotiate-secure-channel (client-skey socket local-services)
-  (α (cust)
+(defun negotiate-secure-channel-beh (client-skey)
+  ;; Diffie-Hellman key exchange
+  (λ (cust socket local-services)
     (let* ((arand       (int (ctr-drbg 256)))
            (apt         (ed-nth-pt arand))
            (client-pkey (ed-nth-pt client-skey))
@@ -88,9 +25,7 @@
                                                (remote-actor-proxy server-id socket))
                              :decryptor       (secure-reader ekey (ed-decompress-pt srv-pkey))
                              )))
-                (β _
-                    (send connections β :set-channel socket chan)
-                  (send cust :use-chan socket chan)) ;; to our local customer
+                (send connections cust :set-channel socket chan)
                 ))))
       (β (client-id)
           (create-ephemeral-client-proxy β local-services responder)
@@ -98,6 +33,10 @@
               client-id srv-pkey (int client-pkey) (int apt))
         ))
     ))
+
+(defun client-connect-beh (handshake)
+  (λ (cust host-ip-addr)
+    (send client-connector cust handshake host-ip-addr)))
 
 (defactor client-gateway
   ;; This is the main local client service used to initiate
@@ -111,12 +50,12 @@
   ;; the resulting byte stream before sending. A Channel is an
   ;; encryptor/decryptor married to a Socket.
   (λ _
-    (let* ((skey (make-deterministic-keys (uuid:make-v1-uuid)))
-           (pend (create (pending-negotiations-beh skey))))
-      (become (client-connect-beh pend))
+    (let* ((skey      (make-deterministic-keys (uuid:make-v1-uuid)))
+           (handshake (create (negotiate-secure-channel-beh skey))))
+      (become (client-connect-beh handshake))
       (repeat-send self))
     ))
-    
+
 ;; ---------------------------------------------------
 
 (defun client-channel (&key
