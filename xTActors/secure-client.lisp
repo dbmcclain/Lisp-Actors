@@ -7,53 +7,6 @@
 ;; --------------------------------------------------------------------
 ;; Client side
 
-(defun negotiate-secure-channel-beh ()
-  ;; EC Diffie-Hellman key exchange
-  (λ (cust socket local-services)
-    (let* ((arand       (int (ctr-drbg 256)))
-           (apt         (ed-nth-pt arand))
-           ;; (socket      (show-client-outbound socket)) ;; ***
-           (responder
-            (α (server-id bpt sig)
-              (unless (com.ral.actors.base::check-signature server-id bpt sig (server-pkey))
-                (error "Server can't be authenticated"))
-              (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
-                     (chan  (client-channel
-                             :local-services  local-services
-                             :encryptor       (sink-pipe
-                                               (secure-sender ekey)
-                                               (remote-actor-proxy server-id socket))
-                             :decryptor       (secure-reader ekey)
-                             )))
-                (send connections cust :set-channel socket chan)
-                ))))
-      (β (client-id)
-          (create-ephemeral-client-proxy β local-services responder)
-        (let* ((iapt  (int apt))
-               (sig   (com.ral.actors.base::make-signature client-id iapt (server-skey))))
-          (send (remote-actor-proxy +server-connect-id+ socket)
-                client-id iapt sig)))
-      )))
-
-(defun client-connect-beh (handshake)
-  (λ (cust host-ip-addr)
-    ;; Go lookup the encrypted channel for this IP, constructing it on
-    ;; demand if not already present.
-    (send client-connector cust handshake host-ip-addr)))
-
-(defactor client-gateway
-  ;; This is the main local client service used to initiate
-  ;; connections with foreign servers. We develop an ECDH shared
-  ;; secret encryption key for use across a private connection portal
-  ;; with the server.
-  (λ _
-    (let ((handshake (create (negotiate-secure-channel-beh))))
-      (become (client-connect-beh handshake))
-      (repeat-send self))
-    ))
-
-;; ---------------------------------------------------
-
 (defun client-channel (&key
                        local-services
                        encryptor
@@ -77,6 +30,44 @@
       )))
 
 ;; ------------------------------------------------------------------
+
+(defactor negotiate-secure-channel
+  ;; EC Diffie-Hellman key exchange
+  (λ (cust socket local-services)
+    (let* ((arand  (int (ctr-drbg 256)))
+           (apt    (ed-nth-pt arand))
+           ;; (socket      (show-client-outbound socket)) ;; ***
+           (responder
+            (α (server-id bpt sig)
+              (unless (com.ral.actors.base::check-signature server-id bpt sig (server-pkey))
+                (error "Server can't be authenticated"))
+              (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
+                     (chan  (client-channel
+                             :local-services  local-services
+                             :encryptor       (sink-pipe
+                                               (secure-sender ekey)
+                                               (remote-actor-proxy server-id socket))
+                             :decryptor       (secure-reader ekey)
+                             )))
+                (send connections cust :set-channel socket chan)
+                ))))
+      (β (client-id)
+          (create-ephemeral-client-proxy β local-services responder)
+        (let* ((iapt  (int apt))
+               (sig   (com.ral.actors.base::make-signature client-id iapt (server-skey))))
+          (send (remote-actor-proxy +server-connect-id+ socket)
+                client-id iapt sig)))
+      )))
+
+(defactor client-gateway
+  ;; This is the main local client service used to initiate
+  ;; connections with foreign servers.
+  ;; Go lookup the encrypted channel for this IP, constructing it on
+  ;; demand if not already present.
+  (λ (cust host-ip-addr)
+    (send client-connector cust negotiate-secure-channel host-ip-addr)))
+
+;; ---------------------------------------------------
 ;; User side of Client Interface
 
 (defun remote-service (name host-ip-addr)

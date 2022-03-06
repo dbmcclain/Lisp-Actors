@@ -400,13 +400,10 @@
               ))
       ))
 
-   ((cust :negotiate ip-addr ip-port)
-    (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
+   ((cust :negotiate state socket)
+    (let ((rec (find-connection-from-sender cnx-lst socket)))
       (if rec
-        (let ((handshake (connection-rec-handshake rec))
-              (socket    (connection-rec-sender rec))
-              (state     (connection-rec-state rec)))
-          (send handshake cust socket (intf-state-local-services state)))
+          (send (connection-rec-handshake rec) cust socket (intf-state-local-services state))
         ;; else
         (send cust :ok))
       ))
@@ -557,7 +554,7 @@
               (send kill-timer :resched)
               (comm:async-io-state-read-with-checking io-state #'rd-callback-fn
                                                       :element-type '(unsigned-byte 8))
-              (send cust :ok)
+              (send cust state encoder)
               )))))))
   
 ;; -------------------------------------------------------------
@@ -584,14 +581,14 @@
                     ))
             :connect-timeout 5
             #-:WINDOWS :ipv6    #-:WINDOWS nil)))
-      (β _
+      (β (state socket)
           (send (create-socket-intf :kind           :client
                                     :ip-addr        ip-addr
                                     :ip-port        ip-port
                                     :report-ip-addr report-ip-addr
                                     :io-state       io-state)
                 β)
-        (send connections nil :negotiate ip-addr ip-port)
+        (send connections nil :negotiate state socket)
         ))))
 
 (defactor client-connector
