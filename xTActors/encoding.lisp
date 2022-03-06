@@ -51,7 +51,7 @@
 
 (defun make-repudiable-signature (ekey seq emsg)
   ;; We only need a secure non-repudiable signature on the initial DH Keying
-  (vec-repr:bev-vec (hash/256 ekey seq emsg)))
+  (vec (hash/256 ekey seq emsg)))
 
 (defun check-repudiable-signature (ekey seq emsg sig)
   ;; Only someone who knows the current encryption key could have sent
