@@ -430,11 +430,11 @@
     ))
 
 (defun rep-sig-validation (ekey)
-  (actor (cust seq emsg sig)
-    (if (check-repudiable-signature ekey seq emsg sig)
-        (send cust seq emsg)
-      (error "signature-validation failure"))
-    ))
+  (create
+   (alambda  ;; fail silently
+    ((cust seq emsg sig) / (check-repudiable-signature ekey seq emsg sig)
+     (send cust seq emsg))
+    )))
 
 (defun signing (skey)
   (actor (cust seq emsg)
@@ -443,11 +443,11 @@
       (send cust seq emsg sig))))
 
 (defun signature-validation (pkey)
-  (actor (cust seq emsg sig)
-    ;; (send dbg-println "Signature Validation")
-    (if (check-signature seq emsg sig pkey)
-        (send cust seq emsg)
-      (error "signature-validation: failure"))))
+  (create
+   (alambda ;; fail silently
+    ((cust seq emsg sig) / (check-signature seq emsg sig pkey)
+     (send cust seq emsg))
+    )))
 
 (defun self-sync-encoder ()
   ;; takes a bytevec and produces a self-sync bytevec

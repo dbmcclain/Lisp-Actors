@@ -30,6 +30,24 @@
       )))
 
 ;; ------------------------------------------------------------------
+;; ECDH Shared Key Development
+;;
+;;         -- Exchanges --
+;;  Client                  Server
+;;  ------                  ------
+;;  Ephem-ID APt NRSig --> +SERVER-CONNECT-ID+
+;;            Ephem-ID <-- CnxID BPt NRSig'
+;;
+;;    ...for all subsequent messages
+;;  Ephem-ID' E(msg) RSig --> CnxID
+;;              Ephem-ID' <-- E(response) RSig'
+;;
+;;
+;; NRSig = non-refutable (Schnorr) signature
+;; RSig  = refutable signature
+;;
+;; So connection ID's are always sent in the clear so that receivers
+;; can dispatch.
 
 (defactor negotiate-secure-channel
   ;; EC Diffie-Hellman key exchange
