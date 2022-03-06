@@ -51,13 +51,13 @@
 
 (defun make-repudiable-signature (ekey seq emsg)
   ;; We only need a secure non-repudiable signature on the initial DH Keying
-  (hash/256 ekey seq emsg))
+  (vec-repr:bev-vec (hash/256 ekey seq emsg)))
 
 (defun check-repudiable-signature (ekey seq emsg sig)
   ;; Only someone who knows the current encryption key could have sent
   ;; this message - if I didn't send it to myself, then it must have been
   ;; the other party to the conversation.
-  (hash= sig (hash/256 ekey seq emsg)))
+  (equalp sig (make-repudiable-signature ekey seq emsg)))
 
 ;; Schnorr Signatures - Non-Repudiable
 (defun make-signature (seq emsg skey)
