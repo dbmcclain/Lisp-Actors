@@ -39,8 +39,8 @@
 ;;            Ephem-ID <-- CnxID BPt NRSig'
 ;;
 ;;    ...for all subsequent messages
-;;  Ephem-ID' E(msg) RSig --> CnxID
-;;              Ephem-ID' <-- E(response) RSig'
+;;  Ephem-ID' E(msg) RSig Prev-Sig-Key --> CnxID
+;;              Ephem-ID' <-- E(response) RSig' Prev-Sig-Key'
 ;;
 ;;
 ;; NRSig = non-refutable (Schnorr) signature
@@ -48,6 +48,13 @@
 ;;
 ;; So connection ID's are always sent in the clear so that receivers
 ;; can dispatch.
+;;
+;; Since message interchange always publishes the signature keying
+;; from the previous message, and since our encryption is malleable,
+;; it becomes possible to claim that anyone could have later
+;; intercepted the message, altered it, and produced a new signature.
+;; It cannot be proven that either of the conversing parties sent the
+;; message.
 
 (defactor negotiate-secure-channel
   ;; EC Diffie-Hellman key exchange
