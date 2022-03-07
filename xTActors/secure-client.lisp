@@ -35,14 +35,14 @@
 ;;         -- Exchanges --
 ;;  Client                  Server
 ;;  ------                  ------
-;;  Ephem-ID APt NRSig --> +SERVER-CONNECT-ID+
-;;            Ephem-ID <-- CnxID BPt NRSig'
+;;  Ephem-ID APt NRSig --> +SERVER-CONNECT-ID+     ;; APt = A*G
+;;            Ephem-ID <-- CnxID BPt NRSig'        ;; BPt = B*G => EKey = A*B*G
 ;;
 ;;    ...for all subsequent messages
 ;;          Seq E(msg) RSig --> CnxID
 ;;                     NIL  <-- :SIG-KEY Seq RSig-Key
 ;;
-;;                Ephem-ID' <-- Seq' E(response) RSig'    if we generate a response
+;;                Ephem-ID' <-- Seq' E(response) RSig'  ;; if we generate a response
 ;;  :SIG-KEY Seq' RSig'-key --> NIL
 ;;
 ;;
