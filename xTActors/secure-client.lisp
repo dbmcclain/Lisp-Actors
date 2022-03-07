@@ -36,11 +36,11 @@
 ;;  Client                  Server
 ;;  ------                  ------
 ;;  Ephem-ID APt NRSig --> +SERVER-CONNECT-ID+     ;; APt = A*G
-;;            Ephem-ID <-- CnxID BPt NRSig'        ;; BPt = B*G => EKey = A*B*G
+;;            Ephem-ID <-- CnxID BPt NRSig'        ;; BPt = B*G => EKey = H(A*B*G)
 ;;
 ;;    ...for all subsequent messages
-;;          Seq E(msg) RSig --> CnxID
-;;                     NIL  <-- :SIG-KEY Seq RSig-Key
+;;          Seq E(msg) RSig --> CnxID                   ;; Enc-Key  = H(:ENC,EKey,Seq)
+;;                     NIL  <-- :SIG-KEY Seq RSig-Key   ;; RSig-Key = H(:SIG,EKey,Seq)
 ;;
 ;;                Ephem-ID' <-- Seq' E(response) RSig'  ;; if we generate a response
 ;;  :SIG-KEY Seq' RSig'-key --> NIL
