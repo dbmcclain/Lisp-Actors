@@ -39,8 +39,11 @@
 ;;            Ephem-ID <-- CnxID BPt NRSig'
 ;;
 ;;    ...for all subsequent messages
-;;  Ephem-ID' E(msg) RSig Prev-Sig-Key --> CnxID
-;;              Ephem-ID' <-- E(response) RSig' Prev-Sig-Key'
+;;          Seq E(msg) RSig --> CnxID
+;;                     NIL  <-- :SIG-KEY Seq RSig-Key
+;;
+;;                Ephem-ID' <-- Seq' E(response) RSig'    if we generate a response
+;;  :SIG-KEY Seq' RSig'-key --> NIL
 ;;
 ;;
 ;; NRSig = non-refutable (Schnorr) signature
