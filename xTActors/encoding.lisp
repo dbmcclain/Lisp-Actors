@@ -49,11 +49,14 @@
     (map-into mask #'logxor bytevec mask)))
 |#
 
+(defun make-rep-sig-key (ekey seq)
+  (vec (hash/256 :SIG ekey seq)))
+
 (defun make-repudiable-signature (ekey seq emsg)
   ;; We only need a secure non-repudiable signature on the initial DH Keying
-  (let ((sig-key (vec (hash/256 :SIG ekey seq))))
-    (values (vec (hash/256 sig-key seq emsg))
-            sig-key)))
+  (let ((sig-key (make-rep-sig-key ekey seq)))
+    (vec (hash/256 sig-key seq emsg))
+    ))
 
 (defun check-repudiable-signature (ekey seq emsg sig)
   ;; Only someone who knows the current encryption key could have sent
@@ -425,22 +428,17 @@
       (send cust bytvec)
       )))
 
-(defun rep-signing-beh (ekey last-key)
-  (λ (cust seq emsg)
-    (multiple-value-bind (sig new-key)
-        (make-repudiable-signature ekey seq emsg)
-      (send cust seq emsg sig last-key)
-      (become (rep-signing-beh ekey new-key))
+(defun rep-signing (ekey)
+  (α (cust seq emsg)
+    (let ((sig (make-repudiable-signature ekey seq emsg)))
+      (send cust seq emsg sig)
       )))
 
-(defun rep-signing (ekey)
-  (create
-   (rep-signing-beh ekey #() )))
-
-(defun rep-sig-validation (ekey)
+(defun rep-sig-validation (ekey echo)
   (create
    (alambda  ;; fail silently
-    ((cust seq emsg sig _) / (check-repudiable-signature ekey seq emsg sig)
+    ((cust seq emsg sig) / (check-repudiable-signature ekey seq emsg sig)
+     (send echo seq (make-rep-sig-key ekey seq))
      (send cust seq emsg))
     )))
 

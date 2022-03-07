@@ -216,11 +216,16 @@
         (encryptor ekey)
         (rep-signing ekey)))
 
-(defun secure-reader (ekey)
-  (pipe (rep-sig-validation ekey)
+(defun secure-reader (ekey echo)
+  (pipe (rep-sig-validation ekey echo)
         (decryptor ekey)
         (marshal-decoder)
         (dechunker)
         (marshal-decompressor)
         (marshal-decoder)))
+
+(defun sig-key-bcast (socket)
+  (α (seq sig-key)
+    (send socket (uuid:make-null-uuid) :sig-key seq sig-key)
+    ))
 

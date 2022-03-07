@@ -67,12 +67,13 @@
               (unless (com.ral.actors.base::check-signature server-id bpt sig (server-pkey))
                 (error "Server can't be authenticated"))
               (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
+                     (echo  (sig-key-bcast socket))
                      (chan  (client-channel
                              :local-services  local-services
                              :encryptor       (sink-pipe
                                                (secure-sender ekey)
                                                (remote-actor-proxy server-id socket))
-                             :decryptor       (secure-reader ekey)
+                             :decryptor       (secure-reader ekey echo)
                              )))
                 (send connections cust :set-channel socket chan)
                 ))))

@@ -38,8 +38,9 @@
             (chan      (server-channel
                         :socket      socket
                         :encryptor   encryptor))
+            (echo      (sig-key-bcast socket))
             (decryptor (sink-pipe
-                        (secure-reader ekey)
+                        (secure-reader ekey echo)
                         ;; (show-server-inbound) ;; ***
                         chan)))
        (β (cnx-id)
