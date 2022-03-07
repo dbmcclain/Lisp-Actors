@@ -212,21 +212,23 @@
   (pipe (marshal-encoder)
         (marshal-compressor)
         (chunker :max-size 65000)
+        (checksum)
         (marshal-encoder)
         (encryptor ekey)
         (rep-signing ekey)))
 
 (defun secure-reader (ekey echo)
-  (pipe (rep-sig-validation ekey echo)
+  (pipe (rep-sig-validation ekey echo) ;; sig validation with sig-keying broadcast
         (decryptor ekey)
-        (marshal-decoder)
+        (fail-silent-marshal-decoder)  ;; protect against replay attack with mutated message
+        (verify-checksum)
         (dechunker)
         (marshal-decompressor)
         (marshal-decoder)))
 
 (defun sig-key-bcast (socket)
   (α (seq sig-key)
-    ;; For all you Man-in-the-Middle out there, listening...
+    ;; For all you listening Man-in-the-Middle out there...
     ;;
     ;; This is called just after validating the signature on a
     ;; received secure message.  It will send the signature keying in
@@ -234,8 +236,8 @@
     ;; does not recognize :SIG-KEY verb and will just ignore.
     ;;
     ;; But we will have done our duty to publish the signature keying
-    ;; for the most recently received message, making us both fully
-    ;; repudiable in our signing.
+    ;; for the most recently received message, making the sender fully
+    ;; repudiable with its message.
     (send socket nil :sig-key seq sig-key)
     ))
 

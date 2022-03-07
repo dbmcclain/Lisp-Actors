@@ -183,6 +183,7 @@ THE SOFTWARE.
 
    #:marshal-encoder
    #:marshal-decoder
+   #:fail-silent-marshal-decoder
    #:marshal-compressor
    #:marshal-decompressor
    #:encryptor
@@ -199,7 +200,9 @@ THE SOFTWARE.
    #:writer
    #:marker
    #:logger
-
+   #:checksum
+   #:verify-checksum
+   
    #:netw-encoder
    #:netw-decoder
    #:disk-encoder

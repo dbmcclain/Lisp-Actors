@@ -153,6 +153,22 @@
     ;; (send dbg-println "Marshal Decoder")
     (send* cust (loenc:decode vec))))
 
+(defun fail-silent-marshal-decoder ()
+  (actor (cust vec)
+    ;; (send dbg-println "Fail-Silent Marshal Decoder")
+    ;;
+    ;; The premise here is that, when using malleable encrption and
+    ;; refutable signatures, an attacker can form a validly signed but
+    ;; mutated encryption in a replay attack. That will likely produce
+    ;; gibberish as a marshal encoding, and we need to intercept these
+    ;; kinds of attacks and not let them pass, nor cause trouble for
+    ;; us.
+    (let ((dec (ignore-errors
+                 (loenc:decode vec))))
+      (when dec
+        (send* cust dec))
+      )))
+
 #|
 (defun marshal-cmpr-encoder ()
   (actor (cust &rest msg)
@@ -465,6 +481,21 @@
   (actor (cust bytevec)
     (send cust (self-sync:decode bytevec))))
 
+(defun checksum ()
+  ;; produce a prefix checksum on the message
+  (actor (cust &rest msg)
+    (send* cust (cons (vec (hash/256 msg)) msg))
+    ))
+
+(defun verify-checksum ()
+  ;; if a replay attack with mutated encryption manages to become
+  ;; unmarshalled, then we need to stop it here by checking the
+  ;; checksum.
+  (actor (cust check &rest msg)
+    (when (equalp check (vec (hash/256 msg)))
+      (send* cust msg))
+    ))
+
 (defun chunker (&key (max-size 65536))
   ;; takes a bytevec and produces a sequence of chunk encodings
   (actor (cust byte-vec)
@@ -480,8 +511,8 @@
                (send cust :init id nchunks size)
                (do ((offs  0  (+ offs max-size)))
                    ((>= offs size))
-                 (send cust :chunk id offs
-                       (subseq byte-vec offs (min size (+ offs max-size)))))
+                 (let ((frag (subseq byte-vec offs (min size (+ offs max-size)) )))
+                   (send cust :chunk id offs frag)))
                ))
             ))))
 
