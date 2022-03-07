@@ -459,8 +459,9 @@
       (send writer :discard)
       (send connections sink :remove state)
       ;; ---------------------
-      (wr (car io-running) 0)
-      (comm:async-io-state-abort-and-close io-state)
+      (unless (zerop (car io-running))
+        (wr (car io-running) 0)
+        (comm:async-io-state-abort-and-close io-state))
       )))
 
 ;; ------------------------------------------------------------------------
@@ -520,32 +521,26 @@
                          (comm:async-io-state-read-status state)
                          end)
                    |#
-                   (let (err-too-large)
-                     (when (plusp end)
-                       ;; (send fmt-println "~A Incoming bytes: ~A" title buffer)
-                       (if (> end +max-fragment-size+)
-                           (setf err-too-large "Incoming packet too large")
-                         (progn
-                           ;; (send dbg-println "-- recv from network ~D --" end)
-                           (if nil
-                               (send accum #|:deliver (incf packet-ctr)|# (subseq buffer 0 end))
-                             ;; else
-                             (send accum :deliver (incf packet-ctr) (subseq buffer 0 end)))
-                           (send kill-timer :resched)))
-                       (comm:async-io-state-discard state end))
-                     (um:when-let (status (or (comm:async-io-state-read-status state)
-                                              err-too-large))
-                       ;; terminate on any error
-                       (comm:async-io-state-finish state)
-                       (send fmt-println "~A Incoming error state: ~A" title status)
-                       (decr-io-count state))
-                     ))
+                   (let ((status (or (comm:async-io-state-read-status state)
+                                     (when (> end +max-fragment-size+)
+                                       "Incoming packet too large"))
+                                 ))
+                     (cond (status
+                            ;; terminate on any error
+                            (comm:async-io-state-finish state)
+                            (send fmt-println "~A Incoming error state: ~A" title status)
+                            (decr-io-count state))
+                           
+                           ((plusp end)
+                            (send accum :deliver (incf packet-ctr) (subseq buffer 0 end))
+                            (send kill-timer :resched)
+                            (comm:async-io-state-discard state end))
+                           )))
                  
                  (decr-io-count (io-state)
                    (let ((ct (sys:atomic-fixnum-decf (car io-running))))
                      (when (zerop ct) ;; >0 is running
                        (comm:close-async-io-state io-state)
-                       (send println "Connection Shutdown")
                        (send shutdown))
                      ct)))
               
