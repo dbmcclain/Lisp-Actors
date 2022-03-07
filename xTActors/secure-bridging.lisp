@@ -226,6 +226,16 @@
 
 (defun sig-key-bcast (socket)
   (α (seq sig-key)
-    (send socket (uuid:make-null-uuid) :sig-key seq sig-key)
+    ;; For all you Man-in-the-Middle out there, listening...
+    ;;
+    ;; This is called just after validating the signature on a
+    ;; received secure message.  It will send the signature keying in
+    ;; plaintext to local services at other end.  But local services
+    ;; does not recognize :SIG-KEY verb and will just ignore.
+    ;;
+    ;; But we will have done our duty to publish the signature keying
+    ;; for the most recently received message, making us both fully
+    ;; repudiable in our signing.
+    (send socket nil :sig-key seq sig-key)
     ))
 
