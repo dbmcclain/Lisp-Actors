@@ -35,7 +35,7 @@
   ;; One-time-pad encryption via XOR with random mask. Take care to
   ;; never re-use the same mask for encryption, which is the hash of
   ;; the ekey concat with seq.
-  (in-place-otp bytevec ekey seq))
+  (in-place-otp bytevec :ENC ekey seq))
 
 #|
 (defun encrypt/decrypt (ekey seq bytevec)
@@ -51,7 +51,7 @@
 
 (defun make-repudiable-signature (ekey seq emsg)
   ;; We only need a secure non-repudiable signature on the initial DH Keying
-  (let ((sig-key (vec (hash/256 ekey seq))))
+  (let ((sig-key (vec (hash/256 :SIG ekey seq))))
     (values (vec (hash/256 sig-key seq emsg))
             sig-key)))
 
