@@ -479,6 +479,13 @@
     ;; messages. But there is no need to retain the seq list beyond
     ;; the lifetime of this session, nor any need to share the seq
     ;; list with other sessions.
+    ;;
+    ;; Hosed encryption replay attacks are only possible because we
+    ;; use malleable encryption, and publish the signature keying, so
+    ;; that we have "Off the Record" messaging. But even if we kept
+    ;; the signature keying private, a verbatim replay attack would
+    ;; still be possible. So this duplicate seq checking is vital, no
+    ;; matter what.
     (send echo seq (make-rep-sig-key ekey seq))
     (send cust seq emsg)
     (become (rep-sig-validation-beh ekey echo (cons seq seqs))))
