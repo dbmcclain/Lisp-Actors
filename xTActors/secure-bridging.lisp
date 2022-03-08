@@ -236,8 +236,8 @@
     ;; does not recognize :SIG-KEY verb and will just ignore.
     ;;
     ;; But we will have done our duty to publish the signature keying
-    ;; for the most recently received message, making the sender fully
-    ;; repudiable with its message.
+    ;; for the most recently received message, making the sender (and
+    ;; us) fully repudiable with its message.
     (send socket nil :sig-key seq sig-key)
     ))
 

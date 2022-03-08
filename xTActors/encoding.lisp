@@ -450,13 +450,23 @@
       (send cust seq emsg sig)
       )))
 
+(defun rep-sig-validation-beh (ekey echo &optional seqs)
+  (alambda
+   ;; fail silently - checking for valid signature and not a replay attack
+   ((cust seq emsg sig) / (and (check-repudiable-signature ekey seq emsg sig)
+                               (not (find seq seqs)))
+    ;; seq is integer (bignum)
+    
+    ;; Note that this check against the list of seqs does not prevent
+    ;; a replay attack against a different session. We still need
+    ;; hardening of unmarshaling and checksum verification.
+    (send echo seq (make-rep-sig-key ekey seq))
+    (send cust seq emsg)
+    (become (rep-sig-validation-beh ekey echo (cons seq seqs))))
+   ))
+
 (defun rep-sig-validation (ekey echo)
-  (create
-   (alambda  ;; fail silently
-    ((cust seq emsg sig) / (check-repudiable-signature ekey seq emsg sig)
-     (send echo seq (make-rep-sig-key ekey seq))
-     (send cust seq emsg))
-    )))
+  (create (rep-sig-validation-beh ekey echo)))
 
 (defun signing (skey)
   (actor (cust seq emsg)
