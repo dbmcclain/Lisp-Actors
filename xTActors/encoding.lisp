@@ -456,10 +456,29 @@
    ((cust seq emsg sig) / (and (check-repudiable-signature ekey seq emsg sig)
                                (not (find seq seqs)))
     ;; seq is integer (bignum)
-    
-    ;; Note that this check against the list of seqs does not prevent
-    ;; a replay attack against a different session. We still need
-    ;; hardening of unmarshaling and checksum verification.
+
+    ;; Different sessions use different ekey, so replay attacks sent
+    ;; to any other session will fail signature validation. But a
+    ;; replay attack against this same session is possible, after we
+    ;; publish the signature keying.
+    ;;
+    ;; Signature keying depends on both ekey and seq, so any replay
+    ;; attack will have to use the same seq to match the signature
+    ;; keying. Hence it will have been previously seen. Such an attack
+    ;; will have a valid signature, the repeated seq, and a possibly
+    ;; hosed up encryption.
+    ;;
+    ;; We defend against replay attacks here by spotting the repeated
+    ;; use of seq. And later we defend against a hosed encryption by
+    ;; using a silent-fail unmarshal, and after that a soft-fail
+    ;; checksum verification. (Overkill?)
+    ;;
+    ;; In some instances, even a verbatim replay attack could be
+    ;; harmful, which would pass the unmarshalling and the checksum
+    ;; validation. So we really do need to filter away repeated seq
+    ;; messages. But there is no need to retain the seq list beyond
+    ;; the lifetime of this session, nor any need to share the seq
+    ;; list with other sessions.
     (send echo seq (make-rep-sig-key ekey seq))
     (send cust seq emsg)
     (become (rep-sig-validation-beh ekey echo (cons seq seqs))))
