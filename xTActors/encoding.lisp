@@ -450,11 +450,11 @@
       (send cust seq emsg sig)
       )))
 
-(defun rep-sig-validation-beh (ekey echo &optional seqs)
+(defun rep-sig-validation-beh (ekey echo &optional (seqs (sets:empty)))
   (alambda
    ;; fail silently - checking for valid signature and not a replay attack
    ((cust seq emsg sig) / (and (check-repudiable-signature ekey seq emsg sig)
-                               (not (find seq seqs)))
+                               (not (sets:mem seqs seq)))
     ;; seq is integer (bignum)
 
     ;; Different sessions use different ekey, so replay attacks sent
@@ -486,9 +486,13 @@
     ;; the signature keying private, a verbatim replay attack would
     ;; still be possible. So this duplicate seq checking is vital, no
     ;; matter what.
+    ;;
+    ;; Use an FPL Red-Black Tree Set for the seqs list, to get
+    ;; O(log(N)) lookup behavior.
+    ;;
     (send echo seq (make-rep-sig-key ekey seq))
     (send cust seq emsg)
-    (become (rep-sig-validation-beh ekey echo (cons seq seqs))))
+    (become (rep-sig-validation-beh ekey echo (sets:add seqs seq))))
    ))
 
 (defun rep-sig-validation (ekey echo)
