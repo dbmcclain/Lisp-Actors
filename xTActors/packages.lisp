@@ -100,6 +100,7 @@ THE SOFTWARE.
    #:stsend
    #:with-single-thread
    #:call-actor
+   #:wrap-fn
    
    #:self
    #:self-beh

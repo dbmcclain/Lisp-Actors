@@ -101,3 +101,10 @@
       (send* ac cust args))
     (values-list ans)))
 
+(defun wrap-fn (fn)
+  ;; The converse - wrap any function as an Actor expecting a customer
+  ;; and args.
+  (create
+   (lambda (cust &rest args)
+     (send* cust (multiple-value-list (apply fn args)))
+     )))
