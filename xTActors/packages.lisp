@@ -99,6 +99,7 @@ THE SOFTWARE.
    #:ask
    #:stsend
    #:with-single-thread
+   #:call-actor
    
    #:self
    #:self-beh

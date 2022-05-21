@@ -81,3 +81,23 @@
 (defmacro with-single-thread (&body body)
   `(let ((*send* 'stsend))
      ,@body))
+
+(defun call-actor (ac &rest args)
+  ;; Invoking an Actor from procedural code.  Assumes Actor, ac, takes
+  ;; a customer argument, which we supply internally.
+  ;;
+  ;; Actor may spawn logical threads that will run in our process. The
+  ;; dispatch loop returns after all spawned Actor activity has
+  ;; ceased.
+  ;;
+  ;; Careful! This can only be assured safe in single-threaded
+  ;; environments.  Otherwise, use ASK.
+  ;;
+  (let* ((ans   nil)
+         (cust  (create
+                 (lambda (&rest ans-args)
+                   (setf ans ans-args)))))
+    (with-single-thread
+      (send* ac cust args))
+    (values-list ans)))
+
