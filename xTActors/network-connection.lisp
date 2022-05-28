@@ -154,12 +154,10 @@
   ;; between senders and the serialized Actor. We inject SINK as the
   ;; customer on write-messages, which are simply byte vectors and no
   ;; customer.
-  (actors ((phys-writer (physical-writer-beh state))
-           (writer      (write-gate-beh state nil phys-writer))
-           (prefixer    (serializer-beh
-                         (create
-                          (prefixing-write-beh writer))))
-           (discarder   (discarder-beh prefixer phys-writer)))
+  (let* ((phys-writer   (create (physical-writer-beh state)))
+         (writer        (create (write-gate-beh state nil phys-writer)))
+         (prefixer      (serializer (create (prefixing-write-beh writer))))
+         (discarder     (create (discarder-beh prefixer phys-writer))))
     discarder))
 
 ;; -------------------------------------------------------------------------

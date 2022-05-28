@@ -166,7 +166,6 @@ THE SOFTWARE.
    #:tag-beh
    #:time-tag-beh
    #:scheduled-message-beh
-   #:serializer-beh
    #:timing-beh
    #:pruned-beh
    #:pend-beh
