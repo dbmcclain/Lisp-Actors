@@ -146,6 +146,7 @@ THE SOFTWARE.
    #:scheduled-message
    #:schedule-after
    #:serializer
+   #:unblock-serializer
    #:timing
    #:sequenced-delivery
    #:prune-self
