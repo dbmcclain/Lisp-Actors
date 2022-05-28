@@ -122,14 +122,17 @@ THE SOFTWARE.
   ;; Ironclad SHAKE is broken (DM/RAL 11/21) and refuses to reliably
   ;; return more than 200 bytes. So for now we will use iterated
   ;; SHA3/256.
+  ;;
+  ;; DM/RAL 05/22 -- now appears to be fixed and working...
+  |#
 (defun get-raw-hash-nbytes (nb &rest seeds)
   ;; returns a vector of nb raw-bytes
   (let ((dig (ironclad:make-digest :shake256 :output-length nb)))
     (dolist (seed seeds)
       (ironclad:update-digest dig (hashable seed)))
     (ironclad:produce-digest dig)))
-|#
-#||#
+
+#|
 (defun get-raw-hash-nbytes (nb &rest seeds)
   ;; returns a vector of nb raw-bytes
   (let ((ans (make-array nb
@@ -143,7 +146,7 @@ THE SOFTWARE.
           (replace ans bytes :start1 offs)
           )))
     ))
-#||#
+|#
 
 (defun make-bare-hash (vec fn)
   (values
@@ -225,6 +228,8 @@ THE SOFTWARE.
 ;; -------------------------------------------------------
 
 (defun in-place-otp (bytevec &rest keys)
+  #|
+  ;; Ironclad has now fixed SHAKE256 to produce a correct arbitrary length digest... DM/RAL 05/22
   (let* ((nel  (length bytevec))
          (ovly (make-array nel
                            :element-type (array-element-type bytevec)
@@ -238,6 +243,9 @@ THE SOFTWARE.
                       :displaced-to bytevec
                       :displaced-index-offset offs)
         (map-into ovly #'logxor ovly mask))
-      )))
+      ))
+  |#
+  (let ((dig  (apply 'get-raw-hash-nbytes (length bytevec) keys)))
+    (map-into bytevec 'logxor bytevec dig)))
 
 
