@@ -59,9 +59,7 @@ THE SOFTWARE.
 
 (defstruct (actor
                (:constructor create (&optional (beh #'lw:do-nothing))))
-  (beh #'lw:do-nothing :type function)
-  ;; busy
-  )
+  (beh #'lw:do-nothing :type function))
 
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
@@ -89,56 +87,8 @@ THE SOFTWARE.
   (actor (create) :type actor)
   (args  nil      :type list))
 
-#|
-(defstruct mbox
-  (lock  (mp:make-lock))
-  msgqhd
-  msgqtl
-  thrq)
-
-(defvar *central-mail*  (make-mbox))
-
-(defun mbox-send (mbox msg)
-  #F
-  (declare (mbox mbox)
-           (msg  msg))
-  (mp:with-lock ((mbox-lock mbox))
-    (let (cell)
-      (cond ((setf cell (pop (the list (mbox-thrq mbox))))
-             (setf (sys:globally-accessible (car (the cons cell))) msg))
-            
-            (t
-             (setf (msg-link msg) nil
-                   (mbox-msgqtl mbox)
-                   (if (mbox-msgqhd mbox)
-                       (setf (msg-link (the msg (mbox-msgqtl mbox))) msg)
-                     (setf (mbox-msgqhd mbox) msg))
-                   ))
-            ))))
-
-(defun #1=mbox-recv (mbox)
-  #F
-  (declare (mbox mbox))
-  (let ((cell  (list nil)))
-    (declare (cons cell)
-             (dynamic-extent cell))
-    (mp:with-lock ((mbox-lock mbox))
-      (let (msg)
-        (cond ((setf msg (mbox-msgqhd mbox))
-               (unless (setf (mbox-msgqhd mbox) (msg-link (the msg msg)))
-                 (setf (mbox-msgqtl mbox) nil))
-               (return-from #1# msg))
-
-              (t
-               (push cell (the list (mbox-thrq mbox))))
-              )))
-    (loop until (car cell) do (mp:process-allow-scheduling))
-    (car cell)
-    ))
-|#
-#||#
 (defvar *central-mail*  (mp:make-mailbox))
-#||#
+
 ;; -----------------------------------------------
 ;; SEND/BECOME
 ;;
@@ -226,7 +176,7 @@ THE SOFTWARE.
 ;; except that message sent from an earlier Actor activation will
 ;; appear in the event queue in front of messages sent by a later
 ;; Actor activation. The event queue is a FIFO queue.
-#||#
+
 (defun run-actors ()
   #F
   (let (sends evt pend-beh)
@@ -278,9 +228,8 @@ THE SOFTWARE.
                   ;; stack useful only for a microcoding assist. Our
                   ;; depth is never more than one Actor at a time,
                   ;; before trampolining back here.
-                  (setf evt      (mp:mailbox-read *central-mail*)
-                                 ;; (mbox-recv *central-mail*)
-                                 )
+                  (setf evt      (mp:mailbox-read *central-mail*))
+
                   (tagbody
                    next
                    (setf self     (msg-actor (the msg evt))
@@ -315,7 +264,6 @@ THE SOFTWARE.
                                        do
                                          (setf sends (msg-link (the msg msg)))
                                          (mp:mailbox-send *central-mail* msg)
-                                         ;; (mbox-send *central-mail* msg)
                                          ))
                                 ))
                          (t
@@ -326,81 +274,7 @@ THE SOFTWARE.
                          )))
                )))
         ))))
-#||#
-#|
-(defun run-actors ()
-  #F
-  (let (sends evt pend-beh)
-    (flet ((%send (actor &rest msg)
-             (if evt
-                 (setf (msg-link  (the msg evt)) sends
-                       (msg-actor (the msg evt)) (the actor actor)
-                       (msg-args  (the msg evt)) msg
-                       sends      evt
-                       evt        nil)
-               ;; else
-               (setf sends (msg (the actor actor) msg sends))))
 
-           (%become (new-beh)
-             (setf pend-beh new-beh)))
-
-      (declare (dynamic-extent #'%send #'%become))
-      
-      ;; -------------------------------------------------------
-      ;; Think of these global vars as dedicated registers of a
-      ;; special architecture CPU which uses a FIFO queue for its
-      ;; instruction stream, instead of linear memory, and which
-      ;; executes breadth-first instead of depth-first. This maximizes
-      ;; concurrency.
-      (let* ((*current-actor*    nil)
-             (*whole-message*    nil)
-             (*current-behavior* nil)
-             (*send*             #'%send)
-             (*become*           #'%become))
-        
-        (declare (list *whole-message*))
-
-        (loop
-           (with-simple-restart (abort "Handle next event")
-             (handler-bind
-                 ((error (lambda (c)
-                           (declare (ignore c))
-                           ;; We come here on error - back out optimistic commits of SEND/BECOME.
-                           ;; We really do need a HANDLER-BIND here since we nulled out the behavior
-                           ;; pointer in the current Actor, and that needs to be restored, sooner
-                           ;; rather than later, in case a user handler wants to use the Actor
-                           ;; for some reason.
-                           (setf sends nil))    ;; discard SENDs
-                         ))
-               (loop
-                  ;; Fetch next event from event queue - ideally, this
-                  ;; would be just a handful of simple register/memory
-                  ;; moves and direct jump. No call/return needed, and
-                  ;; stack useful only for a microcoding assist. Our
-                  ;; depth is never more than one Actor at a time,
-                  ;; before trampolining back here.
-                  (setf evt      (mp:mailbox-read *central-mail*)
-                        self     (msg-actor (the msg evt))
-                        self-msg (msg-args (the msg evt))
-                        pend-beh (actor-beh (the actor self))
-                        self-beh pend-beh)
-                  (cond ((sys:compare-and-swap (actor-busy (the actor self)) nil t)
-                         ;; ---------------------------------
-                         ;; Dispatch to Actor behavior with message args
-                         (apply (the function pend-beh) self-msg)
-                         (loop for msg = sends
-                               while msg
-                               do
-                                 (setf sends (msg-link (the msg msg)))
-                                 (mp:mailbox-send *central-mail* msg))
-                         (setf (actor-beh (the actor self))  pend-beh
-                               (actor-busy (the actor self)) nil))
-
-                        (t
-                         (mp:mailbox-send *central-mail* evt))
-                        )))))
-        ))))
-|#
 ;; ---------------------------------------------------
 
 (defun is-pure-sink? (actor)
