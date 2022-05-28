@@ -911,7 +911,7 @@
             (send (aont-encoder skey ekey) beta msg)
           (send writeln (list pkey-vec data-packet aont-vec))
           (beta (dmsg)
-              (send (aont-decoder) beta pkey-vec data-packet aont-vec)
+              (send aont-decoder beta pkey-vec data-packet aont-vec)
             (send writeln dmsg)
             (assert (equalp msg dmsg))
             )))
