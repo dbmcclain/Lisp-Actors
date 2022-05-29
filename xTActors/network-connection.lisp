@@ -25,7 +25,8 @@
 
             ;; act-base::with-printer
 
-            vec-repr:lev
+            vec-repr:bevn
+            vec-repr:vec
             vec-repr:int
             )))
 
@@ -124,14 +125,11 @@
    ))
 
 (defun prefixing-write-beh (writer)
-  ;; writes a 4-byte Little-Endian prefix count
+  ;; writes a 4-byte Big-Endian prefix count
   ;; and stages the write of the byte-vec afterward
   (λ (a-tag byte-vec)
-    (let ((pref (make-ubv 4))
-          (size (length byte-vec)))
-      (dotimes (ix 4)
-        (setf (aref pref ix) (ldb (byte 8 (ash ix 3)) size)))
-      (send writer self pref)
+    (let ((pref (bevn (length byte-vec) 4)))
+      (send writer self (vec pref))
       (become (pend-prefixing-write-beh a-tag byte-vec writer))
       )))
 
@@ -239,12 +237,11 @@
 ;; Socket Reader - an autonomous socket reader loop
 
 (defun socket-reader-beh (decoder accum)
-  (let* ((count-vec (make-ubv 4))
-         (count-lev (lev count-vec)))
+  (let ((count-vec (make-ubv 4)))
     (λ (reader)
       (β  _
           (send accum β :req count-vec 4)
-        (let* ((len (int count-lev))
+        (let* ((len (int count-vec)) ;; raw vectors default to BEV
                (buf (make-ubv len)))
           (β _
               (send accum β :req buf len)
