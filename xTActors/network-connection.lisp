@@ -24,6 +24,9 @@
             act-base::make-ubv
 
             ;; act-base::with-printer
+
+            vec-repr:lev
+            vec-repr:int
             )))
 
 #|
@@ -235,28 +238,27 @@
 ;; ------------------------------------------------------------
 ;; Socket Reader - an autonomous socket reader loop
 
-(defun socket-reader-beh (reader decoder accum)
-  (λ _
-    (let ((buf (make-ubv 4)))
+(defun socket-reader-beh (decoder accum)
+  (let* ((count-vec (make-ubv 4))
+         (count-lev (lev count-vec)))
+    (λ (reader)
       (β  _
-          (send accum β :req buf 4)
-        (let ((len 0))
-          (dotimes (ix 4)
-            (setf len (dpb (aref buf ix) (byte 8 (ash ix 3)) len)))
-          (let ((buf (make-ubv len)))
-            (β _
-                (send accum β :req buf len)
-              (send decoder buf)
-              (send reader))
-            )))
+          (send accum β :req count-vec 4)
+        (let* ((len (int count-lev))
+               (buf (make-ubv len)))
+          (β _
+              (send accum β :req buf len)
+            (send decoder buf)
+            (send reader reader))
+          ))
       )))
 
 (defun make-reader (decoder)
   (α _
-    (actors ((accum  (holding-accum-beh self 0 nil 0 0))
-             (reader (socket-reader-beh reader decoder accum)))
+    (let* ((accum  (create (holding-accum-beh self 0 nil 0 0)))
+           (reader (create (socket-reader-beh decoder accum))))
       (become (base-ordered-delivery-beh nil))
-      (send reader)
+      (send reader reader)
       (repeat-send self))
     ))
 
