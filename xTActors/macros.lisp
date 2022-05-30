@@ -66,9 +66,9 @@
                                      proper-list)))
       
       (when pos
-        (values (subseq proper-list 0 pos)
-                (subseq proper-list (1+ pos)))
-        ))))
+        (values (um:take pos args)         ;; parms
+                (um:drop (1+ pos) args)))  ;; fn args
+      )))
 
 ;; -------------------------------------------------------
 ;; BETA Forms - A BETA form takes advantage of a Common Lisp pun, to
