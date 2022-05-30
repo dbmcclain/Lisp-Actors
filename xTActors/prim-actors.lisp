@@ -205,12 +205,17 @@
   ;; various Actor dispatch engines.
   ;;
   ;; Most of the time, we want the binding in effect at the time of
-  ;; timer construction, so that its message will be sent in our
-  ;; dispatch group.
+  ;; timer construction, when constructed during an Actor body
+  ;; execution, so that its message will be sent in our dispatch
+  ;; group.
   ;;
   ;; We can't simply use #'SEND, which itself vectors through *SEND*,
   ;; because that would be too late bound. Who knows what thread and
-  ;; binding would be in effect when the timer fires.
+  ;; binding would be in effect when the timer fires?
+  ;;
+  ;; Globally constructed SCHEDULED-MESSAGE Actors will end up getting
+  ;; a foreign thread *SEND* binding, which sends to the community
+  ;; dispatcher mailbox.
   (let ((timer (apply 'mp:make-timer *send* actor msg)))
     (lambda* _
       (mp:schedule-timer-relative timer dt))
