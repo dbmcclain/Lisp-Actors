@@ -200,16 +200,27 @@
 ;; Delayed Trigger
 
 (defun scheduled-message-beh (actor dt &rest msg)
-  (let ((timer (apply #'mp:make-timer #'send actor msg)))
+  ;; This is an interesting case... recall that *SEND* is dynamically
+  ;; bound, and its binding varies between foreign threads, and the
+  ;; various Actor dispatch engines.
+  ;;
+  ;; Most of the time, we want the binding in effect at the time of
+  ;; timer construction, so that its message will be sent in our
+  ;; dispatch group.
+  ;;
+  ;; We can't simply use #'SEND, which itself vectors through *SEND*,
+  ;; because that would be too late bound. Who knows what thread and
+  ;; binding would be in effect when the timer fires.
+  (let ((timer (apply 'mp:make-timer *send* actor msg)))
     (lambda* _
       (mp:schedule-timer-relative timer dt))
     ))
 
 (defun scheduled-message (actor dt &rest msg)
-  (create (apply #'scheduled-message-beh actor dt msg)))
+  (create (apply 'scheduled-message-beh actor dt msg)))
 
 (defun send-after (dt actor &rest msg)
-  (send (apply #'scheduled-message actor dt msg)))
+  (send (apply 'scheduled-message actor dt msg)))
 
 ;; -------------------------------------------
 ;; A cheap FP Banker's queue
