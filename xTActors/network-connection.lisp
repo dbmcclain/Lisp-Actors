@@ -220,6 +220,9 @@
 
    ((:deliver ix packet)
     (become (base-ordered-delivery-beh (acons ix packet packets))))
+
+   ((:go-silent)
+    (become (sink-beh)))
    ))
 
 (defun waiting-ordered-delivery-beh (cust ix packets)
@@ -231,29 +234,34 @@
 
           (t
            (become (waiting-ordered-delivery-beh cust ix (acons an-ix packet packets))))
-          ))))
+          ))
+   
+   ((:go-silent)
+    (become (sink-beh)))))
 
 ;; ------------------------------------------------------------
 ;; Socket Reader - an autonomous socket reader loop
 
-(defun socket-reader-beh (decoder accum)
+(defun socket-reader-beh (recvr decoder accum)
   (let ((count-vec (make-ubv 4)))
     (λ (reader)
       (β  _
           (send accum β :req count-vec 4)
-        (let* ((len (int count-vec)) ;; raw vectors default to BEV
-               (buf (make-ubv len)))
-          (β _
-              (send accum β :req buf len)
-            (send decoder buf)
-            (send reader reader))
-          ))
-      )))
+        (let ((len (int count-vec))) ;; raw vectors default to BEV
+          (if (< len +max-fragment-size+)
+              (let ((buf (make-ubv len)))
+                (β _
+                    (send accum β :req buf len)
+                  (send decoder buf)
+                  (send reader reader)))
+            ;; else, we either lost sync, or we might be under attack - just go silent
+            (send recvr :go-silent)))
+        ))))
 
 (defun make-reader (decoder)
   (α _
     (let* ((accum  (create (holding-accum-beh self 0 nil 0 0)))
-           (reader (create (socket-reader-beh decoder accum))))
+           (reader (create (socket-reader-beh self decoder accum))))
       (become (base-ordered-delivery-beh nil))
       (send reader reader)
       (repeat-send self))
