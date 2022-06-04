@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "transactional-db")
                 (:file "reactive")
                 (:file "resource")
-                (:file "st-send")
+                ;; (:file "st-send")
                 (:file "sponsors"))
   :SERIAL T
   :depends-on   ("data-objects"

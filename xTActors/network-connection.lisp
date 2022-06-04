@@ -563,33 +563,39 @@
   (comm:get-host-entry ip-addr :fields '(:address)))
 
 (defun make-socket-connection (ip-addr ip-port report-ip-addr)
-  (actor () 
-    (β (io-state)
-        (mp:funcall-async
-         (lambda ()
-           (comm:create-async-io-state-and-connected-tcp-socket
-            *ws-collection*
-            ip-addr ip-port
-            (lambda (state args)
-              (cond (args
+  (let ((handler (α (io-state args)
+                   (cond
+                    (args
                      (send println
                            (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
                            (apply #'format nil args))
                      (send connections :abort ip-addr ip-port))
+                    
                     (t
-                     (send β state))
-                    ))
-            :connect-timeout 5
-            #-:WINDOWS :ipv6    #-:WINDOWS nil)))
-      (β (state socket)
-          (send (create-socket-intf :kind           :client
-                                    :ip-addr        ip-addr
-                                    :ip-port        ip-port
-                                    :report-ip-addr report-ip-addr
-                                    :io-state       io-state)
-                β)
-        (send connections nil :negotiate state socket)
-        ))))
+                     (β (state socket)
+                         (send (create-socket-intf :kind           :client
+                                                   :ip-addr        ip-addr
+                                                   :ip-port        ip-port
+                                                   :report-ip-addr report-ip-addr
+                                                   :io-state       io-state)
+                               β)
+                       (send connections nil :negotiate state socket)))
+                    ))))
+
+    (flet ((callback (io-state args)
+             ;; performed in the process of collection, so keep it short.
+             (send handler io-state args)))
+      
+      (α ()
+        (apply 'mp:funcall-async 'comm:create-async-io-state-and-connected-tcp-socket
+               *ws-collection*
+               ip-addr ip-port #'callback
+               #-:WINDOWS
+               `(:connect-timeout 5 :ipv6 nil)
+               #+:WINDOWS
+               `(:connect-timeout 5)
+               ))
+      )))
 
 (defactor client-connector
   ;; Called from client side wishing to connect to a server.
