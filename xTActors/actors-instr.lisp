@@ -156,7 +156,6 @@ THE SOFTWARE.
   #F
   (check-type actor actor)
   (mp:mailbox-send *central-mail* (msg (the actor actor) msg))
-  ;; (mbox-send *central-mail* (msg (the actor actor) msg))
   (values))
 
 (defun startup-send (actor &rest msg)

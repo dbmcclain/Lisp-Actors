@@ -129,8 +129,7 @@ THE SOFTWARE.
 (defun send-to-pool (actor &rest msg)
   ;; the default SEND for foreign threads
   #F
-  (when (actor-p actor)
-    (mp:mailbox-send *central-mail* (msg (the actor actor) msg))))
+  (mp:mailbox-send *central-mail* (msg (the actor actor) msg)))
 
 (defun startup-send (actor &rest msg)
   ;; the boot version of SEND

@@ -143,8 +143,8 @@ THE SOFTWARE.
    #:tag
    #:ser
    #:par
-   #:scheduled-message
-   #:schedule-after
+   ;; #:scheduled-message
+   ;; #:schedule-after
    #:serializer
    #:unblock-serializer
    #:timing

@@ -199,6 +199,7 @@
 ;; -----------------------------------------
 ;; Delayed Trigger
 
+#|
 (defun scheduled-message-beh (actor dt &rest msg)
   ;; This is an interesting case... recall that *SEND* is dynamically
   ;; bound, and its binding varies between foreign threads, and the
@@ -211,16 +212,21 @@
   ;;
   ;; What to do about the single-thread dispatcher?
   ;;
-  (let ((timer (apply #'mp:make-timer #'send-to-pool actor msg)))
-    (lambda* _
-      (mp:schedule-timer-relative timer dt))
-    ))
+  (if (actor-p actor)
+    (let ((timer (apply #'mp:make-timer #'send-to-pool actor msg)))
+      (lambda* _
+        (mp:schedule-timer-relative timer dt)))
+    #'lw:do-nothing))
 
 (defun scheduled-message (actor dt &rest msg)
   (create (apply #'scheduled-message-beh actor dt msg)))
+|#
 
 (defun send-after (dt actor &rest msg)
-  (send (apply #'scheduled-message actor dt msg)))
+  (when (actor-p actor)
+    (let ((timer (apply #'mp:make-timer #'send-to-pool actor msg)))
+      (mp:schedule-timer-relative timer dt))
+    ))
 
 ;; -------------------------------------------
 ;; A cheap FP Banker's queue
