@@ -310,7 +310,7 @@
           )))
 |#
 
-#|
+#||#
 ;; This version does not cause the CPU to spin
 (defun serializer-beh (service)
    ;; initial non-busy state
@@ -337,18 +337,19 @@
             )))
       ))
 
-   ((cust . msg)
+   (msg
     (become (busy-serializer-beh
              service tag in-cust
-             (addq queue (cons cust msg)))))
+             (addq queue msg))
+            ))
    ))
 
 (defun serializer (service)
   (create (serializer-beh service)))
-|#
+#||#
 ;; ----------------------------------------------------
 ;; Safe Serializer - serializer with unblocking channel and timeout
-
+#|
 (defun new-pend-serializer-beh (svc ret timeout cust waitq msg)
   (actors ((gate  (once-beh ret))
            (tmout (tag-beh gate))
@@ -393,7 +394,7 @@
 (defun unblock-serializer (ser ret)
   ;; emergency use back door
   (send ret ser))
-
+|#
 ;; --------------------------------------
 
 (defun timing-beh (dut)
