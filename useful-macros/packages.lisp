@@ -24,6 +24,17 @@ THE SOFTWARE.
 
 (in-package "CL-USER")
 
+(defpackage #:fpctl
+  (:use :cl)
+  (:export
+   #:fegetround
+   #:fesetround
+   #:+fe_tonearest+
+   #:+fe_downward+
+   #:+fe_upward+
+   #:+fe_towardzero+
+   ))
+
 (defpackage #:def*
   (:export
    #|
@@ -268,6 +279,13 @@ THE SOFTWARE.
    #:if-let
    #:when-let
    #:when-let*)
+  (:import-from :fpctl
+   #:fegetround
+   #:fesetround
+   #:+fe_tonearest+
+   #:+fe_downward+
+   #:+fe_upward+
+   #:+fe_towardzero+)
   (:import-from :list-match
    #:match
    #:match-fail)
@@ -517,6 +535,13 @@ THE SOFTWARE.
    :labels-shared
    :flet-shared
    |#
+
+   #:fegetround
+   #:fesetround
+   #:+fe_tonearest+
+   #:+fe_downward+
+   #:+fe_upward+
+   #:+fe_towardzero+
 
    #:with
    #:letp

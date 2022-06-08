@@ -40,6 +40,7 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
                 #+:LISPWORKS (:file "editor-extensions")
 
+                (:file "fpctl")
                 (:file "encaps-type")
                 (:file "clc")
                 (:file "sharp-f")
