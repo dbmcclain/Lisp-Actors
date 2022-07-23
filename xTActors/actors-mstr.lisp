@@ -104,7 +104,7 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defvar *nbr-pool*    4)
+(defvar *nbr-pool*    8)
 (defvar *evt-threads* nil)
 (defvar *send*        nil)
 
@@ -175,7 +175,6 @@ THE SOFTWARE.
 ;; except that message sent from an earlier Actor activation will
 ;; appear in the event queue in front of messages sent by a later
 ;; Actor activation. The event queue is a FIFO queue.
-
 (defun run-actors ()
   #F
   (let (sends evt pend-beh)
@@ -210,68 +209,51 @@ THE SOFTWARE.
 
         (loop
            (with-simple-restart (abort "Handle next event")
-             (handler-bind
-                 ((error (lambda (c)
-                           (declare (ignore c))
-                           ;; We come here on error - back out optimistic commits of SEND/BECOME.
-                           ;; We really do need a HANDLER-BIND here since we nulled out the behavior
-                           ;; pointer in the current Actor, and that needs to be restored, sooner
-                           ;; rather than later, in case a user handler wants to use the Actor
-                           ;; for some reason.
-                           (setf sends nil))    ;; discard SENDs
-                         ))
-               (loop
-                  ;; Fetch next event from event queue - ideally, this
-                  ;; would be just a handful of simple register/memory
-                  ;; moves and direct jump. No call/return needed, and
-                  ;; stack useful only for a microcoding assist. Our
-                  ;; depth is never more than one Actor at a time,
-                  ;; before trampolining back here.
-                  (setf evt      (mp:mailbox-read *central-mail*))
-
-                  (tagbody
-                   next
-                   (setf self     (msg-actor (the msg evt))
-                         self-msg (msg-args (the msg evt)))
-
-                   retry
-                   (setf pend-beh (actor-beh (the actor self))
-                         self-beh pend-beh)
-                   ;; ---------------------------------
-                   ;; Dispatch to Actor behavior with message args
-                   (apply (the function pend-beh) self-msg)
-                   (cond ((or (eq self-beh pend-beh)
-                              (sys:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh))
+             (loop
+                ;; Fetch next event from event queue - ideally, this
+                ;; would be just a handful of simple register/memory
+                ;; moves and direct jump. No call/return needed, and
+                ;; stack useful only for a microcoding assist. Our
+                ;; depth is never more than one Actor at a time,
+                ;; before trampolining back here.
+                (setf evt (mp:mailbox-read *central-mail*))
+                (tagbody
+                 next
+                 (um:when-let (next-msgs (msg-link (the msg evt)))
+                   (mp:mailbox-send *central-mail* next-msgs))
+                 
+                 (setf self     (msg-actor (the msg evt))
+                       self-msg (msg-args (the msg evt)))
+                 
+                 retry
+                 (setf pend-beh (actor-beh (the actor self))
+                       self-beh pend-beh
+                       sends    nil)
+                 ;; ---------------------------------
+                 ;; Dispatch to Actor behavior with message args
+                 (apply (the function pend-beh) self-msg)
+                 (cond ((or (eq self-beh pend-beh)
+                            (sys:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh))
+                        (when sends
                           (cond ((mp:mailbox-empty-p *central-mail*)
                                  ;; No messages await, we are front of queue,
                                  ;; so grab first message for ourself.
                                  ;; This is the most common case at runtime,
-                                 ;; giving us a dispatch timing of only 55ns.
-                                 (when (setf evt sends)
-                                   (setf sends (msg-link (the msg evt)))
-                                   (loop for msg = sends
-                                           while msg
-                                           do
-                                           (setf sends (msg-link (the msg msg)))
-                                           (mp:mailbox-send *central-mail* msg))
-                                   (go next)))
-
+                                 ;; giving us a dispatch timing of only 51ns.
+                                 (setf evt sends)
+                                 (go next))
+                                
                                 (t
                                  ;; else - we are not front of queue
-                                 (loop for msg = sends
-                                       while msg
-                                       do
-                                         (setf sends (msg-link (the msg msg)))
-                                         (mp:mailbox-send *central-mail* msg)
-                                         ))
-                                ))
-                         (t
-                          ;; try again...
-                          (setf evt      (or evt sends)
-                                sends    nil)
-                          (go retry))
-                         )))
-               )))
+                                 ;; enqueue new messages and repeat loop
+                                 (mp:mailbox-send *central-mail* sends))
+                                )))
+                       (t
+                        ;; failed on behavior update - try again...
+                        (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
+                        (go retry))
+                       )))
+             ))
         ))))
 
 ;; ---------------------------------------------------
