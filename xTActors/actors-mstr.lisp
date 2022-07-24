@@ -239,7 +239,7 @@ THE SOFTWARE.
                                  ;; No messages await, we are front of queue,
                                  ;; so grab first message for ourself.
                                  ;; This is the most common case at runtime,
-                                 ;; giving us a dispatch timing of only 51ns.
+                                 ;; giving us a dispatch timing of only 46ns on i9 processor.
                                  (setf evt sends)
                                  (go next))
                                 
@@ -265,24 +265,24 @@ THE SOFTWARE.
 
 ;; ----------------------------------------------------------------
 
+(defun gen-dispatch (n)
+  (push (mp:process-run-function (format nil "Actor Thread #~D" n)
+                                 ()
+                                 'run-actors)
+        *evt-threads*))
+  
 (defun restart-actors-system ()
-  (dotimes (ix *nbr-pool*)
-    (push (mp:process-run-function (format nil "Actor Thread #~D" (1+ ix))
-                                   ()
-                                   'run-actors)
-          *evt-threads*)))
+  (loop for ix from 1 to *nbr-pool* do
+          (gen-dispatch ix)))
 
 (defun kill-actors-system ()
-  (dolist (proc (shiftf *evt-threads* nil))
-    (mp:process-terminate proc)))
+  (map nil #'mp:process-terminate (shiftf *evt-threads* nil)))
 
 (defun add-executives (n)
   (let ((ctr (length *evt-threads*)))
-    (dotimes (ix n)
-      (push (mp:process-run-function (format nil "Actor Thread #~D" (incf ctr))
-                                     ()
-                                     'run-actors)
-            *evt-threads*))))
+    (loop repeat n do
+            (gen-dispatch (incf ctr)))
+    ))
 #|
 (kill-actors-system)
 (restart-actors-system)
