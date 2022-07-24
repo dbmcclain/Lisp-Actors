@@ -87,7 +87,7 @@ THE SOFTWARE.
   (actor (create) :type actor)
   (args  nil      :type list))
 
-(defvar *central-mail*  (mp:make-mailbox))
+(hcl:defglobal-variable *central-mail*  (mp:make-mailbox))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME
@@ -104,9 +104,10 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defvar *nbr-pool*    8)
-(defvar *evt-threads* nil)
-(defvar *send*        nil)
+(hcl:defglobal-variable *nbr-pool*    8)
+(hcl:defglobal-variable *evt-threads* nil)
+
+(defvar *send* nil)
 
 ;; ---------------------------------
 
@@ -147,7 +148,7 @@ THE SOFTWARE.
   (lambda (new-beh)
     (declare (ignore new-beh))
     (error "not in an Actor")))
-    
+
 (defun become (new-beh)
   #F
   (check-type new-beh function)
@@ -175,6 +176,7 @@ THE SOFTWARE.
 ;; except that message sent from an earlier Actor activation will
 ;; appear in the event queue in front of messages sent by a later
 ;; Actor activation. The event queue is a FIFO queue.
+
 (defun run-actors ()
   #F
   (let (sends evt pend-beh)
@@ -205,8 +207,6 @@ THE SOFTWARE.
              (*send*             #'%send)
              (*become*           #'%become))
         
-        (declare (list *whole-message*))
-
         (loop
            (with-simple-restart (abort "Handle next event")
              (loop
