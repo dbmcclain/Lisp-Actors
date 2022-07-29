@@ -31,8 +31,8 @@ THE SOFTWARE.
 ;; -------------------------------------------------------
 
 (defmacro letrec (bindings &body body)
-  `(let ,(mapcar 'first bindings)
-     ,@(mapcar #`(setf ,@a1) bindings)
+  `(let ,(mapcar #'first bindings)
+     (setf ,@(mapcan #'identity bindings))
      ,@body))
 
 ;; -------------------------------------------------------

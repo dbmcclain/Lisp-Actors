@@ -12,19 +12,6 @@
 #+:LISPWORKS
 (editor:setup-indent "actor" 1)
 
-;; ------------------------------------
-;; ACTORS macro allows for defining new Actors which recursively
-;; reference each other in their initial state. Like LETREC, but one
-;; more layer of indirection here.
-
-(defmacro actors (bindings &body body)
-  `(let ,(mapcar #'car bindings)
-     (setf ,@(mapcan #`(,(car a1) (create ,(cadr a1))) bindings))
-     ,@body))
-
-#+:LISPWORKS
-(editor:setup-indent "actors" 1)
-
 ;; ----------------------------------------------
 
 (defun parse-list-pat (pat)

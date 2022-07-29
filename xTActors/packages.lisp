@@ -117,7 +117,6 @@ THE SOFTWARE.
    #:start-tcp-server
    #:terminate-server
 
-   #:actors
    #:future
    #:lazy
    #:sink
