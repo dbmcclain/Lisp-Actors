@@ -111,7 +111,6 @@ THE SOFTWARE.
    #:make-remote-actor
    #:concurrently
    #:actors
-   #:set-beh
    
    #:send-after
 
