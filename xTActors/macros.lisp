@@ -18,7 +18,7 @@
 
 (defun %set-beh (actor beh)
   ;; for internal use only by ACTORS macro
-  (check-type beh function)
+  (need-type beh 'function)
   (setf (actor-beh actor) beh))
 
 (defmacro actors (bindings &body body)

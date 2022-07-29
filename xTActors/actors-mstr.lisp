@@ -61,8 +61,12 @@ THE SOFTWARE.
                (:constructor %create (beh)))
   (beh #'lw:do-nothing :type function))
 
+(defun need-type (x tp)
+  (unless (typep x tp)
+    (error "type ~A expected" tp)))
+
 (defun create (&optional (fn #'lw:do-nothing))
-  (check-type fn function)
+  (need-type fn 'function)
   (%create fn))
 
 ;; --------------------------------------------------------
@@ -155,7 +159,7 @@ THE SOFTWARE.
 
 (defun become (new-beh)
   #F
-  (check-type new-beh function)
+  (need-type new-beh 'function)
   (funcall *become* new-beh))
 
 ;; -----------------------------------------------------------------
@@ -323,7 +327,7 @@ THE SOFTWARE.
 ;; The bridge between imperative code and the Actors world
 
 (defun mbox-sender-beh (mbox)
-  (check-type mbox mp:mailbox)
+  (need-type mbox 'mp:mailbox)
   (lambda (&rest ans)
     (mp:mailbox-send mbox ans)))
 
@@ -333,7 +337,7 @@ THE SOFTWARE.
 (defun ask (actor &rest msg)
   ;; Actor should expect a cust arg in first position. Here, the
   ;; mailbox.
-  (check-type actor actor)
+  (need-type actor 'actor)
   (unless self
       ;; Counterproductive when called from an Actor, except for
       ;; possible side effects. Should use BETA forms if you want the
