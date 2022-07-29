@@ -17,24 +17,9 @@
 ;; reference each other in their initial state. Like LETREC, but one
 ;; more layer of indirection here.
 
-#-:LISPWORKS7+  ;; LW7+ performs structure slot type checking, so we don't need this crutch...
-(defun set-beh (actor fn)
-  ;; help prevent mindless errors, such as:
-  ;;
-  ;;   (actors ((thing  (thing-beh my-tag))
-  ;;            (my-tag (tag thing)))  <-- oops! should have been tag-beh, not tag
-  ;;      thing)
-  ;;
-  (check-type fn function)
-  (setf (actor-beh actor) fn))
-
 (defmacro actors (bindings &body body)
-  ;; Binding values should be behavior closures
-  `(let ,(mapcar #`(,(car a1) (create)) bindings)
-     #+:LISPWORKS7+
-     ,@(mapcar #`(setf (actor-beh ,(car a1)) ,(cadr a1)) bindings)
-     #-:LISPWORKS7+
-     ,@(mapcar #`(set-beh ,(car a1) ,(cadr a1)) bindings)
+  `(let ,(mapcar #'car bindings)
+     (setf ,@(mapcan #`(,(car a1) (create ,(cadr a1))) bindings))
      ,@body))
 
 #+:LISPWORKS

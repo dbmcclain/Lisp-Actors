@@ -58,8 +58,12 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------
 
 (defstruct (actor
-               (:constructor create (&optional (beh #'lw:do-nothing))))
+               (:constructor %create (beh)))
   (beh #'lw:do-nothing :type function))
+
+(defun create (&optional (fn #'lw:do-nothing))
+  (check-type fn function)
+  (%create fn))
 
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
