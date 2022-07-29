@@ -108,8 +108,8 @@
            (send again n x))
           ))))
 
-(um:letrec ((next      (create (next-guess-beh good-enuf)))
-            (good-enuf (create (abserr-beh 0 1e-8 println next))))
+(actors ((next      (next-guess-beh good-enuf))
+         (good-enuf (abserr-beh 0 1e-8 println next)))
   (send next 10001 1))
 
 
