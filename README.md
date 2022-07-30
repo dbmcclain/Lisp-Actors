@@ -3,7 +3,7 @@
 
 The current framework has been updated and speeded up. SEND/Dispatch speed was measured to be 46ns on Intel i9 iMac (21.7M dispatches/s).
 
-There is only one global event queue (a Mailbox) with a default of 8 threads each running the dispatch loop awaiting events. This number can be changed using global var NBR-POOL. It becomes too confusing to have multiple cooperating Sponsors. So now we use just one Sponsor = collection of Dispatch threads + Event Queue. External (non-Actor) threads send message events directly to the event queue.
+There is only one global event queue (a Mailbox) with a default of 8 threads each running the dispatch loop awaiting events. This number can be changed using global var NBR-POOL. It becomes too confusing to have multiple cooperating Sponsors. So now we use just one Sponsor = collection of Dispatch threads + Event Queue. External (non-Actor) threads send message events directly to the event queue. If you have many different I/O activities that could block waiting, then simply increase the size of the dispatch pool.
 
 The current philosophy is to have each Actor behavior be an FPL pure function without side effects, so that multiple threads can be executing in parallel and concurrently within the same Actor. You maximize concurrency by having lots of little Actors sending messages to other little Actors. FPL purity is a responsibility of the Lisp programmer. Lisp allows you to abuse things to your heart's content, but lock-free parallel concurrency can only be safe with FPL pure code.
 
