@@ -42,6 +42,7 @@ This is the same as:
                          (body-of-anonymous-actor-acting-on-message-args arg1 arg2 ...)))))
     (send some-actor ANON more-args))
 ```
+Be cognizant that any and all bindings surrounding the use of the BETA macro act as behavior parameters, and should never be mutated. They become closed over in the functional closure produced by the LAMBDA form. This is as true for the original behavior parameters of the Actor as it is for any locally generated LET bindings, if those LET bindings can be viewed by more than one parallel concurrent thread.
 
 
 
