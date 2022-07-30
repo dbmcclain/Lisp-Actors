@@ -9,7 +9,7 @@ The current philosophy is to have each Actor behavior be an FPL pure function wi
 
 All BECOME and SEND operations in an executing Actor behavior function are transactionally staged, queued up locally in the running dispatch thread, and committed, in total, at behavior exit. So all SENDS occur logically simultaneously. There is no meaning to their individual ordering and you should not assume any particular ordering, except to say that all messages sent from an Actor will be enqueued later (FIFO ordering) than all messages sent by the same Actor from an earlier invocation.
 
-However, when an Actor performs BECOME, at exit only one thread running in parallel in the same Actor, will be able to commit its staged SENDs and the BECOME. That will mutate the behavior cell of the Actor and spill its sent messages into the global event queue. Any other parallel executions will fail their commits and be retried. (Hence the need for idempotent, FPL pure behaviors) 
+However, when an Actor performs BECOME, at exit only one thread running in parallel in the same Actor, will be able to commit its staged SENDs and the BECOME. That will mutate the behavior cell of the Actor and spill its sent messages into the global event queue. Any other parallel executions will fail their commits and be retried. (Hence the need for idempotent, FPL pure, behaviors) 
 
 The committed BECOME is the only visible mutation in the system. All other changes to behavior parameters should happen atomically via fresh values supplied to the BECOME behavior generating function. You should never directly mutate any behavior parameter. 
 
