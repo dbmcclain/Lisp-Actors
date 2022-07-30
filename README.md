@@ -19,7 +19,7 @@ Sent messages are accumulated locally into a chain of message events, linked by 
 
 You cannot reliably predict which thread will dispatch any particular message sent to an Actor.
 
-If an Actor exits abnormally then all of its staged BECOME and SENDS are discarded, and it is as though the errant message were never delivered. 
+If an Actor exits abnormally then all of its staged BECOME and SENDs are discarded, and it is as though the errant message were never delivered. 
 
 If an Actor cannot be safely executed in parallel, then you should serialize all accesses to that Actor using a SERIALIZER Actor acting as a gateway. But that also requires that the guarded Actor send a response message at some point to a customer Actor, where that customer was provided in the initial access message to the guarded Actor. The SERIALIZER gateway interposes itself as the customer during guarded Actor execution, and then forwards the response message back to the original customer Actor. A SERIALIZER also enqueues any additional accesses to the guarded Actor while that Actor is busy responding to a message. On reply, the SERIALIZER allows the next request to proceed.
 
