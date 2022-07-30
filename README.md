@@ -1,4 +1,5 @@
 -- 30 July 2022 -- Notes
+---
 
 The current framework has been updated and speeded up. SEND/Dispatch speed was measured to be 46ns on Intel i9 iMac (21.7M dispatches/s).
 
