@@ -1,3 +1,21 @@
+-- 30 July 2022 -- Notes
+
+The current framework has been updated and speeded up. SEND/Dispatch speed was measured to be 46ns on Intel i9 iMac (21.7M dispatches/s).
+
+There is only one global event queue (a Mailbox) with a default of 8 threads each running the dispatch loop awaiting events. This number can be changed using **NBR-POOL**. It becomes too confusing to have multiple cooperating Sponsors. So now we use just one Sponsor = collection of Dispatch threads + Event Queue. External (non-Actor) threads send message events directly to the event queue.
+
+The current philosophy is to have each Actor behavior be an FPL pure function without side effects, so that multiple threads can be operating in parallel and concurrently within the same Actor. You maximize concurrency by having lots of little Actors sending messages to other little Actors. 
+
+All BECOME and SEND operations in an executing Actor behavior function are transactional, queued up locally in the running dispatch thread, and committed at behavior exit. So all SENDS occur logically simultaneously. There is no meaning to their individual ordering and you should not assume any particular ordering except to say that all messages sent from an Actor will be enqueued later (FIFO ordering) than all messages sent by the same Actor from an earlier invocation.
+
+However, when an Actor performs BECOME, at exit only one thread running in parallel, in the same Actor, will be able to commit its SENDS and the BECOME. That will mutate the behavior cell of the Actor and spill its sent messages into the global event queue. Any other parallel executions will fail their commits and be retried. The committed BECOME is the only mutation in the system. All other changes to behavior parameters happen atomically via fresh values supplied to the BECOME function. You should never directly mutate any behavior parameter. 
+
+[E.g., you can pass a REMOVEd list argument to a behavior generator function, but you should never perform DELETE on that list, if the list is visible to any other parallel threads - i.e., a behavior parameter.]
+
+Sent messages are accumulated into a chain of message events, linked by a next pointer. When a block of messages are committed into the event queue, the entire chain is placed on the event queue. The next available thread will dequeue that chain, peel the first one off for itself, and spill the remaining messages back into the event queue. As a speed optimization, when an Actor has generated new messages, its current dispatch thread will peel off the first for itself and submit the remainder (if any) as a block to the event queue.
+
+
+
 -- Feb 8 2022 -- Reppy Channels in Actors!
 --
 File: xTActors/sync-msg.lisp
