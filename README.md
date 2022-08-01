@@ -1,3 +1,53 @@
+-- 30 July 2022 -- Notes
+---
+
+The current framework has been updated and speeded up. SEND/Dispatch speed was measured to be 46ns on Intel i9 iMac (21.7M dispatches/s).
+
+There is only one global event queue (a Mailbox) with a default of 8 threads each running the dispatch loop awaiting events. This number can be changed using global var NBR-POOL. It becomes too confusing to have multiple cooperating Sponsors. So now we use just one Sponsor = collection of Dispatch threads + Event Queue. External (non-Actor) threads send message events directly to the event queue. If you have many different I/O activities that could block waiting, then simply increase the size of the dispatch pool.
+
+The current philosophy is to have each Actor behavior be an FPL pure function without side effects, so that multiple threads can be executing in parallel and concurrently within the same Actor. You maximize concurrency by having lots of little Actors sending messages to other little Actors. FPL purity is a responsibility of the Lisp programmer. Lisp allows you to abuse things to your heart's content, but lock-free parallel concurrency can only be safe with FPL pure code. We never need to use LOCK/UNLOCK in an Actors system, which also means we don't have to worry about deadlock.
+
+All BECOME and SEND operations in an executing Actor behavior function are transactionally staged, queued up locally in the running dispatch thread, and committed, in total, at behavior exit. So all SENDS occur logically simultaneously. There is no meaning to their individual ordering and you should not assume any particular ordering, except to say that all messages sent from an Actor will be enqueued later (FIFO ordering) than all messages sent by the same Actor from an earlier invocation.
+
+However, when an Actor performs BECOME, at exit only one thread running in parallel in the same Actor, will be able to commit its staged SENDs and the BECOME. That will mutate the behavior cell of the Actor and spill its sent messages into the global event queue. Any other parallel executions will fail their commits and be retried. (Hence the need for idempotent, FPL pure, behaviors) 
+
+The committed BECOME is the only visible mutation in the system. All other changes to behavior parameters should happen atomically via fresh values supplied to the BECOME behavior generating function. You should never directly mutate any behavior parameter. 
+
+E.g., you can pass a REMOVEd list argument to a behavior generating function, but you should never perform DELETE on that list, if that list is visible to any other parallel threads - i.e., a behavior parameter.
+
+Sent messages are accumulated locally into a chain of message events, linked by next pointers. When a block of messages is committed into the event queue, the entire chain is placed on the event queue. The next available thread will dequeue that chain, peel off the first message for itself, and spill the remaining messages back into the event queue. As a speedup optimization, when an Actor has generated new messages, its current dispatch thread will peel off the first for itself and submit the remainder (if any) as a block to the event queue.
+
+You cannot reliably predict which thread will dispatch any particular message sent to an Actor.
+
+If an Actor exits abnormally then all of its staged BECOME and SENDs are discarded, and it is as though the errant message were never delivered. 
+
+If an Actor cannot be safely executed in parallel, then you should serialize all accesses to that Actor using a SERIALIZER Actor acting as a gateway. But that also requires that the guarded Actor send a response message at some point to a customer Actor, where that customer was provided in the initial access message to the guarded Actor. The SERIALIZER gateway interposes itself as the customer during guarded Actor execution, and then forwards the response message back to the original customer Actor. A SERIALIZER also enqueues any additional accesses to the guarded Actor while that Actor is busy responding to a message. On reply, the SERIALIZER allows the next request to proceed.
+
+Quite unlike the CALL / RETURN semantics of Lisp, an Actor system has no concept of dynamic scope. There is only ever one Actor deep, performing its behavior function against a message. There can be no UNWIND-PROTECT in a distributed Actor concurrent system. If you need alternate behavior depending on some outcome, then supply a success/failure pair of customers to the Actor. Or have the customer respond to a success/failure message.
+
+There are two broad categories of messages sent to Actors. Many (most?) have a customer Actor argument to which additional messages or responses should be sent. By convention a customer is always the first argument of those messages. The other kind of message has no customer. It is simply a command of some type, and no response is expected. But unlike CALL/RETURN semantics, any responses are sent to a customer, and not back to the sender of the message.
+
+To help out, we have the BETA macro which has a syntax much like MULTIPLE-VALUE-BIND. The BETA macro creates an anonymous continuation Actor (just like LAMBDA produces an anonymous function), and the name BETA can be used as a noun, in that form, referring to that anonymous Actor to designate a customer argument in a sent message.
+
+```
+(beta (arg1 arg2 ...)
+      (send some-actor BETA more-args ...)
+   (body-of-anonymous-actor-acting-on-message-args arg1 arg2 ...)
+   ...)
+```
+
+This is the same as:
+
+```
+  (let ((anon (create (lambda (arg1 arg2 ...)
+                         (body-of-anonymous-actor-acting-on-message-args arg1 arg2 ...)
+                         ...))))
+    (send some-actor ANON more-args ...))
+```
+Be cognizant that any and all bindings surrounding the use of the BETA macro act as behavior parameters, and should never be mutated. They become closed over in the functional closure produced by the LAMBDA form. This is as true for the original behavior parameters of the enclosing Actor as it is for any locally generated LET bindings, if those LET bindings can be viewed by more than one parallel concurrent thread.
+
+
+
 -- Feb 8 2022 -- Reppy Channels in Actors!
 --
 File: xTActors/sync-msg.lisp
