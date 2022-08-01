@@ -172,22 +172,25 @@
    ;; -------------------
    ;; The db gateway is the only one that knows saver's identity.
    ;; Don't bother doing anything unless the db has changed.
-   ((cust :save-log new-db) / (not (eql new-db last-db))
-    (handler-case
-        (with-open-file (f path
-                           :direction         :output
-                           :if-exists         :append
-                           :if-does-not-exist :error
-                           :element-type      '(unsigned-byte 8))
-          (let ((delta (get-diffs last-db new-db)))
-            (loenc:serialize delta f
-                             :self-sync t)
-            ))
-        (error ()
-          ;; expected possible error due to file not existing yet
-          (full-save path new-db)))
-    (become (save-database-beh path new-db))
-    (send cust :ok))
+   ((cust :save-log new-db)
+    (let ((new-ver  (maps:find new-db  'version))
+          (prev-ver (maps:find last-db 'version)))
+      (when (uuid:uuid-time< prev-ver new-ver)
+        (handler-case
+            (with-open-file (f path
+                               :direction         :output
+                               :if-exists         :append
+                               :if-does-not-exist :error
+                               :element-type      '(unsigned-byte 8))
+              (let ((delta (get-diffs last-db new-db)))
+                (loenc:serialize delta f
+                                 :self-sync t)
+                ))
+          (error ()
+            ;; expected possible error due to file not existing yet
+            (full-save path new-db)))
+        (become (save-database-beh path new-db)))
+    (send cust :ok)))
    ))
 
 (defun unopened-database-beh ()
@@ -231,7 +234,8 @@
                    (error "Not a db file"))
                   )))
         (error ()
-          (full-save db-path (maps:empty))))
+          (setf db (maps:add (maps:empty) 'version (uuid:make-v1-uuid)))
+          (full-save db-path db)))
       (become (save-database-beh db-path db))
       (send cust :opened db)))
    ))
