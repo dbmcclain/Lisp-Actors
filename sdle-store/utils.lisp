@@ -113,6 +113,13 @@
     (long-float 3)))
 
 (defun get-float-type (num)
+  #+:LISPWORKS
+  (ecase num
+    (0 1.0f0)
+    (1 1.0d0)
+    (2 1.0s0)
+    (3 1.0l0))
+  #-:LISPWORKS
   (ecase num
     (0 1.0e0)
     (1 1.0d0)
@@ -181,7 +188,7 @@ Modified to work on non proper lists."
        (fast list (cddr fast))          ;Fast pointer: leaps by 2.
        (slow list (cdr slow)))          ;Slow pointer: leaps by 1.
       (nil)
-    (cond ((null fast)                  (return (values n nil)))
+    (cond ;; ((null fast)                  (return (values n nil))) ;; redundant, null is not consp
           ((not (consp fast))           (return (values n fast)))
           ((not (consp (cdr fast)))     (return (values (1+ n) (cdr fast))))
           ;; ((null (cdr fast))            (return (values (1+ n) (cdr fast))))  ;; redundant, null is not consp
