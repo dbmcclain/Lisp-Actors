@@ -24,12 +24,39 @@
             )))
 
 ;; ------------------------------------------------------------------
+;; Encoding
+;;   +-----------+---------+------------+---------------+---------------+--//--+
+;;   | #xFE #xFD | VER (1) | NSHORT (1) | Short Segment | Long Segments | ...  |
+;;   +-----------+---------+------------+---------------+---------------+--//--+
+;;
+;;     Short Segment
+;;     +-----------+-------------+------------------------+
+;;     | CRC32 (4) | Enc Len (4) | First Bytes (NSHORT-8) |
+;;     +-----------+-------------+------------------------+
+;;
+;;     Long Segment
+;;     +---------+----------+------------+
+;;     | Rem (1) | Quot (1) | More Bytes |
+;;     +---------+----------+------------+
+;;
+;; Segments are msg chunks located between sequences of #xFE #xFD (the start seq).
+;; Short Segment has max length of #xFC = 252 bytes.
+;; Long Segments have max length of 252*252-1 = 63503 bytes.
+;; Enocding has embedded start sequences elided - replaced at segment boundaries upon decoding.
+;; No valid internal encodings have start sequences embedded.
+;; CRC32 is over the 4 byte Enc Len + original message bytes.
+;; Damaged encodings can be resync'd at next start sequence.
+;;
+;; ------------------------------------------------------------------
 (defconstant +long-count-base+  #xFD)
 (defconstant +max-short-count+  (1- +long-count-base+))
 (defconstant +max-long-count+   (1- (* +long-count-base+ +long-count-base+)))
 (defconstant +start-sequence+   #(#xFE #xFD))
 ;; ------------------------------------------------------------------
-  
+;; Note: Use of XAREF, XPOSITION, XLENGTH, XWRITE-SEQUENCE, allows for
+;; scatter-gather vectors. Hopefully more efficient than copying and
+;; concatenating vectors.
+
 (defun find-start-seq (enc start end)
   (when (< start (1- end))
     (when-let (pos (xposition #xFE enc
