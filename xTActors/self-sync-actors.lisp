@@ -175,7 +175,7 @@
 (defstruct stuffer-data
   needs-fefd? crcv lenv nb)
 
-(defun stuffer (aout stuff-fn)
+(defun stuffer (aout stuff-fn dest)
   (let (needs-fefd?
         crcv
         lenv
@@ -194,7 +194,7 @@
       (:stuff (b)
        (funcall stuff-fn b aout))
 
-      (:check-finish (dest)        
+      (:check-finish ()        
        (when needs-fefd?
          (funcall stuff-fn #xFE aout)
          (funcall stuff-fn #xFD aout))
@@ -216,22 +216,24 @@
          ))
       )))
 
-(defun make-stuffer (max-reclen)
+(defun make-stuffer (dest max-reclen)
   (if max-reclen
       (stuffer (make-ubv (+ max-reclen 8)
                          :fill-pointer 0)
-              #'vector-push)
+              #'vector-push
+              dest)
     ;; else
     (stuffer (make-ubv 256
                        :fill-pointer 0
                        :adjustable   t)
-            #'vector-push-extend)))
+            #'vector-push-extend
+            dest)))
 
 ;; --------------------------------------------------------
 ;; A state machine in call/return semantics, providing an Actor shell
 ;; for external use.
 
-(defun ssfsm (dest stuffer)
+(defun ssfsm (stuffer)
   (let (state
         ct)
     (macrolet ((new-state (fn)
@@ -277,7 +279,7 @@
                         (funcall stuffer :stuff b)
                         (when (zerop ct)
                           (new-state read-long-count)
-                          (funcall stuffer :check-finish dest)))
+                          (funcall stuffer :check-finish)))
                        ))
                (check-frag-fd (b)
                  (cond ((eql b #xFD) ;; we just saw a start pattern #xFE #xFD
@@ -302,7 +304,7 @@
                         (funcall stuffer :init-frag ct)
                         (cond ((zerop ct)
                                (new-state read-long-count)
-                               (funcall stuffer :check-finish dest))
+                               (funcall stuffer :check-finish))
                               (t
                                (new-state read-frag))
                               ))
@@ -317,7 +319,7 @@
         ))))
 
 (defun make-decoder-fsm (dest &key max-reclen)
-  (serializer (create (ssfsm dest (make-stuffer max-reclen)))))
+  (serializer (create (ssfsm (make-stuffer dest max-reclen)))))
 
 ;; -----------------------------------------------------------------
 ;; Stream Decoding
