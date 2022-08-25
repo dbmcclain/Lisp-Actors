@@ -35,6 +35,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
                 (:file "prim-actors")
                 (:file "debugging")
+                (:file "self-sync-actors")
                 (:file "encoding")
                 (:file "transactional-db")
                 (:file "reactive")

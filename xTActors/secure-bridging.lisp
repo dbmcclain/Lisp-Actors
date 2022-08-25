@@ -207,7 +207,7 @@
 
 ;; ---------------------------------------------------
 ;; Composite Actor pipes
-
+#||#
 (defun secure-sender (ekey)
   (pipe (marshal-encoder)
         (marshal-compressor)
@@ -215,7 +215,8 @@
         (checksum)
         (marshal-encoder)
         (encryptor ekey)
-        (rep-signing ekey)))
+        (rep-signing ekey)
+        ))
 
 (defun secure-reader (ekey echo)
   (pipe (rep-sig-validation ekey echo) ;; sig validation with sig-keying broadcast
@@ -225,6 +226,21 @@
         (dechunker)
         (marshal-decompressor)
         (marshal-decoder)))
+#||#
+
+#|
+(defun secure-sender (ekey)
+  (pipe (marshal-encoder)
+        (marshal-compressor)
+        (encryptor ekey)
+        (rep-signing ekey)))
+
+(defun secure-reader (ekey echo)
+  (pipe (rep-sig-validation ekey echo) ;; sig validation with sig-keying broadcast
+        (decryptor ekey)
+        (marshal-decompressor)
+        (marshal-decoder)))
+|#
 
 (defun sig-key-bcast (socket)
   (α (seq sig-key)
