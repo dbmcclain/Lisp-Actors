@@ -65,6 +65,11 @@ THE SOFTWARE.
   (unless (typep x tp)
     (error "type ~A expected" tp)))
 
+(defun %set-beh (actor beh)
+  ;; for internal use only by ACTORS macro
+  (need-type beh 'function)
+  (setf (actor-beh actor) beh))
+
 (defun create (&optional (fn #'lw:do-nothing))
   (need-type fn 'function)
   (%create fn))

@@ -146,12 +146,12 @@
 (defun marshal-encoder ()
   (actor (cust &rest args)
     ;; (send dbg-println "Marshal Encoder")
-    (send cust (loenc:encode args))))
+    (send cust (loenc:encode (coerce args 'vector)))))
 
 (defun marshal-decoder ()
   (actor (cust vec)
     ;; (send dbg-println "Marshal Decoder")
-    (send* cust (loenc:decode vec))))
+    (send* cust (coerce (loenc:decode vec) 'list))))
 
 (defun fail-silent-marshal-decoder ()
   (actor (cust vec)
@@ -166,7 +166,7 @@
     (let ((dec (ignore-errors
                  (loenc:decode vec))))
       (when dec
-        (send* cust dec))
+        (send* cust (coerce dec 'list)))
       )))
 
 #|

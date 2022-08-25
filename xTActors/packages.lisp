@@ -146,6 +146,7 @@ THE SOFTWARE.
    ;; #:scheduled-message
    ;; #:schedule-after
    #:serializer
+   #:serializer-beh
    #:unblock-serializer
    #:timing
    #:sequenced-delivery
@@ -239,6 +240,8 @@ THE SOFTWARE.
    #:close-file
    #:secure-erase
    #:perform
+
+   #:%set-beh
    ))
 
 #-lispworks

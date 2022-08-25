@@ -16,11 +16,6 @@
 ;; ACTORS - for cross referenced ACTOR constructions, like LETREC with
 ;; an extra layer of indirection.
 
-(defun %set-beh (actor beh)
-  ;; for internal use only by ACTORS macro
-  (need-type beh 'function)
-  (setf (actor-beh actor) beh))
-
 (defmacro actors (bindings &body body)
   `(let ,(mapcar #`(,(car a1) (create)) bindings)
      ,@(mapcar #`(%set-beh ,(car a1) ,(cadr a1)) bindings)
