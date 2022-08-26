@@ -16,7 +16,9 @@ So while we can write an Actors based state machine, it is actually simpler (and
 
 But there is still one twist that must be managed - while the TCP machine always presents incoming packet fragments in chronological order, once those fragments are sent in messages to the Actors system, the order in which the fragments are handled can become arbitrary. In a self-synchronizing encoding the arrival order has importance. 
 
-(Actors always respect the arrival order of messages in the event queue, but in a fully parallel concurrent Actors system, some later Actors may operate on new messages before earlier ones have finished. This can scramble the arrival order of fragments to the TCP reader queue - which is distinct from the event queue.)
+(Actors always respect the arrival order of messages in the event queue, but in a fully parallel concurrent Actors system, some later Actors may operate on new messages before earlier ones have finished. This can scramble the arrival order of fragments to the TCP reader queue - which is distinct from the event queue.
+
+Here is the crux of the problem - in a lock-free parallel concurrent system, how do you move messages from one shared queue to another shared queue all while preserving the original order?)
 
 So we call upon Actors to implement a proper order control on incoming packet fragments. As they are received by the underlying async TCP reader, each fragment is assigned a sequential serial number before being sent to the Actors system. On the Actors side the fragments are retrieved from an arrival queue in sequential order, or else the Actor pauses until it finally receives the next sequential packet fragment. This kind of sequencing logic is far easier to implement with Actors than with Call/Return programming.
 
