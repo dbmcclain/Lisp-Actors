@@ -1,3 +1,19 @@
+-- 26 August 2022 -- Self Synchronizing TCP Framing
+---
+Many TCP protocols use either length prefixing or embedded delimiters for indicating message boundaries. Today we implemented a different, and possibly better, method - self-synchronizing encoding.
+
+The problem with length prefixing is that a corrupted message could indicate an incorrect message size. As a result, the entire future stream of data will have lost sync lock. This is an easy target for DOS attacks. Sanity limits on message sizes across TCP should always be employed, but this doesn't help with loss of message boundary sync.
+
+Self-sync encoding has some similarities with embedded delimiters. But rather than singling out a single byte value as the delimiter, ours borrows from ideas presented by Paul Khuong, and uses the sync symbol pair #xFE #xFD as the delimiter. I wanted to see if this encoding would be suitable for TCP message handling. It turns out to be very successful, vastly reduces the complexity of the TCP message reader, and uses a simple state machine for encoding and decoding of messages.
+
+In fact, once implemented on the reader side, the entirety of the TCP socket reader code could be eliminated. All we do is send incoming async message fragments to the decoder state machine and let it decide when it has seen a complete message. We don't have to worry about length sanity checking on the incoming fragments - they will have already been limited by the underlying TCP machinery. If a message becomes damaged enroute, we simply lose that particular message, and perhaps, the following one, until we reestablish message boundary sync.
+
+State machines can be readily managed with Actors code. But there are requirements of operation sequencing that must be managed. Users of Call/Return programming systems already have this kind of operation sequencing since the next operation can only proceed after the current one returns. But Actors in a fully parallel concurrent system have to be forced to operate sequentially. It does not happen naturally. Actors can and usually do operate in a randomized order since we have multiple threads operating on the event message queue.
+
+So while we can write an Actors based state machine, it is actually simpler to just write it with Call/Return semantics. We need to operate in both worlds, since the natural way to write the TCP receive interaction is via message passing. But inside the message reciever we resort to Call/Return for the FSM to give us the natural sequencing of operations needed by the FSM.
+
+
+
 -- 30 July 2022 -- Notes
 ---
 
