@@ -172,48 +172,51 @@
 ;; automatically provides the correct seequencing due to call/return
 ;; semantics.
 
-(defstruct stuffer-data
-  needs-fefd? crcv lenv nb)
-
 (defun stuffer (aout stuff-fn dest)
   (let (needs-fefd?
         crcv
         lenv
-        nel)
+        nel
+        done)
     (um:dlambda
       (:init (size)
        (setf needs-fefd? (< size +max-short-count+)
              crcv        nil
              lenv        nil
              nel         nil
+             done        nil
              (fill-pointer aout) 0))
 
       (:init-frag (size)
-       (setf needs-fefd? (< size +max-long-count+)))
+       (unless done
+         (setf needs-fefd? (< size +max-long-count+))))
 
       (:stuff (b)
-       (funcall stuff-fn b aout))
+       (unless done
+         (funcall stuff-fn b aout)))
 
-      (:check-finish ()        
-       (when needs-fefd?
-         (funcall stuff-fn #xFE aout)
-         (funcall stuff-fn #xFD aout))
-       (let ((nbuf (length aout)))
-         (when (>= nbuf 8)
-           (let* ((crc (or crcv
-                           (setf crcv (subseq aout 0 4))))
-                  (len (or lenv
-                           (setf lenv (subseq aout 4 8))))
-                  (nb  (or nel
-                        (setf nel (vec-le4-to-int len)))))
-             (when (>= nbuf (+ nb 8))
-               (let* ((ans (subseq aout 8 (+ nb 8)))
-                      (chk (crc32 len ans)))
-                 (when (equalp crc chk)
-                   (send dest ans))
-                 ))
-             ))
-         ))
+      (:check-finish ()
+       (unless done
+         (when needs-fefd?
+           (funcall stuff-fn #xFE aout)
+           (funcall stuff-fn #xFD aout))
+         (let ((nbuf (length aout)))
+           (when (>= nbuf 8)
+             (let* ((crc (or crcv
+                             (setf crcv (subseq aout 0 4))))
+                    (len (or lenv
+                             (setf lenv (subseq aout 4 8))))
+                    (nb  (or nel
+                             (setf nel (vec-le4-to-int len)))))
+               (when (>= nbuf (+ nb 8))
+                 (let* ((ans (subseq aout 8 (+ nb 8)))
+                        (chk (crc32 len ans)))
+                   (when (equalp crc chk)
+                     (setf done t)
+                     (send dest ans))
+                   ))
+               ))
+           )))
       )))
 
 (defun make-stuffer (dest max-reclen)
@@ -351,8 +354,7 @@
             (t
              (become (stream-decoder-beh fsm next-bufix queue)))
             )))
-         
-   
+            
    ((:deliver next-bufix next-buf)
     (become (busy-stream-decoder-beh fsm bufix (maps:add queue next-bufix next-buf))))
 
