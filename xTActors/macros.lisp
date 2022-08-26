@@ -152,7 +152,8 @@
              ;; this beta redef lasts only for the next form
              ,form))
       ;; else
-      `(let ((beta  (actor ,args ,@body)))
+      `(let (beta)
+         (setf beta  (actor ,args ,@body))
          ,form)
       )))
 
