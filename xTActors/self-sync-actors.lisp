@@ -322,7 +322,7 @@
         ))))
 
 (defun make-decoder-fsm (dest &key max-reclen)
-  (serializer (create (ssfsm (make-stuffer dest max-reclen)))))
+  (create (ssfsm (make-stuffer dest max-reclen))))
 
 ;; -----------------------------------------------------------------
 ;; Stream Decoding
