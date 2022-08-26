@@ -177,7 +177,7 @@
         crcv
         lenv
         nel
-        done)
+        (done t))
     (um:dlambda
       (:init (size)
        (setf needs-fefd? (< size +max-short-count+)
