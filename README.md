@@ -14,6 +14,8 @@ State machines can be readily managed with Actors code. But there are requiremen
 
 So while we can write an Actors based state machine, it is actually simpler (and operates faster) to just write it with Call/Return semantics. We need to operate in both worlds, since the natural way to write the TCP receive interaction is via message passing. But inside the message reciever we resort to Call/Return for the FSM to give us the natural sequencing of operations needed by the FSM.
 
+(In a twist of conventional state machine programming, we want to recognize valid whole messages embedded in a stream. We must not look ahead by one symbol, or to an EOF indicator, to discern the end of a message. We need to know and act when a message is complete, without waiting to see what might come next. This is a stream decoder, where the stream has an unknown and indefinite future.)
+
 But there is still one twist that must be managed - while the TCP machine always presents incoming packet fragments in chronological order, once those fragments are sent in messages to the Actors system, the order in which the fragments are handled can become arbitrary. In a self-synchronizing encoding the arrival order has importance. 
 
 (Actors always respect the arrival order of messages in the event queue, but in a fully parallel concurrent Actors system, some later Actors may operate on new messages before earlier ones have finished. This can scramble the arrival order of fragments to the TCP reader queue - which is distinct from the event queue.
