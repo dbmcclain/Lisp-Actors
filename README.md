@@ -4,7 +4,7 @@ Many TCP protocols use either length prefixing or embedded delimiters for indica
 
 The problem with length prefixing is that a corrupted message could indicate an incorrect message size. As a result, the entire future stream of data will have lost sync lock. This is an easy target for DOS attacks. Sanity limits on message sizes across TCP should always be employed, but this doesn't help with loss of message boundary sync.
 
-Self-sync encoding has some similarities with embedded delimiters. But rather than singling out a single byte value as the delimiter, ours borrows from ideas presented by Paul Khuong, and uses the sync symbol pair #xFE #xFD as the delimiter. His is an efficient system using these delimiters and run-length encoding, and uses an encoder to avoid any embedded start sequences in the body of the message. 
+Self-sync encoding has some similarities with embedded delimiters. But rather than singling out a single byte value as the delimiter, ours borrows from ideas presented by Paul Khuong, and uses the sync symbol pair #xFE #xFD as the delimiter. His is an efficient system using these delimiters and run-length encoding, and uses an encoder to avoid any embedded start sequences in the body of the message. The protocol always begins new messages with the delimiter start sequence, and uses embedded length encoding with a CRC cross check. 
 
 I wanted to see if this encoding would be suitable for TCP message handling. It turns out to be very successful, vastly reduces the complexity of the TCP message reader, and uses a simple state machine for encoding and decoding of messages.
 
