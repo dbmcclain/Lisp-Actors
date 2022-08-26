@@ -3,6 +3,7 @@
   (:use :cl :ac)
   (:export
    #:encode
+   #:decode
    #:stream-decoder
    ))
 

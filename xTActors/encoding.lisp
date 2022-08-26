@@ -514,12 +514,12 @@
 (defun self-sync-encoder ()
   ;; takes a bytevec and produces a self-sync bytevec
   (actor (cust bytevec)
-    (send cust (self-sync:encode bytevec))))
+    (send cust (ssact:encode bytevec))))
 
 (defun self-sync-decoder ()
   ;; takes a self-sync bytevec and produces a bytevec
   (actor (cust bytevec)
-    (send cust (self-sync:decode bytevec))))
+    (send cust (ssact:decode bytevec))))
 
 (defun checksum ()
   ;; produce a prefix checksum on the message
