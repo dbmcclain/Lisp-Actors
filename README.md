@@ -20,7 +20,7 @@ But there is still one twist that must be managed - while the TCP machine always
 
 Here is the crux of the problem - in a lock-free parallel concurrent system, how do you move messages from one shared queue to another shared queue all while preserving the original order?)
 
-So we call upon Actors to implement a proper order control on incoming packet fragments. As they are received by the underlying async TCP reader, each fragment is assigned a sequential serial number before being sent to the Actors system. On the Actors side the fragments are retrieved from an arrival queue in sequential order, or else the Actor pauses until it finally receives the next sequential packet fragment. This kind of sequencing logic is far easier to implement with Actors than with Call/Return programming.
+So we call upon Actors to implement a proper order control on incoming packet fragments. As they are received by the underlying async TCP reader, each fragment is assigned a sequential serial number before being sent to the Actors system. On the Actors side the fragments are retrieved from an arrival queue in sequential order, or else the Actor pauses until it receives the next sequential packet fragment. This kind of sequencing logic is far easier to implement with Actors than with Call/Return programming.
 
 (Call/Return would need something like CoRoutines to pull this off. An Actors machine is a natural coroutine machine, since the event handler is a kind of trampoline, even though we are operating in a Call/Return architecture. Trampolining is one method for performing coroutines and continuations.)
 
