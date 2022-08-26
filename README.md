@@ -1,3 +1,27 @@
+-- 26 August 2022 -- Self Synchronizing TCP Framing
+---
+Many TCP protocols use either length prefixing or embedded delimiters for indicating message boundaries. Today we implemented a different, and possibly better, method - self-synchronizing encoding. TCP is a stream protocol, not a message protocol. So if the stream contains embedded messages, it is up to us to find them.
+
+The problem with length prefixing is that a corrupted message could indicate an incorrect message size. As a result, the entire future stream of data will have lost sync lock. This is an easy target for DOS attacks. Sanity limits on message sizes across TCP should always be employed, but this doesn't help with loss of message boundary sync.
+
+Self-sync encoding has some similarities with embedded delimiters. But rather than singling out a single byte value as the delimiter, ours borrows from ideas presented by Paul Khuong, and uses the sync symbol pair #xFE #xFD as the delimiter. I wanted to see if this encoding would be suitable for TCP message handling. It turns out to be very successful, vastly reduces the complexity of the TCP message reader, and uses a simple state machine for encoding and decoding of messages.
+
+In fact, once implemented on the reader side, the entirety of the TCP socket reader code could be eliminated. All we do is send incoming async message fragments to the decoder state machine and let it decide when it has seen a complete message. We don't have to worry about length sanity checking on the incoming fragments - they will have already been limited by the underlying TCP machinery. If a message becomes damaged enroute, we simply lose that particular message, and perhaps, the following one, before we reestablish message boundary sync.
+
+State machines can be readily managed with Actors code. But there are requirements of operation sequencing that must be managed. Users of Call/Return programming systems already have this kind of operation sequencing since the next operation can only proceed after the current one returns. But Actors in a fully parallel concurrent system have to be forced to operate sequentially. It does not happen naturally. Actors can, and usually do, operate in a randomized order since we have multiple threads operating on the event message queue.
+
+So while we can write an Actors based state machine, it is actually simpler (and operates faster) to just write it with Call/Return semantics. We need to operate in both worlds, since the natural way to write the TCP receive interaction is via message passing. But inside the message reciever we resort to Call/Return for the FSM to give us the natural sequencing of operations needed by the FSM.
+
+But there is still one twist that must be managed - while the TCP machine always presents incoming packet fragments in chronological order, once those fragments are sent in messages to the Actors system, the order in which the fragments are handled can become arbitrary. In a self-synchronizing encoding the arrival order has importance. 
+
+(Actors always respect the arrival order of messages in the event queue, but some Actors may finish before earlier ones, and proceed to operate on the next fragment before an earlier one has completed. This ends up scrambling the processing order in a parallel concurrent state machine.)
+
+So we call upon Actors to implement a proper order control on incoming packet fragments. As they are received by the underlying async TCP reader, each fragment is assigned a sequential serial number before being sent to the Actors system. On the Actors side the fragments are retrieved from an arrival queue in sequential order, or else the Actor pauses until it finally receives the next sequential packet fragment. This kind of sequencing logic is far easier to implement with Actors than with Call/Return programming.
+
+With Actors on a Call/Return architecture we actually have the best of both worlds in some sense. TCP self-sync encoding is a successful example of this.
+
+
+
 -- 30 July 2022 -- Notes
 ---
 
