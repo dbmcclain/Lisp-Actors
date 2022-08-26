@@ -216,7 +216,8 @@
 
 (µ β (args form &body body)
   ;; β is to beta
-  `(let ((β  (α ,args ,@body)))
+  `(let (β)
+     (setf β  (α ,args ,@body))
      ,form))
 
 (editor:setup-indent "α" 1)
