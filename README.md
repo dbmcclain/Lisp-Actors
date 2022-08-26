@@ -1,6 +1,6 @@
 -- 26 August 2022 -- Self Synchronizing TCP Framing
 ---
-Many TCP protocols use either length prefixing or embedded delimiters for indicating message boundaries. Today we implemented a different, and possibly better, method - self-synchronizing encoding.
+Many TCP protocols use either length prefixing or embedded delimiters for indicating message boundaries. Today we implemented a different, and possibly better, method - self-synchronizing encoding. TCP is a stream protocol, not a message protocol. So if the stream contains embedded messages, it is up to us to find them.
 
 The problem with length prefixing is that a corrupted message could indicate an incorrect message size. As a result, the entire future stream of data will have lost sync lock. This is an easy target for DOS attacks. Sanity limits on message sizes across TCP should always be employed, but this doesn't help with loss of message boundary sync.
 
