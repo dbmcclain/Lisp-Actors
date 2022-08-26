@@ -10,7 +10,7 @@ In fact, once implemented on the reader side, the entirety of the TCP socket rea
 
 State machines can be readily managed with Actors code. But there are requirements of operation sequencing that must be managed. Users of Call/Return programming systems already have this kind of operation sequencing since the next operation can only proceed after the current one returns. But Actors in a fully parallel concurrent system have to be forced to operate sequentially. It does not happen naturally. Actors can, and usually do, operate in a randomized order since we have multiple threads operating on the event message queue.
 
-So while we can write an Actors based state machine, it is actually simpler to just write it with Call/Return semantics. We need to operate in both worlds, since the natural way to write the TCP receive interaction is via message passing. But inside the message reciever we resort to Call/Return for the FSM to give us the natural sequencing of operations needed by the FSM.
+So while we can write an Actors based state machine, it is actually simpler (and operates faster) to just write it with Call/Return semantics. We need to operate in both worlds, since the natural way to write the TCP receive interaction is via message passing. But inside the message reciever we resort to Call/Return for the FSM to give us the natural sequencing of operations needed by the FSM.
 
 But there is still one twist that must be managed - while the TCP machine always presents incoming packet fragments in chronological order, once those fragments are sent in messages to the Actors system, the order in which the fragments are handled can become arbitrary. In a self-synchronizing encoding the arrival order has importance. 
 
