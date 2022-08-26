@@ -14,6 +14,8 @@ So while we can write an Actors based state machine, it is actually simpler (and
 
 But there is still one twist that must be managed - while the TCP machine always presents incoming packet fragments in chronological order, once those fragments are sent in messages to the Actors system, the order in which the fragments are handled can become arbitrary. In a self-synchronizing encoding the arrival order has importance. 
 
+(Actors always respect the arrival order of messages in the event queue, but some Actors may finish before earlier ones, and proceed to operate on the next fragment before an earlier one is completed. This ends up scrambling the processing order in a parallel concurrent state machine.)
+
 So we call upon Actors to implement a proper order control on incoming packet fragments. As they are received by the underlying async TCP reader, each fragment is assigned a sequential serial number before being sent to the Actors system. On the Actors side the fragments are retrieved from an arrival queue in sequential order, or else the Actor pauses until it finally receives the next sequential packet fragment. This kind of sequencing logic is far easier to implement with Actors than with Call/Return programming.
 
 With Actors on a Call/Return architecture we actually have the best of both worlds in some sense. TCP self-sync encoding is a successful example of this.
