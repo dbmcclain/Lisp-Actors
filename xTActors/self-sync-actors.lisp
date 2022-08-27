@@ -178,6 +178,7 @@
 ;; for external use.
 
 (defun ssfsm-beh (dest aout stuff-fn)
+  #F
   (let (state          ;; machine state function
         need-fefd      ;; when T we may need to insert #xFEFD
         (remct 0)      ;; segment bytes remaining
