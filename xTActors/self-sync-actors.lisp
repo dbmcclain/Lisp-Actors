@@ -178,27 +178,31 @@
 ;; for external use.
 
 (defun ssfsm-beh (dest aout stuff-fn)
-  (let (state     ;; machine state function
-        need-fefd ;; when T we may need to insert #xFEFD
-        remct     ;; segment bytes remaining
-        crcv      ;; copy of 4-byte CRC field
-        lenv      ;; copy of 4-byte length field
-        nel)      ;; expected message length
+  (let (state          ;; machine state function
+        need-fefd      ;; when T we may need to insert #xFEFD
+        (remct 0)      ;; segment bytes remaining
+        crcv           ;; copy of 4-byte CRC field
+        lenv           ;; copy of 4-byte length field
+        (nel   -1))    ;; expected message length
+    (declare (fixnum remct nel))
     (macrolet ((new-state (fn)
                  `(setf state #',fn)))
       (labels (;; --------------------
                ;; Utility Functions
                (subrange-code? (b)
+                 (declare (fixnum b))
                  (<= 0 b #xFC))
                
                (stuffer-init (ct)
-                 (setf nel       nil
+                 (declare (fixnum ct))
+                 (setf nel       -1
                        remct     ct
                        need-fefd (< ct +max-short-count+)
                        (fill-pointer aout) 0)
                  (new-state read-segm))
 
                (segm-init (ct)
+                 (declare (fixnum ct))
                  (setf remct     ct
                        need-fefd (< ct +max-long-count+))
                  (new-state read-segm)
@@ -214,11 +218,12 @@
 
                (check-finish ()
                  (when (zerop remct)
-                   (unless nel
+                   (when (minusp nel)
                      (setf crcv (subseq aout 0 4)
                            lenv (subseq aout 4 8)
                            nel  (+ 8 (vec-le4-to-int lenv))))
                    (let ((nbuf  (length aout)))
+                     (declare (fixnum nbuf))
                      (when (and need-fefd
                                 (< nbuf nel))
                        (raw-stuff #xFE)
@@ -245,13 +250,16 @@
                ;; ----------------
                ;; Machine States
                (start (b)
+                 (declare (fixnum b))
                  (when (eql b #xFE)
                    (new-state check-start-fd)))
                (check-start-fd (b)
+                 (declare (fixnum b))
                  (if (eql b #xFD)
                      (new-state check-version)
                    (restart b)))
                (check-version (b)
+                 (declare (fixnum b))
                  (if (eql b #x01)
                      (new-state read-short-count)
                    (restart b)))
@@ -260,11 +268,13 @@
                      (stuffer-init b)
                    (restart b)))
                (read-segm (b)
+                 (declare (fixnum b))
                  (if (and (eql b #xFE)
                           (> remct 1))
                      (new-state check-segm-fd)
                    (stuff b)))
                (check-segm-fd (b)
+                 (declare (fixnum b))
                  (cond ((eql b #xFD) ;; we just saw a start pattern #xFE #xFD
                         (new-state check-version))
                        (t
@@ -273,6 +283,7 @@
                         (read-segm b))
                        ))
                (read-long-count (b)
+                 (declare (fixnum b))
                  (cond ((subrange-code? b)
                         (setf remct b)
                         (new-state read-long-count-2))
@@ -280,6 +291,7 @@
                         (restart b))
                        ))
                (read-long-count-2 (b)
+                 (declare (fixnum b))
                  (if (subrange-code? b)
                      (segm-init (+ remct (* b +long-count-base+)))
                    (restart b))))
