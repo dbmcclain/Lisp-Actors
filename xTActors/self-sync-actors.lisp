@@ -154,8 +154,8 @@
 ;; ---------------------------------------------------------------
 ;; Self-Sync Stream Decoding... done with mixed Actors and Functions
 ;;
-;; Finalized decodings are sent to the postprocessing pipline,
-;; immediately when recognized. No wait for an additional byte of
+;; Finalized decodings are sent immediately to the postprocessing
+;; pipline when recognized. No wait for an additional byte of
 ;; termination code. This is suitable for streaming data of indefinite
 ;; length.
 ;;
@@ -163,17 +163,22 @@
 ;; chronologial order of arrival, and then scanned by the state
 ;; machine for decoding.
 ;;
-;; The code is pure Actors turns out to be quite tricky, in the face
+;; The code in pure Actors turns out to be quite tricky, in the face
 ;; of fully parallel concurrency.  Explicit serialization of
-;; operations must be performed to prevent jumbled ordering in the
-;; decodings arising from multiple threads all participating at
-;; differing rates.
+;; operations must be performed, using continuation Actors, to prevent
+;; jumbled ordering in the decodings arising from multiple threads all
+;; participating at differing rates.
 ;;
 ;; Using functions in place of Actors for the state machine
 ;; automatically provides the correct seequencing due to call/return
-;; semantics.
+;; semantics. And it runs faster too.
+;;
+;; The violation of FPL pure behavior code is really okay here because
+;; it can be proven that only one thread will ever be running the FSM,
+;; by virtue of the serialized access through stream-decoder.
 ;;
 ;; --------------------------------------------------------
+;;
 ;; A state machine in call/return semantics, providing an Actor shell
 ;; for external use.
 
