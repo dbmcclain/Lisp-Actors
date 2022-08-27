@@ -172,78 +172,51 @@
 ;; Using functions in place of Actors for the state machine
 ;; automatically provides the correct seequencing due to call/return
 ;; semantics.
-
-(defun stuffer (aout stuff-fn dest)
-  (let (needs-fefd?
-        crcv
-        lenv
-        nel
-        (done t))
-    (um:dlambda
-      (:init (size)
-       (setf needs-fefd? (< size +max-short-count+)
-             crcv        nil
-             lenv        nil
-             nel         nil
-             done        nil
-             (fill-pointer aout) 0))
-
-      (:init-frag (size)
-       (unless done
-         (setf needs-fefd? (< size +max-long-count+))))
-
-      (:stuff (b)
-       (unless done
-         (funcall stuff-fn b aout)))
-
-      (:check-finish ()
-       (unless done
-         (when needs-fefd?
-           (funcall stuff-fn #xFE aout)
-           (funcall stuff-fn #xFD aout))
-         (let ((nbuf (length aout)))
-           (when (>= nbuf 8)
-             (let* ((crc (or crcv
-                             (setf crcv (subseq aout 0 4))))
-                    (len (or lenv
-                             (setf lenv (subseq aout 4 8))))
-                    (nb  (or nel
-                             (setf nel (vec-le4-to-int len)))))
-               (when (>= nbuf (+ nb 8))
-                 (let* ((ans (subseq aout 8 (+ nb 8)))
-                        (chk (crc32 len ans)))
-                   (when (equalp crc chk)
-                     (setf done t)
-                     (send dest ans))
-                   ))
-               ))
-           )))
-      )))
-
-(defun make-stuffer (dest max-reclen)
-  (if max-reclen
-      (stuffer (make-ubv (+ max-reclen 8)
-                         :fill-pointer 0)
-              #'vector-push
-              dest)
-    ;; else
-    (stuffer (make-ubv 256
-                       :fill-pointer 0
-                       :adjustable   t)
-            #'vector-push-extend
-            dest)))
-
+;;
 ;; --------------------------------------------------------
 ;; A state machine in call/return semantics, providing an Actor shell
 ;; for external use.
 
-(defun ssfsm (stuffer)
-  (let (state
-        ct)
+(defun ssfsm-beh (dest aout stuff-fn)
+  (let (state ;; machine state function
+        ct    ;; segment bytes remaining
+        crcv  ;; copy of 4-byte CRC field
+        lenv  ;; copy of 4-byte length field
+        nel)  ;; expected message length
     (macrolet ((new-state (fn)
                  `(setf state #',fn)))
-      (labels ((subrange-code-p (b)
+      (labels (;; --------------------
+               ;; Utility Functions
+               (subrange-code-p (b)
                  (<= 0 b #xFC))
+               
+               (stuffer-init ()
+                 (setf nel nil
+                       (fill-pointer aout) 0))
+
+               (stuff (b)
+                 (funcall stuff-fn b aout))
+
+               (check-finish ()
+                 (unless nel
+                   (setf crcv (subseq aout 0 4)
+                         lenv (subseq aout 4 8)
+                         nel  (vec-le4-to-int lenv)))
+                 (let ((nbuf  (length aout)))
+                   (when (< nbuf nel)
+                     (stuff #xFE)
+                     (stuff #xFD)
+                     (incf nbuf 2))
+                   (unless (< nbuf nel)
+                     (let* ((ans (subseq aout 8))
+                            (chk (crc32 lenv ans)))
+                       (when (equalp crcv chk)
+                         (send dest ans))
+                       ))
+                   ))
+                 
+               ;; ----------------
+               ;; Machine States
                (start (b)
                  (when (eql b #xFE)
                    (new-state check-start-fd)))
@@ -263,13 +236,9 @@
                        ))
                (read-short-count (b)
                  (cond ((subrange-code-p b)
-                        (funcall stuffer :init b)
-                        (cond ((plusp b)
-                               (setf ct b)
-                               (new-state read-frag))
-                              (t
-                               (new-state read-long-count))
-                              ))
+                        (stuffer-init)
+                        (setf ct b)
+                        (new-state read-frag))
                        (t
                         (new-state start)
                         (start b))
@@ -280,17 +249,17 @@
                         (new-state check-frag-fd))
                        (t
                         (decf ct)
-                        (funcall stuffer :stuff b)
+                        (stuff b)
                         (when (zerop ct)
                           (new-state read-long-count)
-                          (funcall stuffer :check-finish)))
+                          (check-finish)))
                        ))
                (check-frag-fd (b)
                  (cond ((eql b #xFD) ;; we just saw a start pattern #xFE #xFD
                         (new-state check-version))
                        (t
                         (decf ct)
-                        (funcall stuffer :stuff #xFE)
+                        (stuff #xFE)
                         (new-state read-frag)
                         (read-frag b))
                        ))
@@ -305,10 +274,9 @@
                (read-long-count-2 (b)
                  (cond ((subrange-code-p b)
                         (incf ct (* b +long-count-base+))
-                        (funcall stuffer :init-frag ct)
                         (cond ((zerop ct)
                                (new-state read-long-count)
-                               (funcall stuffer :check-finish))
+                               (check-finish))
                               (t
                                (new-state read-frag))
                               ))
@@ -318,12 +286,25 @@
                        )))
         (new-state start)
         (lambda (cust buf)
+          ;; work across entire packet fragmenet
           (loop for b across buf do (funcall state b))
           (send cust :next))
         ))))
 
-(defun make-decoder-fsm (dest &key max-reclen)
-  (create (ssfsm (make-stuffer dest max-reclen))))
+(defun decoder-fsm (dest &key max-reclen)
+  (let (aout
+        stuff-fn)
+    (if max-reclen
+        (setf aout (make-ubv (+ max-reclen 8)
+                             :fill-pointer 0)
+              stuff-fn #'vector-push)
+      ;; else
+      (setf aout (make-ubv 256
+                           :fill-pointer 0
+                           :adjustable   t)
+            stuff-fn #'vector-push-extend))
+    (create (ssfsm-beh dest aout stuff-fn))
+    ))
 
 ;; -----------------------------------------------------------------
 ;; Stream Decoding
@@ -372,7 +353,7 @@
   ;; chronological sequence number. Packets can arrive in any order,
   ;; starting from 1.
   ;;
-  (let ((fsm (make-decoder-fsm dest)))
+  (let ((fsm (decoder-fsm dest)))
     (create (stream-decoder-beh fsm 1 (maps:empty)))
     ))
 
