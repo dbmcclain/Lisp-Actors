@@ -223,6 +223,9 @@
                (restart (b)
                  (new-state start)
                  (start b))
+
+               (inhale (b)
+                 (funcall state b))
                
                ;; ----------------
                ;; Machine States
@@ -284,7 +287,7 @@
                        )))
         (new-state start)
         (lambda (cust buf)
-          (loop for b across buf do (funcall state b))
+          (map nil #'inhale buf)
           (send cust :next))
         ))))
 
