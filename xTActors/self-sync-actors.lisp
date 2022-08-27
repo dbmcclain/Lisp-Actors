@@ -179,6 +179,7 @@
 
 (defun ssfsm-beh (dest aout stuff-fn)
   (let (state ;; machine state function
+        need-fefd ;; when T we may need to insert #xFEFD
         ct    ;; segment bytes remaining
         crcv  ;; copy of 4-byte CRC field
         lenv  ;; copy of 4-byte length field
@@ -201,47 +202,49 @@
                  (unless nel
                    (setf crcv (subseq aout 0 4)
                          lenv (subseq aout 4 8)
-                         nel  (vec-le4-to-int lenv)))
+                         nel  (+ 8 (vec-le4-to-int lenv))))
                  (let ((nbuf  (length aout)))
-                   (when (< nbuf nel)
+                   (when (and need-fefd
+                              (< nbuf nel))
                      (stuff #xFE)
                      (stuff #xFD)
                      (incf nbuf 2))
-                   (unless (< nbuf nel)
-                     (let* ((ans (subseq aout 8))
-                            (chk (crc32 lenv ans)))
-                       (when (equalp crcv chk)
-                         (send dest ans))
-                       ))
-                   ))
-                 
+                   (cond ((< nbuf nel)
+                          (new-state read-long-count))
+                         (t
+                          (new-state start)
+                          (let* ((ans (subseq aout 8))
+                                 (chk (crc32 lenv ans)))
+                            (when (equalp crcv chk)
+                              (send dest ans))
+                            ))
+                         )))
+
+               (restart (b)
+                 (new-state start)
+                 (start b))
+               
                ;; ----------------
                ;; Machine States
                (start (b)
                  (when (eql b #xFE)
                    (new-state check-start-fd)))
                (check-start-fd (b)
-                 (cond ((eql b #xFD)
-                        (new-state check-version))
-                       (t
-                        (new-state start)
-                        (start b))
-                       ))
+                 (if (eql b #xFD)
+                     (new-state check-version)
+                   (restart b)))
                (check-version (b)
-                 (cond ((eql b #x01)
-                        (new-state read-short-count))
-                       (t
-                        (new-state start)
-                        (start b))
-                       ))
+                 (if (eql b #x01)
+                     (new-state read-short-count)
+                   (restart b)))
                (read-short-count (b)
                  (cond ((subrange-code-p b)
                         (stuffer-init)
-                        (setf ct b)
+                        (setf ct b
+                              need-fefd (< b +max-short-count+))
                         (new-state read-frag))
                        (t
-                        (new-state start)
-                        (start b))
+                        (restart b))
                        ))
                (read-frag (b)
                  (cond ((and (> ct 1)
@@ -251,7 +254,6 @@
                         (decf ct)
                         (stuff b)
                         (when (zerop ct)
-                          (new-state read-long-count)
                           (check-finish)))
                        ))
                (check-frag-fd (b)
@@ -265,28 +267,23 @@
                        ))
                (read-long-count (b)
                  (cond ((subrange-code-p b)
-                        (new-state read-long-count-2)
-                        (setf ct b))
+                        (setf ct b)
+                        (new-state read-long-count-2))
                        (t
-                        (new-state start)
-                        (start b))
+                        (restart b))
                        ))
                (read-long-count-2 (b)
                  (cond ((subrange-code-p b)
                         (incf ct (* b +long-count-base+))
-                        (cond ((zerop ct)
-                               (new-state read-long-count)
-                               (check-finish))
-                              (t
-                               (new-state read-frag))
-                              ))
+                        (setf need-fefd (< ct +max-long-count+))
+                        (if (zerop ct)
+                            (check-finish)
+                          (new-state read-frag)))
                        (t
-                        (new-state start)
-                        (start b))
+                        (restart b))
                        )))
         (new-state start)
         (lambda (cust buf)
-          ;; work across entire packet fragmenet
           (loop for b across buf do (funcall state b))
           (send cust :next))
         ))))
