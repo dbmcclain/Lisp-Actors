@@ -179,6 +179,8 @@
 
 (defun ssfsm-beh (dest aout stuff-fn)
   #F
+  (declare (function stuff-fn)
+           ((array (unsigned-byte 8) *) aout))
   (let (state          ;; machine state function
         need-fefd      ;; when T we may need to insert #xFEFD
         (remct 0)      ;; segment bytes remaining
@@ -191,7 +193,7 @@
       (labels (;; --------------------
                ;; Utility Functions
                (subrange-code? (b)
-                 (declare (fixnum b))
+                 (declare ((unsigned-byte 8) b))
                  (<= 0 b #xFC))
                
                (stuffer-init (ct)
@@ -251,16 +253,16 @@
                ;; ----------------
                ;; Machine States
                (start (b)
-                 (declare (fixnum b))
+                 (declare ((unsigned-byte 8) b))
                  (when (eql b #xFE)
                    (new-state check-start-fd)))
                (check-start-fd (b)
-                 (declare (fixnum b))
+                 (declare ((unsigned-byte 8) b))
                  (if (eql b #xFD)
                      (new-state check-version)
                    (restart b)))
                (check-version (b)
-                 (declare (fixnum b))
+                 (declare ((unsigned-byte 8) b))
                  (if (eql b #x01)
                      (new-state read-short-count)
                    (restart b)))
@@ -269,13 +271,13 @@
                      (stuffer-init b)
                    (restart b)))
                (read-segm (b)
-                 (declare (fixnum b))
+                 (declare ((unsigned-byte 8) b))
                  (if (and (eql b #xFE)
                           (> remct 1))
                      (new-state check-segm-fd)
                    (stuff b)))
                (check-segm-fd (b)
-                 (declare (fixnum b))
+                 (declare ((unsigned-byte 8) b))
                  (cond ((eql b #xFD) ;; we just saw a start pattern #xFE #xFD
                         (new-state check-version))
                        (t
@@ -284,7 +286,7 @@
                         (read-segm b))
                        ))
                (read-long-count (b)
-                 (declare (fixnum b))
+                 (declare ((unsigned-byte 8) b))
                  (cond ((subrange-code? b)
                         (setf remct b)
                         (new-state read-long-count-2))
@@ -292,12 +294,13 @@
                         (restart b))
                        ))
                (read-long-count-2 (b)
-                 (declare (fixnum b))
+                 (declare ((unsigned-byte 8) b))
                  (if (subrange-code? b)
                      (segm-init (+ remct (* b +long-count-base+)))
                    (restart b))))
         (new-state start)
         (lambda (cust buf)
+          (declare ((array (unsigned-byte 8) *) buf))
           (map nil #'inhale buf)
           (send cust :next))
         ))))
