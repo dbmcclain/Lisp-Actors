@@ -110,10 +110,11 @@
 ;; ------------------------------------------------------------
 #|
 (defun tst (host)
-  (let ((recho (remote-service :echo host)))
+  (let ((recho (remote-service :echo host))
+        (msg   :hello))
     (β (ans)
-        (send recho β :hello)
-      (send println (format nil "(send recho println ~S) sez: ~S" :hello ans)))))
+        (send recho β msg)
+      (send fmt-println "(send recho println ~S) sez: ~S" msg ans))))
 (tst "localhost")
 (tst "arroyo.local")
 (tst "rincon.local")
@@ -127,7 +128,7 @@
         (txt   (hcl:file-string "./xTActors/encoding.lisp")))
     (β (ans)
         (send recho β txt)
-      (send println (string= txt ans)))))
+      (send fmt-println "echo comparison: ~A" (string= txt ans)))))
 
 (defun tst (host)
   (let ((reval (remote-service :eval host)))
@@ -137,7 +138,7 @@
         (send reval β '(um:capture-ans-or-exn
                             (error "test-error")))
         |#
-      (send println (format nil "reval sez: ~S" (um:recover-ans-or-exn ans))))
+      (send fmt-println "reval sez: ~S" (um:recover-ans-or-exn ans)))
     ))
 (tst "localhost")
 (tst "arroyo.local")

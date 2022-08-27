@@ -186,10 +186,12 @@ arguments when given."
          ;; dbm/ral - 02/22 put symbol-macro first, to support self-recursive defs
 	 (define-symbol-macro ,var ,backing-var)
 	 (defparameter ,backing-var ,val ,doc)
-	 (setf (documentation ',var 'variable) ,doc))
+	 (setf (documentation ',var 'variable) ,doc)
+         ',var)
       `(progn
 	 (define-symbol-macro ,var ,backing-var)
-	 (defparameter ,backing-var ,val))))
+	 (defparameter ,backing-var ,val)
+         ',var)))
   ;;; DEFLEX is
   ;;; Copyright (c) 2003-2007, 2011 Rob Warnock <rpw3@rpw3.org>.
   ;;; All Rights Reserved.
