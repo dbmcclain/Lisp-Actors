@@ -94,22 +94,41 @@
 
 (defun future (actor &rest msg)
   ;; Return an Actor that represents the future value. Send that value
-  ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST)
+  ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST).
+  ;; Read as "send the future result to cust".
   (actors ((fut (future-wait-beh tag))
            (tag (tag-beh fut)))
     (send* actor tag msg)
     fut))
 
+#|
+;; This peculiar construct is roughly equiv to a beta form, but more
+;; general in that many future customers could be sent to the same
+;; action
+
+ (send (future ac arg1 arg2 ...) (α (&rest ans)
+                                   ... body using ans))
+
+ .EQUIV.
+
+ (β (&rest ans)
+     (send ac β arg1 arg2 ...)
+   ... body using ans)
+ |#
+
 ;; -----------------------------------------
 
-(defun lazy (actor &rest msg)
-  ;; Like FUTURE, but delays evaluation of the Actor with message
-  ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
-  (actor (cust)
+(defun lazy-beh (actor &rest msg)
+  (lambda (cust)
     (let ((tag (tag self)))
       (become (future-wait-beh tag cust))
       (send* actor tag msg)
       )))
+
+(defun lazy (actor &rest msg)
+  ;; Like FUTURE, but delays evaluation of the Actor with message
+  ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
+  (create (apply 'lazy-beh actor msg)))
 
 ;; --------------------------------------
 ;; SER - make an Actor that evaluates a series of blocks sequentially

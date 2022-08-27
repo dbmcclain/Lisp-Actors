@@ -256,26 +256,31 @@
                  (declare ((unsigned-byte 8) b))
                  (when (eql b #xFE)
                    (new-state check-start-fd)))
+               
                (check-start-fd (b)
                  (declare ((unsigned-byte 8) b))
                  (if (eql b #xFD)
                      (new-state check-version)
                    (restart b)))
+
                (check-version (b)
                  (declare ((unsigned-byte 8) b))
                  (if (eql b #x01)
                      (new-state read-short-count)
                    (restart b)))
+
                (read-short-count (b)
                  (if (subrange-code? b)
                      (stuffer-init b)
                    (restart b)))
+
                (read-segm (b)
                  (declare ((unsigned-byte 8) b))
                  (if (and (eql b #xFE)
                           (> remct 1))
                      (new-state check-segm-fd)
                    (stuff b)))
+
                (check-segm-fd (b)
                  (declare ((unsigned-byte 8) b))
                  (cond ((eql b #xFD) ;; we just saw a start pattern #xFE #xFD
@@ -285,6 +290,7 @@
                         (new-state read-segm)
                         (read-segm b))
                        ))
+
                (read-long-count (b)
                  (declare ((unsigned-byte 8) b))
                  (cond ((subrange-code? b)
@@ -293,12 +299,16 @@
                        (t
                         (restart b))
                        ))
+
                (read-long-count-2 (b)
                  (declare ((unsigned-byte 8) b))
                  (if (subrange-code? b)
                      (segm-init (+ remct (* b +long-count-base+)))
                    (restart b))))
-        (new-state start)
+        
+        (new-state start) ;; initialize state to start
+        
+        ;; finally... we get to the Actor behavior function
         (lambda (cust buf)
           (declare ((array (unsigned-byte 8) *) buf))
           (map nil #'inhale buf)
