@@ -178,12 +178,12 @@
 ;; for external use.
 
 (defun ssfsm-beh (dest aout stuff-fn)
-  (let (state ;; machine state function
+  (let (state     ;; machine state function
         need-fefd ;; when T we may need to insert #xFEFD
-        ct    ;; segment bytes remaining
-        crcv  ;; copy of 4-byte CRC field
-        lenv  ;; copy of 4-byte length field
-        nel)  ;; expected message length
+        remct     ;; segment bytes remaining
+        crcv      ;; copy of 4-byte CRC field
+        lenv      ;; copy of 4-byte length field
+        nel)      ;; expected message length
     (macrolet ((new-state (fn)
                  `(setf state #',fn)))
       (labels (;; --------------------
@@ -191,11 +191,20 @@
                (subrange-code-p (b)
                  (<= 0 b #xFC))
                
-               (stuffer-init ()
-                 (setf nel nil
+               (stuffer-init (ct)
+                 (new-state read-frag)
+                 (setf nel       nil
+                       remct     ct
+                       need-fefd (< ct +max-short-count+)
                        (fill-pointer aout) 0))
 
+               (frag-init (ct)
+                 (new-state read-frag)
+                 (setf remct     ct
+                       need-fefd (< ct +max-long-count+)))
+
                (stuff (b)
+                 (decf remct)
                  (funcall stuff-fn b aout))
 
                (check-finish ()
@@ -241,47 +250,38 @@
                      (new-state read-short-count)
                    (restart b)))
                (read-short-count (b)
-                 (cond ((subrange-code-p b)
-                        (stuffer-init)
-                        (setf ct b
-                              need-fefd (< b +max-short-count+))
-                        (new-state read-frag))
-                       (t
-                        (restart b))
-                       ))
+                 (if (subrange-code-p b)
+                     (stuffer-init b)
+                   (restart b)))
                (read-frag (b)
-                 (cond ((and (> ct 1)
-                             (eql b #xFE))
+                 (cond ((and (eql b #xFE)
+                             (> remct 1))
                         (new-state check-frag-fd))
                        (t
-                        (decf ct)
                         (stuff b)
-                        (when (zerop ct)
+                        (when (zerop remct)
                           (check-finish)))
                        ))
                (check-frag-fd (b)
                  (cond ((eql b #xFD) ;; we just saw a start pattern #xFE #xFD
                         (new-state check-version))
                        (t
-                        (decf ct)
                         (stuff #xFE)
                         (new-state read-frag)
                         (read-frag b))
                        ))
                (read-long-count (b)
                  (cond ((subrange-code-p b)
-                        (setf ct b)
+                        (setf remct b)
                         (new-state read-long-count-2))
                        (t
                         (restart b))
                        ))
                (read-long-count-2 (b)
                  (cond ((subrange-code-p b)
-                        (incf ct (* b +long-count-base+))
-                        (setf need-fefd (< ct +max-long-count+))
-                        (if (zerop ct)
-                            (check-finish)
-                          (new-state read-frag)))
+                        (frag-init (+ remct (* b +long-count-base+)))
+                        (when (zerop remct)
+                          (check-finish)))
                        (t
                         (restart b))
                        )))
@@ -404,11 +404,13 @@
 (let ((out (stream-decoder
             (sink-pipe (printer)
                        (marshal-decoder)
-                       (pass (lambda (cust &rest args)
-                               (break)
-                               (assert (stringp (car args)))
-                               (assert (eql (length (car args)) (length s)))
-                               (assert (every #'char= (car args) s))))
+                       (pass (create
+                              (lambda (&rest args)
+                                ;; (break)
+                                ;; (inspect args)
+                                (assert (stringp (car args)))
+                                (assert (eql (length (car args)) (length s)))
+                                (assert (every #'char= (car args) s)))))
                        println))))
   (labels ((parser (ct)
              (α (x)
