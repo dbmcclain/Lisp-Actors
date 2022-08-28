@@ -30,34 +30,63 @@
       )))
 
 ;; ------------------------------------------------------------------
-;; ECDH Shared Key Development
+;; ECDH Shared Key Development for Repudiable Communications
 ;;
-;;         -- Exchanges --
-;;  Client                  Server
-;;  ------                  ------
-;;  Ephem-ID APt NRSig --> +SERVER-CONNECT-ID+     ;; APt = A*G
-;;            Ephem-ID <-- CnxID BPt NRSig'        ;; BPt = B*G => EKey = H(A*B*G)
+;;     -- Initial Keying Exchanges --
+;;  Client                       Server
+;;  ------                       ------
+;;  APt = a*G, a random
+;;  Ephem-ID APt Client-PKey --> +SERVER-CONNECT-ID+
+;;                               BPt = b*G, b random
+;;                  Ephem-ID <-- CnxID BPt Server-PKey
 ;;
-;;    ...for all subsequent messages
-;;          Seq E(msg) RSig --> CnxID                   ;; Enc-Key  = H(:ENC,EKey,Seq)
-;;                     NIL  <-- :SIG-KEY Seq RSig-Key   ;; RSig-Key = H(:SIG,EKey,Seq)
+;;    => EKey = H(a*BPt | Client-SKey*BPt | a*Server-PKey)    ;; at server side
+;;            = H(b*APt | b*Client-PKey   | Server-SKey*APt)  ;; at client side
 ;;
-;;                Ephem-ID' <-- Seq' E(response) RSig'  ;; if we generate a response
-;;  :SIG-KEY Seq' RSig'-key --> NIL
+;; No signatures employed. All it takes is knowledge of public keys
+;; and random points.  Anyone can do, even if totally faked. But only
+;; the two sides participating will understand the resulting shared
+;; secret EKey.
 ;;
+;;     ...for all subsequent messages...
+;;          Seq E(msg) Auth --> CnxID                 
+;;                Ephem-ID' <-- Seq' E(response) Auth'  ;; if we generate a response
 ;;
-;; NRSig = non-refutable (Schnorr) signature
-;; RSig  = refutable signature
+;; Connection ID's are always sent in the clear (not encrypted, but
+;; encoded for serialization) so that receivers can dispatch. But
+;; these are randomly generated, ephemeral, UUID's.
 ;;
-;; So connection ID's are always sent in the clear so that receivers
-;; can dispatch.
+;; Connections are transparently established for users, and then are
+;; shut down after some period of inactivity (currently 20s). All the
+;; user needs to know is the IP Address of the server and the name of
+;; the service. Any computer running an Actors system can behave as
+;; both client and server. The distinction is merely that clients
+;; request, and servers might respond.
 ;;
-;; Since message interchange always publishes the signature keying
-;; from the previous message, and since our encryption is malleable,
-;; it becomes possible to claim that anyone could have later
-;; intercepted the message, altered it, and produced a new signature.
-;; It cannot be proven that either of the conversing parties sent the
-;; message.
+;;   G        = Generator Pt for Curve1174
+;;   H        = SHA3/256
+;;   Seq[n+1] = Seq[n]+2^256, Seq[0] = Int( H(UUID/v1) ) < 2^256
+;;   Auth     = H( H(:AUTH | EKey | Seq) | Seq | E(msg))
+;;   E(msg)   = SHAKE256(:ENC | EKey | Seq) XOR msg, effetively a one-time-pad
+;;
+;; Decryption is the same as Encryption.  All Seq are sequential
+;; nonces and label each transmission. Generated independently on both
+;; sides. Allows for avoiding replay attacks.
+;;
+;; Prior to encryption and wire transmission, the arbitrary Lisp
+;; objects of a message are serialized, compressed, and possibly
+;; chunked into fragments smaller than some maximum limit.
+;;
+;; Each fragment is then separately transmitted through the encryption
+;; scheme and onto the wire using a self-sync encoding.
+;;
+;; Received fragments are decoded on the other side, then decrypted
+;; and reassembled (unchunked), then decompressed, and then
+;; deserialized back to Lisp objects on the other side.
+;;
+;; The bit of repudiable cleverness is derived from ideas presented by
+;; Trevor Perrin and Moxie Marlinspike of Signal.
+;;
 
 (defactor negotiate-secure-channel
   ;; EC Diffie-Hellman key exchange
