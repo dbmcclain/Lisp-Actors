@@ -40,8 +40,8 @@
 ;;                               BPt = b*G, b random
 ;;                  Ephem-ID <-- CnxID BPt Server-PKey
 ;;
-;;    => EKey = H(a*BPt | Client-SKey*BPt | a*Server-PKey)    ;; at server side
-;;            = H(b*APt | b*Client-PKey   | Server-SKey*APt)  ;; at client side
+;;    => EKey = H(a*BPt | Client-SKey*BPt | a*Server-PKey)    ;; at client side
+;;            = H(b*APt | b*Client-PKey   | Server-SKey*APt)  ;; at server side
 ;;
 ;; No signatures employed. All it takes is knowledge of public keys
 ;; and random points.  Anyone can do, even if totally faked. But only
@@ -60,8 +60,8 @@
 ;; shut down after some period of inactivity (currently 20s). All the
 ;; user needs to know is the IP Address of the server and the name of
 ;; the service. Any computer running an Actors system can behave as
-;; both client and server. The distinction is merely that clients
-;; request, and servers might respond.
+;; both client and server. The distinction is merely that clients send
+;; requests, and servers might respond with replies.
 ;;
 ;;   G        = Generator Pt for Curve1174
 ;;   H        = SHA3/256
