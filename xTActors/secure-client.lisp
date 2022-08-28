@@ -64,32 +64,32 @@
   (λ (cust socket local-services)
     (let* ((arand  (int (ctr-drbg 256)))
            (apt    (ed-nth-pt arand))
-           (pkey   (client-pkey))
            ;; (socket      (show-client-outbound socket)) ;;
            (responder
-            (α (server-id bpt server-pkey)
-              (unless (and (typep server-id 'uuid:uuid)
-                           (integerp bpt)
-                           (integerp server-pkey))
+            (create
+             (alambda
+              ((server-id bpt server-pkey) / (and (typep server-id 'uuid:uuid)
+                                                  (integerp bpt)
+                                                  (integerp server-pkey))
+               (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)           ;; B*a
+                                       (ed-mul (ed-decompress-pt bpt) (client-skey))   ;; B*c
+                                       (ed-mul (ed-decompress-pt server-pkey) arand))) ;; S*a
+                      (chan  (client-channel
+                              :local-services  local-services
+                              :encryptor       (sink-pipe
+                                                (secure-sender ekey)
+                                                (remote-actor-proxy server-id socket))
+                              :decryptor       (secure-reader ekey)
+                              )))
+                 (send connections cust :set-channel socket chan)
+                 ))
+              (_
                 (error "Server can't be authenticated"))
-              (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)           ;; B*a
-                                      (ed-mul (ed-decompress-pt bpt) (client-skey))   ;; B*c
-                                      (ed-mul (ed-decompress-pt server-pkey) arand))) ;; S*a
-                     (chan  (client-channel
-                             :local-services  local-services
-                             :encryptor       (sink-pipe
-                                               (secure-sender ekey)
-                                               (remote-actor-proxy server-id socket))
-                             :decryptor       (secure-reader ekey)
-                             )))
-                (send connections cust :set-channel socket chan)
-                ))))
+              ))))
       (β (client-id)
           (create-ephemeral-client-proxy β local-services responder)
-        (let* ((iapt  (int apt))
-               (ipkey (int pkey)))
-          (send (remote-actor-proxy +server-connect-id+ socket)
-                client-id iapt ipkey)))
+        (send (remote-actor-proxy +server-connect-id+ socket)
+              client-id (int apt) (int (client-pkey))))
       )))
 
 (defactor client-gateway
