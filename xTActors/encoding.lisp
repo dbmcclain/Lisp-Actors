@@ -119,22 +119,22 @@
 
 (defun printer ()
   ;; prints the message and forwards to cust
-  (pass println))
+  (serializer (pass println)))
 
 (defun writer ()
   ;; prints the message and forwards to cust
-  (pass writeln))
+  (serializer (pass writeln)))
 
 (defun logger ()
   ;; provides a log output as the message is passed along
-  (actor (cust &rest msg)
-    (send* logger cust msg)
-    (send* cust msg)))
+  (serializer (actor (cust &rest msg)
+                (send* logger cust msg)
+                (send* cust msg))))
 
 (defun marker (&rest txt)
-  (actor (cust &rest msg)
-    (send* println txt)
-    (send* cust msg)))
+  (serializer (actor (cust &rest msg)
+                (send* println txt)
+                (send* cust msg))))
 
 (defactor dbg-println
   (label-beh (serializer
@@ -675,52 +675,208 @@
 
 ;; -----------------------------------------------------------
 
-(defun netw-encoder (ekey skey &key (max-chunk 65536))
-  ;; takes arbitrary objects and produces a bytevec
-  (pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
-        (marshal-compressor)
-        (chunker :max-size max-chunk) ;; we want to limit network message sizes
-        ;; --- then, for each chunk... ---
-        (marshal-encoder)       ;; generates bytevec from chunker encoding
-        (encryptor ekey)        ;; generates seq, enctext
-        (signing skey)          ;; generates seq, enctext, sig
-        (marshal-encoder)))     ;; turn seq, etext, sig into byte vector
+(defun netw-encoder (ekey skey dest &key (max-chunk 65536))
+  ;; takes arbitrary objects and sends one or more chunks to dest
+  ;; dest must reply with :OK after writing to I/O
+  (serializer
+   (α (cust &rest msg)
+     (let ((monitor (chunk-monitor cust)))
+       (send* (sink-pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
+                         (marshal-compressor)
+                         (chunker :max-size max-chunk) ;; we want to limit network message sizes
+                         ;; --- then, for each chunk... ---
+                         monitor
+                         (marshal-encoder)       ;; generates bytevec from chunker encoding
+                         (encryptor ekey)        ;; generates seq, enctext
+                         (signing skey)          ;; generates seq, enctext, sig
+                         (marshal-encoder)       ;; turn seq, etext, sig into byte vector
+                         (self-sync-encoder)
+                         (serializer dest)
+                         monitor)
+              msg)
+       ))))
 
-(defun netw-decoder (ekey pkey)
+(defun netw-decoder (ekey pkey cust)
   ;; takes a bytevec and produces arbitrary objects
-  (pipe (marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
-        (signature-validation pkey) ;; pass along seq, enc text
-        (decryptor ekey)        ;; generates a bytevec
-        (marshal-decoder)       ;; generates chunker encoding
-        (dechunker)             ;; de-chunking back into original byte vector
-        (marshal-decompressor)
-        (marshal-decoder)))     ;; decode byte vector into message objects
+  (ssact:stream-decoder
+   (sink-pipe (marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
+              (signature-validation pkey) ;; pass along seq, enc text
+              (decryptor ekey)        ;; generates a bytevec
+              (marshal-decoder)       ;; generates chunker encoding
+              (dechunker)             ;; de-chunking back into original byte vector
+              (marshal-decompressor)
+              (marshal-decoder)       ;; decode byte vector into message objects
+              cust)))
 
-(defun disk-encoder (&key (max-chunk 65536))
-  ;; takes arbitrary objects and produces a bytevec
-  (pipe (marshal-encoder)       ;; to get arb msg into bytevec form
-        (marshal-compressor)
-        (chunker :max-size max-chunk)
-        (marshal-encoder)
-        (self-sync-encoder)))
+(defun disk-encoder (dest &key (max-chunk 65536))
+  ;; takes arbitrary objects and sends one or more bytevecs to dest
+  ;; dest must reply with :OK after writing to disk.
+  (serializer
+   (α (cust &rest msg)
+     (let ((monitor (chunk-monitor cust)))
+       (send* (sink-pipe (marshal-encoder)       ;; to get arb msg into bytevec form
+                         (marshal-compressor)
+                         (chunker :max-size max-chunk)
+                         monitor
+                         (marshal-encoder)
+                         (self-sync-encoder)
+                         (serializer dest)
+                         monitor)
+              msg)
+       ))))
 
-(defun disk-decoder ()
-  ;; takes a bytevec and produces arbitrary objects
-  (pipe (self-sync-decoder)
-        (marshal-decoder)
-        (dechunker)
-        (marshal-decompressor)
-        (marshal-decoder)))
+(defun disk-decoder (cust)
+  ;; takes chunks of self-sync data and produces arbitrary objects
+  (ssact:stream-decoder
+   (sink-pipe (marshal-decoder)
+              (dechunker)
+              (marshal-decompressor)
+              (marshal-decoder)
+              cust)))
+  
+;; -------------------------------------------------------------------------
 
-(defun encr-disk-encoder (ekey skey &key (max-chunk 65536))
-  ;; takes arbitrary objects and produces a bytevec
-  (pipe (netw-encoder ekey skey :max-chunk max-chunk)
-        (self-sync-encoder)))
+(defun self-sync-stream-writer-beh (stream encoder)
+  (alambda
+   ((cust :close)
+    (close stream)
+    (become (sink-beh))
+    (send cust :ok))
+   
+   ((cust :write &rest args)
+    ;; fully write the args group before responding back to cust
+    (send* encoder cust args))
+   ))
 
-(defun encr-disk-decoder (ekey pkey)
-  ;; takes a bytevec and produces arbitrary objects
-  (pipe (self-sync-decoder)
-        (netw-decoder ekey pkey)))
+(defun chunk-monitor-beh (mycust)
+  (lambda (&rest msg)
+    (send* msg)
+    (match msg
+      ((_ :pass . _)
+       (become (pending-monitor-beh mycust 1)))
+
+      ((_ :init _ nchunks _)
+       (become (pending-monitor-beh mycust (1+ nchunks))))
+      
+      ((_ :chunk . _)
+       (become (worried-chunk-monitor-beh mycust 0)))
+      )))
+
+(defun pending-monitor-beh (mycust remct)
+  (lambda (&rest msg)
+    (match msg
+      ((_ :chunk . _)
+       (send* msg))
+
+      ((:ok)
+       (let ((new-remct (1- remct)))
+         (if (zerop new-remct)
+             (send mycust :ok)
+           (become (pending-monitor-beh mycust new-remct)))
+         ))
+      )))
+
+(defun worried-chunk-monitor-beh (mycust okcnt)
+  (lambda (&rest msg)
+    (match msg
+      ((_ :init _ nchunks _)
+       (let ((new-remct (- (1+ nchunks) okcnt)))
+         (become (pending-monitor-beh mycust new-remct))
+         (send* msg)))
+
+      ((_ :chunk . _)
+       (send* msg))
+      
+      ((:ok)
+       (become (worried-chunk-monitor-beh mycust (1+ okcnt))))
+      )))
+
+(defun chunk-monitor (cust)
+  (create (chunk-monitor-beh cust)))
+    
+(defun self-sync-stream-writer (stream &optional (max-chunk 65536.))
+  (let* ((stream-writer (serializer (α (cust vec)
+                                      ;; blocking I/O so response
+                                      ;; happens only after the write
+                                      ;; has occurred
+                                      (write-sequence vec stream)
+                                      (send cust :ok))))
+
+         (encoder (α (cust &rest args)
+                    ;; Encodes and writes a complete set of chunks
+                    ;; before sending ok to cust.
+                    ;;
+                    ;; Use of CHUNK-MONITOR answers the question -
+                    ;; "How will we know when the writing has
+                    ;; completed?"
+                    (let ((monitor (chunk-monitor cust)))
+                      (send* (sink-pipe (marshal-encoder)
+                                        (marshal-compressor)
+                                        (chunker :max-size max-chunk)
+                                        ;; (writer) ;; for debugging
+                                        monitor ;; for deciding how many chunks being written
+                                        (marshal-encoder)
+                                        (self-sync-encoder)
+                                        stream-writer
+                                        monitor) ;; for accepting replies from the stream writer
+                             args)
+                      ))))
+    (serializer (create (self-sync-stream-writer-beh stream encoder)))))
+
+#|
+(setf s (hcl:file-string "taxes.lisp"))
+
+(let* ((stream (ubyte-streams:make-ubyte-output-stream))
+       (closer (α _
+                 (let ((ans (ubyte-streams:stream-bytes stream)))
+                   (inspect ans)
+                   (send writeln ans)
+                   ))))
+  (send (self-sync-stream-writer stream 256) closer :write s))
+
+(let* ((stream (ubyte-streams:make-ubyte-output-stream))
+       (closer (α _
+                 (let ((ans (ubyte-streams:stream-bytes stream))
+                       (decoder (ssact:stream-decoder (sink-pipe (marshal-decoder)
+                                                                 (writer)
+                                                                 (dechunker)
+                                                                 (marshal-decompressor)
+                                                                 (marshal-decoder)
+                                                                 writeln))))
+                   (send decoder :deliver 1 ans))
+                 )))
+  (send (self-sync-stream-writer stream 256) closer :write s))
+|#
+
+(defun read-self-sync-stream (cust stream &key (start 0) end)
+  (let* ((nbuf 4096)
+         (buf  (make-array nbuf
+                           :element-type '(unsigned-byte 8)))
+         (decoder (ssact:stream-decoder (sink-pipe (marshal-decoder)
+                                                   ;; (writer) ;; for debugging
+                                                   (dechunker)
+                                                   (marshal-decompressor)
+                                                   (marshal-decoder)
+                                                   cust))))
+    (file-position stream start)
+    (um:nlet iter ((pos   start)
+                   (bufix 1))
+      (when (or (null end)
+                (< pos end))
+        (let ((nel (read-sequence buf stream)))
+          (when (plusp nel)
+            (send decoder :deliver bufix (subseq buf 0 nel))
+            (go-iter (+ pos nel) (1+ bufix)))
+          )))
+    ))
+
+#|
+(let* ((stream (ubyte-streams:make-ubyte-output-stream))
+       (closer (α _
+                 (let ((stream (ubyte-streams:make-ubyte-input-stream (ubyte-streams:stream-bytes stream))))
+                   (read-self-sync-stream writeln stream))) ))
+  (send (self-sync-stream-writer stream 256) closer :write s))
+|#
 
 ;; Reed-Solomon? anyone?... TBD
 
@@ -729,12 +885,15 @@
 #|
 (multiple-value-bind (skey pkey)
     (make-deterministic-keys :test)
-  (let ((ekey (hash/256 skey pkey)))
-    (send (pipe (encr-disk-encoder ekey skey :max-chunk 16)
-                (writer)
-                (encr-disk-decoder ekey pkey)
-                (writer))
-          sink "This is a test")))
+  (let* ((ekey   (hash/256 skey pkey))
+         (reader (encr-disk-decoder ekey pkey writeln))
+         (ct     0)
+         (sender (α (chunk)
+                   (send reader :deliver (incf ct) chunk))))
+    (send (sink-pipe (encr-disk-encoder ekey skey :max-chunk 16)
+                     (writer)
+                     sender)
+          "This is a test")))
 
 (let ((junk (make-ubv 1022)))
   (beta (ans)
@@ -802,10 +961,6 @@
 ;; -------------------------------------------------------------------
 ;; Encrypted Disk Files - AONT Encoding
 ;;
-;; File is saved in self-sync encoding. That doesn't help much if the
-;; encrypted portions of the file get clobbered, but could help in the
-;; recovery of remaining items. File uses flexible length encodings
-;; rather than fixed allocations.
 
     +------------------------------------+
     | File Type UUID                     | = AONT type {b532fc4e-bf2b-123a-9307-24f67702cdaa}
@@ -831,7 +986,6 @@
   data, provided they read all of it first, and can then derive the
   master encryption key. This takes special effort, and so the data is
   not visible to the casual reader.
-
 |#
 
 (defconstant +AONT-FILE-TYPE-ID+ (vec #/uuid/{b532fc4e-bf2b-123a-9307-24f67702cdaa}))
