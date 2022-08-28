@@ -63,11 +63,11 @@
 ;; both client and server. The distinction is merely that clients send
 ;; requests, and servers might respond with replies.
 ;;
-;;   G        = Generator Pt for Curve1174
-;;   H        = SHA3/256
-;;   Seq[n+1] = Seq[n]+2^256, Seq[0] = Int( H(UUID/v1) ) < 2^256
-;;   Auth     = H( H(:AUTH | EKey | Seq) | Seq | E(msg))
-;;   E(msg)   = SHAKE256(:ENC | EKey | Seq) XOR msg, effetively a one-time-pad
+;;   G      = Generator Pt for Curve1174
+;;   H      = SHA3/256
+;;   Seq[n] = Seq[n-1]+2^256, Seq[0] = Int( H(UUID/v1) ) < 2^256
+;;   Auth   = H( H(:AUTH | EKey | Seq) | Seq | E(msg))
+;;   E(msg) = SHAKE256(:ENC | EKey | Seq) XOR msg, effetively a one-time-pad
 ;;
 ;; Decryption is the same as Encryption.  All Seq are sequential
 ;; nonces and label each transmission. Generated independently on both
