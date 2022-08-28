@@ -212,7 +212,7 @@
   (pipe (marshal-encoder)
         (marshal-compressor)
         (chunker :max-size 65000)
-        (checksum)
+        ;; (checksum)
         (marshal-encoder)
         (encryptor ekey)
         (rep-signing ekey)
@@ -222,7 +222,7 @@
   (pipe (rep-sig-validation ekey echo) ;; sig validation with sig-keying broadcast
         (decryptor ekey)
         (fail-silent-marshal-decoder)  ;; protect against replay attack with mutated message
-        (verify-checksum)
+        ;; (verify-checksum)
         (dechunker)
         (marshal-decompressor)
         (marshal-decoder)))

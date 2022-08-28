@@ -457,35 +457,40 @@
                                (not (sets:mem seqs seq)))
     ;; seq is integer (bignum)
 
-    ;; Different sessions use different ekey, so replay attacks sent
-    ;; to any other session will fail signature validation. But a
-    ;; replay attack against this same session is possible, after we
-    ;; publish the signature keying.
+    ;; Repudiable signatures have us advertise the signature keying
+    ;; after receiving and validating a message signature. This makes
+    ;; it possible for anyone else to construct a bogus message and
+    ;; produce a valid signature.
     ;;
-    ;; Signature keying depends on both ekey and seq, so any replay
-    ;; attack will have to use the same seq to match the signature
-    ;; keying. Hence it will have been previously seen. Such an attack
-    ;; will have a valid signature, the repeated seq, and a possibly
-    ;; hosed up encryption.
-    ;;
-    ;; We defend against replay attacks here by spotting the repeated
-    ;; use of seq. And later we defend against a hosed encryption by
-    ;; using a silent-fail unmarshal, and after that a soft-fail
-    ;; checksum verification. (Overkill?)
-    ;;
-    ;; In some instances, even a verbatim replay attack could be
-    ;; harmful, which would pass the unmarshalling and the checksum
-    ;; validation. So we really do need to filter away repeated seq
-    ;; messages. But there is no need to retain the seq list beyond
-    ;; the lifetime of this session, nor any need to share the seq
-    ;; list with other sessions.
+    ;; But signature keying depends on both ekey and seq, and only we
+    ;; know the ekey. So any attack will have to use the same seq to
+    ;; pass signature validation. Hence it will have been previously
+    ;; seen.  Such an attack will have a valid signature, the repeated
+    ;; seq, and a possibly hosed up encryption.
     ;;
     ;; Hosed encryption replay attacks are only possible because we
     ;; use malleable encryption, and publish the signature keying, so
-    ;; that we have "Off the Record" messaging. But even if we kept
-    ;; the signature keying private, a verbatim replay attack would
-    ;; still be possible. So this duplicate seq checking is vital, no
-    ;; matter what.
+    ;; that we have "Off the Record" messaging.
+    ;;
+    ;; We defend against replay attacks here by spotting the repeated
+    ;; use of seq. We could later use a silent-fail unmarshal, and
+    ;; after that a checksum verification, to protect against hosed
+    ;; encryption payloads.
+    ;;
+    ;; But in some instances, even a verbatim replay attack could be
+    ;; harmful if the service were non-idempotent. Such attacks would
+    ;; pass the unmarshalling and the checksum validation. So we
+    ;; really do need to filter away repeated seq messages.
+    ;;
+    ;; And even if we kept the signature keying private, a verbatim
+    ;; replay attack would still be possible. So this duplicate seq
+    ;; checking is vital, no matter what.
+    ;;
+    ;; Different sessions use different ekey, so replay attacks sent
+    ;; to any other session will fail signature validation. And so
+    ;; there is no need to retain the seq list beyond the lifetime of
+    ;; this session, nor any need to share the seq list with other
+    ;; active sessions on other channels.
     ;;
     ;; Use an FPL Red-Black Tree Set for the seqs list, to get
     ;; O(log(N)) lookup behavior.
@@ -524,7 +529,7 @@
 (defun checksum ()
   ;; produce a prefix checksum on the message
   (actor (cust &rest msg)
-    (send* cust (cons (vec (hash/256 msg)) msg))
+    (send* cust (vec (hash/256 msg)) msg)
     ))
 
 (defun verify-checksum ()
@@ -673,80 +678,15 @@
   ;; Takes a sequence of chunk encodings and produces a bytevec
   (create (null-dechunk-beh)))
 
-;; -----------------------------------------------------------
-
-(defun netw-encoder (ekey skey dest &key (max-chunk 65536))
-  ;; takes arbitrary objects and sends one or more chunks to dest
-  ;; dest must reply with :OK after writing to I/O
-  (serializer
-   (α (cust &rest msg)
-     (let ((monitor (chunk-monitor cust)))
-       (send* (sink-pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
-                         (marshal-compressor)
-                         (chunker :max-size max-chunk) ;; we want to limit network message sizes
-                         ;; --- then, for each chunk... ---
-                         monitor
-                         (marshal-encoder)       ;; generates bytevec from chunker encoding
-                         (encryptor ekey)        ;; generates seq, enctext
-                         (signing skey)          ;; generates seq, enctext, sig
-                         (marshal-encoder)       ;; turn seq, etext, sig into byte vector
-                         (self-sync-encoder)
-                         (serializer dest)
-                         monitor)
-              msg)
-       ))))
-
-(defun netw-decoder (ekey pkey cust)
-  ;; takes a bytevec and produces arbitrary objects
-  (ssact:stream-decoder
-   (sink-pipe (marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
-              (signature-validation pkey) ;; pass along seq, enc text
-              (decryptor ekey)        ;; generates a bytevec
-              (marshal-decoder)       ;; generates chunker encoding
-              (dechunker)             ;; de-chunking back into original byte vector
-              (marshal-decompressor)
-              (marshal-decoder)       ;; decode byte vector into message objects
-              cust)))
-
-(defun disk-encoder (dest &key (max-chunk 65536))
-  ;; takes arbitrary objects and sends one or more bytevecs to dest
-  ;; dest must reply with :OK after writing to disk.
-  (serializer
-   (α (cust &rest msg)
-     (let ((monitor (chunk-monitor cust)))
-       (send* (sink-pipe (marshal-encoder)       ;; to get arb msg into bytevec form
-                         (marshal-compressor)
-                         (chunker :max-size max-chunk)
-                         monitor
-                         (marshal-encoder)
-                         (self-sync-encoder)
-                         (serializer dest)
-                         monitor)
-              msg)
-       ))))
-
-(defun disk-decoder (cust)
-  ;; takes chunks of self-sync data and produces arbitrary objects
-  (ssact:stream-decoder
-   (sink-pipe (marshal-decoder)
-              (dechunker)
-              (marshal-decompressor)
-              (marshal-decoder)
-              cust)))
-  
 ;; -------------------------------------------------------------------------
-
-(defun self-sync-stream-writer-beh (stream encoder)
-  (alambda
-   ((cust :close)
-    (close stream)
-    (become (sink-beh))
-    (send cust :ok))
-   
-   ((cust :write &rest args)
-    ;; fully write the args group before responding back to cust
-    (send* encoder cust args))
-   ))
+;; Chunk Monitor - solving the problem of determining when a chunked
+;; write group has finished physically writing to I/O.
+;;
+;; Construct a Chunk Monitor pointed toward original customer, and
+;; surround the portion of the systolic encoding pipeline, from just
+;; past the CHUNKER, to the end of the pipeline. The original customer
+;; is called only after all chunks of data have finished writing to
+;; I/O.
 
 (defun chunk-monitor-beh (mycust)
   (lambda (&rest msg)
@@ -794,70 +734,80 @@
 (defun chunk-monitor (cust)
   (create (chunk-monitor-beh cust)))
     
+;; -----------------------------------------------------------
+
+(defun netw-encoder (ekey skey dest &key (max-chunk 65536))
+  ;; takes arbitrary objects and sends one or more chunks to dest
+  ;; dest must reply with :OK after writing to I/O
+  (serializer
+   (α (cust &rest msg)
+     (let ((monitor (chunk-monitor cust)))
+       (send* (sink-pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
+                         (marshal-compressor)
+                         (chunker :max-size max-chunk) ;; we want to limit network message sizes
+                         ;; --- then, for each chunk... ---
+                         monitor
+                         (marshal-encoder)       ;; generates bytevec from chunker encoding
+                         (encryptor ekey)        ;; generates seq, enctext
+                         (signing skey)          ;; generates seq, enctext, sig
+                         (marshal-encoder)       ;; turn seq, etext, sig into byte vector
+                         (self-sync-encoder)
+                         (serializer dest)
+                         monitor)
+              msg)
+       ))))
+
+(defun netw-decoder (ekey pkey cust)
+  ;; takes a bytevec and produces arbitrary objects
+  (ssact:stream-decoder
+   (sink-pipe (marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
+              (signature-validation pkey) ;; pass along seq, enc text
+              (decryptor ekey)        ;; generates a bytevec
+              (marshal-decoder)       ;; generates chunker encoding
+              (dechunker)             ;; de-chunking back into original byte vector
+              (marshal-decompressor)
+              (marshal-decoder)       ;; decode byte vector into message objects
+              cust)))
+
+(defun disk-encoder (dest &key (max-chunk 65536.))
+  ;; takes arbitrary objects and sends one or more bytevecs to dest
+  ;; dest must reply with :OK after writing to disk.
+  (serializer
+   (α (cust &rest msg)
+     (let ((monitor (chunk-monitor cust)))
+       (send* (sink-pipe (marshal-encoder)       ;; to get arb msg into bytevec form
+                         (marshal-compressor)
+                         (chunker :max-size max-chunk)
+                         monitor
+                         (marshal-encoder)
+                         (self-sync-encoder)
+                         (serializer dest)
+                         monitor)
+              msg)
+       ))))
+
+(defun disk-decoder (cust)
+  ;; takes chunks of self-sync data and produces arbitrary objects
+  (ssact:stream-decoder
+   (sink-pipe (marshal-decoder)
+              (dechunker)
+              (marshal-decompressor)
+              (marshal-decoder)
+              cust)))
+  
 (defun self-sync-stream-writer (stream &optional (max-chunk 65536.))
-  (let* ((stream-writer (serializer (α (cust vec)
-                                      ;; blocking I/O so response
-                                      ;; happens only after the write
-                                      ;; has occurred
-                                      (write-sequence vec stream)
-                                      (send cust :ok))))
-
-         (encoder (α (cust &rest args)
-                    ;; Encodes and writes a complete set of chunks
-                    ;; before sending ok to cust.
-                    ;;
-                    ;; Use of CHUNK-MONITOR answers the question -
-                    ;; "How will we know when the writing has
-                    ;; completed?"
-                    (let ((monitor (chunk-monitor cust)))
-                      (send* (sink-pipe (marshal-encoder)
-                                        (marshal-compressor)
-                                        (chunker :max-size max-chunk)
-                                        ;; (writer) ;; for debugging
-                                        monitor ;; for deciding how many chunks being written
-                                        (marshal-encoder)
-                                        (self-sync-encoder)
-                                        stream-writer
-                                        monitor) ;; for accepting replies from the stream writer
-                             args)
-                      ))))
-    (serializer (create (self-sync-stream-writer-beh stream encoder)))))
-
-#|
-(setf s (hcl:file-string "taxes.lisp"))
-
-(let* ((stream (ubyte-streams:make-ubyte-output-stream))
-       (closer (α _
-                 (let ((ans (ubyte-streams:stream-bytes stream)))
-                   (inspect ans)
-                   (send writeln ans)
-                   ))))
-  (send (self-sync-stream-writer stream 256) closer :write s))
-
-(let* ((stream (ubyte-streams:make-ubyte-output-stream))
-       (closer (α _
-                 (let ((ans (ubyte-streams:stream-bytes stream))
-                       (decoder (ssact:stream-decoder (sink-pipe (marshal-decoder)
-                                                                 (writer)
-                                                                 (dechunker)
-                                                                 (marshal-decompressor)
-                                                                 (marshal-decoder)
-                                                                 writeln))))
-                   (send decoder :deliver 1 ans))
-                 )))
-  (send (self-sync-stream-writer stream 256) closer :write s))
-|#
+  (let ((stream-writer (α (cust vec)
+                         ;; blocking I/O so response happens only
+                         ;; after the write has occurred
+                         (write-sequence vec stream)
+                         (send cust :ok))))
+    (disk-encoder stream-writer :max-chunk max-chunk)))
 
 (defun read-self-sync-stream (cust stream &key (start 0) end)
   (let* ((nbuf 4096)
          (buf  (make-array nbuf
                            :element-type '(unsigned-byte 8)))
-         (decoder (ssact:stream-decoder (sink-pipe (marshal-decoder)
-                                                   ;; (writer) ;; for debugging
-                                                   (dechunker)
-                                                   (marshal-decompressor)
-                                                   (marshal-decoder)
-                                                   cust))))
+         (decoder (disk-decoder cust)))
     (file-position stream start)
     (um:nlet iter ((pos   start)
                    (bufix 1))
@@ -871,6 +821,8 @@
     ))
 
 #|
+(setf s (hcl:file-string "taxes.lisp"))
+
 (let* ((stream (ubyte-streams:make-ubyte-output-stream))
        (closer (α _
                  (let ((stream (ubyte-streams:make-ubyte-input-stream (ubyte-streams:stream-bytes stream))))
