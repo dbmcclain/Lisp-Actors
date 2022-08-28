@@ -36,7 +36,7 @@
             (bpt       (ed-nth-pt brand))
             (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)           ;; A*b
                                  (ed-mul (ed-decompress-pt client-pkey) brand)   ;; C*b
-                                 (ed-mul (ed-decompress-pt apt) (server-skey)))) ;; A*s
+                                 (ed-mul (ed-decompress-pt apt) (actors-skey)))) ;; A*s
             ;; (socket    (show-server-outbound socket))  ;; ***
             (encryptor (secure-sender ekey))
             (chan      (server-channel
@@ -49,7 +49,7 @@
        (β (cnx-id)
            (create-service-proxy β local-services decryptor)
          (send (remote-actor-proxy client-id socket)  ;; remote client cust
-               cnx-id (int bpt) (int (server-pkey))))
+               cnx-id (int bpt) (int (actors-pkey))))
        ))
     )))
 

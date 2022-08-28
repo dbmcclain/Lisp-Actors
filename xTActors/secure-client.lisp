@@ -72,7 +72,7 @@
                                                   (integerp bpt)
                                                   (integerp server-pkey))
                (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)           ;; B*a
-                                       (ed-mul (ed-decompress-pt bpt) (client-skey))   ;; B*c
+                                       (ed-mul (ed-decompress-pt bpt) (actors-skey))   ;; B*c
                                        (ed-mul (ed-decompress-pt server-pkey) arand))) ;; S*a
                       (chan  (client-channel
                               :local-services  local-services
@@ -89,7 +89,7 @@
       (β (client-id)
           (create-ephemeral-client-proxy β local-services responder)
         (send (remote-actor-proxy +server-connect-id+ socket)
-              client-id (int apt) (int (client-pkey))))
+              client-id (int apt) (int (actors-pkey))))
       )))
 
 (defactor client-gateway

@@ -35,25 +35,15 @@
 
 (in-package :com.ral.actors.secure-comm)
 
-(um:eval-always
-  (import '(com.ral.actors.base::make-signature
-            com.ral.actors.base::check-signature)))
-
 ;; ------------------------------------------------------
 
-(defun server-skey ()
-  (read-from-string (lw:environment-variable "ActorServer")))
+(defun actors-skey ()
+  (read-from-string (lw:environment-variable "ActorsNode")))
 
-(defun server-pkey ()
-  (ed-compress-pt (ed-nth-pt (server-skey))))
+(defun actors-pkey ()
+  (ed-compress-pt (ed-nth-pt (actors-skey))))
 
 (defconstant +server-connect-id+  #/uuid/{66895052-c57f-123a-9571-0a2cb67da316})
-
-(defun client-skey ()
-  (read-from-string (lw:environment-variable "ActorClient")))
-
-(defun client-pkey ()
-  (ed-compress-pt (ed-nth-pt (client-skey))))
 
 ;; ----------------------------------------------------------------
 ;; Self-organizing list of services for Server and connection Actors
