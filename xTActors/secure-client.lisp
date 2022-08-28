@@ -49,8 +49,8 @@
 ;; secret EKey.
 ;;
 ;;     ...for all subsequent messages...
-;;          Seq E(msg) Auth --> CnxID                 
-;;                Ephem-ID' <-- Seq' E(response) Auth'  ;; if we generate a response
+;;       Ephem-ID' Seq E(msg) Auth --> CnxID                 
+;;                       Ephem-ID' <-- Seq' E(response) Auth'  ;; if we generate a response
 ;;
 ;; Connection ID's are always sent in the clear (not encrypted, but
 ;; encoded for serialization) so that receivers can dispatch. But
