@@ -64,28 +64,37 @@
   (λ (cust socket local-services)
     (let* ((arand  (int (ctr-drbg 256)))
            (apt    (ed-nth-pt arand))
-           ;; (socket      (show-client-outbound socket)) ;; ***
+           (pkey   (client-pkey))
+           ;; (socket      (show-client-outbound socket)) ;;
            (responder
-            (α (server-id bpt sig)
-              (unless (com.ral.actors.base::check-signature server-id bpt sig (server-pkey))
-                (error "Server can't be authenticated"))
-              (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)))
-                     (echo  (sig-key-bcast socket))
-                     (chan  (client-channel
-                             :local-services  local-services
-                             :encryptor       (sink-pipe
-                                               (secure-sender ekey)
-                                               (remote-actor-proxy server-id socket))
-                             :decryptor       (secure-reader ekey echo)
-                             )))
-                (send connections cust :set-channel socket chan)
-                ))))
+            (α (server-id bpt server-pkey sig)
+              (when (and (typep server-id 'uuid:uuid)
+                         (integerp bpt)
+                         (integerp server-pkey)
+                         (consp sig))
+                (let ((pld  (vector bpt server-pkey)))
+                  (unless (check-signature server-id pld sig (ed-decompress-pt server-pkey))
+                    (error "Server can't be authenticated")))
+                (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)           ;; B*a
+                                        (ed-mul (ed-decompress-pt bpt) (client-skey))   ;; B*c
+                                        (ed-mul (ed-decompress-pt server-pkey) arand))) ;; S*a
+                       (chan  (client-channel
+                               :local-services  local-services
+                               :encryptor       (sink-pipe
+                                                 (secure-sender ekey)
+                                                 (remote-actor-proxy server-id socket))
+                               :decryptor       (secure-reader ekey)
+                               )))
+                  (send connections cust :set-channel socket chan)
+                  )))))
       (β (client-id)
           (create-ephemeral-client-proxy β local-services responder)
         (let* ((iapt  (int apt))
-               (sig   (com.ral.actors.base::make-signature client-id iapt (server-skey))))
+               (ipkey (int pkey))
+               (pld   (vector iapt ipkey))
+               (sig   (make-signature client-id pld (client-skey))))
           (send (remote-actor-proxy +server-connect-id+ socket)
-                client-id iapt sig)))
+                client-id iapt ipkey sig)))
       )))
 
 (defactor client-gateway

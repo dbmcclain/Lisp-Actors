@@ -49,6 +49,17 @@
     (map-into mask #'logxor bytevec mask)))
 |#
 
+(defun make-auth-key (ekey seq)
+  (vec (hash/256 :AUTH ekey seq)))
+
+(defun make-auth (ekey seq emsg)
+  (let ((auth-key (make-auth-key ekey seq)))
+    (vec (hash/256 auth-key seq emsg))))
+
+(defun check-auth (ekey seq emsg auth)
+  (equalp auth (make-auth ekey seq emsg)))
+
+
 (defun make-rep-sig-key (ekey seq)
   (vec (hash/256 :SIG ekey seq)))
 
@@ -444,6 +455,24 @@
       (send cust bytvec)
       )))
 
+(defun authentication (ekey)
+  (α (cust seq emsg)
+    (let ((auth (make-auth ekey seq emsg)))
+      (send cust seq emsg auth))
+    ))
+
+(defun check-authentication-beh (ekey &optional (seqs (sets:empty)))
+  (alambda
+   ((cust seq emsg auth) / (and (check-auth ekey seq emsg auth)
+                                (not (sets:mem seqs seq)))
+    (send cust seq emsg)
+    (become (check-authentication-beh ekey (sets:add seqs seq))))
+   ))
+
+(defun check-authentication (ekey)
+  (create (check-authentication-beh ekey)))
+
+                 
 (defun rep-signing (ekey)
   (α (cust seq emsg)
     (let ((sig (make-repudiable-signature ekey seq emsg)))

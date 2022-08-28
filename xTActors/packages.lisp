@@ -242,6 +242,9 @@ THE SOFTWARE.
    #:perform
 
    #:%set-beh
+
+   #:authentication
+   #:check-authentication
    ))
 
 #-lispworks

@@ -29,27 +29,38 @@
   ;; with our own random ECC point.
   (create
    (alambda ;; silently ignore other attempts
-    ((client-id apt sig) / (com.ral.actors.base::check-signature client-id apt sig (server-pkey))
-     (let* ((brand     (int (ctr-drbg 256)))
-            (bpt       (ed-nth-pt brand))
-            (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)))
-            ;; (socket    (show-server-outbound socket))  ;; ***
-            (encryptor (secure-sender ekey))
-            (chan      (server-channel
-                        :socket      socket
-                        :encryptor   encryptor))
-            (echo      (sig-key-bcast socket))
-            (decryptor (sink-pipe
-                        (secure-reader ekey echo)
-                        ;; (show-server-inbound) ;; ***
-                        chan)))
-       (β (cnx-id)
-           (create-service-proxy β local-services decryptor)
-         (let* ((ibpt (int bpt))
-                (sig  (com.ral.actors.base::make-signature cnx-id ibpt (server-skey)))) 
-           (send (remote-actor-proxy client-id socket)  ;; remote client cust
-                 cnx-id ibpt sig)))
-       ))
+    ((client-id apt client-pkey sig)
+     (when (and (typep client-id 'uuid:uuid)
+                (integerp apt)
+                (integerp client-pkey)
+                (consp sig))
+       (let ((pld (vector apt client-pkey)))
+         (when (check-signature client-id pld sig (ed-decompress-pt client-pkey))
+           (let* ((brand     (int (ctr-drbg 256)))
+                  (bpt       (ed-nth-pt brand))
+                  (pkey      (server-pkey))
+                  (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)           ;; A*b
+                                       (ed-mul (ed-decompress-pt client-pkey) brand)   ;; C*b
+                                       (ed-mul (ed-decompress-pt apt) (server-skey)))) ;; A*s
+                  ;; (socket    (show-server-outbound socket))  ;; ***
+                  (encryptor (secure-sender ekey))
+                  (chan      (server-channel
+                              :socket      socket
+                              :encryptor   encryptor))
+                  (decryptor (sink-pipe
+                              (secure-reader ekey)
+                              ;; (show-server-inbound) ;; ***
+                              chan)))
+             (β (cnx-id)
+                 (create-service-proxy β local-services decryptor)
+               (let* ((ibpt  (int bpt))
+                      (ipkey (int pkey))
+                      (pld   (vector ibpt ipkey))
+                      (sig   (make-signature cnx-id pld (server-skey)))) 
+                 (send (remote-actor-proxy client-id socket)  ;; remote client cust
+                       cnx-id ibpt ipkey sig)))
+             ))
+         )))
     )))
 
 (defun server-channel (&key

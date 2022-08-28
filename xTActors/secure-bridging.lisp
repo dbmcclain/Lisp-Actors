@@ -35,6 +35,12 @@
 
 (in-package :com.ral.actors.secure-comm)
 
+(um:eval-always
+  (import '(com.ral.actors.base::make-signature
+            com.ral.actors.base::check-signature)))
+
+;; ------------------------------------------------------
+
 (defun server-skey ()
   (read-from-string (lw:environment-variable "ActorServer")))
 
@@ -42,6 +48,12 @@
   (ed-compress-pt (ed-nth-pt (server-skey))))
 
 (defconstant +server-connect-id+  #/uuid/{66895052-c57f-123a-9571-0a2cb67da316})
+
+(defun client-skey ()
+  (read-from-string (lw:environment-variable "ActorClient")))
+
+(defun client-pkey ()
+  (ed-compress-pt (ed-nth-pt (client-skey))))
 
 ;; ----------------------------------------------------------------
 ;; Self-organizing list of services for Server and connection Actors
@@ -207,53 +219,21 @@
 
 ;; ---------------------------------------------------
 ;; Composite Actor pipes
-#||#
+
 (defun secure-sender (ekey)
   (pipe (marshal-encoder)
         (marshal-compressor)
         (chunker :max-size 65000)
-        ;; (checksum)
         (marshal-encoder)
         (encryptor ekey)
-        (rep-signing ekey)
+        (authentication ekey)
         ))
 
-(defun secure-reader (ekey echo)
-  (pipe (rep-sig-validation ekey echo) ;; sig validation with sig-keying broadcast
+(defun secure-reader (ekey)
+  (pipe (check-authentication ekey)
         (decryptor ekey)
-        (fail-silent-marshal-decoder)  ;; protect against replay attack with mutated message
-        ;; (verify-checksum)
+        (marshal-decoder)
         (dechunker)
         (marshal-decompressor)
         (marshal-decoder)))
-#||#
-
-#|
-(defun secure-sender (ekey)
-  (pipe (marshal-encoder)
-        (marshal-compressor)
-        (encryptor ekey)
-        (rep-signing ekey)))
-
-(defun secure-reader (ekey echo)
-  (pipe (rep-sig-validation ekey echo) ;; sig validation with sig-keying broadcast
-        (decryptor ekey)
-        (marshal-decompressor)
-        (marshal-decoder)))
-|#
-
-(defun sig-key-bcast (socket)
-  (α (seq sig-key)
-    ;; For all you listening Man-in-the-Middle out there...
-    ;;
-    ;; This is called just after validating the signature on a
-    ;; received secure message.  It will send the signature keying in
-    ;; plaintext to local services at other end.  But local services
-    ;; does not recognize :SIG-KEY verb and will just ignore.
-    ;;
-    ;; But we will have done our duty to publish the signature keying
-    ;; for the most recently received message, making the sender (and
-    ;; us) fully repudiable with its message.
-    (send socket nil :sig-key seq sig-key)
-    ))
 

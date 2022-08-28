@@ -386,19 +386,23 @@
            ;; tail of the decoder.
            (writer  (make-writer state)) ;; async output is sent here
            (encoder (sink-pipe
-                               #| (pass (create (lambda (&rest args)
-                                                  (send fmt-println "Out: ~S" args)))) |#
-                               (marshal-encoder)
-                               (chunker :max-size (- +max-fragment-size+ 500))
-                               (marshal-encoder)
-                               (self-sync-encoder)
-                               writer))
+                                #|
+                                (α (&rest args)
+                                  (send fmt-println "Out: ~S" args)
+                                  (send* args))
+                                |#
+                                (marshal-encoder)
+                                (chunker :max-size (- +max-fragment-size+ 500))
+                                (marshal-encoder)
+                                (self-sync-encoder)
+                                writer))
            (decoder (sink-pipe (marshal-decoder)
                                (dechunker)
                                (marshal-decoder)
                                #|
-                               (pass (create (lambda (&rest args)
-                                               (send fmt-println "In: ~S" args))))
+                               (α (&rest args)
+                                 (send fmt-println "In: ~S" args)
+                                 (send* args))
                                |#
                                local-services))
            (accum    (ssact:stream-decoder decoder)) ;; async input is sent here
