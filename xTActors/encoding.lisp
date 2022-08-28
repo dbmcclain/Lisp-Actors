@@ -37,17 +37,7 @@
   ;; the ekey concat with seq.
   (in-place-otp bytevec :ENC ekey seq))
 
-#|
-(defun encrypt/decrypt (ekey seq bytevec)
-  ;; takes a bytevec and produces an encrypted/decrypted bytevec
-  ;;
-  ;; One-time-pad encryption via XOR with random mask. Take care to
-  ;; never re-use the same mask for encryption, which is the hash of
-  ;; the ekey concat with seq.
-  (let* ((nel  (length bytevec))
-         (mask (vec (get-hash-nbytes nel (vec ekey) seq))))
-    (map-into mask #'logxor bytevec mask)))
-|#
+;; ------------------------------------------
 
 (defun make-auth-key (ekey seq)
   (vec (hash/256 :AUTH ekey seq)))
@@ -59,22 +49,7 @@
 (defun check-auth (ekey seq emsg auth)
   (equalp auth (make-auth ekey seq emsg)))
 
-
-(defun make-rep-sig-key (ekey seq)
-  (vec (hash/256 :SIG ekey seq)))
-
-(defun make-repudiable-signature (ekey seq emsg)
-  ;; We only need a secure non-repudiable signature on the initial DH Keying
-  (let ((sig-key (make-rep-sig-key ekey seq)))
-    (vec (hash/256 sig-key seq emsg))
-    ))
-
-(defun check-repudiable-signature (ekey seq emsg sig)
-  ;; Only someone who knows the current encryption key could have sent
-  ;; this message - if I didn't send it to myself, then it must have been
-  ;; the other party to the conversation.
-  (equalp sig (make-repudiable-signature ekey seq emsg)))
-
+;; --------------------------------------------
 ;; Schnorr Signatures - Non-Repudiable
 (defun make-signature (seq emsg skey)
   ;; Generate and append a Schnorr signature - signature includes seq
@@ -455,82 +430,53 @@
       (send cust bytvec)
       )))
 
+;; --------------------------------------
+
 (defun authentication (ekey)
   (α (cust seq emsg)
     (let ((auth (make-auth ekey seq emsg)))
       (send cust seq emsg auth))
     ))
 
-(defun check-authentication-beh (ekey &optional (seqs (sets:empty)))
-  (alambda
-   ((cust seq emsg auth) / (and (check-auth ekey seq emsg auth)
-                                (not (sets:mem seqs seq)))
-    (send cust seq emsg)
-    (become (check-authentication-beh ekey (sets:add seqs seq))))
-   ))
-
 (defun check-authentication (ekey)
-  (create (check-authentication-beh ekey)))
-
-                 
-(defun rep-signing (ekey)
-  (α (cust seq emsg)
-    (let ((sig (make-repudiable-signature ekey seq emsg)))
-      (send cust seq emsg sig)
-      )))
-
-(defun rep-sig-validation-beh (ekey echo &optional (seqs (sets:empty)))
-  (alambda
-   ;; fail silently - checking for valid signature and not a replay attack
-   ((cust seq emsg sig) / (and (check-repudiable-signature ekey seq emsg sig)
-                               (not (sets:mem seqs seq)))
-    ;; seq is integer (bignum)
-
-    ;; Repudiable signatures have us advertise the signature keying
-    ;; after receiving and validating a message signature. This makes
-    ;; it possible for anyone else to construct a bogus message and
-    ;; produce a valid signature.
-    ;;
-    ;; But signature keying depends on both ekey and seq, and only we
-    ;; know the ekey. So any attack will have to use the same seq to
-    ;; pass signature validation. Hence it will have been previously
-    ;; seen.  Such an attack will have a valid signature, the repeated
-    ;; seq, and a possibly hosed up encryption.
-    ;;
-    ;; Hosed encryption replay attacks are only possible because we
-    ;; use malleable encryption, and publish the signature keying, so
-    ;; that we have "Off the Record" messaging.
-    ;;
-    ;; We defend against replay attacks here by spotting the repeated
-    ;; use of seq. We could later use a silent-fail unmarshal, and
-    ;; after that a checksum verification, to protect against hosed
-    ;; encryption payloads.
-    ;;
-    ;; But in some instances, even a verbatim replay attack could be
-    ;; harmful if the service were non-idempotent. Such attacks would
-    ;; pass the unmarshalling and the checksum validation. So we
-    ;; really do need to filter away repeated seq messages.
-    ;;
-    ;; And even if we kept the signature keying private, a verbatim
-    ;; replay attack would still be possible. So this duplicate seq
-    ;; checking is vital, no matter what.
-    ;;
-    ;; Different sessions use different ekey, so replay attacks sent
-    ;; to any other session will fail signature validation. And so
-    ;; there is no need to retain the seq list beyond the lifetime of
-    ;; this session, nor any need to share the seq list with other
-    ;; active sessions on other channels.
-    ;;
-    ;; Use an FPL Red-Black Tree Set for the seqs list, to get
-    ;; O(log(N)) lookup behavior.
-    ;;
-    (send echo seq (make-rep-sig-key ekey seq))
-    (send cust seq emsg)
-    (become (rep-sig-validation-beh ekey echo (sets:add seqs seq))))
+  (labels ((auth-beh (seqs)
+             (alambda
+              ((cust seq emsg auth) / (and (check-auth ekey seq emsg auth)
+                                           (not (sets:mem seqs seq)))
+               ;; seq is integer (bignum)
+               ;;
+               ;; With our 3-way authentication scheme, spoofing attacks from 3rd
+               ;; parties becomes infeasible. But we still need to avoid replay
+               ;; attacks, in case the service were non-idempotent.
+               ;;
+               ;; The shared private ekey is per connection and session.
+               ;; Encryption and authentication keying are derived from the
+               ;; shared private ekey and a random roving seq. So we need not
+               ;; share this seq history with any other connection nor future
+               ;; sessions. We use an FPL Red-Black Tree for the history to give
+               ;; us an O(Log(N)) lookup.
+               ;;
+               ;; 3-way authentication keying allows for complete repudiation
+               ;; since it only requires knowledge of another's public key to
+               ;; make up a valid-appearing but fictitious session log.
+               ;;
+               ;; Yet we have complete forward security since every session uses
+               ;; a different random iniitial ekey, and every transmission uses a
+               ;; new random roving seq. Hence, changing encryption and
+               ;; authentication keying - which can only be known to the pair of
+               ;; participants in the session.
+               ;;
+               ;; Once a connection ends, all keying is forgotten by both sides.
+               ;; There is no way to predict the next connection keying, nor be
+               ;; able to read a historical record of encryptions.
+               ;;
+               (send cust seq emsg)
+               (become (auth-beh (sets:add seqs seq))))
+              )))
+    (create (auth-beh (sets:empty)))
    ))
 
-(defun rep-sig-validation (ekey echo)
-  (create (rep-sig-validation-beh ekey echo)))
+;; --------------------------------------
 
 (defun signing (skey)
   (actor (cust seq emsg)
@@ -545,15 +491,14 @@
      (send cust seq emsg))
     )))
 
+;; --------------------------------------
+
 (defun self-sync-encoder ()
   ;; takes a bytevec and produces a self-sync bytevec
   (actor (cust bytevec)
     (send cust (ssact:encode bytevec))))
 
-(defun self-sync-decoder ()
-  ;; takes a self-sync bytevec and produces a bytevec
-  (actor (cust bytevec)
-    (send cust (ssact:decode bytevec))))
+;; --------------------------------------
 
 (defun checksum ()
   ;; produce a prefix checksum on the message
@@ -569,6 +514,18 @@
     (when (equalp check (vec (hash/256 msg)))
       (send* cust msg))
     ))
+
+;; --------------------------------------------------------------
+;; CHUNKER - splitting large vectors into chunks for transmission.
+;;
+;; In our Actors system, CHUNKER can lead to a flurry of parallel
+;; concurrent activity in the customer - most often the tail of a
+;; systolic processing pipeline. So even if you SERIALIZER on input to
+;; the chunker, you may (and probably will) need to re-SERIALIZER
+;; somewhere downstream.
+;;
+;; Very fast! Imagine all the cores of the CPU further encoding each
+;; chunk in parallel.
 
 (defun chunker (&key (max-size 65536))
   ;; takes a bytevec and produces a sequence of chunk encodings
