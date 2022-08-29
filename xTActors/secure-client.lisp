@@ -54,12 +54,12 @@
 ;; response is proof to both sides that the other controls the secret
 ;; key behind the presented public key of the initial keying exchange.
 ;;
-;; Encryption and authentication have perfect forward, backward, and
-;; present, secrecy, even after a breach which discovers the secret
-;; keys for both client and server. EKey lasts only as long as the
-;; client-server connection remains open. After that EKey is forgotten
-;; by both parties. So even the client and server will not be able to
-;; decrypt a log of encrypted transmissions from prior sessions.
+;; Encryption and authentication have perfect forward secrecy, even
+;; after a breach which discovers the secret keys for both client and
+;; server. EKey lasts only as long as the client-server connection
+;; remains open. After that EKey is forgotten by both parties. So even
+;; the client and server will not be able to decrypt a log of
+;; encrypted transmissions from prior sessions.
 ;;
 ;; Anyone can forge a transcript by making up random (a, b) values for
 ;; the attacker and ther victim, and using their public key along with
