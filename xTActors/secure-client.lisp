@@ -99,6 +99,11 @@
 ;; connections may be requesting Nonces too. But every fresh Seq will
 ;; be some increment above the previous one.
 ;;
+;; Since Seq is also a component of the encryption and authentication
+;; keying, every fragment is uniquely encrypted and authenticated. No
+;; two encryptions of the same fragment will appear the same. This,
+;; again, relies on SHA3/256 never having seen a hash collision.
+;;
 ;; Received fragments are decoded, then decrypted and reassembled
 ;; (unchunked), then decompressed, and then deserialized back to Lisp
 ;; objects. Arrival order of message fragments can be arbitrary
