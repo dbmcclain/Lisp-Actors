@@ -78,11 +78,14 @@
 ;; chunked into fragments smaller than some maximum limit.
 ;;
 ;; Each fragment is then separately transmitted through the encryption
-;; scheme and onto the wire using a self-sync encoding.
+;; scheme and onto the wire using a self-sync encoding.  Transmission
+;; order of message fragments is usually scrambled due to parallel
+;; concurrent activity and can be arbitrary
 ;;
-;; Received fragments are decoded on the other side, then decrypted
-;; and reassembled (unchunked), then decompressed, and then
-;; deserialized back to Lisp objects on the other side.
+;; Received fragments are decoded, then decrypted and reassembled
+;; (unchunked), then decompressed, and then deserialized back to Lisp
+;; objects. Arrival order of message fragments can be arbitrary
+;; despite in-order TCP packet reassembly.
 ;;
 ;; The bit of repudiable cleverness is derived from ideas presented by
 ;; Trevor Perrin and Moxie Marlinspike of Signal.
