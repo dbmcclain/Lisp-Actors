@@ -63,9 +63,17 @@
 (defconstant +start-sequence+   #(#xFE #xFD))
 ;; ---------------------------------------------------------------
 
+(deftype ub8 ()
+  '(unsigned-byte 8))
+
+(deftype ub8-vector (&optional nel)
+  `(array ub8 (,nel)))
+
+;; -----------------------------------------------
+
 (defun make-ubv (size &rest args)
   (apply #'make-array size
-         :element-type '(unsigned-byte 8)
+         :element-type 'ub8
          args))
 
 (defun int-to-vec-le4 (n)
@@ -185,7 +193,7 @@
 (defun ssfsm-beh (dest aout stuff-fn)
   #F
   (declare (function stuff-fn)
-           ((array (unsigned-byte 8) *) aout))
+           ((ub8-vector) aout))
   (let (state          ;; machine state function
         need-fefd      ;; when T we may need to insert #xFEFD
         (remct 0)      ;; segment bytes remaining
@@ -198,7 +206,7 @@
       (labels (;; --------------------
                ;; Utility Functions
                (subrange-code? (b)
-                 (declare ((unsigned-byte 8) b))
+                 (declare (ub8 b))
                  (<= 0 b #xFC))
                
                (stuffer-init (ct)
@@ -258,18 +266,18 @@
                ;; ----------------
                ;; Machine States
                (start (b)
-                 (declare ((unsigned-byte 8) b))
+                 (declare (ub8 b))
                  (when (eql b #xFE)
                    (new-state check-start-fd)))
                
                (check-start-fd (b)
-                 (declare ((unsigned-byte 8) b))
+                 (declare (ub8 b))
                  (if (eql b #xFD)
                      (new-state check-version)
                    (restart b)))
 
                (check-version (b)
-                 (declare ((unsigned-byte 8) b))
+                 (declare (ub8 b))
                  (if (eql b #x01)
                      (new-state read-short-count)
                    (restart b)))
@@ -280,14 +288,14 @@
                    (restart b)))
 
                (read-segm (b)
-                 (declare ((unsigned-byte 8) b))
+                 (declare (ub8 b))
                  (if (and (eql b #xFE)
                           (> remct 1))
                      (new-state check-segm-fd)
                    (stuff b)))
 
                (check-segm-fd (b)
-                 (declare ((unsigned-byte 8) b))
+                 (declare (ub8 b))
                  (cond ((eql b #xFD) ;; we just saw a start pattern #xFE #xFD
                         (new-state check-version))
                        (t
@@ -297,7 +305,7 @@
                        ))
 
                (read-long-count (b)
-                 (declare ((unsigned-byte 8) b))
+                 (declare (ub8 b))
                  (cond ((subrange-code? b)
                         (setf remct b)
                         (new-state read-long-count-2))
@@ -306,7 +314,7 @@
                        ))
 
                (read-long-count-2 (b)
-                 (declare ((unsigned-byte 8) b))
+                 (declare (ub8 b))
                  (if (subrange-code? b)
                      (segm-init (+ remct (* b +long-count-base+)))
                    (restart b))))
@@ -315,7 +323,7 @@
         
         ;; finally... we get to the Actor behavior function
         (lambda (cust buf)
-          (declare ((array (unsigned-byte 8) *) buf))
+          (declare ((array ub8 *) buf))
           (map nil #'inhale buf)
           (send cust :next))
         ))))
