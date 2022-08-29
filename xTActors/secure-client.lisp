@@ -92,7 +92,12 @@
 ;; Each fragment is then separately transmitted through the encryption
 ;; scheme and onto the wire using a self-sync encoding.  Transmission
 ;; order of message fragments is usually scrambled due to parallel
-;; concurrent activity and can be arbitrary
+;; concurrent activity and can be arbitrary.
+;;
+;; Every fragment is assigned a fresh Seq, obtained from the Noncer.
+;; They may not be strictly sequential above 2^256 because other
+;; connections may be requesting Nonces too. But every fresh Seq will
+;; be some increment above the previous one.
 ;;
 ;; Received fragments are decoded, then decrypted and reassembled
 ;; (unchunked), then decompressed, and then deserialized back to Lisp
