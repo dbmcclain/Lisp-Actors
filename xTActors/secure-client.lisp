@@ -40,8 +40,9 @@
 ;;                               BPt = b*G, b random
 ;;                  Ephem-ID <-- CnxID BPt Server-PKey
 ;;
-;;    => EKey = H(a*BPt | Client-SKey*BPt | a*Server-PKey)    ;; at client side
-;;            = H(b*APt | b*Client-PKey   | Server-SKey*APt)  ;; at server side
+;;    => EKey = H(a*BPt | client-skey*BPt | a*Server-PKey)    ;; at client side
+;;            = H(b*APt | b*Client-PKey   | server-skey*APt)  ;; at server side
+;;            = H(a*b*G | b*c*G | a*s*G)
 ;;
 ;; No signatures employed. All it takes is knowledge of public keys
 ;; and random points.  Anyone can do, even if totally faked. But only
