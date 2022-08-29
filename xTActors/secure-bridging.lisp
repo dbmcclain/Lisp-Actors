@@ -54,22 +54,17 @@
     (send cust (mapcar #'car lst)))
 
    ((cust :add-service name handler)
-    (let ((pair (assoc name lst)))
-      (cond  (pair
-              (let ((new-lst (remove pair lst)))
-                (become (service-list-beh (acons name handler new-lst)))
-                (send cust :ok)
-                ))
-             (t
-              (become (service-list-beh (acons name handler lst)))
-              (send cust :ok))
-             )))
+    ;; replace or add
+    (become (service-list-beh (acons name handler
+                                     (remove (assoc name lst) lst))))
+    (send cust :ok))
+
+   ((cust :get-service name)
+    (send cust (cdr (assoc name lst))))
 
    ((cust :remove-service name)
-    (let ((pair (assoc name lst)))
-      (when pair
-        (become (service-list-beh (remove pair lst))))
-      (send cust :ok)))
+    (become (service-list-beh (remove (assoc name lst) lst)))
+    (send cust :ok))
 
    ((rem-cust :send verb . msg)
     (let ((pair (assoc verb lst)))
@@ -157,6 +152,7 @@
 (defun local-services-beh (svcs)
   (alambda
    ((cust :add-service-with-id id actor)
+    ;; insert ahead of any with same id
     (become (local-services-beh (acons id (local-service actor) svcs) ))
     (send cust id))
 
@@ -177,11 +173,9 @@
       ))
     
    ((cust :remove-service id)
-    (let ((pair (assoc id svcs :test #'uuid:uuid=)))
-      (when pair
-        (become (local-services-beh (remove pair svcs))))
-      (send cust :ok)))
-   
+    (become (local-services-beh (remove (assoc id svcs :test #'uuid:uuid=) svcs :count 1)))
+    (send cust :ok))
+
    ((client-id :send . msg)
     (let ((pair (assoc client-id svcs :test #'uuid:uuid=)))
       (when pair

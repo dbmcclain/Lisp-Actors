@@ -21,12 +21,12 @@
 
 (defun server-crypto-gateway (socket local-services)
   ;; Foreign clients first make contact with us here. They send us
-  ;; their client-id for this exchange, a random ECC point, and a
-  ;; valid signature on these items using our shared keying.
+  ;; their client-id for this exchange, a random ECC point, and their
+  ;; public key (ECC point).
   ;;
   ;; We develop a unique ECDH encryption key shared secretly between
-  ;; us and furnish a private handler for encrypted requests along
-  ;; with our own random ECC point.
+  ;; us and furnish a private handler ID for encrypted requests along
+  ;; with our own random ECC point and our public key.
   (create
    (alambda ;; silently ignore other attempts
     ((client-id apt client-pkey) / (and (typep client-id 'uuid:uuid)
@@ -38,10 +38,9 @@
                                  (ed-mul (ed-decompress-pt client-pkey) brand)   ;; C*b
                                  (ed-mul (ed-decompress-pt apt) (actors-skey)))) ;; A*s
             ;; (socket    (show-server-outbound socket))  ;; ***
-            (encryptor (secure-sender ekey))
             (chan      (server-channel
                         :socket      socket
-                        :encryptor   encryptor))
+                        :encryptor   (secure-sender ekey)))
             (decryptor (sink-pipe
                         (secure-reader ekey)
                         ;; (show-server-inbound) ;; ***
@@ -60,11 +59,14 @@
   ;; One of these exist for each connection established through the
   ;; main crypto gate.
   ;;
-  ;; We authenticate requests as coming from the client public key,
-  ;; decrypt the requests, and pass along to a local service. For each
-  ;; request we make an encrypting forwarder back to the client
-  ;; customer, and pass that along as the local customer for the
-  ;; request to the local service.
+  ;; Requests have been decrypted and unmarshalled by the time we
+  ;; arrive here. For each request we make an encrypting forwarder
+  ;; back to the remote client, and pass that along as the customer
+  ;; accompanying the request to a global service on the local
+  ;; machine.
+  ;;
+  ;; If the client cust-id is nil, then it doesn't expect a response,
+  ;; and any replies are quietly dropped.
   (create
    (alambda
     ;; A significant difference between LAMBDA and ALAMBDA - if an
@@ -74,7 +76,9 @@
     ((cust-id verb . msg) ;; remote client cust
      ;; (send println (format nil "server rec'd req: ~S" self-msg))
      (let ((proxy (when cust-id
-                    (sink-pipe encryptor (remote-actor-proxy cust-id socket)))))
+                    (sink-pipe encryptor
+                               (remote-actor-proxy cust-id socket))
+                    )))
        (send* global-services proxy :send verb msg)))
     )))
 

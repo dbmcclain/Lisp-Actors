@@ -113,7 +113,7 @@
                  (send connections cust :set-channel socket chan)
                  ))
               (_
-                (error "Server can't be authenticated"))
+                (error "Server not following connection protocol"))
               ))))
       (β (client-id)
           (create-ephemeral-client-proxy β local-services responder)
