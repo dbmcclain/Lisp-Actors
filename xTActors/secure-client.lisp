@@ -66,14 +66,24 @@
 ;;
 ;;   G      = Generator Pt for Curve1174
 ;;   H      = SHA3/256
-;;   Nonce[n] = Nonce[n-1] + 2^256, Nonce[0] = Int( H(UUID/v1) ) < 2^256
-;;   Seq[n] = Nonce[k], k >= n
+;;   Nonce[0] = Int( H(Fresh-UUID/v1) ) < 2^256, init at start of Lisp session
+;;   Nonce[n] = Nonce[n-1] + 2^256, Noncer is global resource for Lisp session.
+;;
+;;   Seq    = Nonce[++n]
 ;;   Auth   = H( H(:AUTH | EKey | Seq) | Seq | E(msg))
 ;;   E(msg) = SHAKE256(:ENC | EKey | Seq) XOR msg, effetively a one-time-pad
 ;;
-;; Decryption is the same as Encryption.  All Seq are sequential
-;; nonces and label each transmission. Generated independently on both
-;; sides. Allows for avoiding replay attacks.
+;; Decryption is the same as Encryption.  All Seq are selected from
+;; sequential nonces and label each transmission. Generated
+;; independently on both sides. Allows for avoiding replay attacks.
+;;
+;; For all practical purposes, Nonces are true nonces. They start as
+;; the SHA3/256 of a fresh v1-UUID at the start of a Lisp session, and
+;; are provided to client code on demand. v1-UUID are 60-bit
+;; timestamped and increment every 100ns. Every Noncer request
+;; increments the global nonce by 2^256. Since SHA3/256 < 2^256, and
+;; since nobody has ever seen a hash collision in SHA3/256, these are
+;; essentially unique numbers.
 ;;
 ;; Prior to encryption and wire transmission, the arbitrary Lisp
 ;; objects of a message are serialized, compressed, and possibly
