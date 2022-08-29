@@ -50,6 +50,8 @@
 ;; secret EKey.
 ;;
 ;;     ...for all subsequent messages...
+;;       Client                        Server
+;;       ------                        ------
 ;;       Ephem-ID' Seq E(msg) Auth --> CnxID                 
 ;;                       Ephem-ID' <-- Seq' E(response) Auth'  ;; if we generate a response
 ;;
@@ -71,7 +73,7 @@
 ;;
 ;;   Seq    = Nonce[++n]
 ;;   Auth   = H( H(:AUTH | EKey | Seq) | Seq | E(msg))
-;;   E(msg) = SHAKE256(:ENC | EKey | Seq) XOR msg, effetively a one-time-pad
+;;   E(msg) = SHAKE256(:ENC | EKey | Seq) XOR msg, effectively a one-time-pad
 ;;
 ;; Decryption is the same as Encryption.  All Seq are selected from
 ;; sequential nonces and label each transmission. Generated
