@@ -30,6 +30,9 @@
             useful-macros:alet
             useful-macros:alet-fsm
             useful-macros:when-let
+
+            vec-repr:ub8
+            vec-repr:ub8-vector
             )))
 
 ;; ------------------------------------------------------------------
@@ -62,14 +65,6 @@
 (defconstant +max-long-count+   (1- (* +long-count-base+ +long-count-base+)))
 (defconstant +start-sequence+   #(#xFE #xFD))
 ;; ---------------------------------------------------------------
-
-(deftype ub8 ()
-  '(unsigned-byte 8))
-
-(deftype ub8-vector (&optional nel)
-  `(array ub8 (,nel)))
-
-;; -----------------------------------------------
 
 (defun make-ubv (size &rest args)
   (apply #'make-array size
@@ -193,7 +188,7 @@
 (defun ssfsm-beh (dest aout stuff-fn)
   #F
   (declare (function stuff-fn)
-           ((ub8-vector) aout))
+           ((ub8-vector *) aout))
   (let (state          ;; machine state function
         need-fefd      ;; when T we may need to insert #xFEFD
         (remct 0)      ;; segment bytes remaining
