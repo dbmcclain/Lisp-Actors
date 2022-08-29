@@ -44,10 +44,24 @@
 ;;            = H(b*APt | b*Client-PKey   | server-skey*APt)  ;; at server side
 ;;            = H(a*b*G | b*c*G | a*s*G)
 ;;
-;; No signatures employed. All it takes is knowledge of public keys
-;; and random points.  Anyone can do, even if totally faked. But only
-;; the two sides participating will understand the resulting shared
-;; secret EKey.
+;; No signatures employed. There are no visible ties of a public key
+;; to any encryption. All it takes is knowledge of public keys and
+;; random points.  Anyone can do, even if totally faked. But only the
+;; two sides participating will understand the resulting shared secret
+;; EKey.
+;;
+;; Encryption and authentication have perfect forward & backward
+;; secrecy, even after a breach which discovers the secret keys for
+;; both client and server. EKey lasts only as long as the
+;; client-server connection remains open. After that EKey is forgotten
+;; by both parties. So even the client and server will not be able to
+;; decrypt a log of encrypted transmissions from prior sessions.
+;;
+;; Anyone can forge a transcript by making up random (a, b) values for
+;; the attacker and ther victim, and using their public key along with
+;; the public key of the victim. There is no way to prove that any
+;; participant actually held a conversation. No signatures means
+;; nothing to refute.
 ;;
 ;;     ...for all subsequent messages...
 ;;       Client                        Server
@@ -62,9 +76,11 @@
 ;; Connections are transparently established for users, and then are
 ;; shut down after some period of inactivity (currently 20s). All the
 ;; user needs to know is the IP Address of the server and the name of
-;; the service. Any computer running an Actors system can behave as
-;; both client and server. The distinction is merely that clients send
-;; requests, and servers might respond with replies.
+;; the service. Both parties are completely unaware of EKey and Seq.
+;;
+;; Any computer running an Actors system can behave as both client and
+;; server. The distinction is merely that clients send requests, and
+;; servers might respond with replies.
 ;;
 ;;   G      = Generator Pt for Curve1174
 ;;   H      = SHA3/256
