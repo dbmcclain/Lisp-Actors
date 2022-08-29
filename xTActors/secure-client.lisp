@@ -66,7 +66,8 @@
 ;;
 ;;   G      = Generator Pt for Curve1174
 ;;   H      = SHA3/256
-;;   Seq[n] = Seq[n-1]+2^256, Seq[0] = Int( H(UUID/v1) ) < 2^256
+;;   Nonce[n] = Nonce[n-1] + 2^256, Nonce[0] = Int( H(UUID/v1) ) < 2^256
+;;   Seq[n] = Nonce[k], k >= n
 ;;   Auth   = H( H(:AUTH | EKey | Seq) | Seq | E(msg))
 ;;   E(msg) = SHAKE256(:ENC | EKey | Seq) XOR msg, effetively a one-time-pad
 ;;
