@@ -50,6 +50,10 @@
 ;; two sides participating will understand the resulting shared secret
 ;; EKey.
 ;;
+;; During a connection, the abilty to perform a request and receive a
+;; response is proof to both sides that the other controls the secret
+;; key behind the presented public key of the initial keying exchange.
+;;
 ;; Encryption and authentication have perfect forward & backward
 ;; secrecy, even after a breach which discovers the secret keys for
 ;; both client and server. EKey lasts only as long as the
