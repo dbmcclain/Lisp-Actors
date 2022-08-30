@@ -385,27 +385,12 @@
            ;; encoder, and a decrypting postprocessor is used at the
            ;; tail of the decoder.
            (writer  (make-writer state)) ;; async output is sent here
-           (encoder (sink-pipe
-                                #|
-                                (α (&rest args)
-                                  (send fmt-println "Out: ~S" args)
-                                  (send* args))
-                                |#
-                                (marshal-encoder)
-                                (chunker :max-size (- +max-fragment-size+ 500))
-                                (marshal-encoder)
+           (encoder (sink-pipe  (marshal-encoder)
                                 (self-sync-encoder)
                                 writer))
-           (decoder (sink-pipe (marshal-decoder)
-                               (dechunker)
-                               (marshal-decoder)
-                               #|
-                               (α (&rest args)
-                                 (send fmt-println "In: ~S" args)
-                                 (send* args))
-                               |#
-                               local-services))
-           (accum    (ssact:stream-decoder decoder)) ;; async input is sent here
+           (accum   (ssact:stream-decoder ;; async arrivals are sent here
+                     (sink-pipe (marshal-decoder)
+                                local-services)))
            (packet-ctr 0)                            ;; a counter of input packet fragments 
            (shutdown (once (make-socket-shutdown state))))
       (β  _
