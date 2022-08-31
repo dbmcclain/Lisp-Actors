@@ -20,17 +20,38 @@
   ;; Every request to the server sent from here carries an
   ;; incrementing sequence number to ensure a change of encryption
   ;; keying for every new message.
-  (αα
-   ((cust verb &rest msg)
-    ;; (send println (format nil "trying to send: ~S" self-msg))
-    (if (is-pure-sink? cust)
-        (send* encryptor nil verb msg)
-      (β (cust-id)
-          (create-ephemeral-client-proxy β local-services (sink-pipe decryptor cust))
-        (send* encryptor cust-id verb msg))
-      ))
-   ))
+  (actor msglst
+    (β (xmsglst)
+        (send (client-translation local-services decryptor msglst) β)
+      (send* encryptor xmsglst))))
 
+(defstruct (client-proxy
+            (:constructor make-client-proxy (id)))
+  id)
+
+(defun client-translation-beh (local-services decryptor msglst)
+  ;; translate top level Actors into client proxy objects
+  (lambda (cust &rest xlst)
+    (if msglst
+        (let ((obj (car msglst))
+              (me  self))
+          (become (client-translation-beh local-services decryptor (cdr msglst)))
+          (if (actor-p obj)
+              (if (is-pure-sink? obj) ;; short circuit any sinks
+                  (send* me cust nil xlst)
+                ;; else
+                (β (id)
+                    (create-ephemeral-client-proxy β local-services (sink-pipe decryptor obj))
+                  (send* me cust (make-client-proxy id) xlst)))
+            ;; else
+            (send* me cust obj xlst)))
+      ;; else
+      (send cust (reverse xlst)))
+    ))
+
+(defun client-translation (local-services decryptor msglst)
+  (create (client-translation-beh local-services decryptor msglst)))
+          
 ;; ------------------------------------------------------------------
 ;; ECDH Shared Key Development for Repudiable Communications
 ;;

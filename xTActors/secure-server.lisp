@@ -67,19 +67,38 @@
   ;;
   ;; If the client cust-id is nil, then it doesn't expect a response,
   ;; and any replies are quietly dropped.
-  (αα
-   ;; A significant difference between LAMBDA and ALAMBDA - if an
-   ;; incoming arg list does not match what LAMBDA expects, it
-   ;; produces an error. ALAMBDA uses pattern matching, and anything
-   ;; arriving that does not match is simply ignored.
-   ((cust-id verb . msg) ;; remote client cust
-    ;; (send println (format nil "server rec'd req: ~S" self-msg))
-    (let ((proxy (when cust-id
-                   (sink-pipe encryptor
-                              (remote-actor-proxy cust-id socket))
-                   )))
-      (send* global-services proxy :send verb msg)))
-   ))
+  (actor msglst
+    ;; A significant difference between LAMBDA and ALAMBDA - if an
+    ;; incoming arg list does not match what LAMBDA expects, it
+    ;; produces an error. ALAMBDA uses pattern matching, and anything
+    ;; arriving that does not match is simply ignored.
+    ;;
+    (β (xmsglst)
+        (send (server-translation encryptor socket msglst) β)
+      ;; first message arg is assumed to be a customer on the client
+      (send* global-services (car xmsglst) :send (cdr xmsglst)))
+    ))
+
+(defun server-translation-beh (encryptor socket msglst)
+  ;; convert incoming toplevel client proxies into local server
+  ;; proxies that forward messages back to client
+  (lambda (cust &rest xlst)
+    (if msglst
+        (let ((obj (car msglst))
+              (me  self))
+          (become (server-translation-beh encryptor socket (cdr msglst)))
+          (if (client-proxy-p obj)
+              (let ((xobj (sink-pipe encryptor
+                                     (remote-actor-proxy (client-proxy-id obj) socket))))
+                (send* me cust xobj xlst))
+            ;; else
+            (send* me cust obj xlst)))
+      ;; else
+      (send cust (reverse xlst)))
+    ))
+
+(defun server-translation (encryptor socket msglst)
+  (create (server-translation-beh encryptor socket msglst)))
 
 ;; ---------------------------------------------------------------
 ;; For generating key-pairs...
