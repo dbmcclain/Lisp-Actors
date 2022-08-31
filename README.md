@@ -14,7 +14,9 @@ Assuming the two public keys are on the lists, a shared private session key is g
 
 Communications are completely refutable, yet private to the two parties. No signatures are required, yet attributable authentication is assured for both parties if successful communications occur - they both privately know the other side controls the random value corresponding to their advertised random point, and the private key corresponding to their advertised public key. 
 
-All shared keying is forgotten after the connection is closed. Any participant can act as both client and server. All of the connection keying ballet happens behind the scenes. The user only needs to know the IP Address of the server (and perhaps IP Port, default = 65001), and the name of the service to be contacted. Connections are transparently established on demand, and remain alive for some duration after the last exchange (currently 20s).
+All shared keying is forgotten after the connection is closed. Any participant can act as both client and server. All of the connection keying ballet happens behind the scenes. The user only needs to know the IP Address of the server (and perhaps IP Port, default = 65001), and the name of the service to be contacted. Connections are transparently established on demand, and remain alive for some duration after the last exchange (currently 20s). 
+
+We usually define a local proxy Actor for a remote service using (REMOTE-SERVICE name host-ip-adddr). The proxy handles the connection on demand as needed. And so sending messages to a remote Actor is no different than sending to a local Actor (the proxy).
 
 For every message between client and server, shared secret key EKey:
 ```
