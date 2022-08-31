@@ -10,7 +10,15 @@ Assume private client key c, and public client key C. Server private key s and s
 
 Assuming the two public keys are on the lists, a shared private session key is generated on each side using the public keys, random points, and local private keys. This shared private key is used to generate roving encryption and authentication keying for every message following the initial connection message. Communications are completely refutable, yet private to the two parties. No signatures are required, yet authentication is assured for both parties if successful communications occur - they both know the other side controls the private key corresponding to their advertised public key. All shared keying is forgotten after the connection is closed. Any participant can act as both client and server.
 
-If anyone tries to spoof the system by using one of the Public Keys in the list of participants, they'll get back a connection, but they won't be able to communicate across it unless they also control the corresponding Private Key. 
+For every message between client and server, shared secret key EKey:
+      Seq = Nonce
+      Ke = H(:ENC | EKey | Seq)
+      Ka = H(:AUTH | EKey | Seq)
+      CipherText = E(Ke, msg)
+      Auth = H(Ka | Seq | CipherText)
+      transmit (Seq, CipherText, Auth)
+      
+If anyone tries to spoof the system by using one of the Public Keys in the list of participants, they'll get back a connection, but they won't be able to communicate across it unless they also control the corresponding Private Key, to derive shared keying. 
 
 The risk to anyone is nil if the list of participants becomes known. That list contains only public keys. Nothing can be gained from this knowledge. Store it in the clear, that's okay.
 
