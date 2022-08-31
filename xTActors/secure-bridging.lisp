@@ -50,6 +50,10 @@
 ;;
 ;; A collection of public keys that are permitted to use our services.
 ;; Anyone of the group can act as a Server and as a Client.
+;;
+;; No need for passwords, etc. If someone in the list doesn't actually
+;; control the associated secret key, then they won't be able to
+;; communicate across a connection. Problem solved.
 
 (defvar *allowed-members*
   (let ((s (sets:empty)))
