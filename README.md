@@ -10,7 +10,7 @@ Assume private client key `c`, and public client key `C = c*G`. Server private k
 
 Generate random `a` at client and start a connection by sending `(A = a*G, C)`. Server generates random `b` and sends back `(B = b*G, S)`. Now shared private key becomes `EKey = H(a*B | c*B | a*S)` at the client side, and `EKey = H(A*b | C*b | A*s)` at the server side. These two keys are the same. And only those with knowledge of their own random value and private key can produce the shared secret key.
 
-Assuming the two public keys are on the lists, a shared private session key is generated on each side using the public keys, random points, and local private keys. This shared private key is used to generate roving encryption and authentication keying for every message following the initial connection message. 
+Assuming the two public keys are on the lists, the shared private session key is used to generate roving encryption and authentication keying for every message following the initial connection message. 
 
 Communications are completely refutable, yet private to the two parties. No signatures are required, yet attributable authentication is assured for both parties if successful communications occur - they both privately know the other side controls the random value corresponding to their advertised random point, and the private key corresponding to their advertised public key. 
 
