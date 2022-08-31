@@ -10,6 +10,8 @@ If anyone tries to spoof the system by using one of the Public Keys in the list 
 
 So where is the need for any passwords?
 
+Assume private client key c, and public client key C. Server private key s and server public key S. (scalar numbers are lower case, ECC points are upper case). Generate random a at client and start a connection by sending (A, C). Server generates random b and sends back (B, S). Now shared private key becomes H(a•B | c•B | a•S) at the client side, and H(A•b | C•b | A•s) at the server side. These two keys are the same.
+
 
 -- 26 August 2022 -- Self Synchronizing TCP Framing
 ---
