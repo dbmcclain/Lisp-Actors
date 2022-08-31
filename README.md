@@ -2,7 +2,9 @@
 ---
 Er, what am I missing? What's with all the noise and effort with Passwords? PAKE? SRP?
 
-We use secure network connections between Actors nodes. Each participant has a list of Public Keys of other participants that it will recognize. Every connection is established by a client sending across a reply-to UUID, a random point on an Elliptic Curve, and their Public Key. That Public Key is cross checked at the remote server site against the list of recognized participants. If it is on the list, then we go ahead and make the connection, sending back the server site's connection UUID, another random point on the curve, and its own Public Key. Back at the client side the remote server's Public Key is likewise checked against the list of participants.
+We use secure network connections between Actors nodes. Each participant has a list of Public Keys of other participants that it will recognize. Every connection is established by a client sending across a reply-to UUID, a random point on an Elliptic Curve, and their Public Key. 
+
+That Public Key is cross checked at the remote server site against the list of recognized participants. If it is on the list, then we go ahead and make the connection, sending back the server site's connection UUID, another random point on the curve, and its own Public Key. Back at the client side the remote server's Public Key is likewise checked against the list of participants.
 
 Assume private client key c, and public client key C. Server private key s and server public key S. (scalar numbers are lower case, ECC points are upper case). Generate random a at client and start a connection by sending (A, C). Server generates random b and sends back (B, S). Now shared private key becomes H(a•B | c•B | a•S) at the client side, and H(A•b | C•b | A•s) at the server side. These two keys are the same.
 
