@@ -46,6 +46,29 @@
 (defconstant +server-connect-id+  #/uuid/{66895052-c57f-123a-9571-0a2cb67da316})
 
 ;; ----------------------------------------------------------------
+;; Group Membership Verification
+;;
+;; A collection of public keys that are permitted to use our services.
+;; Anyone of the group can serve as a Server and as a Client.
+
+(defvar *allowed-members*
+  (let ((s (sets:empty)))
+    (dolist (pkey '(#xBA9666CEAE92CAC6D2B9400B6FC329BB9F701BFAC50D94E0989E664426F3369
+                    #x3BA58949841180E96B1E4EF619CECD73B112F7C563FD8620142C1487484D5D6
+                    #x645C7DC72A2C5BD07785C978FE69DFCFECBA00F2DFBF005929A1F2A95BB5D42))
+      (sets:addf s pkey))
+    s))
+
+#|
+(let ((lst nil))
+  (dolist (skey '())
+    (push (int (ed-compress-pt (ed-nth-pt skey))) lst))
+  (with-standard-io-syntax
+    (let ((*print-base* 16.))
+      (print lst))))
+|#
+
+;; ----------------------------------------------------------------
 ;; Self-organizing list of services for Server and connection Actors
 
 (defun service-list-beh (lst)

@@ -147,7 +147,8 @@
             (αα
              ((server-id bpt server-pkey) / (and (typep server-id 'uuid:uuid)
                                                  (integerp bpt)
-                                                 (integerp server-pkey))
+                                                 (integerp server-pkey)
+                                                 (sets:mem *allowed-members* server-pkey))
               (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)           ;; B*a
                                       (ed-mul (ed-decompress-pt bpt) (actors-skey))   ;; B*c
                                       (ed-mul (ed-decompress-pt server-pkey) arand))) ;; S*a

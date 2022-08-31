@@ -30,7 +30,8 @@
   (αα
    ((client-id apt client-pkey) / (and (typep client-id 'uuid:uuid)
                                        (integerp apt)
-                                       (integerp client-pkey))
+                                       (integerp client-pkey)
+                                       (sets:mem *allowed-members* client-pkey))
     (let* ((brand     (int (ctr-drbg 256)))
            (bpt       (ed-nth-pt brand))
            (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)           ;; A*b
