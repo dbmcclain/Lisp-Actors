@@ -33,6 +33,8 @@ And even if they hacked some poor user and stole his private key, they can't eav
 
 So protect your private keys. But you never need to rely on someone else to protect your private information - like passwords.
 
+Communications are completely refutable because anyone can fake a transcript with a participant. Just make up two random values `a` and `b`, and use the participant's public key. Then go ahead and generate a transcript of encrypted messages, pretending to be both sides of the conversation. You don't even have to contact the participant to do so. So if anyone can do this, then there is no way to prove that a specific participant generated the transcript.
+
 The risk to anyone is nil if the list of participants becomes known. That list contains only public keys. Nothing can be gained from this knowledge. Store it in the clear, that's okay.
 
 So where is the need for any passwords?
