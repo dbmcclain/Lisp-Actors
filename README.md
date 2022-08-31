@@ -1,6 +1,6 @@
 -- 31 August 2022 -- Secure Connections Without the Need for Passwords
 ---
-Er, what am I missing? What's with all the noise and effort with Passwords? PAKE? SRP? 1Password?
+Er, what am I missing? What's with all the noise and effort with Passwords? PAKE? SRP? 1Password? 2FA?
 
 We use secure network connections between Actors nodes. Each participant has a list of Public Keys of other participants that it will recognize. Every connection is established by a client sending across an ephemeral reply-to UUID, a random point on an Elliptic Curve, and their Public Key. 
 
