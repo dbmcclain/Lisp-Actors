@@ -18,9 +18,11 @@ All shared keying is forgotten after the connection is closed. Any participant c
 
 We usually define a local proxy Actor for a remote service using `(REMOTE-SERVICE name host-ip-adddr)`. The proxy handles the connection on demand as needed. And so sending messages to a remote Actor is no different than sending to a local Actor (the proxy). 
 
-There are some restrictions on what can be sent in a message to a remote Actor - any Lisp object can be sent, including self-referential objects, except for compiled closures or objects containing such. This is the same restriction you face when serializing messages to persistent storage form.
+There are some restrictions on what can be sent in a message to a remote Actor - any Lisp objects can be sent, including self-referential objects, except for compiled closures or objects containing such. This is the same restriction you face when serializing messages to persistent storage.
 
 The remote proxy Actor translates the customer Actor argument into an ephemeral UUID for transmission. If you must send additional Actors as arguments then you must first perform the ephemeral UUID translation on them. This translation produces a short-lived responder Actor identified to the server by a UUID, which forwards any received messages from the server to the local customer Actor. The responder beccomes the actual send target for any replies or sends on the server side. A similar proxy Actor is automatically produced on the server to represent the client's UUID target for its own local Actors.
+
+Ephemeral Actors are discarded either when a message arrives, or after some Time-to-Live (TTL) duration has passed. The TTL can be specified at creation time, but defaults to 10s.
 
 For every message between client and server, shared secret key EKey:
 ```
