@@ -1,3 +1,16 @@
+-- 31 August 2022 -- Secure Connections Without the Need for Passwords
+---
+Er, what am I missing? What's with all the noise and effort with Passwords? PAKE? SRP?
+
+We use secure network connections between Actors nodes. Each participant has a list of Public Keys of other participants that it will recognize. Every connection is established by a client sending across a reply-to UUID, a random point on an Elliptic Curve, and their Public Key. That Public Key is cross checked at the remote server site against the list of recognized participants. If it is on the list, then we go ahead and make the connection, sending back the remote site's connection UUID, another random point on the curve, and its own Public Key. Back at the client side the remote server's Public Key is likewise checked against the list of participants.
+
+Assuming the two public keys are on the lists, a shared private session key is generated on each side using the public keys, random points, and local private keys. This shared private key is used to generate roving encryption and authentication keying for every message following the initial connection message. Communications are completely refutable, yet private to the two parties. All keying is forgotten after the connection is closed. Any participant can act as both client and server.
+
+If anyone tries to spoof the system by using one of the Public Keys in the list of participants, they'll get back a connection, but they won't be able to communicate across it unless they also control the corresponding Private Key. 
+
+So where is the need for any passwords?
+
+
 -- 26 August 2022 -- Self Synchronizing TCP Framing
 ---
 Many TCP protocols use either length prefixing or embedded delimiters for indicating message boundaries. Today we implemented a different, and possibly better, method - self-synchronizing encoding. TCP is a stream protocol, not a message protocol. So if the stream contains embedded messages, it is up to us to find them.
