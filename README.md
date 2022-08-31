@@ -37,6 +37,7 @@ The risk to anyone is nil if the list of participants becomes known. That list c
 
 So where is the need for any passwords?
 
+(The clever bit of shared keying and repudiable messaging was derived from comments by Trevor Perrin and Moxie Marlinspike of Signal Foundation. https://signal.org/blog/simplifying-otr-deniability/ )
 
 
 -- 26 August 2022 -- Self Synchronizing TCP Framing
