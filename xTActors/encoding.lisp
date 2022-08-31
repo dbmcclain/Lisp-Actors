@@ -9,6 +9,9 @@
   (import '(vec-repr:vec
             vec-repr:int
             vec-repr:hex
+            vec-repr:ub8
+            vec-repr:ub8-vector
+            vec-repr:make-ub8-vector
             hash:hash/256
             hash:hash=
             hash:get-hash-nbytes
@@ -576,7 +579,9 @@
 #||#
 (defun dechunk-assembler-beh (cust nchunks chunks-seen out-vec)
   ;; Assemblers are constructed as soon as we have the init record
-  (lambda (offs byte-vec)
+  (alambda
+   ((offs byte-vec) / (and (integerp offs)
+                           (typep byte-vec 'ub8-vector))
     ;; (send dbg-println "Dechunk Assembler: offs ~D, size ~D" offs (length byte-vec))
     (unless (find offs chunks-seen) ;; toss duplicates
       (let ((replacer    (α (cust)
@@ -591,7 +596,8 @@
               (t
                (send replacer nil)
                (become (dechunk-assembler-beh cust new-nchunks new-seen out-vec)))
-              )))))
+              ))))
+   ))
 #||#
 #|
 (defun dechunk-assembler-beh (cust nchunks chunks-seen out-vec)
@@ -609,19 +615,16 @@
               )))))
 |#
 
-(defun make-ubv (nb &rest args)
-  (apply #'make-array nb
-         :element-type '(unsigned-byte 8)
-         args))
-
 (defun make-dechunk-assembler (cust nchunks size)
-  (create (dechunk-assembler-beh cust nchunks nil (make-ubv size) )))
+  (create (dechunk-assembler-beh cust nchunks nil (make-ub8-vector size) )))
 
 (defun dechunk-interceptor-beh (id assembler next)
   ;; A node that intercepts incoming chunks for a given id, once the
   ;; init record has been received
   (alambda
-   ((_ :chunk an-id offs byte-vec) when (eql an-id id)
+   ((_ :chunk an-id offs byte-vec) when (and (eql an-id id)
+                                             (integerp offs)
+                                             (typep byte-vec 'ub8-vector))
     ;; (send dbg-println "Intercept Dechunker: CHUNK id ~A offs ~D, ~D bytes" an-id offs (length byte-vec))
     (send assembler offs byte-vec))
 
@@ -638,7 +641,9 @@
   ;; A node that enqueues data chunks for a given id, while we await
   ;; the arrival of the init record.
   (alambda
-   ((cust :init an-id nchunks size) when (eql an-id id)
+   ((cust :init an-id nchunks size) when (and (eql an-id id)
+                                              (integerp nchunks)
+                                              (integerp size))
     ;; (send dbg-println "Pending Dechunker: INIT id ~A ~D chunks, ~D bytes" an-id nchunks size)
     (let ((assembler (make-dechunk-assembler cust nchunks size)))
       (become (dechunk-interceptor-beh id assembler next))
@@ -646,7 +651,9 @@
         (send* assembler args))
       ))
    
-   ((_ :chunk an-id offs byte-vec) when (eql an-id id)
+   ((_ :chunk an-id offs byte-vec) when (and (eql an-id id)
+                                             (integerp offs)
+                                             (typep byte-vec 'ub8-vector))
     ;; (send dbg-println "Pending Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
     (become (dechunk-pending-beh id
                                  (cons (list offs byte-vec) pend)
@@ -658,18 +665,22 @@
 
 (defun null-dechunk-beh ()
   (alambda
-   ((cust :pass bytevec)
+   ((cust :pass bytevec) / (typep bytevec 'ub8-vector)
     ;; (send dbg-println "Null Dechunker: pass")
     (send cust bytevec))
    
-   ((cust :init id nchunks size)
+   ((cust :init id nchunks size) / (and (integerp id)
+                                        (integerp nchunks)
+                                        (integerp size))
     ;; (send dbg-println "Null Dechunker: INIT id ~A ~D chunks, ~D bytes" id nchunks size)
     (let ((next      (create self-beh))
           (assembler (make-dechunk-assembler cust nchunks size)))
       (become (dechunk-interceptor-beh id assembler next))
       ))
    
-   ((_ :chunk id offs byte-vec)
+   ((_ :chunk id offs byte-vec) / (and (integerp id)
+                                       (integerp offs)
+                                       (typep byte-vec 'ub8-vector))
     ;; (send dbg-println "Null Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
     (let ((next (create self-beh)))
       (become (dechunk-pending-beh id
@@ -853,7 +864,7 @@
                      sender)
           "This is a test")))
 
-(let ((junk (make-ubv 1022)))
+(let ((junk (make-ub8-vector 1022)))
   (beta (ans)
       (send (pipe (chunker :max-size 16) (dechunker)) beta junk)
     (send println (if (equalp ans junk) :yes :no))))
@@ -1004,7 +1015,7 @@
     (with-open-file (fd fname
                         :direction :input
                         :element-type '(unsigned-byte 8))
-      (let ((file-type (make-ubv 16)))
+      (let ((file-type (make-ub8-vector 16)))
         (read-sequence file-type fd)
         (if (equalp +AONT-FILE-TYPE-ID+ file-type)
             (send* aont-decoder cust (loenc:deserialize fd))

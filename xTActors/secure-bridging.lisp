@@ -204,7 +204,8 @@
     (send cust :ok))
 
    ((client-id :send . msg)
-    (let ((pair (assoc client-id svcs :test #'uuid:uuid=)))
+    (let ((pair (and (typep client-id 'uuid:uuid)
+                     (assoc client-id svcs :test #'uuid:uuid=))))
       (when pair
         ;; Server replies are directed here via the client proxy id, to
         ;; find the actual client channel. Once a reply is received, this
