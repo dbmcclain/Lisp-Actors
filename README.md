@@ -18,7 +18,7 @@ For every message between client and server, shared secret key EKey:
       CipherText = E(Ke, msg)
       Auth = H(Ka | Seq | CipherText)
       transmit (Seq, CipherText, Auth)
-      ```
+```
       
 If anyone tries to spoof the system by using one of the Public Keys in the list of participants, they'll get back a connection, but they won't be able to communicate across it unless they also control the corresponding Private Key, to derive shared keying. 
 
