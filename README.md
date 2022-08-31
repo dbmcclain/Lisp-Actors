@@ -10,7 +10,7 @@ Assume private client key `c`, and public client key `C = c*G`. Server private k
 
 Assuming the two public keys are on the lists, a shared private session key is generated on each side using the public keys, random points, and local private keys. This shared private key is used to generate roving encryption and authentication keying for every message following the initial connection message. 
 
-Communications are completely refutable, yet private to the two parties. No signatures are required, yet attributable authentication is assured for both parties if successful communications occur - they both know the other side controls the random value corresponding to their advertised random point, and the private key corresponding to their advertised public key. All shared keying is forgotten after the connection is closed. Any participant can act as both client and server.
+Communications are completely refutable, yet private to the two parties. No signatures are required, yet attributable authentication is assured for both parties if successful communications occur - they both privately know the other side controls the random value corresponding to their advertised random point, and the private key corresponding to their advertised public key. All shared keying is forgotten after the connection is closed. Any participant can act as both client and server.
 
 For every message between client and server, shared secret key EKey:
 ```
