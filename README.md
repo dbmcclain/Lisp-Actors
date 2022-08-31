@@ -18,7 +18,7 @@ All shared keying is forgotten after the connection is closed. Any participant c
 
 We usually define a local proxy Actor for a remote service using `(REMOTE-SERVICE name host-ip-adddr)`. The proxy handles the connection on demand as needed. And so sending messages to a remote Actor is no different than sending to a local Actor. 
 
-There are some restrictions on what can be sent in a message to a remote Actor - any Lisp objects can be sent, including self-referential objects, except for compiled closures or objects containing such. This is the same restriction you face when serializing messages to persistent storage.
+There are some restrictions on what can be sent in a message to a remote Actor - you can send Actors, and any Lisp objects, including self-referential objects, except for compiled closures or objects containing such. This is almost the same restriction you face when serializing messages to persistent storage. (You can't serialize Actors to persistent store.)
 
 The remote proxy Actor translates the customer Actor message argument (and any other toplevel Actor args) into a short-lived responder Actor identified to the server by a UUID, which forwards any received messages from the server to the local customer Actor. The responder becomes the send target for any replies or sends on the server side. A complementary proxy Actor is automatically produced on the server to represent the client's UUID target for the server's local Actors.
 
