@@ -20,7 +20,7 @@ We usually define a local proxy Actor for a remote service using `(REMOTE-SERVIC
 
 There are some restrictions on what can be sent in a message to a remote Actor - any Lisp objects can be sent, including self-referential objects, except for compiled closures or objects containing such. This is the same restriction you face when serializing messages to persistent storage.
 
-The remote proxy Actor translates the customer Actor argument into an ephemeral UUID for transmission. If you must send additional Actors as arguments then you must first perform ephemeral UUID translation on them. This translation produces a short-lived responder Actor identified to the server by a UUID, which forwards any received messages from the server to the local customer Actor. The responder becomes the send target for any replies or sends on the server side. A similar proxy Actor is automatically produced on the server to represent the client's UUID target for the server's local Actors.
+The remote proxy Actor translates the customer Actor message argument (and any other Actor args) into an ephemeral UUID for transmission. This translation produces a short-lived responder Actor identified to the server by a UUID, which forwards any received messages from the server to the local customer Actor. The responder becomes the send target for any replies or sends on the server side. A complementary proxy Actor is automatically produced on the server to represent the client's UUID target for the server's local Actors.
 
 Ephemeral Actors are discarded either when a message arrives or after some Time-to-Live (TTL) duration has expired. The TTL can be specified at creation time, but defaults to 10s.
 
