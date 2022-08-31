@@ -26,7 +26,7 @@ Messages are transmitted using self-sync encoding. We are protected against DOS 
 
 If anyone tries to spoof the system by using one of the Public Keys in the list of participants, they'll get back a connection, but they won't be able to communicate across it unless they also control the corresponding Private Key, to derive shared keying. 
 
-And even if they hacked some poor user and stole his private key, they won't have access to the private random value and still can't derive shared keying. But they would be able to impersonate the poor user in a fresh connection. 
+And even if they hacked some poor user and stole his private key, they can't eavesdrop because they won't have access to the private random value and still can't derive shared keying. But they would be able to impersonate the poor user in a fresh connection. 
 
 So protect your private keys. But you never need to rely on someone else to protect private information - like passwords.
 
