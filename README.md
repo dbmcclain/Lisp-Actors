@@ -6,11 +6,11 @@ We use secure network connections between Actors nodes. Each participant has a l
 
 That Public Key is cross checked at the remote server site against the list of recognized participants. If it is on the list, then we go ahead and make the connection, sending back the server site's fresh randomly generated connection UUID, another random point on the curve, and its own Public Key. Back at the client side the remote server's Public Key is likewise checked against a list of participants.
 
-Assume private client key `c`, and public client key `C = c*G`. Server private key `s` and server public key `S = s*G`. (scalar numbers are lower case, ECC points are upper case). Generate random `a` at client and start a connection by sending `(A = a*G, C)`. Server generates random `b` and sends back `(B = b*G, S)`. Now shared private key becomes `EKey = H(a*B | c*B | a*S)` at the client side, and `EKey = H(A*b | C*b | A*s)` at the server side. These two keys are the same. And only those with knowledge of their own random value and private key can produce the shared secret key.
+Assume private client key `c`, and public client key `C = c*G`. Server private key `s` and server public key `S = s*G`. (scalar numbers are lower case, ECC points are upper case. G = ECC generator point.). Generate random `a` at client and start a connection by sending `(A = a*G, C)`. Server generates random `b` and sends back `(B = b*G, S)`. Now shared private key becomes `EKey = H(a*B | c*B | a*S)` at the client side, and `EKey = H(A*b | C*b | A*s)` at the server side. These two keys are the same. And only those with knowledge of their own random value and private key can produce the shared secret key.
 
 Assuming the two public keys are on the lists, a shared private session key is generated on each side using the public keys, random points, and local private keys. This shared private key is used to generate roving encryption and authentication keying for every message following the initial connection message. 
 
-Communications are completely refutable, yet private to the two parties. No signatures are required, yet authentication is assured for both parties if successful communications occur - they both know the other side controls the random value corresponding to their advertised random point, and the private key corresponding to their advertised public key. All shared keying is forgotten after the connection is closed. Any participant can act as both client and server.
+Communications are completely refutable, yet private to the two parties. No signatures are required, yet attributable authentication is assured for both parties if successful communications occur - they both privately know the other side controls the random value corresponding to their advertised random point, and the private key corresponding to their advertised public key. All shared keying is forgotten after the connection is closed. Any participant can act as both client and server.
 
 For every message between client and server, shared secret key EKey:
 ```
@@ -32,6 +32,8 @@ If anyone tries to spoof the system by using one of the Public Keys in the list 
 And even if they hacked some poor user and stole his private key, they can't eavesdrop because they won't have access to the private random value and still can't derive shared keying. But they would be able to impersonate the poor user in a fresh connection. 
 
 So protect your private keys. But you never need to rely on someone else to protect your private information - like passwords.
+
+Communications are completely refutable because anyone can fake a transcript with a participant. Just make up two random values `a` and `b`, and use the participant's public key. Then go ahead and generate a transcript of encrypted messages, pretending to be both sides of the conversation. You don't even have to contact the participant to do so. So if anyone can do this, then there is no way to prove that a specific participant engaged in the transcript.
 
 The risk to anyone is nil if the list of participants becomes known. That list contains only public keys. Nothing can be gained from this knowledge. Store it in the clear, that's okay.
 
