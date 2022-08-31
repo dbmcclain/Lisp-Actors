@@ -161,14 +161,13 @@
 
 (defun make-kill-timer (timer-fn)
   (let ((timer (mp:make-timer #'mp:funcall-async timer-fn)))
-    (create
-     (alambda
-      ((:resched)
-       (mp:schedule-timer-relative timer *socket-timeout-period*))
-      ((:discard)
-       (mp:unschedule-timer timer)
-       (become (sink-beh)))
-      ))))
+    (αα
+     ((:resched)
+      (mp:schedule-timer-relative timer *socket-timeout-period*))
+     ((:discard)
+      (mp:unschedule-timer timer)
+      (become (sink-beh)))
+     )))
 
 ;; -------------------------------------------------------------
 ;; List of currently active sockets

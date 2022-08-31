@@ -141,24 +141,23 @@
     (send* cust (coerce (loenc:decode vec) 'list))))
 
 (defun fail-silent-marshal-decoder ()
-  (create
-   (alambda
-    ((cust vec)
-     ;; (send dbg-println "Fail-Silent Marshal Decoder")
-     ;;
-     ;; The premise here is that, when using malleable encrption and
-     ;; refutable signatures, an attacker can form a validly signed but
-     ;; mutated encryption in a replay attack. That will likely produce
-     ;; gibberish as a marshal encoding, and we need to intercept these
-     ;; kinds of attacks and not let them pass, nor cause trouble for
-     ;; us.
-     (let ((dec (ignore-errors
-                  (loenc:decode vec))))
-       (when (and dec
-                  (vectorp dec))
-         (send* cust (coerce dec 'list)))
-       ))
-    )))
+  (αα
+   ((cust vec)
+    ;; (send dbg-println "Fail-Silent Marshal Decoder")
+    ;;
+    ;; The premise here is that, when using malleable encrption and
+    ;; refutable signatures, an attacker can form a validly signed but
+    ;; mutated encryption in a replay attack. That will likely produce
+    ;; gibberish as a marshal encoding, and we need to intercept these
+    ;; kinds of attacks and not let them pass, nor cause trouble for
+    ;; us.
+    (let ((dec (ignore-errors
+                 (loenc:decode vec))))
+      (when (and dec
+                 (vectorp dec))
+        (send* cust (coerce dec 'list)))
+      ))
+   ))
 
 #|
 (defun marshal-cmpr-encoder ()
@@ -233,15 +232,14 @@
     (send cust (simple-uncompress vec))))
 
 (defun fail-silent-marshal-decompressor ()
-  (create
-   (alambda
-    ((cust vec)
-     (let ((ans (ignore-errors
-                  (simple-uncompress vec))))
-       (when ans
-         (send cust ans))
-       ))
-    )))
+  (αα
+   ((cust vec)
+    (let ((ans (ignore-errors
+                 (simple-uncompress vec))))
+      (when ans
+        (send cust ans))
+      ))
+   ))
 
 #||#
 #|
@@ -441,14 +439,13 @@
 
 (defun decryptor (ekey)
   ;; Takes an encrypted bytevec and produces a bytevec
-  (create
-   (alambda
-    ((cust seq emsg)
-     ;; (send dbg-println "Decryptor")
-     (let ((bytvec (encrypt/decrypt ekey seq emsg)))
-       (send cust bytvec)
-       ))
-    )))
+  (αα
+   ((cust seq emsg)
+    ;; (send dbg-println "Decryptor")
+    (let ((bytvec (encrypt/decrypt ekey seq emsg)))
+      (send cust bytvec)
+      ))
+   ))
 
 ;; --------------------------------------
 
@@ -505,11 +502,10 @@
       (send cust seq emsg sig))))
 
 (defun signature-validation (pkey)
-  (create
-   (alambda ;; fail silently
-    ((cust seq emsg sig) / (check-signature seq emsg sig pkey)
-     (send cust seq emsg))
-    )))
+  (αα
+   ((cust seq emsg sig) / (check-signature seq emsg sig pkey)
+    (send cust seq emsg))
+   ))
 
 ;; --------------------------------------
 

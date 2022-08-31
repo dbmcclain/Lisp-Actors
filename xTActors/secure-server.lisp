@@ -27,30 +27,29 @@
   ;; We develop a unique ECDH encryption key shared secretly between
   ;; us and furnish a private handler ID for encrypted requests along
   ;; with our own random ECC point and our public key.
-  (create
-   (alambda ;; silently ignore other attempts
-    ((client-id apt client-pkey) / (and (typep client-id 'uuid:uuid)
-                                        (integerp apt)
-                                        (integerp client-pkey))
-     (let* ((brand     (int (ctr-drbg 256)))
-            (bpt       (ed-nth-pt brand))
-            (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)           ;; A*b
-                                 (ed-mul (ed-decompress-pt client-pkey) brand)   ;; C*b
-                                 (ed-mul (ed-decompress-pt apt) (actors-skey)))) ;; A*s
-            ;; (socket    (show-server-outbound socket))  ;; ***
-            (chan      (server-channel
-                        :socket      socket
-                        :encryptor   (secure-sender ekey)))
-            (decryptor (sink-pipe
-                        (secure-reader ekey)
-                        ;; (show-server-inbound) ;; ***
-                        chan)))
-       (β (cnx-id)
-           (create-service-proxy β local-services decryptor)
-         (send (remote-actor-proxy client-id socket)  ;; remote client cust
-               cnx-id (int bpt) (int (actors-pkey))))
-       ))
-    )))
+  (αα
+   ((client-id apt client-pkey) / (and (typep client-id 'uuid:uuid)
+                                       (integerp apt)
+                                       (integerp client-pkey))
+    (let* ((brand     (int (ctr-drbg 256)))
+           (bpt       (ed-nth-pt brand))
+           (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)           ;; A*b
+                                (ed-mul (ed-decompress-pt client-pkey) brand)   ;; C*b
+                                (ed-mul (ed-decompress-pt apt) (actors-skey)))) ;; A*s
+           ;; (socket    (show-server-outbound socket))  ;; ***
+           (chan      (server-channel
+                       :socket      socket
+                       :encryptor   (secure-sender ekey)))
+           (decryptor (sink-pipe
+                       (secure-reader ekey)
+                       ;; (show-server-inbound) ;; ***
+                       chan)))
+      (β (cnx-id)
+          (create-service-proxy β local-services decryptor)
+        (send (remote-actor-proxy client-id socket)  ;; remote client cust
+              cnx-id (int bpt) (int (actors-pkey))))
+      ))
+   ))
 
 (defun server-channel (&key
                        socket
@@ -67,20 +66,19 @@
   ;;
   ;; If the client cust-id is nil, then it doesn't expect a response,
   ;; and any replies are quietly dropped.
-  (create
-   (alambda
-    ;; A significant difference between LAMBDA and ALAMBDA - if an
-    ;; incoming arg list does not match what LAMBDA expects, it
-    ;; produces an error. ALAMBDA uses pattern matching, and anything
-    ;; arriving that does not match is simply ignored.
-    ((cust-id verb . msg) ;; remote client cust
-     ;; (send println (format nil "server rec'd req: ~S" self-msg))
-     (let ((proxy (when cust-id
-                    (sink-pipe encryptor
-                               (remote-actor-proxy cust-id socket))
-                    )))
-       (send* global-services proxy :send verb msg)))
-    )))
+  (αα
+   ;; A significant difference between LAMBDA and ALAMBDA - if an
+   ;; incoming arg list does not match what LAMBDA expects, it
+   ;; produces an error. ALAMBDA uses pattern matching, and anything
+   ;; arriving that does not match is simply ignored.
+   ((cust-id verb . msg) ;; remote client cust
+    ;; (send println (format nil "server rec'd req: ~S" self-msg))
+    (let ((proxy (when cust-id
+                   (sink-pipe encryptor
+                              (remote-actor-proxy cust-id socket))
+                   )))
+      (send* global-services proxy :send verb msg)))
+   ))
 
 ;; ---------------------------------------------------------------
 ;; For generating key-pairs...

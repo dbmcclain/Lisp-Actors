@@ -214,6 +214,11 @@
   ;; α is to actor, what λ is to lambda
   `(actor ,args ,@body))
 
+(µ αα (&rest clauses)
+  `(create
+    (alambda
+     ,@clauses)))
+
 (µ β (args form &body body)
   ;; β is to beta
   `(let (β)

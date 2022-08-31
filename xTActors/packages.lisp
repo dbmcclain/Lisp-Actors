@@ -47,6 +47,7 @@ THE SOFTWARE.
 
   (:export
    #:α
+   #:αα
    #:ret
    #:ret*
    #:γlambda

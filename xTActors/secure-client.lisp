@@ -20,17 +20,16 @@
   ;; Every request to the server sent from here carries an
   ;; incrementing sequence number to ensure a change of encryption
   ;; keying for every new message.
-  (create
-   (alambda
-    ((cust verb &rest msg)
-     ;; (send println (format nil "trying to send: ~S" self-msg))
-     (if (is-pure-sink? cust)
-         (send* encryptor nil verb msg)
-       (β (cust-id)
-           (create-ephemeral-client-proxy β local-services (sink-pipe decryptor cust))
-         (send* encryptor cust-id verb msg))
-       ))
-    )))
+  (αα
+   ((cust verb &rest msg)
+    ;; (send println (format nil "trying to send: ~S" self-msg))
+    (if (is-pure-sink? cust)
+        (send* encryptor nil verb msg)
+      (β (cust-id)
+          (create-ephemeral-client-proxy β local-services (sink-pipe decryptor cust))
+        (send* encryptor cust-id verb msg))
+      ))
+   ))
 
 ;; ------------------------------------------------------------------
 ;; ECDH Shared Key Development for Repudiable Communications
@@ -145,26 +144,25 @@
            (apt    (ed-nth-pt arand))
            ;; (socket      (show-client-outbound socket)) ;;
            (responder
-            (create
-             (alambda
-              ((server-id bpt server-pkey) / (and (typep server-id 'uuid:uuid)
-                                                  (integerp bpt)
-                                                  (integerp server-pkey))
-               (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)           ;; B*a
-                                       (ed-mul (ed-decompress-pt bpt) (actors-skey))   ;; B*c
-                                       (ed-mul (ed-decompress-pt server-pkey) arand))) ;; S*a
-                      (chan  (client-channel
-                              :local-services  local-services
-                              :encryptor       (sink-pipe
-                                                (secure-sender ekey)
-                                                (remote-actor-proxy server-id socket))
-                              :decryptor       (secure-reader ekey)
-                              )))
-                 (send connections cust :set-channel socket chan)
-                 ))
-              (_
-                (error "Server not following connection protocol"))
-              ))))
+            (αα
+             ((server-id bpt server-pkey) / (and (typep server-id 'uuid:uuid)
+                                                 (integerp bpt)
+                                                 (integerp server-pkey))
+              (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)           ;; B*a
+                                      (ed-mul (ed-decompress-pt bpt) (actors-skey))   ;; B*c
+                                      (ed-mul (ed-decompress-pt server-pkey) arand))) ;; S*a
+                     (chan  (client-channel
+                             :local-services  local-services
+                             :encryptor       (sink-pipe
+                                               (secure-sender ekey)
+                                               (remote-actor-proxy server-id socket))
+                             :decryptor       (secure-reader ekey)
+                             )))
+                (send connections cust :set-channel socket chan)
+                ))
+             (_
+              (error "Server not following connection protocol"))
+             )))
       (β (client-id)
           (create-ephemeral-client-proxy β local-services responder)
         (send (remote-actor-proxy +server-connect-id+ socket)
