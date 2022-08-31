@@ -140,20 +140,24 @@
     (send* cust (coerce (loenc:decode vec) 'list))))
 
 (defun fail-silent-marshal-decoder ()
-  (actor (cust vec)
-    ;; (send dbg-println "Fail-Silent Marshal Decoder")
-    ;;
-    ;; The premise here is that, when using malleable encrption and
-    ;; refutable signatures, an attacker can form a validly signed but
-    ;; mutated encryption in a replay attack. That will likely produce
-    ;; gibberish as a marshal encoding, and we need to intercept these
-    ;; kinds of attacks and not let them pass, nor cause trouble for
-    ;; us.
-    (let ((dec (ignore-errors
-                 (loenc:decode vec))))
-      (when dec
-        (send* cust (coerce dec 'list)))
-      )))
+  (create
+   (alambda
+    ((cust vec)
+     ;; (send dbg-println "Fail-Silent Marshal Decoder")
+     ;;
+     ;; The premise here is that, when using malleable encrption and
+     ;; refutable signatures, an attacker can form a validly signed but
+     ;; mutated encryption in a replay attack. That will likely produce
+     ;; gibberish as a marshal encoding, and we need to intercept these
+     ;; kinds of attacks and not let them pass, nor cause trouble for
+     ;; us.
+     (let ((dec (ignore-errors
+                  (loenc:decode vec))))
+       (when (and dec
+                  (vectorp dec))
+         (send* cust (coerce dec 'list)))
+       ))
+    )))
 
 #|
 (defun marshal-cmpr-encoder ()
@@ -226,6 +230,18 @@
 (defun marshal-decompressor ()
   (actor (cust vec)
     (send cust (simple-uncompress vec))))
+
+(defun fail-silent-marshal-decompressor ()
+  (create
+   (alambda
+    ((cust vec)
+     (let ((ans (ignore-errors
+                  (simple-uncompress vec))))
+       (when ans
+         (send cust ans))
+       ))
+    )))
+
 #||#
 #|
 (defun marshal-compressor ()
@@ -424,11 +440,14 @@
 
 (defun decryptor (ekey)
   ;; Takes an encrypted bytevec and produces a bytevec
-  (actor (cust seq emsg)
-    ;; (send dbg-println "Decryptor")
-    (let ((bytvec (encrypt/decrypt ekey seq emsg)))
-      (send cust bytvec)
-      )))
+  (create
+   (alambda
+    ((cust seq emsg)
+     ;; (send dbg-println "Decryptor")
+     (let ((bytvec (encrypt/decrypt ekey seq emsg)))
+       (send cust bytvec)
+       ))
+    )))
 
 ;; --------------------------------------
 
@@ -746,13 +765,13 @@
 (defun netw-decoder (ekey pkey cust)
   ;; takes a bytevec and produces arbitrary objects
   (ssact:stream-decoder
-   (sink-pipe (marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
+   (sink-pipe (fail-silent-marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
               (signature-validation pkey) ;; pass along seq, enc text
               (decryptor ekey)        ;; generates a bytevec
-              (marshal-decoder)       ;; generates chunker encoding
+              (fail-silent-marshal-decoder)       ;; generates chunker encoding
               (dechunker)             ;; de-chunking back into original byte vector
-              (marshal-decompressor)
-              (marshal-decoder)       ;; decode byte vector into message objects
+              (fail-silent-marshal-decompressor)
+              (fail-silent-marshal-decoder)       ;; decode byte vector into message objects
               cust)))
 
 (defun disk-encoder (dest &key (max-chunk 65536.))

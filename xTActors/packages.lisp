@@ -188,6 +188,7 @@ THE SOFTWARE.
    #:fail-silent-marshal-decoder
    #:marshal-compressor
    #:marshal-decompressor
+   #:fail-silent-marshal-decompressor
    #:encryptor
    #:decryptor
    #:rep-signing

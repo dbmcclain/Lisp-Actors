@@ -432,7 +432,7 @@
                                 (self-sync-encoder)
                                 writer))
            (accum   (ssact:stream-decoder ;; async arrivals are sent here
-                     (sink-pipe (marshal-decoder)
+                     (sink-pipe (fail-silent-marshal-decoder)
                                 local-services)))
            (packet-ctr 0)                            ;; a counter of input packet fragments 
            (shutdown (once (make-socket-shutdown state))))

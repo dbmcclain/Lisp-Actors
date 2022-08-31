@@ -216,8 +216,8 @@
 (defun secure-reader (ekey)
   (pipe (check-authentication ekey)
         (decryptor ekey)
-        (marshal-decoder)
+        (fail-silent-marshal-decoder)
         (dechunker)
-        (marshal-decompressor)
-        (marshal-decoder)))
+        (fail-silent-marshal-decompressor)
+        (fail-silent-marshal-decoder)))
 
