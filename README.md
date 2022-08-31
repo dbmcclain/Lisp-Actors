@@ -14,10 +14,10 @@ Communications are completely refutable, yet private to the two parties. No sign
 
 For every message between client and server, shared secret key EKey:
 ```
-      Seq = Nonce
       H(x) = SHA3/256(x)
       E(k,x) = SHAKE/256(k) XOR x
       
+      Seq = Nonce
       Ke = H(:ENC | EKey | Seq)
       Ka = H(:AUTH | EKey | Seq)
       CipherText = E(Ke, msg)
