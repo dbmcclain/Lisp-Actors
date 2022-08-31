@@ -6,7 +6,7 @@ We use secure network connections between Actors nodes. Each participant has a l
 
 That Public Key is cross checked at the remote server site against the list of recognized participants. If it is on the list, then we go ahead and make the connection, sending back the server site's fresh randomly generated connection UUID, another random point on the curve, and its own Public Key. Back at the client side the remote server's Public Key is likewise checked against a list of participants.
 
-Assume private client key `c`, and public client key `C = c*G`. Server private key `s` and server public key `S = s*G`. Scalar numbers are lower case, ECC points are upper case. G = ECC generator point. We happen to use Curve1174, but can easily be changed.
+Assume private client key `c`, and public client key `C = c*G`. Server private key `s` and server public key `S = s*G`. Scalar numbers are lower case, ECC points are upper case. G = ECC generator point. We happen to use a very fast implementation for Curve1174, but can easily be changed.
 
 Generate random `a` at client and start a connection by sending `(A = a*G, C)`. Server generates random `b` and sends back `(B = b*G, S)`. Now shared private key becomes `EKey = H(a*B | c*B | a*S)` at the client side, and `EKey = H(A*b | C*b | A*s)` at the server side. These two keys are the same. And only those with knowledge of their own random value and private key can produce the shared secret key.
 
