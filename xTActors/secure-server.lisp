@@ -73,32 +73,15 @@
     ;; produces an error. ALAMBDA uses pattern matching, and anything
     ;; arriving that does not match is simply ignored.
     ;;
-    (β (xmsglst)
-        (send (server-translation encryptor socket msglst) β)
-      ;; first message arg is assumed to be a customer on the client
-      (send* global-services (car xmsglst) :send (cdr xmsglst)))
-    ))
-
-(defun server-translation-beh (encryptor socket msglst)
-  ;; convert incoming toplevel client proxies into local server
-  ;; proxies that forward messages back to client
-  (lambda (cust &rest xlst)
-    (if msglst
-        (let ((obj (car msglst))
-              (me  self))
-          (become (server-translation-beh encryptor socket (cdr msglst)))
-          (if (client-proxy-p obj)
-              (let ((xobj (sink-pipe encryptor
-                                     (remote-actor-proxy (client-proxy-id obj) socket))))
-                (send* me cust xobj xlst))
-            ;; else
-            (send* me cust obj xlst)))
-      ;; else
-      (send cust (reverse xlst)))
-    ))
-
-(defun server-translation (encryptor socket msglst)
-  (create (server-translation-beh encryptor socket msglst)))
+    (flet ((translate-client-proxy (obj)
+             (if (client-proxy-p obj)
+                 (sink-pipe encryptor
+                            (remote-actor-proxy (client-proxy-id obj) socket))
+               obj)))
+      (let ((xmsglst (mapcar #'translate-client-proxy msglst)))
+        ;; first message arg is assumed to be a customer on the client
+        (send* global-services (car xmsglst) :send (cdr xmsglst)))
+      )))
 
 ;; ---------------------------------------------------------------
 ;; For generating key-pairs...
