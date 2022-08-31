@@ -443,9 +443,11 @@
   (αα
    ((cust seq emsg)
     ;; (send dbg-println "Decryptor")
-    (let ((bytvec (encrypt/decrypt ekey seq emsg)))
-      (send cust bytvec)
-      ))
+    (let ((bytvec (ignore-errors
+                    (encrypt/decrypt ekey seq emsg))))
+      (when bytvec
+        (send cust bytvec)
+        )))
    ))
 
 ;; --------------------------------------
