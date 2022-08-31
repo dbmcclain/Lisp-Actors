@@ -80,11 +80,12 @@
   ;;
   ;; Similarly, when we compress a point to hand off to someone, we
   ;; divide by the cofactor before compression.
-  (destructuring-bind (upt krand) sig
-    (let* ((kpt  (ed-nth-pt krand))
-           (h    (int (hash/256 seq emsg kpt pkey))))
-      (ed-pt= (ed-decompress-pt upt) (ed-add kpt (ed-mul pkey h)))
-      )))
+  (ignore-errors
+    (destructuring-bind (upt krand) sig
+      (let* ((kpt  (ed-nth-pt krand))
+             (h    (int (hash/256 seq emsg kpt pkey))))
+        (ed-pt= (ed-decompress-pt upt) (ed-add kpt (ed-mul pkey h)))
+        ))))
 
 ;; --------------------------------------------------
 ;; The term "Arbitrary Objects" here refers to serializable objects -

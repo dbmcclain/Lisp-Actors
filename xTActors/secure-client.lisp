@@ -20,14 +20,17 @@
   ;; Every request to the server sent from here carries an
   ;; incrementing sequence number to ensure a change of encryption
   ;; keying for every new message.
-  (α (cust verb &rest msg)
-    ;; (send println (format nil "trying to send: ~S" self-msg))
-    (if (is-pure-sink? cust)
-        (send* encryptor nil verb msg)
-      (β (cust-id)
-          (create-ephemeral-client-proxy β local-services (sink-pipe decryptor cust))
-        (send* encryptor cust-id verb msg))
-      )))
+  (create
+   (alambda
+    ((cust verb &rest msg)
+     ;; (send println (format nil "trying to send: ~S" self-msg))
+     (if (is-pure-sink? cust)
+         (send* encryptor nil verb msg)
+       (β (cust-id)
+           (create-ephemeral-client-proxy β local-services (sink-pipe decryptor cust))
+         (send* encryptor cust-id verb msg))
+       ))
+    )))
 
 ;; ------------------------------------------------------------------
 ;; ECDH Shared Key Development for Repudiable Communications
