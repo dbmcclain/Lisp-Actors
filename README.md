@@ -1,3 +1,44 @@
+-- 31 August 2022 -- Secure Connections Without the Need for Passwords
+---
+Er, what am I missing? What's with all the noise and effort with Passwords? PAKE? SRP? 1Password? 2FA?
+
+We use secure network connections between Actors nodes. Each participant has a list of Public Keys of other participants that it will recognize. Every connection is established by a client sending across an ephemeral reply-to UUID, a random point on an Elliptic Curve, and their Public Key. 
+
+That Public Key is cross checked at the remote server site against the list of recognized participants. If it is on the list, then we go ahead and make the connection, sending back the server site's fresh randomly generated connection UUID, another random point on the curve, and its own Public Key. Back at the client side the remote server's Public Key is likewise checked against a list of participants.
+
+Assume private client key `c`, and public client key `C`. Server private key `s` and server public key `S`. (scalar numbers are lower case, ECC points are upper case). Generate random `a` at client and start a connection by sending `(A, C)`. Server generates random `b` and sends back `(B, S)`. Now shared private key becomes `EKey = H(a*B | c*B | a*S)` at the client side, and `EKey = H(A*b | C*b | A*s)` at the server side. These two keys are the same. And only those with knowledge of their own random value and private key can produce the shared secret key.
+
+Assuming the two public keys are on the lists, a shared private session key is generated on each side using the public keys, random points, and local private keys. This shared private key is used to generate roving encryption and authentication keying for every message following the initial connection message. 
+
+Communications are completely refutable, yet private to the two parties. No signatures are required, yet authentication is assured for both parties if successful communications occur - they both know the other side controls the random value corresponding to their advertised random point, and the private key corresponding to their advertised public key. All shared keying is forgotten after the connection is closed. Any participant can act as both client and server.
+
+For every message between client and server, shared secret key EKey:
+```
+      H(x) = SHA3/256(x)
+      E(k,x) = SHAKE/256(k) XOR x
+      
+      Seq = Nonce
+      Ke = H(:ENC | EKey | Seq)
+      Ka = H(:AUTH | EKey | Seq)
+      CipherText = E(Ke, msg)
+      Auth = H(Ka | Seq | CipherText)
+      transmit (Seq, CipherText, Auth)
+```
+      
+Messages are transmitted using self-sync encoding. We are protected against DOS attacks because of the self-sync encoding, and we accept only those messages that respect the protocol format and which pass authentication. We are protected against replay attacks because we reject duplicate Seq messages. And we are protected against malicious messages that can't be correctly reassembled (dechunked), decompressed, and unmarshalled.
+
+If anyone tries to spoof the system by using one of the Public Keys in the list of participants, they'll get back a connection, but they won't be able to communicate across it unless they also control the corresponding Private Key, to derive shared keying. 
+
+And even if they hacked some poor user and stole his private key, they can't eavesdrop because they won't have access to the private random value and still can't derive shared keying. But they would be able to impersonate the poor user in a fresh connection. 
+
+So protect your private keys. But you never need to rely on someone else to protect your private information - like passwords.
+
+The risk to anyone is nil if the list of participants becomes known. That list contains only public keys. Nothing can be gained from this knowledge. Store it in the clear, that's okay.
+
+So where is the need for any passwords?
+
+
+
 -- 26 August 2022 -- Self Synchronizing TCP Framing
 ---
 Many TCP protocols use either length prefixing or embedded delimiters for indicating message boundaries. Today we implemented a different, and possibly better, method - self-synchronizing encoding. TCP is a stream protocol, not a message protocol. So if the stream contains embedded messages, it is up to us to find them.
