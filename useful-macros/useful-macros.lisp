@@ -30,6 +30,17 @@ THE SOFTWARE.
 
 ;; -------------------------------------------------------
 
+(defun firsts (lst)
+  (mapcar #'first lst))
+
+(defun seconds (lst)
+  (mapcar #'second lst))
+
+(defun thirds (lst)
+  (mapcar #'third lst))
+
+;; -------------------------------------------------------
+
 (defmacro letrec (bindings &body body)
   `(let ,(mapcar #'first bindings)
      (setf ,@(mapcan #'identity bindings))

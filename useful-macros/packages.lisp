@@ -443,6 +443,11 @@ THE SOFTWARE.
    #:compose)
 
   (:export
+
+   #:firsts
+   #:seconds
+   #:thirds
+   
    :*timeout*
    :timeout
    :with-timeout

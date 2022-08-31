@@ -201,9 +201,9 @@
 
 (defmacro actor-nlet (name bindings &body body)
   `(let (,name)
-     (setf ,name (actor ,(mapcar #'first bindings)
+     (setf ,name (actor ,(um:firsts bindings)
                    ,@body))
-     (send ,name ,@(mapcar #'second bindings))))
+     (send ,name ,@(um:seconds bindings))))
 
 #+:LISPWORKS
 (editor:indent-like "actor-nlet" 'nlet)
@@ -225,8 +225,10 @@
      (setf β  (α ,args ,@body))
      ,form))
 
-(editor:setup-indent "α" 1)
-(editor:indent-like "β" 'destructuring-bind)
+#+:LISPWORKS
+(progn
+  (editor:setup-indent "α" 1)
+  (editor:indent-like "β" 'destructuring-bind))
 
 ;; ---------------------------------------------------
 
