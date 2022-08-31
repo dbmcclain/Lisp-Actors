@@ -12,6 +12,8 @@ Assuming the two public keys are on the lists, a shared private session key is g
 
 If anyone tries to spoof the system by using one of the Public Keys in the list of participants, they'll get back a connection, but they won't be able to communicate across it unless they also control the corresponding Private Key. 
 
+The risk to anyone is nil if the list of participants becomes known. That list contains only public keys. Nothing can be gained from this knowledge. Store it in the clear, that's okay.
+
 So where is the need for any passwords?
 
 
