@@ -47,7 +47,8 @@
     (vec (hash/256 auth-key seq emsg))))
 
 (defun check-auth (ekey seq emsg auth)
-  (equalp auth (make-auth ekey seq emsg)))
+  (ignore-errors
+    (equalp auth (make-auth ekey seq emsg))))
 
 ;; --------------------------------------------
 ;; Schnorr Signatures - Non-Repudiable
@@ -458,8 +459,9 @@
 (defun check-authentication (ekey)
   (labels ((auth-beh (seqs)
              (alambda
-              ((cust seq emsg auth) / (and (check-auth ekey seq emsg auth)
-                                           (not (sets:mem seqs seq)))
+              ((cust seq emsg auth) / (and (integerp seq)
+                                           (not (sets:mem seqs seq))
+                                           (check-auth ekey seq emsg auth))
                ;; seq is integer (bignum)
                ;;
                ;; With our 3-way authentication scheme, spoofing attacks from 3rd
