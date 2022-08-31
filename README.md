@@ -28,7 +28,7 @@ If anyone tries to spoof the system by using one of the Public Keys in the list 
 
 And even if they hacked some poor user and stole his private key, they can't eavesdrop because they won't have access to the private random value and still can't derive shared keying. But they would be able to impersonate the poor user in a fresh connection. 
 
-So protect your private keys. But you never need to rely on someone else to protect private information - like passwords.
+So protect your private keys. But you never need to rely on someone else to protect your private information - like passwords.
 
 The risk to anyone is nil if the list of participants becomes known. That list contains only public keys. Nothing can be gained from this knowledge. Store it in the clear, that's okay.
 
