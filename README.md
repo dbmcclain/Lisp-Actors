@@ -37,7 +37,7 @@ For every message between client and server, shared secret key EKey:
       transmit (Seq, CipherText, Auth)
 ```
       
-Messages are transmitted using self-sync encoding. We are protected against DOS attacks because of the self-sync encoding, and we accept only those messages that respect the protocol format and which pass authentication. We are protected against replay attacks because we reject duplicate Seq messages. And we are protected against malicious messages that can't be correctly reassembled (dechunked), decompressed, and unmarshalled.
+Messages are transmitted using self-sync encoding. We are protected against DOS attacks because of the self-sync encoding, and we accept only those messages that respect the protocol format and which pass authentication. We are protected against replay attacks because we reject duplicate Seq messages. And we are protected against malicious messages that can't be correctly reassembled (dechunked), decompressed, and unmarshalled. Messages destined for unknown services, or to non-existent Actors, are silently dropped.
 
 If anyone tries to spoof the system by using one of the Public Keys in the list of participants, they'll get back a connection, but they won't be able to communicate across it unless they also control the corresponding Private Key, to derive shared keying. 
 
