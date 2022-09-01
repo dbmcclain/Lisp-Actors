@@ -37,13 +37,9 @@
            (bpt       (ed-nth-pt brand))
            (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)            ;; A*b
                                 (ed-mul (ed-decompress-pt client-pkey) brand)    ;; C*b
-                                (ed-mul (ed-decompress-pt apt) (actors-skey)))) ;; A*s
-           (encryptor (sink-pipe (client-secure-sender ekey local-services)
-                                 socket))
-           (decryptor (sink-pipe (server-secure-reader ekey local-services)
-                                 local-services)))
+                                (ed-mul (ed-decompress-pt apt) (actors-skey))))) ;; A*s
       (β _
-          (send local-services β :set-crypto encryptor decryptor)
+          (send local-services β :set-crypto ekey socket)
         (β (cnx-id)
             (create-service-proxy β local-services global-services)
           (send socket client-id cnx-id (int bpt) (int (actors-pkey))))

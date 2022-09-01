@@ -97,14 +97,6 @@
     (become (service-list-beh (remove (assoc name lst) lst)))
     (send cust :ok))
 
-   #|
-   ((rem-cust :send verb . msg)
-    (let ((pair (assoc verb lst)))
-      (when pair
-        (send* (cdr pair) rem-cust msg))
-      ))
-   |#
-
    ((rem-cust verb . msg)
     (let ((pair (assoc verb lst)))
       (when pair
@@ -147,17 +139,7 @@
 ;;
 ;; We want to avoid inventing subtypes of Actors for this. Instead, we
 ;; manufacture stand-in Actors.
-
-#|
-(defun remote-actor-proxy (actor-id socket)
-  ;; Used to setup a target proxy for sending information across the
-  ;; socket to them.
-  (when actor-id
-    (α (&rest msg)
-      ;; (send println (format nil "s/reply: ~S" msg))
-      (send* socket actor-id :send msg))))
-|#
-
+;;
 ;; Similarly, on the sending side, we can't just send along a cust
 ;; field of a message because it is an Actor, and contains a
 ;; non-marshalable functional closure.
@@ -187,8 +169,7 @@
 
 (defstruct (ephem-service
             (:include local-service)
-            (:constructor ephem-service (handler)))
-  )
+            (:constructor ephem-service (handler))))
 
 (defun local-services-beh (&optional svcs encryptor decryptor)
   (alambda
@@ -229,11 +210,18 @@
       (become (local-services-beh new-svcs encryptor decryptor))
       (send cust :ok)))
 
-   ((cust :set-crypto encryptor decryptor)
-    (become (local-services-beh svcs encryptor decryptor))
-    (send cust :ok))
+   ((cust :set-crypto ekey socket)
+    ;; after this we promptly forget ekey...
+    (let ((encryptor (sink-pipe (secure-sender ekey self)
+                                socket))
+          (decryptor (sink-pipe (secure-reader ekey self)
+                                self)))
+      (become (local-services-beh svcs encryptor decryptor))
+      (send cust :ok)))
 
-   ;; encrytped socket send
+   ;; encrytped socket send - proxy Actors send to here...  The entire
+   ;; message, including UUID target, is encrypted. The only thing
+   ;; appearing on the wire are the (SEQ CTXT AUTH)
    ((:ssend . msg) / encryptor
     (send* encryptor msg))
 
@@ -246,7 +234,9 @@
           (become (local-services-beh (remove pair svcs) encryptor decryptor)))
         )))
 
-   ;; encrypted socket delivery
+   ;; encrypted socket delivery -- decryptor decodes the message and
+   ;; sends back to us as an unencrypted socket delivery (see previous
+   ;; clause)
    ((seq ctxt auth) / (and decryptor
                            (integerp seq)
                            (typep ctxt 'ub8-vector)
@@ -267,7 +257,31 @@
   (send local-services cust :add-service svc))
 
 ;; ---------------------------------------------------
-;; Marshaling with conversions
+;; Marshaling with Actor conversions
+;;
+;; On the way out, any Actors in message args are replaced by
+;; CLIENT-PROXY structs carrying a UUID as the identifier for the
+;; Actor on this side.
+;;
+;; On the way in, any CLIENT-PROXY structs are replaced by local proxy
+;; Actors which arrange to send back to the UUID client.
+;;
+;; We perform this substitution down inside of marshaling so that
+;; Actors can be buried to any depth anywhere among the message args
+;; and they will receive the translation.
+;;
+;; When the marshaler in SDLE-STORE is about to serialize a structure
+;; object, it first calls BEFORE-STORE and then serializes whatever
+;; that function returns. Nominally it just returns the argument
+;; struct object.
+;;
+;; After the marshaler deserializes a struct object, it returns
+;; whatever the result of AFTER-RETRIEVE returns. Normally it just
+;; returns its argument object.
+;;
+;; So rather than inventing whole new type encodings for Actors, we
+;; can use AOP and dynamic functions to effect the added translations
+;; just while we are encoding and decoding for socket transmission.
 
 (defstruct (client-proxy
             (:constructor client-proxy (id)))
@@ -329,10 +343,13 @@
    ))
 
 ;; ---------------------------------------------------
-;; Composite Actor pipes
+;; Composite Actor pipes - used by both clients and servers. Both
+;; receive the exact same treatment. The only distinction between
+;; client and server is that client begins the channel connection, and
+;; server offers to supply global services.
 
-(defun client-secure-sender (ekey local-services)
-  (pipe (client-marshal-encoder local-services)
+(defun secure-sender (ekey local-services)
+  (pipe (client-marshal-encoder local-services) ;; translate Actors to CLIENT-PROXY's
         (marshal-compressor)
         (chunker :max-size 65000)
         (marshal-encoder)
@@ -340,11 +357,13 @@
         (authentication ekey)
         ))
   
-(defun server-secure-reader (ekey local-services)
+(defun secure-reader (ekey local-services)
   (pipe (check-authentication ekey)
         (decryptor ekey)
         (fail-silent-marshal-decoder)
         (dechunker)
         (fail-silent-marshal-decompressor)
-        (server-marshal-decoder local-services)
+        (server-marshal-decoder local-services) ;; translate CLIENT-PROXY's back to proxy Actors
         ))
+
+;; ----------------------------------------------

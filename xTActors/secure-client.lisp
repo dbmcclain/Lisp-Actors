@@ -127,13 +127,9 @@
                                       (ed-mul (ed-decompress-pt bpt) (actors-skey))    ;; B*c
                                       (ed-mul (ed-decompress-pt server-pkey) arand)))  ;; S*a
                      (chan  (α msg
-                              (send* local-services :ssend server-id msg)))
-                     (encryptor (sink-pipe (client-secure-sender ekey local-services)
-                                           socket))
-                     (decryptor (sink-pipe (server-secure-reader ekey local-services)
-                                           local-services)))
+                              (send* local-services :ssend server-id msg))))
                 (β _
-                    (send local-services β :set-crypto encryptor decryptor)
+                    (send local-services β :set-crypto ekey socket)
                   (send connections cust :set-channel socket chan))
                 ))
              ( _
