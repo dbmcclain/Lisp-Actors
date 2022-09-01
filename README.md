@@ -37,7 +37,7 @@ For every message between client and server, shared secret key EKey:
       transmit (Seq, CipherText, Auth)
 ```
       
-Messages are transmitted using self-sync encoding. We are protected against DOS attacks because of the self-sync encoding, and we accept only those messages that respect the protocol format and which pass authentication. We are protected against replay attacks because we reject duplicate Seq messages. And we are protected against malicious messages that can't be correctly reassembled (dechunked), decompressed, and unmarshalled.
+Messages are transmitted using self-sync encoding. We are protected against DOS attacks because of the self-sync encoding, and we accept only those messages that respect the protocol format and which pass authentication. We are protected against replay attacks because we reject duplicate Seq messages. And we are protected against malicious messages that can't be correctly reassembled (dechunked), decompressed, and unmarshalled. Messages destined for unknown services, or to non-existent Actors, are silently dropped.
 
 If anyone tries to spoof the system by using one of the Public Keys in the list of participants, they'll get back a connection, but they won't be able to communicate across it unless they also control the corresponding Private Key, to derive shared keying. 
 
@@ -45,7 +45,7 @@ And even if they hacked some poor user and stole his private key, they can't eav
 
 So protect your private keys. But you never need to rely on someone else to protect your private information - like passwords.
 
-Communications are completely refutable because anyone can fake a transcript with a participant. Just make up two random values `a` and `b`, and use the participant's public key. Then go ahead and generate a transcript of encrypted messages, pretending to be both sides of the conversation. You don't even have to contact the participant to do so. So if anyone can do this, then there is no way to prove that a specific participant engaged in the transcript.
+Communications are completely refutable because anyone can fake a transcript with a participant. Just make up two random values `a` and `b`, and use the participant's public key. Then go ahead and generate a transcript of encrypted messages, pretending to be both sides of the conversation. You don't even have to contact the participant to do so. So since anyone can do this, there is no way to prove that a specific participant engaged in the transcript.
 
 The risk to anyone is nil if the list of participants becomes known. That list contains only public keys. Nothing can be gained from this knowledge. Store it in the clear, that's okay.
 
