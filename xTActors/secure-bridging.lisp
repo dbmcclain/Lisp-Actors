@@ -97,7 +97,15 @@
     (become (service-list-beh (remove (assoc name lst) lst)))
     (send cust :ok))
 
+   #|
    ((rem-cust :send verb . msg)
+    (let ((pair (assoc verb lst)))
+      (when pair
+        (send* (cdr pair) rem-cust msg))
+      ))
+   |#
+
+   ((rem-cust verb . msg)
     (let ((pair (assoc verb lst)))
       (when pair
         (send* (cdr pair) rem-cust msg))
@@ -140,6 +148,7 @@
 ;; We want to avoid inventing subtypes of Actors for this. Instead, we
 ;; manufacture stand-in Actors.
 
+#|
 (defun remote-actor-proxy (actor-id socket)
   ;; Used to setup a target proxy for sending information across the
   ;; socket to them.
@@ -147,6 +156,7 @@
     (α (&rest msg)
       ;; (send println (format nil "s/reply: ~S" msg))
       (send* socket actor-id :send msg))))
+|#
 
 ;; Similarly, on the sending side, we can't just send along a cust
 ;; field of a message because it is an Actor, and contains a
@@ -180,18 +190,20 @@
             (:constructor ephem-service (handler)))
   )
 
-(defun local-services-beh (svcs)
+(defun local-services-beh (&optional svcs encryptor decryptor)
   (alambda
    ((cust :add-service-with-id id actor)
     ;; insert ahead of any with same id
-    (become (local-services-beh (acons id (local-service actor) svcs) ))
-    (send cust id))
+    (let ((new-svcs (acons id (local-service actor) svcs)))
+      (become (local-services-beh new-svcs encryptor decryptor))
+      (send cust id)))
 
    ((cust :add-ephemeral-client-with-id id actor ttl)
-    (become (local-services-beh (acons id (ephem-service actor) svcs) ))
-    (send cust id)
-    (when ttl
-      (send-after ttl self sink :remove-service id)))
+    (let ((new-svcs (acons id (ephem-service actor) svcs)))
+      (become (local-services-beh new-svcs encryptor decryptor))
+      (send cust id)
+      (when ttl
+        (send-after ttl self sink :remove-service id))))
 
    ((cust :add-service actor)
     ;; used for connection handlers
@@ -213,25 +225,37 @@
       (send cust :ok)))
     
    ((cust :remove-service id)
-    (become (local-services-beh (remove (assoc id svcs :test #'uuid:uuid=) svcs :count 1)))
+    (let ((new-svcs (remove (assoc id svcs :test #'uuid:uuid=) svcs :count 1)))
+      (become (local-services-beh new-svcs encryptor decryptor))
+      (send cust :ok)))
+
+   ((cust :set-crypto encryptor decryptor)
+    (become (local-services-beh svcs encryptor decryptor))
     (send cust :ok))
 
-   ((client-id :send . msg)
-    (let ((pair (and (typep client-id 'uuid:uuid)
-                     (assoc client-id svcs :test #'uuid:uuid=))))
+   ;; encrytped socket send
+   ((:ssend . msg) / encryptor
+    (send* encryptor msg))
+
+   ;; unencrypted socket delivery
+   ((client-id . msg) / (typep client-id 'uuid:uuid)
+    (let ((pair (assoc client-id svcs :test #'uuid:uuid=)))
       (when pair
-        ;; Server replies are directed here via the client proxy id, to
-        ;; find the actual client channel. Once a reply is received, this
-        ;; proxy is destroyed. It is also removed after a timeout and no
-        ;; reply forthcoming.
         (send* (local-service-handler (cdr pair)) msg)
         (when (ephem-service-p (cdr pair))
-          (become (local-services-beh (remove pair svcs))))
+          (become (local-services-beh (remove pair svcs) encryptor decryptor)))
         )))
+
+   ;; encrypted socket delivery
+   ((seq ctxt auth) / (and decryptor
+                           (integerp seq)
+                           (typep ctxt 'ub8-vector)
+                           (typep auth 'ub8-vector))
+    (send decryptor seq ctxt auth))
    ))
 
 (defun make-local-services ()
-  (create (local-services-beh nil)))
+  (create (local-services-beh)))
 
 
 (defun create-ephemeral-client-proxy (cust local-services svc &key (ttl *default-ephemeral-ttl*))
@@ -255,7 +279,7 @@
 (defmethod sdle-store:before-store ((obj actor))
   (translate-actor-to-proxy obj))
 
-(defun client-marshal-encoder (local-services decryptor-fn)
+(defun client-marshal-encoder (local-services)
   ;; serialize an outgoing message, translating all embedded Actors
   ;; into client proxies and planting corresponding ephemeral
   ;; forwarding receiver Actors.
@@ -266,9 +290,7 @@
                      (if (is-pure-sink? ac)
                          nil
                        (let ((id (uuid:make-v1-uuid)))
-                         (push (cons id (sink-pipe (funcall decryptor-fn)
-                                                   ac))
-                               rcvrs)
+                         (push (cons id ac) rcvrs)
                          (client-proxy id))
                        ))
                     ))
@@ -287,7 +309,7 @@
 (defmethod sdle-store:after-retrieve ((obj client-proxy))
   (translate-proxy-to-actor obj))
 
-(defun server-marshal-decoder (encryptor-fn socket)
+(defun server-marshal-decoder (local-services)
   ;; deserialize an incoming message, translating all client Actor
   ;; proxies to server local proxie Actors aimed back at client.
   (αα
@@ -295,8 +317,8 @@
     (aop:dflet ((translate-proxy-to-actor (proxy)
                   (let ((id (client-proxy-id proxy)))
                     (sdle-store:after-retrieve
-                     (sink-pipe (funcall encryptor-fn)
-                                (remote-actor-proxy id socket)))
+                     (α msg
+                       (send* local-services :ssend id msg)))
                     )))
       (let ((dec (ignore-errors
                    (loenc:decode vec))))
@@ -309,8 +331,8 @@
 ;; ---------------------------------------------------
 ;; Composite Actor pipes
 
-(defun client-secure-sender (ekey local-services decryptor-fn)
-  (pipe (client-marshal-encoder local-services decryptor-fn)
+(defun client-secure-sender (ekey local-services)
+  (pipe (client-marshal-encoder local-services)
         (marshal-compressor)
         (chunker :max-size 65000)
         (marshal-encoder)
@@ -318,10 +340,11 @@
         (authentication ekey)
         ))
   
-(defun server-secure-reader (ekey encryptor-fn socket)
+(defun server-secure-reader (ekey local-services)
   (pipe (check-authentication ekey)
         (decryptor ekey)
         (fail-silent-marshal-decoder)
         (dechunker)
         (fail-silent-marshal-decompressor)
-        (server-marshal-decoder encryptor-fn socket)))
+        (server-marshal-decoder local-services)
+        ))

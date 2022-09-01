@@ -19,13 +19,6 @@
     (send* cust msg)))
 |#
 
-(defactor server-channel
-  ;; the main Actor for service dispatch
-  (alambda
-   ((rem-cust &rest msg) ;; msg should be (verb . args)
-    (send* global-services rem-cust :send msg))
-   ))
-
 (defun server-crypto-gateway (socket local-services)
   ;; Foreign clients first make contact with us here. They send us
   ;; their client-id for this exchange, a random ECC point, and their
@@ -44,19 +37,17 @@
            (bpt       (ed-nth-pt brand))
            (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)            ;; A*b
                                 (ed-mul (ed-decompress-pt client-pkey) brand)    ;; C*b
-                                (ed-mul (ed-decompress-pt apt) (actors-skey))))) ;; A*s
-      (labels ((encryptor-fn ()
-                 (client-secure-sender ekey local-services #'decryptor-fn))
-               (decryptor-fn ()
-                 (server-secure-reader ekey #'encryptor-fn socket)))
-        (let ((chan (sink-pipe
-                     (decryptor-fn)
-                     server-channel)))
-          (β (cnx-id)
-              (create-service-proxy β local-services chan)
-            (send (remote-actor-proxy client-id socket)  ;; remote client cust
-                  cnx-id (int bpt) (int (actors-pkey))))
-          ))))
+                                (ed-mul (ed-decompress-pt apt) (actors-skey)))) ;; A*s
+           (encryptor (sink-pipe (client-secure-sender ekey local-services)
+                                 socket))
+           (decryptor (sink-pipe (server-secure-reader ekey local-services)
+                                 local-services)))
+      (β _
+          (send local-services β :set-crypto encryptor decryptor)
+        (β (cnx-id)
+            (create-service-proxy β local-services global-services)
+          (send socket client-id cnx-id (int bpt) (int (actors-pkey))))
+        )))
    ))
 
 ;; ---------------------------------------------------------------

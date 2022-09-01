@@ -123,25 +123,25 @@
                                                  (integerp bpt)
                                                  (integerp server-pkey)
                                                  (sets:mem *allowed-members* server-pkey))
-              (let ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)            ;; B*a
-                                     (ed-mul (ed-decompress-pt bpt) (actors-skey))    ;; B*c
-                                     (ed-mul (ed-decompress-pt server-pkey) arand)))) ;; S*a
-                (labels ((encryptor-fn ()
-                           (client-secure-sender ekey local-services #'decryptor-fn))
-                         (decryptor-fn ()
-                           (server-secure-reader ekey #'encryptor-fn socket)))
-                  (let ((chan  (sink-pipe
-                                (encryptor-fn)
-                                (remote-actor-proxy server-id socket))))
-                    (send connections cust :set-channel socket chan)
-                    ))))
+              (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)            ;; B*a
+                                      (ed-mul (ed-decompress-pt bpt) (actors-skey))    ;; B*c
+                                      (ed-mul (ed-decompress-pt server-pkey) arand)))  ;; S*a
+                     (chan  (α msg
+                              (send* local-services :ssend server-id msg)))
+                     (encryptor (sink-pipe (client-secure-sender ekey local-services)
+                                           socket))
+                     (decryptor (sink-pipe (server-secure-reader ekey local-services)
+                                           local-services)))
+                (β _
+                    (send local-services β :set-crypto encryptor decryptor)
+                  (send connections cust :set-channel socket chan))
+                ))
              ( _
-              (error "Server not following connection protocol"))
+               (error "Server not following connection protocol"))
              )))
       (β (client-id)
           (create-ephemeral-client-proxy β local-services responder)
-        (send (remote-actor-proxy +server-connect-id+ socket)
-              client-id (int apt) (int (actors-pkey))))
+        (send socket +server-connect-id+ client-id (int apt) (int (actors-pkey))))
       )))
 
 (defactor client-gateway
