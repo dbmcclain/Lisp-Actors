@@ -16,7 +16,7 @@ Communications are completely refutable and private to the two parties. No signa
 
 All shared keying is forgotten after the connection is closed. Any participant can act as both client and server. All of the connection keying ballet, self-sync coding/decoding, message marshaling, compression/decompression, chunking and reassembly, and encryption/decryption, happens behind the scenes. The user only needs to know the IP Address of the server (and perhaps IP Port, default = 65001), and the name of the service to be contacted. Connections are transparently established on demand, and remain alive for some duration after the last exchange (currently 20s). 
 
-We usually define a local proxy Actor for a remote service using `(REMOTE-SERVICE name host-ip-adddr)`. The proxy handles the connection on demand as needed. And so sending messages to a remote Actor appears no different than sending to a local Actor. 
+We usually define a local proxy Actor for a remote service using `(REMOTE-SERVICE name host-ip-addr)`. The proxy handles the connection on demand as needed. And so sending messages to a remote Actor appears no different than sending to a local Actor. 
 
 There are some restrictions on what can be sent in a message to a remote Actor - you can send Actors, and any Lisp objects, including self-referential objects, except for compiled closures or objects containing such. This is almost the same restriction you face when serializing messages to persistent storage. (You can't serialize Actors to persistent store.)
 
