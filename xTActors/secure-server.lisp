@@ -19,35 +19,11 @@
     (send* cust msg)))
 |#
 
-(aop:defdynfun translate-proxy-to-actor (proxy)
-  proxy)
-
-(defmethod sdle-store:after-retrieve ((obj client-proxy))
-  (translate-proxy-to-actor obj))
-
-(defun server-marshal-decoder (encryptor socket)
-  ;; deserialize an incoming message, translating all client Actor
-  ;; proxies to server local proxies aimed back at client.
-  (αα
-   ((cust vec) / (typep vec 'ub8-vector)
-    (aop:dflet ((translate-proxy-to-actor (proxy)
-                  (let ((id (client-proxy-id proxy)))
-                    (sdle-store:after-retrieve
-                     (sink-pipe encryptor
-                                (remote-actor-proxy id socket)))
-                    )))
-      (let ((dec (ignore-errors
-                   (loenc:decode vec))))
-        (when (and dec
-                   (vectorp dec))
-          (send* cust (coerce dec 'list)))
-        )))
-   ))
-
 (defactor server-channel
+  ;; the main Actor for service dispatch
   (alambda
-   ((cust &rest msg)
-    (send* global-services cust :send msg))
+   ((rem-cust &rest msg) ;; msg should be (verb . args)
+    (send* global-services rem-cust :send msg))
    ))
 
 (defun server-crypto-gateway (socket local-services)
@@ -65,20 +41,21 @@
                                        (sets:mem *allowed-members* client-pkey))
     (let* ((brand     (int (ctr-drbg 256)))
            (bpt       (ed-nth-pt brand))
-           (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)           ;; A*b
-                                (ed-mul (ed-decompress-pt client-pkey) brand)   ;; C*b
-                                (ed-mul (ed-decompress-pt apt) (actors-skey)))) ;; A*s
-           ;; (socket    (show-server-outbound socket))  ;; ***
-           (encryptor (secure-sender ekey))
-           (decryptor (sink-pipe
-                       (server-secure-reader ekey encryptor socket)
-                       ;; (show-server-inbound) ;; ***
-                       server-channel)))
-      (β (cnx-id)
-          (create-service-proxy β local-services decryptor)
-        (send (remote-actor-proxy client-id socket)  ;; remote client cust
-              cnx-id (int bpt) (int (actors-pkey))))
-      ))
+           (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)            ;; A*b
+                                (ed-mul (ed-decompress-pt client-pkey) brand)    ;; C*b
+                                (ed-mul (ed-decompress-pt apt) (actors-skey))))) ;; A*s
+      (labels ((encryptor-fn ()
+                 (client-secure-sender ekey local-services #'decryptor-fn))
+               (decryptor-fn ()
+                 (server-secure-reader ekey #'encryptor-fn socket)))
+        (let ((chan (sink-pipe
+                     (decryptor-fn)
+                     server-channel)))
+          (β (cnx-id)
+              (create-service-proxy β local-services chan)
+            (send (remote-actor-proxy client-id socket)  ;; remote client cust
+                  cnx-id (int bpt) (int (actors-pkey))))
+          ))))
    ))
 
 ;; ---------------------------------------------------------------

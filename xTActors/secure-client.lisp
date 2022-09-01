@@ -4,43 +4,8 @@
 
 (in-package :com.ral.actors.secure-comm)
 
-(um:eval-always
-  (import '(vec-repr:ub8
-            vec-repr:ub8-vector)))
-
 ;; --------------------------------------------------------------------
 ;; Client side
-
-(defstruct (client-proxy
-            (:constructor client-proxy (id)))
-  id)
-
-(aop:defdynfun translate-actor-to-proxy (ac)
-  ac)
-
-(defmethod sdle-store:before-store ((obj actor))
-  (translate-actor-to-proxy obj))
-
-(defun client-marshal-encoder (local-services decryptor)
-  ;; serialize the outgoing message, translating all embedded Actors
-  ;; into client proxies
-  (α (cust &rest msg)
-    (let (proxies)
-      (aop:dflet ((translate-actor-to-proxy (ac)
-                    (sdle-store:before-store
-                     (if (is-pure-sink? ac)
-                         nil
-                       (let ((id (uuid:make-v1-uuid)))
-                         (push (cons id (sink-pipe decryptor ac)) proxies)
-                         (client-proxy id))
-                       ))
-                    ))
-        (let ((enc (loenc:encode (coerce msg 'vector))))
-          (β _
-              (send local-services β :add-ephemeral-clients proxies *default-ephemeral-ttl*)
-            (send cust enc))
-          )))
-    ))
 
 ;; ------------------------------------------------------------------
 ;; ECDH Shared Key Development for Repudiable Communications
@@ -147,7 +112,6 @@
 ;; The bit of repudiable cleverness is derived from ideas presented by
 ;; Trevor Perrin and Moxie Marlinspike of Signal.
 ;;
-
 (defactor negotiate-secure-channel
   ;; EC Diffie-Hellman key exchange
   (λ (cust socket local-services)
@@ -160,16 +124,19 @@
                                                  (integerp bpt)
                                                  (integerp server-pkey)
                                                  (sets:mem *allowed-members* server-pkey))
-              (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)           ;; B*a
-                                      (ed-mul (ed-decompress-pt bpt) (actors-skey))   ;; B*c
-                                      (ed-mul (ed-decompress-pt server-pkey) arand))) ;; S*a
-                     (decryptor (secure-reader ekey))
-                     (chan      (sink-pipe
-                                 (client-secure-sender ekey local-services decryptor)
-                                 (remote-actor-proxy server-id socket))))
-                (send connections cust :set-channel socket chan)
-                ))
-             (_
+              (let ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)            ;; B*a
+                                     (ed-mul (ed-decompress-pt bpt) (actors-skey))    ;; B*c
+                                     (ed-mul (ed-decompress-pt server-pkey) arand)))) ;; S*a
+                (labels ((decryptor-fn ()
+                           (server-secure-reader ekey #'encryptor-fn socket))
+                         (encryptor-fn ()
+                           (client-secure-sender ekey local-services #'decryptor-fn)))
+                  (let ((chan  (sink-pipe
+                                (encryptor-fn)
+                                (remote-actor-proxy server-id socket))))
+                    (send connections cust :set-channel socket chan)
+                    ))))
+             ( _
               (error "Server not following connection protocol"))
              )))
       (β (client-id)

@@ -35,6 +35,10 @@
 
 (in-package :com.ral.actors.secure-comm)
 
+(um:eval-always
+  (import '(vec-repr:ub8
+            vec-repr:ub8-vector)))
+
 ;; ------------------------------------------------------
 
 (defun actors-skey ()
@@ -118,10 +122,10 @@
 ;; -----------------------------------------------
 
 (defactor global-services
-    (service-list-beh
-     `((:echo . ,(make-echo))
-       (:eval . ,(make-eval)))
-     ))
+  (service-list-beh
+   `((:echo . ,(make-echo))
+     (:eval . ,(make-eval)))
+   ))
 
 ;; ------------------------------------------------------------
 ;; When the socket connection (server or client side) receives an
@@ -239,10 +243,74 @@
   (send local-services cust :add-service svc))
 
 ;; ---------------------------------------------------
+;; Marshaling with conversions
+
+(defstruct (client-proxy
+            (:constructor client-proxy (id)))
+  id)
+
+(aop:defdynfun translate-actor-to-proxy (ac)
+  ac)
+
+(defmethod sdle-store:before-store ((obj actor))
+  (translate-actor-to-proxy obj))
+
+(defun client-marshal-encoder (local-services decryptor-fn)
+  ;; serialize an outgoing message, translating all embedded Actors
+  ;; into client proxies and planting corresponding ephemeral
+  ;; forwarding receiver Actors.
+  (α (cust &rest msg)
+    (let (rcvrs)
+      (aop:dflet ((translate-actor-to-proxy (ac)
+                    (sdle-store:before-store
+                     (if (is-pure-sink? ac)
+                         nil
+                       (let ((id (uuid:make-v1-uuid)))
+                         (push (cons id (sink-pipe (funcall decryptor-fn)
+                                                   ac))
+                               rcvrs)
+                         (client-proxy id))
+                       ))
+                    ))
+        (let ((enc (loenc:encode (coerce msg 'vector))))
+          (β _
+              (send local-services β :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)
+            (send cust enc))
+          )))
+    ))
+
+;; -------------------------------------------------------
+
+(aop:defdynfun translate-proxy-to-actor (proxy)
+  proxy)
+
+(defmethod sdle-store:after-retrieve ((obj client-proxy))
+  (translate-proxy-to-actor obj))
+
+(defun server-marshal-decoder (encryptor-fn socket)
+  ;; deserialize an incoming message, translating all client Actor
+  ;; proxies to server local proxie Actors aimed back at client.
+  (αα
+   ((cust vec) / (typep vec 'ub8-vector)
+    (aop:dflet ((translate-proxy-to-actor (proxy)
+                  (let ((id (client-proxy-id proxy)))
+                    (sdle-store:after-retrieve
+                     (sink-pipe (funcall encryptor-fn)
+                                (remote-actor-proxy id socket)))
+                    )))
+      (let ((dec (ignore-errors
+                   (loenc:decode vec))))
+        (when (and dec
+                   (vectorp dec))
+          (send* cust (coerce dec 'list)))
+        )))
+   ))
+
+;; ---------------------------------------------------
 ;; Composite Actor pipes
 
-(defun client-secure-sender (ekey local-services decryptor)
-  (pipe (client-marshal-encoder local-services decryptor)
+(defun client-secure-sender (ekey local-services decryptor-fn)
+  (pipe (client-marshal-encoder local-services decryptor-fn)
         (marshal-compressor)
         (chunker :max-size 65000)
         (marshal-encoder)
@@ -250,28 +318,10 @@
         (authentication ekey)
         ))
   
-(defun secure-sender (ekey)
-  (pipe (marshal-encoder)
-        (marshal-compressor)
-        (chunker :max-size 65000)
-        (marshal-encoder)
-        (encryptor ekey)
-        (authentication ekey)
-        ))
-
-(defun server-secure-reader (ekey encryptor socket)
+(defun server-secure-reader (ekey encryptor-fn socket)
   (pipe (check-authentication ekey)
         (decryptor ekey)
         (fail-silent-marshal-decoder)
         (dechunker)
         (fail-silent-marshal-decompressor)
-        (server-marshal-decoder encryptor socket)))
-  
-(defun secure-reader (ekey)
-  (pipe (check-authentication ekey)
-        (decryptor ekey)
-        (fail-silent-marshal-decoder)
-        (dechunker)
-        (fail-silent-marshal-decompressor)
-        (fail-silent-marshal-decoder)))
-
+        (server-marshal-decoder encryptor-fn socket)))
