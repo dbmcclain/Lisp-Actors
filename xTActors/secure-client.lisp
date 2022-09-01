@@ -110,14 +110,13 @@
 ;; despite in-order TCP packet reassembly.
 ;;
 ;; The bit of repudiable cleverness is derived from ideas presented by
-;; Trevor Perrin and Moxie Marlinspike of Signal.
+;; Trevor Perrin and Moxie Marlinspike of Signal Foundation.
 ;;
 (defactor negotiate-secure-channel
   ;; EC Diffie-Hellman key exchange
   (λ (cust socket local-services)
     (let* ((arand  (int (ctr-drbg 256)))
            (apt    (ed-nth-pt arand))
-           ;; (socket      (show-client-outbound socket)) ;;
            (responder
             (αα
              ((server-id bpt server-pkey) / (and (typep server-id 'uuid:uuid)
@@ -127,10 +126,10 @@
               (let ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)            ;; B*a
                                      (ed-mul (ed-decompress-pt bpt) (actors-skey))    ;; B*c
                                      (ed-mul (ed-decompress-pt server-pkey) arand)))) ;; S*a
-                (labels ((decryptor-fn ()
-                           (server-secure-reader ekey #'encryptor-fn socket))
-                         (encryptor-fn ()
-                           (client-secure-sender ekey local-services #'decryptor-fn)))
+                (labels ((encryptor-fn ()
+                           (client-secure-sender ekey local-services #'decryptor-fn))
+                         (decryptor-fn ()
+                           (server-secure-reader ekey #'encryptor-fn socket)))
                   (let ((chan  (sink-pipe
                                 (encryptor-fn)
                                 (remote-actor-proxy server-id socket))))

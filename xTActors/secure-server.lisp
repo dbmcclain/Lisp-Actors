@@ -39,6 +39,7 @@
                                        (integerp apt)
                                        (integerp client-pkey)
                                        (sets:mem *allowed-members* client-pkey))
+    ;; silently ignore other kinds of requests
     (let* ((brand     (int (ctr-drbg 256)))
            (bpt       (ed-nth-pt brand))
            (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)            ;; A*b
