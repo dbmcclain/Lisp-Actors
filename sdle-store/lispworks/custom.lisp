@@ -40,16 +40,21 @@
 ;; DM/RAL 07/09 -- better accommodation of unkown structure classes on restore
 
 (defstore-sdle-store (obj structure-object stream)
-  (output-type-code +structure-object-code+ stream)
-  (let* ((obj-class  (class-of obj))
-         (class-name (class-name obj-class))
-         (slot-names (structure:structure-class-slot-names obj-class)))
-    (store-object class-name stream)
-    (store-count (length slot-names) stream)
-    (dolist (slot-name slot-names)
-      (store-object slot-name stream))
-    (dolist (slot-name slot-names)
-      (store-object (slot-value obj slot-name) stream))))
+  (let ((obj  (before-store obj)))
+    (cond ((typep obj 'structure-object)
+           (output-type-code +structure-object-code+ stream)
+           (let* ((obj-class  (class-of obj))
+                  (class-name (class-name obj-class))
+                  (slot-names (structure:structure-class-slot-names obj-class)))
+             (store-object class-name stream)
+             (store-count (length slot-names) stream)
+             (dolist (slot-name slot-names)
+               (store-object slot-name stream))
+             (dolist (slot-name slot-names)
+               (store-object (slot-value obj slot-name) stream))))
+          (t
+           (store-object obj stream))
+          )))
 
 (defrestore-sdle-store (structure-object stream)
   (let* ((class-name    (restore-object stream))
@@ -68,8 +73,7 @@
                      ;; slot-names are always symbols so we don't
                      ;; have to worry about circularities
                      (setting (slot-value obj slot-name) val))) ))
-             (after-retrieve new-instance)
-             new-instance))
+             (after-retrieve new-instance)))
 
           (t ;; else -- no such struture known to mankind
              ;; dummy up as a new standard-object instead of a struct
@@ -80,8 +84,7 @@
                    (let ((val (restore-object stream)))
                      (when (clos:slot-exists-p new-instance slot-name)
                        (setting (slot-value obj slot-name) val)) )))
-               (after-retrieve new-instance)
-               new-instance))
+               (after-retrieve new-instance)))
           )))
 #| |#
 

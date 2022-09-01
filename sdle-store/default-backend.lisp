@@ -717,8 +717,7 @@
               ;; slot-names are always symbols so we don't
               ;; have to worry about circularities
               (setting (slot-value obj slot-name) (restore-object stream)))))
-    (after-retrieve new-instance)
-    new-instance))
+    (after-retrieve new-instance)))
 
 (defrestore-sdle-store (standard-object stream)
   (restore-type-object stream))
@@ -751,8 +750,7 @@
               (when #+:LISPWORKS (clos:slot-exists-p new-instance slot-name)
                     #-:LISPWORKS (slot-exists-p new-instance slot-name)
                 (setting (slot-value obj slot-name) val))) ))
-    (after-retrieve new-instance)
-    new-instance))
+    (after-retrieve new-instance)))
 
 (defun find-or-create-class (class-name obj-type slot-names)
   (or (find-class class-name nil)
@@ -768,8 +766,11 @@
                     :direct-superclasses (list obj-type)
                     :metaclass 'standard-class) ))
 
+(defmethod before-store (obj)
+  obj)
+
 (defmethod after-retrieve (obj)
-  (declare (ignore obj)))
+  obj)
 
 (defrestore-sdle-store (standard-object stream)
   (restore-type-object stream 'standard-object))

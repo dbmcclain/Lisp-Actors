@@ -19,6 +19,37 @@
     (send* cust msg)))
 |#
 
+(aop:defdynfun translate-proxy-to-actor (proxy)
+  proxy)
+
+(defmethod sdle-store:after-retrieve ((obj client-proxy))
+  (translate-proxy-to-actor obj))
+
+(defun server-marshal-decoder (encryptor socket)
+  ;; deserialize an incoming message, translating all client Actor
+  ;; proxies to server local proxies aimed back at client.
+  (αα
+   ((cust vec) / (typep vec 'ub8-vector)
+    (aop:dflet ((translate-proxy-to-actor (proxy)
+                  (let ((id (client-proxy-id proxy)))
+                    (sdle-store:after-retrieve
+                     (sink-pipe encryptor
+                                (remote-actor-proxy id socket)))
+                    )))
+      (let ((dec (ignore-errors
+                   (loenc:decode vec))))
+        (when (and dec
+                   (vectorp dec))
+          (send* cust (coerce dec 'list)))
+        )))
+   ))
+
+(defactor server-channel
+  (alambda
+   ((cust &rest msg)
+    (send* global-services cust :send msg))
+   ))
+
 (defun server-crypto-gateway (socket local-services)
   ;; Foreign clients first make contact with us here. They send us
   ;; their client-id for this exchange, a random ECC point, and their
@@ -38,50 +69,17 @@
                                 (ed-mul (ed-decompress-pt client-pkey) brand)   ;; C*b
                                 (ed-mul (ed-decompress-pt apt) (actors-skey)))) ;; A*s
            ;; (socket    (show-server-outbound socket))  ;; ***
-           (chan      (server-channel
-                       :socket      socket
-                       :encryptor   (secure-sender ekey)))
+           (encryptor (secure-sender ekey))
            (decryptor (sink-pipe
-                       (secure-reader ekey)
+                       (server-secure-reader ekey encryptor socket)
                        ;; (show-server-inbound) ;; ***
-                       chan)))
+                       server-channel)))
       (β (cnx-id)
           (create-service-proxy β local-services decryptor)
         (send (remote-actor-proxy client-id socket)  ;; remote client cust
               cnx-id (int bpt) (int (actors-pkey))))
       ))
    ))
-
-(defun server-channel (&key
-                       socket
-                       encryptor)
-  ;; This is a private portal for exchanges with a foreign client.
-  ;; One of these exist for each connection established through the
-  ;; main crypto gate.
-  ;;
-  ;; Requests have been decrypted and unmarshalled by the time we
-  ;; arrive here. For each request we make an encrypting forwarder
-  ;; back to the remote client, and pass that along as the customer
-  ;; accompanying the request to a global service on the local
-  ;; machine.
-  ;;
-  ;; If the client cust-id is nil, then it doesn't expect a response,
-  ;; and any replies are quietly dropped.
-  (actor msglst
-    ;; A significant difference between LAMBDA and ALAMBDA - if an
-    ;; incoming arg list does not match what LAMBDA expects, it
-    ;; produces an error. ALAMBDA uses pattern matching, and anything
-    ;; arriving that does not match is simply ignored.
-    ;;
-    (flet ((translate-client-proxy (obj)
-             (if (client-proxy-p obj)
-                 (sink-pipe encryptor
-                            (remote-actor-proxy (client-proxy-id obj) socket))
-               obj)))
-      (let ((xmsglst (mapcar #'translate-client-proxy msglst)))
-        ;; first message arg is assumed to be a customer on the client
-        (send* global-services (car xmsglst) :send (cdr xmsglst)))
-      )))
 
 ;; ---------------------------------------------------------------
 ;; For generating key-pairs...

@@ -183,21 +183,30 @@
     (become (local-services-beh (acons id (local-service actor) svcs) ))
     (send cust id))
 
+   ((cust :add-ephemeral-client-with-id id actor ttl)
+    (become (local-services-beh (acons id (ephem-service actor) svcs) ))
+    (send cust id)
+    (when ttl
+      (send-after ttl self sink :remove-service id)))
+
    ((cust :add-service actor)
     ;; used for connection handlers
-    (let ((id  (uuid:make-v1-uuid)))
-      (become (local-services-beh (acons id (local-service actor) svcs) ))
-      (send cust id)
-      ))
+    (send self cust :add-service-with-id (uuid:make-v1-uuid) actor))
    
    ((cust :add-ephemeral-client actor ttl)
     ;; used for transient customer proxies
-    (let ((id   (uuid:make-v1-uuid)))
-      (become (local-services-beh (acons id (ephem-service actor) svcs) ))
-      (send cust id)
-      (when ttl
-        (send-after ttl self sink :remove-service id))
-      ))
+    (send self cust :add-ephemeral-client-with-id (uuid:make-v1-uuid) actor ttl))
+
+   ((cust :add-ephemeral-clients clients ttl)
+    (if clients
+        (let ((me  self))
+          (destructuring-bind ((id . ac) . rest) clients
+            (β _
+                (send self β :add-ephemeral-client-with-id id ac ttl)
+              (send me cust :add-ephemeral-clients rest ttl))
+            ))
+      ;; else
+      (send cust :ok)))
     
    ((cust :remove-service id)
     (become (local-services-beh (remove (assoc id svcs :test #'uuid:uuid=) svcs :count 1)))
@@ -232,6 +241,15 @@
 ;; ---------------------------------------------------
 ;; Composite Actor pipes
 
+(defun client-secure-sender (ekey local-services decryptor)
+  (pipe (client-marshal-encoder local-services decryptor)
+        (marshal-compressor)
+        (chunker :max-size 65000)
+        (marshal-encoder)
+        (encryptor ekey)
+        (authentication ekey)
+        ))
+  
 (defun secure-sender (ekey)
   (pipe (marshal-encoder)
         (marshal-compressor)
@@ -241,6 +259,14 @@
         (authentication ekey)
         ))
 
+(defun server-secure-reader (ekey encryptor socket)
+  (pipe (check-authentication ekey)
+        (decryptor ekey)
+        (fail-silent-marshal-decoder)
+        (dechunker)
+        (fail-silent-marshal-decompressor)
+        (server-marshal-decoder encryptor socket)))
+  
 (defun secure-reader (ekey)
   (pipe (check-authentication ekey)
         (decryptor ekey)

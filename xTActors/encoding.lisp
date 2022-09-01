@@ -146,7 +146,7 @@
 
 (defun fail-silent-marshal-decoder ()
   (αα
-   ((cust vec)
+   ((cust vec) / (typep vec 'ub8-vector)
     ;; (send dbg-println "Fail-Silent Marshal Decoder")
     ;;
     ;; The premise here is that, when using malleable encrption and

@@ -4,54 +4,44 @@
 
 (in-package :com.ral.actors.secure-comm)
 
+(um:eval-always
+  (import '(vec-repr:ub8
+            vec-repr:ub8-vector)))
+
 ;; --------------------------------------------------------------------
 ;; Client side
 
-(defun client-channel (&key
-                       local-services
-                       encryptor
-                       decryptor)
-  ;; One of these serves as a client-local private portal with an
-  ;; established connection to a server. It encrypts and signs a
-  ;; request message for a server service. It also instantiates a
-  ;; private decryptor for any returning replies being sent back to
-  ;; the customer on this client.
-  ;;
-  ;; Every request to the server sent from here carries an
-  ;; incrementing sequence number to ensure a change of encryption
-  ;; keying for every new message.
-  (actor msglst
-    (β (xmsglst)
-        (send (client-translation local-services decryptor msglst) β)
-      (send* encryptor xmsglst))))
-
 (defstruct (client-proxy
-            (:constructor make-client-proxy (id)))
+            (:constructor client-proxy (id)))
   id)
 
-(defun client-translation-beh (local-services decryptor msglst)
-  ;; translate top level Actors into client proxy objects
-  (lambda (cust &rest xlst)
-    (if msglst
-        (let ((obj (car msglst))
-              (me  self))
-          (become (client-translation-beh local-services decryptor (cdr msglst)))
-          (if (actor-p obj)
-              (if (is-pure-sink? obj) ;; short circuit any sinks
-                  (send* me cust nil xlst)
-                ;; else
-                (β (id)
-                    (create-ephemeral-client-proxy β local-services (sink-pipe decryptor obj))
-                  (send* me cust (make-client-proxy id) xlst)))
-            ;; else
-            (send* me cust obj xlst)))
-      ;; else
-      (send cust (reverse xlst)))
+(aop:defdynfun translate-actor-to-proxy (ac)
+  ac)
+
+(defmethod sdle-store:before-store ((obj actor))
+  (translate-actor-to-proxy obj))
+
+(defun client-marshal-encoder (local-services decryptor)
+  ;; serialize the outgoing message, translating all embedded Actors
+  ;; into client proxies
+  (α (cust &rest msg)
+    (let (proxies)
+      (aop:dflet ((translate-actor-to-proxy (ac)
+                    (sdle-store:before-store
+                     (if (is-pure-sink? ac)
+                         nil
+                       (let ((id (uuid:make-v1-uuid)))
+                         (push (cons id (sink-pipe decryptor ac)) proxies)
+                         (client-proxy id))
+                       ))
+                    ))
+        (let ((enc (loenc:encode (coerce msg 'vector))))
+          (β _
+              (send local-services β :add-ephemeral-clients proxies *default-ephemeral-ttl*)
+            (send cust enc))
+          )))
     ))
 
-(defun client-translation (local-services decryptor msglst)
-  (create (client-translation-beh local-services decryptor msglst)))
-          
 ;; ------------------------------------------------------------------
 ;; ECDH Shared Key Development for Repudiable Communications
 ;;
@@ -173,13 +163,10 @@
               (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)           ;; B*a
                                       (ed-mul (ed-decompress-pt bpt) (actors-skey))   ;; B*c
                                       (ed-mul (ed-decompress-pt server-pkey) arand))) ;; S*a
-                     (chan  (client-channel
-                             :local-services  local-services
-                             :encryptor       (sink-pipe
-                                               (secure-sender ekey)
-                                               (remote-actor-proxy server-id socket))
-                             :decryptor       (secure-reader ekey)
-                             )))
+                     (decryptor (secure-reader ekey))
+                     (chan      (sink-pipe
+                                 (client-secure-sender ekey local-services decryptor)
+                                 (remote-actor-proxy server-id socket))))
                 (send connections cust :set-channel socket chan)
                 ))
              (_
