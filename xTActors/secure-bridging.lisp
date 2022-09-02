@@ -163,6 +163,8 @@
 
 (defvar *default-ephemeral-ttl*  10)
 
+;; -------------------------------------------------------------------
+
 (defstruct (local-service
             (:constructor local-service (handler)))
   handler)
@@ -170,6 +172,8 @@
 (defstruct (ephem-service
             (:include local-service)
             (:constructor ephem-service (handler))))
+
+;; -------------------------------------------------------------------
 
 (defun local-services-beh (&optional svcs encryptor decryptor)
   (alambda
@@ -219,12 +223,14 @@
       (become (local-services-beh svcs encryptor decryptor))
       (send cust :ok)))
 
+   ;; -------------------------------------------------------------------
    ;; encrytped socket send - proxy Actors send to here...  The entire
    ;; message, including UUID target, is encrypted. The only thing
    ;; appearing on the wire are the (SEQ CTXT AUTH)
    ((:ssend . msg) / encryptor
     (send* encryptor msg))
 
+   ;; -------------------------------------------------------------------
    ;; unencrypted socket delivery
    ((client-id . msg) / (typep client-id 'uuid:uuid)
     (let ((pair (assoc client-id svcs :test #'uuid:uuid=)))
@@ -234,6 +240,7 @@
           (become (local-services-beh (remove pair svcs) encryptor decryptor)))
         )))
 
+   ;; -------------------------------------------------------------------
    ;; encrypted socket delivery -- decryptor decodes the message and
    ;; sends back to us as an unencrypted socket delivery (see previous
    ;; clause)

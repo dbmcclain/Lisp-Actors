@@ -112,6 +112,10 @@
 ;; The bit of repudiable cleverness is derived from ideas presented by
 ;; Trevor Perrin and Moxie Marlinspike of Signal Foundation.
 ;;
+
+(defun valid-pt (pt)
+  (ed-valid-point-p (ed-decompress-pt pt)))
+
 (defactor negotiate-secure-channel
   ;; EC Diffie-Hellman key exchange
   (λ (cust socket local-services)
@@ -123,15 +127,21 @@
                                                  (integerp bpt)
                                                  (integerp server-pkey)
                                                  (sets:mem *allowed-members* server-pkey))
-              (let* ((ekey  (hash/256 (ed-mul (ed-decompress-pt bpt) arand)            ;; B*a
-                                      (ed-mul (ed-decompress-pt bpt) (actors-skey))    ;; B*c
-                                      (ed-mul (ed-decompress-pt server-pkey) arand)))  ;; S*a
-                     (chan  (α msg
-                              (send* local-services :ssend server-id msg))))
-                (β _
-                    (send local-services β :set-crypto ekey socket)
-                  (send connections cust :set-channel socket chan))
-                ))
+              (multiple-value-bind (bpt server-pkey)
+                  (handler-case
+                      (values (valid-pt bpt)
+                              (valid-pt server-pkey))
+                    (error ()
+                      (error "Server offered bogus identification")))
+                (let* ((ekey  (hash/256 (ed-mul bpt arand)            ;; B*a
+                                        (ed-mul bpt (actors-skey))    ;; B*c
+                                        (ed-mul server-pkey arand)))  ;; S*a
+                       (chan  (α msg
+                                (send* local-services :ssend server-id msg))))
+                  (β _
+                      (send local-services β :set-crypto ekey socket)
+                    (send connections cust :set-channel socket chan))
+                  )))
              ( _
                (error "Server not following connection protocol"))
              )))

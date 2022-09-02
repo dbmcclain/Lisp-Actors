@@ -33,17 +33,22 @@
                                        (integerp client-pkey)
                                        (sets:mem *allowed-members* client-pkey))
     ;; silently ignore other kinds of requests
-    (let* ((brand     (int (ctr-drbg 256)))
-           (bpt       (ed-nth-pt brand))
-           (ekey      (hash/256 (ed-mul (ed-decompress-pt apt) brand)            ;; A*b
-                                (ed-mul (ed-decompress-pt client-pkey) brand)    ;; C*b
-                                (ed-mul (ed-decompress-pt apt) (actors-skey))))) ;; A*s
-      (β _
-          (send local-services β :set-crypto ekey socket)
-        (β (cnx-id)
-            (create-service-proxy β local-services global-services)
-          (send socket client-id cnx-id (int bpt) (int (actors-pkey))))
-        )))
+    (ignore-errors
+      (multiple-value-bind (apt client-pkey)
+          (values (valid-pt apt)
+                  (valid-pt client-pkey))
+        (let* ((brand     (int (ctr-drbg 256)))
+               (bpt       (ed-nth-pt brand))
+               (ekey      (hash/256 (ed-mul apt brand)            ;; A*b
+                                    (ed-mul client-pkey brand)    ;; C*b
+                                    (ed-mul apt (actors-skey))))) ;; A*s
+          (β _
+              (send local-services β :set-crypto ekey socket)
+            (β (cnx-id)
+                (create-service-proxy β local-services global-services)
+              (send socket client-id cnx-id (int bpt) (int (actors-pkey))))
+            )))
+      ))
    ))
 
 ;; ---------------------------------------------------------------
