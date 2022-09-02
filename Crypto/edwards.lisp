@@ -776,8 +776,9 @@ THE SOFTWARE.
     (ed-valid-point-p (ed-decompress-pt pt))))
 
 (defun ed-validate-point (pt)
-  (assert (ed-valid-point-p pt))
-  pt)
+  (let ((vpt (ed-valid-point-p pt)))
+    (assert vpt)
+    vpt))
 
 #|
 (loop repeat 10000 do

@@ -35,8 +35,8 @@
     ;; silently ignore other kinds of requests
     (ignore-errors
       (multiple-value-bind (apt client-pkey)
-          (values (ed-valid-point-p apt)
-                  (ed-valid-point-p client-pkey))
+          (values (ed-validate-point apt)
+                  (ed-validate-point client-pkey))
         (let* ((brand     (int (ctr-drbg 256)))
                (bpt       (ed-nth-pt brand))
                (ekey      (hash/256 (ed-mul apt brand)            ;; A*b
