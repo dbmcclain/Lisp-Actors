@@ -769,6 +769,12 @@ THE SOFTWARE.
 (defmethod ed-valid-point-p ((pt ecc-cmpr-pt))
   (ed-valid-point-p (ed-affine pt)))
 
+(defmethod ed-valid-point-p ((pt integer))
+  ;; assume we have integer repr of compressed pt
+  ;; -- some integer values cannot be decompressed into ECC pts.
+  (ignore-errors
+    (ed-valid-point-p (ed-decompress-pt pt))))
+
 (defun ed-validate-point (pt)
   (assert (ed-valid-point-p pt))
   pt)

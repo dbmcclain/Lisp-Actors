@@ -113,10 +113,6 @@
 ;; Trevor Perrin and Moxie Marlinspike of Signal Foundation.
 ;;
 
-(defun valid-pt (pt)
-  (or (ed-valid-point-p (ed-decompress-pt pt))
-      (error "Invalid ECC Pt")))
-
 (defactor negotiate-secure-channel
   ;; EC Diffie-Hellman key exchange
   (λ (cust socket local-services)
@@ -130,8 +126,8 @@
                                                  (sets:mem *allowed-members* server-pkey))
               (multiple-value-bind (bpt server-pkey)
                   (handler-case
-                      (values (valid-pt bpt)
-                              (valid-pt server-pkey))
+                      (values (ed-valid-point-p bpt)
+                              (ed-valid-point-p server-pkey))
                     (error ()
                       (error "Server offered bogus identification")))
                 (let* ((ekey  (hash/256 (ed-mul bpt arand)            ;; B*a
