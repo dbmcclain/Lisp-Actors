@@ -114,7 +114,8 @@
 ;;
 
 (defun valid-pt (pt)
-  (ed-valid-point-p (ed-decompress-pt pt)))
+  (or (ed-valid-point-p (ed-decompress-pt pt))
+      (error "Invalid ECC Pt")))
 
 (defactor negotiate-secure-channel
   ;; EC Diffie-Hellman key exchange
