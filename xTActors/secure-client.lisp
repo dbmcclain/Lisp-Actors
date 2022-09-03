@@ -116,7 +116,8 @@
 (defactor negotiate-secure-channel
   ;; EC Diffie-Hellman key exchange
   (λ (cust socket local-services)
-    (multiple-value-bind (arand apt) (ed-random-pair)
+    (multiple-value-bind (arand apt)
+        (ed-random-pair)
       (let ((responder
              (αα
               ((server-id bpt server-pkey) / (and (typep server-id 'uuid:uuid)

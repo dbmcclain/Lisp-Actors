@@ -179,20 +179,15 @@ THE SOFTWARE.
   (apply (get-cached-symbol-data
           'hash/var 'hash-to-range range
           (lambda ()
-            (let* ((maxbits (integer-length (1- range)))
-                   (nbytes  (ceiling maxbits 8))
-                   (nhibits (- maxbits (* 8 (1- nbytes)))))
+            (let ((nbytes (ceiling (integer-length range) 8)))
               (labels ((hash-fn (&rest args)
-                         (let ((vec (apply 'get-raw-hash-nbytes nbytes args)))
-                           ;; vec is viewwed as big-endian encoding of an integer
-                           (when (< nhibits 8)
-                             (setf (aref vec 0) (ldb (byte nhibits 0) (aref vec 0))))
-                           (let ((hval (int vec)))
-                             (if (< hval range)
-                                 (values (make-bare-hash vec #'hash-fn)
-                                         hval) ;; for efficiency when int will be called anyway
-                               (hash-fn vec)))
-                           )))
+                         (let* ((vec (apply 'get-raw-hash-nbytes nbytes args))
+                                (n   (um:nlet iter ((x  (int vec)))
+                                       (if (< x range)
+                                           x
+                                         (go-iter (ash x -1))))))
+                           (values (make-bare-hash (vec n) #'hash-fn)
+                                   n))))
                 #'hash-fn))))
          seeds))
 

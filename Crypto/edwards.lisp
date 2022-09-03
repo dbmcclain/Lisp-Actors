@@ -816,21 +816,19 @@ THE SOFTWARE.
 
 (defun compute-deterministic-skey (seed &optional (index 0))
   (multiple-value-bind (_ hval)
-      (hash-to-grp-range seed index)
+      (hash-to-grp-range index seed)
     (declare (ignore _))
     hval))
 
 (defun make-deterministic-keys (&rest seeds)
-  (let* ((skey  (compute-deterministic-skey seeds))
-         (pkey  (ed-mul *ed-gen* skey)))
-    (values skey pkey)))
+  (multiple-value-bind (_ skey)
+      (apply #'hash-to-grp-range seeds)
+    (declare (ignore _))
+    (values skey (ed-nth-pt skey))))
 
 (defun ed-random-pair ()
   "Select a random private and public key from the curve"
-  (let* ((seed (ctr-drbg (integer-length (1- *ed-r*))))
-         (skey (compute-deterministic-skey seed))
-         (pt   (ed-nth-pt skey)))
-    (values skey pt)))
+  (make-deterministic-keys :edpt (ctr-drbg 256)))
 
 ;; -----------------------------------------------------
 ;; Hashing onto curve

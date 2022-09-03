@@ -37,7 +37,8 @@
       (multiple-value-bind (apt client-pkey)
           (values (ed-validate-point apt)
                   (ed-validate-point client-pkey))
-        (multiple-value-bind (brand bpt) (ed-random-pair)
+        (multiple-value-bind (brand bpt)
+            (ed-random-pair)
           (let ((ekey (hash/256 (ed-mul apt brand)            ;; A*b
                                 (ed-mul client-pkey brand)    ;; C*b
                                 (ed-mul apt (actors-skey))))) ;; A*s
