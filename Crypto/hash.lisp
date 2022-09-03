@@ -179,7 +179,7 @@ THE SOFTWARE.
   (apply (get-cached-symbol-data
           'hash/var 'hash-to-range range
           (lambda ()
-            (let ((nbytes (ceiling (integer-length range) 8)))
+            (let ((nbytes (ceiling (integer-length (1- range)) 8)))
               (labels ((hash-fn (&rest args)
                          (let* ((vec (apply 'get-raw-hash-nbytes nbytes args))
                                 (n   (um:nlet iter ((x  (int vec)))
