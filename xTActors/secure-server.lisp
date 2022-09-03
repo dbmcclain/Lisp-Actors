@@ -37,18 +37,17 @@
       (multiple-value-bind (apt client-pkey)
           (values (ed-validate-point apt)
                   (ed-validate-point client-pkey))
-        (let* ((brand     (int (ctr-drbg 256)))
-               (bpt       (ed-nth-pt brand))
-               (ekey      (hash/256 (ed-mul apt brand)            ;; A*b
-                                    (ed-mul client-pkey brand)    ;; C*b
-                                    (ed-mul apt (actors-skey))))) ;; A*s
-          (β _
-              (send local-services β :set-crypto ekey socket)
-            (β (cnx-id)
-                (create-service-proxy β local-services global-services)
-              (send socket client-id cnx-id (int bpt) (int (actors-pkey))))
-            )))
-      ))
+        (multiple-value-bind (brand bpt) (ed-random-pair)
+          (let ((ekey (hash/256 (ed-mul apt brand)            ;; A*b
+                                (ed-mul client-pkey brand)    ;; C*b
+                                (ed-mul apt (actors-skey))))) ;; A*s
+            (β _
+                (send local-services β :set-crypto ekey socket)
+              (β (cnx-id)
+                  (create-service-proxy β local-services global-services)
+                (send socket client-id cnx-id (int bpt) (int (actors-pkey)) ))
+              )))
+        )))
    ))
 
 ;; ---------------------------------------------------------------

@@ -116,36 +116,35 @@
 (defactor negotiate-secure-channel
   ;; EC Diffie-Hellman key exchange
   (λ (cust socket local-services)
-    (let* ((arand  (int (ctr-drbg 256)))
-           (apt    (ed-nth-pt arand))
-           (responder
-            (αα
-             ((server-id bpt server-pkey) / (and (typep server-id 'uuid:uuid)
-                                                 (integerp bpt)
-                                                 (integerp server-pkey)
-                                                 (sets:mem *allowed-members* server-pkey))
-              (multiple-value-bind (bpt server-pkey)
-                  (handler-case
-                      (values (ed-validate-point bpt)
-                              (ed-validate-point server-pkey))
-                    (error ()
-                      (error "Server offered bogus identification")))
-                (let* ((ekey  (hash/256 (ed-mul bpt arand)            ;; B*a
-                                        (ed-mul bpt (actors-skey))    ;; B*c
-                                        (ed-mul server-pkey arand)))  ;; S*a
-                       (chan  (α msg
-                                (send* local-services :ssend server-id msg))))
-                  (β _
-                      (send local-services β :set-crypto ekey socket)
-                    (send connections cust :set-channel socket chan))
-                  )))
-             ( _
-               (error "Server not following connection protocol"))
-             )))
-      (β (client-id)
-          (create-ephemeral-client-proxy β local-services responder)
-        (send socket +server-connect-id+ client-id (int apt) (int (actors-pkey))))
-      )))
+    (multiple-value-bind (arand apt) (ed-random-pair)
+      (let ((responder
+             (αα
+              ((server-id bpt server-pkey) / (and (typep server-id 'uuid:uuid)
+                                                  (integerp bpt)
+                                                  (integerp server-pkey)
+                                                  (sets:mem *allowed-members* server-pkey))
+               (multiple-value-bind (bpt server-pkey)
+                   (handler-case
+                       (values (ed-validate-point bpt)
+                               (ed-validate-point server-pkey))
+                     (error ()
+                       (error "Server offered bogus identification")))
+                 (let* ((ekey  (hash/256 (ed-mul bpt arand)            ;; B*a
+                                         (ed-mul bpt (actors-skey))    ;; B*c
+                                         (ed-mul server-pkey arand)))  ;; S*a
+                        (chan  (α msg
+                                 (send* local-services :ssend server-id msg))))
+                   (β _
+                       (send local-services β :set-crypto ekey socket)
+                     (send connections cust :set-channel socket chan))
+                   )))
+              ( _
+                (error "Server not following connection protocol"))
+              )))
+        (β (client-id)
+            (create-ephemeral-client-proxy β local-services responder)
+          (send socket +server-connect-id+ client-id (int apt) (int (actors-pkey))))
+        ))))
 
 (defactor client-gateway
   ;; This is the main local client service used to initiate
