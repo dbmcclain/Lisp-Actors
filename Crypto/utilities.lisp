@@ -501,10 +501,12 @@ THE SOFTWARE.
 
 (defun random-between (lo hi)
   ;; random number in interval [lo,hi)
-  (let ((rng  (abs (- hi lo)))
-        (lmin (min hi lo)))
-    (+ lmin (mod (ctr-drbg-int (integer-length rng))
-                 rng))))
+  (let* ((rng  (abs (- hi lo)))
+         (lmin (min hi lo))
+         (rand (ctr-drbg-int (integer-length rng))))
+    (if (>= rand rng)
+        (um:ashf rand -1))
+    (+ lmin rand)))
 
 (defun field-random (base)
   (random-between 1 base))
