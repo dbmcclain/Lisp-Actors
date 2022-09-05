@@ -120,8 +120,8 @@ there are no concerns about x being in small range."
            (rp    (m+ (m* z gamma) r)))
       (values
        (make-ped-proof
-        :hpt   (int hpt)
         :gpt   (int gpt)
+        :hpt   (int hpt)
         :cmt   (int cmt)
         :apt   (int apt)
         :mp    mp
@@ -135,8 +135,8 @@ there are no concerns about x being in small range."
 
 (defmethod validate-pedersen-proof ((proof ped-proof))
   "Return t if the proof checks out."
-  (with-accessors  ((hpt   ped-proof-hpt)
-                    (gpt   ped-proof-gpt)
+  (with-accessors  ((gpt   ped-proof-gpt)
+                    (hpt   ped-proof-hpt)
                     (cmt   ped-proof-cmt)
                     (apt   ped-proof-apt)
                     (mp    ped-proof-mp)
