@@ -75,17 +75,47 @@ field. 1 <= z_rand < group order"
 
 (defstruct ped-proof
   "Public knowlege for proof of a Pedersen commitment."
-  gpt hpt cmt apt mp rp)
+  seed    ;; for basis gen and challenge seeding
+  cmt     ;; the commitment C = x*G + gamma*H
+  apt     ;; proof point
+  z       ;; Fiat-Shamir challenge
+  mp      ;; proof reveal:  mp*G + rp*H = z*C + A
+  rp)
 
 (defstruct ped-secrets
   "The secrets used in the Pedersen commitment"
-  x gamma d r)
+  seed    ;; identifies the Pedersen commitment
+  x       ;; value committed
+  gamma   ;; cloaking used
+  d r)    ;; proof params:   mp = z*x + d, rp = z*gamma + r
+
+;; --------------------------------------------------------------------
+
+(defun gen-basis (n seed)
+  (labels ((gen  (n)
+             (do ((ix    n    (1- ix))
+                  (basis nil))
+                 ((zerop ix) basis)
+               (push (ed-pt-from-seed seed) basis)
+               (setf seed (vec (hash/256 seed))))
+             ))
+    (um:nlet iter ((basis  (gen n)))
+      (let* ((rem-basis (remove-duplicates basis :test 'ed-pt=))
+             (nb        (length rem-basis)))
+        (if (< nb n)
+            (go-iter (append (gen (- n nb)) rem-basis))
+          basis)
+        ))
+    ))
+
+(defun generate-pedersen-basis (seed)
+  (let* ((basis  (gen-basis 2 seed)))
+    (values (first basis) (second basis))
+    ))
 
 ;; ---------------------------------------------------------
 
-(defun make-pedersen-proof (x &key
-                              (gpt (ed-random-generator))
-                              (hpt (ed-random-generator)))
+(defun make-pedersen-proof (x)
   "Make a Pedersen commitment to x with computational binding, and
 random hiding, gamma:
 
@@ -106,55 +136,62 @@ verifier sees that:
 This keeps original message (x, gammma) hidden, but proves that we can
 open a related commitment. Since x is cloaked by gamma and then d,
 there are no concerns about x being in small range."
-  
   (modr
-    (let* ((gamma (rand))
-           (cmt   (ed-add (ed-mul hpt gamma)
-                          (ed-mul gpt x)))
-           (d     (rand))
-           (r     (rand))
-           (apt   (ed-add (ed-mul gpt d)
-                          (ed-mul hpt r)))
-           ;; challenge z = hash of public info
-           (z     (int (hash:hash/256 gpt hpt cmt apt)))
-           (mp    (m+ (m* z x) d))
-           (rp    (m+ (m* z gamma) r)))
-      (values
-       (make-ped-proof
-        :gpt   (int gpt)
-        :hpt   (int hpt)
-        :cmt   (int cmt)
-        :apt   (int apt)
-        :mp    mp
-        :rp    rp)
-       (make-ped-secrets
-        :x     x
-        :gamma gamma
-        :d     d
-        :r     r))
-      )))
+    (let ((seed  (vec (hash/256 (uuid:make-v1-uuid))))
+          (gamma (rand)))
+      (multiple-value-bind (gpt hpt)
+          (generate-pedersen-basis seed)
+        (let* ((cmt   (ed-add (ed-mul hpt gamma)
+                              (ed-mul gpt x)))
+               (vcmt  (vec cmt))
+               (d     (rand))
+               (r     (rand))
+               (apt   (ed-add (ed-mul gpt d)
+                              (ed-mul hpt r)))
+               (vapt  (vec apt))
+               ;; challenge z = hash of public info
+               (z     (int (hash/256 seed vcmt vapt)))
+               (mp    (m+ (m* z x) d))
+               (rp    (m+ (m* z gamma) r)))
+          (values
+           (make-ped-proof
+            :seed  seed
+            :cmt   vcmt
+            :apt   vapt
+            :z     (vec z)
+            :mp    (vec mp)
+            :rp    (vec rp))
+           (make-ped-secrets
+            :seed  seed
+            :x     x
+            :gamma gamma
+            :d     d
+            :r     r))
+          )))
+    ))
 
 (defmethod validate-pedersen-proof ((proof ped-proof))
   "Return t if the proof checks out."
-  (with-accessors  ((gpt   ped-proof-gpt)
-                    (hpt   ped-proof-hpt)
-                    (cmt   ped-proof-cmt)
-                    (apt   ped-proof-apt)
-                    (mp    ped-proof-mp)
-                    (rp    ped-proof-rp)) proof
-    (ignore-errors
-      (destructuring-bind (hpt gpt cmt apt)
-          (mapcar 'ed-validate-point
-                  (list hpt gpt cmt apt))
-        (modr
-         (let* ((z     (int (hash:hash/256 gpt hpt cmt apt)))
-                (gzpt  (ed-add (ed-mul hpt rp)
-                               (ed-mul gpt mp)))
-                (gzcmt (ed-add (ed-mul cmt z)
-                               apt)))
-           ;; verify Pedersen commitment
-           (= (int gzpt) (int gzcmt))
-           )))
+  (with-accessors  ((seed   ped-proof-seed)
+                    (vcmt   ped-proof-cmt)
+                    (vapt   ped-proof-apt)
+                    (vmp    ped-proof-mp)
+                    (vrp    ped-proof-rp)) proof
+    (multiple-value-bind (gpt hpt)
+        (generate-pedersen-basis seed)
+      (ignore-errors
+        (destructuring-bind (cmt apt)
+            (mapcar 'ed-validate-point
+                    (list vcmt vapt))
+          (modr
+            (let* ((z     (int (hash:hash/256 seed vcmt vapt)))
+                   (gzpt  (ed-add (ed-mul hpt (int vrp))
+                                  (ed-mul gpt (int vmp))))
+                   (gzcmt (ed-add (ed-mul cmt z)
+                                  apt)))
+              ;; verify Pedersen commitment
+              (ed-pt= gzpt gzcmt)
+              ))))
       )))
 
 #|
@@ -193,36 +230,49 @@ there are no concerns about x being in small range."
 ;; ------------------------------------------------------------------
 
 (defstruct dotprod-opening
-  av bv)
+  seed    ;; identifies the proof
+  av      ;; values committed
+  bv      ;; coefficients committed
+  rv)     ;; cloaking used
 
 (defstruct dotprod-proof
-  gv hv u pf c x proofs)
+  n        ;; size of proof vectors
+  seed     ;; for basis generation, and make Fiat-Shamir safe
+  c        ;; the ostensible value of the (av • bv)
+  pf       ;; first layer commitment = av • Gv + bv • Hv + rv • Fv + (av • bv) * U
+  x        ;; Fiat-Shamir challenge
+  proofs)  ;; to the recursive sub-proofs
 
 (defstruct dotprod-subproof
-  gv hv pf l r x proofs)
+  pf lf rt x proofs) ;; recursive Lf, Rt points
        
 (defstruct dotprod-terminal-proof
-  g h pf a b)
+  pf a b r)  ;; final witness values
+
+(defun vcommit (gv hv fv u av bv rv)
+  #|
+  (format t "~%AV = ~S" av)
+  (format t "~%BV = ~S" bv)
+  (format t "~%RV = ~S" rv)
+  |#
+  (ed-add (ptdot gv av)
+          (ed-add (ptdot hv bv)
+                  (ed-add (ptdot fv rv)
+                          (ed-mul u (vdot av bv)))
+                  )))
 
 ;; --------------------------------------------------------------------
 
-(defun gen-basis (n)
-  (let ((basis  (loop repeat n collect (ed-random-generator))))
-    (um:nlet iter ((basis  basis))
-      (let* ((basis2 (remove-duplicates basis :test 'ed-pt=))
-             (nel2   (length basis2)))
-        (if (< nel2 n)
-            (go-iter (append (gen-basis (- n nel2)) basis2))
-          basis2))
-      )))
+(defun generate-dotprod-basis (n seed)
+  (let* ((nel   (1+ (* 3 n)))
+         (basis (gen-basis nel seed))
+         (u     (pop basis))
+         (gv    (coerce (um:take n basis) 'vector))
+         (hv    (coerce (um:take n (um:drop n basis)) 'vector))
+         (fv    (coerce (right basis (* 2 n)) 'vector)))
+        (values gv hv fv u)))
 
-(defun vcommit (gv hv u av bv)
-  ;; (format t "~%AV = ~S" av)
-  ;; (format t "~%BV = ~S" bv)
-  (ed-add (ptdot gv av)
-          (ed-add (ptdot hv bv)
-                  (ed-mul u (vdot av bv)))
-          ))
+;; --------------------------------------------------------------------
 
 (defun dotprod-proof (av bv)
   ;; Dot-Product Proofs
@@ -231,8 +281,8 @@ there are no concerns about x being in small range."
   ;; to prove that (av • bv) = c.  Values and coffs are kept secret.
   ;; Dotprod value, c = (av • bv) is made public.
   ;;
-  ;; We cloak the values by appending an equal number of random values
-  ;; whose coefficients are zero. Then both vectors are padded to
+  ;; We cloak the values using a vector of random values in parallel
+  ;; with the value and coff vectors.  All vectors are padded to
   ;; power-of-2 length to permit recursive halving proof. Gives us
   ;; log2(N) proof size.
   ;;
@@ -246,83 +296,80 @@ there are no concerns about x being in small range."
     (assert (= n (length bv)))    ;; av same length as bv
     (assert (every 'integerp av)) ;; all av and bv are integers
     (assert (every 'integerp bv))
-    (cond ((= n 1)
-           ;; this case has dangeraous reveal in L, R
-           ;; so we cloak to avoid
-           (setf n  2
-                 av (vector (aref av 0) (rand))
-                 bv (vector (aref bv 0) 0)))
-
-          ((> (logcount n) 1)
-           ;; pad to pwr2 size
-           (let* ((np2    (um:ceiling-pwr2 n))
-                  (nextra (- np2 n))
-                  (zv     (zerov nextra)))
-             (setf n np2
-                   av (concatenate 'vector av (map 'vector 'rand zv))
-                   bv (concatenate 'vector bv zv))
-             )))
-    ;; add cloaking values
-    (setf av  (concatenate 'vector av (map 'vector 'rand av))
-          bv  (concatenate 'vector bv (map 'vector (constantly 0) bv))
-          n   (ash n 1))
     (modr
-     (let* ((basis (gen-basis (+ 1 n n)))
-            (u     (pop basis))
-            (gv    (coerce (left  basis n) 'vector))
-            (hv    (coerce (right basis n) 'vector))
-            (c     (vdot av bv))
-            (p     (vcommit gv hv u av bv))
-            (vc    (vec c))
-            (vp    (vec p))
-            ;; Fiat-Shamir challenge, x
-            (x     (int (hash-to-grp-range vp vc)))
-            (ux    (ed-mul u x))
-            (cx    (m* c (m- 1 (m/ x)))) ;; c' = c*(1-1/x)
-            (px    (ed-add p (ed-mul ux cx))))
-       (values
-        (make-dotprod-proof
-         :gv     (map 'vector 'vec gv)
-         :hv     (map 'vector 'vec hv)
-         :u      (vec u)
-         :pf     vp
-         :c      vc
-         :x      (vec x)
-         :proofs (protocol-2 gv hv ux px av bv))
-        (make-dotprod-opening
-         :av     av
-         :bv     bv))
-       ))))
+      (cond ((= n 1)
+             ;; simple product proof...
+             ;; this case has dangeraous reveal in L, R
+             ;; force one round of cloaking on way to final reveal
+             (setf n  2
+                   av (vector (aref av 0) (rand))
+                   bv (vector (aref bv 0) 0)))
+            
+            ((> (logcount n) 1)
+             ;; pad to pwr2 size
+             (let* ((np2    (um:ceiling-pwr2 n))
+                    (nextra (- np2 n))
+                    (zv     (zerov nextra)))
+               (setf n np2
+                     av (concatenate 'vector av (map 'vector 'rand zv))
+                     bv (concatenate 'vector bv zv))
+               )))
+      (let* ((rv    (map 'vector 'rand av))  ;; generate cloaking factors
+             (c     (vdot av bv))
+             (vc    (vec c))
+             (seed  (vec (hash/256 (uuid:make-v1-uuid)))))
+        (multiple-value-bind (gv hv fv u)
+            (generate-dotprod-basis n seed)
+          (let* ((p     (vcommit gv hv fv u av bv rv))
+                 (vp    (vec p))
+                 ;; Fiat-Shamir challenge, x
+                 (x     (int (hash-to-grp-range seed vc vp)))
+                 (vx    (vec x))
+                 (ux    (ed-mul u x))
+                 (cx    (m* c (m- 1 (m/ x)))) ;; c' = c*(1-1/x)
+                 (px    (ed-add p (ed-mul ux cx))))
+            (values
+             (make-dotprod-proof
+              :seed   seed
+              :n      n
+              :pf     vp
+              :c      vc
+              :x      vx
+              :proofs (protocol-2 seed vx gv hv fv ux px av bv rv))
+             (make-dotprod-opening
+              :seed   seed
+              :av     av
+              :bv     bv
+              :rv     rv))
+            ))))))
 
-(defun protocol-2 (gv hv u p av bv)
+(defun protocol-2 (seed vx gv hv fv u p av bv rv)
   (let ((n/2  (ash (length av) -1)))
-    (modr 
-     (cond ((zerop n/2)
-            (let* ((a  (aref av 0))
-                   (b  (aref bv 0))
-                   (g  (aref gv 0))
-                   (h  (aref hv 0)))
-              (make-dotprod-terminal-proof
-               :g  (vec g)
-               :h  (vec h)
-               :pf (vec p)
-               :a  (vec a)
-               :b  (vec b))
-              ))
-           
+    (cond ((zerop n/2)
+           (let* ((a  (aref av 0))
+                  (b  (aref bv 0))
+                  (r  (aref rv 0)))
+             (make-dotprod-terminal-proof
+              :pf (vec p)
+              :a  (vec a)
+              :b  (vec b)
+              :r  (vec r))
+             ))
+          
           (t
-           (let ((vlst (list av bv gv hv)))
-             (destructuring-bind (avl bvl gvl hvl)
+           (let ((vlst (list av bv rv gv hv fv)))
+             (destructuring-bind (avl bvl rvl gvl hvl fvl)
                  (mapcar (um:rcurry 'left n/2) vlst)
-               (destructuring-bind (avr bvr gvr hvr)
+               (destructuring-bind (avr bvr rvr gvr hvr fvr)
                    (mapcar (um:rcurry 'right n/2) vlst)
-                 (let* ((l   (vcommit gvr hvl u avl bvr))
-                        (r   (vcommit gvl hvr u avr bvl))
+                 (let* ((lf  (vcommit gvr hvl fvr u avl bvr rvl))
+                        (rt  (vcommit gvl hvr fvl u avr bvl rvr))
                         (vp  (vec p))
-                        (vl  (vec l))
-                        (vr  (vec r))
+                        (vlf (vec lf))
+                        (vrt (vec rt))
                         ;; Fiat-Shamir challenge, x
-                        (x     (int (hash-to-grp-range vp vl vr)))
+                        (x     (int (hash-to-grp-range seed vx vp vlf vrt)))
+                        (vx    (vec x))
                         (xinv  (m/ x))
                         (xsq   (m* x x))
                         (gv/2  (map 'vector 'ed-add
@@ -331,123 +378,30 @@ there are no concerns about x being in small range."
                         (hv/2   (map 'vector 'ed-add
                                      (ptv-scale hvl x)
                                      (ptv-scale hvr xinv)))
-                        (p/2    (ed-add (ed-mul l xsq)
+                        (fv/2   (map 'vector 'ed-add
+                                     (ptv-scale fvl xinv)
+                                     (ptv-scale fvr x)))
+                        (p/2    (ed-add (ed-mul lf xsq)
                                         (ed-add p
-                                                (ed-mul r (m/ xsq)))))
+                                                (ed-mul rt (m/ xsq)))))
                         (av/2   (map 'vector 'm+
                                      (vscale avl x)
                                      (vscale avr xinv)))
                         (bv/2   (map 'vector 'm+
                                      (vscale bvl xinv)
-                                     (vscale bvr x))))
+                                     (vscale bvr x)))
+                        (rv/2   (map 'vector 'm+
+                                     (vscale rvl x)
+                                     (vscale rvr xinv))))
                    (make-dotprod-subproof
-                    :gv  (map 'vector 'vec gv)
-                    :hv  (map 'vector 'vec hv)
                     :pf  vp
-                    :l   vl
-                    :r   vr
-                    :x   (vec x)
-                    :proofs (protocol-2 gv/2 hv/2 u p/2 av/2 bv/2))
+                    :lf  vlf
+                    :rt  vrt
+                    :x   vx
+                    :proofs (protocol-2 seed vx gv/2 hv/2 fv/2 u p/2 av/2 bv/2 rv/2))
                    )))))
-          ))))
+          )))
 
-(defun validate-dotprod-proof (pf)
-  (let* ((pgv  (dotprod-proof-gv pf))
-         (phv  (dotprod-proof-hv pf))
-         (pu   (dotprod-proof-u  pf))
-         (pp   (dotprod-proof-pf pf))
-         (pc   (dotprod-proof-c  pf))
-         (px   (dotprod-proof-x  pf))
-         (psub (dotprod-proof-proofs pf)))
-    (let ((gv (map 'vector 'ed-valid-point-p pgv))
-          (hv (map 'vector 'ed-valid-point-p phv))
-          (u  (ed-valid-point-p pu))
-          (p  (ed-valid-point-p pp))
-          (c  (int pc)))
-      (modr
-       (and (every 'identity gv)
-            (every 'identity hv)
-            u
-            p
-            (equalp px (vec (hash-to-grp-range pp pc)))
-            (let* ((x   (int px))
-                   (ux  (ed-mul u x))
-                   (cx  (m* c (m- 1 (m/ x))))
-                   (px  (ed-add p
-                                (ed-mul ux cx))))
-              (validate-protocol-2 psub gv hv ux px)
-              ))))))
-
-(defun validate-protocol-2 (sub gv hv u p)
-  (cond  ((dotprod-terminal-proof-p sub)
-          (with-accessors ((tpg  dotprod-terminal-proof-g)
-                           (tph  dotprod-terminal-proof-h)
-                           (tpp  dotprod-terminal-proof-pf)
-                           (tpa  dotprod-terminal-proof-a)
-                           (tpb  dotprod-terminal-proof-b)) sub
-            (and (= 1 (length gv))
-                 (= 1 (length hv))
-                 (equalp (vec (aref gv 0)) tpg)
-                 (equalp (vec (aref hv 0)) tph)
-                 (equalp (vec p) tpp)
-                 (let ((g  (ed-valid-point-p tpg))
-                       (h  (ed-valid-point-p tph))
-                       (a  (int tpa))
-                       (b  (int tpb)))
-                   (and tpg
-                        tph
-                        (equalp tpp (vec (ed-add (ed-mul g a)
-                                                 (ed-add (ed-mul h b)
-                                                         (ed-mul u (m* a b)))))))
-                   ))))
-         
-         ((dotprod-subproof-p sub)
-          (with-accessors ((spgv  dotprod-subproof-gv)
-                           (sphv  dotprod-subproof-hv)
-                           (spp   dotprod-subproof-pf)
-                           (spl   dotprod-subproof-l)
-                           (spr   dotprod-subproof-r)
-                           (spx   dotprod-subproof-x)
-                           (spsub dotprod-subproof-proofs)) sub
-            (let ((n  (length gv)))
-              (and  (= n (length hv))
-                    (= n (length spgv))
-                    (= n (length sphv))
-                    (every (lambda (pt1 pt2)
-                             (equalp (vec pt1) pt2))
-                           gv spgv)
-                    (every (lambda (pt1 pt2)
-                             (equalp (vec pt1) pt2))
-                           hv sphv)
-                    (equalp (vec p) spp)
-                    (let ((l (ed-valid-point-p spl))
-                          (r (ed-valid-point-p spr)))
-                      (and l r
-                           (equalp spx (vec (hash-to-grp-range spp spl spr)))
-                           (let* ((x    (int spx))
-                                  (x2   (m* x x))
-                                  (pf   (ed-add (ed-mul l x2)
-                                                (ed-add p
-                                                        (ed-mul r (m/ x2)))))
-                                  (xinv  (m/ x))
-                                  (n/2   (ash n -1))
-                                  (vlst  (list gv hv)))
-                             (destructuring-bind (gvl hvl)
-                                 (mapcar (um:rcurry 'left n/2) vlst)
-                               (destructuring-bind (gvr hvr)
-                                   (mapcar (um:rcurry 'right n/2) vlst)
-                                 (let* ((gv/2  (map 'vector 'ed-add
-                                                    (ptv-scale gvl xinv)
-                                                    (ptv-scale gvr x)))
-                                        (hv/2   (map 'vector 'ed-add
-                                                     (ptv-scale hvl x)
-                                                     (ptv-scale hvr xinv))))
-                                   (validate-protocol-2 spsub gv/2 hv/2 u pf)
-                                   ))))
-                           ))))))
-         (t
-          (error "subproof expected"))
-         ))
 #|
 (defun tst (av bv)
   (let* ((proof (dotprod-proof av bv))
@@ -462,3 +416,90 @@ there are no concerns about x being in small range."
 (tst #(5 5 4 6) #(1 2 3 4))
 (tst #(5 5 4 6 7) #(1 2 3 4 5))
 |#
+
+(defun validate-dotprod-proof (pf)
+  (let* ((seed (dotprod-proof-seed pf))
+         (n    (dotprod-proof-n    pf))
+         (pp   (dotprod-proof-pf   pf))
+         (pc   (dotprod-proof-c    pf))
+         (px   (dotprod-proof-x    pf))
+         (psub (dotprod-proof-proofs pf)))
+    (multiple-value-bind (gv hv fv u)
+        (generate-dotprod-basis n seed)
+      (let ((p  (ed-valid-point-p pp))
+            (c  (int pc)))
+      (modr
+       (and p
+            (equalp px (vec (hash-to-grp-range seed pc pp)))
+            (let* ((x   (int px))
+                   (ux  (ed-mul u x))
+                   (cx  (m* c (m- 1 (m/ x))))
+                   (pfx (ed-add p
+                                (ed-mul ux cx))))
+              (validate-protocol-2 psub seed px gv hv fv ux pfx)
+              )))))))
+
+(defun validate-protocol-2 (sub seed px gv hv fv u p)
+  (cond  ((dotprod-terminal-proof-p sub)
+          (with-accessors ((tpp  dotprod-terminal-proof-pf)
+                           (tpa  dotprod-terminal-proof-a)
+                           (tpb  dotprod-terminal-proof-b)
+                           (tpr  dotprod-terminal-proof-r)) sub
+            (and (= 1 (length gv))
+                 (= 1 (length hv))
+                 (= 1 (length fv))
+                 (equalp (vec p) tpp)
+                 (let ((a  (int tpa))
+                       (b  (int tpb))
+                       (r  (int tpr))
+                       (g  (aref gv 0))
+                       (h  (aref hv 0))
+                       (f  (aref fv 0)))
+                   (and (equalp tpp (vec (ed-add (ed-mul g a)
+                                                 (ed-add (ed-mul h b)
+                                                         (ed-add (ed-mul f r)
+                                                                 (ed-mul u (m* a b)))
+                                                         )))))
+                   ))))
+         
+         ((dotprod-subproof-p sub)
+          (with-accessors ((spp   dotprod-subproof-pf)
+                           (splf  dotprod-subproof-lf)
+                           (sprt  dotprod-subproof-rt)
+                           (spx   dotprod-subproof-x)
+                           (spsub dotprod-subproof-proofs)) sub
+            (let ((n  (length gv)))
+              (and (equalp (vec p) spp)
+                   (let ((lf (ed-valid-point-p splf))
+                         (rt (ed-valid-point-p sprt)))
+                     (and lf rt
+                          (equalp spx (vec (hash-to-grp-range seed px spp splf sprt)))
+                          (let* ((x    (int spx))
+                                 (x2   (m* x x))
+                                 (pf   (ed-add (ed-mul lf x2)
+                                               (ed-add p
+                                                       (ed-mul rt (m/ x2)))))
+                                 (xinv  (m/ x))
+                                 (n/2   (ash n -1))
+                                 (vlst  (list gv hv fv)))
+                            (destructuring-bind (gvl hvl fvl)
+                                (mapcar (um:rcurry 'left n/2) vlst)
+                              (destructuring-bind (gvr hvr fvr)
+                                  (mapcar (um:rcurry 'right n/2) vlst)
+                                (let* ((gv/2  (map 'vector 'ed-add
+                                                   (ptv-scale gvl xinv)
+                                                   (ptv-scale gvr x)))
+                                       (hv/2   (map 'vector 'ed-add
+                                                    (ptv-scale hvl x)
+                                                    (ptv-scale hvr xinv)))
+                                       (fv/2  (map 'vector 'ed-add
+                                                   (ptv-scale fvl xinv)
+                                                   (ptv-scale fvr x))))
+                                  (validate-protocol-2 spsub seed spx gv/2 hv/2 fv/2 u pf)
+                                  ))))
+                          ))))))
+         (t
+          (error "subproof expected"))
+         ))
+
+;; --- end of file --- ;;

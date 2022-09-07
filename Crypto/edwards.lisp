@@ -98,11 +98,11 @@ THE SOFTWARE.
 
 ;; -------------------------------------------------------------------
 
-(defmacro modq (form)
-  `(with-mod *ed-q* ,form))
+(defmacro modq (&body body)
+  `(with-mod *ed-q* ,@body))
 
-(defmacro modr (form)
-  `(with-mod *ed-r* ,form))
+(defmacro modr (&body body)
+  `(with-mod *ed-r* ,@body))
 
 ;; -------------------------------------------------------------------
 
