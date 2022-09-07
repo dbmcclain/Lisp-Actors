@@ -109,9 +109,7 @@ field. 1 <= z_rand < group order"
     ))
 
 (defun generate-pedersen-basis (seed)
-  (let* ((basis  (gen-basis 2 seed)))
-    (values (first basis) (second basis))
-    ))
+  (values-list (gen-basis 2 seed)))
 
 ;; ---------------------------------------------------------
 
