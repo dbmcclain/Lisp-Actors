@@ -757,23 +757,26 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------------------
 
-(defmethod ed-valid-point-p ((pt ecc-pt))
-  (and (ed-satisfies-curve pt)
-       (not (or (zerop (ecc-pt-x pt))
-                (zerop (ecc-pt-y pt))))
-       pt))
-
-(defmethod ed-valid-point-p ((pt ecc-proj-pt))
-  (ed-valid-point-p (ed-affine pt)))
-
-(defmethod ed-valid-point-p ((pt ecc-cmpr-pt))
-  (ed-valid-point-p (ed-affine pt)))
-
-(defmethod ed-valid-point-p ((pt integer))
-  ;; assume we have integer repr of compressed pt
-  ;; -- some integer values cannot be decompressed into ECC pts.
-  (ignore-errors
-    (ed-valid-point-p (ed-decompress-pt pt))))
+(defgeneric ed-valid-point-p (pt)
+  (:method ((pt ecc-pt))
+   (and (ed-satisfies-curve pt)
+        (not (or (zerop (ecc-pt-x pt))
+                 (zerop (ecc-pt-y pt))))
+        pt))
+  (:method ((pt ecc-proj-pt))
+   (ed-valid-point-p (ed-affine pt)))
+  (:method ((pt ecc-cmpr-pt))
+   (ed-valid-point-p (ed-affine pt)))
+  (:method ((pt integer))
+   ;; assume we have integer repr of compressed pt
+   ;; -- some integer values cannot be decompressed into ECC pts.
+   (ignore-errors
+     (ed-valid-point-p (ed-decompress-pt pt))))
+  (:method ((pt vector))
+   ;; vector should be a BVEC for an integer representing a compressed
+   ;; point
+   (ignore-errors
+     (ed-valid-point-p (int pt)))) )
 
 (defun ed-validate-point (pt)
   (let ((vpt (ed-valid-point-p pt)))
@@ -864,9 +867,11 @@ Else re-probe with (X^2 + 1)."
     (declare (ignore _))
     (ed-pt-from-hash hval)))
 
-(defun ed-random-generator ()
-  (ed-pt-from-seed (uuid:make-v1-uuid)
-                   (ctr-drbg (integer-length *ed-q*))))
+(defun ed-random-generator (&rest seeds)
+  (apply 'ed-pt-from-seed
+         (uuid:make-v1-uuid)
+         (ctr-drbg (integer-length *ed-q*))
+         seeds))
 
 ;; ---------------------------------------------------
 ;; The IETF EdDSA standard as a primitive
