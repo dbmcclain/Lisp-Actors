@@ -259,7 +259,7 @@ there are no concerns about x being in small range."
   Compute:  
           A = av•Gv + bv•Hv + α*H   ;; α random blinding
           S = rv•Gv + sv•Hv + β*H   ;; β random blinding
-          value c  = a•b
+          c  = av•bv
           t1 = (av•sv) + (bv•rv)
           t2 = (rv•sv)
           T1 = t1*G + tau1*H        ;; tau1 random
