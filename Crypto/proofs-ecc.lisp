@@ -281,6 +281,10 @@ there are no concerns about x being in small range."
   Verify:   (1) tx*G + taux*H =?= c*G + x*T1 + x^2*T2
             (2) A + x*S =?= µ*H + C
             (3) validate inner-prod proof P
+
+  Inner-prod proof, P, has compact size O(log2 n), but not absolutely
+  hiding. That's okay because lv, rv not secret.
+
  |#
 
 (defstruct dotprod-proof
