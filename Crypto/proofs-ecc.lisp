@@ -276,10 +276,11 @@ there are no concerns about x being in small range."
              tx = c + t1*x + t2*x^2
              taux = tau1*x + tau2*x^2   ;; blinding for tx
              µ  = α + β*x               ;; α,β blinding for A,S
+             Inner-Prod Proof P = C + tx*H => (lv•rv == tx)
 
   Verify:   (1) tx*G + taux*H =?= c*G + x*T1 + x^2*T2
             (2) A + x*S =?= µ*H + C
-            (3) validate inner-prod proof  (C + tx*H) => (lv•rv == tx)
+            (3) validate inner-prod proof P
  |#
 
 (defstruct dotprod-proof
