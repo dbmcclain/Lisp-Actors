@@ -219,6 +219,9 @@ there are no concerns about x being in small range."
 (defun vscale (v x)
   (map 'vector (um:rcurry 'm* x) v))
 
+(defun vadd (v1 v2)
+  (map 'vector 'm+ v1 v2))
+
 (defun ptv-scale (ptv x)
   (map 'vector (um:rcurry 'ed-mul x) ptv))
 
@@ -227,7 +230,7 @@ there are no concerns about x being in small range."
               :initial-element 0))
 
 ;; ------------------------------------------------------------------
-
+#|
 (defstruct dotprod-opening
   seed    ;; identifies the proof
   av      ;; values committed
@@ -247,9 +250,9 @@ there are no concerns about x being in small range."
        
 (defstruct dotprod-terminal-proof
   a b r)  ;; final witness values
-
+|#
 ;; --------------------------------------------------------------------
-
+#|
 (defun vcommit (gv hv fv u av bv rv c)
   #|
   (format t "~%AV = ~S" av)
@@ -261,9 +264,22 @@ there are no concerns about x being in small range."
                   (ed-add (ptdot fv rv)
                           (ed-mul u c))
                   )))
+|#
+
+(defun vcommit (gv hv h av bv α)
+  #|
+  (format t "~%AV = ~S" av)
+  (format t "~%BV = ~S" bv)
+  (format t "~%RV = ~S" rv)
+  |#
+  (ed-add (ptdot gv av)
+          (ed-add (ptdot hv bv)
+                  (ed-mul h α))
+          ))
 
 ;; --------------------------------------------------------------------
 
+#|
 (defun generate-dotprod-basis (n seed)
   (let* ((nel   (1+ (* 3 n)))
          (basis (gen-basis nel seed))
@@ -272,20 +288,74 @@ there are no concerns about x being in small range."
          (hv    (coerce (um:take n (um:drop n basis)) 'vector))
          (fv    (coerce (right basis (* 2 n)) 'vector)))
         (values gv hv fv u)))
+|#
+
+(defun generate-dotprod-basis (n seed)
+  (let* ((nel   (+ 2 (* 2 n)))
+         (basis (gen-basis nel seed))
+         (g     (pop basis))
+         (h     (pop basis))
+         (gv    (coerce (um:take n basis) 'vector))
+         (hv    (coerce (um:take n (um:drop n basis)) 'vector)))
+    (values gv hv g h)))
 
 ;; --------------------------------------------------------------------
+#|
+  Size:     n
+  Values:   av[1..n]
+  Coeffs:   bv[1..n]
+  Value:    c = av•bv
+  Blinding: rv[1..n], sv[1..n] random
+  Basis:    Gv[1..n], Hv[1..n], G, H
+  Compute:  
+          A = av•Gv + bv•Hv + α*H   ;; α random blinding
+          S = rv•Gv + sv•Hv + β*H   ;; β random blinding
+          value c  = a•b
+          t1 = (av•sv) + (bv•rv)
+          t2 = (rv•sv)
+          T1 = t1*G + tau1*H        ;; tau1 random
+          T2 = t2*G + tau2*H        ;; tau2 random
+
+  Publish: A, S, c, T1, T2
+  
+  Challenge: x random
+
+  Publish:   lv = av + rv*x
+             rv = bv + sv*x
+             tx = c + t1*x + t2*x^2
+             taux = tau1*x + tau2*x^2   ;; blinding for tx
+             µ  = α + β*x               ;; α,β blinding for A,S
+
+  Verify:   tx*G + taux*H =?= c*G + x*T1 + x^2*T2
+            A + x*S =?= µ*H + lv•Gv + rv•Hv
+            tx =?= lv•rv
+ |#
+
+(defstruct dotprod-proof
+  curve     ;; name of ECC curve
+  n         ;; size of proof vectors
+  seed      ;; for basis generation, and make Fiat-Shamir safe
+  c         ;; the ostensible value of the (av • bv)
+  a-cmt     ;; av•Gv + bv•Hv + α*H
+  s-cmt     ;; rv•Gv + sv•Hv + β*H
+  t1-cmt    ;; t1*G + tau1*H
+  t2-cmt    ;; t2*G + tau2*H
+  taux      ;; blinding for tx
+  tx        ;; c + t1*x + t2*x^2
+  mu        ;; blindings
+  lr-cmt    ;; lv•Gv + rv•Hv
+  tx-proof) ;; recursive inner-product proof on lv•rv = tx
 
 (defun dotprod-proof (av bv)
   ;; Dot-Product Proofs
   ;;
   ;; For vector av of values, and vector bv of coefficients, we claim
-  ;; to prove that (av • bv) = c.  Values and coffs are kept secret.
-  ;; Dotprod value, c = (av • bv) is made public.
+  ;; to prove, with zero knowledge, that (av • bv) = c.  Values and
+  ;; coffs are kept secret.  Dotprod value, c = (av • bv) is made
+  ;; public.
   ;;
-  ;; We cloak the values using a vector of random values in parallel
-  ;; with the value and coff vectors.  All vectors are padded to
-  ;; power-of-2 length to permit recursive halving proof. Gives us
-  ;; log2(N) proof size.
+  ;; We cloak the values and coffs using vectors of random values in parallel
+  ;; with the value and coff vectors.
   ;;
   ;; E.g., suppose we claim to know a, b such that a + 2*b = 15. Then
   ;; vectors av = #(a b), bv = #(1 2). And we should have (av • bv) =
@@ -297,115 +367,144 @@ there are no concerns about x being in small range."
     (assert (= n (length bv)))    ;; av same length as bv
     (assert (every 'integerp av)) ;; all av and bv are integers
     (assert (every 'integerp bv))
+    (unless (= 1 (logcount n))
+      (let* ((npwr2  (um:ceiling-pwr2 n))
+             (npad   (- npwr2 n))
+             (zv     (zerov npad)))
+        (setf n  npwr2
+              av (concatenate 'vector av (map 'vector 'rand zv))
+              bv (concatenate 'vector bv zv))
+        ))
     (modr
-      (cond ((= n 1)
-             ;; simple product proof...
-             ;; this case has dangeraous reveal in L, R
-             ;; force one round of cloaking on way to final reveal
-             (setf n  2
-                   av (vector (aref av 0) (rand))
-                   bv (vector (aref bv 0) 0)))
-            
-            ((> (logcount n) 1)
-             ;; pad to pwr2 size
-             (let* ((np2    (um:ceiling-pwr2 n))
-                    (nextra (- np2 n))
-                    (zv     (zerov nextra)))
-               (setf n np2
-                     av (concatenate 'vector av (map 'vector 'rand zv))
-                     bv (concatenate 'vector bv zv))
-               )))
-      (let* ((rv    (map 'vector 'rand av))  ;; generate cloaking factors
+      (let* ((rv    (map 'vector 'rand av))  ;; generate blinding values
+             (sv    (map 'vector 'rand bv))
+             (alpha (rand))
+             (beta  (rand))
              (c     (vdot av bv))
              (vc    (vec c))
              (seed  (vec (hash/256 (uuid:make-v1-uuid)))))
-        (multiple-value-bind (gv hv fv u)
+        (multiple-value-bind (gv hv g h)
             (generate-dotprod-basis n seed)
-          (let* ((cmt    (vcommit gv hv fv u av bv rv 0))
-                 ;; P = av•Gc + bv•Hv + rv•Fv
-                 ;; (i.e., no U term here)
-                 (vcmt   (vec cmt))
+          (let* ((a-cmt  (vcommit gv hv h av bv alpha))
+                 (s-cmt  (vcommit gv hv h rv sv beta))
+                 (va-cmt (vec a-cmt))
+                 (vs-cmt (vec s-cmt))
+                 (t1     (m+ (vdot av sv) (vdot bv rv)))
+                 (t2     (vdot rv sv))
+                 (tau1   (rand))
+                 (tau2   (rand))
+                 (t1-cmt (ed-add (ed-mul g t1)
+                                 (ed-mul h tau1)))
+                 (vt1-cmt (vec t1-cmt))
+                 (t2-cmt (ed-add (ed-mul g t2)
+                                 (ed-mul h tau2)))
+                 (vt2-cmt (vec t2-cmt))
                  
                  ;; Fiat-Shamir challenge, x
                  ;; safe: fold in seed, plus size, c and proof
-                 (xh    (hash-to-grp-range seed *ed-name* n vc vcmt))
-                 (vx    (vec xh))
-                 (x     (int xh))
-                 (ux    (ed-mul u x))
-                 (cmtx  (ptdot (vector cmt ux)
-                               (vector 1 c))))
-            (values
-             (make-dotprod-proof
-              :curve  *ed-name*
-              :seed   seed
-              :n      n
-              :cmt    vcmt
-              :c      vc
-              :proofs (protocol-2 seed vx gv hv fv ux cmtx av bv rv))
-             (make-dotprod-opening
-              :seed   seed
-              :av     av
-              :bv     bv
-              :rv     rv))
-            ))))))
+                 (x      (int (hash-to-grp-range seed *ed-name* n
+                                                 vc va-cmt vs-cmt
+                                                 vt1-cmt vt2-cmt)))
 
-(defun protocol-2 (seed prev-vx gv hv fv u cmt av bv rv)
+                 (lv     (vadd av (vscale rv x)))
+                 (rv     (vadd bv (vscale sv x)))
+                 (tx     (m+ c (m* x (m+ t1 (m* x t2)))))
+                 (taux   (m* x (m+ tau1 (m* x tau2))))
+                 (mu     (m+ alpha (m* beta x))))
+            (multiple-value-bind (lr-cmt proof)
+                (inner-prod-proof seed (vec x) gv hv h lv rv)
+              (make-dotprod-proof
+               :curve    *ed-name*
+               :seed     seed
+               :n        n
+               :c        vc
+               :a-cmt    va-cmt
+               :s-cmt    vs-cmt
+               :t1-cmt   vt1-cmt
+               :t2-cmt   vt2-cmt
+               :taux     (vec taux)
+               :tx       (vec tx)
+               :mu       (vec mu)
+               :lr-cmt   (vec lr-cmt)
+               :tx-proof proof)
+              )))))))
+
+(defstruct terminal-proof
+  a b)
+
+(defstruct subproof
+  lf rt sub)
+
+(defun inner-prod-proof (seed vx gv hv u av bv)
+  ;; recursive proof of (av•bv = c)
+  ;; basis Gv, Hv, U
+  ;;
+  ;; P = av•Gv + bv•Hv
+  ;; challenge x
+  ;; P' = P + c*x*U
+  (let* ((c    (vdot av bv))
+         (vc   (vec c))
+         (cmt  (vcommit gv hv u av bv 0))
+         (xh   (hash-to-grp-range seed vx
+                                  vc (vec cmt)))
+         (vx   (vec xh))
+         (x    (int xh))
+         (ux   (ed-mul u x))
+         (cmtx (ed-add cmt
+                       (ed-mul ux c))))
+    (values
+     cmt
+     (inner-subproof seed vx gv hv ux cmtx av bv))
+    ))
+
+(defun half-basis (gvl gvr hvl hvr x xinv)
+  (values
+   (map 'vector 'ed-add
+        (ptv-scale gvl xinv)
+        (ptv-scale gvr x))
+   (map 'vector 'ed-add
+        (ptv-scale hvl x)
+        (ptv-scale hvr xinv))
+   ))
+   
+(defun inner-subproof (seed vx gv hv u cmt av bv)
   (let ((n/2  (ash (length av) -1)))
-    (cond ((zerop n/2)
-           (let* ((a  (aref av 0))
-                  (b  (aref bv 0))
-                  (r  (aref rv 0)))
-             (make-dotprod-terminal-proof
-              :a  (vec a)
-              :b  (vec b)
-              :r  (vec r))
-             ))
-          
-          (t
-           (let ((vlst (list av bv rv gv hv fv)))
-             (destructuring-bind (avl bvl rvl gvl hvl fvl)
-                 (mapcar (um:rcurry 'left n/2) vlst)
-               (destructuring-bind (avr bvr rvr gvr hvr fvr)
-                   (mapcar (um:rcurry 'right n/2) vlst)
-                 (let* ((lf   (vcommit gvr hvl fvr u avl bvr rvl (vdot avl bvr)))
-                        (rt   (vcommit gvl hvr fvl u avr bvl rvr (vdot avr bvl)))
-                        (vcmt (vec cmt))
-                        (vlf  (vec lf))
-                        (vrt  (vec rt))
-                        ;; Fiat-Shamir challenge, x.
-                        ;; safe: fold in seed and previous challenge,
-                        ;; along with proof, left, right
-                        (xh     (hash-to-grp-range seed prev-vx vcmt vlf vrt))
-                        (new-vx (vec xh))
-                        (x      (int xh))
-                        (xinv   (m/ x))
-                        (xsq    (m* x x))
-                        (gv/2   (map 'vector 'ed-add
-                                     (ptv-scale gvl xinv)
-                                     (ptv-scale gvr x)))
-                        (hv/2   (map 'vector 'ed-add
-                                     (ptv-scale hvl x)
-                                     (ptv-scale hvr xinv)))
-                        (fv/2   (map 'vector 'ed-add
-                                     (ptv-scale fvl xinv)
-                                     (ptv-scale fvr x)))
-                        (cmt/2  (ptdot (vector lf cmt rt)
-                                       (vector xsq 1 (m/ xsq))))
-                        (av/2   (map 'vector 'm+
-                                     (vscale avl x)
-                                     (vscale avr xinv)))
-                        (bv/2   (map 'vector 'm+
-                                     (vscale bvl xinv)
-                                     (vscale bvr x)))
-                        (rv/2   (map 'vector 'm+
-                                     (vscale rvl x)
-                                     (vscale rvr xinv))))
-                   (make-dotprod-subproof
-                    :lf  vlf
-                    :rt  vrt
-                    :proofs (protocol-2 seed new-vx gv/2 hv/2 fv/2 u cmt/2 av/2 bv/2 rv/2))
-                   )))))
-          )))
+    (if (zerop n/2)
+        (make-terminal-proof
+         :a   (vec (aref av 0))
+         :b   (vec (aref bv 0)))
+      ;; else
+      (let ((vlst (list av bv gv hv)))
+        (destructuring-bind (avl bvl gvl hvl)
+            (mapcar (um:rcurry 'left n/2) vlst)
+          (destructuring-bind (avr bvr gvr hvr)
+              (mapcar (um:rcurry 'right n/2) vlst)
+            (let* ((lf   (vcommit gvr hvl u avl bvr (vdot avl bvr)))
+                   (rt   (vcommit gvl hvr u avr bvl (vdot avr bvl)))
+                   (vlf  (vec lf))
+                   (vrt  (vec rt))
+                   ;; Fiat-Shamir challenge, x
+                   (xh   (hash-to-grp-range seed vx vlf vrt))
+                   (vx   (vec xh))
+                   (x    (int xh))
+                   (xinv (m/ x))
+                   (xsq  (m* x x))
+                   (cmt/2 (ptdot (vector lf cmt rt)
+                                 (vector xsq 1 (m/ xsq))))
+                   (av/2  (map 'vector 'm+
+                               (vscale avl x)
+                               (vscale avr xinv)))
+                   (bv/2  (map 'vector 'm+
+                               (vscale bvl xinv)
+                               (vscale bvr x))))
+              (multiple-value-bind (gv/2 hv/2)
+                  (half-basis gvl gvr hvl hvr x xinv)
+                (make-subproof
+                 :lf  vlf
+                 :rt  vrt
+                 :sub (inner-subproof seed vx gv/2 hv/2 u cmt/2 av/2 bv/2))
+                ))))
+        ))))
 
 #|
 (defun tst (av bv)
@@ -427,78 +526,98 @@ there are no concerns about x being in small range."
 
 (defun validate-dotprod-proof (proof)
   ;; return T/F on proof
-  (with-accessors ((curve dotprod-proof-curve)
-                   (seed  dotprod-proof-seed)
-                   (n     dotprod-proof-n)
-                   (vcmt  dotprod-proof-cmt)
-                   (vc    dotprod-proof-c)
-                   (sub   dotprod-proof-proofs)) proof
+  (with-accessors ((curve    dotprod-proof-curve)
+                   (seed     dotprod-proof-seed)
+                   (n        dotprod-proof-n)
+                   (vc       dotprod-proof-c)
+                   (va-cmt   dotprod-proof-a-cmt)
+                   (vs-cmt   dotprod-proof-s-cmt)
+                   (vt1-cmt  dotprod-proof-t1-cmt)
+                   (vt2-cmt  dotprod-proof-t2-cmt)
+                   (vtaux    dotprod-proof-taux)
+                   (vtx      dotprod-proof-tx)
+                   (vmu      dotprod-proof-mu)
+                   (vlr-cmt  dotprod-proof-lr-cmt)
+                   (tx-proof dotprod-proof-tx-proof)) proof
     (ignore-errors
       (with-ed-curve curve
-        (let ((cmt (ed-valid-point-p vcmt))
-              (c   (int vc)))
-          (multiple-value-bind (gv hv fv u)
-              (generate-dotprod-basis n seed)
-            (modr
-              (let* ((xh   (hash-to-grp-range seed curve n vc vcmt))
-                     (vx   (vec xh))
-                     (x    (int xh))
-                     (ux   (ed-mul u x))
-                     (cmtx (ptdot (vector cmt ux)
-                                  (vector 1  c))))
-                (validate-protocol-2 sub seed vx gv hv fv ux cmtx)
-                )))
-          )))
+        (destructuring-bind (a-cmt s-cmt t1-cmt t2-cmt lr-cmt)
+            (mapcar 'ed-valid-point-p (list va-cmt vs-cmt vt1-cmt vt2-cmt vlr-cmt))
+          (destructuring-bind (c tx taux mu)
+              (mapcar 'int (list vc vtx vtaux vmu))
+            (multiple-value-bind (gv hv g h)
+                (generate-dotprod-basis n seed)
+              (modr
+                (let ((x  (int (hash-to-grp-range seed curve n
+                                                  vc va-cmt vs-cmt
+                                                  vt1-cmt vt2-cmt))))
+                  (and (ed-pt=
+                        (ed-add (ed-mul g tx)
+                                (ed-mul h taux))
+                        (ed-add (ed-mul g c)
+                                (ed-mul
+                                 (ed-add t1-cmt
+                                         (ed-mul t2-cmt x))
+                                 x)
+                                ))
+                       (ed-pt= (ed-add a-cmt
+                                       (ed-mul s-cmt x))
+                               (ed-add (ed-mul h mu) lr-cmt))
+                       (validate-inner-proof tx-proof seed (vec x) gv hv h tx lr-cmt))
+                  ))
+              ))))
+      )))
+
+(defun validate-inner-proof (proof seed vx gv hv u c cmt)
+  (let* ((xh   (hash-to-grp-range seed vx (vec c) (vec cmt)))
+         (vx   (vec xh))
+         (x    (int xh))
+         (ux   (ed-mul u x))
+         (cmtx (ptdot (vector cmt ux)
+                      (vector 1   c))))
+    (validate-subproof proof seed vx gv hv ux cmtx)
     ))
 
-(defun validate-protocol-2 (sub seed prev-vx gv hv fv u cmt)
-  (cond  ((dotprod-terminal-proof-p sub)
-          (with-accessors ((va  dotprod-terminal-proof-a)
-                           (vb  dotprod-terminal-proof-b)
-                           (vr  dotprod-terminal-proof-r)) sub
-            (destructuring-bind (a b r)
-                (mapcar 'int (list va vb vr))
-              (destructuring-bind (g h f)
-                  (mapcar (um:rcurry 'aref 0) (list gv hv fv))
-                (equalp (vec cmt) (vec (ptdot (vector g h f u)
-                                              (vector a b r (m* a b))
-                                              )))
-                ))))
-         
-         ((dotprod-subproof-p sub)
-          (with-accessors ((vlf     dotprod-subproof-lf)
-                           (vrt     dotprod-subproof-rt)
-                           (spsub   dotprod-subproof-proofs)) sub
-            (let* ((n      (length gv))
-                   (lf     (ed-valid-point-p vlf))
-                   (rt     (ed-valid-point-p vrt))
-                   (xh     (hash-to-grp-range seed prev-vx (vec cmt) vlf vrt))
-                   (new-vx (vec xh))
-                   (x      (int xh))
-                   (xsq    (m* x x))
-                   (cmt/2  (ptdot (vector lf cmt rt)
-                                  (vector xsq 1 (m/ xsq))))
-                   (xinv   (m/ x))
-                   (n/2    (ash n -1))
-                   (vlst   (list gv hv fv)))
-              (destructuring-bind (gvl hvl fvl)
-                  (mapcar (um:rcurry 'left n/2) vlst)
-                (destructuring-bind (gvr hvr fvr)
-                    (mapcar (um:rcurry 'right n/2) vlst)
-                  (let* ((gv/2  (map 'vector 'ed-add
-                                     (ptv-scale gvl xinv)
-                                     (ptv-scale gvr x)))
-                         (hv/2  (map 'vector 'ed-add
-                                     (ptv-scale hvl x)
-                                     (ptv-scale hvr xinv)))
-                         (fv/2  (map 'vector 'ed-add
-                                     (ptv-scale fvl xinv)
-                                     (ptv-scale fvr x))))
-                    (validate-protocol-2 spsub seed new-vx gv/2 hv/2 fv/2 u cmt/2)
-                    ))))
-            ))
-         (t
-          (error "subproof expected"))
-         ))
+(defun validate-subproof (sub seed vx gv hv u cmt)
+  (cond ((terminal-proof-p sub)
+         (with-accessors ((va  terminal-proof-a)
+                          (vb  terminal-proof-b)) sub
+           (destructuring-bind (a b)
+               (mapcar 'int (list va vb))
+             (destructuring-bind (g h)
+                 (mapcar (um:rcurry 'aref 0) (list gv hv))
+               (ed-pt= cmt
+                       (ptdot (vector g h u)
+                              (vector a b (m* a b))
+                              ))
+               ))))
+
+        (t
+         (with-accessors ((vlf  subproof-lf)
+                          (vrt  subproof-rt)
+                          (sub  subproof-sub)) sub
+           (destructuring-bind (lf rt)
+               (mapcar 'ed-valid-point-p (list vlf vrt))
+             (let* ((n      (length gv))
+                    (xh     (hash-to-grp-range seed vx
+                                               vlf vrt))
+                    (vx     (vec xh))
+                    (x      (int xh))
+                    (xsq    (m* x x))
+                    (cmt/2  (ptdot (vector lf cmt rt)
+                                   (vector xsq 1 (m/ xsq))))
+                    (xinv  (m/ x))
+                    (n/2   (ash n -1))
+                    (vlst  (list gv hv)))
+               (destructuring-bind (gvl hvl)
+                   (mapcar (um:rcurry 'left n/2) vlst)
+                 (destructuring-bind (gvr hvr)
+                     (mapcar (um:rcurry 'right n/2) vlst)
+                   (multiple-value-bind (gv/2 hv/2)
+                       (half-basis gvl gvr hvl hvr x xinv)
+                     (validate-subproof sub seed vx gv/2 hv/2 u cmt/2)
+                     )))
+               ))))
+        ))
 
 ;; --- end of file --- ;;
