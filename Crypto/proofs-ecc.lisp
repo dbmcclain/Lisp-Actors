@@ -229,66 +229,15 @@ there are no concerns about x being in small range."
   (make-array n
               :initial-element 0))
 
-;; ------------------------------------------------------------------
-#|
-(defstruct dotprod-opening
-  seed    ;; identifies the proof
-  av      ;; values committed
-  bv      ;; coefficients committed
-  rv)     ;; cloaking used
-
-(defstruct dotprod-proof
-  curve    ;; name of ECC curve
-  n        ;; size of proof vectors
-  seed     ;; for basis generation, and make Fiat-Shamir safe
-  c        ;; the ostensible value of the (av • bv)
-  cmt      ;; first layer commitment = av • Gv + bv • Hv + rv • Fv, i.e., no U term here
-  proofs)  ;; to the recursive sub-proofs
-
-(defstruct dotprod-subproof
-  lf rt proofs) ;; recursive Lf, Rt points
-       
-(defstruct dotprod-terminal-proof
-  a b r)  ;; final witness values
-|#
-;; --------------------------------------------------------------------
-#|
-(defun vcommit (gv hv fv u av bv rv c)
-  #|
-  (format t "~%AV = ~S" av)
-  (format t "~%BV = ~S" bv)
-  (format t "~%RV = ~S" rv)
-  |#
-  (ed-add (ptdot gv av)
-          (ed-add (ptdot hv bv)
-                  (ed-add (ptdot fv rv)
-                          (ed-mul u c))
-                  )))
-|#
-
-(defun vcommit (gv hv h av bv α)
-  #|
-  (format t "~%AV = ~S" av)
-  (format t "~%BV = ~S" bv)
-  (format t "~%RV = ~S" rv)
-  |#
-  (ed-add (ptdot gv av)
-          (ed-add (ptdot hv bv)
-                  (ed-mul h α))
-          ))
-
 ;; --------------------------------------------------------------------
 
-#|
-(defun generate-dotprod-basis (n seed)
-  (let* ((nel   (1+ (* 3 n)))
-         (basis (gen-basis nel seed))
-         (u     (pop basis))
-         (gv    (coerce (um:take n basis) 'vector))
-         (hv    (coerce (um:take n (um:drop n basis)) 'vector))
-         (fv    (coerce (right basis (* 2 n)) 'vector)))
-        (values gv hv fv u)))
-|#
+(defun vcommit (gv hv u av bv c)
+  (ptdot (vector (ptdot gv av)
+                 (ptdot hv bv)
+                 u)
+         (vector 1 1 c)))
+
+;; --------------------------------------------------------------------
 
 (defun generate-dotprod-basis (n seed)
   (let* ((nel   (+ 2 (* 2 n)))
@@ -320,15 +269,17 @@ there are no concerns about x being in small range."
   
   Challenge: x random
 
-  Publish:   lv = av + rv*x
+  Compute:   lv = av + rv*x
              rv = bv + sv*x
+
+  Publish:   C = lv•Gv + rv•Hv
              tx = c + t1*x + t2*x^2
              taux = tau1*x + tau2*x^2   ;; blinding for tx
              µ  = α + β*x               ;; α,β blinding for A,S
 
-  Verify:   tx*G + taux*H =?= c*G + x*T1 + x^2*T2
-            A + x*S =?= µ*H + lv•Gv + rv•Hv
-            tx =?= lv•rv
+  Verify:   (1) tx*G + taux*H =?= c*G + x*T1 + x^2*T2
+            (2) A + x*S =?= µ*H + C
+            (3) validate inner-prod proof  (C + tx*H) => (lv•rv == tx)
  |#
 
 (defstruct dotprod-proof
