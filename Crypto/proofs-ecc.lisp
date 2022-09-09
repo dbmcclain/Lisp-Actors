@@ -92,12 +92,17 @@ field. 1 <= z_rand < group order"
 ;; --------------------------------------------------------------------
 
 (defun gen-basis (n seed)
+  ;; Generate n ECC points, filter duplicates, and refresh until we
+  ;; have n unique basis points.
+  ;;
+  ;; Points are generated deterministically from random seed using
+  ;; iterative hashing.
   (labels ((gen  (n)
              (do ((ix    n    (1- ix))
                   (basis nil))
                  ((zerop ix) basis)
-               (push (ed-pt-from-seed seed) basis)
-               (setf seed (vec (hash/256 seed))))
+               (setf seed (vec (hash/256 seed)))
+               (push (ed-pt-from-seed seed) basis))
              ))
     (um:nlet iter ((basis  (gen n)))
       (let* ((rem-basis (remove-duplicates basis :test 'ed-pt=))
@@ -105,8 +110,7 @@ field. 1 <= z_rand < group order"
         (if (< nb n)
             (go-iter (append (gen (- n nb)) rem-basis))
           basis)
-        ))
-    ))
+        ))))
 
 (defun generate-pedersen-basis (seed)
   (values-list (gen-basis 2 seed)))
@@ -232,6 +236,7 @@ there are no concerns about x being in small range."
 ;; --------------------------------------------------------------------
 
 (defun vcommit (gv hv u av bv c)
+  ;; av•Gv + bv•Hv + c*U
   (ptdot (vector (ptdot gv av)
                  (ptdot hv bv)
                  u)
@@ -244,11 +249,12 @@ there are no concerns about x being in small range."
          (basis (gen-basis nel seed))
          (g     (pop basis))
          (h     (pop basis))
-         (gv    (coerce (um:take n basis) 'vector))
-         (hv    (coerce (um:take n (um:drop n basis)) 'vector)))
+         (gv    (coerce (left  basis n) 'vector))
+         (hv    (coerce (right basis n) 'vector)))
     (values gv hv g h)))
 
 ;; --------------------------------------------------------------------
+;; Vector Dot-Product NIZKP:  av • bv = c
 #|
   Size:     n
   Values:   av[1..n]
@@ -257,8 +263,8 @@ there are no concerns about x being in small range."
   Blinding: rv[1..n], sv[1..n] random
   Basis:    Gv[1..n], Hv[1..n], G, H
   Compute:  
-          A = av•Gv + bv•Hv + α*H   ;; α random blinding
-          S = rv•Gv + sv•Hv + β*H   ;; β random blinding
+          A  = av•Gv + bv•Hv + α*H   ;; α random blinding
+          S  = rv•Gv + sv•Hv + β*H   ;; β random blinding
           c  = av•bv
           t1 = (av•sv) + (bv•rv)
           t2 = (rv•sv)
@@ -272,10 +278,10 @@ there are no concerns about x being in small range."
   Compute:   lv = av + rv*x
              rv = bv + sv*x
 
-  Publish:   C = lv•Gv + rv•Hv
-             tx = c + t1*x + t2*x^2
+  Publish:   C    = lv•Gv + rv•Hv
+             tx   = c + t1*x + t2*x^2
              taux = tau1*x + tau2*x^2   ;; blinding for tx
-             µ  = α + β*x               ;; α,β blinding for A,S
+             µ    = α + β*x             ;; α,β blinding for A,S
              Inner-Prod Proof P = C + tx*H => (lv•rv == tx)
 
   Verify:   (1) tx*G + taux*H =?= c*G + x*T1 + x^2*T2
@@ -324,6 +330,7 @@ there are no concerns about x being in small range."
     (assert (every 'integerp av)) ;; all av and bv are integers
     (assert (every 'integerp bv))
     (unless (= 1 (logcount n))
+      ;; pad to pwr2 length
       (let* ((npwr2  (um:ceiling-pwr2 n))
              (npad   (- npwr2 n))
              (zv     (zerov npad)))
@@ -349,11 +356,11 @@ there are no concerns about x being in small range."
                  (t2     (vdot rv sv))
                  (tau1   (rand))
                  (tau2   (rand))
-                 (t1-cmt (ed-add (ed-mul g t1)
-                                 (ed-mul h tau1)))
+                 (t1-cmt (ptdot (vector g  h)
+                                (vector t1 tau1)))
                  (vt1-cmt (vec t1-cmt))
-                 (t2-cmt (ed-add (ed-mul g t2)
-                                 (ed-mul h tau2)))
+                 (t2-cmt (ptdot (vector g  h)
+                                (vector t2 tau2)))
                  (vt2-cmt (vec t2-cmt))
                  
                  ;; Fiat-Shamir challenge, x
@@ -397,17 +404,17 @@ there are no concerns about x being in small range."
   ;;
   ;; P = av•Gv + bv•Hv
   ;; challenge x
-  ;; P' = P + c*x*U
+  ;; prove P' = P + c*x*U
   (let* ((c    (vdot av bv))
-         (vc   (vec c))
          (cmt  (vcommit gv hv u av bv 0))
+         ;; Fiat-Shamir challenge, x
          (xh   (hash-to-grp-range seed vx
-                                  vc (vec cmt)))
+                                  (vec c) (vec cmt)))
          (vx   (vec xh))
          (x    (int xh))
          (ux   (ed-mul u x))
-         (cmtx (ed-add cmt
-                       (ed-mul ux c))))
+         (cmtx (ptdot (vector cmt ux)
+                      (vector 1   c))))
     (values
      cmt
      (inner-subproof seed vx gv hv ux cmtx av bv))
@@ -415,10 +422,11 @@ there are no concerns about x being in small range."
 
 (defun half-basis (gvl gvr hvl hvr x xinv)
   (values
-   (map 'vector 'ed-add
+   ;; Hadamard "products" in Curve group
+   (map 'vector 'ed-add   ;; Gvl/x º x*Gvr
         (ptv-scale gvl xinv)
         (ptv-scale gvr x))
-   (map 'vector 'ed-add
+   (map 'vector 'ed-add   ;; x*Hvl ª Hvr/x
         (ptv-scale hvl x)
         (ptv-scale hvr xinv))
    ))
@@ -445,12 +453,12 @@ there are no concerns about x being in small range."
                    (x    (int xh))
                    (xinv (m/ x))
                    (xsq  (m* x x))
-                   (cmt/2 (ptdot (vector lf cmt rt)
+                   (cmt/2 (ptdot (vector lf cmt rt)  ;; x^2*L + P + R/x^2
                                  (vector xsq 1 (m/ xsq))))
-                   (av/2  (map 'vector 'm+
+                   (av/2  (map 'vector 'm+           ;; x*avl + avr/x
                                (vscale avl x)
                                (vscale avr xinv)))
-                   (bv/2  (map 'vector 'm+
+                   (bv/2  (map 'vector 'm+           ;; bvl/x + x*bvr
                                (vscale bvl xinv)
                                (vscale bvr x))))
               (multiple-value-bind (gv/2 hv/2)
@@ -504,27 +512,26 @@ there are no concerns about x being in small range."
             (multiple-value-bind (gv hv g h)
                 (generate-dotprod-basis n seed)
               (modr
+                ;; Fiat-Shamir challenge, x
                 (let ((x  (int (hash-to-grp-range seed curve n
                                                   vc va-cmt vs-cmt
                                                   vt1-cmt vt2-cmt))))
                   (and (ed-pt=
-                        (ed-add (ed-mul g tx)
-                                (ed-mul h taux))
-                        (ed-add (ed-mul g c)
-                                (ed-mul
-                                 (ed-add t1-cmt
-                                         (ed-mul t2-cmt x))
-                                 x)
-                                ))
-                       (ed-pt= (ed-add a-cmt
-                                       (ed-mul s-cmt x))
-                               (ed-add (ed-mul h mu) lr-cmt))
+                        (ptdot (vector g  h)
+                               (vector tx taux))
+                        (ptdot (vector g t1-cmt t2-cmt)
+                               (vector c x      (m* x x))))
+                       (ed-pt= (ptdot (vector a-cmt s-cmt)
+                                      (vector 1     x))
+                               (ptdot (vector h  lr-cmt)
+                                      (vector mu 1)))
                        (validate-inner-proof tx-proof seed (vec x) gv hv h tx lr-cmt))
                   ))
               ))))
       )))
 
 (defun validate-inner-proof (proof seed vx gv hv u c cmt)
+  ;; Fiat-Shamir challenge, x
   (let* ((xh   (hash-to-grp-range seed vx (vec c) (vec cmt)))
          (vx   (vec xh))
          (x    (int xh))
@@ -555,6 +562,7 @@ there are no concerns about x being in small range."
            (destructuring-bind (lf rt)
                (mapcar 'ed-valid-point-p (list vlf vrt))
              (let* ((n      (length gv))
+                    ;; Fiat-Shamir challenge, x
                     (xh     (hash-to-grp-range seed vx
                                                vlf vrt))
                     (vx     (vec xh))
