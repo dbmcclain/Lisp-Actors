@@ -66,7 +66,10 @@ for x.
 (defun rand (&rest ignored)
   (declare (ignore ignored))
   "Return a random integer from Z_r over the domain of the curve
-field. 1 <= z_rand < group order"
+field. 0 < z_rand < group order, N.
+
+A \"safe\" random value lies in the interval (Sqrt[N], N-Sqrt[N])
+to discourage brute force searches."
   (safe-field-random *ed-r*))
 
 ;; ------------------------------------------------------------
@@ -74,12 +77,19 @@ field. 1 <= z_rand < group order"
 ;; directly handle all possible messages, including small integers.
 
 (defstruct ped-proof
-  "Public knowlege for proof of a Pedersen commitment."
+  "NIZKP for proof of a Pedersen commitment. We are proving that we
+know an opening."
+  ;; -----------------
+  ;; Proof ID
   curve   ;; name of ECC curve
   seed    ;; for basis gen and challenge seeding
+  ;; -----------------
+  ;; Initial Commits
   cmt     ;; the commitment C = x*G + gamma*H
-  apt     ;; proof point
-  mp      ;; proof reveal:  mp*G + rp*H = z*C + A
+  apt     ;; proof point A = d*G + r*H
+  ;; -----------------
+  ;; After Challenge Values
+  mp      ;; proof reveal:  mp*G + rp*H == z*C + A
   rp)
 
 (defstruct ped-secrets
@@ -294,14 +304,20 @@ there are no concerns about x being in small range."
  |#
 
 (defstruct dotprod-proof
+  ;; ---------------------------------
+  ;; Proof ID
   curve     ;; name of ECC curve
   n         ;; size of proof vectors
   seed      ;; for basis generation, and make Fiat-Shamir safe
+  ;; ----------------------------------
+  ;; Initial Commits
   c         ;; the ostensible value of the (av • bv)
   a-cmt     ;; av•Gv + bv•Hv + α*H
   s-cmt     ;; rv•Gv + sv•Hv + β*H
   t1-cmt    ;; t1*G + tau1*H
   t2-cmt    ;; t2*G + tau2*H
+  ;; ----------------------------------
+  ;; After Challenge Values
   taux      ;; blinding for tx
   tx        ;; c + t1*x + t2*x^2
   mu        ;; blindings
@@ -432,6 +448,7 @@ there are no concerns about x being in small range."
    ))
    
 (defun inner-subproof (seed vx gv hv u cmt av bv)
+  ;; Recursively divide and conquer till final scalar proof
   (let ((n/2  (ash (length av) -1)))
     (if (zerop n/2)
         (make-terminal-proof
@@ -542,6 +559,7 @@ there are no concerns about x being in small range."
     ))
 
 (defun validate-subproof (sub seed vx gv hv u cmt)
+  ;; recursive divide and conquer till final scalar validation
   (cond ((terminal-proof-p sub)
          (with-accessors ((va  terminal-proof-a)
                           (vb  terminal-proof-b)) sub
