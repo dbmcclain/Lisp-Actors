@@ -76,6 +76,7 @@ THE SOFTWARE.
    #:when-created
    #:uuid-string
    #:one-of-mine?
+   #:type1?
    ))
 
 (in-package #:uuid)
@@ -372,8 +373,11 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
                    :clock-seq-low (ldb (byte 8 0) *clock-seq*) 
                    :node *node*)))
 
+(defun type1? (uuid)
+  (= 1 (ldb (byte 4 12) (time-high uuid))))
+
 (defun one-of-mine? (uuid)
-  (and (= 1 (ldb (byte 4 12) (time-high uuid))) ;; type 1?
+  (and (type1? uuid)
        (= (node uuid) *node*)))
 
 (defun make-v3-uuid (namespace name)

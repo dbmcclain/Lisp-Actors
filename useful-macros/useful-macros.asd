@@ -30,6 +30,7 @@ THE SOFTWARE.
   :components  ((:file "packages")
                 (:file "eval-always")
                 (:file "def-extensions")
+		(:file "objc")
 
                 #+:CLOZURE (:file "clozure-compat")
   	        #+:SBCL    (:file "sbcl-compat")

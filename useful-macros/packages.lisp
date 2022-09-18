@@ -1133,6 +1133,9 @@ THE SOFTWARE.
    #:merge-alist
    #:merge-plist
    #:string-interp
+
+   #:st-to-objc
+   #:objc-invoke-st
    ))
 
 #|

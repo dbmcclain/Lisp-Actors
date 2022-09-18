@@ -126,6 +126,13 @@ THE SOFTWARE.
   (or (lw:call-next-advice name)
       (lw:call-next-advice (package-relative-name name))))
 |#
+#+:LISPWORKS
+(lw:defadvice (sys::find-package-without-lod :hierarchical-packages :around)
+    (name)
+  ;; used by editor to set buffer package
+  (declare (optimize speed))
+  ;; (format t "find-package-without-lod: ~S" (editor:variable-value 'editor::current-package) )
+  (lw:call-next-advice (package-relative-name name)))
 
 ;; ------------------------------------------------------------
 ;; cdp
