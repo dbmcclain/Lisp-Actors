@@ -26,9 +26,8 @@ THE SOFTWARE.
 |#
 
 ;; For Mac-64
-pushd /Applications/LispWorks\ 7.1\ \(64-bit\)/LispWorks\ \(64-bit\).app/Contents/MacOS
-# ./lispworks-7-1-0-amd64-darwin -build ~/projects/lispworks/Crypto/deliver-aont.lisp
-./Lispworks-7-1-0-amd64-darwin -build ~/projects/lispworks/Crypto/deliver-aont.lisp
+pushd /Applications/LispWorks\ 8.0\ \(64-bit\)/LispWorks\ \(64-bit\).app/Contents/MacOS
+./Lispworks-8-0-0-macos64-universal -build ~/projects/lispworks/Crypto/deliver-aont.lisp
 popd
 
 ;; For Mac
@@ -82,8 +81,8 @@ popd
 ;; ------------------------------------------------------------------------------
 ;; Get the bundle maker for OS X
 
-#+:MACOSX
-(compile-file-if-needed "macos-application-bundle" :load t)
+;; #+:MACOSX
+;; (compile-file-if-needed "macos-application-bundle" :load t)
 
 ;; ------------------------------------------------------------------------------
 ;; Get the components we need in the base Lisp
@@ -108,7 +107,7 @@ popd
 
          #+:MACOSX
          (let ((this-dir (translate-logical-pathname "PROJECTS:LISP;Crypto;")))
-           (write-macos-application-bundle
+           (create-macos-application-bundle
             "/Applications/Tolstoy-AONT.app"
             :signature  "ACUD"
             :identifier "com.ral.aont"

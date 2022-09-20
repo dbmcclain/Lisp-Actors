@@ -506,9 +506,6 @@
   
 ;; -------------------------------------------------------------
 
-(defun canon-ip-addr (ip-addr)
-  (comm:get-host-entry ip-addr :fields '(:address)))
-
 (defun make-socket-connection (ip-addr ip-port report-ip-addr)
   (let ((handler (α (io-state args)
                    (cond
@@ -544,14 +541,32 @@
                ))
       )))
 
+(defun canon-ip-addr (ip-addr)
+  (comm:get-host-entry ip-addr :fields '(:address)))
+
+(defgeneric parse-ip-addr (addr)
+  (:method ((addr integer))
+   addr)
+  (:method ((addr string))
+   ;; handle addresses like: "arroyo.local:65001"
+   ;; return ip addr and port separately
+   (let ((cpos (position #\: addr)))
+     (if cpos
+         (values (subseq addr 0 cpos)
+                 (read-from-string (subseq addr (1+ cpos))))
+       addr))))
+
 (defactor client-connector
   ;; Called from client side wishing to connect to a server.
   (λ (cust handshake ip-addr &optional (ip-port *default-port*))
-    (let ((clean-ip-addr (canon-ip-addr ip-addr)))
-      (unless clean-ip-addr
-        (error "Unknown host: ~S" ip-addr))
-      (send connections cust :find-socket clean-ip-addr ip-port ip-addr handshake)
-      )))
+    (multiple-value-bind (addr port)
+        (parse-ip-addr ip-addr)
+      (let ((clean-ip-addr (canon-ip-addr addr))
+            (port          (or port ip-port *default-port*)))
+        (unless clean-ip-addr
+          (error "Unknown host: ~S" ip-addr))
+        (send connections cust :find-socket clean-ip-addr port ip-addr handshake)
+        ))))
 
 ;; -------------------------------------------------------------
 

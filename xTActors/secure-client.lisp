@@ -158,13 +158,29 @@
 ;; ---------------------------------------------------
 ;; User side of Client Interface
 
+(defun parse-remote-actor (id)
+  ;; parse id in form "eval@arroyo.local:65001"
+  (let ((apos (position id #\@)))
+    (if apos
+        (values (um:kwsymbol (subseq id apos))
+                (subseq id (1+ apos)))
+      (error "No service specified: ~S" id)
+      )))
+
+(defun remote-service-by-id (id)
+  ;; id string: "svc@ipaddr:port"
+  (multiple-value-bind (name host-ip-addr)
+      (parse-remote-actor id)
+    (remote-service name host-ip-addr)))
+
 (defun remote-service (name host-ip-addr)
-  ;; An Actor and send target. Connection to remote service
-  ;; established on demand.
-  (α (cust &rest msg)
-    (β (chan)
-        (send client-gateway β host-ip-addr)
-      (send* chan cust name msg))))
+    ;; An Actor and send target. Connection to remote service
+    ;; established on demand.
+    (α (cust &rest msg)
+      (β (chan)
+          (send client-gateway β host-ip-addr)
+        (send* chan cust name msg))
+      ))
 
 ;; ------------------------------------------------------------
 #|
