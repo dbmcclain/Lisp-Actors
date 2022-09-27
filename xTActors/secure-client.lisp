@@ -224,4 +224,22 @@
 (tst "david-pc.local")
 (tst "umbra.local")
 (tst "zircon.local")
+
+(defun tst (host n)
+  (let* ((recho (remote-service :echo host))
+         (ac1   (α (n)
+                  (when (plusp n)
+                    (let ((me    self)
+                          (start (usec:get-time-usec)))
+                      (β _
+                          (send recho β "")
+                        (let ((stop (usec:get-time-usec)))
+                          (send println (- stop start))
+                          (send me (1- n))))
+                      )))))
+    (send ac1 n)))
+
+(tst "localhost" 10)
+(tst "zircon.local" 10)
+                
 |#

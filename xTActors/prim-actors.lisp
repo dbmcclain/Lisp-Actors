@@ -152,7 +152,7 @@
 ;; PAR - make an Actor that evaluates a series of blocks concurrently.
 ;; Each block is fed the same initial message, and the results from
 ;; each block are sent as an ordered collection to cust.
-
+#|
 (defun join-beh (cust lbl1)
   ;; Join a pair of two possible messages into one response. One of the
   ;; incoming messages will be labeled lbl1, while the other has
@@ -195,6 +195,75 @@
                (tag-cdr (tag-beh join)))
         (send* (car lst) tag-car msg)
         (send* self tag-cdr (cdr lst) msg)))
+    ))
+|#
+;; -----------------------------------------------------------
+;; The above FORK/JOIN ran into MULTIPLE-VALUES-LIMIT in a real
+;; application.
+;;
+;; So the alternative must have participant Actors supplying single
+;; results with the customer expecting a list argument.
+;;
+;; If supplier Actors really need to furnish a CONSP result then they
+;; should wrap that as a list containing the CONSP. JOIN will unwrap.
+
+(defun join-data (dat1 dat2)
+  (cond ((consp dat1)
+         (cond ((consp dat2)
+                (append dat1 dat2))
+               (t
+                (append dat1 (list dat2)))
+               ))
+        (t
+         (cond ((consp dat2)
+                (cons dat1 dat2))
+               (t
+                (list dat1 dat2))
+               ))
+        ))
+
+(defun join-beh (cust lbl1)
+  ;; Join a pair of two possible messages into one response. One of the
+  ;; incoming messages will be labeled lbl1, while the other has
+  ;; another label. There are only two possible incoming incoming
+  ;; messages, because in use, our Actor is ephemeral and anonymous. So no
+  ;; other incoming messages are possible.
+  (lambda (lbl msg)
+    (cond ((eq lbl lbl1)
+           (become (lambda (_ msg2)
+                     (declare (ignore _))
+                     (send cust (join-data msg msg2)))
+                   ))
+          (t ;; could only be lbl2
+             (become (lambda (_ msg1)
+                       (declare (ignore _))
+                       (send cust (join-data msg1 msg)))
+                     ))
+          )))
+
+(defun fork (left right)
+  ;; Accept two message lists, lreq and rreq, sending lreq to left,
+  ;; and rreq to right, collecting combined results into one ordered
+  ;; response.
+  (actor (cust lreq rreq)
+    (actors ((join  (join-beh cust tag-l))
+             (tag-l (tag-beh join))
+             (tag-r (tag-beh join)))
+      (send left tag-l lreq)
+      (send right tag-r rreq))
+    ))
+
+(defactor par
+  ;; Send same msg to all actors in the lst, running them
+  ;; concurrently, and collect the results into one ordered response.
+  (λ (cust lst msg)
+    (if (null lst)
+        (send cust)
+      (actors ((join    (join-beh cust tag-car))
+               (tag-car (tag-beh join))
+               (tag-cdr (tag-beh join)))
+        (send (car lst) tag-car msg)
+        (send self tag-cdr (cdr lst) msg)))
     ))
 
 ;; ---------------------------------------------------------
