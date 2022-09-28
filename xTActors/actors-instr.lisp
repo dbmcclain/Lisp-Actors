@@ -421,7 +421,7 @@ THE SOFTWARE.
 (defun sink-beh ()
   #'lw:do-nothing)
 
-(defactor sink
+(deflex sink
   (create (sink-beh)))
 
 ;; --------------------------------------
@@ -433,12 +433,12 @@ THE SOFTWARE.
       ,@body)
     ,stream))
 
-(defactor println
+(deflex println
   (α msg
     (with-printer (s *standard-output*)
       (format s "~&~{~A~%~^~}" msg))))
 
-(defactor writeln
+(deflex writeln
   (α msg
     (with-printer (s *standard-output*)
       (format s "~&~{~S~%~^~}" msg))))

@@ -90,8 +90,8 @@
   ;; Return an Actor that represents the future value. Send that value
   ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST).
   ;; Read as "send the future result to cust".
-  (actors ((fut (future-wait-beh tag))
-           (tag (tag-beh fut)))
+  (actors ((fut (create (future-wait-beh tag)))
+           (tag (tag fut)))
     (send* actor tag msg)
     fut))
 
@@ -130,7 +130,7 @@
 ;; same initial message, and the results from each block are sent as
 ;; an ordered collection to cust.
 
-(defactor ser
+(deflex ser
   (α (cust lst &rest msg)
     (if (null lst)
         (send cust)
@@ -171,22 +171,22 @@
   ;; and rreq to right, collecting combined results into one ordered
   ;; response.
   (actor (cust lreq rreq)
-    (actors ((join  (join-beh cust tag-l))
-             (tag-l (tag-beh join))
-             (tag-r (tag-beh join)))
+    (actors ((join  (create (join-beh cust tag-l)))
+             (tag-l (tag join))
+             (tag-r (tag join)))
       (send* left tag-l lreq)
       (send* right tag-r rreq))
     ))
 
-(defactor par
+(deflex par
   ;; Send same msg to all actors in the lst, running them
   ;; concurrently, and collect the results into one ordered response.
   (α (cust lst &rest msg)
     (if (null lst)
         (send cust)
-      (actors ((join    (join-beh cust tag-car))
-               (tag-car (tag-beh join))
-               (tag-cdr (tag-beh join)))
+      (actors ((join    (create (join-beh cust tag-car)))
+               (tag-car (tag join))
+               (tag-cdr (tag join)))
         (send* (car lst) tag-car msg)
         (send* self tag-cdr (cdr lst) msg)))
     ))
@@ -240,22 +240,22 @@
   ;; and rreq to right, collecting combined results into one ordered
   ;; response.
   (actor (cust lreq rreq)
-    (actors ((join  (join-beh cust tag-l))
-             (tag-l (tag-beh join))
-             (tag-r (tag-beh join)))
+    (actors ((join  (create (join-beh cust tag-l)))
+             (tag-l (tag join))
+             (tag-r (tag join)))
       (send left tag-l lreq)
       (send right tag-r rreq))
     ))
 
-(defactor par
+(deflex par
   ;; Send same msg to all actors in the lst, running them
   ;; concurrently, and collect the results into one ordered response.
   (α (cust lst msg)
     (if (null lst)
         (send cust)
-      (actors ((join    (join-beh cust tag-car))
-               (tag-car (tag-beh join))
-               (tag-cdr (tag-beh join)))
+      (actors ((join    (create (join-beh cust tag-car)))
+               (tag-car (tag join))
+               (tag-cdr (tag join)))
         (send (car lst) tag-car msg)
         (send self tag-cdr (cdr lst) msg)))
     ))
@@ -439,9 +439,9 @@
 ;; Safe Serializer - serializer with unblocking channel and timeout
 #|
 (defun new-pend-serializer-beh (svc ret timeout cust waitq msg)
-  (actors ((gate  (once-beh ret))
-           (tmout (tag-beh gate))
-           (reply (tag-beh gate)))
+  (actors ((gate  (once ret))
+           (tmout (tag gate))
+           (reply (tag gate)))
     (send-after timeout tmout)
     (become (pend-serializer-beh svc ret timeout cust tmout reply waitq))
     (send* svc reply msg)))
@@ -475,8 +475,8 @@
    ))
 
 (defun serializer (svc &optional (timeout 10))
-  (actors ((ret  (tag-beh gate))
-           (gate (no-pend-serializer-beh svc ret timeout)))
+  (actors ((ret  (tag gate))
+           (gate (create (no-pend-serializer-beh svc ret timeout))))
     (values gate ret)))
 
 (defun unblock-serializer (ser ret)
@@ -696,14 +696,16 @@
 
 (defun with-timeout (timeout action on-timeout)
   (actor (cust &rest msg)
-    (actors ((tag-ok      (tag-beh gate))
-             (tag-timeout (tag-beh gate))
-             (arbiter     (alambda
-                           ((tag . ans) when (eq tag tag-ok)
-                            (send* cust ans))
-                           (_
-                            (send on-timeout))))
-             (gate        (once-beh arbiter)))
+    (actors ((tag-ok      (tag gate))
+             (tag-timeout (tag gate))
+             (arbiter     (create
+                           (alambda
+                            ((tag . ans) when (eq tag tag-ok)
+                             (send* cust ans))
+                            (_
+                             (send on-timeout)))
+                           ))
+             (gate        (once arbiter)))
       (send* action tag-ok msg)
       (send-after timeout tag-timeout)
       )))

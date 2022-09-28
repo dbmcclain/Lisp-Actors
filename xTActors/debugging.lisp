@@ -18,7 +18,7 @@
 (defun logger-timestamp ()
   (format-usec (usec:get-universal-time-usec)))
 
-(defactor logger
+(deflex logger
   (α msg
     (send* println
            (mapcar (lambda (args)

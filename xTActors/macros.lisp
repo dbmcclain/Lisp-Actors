@@ -17,8 +17,8 @@
 ;; an extra layer of indirection.
 
 (defmacro actors (bindings &body body)
-  `(let ,(mapcar #`(,(car a1) (create)) bindings)
-     ,@(mapcar #`(%set-beh ,(car a1) ,(cadr a1)) bindings)
+  `(let ,(mapcar #'first bindings)
+     (setf ,@(mapcan #'identity bindings))
      ,@body))
 
 ;; ----------------------------------------------
@@ -135,6 +135,9 @@
 ;; operate sequentially.
 ;;
 ;; See also: SUSPENDED-BEH, and SUSPEND, in prim-actors.lisp
+;;
+;; β could also be named α-bind, or ACTOR-BIND -- in harmony with
+;; multiple-value-bind.
 
 (defmacro beta (args form &body body)
   (multiple-value-bind (params binding-args)
@@ -232,10 +235,3 @@
 
 ;; ---------------------------------------------------
 
-(defmacro defactor (name actor)
-  `(deflex ,name ,actor))
-
-#+:LISPWORKS
-(editor:setup-indent "defactor" 1)
-
-;; ----------------------------------------------------

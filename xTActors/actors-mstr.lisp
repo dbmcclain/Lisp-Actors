@@ -61,17 +61,8 @@ THE SOFTWARE.
                (:constructor %create (beh)))
   (beh #'lw:do-nothing :type function))
 
-(defun need-type (x tp)
-  (unless (typep x tp)
-    (error "type ~A expected" tp)))
-
-(defun %set-beh (actor beh)
-  ;; for internal use only by ACTORS macro
-  (need-type beh 'function)
-  (setf (actor-beh actor) beh))
-
 (defun create (&optional (fn #'lw:do-nothing))
-  (need-type fn 'function)
+  (check-type fn function)
   (%create fn))
 
 ;; --------------------------------------------------------
@@ -164,7 +155,7 @@ THE SOFTWARE.
 
 (defun become (new-beh)
   #F
-  (need-type new-beh 'function)
+  (check-type new-beh function)
   (funcall *become* new-beh))
 
 ;; -----------------------------------------------------------------
@@ -306,7 +297,7 @@ THE SOFTWARE.
 (defun sink-beh ()
   #'lw:do-nothing)
 
-(defactor sink
+(deflex sink
   (create (sink-beh)))
 
 ;; --------------------------------------
@@ -322,17 +313,17 @@ THE SOFTWARE.
       ,@body)
     ,stream))
 
-(defactor println
+(deflex println
   (α msg
     (with-printer (s *standard-output*)
       (format s "~&~{~A~%~^~}" msg))))
 
-(defactor writeln
+(deflex writeln
   (α msg
     (with-printer (s *standard-output*)
       (format s "~&~{~S~%~^~}" msg))))
 
-(defactor fmt-println
+(deflex fmt-println
   (α (fmt-str &rest args)
     (with-printer (s *standard-output*)
       (format s "~&")
@@ -343,7 +334,7 @@ THE SOFTWARE.
 ;; The bridge between imperative code and the Actors world
 
 (defun mbox-sender-beh (mbox)
-  (need-type mbox 'mp:mailbox)
+  (check-type mbox mp:mailbox)
   (lambda (&rest ans)
     (mp:mailbox-send mbox ans)))
 
@@ -353,7 +344,7 @@ THE SOFTWARE.
 (defun ask (actor &rest msg)
   ;; Actor should expect a cust arg in first position. Here, the
   ;; mailbox.
-  (need-type actor 'actor)
+  (check-type actor actor)
   (unless self
       ;; Counterproductive when called from an Actor, except for
       ;; possible side effects. Should use BETA forms if you want the

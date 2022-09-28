@@ -62,7 +62,6 @@ THE SOFTWARE.
    #:actor-nlet
    #:is-pure-sink?
    #:deflex
-   #:defactor
    #:µ
    #:∂
    #:+emptyq+

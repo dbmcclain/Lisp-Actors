@@ -70,7 +70,7 @@
   ((hd  :reader seq-hd  :initarg :hd)
    (tl  :reader seq-tl  :initarg :tl)))
 
-(defactor seq
+(deflex seq
   ;; construct a sequence given first element, and Actor to produce
   ;; next element
   (λ (cust a α-cust)
@@ -116,7 +116,7 @@
 
 ;; -----------------------------------------------
 
-(defactor repeat
+(deflex repeat
   ;; construct a sequence: a, f(a), f(f(a)), ...
   (λ (cust a f)
     (send seq cust a
@@ -126,7 +126,7 @@
               (send repeat acust fa f))))
     ))
 
-(defactor order
+(deflex order
   ;; compute order of convergence of sequence
   (λ (cust seq)
     (β  (a rb)
@@ -145,7 +145,7 @@
             )))
       )))
 
-(defactor within
+(deflex within
   ;; recursive probing until two consecutive values differ by less
   ;; than eps
   (λ (cust eps s)
@@ -159,7 +159,7 @@
                (send within cust eps rb))
               )))))
 
-(defactor ssqrt
+(deflex ssqrt
   ;; Heron's method for SQRT (= Newton's Method)
   (λ (cust a0 eps n)
     (β  (s)
@@ -180,7 +180,7 @@
 |#
 ;; -----------------------------------------------
 
-(defactor elimerror
+(deflex elimerror
   (λ (cust n s)
     (β (a rb)
         (send s 'spair β)
@@ -193,25 +193,25 @@
                   (send elimerror acust n rb)))
           )))))
 
-(defactor improve
+(deflex improve
   (λ (cust s)
     (β (ord)
         (send order β s)
       (send elimerror cust ord s))
     ))
 
-(defactor fst
+(deflex fst
   (λ (cust s)
     (send s 'shd cust)))
 
-(defactor snd
+(deflex snd
   (λ (cust s)
     (β (rb)
         (send s 'stl β)
       (send rb 'shd cust)
       )))
 
-(defactor thd
+(deflex thd
   (λ (cust s)
     (β  (rb)
         (send s 'stl β)
@@ -220,7 +220,7 @@
         (send rc 'shd cust)
         ))))
 
-(defactor smap
+(deflex smap
   (λ (cust afn s)
     (β  (a rb)
         (send s 'spair β)
@@ -232,7 +232,7 @@
               )
         ))))
 
-(defactor aitken
+(deflex aitken
   (λ (cust s)
   ;; Aitken's delta-squared process
   (β  (a rb)
@@ -254,14 +254,14 @@
           )))
     )))
 
-(defactor accelerate
+(deflex accelerate
   (λ (cust xform s)
     (β  (xs)
         (send repeat β s xform)
       (send smap cust snd xs)
       )))
 
-(defactor fsecond
+(deflex fsecond
     (fn-actor-beh 'second))
 
 ;; ----------------------------------------------------------------------
@@ -304,7 +304,7 @@
           (send cust (list (1+ ix) (/ p0 q0) p0 q0 p1 q1))
           )))))
 
-(defactor erf-stream
+(deflex erf-stream
   ;; cfrac is: x|1-2*x^2|3+4*x^2|5-6*x^2|7+ ...
   ;; use when x <= 1.7
   (λ (cust x)
@@ -317,7 +317,7 @@
         (send smap cust fsecond s)
         ))))
 
-(defactor erfc-stream
+(deflex erfc-stream
   ;; cfrac is: 1|x+(1/2)|x+(2/2)|x+(3/2)|x+ ...
   ;; use when x > 1.7
   (λ (cust x)
@@ -328,7 +328,7 @@
         (send smap cust fsecond s)
         ))))
 
-(defactor erf-raw
+(deflex erf-raw
   ;; use when x <= 1.7
   (λ (cust x eps)
     (β  (s)
@@ -341,7 +341,7 @@
                         (/ 2.0d0 (sqrt pi) (exp (* x x)))))
           )))))
 
-(defactor erfc-raw
+(deflex erfc-raw
   ;; use when x > 1.7
   (λ (cust x eps)
     (β  (s)
@@ -361,7 +361,7 @@
 ;; based on the magnitude of the argument x. When abs(x) = 1.7 both raw
 ;; definitions require about the same number of accelerated iterations for convergence.
 ;;
-(defactor erfc
+(deflex erfc
   ;; 2/Sqrt(Pi)*Integral(Exp(-t^2), {t, x, inf}) = 1 - erf(x)
   (λ (cust x &optional (eps 1e-8))
     (let ((z  (abs (float x 1d0))))
@@ -382,7 +382,7 @@
                ))
             ))))
 
-(defactor erf
+(deflex erf
   ;; 2/Sqrt(Pi)*Integral(Exp(-t^2), {t, 0, x}) = 1 - erfc(x)
   (λ (cust x &optional (eps 1d-8))
     (let ((z  (abs (float x 1.0d0))))

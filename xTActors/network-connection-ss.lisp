@@ -368,7 +368,7 @@
       ))
    ))
 
-(defactor connections
+(deflex connections
   (create (connections-list-beh)))
 
 ;; -------------------------------------------------------------
@@ -548,7 +548,7 @@
                  (read-from-string (subseq addr (1+ cpos))))
        addr))))
 
-(defactor client-connector
+(deflex client-connector
   ;; Called from client side wishing to connect to a server.
   (α (cust handshake ip-addr &optional (ip-port *default-port*))
     (multiple-value-bind (addr port)

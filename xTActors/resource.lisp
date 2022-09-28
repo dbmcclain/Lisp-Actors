@@ -58,11 +58,11 @@
       )))
 
 ;; Some must-do's
-(defactor close-file
+(deflex close-file
   (once (actor (fp)
           (close fp))))
 
-(defactor secure-erase
+(deflex secure-erase
     (once (actor (buf)
             (fill buf 0))))
 

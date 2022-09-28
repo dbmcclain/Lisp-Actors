@@ -437,7 +437,7 @@
       ))
    ))
 
-(defactor connections
+(deflex connections
   (create (connections-list-beh)))
 
 ;; -------------------------------------------------------------
@@ -589,7 +589,7 @@
                ))
       )))
 
-(defactor client-connector
+(deflex client-connector
   ;; Called from client side wishing to connect to a server.
   (α (cust handshake ip-addr &optional (ip-port *default-port*))
     (let ((clean-ip-addr (canon-ip-addr ip-addr)))

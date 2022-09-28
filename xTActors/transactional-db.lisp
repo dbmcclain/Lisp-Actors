@@ -93,7 +93,7 @@
 
 (in-package com.ral.actors.kv-database)
   
-(defactor trimmer
+(deflex trimmer
   (α (cust cmd db)
     (send cust sink cmd (remove-unstorable db))))
 
@@ -299,7 +299,7 @@
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
                                     (sys:get-folder-path :appdata)))
 
-(defactor dbmgr
+(deflex dbmgr
   (create (db-svc-init-beh *db-path*)))
 
 ;; -----------------------------------------------------------
@@ -337,7 +337,7 @@
 ;; ------------------------------------------------------------------
 ;; more usable public face - can use ASK against this
 
-(defactor kvdb
+(deflex kvdb
   (create
    (alambda
     ((cust :lookup key . default)

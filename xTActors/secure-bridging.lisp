@@ -121,7 +121,7 @@
 
 ;; -----------------------------------------------
 
-(defactor global-services
+(deflex global-services
   (create (service-list-beh
            `((:echo . ,(make-echo))
              (:eval . ,(make-eval)))
