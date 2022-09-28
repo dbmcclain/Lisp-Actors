@@ -232,8 +232,8 @@
 
 ;; ---------------------------------------------------
 
-(defmacro defactor (name beh)
-  `(deflex ,name (create ,beh)))
+(defmacro defactor (name actor)
+  `(deflex ,name ,actor))
 
 #+:LISPWORKS
 (editor:setup-indent "defactor" 1)

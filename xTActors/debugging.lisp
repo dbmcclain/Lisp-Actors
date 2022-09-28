@@ -19,7 +19,7 @@
   (format-usec (usec:get-universal-time-usec)))
 
 (defactor logger
-  (λ msg
+  (α msg
     (send* println
            (mapcar (lambda (args)
                      (apply #'format nil args))

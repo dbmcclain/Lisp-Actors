@@ -94,7 +94,7 @@
 (in-package com.ral.actors.kv-database)
   
 (defactor trimmer
-  (λ (cust cmd db)
+  (α (cust cmd db)
     (send cust sink cmd (remove-unstorable db))))
 
 (defun trans-gate-beh (saver db)
@@ -300,7 +300,7 @@
                                     (sys:get-folder-path :appdata)))
 
 (defactor dbmgr
-  (db-svc-init-beh *db-path*))
+  (create (db-svc-init-beh *db-path*)))
 
 ;; -----------------------------------------------------------
 
@@ -338,22 +338,23 @@
 ;; more usable public face - can use ASK against this
 
 (defactor kvdb
-  (alambda
-   ((cust :lookup key . default)
-    (apply 'lookup cust key default))
-   
-   ((cust :add key val)
-    (add-rec cust key val))
-   
-   ((cust :remove key)
-    (remove-rec cust key))
-   
-   ((cust :req)
-    (repeat-send dbmgr))
-   
-   ((cust :commit old-db new-db retry)
-    (repeat-send dbmgr))
-   ))
+  (create
+   (alambda
+    ((cust :lookup key . default)
+     (apply 'lookup cust key default))
+    
+    ((cust :add key val)
+     (add-rec cust key val))
+    
+    ((cust :remove key)
+     (remove-rec cust key))
+    
+    ((cust :req)
+     (repeat-send dbmgr))
+    
+    ((cust :commit old-db new-db retry)
+     (repeat-send dbmgr))
+    )))
 
 ;; -----------------------------------------------------------
 #|

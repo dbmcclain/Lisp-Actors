@@ -59,12 +59,12 @@
 
 ;; Some must-do's
 (defactor close-file
-    (once-beh (actor (fp)
-                (close fp))))
+  (once (actor (fp)
+          (close fp))))
 
 (defactor secure-erase
-    (once-beh (actor (buf)
-                (fill buf 0))))
+    (once (actor (buf)
+            (fill buf 0))))
 
 (defun perform (fn)
   (actor (&rest args)

@@ -307,11 +307,15 @@ THE SOFTWARE.
   #'lw:do-nothing)
 
 (defactor sink
-  (sink-beh))
+  (create (sink-beh)))
 
 ;; --------------------------------------
 
-;; alas, with MPX we still need locks sometimes
+;; Alas, with MPX we still need locks sometimes You might think that
+;; we could use a SERIALIZER here. But that would cover only
+;; participating Actors, not foreign threads trying to use the same
+;; printer stream...
+
 (defmacro with-printer ((var stream) &body body)
   `(stream:apply-with-output-lock
     (lambda (,var)
@@ -319,14 +323,21 @@ THE SOFTWARE.
     ,stream))
 
 (defactor println
-  (λ msg
+  (α msg
     (with-printer (s *standard-output*)
       (format s "~&~{~A~%~^~}" msg))))
 
 (defactor writeln
-  (λ msg
+  (α msg
     (with-printer (s *standard-output*)
       (format s "~&~{~S~%~^~}" msg))))
+
+(defactor fmt-println
+  (α (fmt-str &rest args)
+    (with-printer (s *standard-output*)
+      (format s "~&")
+      (apply #'format s fmt-str args))
+    ))
 
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world

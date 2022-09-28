@@ -14,13 +14,6 @@
 ;;
 ;; -------------------------------------------------------
 
-(defactor fmt-println
-  (λ (fmt-str &rest args)
-    (send println (apply #'format nil fmt-str args))
-    ))
-
-;; ---------------------
-
 (defun const-beh (&rest msg)
   (lambda (cust)
     (send* cust msg)))
@@ -64,6 +57,7 @@
   (create (fwd-beh actor)))
 
 ;; ---------------------
+;; Finds good use when sending messages to a serialized sink
 
 (defun label-beh (cust lbl)
   (lambda (&rest msg)
@@ -137,7 +131,7 @@
 ;; an ordered collection to cust.
 
 (defactor ser
-  (λ (cust lst &rest msg)
+  (α (cust lst &rest msg)
     (if (null lst)
         (send cust)
       (let ((me self))
@@ -187,7 +181,7 @@
 (defactor par
   ;; Send same msg to all actors in the lst, running them
   ;; concurrently, and collect the results into one ordered response.
-  (λ (cust lst &rest msg)
+  (α (cust lst &rest msg)
     (if (null lst)
         (send cust)
       (actors ((join    (join-beh cust tag-car))
@@ -256,7 +250,7 @@
 (defactor par
   ;; Send same msg to all actors in the lst, running them
   ;; concurrently, and collect the results into one ordered response.
-  (λ (cust lst msg)
+  (α (cust lst msg)
     (if (null lst)
         (send cust)
       (actors ((join    (join-beh cust tag-car))
@@ -434,6 +428,12 @@
 
 (defun serializer (service)
   (create (serializer-beh service)))
+
+(defun serializer-sink (service)
+  ;; Turn a service into a sink. Service must accept a cust argument,
+  ;; and always send a response to cust.
+  (label (serializer service) sink))
+
 #||#
 ;; ----------------------------------------------------
 ;; Safe Serializer - serializer with unblocking channel and timeout

@@ -127,27 +127,20 @@
                 (send* println txt)
                 (send* cust msg))))
 
-(defactor dbg-println
-  (label-beh (serializer
-              (α (cust . msg)
-                (send* fmt-println msg)
-                (send cust :ok)))
-             sink))
-   
 (defun marshal-encoder ()
   (actor (cust &rest args)
-    ;; (send dbg-println "Marshal Encoder")
+    ;; (send fmt-println "Marshal Encoder")
     (send cust (loenc:encode (coerce args 'vector)))))
 
 (defun marshal-decoder ()
   (actor (cust vec)
-    ;; (send dbg-println "Marshal Decoder")
+    ;; (send fmt-println "Marshal Decoder")
     (send* cust (coerce (loenc:decode vec) 'list))))
 
 (defun fail-silent-marshal-decoder ()
   (αα
    ((cust vec) / (typep vec 'ub8-vector)
-    ;; (send dbg-println "Fail-Silent Marshal Decoder")
+    ;; (send fmt-println "Fail-Silent Marshal Decoder")
     ;;
     ;; The premise here is that, when using malleable encrption and
     ;; refutable signatures, an attacker can form a validly signed but
@@ -249,12 +242,12 @@
 #|
 (defun marshal-compressor ()
   (actor (cust vec)
-    ;; (send dbg-println "Marshal Compressor")
+    ;; (send fmt-println "Marshal Compressor")
     (send cust vec)))
 
 (defun marshal-decompressor ()
   (actor (cust vec)
-    ;; (send dbg-println "Marshal Decompressor")
+    ;; (send fmt-println "Marshal Decompressor")
     (send cust vec)))
 |#
 ;; ---------------------------------------------------------------
@@ -435,7 +428,7 @@
   ;; enough to prevent brute-force attacks.
   ;;
   (actor (cust bytevec)
-    ;; (send dbg-println "Encryptor")
+    ;; (send fmt-println "Encryptor")
     (beta (seq)
         (send noncer beta :get-nonce)
       (send cust seq (encrypt/decrypt ekey seq bytevec))
@@ -445,7 +438,7 @@
   ;; Takes an encrypted bytevec and produces a bytevec
   (αα
    ((cust seq emsg)
-    ;; (send dbg-println "Decryptor")
+    ;; (send fmt-println "Decryptor")
     (let ((bytvec (ignore-errors
                     (encrypt/decrypt ekey seq emsg))))
       (when bytvec
@@ -504,7 +497,7 @@
 
 (defun signing (skey)
   (actor (cust seq emsg)
-    ;; (send dbg-println "Signing")
+    ;; (send fmt-println "Signing")
     (let ((sig (make-signature seq emsg skey)))
       (send cust seq emsg sig))))
 
@@ -553,15 +546,15 @@
 (defun chunker (&key (max-size 65536))
   ;; takes a bytevec and produces a sequence of chunk encodings
   (actor (cust byte-vec)
-    ;; (send dbg-println "Chunker")
+    ;; (send fmt-println "Chunker")
     (let ((size (length byte-vec)))
       (cond ((<= size max-size)
-             ;; (send dbg-println "1 chunk, ~D bytes" size)
+             ;; (send fmt-println "1 chunk, ~D bytes" size)
              (send cust :pass byte-vec))
             (t
              (let* ((nchunks (ceiling size max-size))
                     (id      (int (hash/256 (uuid:make-v1-uuid)))))
-               ;; (send dbg-println "~D chunks, ~D bytes" nchunks size)
+               ;; (send fmt-println "~D chunks, ~D bytes" nchunks size)
                (send cust :init id nchunks size)
                (do ((offs  0  (+ offs max-size)))
                    ((>= offs size))
@@ -582,7 +575,7 @@
   (alambda
    ((offs byte-vec) / (and (integerp offs)
                            (typep byte-vec 'ub8-vector))
-    ;; (send dbg-println "Dechunk Assembler: offs ~D, size ~D" offs (length byte-vec))
+    ;; (send fmt-println "Dechunk Assembler: offs ~D, size ~D" offs (length byte-vec))
     (unless (find offs chunks-seen) ;; toss duplicates
       (let ((replacer    (α (cust)
                            ;; avoids repeated copying on BECOME retry
@@ -625,11 +618,11 @@
    ((_ :chunk an-id offs byte-vec) when (and (eql an-id id)
                                              (integerp offs)
                                              (typep byte-vec 'ub8-vector))
-    ;; (send dbg-println "Intercept Dechunker: CHUNK id ~A offs ~D, ~D bytes" an-id offs (length byte-vec))
+    ;; (send fmt-println "Intercept Dechunker: CHUNK id ~A offs ~D, ~D bytes" an-id offs (length byte-vec))
     (send assembler offs byte-vec))
 
    ((_ :init an-id . _) when (eql an-id id)
-    ;; (send dbg-println "Intercept Dechunker: Spurious INIT id ~A" an-id)
+    ;; (send fmt-println "Intercept Dechunker: Spurious INIT id ~A" an-id)
     ;; toss duplicates
     )
    
@@ -644,7 +637,7 @@
    ((cust :init an-id nchunks size) when (and (eql an-id id)
                                               (integerp nchunks)
                                               (integerp size))
-    ;; (send dbg-println "Pending Dechunker: INIT id ~A ~D chunks, ~D bytes" an-id nchunks size)
+    ;; (send fmt-println "Pending Dechunker: INIT id ~A ~D chunks, ~D bytes" an-id nchunks size)
     (let ((assembler (make-dechunk-assembler cust nchunks size)))
       (become (dechunk-interceptor-beh id assembler next))
       (dolist (args pend)
@@ -654,7 +647,7 @@
    ((_ :chunk an-id offs byte-vec) when (and (eql an-id id)
                                              (integerp offs)
                                              (typep byte-vec 'ub8-vector))
-    ;; (send dbg-println "Pending Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
+    ;; (send fmt-println "Pending Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
     (become (dechunk-pending-beh id
                                  (cons (list offs byte-vec) pend)
                                  next)))
@@ -666,13 +659,13 @@
 (defun null-dechunk-beh ()
   (alambda
    ((cust :pass bytevec) / (typep bytevec 'ub8-vector)
-    ;; (send dbg-println "Null Dechunker: pass")
+    ;; (send fmt-println "Null Dechunker: pass")
     (send cust bytevec))
    
    ((cust :init id nchunks size) / (and (integerp id)
                                         (integerp nchunks)
                                         (integerp size))
-    ;; (send dbg-println "Null Dechunker: INIT id ~A ~D chunks, ~D bytes" id nchunks size)
+    ;; (send fmt-println "Null Dechunker: INIT id ~A ~D chunks, ~D bytes" id nchunks size)
     (let ((next      (create self-beh))
           (assembler (make-dechunk-assembler cust nchunks size)))
       (become (dechunk-interceptor-beh id assembler next))
@@ -681,7 +674,7 @@
    ((_ :chunk id offs byte-vec) / (and (integerp id)
                                        (integerp offs)
                                        (typep byte-vec 'ub8-vector))
-    ;; (send dbg-println "Null Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
+    ;; (send fmt-println "Null Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
     (let ((next (create self-beh)))
       (become (dechunk-pending-beh id
                                    (list

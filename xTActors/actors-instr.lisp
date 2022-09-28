@@ -422,7 +422,7 @@ THE SOFTWARE.
   #'lw:do-nothing)
 
 (defactor sink
-  (sink-beh))
+  (create (sink-beh)))
 
 ;; --------------------------------------
 
@@ -434,12 +434,12 @@ THE SOFTWARE.
     ,stream))
 
 (defactor println
-  (λ msg
+  (α msg
     (with-printer (s *standard-output*)
       (format s "~&~{~A~%~^~}" msg))))
 
 (defactor writeln
-  (λ msg
+  (α msg
     (with-printer (s *standard-output*)
       (format s "~&~{~S~%~^~}" msg))))
 

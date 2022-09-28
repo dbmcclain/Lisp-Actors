@@ -20,7 +20,7 @@
             sec-comm:make-local-services
             sec-comm:server-crypto-gateway
             sec-comm:+server-connect-id+
-            ;; act-base::dbg-println
+            ;; act-base::fmt-println
             act-base::make-ubv
 
             ;; act-base::with-printer
@@ -29,14 +29,6 @@
             vec-repr:vec
             vec-repr:int
             )))
-
-#|
-(defun dbg-println (fmtstr &rest args)
-  (with-printer (s *standard-output*)
-    (apply #'format s fmtstr args)
-    (terpri s)
-    (finish-output s)))
-|#
 
 ;; -----------------------------------------------------------------------
 
@@ -119,7 +111,7 @@
    ((a-tag byte-vec)
     ;; next message from serializer, its tag is injected as customer.
     ;; Forward byte-vec to phys-writer, injecting ourself as customer.
-    ;; (send dbg-println "-- send across network ~D --" (length byte-vec))
+    ;; (send fmt-println "-- send across network ~D --" (length byte-vec))
     (become (write-gate-beh state a-tag phys-writer))
     (send phys-writer self byte-vec))
    ))
@@ -446,7 +438,7 @@
    ))
 
 (defactor connections
-  (connections-list-beh))
+  (create (connections-list-beh)))
 
 ;; -------------------------------------------------------------
 
@@ -599,7 +591,7 @@
 
 (defactor client-connector
   ;; Called from client side wishing to connect to a server.
-  (λ (cust handshake ip-addr &optional (ip-port *default-port*))
+  (α (cust handshake ip-addr &optional (ip-port *default-port*))
     (let ((clean-ip-addr (canon-ip-addr ip-addr)))
       (unless clean-ip-addr
         (error "Unknown host: ~S" ip-addr))

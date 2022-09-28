@@ -115,7 +115,7 @@
 
 (defactor negotiate-secure-channel
   ;; EC Diffie-Hellman key exchange
-  (λ (cust socket local-services)
+  (α (cust socket local-services)
     (multiple-value-bind (arand apt)
         (ed-random-pair)
       (let ((responder
@@ -152,7 +152,7 @@
   ;; connections with foreign servers.
   ;; Go lookup the encrypted channel for this IP, constructing it on
   ;; demand if not already present.
-  (λ (cust host-ip-addr)
+  (α (cust host-ip-addr)
     (send client-connector cust negotiate-secure-channel host-ip-addr)))
 
 ;; ---------------------------------------------------
@@ -241,5 +241,6 @@
 
 (tst "localhost" 10)
 (tst "zircon.local" 10)
-                
+(tst "rincon.local" 10)
+
 |#

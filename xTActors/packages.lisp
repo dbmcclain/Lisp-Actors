@@ -148,6 +148,7 @@ THE SOFTWARE.
    ;; #:schedule-after
    #:serializer
    #:serializer-beh
+   #:serializer-sink
    #:unblock-serializer
    #:timing
    #:sequenced-delivery

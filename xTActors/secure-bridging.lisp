@@ -122,10 +122,10 @@
 ;; -----------------------------------------------
 
 (defactor global-services
-  (service-list-beh
-   `((:echo . ,(make-echo))
-     (:eval . ,(make-eval)))
-   ))
+  (create (service-list-beh
+           `((:echo . ,(make-echo))
+             (:eval . ,(make-eval)))
+           )))
 
 ;; ------------------------------------------------------------
 ;; When the socket connection (server or client side) receives an
