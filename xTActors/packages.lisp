@@ -44,7 +44,10 @@ THE SOFTWARE.
   (:export
    #:match
    #:match-fail)
-
+  (:import-from #:um
+   #:letrec)
+  (:export
+   #:letrec)
   (:export
    #:α
    #:αα
@@ -110,7 +113,6 @@ THE SOFTWARE.
    #:create
    #:make-remote-actor
    #:concurrently
-   #:actors
    
    #:send-after
 

@@ -13,15 +13,6 @@
 (editor:setup-indent "actor" 1)
 
 ;; ----------------------------------------------
-;; ACTORS - for cross referenced ACTOR constructions, like LETREC with
-;; an extra layer of indirection.
-
-(defmacro actors (bindings &body body)
-  `(let ,(mapcar #'first bindings)
-     (setf ,@(mapcan #'identity bindings))
-     ,@body))
-
-;; ----------------------------------------------
 
 (defun parse-list-pat (pat)
   ;; Convert a proper list to itself and return LIST as the pattern
