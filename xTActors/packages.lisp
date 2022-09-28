@@ -59,8 +59,8 @@ THE SOFTWARE.
    #:pipe-beh
    #:pipe
    #:sink-pipe
-   #:pass
-   #:pass-beh
+   #:tee
+   #:tee-beh
    #:fork
    #:actor-nlet
    #:is-pure-sink?

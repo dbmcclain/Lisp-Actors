@@ -436,8 +436,7 @@
 (let ((out (stream-decoder
             (sink-pipe (printer)
                        (marshal-decoder)
-                       (pass (create
-                              (lambda (&rest args)
+                       (tee (α (&rest args)
                                 ;; (break)
                                 ;; (inspect args)
                                 (assert (stringp (car args)))
@@ -460,7 +459,7 @@
 (let ((out (stream-decoder
             (sink-pipe (printer)
                        (marshal-decoder)
-                       (pass (lambda (cust &rest args)
+                       (tee (α (cust &rest args)
                                (assert (stringp (car args)))
                                (assert (eql (length (car args)) (length s)))
                                (assert (every #'char= (car args) s))))

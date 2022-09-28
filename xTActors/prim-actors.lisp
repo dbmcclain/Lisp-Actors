@@ -637,7 +637,7 @@
           :from-end t
           :initial-value (um:last1 elts)))
 
-(defun pass-beh (&optional sink-blk)
+(defun tee-beh (&optional sink-blk)
   ;; can be used to convert a sink into a filter component
   ;; A sink-block is one that does not take a cust arg in messages.
   (if sink-blk
@@ -646,8 +646,8 @@
         (send* cust msg))
     #'send))
 
-(defun pass (&optional sink-blk)
-  (create (pass-beh sink-blk)))
+(defun tee (&optional sink-blk)
+  (create (tee-beh sink-blk)))
 
 ;; ---------------------------------------------------------
 #|

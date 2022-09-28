@@ -297,8 +297,7 @@ THE SOFTWARE.
 (defun sink-beh ()
   #'lw:do-nothing)
 
-(deflex sink
-  (create (sink-beh)))
+(deflex sink nil)
 
 ;; --------------------------------------
 

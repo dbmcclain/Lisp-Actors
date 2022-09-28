@@ -110,11 +110,11 @@
 
 (defun printer ()
   ;; prints the message and forwards to cust
-  (serializer (pass println)))
+  (serializer (tee println)))
 
 (defun writer ()
   ;; prints the message and forwards to cust
-  (serializer (pass writeln)))
+  (serializer (tee writeln)))
 
 (defun logger ()
   ;; provides a log output as the message is passed along
