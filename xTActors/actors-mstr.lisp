@@ -283,6 +283,8 @@ THE SOFTWARE.
 (defun custodian-beh (&optional (lock (mp:make-lock)) (count 0) threads)
   (alambda
    ((cust :add-executive id)
+    ;; Users should not send this message directly -- use function
+    ;; RESTART-ACTORS-SYSTEM or message :ADD-EXECUTIVES instead.
     (when (< count id)
       (mp:with-lock (lock)
         (when (< count id)
@@ -290,7 +292,7 @@ THE SOFTWARE.
                              (format nil "Actor Thread #~D" id)
                              ()
                              #'run-actors)))
-            (become (custodian-beh lock id (cons new-thread threads)))
+            (%special-become (custodian-beh lock id (cons new-thread threads)))
             ))))
     (send cust :ok))
    
@@ -308,10 +310,17 @@ THE SOFTWARE.
    (send self cust :ensure-executives (+ (length threads) n)))
   
   ((cust :kill-executives)
+   ;; Users should not send this message directly -- use function
+   ;; KILL-ACTORS-SYSTEM instead
    (mp:with-lock (lock)
-     (map nil #'mp:process-terminate threads)
-     (become (custodian-beh lock 0 nil)))
-   (send cust :ok))
+     (%special-become (custodian-beh lock 0 nil)) ;; ordering matters here under special-send
+     (let* ((my-thread     (mp:get-current-process))
+            (other-threads (remove my-thread threads)))
+       (map nil #'mp:process-terminate other-threads)
+       (send cust :ok)
+       (when (find my-thread threads)
+         (mp:current-process-kill))
+       )))
 
   ((cust :get-threads)
    (send cust threads))
@@ -319,6 +328,9 @@ THE SOFTWARE.
 
 (deflex custodian
   (create (custodian-beh)))
+
+(defun %special-become (fn)
+  (setf (actor-beh self) fn))
 
 (defun %special-send (actor &rest msg)
   ;; Normally unsafe unless protected by surrounding lock. Actor might
@@ -330,9 +342,7 @@ THE SOFTWARE.
                           (*current-message*  msg))
                       (apply self-beh msg)
                       )))
-        (*become* (lambda (fn)
-                    (setf (actor-beh self) fn))
-                  ))
+        (*become* #'%special-become))
     (send* actor msg)))
 
 ;; --------------------------------------------------------------
