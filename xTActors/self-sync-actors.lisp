@@ -1,13 +1,5 @@
 
-(defpackage :ssact
-  (:use :cl :ac)
-  (:export
-   #:encode
-   #:decode
-   #:stream-decoder
-   ))
-
-(in-package :ssact)
+(in-package :com.ral.actors.encoding.self-sync)
 
 (um:eval-always
   (import '(scatter-vec:make-scatter-vector

@@ -266,17 +266,6 @@ THE SOFTWARE.
 |#
 ;; -------------------------------------------------------
 
-(defun ctr-drbg-int (nbits)
-  (convert-bytes-to-int (ctr-drbg nbits)))
-
-(defun random-between (lo hi)
-  ;; random number in interval [lo,hi)
-  (let ((rng  (abs (- hi lo)))
-        (lmin (min hi lo)))
-    (+ lmin (mod (ctr-drbg-int (integer-length rng))
-                 rng))))
-
-
 (defun read-point (stream)
   (let* ((x (read-int 72 stream))
          (y (read-int 72 stream)))

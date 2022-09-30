@@ -33,22 +33,27 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "macros")
                 (:file "actors-mstr")
                 ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
-                (:file "prim-actors")
-                (:file "debugging")
-                (:file "self-sync-actors")
-                (:file "encoding")
+                (:file "prim-actors"))
+  :SERIAL T
+  :depends-on   (
+                 #-:lispworks "data-objects")) ;; maps for ansi-timer
+
+
+(asdf:defsystem "actors/extra"
+  :description "Everything is an Actor..."
+  :version     "3.0"
+  :author      "D.McClain <dbm@refined-audiometrics.com>"
+  :license     "Copyright (c) 2021 by Refined Audiometrics Laboratory. MIT License terms apply."
+  :components  ((:file "debugging")
                 (:file "transactional-db")
                 (:file "reactive")
                 (:file "resource")
                 ;; (:file "st-send")
-                (:file "sponsors"))
+                ;; (:file "sponsors")
+                )
   :SERIAL T
-  :depends-on   ("data-objects"
-                 "trivia"
-		 "mpcompat"
-                 "cps"
-                 "lisp-object-encoder"
-                 "core-crypto"
-                 "snappy"
+  :depends-on   ("actors"
+                 "data-objects"          ;; maps for transactional db
+                 "lisp-object-encoder"   ;; encoding for transactional db
                  ))
 

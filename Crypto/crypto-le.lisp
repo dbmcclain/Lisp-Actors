@@ -43,7 +43,7 @@ THE SOFTWARE.
                       (concatenate 'string "libLispCrypto" *dylib-version*
                                    #+:MAC   ".dylib"
                                    #+:WIN32 ".dll")
-                      (translate-logical-pathname "PROJECTS:DYLIB;xxx")))
+                      (translate-logical-pathname "PROJECTS:LIB;xxx")))
 
 (fli:define-c-struct sha2_context
   (total  (:foreign-array :uint32  (2)))

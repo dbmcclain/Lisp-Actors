@@ -677,7 +677,7 @@ THE SOFTWARE.
                  (x    1))
     (if (zerop poly)
         (zerop sum)
-      (gp-iter (if (logbitp 0 poly)
+      (go-iter (if (logbitp 0 poly)
                    (gf+ sum x)
                  sum)
                (ash poly -1)

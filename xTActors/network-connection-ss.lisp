@@ -11,8 +11,9 @@
 (in-package #:com.ral.actors.network)
 
 (um:eval-always
-  (hcl:add-package-local-nickname :sec-comm :com.ral.actors.secure-comm)
-  (hcl:add-package-local-nickname :act-base :com.ral.actors.base))
+  (hcl:add-package-local-nickname :sec-comm  :com.ral.actors.secure-comm)
+  (hcl:add-package-local-nickname :act-base  :com.ral.actors.base)
+  (hcl:add-package-local-nickname :self-sync :com.ral.actors.encoding.self-sync))
 
 (um:eval-always
   (import '(um:when-let
@@ -422,7 +423,7 @@
            (encoder (sink-pipe  (marshal-encoder)
                                 (self-sync-encoder)
                                 writer))
-           (accum   (ssact:stream-decoder ;; async arrivals are sent here
+           (accum   (self-sync:stream-decoder ;; async arrivals are sent here
                      (sink-pipe (fail-silent-marshal-decoder)
                                 local-services)))
            (packet-ctr 0)                            ;; a counter of input packet fragments 

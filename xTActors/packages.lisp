@@ -49,6 +49,7 @@ THE SOFTWARE.
   (:export
    #:letrec)
   (:export
+   #:*nbr-pool*
    #:α
    #:αα
    #:ret
@@ -82,6 +83,8 @@ THE SOFTWARE.
    #:beta-gen
    #:alambda
 
+   #:custodian
+   #:running-actors-p
    #:restart-actors-system
    #:kill-actors-system
    #:add-executives
@@ -265,35 +268,6 @@ THE SOFTWARE.
 (defpackage #:com.ral.actors.macros
   (:use #:common-lisp #:com.ral.actors #:def*))
 
-(defpackage :com.ral.actors.network
-  (:use #:common-lisp #:com.ral.actors #:def*)
-  (:export
-   #:*default-port*
-   #:*socket-timeout-period*
-   #:start-tcp-server
-   #:terminate-server
-   #:*default-port*
-   #:+MAX-FRAGMENT-SIZE+
-   #:client-connector
-   #:connections
-   ))
-
-(defpackage :com.ral.actors.secure-comm
-  (:use #:common-lisp #:com.ral.actors #:core-crypto #:edec #:def*)
-  (:import-from #:com.ral.actors.network
-   #:connections
-   #:client-connector)
-  (:export
-   #:make-local-services
-   #:global-services
-   #:server-crypto-gateway
-   #:client-gateway
-   #:remote-service
-   #:+server-connect-id+
-   #:server-skey
-   #:start-server-gateway
-   ))
-
 (defpackage #:com.ral.actors.base
   (:use #:common-lisp #:com.ral.actors
    #-:LISPWORKS #:ansi-timer
@@ -325,6 +299,7 @@ THE SOFTWARE.
   ))
    
 (defpackage #:com.ral.actors.user
-  (:use #:common-lisp #:com.ral.actors #:def*))
+  (:use #:common-lisp #:com.ral.actors #:def*)
+  (:nicknames #:ac-user))
 
 

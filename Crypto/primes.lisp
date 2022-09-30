@@ -43,14 +43,14 @@ THE SOFTWARE.
 (defun mt-random (ix)
   (declare (integer ix))
   ;; return a random integer 0 <= val < ix
-  #+:LISPWORKS (ecc-crypto-b571:basic-random ix)
+  #+:LISPWORKS (prng:basic-random ix)
   #+:ALLEGRO   (random ix);; Allegro uses Mersenne Twister already
   #+sbcl (random ix)   ;; <http://www.sbcl.org/manual/#Random-Number-Generation>
   #-(OR :LISPWORKS :ALLEGRO :SBCL) (error "Not-yet-implemented"))
 
 (defun random-between (lower upper)
   ;; generate random integer in [lower, upper)
-  (ecc-crypto-b571:basic-random-between lower upper))
+  (prng:basic-random-between lower upper))
 
 ;; -----------------------------------------------------------------------------
 
@@ -1350,7 +1350,7 @@ THE SOFTWARE.
                                     (go-iter (+ p incr) (1+ ct))))
                     (t nil)) )) )) )
 
-#+(AND :COM.RAL :LISPWORKS)
+#+(AND :COM.RAL :LISPWORKS :xACTORS)
 (defun par-make-2kp+1-prime (nbits &optional (mr-iters 50))
   (declare (fixnum nbits mr-iters))
   (par-attack (lambda ()

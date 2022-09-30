@@ -25,15 +25,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :ecc-crypto-b571)
+(in-package :kdf)
 
 ;; ------------------------------------------------------------------------
-
-(defun mask-off (arr rembits)
-  (when (plusp rembits)
-    (setf (aref arr 0) (ldb (byte rembits 0) (aref arr 0))))
-  arr)
-
 
 #-:COM.RAL
 (defstub c-kdf)
@@ -42,8 +36,8 @@ THE SOFTWARE.
   (apply 'c-kdf nbits keys))
 
 (defun kdf (nbits &rest keys)
-  (with-fast-impl (apply-c-kdf)
-                  (apply-c-kdf nbits keys)
+  (um:with-fast-impl (apply-c-kdf)
+                     (apply-c-kdf nbits keys)
    (let* ((nbytes (ceiling nbits 8))
           (ans    (make-ub-array nbytes
                                  :initial-element 0))

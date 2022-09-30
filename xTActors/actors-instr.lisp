@@ -66,17 +66,24 @@ THE SOFTWARE.
   ;; busy
   )
 
+;; --------------------------------------
+
+(defun sink-beh ()
+  #'lw:do-nothing)
+
+(deflex sink  nil)
+
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
 
 ;; Per-Thread for Activated Actor
-(defvar *whole-message*    nil) ;; Current Event Message
 (defvar *current-actor*    nil) ;; Current Actor
 (defvar *current-behavior* nil) ;; Current Actor's behavior
+(defvar *current-message*  nil) ;; Current Event Message
 
 (define-symbol-macro self         *current-actor*)
 (define-symbol-macro self-beh     *current-behavior*)
-(define-symbol-macro self-msg     *whole-message*)
+(define-symbol-macro self-msg     *current-message*)
 
 ;; -------------------------------------------------
 ;; Message Frames - submitted to the event queue. These carry their
@@ -134,8 +141,8 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defvar *nbr-pool*    4)
-(defvar *evt-threads* nil)
+(hcl:defglobal-variable *nbr-pool*    8)
+
 (defvar *send*        nil)
 
 (defun send (actor &rest msg)
@@ -152,20 +159,24 @@ THE SOFTWARE.
 (defun send-combined-msg (cust msg1 msg2)
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
 
+;; ---------------------------------
+
 (defun send-to-pool (actor &rest msg)
   #F
-  (check-type actor actor)
   (mp:mailbox-send *central-mail* (msg (the actor actor) msg))
   (values))
 
 (defun startup-send (actor &rest msg)
-  (unless *evt-threads*
-    (restart-actors-system))
-  (setf *send* #'send-to-pool)
+  ;; the boot version of SEND
+  (setf *central-mail* (mp:make-mailbox :lock-name "Central Mail")
+        *send*         #'send-to-pool)
+  (restart-actors-system)
   (send* actor msg))
 
 (unless *send*
   (setf *send* #'startup-send))
+
+;; ---------------------------------------
 
 (defparameter *become*
   (lambda (new-beh)
@@ -225,12 +236,12 @@ THE SOFTWARE.
       ;; executes breadth-first instead of depth-first. This maximizes
       ;; concurrency.
       (let* ((*current-actor*    nil)
-             (*whole-message*    nil)
+             (*current-message*  nil)
              (*current-behavior* nil)
              (*send*             #'%send)
              (*become*           #'%become))
         
-        (declare (list *whole-message*))
+        (declare (list *current-message*))
 
         (loop
            (with-simple-restart (abort "Handle next event")
@@ -336,12 +347,12 @@ THE SOFTWARE.
       ;; executes breadth-first instead of depth-first. This maximizes
       ;; concurrency.
       (let* ((*current-actor*    nil)
-             (*whole-message*    nil)
+             (*current-message*  nil)
              (*current-behavior* nil)
              (*send*             #'%send)
              (*become*           #'%become))
         
-        (declare (list *whole-message*))
+        (declare (list *current-message*))
 
         (loop
            (with-simple-restart (abort "Handle next event")
@@ -392,36 +403,99 @@ THE SOFTWARE.
       (eq (actor-beh actor) #'lw:do-nothing)))
 
 ;; ----------------------------------------------------------------
+;; Private functions -- see what nonsense we get to avoid by working
+;; at the Actor level?
+;;
+;; These functions work at the intersection between Actors world and
+;; Locking world. A necessary evil, but well hidden from the users.
 
-(defun restart-actors-system ()
-  (dotimes (ix *nbr-pool*)
-    (push (mp:process-run-function (format nil "Actor Thread #~D" (1+ ix))
-                                   ()
-                                   'run-actors)
-          *evt-threads*)))
+(defun custodian-beh (&optional (lock (mp:make-lock)) (count 0) threads)
+  (alambda
+   ((cust :add-executive id)
+    (when (< count id)
+      (mp:with-lock (lock)
+        (when (< count id)
+          (let ((new-thread (mp:process-run-function
+                             (format nil "Actor Thread #~D" id)
+                             ()
+                             #'run-actors)))
+            (become (custodian-beh lock id (cons new-thread threads)))
+            ))))
+    (send cust :ok))
+   
+  ((cust :ensure-executives n)
+   (if (< (length threads) n)
+       (let ((me  self)
+             (msg *current-message*))
+         (β _
+             (send self β :add-executive (1+ count))
+           (send* me msg)))
+     ;; else
+     (send cust :ok)))
 
-(defun kill-actors-system ()
-  (dolist (proc (shiftf *evt-threads* nil))
-    (mp:process-terminate proc)))
+  ((cust :add-executives n)
+   (send self cust :ensure-executives (+ (length threads) n)))
+  
+  ((cust :kill-executives)
+   (mp:with-lock (lock)
+     (map nil #'mp:process-terminate threads)
+     (become (custodian-beh lock 0 nil)))
+   (send cust :ok))
+
+  ((cust :get-threads)
+   (send cust threads))
+  ))
+
+(deflex custodian
+  (create (custodian-beh)))
+
+(defun %special-send (actor &rest msg)
+  ;; Normally unsafe unless protected by surrounding lock. Actor might
+  ;; try to BECOME in accidental parallel execcution with a normal
+  ;; SEND.
+  (let ((*send*   (lambda (actor &rest msg)
+                    (let ((*current-actor*    actor)
+                          (*current-behavior* (actor-beh actor))
+                          (*current-message*  msg))
+                      (apply self-beh msg)
+                      )))
+        (*become* (lambda (fn)
+                    (setf (actor-beh self) fn))
+                  ))
+    (send* actor msg)))
+
+;; --------------------------------------------------------------
+;; User-level Functions
+
+(defun running-actors-p ()
+  (let (ans)
+    (β (threads)
+        (%special-send custodian β :get-threads)
+      (setf ans threads))
+    ans))
 
 (defun add-executives (n)
-  (let ((ctr (length *evt-threads*)))
-    (dotimes (ix n)
-      (push (mp:process-run-function (format nil "Actor Thread #~D" (incf ctr))
-                                     ()
-                                     'run-actors)
-            *evt-threads*))))
+  (send custodian sink :add-executives n))
+
+(defmonitor custodian-monitor
+    ()
+  (defun restart-actors-system (&optional (nbr-execs *nbr-pool*))
+    ;; Users don't normally need to call this function. It is
+    ;; automatically called on the first message SEND.
+    (critical-section
+      (funcall (if (running-actors-p)
+                   #'send
+                 #'%special-send)
+               custodian sink :ensure-executives nbr-execs)))
+  
+  (defun kill-actors-system ()
+    (critical-section
+      (%special-send custodian sink :kill-executives))))
+
 #|
 (kill-actors-system)
 (restart-actors-system)
  |#
-
-;; --------------------------------------
-
-(defun sink-beh ()
-  #'lw:do-nothing)
-
-(deflex sink  nil)
 
 ;; --------------------------------------
 
@@ -441,6 +515,13 @@ THE SOFTWARE.
   (α msg
     (with-printer (s *standard-output*)
       (format s "~&~{~S~%~^~}" msg))))
+
+(deflex fmt-println
+  (α (fmt-str &rest args)
+    (with-printer (s *standard-output*)
+      (format s "~&")
+      (apply #'format s fmt-str args))
+    ))
 
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world
@@ -488,7 +569,7 @@ THE SOFTWARE.
 
 (defun lw-start-actors (&rest _)
   (declare (ignore _))
-  (restart-actors-system)
+  (setf *send* #'startup-send)
   (princ "Actors are alive!"))
 
 (defun lw-kill-actors (&rest _)

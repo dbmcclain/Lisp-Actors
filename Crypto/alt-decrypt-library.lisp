@@ -63,7 +63,7 @@ THE SOFTWARE.
   (fli:disconnect-module :cryptolib)
   (fli:get-embedded-module :cryptolib
                            (translate-logical-pathname 
-                            "PROJECTS:DYLIB;libLispCrypto.dylib")))
+                            "PROJECTS:LIB;libLispCrypto.dylib")))
 ;; -----------------------------------------------------
 
 (defun live-connect-to-cryptolib ()

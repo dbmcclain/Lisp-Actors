@@ -57,7 +57,8 @@ THE SOFTWARE.
                 (:file "ed-keying")
                 (:file "my-keying")
                 (:file "schnorr")
-                (:file "data-check"))
+                (:file "data-check")
+                )
   :depends-on   ("ironclad"
                  "useful-macros"
                  "mpcompat"

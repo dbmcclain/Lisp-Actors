@@ -56,7 +56,7 @@ static const int    kBPW      = 51;
 static const int    kBPWFinal = 47;
 
 #include <stdint.h>
-
+#if 0
    __inline__ uint64_t rdtsc() {
    uint32_t lo, hi;
    __asm__ __volatile__ (      // serialize
@@ -66,6 +66,11 @@ static const int    kBPWFinal = 47;
    __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));
    return (uint64_t)hi << 32 | lo;
    }
+#else
+inline uint64_t rdtsc() {
+    return 0;
+}
+#endif
 
 // w=x+y
 static
@@ -782,7 +787,8 @@ void mul(int *w,ECp *P)
 	norm(P); 
 }
 
-#ifdef testing
+#define testing 0
+#if testing
 #define TEST  /* define to multiply by group order */
 
 int main()

@@ -28,12 +28,18 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :version     "3.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2021 by Refined Audiometrics Laboratory. MIT License terms apply."
-  :components  ((:file "secure-bridging")
+  :components  ((:file "network-packages")
+                (:file "self-sync-actors")
+                (:file "encoding")
+                (:file "secure-bridging")
                 ;; (:file "network-connection")
                 (:file "network-connection-ss")
                 (:file "secure-client")
                 (:file "secure-server"))
   :SERIAL T
-  :depends-on   ("actors"))
+  :depends-on   ("actors"
+                 "snappy"
+                 "lisp-object-encoder"
+                 "core-crypto"))
 
 

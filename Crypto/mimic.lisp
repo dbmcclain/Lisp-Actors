@@ -27,7 +27,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :ecc-crypto-b571)
+(in-package :tolstoy-aont)
 
 
 ;; --------------------------------------------------------------------------
@@ -218,7 +218,7 @@ THE SOFTWARE.
 (defun wp-encode-encryption (v)
   #F
   (let* ((vct  (ubstream:with-output-to-ubyte-stream (s)
-                 (let ((x  (ctr-drbg-int 32) #|(lw:mt-random (ash 1 32))|#))
+                 (let ((x  (prng:ctr-drbg-int 32) #|(lw:mt-random (ash 1 32))|#))
                    (write-32u x s)
                    (write-32u (logxor x (length v)) s))))
          (hft  (make-instance 'huffman-tree))

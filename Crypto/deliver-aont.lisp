@@ -27,7 +27,7 @@ THE SOFTWARE.
 
 ;; For Mac-64
 pushd /Applications/LispWorks\ 8.0\ \(64-bit\)/LispWorks\ \(64-bit\).app/Contents/MacOS
-./Lispworks-8-0-0-macos64-universal -build ~/projects/lispworks/Crypto/deliver-aont.lisp
+"$PWD/Lispworks-8-0-0-macos64-universal" -build ~/projects/lispworks/Crypto/deliver-aont.lisp
 popd
 
 ;; For Mac
@@ -94,7 +94,7 @@ popd
 ;; Compile the application
 ;; (asdf:operate 'asdf:load-op :godzilla :force t) ;; force full recompile
 ;; (asdf "butterfly")
-(ql:quickload "aont")
+(ql:quickload "tolstoy-aont")
 
 (require "inspector-values")
 
@@ -103,7 +103,7 @@ popd
 
 ;; (change-directory (translate-logical-pathname "PROJECTS:LISP;godzilla;"))
 
-(deliver 'ecc-crypto-b571::make-aont-messaging-intf 
+(deliver 'tolstoy-aont:make-aont-messaging-intf 
 
          #+:MACOSX
          (let ((this-dir (translate-logical-pathname "PROJECTS:LISP;Crypto;")))

@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :ecc-crypto-b571)
+(in-package :tolstoy-aont)
 
 (defclass msg-editor-pane (capi:editor-pane)
   ())
@@ -131,21 +131,25 @@ THE SOFTWARE.
               (fn (if (< x 100)
                       'aont-encode-file-to-wp
                     'aont-decode-file-from-wp)))
-         (handler-case
-             (cond ((and (capi:drop-object-provides-format drop-object :string)
-                         (set-effect-for-operation))
-                    (funcall fn (capi:drop-object-get-object drop-object
-                                                             :pane
-                                                             :string)))
-                   
-                   ((and (capi:drop-object-provides-format drop-object :filename-list)
-                         (set-effect-for-operation))
-                    (dolist (fname (capi:drop-object-get-object drop-object pane :filename-list))
-                      (funcall fn fname)))
-                   
-                   )
+         (flet ((doit ()
+                  (cond ((and (capi:drop-object-provides-format drop-object :string)
+                              (set-effect-for-operation))
+                         (funcall fn (capi:drop-object-get-object drop-object
+                                                                  :pane
+                                                                  :string)))
+                        
+                        ((and (capi:drop-object-provides-format drop-object :filename-list)
+                              (set-effect-for-operation))
+                         (dolist (fname (capi:drop-object-get-object drop-object pane :filename-list))
+                           (funcall fn fname)))
+                   )))
+           (doit)
+           #|
+           (handler-case
+                   (doit)
            (error (err)
              (capi:display-message "Huh?" #| "Error: ~A" err |#))
+           |#
            )))
       )))
 

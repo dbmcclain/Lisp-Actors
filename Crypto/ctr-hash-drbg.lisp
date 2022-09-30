@@ -25,7 +25,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :ecc-crypto-b571)
+(in-package :prng)
 
 ;; ------------------------------------------------------------------------
 
@@ -175,3 +175,31 @@ THE SOFTWARE.
     (subseq x 0 500)
     ))
 |#
+
+(defun ctr-drbg-int (nbits)
+  (convert-bytes-to-int (ctr-drbg nbits)))
+
+(defun random-between (lo hi)
+  ;; random number in interval [lo,hi)
+  (let ((rng  (abs (- hi lo)))
+        (lmin (min hi lo)))
+    (+ lmin (mod (ctr-drbg-int (integer-length rng))
+                 rng))))
+
+(defun field-random (base)
+  (random-between 1 base))
+
+(defun safe-field-random (base)
+  ;; nondeterministic random in the range (Sqrt[base], base-Sqrt[base])
+  
+  ;; Safe, because if field is large enough all the values will be far
+  ;; enough away from field limits (0, base) to discourage brute force
+  ;; search against small positive and negative field values.
+  (funcall (get-cached-symbol-data
+            'safe-field-random 'safe-field-random-fn base
+            (lambda ()
+              (let* ((lo  (isqrt base))
+                     (hi  (- base lo)))
+                (lambda ()
+                  (random-between lo hi))))
+            )))

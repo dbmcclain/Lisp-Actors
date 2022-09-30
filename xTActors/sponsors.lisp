@@ -79,11 +79,11 @@
         (declare (dynamic-extent #'%send #'%become))
         
         (let ((*current-actor*    nil)
-              (*whole-message*    nil)
+              (*current-message*  nil)
               (*current-behavior* nil)
               (*send*             #'%send)
               (*become*           #'%become))
-          (declare (list *whole-message*))
+          (declare (list *current-message*))
           
           (loop
              (with-simple-restart (abort "Handle next event")

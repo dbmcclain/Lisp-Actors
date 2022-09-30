@@ -25,7 +25,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :ecc-crypto-b571)
+(in-package :crypto-utils)
 
 ;; -----------------------------------------------------------------------------
 ;; junk PRNG - don't use this for cryptographic strength
@@ -97,7 +97,7 @@ THE SOFTWARE.
 (defun hexit (x)
   (let ((*print-length* nil))
     (write x :base 16)))
-#||#
+#|
 (defun hex ()
   (setf *print-base* 16))
 
@@ -109,6 +109,7 @@ THE SOFTWARE.
 
 (defun decimal ()
   (setf *print-base* 10))
+|#
 
 (defun big32 (&rest args)
   ;; assume 8-xdigit groups (32-bits)
@@ -347,12 +348,12 @@ THE SOFTWARE.
     (need-ubyte-vector v)
     (ironclad:update-hmac hmac v)))
 
-(defmethod safe-encrypt-in-place ((cipher ironclad::cipher) &rest vs)
+(defmethod ciphers:safe-encrypt-in-place ((cipher ironclad::cipher) &rest vs)
   (dolist (v vs)
     (need-ubyte-vector v)
     (ironclad:encrypt-in-place cipher v)))
 
-(defmethod safe-decrypt-in-place ((cipher ironclad::cipher) &rest vs)
+(defmethod ciphers:safe-decrypt-in-place ((cipher ironclad::cipher) &rest vs)
   (dolist (v vs)
     (need-ubyte-vector v)
     (ironclad:decrypt-in-place cipher v)))
@@ -495,7 +496,7 @@ THE SOFTWARE.
       (convert-int-to-nbytesv (uuid:uuid-to-integer next) 16))))
 
 ;; -------------------------------------------------------
-
+#|
 (defun ctr-drbg-int (nbits)
   (convert-bytes-to-int (ctr-drbg nbits)))
 
@@ -525,12 +526,11 @@ THE SOFTWARE.
                 (lambda ()
                   (random-between lo hi))))
             )))
-
+|#
 ;; ---------------------------------------------------------
 
 (defun mask-off (arr rembits)
   (when (plusp rembits)
     (setf (aref arr 0) (ldb (byte rembits 0) (aref arr 0))))
   arr)
-
 

@@ -32,6 +32,175 @@ THE SOFTWARE.
    :def-cached-var
    :get-cached-symbol-data))
 
+(defpackage #:crypto-utils
+  (:use #:common-lisp #:cached-var)
+  (:export
+   #:my-random-state
+   #:my-random
+
+   #:ubyte
+   #:ub-vector
+   #:make-ub-array
+
+   #:safe-char-code
+   #:convert-text-to-int8-array
+   #:ensure-8bitv
+   #:hexit
+   #:big32
+   #:convert-string-to-bytes
+   #:convert-bytes-to-string
+   #:convert-int-to-bytes
+   #:convert-int-to-nbytes
+   #:convert-int-to-nbytesv
+   #:convert-bytes-to-int
+
+   #:fragmentize
+   #:format-fragments
+
+   #:strengthen-key
+   #:make-key-from-plaintext
+   #:print-c-array
+   
+   #:encode-bytes-to-base64
+   #:decode-bytes-from-base64
+   #:encode-object-to-base64
+   #:decode-object-from-base64
+
+   #:convert-int-to-lev
+   #:convert-lev-to-int
+   
+   #:encode-bytes-to-base58
+   #:decode-bytes-from-base58
+   #:encode-object-to-base58
+   #:decode-object-from-base58
+
+   #:format-bytes
+   #:read-blob
+
+   #:write-int
+   #:write-vector
+   #:write-cp-string
+   #:write-sequences
+
+   #:make-cp-string-vector
+   #:read-nvector
+   #:read-int
+   #:read-vector
+   #:read-cp-string
+   #:read-sequences
+
+   #:wipe
+   #:wipe-object
+
+   #:need-ubyte-vector
+   #:safe-update-digest
+   #:safe-update-hmac
+
+   #:convert-hashint-to-32bytes
+   #:sha2-file
+   #:shad2-file
+   #:sha2d-file
+   #:sha2-key
+   #:sha2-buffers
+   #:sha_d-256
+   #:sha3/256-file
+   #:sha3-file
+   #:sha3-buffers
+   #:sha3/256-buffers
+   #:basic-hash-with-protocol
+   #:hash-with-protocol
+
+   #:convert-int571-to-80bytes
+   
+   #:with-sensitive-objects
+   #:check-paths-not-equal
+
+   #:make-nonce
+   #:mask-off
+   ))
+
+(defpackage :cryptolib
+  (:use #:common-lisp #:crypto-utils) 
+  (:export
+   #:sha2_context
+   #:sha2_starts
+   #:sha2_update
+   #:sha2_finish
+   #:sha2
+   #:sha2_file
+   #:shad2_file
+   #:sha2_self_test
+   #:sha2_hmac
+
+   #:aes_context
+   #:aes_setkey_enc
+   #:aes_setkey_dec
+   #:aes_crypt_cbc
+   #:aes_self_test
+
+   #:aesx_context
+   #:aesx_setkey_enc
+   #:aesx_setkey_dec
+   #:aesx_crypt_cbc
+   #:aesx_self_test
+
+   #:c-sha2-file
+   #:c-sha2-buffers
+   #:c-sha2-buffers-into
+   #:c-kdf
+   ))
+
+(defpackage :gflib
+  (:use :common-lisp :cryptolib)
+  (:export
+   #:gf128_add
+   #:gf128_mul
+   #:gf128_div
+   #:gf128_inv
+
+   #:deref64
+   #:ldb64
+
+   #:convert-gf128-int-to-cbuf
+   #:convert-cbuf-to-gf128-int
+   #:foreign-gf-buffer
+   #:foreign-gf128-buffer
+   #:with-gf128-buffers
+   #:gf128-binop
+   #:c-gf128-add
+   #:c-gf128-mul
+   #:c-gf128-div
+   #:gf128-unop
+   #:c-gf128-inv
+
+   #:gf571_add
+   #:gf571_mul
+   #:gf571_div
+   #:gf571_inv
+
+   #:convert-gf571-int-to-cbuf
+   #:convert-cbuf-to-gf571-int
+   #:foreign-gf571-buffer
+   #:with-gf571-buffers
+   #:gf571-binop
+   #:c-gf571-add
+   #:c-gf571-mul
+   #:c-gf571-div
+   #:gf571-unop
+   #:c-gf571-inv
+
+   #:c-ecc571-setCurve
+   #:with-ecc-lib
+   #:c_ecc571_add
+   #:c_ecc571_sub
+   #:chk-c-inf
+   #:c-ecc571-binop
+   #:c-ecc571-add
+   #:c-ecc571-sub
+   #:c-ecc571-mul
+   #:gf-random-k*
+   ))
+
 (defpackage :crypto/modular-arith
   (:use :common-lisp
    :cached-var)
@@ -168,40 +337,101 @@ THE SOFTWARE.
    :in-place-otp
    ))
 
-(defpackage :ecc-crypto-b571
-  (:use :common-lisp
-   :crypto/modular-arith
-   :cached-var)
-  (:nicknames :ecc)
-  (:import-from :useful-macros
-   :defstub
-   :with-fast-impl)
+(defpackage #:prng
+  (:use #:common-lisp #:cached-var)
+  (:import-from #:crypto-utils
+   #:convert-bytes-to-int
+   #:mask-off
+   #:convert-int-to-nbytesv
+   #:make-ub-array
+   #:make-nonce)
   (:export
-   :ctr-hash-prng
-   :basic-random
-   :basic-random-between
-   :random-between
-   :field-random
-   :safe-field-random
+   #:ctr-hash-prng
+   #:get-entropy
+   #:basic-random
+   #:basic-random-between
    
-   :convert-int-to-nbytes
-   :convert-int-to-nbytesv
-   :convert-bytes-to-int
-   :ctr-drbg
-   :ctr-drbg-int
+   #:random-between
    
-   :sha3-buffers
-   :sha3/256-buffers
-   
-   :encode-bytes-to-base64
-   :decode-bytes-from-base64
+   #:ctr-drbg
+   #:ctr-drbg-int
+   #:field-random
+   #:safe-field-random
+   ))
 
-   :convert-int-to-lev
-   :convert-lev-to-int
-   :encode-object-to-base58
-   :decode-object-from-base58
-   :encode-bytes-to-base58
-   :decode-bytes-from-base58
+(defpackage #:kdf
+  (:use
+   #:common-lisp
+   #:crypto-utils
+   #:cryptolib)
+  (:export
+   #:kdf
+   #:apply-kdf))
+
+(defpackage #:ciphers
+  (:use #:common-lisp
+   #:crypto-utils
+   #:kdf
+   #:prng)
+  (:export
+   #:*ctr-hmac-cipher-file-encryption*
+   #:ctr-hmac-signature
+
+   #:generic-ctr-cipher
+   #:ctr-cipher-key
+   #:ctr-cipher-salt
+   #:ctr-cpher-nonce
+   #:ctr-cipher-ctr
+   #:ctr-cipher-cvec
+   #:ctr-cipher-sig
+   #:ctr-cipher-ecb
+   #:ctr-cipher-mac
+   
+   #:wipe-obj
+   #:generic-ctr-hmac-cipher
+   #:update-mac
+   #:get-mac
+   #:mac-length
+   #:cipher-overhead
+
+   #:ctr-hmac-cipher
+   #:make-ecb-cipher
+   #:make-cipher-block
+   #:make-displaced-cipher-block
+   #:make-ctr-hmac-cipher
+
+   #:encrypt-decrypt-ctr
+   #:safe-encrypt-in-place
+   #:safe-decrypt-in-place
+
+   #:ctr-encrypt-stream-with-cipher
+   #:ctr-hmac-encrypt-stream
+   #:ctr-hmac-encrypt-sequence
+   #:ctr-hmac-encrypt-file
+
+   #:ctr-decrypt-stream-with-cipher
+   #:ctr-hmac-decrypt-stream
+   #:ctr-hmac-decrypt-sequence
+   #:ctr-hmac-decrypt-file
+
+   #:delivered-ctr-hmac-encrypt
+   ))
+
+(defpackage #:ecc-crypto-b571
+  (:use
+   #:common-lisp
+   #:crypto/modular-arith
+   #:cached-var
+   #:cryptolib
+   #:gflib
+   #:prng
+   #:ciphers
+   #:crypto-utils)
+  (:nicknames #:ecc)
+  (:import-from #:useful-macros
+   #:defstub
+   #:with-fast-impl)
+  (:export
    ))
 
 (defpackage :primes
@@ -229,25 +459,18 @@ THE SOFTWARE.
 
 (defpackage :edwards-ecc
   (:nicknames :edec)
-  (:use :common-lisp
-   :ecc-crypto-b571
-   :crypto/modular-arith
-   :cached-var
-   :vec-repr
-   :hash)
+  (:use
+   #:common-lisp
+   #:crypto/modular-arith
+   #:crypto-utils
+   #:cached-var
+   #:vec-repr
+   #:hash
+   #:prng)
   (:import-from :useful-macros
    :defstub
    :stub-function-p
    :with-fast-impl)
-  (:import-from :ecc-crypto-b571
-		:convert-int-to-nbytes
-		:convert-int-to-nbytesv
-		:convert-bytes-to-int
-                :convert-int-to-lev
-                :convert-lev-to-int
-		:ctr-drbg-int
-		:sha3-buffers
-		:random-between)
   (:export
    :ed-curve
    :with-ed-curve
@@ -336,22 +559,13 @@ THE SOFTWARE.
    :decompose-integer
    ))
    
-#|
-(defpackage :ecc-crypto-b128
-  (:use #:common-lisp)
-  (:export
-   ))
-|#
-
-(defpackage :pbc-interface
-  (:use :common-lisp
-        :vec-repr
-        :hash
-        :modmath)
+(defpackage #:pbc-interface
+  (:use #:common-lisp
+        #:vec-repr
+        #:hash
+        #:prng
+        #:modmath)
   (:nicknames :pbc)
-  (:import-from :ecc-crypto-b571
-   :field-random
-   :safe-field-random)
   (:export
    ;; classes and their slot readers
    :crypto-val
@@ -491,29 +705,21 @@ THE SOFTWARE.
    ))
 
 (defpackage :core-crypto
-  (:use :common-lisp
-   :modmath
-   :edwards-ecc
-   :cached-var
-   :vec-repr
-   :hash)
+  (:use
+   #:common-lisp
+   #:modmath
+   #:edwards-ecc
+   #:cached-var
+   #:crypto-utils
+   #:vec-repr
+   #:prng
+   #:hash)
   (:import-from :pbc
    :read-safely
    :address
    :addr
    :addr-str
    )
-  (:import-from :ecc-crypto-b571
-   :convert-int-to-nbytes
-   :convert-int-to-nbytesv
-   :convert-bytes-to-int
-   :sha3-buffers
-   :sha3/256-buffers
-   :ctr-drbg
-   :ctr-drbg-int
-   :random-between
-   :field-random
-   :safe-field-random)
   (:export
    :defstub
    :stub-function-p
@@ -626,7 +832,6 @@ THE SOFTWARE.
    :elligator-ed-dsa
    :elligator-ed-dsa-validate
 
-   ;; from ecc-crypto-b571
    :convert-int-to-nbytes
    :convert-int-to-nbytesv
    :convert-bytes-to-int

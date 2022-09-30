@@ -28,13 +28,18 @@ THE SOFTWARE.
   :version     "1.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2015 by Refined Audiometrics Laboratory, LLC. All rights reserved."
-  :components  ((:file "lzw")
-                (:file "aont")
-                (:file "mimic")
-                (:file "aont-messaging"))
+  :components  ((:file "ecc-package")
+                (:file "aont-package")
+                (:file "utilities")
+                (:file "ctr-hash-drbg")
+                (:file "cryptolib")
+                (:file "kdf")
+                (:file "ctr-hmac-encryption")
+                (:file "lzw")
+                (:file "aont"))
   :serial       t
   :depends-on   ("babel"
-                 "mini-core-crypto"
-                 "ecc-keying"
+                 "lisp-object-encoder"
+                 "s-base64"
                  ))
 

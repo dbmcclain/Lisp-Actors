@@ -3,7 +3,7 @@
 ;; DM/RAL 11/21
 ;; -------------------------------------------------
 
-(in-package :com.ral.actors.base)
+(in-package :com.ral.actors.encoding)
 
 (um:eval-always
   (import '(vec-repr:vec
@@ -28,6 +28,9 @@
             modmath:m+
             modmath:m*
             )))
+
+(um:eval-always
+  (hcl:add-package-local-nickname :self-sync :com.ral.actors.encoding.self-sync))
 
 ;; ----------------------------------------------------
 ;; Useful primitives...
@@ -512,7 +515,7 @@
 (defun self-sync-encoder ()
   ;; takes a bytevec and produces a self-sync bytevec
   (actor (cust bytevec)
-    (send cust (ssact:encode bytevec))))
+    (send cust (self-sync:encode bytevec))))
 
 ;; --------------------------------------
 
@@ -769,7 +772,7 @@
 
 (defun netw-decoder (ekey pkey cust)
   ;; takes a bytevec and produces arbitrary objects
-  (ssact:stream-decoder
+  (self-sync:stream-decoder
    (sink-pipe (fail-silent-marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
               (signature-validation pkey) ;; pass along seq, enc text
               (decryptor ekey)        ;; generates a bytevec
@@ -798,7 +801,7 @@
 
 (defun disk-decoder (cust)
   ;; takes chunks of self-sync data and produces arbitrary objects
-  (ssact:stream-decoder
+  (self-sync:stream-decoder
    (sink-pipe (marshal-decoder)
               (dechunker)
               (marshal-decompressor)
