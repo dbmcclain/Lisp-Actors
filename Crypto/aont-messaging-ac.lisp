@@ -228,55 +228,108 @@ THE SOFTWARE.
     ;; (assert *public-keys*)
     intf))
 
+(defun show-error (err)
+  (capi:display-message "Error: ~A" err))
+
+(defun do-with-handled-error (fn)
+  (handler-case
+      (funcall fn)
+    (error (err)
+      (show-error err))))
+
+(defmacro with-handled-error (&body body)
+  `(do-with-handled-error (lambda ()
+                            ,@body)))
+
+(deflex tolstoy-encoder
+  (α (cust intf txt)
+    (with-handled-error
+     (send cust intf (aont-encode-to-wp txt)))))
+
+(deflex tolstoy-decoder
+  (α (cust intf txt)
+    (handler-case
+        (send cust intf (aont-decode-from-wp-to-string txt))
+      (error ()
+        (show-error "Huh?"))
+      )))
+
+(deflex text-displayer
+  (α (intf txt)
+    (capi:execute-with-interface
+     intf
+     (lambda ()
+       (with-handled-error
+        (let ((snip  "---------- SNIP HERE --------------"))
+          (setf (capi:editor-pane-text (msg-text-pane intf))
+                (format nil "~A~%~A~%~A~%"
+                        snip txt snip))
+          (do-menu-item :select-all intf)
+          ;; (do-menu-item :copy intf)
+          )))
+     )))
+
+(defun eol (txt start)
+  (and start
+       (let ((new-start (position #\newline txt :start start)))
+         (and new-start
+              (1+ new-start))
+         )))
+
+(defun bol (txt start)
+  (and start
+       (position #\newline (subseq txt 0 start) :from-end t)))
+       
+(defun select-text-between-snips (text)
+  (let* ((snip  "--- SNIP HERE ---")
+         (slen  (length snip))
+         (start (eol text
+                     (search snip text
+                             :test #'string-equal)))
+         (txlen (length text))
+         (end   (and (> txlen slen)
+                     (bol text
+                          (search snip text
+                                  :test     #'string-equal
+                                  :from-end t)))))
+    (if start
+        (subseq text start end)
+      (subseq text 0 end))))
+
 (defun encode-message (x intf)
   (declare (ignore x))
-  (handler-case
-      (let* ((edpane (msg-text-pane intf))
-             (ans    (capi:editor-pane-text edpane)))
-        (when ans
-          (cond ((zerop (length ans))
-                 (error "Plaintext needed"))
-                (t 
-                 (let ((ctext (#| aont-encode |# aont-encode-to-wp ans))
-                       (snip  "---------- SNIP HERE --------------"))
-                   (setf (capi:editor-pane-text (msg-text-pane intf))
-                         (format nil "~A~%~A~%~A~%"
-                                 snip
-                                 (coerce ctext 'simple-base-string)
-                                 snip) )
-                   (do-menu-item :select-all intf)
-                   ;; (do-menu-item :copy intf)
-                   ))
-                )))
-    (error (err)
-      (capi:display-message "Error: ~A" err)) ))
+  (with-handled-error
+    (let* ((edpane (msg-text-pane intf))
+           (txt    (capi:editor-pane-text edpane)))
+      (when txt
+        (cond ((zerop (length txt))
+               (error "Plaintext needed"))
+              (t
+               (let ((txt (select-text-between-snips txt)))
+                 (send tolstoy-encoder text-displayer intf txt)))
+              ))
+      )))
 
 (defun decode-message (x intf)
   (declare (ignore x))
-  (handler-case
+  (with-handled-error
       (let ((text (capi:editor-pane-text (msg-text-pane intf))))
         (when text
-          (labels ((select-cryptotext ()
-                     (let* ((snip  "--- SNIP HERE ---")
-                            (start (search snip text
-                                           :test #'string-equal)))
-                       (string-trim "-"
-                                    (if start
-                                        (let* ((text (subseq text (+ start (length snip))))
-                                               (end  (search snip text
-                                                             :test #'string-equal)))
-                                          (if end
-                                              (subseq text 0 end)
-                                            text))
-                                      text)))))
-            (cond ((zerop (length text))
-                   (error "Encoded text needed"))
-                  (t
+          (cond ((zerop (length text))
+                 (error "Encoded text needed"))
+                (t
+                 (let ((txt (select-text-between-snips text)))
+                   (send tolstoy-decoder text-displayer intf txt)))
+                )))
+      ))
+
+#|
                    (let ((ptext (#| aont-decode-to-string |# aont-decode-from-wp-to-string (select-cryptotext))))
                      (setf (capi:editor-pane-text (msg-text-pane intf)) ptext)))
                   ))))
     (error (err)
       (capi:display-message "Huh?" #| "Error: ~A" err |#))))
+|#
 
 #|
 To: william@acudora.com

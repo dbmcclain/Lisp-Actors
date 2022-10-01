@@ -93,8 +93,7 @@ popd
 ;; ------------------------------------------------------------------------------
 ;; Compile the application
 ;; (asdf:operate 'asdf:load-op :godzilla :force t) ;; force full recompile
-;; (asdf "butterfly")
-(ql:quickload "tolstoy-aont")
+(ql:quickload "tolstoy-aont-ac")
 
 (require "inspector-values")
 
