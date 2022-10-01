@@ -102,6 +102,8 @@ THE SOFTWARE.
    ;; :drop-callback 'top-level-drop-callback
    ))
 
+;; ----------------------------------
+
 (defun show-error (err)
   (capi:display-message "Error: ~A" err))
 
@@ -115,48 +117,49 @@ THE SOFTWARE.
   `(do-with-handled-error (lambda ()
                             ,@body)))
 
+;; ----------------------------------
+
+(defun show-huh? ()
+  (capi:display-message "Huh??"))
+
+(defun do-with-huh-handler (fn)
+  (handler-case
+      (funcall fn)
+    (error ()
+      (show-huh?))))
+
+(defmacro with-huh? (&body body)
+  `(do-with-huh-handler (lambda ()
+                          ,@body)))
+
+;; ----------------------------------
+
 (deflex tolstoy-files-encoder
   (α (files)
-    (with-handled-error
-     (cond ((or (null files)
-                (stringp files))
-            (aont-encode-files-to-wp files))
-
-           ((consp files)
-            (dolist (file files)
-              (aont-encode-files-to-wp file)))
-           ))))
+    (with-huh?
+      (aont-encode-files-to-wp (um:mklist files)))
+    ))
 
 (deflex tolstoy-files-decoder
   (α (files)
-    (with-handled-error
-     (cond ((or (null files)
-                (stringp files))
-            (aont-decode-files-from-wp files))
-
-           ((consp files)
-            (dolist (file files)
-              (aont-decode-files-from-wp file)))
-           ))))
-#|
-(defun drop-callback (pane drop-object stage)
-  (inspect (list stage drop-object))
-  (case stage
-    (:formats (capi:set-drop-object-supported-formats drop-object '(:string :filename-list)))
-    ((:enter :drag)   (if (capi:drop-object-provides-format drop-object :filename-list)
-                          (setf (capi:drop-object-drop-effect drop-object) :copy)))
-    (:drop
-     (inspect (capi:drop-object-get-object drop-object pane :filename-list))
-     (setf (capi:drop-object-drop-effect drop-object) :copy))
+    (with-huh?
+      (aont-decode-files-from-wp (um:mklist files)))
     ))
-|#
+
+;; ----------------------------------
 
 (defun enc/dec-drop-callback (pane drop-object stage)
-  (flet ((set-effect-for-operation ()
-           (dolist (effect '(:move :copy :link :generic))
-             (when (capi:drop-object-allows-drop-effect-p drop-object effect)
-               (setf (capi:drop-object-drop-effect drop-object) effect)
-               (return t)))))
+  (labels ((set-effect-for-operation ()
+             (dolist (effect '(:move :copy :link :generic))
+               (when (capi:drop-object-allows-drop-effect-p drop-object effect)
+                 (setf (capi:drop-object-drop-effect drop-object) effect)
+                 (return t))))
+           (send-item (ac)
+             (dolist (itemkind '(:string :filename-list))
+               (when (and (capi:drop-object-provides-format drop-object itemkind)
+                          (set-effect-for-operation))
+                 (send ac (capi:drop-object-get-object drop-object pane itemkind))
+                 (return)))))
     
     (case stage
       (:formats         (capi:set-drop-object-supported-formats drop-object '(:string :filename-list)))
@@ -168,14 +171,7 @@ THE SOFTWARE.
               (ac (if (< x 100)
                       tolstoy-files-encoder
                     tolstoy-files-decoder)))
-         (cond ((and (capi:drop-object-provides-format drop-object :string)
-                     (set-effect-for-operation))
-                (send ac (capi:drop-object-get-object drop-object pane :string)))
-               
-               ((and (capi:drop-object-provides-format drop-object :filename-list)
-                     (set-effect-for-operation))
-                (send ac (capi:drop-object-get-object drop-object pane :filename-list)))
-               )))
+         (send-item ac)))
       )))
 
 #+:MSWINDOWS
@@ -209,6 +205,8 @@ THE SOFTWARE.
      (send tolstoy-files-decoder nil))
     ))
 
+;; ----------------------------------
+
 (defun do-menu-item (item intf)
   (let ((edpane (msg-text-pane intf)))
     (case item
@@ -234,11 +232,7 @@ THE SOFTWARE.
 
 (defun make-aont-messaging-intf ()
   (setf sys:*stack-overflow-behaviour* nil)
-  (let ((intf (capi:display (make-instance 'messaging-intf))))
-      ;; (init-crypto)
-    ;; (assert *passwds*)
-    ;; (assert *public-keys*)
-    intf))
+  (capi:display (make-instance 'messaging-intf)))
 
 (deflex tolstoy-encoder
   (α (cust intf txt)
@@ -266,6 +260,8 @@ THE SOFTWARE.
          ;; (do-menu-item :copy intf)
          ))
       )))
+
+;; ----------------------------------
 
 (defun eol (txt start)
   (and start
