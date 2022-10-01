@@ -273,28 +273,68 @@ THE SOFTWARE.
   (or (null actor)
       (eq (actor-beh actor) #'lw:do-nothing)))
 
-;; ----------------------------------------------------------------
-;; Private functions -- see what nonsense we get to avoid by working
-;; at the Actor level?
+;; -----------------------------------------
+;; Serializer Gateway - service must always respond to a customer
 ;;
-;; These functions work at the intersection between Actors world and
-;; Locking world. A necessary evil, but well hidden from the users.
 
-(defun custodian-beh (&optional (lock (mp:make-lock)) (count 0) threads)
+(defun serializer-beh (service)
+   ;; initial non-busy state
+   (alambda
+    ((cust . msg)
+     (let ((tag  (tag self)))
+       (send* service tag msg)
+       (become (busy-serializer-beh
+                service tag cust +emptyq+))
+       ))))
+
+(defun busy-serializer-beh (service tag in-cust queue)
+  (alambda
+   ((atag . ans) when (eql atag tag)
+    (send* in-cust ans)
+    (if (emptyq? queue)
+        (become (serializer-beh service))
+      (multiple-value-bind (next-req new-queue) (popq queue)
+        (destructuring-bind (next-cust . next-msg) next-req
+          (let ((new-tag (tag self)))
+            (send* service new-tag next-msg)
+            (become (busy-serializer-beh
+                     service new-tag next-cust new-queue))
+            )))
+      ))
+
+   (msg
+    (become (busy-serializer-beh
+             service tag in-cust
+             (addq queue msg))
+            ))
+   ))
+
+(defun serializer (service)
+  (create (serializer-beh service)))
+
+(defun serializer-sink (service)
+  ;; Turn a service into a sink. Service must accept a cust argument,
+  ;; and always send a response to cust - even though it appears to be
+  ;; a sink from the caller's perspective.
+  (label (serializer service) sink))
+
+;; ----------------------------------------------------------------
+;; System start-up and shut-down.
+;;
+
+(defun custodian-beh (&optional (count 0) threads)
+  ;; Custodian holds the list of parallel dispatcher threads
   (alambda
    ((cust :add-executive id)
-    ;; Users should not send this message directly -- use function
-    ;; RESTART-ACTORS-SYSTEM or message :ADD-EXECUTIVES instead.
+    (send cust :ok)
     (when (< count id)
-      (mp:with-lock (lock)
-        (when (< count id)
-          (let ((new-thread (mp:process-run-function
-                             (format nil "Actor Thread #~D" id)
-                             ()
-                             #'run-actors)))
-            (%special-become (custodian-beh lock id (cons new-thread threads)))
-            ))))
-    (send cust :ok))
+      ;; Not Idempotent - so we need to be behind a SERIALIZER.
+      (let ((new-thread (mp:process-run-function
+                         (format nil "Actor Thread #~D" id)
+                         ()
+                         #'run-actors)))
+        (become (custodian-beh id (cons new-thread threads)))
+        )))
    
   ((cust :ensure-executives n)
    (if (< (length threads) n)
@@ -311,68 +351,46 @@ THE SOFTWARE.
   
   ((cust :kill-executives)
    ;; Users should not send this message directly -- use function
-   ;; KILL-ACTORS-SYSTEM instead
-   (mp:with-lock (lock)
-     (%special-become (custodian-beh lock 0 nil)) ;; ordering matters here under special-send
-     (let* ((my-thread     (mp:get-current-process))
-            (other-threads (remove my-thread threads)))
-       (map nil #'mp:process-terminate other-threads)
-       (send cust :ok)
-       (when (find my-thread threads)
-         (mp:current-process-kill))
-       )))
-
+   ;; KILL-ACTORS-SYSTEM from a non-Actor thread. Only works properly
+   ;; when called by a non-Actor thread using a single-thread direct
+   ;; dispatcher, as with CALL-ACTOR.
+   (become (custodian-beh 0 nil))
+   (send cust :ok)
+   (let* ((my-thread     (mp:get-current-process))
+          (other-threads (remove my-thread threads)))
+     (map nil #'mp:process-terminate other-threads)
+     (when (find my-thread threads)
+       ;; this will cancel pending SEND/BECOME...
+       (mp:current-process-kill))
+     ))
+  
   ((cust :get-threads)
    (send cust threads))
   ))
 
 (deflex custodian
-  (create (custodian-beh)))
-
-(defun %special-become (fn)
-  (setf (actor-beh self) fn))
-
-(defun %special-send (actor &rest msg)
-  ;; Normally unsafe unless protected by surrounding lock. Actor might
-  ;; try to BECOME in accidental parallel execcution with a normal
-  ;; SEND.
-  (let ((*send*   (lambda (actor &rest msg)
-                    (let ((*current-actor*    actor)
-                          (*current-behavior* (actor-beh actor))
-                          (*current-message*  msg))
-                      (apply self-beh msg)
-                      )))
-        (*become* #'%special-become))
-    (send* actor msg)))
+  (serializer (create (custodian-beh))))
 
 ;; --------------------------------------------------------------
 ;; User-level Functions
 
 (defun running-actors-p ()
-  (let (ans)
-    (β (threads)
-        ;; Always safe because :GET-THREADS performs no BECOME
-        (%special-send custodian β :get-threads)
-      (setf ans threads))
-    ans))
+  (call-actor custodian :get-threads))
 
 (defun add-executives (n)
   (send custodian sink :add-executives n))
 
-(defmonitor custodian-monitor
-    ()
-  (defun restart-actors-system (&optional (nbr-execs *nbr-pool*))
-    ;; Users don't normally need to call this function. It is
-    ;; automatically called on the first message SEND.
-    (critical-section
-      (funcall (if (running-actors-p)
-                   #'send
-                 #'%special-send)
-               custodian sink :ensure-executives nbr-execs)))
-  
-  (defun kill-actors-system ()
-    (critical-section
-      (%special-send custodian sink :kill-executives))))
+(defun restart-actors-system (&optional (nbr-execs *nbr-pool*))
+  ;; Users don't normally need to call this function. It is
+  ;; automatically called on the first message SEND.
+  (call-actor custodian :ensure-executives nbr-execs))
+
+(defun kill-actors-system ()
+  ;; The FUNCALL-ASYNC assures that this will work, even if called
+  ;; from an Actor thread. Of course that will also cause the Actor to
+  ;; commit suicide...
+  (mp:funcall-async (lambda ()
+                      (call-actor custodian :kill-executives))))
 
 #|
 (kill-actors-system)

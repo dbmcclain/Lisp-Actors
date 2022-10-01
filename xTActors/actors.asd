@@ -33,7 +33,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "macros")
                 (:file "actors-mstr")
                 ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
-                (:file "prim-actors"))
+                (:file "prim-actors")
+                (:file "st-send"))
   :SERIAL T
   :depends-on   (
                  "useful-macros"

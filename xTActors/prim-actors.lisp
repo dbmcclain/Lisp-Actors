@@ -392,7 +392,7 @@
           )))
 |#
 
-#||#
+#|
 ;; This version does not cause the CPU to spin
 (defun serializer-beh (service)
    ;; initial non-busy state
@@ -434,7 +434,7 @@
   ;; and always send a response to cust.
   (label (serializer service) sink))
 
-#||#
+|#
 ;; ----------------------------------------------------
 ;; Safe Serializer - serializer with unblocking channel and timeout
 #|
