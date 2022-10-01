@@ -293,6 +293,41 @@ THE SOFTWARE.
 
 ;; ------------------------------------------------------
 
+(defun eol (txt start)
+  (and start
+       (let ((new-start (position #\newline txt :start start)))
+         (and new-start
+              (1+ new-start))
+         )))
+
+(defun bol (txt start)
+  (and start
+       (position #\newline (subseq txt 0 start) :from-end t)))
+       
+(defun strip-snips (text)
+  ;; legacy recoveory...
+  (let* ((snip  "--- SNIP HERE ---")
+         (slen  (length snip))
+         (start (eol text
+                     (search snip text
+                             :test #'string-equal)))
+         (txlen (length text))
+         (end   (and (> txlen slen)
+                     (bol text
+                          (search snip text
+                                  :test     #'string-equal
+                                  :from-end t)))))
+    ;; some sanity checking... just want surrounding snip lines,
+    ;; not accidentally embedded lines.
+    (when (> start 36)
+      (setf start nil))
+    (when (< end (- txlen 36))
+      (setf end nil))
+    
+    (if start
+        (subseq text start end)
+      (subseq text 0 end))))
+  
 (defmethod aont-encode-to-wp ((x vector))
   ;; x is string or vector
   (wp-encode-encryption
@@ -301,7 +336,7 @@ THE SOFTWARE.
       (write-compression x s)))))
 
 (defmethod aont-encode-to-wp ((s string))
-  (aont-encode-to-wp (babel:string-to-octets s)))
+  (aont-encode-to-wp (babel:string-to-octets (strip-snips s))))
 
 ;; ------------------------------------------------------
 
@@ -416,7 +451,8 @@ THE SOFTWARE.
 
 (defun aont-decode-from-wp (str)
   (ubstream:with-input-from-ubyte-stream (s (aont-untransform
-                                             (wp-decode-encryption str)))
+                                             (wp-decode-encryption
+                                              (strip-snips str))))
     (read-compression s)))
 
 (defun aont-decode-from-wp-to-string (str)

@@ -47,12 +47,14 @@ THE SOFTWARE.
 
    (msg-encode-button capi:push-button
                        :text "Encode"
-                       #+:MSWINDOWS :drop-callback #+:MSWINDOWS 'enc-drop-callback
+                       :drop-callback 'enc-drop-callback
+                       ;; #+:MSWINDOWS :drop-callback #+:MSWINDOWS 'enc-drop-callback
                        :callback 'encode-message)
 
    (msg-decode-button capi:push-button
                        :text "Decode"
-                       #+:MSWINDOWS :drop-callback #+:MSWINDOWS 'dec-drop-callback
+                       :drop-callback 'dec-drop-callback
+                       ;; #+:MSWINDOWS :drop-callback #+:MSWINDOWS 'dec-drop-callback
                        :callback 'decode-message)
    
    (cancel-button capi:push-button
@@ -60,6 +62,11 @@ THE SOFTWARE.
                   :callback (lambda (x intf)
                               (declare (ignore x))
                               (capi:destroy intf)))
+
+   (message-pane
+    capi:title-pane
+    :foreground :red
+    :visible-max-width nil)
    )
   
   (:layouts
@@ -68,7 +75,7 @@ THE SOFTWARE.
     capi:row-layout
     '(msg-encode-button
       msg-decode-button
-      nil
+      message-pane
       cancel-button))
 
    (column-layout1
@@ -163,18 +170,27 @@ THE SOFTWARE.
     
     (case stage
       (:formats         (capi:set-drop-object-supported-formats drop-object '(:string :filename-list)))
-      ((:enter :drag)   (if (or (capi:drop-object-provides-format drop-object :filename-list)
-                                (capi:drop-object-provides-format drop-object :string))
-                            (set-effect-for-operation)))
+      ((:enter :drag)   (when (or (capi:drop-object-provides-format drop-object :string)
+                                  (capi:drop-object-provides-format drop-object :filename-list))
+                          (set-effect-for-operation)
+                          (let ((x (capi:drop-object-pane-x drop-object)))
+                            (drag-and-drop-show-message pane (if (< x 100) "Encode Files" "Decode Files")))
+                          ))
       (:drop
        (let* ((x (capi:drop-object-pane-x drop-object))
               (ac (if (< x 100)
                       tolstoy-files-encoder
                     tolstoy-files-decoder)))
+         (drag-and-drop-show-message pane "")
          (send-item ac)))
       )))
 
-#+:MSWINDOWS
+(defun drag-and-drop-show-message (pane title)
+  (let ((message-pane (slot-value (capi:element-interface pane) 'message-pane)))
+    (setf (capi:title-pane-text message-pane) title)))
+
+
+;; #+:MSWINDOWS
 (defun enc-drop-callback (pane drop-object stage)
   (case stage
     (:formats (capi:set-drop-object-supported-formats drop-object '(:string :filename-list)))
@@ -185,7 +201,7 @@ THE SOFTWARE.
      (send tolstoy-files-encoder (capi:drop-object-get-object drop-object pane :filename-list)))
     ))
 
-#+:MSWINDOWS
+;; #+:MSWINDOWS
 (defun dec-drop-callback (pane drop-object stage)
   (case stage
     (:formats (capi:set-drop-object-supported-formats drop-object '(:string :filename-list)))
@@ -263,44 +279,16 @@ THE SOFTWARE.
 
 ;; ----------------------------------
 
-(defun eol (txt start)
-  (and start
-       (let ((new-start (position #\newline txt :start start)))
-         (and new-start
-              (1+ new-start))
-         )))
-
-(defun bol (txt start)
-  (and start
-       (position #\newline (subseq txt 0 start) :from-end t)))
-       
-(defun select-text-between-snips (text)
-  (let* ((snip  "--- SNIP HERE ---")
-         (slen  (length snip))
-         (start (eol text
-                     (search snip text
-                             :test #'string-equal)))
-         (txlen (length text))
-         (end   (and (> txlen slen)
-                     (bol text
-                          (search snip text
-                                  :test     #'string-equal
-                                  :from-end t)))))
-    (if start
-        (subseq text start end)
-      (subseq text 0 end))))
-
 (defun encode-message (x intf)
   (declare (ignore x))
   (with-handled-error
     (let* ((edpane (msg-text-pane intf))
-           (txt    (capi:editor-pane-text edpane)))
-      (when txt
-        (cond ((zerop (length txt))
+           (text   (capi:editor-pane-text edpane)))
+      (when text
+        (cond ((zerop (length text))
                (error "Plaintext needed"))
               (t
-               (let ((txt (select-text-between-snips txt)))
-                 (send tolstoy-encoder text-displayer intf txt)))
+               (send tolstoy-encoder text-displayer intf text))
               ))
       )))
 
@@ -313,8 +301,7 @@ THE SOFTWARE.
           (cond ((zerop (length text))
                  (error "Encoded text needed"))
                 (t
-                 (let ((txt (select-text-between-snips text)))
-                   (send tolstoy-decoder text-displayer intf txt)))
+                 (send tolstoy-decoder text-displayer intf text))
                 )))
       ))
 
