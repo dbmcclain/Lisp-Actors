@@ -30,6 +30,7 @@ THE SOFTWARE.
   :license     "Copyright (c) 2015 by Refined Audiometrics Laboratory, LLC. All rights reserved."
   :components  ((:file "ecc-package")
                 (:file "aont-package")
+                (:file "cached-var")
                 (:file "utilities")
                 (:file "ctr-hash-drbg")
                 (:file "cryptolib")
@@ -39,6 +40,7 @@ THE SOFTWARE.
                 (:file "aont"))
   :serial       t
   :depends-on   ("babel"
+                 "useful-macros"
                  "lisp-object-encoder"
                  "s-base64"
                  ))
