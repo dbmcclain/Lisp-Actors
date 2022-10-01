@@ -134,9 +134,7 @@ THE SOFTWARE.
          (flet ((doit ()
                   (cond ((and (capi:drop-object-provides-format drop-object :string)
                               (set-effect-for-operation))
-                         (funcall fn (capi:drop-object-get-object drop-object
-                                                                  :pane
-                                                                  :string)))
+                         (funcall fn (capi:drop-object-get-object drop-object pane :string)))
                         
                         ((and (capi:drop-object-provides-format drop-object :filename-list)
                               (set-effect-for-operation))

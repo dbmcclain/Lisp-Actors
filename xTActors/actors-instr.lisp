@@ -495,7 +495,10 @@ THE SOFTWARE.
   
   ((cust :get-threads)
    (send cust threads))
-  ))
+
+  (_
+   (send cust :ok)) ;; to clear the SERIALIZER
+))
 
 (deflex custodian
   (serializer (create (custodian-beh))))

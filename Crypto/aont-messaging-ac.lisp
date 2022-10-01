@@ -102,6 +102,42 @@ THE SOFTWARE.
    ;; :drop-callback 'top-level-drop-callback
    ))
 
+(defun show-error (err)
+  (capi:display-message "Error: ~A" err))
+
+(defun do-with-handled-error (fn)
+  (handler-case
+      (funcall fn)
+    (error (err)
+      (show-error err))))
+
+(defmacro with-handled-error (&body body)
+  `(do-with-handled-error (lambda ()
+                            ,@body)))
+
+(deflex tolstoy-files-encoder
+  (α (files)
+    (with-handled-error
+     (cond ((or (null files)
+                (stringp files))
+            (aont-encode-files-to-wp files))
+
+           ((consp files)
+            (dolist (file files)
+              (aont-encode-files-to-wp file)))
+           ))))
+
+(deflex tolstoy-files-decoder
+  (α (files)
+    (with-handled-error
+     (cond ((or (null files)
+                (stringp files))
+            (aont-decode-files-from-wp files))
+
+           ((consp files)
+            (dolist (file files)
+              (aont-decode-files-from-wp file)))
+           ))))
 #|
 (defun drop-callback (pane drop-object stage)
   (inspect (list stage drop-object))
@@ -129,29 +165,17 @@ THE SOFTWARE.
                             (set-effect-for-operation)))
       (:drop
        (let* ((x (capi:drop-object-pane-x drop-object))
-              (fn (if (< x 100)
-                      'aont-encode-file-to-wp
-                    'aont-decode-file-from-wp)))
-         (flet ((doit ()
-                  (cond ((and (capi:drop-object-provides-format drop-object :string)
-                              (set-effect-for-operation))
-                         (funcall fn (capi:drop-object-get-object drop-object
-                                                                  :pane
-                                                                  :string)))
-                        
-                        ((and (capi:drop-object-provides-format drop-object :filename-list)
-                              (set-effect-for-operation))
-                         (dolist (fname (capi:drop-object-get-object drop-object pane :filename-list))
-                           (funcall fn fname)))
-                   )))
-           (doit)
-           #|
-           (handler-case
-                   (doit)
-           (error (err)
-             (capi:display-message "Huh?" #| "Error: ~A" err |#))
-           |#
-           )))
+              (ac (if (< x 100)
+                      tolstoy-files-encoder
+                    tolstoy-files-decoder)))
+         (cond ((and (capi:drop-object-provides-format drop-object :string)
+                     (set-effect-for-operation))
+                (send ac (capi:drop-object-get-object drop-object pane :string)))
+               
+               ((and (capi:drop-object-provides-format drop-object :filename-list)
+                     (set-effect-for-operation))
+                (send ac (capi:drop-object-get-object drop-object pane :filename-list)))
+               )))
       )))
 
 #+:MSWINDOWS
@@ -162,12 +186,7 @@ THE SOFTWARE.
                           (setf (capi:drop-object-drop-effect drop-object) :copy)))
     (:drop
      (setf (capi:drop-object-drop-effect drop-object) :copy)
-     (handler-case
-         (dolist (fname (capi:drop-object-get-object drop-object pane :filename-list))
-           (aont-encode-file-to-wp fname))
-       (error (err)
-         (capi:display-message "Huh?" #| "Error: ~A" err |#))
-       ))
+     (send tolstoy-files-encoder (capi:drop-object-get-object drop-object pane :filename-list)))
     ))
 
 #+:MSWINDOWS
@@ -178,23 +197,16 @@ THE SOFTWARE.
                           (setf (capi:drop-object-drop-effect drop-object) :copy)))
     (:drop
      (setf (capi:drop-object-drop-effect drop-object) :copy)
-     (handler-case
-         (dolist (fname (capi:drop-object-get-object drop-object pane :filename-list))
-           (aont-decode-file-from-wp fname))
-       (error (err)
-         (capi:display-message "Huh?" #| "Error: ~A" err |#))
-       ))
+     (send tolstoy-files-decoder (capi:drop-object-get-object drop-object pane :filename-list)))
     ))
-
 
 (defun do-enc/dec-file (item intf)
   (declare (ignore intf))
-  (handler-case
-      (case item
-        (:encode-file (aont-encode-files-to-wp nil))
-        (:decode-file (aont-decode-files-from-wp nil)))
-    (error (err)
-      (capi:display-message "Huh?" #| "Error: ~A" err |#))
+  (case item
+    (:encode-file
+     (send tolstoy-files-encoder nil))
+    (:decode-file
+     (send tolstoy-files-decoder nil))
     ))
 
 (defun do-menu-item (item intf)
@@ -228,19 +240,6 @@ THE SOFTWARE.
     ;; (assert *public-keys*)
     intf))
 
-(defun show-error (err)
-  (capi:display-message "Error: ~A" err))
-
-(defun do-with-handled-error (fn)
-  (handler-case
-      (funcall fn)
-    (error (err)
-      (show-error err))))
-
-(defmacro with-handled-error (&body body)
-  `(do-with-handled-error (lambda ()
-                            ,@body)))
-
 (deflex tolstoy-encoder
   (α (cust intf txt)
     (with-handled-error
@@ -256,18 +255,17 @@ THE SOFTWARE.
 
 (deflex text-displayer
   (α (intf txt)
-    (capi:execute-with-interface
-     intf
-     (lambda ()
-       (with-handled-error
-        (let ((snip  "---------- SNIP HERE --------------"))
-          (setf (capi:editor-pane-text (msg-text-pane intf))
-                (format nil "~A~%~A~%~A~%"
-                        snip txt snip))
-          (do-menu-item :select-all intf)
-          ;; (do-menu-item :copy intf)
-          )))
-     )))
+    (let* ((snip  "---------- SNIP HERE --------------")
+           (ftxt  (format nil "~A~%~A~%~A~%"
+                          snip txt snip)))
+      (capi:execute-with-interface
+       intf
+       (lambda ()
+         (setf (capi:editor-pane-text (msg-text-pane intf)) ftxt)
+         (do-menu-item :select-all intf)
+         ;; (do-menu-item :copy intf)
+         ))
+      )))
 
 (defun eol (txt start)
   (and start
@@ -313,7 +311,8 @@ THE SOFTWARE.
 (defun decode-message (x intf)
   (declare (ignore x))
   (with-handled-error
-      (let ((text (capi:editor-pane-text (msg-text-pane intf))))
+      (let* ((edpane (msg-text-pane intf))
+             (text   (capi:editor-pane-text edpane)))
         (when text
           (cond ((zerop (length text))
                  (error "Encoded text needed"))
@@ -322,14 +321,6 @@ THE SOFTWARE.
                    (send tolstoy-decoder text-displayer intf txt)))
                 )))
       ))
-
-#|
-                   (let ((ptext (#| aont-decode-to-string |# aont-decode-from-wp-to-string (select-cryptotext))))
-                     (setf (capi:editor-pane-text (msg-text-pane intf)) ptext)))
-                  ))))
-    (error (err)
-      (capi:display-message "Huh?" #| "Error: ~A" err |#))))
-|#
 
 #|
 To: william@acudora.com

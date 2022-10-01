@@ -79,7 +79,7 @@
           )))))
 
 (defmacro with-single-thread (&body body)
-  `(let ((*send* 'stsend))
+  `(let ((*send* #'stsend))
      ,@body))
 
 (defun call-actor (ac &rest args)
