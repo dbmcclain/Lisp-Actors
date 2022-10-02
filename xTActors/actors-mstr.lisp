@@ -370,7 +370,8 @@ THE SOFTWARE.
   (mp:funcall-async
    (lambda ()
      ;; we are now running in a known non-Actor thread
-     (call-actor custodian :kill-executives))
+     (call-actor custodian :kill-executives)
+     (setf *send* #'startup-send))
    ))
 
 #|
