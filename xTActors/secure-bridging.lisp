@@ -41,8 +41,13 @@
 
 ;; ------------------------------------------------------
 
+(defvar *actors-node* nil)
+
 (defun actors-skey ()
-  (read-from-string (lw:environment-variable "ActorsNode")))
+  (or *actors-node*
+      (setf *actors-node* (with-open-file (f "~/.actors-node")
+                            (read f)))
+      ))
 
 (defun actors-pkey ()
   (ed-compress-pt (ed-nth-pt (actors-skey))))

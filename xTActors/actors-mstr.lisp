@@ -105,6 +105,11 @@ THE SOFTWARE.
 
 (hcl:defglobal-variable *central-mail*  (mp:make-mailbox :lock-name "Central Mail"))
 
+(defun send-to-pool (actor &rest msg)
+  ;; the default SEND for foreign threads
+  #F
+  (mp:mailbox-send *central-mail* (msg (the actor actor) msg)))
+
 ;; -----------------------------------------------
 ;; SEND/BECOME
 ;;
@@ -120,11 +125,7 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(hcl:defglobal-variable *nbr-pool*    8)
-
 (defvar *send* nil)
-
-;; ---------------------------------
 
 (defun send (actor &rest msg)
   #F
@@ -140,18 +141,15 @@ THE SOFTWARE.
 (defun send-combined-msg (cust msg1 msg2)
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
 
-;; ---------------------------------
+;; --------------------------------------------------------
 
-(defun send-to-pool (actor &rest msg)
-  ;; the default SEND for foreign threads
-  #F
-  (mp:mailbox-send *central-mail* (msg (the actor actor) msg)))
+(hcl:defglobal-variable *nbr-pool*  8 )
 
 (defun startup-send (actor &rest msg)
   ;; the boot version of SEND
   (setf *central-mail* (mp:make-mailbox :lock-name "Central Mail")
         *send*         #'send-to-pool)
-  (restart-actors-system)
+  (restart-actors-system *nbr-pool*)
   (send* actor msg))
 
 (unless *send*

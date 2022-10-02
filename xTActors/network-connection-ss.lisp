@@ -617,11 +617,9 @@ indicated port number."
 
 (defun reset-global-state ()
   (setf *ws-collection*        nil
-        *aio-accepting-handle* nil)
-  ;; (reset-singleton-actors)
-  )
+        *aio-accepting-handle* nil))
 
-(defun* lw-start-tcp-server _
+(defun* lw-start-actor-server _
   ;; called by Action list with junk args
   ;;
   ;; We need to delay the construction of the system logger till this
@@ -630,8 +628,12 @@ indicated port number."
   (unless *ws-collection*
     (start-tcp-server)))
 
-(defun* lw-reset-actor-system _
-  (terminate-server sink)
+(deflex terminator
+  (α (cust)
+    (terminate-server cust)))
+
+(defun* lw-reset-actor-server _
+  (ask terminator)
   (reset-global-state)
   (print "Actor Server has been shut down."))
 
@@ -639,21 +641,23 @@ indicated port number."
 
   (lw:define-action "Initialize LispWorks Tools"
                     "Start up Actor Server"
-                    'lw-start-tcp-server
-                    :after "Run the environment start up functions"
+                    'lw-start-actor-server
+                    :after "Start up Actor System" ;; "Run the environment start up functions"
                     :once)
 
   (lw:define-action "Save Session Before"
                     "Stop Actor Server"
-                    'lw-reset-actor-system)
+                    'lw-reset-actor-server
+                    :before "Stop Actor System")
 
   (lw:define-action "Save Session After"
                     "Restart Actor Server"
-                    'lw-start-tcp-server)
+                    'lw-start-actor-server
+                    :after "Restart Actor System")
   )
 
 (defun com.ral.actors:start ()
-  (lw-start-tcp-server))
+  (lw-start-actor-server))
 
 #| ;; for manual loading mode
 (unless *ws-collection*
