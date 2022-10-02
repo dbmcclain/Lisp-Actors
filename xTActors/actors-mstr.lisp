@@ -125,35 +125,31 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defvar *send* nil)
+(hcl:defglobal-variable *nbr-pool*  8 )
+
+(defmacro send* (actor &rest msg)
+  `(apply #'send ,actor ,@msg))
+
+(defvar *send*
+  (progn
+    (defun startup-send (actor &rest msg)
+      ;; the boot version of SEND
+      (setf *central-mail* (mp:make-mailbox :lock-name "Central Mail")
+            *send*         #'send-to-pool)
+      (restart-actors-system *nbr-pool*)
+      (send* actor msg))
+    #'startup-send))
 
 (defun send (actor &rest msg)
   #F
   (when (actor-p actor)
     (apply *send* actor msg)))
   
-(defmacro send* (actor &rest msg)
-  `(apply #'send ,actor ,@msg))
-
 (defun repeat-send (actor)
   (send* actor self-msg))
 
 (defun send-combined-msg (cust msg1 msg2)
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
-
-;; --------------------------------------------------------
-
-(hcl:defglobal-variable *nbr-pool*  8 )
-
-(defun startup-send (actor &rest msg)
-  ;; the boot version of SEND
-  (setf *central-mail* (mp:make-mailbox :lock-name "Central Mail")
-        *send*         #'send-to-pool)
-  (restart-actors-system *nbr-pool*)
-  (send* actor msg))
-
-(unless *send*
-  (setf *send* #'startup-send))
 
 ;; ---------------------------------------
 
@@ -479,11 +475,10 @@ THE SOFTWARE.
   )
 
 #| ;; for manual loading mode...
-(unless *evt-threads*
-  (if (mp:get-current-process)
-      (lw-start-actors)
-    ;; else
-    (pushnew '("Start Actors" () lw-start-actors) mp:*initial-processes*
-             :key #'third)))
-
+(if (mp:get-current-process)
+    (unless (running-actors-p)
+      (lw-start-actors))
+  ;; else
+  (pushnew '("Start Actors" () lw-start-actors) mp:*initial-processes*
+           :key #'third))
 |#
