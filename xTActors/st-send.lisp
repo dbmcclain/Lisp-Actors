@@ -38,7 +38,8 @@
 ;;       BLOCKING-SERIALIZER, that overcomes many of these issues. But
 ;;       beware that it uses locking with CALL-ACTOR. And so if its
 ;;       guarded Actor is not just an edge Actor, and might produce
-;;       feedback loops on itself, then this could lead to deadlocks.
+;;       feedback loops on itself, then this would lead to a deadlock
+;;       in single-threaded situations.
 ;;
 ;;
 (in-package :com.ral.actors.base)

@@ -338,9 +338,10 @@ THE SOFTWARE.
   ;;
   ;; ... the only way to reach us, in that case, is via CALL-ACTOR.
   ;;
-  ;; Be cautious never to use this on a service that might send back
-  ;; to itself, either directly or indirectly. That will produce a
-  ;; deadlock. That's why I stated to be used on edge Actors!
+  ;; Be cautious never to use this from a single-thread context, on a
+  ;; service that might send back to itself, either directly or
+  ;; indirectly. That will produce a deadlock. That's why I stated to
+  ;; be used on edge Actors!
   ;;
   (create (blocking-serializer-beh service)))
         
