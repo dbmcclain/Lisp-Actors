@@ -401,57 +401,12 @@ THE SOFTWARE.
         ))))
 |#
 
-;; -----------------------------------------
-;; Serializer Gateway - service must always respond to a customer
-;;
-
-(defun serializer-beh (service)
-   ;; initial non-busy state
-   (alambda
-    ((cust . msg)
-     (let ((tag  (tag self)))
-       (send* service tag msg)
-       (become (busy-serializer-beh
-                service tag cust +emptyq+))
-       ))))
-
-(defun busy-serializer-beh (service tag in-cust queue)
-  (alambda
-   ((atag . ans) when (eql atag tag)
-    (send* in-cust ans)
-    (if (emptyq? queue)
-        (become (serializer-beh service))
-      (multiple-value-bind (next-req new-queue) (popq queue)
-        (destructuring-bind (next-cust . next-msg) next-req
-          (let ((new-tag (tag self)))
-            (send* service new-tag next-msg)
-            (become (busy-serializer-beh
-                     service new-tag next-cust new-queue))
-            )))
-      ))
-
-   (msg
-    (become (busy-serializer-beh
-             service tag in-cust
-             (addq queue msg))
-            ))
-   ))
-
-(defun serializer (service)
-  (create (serializer-beh service)))
-
-(defun serializer-sink (service)
-  ;; Turn a service into a sink. Service must accept a cust argument,
-  ;; and always send a response to cust - even though it appears to be
-  ;; a sink from the caller's perspective.
-  (label (serializer service) sink))
-
 ;; ----------------------------------------------------------------
 ;; System start-up and shut-down.
 ;;
 
 (defun custodian-beh (&optional (count 0) threads)
-  ;; Custodian holds the list of parallel dispatcher threads
+  ;; Custodian holds the list of parallel Actor dispatcher threads
   (alambda
    ((cust :add-executive id)
     (send cust :ok)
@@ -464,49 +419,70 @@ THE SOFTWARE.
         (become (custodian-beh id (cons new-thread threads)))
         )))
    
-  ((cust :ensure-executives n)
-   (if (< (length threads) n)
-       (let ((me  self)
-             (msg *current-message*))
-         (β _
-             (send self β :add-executive (1+ count))
-           (send* me msg)))
-     ;; else
-     (send cust :ok)))
+   ((cust :ensure-executives n)
+    (if (< (length threads) n)
+        (let ((me  self)
+              (msg *current-message*))
+          (β _
+              (send self β :add-executive (1+ count))
+            (send* me msg)))
+      ;; else
+      (send cust :ok)))
+     
+   ((cust :add-executives n)
+    (send self cust :ensure-executives (+ (length threads) n)))
+     
+   ((cust :kill-executives)
+    ;; Users should not send this message directly -- use function
+    ;; KILL-ACTORS-SYSTEM from a non-Actor thread. Only works properly
+    ;; when called by a non-Actor thread using a single-thread direct
+    ;; dispatcher, as with CALL-ACTOR.
+    (become (custodian-beh 0 nil))
+    (send cust :ok)
+    (let* ((my-thread     (mp:get-current-process))
+           (other-threads (remove my-thread threads)))
+      (map nil #'mp:process-terminate other-threads)
+      (when (find my-thread threads)
+        ;; this will cancel pending SEND/BECOME...
+        (mp:current-process-kill))
+      ))
+     
+   ((cust :get-threads)
+    (send cust threads))
 
-  ((cust :add-executives n)
-   (send self cust :ensure-executives (+ (length threads) n)))
-  
-  ((cust :kill-executives)
-   ;; Users should not send this message directly -- use function
-   ;; KILL-ACTORS-SYSTEM from a non-Actor thread. Only works properly
-   ;; when called by a non-Actor thread using a single-thread direct
-   ;; dispatcher, as with CALL-ACTOR.
-   (become (custodian-beh 0 nil))
-   (send cust :ok)
-   (let* ((my-thread     (mp:get-current-process))
-          (other-threads (remove my-thread threads)))
-     (map nil #'mp:process-terminate other-threads)
-     (when (find my-thread threads)
-       ;; this will cancel pending SEND/BECOME...
-       (mp:current-process-kill))
-     ))
-  
-  ((cust :get-threads)
-   (send cust threads))
+   (_
+    (send cust :ok)) ;; to clear the SERIALIZER gate
+   ))
 
-  (_
-   (send cust :ok)) ;; to clear the SERIALIZER
-))
+(defun blocking-serializer-beh (service)
+  (let ((lock (mp:make-lock)))
+    (lambda (cust &rest msg)
+      (mp:with-lock (lock)
+        (send* cust (multiple-value-list (apply #'call-actor service msg))))
+      )))
 
+(defun blocking-serializer (service)
+  ;; To be used on Actor services that live at the edge, managing a
+  ;; shared resource, and that may need to run even if the Actors
+  ;; system is not currently running.
+  ;;
+  ;; ... the only way to reach us, in that case, is via CALL-ACTOR.
+  ;;
+  ;; Be cautious never to use this on a service that might send back
+  ;; to itself, either directly or indirectly. That will produce a
+  ;; deadlock. That's why I stated to be used on edge Actors!
+  ;;
+  (create (blocking-serializer-beh service)))
+        
 (deflex custodian
-  (serializer (create (custodian-beh))))
+  (blocking-serializer (create (custodian-beh))))
 
 ;; --------------------------------------------------------------
 ;; User-level Functions
 
 (defun running-actors-p ()
-  (call-actor custodian :get-threads))
+  (or self
+      (call-actor custodian :get-threads)))
 
 (defun add-executives (n)
   (send custodian sink :add-executives n))
@@ -518,10 +494,13 @@ THE SOFTWARE.
 
 (defun kill-actors-system ()
   ;; The FUNCALL-ASYNC assures that this will work, even if called
-  ;; from an Actor thread. Of course that will also cause the Actor to
-  ;; commit suicide...
-  (mp:funcall-async (lambda ()
-                      (call-actor custodian :kill-executives))))
+  ;; from an Actor thread. Of course, that will also cause the Actor
+  ;; (and all others) to be killed.
+  (mp:funcall-async
+   (lambda ()
+     ;; we are now running in a known non-Actor thread
+     (call-actor custodian :kill-executives))
+   ))
 
 #|
 (kill-actors-system)

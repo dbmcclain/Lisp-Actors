@@ -442,6 +442,51 @@
   ;; emergency use back door
   (send ret ser))
 |#
+;; -----------------------------------------
+;; Serializer Gateway - service must always respond to a customer
+;;
+
+(defun serializer-beh (service)
+   ;; initial non-busy state
+   (alambda
+    ((cust . msg)
+     (let ((tag  (tag self)))
+       (send* service tag msg)
+       (become (busy-serializer-beh
+                service tag cust +emptyq+))
+       ))))
+
+(defun busy-serializer-beh (service tag in-cust queue)
+  (alambda
+   ((atag . ans) when (eql atag tag)
+    (send* in-cust ans)
+    (if (emptyq? queue)
+        (become (serializer-beh service))
+      (multiple-value-bind (next-req new-queue) (popq queue)
+        (destructuring-bind (next-cust . next-msg) next-req
+          (let ((new-tag (tag self)))
+            (send* service new-tag next-msg)
+            (become (busy-serializer-beh
+                     service new-tag next-cust new-queue))
+            )))
+      ))
+
+   (msg
+    (become (busy-serializer-beh
+             service tag in-cust
+             (addq queue msg))
+            ))
+   ))
+
+(defun serializer (service)
+  (create (serializer-beh service)))
+
+(defun serializer-sink (service)
+  ;; Turn a service into a sink. Service must accept a cust argument,
+  ;; and always send a response to cust - even though it appears to be
+  ;; a sink from the caller's perspective.
+  (label (serializer service) sink))
+
 ;; --------------------------------------
 
 (defun timing-beh (dut)

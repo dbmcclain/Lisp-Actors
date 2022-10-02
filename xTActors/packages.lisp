@@ -106,6 +106,7 @@ THE SOFTWARE.
    #:stsend
    #:with-single-thread
    #:call-actor
+   #:*NO-ANSWER*
    
    #:self
    #:self-beh
@@ -128,8 +129,7 @@ THE SOFTWARE.
    #:sink
    #:const
    #:with-printer
-   ;; #:with-ticket
-   ;; #:ticketed-perform
+
    #:println
    #:writeln
    #:fmt-println
@@ -148,12 +148,10 @@ THE SOFTWARE.
    #:tag
    #:ser
    #:par
-   ;; #:scheduled-message
-   ;; #:schedule-after
+
    #:serializer
-   #:serializer-beh
    #:serializer-sink
-   #:unblock-serializer
+   #:blocking-serializer
    #:timing
    #:sequenced-delivery
    #:prune-self
