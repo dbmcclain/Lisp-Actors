@@ -73,6 +73,11 @@ THE SOFTWARE.
 
 (deflex sink  nil)
 
+(defun is-pure-sink? (actor)
+  ;; used by networking code to avoid sending useless data
+  (or (null actor)
+      (eq (actor-beh actor) #'lw:do-nothing)))
+
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
 
@@ -395,12 +400,6 @@ THE SOFTWARE.
                         )))))
         ))))
 |#
-;; ---------------------------------------------------
-
-(defun is-pure-sink? (actor)
-  ;; used by networking code to avoid sending useless data
-  (or (null actor)
-      (eq (actor-beh actor) #'lw:do-nothing)))
 
 ;; -----------------------------------------
 ;; Serializer Gateway - service must always respond to a customer
