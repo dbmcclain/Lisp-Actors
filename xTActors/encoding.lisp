@@ -113,22 +113,22 @@
 
 (defun printer ()
   ;; prints the message and forwards to cust
-  (serializer (tee println)))
+  (tee println))
 
 (defun writer ()
   ;; prints the message and forwards to cust
-  (serializer (tee writeln)))
+  (tee writeln))
 
 (defun logger ()
   ;; provides a log output as the message is passed along
-  (serializer (actor (cust &rest msg)
-                (send* logger cust msg)
-                (send* cust msg))))
+  (actor (cust &rest msg)
+    (send* logger cust msg)
+    (send* cust msg)))
 
 (defun marker (&rest txt)
-  (serializer (actor (cust &rest msg)
-                (send* println txt)
-                (send* cust msg))))
+  (actor (cust &rest msg)
+    (send* println txt)
+    (send* cust msg)))
 
 (defun marshal-encoder ()
   (actor (cust &rest args)
@@ -698,7 +698,7 @@
 ;; Construct a Chunk Monitor pointed toward original customer, and
 ;; surround the portion of the systolic encoding pipeline, from just
 ;; past the CHUNKER, to the end of the pipeline. The original customer
-;; is called only after all chunks of data have finished writing to
+;; is notified only after all chunks of data have finished writing to
 ;; I/O.
 
 (defun chunk-monitor-beh (mycust)
@@ -719,14 +719,23 @@
   (lambda (&rest msg)
     (match msg
       ((_ :chunk . _)
-       (send* msg))
+       (let ((newct (1- remct)))
+         (cond ((plusp newct)
+                (become (pending-monitor-beh mycust (1- remct)))
+                (send* msg))
+               (t
+                (error "Illogical pipeline behavior"))
+               )))
+                
 
       ((:ok)
        (let ((new-remct (1- remct)))
-         (if (zerop new-remct)
-             (send mycust :ok)
-           (become (pending-monitor-beh mycust new-remct)))
-         ))
+         (cond ((zerop new-remct)
+                (send mycust :ok)
+                (become chunk-monitor-beh mycust))
+               (t
+                (become (pending-monitor-beh mycust new-remct)))
+               )))
       )))
 
 (defun worried-chunk-monitor-beh (mycust okcnt)

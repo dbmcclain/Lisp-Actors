@@ -242,7 +242,13 @@
       (when pair
         (send* (local-service-handler (cdr pair)) msg)
         (when (ephem-service-p (cdr pair))
-          (become (local-services-beh (remove pair svcs) encryptor decryptor)))
+          ;; possibly counterintuitive... if we have traffic on this
+          ;; ephemeral connection, keep it alive a bit longer in case
+          ;; it gets reused. Removal only removes one copy of the
+          ;; pairing in the services list. Since a removal has already
+          ;; been scheduled, we insert an extra one for it to work
+          ;; against.
+          (become (local-services-beh (cons pair svcs) encryptor decryptor)))
         )))
 
    ;; -------------------------------------------------------------------
