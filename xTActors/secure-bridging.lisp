@@ -248,7 +248,8 @@
           ;; pairing in the services list. Since a removal has already
           ;; been scheduled, we insert an extra one for it to work
           ;; against.
-          (become (local-services-beh (cons pair svcs) encryptor decryptor)))
+          (become (local-services-beh (cons pair svcs) encryptor decryptor))
+          (send-after *default-ephemeral-ttl* self sink :remove-service (car pair)))
         )))
 
    ;; -------------------------------------------------------------------
