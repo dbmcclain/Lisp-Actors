@@ -201,37 +201,22 @@
 ;; If supplier Actors really need to furnish a CONSP result then they
 ;; should wrap that as a list containing the CONSP. JOIN will unwrap.
 
-(defun join-data (dat1 dat2)
-  (cond ((consp dat1)
-         (cond ((consp dat2)
-                (append dat1 dat2))
-               (t
-                (append dat1 (list dat2)))
-               ))
-        (t
-         (cond ((consp dat2)
-                (cons dat1 dat2))
-               (t
-                (list dat1 dat2))
-               ))
-        ))
-
 (defun join-beh (cust lbl1)
   ;; Join a pair of two possible messages into one response. One of the
   ;; incoming messages will be labeled lbl1, while the other has
   ;; another label. There are only two possible incoming incoming
   ;; messages, because in use, our Actor is ephemeral and anonymous. So no
   ;; other incoming messages are possible.
-  (lambda (lbl msg)
-    (cond ((eq lbl lbl1)
-           (become (lambda (_ msg2)
+  (lambda (lbl &rest msg)
+    (cond ((eql lbl lbl1)
+           (become (lambda (_ &rest msg2)
                      (declare (ignore _))
-                     (send cust (join-data msg msg2)))
+                     (send* cust (append msg msg2)))
                    ))
           (t ;; could only be lbl2
-             (become (lambda (_ msg1)
+             (become (lambda (_ &rest msg1)
                        (declare (ignore _))
-                       (send cust (join-data msg1 msg)))
+                       (send* cust (append msg1 msg)))
                      ))
           )))
 
@@ -239,6 +224,12 @@
   ;; Accept two message lists, lreq and rreq, sending lreq to left,
   ;; and rreq to right, collecting combined results into one ordered
   ;; response.
+  ;;
+  ;; Each service, left and right, should expect a customer and a
+  ;; single argument for their messages. The outer customer for this
+  ;; FORK should expect any number of results, i.e., (&rest ans).
+  ;; C.f., JOIN-BEH above. Services, left and right, are free to send
+  ;; any number of items in their results.
   (actor (cust lreq rreq)
     (letrec ((join  (create (join-beh cust tag-l)))
              (tag-l (tag join))
