@@ -176,7 +176,8 @@
 
 (defstruct (ephem-service
             (:include local-service)
-            (:constructor ephem-service (handler))))
+            (:constructor ephem-service (handler &optional (ttl *default-ephemeral-ttl*))))
+  ttl)
 
 ;; -------------------------------------------------------------------
 
@@ -189,7 +190,7 @@
       (send cust id)))
 
    ((cust :add-ephemeral-client-with-id id actor ttl)
-    (let ((new-svcs (acons id (ephem-service actor) svcs)))
+    (let ((new-svcs (acons id (ephem-service actor ttl) svcs)))
       (become (local-services-beh new-svcs encryptor decryptor))
       (send cust id)
       (when ttl
@@ -249,7 +250,7 @@
           ;; been scheduled, we insert an extra one for it to work
           ;; against.
           (become (local-services-beh (cons pair svcs) encryptor decryptor))
-          (send-after *default-ephemeral-ttl* self sink :remove-service (car pair)))
+          (send-after (ephem-service-ttl (cdr pair)) self sink :remove-service (car pair)))
         )))
 
    ;; -------------------------------------------------------------------
