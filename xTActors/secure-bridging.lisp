@@ -112,15 +112,15 @@
 ;; -----------------------------------------------
 ;; Simple Services
 
-(defun make-echo ()
-  (α (cust msg)
-    (send cust msg)))
+(deflex remote-echo
+  (α (cust &rest msg)
+    (send* cust msg)))
 
 (defun cmpfn (&rest args)
   (compile nil `(lambda ()
                   ,@args)))
 
-(defun make-eval ()
+(deflex remote-eval
   (α (cust form)
     (send cust (funcall (cmpfn form)))))
 
@@ -128,8 +128,8 @@
 
 (deflex global-services
   (create (service-list-beh
-           `((:echo . ,(make-echo))
-             (:eval . ,(make-eval)))
+           `((:echo . ,remote-echo)
+             (:eval . ,remote-eval))
            )))
 
 ;; ------------------------------------------------------------
