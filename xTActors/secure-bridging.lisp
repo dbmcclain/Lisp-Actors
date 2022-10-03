@@ -241,17 +241,23 @@
    ((client-id . msg) / (typep client-id 'uuid:uuid)
     (let ((pair (assoc client-id svcs :test #'uuid:uuid=)))
       (when pair
-        (send* (local-service-handler (cdr pair)) msg)
-        (when (ephem-service-p (cdr pair))
-          ;; possibly counterintuitive... if we have traffic on this
-          ;; ephemeral connection, keep it alive a bit longer in case
-          ;; it gets reused. Removal only removes one copy of the
-          ;; pairing in the services list. Since a removal has already
-          ;; been scheduled, we insert an extra one for it to work
-          ;; against.
-          (become (local-services-beh (cons pair svcs) encryptor decryptor))
-          (send-after (ephem-service-ttl (cdr pair)) self sink :remove-service (car pair)))
-        )))
+        (let ((svc (cdr pair)))
+          (send* (local-service-handler svc) msg)
+          (when (ephem-service-p svc)
+            (cond ((ephem-service-ttl svc)
+                   ;; possibly counterintuitive... if we have traffic on this
+                   ;; ephemeral connection, keep it alive a bit longer in case
+                   ;; it gets reused. Removal only removes one copy of the
+                   ;; pairing in the services list. Since a removal has already
+                   ;; been scheduled, we insert an extra one for it to work
+                   ;; against.
+                   (become (local-services-beh (cons pair svcs) encryptor decryptor))
+                   (send-after (ephem-service-ttl svc) self sink :remove-service (car pair)))
+                  (t
+                   ;; no TTL specified, so just remove it
+                   (become (local-services-beh (remove pair svcs :count 1) encryptor decryptor)))
+                  ))
+          ))))
 
    ;; -------------------------------------------------------------------
    ;; encrypted socket delivery -- decryptor decodes the message and
