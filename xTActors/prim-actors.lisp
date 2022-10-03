@@ -195,11 +195,9 @@
 ;; The above FORK/JOIN ran into MULTIPLE-VALUES-LIMIT in a real
 ;; application.
 ;;
-;; So the alternative must have participant Actors supplying single
-;; results with the customer expecting a list argument.
-;;
-;; If supplier Actors really need to furnish a CONSP result then they
-;; should wrap that as a list containing the CONSP. JOIN will unwrap.
+;; So the alternative must have participant Actors accepting a
+;; customer and a single argument. The customers of the FORK should
+;; expect any number of result values.
 
 (defun join-beh (cust lbl1)
   ;; Join a pair of two possible messages into one response. One of the
