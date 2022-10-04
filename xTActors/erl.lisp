@@ -95,7 +95,7 @@
           args))
 
 (defmacro def-erl-beh (name args &rest clauses)
-  ;; first arg must be list of links
+  ;; first arg must be a link or a list of links
   (let ((arg-names (strip-&args args)))
     `(defun ,name ,args
        (alambda
