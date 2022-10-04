@@ -63,6 +63,8 @@ THE SOFTWARE.
    #:tee
    #:tee-beh
    #:fork
+   #:simd
+   #:mimd
    #:actor-nlet
    #:is-pure-sink?
    #:deflex

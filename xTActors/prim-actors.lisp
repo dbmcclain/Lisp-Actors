@@ -236,10 +236,31 @@
       (send right tag-r rreq))
     ))
 
+(defun simd (svc)
+  ;; process an entire list of args in parallel
+  (actor (cust args)
+    (cond ((null args)
+           (send cust))
+          ((atom args)
+           (send svc cust args))
+          ((null (cdr args))
+           (send svc cust (car args)))
+          (t
+           (send (fork svc self) cust (car args) (cdr args)))
+          )))
+
+(defun mimd (&rest svcs)
+  (actor (cust &rest args)
+    (map 'nil (lambda (svc arg)
+                (let ((lbl (label cust svc)))
+                  (send (simd svc) lbl arg)))
+         svcs args)))
+
 (deflex par
   ;; Send same msg to all actors in the lst, running them
   ;; concurrently, and collect the results into one ordered response.
   (α (cust lst msg)
+    ;; cust should expect a (&rest ans)
     (if (null lst)
         (send cust)
       (letrec ((join    (create (join-beh cust tag-car)))
