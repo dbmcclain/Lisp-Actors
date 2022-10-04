@@ -96,29 +96,30 @@
 
 (defmacro def-erl-beh (name args &rest clauses)
   ;; first arg must be a link or a list of links
-  (let ((arg-names (strip-&args args)))
-    `(defun ,name ,args
-       (alambda
-        ((:link-to pid-from)
-         (become (,name (adjoin pid-from (um:mklist ,(car args))) ,@(cdr arg-names))))
-        
-        ((:unlink-from pid-from)
-         (become (,name (remove pid-from (um:mklist ,(car args))) ,@(cdr arg-names))))
-        
-        ,(let ((err-clause (find :error-from clauses :key #'caar)))
-           (cond (err-clause
-                  (setf clauses (remove err-clause clauses))
-                  err-clause)
-                  (t
-                   `((:error-from from err)
-                     (apply #'send-to-all (um:mklist ,(car args)) *current-message*)))
-                  ))
-        
-        (_
-         (erl-exec ,(car args)
-           (match *current-message*
-             ,@clauses)))
-        ))))
+  (lw:with-unique-names (msg)
+    (let ((arg-names (strip-&args args)))
+      `(defun ,name ,args
+         (lambda (&rest ,msg)
+           (erl-exec ,(car args)
+             (match ,msg
+
+               ((:link-to pid-from)
+                (become (,name (adjoin pid-from (um:mklist ,(car args))) ,@(cdr arg-names))))
+               
+               ((:unlink-from pid-from)
+                (become (,name (remove pid-from (um:mklist ,(car args))) ,@(cdr arg-names))))
+               
+               ,(let ((err-clause (find :error-from clauses :key #'caar)))
+                  (cond (err-clause
+                         (setf clauses (remove err-clause clauses))
+                         err-clause)
+                        (t
+                         `((:error-from from err)
+                           (apply #'send-to-all (um:mklist ,(car args)) *current-message*)))
+                        ))
+               ,@clauses)
+             ))
+         ))))
 
 #+:LISPWORKS
 (editor:setup-indent "def-erl-beh" 1)
