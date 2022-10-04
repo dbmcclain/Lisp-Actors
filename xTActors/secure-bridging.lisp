@@ -238,8 +238,8 @@
 
    ;; -------------------------------------------------------------------
    ;; unencrypted socket delivery
-   ((client-id . msg) / (typep client-id 'uuid:uuid)
-    (let ((pair (assoc client-id svcs :test #'uuid:uuid=)))
+   ((service-id . msg) / (typep service-id 'uuid:uuid)
+    (let ((pair (assoc service-id svcs :test #'uuid:uuid=)))
       (when pair
         (let ((svc (cdr pair)))
           (send* (local-service-handler svc) msg)
