@@ -105,13 +105,13 @@
         ((:unlink-from pid-from)
          (become (,name (remove pid-from (um:mklist ,(car args))) ,@(cdr arg-names))))
         
-        ,@(let ((err-clause (find :error-from clauses :key #'caar)))
-            (cond (err-clause
-                   (setf clauses (remove err-clause clauses))
-                   (list err-clause))
+        ,(let ((err-clause (find :error-from clauses :key #'caar)))
+           (cond (err-clause
+                  (setf clauses (remove err-clause clauses))
+                  err-clause)
                   (t
-                   `(((:error-from from err)
-                      (apply #'send-to-all (um:mklist ,(car args)) *current-message*))))
+                   `((:error-from from err)
+                     (apply #'send-to-all (um:mklist ,(car args)) *current-message*)))
                   ))
         
         (_
