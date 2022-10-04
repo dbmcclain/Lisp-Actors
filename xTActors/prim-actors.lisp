@@ -238,6 +238,7 @@
 
 (defun simd (svc)
   ;; process an entire list of args in parallel
+  ;; cust should expect a (&rest ans)
   (actor (cust args)
     (cond ((null args)
            (send cust))

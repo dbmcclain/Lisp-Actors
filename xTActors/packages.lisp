@@ -98,7 +98,8 @@ THE SOFTWARE.
    #:in-this-sponsor
    #:self-sponsor
    
-   #:become   
+   #:become
+   #:abort-beh
    #:send
    #:send*
    #:repeat-send

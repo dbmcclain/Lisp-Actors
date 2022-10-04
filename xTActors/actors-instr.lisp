@@ -174,15 +174,29 @@ THE SOFTWARE.
 
 ;; ---------------------------------------
 
-(defparameter *become*
+(defvar *not-actor*  "Not in an Actor")
+
+(defvar *become*
   (lambda (new-beh)
     (declare (ignore new-beh))
-    (error "not in an Actor")))
-    
+    (error *not-actor*)))
+
 (defun become (new-beh)
   #F
   (check-type new-beh function)
   (funcall *become* new-beh))
+
+
+(defvar *abort-beh*
+  (lambda ()
+    (error *not-actor*)))
+
+(defun abort-beh ()
+  ;; In an Actor, unodes any BECOME and SENDS to this point, but
+  ;; allows Actor to exit normally. In contrast to ERROR action which
+  ;; aborts all BECOME and SENDs and exits immediately. ABORT-BEH
+  ;; allows subsequent SENDs and BECOME to still take effect.
+  (funcall *abort-beh*))
 
 ;; -----------------------------------------------------------------
 ;; Generic RUN for all threads
@@ -221,9 +235,13 @@ THE SOFTWARE.
                (setf sends (msg (the actor actor) msg sends))))
 
            (%become (new-beh)
-             (setf pend-beh new-beh)))
+             (setf pend-beh new-beh))
 
-      (declare (dynamic-extent #'%send #'%become))
+           (%abort-beh ()
+             (setf pend-beh self-beh
+                   sends    nil)))
+
+      (declare (dynamic-extent #'%send #'%become #'%abort-beh))
       
       ;; -------------------------------------------------------
       ;; Think of these global vars as dedicated registers of a
@@ -235,7 +253,8 @@ THE SOFTWARE.
              (*current-message*  nil)
              (*current-behavior* nil)
              (*send*             #'%send)
-             (*become*           #'%become))
+             (*become*           #'%become)
+             (*abort-beh*        #'%abort-beh))
         
         (declare (list *current-message*))
 
