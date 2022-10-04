@@ -37,6 +37,7 @@
 ;; "cause the death of an Actor", then just stop sending it messages.
 ;; Or else have it become SINK.
 ;;
+;; (I don't think Erlang has anything equivalent to our BECOME...)
 
 (defpackage #:com.ral.actors.erl
   (:use #:common-lisp #:com.ral.actors)
@@ -48,7 +49,7 @@
    #:unlink-between
    ))
 
-(in-packave :com.ral.actors.erl)
+(in-package :com.ral.actors.erl)
 
 ;; ---------------------------------------------------------
 
