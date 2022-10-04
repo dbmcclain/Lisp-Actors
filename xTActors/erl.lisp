@@ -57,8 +57,12 @@
   (handler-case
       (funcall fn)
     (error (e)
-      (abort-beh)
-      (send-to-all (um:mklist links) :error-from self e))
+      (cond (links
+             (abort-beh)
+             (send-to-all (um:mklist links) :error-from self e))
+            (t
+             (error e))
+            ))
     ))
 
 (defmacro erl-exec (links &body body)
