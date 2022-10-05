@@ -526,6 +526,12 @@
 ;;
 ;; The purpose of this Actor is to avoid spinning on messages,
 ;; needlessly using CPU cycles.
+#|
+;; PRUNED-BEH suffers from race conditions in a parallel concurrent
+;; Actors system...  Proper behavior in the face of parallel execution
+;; requires that all visible state changes occur behind one BECOME.
+;; Prunable lists fail in this regard, distributing the excision among
+;; several messages.
 
 (def-beh pruned-beh (next cust)
   ((:pruned beh)
@@ -569,7 +575,7 @@
     
 (defun sequenced-delivery ()
   (create (no-pend-beh)))
-
+|#
 ;; --------------------------------------------------
 
 (def-beh suspended-beh (prev-beh tag queue)
