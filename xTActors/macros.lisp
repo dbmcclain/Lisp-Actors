@@ -226,27 +226,57 @@
 
 ;; ---------------------------------------------------
 
-(defun do-with-error-response (cust fn)
-  ;; defined such that we don't lose any debugging context on errors
+(defun do-with-custom-error-response (cust fn-err fn)
+  ;; Defined such that we don't lose any debugging context on errors.
+  ;;
+  ;; Function fn-err takes an error condition as argument and returns
+  ;; the message to be sent back in event of error abort.
+  ;;
+  ;; Function fn is a thunk.
+  ;;
   (let (err)
     (restart-case
-      (handler-bind ((error (lambda (e)
-                              (setf err e))))
-        (funcall fn))
+        (handler-bind ((error (lambda (e)
+                                (setf err e))))
+          (funcall fn))
       (abort ()
         :report "Handle next event, reporting"
         ;; generalized for use by ERL
-        (abort-beh) ;; NOP when not in Actor
-        (send-to-all (um:mklist cust) :error-from self err)))
+        (abort-beh) ;; NOP unless within an Actor
+        (apply #'send-to-all (um:mklist cust) (um:mklist (funcall fn-err err)))
+        ))
     ))
 
-(defmacro with-error-response (cust &body body)
+(defmacro with-custom-error-response ((cust fn-err) &body body)
+  ;; Handler that guarantees a customized message sent back to cust in
+  ;; event of error. This version finds most utility with services
+  ;; invoked by FORK.
+  ;;
+  ;; Function fn-err should accept an error condition arg and compute
+  ;; a response message.
+  ;;
+  ;; Cust can be a single customer or a list of customers.
+  ;;
+  `(do-with-custom-error-response ,cust ,fn-err (lambda () ,@body)))
+
+(defun err-from (e)
+  `(:error-from ,self ,e))
+
+(defmacro with-basic-error-response (cust &body body)
   ;; Handler that guarantees a message sent back to cust in event of
-  ;; error.
-  `(do-with-error-response ,cust (lambda () ,@body)))
+  ;; error. This version finds greatest utility for services guarded
+  ;; behind a SERIALIZER. The Erlang layer also uses this version.
+  ;;
+  ;; Cust can be a single customer or a list of customers.
+  ;;
+  `(with-custom-error-response (,cust #'err-from) ,@body))
 
 #+:LISPWORKS
-(editor:setup-indent "with-error-response" 1)
+(progn
+  (editor:setup-indent "with-basic-error-response" 1)
+  (editor:setup-indent "with-custom-error-response" 1))
+
+;; ---------------------------------------------------
 
 (defmacro def-ser-beh (name args &rest clauses)
   ;; For Actors behind a SERIALIZER, define their behaviors so that,
@@ -259,7 +289,7 @@
   (lw:with-unique-names (cust msg)
     `(defun ,name ,args
        (lambda (,cust &rest ,msg)
-         (with-error-response ,cust
+         (with-basic-error-response ,cust
            (match (cons ,cust ,msg)
              ,@clauses
              (_

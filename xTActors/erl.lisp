@@ -85,7 +85,7 @@
     (let ((arg-names (strip-&args args)))
       `(defun ,name ,args
          (lambda (&rest ,msg)
-           (with-error-response ,(car args)
+           (with-basic-error-response ,(car args)
              (match ,msg
 
                ((:link-to pid-from)

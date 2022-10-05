@@ -156,7 +156,8 @@ THE SOFTWARE.
    #:serializer
    #:serializer-sink
    #:blocking-serializer
-   #:with-error-response
+   #:with-basic-error-response
+   #:with-custom-error-response
    #:def-ser-beh
    #:timing
    #:sequenced-delivery

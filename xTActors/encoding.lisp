@@ -748,7 +748,7 @@
   ;; dest must reply with :OK after writing to I/O
   (serializer
    (α (cust &rest msg)
-     (with-error-response cust
+     (with-basic-error-response cust
        (let ((monitor (chunk-monitor cust)))
          (send* (sink-pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
                            (marshal-compressor)
@@ -783,7 +783,7 @@
   ;; dest must reply with :OK after writing to disk.
   (serializer
    (α (cust &rest msg)
-     (with-error-response cust
+     (with-basic-error-response cust
        (let ((monitor (chunk-monitor cust)))
          (send* (sink-pipe (marshal-encoder)       ;; to get arb msg into bytevec form
                          (marshal-compressor)
