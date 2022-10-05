@@ -227,15 +227,16 @@
 ;; ---------------------------------------------------
 
 (defun do-with-assured-response (cust fn)
-  (handler-case
-      (funcall fn)
-    (error (e)
-      (cond (cust
-             (abort-beh)
-             (send cust :error-from self e))
-            (t
-             (error e))
-            ))
+  ;; defined such that we don't lose any debugging context on errors
+  (let (err)
+    (restart-case
+      (handler-bind ((error (lambda (e)
+                              (setf err e))))
+        (funcall fn))
+      (abort ()
+        :report "Handle next event, reporting"
+        (abort-beh)
+        (send cust :error-from self err)))
     ))
 
 (defmacro with-assured-response (cust &body body)
@@ -275,3 +276,4 @@
 (progn
   (editor:setup-indent "def-ser-beh" 2)
   (editor:setup-indent "def-beh" 2))
+

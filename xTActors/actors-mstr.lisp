@@ -167,8 +167,7 @@ THE SOFTWARE.
 
 
 (defvar *abort-beh*
-  (lambda ()
-    (error *not-actor*)))
+  #'lw:do-nothing)
 
 (defun abort-beh ()
   ;; In an Actor, unodes any BECOME and SENDS to this point, but
