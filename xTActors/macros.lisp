@@ -226,7 +226,7 @@
 
 ;; ---------------------------------------------------
 
-(defun do-with-assured-response (cust fn)
+(defun do-with-error-response (cust fn)
   ;; defined such that we don't lose any debugging context on errors
   (let (err)
     (restart-case
@@ -235,17 +235,18 @@
         (funcall fn))
       (abort ()
         :report "Handle next event, reporting"
-        (abort-beh)
-        (send cust :error-from self err)))
+        ;; generalized for use by ERL
+        (abort-beh) ;; NOP when not in Actor
+        (send-to-all (um:mklist cust) :error-from self err)))
     ))
 
-(defmacro with-assured-response (cust &body body)
+(defmacro with-error-response (cust &body body)
   ;; Handler that guarantees a message sent back to cust in event of
   ;; error.
-  `(do-with-assured-response ,cust (lambda () ,@body)))
+  `(do-with-error-response ,cust (lambda () ,@body)))
 
 #+:LISPWORKS
-(editor:setup-indent "with-assured-response" 1)
+(editor:setup-indent "with-error-response" 1)
 
 (defmacro def-ser-beh (name args &rest clauses)
   ;; For Actors behind a SERIALIZER, define their behaviors so that,
@@ -258,7 +259,7 @@
   (lw:with-unique-names (cust msg)
     `(defun ,name ,args
        (lambda (,cust &rest ,msg)
-         (with-assured-response ,cust
+         (with-error-response ,cust
            (match (cons ,cust ,msg)
              ,@clauses
              (_

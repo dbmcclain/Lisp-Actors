@@ -53,25 +53,6 @@
 
 ;; ---------------------------------------------------------
 
-(defun do-erl-exec (links fn)
-  (handler-case
-      (funcall fn)
-    (error (e)
-      (cond (links
-             (abort-beh)
-             (send-to-all (um:mklist links) :error-from self e))
-            (t
-             (error e))
-            ))
-    ))
-
-(defmacro erl-exec (links &body body)
-  `(do-erl-exec ,links (lambda ()
-                         ,@body)))
-
-#+:LISPWORKS
-(editor:setup-indent "erl-exec" 1)
-
 (defun link (pid-to)
   (send pid-to :link-to self))
 
@@ -104,7 +85,7 @@
     (let ((arg-names (strip-&args args)))
       `(defun ,name ,args
          (lambda (&rest ,msg)
-           (erl-exec ,(car args)
+           (with-error-response ,(car args)
              (match ,msg
 
                ((:link-to pid-from)
