@@ -226,21 +226,22 @@
 
 ;; ---------------------------------------------------
 
+(defun do-with-assured-response (cust fn)
+  (handler-case
+      (funcall fn)
+    (error (e)
+      (cond (cust
+             (abort-beh)
+             (send cust :error-from self e))
+            (t
+             (error e))
+            ))
+    ))
+
 (defmacro with-assured-response (cust &body body)
   ;; Handler that guarantees a message sent back to cust in event of
   ;; error.
-  `(handler-case
-       (funcall (lambda ()
-                  ,@body))
-     (error (e)
-       (let ((cust ,cust))
-         (cond (cust
-                (abort-beh)
-                (send cust :error-from self e))
-               (t
-                (error e))
-               )))
-     ))
+  `(do-with-assured-response ,cust (lambda () ,@body)))
 
 #+:LISPWORKS
 (editor:setup-indent "with-assured-response" 1)
