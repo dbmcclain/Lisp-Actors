@@ -576,6 +576,36 @@
 (defun sequenced-delivery ()
   (create (no-pend-beh)))
 |#
+;; ---------------------------------------------------------
+;; SEQUENCED-DELIVERY
+;;   Provider sends :DELIVER with sequence counter and message
+;;   Consumer sends :READY with customer and sequence counter of desired messaage
+
+(def-beh sequenced-beh (&optional items)
+  ((cust :ready ctr)
+   (let ((msg (assoc ctr items)))
+     (cond (msg
+            (send cust (cdr msg))
+            (become (sequenced-beh (remove msg items))))
+           (t
+            (become (pending-sequenced-beh cust ctr items)))
+           )))
+
+  ((:deliver ctr . msg)
+   (become (sequenced-beh (acons ctr msg items)))))
+
+(def-beh pending-sequenced-beh (cust ctr items)
+  ((:deliver in-ctr . msg)
+   (cond ((eql in-ctr ctr)
+          (send cust msg)
+          (become (sequenced-beh items)))
+         (t
+          (become (pending-sequenced-beh cust ctr (acons in-ctr msg items))))
+         )))
+  
+(defun sequenced-delivery ()
+  (create (sequenced-beh)))
+
 ;; --------------------------------------------------
 
 (def-beh suspended-beh (prev-beh tag queue)

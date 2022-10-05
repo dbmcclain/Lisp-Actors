@@ -159,9 +159,7 @@ THE SOFTWARE.
    #:with-assured-response
    #:def-ser-beh
    #:timing
-   ;; #:sequenced-delivery
-   ;; #:prune-self
-   ;; #:prunable-alambda
+   #:sequenced-delivery
    #:mbox-sender
    #:time-tag
    
@@ -178,8 +176,6 @@ THE SOFTWARE.
    #:time-tag-beh
    #:scheduled-message-beh
    #:timing-beh
-   ;; #:pruned-beh
-   ;; #:pend-beh
    #:mbox-sender-beh
    
    #:subscribe
