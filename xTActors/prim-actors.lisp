@@ -457,20 +457,18 @@
 ;; Serializer Gateway - service must always respond to a customer
 ;;
 
-(defun serializer-beh (service)
+(def-beh serializer-beh (service)
    ;; initial non-busy state
-   (alambda
-    ((cust . msg)
-     (let ((tag  (tag self)))
-       (send* service tag msg)
-       (become (busy-serializer-beh
-                service tag cust +emptyq+))
-       ))))
+   ((cust . msg)
+    (let ((tag  (tag self)))
+      (send* service tag msg)
+      (become (busy-serializer-beh
+               service tag cust +emptyq+))
+      )))
 
-(defun busy-serializer-beh (service tag in-cust queue)
-  (alambda
-   ((atag . ans) when (eql atag tag)
-    (send* in-cust ans)
+(def-beh busy-serializer-beh (service tag in-cust queue)
+  ((atag . ans) when (eql atag tag)
+   (send* in-cust ans)
     (if (emptyq? queue)
         (become (serializer-beh service))
       (multiple-value-bind (next-req new-queue) (popq queue)
@@ -481,13 +479,12 @@
                      service new-tag next-cust new-queue))
             )))
       ))
-
-   (msg
-    (become (busy-serializer-beh
-             service tag in-cust
-             (addq queue msg))
-            ))
-   ))
+  
+  (msg
+   (become (busy-serializer-beh
+            service tag in-cust
+            (addq queue msg))
+           )))
 
 (defun serializer (service)
   (create (serializer-beh service)))
@@ -530,15 +527,13 @@
 ;; The purpose of this Actor is to avoid spinning on messages,
 ;; needlessly using CPU cycles.
 
-(defun pruned-beh (next cust)
-  (alambda
-   ((:pruned beh)
-    (send cust :ok)
-    (become beh))
-   
-   (msg
-    (send* next msg))
-   ))
+(def-beh pruned-beh (next cust)
+  ((:pruned beh)
+   (send cust :ok)
+   (become beh))
+  
+  (msg
+   (send* next msg)))
 
 (defmacro prunable-alambda (&rest clauses)
   (lw:with-unique-names (tmp-next tmp-cust)
@@ -577,16 +572,14 @@
 
 ;; --------------------------------------------------
 
-(defun suspended-beh (prev-beh tag queue)
-  (alambda
-   ((atag) when (eq tag atag)
-    (become prev-beh)
-    (do-queue (item queue)
-      (send* self item)))
-   
-   (msg
-    (become (suspended-beh prev-beh tag (addq queue msg))))
-   ))
+(def-beh suspended-beh (prev-beh tag queue)
+  ((atag) when (eq tag atag)
+   (become prev-beh)
+   (do-queue (item queue)
+     (send* self item)))
+  
+  (msg
+   (become (suspended-beh prev-beh tag (addq queue msg)))))
    
 (defun suspend ()
   ;; To be used only inside of Actor behavior code.

@@ -23,7 +23,6 @@
    #:list-exploder
    #:printer
    #:writer
-   #:logger
    #:marker
    #:marshal-encoder
    #:marshal-decoder

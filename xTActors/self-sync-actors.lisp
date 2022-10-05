@@ -333,40 +333,36 @@
 ;; -----------------------------------------------------------------
 ;; Stream Decoding
 
-(defun stream-decoder-beh (fsm wait-ix queue)
-  (alambda
-   ((:deliver bufix buf)
-    (cond ((eql bufix wait-ix)
-           (send fsm self buf)
-           (become (busy-stream-decoder-beh fsm bufix queue)))
+(def-beh stream-decoder-beh (fsm wait-ix queue)
+  ((:deliver bufix buf)
+   (cond ((eql bufix wait-ix)
+          (send fsm self buf)
+          (become (busy-stream-decoder-beh fsm bufix queue)))
           
-          (t
-           (become (stream-decoder-beh fsm wait-ix (maps:add queue bufix buf))))
-          ))
+         (t
+          (become (stream-decoder-beh fsm wait-ix (maps:add queue bufix buf))))
+         ))
 
-   ((:go-silent)
-    (become (sink-beh)))
-   ))
+  ((:go-silent)
+   (become (sink-beh))))
 
-(defun busy-stream-decoder-beh (fsm bufix queue)
-  (alambda
-   ((:next)
-    (let* ((next-bufix (1+ bufix))
-           (next-buf   (maps:find queue next-bufix)))
-      (cond (next-buf
-             (become (busy-stream-decoder-beh fsm next-bufix (maps:remove queue next-bufix)))
-             (send fsm self next-buf))
+(def-beh busy-stream-decoder-beh (fsm bufix queue)
+  ((:next)
+   (let* ((next-bufix (1+ bufix))
+          (next-buf   (maps:find queue next-bufix)))
+     (cond (next-buf
+            (become (busy-stream-decoder-beh fsm next-bufix (maps:remove queue next-bufix)))
+            (send fsm self next-buf))
             
-            (t
-             (become (stream-decoder-beh fsm next-bufix queue)))
-            )))
+           (t
+            (become (stream-decoder-beh fsm next-bufix queue)))
+           )))
             
-   ((:deliver next-bufix next-buf)
-    (become (busy-stream-decoder-beh fsm bufix (maps:add queue next-bufix next-buf))))
+  ((:deliver next-bufix next-buf)
+   (become (busy-stream-decoder-beh fsm bufix (maps:add queue next-bufix next-buf))))
 
-   ((:go-silent)
-    (become (sink-beh)))
-   ))
+  ((:go-silent)
+   (become (sink-beh))))
 
 (defun stream-decoder (dest)
   ;; Construct an Actor that absorbs chunks of self-sync encoded input

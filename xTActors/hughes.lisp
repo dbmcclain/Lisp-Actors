@@ -161,28 +161,26 @@
 ;; -----------------------------------
 ;; Infinite Sequences
 
-(defun resolved-seq-beh (a next)
-  (alambda
-   ((cust :hd)
-    (send cust a))
-
-   ((cust :tl)
-    (send cust next))
-
-   ((cust :nth n)
-    (cond ((zerop n)
-           (send cust a))
-          (t
-           (send next cust :nth (1- n)))
-          ))
-   
-   ((cust :nthtl n)
-    (cond ((zerop n)
-           (send cust self))
-          (t
-           (send next cust :nthtl (1- n)))
-          ))
-   ))
+(def-beh resolved-seq-beh (a next)
+  ((cust :hd)
+   (send cust a))
+  
+  ((cust :tl)
+   (send cust next))
+  
+  ((cust :nth n)
+   (cond ((zerop n)
+          (send cust a))
+         (t
+          (send next cust :nth (1- n)))
+         ))
+  
+  ((cust :nthtl n)
+   (cond ((zerop n)
+          (send cust self))
+         (t
+          (send next cust :nthtl (1- n)))
+         )))
 
 (defun seq-beh (a next)
   (labels

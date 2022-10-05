@@ -44,38 +44,34 @@
 
 (defconstant +fail+ (list 'rendezvous-failure))
 
-(defun sync-chan-beh ()
-  (alambda
-   ((cust :get)
-    (become (get-waiting-beh cust)))
-   
-   ((sender :put . msg)
-    (become (put-waiting-beh sender msg)))
-   ))
+(def-ser-beh sync-chan-beh ()
+  ((reader :get)
+   (become (get-waiting-beh reader)))
+  
+  ((sender :put . msg)
+   (become (put-waiting-beh sender msg))))
 
-(defun get-waiting-beh (cust)
-  (alambda
-   ((sender :put . msg)
-    (send sender :ok)
-    (send* cust msg)
-    (become (sync-chan-beh)))
+(def-ser-beh get-waiting-beh (reader)
+  ((sender :put . msg)
+   (send sender :ok)
+   (send* reader msg)
+   (become (sync-chan-beh)))
+  
+  ((sender :reset)
+   (send reader +fail+)
+   (send sender :ok))
+   (become (sync-chan-beh)))
 
-   ((:reset)
-    (send cust +fail+)
-    (become (sync-chan-beh)))
-   ))
-
-(defun put-waiting-beh (sender msg)
-  (alambda
-   ((cust :get)
-    (send sender :ok)
-    (send* cust msg)
-    (become (sync-chan-beh)))
-
-   ((:reset)
-    (send sender +fail+)
-    (become (sync-chan-beh)))
-   ))
+(def-ser-beh put-waiting-beh (sender msg)
+  ((reader :get)
+   (send sender :ok)
+   (send* reader msg)
+   (become (sync-chan-beh)))
+  
+  ((reader :reset)
+   (send sender +fail+)
+   (send reader :ok)
+   (become (sync-chan-beh))))
 
 ;; -------------------------------------------------------
 ;; Synchronous Rendezvous Channels

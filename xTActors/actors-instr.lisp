@@ -415,54 +415,49 @@ THE SOFTWARE.
 ;; System start-up and shut-down.
 ;;
 
-(defun custodian-beh (&optional (count 0) threads)
+(def-ser-beh custodian-beh (&optional (count 0) threads)
   ;; Custodian holds the list of parallel Actor dispatcher threads
-  (alambda
-   ((cust :add-executive id)
-    (send cust :ok)
-    (when (< count id)
-      ;; Not Idempotent - so we need to be behind a SERIALIZER.
-      (let ((new-thread (mp:process-run-function
-                         (format nil "Actor Thread #~D" id)
-                         ()
-                         #'run-actors)))
-        (become (custodian-beh id (cons new-thread threads)))
-        )))
+  ((cust :add-executive id)
+   (send cust :ok)
+   (when (< count id)
+     ;; Not Idempotent - so we need to be behind a SERIALIZER.
+     (let ((new-thread (mp:process-run-function
+                        (format nil "Actor Thread #~D" id)
+                        ()
+                        #'run-actors)))
+       (become (custodian-beh id (cons new-thread threads)))
+       )))
    
-   ((cust :ensure-executives n)
-    (if (< (length threads) n)
-        (let ((me  self)
-              (msg *current-message*))
-          (β _
-              (send self β :add-executive (1+ count))
-            (send* me msg)))
-      ;; else
-      (send cust :ok)))
+  ((cust :ensure-executives n)
+   (if (< (length threads) n)
+       (let ((me  self)
+             (msg *current-message*))
+         (β _
+             (send self β :add-executive (1+ count))
+           (send* me msg)))
+     ;; else
+     (send cust :ok)))
      
-   ((cust :add-executives n)
-    (send self cust :ensure-executives (+ (length threads) n)))
+  ((cust :add-executives n)
+   (send self cust :ensure-executives (+ (length threads) n)))
      
-   ((cust :kill-executives)
-    ;; Users should not send this message directly -- use function
-    ;; KILL-ACTORS-SYSTEM from a non-Actor thread. Only works properly
-    ;; when called by a non-Actor thread using a single-thread direct
-    ;; dispatcher, as with CALL-ACTOR.
-    (become (custodian-beh 0 nil))
-    (send cust :ok)
-    (let* ((my-thread     (mp:get-current-process))
-           (other-threads (remove my-thread threads)))
-      (map nil #'mp:process-terminate other-threads)
-      (when (find my-thread threads)
-        ;; this will cancel pending SEND/BECOME...
-        (mp:current-process-kill))
-      ))
+  ((cust :kill-executives)
+   ;; Users should not send this message directly -- use function
+   ;; KILL-ACTORS-SYSTEM from a non-Actor thread. Only works properly
+   ;; when called by a non-Actor thread using a single-thread direct
+   ;; dispatcher, as with CALL-ACTOR.
+   (become (custodian-beh 0 nil))
+   (send cust :ok)
+   (let* ((my-thread     (mp:get-current-process))
+          (other-threads (remove my-thread threads)))
+     (map nil #'mp:process-terminate other-threads)
+     (when (find my-thread threads)
+       ;; this will cancel pending SEND/BECOME...
+       (mp:current-process-kill))
+     ))
      
-   ((cust :get-threads)
-    (send cust threads))
-
-   (_
-    (send cust :ok)) ;; to clear the SERIALIZER gate
-   ))
+  ((cust :get-threads)
+   (send cust threads)))
 
 (defun blocking-serializer-beh (service)
   (let ((lock (mp:make-lock)))

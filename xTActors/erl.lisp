@@ -126,7 +126,7 @@
          ))))
 
 #+:LISPWORKS
-(editor:setup-indent "def-erl-beh" 1)
+(editor:setup-indent "def-erl-beh" 2)
 
 #|
 (def-erl-beh doit-beh (links arg1 arg2)

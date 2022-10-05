@@ -226,3 +226,51 @@
 
 ;; ---------------------------------------------------
 
+(defmacro with-assured-response (cust &body body)
+  ;; Handler that guarantees a message sent back to cust in event of
+  ;; error.
+  `(handler-case
+       (funcall (lambda ()
+                  ,@body))
+     (error (e)
+       (let ((cust ,cust))
+         (cond (cust
+                (abort-beh)
+                (send cust :error-from self e))
+               (t
+                (error e))
+               )))
+     ))
+
+#+:LISPWORKS
+(editor:setup-indent "with-assured-response" 1)
+
+(defmacro def-ser-beh (name args &rest clauses)
+  ;; For Actors behind a SERIALIZER, define their behaviors so that,
+  ;; in any event, a response is sent to cust. The cust must be the
+  ;; first arg of any message. Use ALAMBDA-style handler clauses.
+  ;;
+  ;; It becomes *Your* responsibilty to eventually respond to cust
+  ;; from each of your handler clauses.
+  ;;
+  (lw:with-unique-names (cust msg)
+    `(defun ,name ,args
+       (lambda (,cust &rest ,msg)
+         (with-assured-response ,cust
+           (match (cons ,cust ,msg)
+             ,@clauses
+             (_
+              (send ,cust :unhandled-message ,msg))
+             ))
+         ))
+    ))
+
+(defmacro def-beh (name args &rest clauses)
+  `(defun ,name ,args
+     (alambda
+      ,@clauses)))
+
+#+:LISPWORKS
+(progn
+  (editor:setup-indent "def-ser-beh" 2)
+  (editor:setup-indent "def-beh" 2))

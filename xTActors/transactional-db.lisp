@@ -97,148 +97,140 @@
   (α (cust cmd db)
     (send cust sink cmd (remove-unstorable db))))
 
-(defun trans-gate-beh (saver db)
-  (alambda
-   ;; -------------------
-   ;; general entry for external clients
-   ((cust :req)
-    (send cust db))
+(def-beh trans-gate-beh (saver db)
+  ;; -------------------
+  ;; general entry for external clients
+  ((cust :req)
+   (send cust db))
 
-   ;; -------------------
-   ;; commit after update
-   ((cust :commit old-db new-db retry)
-    (cond ((eql old-db db) ;; make sure we have correct version
-           (cond ((eql new-db db)
-                  ;; no real change
-                  (send cust new-db))
+  ;; -------------------
+  ;; commit after update
+  ((cust :commit old-db new-db retry)
+   (cond ((eql old-db db) ;; make sure we have correct version
+          (cond ((eql new-db db)
+                 ;; no real change
+                 (send cust new-db))
                  
-                 (t
-                  ;; changed db, so commit new
-                  (let ((versioned-db (maps:add new-db 'version (uuid:make-v1-uuid))))
-                    ;; version key is actually 'com.ral.actors.kv-database::version
-                    (become (trans-gate-beh saver versioned-db))
-                    (send-after 10 self saver versioned-db)
-                    (send cust versioned-db)))
-                 ))
+                (t
+                 ;; changed db, so commit new
+                 (let ((versioned-db (maps:add new-db 'version (uuid:make-v1-uuid))))
+                   ;; version key is actually 'com.ral.actors.kv-database::version
+                   (become (trans-gate-beh saver versioned-db))
+                   (send-after 10 self saver versioned-db)
+                   (send cust versioned-db)))
+                ))
           
-          (t
-           ;; had wrong version for old-db
-           (send retry db))
-          ))
+         (t
+          ;; had wrong version for old-db
+          (send retry db))
+         ))
      
-   ;; -------------------
-   ;; We are the only one that knows the identity of saver, so this
-   ;; can't be forged by malicious clients. Also, a-db will only
-   ;; eql db if there have been no updates within the last 10 sec.
-   ((a-tag a-db) / (and (eql a-tag saver)
-                        (eql a-db  db))
-    (send trimmer saver :save-log db))
+  ;; -------------------
+  ;; We are the only one that knows the identity of saver, so this
+  ;; can't be forged by malicious clients. Also, a-db will only
+  ;; eql db if there have been no updates within the last 10 sec.
+  ((a-tag a-db) / (and (eql a-tag saver)
+                       (eql a-db  db))
+   (send trimmer saver :save-log db))
    
-   ;; -------------------
-   (('maint-full-save)
-    (send trimmer saver :full-save db))
-   ))
+  ;; -------------------
+  (('maint-full-save)
+   (send trimmer saver :full-save db)))
 
-(defun nascent-database-beh (tag saver msgs)
-  (alambda
-   ;; -------------------
-   ;; We are the only one that knows the identity of tag and saver. So
-   ;; this message could not have come from anywhere except saver
-   ;; itself.
-   ((a-tag :opened db) / (eql a-tag tag)
-    (become (trans-gate-beh saver db))
-    ;; now open for business, resubmit pending client requests
-    (dolist (msg msgs)
-      (send* self msg)))
+(def-beh nascent-database-beh (tag saver msgs)
+  ;; -------------------
+  ;; We are the only one that knows the identity of tag and saver. So
+  ;; this message could not have come from anywhere except saver
+  ;; itself.
+  ((a-tag :opened db) / (eql a-tag tag)
+   (become (trans-gate-beh saver db))
+   ;; now open for business, resubmit pending client requests
+   (dolist (msg msgs)
+     (send* self msg)))
    
-   ;; -------------------
-   ;; accumulate client requests until we open for business
-   (msg
-    (become (nascent-database-beh tag saver (cons msg msgs) )))
-   ))
+  ;; -------------------
+  ;; accumulate client requests until we open for business
+  (msg
+   (become (nascent-database-beh tag saver (cons msg msgs) ))))
 
 ;; -----------------------------------------------------------
 
 (defconstant +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
-(defun save-database-beh (path last-db)
-  (alambda
-   ;; -------------------
-   ((cust :full-save db)
-    (become (save-database-beh path db))
-    (full-save path db)
-    (send cust :ok))
+(def-beh save-database-beh (path last-db)
+  ;; -------------------
+  ((cust :full-save db)
+   (become (save-database-beh path db))
+   (full-save path db)
+   (send cust :ok))
 
-   ;; -------------------
-   ;; The db gateway is the only one that knows saver's identity.
-   ;; Don't bother doing anything unless the db has changed.
-   ((cust :save-log new-db)
-    (let ((new-ver  (maps:find new-db  'version))
-          (prev-ver (maps:find last-db 'version)))
-      (when (uuid:uuid-time< prev-ver new-ver)
-        (handler-case
-            (with-open-file (f path
-                               :direction         :output
-                               :if-exists         :append
-                               :if-does-not-exist :error
-                               :element-type      '(unsigned-byte 8))
-              (let ((delta (get-diffs last-db new-db)))
-                (loenc:serialize delta f
-                                 :self-sync t)
-                ))
-          (error ()
-            ;; expected possible error due to file not existing yet
-            (full-save path new-db)))
-        (become (save-database-beh path new-db)))
-    (send cust :ok)))
-   ))
+  ;; -------------------
+  ;; The db gateway is the only one that knows saver's identity.
+  ;; Don't bother doing anything unless the db has changed.
+  ((cust :save-log new-db)
+   (let ((new-ver  (maps:find new-db  'version))
+         (prev-ver (maps:find last-db 'version)))
+     (when (uuid:uuid-time< prev-ver new-ver)
+       (handler-case
+           (with-open-file (f path
+                              :direction         :output
+                              :if-exists         :append
+                              :if-does-not-exist :error
+                              :element-type      '(unsigned-byte 8))
+             (let ((delta (get-diffs last-db new-db)))
+               (loenc:serialize delta f
+                                :self-sync t)
+               ))
+         (error ()
+           ;; expected possible error due to file not existing yet
+           (full-save path new-db)))
+       (become (save-database-beh path new-db)))
+     (send cust :ok))))
 
-(defun unopened-database-beh ()
-  (alambda
-   ;; -------------------
-   ;; message from kick-off starter routine
-   ((cust :open db-path)
-    (let ((db (maps:empty)))
-      (handler-case
-        (with-open-file (f db-path
-                           :direction         :input
-                           :if-does-not-exist :error
-                           :element-type      '(unsigned-byte 8))
-          (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
-                 (id   (make-array (length sig)
-                                   :element-type '(unsigned-byte 8)
-                                   :initial-element 0)))
-            (read-sequence id f)
-            (cond ((equalp id sig)
-                   (setf db (loenc:deserialize f))
-                   (let ((reader (self-sync:make-reader f)))
-                     (handler-case
-                         (loop for ans = (loenc:deserialize f
-                                                            :self-sync  reader)
-                               until (eq ans f)
-                               do
-                                 (destructuring-bind (removals additions changes) ans
-                                   (dolist (key removals)
-                                     (maps:removef db key))
-                                   (dolist (pair additions)
-                                     (destructuring-bind (key . val) pair
-                                       (maps:addf db key val)))
-                                   (dolist (pair changes)
-                                     (destructuring-bind (key . val) pair
-                                       (maps:addf db key val)))
-                                   ))
-                       (error (exn)
-                         (send println (um:format-error exn)))
-                       )))
-                  (t
-                   (error "Not a db file"))
-                  )))
-        (error ()
-          (setf db (maps:add (maps:empty) 'version (uuid:make-v1-uuid)))
-          (full-save db-path db)))
-      (become (save-database-beh db-path db))
-      (send cust :opened db)))
-   ))
+(def-ser-beh unopened-database-beh ()
+  ;; -------------------
+  ;; message from kick-off starter routine
+  ((cust :open db-path)
+   (let ((db (maps:empty)))
+     (handler-case
+         (with-open-file (f db-path
+                            :direction         :input
+                            :if-does-not-exist :error
+                            :element-type      '(unsigned-byte 8))
+           (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
+                  (id   (make-array (length sig)
+                                    :element-type '(unsigned-byte 8)
+                                    :initial-element 0)))
+             (read-sequence id f)
+             (cond ((equalp id sig)
+                    (setf db (loenc:deserialize f))
+                    (let ((reader (self-sync:make-reader f)))
+                      (handler-case
+                          (loop for ans = (loenc:deserialize f
+                                                             :self-sync  reader)
+                                until (eq ans f)
+                                do
+                                  (destructuring-bind (removals additions changes) ans
+                                    (dolist (key removals)
+                                      (maps:removef db key))
+                                    (dolist (pair additions)
+                                      (destructuring-bind (key . val) pair
+                                        (maps:addf db key val)))
+                                    (dolist (pair changes)
+                                      (destructuring-bind (key . val) pair
+                                        (maps:addf db key val)))
+                                    ))
+                        (error (exn)
+                          (send println (um:format-error exn)))
+                        )))
+                   (t
+                    (error "Not a db file"))
+                   )))
+       (error ()
+         (setf db (maps:add (maps:empty) 'version (uuid:make-v1-uuid)))
+         (full-save db-path db)))
+     (become (save-database-beh db-path db))
+     (send cust :opened db))))
 
 (defun full-save (db-path db)
   (ensure-directories-exist db-path)

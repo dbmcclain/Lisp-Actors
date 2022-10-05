@@ -84,6 +84,7 @@ THE SOFTWARE.
    #:beta-beh
    #:beta-gen
    #:alambda
+   #:def-beh
 
    #:custodian
    #:running-actors-p
@@ -155,6 +156,8 @@ THE SOFTWARE.
    #:serializer
    #:serializer-sink
    #:blocking-serializer
+   #:with-assured-response
+   #:def-ser-beh
    #:timing
    #:sequenced-delivery
    #:prune-self
