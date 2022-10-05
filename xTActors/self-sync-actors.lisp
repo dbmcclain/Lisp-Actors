@@ -337,29 +337,27 @@
   ((:deliver bufix buf)
    (cond ((eql bufix wait-ix)
           (send fsm self buf)
-          (become (busy-stream-decoder-beh fsm bufix queue)))
+          (become (busy-stream-decoder-beh fsm (1+ bufix) queue)))
           
          (t
-          (become (stream-decoder-beh fsm wait-ix (maps:add queue bufix buf))))
+          (become (stream-decoder-beh fsm wait-ix (acons bufix buf queue))))
          ))
 
   ((:go-silent)
    (become (sink-beh))))
 
-(def-beh busy-stream-decoder-beh (fsm bufix queue)
+(def-beh busy-stream-decoder-beh (fsm wait-ix queue)
   ((:next)
-   (let* ((next-bufix (1+ bufix))
-          (next-buf   (maps:find queue next-bufix)))
-     (cond (next-buf
-            (become (busy-stream-decoder-beh fsm next-bufix (maps:remove queue next-bufix)))
-            (send fsm self next-buf))
-            
+   (let ((pair (assoc wait-ix queue)))
+     (cond (pair
+            (send fsm self (cdr pair))
+            (become (busy-stream-decoder-beh fsm (1+ wait-ix) (remove pair queue))))
            (t
-            (become (stream-decoder-beh fsm next-bufix queue)))
+            (become (stream-decoder-beh fsm wait-ix queue)))
            )))
-            
-  ((:deliver next-bufix next-buf)
-   (become (busy-stream-decoder-beh fsm bufix (maps:add queue next-bufix next-buf))))
+
+  ((:deliver bufix buf)
+   (become (busy-stream-decoder-beh fsm wait-ix (acons bufix buf queue))))
 
   ((:go-silent)
    (become (sink-beh))))
@@ -374,7 +372,7 @@
   ;; starting from 1.
   ;;
   (let ((fsm (decoder-fsm dest)))
-    (create (stream-decoder-beh fsm 1 (maps:empty)))
+    (create (stream-decoder-beh fsm 1 nil))
     ))
 
 (defun decode (vec)
