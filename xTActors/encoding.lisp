@@ -349,6 +349,36 @@
 
 ;; -------------------------------------------------------------------
 
+#||#
+(defun encr/decr (ekey nonce bytevec)
+  (let* ((key     (vec (hash/256 :ENCR ekey))) ;; ekey is a hash/256
+         (nonce   (or nonce
+                      (vec (hash/256 :NONCE (uuid:make-v1-uuid) key))))
+         (nel     (length bytevec))
+         (cipher  (ironclad:make-cipher :aes
+                                        :key  key
+                                        :mode :ecb
+                                        :initialization-vector nonce)))
+    (loop for ix from 0 below nel by 16 do
+            (let ((wrk (vec (vec-repr:bevn ix 16)))
+                  (end (min nel (+ ix 16))))
+              (map-into wrk #'logxor nonce wrk)
+              (ironclad:encrypt-in-place cipher wrk)
+              (map-into wrk #'logxor wrk (subseq bytevec ix end))
+              (replace bytevec wrk :start1 ix :end1 end)
+              ))
+    nonce))
+  
+(defun encryptor (ekey)
+  (actor (cust bytevec)
+    (let ((nonce (encr/decr ekey nil bytevec)))
+      (send cust nonce bytevec))))
+
+(defun decryptor (ekey)
+  (actor (cust seq bytevec)
+    (encr/decr ekey seq bytevec)
+    (send cust bytevec)))
+#|
 (defun encryptor (ekey)
   ;; Takes a bytevec and produces an encrypted bytevec.
   ;;
@@ -440,7 +470,7 @@
         (send cust bytvec)
         )))
    ))
-
+|#
 ;; --------------------------------------
 
 (defun authentication (ekey)
@@ -452,9 +482,7 @@
 (defun check-authentication (ekey)
   (labels ((auth-beh (seqs)
              (alambda
-              ((cust seq emsg auth) / (and (integerp seq)
-                                           (not (sets:mem seqs seq))
-                                           (check-auth ekey seq emsg auth))
+              ((cust seq emsg auth)
                ;; seq is integer (bignum)
                ;;
                ;; With our 3-way authentication scheme, spoofing attacks from 3rd
@@ -482,11 +510,15 @@
                ;; There is no way to predict the next connection keying, nor be
                ;; able to read a historical record of encryptions.
                ;;
-               (send cust seq emsg)
-               (become (auth-beh (sets:add seqs seq))))
-              )))
+               (let ((nseq (int seq)))
+                 (unless (sets:mem seqs nseq)
+                   (when (check-auth ekey seq emsg auth)
+                     (send cust seq emsg)
+                     (become (auth-beh (sets:add seqs nseq)))
+                     )))
+               ))))
     (create (auth-beh (sets:empty)))
-   ))
+    ))
 
 ;; --------------------------------------
 

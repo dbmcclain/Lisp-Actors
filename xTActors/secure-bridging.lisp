@@ -261,7 +261,8 @@
   ;; sends back to us as an unencrypted socket delivery (see previous
   ;; clause)
   ((seq ctxt auth) / (and decryptor
-                          (integerp seq)
+                          ;; (integerp seq)
+                          (typep seq  'ub8-vector)
                           (typep ctxt 'ub8-vector)
                           (typep auth 'ub8-vector))
    (send decryptor seq ctxt auth)))
