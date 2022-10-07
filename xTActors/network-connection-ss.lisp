@@ -56,18 +56,18 @@
 ;; -------------------------------------------------------------------------
 ;; Socket writer
 ;;
-;;  byte-vec  +-----------+   +------------+    +------------+    +-------------+
-;;     ------>| Discarder |-->| Serializer |<-->| Write Gate |<-->| Phys Writer |
-;;            +-----------+   +------------+    +------------+    +-------------+
+;;  byte-vec  +-----------+   +------------+    +-------------+
+;;     ------>|   Label   |-->| Serializer |<-->| Phys Writer |
+;;            +-----------+   +------------+    +-------------+
 ;;
-;; Discarder acts as a gatekeeper allowing us to shut down the outgoing connection.
-;; The Serializer is to prevent parallel access to the physical socket port.
+;; PhysWriter is the connection to the async output socket port.  The
+;; Serializer is to prevent parallel access to the physical socket
+;; port.  Serializers need a cutomer, even if SINK. Label provides
+;; that SINK.
 ;;
-;; WriteGate observes the results and provides a handshake back to the
-;; serializer. If anything goes wrong, the WriteGate shuts down the
-;; whole connection.
+;; If anything goes wrong, the Phys Writer sends a shutdown signal and
+;; leaves the serializer blocked.
 ;;
-;; PhysWriter is the connection to the async output socket port.
 
 (define-condition send-error (error)
   ())
