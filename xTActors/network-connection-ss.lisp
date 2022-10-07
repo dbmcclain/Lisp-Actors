@@ -123,45 +123,6 @@
                    ))
     writer))
 
-#|
-
-(def-ser-beh write-gate-beh (state ser-gate phys-writer)
-  ((a-tag :fail) / (eql a-tag phys-writer)
-   ;; no reply to serializer, keeps it locked up
-   (send (intf-state-shutdown state)))
-  
-  ((a-tag :ok) / (eql a-tag phys-writer)
-   ;; reply to serializer to prod next message
-   (send ser-gate :ok))
-
-  ((a-tag byte-vec)
-   ;; next message from serializer, its tag is injected as customer.
-   ;; Forward byte-vec to phys-writer, injecting ourself as customer.
-   ;; (send fmt-println "-- send across network ~D --" (length byte-vec))
-   (become (write-gate-beh state a-tag phys-writer))
-   (send phys-writer self byte-vec)))
-
-(def-beh discarder-beh (ser-gate phys-writer)
-  ;; Pass thru byte-vecs until we get a :DISCARD signal
-  ;; Inject SINK as the customer for the Serializer.
-  ((:discard)
-   (send phys-writer :discard)
-   (become (sink-beh)))
-  (msg
-   ;; provide SINK pseudo-customer for SERIALIZER
-   (send* ser-gate sink msg)))
-
-(defun make-writer (state)
-  ;; serializer needs a customer on every message, so it can interpose
-  ;; between senders and the serialized Actor. We inject SINK as the
-  ;; customer on write-messages, which are simply byte vectors and no
-  ;; customer.
-  (let* ((phys-writer   (create (physical-writer-beh state)))
-         (writer        (serializer (create (write-gate-beh state nil phys-writer))))
-         (discarder     (create (discarder-beh writer phys-writer))))
-    discarder))
-|#
-
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
 
