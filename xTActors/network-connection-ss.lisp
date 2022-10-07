@@ -69,44 +69,61 @@
 ;;
 ;; PhysWriter is the connection to the async output socket port.
 
-(def-beh physical-writer-beh (state)
-  ((:discard)
-   (become (sink-beh)))
-  
-  ((cust byte-vec)
-   (with-accessors ((decr-io-count  intf-state-decr-io-count-fn)
-                    (state-io-state intf-state-io-state)
-                    (io-running     intf-state-io-running)
-                    (kill-timer     intf-state-kill-timer)) state
-     ;; (send writeln byte-vec)
-     (let ((me  self))
-       (labels
-           ((finish-fail (io-state)
-              (funcall decr-io-count io-state)
-              (send cust me :fail))
-            (finish-ok (io-state)
-              (send cust me
-                    (if (zerop (funcall decr-io-count io-state))
-                        :fail
-                      :ok)))
-            (write-done (io-state &rest ignored)
-              ;; this is a callback routine, executed in the thread of
-              ;; the async collection
-              (declare (ignore ignored))
-              (cond ((comm:async-io-state-write-status io-state)
-                     (finish-fail io-state))
-                    (t
-                     (finish-ok io-state))
-                    )))
-         (cond
-          ((sys:compare-and-swap (car io-running) 1 2) ;; still running recieve?
-           (comm:async-io-state-write-buffer state-io-state
-                                             byte-vec #'write-done)
-           (send kill-timer :resched))
+(define-condition send-error (error)
+  ())
+
+(defun physical-writer-beh (state supv)
+  (lambda (cust byte-vec)
+    (with-accessors ((decr-io-count  intf-state-decr-io-count-fn)
+                     (state-io-state intf-state-io-state)
+                     (io-running     intf-state-io-running)
+                     (kill-timer     intf-state-kill-timer)) state
+      (labels
+          ;; these functions execute in the thread of the async socket handler
+          ((finish-fail (io-state)
+             ;; socket send failure
+             (funcall decr-io-count io-state)
+             (send supv :fail))
            
-          (t
-           (send cust self :fail))
-          ))))))
+           (finish-ok (io-state)
+             ;; sockeet send was okay
+             (if (zerop (funcall decr-io-count io-state))
+                 (send supv :fail) ;; sockeet reader no longer running
+               (send cust :ok)))
+
+           (write-done (io-state &rest _)
+             ;; this is a callback routine, executed in the thread of
+             ;; the async collection
+             (declare (ignore _))
+             (cond ((comm:async-io-state-write-status io-state)
+                    (finish-fail io-state))
+                   (t
+                    (finish-ok io-state))
+                   )))
+        (cond
+         ((sys:compare-and-swap (car io-running) 1 2) ;; still running recieve?
+          (comm:async-io-state-write-buffer state-io-state
+                                            byte-vec
+                                            #'write-done)
+          (send kill-timer :resched))
+         
+         (t
+          (send supv :fail))
+         )))))
+
+(def-beh supv-beh (state tag)
+  ((sender :fail) / (eql sender tag)
+   (send (intf-state-shutdown state))))
+
+(defun make-writer (state)
+  (actors ((supv   (create (supv-beh state tag)))
+           (tag    (tag supv))
+           (writer (serializer-sink
+                    (create (physical-writer-beh state tag)))
+                   ))
+    writer))
+
+#|
 
 (def-ser-beh write-gate-beh (state ser-gate phys-writer)
   ((a-tag :fail) / (eql a-tag phys-writer)
@@ -143,6 +160,7 @@
          (writer        (serializer (create (write-gate-beh state nil phys-writer))))
          (discarder     (create (discarder-beh writer phys-writer))))
     discarder))
+|#
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity

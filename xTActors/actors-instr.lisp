@@ -66,6 +66,9 @@ THE SOFTWARE.
   ;; busy
   )
 
+(defun %set-beh (actor-dst actor-src)
+  (setf (actor-beh actor-dst) (actor-beh actor-src)))
+
 ;; --------------------------------------
 
 (defun sink-beh ()

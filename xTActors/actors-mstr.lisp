@@ -65,6 +65,9 @@ THE SOFTWARE.
   (check-type fn function)
   (%create fn))
 
+(defun %set-beh (actor-dst actor-src)
+  (setf (actor-beh actor-dst) (actor-beh actor-src)))
+
 ;; --------------------------------------
 
 (defun sink-beh ()

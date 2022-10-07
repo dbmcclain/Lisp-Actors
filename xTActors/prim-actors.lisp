@@ -90,7 +90,7 @@
   ;; Return an Actor that represents the future value. Send that value
   ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST).
   ;; Read as "send the future result to cust".
-  (letrec ((fut (create (future-wait-beh tag)))
+  (actors ((fut (create (future-wait-beh tag)))
            (tag (tag fut)))
     (send* actor tag msg)
     fut))
@@ -171,7 +171,7 @@
   ;; and rreq to right, collecting combined results into one ordered
   ;; response.
   (actor (cust lreq rreq)
-    (letrec ((join  (create (join-beh cust tag-l)))
+    (actors ((join  (create (join-beh cust tag-l)))
              (tag-l (tag join))
              (tag-r (tag join)))
       (send* left tag-l lreq)
@@ -184,7 +184,7 @@
   (α (cust lst &rest msg)
     (if (null lst)
         (send cust)
-      (letrec ((join    (create (join-beh cust tag-car)))
+      (actors ((join    (create (join-beh cust tag-car)))
                (tag-car (tag join))
                (tag-cdr (tag join)))
         (send* (car lst) tag-car msg)
@@ -229,7 +229,7 @@
   ;; C.f., JOIN-BEH above. Services, left and right, are free to send
   ;; any number of items in their results.
   (actor (cust lreq rreq)
-    (letrec ((join  (create (join-beh cust tag-l)))
+    (actors ((join  (create (join-beh cust tag-l)))
              (tag-l (tag join))
              (tag-r (tag join)))
       (send left tag-l lreq)
@@ -264,7 +264,7 @@
     ;; cust should expect a (&rest ans)
     (if (null lst)
         (send cust)
-      (letrec ((join    (create (join-beh cust tag-car)))
+      (actors ((join    (create (join-beh cust tag-car)))
                (tag-car (tag join))
                (tag-cdr (tag join)))
         (send (car lst) tag-car msg)
@@ -409,7 +409,7 @@
 ;; Safe Serializer - serializer with unblocking channel and timeout
 #|
 (defun new-pend-serializer-beh (svc ret timeout cust waitq msg)
-  (letrec ((gate  (once ret))
+  (actors ((gate  (once ret))
            (tmout (tag gate))
            (reply (tag gate)))
     (send-after timeout tmout)
@@ -445,7 +445,7 @@
    ))
 
 (defun serializer (svc &optional (timeout 10))
-  (letrec ((ret  (tag gate))
+  (actors ((ret  (tag gate))
            (gate (create (no-pend-serializer-beh svc ret timeout))))
     (values gate ret)))
 
@@ -740,7 +740,7 @@
 
 (defun with-timeout (timeout action on-timeout)
   (actor (cust &rest msg)
-    (letrec ((tag-ok      (tag gate))
+    (actors ((tag-ok      (tag gate))
              (tag-timeout (tag gate))
              (arbiter     (create
                            (alambda

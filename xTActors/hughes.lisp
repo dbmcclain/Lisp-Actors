@@ -108,7 +108,7 @@
            (send again n x))
           ))))
 
-(letrec ((next      (create (next-guess-beh good-enuf)))
+(actors ((next      (create (next-guess-beh good-enuf)))
          (good-enuf (create (abserr-beh 0 1e-8 println next))))
   (send next 10001 1))
 

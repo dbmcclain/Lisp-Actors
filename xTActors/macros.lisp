@@ -13,6 +13,14 @@
 (editor:setup-indent "actor" 1)
 
 ;; ----------------------------------------------
+;; Like LETREC, but for Actor defs, cross-referential
+
+(defmacro actors (bindings &body body)
+  `(let ,(mapcar #`(,(first a1) (create)) bindings)
+     ,@(mapcar #`(%set-beh ,(first a1) ,(second a1)) bindings)
+     ,@body))
+
+;; ----------------------------------------------
 
 (defun parse-list-pat (pat)
   ;; Convert a proper list to itself and return LIST as the pattern
