@@ -72,24 +72,28 @@
 (define-condition send-error (error)
   ())
 
-(defun physical-writer-beh (state supv)
+(defun physical-writer-beh (state)
   (lambda (cust byte-vec)
     (with-accessors ((decr-io-count  intf-state-decr-io-count-fn)
                      (state-io-state intf-state-io-state)
                      (io-running     intf-state-io-running)
-                     (kill-timer     intf-state-kill-timer)) state
+                     (kill-timer     intf-state-kill-timer)
+                     (shutdown       intf-state-shutdown)) state
       (labels
           ;; these functions execute in the thread of the async socket handler
-          ((finish-fail (io-state)
+          ((terminate-connection ()
+             (send shutdown))
+           
+           (finish-fail (io-state)
              ;; socket send failure
              (funcall decr-io-count io-state)
-             (send supv :fail))
+             (terminate-connection))  ;; leaves serializer locked up
            
            (finish-ok (io-state)
              ;; sockeet send was okay
              (if (zerop (funcall decr-io-count io-state))
-                 (send supv :fail) ;; sockeet reader no longer running
-               (send cust :ok)))
+                 (terminate-connection) ;; socket reader no longer running
+               (send cust :ok)))  ;; unblock serializer
 
            (write-done (io-state &rest _)
              ;; this is a callback routine, executed in the thread of
@@ -108,20 +112,12 @@
           (send kill-timer :resched))
          
          (t
-          (send supv :fail))
+          (terminate-connection))
          )))))
 
-(def-beh supv-beh (state tag)
-  ((sender :fail) / (eql sender tag)
-   (send (intf-state-shutdown state))))
-
 (defun make-writer (state)
-  (actors ((supv   (create (supv-beh state tag)))
-           (tag    (tag supv))
-           (writer (serializer-sink
-                    (create (physical-writer-beh state tag)))
-                   ))
-    writer))
+  (serializer-sink
+   (create (physical-writer-beh state))))
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
