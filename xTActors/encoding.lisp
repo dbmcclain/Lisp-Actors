@@ -349,11 +349,17 @@
 
 ;; -------------------------------------------------------------------
 
-#||#
 (defun encr/decr (ekey nonce bytevec)
-  (let* ((key     (vec (hash/256 :ENCR ekey))) ;; ekey is a hash/256
-         (nonce   (or nonce
-                      (vec (hash/256 :NONCE (uuid:make-v1-uuid) key))))
+  ;; Using AES/256-CTR Encryption
+  ;; Each chunk of data gets its own nonce and encryption key
+  ;; ekey is hash/256, nonce is NIL or ub8-vect, bytevec is ub8-vect
+  (let* ((nonce   (or nonce
+                      (vec (hash/256 :NONCE
+                                     (vec (uuid:make-v1-uuid))
+                                     (vec ekey)))))
+         (key     (vec (hash/256 :ENCR
+                                 (vec ekey)
+                                 nonce)))
          (nel     (length bytevec))
          (cipher  (ironclad:make-cipher :aes
                                         :key  key
@@ -378,6 +384,7 @@
   (actor (cust seq bytevec)
     (encr/decr ekey seq bytevec)
     (send cust bytevec)))
+
 #|
 (defun encryptor (ekey)
   ;; Takes a bytevec and produces an encrypted bytevec.
@@ -481,9 +488,8 @@
 
 (defun check-authentication (ekey)
   (labels ((auth-beh (seqs)
-             (alambda
-              ((cust seq emsg auth)
-               ;; seq is integer (bignum)
+             (lambda (cust seq emsg auth)
+               ;; seq, emsg, auth are u8 vectors.
                ;;
                ;; With our 3-way authentication scheme, spoofing attacks from 3rd
                ;; parties becomes infeasible. But we still need to avoid replay
@@ -498,9 +504,9 @@
                ;;
                ;; 3-way authentication keying allows for complete repudiation
                ;; since it only requires knowledge of another's public key to
-               ;; make up a valid-appearing but fictitious session log.
+               ;; make up a valid-appearing yet fictitious session log.
                ;;
-               ;; Yet we have complete forward security since every session uses
+               ;; And we have complete forward security since every session uses
                ;; a different random iniitial ekey, and every transmission uses a
                ;; new random roving seq. Hence, changing encryption and
                ;; authentication keying - which can only be known to the pair of
@@ -516,7 +522,7 @@
                      (send cust seq emsg)
                      (become (auth-beh (sets:add seqs nseq)))
                      )))
-               ))))
+               )))
     (create (auth-beh (sets:empty)))
     ))
 
@@ -1198,7 +1204,34 @@
           (plt:tvscl 'dimg dimg)
           )))
     ))
+(tst)
 
+(defun tst ()
+  ;; Testing QOE - Quality of Encryption - looking for pattern
+  ;; irregularities in the encrypted output. There are none to be
+  ;; found. See QOE.pdf.
+  (let* ((img (make-array '(512 512)
+                          :element-type '(unsigned-byte 8)
+                          :initial-element 0)))
+    (loop for ix from 250 below 350 do
+          (loop for iy from 200 below 300 do
+                (setf (aref img ix iy) #xff)))
+    (plt:window 'img :width 512 :height 512)
+    (plt:tvscl 'img img)
+    (let ((ekey (hash/256 :again)))
+      (beta (seq enc)
+          (send (pipe (marshal-encoder)
+                      (encryptor ekey))
+                beta img)
+        (declare (ignore seq))
+        (let ((dimg (make-array (array-dimensions img)
+                                :element-type (array-element-type img)
+                                :displaced-to enc
+                                :displaced-index-offset 0)))
+          (plt:window 'dimg :width 512 :height 512)
+          (plt:tvscl 'dimg dimg)
+          )))
+    ))
 (tst)
 
 (defun tst ()
