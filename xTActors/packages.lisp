@@ -287,7 +287,6 @@ THE SOFTWARE.
    #:wr)
   (:export
    #:*current-actor*
-   #:do-with-error-response
    ))
 
 (defpackage #:com.ral.actors.macros

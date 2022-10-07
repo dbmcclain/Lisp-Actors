@@ -286,7 +286,7 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------
 ;; Error Handling
 
-(defun do-with-error-response (cust fn &optional fn-err)
+(defun do-with-error-response (cust fn fn-err)
   ;; Defined such that we don't lose any debugging context on errors.
   ;;
   ;; Function fn-err takes an error condition as argument and returns
@@ -294,20 +294,81 @@ THE SOFTWARE.
   ;;
   ;; Function fn is a thunk.
   ;;
-  (labels ((err-from (e)
-             `(:error-from ,self ,e)))
-    (let (err)
-      (restart-case
-          (handler-bind ((error (lambda (e)
-                                  (setf err e))))
-            (funcall fn))
-        (abort ()
-          :report "Handle next event, reporting"
-          ;; generalized for use by ERL
-          (abort-beh) ;; NOP unless within an Actor
-          (apply #'send-to-all (um:mklist cust) (um:mklist (funcall (or fn-err #'err-from) err)))
-          ))
-      )))
+  (let (err)
+    (restart-case
+        (handler-bind ((error (lambda (e)
+                                (setf err e))))
+          (funcall fn))
+      (abort ()
+        :report "Handle next event, reporting"
+        ;; generalized for use by ERL
+        (abort-beh) ;; NOP unless within an Actor
+        (apply #'send-to-all (um:mklist cust) (um:mklist (funcall fn-err err)))
+        ))
+    ))
+
+(defun err-from (e)
+  `(:error-from ,self ,e))
+
+(defmacro with-error-response ((cust &optional (fn-err '#'err-from)) &body body)
+  ;; Handler-wrapper that guarantees a customized message sent back to
+  ;; cust in event of error.
+  ;;
+  ;; Function fn-err should accept an error condition arg and compute
+  ;; a response message.
+  ;;
+  ;; Cust can be a single customer or a list of customers.
+  ;;
+  ;; The default fn-err is most useful for Actors guarded by a
+  ;; SERIALIZER. Failing to respond to the SERIALIZER-generated
+  ;; customer will block all future uses of the SERIALIZER.
+  ;;
+  ;; A customized (user specified fn-err) version finds most utility
+  ;; with services invoked by FORK, where you need to send only a
+  ;; single response item to the customer. Failing to respond to the
+  ;; FORK-generated customer will tie up the JOIN response forever.
+  ;; (In some cases, maybe that is what you want.)
+  ;;
+  ;; A links Actor, or list of Actors, used as the cust here, allows
+  ;; for Erlang-like supervisory Actors to be notified of unexpected
+  ;; conditions.
+  ;;
+  `(do-with-error-response ,cust (lambda () ,@body) ,fn-err))
+
+#+:LISPWORKS
+(editor:setup-indent "with-error-response" 1)
+
+;; ---------------------------------------------------
+
+(defmacro def-ser-beh (name args &rest clauses)
+  ;; For Actors behind a SERIALIZER, define their behaviors so that,
+  ;; in any event, a response is sent to cust. The cust must be the
+  ;; first arg of any message. Use ALAMBDA-style handler clauses.
+  ;;
+  ;; It becomes *Your* responsibilty to eventually respond to cust
+  ;; from each of your handler clauses.
+  ;;
+  (lw:with-unique-names (cust msg)
+    `(defun ,name ,args
+       (lambda (,cust &rest ,msg)
+         (with-error-response (,cust)
+           (match (cons ,cust ,msg)
+             ,@clauses
+             (_
+              (send ,cust :unhandled-message ,msg))
+             ))
+         ))
+    ))
+
+(defmacro def-beh (name args &rest clauses)
+  `(defun ,name ,args
+     (alambda
+      ,@clauses)))
+
+#+:LISPWORKS
+(progn
+  (editor:setup-indent "def-ser-beh" 2)
+  (editor:setup-indent "def-beh" 2))
 
 ;; ----------------------------------------------------------------
 ;; System start-up and shut-down.
