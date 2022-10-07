@@ -294,7 +294,7 @@ THE SOFTWARE.
   ;;
   ;; Function fn is a thunk.
   ;;
-  (labels ((err-from (x)
+  (labels ((err-from (e)
              `(:error-from ,self ,e)))
     (let (err)
       (restart-case
