@@ -411,6 +411,32 @@ THE SOFTWARE.
 |#
 
 ;; ----------------------------------------------------------------
+;; Error Handling
+
+(defun do-with-error-response (cust fn &optional fn-err)
+  ;; Defined such that we don't lose any debugging context on errors.
+  ;;
+  ;; Function fn-err takes an error condition as argument and returns
+  ;; the message to be sent back in event of error abort.
+  ;;
+  ;; Function fn is a thunk.
+  ;;
+  (labels ((err-from (x)
+             `(:error-from ,self ,e)))
+    (let (err)
+      (restart-case
+          (handler-bind ((error (lambda (e)
+                                  (setf err e))))
+            (funcall fn))
+        (abort ()
+          :report "Handle next event, reporting"
+          ;; generalized for use by ERL
+          (abort-beh) ;; NOP unless within an Actor
+          (apply #'send-to-all (um:mklist cust) (um:mklist (funcall (or fn-err #'err-from) err)))
+          ))
+      )))
+
+;; ----------------------------------------------------------------
 ;; System start-up and shut-down.
 ;;
 

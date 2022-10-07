@@ -156,8 +156,7 @@ THE SOFTWARE.
    #:serializer
    #:serializer-sink
    #:blocking-serializer
-   #:with-basic-error-response
-   #:with-custom-error-response
+   #:with-error-response
    #:def-ser-beh
    #:timing
    #:sequenced-delivery
@@ -266,9 +265,6 @@ THE SOFTWARE.
    #:unschedule-timer
    ))
 
-(defpackage #:com.ral.actors.macros
-  (:use #:common-lisp #:com.ral.actors #:def*))
-
 (defpackage #:com.ral.actors.base
   (:use #:common-lisp #:com.ral.actors
    #-:LISPWORKS #:ansi-timer
@@ -291,7 +287,15 @@ THE SOFTWARE.
    #:wr)
   (:export
    #:*current-actor*
+   #:do-with-error-response
    ))
+
+(defpackage #:com.ral.actors.macros
+  (:use
+   #:common-lisp
+   #:com.ral.actors
+   #:com.ral.actors.base
+   #:def*))
 
 (defpackage com.ral.actors.kv-database
   (:use #:cl #:def* #:com.ral.actors)
