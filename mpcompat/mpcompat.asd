@@ -30,7 +30,7 @@ THE SOFTWARE.
   :components  ((:file "packages")
                 #+:LISPWORKS  (:file "mp-compat-lw")
                 #+:LISPWORKS5 (:file "mp-compat-lw5")
-                #+(OR :LISPWORKS6 :LISPWORKS7) (:file "mp-compat-lw6")
+                #+(OR :LISPWORKS6 :LISPWORKS7 :LISPWORKS8) (:file "mp-compat-lw6")
                 #+:ALLEGRO    (:file "mp-compat-allegro")
                 #+:SBCL       (:file "mp-compat-sbcl")
                 #+:CLOZURE    (:file "mp-compat-clozure")

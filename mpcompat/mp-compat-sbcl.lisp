@@ -41,7 +41,10 @@ THE SOFTWARE.
 ;; --------------------------------------------------
 ;; Compatibility Layer
 
-(defun current-process ()
+(defmacro defglobal (name val)
+  `(sb-ext:defglobal ,name ,val))
+
+(defun get-current-process ()
   "Get the current Lisp process."
   sb-thread:*current-thread*)
 
@@ -80,6 +83,9 @@ THE SOFTWARE.
 (defun process-kill (proc)
   "Kill the indicated Lisp process."
   (sb-thread:terminate-thread proc))
+
+(defun current-process-kill ()
+  (sb-thread:abort-thread))
 
 ;; --------------------------------------------------------------------------
 
@@ -147,10 +153,10 @@ THE SOFTWARE.
 
 ;; --------------------------------------------------------------------------
 
-(defun make-mailbox (&key size)
+(defun make-mailbox (&key size lock-name)
   "Make a Lisp mailbox."
-  (declare (ignorable size))
-  (sb-concurrency:make-mailbox))
+  (declare (ignorable size lock-name))
+  (sb-concurrency:make-mailbox :name lock-name))
 
 ;; --------------------------------------------------------------------------
 
@@ -210,4 +216,12 @@ A null timeout means wait forever."
   `(sb-ext:CAS ,place ,old ,new))
 
 
+(defun funcall-async (fn &rest args)
+  (sb-thread:make-thread fn :arguments args))
+
+(defun make-timer (fn &rest args)
+  (sb-ext:make-timer (lambda () (apply fn args))))
+
+(defun schedule-timer-relative (timer dt)
+  (sb-ext:schedule-timer timer dt))
 

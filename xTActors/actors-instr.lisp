@@ -31,6 +31,9 @@ THE SOFTWARE.
 
 (in-package #:com.ral.actors.base)
 
+(um:eval-always
+  (hcl:add-package-local-nickname :mpc  :mp-compatibility))
+
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))
 
@@ -107,7 +110,7 @@ THE SOFTWARE.
   (actor (create)  :type actor)
   (args  nil       :type list))
 
-(defvar *central-mail*  (mp:make-mailbox))
+(defvar *central-mail*  (mpc:make-mailbox))
 (defvar *recording*  nil)
 (defvar *recorded*   nil)
 
@@ -158,7 +161,7 @@ THE SOFTWARE.
   (progn
     (defun startup-send (actor &rest msg)
       ;; the boot version of SEND
-      (setf *central-mail* (mp:make-mailbox :lock-name "Central Mail")
+      (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
             *send*         #'send-to-pool)
       (restart-actors-system *nbr-pool*)
       (send* actor msg))
@@ -279,7 +282,7 @@ THE SOFTWARE.
                   ;; stack useful only for a microcoding assist. Our
                   ;; depth is never more than one Actor at a time,
                   ;; before trampolining back here.
-                  (setf evt      (mp:mailbox-read *central-mail*)
+                  (setf evt      (mpc:mailbox-read *central-mail*)
                                  ;; (mbox-recv *central-mail*)
                                  )
                   (tagbody
@@ -298,11 +301,11 @@ THE SOFTWARE.
                               (sys:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh))
                           (when *recording*
                             (record-msg self when-exec
-                                        (mp:process-name mp:*current-process*)
+                                        (mpc:process-name mpc:*current-process*)
                                         self-beh
                                         evt
                                         (not (eq self-beh pend-beh))))
-                          (cond ((mp:mailbox-empty-p *central-mail*)
+                          (cond ((mpc:mailbox-empty-p *central-mail*)
                                  ;; No messages await, we are front of queue,
                                  ;; so grab first message for ourself.
                                  ;; This is the most common case at runtime,
@@ -315,7 +318,7 @@ THE SOFTWARE.
                                            do
                                            (setf sends (msg-link (the msg msg)))
                                            (setf (msg-link (the msg msg)) self-beh)
-                                           (mp:mailbox-send *central-mail* msg))
+                                           (mpc:mailbox-send *central-mail* msg))
                                    (go next)))
 
                                 (t
@@ -325,7 +328,7 @@ THE SOFTWARE.
                                        do
                                          (setf sends (msg-link (the msg msg)))
                                          (setf (msg-link (the msg msg)) self-beh)
-                                         (mp:mailbox-send *central-mail* msg)
+                                         (mpc:mailbox-send *central-mail* msg)
                                          ;; (mbox-send *central-mail* msg)
                                          ))
                                 ))
@@ -390,7 +393,7 @@ THE SOFTWARE.
                   ;; stack useful only for a microcoding assist. Our
                   ;; depth is never more than one Actor at a time,
                   ;; before trampolining back here.
-                  (setf evt      (mp:mailbox-read *central-mail*)
+                  (setf evt      (mpc:mailbox-read *central-mail*)
                         self     (msg-actor (the msg evt))
                         self-msg (msg-args (the msg evt))
                         pend-beh (actor-beh (the actor self))
@@ -403,12 +406,12 @@ THE SOFTWARE.
                                while msg
                                do
                                  (setf sends (msg-link (the msg msg)))
-                                 (mp:mailbox-send *central-mail* msg))
+                                 (mpc:mailbox-send *central-mail* msg))
                          (setf (actor-beh (the actor self))  pend-beh
                                (actor-busy (the actor self)) nil))
 
                         (t
-                         (mp:mailbox-send *central-mail* evt))
+                         (mpc:mailbox-send *central-mail* evt))
                         )))))
         ))))
 |#
@@ -510,7 +513,7 @@ THE SOFTWARE.
    (send cust :ok)
    (when (< count id)
      ;; Not Idempotent - so we need to be behind a SERIALIZER.
-     (let ((new-thread (mp:process-run-function
+     (let ((new-thread (mpc:process-run-function
                         (format nil "Actor Thread #~D" id)
                         ()
                         #'run-actors)))
@@ -537,21 +540,21 @@ THE SOFTWARE.
    ;; dispatcher, as with CALL-ACTOR.
    (become (custodian-beh 0 nil))
    (send cust :ok)
-   (let* ((my-thread     (mp:get-current-process))
+   (let* ((my-thread     (mpc:get-current-process))
           (other-threads (remove my-thread threads)))
-     (map nil #'mp:process-terminate other-threads)
+     (map nil #'mpc:process-terminate other-threads)
      (when (find my-thread threads)
        ;; this will cancel pending SEND/BECOME...
-       (mp:current-process-kill))
+       (mpc:current-process-kill))
      ))
      
   ((cust :get-threads)
    (send cust threads)))
 
 (defun blocking-serializer-beh (service)
-  (let ((lock (mp:make-lock)))
+  (let ((lock (mpc:make-lock)))
     (lambda (cust &rest msg)
-      (mp:with-lock (lock)
+      (mpc:with-lock (lock)
         (send* cust (multiple-value-list (apply #'call-actor service msg))))
       )))
 
@@ -591,7 +594,7 @@ THE SOFTWARE.
   ;; The FUNCALL-ASYNC assures that this will work, even if called
   ;; from an Actor thread. Of course, that will also cause the Actor
   ;; (and all others) to be killed.
-  (mp:funcall-async
+  (mpc:funcall-async
    (lambda ()
      ;; we are now running in a known non-Actor thread
      (call-actor custodian :kill-executives)
@@ -633,9 +636,9 @@ THE SOFTWARE.
 ;; The bridge between imperative code and the Actors world
 
 (defun mbox-sender-beh (mbox)
-  (check-type mbox mp:mailbox)
+  (check-type mbox mpc:mailbox)
   (lambda (&rest ans)
-    (mp:mailbox-send mbox ans)))
+    (mpc:mailbox-send mbox ans)))
 
 (defun mbox-sender (mbox)
   (create (mbox-sender-beh mbox)))
@@ -648,9 +651,9 @@ THE SOFTWARE.
       ;; Counterproductive when called from an Actor, except for
       ;; possible side effects. Should use BETA forms if you want the
       ;; answer.
-      (let ((mbox (mp:make-mailbox)))
+      (let ((mbox (mpc:make-mailbox)))
         (send* actor (mbox-sender mbox) msg)
-        (values-list (mp:mailbox-read mbox)))
+        (values-list (mpc:mailbox-read mbox)))
       ))
 
 ;; ------------------------------------------------------
@@ -701,10 +704,10 @@ THE SOFTWARE.
   )
 
 #| ;; for manual loading mode...
-(if (mp:get-current-process)
+(if (mpc:get-current-process)
     (unless (running-actors-p)
       (lw-start-actors))
   ;; else
-  (pushnew '("Start Actors" () lw-start-actors) mp:*initial-processes*
+  (pushnew '("Start Actors" () lw-start-actors) mpc:*initial-processes*
            :key #'third))
 |#

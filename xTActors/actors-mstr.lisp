@@ -31,6 +31,11 @@ THE SOFTWARE.
 
 (in-package #:com.ral.actors.base)
 
+(um:eval-always
+  (#+:LISPWORKS hcl:add-package-local-nickname
+   #+:SBCL      sb-ext:add-package-local-nickname
+   :mpc  :mp-compatibility))
+
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))
 
@@ -106,12 +111,12 @@ THE SOFTWARE.
   (actor (create) :type actor)
   (args  nil      :type list))
 
-(hcl:defglobal-variable *central-mail*  (mp:make-mailbox :lock-name "Central Mail"))
+(mpc:defglobal *central-mail*  (mpc:make-mailbox :lock-name "Central Mail"))
 
 (defun send-to-pool (actor &rest msg)
   ;; the default SEND for foreign threads
   #F
-  (mp:mailbox-send *central-mail* (msg (the actor actor) msg)))
+  (mpc:mailbox-send *central-mail* (msg (the actor actor) msg)))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME
@@ -137,7 +142,7 @@ THE SOFTWARE.
   (progn
     (defun startup-send (actor &rest msg)
       ;; the boot version of SEND
-      (setf *central-mail* (mp:make-mailbox :lock-name "Central Mail")
+      (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
             *send*         #'send-to-pool)
       (restart-actors-system *nbr-pool*)
       (send* actor msg))
@@ -246,11 +251,11 @@ THE SOFTWARE.
                 ;; stack useful only for a microcoding assist. Our
                 ;; depth is never more than one Actor at a time,
                 ;; before trampolining back here.
-                (setf evt (mp:mailbox-read *central-mail*))
+                (setf evt (mpc:mailbox-read *central-mail*))
                 (tagbody
                  next
                  (um:when-let (next-msgs (msg-link (the msg evt)))
-                   (mp:mailbox-send *central-mail* next-msgs))
+                   (mpc:mailbox-send *central-mail* next-msgs))
                  
                  (setf self     (msg-actor (the msg evt))
                        self-msg (msg-args (the msg evt)))
@@ -263,9 +268,9 @@ THE SOFTWARE.
                  ;; Dispatch to Actor behavior with message args
                  (apply (the function pend-beh) self-msg)
                  (cond ((or (eq self-beh pend-beh)
-                            (sys:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh))
+                            (mpc:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh))
                         (when sends
-                          (cond ((mp:mailbox-empty-p *central-mail*)
+                          (cond ((mpc:mailbox-empty-p *central-mail*)
                                  ;; No messages await, we are front of queue,
                                  ;; so grab first message for ourself.
                                  ;; This is the most common case at runtime,
@@ -276,7 +281,7 @@ THE SOFTWARE.
                                 (t
                                  ;; else - we are not front of queue
                                  ;; enqueue new messages and repeat loop
-                                 (mp:mailbox-send *central-mail* sends))
+                                 (mpc:mailbox-send *central-mail* sends))
                                 )))
                        (t
                         ;; failed on behavior update - try again...
@@ -383,10 +388,11 @@ THE SOFTWARE.
    (send cust :ok)
    (when (< count id)
      ;; Not Idempotent - so we need to be behind a SERIALIZER.
-     (let ((new-thread (mp:process-run-function
+     (let ((new-thread (mpc:process-run-function
                         (format nil "Actor Thread #~D" id)
                         ()
-                        #'run-actors)))
+                        #'run-actors)
+                       ))
        (become (custodian-beh id (cons new-thread threads)))
        )))
    
@@ -410,21 +416,21 @@ THE SOFTWARE.
    ;; dispatcher, as with CALL-ACTOR.
    (become (custodian-beh 0 nil))
    (send cust :ok)
-   (let* ((my-thread     (mp:get-current-process))
+   (let* ((my-thread     (mpc:get-current-process))
           (other-threads (remove my-thread threads)))
-     (map nil #'mp:process-terminate other-threads)
+     (map nil #'mpc:process-terminate other-threads)
      (when (find my-thread threads)
        ;; this will cancel pending SEND/BECOME...
-       (mp:current-process-kill))
+       (mpc:current-process-kill))
      ))
      
   ((cust :get-threads)
    (send cust threads)))
 
 (defun blocking-serializer-beh (service)
-  (let ((lock (mp:make-lock)))
+  (let ((lock (mpc:make-lock)))
     (lambda (cust &rest msg)
-      (mp:with-lock (lock)
+      (mpc:with-lock (lock)
         (send* cust (multiple-value-list (apply #'call-actor service msg))))
       )))
 
@@ -464,12 +470,11 @@ THE SOFTWARE.
   ;; The FUNCALL-ASYNC assures that this will work, even if called
   ;; from an Actor thread. Of course, that will also cause the Actor
   ;; (and all others) to be killed.
-  (mp:funcall-async
+  (mpc:funcall-async
    (lambda ()
      ;; we are now running in a known non-Actor thread
      (call-actor custodian :kill-executives)
-     (setf *send* #'startup-send))
-   ))
+     (setf *send* #'startup-send))))
 
 #|
 (kill-actors-system)
@@ -484,10 +489,14 @@ THE SOFTWARE.
 ;; printer stream...
 
 (defmacro with-printer ((var stream) &body body)
+  #+:LISPWORKS
   `(stream:apply-with-output-lock
     (lambda (,var)
       ,@body)
-    ,stream))
+    ,stream)
+  #+:SBCL
+  `(let ((,var ,stream))
+     ,@body))
 
 (deflex println
   (α msg
@@ -512,7 +521,7 @@ THE SOFTWARE.
 (defun mbox-sender-beh (mbox)
   (check-type mbox mp:mailbox)
   (lambda (&rest ans)
-    (mp:mailbox-send mbox ans)))
+    (mpc:mailbox-send mbox ans)))
 
 (defun mbox-sender (mbox)
   (create (mbox-sender-beh mbox)))
@@ -525,9 +534,9 @@ THE SOFTWARE.
       ;; Counterproductive when called from an Actor, except for
       ;; possible side effects. Should use BETA forms if you want the
       ;; answer.
-      (let ((mbox (mp:make-mailbox)))
+      (let ((mbox (mpc:make-mailbox)))
         (send* actor (mbox-sender mbox) msg)
-        (values-list (mp:mailbox-read mbox)))
+        (values-list (mpc:mailbox-read mbox)))
       ))
 
 ;; ------------------------------------------------------
@@ -560,6 +569,7 @@ THE SOFTWARE.
   (kill-actors-system)
   (print "Actors have been shut down."))
 
+#+:LISPWORKS
 (let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))
 
   (lw:define-action "Initialize LispWorks Tools"
@@ -578,10 +588,10 @@ THE SOFTWARE.
   )
 
 #| ;; for manual loading mode...
-(if (mp:get-current-process)
+(if (mpc:get-current-process)
     (unless (running-actors-p)
       (lw-start-actors))
   ;; else
-  (pushnew '("Start Actors" () lw-start-actors) mp:*initial-processes*
+  (pushnew '("Start Actors" () lw-start-actors) mpc:*initial-processes*
            :key #'third))
 |#

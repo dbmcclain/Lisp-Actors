@@ -3,6 +3,12 @@
 ;; DM/RAL 05/21
 ;; ------------------------------------------------------
 (in-package :com.ral.actors.base)
+
+(um:eval-always
+  (#+:LISPWORKS hcl:add-package-local-nickname
+   #+:SBCL      sb-ext:add-package-local-nickname
+   :mpc  :mp-compatibility))
+
 ;; ------------------------------------------------------
 ;; There are, broadly, two conventions followed for Actor messages:
 ;;
@@ -321,8 +327,8 @@
 
 (defun send-after (dt actor &rest msg)
   (when (actor-p actor)
-    (let ((timer (apply #'mp:make-timer #'send-to-pool actor msg)))
-      (mp:schedule-timer-relative timer dt))
+    (let ((timer (apply #'mpc:make-timer #'send-to-pool actor msg)))
+      (mpc:schedule-timer-relative timer dt))
     ))
 
 ;; -----------------------------------------

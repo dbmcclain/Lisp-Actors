@@ -44,7 +44,7 @@ THE SOFTWARE.
    #:make-mailbox
    #:mailbox-empty-p
    )
-  #+(OR :LISPWORKS6 :LISPWORKS7)
+  #+(OR :LISPWORKS6 :LISPWORKS7 :LISPWORKS8)
   (:import-from #:mp
    #:mailbox-send
    #:mailbox-read
@@ -62,15 +62,20 @@ THE SOFTWARE.
    ;; in LW7
    #:process-terminate
    #:funcall-async
+   #:current-process-kill
+   #:make-timer
+   #:schedule-timer-relative
+   #:get-current-process
+   #:*initial-processes*
    )
-  #+(OR :LISPWORKS6 :LISPWORKS7)
+  #+(OR :LISPWORKS6 :LISPWORKS7 :LISPWORKS8)
   (:import-from #:sys
    #:atomic-incf
    #:atomic-decf
    #:compare-and-swap
    #:ensure-memory-after-store)
   (:export
-   #:current-process
+   #:current-process-kill
    #:process-name
    #:process-property
    #:process-private-property
@@ -115,5 +120,11 @@ THE SOFTWARE.
 
    #:CAS
    #:funcall-async
+
+   #:defglobal
+   #:make-timer
+   #:schedule-timer-relative
+   #:get-current-process
+   #:*initial-processes*
    ))
 

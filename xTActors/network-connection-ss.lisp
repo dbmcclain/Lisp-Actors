@@ -11,9 +11,13 @@
 (in-package #:com.ral.actors.network)
 
 (um:eval-always
-  (hcl:add-package-local-nickname :sec-comm  :com.ral.actors.secure-comm)
-  (hcl:add-package-local-nickname :act-base  :com.ral.actors.base)
-  (hcl:add-package-local-nickname :self-sync :com.ral.actors.encoding.self-sync))
+  (defmacro add-package-local-nickname (nickname realname)
+    `(#+:LISPWORKS hcl:add-package-local-nickname
+      #+:SBCL      sb-ext:add-package-local-nickname
+      ,nickname ,realname))
+  (add-package-local-nickname :sec-comm  :com.ral.actors.secure-comm)
+  (add-package-local-nickname :act-base  :com.ral.actors.base)
+  (add-package-local-nickname :self-sync :com.ral.actors.encoding.self-sync))
 
 (um:eval-always
   (import '(um:when-let

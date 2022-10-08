@@ -37,6 +37,9 @@ THE SOFTWARE.
 ;; --------------------------------------------------
 ;; Compatibility Layer
 
+(defmacro defglobal (name val)
+  `(hcl:defglobal-variable ,name ,val))
+
 #|
 (defun current-process ()
   "Get the current Lisp process."

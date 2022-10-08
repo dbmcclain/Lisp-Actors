@@ -30,7 +30,9 @@
             )))
 
 (um:eval-always
-  (hcl:add-package-local-nickname :self-sync :com.ral.actors.encoding.self-sync))
+  (#+:LISPWORKS hcl:add-package-local-nickname
+   #+:SBCL      sb-ext:add-package-local-nickname
+   :self-sync :com.ral.actors.encoding.self-sync))
 
 ;; ----------------------------------------------------
 ;; Useful primitives...
