@@ -147,6 +147,7 @@ THE SOFTWARE.
    
    #:once
    #:send-to-all
+   #:send-all-to
    #:race
    #:fwd
    #:label

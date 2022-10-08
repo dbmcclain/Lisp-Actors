@@ -37,6 +37,10 @@
   (dolist (actor actors)
     (send* actor msg)))
 
+(defun send-all-to (actor msg-list)
+  (dolist (msg msg-list)
+    (send* actor msg)))
+
 ;; ---------------------
 
 (defun race-beh (&rest actors)

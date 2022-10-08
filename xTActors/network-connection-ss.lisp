@@ -69,9 +69,6 @@
 ;; leaves the serializer blocked.
 ;;
 
-(define-condition send-error (error)
-  ())
-
 (defun physical-writer-beh (state)
   (lambda (cust byte-vec)
     (with-accessors ((decr-io-count  intf-state-decr-io-count-fn)

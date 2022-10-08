@@ -306,7 +306,7 @@
                      (segm-init (+ remct (* b +long-count-base+)))
                    (restart b))))
         
-        (new-state start) ;; initialize state to start
+        (new-state check-version) ;; initialize state
         
         ;; finally... we get to the Actor behavior function
         (lambda (cust buf)

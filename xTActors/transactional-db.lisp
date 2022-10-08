@@ -145,8 +145,7 @@
   ((a-tag :opened db) / (eql a-tag tag)
    (become (trans-gate-beh saver db))
    ;; now open for business, resubmit pending client requests
-   (dolist (msg msgs)
-     (send* self msg)))
+   (send-all-to self msgs))
    
   ;; -------------------
   ;; accumulate client requests until we open for business
@@ -157,7 +156,7 @@
 
 (defconstant +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
-(def-beh save-database-beh (path last-db)
+(def-ser-beh save-database-beh (path last-db)
   ;; -------------------
   ((cust :full-save db)
    (become (save-database-beh path db))
@@ -296,15 +295,21 @@
 
 ;; -----------------------------------------------------------
 
-(defun add-rec (cust key val)
+(defun do-with-db (fn)
   (β (db)
       (send dbmgr β :req)
+    (funcall fn db)))
+
+(defmacro with-db (db &body body)
+  `(do-with-db (lambda (,db) ,@body)))
+
+(defun add-rec (cust key val)
+  (with-db db
     (send dbmgr cust :commit db (maps:add db key val) self)
     ))
 
 (defun remove-rec (cust key)
-  (β (db)
-      (send dbmgr β :req)
+  (with-db db
     (let* ((val  (maps:find db key self))
            (new-db (if (eql val self)
                        db
@@ -313,14 +318,12 @@
       )))
 
 (defun lookup (cust key &optional default)
-  (β (db)
-      (send dbmgr β :req)
+  (with-db db
     (send cust (maps:find db key default))
     ))
 
 (defun show-db ()
-  (β (db)
-      (send dbmgr β :req)
+  (with-db db
     (sets:view-set db)))
 
 (defun maint-full-save ()
