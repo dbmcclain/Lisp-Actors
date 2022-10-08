@@ -93,10 +93,6 @@
 
 (in-package com.ral.actors.kv-database)
   
-(deflex trimmer
-  (α (cust cmd db)
-    (send cust sink cmd (remove-unstorable db))))
-
 (def-beh trans-gate-beh (saver db)
   ;; -------------------
   ;; general entry for external clients
@@ -131,11 +127,11 @@
   ;; eql db if there have been no updates within the last 10 sec.
   ((a-tag a-db) / (and (eql a-tag saver)
                        (eql a-db  db))
-   (send trimmer saver :save-log db))
+   (send saver :save-log db))
    
   ;; -------------------
   (('maint-full-save)
-   (send trimmer saver :full-save db)))
+   (send saver :full-save db)))
 
 (def-beh nascent-database-beh (tag saver msgs)
   ;; -------------------
@@ -243,20 +239,6 @@
       (loenc:serialize db f))
     ))
 
-(defun remove-unstorable (map)
-  (maps:fold map (λ (key val accu)
-                   (handler-case
-                       (progn
-                         ;; this will barf if either key or val is unstorable
-                         (loenc:encode (list key val))
-                         (maps:add accu key val))
-                     (error ()
-                       accu)))
-             (maps:empty)))
-
-(defun deep-copy (obj)
-  (loenc:decode (loenc:encode obj)))
-
 (defun get-diffs (old-db new-db)
   (let* ((removals  (mapcar 'maps:map-cell-key
                             (sets:elements
@@ -304,6 +286,7 @@
   `(do-with-db (lambda (,db) ,@body)))
 
 (defun add-rec (cust key val)
+  (loenc:encode (list key val)) ;; this will barf if either key or val is non-externalizable
   (with-db db
     (send dbmgr cust :commit db (maps:add db key val) self)
     ))
