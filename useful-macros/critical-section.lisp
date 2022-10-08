@@ -64,7 +64,7 @@ THE SOFTWARE.
 (defsetf %binding %set-binding)
 
 (defun %static (mon id &optional init)
-  (mp:with-exclusive-lock ((mon-parms-lock mon))
+  (mpcompat:with-exclusive-lock ((mon-parms-lock mon))
     ;; use excl locking because first time access has potential to
     ;; structurally mutate the slot
     (let* ((unbound #())
@@ -74,7 +74,7 @@ THE SOFTWARE.
         val))))
 
 (defun %set-static (mon id val)
-  (mp:with-exclusive-lock ((mon-parms-lock mon))
+  (mpcompat:with-exclusive-lock ((mon-parms-lock mon))
     (setf (getf (mon-parms-static mon) id) val)))
 
 (defsetf %static (mon id &optional init) (val)
@@ -82,11 +82,11 @@ THE SOFTWARE.
   `(%set-static ,mon ,id ,val))
 
 (defun %with-shared-access (mon timeout fn)
-  (mp:with-sharing-lock ((mon-parms-lock mon) "In Shared Monitor" timeout)
+  (mpcompat:with-sharing-lock ((mon-parms-lock mon) "In Shared Monitor" timeout)
     (funcall fn)))
 
 (defun %with-exclusive-access (mon timeout fn)
-  (mp:with-exclusive-lock ((mon-parms-lock mon) "In Exclusive Monitor" timeout)
+  (mpcompat:with-exclusive-lock ((mon-parms-lock mon) "In Exclusive Monitor" timeout)
     (funcall fn)))
 
 ;; -------------------------------------------------------------------
@@ -133,13 +133,11 @@ THE SOFTWARE.
     (let* ((vars  (mapcar 'car bindings))
            (vals  (mapcar 'cadr bindings)))
       `(um:cx-dspec-def (defmonitor ,name)
-         (#+:LISPWORKS hcl:defglobal-variable
-          #-:LISPWORKS defvar
-          ,name (load-time-value
-                 (make-mon-parms
-                  :lock     (mp:make-lock :sharing t)
-                  :bindings ,(when bindings `(vector ,@vals))))
-           ,@docstr)
+         (mpcompat:defglobal ,name (load-time-value
+                                    (make-mon-parms
+                                     :lock     (mpcompat:make-lock :sharing t)
+                                     :bindings ,(when bindings `(vector ,@vals))))
+                             ,@docstr)
          (macrolet ((with-shared-access ((&optional timeout) &body body)
                       `(%with-shared-access ,',name ,timeout (lambda ()
                                                                ,@body)))

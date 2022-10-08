@@ -190,7 +190,7 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (defmacro nlet-cps (name args &body body)
-  (lw:with-unique-names (g!name g!kont g!args g!expr g!body)
+  (with-unique-names (g!name g!kont g!args g!expr g!body)
     `(labels ((,g!name ,(cons g!kont (mapcar 'first args))
                 (macrolet ((=values (&rest ,g!args)
                              `(funcall ,',g!kont ,@,g!args))
@@ -674,7 +674,7 @@ THE SOFTWARE.
    (lock :accessor collector-lock)))
 
 (defmacro with-locked-collector ((c &rest lock-args) &body body)
-  `(mp:with-lock ((collector-lock ,c) ,@lock-args)
+  `(mpcompat:with-lock ((collector-lock ,c) ,@lock-args)
      ,@body))
 
 (defun collector-discard-contents (c)
@@ -685,7 +685,7 @@ THE SOFTWARE.
       )))
 
 (defmethod initialize-instance ((c <collector>) &key &allow-other-keys)
-  (setf (collector-lock c) (mp:make-lock :name "Collector Lock"))
+  (setf (collector-lock c) (mpcompat:make-lock :name "Collector Lock"))
   (collector-discard-contents c))
 
 (defun collector-contents (c &key (discard t))
@@ -759,7 +759,7 @@ THE SOFTWARE.
 (dolist (item
          (loop for ix from 0 below 256
                for c = (code-char ix)
-               when (lw:whitespace-char-p c)
+               when (whitespace-char-p c)
                collect (list ix c)))
   (format t "~%0x~2,'0x ~S" (first item) (second item)))
 
@@ -797,6 +797,12 @@ THE SOFTWARE.
     (tokens str :start start :end end :key key)
     ))
 |#
+
+(unless (fboundp 'push-end)
+  ;; LW has, but SBCL does not
+  (defmacro push-end (item place)
+    `(setf ,place (append ,place (list ,item)))))
+
 (defun split-string (str &key delims (start 0) end key)
   (cond (delims
          (let ((nc   (- (if end
@@ -810,7 +816,7 @@ THE SOFTWARE.
              (when (find (funcall prep (aref str start)) delims)
                (push "" strs))
              (when (find (funcall prep (aref str (+ start nc -1))) delims)
-               (lw:push-end "" strs)))
+               (push-end "" strs)))
            strs))
         (t
          (tokens str :start start :end end :key key))
@@ -1083,7 +1089,7 @@ THE SOFTWARE.
 ;; functional version of ACCUM macro...
 
 (defmacro accum (accfn &body body)
-  (lw:with-unique-names (hd tl item)
+  (with-unique-names (hd tl item)
     `(let* ((,hd (list nil))
             (,tl ,hd))
        (flet ((,accfn (,item)
@@ -2948,6 +2954,7 @@ This is C++ style enumerations."
     ))
 |#
 
+#+:LISPWORKS
 (defun rot-bits (val bytespec nrot)
   ;; (ROT-BITS val (BYTE width start) nrot)
   ;; ... a BYTEspec is a cons cell (width . start)
@@ -3054,7 +3061,7 @@ or list acceptable to the reader macros #+ and #-."
 ;; -----------------------------------------------
 
 (defmacro single-eval ((&rest names) &body body)
-  `(lw:rebinding ,names ,@body))
+  `(rebinding ,names ,@body))
 
 #|
 (defmacro single-eval ((&rest names) &body body)
@@ -3143,7 +3150,7 @@ or list acceptable to the reader macros #+ and #-."
 
 (defun read-mailbox-with-timeout (mbox &key timeout errorp on-timeout)
   (multiple-value-bind (ans ok)
-      (mp:mailbox-read mbox nil timeout)
+      (mpcompat:mailbox-read mbox nil timeout)
     (if ok
         (values ans t)
       (if errorp
@@ -3162,7 +3169,7 @@ exhausted.
 successive op using the result of the previous one for its _
 argument."
   (if ops
-      (lw:rebinding (arg)
+      (rebinding (arg)
         `(->> ,(subst arg '_ (car ops)
                       :test #'string=
                       :key  #'(lambda (x)
@@ -3199,7 +3206,7 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
      ,ret-form))
 
 (defmacro vbind (syms vec &body body)
-  (lw:rebinding (vec)
+  (rebinding (vec)
     `(let ,(mapcar (let ((pos 0))
                      (lambda (sym)
                        (prog1
@@ -3209,7 +3216,7 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
        ,@body)))
 
 (defmacro vbind* (syms vec &body body)
-  (lw:rebinding (vec)
+  (rebinding (vec)
     `(symbol-macrolet ,(mapcar (let ((pos 0))
                                  (lambda (sym)
                                    (prog1
@@ -3219,7 +3226,7 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
        ,@body)))
 
 (defmacro with-velems (bindings vec &body body)
-  (lw:rebinding (vec)
+  (rebinding (vec)
     `(symbol-macrolet ,(mapcar #`(,(car a1) (aref ,vec ,(cadr a1))) bindings)
        ,@body)
     ))

@@ -131,10 +131,10 @@ THE SOFTWARE.
   (wr (ref-val r) new))
 
 (defmethod cas-object ((r ref) old new)
-  (sys:compare-and-swap (ref-val r) old new))
+  (mpcompat:compare-and-swap (ref-val r) old new))
 
 (defmethod atomic-exch-object ((r ref) new)
-  (sys:atomic-exchange (ref-val r) new))
+  (mpcompat:atomic-exchange (ref-val r) new))
 
 ;; ---------------------------------------------------
 

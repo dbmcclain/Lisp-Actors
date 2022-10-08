@@ -15,7 +15,7 @@
   (make-dynamic-environment (reverse *dynamic-wind-stack*)))
 
 (defmacro dynamic-wind (&body body)
-  (lw:with-unique-names (wrapper-fn fn args proceed-body)
+  (um:with-unique-names (wrapper-fn fn args proceed-body)
     `(flet ((,wrapper-fn (,fn &rest ,args)
               (macrolet ((proceed (&body ,proceed-body)
                            `(if ,',fn

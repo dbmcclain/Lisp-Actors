@@ -83,7 +83,7 @@ THE SOFTWARE.
           )))
 
 (defmacro dlambda (&rest clauses)
-  (lw:with-unique-names (args)
+  (um:with-unique-names (args)
     (let ((parser (dlam-parser args)))
       `(lambda (&rest ,args)
          (cond
@@ -143,7 +143,7 @@ THE SOFTWARE.
   ;; The advantage provided by this LABELS implementation is that each
   ;; clause can directly call on each other when needed.
   ;; But each tag must be a symbol.
-  (lw:with-unique-names (args)
+  (um:with-unique-names (args)
     (let ((parser (dlam*-parser args)))
       (if (notevery (um:compose 'symbolp 'car) clauses)
           `(dlambda ,@clauses)
@@ -180,7 +180,7 @@ THE SOFTWARE.
   ;; a variant on DLAMBDA - instead of executing a matching clause, it
   ;; returns a closure that can do so later, or NIL of no clauses
   ;; match.
-  (lw:with-unique-names (args)
+  (um:with-unique-names (args)
     (let ((parser (tlam-parser args)))
       `(labels*
            ;; using LABELS allows any clause to invoke another by name

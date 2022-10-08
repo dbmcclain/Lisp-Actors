@@ -38,4 +38,4 @@ THE SOFTWARE.
                 ;; (:file "multi-locks")
                 )
   :serial t
-  :depends-on   ("useful-macros"))
+  :depends-on   ())

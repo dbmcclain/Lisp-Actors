@@ -170,7 +170,30 @@ THE SOFTWARE.
             (gensym))
           lst))
 
-;; ----------------------------------------------
+(unless (fboundp 'with-unique-names)
+  ;; Lispworks already has this, but SBCL does not
+  (defmacro with-unique-names ((&rest names) &body body)
+    `(symbol-macrolet ,(mapcar (lambda (name)
+                                 `(,name ',(gensym (string name))))
+                               names)
+       ,@body)))
+
+(unless (fboundp 'rebinding)
+  ;; Lispworks already has this, but SBCL does not
+  (defmacro rebinding (variables &body body)
+    (loop with prefix = (symbol-name '#:re)
+          for var in variables
+          for g = (gensym prefix)
+          for temp = `(gensym ,(string var))
+          collect `(,g ,temp) into gensyms
+          collect ``(,,g ,,var) into temps
+          collect `(,var ,g) into renames
+          finally (return `(let ,gensyms
+                             `(let (,,.temps)
+                                ,(let ,renames
+                                   ,@body)))))))
+
+;; --------------------------------------------------------
 
 #+sbcl
 (if (string-lessp (lisp-implementation-version) "1.2.2")

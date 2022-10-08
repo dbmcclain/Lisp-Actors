@@ -32,7 +32,9 @@ THE SOFTWARE.
 (in-package #:com.ral.actors.base)
 
 (um:eval-always
-  (hcl:add-package-local-nickname :mpc  :mp-compatibility))
+  (#+:LISPWORKS hcl:add-package-local-nickname
+   #+:SBCL      sb-ext:add-package-local-nickname
+   :mpc  :mp-compatibility))
 
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))

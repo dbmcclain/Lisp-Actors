@@ -36,6 +36,7 @@ THE SOFTWARE.
    ))
 
 (defpackage #:def*
+  (:use :cl)
   (:export
    #|
    #:define
@@ -278,7 +279,11 @@ THE SOFTWARE.
    #:appendf
    #:if-let
    #:when-let
-   #:when-let*)
+   #:when-let*
+   #:with-unique-names
+   #:rebinding
+   #:whitespace-char-p
+   #:push-end)
   (:import-from :fpctl
    #:fegetround
    #:fesetround
@@ -1136,6 +1141,11 @@ THE SOFTWARE.
 
    #:st-to-objc
    #:objc-invoke-st
+
+   #:with-unique-names
+   #:rebinding
+   #:whitespace-char-p
+   #:push-end
    ))
 
 #|

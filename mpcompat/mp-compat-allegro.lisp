@@ -210,6 +210,7 @@ A null timeout means wait forever."
 
 ;; --------------------------------------------------------------------------
 
+#+nil
 (defun generate-uuid ()
   (uuid:make-v1-uuid))
 

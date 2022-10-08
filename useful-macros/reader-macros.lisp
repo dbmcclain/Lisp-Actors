@@ -342,6 +342,7 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------------
 ;; Swift-like string interpolation
 
+#+:LISPWORKS
 (defmacro string-interp (str)
   (let* ((pat   #.(lw:precompile-regexp "«.*»"))
          (nel   (length str))
@@ -448,6 +449,10 @@ THE SOFTWARE.
                           ))
      ))
 
+(unless (fboundp 'whitespace-char-p)
+  (defun whitespace-char-p (ch)
+    (member ch '(#\space #\tab #\newline #\vt #\page #\return))))
+
 (defun split-and-trim (vec &optional (ignore-first-line t))
   ;; vec is vector of character (aka string)
   ;;
@@ -455,7 +460,7 @@ THE SOFTWARE.
   ;; then remove that much whitespace from each line, then concatenate
   ;; the lines back to one vector.
   (labels ((leading-ws-count (line)
-             (or (position-if (complement #'lw:whitespace-char-p) line)
+             (or (position-if (complement #'whitespace-char-p) line)
                  (length line))))
     (let* ((lines  (split-string vec :delims '(#\newline)))
            (lines-to-test (if ignore-first-line (cdr lines) lines))
@@ -490,7 +495,7 @@ THE SOFTWARE.
            (cond ((char= ch #\newline)
                   (phase2))
 
-                 ((lw:whitespace-char-p ch)
+                 ((whitespace-char-p ch)
                   (state skip-to-eol))
 
                  (t 

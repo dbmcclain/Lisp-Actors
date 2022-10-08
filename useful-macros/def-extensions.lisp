@@ -31,9 +31,7 @@
 Documentation strings are recognized only if DOCUMENTATION is true.
 Syntax errors in body are signalled and WHOLE is used in the signal
 arguments when given."
-  (let ((doc nil)
-        (decls nil)
-        (current nil))
+  (let (doc decls current)
     (tagbody
      :declarations
      (setf current (car body))
@@ -50,10 +48,18 @@ arguments when given."
 (defun is-lambda-list-keyword? (arg)
   (member arg lambda-list-keywords))
 
+(unless (fboundp 'dotted-list-p)
+  ;; Lispworks already has this function, but SBCL does not
+  (defun dotted-list-p (lst)
+    (and (consp lst)
+         (do  ((hd  (cdr lst)  (cdr hd)))
+             ((not (consp hd))  (not (null hd)))
+           ))))
+
 (defun destr-lambda-list-p (args)
   (and (consp args)
        (or (eq (car args) '&whole)
-           (lw:dotted-list-p args)
+           (dotted-list-p args)
            (some 'consp (subseq args 0
                                 (position-if #'is-lambda-list-keyword? args))
                  ))))
@@ -123,12 +129,15 @@ arguments when given."
 (defmacro λ (args &body body)
   `(lambda* ,args ,@body))
 
+#+:LISPWORKS
 (dspec:define-dspec-alias µ (name)
   `(defmacro ,name))
 
+#+:LISPWORKS
 (dspec:define-dspec-alias ∂ (name)
   `(defun ,name))
 
+#+:LISPWORKS
 (dspec:define-dspec-alias defun* (name)
   `(defun ,name))
 

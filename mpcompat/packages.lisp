@@ -67,13 +67,19 @@ THE SOFTWARE.
    #:schedule-timer-relative
    #:get-current-process
    #:*initial-processes*
+   #:with-exclusive-lock
+   #:with-sharing-lock
+   #:process-allow-scheduling
    )
   #+(OR :LISPWORKS6 :LISPWORKS7 :LISPWORKS8)
   (:import-from #:sys
    #:atomic-incf
    #:atomic-decf
+   #:atomic-fixnum-incf
    #:compare-and-swap
-   #:ensure-memory-after-store)
+   #:ensure-memory-after-store
+   #:globally-accessible
+   #:atomic-exchange)
   (:export
    #:current-process-kill
    #:process-name
@@ -111,10 +117,12 @@ THE SOFTWARE.
    
    #:atomic-incf
    #:atomic-decf
+   #:atomic-fixnum-incf
    #:compare-and-swap
    #:ensure-memory-after-store
 
-   #:generate-uuid
+   #+nil #:generate-uuid
+   
    #:critical
    #:spin-critical
 
@@ -126,5 +134,12 @@ THE SOFTWARE.
    #:schedule-timer-relative
    #:get-current-process
    #:*initial-processes*
+
+   #:globally-accessible
+   #:atomic-exchange
+
+   #:with-exclusive-lock
+   #:with-sharing-lock
+   #:process-allow-scheduling
    ))
 

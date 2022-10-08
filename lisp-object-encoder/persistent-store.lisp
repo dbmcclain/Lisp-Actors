@@ -145,7 +145,7 @@ THE SOFTWARE.
                                              :type "bak")
                                             store-filename))
              (tmp-filename (merge-pathnames
-                            (um:mkstr (mpcompat:generate-uuid))
+                            (um:mkstr (uuid:make-v1-uuid))
                             store-filename))
              (new-items    (make-hash-table)))
         

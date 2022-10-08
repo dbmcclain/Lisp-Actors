@@ -30,7 +30,7 @@ THE SOFTWARE.
   :components  ((:file "packages")
                 (:file "eval-always")
                 (:file "def-extensions")
-		(:file "objc")
+		#+:LISPWORKS (:file "objc")
 
                 #+:CLOZURE (:file "clozure-compat")
   	        #+:SBCL    (:file "sbcl-compat")
@@ -41,7 +41,7 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
                 #+:LISPWORKS (:file "editor-extensions")
 
-                (:file "fpctl")
+                #+:LISPWORKS (:file "fpctl")
                 (:file "encaps-type")
                 (:file "clc")
                 (:file "sharp-f")
@@ -110,15 +110,15 @@ THE SOFTWARE.
                 ;; (:file "xfli")
 		;; (:file "rubber-objects")
                 
-                (:file "abbrev-bignums")
+                #+:LISPWORKS (:file "abbrev-bignums")
 
                 (:file "sep")
                 (:file "handlers")
-                (:file "defalias")
+                #+:LISPWORKS (:file "defalias")
                 (:file "wordlist")
                 (:file "call-fwd")
 
-                (:file "fixmes")
+                #+:LISPWORKS (:file "fixmes")
                 )
   :serial       t
   :depends-on   (#| "compiled-ml-matcher" |#
@@ -127,5 +127,6 @@ THE SOFTWARE.
                  "ironclad"
                  "alexandria"
                  "cffi"
+                 "mpcompat"
                  ))
 

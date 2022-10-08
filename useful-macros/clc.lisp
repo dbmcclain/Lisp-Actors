@@ -12,7 +12,7 @@
 
 (defun do-clc (chkfn lock bodyfn)
   (or (funcall chkfn)
-      (mp:with-lock (lock)
+      (mpcompat:with-lock (lock)
         (or (funcall chkfn)
             (funcall bodyfn)))
       ))

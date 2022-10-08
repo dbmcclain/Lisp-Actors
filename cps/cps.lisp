@@ -232,11 +232,11 @@
 ;; ----------------------------------------------------------------
 
 (defun do-wait (timeout errorp on-timeout fn cont)
-  (let ((mbox  (mp:make-mailbox)))
+  (let ((mbox  (mpcompat:make-mailbox)))
     (funcall fn (lambda (&rest args)
-                  (mp:mailbox-send mbox args)))
+                  (mpcompat:mailbox-send mbox args)))
     (multiple-value-bind (ans ok)
-        (mp:mailbox-read mbox "In =WAIT" timeout)
+        (mpcompat:mailbox-read mbox "In =WAIT" timeout)
       (if ok
           (apply cont ans)
         (if on-timeout

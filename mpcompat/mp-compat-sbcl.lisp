@@ -65,9 +65,11 @@ THE SOFTWARE.
   (gethash proc *process-plists*))
 
 (defun set-process-plist-entry (proc key val)
-  (um:if-let (lst (process-plist proc))
-	     (setf (getf lst key) val)
-	     (setf (gethash proc *process-plists*) (list key val))))
+  (let ((lst (process-plist proc)))
+    (if lst
+        (setf (getf lst key) val)
+      (setf (gethash proc *process-plists*) (list key val)))
+    ))
 
 ;; --------------------------------------------------------------------------
 
@@ -105,9 +107,9 @@ THE SOFTWARE.
 ;; --------------------------------------------------------------------------
 ;; --------------------------------------------------------------------------
 
-(defun make-lock (&key name important-p (safep t))
+(defun make-lock (&key name important-p (safep t) sharing)
   "Make a Lisp lock."
-  (declare (ignorable important-p safep))
+  (declare (ignorable important-p safep sharing))
   (sb-thread:make-mutex :name name))
 
 ;; --------------------------------------------------------------------------
@@ -141,10 +143,17 @@ THE SOFTWARE.
 (defmacro with-spinlock ((lock) &body body)
   `(with-lock (,lock) ,@body))
 
+#|
+(defmacro with-lock ((lock &optional whostate timeout) &body body)
+  "Wait for lock available, then execute the body while holding the lock."
+  (declare (ignore whostate)))
+  `(do-with-lock ,lock ,timeout (lambda () ,@body))
+|#
+
 (defmacro with-lock ((lock &optional whostate timeout) &body body)
   "Wait for lock available, then execute the body while holding the lock."
   (declare (ignore whostate))
-  `(do-with-lock ,lock ,timeout (lambda () ,@body)))
+  `(sb-thread:with-mutex (,lock :timeout ,timeout) ,@body))
 
 ;; --------------------------------------------------------------------------
 
@@ -200,6 +209,7 @@ A null timeout means wait forever."
 
 ;; --------------------------------------------------------------------------
 
+#+nil
 (defun generate-uuid ()
   (uuid:make-v4-uuid))
 
@@ -208,6 +218,24 @@ A null timeout means wait forever."
 
 (defmacro atomic-decf (place)
   `(sb-ext:atomic-decf ,place))
+
+(defun nyi (name)
+  (error "Not yet implemented: ~S" name))
+
+(defmacro atomic-fixnum-incf (place)
+  `(atomic-incf ,place))
+
+(defmacro atomic-exch (a b)
+  `(nyi 'atomic-exch))
+
+(defmacro globally-accessible (place)
+  `(nyi 'globally-accessible))
+
+(defmacro with-exclusive-lock ((lock &rest args) &body body)
+  `(with-lock (,lock) ,@body))
+
+(defmacro with-sharing-lock ((&rest args) &body body)
+  `(nyi 'with-sharing-lock))
 
 (defmacro compare-and-swap (place old new)
   `(sb-ext:compare-and-swap ,place ,old ,new))

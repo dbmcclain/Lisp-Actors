@@ -14,7 +14,7 @@
   ;; funarg) That won't (can't) work. It can only work for downward
   ;; funargs. - Same problems as exist for GO, CATCH/THROW,
   ;; RESTART-CASE/INVOKE-RESTART, HANDLER-CASE/SIGNAL/ERROR
-  (lw:with-unique-names (gblk gfwd vdest vargs dest args)
+  (with-unique-names (gblk gfwd vdest vargs dest args)
     `(block ,gblk
        (let (,vdest ,vargs)
          (tagbody

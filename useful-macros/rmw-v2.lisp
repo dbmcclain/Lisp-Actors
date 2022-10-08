@@ -119,12 +119,12 @@
   (multiple-value-bind (vars vals store-vars writer-form reader-form)
       (get-setf-expansion place)
     (declare (ignore store-vars writer-form))
-    (lw:with-unique-names (old new rdr-fn cas-fn)
+    (with-unique-names (old new rdr-fn cas-fn)
       `(let* ,(mapcar #'list vars vals)
          (flet ((,rdr-fn ()
                   ,reader-form)
                 (,cas-fn (,old ,new)
-                  (sys:compare-and-swap ,reader-form ,old ,new)))
+                  (mpcompat:compare-and-swap ,reader-form ,old ,new)))
            (declare (dynamic-extent #',rdr-fn #',cas-fn))
            (,rmw-fn #',rdr-fn #',cas-fn ,@args)))
       )))
@@ -156,13 +156,13 @@
       )))
 
 (defmacro wr (place new)
-  `(setf (sys:globally-accessible ,place) ,new))
+  `(setf (mpcompat:globally-accessible ,place) ,new))
 
 (defmacro cas (place old new)
-  `(sys:compare-and-swap ,place ,old ,new))
+  `(mpcompat:compare-and-swap ,place ,old ,new))
 
 (defmacro atomic-exch (place new)
-  `(sys:atomic-exchange ,place ,new))
+  `(mpcompat:atomic-exchange ,place ,new))
 
 ;; ----------------------------------------------------
 ;; Pre-built RD,RMW for common forms
@@ -171,7 +171,7 @@
   (destructuring-bind (accessor . args) accessor-form
     (remhash accessor *rmw-functions*) ;; to permit redefs
     (multiple-value-bind (rd-name rmw-name) (gen-fn-names accessor)
-      (lw:with-unique-names (new-fn)
+      (with-unique-names (new-fn)
         `(progn
            (defun ,rd-name ,args
              (rd ,accessor-form))
@@ -190,9 +190,9 @@
 #|
 (define-struct-rmw-functions ref:ref-val (ref:ref ref:val))
 
-(sys:atomic-exchange (diddly doodad) new)
+(mpcompat:atomic-exchange (diddly doodad) new)
 (let ((x 15))
-  (sys:compare-and-swap x 32 16))
+  (mpcompat:compare-and-swap x 32 16))
 (cas (ref:ref-val x) old new)
 (let ((x 55))
   (cas x old new))
@@ -204,11 +204,11 @@
 
 (rmwf (ref:ref-val r) new-fn)
 
-(macroexpand '(sys:compare-and-swap (ref-val r) old new))
-(macroexpand '(sys:compare-and-swap *print-base* old new))
-(macroexpand '(sys:compare-and-swap (svref x 15) old new))
+(macroexpand '(mpcompat:compare-and-swap (ref-val r) old new))
+(macroexpand '(mpcompat:compare-and-swap *print-base* old new))
+(macroexpand '(mpcompat:compare-and-swap (svref x 15) old new))
 (defun tst (accessor)
-  (let* ((exp (macroexpand-1 `(sys:compare-and-swap ,accessor old new)))
+  (let* ((exp (macroexpand-1 `(mpcompat:compare-and-swap ,accessor old new)))
          (form (third exp)))
     (values (car form) (third form))))
 (tst '*print-base*)

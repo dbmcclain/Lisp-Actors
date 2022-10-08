@@ -88,7 +88,7 @@ THE SOFTWARE.
 
 (defmacro dflet1 ((fname args &body funbody) &body dflbody)
   (let ((dynsym (get-defined-dynsym fname)))
-    (lw:with-unique-names (orgfun orgargs newargs)
+    (um:with-unique-names (orgfun orgargs newargs)
         `(let* ((,orgfun  ,dynsym)
                 (,dynsym  (lambda (&rest ,orgargs)
                             (flet ((call-next-function (&rest ,newargs)

@@ -27,6 +27,7 @@ e.g.,
               (subseq str (- len 7)))
       )))
 
+#+:LISPWORKS
 (lw:defadvice
     ((method print-object (integer t))
      bignum-around-print-object :around)
@@ -42,6 +43,7 @@ e.g.,
   `(let ((*print-bignum-abbrev* nil))
      ,@body))
 
+#+:LISPWORKS
 (lw:defadvice
     (with-standard-io-syntax avoid-bignum-abbrev :around)
     (form env)

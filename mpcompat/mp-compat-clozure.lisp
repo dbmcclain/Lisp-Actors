@@ -292,6 +292,7 @@ The background version
 
 ;; --------------------------------------------------------------------------
 
+#+nil
 (defun generate-uuid ()
   (uuid:make-v4-uuid))
 

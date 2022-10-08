@@ -130,7 +130,7 @@
         ))))
 
 (defmacro match (msg &body clauses)
-  (lw:with-unique-names (lbl fail gmsg)
+  (um:with-unique-names (lbl fail gmsg)
     `(block ,lbl
        (let ((,gmsg ,msg))
          (macrolet ((match-fail ()
