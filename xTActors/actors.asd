@@ -31,11 +31,11 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :components  ((:file "packages")
                 #-(OR :LISPWORKS :SBCL) (:file "ansi-timer")
                 (:file "macros")
-		(:file "cheapq")
                 (:file "actors-mstr")
                 ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
-                (:file "prim-actors")
-                (:file "st-send"))
+                (:file "st-send")
+		(:file "cheapq")
+                (:file "prim-actors"))
   :SERIAL T
   :depends-on   (
                  "useful-macros"))
@@ -50,7 +50,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "transactional-db")
                 (:file "reactive")
                 (:file "resource")
-                ;; (:file "st-send")
                 ;; (:file "sponsors")
                 )
   :SERIAL T

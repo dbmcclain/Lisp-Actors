@@ -327,7 +327,7 @@
 
 (defun send-after (dt actor &rest msg)
   (when (actor-p actor)
-    (let ((timer (apply #'mpc:make-timer #'send-to-pool actor msg)))
+    (let ((timer (apply #'mpc:make-timer #'send actor msg)))
       (mpc:schedule-timer-relative timer dt))
     ))
 
@@ -617,7 +617,7 @@
   (create (sequenced-beh)))
 
 ;; --------------------------------------------------
-
+#|
 (def-beh suspended-beh (prev-beh tag queue)
   ((atag) when (eq tag atag)
    (become prev-beh)
@@ -634,7 +634,7 @@
   (let ((tag (tag self)))
     (become (suspended-beh self-beh tag +emptyq+))
     tag))
-
+|#
 #|
 ;; Example of using SUSPENDED-BEH to serialize host Actor with
 ;; embedded Beta forms:
