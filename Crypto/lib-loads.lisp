@@ -46,11 +46,14 @@ THE SOFTWARE.
     (:darwin     "libLispCurve1174.dylib")
     (:linux      "libLispCurve1174.so")
     (t (:default "libLispCurve1174")))
+  #|
   (cffi:define-foreign-library
       :libLispPBC 
     (:darwin     "libLispPBCIntf.dylib")
     (:linux      "libLispPBCIntf.so")
-    (t (:default "libLispPBCIntf"))))
+    (t (:default "libLispPBCIntf")))
+  |#
+  )
 
 (defun define-production-dlls ()
   "loads the DLLs (.so and .dylib) at runtime, from the current directory"
@@ -64,11 +67,14 @@ THE SOFTWARE.
    (:darwin     "libLispCurve1174.dylib")
    (:linux      "libLispCurve1174.so")
    (t (:default "libLispCurve1174")))
+  #|
   (cffi:define-foreign-library
       :libLispPBC
    (:darwin     "libLispPBCIntf.dylib")
    (:linux      "libLispPBCIntf.so")
-   (t (:default "libLispPBCIntf"))))
+   (t (:default "libLispPBCIntf")))
+  |#
+  )
 
 ;; -----------------------------------------------------------------------------
 
@@ -148,7 +154,7 @@ THE SOFTWARE.
     |#
     (define-dev-dlls)
     (with-aimed-load-paths
-      (cffi:use-foreign-library :libLispPBC)
+      ;; (cffi:use-foreign-library :libLispPBC)
       (cffi:use-foreign-library :libEd3363)
       (cffi:use-foreign-library :libCurve1174)))
    
@@ -159,7 +165,7 @@ THE SOFTWARE.
 (defmethod unload-dlls ()
   (when (plusp *load-counter*)
     (format t "~%Unloading DLL's")
-    (cffi:close-foreign-library :libLispPBC)
+    ;; (cffi:close-foreign-library :libLispPBC)
     (cffi:close-foreign-library :libed3363)
     (cffi:close-foreign-library :libcurve1174)
     (setf *load-counter* 0)

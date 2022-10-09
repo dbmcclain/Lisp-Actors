@@ -54,10 +54,10 @@ THE SOFTWARE.
                 #-:WINDOWS (:file "proofs")
                 |#
                 (:file "keying")
-                (:file "schnorr")
-                (:file "init-crypto")
                 (:file "ed-keying")
                 (:file "my-keying")
+                (:file "schnorr")
+                (:file "init-crypto")
                 (:file "data-check"))
   
   :depends-on   ("mini-core-crypto"
