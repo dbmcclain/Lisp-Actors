@@ -22,21 +22,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(asdf:defsystem "mpcompat"
-  :description "mpcompat: a compatibility API for multiprocessing"
+(asdf:defsystem "rb-trees"
+  :description "Red-Black Trees: a purely functional O(Log2(N)) ordered collection"
   :version     "1.0"
-  :author      "D.McClain <dbm@spectrodynamics.com>"
-  :license     "Copyright (c) 2010 by SpectroDynamics, LLC. All rights reserved."
-  :components  ((:file "packages")
-                #+:LISPWORKS  (:file "mp-compat-lw")
-                ;; #+:LISPWORKS5 (:file "mp-compat-lw5")
-                ;; #+(OR :LISPWORKS6 :LISPWORKS7 :LISPWORKS8) (:file "mp-compat-lw6")
-                #+:ALLEGRO    (:file "mp-compat-allegro")
-                #+:SBCL       (:file "mp-compat-sbcl")
-                #+:CLOZURE    (:file "mp-compat-clozure")
-                ;; (:file "mp-compat-critical")
-                ;; (:file "multi-locks")
-                )
+  :author      "D.McClain <dbm@refined-audiometrics.com>"
+  :license     "Copyright (c) 2008 by Refined Audiometrics Laboratory, LLC. All rights reserved."
+  :components  ((:file "rb-packages")
+                (:file "orderable")
+                (:file "ord")
+                (:file "bal-binary-trees")
+                (:file "bal-binary-tree-maps"))
   :serial t
-  :depends-on   (
-                 #+:SBCL "sb-concurrency"))
+  :depends-on   ("useful-macros"
+                 ))
+
+

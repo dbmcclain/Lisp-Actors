@@ -97,9 +97,9 @@
     ((cust :sync)
      (send (chan-read chan) cust :get))
 
-        ((:reset)
+    ((:reset)
      (send (chan-ctrl chan) :reset))    
-        )))
+    )))
 
 (defun send-evt (chan &rest msg)
   ;; Define the send side of a rendezvous event
@@ -147,7 +147,7 @@
     ((:reset)
      (send evt :reset))    
     )))
-          
+
 (defun on-evt (evt actor)
   ;; On a successful rendezvous, send the transferred data to the
   ;; customer, and also perform Actor

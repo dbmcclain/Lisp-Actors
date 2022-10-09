@@ -56,9 +56,6 @@ THE SOFTWARE.
 (defclass tree ()
   ())
 
-(defmethod ref:clone ((tree tree))
-  tree) ;; always immutable
-
 ;; -------------------------------
 
 (defclass empty (tree)

@@ -54,7 +54,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 )
   :SERIAL T
   :depends-on   ("actors"
-                 "data-objects"          ;; maps for transactional db
+                 "rb-trees"              ;; maps for transactional db
                  "lisp-object-encoder"   ;; encoding for transactional db
                  ))
 

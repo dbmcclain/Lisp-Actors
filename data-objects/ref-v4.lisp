@@ -54,6 +54,8 @@ THE SOFTWARE.
    obj)
   (:method ((obj symbol))
    obj)
+  (:method ((obj sets:tree)) ;; always immutable
+   obj)
   (:method ((obj sequence))
    ;; vectors, strings - will use array first, skipping this method
    (copy-seq obj))

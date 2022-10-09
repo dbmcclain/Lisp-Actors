@@ -30,27 +30,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(asdf:defsystem "lisp-object-encoder"
-  :description "Lisp-Object-Encoder: Network portable encoding / decoding of Lisp objects"
+(asdf:defsystem "self-sync"
+  :description "Self-Sync: Self Synchronizing Encoding/Decoding"
   :version     "1.0"
   :author      "D.McClain <dbm@spectrodynamics.com>"
   :license     "Copyright (c) 2008 by SpectroDynamics, LLC. All rights reserved."
-  :components  ((:file "packages")
-                (:file "xzlib") ;; ZLIB adapted to scatter vectors
-                (:file "lzw")
-                (:file "lisp-object-encoder")
-                (:file "safe-marshaling"))
+  :components  ((:file "self-sync-packages")
+                (:file "self-sync"))
+
   :SERIAL T
-  :depends-on   ("self-sync"
+  :depends-on   (
+                 "scatter-vec"
                  "ubyte-streams"
-                 "managed-buffers"
-                 "sdle-store"
-                 "snappy"
                  #|
                  ;; "data-objects"
                  "prio-queue" ;; for managed-buffers
                  "ironclad"
+                 "sdle-store"
                  "babel"
+                 "snappy"
                  ;; "zlib"
                  |#
                  ))
