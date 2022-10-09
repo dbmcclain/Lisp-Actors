@@ -29,7 +29,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2021 by Refined Audiometrics Laboratory. MIT License terms apply."
   :components  ((:file "packages")
-                #-:lispworks (:file "ansi-timer")
+                #-(OR :LISPWORKS :SBCL) (:file "ansi-timer")
                 (:file "macros")
 		(:file "cheapq")
                 (:file "actors-mstr")
@@ -38,9 +38,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "st-send"))
   :SERIAL T
   :depends-on   (
-                 "useful-macros"
-                 "mpcompat"
-                 #-:lispworks "data-objects")) ;; maps for ansi-timer
+                 "useful-macros"))
 
 
 (asdf:defsystem "actors/extra"

@@ -5,8 +5,8 @@
 ;; A cheap FP Banker's queue
 ;; When all you need is ADDQ, PUSHQ, POPQ...
 
-(defconstant +emptyq+ (list nil)) ;; strictly speaking, but NIL is okay in CL too.
-(defconstant +doneq+  #())
+(defvar +emptyq+ (list nil)) ;; strictly speaking, but NIL is okay in CL too.
+(defvar +doneq+  #())
 
 (defun normq (q)
   (if (car q)
