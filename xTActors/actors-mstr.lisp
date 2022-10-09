@@ -87,7 +87,7 @@ THE SOFTWARE.
 
 (defun is-pure-sink? (actor)
   ;; used by networking code to avoid sending useless data
-  (or (null actor)
+  (or (not (actor-p actor))
       (eq (actor-beh actor) #'do-nothing)))
 
 ;; --------------------------------------------------------
