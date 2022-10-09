@@ -287,6 +287,7 @@ THE SOFTWARE.
                  ,@body)))
            )))
 
+#+:LISPWORKS
 (editor:setup-indent "defslotfn" 3)
 
 (defslotfn :print-object =top= (obj &optional (stream *standard-output*))

@@ -5,12 +5,12 @@
 
 (defclass multilock (<orderable-mixin>)
   ((lock  :reader multilock-lock
-          :initform (mp:make-lock))
+          :initform (mpcompat:make-lock))
    ))
 
 (defclass sharing-multilock (<orderable-mixin>)
   ((lock  :reader multilock-lock
-          :initform (mp:make-lock
+          :initform (mpcompat:make-lock
                      :sharing t))
    ))
 
@@ -58,21 +58,21 @@
   `(do-with-multilocks (lambda ()
                          ,@body)
                        (list ,@locks)
-                       #'mp:process-lock
-                       #'mp:process-unlock))
+                       #'mpcompat:process-lock
+                       #'mpcompat:process-unlock))
         
 (defmacro with-sharing-multilocks ((&rest locks) &body body)
   `(do-with-multilocks (lambda ()
                          ,@body)
                        (list ,@locks)
-                       #'mp:process-sharing-lock
-                       #'mp:process-sharing-unlock))
+                       #'mpcompat:process-sharing-lock
+                       #'mpcompat:process-sharing-unlock))
 
 (defmacro with-exclusive-multilocks ((&rest locks) &body body)
   `(do-with-multilocks (lambda ()
                          ,@body)
                        (list ,@locks)
-                       #'mp:process-exclusive-lock
-                       #'mp:process-exclusive-unlock))
+                       #'mpcompat:process-exclusive-lock
+                       #'mpcompat:process-exclusive-unlock))
 
 ;; ----------------------------------------------------------------------

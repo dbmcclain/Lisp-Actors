@@ -171,7 +171,7 @@
 ;; messages
 
 (defmacro alambda (&rest clauses)
-  (lw:with-unique-names (msg)
+  (um:with-unique-names (msg)
     `(lambda (&rest ,msg)
        (match ,msg ,@clauses))))
 
@@ -184,7 +184,7 @@
   `(send* γ ,@ans))
 
 (defmacro γlambda (&rest clauses)
-  (lw:with-unique-names (msg)
+  (um:with-unique-names (msg)
     `(lambda (γ &rest ,msg) ;; use RET or RET* instead of SEND CUST
        (match ,msg ,@clauses))
     ))

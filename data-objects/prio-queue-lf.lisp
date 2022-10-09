@@ -82,13 +82,13 @@ THE SOFTWARE.
             (:include unsafe-lifo)))
 
 (defmethod addq ((q lifo) item &key &allow-other-keys)
-  (sys:atomic-push item (ref:ref-val q)))
+  (mpcompat:atomic-push item (ref:ref-val q)))
 
 (defmethod popq ((q lifo) &key &allow-other-keys)
-  (sys:atomic-pop (ref:ref-val q)))
+  (mpcompat:atomic-pop (ref:ref-val q)))
 
 (defmethod contents ((q lifo))
-  (sys:atomic-exchange (ref:ref-val q) nil))
+  (mpcompat:atomic-exchange (ref:ref-val q) nil))
 
 ;; -------------------------------------------------------------
 ;; UNSAFE-FIFO - Very Fast FIFO Queue - unsafe for sharing

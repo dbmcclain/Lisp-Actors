@@ -41,6 +41,11 @@ THE SOFTWARE.
 
 ;; --------------------------------------------------------------------
 
+(unless (fboundp 'do-nothing)
+  (defun do-nothing (&rest _)
+    (declare (ignore _))
+    (values)))
+
 ;; -----------------------------------------------------
 ;; Actors are simply indirect refs to a beh closure (= function + state).
 ;;
@@ -64,9 +69,9 @@ THE SOFTWARE.
 
 (defstruct (actor
                (:constructor %create (beh)))
-  (beh #'lw:do-nothing :type function))
+  (beh #'do-nothing :type function))
 
-(defun create (&optional (fn #'lw:do-nothing))
+(defun create (&optional (fn #'do-nothing))
   (check-type fn function)
   (%create fn))
 
@@ -76,14 +81,14 @@ THE SOFTWARE.
 ;; --------------------------------------
 
 (defun sink-beh ()
-  #'lw:do-nothing)
+  #'do-nothing)
 
 (deflex sink nil)
 
 (defun is-pure-sink? (actor)
   ;; used by networking code to avoid sending useless data
   (or (null actor)
-      (eq (actor-beh actor) #'lw:do-nothing)))
+      (eq (actor-beh actor) #'do-nothing)))
 
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
@@ -133,7 +138,7 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(hcl:defglobal-variable *nbr-pool*  8 )
+(mpc:defglobal *nbr-pool*  8 )
 
 (defmacro send* (actor &rest msg)
   `(apply #'send ,actor ,@msg))
@@ -175,7 +180,7 @@ THE SOFTWARE.
 
 
 (defvar *abort-beh*
-  #'lw:do-nothing)
+  #'do-nothing)
 
 (defun abort-beh ()
   ;; In an Actor, unodes any BECOME and SENDS to this point, but
@@ -356,7 +361,7 @@ THE SOFTWARE.
   ;; It becomes *Your* responsibilty to eventually respond to cust
   ;; from each of your handler clauses.
   ;;
-  (lw:with-unique-names (cust msg)
+  (um:with-unique-names (cust msg)
     `(defun ,name ,args
        (lambda (,cust &rest ,msg)
          (with-error-response (,cust)
@@ -519,7 +524,7 @@ THE SOFTWARE.
 ;; The bridge between imperative code and the Actors world
 
 (defun mbox-sender-beh (mbox)
-  (check-type mbox mp:mailbox)
+  (check-type mbox mpc:mailbox)
   (lambda (&rest ans)
     (mpc:mailbox-send mbox ans)))
 

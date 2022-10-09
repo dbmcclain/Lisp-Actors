@@ -572,6 +572,10 @@ THE SOFTWARE.
 (defpackage #:sets
   (:use #:common-lisp)
   (:shadow #:remove #:union #:intersection #:every #:some)
+  #+:LISPWORKS
+  (:import-from #:lw
+   #:false
+   #:true)
   (:import-from #:cps
    #:with-cont
    #:=defun

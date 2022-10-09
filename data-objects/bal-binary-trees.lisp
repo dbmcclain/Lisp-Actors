@@ -65,7 +65,7 @@ THE SOFTWARE.
   ((is-empty :reader is-empty :allocation :class :initform t)
    (height   :reader height   :allocation :class :initform 0)))
 
-(defconstant +empty+
+(defvar +empty+
   (make-instance 'empty))
 
 (defun empty ()
@@ -174,14 +174,22 @@ THE SOFTWARE.
 ;; -----------------------------------------------------------
 ;; add - insertion of one element
 
-(defvar *replace-p* #'lw:false)
+(unless (fboundp 'false)
+  (defun false ()
+    (constantly nil)))
+
+(unless (fboundp 'true)
+  (defun true ()
+    (constantly t)))
+
+(defvar *replace-p* #'false)
 
 (defmacro with-replacement (&body body)
-  `(let ((*replace-p* #'lw:true))
+  `(let ((*replace-p* #'true))
      ,@body))
 
 (defmacro without-replacement (&body body)
-  `(let ((*replace-p* #'lw:false))
+  `(let ((*replace-p* #'false))
      ,@body))
 
 (defun ensure-function (f)
@@ -972,6 +980,5 @@ THE SOFTWARE.
 
 (defmethod copy-as-unshared ((set UE))
   (copy set))
-
 
 

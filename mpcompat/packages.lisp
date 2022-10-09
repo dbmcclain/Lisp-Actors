@@ -28,6 +28,9 @@ THE SOFTWARE.
 (defpackage :mp-compatibility
   (:use #:common-lisp)
   (:nicknames #:mpcompat)
+  #+:SBCL
+  (:import-from #:sb-concurrency
+   #:mailbox)
   #+:LISPWORKS
   (:import-from #:mp
    #:process-name
@@ -43,6 +46,11 @@ THE SOFTWARE.
    #:with-lock
    #:make-mailbox
    #:mailbox-empty-p
+   #:process-sharing-lock
+   #:process-sharing-unlock
+   #:process-exclusive-lock
+   #:process-exclusive-unlock
+   #:mailbox
    )
   #+(OR :LISPWORKS6 :LISPWORKS7 :LISPWORKS8)
   (:import-from #:mp
@@ -79,7 +87,9 @@ THE SOFTWARE.
    #:compare-and-swap
    #:ensure-memory-after-store
    #:globally-accessible
-   #:atomic-exchange)
+   #:atomic-exchange
+   #:atomic-push
+   #:atomic-pop)
   (:export
    #:current-process-kill
    #:process-name
@@ -137,9 +147,16 @@ THE SOFTWARE.
 
    #:globally-accessible
    #:atomic-exchange
-
+   #:atomic-push
+   #:atomic-pop
+   
    #:with-exclusive-lock
    #:with-sharing-lock
    #:process-allow-scheduling
+   #:process-sharing-lock
+   #:process-exclusive-lock
+   #:process-sharing-unlock
+   #:process-exclusive-unlock
+   #:mailbox
    ))
 

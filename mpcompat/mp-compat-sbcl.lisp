@@ -228,8 +228,32 @@ A null timeout means wait forever."
 (defmacro atomic-exch (a b)
   `(nyi 'atomic-exch))
 
+(defmacro atomic-push (item lst)
+  `(nyi 'atomic-push))
+
+(defmacro atomic-pop (lst)
+  `(nyi 'atomic-pop))
+
 (defmacro globally-accessible (place)
   `(nyi 'globally-accessible))
+
+(defun process-sharing-lock (&rest args)
+  (nyi 'process-sharing-lock))
+
+(defun process-exclusive-lock (&rest args)
+  (nyi 'process-exclusive-lock))
+
+(defun process-sharing-unlock (&rest args)
+  (nyi 'process-sharing-unlock))
+
+(defun process-exclusive-unlock (&rest args)
+  (nyi 'process-exclusive-unlock))
+
+(defun process-lock (&rest args)
+  (nyi 'process-lock))
+
+(defun process-unlock (&rest args)
+  (nyi 'process-unlock))
 
 (defmacro with-exclusive-lock ((lock &rest args) &body body)
   `(with-lock (,lock) ,@body))
