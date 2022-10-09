@@ -40,6 +40,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :depends-on   ("actors"
                  "snappy"
                  "lisp-object-encoder"
-                 "core-crypto"))
+                 "edwards-ecc"))
 
 

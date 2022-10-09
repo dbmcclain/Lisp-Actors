@@ -6,7 +6,7 @@
   :license     "Copyright (c) 2015 by Refined Audiometrics Laboratory, LLC. All rights reserved."
   :in-order-to ((test-op (test-op "core-crypto-test")))
   :serial       t
-  :components  ((:file "ecc-package")
+  :components  ((:file "mini-ecc-package")
                 (:file "cached-var")
                 (:file "modular-arith")
                 (:file "utilities")
@@ -27,7 +27,6 @@
                 )
   :depends-on   ("ironclad"
                  "useful-macros"
-                 ;; "mpcompat"
                  "lisp-object-encoder"
                  "s-base64"
                  "cl-base58"

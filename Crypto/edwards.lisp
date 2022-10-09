@@ -1075,3 +1075,4 @@ Else re-probe with (X^2 + 1)."
   (setf *edcurve* nil))
 
 (core-crypto:add-to-shutdowns 'shutdown-edwards)
+

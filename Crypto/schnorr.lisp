@@ -4,7 +4,7 @@
 ;; ----------------------------------------------
 ;; Schnorr Signatures
 
-(defvar *ssig-nonce*  (int (ecc::make-nonce)))
+(defvar *ssig-nonce*  (int (crypto-utils:make-nonce)))
 
 (defun ssig-nonce ()
   (sys:atomic-incf *ssig-nonce*))

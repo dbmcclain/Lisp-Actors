@@ -23,17 +23,28 @@ THE SOFTWARE.
 |#
 
 
-(defsystem "core-crypto"
-  :description "core-crypto: core cryptography functions"
+(defsystem "edwards-ecc"
+  :description "edwards-ecc: Single-curve ECC crypto along Edwards Curves"
   :version     "1.0.1"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2015 by Refined Audiometrics Laboratory, LLC. All rights reserved."
   :in-order-to ((test-op (test-op "core-crypto-test")))
   :serial       t
-  :components  ((:file "ecc-package")
+  :components  (
+                #|
                 (:file "primes")
                 (:file "startup")
                 #-:WINDOWS (:file "lib-loads")
+                |#
+                (:file "startup")
+                #-:WINDOWS (:file "lib-loads")
+
+                (:file "ed-types")
+                (:file "ed-curves")
+                #-:WINDOWS (:file "edwards-metal")
+                (:file "edwards")
+                (:file "elligator")
+                #|
                 (:file "proofs-ecc")
                 (:file "lagrange-4-square")
                 #-:WINDOWS (:file "pbc-cffi")
@@ -41,29 +52,21 @@ THE SOFTWARE.
                 #-:WINDOWS (:file "pbc")
                 #-:WINDOWS (:file "subkey-derivation")
                 #-:WINDOWS (:file "proofs")
-                (:file "init-crypto")
+                |#
                 (:file "keying")
+                (:file "schnorr")
+                (:file "init-crypto")
                 (:file "ed-keying")
                 (:file "my-keying")
-                (:file "schnorr")
-                (:file "data-check")
-                )
-  :depends-on   ("edwards-ecc"
-                 ;; "ironclad"
-                 ;; "useful-macros"
-                 ;; "mpcompat"
-                 ;; "lisp-object-encoder"
-                 ;; "s-base64"
-                 ;; "cl-base58"
-                 ;; "emotiq"
-                 ;; "emotiq/delivery"
-                 ;; "cffi"
-		 ;; #-:WINDOWS "core-crypto/libraries"
+                (:file "data-check"))
+  
+  :depends-on   ("mini-core-crypto"
+                 "cffi"
+		 #-:WINDOWS "edwards-ecc/libraries"
                  ))
 
-#|
 #-:WINDOWS
-(defsystem "core-crypto/libraries"
+(defsystem "edwards-ecc/libraries"
   :perform
   (prepare-op
    :before (o c)
@@ -81,10 +84,5 @@ THE SOFTWARE.
                       ,(namestring (system-relative-pathname
                                     :core-crypto "./etc/build-crypto-ecc.bash")))
                     :output :string :error :string)
-       (run-program `("bash"
-                      ,(namestring (system-relative-pathname
-                                    :core-crypto "./etc/build-crypto-pairings.bash")))
-                    :output :string :error :string)
        (format *standard-output* "~tWhew!  Finished.~&")))))
 
-|#

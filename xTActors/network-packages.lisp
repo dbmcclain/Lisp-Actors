@@ -81,7 +81,8 @@
    #:common-lisp
    #:com.ral.actors
    #:core-crypto
-   #:edec #:def*
+   #:edec
+   #:def*
    #:com.ral.actors.encoding)
   (:import-from #:com.ral.actors.network
    #:connections

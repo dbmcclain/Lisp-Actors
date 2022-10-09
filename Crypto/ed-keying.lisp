@@ -2,7 +2,7 @@
 (in-package :edec)
 
 ;; -----------------------------------------------
-;; Public/Private Key pair genberation, splittingk, reassembly
+;; Public/Private Key pair generation, splitting, reassembly
 
 (defun gen-key-pair (&optional (nshares 3))
   (multiple-value-bind (skey pkey)
