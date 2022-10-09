@@ -580,7 +580,7 @@ THE SOFTWARE.
 ;; --------------------------------------------------------------
 ;; User-level Functions
 
-(defun running-actors-p ()
+(defun actors-running-p ()
   (or self
       (call-actor custodian :get-threads)))
 
@@ -707,7 +707,7 @@ THE SOFTWARE.
 
 #| ;; for manual loading mode...
 (if (mpc:get-current-process)
-    (unless (running-actors-p)
+    (unless (actors-running-p)
       (lw-start-actors))
   ;; else
   (pushnew '("Start Actors" () lw-start-actors) mpc:*initial-processes*

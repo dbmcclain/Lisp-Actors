@@ -90,7 +90,7 @@ THE SOFTWARE.
    #:def-beh
 
    #:custodian
-   #:running-actors-p
+   #:actors-running-p
    #:restart-actors-system
    #:kill-actors-system
    #:add-executives
