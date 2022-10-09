@@ -38,4 +38,5 @@ THE SOFTWARE.
                 ;; (:file "multi-locks")
                 )
   :serial t
-  :depends-on   ())
+  :depends-on   (
+                 #+:SBCL "sb-concurrency"))
