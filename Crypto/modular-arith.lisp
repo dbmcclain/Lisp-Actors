@@ -32,7 +32,7 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------
 
-(defvar *m*  1)   ;; current modular base
+(defvar *m* )   ;; current modular base
 
 (declaim (integer *m*)
          (inline mmod m-1 m/2l m+1 m/2u))
@@ -349,7 +349,7 @@ THE SOFTWARE.
   ;; Cipolla defines a quadratic extnsion field, where every value in
   ;; Fq^2 is a square, albeit possibly "imaginary". If a value is a
   ;; square in Fq then it has zero imaginary component in its square
-  ;; root in Fq^2. Otherwise, it has zero real part and finite
+  ;; root in Fq^2. Otherwise, it has zero real part and non-zero
   ;; imaginary part.
   ;;
   ;; This routine will work happily on every field value in Fq, but it
