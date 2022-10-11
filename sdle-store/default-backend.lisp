@@ -411,7 +411,7 @@
 
         ((symbol-package obj)
          (output-type-code +symbol-code+ stream)
-         (store-object (um:true-package-name (symbol-package obj))
+         (store-object (package-name (symbol-package obj))
                        stream)
          (store-object (symbol-name obj) stream))
 
@@ -1017,7 +1017,7 @@
 
 (defstore-sdle-store (obj package stream)
   (output-type-code +package-code+ stream)  
-  (store-object (um:true-package-name obj) stream)
+  (store-object (package-name obj) stream)
   (store-object (package-nicknames obj) stream)
   (store-object (mapcar (if *store-used-packages* #'identity #'package-name)
                         (package-use-list obj))
