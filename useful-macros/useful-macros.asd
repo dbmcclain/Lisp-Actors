@@ -59,7 +59,7 @@ THE SOFTWARE.
                 #+(AND :COM.RAL :LISPWORKS) (:file "safe-call-system")
 
                 #-:relative-package-names (:file "hierarchical-packages")
-                (:file "package-aliases")
+                ;; (:file "package-aliases")
 
                 (:file "nlet")
                 (:file "sharp-quasiquote-reader")
@@ -128,5 +128,6 @@ THE SOFTWARE.
                  "alexandria"
                  "cffi"
                  "mpcompat"
+                 "safe-read" ;; thanks Michal!
                  ))
 

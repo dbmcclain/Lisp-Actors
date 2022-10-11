@@ -35,23 +35,49 @@ THE SOFTWARE.
   (make-hash-table))
 
 (defun remember-filename (key fname)
-  (setf (gethash key *remembered-filenames*) fname))
+  (setf (gethash key *remembered-filenames*) fname)
+  (when key
+    ;; remember last one, for context-free queries
+    (setf (gethash nil *remembered-filenames*) fname)))
 
 (defun remembered-filename (key)
-  (gethash key *remembered-filenames*))
+  (or
+   (gethash key *remembered-filenames*)
+   (and key
+        ;; No last remembered by key.
+        ;; So start with last one, regardless of keyed context
+        (gethash nil *remembered-filenames*))))
 
-(defun do-with-remembered-filename (key init fn)
+(defun do-with-remembered-filename (message key prompt-keys init fn)
+  ;; can use null key for non-selective recall - starts with last
+  ;; prompted filename regardless of former keyed context.
   (um:when-let (fname (if init
                           (funcall init (remembered-filename key))
-                        (capi:prompt-for-file "Select a File" :pathname (remembered-filename key))))
+                        (multiple-value-call #'capi:prompt-for-file
+                          message
+                          (values-list prompt-keys)
+                          :pathname (remembered-filename key))
+                        ))
     (remember-filename key fname)
     (funcall fn fname)))
   
-(defmacro with-remembered-filename ((fname key &optional init) &body body)
-  `(do-with-remembered-filename ,key ,(and init
-                                           `(lambda (,fname)
-                                              (declare (ignorable ,fname))
-                                              ,init))
+(defmacro with-remembered-filename ((fname message
+                                           &optional key init
+                                           &rest prompt-keys
+                                           &key (filter "*.*"))
+                                    &body body)
+  "KEY indicates a context for the lookup. Can be NIL for \
+\"use last lookup\" as context, regardless of its keying.\
+\
+If INIT is null, then use CAPI:PROMPT-FOR-FILE with MESSAGE \
+and any PROMPT-KEYS. Otherwise, INIT should be a Lisp form \
+that uses FNAME as a bound argument, and computes and returns \
+the new filename."
+  `(do-with-remembered-filename ,message ,key (list ,@prompt-keys :filter ,filter)
+                                ,(and init
+                                      `(lambda (,fname)
+                                         (declare (ignorable ,fname))
+                                         ,init))
                                 (lambda (,fname)
                                   (declare (ignorable ,fname))
                                   ,@body)))
@@ -59,8 +85,10 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "with-remembered-filename" 1)
 
-(defmacro with-remembered-prompting ((fname key
-                                            &optional init
+#|
+(defmacro with-remembered-prompting ((fname &optional
+                                            key
+                                            init
                                             (prompt "Pick a file")
                                             &rest
                                             prompt-keys)
@@ -74,7 +102,7 @@ THE SOFTWARE.
                                      
 #+:LISPWORKS
 (editor:setup-indent "with-remembered-prompting" 1)
-
+|#
 
 ;; ----------------------------------------------------------
 

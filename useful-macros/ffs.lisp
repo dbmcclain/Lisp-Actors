@@ -41,7 +41,7 @@
 (defvar mappings
   '(("projects:" . "~/projects/")
     ("lisp:"     . "projects:Lispworks/")
-    ("actors:"   . "lisp:actors/")))
+    ("actors:"   . "lisp:xTActors/")))
 
 (defun map-filename (fname)
   (prefix-translation fname mappings))

@@ -24,6 +24,7 @@ THE SOFTWARE.
 
 (in-package :useful-macros)
 
+#|
 (defvar *safe-read-from-string-blacklist*
   '(#\# #\: #\|))
 
@@ -46,4 +47,122 @@ THE SOFTWARE.
                       safe-read-from-string fail))))
           (read-from-string s)))
       fail)))
+|#
 
+;; Using Michal's improved, extensive, version
+
+(defvar *whitespace* '(#\Space #\Newline #\Backspace #\Tab
+                               #\Linefeed #\Page #\Return #\Rubout))
+
+(define-condition malformed-input (error) ())
+
+(define-condition input-size-exceeded (error) ())
+
+(defvar *max-input-size* (* 128 1024))
+
+(defun whitespace-p (char)
+  (member char *whitespace*))
+
+(defun trim-leading-whitespace (string)
+  (string-left-trim *whitespace* string))
+
+;; Special Restricted ReadTable
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter %safe-readtable% (copy-readtable))
+  (defparameter %max-safe-char% 256)
+  (let ((*readtable* %safe-readtable%))
+    (flet ((signal-malformed-input (stream char)
+             (declare (ignore stream char))
+             (error 'malformed-input))
+           (eat-colon (stream char)
+             (declare (ignore char))
+             (if (eq #\: (read-char-no-hang stream))
+                 (read stream)
+                 (error 'malformed-input))))
+      (dotimes (i %max-safe-char%)
+        (let* ((char (code-char i))
+               (macro-char (get-macro-character char)))
+          (unless (or (null char)
+                      (member char '(#\( #\) #\"))
+                      (null macro-char))
+            (set-macro-character char #'signal-malformed-input))))
+      (set-macro-character #\: #'signal-malformed-input)
+      (set-macro-character #\# #'eat-colon))))
+
+;; Utility macro - temporary packages
+(defmacro with-temp-package (&body body)
+  (let* ((now (format nil "~S" (local-time:now)))
+         (package-name (gensym (uiop:strcat "TEMP-PKG-" now "-")))
+         (package-var (gensym))
+         (use (if (eq (first body) :use-list)
+                  (prog1 (second body)
+                    (setf body (cddr body))))))
+                    
+    `(let ((,package-var (or (find-package ',package-name)
+                             (make-package ',package-name :use ,use))))
+       (unwind-protect (let ((*package* ,package-var)) ,@body)
+         (delete-package ,package-var)))))
+
+;; Handler-case and macro-wrapper for safe reading
+(defmacro safe-read-string-handler-case (&body body)
+  `(with-temp-package ,@(if (eq (first body) :use-list)
+                            (prog1 (list :use-list (second body))
+                              (setf body (cddr body))))
+     (handler-case
+         (let* ((*readtable* %safe-readtable%))
+           (values
+            (progn
+              ,@body)))
+       (error (e)
+         (values nil e)))
+     ))
+
+#|
+(defun %safe-read-from-string (s)
+  ;; Michal's reader only accepts S-exprs. We dummy up an S-expr
+  ;; covering all arguments in the string and return the list of them.
+  (if (> (length str) *max-input-size*)
+      (values nil (make-condition 'input-size-exceeded))
+    ;; else
+    (let ((line (trim-leading-whitespace str)))
+      (if (char/= #\( (char line 0))
+          (values nil (make-condition 'malformed-input))
+        ;; else
+        (safe-read-string-handler-case :use-list use-list
+          (read-from-string line)))
+      )))
+
+(defun safe-read-from-string (s)
+  ;; Michal's reader only accepts S-exprs. We dummy up an S-expr
+  ;; covering all arguments in the string and return the list of them.
+  (let ((trimmed (concatenate 'string
+                              "(" (trim-leading-whitespace s) ")" )))
+    (%safe-read-from-string trimmed :use-list '(:common-lisp))
+    ))
+|#
+
+(defun safe-read-from-string (s)
+  ;; Michal's reader only accepts S-exprs. We dummy up an S-expr
+  ;; covering all arguments in the string and return the list of them.
+  (let ((trimmed (concatenate 'string
+                              "(" (trim-leading-whitespace s) ")" )))
+    (safe-read:safe-read trimmed '(:common-lisp))
+    ))
+
+#|
+(Safe-read-from-string "(values \
+                                x15)")
+(safe-read-from-string (concatenate 'string "(values" " x15"))
+(safe-read-from-string "32.0")
+
+(with-input-from-string (s "xyxz")
+  (print (class-of s)))
+
+(progn
+  (with-input-from-string (s "xyxz")
+    (print s))
+  (unwind-protect
+      (with-input-from-string (s "xxx")
+        (print s))
+    (print :unwinding)))
+ |#
