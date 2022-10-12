@@ -14,7 +14,7 @@
 ;;  dec - is the deconstructor which returns its opaque contents.
 ;;
 ;; The envelopes are also convenient ref objects whose opaque contents
-;; may be mutated (or not). But when the contents represent immutable
+;; may be mutated (or not). But when the contents represent mutable
 ;; objects, the only way to record a mutation is to modify the
 ;; reference contained in the envelope, using (SETF (DEC obj)).
 

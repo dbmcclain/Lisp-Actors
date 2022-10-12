@@ -28,8 +28,7 @@ THE SOFTWARE.
 
 #+:LISPWORKS
 (defmacro! def-typed-fn (type-name params fn &environment env)
-  (let ((maker-name (intern (concatenate 'string (string :MAKE-)
-                                         (string type-name)))))
+  (let ((maker-name (symb 'make- type-name))
     (um:ensure-thread-eval-def maker-name
       `(progn
          (defclass ,type-name ()

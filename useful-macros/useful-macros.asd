@@ -63,6 +63,8 @@ THE SOFTWARE.
                  "mpcompat"
                  ))
 
+;; Actors can be invoked after first loading "useful-macros"
+
 (asdf:defsystem "useful-macros/ext"
   :description "useful-macros/extensions: a collection of widely useful macros and functions"
   :version     "1.0"
