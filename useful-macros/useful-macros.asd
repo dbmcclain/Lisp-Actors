@@ -91,6 +91,7 @@ THE SOFTWARE.
                 ;; (:file "match-macro-ex3")
                 ;; (:file "monitor-macros")
                 ;; (:file "lazy") ;; supplanted by a better, simpler, version
+                #+:LISPWORKS (:file "underscore")
                	(:file "uuid")
                 #+(AND :LISPWORKS :MACOSX) (:file "OSX-UUID-Generate")
                 #+(AND :ALLEGRO :MACOSX)   (:file "OSX-UUID-Generate-Allegro")
@@ -113,7 +114,6 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "safe-read-patch")
                 (:file "safe-read-from-string")
 		#+:LISPWORKS (:file "objc")
-                #+:LISPWORKS (:file "underscore")
 
                 #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
 
