@@ -27,7 +27,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :critsec)
+(defpackage :com.ral.useful-macros.critical-section
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.critical-section)
 
 ;; ------------------------------------------------------------------------
 ;; WARNING!! Any macros that generate embedded (LOAD-TIME-VALUE ...)

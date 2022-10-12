@@ -4,7 +4,10 @@
 ;; DM 11/20
 ;; -------------------------------------------------------------
 
-(in-package :useful-macros)
+(defpackage :com.ral.useful-macros.capture
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.capture)
 
 (defstruct capture-packet
   data)

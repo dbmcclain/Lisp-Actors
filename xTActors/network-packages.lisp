@@ -1,7 +1,7 @@
 
 (defpackage :com.ral.actors.encoding.self-sync
   (:use #:cl #:com.ral.actors)
-  (:local-nicknames (#:um  #:useful-macros))
+  (:local-nicknames (#:um  #:com.ral.useful-macros))
   (:export
    #:encode
    #:decode
@@ -11,10 +11,10 @@
 (defpackage :com.ral.actors.encoding
   (:use
    #:common-lisp
-   #:com.ral.actors
-   #:def*)
+   #:com.ral.actors)
   (:local-nicknames
-   (#:um        #:useful-macros)
+   (#:um        #:com.ral.useful-macros)
+   (#:uuid      #:com.ral.uuid)
    (#:modmath   #:crypto/modular-arith)
    (#:self-sync #:com.ral.actors.encoding.self-sync))
   (:export
@@ -70,10 +70,12 @@
    #:com.ral.actors
    #:core-crypto
    #:edec
-   #:def*
    #:com.ral.actors.encoding)
-  (:local-nicknames (#:um  #:useful-macros))
-  (:import-from #:useful-macros
+  (:local-nicknames
+   (#:uuid #:com.ral.uuid)
+   (#:aop  #:com.ral.useful-macros.dflet)
+   (#:um  #:com.ral.useful-macros))
+  (:import-from #:com.ral.useful-macros
    #:capture-ans-or-exn
    #:call-capturing-ans-or-exn
    #:recover-ans-or-exn)
@@ -94,11 +96,10 @@
   (:use
    #:common-lisp
    #:com.ral.actors
-   #:def*
    #:com.ral.actors.encoding)
   (:local-nicknames
    (#:self-sync #:com.ral.actors.encoding.self-sync))
-  (:import-from #:useful-macros
+  (:import-from #:com.ral.useful-macros
    #:when-let
    #:wr
    #:copy-with)

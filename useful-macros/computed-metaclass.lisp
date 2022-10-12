@@ -9,7 +9,11 @@
 ;; DM/SD  11/08
 ;; --------------------------------------------------------------------------------------
 ;; --------------------------------------------------
-(in-package :useful-macros)
+
+(defpackage :com.ral.useful-macros.computed-metaclass
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.computed-metaclass)
 ;; --------------------------------------------------
 #|
 The MIT License

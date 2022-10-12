@@ -1,5 +1,8 @@
 
-(in-package :useful-macros)
+(defpackage :com.ral.useful-macros.wordlist
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.wordlist)
 
 (defvar *wordlist*
   (sort (map 'vector

@@ -5,7 +5,7 @@
   (:use #:common-lisp #:scatter-vec)
   ;; (:nicknames #:ubstream)
   (:local-nicknames
-   (#:um  #:useful-macros)
+   (#:um     #:com.ral.useful-macros)
    (#:mgdbuf #:managed-buffers))
   #+:LISPWORKS
   (:import-from #:stream

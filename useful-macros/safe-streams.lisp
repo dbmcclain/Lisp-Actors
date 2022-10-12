@@ -3,19 +3,18 @@
 ;; DM/RAL 10/22
 ;; ------------------------------------------------------------
 
-(defpackage #:ral-streams
-  (:use :common-lisp)
-  (:local-nicknames (#:um #:useful-macros))
+(defpackage :com.ral.useful-macros.safe-streams
+  (:use :common-lisp :com.ral.useful-macros)
   (:export
    #:add-stream-tracking
    #:remove-stream-tracking
    ))
 
-(in-package #:ral-streams)
+(in-package :com.ral.useful-macros.safe-streams)
 
 (hcl:defglobal-variable *tracked-streams* nil)
 
-(um:defmonitor stream-tracker ()
+(defmonitor stream-tracker ()
 
   (defun make-test (stream fn)
     (lambda (pair)
@@ -25,7 +24,7 @@
   (defun add-stream-tracking (stream fn)
     (let ((test (make-test stream fn)))
       (unless (find-if test *tracked-streams*)
-        (um:critical-section
+        (critical-section
           (unless (find-if test *tracked-streams*)
             (setf *tracked-streams*
                   (acons stream fn *tracked-streams*))
@@ -35,7 +34,7 @@
   (defun remove-stream-tracking (stream fn)
     (let ((test (make-test stream fn)))
       (when (find-if test *tracked-streams*)
-        (um:critical-section
+        (critical-section
           (when (find-if test *tracked-streams*)
             (setf *tracked-streams*
                   (delete-if test *tracked-streams*))
@@ -45,7 +44,7 @@
   (defun discard-stream (stream)
     (when (assoc stream *tracked-streams*)
       (let (actions)
-        (um:critical-section
+        (critical-section
           (when (assoc stream *tracked-streams*)
             (setf *tracked-streams*
                   (delete-if (lambda (pair)

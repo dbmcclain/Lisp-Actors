@@ -26,17 +26,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(defpackage #:bblk
+(defpackage #:com.ral.useful-macros.bb
   (:use #:common-lisp)
-  (:local-nicknames (#:um #:useful-macros))
-  (:import-from #:def*
+  (:local-nicknames (#:um #:com.ral.useful-macros))
+  (:import-from #:com.ral.useful-macros.def-extensions
    #:lambda*)
   (:export
    #:bb
    #:define-handler
    ))
 
-(in-package #:bblk)
+(in-package #:com.ral.useful-macros.bb)
 
 ;; ---------------------------------------------------------
 

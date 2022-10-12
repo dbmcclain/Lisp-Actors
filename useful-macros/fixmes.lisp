@@ -3,9 +3,11 @@
 ;; DM/RAL 02/21
 ;; ----------------------------------------------------------------------
 
-(defpackage :fixmes)
+(defpackage :com.ral.useful-macros.fixmes
+  (:use :common-lisp)
+  (:local-nicknames (:uuid :com.ral.uuid)))
 
-(in-package :fixmes)
+(in-package :com.ral.useful-macros.fixmes)
 
 ;; -----------------------------------------------------------------
 ;; First up... DSPEC:Save-Tags-Database can run into problems when it
@@ -166,7 +168,7 @@
           (cons new-hd (scrub tl)))
         ))))
 
-(lw:defadvice (dump-forms-to-file :filter-dspec-methods :around)
+(lw:defadvice (hcl:dump-forms-to-file :filter-dspec-methods :around)
     (pathname forms &rest args)
   (when *saving-tags*
     (setf forms (scrub forms)))

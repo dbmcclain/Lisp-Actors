@@ -25,18 +25,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(defpackage #:usec
-  (:use #:common-lisp)
-  (:local-nicknames (#:um #:useful-macros))
+(defpackage :com.ral.usec
+  (:use :common-lisp)
+  (:local-nicknames (:um :com.ral.useful-macros))
   (:export
-   #:get-time-usec
-   #:adjust-to-standard-universal-time-usec
-   #:get-universal-time-usec
-   #:_getTickCount
+   :get-time-usec
+   :adjust-to-standard-universal-time-usec
+   :get-universal-time-usec
+   :_getTickCount
    ))
 
 ;; ----------------------------------------------------------------
-(in-package :usec)
+(in-package :com.ral.usec)
 ;; ----------------------------------------------------------------
 ;; ----------------------------------------------------------------
 ;; Timestamps to the nearest microsecond

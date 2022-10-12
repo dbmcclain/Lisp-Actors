@@ -2,7 +2,11 @@
 ;;
 ;; DM/RAL 11/20 -- I learned this from Pascal Costanza
 ;; -------------------------------------------------------
-(in-package :useful-macros)
+
+(defpackage :com.ral.useful-macros.dynamic-wind
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.dynamic-wind)
 ;; -------------------------------------------------
 
 (defvar *dynamic-wind-stack* nil)

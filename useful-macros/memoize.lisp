@@ -26,7 +26,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :useful-macros.memo)
+(defpackage :com.ral.useful-macros.memo
+  (:use :common-lisp :com.ral.useful-macros)
+  (:export
+   #:memo
+   #:memoize
+   #:un-memoize
+   #:clear-memoize
+   #:defun-memo
+   ))
+
+(in-package :com.ral.useful-macros.memo)
 
 ;; -----------------------------------------------------------
 
@@ -51,13 +61,13 @@ THE SOFTWARE.
       )))
 
 (defun un-memoize (fn-name)
-  (um:when-let (fn (get fn-name 'memoized))
+  (when-let (fn (get fn-name 'memoized))
     (setf (symbol-function fn-name) fn)
     (remprop fn-name 'memoized)
     (remprop fn-name 'memo)))
 
 (defun clear-memoize (fn-name)
-  (um:when-let (tbl (get fn-name 'memo))
+  (when-let (tbl (get fn-name 'memo))
     (clrhash tbl)))
 
 (defmacro defun-memo (fn args &body body)

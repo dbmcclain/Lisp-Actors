@@ -1,6 +1,9 @@
 ;; -*- Mode: Lisp; Author: dbm/ral; coding: utf-8 -*-
 
-(in-package :useful-macros)
+(defpackage :com.ral.useful-macros.encstr
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.encstr)
 
 ;; ---------------------------------------------------------
 

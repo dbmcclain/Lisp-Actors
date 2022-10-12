@@ -34,7 +34,10 @@ THE SOFTWARE.
 
 (defpackage #:crypto-utils
   (:use #:common-lisp #:cached-var)
-  (:local-nicknames (#:um  #:useful-macros))
+  (:local-nicknames
+   (#:um   #:com.ral.useful-macros)
+   (#:uuid #:com.ral.uuid)
+   (#:usec #:com.ral.usec))
   (:export
    #:my-random-state
    #:my-random
@@ -205,7 +208,7 @@ THE SOFTWARE.
 (defpackage :crypto/modular-arith
   (:use :common-lisp
    :cached-var)
-  (:local-nicknames (#:um  #:useful-macros))
+  (:local-nicknames (#:um  #:com.ral.useful-macros))
   ;; (:nicknames :modmath)
   (:export
    :with-mod
@@ -265,6 +268,7 @@ THE SOFTWARE.
 
 (defpackage vec-repr
   (:use :common-lisp)
+  (:local-nicknames (#:uuid  #:com.ral.uuid))
   (:export
    :ub8        ;; type
    :ub8-vector ;; type
@@ -315,7 +319,7 @@ THE SOFTWARE.
   (:use :common-lisp
         :vec-repr
         :cached-var)
-  (:local-nicknames (#:um  #:useful-macros))
+  (:local-nicknames (#:um  #:com.ral.useful-macros))
   (:export
    :hash
    :hash-val
@@ -342,7 +346,7 @@ THE SOFTWARE.
 
 (defpackage #:prng
   (:use #:common-lisp #:cached-var)
-  (:local-nicknames (#:um  #:useful-macros))
+  (:local-nicknames (#:um  #:com.ral.useful-macros))
   (:import-from #:crypto-utils
    #:convert-bytes-to-int
    #:mask-off
@@ -432,7 +436,7 @@ THE SOFTWARE.
    #:ciphers
    #:crypto-utils)
   (:nicknames #:ecc)
-  (:import-from #:useful-macros
+  (:import-from #:com.ral.useful-macros
    #:defstub
    #:with-fast-impl)
   (:export
@@ -467,7 +471,7 @@ THE SOFTWARE.
   (:import-from :primes
    :is-prime?
    :expt-mod)
-  (:import-from :useful-macros
+  (:import-from :com.ral.useful-macros
    :curry
    :nlet)
   (:export
@@ -622,7 +626,9 @@ THE SOFTWARE.
 
 (defpackage :edwards-ecc
   (:nicknames :edec)
-  (:local-nicknames (#:um  #:useful-macros))
+  (:local-nicknames
+   (#:uuid #:com.ral.uuid)
+   (#:um   #:com.ral.useful-macros))
   (:use
    #:common-lisp
    #:crypto/modular-arith
@@ -631,7 +637,7 @@ THE SOFTWARE.
    #:vec-repr
    #:hash
    #:prng)
-  (:import-from :useful-macros
+  (:import-from :com.ral.useful-macros
    :defstub
    :stub-function-p
    :with-fast-impl)
@@ -721,7 +727,7 @@ THE SOFTWARE.
    #:vec-repr
    #:prng
    #:hash)
-  (:local-nicknames (#:um  #:useful-macros))
+  (:local-nicknames (#:um  #:com.ral.useful-macros))
   (:import-from :pbc
    :read-safely
    :address

@@ -5,15 +5,18 @@
 ;; --------------------------------------------------------
 ;; Ye Olde FFS - in a nutshell...
 
-(defpackage #:ffs
-  (:use #:common-lisp)
-  (:local-nicknames (#:um #:useful-macros))
+(defpackage :com.ral.useful-macros.ffs
+  (:use :common-lisp)
+  (:local-nicknames (#:um #:com.ral.useful-macros))
+  (:import-from :com.ral.useful-macros
+   :mappings
+   :map-filename)
   (:export
-   #:mappings
-   #:map-filename
+   :mappings
+   :map-filename
    ))
 
-(in-package #:ffs)
+(in-package :com.ral.useful-macros.ffs)
 
 (defun find-prefix-translation (str trans)
   (let ((pos 0)

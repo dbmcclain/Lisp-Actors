@@ -1,5 +1,8 @@
 
-(in-package :useful-macros)
+(defpackage :com.ral.useful-macros.abbrev-bignums
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.abbrev-bignums)
 
 ;; ------------------------------------------------------
 ;; Allow abbreviated display of all large integers, without having to

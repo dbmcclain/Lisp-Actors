@@ -26,7 +26,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package "USEFUL-MACROS")
+(in-package :com.ral.useful-macros)
 
 ;; -------------------------------------------------------
 
@@ -3154,7 +3154,7 @@ or list acceptable to the reader macros #+ and #-."
     (if ok
         (values ans t)
       (if errorp
-          (error 'timeout:timeout)
+          (error 'timeout)
         (when on-timeout
           (funcall on-timeout))
         ))))

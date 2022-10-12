@@ -16,12 +16,12 @@
             ubyte-streams:with-output-to-ubyte-stream
             ubyte-streams:with-input-from-ubyte-stream
 
-            useful-macros:nlet
-            useful-macros:ash-dpbf
-            useful-macros:while
-            useful-macros:alet
-            useful-macros:alet-fsm
-            useful-macros:when-let
+            com.ral.useful-macros:nlet
+            com.ral.useful-macros:ash-dpbf
+            com.ral.useful-macros:while
+            com.ral.useful-macros:alet
+            com.ral.useful-macros:alet-fsm
+            com.ral.useful-macros:when-let
 
             vec-repr:ub8
             vec-repr:ub8-vector

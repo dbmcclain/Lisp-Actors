@@ -1,5 +1,8 @@
 
-(in-package :useful-macros)
+(defpackage :com.ral.useful-macros.sep
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.sep)
 
 ;; Add separators between groups of digits in large FP fractions and
 ;; large Integers

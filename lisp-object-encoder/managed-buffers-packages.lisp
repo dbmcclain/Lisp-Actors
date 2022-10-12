@@ -4,7 +4,7 @@
 (defpackage :managed-buffers
   (:use #:common-lisp #:priq)
   ;; (:nicknames #:mgdbuf)
-  (:local-nicknames (#:um  #:useful-macros))
+  (:local-nicknames (#:um  #:com.ral.useful-macros))
   (:export
    #:make-buffer
    #:init-buffer-queues

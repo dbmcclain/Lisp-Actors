@@ -22,7 +22,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :useful-macros)
+(defpackage :com.ral.useful-macros.pandoric
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.pandoric)
 
 ;; Macros which make use of anaphoric symbols may sometimes fail with
 ;; unbound symbol when evaluated in intrpreter mode in some thread

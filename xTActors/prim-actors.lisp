@@ -509,10 +509,10 @@
 
 (defun timing-beh (dut)
   (lambda (cust &rest msg)
-    (let ((start (usec:get-time-usec)))
+    (let ((start (get-time-usec)))
       (beta _
           (send* dut beta msg)
-        (send cust (- (usec:get-time-usec) start)))
+        (send cust (- (get-time-usec) start)))
       )))
 
 (defun timing (dut)

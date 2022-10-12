@@ -26,7 +26,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package #:useful-macros)
+(defpackage :com.ral.useful-macros.package-aliases
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.package-aliases)
 
 (defun true-package-name (pkg/name)
   (package-name pkg/name))

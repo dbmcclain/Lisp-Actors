@@ -26,7 +26,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package useful-macros.cache)
+(defpackage #:com.ral.useful-macros.cache
+  (:use #:common-lisp #:com.ral.useful-macros)
+  (:local-nicknames (#:um  #:com.ral.useful-macros))
+  (:export
+   #:cache
+   #:cacheize
+   #:uncacheize
+
+   #:2-way-cache
+   #:check-cache
+   #:update-cache
+   #:clear-cache
+   ))
+
+(in-package com.ral.useful-macros.cache)
 
 ;; -----------------------------------------------------------
 
@@ -51,7 +65,7 @@ THE SOFTWARE.
                      (values cell t)
                    (aref cache (setf ix (logxor ix 1))))
                  )))
-      (dlam:dlambda*
+      (dlambda*
         (:clear ()
          (map nil #'zap cache))
         

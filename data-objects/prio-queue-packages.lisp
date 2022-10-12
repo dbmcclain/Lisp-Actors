@@ -30,7 +30,7 @@ THE SOFTWARE.
 
 (defpackage #:ref ;; for V3
   (:use #:common-lisp)
-  (:import-from #:useful-macros
+  (:import-from #:com.ral.useful-macros
    #:rmw
    #:rd
    #:wr
@@ -67,10 +67,10 @@ THE SOFTWARE.
    ))
 
 (defpackage #:priq
-  (:use #:common-lisp #:def*)
+  (:use #:common-lisp #:com.ral.useful-macros.def-extensions)
   #-OPENMCL (:import-from :mpcompat
    :CAS)
-  (:local-nicknames (#:um #:useful-macros))
+  (:local-nicknames (#:um #:com.ral.useful-macros))
   (:export
    #:unsafe-lifo
    #:lifo

@@ -1,5 +1,8 @@
 
-(in-package :useful-macros)
+(defpackage :com.ral.useful-macros.objc
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.objc)
 
 ;; ------------------------------------------------------------
 ;; DM/RAL 09/22 - Try to make OBJC:INVOKE use Mac-like arguments.

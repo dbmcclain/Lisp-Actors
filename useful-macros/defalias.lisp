@@ -4,7 +4,10 @@
 ;; switch of functionality. If you want thread-safe behavior, you
 ;; should use AOP:DEFDYNFUN and AOP:DFLET.
 
-(in-package :useful-macros)
+(defpackage :com.ral.useful-macros.defalias
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.defalias)
 
 (defclass aliasfn ()
   ((fn  :accessor alias-fn  :initarg :fn))

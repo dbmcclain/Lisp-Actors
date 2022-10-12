@@ -1,5 +1,8 @@
 
-(in-package :fpctl)
+(defpackage :com.ral.useful-macros.fpctl
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.fpctl)
 
 (defconstant +FE_TONEAREST+    #x0000)
 (defconstant +FE_DOWNWARD+     #x0400)

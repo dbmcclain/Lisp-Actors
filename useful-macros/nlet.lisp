@@ -1,5 +1,8 @@
 
-(in-package :useful-macros)
+(defpackage :com.ral.useful-macros.nlet
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.nlet)
 
 (defun %i-nlet (whole go-name name bindings decls+body)
   (let* ((gs    (gensyms bindings))

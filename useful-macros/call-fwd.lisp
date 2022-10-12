@@ -1,5 +1,8 @@
 
-(in-package #:useful-macros)
+(defpackage :com.ral.useful-macros.call-fwd
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package #:com.ral.useful-macros.call-fwd)
 
 (defmacro with-fwd (&body body)
   ;; wrap body such that CALL-FWD can be used like FUNCALL, but for

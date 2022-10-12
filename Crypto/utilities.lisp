@@ -39,7 +39,7 @@ THE SOFTWARE.
 (um:defmonitor rand-crit
     ()
   (defun my-random (n)
-    (critsec:critical-section
+    (um:critical-section
       #+:LISPWORKS
       (lw:mt-random n (my-random-state))
       #+(or :ALLEGRO :CLOZURE)

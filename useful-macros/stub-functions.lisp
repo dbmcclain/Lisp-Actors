@@ -1,5 +1,8 @@
 
-(in-package :stub-functions)
+(defpackage :com.ral.useful-macros.stub-functions
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.stub-functions)
 
 ;;;; Stubs for Unimplemented Functions
 

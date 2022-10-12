@@ -26,7 +26,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package "USEFUL-MACROS")
+(defpackage :com.ral.useful-macros.reader-macros
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.reader-macros)
 
 ;; -----------------------------------------------------------
 

@@ -22,7 +22,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :useful-macros)
+(defpackage :com.ral.useful-macros.sharp-quasiquote-reader
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.sharp-quasiquote-reader)
 
 ;; --------------------------------------------
 ;; Reader macro for #` for producing parameterized BQ lists

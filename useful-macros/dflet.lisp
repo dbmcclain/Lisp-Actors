@@ -28,9 +28,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(defpackage #:aop
-  (:use #:common-lisp)
-  (:local-nicknames (#:um #:useful-macros))
+(defpackage #:com.ral.useful-macros.dflet
+  (:use #:common-lisp :com.ral.useful-macros)
   (:export
    #:dflet
    #:call-next-function
@@ -42,7 +41,7 @@ THE SOFTWARE.
    #:get-defined-dynsym
    ))
 
-(in-package #:aop)
+(in-package #:com.ral.useful-macros.dflet)
 
 (defvar *dynsyms* (make-hash-table :test #'equal))
 
@@ -89,7 +88,7 @@ THE SOFTWARE.
 
 (defmacro dflet1 ((fname args &body funbody) &body dflbody)
   (let ((dynsym (get-defined-dynsym fname)))
-    (um:with-unique-names (orgfun orgargs newargs)
+    (with-unique-names (orgfun orgargs newargs)
         `(let* ((,orgfun  ,dynsym)
                 (,dynsym  (lambda (&rest ,orgargs)
                             (flet ((call-next-function (&rest ,newargs)

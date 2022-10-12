@@ -30,25 +30,28 @@ THE SOFTWARE.
 (in-package :CL-USER)
 
 (defpackage #:com.ral.actors
-  (:use #:common-lisp #:def*)
+  (:use #:common-lisp :com.ral.useful-macros.def-extensions)
+  #.`(:export
+      ,@(loop for sym being the external-symbols of :com.ral.useful-macros.def-extensions
+              collect sym))
   #+:LISPWORKS
   (:import-from #:lw
    #:do-nothing)
   #+nil
-  (:import-from #:timeout
+  (:import-from #:com.ral.useful-macros
    #:timeout
    #:*timeout*)
   #+nil
   (:export
    #:timeout
    #:*timeout*)
-  (:import-from #:list-match
+  (:import-from #:com.ral.useful-macros
    #:match
    #:match-fail)
   (:export
    #:match
    #:match-fail)
-  (:import-from #:useful-macros
+  (:import-from #:com.ral.useful-macros
    #:letrec)
   (:export
    #:letrec)
@@ -274,9 +277,9 @@ THE SOFTWARE.
 (defpackage #:com.ral.actors.base
   (:use #:common-lisp #:com.ral.actors
    #+(OR :ALLEGRO :CCL) #:ansi-timer
-   #:def*)
-  (:local-nicknames (#:um #:useful-macros))
-  (:import-from #:useful-macros
+   :com.ral.usec)
+  (:local-nicknames (#:um #:com.ral.useful-macros))
+  (:import-from #:com.ral.useful-macros
    #:curry
    #:rcurry
    #:if-let
@@ -293,18 +296,19 @@ THE SOFTWARE.
   (:use
    #:common-lisp
    #:com.ral.actors
-   #:com.ral.actors.base
-   #:def*)
-  (:local-nicknames (#:um #:useful-macros)))
+   #:com.ral.actors.base)
+  (:local-nicknames (#:um #:com.ral.useful-macros)))
 
 (defpackage com.ral.actors.kv-database
-  (:use #:cl #:def* #:com.ral.actors)
+  (:use #:cl :com.ral.actors)
   (:export
    #:kvdb
   ))
    
 (defpackage #:com.ral.actors.user
-  (:use #:common-lisp #:com.ral.actors #:def*)
+  (:use
+   :common-lisp
+   :com.ral.actors)
   (:nicknames #:ac-user))
 
 

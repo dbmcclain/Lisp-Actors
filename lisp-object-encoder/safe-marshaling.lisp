@@ -5,7 +5,7 @@
 
 (defpackage #:safe-marshaling
   ;; (:nicknames #:rsmb)
-  (:local-nicknames (#:um  #:useful-macros))
+  (:local-nicknames (#:um  #:com.ral.useful-macros))
   (:import-from #:sdle-store
    #:find-backend
    #:defbackend

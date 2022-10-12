@@ -1,5 +1,8 @@
 
-(in-package :timeout)
+(defpackage :com.ral.useful-macros.timeout
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.timeout)
 
 (defvar *timeout*  nil)
 

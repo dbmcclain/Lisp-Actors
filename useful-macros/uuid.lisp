@@ -31,10 +31,11 @@ THE SOFTWARE.
 
 ;;;; Shamelessly hacked by DM/SD 2008, 2009
 
-(defpackage #:uuid
+(defpackage #:com.ral.uuid
   (:use #:common-lisp)
+  (:local-nicknames (:usec  :com.ral.usec))
   (:shadow #:random)
-  (:import-from #:useful-macros
+  (:import-from #:com.ral.useful-macros
    #:eval-always
    #:defmonitor
    #:with-exclusive-access
@@ -86,7 +87,7 @@ THE SOFTWARE.
    #:type1?
    ))
 
-(in-package #:uuid)
+(in-package #:com.ral.uuid)
 
 (defmonitor random-engine
     ((state (load-time-value
@@ -563,7 +564,7 @@ built according code-char of each number in the uuid-string"
 
 (set-/-dispatch-reader "uuid"
                        (lambda (stream)
-                         (uuid:make-uuid-from-string
+                         (make-uuid-from-string
                           (let ((ch (read-char stream)))
                             (if (digit-char-p ch 16)
                                 (read-chars-till-delim stream "/" ch)
@@ -578,7 +579,7 @@ built according code-char of each number in the uuid-string"
 (set-$-dispatch-reader :uuid
                        (lambda (sym)
                          ;; symbol or string acceptable
-                         (uuid:make-uuid-from-string (string sym))))
+                         (make-uuid-from-string (string sym))))
 |#
 
 (defmethod uuid (str)

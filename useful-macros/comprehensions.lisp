@@ -73,7 +73,10 @@ THE SOFTWARE.
 ;;
 ;; -----------------------------------------------------------------------
 
-(in-package #:list-comprehensions)
+(defpackage :com.ral.useful-macros.comprehensions
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.comprehensions)
 
 ;; -----------------------------------------------------------------------
 

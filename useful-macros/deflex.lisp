@@ -1,5 +1,8 @@
 
-(in-package :useful-macros)
+(defpackage :com.ral.useful-macros.deflex
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.deflex)
 
 (defmacro deflex (var val &optional (doc nil docp))
   "Define a top level (global) lexical VAR with initial value VAL,

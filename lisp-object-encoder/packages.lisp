@@ -10,7 +10,7 @@
 (defpackage :lzw
   (:use :cl)
   (:local-nicknames
-   (#:um       #:useful-macros)
+   (#:um       #:com.ral.useful-macros)
    (#:ubstream #:ubyte-streams))
   (:export
    :compressed
@@ -36,7 +36,8 @@
   (:local-nicknames
    (#:ubstream  #:ubyte-streams)
    (#:mgdbuf    #:managed-buffers)
-   (#:um        #:useful-macros))
+   (#:uuid      #:com.ral.uuid)
+   (#:um        #:com.ral.useful-macros))
   (:nicknames #:loenc)
   (:import-from #:sdle-store
    #:output-type-code

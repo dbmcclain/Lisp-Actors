@@ -24,7 +24,7 @@ THE SOFTWARE.
 
 (in-package "CL-USER")
 
-(defpackage #:useful-macros
+(defpackage #:com.ral.useful-macros
   (:use #:common-lisp)
   ;; (:nicknames #:um)
   #+:LISPWORKS
@@ -444,8 +444,6 @@ THE SOFTWARE.
    #:defmacro/g!
    #:parse-body ;; Alexandria replacement
    #:nlet
-   #:nlet-tail
-   #:nlet-tail*
    #:o!-symbol-p
    #:o!-symbol-to-g!-symbol
    #:defmacro!
@@ -535,7 +533,6 @@ THE SOFTWARE.
    #:separate-decls-and-body
 
    #:with-remembered-filename
-   #:with-remembered-prompting
    #:remember-filename
    #:remembered-filename
    #:filename-timestamp-string
@@ -749,10 +746,14 @@ THE SOFTWARE.
    #:rebinding
    #:whitespace-char-p
    #:push-end
+
+   #:mappings
+   #:map-filename
    ))
 
-(defpackage #:fpctl
-  (:use #:cl #:useful-macros)
+#|
+(defpackage #:com.ral.useful-macros.fpctl
+  (:use #:cl #:com.ral.useful-macros)
   (:export
    #:fegetround
    #:fesetround
@@ -762,8 +763,8 @@ THE SOFTWARE.
    #:+fe_towardzero+
    ))
 
-(defpackage #:def*
-  (:use #:cl #:useful-macros)
+(defpackage #:com.ral.useful-macros.def*
+  (:use #:cl #:com.ral.useful-macros)
   (:export
    #|
    #:define
@@ -785,22 +786,22 @@ THE SOFTWARE.
    #:deflex
    ))
 
-(defpackage :lambda-parsing
-  (:use #:cl #:useful-macros)
+(defpackage :com.ral.useful-macros.lambda-parsing
+  (:use #:cl #:com.ral.useful-macros)
   (:export
    :binding-names
    :binding-vals
    :split-body))
 
-(defpackage :timeout
-  (:use #:cl #:useful-macros)
+(defpackage :com.ral.useful-macros.timeout
+  (:use #:cl #:com.ral.useful-macros)
   (:export
    :*timeout*
    :timeout
    :with-timeout))
 
-(defpackage :critsec
-  (:use #:cl #:useful-macros)
+(defpackage :com.ral.useful-macros.critsec
+  (:use #:cl #:com.ral.useful-macros)
   (:export
    :defmonitor
    :critical-section
@@ -821,21 +822,21 @@ THE SOFTWARE.
    |#
    ))
 
-(defpackage #:list-match
-  (:use #:common-lisp :useful-macros)
+(defpackage #:com.ral.useful-macros.list-match
+  (:use #:common-lisp #:com.ral.useful-macros)
   (:export
    #:match
    #:match-fail))
 
-(defpackage #:list-comprehensions
-  (:use #:common-lisp #:useful-macros)
+(defpackage #:com.ral.useful-macros.list-comprehensions
+  (:use #:common-lisp #:com.ral.useful-macros)
   (:nicknames #:lc)
   (:export
    #:lc
    ))
 
-(defpackage #:lexb
-  (:use #:common-lisp #:useful-macros)
+(defpackage #:com.ral.useful-macros.lexb
+  (:use #:common-lisp #:com.ral.useful-macros)
   (:export
    #:test-special
    #:?specials
@@ -848,8 +849,8 @@ THE SOFTWARE.
    #:mp-flet
    ))
 
-(defpackage #:dlam
-  (:use #:common-lisp #:def* #:useful-macros)
+(defpackage #:com.ral.useful-macros.dlam
+  (:use #:common-lisp #:def* #:com.ral.useful-macros)
   (:export
    #:dlam-fun
    #:dlam-keys
@@ -865,34 +866,9 @@ THE SOFTWARE.
    #:tcase
    ))
 
-(defpackage #:useful-macros.cache
-  (:use #:common-lisp)
-  (:local-nicknames (#:um  #:useful-macros))
-  (:export
-   #:cache
-   #:cacheize
-   #:uncacheize
-
-   #:2-way-cache
-   #:check-cache
-   #:update-cache
-   #:clear-cache
-   ))
-
-(defpackage #:useful-macros.memo
-  (:use #:common-lisp)
-  (:local-nicknames (#:um  #:useful-macros))
-  (:export
-   #:memo
-   #:memoize
-   #:un-memoize
-   #:clear-memoize
-   #:defun-memo
-   ))
-
-(defpackage #:useful-macros.remfn
-  (:use #:common-lisp)
-  (:local-nicknames (#:um  #:useful-macros))
+(defpackage #:com.ral.useful-macros.remfn
+  (:use #:common-lisp #:com.ral.useful-macros)
+  (:local-nicknames (#:um  #:com.ral.useful-macros))
   (:export
    #:with-remembered-filename
    #:with-remembered-prompting
@@ -900,9 +876,9 @@ THE SOFTWARE.
    #:remembered-filename
    #:add-timestamp-to-filename
    ))
-
+|#
 #|
-(defpackage #:useful-macros.dispq
+(defpackage #:com.ral.useful-macros.dispq
   (:use #:common-lisp)
   (:export
    #:<dspq>
@@ -936,27 +912,9 @@ THE SOFTWARE.
    ))
 |#
 
-(defpackage #:useful-macros.lazy
-  (:use #:common-lisp #:useful-macros)
-  (:export
-   #:force
-   #:deferred
-   #:with-spin
-   #:without-spin
-   #:lazy
-   #:once-only
-   #:once-thereafter
-   #:future
-   #:unsafe-future
-   #:pmap
-   #:pvmap
-   #:npmap
-   #:npvmap
-   #:par
-   ))
-
-(defpackage #:useful-macros.collector
-  (:use #:common-lisp #:useful-macros)
+#|
+(defpackage #:com.ral.useful-macros.collector
+  (:use #:common-lisp #:com.ral.useful-macros)
   (:export
    #:<collector>
    #:collector-reset
@@ -987,15 +945,15 @@ THE SOFTWARE.
    #:make-mpsafe-monitored-collector
    ))
 
-(defpackage #:stub-functions
-  (:use #:common-lisp #:useful-macros)
+(defpackage #:com.ral.useful-macros.stub-functions
+  (:use #:common-lisp #:com.ral.useful-macros)
   (:export
    :defstub
    :stub-function-p
    :with-fast-impl
    :use-slow-code
    :reset-error))
-
+|#
 
 
 #|
@@ -1005,8 +963,9 @@ THE SOFTWARE.
    #:make
    #:force))
 |#
-(defpackage #:mlmatch
-  (:use #:common-lisp #:useful-macros)
+#|
+(defpackage #:com.ral.useful-macros.mlmatch
+  (:use #:common-lisp #:com.ral.useful-macros)
   (:nicknames #:ml)
   (:export
    #:match
@@ -1021,8 +980,8 @@ THE SOFTWARE.
    #:collect
    ))
 
-(defpackage #:engfmt
-  (:use #:common-lisp #:useful-macros)
+(defpackage #:com.ral.useful-macros.engfmt
+  (:use #:common-lisp #:com.ral.useful-macros)
   (:export
    #:engineering-format
    #:scientific-format
@@ -1034,8 +993,8 @@ THE SOFTWARE.
    #:scifmt
    ))
 
-(defpackage #:xfli
-  (:use #:common-lisp #:useful-macros)
+(defpackage #:com.ral.useful-macros.xfli
+  (:use #:common-lisp #:com.ral.useful-macros)
   (:export
    #:+dlopen-rtld-lazy+
    #:+dlopen-rtld-now+
@@ -1059,3 +1018,4 @@ THE SOFTWARE.
    #:define-foreign-function
    ))
 
+|#

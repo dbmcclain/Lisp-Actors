@@ -22,9 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-#|
-(defpackage #:dlam
-  (:use #:common-lisp)
+(defpackage #:com.ral.useful-macros.dlambder
+  (:use #:common-lisp :com.ral.useful-macros)
   (:export
    #:dlam-fun
    #:dlam-keys
@@ -35,9 +34,8 @@ THE SOFTWARE.
    #:replace-handlers
    #:replace-handler
    ))
-|#
 
-(in-package #:dlam)
+(in-package :com.ral.useful-macros.dlambder)
 
 ;; ----------------------------------------------------------------------
 #|

@@ -22,7 +22,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :useful-macros)
+(defpackage :com.ral.useful-macros.ppcre-reader
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.ppcre-reader)
 
 ;; ---------------------------------------
 ;; This part from Doug Hoyte using Edi's ppcre

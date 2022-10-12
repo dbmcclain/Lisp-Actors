@@ -1,5 +1,24 @@
 
-(in-package :useful-macros.lazy)
+(defpackage :com.ral.useful-macros.lazy-v2
+  (:use :common-lisp :com.ral.useful-macros)
+  (:export
+   #:force
+   #:deferred
+   #:with-spin
+   #:without-spin
+   #:lazy
+   #:once-only
+   #:once-thereafter
+   #:future
+   #:unsafe-future
+   #:pmap
+   #:pvmap
+   #:npmap
+   #:npvmap
+   #:par
+   ))
+
+(in-package :com.ral.useful-macros.lazy-v2)
 
 (defmacro deferred (&body body)
   `(lambda ()

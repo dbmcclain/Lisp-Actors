@@ -3,7 +3,10 @@
 ;; DM/RAL  11/21
 ;; ----------------------------------------------------
 
-(in-package :list-match)
+(defpackage :com.ral.useful-macros.list-match
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.list-match)
 
 (defun match-pat (msg pat)
   ;; collect binding values in reverse order

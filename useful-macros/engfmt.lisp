@@ -22,7 +22,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package "ENGFMT")
+(defpackage :com.ral.useful-macros.engfmt
+  (:use :common-lisp :com.ral.useful-macros)
+  (:export
+   #:engineering-format
+   ))
+
+(in-package :com.ral.useful-macros.engfmt)
 
 (declaim (optimize (speed 3)
                    #|(safety 0)|#

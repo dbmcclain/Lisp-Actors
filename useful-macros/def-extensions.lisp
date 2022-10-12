@@ -3,7 +3,20 @@
 ;; DM/RAL 02/21
 ;; ----------------------------------
 
-(in-package #:def*)
+(defpackage :com.ral.useful-macros.def-extensions
+  (:use :common-lisp :com.ral.useful-macros)
+  (:export
+   :λ
+   :∂
+   :µ
+   :lambda*
+   :defun*
+   :labels*
+   :flet*
+   :deflex
+   ))
+
+(in-package #:com.ral.useful-macros.def-extensions)
 
 #+:LISPWORKS
 (progn

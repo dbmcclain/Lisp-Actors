@@ -27,7 +27,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :useful-macros.remfn)
+(defpackage :com.ral.useful-macros.remembered-filenames
+  (:use :common-lisp :com.ral.useful-macros))
+
+(in-package :com.ral.useful-macros.remembered-filenames)
 
 ;; ----------------------------------------------------------
 
@@ -51,7 +54,7 @@ THE SOFTWARE.
 (defun do-with-remembered-filename (message key prompt-keys init fn)
   ;; can use null key for non-selective recall - starts with last
   ;; prompted filename regardless of former keyed context.
-  (um:when-let (fname (if init
+  (when-let (fname (if init
                           (funcall init (remembered-filename key))
                         (multiple-value-call #'capi:prompt-for-file
                           message
