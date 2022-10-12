@@ -1,5 +1,5 @@
 
-(in-package :um)
+(in-package :useful-macros)
 
 (eval-always
   ;; --------------------------------------

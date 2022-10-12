@@ -73,13 +73,6 @@ THE SOFTWARE.
 ;;
 ;; -----------------------------------------------------------------------
 
-(defpackage #:list-comprehensions
-  (:use #:common-lisp)
-  (:nicknames #:lc)
-  (:export
-   #:lc
-   ))
-
 (in-package #:list-comprehensions)
 
 ;; -----------------------------------------------------------------------

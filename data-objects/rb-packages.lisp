@@ -36,6 +36,7 @@ THE SOFTWARE.
 
 (defpackage #:ord
   (:use #:common-lisp)
+  (:local-nicknames (#:um #:useful-macros))
   (:shadow #:equal)
   (:import-from #:orderable
    #:<orderable-mixin>
@@ -58,6 +59,7 @@ THE SOFTWARE.
 
 (defpackage #:sets
   (:use #:common-lisp)
+  (:local-nicknames (#:um #:useful-macros))
   (:shadow #:remove #:union #:intersection #:every #:some)
   #+:LISPWORKS
   (:import-from #:lw
@@ -121,6 +123,7 @@ THE SOFTWARE.
 
 (defpackage #:maps
   (:use #:common-lisp)
+  (:local-nicknames (#:um #:useful-macros))
   (:shadow #:find #:map)
   (:import-from #:sets
    #:tree

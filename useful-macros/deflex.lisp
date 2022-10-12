@@ -1,5 +1,5 @@
 
-(in-package :um)
+(in-package :useful-macros)
 
 (defmacro deflex (var val &optional (doc nil docp))
   "Define a top level (global) lexical VAR with initial value VAL,

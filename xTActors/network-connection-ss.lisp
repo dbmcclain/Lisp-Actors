@@ -10,31 +10,6 @@
 
 (in-package #:com.ral.actors.network)
 
-(um:eval-always
-  (defmacro add-package-local-nickname (nickname realname)
-    `(#+:LISPWORKS hcl:add-package-local-nickname
-      #+:SBCL      sb-ext:add-package-local-nickname
-      ,nickname ,realname))
-  (add-package-local-nickname :sec-comm  :com.ral.actors.secure-comm)
-  (add-package-local-nickname :act-base  :com.ral.actors.base)
-  (add-package-local-nickname :self-sync :com.ral.actors.encoding.self-sync))
-
-(um:eval-always
-  (import '(um:when-let
-            um:wr
-            sec-comm:make-local-services
-            sec-comm:server-crypto-gateway
-            sec-comm:+server-connect-id+
-            ;; act-base::fmt-println
-            act-base::make-ubv
-
-            ;; act-base::with-printer
-
-            vec-repr:bevn
-            vec-repr:vec
-            vec-repr:int
-            )))
-
 ;; -----------------------------------------------------------------------
 
 (defvar *default-port*            65001.)
@@ -242,9 +217,9 @@
            
            (rec
             (let* ((old-state (connection-rec-state rec))
-                   (new-rec   (um:copy-with rec
-                                            :state  state
-                                            :sender sender))
+                   (new-rec   (copy-with rec
+                                         :state  state
+                                         :sender sender))
                    (new-lst (cons new-rec (remove rec cnx-lst))))
               (unless (or (null old-state)
                           (eql old-state state))
@@ -268,8 +243,8 @@
          (let ((custs (connection-rec-custs rec)))
            (if custs
                ;; waiting custs so join the crowd
-               (let* ((new-rec (um:copy-with rec
-                                             :custs (cons cust custs)))
+               (let* ((new-rec (copy-with rec
+                                          :custs (cons cust custs)))
                       (new-lst (cons new-rec (remove rec cnx-lst))))
                  (become (connections-list-beh new-lst)))
              ;; else - no waiting list, just send our chan to requestor
@@ -313,9 +288,9 @@
      (when rec
        (let* ((custs    (connection-rec-custs rec))
               (state    (connection-rec-state rec))
-              (new-rec  (um:copy-with rec
-                                      :chan  chan
-                                      :custs nil))
+              (new-rec  (copy-with rec
+                                   :chan  chan
+                                   :custs nil))
               (new-cnxs (cons new-rec (remove rec cnx-lst))))
          (become (connections-list-beh new-cnxs))
          (when custs

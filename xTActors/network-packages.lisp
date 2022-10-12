@@ -1,6 +1,7 @@
 
 (defpackage :com.ral.actors.encoding.self-sync
   (:use #:cl #:com.ral.actors)
+  (:local-nicknames (#:um  #:useful-macros))
   (:export
    #:encode
    #:decode
@@ -12,6 +13,10 @@
    #:common-lisp
    #:com.ral.actors
    #:def*)
+  (:local-nicknames
+   (#:um        #:useful-macros)
+   (#:modmath   #:crypto/modular-arith)
+   (#:self-sync #:com.ral.actors.encoding.self-sync))
   (:export
    #:encrypt/decrypt
    #:make-auth-key
@@ -59,23 +64,6 @@
    #:aont-file-reader
    ))
 
-(defpackage :com.ral.actors.network
-  (:use
-   #:common-lisp
-   #:com.ral.actors
-   #:def*
-   #:com.ral.actors.encoding)
-  (:export
-   #:*default-port*
-   #:*socket-timeout-period*
-   #:start-tcp-server
-   #:terminate-server
-   #:*default-port*
-   #:+MAX-FRAGMENT-SIZE+
-   #:client-connector
-   #:connections
-   ))
-
 (defpackage :com.ral.actors.secure-comm
   (:use
    #:common-lisp
@@ -84,13 +72,11 @@
    #:edec
    #:def*
    #:com.ral.actors.encoding)
-  (:import-from #:um
+  (:local-nicknames (#:um  #:useful-macros))
+  (:import-from #:useful-macros
    #:capture-ans-or-exn
    #:call-capturing-ans-or-exn
    #:recover-ans-or-exn)
-  (:import-from #:com.ral.actors.network
-   #:connections
-   #:client-connector)
   (:export
    #:make-local-services
    #:global-services
@@ -100,5 +86,40 @@
    #:+server-connect-id+
    #:server-skey
    #:start-server-gateway
+   #:connections
+   #:client-connector
+   ))
+
+(defpackage :com.ral.actors.network
+  (:use
+   #:common-lisp
+   #:com.ral.actors
+   #:def*
+   #:com.ral.actors.encoding)
+  (:local-nicknames
+   (#:self-sync #:com.ral.actors.encoding.self-sync))
+  (:import-from #:useful-macros
+   #:when-let
+   #:wr
+   #:copy-with)
+  (:import-from #:vec-repr
+   #:bevn
+   #:vec
+   #:int)
+  (:import-from #:com.ral.actors.secure-comm
+   #:connections
+   #:client-connector
+   #:make-local-services
+   #:server-crypto-gateway
+   #:+server-connect-id+)
+  (:export
+   #:*default-port*
+   #:*socket-timeout-period*
+   #:start-tcp-server
+   #:terminate-server
+   #:*default-port*
+   #:+MAX-FRAGMENT-SIZE+
+   #:client-connector
+   #:connections
    ))
 

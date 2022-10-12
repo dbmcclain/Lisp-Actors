@@ -9,6 +9,9 @@
 
 (defpackage :lzw
   (:use :cl)
+  (:local-nicknames
+   (#:um       #:useful-macros)
+   (#:ubstream #:ubyte-streams))
   (:export
    :compressed
    :compressed-data
@@ -30,6 +33,10 @@
 
 (defpackage :lisp-object-encoder
   (:use #:common-lisp #:scatter-vec)
+  (:local-nicknames
+   (#:ubstream  #:ubyte-streams)
+   (#:mgdbuf    #:managed-buffers)
+   (#:um        #:useful-macros))
   (:nicknames #:loenc)
   (:import-from #:sdle-store
    #:output-type-code

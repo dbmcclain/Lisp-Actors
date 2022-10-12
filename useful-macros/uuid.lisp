@@ -34,10 +34,17 @@ THE SOFTWARE.
 (defpackage #:uuid
   (:use #:common-lisp)
   (:shadow #:random)
-  (:import-from :um
-   :defmonitor
-   :with-exclusive-access
-   :critical-section)
+  (:import-from #:useful-macros
+   #:eval-always
+   #:defmonitor
+   #:with-exclusive-access
+   #:critical-section
+   #:defconstant+
+   #:nlet
+   #:->>
+   #:ash-dpb
+   #:set-/-dispatch-reader
+   #:read-chars-till-delim)
   (:import-from #:ironclad
    #:make-digest
    #:update-digest
@@ -107,7 +114,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
 +ticks-per-count+ can be set to INTERNAL-TIME-UINITS-PER-SECOND")
 |#
 
-(um:eval-always
+(eval-always
   #+:sbcl
   (setf *random-state* (make-random-state t))
   
@@ -132,13 +139,13 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
 		   :node (parse-integer uuid-string :start 24 :end 36 :radix 16))))
 
 ;; Those should be constants but I couldn't find a way to define a CLOS object to be constant
-(um:defconstant+ +namespace-dns+ (make-uuid-from-string "6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+(defconstant+ +namespace-dns+ (make-uuid-from-string "6ba7b810-9dad-11d1-80b4-00c04fd430c8")
   "The DNS Namespace. Can be used for the generation of uuids version 3 and 5")
-(um:defconstant+ +namespace-url+ (make-uuid-from-string "6ba7b811-9dad-11d1-80b4-00c04fd430c8")
+(defconstant+ +namespace-url+ (make-uuid-from-string "6ba7b811-9dad-11d1-80b4-00c04fd430c8")
   "The URL Namespace. Can be used for the generation of uuids version 3 and 5")
-(um:defconstant+ +namespace-oid+ (make-uuid-from-string "6ba7b812-9dad-11d1-80b4-00c04fd430c8")
+(defconstant+ +namespace-oid+ (make-uuid-from-string "6ba7b812-9dad-11d1-80b4-00c04fd430c8")
   "The OID Namespace. Can be used for the generation of uuids version 3 and 5")
-(um:defconstant+ +namespace-x500+ (make-uuid-from-string "6ba7b814-9dad-11d1-80b4-00c04fd430c8")
+(defconstant+ +namespace-x500+ (make-uuid-from-string "6ba7b814-9dad-11d1-80b4-00c04fd430c8")
   "The x500+ Namespace. Can be used for the generation of uuids version 3 and 5")
 
 #+(AND :MACOSX :LISPWORKS)
@@ -284,7 +291,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
    (defun get-timestamp ()
      "Get timestamp, compensate nanoseconds intervals"
      (critical-section
-       (um:nlet iter ()
+       (nlet iter ()
          ;; while the standard may call for times measured from 1582-10-15, we make our times
          ;; measure from 1900-01-01 to be compatible with Lisp universal time measurement.
          (let ((time-now ;; (+ (* (get-universal-time) 10000000) 100103040000000000)
@@ -485,12 +492,12 @@ built according code-char of each number in the uuid-string"
 (defun uuid-to-integer (id)
   "Convert a UUID into a (big) integer... only in Lisp!
   Preserves the time order in a V1 UUID."
-  (um:->> (time-high id)
-          (um:ash-dpb _ 16 (time-mid id))
-          (um:ash-dpb _ 32 (time-low id))
-          (um:ash-dpb _  8 (clock-seq-var id))
-          (um:ash-dpb _  8 (clock-seq-low id))
-          (um:ash-dpb _ 48 (node id))))
+  (->> (time-high id)
+       (ash-dpb _ 16 (time-mid id))
+       (ash-dpb _ 32 (time-low id))
+       (ash-dpb _  8 (clock-seq-var id))
+       (ash-dpb _  8 (clock-seq-low id))
+       (ash-dpb _ 48 (node id))))
 
 (defun integer-to-uuid (id)
   "Convert an integer into a UUID.
@@ -510,10 +517,10 @@ built according code-char of each number in the uuid-string"
 (defun uuid-time (id)
   ;; return a BigInt that represents the 100ns increments since
   ;; 1582-10-15 (for v1 only)
-  (um:->> 0
-          (um:ash-dpb _ 12 (time-high id))
-          (um:ash-dpb _ 16 (time-mid id))
-          (um:ash-dpb _ 32 (time-low id))))
+  (->> 0
+       (ash-dpb _ 12 (time-high id))
+       (ash-dpb _ 16 (time-mid id))
+       (ash-dpb _ 32 (time-low id))))
 
 (defun uuid-universal-time (id)
   ;; return an int representing the seconds since 1900-01-01 and a
@@ -554,24 +561,24 @@ built according code-char of each number in the uuid-string"
   (declare (ignore environment))
   `(make-uuid-from-string ,(format nil "~S" uuid)))
 
-(um:set-/-dispatch-reader "uuid"
-                          (lambda (stream)
-                            (uuid:make-uuid-from-string
-                             (let ((ch (read-char stream)))
-                               (if (digit-char-p ch 16)
-                                   (um:read-chars-till-delim stream "/" ch)
-                                 (um:read-chars-till-delim stream
-                                                           (case ch
-                                                             (#\{ "}")
-                                                             (#\[ "]")
-                                                             (#\( ")")
-                                                             (#\< ">")
-                                                             (t (list ch))) ))))))
+(set-/-dispatch-reader "uuid"
+                       (lambda (stream)
+                         (uuid:make-uuid-from-string
+                          (let ((ch (read-char stream)))
+                            (if (digit-char-p ch 16)
+                                (read-chars-till-delim stream "/" ch)
+                              (read-chars-till-delim stream
+                                                     (case ch
+                                                       (#\{ "}")
+                                                       (#\[ "]")
+                                                       (#\( ")")
+                                                       (#\< ">")
+                                                       (t (list ch))) ))))))
 #|
-(um:set-$-dispatch-reader :uuid
-                          (lambda (sym)
-                            ;; symbol or string acceptable
-                            (uuid:make-uuid-from-string (string sym))))
+(set-$-dispatch-reader :uuid
+                       (lambda (sym)
+                         ;; symbol or string acceptable
+                         (uuid:make-uuid-from-string (string sym))))
 |#
 
 (defmethod uuid (str)

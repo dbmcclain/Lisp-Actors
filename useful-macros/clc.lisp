@@ -8,7 +8,7 @@
 ;; DM/RAL 04/21
 ;; -------------------------------------------------------
 
-(in-package :um)
+(in-package :useful-macros)
 
 (defun do-clc (chkfn lock bodyfn)
   (or (funcall chkfn)

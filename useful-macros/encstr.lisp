@@ -81,7 +81,7 @@
                                       (#\0 . #\null)
                                       (#\\ . #\\))))
                            (state start)
-                           (um:if-let (pair (assoc ch enc))
+                           (if-let (pair (assoc ch enc))
                                (stash (cdr pair))
                              (if (or (eql ch #\u)
                                      (eql ch #\x))
@@ -93,7 +93,7 @@
                  (collect-hexcode (ch)
                                   ;; #\u+3bb = Greek Lambda char
                                   ;; it won't fit in a simple-base-string
-                                  (um:if-let (v (and (characterp ch)
+                                  (if-let (v (and (characterp ch)
                                                      (digit-char-p ch 16)))
                                       (progn
                                         (ash-dpbf hex-inp 4 v)
@@ -160,7 +160,7 @@
                              :element-type 'character)
      (with-input-from-string (inp str)
        (handler-case
-           (um:nlet iter ((ch (read-char inp)))
+           (nlet iter ((ch (read-char inp)))
              (labels ((read-follow ()
                         (let* ((ch2   (read-char inp))
                                (code2 (char-code ch2)))

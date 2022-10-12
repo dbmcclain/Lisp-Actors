@@ -5,6 +5,7 @@
 
 (defpackage #:sdle-store
   (:use #:cl) 
+  (:local-nicknames (#:um  #:useful-macros))
   (:export #:backend #:magic-number #:stream-type
            #:restorers #:resolving-backend #:find-backend #:defbackend
            #:*restore-counter* #:*need-to-fix* #:*restored-values*

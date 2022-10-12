@@ -1,5 +1,5 @@
 
-(in-package :um)
+(in-package :useful-macros)
 
 ;; Define a construtor for encapsulated types. These envelopes become
 ;; useful for CLOS dispatching, and keep the contents opaque. In the

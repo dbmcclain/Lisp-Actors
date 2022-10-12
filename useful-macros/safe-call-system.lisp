@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :um)
+(in-package :useful-macros)
 
 ;; SAFE-CALL-SYSTEM - fixes a bug in LWM that prevents proper
 ;; character set translation of extended chars in filenames, making a

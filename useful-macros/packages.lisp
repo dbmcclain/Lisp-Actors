@@ -24,251 +24,9 @@ THE SOFTWARE.
 
 (in-package "CL-USER")
 
-(defpackage #:fpctl
-  (:use :cl)
-  (:export
-   #:fegetround
-   #:fesetround
-   #:+fe_tonearest+
-   #:+fe_downward+
-   #:+fe_upward+
-   #:+fe_towardzero+
-   ))
-
-(defpackage #:def*
-  (:use :cl)
-  (:export
-   #|
-   #:define
-   #:define*
-   #:define-macro
-   #:define-generic
-   #:define-method
-   |#
-   #:lambda*
-   #:flet*
-   #:labels*
-   #:defun*
-   #:λ
-   #:µ
-   #:∂
-   #:parse-body
-   #:is-underscore?
-   #:is-lambda-list-keyword?
-   #:deflex
-   ))
-
-(defpackage :lambda-parsing
-  (:use :cl)
-  (:export
-   :binding-names
-   :binding-vals
-   :split-body))
-
-(defpackage :timeout
-  (:use :cl)
-  (:export
-   :*timeout*
-   :timeout
-   :with-timeout))
-
-(defpackage :critsec
-  (:use :cl)
-  (:export
-   :defmonitor
-   :critical-section
-   :with-exclusive-access
-   :with-shared-access
-   :static
-   :let-static
-   :critical-or
-   #|
-   :def-excl
-   :lambda-excl
-   :labels-excl
-   :flet-excl
-   :def-shared
-   :lambda-shared
-   :labels-shared
-   :flet-shared
-   |#
-   ))
-
-(defpackage #:list-match
-  (:use #:common-lisp)
-  (:export
-   #:match
-   #:match-fail))
-
-(defpackage #:list-comprehensions
-  (:use #:common-lisp)
-  (:nicknames #:lc)
-  (:export
-   #:lc
-   ))
-
-(defpackage #:lexb
-  (:use #:common-lisp)
-  (:export
-   #:test-special
-   #:?specials
-   #:ensure-lexical-bindings
-   #:mp-lambda
-
-   #:lexical
-   #:ensure-lexical
-   #:mp-labels
-   #:mp-flet
-   ))
-
-(defpackage #:dlam
-  (:use #:common-lisp #:def*)
-  (:export
-   #:dlam-fun
-   #:dlam-keys
-   #:dlam-fns
-   #:dlam-def
-   #:dlambda
-   #:dcase
-   #:dlambda*
-   #:dcase*
-   #:replace-handlers
-   #:set-handler
-   #:tlambda
-   #:tcase
-   ))
-
-(defpackage #:um.cache
-  (:use #:common-lisp)
-  (:export
-   #:cache
-   #:cacheize
-   #:uncacheize
-
-   #:2-way-cache
-   #:check-cache
-   #:update-cache
-   #:clear-cache
-   ))
-
-(defpackage #:um.memo
-  (:use #:common-lisp)
-  (:export
-   #:memo
-   #:memoize
-   #:un-memoize
-   #:clear-memoize
-   #:defun-memo
-   ))
-
-(defpackage #:um.remfn
-  (:use #:common-lisp)
-  (:export
-   #:with-remembered-filename
-   #:with-remembered-prompting
-   #:remember-filename
-   #:remembered-filename
-   #:add-timestamp-to-filename
-   ))
-
-#|
-(defpackage #:um.dispq
-  (:use #:common-lisp)
-  (:export
-   #:<dspq>
-   #:dspq-read
-   #:dspq-add-item
-   #:safe-function-p
-   #:add-to-dispatch-queue
-   #:capture-ans-or-exn
-   #:recover-ans-or-exn
-   #:with-dispatch-timeout
-   #:wait-for-dispatch-group
-   #:serial-dispatch-queue
-   #:install-service
-   #:find-service
-   #:make-serial-disptach-queue
-   #:dispatch-serial-sync
-   #:dispatch-serial-async
-   #:wait-for-serial-dispatch
-   #:with-serial-dispatch
-   #:dispatch-parallel-sync
-   #:dispatch-parallel-async
-   #:wait-for-parallel-dispatch
-   #:with-parallel-dispatch
-   #:par
-   #:%wrap-dispatch-group
-   #:%with-dispatch-group
-   #:%do-serial-dispatch-loop
-   #:%do-serial-dispatch-sync
-   #:%do-serial-dispatch-async
-   #:*dispatch-timeout*   
-   ))
-|#
-
-(defpackage #:um.lazy
-  (:use #:common-lisp)
-  (:export
-   #:force
-   #:deferred
-   #:with-spin
-   #:without-spin
-   #:lazy
-   #:once-only
-   #:once-thereafter
-   #:future
-   #:unsafe-future
-   #:pmap
-   #:pvmap
-   #:npmap
-   #:npvmap
-   #:par
-   ))
-
-(defpackage #:um.collector
-  (:use #:common-lisp)
-  (:export
-   #:<collector>
-   #:collector-reset
-   #:collector-discard-contents
-   #:collector-stuff-contents
-   #:collector-nstuff-contents
-   #:collector-ncontents
-   #:collector-length
-   #:collector-empty-p
-   #:collector-append1
-   #:collector-append
-   #:collector-nappend
-   #:collector-prepend
-   #:collector-nprepend
-   #:collector-push
-   #:collector-pop
-
-   #:<monitored-object-mixin>
-   #:mark-changed
-   #:nchanged-p
-   
-   #:<mpsafe-mixin>
-   #:with-locked-instance
-
-   #:make-collector
-   #:make-monitored-collector
-   #:make-mpsafe-collector
-   #:make-mpsafe-monitored-collector
-   ))
-
-(defpackage :stub-functions
-  (:use :common-lisp)
-  (:export
-   :defstub
-   :stub-function-p
-   :with-fast-impl
-   :use-slow-code
-   :reset-error))
-
 (defpackage #:useful-macros
-  (:use #:common-lisp #:def*)
-  (:nicknames #:um)
+  (:use #:common-lisp)
+  ;; (:nicknames #:um)
   #+:LISPWORKS
   (:import-from #:lispworks
    #:true
@@ -284,164 +42,9 @@ THE SOFTWARE.
    #:rebinding
    #:whitespace-char-p
    #:push-end)
-  (:import-from :fpctl
-   #:fegetround
-   #:fesetround
-   #:+fe_tonearest+
-   #:+fe_downward+
-   #:+fe_upward+
-   #:+fe_towardzero+)
-  (:import-from :list-match
-   #:match
-   #:match-fail)
   (:export
    #:match
    #:match-fail)
-  (:import-from :stub-functions
-   :defstub
-   :stub-function-p
-   :with-fast-impl
-   :use-slow-code
-   :reset-error)
-  (:import-from #:timeout
-   #:*timeout*
-   #:timeout
-   #:with-timeout)   
-  (:import-from #:list-comprehensions
-		#:lc)
-  (:import-from #:critsec
-   #:defmonitor
-   #:critical-section
-   #:critical-or
-   #:with-exclusive-access
-   #:with-shared-access
-   #:static
-   #:let-static
-   #|
-   :def-excl
-   :lambda-excl
-   :labels-excl
-   :flet-excl
-   :def-shared
-   :lambda-shared
-   :labels-shared
-   :flet-shared
-   |#
-   )
-  (:import-from #:lexb
-   #:test-special
-   #:?specials
-   #:ensure-lexical-bindings
-   #:mp-lambda
-
-   #:lexical
-   #:ensure-lexical
-   #:mp-labels
-   #:mp-flet)
-  (:import-from #:um.cache
-   #:cache
-   #:cacheize
-   #:uncacheize
-   #:2-way-cache
-   #:check-cache
-   #:update-cache
-   #:clear-cache)
-  (:import-from #:um.memo
-   #:memo
-   #:memoize
-   #:un-memoize
-   #:clear-memoize
-   #:defun-memo)
-  (:import-from #:um.remfn
-   #:with-remembered-filename
-   #:with-remembered-prompting
-   #:remember-filename
-   #:remembered-filename
-   #:add-timestamp-to-filename)
-  #|
-  (:import-from #:um.dispq
-   #:<dspq>
-   #:dspq-read
-   #:dspq-add-item
-   #:safe-function-p
-   #:add-to-dispatch-queue
-   #:capture-ans-or-exn
-   #:recover-ans-or-exn
-   #:with-dispatch-timeout
-   #:wait-for-dispatch-group
-   #:serial-dispatch-queue
-   #:install-service
-   #:find-service
-   #:make-serial-disptach-queue
-   #:dispatch-serial-sync
-   #:dispatch-serial-async
-   #:wait-for-serial-dispatch
-   #:with-serial-dispatch
-   #:dispatch-parallel-sync
-   #:dispatch-parallel-async
-   #:wait-for-parallel-dispatch
-   #:with-parallel-dispatch
-   #:par
-   #:%wrap-dispatch-group
-   #:%with-dispatch-group
-   #:%do-serial-dispatch-loop
-   #:%do-serial-dispatch-sync
-   #:%do-serial-dispatch-async
-   #:*dispatch-timeout*)
-  |#
-  (:import-from #:um.lazy
-   #:force
-   #:deferred
-   #:with-spin
-   #:without-spin
-   #:lazy
-   #:once-only
-   #:once-thereafter
-   #:future
-   #:unsafe-future
-   #:pmap
-   #:pvmap
-   #:npmap
-   #:npvmap
-   #:par)
-  (:import-from #:um.collector
-   #:<collector>
-   #:collector-reset
-   #:collector-discard-contents
-   #:collector-stuff-contents
-   #:collector-nstuff-contents
-   #:collector-ncontents
-   #:collector-length
-   #:collector-empty-p
-   #:collector-append1
-   #:collector-append
-   #:collector-nappend
-   #:collector-prepend
-   #:collector-nprepend
-   #:collector-push
-   #:collector-pop
-
-   #:<monitored-object-mixin>
-   #:mark-changed
-   #:nchanged-p
-   
-   #:<mpsafe-mixin>
-   #:with-locked-instance
-
-   #:make-collector
-   #:make-monitored-collector
-   #:make-mpsafe-collector
-   #:make-mpsafe-monitored-collector
-   )
-  
-  (:import-from #:dlam
-   #:dlambda
-   #:dcase
-   #:dlambda*
-   #:dcase*
-   #:tlambda
-   #:tcase)
-
   (:import-from #:alexandria
    #:curry
    #:rcurry
@@ -1148,6 +751,253 @@ THE SOFTWARE.
    #:push-end
    ))
 
+(defpackage #:fpctl
+  (:use #:cl #:useful-macros)
+  (:export
+   #:fegetround
+   #:fesetround
+   #:+fe_tonearest+
+   #:+fe_downward+
+   #:+fe_upward+
+   #:+fe_towardzero+
+   ))
+
+(defpackage #:def*
+  (:use #:cl #:useful-macros)
+  (:export
+   #|
+   #:define
+   #:define*
+   #:define-macro
+   #:define-generic
+   #:define-method
+   |#
+   #:lambda*
+   #:flet*
+   #:labels*
+   #:defun*
+   #:λ
+   #:µ
+   #:∂
+   #:parse-body
+   #:is-underscore?
+   #:is-lambda-list-keyword?
+   #:deflex
+   ))
+
+(defpackage :lambda-parsing
+  (:use #:cl #:useful-macros)
+  (:export
+   :binding-names
+   :binding-vals
+   :split-body))
+
+(defpackage :timeout
+  (:use #:cl #:useful-macros)
+  (:export
+   :*timeout*
+   :timeout
+   :with-timeout))
+
+(defpackage :critsec
+  (:use #:cl #:useful-macros)
+  (:export
+   :defmonitor
+   :critical-section
+   :with-exclusive-access
+   :with-shared-access
+   :static
+   :let-static
+   :critical-or
+   #|
+   :def-excl
+   :lambda-excl
+   :labels-excl
+   :flet-excl
+   :def-shared
+   :lambda-shared
+   :labels-shared
+   :flet-shared
+   |#
+   ))
+
+(defpackage #:list-match
+  (:use #:common-lisp :useful-macros)
+  (:export
+   #:match
+   #:match-fail))
+
+(defpackage #:list-comprehensions
+  (:use #:common-lisp #:useful-macros)
+  (:nicknames #:lc)
+  (:export
+   #:lc
+   ))
+
+(defpackage #:lexb
+  (:use #:common-lisp #:useful-macros)
+  (:export
+   #:test-special
+   #:?specials
+   #:ensure-lexical-bindings
+   #:mp-lambda
+
+   #:lexical
+   #:ensure-lexical
+   #:mp-labels
+   #:mp-flet
+   ))
+
+(defpackage #:dlam
+  (:use #:common-lisp #:def* #:useful-macros)
+  (:export
+   #:dlam-fun
+   #:dlam-keys
+   #:dlam-fns
+   #:dlam-def
+   #:dlambda
+   #:dcase
+   #:dlambda*
+   #:dcase*
+   #:replace-handlers
+   #:set-handler
+   #:tlambda
+   #:tcase
+   ))
+
+(defpackage #:useful-macros.cache
+  (:use #:common-lisp)
+  (:local-nicknames (#:um  #:useful-macros))
+  (:export
+   #:cache
+   #:cacheize
+   #:uncacheize
+
+   #:2-way-cache
+   #:check-cache
+   #:update-cache
+   #:clear-cache
+   ))
+
+(defpackage #:useful-macros.memo
+  (:use #:common-lisp)
+  (:local-nicknames (#:um  #:useful-macros))
+  (:export
+   #:memo
+   #:memoize
+   #:un-memoize
+   #:clear-memoize
+   #:defun-memo
+   ))
+
+(defpackage #:useful-macros.remfn
+  (:use #:common-lisp)
+  (:local-nicknames (#:um  #:useful-macros))
+  (:export
+   #:with-remembered-filename
+   #:with-remembered-prompting
+   #:remember-filename
+   #:remembered-filename
+   #:add-timestamp-to-filename
+   ))
+
+#|
+(defpackage #:useful-macros.dispq
+  (:use #:common-lisp)
+  (:export
+   #:<dspq>
+   #:dspq-read
+   #:dspq-add-item
+   #:safe-function-p
+   #:add-to-dispatch-queue
+   #:capture-ans-or-exn
+   #:recover-ans-or-exn
+   #:with-dispatch-timeout
+   #:wait-for-dispatch-group
+   #:serial-dispatch-queue
+   #:install-service
+   #:find-service
+   #:make-serial-disptach-queue
+   #:dispatch-serial-sync
+   #:dispatch-serial-async
+   #:wait-for-serial-dispatch
+   #:with-serial-dispatch
+   #:dispatch-parallel-sync
+   #:dispatch-parallel-async
+   #:wait-for-parallel-dispatch
+   #:with-parallel-dispatch
+   #:par
+   #:%wrap-dispatch-group
+   #:%with-dispatch-group
+   #:%do-serial-dispatch-loop
+   #:%do-serial-dispatch-sync
+   #:%do-serial-dispatch-async
+   #:*dispatch-timeout*   
+   ))
+|#
+
+(defpackage #:useful-macros.lazy
+  (:use #:common-lisp #:useful-macros)
+  (:export
+   #:force
+   #:deferred
+   #:with-spin
+   #:without-spin
+   #:lazy
+   #:once-only
+   #:once-thereafter
+   #:future
+   #:unsafe-future
+   #:pmap
+   #:pvmap
+   #:npmap
+   #:npvmap
+   #:par
+   ))
+
+(defpackage #:useful-macros.collector
+  (:use #:common-lisp #:useful-macros)
+  (:export
+   #:<collector>
+   #:collector-reset
+   #:collector-discard-contents
+   #:collector-stuff-contents
+   #:collector-nstuff-contents
+   #:collector-ncontents
+   #:collector-length
+   #:collector-empty-p
+   #:collector-append1
+   #:collector-append
+   #:collector-nappend
+   #:collector-prepend
+   #:collector-nprepend
+   #:collector-push
+   #:collector-pop
+
+   #:<monitored-object-mixin>
+   #:mark-changed
+   #:nchanged-p
+   
+   #:<mpsafe-mixin>
+   #:with-locked-instance
+
+   #:make-collector
+   #:make-monitored-collector
+   #:make-mpsafe-collector
+   #:make-mpsafe-monitored-collector
+   ))
+
+(defpackage #:stub-functions
+  (:use #:common-lisp #:useful-macros)
+  (:export
+   :defstub
+   :stub-function-p
+   :with-fast-impl
+   :use-slow-code
+   :reset-error))
+
+
+
 #|
 (defpackage #:lazy
   (:use #:common-lisp)
@@ -1156,7 +1006,7 @@ THE SOFTWARE.
    #:force))
 |#
 (defpackage #:mlmatch
-  (:use #:common-lisp)
+  (:use #:common-lisp #:useful-macros)
   (:nicknames #:ml)
   (:export
    #:match
@@ -1172,7 +1022,7 @@ THE SOFTWARE.
    ))
 
 (defpackage #:engfmt
-  (:use #:common-lisp)
+  (:use #:common-lisp #:useful-macros)
   (:export
    #:engineering-format
    #:scientific-format
@@ -1185,7 +1035,7 @@ THE SOFTWARE.
    ))
 
 (defpackage #:xfli
-  (:use #:common-lisp)
+  (:use #:common-lisp #:useful-macros)
   (:export
    #:+dlopen-rtld-lazy+
    #:+dlopen-rtld-now+

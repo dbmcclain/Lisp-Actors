@@ -30,7 +30,7 @@ THE SOFTWARE.
 
 (defpackage #:ref ;; for V3
   (:use #:common-lisp)
-  (:import-from :um
+  (:import-from #:useful-macros
    #:rmw
    #:rd
    #:wr
@@ -38,7 +38,8 @@ THE SOFTWARE.
    #:wr-object
    #:rmw-object
    #:cas-object
-   #:atomic-exch-object)
+   #:atomic-exch-object
+   #:define-rmw-functions)
   (:export
    #:ref
    #:ref-val
@@ -69,6 +70,7 @@ THE SOFTWARE.
   (:use #:common-lisp #:def*)
   #-OPENMCL (:import-from :mpcompat
    :CAS)
+  (:local-nicknames (#:um #:useful-macros))
   (:export
    #:unsafe-lifo
    #:lifo

@@ -29,11 +29,6 @@
             modmath:m*
             )))
 
-(um:eval-always
-  (#+:LISPWORKS hcl:add-package-local-nickname
-   #+:SBCL      sb-ext:add-package-local-nickname
-   :self-sync :com.ral.actors.encoding.self-sync))
-
 ;; ----------------------------------------------------
 ;; Useful primitives...
 

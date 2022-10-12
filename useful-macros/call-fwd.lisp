@@ -1,5 +1,5 @@
 
-(in-package #:um)
+(in-package #:useful-macros)
 
 (defmacro with-fwd (&body body)
   ;; wrap body such that CALL-FWD can be used like FUNCALL, but for

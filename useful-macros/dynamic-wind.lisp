@@ -2,7 +2,7 @@
 ;;
 ;; DM/RAL 11/20 -- I learned this from Pascal Costanza
 ;; -------------------------------------------------------
-(in-package :um)
+(in-package :useful-macros)
 ;; -------------------------------------------------
 
 (defvar *dynamic-wind-stack* nil)
@@ -15,7 +15,7 @@
   (make-dynamic-environment (reverse *dynamic-wind-stack*)))
 
 (defmacro dynamic-wind (&body body)
-  (um:with-unique-names (wrapper-fn fn args proceed-body)
+  (with-unique-names (wrapper-fn fn args proceed-body)
     `(flet ((,wrapper-fn (,fn &rest ,args)
               (macrolet ((proceed (&body ,proceed-body)
                            `(if ,',fn

@@ -31,7 +31,7 @@
 ;; displayed in the details of this code!
 ;; -----------------------------------------------------------------
 
-(um:eval-always
+(eval-always
 (defmacro stub-function-p (function-name)
   "Accessor on FUNCTION-NAME (getable, setf'able). Value either true, if
 FUNCTION-NAME is a symbol that is the name of a stub function, or false (nil)
@@ -54,7 +54,7 @@ for any other symbol."
 ;; -----------------------------------------------------------------------------
 ;; with-fast-impl (macro)
 
-(um:eval-always
+(eval-always
 (defmacro error-running-fast-impl-function? (fast-name)
   "Accessor on a fast-impl-function name (getable, setf'able). Value can either
 be nil (initially) the Lisp error condition object from a first error condition

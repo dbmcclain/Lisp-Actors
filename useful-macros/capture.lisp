@@ -4,7 +4,7 @@
 ;; DM 11/20
 ;; -------------------------------------------------------------
 
-(in-package :um)
+(in-package :useful-macros)
 
 (defstruct capture-packet
   data)

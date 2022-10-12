@@ -15,8 +15,8 @@
              (tail  (if end
                         (subseq str end)
                       ""))
-             (mid   (apply 'um:paste-strings sep
-                           (um:group (subseq str pos end)
+             (mid   (apply 'paste-strings sep
+                           (group (subseq str pos end)
                                      count))))
         (concatenate 'string pref mid tail)))
      (t
@@ -25,5 +25,5 @@
         
     
 (defun sepi (str &key (sep #\_) (count 5))
-  (apply 'um:paste-strings sep
-         (um:group str count :from-end t)))
+  (apply 'paste-strings sep
+         (group str count :from-end t)))

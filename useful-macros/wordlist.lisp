@@ -4,7 +4,7 @@
 (defvar *wordlist*
   (sort (map 'vector
              #'string-downcase
-             (um:tokens
+             (tokens
               #>.end
                abandon ability able about above absent absorb abstract absurd
                abuse access accident account accuse achieve acid acoustic acquire
@@ -223,7 +223,7 @@
 
 (defun convert-int-to-wordlist (val &key nbits)
   (check-type val (integer 0))
-  (um:nlet iter ((v   val)
+  (nlet iter ((v   val)
                  (nb  (or nbits (integer-length val)))
                  (lst nil))
     (if (not (plusp nb))
@@ -236,7 +236,7 @@
 
 (defun wrd-binary-search (wrd)
   (let ((not-found "Not found: ~A"))
-    (um:nlet iter ((lo 0)
+    (nlet iter ((lo 0)
                    (hi 2048.))
       (let* ((mid (ash (+ lo hi) -1))
              (chk (aref *wordlist* mid)))
@@ -252,7 +252,7 @@
               )))))
 
 (defun convert-wordlist-to-int (lst)
-  (um:nlet iter ((lst lst)
+  (nlet iter ((lst lst)
                  (v   0))
     (if (endp lst)
         v

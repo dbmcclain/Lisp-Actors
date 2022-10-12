@@ -2,6 +2,7 @@
 (in-package :user)
 
 (defpackage #:self-sync
+  (:local-nicknames (#:um #:useful-macros))
   (:export
    #:write-record
    #:make-reader

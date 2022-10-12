@@ -120,7 +120,7 @@ THE SOFTWARE.
 ;; Syntax is (DEFMONITOR name bindings [[decl* | doc]] form*)
 ;; ----------------------------------------------------------------------
 
-(defmacro um:cx-dspec-def (dspec &body body)
+(defmacro cx-dspec-def (dspec &body body)
   (declare (ignorable dspec))
   #+:LISPWORKS
   `(dspec:def ,dspec ,@body)
@@ -129,10 +129,10 @@ THE SOFTWARE.
 
 (defmacro defmonitor (&whole whole name bindings &body body)
   (multiple-value-bind (forms decls docstr)
-      (um:parse-body body :documentation t :whole whole)
+      (parse-body body :documentation t :whole whole)
     (let* ((vars  (mapcar 'car bindings))
            (vals  (mapcar 'cadr bindings)))
-      `(um:cx-dspec-def (defmonitor ,name)
+      `(cx-dspec-def (defmonitor ,name)
          (mpcompat:defglobal ,name (load-time-value
                                     (make-mon-parms
                                      :lock     (mpcompat:make-lock :sharing t)
@@ -166,7 +166,7 @@ THE SOFTWARE.
      ,@body))
 
 (defmacro let-static (bindings &body body)
-  `(symbol-macrolet ,(mapcar (um:lambda* ((name id &optional init))
+  `(symbol-macrolet ,(mapcar (lambda* ((name id &optional init))
                                `(,name (static ,id ,init)))
                              bindings)
      ,@body))
@@ -201,7 +201,7 @@ THE SOFTWARE.
         (incf c)))))
 (makunbound 'test-monitor-2)
 
-(um:xdefun tst ((&whole arg &optional hd . tl))
+(xdefun tst ((&whole arg &optional hd . tl))
   (list arg hd tl))
 |#
 

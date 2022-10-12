@@ -935,7 +935,7 @@ THE SOFTWARE.
 
 (defun partition (pred lst)
   (let (haves have-nots)
-    (um:foreach (lambda (item)
+    (foreach (lambda (item)
                   (if (funcall pred item)
                       (push item haves)
                     (push item have-nots)))
@@ -1883,7 +1883,7 @@ beginning with the value of the second element.
 This is C++ style enumerations."
   (let ((cur-ix -1)
         (base   0))
-    `(um:eval-always
+    `(eval-always
        ,@(mapcar
           (lambda (enum)
             (if (consp enum)
@@ -2174,7 +2174,7 @@ This is C++ style enumerations."
 ;;                                          (reduce 'a+b '(2 5 8))
 ;;                                          (reduce 'a+b '(3 6 9))) 
 ;;
-;;   (um:compose (um:curry 'reduce #'<your-binary-function-here>) 'list)
+;;   (compose (curry 'reduce #'<your-binary-function-here>) 'list)
 |#
 
 (defun largest-abs-value (a b)
@@ -2787,13 +2787,13 @@ This is C++ style enumerations."
 ;; -------------------------------------------------------
 
 (defmacro row-type (name &optional slots)
-  `(um:eval-always
+  `(eval-always
      (defstruct ,name
        ,@slots)))
 
 (defmacro sum-type (name terms)
   (let ((var (gensym)))
-    `(um:eval-always
+    `(eval-always
        ,@(mapcar (lambda (term)
                    (if (consp term)
                        `(row-type ,(car term) ,(cadr term))
@@ -2810,7 +2810,7 @@ This is C++ style enumerations."
        )))
 
 #|
-(um:sum-type tree (empty
+(sum-type tree (empty
                    (node (l v r h))))
 (sum-type basic-thing (integer float string character nil))
  |#

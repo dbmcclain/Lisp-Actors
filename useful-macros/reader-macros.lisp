@@ -348,7 +348,7 @@ THE SOFTWARE.
          (nel   (length str))
          (parts nil)
          (fmt-str (with-output-to-string (s)
-                    (um:nlet iter ((start  0))
+                    (nlet iter ((start  0))
                       (if (< start nel)
                           (multiple-value-bind (pos len)
                               (lw:find-regexp-in-string pat str :start start)
@@ -465,11 +465,11 @@ THE SOFTWARE.
     (let* ((lines  (split-string vec :delims '(#\newline)))
            (lines-to-test (if ignore-first-line (cdr lines) lines))
            (nws     (reduce #'min (or (mapcar #'leading-ws-count lines-to-test) (list 0))))
-           (trimmer (um:rcurry #'subseq nws))
+           (trimmer (rcurry #'subseq nws))
            (trimmed (mapcar trimmer lines-to-test)))
       (when ignore-first-line
         (push (car lines) trimmed))
-      (apply #'um:paste-strings #\newline trimmed)
+      (apply #'paste-strings #\newline trimmed)
       )))
    
 (set-dispatch-macro-character

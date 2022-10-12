@@ -28,6 +28,7 @@ THE SOFTWARE.
 
 (defpackage #:bblk
   (:use #:common-lisp)
+  (:local-nicknames (#:um #:useful-macros))
   (:import-from #:def*
    #:lambda*)
   (:export

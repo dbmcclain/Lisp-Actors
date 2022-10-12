@@ -34,6 +34,7 @@ THE SOFTWARE.
 
 (defpackage #:crypto-utils
   (:use #:common-lisp #:cached-var)
+  (:local-nicknames (#:um  #:useful-macros))
   (:export
    #:my-random-state
    #:my-random
@@ -204,7 +205,8 @@ THE SOFTWARE.
 (defpackage :crypto/modular-arith
   (:use :common-lisp
    :cached-var)
-  (:nicknames :modmath)
+  (:local-nicknames (#:um  #:useful-macros))
+  ;; (:nicknames :modmath)
   (:export
    :with-mod
    :mod-base   
@@ -313,6 +315,7 @@ THE SOFTWARE.
   (:use :common-lisp
         :vec-repr
         :cached-var)
+  (:local-nicknames (#:um  #:useful-macros))
   (:export
    :hash
    :hash-val
@@ -339,6 +342,7 @@ THE SOFTWARE.
 
 (defpackage #:prng
   (:use #:common-lisp #:cached-var)
+  (:local-nicknames (#:um  #:useful-macros))
   (:import-from #:crypto-utils
    #:convert-bytes-to-int
    #:mask-off
@@ -476,7 +480,7 @@ THE SOFTWARE.
         #:vec-repr
         #:hash
         #:prng
-        #:modmath)
+        #:crypto/modular-arith)
   (:nicknames :pbc)
   (:export
    ;; classes and their slot readers
@@ -618,6 +622,7 @@ THE SOFTWARE.
 
 (defpackage :edwards-ecc
   (:nicknames :edec)
+  (:local-nicknames (#:um  #:useful-macros))
   (:use
    #:common-lisp
    #:crypto/modular-arith
@@ -709,13 +714,14 @@ THE SOFTWARE.
 (defpackage :core-crypto
   (:use
    #:common-lisp
-   #:modmath
+   #:crypto/modular-arith
    #:edwards-ecc
    #:cached-var
    #:crypto-utils
    #:vec-repr
    #:prng
    #:hash)
+  (:local-nicknames (#:um  #:useful-macros))
   (:import-from :pbc
    :read-safely
    :address

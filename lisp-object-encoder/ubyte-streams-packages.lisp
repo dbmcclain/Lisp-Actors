@@ -3,7 +3,10 @@
 
 (defpackage #:ubyte-streams
   (:use #:common-lisp #:scatter-vec)
-  (:nicknames #:ubstream)
+  ;; (:nicknames #:ubstream)
+  (:local-nicknames
+   (#:um  #:useful-macros)
+   (#:mgdbuf #:managed-buffers))
   #+:LISPWORKS
   (:import-from #:stream
    #:stream-file-position)

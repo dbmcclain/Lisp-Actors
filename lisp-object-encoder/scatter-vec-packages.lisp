@@ -2,6 +2,7 @@
 (in-package :user)
 
 (defpackage #:scatter-vec
+  (:local-nicknames (#:um  #:useful-macros))
   (:export
    #:scatter-vector
    #:make-scatter-vector

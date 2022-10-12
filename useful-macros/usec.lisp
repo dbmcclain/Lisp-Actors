@@ -27,6 +27,7 @@ THE SOFTWARE.
 
 (defpackage #:usec
   (:use #:common-lisp)
+  (:local-nicknames (#:um #:useful-macros))
   (:export
    #:get-time-usec
    #:adjust-to-standard-universal-time-usec

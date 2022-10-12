@@ -30,7 +30,7 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------------------
 
-(um:defun* generate-output-to-stream (stream sign (w &rest ds) nsig expon exponent-printer)
+(defun* generate-output-to-stream (stream sign (w &rest ds) nsig expon exponent-printer)
   (declare (type float sign)
            (type fixnum nsig expon w))
   (format stream
@@ -83,14 +83,14 @@ THE SOFTWARE.
   ;; return rounded scaled integer, scale factor, and number of dp
   (declare (float  v)
            (fixnum nsig))
-  (um:bind*
+  (bind*
       ((ns (the fixnum (- nsig 1 (floor (log v 10))))))
     
     (case ns
       (-2 (values (* 100 (round v 100)) 1 -2))
       (-1 (values (* 10 (round v 10)) 1 -1))
       (otherwise
-       (um:bind*
+       (bind*
            ((rfact (aref *rnders* ns)))
          
          (values (round (* rfact v)) rfact ns)))
@@ -105,7 +105,7 @@ THE SOFTWARE.
       ;; sign, digits, exponent
       (values 0.0 (loop for ix fixnum from 0 below nsig collect 0) 0)
 
-    (um:bind*
+    (bind*
         ((:values (frac e2 sign) (decode-float v))
          (:declare
           (type float frac sign)
@@ -129,10 +129,10 @@ THE SOFTWARE.
          (:values (rm10 rfact ns) (rnd-nsig m10 nsig)))
 
       ;; if rounded value is less than 1, then mult by base and decrease exponent
-      (um:while (< rm10 rfact)
+      (while (< rm10 rfact)
         (setf m10 (the float (* m10 base)))
         (decf e10 lbase)
-        (um:bind*
+        (bind*
             ((:values (rm rf n) (rnd-nsig m10 nsig)))
           
           (setf rm10  rm
@@ -140,10 +140,10 @@ THE SOFTWARE.
                 ns    n)))
       
       ;; if rounded value is > base, then div by base and increase exponent
-      (um:while (>= rm10 (* rfact base))
+      (while (>= rm10 (* rfact base))
         (setf m10 (the float (/ m10 base)))
         (incf e10 lbase)
-        (um:bind*
+        (bind*
             ((:values (rm rf n) (rnd-nsig m10 nsig)))
           
           (setf rm10  rm
@@ -152,7 +152,7 @@ THE SOFTWARE.
 
       (values sign
               (if (plusp ns)
-                  (um:bind*
+                  (bind*
                       ((digits nil))
                     
                     (loop for ix from 0 below ns
@@ -174,7 +174,7 @@ THE SOFTWARE.
 (defun format-with-computed-predigits (stream v nsig base lbase exponent-printer)
   (declare (type float v)
            (type fixnum nsig))
-  (um:bind*
+  (bind*
       ((:values (sign digits expon) (decode-number v nsig base lbase))
        (:declare
         (type float sign)
@@ -289,7 +289,7 @@ THE SOFTWARE.
 ;; -----------------------------------------------------------------
 
 #|
-(um:bind*
+(bind*
     ((x -1.23d-4)
      (ndigits 8))
   (engineering-format nil x :nsig ndigits))

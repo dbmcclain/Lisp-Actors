@@ -31,7 +31,6 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.actors
   (:use #:common-lisp #:def*)
-  (:nicknames #:ac)
   #+:LISPWORKS
   (:import-from #:lw
    #:do-nothing)
@@ -49,7 +48,7 @@ THE SOFTWARE.
   (:export
    #:match
    #:match-fail)
-  (:import-from #:um
+  (:import-from #:useful-macros
    #:letrec)
   (:export
    #:letrec)
@@ -276,6 +275,7 @@ THE SOFTWARE.
   (:use #:common-lisp #:com.ral.actors
    #+(OR :ALLEGRO :CCL) #:ansi-timer
    #:def*)
+  (:local-nicknames (#:um #:useful-macros))
   (:import-from #:useful-macros
    #:curry
    #:rcurry
@@ -294,7 +294,8 @@ THE SOFTWARE.
    #:common-lisp
    #:com.ral.actors
    #:com.ral.actors.base
-   #:def*))
+   #:def*)
+  (:local-nicknames (#:um #:useful-macros)))
 
 (defpackage com.ral.actors.kv-database
   (:use #:cl #:def* #:com.ral.actors)

@@ -30,6 +30,7 @@ THE SOFTWARE.
 
 (defpackage #:aop
   (:use #:common-lisp)
+  (:local-nicknames (#:um #:useful-macros))
   (:export
    #:dflet
    #:call-next-function

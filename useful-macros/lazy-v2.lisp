@@ -1,5 +1,5 @@
 
-(in-package :um.lazy)
+(in-package :useful-macros.lazy)
 
 (defmacro deferred (&body body)
   `(lambda ()
@@ -17,14 +17,14 @@
 
 (defgeneric force (obj)
   (:method ((obj lazy))
-   (um:recover-ans-or-exn
-    (um:nlet iter ()
+   (recover-ans-or-exn
+    (nlet iter ()
       (let ((cell (lazy-cell obj)))
         (cond
          ((eq (cdr cell) :eval)
           (car cell))
          ((mpcompat:compare-and-swap (cdr cell) :uneval :in-proc)
-          (let ((val (um:call-capturing-ans-or-exn (car cell))))
+          (let ((val (call-capturing-ans-or-exn (car cell))))
             (setf (lazy-cell obj) (cons val :eval))
             val))
          (t

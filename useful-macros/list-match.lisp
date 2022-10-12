@@ -8,12 +8,12 @@
 (defun match-pat (msg pat)
   ;; collect binding values in reverse order
   #F
-  (um:nlet iter ((pat  pat)
+  (nlet iter ((pat  pat)
                  (msg  msg)
                  (vals nil))
     (cond  ((atom pat) ;; NIL (as in ENDP) is also an atom
             (cond ((null pat)               (values (null msg) vals)) ;; NIL is also a symbol (!!)
-                  ((um:is-underscore? pat)  (values t vals))
+                  ((is-underscore? pat)  (values t vals))
                   ((keywordp pat)           (values (eql msg pat) vals))
                   ((symbolp pat)            (values t (cons msg vals)))
                   (t                        (values (equalp msg pat) vals))
@@ -52,12 +52,12 @@
 
 (defun collect-args (pat)
   ;; collect binding args in reverse order
-  (um:nlet iter ((pat  pat)
+  (nlet iter ((pat  pat)
                  (args nil)
                  (lsts nil))
     (cond ((atom pat)
            (cond ((null pat)              (values args lsts))
-                 ((um:is-underscore? pat) (values args lsts))
+                 ((is-underscore? pat) (values args lsts))
                  ((keywordp pat)          (values args lsts))
                  ((symbolp pat)           (values (cons pat args) lsts))
                  (t                       (values args lsts))
@@ -71,7 +71,7 @@
                  (iter hd args lsts)
                (when (and tl
                           (symbolp tl)
-                          (not (um:is-underscore? tl)))
+                          (not (is-underscore? tl)))
                  (push tl new-lsts))
                (go-iter tl new-args new-lsts)
                )))
@@ -108,7 +108,7 @@
           (collect-args pat)
         (when (duplicates-exist-p args)
           (warn "duplicate binding names in match pattern: ~A" args))
-        (when (some 'um:is-lambda-list-keyword? args)
+        (when (some 'is-lambda-list-keyword? args)
           (warn "lambda list keywords are not valid pattern elements"))
         (when (member (car body) '(when /))
           (setf tst  `(lambda ,args
@@ -130,12 +130,12 @@
         ))))
 
 (defmacro match (msg &body clauses)
-  (um:with-unique-names (lbl fail gmsg)
+  (with-unique-names (lbl fail gmsg)
     `(block ,lbl
        (let ((,gmsg ,msg))
          (macrolet ((match-fail ()
                       `(return-from ,',fail)))
-           ,@(mapcar (um:curry #'parse-match-clause lbl fail gmsg) clauses))))
+           ,@(mapcar (curry #'parse-match-clause lbl fail gmsg) clauses))))
     ))
 
 #+:LISPWORKS

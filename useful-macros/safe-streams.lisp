@@ -5,6 +5,7 @@
 
 (defpackage #:ral-streams
   (:use :common-lisp)
+  (:local-nicknames (#:um #:useful-macros))
   (:export
    #:add-stream-tracking
    #:remove-stream-tracking

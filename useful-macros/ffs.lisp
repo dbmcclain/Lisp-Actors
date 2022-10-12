@@ -7,6 +7,7 @@
 
 (defpackage #:ffs
   (:use #:common-lisp)
+  (:local-nicknames (#:um #:useful-macros))
   (:export
    #:mappings
    #:map-filename
