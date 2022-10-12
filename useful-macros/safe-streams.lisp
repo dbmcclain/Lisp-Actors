@@ -56,7 +56,10 @@
           (funcall action stream)))
       )))
 
-(lw:defadvice (close check-close :after)
+;; Use a :BEFORE advice for MPX environ, to avoid seeing stream ref
+;; become re-used before we have a chance to notice that it was
+;; closed.
+(lw:defadvice (close check-close :before)
     (stream &rest args)
   (declare (ignore args))
   (discard-stream stream))

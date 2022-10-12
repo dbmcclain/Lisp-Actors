@@ -22,6 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
+;; Let's see how little we actually need before we can bring up core Actors...
 (asdf:defsystem "useful-macros"
   :description "useful-macros: a collection of widely useful macros and functions"
   :version     "1.0"
@@ -30,35 +31,18 @@ THE SOFTWARE.
   :components  ((:file "packages")
                 (:file "eval-always")
                 (:file "def-extensions")
-		#+:LISPWORKS (:file "objc")
 
                 #+:CLOZURE (:file "clozure-compat")
   	        #+:SBCL    (:file "sbcl-compat")
 		#+:ALLEGRO (:file "allegro-compat")
                 
-                #+:LISPWORKS (:file "underscore")
-
-                #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
-                #+:LISPWORKS (:file "editor-extensions")
-
-                #+:LISPWORKS (:file "fpctl")
-                (:file "encaps-type")
-                (:file "clc")
                 (:file "sharp-f")
                 (:file "stub-functions")
                 (:file "basic-useful")
 
                 (:file "nbr-cpus")
-                (:file "dflet")
 
-                (:file "timeout")
-                (:file "dynamic-wind")
-		(:file "comprehensions")
-                #+(AND :COM.RAL :LISPWORKS) (:file "lexb4")
                 ;; (:file "freev")
-                #+(AND :COM.RAL :LISPWORKS) (:file "safe-call-system")
-
-                #-:relative-package-names (:file "hierarchical-packages")
                 ;; (:file "package-aliases")
 
                 (:file "nlet")
@@ -66,13 +50,27 @@ THE SOFTWARE.
                 (:file "bang-macros")
                 (:file "ppcre-reader")
                 (:file "reader-macros")
-                (:file "ffs")
-                (:file "safe-read-from-string")
-                #+(AND :COM.RAL :LISPWORKS) (:file "ctypes")
-                (:file "dlambder")
                 (:file "list-match")
-                (:file "bb")
+                #+(AND :COM.RAL :LISPWORKS) (:file "ctypes")
                 (:file "useful-macros")
+                #+:LISPWORKS (:file "editor-extensions")
+		(:file "usec"))
+  :serial       t
+  :depends-on   ("optima"
+                 "cl-ppcre"
+                 "alexandria"
+                 "cffi"
+                 "mpcompat"
+                 ))
+
+(asdf:defsystem "useful-macros/ext"
+  :description "useful-macros/extensions: a collection of widely useful macros and functions"
+  :version     "1.0"
+  :author      "D.McClain <dbm@refined-audiometrics.com>"
+  :license     "Copyright (c) 2008 by Refined Audiometrics Laboratory, LLC. All rights reserved."
+  :components  ((:file "dlambder")
+                (:file "bb")
+                
                 (:file "encstr")
                 (:file "rmw-v2")
                 (:file "capture")
@@ -83,9 +81,6 @@ THE SOFTWARE.
                 (:file "critical-section")
                 ;; (:file "dispatch-queues") ;; what do we need these for?
                 
-                (:file "lazy-v2") ;; not supplanted by Actors
-                
-                #+(AND :COM.RAL :LISPWORKS) (:file "remembered-filenames")
                 ;; (:file "useful-macros-old")
                 ;; (:file "match-macro")
 
@@ -95,14 +90,8 @@ THE SOFTWARE.
 
                 ;; (:file "match-macro-ex3")
                 ;; (:file "monitor-macros")
-                (:file "memoize")
-                #-:ALLEGRO (:file "cache")
-                #+:WIN32 (:file "exec")
                 ;; (:file "lazy") ;; supplanted by a better, simpler, version
-                (:file "engfmt")
-		(:file "usec")
                	(:file "uuid")
-                (:file "computed-metaclass")
                 #+(AND :LISPWORKS :MACOSX) (:file "OSX-UUID-Generate")
                 #+(AND :ALLEGRO :MACOSX)   (:file "OSX-UUID-Generate-Allegro")
                 #-(OR (AND :MACOSX :LISPWORKS)
@@ -110,6 +99,7 @@ THE SOFTWARE.
                 ;; (:file "xfli")
 		;; (:file "rubber-objects")
                 
+
                 #+:LISPWORKS (:file "abbrev-bignums")
 
                 (:file "sep")
@@ -121,15 +111,34 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "fixmes")
                 #+:LISPWORKS (:file "safe-streams")
                 #+:LISPWORKS (:file "safe-read-patch")
+                (:file "safe-read-from-string")
+		#+:LISPWORKS (:file "objc")
+                #+:LISPWORKS (:file "underscore")
+
+                #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
+
+                #+:LISPWORKS (:file "fpctl")
+                (:file "encaps-type")
+                (:file "clc")
+		(:file "comprehensions")
+                (:file "ffs")
+                (:file "engfmt")
+                (:file "memoize")
+                #-:ALLEGRO (:file "cache")
+                #+:WIN32 (:file "exec")
+                (:file "computed-metaclass")
+                (:file "dynamic-wind")
+                (:file "lazy-v2") ;; not supplanted by Actors
+                #+(AND :COM.RAL :LISPWORKS) (:file "remembered-filenames")
+                #+(AND :COM.RAL :LISPWORKS) (:file "lexb4")
+                #+(AND :COM.RAL :LISPWORKS) (:file "safe-call-system")
+                #-:relative-package-names (:file "hierarchical-packages")
+                (:file "timeout")
+                (:file "dflet")
                 )
   :serial       t
-  :depends-on   (#| "compiled-ml-matcher" |#
-                 "optima"
-                 "cl-ppcre"
+  :depends-on   ("useful-macros"
                  "ironclad"
-                 "alexandria"
-                 "cffi"
-                 "mpcompat"
                  "safe-read" ;; thanks Michal!
                  ))
 

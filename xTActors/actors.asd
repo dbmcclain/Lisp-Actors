@@ -37,8 +37,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 		(:file "cheapq")
                 (:file "prim-actors"))
   :SERIAL T
-  :depends-on   (
-                 "useful-macros"))
+  :depends-on   ("useful-macros"))
 
 
 (asdf:defsystem "actors/extra"

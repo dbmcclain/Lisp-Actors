@@ -35,9 +35,11 @@ THE SOFTWARE.
   #+:LISPWORKS
   (:import-from #:lw
    #:do-nothing)
+  #+nil
   (:import-from #:timeout
    #:timeout
    #:*timeout*)
+  #+nil
   (:export
    #:timeout
    #:*timeout*)
@@ -259,7 +261,7 @@ THE SOFTWARE.
    #:check-authentication
    ))
 
-#-lispworks
+#+(OR :ALLEGRO :CCL)
 (defpackage #:ansi-timer
   (:use #:common-lisp)
   (:export
@@ -272,7 +274,7 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.actors.base
   (:use #:common-lisp #:com.ral.actors
-   #-:LISPWORKS #:ansi-timer
+   #+(OR :ALLEGRO :CCL) #:ansi-timer
    #:def*)
   (:import-from #:useful-macros
    #:curry
@@ -280,13 +282,6 @@ THE SOFTWARE.
    #:if-let
    #:when-let
    #:nlet
-   #:dlambda*
-   #:dcase*
-   #:defmonitor
-   #:critical-section
-   #:capture-ans-or-exn
-   #:call-capturing-ans-or-exn
-   #:recover-ans-or-exn
    #:rmw
    #:rd
    #:wr)

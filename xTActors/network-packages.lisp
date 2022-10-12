@@ -84,6 +84,10 @@
    #:edec
    #:def*
    #:com.ral.actors.encoding)
+  (:import-from #:um
+   #:capture-ans-or-exn
+   #:call-capturing-ans-or-exn
+   #:recover-ans-or-exn)
   (:import-from #:com.ral.actors.network
    #:connections
    #:client-connector)
