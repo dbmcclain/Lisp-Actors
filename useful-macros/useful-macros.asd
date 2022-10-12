@@ -119,6 +119,8 @@ THE SOFTWARE.
                 (:file "call-fwd")
 
                 #+:LISPWORKS (:file "fixmes")
+                #+:LISPWORKS (:file "safe-streams")
+                #+:LISPWORKS (:file "safe-read-patch")
                 )
   :serial       t
   :depends-on   (#| "compiled-ml-matcher" |#
