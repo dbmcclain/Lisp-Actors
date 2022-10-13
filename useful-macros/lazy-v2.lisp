@@ -1,6 +1,8 @@
 
 (defpackage :com.ral.useful-macros.lazy-v2
   (:use :common-lisp :com.ral.useful-macros)
+  (:local-nicknames
+   (#:mpcompat  #:com.ral.mpcompat))
   (:export
    #:force
    #:deferred

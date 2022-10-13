@@ -4,11 +4,6 @@
 ;; ------------------------------------------------------
 (in-package :com.ral.actors.base)
 
-(um:eval-always
-  (#+:LISPWORKS hcl:add-package-local-nickname
-   #+:SBCL      sb-ext:add-package-local-nickname
-   :mpc  :mp-compatibility))
-
 ;; ------------------------------------------------------
 ;; There are, broadly, two conventions followed for Actor messages:
 ;;

@@ -5,7 +5,9 @@
 ;; DM/RAL  11/20
 ;; -----------------------------------------------------------
 (defpackage :com.ral.useful-macros.rmw-v2
-  (:use :common-lisp :com.ral.useful-macros))
+  (:use :common-lisp :com.ral.useful-macros)
+  (:local-nicknames
+   (#:mpcompat  #:com.ral.mpcompat)))
 
 (in-package :com.ral.useful-macros.rmw-v2)
 ;; ----------------------------------------------------------

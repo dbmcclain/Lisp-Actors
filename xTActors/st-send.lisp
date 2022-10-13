@@ -114,7 +114,7 @@
                          ;; Using same CAS BECOME protocol here as
                          ;; with all other Actors
                          (cond ((or (eq pend-beh self-beh)
-                                    (mpcompat:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh)))
+                                    (mpc:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh)))
                                
                                (t
                                 ;; Actor was in use, try again

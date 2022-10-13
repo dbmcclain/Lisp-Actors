@@ -23,7 +23,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 |#
 
-(asdf:defsystem "secure-channel"
+(asdf:defsystem "com.ral.actors.secure-channel"
   :description "Secure socket comms via Actors"
   :version     "3.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
@@ -37,9 +37,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "secure-client")
                 (:file "secure-server"))
   :SERIAL T
-  :depends-on   ("actors"
+  :depends-on   ("com.ral.actors"
                  "snappy"
-                 "lisp-object-encoder"
+                 "com.ral.lisp-object-encoder"
                  "edwards-ecc"))
 
 

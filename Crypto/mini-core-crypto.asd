@@ -26,8 +26,8 @@
                 ;; (:file "init-crypto")
                 )
   :depends-on   ("ironclad"
-                 "useful-macros"
-                 "lisp-object-encoder"
+                 "com.ral.useful-macros"
+                 "com.ral.lisp-object-encoder"
                  "s-base64"
                  "cl-base58"
                  ))

@@ -1,6 +1,6 @@
-;; mp-compat-lw.lisp
+;; prevalent.asd
 ;; --------------------------------------------------------------------------------------
-;; Compatibility layer for Lispworks, Allegro, OS X, and Win32, Mulit-Processing Primitives
+;; Portable Lisp Object Encoding / Decoding for Network Transport
 ;;
 ;; Copyright (C) 2008 by SpectroDynamics, LLC. All rights reserved.
 ;;
@@ -30,39 +30,36 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-;; --------------------------------------------------
-(in-package #:com.ral.mpcompat)
-;; equiv to #F
-(declaim  (OPTIMIZE (SPEED 3) #|(SAFETY 0)|# #+:LISPWORKS (FLOAT 0)))
-;; --------------------------------------------------
-;; Compatibility Layer
+(asdf:defsystem "prevalent"
+  :description "Prevalent: In-memory datbase"
+  :version     "1.0"
+  :author      "D.McClain <dbm@spectrodynamics.com>"
+  :license     "Copyright (c) 2008 by SpectroDynamics, LLC. All rights reserved."
+  :components  ((:file "prevalent-packages")
+                #|
+                (:file "managed-buffers")
+                (:file "scatter-vec")
+		(:file "ubyte-streams")
+                (:file "self-sync")
+                (:file "xzlib") ;; ZLIB adapted to scatter vectors
+                (:file "lzw")
+                (:file "lisp-object-encoder")
+                (:file "safe-marshaling")
+                #+(AND :COM.RAL :LISPWORKS) (:file "persistent-store")
+                |#
+		#+(AND :COM.RAL :LISPWORKS) (:file "prevalent-metaclass")
+                #+(AND :COM.RAL :LISPWORKS) (:file "prevalent-objects")
+                )
 
-(defmacro defglobal (name val)
-  `(hcl:defglobal-variable ,name ,val))
+  :SERIAL T
+  :depends-on   (
+                 #|
+                 "prio-queue" ;; for managed-buffers
+                 "ironclad"
+                 "sdle-store"
+                 "babel"
+                 "snappy"
+                 ;; "zlib"
+                 |#
+                 ))
 
-#|
-(defun current-process ()
-  "Get the current Lisp process."
-  (mp:get-current-process))
-|#
-
-(defun current-process ()
-  "Get the current Lisp process."
-  mp:*current-process*)
-
-;; --------------------------------------------------------------------------
-
-;; --------------------------------------------------------------------------
-
-#+nil
-(defun generate-uuid ()
-  (uuid:make-v1-uuid))
-#|
-(defun generate-uuid ()
-  #+:MACOSX  (uuid:byte-array-to-uuid (uuidgen:generate))
-  #+:WIN32   (uuid:make-v1-uuid))
-|#
-;; --------------------------------------------------------------------------
-
-(defmacro CAS (place old new)
-  `(sys:compare-and-swap ,place ,old ,new))

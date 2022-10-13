@@ -23,7 +23,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 |#
 
-(asdf:defsystem "actors"
+(asdf:defsystem "com.ral.actors"
   :description "Conventional Transactional Parallel-Concurrent Hewitt Actors..."
   :version     "3.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
@@ -37,10 +37,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 		(:file "cheapq")
                 (:file "prim-actors"))
   :SERIAL T
-  :depends-on   ("useful-macros"))
+  :depends-on   ("com.ral.useful-macros"))
 
 
-(asdf:defsystem "actors/extra"
+(asdf:defsystem "com.ral.actors/extra"
   :description "Everything is an Actor..."
   :version     "3.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
@@ -52,8 +52,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 ;; (:file "sponsors")
                 )
   :SERIAL T
-  :depends-on   ("actors"
-                 "rb-trees"              ;; maps for transactional db
-                 "lisp-object-encoder"   ;; encoding for transactional db
+  :depends-on   ("com.ral.actors"
+                 "com.ral.rb-trees"              ;; maps for transactional db
+                 "com.ral.lisp-object-encoder"   ;; encoding for transactional db
                  ))
 

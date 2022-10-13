@@ -23,7 +23,7 @@ THE SOFTWARE.
 |#
 
 ;; Let's see how little we actually need before we can bring up core Actors...
-(asdf:defsystem "useful-macros"
+(asdf:defsystem "com.ral.useful-macros"
   :description "useful-macros: a collection of widely useful macros and functions"
   :version     "1.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
@@ -60,12 +60,12 @@ THE SOFTWARE.
                  "cl-ppcre"
                  "alexandria"
                  "cffi"
-                 "mpcompat"
+                 "com.ral.mpcompat"
                  ))
 
 ;; Actors can be invoked after first loading "useful-macros"
 
-(asdf:defsystem "useful-macros/ext"
+(asdf:defsystem "com.ral.useful-macros/ext"
   :description "useful-macros/extensions: a collection of widely useful macros and functions"
   :version     "1.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
@@ -139,7 +139,7 @@ THE SOFTWARE.
                 (:file "dflet")
                 )
   :serial       t
-  :depends-on   ("useful-macros"
+  :depends-on   ("com.ral.useful-macros"
                  "ironclad"
                  "safe-read" ;; thanks Michal!
                  ))

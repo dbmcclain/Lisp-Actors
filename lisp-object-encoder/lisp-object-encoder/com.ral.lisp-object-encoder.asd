@@ -1,6 +1,6 @@
-;; mp-compat-lw.lisp
+;; lisp-object-encoder.asd
 ;; --------------------------------------------------------------------------------------
-;; Compatibility layer for Lispworks, Allegro, OS X, and Win32, Mulit-Processing Primitives
+;; Portable Lisp Object Encoding / Decoding for Network Transport
 ;;
 ;; Copyright (C) 2008 by SpectroDynamics, LLC. All rights reserved.
 ;;
@@ -30,39 +30,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-;; --------------------------------------------------
-(in-package #:com.ral.mpcompat)
-;; equiv to #F
-(declaim  (OPTIMIZE (SPEED 3) #|(SAFETY 0)|# #+:LISPWORKS (FLOAT 0)))
-;; --------------------------------------------------
-;; Compatibility Layer
+(asdf:defsystem "com.ral.lisp-object-encoder"
+  :description "Lisp-Object-Encoder: Network portable encoding / decoding of Lisp objects"
+  :version     "1.0"
+  :author      "D.McClain <dbm@spectrodynamics.com>"
+  :license     "Copyright (c) 2008 by SpectroDynamics, LLC. All rights reserved."
+  :components  ((:file "packages")
+                (:file "xzlib") ;; ZLIB adapted to scatter vectors
+                (:file "lzw")
+                (:file "lisp-object-encoder")
+                (:file "safe-marshaling"))
+  :SERIAL T
+  :depends-on   ("com.ral.self-sync"
+                 "com.ral.ubyte-streams"
+                 "com.ral.managed-buffers"
+                 "sdle-store"
+                 "snappy"
+                 ))
 
-(defmacro defglobal (name val)
-  `(hcl:defglobal-variable ,name ,val))
-
-#|
-(defun current-process ()
-  "Get the current Lisp process."
-  (mp:get-current-process))
-|#
-
-(defun current-process ()
-  "Get the current Lisp process."
-  mp:*current-process*)
-
-;; --------------------------------------------------------------------------
-
-;; --------------------------------------------------------------------------
-
-#+nil
-(defun generate-uuid ()
-  (uuid:make-v1-uuid))
-#|
-(defun generate-uuid ()
-  #+:MACOSX  (uuid:byte-array-to-uuid (uuidgen:generate))
-  #+:WIN32   (uuid:make-v1-uuid))
-|#
-;; --------------------------------------------------------------------------
-
-(defmacro CAS (place old new)
-  `(sys:compare-and-swap ,place ,old ,new))

@@ -1,3 +1,11 @@
+;; lisp-object-encoder.asd
+;; --------------------------------------------------------------------------------------
+;; Portable Lisp Object Encoding / Decoding for Network Transport
+;;
+;; Copyright (C) 2008 by SpectroDynamics, LLC. All rights reserved.
+;;
+;; DM/SD  08/08
+;; --------------------------------------------------------------------------------------
 #|
 The MIT License
 
@@ -22,18 +30,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(asdf:defsystem "rb-trees"
-  :description "Red-Black Trees: a purely functional O(Log2(N)) ordered collection"
+(asdf:defsystem "com.ral.ubyte-streams"
+  :description "UByte-Streams: Unsigned Octet Streams"
   :version     "1.0"
-  :author      "D.McClain <dbm@refined-audiometrics.com>"
-  :license     "Copyright (c) 2008 by Refined Audiometrics Laboratory, LLC. All rights reserved."
-  :components  ((:file "rb-packages")
-                (:file "orderable")
-                (:file "ord")
-                (:file "bal-binary-trees")
-                (:file "bal-binary-tree-maps"))
-  :serial t
-  :depends-on   ("useful-macros"
+  :author      "D.McClain <dbm@spectrodynamics.com>"
+  :license     "Copyright (c) 2008 by SpectroDynamics, LLC. All rights reserved."
+  :components  ((:file "ubyte-streams-packages")
+		(:file "ubyte-streams"))
+  :SERIAL T
+  :depends-on   ("com.ral.scatter-vec"
+                 "com.ral.managed-buffers"
                  ))
-
 

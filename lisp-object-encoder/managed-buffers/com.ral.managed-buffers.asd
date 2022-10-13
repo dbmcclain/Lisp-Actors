@@ -1,3 +1,11 @@
+;; lisp-object-encoder.asd
+;; --------------------------------------------------------------------------------------
+;; Portable Lisp Object Encoding / Decoding for Network Transport
+;;
+;; Copyright (C) 2008 by SpectroDynamics, LLC. All rights reserved.
+;;
+;; DM/SD  08/08
+;; --------------------------------------------------------------------------------------
 #|
 The MIT License
 
@@ -22,16 +30,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(asdf:defsystem "prio-queue"
-  :description "prio-queue: priority queues"
+(asdf:defsystem "com.ral.managed-buffers"
+  :description "Managed Buffers: Reusable Buffers of various sizes"
   :version     "1.0"
-  :author      "D.McClain <dbm@refined-audiometrics.com>"
-  :license     "Copyright (c) 2008 by Refined Audiometrics Laboratory, LLC. All rights reserved."
-  :components  ((:file "prio-queue-packages")
-                (:file "ref-v4")
-                (:file "prio-queue-lf"))
-  :serial t
-  :depends-on   ("rb-trees"
-                 ))
-
+  :author      "D.McClain <dbm@spectrodynamics.com>"
+  :license     "Copyright (c) 2008 by SpectroDynamics, LLC. All rights reserved."
+  :components  ((:file "managed-buffers-packages")
+                (:file "managed-buffers"))
+  :SERIAL T
+  :depends-on   ("com.ral.prio-queue"))
 

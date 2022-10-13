@@ -34,6 +34,8 @@ THE SOFTWARE.
   #.`(:export
       ,@(loop for sym being the external-symbols of :com.ral.useful-macros.def-extensions
               collect sym))
+  (:local-nicknames
+   (#:mpc  #:com.ral.mpcompat))
   #+:LISPWORKS
   (:import-from #:lw
    #:do-nothing)
@@ -278,7 +280,9 @@ THE SOFTWARE.
   (:use #:common-lisp #:com.ral.actors
    #+(OR :ALLEGRO :CCL) #:ansi-timer
    :com.ral.usec)
-  (:local-nicknames (#:um #:com.ral.useful-macros))
+  (:local-nicknames
+   (#:mpc #:com.ral.mpcompat)
+   (#:um  #:com.ral.useful-macros))
   (:import-from #:com.ral.useful-macros
    #:curry
    #:rcurry

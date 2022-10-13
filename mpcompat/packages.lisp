@@ -25,9 +25,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(defpackage :mp-compatibility
+(defpackage :com.ral.mpcompat
   (:use #:common-lisp)
-  (:nicknames #:mpcompat)
+  ;; (:nicknames #:mpcompat)
   #+:SBCL
   (:import-from #:sb-concurrency
    #:mailbox)

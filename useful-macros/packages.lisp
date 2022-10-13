@@ -50,6 +50,8 @@ THE SOFTWARE.
    #:rcurry
    #:compose)
 
+  (:local-nicknames
+   (#:mpcompat  #:com.ral.mpcompat))
   (:export
 
    #:firsts

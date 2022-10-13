@@ -29,6 +29,8 @@ THE SOFTWARE.
 
 (defpackage #:orderable
   (:use #:common-lisp)
+  (:local-nicknames
+   (#:mpcompat   #:com.ral.mpcompat))
   (:export
    #:<orderable-mixin>
    #:order-id
@@ -59,9 +61,10 @@ THE SOFTWARE.
    #:greater
    ))
 
-(defpackage #:sets
+(defpackage #:com.ral.rb-tree.sets
   (:use #:common-lisp)
-  (:local-nicknames (#:um #:com.ral.useful-macros))
+  (:local-nicknames
+   (#:um    #:com.ral.useful-macros))
   (:shadow #:remove #:union #:intersection #:every #:some)
   #+:LISPWORKS
   (:import-from #:lw
@@ -123,11 +126,13 @@ THE SOFTWARE.
    #:key-fn
    ))
 
-(defpackage #:maps
+(defpackage #:com.ral.rb-tree.maps
   (:use #:common-lisp)
-  (:local-nicknames (#:um #:com.ral.useful-macros))
+  (:local-nicknames
+   (#:sets  #:com.ral.rb-tree.sets)
+   (#:um    #:com.ral.useful-macros))
   (:shadow #:find #:map)
-  (:import-from #:sets
+  (:import-from #:com.ral.rb-tree.sets
    #:tree
    #:empty
    #:copy
@@ -143,7 +148,7 @@ THE SOFTWARE.
    #:with-node-bindings
    #:key-fn
    #:removef)
-  (:shadowing-import-from #:sets
+  (:shadowing-import-from #:com.ral.rb-tree.sets
    #:remove
    #:union
    #:intersection)

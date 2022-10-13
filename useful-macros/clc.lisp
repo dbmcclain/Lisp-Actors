@@ -9,7 +9,9 @@
 ;; -------------------------------------------------------
 
 (defpackage :com.ral.useful-macros.clc
-  (:use :common-lisp :com.ral.useful-macros))
+  (:use :common-lisp :com.ral.useful-macros)
+  (:local-nicknames
+   (#:mpcompat  #:com.ral.mpcompat)))
 
 (in-package :com.ral.useful-macros.clc)
 

@@ -1,3 +1,11 @@
+;; lisp-object-encoder.asd
+;; --------------------------------------------------------------------------------------
+;; Portable Lisp Object Encoding / Decoding for Network Transport
+;;
+;; Copyright (C) 2008 by SpectroDynamics, LLC. All rights reserved.
+;;
+;; DM/SD  08/08
+;; --------------------------------------------------------------------------------------
 #|
 The MIT License
 
@@ -22,21 +30,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(asdf:defsystem "mpcompat"
-  :description "mpcompat: a compatibility API for multiprocessing"
+(asdf:defsystem "com.ral.scatter-vec"
+  :description "Scatter-Vec: Scatter/Gather Vectors"
   :version     "1.0"
   :author      "D.McClain <dbm@spectrodynamics.com>"
-  :license     "Copyright (c) 2010 by SpectroDynamics, LLC. All rights reserved."
-  :components  ((:file "packages")
-                #+:LISPWORKS  (:file "mp-compat-lw")
-                ;; #+:LISPWORKS5 (:file "mp-compat-lw5")
-                ;; #+(OR :LISPWORKS6 :LISPWORKS7 :LISPWORKS8) (:file "mp-compat-lw6")
-                #+:ALLEGRO    (:file "mp-compat-allegro")
-                #+:SBCL       (:file "mp-compat-sbcl")
-                #+:CLOZURE    (:file "mp-compat-clozure")
-                ;; (:file "mp-compat-critical")
-                ;; (:file "multi-locks")
-                )
-  :serial t
-  :depends-on   (
-                 #+:SBCL "sb-concurrency"))
+  :license     "Copyright (c) 2008 by SpectroDynamics, LLC. All rights reserved."
+  :components  ((:file "scatter-vec-packages")
+                (:file "scatter-vec"))
+
+  :SERIAL T
+  :depends-on   ())
+
+

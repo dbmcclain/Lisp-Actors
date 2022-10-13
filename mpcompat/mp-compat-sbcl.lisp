@@ -31,7 +31,7 @@ THE SOFTWARE.
 |#
 
 ;; --------------------------------------------------
-(in-package #:mp-compatibility)
+(in-package #:com.ral.mpcompat)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :sb-concurrency))

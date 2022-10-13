@@ -1,5 +1,5 @@
 ;; --------------------------------------------
-(in-package :maps)
+(in-package :com.ral.rb-tree.maps)
 #|
 The MIT License
 

@@ -28,6 +28,7 @@ THE SOFTWARE.
 
 (defpackage :cached-var
   (:use :common-lisp)
+  (:local-nicknames (#:mpcompat  #:com.ral.mpcompat))
   (:export
    :def-cached-var
    :get-cached-symbol-data))
@@ -35,9 +36,10 @@ THE SOFTWARE.
 (defpackage #:crypto-utils
   (:use #:common-lisp #:cached-var)
   (:local-nicknames
-   (#:um   #:com.ral.useful-macros)
-   (#:uuid #:com.ral.uuid)
-   (#:usec #:com.ral.usec))
+   (#:loenc #:com.ral.lisp-object-encoder)
+   (#:um    #:com.ral.useful-macros)
+   (#:uuid  #:com.ral.uuid)
+   (#:usec  #:com.ral.usec))
   (:export
    #:my-random-state
    #:my-random
@@ -319,7 +321,9 @@ THE SOFTWARE.
   (:use :common-lisp
         :vec-repr
         :cached-var)
-  (:local-nicknames (#:um  #:com.ral.useful-macros))
+  (:local-nicknames
+   (#:loenc #:com.ral.lisp-object-encoder)
+   (#:um  #:com.ral.useful-macros))
   (:export
    :hash
    :hash-val
@@ -346,7 +350,9 @@ THE SOFTWARE.
 
 (defpackage #:prng
   (:use #:common-lisp #:cached-var)
-  (:local-nicknames (#:um  #:com.ral.useful-macros))
+  (:local-nicknames
+   (#:mpcompat  #:com.ral.mpcompat)
+   (#:um        #:com.ral.useful-macros))
   (:import-from #:crypto-utils
    #:convert-bytes-to-int
    #:mask-off
@@ -627,8 +633,9 @@ THE SOFTWARE.
 (defpackage :edwards-ecc
   (:nicknames :edec)
   (:local-nicknames
-   (#:uuid #:com.ral.uuid)
-   (#:um   #:com.ral.useful-macros))
+   (#:loenc #:com.ral.lisp-object-encoder)
+   (#:uuid  #:com.ral.uuid)
+   (#:um    #:com.ral.useful-macros))
   (:use
    #:common-lisp
    #:crypto/modular-arith
@@ -727,7 +734,9 @@ THE SOFTWARE.
    #:vec-repr
    #:prng
    #:hash)
-  (:local-nicknames (#:um  #:com.ral.useful-macros))
+  (:local-nicknames
+   (#:loenc #:com.ral.lisp-object-encoder)
+   (#:um    #:com.ral.useful-macros))
   (:import-from :pbc
    :read-safely
    :address

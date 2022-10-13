@@ -28,7 +28,9 @@ THE SOFTWARE.
 |#
 
 (defpackage :com.ral.useful-macros.critical-section
-  (:use :common-lisp :com.ral.useful-macros))
+  (:use :common-lisp :com.ral.useful-macros)
+  (:local-nicknames
+   (#:mpcompat  #:com.ral.mpcompat)))
 
 (in-package :com.ral.useful-macros.critical-section)
 
