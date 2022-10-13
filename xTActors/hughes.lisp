@@ -22,7 +22,7 @@
 ;; also what opens up possibilities for parallel execution. (c.f., all
 ;; the FORK operations below.)
 
-(in-package :ac)
+(in-package #:com.ral.actors)
 
 #|
 (deflex nil-actor

@@ -266,8 +266,12 @@ THE SOFTWARE.
    ))
 
 #+(OR :ALLEGRO :CCL)
-(defpackage #:ansi-timer
+(defpackage #:com.ral.ansi-timer
   (:use #:common-lisp)
+  (:local-nicknames
+   (#:priq     #:com.ral.prio-queue)
+   (#:maps     #:com.ral.rb-trees.maps)
+   (#:mpcompat #:com.ral.mpcompat))
   (:export
    #:timer
    #:make-timer
@@ -278,7 +282,7 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.actors.base
   (:use #:common-lisp #:com.ral.actors
-   #+(OR :ALLEGRO :CCL) #:ansi-timer
+   #+(OR :ALLEGRO :CCL) #:com.ral.ansi-timer
    :com.ral.usec)
   (:local-nicknames
    (#:mpc #:com.ral.mpcompat)
@@ -303,12 +307,6 @@ THE SOFTWARE.
    #:com.ral.actors.base)
   (:local-nicknames (#:um #:com.ral.useful-macros)))
 
-(defpackage com.ral.actors.kv-database
-  (:use #:cl :com.ral.actors)
-  (:export
-   #:kvdb
-  ))
-   
 (defpackage #:com.ral.actors.user
   (:use
    :common-lisp

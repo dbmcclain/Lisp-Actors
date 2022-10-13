@@ -1,4 +1,3 @@
-
 ;; packages.lisp
 ;; DM/RAL  02/09
 ;; ------------------------------------------------------------------
@@ -28,10 +27,10 @@ THE SOFTWARE.
 
 (in-package :cl-user)
 
-(defpackage #:ref ;; for V3
+(defpackage #:com.ral.ref ;; for V3
   (:use #:common-lisp)
   (:local-nicknames
-   (#:sets      #:com.ral.rb-tree.sets)
+   (#:sets      #:com.ral.rb-trees.sets)
    (#:mpcompat  #:com.ral.mpcompat))
   (:import-from #:com.ral.useful-macros
    #:rmw
@@ -74,8 +73,9 @@ THE SOFTWARE.
   #-OPENMCL (:import-from #:com.ral.mpcompat
    :CAS)
   (:local-nicknames
-   (#:sets      #:com.ral.rb-tree.sets)
-   (#:maps      #:com.ral.rb-tree.maps)
+   (#:ref       #:com.ral.ref)
+   (#:sets      #:com.ral.rb-trees.sets)
+   (#:maps      #:com.ral.rb-trees.maps)
    (#:mpcompat  #:com.ral.mpcompat)
    (#:um        #:com.ral.useful-macros))
   (:export

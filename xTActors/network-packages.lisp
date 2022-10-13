@@ -17,7 +17,7 @@
    #:com.ral.actors)
   (:local-nicknames
    (#:loenc     #:com.ral.lisp-object-encoder)
-   (#:sets      #:com.ral.rb-tree.sets)
+   (#:sets      #:com.ral.rb-trees.sets)
    (#:um        #:com.ral.useful-macros)
    (#:uuid      #:com.ral.uuid)
    (#:modmath   #:crypto/modular-arith)
@@ -79,7 +79,7 @@
   (:local-nicknames
    (#:loenc #:com.ral.lisp-object-encoder)
    (#:uuid  #:com.ral.uuid)
-   (#:sets  #:com.ral.rb-tree.sets)
+   (#:sets  #:com.ral.rb-trees.sets)
    (#:aop   #:com.ral.useful-macros.dflet)
    (#:um    #:com.ral.useful-macros))
   (:import-from #:com.ral.useful-macros

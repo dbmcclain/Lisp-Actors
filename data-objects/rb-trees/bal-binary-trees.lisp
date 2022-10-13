@@ -34,7 +34,7 @@ THE SOFTWARE.
 |#
 
 ;; ------------------------------------------------------------------------
-(in-package :com.ral.rb-tree.sets)
+(in-package #:com.ral.rb-trees.sets)
 ;; ------------------------------------------------------------------------
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) #|(SAFETY 0)|# #+:LISPWORKS (FLOAT 0))

@@ -1,4 +1,4 @@
-(in-package :ansi-timer)
+(in-package #:com.ral.ansi-timer)
 
 (defvar *timeout-queue*  (priq:make-lifo))
 (defvar *cancel-queue*   (priq:make-lifo))

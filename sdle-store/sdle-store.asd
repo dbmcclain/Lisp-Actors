@@ -49,7 +49,7 @@ CLISP, ECL and AllegroCL are supported.")
   :long-description "Portable CL Package to serialize data"
   :licence "MIT"
   :in-order-to ((test-op (test-op "sdle-store/tests")))
-  :depends-on (useful-macros)
+  :depends-on (com.ral.useful-macros)
   :serial t
   :components ((:file "package")
                (:file "utils")

@@ -24,14 +24,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :cl-user)
+(in-package #:cl-user)
 
-(defpackage :cached-var
-  (:use :common-lisp)
+(defpackage #:cached-var
+  (:use #:common-lisp)
   (:local-nicknames (#:mpcompat  #:com.ral.mpcompat))
   (:export
-   :def-cached-var
-   :get-cached-symbol-data))
+   #:def-cached-var
+   #:get-cached-symbol-data))
 
 (defpackage #:crypto-utils
   (:use #:common-lisp #:cached-var)
@@ -125,7 +125,7 @@ THE SOFTWARE.
    #:mask-off
    ))
 
-(defpackage :cryptolib
+(defpackage #:cryptolib
   (:use #:common-lisp #:crypto-utils) 
   (:export
    #:sha2_context
@@ -156,8 +156,8 @@ THE SOFTWARE.
    #:c-kdf
    ))
 
-(defpackage :gflib
-  (:use :common-lisp :cryptolib)
+(defpackage #:gflib
+  (:use #:common-lisp #:cryptolib)
   (:export
    #:gf128_add
    #:gf128_mul
@@ -207,145 +207,148 @@ THE SOFTWARE.
    #:gf-random-k*
    ))
 
-(defpackage :crypto/modular-arith
-  (:use :common-lisp
-   :cached-var)
+(defpackage #:crypto/modular-arith
+  (:use #:common-lisp
+   #:cached-var)
   (:local-nicknames (#:um  #:com.ral.useful-macros))
-  ;; (:nicknames :modmath)
+  ;; (:nicknames #:modmath)
   (:export
-   :with-mod
-   :mod-base   
-   :reset-blinders
-   :m=
-   :m^
-   :msqrt
-   :msqr
-   :m+
-   :m-
-   :m*
-   :m/
-   :minv
-   :mmod
-   :mchi
-   :quadratic-residue-p
-   :m!
+   #:with-mod
+   #:mod-base   
+   #:reset-blinders
+   #:m=
+   #:m^
+   #:msqrt
+   #:msqr
+   #:m+
+   #:m-
+   #:m*
+   #:m/
+   #:minv
+   #:mmod
+   #:mchi
+   #:quadratic-residue-p
+   #:m!
 
-   :msqrt*
-   :mmax
-   :mmin
-   :bezout
-   :msigned
+   #:msqrt*
+   #:mmax
+   #:mmin
+   #:bezout
+   #:msigned
 
-   :with-qf
-   :qf-re
-   :qf-im
-   :qfmod
-   :qf=
-   :qf-conj
-   :qf+
-   :qf-
-   :qf*
-   :qf/
-   :qf^
-   :qfsqr
-   :qf-abssqr
-   :qfsqrt
+   #:with-qf
+   #:qf-re
+   #:qf-im
+   #:qfmod
+   #:qf=
+   #:qf-conj
+   #:qf+
+   #:qf-
+   #:qf*
+   #:qf/
+   #:qf^
+   #:qfsqr
+   #:qf-abssqr
+   #:qfsqrt
    ))
 
 #|
-(defpackage :crypto-mod-math
-  (:use :common-lisp)
+(defpackage #:crypto-mod-math
+  (:use #:common-lisp)
   (:export
-   :reset-blinders
-   :expt-mod
-   :sqrt-mod
-   :mult-mod
-   :add-mod
-   :sub-mod
-   :inv-mod
-   :div-mod
-   :quadratic-residue-p
+   #:reset-blinders
+   #:expt-mod
+   #:sqrt-mod
+   #:mult-mod
+   #:add-mod
+   #:sub-mod
+   #:inv-mod
+   #:div-mod
+   #:quadratic-residue-p
    ))
 |#
 
 (defpackage vec-repr
-  (:use :common-lisp)
-  (:local-nicknames (#:uuid  #:com.ral.uuid))
+  (:use #:common-lisp)
+  (:local-nicknames
+   (#:ord   #:com.ral.ord)
+   (#:uuid  #:com.ral.uuid))
   (:export
-   :ub8        ;; type
-   :ub8-vector ;; type
-   :make-ub8-vector
-   :ub8v
-   :ub8v-obj
-   :ub8v-as-str
-   :ub8v-val
-   :ub8v-str
-   :val
-   :lev
-   :lev-vec
-   :bev
-   :bev-vec
-   :base58
-   :base58-str
-   :base58-chk
-   :base64
-   :base64-str
-   :hex
-   :hex-str
-   :levn
-   :bevn
-   :convert-int-to-vec
-   :convert-vec-to-int
-   :int
-   :int=
-   :int/=
-   :int<
-   :int<=
-   :int>
-   :int>=
-   :vec
-   :vec-cmp
-   :vec=
-   :vec/=
-   :vec<
-   :vec<=
-   :vec>
-   :vec>=
-   :sbs
-   :str
-   :short-str
-   :validate-base58-string
+   #:ub8        ;; type
+   #:ub8-vector ;; type
+   #:make-ub8-vector
+   #:ub8v
+   #:ub8v-obj
+   #:ub8v-as-str
+   #:ub8v-val
+   #:ub8v-str
+   #:val
+   #:lev
+   #:lev-vec
+   #:bev
+   #:bev-vec
+   #:base58
+   #:base58-str
+   #:base58-chk
+   #:base64
+   #:base64-str
+   #:hex
+   #:hex-str
+   #:levn
+   #:bevn
+   #:convert-int-to-vec
+   #:convert-vec-to-int
+   #:int
+   #:int=
+   #:int/=
+   #:int<
+   #:int<=
+   #:int>
+   #:int>=
+   #:vec
+   #:vec-cmp
+   #:vec=
+   #:vec/=
+   #:vec<
+   #:vec<=
+   #:vec>
+   #:vec>=
+   #:sbs
+   #:str
+   #:short-str
+   #:validate-base58-string
    ))
 
-(defpackage :hash
-  (:use :common-lisp
-        :vec-repr
-        :cached-var)
+(defpackage #:hash
+  (:use #:common-lisp
+        #:vec-repr
+        #:cached-var)
   (:local-nicknames
+   (#:ord   #:com.ral.ord)
    (#:loenc #:com.ral.lisp-object-encoder)
-   (#:um  #:com.ral.useful-macros))
+   (#:um    #:com.ral.useful-macros))
   (:export
-   :hash
-   :hash-val
-   :hash-fn
-   :hash-bytes
-   :hash-length
-   :hash/ripemd/160
-   :hash/sha2/256
-   :hash/256
-   :hash/384
-   :hash/512
-   :hash/var
-   :get-raw-hash-nbytes
-   :get-raw-hash-nbits
-   :get-hash-nbytes
-   :get-hash-nbits
-   :hash-to-range
-   :hashable
-   :hash-check
-   :hash=
-   :hash-function-of-hash
-   :in-place-otp
+   #:hash
+   #:hash-val
+   #:hash-fn
+   #:hash-bytes
+   #:hash-length
+   #:hash/ripemd/160
+   #:hash/sha2/256
+   #:hash/256
+   #:hash/384
+   #:hash/512
+   #:hash/var
+   #:get-raw-hash-nbytes
+   #:get-raw-hash-nbits
+   #:get-hash-nbytes
+   #:get-hash-nbits
+   #:hash-to-range
+   #:hashable
+   #:hash-check
+   #:hash=
+   #:hash-function-of-hash
+   #:in-place-otp
    ))
 
 (defpackage #:prng
@@ -449,7 +452,7 @@ THE SOFTWARE.
    ))
 
 #|
-(defpackage :primes
+(defpackage #:primes
   (:use #:common-lisp)
   (:export
    #:divides?
@@ -472,16 +475,16 @@ THE SOFTWARE.
    #:decompose
    ))
 
-(defpackage :lagrange-4-square
-  (:use :common-lisp)
-  (:import-from :primes
-   :is-prime?
-   :expt-mod)
-  (:import-from :com.ral.useful-macros
-   :curry
-   :nlet)
+(defpackage #:lagrange-4-square
+  (:use #:common-lisp)
+  (:import-from #:primes
+   #:is-prime?
+   #:expt-mod)
+  (:import-from #:com.ral.useful-macros
+   #:curry
+   #:nlet)
   (:export
-   :decompose-integer
+   #:decompose-integer
    ))
 |#
 
@@ -491,147 +494,147 @@ THE SOFTWARE.
         #:hash
         #:prng
         #:crypto/modular-arith)
-  (:nicknames :pbc)
+  (:nicknames #:pbc)
   (:export
    ;; classes and their slot readers
-   :crypto-val
-   :crypto-val-vec
-   :g1-cmpr
-   :g1-cmpr-pt
-   :g2-cmpr
-   :g2-cmpr-pt
-   :zr
-   :zr-val
-   :gt
-   :gt-val
-   :public-key
-   :public-key-val
-   :secret-key
-   :secret-key-val
-   :signature
-   :signature-val
-   :pairing
-   :pairing-val
-   :crypto-text
-   :crypto-text-vec
-   :public-subkey
-   :secret-subkey
+   #:crypto-val
+   #:crypto-val-vec
+   #:g1-cmpr
+   #:g1-cmpr-pt
+   #:g2-cmpr
+   #:g2-cmpr-pt
+   #:zr
+   #:zr-val
+   #:gt
+   #:gt-val
+   #:public-key
+   #:public-key-val
+   #:secret-key
+   #:secret-key-val
+   #:signature
+   #:signature-val
+   #:pairing
+   #:pairing-val
+   #:crypto-text
+   #:crypto-text-vec
+   #:public-subkey
+   #:secret-subkey
    
-   :init-pairing
-   :set-generator  ;; 1 each for G1, and G2 groups
+   #:init-pairing
+   #:set-generator  ;; 1 each for G1, and G2 groups
    
-   :get-g1
-   :get-g2
-   :get-order
+   #:get-g1
+   #:get-g2
+   #:get-order
    
-   :make-key-pair
-   :check-public-key
+   #:make-key-pair
+   #:check-public-key
 
-   :make-public-subkey
-   :make-secret-subkey
-   :ibe-encrypt
-   :ibe-decrypt
+   #:make-public-subkey
+   #:make-secret-subkey
+   #:ibe-encrypt
+   #:ibe-decrypt
    
-   :sign-message       ;; BLS Sigs
-   :check-message
-   :combine-signatures ;; for BLS MultiSigs
+   #:sign-message       ;; BLS Sigs
+   #:check-message
+   #:combine-signatures ;; for BLS MultiSigs
 
-   :compute-pairing
+   #:compute-pairing
 
-   :pbc=
+   #:pbc=
    
-   :add-zrs
-   :sub-zrs
-   :mul-zrs
-   :div-zrs
-   :exp-zrs
-   :neg-zr
-   :inv-zr
+   #:add-zrs
+   #:sub-zrs
+   #:mul-zrs
+   #:div-zrs
+   #:exp-zrs
+   #:neg-zr
+   #:inv-zr
 
-   :add-pts  ;; non-bent nomenclature for ECC
-   :sub-pts
-   :mul-pts  ;; bent nomenclature for ECC
-   :div-pts
-   :neg-pt
-   :inv-pt
+   #:add-pts  ;; non-bent nomenclature for ECC
+   #:sub-pts
+   #:mul-pts  ;; bent nomenclature for ECC
+   #:div-pts
+   #:neg-pt
+   #:inv-pt
    
-   :mul-pt-zr
-   :expt-pt-zr  ;; bent nom
+   #:mul-pt-zr
+   #:expt-pt-zr  ;; bent nom
 
-   :mul-gts
-   :div-gts
-   :expt-gt-zr
-   :inv-gt
+   #:mul-gts
+   #:div-gts
+   #:expt-gt-zr
+   #:inv-gt
    
-   :keying-triple
-   :keying-triple-pkey
-   :keying-triple-sig
-   :keying-triple-skey
+   #:keying-triple
+   #:keying-triple-pkey
+   #:keying-triple-sig
+   #:keying-triple-skey
    
-   :signed-message
-   :signed-message-msg
-   :signed-message-sig
-   :signed-message-pkey
+   #:signed-message
+   #:signed-message-msg
+   #:signed-message-sig
+   #:signed-message-pkey
 
-   :pbc-hash
-   :hash-to-pbc-range
-   :sign-hash
-   :check-hash
+   #:pbc-hash
+   #:hash-to-pbc-range
+   #:sign-hash
+   #:check-hash
 
-   :crypto-packet
-   :crypto-packet-pkey
-   :crypto-packet-id
-   :crypto-packet-tstamp
-   :crypto-packet-rval
-   :crypto-packet-cmsg
+   #:crypto-packet
+   #:crypto-packet-pkey
+   #:crypto-packet-id
+   #:crypto-packet-tstamp
+   #:crypto-packet-rval
+   #:crypto-packet-cmsg
 
-   :g1-from-hash
-   :g2-from-hash
-   :zr-from-hash
+   #:g1-from-hash
+   #:g2-from-hash
+   #:zr-from-hash
 
-   :compute-vrf
-   :validate-vrf
-   :validate-vrf-mapping
-   :vrf
-   :vrf-seed
-   :vrf-x
-   :vrf-y
-   :vrf-proof
+   #:compute-vrf
+   #:validate-vrf
+   #:validate-vrf-mapping
+   #:vrf
+   #:vrf-seed
+   #:vrf-x
+   #:vrf-y
+   #:vrf-proof
 
-   :make-pedersen-proof
-   :validate-pedersen-proof
-   :make-cloaked-proof
-   :validate-cloaked-proof
+   #:make-pedersen-proof
+   #:validate-pedersen-proof
+   #:make-cloaked-proof
+   #:validate-cloaked-proof
 
-   :confidential-purchase
-   :confidential-purchase-pbuy
-   :confidential-purchase-psell
-   :confidential-purchase-tbuy
-   :confidential-purchase-rsell
-   :check-confidential-purchase
+   #:confidential-purchase
+   #:confidential-purchase-pbuy
+   #:confidential-purchase-psell
+   #:confidential-purchase-tbuy
+   #:confidential-purchase-rsell
+   #:check-confidential-purchase
 
-   :*pairing*
-   :*pairing-name*
-   :with-pairing
-   :set-pairing
-   :list-all-pairings
+   #:*pairing*
+   #:*pairing-name*
+   #:with-pairing
+   #:set-pairing
+   #:list-all-pairings
 
-   :make-keying-triple
-   :make-keying-pairs
+   #:make-keying-triple
+   #:make-keying-pairs
 
    ;; for safe-reader
-   :address
-   :addr
-   :addr-str
-   :make-pkey
-   :make-skey
-   :make-sig
-   :make-addr
-   :read-safely
+   #:address
+   #:addr
+   #:addr-str
+   #:make-pkey
+   #:make-skey
+   #:make-sig
+   #:make-addr
+   #:read-safely
    ))
 
-(defpackage :edwards-ecc
-  (:nicknames :edec)
+(defpackage #:edwards-ecc
+  (:nicknames #:edec)
   (:local-nicknames
    (#:loenc #:com.ral.lisp-object-encoder)
    (#:uuid  #:com.ral.uuid)
@@ -644,87 +647,87 @@ THE SOFTWARE.
    #:vec-repr
    #:hash
    #:prng)
-  (:import-from :com.ral.useful-macros
-   :defstub
-   :stub-function-p
-   :with-fast-impl)
+  (:import-from #:com.ral.useful-macros
+   #:defstub
+   #:stub-function-p
+   #:with-fast-impl)
   (:export
-   :ed-curve
-   :with-ed-curve
-   :set-ed-curve
-   :ed-curves
-   :*ed-gen*
-   :*ed-r*
-   :*ed-h*
-   :*ed-q*
-   :*ed-name*
-   :*ed-nb*
-   :*ed-nbits*
-   :ecc-pt
-   :ecc-proj-pt
-   :ed-affine
-   :ed-pt=
-   :ed-neutral-point
-   :ed-neutral-point-p
-   :ed-satisfies-curve
-   :ed-add
-   :ed-negate
-   :ed-sub
-   :ed-mul
-   :ed-div
-   :ed-nth-pt
-   :ed-nth-proj-pt
-   :ed-compress-pt
-   :ed-decompress-pt
-   :ed-validate-point
-   :ed-valid-point-p
-   :ed-random-pair
-   :ed-random-generator
-   :hash-to-pt-range
-   :hash-to-grp-range
-   :ed-pt-from-hash
-   :ed-pt-from-seed
+   #:ed-curve
+   #:with-ed-curve
+   #:set-ed-curve
+   #:ed-curves
+   #:*ed-gen*
+   #:*ed-r*
+   #:*ed-h*
+   #:*ed-q*
+   #:*ed-name*
+   #:*ed-nb*
+   #:*ed-nbits*
+   #:ecc-pt
+   #:ecc-proj-pt
+   #:ed-affine
+   #:ed-pt=
+   #:ed-neutral-point
+   #:ed-neutral-point-p
+   #:ed-satisfies-curve
+   #:ed-add
+   #:ed-negate
+   #:ed-sub
+   #:ed-mul
+   #:ed-div
+   #:ed-nth-pt
+   #:ed-nth-proj-pt
+   #:ed-compress-pt
+   #:ed-decompress-pt
+   #:ed-validate-point
+   #:ed-valid-point-p
+   #:ed-random-pair
+   #:ed-random-generator
+   #:hash-to-pt-range
+   #:hash-to-grp-range
+   #:ed-pt-from-hash
+   #:ed-pt-from-seed
    
-   :elligator-random-pt
-   :elligator-tau-vector
-   :elligator-encode
-   :elligator-decode
-   :elligator-limit
-   :elligator-nbits
-   :to-elligator-range
+   #:elligator-random-pt
+   #:elligator-tau-vector
+   #:elligator-encode
+   #:elligator-decode
+   #:elligator-limit
+   #:elligator-nbits
+   #:to-elligator-range
    
-   :elli2-encode
-   :elli2-decode
-   :elli2-random-pt
+   #:elli2-encode
+   #:elli2-decode
+   #:elli2-random-pt
    
-   :ed-schnorr-sig
-   :ed-schnorr-sig-verify
+   #:ed-schnorr-sig
+   #:ed-schnorr-sig-verify
    
-   :ed-convert-int-to-lev
-   :ed-convert-lev-to-int
-   :make-deterministic-keys
-   :compute-deterministic-skey
-   :compute-schnorr-deterministic-random
-   :ed-dsa
-   :ed-dsa-validate
+   #:ed-convert-int-to-lev
+   #:ed-convert-lev-to-int
+   #:make-deterministic-keys
+   #:compute-deterministic-skey
+   #:compute-schnorr-deterministic-random
+   #:ed-dsa
+   #:ed-dsa-validate
    
-   :compute-deterministic-elligator-skey
-   :compute-elligator-summed-pkey
-   :compute-elligator-schnorr-deterministic-random
-   :elligator-ed-dsa
-   :elligator-ed-dsa-validate
+   #:compute-deterministic-elligator-skey
+   #:compute-elligator-summed-pkey
+   #:compute-elligator-schnorr-deterministic-random
+   #:elligator-ed-dsa
+   #:elligator-ed-dsa-validate
 
-   :make-ecc-pt
+   #:make-ecc-pt
 
-   :ed-vrf
-   :ed-prove-vrf
-   :ed-check-vrf
+   #:ed-vrf
+   #:ed-prove-vrf
+   #:ed-check-vrf
 
-   :modr
-   :modq
+   #:modr
+   #:modq
    ))
 
-(defpackage :core-crypto
+(defpackage #:core-crypto
   (:use
    #:common-lisp
    #:crypto/modular-arith
@@ -737,152 +740,152 @@ THE SOFTWARE.
   (:local-nicknames
    (#:loenc #:com.ral.lisp-object-encoder)
    (#:um    #:com.ral.useful-macros))
-  (:import-from :pbc
-   :read-safely
-   :address
-   :addr
-   :addr-str
+  (:import-from #:pbc
+   #:read-safely
+   #:address
+   #:addr
+   #:addr-str
    )
   (:export
-   :defstub
-   :stub-function-p
-   :with-fast-impl
+   #:defstub
+   #:stub-function-p
+   #:with-fast-impl
    
    ;; from crypto/modular-arith
-   :with-mod
-   :reset-blinders
-   :m=
-   :m^
-   :msqrt
-   :msqr
-   :m+
-   :m-
-   :m*
-   :m/
-   :minv
-   :bezout
-   :mmod
-   :mchi
-   :quadratic-residue-p
-   :m!
+   #:with-mod
+   #:reset-blinders
+   #:m=
+   #:m^
+   #:msqrt
+   #:msqr
+   #:m+
+   #:m-
+   #:m*
+   #:m/
+   #:minv
+   #:bezout
+   #:mmod
+   #:mchi
+   #:quadratic-residue-p
+   #:m!
    ;; from vec-repr
-   :bev
-   :lev
-   :base58
-   :base58-chk
-   :base64
-   :hex
-   :int
-   :int=
-   :int/=
-   :int<
-   :int<=
-   :int>
-   :int>=
-   :vec
-   :vec-cmp
-   :vec=
-   :vec/=
-   :vec<
-   :vec<=
-   :vec>
-   :vec>=
-   :str
-   :bev-vec
-   :lev-vec
-   :hex-str
-   :base58-str
-   :base64-str
-   :bevn
-   :levn
+   #:bev
+   #:lev
+   #:base58
+   #:base58-chk
+   #:base64
+   #:hex
+   #:int
+   #:int=
+   #:int/=
+   #:int<
+   #:int<=
+   #:int>
+   #:int>=
+   #:vec
+   #:vec-cmp
+   #:vec=
+   #:vec/=
+   #:vec<
+   #:vec<=
+   #:vec>
+   #:vec>=
+   #:str
+   #:bev-vec
+   #:lev-vec
+   #:hex-str
+   #:base58-str
+   #:base64-str
+   #:bevn
+   #:levn
    ;; from hash
-   :hash
-   :hash/256
-   :hash/384
-   :hash/512
-   :hash-bytes
-   :hash-length
-   :hashable
-   :get-hash-nbytes
-   :hash=
-   :hash-check
-   :hash/ripemd/160
-   :hash/sha2/256
+   #:hash
+   #:hash/256
+   #:hash/384
+   #:hash/512
+   #:hash-bytes
+   #:hash-length
+   #:hashable
+   #:get-hash-nbytes
+   #:hash=
+   #:hash-check
+   #:hash/ripemd/160
+   #:hash/sha2/256
    ;; from edwards-ecc
-   :with-ed-curve
-   :set-ed-curve
-   :*edcurve*
-   :*ed-r*
-   :*ed-q*
-   :*ed-gen*
-   :ed-curve-name
-   :ed-neutral-point
-   :ed-neutral-point-p
-   :ed-mul
-   :ed-add
-   :ed-sub
-   :ed-div
-   :ed-negate
-   :ed-pt=
-   :ed-affine
-   :ed-compress-pt
-   :ed-decompress-pt
-   :ed-nth-proj-pt
-   :ed-nth-pt
-   :ed-random-pair
-   :ed-from-hash
-   :ed-random-generator
-   :ed-validate-point
-   :ed-valid-point-p
-   :ed-nbytes
-   :ed-nbits
-   :get-hash-nbits
+   #:with-ed-curve
+   #:set-ed-curve
+   #:*edcurve*
+   #:*ed-r*
+   #:*ed-q*
+   #:*ed-gen*
+   #:ed-curve-name
+   #:ed-neutral-point
+   #:ed-neutral-point-p
+   #:ed-mul
+   #:ed-add
+   #:ed-sub
+   #:ed-div
+   #:ed-negate
+   #:ed-pt=
+   #:ed-affine
+   #:ed-compress-pt
+   #:ed-decompress-pt
+   #:ed-nth-proj-pt
+   #:ed-nth-pt
+   #:ed-random-pair
+   #:ed-from-hash
+   #:ed-random-generator
+   #:ed-validate-point
+   #:ed-valid-point-p
+   #:ed-nbytes
+   #:ed-nbits
+   #:get-hash-nbits
    
-   :elli2-encode
-   :elli2-decode
-   :elli2-random-pt
+   #:elli2-encode
+   #:elli2-decode
+   #:elli2-random-pt
    
-   :ed-convert-int-to-lev
-   :ed-convert-lev-to-int
-   :compute-deterministic-skey
-   :compute-schnorr-deterministic-random
-   :ed-dsa
-   :ed-dsa-validate
+   #:ed-convert-int-to-lev
+   #:ed-convert-lev-to-int
+   #:compute-deterministic-skey
+   #:compute-schnorr-deterministic-random
+   #:ed-dsa
+   #:ed-dsa-validate
    
-   :compute-deterministic-elligator-skey
-   :compute-elligator-summed-pkey
-   :compute-elligator-schnorr-deterministic-random
-   :elligator-ed-dsa
-   :elligator-ed-dsa-validate
+   #:compute-deterministic-elligator-skey
+   #:compute-elligator-summed-pkey
+   #:compute-elligator-schnorr-deterministic-random
+   #:elligator-ed-dsa
+   #:elligator-ed-dsa-validate
 
-   :convert-int-to-nbytes
-   :convert-int-to-nbytesv
-   :convert-bytes-to-int
-   :sha3-buffers
-   :sha3/256-buffers
-   :ctr-drbg
-   :ctr-drbg-int
-   :random-between
-   :field-random
-   :safe-field-random
+   #:convert-int-to-nbytes
+   #:convert-int-to-nbytesv
+   #:convert-bytes-to-int
+   #:sha3-buffers
+   #:sha3/256-buffers
+   #:ctr-drbg
+   #:ctr-drbg-int
+   #:random-between
+   #:field-random
+   #:safe-field-random
 
-   :add-to-startups
-   :add-to-shutdowns
-   :ensure-dlls-loaded
-   :startup
-   :shutdown
-   :read-safely
-   :address
-   :addr
-   :addr-str
+   #:add-to-startups
+   #:add-to-shutdowns
+   #:ensure-dlls-loaded
+   #:startup
+   #:shutdown
+   #:read-safely
+   #:address
+   #:addr
+   #:addr-str
 
-   :convert-int-to-wordlist
-   :convert-wordlist-to-int
+   #:convert-int-to-wordlist
+   #:convert-wordlist-to-int
    ))
 
-(defpackage :crypto-lib-loader
-  (:use :cl)
+(defpackage #:crypto-lib-loader
+  (:use #:cl)
   (:export
-   :load-dlls
-   :unload-dlls
+   #:load-dlls
+   #:unload-dlls
    ))

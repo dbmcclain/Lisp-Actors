@@ -37,7 +37,7 @@
 ;; CHOOSE-EVT      : E+ -> E
 ;; TIMEOUT-EVT     : E -> E
 
-(in-package :ac)
+(in-package #:com.ral.actors)
 
 ;;------------------------------------------
 ;; Comoposable Synchronous Events in Actors

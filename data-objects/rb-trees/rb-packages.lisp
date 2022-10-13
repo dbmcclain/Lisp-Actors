@@ -27,24 +27,33 @@ THE SOFTWARE.
 
 (in-package :cl-user)
 
-(defpackage #:orderable
+(defpackage #:com.ral.rb-trees.fwds
+  (:use #:common-lisp)
+  (:export
+   #:compare
+   ))
+
+(defpackage #:com.ral.orderable
   (:use #:common-lisp)
   (:local-nicknames
+   (#:ord        #:com.ral.rb-trees.fwds)
    (#:mpcompat   #:com.ral.mpcompat))
   (:export
    #:<orderable-mixin>
    #:order-id
    ))
 
-(defpackage #:ord
+(defpackage #:com.ral.ord
   (:use #:common-lisp)
   (:local-nicknames
    (#:um   #:com.ral.useful-macros)
    (#:uuid #:com.ral.uuid))
   (:shadow #:equal)
-  (:import-from #:orderable
+  (:import-from #:com.ral.orderable
    #:<orderable-mixin>
    #:order-id)
+  (:import-from #:com.ral.rb-trees.fwds
+   #:compare)
   (:export
    #:compare
    #:compare<
@@ -61,9 +70,11 @@ THE SOFTWARE.
    #:greater
    ))
 
-(defpackage #:com.ral.rb-tree.sets
+(defpackage #:com.ral.rb-trees.sets
   (:use #:common-lisp)
   (:local-nicknames
+   (#:ord   #:com.ral.ord)
+   (#:sets  #:com.ral.rb-trees.sets)
    (#:um    #:com.ral.useful-macros))
   (:shadow #:remove #:union #:intersection #:every #:some)
   #+:LISPWORKS
@@ -126,13 +137,17 @@ THE SOFTWARE.
    #:key-fn
    ))
 
-(defpackage #:com.ral.rb-tree.maps
+(defpackage #:com.ral.rb-trees.maps
   (:use #:common-lisp)
   (:local-nicknames
-   (#:sets  #:com.ral.rb-tree.sets)
+   (#:ord   #:com.ral.ord)
+   (#:sets  #:com.ral.rb-trees.sets)
+   (#:maps  #:com.ral.rb-trees.maps)
    (#:um    #:com.ral.useful-macros))
   (:shadow #:find #:map)
-  (:import-from #:com.ral.rb-tree.sets
+  (:import-from #:com.ral.rb-trees.fwds
+   #:compare)
+  (:import-from #:com.ral.rb-trees.sets
    #:tree
    #:empty
    #:copy
@@ -148,7 +163,7 @@ THE SOFTWARE.
    #:with-node-bindings
    #:key-fn
    #:removef)
-  (:shadowing-import-from #:com.ral.rb-tree.sets
+  (:shadowing-import-from #:com.ral.rb-trees.sets
    #:remove
    #:union
    #:intersection)

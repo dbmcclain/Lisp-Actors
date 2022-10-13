@@ -91,8 +91,23 @@
 ;; SERIALIZER is called for.
 ;; ----------------------------------------------------------------------
 
+(defpackage com.ral.actors.kv-database
+  (:use #:cl :com.ral.actors)
+  (:local-nicknames
+   (#:um        #:com.ral.useful-macros)
+   (#:uuid      #:com.ral.uuid)
+   (#:loenc     #:com.ral.lisp-object-encoder)
+   (#:self-sync #:com.ral.self-sync)
+   (#:sets      #:com.ral.rb-trees.sets)
+   (#:maps      #:com.ral.rb-trees.maps))
+  (:export
+   #:kvdb
+  ))
+   
 (in-package com.ral.actors.kv-database)
-  
+
+;; ----------------------------------------------------------------------
+
 (def-beh trans-gate-beh (saver db)
   ;; -------------------
   ;; general entry for external clients
@@ -127,11 +142,11 @@
   ;; eql db if there have been no updates within the last 10 sec.
   ((a-tag a-db) / (and (eql a-tag saver)
                        (eql a-db  db))
-   (send saver :save-log db))
+   (send saver sink :save-log db))
    
   ;; -------------------
   (('maint-full-save)
-   (send saver :full-save db)))
+   (send saver sink :full-save db)))
 
 (def-beh nascent-database-beh (tag saver msgs)
   ;; -------------------
@@ -256,7 +271,7 @@
                      removals
                      (nreverse additions)
                      (nreverse changes))))
-    (send writeln log)
+    ;; (send writeln log)
     log))
 
 ;; -----------------------------------------------------------
@@ -338,6 +353,7 @@
 #|
 (ask kvdb :lookup :dave)
 (uuid:when-created (ask kvdb :lookup 'version))
+(show-db)
 
 (dotimes (ix 5)
   (add-rec println ix ix))
