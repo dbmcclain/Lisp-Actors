@@ -2,7 +2,8 @@
 (in-package :user)
 
 (defpackage #:com.ral.self-sync
-  (:use #:common-lisp #:com.ral.useful-macros)
+  (:use #:common-lisp #:um) ;; #:com.ral.useful-macros)
+  #+nil
   (:local-nicknames (#:um #:com.ral.useful-macros))
   (:export
    #:write-record

@@ -2,8 +2,9 @@
 (in-package :user)
 
 (defpackage :com.ral.managed-buffers
-  (:use #:common-lisp #:com.ral.prio-queue)
+  (:use #:common-lisp #:priq) ;; #:com.ral.prio-queue)
   ;; (:nicknames #:mgdbuf)
+  #+nil
   (:local-nicknames (#:um  #:com.ral.useful-macros))
   (:export
    #:make-buffer

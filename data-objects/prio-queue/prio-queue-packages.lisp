@@ -29,10 +29,11 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.ref ;; for V3
   (:use #:common-lisp)
+  #+nil
   (:local-nicknames
    (#:sets      #:com.ral.rb-trees.sets)
    (#:mpcompat  #:com.ral.mpcompat))
-  (:import-from #:com.ral.useful-macros
+  (:import-from #:um ;; #:com.ral.useful-macros
    #:rmw
    #:rd
    #:wr
@@ -69,9 +70,10 @@ THE SOFTWARE.
    ))
 
 (defpackage #:com.ral.prio-queue
-  (:use #:common-lisp #:com.ral.useful-macros.def-extensions)
-  #-OPENMCL (:import-from #:com.ral.mpcompat
+  (:use #:common-lisp #:def*) ;; #:com.ral.useful-macros.def-extensions)
+  #-OPENMCL (:import-from #:mpcompat ;; #:com.ral.mpcompat
    :CAS)
+  #+nil
   (:local-nicknames
    (#:ref       #:com.ral.ref)
    (#:sets      #:com.ral.rb-trees.sets)

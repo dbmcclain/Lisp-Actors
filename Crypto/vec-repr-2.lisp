@@ -26,7 +26,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :vec-repr)
+(in-package #:vec-repr)
 ;; ---------------------------------------------------------
 
 ;; This package describes interchangeable representations of vectors
@@ -208,9 +208,6 @@ THE SOFTWARE.
 (defmethod base58-str (x)
   (base58-str (base58 x)))
 
-(defclass base58-chk (base58)
-  ())
-
 ;; ----------------------------------------------------------
 ;; Base64 encodes UB8 vectors and integers into character strings of
 ;; the restricted alphabet. Encoding has a 6-character prefix that
@@ -355,41 +352,6 @@ THE SOFTWARE.
   ;; preserve leading zeros
   (base58 (bev-vec x)))
 
-;; --------------------------------------------------------------
-;; Base58-chk -- value as Base58-chk string
-;;
-
-(defun sha256d (vec)
-  (hash:hash/sha2/256
-   (hash:hash/sha2/256 vec)))
-
-(defun base58-check-bytes (vec)
-  (subseq (hash:hash-bytes (sha256d vec)) 0 4))
-
-;; ---
-
-(defmethod base58-chk ((x base58-chk))
-  x)
-
-(defmethod base58-chk ((x string))
-  (check-repr (make-instance 'base58-chk
-                             :str (sbs x))))
-
-(defmethod base58-chk ((vec sequence))
-  ;; version prefix (if any) should have been applied prior to this encoding
-  (let* ((ubvec    (ub8v vec))
-         (chkvec   (concatenate 'vector ubvec
-                                (base58-check-bytes ubvec)))
-         (base-enc (str (base58 (int chkvec))))
-         (nzrs     (position-if (complement #'zerop) ubvec))
-         (pref     (make-string nzrs :initial-element #\1))
-         (enc      (concatenate 'simple-base-string pref base-enc)))
-    (make-instance 'base58-chk
-                   :str enc)))
-
-(defmethod base58-chk (x)
-  (base58-chk (bev-vec x)))
-
 ;; -------------------------------------------------------------
 ;; Base64 Conversions
 
@@ -516,16 +478,6 @@ THE SOFTWARE.
 (defmethod bev ((x base58))
   (map 'ub8-vector 'char-code
        (base58:decode (str x))))
-
-(defmethod bev ((x base58-chk))
-  (let* ((vec (bev-vec (call-next-method)))
-         (end (- (length vec) 4))
-         (pre (subseq vec 0 end))
-         (chk (subseq vec end))
-         (cal (base58-check-bytes pre)))
-    (assert (equalp chk cal))
-    (make-instance 'bev
-                   :vec pre)))
 
 (defmethod bev ((x base64))
   (make-instance 'bev

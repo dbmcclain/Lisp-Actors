@@ -149,10 +149,12 @@ THE SOFTWARE.
 
 (defmethod kwsymbol ((name string))
   (intern-symbol name (find-package :keyword)))
+
 (defmethod kwsymbol ((sym symbol))
   (if (keywordp sym)
       sym
     (intern (symbol-name sym) (find-package :keyword))))
+
 (defmethod kwsymbol ((cons cons))
   (if (eq 'quote (car cons))
       (kwsymbol (cadr cons))

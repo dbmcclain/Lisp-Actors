@@ -28,7 +28,8 @@ THE SOFTWARE.
   :version     "1.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2008 by Refined Audiometrics Laboratory, LLC. All rights reserved."
-  :components  ((:file "packages")
+  :components  (;; (:file "project-packages")
+                (:file "packages")
                 (:file "eval-always")
                 (:file "def-extensions")
 

@@ -3,9 +3,10 @@
 ;; DM/RAL 03/21
 ;; ----------------------------------------------------------------------------
 
-(defpackage #:safe-marshaling
+(defpackage #:com.ral.safe-marshaling
   ;; (:nicknames #:rsmb)
-  (:local-nicknames (#:um  #:com.ral.useful-macros))
+  (:local-nicknames
+   (#:um  #:com.ral.useful-macros))
   (:import-from #:sdle-store
    #:find-backend
    #:defbackend
@@ -24,12 +25,12 @@
    #:view
    ))
 
-(in-package #:safe-marshaling)
-
-;; the magic word for "RAL Safe Marshaling Backend"
-(defconstant +safe-backend-magic+ (um:magic-word "RSMB"))
+(in-package #:com.ral.safe-marshaling)
 
 (um:eval-always
+  ;; the magic word for "RAL Safe Marshaling Backend"
+  (defvar +safe-backend-magic+ (um:magic-word "RSMB"))
+
   (unless (find-backend 'safe-marshaling-backend)
     (defbackend safe-marshaling-backend
                 :magic-number +safe-backend-magic+

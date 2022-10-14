@@ -26,15 +26,30 @@ THE SOFTWARE.
 
 (in-package #:cl-user)
 
-(defpackage #:cached-var
+(um:eval-always
+  (project:defproject
+   (#:cached-var           #:com.ral.cached-var)
+   (#:crypto-utils         #:com.ral.crypto-utils)
+   (#:cryptolib            #:com.ral.cryptolib)
+   (#:gflib                #:com.ral.gflib)
+   (#:ecc-crypto-b571      #:com.ral.ecc-crypto-b571)
+   (#:pbc-interface        #:com.ral.pbc-interface)
+   (#:crypto-lib-loader    #:com.ral.crypto-lib-loader)
+   (#:crypto/modular-arith #:com.ral.crypto/modular-arith)
+   (#:edwards-ecc          #:com.ral.edwards-ecc)
+   ))
+
+(defpackage #:com.ral.cached-var
   (:use #:common-lisp)
+  #+nil
   (:local-nicknames (#:mpcompat  #:com.ral.mpcompat))
   (:export
    #:def-cached-var
    #:get-cached-symbol-data))
 
-(defpackage #:crypto-utils
+(defpackage #:com.ral.crypto-utils
   (:use #:common-lisp #:cached-var)
+  #+nil
   (:local-nicknames
    (#:loenc #:com.ral.lisp-object-encoder)
    (#:um    #:com.ral.useful-macros)
@@ -125,7 +140,7 @@ THE SOFTWARE.
    #:mask-off
    ))
 
-(defpackage #:cryptolib
+(defpackage #:com.ral.cryptolib
   (:use #:common-lisp #:crypto-utils) 
   (:export
    #:sha2_context
@@ -156,7 +171,7 @@ THE SOFTWARE.
    #:c-kdf
    ))
 
-(defpackage #:gflib
+(defpackage #:com.ral.gflib
   (:use #:common-lisp #:cryptolib)
   (:export
    #:gf128_add
@@ -207,9 +222,10 @@ THE SOFTWARE.
    #:gf-random-k*
    ))
 
-(defpackage #:crypto/modular-arith
+(defpackage #:com.ral.crypto/modular-arith
   (:use #:common-lisp
    #:cached-var)
+  #+nil
   (:local-nicknames (#:um  #:com.ral.useful-macros))
   ;; (:nicknames #:modmath)
   (:export
@@ -268,8 +284,9 @@ THE SOFTWARE.
    ))
 |#
 
-(defpackage vec-repr
+(defpackage #:com.ral.vec-repr
   (:use #:common-lisp)
+  #+nil
   (:local-nicknames
    (#:ord   #:com.ral.ord)
    (#:uuid  #:com.ral.uuid))
@@ -317,12 +334,14 @@ THE SOFTWARE.
    #:str
    #:short-str
    #:validate-base58-string
+   #:check-repr
    ))
 
-(defpackage #:hash
+(defpackage #:com.ral.hash
   (:use #:common-lisp
         #:vec-repr
         #:cached-var)
+  #+nil
   (:local-nicknames
    (#:ord   #:com.ral.ord)
    (#:loenc #:com.ral.lisp-object-encoder)
@@ -351,8 +370,9 @@ THE SOFTWARE.
    #:in-place-otp
    ))
 
-(defpackage #:prng
+(defpackage #:com.ral.prng
   (:use #:common-lisp #:cached-var)
+  #+nil
   (:local-nicknames
    (#:mpcompat  #:com.ral.mpcompat)
    (#:um        #:com.ral.useful-macros))
@@ -376,7 +396,7 @@ THE SOFTWARE.
    #:safe-field-random
    ))
 
-(defpackage #:kdf
+(defpackage #:com.ral.kdf
   (:use
    #:common-lisp
    #:crypto-utils
@@ -385,7 +405,7 @@ THE SOFTWARE.
    #:kdf
    #:apply-kdf))
 
-(defpackage #:ciphers
+(defpackage #:com.ral.ciphers
   (:use #:common-lisp
    #:crypto-utils
    #:kdf
@@ -434,7 +454,7 @@ THE SOFTWARE.
    #:delivered-ctr-hmac-encrypt
    ))
 
-(defpackage #:ecc-crypto-b571
+(defpackage #:com.ral.ecc-crypto-b571
   (:use
    #:common-lisp
    #:crypto/modular-arith
@@ -444,15 +464,15 @@ THE SOFTWARE.
    #:prng
    #:ciphers
    #:crypto-utils)
-  (:nicknames #:ecc)
-  (:import-from #:com.ral.useful-macros
+  ;; (:nicknames #:ecc)
+  (:import-from #:um ;; #:com.ral.useful-macros
    #:defstub
    #:with-fast-impl)
   (:export
    ))
 
 #|
-(defpackage #:primes
+(defpackage #:com.ral.primes
   (:use #:common-lisp)
   (:export
    #:divides?
@@ -488,13 +508,13 @@ THE SOFTWARE.
    ))
 |#
 
-(defpackage #:pbc-interface
+(defpackage #:com.ral.pbc-interface
   (:use #:common-lisp
         #:vec-repr
         #:hash
         #:prng
         #:crypto/modular-arith)
-  (:nicknames #:pbc)
+  ;; (:nicknames #:pbc)
   (:export
    ;; classes and their slot readers
    #:crypto-val
@@ -633,8 +653,9 @@ THE SOFTWARE.
    #:read-safely
    ))
 
-(defpackage #:edwards-ecc
+(defpackage #:com.ral.edwards-ecc
   (:nicknames #:edec)
+  #+nil
   (:local-nicknames
    (#:loenc #:com.ral.lisp-object-encoder)
    (#:uuid  #:com.ral.uuid)
@@ -727,7 +748,7 @@ THE SOFTWARE.
    #:modq
    ))
 
-(defpackage #:core-crypto
+(defpackage #:com.ral.core-crypto
   (:use
    #:common-lisp
    #:crypto/modular-arith
@@ -737,6 +758,7 @@ THE SOFTWARE.
    #:vec-repr
    #:prng
    #:hash)
+  #+nil
   (:local-nicknames
    (#:loenc #:com.ral.lisp-object-encoder)
    (#:um    #:com.ral.useful-macros))
@@ -883,7 +905,7 @@ THE SOFTWARE.
    #:convert-wordlist-to-int
    ))
 
-(defpackage #:crypto-lib-loader
+(defpackage #:com.ral.crypto-lib-loader
   (:use #:cl)
   (:export
    #:load-dlls

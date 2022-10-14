@@ -542,7 +542,7 @@
 (defun self-sync-encoder ()
   ;; takes a bytevec and produces a self-sync bytevec
   (actor (cust bytevec)
-    (send cust (self-sync:encode bytevec))))
+    (send cust (self-synca:encode bytevec))))
 
 ;; --------------------------------------
 
@@ -803,7 +803,7 @@
 
 (defun netw-decoder (ekey pkey cust)
   ;; takes a bytevec and produces arbitrary objects
-  (self-sync:stream-decoder
+  (self-synca:stream-decoder
    (sink-pipe (fail-silent-marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
               (signature-validation pkey) ;; pass along seq, enc text
               (decryptor ekey)        ;; generates a bytevec
@@ -834,7 +834,7 @@
 
 (defun disk-decoder (cust)
   ;; takes chunks of self-sync data and produces arbitrary objects
-  (self-sync:stream-decoder
+  (self-synca:stream-decoder
    (sink-pipe (marshal-decoder)
               (dechunker)
               (marshal-decompressor)

@@ -23,10 +23,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(defpackage :com.ral.useful-macros.hierarchical-packages
-  (:use :common-lisp :com.ral.useful-macros))
+(defpackage #:com.ral.useful-macros.hierarchical-packages
+  (:use #:common-lisp #:com.ral.useful-macros))
 
-(in-package :com.ral.useful-macros.hierarchical-packages)
+(in-package #:com.ral.useful-macros.hierarchical-packages)
 
 ;; ------------------------------------------------------------
 

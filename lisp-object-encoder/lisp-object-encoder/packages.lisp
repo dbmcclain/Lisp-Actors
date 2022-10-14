@@ -1,14 +1,19 @@
 
 (in-package :user)
 
-(defpackage #:xzlib
-  (:use #:cl #:com.ral.scatter-vec)
+(project:defproject
+ (#:xzlib         #:com.ral.xzlib)
+ (#:lzw           #:com.ral.lzw))
+ 
+(defpackage #:com.ral.xzlib
+  (:use #:cl #:scatter-vec) ;; #:com.ral.scatter-vec)
   (:export
    #:compress
    #:uncompress))
 
 (defpackage :com.ral.lisp-object-encoder
-  (:use #:common-lisp #:com.ral.scatter-vec)
+  (:use #:common-lisp #:scatter-vec) ;; #:com.ral.scatter-vec)
+   #+nl
   (:local-nicknames
    (#:loenc          #:com.ral.lisp-object-encoder)
    (#:ubyte-streams  #:com.ral.ubyte-streams)
@@ -62,28 +67,29 @@
    #:ensure-portable-condition
    ))
 
-(defpackage :lzw
-  (:use :cl)
+(defpackage #:com.ral.lzw
+  (:use #:cl)
+  #+nil
   (:local-nicknames
    (#:um       #:com.ral.useful-macros)
    (#:loenc    #:com.ral.lisp-object-encoder)
    (#:ubstream #:com.ral.ubyte-streams))
   (:export
-   :compressed
-   :compressed-data
-   :make-compressed
-   :lzw-compress
-   :lzw-decompress
-   :make-empty-vector
-   :vector-append1
-   :vector-append
-   :cvt-octets-to-intvec
-   :cvt-intvec-to-octets
-   :compress
-   :decompress
-   :zl-compress
-   :zl-compressed
-   :make-zl-compressed
-   :zl-compressed-data
+   #:compressed
+   #:compressed-data
+   #:make-compressed
+   #:lzw-compress
+   #:lzw-decompress
+   #:make-empty-vector
+   #:vector-append1
+   #:vector-append
+   #:cvt-octets-to-intvec
+   #:cvt-intvec-to-octets
+   #:compress
+   #:decompress
+   #:zl-compress
+   #:zl-compressed
+   #:make-zl-compressed
+   #:zl-compressed-data
    ))
 

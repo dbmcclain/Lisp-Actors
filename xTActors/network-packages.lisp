@@ -1,6 +1,10 @@
 
+(project:defproject
+ (#:self-synca  #:com.ral.actors.encoding.self-sync))
+
 (defpackage :com.ral.actors.encoding.self-sync
-  (:use #:cl #:com.ral.actors)
+  (:use #:cl #:actors) ;; #:com.ral.actors)
+  #+nil
   (:local-nicknames
    (#:ubyte-streams #:com.ral.ubyte-streams)
    (#:scatter-vec   #:com.ral.scatter-vec)
@@ -14,7 +18,8 @@
 (defpackage :com.ral.actors.encoding
   (:use
    #:common-lisp
-   #:com.ral.actors)
+   #:actors) ;; #:com.ral.actors)
+  #+:nil
   (:local-nicknames
    (#:loenc     #:com.ral.lisp-object-encoder)
    (#:sets      #:com.ral.rb-trees.sets)

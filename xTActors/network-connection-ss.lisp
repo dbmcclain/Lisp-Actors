@@ -367,7 +367,7 @@
            (encoder (sink-pipe  (marshal-encoder)
                                 (self-sync-encoder)
                                 writer))
-           (accum   (self-sync:stream-decoder ;; async arrivals are sent here
+           (accum   (self-synca:stream-decoder ;; async arrivals are sent here
                      (sink-pipe (fail-silent-marshal-decoder)
                                 local-services)))
            (packet-ctr 0)                            ;; a counter of input packet fragments 

@@ -1,6 +1,8 @@
 
 (defpackage :com.ral.useful-macros.abbrev-bignums
-  (:use :common-lisp :com.ral.useful-macros))
+  (:use #:common-lisp #:um)
+  (:export
+   #:abbrev-str))
 
 (in-package :com.ral.useful-macros.abbrev-bignums)
 

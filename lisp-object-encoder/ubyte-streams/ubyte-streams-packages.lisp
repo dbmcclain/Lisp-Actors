@@ -2,8 +2,9 @@
 (in-package :user)
 
 (defpackage #:com.ral.ubyte-streams
-  (:use #:common-lisp #:com.ral.scatter-vec)
+  (:use #:common-lisp #:scatter-vec) ;; #:com.ral.scatter-vec)
   ;; (:nicknames #:ubstream)
+  #+nil
   (:local-nicknames
    (#:um     #:com.ral.useful-macros)
    (#:mgdbuf #:com.ral.managed-buffers))

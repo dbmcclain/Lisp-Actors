@@ -3,7 +3,7 @@
 
 (defpackage #:persistent-store
   (:use #:common-lisp)
-  (:nicknames #:persist)
+  ;; (:nicknames #:persist)
   (:export
    #:make-persistent-store
    #:retrieve
