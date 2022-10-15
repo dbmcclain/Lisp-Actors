@@ -265,6 +265,23 @@
 ;; -----------------------------------------
 ;; Delayed Send
 
+(deflex schedule-timer
+  (α (dt actor &rest msg)
+    ;; No BECOME, so no need to worry about being retried.
+    ;; Parallel-safe.
+    (labels ((sender ()
+               ;; If we have a binding for SELF, then SEND is also
+               ;; redirected. We need to avoid using that version...
+               ;; But it also means that someone is listening to the
+               ;; Central Mailbox.
+               (let ((fn (if self
+                             #'send-to-pool
+                           #'send)))
+                 (apply fn actor msg))))
+      (let ((timer (mpc:make-timer #'sender)))
+        (mpc:schedule-timer-relative timer dt))
+      )))
+
 (defun send-after (dt actor &rest msg)
   ;; NOTE: Actors, except those at the edge, must never do anything
   ;; that has observable effects beyond SEND and BECOME. Starting a
@@ -281,19 +298,7 @@
   ;; we are the only ones that know about this edge Actor.
   ;;
   (when (actor-p actor)
-    (let ((timer (mpc:make-timer (lambda ()
-                                   ;; If we have a binding for SELF,
-                                   ;; then SEND is also redirected. We
-                                   ;; need to avoid using that
-                                   ;; version... But it also means
-                                   ;; that someone is listening to the
-                                   ;; Central Mailbox.
-                                   (let ((fn (if self #'send-to-pool #'send)))
-                                     (apply fn actor msg)))
-                                 )))
-      (send (α ()
-              (mpc:schedule-timer-relative timer dt)))
-      )))
+    (send* schedule-timer dt actor msg)))
 
 ;; -----------------------------------------
 ;; Serializer Gateway - service must always respond to a customer
@@ -392,7 +397,7 @@
                  (send println newct)
                  (become (doit-beh newct))))))
     (let* ((dst (create (doit-beh)))
-           (x (serializer
+           (x (safe-serializer
                (α (cust)
                  (sleep 0.19999)
                  (send cust :ok))
