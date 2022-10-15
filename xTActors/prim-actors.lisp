@@ -513,40 +513,70 @@
 
 ;; ------------------------------------------------
 
-(defun watchdog-timer (action &key timeout (on-timeout (const :TIMEOUT)))
-  ;; if timeout happens, then on-timeout is sent a message with the
-  ;; customer as argument.
-  (if timeout
-      (actor (cust &rest msg)
-        (actors ((tag-ok      (tag gate))
-                 (tag-timeout (tag gate))
-                 (arbiter     (create
-                               (alambda
-                                ((tag . ans) when (eq tag tag-ok)
-                                 (send* cust ans))
-                                (_
-                                 (send on-timeout cust)))
-                               ))
-                 (gate        (once arbiter)))
-          (send* action tag-ok msg)
-          (send-after timeout tag-timeout)
-          ))
-    ;; else
-    action))
+(def-beh watchdog-timer-beh (action timeout on-timeout &optional supv)
+  ((cust :become new-beh reply-to) when (and cust
+                                             (eql cust supv))
+   ;; allow a supervisor to change us out
+   (become new-beh)
+   (send reply-to :ok))
+  
+  ((cust . msg)
+   (cond (timeout
+          (let ((me  self))
+            (actors ((tag-ok      (tag gate))
+                     (tag-timeout (tag gate))
+                     (gate        (once arbiter))
+                     (arbiter     (α (tag . msg)
+                                    (if (eql tag tag-ok)
+                                        (send* cust msg)
+                                      (cond (on-timeout
+                                             (send on-timeout me action timeout supv cust msg))
+                                            (t
+                                             (send cust :timeout))
+                                            )))
+                                  ))
+              (send* action tag-ok msg)
+              (send-after timeout tag-timeout)
+              )))
+         (t
+          (send* action cust msg))
+     )))
 
-(defun safe-serializer (action &key timeout on-timeout)
-  ;; If timeout happens, the serializer will be unblocked with message
-  ;; :TIMEOUT. If ON-TIMEOUT is specified it will also be called.
-  (serializer (watchdog-timer action
+(defun watchdog-timer (action &key timeout on-timeout supv)
+  ;; if timeout happens, then on-timeout is sent a message with the
+  ;; watchdog, its action, its timeout duration, its supv, customer,
+  ;; and message as arguments.
+  (cond ((or timeout supv)
+         (create (watchdog-timer-beh action timeout on-timeout supv)))
+        (t
+         action)))
+
+(defun safe-serializer (action &key timeout on-timeout supv)
+  ;; If timeout happens, by default the serializer will be unblocked
+  ;; with message :TIMEOUT.
+  ;;
+  ;; If ON-TIMEOUT is specified it will instead be called with the
+  ;; customer and message that was attempted. It is up to ON-TIMEOUT
+  ;; to clear the way with the SERIALIZER, perform retries, shut down
+  ;; the service, or whatever.. Rquests held in the SERIALIZER queue
+  ;; will remain blocked until the SERIALIZER hears a response.
+  (let ((wd (watchdog-timer action
                               :timeout    timeout
-                              :on-timeout (if on-timeout
-                                            (α (cust)
-                                              (send cust :timeout)
-                                              (send on-timeout))
-                                            (const :timeout))
-                              )))
+                              :on-timeout on-timeout
+                              :supv       supv)))
+    (values (serializer wd)
+            wd)
+    ))
 
 #|
+(send (safe-serializer (α (cust . msg)
+                         (send writeln msg)
+                         (sleep 2)
+                         (send cust :ok))
+                       :timeout 1)
+      println :hello)
+
+
 (send (safe-serializer sink
                        :timeout 1
                        ;; :on-timeout (label writeln :on-timeout)
