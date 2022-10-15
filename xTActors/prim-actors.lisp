@@ -298,7 +298,7 @@
 ;; -----------------------------------------
 ;; Serializer Gateway - service must always respond to a customer
 ;;
-
+#|
 (def-beh serializer-beh (service
                          &optional
                          timeout
@@ -344,15 +344,44 @@
                (addq queue msg))
               ))
      )))
+|#
 
-(defun serializer (service &key timeout)
-  (create (serializer-beh service timeout)))
+(def-beh serializer-beh (service)
+  ((cust . msg)
+   (let ((tag (tag self)))
+     (send* service tag msg)
+     (become (busy-serializer-beh
+              service tag cust +emptyq+))
+     )))
 
-(defun serializer-sink (service &key timeout)
+(def-beh busy-serializer-beh (service tag in-cust queue)
+  ((atag . msg) when (eql atag tag)
+   (send* in-cust msg)
+   (if (emptyq? queue)
+       (become (serializer-beh service))
+     (multiple-value-bind (next-req new-queue) (popq queue)
+       (destructuring-bind (next-cust . next-msg) next-req
+         (let ((new-tag (tag self)))
+           (send* service new-tag next-msg)
+           (become (busy-serializer-beh
+                    service new-tag next-cust new-queue))
+           )))
+     ))
+
+  (msg
+   (become (busy-serializer-beh
+            service tag in-cust
+            (addq queue msg))
+           )))
+
+(defun serializer (service)
+  (create (serializer-beh service)))
+
+(defun serializer-sink (service)
   ;; Turn a service into a sink. Service must accept a cust argument,
   ;; and always send a response to cust - even though it appears to be
   ;; a sink from the caller's perspective.
-  (label (serializer service :timeout timeout) sink))
+  (label (serializer service) sink))
 
 #|
 (defun tst (n)
@@ -474,24 +503,57 @@
 (defun tee (&optional sink-blk)
   (create (tee-beh sink-blk)))
 
+(def-beh splay-beh (&rest custs)
+  ;; Define a sink block that passes on the message to all custs
+  (msg
+   (apply #'send-to-all custs msg)))
+
+(defun splay (&rest custs)
+  (create (apply #'splay-beh custs)))
+
 ;; ------------------------------------------------
 
-(defun with-watchdog-timer (timeout action on-timeout)
-  (actor (cust &rest msg)
-    (actors ((tag-ok      (tag gate))
-             (tag-timeout (tag gate))
-             (arbiter     (create
-                           (alambda
-                            ((tag . ans) when (eq tag tag-ok)
-                             (send* cust ans))
-                            (_
-                             (send on-timeout)))
-                           ))
-             (gate        (once arbiter)))
-      (send* action tag-ok msg)
-      (send-after timeout tag-timeout)
-      )))
+(defun watchdog-timer (action &key timeout (on-timeout (const :TIMEOUT)))
+  ;; if timeout happens, then on-timeout is sent a message with the
+  ;; customer as argument.
+  (if timeout
+      (actor (cust &rest msg)
+        (actors ((tag-ok      (tag gate))
+                 (tag-timeout (tag gate))
+                 (arbiter     (create
+                               (alambda
+                                ((tag . ans) when (eq tag tag-ok)
+                                 (send* cust ans))
+                                (_
+                                 (send on-timeout cust)))
+                               ))
+                 (gate        (once arbiter)))
+          (send* action tag-ok msg)
+          (send-after timeout tag-timeout)
+          ))
+    ;; else
+    action))
 
+(defun safe-serializer (action &key timeout on-timeout)
+  ;; If timeout happens, the serializer will be unblocked with message
+  ;; :TIMEOUT. If ON-TIMEOUT is specified it will also be called.
+  (serializer (watchdog-timer action
+                              :timeout    timeout
+                              :on-timeout (if on-timeout
+                                            (α (cust)
+                                              (send cust :timeout)
+                                              (send on-timeout))
+                                            (const :timeout))
+                              )))
+
+#|
+(send (safe-serializer sink
+                       :timeout 1
+                       ;; :on-timeout (label writeln :on-timeout)
+                       )
+      (label writeln :direct))
+
+ |#
 #|
 (send (with-watchdog-timer 2.1 (actor (cust)
                         (send-after 2 cust :ok))

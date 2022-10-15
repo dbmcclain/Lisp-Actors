@@ -241,8 +241,6 @@ THE SOFTWARE.
    #:list-imploder
    #:list-exploder
 
-   #:with-watchdog-timer
-   
    #:kvdb
    #:deep-copy
 
@@ -261,6 +259,11 @@ THE SOFTWARE.
 
    #:authentication
    #:check-authentication
+
+   #:splay-beh
+   #:splay
+   #:watchdog-timer
+   #:safe-serializer
    ))
 
 #+(OR :ALLEGRO :CCL)
