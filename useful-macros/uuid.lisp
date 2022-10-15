@@ -33,9 +33,8 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.uuid
   (:use #:common-lisp)
-  (:local-nicknames (:usec  :com.ral.usec))
   (:shadow #:random)
-  (:import-from #:com.ral.useful-macros
+  (:import-from #:um
    #:eval-always
    #:defmonitor
    #:with-exclusive-access

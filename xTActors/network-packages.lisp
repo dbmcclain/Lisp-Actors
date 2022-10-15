@@ -1,14 +1,12 @@
 
-(project:defproject
- (#:self-synca  #:com.ral.actors.encoding.self-sync))
+(um:eval-always
+  (project:defproject
+   (#:self-synca  #:com.ral.actors.encoding.self-sync)
+   (#:secure-comm #:com.ral.actors.secure-comm)
+   (#:encoding    #:com.ral.actors.encoding)))
 
 (defpackage :com.ral.actors.encoding.self-sync
-  (:use #:cl #:actors) ;; #:com.ral.actors)
-  #+nil
-  (:local-nicknames
-   (#:ubyte-streams #:com.ral.ubyte-streams)
-   (#:scatter-vec   #:com.ral.scatter-vec)
-   (#:um  #:com.ral.useful-macros))
+  (:use #:cl #:actors)
   (:export
    #:encode
    #:decode
@@ -18,15 +16,7 @@
 (defpackage :com.ral.actors.encoding
   (:use
    #:common-lisp
-   #:actors) ;; #:com.ral.actors)
-  #+:nil
-  (:local-nicknames
-   (#:loenc     #:com.ral.lisp-object-encoder)
-   (#:sets      #:com.ral.rb-trees.sets)
-   (#:um        #:com.ral.useful-macros)
-   (#:uuid      #:com.ral.uuid)
-   (#:modmath   #:crypto/modular-arith)
-   (#:self-sync #:com.ral.actors.encoding.self-sync))
+   #:actors)
   (:export
    #:encrypt/decrypt
    #:make-auth-key
@@ -80,14 +70,8 @@
    #:com.ral.actors
    #:core-crypto
    #:edec
-   #:com.ral.actors.encoding)
-  (:local-nicknames
-   (#:loenc #:com.ral.lisp-object-encoder)
-   (#:uuid  #:com.ral.uuid)
-   (#:sets  #:com.ral.rb-trees.sets)
-   (#:aop   #:com.ral.useful-macros.dflet)
-   (#:um    #:com.ral.useful-macros))
-  (:import-from #:com.ral.useful-macros
+   #:encoding)
+  (:import-from #:um
    #:capture-ans-or-exn
    #:call-capturing-ans-or-exn
    #:recover-ans-or-exn)
@@ -107,11 +91,9 @@
 (defpackage :com.ral.actors.network
   (:use
    #:common-lisp
-   #:com.ral.actors
-   #:com.ral.actors.encoding)
-  (:local-nicknames
-   (#:self-sync #:com.ral.actors.encoding.self-sync))
-  (:import-from #:com.ral.useful-macros
+   #:actors
+   #:encoding)
+  (:import-from #:um
    #:when-let
    #:wr
    #:copy-with)
@@ -119,7 +101,7 @@
    #:bevn
    #:vec
    #:int)
-  (:import-from #:com.ral.actors.secure-comm
+  (:import-from #:secure-comm
    #:connections
    #:client-connector
    #:make-local-services

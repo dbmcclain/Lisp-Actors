@@ -55,6 +55,7 @@ THE SOFTWARE.
                 #+(AND :COM.RAL :LISPWORKS) (:file "ctypes")
                 (:file "useful-macros")
                 #+:LISPWORKS (:file "editor-extensions")
+                (:file "timeout")
 		(:file "usec"))
   :serial       t
   :depends-on   ("optima"
@@ -136,7 +137,6 @@ THE SOFTWARE.
                 #+(AND :COM.RAL :LISPWORKS) (:file "lexb4")
                 #+(AND :COM.RAL :LISPWORKS) (:file "safe-call-system")
                 #-:relative-package-names (:file "hierarchical-packages")
-                (:file "timeout")
                 (:file "dflet")
                 )
   :serial       t

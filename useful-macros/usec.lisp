@@ -26,17 +26,16 @@ THE SOFTWARE.
 |#
 
 (defpackage :com.ral.usec
-  (:use :common-lisp)
-  (:local-nicknames (:um :com.ral.useful-macros))
+  (:use #:common-lisp)
   (:export
-   :get-time-usec
-   :adjust-to-standard-universal-time-usec
-   :get-universal-time-usec
-   :_getTickCount
+   #:get-time-usec
+   #:adjust-to-standard-universal-time-usec
+   #:get-universal-time-usec
+   #:_getTickCount
    ))
 
 ;; ----------------------------------------------------------------
-(in-package :com.ral.usec)
+(in-package #:com.ral.usec)
 ;; ----------------------------------------------------------------
 ;; ----------------------------------------------------------------
 ;; Timestamps to the nearest microsecond

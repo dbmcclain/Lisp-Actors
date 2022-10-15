@@ -30,32 +30,28 @@ THE SOFTWARE.
 (in-package :CL-USER)
 
 (defpackage #:com.ral.actors
-  (:use #:common-lisp :com.ral.useful-macros.def-extensions)
+  (:use #:common-lisp #:def*)
   #.`(:export
-      ,@(loop for sym being the external-symbols of :com.ral.useful-macros.def-extensions
+      ,@(loop for sym being the external-symbols of '#:def*
               collect sym))
-  (:local-nicknames
-   (#:mpc  #:com.ral.mpcompat))
   #+:LISPWORKS
   (:import-from #:lw
    #:do-nothing)
-  #+nil
-  (:import-from #:com.ral.useful-macros
+  (:import-from #:um
    #:timeout
-   #:*timeout*)
-  #+nil
+   #:*timeout*
+   #:with-timeout)
   (:export
    #:timeout
-   #:*timeout*)
-  (:import-from #:com.ral.useful-macros
+   #:*timeout*
+   #:with-timeout)
+  (:import-from #:um
    #:match
-   #:match-fail)
-  (:export
-   #:match
-   #:match-fail)
-  (:import-from #:com.ral.useful-macros
+   #:match-fail
    #:letrec)
   (:export
+   #:match
+   #:match-fail
    #:letrec)
   (:export
    #:*nbr-pool*
@@ -161,6 +157,8 @@ THE SOFTWARE.
    #:fwd
    #:label
    #:tag
+   #:once-tag
+   #:timed-tag
    #:ser
    #:par
 
@@ -243,8 +241,8 @@ THE SOFTWARE.
    #:list-imploder
    #:list-exploder
 
-   #:with-timeout
-
+   #:with-watchdog-timer
+   
    #:kvdb
    #:deep-copy
 
@@ -268,10 +266,6 @@ THE SOFTWARE.
 #+(OR :ALLEGRO :CCL)
 (defpackage #:com.ral.ansi-timer
   (:use #:common-lisp)
-  (:local-nicknames
-   (#:priq     #:com.ral.prio-queue)
-   (#:maps     #:com.ral.rb-trees.maps)
-   (#:mpcompat #:com.ral.mpcompat))
   (:export
    #:timer
    #:make-timer
@@ -281,13 +275,11 @@ THE SOFTWARE.
    ))
 
 (defpackage #:com.ral.actors.base
-  (:use #:common-lisp #:com.ral.actors
+  (:use #:common-lisp
+   #:com.ral.actors
    #+(OR :ALLEGRO :CCL) #:com.ral.ansi-timer
-   :com.ral.usec)
-  (:local-nicknames
-   (#:mpc #:com.ral.mpcompat)
-   (#:um  #:com.ral.useful-macros))
-  (:import-from #:com.ral.useful-macros
+   #:com.ral.usec)
+  (:import-from #:um
    #:curry
    #:rcurry
    #:if-let
@@ -304,13 +296,11 @@ THE SOFTWARE.
   (:use
    #:common-lisp
    #:com.ral.actors
-   #:com.ral.actors.base)
-  (:local-nicknames (#:um #:com.ral.useful-macros)))
+   #:com.ral.actors.base))
 
 (defpackage #:com.ral.actors.user
   (:use
-   :common-lisp
-   :com.ral.actors)
-  (:nicknames #:ac-user))
-
+   #:common-lisp
+   #:com.ral.actors))
+ 
 

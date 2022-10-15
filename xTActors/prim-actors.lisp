@@ -1,4 +1,4 @@
-; prim-actors.lisp - A collection of useful primitive Actors
+;; prim-actors.lisp - A collection of useful primitive Actors
 ;;
 ;; DM/RAL 05/21
 ;; ------------------------------------------------------
@@ -79,6 +79,22 @@
 
 (defun tag (cust)
   (create (tag-beh cust)))
+
+;; ---------------------
+
+(defun once-tag-beh (cust)
+  (lambda (&rest msg)
+    (send* cust self msg)
+    (become (sink-beh))))
+
+(defun once-tag (cust)
+  (create (once-tag-beh cust)))
+
+(defun timed-tag (cust timeout cust-id)
+  (let ((atag (once-tag cust)))
+    (when timeout
+      (send-after timeout atag :timeout cust-id))
+    atag))
 
 ;; -------------------------------------------------
 
@@ -321,10 +337,25 @@
 |#
 
 (defun send-after (dt actor &rest msg)
+  ;; NOTE: Actors, except those at the edge, must never do anything
+  ;; that has observable effects beyond SEND and BECOME. Starting a
+  ;; timer running breaks this. The caller might have to be retried,
+  ;; in which case there will be a spurious timer running from a prior
+  ;; attempt.
+  ;;
+  ;; We place the timer launch in an edge Actor here, and SEND a
+  ;; message to trigger it. If we need to be retried, that SEND never
+  ;; happens.
+  ;;
+  ;; Edge Actors typically live behind a SERIALIZER wall, to prevent
+  ;; the possibility that they will need to be retried. In this case,
+  ;; we are the only ones that know about this edge Actor.
+  ;;
   (when (actor-p actor)
-    (let ((timer (apply #'mpc:make-timer #'send actor msg)))
-      (mpc:schedule-timer-relative timer dt))
-    ))
+    (let ((timer (apply #'mpc:make-timer #'send-to-pool actor msg)))
+      (send (α ()
+              (mpc:schedule-timer-relative timer dt)))
+      )))
 
 ;; -----------------------------------------
 ;; Serializer Gateway
@@ -462,44 +493,119 @@
 ;; Serializer Gateway - service must always respond to a customer
 ;;
 
-(def-beh serializer-beh (service)
-   ;; initial non-busy state
-   ((cust . msg)
-    (let ((tag  (tag self)))
-      (send* service tag msg)
-      (become (busy-serializer-beh
-               service tag cust +emptyq+))
+(defun serializer-beh (service
+                       &optional
+                       timeout
+                       (id      (lw:mt-random (ash 1 32)))
+                       tags)
+  (lambda (&rest msg)
+    ;; initial non-busy state
+    (match msg
+      
+      ((atag :TIMEOUT an-id) when (eql an-id id)
+       ;; This message should never have arrived. Since the id
+       ;; matches ours, we obviously started the timer for a
+       ;; timeout, but our tag has vanished which means we must
+       ;; have received a resonse, and there were no more in queue
+       ;; to launch, so we became idle behavior again.
+       ;;
+       ;; That previous response should have arrived via a once gate,
+       ;; so how did this message arrive through that same gate?
+       ;; (break "From ser-beh #1")
+       (assert (member atag tags))
+       (send fmt-println "*** Spurious timeout in idle serializer: ~S" self)
+       (break)
+       )
+      
+      ((cust . msg)
+       (let ((tag (timed-tag self timeout id)))
+         (send* service tag msg)
+         (become (busy-serializer-beh
+                  service timeout id tag cust +emptyq+ tags))
+         ))
       )))
 
-(def-beh busy-serializer-beh (service tag in-cust queue)
-  ((atag . ans) when (eql atag tag)
-   (send* in-cust ans)
-    (if (emptyq? queue)
-        (become (serializer-beh service))
-      (multiple-value-bind (next-req new-queue) (popq queue)
-        (destructuring-bind (next-cust . next-msg) next-req
-          (let ((new-tag (tag self)))
-            (send* service new-tag next-msg)
-            (become (busy-serializer-beh
-                     service new-tag next-cust new-queue))
-            )))
-      ))
-  
-  (msg
-   (become (busy-serializer-beh
-            service tag in-cust
-            (addq queue msg))
-           )))
+(defun busy-serializer-beh (service timeout id tag in-cust queue tags)
+  (labels ((release-one ()
+             (if (emptyq? queue)
+                 (become (serializer-beh service timeout id (cons tag tags)))
+               (multiple-value-bind (next-req new-queue) (popq queue)
+                 (destructuring-bind (next-cust . next-msg) next-req
+                   (let ((new-tag (timed-tag self timeout id)))
+                     (send* service new-tag next-msg)
+                     (become (busy-serializer-beh
+                              service timeout id new-tag next-cust new-queue (cons tag tags)))
+                     )))
+               )))
 
-(defun serializer (service)
-  (create (serializer-beh service)))
+    (lambda (&rest msg)
+      (match msg
+        ((atag :TIMEOUT an-id) when (and (eql atag tag)
+                                         (eql an-id id))
+         ;; If we just received a timeout on our tag, then allow the timeout
+         ;; to propagate via timeout, i.e., making the customer suffer his
+         ;; own timeout, or else let the customer just hang.
+         ;;
+         ;; In any event, we got a prod to release the next guy...
+         (send fmt-println "*** We got a timeout in a serializer: ~S" self)
+         (release-one))
+        
+        ((atag :TIMEOUT an-id) when (eql an-id id)
+         (assert (member atag tags))
+         (send fmt-println "*** Spurious timeout in busy serializer: ~S" self)
+         (break)
+         ;; This message should never have arrived. Since the id
+         ;; matches ours, we obviously started the timer for a
+         ;; timeout, but our tag has changed which means we must
+         ;; have received a resonse, launched the next in queue, and
+         ;; changed our tag.
+         ;;
+         ;; That previous response should have arrived via a once gate,
+         ;; so how did this message arrive through that same gate?
+         ;; (break "From busy-beh #1")
+         )
+        
+        ((atag . ans) when (eql atag tag)
+         (send* in-cust ans)
+         (release-one))
+        
+        (msg
+         (become (busy-serializer-beh
+                  service timeout id tag in-cust
+                  (addq queue msg) tags)
+                 ))
+        ))
+    ))
 
-(defun serializer-sink (service)
+(defun serializer (service &key timeout)
+  (create (serializer-beh service timeout)))
+
+(defun serializer-sink (service &key timeout)
   ;; Turn a service into a sink. Service must accept a cust argument,
   ;; and always send a response to cust - even though it appears to be
   ;; a sink from the caller's perspective.
-  (label (serializer service) sink))
+  (label (serializer service :timeout timeout) sink))
 
+#|
+(defun tst (n)
+  (labels ((doit-beh (&optional (n 0))
+             (lambda (&rest _)
+               (declare (ignore _))
+               (let ((newct (1+ n)))
+                 (send println newct)
+                 (become (doit-beh newct))))))
+    (let* ((dst (create (doit-beh)))
+           (x (serializer
+               (α (cust)
+                 (sleep 0.1)
+                 (send cust :ok))
+               :timeout 0.2)
+              ))
+      (dotimes (ix n)
+        (send x dst))
+      )))
+(tst 100)
+|#
 ;; --------------------------------------
 
 (defun timing-beh (dut)
@@ -743,7 +849,7 @@
 
 ;; ------------------------------------------------
 
-(defun with-timeout (timeout action on-timeout)
+(defun with-watchdog-timer (timeout action on-timeout)
   (actor (cust &rest msg)
     (actors ((tag-ok      (tag gate))
              (tag-timeout (tag gate))

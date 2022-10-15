@@ -64,7 +64,8 @@ THE SOFTWARE.
 
 (defstruct (actor
                (:constructor %create (beh)))
-  (beh #'do-nothing :type function))
+  (beh #'do-nothing :type function)
+  (lock (mp:make-lock)))
 
 (defun create (&optional (fn #'do-nothing))
   (check-type fn function)
