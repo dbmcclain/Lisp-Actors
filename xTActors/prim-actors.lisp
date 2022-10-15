@@ -493,89 +493,51 @@
 ;; Serializer Gateway - service must always respond to a customer
 ;;
 
-(defun serializer-beh (service
-                       &optional
-                       timeout
-                       (id      (lw:mt-random (ash 1 32)))
-                       tags)
-  (lambda (&rest msg)
-    ;; initial non-busy state
-    (match msg
-      
-      ((atag :TIMEOUT an-id) when (eql an-id id)
-       ;; This message should never have arrived. Since the id
-       ;; matches ours, we obviously started the timer for a
-       ;; timeout, but our tag has vanished which means we must
-       ;; have received a resonse, and there were no more in queue
-       ;; to launch, so we became idle behavior again.
-       ;;
-       ;; That previous response should have arrived via a once gate,
-       ;; so how did this message arrive through that same gate?
-       ;; (break "From ser-beh #1")
-       (assert (member atag tags))
-       (send fmt-println "*** Spurious timeout in idle serializer: ~S" self)
-       (break)
-       )
-      
-      ((cust . msg)
-       (let ((tag (timed-tag self timeout id)))
-         (send* service tag msg)
-         (become (busy-serializer-beh
-                  service timeout id tag cust +emptyq+ tags))
-         ))
-      )))
+(def-beh serializer-beh (service
+                         &optional
+                         timeout
+                         (id  (lw:mt-random (ash 1 32))))
+  ((cust . msg)
+   (let ((tag (timed-tag self timeout id)))
+     (send* service tag msg)
+     (become (busy-serializer-beh
+              service timeout id tag cust +emptyq+))
+     )))
 
-(defun busy-serializer-beh (service timeout id tag in-cust queue tags)
+(defun busy-serializer-beh (service timeout id tag in-cust queue)
   (labels ((release-one ()
              (if (emptyq? queue)
-                 (become (serializer-beh service timeout id (cons tag tags)))
+                 (become (serializer-beh service timeout id))
                (multiple-value-bind (next-req new-queue) (popq queue)
                  (destructuring-bind (next-cust . next-msg) next-req
                    (let ((new-tag (timed-tag self timeout id)))
                      (send* service new-tag next-msg)
                      (become (busy-serializer-beh
-                              service timeout id new-tag next-cust new-queue (cons tag tags)))
+                              service timeout id new-tag next-cust new-queue))
                      )))
                )))
 
-    (lambda (&rest msg)
-      (match msg
-        ((atag :TIMEOUT an-id) when (and (eql atag tag)
-                                         (eql an-id id))
-         ;; If we just received a timeout on our tag, then allow the timeout
-         ;; to propagate via timeout, i.e., making the customer suffer his
-         ;; own timeout, or else let the customer just hang.
-         ;;
-         ;; In any event, we got a prod to release the next guy...
-         (send fmt-println "*** We got a timeout in a serializer: ~S" self)
-         (release-one))
-        
-        ((atag :TIMEOUT an-id) when (eql an-id id)
-         (assert (member atag tags))
-         (send fmt-println "*** Spurious timeout in busy serializer: ~S" self)
-         (break)
-         ;; This message should never have arrived. Since the id
-         ;; matches ours, we obviously started the timer for a
-         ;; timeout, but our tag has changed which means we must
-         ;; have received a resonse, launched the next in queue, and
-         ;; changed our tag.
-         ;;
-         ;; That previous response should have arrived via a once gate,
-         ;; so how did this message arrive through that same gate?
-         ;; (break "From busy-beh #1")
-         )
-        
-        ((atag . ans) when (eql atag tag)
-         (send* in-cust ans)
-         (release-one))
-        
-        (msg
-         (become (busy-serializer-beh
-                  service timeout id tag in-cust
-                  (addq queue msg) tags)
-                 ))
-        ))
-    ))
+    (alambda
+     ((atag :TIMEOUT an-id) when (and (eql atag tag)
+                                      (eql an-id id))
+      ;; If we just received a timeout on our tag, then allow the timeout
+      ;; to propagate via timeout, i.e., making the customer suffer his
+      ;; own timeout, or else let the customer just hang.
+      ;;
+      ;; In any event, we got a prod to release the next guy...
+      (send fmt-println "*** We got a timeout in a serializer: ~S" self)
+      (release-one))
+     
+     ((atag . ans) when (eql atag tag)
+      (send* in-cust ans)
+      (release-one))
+     
+     (msg
+      (become (busy-serializer-beh
+               service timeout id tag in-cust
+               (addq queue msg))
+              ))
+     )))
 
 (defun serializer (service &key timeout)
   (create (serializer-beh service timeout)))
