@@ -56,7 +56,11 @@ THE SOFTWARE.
                 (:file "useful-macros")
                 #+:LISPWORKS (:file "editor-extensions")
                 (:file "timeout")
-		(:file "usec"))
+		(:file "usec")
+                #+(AND :LISPWORKS :MACOSX) (:file "OSX-UUID-Generate")
+                #+(AND :ALLEGRO :MACOSX)   (:file "OSX-UUID-Generate-Allegro")
+                #-(OR (AND :MACOSX :LISPWORKS)
+                      (AND :MACOSX :ALLEGRO)) (:file "OSX-UUID-Generate"))
   :serial       t
   :depends-on   ("optima"
                  "cl-ppcre"
@@ -97,10 +101,6 @@ THE SOFTWARE.
                 ;; (:file "lazy") ;; supplanted by a better, simpler, version
                 #+:LISPWORKS (:file "underscore")
                	(:file "uuid")
-                #+(AND :LISPWORKS :MACOSX) (:file "OSX-UUID-Generate")
-                #+(AND :ALLEGRO :MACOSX)   (:file "OSX-UUID-Generate-Allegro")
-                #-(OR (AND :MACOSX :LISPWORKS)
-                      (AND :MACOSX :ALLEGRO)) (:file "OSX-UUID-Generate")
                 ;; (:file "xfli")
 		;; (:file "rubber-objects")
                 

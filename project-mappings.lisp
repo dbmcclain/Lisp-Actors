@@ -3,6 +3,7 @@
  (#:um            #:com.ral.useful-macros)
  (#:def*          #:com.ral.useful-macros.def-extensions)
  (#:aop           #:com.ral.useful-macros.dflet)
+ (#:uuidgen       #:com.ral.uuidgen)
  
  (#:plt           #:plotter)
  (#:vm            #:vmath)

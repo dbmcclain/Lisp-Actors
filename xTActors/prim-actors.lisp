@@ -496,7 +496,7 @@
 (def-beh serializer-beh (service
                          &optional
                          timeout
-                         (id  (lw:mt-random (ash 1 32))))
+                         (id  #())) ;; unique to me
   ((cust . msg)
    (let ((tag (timed-tag self timeout id)))
      (send* service tag msg)
@@ -519,7 +519,7 @@
 
     (alambda
      ((atag :TIMEOUT an-id) when (and (eql atag tag)
-                                      (eql an-id id))
+                                      (eql an-id id)) ;; need to be sure it is *our* timeout
       ;; If we just received a timeout on our tag, then allow the timeout
       ;; to propagate via timeout, i.e., making the customer suffer his
       ;; own timeout, or else let the customer just hang.

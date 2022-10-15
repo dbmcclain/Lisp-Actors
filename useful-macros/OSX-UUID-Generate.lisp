@@ -26,12 +26,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(defpackage :uuidgen
+(defpackage #:com.ral.uuidgen
   (:use #:common-lisp)
   (:export
    #:generate))
 
-(in-package :uuidgen)
+(in-package #:com.ral.uuidgen)
 
 #+(AND :LISPWORKS :MACOSX)
 (fli:define-foreign-function (_uuid_generate "uuid_generate" :source)
