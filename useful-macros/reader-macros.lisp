@@ -448,13 +448,40 @@ THE SOFTWARE.
            (vector-push-extend ch chars))
      (we-are-done ()
                   (finish (unless *read-suppress*
-                            `(string-interp ,(split-and-trim chars)))
-                          ))
+                            `(string-interp ,(split-string-conserving chars))
+                            )))
      ))
 
 (unless (fboundp 'whitespace-char-p)
+  ;; needed by SBCL
   (defun whitespace-char-p (ch)
     (member ch '(#\space #\tab #\newline #\vt #\page #\return))))
+
+(defun split-string-conserving (str)
+  (let* ((start 0)
+         (lines (loop for p = (position #\newline str :start start)
+                      collect (subseq str start p)
+                      while p
+                      do (setf start (1+ p))
+                      ))
+         (leading-nws (loop for line in lines
+                            when (find-if-not #'whitespace-char-p line)
+                              minimize (position-if-not #'whitespace-char-p line)
+                              ))
+         (trimmed    (mapcar (lambda (line)
+                               (subseq line (min (length line) leading-nws)))
+                             lines)))
+    (apply #'paste-strings #\newline trimmed)))
+#|
+(setf x #>.end
+        this
+        is
+
+        a
+
+        test
+        .end)
+ |#
 
 (defun split-and-trim (vec &optional (ignore-first-line t))
   ;; vec is vector of character (aka string)
@@ -465,7 +492,7 @@ THE SOFTWARE.
   (labels ((leading-ws-count (line)
              (or (position-if (complement #'whitespace-char-p) line)
                  (length line))))
-    (let* ((lines  (split-string vec :delims '(#\newline)))
+    (let* ((lines  (split-string-conserving vec))
            (lines-to-test (if ignore-first-line (cdr lines) lines))
            (nws     (reduce #'min (or (mapcar #'leading-ws-count lines-to-test) (list 0))))
            (trimmer (rcurry #'subseq nws))
@@ -521,12 +548,12 @@ THE SOFTWARE.
               (we-are-done)))
     (we-are-done ()
                  (finish (unless *read-suppress*
-                           (split-and-trim
-                            (coerce
-                             (nreverse
-                              (nthcdr patlen output))
-                             'string)
-                            nil)
+                           `(string-interp
+                             ,(split-string-conserving
+                               (coerce
+                                (nreverse
+                                 (nthcdr patlen output))
+                                'string)))
                            )))
     ))
 

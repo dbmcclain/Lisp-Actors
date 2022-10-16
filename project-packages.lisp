@@ -65,6 +65,13 @@
   ;; (format t "find-package-without-lod: ~S" (editor:variable-value 'editor::current-package) )
   (lw:call-next-advice (map-name name)))
 
+(lw:defadvice (sys::find-global-package project-packages :around)
+    (name)
+  ;; used by editor to set buffer package
+  (declare (optimize speed))
+  ;; (format t "find-package-without-lod: ~S" (editor:variable-value 'editor::current-package) )
+  (lw:call-next-advice (map-name name)))
+
 (lw:defadvice (sys::%in-package project-packages :around)
     (name &rest args)
   (declare (optimize speed))
