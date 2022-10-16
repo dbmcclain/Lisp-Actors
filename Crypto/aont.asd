@@ -40,8 +40,10 @@ THE SOFTWARE.
                 (:file "aont"))
   :serial       t
   :depends-on   ("babel"
-                 "useful-macros"
-                 "lisp-object-encoder"
+                 "mini-core-crypto"
+                 "com.ral.useful-macros"
+                 "com.ral.useful-macros/ext"
+                 "com.ral.lisp-object-encoder"
                  "s-base64"
                  ))
 

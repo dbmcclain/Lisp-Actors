@@ -2,7 +2,7 @@
 (defpackage #:aont
   (:use
    #:common-lisp
-   #:crypto-utils
+   #:com.ral.crypto.crypto-utils
    #:ciphers
    #:prng
    #:kdf)
@@ -33,7 +33,7 @@
   (:use
    #:common-lisp
    #:aont
-   #+:ACTORS #:com.ral.actors)
+   #+:ACTORS #:actors)
   (:export
    #:make-aont-messaging-intf
    ))

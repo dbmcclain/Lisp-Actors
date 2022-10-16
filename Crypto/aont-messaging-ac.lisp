@@ -115,10 +115,19 @@ THE SOFTWARE.
   (capi:display-message "Error: ~A" err))
 
 (defun do-with-handled-error (fn)
+  #+nil
+  (let (err)
+    (handler-bind
+        ((error (lambda (e)
+                  (setf err e))))
+      (funcall fn)))
+  
   (handler-case
       (funcall fn)
     (error (err)
-      (show-error err))))
+      (show-error err)))
+  )
+  
 
 (defmacro with-handled-error (&body body)
   `(do-with-handled-error (lambda ()

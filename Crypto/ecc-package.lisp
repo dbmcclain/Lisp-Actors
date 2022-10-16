@@ -26,7 +26,7 @@ THE SOFTWARE.
 
 (in-package :cl-user)
 
-(defpackage :primes
+(defpackage :com.ral.crypto.primes
   (:use #:common-lisp)
   (:export
    #:divides?
@@ -49,12 +49,12 @@ THE SOFTWARE.
    #:decompose
    ))
 
-(defpackage :lagrange-4-square
+(defpackage :com.ral.crypto.lagrange-4-square
   (:use :common-lisp)
-  (:import-from :primes
+  (:import-from #:primes
    :is-prime?
    :expt-mod)
-  (:import-from :useful-macros
+  (:import-from #:um
    :curry
    :nlet)
   (:export

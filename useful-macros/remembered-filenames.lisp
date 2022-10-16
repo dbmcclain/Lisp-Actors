@@ -67,7 +67,8 @@ THE SOFTWARE.
 (defmacro with-remembered-filename ((fname message
                                            &optional key init
                                            &rest prompt-keys
-                                           &key (filter "*.*"))
+                                           &key (filter "*.*")
+                                           &allow-other-keys)
                                     &body body)
   "KEY indicates a context for the lookup. Can be NIL for \
 \"use last lookup\" as context, regardless of its keying.\

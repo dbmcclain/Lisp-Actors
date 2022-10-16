@@ -308,20 +308,24 @@ THE SOFTWARE.
   ;; legacy recoveory...
   (let* ((snip  "--- SNIP HERE ---")
          (slen  (length snip))
-         (start (eol text
-                     (search snip text
-                             :test #'string-equal)))
+         (start (or
+                 (eol text
+                      (search snip text
+                              :test #'string-equal))
+                 0))
          (txlen (length text))
-         (end   (and (> txlen slen)
-                     (bol text
-                          (search snip text
-                                  :test     #'string-equal
-                                  :from-end t)))))
+         (end   (or
+                 (and (> txlen slen)
+                      (bol text
+                           (search snip text
+                                   :test     #'string-equal
+                                   :from-end t)))
+                 txlen)))
     ;; some sanity checking... just want surrounding snip lines,
     ;; not accidentally embedded lines.
     (when (> start 36)
       (setf start nil))
-    (when (< end (- txlen 36))
+    (when (< end (- txlen 37))
       (setf end nil))
     
     (if start
@@ -497,15 +501,13 @@ THE SOFTWARE.
 
 
 (defun do-with-prompted-i/o (opt-file prep-out body-fn)
-  (um:with-remembered-filename (inpfile :com.ral.aont.inp opt-file)
+  (um:with-remembered-filename (inpfile "Select Input File" :com.ral.aont.inp opt-file)
     (let* ((prep-name (funcall prep-out inpfile))
            (try-name  (make-safe-filename prep-name inpfile)))
-    (um:with-remembered-prompting (outfile :com.ral.aont.out try-name
-                                           "Save as..."
-                                           :filter "*.*"
-                                           :operation :save
-                                           :if-exists :prompt
-                                           :if-does-not-exist :ok)
+      (um:with-remembered-filename (outfile "Select Output File" :com.ral.aont.out try-name
+                                            :operation :save
+                                            :if-exists :prompt
+                                            :if-does-not-exist :ok)
       (funcall body-fn inpfile outfile)))))
 
 ;; ------------------------------------------------------

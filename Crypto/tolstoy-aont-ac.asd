@@ -7,7 +7,8 @@
   :components  ((:file "mimic")
                 (:file "aont-messaging-ac"))
   :serial       t
-  :depends-on   ("actors"
+  :depends-on   ("com.ral.actors"
+                 "com.ral.useful-macros/ext"
                  "aont"
                  ))
 

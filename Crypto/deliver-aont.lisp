@@ -53,7 +53,10 @@ popd
 (load-logical-pathname-translations "PROJECTS")
 (cd (translate-logical-pathname "PROJECTS:LISP;"))
 ;; (cd #P"~/projects/Lispworks/")
+(compile-file-if-needed "project-packages"   :load t)
+(load "project-mappings")
 (load "_my_bare-startup")
+(pushnew :ACTORS *features*)
 
 #|
 #+:MACOSX
