@@ -307,6 +307,7 @@ THE SOFTWARE.
    #:com.ral.actors))
  
 #|
+(asdf :doctools)
 (doctools:gen-docs
  :asdf-system-name :com.ral.actors
  :package-name     :com.ral.actors
