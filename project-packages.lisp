@@ -15,6 +15,7 @@
 
 (defvar *mappings*  (make-hash-table :test #'string=))
 (defvar *map-lock*  (mp:make-lock :sharing t))
+(defvar *bypass-mapping*   nil)
 
 (defun normalize (name)
   (cond ((stringp name)
@@ -38,7 +39,8 @@
   `(do-defproject ',pairs))
 
 (defun map-name (name &optional froms)
-  (cond ((packagep name)
+  (cond ((or *bypass-mapping*
+             (packagep name))
          name)
         (t
          (let ((norm-name (normalize name))
@@ -76,6 +78,20 @@
     (name &rest args)
   (declare (optimize speed))
   (apply #'lw:call-next-advice (map-name name) args))
+
+(defun in-quicklisp-p (filename)
+  (find "quicklisp" (pathname-directory filename)
+        :test #'string=))
+
+(lw:defadvice (load project-packages :around)
+    (filename &rest args)
+  (let ((*bypass-mapping* (in-quicklisp-p filename)))
+    (apply #'lw:call-next-advice filename args)))
+
+(lw:defadvice (compile-file project-packages :around)
+    (filename &rest args)
+  (let ((*bypass-mapping* (in-quicklisp-p filename)))
+    (apply #'lw:call-next-advice filename args)))
 
 ;; ------------------------------------------------------
 
