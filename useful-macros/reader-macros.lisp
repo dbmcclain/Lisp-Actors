@@ -370,10 +370,11 @@ THE SOFTWARE.
     ))
 
 ;; ----------------------------------------------------------------------
-;; Nestable suggestion from Daniel Herring
-;; rewritten (DM/RAL) using our state-machine macro
-;; Use backslash for escaping literal chars.
-;; E.g., #"this is a "test" of...."#
+;; Nestable suggestion from Daniel Herring rewritten (DM/RAL) using
+;; our state-machine macro Use backslash for escaping literal chars.
+;; E.g., #"this is a "test" of...."#, i.e., read string up through
+;; trailing ("#).
+;;
 ;; DM/RAL 12/21 - now incorporates Swift-style string interpolation.
 
 (defun |reader-for-#"| (stream sub-char numarg)
@@ -508,6 +509,7 @@ THE SOFTWARE.
 ;; --------------------------------------------
 ;; Reader macro for #>
 ;; like the Bourne shell > to-lists for surrounding strings
+;; String is interpolatable.
 
 (defun |reader-for-#>| (stream sub-char numarg)
   (declare (ignore sub-char numarg))

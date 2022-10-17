@@ -8,12 +8,10 @@
 ;; DM/RAL 04/21
 ;; -------------------------------------------------------
 
-(defpackage :com.ral.useful-macros.clc
-  (:use :common-lisp :com.ral.useful-macros)
-  (:local-nicknames
-   (#:mpcompat  #:com.ral.mpcompat)))
+(defpackage #:com.ral.useful-macros.clc
+  (:use #:common-lisp #:um))
 
-(in-package :com.ral.useful-macros.clc)
+(in-package #:com.ral.useful-macros.clc)
 
 (defun do-clc (chkfn lock bodyfn)
   (or (funcall chkfn)

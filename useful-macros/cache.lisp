@@ -27,8 +27,7 @@ THE SOFTWARE.
 |#
 
 (defpackage #:com.ral.useful-macros.cache
-  (:use #:common-lisp #:com.ral.useful-macros)
-  (:local-nicknames (#:um  #:com.ral.useful-macros))
+  (:use #:common-lisp #:um)
   (:export
    #:cache
    #:cacheize

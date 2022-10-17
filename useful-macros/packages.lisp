@@ -26,7 +26,6 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.useful-macros
   (:use #:common-lisp)
-  ;; (:nicknames #:um)
   #+:LISPWORKS
   (:import-from #:lispworks
    #:true
@@ -42,27 +41,26 @@ THE SOFTWARE.
    #:rebinding
    #:whitespace-char-p
    #:push-end)
-  (:export
-   #:match
-   #:match-fail)
+
   (:import-from #:alexandria
    #:curry
    #:rcurry
    #:compose)
 
-  (:local-nicknames
-   (#:mpcompat  #:com.ral.mpcompat))
+  (:export
+   #:match
+   #:match-fail)
   (:export
 
    #:firsts
    #:seconds
    #:thirds
    
-   :*timeout*
-   :timeout
-   :with-timeout
+   #:*timeout*
+   #:timeout
+   #:with-timeout
    
-   :defconstant+
+   #:defconstant+
 
    #:lc
    #:def-typed-fn
@@ -133,13 +131,13 @@ THE SOFTWARE.
    #:stack-probe
    #:safe-call-system ;; LWM bug fix DM/RAL 02/17
    
-   :defmonitor
-   :critical-section
-   :critical-or
-   :with-exclusive-access
-   :with-shared-access
-   :static
-   :let-static
+   #:defmonitor
+   #:critical-section
+   #:critical-or
+   #:with-exclusive-access
+   #:with-shared-access
+   #:static
+   #:let-static
    #|
    :def-excl
    :lambda-excl
@@ -672,67 +670,67 @@ THE SOFTWARE.
    #:is-lambda-list-keyword?
    #:deflex
    
-   :->
-   :_>
-   :=>
+   #:->
+   #:_>
+   #:=>
    
-   :read-mailbox-with-timeout
-   :eval-always
-   :->>
+   #:read-mailbox-with-timeout
+   #:eval-always
+   #:->>
 
-   :handler-bind*
-   :handler-case*
-   :handler-bind-case
-   :call-with-handler
-   :call-with-restart
+   #:handler-bind*
+   #:handler-case*
+   #:handler-bind-case
+   #:call-with-handler
+   #:call-with-restart
 
-   :get-number-of-processors
+   #:get-number-of-processors
 
-   :dynamic-wind
-   :proceed
-   :capture-dynamic-environment
-   :call-with-dynamic-environment
-   :with-dynamic-environment
+   #:dynamic-wind
+   #:proceed
+   #:capture-dynamic-environment
+   #:call-with-dynamic-environment
+   #:with-dynamic-environment
 
-   :doseq
-   :vbind
-   :vbind*
-   :with-velems
+   #:doseq
+   #:vbind
+   #:vbind*
+   #:with-velems
 
-   :utf-8-encoding
-   :utf-8-code-chars
-   :encstr
-   :sbs
-   :ucs
-   :dostring
-   :dovector
+   #:utf-8-encoding
+   #:utf-8-code-chars
+   #:encstr
+   #:sbs
+   #:ucs
+   #:dostring
+   #:dovector
 
-   :defalias
-   :redirect
+   #:defalias
+   #:redirect
 
-   :convert-int-to-wordlist
-   :convert-wordlist-to-int
+   #:convert-int-to-wordlist
+   #:convert-wordlist-to-int
 
-   :cx-dspec-def
+   #:cx-dspec-def
 
-   :with-fwd
-   :call-fwd
-   :apply-fwd
+   #:with-fwd
+   #:call-fwd
+   #:apply-fwd
 
    #:within
 
-   :defstub
-   :stub-function-p
-   :with-fast-impl
-   :use-slow-code
-   :reset-error
+   #:defstub
+   #:stub-function-p
+   #:with-fast-impl
+   #:use-slow-code
+   #:reset-error
 
-   :ash-dpb
-   :ash-dpbf
+   #:ash-dpb
+   #:ash-dpbf
 
-   :check/lock/check
+   #:check/lock/check
 
-   :make-encapsulated-type
+   #:make-encapsulated-type
 
    #:addnew-to-plist
    #:reapply
@@ -752,272 +750,3 @@ THE SOFTWARE.
    #:mappings
    #:map-filename
    ))
-
-#|
-(defpackage #:com.ral.useful-macros.fpctl
-  (:use #:cl #:com.ral.useful-macros)
-  (:export
-   #:fegetround
-   #:fesetround
-   #:+fe_tonearest+
-   #:+fe_downward+
-   #:+fe_upward+
-   #:+fe_towardzero+
-   ))
-
-(defpackage #:com.ral.useful-macros.def*
-  (:use #:cl #:com.ral.useful-macros)
-  (:export
-   #|
-   #:define
-   #:define*
-   #:define-macro
-   #:define-generic
-   #:define-method
-   |#
-   #:lambda*
-   #:flet*
-   #:labels*
-   #:defun*
-   #:λ
-   #:µ
-   #:∂
-   #:parse-body
-   #:is-underscore?
-   #:is-lambda-list-keyword?
-   #:deflex
-   ))
-
-(defpackage :com.ral.useful-macros.lambda-parsing
-  (:use #:cl #:com.ral.useful-macros)
-  (:export
-   :binding-names
-   :binding-vals
-   :split-body))
-
-(defpackage :com.ral.useful-macros.timeout
-  (:use #:cl #:com.ral.useful-macros)
-  (:export
-   :*timeout*
-   :timeout
-   :with-timeout))
-
-(defpackage :com.ral.useful-macros.critsec
-  (:use #:cl #:com.ral.useful-macros)
-  (:export
-   :defmonitor
-   :critical-section
-   :with-exclusive-access
-   :with-shared-access
-   :static
-   :let-static
-   :critical-or
-   #|
-   :def-excl
-   :lambda-excl
-   :labels-excl
-   :flet-excl
-   :def-shared
-   :lambda-shared
-   :labels-shared
-   :flet-shared
-   |#
-   ))
-
-(defpackage #:com.ral.useful-macros.list-match
-  (:use #:common-lisp #:com.ral.useful-macros)
-  (:export
-   #:match
-   #:match-fail))
-
-(defpackage #:com.ral.useful-macros.list-comprehensions
-  (:use #:common-lisp #:com.ral.useful-macros)
-  (:nicknames #:lc)
-  (:export
-   #:lc
-   ))
-
-(defpackage #:com.ral.useful-macros.lexb
-  (:use #:common-lisp #:com.ral.useful-macros)
-  (:export
-   #:test-special
-   #:?specials
-   #:ensure-lexical-bindings
-   #:mp-lambda
-
-   #:lexical
-   #:ensure-lexical
-   #:mp-labels
-   #:mp-flet
-   ))
-
-(defpackage #:com.ral.useful-macros.dlam
-  (:use #:common-lisp #:def* #:com.ral.useful-macros)
-  (:export
-   #:dlam-fun
-   #:dlam-keys
-   #:dlam-fns
-   #:dlam-def
-   #:dlambda
-   #:dcase
-   #:dlambda*
-   #:dcase*
-   #:replace-handlers
-   #:set-handler
-   #:tlambda
-   #:tcase
-   ))
-
-(defpackage #:com.ral.useful-macros.remfn
-  (:use #:common-lisp #:com.ral.useful-macros)
-  (:local-nicknames (#:um  #:com.ral.useful-macros))
-  (:export
-   #:with-remembered-filename
-   #:with-remembered-prompting
-   #:remember-filename
-   #:remembered-filename
-   #:add-timestamp-to-filename
-   ))
-|#
-#|
-(defpackage #:com.ral.useful-macros.dispq
-  (:use #:common-lisp)
-  (:export
-   #:<dspq>
-   #:dspq-read
-   #:dspq-add-item
-   #:safe-function-p
-   #:add-to-dispatch-queue
-   #:capture-ans-or-exn
-   #:recover-ans-or-exn
-   #:with-dispatch-timeout
-   #:wait-for-dispatch-group
-   #:serial-dispatch-queue
-   #:install-service
-   #:find-service
-   #:make-serial-disptach-queue
-   #:dispatch-serial-sync
-   #:dispatch-serial-async
-   #:wait-for-serial-dispatch
-   #:with-serial-dispatch
-   #:dispatch-parallel-sync
-   #:dispatch-parallel-async
-   #:wait-for-parallel-dispatch
-   #:with-parallel-dispatch
-   #:par
-   #:%wrap-dispatch-group
-   #:%with-dispatch-group
-   #:%do-serial-dispatch-loop
-   #:%do-serial-dispatch-sync
-   #:%do-serial-dispatch-async
-   #:*dispatch-timeout*   
-   ))
-|#
-
-#|
-(defpackage #:com.ral.useful-macros.collector
-  (:use #:common-lisp #:com.ral.useful-macros)
-  (:export
-   #:<collector>
-   #:collector-reset
-   #:collector-discard-contents
-   #:collector-stuff-contents
-   #:collector-nstuff-contents
-   #:collector-ncontents
-   #:collector-length
-   #:collector-empty-p
-   #:collector-append1
-   #:collector-append
-   #:collector-nappend
-   #:collector-prepend
-   #:collector-nprepend
-   #:collector-push
-   #:collector-pop
-
-   #:<monitored-object-mixin>
-   #:mark-changed
-   #:nchanged-p
-   
-   #:<mpsafe-mixin>
-   #:with-locked-instance
-
-   #:make-collector
-   #:make-monitored-collector
-   #:make-mpsafe-collector
-   #:make-mpsafe-monitored-collector
-   ))
-
-(defpackage #:com.ral.useful-macros.stub-functions
-  (:use #:common-lisp #:com.ral.useful-macros)
-  (:export
-   :defstub
-   :stub-function-p
-   :with-fast-impl
-   :use-slow-code
-   :reset-error))
-|#
-
-
-#|
-(defpackage #:lazy
-  (:use #:common-lisp)
-  (:export
-   #:make
-   #:force))
-|#
-#|
-(defpackage #:com.ral.useful-macros.mlmatch
-  (:use #:common-lisp #:com.ral.useful-macros)
-  (:nicknames #:ml)
-  (:export
-   #:match
-   ;; #:match-using-style
-   ;; #:$default-matching-style
-   ;; #:$case-sensitive-matching-style
-   ;; #:match-fail
-   #:match-failure
-   ;; #:pattern-variable-p
-   ;; #:wild-pattern-p
-   ;; #:meta-match
-   #:collect
-   ))
-
-(defpackage #:com.ral.useful-macros.engfmt
-  (:use #:common-lisp #:com.ral.useful-macros)
-  (:export
-   #:engineering-format
-   #:scientific-format
-   #:lower-case-e-exponent-printer
-   #:always-signed-exponent-printer
-   #:paren-style-exponent-printer
-   #:mathematica-style-exponent-printer
-   #:engfmt
-   #:scifmt
-   ))
-
-(defpackage #:com.ral.useful-macros.xfli
-  (:use #:common-lisp #:com.ral.useful-macros)
-  (:export
-   #:+dlopen-rtld-lazy+
-   #:+dlopen-rtld-now+
-   #:+dlopen-rtld-local+
-   #:+dlopen-rtld-global+
-   #:+dlopen-rtld-noload+
-   #:+dlopen-rtld-nodelete+
-   #:+dlopen-rtld-first+
-
-   #:+dlsym-rtld-next+
-   #:+dlsym-rtld-default+
-   #:+dlsym-rtld-self+
-   #:+dlsym-rtld-main-only+
-
-   #:_dlopen
-   #:_dlclose
-   #:_dlsym
-
-   #:register-module
-   #:disconnect-module
-   #:define-foreign-function
-   ))
-
-|#

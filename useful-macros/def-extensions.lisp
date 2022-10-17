@@ -3,17 +3,17 @@
 ;; DM/RAL 02/21
 ;; ----------------------------------
 
-(defpackage :com.ral.useful-macros.def-extensions
-  (:use :common-lisp :com.ral.useful-macros)
+(defpackage #:com.ral.useful-macros.def-extensions
+  (:use #:common-lisp #:um)
   (:export
-   :λ
-   :∂
-   :µ
-   :lambda*
-   :defun*
-   :labels*
-   :flet*
-   :deflex
+   #:λ
+   #:∂
+   #:µ
+   #:lambda*
+   #:defun*
+   #:labels*
+   #:flet*
+   #:deflex
    ))
 
 (in-package #:com.ral.useful-macros.def-extensions)
@@ -35,7 +35,7 @@
   (editor:setup-indent "defun*"  2 2 7)
   (editor:setup-indent "labels*" 1 2 4 'flet)
   (editor:setup-indent "flet*"   1 2 4 'flet)
-  (editor:setup-indent "deflex" 1 2 4))
+  (editor:setup-indent "deflex"  1 2 4))
 
 ;; --------------------------------------------------
 

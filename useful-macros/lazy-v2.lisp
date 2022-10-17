@@ -1,8 +1,6 @@
 
-(defpackage :com.ral.useful-macros.lazy-v2
-  (:use :common-lisp :com.ral.useful-macros)
-  (:local-nicknames
-   (#:mpcompat  #:com.ral.mpcompat))
+(defpackage #:com.ral.useful-macros.lazy-v2
+  (:use #:common-lisp #:um)
   (:export
    #:force
    #:deferred
@@ -20,7 +18,7 @@
    #:par
    ))
 
-(in-package :com.ral.useful-macros.lazy-v2)
+(in-package #:com.ral.useful-macros.lazy-v2)
 
 (defmacro deferred (&body body)
   `(lambda ()

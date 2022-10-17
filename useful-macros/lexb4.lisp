@@ -22,10 +22,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(defpackage :com.ral.useful-macros.lexb4
-  (:use :common-lisp :com.ral.useful-macros))
+(defpackage #:com.ral.useful-macros.lexb4
+  (:use #:common-lisp #:um))
 
-(in-package :com.ral.useful-macros.lexb4)
+(in-package #:com.ral.useful-macros.lexb4)
 
 ;;---------------------------------------------------------------------
 ;;
@@ -267,10 +267,11 @@ THE SOFTWARE.
 
 (editor:setup-indent "match-avoiding-walker-loops" 1)
 
-(defun mklist (arg)
-  (if (listp arg)
-      arg
-    (list arg)))
+(unless (fboundp 'mklist)
+  (defun mklist (arg)
+    (if (listp arg)
+        arg
+      (list arg))))
 
 (defvar *in-scan* nil) ;; prevents all but outermost scan from occurring
 

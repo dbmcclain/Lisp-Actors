@@ -23,7 +23,7 @@ THE SOFTWARE.
 |#
 
 (defpackage #:com.ral.useful-macros.dlambder
-  (:use #:common-lisp :com.ral.useful-macros)
+  (:use #:common-lisp #:um)
   (:export
    #:dlam-fun
    #:dlam-keys
@@ -43,9 +43,10 @@ THE SOFTWARE.
   (error "Invalid selector ~A" (car msg)))
 |#
 
-(defun is-underscore? (x)
-  (and (symbolp x)
-       (string= "_" (string x))))
+(unless (fboundp 'is-underscore?)
+  (defun is-underscore? (x)
+    (and (symbolp x)
+         (string= "_" (string x)))))
 
 (defun decl-us (args)
   (when (is-underscore? args)

@@ -4,15 +4,12 @@
 ;; ----------------------------------------------------------------------------
 
 (defpackage #:com.ral.safe-marshaling
-  ;; (:nicknames #:rsmb)
-  (:local-nicknames
-   (#:um  #:com.ral.useful-macros))
   (:import-from #:sdle-store
    #:find-backend
    #:defbackend
    #:backend-store-object
    #:store-error)
-  (:import-from #:com.ral.lisp-object-encoder
+  (:import-from #:loenc
    #:loe-back-end
    #:defstore
    #:defrestore

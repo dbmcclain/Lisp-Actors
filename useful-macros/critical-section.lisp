@@ -27,12 +27,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(defpackage :com.ral.useful-macros.critical-section
-  (:use :common-lisp :com.ral.useful-macros)
-  (:local-nicknames
-   (#:mpcompat  #:com.ral.mpcompat)))
+(defpackage #:com.ral.useful-macros.critical-section
+  (:use #:common-lisp #:um))
 
-(in-package :com.ral.useful-macros.critical-section)
+(in-package #:com.ral.useful-macros.critical-section)
 
 ;; ------------------------------------------------------------------------
 ;; WARNING!! Any macros that generate embedded (LOAD-TIME-VALUE ...)

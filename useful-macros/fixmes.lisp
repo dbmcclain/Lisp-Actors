@@ -3,11 +3,10 @@
 ;; DM/RAL 02/21
 ;; ----------------------------------------------------------------------
 
-(defpackage :com.ral.useful-macros.fixmes
-  (:use :common-lisp)
-  (:local-nicknames (:uuid :com.ral.uuid)))
+(defpackage #:com.ral.useful-macros.fixmes
+  (:use #:common-lisp))
 
-(in-package :com.ral.useful-macros.fixmes)
+(in-package #:com.ral.useful-macros.fixmes)
 
 ;; -----------------------------------------------------------------
 ;; First up... DSPEC:Save-Tags-Database can run into problems when it

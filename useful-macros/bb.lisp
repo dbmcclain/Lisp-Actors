@@ -28,8 +28,7 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.useful-macros.bb
   (:use #:common-lisp)
-  (:local-nicknames (#:um #:com.ral.useful-macros))
-  (:import-from #:com.ral.useful-macros.def-extensions
+  (:import-from #:def*
    #:lambda*)
   (:export
    #:bb

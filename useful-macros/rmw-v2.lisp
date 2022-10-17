@@ -4,12 +4,10 @@
 ;;
 ;; DM/RAL  11/20
 ;; -----------------------------------------------------------
-(defpackage :com.ral.useful-macros.rmw-v2
-  (:use :common-lisp :com.ral.useful-macros)
-  (:local-nicknames
-   (#:mpcompat  #:com.ral.mpcompat)))
+(defpackage #:com.ral.useful-macros.rmw-v2
+  (:use :common-lisp #:um))
 
-(in-package :com.ral.useful-macros.rmw-v2)
+(in-package #:com.ral.useful-macros.rmw-v2)
 ;; ----------------------------------------------------------
 ;; To overcome the RMW ABA-Problem...
 ;;
