@@ -369,6 +369,10 @@ THE SOFTWARE.
     `(format nil ,fmt-str ,@(nreverse parts))
     ))
 
+#+:SBCL
+(defmacro string-interp (str)
+  str)
+
 ;; ----------------------------------------------------------------------
 ;; Nestable suggestion from Daniel Herring rewritten (DM/RAL) using
 ;; our state-machine macro Use backslash for escaping literal chars.

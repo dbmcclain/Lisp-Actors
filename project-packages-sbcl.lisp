@@ -1,4 +1,4 @@
-;; project-packages.lisp --
+;; project-packages-sbcl.lisp -- Package mapping for SBCL
 ;;
 ;; DM/RAL 10/22
 ;; -----------------------------------------------------------
@@ -13,13 +13,13 @@
 
 (in-package #:com.ral.project-packages)
 
-(defvar *mappings*  (make-hash-table :test #'string=))
-(defvar *map-lock*  (mp:make-lock :sharing t))
+(defvar *mappings*  (make-hash-table))
+(defvar *map-lock*  (sb-thread:make-mutex))
 (defvar *bypass-mapping*   nil)
 
 (defun normalize (name)
   (cond ((stringp name)
-         (string-upcase name))
+         (intern name :keyword))
         ((symbolp name)
          (normalize (symbol-name name)))
         (t
@@ -27,7 +27,7 @@
         ))
 
 (defun do-defproject (pairs)
-  (mp:with-exclusive-lock (*map-lock*)
+  (sb-thread:with-recursive-lock (*map-lock*)
     (dolist (pair pairs)
       (destructuring-bind (from-name to-name) pair
         (let ((from-name (normalize from-name)))
@@ -47,57 +47,48 @@
                to-name)
            (when (find norm-name froms :test #'string=)
              (error "Cyclic mappong ~A" norm-name))
-           (mp:with-sharing-lock (*map-lock*)
+           (sb-thread:with-recursive-lock (*map-lock*)
              (if (and ;; (char= #\= (char norm-name 0))
                       (setf to-name (gethash norm-name *mappings*)))
                  (map-name to-name (cons norm-name froms))
                name))))
         ))
 
-(lw:defadvice (cl:find-package project-packages :around)
-    (name/package)
-    (declare (optimize speed))          ;this is critical code
-    (lw:call-next-advice
-     (map-name name/package)) )
-
-(lw:defadvice (sys::find-package-without-lod project-packages :around)
-    (name)
-  ;; used by editor to set buffer package
+(defun package-mapper (next-fn name)
   (declare (optimize speed))
-  ;; (format t "find-package-without-lod: ~S" (editor:variable-value 'editor::current-package) )
-  (lw:call-next-advice (map-name name)))
-
-(lw:defadvice (sys::find-global-package project-packages :around)
-    (name)
-  ;; used by editor to set buffer package
-  (declare (optimize speed))
-  ;; (format t "find-package-without-lod: ~S" (editor:variable-value 'editor::current-package) )
-  (lw:call-next-advice (map-name name)))
-
-(lw:defadvice (sys::%in-package project-packages :around)
-    (name &rest args)
-  (declare (optimize speed))
-  (apply #'lw:call-next-advice (map-name name) args))
+  (funcall next-fn (map-name name)))
 
 (defun in-quicklisp-p (filename)
   (find "quicklisp" (pathname-directory filename)
         :test #'string=))
 
-(lw:defadvice (load project-packages :around)
-    (filename &rest args)
+(defun loader (next-fn filename &rest args)
   (let ((*bypass-mapping* (in-quicklisp-p filename)))
-    (apply #'lw:call-next-advice filename args)))
+    (apply next-fn filename args)))
 
-(lw:defadvice (compile-file project-packages :around)
-    (filename &rest args)
-  (let ((*bypass-mapping* (in-quicklisp-p filename)))
-    (apply #'lw:call-next-advice filename args)))
+(sb-ext:with-unlocked-packages (:cl)
+  (cl-advice:make-advisable 'cl:find-package
+                            :arguments '(name)
+                            :force-use-arguments t)
+  (cl-advice:make-advisable 'cl:in-package
+                            :arguments '(name)
+                            :force-use-arguments t)
+  (cl-advice:make-advisable 'cl:load
+                            :arguments '(name &rest args)
+                            :force-use-arguments t)
+  (cl-advice:make-advisable 'cl:compile-file
+                            :arguments '(name &rest args)
+                            :force-use-arguments t)
+  (cl-advice:add-advice :around 'cl:find-package #'package-mapper)
+  (cl-advice:add-advice :around 'cl:in-package   #'package-mapper)
+  (cl-advice:add-advice :around 'cl:load         #'loader)
+  (cl-advice:add-advice :around 'cl:compile-file #'loader))
 
 ;; ------------------------------------------------------
 
 (defun show-mappings ()
   (let (lst)
-    (mp:with-sharing-lock (*map-lock*)
+    (sb-thread:with-recursive-lock (*map-lock*)
       (with-hash-table-iterator (gen *mappings*)
         (loop
            (multiple-value-bind (more? key value) (gen)
