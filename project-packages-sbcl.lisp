@@ -19,7 +19,7 @@
 
 (defun normalize (name)
   (cond ((stringp name)
-         (intern name :keyword))
+         (intern (string-upcase name) :keyword))
         ((symbolp name)
          (normalize (symbol-name name)))
         (t
