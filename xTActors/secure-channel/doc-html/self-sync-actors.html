@@ -1,0 +1,595 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+self-sync-actors</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="network-packages.html">
+Prev:&nbsp;network-packages.lisp</a>
+<br/>
+<a href="encoding.html">
+Next:&nbsp;encoding.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+self-sync-actors.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+self-sync-actors.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42425">
+com.ral.actors.encoding.self-sync:decode</a>
+</td>
+<td class="summary">
+vec</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42421">
+com.ral.actors.encoding.self-sync:encode</a>
+</td>
+<td class="summary">
+vec</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42424">
+com.ral.actors.encoding.self-sync:stream-decoder</a>
+</td>
+<td class="summary">
+dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Constant summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42411">
++long-count-base+</a>
+</td>
+<td class="summary">
+253</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42413">
++max-long-count+</a>
+</td>
+<td class="summary">
+(1- (* +long-count-base+ +long-count-base+))</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42412">
++max-short-count+</a>
+</td>
+<td class="summary">
+(1- +long-count-base+)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42414">
++start-sequence+</a>
+</td>
+<td class="summary">
+#(254 253)</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42418">
+crc32</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> vecs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42425">
+decode</a>
+</td>
+<td class="summary">
+vec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42423">
+decoder-fsm</a>
+</td>
+<td class="summary">
+dest <em>&amp;key</em> max-reclen</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42421">
+encode</a>
+</td>
+<td class="summary">
+vec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42419">
+find-start-seq</a>
+</td>
+<td class="summary">
+enc start end</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42416">
+int-to-vec-le4</a>
+</td>
+<td class="summary">
+n</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42415">
+make-ubv</a>
+</td>
+<td class="summary">
+size <em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42422">
+ssfsm-beh</a>
+</td>
+<td class="summary">
+dest aout stuff-fn</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42424">
+stream-decoder</a>
+</td>
+<td class="summary">
+dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42417">
+vec-le4-to-int</a>
+</td>
+<td class="summary">
+vec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="self-sync-actors.html#_g42420">
+write-record</a>
+</td>
+<td class="summary">
+enc fout</td>
+</tr>
+</table>
+<div class="defconstant">
+<div class="defunsignatures">
+<a id="_g42411">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
++long-count-base+&nbsp;&nbsp;</td>
+<td class="lambda-list">
+253</td>
+<td class="symbol-type">
+&nbsp;[Constant]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defconstant">
+<div class="defunsignatures">
+<a id="_g42413">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
++max-long-count+&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(1- (* +long-count-base+ +long-count-base+))</td>
+<td class="symbol-type">
+&nbsp;[Constant]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defconstant">
+<div class="defunsignatures">
+<a id="_g42412">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
++max-short-count+&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(1- +long-count-base+)</td>
+<td class="symbol-type">
+&nbsp;[Constant]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defconstant">
+<div class="defunsignatures">
+<a id="_g42414">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
++start-sequence+&nbsp;&nbsp;</td>
+<td class="lambda-list">
+#(254 253)</td>
+<td class="symbol-type">
+&nbsp;[Constant]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42418">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+crc32&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> vecs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42425">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+decode&nbsp;&nbsp;</td>
+<td class="lambda-list">
+vec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42423">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+decoder-fsm&nbsp;&nbsp;</td>
+<td class="lambda-list">
+dest <em>&amp;key</em> max-reclen</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42421">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+encode&nbsp;&nbsp;</td>
+<td class="lambda-list">
+vec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42419">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+find-start-seq&nbsp;&nbsp;</td>
+<td class="lambda-list">
+enc start end</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42416">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+int-to-vec-le4&nbsp;&nbsp;</td>
+<td class="lambda-list">
+n</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42415">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-ubv&nbsp;&nbsp;</td>
+<td class="lambda-list">
+size <em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42422">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+ssfsm-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+dest aout stuff-fn</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42424">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+stream-decoder&nbsp;&nbsp;</td>
+<td class="lambda-list">
+dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42417">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vec-le4-to-int&nbsp;&nbsp;</td>
+<td class="lambda-list">
+vec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42420">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+write-record&nbsp;&nbsp;</td>
+<td class="lambda-list">
+enc fout</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING.SELF-SYNC</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 06:54:21<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

@@ -1,0 +1,1848 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+network-connection-ss</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="secure-bridging.html">
+Prev:&nbsp;secure-bridging.lisp</a>
+<br/>
+<a href="secure-client.html">
+Next:&nbsp;secure-client.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+network-connection-ss.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+network-connection-ss.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42554">
+com.ral.actors:start</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42552">
+com.ral.actors.network:start-tcp-server</a>
+</td>
+<td class="summary">
+<em>&amp;optional</em> (tcp-port-number *default-port*)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42551">
+com.ral.actors.network:terminate-server</a>
+</td>
+<td class="summary">
+reply-to</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42508">
+com.ral.actors.network:*default-port*</a>
+</td>
+<td class="summary">
+65001</td>
+<td class="summary-type">
+Variable</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42509">
+com.ral.actors.network:*socket-timeout-period*</a>
+</td>
+<td class="summary">
+20</td>
+<td class="summary-type">
+Variable</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42512">
+com.ral.actors.network:+max-fragment-size+</a>
+</td>
+<td class="summary">
+65536</td>
+<td class="summary-type">
+Constant</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Constant summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42512">
++max-fragment-size+</a>
+</td>
+<td class="summary">
+65536</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Variable summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42511">
+*aio-accepting-handle*</a>
+</td>
+<td class="summary">
+nil</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42508">
+*default-port*</a>
+</td>
+<td class="summary">
+65001</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42544">
+*server-count*</a>
+</td>
+<td class="summary">
+0</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42509">
+*socket-timeout-period*</a>
+</td>
+<td class="summary">
+20</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42510">
+*ws-collection*</a>
+</td>
+<td class="summary">
+nil</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Structure summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42529">
+connection-rec</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42513">
+intf-state</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Method summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42549">
+parse-ip-addr</a>
+</td>
+<td class="summary">
+addr</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42548">
+canon-ip-addr</a>
+</td>
+<td class="summary">
+ip-addr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42533">
+connection-rec-chan</a>
+</td>
+<td class="summary">
+connection-rec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42530">
+connection-rec-custs</a>
+</td>
+<td class="summary">
+connection-rec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42531">
+connection-rec-handshake</a>
+</td>
+<td class="summary">
+connection-rec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42537">
+connection-rec-ip-addr</a>
+</td>
+<td class="summary">
+connection-rec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42536">
+connection-rec-ip-port</a>
+</td>
+<td class="summary">
+connection-rec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42539">
+connection-rec-p</a>
+</td>
+<td class="summary">
+object</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42532">
+connection-rec-report-ip-addr</a>
+</td>
+<td class="summary">
+connection-rec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42534">
+connection-rec-sender</a>
+</td>
+<td class="summary">
+connection-rec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42535">
+connection-rec-state</a>
+</td>
+<td class="summary">
+connection-rec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42540">
+copy-connection-rec</a>
+</td>
+<td class="summary">
+connection-rec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42525">
+copy-intf-state</a>
+</td>
+<td class="summary">
+intf-state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42546">
+create-socket-intf</a>
+</td>
+<td class="summary">
+<em>&amp;key</em> kind ip-addr ip-port io-state report-ip-addr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42541">
+find-connection-from-ip</a>
+</td>
+<td class="summary">
+cnx-lst ip-addr ip-port</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42543">
+find-connection-from-sender</a>
+</td>
+<td class="summary">
+cnx-lst sender</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42542">
+find-connection-from-state</a>
+</td>
+<td class="summary">
+cnx-lst state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42516">
+intf-state-decr-io-count-fn</a>
+</td>
+<td class="summary">
+intf-state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42517">
+intf-state-io-running</a>
+</td>
+<td class="summary">
+intf-state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42520">
+intf-state-io-state</a>
+</td>
+<td class="summary">
+intf-state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42521">
+intf-state-ip-addr</a>
+</td>
+<td class="summary">
+intf-state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42518">
+intf-state-kill-timer</a>
+</td>
+<td class="summary">
+intf-state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42519">
+intf-state-local-services</a>
+</td>
+<td class="summary">
+intf-state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42524">
+intf-state-p</a>
+</td>
+<td class="summary">
+object</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42514">
+intf-state-shutdown</a>
+</td>
+<td class="summary">
+intf-state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42522">
+intf-state-title</a>
+</td>
+<td class="summary">
+intf-state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42515">
+intf-state-writer</a>
+</td>
+<td class="summary">
+intf-state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42538">
+make-connection-rec</a>
+</td>
+<td class="summary">
+<em>&amp;key</em> ip-addr ip-port state sender chan report-ip-addr handshake custs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42523">
+make-intf-state</a>
+</td>
+<td class="summary">
+<em>&amp;key</em> title ip-addr io-state local-services kill-timer (io-running
+                                                       (list 1)) decr-io-count-fn writer shutdown</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42528">
+make-kill-timer</a>
+</td>
+<td class="summary">
+timer-fn</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42547">
+make-socket-connection</a>
+</td>
+<td class="summary">
+ip-addr ip-port report-ip-addr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42545">
+make-socket-shutdown</a>
+</td>
+<td class="summary">
+state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42527">
+make-writer</a>
+</td>
+<td class="summary">
+state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42526">
+physical-writer-beh</a>
+</td>
+<td class="summary">
+state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42553">
+reset-global-state</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42554">
+start</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42550">
+start-server-messenger</a>
+</td>
+<td class="summary">
+accepting-handle io-state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42552">
+start-tcp-server</a>
+</td>
+<td class="summary">
+<em>&amp;optional</em> (tcp-port-number *default-port*)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="network-connection-ss.html#_g42551">
+terminate-server</a>
+</td>
+<td class="summary">
+reply-to</td>
+</tr>
+</table>
+<div class="defstruct">
+<div class="defunsignatures">
+<a id="_g42529">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+connection-rec&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Structure]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="defclass-initargs">
+</div>
+<div class="defclass-slots-doc">
+</div>
+<div class="defclass-generics">
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42533">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+connection-rec-chan&nbsp;&nbsp;</td>
+<td class="lambda-list">
+connection-rec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the chan of the specified connection-rec 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42530">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+connection-rec-custs&nbsp;&nbsp;</td>
+<td class="lambda-list">
+connection-rec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the custs of the specified connection-rec 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42531">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+connection-rec-handshake&nbsp;&nbsp;</td>
+<td class="lambda-list">
+connection-rec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the handshake of the specified connection-rec 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42537">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+connection-rec-ip-addr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+connection-rec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the ip-addr of the specified connection-rec 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42536">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+connection-rec-ip-port&nbsp;&nbsp;</td>
+<td class="lambda-list">
+connection-rec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the ip-port of the specified connection-rec 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42532">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+connection-rec-report-ip-addr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+connection-rec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the report-ip-addr of the specified connection-rec 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42534">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+connection-rec-sender&nbsp;&nbsp;</td>
+<td class="lambda-list">
+connection-rec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the sender of the specified connection-rec 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42535">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+connection-rec-state&nbsp;&nbsp;</td>
+<td class="lambda-list">
+connection-rec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the state of the specified connection-rec 
+ </p>
+</div>
+</div>
+</div>
+<div class="defstruct-defuns">
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42538">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-connection-rec&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;key</em> ip-addr ip-port state sender chan report-ip-addr handshake custs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns a newly created connection-rec. 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42540">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy-connection-rec&nbsp;&nbsp;</td>
+<td class="lambda-list">
+connection-rec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns a copy of the specified connection-rec. 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42539">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+connection-rec-p&nbsp;&nbsp;</td>
+<td class="lambda-list">
+object</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns T if the specified object is of type connection-rec. 
+ </p>
+</div>
+</div>
+</div>
+</div>
+<div class="defstruct">
+<div class="defunsignatures">
+<a id="_g42513">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+intf-state&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Structure]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="defclass-initargs">
+</div>
+<div class="defclass-slots-doc">
+</div>
+<div class="defclass-generics">
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42516">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+intf-state-decr-io-count-fn&nbsp;&nbsp;</td>
+<td class="lambda-list">
+intf-state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the decr-io-count-fn of the specified intf-state 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42517">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+intf-state-io-running&nbsp;&nbsp;</td>
+<td class="lambda-list">
+intf-state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the io-running of the specified intf-state 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42520">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+intf-state-io-state&nbsp;&nbsp;</td>
+<td class="lambda-list">
+intf-state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the io-state of the specified intf-state 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42521">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+intf-state-ip-addr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+intf-state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the ip-addr of the specified intf-state 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42518">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+intf-state-kill-timer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+intf-state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the kill-timer of the specified intf-state 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42519">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+intf-state-local-services&nbsp;&nbsp;</td>
+<td class="lambda-list">
+intf-state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the local-services of the specified intf-state 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42514">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+intf-state-shutdown&nbsp;&nbsp;</td>
+<td class="lambda-list">
+intf-state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the shutdown of the specified intf-state 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42522">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+intf-state-title&nbsp;&nbsp;</td>
+<td class="lambda-list">
+intf-state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the title of the specified intf-state 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42515">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+intf-state-writer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+intf-state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the writer of the specified intf-state 
+ </p>
+</div>
+</div>
+</div>
+<div class="defstruct-defuns">
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42523">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-intf-state&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;key</em> title ip-addr io-state local-services kill-timer (io-running
+                                                       (list 1)) decr-io-count-fn writer shutdown</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns a newly created intf-state. 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42525">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy-intf-state&nbsp;&nbsp;</td>
+<td class="lambda-list">
+intf-state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns a copy of the specified intf-state. 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42524">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+intf-state-p&nbsp;&nbsp;</td>
+<td class="lambda-list">
+object</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Returns T if the specified object is of type intf-state. 
+ </p>
+</div>
+</div>
+</div>
+</div>
+<div class="defconstant">
+<div class="defunsignatures">
+<a id="_g42512">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
++max-fragment-size+&nbsp;&nbsp;</td>
+<td class="lambda-list">
+65536</td>
+<td class="symbol-type">
+&nbsp;[Constant]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defparam">
+<div class="defunsignatures">
+<a id="_g42511">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*aio-accepting-handle*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Variable]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defparam">
+<div class="defunsignatures">
+<a id="_g42508">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*default-port*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Variable]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defparam">
+<div class="defunsignatures">
+<a id="_g42544">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*server-count*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Variable]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defparam">
+<div class="defunsignatures">
+<a id="_g42509">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*socket-timeout-period*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Variable]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defparam">
+<div class="defunsignatures">
+<a id="_g42510">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*ws-collection*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Variable]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42549">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+parse-ip-addr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+addr</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42548">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+canon-ip-addr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ip-addr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42546">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+create-socket-intf&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;key</em> kind ip-addr ip-port io-state report-ip-addr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42541">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+find-connection-from-ip&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cnx-lst ip-addr ip-port</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42543">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+find-connection-from-sender&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cnx-lst sender</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42542">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+find-connection-from-state&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cnx-lst state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42528">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-kill-timer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+timer-fn</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42547">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-socket-connection&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ip-addr ip-port report-ip-addr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42545">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-socket-shutdown&nbsp;&nbsp;</td>
+<td class="lambda-list">
+state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42527">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-writer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42526">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+physical-writer-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42553">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+reset-global-state&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42554">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+start&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42550">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+start-server-messenger&nbsp;&nbsp;</td>
+<td class="lambda-list">
+accepting-handle io-state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+Internal routine to start a network interface from the server side. 
+ The interface is identical to that on the client side, but the 
+ connection handshake differs from this side. 
+ </p>
+<p>
+See the discussion under START-CLIENT-MESSENGER for details. 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42552">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+start-tcp-server&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;optional</em> (tcp-port-number *default-port*)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+<div class="doc-body">
+<p>
+An internal routine to start up a server listener socket on the 
+ indicated port number. 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42551">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+terminate-server&nbsp;&nbsp;</td>
+<td class="lambda-list">
+reply-to</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.NETWORK</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 06:54:21<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

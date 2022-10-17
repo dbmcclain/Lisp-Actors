@@ -1,0 +1,1862 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html> 
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <title>COM.RAL.ACTORS - Transactional Parallel/Concurrent Hewitt Actors in Lisp</title>
+  <style type="text/css">
+  pre { padding:5px; background-color:#e0e0e0 }
+  h3, h4 { text-decoration: underline; }
+  a { text-decoration: none; padding: 1px 2px 1px 2px; }
+  a:visited { text-decoration: none; padding: 1px 2px 1px 2px; }
+  a:hover { text-decoration: none; padding: 1px 1px 1px 1px; border: 1px solid #000000; } 
+  a:focus { text-decoration: none; padding: 1px 2px 1px 2px; border: none; }
+  a.none { text-decoration: none; padding: 0; }
+  a.none:visited { text-decoration: none; padding: 0; } 
+  a.none:hover { text-decoration: none; border: none; padding: 0; } 
+  a.none:focus { text-decoration: none; border: none; padding: 0; } 
+  a.noborder { text-decoration: none; padding: 0; } 
+  a.noborder:visited { text-decoration: none; padding: 0; } 
+  a.noborder:hover { text-decoration: none; border: none; padding: 0; } 
+  a.noborder:focus { text-decoration: none; border: none; padding: 0; }  
+  pre.none { padding:5px; background-color:#ffffff }
+  </style>
+</head>
+
+<body bgcolor=white>
+
+<h2> COM.RAL.ACTORS - Transactional Parallel/Concurrent Hewitt Actors in Lisp</h2>
+
+<br>&nbsp;<br><h3><a class=none name="contents">Contents</a></h3>
+<ol>
+  <li><a href="#dictionary">The COM.RAL.ACTORS dictionary</a>
+    <ol>
+      <li><a href="#%set-beh"><code>%set-beh</code></a>
+      <li><a href="#*nbr-pool*"><code>*nbr-pool*</code></a>
+      <li><a href="#*no-answer*"><code>*no-answer*</code></a>
+      <li><a href="#*timeout*"><code>*timeout*</code></a>
+      <li><a href="#+doneq+"><code>+doneq+</code></a>
+      <li><a href="#+emptyq+"><code>+emptyq+</code></a>
+      <li><a href="#abort-beh"><code>abort-beh</code></a>
+      <li><a href="#actor"><code>actor</code></a>
+      <li><a href="#actor"><code>actor</code></a>
+      <li><a href="#actor-beh"><code>actor-beh</code></a>
+      <li><a href="#actor-nlet"><code>actor-nlet</code></a>
+      <li><a href="#actor-p"><code>actor-p</code></a>
+      <li><a href="#actors"><code>actors</code></a>
+      <li><a href="#actors-running-p"><code>actors-running-p</code></a>
+      <li><a href="#acurry"><code>acurry</code></a>
+      <li><a href="#acurry-beh"><code>acurry-beh</code></a>
+      <li><a href="#add-executives"><code>add-executives</code></a>
+      <li><a href="#addq"><code>addq</code></a>
+      <li><a href="#alambda"><code>alambda</code></a>
+      <li><a href="#aont-encoder"><code>aont-encoder</code></a>
+      <li><a href="#aont-file-reader"><code>aont-file-reader</code></a>
+      <li><a href="#aont-file-writer"><code>aont-file-writer</code></a>
+      <li><a href="#ask"><code>ask</code></a>
+      <li><a href="#authentication"><code>authentication</code></a>
+      <li><a href="#become"><code>become</code></a>
+      <li><a href="#beta"><code>beta</code></a>
+      <li><a href="#blocking-serializer"><code>blocking-serializer</code></a>
+      <li><a href="#call-actor"><code>call-actor</code></a>
+      <li><a href="#check-authentication"><code>check-authentication</code></a>
+      <li><a href="#checksum"><code>checksum</code></a>
+      <li><a href="#chunker"><code>chunker</code></a>
+      <li><a href="#concurrently"><code>concurrently</code></a>
+      <li><a href="#const"><code>const</code></a>
+      <li><a href="#const-beh"><code>const-beh</code></a>
+      <li><a href="#create"><code>create</code></a>
+      <li><a href="#dechunker"><code>dechunker</code></a>
+      <li><a href="#decryptor"><code>decryptor</code></a>
+      <li><a href="#def-beh"><code>def-beh</code></a>
+      <li><a href="#def-ser-beh"><code>def-ser-beh</code></a>
+      <li><a href="#deflex"><code>deflex</code></a>
+      <li><a href="#defun*"><code>defun*</code></a>
+      <li><a href="#disk-decoder"><code>disk-decoder</code></a>
+      <li><a href="#disk-encoder"><code>disk-encoder</code></a>
+      <li><a href="#do-queue"><code>do-queue</code></a>
+      <li><a href="#emptyq?"><code>emptyq?</code></a>
+      <li><a href="#encryptor"><code>encryptor</code></a>
+      <li><a href="#fail-silent-marshal-decoder"><code>fail-silent-marshal-decoder</code></a>
+      <li><a href="#fail-silent-marshal-decompressor"><code>fail-silent-marshal-decompressor</code></a>
+      <li><a href="#flet*"><code>flet*</code></a>
+      <li><a href="#fn-actor"><code>fn-actor</code></a>
+      <li><a href="#fn-actor-beh"><code>fn-actor-beh</code></a>
+      <li><a href="#fork"><code>fork</code></a>
+      <li><a href="#future"><code>future</code></a>
+      <li><a href="#fwd"><code>fwd</code></a>
+      <li><a href="#fwd-beh"><code>fwd-beh</code></a>
+      <li><a href="#is-pure-sink?"><code>is-pure-sink?</code></a>
+      <li><a href="#iterq"><code>iterq</code></a>
+      <li><a href="#kill-actors-system"><code>kill-actors-system</code></a>
+      <li><a href="#label"><code>label</code></a>
+      <li><a href="#label-beh"><code>label-beh</code></a>
+      <li><a href="#labels*"><code>labels*</code></a>
+      <li><a href="#lambda*"><code>lambda*</code></a>
+      <li><a href="#lazy"><code>lazy</code></a>
+      <li><a href="#letrec"><code>letrec</code></a>
+      <li><a href="#list-exploder"><code>list-exploder</code></a>
+      <li><a href="#list-imploder"><code>list-imploder</code></a>
+      <li><a href="#marker"><code>marker</code></a>
+      <li><a href="#marshal-compressor"><code>marshal-compressor</code></a>
+      <li><a href="#marshal-decoder"><code>marshal-decoder</code></a>
+      <li><a href="#marshal-decompressor"><code>marshal-decompressor</code></a>
+      <li><a href="#marshal-encoder"><code>marshal-encoder</code></a>
+      <li><a href="#match"><code>match</code></a>
+      <li><a href="#mbox-sender"><code>mbox-sender</code></a>
+      <li><a href="#mbox-sender-beh"><code>mbox-sender-beh</code></a>
+      <li><a href="#mimd"><code>mimd</code></a>
+      <li><a href="#netw-decoder"><code>netw-decoder</code></a>
+      <li><a href="#netw-encoder"><code>netw-encoder</code></a>
+      <li><a href="#once"><code>once</code></a>
+      <li><a href="#once-beh"><code>once-beh</code></a>
+      <li><a href="#once-tag"><code>once-tag</code></a>
+      <li><a href="#pipe"><code>pipe</code></a>
+      <li><a href="#pipe-beh"><code>pipe-beh</code></a>
+      <li><a href="#popq"><code>popq</code></a>
+      <li><a href="#printer"><code>printer</code></a>
+      <li><a href="#pushq"><code>pushq</code></a>
+      <li><a href="#race"><code>race</code></a>
+      <li><a href="#race-beh"><code>race-beh</code></a>
+      <li><a href="#racurry"><code>racurry</code></a>
+      <li><a href="#racurry-beh"><code>racurry-beh</code></a>
+      <li><a href="#repeat-send"><code>repeat-send</code></a>
+      <li><a href="#restart-actors-system"><code>restart-actors-system</code></a>
+      <li><a href="#ret"><code>ret</code></a>
+      <li><a href="#ret*"><code>ret*</code></a>
+      <li><a href="#safe-serializer"><code>safe-serializer</code></a>
+      <li><a href="#self-sync-encoder"><code>self-sync-encoder</code></a>
+      <li><a href="#send"><code>send</code></a>
+      <li><a href="#send*"><code>send*</code></a>
+      <li><a href="#send-after"><code>send-after</code></a>
+      <li><a href="#send-all-to"><code>send-all-to</code></a>
+      <li><a href="#send-combined-msg"><code>send-combined-msg</code></a>
+      <li><a href="#send-to-all"><code>send-to-all</code></a>
+      <li><a href="#send-to-pool"><code>send-to-pool</code></a>
+      <li><a href="#sequenced-delivery"><code>sequenced-delivery</code></a>
+      <li><a href="#serializer"><code>serializer</code></a>
+      <li><a href="#serializer-sink"><code>serializer-sink</code></a>
+      <li><a href="#signature-validation"><code>signature-validation</code></a>
+      <li><a href="#signing"><code>signing</code></a>
+      <li><a href="#simd"><code>simd</code></a>
+      <li><a href="#sink-beh"><code>sink-beh</code></a>
+      <li><a href="#sink-pipe"><code>sink-pipe</code></a>
+      <li><a href="#splay"><code>splay</code></a>
+      <li><a href="#splay-beh"><code>splay-beh</code></a>
+      <li><a href="#start"><code>start</code></a>
+      <li><a href="#start-tcp-server"><code>start-tcp-server</code></a>
+      <li><a href="#stsend"><code>stsend</code></a>
+      <li><a href="#tag"><code>tag</code></a>
+      <li><a href="#tag-beh"><code>tag-beh</code></a>
+      <li><a href="#tee"><code>tee</code></a>
+      <li><a href="#tee-beh"><code>tee-beh</code></a>
+      <li><a href="#terminate-server"><code>terminate-server</code></a>
+      <li><a href="#timed-tag"><code>timed-tag</code></a>
+      <li><a href="#timeout"><code>timeout</code></a>
+      <li><a href="#timing"><code>timing</code></a>
+      <li><a href="#timing-beh"><code>timing-beh</code></a>
+      <li><a href="#verify-checksum"><code>verify-checksum</code></a>
+      <li><a href="#watchdog-timer"><code>watchdog-timer</code></a>
+      <li><a href="#with-error-response"><code>with-error-response</code></a>
+      <li><a href="#with-printer"><code>with-printer</code></a>
+      <li><a href="#with-single-thread"><code>with-single-thread</code></a>
+      <li><a href="#with-timeout"><code>with-timeout</code></a>
+      <li><a href="#writer"><code>writer</code></a>
+      <li><a href="#&#xB5;"><code>&#xB5;</code></a>
+      <li><a href="#&#x3B1;"><code>&#x3B1;</code></a>
+      <li><a href="#&#x3B1;&#x3B1;"><code>&#x3B1;&#x3B1;</code></a>
+      <li><a href="#&#x3B2;"><code>&#x3B2;</code></a>
+      <li><a href="#&#x3B3;actor"><code>&#x3B3;actor</code></a>
+      <li><a href="#&#x3B3;lambda"><code>&#x3B3;lambda</code></a>
+      <li><a href="#&#x3BB;"><code>&#x3BB;</code></a>
+      <li><a href="#&#x2202;"><code>&#x2202;</code></a>
+    </ol>
+  <li><a href="#ack">Acknowledgements</a>
+</ol>
+
+<br>&nbsp;<br><h3><a class=none name="dictionary">The COM.RAL.ACTORS dictionary</a></h3>
+
+
+
+<!-- Entry for %SET-BEH -->
+
+<p><br>[Function]<br><a class=none name='%set-beh'><b>%set-beh</b> <i>actor-dst actor-src</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for %SET-BEH -->
+
+
+<!-- Entry for *NBR-POOL* -->
+
+<p><br>[Special variable]<br><a class=none name='*nbr-pool*'><b>*nbr-pool*</b></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for *NBR-POOL* -->
+
+
+<!-- Entry for *NO-ANSWER* -->
+
+<p><br>[Special variable]<br><a class=none name='*no-answer*'><b>*no-answer*</b></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for *NO-ANSWER* -->
+
+
+<!-- Entry for *TIMEOUT* -->
+
+<p><br>[Special variable]<br><a class=none name='*timeout*'><b>*timeout*</b></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for *TIMEOUT* -->
+
+
+<!-- Entry for +DONEQ+ -->
+
+<p><br>[Special variable]<br><a class=none name='+doneq+'><b>+doneq+</b></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for +DONEQ+ -->
+
+
+<!-- Entry for +EMPTYQ+ -->
+
+<p><br>[Special variable]<br><a class=none name='+emptyq+'><b>+emptyq+</b></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for +EMPTYQ+ -->
+
+
+<!-- Entry for ABORT-BEH -->
+
+<p><br>[Function]<br><a class=none name='abort-beh'><b>abort-beh</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ABORT-BEH -->
+
+
+<!-- Entry for ACTOR -->
+
+<p><br>[Standard class]<br><a class=none name='actor'><b>actor</b></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ACTOR -->
+
+
+<!-- Entry for ACTOR -->
+
+<p><br>[Macro]<br><a class=none name='actor'><b>actor</b> <i>args declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ACTOR -->
+
+
+<!-- Entry for ACTOR-BEH -->
+
+<p><br>[Function]<br><a class=none name='actor-beh'><b>actor-beh</b> <i>object</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ACTOR-BEH -->
+
+
+<!-- Entry for ACTOR-NLET -->
+
+<p><br>[Macro]<br><a class=none name='actor-nlet'><b>actor-nlet</b> <i>name bindings declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ACTOR-NLET -->
+
+
+<!-- Entry for ACTOR-P -->
+
+<p><br>[Function]<br><a class=none name='actor-p'><b>actor-p</b> <i>object</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ACTOR-P -->
+
+
+<!-- Entry for ACTORS -->
+
+<p><br>[Macro]<br><a class=none name='actors'><b>actors</b> <i>bindings declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ACTORS -->
+
+
+<!-- Entry for ACTORS-RUNNING-P -->
+
+<p><br>[Function]<br><a class=none name='actors-running-p'><b>actors-running-p</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ACTORS-RUNNING-P -->
+
+
+<!-- Entry for ACURRY -->
+
+<p><br>[Function]<br><a class=none name='acurry'><b>acurry</b> <i>actor <tt>&amp;rest</tt> largs</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ACURRY -->
+
+
+<!-- Entry for ACURRY-BEH -->
+
+<p><br>[Function]<br><a class=none name='acurry-beh'><b>acurry-beh</b> <i>actor <tt>&amp;rest</tt> largs</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ACURRY-BEH -->
+
+
+<!-- Entry for ADD-EXECUTIVES -->
+
+<p><br>[Function]<br><a class=none name='add-executives'><b>add-executives</b> <i>n</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ADD-EXECUTIVES -->
+
+
+<!-- Entry for ADDQ -->
+
+<p><br>[Function]<br><a class=none name='addq'><b>addq</b> <i>q item</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ADDQ -->
+
+
+<!-- Entry for ALAMBDA -->
+
+<p><br>[Macro]<br><a class=none name='alambda'><b>alambda</b> <i><tt>&amp;rest</tt> clauses</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ALAMBDA -->
+
+
+<!-- Entry for AONT-ENCODER -->
+
+<p><br>[Function]<br><a class=none name='aont-encoder'><b>aont-encoder</b> <i>skey ekey</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for AONT-ENCODER -->
+
+
+<!-- Entry for AONT-FILE-READER -->
+
+<p><br>[Function]<br><a class=none name='aont-file-reader'><b>aont-file-reader</b> <i>fname</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for AONT-FILE-READER -->
+
+
+<!-- Entry for AONT-FILE-WRITER -->
+
+<p><br>[Function]<br><a class=none name='aont-file-writer'><b>aont-file-writer</b> <i>fname skey ekey</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for AONT-FILE-WRITER -->
+
+
+<!-- Entry for ASK -->
+
+<p><br>[Function]<br><a class=none name='ask'><b>ask</b> <i>actor <tt>&amp;rest</tt> msg</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ASK -->
+
+
+<!-- Entry for AUTHENTICATION -->
+
+<p><br>[Function]<br><a class=none name='authentication'><b>authentication</b> <i>ekey</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for AUTHENTICATION -->
+
+
+<!-- Entry for BECOME -->
+
+<p><br>[Function]<br><a class=none name='become'><b>become</b> <i>new-beh</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for BECOME -->
+
+
+<!-- Entry for BETA -->
+
+<p><br>[Macro]<br><a class=none name='beta'><b>beta</b> <i>args form declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for BETA -->
+
+
+<!-- Entry for BLOCKING-SERIALIZER -->
+
+<p><br>[Function]<br><a class=none name='blocking-serializer'><b>blocking-serializer</b> <i>service</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for BLOCKING-SERIALIZER -->
+
+
+<!-- Entry for CALL-ACTOR -->
+
+<p><br>[Function]<br><a class=none name='call-actor'><b>call-actor</b> <i>ac <tt>&amp;rest</tt> args</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for CALL-ACTOR -->
+
+
+<!-- Entry for CHECK-AUTHENTICATION -->
+
+<p><br>[Function]<br><a class=none name='check-authentication'><b>check-authentication</b> <i>ekey</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for CHECK-AUTHENTICATION -->
+
+
+<!-- Entry for CHECKSUM -->
+
+<p><br>[Function]<br><a class=none name='checksum'><b>checksum</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for CHECKSUM -->
+
+
+<!-- Entry for CHUNKER -->
+
+<p><br>[Function]<br><a class=none name='chunker'><b>chunker</b> <i><tt>&amp;key</tt> max-size</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for CHUNKER -->
+
+
+<!-- Entry for CONCURRENTLY -->
+
+<p><br>[Macro]<br><a class=none name='concurrently'><b>concurrently</b> <i>declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for CONCURRENTLY -->
+
+
+<!-- Entry for CONST -->
+
+<p><br>[Function]<br><a class=none name='const'><b>const</b> <i><tt>&amp;rest</tt> msg</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for CONST -->
+
+
+<!-- Entry for CONST-BEH -->
+
+<p><br>[Function]<br><a class=none name='const-beh'><b>const-beh</b> <i><tt>&amp;rest</tt> msg</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for CONST-BEH -->
+
+
+<!-- Entry for CREATE -->
+
+<p><br>[Function]<br><a class=none name='create'><b>create</b> <i><tt>&amp;optional</tt> fn</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for CREATE -->
+
+
+<!-- Entry for DECHUNKER -->
+
+<p><br>[Function]<br><a class=none name='dechunker'><b>dechunker</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DECHUNKER -->
+
+
+<!-- Entry for DECRYPTOR -->
+
+<p><br>[Function]<br><a class=none name='decryptor'><b>decryptor</b> <i>ekey</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DECRYPTOR -->
+
+
+<!-- Entry for DEF-BEH -->
+
+<p><br>[Macro]<br><a class=none name='def-beh'><b>def-beh</b> <i>name args <tt>&amp;rest</tt> clauses</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DEF-BEH -->
+
+
+<!-- Entry for DEF-SER-BEH -->
+
+<p><br>[Macro]<br><a class=none name='def-ser-beh'><b>def-ser-beh</b> <i>name args <tt>&amp;rest</tt> clauses</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DEF-SER-BEH -->
+
+
+<!-- Entry for DEFLEX -->
+
+<p><br>[Macro]<br><a class=none name='deflex'><b>deflex</b> <i>var val <tt>&amp;optional</tt> doc</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+Define a top level (global) lexical VAR with initial value VAL,
+  which is assigned unconditionally as with DEFPARAMETER. If a DOC
+  string is provided, it is attached to both the name |VAR| and the
+  name *STORAGE-FOR-DEFLEX-VAR-|VAR|* as a documentation string of
+  kind &#039;VARIABLE. The new VAR will have lexical scope and thus may be
+  shadowed by LET bindings without affecting its dynamic (global) value.
+
+</blockquote>
+
+<!-- End of entry for DEFLEX -->
+
+
+<!-- Entry for DEFUN* -->
+
+<p><br>[Macro]<br><a class=none name='defun*'><b>defun*</b> <i>name args declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DEFUN* -->
+
+
+<!-- Entry for DISK-DECODER -->
+
+<p><br>[Function]<br><a class=none name='disk-decoder'><b>disk-decoder</b> <i>cust</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DISK-DECODER -->
+
+
+<!-- Entry for DISK-ENCODER -->
+
+<p><br>[Function]<br><a class=none name='disk-encoder'><b>disk-encoder</b> <i>dest <tt>&amp;key</tt> max-chunk</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DISK-ENCODER -->
+
+
+<!-- Entry for DO-QUEUE -->
+
+<p><br>[Macro]<br><a class=none name='do-queue'><b>do-queue</b> <i>(item q) declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DO-QUEUE -->
+
+
+<!-- Entry for EMPTYQ? -->
+
+<p><br>[Function]<br><a class=none name='emptyq?'><b>emptyq?</b> <i>q</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for EMPTYQ? -->
+
+
+<!-- Entry for ENCRYPTOR -->
+
+<p><br>[Function]<br><a class=none name='encryptor'><b>encryptor</b> <i>ekey</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ENCRYPTOR -->
+
+
+<!-- Entry for FAIL-SILENT-MARSHAL-DECODER -->
+
+<p><br>[Function]<br><a class=none name='fail-silent-marshal-decoder'><b>fail-silent-marshal-decoder</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FAIL-SILENT-MARSHAL-DECODER -->
+
+
+<!-- Entry for FAIL-SILENT-MARSHAL-DECOMPRESSOR -->
+
+<p><br>[Function]<br><a class=none name='fail-silent-marshal-decompressor'><b>fail-silent-marshal-decompressor</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FAIL-SILENT-MARSHAL-DECOMPRESSOR -->
+
+
+<!-- Entry for FLET* -->
+
+<p><br>[Macro]<br><a class=none name='flet*'><b>flet*</b> <i>bindings declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FLET* -->
+
+
+<!-- Entry for FN-ACTOR -->
+
+<p><br>[Function]<br><a class=none name='fn-actor'><b>fn-actor</b> <i>fn</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FN-ACTOR -->
+
+
+<!-- Entry for FN-ACTOR-BEH -->
+
+<p><br>[Function]<br><a class=none name='fn-actor-beh'><b>fn-actor-beh</b> <i>fn</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FN-ACTOR-BEH -->
+
+
+<!-- Entry for FORK -->
+
+<p><br>[Function]<br><a class=none name='fork'><b>fork</b> <i>left right</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FORK -->
+
+
+<!-- Entry for FUTURE -->
+
+<p><br>[Function]<br><a class=none name='future'><b>future</b> <i>actor <tt>&amp;rest</tt> msg</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FUTURE -->
+
+
+<!-- Entry for FWD -->
+
+<p><br>[Function]<br><a class=none name='fwd'><b>fwd</b> <i>actor</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FWD -->
+
+
+<!-- Entry for FWD-BEH -->
+
+<p><br>[Function]<br><a class=none name='fwd-beh'><b>fwd-beh</b> <i>actor</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FWD-BEH -->
+
+
+<!-- Entry for IS-PURE-SINK? -->
+
+<p><br>[Function]<br><a class=none name='is-pure-sink?'><b>is-pure-sink?</b> <i>actor</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for IS-PURE-SINK? -->
+
+
+<!-- Entry for ITERQ -->
+
+<p><br>[Function]<br><a class=none name='iterq'><b>iterq</b> <i>q fn</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ITERQ -->
+
+
+<!-- Entry for KILL-ACTORS-SYSTEM -->
+
+<p><br>[Function]<br><a class=none name='kill-actors-system'><b>kill-actors-system</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for KILL-ACTORS-SYSTEM -->
+
+
+<!-- Entry for LABEL -->
+
+<p><br>[Function]<br><a class=none name='label'><b>label</b> <i>cust lbl</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for LABEL -->
+
+
+<!-- Entry for LABEL-BEH -->
+
+<p><br>[Function]<br><a class=none name='label-beh'><b>label-beh</b> <i>cust lbl</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for LABEL-BEH -->
+
+
+<!-- Entry for LABELS* -->
+
+<p><br>[Macro]<br><a class=none name='labels*'><b>labels*</b> <i>bindings declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for LABELS* -->
+
+
+<!-- Entry for LAMBDA* -->
+
+<p><br>[Macro]<br><a class=none name='lambda*'><b>lambda*</b> <i>args declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for LAMBDA* -->
+
+
+<!-- Entry for LAZY -->
+
+<p><br>[Function]<br><a class=none name='lazy'><b>lazy</b> <i>actor <tt>&amp;rest</tt> msg</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for LAZY -->
+
+
+<!-- Entry for LETREC -->
+
+<p><br>[Macro]<br><a class=none name='letrec'><b>letrec</b> <i>bindings declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for LETREC -->
+
+
+<!-- Entry for LIST-EXPLODER -->
+
+<p><br>[Function]<br><a class=none name='list-exploder'><b>list-exploder</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for LIST-EXPLODER -->
+
+
+<!-- Entry for LIST-IMPLODER -->
+
+<p><br>[Function]<br><a class=none name='list-imploder'><b>list-imploder</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for LIST-IMPLODER -->
+
+
+<!-- Entry for MARKER -->
+
+<p><br>[Function]<br><a class=none name='marker'><b>marker</b> <i><tt>&amp;rest</tt> txt</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MARKER -->
+
+
+<!-- Entry for MARSHAL-COMPRESSOR -->
+
+<p><br>[Function]<br><a class=none name='marshal-compressor'><b>marshal-compressor</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MARSHAL-COMPRESSOR -->
+
+
+<!-- Entry for MARSHAL-DECODER -->
+
+<p><br>[Function]<br><a class=none name='marshal-decoder'><b>marshal-decoder</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MARSHAL-DECODER -->
+
+
+<!-- Entry for MARSHAL-DECOMPRESSOR -->
+
+<p><br>[Function]<br><a class=none name='marshal-decompressor'><b>marshal-decompressor</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MARSHAL-DECOMPRESSOR -->
+
+
+<!-- Entry for MARSHAL-ENCODER -->
+
+<p><br>[Function]<br><a class=none name='marshal-encoder'><b>marshal-encoder</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MARSHAL-ENCODER -->
+
+
+<!-- Entry for MATCH -->
+
+<p><br>[Macro]<br><a class=none name='match'><b>match</b> <i>msg declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MATCH -->
+
+
+<!-- Entry for MBOX-SENDER -->
+
+<p><br>[Function]<br><a class=none name='mbox-sender'><b>mbox-sender</b> <i>mbox</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MBOX-SENDER -->
+
+
+<!-- Entry for MBOX-SENDER-BEH -->
+
+<p><br>[Function]<br><a class=none name='mbox-sender-beh'><b>mbox-sender-beh</b> <i>mbox</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MBOX-SENDER-BEH -->
+
+
+<!-- Entry for MIMD -->
+
+<p><br>[Function]<br><a class=none name='mimd'><b>mimd</b> <i><tt>&amp;rest</tt> svcs</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MIMD -->
+
+
+<!-- Entry for NETW-DECODER -->
+
+<p><br>[Function]<br><a class=none name='netw-decoder'><b>netw-decoder</b> <i>ekey pkey cust</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for NETW-DECODER -->
+
+
+<!-- Entry for NETW-ENCODER -->
+
+<p><br>[Function]<br><a class=none name='netw-encoder'><b>netw-encoder</b> <i>ekey skey dest <tt>&amp;key</tt> max-chunk</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for NETW-ENCODER -->
+
+
+<!-- Entry for ONCE -->
+
+<p><br>[Function]<br><a class=none name='once'><b>once</b> <i>cust</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ONCE -->
+
+
+<!-- Entry for ONCE-BEH -->
+
+<p><br>[Function]<br><a class=none name='once-beh'><b>once-beh</b> <i>cust</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ONCE-BEH -->
+
+
+<!-- Entry for ONCE-TAG -->
+
+<p><br>[Function]<br><a class=none name='once-tag'><b>once-tag</b> <i>cust</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ONCE-TAG -->
+
+
+<!-- Entry for PIPE -->
+
+<p><br>[Function]<br><a class=none name='pipe'><b>pipe</b> <i><tt>&amp;rest</tt> elts</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for PIPE -->
+
+
+<!-- Entry for PIPE-BEH -->
+
+<p><br>[Function]<br><a class=none name='pipe-beh'><b>pipe-beh</b> <i><tt>&amp;rest</tt> elts</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for PIPE-BEH -->
+
+
+<!-- Entry for POPQ -->
+
+<p><br>[Function]<br><a class=none name='popq'><b>popq</b> <i>q</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for POPQ -->
+
+
+<!-- Entry for PRINTER -->
+
+<p><br>[Function]<br><a class=none name='printer'><b>printer</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for PRINTER -->
+
+
+<!-- Entry for PUSHQ -->
+
+<p><br>[Function]<br><a class=none name='pushq'><b>pushq</b> <i>q item</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for PUSHQ -->
+
+
+<!-- Entry for RACE -->
+
+<p><br>[Function]<br><a class=none name='race'><b>race</b> <i><tt>&amp;rest</tt> actors</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for RACE -->
+
+
+<!-- Entry for RACE-BEH -->
+
+<p><br>[Function]<br><a class=none name='race-beh'><b>race-beh</b> <i><tt>&amp;rest</tt> actors</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for RACE-BEH -->
+
+
+<!-- Entry for RACURRY -->
+
+<p><br>[Function]<br><a class=none name='racurry'><b>racurry</b> <i>actor <tt>&amp;rest</tt> rargs</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for RACURRY -->
+
+
+<!-- Entry for RACURRY-BEH -->
+
+<p><br>[Function]<br><a class=none name='racurry-beh'><b>racurry-beh</b> <i>actor <tt>&amp;rest</tt> rargs</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for RACURRY-BEH -->
+
+
+<!-- Entry for REPEAT-SEND -->
+
+<p><br>[Function]<br><a class=none name='repeat-send'><b>repeat-send</b> <i>actor</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for REPEAT-SEND -->
+
+
+<!-- Entry for RESTART-ACTORS-SYSTEM -->
+
+<p><br>[Function]<br><a class=none name='restart-actors-system'><b>restart-actors-system</b> <i><tt>&amp;optional</tt> nbr-execs</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for RESTART-ACTORS-SYSTEM -->
+
+
+<!-- Entry for RET -->
+
+<p><br>[Macro]<br><a class=none name='ret'><b>ret</b> <i><tt>&amp;rest</tt> ans</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for RET -->
+
+
+<!-- Entry for RET* -->
+
+<p><br>[Macro]<br><a class=none name='ret*'><b>ret*</b> <i><tt>&amp;rest</tt> ans</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for RET* -->
+
+
+<!-- Entry for SAFE-SERIALIZER -->
+
+<p><br>[Function]<br><a class=none name='safe-serializer'><b>safe-serializer</b> <i>action <tt>&amp;key</tt> timeout on-timeout supv</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SAFE-SERIALIZER -->
+
+
+<!-- Entry for SELF-SYNC-ENCODER -->
+
+<p><br>[Function]<br><a class=none name='self-sync-encoder'><b>self-sync-encoder</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SELF-SYNC-ENCODER -->
+
+
+<!-- Entry for SEND -->
+
+<p><br>[Function]<br><a class=none name='send'><b>send</b> <i>actor <tt>&amp;rest</tt> msg</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SEND -->
+
+
+<!-- Entry for SEND* -->
+
+<p><br>[Macro]<br><a class=none name='send*'><b>send*</b> <i>actor <tt>&amp;rest</tt> msg</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SEND* -->
+
+
+<!-- Entry for SEND-AFTER -->
+
+<p><br>[Function]<br><a class=none name='send-after'><b>send-after</b> <i>dt actor <tt>&amp;rest</tt> msg</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SEND-AFTER -->
+
+
+<!-- Entry for SEND-ALL-TO -->
+
+<p><br>[Function]<br><a class=none name='send-all-to'><b>send-all-to</b> <i>actor msg-list</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SEND-ALL-TO -->
+
+
+<!-- Entry for SEND-COMBINED-MSG -->
+
+<p><br>[Function]<br><a class=none name='send-combined-msg'><b>send-combined-msg</b> <i>cust msg1 msg2</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SEND-COMBINED-MSG -->
+
+
+<!-- Entry for SEND-TO-ALL -->
+
+<p><br>[Function]<br><a class=none name='send-to-all'><b>send-to-all</b> <i>actors <tt>&amp;rest</tt> msg</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SEND-TO-ALL -->
+
+
+<!-- Entry for SEND-TO-POOL -->
+
+<p><br>[Function]<br><a class=none name='send-to-pool'><b>send-to-pool</b> <i>actor <tt>&amp;rest</tt> msg</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SEND-TO-POOL -->
+
+
+<!-- Entry for SEQUENCED-DELIVERY -->
+
+<p><br>[Function]<br><a class=none name='sequenced-delivery'><b>sequenced-delivery</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SEQUENCED-DELIVERY -->
+
+
+<!-- Entry for SERIALIZER -->
+
+<p><br>[Function]<br><a class=none name='serializer'><b>serializer</b> <i>service</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SERIALIZER -->
+
+
+<!-- Entry for SERIALIZER-SINK -->
+
+<p><br>[Function]<br><a class=none name='serializer-sink'><b>serializer-sink</b> <i>service</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SERIALIZER-SINK -->
+
+
+<!-- Entry for SIGNATURE-VALIDATION -->
+
+<p><br>[Function]<br><a class=none name='signature-validation'><b>signature-validation</b> <i>pkey</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SIGNATURE-VALIDATION -->
+
+
+<!-- Entry for SIGNING -->
+
+<p><br>[Function]<br><a class=none name='signing'><b>signing</b> <i>skey</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SIGNING -->
+
+
+<!-- Entry for SIMD -->
+
+<p><br>[Function]<br><a class=none name='simd'><b>simd</b> <i>svc</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SIMD -->
+
+
+<!-- Entry for SINK-BEH -->
+
+<p><br>[Function]<br><a class=none name='sink-beh'><b>sink-beh</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SINK-BEH -->
+
+
+<!-- Entry for SINK-PIPE -->
+
+<p><br>[Function]<br><a class=none name='sink-pipe'><b>sink-pipe</b> <i><tt>&amp;rest</tt> elts</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SINK-PIPE -->
+
+
+<!-- Entry for SPLAY -->
+
+<p><br>[Function]<br><a class=none name='splay'><b>splay</b> <i><tt>&amp;rest</tt> custs</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SPLAY -->
+
+
+<!-- Entry for SPLAY-BEH -->
+
+<p><br>[Function]<br><a class=none name='splay-beh'><b>splay-beh</b> <i><tt>&amp;rest</tt> custs</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SPLAY-BEH -->
+
+
+<!-- Entry for START -->
+
+<p><br>[Function]<br><a class=none name='start'><b>start</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for START -->
+
+
+<!-- Entry for START-TCP-SERVER -->
+
+<p><br>[Function]<br><a class=none name='start-tcp-server'><b>start-tcp-server</b> <i><tt>&amp;optional</tt> tcp-port-number</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+An internal routine to start up a server listener socket on the
+indicated port number.
+
+</blockquote>
+
+<!-- End of entry for START-TCP-SERVER -->
+
+
+<!-- Entry for STSEND -->
+
+<p><br>[Function]<br><a class=none name='stsend'><b>stsend</b> <i>actor <tt>&amp;rest</tt> msg</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for STSEND -->
+
+
+<!-- Entry for TAG -->
+
+<p><br>[Function]<br><a class=none name='tag'><b>tag</b> <i>cust</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for TAG -->
+
+
+<!-- Entry for TAG-BEH -->
+
+<p><br>[Function]<br><a class=none name='tag-beh'><b>tag-beh</b> <i>cust</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for TAG-BEH -->
+
+
+<!-- Entry for TEE -->
+
+<p><br>[Function]<br><a class=none name='tee'><b>tee</b> <i><tt>&amp;optional</tt> sink-blk</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for TEE -->
+
+
+<!-- Entry for TEE-BEH -->
+
+<p><br>[Function]<br><a class=none name='tee-beh'><b>tee-beh</b> <i><tt>&amp;optional</tt> sink-blk</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for TEE-BEH -->
+
+
+<!-- Entry for TERMINATE-SERVER -->
+
+<p><br>[Function]<br><a class=none name='terminate-server'><b>terminate-server</b> <i>reply-to</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for TERMINATE-SERVER -->
+
+
+<!-- Entry for TIMED-TAG -->
+
+<p><br>[Function]<br><a class=none name='timed-tag'><b>timed-tag</b> <i>cust timeout cust-id</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for TIMED-TAG -->
+
+
+<!-- Entry for TIMEOUT -->
+
+<p><br>[Condition type]<br><a class=none name='timeout'><b>timeout</b></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for TIMEOUT -->
+
+
+<!-- Entry for TIMING -->
+
+<p><br>[Function]<br><a class=none name='timing'><b>timing</b> <i>dut</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for TIMING -->
+
+
+<!-- Entry for TIMING-BEH -->
+
+<p><br>[Function]<br><a class=none name='timing-beh'><b>timing-beh</b> <i>dut</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for TIMING-BEH -->
+
+
+<!-- Entry for VERIFY-CHECKSUM -->
+
+<p><br>[Function]<br><a class=none name='verify-checksum'><b>verify-checksum</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VERIFY-CHECKSUM -->
+
+
+<!-- Entry for WATCHDOG-TIMER -->
+
+<p><br>[Function]<br><a class=none name='watchdog-timer'><b>watchdog-timer</b> <i>action <tt>&amp;key</tt> timeout on-timeout supv</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for WATCHDOG-TIMER -->
+
+
+<!-- Entry for WITH-ERROR-RESPONSE -->
+
+<p><br>[Macro]<br><a class=none name='with-error-response'><b>with-error-response</b> <i>(cust <tt>&amp;optional</tt> fn-err) declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for WITH-ERROR-RESPONSE -->
+
+
+<!-- Entry for WITH-PRINTER -->
+
+<p><br>[Macro]<br><a class=none name='with-printer'><b>with-printer</b> <i>(var stream) declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for WITH-PRINTER -->
+
+
+<!-- Entry for WITH-SINGLE-THREAD -->
+
+<p><br>[Macro]<br><a class=none name='with-single-thread'><b>with-single-thread</b> <i>declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for WITH-SINGLE-THREAD -->
+
+
+<!-- Entry for WITH-TIMEOUT -->
+
+<p><br>[Macro]<br><a class=none name='with-timeout'><b>with-timeout</b> <i>dt <tt>&amp;rest</tt> body</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for WITH-TIMEOUT -->
+
+
+<!-- Entry for WRITER -->
+
+<p><br>[Function]<br><a class=none name='writer'><b>writer</b> <i></i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for WRITER -->
+
+
+<!-- Entry for µ -->
+
+<p><br>[Macro]<br><a class=none name='&#xB5;'><b>&#xB5;</b> <i>name args declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for µ -->
+
+
+<!-- Entry for α -->
+
+<p><br>[Macro]<br><a class=none name='&#x3B1;'><b>&#x3B1;</b> <i>args declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for α -->
+
+
+<!-- Entry for αα -->
+
+<p><br>[Macro]<br><a class=none name='&#x3B1;&#x3B1;'><b>&#x3B1;&#x3B1;</b> <i><tt>&amp;rest</tt> clauses</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for αα -->
+
+
+<!-- Entry for β -->
+
+<p><br>[Macro]<br><a class=none name='&#x3B2;'><b>&#x3B2;</b> <i>args form declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for β -->
+
+
+<!-- Entry for γACTOR -->
+
+<p><br>[Macro]<br><a class=none name='&#x3B3;actor'><b>&#x3B3;actor</b> <i>args declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for γACTOR -->
+
+
+<!-- Entry for γLAMBDA -->
+
+<p><br>[Macro]<br><a class=none name='&#x3B3;lambda'><b>&#x3B3;lambda</b> <i><tt>&amp;rest</tt> clauses</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for γLAMBDA -->
+
+
+<!-- Entry for λ -->
+
+<p><br>[Macro]<br><a class=none name='&#x3BB;'><b>&#x3BB;</b> <i>args declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for λ -->
+
+
+<!-- Entry for ∂ -->
+
+<p><br>[Macro]<br><a class=none name='&#x2202;'><b>&#x2202;</b> <i>name args declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ∂ -->
+
+
+<br>&nbsp;<br><h3><a class=none name="ack">Acknowledgements</a></h3>
+
+<p>
+This documentation was prepared with a locally modified version of Edi Weitz's <a href="http://weitz.de/documentation-template/">DOCUMENTATION-TEMPLATE</a>.
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.
+</p>
+</body>
+</html>

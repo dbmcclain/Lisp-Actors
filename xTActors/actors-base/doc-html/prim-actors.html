@@ -1,0 +1,1475 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+prim-actors</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="cheapq.html">
+Prev:&nbsp;cheapq.lisp</a>
+<br/>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+prim-actors.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+prim-actors.lisp
+</h2>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42765">
+acurry</a>
+</td>
+<td class="summary">
+actor <em>&amp;rest</em> largs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42764">
+acurry-beh</a>
+</td>
+<td class="summary">
+actor <em>&amp;rest</em> largs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42734">
+const</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> msg</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42733">
+const-beh</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> msg</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42755">
+fork</a>
+</td>
+<td class="summary">
+left right</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42751">
+future</a>
+</td>
+<td class="summary">
+actor <em>&amp;rest</em> msg</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42750">
+future-wait-beh</a>
+</td>
+<td class="summary">
+tag <em>&amp;rest</em> custs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42742">
+fwd</a>
+</td>
+<td class="summary">
+actor</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42741">
+fwd-beh</a>
+</td>
+<td class="summary">
+actor</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42754">
+join-beh</a>
+</td>
+<td class="summary">
+cust lbl1</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42744">
+label</a>
+</td>
+<td class="summary">
+cust lbl</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42743">
+label-beh</a>
+</td>
+<td class="summary">
+cust lbl</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42753">
+lazy</a>
+</td>
+<td class="summary">
+actor <em>&amp;rest</em> msg</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42752">
+lazy-beh</a>
+</td>
+<td class="summary">
+actor <em>&amp;rest</em> msg</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42757">
+mimd</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> svcs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42736">
+once</a>
+</td>
+<td class="summary">
+cust</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42735">
+once-beh</a>
+</td>
+<td class="summary">
+cust</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42748">
+once-tag</a>
+</td>
+<td class="summary">
+cust</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42747">
+once-tag-beh</a>
+</td>
+<td class="summary">
+cust</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42769">
+pipe</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> elts</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42768">
+pipe-beh</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> elts</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42740">
+race</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> actors</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42739">
+race-beh</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> actors</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42767">
+racurry</a>
+</td>
+<td class="summary">
+actor <em>&amp;rest</em> rargs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42766">
+racurry-beh</a>
+</td>
+<td class="summary">
+actor <em>&amp;rest</em> rargs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42775">
+safe-serializer</a>
+</td>
+<td class="summary">
+action <em>&amp;key</em> timeout on-timeout supv</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42758">
+send-after</a>
+</td>
+<td class="summary">
+dt actor <em>&amp;rest</em> msg</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42738">
+send-all-to</a>
+</td>
+<td class="summary">
+actor msg-list</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42737">
+send-to-all</a>
+</td>
+<td class="summary">
+actors <em>&amp;rest</em> msg</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42763">
+sequenced-delivery</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42759">
+serializer</a>
+</td>
+<td class="summary">
+service</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42760">
+serializer-sink</a>
+</td>
+<td class="summary">
+service</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42756">
+simd</a>
+</td>
+<td class="summary">
+svc</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42770">
+sink-pipe</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> elts</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42773">
+splay</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> custs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42746">
+tag</a>
+</td>
+<td class="summary">
+cust</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42745">
+tag-beh</a>
+</td>
+<td class="summary">
+cust</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42772">
+tee</a>
+</td>
+<td class="summary">
+<em>&amp;optional</em> sink-blk</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42771">
+tee-beh</a>
+</td>
+<td class="summary">
+<em>&amp;optional</em> sink-blk</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42749">
+timed-tag</a>
+</td>
+<td class="summary">
+cust timeout cust-id</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42762">
+timing</a>
+</td>
+<td class="summary">
+dut</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42761">
+timing-beh</a>
+</td>
+<td class="summary">
+dut</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="prim-actors.html#_g42774">
+watchdog-timer</a>
+</td>
+<td class="summary">
+action <em>&amp;key</em> timeout on-timeout supv</td>
+</tr>
+</table>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42765">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+acurry&nbsp;&nbsp;</td>
+<td class="lambda-list">
+actor <em>&amp;rest</em> largs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42764">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+acurry-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+actor <em>&amp;rest</em> largs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42734">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+const&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> msg</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42733">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+const-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> msg</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42755">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fork&nbsp;&nbsp;</td>
+<td class="lambda-list">
+left right</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42751">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+future&nbsp;&nbsp;</td>
+<td class="lambda-list">
+actor <em>&amp;rest</em> msg</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42750">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+future-wait-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+tag <em>&amp;rest</em> custs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42742">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd&nbsp;&nbsp;</td>
+<td class="lambda-list">
+actor</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42741">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+actor</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42754">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+join-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust lbl1</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42744">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+label&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust lbl</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42743">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+label-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust lbl</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42753">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+lazy&nbsp;&nbsp;</td>
+<td class="lambda-list">
+actor <em>&amp;rest</em> msg</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42752">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+lazy-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+actor <em>&amp;rest</em> msg</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42757">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+mimd&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> svcs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42736">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+once&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42735">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+once-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42748">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+once-tag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42747">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+once-tag-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42769">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+pipe&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> elts</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42768">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+pipe-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> elts</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42740">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+race&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> actors</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42739">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+race-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> actors</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42767">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+racurry&nbsp;&nbsp;</td>
+<td class="lambda-list">
+actor <em>&amp;rest</em> rargs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42766">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+racurry-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+actor <em>&amp;rest</em> rargs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42775">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+safe-serializer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+action <em>&amp;key</em> timeout on-timeout supv</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42758">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+send-after&nbsp;&nbsp;</td>
+<td class="lambda-list">
+dt actor <em>&amp;rest</em> msg</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42738">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+send-all-to&nbsp;&nbsp;</td>
+<td class="lambda-list">
+actor msg-list</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42737">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+send-to-all&nbsp;&nbsp;</td>
+<td class="lambda-list">
+actors <em>&amp;rest</em> msg</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42763">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sequenced-delivery&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42759">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+serializer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+service</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42760">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+serializer-sink&nbsp;&nbsp;</td>
+<td class="lambda-list">
+service</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42756">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+simd&nbsp;&nbsp;</td>
+<td class="lambda-list">
+svc</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42770">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sink-pipe&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> elts</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42773">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+splay&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> custs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42746">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+tag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42745">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+tag-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42772">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+tee&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;optional</em> sink-blk</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42771">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+tee-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;optional</em> sink-blk</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42749">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+timed-tag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust timeout cust-id</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42762">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+timing&nbsp;&nbsp;</td>
+<td class="lambda-list">
+dut</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42761">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+timing-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+dut</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42774">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+watchdog-timer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+action <em>&amp;key</em> timeout on-timeout supv</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.BASE</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 06:54:41<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

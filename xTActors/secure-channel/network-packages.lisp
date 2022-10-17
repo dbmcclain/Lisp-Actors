@@ -118,3 +118,10 @@
    #:connections
    ))
 
+#|
+(doctools:gen-docs
+ :asdf-system-name :com.ral.actors.secure-channel
+ :package-name     :com.ral.actors.secure-comm
+ :directory        (translate-logical-pathname "PROJECTS:LISP;xTActors;secure-channel")
+ :subtitle         "Transactional Parallel/Concurrent Hewitt Actors in Lisp")
+|#

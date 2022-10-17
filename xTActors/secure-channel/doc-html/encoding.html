@@ -1,0 +1,1998 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+encoding</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="self-sync-actors.html">
+Prev:&nbsp;self-sync-actors.lisp</a>
+<br/>
+<a href="secure-bridging.html">
+Next:&nbsp;secure-bridging.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+encoding.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+encoding.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42470">
+com.ral.actors.encoding:aont-encoder</a>
+</td>
+<td class="summary">
+skey ekey</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42472">
+com.ral.actors.encoding:aont-file-reader</a>
+</td>
+<td class="summary">
+fname</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42471">
+com.ral.actors.encoding:aont-file-writer</a>
+</td>
+<td class="summary">
+fname skey ekey</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42449">
+com.ral.actors.encoding:authentication</a>
+</td>
+<td class="summary">
+ekey</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42430">
+com.ral.actors.encoding:check-auth</a>
+</td>
+<td class="summary">
+ekey seq emsg auth</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42450">
+com.ral.actors.encoding:check-authentication</a>
+</td>
+<td class="summary">
+ekey</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42432">
+com.ral.actors.encoding:check-signature</a>
+</td>
+<td class="summary">
+seq emsg sig pkey</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42454">
+com.ral.actors.encoding:checksum</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42462">
+com.ral.actors.encoding:chunk-monitor</a>
+</td>
+<td class="summary">
+cust</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42456">
+com.ral.actors.encoding:chunker</a>
+</td>
+<td class="summary">
+<em>&amp;key</em> (max-size 65536)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42458">
+com.ral.actors.encoding:dechunker</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42448">
+com.ral.actors.encoding:decryptor</a>
+</td>
+<td class="summary">
+ekey</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42466">
+com.ral.actors.encoding:disk-decoder</a>
+</td>
+<td class="summary">
+cust</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42465">
+com.ral.actors.encoding:disk-encoder</a>
+</td>
+<td class="summary">
+dest <em>&amp;key</em> (max-chunk 65536)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42427">
+com.ral.actors.encoding:encrypt/decrypt</a>
+</td>
+<td class="summary">
+ekey seq bytevec</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42447">
+com.ral.actors.encoding:encryptor</a>
+</td>
+<td class="summary">
+ekey</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42440">
+com.ral.actors.encoding:fail-silent-marshal-decoder</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42445">
+com.ral.actors.encoding:fail-silent-marshal-decompressor</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42434">
+com.ral.actors.encoding:list-exploder</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42433">
+com.ral.actors.encoding:list-imploder</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42429">
+com.ral.actors.encoding:make-auth</a>
+</td>
+<td class="summary">
+ekey seq emsg</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42428">
+com.ral.actors.encoding:make-auth-key</a>
+</td>
+<td class="summary">
+ekey seq</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42431">
+com.ral.actors.encoding:make-signature</a>
+</td>
+<td class="summary">
+seq emsg skey</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42437">
+com.ral.actors.encoding:marker</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> txt</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42443">
+com.ral.actors.encoding:marshal-compressor</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42439">
+com.ral.actors.encoding:marshal-decoder</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42444">
+com.ral.actors.encoding:marshal-decompressor</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42438">
+com.ral.actors.encoding:marshal-encoder</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42464">
+com.ral.actors.encoding:netw-decoder</a>
+</td>
+<td class="summary">
+ekey pkey cust</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42463">
+com.ral.actors.encoding:netw-encoder</a>
+</td>
+<td class="summary">
+ekey skey dest <em>&amp;key</em> (max-chunk 65536)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42435">
+com.ral.actors.encoding:printer</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42468">
+com.ral.actors.encoding:read-self-sync-stream</a>
+</td>
+<td class="summary">
+cust stream <em>&amp;key</em> (start 0) end</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42453">
+com.ral.actors.encoding:self-sync-encoder</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42467">
+com.ral.actors.encoding:self-sync-stream-writer</a>
+</td>
+<td class="summary">
+stream <em>&amp;optional</em> (max-chunk 65536)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42452">
+com.ral.actors.encoding:signature-validation</a>
+</td>
+<td class="summary">
+pkey</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42451">
+com.ral.actors.encoding:signing</a>
+</td>
+<td class="summary">
+skey</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42441">
+com.ral.actors.encoding:simple-compress</a>
+</td>
+<td class="summary">
+vec</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42442">
+com.ral.actors.encoding:simple-uncompress</a>
+</td>
+<td class="summary">
+vec</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42455">
+com.ral.actors.encoding:verify-checksum</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42436">
+com.ral.actors.encoding:writer</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42469">
+com.ral.actors.encoding:+aont-file-type-id+</a>
+</td>
+<td class="summary">
+(vec {b532fc4e-bf2b-123a-9307-24f67702cdaa})</td>
+<td class="summary-type">
+Constant</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Constant summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42469">
++aont-file-type-id+</a>
+</td>
+<td class="summary">
+(vec {b532fc4e-bf2b-123a-9307-24f67702cdaa})</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42470">
+aont-encoder</a>
+</td>
+<td class="summary">
+skey ekey</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42472">
+aont-file-reader</a>
+</td>
+<td class="summary">
+fname</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42471">
+aont-file-writer</a>
+</td>
+<td class="summary">
+fname skey ekey</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42449">
+authentication</a>
+</td>
+<td class="summary">
+ekey</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42430">
+check-auth</a>
+</td>
+<td class="summary">
+ekey seq emsg auth</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42450">
+check-authentication</a>
+</td>
+<td class="summary">
+ekey</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42432">
+check-signature</a>
+</td>
+<td class="summary">
+seq emsg sig pkey</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42454">
+checksum</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42462">
+chunk-monitor</a>
+</td>
+<td class="summary">
+cust</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42459">
+chunk-monitor-beh</a>
+</td>
+<td class="summary">
+mycust</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42456">
+chunker</a>
+</td>
+<td class="summary">
+<em>&amp;key</em> (max-size 65536)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42458">
+dechunker</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42448">
+decryptor</a>
+</td>
+<td class="summary">
+ekey</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42466">
+disk-decoder</a>
+</td>
+<td class="summary">
+cust</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42465">
+disk-encoder</a>
+</td>
+<td class="summary">
+dest <em>&amp;key</em> (max-chunk 65536)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42446">
+encr/decr</a>
+</td>
+<td class="summary">
+ekey nonce bytevec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42427">
+encrypt/decrypt</a>
+</td>
+<td class="summary">
+ekey seq bytevec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42447">
+encryptor</a>
+</td>
+<td class="summary">
+ekey</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42440">
+fail-silent-marshal-decoder</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42445">
+fail-silent-marshal-decompressor</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42434">
+list-exploder</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42433">
+list-imploder</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42429">
+make-auth</a>
+</td>
+<td class="summary">
+ekey seq emsg</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42428">
+make-auth-key</a>
+</td>
+<td class="summary">
+ekey seq</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42457">
+make-dechunk-assembler</a>
+</td>
+<td class="summary">
+cust nchunks size</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42431">
+make-signature</a>
+</td>
+<td class="summary">
+seq emsg skey</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42437">
+marker</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> txt</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42443">
+marshal-compressor</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42439">
+marshal-decoder</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42444">
+marshal-decompressor</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42438">
+marshal-encoder</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42464">
+netw-decoder</a>
+</td>
+<td class="summary">
+ekey pkey cust</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42463">
+netw-encoder</a>
+</td>
+<td class="summary">
+ekey skey dest <em>&amp;key</em> (max-chunk 65536)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42460">
+pending-monitor-beh</a>
+</td>
+<td class="summary">
+mycust remct</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42435">
+printer</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42468">
+read-self-sync-stream</a>
+</td>
+<td class="summary">
+cust stream <em>&amp;key</em> (start 0) end</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42453">
+self-sync-encoder</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42467">
+self-sync-stream-writer</a>
+</td>
+<td class="summary">
+stream <em>&amp;optional</em> (max-chunk 65536)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42452">
+signature-validation</a>
+</td>
+<td class="summary">
+pkey</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42451">
+signing</a>
+</td>
+<td class="summary">
+skey</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42441">
+simple-compress</a>
+</td>
+<td class="summary">
+vec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42442">
+simple-uncompress</a>
+</td>
+<td class="summary">
+vec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42455">
+verify-checksum</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42461">
+worried-chunk-monitor-beh</a>
+</td>
+<td class="summary">
+mycust okcnt</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="encoding.html#_g42436">
+writer</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+</table>
+<div class="defconstant">
+<div class="defunsignatures">
+<a id="_g42469">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
++aont-file-type-id+&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(vec {b532fc4e-bf2b-123a-9307-24f67702cdaa})</td>
+<td class="symbol-type">
+&nbsp;[Constant]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42470">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+aont-encoder&nbsp;&nbsp;</td>
+<td class="lambda-list">
+skey ekey</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42472">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+aont-file-reader&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fname</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42471">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+aont-file-writer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fname skey ekey</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42449">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+authentication&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ekey</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42430">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+check-auth&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ekey seq emsg auth</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42450">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+check-authentication&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ekey</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42432">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+check-signature&nbsp;&nbsp;</td>
+<td class="lambda-list">
+seq emsg sig pkey</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42454">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+checksum&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42462">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+chunk-monitor&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42459">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+chunk-monitor-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+mycust</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42456">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+chunker&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;key</em> (max-size 65536)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42458">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+dechunker&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42448">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+decryptor&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ekey</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42466">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+disk-decoder&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42465">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+disk-encoder&nbsp;&nbsp;</td>
+<td class="lambda-list">
+dest <em>&amp;key</em> (max-chunk 65536)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42446">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+encr/decr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ekey nonce bytevec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42427">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+encrypt/decrypt&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ekey seq bytevec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42447">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+encryptor&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ekey</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42440">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fail-silent-marshal-decoder&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42445">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fail-silent-marshal-decompressor&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42434">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+list-exploder&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42433">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+list-imploder&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42429">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-auth&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ekey seq emsg</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42428">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-auth-key&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ekey seq</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42457">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-dechunk-assembler&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust nchunks size</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42431">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-signature&nbsp;&nbsp;</td>
+<td class="lambda-list">
+seq emsg skey</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42437">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+marker&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> txt</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42443">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+marshal-compressor&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42439">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+marshal-decoder&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42444">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+marshal-decompressor&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42438">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+marshal-encoder&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42464">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+netw-decoder&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ekey pkey cust</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42463">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+netw-encoder&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ekey skey dest <em>&amp;key</em> (max-chunk 65536)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42460">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+pending-monitor-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+mycust remct</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42435">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+printer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42468">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+read-self-sync-stream&nbsp;&nbsp;</td>
+<td class="lambda-list">
+cust stream <em>&amp;key</em> (start 0) end</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42453">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+self-sync-encoder&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42467">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+self-sync-stream-writer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+stream <em>&amp;optional</em> (max-chunk 65536)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42452">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+signature-validation&nbsp;&nbsp;</td>
+<td class="lambda-list">
+pkey</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42451">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+signing&nbsp;&nbsp;</td>
+<td class="lambda-list">
+skey</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42441">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+simple-compress&nbsp;&nbsp;</td>
+<td class="lambda-list">
+vec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42442">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+simple-uncompress&nbsp;&nbsp;</td>
+<td class="lambda-list">
+vec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42455">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+verify-checksum&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42461">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+worried-chunk-monitor-beh&nbsp;&nbsp;</td>
+<td class="lambda-list">
+mycust okcnt</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g42436">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+writer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ACTORS.ENCODING</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 06:54:21<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

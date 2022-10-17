@@ -306,4 +306,10 @@ THE SOFTWARE.
    #:common-lisp
    #:com.ral.actors))
  
-
+#|
+(doctools:gen-docs
+ :asdf-system-name :com.ral.actors
+ :package-name     :com.ral.actors
+ :directory        (translate-logical-pathname "PROJECTS:LISP;xTActors;actors-base")
+ :subtitle         "Transactional Parallel/Concurrent Hewitt Actors in Lisp")
+|#
