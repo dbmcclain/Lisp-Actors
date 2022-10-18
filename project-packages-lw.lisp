@@ -79,9 +79,12 @@
   (declare (optimize speed))
   (apply #'lw:call-next-advice (map-name name) args))
 
-(defun in-quicklisp-p (filename)
+(defmethod in-quicklisp-p (filename)
   (find "quicklisp" (pathname-directory filename)
         :test #'string=))
+
+(defmethod in-quicklisp-p ((stream stream))
+  nil)
 
 (lw:defadvice (load project-packages :around)
     (filename &rest args)
