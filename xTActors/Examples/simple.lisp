@@ -6,7 +6,7 @@
    #:run
    ))
 
-(in-package #:mytest)
+(in-package #:simple)
 
 
 (defparameter receiver
