@@ -1,3 +1,5 @@
+;; Very simple example on how to use actors
+
 (defpackage #:simple
   (:use :common-lisp)
   (:export
