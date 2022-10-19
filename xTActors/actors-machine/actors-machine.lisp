@@ -177,11 +177,17 @@
 (defmacro instr* (&rest op)
   `(apply #'instr ,@op))
 
+#|
 (defun contin (ctxt cont &rest args)
   (instr* ctxt cont :cont args))
+|#
+
+(defun contin (ctxt cont &rest args)
+  (send* cont ctxt args))
 
 (defmacro contin* (ctxt cont &rest args)
   `(apply #'contin ,ctxt ,cont ,@args))
+
 
 (defun #1=am-cpu ()
   (loop
@@ -258,18 +264,7 @@
   (defun chk-commit (body)
     (if (endp body)
         `((commit))
-      body))
-
-  (defun make-am-beh (clause)
-    (destructuring-bind (pat . body) clause
-      `(,pat
-        ,@(when (and (consp body)
-                     (eql 'when (car body))
-                     (cadr body))
-            (prog1
-                `(when ,(cadr body))
-              (setf body (cddr body))))
-        ,@body))))
+      body)))
 
 (defmacro sending ((&rest msg) &body body)
   `(β  (*self-ctxt*)
@@ -317,7 +312,7 @@
        (let ((,am-actor (make-am-actor
                          :beh  (am-lambda (&rest ,msg)
                                  (match ,msg
-                                   ,@(mapcar #'make-am-beh clauses)))
+                                   ,@clauses))
                          )))
          ;; ...and present a normal Actor behavior skin to the outside
          ;; world. Messages sent here from outside the A-Machine get

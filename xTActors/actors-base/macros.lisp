@@ -234,11 +234,9 @@
 
 ;; --------------------------------------------------
 
-(defun do-yield (fn)
-  (β _
-      (send β)
-    (funcall fn)))
-
 (defmacro yield (&body body)
   ;; exit Actor to allow concurrent actions, then resume
-  `(do-yield (lambda () ,@body)))
+  ;; forces our continuation to the back of the event queue.
+  `(β _
+       (send β)
+     ,@body))

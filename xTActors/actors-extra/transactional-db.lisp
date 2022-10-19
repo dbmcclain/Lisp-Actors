@@ -93,13 +93,6 @@
 
 (defpackage com.ral.actors.kv-database
   (:use #:cl :com.ral.actors)
-  (:local-nicknames
-   (#:um        #:com.ral.useful-macros)
-   (#:uuid      #:com.ral.uuid)
-   (#:loenc     #:com.ral.lisp-object-encoder)
-   (#:self-sync #:com.ral.self-sync)
-   (#:sets      #:com.ral.rb-trees.sets)
-   (#:maps      #:com.ral.rb-trees.maps))
   (:export
    #:kvdb
   ))
@@ -116,7 +109,7 @@
 
   ;; -------------------
   ;; commit after update
-  ((cust :commit old-db new-db retry)
+  (( (cust . retry) :commit old-db new-db)
    (cond ((eql old-db db) ;; make sure we have correct version
           (cond ((eql new-db db)
                  ;; no real change
@@ -303,7 +296,7 @@
 (defun add-rec (cust key val)
   (loenc:encode (list key val)) ;; this will barf if either key or val is non-externalizable
   (with-db db
-    (send dbmgr cust :commit db (maps:add db key val) self)
+    (send dbmgr `(,cust . ,self) :commit db (maps:add db key val))
     ))
 
 (defun remove-rec (cust key)
@@ -312,7 +305,7 @@
            (new-db (if (eql val self)
                        db
                      (maps:remove db key))))
-      (send dbmgr cust :commit db new-db self)
+      (send dbmgr `(,cust . ,self) :commit db new-db)
       )))
 
 (defun lookup (cust key &optional default)
@@ -345,7 +338,7 @@
     ((cust :req)
      (repeat-send dbmgr))
     
-    ((cust :commit old-db new-db retry)
+    (( (cust . retry) :commit old-db new-db)
      (repeat-send dbmgr))
     )))
 
