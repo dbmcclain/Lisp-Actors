@@ -264,6 +264,7 @@ THE SOFTWARE.
    #:splay
    #:watchdog-timer
    #:safe-serializer
+   #:yield
    ))
 
 #+(OR :ALLEGRO :CCL)

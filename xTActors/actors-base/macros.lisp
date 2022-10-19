@@ -232,3 +232,13 @@
   (editor:setup-indent "α" 1)
   (editor:indent-like "β" 'destructuring-bind))
 
+;; --------------------------------------------------
+
+(defun do-yield (fn)
+  (β _
+      (send β)
+    (funcall fn)))
+
+(defmacro yield (&body body)
+  ;; exit Actor to allow concurrent actions, then resume
+  `(do-yield (lambda () ,@body)))

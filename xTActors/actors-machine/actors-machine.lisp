@@ -146,7 +146,7 @@
   (when (sys:compare-and-swap *ac-machine* nil t)
     ;; Start the A-Machine, if not already running, or about to run.
     (setf *mcpu-istream*  (mp:make-mailbox)
-          *ac-machine*    (mp:process-run-function "ActorMachine" () #'am-cpu)
+          *ac-machine*    (mp:process-run-function "Actor Machine" () #'am-cpu)
           *send-message*  #'running-send-message))
   (apply #'send-message target msg))
 
@@ -206,7 +206,7 @@
              (contin* ctxt cont (multiple-value-list (apply fn args))))
             
             ((ctxt cont :cont . msg)
-             ;; interesting - anti-blocking
+             ;; interesting - anti-blocking tactic
              ;; (this is an A-Machine emulator, not a speed contest.)
              (send* cont ctxt msg))
             
@@ -254,10 +254,22 @@
 ;; -----------------------------------------------
 ;; Writing Actor Machine Behaviors
 
-(defun chk-commit (body)
-  (if (endp body)
-      `((commit))
-    body))
+(um:eval-always
+  (defun chk-commit (body)
+    (if (endp body)
+        `((commit))
+      body))
+
+  (defun make-am-beh (clause)
+    (destructuring-bind (pat . body) clause
+      `(,pat
+        ,@(when (and (consp body)
+                     (eql 'when (car body))
+                     (cadr body))
+            (prog1
+                `(when ,(cadr body))
+              (setf body (cddr body))))
+        ,@body))))
 
 (defmacro sending ((&rest msg) &body body)
   `(β  (*self-ctxt*)
@@ -295,16 +307,7 @@
      (symbol-macrolet ((self  (ctxt-actor *self-ctxt*)))
        ,@body)))
 
-(defun make-am-beh (clause)
-  (destructuring-bind (pat . body) clause
-    `(,pat
-      ,@(when (and (consp body)
-                   (eql 'when (car body))
-                   (cadr body))
-          (prog1
-              `(when ,(cadr body))
-            (setf body (cddr body))))
-      ,@body)))
+
 
 (defmacro def-am-beh (name args &body clauses)
   (lw:with-unique-names (am-actor msg)
@@ -401,6 +404,14 @@
   (send (create (count-to-beh 15 20)) :next)
   (send (create (count-to-beh 100 105)) :next)
   (send (create (count-to-beh 1500 1508)) :next))
+
+(def-am-beh am-error-beh ()
+  (_
+   (operating (ans (/ 0)))
+   ))
+
+(let ((am (create (am-error-beh))))
+  (send am))
 |#
 
            
