@@ -18,4 +18,6 @@
    #:operating
    #:commit
    #:def-am-beh
+   #:am-lambda
+   #:kill-am
    ))

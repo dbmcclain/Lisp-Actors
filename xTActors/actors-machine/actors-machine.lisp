@@ -129,8 +129,8 @@
 (in-package "actors-machine")
 
 (defvar *mcpu-istream*)
-(defvar *ctxt*)
-(defvar *ac-machine*    nil)
+(defvar *self-ctxt*)
+(defvar *ac-machine* nil)
 
 (defstruct (am-actor
             (:include actor)))
@@ -194,56 +194,52 @@
              (contin ctxt cont))
             
             ((ctxt cont :become new-beh-fn)
-             (let ((new-actor (funcall new-beh-fn nil :get-am-actor)))
+             (let ((new-actor (funcall new-beh-fn sink :get-am-actor)))
                (setf (ctxt-pend-become ctxt) (am-actor-beh new-actor))
                (contin ctxt cont)))
             
             ((ctxt cont :create new-beh-fn)
-             (let ((new-actor (funcall new-beh-fn nil :get-am-actor)))
+             (let ((new-actor (funcall new-beh-fn sink :get-am-actor)))
                (contin ctxt cont new-actor)))
             
             ((ctxt cont :oper fn . args)
              (contin* ctxt cont (multiple-value-list (apply fn args))))
             
             ((ctxt cont :cont . msg)
+             ;; interesting - anti-blocking
+             ;; (this is an A-Machine emulator, not a speed contest.)
              (send* cont ctxt msg))
             
             ((ctxt :commit)
-             (let* ((old-beh   (ctxt-original-beh ctxt))
-                    (new-beh   (ctxt-pend-become ctxt))
-                    (actor     (ctxt-actor ctxt))
-                    (cur-beh   (am-actor-beh actor))
-                    (msgs      (ctxt-pend-send ctxt)))
+             (let ((actor     (ctxt-actor ctxt))
+                   (old-beh   (ctxt-original-beh ctxt))
+                   (new-beh   (ctxt-pend-become ctxt)))
                
-               (cond ((eql new-beh old-beh)
-                        ;; no BECOME performed
-                        (send-messages msgs))
-                     
-                     ((eql cur-beh old-beh)
-                      ;; BECOME and nobody else got there first
-                      (setf (am-actor-beh actor) new-beh)
-                      (send-messages msgs))
+               (cond ((or (null new-beh)
+                          (sys:compare-and-swap (am-actor-beh actor) old-beh new-beh))
+                        ;; no BECOME performed, or else we got here first
+                        (send-messages (ctxt-pend-send ctxt)))
                      
                      (t ;; must retry
-                        (setf (ctxt-original-beh ctxt) cur-beh
-                              (ctxt-pend-become  ctxt) cur-beh
-                              (ctxt-pend-send    ctxt) nil)
-                        (let ((msg (ctxt-original-msg ctxt)))
-                          (contin* ctxt cur-beh msg)))
-                     )))
+                        (let ((cur-beh  (am-actor-beh actor)))
+                          (setf (ctxt-original-beh ctxt) cur-beh
+                                (ctxt-pend-become  ctxt) nil
+                                (ctxt-pend-send    ctxt) nil)
+                          (let ((msg (ctxt-original-msg ctxt)))
+                            (contin* ctxt cur-beh msg)))
+                        ))))
             
             ((:rx target . msg)
              (let* ((beh   (am-actor-beh target))
                     (ctxt  (make-ctxt
                             :actor         target
-                            :pend-send     nil
                             :original-beh  beh
-                            :pend-become   beh
                             :original-msg  msg)))
                (contin* ctxt target msg)))
 
             ((:exit)
              (setf *send-message* #'startup-send-message
+                   *mcpu-istream* nil
                    *ac-machine*   nil)
              (sys:ensure-memory-after-store)
              (return-from #1#))            
@@ -264,35 +260,40 @@
     body))
 
 (defmacro sending ((&rest msg) &body body)
-  `(β  (*ctxt*)
-       (instr *ctxt* β :send ,@msg)
+  `(β  (*self-ctxt*)
+       (instr *self-ctxt* β :send ,@msg)
      ,@(chk-commit body)))
 
 (defmacro sending* ((&rest msg) &body body)
-  `(β  (*ctxt*)
-       (instr* *ctxt* β :send ,@msg)
+  `(β  (*self-ctxt*)
+       (instr* *self-ctxt* β :send ,@msg)
      ,@(chk-commit body)))
 
 (defmacro becoming (beh-fn-form &body body)
-  `(β (*ctxt*)
-       (instr *ctxt* β :become ,beh-fn-form)
+  `(β (*self-ctxt*)
+       (instr *self-ctxt* β :become ,beh-fn-form)
      ,@(chk-commit body)))
 
 (defmacro creating ((ans beh-fn-form) &body body)
-  `(β (*ctxt* ,ans)
-       (instr *ctxt* β :create ,beh-fn-form)
+  `(β (*self-ctxt* ,ans)
+       (instr *self-ctxt* β :create ,beh-fn-form)
      ,@(chk-commit body)))
 
 (defmacro operating ((ans (fn &rest args)) &body body)
-  `(β (*ctxt* ,ans)
-       (instr *ctxt* β :oper #',fn ,@args)
+  `(β (*self-ctxt* ,ans)
+       (instr *self-ctxt* β :oper #',fn ,@args)
      ,@(chk-commit body)))
 
 (defun commit ()
-  (mp:mailbox-send *mcpu-istream* (list *ctxt* :commit)))
+  (mp:mailbox-send *mcpu-istream* (list *self-ctxt* :commit)))
 
 ;; ----------------------------------
 ;; Defining new A-Machine Behaviors
+
+(defmacro am-lambda (args &body body)
+  `(lambda* ,(cons '*self-ctxt* args)
+     (symbol-macrolet ((self  (ctxt-actor *self-ctxt*)))
+       ,@body)))
 
 (defun make-am-beh (clause)
   (destructuring-bind (pat . body) clause
@@ -306,22 +307,21 @@
       ,@body)))
 
 (defmacro def-am-beh (name args &body clauses)
-  (lw:with-unique-names (am-actor msg cust)
+  (lw:with-unique-names (am-actor msg)
     `(defun ,name ,args
        ;; We contain an embedded A-Machine Actor, carrying the real
        ;; behavior code.
        (let ((,am-actor (make-am-actor
-                         :beh  (lambda (*ctxt* &rest ,msg)
-                                 (symbol-macrolet ((self (ctxt-actor *ctxt*)))
-                                   (match ,msg
-                                     ,@(mapcar #'make-am-beh clauses))))
+                         :beh  (am-lambda (&rest ,msg)
+                                 (match ,msg
+                                   ,@(mapcar #'make-am-beh clauses)))
                          )))
          ;; ...and present a normal Actor behavior skin to the outside
          ;; world. Messages sent here from outside the A-Machine get
          ;; redirected to the embedded A-Machine Actor.
          (alambda
-          ((,cust :get-am-actor)
-           (send ,cust ,am-actor)
+          ((cust :get-am-actor)
+           (send cust ,am-actor)
            ,am-actor)
           
           (,msg
@@ -387,6 +387,10 @@
   ((from to)
    (creating (am-a (count-to-beh from to))
      (sending (am-a :next)))))
+
+(let ((supv (create (count-start-beh))))
+  (dotimes (ix 100)
+    (send supv ix (+ ix 100))))
 
 (let ((supv (create (count-start-beh))))
   (send supv 15 20)
