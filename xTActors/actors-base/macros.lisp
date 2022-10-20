@@ -339,8 +339,7 @@
                            `(let ((,ans ,clause))
                               (if ,ans
                                   (,proc ,ans)
-                                ,xform
-                                (proc nil)))
+                                ,xform))
                            )))
               )))
       )))
@@ -352,12 +351,6 @@
            ,iftrue
          ,iffalse))
     ))
-
-#+:LISPWORKS
-(progn
-  (editor:indent-like 'if-β     'if)
-  (editor:indent-like 'if-β-and 'if)
-  (editor:indent-like 'if-β-or  'if))
 
 (defmacro when-β (test &body body)
   (lw:with-unique-names (ans)
@@ -398,6 +391,14 @@
 
 (defmacro unless-β-or ((ans &rest clauses) &body body)
   `(if-β-or (,ans ,@clauses) 'nil (progn ,@body)))
+
+#+:LISPWORKS
+(progn
+  (editor:setup-indent "with-β-and" 1)
+  (editor:setup-indent "with-β-or"  1)
+  (editor:indent-like 'if-β     'if)
+  (editor:indent-like 'if-β-and 'if)
+  (editor:indent-like 'if-β-or  'if))
 
 #|
 (if (and a b c)
@@ -454,6 +455,8 @@
      (assert (actor-p ,name))
      (setf (actor-beh ,name) ,fn)))
 
-(editor:setup-indent "def-actor" 0)
-(editor:setup-indent "define-behavior" 0)
+#+:LISWORKS
+(progn
+  (editor:setup-indent "def-actor" 0)
+  (editor:setup-indent "define-behavior" 0))
 
