@@ -280,6 +280,9 @@ THE SOFTWARE.
    #:when-β-or
    #:unless-β-and
    #:unless-β-or
+   #:if-β
+   #:when-β
+   #:unless-β
    ))
 
 #+(OR :ALLEGRO :CCL)

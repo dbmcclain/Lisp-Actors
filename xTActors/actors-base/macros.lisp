@@ -345,6 +345,32 @@
               )))
       )))
 
+(defmacro if-β (test iftrue &optional iffalse)
+  (lw:with-unique-names (ans)
+    `(with-β-and (,ans ,test)
+       (if ,ans
+           ,iftrue
+         ,iffalse))
+    ))
+
+#+:LISPWORKS
+(progn
+  (editor:indent-like 'if-β     'if)
+  (editor:indent-like 'if-β-and 'if)
+  (editor:indent-like 'if-β-or  'if))
+
+(defmacro when-β (test &body body)
+  (lw:with-unique-names (ans)
+    `(with-β-and (,ans ,test)
+       (when ,ans
+         ,@body))))
+
+(defmacro unless-β (test &body body)
+  (lw:with-unique-names (ans)
+    `(with-β-and (,ans ,test)
+       (unless ,ans
+         ,@body))))
+
 (defmacro if-β-and ((&rest clauses) iftrue &optional iffalse)
   (lw:with-unique-names (ans)
     `(with-β-and (,ans ,@clauses)
