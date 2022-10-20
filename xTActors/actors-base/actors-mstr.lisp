@@ -242,53 +242,54 @@ THE SOFTWARE.
              (*become*           #'%become)
              (*abort-beh*        #'%abort-beh))
         
-        (loop
-           (with-simple-restart (abort "Handle next event")
-             (loop
-                ;; Fetch next event from event queue - ideally, this
-                ;; would be just a handful of simple register/memory
-                ;; moves and direct jump. No call/return needed, and
-                ;; stack useful only for a microcoding assist. Our
-                ;; depth is never more than one Actor at a time,
-                ;; before trampolining back here.
-                (setf evt (mpc:mailbox-read *central-mail*))
-                (tagbody
-                 next
-                 (um:when-let (next-msgs (msg-link (the msg evt)))
-                   (mpc:mailbox-send *central-mail* next-msgs))
-                 
-                 (setf self     (msg-actor (the msg evt))
-                       self-msg (msg-args (the msg evt)))
-                 
-                 retry
-                 (setf pend-beh (actor-beh (the actor self))
-                       self-beh pend-beh
-                       sends    nil)
-                 ;; ---------------------------------
-                 ;; Dispatch to Actor behavior with message args
-                 (apply (the function pend-beh) self-msg)
-                 (cond ((or (eq self-beh pend-beh)
-                            (mpc:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh))
-                        (when sends
-                          (cond ((mpc:mailbox-empty-p *central-mail*)
-                                 ;; No messages await, we are front of queue,
-                                 ;; so grab first message for ourself.
-                                 ;; This is the most common case at runtime,
-                                 ;; giving us a dispatch timing of only 46ns on i9 processor.
-                                 (setf evt sends)
-                                 (go next))
-                                
-                                (t
-                                 ;; else - we are not front of queue
-                                 ;; enqueue new messages and repeat loop
-                                 (mpc:mailbox-send *central-mail* sends))
-                                )))
-                       (t
-                        ;; failed on behavior update - try again...
-                        (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
-                        (go retry))
-                       )))
-             ))
+        (with-simple-restart (abort "Terminate Actor thread")
+          (loop
+             (with-simple-restart (abort "Handle next event")
+               (loop
+                  ;; Fetch next event from event queue - ideally, this
+                  ;; would be just a handful of simple register/memory
+                  ;; moves and direct jump. No call/return needed, and
+                  ;; stack useful only for a microcoding assist. Our
+                  ;; depth is never more than one Actor at a time,
+                  ;; before trampolining back here.
+                  (setf evt (mpc:mailbox-read *central-mail*))
+                  (tagbody
+                   next
+                   (um:when-let (next-msgs (msg-link (the msg evt)))
+                     (mpc:mailbox-send *central-mail* next-msgs))
+                   
+                   (setf self     (msg-actor (the msg evt))
+                         self-msg (msg-args (the msg evt)))
+                   
+                   retry
+                   (setf pend-beh (actor-beh (the actor self))
+                         self-beh pend-beh
+                         sends    nil)
+                   ;; ---------------------------------
+                   ;; Dispatch to Actor behavior with message args
+                   (apply (the function pend-beh) self-msg)
+                   (cond ((or (eq self-beh pend-beh)
+                              (mpc:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh))
+                          (when sends
+                            (cond ((mpc:mailbox-empty-p *central-mail*)
+                                   ;; No messages await, we are front of queue,
+                                   ;; so grab first message for ourself.
+                                   ;; This is the most common case at runtime,
+                                   ;; giving us a dispatch timing of only 46ns on i9 processor.
+                                   (setf evt sends)
+                                   (go next))
+                                  
+                                  (t
+                                   ;; else - we are not front of queue
+                                   ;; enqueue new messages and repeat loop
+                                   (mpc:mailbox-send *central-mail* sends))
+                                  )))
+                         (t
+                          ;; failed on behavior update - try again...
+                          (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
+                          (go retry))
+                         )))
+               )))
         ))))
 
 ;; ----------------------------------------------------------------

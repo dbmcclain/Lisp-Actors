@@ -67,6 +67,12 @@ THE SOFTWARE.
    #:sink-pipe
    #:tee
    #:tee-beh
+   #:service
+   #:null-service
+   #:nil-service
+   #:t-service
+   #:or-gate
+   #:and-gate
    #:fork
    #:simd
    #:mimd
@@ -265,6 +271,15 @@ THE SOFTWARE.
    #:watchdog-timer
    #:safe-serializer
    #:yield
+
+   #:with-β-and
+   #:with-β-or
+   #:if-β-and
+   #:if-β-or
+   #:when-β-and
+   #:when-β-or
+   #:unless-β-and
+   #:unless-β-or
    ))
 
 #+(OR :ALLEGRO :CCL)

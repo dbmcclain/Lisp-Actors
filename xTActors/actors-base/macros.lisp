@@ -240,3 +240,151 @@
   `(β _
        (send β)
      ,@body))
+
+;; ---------------------------------------------------
+;; Macros to assist in the conversion of CALL/RETURN style into Actors code.
+;;
+;; Whereas, in CALL/RETUN you could do:
+;;
+;;   (when (and A B C)
+;;     (do-something...))
+;;
+;; In Actors code, where A, B, or C is a SEND to an Actor, there is no
+;; immediate value to test. Instead, we need to construct continuation
+;; Actors along the way. We would have to write:
+;;
+;;    (β (ans)
+;;        (send A β)
+;;      (when ans
+;;        (β (ans)
+;;            (send B β)
+;;          (when ans
+;;            (β (ans)
+;;                (send C β)
+;;              (when ans
+;;                 (do-something...)) )) )))
+;;
+;; To make this less painful, we can use these macros to write:
+;;
+;;    (WHEN-β-AND (ans (send A β)
+;;                     (send B β)
+;;                     (send C β))
+;;      (do-something...))
+
+(defmacro with-β-and ((ans &rest clauses) &body body)
+  ;; Short-circuit eval of clauses. Ans will be the value produced by
+  ;; the last clause, or nil if any of the clauses produce nil.
+  (lw:with-unique-names (proc)
+    (let ((decl (when (um:is-underscore? ans)
+                  ;; We have to diddle the _ to prevent its being
+                  ;; discarded in the β forms that follow below.
+                  (let ((gans (gensym)))
+                    (setf ans gans)
+                    `((declare (ignore ,gans)))))
+                ))
+      `(flet ((,proc (,ans)
+                ,@decl
+                ,@body))
+         ,(um:nlet iter ((clauses (reverse clauses))
+                         (xform   `(,proc ,ans)))
+            (if (endp clauses)
+                xform
+              (go-iter (cdr clauses)
+                       (let ((clause (car clauses)))
+                         (if (and (consp clause)
+                                  (or (eql 'send  (car clause))
+                                      (eql 'send* (car clause))))
+                             `(β (,ans)
+                                  ,clause
+                                (if ,ans
+                                    ,xform
+                                  (,proc nil)))
+                           ;; else
+                           `(let ((,ans ,clause))
+                              (if ,ans
+                                  ,xform
+                                (,proc nil)))
+                           )))
+              )))
+      )))
+
+(defmacro with-β-or ((ans &rest clauses) &body body)
+  ;; Short-circuit eval of clauses. Ans will be the value of the first
+  ;; clause to produce non-nil, or else nil if none do.
+  (lw:with-unique-names (proc)
+    (let ((decl (when (um:is-underscore? ans)
+                  ;; We have to diddle the _ to prevent its being
+                  ;; discarded in the β forms that follow below.
+                  (let ((gans (gensym)))
+                    (setf ans gans)
+                    `((declare (ignore ,gans)))))))
+      `(flet ((,proc (,ans)
+                ,@decl
+                ,@body))
+         ,(um:nlet iter ((clauses (reverse clauses))
+                         (xform   `(,proc nil)))
+            (if (endp clauses)
+                xform
+              (go-iter (cdr clauses)
+                       (let ((clause (car clauses)))
+                         (if (and (consp clause)
+                                  (or (eql 'send  (car clause))
+                                      (eql 'send* (car clause))))
+                             `(β (,ans)
+                                  ,clause
+                                (if ,ans
+                                    (,proc ,ans)
+                                  ,xform))
+                           ;; else
+                           `(let ((,ans ,clause))
+                              (if ,ans
+                                  (,proc ,ans)
+                                ,xform
+                                (proc nil)))
+                           )))
+              )))
+      )))
+
+(defmacro if-β-and ((&rest clauses) iftrue &optional iffalse)
+  (lw:with-unique-names (ans)
+    `(with-β-and (,ans ,@clauses)
+       (if ,ans
+           ,iftrue
+         ,iffalse))
+    ))
+
+(defmacro if-β-or ((&rest clauses) iftrue &optional iffalse)
+  (lw:with-unique-names (ans)
+    `(with-β-or (,ans ,@clauses)
+       (if ,ans
+           ,iftrue
+         ,iffalse))
+    ))
+
+(defmacro when-β-and ((ans &rest clauses) &body body)
+  `(if-β-and (,ans ,@clauses) (progn ,@body)))
+
+(defmacro when-β-or ((ans &rest clauses) &body body)
+  `(if-β-or (,ans ,@clauses) (progn ,@body)))
+
+(defmacro unless-β-and ((ans &rest clauses) &body body)
+  `(if-β-and (,ans ,@clauses) 'nil (progn ,@body)))
+
+(defmacro unless-β-or ((ans &rest clauses) &body body)
+  `(if-β-or (,ans ,@clauses) 'nil (progn ,@body)))
+
+#|
+(if (and a b c)
+    iftrue
+  iffalse)
+
+(with-β-and (ans (send a β)
+                  (send b β)
+                  (symbolp x)
+                  (send* c β args))
+  (if ans
+      iftrue
+    iffalse))
+
+                              
+|#
