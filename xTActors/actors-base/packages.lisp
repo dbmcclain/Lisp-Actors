@@ -283,6 +283,9 @@ THE SOFTWARE.
    #:if-β
    #:when-β
    #:unless-β
+
+   #:def-actor
+   #:define-behavior
    ))
 
 #+(OR :ALLEGRO :CCL)

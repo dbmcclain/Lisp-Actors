@@ -414,3 +414,46 @@
 
                               
 |#
+;; --------------------------------------------------------
+;; Just as we have a need for cross-referrential Actors within code
+;; bodies, and we have ACTORS to provide them for us, we need
+;; something at global lexical level to allow as-yet undefined Actors
+;; to be declared, and then later fill in their behaviors. Forward
+;; references, if you will...
+;;
+;;  (def-actor Actor-A)             ;; declare here so Actor-B can see it.
+;;
+;;  (def-actor Actor-B
+;;    (lambda (cust &rest msg)
+;;      (send Actor-A cust ....)))  ;; use Actor-A
+;;
+;;  (define-behavior Actor-A        ;; now fill in the behavior
+;;    (lambda (cust &rest msg)
+;;       ....))
+;;
+;; Unlike a Lisp function, an Actor is a lexical binding with a value
+;; cell (beh) that is free to change. But the outer envelope - the
+;; Actor identity - remains constant.
+;;
+;; So if we don't provide a forward reference with DEF-ACTOR, then any
+;; code referring to it will be presumed by Lisp to be an, as yet
+;; undefined, special-binding.  An Actor at global level is *NOT* a
+;; special binding, it is a lexical binding, just like Lisp functions.
+;;
+;; It would generally be a grave mistake to allow that to happen. We
+;; never want to change the identity of an Actor, just its behavior,
+;; through BECOME.
+
+(defmacro def-actor (name &optional beh)
+  (if beh
+      `(deflex ,name (create ,beh))
+    `(deflex ,name (create))))
+
+(defmacro define-behavior (name fn)
+  `(progn
+     (assert (actor-p ,name))
+     (setf (actor-beh ,name) ,fn)))
+
+(editor:setup-indent "def-actor" 0)
+(editor:setup-indent "define-behavior" 0)
+
