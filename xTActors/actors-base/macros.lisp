@@ -271,6 +271,7 @@
 ;;                     (send C β))
 ;;      (do-something...))
 
+#|
 (defmacro with-β-and ((ans &rest clauses) &body body)
   ;; Short-circuit eval of clauses. Ans will be the value produced by
   ;; the last clause, or nil if any of the clauses produce nil.
@@ -343,6 +344,17 @@
                            )))
               )))
       )))
+|#
+
+(defmacro with-β-and ((ans &rest clauses) &body body)
+  `(β (,ans)
+       (send (apply #'and-gate ,@clauses) β)
+     ,@body))
+
+(defmacro with-β-or ((ans &rest clauses) &body body)
+  `(β (,ans)
+       (send (apply #'or-gate ,@clauses) β)
+     ,@body))
 
 (defmacro if-β (test iftrue &optional iffalse)
   (lw:with-unique-names (ans)
@@ -455,7 +467,7 @@
      (assert (actor-p ,name))
      (setf (actor-beh ,name) ,fn)))
 
-#+:LISWORKS
+#+:LISPWORKS
 (progn
   (editor:setup-indent "def-actor" 0)
   (editor:setup-indent "define-behavior" 0))

@@ -283,7 +283,10 @@ THE SOFTWARE.
    #:if-β
    #:when-β
    #:unless-β
-
+   #:and-gate
+   #:or-gate
+   #:true
+   #:false
    #:def-actor
    #:define-behavior
    ))

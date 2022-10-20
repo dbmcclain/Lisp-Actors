@@ -219,17 +219,18 @@
     (send* server cust args)))
 
 (defun service (server &rest args)
-  (create (apply #'service-beh server args)))
+  (cond ((actor-p server)
+         (create (apply #'service-beh server args)))
+        ((functionp server)
+         (a (cust)
+            (send cust (apply server args))))
+        (t
+         (const server))
+        ))
 
 (deflex null-service
   (create (lambda (cust)
             (send cust))))
-
-(deflex nil-service
-  (const nil))
-
-(deflex t-service
-  (const t))
 
 ;; ---------------------------------------------------
 ;; Fork/Join against an arbitrary number of services
@@ -294,6 +295,7 @@
                   (send (simd svc) lbl arg)))
          svcs args)))
 
+#|
 (deflex par
   ;; Send same msg to all actors in the lst, running them
   ;; concurrently, and collect the results into one ordered response.
@@ -307,6 +309,40 @@
         (send (car lst) tag-car msg)
         (send self tag-cdr (cdr lst) msg)))
     ))
+|#
+#|
+(defun and-gate-beh (services &optional (last-ans t))
+  (lambda (cust)
+    (if (endp services)
+        (send cust last-ans)
+      (β (ans)
+          (send (car services) β)
+        (if ans
+            (progn
+              (become (and-gate-beh (cdr services) ans))
+              (send self cust))
+          (send cust nil))
+        ))))
+
+(defun and-gate (&rest services)
+  (create (and-gate-beh services)))
+
+(defun or-gate-beh (services)
+  (lambda (cust)
+    (if (endp services)
+        (send cust nil)
+      (β (ans)
+          (send (car services) β)
+        (if ans
+            (send cust ans)
+          (progn
+            (become (or-gate-beh (cdr services)))
+            (send self cust)))
+        ))))
+
+(defun or-gate (&rest services)
+  (create (or-gate-beh services)))
+|#
 
 ;; ---------------------------------------------------------
 #|
@@ -701,6 +737,9 @@
 |#
 ;; ------------------------------------------------------
 
+(deflex true  (const t))
+(deflex false (const nil))
+
 (defun or2-gate-beh (service1 service2)
   (lambda (cust)
     (β (ans)
@@ -717,5 +756,24 @@
       (reduce (lambda (head svc)
                 (or2-gate head svc))
               services)
-    (const nil)))
+    false))
         
+
+(defun and2-gate-beh (service1 service2)
+  (lambda (cust)
+    (β (ans)
+        (send service1 β)
+      (if ans
+          (send service2 cust)
+        (send cust nil)))))
+
+(defun and2-gate (service1 service2)
+  (create (and2-gate-beh service1 service2)))
+
+(defun and-gate (&rest services)
+  (if services
+      (reduce (lambda (head svc)
+                (and2-gate head svc))
+              services)
+    true))
+
