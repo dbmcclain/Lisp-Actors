@@ -739,8 +739,8 @@ THE SOFTWARE.
    #:merge-plist
    #:string-interp
 
-   #:st-to-objc
-   #:objc-invoke-st
+   #+(AND :LISPWORKS :MACOSX) #:st-to-objc
+   #+(AND :LISPWORKS :MACOSX) #:objc-invoke-st
 
    #:with-unique-names
    #:rebinding

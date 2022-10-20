@@ -116,7 +116,7 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "safe-streams")
                 #+:LISPWORKS (:file "safe-read-patch")
                 (:file "safe-read-from-string")
-		#+:LISPWORKS (:file "objc")
+		#+(AND :LISPWORKS :MACOSX) (:file "objc")
 
                 #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
 
