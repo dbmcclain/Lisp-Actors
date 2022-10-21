@@ -222,8 +222,9 @@
   (cond ((actor-p server)
          (create (apply #'service-beh server args)))
         ((functionp server)
-         (a (cust)
-            (send cust (apply server args))))
+         (create
+          (lambda (cust)
+            (send cust (apply server args)))))
         (t
          (const server))
         ))
