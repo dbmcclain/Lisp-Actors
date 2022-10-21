@@ -115,7 +115,6 @@ THE SOFTWARE.
    #:make-mailbox
    #:mailbox-send
    #:mailbox-read
-   #:mailbox-empty?
    #:mailbox-empty-p
    
    ;; new in Lispworks 6
