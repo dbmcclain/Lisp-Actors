@@ -289,6 +289,7 @@ THE SOFTWARE.
    #:false
    #:def-actor
    #:define-behavior
+   #:dyn-env
    ))
 
 #+(OR :ALLEGRO :CCL)

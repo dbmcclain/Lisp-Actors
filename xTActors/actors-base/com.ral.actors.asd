@@ -35,6 +35,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
                 (:file "st-send")
 		(:file "cheapq")
-                (:file "prim-actors"))
+                (:file "prim-actors")
+                (:file "dyn-env"))
   :SERIAL T
   :depends-on   ("com.ral.useful-macros"))
