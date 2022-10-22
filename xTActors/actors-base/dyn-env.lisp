@@ -123,4 +123,21 @@
 (defun dyn-env (next kind arg)
   (create (dyn-env-beh next kind arg)))
 
+(defmacro with-env ((kind arg) &body body)
+  `(let ((*current-env* (dyn-env self-env ,kind ,arg)))
+     ,@body))
 
+;;-------------------------------------------------------
+;; To be effective, we need to pass along the dynamic env with every
+;; send target for messages. The dispatcher needs to strip out
+;; that env for use in a handler-bind or handler-case surrounding the
+;; body of message handling.
+;;
+;; Then we need to supply the env on any sends, but also allow for an
+;; extension of env to be passed in lieu of the incoming env.
+;;
+;; Ideally, this all occurs under the table, unseen by client user
+;; code.  Perhaps we can use Lisp dynamic-binding mechanism and
+;; special binding *CURRENT-ENV* to represent incoming env and to be
+;; modified by some macro for use in outbound messaging with agumented
+;; env...

@@ -123,6 +123,8 @@ THE SOFTWARE.
    
    #:self
    #:self-beh
+   #:self-env
+   #:self-msg
 
    #:actor
    #:actor-p
@@ -199,8 +201,6 @@ THE SOFTWARE.
    #:unwatch
 
    #:suspend
-
-   #:self-msg
 
    #:marshal-encoder
    #:marshal-decoder
@@ -292,6 +292,7 @@ THE SOFTWARE.
    #:def-actor
    #:define-behavior
    #:dyn-env
+   #:with-env
    ))
 
 #+(OR :ALLEGRO :CCL)
@@ -321,6 +322,7 @@ THE SOFTWARE.
    #:wr)
   (:export
    #:*current-actor*
+   #:*current-env*
    ))
 
 (defpackage #:com.ral.actors.macros

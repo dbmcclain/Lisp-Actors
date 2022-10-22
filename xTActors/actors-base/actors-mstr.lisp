@@ -92,10 +92,12 @@ THE SOFTWARE.
 (defvar *current-actor*    nil) ;; Current Actor
 (defvar *current-behavior* nil) ;; Current Actor's behavior
 (defvar *current-message*  nil) ;; Current Event Message
+(defvar *current-env*      nil) ;; Current dynamic environment
 
 (define-symbol-macro self         *current-actor*)
 (define-symbol-macro self-beh     *current-behavior*)
 (define-symbol-macro self-msg     *current-message*)
+(define-symbol-macro self-env     *current-env*)
 
 ;; -------------------------------------------------
 ;; Message Frames - submitted to the event queue. These carry their
@@ -106,10 +108,11 @@ THE SOFTWARE.
 ;; are sent by the Actor, then the message frame becomes garbage.
 
 (defstruct (msg
-            (:constructor msg (actor args &optional link)))
+            (:constructor msg (actor args &key (env *current-env*) link)))
   link
-  (actor (create) :type actor)
-  (args  nil      :type list))
+  (actor (create)      :type actor)
+  (env   *current-env* :type (or null actor))
+  (args  nil           :type list))
 
 (mpc:defglobal *central-mail*  (mpc:make-mailbox :lock-name "Central Mail"))
 
@@ -209,16 +212,17 @@ THE SOFTWARE.
 
 (defun run-actors ()
   #F
-  (let (sends evt pend-beh)
+  (let (sends evt pend-beh env)
     (flet ((%send (actor &rest msg)
              (if evt
                  (setf (msg-link  (the msg evt)) sends
                        (msg-actor (the msg evt)) (the actor actor)
+                       (msg-env   (the msg evt)) *current-env*
                        (msg-args  (the msg evt)) msg
                        sends      evt
                        evt        nil)
                ;; else
-               (setf sends (msg (the actor actor) msg sends))))
+               (setf sends (msg (the actor actor) msg :link sends))))
 
            (%become (new-beh)
              (setf pend-beh new-beh))
@@ -230,17 +234,15 @@ THE SOFTWARE.
       (declare (dynamic-extent #'%send #'%become #'%abort-beh))
       
       ;; -------------------------------------------------------
-      ;; Think of these global vars as dedicated registers of a
-      ;; special architecture CPU which uses a FIFO queue for its
+      ;; Think of the *current-x* global vars as dedicated registers
+      ;; of a special architecture CPU which uses a FIFO queue for its
       ;; instruction stream, instead of linear memory, and which
       ;; executes breadth-first instead of depth-first. This maximizes
       ;; concurrency.
-      (let* ((*current-actor*    nil)
-             (*current-message*  nil)
-             (*current-behavior* nil)
-             (*send*             #'%send)
-             (*become*           #'%become)
-             (*abort-beh*        #'%abort-beh))
+      ;; -------------------------------------------------------
+      (let ((*send*      #'%send)
+            (*become*    #'%become)
+            (*abort-beh* #'%abort-beh))
         
         (with-simple-restart (abort "Terminate Actor thread")
           (loop
@@ -257,40 +259,44 @@ THE SOFTWARE.
                    next
                    (um:when-let (next-msgs (msg-link (the msg evt)))
                      (mpc:mailbox-send *central-mail* next-msgs))
-                   
-                   (setf self     (msg-actor (the msg evt))
-                         self-msg (msg-args (the msg evt)))
-                   
-                   retry
-                   (setf pend-beh (actor-beh (the actor self))
-                         self-beh pend-beh
-                         sends    nil)
-                   ;; ---------------------------------
-                   ;; Dispatch to Actor behavior with message args
-                   (apply (the function pend-beh) self-msg)
-                   (cond ((or (eq self-beh pend-beh)
-                              (mpc:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh))
-                          (when sends
-                            (cond ((mpc:mailbox-empty-p *central-mail*)
-                                   ;; No messages await, we are front of queue,
-                                   ;; so grab first message for ourself.
-                                   ;; This is the most common case at runtime,
-                                   ;; giving us a dispatch timing of only 46ns on i9 processor.
-                                   (setf evt sends)
-                                   (go next))
-                                  
-                                  (t
-                                   ;; else - we are not front of queue
-                                   ;; enqueue new messages and repeat loop
-                                   (mpc:mailbox-send *central-mail* sends))
-                                  )))
-                         (t
-                          ;; failed on behavior update - try again...
-                          (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
-                          (go retry))
-                         )))
-               )))
-        ))))
+
+                   (let* ((*current-actor*   (msg-actor (the msg evt)))  ;; self
+                          (*current-message* (msg-args  (the msg evt)))) ;; self-msg
+                     (setf env (msg-env (the msg evt)))
+                     
+                     (tagbody                   
+                      retry
+                      (setf pend-beh (actor-beh (the actor self))
+                            sends    nil)
+                      (let ((*current-behavior* pend-beh)  ;; self-beh
+                            (*current-env*      env))      ;; self-env
+                        ;; ---------------------------------
+                        ;; Dispatch to Actor behavior with message args
+                        (apply (the function pend-beh) self-msg)
+                        (cond ((or (eq self-beh pend-beh)
+                                   (mpc:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh))
+                               (when sends
+                                 (cond ((mpc:mailbox-empty-p *central-mail*)
+                                        ;; No messages await, we are front of queue,
+                                        ;; so grab first message for ourself.
+                                        ;; This is the most common case at runtime,
+                                        ;; giving us a dispatch timing of only 46ns on i9 processor.
+                                        (setf evt sends)
+                                        (go next))
+                                       
+                                       (t
+                                        ;; else - we are not front of queue
+                                        ;; enqueue new messages and repeat loop
+                                        (mpc:mailbox-send *central-mail* sends))
+                                       )))
+                              (t
+                               ;; failed on behavior update - try again...
+                               (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
+                               (go retry))
+                              )))
+                     ))
+                  )))
+          )))))
 
 ;; ----------------------------------------------------------------
 ;; Error Handling
