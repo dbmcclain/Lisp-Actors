@@ -153,7 +153,7 @@
 
 ;; (and e1 e2 .. en)
 ;; =>
-;; (send (and-gate
+;; (send (and-β
 ;;        (service ,@e1)
 ;;        (service ,@e2)
 ;;        ...
@@ -164,7 +164,7 @@
 
 ;; (or e1 e2 .. en)
 ;; =>
-;; (send (or-gate
+;; (send (or-β
 ;;        (service ,@e1)
 ;;        (service ,@e2)
 ;;        ...
@@ -372,7 +372,7 @@
     false))
         
 ;;
-;; We get for (OR-GATE A B C):
+;; We get for (OR-β A B C):
 ;;
 ;;                          +---+
 ;;                          | A |
@@ -410,7 +410,7 @@
     true))
 
 ;;
-;; We get for (AND-GATE A B C):
+;; We get for (AND-β A B C):
 ;;
 ;;                          +---+
 ;;                          | A |
