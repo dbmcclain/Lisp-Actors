@@ -14,7 +14,8 @@
 ;;
 ;; We make use of SERVICE and β forms. A SERVICE Actor is an Actor
 ;; that expects only a customer in a message, performs its service,
-;; and sends its result onward to that customer.
+;; and sends its result onward to that customer. The result should
+;; be a single value. β-forms allow for destructuring args.
 ;;
 ;; Anything can be converted into a Service. For existing Actors which
 ;; expect a customer in their messages, simply state their name and
@@ -285,10 +286,26 @@
   (or (reduce (lambda (svc tail)
                 (fork2 svc tail))
               (butlast services)
-              :initial-value (um:last1 services)
+              :initial-value (car (last services))
               :from-end t)
       null-service))
-
+;;
+;; We get for (FORK A B C):
+;;
+;;                    +---+
+;;                    | A |
+;;                    +---+     +---+
+;;         +------+  /          | B |
+;;      -->| FORK |/            +---+
+;;         +------+\           /
+;;                   \+------+/
+;;                    | FORK |
+;;                    +------+\
+;;                             \
+;;                              +---+
+;;                              | C |
+;;                              +---+
+;;
 ;; -----------------------------------------------
 
 (defmacro let-β (bindings &body body)
@@ -331,7 +348,7 @@
   (um:with-unique-names (ns)
     `(β ,ns
          (send (fork ,@services) β)
-       (let ((,final-val (um:last1 ,ns)))
+       (let ((,final-val (car (last ,ns))))
          ,@body))))
 
 ;; -----------------------------------------------
@@ -357,6 +374,25 @@
               services)
     false))
         
+;;
+;; We get for (OR-GATE A B C):
+;;
+;;                          +---+
+;;                          | A |
+;;                          +---+
+;;               +------+  /
+;;               |  OR  |/
+;;               +------+\ 
+;;                  /      \+---+
+;;                 /        | B |
+;;                /         +---+
+;;      +------+ /
+;;   -->|  OR  |/
+;;      +------+\
+;;               \+---+
+;;                | C |
+;;                +---+
+;;
 ;; -----------------------------------------------
 
 (defun and2-gate-beh (service1 service2)
@@ -377,6 +413,25 @@
               services)
     true))
 
+;;
+;; We get for (AND-GATE A B C):
+;;
+;;                          +---+
+;;                          | A |
+;;                          +---+
+;;               +------+  /
+;;               |  AND |/
+;;               +------+\ 
+;;                  /      \+---+
+;;                 /        | B |
+;;                /         +---+
+;;      +------+ /
+;;   -->|  AND |/
+;;      +------+\
+;;               \+---+
+;;                | C |
+;;                +---+
+;;
 ;; -----------------------------------------------
 
 (defmacro with-β-and ((ans &rest clauses) &body body)
