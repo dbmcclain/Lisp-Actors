@@ -496,11 +496,11 @@
 
 #+:LISPWORKS
 (progn
-  (editor:setup-indent "with-β-and" 1)
-  (editor:setup-indent "with-β-or"  1)
+  (editor:setup-indent "with-and-β" 1)
+  (editor:setup-indent "with-or-β"  1)
   (editor:indent-like 'if-β     'if)
-  (editor:indent-like 'if-β-and 'if)
-  (editor:indent-like 'if-β-or  'if))
+  (editor:indent-like 'if-and-β 'if)
+  (editor:indent-like 'if-or-β  'if))
 
 ;; -----------------------------------------------
 ;; Experience shows that, while you can generally convert imperative
