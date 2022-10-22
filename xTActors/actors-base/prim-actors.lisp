@@ -16,15 +16,6 @@
 ;;
 ;; -------------------------------------------------------
 
-(defun const-beh (&rest msg)
-  (lambda (cust)
-    (send* cust msg)))
-
-(defun const (&rest msg)
-  (create (apply #'const-beh msg)))
-
-;; ---------------------
-
 (defun once-beh (cust)
   (lambda (&rest msg)
     (send* cust msg)
@@ -210,69 +201,6 @@
       (send right tag-r rreq))
     ))
 |#
-;; ---------------------------------------------------
-;; Service -- offer up a parameterized service once the customer is
-;; known
-
-(defun service-beh (server &rest args)
-  (lambda (cust)
-    (send* server cust args)))
-
-(defun service (server &rest args)
-  (cond ((actor-p server)
-         (create (apply #'service-beh server args)))
-        ((functionp server)
-         (create
-          (lambda (cust)
-            (send cust (apply server args)))))
-        (t
-         (const server))
-        ))
-
-(deflex null-service
-  (create (lambda (cust)
-            (send cust))))
-
-;; ---------------------------------------------------
-;; Fork/Join against an arbitrary number of services
-
-(defun join2-beh (cust tag1)
-  (alambda
-   ((tag . ans) when (eql tag tag1)
-    (become (lambda (tag &rest ans2)
-              (declare (ignore tag))
-              (send* cust (append ans ans2)))))
-   ((_ . ans)
-    (become (lambda (tag &rest ans1)
-              (declare (ignore tag))
-              (send* cust (append ans1 ans)))))
-   ))
-
-(defun fork2-beh (service1 service2)
-  ;; Produce a single services which fires both in parallel and sends
-  ;; their results in the same order to eventual customer.
-  (lambda (cust)
-    (actors ((tag1   (tag joiner))
-             (tag2   (tag joiner))
-             (joiner (create (join2-beh cust tag1))))
-      (send service1 tag1)
-      (send service2 tag2)
-      )))
-
-(defun fork2 (service1 service2)
-  (create (fork2-beh service1 service2)))
-
-(defun fork (&rest services)
-  ;; Produces a single service from a collection of them. Will exec
-  ;; each in parallel, returning all of their results to eventual
-  ;; customer, in the same order as stated in the service list.
-  (or (reduce (lambda (svc tail)
-                (fork2 svc tail))
-              (butlast services)
-              :initial-value (um:last1 services)
-              :from-end t)
-      null-service))
-
 ;; ----------------------------------------------
 
 (defun simd (svc)
@@ -737,44 +665,4 @@
   (create (long-running-beh action)))
 |#
 ;; ------------------------------------------------------
-
-(deflex true  (const t))
-(deflex false (const nil))
-
-(defun or2-gate-beh (service1 service2)
-  (lambda (cust)
-    (β (ans)
-        (send service1 β)
-      (if ans
-          (send cust ans)
-        (send service2 cust)))))
-
-(defun or2-gate (service1 service2)
-  (create (or2-gate-beh service1 service2)))
-
-(defun or-gate (&rest services)
-  (if services
-      (reduce (lambda (head svc)
-                (or2-gate head svc))
-              services)
-    false))
-        
-
-(defun and2-gate-beh (service1 service2)
-  (lambda (cust)
-    (β (ans)
-        (send service1 β)
-      (if ans
-          (send service2 cust)
-        (send cust nil)))))
-
-(defun and2-gate (service1 service2)
-  (create (and2-gate-beh service1 service2)))
-
-(defun and-gate (&rest services)
-  (if services
-      (reduce (lambda (head svc)
-                (and2-gate head svc))
-              services)
-    true))
 

@@ -272,6 +272,10 @@ THE SOFTWARE.
    #:safe-serializer
    #:yield
 
+   #:let-β
+   #:let-β*
+   #:prog1-β
+   #:progn-β
    #:with-β-and
    #:with-β-or
    #:if-β-and

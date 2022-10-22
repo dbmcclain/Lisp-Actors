@@ -32,6 +32,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 #-(OR :LISPWORKS :SBCL) (:file "ansi-timer")
                 (:file "macros")
                 (:file "actors-mstr")
+                (:file "par-xlate")
                 ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
                 (:file "st-send")
 		(:file "cheapq")
