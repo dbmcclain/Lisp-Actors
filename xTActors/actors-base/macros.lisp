@@ -348,12 +348,12 @@
 
 (defmacro with-β-and ((ans &rest clauses) &body body)
   `(β (,ans)
-       (send (apply #'and-gate ,@clauses) β)
+       (send (and-gate ,@clauses) β)
      ,@body))
 
 (defmacro with-β-or ((ans &rest clauses) &body body)
   `(β (,ans)
-       (send (apply #'or-gate ,@clauses) β)
+       (send (or-gate ,@clauses) β)
      ,@body))
 
 (defmacro if-β (test iftrue &optional iffalse)

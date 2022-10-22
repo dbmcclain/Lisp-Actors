@@ -63,7 +63,10 @@ THE SOFTWARE.
     (if (eq pa pb)
         (compare (symbol-name a) (symbol-name b))
       ;; else
-      (let ((c (compare (package-name pa) (package-name pb))))
+      (let ((c (compare (and pa
+                             (package-name pa))
+                        (and pb
+                             (package-name pb)))))
         (if (zerop c)
             (compare (symbol-name a) (symbol-name b))
           c))
