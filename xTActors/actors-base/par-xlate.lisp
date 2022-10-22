@@ -250,7 +250,7 @@
      (send cust))))
 
 ;; ---------------------------------------------------
-;; Fork/Join against an arbitrary number of services
+;; Fork/Join against zero or more services
 
 (defun join2 (cust tag1)
   (create
@@ -266,7 +266,7 @@
     )))
 
 (defun fork2 (service1 service2)
-  ;; Produce a single services which fires both in parallel and sends
+  ;; Produce a single service which fires both in parallel and sends
   ;; their results in the same order to eventual customer.
   (create
    (lambda (cust)
