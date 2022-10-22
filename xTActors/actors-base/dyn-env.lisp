@@ -75,7 +75,8 @@
     (send self cust :new-level :label label))
    
    ((cust :new-level kind initial)
-    (send cust (create (dyn-env-beh self kind initial))))
+    (let ((*current-env* (dyn-env self kind initial)))
+      (send cust *current-env*)))
 
    ((cust :exit-level ans)
     ;; perform any unwinds then send ans to cust
@@ -100,11 +101,12 @@
         (send cust ans)
       (progn
         (become (dyn-env-beh next :discarded nil))
-        (if (eql kind :unwind)
-            (β _
-                (send bindings β nil)
-              (repeat-send next))
-          (repeat-send next)))
+        (let ((*current-env* next))
+          (if (eql kind :unwind)
+              (β _
+                  (send bindings β nil) ;; bindings, here, is an unwind Actor
+                (repeat-send next))
+            (repeat-send next))))
       ))
 
    ((cust :handle kind cx)
@@ -121,9 +123,14 @@
    ))
 
 (defun dyn-env (next kind arg)
+  ;; kind should be one of :LABEL, :UNWIND, :HANDLERS, or :BINDNGS
   (create (dyn-env-beh next kind arg)))
 
 (defmacro with-env ((kind arg) &body body)
+  ;; (:LABEL label)
+  ;; (:UNWIND actor)
+  ;; (:HANDLERS plist) - pllist is keyword args list of keys and handler Actors
+  ;; (:BINDINGS bindings) -- bindings is bindings list of keys and values
   `(let ((*current-env* (dyn-env self-env ,kind ,arg)))
      ,@body))
 
