@@ -71,8 +71,6 @@ THE SOFTWARE.
    #:null-service
    #:nil-service
    #:t-service
-   #:or-gate
-   #:and-gate
    #:fork
    #:simd
    #:mimd
@@ -272,23 +270,23 @@ THE SOFTWARE.
    #:safe-serializer
    #:yield
 
+   #:and-β
+   #:or-β
    #:let-β
    #:let-β*
    #:prog1-β
    #:progn-β
-   #:with-β-and
-   #:with-β-or
-   #:if-β-and
-   #:if-β-or
-   #:when-β-and
-   #:when-β-or
-   #:unless-β-and
-   #:unless-β-or
+   #:with-and-β
+   #:with-or-β
+   #:if-and-β
+   #:if-or-β
+   #:when-and-β
+   #:when-or-β
+   #:unless-and-β
+   #:unless-or-β
    #:if-β
    #:when-β
    #:unless-β
-   #:and-gate
-   #:or-gate
    #:true
    #:false
    #:def-actor

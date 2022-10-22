@@ -356,21 +356,20 @@
 (deflex true  (const t))
 (deflex false (const nil))
 
-(defun or2-gate-beh (service1 service2)
-  (lambda (cust)
-    (β (ans)
-        (send service1 β)
-      (if ans
-          (send cust ans)
-        (send service2 cust)))))
+(defun or2 (service1 service2)
+  (create
+   (lambda (cust)
+     (β (ans)
+         (send service1 β)
+       (if ans
+           (send cust ans)
+         (send service2 cust))))
+   ))
 
-(defun or2-gate (service1 service2)
-  (create (or2-gate-beh service1 service2)))
-
-(defun or-gate (&rest services)
+(defun or-β (&rest services)
   (if services
       (reduce (lambda (head svc)
-                (or2-gate head svc))
+                (or2 head svc))
               services)
     false))
         
@@ -395,21 +394,20 @@
 ;;
 ;; -----------------------------------------------
 
-(defun and2-gate-beh (service1 service2)
-  (lambda (cust)
-    (β (ans)
-        (send service1 β)
-      (if ans
-          (send service2 cust)
-        (send cust nil)))))
-
-(defun and2-gate (service1 service2)
-  (create (and2-gate-beh service1 service2)))
-
-(defun and-gate (&rest services)
+(defun and2 (service1 service2)
+  (create
+   (lambda (cust)
+     (β (ans)
+         (send service1 β)
+       (if ans
+           (send service2 cust)
+         (send cust nil))))
+   ))
+   
+(defun and-β (&rest services)
   (if services
       (reduce (lambda (head svc)
-                (and2-gate head svc))
+                (and2 head svc))
               services)
     true))
 
@@ -434,21 +432,21 @@
 ;;
 ;; -----------------------------------------------
 
-(defmacro with-β-and ((ans &rest clauses) &body body)
+(defmacro with-and-β ((ans &rest clauses) &body body)
   `(β (,ans)
-       (send (and-gate ,@clauses) β)
+       (send (and-β ,@clauses) β)
      ,@body))
 
-(defmacro with-β-or ((ans &rest clauses) &body body)
+(defmacro with-or-β ((ans &rest clauses) &body body)
   `(β (,ans)
-       (send (or-gate ,@clauses) β)
+       (send (or-β ,@clauses) β)
      ,@body))
 
 ;; -----------------------------------------------
 
 (defmacro if-β (test iftrue &optional iffalse)
   (lw:with-unique-names (ans)
-    `(with-β-and (,ans ,test)
+    `(with-and-β (,ans ,test)
        (if ,ans
            ,iftrue
          ,iffalse))
@@ -456,45 +454,45 @@
 
 (defmacro when-β (test &body body)
   (lw:with-unique-names (ans)
-    `(with-β-and (,ans ,test)
+    `(with-and-β (,ans ,test)
        (when ,ans
          ,@body))))
 
 (defmacro unless-β (test &body body)
   (lw:with-unique-names (ans)
-    `(with-β-and (,ans ,test)
+    `(with-and-β (,ans ,test)
        (unless ,ans
          ,@body))))
 
 ;; -----------------------------------------------
 
-(defmacro if-β-and ((&rest clauses) iftrue &optional iffalse)
+(defmacro if-and-β ((&rest clauses) iftrue &optional iffalse)
   (lw:with-unique-names (ans)
-    `(with-β-and (,ans ,@clauses)
+    `(with-and-β (,ans ,@clauses)
        (if ,ans
            ,iftrue
          ,iffalse))
     ))
 
-(defmacro if-β-or ((&rest clauses) iftrue &optional iffalse)
+(defmacro if-or-β ((&rest clauses) iftrue &optional iffalse)
   (lw:with-unique-names (ans)
-    `(with-β-or (,ans ,@clauses)
+    `(with-or-β (,ans ,@clauses)
        (if ,ans
            ,iftrue
          ,iffalse))
     ))
 
-(defmacro when-β-and ((ans &rest clauses) &body body)
-  `(if-β-and (,ans ,@clauses) (progn ,@body)))
+(defmacro when-and-β ((ans &rest clauses) &body body)
+  `(if-and-β (,ans ,@clauses) (progn ,@body)))
 
-(defmacro when-β-or ((ans &rest clauses) &body body)
-  `(if-β-or (,ans ,@clauses) (progn ,@body)))
+(defmacro when-or-β ((ans &rest clauses) &body body)
+  `(if-or-β (,ans ,@clauses) (progn ,@body)))
 
-(defmacro unless-β-and ((ans &rest clauses) &body body)
-  `(if-β-and (,ans ,@clauses) 'nil (progn ,@body)))
+(defmacro unless-and-β ((ans &rest clauses) &body body)
+  `(if-and-β (,ans ,@clauses) 'nil (progn ,@body)))
 
-(defmacro unless-β-or ((ans &rest clauses) &body body)
-  `(if-β-or (,ans ,@clauses) 'nil (progn ,@body)))
+(defmacro unless-or-β ((ans &rest clauses) &body body)
+  `(if-or-β (,ans ,@clauses) 'nil (progn ,@body)))
 
 #+:LISPWORKS
 (progn
