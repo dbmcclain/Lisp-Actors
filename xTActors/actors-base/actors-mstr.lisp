@@ -229,6 +229,7 @@ THE SOFTWARE.
 
            (%abort-beh ()
              (setf pend-beh self-beh
+                   evt      (or evt sends)
                    sends    nil)))
 
       (declare (dynamic-extent #'%send #'%become #'%abort-beh))
