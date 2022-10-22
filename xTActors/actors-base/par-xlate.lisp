@@ -505,4 +505,26 @@
   (editor:indent-like 'if-β-or  'if))
 
 ;; -----------------------------------------------
+;; Experience shows that, while you can generally convert imperative
+;; CALL/RETURN style into Parallel Actors form, you cannot have the
+;; ideal of "everything" is an Actor when feeding Actors as data items
+;; into existing imperative CALL/RETURN code.
+;;
+;; As an illustration, the RB-Tree (imperative) code has numerous
+;; comparisons of key forms when reconstructing trees after
+;; insertions. They use calls like:
+;;
+;;     (IF (PLUSP (ORD:COMPARE A B))
+;;        ...)
+;;
+;; So, if A or B were data Actors, who need to be queried as to their
+;; current sort-value, then this is impossible. Lisp's lack of CALL/CC
+;; means that we need to extract the sort-value before entering the
+;; (IF (ORD:COMPARE ...)).
+;;
+;; So conversion to data Actors requires a total rewrite of any client
+;; imperative code. Using these macros makes that easier than not. But
+;; it must still be done. Data-Actors requires Parallel Actors code.
+;; While Parallel Actors code can work with either Data-Actors or
+;; conventional data structs.
 
