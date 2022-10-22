@@ -38,87 +38,84 @@
 (defun dyn-env-beh (next kind bindings)
   ;; next points to prior env, bindings is alternating keys and values.
   (alambda
-   ((cust :lookup name)
+   ((:throw label ans)
+    ;; search for label in dyn env, unwinding as we go. If not found,
+    ;; pass request along to next level. Once we find label, send ans
+    ;; to continuation Actor. Cust will never be sent anything. End of the line...
+    (let ((msg  self-msg))
+      (β _
+          (send self β :exit-level nil)
+        (if (and (eql kind :catch)
+                 (eql (car bindings) label))
+            (send (cdr bindings) ans)
+          (send* next msg)))
+      ))
+   
+   ((cust :lookup name . default)
     ;; lookup name in our current env. Return its value and our
     ;; dyn-env. Otherwise, pass request to next level. If no next
     ;; level then not found, and so return nil and nil.
     (flet ((not-found ()
              (if next
                  (repeat-send next)
-               (send cust nil nil))))
+               (send cust (car default)))
+             ))
       (if (eql kind :bindings)
           (let ((val (getf bindings name +not-found+)))
             (if (eql val +not-found+)
                 (not-found)
-              (send cust val self)))
+              (send cust val)))
         (not-found))))
-
-   ((cust :add-binding name val)
-    (send self cust :new-level :bindings (list name val)))
-
-   ((cust :add-bindings . new-binds)
-    (send self cust :new-level :bindings new-binds))
-
-   ((cust :add-handlers . handlers)
-    ;; automatically construct a new dyn-env with the handlers
-    ;; installed. Sends new env to cust.  Handlers should include any
-    ;; error label handlers and :UNWIND handler.
-    (send self cust :new-level :handlers handlers))
-
-   ((cust :add-restarts . restarts)
-    (send self cust :new-level :restarts restarts))
-
-   ((cust :add-unwind action)
-    (send self cust :new-level :uwind action))
-
-   ((cust :add-label label)
-    (send self cust :new-level :label label))
-   
-   ((cust :new-level kind initial)
-    (let ((*current-env* (dyn-env self kind initial)))
-      (send cust *current-env*)))
 
    ((cust :exit-level ans)
     ;; perform any unwinds then send ans to cust
     (send self cust :unwind next ans))
 
-   ((cust :go label ans)
-    ;; search for label in dyn env, unwinding as we go. If not found,
-    ;; pass request along to next level. Once we find label, send ans
-    ;; to cust.
-    (β _
-        (send self β :exit-level nil)
-      (if (and (eql kind :label)
-               (eql bindings label))
-          (send cust ans)
-        (repeat-send next))))
-   
    ((cust :unwind to-env ans)
-    ;; keep unwinding until to-env matches our level, then send cust
+    ;; Keep unwinding until to-env matches our level, then send cust
     ;; the answer ans.  Unwinding performs any :UNWIND action, and
     ;; discards other handlers and dynamic bindings.
+    ;;
+    ;; Unwind handlers must reply to cust.
+    ;;
     (if (eql to-env self)
         (send cust ans)
       (progn
         (become (dyn-env-beh next :discarded nil))
-        (let ((*current-env* next))
-          (if (eql kind :unwind)
-              (β _
-                  (send bindings β nil) ;; bindings, here, is an unwind Actor
-                (repeat-send next))
-            (repeat-send next))))
+        (let ((*current-env* next)
+              (msg           self-msg))
+          (flet ((maybe-send-next ()
+                   (if next
+                       (send* next msg)
+                     (send cust ans))))
+            (if (eql kind :unwind)
+                (β _
+                    (send bindings β) ;; bindings, here, is an unwind Actor
+                  (maybe-send-next))
+              (maybe-send-next))
+            )))
       ))
 
    ((cust :handle kind cx)
-    ;; perform unwind to next level then invoke handler if we have
-    ;; one. Else pass message along to next level.
-    (β _
-        (send self β :exit-level nil)
-      (let (handler)
-        (if (and (eql kind :handlers)
-                 (setf handler (getf bindings kind)))
-            (send handler cust cx)
-          (repeat-send next)))
+    ;; Perform unwind to next level then invoke handler if we have
+    ;; one. Else pass message along to next level. If we never find
+    ;; handler, just drop it.
+    (let ((msg self-msg))
+      (β _
+          (send self β :exit-level nil)
+        (let (handler)
+          (if (and (eql kind :handlers)
+                   (setf handler (getf bindings kind)))
+              (send handler cust cx)
+            (send* next msg))
+          ))
+      ))
+
+   ((cust :show . accum)
+    (let ((lst (cons (list kind bindings) (car accum))))
+      (if next
+          (send next cust :show lst)
+        (send cust (reverse lst)))
       ))
    ))
 
@@ -126,13 +123,59 @@
   ;; kind should be one of :LABEL, :UNWIND, :HANDLERS, or :BINDNGS
   (create (dyn-env-beh next kind arg)))
 
-(defmacro with-env ((kind arg) &body body)
-  ;; (:LABEL label)
+(defmacro %with-env ((kind arg) &body body)
+  ;; (:CATCH  (label . cont)) ;; cont will be send a message on (GO label)
   ;; (:UNWIND actor)
   ;; (:HANDLERS plist) - pllist is keyword args list of keys and handler Actors
   ;; (:BINDINGS bindings) -- bindings is bindings list of keys and values
   `(let ((*current-env* (dyn-env self-env ,kind ,arg)))
      ,@body))
+
+#+:LISPWORKS
+(editor:setup-indent "%with-env" 1)
+
+(defmacro catch-β ((label (ans) &body catcher-body) &body body)
+  `(%with-env (:catch (cons ,label (create
+                                    (lambda (,ans)
+                                      ,@catcher-body))))
+     ,@body))
+
+(defun send-throw (label val)
+  (send self-env :throw label val))
+
+(defmacro unwind-β (form unwind-form)
+  (lw:with-unique-names (cust)
+    `(%with-env (:unwind (create
+                          (lambda (,cust)
+                            (send ,cust)
+                            ,unwind-form)))
+       ,form)))
+
+(defun bindings-to-plist (bindings)
+  `(list ,@(mapcan (lambda (binding)
+                     `(',(car binding) ,(cadr binding)))
+                   bindings)))
+  
+(defmacro with-handlers (handler-bindings &rest body)
+  `(%with-env (:handlers ,(bindings-to-plist handler-bindings))
+     ,@body))
+
+(defmacro with-env (bindings &body body)
+  `(%with-env (:bindings ,(bindings-to-plist bindings))
+     ,@body))
+
+(defmacro with-binding-β ((var name &optional default) &body body)
+  `(β (,var)
+       (send self-env β :lookup ,name ,default)
+     ,@body))
+
+#+:LISPWORKS
+(progn
+  (editor:setup-indent "catch-β"        1)
+  (editor:setup-indent "unwind-β"       2 2 4)
+  (editor:setup-indent "with-handlers"  1)
+  (editor:setup-indent "with-env"       1)
+  (editor:setup-indent "with-binding-β" 1))
 
 ;;-------------------------------------------------------
 ;; To be effective, we need to pass along the dynamic env with every
@@ -148,3 +191,25 @@
 ;; special binding *CURRENT-ENV* to represent incoming env and to be
 ;; modified by some macro for use in outbound messaging with agumented
 ;; env...
+
+#|
+(defun tst ()
+  (β _
+      (send β)
+    (catch-β (:bottom (ans)
+              (send fmt-println "Caught :BOTTOM: ~S" ans))
+      
+      (unwind-β
+          (progn
+            (send println "We should be seeing this...")
+            (with-env ((a 1)
+                       (b 2)
+                       (c 3))
+              (send (α ()
+                      (send self-env writeln :show)
+                      (send-throw :bottom 15)))
+              (send println "...and we should also be seeing this.")))
+          (send println :unwinding)))
+    ))
+(tst)
+ |#

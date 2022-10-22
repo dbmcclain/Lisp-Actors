@@ -293,6 +293,11 @@ THE SOFTWARE.
    #:define-behavior
    #:dyn-env
    #:with-env
+   #:with-binding-β
+   #:with-handlers
+   #:unwind-β
+   #:catch-β
+   #:send-throw
    ))
 
 #+(OR :ALLEGRO :CCL)
