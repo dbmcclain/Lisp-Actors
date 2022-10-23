@@ -336,13 +336,39 @@
 ;; -----------------------------------------------
 
 (defmacro prog1-β (first-val services &body body)
+  ;; fire off multiple services, but wait only for first one to
+  ;; respond.
+  `(progn
+     ,@(mapcar (lambda (service)
+                 `(send ,service sink))
+               (cdr services))
+     (β (,first-val)
+         (send ,(car services) β)
+       ,@body)))
+
+(defmacro progn-β (final-val services &body body)
+  ;; fire off multiple services, but wait only for last one to
+  ;; respond.
+  `(progn
+     ,@(mapcar (lambda (service)
+                 `(send ,service sink))
+               (butlast services))
+     (β (,final-val)
+         (send ,@(last services) β)
+       ,@body)))
+
+(defmacro prog1*-β (first-val services &body body)
+  ;; fire off multiple services and wait for all to respond. Take
+  ;; value from first sercice response.
   (um:with-unique-names (ns)
     `(β ,ns
          (send (fork ,@services) β)
        (let ((,first-val (car ,ns)))
          ,@body))))
 
-(defmacro progn-β (final-val services &body body)
+(defmacro progn*-β (final-val services &body body)
+  ;; fire off multiple services and wait for all to respond. Take
+  ;; value from last sercice response.
   (um:with-unique-names (ns)
     `(β ,ns
          (send (fork ,@services) β)
