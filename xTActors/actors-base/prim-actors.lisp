@@ -525,17 +525,14 @@
           :from-end t
           :initial-value (um:last1 elts)))
 
-(defun tee-beh (&optional sink-blk)
+(defun tee (&rest sink-blks)
   ;; can be used to convert a sink into a filter component
   ;; A sink-block is one that does not take a cust arg in messages.
-  (if sink-blk
-      (lambda (cust &rest msg)
-        (send* sink-blk msg)
-        (send* cust msg))
-    #'send))
-
-(defun tee (&optional sink-blk)
-  (create (tee-beh sink-blk)))
+  (create (if sink-blks
+              (lambda (cust &rest msg)
+                (apply #'send-to-all sink-blks msg)
+                (send* cust msg))
+            #'send)))
 
 (def-beh splay-beh (&rest custs)
   ;; Define a sink block that passes on the message to all custs

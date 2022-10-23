@@ -572,7 +572,7 @@
 ;;
 ;; Very fast! Imagine all the cores of the CPU further encoding each
 ;; chunk in parallel.
-
+#|
 (defun chunker (&key (max-size 65536))
   ;; takes a bytevec and produces a sequence of chunk encodings
   (actor (cust byte-vec)
@@ -592,6 +592,42 @@
                    (send cust :chunk id offs frag)))
                ))
             ))))
+|#
+
+(defun chunk-monitor (cust)
+  (labels ((chunk-counter-beh (count)
+             (lambda* _
+               (let ((new-count (1+ count)))
+                 (become (chunk-counter-beh new-count))
+                 (with-binding-β (nchunks :nchunks)
+                   (when (>= new-count nchunks)
+                     (send cust :ok))
+                   )))
+             ))
+    (create (chunk-counter-beh 0))))
+
+(defun chunker (&key (max-size 65536))
+  ;; takes a bytevec and produces a sequence of chunk encodings
+  (actor (cust byte-vec)
+    ;; (send fmt-println "Chunker")
+    (let ((size (length byte-vec)))
+      (cond ((<= size max-size)
+             ;; (send fmt-println "1 chunk, ~D bytes" size)
+             (with-env ((:nchunks  1))
+               (send cust :pass byte-vec)))
+            (t
+             (let ((nchunks (ceiling size max-size))
+                   (id      (int (hash/256 (uuid:make-v1-uuid)))))
+               (with-env ((:nchunks  (1+ nchunks)))
+                 ;; (send fmt-println "~D chunks, ~D bytes" nchunks size)
+                 (send cust :init id nchunks size)
+                 (do ((offs  0  (+ offs max-size)))
+                     ((>= offs size))
+                   (let ((frag (subseq byte-vec offs (min size (+ offs max-size)) )))
+                     (send cust :chunk id offs frag)))
+                 )))
+            ))
+    ))
 
 ;; ------------------------------------
 ;; Dechunker - With message delivery not guaranteed in any order,
@@ -720,7 +756,7 @@
 ;; past the CHUNKER, to the end of the pipeline. The original customer
 ;; is notified only after all chunks of data have finished writing to
 ;; I/O.
-
+#|
 (defun chunk-monitor-beh (mycust)
   (lambda (&rest msg)
     (send* msg)
@@ -775,7 +811,7 @@
 
 (defun chunk-monitor (cust)
   (create (chunk-monitor-beh cust)))
-    
+|#
 ;; -----------------------------------------------------------
 
 (defun netw-encoder (ekey skey dest &key (max-chunk 65536))
@@ -789,7 +825,7 @@
                            (marshal-compressor)
                            (chunker :max-size max-chunk) ;; we want to limit network message sizes
                            ;; --- then, for each chunk... ---
-                           monitor
+                           ;; monitor
                            (marshal-encoder)       ;; generates bytevec from chunker encoding
                            (encryptor ekey)        ;; generates seq, enctext
                            (signing skey)          ;; generates seq, enctext, sig
@@ -823,7 +859,7 @@
          (send* (sink-pipe (marshal-encoder)       ;; to get arb msg into bytevec form
                          (marshal-compressor)
                          (chunker :max-size max-chunk)
-                         monitor
+                         ;; monitor
                          (marshal-encoder)
                          (self-sync-encoder)
                          (serializer dest)
