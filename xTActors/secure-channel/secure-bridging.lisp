@@ -315,7 +315,7 @@
 
 (defmethod sdle-store:before-store ((obj actor))
   (let ((xobj (translate-actor-to-proxy obj)))
-    (send fmt-println "Sending Proxy: ~S" xobj)
+    ;; (send fmt-println "Sending Proxy: ~S" xobj)
     xobj))
 
 (defun client-marshal-encoder (local-services)
@@ -360,7 +360,7 @@
   proxy)
 
 (defmethod sdle-store:after-retrieve ((obj client-proxy))
-  (send fmt-println "Receiving Proxy: ~S" obj)
+  ;; (send fmt-println "Receiving Proxy: ~S" obj)
   (translate-proxy-to-actor obj))
 
 (defun server-marshal-decoder (local-services)
