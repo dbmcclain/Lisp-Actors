@@ -143,7 +143,7 @@
 ;; same initial message, and the results from each block are sent as
 ;; an ordered collection to cust.
 
-(deflex ser
+(def-actor ser
   (α (cust lst &rest msg)
     (if (null lst)
         (send cust)
@@ -225,7 +225,7 @@
          svcs args)))
 
 #|
-(deflex par
+(def-actor par
   ;; Send same msg to all actors in the lst, running them
   ;; concurrently, and collect the results into one ordered response.
   (α (cust lst msg)
@@ -294,7 +294,7 @@
 ;; -----------------------------------------
 ;; Delayed Send
 
-(deflex schedule-timer
+(def-actor schedule-timer
   (α (dt actor &rest msg)
     ;; No BECOME, so no need to worry about being retried.
     ;; Parallel-safe.

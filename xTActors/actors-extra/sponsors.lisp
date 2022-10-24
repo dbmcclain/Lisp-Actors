@@ -38,6 +38,8 @@
 (defun in-this-sponsor (actor)
   (in-sponsor self-sponsor actor))
 
+(declaim (inline %actor-cas))
+
 (defun run-sponsor (*current-sponsor* mbox)
   #F
   ;; Single-threaded - runs entirely in the thread of the Sponsor.
@@ -49,7 +51,7 @@
   ;; SENDs are optimistically committed in the event queue. In case of
   ;; error these are rolled back.
   ;;
-  (let (qhd qtl qsav evt pend-beh)
+  (let (qhd qtl qsav evt pend-beh env)
     (macrolet ((addq (evt)
                  `(setf qtl
                         (if qhd
@@ -72,48 +74,60 @@
                (setf evt nil))
 
              (%become (new-beh)
-               (setf pend-beh new-beh)))
+               (setf pend-beh new-beh))
+             
+             (%abort-beh ()
+               (setf pend-beh self-beh
+                     evt      (or evt qtl))
+               (qreset)))
         
-        (declare (dynamic-extent #'%send #'%become))
+        (declare (dynamic-extent #'%send #'%become #'%abort-beh))
         
-        (let ((*current-actor*    nil)
-              (*current-message*  nil)
-              (*current-behavior* nil)
-              (*send*             #'%send)
-              (*become*           #'%become))
-          (declare (list *current-message*))
+        (let ((*send*      #'%send)
+              (*become*    #'%become)
+              (*abort-beh* #'%abort-beh))
           
-          (loop
-             (with-simple-restart (abort "Handle next event")
-               (handler-bind
-                   ((error (lambda (c)
-                             (declare (ignore c))
-                             (qreset)) ;; unroll SENDs
-                           ))
-                 (loop
-                    (when (mp:mailbox-not-empty-p mbox)
-                      (let ((evt (mp:mailbox-read mbox)))
-                        (addq evt)))
-                    (if (setf evt qhd)
-                        (setf qhd (msg-link (the msg evt)))
-                      (setf evt (mp:mailbox-read mbox)))
-                    (setf self      (msg-actor (the msg evt))
-                          self-msg  (msg-args (the msg evt))
-                          qsav      (and qhd qtl))
-                    (tagbody
-                     again
-                     (setf pend-beh (actor-beh (the actor self))
-                           self-beh pend-beh)
-                     (apply (the function pend-beh) self-msg)
-                     (cond ((or (eq pend-beh self-beh)
-                                (sys:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh)))
+          (with-simple-restart (abort "Terminate Actor thread")
+            (loop
+               (with-simple-restart (abort "Handle next event")
+                 (handler-bind
+                     ((error (lambda (c)
+                               (declare (ignore c))
+                               (qreset)) ;; unroll SENDs
+                             ))
+                   (loop
+                      (when (mp:mailbox-not-empty-p mbox)
+                        (let ((evt (mp:mailbox-read mbox)))
+                          (addq evt)))
+                      (if (setf evt qhd)
+                          (setf qhd (msg-link (the msg evt)))
+                        (setf evt (mp:mailbox-read mbox)))
+                      (setf env  (msg-env (the msg evt))
+                            qsav (and qhd qtl))
+                      (let ((*current-actor*   (msg-actor (the msg evt)))
+                            (*current-message* (msg-args  (the msg evt))))
+                        (declare (list  *current-message*)
+                                 (actor *current-actor*))
+                        (tagbody
+                         retry
+                         (setf pend-beh (actor-beh (the actor self)))
+                         (let ((*current-behavior* pend-beh)
+                               (*curent-env*       env))
+                           (declare (function *current-behavior*)
+                                    (actor    *current-env*))
+                           (apply (the function pend-beh) self-msg)
+                           (cond ((or (eq pend-beh self-beh)
+                                      (%actor-cas self self-beh pend-beh)))
+                                 
+                                 (t
+                                  ;; Actor was mutated beneath us, go again
+                                  (setf evt (or evt qtl))
+                                  (qreset)
+                                  (go retry))
+                                 )))
+                        ))
+                   )))
+            )))
+      )))
 
-                           (t
-                            ;; Actor was mutated beneath us, go again
-                            (setf evt (or evt qtl))
-                            (qreset)
-                            (go again))
-                           )))
-                 )))
-          )))))
 

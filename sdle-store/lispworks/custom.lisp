@@ -68,11 +68,12 @@
                   (allowed-slots (structure:structure-class-slot-names class)))
              (resolving-object (obj new-instance)
                (dolist (slot-name slot-names)
-                 (let ((val (restore-object stream)))
-                   (when (member slot-name allowed-slots)
+                 (let ((val (restore-object stream))
+                       the-slot)
+                   (when (setf the-slot (car (member slot-name allowed-slots :test #'string-equal)))
                      ;; slot-names are always symbols so we don't
                      ;; have to worry about circularities
-                     (setting (slot-value obj slot-name) val))) ))
+                     (setting (slot-value obj the-slot) val))) ))
              (after-retrieve new-instance)))
 
           (t ;; else -- no such struture known to mankind

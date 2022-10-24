@@ -44,6 +44,8 @@
 ;;
 (in-package :com.ral.actors.base)
 
+(declaim (inline %actor-cas))
+
 (defun stsend (actor &rest msg)
   #F
   ;; Single-threaded SEND - runs entirely in the thread of the caller.
@@ -55,7 +57,7 @@
   ;; SENDs are optimistically committed in the event queue. In case of
   ;; error these are rolled back.
   ;;
-  (let (qhd qtl qsav evt pend-beh)
+  (let (qhd qtl qsav evt pend-beh env)
     (macrolet ((qreset ()
                  `(if (setf qtl qsav)              ;; unroll committed SENDs
                       (setf (msg-link (the msg qtl)) nil)
@@ -75,55 +77,67 @@
                      evt nil))
              
              (%become (new-beh)
-               (setf pend-beh new-beh)))
+               (setf pend-beh new-beh))
+
+             (%abort-beh ()
+               (setf pend-beh self-beh
+                     evt      (or evt qtl))
+               (qreset)))
         
-        (declare (dynamic-extent #'%send #'%become))
+        (declare (dynamic-extent #'%send #'%become #'%abort-beh))
         
-        (let ((*current-actor*    nil)
-              (*current-message*  nil)
-              (*current-behavior* nil)
-              (*send*             #'%send)
-              (*become*           #'%become))
-          (declare (list *current-message*))
+        (let ((*send*       #'%send)
+              (*become*     #'%become)
+              (*abort-beh*  #'%abort-beh))
           
           (send* actor msg)
-          (loop
-             while qhd
-             do
-               (with-simple-restart (abort "Handle next event")
-                 (handler-bind
-                     ((error (lambda (c)
-                               (declare (ignore c))
-                               (qreset))
-                             ))
-                   (loop
-                      ;; keep going until there are no more messages
-                      while (when (setf evt qhd)
-                              (setf qhd (msg-link (the msg evt)))
-                              evt)
-                      do
-                        (setf self     (msg-actor (the msg evt))
-                              self-msg (msg-args (the msg evt))
-                              qsav     (and qhd qtl))
-                        (tagbody
-                         again
-                         (setf pend-beh (actor-beh (the actor self))
-                               self-beh pend-beh)
-                         (apply (the function pend-beh) self-msg)
-                         
-                         ;; Using same CAS BECOME protocol here as
-                         ;; with all other Actors
-                         (cond ((or (eq pend-beh self-beh)
-                                    (mpc:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh)))
+          (with-simple-restart (abort "Terminate Actor thread")
+            (loop
+               while qhd
+               do
+                 (with-simple-restart (abort "Handle next event")
+                   (handler-bind
+                       ((error (lambda (c)
+                                 (declare (ignore c))
+                                 (qreset))
+                               ))
+                     (loop
+                        ;; keep going until there are no more messages
+                        while (when (setf evt qhd)
+                                (setf qhd (msg-link (the msg evt)))
+                                evt)
+                        do
+                          (setf env  (msg-env (the msg evt))
+                                qsav (and qhd qtl))
+                          (let ((*current-actor*   (msg-actor (the msg evt)))
+                                (*current-message* (msg-args (the msg evt))))
+                            (declare (actor *current-actor*)
+                                     (list  *current-message*))
+                            (tagbody
+                             retry
+                             (setf pend-beh (actor-beh (the actor self)))
+                             (let ((*current-behavior* pend-beh)
+                                   (*current-env*      env))
+                               (declare (function *current-behavior*)
+                                        (actor    *current-env*))
                                
-                               (t
-                                ;; Actor was in use, try again
-                                (setf evt (or evt qtl))
-                                (qreset)
-                                (go again))
-                               )))
-                   )))
-          )))))
+                               (apply (the function pend-beh) self-msg)
+                               
+                               ;; Using same CAS BECOME protocol here as
+                               ;; with all other Actors
+                               (cond ((or (eq pend-beh self-beh)
+                                          (%actor-cas self self-beh pend-beh)))
+                                     
+                                     (t
+                                      ;; Actor was in use, try again
+                                      (setf evt (or evt qtl))
+                                      (qreset)
+                                      (go retry))
+                                     )))
+                            ))
+                     )))
+            ))
+        ))))
 
 (defmacro with-single-thread (&body body)
   `(let ((*send* #'stsend))

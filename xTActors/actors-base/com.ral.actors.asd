@@ -23,6 +23,8 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 |#
 
+(pushnew :actors-experiments *features*)
+
 (asdf:defsystem "com.ral.actors"
   :description "Conventional Transactional Parallel-Concurrent Hewitt Actors..."
   :version     "3.0"

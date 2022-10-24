@@ -58,6 +58,12 @@
 
 (um:defconstant+ $unbound-marker #(:unbound-marker))
 
+(defmethod before-store (obj)
+  obj)
+
+(defmethod after-retrieve (obj)
+  obj)
+
 ;; setups for type code mapping
 (defun output-type-code (code stream)
   (declare (type ub32 code))
@@ -697,8 +703,13 @@
         (store-object (slot-value obj slot-name) stream) )) ))
 
 (defstore-sdle-store (obj standard-object stream)
-  (output-type-code +standard-object-code+ stream)    
-  (store-type-object obj stream))
+  (let ((obj (before-store obj)))
+    (cond ((typep obj 'standard-object)
+           (output-type-code +standard-object-code+ stream)    
+           (store-type-object obj stream))
+          (t
+           (store-object obj stream))
+          )))
 
 (defstore-sdle-store (obj condition stream)
   (output-type-code +condition-code+ stream)    
@@ -765,12 +776,6 @@
                                           slot-names)
                     :direct-superclasses (list obj-type)
                     :metaclass 'standard-class) ))
-
-(defmethod before-store (obj)
-  obj)
-
-(defmethod after-retrieve (obj)
-  obj)
 
 (defrestore-sdle-store (standard-object stream)
   (restore-type-object stream 'standard-object))
@@ -1131,6 +1136,19 @@
 
 #-clisp
 (defstore-sdle-store (obj function stream)
+  (cond ((typep obj 'standard-object) ;; true for funcallable instances
+         (let ((obj (before-store obj)))
+           (cond ((functionp obj)
+                  (store-function obj stream))
+                 (t
+                  (store-object obj stream))
+                 )))
+        (t
+         (store-function obj stream))
+        ))
+
+#-clisp
+(defun store-function (obj stream)
   (output-type-code +function-code+ stream)
   (store-object (get-function-name obj) stream))
 

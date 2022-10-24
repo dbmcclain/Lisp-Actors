@@ -113,7 +113,7 @@
 ;; Trevor Perrin and Moxie Marlinspike of Signal Foundation.
 ;;
 
-(deflex negotiate-secure-channel
+(def-actor negotiate-secure-channel
   ;; EC Diffie-Hellman key exchange
   (α (cust socket local-services)
     (multiple-value-bind (arand apt)
@@ -147,7 +147,7 @@
           (send socket +server-connect-id+ client-id (int apt) (int (actors-pkey))))
         ))))
 
-(deflex client-gateway
+(def-actor client-gateway
   ;; This is the main local client service used to initiate
   ;; connections with foreign servers.
   ;; Go lookup the encrypted channel for this IP, constructing it on

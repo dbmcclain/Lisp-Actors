@@ -339,10 +339,10 @@
      (send cust new-nonce)
      (become (noncer-beh new-nonce)))))
 
-(deflex noncer (create
-                (noncer-beh
-                 (vec-repr:int (hash/256 (uuid:make-v1-uuid)))
-                 )))
+(def-actor noncer (create
+                   (noncer-beh
+                    (vec-repr:int (hash/256 (uuid:make-v1-uuid)))
+                    )))
 
 ;; -------------------------------------------------------------------
 
@@ -1042,7 +1042,7 @@
             ))
       )))
 
-(deflex aont-decoder
+(def-actor aont-decoder
   ;; sends a sequence of original Lisp data items to cust
   (actor (cust pkey-vec data-packet aont-vec)
     (let ((pkey  (ed-decompress-pt pkey-vec))

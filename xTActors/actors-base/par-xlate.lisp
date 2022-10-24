@@ -228,8 +228,8 @@
 (defun const (&rest msg)
   (create (apply #'const-beh msg)))
 
-(deflex true  (const t))
-(deflex false (const nil))
+(def-actor true  (const t))
+(def-actor false (const nil))
 
 ;; ---------------------------------------------------
 ;; Service -- offer up a parameterized service once the customer is
@@ -248,7 +248,7 @@
          (const server))
         ))
 
-(deflex null-service
+(def-actor null-service
   (create
    (lambda (cust)
      (send cust))))

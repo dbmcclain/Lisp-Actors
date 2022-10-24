@@ -110,7 +110,7 @@
 ;; -----------------------------------------------
 ;; Simple Services
 
-(deflex remote-echo
+(def-actor remote-echo
   (α (cust &rest msg)
     (send* cust msg)))
 
@@ -118,13 +118,13 @@
   (compile nil `(lambda ()
                   ,@args)))
 
-(deflex remote-eval
+(def-actor remote-eval
   (α (cust form)
     (send cust (funcall (cmpfn form)))))
 
 ;; -----------------------------------------------
 
-(deflex global-services
+(def-actor global-services
   (create (service-list-beh
            `((:echo . ,remote-echo)
              (:eval . ,remote-eval))
@@ -307,14 +307,16 @@
 ;; just while we are encoding and decoding for socket transmission.
 
 (defstruct (client-proxy
-            (:constructor client-proxy (id)))
+            (:constructor client-proxy (&optional (id (uuid:make-v1-uuid)))))
   id)
 
 (aop:defdynfun translate-actor-to-proxy (ac)
   ac)
 
 (defmethod sdle-store:before-store ((obj actor))
-  (translate-actor-to-proxy obj))
+  (let ((xobj (translate-actor-to-proxy obj)))
+    (send fmt-println "Sending Proxy: ~S" xobj)
+    xobj))
 
 (defun client-marshal-encoder (local-services)
   ;; serialize an outgoing message, translating all embedded Actors
@@ -338,12 +340,27 @@
           )))
     ))
 
+#|
+(def-actor echo
+  (lambda (cust &rest msg)
+    (send cust msg)))
+
+(let ((encoder (client-marshal-encoder echo)))
+  (let ((obj  println))
+    (β (enc)
+        (send encoder β obj)
+      (send fmt-println"Encoding: ~S" enc)
+      (send fmt-println "Decoding: ~S" (loenc:decode enc))
+      )))
+|#
+
 ;; -------------------------------------------------------
 
 (aop:defdynfun translate-proxy-to-actor (proxy)
   proxy)
 
 (defmethod sdle-store:after-retrieve ((obj client-proxy))
+  (send fmt-println "Receiving Proxy: ~S" obj)
   (translate-proxy-to-actor obj))
 
 (defun server-marshal-decoder (local-services)

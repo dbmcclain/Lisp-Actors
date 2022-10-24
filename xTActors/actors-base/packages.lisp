@@ -101,6 +101,10 @@ THE SOFTWARE.
    #:kill-actors-system
    #:add-executives
 
+   #:*current-actor*
+   #:*current-beh*
+   #:*current-message*
+   #:*current-env*
    #:*current-sponsor*
    #:sponsor-beh
    #:make-sponsor
@@ -129,7 +133,9 @@ THE SOFTWARE.
    #:actor
    #:actor-p
    #:actor-beh
+   #:%actor-cas
    #:create
+   #:%create
    #:actors
    #:make-remote-actor
    #:concurrently
@@ -316,6 +322,9 @@ THE SOFTWARE.
    #:com.ral.actors
    #+(OR :ALLEGRO :CCL) #:com.ral.ansi-timer
    #:com.ral.usec)
+  #+:LISPWORKS
+  (:import-from #:lw
+   #:do-nothing)
   (:import-from #:um
    #:curry
    #:rcurry
@@ -334,7 +343,10 @@ THE SOFTWARE.
   (:use
    #:common-lisp
    #:com.ral.actors
-   #:com.ral.actors.base))
+   #:com.ral.actors.base)
+  #+:LISPWORKS
+  (:import-from #:lw
+   #:do-nothing))
 
 (defpackage #:com.ral.actors.user
   (:use

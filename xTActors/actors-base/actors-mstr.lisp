@@ -34,13 +34,6 @@ THE SOFTWARE.
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))
 
-;; --------------------------------------------------------------------
-
-(unless (fboundp 'do-nothing)
-  (defun do-nothing (&rest _)
-    (declare (ignore _))
-    (values)))
-
 ;; -----------------------------------------------------
 ;; Actors are simply indirect refs to a beh closure (= function + state).
 ;;
@@ -62,13 +55,15 @@ THE SOFTWARE.
 ;;                              +------+-----+-----+---
 ;; ------------------------------------------------------------------
 
-(defstruct (actor
-               (:constructor %create (beh)))
-  (beh #'do-nothing :type function))
-
 (defun create (&optional (fn #'do-nothing))
-  (check-type fn function)
-  (%create fn))
+  (check-type fn (or actor function))
+  (%create (cond ((functionp fn)
+		  fn)
+		 ((actor-p fn)
+		  (actor-beh fn))
+		 (t
+		  #'do-nothing)
+		 )))
 
 (defun %set-beh (actor-dst actor-src)
   (setf (actor-beh actor-dst) (actor-beh actor-src)))
@@ -78,12 +73,12 @@ THE SOFTWARE.
 (defun sink-beh ()
   #'do-nothing)
 
-(deflex sink nil)
+(def-actor sink)
 
 (defun is-pure-sink? (actor)
   ;; used by networking code to avoid sending useless data
   (or (not (actor-p actor))
-      (eq (actor-beh actor) #'do-nothing)))
+      (eql (actor-beh actor) #'do-nothing)))
 
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
@@ -137,9 +132,6 @@ THE SOFTWARE.
 ;; delivered.
 
 (mpc:defglobal *nbr-pool*  8 )
-
-(defmacro send* (actor &rest msg)
-  `(apply #'send ,actor ,@msg))
 
 (defvar *send*
   (progn
@@ -210,6 +202,8 @@ THE SOFTWARE.
 ;; appear in the event queue in front of messages sent by a later
 ;; Actor activation. The event queue is a FIFO queue.
 
+(declaim (inline %actor-cas))
+
 (defun run-actors ()
   #F
   (let (sends evt pend-beh env)
@@ -263,6 +257,8 @@ THE SOFTWARE.
 
                    (let* ((*current-actor*   (msg-actor (the msg evt)))  ;; self
                           (*current-message* (msg-args  (the msg evt)))) ;; self-msg
+                     (declare (actor *current-actor*)
+                              (list  *current-message*))
                      (setf env (msg-env (the msg evt)))
                      
                      (tagbody                   
@@ -271,11 +267,13 @@ THE SOFTWARE.
                             sends    nil)
                       (let ((*current-behavior* pend-beh)  ;; self-beh
                             (*current-env*      env))      ;; self-env
+                        (declare (function *current-behavior*)
+                                 (actor    *current-env*))
                         ;; ---------------------------------
                         ;; Dispatch to Actor behavior with message args
                         (apply (the function pend-beh) self-msg)
                         (cond ((or (eq self-beh pend-beh)
-                                   (mpc:compare-and-swap (actor-beh (the actor self)) self-beh pend-beh))
+                                   (%actor-cas self self-beh pend-beh))
                                (when sends
                                  (cond ((mpc:mailbox-empty-p *central-mail*)
                                         ;; No messages await, we are front of queue,
@@ -456,7 +454,7 @@ THE SOFTWARE.
   ;;
   (create (blocking-serializer-beh service)))
         
-(deflex custodian
+(def-actor custodian
   (blocking-serializer (create (custodian-beh))))
 
 ;; --------------------------------------------------------------
@@ -506,17 +504,17 @@ THE SOFTWARE.
   `(let ((,var ,stream))
      ,@body))
 
-(deflex println
+(def-actor println
   (α msg
     (with-printer (s *standard-output*)
       (format s "~&~{~A~%~^~}" msg))))
 
-(deflex writeln
+(def-actor writeln
   (α msg
     (with-printer (s *standard-output*)
       (format s "~&~{~S~%~^~}" msg))))
 
-(deflex fmt-println
+(def-actor fmt-println
   (α (fmt-str &rest args)
     (with-printer (s *standard-output*)
       (format s "~&")

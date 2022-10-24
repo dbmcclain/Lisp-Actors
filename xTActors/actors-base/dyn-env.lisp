@@ -35,7 +35,7 @@
 
 (defvar +not-found+ (cons :not :found))
 
-(deflex base-dyn-env
+(def-actor base-dyn-env
   (create
    (alambda
     ((:throw label ans)

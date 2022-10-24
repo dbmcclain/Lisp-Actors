@@ -270,10 +270,87 @@
 ;; never want to change the identity of an Actor, just its behavior,
 ;; through BECOME.
 
-(defmacro def-actor (name &optional beh)
-  (if beh
-      `(deflex ,name (create ,beh))
-    `(deflex ,name (create))))
+(unless (fboundp 'do-nothing)
+  ;; needed for SBCL
+  (defun do-nothing (&rest _)
+    (declare (ignore _))
+    (values)))
+
+(defmacro send* (actor &rest msg)
+  ;; for when it is known that final arg in msg is a list
+  `(apply #'send ,actor ,@msg))
+
+;; ----------------------------------------------------------
+
+(declaim (inline %actor-cas))
+
+#-:ACTORS-EXPERIMENTS
+(progn
+  (defstruct (actor
+                 (:constructor %create (beh)))
+    (beh #'do-nothing :type function))
+  
+  (defmacro def-actor (name &optional (beh '#'do-nothing))
+    `(deflex ,name (create ,beh)))
+  
+  (defun %actor-cas (actor old-beh new-beh)
+    (mpc:compare-and-swap (actor-beh (the actor actor)) old-beh new-beh)))
+
+#+:ACTORS-EXPERIMENTS
+(progn
+  (defclass actor ()
+    ;; Unify syntax between Actor SEND and FUNCALL
+    ((beh-cons  :initform (list #'do-nothing)))
+    (:metaclass clos:funcallable-standard-class))
+  
+  (defmethod actor-beh ((ac actor))
+    (car (slot-value ac 'beh-cons)))
+
+  (defmethod set-actor-beh ((ac actor) (beh function))
+    (setf (car (slot-value ac 'beh-cons)) beh))
+
+  (defmethod set-actor-beh ((ac actor) (beh actor))
+    (set-actor-beh ac (actor-beh beh)))
+  
+  (defsetf actor-beh set-actor-beh)
+  
+  (defmethod initialize-instance :after ((ac actor) &key (beh #'do-nothing) &allow-other-keys)
+    (setf (actor-beh ac) beh)
+    (clos:set-funcallable-instance-function ac (lambda (&rest msg)
+                                                 (send* ac msg))))
+
+  (defmethod actor-p (x)
+    nil)
+  
+  (defmethod actor-p ((x actor))
+    t)
+
+  (defun %create (&optional (beh #'do-nothing))
+    (make-instance 'actor
+                   :beh (cond ((functionp beh)
+                               beh)
+                              ((and (symbolp beh)
+                                    (symbol-function beh)))
+                              ((actor-p beh)
+                               (actor-beh beh))
+                              (t
+                               #'do-nothing)
+                              )))
+  
+  (defmacro def-actor (name &optional (beh '#'do-nothing))
+    (lw:with-unique-names (msg)
+      `(progn
+         (define-symbol-macro ,name (symbol-value ',name))
+         (defun ,name (&rest ,msg)
+           (send* ,name ,msg))
+         (setf ,name (create ,beh)))
+      ))
+
+  (defun %actor-cas (actor old-beh new-beh)
+    (mpc:compare-and-swap (car (slot-value (the actor actor) 'beh-cons))
+                          old-beh new-beh)))
+
+;; ----------------------------------------------------------
 
 (defmacro define-behavior (name fn)
   `(progn

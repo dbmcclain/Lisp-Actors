@@ -313,7 +313,7 @@
        (become (connections-list-beh (remove rec cnx-lst))))
      )))
 
-(deflex connections
+(def-actor connections
   (create (connections-list-beh)))
 
 ;; -------------------------------------------------------------
@@ -493,7 +493,7 @@
                  (read-from-string (subseq addr (1+ cpos))))
        addr))))
 
-(deflex client-connector
+(def-actor client-connector
   ;; Called from client side wishing to connect to a server.
   (α (cust handshake ip-addr &optional (ip-port *default-port*))
     (multiple-value-bind (addr port)
@@ -572,7 +572,7 @@ indicated port number."
   (unless *ws-collection*
     (start-tcp-server)))
 
-(deflex terminator
+(def-actor terminator
   (α (cust)
     (terminate-server cust)))
 
