@@ -133,6 +133,7 @@ THE SOFTWARE.
    
    #:actor
    #:actor-p
+   #:service-p
    #:actor-beh
    #:%actor-cas
    #:service
