@@ -223,8 +223,7 @@
 
 (µ β (args form &body body)
   ;; β is to beta
-  `(let (β)
-     (setf β  (α ,args ,@body))
+  `(let ((β  (α ,args ,@body)))
      ,form))
 
 #+:LISPWORKS

@@ -335,45 +335,40 @@
 
 ;; -----------------------------------------------
 
-(defmacro prog1-β (first-val services &body body)
-  ;; fire off multiple services, but wait only for first one to
-  ;; respond.
-  `(progn
-     ,@(mapcar (lambda (service)
-                 `(send ,service sink))
-               (cdr services))
-     (β (,first-val)
-         (send ,(car services) β)
-       ,@body)))
+(defmacro prog1-β (&rest services)
+  ;; Produce an Actor Service that performs a sequence of Lisp forms
+  ;; and sends the result of the first service to the Service
+  ;; customer. The sequence is performed serially and in-order
+  ;; specified.
+  (lw:with-unique-names (cust ans)
+    (when services
+      `(α (,cust)
+         (β (,ans)
+             (send ,(car services) β)
+           ,(um:nlet iter ((svcs (cdr services)))
+              (if (endp svcs)
+                  `(send ,cust ,ans)
+                `(β _
+                     (send ,(car svcs) β)
+                   ,(iter (cdr svcs)))))
+           ))
+      )))
 
-(defmacro progn-β (final-val services &body body)
-  ;; fire off multiple services, but wait only for last one to
-  ;; respond.
-  `(progn
-     ,@(mapcar (lambda (service)
-                 `(send ,service sink))
-               (butlast services))
-     (β (,final-val)
-         (send ,@(last services) β)
-       ,@body)))
-
-(defmacro prog1*-β (first-val services &body body)
-  ;; fire off multiple services and wait for all to respond. Take
-  ;; value from first sercice response.
-  (um:with-unique-names (ns)
-    `(β ,ns
-         (send (fork ,@services) β)
-       (let ((,first-val (car ,ns)))
-         ,@body))))
-
-(defmacro progn*-β (final-val services &body body)
-  ;; fire off multiple services and wait for all to respond. Take
-  ;; value from last sercice response.
-  (um:with-unique-names (ns)
-    `(β ,ns
-         (send (fork ,@services) β)
-       (let ((,final-val (car (last ,ns))))
-         ,@body))))
+(defmacro progn-β (&rest services)
+  ;; Produce an Actor Service that performs a sequence of Lisp forms
+  ;; and sends the result of the last service to the Service customer.
+  ;; The sequence is performed serially and in-order specified.
+  (lw:with-unique-names (cust ans)
+    (when services
+      `(α (,cust)
+         ,(um:nlet iter ((svcs (butlast services)))
+            (if (endp svcs)
+                `(send ,(car (last services)) ,cust)
+              `(β _
+                   (send ,(car svcs) β)
+                 ,(iter (cdr svcs)))
+              )))
+      )))
 
 ;; -----------------------------------------------
 
