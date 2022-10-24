@@ -35,6 +35,29 @@
 
 (defvar +not-found+ (cons :not :found))
 
+(deflex base-dyn-env
+  (create
+   (alambda
+    ((:throw label ans)
+     (error "Throw target not found: ~S" label))
+    
+    ((cust :handle kind cx)
+     (error cx))
+
+    ((cust :lookup name . default)
+     (send cust (car default)))
+
+    ((cust :unwind to-env ans)
+     (send cust ans))
+    
+    ((cust :show . lst)
+     (send cust (reverse lst)))
+    )))
+
+(setf *current-env* base-dyn-env)
+
+;; ----------------------------------------------
+
 (defun dyn-env-beh (next kind bindings)
   ;; next points to prior env, bindings is alternating keys and values.
   (alambda
@@ -55,17 +78,12 @@
     ;; lookup name in our current env. Return its value and our
     ;; dyn-env. Otherwise, pass request to next level. If no next
     ;; level then not found, and so return nil and nil.
-    (flet ((not-found ()
-             (if next
-                 (repeat-send next)
-               (send cust (car default)))
-             ))
-      (if (eql kind :bindings)
-          (let ((val (getf bindings name +not-found+)))
-            (if (eql val +not-found+)
-                (not-found)
-              (send cust val)))
-        (not-found))))
+    (if (eql kind :bindings)
+        (let ((val (getf bindings name +not-found+)))
+          (if (eql val +not-found+)
+              (repeat-send next)
+            (send cust val)))
+      (repeat-send next)))
 
    ((cust :exit-level ans)
     ;; perform any unwinds then send ans to cust
@@ -84,19 +102,14 @@
         (become (dyn-env-beh next :discarded nil))
         (let ((*current-env* next)
               (msg           self-msg))
-          (flet ((maybe-send-next ()
-                   (if next
-                       (send* next msg)
-                     (send cust ans))))
-            (if (eql kind :unwind)
-                (β _
-                    (send bindings β) ;; bindings, here, is an unwind Actor
-                  (maybe-send-next))
-              (maybe-send-next))
-            )))
-      ))
+          (if (eql kind :unwind)
+              (β _
+                  (send bindings β) ;; bindings, here, is an unwind Actor
+                (send* next msg))
+            (send* next msg)))
+        )))
 
-   ((cust :handle kind cx)
+   ((cust :handle akind cx)
     ;; Perform unwind to next level then invoke handler if we have
     ;; one. Else pass message along to next level. If we never find
     ;; handler, just drop it.
@@ -105,7 +118,7 @@
           (send self β :exit-level nil)
         (let (handler)
           (if (and (eql kind :handlers)
-                   (setf handler (getf bindings kind)))
+                   (setf handler (getf bindings akind)))
               (send handler cust cx)
             (send* next msg))
           ))
@@ -113,9 +126,7 @@
 
    ((cust :show . accum)
     (let ((lst (cons (list kind bindings) (car accum))))
-      (if next
-          (send next cust :show lst)
-        (send cust (reverse lst)))
+      (send next cust :show lst)
       ))
    ))
 
