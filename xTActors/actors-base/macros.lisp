@@ -284,14 +284,31 @@
 
 (declaim (inline %actor-cas))
 
+;; ---------------------------------------------------
+;; Service -- offer up a parameterized service once the customer is
+;; known
+
 #-:ACTORS-EXPERIMENTS
 (progn
   (defstruct (actor
                  (:constructor %create (beh)))
     (beh #'do-nothing :type function))
   
+  (defstruct (service
+              (:include actor)
+              (:constructor %create-service (beh))))
+  
+  (defun create-service (&optional (fn #'do-nothing))
+    (%create-service (screened-beh fn)))
+
   (defmacro def-actor (name &optional (beh '#'do-nothing))
-    `(deflex ,name (create ,beh)))
+    (lw:with-unique-names (behe)
+      `(deflex ,name 
+         (let ((,behe ,beh))
+           (if (service-p ,behe)
+               (create-service ,behe)
+             (create ,behe))))
+      ))
   
   (defun %actor-cas (actor old-beh new-beh)
     (mpc:compare-and-swap (actor-beh (the actor actor)) old-beh new-beh)))
@@ -329,15 +346,31 @@
     (make-instance 'actor
                    :beh beh)) ;; already screened in create
   
+  (defclass service (actor)
+    ()
+    (:metaclass clos:funcallable-standard-class))
+  
+  (defmethod service-p (x)
+    nil)
+  
+  (defmethod service-p ((ac service))
+    t)
+
+  (defmethod create-service (beh)
+    (change-class (create beh) 'service))
+
   (defmacro def-actor (name &optional (beh '#'do-nothing))
-    (lw:with-unique-names (msg)
+    (lw:with-unique-names (msg behe)
       `(progn
          (define-symbol-macro ,name (symbol-value ',name))
          (defun ,name (&rest ,msg)
            (send* ,name ,msg))
-         (setf ,name (create ,beh)))
+         (let ((,behe ,beh))
+           (setf ,name (if (service-p ,behe)
+                           (create-service ,behe)
+                         (create ,behe)))))
       ))
-
+  
   (defun %actor-cas (actor old-beh new-beh)
     (mpc:compare-and-swap (car (slot-value (the actor actor) 'beh-cons))
                           old-beh new-beh)))

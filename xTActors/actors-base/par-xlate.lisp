@@ -221,36 +221,6 @@
 ;;
 ;; -----------------------------------------------
 
-#+:actors-experiments
-(progn
-  (defclass service (actor)
-    ()
-    (:metaclass clos:funcallable-standard-class))
-  
-  (defmethod create-service (beh)
-    (change-class (create beh) 'service)))
-
-#-:actors-experiments
-(progn
-  (defstruct (service
-              (:include actor)
-              (:constructor %create-service (beh))))
-
-  (defun create-service (&optional (fn #'do-nothing))
-    (%create-service (screened-beh fn))))
-
-;; ---------------------------------------------------
-;; Service -- offer up a parameterized service once the customer is
-;; known
-
-(defmethod service-p (x)
-  nil)
-
-(defmethod service-p ((ac service))
-  t)
-
-;; -----------------------------------------
-
 (defmethod service ((ac service) &rest args)
   ac)
 
