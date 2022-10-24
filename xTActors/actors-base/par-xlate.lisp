@@ -350,15 +350,13 @@
          (car services))
         (t
          (labels ((beh1 (cust)
-                    (let ((cont (create
-                                 (lambda (cust services)
-                                   (become #'beh2)
-                                   (let ((me self))
-                                     (β (ans)
-                                         (send (car services) β)
-                                       (send me cust ans (cdr services))))
-                                   ))))
-                      (send cont cust services)))
+                    ;; using a private continuation Actor keeps us
+                    ;; from becoming a 1-use only Service.
+                    (let ((cont (create #'beh2)))
+                      (β (ans)
+                          (send (car services) β)
+                        (send cont cust ans (cdr services)))
+                      ))
                   (beh2 (cust ans services)
                     (if (endp services)
                         (send cust ans)
@@ -380,16 +378,21 @@
          (car services))
         (t
          (labels ((beh1 (cust)
-                    (let ((cont (create
-                                 (lambda (cust services)
-                                   (if (endp (cdr services))
-                                       (send (car services) cust)
-                                     (let ((me self))
-                                       (β _
-                                           (send (car services) β)
-                                         (send me cust (cdr services))))
-                                     )))))
-                      (send cont cust services))))
+                    ;; using a private continuation Actor keeps us
+                    ;; from becoming a 1-use only Service.
+                    (let ((cont (create #'beh2)))
+                      (β _
+                          (send (car services) β)
+                        (send cont cust (cdr services)))
+                      ))
+                  (beh2 (cust services)
+                    (if (endp (cdr services))
+                        (send (car services) cust)
+                      (let ((me self))
+                        (β _
+                            (send (car services) β)
+                          (send me cust (cdr services))))
+                      )))
            (create #'beh1)))
         ))
                      
