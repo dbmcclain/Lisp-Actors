@@ -56,17 +56,7 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------
 
 (defun create (&optional (fn #'do-nothing))
-  (check-type fn (or actor function))
-  (%create (cond ((functionp fn)
-		  fn)
-		 ((actor-p fn)
-		  (actor-beh fn))
-		 (t
-		  #'do-nothing)
-		 )))
-
-(defun %set-beh (actor-dst actor-src)
-  (setf (actor-beh actor-dst) (actor-beh actor-src)))
+  (%create (screened-beh fn)))
 
 ;; --------------------------------------
 

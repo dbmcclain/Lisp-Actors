@@ -221,37 +221,60 @@
 ;;
 ;; -----------------------------------------------
 
-(defun const-beh (&rest msg)
-  (lambda (cust)
-    (send* cust msg)))
+#+:actors-experiments
+(progn
+  (defclass service (actor)
+    ()
+    (:metaclass clos:funcallable-standard-class))
+  
+  (defmethod create-service (beh)
+    (change-class (create beh) 'service)))
 
-(defun const (&rest msg)
-  (create (apply #'const-beh msg)))
+#-:actors-experiments
+(progn
+  (defstruct (service
+              (:include actor)
+              (:constructor %create-service (beh))))
 
-(def-actor true  (const t))
-(def-actor false (const nil))
+  (defun create-service (&optional (fn #'do-nothing))
+    (%create-service (screened-beh fn))))
 
 ;; ---------------------------------------------------
 ;; Service -- offer up a parameterized service once the customer is
 ;; known
 
-(defun service (server &rest args)
-  (cond ((actor-p server)
-         (create
-          (lambda (cust)
-            (send* server cust args))))
-        ((functionp server)
-         (create
-          (lambda (cust)
-            (send cust (apply server args)))))
-        (t
-         (const server))
-        ))
+(defmethod service ((ac service) &rest args)
+  ac)
+
+(defmethod service ((ac actor) &rest args)
+  (create-service
+   (lambda (cust)
+     (send* ac cust args))))
+
+(defmethod service ((fn function) &rest args)
+  (create-service
+   (lambda (cust)
+     (send cust (apply fn args)))))
+
+(defmethod service (x &rest args)
+  (apply #'const x args))
 
 (def-actor null-service
-  (create
+  (create-service
    (lambda (cust)
      (send cust))))
+
+;; ------------------------------------------------
+
+(defun const-beh (&rest msg)
+  (lambda (cust)
+    (send* cust msg)))
+
+(defun const (&rest msg)
+  (create-service (apply #'const-beh msg)))
+
+(def-actor true  (const t))
+(def-actor false (const nil))
 
 ;; ---------------------------------------------------
 ;; Fork/Join against zero or more services
@@ -272,7 +295,7 @@
 (defun fork2 (service1 service2)
   ;; Produce a single service which fires both in parallel and sends
   ;; their results in the same order to eventual customer.
-  (create
+  (create-service
    (lambda (cust)
      (actors ((tag1   (tag joiner))
               (tag2   (tag joiner))
@@ -365,7 +388,7 @@
                             (send (car services) β)
                           (send me cust ans (cdr services)))
                         ))))
-           (create #'beh1)))
+           (create-service #'beh1)))
         ))
                      
 (defun progn-β (&rest services)
@@ -393,13 +416,13 @@
                             (send (car services) β)
                           (send me cust (cdr services))))
                       )))
-           (create #'beh1)))
+           (create-service #'beh1)))
         ))
                      
 ;; -----------------------------------------------
 
 (defun or2 (service1 service2)
-  (create
+  (create-service
    (lambda (cust)
      (β (ans)
          (send service1 β)
@@ -437,7 +460,7 @@
 ;; -----------------------------------------------
 
 (defun and2 (service1 service2)
-  (create
+  (create-service
    (lambda (cust)
      (β (ans)
          (send service1 β)

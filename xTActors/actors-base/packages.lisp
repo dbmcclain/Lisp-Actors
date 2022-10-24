@@ -129,12 +129,15 @@ THE SOFTWARE.
    #:self-beh
    #:self-env
    #:self-msg
-
+   #:screened-beh
+   
    #:actor
    #:actor-p
    #:actor-beh
    #:%actor-cas
+   #:service
    #:create
+   #:create-service
    #:%create
    #:actors
    #:make-remote-actor

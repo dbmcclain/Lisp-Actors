@@ -604,7 +604,7 @@
                      (send cust :ok))
                    )))
              ))
-    (create (chunk-counter-beh 0))))
+    (create-service (chunk-counter-beh 0))))
 
 (defun chunker (&key (max-size 65536))
   ;; takes a bytevec and produces a sequence of chunk encodings
@@ -642,10 +642,11 @@
                           (typep byte-vec 'ub8-vector))
    ;; (send fmt-println "Dechunk Assembler: offs ~D, size ~D" offs (length byte-vec))
    (unless (find offs chunks-seen) ;; toss duplicates
-     (let ((replacer    (α (cust)
-                          ;; avoids repeated copying on BECOME retry
-                          (replace out-vec byte-vec :start1 offs)
-                          (send cust out-vec)))
+     (let ((replacer    (create-service
+                         (lambda (cust)
+                           ;; avoids repeated copying on BECOME retry
+                           (replace out-vec byte-vec :start1 offs)
+                           (send cust out-vec))))
            (new-seen    (cons offs chunks-seen))
            (new-nchunks (1- nchunks)))
        (cond ((zerop new-nchunks)
@@ -1076,16 +1077,17 @@
 (defun aont-file-reader (fname)
   ;; Reads a single AONT record from a file, sending the original data
   ;; items as a sequence of args to cust.
-  (actor (cust)
-    (with-open-file (fd fname
-                        :direction :input
-                        :element-type '(unsigned-byte 8))
-      (let ((file-type (make-ub8-vector 16)))
-        (read-sequence file-type fd)
-        (if (equalp +AONT-FILE-TYPE-ID+ file-type)
-            (send* aont-decoder cust (loenc:deserialize fd))
-          (error "~A: Not an AONT encoded file" fname))
-        ))))
+  (create-service
+   (lambda (cust)
+     (with-open-file (fd fname
+                         :direction :input
+                         :element-type '(unsigned-byte 8))
+       (let ((file-type (make-ub8-vector 16)))
+         (read-sequence file-type fd)
+         (if (equalp +AONT-FILE-TYPE-ID+ file-type)
+             (send* aont-decoder cust (loenc:deserialize fd))
+           (error "~A: Not an AONT encoded file" fname))
+         )))))
 
 ;; -----------------------------------------------------------------
 ;; Tests...

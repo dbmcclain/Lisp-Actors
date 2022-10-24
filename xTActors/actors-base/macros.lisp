@@ -327,15 +327,7 @@
 
   (defun %create (&optional (beh #'do-nothing))
     (make-instance 'actor
-                   :beh (cond ((functionp beh)
-                               beh)
-                              ((and (symbolp beh)
-                                    (symbol-function beh)))
-                              ((actor-p beh)
-                               (actor-beh beh))
-                              (t
-                               #'do-nothing)
-                              )))
+                   :beh beh)) ;; already screened in create
   
   (defmacro def-actor (name &optional (beh '#'do-nothing))
     (lw:with-unique-names (msg)
@@ -349,6 +341,20 @@
   (defun %actor-cas (actor old-beh new-beh)
     (mpc:compare-and-swap (car (slot-value (the actor actor) 'beh-cons))
                           old-beh new-beh)))
+
+;; ----------------------------------------
+
+(defmethod screened-beh ((fn function))
+  fn)
+
+(defmethod screened-beh ((ac actor))
+  (actor-beh ac))
+
+(defmethod screened-beh (x)
+  (error "Invalid behavior: ~S" x))
+  
+(defun %set-beh (actor-dst actor-src)
+  (setf (actor-beh actor-dst) (actor-beh actor-src)))
 
 ;; ----------------------------------------------------------
 

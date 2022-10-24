@@ -135,7 +135,7 @@
 (defun lazy (actor &rest msg)
   ;; Like FUTURE, but delays evaluation of the Actor with message
   ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
-  (create (apply 'lazy-beh actor msg)))
+  (create-service (apply 'lazy-beh actor msg)))
 
 ;; --------------------------------------
 ;; SER - make an Actor that evaluates a series of blocks sequentially

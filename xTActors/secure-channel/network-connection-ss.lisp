@@ -345,101 +345,103 @@
 ;; the state, enccoder, and local-services to the customer.
 
 (defun create-socket-intf (&key kind ip-addr ip-port io-state report-ip-addr)
-  (α (cust)
-    (let* ((title (if (eq kind :client) "Client" "Server"))
-           (local-services (make-local-services))
-           (state (make-intf-state
-                   :title            title
-                   :ip-addr          report-ip-addr
-                   :io-state         io-state
-                   :local-services   local-services))
-           ;; Use self-sync encoding on the wire. No more prefix
-           ;; counts on packets.
-           ;;
-           ;; Data are chunked to avoid over-large packets. There is a
-           ;; limit to allowable size in the async interface.
-           ;;
-           ;; Initial connection is unencrypted. Once the ECDH dance
-           ;; is over, an encrypting preprocessor is used ahead of the
-           ;; encoder, and a decrypting postprocessor is used at the
-           ;; tail of the decoder.
-           (writer  (make-writer state)) ;; async output is sent here
-           (encoder (sink-pipe  (marshal-encoder)
-                                (self-sync-encoder)
-                                writer))
-           (accum   (self-synca:stream-decoder ;; async arrivals are sent here
-                     (sink-pipe (fail-silent-marshal-decoder)
-                                local-services)))
-           (packet-ctr 0)                            ;; a counter of input packet fragments 
-           (shutdown (once (make-socket-shutdown state))))
-      (β  _
-          ;; provide a service to establish an encrypted channel
-          (send local-services β :add-service-with-id +server-connect-id+
-                (server-crypto-gateway encoder local-services))
-        
-        (β  _
-            (send connections β :add-socket ip-addr ip-port state encoder)
-          
-          (with-accessors ((title            intf-state-title)
-                           (io-state         intf-state-io-state)
-                           (kill-timer       intf-state-kill-timer)
-                           (io-running       intf-state-io-running)
-                           (decr-io-count-fn intf-state-decr-io-count-fn)) state
-            
-            (setf kill-timer (make-kill-timer
-                              #'(lambda ()
-                                  (send println "Inactivity shutdown request")
-                                  (send shutdown)))
-                  (intf-state-writer   state) writer
-                  (intf-state-shutdown state) shutdown)
-            
-            (labels
-                ((rd-callback-fn (state buffer end)
-                   ;; callback for I/O thread - on continuous async read
-                   #|
-                   (send fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
-                         (comm:async-io-state-read-status state)
-                         end)
-                   |#
-                   (let ((status (or (comm:async-io-state-read-status state)
-                                     (when (> end +max-fragment-size+)
-                                       "Incoming packet too large"))
-                                 ))
-                     (cond (status
-                            ;; terminate on any error
-                            (comm:async-io-state-finish state)
-                            (send fmt-println "~A Incoming error state: ~A" title status)
-                            (decr-io-count state))
+  (create-service
+   (lambda (cust)
+     (let* ((title (if (eq kind :client) "Client" "Server"))
+            (local-services (make-local-services))
+            (state (make-intf-state
+                    :title            title
+                    :ip-addr          report-ip-addr
+                    :io-state         io-state
+                    :local-services   local-services))
+            ;; Use self-sync encoding on the wire. No more prefix
+            ;; counts on packets.
+            ;;
+            ;; Data are chunked to avoid over-large packets. There is a
+            ;; limit to allowable size in the async interface.
+            ;;
+            ;; Initial connection is unencrypted. Once the ECDH dance
+            ;; is over, an encrypting preprocessor is used ahead of the
+            ;; encoder, and a decrypting postprocessor is used at the
+            ;; tail of the decoder.
+            (writer  (make-writer state)) ;; async output is sent here
+            (encoder (sink-pipe  (marshal-encoder)
+                                 (self-sync-encoder)
+                                 writer))
+            (accum   (self-synca:stream-decoder
+                      ;; async arrivals are sent here
+                      (sink-pipe (fail-silent-marshal-decoder)
+                                 local-services)))
+            (packet-ctr 0)  ;; a counter of input packet fragments 
+            (shutdown (once (make-socket-shutdown state))))
+       (β  _
+           ;; provide a service to establish an encrypted channel
+           (send local-services β :add-service-with-id +server-connect-id+
+                 (server-crypto-gateway encoder local-services))
+         
+         (β  _
+             (send connections β :add-socket ip-addr ip-port state encoder)
+           
+           (with-accessors ((title            intf-state-title)
+                            (io-state         intf-state-io-state)
+                            (kill-timer       intf-state-kill-timer)
+                            (io-running       intf-state-io-running)
+                            (decr-io-count-fn intf-state-decr-io-count-fn)) state
+             
+             (setf kill-timer (make-kill-timer
+                               #'(lambda ()
+                                   (send println "Inactivity shutdown request")
+                                   (send shutdown)))
+                   (intf-state-writer   state) writer
+                   (intf-state-shutdown state) shutdown)
+             
+             (labels
+                 ((rd-callback-fn (state buffer end)
+                    ;; callback for I/O thread - on continuous async read
+                    #|
+                    (send fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
+                          (comm:async-io-state-read-status state)
+                          end)
+                    |#
+                    (let ((status (or (comm:async-io-state-read-status state)
+                                      (when (> end +max-fragment-size+)
+                                        "Incoming packet too large"))
+                                  ))
+                      (cond (status
+                             ;; terminate on any error
+                             (comm:async-io-state-finish state)
+                             (send fmt-println "~A Incoming error state: ~A" title status)
+                             (decr-io-count state))
                            
-                           ((plusp end)
-                            ;; Every input packet is numbered here,
-                            ;; starting from 1. This enables us to
-                            ;; deal properly with possible
-                            ;; out-of-order delivery to the self-sync
-                            ;; decoder. They arrive on the wire and
-                            ;; are delivered here in temporal order.
-                            ;; But the Actor subsystem might jumble
-                            ;; some deliveries to the decoder. (I have
-                            ;; witnessed this happening.)
-                            (send accum :deliver (incf packet-ctr) (subseq buffer 0 end))
-                            (send kill-timer :resched)
-                            (comm:async-io-state-discard state end))
-                           )))
+                            ((plusp end)
+                             ;; Every input packet is numbered here,
+                             ;; starting from 1. This enables us to
+                             ;; deal properly with possible
+                             ;; out-of-order delivery to the self-sync
+                             ;; decoder. They arrive on the wire and
+                             ;; are delivered here in temporal order.
+                             ;; But the Actor subsystem might jumble
+                             ;; some deliveries to the decoder. (I have
+                             ;; witnessed this happening.)
+                             (send accum :deliver (incf packet-ctr) (subseq buffer 0 end))
+                             (send kill-timer :resched)
+                             (comm:async-io-state-discard state end))
+                            )))
                  
-                 (decr-io-count (io-state)
-                   (let ((ct (sys:atomic-fixnum-decf (car io-running))))
-                     (when (zerop ct) ;; >0 is running
-                       (comm:close-async-io-state io-state)
-                       (send shutdown))
-                     ct)))
+                  (decr-io-count (io-state)
+                    (let ((ct (sys:atomic-fixnum-decf (car io-running))))
+                      (when (zerop ct) ;; >0 is running
+                        (comm:close-async-io-state io-state)
+                        (send shutdown))
+                      ct)))
               
-              (setf decr-io-count-fn #'decr-io-count)
+               (setf decr-io-count-fn #'decr-io-count)
               
-              (send kill-timer :resched)
-              (comm:async-io-state-read-with-checking io-state #'rd-callback-fn
-                                                      :element-type '(unsigned-byte 8))
-              (send cust state encoder)
-              )))))))
+               (send kill-timer :resched)
+               (comm:async-io-state-read-with-checking io-state #'rd-callback-fn
+                                                       :element-type '(unsigned-byte 8))
+               (send cust state encoder)
+               ))))))))
   
 ;; -------------------------------------------------------------
 
@@ -573,8 +575,9 @@ indicated port number."
     (start-tcp-server)))
 
 (def-actor terminator
-  (α (cust)
-    (terminate-server cust)))
+  (create-service
+   (lambda (cust)
+     (terminate-server cust))))
 
 (defun* lw-reset-actor-server _
   (ask terminator)
