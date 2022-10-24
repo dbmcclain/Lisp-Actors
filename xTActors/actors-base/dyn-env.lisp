@@ -166,7 +166,9 @@
 
 (defmacro with-binding-β ((var name &optional default) &body body)
   `(β (,var)
-       (send self-env β :lookup ,name ,default)
+       (if self-env
+           (send self-env β :lookup ,name ,default)
+         (send β ,default))
      ,@body))
 
 #+:LISPWORKS

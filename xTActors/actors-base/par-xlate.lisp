@@ -121,13 +121,14 @@
 ;;  ...
 ;;  en)
 ;; =>
-;; (β (_ _ ... vn)
-;;     (send (fork (service ,@e1)
-;;                 (service ,@e2)
-;;                 ...
-;;                 (service ,@en))
-;;           β)
-;;   (send cust vn))
+;; (β _
+;;     (send (service ,@e1) β)
+;;   (β _
+;;       (send (service ,@e2) β)
+;;     ...
+;;     (β (vn)
+;;         (send (service ,@en) β)
+;;       (send cust vn))))
 
 ;; ---------------
 
@@ -226,6 +227,9 @@
 
 (defun const (&rest msg)
   (create (apply #'const-beh msg)))
+
+(deflex true  (const t))
+(deflex false (const nil))
 
 ;; ---------------------------------------------------
 ;; Service -- offer up a parameterized service once the customer is
@@ -335,45 +339,61 @@
 
 ;; -----------------------------------------------
 
-(defmacro prog1-β (&rest services)
-  ;; Produce an Actor Service that performs a sequence of Lisp forms
-  ;; and sends the result of the first service to the Service
+(defun prog1-β (&rest services)
+  ;; Produce an Actor Service that performs a sequence Services
+  ;; and sends the result of the first Service to the Service
   ;; customer. The sequence is performed serially and in-order
   ;; specified.
-  (lw:with-unique-names (cust ans)
-    (when services
-      `(α (,cust)
-         (β (,ans)
-             (send ,(car services) β)
-           ,(um:nlet iter ((svcs (cdr services)))
-              (if (endp svcs)
-                  `(send ,cust ,ans)
-                `(β _
-                     (send ,(car svcs) β)
-                   ,(iter (cdr svcs)))))
-           ))
-      )))
-
-(defmacro progn-β (&rest services)
-  ;; Produce an Actor Service that performs a sequence of Lisp forms
-  ;; and sends the result of the last service to the Service customer.
+  (cond ((endp services)
+         false)
+        ((endp (cdr services))
+         (car services))
+        (t
+         (labels ((beh1 (cust)
+                    (let ((cont (create
+                                 (lambda (cust services)
+                                   (become #'beh2)
+                                   (let ((me self))
+                                     (β (ans)
+                                         (send (car services) β)
+                                       (send me cust ans (cdr services))))
+                                   ))))
+                      (send cont cust services)))
+                  (beh2 (cust ans services)
+                    (if (endp services)
+                        (send cust ans)
+                      (let ((me self))
+                        (β _
+                            (send (car services) β)
+                          (send me cust ans (cdr services)))
+                        ))))
+           (create #'beh1)))
+        ))
+                     
+(defun progn-β (&rest services)
+  ;; Produce an Actor Service that performs a sequence of Services
+  ;; and sends the result of the last Service to the Service customer.
   ;; The sequence is performed serially and in-order specified.
-  (lw:with-unique-names (cust ans)
-    (when services
-      `(α (,cust)
-         ,(um:nlet iter ((svcs (butlast services)))
-            (if (endp svcs)
-                `(send ,(car (last services)) ,cust)
-              `(β _
-                   (send ,(car svcs) β)
-                 ,(iter (cdr svcs)))
-              )))
-      )))
-
+  (cond ((endp services)
+         false)
+        ((endp (cdr services))
+         (car services))
+        (t
+         (labels ((beh1 (cust)
+                    (let ((cont (create
+                                 (lambda (cust services)
+                                   (if (endp (cdr services))
+                                       (send (car services) cust)
+                                     (let ((me self))
+                                       (β _
+                                           (send (car services) β)
+                                         (send me cust (cdr services))))
+                                     )))))
+                      (send cont cust services))))
+           (create #'beh1)))
+        ))
+                     
 ;; -----------------------------------------------
-
-(deflex true  (const t))
-(deflex false (const nil))
 
 (defun or2 (service1 service2)
   (create
