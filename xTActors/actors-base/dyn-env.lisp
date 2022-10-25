@@ -177,8 +177,8 @@
   `(%with-env (:handlers ,(bindings-to-plist handler-bindings))
      ,@body))
 
-(defmacro send-to-handler (cust handler-kind cx)
-  `(send self-env ,cust :handle ,handler-kind ,cx))
+(defun send-to-handler (cust handler-kind cx)
+  (send self-env cust :handle handler-kind cx))
 
 (defmacro with-env (bindings &body body)
   `(%with-env (:bindings ,(bindings-to-plist bindings))
