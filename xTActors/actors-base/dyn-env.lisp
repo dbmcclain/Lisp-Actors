@@ -100,9 +100,9 @@
         (repeat-send next))))
    
    ((cust :lookup name . default)
-    ;; lookup name in our current env. Return its value and our
-    ;; dyn-env. Otherwise, pass request to next level. If no next
-    ;; level then not found, and so return nil and nil.
+    ;; Lookup name in our current env. If found, return its value.
+    ;; Else send request to next deeper level.  If never found, return
+    ;; default answer.
     (if (eql kind :bindings)
         (let ((val (getf bindings name +not-found+)))
           (if (eql val +not-found+)
