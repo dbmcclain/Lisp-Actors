@@ -38,19 +38,19 @@
 (def-actor base-dyn-env
   (create
    (alambda
-    ((:throw label ans)
+    ((:throw label _)
      (error "Throw target not found: ~S" label))
     
-    ((cust :lookup name . default)
+    ((cust :lookup _ . default)
      (send cust (car default)))
 
     ((cust :handle . _)
      (send cust :ok))
     
-    ((cust :find-handler akind)
+    ((cust :find-handler _)
      (send cust nil self))
     
-    ((cust :unwind to-env ans)
+    ((cust :unwind _ ans)
      (send cust ans))
     
     ((cust :show . lst)
