@@ -478,8 +478,7 @@ THE SOFTWARE.
  |#
 
 ;; --------------------------------------
-
-;; Alas, with MPX we still need locks sometimes You might think that
+;; Alas, with MPX we still need locks sometimes. You might think that
 ;; we could use a SERIALIZER here. But that would cover only
 ;; participating Actors, not foreign threads trying to use the same
 ;; printer stream...
@@ -513,6 +512,13 @@ THE SOFTWARE.
 
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world
+;;
+;; Foretign threads can use ASK to query an Actor that provides a
+;; response to a customer. It is superfluous to do so from an Actor.
+;;
+;; For querying such an Actor, just leave out the customer arg in your
+;; message. A local mailbox interposes as the customer. This blocks
+;; until a response is received.
 
 (defun mbox-sender-beh (mbox)
   (check-type mbox mpc:mailbox)
@@ -544,6 +550,8 @@ THE SOFTWARE.
 ;; But sometimes all we need is a simple direct function call against
 ;; some args. In order to unify these two situations, we make
 ;; FN-ACTORs which encapsulate a function call inside of an Actor.
+;; 
+;; See also: SERVICES.
 
 (defun fn-actor-beh (fn)
   (λ (cust . args)

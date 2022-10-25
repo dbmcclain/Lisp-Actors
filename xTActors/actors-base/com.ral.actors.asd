@@ -32,6 +32,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :license     "Copyright (c) 2021-2022 by Refined Audiometrics Laboratory. MIT License terms apply."
   :components  ((:file "packages")
                 #-(OR :LISPWORKS :SBCL) (:file "ansi-timer")
+                #-:actors-experiments (:file "actor-types")
+                #+:actors-experiments (:file "actor-classes")
                 (:file "macros")
                 (:file "actors-mstr")
                 (:file "par-xlate")

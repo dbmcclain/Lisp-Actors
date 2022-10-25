@@ -305,6 +305,7 @@ THE SOFTWARE.
    #:with-env
    #:with-binding-β
    #:with-handlers
+   #:send-to-handler
    #:unwind-β
    #:catch-β
    #:send-throw

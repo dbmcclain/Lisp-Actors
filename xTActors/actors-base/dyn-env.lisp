@@ -41,12 +41,15 @@
     ((:throw label ans)
      (error "Throw target not found: ~S" label))
     
-    ((cust :handle kind cx)
-     (error cx))
-
     ((cust :lookup name . default)
      (send cust (car default)))
 
+    ((cust :handle . _)
+     (send cust :ok))
+    
+    ((cust :find-handler akind)
+     (send cust nil self))
+    
     ((cust :unwind to-env ans)
      (send cust ans))
     
@@ -73,6 +76,26 @@
             (send (cdr bindings) ans)
           (send* next msg)))
       ))
+   
+   ((cust :handle akind cx)
+    ;; Perform unwind to next level then invoke handler if we have
+    ;; one. Else pass message along to next level. If we never find
+    ;; handler, just drop it.
+    (β  (handler level)
+        (send self β :find-handler akind)
+      (if handler
+          (β _
+              (send self β :unwind level nil)
+            (send handler cust cx)) ;; handler should respond to cust
+        (send cust :ok))
+      ))
+          
+   ((cust :find-handler akind)
+    (let (handler)
+      (if (and (eql kind :HANDLER)
+               (setf handler (getf bindings akind)))
+          (send cust handler next)
+        (repeat-send next))))
    
    ((cust :lookup name . default)
     ;; lookup name in our current env. Return its value and our
@@ -108,21 +131,6 @@
                 (send* next msg))
             (send* next msg)))
         )))
-
-   ((cust :handle akind cx)
-    ;; Perform unwind to next level then invoke handler if we have
-    ;; one. Else pass message along to next level. If we never find
-    ;; handler, just drop it.
-    (let ((msg self-msg))
-      (β _
-          (send self β :exit-level nil)
-        (let (handler)
-          (if (and (eql kind :handlers)
-                   (setf handler (getf bindings akind)))
-              (send handler cust cx)
-            (send* next msg))
-          ))
-      ))
 
    ((cust :show . accum)
     (let ((lst (cons (list kind bindings) (car accum))))
@@ -170,6 +178,9 @@
 (defmacro with-handlers (handler-bindings &rest body)
   `(%with-env (:handlers ,(bindings-to-plist handler-bindings))
      ,@body))
+
+(defmacro send-to-handler (cust handler-kind cx)
+  `(send self-env ,cust :handle ,handler-kind ,cx))
 
 (defmacro with-env (bindings &body body)
   `(%with-env (:bindings ,(bindings-to-plist bindings))
