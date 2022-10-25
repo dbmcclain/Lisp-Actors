@@ -1,10 +1,10 @@
 
 (in-package #:cl-user)
 
-(defpackage #:cps
+(defpackage #:com.ral.cps
   (:use #:cl #:def*)
 
-  (:import-from #:useful-macros
+  (:import-from #:um
    #:symb
    #:if-let
    #:when-let
@@ -15,7 +15,7 @@
    #:flet*
    #:nlet)
 
-  (:import-from #:useful-macros
+  (:import-from #:um
    #:dynamic-wind
    #:proceed
    #:capture-dynamic-environment

@@ -44,8 +44,6 @@
 ;;
 (in-package :com.ral.actors.base)
 
-(declaim (inline %actor-cas))
-
 (defun stsend (actor &rest msg)
   #F
   ;; Single-threaded SEND - runs entirely in the thread of the caller.

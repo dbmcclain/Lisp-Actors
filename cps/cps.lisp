@@ -1,5 +1,5 @@
 
-(in-package :cps)
+(in-package #:cps)
 
 (define-symbol-macro =bind-cont %sk)
 (define-symbol-macro =wait-cont %sk)
@@ -242,7 +242,7 @@
         (if on-timeout
             (funcall on-timeout)
           (when errorp
-            (error 'timeout:timeout))
+            (error 'um:timeout))
           )))
     ))
 

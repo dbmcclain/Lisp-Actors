@@ -2,23 +2,15 @@
 ;;
 ;; DM/RAL 11/20 -- using dynamic-wind for this
 ;; -------------------------------------------------------
-(in-package :cps)
-;; -------------------------------------------------
-
-(um:eval-always
-  (import '(um:dynamic-wind
-            um:proceed
-            um:capture-dynamic-environment
-            um:call-with-dynamic-environment)))
-
+(in-package #:cps)
 ;; -------------------------------------------------------
 ;; CPS Continuation Operators
 ;;
 ;; If there is any chance that the enclosing function has exited the
 ;; dynamic chain before a continuation is invoked, we need to capture
 ;; that chain so that it can be re-instituted before calling the
-;; continuation closure. Use these =Handlers insetead of the usual
-;; Lisp forms to enable that action. (This most likely occurs in Actor
+;; continuation closure. Use these =Handlers instead of the usual Lisp
+;; forms to enable that action. (This most likely occurs in Actor
 ;; code.)
 
 (defmacro =handler-case (form &rest handlers)

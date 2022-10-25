@@ -23,7 +23,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 |#
 
-(asdf:defsystem "cps"
+(asdf:defsystem "com.ral.cps"
   :description "CPS: Continuation Passing Style"
   :version     "1.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
@@ -36,6 +36,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 ;; (:file "cps-smp")
                 )
   :SERIAL T
-  :depends-on   ("useful-macros"
+  :depends-on   ("com.ral.useful-macros"
                  ))
 

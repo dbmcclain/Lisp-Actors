@@ -43,4 +43,5 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "prim-actors")
                 (:file "dyn-env"))
   :SERIAL T
-  :depends-on   ("com.ral.useful-macros"))
+  :depends-on   ("com.ral.useful-macros"
+                 "com.ral.cps"))

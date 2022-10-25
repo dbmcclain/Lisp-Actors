@@ -45,6 +45,8 @@ THE SOFTWARE.
                 ;; (:file "freev")
                 ;; (:file "package-aliases")
 
+                (:file "dynamic-wind")
+                (:file "dflet")
                 (:file "nlet")
                 (:file "sharp-quasiquote-reader")
                 (:file "bang-macros")
@@ -130,13 +132,11 @@ THE SOFTWARE.
                 #-:ALLEGRO (:file "cache")
                 #+:WIN32 (:file "exec")
                 (:file "computed-metaclass")
-                (:file "dynamic-wind")
                 (:file "lazy-v2") ;; not supplanted by Actors
                 #+(AND :COM.RAL :LISPWORKS) (:file "remembered-filenames")
                 #+(AND :COM.RAL :LISPWORKS) (:file "lexb4")
                 #+(AND :COM.RAL :LISPWORKS) (:file "safe-call-system")
                 #-:relative-package-names (:file "hierarchical-packages")
-                (:file "dflet")
                 )
   :serial       t
   :depends-on   ("com.ral.useful-macros"

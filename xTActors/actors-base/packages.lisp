@@ -30,10 +30,13 @@ THE SOFTWARE.
 (in-package :CL-USER)
 
 (defpackage #:com.ral.actors
-  (:use #:common-lisp #:def*)
+  (:use #:common-lisp #:def* #:cps)
   #.`(:export
       ,@(loop for sym being the external-symbols of '#:def*
               collect sym))
+  #.`(:export
+      ,@(loop for sym being the external-symbols of '#:cps
+                collect sym))
   #+:LISPWORKS
   (:import-from #:lw
    #:do-nothing)
@@ -94,7 +97,8 @@ THE SOFTWARE.
    #:beta-gen
    #:alambda
    #:def-beh
-
+   #:=act
+   
    #:custodian
    #:actors-running-p
    #:restart-actors-system
@@ -348,7 +352,8 @@ THE SOFTWARE.
   (:use
    #:common-lisp
    #:com.ral.actors
-   #:com.ral.actors.base)
+   #:com.ral.actors.base
+   #:cps)
   #+:LISPWORKS
   (:import-from #:lw
    #:do-nothing))

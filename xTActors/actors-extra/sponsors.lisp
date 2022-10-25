@@ -38,8 +38,6 @@
 (defun in-this-sponsor (actor)
   (in-sponsor self-sponsor actor))
 
-(declaim (inline %actor-cas))
-
 (defun run-sponsor (*current-sponsor* mbox)
   #F
   ;; Single-threaded - runs entirely in the thread of the Sponsor.

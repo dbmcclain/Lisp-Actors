@@ -192,8 +192,6 @@ THE SOFTWARE.
 ;; appear in the event queue in front of messages sent by a later
 ;; Actor activation. The event queue is a FIFO queue.
 
-(declaim (inline %actor-cas))
-
 (defun run-actors ()
   #F
   (let (sends evt pend-beh env)
@@ -509,6 +507,18 @@ THE SOFTWARE.
       (format s "~&")
       (apply #'format s fmt-str args))
     ))
+
+;; ----------------------------------------------
+;; From CPS - form an Actor that captures/restores the current dynamic
+;; environment - for both Lisp and Actors.  All Lisp =HANDLERS and
+;; =LET bindings, as well as SELF-ENV.
+
+(defun =act (fn)
+  (=let ((*current-env*  self-env))
+    (let ((dyn-env (capture-dynamic-environment)))
+      (create
+       (lambda (&rest args)
+         (apply #'call-with-dynamic-environment dyn-env fn args))))))
 
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world
