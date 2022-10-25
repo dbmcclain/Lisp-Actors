@@ -65,12 +65,14 @@
   ;; next points to prior env, bindings is alternating keys and values.
   (alambda
    ((:throw label ans)
-    ;; search for label in dyn env, unwinding as we go. If not found,
+    ;; Unconditional unwind back to catch frame.
+    ;; Search for label in dyn env, unwinding as we go. If not found,
     ;; pass request along to next level. Once we find label, send ans
     ;; to continuation Actor. Cust will never be sent anything. End of the line...
+    ;; It is an error to throw to an undefined catch label.
     (let ((msg  self-msg))
       (β _
-          (send self β :exit-level nil)
+          (send self β :unwind next nil)
         (if (and (eql kind :catch)
                  (eql (car bindings) label))
             (send (cdr bindings) ans)
@@ -78,9 +80,9 @@
       ))
    
    ((cust :handle akind cx)
-    ;; Perform unwind to next level then invoke handler if we have
-    ;; one. Else pass message along to next level. If we never find
-    ;; handler, just drop it.
+    ;; Search for handler. If found, unwind to its dyn env, then
+    ;; invoke handler. Otherwise, just send a response to the waiting
+    ;; customer.  Handlers should respond to their customer.
     (β  (handler level)
         (send self β :find-handler akind)
       (if handler
@@ -107,10 +109,6 @@
               (repeat-send next)
             (send cust val)))
       (repeat-send next)))
-
-   ((cust :exit-level ans)
-    ;; perform any unwinds then send ans to cust
-    (send self cust :unwind next ans))
 
    ((cust :unwind to-env ans)
     ;; Keep unwinding until to-env matches our level, then send cust
