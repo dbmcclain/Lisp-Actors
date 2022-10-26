@@ -117,6 +117,10 @@
 ;; SERIALIZER can detect when it is safe to release another Actor in
 ;; waiting.
 ;;
+;; You should also realize, that once you send a message to the
+;; customer, you are no longer the sole instance running in Actor
+;; bodies.
+;;
 ;; That message back to the customer might not happen until many Actor
 ;; blocks beyond the SERIALIZER. But somewhere along that logical
 ;; thread, a message must be sent to their customer. Failing to do so
