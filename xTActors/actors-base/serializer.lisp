@@ -99,7 +99,7 @@
 ;; permission to use resource B.
 ;;
 ;; Now Actor 1 needs to gain resource B, but since it is in use by
-;; another Actor, he gets enqueued in the Serializer-B until the other
+;; another Actor, he gets enqueued in Serializer-B until the other
 ;; Actor finishes and sends a message back to Serializer-B.
 ;;
 ;; But that other Actor now tries to use resource A, and finds it in
