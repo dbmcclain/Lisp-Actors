@@ -111,7 +111,7 @@
 ;; never happen, and so the two logical threads of activity have come
 ;; to a halt, and resources A and B are now permanently off-limits to
 ;; all other Actors as well. Any other Actors wanting to use either
-;; resource will find themselves enqueued waiting for an event that
+;; resource will find themselves enqueued, waiting for an event that
 ;; will never happen.
 ;;
 ;; Other, unrelated activities will still be running, but the section
@@ -124,7 +124,7 @@
 ;; they will not become logically deadlocked.
 ;;
 ;; ---------------------------------------------------
-;; ***##*##*** IMPORTANT! ***##*##***
+;; ### VERY IMPORTANT! ###
 ;;
 ;; As just mentioned, once an Actor gets past a SERIALIZER gate, it is
 ;; obligated to send a message to its customer. That customer happens
