@@ -110,12 +110,11 @@
 ;; ---------------------------------------------------
 ;; IMPORTANT!
 ;;
-;; And as just mentioned, once an Actor gets past a SERIALIZER gate,
-;; it is obligated to send a message to its customer. That customer
-;; happens to be through the SERIALZER gate, which interposes between
-;; the running Actor and its actual customer. In that way, the
-;; SERIALIZER can detect when it is safe to release another Actor in
-;; waiting.
+;; As just mentioned, once an Actor gets past a SERIALIZER gate, it is
+;; obligated to send a message to its customer. That customer happens
+;; to be through the SERIALZER gate, which interposes between the
+;; running Actor and its actual customer. In that way, the SERIALIZER
+;; can detect when it is safe to release another Actor in waiting.
 ;;
 ;; You should also realize, that once you send a message to the
 ;; customer, you are no longer the sole instance running in Actor
@@ -124,15 +123,19 @@
 ;; That message back to the customer might not happen until many Actor
 ;; blocks beyond the SERIALIZER. But somewhere along that logical
 ;; thread, a message must be sent to their customer. Failing to do so
-;; results in a logical deadlock for any other chains of activity that
-;; need to use the same resource.
+;; results in a permanent logical blocking for any other chains of
+;; activity that need to use the same resource.
 ;;
 ;; Unlike, in CALL/RETURN architectures, we don't really have an
 ;; UNWIND-PROTECT on which to rely. We must exercise manual
 ;; discipline. The Dynamic Environments accompanying each message can
 ;; help, but you must take explicit action to invoke the UNWIND chain
-;; in the environment. It is difficult to defensively program against
-;; all possible future abuses of your Actor system.
+;; in the environment.
+;;
+;; It is difficult to defensively program against all possible future
+;; abuses of your Actor system. In most cases you will need to rely on
+;; timeout mechanisms to help out. Just like in the real world
+;; outside...
 ;; -----------------------------------------------------------------
 
 (defun unwind-guard (service unwind-actor)
