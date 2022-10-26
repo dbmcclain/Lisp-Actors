@@ -97,7 +97,6 @@ THE SOFTWARE.
    #:beta-gen
    #:alambda
    #:def-beh
-   #:=act
    
    #:custodian
    #:actors-running-p
@@ -157,6 +156,7 @@ THE SOFTWARE.
    #:future
    #:lazy
    #:sink
+   #:become-sink
    #:const
    #:with-printer
 
@@ -310,9 +310,16 @@ THE SOFTWARE.
    #:with-binding-β
    #:with-handlers
    #:send-to-handler
-   #:unwind-β
+   #:unwind-protect-β
+   #:unwind-to-β
    #:catch-β
    #:send-throw
+   
+   #:=act
+   #:filer
+   #:restoring-fwd
+   #:unwinding-tag
+   #:unwind-guard
    ))
 
 #+(OR :ALLEGRO :CCL)

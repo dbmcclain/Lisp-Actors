@@ -19,7 +19,7 @@
 (defun once-beh (cust)
   (lambda (&rest msg)
     (send* cust msg)
-    (become (sink-beh))))
+    (become-sink)))
 
 (defun once (cust)
   (create (once-beh cust)))
@@ -77,10 +77,12 @@
 (defun once-tag-beh (cust)
   (lambda (&rest msg)
     (send* cust self msg)
-    (become (sink-beh))))
+    (become-sink)))
 
 (defun once-tag (cust)
   (create (once-tag-beh cust)))
+
+;; ---------------------
 
 (defun timed-tag (cust timeout cust-id)
   (let ((atag (once-tag cust)))
@@ -380,10 +382,39 @@
      )))
 |#
 
+;; --------------------------------------
+
+(defun unwind-guard (service unwind-actor)
+  ;; forwards a message to a service after first establishing an
+  ;; unwind action.
+  (create
+   (lambda (cust &rest msg)
+     (unwind-protect-β
+         (send* service cust msg)
+         (send unwind-actor :unwind)))
+   ))
+
+;; --------------------------------------
+
+(defun restoring-fwd (cust)
+  (=act (fwd-beh cust)))
+
+(defun unwinding-tag (cust)
+  ;; A once-use tag feeding into a restoring forward. Gives us
+  ;; identity of the tag, and can be used as both the answer channel
+  ;; to us, and as an unwind actor when needed.
+  ;;
+  ;; Restoring causes unwind, but the once-beh prevents cycles during
+  ;; restoring actions.
+  (once-tag (restoring-fwd cust)))
+
+;; ---------------------------------------
+
+#||#
 (def-beh serializer-beh (service)
   ((cust . msg)
-   (let ((tag (tag self)))
-     (send* service tag msg)
+   (let ((tag (unwinding-tag self)))
+     (send* (unwind-guard service tag) tag msg)
      (become (busy-serializer-beh
               service tag cust +emptyq+))
      )))
@@ -394,19 +425,52 @@
    (if (emptyq? queue)
        (become (serializer-beh service))
      (multiple-value-bind (next-req new-queue) (popq queue)
-       (destructuring-bind (next-cust . next-msg) next-req
-         (let ((new-tag (tag self)))
-           (send* service new-tag next-msg)
-           (become (busy-serializer-beh
-                    service new-tag next-cust new-queue))
+       (destructuring-bind (next-env next-cust . next-msg) next-req
+         (with-env next-env
+           (let ((new-tag (unwinding-tag self)))
+             (send* (unwind-guard service new-tag) new-tag next-msg)
+             (become (busy-serializer-beh
+                      service new-tag next-cust new-queue)))
            )))
      ))
 
   (msg
    (become (busy-serializer-beh
             service tag in-cust
-            (addq queue msg))
+            (addq queue (cons self-env msg)))
            )))
+#||#
+#|
+(def-beh serializer-beh (service)
+  ((cust . msg)
+   (let ((tag (tag self)))
+     (send* service tag msg)
+     (become (busy-serializer-beh
+              service tag cust self-env +emptyq+))
+     )))
+
+(def-beh busy-serializer-beh (service tag in-cust cust-env queue)
+  ((atag . msg) when (eql atag tag)
+   (with-env cust-env
+     (send* in-cust msg)
+     (if (emptyq? queue)
+	 (become (serializer-beh service))
+	 (multiple-value-bind (next-req new-queue) (popq queue)
+	   (destructuring-bind (next-env next-cust . next-msg) next-req
+	     (with-env next-env
+	       (let ((new-tag (tag self)))
+		 (send* service new-tag next-msg)
+		 (become (busy-serializer-beh
+			  service new-tag next-cust self-env new-queue)))
+	       )))
+	 )))
+
+  (msg
+   (become (busy-serializer-beh
+            service tag in-cust cust-env
+            (addq queue (cons self-env msg)))
+           )))
+|#
 
 (defun serializer (service)
   (create (serializer-beh service)))
@@ -662,4 +726,30 @@
   (create (long-running-beh action)))
 |#
 ;; ------------------------------------------------------
+
+;; ------------------------------------------
+;; Responsible File Use
+
+(def-actor filer
+  ;; Open a file and send open stream designator to customer, along
+  ;; with an Actor to send to when finished with the file.
+  (alambda
+   ((cust :open fname . args)
+    (let* ((fd     (apply #'open fname args))
+           (closer (create
+                    (lambda* _
+                      (close fd)
+                      (become-sink)))
+                   ))
+      ;; closer is handed to customer, and lives in the unwind clause.
+      ;; It is a once behavior so this is safe. If customer will close
+      ;; the file, just send to closer, no, or any, args.
+      ;;
+      ;; Somewhere out there, an Actor should either send to closer,
+      ;; or else perform a THROW-β to some antecedent label. (Or
+      ;; invoke an antecedent HANDLER)
+      (unwind-protect-β
+          (send cust `(,fd . ,closer))
+          (send closer))
+      ))))
 

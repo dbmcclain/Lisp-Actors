@@ -4,7 +4,8 @@
  (#:def*          #:com.ral.useful-macros.def-extensions)
  (#:aop           #:com.ral.useful-macros.dflet)
  (#:uuidgen       #:com.ral.uuidgen)
- 
+ (#:cps           #:com.ral.cps)
+
  (#:plt           #:plotter)
  (#:vm            #:vmath)
  (#:vmath         #:com.ral.vectorized-math)

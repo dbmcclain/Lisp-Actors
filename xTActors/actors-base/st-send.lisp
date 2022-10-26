@@ -108,7 +108,7 @@
                           (setf env  (msg-env (the msg evt))
                                 qsav (and qhd qtl))
                           (let ((*current-actor*   (msg-actor (the msg evt)))
-                                (*current-message* (msg-args (the msg evt))))
+                                (*current-message* (msg-args  (the msg evt))))
                             (declare (actor *current-actor*)
                                      (list  *current-message*))
                             (tagbody
@@ -141,7 +141,7 @@
   `(let ((*send* #'stsend))
      ,@body))
 
-(defvar *NO-ANSWER* #())
+(defvar *NO-ANSWER* (list 'No.Answer))
 
 (defun call-actor (ac &rest args)
   ;; Invoking an Actor from procedural code.  Assumes Actor, ac, takes

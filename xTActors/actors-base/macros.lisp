@@ -148,13 +148,13 @@
                     (lambda* ,binding-args
                       ,@body))
                   (beta-gen ,params
-                    (=act (beta-beh ,@params))))
+                    (create (beta-beh ,@params))))
            (macrolet ((beta (&rest args)
                         `(beta-gen ,@args)))
              ;; this beta redef lasts only for the next form
              ,form))
       ;; else
-      `(let ((beta (=act (lambda* ,args ,@body))))
+      `(let ((beta (create (lambda* ,args ,@body))))
          ,form)
       )))
 
@@ -222,7 +222,7 @@
 
 (µ β (args form &body body)
   ;; β is to beta
-  `(let ((β  (=act (lambda* ,args ,@body))))
+  `(let ((β  (create (lambda* ,args ,@body))))
      ,form))
 
 #+:LISPWORKS

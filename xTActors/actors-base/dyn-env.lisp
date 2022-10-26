@@ -43,15 +43,22 @@
     
     ((cust :lookup _ . default)
      (send cust (car default)))
-
+    
     ((cust :handle . _)
      (send cust :ok))
     
     ((cust :find-handler _)
      (send cust nil self))
     
-    ((cust :unwind _ ans)
-     (send cust ans))
+    ((cust :unwind to-env ans)
+     ;; If we end up here, we are either already at base level, or
+     ;; else the sender wants to unwind in a different logical chain
+     ;; than we are running in.
+     ;;
+     ;; Either way, there is nothing we can do, so just tell him he is
+     ;; where he wants to be already.
+     (let ((*current-env*  to-env))
+       (send cust ans)))
     
     ((cust :show . lst)
      (send cust (reverse lst)))
@@ -64,19 +71,19 @@
 (defun dyn-env-beh (next kind bindings)
   ;; next points to prior env, bindings is alternating keys and values.
   (alambda
-   ((:throw label ans)
+   ((:throw label . msg)
     ;; Unconditional unwind back to catch frame.
     ;; Search for label in dyn env, unwinding as we go. If not found,
     ;; pass request along to next level. Once we find label, send ans
     ;; to continuation Actor. Cust will never be sent anything. End of the line...
     ;; It is an error to throw to an undefined catch label.
-    (let ((msg  self-msg))
+    (let ((my-msg  self-msg))
       (β _
           (send self β :unwind next nil)
         (if (and (eql kind :catch)
                  (eql (car bindings) label))
-            (send (cdr bindings) ans)
-          (send* next msg)))
+            (send* (cdr bindings) msg)
+          (send* next my-msg)))
       ))
    
    ((cust :handle akind cx)
@@ -118,7 +125,8 @@
     ;; Unwind handlers must reply to cust.
     ;;
     (if (eql to-env self)
-        (send cust ans)
+        (let ((*current-env* self))
+          (send cust ans))
       (progn
         (become (dyn-env-beh next :discarded nil))
         (let ((*current-env* next)
@@ -151,16 +159,16 @@
 #+:LISPWORKS
 (editor:setup-indent "%with-env" 1)
 
-(defmacro catch-β ((label (ans) &body catcher-body) &body body)
+(defmacro catch-β ((label args &body catcher-body) &body body)
   `(%with-env (:catch (cons ,label (create
-                                    (lambda (,ans)
+                                    (lambda* ,args
                                       ,@catcher-body))))
      ,@body))
 
-(defun send-throw (label val)
-  (send self-env :throw label val))
+(defun send-throw (label &rest msg)
+  (send* self-env :throw label msg))
 
-(defmacro unwind-β (form unwind-form)
+(defmacro unwind-protect-β (form unwind-form)
   (lw:with-unique-names (cust)
     `(%with-env (:unwind (create
                           (lambda (,cust)
@@ -181,23 +189,46 @@
   (send self-env cust :handle handler-kind cx))
 
 (defmacro with-env (bindings &body body)
-  `(%with-env (:bindings ,(bindings-to-plist bindings))
-     ,@body))
+  (if (consp bindings)
+      `(%with-env (:bindings ,(bindings-to-plist bindings))
+         ,@body)
+    `(let ((*current-env* ,bindings)) ;; should be an env Actor here
+       ,@body)))
 
 (defmacro with-binding-β ((var name &optional default) &body body)
   `(β (,var)
-       (if self-env
-           (send self-env β :lookup ,name ,default)
-         (send β ,default))
+       (send self-env β :lookup ,name ,default)
      ,@body))
+
+(defmacro unwind-to-β (env &body body)
+  `(β _
+     (send self-env β :unwind ,env :ok)
+     ,@body))
+
+;; ----------------------------------------------
+;; From CPS - form an Actor that captures/restores the current dynamic
+;; environment - for both Lisp and Actors.  All Lisp =HANDLERS and
+;; =LET bindings, as well as SELF-ENV.
+
+(defun =act (fn)
+  (create
+   (let ((dyn-env (capture-dynamic-environment))
+         (my-env  self-env))
+     (lambda (&rest args)
+       (unwind-to-β my-env
+         ;; (assert (eql self-env my-env))
+         (apply #'call-with-dynamic-environment dyn-env fn args)))
+     )))
+
 
 #+:LISPWORKS
 (progn
-  (editor:setup-indent "catch-β"        1)
-  (editor:setup-indent "unwind-β"       2 2 4)
-  (editor:setup-indent "with-handlers"  1)
-  (editor:setup-indent "with-env"       1)
-  (editor:setup-indent "with-binding-β" 1))
+  (editor:setup-indent "catch-β"          1)
+  (editor:setup-indent "unwind-protect-β" 2 2 4)
+  (editor:setup-indent "with-handlers"    1)
+  (editor:setup-indent "with-env"         1)
+  (editor:setup-indent "with-binding-β"   1)
+  (editor:setup-indent "unwind-to-β"      1))
 
 ;;-------------------------------------------------------
 ;; To be effective, we need to pass along the dynamic env with every
