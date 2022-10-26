@@ -59,15 +59,17 @@
 ;; However, sometimes you just can't be FPL pure, and must make
 ;; mutations that could be visible outside the running Actor instance.
 ;; A Hashtable in an Actor closure parameter list is a good example.
-;; All Actor instances runnnig inside the body of the Actor view the
+;; All Actor instances runnning inside the body of the Actor view the
 ;; same closure parameters. Only one machine thread at a time can be
-;; allowed to mutate the Hashtable. In MPX land, you would use a LOCK.
-;; But in Actor land, we use SERIALZER Gates.
+;; allowed to mutate the Hashtable, and it must happen while no other
+;; thread is attempting to read the Hashtable. In MPX land, you would
+;; use a LOCK. But in Actor land, we use SERIALZER Gates.
 ;;
 ;; Once running inside an Actor body that is guarded by a SERIALIZER,
 ;; you can freely mutate globally visible items that are in the
 ;; guarded Actor - like directly mutating the Actor closure
-;; parameters, e.g., a Hashtable.
+;; parameters, e.g., a Hashtable. You are the only one running inside
+;; that Actor body.
 ;;
 ;; ----------------------------------------------------------------
 ;; Actors are lock-free. So can deadlocks be eliminated by using
