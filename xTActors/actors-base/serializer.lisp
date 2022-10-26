@@ -23,15 +23,15 @@
 ;; But all of them are working on behalf of the single logical thread
 ;; of activity. Hence it is impossible for simultaneous execution
 ;; inside of any guarded Actors, unless the actions of that Actor
-;; produces independent sub-chains of activity that also happen to use
+;; produce independent sub-chains of activity that also happen to use
 ;; the guarded Actor, in which case they should also be entering via
 ;; the SERIALIZER gate.
 ;;
-;; There are no "threads" at the Actor level. Yes, all Actors run on
-;; machine threads, and the logical sequence of activity starting from
-;; one source Actor will find themselves switching between many
-;; different machine threads along the way. But none of the Actors are
-;; aware of these machine threads.
+;; There are no "threads" at the Actor level. Yes, beneath the
+;; surface, all Actors run on machine threads. And the logical
+;; sequence of activity starting from one source Actor will find
+;; itself switching across many different machine threads along the
+;; way. But none of the Actors are aware of these machine threads.
 ;;
 ;; Instead, we speak of a logical thread of activity emanating from a
 ;; source Actor.  Any Actor that SENDs more than one message is
