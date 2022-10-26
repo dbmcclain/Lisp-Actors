@@ -99,12 +99,12 @@
 ;; permission to use resource B.
 ;;
 ;; Now Actor 1 needs to gain resource B, but since it is in use by
-;; another Actor, he gets enqueued in the B-Serializer until the other
+;; another Actor, he gets enqueued in the Serializer-B until the other
 ;; Actor finishes and sends a message back to Serializer-B.
 ;;
 ;; But that other Actor now tries to use resource A, and finds it in
 ;; use by another Actor, and so he gets enqueued until the first Actor
-;; sends a message back to Serializer A.
+;; sends a message back to Serializer-A.
 ;;
 ;; And now both Actors are queued up, waiting for each other to send a
 ;; release message to the serializer where they are waiting. That will
@@ -124,7 +124,7 @@
 ;; they will not become logically deadlocked.
 ;;
 ;; ---------------------------------------------------
-;; IMPORTANT!
+;; ***##*##*** IMPORTANT! ***##*##***
 ;;
 ;; As just mentioned, once an Actor gets past a SERIALIZER gate, it is
 ;; obligated to send a message to its customer. That customer happens
