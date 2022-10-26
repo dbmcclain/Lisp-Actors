@@ -150,7 +150,7 @@
 ;; do so results in a permanent logical blocking for any other chains
 ;; of activity that need to use the same resource.
 ;;
-;; Unlike, in CALL/RETURN architectures, we don't really have an
+;; Unlike in CALL/RETURN architectures, we don't really have an
 ;; UNWIND-PROTECT on which to rely. We must exercise manual
 ;; discipline. The Dynamic Environments accompanying each message can
 ;; help, but you must take explicit action to invoke the UNWIND chain
