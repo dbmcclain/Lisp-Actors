@@ -314,6 +314,7 @@ THE SOFTWARE.
    #:unwind-to-β
    #:catch-β
    #:send-throw
+   #:show-β
    
    #:=act
    #:=β

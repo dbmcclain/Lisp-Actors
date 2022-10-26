@@ -480,7 +480,7 @@
               (send-after timeout tag-timeout)
               )))
          (t
-          (send* action cust msg))
+          (send* action cust start-msg))
      )))
 
 (defun watchdog-timer (action &key timeout on-timeout supv)
