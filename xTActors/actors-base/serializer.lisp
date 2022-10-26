@@ -14,7 +14,7 @@
 ;; (Non-Recursive) Locks in MPX land.
 ;;
 ;; --------------------------------------------------------------
-;; What is a SERIALIZER?
+;; *** WHAT IS A SERIALIZER? ***
 ;;
 ;; Serializers are gateways that allow you to ensure that only a
 ;; single logical thread of activity can be operating past the
@@ -43,7 +43,7 @@
 ;; separate CPU cores.
 ;;
 ;; ----------------------------------------------------------------
-;; When to use a SERIALIZER?
+;; *** WHEN TO USE A SERIALIZER? ***
 ;;
 ;; Actors live by the discipline of lock-free, purely functional code.
 ;; The only global mutation permitted in this inherently parallel
@@ -82,8 +82,8 @@
 ;; need SERIALIZERS when the mutation cannot happen solely via BECOME.
 ;;
 ;; ----------------------------------------------------------------
-;; Actors are lock-free. So can deadlocks be eliminated by using
-;; Actors?
+;; *** ACTORS ARE LOCK-FREE.
+;;       SO, CAN DEADLOCKS BE ELIMINATED BY USING ACTORS? ***
 ;;
 ;; Not quite: It is certainly possible to develop a logical deadlock
 ;; between two logical threads of Actor activity. Suppose one Actor
