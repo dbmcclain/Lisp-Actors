@@ -138,16 +138,17 @@
 ;;
 ;; (Keep in mind: SENDs and BECOMEs never actually occur until the
 ;; successful exit of the Actor body. Until then, they are privately
-;; staged for eventual commit, or discarded on unsuccessful exit. So
-;; the changes don't happen immediately, and they logically occur at
-;; the same instant. You can't see them happen, and neither can anyone
-;; else running in parallel to you.)
+;; staged for eventual commit, or discarded on unsuccessful exit.
+;;
+;; So the changes don't happen immediately, and they logically occur
+;; at the same instant. You can't see them happen, and neither can
+;; anyone else running in parallel to you.)
 ;;
 ;; That message SEND back to the customer might not happen until many
 ;; Actor blocks beyond the SERIALIZER. But somewhere along that
-;; logical thread, a message must be sent to their customer. Failing
-;; to do so results in a permanent logical blocking for any other
-;; chains of activity that need to use the same resource.
+;; logical thread, a message must be sent to the customer. Failing to
+;; do so results in a permanent logical blocking for any other chains
+;; of activity that need to use the same resource.
 ;;
 ;; Unlike, in CALL/RETURN architectures, we don't really have an
 ;; UNWIND-PROTECT on which to rely. We must exercise manual
