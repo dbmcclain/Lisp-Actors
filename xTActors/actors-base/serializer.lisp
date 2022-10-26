@@ -18,15 +18,17 @@
 ;;
 ;; Serializers are gateways that allow you to ensure that only a
 ;; single logical thread of activity can be operating past the
-;; Serializer gate. That single logical thread may (and probably does)
-;; represent the actions of any number of different machine threads.
+;; Serializer gate.
 ;;
-;; But all of them are working on behalf of the single logical thread
-;; of activity. Hence it is impossible for simultaneous execution
-;; inside of any guarded Actors, unless the actions of that Actor
-;; produce independent sub-chains of activity that also happen to use
-;; the guarded Actor, in which case they should also be entering via
-;; the SERIALIZER gate.
+;; That single logical thread may (and probably does) represent the
+;; actions of any number of different machine threads. But all of them
+;; are working on behalf of the single logical thread of activity.
+;;
+;; Hence it is impossible for simultaneous parallel execution inside
+;; of any guarded Actors, unless the actions of that Actor produce
+;; independent sub-chains of activity that also happen to use the
+;; guarded Actor, in which case they should also be entering via the
+;; SERIALIZER gate.
 ;;
 ;; There are no "threads" at the Actor level. Yes, beneath the
 ;; surface, all Actors run on machine threads. And the logical
@@ -64,13 +66,20 @@
 ;; same closure parameters. Only one machine thread at a time can be
 ;; allowed to mutate the Hashtable, and it must happen while no other
 ;; thread is attempting to read the Hashtable. In MPX land, you would
-;; use a LOCK. But in Actor land, we use SERIALZER Gates.
+;; use a LOCK. But in Actor land, we use a SERIALZER Gate.
 ;;
 ;; Once running inside an Actor body that is guarded by a SERIALIZER,
 ;; you can freely mutate globally visible items that are in the
 ;; guarded Actor - like directly mutating the Actor closure
 ;; parameters, e.g., a Hashtable. You are the only one running inside
 ;; that Actor body.
+;;
+;; But you still cannot safely mutate anything outside of the Actor
+;; body. And that is why we have a preference for Actors containing
+;; useful shared information, instead of using global vars. If
+;; something shared needs occasional mutation, it is safer to make it
+;; happen within an Actor body, with or without SERIALIZERs. We only
+;; need SERIALIZERS when the mutation cannot happen solely via BECOME.
 ;;
 ;; ----------------------------------------------------------------
 ;; Actors are lock-free. So can deadlocks be eliminated by using
