@@ -333,61 +333,10 @@
   (when (actor-p actor)
     (send* schedule-timer dt actor msg)))
 
-;; -----------------------------------------
-;; Serializer Gateway - service must always respond to a customer
-;;
-#|
-(def-beh serializer-beh (service
-                         &optional
-                         timeout
-                         (id  #())) ;; unique to me
-  ((cust . msg)
-   (let ((tag (timed-tag self timeout id)))
-     (send* service tag msg)
-     (become (busy-serializer-beh
-              service timeout id tag cust +emptyq+))
-     )))
-
-(defun busy-serializer-beh (service timeout id tag in-cust queue)
-  (labels ((release-one ()
-             (if (emptyq? queue)
-                 (become (serializer-beh service timeout id))
-               (multiple-value-bind (next-req new-queue) (popq queue)
-                 (destructuring-bind (next-cust . next-msg) next-req
-                   (let ((new-tag (timed-tag self timeout id)))
-                     (send* service new-tag next-msg)
-                     (become (busy-serializer-beh
-                              service timeout id new-tag next-cust new-queue))
-                     )))
-               )))
-
-    (alambda
-     ((atag :TIMEOUT an-id) when (and (eql atag tag)
-                                      (eql an-id id)) ;; need to be sure it is *our* timeout
-      ;; If we just received a timeout on our tag, then allow the timeout
-      ;; to propagate via timeout, i.e., making the customer suffer his
-      ;; own timeout, or else let the customer just hang.
-      ;;
-      ;; In any event, we got a prod to release the next guy...
-      (send fmt-println "*** We got a timeout in a serializer: ~S" self)
-      (release-one))
-     
-     ((atag . ans) when (eql atag tag)
-      (send* in-cust ans)
-      (release-one))
-     
-     (msg
-      (become (busy-serializer-beh
-               service timeout id tag in-cust
-               (addq queue msg))
-              ))
-     )))
-|#
-
 ;; --------------------------------------
 
 (defun unwind-guard (service unwind-actor)
-  ;; forwards a message to a service after first establishing an
+  ;; Forwards a message to a service after first establishing an
   ;; unwind action.
   (create
    (lambda (cust &rest msg)
@@ -396,84 +345,6 @@
          (send unwind-actor :unwind)))
    ))
 
-;; --------------------------------------
-
-(defun unwinding-tag (cust env)
-  ;; A once-use tag that restores the dynamic env on use. Gives us
-  ;; identity of the tag, and can be used as both the answer channel
-  ;; to us, and as an unwind Actor when needed.
-  ;;
-  ;; Restoring causes unwind, but the once-beh prevents cycles during
-  ;; restoring actions, when the tag is used in the unwind clause.
-  ;; c.f., SERIALIZER below.
-  (create
-   (lambda (&rest msg)
-     (become-sink)
-     (let ((me self))
-       (unwind-to-β env
-         (send* cust me msg))))
-   ))
-
-;; ---------------------------------------
-
-(def-beh serializer-beh (service)
-  ((cust . msg)
-   (let ((tag (unwinding-tag self self-env)))
-     (send* (unwind-guard service tag) tag msg)
-     (become (busy-serializer-beh
-              service tag cust +emptyq+))
-     )))
-
-(def-beh busy-serializer-beh (service tag in-cust queue)
-  ((atag . msg) when (eql atag tag)
-   (send* in-cust msg)
-   (if (emptyq? queue)
-       (become (serializer-beh service))
-     (multiple-value-bind (next-req new-queue) (popq queue)
-       (destructuring-bind (next-env next-cust . next-msg) next-req
-         (with-env next-env
-           (let ((new-tag (unwinding-tag self self-env)))
-             (send* (unwind-guard service new-tag) new-tag next-msg)
-             (become (busy-serializer-beh
-                      service new-tag next-cust new-queue)))
-           )))
-     ))
-
-  (msg
-   (become (busy-serializer-beh
-            service tag in-cust
-            (addq queue (cons self-env msg)))
-           )))
-
-(defun serializer (service)
-  (create (serializer-beh service)))
-
-(defun serializer-sink (service)
-  ;; Turn a service into a sink. Service must accept a cust argument,
-  ;; and always send a response to cust - even though it appears to be
-  ;; a sink from the caller's perspective.
-  (label (serializer service) sink))
-
-#|
-(defun tst (n)
-  (labels ((doit-beh (&optional (n 0))
-             (lambda (&rest _)
-               (declare (ignore _))
-               (let ((newct (1+ n)))
-                 (send println newct)
-                 (become (doit-beh newct))))))
-    (let* ((dst (create (doit-beh)))
-           (x (safe-serializer
-               (α (cust)
-                 (sleep 0.19999)
-                 (send cust :ok))
-               :timeout 0.2)
-              ))
-      (dotimes (ix n)
-        (send x dst))
-      )))
-(tst 100)
-|#
 ;; --------------------------------------
 
 (defun timing-beh (dut)
@@ -582,13 +453,15 @@
 ;; ------------------------------------------------
 
 (def-beh watchdog-timer-beh (action timeout on-timeout &optional supv)
+  ;; Place WATCHDOG-TIMER after a SERIALIZER gate, to ensure new
+  ;; message release on timeout.
   ((cust :become new-beh reply-to) when (and cust
                                              (eql cust supv))
    ;; allow a supervisor to change us out
    (become new-beh)
    (send reply-to :ok))
   
-  ((cust . msg)
+  ((cust . start-msg)
    (cond (timeout
           (let ((me  self))
             (actors ((tag-ok      (tag gate))
@@ -598,12 +471,12 @@
                                     (if (eql tag tag-ok)
                                         (send* cust msg)
                                       (cond (on-timeout
-                                             (send on-timeout me action timeout supv cust msg))
+                                             (send on-timeout me action start-msg timeout supv cust))
                                             (t
                                              (send cust :timeout))
                                             )))
                                   ))
-              (send* action tag-ok msg)
+              (send* action tag-ok start-msg)
               (send-after timeout tag-timeout)
               )))
          (t
@@ -611,30 +484,13 @@
      )))
 
 (defun watchdog-timer (action &key timeout on-timeout supv)
-  ;; if timeout happens, then on-timeout is sent a message with the
-  ;; watchdog, its action, its timeout duration, its supv, customer,
-  ;; and message as arguments.
+  ;; If timeout happens, then on-timeout is sent a message with the
+  ;; watchdog, its action Actor, the message in progress, its timeout
+  ;; duration, its supv, and customer, as arguments.
   (cond ((or timeout supv)
          (create (watchdog-timer-beh action timeout on-timeout supv)))
         (t
          action)))
-
-(defun safe-serializer (action &key timeout on-timeout supv)
-  ;; If timeout happens, by default the serializer will be unblocked
-  ;; with message :TIMEOUT.
-  ;;
-  ;; If ON-TIMEOUT is specified it will instead be called with the
-  ;; customer and message that was attempted. It is up to ON-TIMEOUT
-  ;; to clear the way with the SERIALIZER, perform retries, shut down
-  ;; the service, or whatever.. Rquests held in the SERIALIZER queue
-  ;; will remain blocked until the SERIALIZER hears a response.
-  (let ((wd (watchdog-timer action
-                              :timeout    timeout
-                              :on-timeout on-timeout
-                              :supv       supv)))
-    (values (serializer wd)
-            wd)
-    ))
 
 #|
 (send (safe-serializer (α (cust . msg)

@@ -221,6 +221,23 @@
   `(let ((=β  (=act (lambda* ,args ,@body))))
      ,send-form))
 
+;; ----------------------------------------------
+
+(defun unwinding-fwd (env)
+  ;; Useful to reset env when you no longer need handlers in place.
+  ;; Send your message to cust via unwinding-fwd. This can be
+  ;; established in the env before even knowing what cust will be
+  ;; needed. Compare with FWD.
+  ;;
+  ;; This serves as a FILTER block.
+  (create
+   (lambda (cust &rest msg)
+     (unwind-to-β env
+       (send* cust msg)))
+   ))
+
+;; ----------------------------------------------
+
 #+:LISPWORKS
 (progn
   (editor:setup-indent "catch-β"          1)

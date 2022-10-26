@@ -26,7 +26,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 (pushnew :actors-experiments *features*)
 
 (asdf:defsystem "com.ral.actors"
-  :description "Conventional Transactional Parallel-Concurrent Hewitt Actors..."
+  :description "Transactional Parallel-Concurrent Hewitt Actors..."
   :version     "3.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2021-2022 by Refined Audiometrics Laboratory. MIT License terms apply."
@@ -39,9 +39,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "par-xlate")
                 ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
                 (:file "st-send")
-		(:file "cheapq")
                 (:file "dyn-env")
+		(:file "cheapq")
                 (:file "prim-actors")
+                (:file "serializer")
                 (:file "startup"))
   :SERIAL T
   :depends-on   ("com.ral.useful-macros"
