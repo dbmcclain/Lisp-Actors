@@ -23,9 +23,9 @@
 ;; But all of them are working on behalf of the single logical thread
 ;; of activity. Hence it is impossible for simultaneous execution
 ;; inside of any guarded Actors, unless the actions of that Actor
-;; produces many independent sub-chains of activity that also happen
-;; to use the guarded Actor, in which case they should be entering via
-;; the SERIALIZER gate themselves.
+;; produces independent sub-chains of activity that also happen to use
+;; the guarded Actor, in which case they should also be entering via
+;; the SERIALIZER gate.
 ;;
 ;; There are no "threads" at the Actor level. Yes, all Actors run on
 ;; machine threads, and the logical sequence of activity starting from
@@ -37,7 +37,7 @@
 ;; source Actor.  Any Actor that SENDs more than one message is
 ;; spawning new logical threads of activity. Each of those messages
 ;; can be simultaneously processed by machine threads running on
-;; different CPU cores.
+;; separate CPU cores.
 ;;
 ;; ----------------------------------------------------------------
 ;; When to use a SERIALIZER?
