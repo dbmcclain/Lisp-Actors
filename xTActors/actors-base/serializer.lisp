@@ -136,6 +136,11 @@
 ;; customer, you are no longer the sole instance running in Actor
 ;; bodies.
 ;;
+;; (Keep in mind: SENDs and BECOMEs never actually occur until the
+;; successful exit of the Actor body. Until then, they are merely
+;; staged for eventual commit. So the changes don't happen
+;; immediately, and they logically occur at the same instant.)
+;;
 ;; That message back to the customer might not happen until many Actor
 ;; blocks beyond the SERIALIZER. But somewhere along that logical
 ;; thread, a message must be sent to their customer. Failing to do so
