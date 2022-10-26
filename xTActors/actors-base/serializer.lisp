@@ -10,7 +10,8 @@
 
 ;; ----------------------------------
 ;; Serializers are important enough to have their own source file.
-;; Serializers in Actors-land are the equivalent of Locks in MPX land.
+;; Serializers in Actors-land are the logical equivalent of
+;; (Non-Recursive) Locks in MPX land.
 ;;
 ;; --------------------------------------------------------------
 ;; What is a SERIALIZER?
