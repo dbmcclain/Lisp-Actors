@@ -142,7 +142,7 @@
 ;;
 ;; So the changes don't happen immediately, and they logically occur
 ;; at the same instant. You can't see them happen, and neither can
-;; anyone else running in parallel to you.)
+;; anyone else running in parallel with you.)
 ;;
 ;; That message SEND back to the customer might not happen until many
 ;; Actor blocks beyond the SERIALIZER. But somewhere along that
