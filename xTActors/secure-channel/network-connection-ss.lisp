@@ -55,41 +55,43 @@
                      (io-running     intf-state-io-running)
                      (kill-timer     intf-state-kill-timer)
                      (shutdown       intf-state-shutdown)) state
-      (labels
-          ;; these functions execute in the thread of the async socket handler
-          ((terminate-connection ()
-             (send shutdown))
+      (let ((my-env self-env))
+        (labels
+            ;; these functions execute in the thread of the async socket handler
+            ((terminate-connection ()
+               (send shutdown))
+             
+             (finish-fail (io-state)
+               ;; socket send failure
+               (funcall decr-io-count io-state)
+               (terminate-connection))  ;; leaves serializer locked up
+             
+             (finish-ok (io-state)
+               ;; sockeet send was okay
+               (if (zerop (funcall decr-io-count io-state))
+                   (terminate-connection) ;; socket reader no longer running
+                 (send cust :ok)))  ;; unblock serializer
+             
+             (write-done (io-state &rest _)
+               ;; this is a callback routine, executed in the thread of
+               ;; the async collection
+               (declare (ignore _))
+               (with-env my-env
+                 (cond ((comm:async-io-state-write-status io-state)
+                        (finish-fail io-state))
+                       (t
+                        (finish-ok io-state))
+                       ))))
+          (cond
+           ((sys:compare-and-swap (car io-running) 1 2) ;; still running recieve?
+            (comm:async-io-state-write-buffer state-io-state
+                                              byte-vec
+                                              #'write-done)
+            (send kill-timer :resched))
            
-           (finish-fail (io-state)
-             ;; socket send failure
-             (funcall decr-io-count io-state)
-             (terminate-connection))  ;; leaves serializer locked up
-           
-           (finish-ok (io-state)
-             ;; sockeet send was okay
-             (if (zerop (funcall decr-io-count io-state))
-                 (terminate-connection) ;; socket reader no longer running
-               (send cust :ok)))  ;; unblock serializer
-
-           (write-done (io-state &rest _)
-             ;; this is a callback routine, executed in the thread of
-             ;; the async collection
-             (declare (ignore _))
-             (cond ((comm:async-io-state-write-status io-state)
-                    (finish-fail io-state))
-                   (t
-                    (finish-ok io-state))
-                   )))
-        (cond
-         ((sys:compare-and-swap (car io-running) 1 2) ;; still running recieve?
-          (comm:async-io-state-write-buffer state-io-state
-                                            byte-vec
-                                            #'write-done)
-          (send kill-timer :resched))
-         
-         (t
-          (terminate-connection))
-         )))))
+           (t
+            (terminate-connection))
+           ))))))
 
 (defun make-writer (state)
   (serializer-sink
