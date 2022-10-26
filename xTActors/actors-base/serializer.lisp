@@ -53,15 +53,19 @@
 ;;
 ;; And as long as you live by FPL you can freely have multiple
 ;; simultaneous threads all operating in the same Actor body, even
-;; when the Actor performs a BECOME. And that is why you see us using
-;; Lisp REMOVE on Actor parameter lists, instead of the imperative
-;; DELETE. REMOVE does not damage the shared list, so multiple threads
-;; can happily access it in parallel. It can only be changed for all
-;; to see, as a result of a successful BECOME.
+;; when the Actor performs a BECOME to change shared closure
+;; parameters.
+;;
+;; And that is why you see us using Lisp REMOVE on Actor parameter
+;; lists, instead of the imperative DELETE. REMOVE does not damage the
+;; shared list, so multiple threads can happily access it in parallel.
+;; It can only be changed for all to see, as a result of a successful
+;; BECOME.
 ;;
 ;; However, sometimes you just can't be FPL pure, and must make
 ;; mutations that could be visible outside the running Actor instance.
 ;; A Hashtable in an Actor closure parameter list is a good example.
+;;
 ;; All Actor instances runnning inside the body of the Actor view the
 ;; same closure parameters. Only one machine thread at a time can be
 ;; allowed to mutate the Hashtable, and it must happen while no other
