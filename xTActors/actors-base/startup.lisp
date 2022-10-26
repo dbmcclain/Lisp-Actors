@@ -50,29 +50,6 @@
   ((cust :get-threads)
    (send cust threads)))
 
-#|
-(defun blocking-serializer-beh (service)
-  (let ((lock (mpc:make-lock)))
-    (lambda (cust &rest msg)
-      (mpc:with-lock (lock)
-        (send* cust (multiple-value-list (apply #'call-actor service msg))))
-      )))
-
-(defun blocking-serializer (service)
-  ;; To be used on Actor services that live at the edge, managing a
-  ;; shared resource, and that may need to run even if the Actors
-  ;; system is not currently running.
-  ;;
-  ;; ... the only way to reach us, in that case, is via CALL-ACTOR.
-  ;;
-  ;; Be cautious never to use this from a single-thread context, on a
-  ;; service that might send back to itself, either directly or
-  ;; indirectly. That will produce a deadlock. That's why I stated to
-  ;; be used on edge Actors!
-  ;;
-  (create (blocking-serializer-beh service)))
-|#
-
 (def-actor custodian
   (serializer (create (custodian-beh))))
 
