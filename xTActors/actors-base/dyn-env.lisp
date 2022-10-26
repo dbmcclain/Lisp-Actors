@@ -52,8 +52,9 @@
     
     ((cust :unwind to-env ans)
      ;; If we end up here, we are either already at base level, or
-     ;; else the sender wants to unwind in a different logical chain
-     ;; than we are running in.
+     ;; else the sender's environment was established from a message
+     ;; sent from outside the Actor system - as from an interrupt
+     ;; routine.
      ;;
      ;; Either way, there is nothing we can do, so just tell him he is
      ;; where he wants to be already.
