@@ -102,7 +102,7 @@
 ;;
 ;; Other, unrelated activities will still be running, but the section
 ;; of the population needing resource A or B has now become logically
-;; deadlocked.
+;; blocked.
 ;;
 ;; So you need the same kind of discipline that you use with MPX LOCKS
 ;; - ordered acquisition of resources. Always first acquire resource
