@@ -207,20 +207,19 @@
      ,@body))
 
 ;; ----------------------------------------------
-;; From CPS - form an Actor that captures/restores the current dynamic
-;; environment - for both Lisp and Actors.  All Lisp =HANDLERS and
-;; =LET bindings, as well as SELF-ENV.
+;; From CPS - form an Actor that captures/restores the current Lisp
+;; dynamic environment.  All Lisp =HANDLERS and =LET bindings.
 
 (defun =act (fn)
   (create
-   (let ((dyn-env (capture-dynamic-environment))
-         (my-env  self-env))
+   (let ((dyn-env (capture-dynamic-environment)))
      (lambda (&rest args)
-       (unwind-to-β my-env
-         ;; (assert (eql self-env my-env))
-         (apply #'call-with-dynamic-environment dyn-env fn args)))
+       (apply #'call-with-dynamic-environment dyn-env fn args))
      )))
 
+(defmacro =β (args send-form &rest body)
+  `(let ((=β  (=act (lambda* ,args ,@body))))
+     ,send-form))
 
 #+:LISPWORKS
 (progn
@@ -229,7 +228,8 @@
   (editor:setup-indent "with-handlers"    1)
   (editor:setup-indent "with-env"         1)
   (editor:setup-indent "with-binding-β"   1)
-  (editor:setup-indent "unwind-to-β"      1))
+  (editor:setup-indent "unwind-to-β"      1)
+  (editor:indent-like  "=β" 'destructuring-bind))
 
 ;;-------------------------------------------------------
 ;; To be effective, we need to pass along the dynamic env with every

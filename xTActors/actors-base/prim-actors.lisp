@@ -300,18 +300,20 @@
   (α (dt actor &rest msg)
     ;; No BECOME, so no need to worry about being retried.
     ;; Parallel-safe.
-    (labels ((sender ()
-               ;; If we have a binding for SELF, then SEND is also
-               ;; redirected. We need to avoid using that version...
-               ;; But it also means that someone is listening to the
-               ;; Central Mailbox.
-               (let ((fn (if self
-                             #'send-to-pool
-                           #'send)))
-                 (apply fn actor msg))))
-      (let ((timer (mpc:make-timer #'sender)))
-        (mpc:schedule-timer-relative timer dt))
-      )))
+    (let ((env  self-env))
+      (labels ((sender ()
+                 ;; If we have a binding for SELF, then SEND is also
+                 ;; redirected. We need to avoid using that version...
+                 ;; But it also means that someone is listening to the
+                 ;; Central Mailbox.
+                 (with-env env
+                   (let ((fn (if self
+                                 #'send-to-pool
+                               #'send)))
+                     (apply fn actor msg)))))
+        (let ((timer (mpc:make-timer #'sender)))
+          (mpc:schedule-timer-relative timer dt))
+        ))))
 
 (defun send-after (dt actor &rest msg)
   ;; NOTE: Actors, except those at the edge, must never do anything
@@ -396,24 +398,27 @@
 
 ;; --------------------------------------
 
-(defun restoring-fwd (cust)
-  (=act (fwd-beh cust)))
-
-(defun unwinding-tag (cust)
-  ;; A once-use tag feeding into a restoring forward. Gives us
+(defun unwinding-tag (cust env)
+  ;; A once-use tag that restores the dynamic env on use. Gives us
   ;; identity of the tag, and can be used as both the answer channel
-  ;; to us, and as an unwind actor when needed.
+  ;; to us, and as an unwind Actor when needed.
   ;;
   ;; Restoring causes unwind, but the once-beh prevents cycles during
-  ;; restoring actions.
-  (once-tag (restoring-fwd cust)))
+  ;; restoring actions, when the tag is used in the unwind clause.
+  ;; c.f., SERIALIZER below.
+  (create
+   (lambda (&rest msg)
+     (become-sink)
+     (let ((me self))
+       (unwind-to-β env
+         (send* cust me msg))))
+   ))
 
 ;; ---------------------------------------
 
-#||#
 (def-beh serializer-beh (service)
   ((cust . msg)
-   (let ((tag (unwinding-tag self)))
+   (let ((tag (unwinding-tag self self-env)))
      (send* (unwind-guard service tag) tag msg)
      (become (busy-serializer-beh
               service tag cust +emptyq+))
@@ -427,7 +432,7 @@
      (multiple-value-bind (next-req new-queue) (popq queue)
        (destructuring-bind (next-env next-cust . next-msg) next-req
          (with-env next-env
-           (let ((new-tag (unwinding-tag self)))
+           (let ((new-tag (unwinding-tag self self-env)))
              (send* (unwind-guard service new-tag) new-tag next-msg)
              (become (busy-serializer-beh
                       service new-tag next-cust new-queue)))
@@ -439,38 +444,6 @@
             service tag in-cust
             (addq queue (cons self-env msg)))
            )))
-#||#
-#|
-(def-beh serializer-beh (service)
-  ((cust . msg)
-   (let ((tag (tag self)))
-     (send* service tag msg)
-     (become (busy-serializer-beh
-              service tag cust self-env +emptyq+))
-     )))
-
-(def-beh busy-serializer-beh (service tag in-cust cust-env queue)
-  ((atag . msg) when (eql atag tag)
-   (with-env cust-env
-     (send* in-cust msg)
-     (if (emptyq? queue)
-	 (become (serializer-beh service))
-	 (multiple-value-bind (next-req new-queue) (popq queue)
-	   (destructuring-bind (next-env next-cust . next-msg) next-req
-	     (with-env next-env
-	       (let ((new-tag (tag self)))
-		 (send* service new-tag next-msg)
-		 (become (busy-serializer-beh
-			  service new-tag next-cust self-env new-queue)))
-	       )))
-	 )))
-
-  (msg
-   (become (busy-serializer-beh
-            service tag in-cust cust-env
-            (addq queue (cons self-env msg)))
-           )))
-|#
 
 (defun serializer (service)
   (create (serializer-beh service)))

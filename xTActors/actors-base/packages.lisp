@@ -316,6 +316,8 @@ THE SOFTWARE.
    #:send-throw
    
    #:=act
+   #:=β
+
    #:filer
    #:restoring-fwd
    #:unwinding-tag
