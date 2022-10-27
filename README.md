@@ -20,6 +20,8 @@ And using Actors means you never even have to think about machine threads, synch
 
 Oh sure, you sometimes need to serialize access to certain portions of the code - like the file handling. And serializers are the Actors equivalent of Locks. And yes you can find yourself in logical deadlocks in some portions of the Actors network if you don't use ordered access through serializers, just like what happens with Locks. But on the whole, much much easier to program than with conventional imperative languages. It becomes so easy to accommodate another source of asynchronous requests. No code rewrite at all.
 
+But instead of machine threads, you now have logical threads - or chains of activity that may interact with other chains through messaging, or not. Every Actor can be programmed as though only one activity at a time is using the code. And every Actor in the chains may be running on different machine threads, or even different CPU cores, and possibly even in full parallel fashion with you. That doesn't matter to you. Just write the code as though you are the sole user of it - but use the discipline of Functionally Pure code.
+
 I am a true believer now, in Transactional Hewitt Actors. But I cannot fathom being a purist and doing absolutely everything with them. Leave that kind of thinking to the Smalltalk world. Live in hybrid mode and get the best of each style.
 
 - DM
