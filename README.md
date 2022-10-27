@@ -8,7 +8,7 @@ On a CALL/RETURN architecture, it makes sense to leave that in Lisp, or whatever
 
 But then, the next step is to incorporate your fancy library into a real application. And that app gets messy real fast in CALL/RETURN style. Too many possible sources of information competing for access to your library. The control flow around servicing becomes hairy. That's where you really benefit from an Actors environment. All the executive control, handling unexpected asynchronous events, and so forth. I wouldn't want to be without Actors for that stuff. 
 
-I just finished a hybrid conversion of an app that scans all my music files, performing EBU-R128 Loudness Analysis on every track, and building a database of loudness history in the 3 different analysis windows - Momentary, Short Term, and Integrated Loudness. As well as histograms on the peak-to-loudness ratios, true peak level, etc.
+I just finished a hybrid conversion of an app that scans all my music files, performing EBU-R128 Loudness Analysis on every track, and building a database of loudness history in the 3 different analysis windows - Momentary, Short Term, and Integrated Loudness. All with full graphical displays of the data. As well as histograms on the peak-to-loudness ratios, true peak level, etc.
 
 A lot of programs like this exist. Some can only do the analysis in real-time playback situations. Others try to be faster than realtime. And the app has a simple GUI, but complicated enough that it gets messy in CALL/RETURN architecture. So my conversion took the hairy control flow parts and changed it into an Actor network of interconnected Hewitt blocks, and left the core analysis guts (lots of math) in conventional imperative CALL/RETURN style.
 
