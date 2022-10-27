@@ -87,40 +87,39 @@
 ;; --------------------------------------------------------------------
 
 (def-actor base-dyn-env
-  (create
-   (alambda
-    ((:throw label _)
-     (β _
-         (send self-env β :do-unwind self)
-       (error "Throw target not found: ~S" label)))
-
-    ((cust :do-unwind to-env)
-     (setf *current-env* to-env)
-     (send cust :ok))
-
-    ((cust :lookup _ . default)
-     (send cust (car default)))
-    
-    ((cust :handle . _)
-     (send cust :ok))
-
-    ((cust :find-env to-env)
-     (send cust (eql self to-env)))
-    
-    ((cust :unwind to-env)
-     ;; If we end up here, we are either already at base level, or
-     ;; else the sender's environment was established from a message
-     ;; sent from outside the Actor system - as from an interrupt
-     ;; routine.
-     ;;
-     ;; Either way, there is nothing we can do, so just tell him he is
-     ;; where he wants to be already.
-     (setf *current-env* to-env)
-     (send cust :ok))
-    
-    ((cust :show . lst)
-     (send cust (reverse (cons self lst))))
-    )))
+  (alambda
+   ((_ :throw label _)
+    (β _
+        (send self-env β :do-unwind self)
+      (error "Throw target not found: ~S" label)))
+   
+   ((cust :do-unwind to-env)
+    (setf *current-env* to-env)
+    (send cust :ok))
+   
+   ((cust :lookup _ . default)
+    (send cust (car default)))
+   
+   ((cust :handle . _)
+    (send cust :ok))
+   
+   ((cust :find-env to-env)
+    (send cust (eql self to-env)))
+   
+   ((cust :unwind to-env)
+    ;; If we end up here, we are either already at base level, or
+    ;; else the sender's environment was established from a message
+    ;; sent from outside the Actor system - as from an interrupt
+    ;; routine.
+    ;;
+    ;; Either way, there is nothing we can do, so just tell him he is
+    ;; where he wants to be already.
+    (setf *current-env* to-env)
+    (send cust :ok))
+   
+   ((cust :show . lst)
+    (send cust (reverse (cons self lst))))
+   ))
 
 (setf *current-env* base-dyn-env)
 
@@ -128,7 +127,7 @@
 
 (defun default-env-proc (next unw-handler msg)
   (match msg
-    ((:throw label _)
+    ((_ :throw label _)
      (repeat-send next))
 
     ((cust :do-unwind to-env)
@@ -145,10 +144,10 @@
            (repeat-send next))
          )))
 
-    ((cust :lookup _ . default)
+    ((_ :lookup _ . default)
      (repeat-send next))
     
-    ((cust :handle . _)
+    ((_ :handle . _)
      (repeat-send next))
 
     ((cust :find-env to-env)
@@ -172,7 +171,7 @@
        ))
     
     ((cust :show . lst)
-     (send next cust (cons self (car lst))))
+     (send next cust :show (cons self (car lst))))
     ))
     
 (defun dyn-env-beh (next)
@@ -183,12 +182,10 @@
 
 (defun catch-dyn-env-beh (next tag handler)
   (alambda
-   ((:throw a-tag . msg)
-    (if (eql a-tag tag)
-        (β _
-            (send self-env β :do-unwind next)
-          (send* handler msg))
-      (repeat-send next)))
+   ((cust :throw a-tag . msg) when (eql a-tag tag)
+    (β _
+        (send self-env β :do-unwind next)
+      (send* handler cust msg)))
 
    (msg
     (default-env-proc next nil msg))
@@ -204,16 +201,12 @@
 
 (defun handlers-dyn-env-beh (next plist)
   (alambda
-   ((cust :handle tag cx)
+   ((cust :handle tag cx) when (getf plist tag)
     (let ((handler (getf plist tag)))
-      (cond (handler
-             (become (dyn-env-beh next))
-             (β _
-                 (send self-env β :do-unwind next)
-               (send handler cust cx)))
-            (t
-             (repeat-send next))
-            )))
+      (become (dyn-env-beh next))
+      (β _
+          (send self-env β :do-unwind next)
+        (send handler cust cx))))
 
    (msg
     (default-env-proc next nil msg))
@@ -223,12 +216,9 @@
 
 (defun bindings-dyn-env-beh (next plist)
   (alambda
-   ((cust :lookup key . default)
-    (let ((val (getf plist key +not-found+)))
-      (if (eql val +not-found+)
-          (repeat-send next)
-        (send cust val))
-      ))
+   ((cust :lookup key . default) when (not (eql +not-found+
+                                                (getf plist key +not-found+)))
+    (send cust (getf plist key)))
 
    (msg
     (default-env-proc next nil msg))
@@ -259,13 +249,19 @@
 ;; ------------------------------------
 
 (defmacro catch-β ((label args &body catcher-body) &body body)
-  `(%with-env (:catch (cons ,label (create
-                                    (lambda* ,args
-                                      ,@catcher-body))))
-     ,@body))
+  (um:with-unique-names (cust)
+    `(%with-env (:catch (cons ,label (create
+                                      (lambda* ,(if (consp args)
+                                                    (cons cust args)
+                                                  `(,cust . ,args))
+                                        (send ,cust :ok) ;; let them know we arrived
+                                        ,@catcher-body))))
+       ,@body)))
 
-(defun send-throw (label &rest msg)
-  (send* self-env :throw label msg))
+(defun send-throw (cust label &rest msg)
+  ;; use cust arg for sequencing, or not. Tells cust after all unwinds
+  ;; and catch handler have acted.
+  (send* self-env cust :throw label msg))
 
 ;; ------------------------------------
 
@@ -273,11 +269,12 @@
   (lw:with-unique-names (cust)
     `(%with-env (:unwind (create
                           (lambda (,cust)
-                            (send ,cust)
+                            (send ,cust)  ;; let them know we arrived
                             ,unwind-form)))
        ,form)))
 
 (defmacro unwind-to-β (env &body body)
+  ;; waits until all unwinds have acted before resuming body code.
   `(β _
        (send self-env β :unwind ,env)
      ,@body))
@@ -294,6 +291,8 @@
      ,@body))
 
 (defun send-to-handler (cust handler-kind cx)
+  ;; use cust arg for sequencing, or not. Tells cust after all unwinds
+  ;; and handler have acted.
   (send self-env cust :handle handler-kind cx))
 
 ;; ------------------------------------
@@ -309,6 +308,23 @@
   `(β (,var)
        (send self-env β :lookup ,name ,default)
      ,@body))
+
+;; ----------------------------------------------
+;; Managing Unwinds
+
+(defmacro subtask (&body body)
+  ;; surround a group of SENDs constructing a new logical thread
+  `(catch-β (:task _ nil)
+     ,@body))
+
+(defun end-task (cust)
+  ;; Use in terminal Actor of any subtask to trigger accumulated
+  ;; UNWIND clauses and remove HANDLERS and BINDINGS along its subtask
+  ;; branch of the dyn-env tree.  Ye olde: FORGET TASK TASK
+  ;;
+  ;; Use cust arg for sequencing, or not. Tells cust after all unwinds
+  ;; and catch handler have acted.
+  (send-throw cust :task))
 
 ;; ----------------------------------------------
 ;; From CPS - form an Actor that captures/restores the current Lisp
@@ -350,6 +366,7 @@
   (editor:setup-indent "with-env"         1)
   (editor:setup-indent "with-binding-β"   1)
   (editor:setup-indent "unwind-to-β"      1)
+  (editor:setup-indent "subtask"          0)
   (editor:indent-like  "=β" 'destructuring-bind))
 
 ;;-------------------------------------------------------

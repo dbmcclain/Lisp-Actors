@@ -25,8 +25,6 @@
 (declaim (inline %actor-cas))
 
 ;; ---------------------------------------------------
-;; Service -- offer up a parameterized service once the customer is
-;; known
 
 (defstruct (actor
                (:constructor %create (beh)))

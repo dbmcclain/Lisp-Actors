@@ -323,6 +323,8 @@ THE SOFTWARE.
    #:unwinding-tag
    #:unwinding-fwd
    #:unwind-guard
+   #:subtask
+   #:end-task
    ))
 
 #+(OR :ALLEGRO :CCL)

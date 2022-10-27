@@ -209,51 +209,51 @@
 ;; release other messages, should anything untoward happen as a result
 ;; of a released Actor message.
 
-(def-beh serializer-beh (service)
+(def-beh serializer-beh (act)
   ;; Quiescent state - nobody in waiting, just flag him through, but
   ;; enter the busy state.
   ((cust . msg)
    (let ((tag (unwinding-tag self self-env)))
-     (send* (unwind-guard service tag) tag msg)
+     (send* (unwind-guard act tag) tag msg)
      (become (busy-serializer-beh
-              service tag cust +emptyq+))
+              act tag cust +emptyq+))
      )))
 
 
-(def-beh busy-serializer-beh (service tag in-cust queue)
+(def-beh busy-serializer-beh (act tag in-cust queue)
   ;; Busy state - new arriving messages get enqueued until we receive
   ;; a message through our interposed customer TAG.
   ((atag . msg) when (eql atag tag)
    (send* in-cust msg)
    (if (emptyq? queue)
-       (become (serializer-beh service))
+       (become (serializer-beh act))
      (multiple-value-bind (next-req new-queue) (popq queue)
        (destructuring-bind (next-env next-cust . next-msg) next-req
          (with-env next-env
            (let ((new-tag (unwinding-tag self self-env)))
-             (send* (unwind-guard service new-tag) new-tag next-msg)
+             (send* (unwind-guard act new-tag) new-tag next-msg)
              (become (busy-serializer-beh
-                      service new-tag next-cust new-queue)))
+                      act new-tag next-cust new-queue)))
            )))
      ))
 
   (msg
    (become (busy-serializer-beh
-            service tag in-cust
+            act tag in-cust
             (addq queue (cons self-env msg)))
            )))
 
 ;; -----------------------------------------------------------
 
-(defun serializer (service)
-  (create (serializer-beh service)))
+(defun serializer (act)
+  (create (serializer-beh act)))
 
 
-(defun serializer-sink (service)
-  ;; Turn a service into a sink. Service must accept a cust argument,
+(defun serializer-sink (act)
+  ;; Turn an actor into a sink. Actor must accept a cust argument,
   ;; and always send a response to cust - even though it appears to be
   ;; a sink from the caller's perspective.
-  (label (serializer service) sink))
+  (label (serializer act) sink))
 
 
 (defun safe-serializer (action &key timeout on-timeout supv)
