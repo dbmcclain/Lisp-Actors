@@ -105,9 +105,9 @@
   (declare (ignore tag))
   default)
 
-(defmethod handle-β ((env base-dyn-env) tag cx)
+(defmethod handle-β ((env base-dyn-env) cust tag cx)
   (declare (ignore tag cx))
-  nil)
+  (send cust :ok))
 
 (defmethod find-env-β ((env base-dyn-env) to-env)
   (eql env to-env))
@@ -144,8 +144,8 @@
 (defmethod lookup-β ((env dyn-env) tag &optional default)
   (lookup-β (next-env env) tag default))
 
-(defmethod handle-β ((env dyn-env) tag cx)
-  (handle-β (next-env) tag cx))
+(defmethod handle-β ((env dyn-env) cust tag cx)
+  (handle-β (next-env) cust tag cx))
 
 (defmethod find-env-β ((env dyn-env) to-env)
   (or (eql env to-env)
@@ -206,7 +206,7 @@
 (defclass handler-dyn-env (dyn-env)
   ((handler-plist :accessor handler-plist :initarg :handlers)))
 
-(defmethod handle-β ((env handler-dyn-env) kind cx)
+(defmethod handle-β ((env handler-dyn-env) cust kind cx)
   (let ((handler (getf (handler-plist env) kind)))
     (cond (handler
            (mpc:with-lock ((env-lock env))
@@ -214,7 +214,8 @@
            (cond (handler
                   (β _
                       (do-unwind-β self-env β (next-env env))
-                    (send handler sink)))
+                    (send handler cust)
+                    ))
                  (t
                   (call-next-method))
                  ))
@@ -310,8 +311,8 @@
   `(%with-env (:handlers ,(bindings-to-plist handler-bindings))
      ,@body))
 
-(defun send-to-handler (handler-kind cx)
-  (handle-β self-env handler-kind cx))
+(defun send-to-handler (cust handler-kind cx)
+  (handle-β self-env cust handler-kind cx))
 
 ;; ----------------------------------------
 

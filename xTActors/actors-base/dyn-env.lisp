@@ -91,7 +91,7 @@
    (alambda
     ((:throw label _)
      (β _
-         (send *current-env* β :do-unwind self)
+         (send self-env β :do-unwind self)
        (error "Throw target not found: ~S" label)))
 
     ((cust :do-unwind to-env)
