@@ -1,3 +1,31 @@
+-- 27 October 2022 -- Where do Actors Make Sense?
+---
+I have now completed several large projects using Actors, as well as exploring what would happen if we had an Actors-machine? Several conclusions follow.
+
+Okay, you have finally completed your high-performance math subroutine library. It makes maximum use of every trick Lisp has to offer, and then some. Lots of procedural, serially performed actions in that code. It handles error conditions well.
+
+On a CALL/RETURN architecture, it makes sense to leave that in Lisp, or whatever imperative language you prefer. It is fast, fits naturally with the machine architecture, and does exactly what you want. An Actors-machine might also perform really well, but we'll probably never know for sure, because it is such a vast departure from existing computer architectures, and for now, there is only a splinter group to which it appeals. So the next best thing for ardent adventurers is an Actor-machine Emulator. And that is cute, but slow as molasses compared to native CALL/RETURN. So live with the CALL/RETURN.
+
+But then, the next step is to incorporate your fancy library into a real application. And that app gets messy real fast in CALL/RETURN style. Too many possible sources of information competing for access to your library. The control flow around servicing becomes hairy. That's where you really benefit from an Actors environment. All the executing control, handling unexpected asynchronous events, and so forth. I wouldn't want to be without Actors for that stuff. 
+
+I just finished a hybrid conversion of an app that scans all my music files, performing EBU-R128 Loudness Analysis on every track, and building a database of loudness history in the 3 different analysis windows - Momentary, Short Term, and Integrated Loudness. As well as histograms on the peak-to-loudness ratios, true peak level, etc.
+
+A lot of programs like this exist. Some can only do the analysis in real-time playback situations. Others try to be faster than realtime. And the app has a simple GUI, but complicated enough that it gets messy in CALL/RETURN architecture. So my conversion took the hairy control flow parts and changed it into an Actor network of interconnected Hewitt blocks, and left the core analysis guts (lots of math) in conventional imperative CALL/RETURN style.
+
+GUI programming becomes a breeze - just have each GUI control button send a message to an Actor. That processing will occur in its own Actors machine threads, not bothering the GUI rendering thread. In the GUI thread, every action is short and simple. Just send a message. Let the Actors deal with the data complexity and the interconnections between GUI widgets. Let the GUI do what it does best - drawing and generating events.
+
+The result was much simpler at the app level, and blew away everything on performance. Because now, with Actors in control at the top level, they can spin off entire analysis chains for every track you throw at it - all running in full multi-core parallel fashion. I can analyze 11 hours of playback in 2.5 minutes. That's 200x faster than realtime playback speed. A clear win for Actors and parallel code.
+
+And using Actors means you never even have to think about machine threads, synchronization between thread, locking shared vars, etc. Actors let you focus on the problem as though you are the sole user of the machine, and Actors automatically manage all the threading issues, sight unseen. At the Actor level there are no threads, there are no locks. 
+
+Oh sure, you sometimes need to serialize access to certain portions of the code - like the file handling. And serializers are the Actors equivalent of Locks. And yes you can find yourself in logical deadlocks in some portions of the Actors network if you don't use ordered access through serializers, just like what happens with Locks. But on the whole, much much easier to program than with conventional imperative languages. It becomes so easy to accommodate another source of asynchronous requests. No code rewrite at all.
+
+I am a true believer now, in Transactional Hewitt Actors. But I cannot fathom being a purist and doing absolutely everything with them. Leave that kind of thinking to the Smalltalk world. Live in hybrid mode and get the best of each style.
+
+- DM
+
+
+
 -- 31 August 2022 -- Secure Connections Without the Need for Passwords
 ---
 Er, what am I missing? What's with all the noise and effort with Passwords? PAKE? SRP? 1Password? 2FA?
