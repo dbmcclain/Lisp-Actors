@@ -49,7 +49,7 @@
     ))
 
 (defun %actor-cas (actor old-beh new-beh)
-    (mpc:compare-and-swap (actor-beh (the actor actor)) old-beh new-beh)))
+    (mpc:compare-and-swap (actor-beh (the actor actor)) old-beh new-beh))
 
 ;; -----------------------------------------------------
 

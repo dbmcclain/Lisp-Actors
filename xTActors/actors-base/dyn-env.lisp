@@ -164,8 +164,8 @@
      ;;
      ;; Either way, there is nothing we can do, so just tell him he is
      ;; where he wants to be already.
-     (if-β (service self :find-env to-env)
-         (send self cust :do-unwind to-env)
+     (if-β (service self-env :find-env to-env)
+         (send self-env cust :do-unwind to-env)
        (progn
          (setf *current-env* to-env)
          (send cust :ok))
@@ -256,6 +256,8 @@
 #+:LISPWORKS
 (editor:setup-indent "%with-env" 1)
 
+;; ------------------------------------
+
 (defmacro catch-β ((label args &body catcher-body) &body body)
   `(%with-env (:catch (cons ,label (create
                                     (lambda* ,args
@@ -265,6 +267,8 @@
 (defun send-throw (label &rest msg)
   (send* self-env :throw label msg))
 
+;; ------------------------------------
+
 (defmacro unwind-protect-β (form unwind-form)
   (lw:with-unique-names (cust)
     `(%with-env (:unwind (create
@@ -272,6 +276,13 @@
                             (send ,cust)
                             ,unwind-form)))
        ,form)))
+
+(defmacro unwind-to-β (env &body body)
+  `(β _
+       (send self-env β :unwind ,env)
+     ,@body))
+
+;; ------------------------------------
 
 (defun bindings-to-plist (bindings)
   `(list ,@(mapcan (lambda (binding)
@@ -285,6 +296,8 @@
 (defun send-to-handler (cust handler-kind cx)
   (send self-env cust :handle handler-kind cx))
 
+;; ------------------------------------
+
 (defmacro with-env (bindings &body body)
   (if (consp bindings)
       `(%with-env (:bindings ,(bindings-to-plist bindings))
@@ -295,11 +308,6 @@
 (defmacro with-binding-β ((var name &optional default) &body body)
   `(β (,var)
        (send self-env β :lookup ,name ,default)
-     ,@body))
-
-(defmacro unwind-to-β (env &body body)
-  `(β _
-     (send self-env β :unwind ,env :ok)
      ,@body))
 
 ;; ----------------------------------------------
@@ -366,7 +374,7 @@
     (catch-β (:bottom (ans)
               (send fmt-println "Caught :BOTTOM: ~S" ans))
       
-      (unwind-β
+      (unwind-protect-β
           (progn
             (send println "We should be seeing this...")
             (with-env ((a 1)

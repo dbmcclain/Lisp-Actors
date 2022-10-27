@@ -23,7 +23,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 |#
 
-(pushnew :actors-experiments *features*)
+;; (pushnew :actors-experiments *features*)
 
 (asdf:defsystem "com.ral.actors"
   :description "Transactional Parallel-Concurrent Hewitt Actors..."
@@ -39,8 +39,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "par-xlate")
                 ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
                 (:file "st-send")
-                ;; (:file "dyn-env")
-                (:file "dyn-env-clos")
+                (:file "dyn-env")
+                ;; (:file "dyn-env-clos")
 		(:file "cheapq")
                 (:file "prim-actors")
                 (:file "serializer")
