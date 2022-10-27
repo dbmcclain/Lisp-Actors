@@ -16,7 +16,7 @@ GUI programming becomes a breeze - just have each GUI control button send a mess
 
 The result was much simpler at the app level, and blew away everything on performance. Because now, with Actors in control at the top level, they can spin off entire analysis chains for every track you throw at it - all running in full multi-core parallel fashion. I can analyze 11 hours of playback in 2.5 minutes. That's 200x faster than realtime playback speed. A clear win for Actors and parallel code.
 
-And using Actors means you never even have to think about machine threads, synchronization between thread, locking shared vars, etc. Actors let you focus on the problem as though you are the sole user of the machine, and Actors automatically manage all the threading issues, sight unseen. At the Actor level there are no threads, there are no locks. 
+And using Actors means you never even have to think about machine threads, synchronization between threads, locking shared vars, etc. Actors let you focus on the problem as though you are the sole user of the machine, and Actors automatically manage all the threading issues, sight unseen. At the Actor level there are no threads, there are no locks. 
 
 Oh sure, you sometimes need to serialize access to certain portions of the code - like the file handling. And serializers are the Actors equivalent of Locks. And yes you can find yourself in logical deadlocks in some portions of the Actors network if you don't use ordered access through serializers, just like what happens with Locks. But on the whole, much much easier to program than with conventional imperative languages. It becomes so easy to accommodate another source of asynchronous requests. No code rewrite at all.
 
