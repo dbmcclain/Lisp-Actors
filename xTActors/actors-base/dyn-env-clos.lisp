@@ -84,166 +84,182 @@
 
 (defvar +not-found+ (cons :not :found))
 
-;; --------------------------------------------------------------------
+;; --------------------------------------------
+;; CLOS Implementation of Dynamic Environments - faster, more direct,
+;; communication with dynamic-envs, but now we need MPX Locks.
+;;
+;; An alternative implementation would use Actors to represent dyn-env
+;; nodes, and provide for slower, indirect communication with them,
+;; but greater concurrency, and no need for locks.
 
-(def-actor base-dyn-env
-  (create
-   (alambda
-    ((:throw label _)
-     (β _
-         (send *current-env* β :do-unwind self)
-       (error "Throw target not found: ~S" label)))
+(defclass base-dyn-env ()
+  ())
 
-    ((cust :do-unwind to-env)
-     (setf *current-env* to-env)
-     (send cust :ok))
+(defmethod throw-β ((env base-dyn-env) tag &rest msg)
+  (declare (ignore msg))
+  (β _
+      (do-unwind-β self-env β env)
+    (error "Throw target not found: ~S" tag)))
 
-    ((cust :lookup _ . default)
-     (send cust (car default)))
-    
-    ((cust :handle . _)
-     (send cust :ok))
+(defmethod lookup-β ((env base-dyn-env) tag &optional default)
+  (declare (ignore tag))
+  default)
 
-    ((cust :find-env to-env)
-     (send cust (eql self to-env)))
-    
-    ((cust :unwind to-env)
-     ;; If we end up here, we are either already at base level, or
-     ;; else the sender's environment was established from a message
-     ;; sent from outside the Actor system - as from an interrupt
-     ;; routine.
-     ;;
-     ;; Either way, there is nothing we can do, so just tell him he is
-     ;; where he wants to be already.
-     (setf *current-env* to-env)
-     (send cust :ok))
-    
-    ((cust :show . lst)
-     (send cust (reverse (cons self lst))))
-    )))
+(defmethod handle-β ((env base-dyn-env) tag cx)
+  (declare (ignore tag cx))
+  nil)
 
-(setf *current-env* base-dyn-env)
+(defmethod find-env-β ((env base-dyn-env) to-env)
+  (eql env to-env))
 
-;; ----------------------------------------------
+(defmethod do-unwind-β ((env base-dyn-env) cust to-env)
+  (setf *current-env* to-env)
+  (send cust :ok))
 
-(defun default-env-proc (next unw-handler msg)
-  (match msg
-    ((:throw label _)
-     (repeat-send next))
+(defmethod unwind-β ((env base-dyn-env) cust to-env)
+  ;; If we make it here, then caller was already in the base
+  ;; environment and message arrrived from ether the base environment,
+  ;; or from somewhere up in the tree.
+  ;;
+  ;; If from up in the tree, there is no unwinding that we could do,
+  ;; so just give him his asked-for environment.
+  ;;
+  (setf *current-env* to-env)
+  (send cust :ok))
 
-    ((cust :do-unwind to-env)
-     (if (eql to-env self)
-         (send cust :ok)
-       (progn
-         (setf *current-env* next)
-         (become (dyn-env-beh next))
-         (if unw-handler
-             (let ((my-msg self-msg))
-               (β _
-                   (send unw-handler β)
-                 (send* next my-msg)))
-           (repeat-send next))
-         )))
+(defmethod show-β ((env base-dyn-env) cust &optional lst)
+  (send cust (nreverse (cons env lst))))
 
-    ((cust :lookup _ . default)
-     (repeat-send next))
-    
-    ((cust :handle . _)
-     (repeat-send next))
+(setf *current-env* (make-instance 'base-dyn-env))
 
-    ((cust :find-env to-env)
-     (if (eql to-env self)
-         (send cust t)
-       (repeat-send next)))
-    
-    ((cust :unwind to-env)
-     ;; If we end up here, we are either already at base level, or
-     ;; else the sender's environment was established from a message
-     ;; sent from outside the Actor system - as from an interrupt
-     ;; routine.
-     ;;
-     ;; Either way, there is nothing we can do, so just tell him he is
-     ;; where he wants to be already.
-     (if-β (service self :find-env to-env)
-         (send self cust :do-unwind to-env)
-       (progn
-         (setf *current-env* to-env)
-         (send cust :ok))
-       ))
-    
-    ((cust :show . lst)
-     (send next cust (cons self (car lst))))
+;; -------------------------------------------------------------
+
+(defclass dyn-env (base-dyn-env)
+  ((lock   :reader env-lock  :initform (mpc:make-lock))
+   (next   :reader next-env  :initarg :next)))
+
+(defmethod throw-β ((env dyn-env) tag &rest msg)
+  (apply #'throw-β (next-env env) tag msg))
+
+(defmethod lookup-β ((env dyn-env) tag &optional default)
+  (lookup-β (next-env env) tag default))
+
+(defmethod handle-β ((env dyn-env) tag cx)
+  (handle-β (next-env) tag cx))
+
+(defmethod find-env-β ((env dyn-env) to-env)
+  (or (eql env to-env)
+      (find-env-β (next-env env) to-env)))
+
+(defmethod unwind-handler ((env dyn-env))
+  nil)
+
+(defmethod do-unwind-β ((env dyn-env) cust to-env)
+  (if (eql env to-env)
+      (send cust :ok)
+    (let ((next     (next-env env))
+          (handler  (mpc:with-lock ((env-lock env))
+                      (prog1
+                          (unwind-handler env)
+                        (change-class env 'dyn-env)))
+                    ))
+      (setf *current-env* next)
+      (if handler
+          (β _
+              (send handler β)
+            (do-unwind-β next cust to-env))
+        (do-unwind-β next cust to-env))
+      )))
+
+(defmethod unwind-β ((env dyn-env) cust to-env)
+  (if (find-env-β env to-env)
+      (do-unwind-β env cust to-env)
+    (progn
+      (setf *current-env* to-env)
+      (send cust :ok))
     ))
-    
-(defun dyn-env-beh (next)
-  (lambda (&rest msg)
-    (default-env-proc next nil msg)))
 
-;; ----------------------------------------------
+(defmethod show-β ((env dyn-env) cust &optional lst)
+  (show-β (next-env env) cust (cons env lst)))
+                               
+;; ----------------
 
-(defun catch-dyn-env-beh (next tag handler)
-  (alambda
-   ((:throw a-tag . msg)
-    (if (eql a-tag tag)
-        (β _
-            (send self-env β :do-unwind next)
-          (send* handler msg))
-      (repeat-send next)))
+(defclass catch-dyn-env (dyn-env)
+  ((catch-tag     :reader   catch-tag     :initarg :tag)
+   (catch-handler :accessor catch-handler :initarg :handler)))
 
-   (msg
-    (default-env-proc next nil msg))
-   ))
+(defmethod throw-β ((env catch-dyn-env) tag &rest msg)
+  (if (eql tag (catch-tag env))
+      (let ((handler (mpc:with-lock ((env-lock env))
+                       (shiftf (catch-handler env) nil))))
+        (cond (handler
+               (β _
+                   (do-unwind-β self-env β (next-env env))
+                 (send* handler msg)))
+              (t
+               (call-next-method))
+              ))
+    (call-next-method)))
 
-;; ----------------------------------------------
+;; ----------------
 
-(defun unwind-dyn-env-beh (next handler)
-  (lambda (&rest msg)
-    (default-env-proc next handler msg)))
+(defclass handler-dyn-env (dyn-env)
+  ((handler-plist :accessor handler-plist :initarg :handlers)))
 
-;; ----------------------------------------------
+(defmethod handle-β ((env handler-dyn-env) kind cx)
+  (let ((handler (getf (handler-plist env) kind)))
+    (cond (handler
+           (mpc:with-lock ((env-lock env))
+             (setf handler (getf (shiftf (handler-plist env) nil) kind)))
+           (cond (handler
+                  (β _
+                      (do-unwind-β self-env β (next-env env))
+                    (send handler sink)))
+                 (t
+                  (call-next-method))
+                 ))
+          (t
+           (call-next-method))
+          )))
 
-(defun handlers-dyn-env-beh (next plist)
-  (alambda
-   ((cust :handle tag cx)
-    (let ((handler (getf plist tag)))
-      (cond (handler
-             (become (dyn-env-beh next))
-             (β _
-                 (send self-env β :do-unwind next)
-               (send handler cust cx)))
-            (t
-             (repeat-send next))
-            )))
+;; ----------------
 
-   (msg
-    (default-env-proc next nil msg))
-   ))
+(defclass unwind-dyn-env (dyn-env)
+  ((handler :initarg :handler)))
 
-;; ----------------------------------------------
+(defmethod unwind-handler ((env unwind-dyn-env))
+  (shiftf (slot-value env 'handler) nil)) ;; look-once, callled only from within lock
 
-(defun bindings-dyn-env-beh (next plist)
-  (alambda
-   ((cust :lookup key . default)
-    (let ((val (getf plist key +not-found+)))
-      (if (eql val +not-found+)
-          (repeat-send next)
-        (send cust val))
-      ))
 
-   (msg
-    (default-env-proc next nil msg))
-   ))
+;; ----------------
 
-;; ----------------------------------------------
+(defclass bindings-dyn-env (dyn-env)
+  ((plist  :reader bindings-plist :initarg :bindings)))
+
+(defmethod lookup-β ((env bindings-dyn-env) tag &optional default)
+  (let ((ans (getf (bindings-plist env) tag +not-found+)))
+    (if (eql ans +not-found+)
+        (call-next-method)
+      ans)))
+
+;; ---------------------------
 
 (defun make-dyn-env (kind arg)
-  (create
-   (ecase kind
-     (:CATCH    (catch-dyn-env-beh self-env (car arg) (cdr arg)))
-     (:UNWIND   (unwind-dyn-env-beh self-env arg))
-     (:HANDLERS (handlers-dyn-env-beh self-env arg))
-     (:BINDINGS (bindings-dyn-env-beh self-env arg))
-     )))
+  (ecase kind
+    (:CATCH    (make-instance 'catch-dyn-env
+                              :next     self-env
+                              :tag      (car arg)
+                              :handler  (cdr arg)))
+    (:UNWIND   (make-instance 'unwind-dyn-env
+                              :next     self-env
+                              :handler  arg))
+    (:HANDLERS (make-instance 'handler-dyn-env
+                              :next     self-env
+                              :handlers arg))
+    (:bindings (make-instance 'bindings-dyn-env
+                              :next     self-env
+                              :bindings arg))
+    ))
 
 (defmacro %with-env ((kind arg) &body body)
   ;; (:CATCH  (label . cont)) ;; cont will be send a message on (GO label)
@@ -256,14 +272,18 @@
 #+:LISPWORKS
 (editor:setup-indent "%with-env" 1)
 
+;; ----------------------------------------
+
 (defmacro catch-β ((label args &body catcher-body) &body body)
   `(%with-env (:catch (cons ,label (create
                                     (lambda* ,args
                                       ,@catcher-body))))
      ,@body))
 
-(defun send-throw (label &rest msg)
-  (send* self-env :throw label msg))
+(defun send-throw (tag &rest msg)
+  (apply #'throw-β self-env tag msg))
+
+;; ----------------------------------------
 
 (defmacro unwind-protect-β (form unwind-form)
   (lw:with-unique-names (cust)
@@ -272,6 +292,14 @@
                             (send ,cust)
                             ,unwind-form)))
        ,form)))
+
+(defmacro unwind-to-β (env &body body)
+  `(progn
+     (β _
+         (unwind-β self-env β ,env)
+       ,@body)))
+
+;; ----------------------------------------
 
 (defun bindings-to-plist (bindings)
   `(list ,@(mapcan (lambda (binding)
@@ -282,8 +310,10 @@
   `(%with-env (:handlers ,(bindings-to-plist handler-bindings))
      ,@body))
 
-(defun send-to-handler (cust handler-kind cx)
-  (send self-env cust :handle handler-kind cx))
+(defun send-to-handler (handler-kind cx)
+  (handle-β self-env handler-kind cx))
+
+;; ----------------------------------------
 
 (defmacro with-env (bindings &body body)
   (if (consp bindings)
@@ -293,13 +323,7 @@
        ,@body)))
 
 (defmacro with-binding-β ((var name &optional default) &body body)
-  `(β (,var)
-       (send self-env β :lookup ,name ,default)
-     ,@body))
-
-(defmacro unwind-to-β (env &body body)
-  `(β _
-     (send self-env β :unwind ,env :ok)
+  `(let ((,var (lookup-β self-env ,name ,default)))
      ,@body))
 
 ;; ----------------------------------------------
@@ -345,20 +369,6 @@
   (editor:indent-like  "=β" 'destructuring-bind))
 
 ;;-------------------------------------------------------
-;; To be effective, we need to pass along the dynamic env with every
-;; send target for messages. The dispatcher needs to strip out
-;; that env for use in a handler-bind or handler-case surrounding the
-;; body of message handling.
-;;
-;; Then we need to supply the env on any sends, but also allow for an
-;; extension of env to be passed in lieu of the incoming env.
-;;
-;; Ideally, this all occurs under the table, unseen by client user
-;; code.  Perhaps we can use Lisp dynamic-binding mechanism and
-;; special binding *CURRENT-ENV* to represent incoming env and to be
-;; modified by some macro for use in outbound messaging with agumented
-;; env...
-
 #|
 (defun tst ()
   (β _
@@ -366,7 +376,7 @@
     (catch-β (:bottom (ans)
               (send fmt-println "Caught :BOTTOM: ~S" ans))
       
-      (unwind-β
+      (unwind-protect-β
           (progn
             (send println "We should be seeing this...")
             (with-env ((a 1)

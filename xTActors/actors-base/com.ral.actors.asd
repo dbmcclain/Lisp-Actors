@@ -39,7 +39,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "par-xlate")
                 ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
                 (:file "st-send")
-                (:file "dyn-env")
+                ;; (:file "dyn-env")
+                (:file "dyn-env-clos")
 		(:file "cheapq")
                 (:file "prim-actors")
                 (:file "serializer")
