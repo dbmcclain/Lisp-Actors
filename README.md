@@ -2,7 +2,7 @@
 ---
 I have now completed several large projects using Actors, as well as exploring what would happen if we had an Actors-machine? Several conclusions follow.
 
-Okay, you have finally completed your high-performance math subroutine library. It makes maximum use of every trick Lisp has to offer, and then some. Lots of procedural, serially performed actions in that code. It handles error conditions well.
+Okay, so you have finally completed your high-performance math subroutine library. It makes maximum use of every trick Lisp has to offer, and then some. Lots of procedural, serially performed actions in that code. It handles error conditions well.
 
 On a CALL/RETURN architecture, it makes sense to leave that in Lisp, or whatever imperative language you prefer. It is fast, fits naturally with the machine architecture, and does exactly what you want. An Actors-machine might also perform really well, but we'll probably never know for sure, because it is such a vast departure from existing computer architectures, and for now, there is only a splinter group to which it appeals. So the next best thing for ardent adventurers is an Actor-machine Emulator. And that is cute, but slow as molasses compared to native CALL/RETURN. So live with the CALL/RETURN.
 
