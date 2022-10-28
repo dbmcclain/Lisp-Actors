@@ -135,6 +135,7 @@ THE SOFTWARE.
    #:actor-p
    #:service-p
    #:actor-beh
+   #:set-beh
    #:%actor-cas
    #:service
    #:create
@@ -303,7 +304,7 @@ THE SOFTWARE.
    #:def-actor
    #:define-behavior
    
-   #:filer
+   #:make-filer
    ))
 
 #+(OR :ALLEGRO :CCL)

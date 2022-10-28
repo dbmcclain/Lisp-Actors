@@ -30,6 +30,9 @@
                (:constructor %create (beh)))
   (beh #'do-nothing :type function))
 
+(defun set-beh (actor beh)
+  (setf (actor-beh actor) beh))
+
 (defstruct (service
             (:include actor)
             (:constructor %create-service (beh))))

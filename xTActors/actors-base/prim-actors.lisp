@@ -84,10 +84,14 @@
 
 ;; ---------------------
 
-(defun timed-tag (cust timeout cust-id)
+(defun timed-tag (cust timeout)
+  (let ((atag (tag cust)))
+    (send-after timeout atag :timeout)
+    atag))
+
+(defun timed-once-tag (cust timeout)
   (let ((atag (once-tag cust)))
-    (when timeout
-      (send-after timeout atag :timeout cust-id))
+    (send-after timeout atag :timeout)
     atag))
 
 ;; -------------------------------------------------
@@ -296,52 +300,41 @@
 ;; -----------------------------------------
 ;; Delayed Send
 
-(def-actor schedule-timer
-  (α (dt actor &rest msg)
-    ;; No BECOME, so no need to worry about being retried.
-    ;; Parallel-safe.
-    (labels ((sender ()
-               ;; If we have a binding for SELF, then SEND is also
-               ;; redirected. We need to avoid using that version...
-               ;; But it also means that someone is listening to the
-               ;; Central Mailbox.
-               (let ((fn (if self
-                             #'send-to-pool
-                           #'send)))
-                 (apply fn actor msg))))
-      (let ((timer (mpc:make-timer #'sender)))
-        (mpc:schedule-timer-relative timer dt))
-      )))
-
-(defun send-after (dt actor &rest msg)
-  ;; NOTE: Actors, except those at the edge, must never do anything
-  ;; that has observable effects beyond SEND and BECOME. Starting a
-  ;; timer running breaks this. The caller might have to be retried,
-  ;; in which case there will be a spurious timer running from a prior
-  ;; attempt.
-  ;;
-  ;; We place the timer launch in an edge Actor here, and SEND a
-  ;; message to trigger it. If we need to be retried, that SEND never
-  ;; happens.
-  ;;
-  ;; Edge Actors typically live behind a SERIALIZER wall, to prevent
-  ;; the possibility that they will need to be retried. In this case,
-  ;; we are the only ones that know about this edge Actor.
-  ;;
-  (when (actor-p actor)
-    (send* schedule-timer dt actor msg)))
-
-;; --------------------------------------
-
-(defun unwind-guard (service unwind-actor)
-  ;; Forwards a message to a service after first establishing an
-  ;; unwind action.
-  (create
-   (lambda (cust &rest msg)
-     (unwind-protect-β
-         (send* service cust msg)
-         (send unwind-actor :unwind)))
-   ))
+(let ((schedule-timer
+       (α (dt actor &rest msg)
+         ;; No BECOME, so no need to worry about being retried.
+         ;; Parallel-safe.
+         (flet ((sender ()
+                  ;; If we have a binding for SELF, then SEND is also
+                  ;; redirected. We need to avoid using that version...
+                  ;; But it also means that someone is listening to the
+                  ;; Central Mailbox.
+                  (let ((fn (if self
+                                #'send-to-pool
+                              #'send)))
+                    (apply fn actor msg))))
+           (let ((timer (mpc:make-timer #'sender)))
+             (mpc:schedule-timer-relative timer dt))
+           ))))
+         
+  (defun send-after (dt actor &rest msg)
+    ;; NOTE: Actors, except those at the edge, must never do anything
+    ;; that has observable effects beyond SEND and BECOME. Starting a
+    ;; timer running breaks this. The caller might have to be retried,
+    ;; in which case there will be a spurious timer running from a prior
+    ;; attempt.
+    ;;
+    ;; We place the timer launch in an edge Actor here, and SEND a
+    ;; message to trigger it. If we need to be retried, that SEND never
+    ;; happens.
+    ;;
+    ;; Edge Actors typically live behind a SERIALIZER wall, to prevent
+    ;; the possibility that they will need to be retried. In this case,
+    ;; we are the only ones that know about this edge Actor.
+    ;;
+    (when (and (actor-p actor)
+               dt)
+      (send* schedule-timer dt actor msg))))
 
 ;; --------------------------------------
 
@@ -555,22 +548,40 @@
 ;; ------------------------------------------------------
 
 ;; ------------------------------------------
-;; Responsible File Use
+;; MAKE-FILER -- Responsible File Use - open a file and return an
+;; access channel Actor. The file will be automatically closed after
+;; more than timeout of no activity. Channel users should send
+;; messages to it:
+;;
+;;   (cust :CLOSE) - close the file and shut down the channel. The
+;;   channel will reply :CLOSED to all subsequent messages.
+;;
+;;   (cust :OPER op-actor) - send op-actor a message (cust fd) where
+;;   that actor should reply to its cust (will be a different cust)
+;;   after it is finished, and fd is the open-file-descriptor. The
+;;   same reply will be sent back to the original cust.
+;;
+;; There are simply too many different kinds of things one might want
+;; to do with an open file descriptor. So we let you handle it with
+;; the :OPER message. You can even close it if you like. But at some
+;; point, if you don't issue a :CLOSE message, the timeout will take
+;; care of it for you.
+;;
+;; In an Actor world, there is no concept of "Scope" and so it is
+;; counterproductive, and impossible, to use WITH-OPEN-FILE around
+;; your file access procedures, unless you take care of everything
+;; within just one Actor. But when you can't do that, the next best
+;; thing is MAKE-FILER.
 
-(defun filer (&key (timeout 10))
-  (create
-   (alambda
-    ((cust :open fname . args)
-     (let* ((fd   (apply #'open fname args))
-            (chan (serializer (create (open-filer-beh fd)))
-                  ))
-       (actors ((tag  (tag gate))
-                (gate (create (retrig-filer-gate-beh chan tag :timeout timeout))))
-         (send-after timeout tag :timeout)
-         (send cust gate)
-         )))
-    )))
-
+(defun make-filer (fname &rest args &key (timeout 10) &allow-other-keys)
+  (remf args :timeout)
+  (let* ((fd   (apply #'open fname args))
+         (chan (serializer (create (open-filer-beh fd))))
+         (gate (create))
+         (tag  (timed-tag gate timeout)))
+    (set-beh gate (retrig-filer-gate-beh chan tag :timeout timeout))
+    gate))
+    
 (defun open-filer-beh (fd)
   (alambda
    ((cust :close)
@@ -579,43 +590,48 @@
     (send cust :ok))
    
    ((cust :oper op)
-    (β _
+    (β ans
         (send op β fd)
-      (send cust :ok)))
+      (send* cust ans)))
    ))
 
-(defun retrig-filer-gate-beh (act tag &key (timeout 10))
+(defun retrig-filer-gate-beh (chan tag &key (timeout 10))
   ;; Gateway to Open Filer. Every new request resets the timeout
   ;; timer. On timeout, a close is issued.  Once the file has been
   ;; closed, we reply :CLOSED to any new requests.
   (alambda
    ((cust :timeout)
     (when (eql cust tag)
-      (send act sink :close)
+      (send chan sink :close)
       (become (const-beh :closed))
       ))
 
    ((cust :close)
-    (repeat-send act)
+    (repeat-send chan)
     (become (const-beh :closed)))
    
    (_
-    (let ((new-tag (tag self)))
-      (send-after timeout new-tag :timeout)
-      (become (retrig-filer-gate-beh act new-tag :timeout timeout))
-      (repeat-send act)))
+    (let ((new-tag (timed-tag self timeout)))
+      (become (retrig-filer-gate-beh chan new-tag :timeout timeout))
+      (repeat-send chan)))
    ))
 
 #|
+(defun tst (&rest args &key (timeout 10) &allow-other-keys)
+  (remf args :timeout)
+  (print args)
+  (print timeout))
+(tst :a 1 :b 2 :c 3 :timeout 5)
+
 (defun tst ()
-  (β (fp)
-      (send (filer :timeout 2) β
-            :open "junk.dat"
-            :direction :output
-            :element-type '(unsigned-byte 8)
-            :if-does-not-exist :create
-            :if-exists         :rename)
+  (let ((fp (make-filer "junk.dat"
+                        :timeout 3
+                        :direction :output
+                        :element-type '(unsigned-byte 8)
+                        :if-does-not-exist :create
+                        :if-exists         :append))) ;; :rename
     ;; (sleep 10)
+    (sleep 1)
     (β ans
         (send fp β :oper
               (α (cust fd)
@@ -624,4 +640,5 @@
       (send writeln ans)
       )))
 (tst)
+(send filer writeln :show)
 |#
