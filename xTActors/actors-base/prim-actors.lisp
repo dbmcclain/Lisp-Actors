@@ -575,7 +575,7 @@
   (alambda
    ((cust :close)
     (close fd)
-    (become (const :closed))
+    (become (const-beh :closed))
     (send cust :ok))
    
    ((cust :oper op)
@@ -592,17 +592,36 @@
    ((cust :timeout)
     (when (eql cust tag)
       (send act sink :close)
-      (become (const :closed))
+      (become (const-beh :closed))
       ))
 
    ((cust :close)
     (repeat-send act)
-    (become (const :closed)))
+    (become (const-beh :closed)))
    
    (_
     (let ((new-tag (tag self)))
       (send-after timeout new-tag :timeout)
-      (become (retrig-gate-beh act new-tag :timeout timeout))
+      (become (retrig-filer-gate-beh act new-tag :timeout timeout))
       (repeat-send act)))
    ))
 
+#|
+(defun tst ()
+  (β (fp)
+      (send (filer :timeout 2) β
+            :open "junk.dat"
+            :direction :output
+            :element-type '(unsigned-byte 8)
+            :if-does-not-exist :create
+            :if-exists         :rename)
+    ;; (sleep 10)
+    (β ans
+        (send fp β :oper
+              (α (cust fd)
+                (write-sequence #(1 2 3) fd)
+                (send cust :ok)))
+      (send writeln ans)
+      )))
+(tst)
+|#
