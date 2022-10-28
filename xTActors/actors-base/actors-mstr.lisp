@@ -80,12 +80,10 @@ THE SOFTWARE.
 (defvar *current-actor*    nil) ;; Current Actor
 (defvar *current-behavior* nil) ;; Current Actor's behavior
 (defvar *current-message*  nil) ;; Current Event Message
-(defvar *current-env*      nil) ;; Current dynamic environment
 
 (define-symbol-macro self         *current-actor*)
 (define-symbol-macro self-beh     *current-behavior*)
 (define-symbol-macro self-msg     *current-message*)
-(define-symbol-macro self-env     *current-env*)
 
 ;; -------------------------------------------------
 ;; Message Frames - submitted to the event queue. These carry their
@@ -96,10 +94,9 @@ THE SOFTWARE.
 ;; are sent by the Actor, then the message frame becomes garbage.
 
 (defstruct (msg
-            (:constructor msg (actor args &key (env *current-env*) link)))
+            (:constructor msg (actor args &key link)))
   link
   (actor (create)      :type actor)
-  (env   *current-env* :type (or null actor))
   (args  nil           :type list))
 
 (mpc:defglobal *central-mail*  (mpc:make-mailbox :lock-name "Central Mail"))
@@ -197,12 +194,11 @@ THE SOFTWARE.
 
 (defun run-actors ()
   #F
-  (let (sends evt pend-beh env)
+  (let (sends evt pend-beh)
     (flet ((%send (actor &rest msg)
              (if evt
                  (setf (msg-link  (the msg evt)) sends
                        (msg-actor (the msg evt)) (the actor actor)
-                       (msg-env   (the msg evt)) *current-env*
                        (msg-args  (the msg evt)) msg
                        sends      evt
                        evt        nil)
@@ -250,16 +246,13 @@ THE SOFTWARE.
                           (*current-message* (msg-args  (the msg evt)))) ;; self-msg
                      (declare (actor *current-actor*)
                               (list  *current-message*))
-                     (setf env (msg-env (the msg evt)))
                      
                      (tagbody                   
                       retry
                       (setf pend-beh (actor-beh (the actor self))
                             sends    nil)
-                      (let ((*current-behavior* pend-beh)  ;; self-beh
-                            (*current-env*      env))      ;; self-env
-                        (declare (function *current-behavior*)
-                                 (actor    *current-env*))
+                      (let ((*current-behavior* pend-beh))  ;; self-beh
+                        (declare (function *current-behavior*))
                         ;; ---------------------------------
                         ;; Dispatch to Actor behavior with message args
                         (apply (the function pend-beh) self-msg)

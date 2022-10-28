@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "par-xlate")
                 ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
                 (:file "st-send")
-                (:file "dyn-env")
+                ;; (:file "dyn-env")
                 ;; (:file "dyn-env-clos")
 		(:file "cheapq")
                 (:file "prim-actors")
@@ -47,4 +47,5 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "startup"))
   :SERIAL T
   :depends-on   ("com.ral.useful-macros"
-                 "com.ral.cps"))
+                 ;; "com.ral.cps"
+                 ))

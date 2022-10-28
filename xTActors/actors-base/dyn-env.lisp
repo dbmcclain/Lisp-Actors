@@ -81,6 +81,24 @@
 ;;
 ;; Props list contains one or more of :BINDINGS, :HANDLERS, :UNWIND,
 ;; :RESTARTS.
+;; --------------------------------------------------------------
+;;
+;; In the following code you see lots of fragments that look like this:
+;;
+;;    (β _
+;;        (send handler β args)
+;;      (so-something))
+;;
+;; The purpose of makeing all handlers take a customer arg is for this
+;; very reason. Using code like this allows us to be sure that the
+;; handler performed its action before proceeding with something else.
+;;
+;; In an unwind chain, you might care that more recent resources were
+;; closed before closing down the earlier ones. If you don't care,
+;; then just SEND in parallel with your other stuff, using SINK as the
+;; customer.
+
+;; ---------------------------------------------------------------
 
 (defvar +not-found+ (cons :not :found))
 
@@ -226,6 +244,11 @@
 
 ;; ----------------------------------------------
 
+(defun bindings-to-plist (bindings)
+  `(list ,@(mapcan (lambda (binding)
+                     `(',(car binding) ,(cadr binding)))
+                   bindings)))
+  
 (defun make-dyn-env (kind arg)
   (create
    (ecase kind
@@ -281,11 +304,6 @@
 
 ;; ------------------------------------
 
-(defun bindings-to-plist (bindings)
-  `(list ,@(mapcan (lambda (binding)
-                     `(',(car binding) ,(cadr binding)))
-                   bindings)))
-  
 (defmacro with-handlers (handler-bindings &rest body)
   `(%with-env (:handlers ,(bindings-to-plist handler-bindings))
      ,@body))
@@ -313,7 +331,7 @@
 ;; Managing Unwinds
 
 (defmacro subtask (&body body)
-  ;; surround a group of SENDs constructing a new logical thread
+  ;; surround a SEND constructing a new logical thread
   `(catch-β (:task _ nil)
      ,@body))
 
@@ -325,6 +343,23 @@
   ;; Use cust arg for sequencing, or not. Tells cust after all unwinds
   ;; and catch handler have acted.
   (send-throw cust :task))
+
+;; ----------------------------------------------
+;; UNWINDING-FWD - Another way to manage unwinds along the dyn-env
+;; branch.
+
+(defun unwinding-fwd (env)
+  ;; Useful to reset env when you no longer need handlers in place.
+  ;; Send your message to cust via unwinding-fwd. This can be
+  ;; established in the env before even knowing what cust will be
+  ;; needed. Compare with FWD.
+  ;;
+  ;; This serves as a FILTER block.
+  (create
+   (lambda (cust &rest msg)
+     (unwind-to-β env
+       (send* cust msg)))
+   ))
 
 ;; ----------------------------------------------
 ;; From CPS - form an Actor that captures/restores the current Lisp
@@ -340,21 +375,6 @@
 (defmacro =β (args send-form &rest body)
   `(let ((=β  (=act (lambda* ,args ,@body))))
      ,send-form))
-
-;; ----------------------------------------------
-
-(defun unwinding-fwd (env)
-  ;; Useful to reset env when you no longer need handlers in place.
-  ;; Send your message to cust via unwinding-fwd. This can be
-  ;; established in the env before even knowing what cust will be
-  ;; needed. Compare with FWD.
-  ;;
-  ;; This serves as a FILTER block.
-  (create
-   (lambda (cust &rest msg)
-     (unwind-to-β env
-       (send* cust msg)))
-   ))
 
 ;; ----------------------------------------------
 

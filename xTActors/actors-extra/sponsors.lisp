@@ -49,7 +49,7 @@
   ;; SENDs are optimistically committed in the event queue. In case of
   ;; error these are rolled back.
   ;;
-  (let (qhd qtl qsav evt pend-beh env)
+  (let (qhd qtl qsav evt pend-beh)
     (macrolet ((addq (evt)
                  `(setf qtl
                         (if qhd
@@ -100,8 +100,7 @@
                       (if (setf evt qhd)
                           (setf qhd (msg-link (the msg evt)))
                         (setf evt (mp:mailbox-read mbox)))
-                      (setf env  (msg-env (the msg evt))
-                            qsav (and qhd qtl))
+                      (setf qsav (and qhd qtl))
                       (let ((*current-actor*   (msg-actor (the msg evt)))
                             (*current-message* (msg-args  (the msg evt))))
                         (declare (list  *current-message*)
@@ -109,10 +108,8 @@
                         (tagbody
                          retry
                          (setf pend-beh (actor-beh (the actor self)))
-                         (let ((*current-behavior* pend-beh)
-                               (*curent-env*       env))
-                           (declare (function *current-behavior*)
-                                    (actor    *current-env*))
+                         (let ((*current-behavior* pend-beh))
+                           (declare (function *current-behavior*))
                            (apply (the function pend-beh) self-msg)
                            (cond ((or (eq pend-beh self-beh)
                                       (%actor-cas self self-beh pend-beh)))

@@ -55,7 +55,7 @@
   ;; SENDs are optimistically committed in the event queue. In case of
   ;; error these are rolled back.
   ;;
-  (let (qhd qtl qsav evt pend-beh env)
+  (let (qhd qtl qsav evt pend-beh)
     (macrolet ((qreset ()
                  `(if (setf qtl qsav)              ;; unroll committed SENDs
                       (setf (msg-link (the msg qtl)) nil)
@@ -105,8 +105,7 @@
                                 (setf qhd (msg-link (the msg evt)))
                                 evt)
                         do
-                          (setf env  (msg-env (the msg evt))
-                                qsav (and qhd qtl))
+                          (setf qsav (and qhd qtl))
                           (let ((*current-actor*   (msg-actor (the msg evt)))
                                 (*current-message* (msg-args  (the msg evt))))
                             (declare (actor *current-actor*)
@@ -114,10 +113,8 @@
                             (tagbody
                              retry
                              (setf pend-beh (actor-beh (the actor self)))
-                             (let ((*current-behavior* pend-beh)
-                                   (*current-env*      env))
-                               (declare (function *current-behavior*)
-                                        (actor    *current-env*))
+                             (let ((*current-behavior* pend-beh))
+                               (declare (function *current-behavior*))
                                
                                (apply (the function pend-beh) self-msg)
                                

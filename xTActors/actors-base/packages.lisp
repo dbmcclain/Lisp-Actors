@@ -30,13 +30,10 @@ THE SOFTWARE.
 (in-package :CL-USER)
 
 (defpackage #:com.ral.actors
-  (:use #:common-lisp #:def* #:cps)
+  (:use #:common-lisp #:def*)
   #.`(:export
       ,@(loop for sym being the external-symbols of '#:def*
               collect sym))
-  #.`(:export
-      ,@(loop for sym being the external-symbols of '#:cps
-                collect sym))
   #+:LISPWORKS
   (:import-from #:lw
    #:do-nothing)
@@ -305,26 +302,8 @@ THE SOFTWARE.
    #:false
    #:def-actor
    #:define-behavior
-   #:dyn-env
-   #:with-env
-   #:with-binding-β
-   #:with-handlers
-   #:send-to-handler
-   #:unwind-protect-β
-   #:unwind-to-β
-   #:catch-β
-   #:send-throw
-   #:show-β
    
-   #:=act
-   #:=β
-
    #:filer
-   #:unwinding-tag
-   #:unwinding-fwd
-   #:unwind-guard
-   #:subtask
-   #:end-task
    ))
 
 #+(OR :ALLEGRO :CCL)
@@ -364,8 +343,7 @@ THE SOFTWARE.
   (:use
    #:common-lisp
    #:com.ral.actors
-   #:com.ral.actors.base
-   #:cps)
+   #:com.ral.actors.base)
   #+:LISPWORKS
   (:import-from #:lw
    #:do-nothing))

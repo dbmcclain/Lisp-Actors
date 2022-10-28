@@ -594,38 +594,39 @@
             ))))
 |#
 
-(defun chunk-monitor (cust)
+(defun chunk-monitor (ptr-tcount cust)
   (labels ((chunk-counter-beh (count)
              (lambda* _
                (let ((new-count (1+ count)))
                  (become (chunk-counter-beh new-count))
-                 (with-binding-β (nchunks :nchunks)
-                   (when (>= new-count nchunks)
-                     (send cust :ok))
-                   )))
+                 (when (>= new-count (car ptr-tcount))
+                   (send cust :ok))
+                 ))
              ))
     (create-service (chunk-counter-beh 0))))
 
-(defun chunker (&key (max-size 65536))
+(defun chunker (&key (max-size 65536) counter)
   ;; takes a bytevec and produces a sequence of chunk encodings
   (actor (cust byte-vec)
     ;; (send fmt-println "Chunker")
     (let ((size (length byte-vec)))
       (cond ((<= size max-size)
              ;; (send fmt-println "1 chunk, ~D bytes" size)
-             (with-env ((:nchunks  1))
-               (send cust :pass byte-vec)))
+             (when counter
+               (setf (car counter) 1))
+             (send cust :pass byte-vec))
             (t
              (let ((nchunks (ceiling size max-size))
                    (id      (int (hash/256 (uuid:make-v1-uuid)))))
-               (with-env ((:nchunks  (1+ nchunks)))
-                 ;; (send fmt-println "~D chunks, ~D bytes" nchunks size)
-                 (send cust :init id nchunks size)
-                 (do ((offs  0  (+ offs max-size)))
-                     ((>= offs size))
-                   (let ((frag (subseq byte-vec offs (min size (+ offs max-size)) )))
-                     (send cust :chunk id offs frag)))
-                 )))
+               ;; (send fmt-println "~D chunks, ~D bytes" nchunks size)
+               (when counter
+                 (setf (car counter) (1+ nchunks)))
+               (send cust :init id nchunks size)
+               (do ((offs  0  (+ offs max-size)))
+                   ((>= offs size))
+                 (let ((frag (subseq byte-vec offs (min size (+ offs max-size)) )))
+                   (send cust :chunk id offs frag)))
+               ))
             ))
     ))
 
@@ -821,10 +822,12 @@
   (serializer
    (α (cust &rest msg)
      (with-error-response (cust)
-       (let ((monitor (chunk-monitor cust)))
+       (let* ((count-cons (list 0))
+              (monitor    (chunk-monitor count-cons cust)))
          (send* (sink-pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
                            (marshal-compressor)
-                           (chunker :max-size max-chunk) ;; we want to limit network message sizes
+                           (chunker :max-size max-chunk ;; we want to limit network message sizes
+                                    :counter  count-cons)
                            ;; --- then, for each chunk... ---
                            ;; monitor
                            (marshal-encoder)       ;; generates bytevec from chunker encoding
@@ -856,10 +859,12 @@
   (serializer
    (α (cust &rest msg)
      (with-error-response (cust)
-       (let ((monitor (chunk-monitor cust)))
+       (let* ((count-cons (list 0))
+              (monitor    (chunk-monitor count-cons cust)))
          (send* (sink-pipe (marshal-encoder)       ;; to get arb msg into bytevec form
                          (marshal-compressor)
-                         (chunker :max-size max-chunk)
+                         (chunker :max-size max-chunk
+                                  :counter  count-cons)
                          ;; monitor
                          (marshal-encoder)
                          (self-sync-encoder)

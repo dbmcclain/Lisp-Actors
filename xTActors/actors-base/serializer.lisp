@@ -162,38 +162,6 @@
 ;; outside...
 ;; -----------------------------------------------------------------
 
-(defun unwind-guard (service unwind-actor)
-  ;; Forwards a message to a service after first establishing an
-  ;; unwind action.
-  (create
-   (lambda (cust &rest msg)
-     (unwind-protect-β
-         (send* service cust msg)
-         ;; If we get unwound, then SERIALIZER will receive an :UNWIND
-         ;; message
-         (send unwind-actor :unwind)))
-   ))
-
-;; --------------------------------------
-
-(defun unwinding-tag (cust env)
-  ;; A once-use tag that restores the dynamic env on use. Gives us
-  ;; identity of the tag, and can be used as both the answer channel
-  ;; to a SERIALIZER, and as an unwind Actor when needed.
-  ;;
-  ;; Restoring causes unwind, but the once-beh prevents cycles during
-  ;; restoring actions, when the tag is used in the unwind clause.
-  ;; c.f., SERIALIZER below.
-  ;;
-  ;; This serves as a SINK block.
-  (create
-   (lambda (&rest msg)
-     (become-sink)
-     (let ((me self))
-       (unwind-to-β env
-         (send* cust me msg))))
-   ))
-
 ;; ---------------------------------------
 ;; As Actor messages become enqueued, waiting to be released to use
 ;; a guarded Actor, we keep their associated dyn env along with the
@@ -213,8 +181,8 @@
   ;; Quiescent state - nobody in waiting, just flag him through, but
   ;; enter the busy state.
   ((cust . msg)
-   (let ((tag (unwinding-tag self self-env)))
-     (send* (unwind-guard act tag) tag msg)
+   (let ((tag (tag self)))
+     (send* act tag msg)
      (become (busy-serializer-beh
               act tag cust +emptyq+))
      )))
@@ -228,19 +196,18 @@
    (if (emptyq? queue)
        (become (serializer-beh act))
      (multiple-value-bind (next-req new-queue) (popq queue)
-       (destructuring-bind (next-env next-cust . next-msg) next-req
-         (with-env next-env
-           (let ((new-tag (unwinding-tag self self-env)))
-             (send* (unwind-guard act new-tag) new-tag next-msg)
-             (become (busy-serializer-beh
-                      act new-tag next-cust new-queue)))
+       (destructuring-bind (next-cust . next-msg) next-req
+         (let ((new-tag (tag self)))
+           (send* act new-tag next-msg)
+           (become (busy-serializer-beh
+                    act new-tag next-cust new-queue))
            )))
      ))
 
   (msg
    (become (busy-serializer-beh
             act tag in-cust
-            (addq queue (cons self-env msg)))
+            (addq queue msg))
            )))
 
 ;; -----------------------------------------------------------

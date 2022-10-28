@@ -300,20 +300,18 @@
   (α (dt actor &rest msg)
     ;; No BECOME, so no need to worry about being retried.
     ;; Parallel-safe.
-    (let ((env  self-env))
-      (labels ((sender ()
-                 ;; If we have a binding for SELF, then SEND is also
-                 ;; redirected. We need to avoid using that version...
-                 ;; But it also means that someone is listening to the
-                 ;; Central Mailbox.
-                 (with-env env
-                   (let ((fn (if self
-                                 #'send-to-pool
-                               #'send)))
-                     (apply fn actor msg)))))
-        (let ((timer (mpc:make-timer #'sender)))
-          (mpc:schedule-timer-relative timer dt))
-        ))))
+    (labels ((sender ()
+               ;; If we have a binding for SELF, then SEND is also
+               ;; redirected. We need to avoid using that version...
+               ;; But it also means that someone is listening to the
+               ;; Central Mailbox.
+               (let ((fn (if self
+                             #'send-to-pool
+                           #'send)))
+                 (apply fn actor msg))))
+      (let ((timer (mpc:make-timer #'sender)))
+        (mpc:schedule-timer-relative timer dt))
+      )))
 
 (defun send-after (dt actor &rest msg)
   ;; NOTE: Actors, except those at the edge, must never do anything
@@ -559,26 +557,52 @@
 ;; ------------------------------------------
 ;; Responsible File Use
 
-(def-actor filer
-  ;; Open a file and send open stream designator to customer, along
-  ;; with an Actor to send to when finished with the file.
+(defun filer (&key (timeout 10))
+  (create
+   (alambda
+    ((cust :open fname . args)
+     (let* ((fd   (apply #'open fname args))
+            (chan (serializer (create (open-filer-beh fd)))
+                  ))
+       (actors ((tag  (tag gate))
+                (gate (create (retrig-filer-gate-beh chan tag :timeout timeout))))
+         (send-after timeout tag :timeout)
+         (send cust gate)
+         )))
+    )))
+
+(defun open-filer-beh (fd)
   (alambda
-   ((cust :open fname . args)
-    (let* ((fd     (apply #'open fname args))
-           (closer (create
-                    (lambda* _
-                      (close fd)
-                      (become-sink)))
-                   ))
-      ;; closer is handed to customer, and lives in the unwind clause.
-      ;; It is a once behavior so this is safe. If customer will close
-      ;; the file, just send to closer, no, or any, args.
-      ;;
-      ;; Somewhere out there, an Actor should either send to closer,
-      ;; or else perform a THROW-β to some antecedent label. (Or
-      ;; invoke an antecedent HANDLER)
-      (unwind-protect-β
-          (send cust `(,fd . ,closer))
-          (send closer))
-      ))))
+   ((cust :close)
+    (close fd)
+    (become (const :closed))
+    (send cust :ok))
+   
+   ((cust :oper op)
+    (β _
+        (send op β fd)
+      (send cust :ok)))
+   ))
+
+(defun retrig-filer-gate-beh (act tag &key (timeout 10))
+  ;; Gateway to Open Filer. Every new request resets the timeout
+  ;; timer. On timeout, a close is issued.  Once the file has been
+  ;; closed, we reply :CLOSED to any new requests.
+  (alambda
+   ((cust :timeout)
+    (when (eql cust tag)
+      (send act sink :close)
+      (become (const :closed))
+      ))
+
+   ((cust :close)
+    (repeat-send act)
+    (become (const :closed)))
+   
+   (_
+    (let ((new-tag (tag self)))
+      (send-after timeout new-tag :timeout)
+      (become (retrig-gate-beh act new-tag :timeout timeout))
+      (repeat-send act)))
+   ))
 

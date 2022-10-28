@@ -245,7 +245,7 @@
 ;; ------------------------------------------------
 
 (defun const-beh (&rest msg)
-  (lambda (cust)
+  (lambda* (cust . _)
     (send* cust msg)))
 
 (defun const (&rest msg)
