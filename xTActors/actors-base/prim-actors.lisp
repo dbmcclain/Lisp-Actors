@@ -590,9 +590,7 @@
     (send cust :ok))
    
    ((cust :oper op)
-    (β ans
-        (send op β fd)
-      (send* cust ans)))
+    (send op cust fd))
    ))
 
 (defun retrig-filer-gate-beh (chan tag &key (timeout 10))
