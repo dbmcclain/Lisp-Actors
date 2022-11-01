@@ -239,6 +239,15 @@
        (send β)
      ,@body))
 
+;; ...this also happens to be one way to perform a switch from
+;; imperative foreign thread code to Actors-land. So here we can
+;; defne:
+
+(defmacro with-actors (&body body)
+  `(β _
+       (send β)
+     ,@body))
+
 ;; --------------------------------------------------------
 ;; Just as we have a need for cross-referrential Actors within code
 ;; bodies, and we have ACTORS to provide them for us, we need

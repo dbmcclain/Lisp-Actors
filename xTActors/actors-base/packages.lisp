@@ -305,6 +305,7 @@ THE SOFTWARE.
    #:define-behavior
    
    #:make-filer
+   #:with-actors
    ))
 
 #+(OR :ALLEGRO :CCL)
