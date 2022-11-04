@@ -655,7 +655,7 @@
    ((tag cust :close) when (eq tag ctrl)
     ;; from (send ctrl cust :close) -- tag only known by supv
     ;; controller says to shutdown, let him know we have
-    (become (sink-beh))
+    (become (membrane-beh ctrl (tag self) nil))  ;; svcs tag no longer useful
     (send cust :ok))
 
    ((tag cust :req-access svc) when (eq tag svcs)
