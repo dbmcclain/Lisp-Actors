@@ -380,9 +380,11 @@ THE SOFTWARE.
 ;; trailing ("#).
 ;;
 ;; DM/RAL 12/21 - now incorporates Swift-style string interpolation.
+;; DM/RAL 2022/11/04 06:52:54 - use prefix numarg to prevent string
+;; interpolation, as in #1>.
 
 (defun |reader-for-#"| (stream sub-char numarg)
-   (declare (ignore sub-char numarg))
+   (declare (ignore sub-char))
    (arun-fsm
        ;; initial bindings
        ((chars (make-rubber-vector
@@ -453,7 +455,10 @@ THE SOFTWARE.
            (vector-push-extend ch chars))
      (we-are-done ()
                   (finish (unless *read-suppress*
-                            `(string-interp ,(split-string-conserving chars))
+                            (let ((ans (split-string-conserving chars)))
+                              (if numarg
+                                  ans
+                                `(string-interp ,ans)))
                             )))
      ))
 
@@ -513,10 +518,10 @@ THE SOFTWARE.
 ;; --------------------------------------------
 ;; Reader macro for #>
 ;; like the Bourne shell > to-lists for surrounding strings
-;; String is interpolatable.
+;; String is interpolatable. Use prefix numarg to prevent interpolation.
 
 (defun |reader-for-#>| (stream sub-char numarg)
-  (declare (ignore sub-char numarg))
+  (declare (ignore sub-char))
   (arun-fsm
       ;; bindings
       (pattern
@@ -554,12 +559,14 @@ THE SOFTWARE.
               (we-are-done)))
     (we-are-done ()
                  (finish (unless *read-suppress*
-                           `(string-interp
-                             ,(split-string-conserving
-                               (coerce
-                                (nreverse
-                                 (nthcdr patlen output))
-                                'string)))
+                           (let ((ans (split-string-conserving
+                                       (coerce
+                                        (nreverse
+                                         (nthcdr patlen output))
+                                        'string))))
+                             (if numarg
+                                 ans
+                               `(string-interp ,ans)))
                            )))
     ))
 
