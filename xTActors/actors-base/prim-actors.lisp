@@ -640,3 +640,51 @@
 (tst)
 (send filer writeln :show)
 |#
+;; --------------------------------------------------------
+;; Membranes - controlled access to selected services
+;;
+;; Supv constructs a membrane, can shut down through the ctrl channel.
+;; Construct with an AList of (kw . handler)
+;; Clients receive a svcs channel through which they can:
+;;    * Ask what services are offered (by KWSym?) - a list of designators.
+;;    * Request a channel to a service handler, get nil if not offered.
+;;    * Send a message to a service handler. Message may incl their cust.
+;;
+(defun membrane-beh (ctrl svcs alist)
+  (alambda
+   ((tag cust :close) when (eq tag ctrl)
+    ;; from (send ctrl cust :close) -- tag only known by supv
+    ;; controller says to shutdown, let him know we have
+    (become (sink-beh))
+    (send cust :ok))
+
+   ((tag cust :req-access svc) when (eq tag svcs)
+    ;; from (send svcs cust :req-access svc)
+    ;; only clients can (send svcs cust :req-access)
+    (let ((handler (assoc svc alist)))
+      (if handler
+          (send cust (label svcs (cdr handler)))
+        (send cust nil))))
+
+   ((tag cust :what-services?) when (eq tag svcs)
+    ;; from (send svcs cust :what-services?)
+    ;; only clients can ask
+    (send cust (mapcar #'car alist)))
+   
+   ((tag handler . msg) when (eq tag svcs)
+    ;; from (send portal . msg)
+    ;; msg may include cust reply-to
+    ;; send message to handler via the portal
+    (send* handler msg))
+
+   ))
+
+(defun membrane (alist)
+  ;; typically called by supv to set up a membrane controlled
+  ;; collection of services
+  (actors ((ctrl  (tag mem))
+           (svcs  (tag mem))
+           (mem   (create (membrane-beh ctrl svcs alist))))
+    (values svcs    ;; give this out to clients
+            ctrl))) ;; for supv control of membrane
+   

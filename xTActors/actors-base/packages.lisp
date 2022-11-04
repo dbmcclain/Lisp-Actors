@@ -306,6 +306,8 @@ THE SOFTWARE.
    
    #:make-filer
    #:with-actors
+
+   #:membrane
    ))
 
 #+(OR :ALLEGRO :CCL)
