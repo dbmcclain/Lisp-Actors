@@ -396,7 +396,17 @@
                       )))
            (create-service #'beh1)))
         ))
-                     
+
+#|
+  Use as:
+
+  (β (ans)
+      (send (progn-β (service ...)
+                     (service ...)
+                     (service ...))
+            β)
+    ...)
+ |#
 ;; -----------------------------------------------
 
 (defun or2 (service1 service2)

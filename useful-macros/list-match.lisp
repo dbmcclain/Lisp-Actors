@@ -8,18 +8,20 @@
 
 (in-package :com.ral.useful-macros.list-match)
 
+;; ----------------------------------------------------
+
 (defun match-pat (msg pat)
   ;; collect binding values in reverse order
   #F
   (nlet iter ((pat  pat)
-                 (msg  msg)
-                 (vals nil))
+              (msg  msg)
+              (vals nil))
     (cond  ((atom pat) ;; NIL (as in ENDP) is also an atom
-            (cond ((null pat)               (values (null msg) vals)) ;; NIL is also a symbol (!!)
+            (cond ((null pat)            (values (null msg) vals)) ;; NIL is also a symbol (!!)
                   ((is-underscore? pat)  (values t vals))
-                  ((keywordp pat)           (values (eql msg pat) vals))
-                  ((symbolp pat)            (values t (cons msg vals)))
-                  (t                        (values (equalp msg pat) vals))
+                  ((keywordp pat)        (values (eql msg pat) vals))
+                  ((symbolp pat)         (values t (cons msg vals)))
+                  (t                     (values (equalp msg pat) vals))
                   ))
            ((eql 'quote (car pat))
             (values (equalp msg (cadr pat)) vals))
@@ -56,14 +58,14 @@
 (defun collect-args (pat)
   ;; collect binding args in reverse order
   (nlet iter ((pat  pat)
-                 (args nil)
-                 (lsts nil))
+              (args nil)
+              (lsts nil))
     (cond ((atom pat)
-           (cond ((null pat)              (values args lsts))
+           (cond ((null pat)           (values args lsts))
                  ((is-underscore? pat) (values args lsts))
-                 ((keywordp pat)          (values args lsts))
-                 ((symbolp pat)           (values (cons pat args) lsts))
-                 (t                       (values args lsts))
+                 ((keywordp pat)       (values args lsts))
+                 ((symbolp pat)        (values (cons pat args) lsts))
+                 (t                    (values args lsts))
                  ))
           ((eql 'quote (car pat))    (values args lsts))
           ((eql 'function (car pat)) (values args lsts))
@@ -82,6 +84,7 @@
 
 #|
 (collect-args '(a b _ (c 15 d . e) . f))
+(collect-args '(&whole x a b c))
 |#
 
 (defun duplicates-exist-p (lst)

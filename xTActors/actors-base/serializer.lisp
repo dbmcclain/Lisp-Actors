@@ -57,10 +57,10 @@
 ;; parameters.
 ;;
 ;; And that is why you see us using Lisp REMOVE on Actor parameter
-;; lists, instead of the imperative DELETE. REMOVE does not damage the
-;; shared list, so multiple threads can happily access it in parallel.
-;; It can only be changed for all to see, as a result of a successful
-;; BECOME.
+;; lists, instead of the mutating imperative DELETE. REMOVE does not
+;; damage the shared list, so multiple threads can happily access it
+;; in parallel.  It can only be changed for all to see, as a result of
+;; a successful BECOME.
 ;;
 ;; However, sometimes you just can't be FPL pure, and must make
 ;; mutations that could be visible outside the running Actor instance.
@@ -78,21 +78,38 @@
 ;; parameters, e.g., a Hashtable. You are the only one running inside
 ;; that Actor body.
 ;;
-;; But you still cannot safely mutate anything outside of the Actor
+;; But!! Bear in mind that if there is any possibilty for errors
+;; arising, then all mutations must become reversed. The Actor state
+;; after an error is expected to be the same as it was on entry.
+;;
+;; And you still cannot safely mutate anything outside of the Actor
 ;; body. And that is why we have a preference for Actors containing
 ;; useful shared information, instead of using global vars. If
 ;; something shared needs occasional mutation, it is safer to make it
 ;; happen within an Actor body, with or without SERIALIZERs. We only
 ;; need SERIALIZERS when the mutation cannot happen solely via BECOME.
 ;;
-;; ----------------------------------------------------------------
-;; *** ACTORS ARE LOCK-FREE.
-;;       SO, CAN DEADLOCKS BE ELIMINATED BY USING ACTORS? ***
+;; Overall we recommend developing the habit of writing FPL pure code.
+;; That way no irreversible changes will be made until BECOME commits
+;; at exit of the Actor code. If retry becomes necessary, no state
+;; will have been changed.
 ;;
-;; Not quite: It is certainly possible to develop a logical deadlock
-;; between two logical threads of Actor activity. Suppose one Actor
-;; needs to use SERIALIZED resources A and B. And another Actor neeeds
-;; to use SERIALIZED resources B and A.
+;; When will retries happen? Whenver two parallel threads are running
+;; in the same Actor behavior, and they both execute BECOME, then at
+;; exit, only one of them can succeed in committing the BECOME. The
+;; other will detect that the system has changed beneath itself, and
+;; its message will be automatically retried. BECOME Contention.
+;;
+;; ----------------------------------------------------------------
+;; *** ACTORS ARE LOCK-FREE.  SO, CAN DEADLOCKS BE ELIMINATED BY USING
+;; ACTORS? ***
+;;
+;; Not quite: Full-out deadlocks are impossible in an Actors system.
+;; But it is certainly possible to develop a logical livelock between
+;; two or more logical threads of Actor activity.
+;;
+;; Suppose one Actor needs to use SERIALIZED resources A and B. And
+;; another Actor neeeds to use SERIALIZED resources B and A.
 ;;
 ;; If they both enter their respective first serializers, then Actor 1
 ;; holds permissions for using resource A, while Actor 2 has
@@ -108,20 +125,20 @@
 ;;
 ;; And now both Actors are queued up, waiting for each other to send a
 ;; release message to the serializer where they are waiting. That will
-;; never happen, and so the two logical threads of activity have come
-;; to a halt, and resources A and B are now permanently off-limits to
-;; all other Actors as well. Any other Actors wanting to use either
-;; resource will find themselves enqueued, waiting for an event that
-;; will never happen.
+;; never happen, and so the two logical threads of activity come to a
+;; halt. And, further, resources A and B are now permanently
+;; off-limits to all other Actors. Any other Actors wanting to use
+;; either resource will find themselves enqueued, waiting for an event
+;; that will never happen.
 ;;
-;; Other, unrelated activities will still be running, but the section
-;; of the population needing resource A or B has now become logically
-;; blocked.
+;; Other, unrelated activities will still be running - hence LiveLock,
+;; not DeadLock - but the section of the Actors population needing
+;; resource A or B has now become logically blocked.
 ;;
 ;; So you need the same kind of discipline that you use with MPX LOCKS
 ;; - ordered acquisition of resources. Always first acquire resource
-;; A, then resource B. As long as all Actors use this same discipline,
-;; they will not become logically deadlocked.
+;; A, then resource B. As long as all Actors use the same ordered
+;; discipline, they will not become logically livelocked.
 ;;
 ;; ---------------------------------------------------
 ;; ### VERY IMPORTANT! ###
@@ -141,80 +158,68 @@
 ;; staged for eventual commit, or discarded on unsuccessful exit.
 ;;
 ;; So the changes don't happen immediately, and they logically occur
-;; at the same instant. You can't see them happen, and neither can
-;; anyone else running in parallel with you.)
+;; at the same instant when you exit. You can't see them happen, and
+;; neither can anyone else running in parallel with you.)
 ;;
-;; That message SEND back to the customer might not happen until many
-;; Actor blocks beyond the SERIALIZER. But somewhere along that
-;; logical thread, a message must be sent to the customer. Failing to
-;; do so results in a permanent logical blocking for any other chains
-;; of activity that need to use the same resource.
+;; The all important message SEND back to the customer might not
+;; happen until many Actor blocks beyond the SERIALIZER. But somewhere
+;; along that logical thread, a message must be sent to the customer.
+;; Failing to do so results in a permanent logical blocking for any
+;; other chains of activity that need to use the same resource.
 ;;
-;; Unlike in CALL/RETURN architectures, we don't really have an
-;; UNWIND-PROTECT on which to rely. We must exercise manual
-;; discipline. The Dynamic Environments accompanying each message can
-;; help, but you must take explicit action to invoke the UNWIND chain
-;; in the environment.
+;; Unlike in CALL/RETURN architectures, we don't have an
+;; UNWIND-PROTECT on which to rely. There is no scoping with Actor
+;; executions. All Actors execute in the same toplevel environment. We
+;; must exercise manual discipline. Just like in the real world.
 ;;
 ;; It is difficult to defensively program against all possible future
 ;; abuses of your Actor system. In most cases you will need to rely on
-;; timeout mechanisms to help out. Just like in the real world
-;; outside...
+;; timeout mechanisms to help out. Just like in the real world...
 ;; -----------------------------------------------------------------
 
-;; ---------------------------------------
-;; As Actor messages become enqueued, waiting to be released to use
-;; a guarded Actor, we keep their associated dyn env along with the
-;; messages. When a new message is released, it will be released into
-;; the same dynaminc env with which it arrived.
-;;
-;; This could become important as different logical threads may have
-;; their own set of dynamic BINDINGS, HANDLERS, UNWIND actions, and
-;; CATCH tags, that may get used or triggered in the Actors beyond the
-;; SERIALIZER gateway.
-;;
-;; The SERIALIZER sets up its own UNWIND handler so that it can
-;; release other messages, should anything untoward happen as a result
-;; of a released Actor message.
-
-(def-beh serializer-beh (act)
-  ;; Quiescent state - nobody in waiting, just flag him through, but
-  ;; enter the busy state.
-  ((cust . msg)
-   (let ((tag (tag self)))
-     (send* act tag msg)
-     (become (busy-serializer-beh
-              act tag cust +emptyq+))
-     )))
-
-
-(def-beh busy-serializer-beh (act tag in-cust queue)
-  ;; Busy state - new arriving messages get enqueued until we receive
-  ;; a message through our interposed customer TAG.
-  ((atag . msg) when (eql atag tag)
-   (send* in-cust msg)
-   (if (emptyq? queue)
-       (become (serializer-beh act))
-     (multiple-value-bind (next-req new-queue) (popq queue)
-       (destructuring-bind (next-cust . next-msg) next-req
-         (let ((new-tag (tag self)))
-           (send* act new-tag next-msg)
-           (become (busy-serializer-beh
-                    act new-tag next-cust new-queue))
-           )))
-     ))
-
-  (msg
-   (become (busy-serializer-beh
-            act tag in-cust
-            (addq queue msg))
-           )))
+(defun serializer (svc)
+  (let (sav-beh)
+    (labels
+        ((idle-beh ()
+           ;; Quiescent state - nobody in waiting, just flag him through, but
+           ;; enter the busy state.
+           (or sav-beh
+               (setf sav-beh (alambda
+                              ((cust . msg)
+                               (let ((tag (tag self)))
+                                 (send* svc tag msg)
+                                 (become (busy-serializer-beh
+                                          tag cust +emptyq+))
+                                 )))
+                     )))
+         
+         (busy-serializer-beh (tag in-cust queue)
+           ;; Busy state - new arriving messages get enqueued until we receive
+           ;; a message through our interposed customer TAG.
+           (alambda
+            ((atag . msg) when (eql atag tag)
+             (send* in-cust msg)
+             (if (emptyq? queue)
+                 (become (idle-beh))
+               (multiple-value-bind (next-req new-queue) (popq queue)
+                 (destructuring-bind (next-cust . next-msg) next-req
+                   (let ((new-tag (tag self)))
+                     (send* svc new-tag next-msg)
+                     (become (busy-serializer-beh
+                              new-tag next-cust new-queue))
+                     )))
+               ))
+            
+            ((cust . msg)
+             (become (busy-serializer-beh
+                      tag in-cust
+                      (addq queue (cons cust msg)))
+                     ))
+            )))
+      (create (idle-beh))
+      )))
 
 ;; -----------------------------------------------------------
-
-(defun serializer (act)
-  (create (serializer-beh act)))
-
 
 (defun serializer-sink (act)
   ;; Turn an actor into a sink. Actor must accept a cust argument,
