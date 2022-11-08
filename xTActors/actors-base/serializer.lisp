@@ -83,11 +83,11 @@
 ;; after an error is expected to be the same as it was on entry.
 ;;
 ;; And you still cannot safely mutate anything outside of the Actor
-;; body. And that is why we have a preference for Actors containing
-;; useful shared information, instead of using global vars. If
-;; something shared needs occasional mutation, it is safer to make it
-;; happen within an Actor body, with or without SERIALIZERs. We only
-;; need SERIALIZERS when the mutation cannot happen solely via BECOME.
+;; body. That is why we have a preference for Actors containing useful
+;; shared information, instead of using global vars. If something
+;; shared needs occasional mutation, it is safer to make it happen
+;; within an Actor body, with or without SERIALIZERs. We only need
+;; SERIALIZERS when the mutation cannot happen solely via BECOME.
 ;;
 ;; Overall we recommend developing the habit of writing FPL pure code.
 ;; That way no irreversible changes will be made until BECOME commits
@@ -126,10 +126,12 @@
 ;; And now both Actors are queued up, waiting for each other to send a
 ;; release message to the serializer where they are waiting. That will
 ;; never happen, and so the two logical threads of activity come to a
-;; halt. And, further, resources A and B are now permanently
-;; off-limits to all other Actors. Any other Actors wanting to use
-;; either resource will find themselves enqueued, waiting for an event
-;; that will never happen.
+;; halt.
+;;
+;; And, further, resources A and B are now permanently off-limits to
+;; all other Actors. Any other Actors wanting to use either resource
+;; will find themselves enqueued, waiting for an event that will never
+;; happen.
 ;;
 ;; Other, unrelated activities will still be running - hence LiveLock,
 ;; not DeadLock - but the section of the Actors population needing

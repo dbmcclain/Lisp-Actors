@@ -141,6 +141,8 @@
   (('maint-full-save)
    (send saver sink :full-save db)))
 
+;; ----------------------------------------------------------------
+
 (def-beh nascent-database-beh (tag saver msgs)
   ;; -------------------
   ;; We are the only one that knows the identity of tag and saver. So
@@ -163,9 +165,9 @@
 (def-ser-beh save-database-beh (path last-db)
   ;; -------------------
   ((cust :full-save db)
-   (become (save-database-beh path db))
-   (full-save path db)
-   (send cust :ok))
+   (let ((savdb (full-save path db)))
+     (become (save-database-beh path savdb))
+     (send cust :ok)))
 
   ;; -------------------
   ;; The db gateway is the only one that knows saver's identity.
@@ -174,21 +176,23 @@
    (let ((new-ver  (maps:find new-db  'version))
          (prev-ver (maps:find last-db 'version)))
      (when (uuid:uuid-time< prev-ver new-ver)
-       (handler-case
-           (with-open-file (f path
-                              :direction         :output
-                              :if-exists         :append
-                              :if-does-not-exist :error
-                              :element-type      '(unsigned-byte 8))
-             (let ((delta (get-diffs last-db new-db)))
+       (let* ((savdb (persistable new-db))
+              (delta (get-diffs last-db savdb)))
+         (handler-case
+             (with-open-file (f path
+                                :direction         :output
+                                :if-exists         :append
+                                :if-does-not-exist :error
+                                :element-type      '(unsigned-byte 8))
                (loenc:serialize delta f
-                                :self-sync t)
-               ))
-         (error ()
-           ;; expected possible error due to file not existing yet
-           (full-save path new-db)))
-       (become (save-database-beh path new-db)))
-     (send cust :ok))))
+                                :self-sync t))
+           (error ()
+             ;; expected possible error due to file not existing yet
+             (full-save path savdb)))
+         (become (save-database-beh path savdb))))
+       (send cust :ok))))
+  
+;; ---------------------------------------------------------------
 
 (def-ser-beh unopened-database-beh ()
   ;; -------------------
@@ -235,23 +239,48 @@
      (become (save-database-beh db-path db))
      (send cust :opened db))))
 
-(defun full-save (db-path db)
-  (ensure-directories-exist db-path)
-  (with-open-file (f db-path
-                     :direction :output
-                     :if-does-not-exist :create
-                     :if-exists :supersede
-                     :element-type '(unsigned-byte 8))
-    (let ((sig (uuid:uuid-to-byte-array +db-id+)))
-      (write-sequence sig f)
-      (loenc:serialize db f))
+;; --------------------------------------------------------------------
+
+(defun try-encoding (k v)
+  ;; this will bomb if either k or v is not persistable
+  (loenc:encode (list k v)))
+
+(defun filter-unpersistable (k v acc)
+  (handler-case
+      (progn
+        (try-encoding k v)
+        (maps:add acc k v))
+    (error ()
+      acc)))
+
+(defun persistable (db)
+  (handler-case
+      (progn
+        (maps:iter db #'try-encoding)
+        db)
+    (error ()
+      (maps:fold db #'filter-unpersistable (maps:empty)))
     ))
 
+(defun full-save (db-path db)
+  (let ((savdb  (persistable db)))
+    (ensure-directories-exist db-path)
+    (with-open-file (f db-path
+                       :direction :output
+                       :if-does-not-exist :create
+                       :if-exists :supersede
+                       :element-type '(unsigned-byte 8))
+      (let ((sig (uuid:uuid-to-byte-array +db-id+)))
+        (write-sequence sig f)
+        (loenc:serialize savdb f)
+        ))
+    savdb))
+
 (defun get-diffs (old-db new-db)
-  (let* ((removals  (mapcar 'maps:map-cell-key
+  (let* ((removals  (mapcar #'maps:map-cell-key
                             (sets:elements
                              (sets:diff old-db new-db))))
-         (additions (maps:fold (sets:diff new-db old-db) 'acons nil))
+         (additions (maps:fold (sets:diff new-db old-db) #'acons nil))
          (changes   (maps:fold new-db
                                (λ (k v accu)
                                  (let ((old-val (maps:find old-db k new-db)))
@@ -294,19 +323,18 @@
   `(do-with-db (lambda (,db) ,@body)))
 
 (defun add-rec (cust key val)
-  (loenc:encode (list key val)) ;; this will barf if either key or val is non-externalizable
   (with-db db
     (send dbmgr `(,cust . ,self) :commit db (maps:add db key val))
     ))
 
 (defun remove-rec (cust key)
   (with-db db
-    (let* ((val  (maps:find db key self))
+    (let* ((val    (maps:find db key self))
            (new-db (if (eql val self)
                        db
                      (maps:remove db key))))
-      (send dbmgr `(,cust . ,self) :commit db new-db)
-      )))
+      (send dbmgr `(,cust . ,self) :commit db new-db))
+    ))
 
 (defun lookup (cust key &optional default)
   (with-db db
