@@ -24,8 +24,8 @@
 ;;
 ;; But even if we restrict the execution to a single machine thread,
 ;; which dispenses with SMP parallelism, we still have concurrency.
-;; Two or more separate threads of execution can be running, logically
-;; simultaneously, against the same code.
+;; Two or more separate logical threads of execution can be running,
+;; logically simultaneously, against the same code.
 ;;
 ;; And, any time you have concurrency, you run the risk of data race
 ;; conditions between separate threads of execution.
@@ -89,6 +89,17 @@
 ;; would be situations in which a physical resource cannot be
 ;; reasonably shared in parallel. E.g. file I/O. So again, a
 ;; SERIALIZER is called for.
+;;
+;; But all that aside, a SERIALIZER is only needed in one place in
+;; this code - at the very opening stage of the database on disk. Only
+;; one thread can be permitted to open and deserialize the initial
+;; database.  Thereafter, all of the code supports fully parallel
+;; concurrency.
+;;
+;; But if the database has changed underneath a mutation request
+;; (ADD/REMOVE), then the operation must be logically retried.
+;; Changing the value for any particular key is accomplished by
+;; ADD'ing the key-value pair, which overwrites the previous value.
 ;; ----------------------------------------------------------------------
 
 (defpackage com.ral.actors.kv-database
