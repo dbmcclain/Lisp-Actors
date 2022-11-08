@@ -112,45 +112,112 @@
 
 ;; ----------------------------------------------------------------------
 
-(def-beh trans-gate-beh (saver db)
-  ;; -------------------
-  ;; general entry for external clients
-  ((cust :req)
-   (send cust db))
+(defun common-trans-beh (saver db msg)
+  (match msg
+    ;; -------------------
+    ;; general entry for external clients
+    ((cust :req)
+     (send cust db))
+    
+    ;; -------------------
+    ;; We are the only one that knows the identity of saver, so this
+    ;; can't be forged by malicious clients. Also, a-db will only
+    ;; eql db if there have been no updates within the last 10 sec.
+    ((a-tag a-db) / (and (eql a-tag saver)
+                         (eql a-db  db))
+     (send saver sink :save-log db))
+    
+    ;; -------------------
+    (('maint-full-save)
+     (send saver sink :full-save db))
+    ))
+    
+(defun trans-gate-beh (saver db)
+  (lambda (&rest msg)
+    (match msg
+      ((cust :req-excl)
+       ;; request exclusive :commit access
+       ;; customer must promise to either :commit or :abort
+       (send cust db)
+       (become (busy-trans-gate-beh saver db cust +emptyq+)))
+      
+      ;; -------------------
+      ;; commit after update
+      (( (cust . retry) :commit old-db new-db)
+       (cond ((eql old-db db) ;; make sure we have correct version
+              (cond ((eql new-db db)
+                     ;; no real change
+                     (send cust new-db))
+                    
+                    (t
+                     ;; changed db, so commit new
+                     (let ((versioned-db (maps:add new-db 'version (uuid:make-v1-uuid) )))
+                       ;; version key is actually 'com.ral.actors.kv-database::version
+                       (become (trans-gate-beh saver versioned-db))
+                       (send-after 10 self saver versioned-db)
+                       (send cust versioned-db)))
+                    ))
+             
+             (t
+              ;; had wrong version for old-db
+              (send retry db))
+             ))
 
-  ;; -------------------
-  ;; commit after update
-  (( (cust . retry) :commit old-db new-db)
-   (cond ((eql old-db db) ;; make sure we have correct version
-          (cond ((eql new-db db)
-                 ;; no real change
-                 (send cust new-db))
-                 
-                (t
-                 ;; changed db, so commit new
-                 (let ((versioned-db (maps:add new-db 'version (uuid:make-v1-uuid) )))
-                   ;; version key is actually 'com.ral.actors.kv-database::version
-                   (become (trans-gate-beh saver versioned-db))
-                   (send-after 10 self saver versioned-db)
-                   (send cust versioned-db)))
-                ))
-          
-         (t
-          ;; had wrong version for old-db
-          (send retry db))
-         ))
-     
-  ;; -------------------
-  ;; We are the only one that knows the identity of saver, so this
-  ;; can't be forged by malicious clients. Also, a-db will only
-  ;; eql db if there have been no updates within the last 10 sec.
-  ((a-tag a-db) / (and (eql a-tag saver)
-                       (eql a-db  db))
-   (send saver sink :save-log db))
-   
-  ;; -------------------
-  (('maint-full-save)
-   (send saver sink :full-save db)))
+      (_
+       (common-trans-beh saver db msg))
+      )))
+    
+;; ----------------------------------------------------------------
+
+(defun busy-trans-gate-beh (saver db cust queue)
+  (lambda (&rest msg)
+    (labels ((release (db)
+               (send cust db)
+               (do-queue (msg queue)
+                 (send* self msg))
+               (become (trans-gate-beh saver db)))
+
+             (stash ()
+               (become (busy-trans-gate-beh saver db cust (addq queue msg)))))
+      
+      (match msg
+        ((acust :req-excl)
+         (if (eql acust cust)
+             (send cust db)
+           (stash)))
+        
+        ((acust :abort) / (eql acust cust)
+         ;; relinquish excl :commit ownership
+         (release db))
+      
+      ;; -------------------
+      ;; commit after update from owner, then relinquish excl :commit ownership
+      ((acust :commit old-db new-db) / (eql acust cust)
+         (cond ((eql old-db db) ;; make sure we have correct version
+                (cond ((eql new-db db)
+                       ;; no real change
+                       (release db))
+
+                      (t
+                       ;; changed db, so commit new
+                       (let ((versioned-db (maps:add new-db 'version (uuid:make-v1-uuid) )))
+                         ;; version key is actually 'com.ral.actors.kv-database::version
+                         (send-after 10 self saver versioned-db)
+                         (release versioned-db)))
+                      ))
+               
+               (t
+                ;; sender must not have included the original db to check against
+                ;; this is a programming error...
+                (error "Impossible condition"))
+               ))
+      
+      ((_ :commit . _)
+       (stash))
+      
+      (_
+       (common-trans-beh saver db msg))
+      ))))
 
 ;; ----------------------------------------------------------------
 
@@ -307,117 +374,127 @@
       (become (nascent-database-beh tag saver nil))
       (repeat-send self))))
 
+;; -----------------------------------------------------------
+
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
                                     (sys:get-folder-path :appdata)))
 
-(deflex dbmgr
-  (create (db-svc-init-beh *db-path*)))
+(defun make-kvdb (&optional (path *db-path*))
+  (let ((dbmgr  (create (db-svc-init-beh path))))
+    (macrolet ((with-db (db &body body)
+                 `(do-with-db (lambda (,db) ,@body))))
+      (labels
+          ((do-with-db (fn)
+             (β (db)
+                 (send dbmgr β :req)
+               (funcall fn db)))
+           
+           (show-db ()
+             (with-db db
+               (let ((pdb (maps:find db *unpersistable-key*)))
+                 (when pdb
+                   (setf db (sets:union db pdb)))
+                 (sets:view-set db))))
 
-;; -----------------------------------------------------------
+           (lookup (cust key &optional default)
+             (with-db db
+               (let ((val (maps:find db key self)))
+                 (when (eql val self)
+                   (let ((pdb (maps:find db *unpersistable-key*)))
+                     (setf val (if pdb
+                                   (maps:find pdb key default)
+                                 default))
+                     ))
+                 (send cust val))
+               ))
 
-(defun do-with-db (fn)
-  (β (db)
-      (send dbmgr β :req)
-    (funcall fn db)))
+           (remove-rec (cust key)
+             (with-db db
+               (let* ((val    (maps:find db key self))
+                      (new-db (if (eql val self)
+                                  db
+                                (maps:remove db key))))
+                 (when (eql new-db db)
+                   (let* ((pdb (maps:find db *unpersistable-key* (maps:empty)))
+                          (val (maps:find pdb key self)))
+                     (unless (eql val self)
+                       (setf new-db (maps:add db *unpersistable-key*
+                                              (maps:remove pdb key)))
+                       )))
+                 (send dbmgr `(,cust . ,self) :commit db new-db))
+               ))
 
-(defmacro with-db (db &body body)
-  `(do-with-db (lambda (,db) ,@body)))
+           (add-rec (cust key val)
+             (let ((persistable (handler-case
+                                    (progn
+                                      (try-encoding key val)
+                                      t)
+                                  (error ()
+                                    nil))))
+               (with-db db
+                 (let* ((pdb    (maps:find db *unpersistable-key* (maps:empty)))
+                        (new-db (if persistable
+                                    (maps:add (maps:add db *unpersistable-key* (maps:remove pdb key))
+                                              key val)
+                                  (maps:add (maps:remove db key)
+                                            *unpersistable-key* (maps:add pdb key val)))
+                                ))
+                   (send dbmgr `(,cust . ,self) :commit db new-db)
+                   ))
+               ))
+           
+           (maint-full-save ()
+             (send dbmgr 'maint-full-save)))
+        
+        (create
+         (alambda
+          ((cust :lookup key . default)
+           (apply #'lookup cust key default))
+          
+          ((cust :add key val)
+           (add-rec cust key val))
+          
+          ((cust :remove key)
+           (remove-rec cust key))
 
-(defun add-rec (cust key val)
-  (let ((persistable (handler-case
-                         (progn
-                           (try-encoding key val)
-                           t)
-                       (error ()
-                         nil))))
-    (with-db db
-      (let* ((pdb    (maps:find db *unpersistable-key* (maps:empty)))
-             (new-db (if persistable
-                         (maps:add (maps:add db *unpersistable-key* (maps:remove pdb key))
-                                   key val)
-                       (maps:add (maps:remove db key)
-                                 *unpersistable-key* (maps:add pdb key val)))
-                    ))
-        (send dbmgr `(,cust . ,self) :commit db new-db)
-        ))
-    ))
+          ((:show)
+           (show-db))
 
-(defun remove-rec (cust key)
-  (with-db db
-    (let* ((val    (maps:find db key self))
-           (new-db (if (eql val self)
-                       db
-                     (maps:remove db key))))
-      (when (eql new-db db)
-        (let* ((pdb (maps:find db *unpersistable-key* (maps:empty)))
-               (val (maps:find pdb key self)))
-          (unless (eql val self)
-            (setf new-db (maps:add db *unpersistable-key*
-                                   (maps:remove pdb key)))
-            )))
-      (send dbmgr `(,cust . ,self) :commit db new-db))
-    ))
+          ((:main-full-save)
+           (maint-full-save))
+          
+          ((_ :req)
+           (repeat-send dbmgr))
 
-(defun lookup (cust key &optional default)
-  (with-db db
-    (let ((val (maps:find db key self)))
-      (when (eql val self)
-        (let ((pdb (maps:find db *unpersistable-key*)))
-          (setf val (if pdb
-                        (maps:find pdb key default)
-                      default))
+          ((_ :req-excl)
+           (repeat-send dbmgr))
+
+          ((_ :abort)
+           (repeat-send dbmgr))
+          
+          (( _ :commit _ _)
+           (repeat-send dbmgr))
           ))
-      (send cust val))
-    ))
+        ))))
 
-(defun show-db ()
-  (with-db db
-    (let ((pdb (maps:find db *unpersistable-key*)))
-      (when pdb
-        (setf db (sets:union db pdb)))
-      (sets:view-set db))))
-
-(defun maint-full-save ()
-  (send dbmgr 'maint-full-save))
-
-;; ------------------------------------------------------------------
-;; more usable public face - can use ASK against this
-
-(deflex kvdb
-  (create
-   (alambda
-    ((cust :lookup key . default)
-     (apply 'lookup cust key default))
-    
-    ((cust :add key val)
-     (add-rec cust key val))
-    
-    ((cust :remove key)
-     (remove-rec cust key))
-    
-    ((cust :req)
-     (repeat-send dbmgr))
-    
-    (( (cust . retry) :commit old-db new-db)
-     (repeat-send dbmgr))
-    )))
+(deflex kvdb (make-kvdb))
 
 ;; -----------------------------------------------------------
 #|
 (ask kvdb :lookup :dave)
 (uuid:when-created (ask kvdb :lookup 'version))
-(show-db)
+(send kvdb :show)
 
 (dotimes (ix 5)
-  (add-rec println ix ix))
-(add-rec println :dave :chara)
-(add-rec println :cat "dog")
-(lookup writeln :cat)
-(show-db)
+  (send kvdb println :add ix ix))
+(send kvdb println :add :dave :chara)
+(send kvdb println :add :cat "dog")
+(send kvdb writeln :lookup :cat)
+(send kvdb :show)
 (dotimes (ix 10)
-  (remove-rec println ix))
-(add-rec println :tst (lambda* _))
-(lookup writeln :tst)
+  (send kvdb println :remove ix))
+(send kvdb println :add :tst (lambda* _))
+(send kvdb writeln :lookup :tst)
 
 (let ((m (maps:empty)))
   (setf m (maps:add m :dave :dog))
@@ -427,7 +504,7 @@
   (eql m (sets:add m :dave)))
 
 (β (db)
-    (send dbmgr β :req)
+    (send kvdb β :req)
   (maps:iter db (λ (k v)
                   (send writeln (list k v)))))
 
@@ -440,7 +517,7 @@
   (send println (list x1 x2 (eq x1 x2))))
 
 
-(maint-full-save)
+(send kvdb :maint-full-save)
 
 ;; ------------------------------------------------------
 (with-open-file (f "~/junk.tst"
