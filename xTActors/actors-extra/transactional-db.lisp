@@ -97,7 +97,7 @@
 ;; concurrency.
 ;;
 ;; But if the database has changed underneath a mutation request
-;; (ADD/REMOVE), then the operation must be logically retried.
+;; (ADD/REMOVE), then the operation will be logically retried.
 ;; Changing the value for any particular key is accomplished by
 ;; ADD'ing the key-value pair, which overwrites the previous value.
 ;; ----------------------------------------------------------------------
@@ -128,7 +128,7 @@
                  
                 (t
                  ;; changed db, so commit new
-                 (let ((versioned-db (maps:add new-db 'version (uuid:make-v1-uuid))))
+                 (let ((versioned-db (maps:add new-db 'version (uuid:make-v1-uuid) )))
                    ;; version key is actually 'com.ral.actors.kv-database::version
                    (become (trans-gate-beh saver versioned-db))
                    (send-after 10 self saver versioned-db)
@@ -252,26 +252,16 @@
 
 ;; --------------------------------------------------------------------
 
+(defvar *unpersistable-key* #/uuid/{e177e996-5f1e-11ed-a62b-787b8acbe32e})
+
 (defun try-encoding (k v)
   ;; this will bomb if either k or v is not persistable
   (loenc:encode (list k v)))
 
-(defun filter-unpersistable (k v acc)
-  (handler-case
-      (progn
-        (try-encoding k v)
-        (maps:add acc k v))
-    (error ()
-      acc)))
-
 (defun persistable (db)
-  (handler-case
-      (progn
-        (maps:iter db #'try-encoding)
-        db)
-    (error ()
-      (maps:fold db #'filter-unpersistable (maps:empty)))
-    ))
+  (if (maps:find db *unpersistable-key*)
+      (maps:remove db *unpersistable-key*)
+    db))
 
 (defun full-save (db-path db)
   (let ((savdb  (persistable db)))
@@ -334,8 +324,22 @@
   `(do-with-db (lambda (,db) ,@body)))
 
 (defun add-rec (cust key val)
-  (with-db db
-    (send dbmgr `(,cust . ,self) :commit db (maps:add db key val))
+  (let ((persistable (handler-case
+                         (progn
+                           (try-encoding key val)
+                           t)
+                       (error ()
+                         nil))))
+    (with-db db
+      (let* ((pdb    (maps:find db *unpersistable-key* (maps:empty)))
+             (new-db (if persistable
+                         (maps:add (maps:add db *unpersistable-key* (maps:remove pdb key))
+                                   key val)
+                       (maps:add (maps:remove db key)
+                                 *unpersistable-key* (maps:add pdb key val)))
+                    ))
+        (send dbmgr `(,cust . ,self) :commit db new-db)
+        ))
     ))
 
 (defun remove-rec (cust key)
@@ -344,12 +348,26 @@
            (new-db (if (eql val self)
                        db
                      (maps:remove db key))))
+      (when (eql new-db db)
+        (let* ((pdb (maps:find db *unpersistable-key* (maps:empty)))
+               (val (maps:find pdb key self)))
+          (unless (eql val self)
+            (setf new-db (maps:add db *unpersistable-key*
+                                   (maps:remove pdb key)))
+            )))
       (send dbmgr `(,cust . ,self) :commit db new-db))
     ))
 
 (defun lookup (cust key &optional default)
   (with-db db
-    (send cust (maps:find db key default))
+    (let ((val (maps:find db key self)))
+      (when (eql val self)
+        (let ((pdb (maps:find db *unpersistable-key*)))
+          (setf val (if pdb
+                        (maps:find pdb key default)
+                      default))
+          ))
+      (send cust val))
     ))
 
 (defun show-db ()
@@ -395,7 +413,7 @@
 (show-db)
 (dotimes (ix 10)
   (remove-rec println ix))
-(add-rec println :tst (λ* _))
+(add-rec println :tst (lambda* _))
 (lookup writeln :tst)
 
 (let ((m (maps:empty)))
