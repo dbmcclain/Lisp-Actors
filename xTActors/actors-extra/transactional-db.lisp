@@ -372,7 +372,10 @@
 
 (defun show-db ()
   (with-db db
-    (sets:view-set db)))
+    (let ((pdb (maps:find db *unpersistable-key*)))
+      (when pdb
+        (setf db (sets:union db pdb)))
+      (sets:view-set db))))
 
 (defun maint-full-save ()
   (send dbmgr 'maint-full-save))
