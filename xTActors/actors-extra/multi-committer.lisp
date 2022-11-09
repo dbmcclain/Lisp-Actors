@@ -85,7 +85,7 @@
     (msg
      (send* target self msg))
     )))
-    
+
 (defun multi-commit-beh (st-tag ctrl-tag &optional cust action open-dbs)
   (alambda
    ((cust :process actionActor kvdbs-plist)
@@ -131,8 +131,7 @@
                (lambda (atag reply)
                  (declare (ignore atag reply))
                  (cond ((endp open-dbs)
-                        (become (multi-commit-beh st-tag ctrl-tag))
-                        (send cust :ok)
+                        (send cust  :ok)
                         (send acust :ok))
                        (t
                         (let* ((grp    (car lst))
@@ -155,9 +154,8 @@
                (lambda (atag reply)
                  (declare (ignore atag reply))
                  (cond ((endp lst)
-                        (become (multi-commit-beh st-tag ctrl-tag))
-                        (send acust :ok)
-                        (send cust :ok))
+                        (send cust :ok)
+                        (send acust :ok))
                        (t
                         (let* ((grp  (car lst))
                                (kvdb (cadr grp)))
@@ -173,11 +171,47 @@
    ))
 
       
+(defun multi-commit-orchestrator-beh (open-dbs pend)
+  ;; serves as a SERIALIZER gate for requests that overlap kvdb usage
+  ;; with extant multi-committers. Otherwise, for mutually exclusive
+  ;; use groups, they are launched into a fresh muti-committer in
+  ;; parallel.
+  (lambda (&rest msg)
+    (match msg
+      ((cust :process actionActor kvdbs-plist)
+       (let ((req-kvdbs (mapcar #'cadr (um:group kvdbs-plist 2))))
+         (cond ((some (lambda (grp)
+                        (intersection req-kvdbs (third grp)))
+                      open-dbs)
+                ;; we have overlapping use, so enqueue this req for later
+                (become (multi-commit-orchestrator-beh open-dbs (addq pend msg))))
+               (t
+                ;; no overlap - so launch him
+                (actors ((tag-to-me (tag self))
+                         (st-tag    (switchable-target-tag sink ctrl-tag))
+                         (ctrl-tag  (tag st-tag))
+                         (handler   (create (multi-commit-beh st-tag ctrl-tag))))
+                  (become (multi-commit-orchestrator-beh
+                           (cons (list tag-to-me cust req-kvdbs)
+                                 open-dbs)
+                           pend))
+                  (send handler tag-to-me :process actionActor kvdbs-plist)
+                  ))
+               )))
+
+      ((atag . msg)
+       (let* ((grp  (find atag open-dbs :key #'car))
+              (cust (cadr grp)))
+         (when cust
+           (send* cust msg)
+           (become (multi-commit-orchestrator-beh (remove grp open-dbs) +emptyq+))
+           (do-queue (msg pend)
+             (send* self msg))
+           )))
+      )))
+      
 (deflex multi-committer
-  (actors ((st-tag   (switchable-target-tag sink ctrl-tag))
-           (ctrl-tag (tag st-tag)))
-    (serializer (create (multi-commit-beh st-tag ctrl-tag)))
-    ))
+  (create (multi-commit-orchestrator-beh nil +emptyq+)))
 
 ;; ---------------------------------------------------------------    
 ;; Protocol for use:
