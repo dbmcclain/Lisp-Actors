@@ -137,6 +137,7 @@ THE SOFTWARE.
                 #+(AND :COM.RAL :LISPWORKS) (:file "lexb4")
                 #+(AND :COM.RAL :LISPWORKS) (:file "safe-call-system")
                 #-:relative-package-names (:file "hierarchical-packages")
+                (:file "file-eq")
                 )
   :serial       t
   :depends-on   ("com.ral.useful-macros"

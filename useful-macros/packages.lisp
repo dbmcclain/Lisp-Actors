@@ -749,4 +749,7 @@ THE SOFTWARE.
 
    #:mappings
    #:map-filename
+
+   #:get-ino
+   #:file-eq
    ))

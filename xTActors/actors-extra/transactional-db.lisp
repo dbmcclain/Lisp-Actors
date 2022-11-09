@@ -478,32 +478,12 @@
           ))
         ))))
 
-(defun get-ino (fname)
-  ;; Return dev and inode for give file. Two files are the same if
-  ;; they have the same dev and inode, regardless of how you reach
-  ;; them through filenames, links, softlinks, etc.
-  (labels ((finder (s)
-             (let ((len  (length s)))
-               (lambda (str)
-                 (and (> (length str) len)
-                      (string-equal s str :end2 len)))
-               )))
-    (let* ((txt (with-output-to-string (s)
-                  (sys:call-system-showing-output
-                   `("/usr/bin/stat" "-s"
-                     ,(namestring fname))
-                   :output-stream s)))
-           (items (um:split-string txt))
-           (dev (find-if (finder "st_dev=") items))
-           (ino (find-if (finder "st_ino=") items)))
-      (values dev ino))))
-
 (defun kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
    ((cust :make-kvdb path)
     (multiple-value-bind (dev ino)
-        (get-ino path)
+        (um:get-ino path)
       (let* ((key  (um:mkstr dev #\space ino))
              (pair (find key open-dbs
                          :key  #'car
