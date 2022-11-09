@@ -379,7 +379,7 @@
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
                                     (sys:get-folder-path :appdata)))
 
-(defun make-kvdb (&optional (path *db-path*))
+(defun %make-kvdb (&optional (path *db-path*))
   (let ((dbmgr  (create (db-svc-init-beh path))))
     (macrolet ((with-db (db &body body)
                  `(do-with-db (lambda (,db) ,@body))))
@@ -477,7 +477,28 @@
           ))
         ))))
 
-(deflex kvdb (make-kvdb))
+(defun kvdb-orchestrator-beh (&optional open-dbs)
+  (alambda
+   ((cust :make-kvdb path)
+    (let* ((real-path (truename path))
+           (pair      (assoc (namestring real-path) open-dbs
+                             :key  #'namestring
+                             :test #'string-equal)))
+      (cond (pair
+             (send cust (cdr pair)))
+            (t
+             (let ((kvdb (%make-kvdb real-path)))
+               (become (kvdb-orchestrator-beh (acons real-path kvdb open-dbs)))
+               (send cust kvdb)))
+            )))
+   ))
+
+(deflex kvdb-maker (create (kvdb-orchestrator-beh)))
+
+(deflex kvdb nil)
+(β (a-kvdb)
+    (send kvdb-maker β :make-kvdb *db-path*)
+  (setf kvdb a-kvdb))
 
 ;; -----------------------------------------------------------
 #|
