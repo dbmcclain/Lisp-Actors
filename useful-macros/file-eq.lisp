@@ -22,7 +22,7 @@
                )))
     (let* ((txt (with-output-to-string (s)
                   (sys:call-system-showing-output
-                   `("/usr/bin/stat" "-s"
+                   `("/usr/bin/stat" "-sL"
                      ,(namestring (truename fname)))
                    :output-stream s)))
            (items (um:split-string txt))
