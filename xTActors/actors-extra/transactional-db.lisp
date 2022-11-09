@@ -106,6 +106,7 @@
   (:use #:cl :com.ral.actors)
   (:export
    #:kvdb
+   #:kvdb-maker
   ))
    
 (in-package com.ral.actors.kv-database)
@@ -478,6 +479,7 @@
         ))))
 
 (defun kvdb-orchestrator-beh (&optional open-dbs)
+  ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
    ((cust :make-kvdb path)
     (let* ((real-path (truename path))
@@ -494,6 +496,9 @@
    ))
 
 (deflex kvdb-maker (create (kvdb-orchestrator-beh)))
+
+;; -----------------------------------------------------
+;; One to goof around in...
 
 (deflex kvdb nil)
 (β (a-kvdb)

@@ -4,7 +4,10 @@
 ;; ----------------------------------
 
 (defpackage #:com.ral.actors.multi-committer
-  (:use #:common-lisp #:ac #:kvdb))
+  (:use #:common-lisp #:ac #:kvdb)
+  (:export
+   #:multi-comitter
+   ))
 
 (in-package #:com.ral.actors.multi-committer)
 
