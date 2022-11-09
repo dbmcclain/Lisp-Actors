@@ -752,4 +752,5 @@ THE SOFTWARE.
 
    #:get-ino
    #:file-eq
+   #:file-time-to-utc
    ))

@@ -39,3 +39,7 @@
       (and (string-equal dev1 dev2)
            (string-equal ino1 ino2))
       )))
+
+(defun um:file-time-to-utc (time)
+  ;; Convert a Unix file time to Lisp UTC form
+  (+ time #.(encode-universal-time 0 0 0 1 1 1970)))
