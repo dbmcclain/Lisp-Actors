@@ -241,4 +241,5 @@
 ;;    (SEND cust :COMMIT plist-of-updated-dbs)
 ;;
 ;; At the end, whether by :ABORT or :COMMIT, a message is sent to your
-;; original cust argument from the :PROCESS message.
+;; original cust argument from the :PROCESS message, as well as to the
+;; cust specified in the :ABORT or :COMMIT message.

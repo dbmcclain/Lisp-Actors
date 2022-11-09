@@ -511,6 +511,7 @@
 #|
 (ask kvdb :lookup :dave)
 (uuid:when-created (ask kvdb :lookup 'version))
+(uuid:when-created (call-actor kvdb :lookup 'version))
 (send kvdb :show)
 
 (dotimes (ix 5)
