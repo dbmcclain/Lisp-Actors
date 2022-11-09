@@ -478,21 +478,43 @@
           ))
         ))))
 
+(defun get-ino (fname)
+  ;; Return dev and inode for give file. Two files are the same if
+  ;; they have the same dev and inode, regardless of how you reach
+  ;; them through filenames, links, softlinks, etc.
+  (labels ((finder (s)
+             (let ((len  (length s)))
+               (lambda (str)
+                 (and (> (length str) len)
+                      (string-equal s str :end2 len)))
+               )))
+    (let* ((txt (with-output-to-string (s)
+                  (sys:call-system-showing-output
+                   `("/usr/bin/stat" "-s"
+                     ,(namestring fname))
+                   :output-stream s)))
+           (items (um:split-string txt))
+           (dev (find-if (finder "st_dev=") items))
+           (ino (find-if (finder "st_ino=") items)))
+      (values dev ino))))
+
 (defun kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
    ((cust :make-kvdb path)
-    (let* ((real-path (truename path))
-           (pair      (assoc (namestring real-path) open-dbs
-                             :key  #'namestring
-                             :test #'string-equal)))
-      (cond (pair
-             (send cust (cdr pair)))
-            (t
-             (let ((kvdb (%make-kvdb real-path)))
-               (become (kvdb-orchestrator-beh (acons real-path kvdb open-dbs)))
-               (send cust kvdb)))
-            )))
+    (multiple-value-bind (dev ino)
+        (get-ino path)
+      (let* ((key  (um:mkstr dev #\space ino))
+             (pair (find key open-dbs
+                         :key  #'car
+                         :test #'string-equal)))
+        (cond (pair
+               (send cust (cdr pair)))
+              (t
+               (let ((kvdb (%make-kvdb path)))
+                 (become (kvdb-orchestrator-beh (acons key kvdb open-dbs)))
+                 (send cust kvdb)))
+              ))))
    ))
 
 (deflex kvdb-maker (create (kvdb-orchestrator-beh)))
@@ -573,4 +595,5 @@
             until (eq ans f)
             collect ans)))
 
-|#               
+|#
+;; ---------------------------------------------------------
