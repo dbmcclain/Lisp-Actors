@@ -107,6 +107,9 @@
   (:export
    #:kvdb
    #:kvdb-maker
+   #:add-mapping
+   #:remove-mapping
+   #:find-mapping
   ))
    
 (in-package com.ral.actors.kv-database)
@@ -380,6 +383,50 @@
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
                                     (sys:get-folder-path :appdata)))
 
+(defun add-mapping (map key val)
+  (let ((persistable (handler-case
+                         (progn
+                           (try-encoding key val)
+                           t)
+                       (error ()
+                         nil)))
+        (upmap  (maps:find map *unpersistable-key* (maps:empty))))
+    (if persistable
+        (maps:add (maps:add map *unpersistable-key* (maps:remove upmap key))
+                  key val)
+      (maps:add (maps:remove map key)
+                *unpersistable-key* (maps:add upmap key val)))
+    ))
+
+(defvar *not-found* (vector))
+
+(defun remove-mapping (map key)
+  (let* ((val     (maps:find map key *not-found*))
+         (new-map (if (eq val *not-found*)
+                      map
+                    (maps:remove map key))))
+    (when (eq new-map map)
+      (let* ((upmap (maps:find map *unpersistable-key* (maps:empty)))
+             (val   (maps:find upmap key *not-found*)))
+        (unless (eq val *not-found*)
+          (setf new-map (maps:add map *unpersistable-key*
+                                  (maps:remove upmap key)))
+          )))
+    new-map))
+
+(defun find-mapping (map key &optional default)
+  (let ((val (maps:find map key *not-found*)))
+    (when (eq val *not-found*)
+      (let ((upmap (maps:find map *unpersistable-key*)))
+        (setf val (if upmap
+                      (maps:find upmap key default)
+                    default))
+        ))
+    val))
+
+#+:LISPWORKS
+(editor:setup-indent "with-db" 1)
+
 (defun %make-kvdb (&optional (path *db-path*))
   (let ((dbmgr  (create (db-svc-init-beh path))))
     (macrolet ((with-db (db &body body)
@@ -399,51 +446,19 @@
 
            (lookup (cust key &optional default)
              (with-db db
-               (let ((val (maps:find db key self)))
-                 (when (eql val self)
-                   (let ((pdb (maps:find db *unpersistable-key*)))
-                     (setf val (if pdb
-                                   (maps:find pdb key default)
-                                 default))
-                     ))
-                 (send cust val))
+               (send cust (find-mapping db key default))
                ))
 
            (remove-rec (cust key)
              (with-db db
-               (let* ((val    (maps:find db key self))
-                      (new-db (if (eql val self)
-                                  db
-                                (maps:remove db key))))
-                 (when (eql new-db db)
-                   (let* ((pdb (maps:find db *unpersistable-key* (maps:empty)))
-                          (val (maps:find pdb key self)))
-                     (unless (eql val self)
-                       (setf new-db (maps:add db *unpersistable-key*
-                                              (maps:remove pdb key)))
-                       )))
-                 (send dbmgr `(,cust . ,self) :commit db new-db))
+               (send dbmgr `(,cust . ,self) :commit db (remove-mapping db key))
                ))
 
            (add-rec (cust key val)
-             (let ((persistable (handler-case
-                                    (progn
-                                      (try-encoding key val)
-                                      t)
-                                  (error ()
-                                    nil))))
-               (with-db db
-                 (let* ((pdb    (maps:find db *unpersistable-key* (maps:empty)))
-                        (new-db (if persistable
-                                    (maps:add (maps:add db *unpersistable-key* (maps:remove pdb key))
-                                              key val)
-                                  (maps:add (maps:remove db key)
-                                            *unpersistable-key* (maps:add pdb key val)))
-                                ))
-                   (send dbmgr `(,cust . ,self) :commit db new-db)
-                   ))
+             (with-db db
+               (send dbmgr `(,cust . ,self) :commit db (add-mapping db key val))
                ))
-           
+        
            (maint-full-save ()
              (send dbmgr 'maint-full-save)))
         
