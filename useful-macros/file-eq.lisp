@@ -23,7 +23,7 @@
     (let* ((txt (with-output-to-string (s)
                   (sys:call-system-showing-output
                    `("/usr/bin/stat" "-s"
-                     ,(namestring fname))
+                     ,(namestring (truename fname)))
                    :output-stream s)))
            (items (um:split-string txt))
            (dev (find-if (finder "st_dev=") items))
