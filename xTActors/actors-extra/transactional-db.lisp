@@ -435,49 +435,34 @@
           ((do-with-db (fn)
              (β (db)
                  (send dbmgr β :req)
-               (funcall fn db)))
-           
-           (show-db ()
-             (with-db db
-               (let ((pdb (maps:find db *unpersistable-key*)))
-                 (when pdb
-                   (setf db (sets:union db pdb)))
-                 (sets:view-set db))))
-
-           (lookup (cust key &optional default)
-             (with-db db
-               (send cust (find-mapping db key default))
-               ))
-
-           (remove-rec (cust key)
-             (with-db db
-               (send dbmgr `(,cust . ,self) :commit db (remove-mapping db key))
-               ))
-
-           (add-rec (cust key val)
-             (with-db db
-               (send dbmgr `(,cust . ,self) :commit db (add-mapping db key val))
-               ))
-        
-           (maint-full-save ()
-             (send dbmgr 'maint-full-save)))
-        
+               (funcall fn db))))
         (create
          (alambda
           ((cust :lookup key . default)
-           (apply #'lookup cust key default))
+           (with-db db
+             (send cust (find-mapping db key (car default)))
+             ))
           
           ((cust :add key val)
-           (add-rec cust key val))
+           (with-db db
+             (send dbmgr `(,cust . ,self) :commit db (add-mapping db key val))
+             ))
           
           ((cust :remove key)
-           (remove-rec cust key))
+           (with-db db
+             (send dbmgr `(,cust . ,self) :commit db (remove-mapping db key))
+             ))
 
           ((:show)
-           (show-db))
-
+           (with-db db
+             (let ((pdb (maps:find db *unpersistable-key*)))
+               (when pdb
+                 (setf db (sets:union db pdb)))
+               (sets:view-set db))
+             ))
+          
           ((:main-full-save)
-           (maint-full-save))
+           (send dbmgr 'maint-full-save))
           
           ((_ :req)
            (repeat-send dbmgr))
