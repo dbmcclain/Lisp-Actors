@@ -80,7 +80,7 @@
 ;; access to kvdb's is required in order to prevent livelock.
 ;; ------------------------------------------------------------------------
 
-(defun multi-commit-beh (ctrl-tag owner action &optional open-dbs action-tag)
+(defun multi-commit-beh (ctrl-tag owner action open-dbs action-tag)
   ;; Even though we are hidden behind an orchestrator, we still need
   ;; to protect against malicious messages since we have to hand a
   ;; path leading back to us, to the ACTION Actor.
@@ -89,7 +89,7 @@
   ;; messages.
   ;;
   ;; We, and the orchestrator, are iinitially the only ones that know
-  ;; the OWNER identity. But we do hand it out to the dbms on
+  ;; the OWNER identity. But we do hand it out to the dbmgr on
   ;; :REQ-EXCL, :ABORT, and :COMMIT messages. That dbmgr could become
   ;; compromised. So nothing responds to messages sent to OWNER.
   ;;
@@ -99,7 +99,7 @@
   ;;
   (alambda
    ((atag :process kvdbs-plist) / (eq atag ctrl-tag)
-    (let ((fwd  (label self :open-dbs)))
+    (let ((fwd  (label (label self ctrl-tag) :open-dbs)))
       (sort-kvdbs fwd kvdbs-plist)))
 
    ((atag :open-dbs ordered-kvdbs-plist) / (eq atag ctrl-tag)
@@ -108,9 +108,9 @@
                               (mapcar (lambda (triple)
                                         (list (car triple) (third triple)))
                                       (reverse open-dbs))))
-                 (action-tag  (tag self)))
-             (become (multi-commit-beh ctrl-tag owner action open-dbs action-tag))
-             (send action action-tag dbs) ;; send act a plist of open dbs
+                 (new-action-tag  (tag self)))
+             (become (multi-commit-beh ctrl-tag owner action open-dbs new-action-tag))
+             (send action new-action-tag dbs) ;; send act a plist of open dbs
              ))
           (t
            (let* ((me     self)
@@ -126,7 +126,8 @@
 
    ((acust :add-db atag db-id kvdb db) / (eq atag ctrl-tag)
     (become (multi-commit-beh ctrl-tag owner action
-                              (cons (list db-id kvdb db) open-dbs)))
+                              (cons (list db-id kvdb db) open-dbs)
+                              action-tag))
     (send acust :ok))
 
    ((atag acust :commit upd-dbs-plist) / (eq atag action-tag)
@@ -135,7 +136,8 @@
                  (declare (ignore reply))
                  (cond ((endp open-dbs)
                         (send ctrl-tag :ok)
-                        (send acust :ok))
+                        (send acust :ok)
+                        (become-sink))
                        (t
                         (let* ((grp    (car lst))
                                (id     (car grp))
@@ -147,6 +149,7 @@
                           ))
                        ))))
       (send (create (commit-beh open-dbs)) nil)
+      (become-sink)  ;; isolate us from further abuse
       ))
 
    ((atag acust :abort) / (eq atag action-tag)
@@ -155,7 +158,8 @@
                  (declare (ignore reply))
                  (cond ((endp lst)
                         (send ctrl-tag :ok)
-                        (send acust :ok))
+                        (send acust :ok)
+                        (become-sink))
                        (t
                         (let* ((grp  (car lst))
                                (kvdb (cadr grp)))
@@ -164,6 +168,7 @@
                           ))
                        ))))
       (send (create (release-beh open-dbs)) nil)
+      (become-sink) ;; isolate us from further abuse
       ))
    ))
 
@@ -186,7 +191,7 @@
                 ;; no overlap - so launch him
                 (let* ((tag-to-me (tag self))
                        (owner     (create)) ;; just a unique identity Actor
-                       (handler   (create (multi-commit-beh tag-to-me owner actionActor))))
+                       (handler   (create (multi-commit-beh tag-to-me owner actionActor nil (create) ))))
                   (become (multi-commit-orchestrator-beh
                            (cons (list tag-to-me cust req-kvdbs)
                                  open-dbs)
