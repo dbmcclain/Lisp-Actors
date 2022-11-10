@@ -114,6 +114,29 @@ THE SOFTWARE.
 
 ;; -------------------------------------------
 
+(defstruct unserializable-object)
+
+(defvar *unserializable-object*  (make-unserializable-object))
+
+(defconstant +UNSERIALIZABLE-OBJECT-code+ (register-code 124 'unserializeable-object))
+
+(defstore (obj UNSERIALIZABLE-OBJECT stream)
+  (output-type-code +UNSERIALIZABLE-OBJECT-code+ stream))
+
+(defrestore (UNSERIALIZABLE-OBJECT stream)
+  *unserializable-object*)
+
+(defmethod sdle-store:backend-store-object ((backend loe-back-end) obj stream)
+  (handler-case
+      (call-next-method)
+    (sdle-store:store-error ()
+      ;; We come here if obj cannot be serialized
+      (warn "Unserializable object of type ~A encountered - using proxy object." (type-of obj))
+      (sdle-store:backend-store-object backend *unserializable-object* stream))
+    ))
+
+;; -------------------------------------------
+
 (defun normalize-prefix-length (prefix-length)
   (ecase prefix-length
     (:8-bit    1)
@@ -170,7 +193,8 @@ Encrypted data is marked as such by making the prefix count odd."
                                         (sdle-store:copy-backend backend
                                                                  :magic-number use-magic)
                                       backend)))
-                          (sdle-store:store msg s bknd))
+                          (let ((sdle-store:*force-unserializable-functions* t))
+                            (sdle-store:store msg s bknd)))
                         
                         ;; pad data to an even number of bytes
                         (let* ((data-len (- (ubstream:stream-file-position s)

@@ -1094,46 +1094,57 @@
                      nil
                      *sbcl-readtable*)
 
+(defvar *force-unserializable-functions* nil)
+
+(defun unserializable-function (&rest args)
+  (declare (ignore args))
+  (error "Unserialized Function"))
+
 (defun get-function-name (obj)
-  (multiple-value-bind (l cp name) (function-lambda-expression obj)
-    (declare (ignore l))
-    (cond ;; handle (SB-C::&OPTIONAL-DISPATCH MAKE-FOO) names introduced around 1.0.15
-          #+xx_sbcl
-          ((and name
-		(consp name)
-		(not (cddr name))
-		(eql (first name) 'SB-C::&OPTIONAL-DISPATCH))
-           (second name))
+  (flet ((no-name-error ()
+           (unless *force-unserializable-functions*
+             (store-error "Unable to determine function name for ~A" obj))
+           (warn "Unserializable Function encountered - using proxy function.")
+           'unserializable-function))
+    (multiple-value-bind (l cp name) (function-lambda-expression obj)
+      (declare (ignore l))
+      (cond ;; handle (SB-C::&OPTIONAL-DISPATCH MAKE-FOO) names introduced around 1.0.15
+            #+xx_sbcl
+            ((and name
+                  (consp name)
+                  (not (cddr name))
+                  (eql (first name) 'SB-C::&OPTIONAL-DISPATCH))
+             (second name))
           
-          ;; normal names and (setf name)
-          ((and (not cp) ;; can't be a closure DM/RAL 08/16
-                name
-                (or (symbolp name)
-                    (and (consp name)
-                         (eq (car name) 'cl:setf)
-                         (um:single (cdr name))
-                         (symbolp (cadr name)))
-                    ))
-                name)
-
-          ;;  Try to deal with sbcl's naming convention
-          ;; of built in functions (pre 0.9)
-          #+xx_sbcl
-          ((and name
-                (stringp name)
-                (search "top level local call " (the simple-string name)))
-           (let ((new-name (parse-name name))
-                 (*readtable* *sbcl-readtable*))
-             (unless (string= new-name "")
-               (handler-case (read-from-string new-name)
-                 (error (c)
-                   (declare (ignore c))
-                   (store-error "Unable to determine function name for ~A."
-                                obj))))))
-
-          (t (store-error "Unable to determine function name for ~A."
-                          obj)))))  
-
+            ;; normal names and (setf name)
+            ((and (not cp) ;; can't be a closure DM/RAL 08/16
+                  name
+                  (or (symbolp name)
+                      (and (consp name)
+                           (eq (car name) 'cl:setf)
+                           (um:single (cdr name))
+                           (symbolp (cadr name)))
+                      ))
+             name)
+            
+            ;;  Try to deal with sbcl's naming convention
+            ;; of built in functions (pre 0.9)
+            #+xx_sbcl
+            ((and name
+                  (stringp name)
+                  (search "top level local call " (the simple-string name)))
+             (let ((new-name (parse-name name))
+                   (*readtable* *sbcl-readtable*))
+               (unless (string= new-name "")
+                 (handler-case (read-from-string new-name)
+                   (error (c)
+                     (declare (ignore c))
+                     (no-name-error))
+                   ))))
+            
+            (t (no-name-error))
+            ))))
+  
 #-clisp
 (defstore-sdle-store (obj function stream)
   (cond ((typep obj 'standard-object) ;; true for funcallable instances
@@ -1182,7 +1193,11 @@
   (output-type-code +gf-code+ stream)
   (aif (generic-function-name obj)
       (store-object it stream)
-    (store-error "No generic function name for ~A." obj)))
+    (progn
+      (unless *force-unserializable-functions*
+        (store-error "No generic function name for ~A." obj))
+      (warn "Unserializable Generic Function encountered - using proxy function")
+      'unserializable-function)))
 
 (defrestore-sdle-store (generic-function stream)
   (restore-function stream))

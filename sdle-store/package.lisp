@@ -40,7 +40,8 @@
            #:copy-backend
            #:rawbytes
            #:rawbytes-bytes
-           #:make-rawbytes)
+           #:make-rawbytes
+           #:*force-unserializable-functions*)
   
   #+sbcl (:import-from #:sb-mop
                        #:generic-function-name

@@ -6,8 +6,8 @@
 ;; serves as its own transaction ID. Lock-free design.
 ;;
 ;; You can save anything you like in the KV database. But if it can't
-;; be persisted then it won't be saved in the backing store, and won't
-;; be restored in future sessions.
+;; be persisted then it won't be faithfully saved in the backing
+;; store, and won't be restored in future sessions.
 ;;
 ;; Keys can be anything that has an order relation defined in ORD.
 ;;
@@ -247,9 +247,9 @@
 (def-ser-beh save-database-beh (path last-db)
   ;; -------------------
   ((cust :full-save db)
-   (let ((savdb (full-save path db)))
-     (become (save-database-beh path savdb))
-     (send cust :ok)))
+   (full-save path db)
+   (become (save-database-beh path db))
+   (send cust :ok))
 
   ;; -------------------
   ;; The db gateway is the only one that knows saver's identity.
@@ -258,8 +258,7 @@
    (let ((new-ver  (maps:find new-db  'version))
          (prev-ver (maps:find last-db 'version)))
      (when (uuid:uuid-time< prev-ver new-ver)
-       (let* ((savdb (persistable new-db))
-              (delta (get-diffs last-db savdb)))
+       (let* ((delta (get-diffs last-db new-db)))
          (handler-case
              (with-open-file (f path
                                 :direction         :output
@@ -270,8 +269,8 @@
                                 :self-sync t))
            (error ()
              ;; expected possible error due to file not existing yet
-             (full-save path savdb)))
-         (become (save-database-beh path savdb))))
+             (full-save path new-db)))
+         (become (save-database-beh path new-db))))
        (send cust :ok))))
   
 ;; ---------------------------------------------------------------
@@ -323,30 +322,18 @@
 
 ;; --------------------------------------------------------------------
 
-(defvar *unpersistable-key* #/uuid/{e177e996-5f1e-11ed-a62b-787b8acbe32e})
-
-(defun try-encoding (k v)
-  ;; this will bomb if either k or v is not persistable
-  (loenc:encode (list k v)))
-
-(defun persistable (db)
-  (if (maps:find db *unpersistable-key*)
-      (maps:remove db *unpersistable-key*)
-    db))
-
 (defun full-save (db-path db)
-  (let ((savdb  (persistable db)))
-    (ensure-directories-exist db-path)
-    (with-open-file (f db-path
-                       :direction :output
-                       :if-does-not-exist :create
-                       :if-exists :supersede
-                       :element-type '(unsigned-byte 8))
-      (let ((sig (uuid:uuid-to-byte-array +db-id+)))
-        (write-sequence sig f)
-        (loenc:serialize savdb f)
-        ))
-    savdb))
+  (ensure-directories-exist db-path)
+  (with-open-file (f db-path
+                     :direction :output
+                     :if-does-not-exist :create
+                     :if-exists :supersede
+                     :element-type '(unsigned-byte 8))
+    (let ((sig (uuid:uuid-to-byte-array +db-id+)))
+      (write-sequence sig f)
+      (loenc:serialize db f)
+      ))
+  db)
 
 (defun get-diffs (old-db new-db)
   (let* ((removals  (mapcar #'maps:map-cell-key
@@ -383,47 +370,6 @@
 (defvar *db-path*  (merge-pathnames "LispActors/Actors Transactional Database.dat"
                                     (sys:get-folder-path :appdata)))
 
-(defun add-mapping (map key val)
-  (let ((persistable (handler-case
-                         (progn
-                           (try-encoding key val)
-                           t)
-                       (error ()
-                         nil)))
-        (upmap  (maps:find map *unpersistable-key* (maps:empty))))
-    (if persistable
-        (maps:add (maps:add map *unpersistable-key* (maps:remove upmap key))
-                  key val)
-      (maps:add (maps:remove map key)
-                *unpersistable-key* (maps:add upmap key val)))
-    ))
-
-(defvar *not-found* (vector))
-
-(defun remove-mapping (map key)
-  (let* ((val     (maps:find map key *not-found*))
-         (new-map (if (eq val *not-found*)
-                      map
-                    (maps:remove map key))))
-    (when (eq new-map map)
-      (let* ((upmap (maps:find map *unpersistable-key* (maps:empty)))
-             (val   (maps:find upmap key *not-found*)))
-        (unless (eq val *not-found*)
-          (setf new-map (maps:add map *unpersistable-key*
-                                  (maps:remove upmap key)))
-          )))
-    new-map))
-
-(defun find-mapping (map key &optional default)
-  (let ((val (maps:find map key *not-found*)))
-    (when (eq val *not-found*)
-      (let ((upmap (maps:find map *unpersistable-key*)))
-        (setf val (if upmap
-                      (maps:find upmap key default)
-                    default))
-        ))
-    val))
-
 #+:LISPWORKS
 (editor:setup-indent "with-db" 1)
 
@@ -440,25 +386,23 @@
          (alambda
           ((cust :lookup key . default)
            (with-db db
-             (send cust (find-mapping db key (car default)))
+             (send cust (maps:find db key (car default)))
              ))
           
           ((cust :add key val)
            (with-db db
-             (send dbmgr `(,cust . ,self) :commit db (add-mapping db key val))
+             (send dbmgr `(,cust . ,self) :commit db (maps:add db key val))
              ))
           
           ((cust :remove key)
            (with-db db
-             (send dbmgr `(,cust . ,self) :commit db (remove-mapping db key))
+             (unless (eq self (maps:find db key self))
+               (send dbmgr `(,cust . ,self) :commit db (maps:remove db key)))
              ))
 
           ((:show)
            (with-db db
-             (let ((pdb (maps:find db *unpersistable-key*)))
-               (when pdb
-                 (setf db (sets:union db pdb)))
-               (sets:view-set db))
+             (sets:view-set db)
              ))
           
           ((:main-full-save)
