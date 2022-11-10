@@ -78,23 +78,39 @@
 ;; For the purposes of commit and requesting exclusive ownership, the
 ;; effect is the same as going through a SERIALIZER gate. Ordered
 ;; access to kvdb's is required in order to prevent livelock.
+;; ------------------------------------------------------------------------
 
-(defun multi-commit-beh (owner action &optional open-dbs)
-  ;; We are hidden behind an orchestrator, and only it knows our
-  ;; identity. So we can dispense with tag checking here.
+(defun multi-commit-beh (ctrl-tag owner action &optional open-dbs action-tag)
+  ;; Even though we are hidden behind an orchestrator, we still need
+  ;; to protect against malicious messages since we have to hand a
+  ;; path leading back to us, to the ACTION Actor.
+  ;;
+  ;; That pathway, ACTION-TAG, will only permit :ABORT or :COMMIT
+  ;; messages.
+  ;;
+  ;; We, and the orchestrator, are iinitially the only ones that know
+  ;; the OWNER identity. But we do hand it out to the dbms on
+  ;; :REQ-EXCL, :ABORT, and :COMMIT messages. That dbmgr could become
+  ;; compromised. So nothing responds to messages sent to OWNER.
+  ;;
+  ;; The only way to reach us for processing and adding entries to the
+  ;; list of open kvdbs is via another tag, CTRL-TAG, that remains
+  ;; known only to us and the orchestrator.
+  ;;
   (alambda
-   ((:process kvdbs-plist)
+   ((atag :process kvdbs-plist) / (eq atag ctrl-tag)
     (let ((fwd  (label self :open-dbs)))
       (sort-kvdbs fwd kvdbs-plist)))
 
-   ((:open-dbs ordered-kvdbs-plist)
+   ((atag :open-dbs ordered-kvdbs-plist) / (eq atag ctrl-tag)
     (cond ((endp ordered-kvdbs-plist)
            (let ((dbs (mapcan #'list
                               (mapcar (lambda (triple)
                                         (list (car triple) (third triple)))
-                                      (reverse open-dbs)))
-                      ))
-             (send action self dbs) ;; send act a plist of open dbs
+                                      (reverse open-dbs))))
+                 (action-tag  (tag self)))
+             (become (multi-commit-beh ctrl-tag owner action open-dbs action-tag))
+             (send action action-tag dbs) ;; send act a plist of open dbs
              ))
           (t
            (let* ((me     self)
@@ -102,23 +118,23 @@
                   (kvdb   (cadr ordered-kvdbs-plist))
                   (waiter (create (lambda (db)
                                     (β _
-                                        (send me β :add-db db-id kvdb db)
-                                      (send me :open-dbs (cddr ordered-kvdbs-plist))))
+                                        (send me β :add-db ctrl-tag db-id kvdb db)
+                                      (send me ctrl-tag :open-dbs (cddr ordered-kvdbs-plist))))
                                   )))
              (send kvdb waiter :req-excl owner)))
           ))
 
-   ((acust :add-db db-id kvdb db)
-    (become (multi-commit-beh owner action
+   ((acust :add-db atag db-id kvdb db) / (eq atag ctrl-tag)
+    (become (multi-commit-beh ctrl-tag owner action
                               (cons (list db-id kvdb db) open-dbs)))
     (send acust :ok))
 
-   ((acust :commit upd-dbs-plist)
+   ((atag acust :commit upd-dbs-plist) / (eq atag action-tag)
     (labels ((commit-beh (lst)
                (lambda (reply)
                  (declare (ignore reply))
                  (cond ((endp open-dbs)
-                        (send owner :ok)
+                        (send ctrl-tag :ok)
                         (send acust :ok))
                        (t
                         (let* ((grp    (car lst))
@@ -133,12 +149,12 @@
       (send (create (commit-beh open-dbs)) nil)
       ))
 
-   ((acust :abort)
+   ((atag acust :abort) / (eq atag action-tag)
     (labels ((release-beh (lst)
                (lambda (reply)
                  (declare (ignore reply))
                  (cond ((endp lst)
-                        (send owner :ok)
+                        (send ctrl-tag :ok)
                         (send acust :ok))
                        (t
                         (let* ((grp  (car lst))
@@ -169,12 +185,13 @@
                (t
                 ;; no overlap - so launch him
                 (let* ((tag-to-me (tag self))
-                       (handler   (create (multi-commit-beh tag-to-me actionActor))))
+                       (owner     (create)) ;; just a unique identity Actor
+                       (handler   (create (multi-commit-beh tag-to-me owner actionActor))))
                   (become (multi-commit-orchestrator-beh
                            (cons (list tag-to-me cust req-kvdbs)
                                  open-dbs)
                            pend))
-                  (send handler :process kvdbs-plist)
+                  (send handler tag-to-me :process kvdbs-plist)
                   ))
                )))
 
