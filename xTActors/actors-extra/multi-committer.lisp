@@ -79,27 +79,15 @@
 ;; effect is the same as going through a SERIALIZER gate. Ordered
 ;; access to kvdb's is required in order to prevent livelock.
 
-(defun switchable-target-tag (target tag)
-  (create
-   (alambda
-    ((cust atag :deliver-to new-target) / (eql atag tag)
-     (become (switchable-target-tag new-target tag))
-     (send cust :ok))
-    (msg
-     (send* target self msg))
-    )))
-
-(defun multi-commit-beh (st-tag ctrl-tag &optional cust action open-dbs)
+(defun multi-commit-beh (owner action &optional open-dbs)
+  ;; We are hidden behind an orchestrator, and only it knows our
+  ;; identity. So we can dispense with tag checking here.
   (alambda
-   ((cust :process actionActor kvdbs-plist)
-    (become (multi-commit-beh st-tag ctrl-tag cust actionActor nil))
-    (let ((me  self))
-      (β (ordered-kvdbs-plist)
-          (sort-kvdbs β kvdbs-plist)
-        (send me st-tag :open-dbs ordered-kvdbs-plist)
-        )))
+   ((:process kvdbs-plist)
+    (let ((fwd  (label self :open-dbs)))
+      (sort-kvdbs fwd kvdbs-plist)))
 
-   ((atag :open-dbs ordered-kvdbs-plist) / (eql atag st-tag)
+   ((:open-dbs ordered-kvdbs-plist)
     (cond ((endp ordered-kvdbs-plist)
            (let ((dbs (mapcan #'list
                               (mapcar (lambda (triple)
@@ -112,29 +100,25 @@
            (let* ((me     self)
                   (db-id  (car ordered-kvdbs-plist))
                   (kvdb   (cadr ordered-kvdbs-plist))
-                  (waiter (create (lambda (atag db)
-                                    (declare (ignore atag))
+                  (waiter (create (lambda (db)
                                     (β _
-                                        (send me β st-tag :add-db db-id kvdb db)
-                                      (send me st-tag :open-dbs (cddr ordered-kvdbs-plist))))
+                                        (send me β :add-db db-id kvdb db)
+                                      (send me :open-dbs (cddr ordered-kvdbs-plist))))
                                   )))
-             (β _
-                 (send ctrl-tag β :deliver-to waiter)
-               (send kvdb st-tag :req-excl))
-             ))
+             (send kvdb waiter :req-excl owner)))
           ))
 
-   ((acust atag :add-db db-id kvdb db) / (eql atag st-tag)
-    (become (multi-commit-beh st-tag ctrl-tag cust action
+   ((acust :add-db db-id kvdb db)
+    (become (multi-commit-beh owner action
                               (cons (list db-id kvdb db) open-dbs)))
     (send acust :ok))
 
    ((acust :commit upd-dbs-plist)
     (labels ((commit-beh (lst)
-               (lambda (atag reply)
-                 (declare (ignore atag reply))
+               (lambda (reply)
+                 (declare (ignore reply))
                  (cond ((endp open-dbs)
-                        (send cust  :ok)
+                        (send owner :ok)
                         (send acust :ok))
                        (t
                         (let* ((grp    (car lst))
@@ -142,40 +126,34 @@
                                (kvdb   (cadr grp))
                                (old-db (third grp))
                                (new-db (getf upd-dbs-plist id old-db)))
-                          (send kvdb st-tag :commit old-db new-db)
+                          (send kvdb (cons self owner) :commit old-db new-db)
                           (become (commit-beh (cdr lst)))
                           ))
                        ))))
-      (let ((committer (create (commit-beh open-dbs))))
-        (β _
-            (send ctrl-tag β :deliver-to committer)
-          (send committer nil nil))
-        )))
+      (send (create (commit-beh open-dbs)) nil)
+      ))
 
    ((acust :abort)
     (labels ((release-beh (lst)
-               (lambda (atag reply)
-                 (declare (ignore atag reply))
+               (lambda (reply)
+                 (declare (ignore reply))
                  (cond ((endp lst)
-                        (send cust :ok)
+                        (send owner :ok)
                         (send acust :ok))
                        (t
                         (let* ((grp  (car lst))
                                (kvdb (cadr grp)))
-                          (send kvdb st-tag :abort)
+                          (send kvdb self :abort owner)
                           (become (release-beh (cdr lst)))
                           ))
                        ))))
-      (let ((releaser (create (release-beh open-dbs))))
-        (β _
-            (send ctrl-tag β :deliver-to releaser)
-          (send releaser nil nil))
-        )))
+      (send (create (release-beh open-dbs)) nil)
+      ))
    ))
 
       
 (defun multi-commit-orchestrator-beh (open-dbs pend)
-  ;; serves as a SERIALIZER gate for requests that overlap kvdb usage
+  ;; Serves as a SERIALIZER gate for requests that overlap kvdb usage
   ;; with extant multi-committers. Otherwise, for mutually exclusive
   ;; use groups, they are launched into a fresh muti-committer in
   ;; parallel.
@@ -190,15 +168,13 @@
                 (become (multi-commit-orchestrator-beh open-dbs (addq pend msg))))
                (t
                 ;; no overlap - so launch him
-                (actors ((tag-to-me (tag self))
-                         (st-tag    (switchable-target-tag sink ctrl-tag))
-                         (ctrl-tag  (tag st-tag))
-                         (handler   (create (multi-commit-beh st-tag ctrl-tag))))
+                (let* ((tag-to-me (tag self))
+                       (handler   (create (multi-commit-beh tag-to-me actionActor))))
                   (become (multi-commit-orchestrator-beh
                            (cons (list tag-to-me cust req-kvdbs)
                                  open-dbs)
                            pend))
-                  (send handler tag-to-me :process actionActor kvdbs-plist)
+                  (send handler :process kvdbs-plist)
                   ))
                )))
 
@@ -226,20 +202,20 @@
 ;; MULTI-COMMITTER then opens all the kvdbs in consistent order, using
 ;; :REQ-EXCL, then sends a message to your action-Actor:
 ;;
-;;      (SEND action-Actor cust plist-of-open-dbs)
+;;      (SEND action-Actor handler plist-of-open-dbs)
 ;;
 ;; Action-Actor should do whatever processing it needs to do against
-;; the open kvdb's and then send a response back to cust containing
+;; the open kvdb's and then send a response back to handler containing
 ;; either an :ABORT, or a :COMMIT with a plist of updated dbs. Any dbs
 ;; that have not been changed can be omitted from the plist in the
 ;; response.
 ;;
-;;    (SEND cust :ABORT)
+;;    (SEND handler acust :ABORT)
 ;;
 ;;     - or -
 ;;
-;;    (SEND cust :COMMIT plist-of-updated-dbs)
+;;    (SEND handler acust :COMMIT plist-of-updated-dbs)
 ;;
 ;; At the end, whether by :ABORT or :COMMIT, a message is sent to your
 ;; original cust argument from the :PROCESS message, as well as to the
-;; cust specified in the :ABORT or :COMMIT message.
+;; acust specified in the :ABORT or :COMMIT message to the handler.

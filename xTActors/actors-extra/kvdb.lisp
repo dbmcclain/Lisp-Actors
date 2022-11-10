@@ -139,11 +139,11 @@
 (defun trans-gate-beh (saver db)
   (lambda (&rest msg)
     (match msg
-      ((cust :req-excl)
+      ((cust :req-excl owner)
        ;; request exclusive :commit access
        ;; customer must promise to either :commit or :abort
        (send cust db)
-       (become (busy-trans-gate-beh saver db cust +emptyq+)))
+       (become (busy-trans-gate-beh saver db owner +emptyq+)))
       
       ;; -------------------
       ;; commit after update
@@ -173,47 +173,47 @@
     
 ;; ----------------------------------------------------------------
 
-(defun busy-trans-gate-beh (saver db cust queue)
+(defun busy-trans-gate-beh (saver db owner queue)
   (lambda (&rest msg)
-    (labels ((release (db)
+    (labels ((release (cust db)
                (send cust db)
                (do-queue (msg queue)
                  (send* self msg))
                (become (trans-gate-beh saver db)))
 
              (stash ()
-               (become (busy-trans-gate-beh saver db cust (addq queue msg)))))
+               (become (busy-trans-gate-beh saver db owner (addq queue msg)))))
       
       (match msg
-        ((acust :req-excl)
-         (if (eql acust cust)
-             (send cust db)
+        ((acust :req-excl an-owner)
+         (if (eql an-owner owner)
+             (send acust db)
            (stash)))
         
-        ((acust :abort) / (eql acust cust)
+        ((acust :abort an-owner) / (eql an-owner owner)
          ;; relinquish excl :commit ownership
-         (release db))
+         (release acust db))
       
       ;; -------------------
       ;; commit after update from owner, then relinquish excl :commit ownership
-      ((acust :commit old-db new-db) / (eql acust cust)
+      (( (acust . an-owner) :commit old-db new-db) / (eql an-owner owner)
          (cond ((eql old-db db) ;; make sure we have correct version
                 (cond ((eql new-db db)
                        ;; no real change
-                       (release db))
+                       (release acust db))
 
                       (t
                        ;; changed db, so commit new
                        (let ((versioned-db (maps:add new-db 'version (uuid:make-v1-uuid) )))
                          ;; version key is actually 'com.ral.actors.kv-database::version
                          (send-after 10 self saver versioned-db)
-                         (release versioned-db)))
+                         (release acust versioned-db)))
                       ))
                
                (t
-                ;; sender must not have included the original db to check against
-                ;; this is a programming error...
-                (error "Impossible condition"))
+                ;; Sender must not have included the original db to
+                ;; check against.  This is a programming error...
+                (error "Should not happen"))
                ))
       
       ((_ :commit . _)
@@ -411,10 +411,10 @@
           ((_ :req)
            (repeat-send dbmgr))
 
-          ((_ :req-excl)
+          ((_ :req-excl _)
            (repeat-send dbmgr))
 
-          ((_ :abort)
+          ((_ :abort _)
            (repeat-send dbmgr))
           
           (( _ :commit _ _)
