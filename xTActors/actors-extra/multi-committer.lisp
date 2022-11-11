@@ -22,18 +22,23 @@
 
 (defvar *ordering-id-key*  #/uuid/{5caa85a4-5f7b-11ed-86c1-787b8acbe32e})
 
-(defun ensure-orderable (cust db)
-  (β  (id)
-      (send db β :lookup *ordering-id-key*)
-    (if id
-        (send cust id)
-      (let ((id  (uuid:make-v1-uuid)))
-        (β _
             (send db β :add *ordering-id-key* id)
-          (send cust id)))
-      )))
+(defun ensure-orderable (cust kvdb)
+  (β (map)
+      (send kvdb β :req)
+    (let ((me  self)
+          (id  (maps:find map *ordering-id-key*)))
+        (if (and id
+                 (typep id 'uuid:uuid))
+            (send cust id)
+          ;; else
+          (let ((new-id  (uuid:make-v1-uuid)))
+            (β _
+                (send kvdb (cons β me) :commit map (maps:add map *ordering-id-key* new-id))
+              (send cust new-id)))
+          ))))
 
-(defun sort-kvdbs (cust &rest dbs)
+(defun sort-kvdbs (cust &rest kvdbs)
   ;; we expect a list of alternating db-id and kvdb Actor, where the
   ;; Actors are associated with the user specified db-id's (keyword
   ;; symbols?).
@@ -41,23 +46,23 @@
   ;; Once sorted, the user will need those tags in order to locate the
   ;; kvdb Actor in the sorted access list.
   (let ((sorter (create
-                 (lambda (dbs &optional acc)
-                   (if (endp dbs)
+                 (lambda (kvdbs &optional acc)
+                   (if (endp kvdbs)
                        ;; return a PLIST of sorted kvdbs
                        (send cust (mapcan #'list
                                           (mapcar #'cdr
                                                   (sort acc #'uuid:uuid<
                                                         :key #'car))))
                      (let ((me  self)
-                           (db-id  (car dbs))
-                           (db     (cadr dbs)))
+                           (db-id  (car kvdbs))
+                           (kvdb   (cadr kvdbs)))
                        (β (id)
-                           (ensure-orderable β db)
-                         (send me (cdr dbs) (acons id (cons db-id db) acc))
+                           (ensure-orderable β kvdb)
+                         (send me (cdr kvdbs) (acons id (cons db-id kvdb) acc))
                          ))
                      ))
                  )))
-    (send sorter dbs)))
+    (send sorter kvdbs)))
 
 ;; The various kvdb's do not use a SERIALIZER gate, in order to permit
 ;; parallel queries with other ongong updates. But if you :REQ-EXCL,
