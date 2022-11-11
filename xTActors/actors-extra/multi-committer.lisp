@@ -124,6 +124,11 @@
   ;; messages. But in this case, there are only two messages that we
   ;; will respond to from the outside world, and once we do, we go
   ;; deaf to all future messages.
+  ;;
+  ;; Ref: "Robust Composition: Towards a Unified Approach to Access
+  ;; Control and Concurrency Control" by Mark Samuael Miller, May 2006
+  ;; http://erights.org/talks/thesis/markm-thesis.pdf
+  ;;
   ;; ----------------------------------------------------------------
   ;;
   ;; So even though we are hidden behind an orchestrator, we still
