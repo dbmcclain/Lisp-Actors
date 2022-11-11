@@ -99,10 +99,10 @@
   ;;
   (alambda
    ((atag :process kvdbs-plist) / (eq atag ctrl-tag)
-    (let ((fwd  (label (label self ctrl-tag) :open-dbs)))
+    (let ((fwd  (label (label self self) :open-dbs)))
       (sort-kvdbs fwd kvdbs-plist)))
 
-   ((atag :open-dbs ordered-kvdbs-plist) / (eq atag ctrl-tag)
+   ((atag :open-dbs ordered-kvdbs-plist) / (eq atag self)
     (cond ((endp ordered-kvdbs-plist)
            (let ((dbs (mapcan #'list
                               (mapcar (lambda (triple)
@@ -118,13 +118,13 @@
                   (kvdb   (cadr ordered-kvdbs-plist))
                   (waiter (create (lambda (db)
                                     (β _
-                                        (send me β :add-db ctrl-tag db-id kvdb db)
-                                      (send me ctrl-tag :open-dbs (cddr ordered-kvdbs-plist))))
+                                        (send me β :add-db me db-id kvdb db)
+                                      (send me me :open-dbs (cddr ordered-kvdbs-plist))))
                                   )))
              (send kvdb waiter :req-excl owner)))
           ))
 
-   ((acust :add-db atag db-id kvdb db) / (eq atag ctrl-tag)
+   ((acust :add-db atag db-id kvdb db) / (eq atag self)
     (become (multi-commit-beh ctrl-tag owner action
                               (cons (list db-id kvdb db) open-dbs)
                               action-tag))
@@ -191,7 +191,9 @@
                 ;; no overlap - so launch him
                 (let* ((tag-to-me (tag self))
                        (owner     (create)) ;; just a unique identity Actor
-                       (handler   (create (multi-commit-beh tag-to-me owner actionActor nil (create) ))))
+                       (handler   (create (multi-commit-beh tag-to-me owner
+                                                            actionActor nil
+                                                            (create) )))) ;; an Actor that nobody knows
                   (become (multi-commit-orchestrator-beh
                            (cons (list tag-to-me cust req-kvdbs)
                                  open-dbs)
