@@ -22,7 +22,6 @@
 
 (defvar *ordering-id-key*  #/uuid/{5caa85a4-5f7b-11ed-86c1-787b8acbe32e})
 
-            (send db β :add *ordering-id-key* id)
 (defun ensure-orderable (cust kvdb)
   (β (map)
       (send kvdb β :req)
