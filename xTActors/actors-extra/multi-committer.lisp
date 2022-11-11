@@ -107,7 +107,7 @@
            (let ((dbs (mapcan #'list
                               (mapcar (lambda (triple)
                                         (list (car triple) (third triple)))
-                                      (reverse open-dbs))))
+                                      open-dbs)))
                  (new-action-tag  (tag self)))
              (become (multi-commit-beh ctrl-tag owner action open-dbs new-action-tag))
              (send action new-action-tag dbs) ;; send act a plist of open dbs
