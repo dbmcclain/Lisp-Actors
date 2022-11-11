@@ -92,21 +92,72 @@
 ;; ------------------------------------------------------------------------
 
 (defun multi-commit-beh (ctrl-tag owner action open-dbs action-tag)
-  ;; Even though we are hidden behind an orchestrator, we still need
-  ;; to protect against malicious messages since we have to hand a
-  ;; path leading back to us, to the ACTION Actor.
+  ;; An exercise in Actors as a capabilities security model:
+  ;;
+  ;; The only way to talk to an Actor is to know its identity in
+  ;; memory. Knowledge of Actors comes from one or more of 3 routes:
+  ;;
+  ;;   1. An Actor always knows its own identity as SELF,
+  ;;
+  ;;   2. The creator of an Actor can know the identity of the created
+  ;;   Actor,
+  ;;
+  ;;   3. Knowledge of Actor identities can be passed along to other
+  ;;   Actors in messages, or as initialization parameters (closure
+  ;;   args) of a newly created Actor.
+  ;;
+  ;; Having the identity of an Actor means you have permission to send
+  ;; it messages, or to pass it along to other Actors.
+  ;;
+  ;; Nobody else could possibly guess a correct identity (memory
+  ;; location) of any particular Actor. Even if you could scan all of
+  ;; memory looking for Actor objects, you would not be able to
+  ;; distinguish them as being the one you want.
+  ;;
+  ;; Furthermmore, just having the Actor identity is not enough. You
+  ;; must also send it messages that it will respond to. All other
+  ;; messages are silently ignored.
+  ;;
+  ;; If we wanted to extend this security model further, we could make
+  ;; all access to our services go through a MEMBRANE, giving us the
+  ;; possibility of going completely silent in the face of malicious
+  ;; messages. But in this case, there are only two messages that we
+  ;; will respond to from the outside world, and once we do, we go
+  ;; deaf to all future messages.
+  ;; ----------------------------------------------------------------
+  ;;
+  ;; So even though we are hidden behind an orchestrator, we still
+  ;; need to protect against malicious messages since we have to hand
+  ;; a path leading back to us, to the ACTION Actor.
   ;;
   ;; That pathway, ACTION-TAG, will only permit :ABORT or :COMMIT
   ;; messages.
   ;;
-  ;; We, and the orchestrator, are iinitially the only ones that know
+  ;; We, and the orchestrator, are initially the only ones that know
   ;; the OWNER identity. But we do hand it out to the dbmgr on
   ;; :REQ-EXCL, :ABORT, and :COMMIT messages. That dbmgr could become
-  ;; compromised. So nothing responds to messages sent to OWNER.
+  ;; compromised. But OWNER is simply there for unique identification
+  ;; of an exclusive commit. It offers no response to any messages.
   ;;
-  ;; The only way to reach us for processing and adding entries to the
-  ;; list of open kvdbs is via another tag, CTRL-TAG, that remains
-  ;; known only to us and the orchestrator.
+  ;; The only way to reach us for processing is to supply another tag,
+  ;; CTRL-TAG, which remains known only to us and the orchestrator.
+  ;; CTRL-TAG also serves as a channel back to orchestrator for when
+  ;; we are finished processing.
+  ;;
+  ;; And the only way to add items to our sorted list of open kvdbs is
+  ;; to supply ourself as a tag. Again, only we and orchestrator know
+  ;; that Actor identity.
+  ;;
+  ;; Only someone who knows the ACTION-TAG can cause us to :ABORT or
+  ;; :COMMIT. Initially we start with an Actor ID for ACTION-TAG that
+  ;; nobody knows, including us and the orchestrator. Had we started
+  ;; with a NIL tag, then someone outside could spoof their way in.
+  ;;
+  ;; Once we have a complete list of opened kvdbs, we generate the
+  ;; real ACTION-TAG for use in communicating with the ACTION Actor.
+  ;;
+  ;; And once we either :COMMIT or :ABORT, we become deaf to all
+  ;; further interaction.
   ;;
   (alambda
    ((atag :process kvdbs-plist) / (eq atag ctrl-tag)
