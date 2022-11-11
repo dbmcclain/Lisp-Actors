@@ -166,7 +166,7 @@
 
    ((atag :open-dbs ordered-kvdbs-plist) / (eq atag self)
     (cond ((endp ordered-kvdbs-plist)
-           (let ((dbs (mapcan #'list
+           (let ((dbs (mapcan #'identity
                               (mapcar (lambda (pair)
                                         (list (car pair) (cdr pair)))
                                       open-dbs)))
