@@ -22,6 +22,12 @@
 
 (defvar *ordering-id-key*  #/uuid/{5caa85a4-5f7b-11ed-86c1-787b8acbe32e})
 
+(deflex uuid-gen
+  (create (lambda (cust key)
+            (declare (ignore key))
+            (send cust (uuid:make-v1-uuid)))
+          ))
+
 (defun ensure-orderable (cust kvdb)
   ;; We can't simply use kvdb :LOOKUP and :ADD because :ADD is
   ;; unconditional. It will keep retrying, if necessary, until the
@@ -30,19 +36,8 @@
   ;; But if someone else manages to get there first, we don't want to
   ;; overwrite what has been chosen for the ID. We need to check
   ;; again, on retry, to see if there is already an ID.
-  (β (map)
-      (send kvdb β :req)
-    (let ((me  self)
-          (id  (maps:find map *ordering-id-key*)))
-        (if (and id
-                 (typep id 'uuid:uuid))
-            (send cust id)
-          ;; else
-          (let ((new-id  (uuid:make-v1-uuid)))
-            (β _
-                (send kvdb (cons β me) :commit map (maps:add map *ordering-id-key* new-id))
-              (send cust new-id)))
-          ))))
+  (send kvdb cust :find-or-add *ordering-id-key* uuid-gen))
+
 
 (defun sort-kvdbs (cust &rest kvdbs)
   ;; we expect a list of alternating db-id and kvdb Actor, where the
@@ -172,8 +167,8 @@
    ((atag :open-dbs ordered-kvdbs-plist) / (eq atag self)
     (cond ((endp ordered-kvdbs-plist)
            (let ((dbs (mapcan #'list
-                              (mapcar (lambda (triple)
-                                        (list (car triple) (third triple)))
+                              (mapcar (lambda (pair)
+                                        (list (car pair) (cdr pair)))
                                       open-dbs)))
                  (new-action-tag  (tag self)))
              (become (multi-commit-beh ctrl-tag owner action open-dbs new-action-tag))
@@ -185,15 +180,17 @@
                   (kvdb   (cadr ordered-kvdbs-plist))
                   (waiter (create (lambda (db)
                                     (β _
-                                        (send me β :add-db me db-id kvdb db)
+                                        (send me β :add-db me db-id db)
                                       (send me me :open-dbs (cddr ordered-kvdbs-plist))))
                                   )))
-             (send kvdb waiter :req-excl owner)))
+             (β (proxy)
+                 (send kvdb β :req-proxy)
+               (send proxy waiter :req-excl owner))))
           ))
 
-   ((acust :add-db atag db-id kvdb db) / (eq atag self)
+   ((acust :add-db atag db-id db) / (eq atag self)
     (become (multi-commit-beh ctrl-tag owner action
-                              (cons (list db-id kvdb db) open-dbs)
+                              (acons db-id db open-dbs)
                               action-tag))
     (send acust :ok))
 
@@ -206,12 +203,9 @@
                         (send acust :ok)
                         (become-sink))
                        (t
-                        (let* ((grp    (car lst))
-                               (id     (car grp))
-                               (kvdb   (cadr grp))
-                               (old-db (third grp))
-                               (new-db (getf upd-dbs-plist id old-db)))
-                          (send kvdb (cons self owner) :commit old-db new-db)
+                        (let* ((grp (car lst))
+                               (db  (cdr grp)))
+                          (send db self :commit)
                           (become (commit-beh (cdr lst)))
                           ))
                        ))))
@@ -229,8 +223,8 @@
                         (become-sink))
                        (t
                         (let* ((grp  (car lst))
-                               (kvdb (cadr grp)))
-                          (send kvdb self :abort owner)
+                               (db   (cdr grp)))
+                          (send db self :abort)
                           (become (release-beh (cdr lst)))
                           ))
                        ))))

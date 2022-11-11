@@ -382,12 +382,14 @@
              (β (db)
                  (send dbmgr β :req)
                (funcall fn db))))
+        
         (create
          (alambda
-          ((cust :lookup key . default)
-           (with-db db
-             (send cust (maps:find db key (car default)))
-             ))
+
+          ;; ------------------------------------------
+          ;; :ADD and :REMOVE both return the raw kvdb map object.
+          ;; Hence they are best used only on the local machine to
+          ;; avoid excessive network traffic.
           
           ((cust :add key val)
            (with-db db
@@ -400,25 +402,65 @@
                (send dbmgr `(,cust . ,self) :commit db (maps:remove db key)))
              ))
 
+          ;; ---------------------------------------------
+
+          ((cust :find key . default)
+           (with-db db
+             (send cust (maps:find db key (car default)))
+             ))
+
+          ((cust :find-or-add key gen-actor)
+           (with-db db
+             (let ((me      self)
+                   (old-val (maps:find db key self)))
+               (cond ((eq old-val self)
+                      (β (new-val)
+                          (send gen-actor β key)
+                        (β _
+                            (send dbmgr `(,β . ,me) :commit db (maps:add db key new-val))
+                          (send cust new-val))))
+                     (t
+                      (send cust old-val))
+                     ))))
+
           ((:show)
            (with-db db
              (sets:view-set db)
              ))
-          
-          ((:main-full-save)
-           (send dbmgr 'maint-full-save))
-          
-          ((_ :req)
-           (repeat-send dbmgr))
 
-          ((_ :req-excl _)
+          ((cust :really-let-me-see-map)
+           (with-db db
+             (send cust db)))
+          
+          ;; ----------------------------------
+          ;; These routines deal in/out with physical map objects.
+          ;; Hence, best used for local machine access of the kvdb
+
+          ((_ :req)
            (repeat-send dbmgr))
 
           ((_ :abort _)
            (repeat-send dbmgr))
           
-          (( _ :commit _ _)
+          (((_ . _) :commit _ _)
            (repeat-send dbmgr))
+
+          ((_ :req-excl _)
+           (repeat-send dbmgr))
+
+          ;; -----------------------------------
+          ;; Intended for use by remote clients wanting to access this
+          ;; kvdb. But also works for local access. We avoid shipping
+          ;; entire map objects back and forth.
+
+          ((cust :req-proxy)
+           (send cust (create (local-proxy-for-remote-db-access-beh self))))
+          
+          ;; ---------------------------------
+          
+          ((:main-full-save)
+           (send dbmgr 'maint-full-save))
+          
           ))
         ))))
 
@@ -444,6 +486,207 @@
 (deflex kvdb-maker (create (kvdb-orchestrator-beh)))
 
 ;; -----------------------------------------------------
+;; Local Proxy KVDB's for remote access - avoid shuttling entire map
+;; objects across the network.
+
+(defun local-proxy-for-remote-db-access-beh (kvdb)
+  (alambda
+   ((cust :add key val)
+    (let ((me self))
+      (β _
+          (send kvdb β :add key val)
+        (send cust me))
+      ))
+   
+   ((cust :remove key)
+    (let ((me self))
+      (β _
+          (send kvdb β :remove key)
+        (send cust me))
+      ))
+      
+   ((_ :find . _)
+    (repeat-send kvdb))
+
+   ((_ :find-or-add . _)
+    (repeat-send kvdb))
+
+   ((_ :really-let-me-see-map)
+    ;; Okay... you asked for it...
+    (repeat-send kvdb))
+
+   ((cust :req)
+    (let ((me self))
+      (β (db)
+          (send kvdb β :req)
+        (become (local-updateable-proxy-for-remote-db-access-beh kvdb db db))
+        (send cust me))
+      ))
+   
+   ((cust :req-proxy)
+    ;; Really no reason to be sending this message, we are already
+    ;; a proxy Actor.
+    (send cust self))
+
+   ((cust :req-excl owner)
+    (let ((me  self))
+      (β (db)
+          (send kvdb β :req-excl owner)
+        (become (local-excl-proxy-for-remote-db-access-beh kvdb db db owner))
+        (send cust me))
+      ))
+
+   (((cust . _) :commit)
+    ;; Nothing to do here, already fully committed. User should have
+    ;; performed a :REQ first.
+    (send cust self))
+
+   ((cust :abort)
+    ;; Nothing to do here, already fully committed. User should have
+    ;; performed a :REQ first.
+    (send cust self))
+   ))
+
+(defun local-updateable-proxy-for-remote-db-access-beh (kvdb orig-map upd-map)
+  (alambda
+   ((cust :add key val)
+    (become (local-updateable-proxy-for-remote-db-access-beh
+             kvdb orig-map
+             (maps:add upd-map key val)))
+    (send cust self))
+
+   ((cust :remove key)
+    (become (local-updateable-proxy-for-remote-db-access-beh
+             kvdb orig-map
+             (maps:remove upd-map key)))
+    (send cust self))
+
+   ((cust :find key . default)
+    (send cust (maps:find upd-map key (car default))))
+
+   ((cust :find-or-add key gen-actor)
+    (let ((val (maps:find upd-map key self)))
+      (cond ((eq val self)
+             (β (val)
+                 (send gen-actor β key)
+               (become (local-updateable-proxy-for-remote-db-access-beh
+                        kvdb orig-map
+                        (maps:add upd-map key val)))
+               (send cust val)))
+            (t
+             (send cust val))
+            )))
+
+   ((cust :really-let-me-see-map)
+    ;; Okay... you asked for it...
+    (send cust upd-map))
+
+   ((cust :req)
+    (send cust self))
+
+   ((cust :req-proxy)
+    (send cust self))
+   
+   ((cust :req-excl owner)
+    ;; This might have to abandon existing updates and start fresh.
+    ;; You should have requested from outset.
+    (let ((me  self))
+      (β _
+          (send kvdb `(,β . ,β) :commit orig-map upd-map) ;; might fail
+        (β (db)
+            (send kvdb β :req-excl owner)
+          (become (local-excl-proxy-for-remote-db-access-beh kvdb db db owner))
+          (send cust me))
+        )))
+
+   ((cust :abort)
+    (send cust :ok)
+    (become (local-proxy-for-remote-db-access-beh kvdb)))
+
+   (((cust . retry) :commit)
+    (let* ((me  self)
+           (committed (create (lambda (ans)
+                                (declare (ignore ans))
+                                (send cust me))))
+           (lcl-retry (create (lambda (ans)
+                                (declare (ignore ans))
+                                (send retry me)))))
+      (become (local-proxy-for-remote-db-access-beh kvdb))
+      (send kvdb `(,committed . ,lcl-retry) :commit orig-map upd-map)))
+   ))
+
+(defun local-excl-proxy-for-remote-db-access-beh (kvdb orig-map upd-map owner)
+  ;; Inside here we have the kvdb under commit lock, so keep it short,
+  ;; Jack...
+  ;;
+  ;; Remote user must issue one or more of these provided message
+  ;; types and finish with either :ABORT or :COMMIT. This proxy avoids
+  ;; shuttling entire map objects across the network.
+  (alambda
+   ((cust :add key val)
+    (become (local-excl-proxy-for-remote-db-access-beh
+             kvdb orig-map
+             (maps:add upd-map key val)
+             owner))
+    (send cust self))
+   
+   ((cust :remove key)
+    (become (local-excl-proxy-for-remote-db-access-beh
+             kvdb orig-map
+             (maps:remove upd-map key)
+             owner))
+    (send cust self))
+
+   ((cust :find key . default)
+    (send cust (maps:find upd-map key (car default))))
+
+   ((cust :find-or-add key gen-actor)
+    (let ((val (maps:find upd-map key self)))
+      (cond ((eq val self)
+             (β (val)
+                 (send gen-actor β key)
+               (become (local-excl-proxy-for-remote-db-access-beh
+                        kvdb orig-map
+                        (maps:add upd-map key val)
+                        owner))
+               (send cust val)))
+            (t
+             (send cust val))
+            )))
+
+   ((cust :really-let-me-see-map)
+    ;; Okay... you asked for it...
+    (send cust upd-map))
+
+   ((cust :req)
+    (send cust self))
+
+   ((cust :req-proxy)
+    (send cust self))
+   
+   ((cust :req-excl)
+    ;; Really no reason to be sending this message, we are already
+    ;; under excl commit.
+    (send cust self))
+
+   ((cust :abort)
+    (let ((me self))
+      (β _
+          (send kvdb β :abort owner)
+        (send cust me)
+        (become (local-proxy-for-remote-db-access-beh kvdb)))
+      ))
+
+   ((cust :commit)
+    (let ((me self))
+      (β _
+          (send kvdb `(,β . ,owner) :commit orig-map upd-map)
+        (send cust me)
+        (become (local-proxy-for-remote-db-access-beh kvdb)))
+      ))
+   ))
+
+;; -----------------------------------------------------
 ;; One to goof around in...
 
 (deflex kvdb nil)
@@ -453,21 +696,21 @@
 
 ;; -----------------------------------------------------------
 #|
-(ask kvdb :lookup :dave)
-(uuid:when-created (ask kvdb :lookup 'version))
-(uuid:when-created (call-actor kvdb :lookup 'version))
+(ask kvdb :find :dave)
+(uuid:when-created (ask kvdb :find 'version))
+(uuid:when-created (call-actor kvdb :find 'version))
 (send kvdb :show)
 
 (dotimes (ix 5)
   (send kvdb println :add ix ix))
 (send kvdb println :add :dave :chara)
 (send kvdb println :add :cat "dog")
-(send kvdb writeln :lookup :cat)
+(send kvdb writeln :find :cat)
 (send kvdb :show)
 (dotimes (ix 10)
   (send kvdb println :remove ix))
 (send kvdb println :add :tst (lambda* _))
-(send kvdb writeln :lookup :tst)
+(send kvdb writeln :find :tst)
 
 (let ((m (maps:empty)))
   (setf m (maps:add m :dave :dog))
@@ -485,8 +728,8 @@
   (send kvdb println :add :tst1 x)
   (send kvdb println :add :tst2 x))
 
-(let ((x1 (ask kvdb :lookup :tst1))
-      (x2 (ask kvdb :lookup :tst2)))
+(let ((x1 (ask kvdb :find :tst1))
+      (x2 (ask kvdb :find :tst2)))
   (send println (list x1 x2 (eq x1 x2))))
 
 
