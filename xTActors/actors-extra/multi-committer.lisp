@@ -23,6 +23,13 @@
 (defvar *ordering-id-key*  #/uuid/{5caa85a4-5f7b-11ed-86c1-787b8acbe32e})
 
 (defun ensure-orderable (cust kvdb)
+  ;; We can't simply use kvdb :LOOKUP and :ADD because :ADD is
+  ;; unconditional. It will keep retrying, if necessary, until the
+  ;; stated addition has been committed.
+  ;;
+  ;; But if someone else manages to get there first, we don't want to
+  ;; overwrite what has been chosen for the ID. We need to check
+  ;; again, on retry, to see if there is already an ID.
   (β (map)
       (send kvdb β :req)
     (let ((me  self)
