@@ -92,7 +92,7 @@
 ;; ------------------------------------------------------------------------
 
 (defun multi-commit-beh (ctrl-tag owner action open-dbs action-tag)
-  ;; An exercise in Actors as a capabilities security model:
+  ;; An exercise in Actors as an object capabilities security model:
   ;;
   ;; The only way to talk to an Actor is to know its identity in
   ;; memory. Knowledge of Actors comes from one or more of 3 routes:
