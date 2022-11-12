@@ -2,6 +2,17 @@
 ;;
 ;; DM/RAL 12/21
 ;; ----------------------------------------------------------------------
+
+(defpackage com.ral.actors.kv-database
+  (:use #:cl :com.ral.actors)
+  (:export
+   #:kvdb
+   #:kvdb-maker
+  ))
+   
+(in-package com.ral.actors.kv-database)
+
+;; ----------------------------------------------------------------------
 ;; Using an FPL-pure RB-tree as the database. Hence the database
 ;; serves as its own transaction ID. Lock-free design.
 ;;
@@ -100,20 +111,6 @@
 ;; (ADD/REMOVE), then the operation will be logically retried.
 ;; Changing the value for any particular key is accomplished by
 ;; ADD'ing the key-value pair, which overwrites the previous value.
-;; ----------------------------------------------------------------------
-
-(defpackage com.ral.actors.kv-database
-  (:use #:cl :com.ral.actors)
-  (:export
-   #:kvdb
-   #:kvdb-maker
-   #:add-mapping
-   #:remove-mapping
-   #:find-mapping
-  ))
-   
-(in-package com.ral.actors.kv-database)
-
 ;; ----------------------------------------------------------------------
 
 (defun common-trans-beh (saver db msg)
@@ -700,23 +697,24 @@
 ;; -----------------------------------------------------
 ;; One to goof around in...
 
-(deflex kvdb nil)
-
-(defun init-kvdb ()
-  (labels ((doit ()
-             (unless kvdb
-               (β (a-kvdb)
-                   (send kvdb-maker β :make-kvdb *db-path*)
-                 (setf kvdb a-kvdb))
-               )))
-    (if (mp:get-current-process)
-        (doit)
-      (pushnew '("Init KVDB" () #'doit) mpc:*initial-processes*
-               :key #'first
-               :test #'string-equal))
+(deflex kvdb
+  (labels ((initial-beh ()
+             (lambda (&rest msg)
+               (let ((tag (tag self)))
+                 (become (next-step-beh tag (addq +emptyq+ msg)))
+                 (send kvdb-maker tag :make-kvdb *db-path*)
+                 )))
+           (next-step-beh (tag msgs)
+             (alambda
+              ((atag akvdb) / (eq atag tag)
+               (become (fwd-beh akvdb))
+               (do-queue (msg msgs)
+                 (send* self msg)))
+              (msg
+               (become (next-step-beh tag (addq msgs msg))))
+              )))
+    (create (initial-beh))
     ))
-(init-kvdb)
-    
 
 ;; -----------------------------------------------------------
 #|
