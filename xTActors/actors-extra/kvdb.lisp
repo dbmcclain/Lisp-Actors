@@ -464,10 +464,21 @@
           ))
         ))))
 
+(defun ensure-file-exists (path)
+  (handler-case
+      (with-open-file (fd path
+                          :direction :probe
+                          :if-does-not-exist :error)
+        (declare (ignore fd)))
+    (error ()
+      (full-save path (maps:empty)))
+    ))
+
 (defun kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
    ((cust :make-kvdb path)
+    (ensure-file-exists path)
     (multiple-value-bind (dev ino)
         (um:get-ino path)
       (let* ((key  (um:mkstr dev #\space ino))
@@ -690,9 +701,22 @@
 ;; One to goof around in...
 
 (deflex kvdb nil)
-(β (a-kvdb)
-    (send kvdb-maker β :make-kvdb *db-path*)
-  (setf kvdb a-kvdb))
+
+(defun init-kvdb ()
+  (labels ((doit ()
+             (unless kvdb
+               (β (a-kvdb)
+                   (send kvdb-maker β :make-kvdb *db-path*)
+                 (setf kvdb a-kvdb))
+               )))
+    (if (mp:get-current-process)
+        (doit)
+      (pushnew '("Init KVDB" () #'doit) mpc:*initial-processes*
+               :key #'first
+               :test #'string-equal))
+    ))
+(init-kvdb)
+    
 
 ;; -----------------------------------------------------------
 #|

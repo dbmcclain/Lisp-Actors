@@ -243,4 +243,20 @@
 (tst "zircon.local" 10)
 (tst "rincon.local" 10)
 
+(defun tst (host)
+  (let ((reval (remote-service :eval host)))
+    (β (ans)
+        (send (timed-service reval 10) β `(um:capture-ans-or-exn kvdb:kvdb))
+      (let ((rkvdb (um:recover-ans-or-exn ans)))
+        (β (proxy)
+            (send (timed-service rkvdb 10) β :req-proxy)
+          (β (uuid)
+              (send (timed-service proxy 10) β :find 'kvdb::version)
+            (send println (uuid:when-created uuid))
+            ))))))
+
+(tst "localhost")
+(tst "rincon.local")
+(tst "zircon.local")
+
 |#
