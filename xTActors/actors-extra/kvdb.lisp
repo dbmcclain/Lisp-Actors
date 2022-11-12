@@ -252,11 +252,11 @@
   ;; The db gateway is the only one that knows saver's identity.
   ;; Don't bother doing anything unless the db has changed.
   ((cust :save-log new-db)
-   (let ((new-ver  (maps:find new-db  'version))
-         (prev-ver (maps:find last-db 'version)))
-     (when (uuid:uuid-time< prev-ver new-ver)
-       (let* ((delta (get-diffs last-db new-db)))
-         (handler-case
+   (handler-case
+       (let ((new-ver  (maps:find new-db  'version))
+             (prev-ver (maps:find last-db 'version)))
+         (when (uuid:uuid-time< prev-ver new-ver)
+           (let* ((delta (get-diffs last-db new-db)))
              (with-open-file (f path
                                 :direction         :output
                                 :if-exists         :append
@@ -264,11 +264,13 @@
                                 :element-type      '(unsigned-byte 8))
                (loenc:serialize delta f
                                 :self-sync t))
-           (error ()
-             ;; expected possible error due to file not existing yet
-             (full-save path new-db)))
-         (become (save-database-beh path new-db))))
-       (send cust :ok))))
+             )))
+     (error ()
+       ;; expected possible error due to file not existing yet
+       ;; or from non-existent version in prev-ver
+       (full-save path new-db)))
+   (become (save-database-beh path new-db))
+   (send cust :ok)))
   
 ;; ---------------------------------------------------------------
 
