@@ -141,6 +141,36 @@
    ... body using ans)
  |#
 
+;; --------------------------------------------------
+
+(defun future-become-beh (tag &optional (msgs +emptyq+))
+  ;; There are times when you know you need to BECOME, but the
+  ;; parameters aren't yet available. This FUTURE-BECOME-BEH behavior
+  ;; function allows you to wait until the behavior can be completely
+  ;; defined.
+  ;;
+  ;; Meanwhile, incoming messges are stashed for transmission to
+  ;; yourself, until you become fully defined.
+  ;;
+  ;; NOTE: See SET-BEH and why it is unsafe to directly mutate an
+  ;; Actor's behavior.
+  ;;
+  ;; Use as:
+  ;;
+  ;;     (let ((tag   (TAG SELF)))
+  ;;       (BECOME (FUTURE-BECOME-BEH tag))
+  ;;       ... develop new-beh ...
+  ;;       (SEND tag new-beh)) ;; now become new-beh
+  ;;
+  (alambda
+   ((atag abeh) / (eq atag tag)
+    (become abeh)
+    (do-queue (msg msgs)
+      (send* self msg)))
+   (msg
+    (become (future-become-beh tag (addq msgs msg))))
+   ))
+
 ;; -----------------------------------------
 
 (defun lazy-beh (actor &rest msg)

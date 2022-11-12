@@ -22,12 +22,6 @@
 
 (defvar *ordering-id-key*  #/uuid/{5caa85a4-5f7b-11ed-86c1-787b8acbe32e})
 
-(deflex uuid-gen
-  (create (lambda (cust key)
-            (declare (ignore key))
-            (send cust (uuid:make-v1-uuid)))
-          ))
-
 (defun ensure-orderable (cust kvdb)
   ;; We can't simply use kvdb :LOOKUP and :ADD because :ADD is
   ;; unconditional. It will keep retrying, if necessary, until the
@@ -36,10 +30,10 @@
   ;; But if someone else manages to get there first, we don't want to
   ;; overwrite what has been chosen for the ID. We need to check
   ;; again, on retry, to see if there is already an ID.
-  (send kvdb cust :find-or-add *ordering-id-key* uuid-gen))
+  (send kvdb cust :find-or-add *ordering-id-key* (uuid:make-v1-uuid)))
 
 
-(defun sort-kvdbs (cust &rest kvdbs)
+(defun sort-kvdbs (cust kvdbs)
   ;; we expect a list of alternating db-id and kvdb Actor, where the
   ;; Actors are associated with the user specified db-id's (keyword
   ;; symbols?).
@@ -50,7 +44,7 @@
                  (lambda (kvdbs &optional acc)
                    (if (endp kvdbs)
                        ;; return a PLIST of sorted kvdbs
-                       (send cust (mapcan #'list
+                       (send cust (mapcan #'identity
                                           (mapcar #'cdr
                                                   (sort acc #'uuid:uuid<
                                                         :key #'car))))
@@ -59,7 +53,7 @@
                            (kvdb   (cadr kvdbs)))
                        (β (id)
                            (ensure-orderable β kvdb)
-                         (send me (cdr kvdbs) (acons id (cons db-id kvdb) acc))
+                         (send me (cddr kvdbs) (acons id (list db-id kvdb) acc))
                          ))
                      ))
                  )))
@@ -86,7 +80,6 @@
 ;; access to kvdb's is required in order to prevent livelock.
 ;; ------------------------------------------------------------------------
 
-(defun multi-commit-beh (ctrl-tag owner action open-dbs action-tag)
   ;; An exercise in Actors as an object capabilities security model:
   ;;
   ;; The only way to talk to an Actor is to know its identity in
@@ -158,7 +151,8 @@
   ;;
   ;; And once we either :COMMIT or :ABORT, we become deaf to all
   ;; further interaction.
-  ;;
+
+(defun multi-commit-beh (ctrl-tag owner action open-dbs action-tag)
   (alambda
    ((atag :process kvdbs-plist) / (eq atag ctrl-tag)
     (let ((fwd  (label (label self self) :open-dbs)))
@@ -194,13 +188,12 @@
                               action-tag))
     (send acust :ok))
 
-   ((atag acust :commit upd-dbs-plist) / (eq atag action-tag)
+   ((atag :commit) / (eq atag action-tag)
     (labels ((commit-beh (lst)
                (lambda (reply)
                  (declare (ignore reply))
-                 (cond ((endp open-dbs)
+                 (cond ((endp lst)
                         (send ctrl-tag :ok)
-                        (send acust :ok)
                         (become-sink))
                        (t
                         (let* ((grp (car lst))
@@ -213,13 +206,12 @@
       (become-sink)  ;; isolate us from further abuse
       ))
 
-   ((atag acust :abort) / (eq atag action-tag)
+   ((atag :abort) / (eq atag action-tag)
     (labels ((release-beh (lst)
                (lambda (reply)
                  (declare (ignore reply))
                  (cond ((endp lst)
                         (send ctrl-tag :ok)
-                        (send acust :ok)
                         (become-sink))
                        (t
                         (let* ((grp  (car lst))
@@ -231,6 +223,9 @@
       (send (create (release-beh open-dbs)) nil)
       (become-sink) ;; isolate us from further abuse
       ))
+
+   (msg
+    (send fmt-println "Unknown msg: ~S" msg))
    ))
 
       
@@ -291,16 +286,60 @@
 ;;
 ;; Action-Actor should do whatever processing it needs to do against
 ;; the open kvdb's and then send a response back to handler containing
-;; either an :ABORT, or a :COMMIT with a plist of updated dbs. Any dbs
-;; that have not been changed can be omitted from the plist in the
-;; response.
+;; either an :ABORT, or a :COMMIT.
 ;;
-;;    (SEND handler acust :ABORT)
+;;    (SEND handler :ABORT)
 ;;
 ;;     - or -
 ;;
-;;    (SEND handler acust :COMMIT plist-of-updated-dbs)
+;;    (SEND handler :COMMIT)
 ;;
 ;; At the end, whether by :ABORT or :COMMIT, a message is sent to your
-;; original cust argument from the :PROCESS message, as well as to the
-;; acust specified in the :ABORT or :COMMIT message to the handler.
+;; original cust argument from the :PROCESS message.
+;; -----------------------------------------------------------------
+
+#|
+(defun init-bank-bal ()
+  (let-β ((kvdb1  (service (const kvdb)))
+          (kvdb2  (service kvdb-maker :make-kvdb "diddly.db")))
+    (let-β ((bal1  (service kvdb1 :add :bank-bal 10))
+            (bal2  (service kvdb2 :add :bank-bal 0)))
+      (let-β ((bal1  (service kvdb1 :find :bank-bal))
+              (bal2  (service kvdb2 :find :bank-bal)))
+        (send fmt-println "Bal1 = ~A" bal1)
+        (send fmt-println "Bal2 = ~A" bal2))
+      )))
+(init-bank-bal)
+
+(defun tst ()
+  (let-β ((kvdb1  (service (const kvdb)))
+          (kvdb2  (service kvdb-maker :make-kvdb "diddly.db")))
+    (let-β ((bal1  (service kvdb1 :find-or-add :bank-bal 10))
+            (bal2  (service kvdb2 :find-or-add :bank-bal 0)))
+      (send fmt-println "Bal1 = ~A" bal1)
+      (send fmt-println "Bal2 = ~A" bal2)
+      (let ((action
+             (create
+              (lambda (handler plist)
+                (let ((kvdb1 (getf plist :kvdb1))
+                      (kvdb2 (getf plist :kvdb2))
+                      (dd    7))
+                  (let-β ((bal1  (service kvdb1 :find :bank-bal))
+                          (bal2  (service kvdb2 :find :bank-bal)))
+                    (let-β ((_ (service kvdb1 :add :bank-bal (- bal1 dd)))
+                            (_ (service kvdb2 :add :bank-bal (+ bal2 dd))))
+                      (send handler :commit)))
+                  )))))
+        (β _
+            (send MULTI-COMMITTER β :PROCESS action
+                  `(:kvdb1 ,kvdb1
+                    :kvdb2 ,kvdb2))
+          (let-β ((bal1  (service kvdb1 :find :bank-bal))
+                  (bal2  (service kvdb2 :find :bank-bal)))
+            (send fmt-println "New Bal1 = ~A" bal1)
+            (send fmt-println "New Bal2 = ~A" bal2)))
+        ))))
+(tst)
+      
+ |#
+

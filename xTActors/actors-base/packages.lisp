@@ -312,6 +312,7 @@ THE SOFTWARE.
    #:timed-gate
    #:timed-service
    #:lazy-fwd
+   #:future-become-beh
    ))
 
 #+(OR :ALLEGRO :CCL)

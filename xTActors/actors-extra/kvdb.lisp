@@ -408,16 +408,14 @@
              (send cust (maps:find db key (car default)))
              ))
 
-          ((cust :find-or-add key gen-actor)
+          ((cust :find-or-add key def-val)
            (with-db db
              (let ((me      self)
                    (old-val (maps:find db key self)))
                (cond ((eq old-val self)
-                      (β (new-val)
-                          (send gen-actor β key)
-                        (β _
-                            (send dbmgr `(,β . ,me) :commit db (maps:add db key new-val))
-                          (send cust new-val))))
+                      (β _
+                          (send dbmgr `(,β . ,me) :commit db (maps:add db key def-val))
+                        (send cust def-val)))
                      (t
                       (send cust old-val))
                      ))))
@@ -526,10 +524,12 @@
     (repeat-send kvdb))
 
    ((cust :req)
-    (let ((me self))
+    (let ((me  self)
+          (tag (tag self)))
+      (become (future-become-beh tag))
       (β (db)
           (send kvdb β :req)
-        (become (local-updateable-proxy-for-remote-db-access-beh kvdb db db))
+        (send tag (local-updateable-proxy-for-remote-db-access-beh kvdb db db))
         (send cust me))
       ))
    
@@ -539,10 +539,12 @@
     (send cust self))
 
    ((cust :req-excl owner)
-    (let ((me  self))
+    (let ((me  self)
+          (tag (tag self)))
+      (become (future-become-beh tag))
       (β (db)
           (send kvdb β :req-excl owner)
-        (become (local-excl-proxy-for-remote-db-access-beh kvdb db db owner))
+        (send tag (local-excl-proxy-for-remote-db-access-beh kvdb db db owner))
         (send cust me))
       ))
 
@@ -574,15 +576,13 @@
    ((cust :find key . default)
     (send cust (maps:find upd-map key (car default))))
 
-   ((cust :find-or-add key gen-actor)
+   ((cust :find-or-add key def-val)
     (let ((val (maps:find upd-map key self)))
       (cond ((eq val self)
-             (β (val)
-                 (send gen-actor β key)
-               (become (local-updateable-proxy-for-remote-db-access-beh
-                        kvdb orig-map
-                        (maps:add upd-map key val)))
-               (send cust val)))
+             (become (local-updateable-proxy-for-remote-db-access-beh
+                      kvdb orig-map
+                      (maps:add upd-map key def-val)))
+             (send cust def-val))
             (t
              (send cust val))
             )))
@@ -600,12 +600,14 @@
    ((cust :req-excl owner)
     ;; This might have to abandon existing updates and start fresh.
     ;; You should have requested from outset.
-    (let ((me  self))
+    (let ((me  self)
+          (tag (tag self)))
+      (become (future-become-beh tag))
       (β _
           (send kvdb `(,β . ,β) :commit orig-map upd-map) ;; might fail
         (β (db)
             (send kvdb β :req-excl owner)
-          (become (local-excl-proxy-for-remote-db-access-beh kvdb db db owner))
+          (send tag (local-excl-proxy-for-remote-db-access-beh kvdb db db owner))
           (send cust me))
         )))
 
@@ -650,16 +652,14 @@
    ((cust :find key . default)
     (send cust (maps:find upd-map key (car default))))
 
-   ((cust :find-or-add key gen-actor)
+   ((cust :find-or-add key def-val)
     (let ((val (maps:find upd-map key self)))
       (cond ((eq val self)
-             (β (val)
-                 (send gen-actor β key)
-               (become (local-excl-proxy-for-remote-db-access-beh
-                        kvdb orig-map
-                        (maps:add upd-map key val)
-                        owner))
-               (send cust val)))
+             (become (local-excl-proxy-for-remote-db-access-beh
+                      kvdb orig-map
+                      (maps:add upd-map key def-val)
+                      owner))
+             (send cust def-val))
             (t
              (send cust val))
             )))
@@ -681,19 +681,19 @@
 
    ((cust :abort)
     (let ((me self))
+      (become (local-proxy-for-remote-db-access-beh kvdb))
       (β _
           (send kvdb β :abort owner)
         (send cust me)
-        (become (local-proxy-for-remote-db-access-beh kvdb)))
-      ))
+      )))
 
    ((cust :commit)
     (let ((me self))
+      (become (local-proxy-for-remote-db-access-beh kvdb))
       (β _
           (send kvdb `(,β . ,owner) :commit orig-map upd-map)
         (send cust me)
-        (become (local-proxy-for-remote-db-access-beh kvdb)))
-      ))
+      )))
    ))
 
 ;; -----------------------------------------------------
@@ -725,6 +725,10 @@
 (let ((m (sets:empty)))
   (setf m (sets:add m :dave))
   (eql m (sets:add m :dave)))
+
+(β (ans)
+    (send kvdb β :find-or-add :bank-bal 10)
+  (send fmt-println "Bal = ~A" ans))
 
 (β (db)
     (send kvdb β :req)
