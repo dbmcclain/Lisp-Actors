@@ -156,6 +156,27 @@
   (create-service (apply 'lazy-beh actor msg)))
 
 ;; --------------------------------------
+;; LAZY-FWD -- become a FWD on demand
+
+(defun future-fwd-wait-beh (tag &rest msgs)
+  (alambda
+   ((atag dest) / (eq atag tag)
+    (become (fwd-beh dest))
+    (do-queue (msg msgs)
+      (send* dest msg)))
+   (msg
+    (become (future-fwd-wait-beh tag (addq msgs msg))))
+   ))
+
+(defun lazy-fwd (actor &rest init-msg)
+  (create
+   (lambda (&rest msg)
+     (let ((tag (tag self)))
+       (become (future-fwd-wait-beh tag (addq +emptyq+ msg)))
+       (send* actor tag init-msg))
+     )))
+
+;; --------------------------------------
 ;; SER - make an Actor that evaluates a series of blocks sequentially
 ;; - i.e., without concurrency between them.  Each block is fed the
 ;; same initial message, and the results from each block are sent as

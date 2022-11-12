@@ -699,24 +699,7 @@
 ;; -----------------------------------------------------
 ;; One to goof around in...
 
-(deflex kvdb
-  (labels ((initial-beh ()
-             (lambda (&rest msg)
-               (let ((tag (tag self)))
-                 (become (next-step-beh tag (addq +emptyq+ msg)))
-                 (send kvdb-maker tag :make-kvdb *db-path*)
-                 )))
-           (next-step-beh (tag msgs)
-             (alambda
-              ((atag akvdb) / (eq atag tag)
-               (become (fwd-beh akvdb))
-               (do-queue (msg msgs)
-                 (send* self msg)))
-              (msg
-               (become (next-step-beh tag (addq msgs msg))))
-              )))
-    (create (initial-beh))
-    ))
+(deflex kvdb (lazy-fwd kvdb-maker :make-kvdb *db-path*))
 
 ;; -----------------------------------------------------------
 #|

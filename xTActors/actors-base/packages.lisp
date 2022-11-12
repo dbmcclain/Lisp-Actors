@@ -311,6 +311,7 @@ THE SOFTWARE.
 
    #:timed-gate
    #:timed-service
+   #:lazy-fwd
    ))
 
 #+(OR :ALLEGRO :CCL)
