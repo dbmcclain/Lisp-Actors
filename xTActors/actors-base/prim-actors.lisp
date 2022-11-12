@@ -158,7 +158,7 @@
 ;; --------------------------------------
 ;; LAZY-FWD -- become a FWD on demand
 
-(defun future-fwd-wait-beh (tag &rest msgs)
+(defun future-fwd-wait-beh (tag msgs)
   (alambda
    ((atag dest) / (eq atag tag)
     (become (fwd-beh dest))
