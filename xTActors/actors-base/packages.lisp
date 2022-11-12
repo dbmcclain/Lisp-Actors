@@ -308,6 +308,9 @@ THE SOFTWARE.
    #:with-actors
 
    #:membrane
+
+   #:timed-gate
+   #:timed-service
    ))
 
 #+(OR :ALLEGRO :CCL)

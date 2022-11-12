@@ -179,7 +179,7 @@
 ;; timeout mechanisms to help out. Just like in the real world...
 ;; -----------------------------------------------------------------
 
-(defun serializer (svc)
+(defun serializer (svc &key timeout)
   (let (sav-beh)
     (labels
         ((idle-beh ()
@@ -188,8 +188,9 @@
            (or sav-beh
                (setf sav-beh (alambda
                               ((cust . msg)
-                               (let ((tag (tag self)))
-                                 (send* svc tag msg)
+                               (let* ((tag  (tag self))
+                                      (gate (timed-gate tag timeout)))
+                                 (send* svc gate msg)
                                  (become (busy-serializer-beh
                                           tag cust +emptyq+))
                                  )))
@@ -205,8 +206,9 @@
                  (become (idle-beh))
                (multiple-value-bind (next-req new-queue) (popq queue)
                  (destructuring-bind (next-cust . next-msg) next-req
-                   (let ((new-tag (tag self)))
-                     (send* svc new-tag next-msg)
+                   (let* ((new-tag (tag self))
+                          (gate    (timed-gate new-tag timeout)))
+                     (send* svc gate next-msg)
                      (become (busy-serializer-beh
                               new-tag next-cust new-queue))
                      )))

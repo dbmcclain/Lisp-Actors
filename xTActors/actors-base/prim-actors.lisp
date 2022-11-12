@@ -24,6 +24,18 @@
 (defun once (cust)
   (create (once-beh cust)))
 
+(defun timed-gate (cust timeout)
+  (let ((gate (once cust)))
+    (send-after timeout gate :timeout)
+    gate))
+
+(defun timed-service (svc timeout)
+  (create
+   (lambda (cust &rest msg)
+     (let ((gate (timed-gate cust timeout)))
+       (send* svc gate msg)))
+   ))
+
 ;; ---------------------
 
 (defun send-to-all (actors &rest msg)
@@ -573,16 +585,20 @@
 ;; within just one Actor. But when you can't do that, the next best
 ;; thing is MAKE-FILER.
 
-(defun make-filer (fname &rest args &key (timeout 10) &allow-other-keys)
-  (remf args :timeout)
+(defun make-filer (fname &rest args &key
+                         (op-timeout   10) ;; limit on file ops
+                         (close-after  10) ;; idle timeout
+                         &allow-other-keys)
+  (remf args :op-timeout)
+  (remf args :close-after)
   (let* ((fd   (apply #'open fname args))
-         (chan (serializer (create (open-filer-beh fd))))
+         (chan (serializer (create (open-filer-beh fd op-timeout))))
          (gate (create))
-         (tag  (timed-tag gate timeout)))
-    (set-beh gate (retrig-filer-gate-beh chan tag :timeout timeout))
+         (tag  (timed-tag gate close-after)))
+    (set-beh gate (retrig-filer-gate-beh chan tag :timeout close-after))
     gate))
     
-(defun open-filer-beh (fd)
+(defun open-filer-beh (fd timeout)
   (alambda
    ((cust :close)
     (close fd)
@@ -590,7 +606,8 @@
     (send cust :ok))
    
    ((cust :oper op)
-    (send op cust fd))
+    (let ((gate (timed-gate cust timeout)))
+      (send op gate fd)))
    ))
 
 (defun retrig-filer-gate-beh (chan tag &key (timeout 10))
@@ -623,7 +640,7 @@
 
 (defun tst ()
   (let ((fp (make-filer "junk.dat"
-                        :timeout 3
+                        :close-after 3
                         :direction :output
                         :element-type '(unsigned-byte 8)
                         :if-does-not-exist :create
