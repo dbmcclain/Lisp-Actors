@@ -669,12 +669,12 @@
         (ensure-file-exists β path)
       (multiple-value-bind (dev ino)
           (um:get-ino path)
-        (let* ((key  (um:mkstr dev #\space ino))
-               (pair (find key open-dbs
-                           :key  #'car
-                           :test #'string-equal)))
-          (cond (pair
-                 (send cust (cdr pair)))
+        (let* ((key    (um:mkstr dev #\space ino))
+               (triple (find key open-dbs
+                             :key  #'car
+                             :test #'string-equal)))
+          (cond (triple
+                 (send cust (third pair)))
                 (t
                  (let* ((tag-to-me  (tag self))
                         (kvdb       (%make-kvdb tag-to-me path)))
