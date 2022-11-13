@@ -170,6 +170,42 @@
 ;; avoiding excessive network transmissions.
 ;; ----------------------------------------------------------------------
 
+#|
+(defclass kv-map (maps:tree)
+  ())
+
+(defun normalize-key (key)
+  (loenc:encode key))
+
+(defun unnormalize-key (keyv)
+  (loenc:decode keyv))
+
+(defmethod maps:find ((map kv-map) key &optional default)
+  (call-next-method map (normalize-key key) default))
+
+(defmethod maps:add ((map kv-map) key val &key (replace t))
+  (change-class (call-next-method map (normalize-key key) val :replace replace)
+                'kv-map))
+
+(defmethod maps:remove ((map kv-map) key)
+  (change-class (call-next-method map (normalize-key key)) 'kv-map))
+
+(defmethod maps:iter ((map kv-map) fn)
+  (call-next-method map (lambda (k v)
+                          (funcall fn (unnormalize-key k) v))))
+
+(defmethod maps:fold ((map kv-map) fn accu)
+  (call-next-method map (lambda (k v accu)
+                          (funcall fn (unnormalize-key k) accu))
+                    accu))
+
+(defmethod maps:mapi ((map kv-map) fn)
+  (change-class (call-next-method map (lambda (k v)
+                                        (funcall fn (unnormalize-key k) v)))
+                'kv-map))
+|#
+;; ----------------------------------------------------------------
+
 (defun common-trans-beh (saver db msg)
   (match msg
     ;; -------------------
@@ -321,6 +357,9 @@
                                 :if-does-not-exist :error
                                 :element-type      '(unsigned-byte 8))
                (loenc:serialize delta f
+                                :force-unserializable-functions t
+                                :unserializable-object-proxies t
+                                :portable-conditions t
                                 :self-sync t))
              )))
      (error ()
@@ -535,7 +574,10 @@
                      :element-type '(unsigned-byte 8))
     (let ((sig (uuid:uuid-to-byte-array +db-id+)))
       (write-sequence sig f)
-      (loenc:serialize db f)
+      (loenc:serialize db f
+                       :portable-conditions t
+                       :unserializable-object-proxies t
+                       :force-unserializable-functions t)
       ))
   db)
 
@@ -995,6 +1037,9 @@
   (dotimes (ix 10)
     (let ((str (format nil "This is test ~D!" ix)))
       (loenc:serialize str f
+                       :force-unserializable-functions t
+                       :unserializable-object-proxies t
+                       :portable-conditions t
                        :self-sync t))))
 
 ;; Now go ahead and trash the file - see that we skip the damaged

@@ -126,14 +126,28 @@ THE SOFTWARE.
 (defrestore (UNSERIALIZABLE-OBJECT stream)
   *unserializable-object*)
 
+(defvar *unserializable-object-proxies* nil)
+
 (defmethod sdle-store:backend-store-object ((backend loe-back-end) obj stream)
   (handler-case
       (call-next-method)
-    (sdle-store:store-error ()
+    (sdle-store:store-error (e)
       ;; We come here if obj cannot be serialized
-      (warn "Unserializable object of type ~A encountered - using proxy object." (type-of obj))
-      (sdle-store:backend-store-object backend *unserializable-object* stream))
+      (cond (*unserializable-object-proxies*
+             (warn "Unserializable object of type ~A encountered - using proxy object." (type-of obj))
+             (sdle-store:backend-store-object backend *unserializable-object* stream))
+            (t
+             (error e))
+            ))
     ))
+
+(defvar *portable-conditions* nil)
+
+(defmethod sdle-store:backend-store-object ((backend loe-back-end) (obj condition) stream)
+  (if *portable-conditions*
+      (let ((*portable-conditions* nil))
+        (sdle-store:backend-store-object backend (ensure-portable-condition obj) stream))
+    (call-next-method)))
 
 ;; -------------------------------------------
 
@@ -173,6 +187,9 @@ Encrypted data is marked as such by making the prefix count odd."
                    align-includes-prefix
                    use-buffer
                    (backend 'loe-back-end)
+                   (force-unserializable-functions sdle-store:*force-unserializable-functions*)
+                   (portable-conditions            *portable-conditions*)
+                   (unserializable-object-proxies  *unserializable-object-proxies*)
                    &allow-other-keys)
   "Serialize a message to a buffer of unsigned bytes."
   ;; preflen will be one of 1,2,4,8,16 or 0
@@ -193,7 +210,12 @@ Encrypted data is marked as such by making the prefix count odd."
                                         (sdle-store:copy-backend backend
                                                                  :magic-number use-magic)
                                       backend)))
-                          (let ((sdle-store:*force-unserializable-functions* t))
+                          (let ((sdle-store:*force-unserializable-functions*
+                                 force-unserializable-functions)
+                                (*unserializable-object-proxies*
+                                 unserializable-object-proxies)
+                                (*portable-conditions*
+                                 portable-conditions))
                             (sdle-store:store msg s bknd)))
                         
                         ;; pad data to an even number of bytes
@@ -382,7 +404,10 @@ recycling that buffer for another use later. This is an attempt to avoid generat
   ;; recode the error on this end, if necessary.
   (handler-case
       (progn
-        (loenc:encode err) ;; try to tickle an encoding error
+        (loenc:encode err
+                      :portable-conditions nil
+                      :unserializable-object-proxies nil
+                      :force-unserializable-functions nil) ;; try to tickle an encoding error
         err)               ;; no error - just use original condition object
     (error ()
       (handler-case
@@ -392,3 +417,13 @@ recycling that buffer for another use later. This is an attempt to avoid generat
     ))
 
 ;; -----------------------------------------------------------------------------
+
+(defmethod ord:compare :around (a b)
+  ;; This provides an ordering for all serializable objects.
+  (handler-case
+      (call-next-method (loenc:encode a) (loenc:encode b))
+    (error ()
+      (call-next-method))
+    ))
+
+

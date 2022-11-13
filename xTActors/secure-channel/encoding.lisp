@@ -124,7 +124,10 @@
 (defun marshal-encoder ()
   (actor (cust &rest args)
     ;; (send fmt-println "Marshal Encoder")
-    (send cust (loenc:encode (coerce args 'vector)))))
+    (send cust (loenc:encode (coerce args 'vector)
+                             :force-unserializable-functions t
+                             :unserializable-object-proxies t
+                             :portable-conditions t))))
 
 (defun marshal-decoder ()
   (actor (cust vec)
