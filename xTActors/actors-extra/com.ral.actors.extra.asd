@@ -5,7 +5,7 @@
   :license     "Copyright (c) 2021-2022 by Refined Audiometrics Laboratory. MIT License terms apply."
   :components  ((:file "debugging")
                 (:file "kvdb")
-                (:file "multi-committer")
+                (:file "multi-commit")
                 (:file "reactive")
                 (:file "resource")
                 ;; (:file "sponsors")

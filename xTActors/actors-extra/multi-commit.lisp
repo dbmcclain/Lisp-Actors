@@ -3,13 +3,13 @@
 ;; DM/RAL  2022/11/08 06:34:36
 ;; ----------------------------------
 
-(defpackage #:com.ral.actors.multi-committer
+(defpackage #:com.ral.actors.multi-commit
   (:use #:common-lisp #:ac #:kvdb)
   (:export
-   #:multi-committer
+   #:multi-commit
    ))
 
-(in-package #:com.ral.actors.multi-committer)
+(in-package #:com.ral.actors.multi-commit)
 
 ;; ----------------------------------
 ;; In situations where more than one database is involved in a
