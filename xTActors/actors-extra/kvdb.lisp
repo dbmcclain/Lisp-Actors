@@ -146,7 +146,7 @@
 ;; unnecessary transmissions of entire trees over the network.  The
 ;; Proxy Actor will perform queries and mutations on your behalf, on
 ;; the host machine of the database, sending you only the information
-;; you seek..
+;; you seek.
 ;;
 ;; To support coordinated updates among multiple databases, you can
 ;; request exclusive commit access. Doing this returns a fresh copy of
@@ -371,7 +371,10 @@
                     (error "Not a db file"))
                    )))
        (error ()
-         (setf db (maps:add (maps:empty) 'version (uuid:make-v1-uuid)))
+         (unless (maps:find db 'version)
+           (maps:addf db 'version (uuid:make-v1-uuid)))
+         (unless (maps:find db 'kvdb-sequence)
+           (maps:addf db 'kvdb-sequence (uuid:make-v1-uuid)))
          (full-save db-path db)))
      (become (save-database-beh db-path db))
      (send cust :opened db))))
@@ -514,7 +517,7 @@
           
           ((:main-full-save)
            (send dbmgr 'maint-full-save))
-          
+
           ))
         ))))
 
@@ -525,7 +528,10 @@
                           :if-does-not-exist :error)
         (declare (ignore fd)))
     (error ()
-      (full-save path (maps:empty)))
+      (let ((db (maps:empty)))
+        (maps:addf db 'version  (uuid:make-v1-uuid))
+        (maps:addf db 'kvdb-sequence (uuid:make-v1-uuid))
+        (full-save path db)))
     ))
 
 (defun kvdb-orchestrator-beh (&optional open-dbs)
