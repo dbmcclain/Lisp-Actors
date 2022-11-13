@@ -355,6 +355,18 @@
   (:method ((err corrupt-deltas))
    t))
 
+(define-condition corrupt-kvdb (error)
+  ((path :accessor corrupt-kvdb-path :initarg :path))
+  (:report (lambda (cx stream)
+             (format stream "Corrupt KVDB: ~S" (corrupt-kvdb-path cx)))
+   ))
+
+(defgeneric corrupt-kvdb-p (err)
+  (:method (err)
+   nil)
+  (:method ((err corrupt-kvdb))
+   t))
+
 (defgeneric file-error-p (err)
   (:method (err)
    nil)
@@ -433,16 +445,29 @@
                  (handler-bind
                      ((not-a-kvdb (lambda (c)
                                     (if (capi:prompt-for-confirmation
-                                         (format nil "Not a KVDB file: ~S. Overwrite?" (not-a-kvdb-path c)))
-                                        (invoke-restart (find-restart 'overwrite c))
+                                         (format nil "Not a KVDB file: ~S. Overwrite?"
+                                                 (not-a-kvdb-path c)))
+                                        (invoke-restart
+                                         (find-restart 'overwrite c))
+                                      ;; else
                                       (abort c))))
                       (corrupt-deltas (lambda (c)
-                                        (warn "Corrupt deltas encountered: ~S" (corrupt-deltas-path c))
-                                        (invoke-restart (find-restart 'corrupt-deltas c))))
+                                        (warn "Corrupt deltas encountered: ~S. Rebuilding."
+                                              (corrupt-deltas-path c))
+                                        (invoke-restart
+                                         (find-restart 'corrupt-deltas c))))
+                      (corrupt-kvdb   (lambda (c)
+                                        (warn "Corrupt KVDB: ~S. Rebuilding."
+                                              (corrupt-kvdb-path c))
+                                        (invoke-restart
+                                         (find-restart 'corrupt-kvdb c))))
                       (file-error (lambda (c)
                                     (if (capi:prompt-for-confirmation
-                                         (format nil "File does not exist: ~S. Create?" (file-error-pathname c)))
-                                        (invoke-restart (find-restart 'create c))
+                                         (format nil "File does not exist: ~S. Create?"
+                                                 (file-error-pathname c)))
+                                        (invoke-restart
+                                         (find-restart 'create c))
+                                      ;; else
                                       (abort c))) ))
                    
                    (with-open-file (f db-path
@@ -450,12 +475,19 @@
                                       :if-does-not-exist :error
                                       :element-type      '(unsigned-byte 8))
                      (check-kvdb-sig f db-path)
-                     (setf db (loenc:deserialize f))
                      
+                     (handler-case
+                         (progn
+                           (setf db (loenc:deserialize f))
+                           (maps:find db 'version)) ;; try to force an error
+                       (error (exn)
+                         (send println (um:format-error exn))
+                         (setf db (maps:empty))
+                         (error 'corrupt-kvdb :path db-path)))
+
                      (let ((reader (self-sync:make-reader f)))
                        (handler-case
-                           (loop for ans = (loenc:deserialize f
-                                                              :self-sync  reader)
+                           (loop for ans = (loenc:deserialize f :self-sync  reader)
                                  until (eq ans f)
                                  do
                                    (destructuring-bind (removals additions changes) ans
@@ -473,6 +505,9 @@
                            (error 'corrupt-deltas :path db-path))
                          ))))
                ;; restarts
+               (corrupt-kvdb ()
+                 :test corrupt-kvdb-p
+                 (prep-and-save-db))
                (corrupt-deltas ()
                  :test corrupt-deltas-p
                  (prep-and-save-db))
