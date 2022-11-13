@@ -731,35 +731,51 @@
       ;; restarts
       (create ()
         :test file-error-p
-        (when (capi:prompt-for-confirmation
+        (if (capi:prompt-for-confirmation
                (format nil "Create file: ~S?" path))
-          (init-kvdb)))
-    (overwrite ()
-      (when (capi:prompt-for-confirmation
+            (init-kvdb)
+          ;; else
+          (send cust :no)))
+      (overwrite ()
+        (if (capi:prompt-for-confirmation
              (format nil "Overwrite file: ~S?" path))
-        (init-kvdb))))
-    ))
+            (init-kvdb)
+          ;; else
+          (send cust :no)))
+      )))
 
 (defun kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
    ((cust :make-kvdb path)
-    (β _
-        (ensure-file-exists β path)
-      (multiple-value-bind (dev ino)
-          (um:get-ino path)
-        (let* ((key    (um:mkstr dev #\space ino))
-               (triple (find key open-dbs
-                             :key  #'car
-                             :test #'string-equal)))
-          (cond (triple
-                 (send cust (third triple)))
-                (t
-                 (let* ((tag-to-me  (tag self))
-                        (kvdb       (%make-kvdb tag-to-me path)))
-                   (become (kvdb-orchestrator-beh (cons (list key tag-to-me kvdb) open-dbs)))
-                   (send cust kvdb)))
-                )))))
+    (let ((me         self)
+          (beh-to-me  (tag self)))
+      (become (future-become-beh beh-to-me))
+      ;; the β here destroys the SELF and so we must resort to
+      ;; FUTURE-BECOME-BEH
+      (β (ans)
+          (ensure-file-exists β path)
+        (cond ((eql ans :ok)
+               (multiple-value-bind (dev ino)
+                   (um:get-ino path)
+                 (let* ((key    (um:mkstr dev #\space ino))
+                        (triple (find key open-dbs
+                                      :key  #'car
+                                      :test #'string-equal)))
+                   (cond (triple
+                          (send beh-to-me (kvdb-orchestrator-beh open-dbs))
+                          (send cust (third triple)))
+                         (t
+                          (let* ((tag-to-me  (tag me))
+                                 (kvdb       (%make-kvdb tag-to-me path)))
+                            (send beh-to-me (kvdb-orchestrator-beh
+                                             (cons (list key tag-to-me kvdb)
+                                                   open-dbs)))
+                            (send cust kvdb)))
+                         ))))
+              (t
+               (send beh-to-me (kvdb-orchestrator-beh open-dbs)))
+              ))))
 
    ((atag :remove-entry)
     (let ((grp (find atag open-dbs
