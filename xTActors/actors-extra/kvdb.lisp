@@ -445,10 +445,10 @@
                  (handler-bind
                      ((not-a-kvdb (lambda (c)
                                     (if (capi:prompt-for-confirmation
-                                         (format nil "Not a KVDB file: ~S. Overwrite?"
+                                         (format nil "Not a KVDB file: ~S. Supersede?"
                                                  (not-a-kvdb-path c)))
                                         (invoke-restart
-                                         (find-restart 'overwrite c))
+                                         (find-restart 'supersede c))
                                       ;; else
                                       (abort c))))
                       (corrupt-deltas (lambda (c)
@@ -511,7 +511,7 @@
                (corrupt-deltas ()
                  :test corrupt-deltas-p
                  (prep-and-save-db))
-               (overwrite ()
+               (supersede ()
                  :test not-a-kvdb-p
                  (prep-and-save-db))
                (create ()
