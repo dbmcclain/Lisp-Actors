@@ -190,6 +190,7 @@ Encrypted data is marked as such by making the prefix count odd."
                    (force-unserializable-functions sdle-store:*force-unserializable-functions*)
                    (portable-conditions            *portable-conditions*)
                    (unserializable-object-proxies  *unserializable-object-proxies*)
+                   max-portability
                    &allow-other-keys)
   "Serialize a message to a buffer of unsigned bytes."
   ;; preflen will be one of 1,2,4,8,16 or 0
@@ -211,11 +212,14 @@ Encrypted data is marked as such by making the prefix count odd."
                                                                  :magic-number use-magic)
                                       backend)))
                           (let ((sdle-store:*force-unserializable-functions*
-                                 force-unserializable-functions)
+                                 (or force-unserializable-functions
+                                     max-portability))
                                 (*unserializable-object-proxies*
-                                 unserializable-object-proxies)
+                                 (or unserializable-object-proxies
+                                     max-portability))
                                 (*portable-conditions*
-                                 portable-conditions))
+                                 (or portable-conditions
+                                     max-portability)))
                             (sdle-store:store msg s bknd)))
                         
                         ;; pad data to an even number of bytes

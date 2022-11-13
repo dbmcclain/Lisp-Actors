@@ -357,9 +357,7 @@
                                 :if-does-not-exist :error
                                 :element-type      '(unsigned-byte 8))
                (loenc:serialize delta f
-                                :force-unserializable-functions t
-                                :unserializable-object-proxies t
-                                :portable-conditions t
+                                :max-portability t
                                 :self-sync t))
              )))
      (error ()
@@ -575,9 +573,7 @@
     (let ((sig (uuid:uuid-to-byte-array +db-id+)))
       (write-sequence sig f)
       (loenc:serialize db f
-                       :portable-conditions t
-                       :unserializable-object-proxies t
-                       :force-unserializable-functions t)
+                       :max-portability t)
       ))
   db)
 
@@ -1037,9 +1033,7 @@
   (dotimes (ix 10)
     (let ((str (format nil "This is test ~D!" ix)))
       (loenc:serialize str f
-                       :force-unserializable-functions t
-                       :unserializable-object-proxies t
-                       :portable-conditions t
+                       :max-portability t
                        :self-sync t))))
 
 ;; Now go ahead and trash the file - see that we skip the damaged

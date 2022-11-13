@@ -125,9 +125,8 @@
   (actor (cust &rest args)
     ;; (send fmt-println "Marshal Encoder")
     (send cust (loenc:encode (coerce args 'vector)
-                             :force-unserializable-functions t
-                             :unserializable-object-proxies t
-                             :portable-conditions t))))
+                             :max-portability t))
+    ))
 
 (defun marshal-decoder ()
   (actor (cust vec)
@@ -1011,7 +1010,8 @@
                           :if-does-not-exist :create
                           :element-type '(unsigned-byte 8))
         (write-sequence +AONT-FILE-TYPE-ID+ fd)
-        (loenc:serialize vecs fd)
+        (loenc:serialize vecs fd
+                         :max-portability t)
         (send cust :ok)
         ))))
 
