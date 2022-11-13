@@ -446,10 +446,10 @@
                  (handler-bind
                      ((not-a-kvdb (lambda (c)
                                     (if (capi:prompt-for-confirmation
-                                         (format nil "Not a KVDB file: ~S. Supersede?"
+                                         (format nil "Not a KVDB file: ~S. Rename old and create?"
                                                  (not-a-kvdb-path c)))
                                         (invoke-restart
-                                         (find-restart 'supersede c))
+                                         (find-restart 'rename-and-create c))
                                       ;; else
                                       (abort c))))
                       (corrupt-deltas (lambda (c)
@@ -512,7 +512,7 @@
                (corrupt-deltas ()
                  :test corrupt-deltas-p
                  (prep-and-save-db))
-               (supersede ()
+               (rename-and-create ()
                  :test not-a-kvdb-p
                  (prep-and-save-db))
                (create ()
@@ -990,7 +990,7 @@
 (with-open-file (f "~/junk.tst"
                      :direction :output
                      :if-does-not-exist :create
-                     :if-exists :supersede
+                     :if-exists :rename
                      :element-type '(unsigned-byte 8))
   (dotimes (ix 10)
     (let ((str (format nil "This is test ~D!" ix)))
