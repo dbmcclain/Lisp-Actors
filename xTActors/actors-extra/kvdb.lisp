@@ -309,6 +309,7 @@
   ;; The db gateway is the only one that knows saver's identity.
   ;; Don't bother doing anything unless the db has changed.
   ((cust :save-log new-db)
+   (send fmt-println "Saving KVDB Deltas: ~S" path)
    (handler-case
        (let ((new-ver  (maps:find new-db  'version))
              (prev-ver (maps:find last-db 'version)))
@@ -525,11 +526,12 @@
 ;; --------------------------------------------------------------------
 
 (defun full-save (db-path db)
+  (send fmt-println "Saving full KVDB: ~S" db-path)
   (ensure-directories-exist db-path)
   (with-open-file (f db-path
                      :direction :output
                      :if-does-not-exist :create
-                     :if-exists :supersede
+                     :if-exists :rename
                      :element-type '(unsigned-byte 8))
     (let ((sig (uuid:uuid-to-byte-array +db-id+)))
       (write-sequence sig f)
@@ -659,9 +661,13 @@
                 
           ;; ---------------------------------
                 
-          ((:main-full-save)
+          ((:maint-full-save)
            (send dbmgr 'maint-full-save))
-                
+
+          #|
+          (msg
+           (send fmt-println "Unkown message: ~S" msg))
+          |#
           ))
       ))))
 
