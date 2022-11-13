@@ -184,6 +184,7 @@ THE SOFTWARE.
    #:serializer-sink
    #:blocking-serializer
    #:with-error-response
+   #:err-from
    #:def-ser-beh
    #:timing
    #:sequenced-delivery

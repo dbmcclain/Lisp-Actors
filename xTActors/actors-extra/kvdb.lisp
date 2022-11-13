@@ -331,54 +331,162 @@
   
 ;; ---------------------------------------------------------------
 
-(def-ser-beh unopened-database-beh ()
-  ;; -------------------
-  ;; message from kick-off starter routine
-  ((cust :open db-path)
-   (let ((db (maps:empty)))
-     (handler-case
-         (with-open-file (f db-path
-                            :direction         :input
-                            :if-does-not-exist :error
-                            :element-type      '(unsigned-byte 8))
-           (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
-                  (id   (make-array (length sig)
-                                    :element-type '(unsigned-byte 8)
-                                    :initial-element 0)))
-             (read-sequence id f)
-             (cond ((equalp id sig)
-                    (setf db (loenc:deserialize f))
-                    (let ((reader (self-sync:make-reader f)))
-                      (handler-case
-                          (loop for ans = (loenc:deserialize f
-                                                             :self-sync  reader)
-                                until (eq ans f)
-                                do
-                                  (destructuring-bind (removals additions changes) ans
-                                    (dolist (key removals)
-                                      (maps:removef db key))
-                                    (dolist (pair additions)
-                                      (destructuring-bind (key . val) pair
-                                        (maps:addf db key val)))
-                                    (dolist (pair changes)
-                                      (destructuring-bind (key . val) pair
-                                        (maps:addf db key val)))
-                                    ))
-                        (error (exn)
-                          (send println (um:format-error exn)))
-                        )))
-                   (t
-                    (error "Not a db file"))
-                   )))
-       (error ()
-         (unless (maps:find db 'version)
-           (maps:addf db 'version (uuid:make-v1-uuid)))
-         (unless (maps:find db 'kvdb-sequence)
-           (maps:addf db 'kvdb-sequence (uuid:make-v1-uuid)))
-         (full-save db-path db)))
-     (become (save-database-beh db-path db))
-     (send cust :opened db))))
+(define-condition not-a-kvdb (error)
+  ((path :accessor not-a-kvdb-path :initarg :path))
+  (:report (lambda (cx stream)
+             (format stream "Not a KVDB file: ~S" (not-a-kvdb-path cx)))
+   ))
 
+(defgeneric not-a-kvdb-p (err)
+  (:method (err)
+   nil)
+  (:method ((err not-a-kvdb))
+   t))
+
+(define-condition corrupt-deltas (error)
+  ((path :accessor corrupt-deltas-path :initarg :path))
+  (:report (lambda (cx stream)
+             (format stream "Corrupt DeltaList in KVDB: ~S" (corrupt-deltas-path cx)))
+   ))
+
+(defgeneric corrupt-deltas-p (err)
+  (:method (err)
+   nil)
+  (:method ((err corrupt-deltas))
+   t))
+
+(defgeneric file-error-p (err)
+  (:method (err)
+   nil)
+  (:method ((err file-error))
+   t))
+
+#|
+(defun tst ()
+  (restart-case
+      (handler-bind
+          ((not-a-kvdb (lambda (c)
+                         (if (capi:prompt-for-confirmation
+                              (format nil "Not a KVDB file: ~S. Overwrite?" (not-a-kvdb-path c)))
+                             (invoke-restart (find-restart 'overwrite c))
+                           (abort c))))
+           (corrupt-deltas (lambda (c)
+                             (warn "Corrupt deltas encountered: ~S" (corrupt-deltas-path c))
+                             (invoke-restart (find-restart 'corrupt-deltas c))))
+           (file-error (lambda (c)
+                         (if (capi:prompt-for-confirmation
+                              (format nil "File does not exist: ~S. Create?" (file-error-pathname c)))
+                             (invoke-restart (find-restart 'create c))
+                           (abort c))) ))
+        ;; (error 'not-a-kvdb :path "diddly")
+        ;; (error 'corrupt-deltas :path "diddly")
+        (error 'file-error :pathname "diddly")
+        )
+    (overwrite ()
+      :test not-a-kvdb-p
+      (format t "Overwriting...~&"))
+    (corrupt-deltas ()
+      :test corrupt-deltas-p
+      (format t "Fixing Corrupt Deltas...~&"))
+    (create ()
+      :test file-error-p
+      (format t "Creating..."))
+    ))
+(tst)
+|#
+
+(defun check-kvdb-sig (fd dbpath)
+  (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
+         (id   (make-array (length sig)
+                           :element-type '(unsigned-byte 8)
+                           :initial-element 0)))
+    (file-position fd 0)
+    (read-sequence id fd)
+    (unless (equalp id sig)
+      (error 'not-a-kvdb :path dbpath))
+    ))
+
+(defun unopened-database-beh (tag)
+  (lambda (cust &rest msg)
+    ;; We are sitting behind a SERIALIZER. So a response is mandatory.
+    (with-error-response (cust
+                          (lambda (err)
+                            (become-sink)
+                            (send tag :remove-entry)
+                            (err-from err)))
+      (match msg
+        ;; -------------------
+        ;; message from kick-off starter routine
+        ((:open db-path)
+         (let ((db (maps:empty)))
+           (flet ((prep-and-save-db ()
+                    (unless (maps:find db 'version)
+                      (maps:addf db 'version (uuid:make-v1-uuid)))
+                    (let (seq)
+                      (unless (and (setf seq (maps:find db 'kvdb-sequence))
+                                   (typep seq 'uuid:uuid))
+                        (maps:addf db 'kvdb-sequence (uuid:make-v1-uuid))
+                        ))
+                    (full-save db-path db)))
+             
+             (restart-case
+                 (handler-bind
+                     ((not-a-kvdb (lambda (c)
+                                    (if (capi:prompt-for-confirmation
+                                         (format nil "Not a KVDB file: ~S. Overwrite?" (not-a-kvdb-path c)))
+                                        (invoke-restart (find-restart 'overwrite c))
+                                      (abort c))))
+                      (corrupt-deltas (lambda (c)
+                                        (warn "Corrupt deltas encountered: ~S" (corrupt-deltas-path c))
+                                        (invoke-restart (find-restart 'corrupt-deltas c))))
+                      (file-error (lambda (c)
+                                    (if (capi:prompt-for-confirmation
+                                         (format nil "File does not exist: ~S. Create?" (file-error-pathname c)))
+                                        (invoke-restart (find-restart 'create c))
+                                      (abort c))) ))
+                   
+                   (with-open-file (f db-path
+                                      :direction         :input
+                                      :if-does-not-exist :error
+                                      :element-type      '(unsigned-byte 8))
+                     (check-kvdb-sig f db-path)
+                     (setf db (loenc:deserialize f))
+                     
+                     (let ((reader (self-sync:make-reader f)))
+                       (handler-case
+                           (loop for ans = (loenc:deserialize f
+                                                              :self-sync  reader)
+                                 until (eq ans f)
+                                 do
+                                   (destructuring-bind (removals additions changes) ans
+                                     (dolist (key removals)
+                                       (maps:removef db key))
+                                     (dolist (pair additions)
+                                       (destructuring-bind (key . val) pair
+                                         (maps:addf db key val)))
+                                     (dolist (pair changes)
+                                       (destructuring-bind (key . val) pair
+                                         (maps:addf db key val)))
+                                     ))
+                         (error (exn)
+                           (send println (um:format-error exn))
+                           (error 'corrupt-deltas :path db-path))
+                         ))))
+               ;; restarts
+               (corrupt-deltas ()
+                 :test corrupt-deltas-p
+                 (prep-and-save-db))
+               (overwrite ()
+                 :test not-a-kvdb-p
+                 (prep-and-save-db))
+               (create ()
+                 :test file-error-p
+                 (prep-and-save-db)))
+             ;; normal exit
+             (become (save-database-beh db-path db))
+             (send cust :opened db)))
+         )))))
+  
 ;; --------------------------------------------------------------------
 
 (defun full-save (db-path db)
@@ -416,12 +524,13 @@
 
 ;; -----------------------------------------------------------
 
-(defun db-svc-init-beh (path)
+(defun db-svc-init-beh (tag path)
   (λ _
-    (let ((tag   (tag self))
-          (saver (serializer (create (unopened-database-beh)))))
-      (send saver tag :open path)
-      (become (nascent-database-beh tag saver nil))
+    (let ((tag-to-me (tag self))
+          (saver (serializer (create (unopened-database-beh tag)))
+                 ))
+      (send saver tag-to-me :open path)
+      (become (nascent-database-beh tag-to-me saver nil))
       (repeat-send self))))
 
 ;; -----------------------------------------------------------
@@ -432,8 +541,8 @@
 #+:LISPWORKS
 (editor:setup-indent "with-db" 1)
 
-(defun %make-kvdb (&optional (path *db-path*))
-  (let ((dbmgr  (create (db-svc-init-beh path))))
+(defun %make-kvdb (tag path)
+  (let ((dbmgr  (create (db-svc-init-beh tag path))))
     (macrolet ((with-db (db &body body)
                  `(do-with-db (lambda (,db) ,@body))))
       (labels
@@ -444,30 +553,30 @@
         
         (create
          (alambda
-
+                
           ;; ------------------------------------------
           ;; :ADD and :REMOVE both return the raw kvdb map object.
           ;; Hence they are best used only on the local machine to
           ;; avoid excessive network traffic.
-          
+                
           ((cust :add key val)
            (with-db db
              (send dbmgr `(,cust . ,self) :commit db (maps:add db key val))
              ))
-          
+                
           ((cust :remove key)
            (with-db db
              (unless (eq self (maps:find db key self))
                (send dbmgr `(,cust . ,self) :commit db (maps:remove db key)))
              ))
-
+                
           ;; ---------------------------------------------
-
+                
           ((cust :find key . default)
            (with-db db
              (send cust (maps:find db key (car default)))
              ))
-
+                
           ((cust :find-or-add key def-val)
            (with-db db
              (let ((me      self)
@@ -479,79 +588,106 @@
                      (t
                       (send cust old-val))
                      ))))
-
+                
           ((:show)
            (with-db db
              (sets:view-set db)
              ))
-
+                
           ((cust :really-let-me-see-map)
            (with-db db
              (send cust db)))
-          
+                
           ;; ----------------------------------
           ;; These routines deal in/out with physical map objects.
           ;; Hence, best used for local machine access of the kvdb
 
           ((_ :req)
            (repeat-send dbmgr))
-
+                
           ((_ :abort _)
            (repeat-send dbmgr))
-          
+                
           (((_ . _) :commit _ _)
            (repeat-send dbmgr))
-
+                
           ((_ :req-excl _)
            (repeat-send dbmgr))
-
+                
           ;; -----------------------------------
           ;; Intended for use by remote clients wanting to access this
           ;; kvdb. But also works for local access. We avoid shipping
           ;; entire map objects back and forth.
-
+                
           ((cust :req-proxy)
            (send cust (create (local-proxy-for-remote-db-access-beh self))))
-          
+                
           ;; ---------------------------------
-          
+                
           ((:main-full-save)
            (send dbmgr 'maint-full-save))
-
+                
           ))
-        ))))
+      ))))
 
-(defun ensure-file-exists (path)
-  (handler-case
-      (with-open-file (fd path
-                          :direction :probe
-                          :if-does-not-exist :error)
-        (declare (ignore fd)))
-    (error ()
-      (let ((db (maps:empty)))
-        (maps:addf db 'version  (uuid:make-v1-uuid))
-        (maps:addf db 'kvdb-sequence (uuid:make-v1-uuid))
-        (full-save path db)))
+(defun ensure-file-exists (cust path)
+  (flet ((init-kvdb ()
+           (let ((db (maps:empty)))
+             (maps:addf db 'version       (uuid:make-v1-uuid))
+             (maps:addf db 'kvdb-sequence (uuid:make-v1-uuid))
+             (full-save path db)
+             (send cust :ok))))
+    (restart-case
+        (handler-bind
+            ((file-error (lambda (c)
+                           (invoke-restart (find-restart 'create c))))
+             (not-a-kvdb (lambda (c)
+                           (invoke-restart (find-restart 'overwrite c)))))
+          (with-open-file (fd path
+                              :direction :input
+                              :element-type '(unsigned-byte 8)
+                              :if-does-not-exist :error)
+            (check-kvdb-sig fd path)
+            (send cust :ok)))
+      ;; restarts
+      (create ()
+        :test file-error-p
+        (when (capi:prompt-for-confirmation
+               (format nil "Create file: ~S?" path))
+          (init-kvdb)))
+    (overwrite ()
+      (when (capi:prompt-for-confirmation
+             (format nil "Overwrite file: ~S?" path))
+        (init-kvdb))))
     ))
 
 (defun kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
    ((cust :make-kvdb path)
-    (ensure-file-exists path)
-    (multiple-value-bind (dev ino)
-        (um:get-ino path)
-      (let* ((key  (um:mkstr dev #\space ino))
-             (pair (find key open-dbs
-                         :key  #'car
-                         :test #'string-equal)))
-        (cond (pair
-               (send cust (cdr pair)))
-              (t
-               (let ((kvdb (%make-kvdb path)))
-                 (become (kvdb-orchestrator-beh (acons key kvdb open-dbs)))
-                 (send cust kvdb)))
-              ))))
+    (β _
+        (ensure-file-exists β path)
+      (multiple-value-bind (dev ino)
+          (um:get-ino path)
+        (let* ((key  (um:mkstr dev #\space ino))
+               (pair (find key open-dbs
+                           :key  #'car
+                           :test #'string-equal)))
+          (cond (pair
+                 (send cust (cdr pair)))
+                (t
+                 (let* ((tag-to-me  (tag self))
+                        (kvdb       (%make-kvdb tag-to-me path)))
+                   (become (kvdb-orchestrator-beh (cons (list key tag-to-me kvdb) open-dbs)))
+                   (send cust kvdb)))
+                )))))
+
+   ((atag :remove-entry)
+    (let ((grp (find atag open-dbs
+                     :key #'cadr)))
+      (when grp
+        (become (kvdb-orchestrator-beh (remove grp open-dbs))))
+      ))
    ))
 
 (deflex kvdb-maker (create (kvdb-orchestrator-beh)))
