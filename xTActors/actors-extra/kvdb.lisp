@@ -674,7 +674,7 @@
                              :key  #'car
                              :test #'string-equal)))
           (cond (triple
-                 (send cust (third pair)))
+                 (send cust (third triple)))
                 (t
                  (let* ((tag-to-me  (tag self))
                         (kvdb       (%make-kvdb tag-to-me path)))
