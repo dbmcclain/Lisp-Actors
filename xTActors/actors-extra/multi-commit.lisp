@@ -1,4 +1,4 @@
-;; multi-committer.lisp
+;; multi-commit.lisp
 ;;
 ;; DM/RAL  2022/11/08 06:34:36
 ;; ----------------------------------
