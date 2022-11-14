@@ -33,7 +33,10 @@
    :alst        nil
    :create-args args))
 
-(defvar *key-removed* '*key-removed*)
+;; NOTE: We use local symbol '+KEY-REMOVED+ as the sentinel for a
+;; removed key in the table. This is unique and serializes back to
+;; itself on restore. Using a naked vector value would not deserialize
+;; back to itself.
 
 (defun fpl-gethash (tbl key &optional default)
   ;; -> val, present-p
@@ -43,7 +46,7 @@
                        :test (hash-table-test htbl))))
       (if pair
           (let ((val (cdr pair)))
-            (if (eq val *key-removed*)
+            (if (eq val '+key-removed+)
                 (values default nil)
               (values val t)))
         (gethash key htbl default)
@@ -68,7 +71,7 @@
 
 (defun fpl-remhash (tbl key)
   ;; -> new-tbl
-  (fpl-sethash tbl key *key-removed*))
+  (fpl-sethash tbl key '+key-removed+))
 
 (defun rebuild-fpl-hashtable (tbl)
   ;; -> new-tbl
@@ -82,7 +85,7 @@
                htbl)
       (dolist (pair (reverse alst))
         (destructuring-bind (key . val) pair
-          (if (eq val *key-removed*)
+          (if (eq val '*+key-removed+)
               (remhash key new-htbl)
             (setf (gethash key new-htbl) val))
           ))
