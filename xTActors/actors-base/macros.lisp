@@ -222,7 +222,8 @@
 
 (µ β (args form &body body)
   ;; β is to beta
-  `(let ((β  (create (lambda* ,args ,@body))))
+  `(let ((β  (create (lambda* ,args
+                       ,@body))))
      ,form))
 
 #+:LISPWORKS

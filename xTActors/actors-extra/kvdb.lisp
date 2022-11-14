@@ -483,7 +483,7 @@
                  (handler-bind
                      ((not-a-kvdb (lambda (c)
                                     (if (capi:prompt-for-confirmation
-                                         (format nil "Not a KVDB file: ~S. Rename old and create?"
+                                         (format nil "Not a KVDB file: ~S. Rename existing and create new?"
                                                  (not-a-kvdb-path c)))
                                         (invoke-restart
                                          (find-restart 'rename-and-create c))
@@ -709,13 +709,13 @@
           ))
       ))))
 
-(defun ensure-file-exists (cust path)
+(defun ensure-file-exists (path)
   (flet ((init-kvdb ()
            (let ((db (maps:empty)))
              (maps:addf db 'version       (uuid:make-v1-uuid))
              (maps:addf db 'kvdb-sequence (uuid:make-v1-uuid))
              (full-save path db)
-             (send cust :ok))))
+             t)))
     (restart-case
         (handler-bind
             ((file-error (lambda (c)
@@ -727,55 +727,40 @@
                               :element-type '(unsigned-byte 8)
                               :if-does-not-exist :error)
             (check-kvdb-sig fd path)
-            (send cust :ok)))
+            t))
       ;; restarts
       (create ()
         :test file-error-p
-        (if (capi:prompt-for-confirmation
+        (when (capi:prompt-for-confirmation
                (format nil "Create file: ~S?" path))
-            (init-kvdb)
-          ;; else
-          (send cust :no)))
+          (init-kvdb)))
       (overwrite ()
-        (if (capi:prompt-for-confirmation
-             (format nil "Overwrite file: ~S?" path))
-            (init-kvdb)
-          ;; else
-          (send cust :no)))
+        (when (capi:prompt-for-confirmation
+               (format nil "Rename existing and create new file: ~S?" path))
+          (init-kvdb)))
       )))
 
 (defun kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
    ((cust :make-kvdb path)
-    (let ((me         self)
-          (beh-to-me  (tag self)))
-      (become (future-become-beh beh-to-me))
-      ;; the β here destroys the SELF and so we must resort to
-      ;; FUTURE-BECOME-BEH
-      (β (ans)
-          (ensure-file-exists β path)
-        (cond ((eql ans :ok)
-               (multiple-value-bind (dev ino)
-                   (um:get-ino path)
-                 (let* ((key    (um:mkstr dev #\space ino))
-                        (triple (find key open-dbs
-                                      :key  #'car
-                                      :test #'string-equal)))
-                   (cond (triple
-                          (send beh-to-me (kvdb-orchestrator-beh open-dbs))
-                          (send cust (third triple)))
-                         (t
-                          (let* ((tag-to-me  (tag me))
-                                 (kvdb       (%make-kvdb tag-to-me path)))
-                            (send beh-to-me (kvdb-orchestrator-beh
-                                             (cons (list key tag-to-me kvdb)
-                                                   open-dbs)))
-                            (send cust kvdb)))
-                         ))))
-              (t
-               (send beh-to-me (kvdb-orchestrator-beh open-dbs)))
-              ))))
+    (when (ensure-file-exists path)
+      (multiple-value-bind (dev ino)
+          (um:get-ino path)
+        (let* ((key    (um:mkstr dev #\space ino))
+               (triple (find key open-dbs
+                             :key  #'car
+                             :test #'string-equal)))
+          (cond (triple
+                 (send cust (third triple)))
+                (t
+                 (let* ((tag-to-me  (tag self))
+                        (kvdb       (%make-kvdb tag-to-me path)))
+                   (become (kvdb-orchestrator-beh
+                            (cons (list key tag-to-me kvdb)
+                                  open-dbs)))
+                   (send cust kvdb)))
+                )))))
 
    ((atag :remove-entry)
     (let ((grp (find atag open-dbs
