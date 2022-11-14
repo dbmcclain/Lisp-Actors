@@ -210,6 +210,8 @@
        ;; these typically come from loenc:encode
        (vec-repr:str (vec-repr:base64 key))
      (call-next-method)))
+  (:method ((key character))
+   key)
   (:method ((key string))
    key)
   (:method ((key number))

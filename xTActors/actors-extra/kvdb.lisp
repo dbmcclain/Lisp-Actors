@@ -221,10 +221,6 @@
     ((a-tag a-db) / (and (eql a-tag saver)
                          (eql a-db  db))
      (send saver sink :save-log db))
-    
-    ;; -------------------
-    (('maint-full-save)
-     (send saver sink :full-save db))
     ))
     
 (defun trans-gate-beh (saver db)
@@ -257,7 +253,11 @@
               ;; had wrong version for old-db
               (send retry db))
              ))
-
+      
+      ;; -------------------
+      (('maint-full-save)
+       (send saver sink :full-save db))
+      
       (_
        (common-trans-beh saver db msg))
       )))
@@ -308,6 +308,9 @@
                ))
       
       ((_ :commit . _)
+       (stash))
+      
+      (('maint-full-save)
        (stash))
       
       (_
