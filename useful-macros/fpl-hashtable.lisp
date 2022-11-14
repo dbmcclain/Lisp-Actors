@@ -54,9 +54,14 @@
 
 (defun fpl-sethash (tbl key val)
   ;; -> new-tbl
-  (let ((new-tbl (copy-fpl-hashtable tbl)))
-    (push (cons key val) (fpl-hashtable-alst new-tbl))
-    new-tbl))
+  (let ((old-val (fpl-gethash tbl key)))
+    (cond ((eql old-val val)
+           tbl)
+          (t
+           (let ((new-tbl (copy-fpl-hashtable tbl)))
+             (push (cons key val) (fpl-hashtable-alst new-tbl))
+             new-tbl))
+          )))
 
 (defsetf fpl-gethash fpl-sethash)
 
