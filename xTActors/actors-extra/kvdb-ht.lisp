@@ -576,18 +576,12 @@
                                  until (eq ans f)
                                  do
                                    (destructuring-bind (removals additions changes) ans
-                                     (print :removals)
                                      (dolist (key removals)
-                                       (print key)
                                        (setf db (db-remove db key)))
-                                     (print :additions)
                                      (dolist (pair additions)
-                                       (print pair)
                                        (destructuring-bind (key . val) pair
                                          (setf db (db-add db key val))))
-                                     (print :changes)
                                      (dolist (pair changes)
-                                       (print pair)
                                        (destructuring-bind (key . val) pair
                                          (setf db (db-add db key val))))
                                      ))
