@@ -138,6 +138,7 @@ THE SOFTWARE.
                 #+(AND :COM.RAL :LISPWORKS) (:file "safe-call-system")
                 #-:relative-package-names (:file "hierarchical-packages")
                 (:file "file-eq")
+                (:file "fpl-hashtable")
                 )
   :serial       t
   :depends-on   ("com.ral.useful-macros"
