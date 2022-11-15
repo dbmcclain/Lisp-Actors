@@ -206,7 +206,7 @@
   (:method ((key uuid:uuid))
    (uuid:uuid-string key))
   (:method ((key vector))
-   (if (equalp (array-element-type key) '(unsigned-byte 8))
+   (if (typep key 'vec-repr:ub8-vector)
        ;; these typically come from loenc:encode
        (vec-repr:str (vec-repr:base64 key))
      (call-next-method)))
@@ -494,9 +494,7 @@
 
 (defun check-kvdb-sig (fd dbpath)
   (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
-         (id   (make-array (length sig)
-                           :element-type '(unsigned-byte 8)
-                           :initial-element 0)))
+         (id   (vec-repr:make-ub8-vector (length sig))))
     (file-position fd 0)
     (read-sequence id fd)
     (unless (equalp id sig)
@@ -1106,3 +1104,85 @@
 
 |#
 ;; ---------------------------------------------------------
+
+(capi:define-interface kvdb-display ()
+  ()
+  (:panes
+   (search-pane capi:text-input-pane
+                :accessor    search-pane
+                :title       "Search..."
+                :callback    'search-keys)
+                
+   (keys-list capi:list-panel
+              :accessor           list-panel
+              :visible-min-width  300
+              :visible-min-height 300
+              :selection-callback 'click-show-value
+              :callback-type      :item-element
+              :drop-callback      'dropme
+              :title              "KVDB Key"
+              :print-function     'key-to-string)
+   (value-display capi:editor-pane
+                  :accessor value-panel
+                  :text ""
+                  :buffer-name :temp
+                  :visible-min-width 400
+                  :visible-min-height 300))
+                  
+  (:layouts
+   (main-layout capi:row-layout
+                '(keys-layout value-display))
+   (keys-layout capi:column-layout
+                '(search-pane keys-list))
+   ))
+
+(defparameter *kv-display* nil)
+
+(defun show-kvdb ()
+  (setf *kv-display* (capi:display
+                      (make-instance 'kvdb-display)))
+  (β (db)
+      (send kvdb β :req)
+    (let ((keys-panel (list-panel *kv-display*))
+          keys)
+      (db-map db
+              (lambda (k v)
+                (declare (ignore v))
+                (push k keys)))
+      (setf keys (sort keys #'string< :key #'key-to-string))
+      (capi:execute-with-interface *kv-display*
+                                   (lambda ()
+                                     (setf (capi:list-panel-unfiltered-items keys-panel)  keys
+                                           (capi:choice-selected-item keys-panel)         (first keys))
+                                     (click-show-value (first keys) nil)
+                                     ))
+      )))
+
+(defun dropme (&rest args)
+  (declare (ignore args))
+  )
+
+(defun click-show-value (item element)
+  (declare (ignore element))
+  (β (val)
+      (send kvdb β :find item)
+    (let ((ed-pane (value-panel *kv-display*)))
+      (capi:execute-with-interface *kv-display*
+                                   (lambda ()
+                                     (setf (capi:editor-pane-text ed-pane) (key-to-string val))
+                                     (capi:call-editor ed-pane "End of Buffer"))
+                                   ))))
+
+(defun search-keys (text intf)
+  (declare (ignore intf))
+  (print text))
+
+(defun key-to-string (key)
+  (with-output-to-string (s)
+    (with-standard-io-syntax
+      (let ((*print-readably* nil))
+        (write key :stream s)))))
+
+#|
+(show-kvdb)
+|#
