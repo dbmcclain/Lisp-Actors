@@ -1221,15 +1221,14 @@
 (defun key-to-string (key)
   (with-output-to-string (s)
     (with-standard-io-syntax
-      (let ((*print-readably* t) ;; nil)
-            (*package* (find-package :cl)))
-        (cond ((keywordp key)
-               (write key :stream s))
-              ((symbolp key)
-               (format s "'~S" key))
-              (t
-               (write key :stream s))
-              ))
+      (let ((*package* (find-package :cl)))
+        (handler-case
+            (let ((*print-readably* t))
+              (write key :stream s))
+          (error ()
+            (let ((*print-readably* nil))
+              (write key :stream s)))
+          ))
       )))
 
 (defun delete-key (xxx intf)
@@ -1296,8 +1295,8 @@
 (defun grab-values (pane)
   (ignore-errors
     (list
-     (eval (read-from-string (capi:text-input-pane-text (key-pane pane))))
-     (eval (read-from-string (capi:text-input-pane-text (val-pane pane)))))))
+     (read-from-string (capi:text-input-pane-text (key-pane pane)))
+     (read-from-string (capi:text-input-pane-text (val-pane pane))))))
 
 (defun check-valid-lisp (txt intf)
   (declare (ignore intf))
