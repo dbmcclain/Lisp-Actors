@@ -1122,6 +1122,15 @@
               :drop-callback      'dropme
               :title              "KVDB Key"
               :print-function     'key-to-string)
+   (refr-but capi:push-button
+             :text "Refresh"
+             :callback 'refresh-keys)
+   (del-but capi:push-button
+            :text "Delete"
+            :callback 'delete-key)
+   (add-but capi:push-button
+            :text "Add/Change"
+            :callback 'add/change-key)
    (value-display capi:editor-pane
                   :accessor value-panel
                   :text ""
@@ -1133,14 +1142,21 @@
    (main-layout capi:row-layout
                 '(keys-layout value-display))
    (keys-layout capi:column-layout
-                '(search-pane keys-list))
-   ))
+                '(search-pane keys-list but-layout))
+   (but-layout capi:row-layout
+               '(refr-but del-but add-but)))
+  (:default-initargs
+   :title "KVDB Browser"))
 
 (defparameter *kv-display* nil)
 
 (defun show-kvdb ()
   (setf *kv-display* (capi:display
                       (make-instance 'kvdb-display)))
+  (refresh-keys))
+
+(defun refresh-keys (&rest args)
+  (declare (ignore args))
   (β (db)
       (send kvdb β :req)
     (let ((keys-panel (list-panel *kv-display*))
@@ -1180,9 +1196,98 @@
 (defun key-to-string (key)
   (with-output-to-string (s)
     (with-standard-io-syntax
-      (let ((*print-readably* nil))
+      (let ((*print-readably* nil)
+            (*package* (find-package :cl)))
         (write key :stream s)))))
 
+(defun delete-key (&rest args)
+  (declare (ignore args))
+  (let* ((keys-pane (list-panel *kv-display*))
+         (item      (capi:choice-selected-item keys-pane)))
+    (with-actors
+      (when (capi:prompt-for-confirmation
+             (format nil "Delete ~S" (key-to-string item)))
+        (β _
+            (send kvdb β :remove item)
+          (refresh-keys))
+        ))))
+
+(capi:define-interface kv-query-intf ()
+  ()
+  (:panes
+   (key-pane capi:text-input-pane
+                :accessor    key-pane
+                :title       "Key"
+                :visible-min-width 300
+                :callback    'define-key)
+   (val-pane capi:text-input-pane
+             :accessor val-pane
+             :title "Value"
+             :visible-min-width 400
+             :callback 'define-val)
+   (ok-but capi:push-button
+           :text "OK"
+           :callback 'make-kv-change)
+   (cancel-but capi:push-button
+               :text "Cancel"
+               :default-p t
+               :cancel-p t
+               :callback 'cancel-kv-change))
+  (:layouts
+   (main-layout capi:column-layout
+                '(text-boxes-layout buttons-layout))
+   (text-boxes-layout capi:row-layout
+                      '(key-pane val-pane))
+   (buttons-layout  capi:row-layout
+                    '(cancel-but nil ok-but)))
+  (:default-initargs
+   :title "Define New Key/Value"))
+
+(defparameter *kv-def-intf* nil)
+
+(defun add/change-key (&rest args)
+  (declare (ignore args))
+  (let* ((keys-pane (list-panel *kv-display*))
+         (item      (capi:choice-selected-item keys-pane)))
+    (β (val)
+        (send kvdb β :find item)
+      (setf *kv-def-intf* (capi:display
+                           (make-instance 'kv-query-intf)))
+      (let ((key-text (key-to-string item))
+            (val-text (key-to-string val)))
+        (capi:execute-with-interface
+         *kv-def-intf*
+         (lambda ()
+           (setf (capi:text-input-pane-text (key-pane *kv-def-intf*)) key-text
+                 (capi:text-input-pane-text (val-pane *kv-def-intf*)) val-text)))
+      ))))
+
+(defun define-key (&rest args)
+  (declare (ignore args))
+  (print (capi:text-input-pane-text (key-pane *kv-def-intf*))))
+
+(defun define-val (&rest args)
+  (declare (ignore args))
+  (print (capi:text-input-pane-text (val-pane *kv-def-intf*))))
+
+(defun cancel-kv-change (&rest args)
+  (declare (ignore args))
+  (capi:destroy *kv-def-intf*))
+
+(defun make-kv-change (&rest args)
+  (declare (ignore args))
+  (let ((key-text (capi:text-input-pane-text (key-pane *kv-def-intf*)))
+        (val-text (capi:text-input-pane-text (val-pane *kv-def-intf*))))
+    (with-actors
+      (let ((key (eval (read-from-string key-text)))
+            (val (eval (read-from-string val-text))))
+        (β _
+            (send kvdb β :add key val)
+          (capi:execute-with-interface *kv-def-intf*
+                                       #'capi:destroy *kv-def-intf*)
+          (refresh-keys))
+        ))))
+        
 #|
 (show-kvdb)
 |#

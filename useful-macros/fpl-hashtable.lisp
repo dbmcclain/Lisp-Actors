@@ -91,7 +91,7 @@
                    htbl)
           (dolist (pair (reverse alst))
             (destructuring-bind (key . val) pair
-              (if (eq val '*+key-removed+)
+              (if (eq val '+key-removed+)
                   (remhash key new-htbl)
                 (setf (gethash key new-htbl) val))
               ))
