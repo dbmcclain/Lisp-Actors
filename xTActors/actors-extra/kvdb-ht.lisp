@@ -747,7 +747,10 @@
                 
           ((cust :req-proxy)
            (send cust (create (local-proxy-for-remote-db-access-beh self))))
-                
+
+          ((cust :db-path)
+           (send cust path))
+          
           ;; ---------------------------------
                 
           ((:maint-full-save)
@@ -890,6 +893,9 @@
     ;; Nothing to do here, already fully committed. User should have
     ;; performed a :REQ first.
     (send cust self))
+
+   ((_ :db-path)
+    (repeat-send kvdb))
    ))
 
 (defun local-updateable-proxy-for-remote-db-access-beh (kvdb orig-map upd-map)
@@ -954,6 +960,9 @@
                                 (send retry me)))))
       (become (local-proxy-for-remote-db-access-beh kvdb))
       (send kvdb `(,committed . ,lcl-retry) :commit orig-map upd-map)))
+
+   ((_ :db-path)
+    (repeat-send kvdb))
    ))
 
 (defun local-excl-proxy-for-remote-db-access-beh (kvdb orig-map upd-map owner)
@@ -1018,6 +1027,9 @@
           (send kvdb `(,β . ,owner) :commit orig-map upd-map)
         (send cust me)
       )))
+
+   ((_ :db-path)
+    (repeat-send kvdb))
    ))
 
 ;; -----------------------------------------------------
@@ -1106,7 +1118,7 @@
 ;; ---------------------------------------------------------
 
 (capi:define-interface kvdb-display ()
-  ()
+  ((db-pathname :reader kv-db-pathname :initarg :path))
   (:panes
    (search-pane capi:text-input-pane
                 :accessor    search-pane
@@ -1121,6 +1133,7 @@
               :callback-type      :item-element
               :drop-callback      'dropme
               :title              "KVDB Key"
+              :title-args '(:foreground :skyblue)
               :print-function     'key-to-string)
    (refr-but capi:push-button
              :text "Refresh"
@@ -1132,26 +1145,38 @@
             :text "Add/Change"
             :callback 'add/change-key)
    (value-display capi:editor-pane
+                  :title "KVDB Value"
+                  :title-args '(:foreground :skyblue)
                   :accessor value-panel
                   :text ""
                   :buffer-name :temp
                   :visible-min-width 400
-                  :visible-min-height 300))
+                  :visible-min-height 300)
+   (db-path-pane capi:title-pane
+                 :text db-pathname
+                 :foreground :seagreen))
                   
   (:layouts
-   (main-layout capi:row-layout
+   (main-layout capi:column-layout
+                '(path-layout :separator central-layout))
+   (path-layout capi:row-layout
+                '(nil db-path-pane nil))
+   (central-layout capi:row-layout
                 '(keys-layout value-display))
    (keys-layout capi:column-layout
-                '(search-pane keys-list but-layout))
+                '(#|search-pane|# keys-list but-layout))
    (but-layout capi:row-layout
                '(refr-but del-but add-but)))
   (:default-initargs
    :title "KVDB Browser"))
 
 (defun show-kvdb ()
-  (let ((intf (capi:display
-               (make-instance 'kvdb-display))))
-    (refresh-keys nil intf)))
+  (β (path)
+      (send kvdb β :db-path)
+    (let ((intf (capi:display
+                 (make-instance 'kvdb-display
+                                :path (namestring path)))))
+      (refresh-keys nil intf))))
 
 (defun refresh-keys (xxx intf)
   (declare (ignore xxx))
@@ -1278,25 +1303,6 @@
   (declare (ignore intf))
   (eval (read-from-string txt)))
 
-#|
-(defun cancel-kv-change (&rest args)
-  (declare (ignore args))
-  (capi:destroy *kv-def-intf*))
-
-(defun make-kv-change (&rest args)
-  (declare (ignore args))
-  (let ((key-text (capi:text-input-pane-text (key-pane *kv-def-intf*)))
-        (val-text (capi:text-input-pane-text (val-pane *kv-def-intf*))))
-    (with-actors
-      (let ((key (eval (read-from-string key-text)))
-            (val (eval (read-from-string val-text))))
-        (β _
-            (send kvdb β :add key val)
-          (capi:execute-with-interface *kv-def-intf*
-                                       #'capi:destroy *kv-def-intf*)
-          (refresh-keys))
-        ))))
-|#        
 #|
 (show-kvdb)
 |#
