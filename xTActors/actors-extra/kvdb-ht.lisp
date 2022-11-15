@@ -1148,46 +1148,46 @@
   (:default-initargs
    :title "KVDB Browser"))
 
-(defparameter *kv-display* nil)
-
 (defun show-kvdb ()
-  (setf *kv-display* (capi:display
-                      (make-instance 'kvdb-display)))
-  (refresh-keys))
+  (let ((intf (capi:display
+               (make-instance 'kvdb-display))))
+    (refresh-keys nil intf)))
 
-(defun refresh-keys (&rest args)
-  (declare (ignore args))
+(defun refresh-keys (xxx intf)
+  (declare (ignore xxx))
   (β (db)
       (send kvdb β :req)
-    (let ((keys-panel (list-panel *kv-display*))
-          keys)
+    (let (keys)
       (db-map db
               (lambda (k v)
                 (declare (ignore v))
                 (push k keys)))
       (setf keys (sort keys #'string< :key #'key-to-string))
-      (capi:execute-with-interface *kv-display*
-                                   (lambda ()
-                                     (setf (capi:list-panel-unfiltered-items keys-panel)  keys
-                                           (capi:choice-selected-item keys-panel)         (first keys))
-                                     (click-show-value (first keys) nil)
-                                     ))
+      (capi:execute-with-interface
+       intf
+       (lambda ()
+         (let ((keys-panel (list-panel intf)))
+           (setf (capi:list-panel-unfiltered-items keys-panel)  keys
+                 (capi:choice-selected-item keys-panel)         (first keys))
+           (click-show-value (first keys) keys-panel)
+           )))
       )))
 
 (defun dropme (&rest args)
   (declare (ignore args))
   )
 
-(defun click-show-value (item element)
-  (declare (ignore element))
+(defun click-show-value (item pane)
   (β (val)
       (send kvdb β :find item)
-    (let ((ed-pane (value-panel *kv-display*)))
-      (capi:execute-with-interface *kv-display*
-                                   (lambda ()
-                                     (setf (capi:editor-pane-text ed-pane) (key-to-string val))
-                                     (capi:call-editor ed-pane "End of Buffer"))
-                                   ))))
+    (capi:apply-in-pane-process
+     pane
+     (lambda ()                           
+       (let* ((intf    (capi:element-interface pane))
+              (ed-pane (value-panel intf)))
+         (setf (capi:editor-pane-text ed-pane) (key-to-string val))
+         (capi:call-editor ed-pane "End of Buffer")))
+     )))
 
 (defun search-keys (text intf)
   (declare (ignore intf))
@@ -1196,80 +1196,89 @@
 (defun key-to-string (key)
   (with-output-to-string (s)
     (with-standard-io-syntax
-      (let ((*print-readably* nil)
+      (let ((*print-readably* t) ;; nil)
             (*package* (find-package :cl)))
-        (write key :stream s)))))
+        (cond ((keywordp key)
+               (write key :stream s))
+              ((symbolp key)
+               (format s "'~S" key))
+              (t
+               (write key :stream s))
+              ))
+      )))
 
-(defun delete-key (&rest args)
-  (declare (ignore args))
-  (let* ((keys-pane (list-panel *kv-display*))
+(defun delete-key (xxx intf)
+  (declare (ignore xxx))
+  (let* ((keys-pane (list-panel intf))
          (item      (capi:choice-selected-item keys-pane)))
     (with-actors
       (when (capi:prompt-for-confirmation
              (format nil "Delete ~S" (key-to-string item)))
         (β _
             (send kvdb β :remove item)
-          (refresh-keys))
+          (capi:execute-with-interface intf #'refresh-keys nil intf))
         ))))
 
 (capi:define-interface kv-query-intf ()
-  ()
+  ((key-text :initarg :key-text)
+   (val-text :initarg :val-text))
   (:panes
    (key-pane capi:text-input-pane
-                :accessor    key-pane
-                :title       "Key"
+                :accessor          key-pane
+                :title             "Key"
+                :text              key-text
                 :visible-min-width 300
-                :callback    'define-key)
+                ;; :callback          'check-valid-lisp
+                )
    (val-pane capi:text-input-pane
-             :accessor val-pane
-             :title "Value"
+             :accessor          val-pane
+             :title             "Value"
+             :text              val-text
              :visible-min-width 400
-             :callback 'define-val)
-   (ok-but capi:push-button
-           :text "OK"
-           :callback 'make-kv-change)
-   (cancel-but capi:push-button
-               :text "Cancel"
-               :default-p t
-               :cancel-p t
-               :callback 'cancel-kv-change))
+             ;; :callback          'check-valid-lisp
+             ))
   (:layouts
-   (main-layout capi:column-layout
-                '(text-boxes-layout buttons-layout))
-   (text-boxes-layout capi:row-layout
-                      '(key-pane val-pane))
-   (buttons-layout  capi:row-layout
-                    '(cancel-but nil ok-but)))
-  (:default-initargs
-   :title "Define New Key/Value"))
+   (main-layout capi:row-layout
+                '(key-pane val-pane))) )
 
-(defparameter *kv-def-intf* nil)
-
-(defun add/change-key (&rest args)
-  (declare (ignore args))
-  (let* ((keys-pane (list-panel *kv-display*))
+(defun add/change-key (xxx intf)
+  (declare (ignore xxx))
+  (let* ((keys-pane (list-panel intf))
          (item      (capi:choice-selected-item keys-pane)))
     (β (val)
         (send kvdb β :find item)
-      (setf *kv-def-intf* (capi:display
-                           (make-instance 'kv-query-intf)))
-      (let ((key-text (key-to-string item))
-            (val-text (key-to-string val)))
+      (let* ((key-text (key-to-string item))
+             (val-text (key-to-string val))
+             (dlg      (make-instance 'kv-query-intf
+                                      :key-text key-text
+                                      :val-text val-text)))
         (capi:execute-with-interface
-         *kv-def-intf*
+         intf
          (lambda ()
-           (setf (capi:text-input-pane-text (key-pane *kv-def-intf*)) key-text
-                 (capi:text-input-pane-text (val-pane *kv-def-intf*)) val-text)))
-      ))))
+           (multiple-value-bind (result successp)
+               (capi:popup-confirmer dlg "Add/Change a KVDB Entry"
+                                     :value-function 'grab-values
+                                     :owner intf)
+             (when successp
+               (with-actors
+                 (β _
+                     (send kvdb β :add (car result) (cadr result))
+                   (capi:execute-with-interface intf #'refresh-keys nil intf))
+                 ))
+             )))
+        ))))
 
-(defun define-key (&rest args)
-  (declare (ignore args))
-  (print (capi:text-input-pane-text (key-pane *kv-def-intf*))))
+(defun grab-values (pane)
+  (ignore-errors
+    (list
+     (eval (read-from-string (capi:text-input-pane-text (key-pane pane))))
+     (eval (read-from-string (capi:text-input-pane-text (val-pane pane)))))))
 
-(defun define-val (&rest args)
-  (declare (ignore args))
-  (print (capi:text-input-pane-text (val-pane *kv-def-intf*))))
+(defun check-valid-lisp (txt intf)
+  (declare (ignore intf))
+  (eval (read-from-string txt)))
 
+#|
 (defun cancel-kv-change (&rest args)
   (declare (ignore args))
   (capi:destroy *kv-def-intf*))
@@ -1287,7 +1296,7 @@
                                        #'capi:destroy *kv-def-intf*)
           (refresh-keys))
         ))))
-        
+|#        
 #|
 (show-kvdb)
 |#
