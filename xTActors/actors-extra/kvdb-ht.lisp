@@ -1132,17 +1132,21 @@
               :selection-callback 'click-show-value
               :callback-type      :item-element
               :drop-callback      'dropme
+              :foreground         :yellow
               :title              "KVDB Key"
               :title-args '(:foreground :skyblue)
               :print-function     'key-to-string)
    (refr-but capi:push-button
              :text "Refresh"
+             :foreground :skyblue
              :callback 'refresh-keys)
    (del-but capi:push-button
             :text "Delete"
+             :foreground :skyblue
             :callback 'delete-key)
    (add-but capi:push-button
             :text "Add/Change"
+             :foreground :skyblue
             :callback 'add/change-key)
    (value-display capi:editor-pane
                   :title "KVDB Value"
@@ -1150,6 +1154,7 @@
                   :accessor value-panel
                   :text ""
                   :buffer-name :temp
+                  :foreground  :yellow
                   :visible-min-width 400
                   :visible-min-height 300)
    (db-path-pane capi:title-pane
