@@ -55,7 +55,6 @@
  (#:pbc           #:com.ral.crypto.pbc-interface)
  (#:core-crypto   #:com.ral.crypto.core-crypto)
  (#:kvdb          #:com.ral.actors.kvdb)
- (#:kvdb-ht       #:com.ral.actors.kvdb-ht)
  (#:fplht         #:com.ral.useful-macros.fpl-hashtable)
  )
 
