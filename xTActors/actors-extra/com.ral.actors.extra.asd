@@ -1,3 +1,8 @@
+
+;; Select one or the other...
+(pushnew :KVDB-USE-FPLHT *features*) ;; using FPL Hashtables
+;; (pushnew :KVDB-USE-MAPS *features*)  ;; using FPL RB-Trees
+
 (asdf:defsystem "com.ral.actors.extra"
   :description "Everything is an Actor..."
   :version     "3.0"

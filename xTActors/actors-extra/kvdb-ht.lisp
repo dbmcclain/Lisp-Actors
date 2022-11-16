@@ -228,24 +228,66 @@
   (let ((normkey (normalize-key key)))
     (assert (eq normkey (normalize-key normkey)))))
 
-(defun db-new ()
-  ;; preserves case matching among string keys
-  (fplht:make-fpl-hashtable :test 'equal :single-thread t))
+#+:KVDB-USE-FPLHT
+(progn
+  (defun db-new ()
+    ;; preserves case matching among string keys
+    (fplht:make-fpl-hashtable :test 'equal :single-thread t))
+  
+  (defun db-find (tbl key &optional default)
+    (fplht:fpl-gethash tbl (normalize-key key) default))
+  
+  (defun db-add (tbl key val)
+    (fplht:fpl-sethash tbl (normalize-key key) val))
+  
+  (defun db-find-or-add (tbl key val)
+    (fplht:fpl-gethash-or-add tbl (normalize-key key) val))
+  
+  (defun db-remove (tbl key)
+    (fplht:fpl-remhash tbl (normalize-key key)))
+  
+  (defun db-map (tbl fn)
+    (fplht:fpl-maphash tbl fn))
+  
+  (defun db-get-keys (tbl)
+    (fplht:fpl-get-keys tbl))
+  
+  (defun db-rebuild (tbl)
+    (fplht:rebuild-fpl-hashtable tbl)))
 
-(defun db-find (tbl key &optional default)
-  (fplht:fpl-gethash tbl (normalize-key key) default))
-
-(defun db-add (tbl key val)
-  (fplht:fpl-sethash tbl (normalize-key key) val))
-
-(defun db-find-or-add (tbl key val)
-  (fplht:fpl-gethash-or-add tbl (normalize-key key) val))
-
-(defun db-remove (tbl key)
-  (fplht:fpl-remhash tbl (normalize-key key)))
-
-(defun db-map (tbl fn)
-  (fplht:fpl-maphash tbl fn))
+#+:KVDB-USE-MAPS
+(progn
+  (defun db-new ()
+    ;; preserves case matching among string keys
+    (maps:empty))
+  
+  (defun db-find (tbl key &optional default)
+    (maps:find tbl (normalize-key key) default))
+  
+  (defun db-add (tbl key val)
+    (maps:add tbl (normalize-key key) val))
+  
+  (defun db-find-or-add (tbl key val)
+    (let* ((nkey  (normalize-key key))
+           (exist (maps:find tbl nkey tbl)))
+      (if (eq exist tbl)
+          (values val (maps:add tbl nkey val))
+        (values exist tbl))))
+  
+  (defun db-remove (tbl key)
+    (maps:remove tbl (normalize-key key)))
+  
+  (defun db-map (tbl fn)
+    (maps:map tbl fn))
+  
+  (defun db-get-keys (tbl)
+    (maps:fold tbl (lambda (k v accu)
+                     (declare (ignore v))
+                     (cons k accu))
+               nil))
+  
+  (defun db-rebuild (tbl)
+    tbl))
 
 ;; ----------------------------------------------------------------
 
@@ -297,7 +339,7 @@
              ))
 
       (('maint-full-save)
-       (let ((new-db (fplht:rebuild-fpl-hashtable db)))
+       (let ((new-db (db-rebuild db)))
          (become (trans-gate-beh saver new-db))
          (send saver sink :full-save new-db)))
 
@@ -610,7 +652,7 @@
 (defun full-save (db-path db)
   (send fmt-println "Saving full KVDB: ~S" db-path)
   (ensure-directories-exist db-path)
-  (let ((sav-db (fplht:rebuild-fpl-hashtable db)))
+  (let ((sav-db (db-rebuild db)))
     (with-open-file (f db-path
                        :direction :output
                        :if-does-not-exist :create
@@ -624,9 +666,9 @@
     sav-db))
 
 (defun get-diffs (old-db new-db)
-  (let* ((new-wrk   (fplht:rebuild-fpl-hashtable new-db))
-         (old-keys  (fplht:fpl-get-keys old-db))
-         (new-keys  (fplht:fpl-get-keys new-wrk))
+  (let* ((new-wrk   (db-rebuild new-db))
+         (old-keys  (db-get-keys old-db))
+         (new-keys  (db-get-keys new-wrk))
          (removals  (set-difference old-keys new-keys :test #'equal))
          (additions (mapcan #'identity
                             (mapcar (lambda (k)
