@@ -422,12 +422,13 @@ recycling that buffer for another use later. This is an attempt to avoid generat
 
 ;; -----------------------------------------------------------------------------
 
-(defmethod ord:compare :around (a b)
+(defmethod ord:compare (a b)
   ;; This provides an ordering for all serializable objects.
-  (handler-case
-      (call-next-method (loenc:encode a) (loenc:encode b))
-    (error ()
-      (call-next-method))
-    ))
-
+  (let ((c (ord:compare (type-of a) (type-of b))))
+    (if (zerop c)
+        (ord:compare (loenc:encode a
+                                   :max-portability t)
+                     (loenc:encode b
+                                   :max-portability t))
+      c)))
 

@@ -219,9 +219,7 @@
   (:method ((key symbol))
    key)
   (:method ((key pathname))
-   (namestring key))
-  (:method ((key hash:hash))
-   (vec-repr:str (vec-repr:base64 (hash:hash-bytes key)))) )
+   (namestring key)))
 
 (defun test-normalize-key (key)
   ;; Check that NORMALIZE-KEY is idempotent.
@@ -1134,10 +1132,17 @@
 
 (β (db)
     (send kvdb β :req)
-  (let ((x (maps:empty)))
+  (let ((x (maps:empty))
+        y)
     (db-map db (lambda (k v)
+                 (push (list k v) y)
+                 #|
+                 (when (eql k :cat)
+                   (break))
+                 |#
                  (maps:addf x k v)))
-    (sets:view-set x)))
+    (sets:view-set x)
+    (send writeln (reverse y))))
 
 (send kvdb :maint-full-save)
 
@@ -1235,15 +1240,15 @@
    (refr-but      capi:push-button
                   :text               "Refresh"
                   :foreground         :skyblue
-                  :callback           'refresh-keys)
+                  :callback           'click-refresh-keys)
    (del-but       capi:push-button
                   :text               "Delete"
                   :foreground         :skyblue
-                  :callback           'delete-key)
+                  :callback           'click-delete-key)
    (add-but       capi:push-button
                   :text               "Add/Change"
                   :foreground         :skyblue
-                  :callback           'add/change-key))
+                  :callback           'click-add/change-key))
   (:layouts
    (main-layout capi:column-layout
                 '(path-layout :separator central-layout))
@@ -1357,7 +1362,11 @@
   (print text))
 |#
 
-(defun delete-key (xxx intf)
+(defun click-refresh-keys (xxx intf)
+  (declare (ignore xxx))
+  (refresh-select-and-show-first-item intf))
+
+(defun click-delete-key (xxx intf)
   ;; CAPI Callback function - on entry we are running in CAPI thread.
   (declare (ignore xxx))
   (let* ((keys-pane (keys-panel intf))
@@ -1400,7 +1409,7 @@
      (read-from-string (capi:text-input-pane-text (key-pane pane)))
      (read-from-string (capi:text-input-pane-text (val-pane pane))))))
 
-(defun add/change-key (xxx intf)
+(defun click-add/change-key (xxx intf)
   ;; CAPI Callback function - on entry we are running in CAPI thread.
   (declare (ignore xxx))
   (let* ((keys-pane (keys-panel intf))

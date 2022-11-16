@@ -47,6 +47,11 @@ THE SOFTWARE.
   ;; allows us to perform (set:diff map set) to remove keys
   (ord:compare (map-cell-key a) b))
 
+#|
+(let ((x  (map-cell :cat "dog"))
+      (v  (map-cell "dave" "chara")))
+  (ord:compare x v))
+ |#
 ;; ----------------------------------------------
 
 (defmethod different-value ((a map-cell) (b map-cell))
