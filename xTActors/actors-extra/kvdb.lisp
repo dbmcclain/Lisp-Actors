@@ -1085,6 +1085,31 @@
 
 (deflex kvdb (lazy-fwd kvdb-maker :make-kvdb *db-path*))
 
+;; -----------------------------------------------------
+;; more goofing around...
+;;
+;; These won't become permanent until/unless :maint-full-save
+
+(defun become-fplht ()
+  (β (db)
+      (send kvdb β :req)
+    (let ((dbnew (fplht:make-fpl-hashtable :test 'equal :single-threaded t)))
+      (db-map db (lambda (k v)
+                   (db-add dbnew k v)))
+      (send kvdb `(,writeln . ,self) :commit db dbnew))))
+
+(defun become-maps ()
+  (β (db)
+      (send kvdb β :req)
+    (let ((dbnew (maps:empty)))
+      (db-map db (lambda (k v)
+                   (maps:addf dbnew k v)))
+      (send kvdb `(,writeln . ,self) :commit db dbnew))))
+
+#|
+(become-fplht)
+(become-maps)
+|#
 ;; -----------------------------------------------------------
 #|
 (ask kvdb :find :dave)
@@ -1129,6 +1154,11 @@
 (let ((x1 (ask kvdb :find :tst1))
       (x2 (ask kvdb :find :tst2)))
   (send println (list x1 x2 (eq x1 x2))))
+
+(let (x)
+  (β (db)
+      (send kvdb β :req)
+    (send writeln (list x db β (eq β self)))))
 
 (β (db)
     (send kvdb β :req)

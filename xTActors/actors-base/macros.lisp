@@ -154,7 +154,8 @@
              ;; this beta redef lasts only for the next form
              ,form))
       ;; else
-      `(let ((beta (create (lambda* ,args ,@body))))
+      `(let ((beta (create)))
+         (set-beh beta (lambda* ,args ,@body))
          ,form)
       )))
 
@@ -222,8 +223,9 @@
 
 (µ β (args form &body body)
   ;; β is to beta
-  `(let ((β  (create (lambda* ,args
-                       ,@body))))
+  `(let ((β  (create)))
+     (set-beh β (lambda* ,args
+                  ,@body))
      ,form))
 
 #+:LISPWORKS
