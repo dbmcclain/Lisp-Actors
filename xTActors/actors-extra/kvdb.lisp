@@ -1090,21 +1090,18 @@
 ;;
 ;; These won't become permanent until/unless :maint-full-save
 
-(defun become-fplht ()
+(defun convert-db (new-db)
   (β (db)
       (send kvdb β :req)
-    (let ((dbnew (fplht:make-fpl-hashtable :test 'equal :single-thread t)))
-      (db-map db (lambda (k v)
-                   (setf dbnew (db-add dbnew k v))))
-      (send kvdb `(,writeln . ,self) :commit db dbnew))))
+    (db-map db (lambda (k v)
+                 (setf new-db (db-add new-db k v))))
+    (send kvdb `(,writeln . ,self) :commit db new-db)))
+            
+(defun become-fplht ()
+  (convert-db (fplht:make-fpl-hashtable :test 'equal :single-thread t)))
 
 (defun become-maps ()
-  (β (db)
-      (send kvdb β :req)
-    (let ((dbnew (maps:empty)))
-      (db-map db (lambda (k v)
-                   (setf dbnew (db-add dbnew k v))))
-      (send kvdb `(,writeln . ,self) :commit db dbnew))))
+  (convert-db (maps:empty)))
 
 #|
 (become-fplht)
