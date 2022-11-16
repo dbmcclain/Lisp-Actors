@@ -59,7 +59,6 @@
            (eval `(gen-chk-sig ,sym))
            ))))
 |#
-#||#
 
 (with-ed-curve :curve1174
   (dolist (sig
@@ -137,6 +136,3 @@
                 195961487675684930235628293478716013455218172168674655976564529825408459386.
                 #.(make-instance 'HASH:HASH/256 :val (bev-vec (hex "4767C632BA1B964164F73F7927DAE55A3A51C09185988050C69683C37010D83F"))))))
       (verify-chk-sig sig))))
-  
-
-#||#

@@ -27,37 +27,9 @@ THE SOFTWARE.
 
 (in-package :cl-user)
 
-(defpackage #:com.ral.rb-trees.fwds
-  (:use #:common-lisp)
-  (:export
-   #:compare
-   ))
-
-(defpackage #:com.ral.orderable
-  (:use #:common-lisp)
-  (:import-from #:com.ral.rb-trees.fwds
-   #:compare)
-  #+nil
-  (:local-nicknames
-   (#:ord        #:com.ral.rb-trees.fwds)
-   (#:mpcompat   #:com.ral.mpcompat))
-  (:export
-   #:<orderable-mixin>
-   #:order-id
-   ))
-
 (defpackage #:com.ral.ord
   (:use #:common-lisp)
-  #+nil
-  (:local-nicknames
-   (#:um   #:com.ral.useful-macros)
-   (#:uuid #:com.ral.uuid))
   (:shadow #:equal)
-  (:import-from #:orderable ;; #:com.ral.orderable
-   #:<orderable-mixin>
-   #:order-id)
-  (:import-from #:com.ral.rb-trees.fwds
-   #:compare)
   (:export
    #:compare
    #:compare<
@@ -67,6 +39,8 @@ THE SOFTWARE.
    #:compare>
    #:minval
    #:maxval
+   #:ci-char
+   #:ci-string
    #:make-ci-char
    #:make-ci-string
    #:equal
@@ -74,13 +48,17 @@ THE SOFTWARE.
    #:greater
    ))
 
+(defpackage #:com.ral.orderable
+  (:use #:common-lisp)
+  (:import-from #:com.ral.ord
+   #:compare)
+  (:export
+   #:<orderable-mixin>
+   #:order-id
+   ))
+
 (defpackage #:com.ral.rb-trees.sets
   (:use #:common-lisp)
-  #+nil
-  (:local-nicknames
-   (#:ord   #:com.ral.ord)
-   (#:sets  #:com.ral.rb-trees.sets)
-   (#:um    #:com.ral.useful-macros))
   (:shadow #:remove #:union #:intersection #:every #:some)
   #+:LISPWORKS
   (:import-from #:lw
@@ -144,14 +122,8 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.rb-trees.maps
   (:use #:common-lisp)
-  #+nil
-  (:local-nicknames
-   (#:ord   #:com.ral.ord)
-   (#:sets  #:com.ral.rb-trees.sets)
-   (#:maps  #:com.ral.rb-trees.maps)
-   (#:um    #:com.ral.useful-macros))
   (:shadow #:find #:map)
-  (:import-from #:ord ;; #:com.ral.rb-trees.fwds
+  (:import-from #:ord ;; #:com.ral.ord
    #:compare)
   (:import-from #:sets ;; #:com.ral.rb-trees.sets
    #:tree

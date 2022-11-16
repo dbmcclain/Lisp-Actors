@@ -53,9 +53,9 @@ popd
 (load-logical-pathname-translations "PROJECTS")
 (cd (translate-logical-pathname "PROJECTS:LISP;"))
 ;; (cd #P"~/projects/Lispworks/")
-(compile-file-if-needed "project-packages"   :load t)
-(load "project-mappings")
-(load "_my_bare-startup")
+(compile-file-if-needed "startup/project-packages-lw"   :load t)
+(load "startup/project-mappings")
+(load "startup/_my_bare-startup")
 (pushnew :ACTORS *features*)
 
 #|
@@ -114,7 +114,8 @@ popd
             :signature  "ACUD"
             :identifier "com.ral.aont"
             :application-icns (merge-pathnames "calculator.icns" this-dir)
-            :document-types nil))
+            :document-types nil
+            ))
 
 	 #+:WIN32 "Tolstoy-AONT.exe"
          
@@ -156,5 +157,6 @@ popd
 	 ;; :packages-to-keep :all
 
          :startup-bitmap-file nil
+         :split :resources
          )
 (quit)
