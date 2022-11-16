@@ -174,6 +174,7 @@ THE SOFTWARE.
    #:union
    #:intersection)
   (:export
+   #:tree
    #:make-shared-map
    #:make-unshared-map
    #:copy

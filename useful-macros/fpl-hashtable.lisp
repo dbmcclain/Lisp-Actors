@@ -9,6 +9,7 @@
 (defpackage #:com.ral.useful-macros.fpl-hashtable
   (:use #:common-lisp)
   (:export
+   #:fpl-hashtable
    #:make-fpl-hashtable
    #:fpl-gethash
    #:fpl-sethash

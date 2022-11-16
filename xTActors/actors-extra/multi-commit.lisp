@@ -4,7 +4,7 @@
 ;; ----------------------------------
 
 (defpackage #:com.ral.actors.multi-commit
-  (:use #:common-lisp #:ac #:kvdb-ht)
+  (:use #:common-lisp #:ac #:kvdb)
   (:export
    #:multi-commit
    ))
@@ -37,7 +37,7 @@
   ;; kvdb Actor in the sorted access list.
   (let* ((grps (um:group kvdbs 2))
          (svcs (mapcar (lambda (pair)
-                         (service (cadr pair) :find-or-add 'kvdb-ht::kvdb-sequence (uuid:make-v1-uuid)))
+                         (service (cadr pair) :find-or-add 'kvdb::kvdb-sequence (uuid:make-v1-uuid)))
                        grps)))
     (β ids
         (send (apply #'fork svcs) β)

@@ -1,30 +1,54 @@
-;; kvdb.lisp -- transactional Key-Value database processing in Actors
-;; Based on FPL Red-Black Trees
+;; kvdb-ht.lisp -- transactional Key-Value database processing in Actors
+;;
+;; Based on FPL Hashtables. This version just might be faster than
+;; using RB-Trees, since we no longer have the overhead requirement of
+;; key orderability with ORD. But we do have key normalization, and as
+;; a result, all keys would be orderable.
 ;;
 ;; DM/RAL 12/21
 ;; ----------------------------------------------------------------------
 
-(defpackage com.ral.actors.kvdb
-  (:use #:cl :com.ral.actors)
+(defpackage #:com.ral.actors.kvdb
+  (:use #:cl #:com.ral.actors)
   (:export
    #:kvdb
    #:kvdb-maker
   ))
    
-(in-package com.ral.actors.kvdb)
+(in-package #:com.ral.actors.kvdb)
 
 ;; ----------------------------------------------------------------------
-;; Using an FPL-pure RB-tree as the database. Hence the database
+;; Using an FPL-pure Hashtable as the database. Hence the database
 ;; serves as its own transaction ID. Lock-free design.
 ;;
 ;; You can save anything you like in the KV database. But if it can't
-;; be persisted then it won't be faithfully saved in the backing
-;; store, and won't be restored in future sessions.
+;; be liberally persisted then it won't be faithfully saved in the
+;; backing store, and won't be properly restored in future sessions.
 ;;
-;; Keys can be anything that has an order relation defined in ORD.
+;; [ Liberal Persistence - when an object is encountered that can't be
+;; usefully persisted, a substitution is made using a proxy object, to
+;; allow the dataset as a whole to be persisted. However, on
+;; read-back, those proxy items will likely fail your needs. ]
+;;
+;; Keys can be anything that can be (strictly) persisted. No
+;; requirements on key orderability here. Just need an EQUAL test
+;; between normalized keys. Key normalization is idempotent.
+;;
+;; [ Non-Liberal or Strict Persistence - unnamed compiled functions,
+;; functional closures, and some system level objects, as well as data
+;; structures that contain them, cannot be persisted.  Other, pure
+;; Lisp data structures can be persisted.
+;;
+;; So this excludes open streams, Actors, and many other low-level
+;; things.  Liberal Persistence substitutes proxy objects in their
+;; place.  Non-liberal Persistence throws an error.
+;;
+;; By special arrangement, Actors can be ferried across a network
+;; connection using substitution by special proxy Actor designators.
+;; But they cannot be persisted to disk.]
 ;;
 ;; If two persistable items are EQ when added to the KV database, they
-;; remain EQ in future sessions.
+;; are restored to EQ in future sessions.
 ;;
 ;; ----------------------------------------------------------------------
 ;; Notes about Concurrent (Parallel and Single-Threaded) Execution...
@@ -117,8 +141,8 @@
 ;; SMP parallel concurrency.
 ;;
 ;; Reading the database is always permitted. Commits of mutated
-;; database trees will succeed only if nothing has changed in the
-;; database during the time between when the database tree was first
+;; database tables will succeed only if nothing has changed in the
+;; database during the time between when the database table was first
 ;; accessed and when a commit of a mutated version is performed. If
 ;; something has changed, then your retry Actor is called with a
 ;; correct fresh copy of the database.
@@ -130,10 +154,10 @@
 ;; most recent update. The timer restarts on every new update, to
 ;; allow for a cascade of updates before actually saving the image.
 ;;
-;; The database is actually a read-only FPL Red-Black Tree. On the
-;; local machine it is easy to pass around a copy of the actual
-;; database tree. But for remote access, this could become a large
-;; data structure over time, and we need to avoid gratuitous message
+;; The database is actually a read-only FPL Hashtable. On the local
+;; machine it is easy to pass around a copy of the actual database
+;; table. But for remote access, this could become a large data
+;; structure over time, and we need to avoid gratuitous message
 ;; traffic on the network.
 ;;
 ;; [ Since you are running Lisp, you have the ability to destructively
@@ -144,14 +168,14 @@
 ;;
 ;; For remote access, once you have a handle to the remote KVDB Actor,
 ;; you should immediately request a Proxy Actor which will prevent
-;; unnecessary transmissions of entire trees over the network.  The
+;; unnecessary transmissions of entire tables over the network.  The
 ;; Proxy Actor will perform queries and mutations on your behalf, on
 ;; the host machine of the database, sending you only the information
 ;; you seek.
 ;;
 ;; To support coordinated updates among multiple databases, you can
 ;; request exclusive commit access. Doing this returns a fresh copy of
-;; the database tree to you (or your Proxy) and causes the database
+;; the database table to you (or your Proxy) and causes the database
 ;; manager to enter a mode that acts like a kind of SERIALIZER.
 ;;
 ;; During the time that you hold exclusive commit permission, all
@@ -171,40 +195,105 @@
 ;; avoiding excessive network transmissions.
 ;; ----------------------------------------------------------------------
 
-#|
-(defclass kv-map (maps:tree)
-  ())
+(defgeneric normalize-key (key)
+  ;; Needs to be idempotent:
+  ;;   (let ((norm-key (normalize-key key)))
+  ;;     (assert (eq norm-key (normalize-key norm-key))))
+  (:method (key)
+   (normalize-key
+    (loenc:encode key
+                  :max-portability t)))
+  (:method ((key uuid:uuid))
+   (uuid:uuid-string key))
+  (:method ((key vector))
+   (if (typep key 'vec-repr:ub8-vector)
+       ;; these typically come from loenc:encode
+       (vec-repr:str (vec-repr:base64 key))
+     (call-next-method)))
+  (:method ((key character))
+   key)
+  (:method ((key string))
+   key)
+  (:method ((key number))
+   key)
+  (:method ((key symbol))
+   key)
+  (:method ((key pathname))
+   (namestring key))
+  (:method ((key hash:hash))
+   (vec-repr:str (vec-repr:base64 (hash:hash-bytes key)))) )
 
-(defun normalize-key (key)
-  (loenc:encode key))
+(defun test-normalize-key (key)
+  ;; Check that NORMALIZE-KEY is idempotent.
+  (let ((normkey (normalize-key key)))
+    (assert (eq normkey (normalize-key normkey)))))
 
-(defun unnormalize-key (keyv)
-  (loenc:decode keyv))
+;; -------------------
 
-(defmethod maps:find ((map kv-map) key &optional default)
-  (call-next-method map (normalize-key key) default))
+#+:KVDB-USE-FPLHT
+(defun db-new ()
+  ;; preserves case matching among string keys
+  (fplht:make-fpl-hashtable :test 'equal :single-thread t))
 
-(defmethod maps:add ((map kv-map) key val &key (replace t))
-  (change-class (call-next-method map (normalize-key key) val :replace replace)
-                'kv-map))
+#+:KVDB-USE-MAPS
+(defun db-new ()
+  (maps:empty))
 
-(defmethod maps:remove ((map kv-map) key)
-  (change-class (call-next-method map (normalize-key key)) 'kv-map))
+;; -------------------
+;; One version for us...
 
-(defmethod maps:iter ((map kv-map) fn)
-  (call-next-method map (lambda (k v)
-                          (funcall fn (unnormalize-key k) v))))
+(defmethod db-find ((tbl fplht:fpl-hashtable) key &optional default)
+  (fplht:fpl-gethash tbl (normalize-key key) default))
 
-(defmethod maps:fold ((map kv-map) fn accu)
-  (call-next-method map (lambda (k v accu)
-                          (funcall fn (unnormalize-key k) accu))
-                    accu))
+(defmethod db-add ((tbl fplht:fpl-hashtable) key val)
+  (fplht:fpl-sethash tbl (normalize-key key) val))
 
-(defmethod maps:mapi ((map kv-map) fn)
-  (change-class (call-next-method map (lambda (k v)
-                                        (funcall fn (unnormalize-key k) v)))
-                'kv-map))
-|#
+(defmethod db-find-or-add ((tbl fplht:fpl-hashtable) key val)
+  (fplht:fpl-gethash-or-add tbl (normalize-key key) val))
+
+(defmethod db-remove ((tbl fplht:fpl-hashtable) key)
+  (fplht:fpl-remhash tbl (normalize-key key)))
+
+(defmethod db-map ((tbl fplht:fpl-hashtable) fn)
+  (fplht:fpl-maphash tbl fn))
+
+(defmethod db-get-keys ((tbl fplht:fpl-hashtable))
+  (fplht:fpl-get-keys tbl))
+  
+(defmethod db-rebuild ((tbl fplht:fpl-hashtable))
+  (fplht:rebuild-fpl-hashtable tbl))
+
+;; -------------------
+;; ... and one version for them...
+
+(defmethod db-find ((tbl maps:tree) key &optional default)
+  (maps:find tbl (normalize-key key) default))
+
+(defmethod db-add ((tbl maps:tree) key val)
+  (maps:add tbl (normalize-key key) val))
+
+(defmethod db-find-or-add ((tbl maps:tree) key val)
+  (let* ((nkey  (normalize-key key))
+         (exist (maps:find tbl nkey tbl)))
+    (if (eq exist tbl)
+        (values val (maps:add tbl nkey val))
+      (values exist tbl))))
+
+(defmethod db-remove ((tbl maps:tree) key)
+  (maps:remove tbl (normalize-key key)))
+
+(defmethod db-map ((tbl maps:tree) fn)
+  (maps:iter tbl fn))
+
+(defmethod db-get-keys ((tbl maps:tree))
+  (maps:fold tbl (lambda (k v accu)
+                   (declare (ignore v))
+                   (cons k accu))
+             nil))
+
+(defmethod db-rebuild ((tbl maps:tree))
+  tbl)
+
 ;; ----------------------------------------------------------------
 
 (defun common-trans-beh (saver db msg)
@@ -242,7 +331,7 @@
                     
                     (t
                      ;; changed db, so commit new
-                     (let ((versioned-db (maps:add new-db 'version (uuid:make-v1-uuid) )))
+                     (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
                        ;; version key is actually 'com.ral.actors.kv-database::version
                        (become (trans-gate-beh saver versioned-db))
                        (send-after 10 self saver versioned-db)
@@ -253,11 +342,12 @@
               ;; had wrong version for old-db
               (send retry db))
              ))
-      
-      ;; -------------------
+
       (('maint-full-save)
-       (send saver sink :full-save db))
-      
+       (let ((new-db (db-rebuild db)))
+         (become (trans-gate-beh saver new-db))
+         (send saver sink :full-save new-db)))
+
       (_
        (common-trans-beh saver db msg))
       )))
@@ -295,7 +385,7 @@
 
                       (t
                        ;; changed db, so commit new
-                       (let ((versioned-db (maps:add new-db 'version (uuid:make-v1-uuid) )))
+                       (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
                          ;; version key is actually 'com.ral.actors.kv-database::version
                          (send-after 10 self saver versioned-db)
                          (release acust versioned-db)))
@@ -312,7 +402,7 @@
       
       (('maint-full-save)
        (stash))
-      
+
       (_
        (common-trans-beh saver db msg))
       ))))
@@ -341,9 +431,9 @@
 (def-ser-beh save-database-beh (path last-db)
   ;; -------------------
   ((cust :full-save db)
-   (full-save path db)
-   (become (save-database-beh path db))
-   (send cust :ok))
+   (let ((savdb (full-save path db)))
+     (become (save-database-beh path savdb))
+     (send cust :ok)))
 
   ;; -------------------
   ;; The db gateway is the only one that knows saver's identity.
@@ -351,8 +441,8 @@
   ((cust :save-log new-db)
    (send fmt-println "Saving KVDB Deltas: ~S" path)
    (handler-case
-       (let ((new-ver  (maps:find new-db  'version))
-             (prev-ver (maps:find last-db 'version)))
+       (let ((new-ver  (db-find new-db  'version))
+             (prev-ver (db-find last-db 'version)))
          (when (uuid:uuid-time< prev-ver new-ver)
            (let* ((delta (get-diffs last-db new-db)))
              (with-open-file (f path
@@ -451,9 +541,7 @@
 
 (defun check-kvdb-sig (fd dbpath)
   (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
-         (id   (make-array (length sig)
-                           :element-type '(unsigned-byte 8)
-                           :initial-element 0)))
+         (id   (vec-repr:make-ub8-vector (length sig))))
     (file-position fd 0)
     (read-sequence id fd)
     (unless (equalp id sig)
@@ -472,16 +560,16 @@
         ;; -------------------
         ;; message from kick-off starter routine
         ((:open db-path)
-         (let ((db (maps:empty)))
+         (let ((db (db-new)))
            (flet ((prep-and-save-db ()
-                    (unless (maps:find db 'version)
-                      (maps:addf db 'version (uuid:make-v1-uuid)))
+                    (unless (db-find db 'version)
+                      (setf db (db-add db 'version (uuid:make-v1-uuid))))
                     (let (seq)
-                      (unless (and (setf seq (maps:find db 'kvdb-sequence))
+                      (unless (and (setf seq (db-find db 'kvdb-sequence))
                                    (typep seq 'uuid:uuid))
-                        (maps:addf db 'kvdb-sequence (uuid:make-v1-uuid))
+                        (setf db (db-add db 'kvdb-sequence (uuid:make-v1-uuid)))
                         ))
-                    (full-save db-path db)))
+                    (setf db (full-save db-path db))))
              
              (restart-case
                  (handler-bind
@@ -521,10 +609,10 @@
                      (handler-case
                          (progn
                            (setf db (loenc:deserialize f))
-                           (maps:find db 'version)) ;; try to force an error
+                           (db-find db 'version)) ;; try to force an error
                        (error (exn)
                          (send println (um:format-error exn))
-                         (setf db (maps:empty))
+                         (setf db (db-new))
                          (error 'corrupt-kvdb :path db-path)))
 
                      (let ((reader (self-sync:make-reader f)))
@@ -534,13 +622,13 @@
                                  do
                                    (destructuring-bind (removals additions changes) ans
                                      (dolist (key removals)
-                                       (maps:removef db key))
+                                       (setf db (db-remove db key)))
                                      (dolist (pair additions)
                                        (destructuring-bind (key . val) pair
-                                         (maps:addf db key val)))
+                                         (setf db (db-add db key val))))
                                      (dolist (pair changes)
                                        (destructuring-bind (key . val) pair
-                                         (maps:addf db key val)))
+                                         (setf db (db-add db key val))))
                                      ))
                          (error (exn)
                            (send println (um:format-error exn))
@@ -569,35 +657,42 @@
 (defun full-save (db-path db)
   (send fmt-println "Saving full KVDB: ~S" db-path)
   (ensure-directories-exist db-path)
-  (with-open-file (f db-path
-                     :direction :output
-                     :if-does-not-exist :create
-                     :if-exists :rename
-                     :element-type '(unsigned-byte 8))
-    (let ((sig (uuid:uuid-to-byte-array +db-id+)))
-      (write-sequence sig f)
-      (loenc:serialize db f
-                       :max-portability t)
-      ))
-  db)
+  (let ((sav-db (db-rebuild db)))
+    (with-open-file (f db-path
+                       :direction :output
+                       :if-does-not-exist :create
+                       :if-exists :rename
+                       :element-type '(unsigned-byte 8))
+      (let ((sig (uuid:uuid-to-byte-array +db-id+)))
+        (write-sequence sig f)
+        (loenc:serialize sav-db f
+                         :max-portability t)
+        ))
+    sav-db))
 
 (defun get-diffs (old-db new-db)
-  (let* ((removals  (mapcar #'maps:map-cell-key
-                            (sets:elements
-                             (sets:diff old-db new-db))))
-         (additions (maps:fold (sets:diff new-db old-db) #'acons nil))
-         (changes   (maps:fold new-db
-                               (λ (k v accu)
-                                 (let ((old-val (maps:find old-db k new-db)))
-                                   (cond ((eql old-val new-db) accu) ;; missing entry
-                                         ((eql old-val v) accu)
-                                         (t (acons k v accu))
-                                         )))
-                               nil))
+  (let* ((new-wrk   (db-rebuild new-db))
+         (old-keys  (db-get-keys old-db))
+         (new-keys  (db-get-keys new-wrk))
+         (removals  (set-difference old-keys new-keys :test #'equal))
+         (additions (mapcan #'identity
+                            (mapcar (lambda (k)
+                                      (list (cons k (db-find new-wrk k))))
+                                    (set-difference new-keys old-keys  :test #'equal))))
+         (changes   (mapcan #'identity
+                            (mapcar (lambda (k)
+                                      (let ((old-val (db-find old-db k new-wrk))
+                                            (new-val (db-find new-wrk k)))
+                                        (cond ((eq old-val new-wrk)  nil)   ;; missing from old
+                                              ((eql old-val new-val) nil)   ;; unchanged
+                                        (t  (list (cons k new-val)))        ;; changed
+                                        )))
+                                    (set-difference new-keys (mapcar #'car additions)))
+                            ))
          (log       (list
                      removals
-                     (nreverse additions)
-                     (nreverse changes))))
+                     additions
+                     changes)))
     ;; (send writeln log)
     log))
 
@@ -640,37 +735,39 @@
                 
           ((cust :add key val)
            (with-db db
-             (send dbmgr `(,cust . ,self) :commit db (maps:add db key val))
+             (send dbmgr `(,cust . ,self) :commit db (db-add db key val))
              ))
                 
           ((cust :remove key)
            (with-db db
-             (unless (eq self (maps:find db key self))
-               (send dbmgr `(,cust . ,self) :commit db (maps:remove db key)))
+             (unless (eq self (db-find db key self))
+               (send dbmgr `(,cust . ,self) :commit db (db-remove db key)))
              ))
                 
           ;; ---------------------------------------------
                 
           ((cust :find key . default)
            (with-db db
-             (send cust (maps:find db key (car default)))
+             (send cust (db-find db key (car default)))
              ))
                 
           ((cust :find-or-add key def-val)
            (with-db db
-             (let ((me      self)
-                   (old-val (maps:find db key self)))
-               (cond ((eq old-val self)
-                      (β _
-                          (send dbmgr `(,β . ,me) :commit db (maps:add db key def-val))
-                        (send cust def-val)))
-                     (t
-                      (send cust old-val))
-                     ))))
+             (multiple-value-bind (val new-db)
+                 (db-find-or-add db key def-val)
+               (β _
+                   (send dbmgr `(,β . ,self) :commit db new-db)
+                 (send cust val))
+               )))
                 
           ((:show)
            (with-db db
-             (sets:view-set db)
+             (let ((map (maps:empty)))
+               (db-map db 
+                       (lambda (k v)
+                         (send writeln (list k v))
+                         (maps:addf map k v)))
+               (sets:view-set map))
              ))
                 
           ((cust :really-let-me-see-map)
@@ -700,7 +797,10 @@
                 
           ((cust :req-proxy)
            (send cust (create (local-proxy-for-remote-db-access-beh self))))
-                
+
+          ((cust :db-path)
+           (send cust path))
+          
           ;; ---------------------------------
                 
           ((:maint-full-save)
@@ -715,9 +815,9 @@
 
 (defun ensure-file-exists (path)
   (flet ((init-kvdb ()
-           (let ((db (maps:empty)))
-             (maps:addf db 'version       (uuid:make-v1-uuid))
-             (maps:addf db 'kvdb-sequence (uuid:make-v1-uuid))
+           (let ((db (db-new)))
+             (setf db (db-add db 'version       (uuid:make-v1-uuid)))
+             (setf db (db-add db 'kvdb-sequence (uuid:make-v1-uuid)))
              (full-save path db)
              t)))
     (restart-case
@@ -843,6 +943,9 @@
     ;; Nothing to do here, already fully committed. User should have
     ;; performed a :REQ first.
     (send cust self))
+
+   ((_ :db-path)
+    (repeat-send kvdb))
    ))
 
 (defun local-updateable-proxy-for-remote-db-access-beh (kvdb orig-map upd-map)
@@ -850,28 +953,24 @@
    ((cust :add key val)
     (become (local-updateable-proxy-for-remote-db-access-beh
              kvdb orig-map
-             (maps:add upd-map key val)))
+             (db-add upd-map key val)))
     (send cust self))
 
    ((cust :remove key)
     (become (local-updateable-proxy-for-remote-db-access-beh
              kvdb orig-map
-             (maps:remove upd-map key)))
+             (db-remove upd-map key)))
     (send cust self))
 
    ((cust :find key . default)
-    (send cust (maps:find upd-map key (car default))))
+    (send cust (db-find upd-map key (car default))))
 
    ((cust :find-or-add key def-val)
-    (let ((val (maps:find upd-map key self)))
-      (cond ((eq val self)
-             (become (local-updateable-proxy-for-remote-db-access-beh
-                      kvdb orig-map
-                      (maps:add upd-map key def-val)))
-             (send cust def-val))
-            (t
-             (send cust val))
-            )))
+    (multiple-value-bind (val new-db)
+        (db-find-or-add upd-map key def-val)
+      (become (local-updateable-proxy-for-remote-db-access-beh
+               kvdb orig-map new-db))
+      (send cust val)))
 
    ((cust :really-let-me-see-map)
     ;; Okay... you asked for it...
@@ -911,6 +1010,9 @@
                                 (send retry me)))))
       (become (local-proxy-for-remote-db-access-beh kvdb))
       (send kvdb `(,committed . ,lcl-retry) :commit orig-map upd-map)))
+
+   ((_ :db-path)
+    (repeat-send kvdb))
    ))
 
 (defun local-excl-proxy-for-remote-db-access-beh (kvdb orig-map upd-map owner)
@@ -924,31 +1026,26 @@
    ((cust :add key val)
     (become (local-excl-proxy-for-remote-db-access-beh
              kvdb orig-map
-             (maps:add upd-map key val)
+             (db-add upd-map key val)
              owner))
     (send cust self))
    
    ((cust :remove key)
     (become (local-excl-proxy-for-remote-db-access-beh
              kvdb orig-map
-             (maps:remove upd-map key)
+             (db-remove upd-map key)
              owner))
     (send cust self))
 
    ((cust :find key . default)
-    (send cust (maps:find upd-map key (car default))))
+    (send cust (db-find upd-map key (car default))))
 
    ((cust :find-or-add key def-val)
-    (let ((val (maps:find upd-map key self)))
-      (cond ((eq val self)
-             (become (local-excl-proxy-for-remote-db-access-beh
-                      kvdb orig-map
-                      (maps:add upd-map key def-val)
-                      owner))
-             (send cust def-val))
-            (t
-             (send cust val))
-            )))
+    (multiple-value-bind (val new-db)
+        (db-find-or-add upd-map key def-val)
+      (become (local-excl-proxy-for-remote-db-access-beh
+               kvdb orig-map new-db owner))
+      (send cust val)))
 
    ((cust :really-let-me-see-map)
     ;; Okay... you asked for it...
@@ -980,6 +1077,9 @@
           (send kvdb `(,β . ,owner) :commit orig-map upd-map)
         (send cust me)
       )))
+
+   ((_ :db-path)
+    (repeat-send kvdb))
    ))
 
 ;; -----------------------------------------------------
@@ -997,20 +1097,23 @@
 (dotimes (ix 5)
   (send kvdb println :add ix ix))
 (send kvdb println :add :dave :chara)
+(send kvdb println :add "Dave" "Chara")
+(send kvdb println :add "dave" "chara")
 (send kvdb println :add :cat "dog")
 (send kvdb writeln :find :cat)
 (send kvdb :show)
+(send kvdb writeln :really-let-me-see-map)
 (dotimes (ix 10)
   (send kvdb println :remove ix))
 (send kvdb println :add :tst (lambda* _))
 (send kvdb writeln :find :tst)
 
-(let ((m (maps:empty)))
-  (setf m (maps:add m :dave :dog))
-  (eql m (maps:add m :dave :dog)))
-(let ((m (sets:empty)))
-  (setf m (sets:add m :dave))
-  (eql m (sets:add m :dave)))
+(let ((m (db-new)))
+  (setf m (db-add m :dave :dog))
+  (eql m (db-add m :dave :dog)))
+(let ((m (dn-new)))
+  (setf m (db-add m :dave))
+  (eql m (db-add m :dave)))
 
 (β (ans)
     (send kvdb β :find-or-add :bank-bal 10)
@@ -1018,8 +1121,8 @@
 
 (β (db)
     (send kvdb β :req)
-  (maps:iter db (λ (k v)
-                  (send writeln (list k v)))))
+  (db-map db (λ (k v)
+               (send writeln (list k v)))))
 
 (let ((x '(1 2 3)))
   (send kvdb println :add :tst1 x)
@@ -1029,6 +1132,12 @@
       (x2 (ask kvdb :find :tst2)))
   (send println (list x1 x2 (eq x1 x2))))
 
+(β (db)
+    (send kvdb β :req)
+  (let ((x (maps:empty)))
+    (db-map db (lambda (k v)
+                 (maps:addf x k v)))
+    (sets:view-set x)))
 
 (send kvdb :maint-full-save)
 
@@ -1063,3 +1172,257 @@
 
 |#
 ;; ---------------------------------------------------------
+;; ---------------------------------------------------------
+;; GUI for KVDB - an interesting interplay between CAPI thread and
+;; Actors.
+
+;; ---------------------------------------------------------
+;; For our own sanity... Let's keep things, as much as possible, on
+;; one playing field.
+
+(deflex i-capi
+  (create
+   ;; Expects intf, fn, args in message
+   #'capi:execute-with-interface))
+
+(deflex p-capi
+  (create
+   ;; Expects pane, fn, args in message
+   #'capi:apply-in-pane-process))
+
+;; ------------
+
+(defmacro with-capi-intf (intf &body body)
+  `(send i-capi ,intf (lambda () ,@body)))
+
+(defmacro with-capi-pane (pane &body body)
+  `(send p-capi ,pane (lambda () ,@body)))
+
+;; -----------------------------------------------------------
+;; Now for the GUI...
+
+(capi:define-interface kvdb-display ()
+  ((db-pathname :reader kv-db-pathname :initarg :path))
+  (:panes
+   #|
+   (search-pane   capi:text-input-pane
+                  :accessor           search-pane
+                  :title              "Search..."
+                  :callback           'search-keys)
+   |#
+   (db-path-pane  capi:title-pane
+                  :text               db-pathname
+                  :foreground         :seagreen)
+   (keys-list     capi:list-panel
+                  :accessor           keys-panel
+                  :visible-min-width  300
+                  :visible-min-height 300
+                  :selection-callback 'click-show-value
+                  :callback-type      :item-element
+                  :foreground         :yellow
+                  :title              "KVDB Key"
+                  :title-args         '(:foreground :skyblue)
+                  :print-function     'key-to-string)
+   (value-display capi:editor-pane
+                  :accessor           value-panel
+                  :title              "KVDB Value"
+                  :title-args         '(:foreground :skyblue)
+                  :text               ""
+                  :buffer-name        :temp
+                  :foreground         :yellow
+                  :visible-min-width  400
+                  :visible-min-height 300)
+   (refr-but      capi:push-button
+                  :text               "Refresh"
+                  :foreground         :skyblue
+                  :callback           'refresh-keys)
+   (del-but       capi:push-button
+                  :text               "Delete"
+                  :foreground         :skyblue
+                  :callback           'delete-key)
+   (add-but       capi:push-button
+                  :text               "Add/Change"
+                  :foreground         :skyblue
+                  :callback           'add/change-key))
+  (:layouts
+   (main-layout capi:column-layout
+                '(path-layout :separator central-layout))
+   (path-layout capi:row-layout
+                '(nil db-path-pane nil))
+   (central-layout capi:row-layout
+                '(keys-layout value-display))
+   (keys-layout capi:column-layout
+                '(#|search-pane|# keys-list but-layout))
+   (but-layout capi:row-layout
+               '(refr-but del-but add-but)))
+  (:default-initargs
+   :title "KVDB Browser"))
+
+;; -----------------------------------------------------------
+;; Utility Functions
+
+(defun key-to-string (key)
+  ;; Also used for value displays
+  (with-output-to-string (s)
+    (with-standard-io-syntax
+      (let ((*package* (find-package :cl)))
+        (handler-case
+            (let ((*print-readably* t))
+              (write key :stream s))
+          (error ()
+            ;; Some compiled functions refuse to display in
+            ;; *PRINT-READABLE* mode, and throw us here with an ERROR.
+            (let ((*print-readably* nil))
+              (write key :stream s)))
+          ))
+      )))
+
+(defun collect-keys (cust)
+  (β (db)
+      (send kvdb β :req)
+    (let (keys)
+      (db-map db
+              (lambda (k v)
+                (declare (ignore v))
+                (push k keys)))
+      (send cust (sort keys #'string< :key #'key-to-string))
+      )))
+
+;; -----------------------------------------------------------
+;; Show the GUI
+
+(defun show-kvdb ()
+  ;; Show a KVDB Browser
+  (β (path)
+      (send kvdb β :db-path)
+    (let ((intf (capi:display
+                 (make-instance 'kvdb-display
+                                :path (namestring path)))))
+      (refresh-select-and-show-first-item intf))
+    ))
+
+;; -----------------------------------------------------------
+
+(defun select-and-show-key (intf key)
+  (with-capi-intf intf
+    (let ((keys-pane (keys-panel intf)))
+      (setf (capi:choice-selected-item keys-pane) key)
+      (click-show-value key keys-pane))
+    ))
+  
+(defun refresh-select-and-show-first-item (intf)
+  (β _
+      (refresh-keys nil intf β)
+    (with-capi-intf intf
+      (let* ((keys-pane (keys-panel intf))
+             (keys      (capi:collection-items keys-pane)))
+        (when (plusp (length keys))
+          (select-and-show-key intf (aref keys 0))
+          )))
+    ))
+
+(defun refresh-select-and-show-key (intf key)
+  (β _
+      (refresh-keys nil intf β)
+    (select-and-show-key intf key)))
+  
+;; -----------------------------------------------------------
+;; GUI CAPI Callback Functions
+
+(defun refresh-keys (xxx intf &optional cust)
+  ;; CAPI Callback function - on entry we are running in CAPI thread.
+  (declare (ignore xxx))
+  (β (keys)
+      (collect-keys β)
+    (with-capi-intf intf
+      (let ((keys-panel (keys-panel intf)))
+        (setf (capi:collection-items keys-panel) keys)
+        (send cust :ok))) ;; for sequencing
+    ))
+
+(defun click-show-value (key pane)
+  ;; CAPI Callback function - on entry we are running in CAPI thread.
+  (β (val)
+      (send kvdb β :find key)
+    (with-capi-pane pane
+      (let* ((intf    (capi:element-interface pane))
+             (ed-pane (value-panel intf)))
+        (setf (capi:editor-pane-text ed-pane) (key-to-string val))
+        (capi:call-editor ed-pane "End of Buffer")))
+    ))
+
+#|
+(defun search-keys (text intf)
+  (declare (ignore intf))
+  (print text))
+|#
+
+(defun delete-key (xxx intf)
+  ;; CAPI Callback function - on entry we are running in CAPI thread.
+  (declare (ignore xxx))
+  (let* ((keys-pane (keys-panel intf))
+         (key       (capi:choice-selected-item keys-pane)))
+    (with-actors
+      (when (capi:prompt-for-confirmation
+             (format nil "Delete ~S" (key-to-string key)))
+        (β _
+            (send kvdb β :remove key)
+          (refresh-select-and-show-first-item intf))
+        ))
+    ))
+
+;; ------------------------------------------------------------
+;; Popup Dialog for Add/Change...
+
+(capi:define-interface kv-query-intf ()
+  ((key-text :initarg :key-text)
+   (val-text :initarg :val-text))
+  (:panes
+   (key-pane capi:text-input-pane
+             :accessor          key-pane
+             :title             "Key"
+             :text              key-text
+             :visible-min-width 300)
+   (val-pane capi:text-input-pane
+             :accessor          val-pane
+             :title             "Value"
+             :text              val-text
+             :visible-min-width 400))
+  (:layouts
+   (main-layout capi:row-layout
+                '(key-pane val-pane))) )
+
+(defun grab-dialog-values (pane)
+  ;; CAPI Callback function - on entry we are running in CAPI thread.
+  ;; PANE points to our dialog pane.
+  (ignore-errors ;; this works out nicely!
+    (list
+     (read-from-string (capi:text-input-pane-text (key-pane pane)))
+     (read-from-string (capi:text-input-pane-text (val-pane pane))))))
+
+(defun add/change-key (xxx intf)
+  ;; CAPI Callback function - on entry we are running in CAPI thread.
+  (declare (ignore xxx))
+  (let* ((keys-pane (keys-panel intf))
+         (key       (capi:choice-selected-item keys-pane)))
+    (β (val)
+        (send kvdb β :find key)
+      (let ((dlg  (make-instance 'kv-query-intf
+                                 :key-text (key-to-string key)
+                                 :val-text (key-to-string val))
+                  ))
+        (multiple-value-bind (result successp)
+            (capi:popup-confirmer dlg "Add/Change a KVDB Entry"
+                                  :value-function 'grab-dialog-values
+                                  :owner intf)
+          (when successp
+            (destructuring-bind (key val) result
+              (β _
+                  (send kvdb β :add key val)
+                (refresh-select-and-show-key intf key))
+              ))))
+      )))
+
+#|
+(show-kvdb)
+|#
