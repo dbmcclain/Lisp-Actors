@@ -1355,18 +1355,17 @@
                                  :key-text (key-to-string key)
                                  :val-text (key-to-string val))
                   ))
-        (with-capi-intf intf
-          (multiple-value-bind (result successp)
-              (capi:popup-confirmer dlg "Add/Change a KVDB Entry"
-                                    :value-function 'grab-dialog-values
-                                    :owner intf)
-            (when successp
-              (destructuring-bind (key val) result
-                (β _
-                    (send kvdb β :add key val)
-                  (refresh-select-and-show-key intf key))
-                ))))
-        ))))
+        (multiple-value-bind (result successp)
+            (capi:popup-confirmer dlg "Add/Change a KVDB Entry"
+                                  :value-function 'grab-dialog-values
+                                  :owner intf)
+          (when successp
+            (destructuring-bind (key val) result
+              (β _
+                  (send kvdb β :add key val)
+                (refresh-select-and-show-key intf key))
+              ))))
+      )))
 
 #|
 (show-kvdb)
