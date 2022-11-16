@@ -1093,7 +1093,7 @@
 (defun become-fplht ()
   (β (db)
       (send kvdb β :req)
-    (let ((dbnew (fplht:make-fpl-hashtable :test 'equal :single-threaded t)))
+    (let ((dbnew (fplht:make-fpl-hashtable :test 'equal :single-thread t)))
       (db-map db (lambda (k v)
                    (setf dbnew (db-add dbnew k v))))
       (send kvdb `(,writeln . ,self) :commit db dbnew))))
