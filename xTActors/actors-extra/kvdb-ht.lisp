@@ -1361,9 +1361,10 @@
                                     :value-function 'grab-dialog-values
                                     :owner intf)
             (when successp
-              (β _
-                  (send kvdb β :add (car result) (cadr result))
-                (refresh-select-and-show-key intf (car result))
+              (destructuring-bind (key val) result
+                (β _
+                    (send kvdb β :add key val)
+                  (refresh-select-and-show-key intf key))
                 ))))
         ))))
 
