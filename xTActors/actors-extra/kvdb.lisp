@@ -1095,7 +1095,7 @@
       (send kvdb β :req)
     (let ((dbnew (fplht:make-fpl-hashtable :test 'equal :single-threaded t)))
       (db-map db (lambda (k v)
-                   (db-add dbnew k v)))
+                   (setf dbnew (db-add dbnew k v))))
       (send kvdb `(,writeln . ,self) :commit db dbnew))))
 
 (defun become-maps ()
@@ -1103,7 +1103,7 @@
       (send kvdb β :req)
     (let ((dbnew (maps:empty)))
       (db-map db (lambda (k v)
-                   (maps:addf dbnew k v)))
+                   (setf dbnew (db-add dbnew k v))))
       (send kvdb `(,writeln . ,self) :commit db dbnew))))
 
 #|
