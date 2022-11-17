@@ -29,7 +29,6 @@ THE SOFTWARE.
 
 (defpackage #:com.ral.ord
   (:use #:common-lisp)
-  (:shadow #:equal)
   (:export
    #:compare
    #:compare<
@@ -43,7 +42,7 @@ THE SOFTWARE.
    #:ci-string
    #:make-ci-char
    #:make-ci-string
-   #:equal
+   #:equals
    #:less
    #:greater
    ))

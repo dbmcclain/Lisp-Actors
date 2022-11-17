@@ -34,7 +34,7 @@ THE SOFTWARE.
 (in-package :com.ral.ord)
 ;; ------------------------------------------------------------------------
 
-(defun equal (a b)
+(defun equals (a b)
   (zerop (compare a b)))
 
 (defun less (a b)
@@ -46,7 +46,7 @@ THE SOFTWARE.
 ;; ---------------------------------------------
 
 (defmethod ord:compare :around (a b)
-  (cond ((cl:equal a b)
+  (cond ((equal a b)
          0)
         (t
          (call-next-method))
