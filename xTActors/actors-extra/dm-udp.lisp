@@ -333,39 +333,41 @@
 
 ;; -------------------------------------------------------------
 #|
-(deflex srv-sender (create))
+(progn
+  (deflex srv-sender (create))
+  
+  (deflex srv-handler
+    ;; Receiving side for Server
+    (create
+     (lambda (from-ip from-port message)
+       (send fmt-println "Srv: from: ~S @ ~S (~D) ~S"
+             from-port from-ip (length message) message)
+       (send srv-sender println from-ip from-port (map 'ub8-vector #'char-code "OK")))
+     ))
 
-(deflex srv-handler
-  ;; Receiving side for Server
-  (create
-   (lambda (from-ip from-port message)
-     (send fmt-println "Srv: from: ~S @ ~S (~D) ~S"
-           from-port from-ip (length message) message)
-     (send srv-sender println from-ip from-port (map 'ub8-vector #'char-code "OK")))
-   ))
-
-(define-behavior srv-sender
-  ;; Sending side for Server
-  (actor-beh
-   (udp-srv-port :local-port    65200
-                 :receive-actor srv-handler)))
+  (define-behavior srv-sender
+    ;; Sending side for Server
+    (actor-beh
+     (udp-srv-port :local-port    65200
+                   :receive-actor srv-handler))))
 
 (send srv-sender println :dispose)
 
 ;; -------------------------------------
 
-(deflex cli-handler
-  ;; Receiving side for Client
-  (create
-   (lambda (message)
-     (send fmt-println "Client RX: ~S" message))
-   ))
-
-(deflex cli-sender
-  ;; Sending side for Client
-  (udp-cli-connected-port "localhost" 65200
-                          :receive-actor cli-handler))
-
+(progn
+  (deflex cli-handler
+    ;; Receiving side for Client
+    (create
+     (lambda (message)
+       (send fmt-println "Client RX: ~S" message))
+     ))
+  
+  (deflex cli-sender
+    ;; Sending side for Client
+    (udp-cli-connected-port "localhost" 65200
+                            :receive-actor cli-handler)))
+  
 (send cli-sender println (make-ub8-vector 3
                                    :initial-contents '(1 2 3)))
 
