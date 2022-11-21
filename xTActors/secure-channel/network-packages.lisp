@@ -11,6 +11,15 @@
    #:encode
    #:decode
    #:stream-decoder
+
+   #:+long-count-base+
+   #:+max-short-count+
+   #:+max-long-count+
+   #:+start-sequence+
+
+   #:int-to-vec-le4
+   #:vec-le4-to-int
+   #:crc32
    ))
 
 (defpackage :com.ral.actors.encoding

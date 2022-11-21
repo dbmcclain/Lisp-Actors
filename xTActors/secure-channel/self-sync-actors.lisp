@@ -25,6 +25,7 @@
 
             vec-repr:ub8
             vec-repr:ub8-vector
+            vec-repr:make-ub8-vector
             )))
 
 ;; ------------------------------------------------------------------
@@ -58,13 +59,8 @@
 (defconstant +start-sequence+   #(#xFE #xFD))
 ;; ---------------------------------------------------------------
 
-(defun make-ubv (size &rest args)
-  (apply #'make-array size
-         :element-type 'ub8
-         args))
-
 (defun int-to-vec-le4 (n)
-  (let ((ans (make-ubv 4)))
+  (let ((ans (make-ub8-vector 4)))
     (nlet iter ((ix 0)
                 (n  n))
       (if (> ix 3)
@@ -319,13 +315,13 @@
   (let (aout
         stuff-fn)
     (if max-reclen
-        (setf aout (make-ubv (+ max-reclen 8)
-                             :fill-pointer 0)
+        (setf aout (make-ub8-vector (+ max-reclen 8)
+                                    :fill-pointer 0)
               stuff-fn #'vector-push)
       ;; else
-      (setf aout (make-ubv 256
-                           :fill-pointer 0
-                           :adjustable   t)
+      (setf aout (make-ub8-vector 256
+                                  :fill-pointer 0
+                                  :adjustable   t)
             stuff-fn #'vector-push-extend))
     (create (ssfsm-beh dest aout stuff-fn))
     ))
@@ -394,8 +390,8 @@
   (print se)
   (decode se))
 
-(let* ((s  (make-ubv 9
-                     :initial-contents '(0 1 2 3 4 5 #xFE #xFE #xFD)))
+(let* ((s  (make-ub8-vector 9
+                            :initial-contents '(0 1 2 3 4 5 #xFE #xFE #xFD)))
        (se (encode s))
        (dec (stream-decoder writeln)))
   (print se)

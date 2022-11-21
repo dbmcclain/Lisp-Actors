@@ -1282,7 +1282,7 @@
    (path-layout capi:row-layout
                 '(nil db-path-pane nil))
    (central-layout capi:row-layout
-                '(keys-layout value-display))
+                '(keys-layout :divider value-display))
    (keys-layout capi:column-layout
                 '(#|search-pane|# keys-list but-layout))
    (but-layout capi:row-layout
@@ -1428,13 +1428,17 @@
    (main-layout capi:row-layout
                 '(key-pane val-pane))) )
 
+(defun grab-text-value (pane)
+  (read-from-string (capi:text-input-pane-text pane)))
+
 (defun grab-dialog-values (pane)
   ;; CAPI Callback function - on entry we are running in CAPI thread.
   ;; PANE points to our dialog pane.
   (ignore-errors ;; this works out nicely!
     (list
-     (read-from-string (capi:text-input-pane-text (key-pane pane)))
-     (read-from-string (capi:text-input-pane-text (val-pane pane))))))
+     (grab-text-value (key-pane pane))
+     (grab-text-value (val-pane pane)))
+    ))
 
 (defun click-add/change-key (xxx intf)
   ;; CAPI Callback function - on entry we are running in CAPI thread.
