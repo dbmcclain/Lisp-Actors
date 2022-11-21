@@ -260,15 +260,17 @@
                                         :element-type '(unsigned-byte 8))))
 
 (defun udp-srv-port-beh (io-state encoder)
- (alambda
-  ((cust :dispose)
-   (comm:async-io-state-abort-and-close io-state
-                                        :close-callback (λ _ (send cust :closed))))
-  ((cust to-ip to-port message)
-   (comm:async-io-state-send-message-to-address io-state
-                                                to-ip to-port
-                                     (funcall encoder message)
-                                     (λ _ (send cust :sent to-ip to-port message))))))
+  ;; Sending side for Server
+  (alambda
+   ((cust :dispose)
+    (comm:async-io-state-abort-and-close io-state
+                                         :close-callback (λ _ (send cust :closed))))
+   ((cust to-ip to-port message)
+    (comm:async-io-state-send-message-to-address io-state
+                                                 to-ip to-port
+                                                 (funcall encoder message)
+                                                 (λ _ (send cust :sent to-ip to-port message))))
+   ))
 
 (defun udp-srv-port (&key
                 (ipv6 nil)
@@ -306,6 +308,7 @@
                                         :element-type '(unsigned-byte 8))))
 
 (defun udp-cli-port-beh (io-state encoder)
+  ;; Sending side for Client
  (alambda
   ((cust :dispose)
    (comm:async-io-state-abort-and-close io-state
@@ -313,7 +316,8 @@
   ((cust message)
    (comm:async-io-state-send-message io-state
                                      (funcall encoder message)
-                                     (λ _ (send cust :sent message))))))
+                                     (λ _ (send cust :sent message))))
+  ))
 
 (defun udp-cli-connected-port (hostspec service &key
                                    (ipv6 nil)
@@ -334,39 +338,43 @@
 
 ;; -------------------------------------------------------------
 #|
-(deflex srv (create))
+(deflex srv-sender (create))
 
 (deflex srv-handler
+  ;; Receiving side for Server
   (create
    (lambda (from-ip from-port message)
      (send fmt-println "Srv: from: ~S @ ~S (~D) ~S"
            from-port from-ip (length message) message)
-     (send srv println from-ip from-port (map 'ub8-vector #'char-code "OK")))
+     (send srv-sender println from-ip from-port (map 'ub8-vector #'char-code "OK")))
    ))
 
-(define-behavior srv
+(define-behavior srv-sender
+  ;; Sending side for Server
   (actor-beh
    (udp-srv-port :local-port    65200
                  :receive-actor srv-handler)))
 
-(send srv println :dispose)
+(send srv-sender println :dispose)
 
 ;; -------------------------------------
 
 (deflex cli-handler
+  ;; Receiving side for Client
   (create
    (lambda (message)
      (send fmt-println "Client RX: ~S" message))
    ))
 
-(deflex cli
+(deflex cli-sender
+  ;; Sending side for Client
   (udp-cli-connected-port "localhost" 65200
                           :receive-actor cli-handler))
 
-(send cli println (make-ub8-vector 3
+(send cli-sender println (make-ub8-vector 3
                                    :initial-contents '(1 2 3)))
 
-(send cli println :dispose)
+(send cli-sender println :dispose)
 
 ;; ------------------------------------------------------------
 ;; Max transmissible message appears to be 1485 bytes, which has a
