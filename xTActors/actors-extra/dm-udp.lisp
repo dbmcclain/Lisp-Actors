@@ -7,6 +7,29 @@
 ;;
 ;; DM/RAL  2022/11/21 06:36:03
 ;; ----------------------------------
+;;
+;; Unlike TCP/IP Sockets, UDP has a clear distinction between Client
+;; and Server roles. Clients send messages of limited size to a UDP
+;; server. Any number of different clients can do so, to the same
+;; Server socket. On the Server side, we have to know who sent the
+;; message so we can respond to them.
+;;
+;; So there becomes a fundamental asymmetry in the connection. Clients
+;; already know who they are sending UDP messages to. Servers can
+;; receive from multiple Clients. And each message carries with it the
+;; identity (ip-addr, port) of the sender of the message.
+;;
+;; This UDP interface expects both Client and Server to send messages
+;; that are 8-bit simple vectors. The "safe" size limit is around 512
+;; bytes after self-sync encoding. This particular interace allows up
+;; to 1499 bytes total message size, which works out to 1485 before
+;; self-sync encoding. Apple Mac OSX sets an absolute max size of 9216
+;; bytes (9202 bytes before self-sync encoding). But the code here
+;; limits it to 1499 bytes.
+;;
+;; So the asymmetry forces us to invent a modified Self-Sync decoder
+;; machine for use by the Server side. The Clients use the existing
+;; TCP/IP encoder machines.
 
 (defpackage #:dm-udp
   (:use #:common-lisp #:ac))
@@ -192,6 +215,7 @@
                              #'vector-push-extend)))
 
 ;; ------------------------------------------------------
+;; Self Sync Stream Decoder for Server
 
 (defun udp-srv-stream-decoder-beh (fsm wait-ix queue)
   (alambda
@@ -282,7 +306,8 @@
    (create (udp-srv-port-beh io-state #'self-synca:encode))))
 
 ;; -----------------------------------------------------------------------
-;; Client Side using connected socket
+;; Client Side using connected socket - uses existing Self-Sync stream
+;; interface.
 
 (defun udp-cli-port-process-message (io-state buffer number-of-bytes-read)
   (let ((cnx-state (comm:async-io-state-user-info io-state)))
