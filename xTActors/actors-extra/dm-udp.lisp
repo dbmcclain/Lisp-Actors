@@ -359,6 +359,7 @@
 ;; -------------------------------------------------------------
 #|
 (progn
+  ;; --- Example UDP Server ---
   (deflex srv-sender (create))
   
   (deflex srv-handler
@@ -376,11 +377,13 @@
      (udp-srv-port :local-port    65200
                    :receive-actor srv-handler))))
 
+;; Terminate the connection from Server side
 (send srv-sender println :dispose)
 
 ;; -------------------------------------
 
 (progn
+  ;; --- Example UDB Client ---
   (deflex cli-handler
     ;; Receiving side for Client
     (create
@@ -396,6 +399,7 @@
 (send cli-sender println (make-ub8-vector 3
                                    :initial-contents '(1 2 3)))
 
+;; Terminate the connection from Client side
 (send cli-sender println :dispose)
 
 ;; ------------------------------------------------------------
