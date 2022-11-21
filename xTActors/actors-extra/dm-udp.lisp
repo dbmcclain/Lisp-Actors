@@ -14,12 +14,7 @@
 (in-package #:dm-udp)
 
 (um:eval-always
-  (import '(scatter-vec:xaref
-            scatter-vec:xupdate-digest
-            
-            com.ral.useful-macros:ash-dpbf
-
-            vec-repr:ub8
+  (import '(vec-repr:ub8
             vec-repr:ub8-vector
             vec-repr:make-ub8-vector
 
