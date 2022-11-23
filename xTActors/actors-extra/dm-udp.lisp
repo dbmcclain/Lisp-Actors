@@ -24,8 +24,8 @@
 ;; This UDP interface expects both Client and Server to send messages
 ;; that are 8-bit simple vectors. The "safe" size limit is around 512
 ;; bytes after self-sync encoding. This particular interace allows up
-;; to 1499 bytes total message size. Apple Mac OSX sets an absolute
-;; max size of 9216 bytes. But the code here limits it to 1499 bytes.
+;; to 1500 bytes total message size. Apple Mac OSX sets an absolute
+;; max size of 9216 bytes. But the code here limits it to 1500 bytes.
 ;;
 
 (defpackage #:dm-udp
@@ -186,27 +186,18 @@
 (send cli-sender println :dispose)
 
 ;; ------------------------------------------------------------
-;; Max transmissible message appears to be 1485 bytes, which has a
-;; Self-Sync encoding length of 1499 bytes.
-(send cli println
+;; Max transmissible message appears to be 1500 bytes.
+
+(send cli-sender println
       (subseq (map 'ub8-vector #'char-code (hcl:file-string "port-server.lisp"))
-              0 1485))
-
-(length (self-synca:encode
-         (subseq (map 'ub8-vector #'char-code (hcl:file-string "port-server.lisp"))
-                 0 1485)))
+              0 1500))
 
 
-;; By increasing max size to 64kB we can reach 9202 byte messages,
-;; with self-sync encoding length of 9216 bytes. This appears to be a
-;; Mac limit.
-(send cli println
+
+;; By increasing max size to 64kB we can reach 9216 byte messages,
+;; This appears to be a Mac limit.
+(send cli-sender println
       (subseq (map 'ub8-vector #'char-code (hcl:file-string "port-server.lisp"))
               0 9202))
-
-(length (self-synca:encode
-         (subseq (map 'ub8-vector #'char-code (hcl:file-string "port-server.lisp"))
-                 0 9202)))
-
 
 |#
