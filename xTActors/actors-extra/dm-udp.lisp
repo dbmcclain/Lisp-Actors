@@ -23,9 +23,9 @@
 ;;
 ;; This UDP interface expects both Client and Server to send messages
 ;; that are 8-bit simple vectors. The "safe" size limit is around 512
-;; bytes after self-sync encoding. This particular interace allows up
-;; to 1500 bytes total message size. Apple Mac OSX sets an absolute
-;; max size of 9216 bytes. But the code here limits it to 1500 bytes.
+;; bytes. This particular interace allows up to 1500 bytes total
+;; message size. Apple Mac OSX sets an absolute max size of 9216
+;; bytes. But the code here limits it to 1500 bytes.
 ;;
 
 (defpackage #:dm-udp
@@ -34,8 +34,7 @@
 (in-package #:dm-udp)
 
 (um:eval-always
-  (import '(vec-repr:ub8
-            vec-repr:ub8-vector
+  (import '(vec-repr:ub8-vector
             vec-repr:make-ub8-vector
             )))
 
