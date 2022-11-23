@@ -63,8 +63,7 @@
 
 (defun udp-srv-port-start-receive (io-state)
  (udp-srv-port-receive-next io-state
-                            (make-array +udp-max-receive-size+
-                                        :element-type '(unsigned-byte 8))))
+                            (make-ub8-vector +udp-max-receive-size+)))
 
 (defun udp-srv-port-beh (io-state)
   ;; Sending side for Server
@@ -108,8 +107,7 @@
 
 (defun udp-cli-port-start-receive (io-state)
  (udp-cli-port-receive-next io-state
-                            (make-array +udp-max-receive-size+
-                                        :element-type '(unsigned-byte 8))))
+                            (make-ub8-vector +udp-max-receive-size+)))
 
 (defun udp-cli-port-beh (io-state)
   ;; Sending side for Client
