@@ -138,6 +138,12 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
 		   :clock-seq-low (parse-integer uuid-string :start 21 :end 23 :radix 16)
 		   :node (parse-integer uuid-string :start 24 :end 36 :radix 16))))
 
+#+:MARSHAL
+(defmethod ms:class-persistent-slots ((self uuid:uuid))
+  (append (call-next-method) '(time-low time-mid time-high-and-version
+                               clock-seq-and-reserved clock-seq-low
+                               node)))
+
 ;; Those should be constants but I couldn't find a way to define a CLOS object to be constant
 (defconstant+ +namespace-dns+ (make-uuid-from-string "6ba7b810-9dad-11d1-80b4-00c04fd430c8")
   "The DNS Namespace. Can be used for the generation of uuids version 3 and 5")
@@ -341,24 +347,21 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
           (node id)))
 
 (defmethod print-object :around ((id uuid) stream)
-  (if *print-readably*
-      (progn
-        ;; (format stream "#$(UUID ")
-        (format stream "#.(~S \"" 'uuid)
-        (call-next-method)
-        (format stream "\")"))
+  (if *print-escape*
+      (cond ((and *print-readably*
+                  (not *read-eval*))
+             (error 'print-not-readable :object id))
+            (t
+             (format stream "#.(~S \"" 'uuid)
+             (call-next-method)
+             (format stream "\")")) )
+    ;; else - convenient human readable form
     (call-next-method)))
 
 
 (defun print-bytes (stream uuid)
   "Prints the raw bytes in hex form. (example output 6ba7b8109dad11d180b400c04fd430c8)"
-  (format stream "~({~8,'0X~4,'0X~4,'0X~2,'0X~2,'0X~12,'0X}~)" 
-	  (time-low uuid)
-	  (time-mid uuid)
-	  (time-high uuid)
-	  (clock-seq-var uuid)
-	  (clock-seq-low uuid)
-	  (node uuid)))
+  (print-object uuid stream))
 
 (defun make-null-uuid ()
   "Generates a NULL uuid (i.e 00000000-0000-0000-0000-000000000000)"
@@ -559,7 +562,7 @@ built according code-char of each number in the uuid-string"
 
 (defmethod make-load-form ((uuid uuid) &optional environment)
   (declare (ignore environment))
-  `(make-uuid-from-string ,(format nil "~S" uuid)))
+  `(make-uuid-from-string ,(uuid-string uuid)))
 
 (set-/-dispatch-reader "uuid"
                        (lambda (stream)
