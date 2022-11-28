@@ -56,5 +56,6 @@
  (#:core-crypto   #:com.ral.crypto.core-crypto)
  (#:kvdb          #:com.ral.actors.kvdb)
  (#:fplht         #:com.ral.useful-macros.fpl-hashtable)
+ (#:restricted    #:com.ral.useful-macros.restricted-eval)
  )
 

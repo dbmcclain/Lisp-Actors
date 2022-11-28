@@ -139,6 +139,7 @@ THE SOFTWARE.
                 #-:relative-package-names (:file "hierarchical-packages")
                 (:file "file-eq")
                 (:file "fpl-hashtable")
+                (:file "restricted-eval")
                 )
   :serial       t
   :depends-on   ("com.ral.useful-macros"
