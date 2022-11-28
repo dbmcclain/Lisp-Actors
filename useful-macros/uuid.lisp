@@ -298,8 +298,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
      "Get timestamp, compensate nanoseconds intervals"
      (critical-section
        (nlet iter ()
-         ;; while the standard may call for times measured from 1582-10-15, we make our times
-         ;; measure from 1900-01-01 to be compatible with Lisp universal time measurement.
+         ;; The standard calls for times measured from 1582-10-15
          (let ((time-now ;; (+ (* (get-universal-time) 10000000) 100103040000000000)
                          (+ (* 10 (the integer (usec:get-universal-time-usec)))
                             ;; #N|02_208_988_800_0000000|  ;; time offseet between 1970-01-01 and 1900-01-01
