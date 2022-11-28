@@ -10,7 +10,7 @@
 
 (defpackage #:com.ral.useful-macros.restricted-eval
   (:use #:common-lisp)
-  (:shadow #:read-from-string)
+  (:shadow #:read #:read-preserving-whitespace #:read-from-string)
   (:export
    #:*symbols-to-make-available*
    #:add-symbol
@@ -19,6 +19,8 @@
    #:remove-symbol
    #:remove-symbols
    #:with-removed-symbols
+   #:read
+   #:read-preserving-whitespace
    #:read-from-string))
 
 (in-package #:com.ral.useful-macros.restricted-eval)
@@ -50,12 +52,12 @@
 
 (defmacro with-added-symbols (syms &body body)
   ;; FPL version
-  `(let ((*symbols-to-make-available* (union ,syms *symbols-to-make-available*)))
+  `(let ((*symbols-to-make-available* (union ',syms *symbols-to-make-available*)))
      ,@body))
 
 (defmacro with-removed-symbols (syms &body body)
   ;; FPL version
-  `(let ((*symbols-to-make-available* (set-difference *symbols-to-make-available* ,syms)))
+  `(let ((*symbols-to-make-available* (set-difference *symbols-to-make-available* ',syms)))
      ,@body))
 
 
@@ -80,19 +82,30 @@
 
 ;; ---------------------------
 
-(defun read-from-string (str)
+(defun do-with-restrictions (fn)
   (let ((restricted (init)))
     (unwind-protect
         (let ((*package*         restricted)
               (*restrict-reader* restricted)
               (*read-eval*       t))
-          (cl:read-from-string str))
+          (funcall fn))
       (delete-package restricted))
     ))
 
+(defun read (&rest args)
+  (do-with-restrictions (lambda ()
+                          (apply #'cl:read args))))
+
+(defun read-preserving-whitespace (&rest args)
+  (do-with-restrictions (lambda ()
+                          (apply #'cl:read-preserving-whitespace args))))
+
+(defun read-from-string (str)
+  (do-with-restrictions (lambda ()
+                          (funcall #'cl:read-from-string str))))
+
 ;; ---------------------------
 #|
-(inspect (find-package :restricted))
 (prin1 #/uuid/{e6942a3c-6eca-11ed-8b65-787b8acbe32e})
 
 (cl:read-from-string "#.(COM.RAL.UUID:UUID \"{e6942a3c-6eca-11ed-8b65-787b8acbe32e}\")")
