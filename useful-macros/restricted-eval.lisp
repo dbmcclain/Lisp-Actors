@@ -100,9 +100,9 @@
   (do-with-restrictions (lambda ()
                           (apply #'cl:read-preserving-whitespace args))))
 
-(defun read-from-string (str)
+(defun read-from-string (str &rest args)
   (do-with-restrictions (lambda ()
-                          (funcall #'cl:read-from-string str))))
+                          (apply #'cl:read-from-string str args))))
 
 ;; ---------------------------
 #|
