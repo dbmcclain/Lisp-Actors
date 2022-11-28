@@ -314,6 +314,7 @@ THE SOFTWARE.
    #:timed-service
    #:lazy-fwd
    #:future-become-beh
+   #:with-maximum-io-syntax
    ))
 
 #+(OR :ALLEGRO :CCL)

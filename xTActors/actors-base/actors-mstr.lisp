@@ -389,10 +389,26 @@ THE SOFTWARE.
     (with-printer (s *standard-output*)
       (format s "~&~{~A~%~^~}" msg))))
 
+(defun do-with-maximum-io-syntax (fn)
+  (with-standard-io-syntax
+    (let ((*print-radix* t)
+          (*print-circle* t)
+          (*read-default-float-format* 'double-float))
+      (handler-case
+          (funcall fn)
+        (print-not-readable ()
+          (let ((*print-readably* nil))
+            (funcall fn)))
+        ))))
+  
+(defmacro with-maximum-io-syntax (&body body)
+  `(do-with-maximum-io-syntax (lambda () ,@body)))
+
 (def-actor writeln
   (α msg
     (with-printer (s *standard-output*)
-      (format s "~&~{~S~%~^~}" msg))))
+      (with-maximum-io-syntax
+       (format s "~&~{~S~%~^~}" msg)))))
 
 (def-actor fmt-println
   (α (fmt-str &rest args)

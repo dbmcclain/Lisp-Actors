@@ -1296,7 +1296,7 @@
 (defun key-to-string (key)
   ;; Also used for value displays
   (with-output-to-string (s)
-    (with-standard-io-syntax
+    (with-maximum-io-syntax ;; with-standard-io-syntax
       (let ((*package* (find-package :cl)))
         (handler-case
             (let ((*print-readably* t))
