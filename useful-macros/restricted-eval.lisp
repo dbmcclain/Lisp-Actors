@@ -28,7 +28,21 @@
 ;; ----------------------------------
 
 (defparameter *symbols-to-make-available*
-  '(com.ral.uuid:uuid))
+  '(list
+    vector
+    string
+    make-array
+    make-string
+    make-list
+    make-char
+    make-condition
+    unsigned-byte
+    simple-array
+    character
+    base-char
+    make-instance
+    coerce
+    com.ral.uuid:uuid))
 
 
 (defun add-symbol (sym)
@@ -111,4 +125,27 @@
 (cl:read-from-string "#.(COM.RAL.UUID:UUID \"{e6942a3c-6eca-11ed-8b65-787b8acbe32e}\")")
 (read-from-string "#.(COM.RAL.UUID:UUID \"{e6942a3c-6eca-11ed-8b65-787b8acbe32e}\")") ;; should work
 (read-from-string "#.(+ 1 2 3)") ;; should raise an error
+(read-from-string "#.(vector :a :b :c)")
+
+(let* ((x (list 1 2 3))
+       (y (append (list 'a 'b 'c) x)))
+  (hcl:dump-forms-to-file "my-forms.data" (list y x)))
+
+(let (ans)
+  (hcl:load-data-file "my-forms.data"
+                      :eval nil
+                      :callback (lambda (item) (push item ans)))
+  (setf ans (nreverse ans))
+  (assert (eq (cadr ans) (nthcdr 3 (car ans))))
+  ans)
+
+
+(let* ((x (list 1 2 3))
+       (y (append (list 'a 'b 'c) x)))
+  (destructuring-bind (yy xx)
+      (ms:unmarshal (ms:marshal (list y x)))
+    (assert (eq xx (nthcdr 3 yy)))
+    ))
 |#
+
+

@@ -337,6 +337,10 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
 
 (defmethod print-object ((id uuid) stream)
   "Prints an uuid in the string represenation of an uuid. (example string 6ba7b810-9dad-11d1-80b4-00c04fd430c8)"
+  (princ (concatenate 'string "#" (uuid-string id)) stream))
+
+(defun print-bytes (stream id)  
+  "Prints the raw bytes in hex form. (example output 6ba7b8109dad11d180b400c04fd430c8)"
   (format stream "~({~8,'0X-~4,'0X-~4,'0X-~2,'0X~2,'0X-~12,'0X}~)" 
           (time-low id)
           (time-mid id)
@@ -345,6 +349,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
           (clock-seq-low id)
           (node id)))
 
+#|
 (defmethod print-object :around ((id uuid) stream)
   (if *print-escape*
       (cond ((and *print-readably*
@@ -356,11 +361,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
              (format stream "\")")) )
     ;; else - convenient human readable form
     (call-next-method)))
-
-
-(defun print-bytes (stream uuid)
-  "Prints the raw bytes in hex form. (example output 6ba7b8109dad11d180b400c04fd430c8)"
-  (print-object uuid stream))
+|#
 
 (defun make-null-uuid ()
   "Generates a NULL uuid (i.e 00000000-0000-0000-0000-000000000000)"
@@ -576,12 +577,30 @@ built according code-char of each number in the uuid-string"
                                                        (#\( ")")
                                                        (#\< ">")
                                                        (t (list ch))) ))))))
+
+;; -----------------------------------------------
+
+(defun |reader-for-#{| (stream sub-char numarg)
+  ;; allows for #{...} syntax to represent UUID's
+  (declare (ignore sub-char numarg))
+  (let ((txt (first (com.ral.useful-macros.ppcre-reader::segment-reader stream #\} 1))))
+    (unless *read-suppress*
+      (uuid txt))))
+
+(set-dispatch-macro-character
+ #\# #\{ '|reader-for-#{|)
+
+;; -----------------------------------------------
+
 #|
 (set-$-dispatch-reader :uuid
                        (lambda (sym)
                          ;; symbol or string acceptable
                          (make-uuid-from-string (string sym))))
 |#
+
+(defmethod uuid ((x uuid))
+  x)
 
 (defmethod uuid (str)
   ;; string or symbol acceptable
@@ -608,5 +627,5 @@ built according code-char of each number in the uuid-string"
                 )))))
 
 (defun uuid-string (uuid)
-  (princ-to-string uuid))
+  (print-bytes nil uuid))
 

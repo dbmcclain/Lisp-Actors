@@ -567,13 +567,19 @@ comparisons."
   (if *print-readably*
       (with-standard-io-syntax
         (format out-stream
-                "#.(make-instance '~W :val (bev-vec (hex ~S)))"
+                "#.(make-instance '~W :val (~S (~S ~S)))"
                 (class-name (class-of obj))
+                'bev-vec 'hex
                 (hex-str obj)))
     ;; else
     (print-unreadable-object (obj out-stream :type t)
       (princ (short-str (hex-str obj)) out-stream))
     ))
+
+(when (find-package :restricted)
+  (restricted:add-symbols '(bev-vec hex ub8v-as-str
+                            base58 base64)
+                          ))
 
 (defmethod print-object ((obj ub8v-as-str) out-stream)
   (if *print-readably*

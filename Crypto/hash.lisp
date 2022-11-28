@@ -56,6 +56,9 @@ THE SOFTWARE.
   ((hashfn  :reader  hash-fn
             :initarg :hashfn)))
 
+(when (find-package :restricted)
+  (restricted:add-symbols '(hash/ripemd/160 hash/sha2/256 hash/256 hash/384 hash/512)))
+
 ;; -------------------------------------------------
 
 (defmethod hash-length ((x hash))
