@@ -52,7 +52,7 @@
 (defun actors-pkey ()
   (ed-compress-pt (ed-nth-pt (actors-skey))))
 
-(defconstant +server-connect-id+  #/uuid/{66895052-c57f-123a-9571-0a2cb67da316})
+(defconstant +server-connect-id+  {66895052-c57f-123a-9571-0a2cb67da316})
 
 ;; ----------------------------------------------------------------
 ;; Group Membership Verification

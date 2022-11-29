@@ -242,7 +242,7 @@
 
 ;; -----------------------------------------------------------
 
-(defconstant +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
+(defconstant +db-id+  {6f896744-6472-11ec-8ecb-24f67702cdaa})
 
 (def-ser-beh save-database-beh (path last-db)
   ;; -------------------
@@ -323,7 +323,7 @@
 
 ;; --------------------------------------------------------------------
 
-(defvar *unpersistable-key* #/uuid/{e177e996-5f1e-11ed-a62b-787b8acbe32e})
+(defvar *unpersistable-key* {e177e996-5f1e-11ed-a62b-787b8acbe32e})
 
 (defun try-encoding (k v)
   ;; this will bomb if either k or v is not persistable

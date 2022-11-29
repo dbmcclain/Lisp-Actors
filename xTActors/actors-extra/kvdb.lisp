@@ -424,7 +424,7 @@
 
 ;; -----------------------------------------------------------
 
-(defconstant +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
+(defconstant +db-id+  {6f896744-6472-11ec-8ecb-24f67702cdaa})
 
 (def-ser-beh save-database-beh (path last-db)
   ;; -------------------
