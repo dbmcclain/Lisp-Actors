@@ -189,7 +189,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
   (set-dispatch-macro-character #\# #\{ '|reader-for-#{|)
   (set-macro-character #\} (get-macro-character #\) nil))
   
-  (defun |reader-for-}| (stream char)
+  (defun |reader-for-{| (stream char)
     ;; We might as well... after more than 30 years with Lisp I haven't
     ;; seen a compelling case for any other use.
     (declare (ignore char))
@@ -197,7 +197,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
       (unless *read-suppress*
         (uuid txt))))
 
-  (set-macro-character #\{ #'|reader-for-}|)
+  (set-macro-character #\{ #'|reader-for-{|)
 
   ;; -----------------------------------------------
 
@@ -207,6 +207,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
     (princ (uuid-string id) stream))
 
   (defmethod make-load-form ((uuid uuid) &optional environment)
+    ;; THIS - also allows us to make DEFCONSTANT with UUID's.
     (declare (ignore environment))
     `(make-uuid-from-string ,(uuid-string uuid))))
   
