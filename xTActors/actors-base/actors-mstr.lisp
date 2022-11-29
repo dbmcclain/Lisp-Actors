@@ -194,7 +194,7 @@ THE SOFTWARE.
 
 (defun #1=run-actors (&optional actor &rest message)
   #F
-  (let (sends evt pend-beh done period)
+  (let (sends evt pend-beh done timeout)
     (flet ((%send (actor &rest msg)
              (if evt
                  (setf (msg-link  (the msg evt)) sends
@@ -220,7 +220,7 @@ THE SOFTWARE.
                     (lambda (&rest msg)
                       (setf done (list msg))
                       (become (sink-beh))))))
-          (setf period 1)
+          (setf timeout 1)
           (mpc:mailbox-send *central-mail* (msg actor (cons me message)))
           ))
       
@@ -247,7 +247,7 @@ THE SOFTWARE.
                   ;; before trampolining back here.
                   (when done
                     (return-from #1# (values-list (car done))))
-                  (when (setf evt (mpc:mailbox-read *central-mail* nil period))
+                  (when (setf evt (mpc:mailbox-read *central-mail* nil timeout))
                     (tagbody
                      next
                      (um:when-let (next-msgs (msg-link (the msg evt)))
@@ -439,33 +439,34 @@ THE SOFTWARE.
 ;; response to a customer. It is superfluous to do so from an Actor.
 ;;
 ;; For querying such an Actor, just leave out the customer arg in your
-;; message. A local mailbox interposes as the customer. This blocks
-;; until a response is received.
-#|
-(defun mbox-sender-beh (mbox)
-  (check-type mbox mpc:mailbox)
-  (lambda (&rest ans)
-    (mpc:mailbox-send mbox ans)))
-
-(defun mbox-sender (mbox)
-  (create (mbox-sender-beh mbox)))
-
-(defun ask (actor &rest msg)
-  ;; Actor should expect a cust arg in first position. Here, the
-  ;; mailbox.
-  (check-type actor actor)
-  (unless self
-      ;; Counterproductive when called from an Actor, except for
-      ;; possible side effects. Should use BETA forms if you want the
-      ;; answer.
-      (let ((mbox (mpc:make-mailbox)))
-        (send* actor (mbox-sender mbox) msg)
-        (values-list (mpc:mailbox-read mbox)))
-      ))
-|#
+;; message. Your thread joins the dispatcher pool until an answer can
+;; be had.
+;;
+;; In effect, this saves the current continuaition (stack state) and
+;; enters into the world of dispatchers until an answer is generated.
+;; Then at the eariliest opportunity the (now dispatcher) current
+;; thread returns with that answer.
+;;
+;; If your thread is busy performing a behavior, you have to wait
+;; until that behavior finishes. If it is idle, waiting for message
+;; Events at the Central Mailbox when the answer is generated, then
+;; you will return within 1s. If your thread is the one generating the
+;; answer, then return is immediate.
+;;
+;; Meanwhile, sit back and enjoy SMP Parallel Processing on Multi-Core
+;; architectures.
+;;
+;; ASK performs an immediate reified SEND. So, when called from within
+;; an Actor behavior, that violates transactional boundaries, and can
+;; produce leakage that is best avoided. If you are in an Actor
+;; behavior it is still better to avoid using ASK, and use β-forms for
+;; CPS Actor style.
 
 (defun ask (actor &rest msg)
   (check-type actor actor)
+  (when self
+    (warn "Calling ASK from within an Actor has you violating \
+transactional boundaries. Try using β-forms instead."))
   (apply #'run-actors actor msg))
 
 ;; ------------------------------------------------------
