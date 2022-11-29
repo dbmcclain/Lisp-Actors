@@ -603,12 +603,12 @@ built according code-char of each number in the uuid-string"
 (defun |reader-for-#{| (stream sub-char numarg)
   ;; allows for #{...} syntax to represent UUID's
   (declare (ignore sub-char numarg))
-  (let ((txt (first (com.ral.useful-macros.ppcre-reader::segment-reader stream #\} 1))))
+  (let ((txt (first (read-delimited-list #\} stream t))))
     (unless *read-suppress*
       (uuid txt))))
 
-(set-dispatch-macro-character
- #\# #\{ '|reader-for-#{|)
+(set-dispatch-macro-character #\# #\{ '|reader-for-#{|)
+(set-macro-character #\} (get-macro-character #\) nil))
 
 ;; -----------------------------------------------
 
