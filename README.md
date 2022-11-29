@@ -16,6 +16,7 @@ The beauty of this approach is that there are no idle thread resources. Threads 
 
 Up to now, we needed Continuations in the CALL/RETURN world to effect what we now have. Lisp doesn't provide Continuations, and for many good reasons. But in effect, we are doing just that for ourselves using this new approach. We don't thread-switch, but rather make your thread join the dispatcher pool until an answer can be returned. This becomes much less wasteful of resources than traditional Continuations, which either switch-out threads or else copy large stack regions to and from memory.
 
+We still have another alternative, CALL-ACTOR, which behaves similarly, but remains on the caller's thread. The original intent of CALL-ACTOR was to provide a way of running an Actor system on only one thread. Calling ASK employs the full power of parallel execution across multiple SMP Cores. And now that ASK does not overtly block waiting on mailboxes, it should be preferred over CALL-ACTOR.
 
 
 -- 27 October 2022 -- Where do Actors Make Sense?
