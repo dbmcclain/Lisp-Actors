@@ -166,18 +166,65 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
                    :time-high (parse-integer uuid-string :start 14 :end 18 :radix 16)
                    :clock-seq-var (parse-integer uuid-string :start 19 :end 21 :radix 16)
                    :clock-seq-low (parse-integer uuid-string :start 21 :end 23 :radix 16)
-                   :node (parse-integer uuid-string :start 24 :end 36 :radix 16))))
+                   :node (parse-integer uuid-string :start 24 :end 36 :radix 16)))
 
+  ;; -----------------------------------------------
+  
+  (defmethod uuid ((x uuid))
+    x)
+  
+  (defmethod uuid (str)
+    ;; string or symbol acceptable
+    (make-uuid-from-string (string str)))
+  
+  ;; -----------------------------------------------
+
+  (defun |reader-for-#{| (stream sub-char numarg)
+    ;; allows for #{...} syntax to represent UUID's
+    (declare (ignore sub-char numarg))
+    (let ((txt (first (read-delimited-list #\} stream t))))
+      (unless *read-suppress*
+        (uuid txt))))
+  
+  (set-dispatch-macro-character #\# #\{ '|reader-for-#{|)
+  (set-macro-character #\} (get-macro-character #\) nil))
+  
+  (defun |reader-for-}| (stream char)
+    ;; We might as well... after more than 30 years with Lisp I haven't
+    ;; seen a compelling case for any other use.
+    (declare (ignore char))
+    (let ((txt (first (read-delimited-list #\} stream t))))
+      (unless *read-suppress*
+        (uuid txt))))
+
+  (set-macro-character #\{ #'|reader-for-}|)
+
+  ;; -----------------------------------------------
+
+  (defmethod print-object ((id uuid) stream)
+    "Prints an uuid in the string represenation of an uuid.
+     (example string {6ba7b810-9dad-11d1-80b4-00c04fd430c8})"
+    (princ (uuid-string id) stream))
+
+  (defmethod make-load-form ((uuid uuid) &optional environment)
+    (declare (ignore environment))
+    `(make-uuid-from-string ,(uuid-string uuid))))
+  
 #+:MARSHAL
 (defmethod ms:class-persistent-slots ((self uuid:uuid))
   (append (call-next-method) '(time-low time-mid time-high-and-version
                                clock-seq-and-reserved clock-seq-low
                                node)))
 
-(defmethod make-load-form ((uuid uuid) &optional environment)
-  (declare (ignore environment))
-  `(make-uuid-from-string ,(uuid-string uuid)))
-
+(defconstant +namespace-dns+ {6ba7b810-9dad-11d1-80b4-00c04fd430c8}
+  "The DNS Namespace. Can be used for the generation of uuids version 3 and 5")
+(defconstant +namespace-url+ {6ba7b811-9dad-11d1-80b4-00c04fd430c8}
+  "The URL Namespace. Can be used for the generation of uuids version 3 and 5")
+(defconstant +namespace-oid+ {6ba7b812-9dad-11d1-80b4-00c04fd430c8}
+  "The OID Namespace. Can be used for the generation of uuids version 3 and 5")
+(defconstant +namespace-x500+ {6ba7b814-9dad-11d1-80b4-00c04fd430c8}
+  "The x500+ Namespace. Can be used for the generation of uuids version 3 and 5")
+#|
 ;; Those should be constants but I couldn't find a way to define a CLOS object to be constant
 (defconstant+ +namespace-dns+ (make-uuid-from-string "6ba7b810-9dad-11d1-80b4-00c04fd430c8")
   "The DNS Namespace. Can be used for the generation of uuids version 3 and 5")
@@ -187,6 +234,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
   "The OID Namespace. Can be used for the generation of uuids version 3 and 5")
 (defconstant+ +namespace-x500+ (make-uuid-from-string "6ba7b814-9dad-11d1-80b4-00c04fd430c8")
   "The x500+ Namespace. Can be used for the generation of uuids version 3 and 5")
+|#
 
 #+(AND :MACOSX :LISPWORKS)
 (defun get-node-id ()
@@ -368,10 +416,6 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
 		   :clock-seq-var (dpb #b10 (byte 2 6) (aref hash 8))
 		   :clock-seq-low (aref hash 9)
 		   :node (load-bytes hash :start 10 :end 15))))
-
-(defmethod print-object ((id uuid) stream)
-  "Prints an uuid in the string represenation of an uuid. (example string 6ba7b810-9dad-11d1-80b4-00c04fd430c8)"
-  (princ (concatenate 'string "#" (uuid-string id)) stream))
 
 #|
 (defmethod print-object :around ((id uuid) stream)
@@ -600,31 +644,12 @@ built according code-char of each number in the uuid-string"
 
 ;; -----------------------------------------------
 
-(defun |reader-for-#{| (stream sub-char numarg)
-  ;; allows for #{...} syntax to represent UUID's
-  (declare (ignore sub-char numarg))
-  (let ((txt (first (read-delimited-list #\} stream t))))
-    (unless *read-suppress*
-      (uuid txt))))
-
-(set-dispatch-macro-character #\# #\{ '|reader-for-#{|)
-(set-macro-character #\} (get-macro-character #\) nil))
-
-;; -----------------------------------------------
-
 #|
 (set-$-dispatch-reader :uuid
                        (lambda (sym)
                          ;; symbol or string acceptable
                          (make-uuid-from-string (string sym))))
 |#
-
-(defmethod uuid ((x uuid))
-  x)
-
-(defmethod uuid (str)
-  ;; string or symbol acceptable
-  (make-uuid-from-string (string str)))
 
 (defmethod when-created ((uuid uuid))
   ;; for Type-1 UUID's
