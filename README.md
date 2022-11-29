@@ -1,6 +1,6 @@
 -- 29 November 2022 -- Non-Blocking ASK !!
 ---
-I found a way forward that allows a thread to ASK of an Actor without overt blocking on a Mailbox response. This also makes the requestor's thread become an involuntary participant in the Dispatcher Thread Pool, until it gets a response from the Actor being ASKED. At that point it returns back to the caller of ASK with a multiple value response.
+I found a way forward that allows a thread to ASK of an Actor without overt blocking on a Mailbox response. This also makes the requestor's thread become an involuntary participant in the Dispatcher Thread Pool, until it gets a response from the Actor being ASK'ed. At that point it returns back to the caller of ASK with a multiple value response.
 
 This is great news on several fronts, but it also has implications which should be properly understood. The original intent of ASK was to permit a non-Actor thread to request something of the Actors system using Call/Return semantics. But there is nothing preventing it being used also from within an Actor behavior.
 
