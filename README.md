@@ -4,7 +4,7 @@ I found a way forward that allows a thread to ASK of an Actor without overt bloc
 
 This is great news on several fronts, but it also has implications which should be properly understood. The original intent of ASK was to permit a non-Actor thread to request something of the Actors system using Call/Return semantics. But there is nothing preventing it being used also from within an Actor behavior.
 
-However, when calling ASK from within an Actor behavior, it violates the transactional boundaries that were originally intended for Actors. With transactional behaviors, no visible change occurs outside of the Actor behavior boundary until it exits successfully. If any errors occur during behavior execution, all SENDS and BECOMES are aborted, and it becomes as though the errant message were never delivered. 
+However, when calling ASK from within an Actor behavior, it violates the transactional boundaries that were originally intended for Actors. With transactional behaviors, no visible change occurs outside of the Actor behavior boundary until it exits successfully. If any errors occur during behavior execution, all SEND's and BECOME's are aborted, and it becomes as though the errant message were never delivered. 
 
 Now, calling ASK from within an Actor behavior allows leakage from within the Actor, before a completion has succeeded, because ASK performs an immediate reified SEND. This gives a chance for non-reentrancy that didn't occur before now. In the past you could simply not usefully call ASK from within an Actor behavior. It is still probably best to avoid using ASK within Actor behaviors, preferring instead the CPS style β-forms which produce continuation Actors.
 
