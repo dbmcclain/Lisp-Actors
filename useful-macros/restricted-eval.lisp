@@ -146,6 +146,15 @@
       (ms:unmarshal (ms:marshal (list y x)))
     (assert (eq xx (nthcdr 3 yy)))
     ))
+
+(ac:with-maximum-io-syntax
+ (let ((x #{25123714-6f56-11ed-9a1c-787b8acbe32e})
+       (y #{27e2ebd2-6f56-11ed-9a1c-787b8acbe32e}))
+   (prin1 (list x y (vector x x y)))))
+
+(read-from-string "(#1=#{25123714-6f56-11ed-9a1c-787b8acbe32e}
+                    #2=#{27e2ebd2-6f56-11ed-9a1c-787b8acbe32e}
+                    #(#1# #1# #2#))")
 |#
 
 

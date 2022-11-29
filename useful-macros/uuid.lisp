@@ -127,16 +127,46 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
      (node :accessor node :initarg :node :initform 0))
     (:documentation "Represents an uuid"))
 
+  (defun print-bytes (stream id)  
+    "Prints the raw bytes in hex form. (example output 6ba7b8109dad11d180b400c04fd430c8)"
+    (format stream "~({~8,'0X-~4,'0X-~4,'0X-~2,'0X~2,'0X-~12,'0X}~)" 
+            (time-low id)
+            (time-mid id)
+            (time-high id)
+            (clock-seq-var id)
+            (clock-seq-low id)
+            (node id)))
+  
+  (defun uuid-string (uuid)
+    (print-bytes nil uuid))
+  
+  #+:LISPWORKS
+  (defun cached-uuid (uuid)
+    (let ((key (uuid-string uuid))
+          (tbl (or (get 'uuid 'cache)
+                   (setf (get 'uuid 'cache)
+                         (make-hash-table :test 'equalp
+                                          :weak-kind :value)))))
+      (hcl:modify-hash tbl key (lambda (key val present-p)
+                                 (declare (ignore key present-p))
+                                 (or val
+                                     uuid)))
+      ))
+
+  #+:LISPWORKS
+  (defmethod make-instance :around ((kind (eql 'uuid)) &rest initargs &key &allow-other-keys)
+    (cached-uuid (call-next-method)))
+  
   (defun make-uuid-from-string (uuid-string)
     "Creates an uuid from the string represenation of an uuid. (example input string 6ba7b810-9dad-11d1-80b4-00c04fd430c8)"
     (setf uuid-string (string-trim "{}" uuid-string))
     (make-instance 'uuid
-		   :time-low (parse-integer uuid-string :start 0 :end 8 :radix 16)
-		   :time-mid (parse-integer uuid-string :start 9 :end 13 :radix 16)
-		   :time-high (parse-integer uuid-string :start 14 :end 18 :radix 16)
-		   :clock-seq-var (parse-integer uuid-string :start 19 :end 21 :radix 16)
-		   :clock-seq-low (parse-integer uuid-string :start 21 :end 23 :radix 16)
-		   :node (parse-integer uuid-string :start 24 :end 36 :radix 16))))
+                   :time-low (parse-integer uuid-string :start 0 :end 8 :radix 16)
+                   :time-mid (parse-integer uuid-string :start 9 :end 13 :radix 16)
+                   :time-high (parse-integer uuid-string :start 14 :end 18 :radix 16)
+                   :clock-seq-var (parse-integer uuid-string :start 19 :end 21 :radix 16)
+                   :clock-seq-low (parse-integer uuid-string :start 21 :end 23 :radix 16)
+                   :node (parse-integer uuid-string :start 24 :end 36 :radix 16))))
 
 #+:MARSHAL
 (defmethod ms:class-persistent-slots ((self uuid:uuid))
@@ -338,16 +368,6 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
 (defmethod print-object ((id uuid) stream)
   "Prints an uuid in the string represenation of an uuid. (example string 6ba7b810-9dad-11d1-80b4-00c04fd430c8)"
   (princ (concatenate 'string "#" (uuid-string id)) stream))
-
-(defun print-bytes (stream id)  
-  "Prints the raw bytes in hex form. (example output 6ba7b8109dad11d180b400c04fd430c8)"
-  (format stream "~({~8,'0X-~4,'0X-~4,'0X-~2,'0X~2,'0X-~12,'0X}~)" 
-          (time-low id)
-          (time-mid id)
-          (time-high id)
-          (clock-seq-var id)
-          (clock-seq-low id)
-          (node id)))
 
 #|
 (defmethod print-object :around ((id uuid) stream)
@@ -626,6 +646,5 @@ built according code-char of each number in the uuid-string"
                       (ldb (byte 8 pos) mac))
                 )))))
 
-(defun uuid-string (uuid)
-  (print-bytes nil uuid))
+
 
