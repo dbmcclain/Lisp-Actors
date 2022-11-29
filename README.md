@@ -14,6 +14,8 @@ Under best conditions, that delay will be bounded by 1s while the answer is gene
 
 The beauty of this approach is that there are no idle thread resources. Threads that ASK become productive citizens of the Actors world until an answer is generated. Be warned, however, that if you ASK of an Actor that doesn't generate answers to customers, then you will never return. (But this has always been true.) If this is a concern to you, then be sure to use Actor plumbing to produce a timeout response for yourself.
 
+[PS: It probably makes sense to avoid using ASK from within CAPI. Use β-forms instead.]
+
 Up to now, I thought we needed First-Class Continuations in the CALL/RETURN world to effect what we now have. Lisp doesn't provide First-Class Continuations, and for many good reasons. But in effect, we are doing just that for ourselves using this new approach. Nearly every language supports at least the current continuation - the stack state as it is at the moment. Lisp does not package that up as a first-class object. But you can use it in-place by Calling a function, and then resume the continuation on Return from the called function. That's just a complicated way of stating the obvious.
 
 We don't thread-switch, nor switch stacks, nor copy stack regions to/from memory. But rather, we save the current continuation (stack state) by leaving it intact, and make your thread join the dispatcher pool until an answer can be returned. This becomes much less wasteful of resources than using traditional first-class Continuations. This one is a freebie.
