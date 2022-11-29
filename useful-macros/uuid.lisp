@@ -174,6 +174,10 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
                                clock-seq-and-reserved clock-seq-low
                                node)))
 
+(defmethod make-load-form ((uuid uuid) &optional environment)
+  (declare (ignore environment))
+  `(make-uuid-from-string ,(uuid-string uuid)))
+
 ;; Those should be constants but I couldn't find a way to define a CLOS object to be constant
 (defconstant+ +namespace-dns+ (make-uuid-from-string "6ba7b810-9dad-11d1-80b4-00c04fd430c8")
   "The DNS Namespace. Can be used for the generation of uuids version 3 and 5")
@@ -579,10 +583,6 @@ built according code-char of each number in the uuid-string"
 
 (defun uuid-to-universal-time (id)
   (uuid-universal-time id))
-
-(defmethod make-load-form ((uuid uuid) &optional environment)
-  (declare (ignore environment))
-  `(make-uuid-from-string ,(uuid-string uuid)))
 
 (set-/-dispatch-reader "uuid"
                        (lambda (stream)
