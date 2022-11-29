@@ -192,9 +192,9 @@ THE SOFTWARE.
 ;; appear in the event queue in front of messages sent by a later
 ;; Actor activation. The event queue is a FIFO queue.
 
-(defun run-actors ()
+(defun #1=run-actors (&optional actor &rest message)
   #F
-  (let (sends evt pend-beh)
+  (let (sends evt pend-beh done period)
     (flet ((%send (actor &rest msg)
              (if evt
                  (setf (msg-link  (the msg evt)) sends
@@ -214,6 +214,15 @@ THE SOFTWARE.
                    sends    nil)))
 
       (declare (dynamic-extent #'%send #'%become #'%abort-beh))
+
+      (when (actor-p actor)
+        (let ((me  (create
+                    (lambda (&rest msg)
+                      (setf done (list msg))
+                      (become (sink-beh))))))
+          (setf period 1)
+          (mpc:mailbox-send *central-mail* (msg actor (cons me message)))
+          ))
       
       ;; -------------------------------------------------------
       ;; Think of the *current-x* global vars as dedicated registers
@@ -236,49 +245,55 @@ THE SOFTWARE.
                   ;; stack useful only for a microcoding assist. Our
                   ;; depth is never more than one Actor at a time,
                   ;; before trampolining back here.
-                  (setf evt (mpc:mailbox-read *central-mail*))
-                  (tagbody
-                   next
-                   (um:when-let (next-msgs (msg-link (the msg evt)))
-                     (mpc:mailbox-send *central-mail* next-msgs))
-
-                   (let* ((*current-actor*   (msg-actor (the msg evt)))  ;; self
-                          (*current-message* (msg-args  (the msg evt)))) ;; self-msg
-                     (declare (actor *current-actor*)
-                              (list  *current-message*))
+                  (when done
+                    (return-from #1# (values-list (car done))))
+                  (when (setf evt (mpc:mailbox-read *central-mail* nil period))
+                    (tagbody
+                     next
+                     (um:when-let (next-msgs (msg-link (the msg evt)))
+                       (mpc:mailbox-send *central-mail* next-msgs))
                      
-                     (tagbody                   
-                      retry
-                      (setf pend-beh (actor-beh (the actor self))
-                            sends    nil)
-                      (let ((*current-behavior* pend-beh))  ;; self-beh
-                        (declare (function *current-behavior*))
-                        ;; ---------------------------------
-                        ;; Dispatch to Actor behavior with message args
-                        (apply (the function pend-beh) self-msg)
-                        (cond ((or (eq self-beh pend-beh)
-                                   (%actor-cas self self-beh pend-beh))
-                               (when sends
-                                 (cond ((mpc:mailbox-empty-p *central-mail*)
-                                        ;; No messages await, we are front of queue,
-                                        ;; so grab first message for ourself.
-                                        ;; This is the most common case at runtime,
-                                        ;; giving us a dispatch timing of only 46ns on i9 processor.
-                                        (setf evt sends)
-                                        (go next))
-                                       
-                                       (t
-                                        ;; else - we are not front of queue
-                                        ;; enqueue new messages and repeat loop
-                                        (mpc:mailbox-send *central-mail* sends))
-                                       )))
-                              (t
-                               ;; failed on behavior update - try again...
-                               (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
-                               (go retry))
-                              )))
-                     ))
-                  )))
+                     (let* ((*current-actor*   (msg-actor (the msg evt)))  ;; self
+                            (*current-message* (msg-args  (the msg evt)))) ;; self-msg
+                       (declare (actor *current-actor*)
+                                (list  *current-message*))
+                       
+                       (tagbody                   
+                        retry
+                        (setf pend-beh (actor-beh (the actor self))
+                              sends    nil)
+                        (let ((*current-behavior* pend-beh))  ;; self-beh
+                          (declare (function *current-behavior*))
+                          ;; ---------------------------------
+                          ;; Dispatch to Actor behavior with message args
+                          (apply (the function pend-beh) self-msg)
+                          (cond ((or (eq self-beh pend-beh)
+                                     (%actor-cas self self-beh pend-beh))
+                                 (when sends
+                                   (cond (done
+                                          (mpc:mailbox-send *central-mail* sends))
+                                         
+                                         ((mpc:mailbox-empty-p *central-mail*)
+                                          ;; No messages await, we are front of queue,
+                                          ;; so grab first message for ourself.
+                                          ;; This is the most common case at runtime,
+                                          ;; giving us a dispatch timing of only 46ns on i9 processor.
+                                          (setf evt sends)
+                                          (go next))
+                                         
+                                         (t
+                                          ;; else - we are not front of queue
+                                          ;; enqueue new messages and repeat loop
+                                          (mpc:mailbox-send *central-mail* sends))
+                                         )))
+                                (t
+                                 ;; failed on behavior update - try again...
+                                 (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
+                                 (go retry))
+                                )))
+                       ))
+                    ))
+               ))
           )))))
 
 ;; ----------------------------------------------------------------
@@ -426,7 +441,7 @@ THE SOFTWARE.
 ;; For querying such an Actor, just leave out the customer arg in your
 ;; message. A local mailbox interposes as the customer. This blocks
 ;; until a response is received.
-
+#|
 (defun mbox-sender-beh (mbox)
   (check-type mbox mpc:mailbox)
   (lambda (&rest ans)
@@ -447,6 +462,11 @@ THE SOFTWARE.
         (send* actor (mbox-sender mbox) msg)
         (values-list (mpc:mailbox-read mbox)))
       ))
+|#
+
+(defun ask (actor &rest msg)
+  (check-type actor actor)
+  (apply #'run-actors actor msg))
 
 ;; ------------------------------------------------------
 ;; FN-ACTOR - the most general way of computing something is to send
