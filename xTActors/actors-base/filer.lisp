@@ -62,11 +62,10 @@
 
 (def-ser-beh filer-beh ()
   ((cust :open fname . args)
-   (let ((op-timeout  (getf args :op-timeout 10))    ;; limit on file ops
-         (close-after (getf args :close-after 10)))  ;; idle timeout
-     (remf args :op-timeout)
-     (remf args :close-after)
-     (let* ((fd   (apply #'open fname args))
+   (let ((op-timeout  (getf args :op-timeout  10))  ;; limit on file ops
+         (close-after (getf args :close-after 10))  ;; idle timeout
+         (open-args   (getf args :open-args)))
+     (let* ((fd   (apply #'open fname open-args))
             (chan (serializer (create (open-filer-beh fd op-timeout))))
             (gate (create))
             (tag  (timed-tag gate close-after)))
@@ -89,11 +88,12 @@
 (defun tst ()
   (β (fp)
       (send filer β :open "junk.dat"
-            :close-after       3
-            :direction         :output
-            :element-type      '(unsigned-byte 8)
-            :if-does-not-exist :create
-            :if-exists         :append) ;; :rename
+            :close-after 3
+            :open-args   (list 
+                          :direction         :output
+                          :element-type      '(unsigned-byte 8)
+                          :if-does-not-exist :create
+                          :if-exists         :append)) ;; :rename
     ;; (sleep 10)
     (sleep 1)
     (β ans
