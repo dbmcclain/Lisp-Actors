@@ -843,38 +843,36 @@
           (init-kvdb)))
       )))
 
-(defun kvdb-orchestrator-beh (&optional open-dbs)
+(def-ser-beh kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
-  (alambda
-   ((cust :make-kvdb path)
-    (cond ((ensure-file-exists path)
-           (multiple-value-bind (dev ino)
-               (um:get-ino path)
-             (let* ((key    (um:mkstr dev #\space ino))
-                    (triple (find key open-dbs
-                                  :key  #'car
-                                  :test #'string-equal)))
-               (cond (triple
-                      (send cust (third triple)))
-                     (t
-                      (let* ((tag-to-me  (tag self))
-                             (kvdb       (%make-kvdb tag-to-me path)))
-                        (become (kvdb-orchestrator-beh
-                                 (cons (list key tag-to-me kvdb)
-                                       open-dbs)))
-                        (send cust kvdb)))
-                     ))))
-          (t
-           (send cust (const (format nil "Database ~S Not Available" path))))
-          ))
-
-   ((atag :remove-entry)
-    (let ((grp (find atag open-dbs
-                     :key #'cadr)))
-      (when grp
-        (become (kvdb-orchestrator-beh (remove grp open-dbs))))
-      ))
-   ))
+  ((cust :make-kvdb path)
+   (cond ((ensure-file-exists path)
+          (multiple-value-bind (dev ino)
+              (um:get-ino path)
+            (let* ((key    (um:mkstr dev #\space ino))
+                   (triple (find key open-dbs
+                                 :key  #'car
+                                 :test #'string-equal)))
+              (cond (triple
+                     (send cust (third triple)))
+                    (t
+                     (let* ((tag-to-me  (tag self))
+                            (kvdb       (%make-kvdb tag-to-me path)))
+                       (become (kvdb-orchestrator-beh
+                                (cons (list key tag-to-me kvdb)
+                                      open-dbs)))
+                       (send cust kvdb)))
+                    ))))
+         (t
+          (send cust (const (format nil "Database ~S Not Available" path))))
+         ))
+  
+  ((atag :remove-entry)
+   (let ((grp (find atag open-dbs
+                    :key #'cadr)))
+     (when grp
+       (become (kvdb-orchestrator-beh (remove grp open-dbs))))
+     )))
 
 (deflex kvdb-maker
   (serializer ;; because we are doing file ops
