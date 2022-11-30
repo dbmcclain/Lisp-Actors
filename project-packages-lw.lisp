@@ -18,6 +18,7 @@
 (defvar *bypass-mapping*   nil)
 
 (defun normalize (name)
+  (declare (optimize speed))          ;this is critical code
   (cond ((stringp name)
          (string-upcase name))
         ((symbolp name)
@@ -39,6 +40,7 @@
   `(do-defproject ',pairs))
 
 (defun map-name (name &optional froms)
+  (declare (optimize speed))          ;this is critical code
   (cond ((or *bypass-mapping*
              (packagep name))
          name)
@@ -48,8 +50,7 @@
            (when (find norm-name froms :test #'string=)
              (error "Cyclic mappong ~A" norm-name))
            (mp:with-sharing-lock (*map-lock*)
-             (if (and ;; (char= #\= (char norm-name 0))
-                      (setf to-name (gethash norm-name *mappings*)))
+             (if (setf to-name (gethash norm-name *mappings*))
                  (map-name to-name (cons norm-name froms))
                name))))
         ))
