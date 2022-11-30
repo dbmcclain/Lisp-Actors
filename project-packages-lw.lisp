@@ -54,30 +54,45 @@
                name))))
         ))
 
-(lw:defadvice (cl:find-package project-packages :around)
+;; ------------------------------------------------
+
+(lw:defadvice (find-package project-packages :around)
     (name/package)
     (declare (optimize speed))          ;this is critical code
     (lw:call-next-advice
      (map-name name/package)) )
 
+#|
 (lw:defadvice (sys::find-package-without-lod project-packages :around)
     (name)
   ;; used by editor to set buffer package
   (declare (optimize speed))
   ;; (format t "find-package-without-lod: ~S" (editor:variable-value 'editor::current-package) )
   (lw:call-next-advice (map-name name)))
-
+|#
+#|
 (lw:defadvice (sys::find-global-package project-packages :around)
     (name)
   ;; used by editor to set buffer package
   (declare (optimize speed))
   ;; (format t "find-package-without-lod: ~S" (editor:variable-value 'editor::current-package) )
   (lw:call-next-advice (map-name name)))
+|#
 
+;; ------------------------------------------------
+
+#|
 (lw:defadvice (sys::%in-package project-packages :around)
     (name &rest args)
   (declare (optimize speed))
   (apply #'lw:call-next-advice (map-name name) args))
+|#
+
+(lw:defadvice (in-package project-packages :around)
+    (call-form env)
+  (lw:call-next-advice `(in-package ,(map-name (cadr call-form))) env))
+
+;; ------------------------------------------------
 
 (defmethod in-quicklisp-p (filename)
   (find "quicklisp" (pathname-directory filename)
@@ -110,3 +125,6 @@
       (pprint (sort lst #'string< :key #'car)))
     (values)))
 
+#|
+(show-mappings)
+ |#
