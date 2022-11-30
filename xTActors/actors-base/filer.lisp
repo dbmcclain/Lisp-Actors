@@ -45,6 +45,7 @@
    User Msg -->| Retrig Gate |-->| Serializer |-->| Open Filer |
 	       +-------------+   +------------+	  +------------+     	       
  |#
+
 (def-ser-beh open-filer-beh (fd timeout)
   ((cust :close)
    (close fd)
@@ -76,10 +77,13 @@
       (repeat-send chan)))
    ))
 
+(defconstant +DEFAULT-OP-TIMEOUT+    10)
+(defconstant +DEFAULT-CLOSE-TIMEOUT+ 10)
+
 (def-ser-beh filer-beh ()
   ((cust :open fname . args)
-   (let ((op-timeout  (getf args :op-timeout  10))  ;; limit on file ops
-         (close-after (getf args :close-after 10))  ;; idle timeout
+   (let ((op-timeout  (getf args :op-timeout  +DEFAULT-OP-TIMEOUT+))
+         (close-after (getf args :close-after +DEFAULT-CLOSE-TIMEOUT+))
          (open-args   (getf args :open-args)))
      (let* ((fd   (apply #'open fname open-args))
             (chan (serializer (create (open-filer-beh fd op-timeout))))
@@ -93,7 +97,8 @@
   (serializer
    ;; because we are performing non-idempotent file open/create
    (create (filer-beh))))
-    
+
+;; --------------------------------------------------
 #|
 (defun tst (&rest args &key (timeout 10) &allow-other-keys)
   (remf args :timeout)
