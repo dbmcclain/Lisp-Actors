@@ -172,7 +172,7 @@
 ;; Unlike in CALL/RETURN architectures, we don't have an
 ;; UNWIND-PROTECT on which to rely. There is no scoping with Actor
 ;; executions. All Actors execute in the same toplevel environment. We
-;; must exercise manual discipline. Just like in the real world.
+;; must exercise manual discipline.
 ;;
 ;; It is difficult to defensively program against all possible future
 ;; abuses of your Actor system. In most cases you will need to rely on

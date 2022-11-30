@@ -192,6 +192,8 @@ THE SOFTWARE.
 ;; appear in the event queue in front of messages sent by a later
 ;; Actor activation. The event queue is a FIFO queue.
 
+(defconstant +ASK-TIMEOUT+  1)
+
 (defun #1=run-actors (&optional actor &rest message)
   #F
   (let (sends evt pend-beh done timeout)
@@ -219,8 +221,9 @@ THE SOFTWARE.
         (let ((me  (create
                     (lambda (&rest msg)
                       (setf done (list msg))
-                      (become (sink-beh))))))
-          (setf timeout 1)
+                      (become-sink))
+                    )))
+          (setf timeout +ASK-TIMEOUT+)
           (mpc:mailbox-send *central-mail* (msg actor (cons me message)))
           ))
       
@@ -423,7 +426,7 @@ THE SOFTWARE.
   (α msg
     (with-printer (s *standard-output*)
       (with-maximum-io-syntax
-       (format s "~&~{~S~%~^~}" msg)))))
+       (format s "~&~{~:W~%~^~}" msg)))))
 
 (def-actor fmt-println
   (α (fmt-str &rest args)
@@ -465,8 +468,8 @@ THE SOFTWARE.
 (defun ask (actor &rest msg)
   (check-type actor actor)
   (when self
-    (warn "Calling ASK from within an Actor has you violating \
-transactional boundaries. Try using β-forms instead."))
+    (warn "Calling ASK from within an Actor has you violating
+             transactional boundaries. Try using β-forms instead."))
   (apply #'run-actors actor msg))
 
 ;; ------------------------------------------------------
