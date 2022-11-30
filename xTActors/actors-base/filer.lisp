@@ -28,7 +28,23 @@
 ;; your file access procedures, unless you take care of everything
 ;; within just one Actor. But when you can't do that, the next best
 ;; thing is MAKE-FILER.
+#|
 
+  Sending :OPEN to FILER produces an Open File Channel Actor. That
+  Channel consists of a retriggerable gate feeding into a Serializer
+  and then to the Open Filer Actor. The Open Filer Actor responds to
+  messages :OPER and :CLOSE.
+
+  The Retriggerable Gate serves to issue a :CLOSE if no activity has
+  been seen for more than :CLOSE-AFTER seconds.
+
+  The Open Filer is protected during :OPER operations with a timeout
+  given by :OP-TIMEOUT sec.
+
+	       +-------------+   +------------+	  +------------+     	       
+   User Msg -->| Retrig Gate |-->| Serializer |-->| Open Filer |
+	       +-------------+   +------------+	  +------------+     	       
+ |#
 (def-ser-beh open-filer-beh (fd timeout)
   ((cust :close)
    (close fd)
