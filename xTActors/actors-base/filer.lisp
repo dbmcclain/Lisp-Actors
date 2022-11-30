@@ -26,8 +26,8 @@
 ;; In an Actor world, there is no concept of "Scope" and so it is
 ;; counterproductive, and impossible, to use WITH-OPEN-FILE around
 ;; your file access procedures, unless you take care of everything
-;; within just one Actor. But when you can't do that, the next best
-;; thing is MAKE-FILER.
+;; within just one Actor behavior function. But when you can't do
+;; that, the next best thing is FILER.
 #|
 
   Sending :OPEN to FILER produces an Open File Channel Actor. That
