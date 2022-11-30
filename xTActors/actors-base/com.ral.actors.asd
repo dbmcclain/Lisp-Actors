@@ -44,6 +44,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 		(:file "cheapq")
                 (:file "prim-actors")
                 (:file "serializer")
+                (:file "filer")
                 (:file "startup"))
   :SERIAL T
   :depends-on   ("com.ral.useful-macros"

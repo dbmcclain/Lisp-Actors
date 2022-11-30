@@ -305,7 +305,7 @@ THE SOFTWARE.
    #:def-actor
    #:define-behavior
    
-   #:make-filer
+   #:filer
    #:with-actors
 
    #:membrane
