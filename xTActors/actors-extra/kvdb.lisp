@@ -837,6 +837,7 @@
                (format nil "Create file: ~S?" path))
           (init-kvdb)))
       (overwrite ()
+        :test not-a-kvdb-p
         (when (capi:prompt-for-confirmation
                (format nil "Rename existing and create new file: ~S?" path))
           (init-kvdb)))
@@ -875,7 +876,9 @@
       ))
    ))
 
-(deflex kvdb-maker (create (kvdb-orchestrator-beh)))
+(deflex kvdb-maker
+  (serializer ;; because we are doing file ops
+   (create (kvdb-orchestrator-beh))))
 
 ;; -----------------------------------------------------
 ;; Local Proxy KVDB's for remote access - avoid shuttling entire map
