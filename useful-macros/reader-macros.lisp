@@ -363,7 +363,9 @@ THE SOFTWARE.
                                   (princ (subseq str start pos) s)
                                   (princ "~A" s)
                                   (multiple-value-bind (val new-pos)
-                                      (read-from-string str t nil :start (1+ pos))
+                                      (read-from-string str t nil
+                                                        :start (1+ pos)
+                                                        :preserve-whitespace t)
                                     (push val parts)
                                     (go-iter new-pos)))
                                  
