@@ -80,23 +80,19 @@
 (defconstant +DEFAULT-OP-TIMEOUT+    10)
 (defconstant +DEFAULT-CLOSE-TIMEOUT+ 10)
 
-(def-ser-beh filer-beh ()
-  ((cust :open fname . args)
-   (let ((op-timeout  (getf args :op-timeout  +DEFAULT-OP-TIMEOUT+))
-         (close-after (getf args :close-after +DEFAULT-CLOSE-TIMEOUT+))
-         (open-args   (getf args :open-args)))
-     (let* ((fd   (apply #'open fname open-args))
-            (chan (serializer (create (open-filer-beh fd op-timeout))))
-            (gate (create))
-            (tag  (timed-tag gate close-after)))
-       (set-beh gate (retrig-filer-gate-beh chan tag :timeout close-after))
-       (send cust gate))
-     )))
-
 (deflex filer
-  (serializer
-   ;; because we are performing non-idempotent file open/create
-   (create (filer-beh))))
+  (alambda
+   ((cust :open fname . args)
+    (let ((op-timeout  (getf args :op-timeout  +DEFAULT-OP-TIMEOUT+))
+          (close-after (getf args :close-after +DEFAULT-CLOSE-TIMEOUT+))
+          (open-args   (getf args :open-args)))
+      (let* ((fd   (apply #'open fname open-args))
+             (chan (serializer (create (open-filer-beh fd op-timeout))))
+             (gate (create))
+             (tag  (timed-tag gate close-after)))
+        (set-beh gate (retrig-filer-gate-beh chan tag :timeout close-after))
+        (send cust gate))
+      ))))
 
 ;; --------------------------------------------------
 #|
