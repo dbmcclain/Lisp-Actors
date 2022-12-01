@@ -345,33 +345,43 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------------
 ;; Swift-like string interpolation
 
-#+:LISPWORKS
 (defmacro string-interp (str)
-  (let* ((pat   #.(lw:precompile-regexp "«.*»"))
-         (nel   (length str))
+  ;; Substitute value of form following $ inside string.
+  ;; Escape literal $ using "...\\$..."
+  ;; Prefer established $ conventions. No need for ${}, since we are Lisp.
+  (let* ((len   (length str))
          (parts nil)
-         (fmt-str (with-output-to-string (s)
-                    (nlet iter ((start  0))
-                      (if (< start nel)
-                          (multiple-value-bind (pos len)
-                              (lw:find-regexp-in-string pat str :start start)
-                            (cond (pos
-                                   (let ((end (+ pos len)))
-                                     (princ (subseq str start pos) s)
-                                     (princ "~A" s)
-                                     (push (read-from-string (subseq str (1+ pos) (1- end))) parts)
-                                     (go-iter end)))
-                                  (t
-                                   (princ (subseq str start) s))
-                                  ))
-                        (princ (subseq str start) s)
-                        )))))
-    `(format nil ,fmt-str ,@(nreverse parts))
+         (fmt   (with-output-to-string (s)
+                  (nlet iter ((start  0))
+                    (flet
+                        ((final ()
+                           (princ (subseq str start) s))
+                         (stuff-it (pos)
+                           (cond ((or (zerop pos)
+                                      (and (plusp pos)
+                                           (char/= (char str (1- pos)) #\\)))
+                                  (princ (subseq str start pos) s)
+                                  (princ "~A" s)
+                                  (multiple-value-bind (val new-pos)
+                                      (read-from-string str t nil :start (1+ pos))
+                                    (push val parts)
+                                    (go-iter new-pos)))
+                                 
+                                 (t
+                                  (princ (subseq str start (1- pos)) s)
+                                  (princ #\$ s)
+                                  (go-iter (1+ pos)))
+                                 )))
+                      (if (< start len)
+                          (let ((pos (position #\$ str :start start)))
+                            (if pos
+                                (stuff-it pos)
+                              (final)))
+                        ;; else
+                        (final))))
+                  )))
+    `(format nil ,fmt ,@(nreverse parts))
     ))
-
-#+:SBCL
-(defmacro string-interp (str)
-  str)
 
 ;; ----------------------------------------------------------------------
 ;; Nestable suggestion from Daniel Herring rewritten (DM/RAL) using
