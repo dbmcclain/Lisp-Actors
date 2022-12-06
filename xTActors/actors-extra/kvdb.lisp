@@ -809,26 +809,29 @@
           (init-kvdb)))
       )))
 
+(defun ino-key (path)
+  (multiple-value-bind (dev ino)
+      (um:get-ino path)
+    (um:mkstr dev #\space ino)))
+
 (def-ser-beh kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   ((cust :make-kvdb path)
    (cond ((ensure-file-exists path)
-          (multiple-value-bind (dev ino)
-              (um:get-ino path)
-            (let* ((key   (um:mkstr dev #\space ino))
-                   (quad  (find key open-dbs
-                                :key  #'car
-                                :test #'string-equal)))
-              (cond (quad
-                     (send cust (third quad)))
-                    (t
-                     (let* ((tag-to-me  (tag self))
-                            (kvdb       (%make-kvdb tag-to-me path)))
-                       (become (kvdb-orchestrator-beh
-                                (cons (list key tag-to-me kvdb path)
-                                      open-dbs)))
-                       (send cust kvdb)))
-                    ))))
+          (let* ((key   (ino-key path))
+                 (quad  (find key open-dbs
+                              :key  #'car
+                              :test #'string-equal)))
+            (cond (quad
+                   (send cust (third quad)))
+                  (t
+                   (let* ((tag-to-me  (tag self))
+                          (kvdb       (%make-kvdb tag-to-me path)))
+                     (become (kvdb-orchestrator-beh
+                              (cons (list key tag-to-me kvdb path)
+                                    open-dbs)))
+                     (send cust kvdb)))
+                  )))
          (t
           (send cust (const (format nil "Database ~S Not Available" path))))
          ))
@@ -838,17 +841,15 @@
    (let ((quad (find atag open-dbs
                      :key #'cadr)))
      (when quad
-       (let ((path  (fourth quad)))
-         (multiple-value-bind (dev ino)
-             (um:get-ino path)
-           (let ((key (um:mkstr dev #\space ino)))
-             (unless (string-equal key (car quad))
-               (let* ((kvdb    (third quad))
-                      (new-dbs (cons (list key atag kvdb path)
-                                     (remove quad open-dbs))))
-                 (become (kvdb-orchestrator-beh new-dbs))
-                 ))
-             ))))
+       (let* ((path  (fourth quad))
+              (key   (ino-key path)))
+         (unless (string-equal key (car quad))
+           (let* ((kvdb    (third quad))
+                  (new-dbs (cons (list key atag kvdb path)
+                                 (remove quad open-dbs))))
+             (become (kvdb-orchestrator-beh new-dbs))
+             ))
+         ))
      ))
 
   ((atag :remove-entry)
