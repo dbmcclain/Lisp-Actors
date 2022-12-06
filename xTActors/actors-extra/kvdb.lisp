@@ -426,11 +426,11 @@
 
 (defconstant +db-id+  {6f896744-6472-11ec-8ecb-24f67702cdaa})
 
-(def-ser-beh save-database-beh (path last-db)
+(def-ser-beh save-database-beh (path last-db ctrl-tag)
   ;; -------------------
   ((cust :full-save db)
-   (let ((savdb (full-save path db)))
-     (become (save-database-beh path savdb))
+   (let ((savdb (full-save path db ctrl-tag)))
+     (become (save-database-beh path savdb ctrl-tag))
      (send cust :ok)))
 
   ;; -------------------
@@ -455,8 +455,8 @@
      (error ()
        ;; expected possible error due to file not existing yet
        ;; or from non-existent version in prev-ver
-       (full-save path new-db)))
-   (become (save-database-beh path new-db))
+       (full-save path new-db ctrl-tag)))
+   (become (save-database-beh path new-db ctrl-tag))
    (send cust :ok)))
   
 ;; ---------------------------------------------------------------
@@ -503,40 +503,6 @@
   (:method ((err file-error))
    t))
 
-#|
-(defun tst ()
-  (restart-case
-      (handler-bind
-          ((not-a-kvdb (lambda (c)
-                         (if (capi:prompt-for-confirmation
-                              (format nil "Not a KVDB file: ~S. Overwrite?" (not-a-kvdb-path c)))
-                             (invoke-restart (find-restart 'overwrite c))
-                           (abort c))))
-           (corrupt-deltas (lambda (c)
-                             (warn "Corrupt deltas encountered: ~S" (corrupt-deltas-path c))
-                             (invoke-restart (find-restart 'corrupt-deltas c))))
-           (file-error (lambda (c)
-                         (if (capi:prompt-for-confirmation
-                              (format nil "File does not exist: ~S. Create?" (file-error-pathname c)))
-                             (invoke-restart (find-restart 'create c))
-                           (abort c))) ))
-        ;; (error 'not-a-kvdb :path "diddly")
-        ;; (error 'corrupt-deltas :path "diddly")
-        (error 'file-error :pathname "diddly")
-        )
-    (overwrite ()
-      :test not-a-kvdb-p
-      (format t "Overwriting...~&"))
-    (corrupt-deltas ()
-      :test corrupt-deltas-p
-      (format t "Fixing Corrupt Deltas...~&"))
-    (create ()
-      :test file-error-p
-      (format t "Creating..."))
-    ))
-(tst)
-|#
-
 (defun check-kvdb-sig (fd dbpath)
   (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
          (id   (vec-repr:make-ub8-vector (length sig))))
@@ -546,13 +512,13 @@
       (error 'not-a-kvdb :path dbpath))
     ))
 
-(defun unopened-database-beh (tag)
+(defun unopened-database-beh (ctrl-tag)
   (lambda (cust &rest msg)
     ;; We are sitting behind a SERIALIZER. So a response is mandatory.
     (with-error-response (cust
                           (lambda (err)
                             (become-sink)
-                            (send tag :remove-entry)
+                            (send ctrl-tag :remove-entry)
                             (err-from err)))
       (match msg
         ;; -------------------
@@ -567,7 +533,7 @@
                                    (typep seq 'uuid:uuid))
                         (setf db (db-add db 'kvdb-sequence (uuid:make-v1-uuid)))
                         ))
-                    (setf db (full-save db-path db))))
+                    (setf db (full-save db-path db ctrl-tag))))
              
              (restart-case
                  (handler-bind
@@ -646,13 +612,13 @@
                  :test file-error-p
                  (prep-and-save-db)))
              ;; normal exit
-             (become (save-database-beh db-path db))
+             (become (save-database-beh db-path db ctrl-tag))
              (send cust :opened db)))
          )))))
   
 ;; --------------------------------------------------------------------
 
-(defun full-save (db-path db)
+(defun full-save (db-path db ctrl-tag)
   (send fmt-println "Saving full KVDB: ~S" db-path)
   (ensure-directories-exist db-path)
   (let ((sav-db (db-rebuild db)))
@@ -666,6 +632,7 @@
         (loenc:serialize sav-db f
                          :max-portability t)
         ))
+    (send ctrl-tag :update-entry) ;; inode has changed
     sav-db))
 
 (defun get-diffs (old-db new-db)
@@ -696,10 +663,10 @@
 
 ;; -----------------------------------------------------------
 
-(defun db-svc-init-beh (tag path)
+(defun db-svc-init-beh (ctrl-tag path)
   (λ _
     (let ((tag-to-me (tag self))
-          (saver (serializer (create (unopened-database-beh tag)))
+          (saver (serializer (create (unopened-database-beh ctrl-tag)))
                  ))
       (send saver tag-to-me :open path)
       (become (nascent-database-beh tag-to-me saver nil))
@@ -713,16 +680,15 @@
 #+:LISPWORKS
 (editor:setup-indent "with-db" 1)
 
-(defun %make-kvdb (tag path)
-  (let ((dbmgr  (create (db-svc-init-beh tag path))))
-    (macrolet ((with-db (db &body body)
-                 `(do-with-db (lambda (,db) ,@body))))
-      (labels
-          ((do-with-db (fn)
-             (β (db)
-                 (send dbmgr β :req)
-               (funcall fn db))))
-        
+(defun %make-kvdb (ctrl-tag path)
+  (let ((dbmgr  (create (db-svc-init-beh ctrl-tag path))))
+    (flet
+        ((do-with-db (fn)
+           (β (db)
+               (send dbmgr β :req)
+             (funcall fn db))))
+      (macrolet ((with-db (db &body body)
+                   `(do-with-db (lambda (,db) ,@body))))
         (create
          (alambda
                 
@@ -816,7 +782,7 @@
            (let ((db (db-new)))
              (setf db (db-add db 'version       (uuid:make-v1-uuid)))
              (setf db (db-add db 'kvdb-sequence (uuid:make-v1-uuid)))
-             (full-save path db)
+             (full-save path db nil)
              t)))
     (restart-case
         (handler-bind
@@ -849,33 +815,51 @@
    (cond ((ensure-file-exists path)
           (multiple-value-bind (dev ino)
               (um:get-ino path)
-            (let* ((key    (um:mkstr dev #\space ino))
-                   (triple (find key open-dbs
-                                 :key  #'car
-                                 :test #'string-equal)))
-              (cond (triple
-                     (send cust (third triple)))
+            (let* ((key   (um:mkstr dev #\space ino))
+                   (quad  (find key open-dbs
+                                :key  #'car
+                                :test #'string-equal)))
+              (cond (quad
+                     (send cust (third quad)))
                     (t
                      (let* ((tag-to-me  (tag self))
                             (kvdb       (%make-kvdb tag-to-me path)))
                        (become (kvdb-orchestrator-beh
-                                (cons (list key tag-to-me kvdb)
+                                (cons (list key tag-to-me kvdb path)
                                       open-dbs)))
                        (send cust kvdb)))
                     ))))
          (t
           (send cust (const (format nil "Database ~S Not Available" path))))
          ))
-  
+
+  ((atag :update-entry)
+   ;; when actual inode changes, as with full-save
+   (let ((quad (find atag open-dbs
+                     :key #'cadr)))
+     (when quad
+       (let ((path  (fourth quad)))
+         (multiple-value-bind (dev ino)
+             (um:get-ino path)
+           (let ((key (um:mkstr dev #\space ino)))
+             (unless (string-equal key (car quad))
+               (let* ((kvdb    (third quad))
+                      (new-dbs (cons (list key atag kvdb path)
+                                     (remove quad open-dbs))))
+                 (become (kvdb-orchestrator-beh new-dbs))
+                 ))
+             ))))
+     ))
+
   ((atag :remove-entry)
-   (let ((grp (find atag open-dbs
-                    :key #'cadr)))
-     (when grp
-       (become (kvdb-orchestrator-beh (remove grp open-dbs))))
+   (let ((quad (find atag open-dbs
+                     :key #'cadr)))
+     (when quad
+       (become (kvdb-orchestrator-beh (remove quad open-dbs))))
      )))
 
 (deflex kvdb-maker
-  (serializer ;; because we are doing file ops
+  (serializer ;; because we are doing file ops?
    (create (kvdb-orchestrator-beh))))
 
 ;; -----------------------------------------------------
