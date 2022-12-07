@@ -809,10 +809,15 @@
           (init-kvdb)))
       )))
 
+#-:MSWINDOWS
 (defun ino-key (path)
   (multiple-value-bind (dev ino)
       (um:get-ino path)
     (um:mkstr dev #\space ino)))
+
+#+:MSWINDOWS
+(defun ino-key (path)
+  (namestring (truename path)))
 
 (def-ser-beh kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
@@ -1237,17 +1242,17 @@
                   :visible-min-height 300
                   :selection-callback 'click-show-value
                   :callback-type      :item-element
-                  :foreground         :yellow
+                  :foreground         #+:MACOSX :yellow #-:MACOSX :black
                   :title              "KVDB Key"
-                  :title-args         '(:foreground :skyblue)
+                  :title-args         '(:foreground #+:MACOSX :skyblue #-:MACOSX :gray50)
                   :print-function     'key-to-string)
    (value-display capi:editor-pane
                   :accessor           value-panel
                   :title              "KVDB Value"
-                  :title-args         '(:foreground :skyblue)
+                  :title-args         '(:foreground #+:MACOSX :skyblue #-:MACOSX :gray50)
                   :text               ""
                   :buffer-name        :temp
-                  :foreground         :yellow
+                  :foreground         #+:MACOSX :yellow #-:MACOSX :black
                   :visible-min-width  400
                   :visible-min-height 300)
    (refr-but      capi:push-button
