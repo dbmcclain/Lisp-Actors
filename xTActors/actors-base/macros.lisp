@@ -19,19 +19,15 @@
 ;; Do it without direct mutation in an SMP-safe manner,
 ;; i.e., use BECOME and not SET-BEH
 
-(defun becomer-beh ()
-  (labels
-      ((beh (&optional msgs)
-         (lambda (&rest msg)
-           (match msg
-             (('%become fn)
-              (become fn)
-              (send-all-to (current-actor) msgs))
-             (msg
-              (become (beh (cons msg msgs))))
-             ))))
-    (create (beh))
-    ))
+(defun becomer-beh (&optional msgs)
+  (lambda (&rest msg)
+    (match msg
+      (('%become fn)
+       (become fn)
+       (send-all-to (current-actor) msgs))
+      (msg
+       (become (becomer-beh (cons msg msgs))))
+      )))
 
 (defmacro actors (bindings &body body)
   ;; Bindings must be BEHAVIOR functions, not Actors
