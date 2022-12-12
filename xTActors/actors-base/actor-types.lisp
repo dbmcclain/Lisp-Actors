@@ -30,6 +30,7 @@
                (:constructor %create (beh)))
   (beh #'do-nothing :type function))
 
+#|
 (defun set-beh (actor beh)
   ;; WARNING! This operation can only be safely used immediately after
   ;; Actor CREATE and prior to any message SENDs. Once the world
@@ -49,6 +50,7 @@
   ;;       (SEND tag new-beh))
   ;;
   (setf (actor-beh actor) beh))
+|#
 
 (defstruct (service
             (:include actor)
@@ -56,15 +58,6 @@
 
 (defun create-service (&optional (fn #'do-nothing))
   (%create-service (screened-beh fn)))
-
-(defmacro def-actor (name &optional (beh '#'do-nothing))
-  (lw:with-unique-names (behe)
-    `(deflex ,name 
-       (let ((,behe ,beh))
-         (if (service-p ,behe)
-             (create-service ,behe)
-           (create ,behe))))
-    ))
 
 (defun %actor-cas (actor old-beh new-beh)
     (mpc:compare-and-swap (actor-beh (the actor actor)) old-beh new-beh))

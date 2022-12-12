@@ -83,14 +83,13 @@
 (deflex filer
   (alambda
    ((cust :open fname . args)
-    (let ((op-timeout  (getf args :op-timeout  +DEFAULT-OP-TIMEOUT+))
-          (close-after (getf args :close-after +DEFAULT-CLOSE-TIMEOUT+))
-          (open-args   (getf args :open-args)))
-      (let* ((fd   (apply #'open fname open-args))
-             (chan (serializer (create (open-filer-beh fd op-timeout))))
-             (gate (create))
-             (tag  (timed-tag gate close-after)))
-        (set-beh gate (retrig-filer-gate-beh chan tag :timeout close-after))
+    (let* ((op-timeout  (getf args :op-timeout  +DEFAULT-OP-TIMEOUT+))
+           (close-after (getf args :close-after +DEFAULT-CLOSE-TIMEOUT+))
+           (open-args   (getf args :open-args))
+           (fd   (apply #'open fname open-args)))
+      (actors ((chan (serializer-beh (create (open-filer-beh fd op-timeout))))
+               (gate (retrig-filter-gate-beh chan tag :timeout close-after))
+               (tag  (timed-tag-beh gate close-after)))
         (send cust gate))
       ))))
 

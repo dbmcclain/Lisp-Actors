@@ -121,8 +121,8 @@
   ;; Return an Actor that represents the future value. Send that value
   ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST).
   ;; Read as "send the future result to cust".
-  (actors ((fut (create (future-wait-beh tag)))
-           (tag (tag fut)))
+  (actors ((fut (future-wait-beh tag))
+           (tag (tag-beh fut)))
     (send* actor tag msg)
     fut))
 
@@ -263,9 +263,9 @@
   ;; C.f., JOIN-BEH above. Services, left and right, are free to send
   ;; any number of items in their results.
   (actor (cust lreq rreq)
-    (actors ((join  (create (join-beh cust tag-l)))
-             (tag-l (tag join))
-             (tag-r (tag join)))
+    (actors ((join  (join-beh cust tag-l))
+             (tag-l (tag-beh join))
+             (tag-r (tag-beh join)))
       (send left tag-l lreq)
       (send right tag-r rreq))
     ))
@@ -301,9 +301,9 @@
     ;; cust should expect a (&rest ans)
     (if (null lst)
         (send cust)
-      (actors ((join    (create (join-beh cust tag-car)))
-               (tag-car (tag join))
-               (tag-cdr (tag join)))
+      (actors ((join    (join-beh cust tag-car))
+               (tag-car (tag-beh join))
+               (tag-cdr (tag-beh join)))
         (send (car lst) tag-car msg)
         (send self tag-cdr (cdr lst) msg)))
     ))
@@ -518,10 +518,10 @@
   ((cust . start-msg)
    (cond (timeout
           (let ((me  self))
-            (actors ((tag-ok      (tag gate))
-                     (tag-timeout (tag gate))
-                     (gate        (once arbiter))
-                     (arbiter     (α (tag . msg)
+            (actors ((tag-ok      (tag-beh gate))
+                     (tag-timeout (tag-beh gate))
+                     (gate        (once-beh arbiter))
+                     (arbiter     (λ (tag . msg)
                                     (if (eql tag tag-ok)
                                         (send* cust msg)
                                       (cond (on-timeout
@@ -652,9 +652,9 @@
 (defun membrane (alist)
   ;; typically called by supv to set up a membrane controlled
   ;; collection of services
-  (actors ((ctrl  (tag mem))
-           (svcs  (tag mem))
-           (mem   (create (membrane-beh ctrl svcs alist))))
+  (actors ((ctrl  (tag-beh mem))
+           (svcs  (tag-beh mem))
+           (mem   (membrane-beh ctrl svcs alist)))
     (values svcs    ;; give this out to clients
             ctrl))) ;; for supv control of membrane
    

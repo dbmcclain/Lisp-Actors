@@ -105,12 +105,15 @@ THE SOFTWARE.
    #:*current-beh*
    #:*current-message*
    #:*current-env*
+   #|
    #:*current-sponsor*
    #:sponsor-beh
    #:make-sponsor
    #:in-sponsor
    #:in-this-sponsor
    #:self-sponsor
+   |#
+   #:current-actor
    
    #:become
    #:abort-beh
@@ -135,12 +138,13 @@ THE SOFTWARE.
    #:actor-p
    #:service-p
    #:actor-beh
-   #:set-beh
+   ;; #:set-beh
    #:%actor-cas
    #:service
    #:create
    #:create-service
    #:%create
+   #:becomer
    #:actors
    #:make-remote-actor
    #:concurrently
@@ -272,7 +276,7 @@ THE SOFTWARE.
    #:secure-erase
    #:perform
 
-   #:%set-beh
+   ;; #:%set-beh
 
    #:authentication
    #:check-authentication

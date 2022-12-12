@@ -13,12 +13,42 @@
 (editor:setup-indent "actor" 1)
 
 ;; ----------------------------------------------
-;; Like LETREC, but for Actor defs, cross-referential
+;; Like LETREC, but for Actor defs, cross-referential.
+;;
+;; -- DM/RAL  2022/12/12 06:34:30
+;; Do it without direct mutation in an SMP-safe manner,
+;; i.e., use BECOME and not SET-BEH
 
+(defun becomer ()
+  (labels
+      ((beh (&optional msgs)
+         (lambda (&rest msg)
+           (match msg
+             (('%become fn)
+              (become fn)
+              (send-all-to (current-actor) msgs))
+             (msg
+              (become (beh (cons msg msgs))))
+             ))))
+    (create (beh))
+    ))
+
+(defmacro actors (bindings &body body)
+  ;; Bindings must be BEHAVIOR functions, not Actors
+  (let ((actors (mapcar #'car bindings))
+        (behs   (mapcar #'cadr bindings)))
+    `(let ,(mapcar #`(,a1 (becomer)) actors)
+       ,@(mapcar #2`(send ,a1 '%become ,a2)
+                 actors behs)
+       ,@body)))
+
+
+#|
 (defmacro actors (bindings &body body)
   `(let ,(mapcar #`(,(first a1) (create)) bindings)
      ,@(mapcar #`(%set-beh ,(first a1) ,(second a1)) bindings)
      ,@body))
+|#
 
 ;; ----------------------------------------------
 
@@ -154,8 +184,7 @@
              ;; this beta redef lasts only for the next form
              ,form))
       ;; else
-      `(let ((beta (create)))
-         (set-beh beta (lambda* ,args ,@body))
+      `(let ((beta (create (lambda* ,args ,@body))))
          ,form)
       )))
 
@@ -223,9 +252,8 @@
 
 (µ β (args form &body body)
   ;; β is to beta
-  `(let ((β  (create)))
-     (set-beh β (lambda* ,args
-                  ,@body))
+  `(let ((β  (create (lambda* ,args
+                       ,@body))))
      ,form))
 
 #+:LISPWORKS
@@ -291,16 +319,28 @@
 
 (defmethod screened-beh (x)
   (error "Invalid behavior: ~S" x))
-  
+
+#|
 (defun %set-beh (actor-dst actor-src)
   (setf (actor-beh actor-dst) (actor-beh actor-src)))
-
+|#
 ;; ----------------------------------------------------------
+
+(defmacro def-actor (name &optional (beh '#'becomer))
+  (lw:with-unique-names (behe)
+    `(deflex ,name 
+       (let ((,behe ,beh))
+         (if (service-p ,behe)
+             (create-service ,behe)
+           (create ,behe))))
+    ))
 
 (defmacro define-behavior (name fn)
   `(progn
      (assert (actor-p ,name))
-     (setf (actor-beh ,name) ,fn)))
+     (send ,name '%become ,fn)
+     ;; (setf (actor-beh ,name) ,fn)
+     ))
 
 #+:LISPWORKS
 (progn

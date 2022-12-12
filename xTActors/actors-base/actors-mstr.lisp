@@ -85,6 +85,9 @@ THE SOFTWARE.
 (define-symbol-macro self-beh     *current-behavior*)
 (define-symbol-macro self-msg     *current-message*)
 
+(defun current-actor ()
+  self)
+
 ;; -------------------------------------------------
 ;; Message Frames - submitted to the event queue. These carry their
 ;; own link pointer to obviate consing on the event queue.
