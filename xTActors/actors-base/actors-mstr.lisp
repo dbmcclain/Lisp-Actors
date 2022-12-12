@@ -140,7 +140,7 @@ THE SOFTWARE.
   #F
   (when (actor-p actor)
     (apply *send* actor msg)))
-  
+
 (defun repeat-send (actor)
   (send* actor self-msg))
 

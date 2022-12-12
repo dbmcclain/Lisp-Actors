@@ -38,14 +38,6 @@
                  actors behs)
        ,@body)))
 
-
-#|
-(defmacro actors (bindings &body body)
-  `(let ,(mapcar #`(,(first a1) (create)) bindings)
-     ,@(mapcar #`(%set-beh ,(first a1) ,(second a1)) bindings)
-     ,@body))
-|#
-
 ;; ----------------------------------------------
 
 (defun parse-list-pat (pat)
@@ -205,6 +197,10 @@
 (defmacro ret (&rest ans)
   `(send γ ,@ans))
 
+(defmacro send* (actor &rest msg)
+  ;; for when it is known that final arg in msg is a list
+  `(apply #'send ,actor ,@msg))
+
 (defmacro ret* (&rest ans)
   `(send* γ ,@ans))
 
@@ -316,10 +312,6 @@
 (defmethod screened-beh (x)
   (error "Invalid behavior: ~S" x))
 
-#|
-(defun %set-beh (actor-dst actor-src)
-  (setf (actor-beh actor-dst) (actor-beh actor-src)))
-|#
 ;; ----------------------------------------------------------
 
 (defmacro def-actor (name &optional (beh '#'becomer-beh))
@@ -335,7 +327,6 @@
   `(progn
      (assert (actor-p ,name))
      (send ,name '%become ,fn)
-     ;; (setf (actor-beh ,name) ,fn)
      ))
 
 #+:LISPWORKS
