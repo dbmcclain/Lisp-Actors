@@ -144,7 +144,6 @@ THE SOFTWARE.
    #:create
    #:create-service
    #:%create
-   #:becomer
    #:actors
    #:make-remote-actor
    #:concurrently

@@ -19,7 +19,7 @@
 ;; Do it without direct mutation in an SMP-safe manner,
 ;; i.e., use BECOME and not SET-BEH
 
-(defun becomer ()
+(defun becomer-beh ()
   (labels
       ((beh (&optional msgs)
          (lambda (&rest msg)
@@ -37,7 +37,7 @@
   ;; Bindings must be BEHAVIOR functions, not Actors
   (let ((actors (mapcar #'car bindings))
         (behs   (mapcar #'cadr bindings)))
-    `(let ,(mapcar #`(,a1 (becomer)) actors)
+    `(let ,(mapcar #`(,a1 (create (becomer-beh))) actors)
        ,@(mapcar #2`(send ,a1 '%become ,a2)
                  actors behs)
        ,@body)))
@@ -326,7 +326,7 @@
 |#
 ;; ----------------------------------------------------------
 
-(defmacro def-actor (name &optional (beh '#'becomer))
+(defmacro def-actor (name &optional (beh '#'becomer-beh))
   (lw:with-unique-names (behe)
     `(deflex ,name 
        (let ((,behe ,beh))
