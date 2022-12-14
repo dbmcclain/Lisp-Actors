@@ -19,14 +19,15 @@
 ;; Do it without direct mutation in an SMP-safe manner,
 ;; i.e., use BECOME and not SET-BEH
 
-(defun becomer-beh (&optional msgs)
+(defun becomer-beh (&optional (msgs +emptyq+))
   (lambda (&rest msg)
     (match msg
       (('%become fn)
        (become fn)
-       (send-all-to (current-actor) msgs))
+       (do-queue (msg msgs)
+         (send self msg)))
       (msg
-       (become (becomer-beh (cons msg msgs))))
+       (become (becomer-beh (addq msgs msg))))
       )))
 
 (defmacro actors (bindings &body body)

@@ -105,7 +105,6 @@ THE SOFTWARE.
    #:*current-beh*
    #:*current-message*
    #:*current-env*
-   #:current-actor
    
    #:become
    #:abort-beh

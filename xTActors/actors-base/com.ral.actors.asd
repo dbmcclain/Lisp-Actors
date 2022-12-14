@@ -32,6 +32,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :license     "Copyright (c) 2021-2022 by Refined Audiometrics Laboratory. MIT License terms apply."
   :components  ((:file "packages")
                 #-(OR :LISPWORKS :SBCL) (:file "ansi-timer")
+		(:file "cheapq")
+                (:file "globals")
                 #-:actors-experiments (:file "actor-types")
                 #+:actors-experiments (:file "actor-classes")
                 (:file "macros")
@@ -41,7 +43,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "st-send")
                 ;; (:file "dyn-env")
                 ;; (:file "dyn-env-clos")
-		(:file "cheapq")
                 (:file "prim-actors")
                 (:file "serializer")
                 (:file "filer")

@@ -76,18 +76,6 @@ THE SOFTWARE.
 ;; --------------------------------------------------------
 ;; Core RUN for Actors
 
-;; Per-Thread for Activated Actor
-(defvar *current-actor*    nil) ;; Current Actor
-(defvar *current-behavior* nil) ;; Current Actor's behavior
-(defvar *current-message*  nil) ;; Current Event Message
-
-(define-symbol-macro self         *current-actor*)
-(define-symbol-macro self-beh     *current-behavior*)
-(define-symbol-macro self-msg     *current-message*)
-
-(defun current-actor ()
-  self)
-
 ;; -------------------------------------------------
 ;; Message Frames - submitted to the event queue. These carry their
 ;; own link pointer to obviate consing on the event queue.
@@ -101,8 +89,6 @@ THE SOFTWARE.
   link
   (actor (create)      :type actor)
   (args  nil           :type list))
-
-(mpc:defglobal *central-mail*  (mpc:make-mailbox :lock-name "Central Mail"))
 
 (defun send-to-pool (actor &rest msg)
   ;; the default SEND for foreign threads
@@ -123,8 +109,6 @@ THE SOFTWARE.
 ;; HANDLER-CASE, HANDLER-BIND, or IGNORE-ERRORS. Otherwise, an error
 ;; will make it seem that the message causing the error was never
 ;; delivered.
-
-(mpc:defglobal *nbr-pool*  8 )
 
 (defvar *send*
   (progn
@@ -194,8 +178,6 @@ THE SOFTWARE.
 ;; except that message sent from an earlier Actor activation will
 ;; appear in the event queue in front of messages sent by a later
 ;; Actor activation. The event queue is a FIFO queue.
-
-(defconstant +ASK-TIMEOUT+  1)
 
 (defun #1=run-actors (&optional actor &rest message)
   #F
