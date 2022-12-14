@@ -24,10 +24,9 @@
     (match msg
       (('%become fn)
        (become fn)
-       (do-queue (msg msgs)
-         (send self msg)))
+       (send-all-to self msgs))
       (msg
-       (become (becomer-beh (addq msgs msg))))
+       (become (becomer-beh (cons msg msgs))))
       )))
 
 (defmacro actors (bindings &body body)
