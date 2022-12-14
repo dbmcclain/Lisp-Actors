@@ -165,10 +165,9 @@
   (alambda
    ((atag abeh) / (eq atag tag)
     (become abeh)
-    (do-queue (msg msgs)
-      (send* self msg)))
+    (send-all-to self msgs))
    (msg
-    (become (future-become-beh tag (addq msgs msg))))
+    (become (future-become-beh tag (cons msg msgs))))
    ))
 
 ;; -----------------------------------------
@@ -192,17 +191,16 @@
   (alambda
    ((atag dest) / (eq atag tag)
     (become (fwd-beh dest))
-    (do-queue (msg msgs)
-      (send* dest msg)))
+    (send-all-to dest msgs))
    (msg
-    (become (future-fwd-wait-beh tag (addq msgs msg))))
+    (become (future-fwd-wait-beh tag (cons msg msgs))))
    ))
 
 (defun lazy-fwd (actor &rest init-msg)
   (create
    (lambda (&rest msg)
      (let ((tag (tag self)))
-       (become (future-fwd-wait-beh tag (addq nil msg)))
+       (become (future-fwd-wait-beh tag (list msg)))
        (send* actor tag init-msg))
      )))
 
