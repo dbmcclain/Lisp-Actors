@@ -19,7 +19,7 @@
 ;; Do it without direct mutation in an SMP-safe manner,
 ;; i.e., use BECOME and not SET-BEH
 
-(defun becomer-beh (&optional (msgs +emptyq+))
+(defun becomer-beh (&optional msgs)
   (lambda (&rest msg)
     (match msg
       (('%become fn)

@@ -143,7 +143,7 @@
 
 ;; --------------------------------------------------
 
-(defun future-become-beh (tag &optional (msgs +emptyq+))
+(defun future-become-beh (tag &optional msgs)
   ;; There are times when you know you need to BECOME, but the
   ;; parameters aren't yet available. This FUTURE-BECOME-BEH behavior
   ;; function allows you to wait until the behavior can be completely
@@ -202,7 +202,7 @@
   (create
    (lambda (&rest msg)
      (let ((tag (tag self)))
-       (become (future-fwd-wait-beh tag (addq +emptyq+ msg)))
+       (become (future-fwd-wait-beh tag (addq nil msg)))
        (send* actor tag init-msg))
      )))
 
@@ -573,7 +573,7 @@
 (defun long-running-beh (action)
   (flet ((doit (cust args)
            (let ((tag  (tag self)))
-             (become (busy-running-beh action tag cust +emptyq+))
+             (become (busy-running-beh action tag cust nil))
              (send* action tag args))))
     (alambda
      ((cust :run . args)

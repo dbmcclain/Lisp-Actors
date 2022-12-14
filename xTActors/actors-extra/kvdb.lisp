@@ -317,7 +317,7 @@
        ;; request exclusive :commit access
        ;; customer must promise to either :commit or :abort
        (send cust db)
-       (become (busy-trans-gate-beh saver db owner +emptyq+)))
+       (become (busy-trans-gate-beh saver db owner nil)))
       
       ;; -------------------
       ;; commit after update

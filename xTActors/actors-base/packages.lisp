@@ -79,8 +79,6 @@ THE SOFTWARE.
    #:deflex
    #:µ
    #:∂
-   #:+emptyq+
-   #:+doneq+
    #:addq
    #:pushq
    #:popq

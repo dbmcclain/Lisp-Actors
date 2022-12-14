@@ -26,9 +26,12 @@
 ;; So our conclusion is that Queues should remain primitive, FPL, and
 ;; terse, and be carried directly in client code that needs to use
 ;; them.
-
-(defvar +emptyq+ (list nil)) ;; strictly speaking, but NIL is okay in CL too.
-(defvar +doneq+  #())
+;;
+;; -------------------------------------
+;; By a Common Lisp pun, NIL can stand in for an empty queue, since
+;;    (EQ (CAR NIL) NIL).
+;; In other, more strict, languages this would not be considered
+;; Kosher.
 
 (defun normq (q)
   ;; maintain a non-empty hd unless the queue is empty.
@@ -47,10 +50,11 @@
 (defun popq (q)
   ;; return item at head of queue, and the new queue without that
   ;; element.
-  (if (car q)
-      (values (caar q)
-              (normq (cons (cdar q) (cdr q))))
-    +doneq+))
+  (when (car q)
+    (values (caar q)
+            (normq (cons (cdar q) (cdr q)))
+            t)
+    ))
 
 (defun emptyq? (q)
   (null (car q)))
