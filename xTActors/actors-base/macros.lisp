@@ -19,28 +19,28 @@
 ;; Do it without direct mutation in an SMP-safe manner,
 ;; i.e., use BECOME and not SET-BEH
 
-(defun becomer-beh (&optional msgs)
-  (lambda (&rest msg)
-    (match msg
-      (('%become fn)
-       (become fn)
-       (send-all-to self msgs))
-      (_
-       (become (becomer-beh (cons msg msgs))))
-      )))
-
 (defgeneric beh-fn (x)
   (:method ((fn function))
    fn)
   (:method ((ac actor))
    (actor-beh ac)))
 
+(defun becomer-beh (&optional msgs)
+  (lambda (&rest msg)
+    (match msg
+      (('%become arg)
+       (become (beh-fn arg))
+       (send-all-to self msgs))
+      (_
+       (become (becomer-beh (cons msg msgs))))
+      )))
+
 (defmacro actors (bindings &body body)
   ;; Bindings must be BEHAVIOR functions, not Actors
   (let ((actors (mapcar #'car bindings))
         (behs   (mapcar #'cadr bindings)))
     `(let ,(mapcar #`(,a1 (create (becomer-beh))) actors)
-       ,@(mapcar #2`(send ,a1 '%become (beh-fn ,a2))
+       ,@(mapcar #2`(send ,a1 '%become ,a2)
                  actors behs)
        ,@body)))
 
