@@ -25,7 +25,7 @@
       (('%become fn)
        (become fn)
        (send-all-to self msgs))
-      (msg
+      (_
        (become (becomer-beh (cons msg msgs))))
       )))
 
