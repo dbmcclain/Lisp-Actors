@@ -19,28 +19,21 @@
 ;; Do it without direct mutation in an SMP-safe manner,
 ;; i.e., use BECOME and not SET-BEH
 
-(defgeneric beh-fn (x)
+(defgeneric %beh-fn (x)
   (:method ((fn function))
    fn)
   (:method ((ac actor))
    (actor-beh ac)))
 
-(defun becomer-beh (&optional msgs)
-  (lambda (&rest msg)
-    (match msg
-      (('%become arg)
-       (become (beh-fn arg))
-       (send-all-to self msgs))
-      (_
-       (become (becomer-beh (cons msg msgs))))
-      )))
+(defun %set-beh (ac arg)
+  (setf (actor-beh ac) (%beh-fn arg)))
 
 (defmacro actors (bindings &body body)
   ;; Bindings must be BEHAVIOR functions, not Actors
   (let ((actors (mapcar #'car bindings))
         (behs   (mapcar #'cadr bindings)))
-    `(let ,(mapcar #`(,a1 (create (becomer-beh))) actors)
-       ,@(mapcar #2`(send ,a1 '%become ,a2)
+    `(let ,(mapcar #`(,a1 (create)) actors)
+       ,@(mapcar #2`(%set-beh ,a1 ,a2)
                  actors behs)
        ,@body)))
 
@@ -320,7 +313,7 @@
 
 ;; ----------------------------------------------------------
 
-(defmacro def-actor (name &optional (beh '#'becomer-beh))
+(defmacro def-actor (name &optional (beh '#'do-nothing))
   (lw:with-unique-names (behe)
     `(deflex ,name 
        (let ((,behe ,beh))
@@ -332,7 +325,7 @@
 (defmacro define-behavior (name fn)
   `(progn
      (assert (actor-p ,name))
-     (send ,name '%become ,fn)
+     (%set-beh ,name ,fn)
      ))
 
 #+:LISPWORKS
