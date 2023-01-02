@@ -305,10 +305,12 @@
     (become (%becomer-beh (cons msg msgs))))
    ))
 
-(defmacro def-actor (name &optional (beh '#'%becomer-beh))
+(defmacro def-actor (name &optional beh)
   (lw:with-unique-names (behe)
     `(deflex ,name 
-       (let ((,behe ,beh))
+       (let ((,behe ,(if beh
+                         `,beh 
+                       `(%becomer-beh))))
          (if (service-p ,behe)
              (create-service ,behe)
            (create ,behe))))
