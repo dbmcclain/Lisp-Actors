@@ -19,14 +19,8 @@
 ;; Do it without direct mutation in an SMP-safe manner,
 ;; i.e., use BECOME and not SET-BEH
 
-(defgeneric %beh-fn (x)
-  (:method ((fn function))
-   fn)
-  (:method ((ac actor))
-   (actor-beh ac)))
-
 (defun %set-beh (ac arg)
-  (setf (actor-beh ac) (%beh-fn arg)))
+  (setf (actor-beh ac) (screened-beh arg)))
 
 (defmacro actors (bindings &body body)
   ;; Bindings must be BEHAVIOR functions, not Actors
@@ -302,18 +296,16 @@
 
 ;; ----------------------------------------------------------
 
-(defmethod screened-beh ((fn function))
-  fn)
+(defun %becomer-beh (&optional msgs)
+  (alambda
+   (('%become arg)
+    (become (screened-beh arg))
+    (send-all-to self msgs))
+   (msg
+    (become (%becomer-beh (cons msg msgs))))
+   ))
 
-(defmethod screened-beh ((ac actor))
-  (actor-beh ac))
-
-(defmethod screened-beh (x)
-  (error "Invalid behavior: ~S" x))
-
-;; ----------------------------------------------------------
-
-(defmacro def-actor (name &optional (beh '#'do-nothing))
+(defmacro def-actor (name &optional (beh '#'%becomer-beh))
   (lw:with-unique-names (behe)
     `(deflex ,name 
        (let ((,behe ,beh))
@@ -325,7 +317,7 @@
 (defmacro define-behavior (name fn)
   `(progn
      (assert (actor-p ,name))
-     (%set-beh ,name ,fn)
+     (send ,name '%become ,fn)
      ))
 
 #+:LISPWORKS

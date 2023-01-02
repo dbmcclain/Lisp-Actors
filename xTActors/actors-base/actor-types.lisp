@@ -30,6 +30,18 @@
             (:include actor)
             (:constructor %create-service (beh))))
 
+;; ----------------------------------------------------------
+
+(defgeneric screened-beh (arg)
+  (:method ((fn function))
+   fn)
+  (:method ((ac actor))
+   (actor-beh ac))
+  (:method (x)
+   (error "Invalid behavior: ~S" x)))
+
+;; ----------------------------------------------------------
+
 (defun create-service (&optional (fn #'do-nothing))
   (%create-service (screened-beh fn)))
 
