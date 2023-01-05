@@ -661,7 +661,6 @@ THE SOFTWARE.
   tc)
 |#
 
-#|
 ;; -------------------------------------------------------
 ;; Define our own collector objects that
 ;; perform rapid nconc list accumulation
@@ -712,13 +711,13 @@ THE SOFTWARE.
 (defun collector-empty-p (c)
   (zerop (collector-ncontents c)))
 
-(defun collector-append-item (c item)
+(defun collector-append (c item)
   (with-locked-collector (c)
     (setf (collector-tl c)
           (cdr (the cons (rplacd (the cons (collector-tl c)) (list item))))
           )))
 
-(defun collector-push-item (c item)
+(defun collector-push (c item)
   (with-locked-collector (c)
     (setf (collector-hd c)
           (cons nil (the cons (rplaca (the cons (collector-hd c)) item)))
@@ -734,7 +733,6 @@ THE SOFTWARE.
 
 (defun make-collector ()
   (make-instance '<collector>))
-|#
 
 ;; ---------------------------------------------------------------------
 #+:lispworks

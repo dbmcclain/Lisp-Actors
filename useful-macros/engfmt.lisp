@@ -26,6 +26,7 @@ THE SOFTWARE.
   (:use :common-lisp :com.ral.useful-macros)
   (:export
    #:engineering-format
+   #:scientific-format
    ))
 
 (in-package :com.ral.useful-macros.engfmt)

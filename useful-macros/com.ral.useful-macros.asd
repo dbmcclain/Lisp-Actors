@@ -140,6 +140,8 @@ THE SOFTWARE.
                 (:file "file-eq")
                 (:file "fpl-hashtable")
                 (:file "restricted-eval")
+                (:file "debug-stream")
+                (:file "jd")
                 )
   :serial       t
   :depends-on   ("com.ral.useful-macros"
