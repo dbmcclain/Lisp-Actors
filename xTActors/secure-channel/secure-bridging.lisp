@@ -66,10 +66,8 @@
 
 (defvar *allowed-members*
   (let ((s (sets:empty)))
-    (dolist (pkey '(#xBA9666CEAE92CAC6D2B9400B6FC329BB9F701BFAC50D94E0989E664426F3369   ;; Zircon
-                    #x3BA58949841180E96B1E4EF619CECD73B112F7C563FD8620142C1487484D5D6   ;; Rincon
-                    #x645C7DC72A2C5BD07785C978FE69DFCFECBA00F2DFBF005929A1F2A95BB5D42   ;; Arroyo
-                    #xA473B7CB8F6919C5337A095DBD94FCDA129A6AE1251C99F58FF40D55C13237F)) ;; David-PC
+    (dolist (pkey (with-open-file (f "~/.actor-nodes")
+                    (read f)))
       (sets:addf s pkey))
     s))
 

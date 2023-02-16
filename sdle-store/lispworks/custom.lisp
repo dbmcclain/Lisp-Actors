@@ -40,8 +40,8 @@
 ;; DM/RAL 07/09 -- better accommodation of unkown structure classes on restore
 
 (defstore-sdle-store (obj structure-object stream)
-  (let ((obj  (before-store obj)))
-    (cond ((typep obj 'structure-object)
+  (let ((objx  (before-store obj)))
+    (cond ((eq objx obj)
            (output-type-code +structure-object-code+ stream)
            (let* ((obj-class  (class-of obj))
                   (class-name (class-name obj-class))
@@ -53,7 +53,7 @@
              (dolist (slot-name slot-names)
                (store-object (slot-value obj slot-name) stream))))
           (t
-           (store-object obj stream))
+           (store-object objx stream))
           )))
 
 (defrestore-sdle-store (structure-object stream)

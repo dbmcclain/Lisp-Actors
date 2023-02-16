@@ -280,6 +280,9 @@ The background version
   "Check if the Lisp mailbox is empty. Return generalized T/F."
   (null (head mbox)))
 
+(defun mailbox-not-empty-p (mbox)
+  (not (mailbox-empty-p mbox)))
+
 ;; --------------------------------------------------------------------------
 
 (defun process-wait (wait-reason wait-fn &rest wait-args)

@@ -255,24 +255,23 @@ THE SOFTWARE.
                           ;; ---------------------------------
                           ;; Dispatch to Actor behavior with message args
                           (apply (the function pend-beh) self-msg)
-                          (cond ((or (eq self-beh pend-beh)
-                                     (%actor-cas self self-beh pend-beh))
+                          (cond ((or (eq self-beh pend-beh) ;; no BECOME
+                                     (%actor-cas self self-beh pend-beh)) ;; effective BECOME
                                  (when sends
-                                   (cond (done
+                                   (cond ((or (mpc:mailbox-not-empty-p *central-mail*)
+                                              done)
+                                          ;; messages await or we are finished
+                                          ;; so just add our sends to the queue
+                                          ;; and repeat loop
                                           (mpc:mailbox-send *central-mail* sends))
                                          
-                                         ((mpc:mailbox-empty-p *central-mail*)
+                                         (t
                                           ;; No messages await, we are front of queue,
                                           ;; so grab first message for ourself.
                                           ;; This is the most common case at runtime,
                                           ;; giving us a dispatch timing of only 46ns on i9 processor.
                                           (setf evt sends)
                                           (go next))
-                                         
-                                         (t
-                                          ;; else - we are not front of queue
-                                          ;; enqueue new messages and repeat loop
-                                          (mpc:mailbox-send *central-mail* sends))
                                          )))
                                 (t
                                  ;; failed on behavior update - try again...

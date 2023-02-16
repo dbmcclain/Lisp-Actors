@@ -152,7 +152,7 @@
   ;; environments.  Otherwise, use ASK.
   ;;
   ;; If you happen to call upon a busy SERIALIZER, or on any Actor
-  ;; that does not produce a response, then you will get *NO-ANSWER*.
+  ;; that does not produce a response, then you will get 'No.Answer.
   ;;
   (let* ((ans   *no-answer*)
          (cust  (create

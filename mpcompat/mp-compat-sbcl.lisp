@@ -189,6 +189,8 @@ A null timeout means wait forever."
   "Check if the Lisp mailbox is empty. Return generalized T/F."
   (sb-concurrency:mailbox-empty-p mbox))
   
+(defun mailbox-not-empty-p (mbox)
+  (not (mailbox-empty-p mbox)))
 
 ;; --------------------------------------------------------------------------
 

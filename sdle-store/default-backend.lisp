@@ -703,12 +703,12 @@
         (store-object (slot-value obj slot-name) stream) )) ))
 
 (defstore-sdle-store (obj standard-object stream)
-  (let ((obj (before-store obj)))
-    (cond ((typep obj 'standard-object)
+  (let ((objx (before-store obj)))
+    (cond ((eq objx obj)
            (output-type-code +standard-object-code+ stream)    
            (store-type-object obj stream))
           (t
-           (store-object obj stream))
+           (store-object objx stream))
           )))
 
 (defstore-sdle-store (obj condition stream)
@@ -1148,11 +1148,11 @@
 #-clisp
 (defstore-sdle-store (obj function stream)
   (cond ((typep obj 'standard-object) ;; true for funcallable instances
-         (let ((obj (before-store obj)))
-           (cond ((functionp obj)
+         (let ((objx (before-store obj)))
+           (cond ((eq objx obj)
                   (store-function obj stream))
                  (t
-                  (store-object obj stream))
+                  (store-object objx stream))
                  )))
         (t
          (store-function obj stream))

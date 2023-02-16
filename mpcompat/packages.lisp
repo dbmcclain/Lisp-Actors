@@ -46,6 +46,7 @@ THE SOFTWARE.
    #:with-lock
    #:make-mailbox
    #:mailbox-empty-p
+   #:mailbox-not-empty-p
    #:process-sharing-lock
    #:process-sharing-unlock
    #:process-exclusive-lock
@@ -116,6 +117,7 @@ THE SOFTWARE.
    #:mailbox-send
    #:mailbox-read
    #:mailbox-empty-p
+   #:mailbox-not-empty-p
    
    ;; new in Lispworks 6
    #:process-poke
