@@ -39,6 +39,7 @@ THE SOFTWARE.
    #:defmonitor
    #:with-exclusive-access
    #:critical-section
+   #:critical-or
    #:defconstant+
    #:nlet
    #:->>
@@ -364,6 +365,8 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
 	  do (setf ret-val (dpb (aref b-array i) (byte byte-size (* pos byte-size)) ret-val)))
     ret-val))
 
+;; ------- monitor section ------ ;;
+
 (defmonitor timestamping 
     ((uuids-this-tick 0)
      (ticks-per-count 10.) ;; 10 ticks/count for 100 ns granularity
@@ -402,18 +405,15 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
                  )))))
 
    (defun fetch-clock-seq ()
-     (or clock-seq
-         (critical-section
-           (or clock-seq
-               (setf clock-seq (random 10000.)))
-           )))
+     (critical-or clock-seq
+                  (setf clock-seq (random 10000.))
+                  ))
 
    (defun fetch-node-id ()
-     (or node-id
-         (critical-section
-           (or node-id
-               (setf node-id (get-node-id)))
-           ))))
+     (critical-or node-id
+                  (setf node-id (get-node-id)))
+     ))
+;; ------- end of monitor section ------ ;;
 
 (defun format-v3or5-uuid (hash ver)
   "Helper function to format a version 3 or 5 uuid. Formatting means setting the appropriate version bytes."
