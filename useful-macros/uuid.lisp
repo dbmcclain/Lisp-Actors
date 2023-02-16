@@ -97,14 +97,6 @@ THE SOFTWARE.
       #+:LISPWORKS (lw:mt-random arg state)
       #-:LISPWORKS (cl:random arg state))))
 
-(defvar *clock-seq* 0 
-  "Holds the clock sequence. Is is set when a version 1 uuid is 
-generated for the first time and remains unchanged during a whole session.")
-
-(defvar *node* nil 
-  "Holds the IEEE 802 MAC address or a random number 
-  when such is not available")
-
 #|
 ;; adjusted to 10 ticks per count for TOD in usec (100 ns units) ;; DM/RAL
 (defconstant +ticks-per-count+ 10
@@ -161,12 +153,12 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
     "Creates an uuid from the string represenation of an uuid. (example input string 6ba7b810-9dad-11d1-80b4-00c04fd430c8)"
     (setf uuid-string (string-trim "{}" uuid-string))
     (make-instance 'uuid
-                   :time-low (parse-integer uuid-string :start 0 :end 8 :radix 16)
-                   :time-mid (parse-integer uuid-string :start 9 :end 13 :radix 16)
-                   :time-high (parse-integer uuid-string :start 14 :end 18 :radix 16)
-                   :clock-seq-var (parse-integer uuid-string :start 19 :end 21 :radix 16)
-                   :clock-seq-low (parse-integer uuid-string :start 21 :end 23 :radix 16)
-                   :node (parse-integer uuid-string :start 24 :end 36 :radix 16)))
+                   :time-low (parse-integer uuid-string :start 0 :end 8. :radix 16.)
+                   :time-mid (parse-integer uuid-string :start 9. :end 13. :radix 16.)
+                   :time-high (parse-integer uuid-string :start 14. :end 18. :radix 16.)
+                   :clock-seq-var (parse-integer uuid-string :start 19. :end 21. :radix 16.)
+                   :clock-seq-low (parse-integer uuid-string :start 21. :end 23. :radix 16.)
+                   :node (parse-integer uuid-string :start 24. :end 36. :radix 16.)))
 
   ;; -----------------------------------------------
   
@@ -254,9 +246,9 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
                (parse-integer (delete #\: (subseq txt
                                                   (aref starts 0)
                                                   (aref ends 0)))
-                              :radix 16)) ))))
+                              :radix 16.)) ))))
     (or node
-        (dpb #b01 (byte 8 0) (random #xffffffffffff)))
+        (dpb #b01 (byte 8. 0) (random #xffffffffffff)))
     ))
 
 #+(AND :MACOSX :ALLEGRO)
@@ -277,9 +269,9 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
                      (return (parse-integer (delete #\: (subseq txt
                                                                 (aref starts 0)
                                                                 (aref ends 0)))
-                                            :radix 16)) ))) )))
+                                            :radix 16.)) ))) )))
     (or node
-        (dpb #b01 (byte 8 0) (random #xffffffffffff)))
+        (dpb #b01 (byte 8. 0) (random #xffffffffffff)))
     ))
 
 #-:MACOSX
@@ -311,8 +303,8 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
 				       nil) 
 		 while line 
 		 when (search "HWaddr" line :test 'string-equal)
-		 return (parse-integer (delete #\: (subseq line 38))
-				       :radix 16)))
+		 return (parse-integer (delete #\: (subseq line 38.))
+				       :radix 16.)))
 	 #+(and :windows :clisp)
          (let ((output (ext:run-program "ipconfig" 
                                         :arguments (list "/all")
@@ -321,7 +313,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
                                         :wait t)))
            (loop for line = (read-line output nil) while line 
                  when (search "Physical" line :test 'string-equal)
-                 return (parse-integer (delete #\- (subseq line 37)) :radix 16)))
+                 return (parse-integer (delete #\- (subseq line 37.)) :radix 16.)))
 
          #+:ALLEGRO
          (dolist (line (excl.osi:command-output "ipconfig /all"))
@@ -333,7 +325,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
                (return (parse-integer (delete #\- (subseq line
                                                           (aref starts 0)
                                                           (aref ends 0)))
-                                      :radix 16)))))
+                                      :radix 16.)))))
 
          #+(and :WINDOWS :LISPWORKS)
          (let ((output (with-output-to-string (s)
@@ -346,7 +338,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
              (parse-integer (delete #\- (subseq output
                                                 (aref starts 0)
                                                 (aref ends 0)))
-                            :radix 16)))
+                            :radix 16.)))
 
          #+(and :linux :lispworks)
          (let ((output (with-output-to-string (s)
@@ -354,13 +346,13 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
                                                          :output-stream s))))
            (let ((pos (search "HWaddr" output :test 'string-equal)))
              (when pos
-               (parse-integer (delete #\: (subseq output (+ pos 6) (+ pos 37 6)))
-                              :radix 16
+               (parse-integer (delete #\: (subseq output (+ pos 6.) (+ pos 37. 6.)))
+                              :radix 16.
                               :junk-allowed t))))
 
          ))
     (when (not node)
-      (setf node (dpb #b01 (byte 8 0) (random #xffffffffffff))))
+      (setf node (dpb #b01 (byte 8. 0) (random #xffffffffffff))))
     node))
 
 	    
@@ -374,16 +366,21 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
 
 (defmonitor timestamping 
     ((uuids-this-tick 0)
-     (ticks-per-count 10) ;; 10 ticks/count for 100 ns granularity
-     (last-time 0))
+     (ticks-per-count 10.) ;; 10 ticks/count for 100 ns granularity
+     (last-time 0)
+     (clock-seq nil)   ;; Holds the clock sequence. Is is set when a version 1 uuid is 
+                       ;; generated for the first time and remains unchanged during a whole session.
+     (node-id   nil))  ;; Holds the IEEE 802 MAC address or a random number 
+                       ;; when such is not available
    (declare (integer uuids-this-tick ticks-per-count last-time))
+   
    (defun get-timestamp ()
      "Get timestamp, compensate nanoseconds intervals"
      (critical-section
        (nlet iter ()
          ;; The standard calls for times measured from 1582-10-15
          (let ((time-now ;; (+ (* (get-universal-time) 10000000) 100103040000000000)
-                         (+ (* 10 (the integer (usec:get-universal-time-usec)))
+                         (+ (* 10. (the integer (usec:get-universal-time-usec)))
                             ;; #N|02_208_988_800_0000000|  ;; time offseet between 1970-01-01 and 1900-01-01
                             #N|10_010_304_000_0000000| ;; time offset in 100ns increments
                          )))  ;; 10_010_304_000 is time between 1582-10-15 and 1900-01-01 in seconds
@@ -402,21 +399,35 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
                         (T
                          (go-iter))
                         ))
-                 ))))))
+                 )))))
+
+   (defun fetch-clock-seq ()
+     (or clock-seq
+         (critical-section
+           (or clock-seq
+               (setf clock-seq (random 10000.)))
+           )))
+
+   (defun fetch-node-id ()
+     (or node-id
+         (critical-section
+           (or node-id
+               (setf node-id (get-node-id)))
+           ))))
 
 (defun format-v3or5-uuid (hash ver)
   "Helper function to format a version 3 or 5 uuid. Formatting means setting the appropriate version bytes."
-  (when (or (= ver 3) (= ver 5))
+  (when (or (= ver 3.) (= ver 5.))
     (make-instance 'uuid
-		   :time-low (load-bytes hash :start 0 :end 3)
-		   :time-mid (load-bytes hash :start 4 :end 5)
-		   :time-high (cond ((= ver 3)
-				     (dpb #b0011 (byte 4 12) (load-bytes hash :start 6 :end 7)))
-				    ((= ver 5)
-				     (dpb #b0101 (byte 4 12) (load-bytes hash :start 6 :end 7))))
-		   :clock-seq-var (dpb #b10 (byte 2 6) (aref hash 8))
-		   :clock-seq-low (aref hash 9)
-		   :node (load-bytes hash :start 10 :end 15))))
+		   :time-low (load-bytes hash :start 0 :end 3.)
+		   :time-mid (load-bytes hash :start 4. :end 5.)
+		   :time-high (cond ((= ver 3.)
+				     (dpb #b0011 (byte 4. 12.) (load-bytes hash :start 6. :end 7.)))
+				    ((= ver 5.)
+				     (dpb #b0101 (byte 4. 12.) (load-bytes hash :start 6. :end 7.))))
+		   :clock-seq-var (dpb #b10 (byte 2. 6.) (aref hash 8.))
+		   :clock-seq-low (aref hash 9.)
+		   :node (load-bytes hash :start 10. :end 15.))))
 
 #|
 (defmethod print-object :around ((id uuid) stream)
@@ -436,97 +447,96 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
   "Generates a NULL uuid (i.e 00000000-0000-0000-0000-000000000000)"
   (make-instance 'uuid))
 
-
 (defun make-v1-uuid ()
   "Generates a version 1 (time-based) uuid."
-  (let ((timestamp (get-timestamp)))
-    (when (zerop *clock-seq*)
-      (setf *clock-seq* (random 10000)))
-    (when (null *node*)
-      (setf *node* (get-node-id)))
+  (let ((timestamp (get-timestamp))
+        (clock-seq (fetch-clock-seq))
+        (node-id   (fetch-node-id)))
+    (declare (integer timestamp clock-seq node-id))
     (make-instance 'uuid
-                   :time-low (ldb (byte 32 0) timestamp)
-                   :time-mid (ldb (byte 16 32) timestamp)
-                   :time-high (dpb #b0001 (byte 4 12) (ldb (byte 12 48) timestamp))
-                   :clock-seq-var (dpb #b10 (byte 2 6) (ldb (byte 6 8)  *clock-seq*))
-                   :clock-seq-low (ldb (byte 8 0) *clock-seq*) 
-                   :node *node*)))
+                   :time-low (ldb (byte 32. 0) timestamp)
+                   :time-mid (ldb (byte 16. 32.) timestamp)
+                   :time-high (dpb #b0001 (byte 4. 12.) (ldb (byte 12. 48.) timestamp))
+                   :clock-seq-var (dpb #b10 (byte 2. 6.) (ldb (byte 6. 8.)  clock-seq))
+                   :clock-seq-low (ldb (byte 8. 0) clock-seq) 
+                   :node node-id)))
 
 (defun type1? (uuid)
-  (= 1 (ldb (byte 4 12) (time-high uuid))))
+  (= 1 (ldb (byte 4. 12.) (time-high uuid))))
 
 (defun one-of-mine? (uuid)
   (and (type1? uuid)
-       (= (node uuid) *node*)))
+       (= (node uuid) (the integer (fetch-node-id)))))
+
 
 (defun make-v3-uuid (namespace name)
   "Generates a version 3 (named based MD5) uuid."
   (format-v3or5-uuid 
-   (digest-uuid 3 (get-bytes (print-bytes nil namespace)) name)
+   (digest-uuid 3. (get-bytes (print-bytes nil namespace)) name)
    3))
 
 (defun make-v4-uuid ()
   "Generates a version 4 (random) uuid"
-  (let ((v (random #.(ash 1 128))))
+  (let ((v (random #.(ash 1 128.))))
     (make-instance 'uuid
-                   :time-low (ldb (byte 32 0) v) ;; (random #xffffffff)
-                   :time-mid (ldb (byte 16 32) v) ;; (random #xffff)
-                   :time-high (dpb #b0100 (byte 4 12) (ldb (byte 16 48) v #|(random #xffff)|#))
-                   :clock-seq-var (dpb #b10 (byte 2 6) (ldb (byte 8 64) v #|(random #xff)|#))
-                   :clock-seq-low (ldb (byte 8 72) v) ;; (random #xff)
-                   :node (ldb (byte 48 80) v)) #|(random #xffffffffffff)|#
+                   :time-low (ldb (byte 32. 0) v) ;; (random #xffffffff)
+                   :time-mid (ldb (byte 16. 32.) v) ;; (random #xffff)
+                   :time-high (dpb #b0100 (byte 4. 12.) (ldb (byte 16. 48.) v #|(random #xffff)|#))
+                   :clock-seq-var (dpb #b10 (byte 2. 6.) (ldb (byte 8. 64.) v #|(random #xff)|#))
+                   :clock-seq-low (ldb (byte 8. 72.) v) ;; (random #xff)
+                   :node (ldb (byte 48. 80.) v)) #|(random #xffffffffffff)|#
     ))
 
 (defun make-v5-uuid (namespace name)
   "Generates a version 5 (name based SHA1) uuid."
   (format-v3or5-uuid 
-   (digest-uuid 5 (get-bytes (print-bytes nil namespace)) name)
+   (digest-uuid 5. (get-bytes (print-bytes nil namespace)) name)
    5))
 
 (defun uuid-to-byte-array (uuid)
   "Converts an uuid to byte-array"
-  (let ((array (make-array 16 :element-type '(unsigned-byte 8))))
+  (let ((array (make-array 16. :element-type '(unsigned-byte 8.))))
     (with-slots (time-low time-mid time-high-and-version clock-seq-and-reserved clock-seq-low node)
 		uuid
-		(loop for i from 3 downto 0
-		      do (setf (aref array (- 3 i)) (ldb (byte 8 (* 8 i)) time-low)))
-		(loop for i from 5 downto 4
-		      do (setf (aref array i) (ldb (byte 8 (* 8 (- 5 i))) time-mid)))
-		(loop for i from 7 downto 6
-		      do (setf (aref array i) (ldb (byte 8 (* 8 (- 7 i))) time-high-and-version)))
-		(setf (aref array 8) (ldb (byte 8 0) clock-seq-and-reserved))
-		(setf (aref array 9) (ldb (byte 8 0) clock-seq-low))
-		(loop for i from 15 downto 10
-		      do (setf (aref array i) (ldb (byte 8 (* 8 (- 15 i))) node)))
+		(loop for i from 3. downto 0
+		      do (setf (aref array (- 3. i)) (ldb (byte 8. (* 8. i)) time-low)))
+		(loop for i from 5. downto 4.
+		      do (setf (aref array i) (ldb (byte 8. (* 8. (- 5. i))) time-mid)))
+		(loop for i from 7. downto 6.
+		      do (setf (aref array i) (ldb (byte 8. (* 8. (- 7. i))) time-high-and-version)))
+		(setf (aref array 8.) (ldb (byte 8. 0) clock-seq-and-reserved))
+		(setf (aref array 9.) (ldb (byte 8. 0) clock-seq-low))
+		(loop for i from 15. downto 10.
+		      do (setf (aref array i) (ldb (byte 8. (* 8. (- 15. i))) node)))
     array)))
 
 (defmacro arr-to-bytes (from to array)
   "Helper macro used in byte-array-to-uuid."
   `(loop with res = 0
 	 for i from ,from to ,to
-	 do (setf (ldb (byte 8 (* 8 (- ,to i))) res) (aref ,array i))
+	 do (setf (ldb (byte 8. (* 8. (- ,to i))) res) (aref ,array i))
 	 finally (return res)))
 
 (defun byte-array-to-uuid (array)
   "Converts a byte-array generated with uuid-to-byte-array to an uuid."
   (assert (and (= (array-rank array) 1)
-	       (= (array-total-size array) 16))
+	       (= (array-total-size array) 16.))
 	  (array)
 	  "Please provide a one-dimensional array with 16 elements of type (unsigned-byte 8)")
   (make-instance 'uuid
-		 :time-low (arr-to-bytes 0 3 array)
-		 :time-mid (arr-to-bytes 4 5 array)
-		 :time-high (arr-to-bytes 6 7 array)
-		 :clock-seq-var (aref array 8)
-		 :clock-seq-low (aref array 9)
-		 :node (arr-to-bytes 10 15 array)))
+		 :time-low (arr-to-bytes 0 3. array)
+		 :time-mid (arr-to-bytes 4. 5. array)
+		 :time-high (arr-to-bytes 6. 7. array)
+		 :clock-seq-var (aref array 8.)
+		 :clock-seq-low (aref array 9.)
+		 :node (arr-to-bytes 10. 15. array)))
 
 (defun digest-uuid (ver uuid name)
   "Helper function that produces a digest from a namespace and a string. Used for the 
 generation of version 3 and 5 uuids."
-  (let ((digester (make-digest (cond ((= ver 3) 
+  (let ((digester (make-digest (cond ((= ver 3.) 
                                       :md5)
-                                     ((= ver 5)
+                                     ((= ver 5.)
                                       :sha1 )))))
    (update-digest digester (ascii-string-to-byte-array uuid))
    (update-digest digester (ascii-string-to-byte-array name))
@@ -537,10 +547,10 @@ generation of version 3 and 5 uuids."
 built according code-char of each number in the uuid-string"
   (setf uuid-string (string-trim "{}" uuid-string))
   (with-output-to-string (out)
-			 (loop with max = (- (length uuid-string) 2)
-			       for i = 0 then (+ i 2)
-			       as j = (+ i 2)
-			       as cur-pos = (parse-integer uuid-string :start i :end j :radix 16)
+			 (loop with max = (- (length uuid-string) 2.)
+			       for i = 0 then (+ i 2.)
+			       as j = (+ i 2.)
+			       as cur-pos = (parse-integer uuid-string :start i :end j :radix 16.)
 			       do (format out "~a" (code-char cur-pos))
 			       while (< i max))
 			 out))
@@ -565,22 +575,22 @@ built according code-char of each number in the uuid-string"
   "Convert a UUID into a (big) integer... only in Lisp!
   Preserves the time order in a V1 UUID."
   (->> (time-high id)
-       (ash-dpb _ 16 (time-mid id))
-       (ash-dpb _ 32 (time-low id))
-       (ash-dpb _  8 (clock-seq-var id))
-       (ash-dpb _  8 (clock-seq-low id))
-       (ash-dpb _ 48 (node id))))
+       (ash-dpb _ 16. (time-mid id))
+       (ash-dpb _ 32. (time-low id))
+       (ash-dpb _  8. (clock-seq-var id))
+       (ash-dpb _  8. (clock-seq-low id))
+       (ash-dpb _ 48. (node id))))
 
 (defun integer-to-uuid (id)
   "Convert an integer into a UUID.
   Preserves the time order in a V1 UUID."
   (make-instance 'uuid
-                 :time-low      (ldb (byte 32 64) id)
-                 :time-mid      (ldb (byte 16 96) id)
-                 :time-high     (ldb (byte 16 112) id)
-                 :clock-seq-var (ldb (byte  8 56) id)
-                 :clock-seq-low (ldb (byte  8 48) id)
-                 :node          (ldb (byte 48  0) id)))
+                 :time-low      (ldb (byte 32. 64.) id)
+                 :time-mid      (ldb (byte 16. 96.) id)
+                 :time-high     (ldb (byte 16. 112.) id)
+                 :clock-seq-var (ldb (byte  8. 56.) id)
+                 :clock-seq-low (ldb (byte  8. 48.) id)
+                 :node          (ldb (byte 48.  0) id)))
 
 (defun uuid< (a b)
   ;; really only meaningful for a V1 time-based UUID
@@ -590,9 +600,9 @@ built according code-char of each number in the uuid-string"
   ;; return a BigInt that represents the 100ns increments since
   ;; 1582-10-15 (for v1 only)
   (->> 0
-       (ash-dpb _ 12 (time-high id))
-       (ash-dpb _ 16 (time-mid id))
-       (ash-dpb _ 32 (time-low id))))
+       (ash-dpb _ 12. (time-high id))
+       (ash-dpb _ 16. (time-mid id))
+       (ash-dpb _ 32. (time-low id))))
 
 (defun uuid-universal-time (id)
   ;; return an int representing the seconds since 1900-01-01 and a
@@ -602,9 +612,9 @@ built according code-char of each number in the uuid-string"
 
 (defun copy-v1-uuid-replacing-time (new-time uuid)
   (make-instance 'uuid
-                 :time-low      (ldb (byte 32  0) new-time)
-                 :time-mid      (ldb (byte 16 32) new-time)
-                 :time-high     (dpb #b0001 (byte 4 12) (ldb (byte 12 48) new-time))
+                 :time-low      (ldb (byte 32.  0) new-time)
+                 :time-mid      (ldb (byte 16. 32.) new-time)
+                 :time-high     (dpb #b0001 (byte 4. 12.) (ldb (byte 12. 48.) new-time))
                  :clock-seq-var (clock-seq-var uuid)
                  :clock-seq-low (clock-seq-low uuid)
                  :node          (node uuid)))
@@ -633,7 +643,7 @@ built according code-char of each number in the uuid-string"
                        (lambda (stream)
                          (make-uuid-from-string
                           (let ((ch (read-char stream)))
-                            (if (digit-char-p ch 16)
+                            (if (digit-char-p ch 16.)
                                 (read-chars-till-delim stream "/" ch)
                               (read-chars-till-delim stream
                                                      (case ch
@@ -668,8 +678,8 @@ built according code-char of each number in the uuid-string"
                 "~A ~4D~{-~2,'0D~} ~{~2,'0D~^\:~}.~7,'0D UTC ~{~2,'0X~^\:~}"
                 day y (list m d) (list hh mm ss)
                 frac
-                (loop for pos from 40 downto 0 by 8 collect
-                      (ldb (byte 8 pos) mac))
+                (loop for pos from 40. downto 0 by 8. collect
+                      (ldb (byte 8. pos) mac))
                 )))))
 
 

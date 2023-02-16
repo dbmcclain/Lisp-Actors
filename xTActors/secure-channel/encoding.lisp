@@ -363,16 +363,31 @@
          (cipher  (ironclad:make-cipher :aes
                                         :key  key
                                         :mode :ecb
-                                        :initialization-vector nonce)))
-    (loop for ix from 0 below nel by 16 do
-            (let ((wrk (vec (vec-repr:bevn ix 16)))
-                  (end (min nel (+ ix 16))))
-              (map-into wrk #'logxor nonce wrk)
-              (ironclad:encrypt-in-place cipher wrk)
-              (map-into wrk #'logxor wrk (subseq bytevec ix end))
-              (replace bytevec wrk :start1 ix :end1 end)
-              ))
-    nonce))
+                                        :initialization-vector nonce))
+         (wrk     (make-ub8-vector 16.)))
+    (flet ((prep (ct)
+             (um:nlet iter ((ct   ct)
+                            (pos  0))
+               (cond ((zerop ct)
+                      (fill wrk 0 :start pos)
+                      (map-into wrk #'logxor nonce wrk))
+                     (t
+                      (setf (aref wrk pos) (logand #x0ff ct))
+                      (go-iter (ash ct -8.) (1+ pos)))
+                     )))
+           (post (ix end)
+             (loop for jx from ix below end
+                   for kx from 0
+                   do
+                     (setf (aref bytevec jx) (logxor (aref wrk kx) (aref bytevec jx)))
+                   )))
+      (loop for ix from 0 below nel by 16. do
+              (let ((end (min nel (+ ix 16.))))
+                (prep end)
+                (ironclad:encrypt-in-place cipher wrk)
+                (post ix end)
+                ))
+      nonce)))
   
 (defun encryptor (ekey)
   (actor (cust bytevec)
