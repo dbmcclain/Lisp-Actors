@@ -41,7 +41,8 @@
             (ed-random-pair)
           (let ((ekey (hash/256 (ed-mul apt brand)            ;; A*b
                                 (ed-mul client-pkey brand)    ;; C*b
-                                (ed-mul apt (actors-skey))))) ;; A*s
+                                ;; (ed-mul apt (actors-skey))
+                                (actors-smult apt)))) ;; A*s
             (β _
                 (send local-services β :set-crypto ekey socket)
               (β (cnx-id)

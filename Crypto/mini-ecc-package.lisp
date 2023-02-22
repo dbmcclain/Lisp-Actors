@@ -716,6 +716,13 @@ THE SOFTWARE.
 
    #:modr
    #:modq
+
+   #:gen-key-pair
+   #:gen-shares
+   #:solve-shares
+   #:skey
+
+   #:smult
    ))
 
 (defpackage #:com.ral.crypto.core-crypto

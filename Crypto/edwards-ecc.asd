@@ -58,7 +58,8 @@ THE SOFTWARE.
                 (:file "my-keying")
                 (:file "schnorr")
                 (:file "init-crypto")
-                (:file "data-check"))
+                (:file "data-check")
+                (:file "edwards-tpm"))
   
   :depends-on   ("mini-core-crypto"
                  "cffi"

@@ -131,7 +131,8 @@
                      (error ()
                        (error "Server offered bogus identification")))
                  (let* ((ekey  (hash/256 (ed-mul bpt arand)            ;; B*a
-                                         (ed-mul bpt (actors-skey))    ;; B*c
+                                         ;; (ed-mul bpt (actors-skey))    ;; B*c
+                                         (actors-smult bpt)
                                          (ed-mul server-pkey arand)))  ;; S*a
                         (chan  (α msg
                                  (send* local-services :ssend server-id msg))))

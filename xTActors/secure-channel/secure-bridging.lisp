@@ -41,16 +41,77 @@
 
 ;; ------------------------------------------------------
 
+#|
+(defgeneric wipe (x)
+  (:method (x)
+   x)
+  (:method ((x stream::ef-file-stream))
+   (wipe (slot-value x 'stream::buffer-state)))
+  (:method ((x stream::stream-buffer-state))
+   (wipe (slot-value x 'stream::input-buffer))
+   (wipe (slot-value x 'stream::output-buffer)))
+  (:method ((x string))
+   (fill x #\0))
+  (:method ((x vector))
+   (fill x 0))
+  (:method ((x vec-repr:ub8v-obj))
+   (wipe (vec-repr:ub8v-val x)))
+  (:method ((x vec-repr:ub8v-as-str))
+   (wipe (vec-repr:ub8v-str x)))
+  )
+
 (defvar *actors-node* nil)
 
 (defun actors-skey ()
-  (or *actors-node*
-      (setf *actors-node* (with-open-file (f "~/.actors-node")
-                            (read f)))
-      ))
-
+  (apply #'edec:skey (or *actors-node*
+                         (setf *actors-node*
+                               (let ((x (with-open-file (f "~/.actors-node")
+                                          (prog1
+                                              (read f)
+                                            (wipe f)))))
+                                 (multiple-value-bind (pkey shares)
+                                     (edec:gen-shares x (ed-nth-pt x) 3)
+                                   (declare (ignore pkey))
+                                   shares))
+                               ))))
+|#
+#|
 (defun actors-pkey ()
   (ed-compress-pt (ed-nth-pt (actors-skey))))
+|#
+
+#|
+(defun actors-smult (pt)
+  (let* ((txt (with-output-to-string (s)
+                (sys:call-system-showing-output (list "~/bin/edwards-tpm"
+                                                      (with-standard-io-syntax
+                                                        (format nil "#x~X" (int pt))))
+                                                :output-stream s)
+                ))
+         (lines (um:split-string txt :delims '(#\newline))))
+    
+    (print lines)
+    (ed-decompress-pt (read-from-string (subseq (cadr lines) 2)))
+    ))
+|#
+
+(defun actors-smult (pt)
+  (let* ((paths (directory "~/bin/edwards-tpm"))
+         (txt (with-output-to-string (s)
+                (sys:call-system-showing-output (list (namestring (car paths))
+                                                      (with-standard-io-syntax
+                                                        (format nil "#x~X" (int pt))))
+                                                :output-stream s)
+                ))
+         (lines (um:split-string txt :delims '(#\newline))))
+    
+    (print lines)
+    (ed-decompress-pt (read-from-string (subseq (cadr lines) 2)))
+    ))
+               
+(defun actors-pkey ()
+  ;; (edec:smult edec:*ed-gen*)
+  (actors-smult edec:*ed-gen*))
 
 (defconstant +server-connect-id+  {66895052-c57f-123a-9571-0a2cb67da316})
 

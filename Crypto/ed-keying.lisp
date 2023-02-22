@@ -4,21 +4,24 @@
 ;; -----------------------------------------------
 ;; Public/Private Key pair generation, splitting, reassembly
 
-(defun gen-key-pair (&optional (nshares 3))
-  (multiple-value-bind (skey pkey)
-      (ed-random-pair)
-    (let* ((xs     (loop repeat nshares collect (random-between 1 *ed-r*)))
-           (coffs  (cons skey (loop repeat (1- nshares) collect (random-between 0 *ed-r*))))
-           (shares (loop for x in xs collect
+(defun gen-shares (skey pkey nshares)
+  (let* ((xs     (loop repeat nshares collect (random-between 1 *ed-r*)))
+         (coffs  (cons skey (loop repeat (1- nshares) collect (random-between 0 *ed-r*))))
+         (shares (loop for x in xs collect
                          (cons x (with-mod *ed-r*
                                    (reduce (lambda (c sum)
                                              (m+ c (m* x sum)))
                                            coffs
                                            :from-end t
                                            :initial-value 0)))
-                         )))
-      (values pkey
-              shares))))
+                       )))
+    (values pkey
+            shares)))
+
+(defun gen-key-pair (&optional (nshares 3))
+  (multiple-value-bind (skey pkey)
+      (ed-random-pair)
+    (gen-shares skey pkey nshares)))
 
 (defun reduce-factors (x pair_i pairs init)
   ;; -> init * (x - x1) * (x - x2) * ... * (x - x_i-1) * (x - x_i+1) * ... * (x - x_n)
