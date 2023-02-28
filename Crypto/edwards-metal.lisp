@@ -62,26 +62,26 @@
   ;; transfer val to C vector in 6 8-byte words
   (declare (integer val))
   (setf val (mod val *ed-q*))
-  (setf (cffi:mem-aref cvec :uint64 0) (ldb (byte 64   0) val)
-        (cffi:mem-aref cvec :uint64 1) (ldb (byte 64  64) val)
-        (cffi:mem-aref cvec :uint64 2) (ldb (byte 64 128) val)
-        (cffi:mem-aref cvec :uint64 3) (ldb (byte 64 192) val))
+  (setf (cffi:mem-aref cvec :uint64 0.) (ldb (byte 64.   0.) val)
+        (cffi:mem-aref cvec :uint64 1.) (ldb (byte 64.  64.) val)
+        (cffi:mem-aref cvec :uint64 2.) (ldb (byte 64. 128.) val)
+        (cffi:mem-aref cvec :uint64 3.) (ldb (byte 64. 192.) val))
   (when (eql *edcurve* *curve-ed3363*)
-    (setf (cffi:mem-aref cvec :uint64 4) (ldb (byte 64 256) val)
-          (cffi:mem-aref cvec :uint64 5) (ldb (byte 64 320) val))
+    (setf (cffi:mem-aref cvec :uint64 4.) (ldb (byte 64. 256.) val)
+          (cffi:mem-aref cvec :uint64 5.) (ldb (byte 64. 320.) val))
     ))
 
 (defun xfer-from-c (cvec)
   ;; retrieve val from C vector in 6 8-byte words
   (let ((v 0))
     (declare (integer v))
-    (setf v (dpb (cffi:mem-aref cvec :uint64 0) (byte 64   0) v)
-          v (dpb (cffi:mem-aref cvec :uint64 1) (byte 64  64) v)
-          v (dpb (cffi:mem-aref cvec :uint64 2) (byte 64 128) v)
-          v (dpb (cffi:mem-aref cvec :uint64 3) (byte 64 192) v))
+    (setf v (dpb (cffi:mem-aref cvec :uint64 0.) (byte 64.   0.) v)
+          v (dpb (cffi:mem-aref cvec :uint64 1.) (byte 64.  64.) v)
+          v (dpb (cffi:mem-aref cvec :uint64 2.) (byte 64. 128.) v)
+          v (dpb (cffi:mem-aref cvec :uint64 3.) (byte 64. 192.) v))
     (when (eql *edcurve* *curve-ed3363*)
-      (setf v (dpb (cffi:mem-aref cvec :uint64 4) (byte 64 256) v)
-            v (dpb (cffi:mem-aref cvec :uint64 5) (byte 64 320) v)))
+      (setf v (dpb (cffi:mem-aref cvec :uint64 4.) (byte 64. 256.) v)
+            v (dpb (cffi:mem-aref cvec :uint64 5.) (byte 64. 320.) v)))
     #|
       ;; libs now handle conversion properly - DM 03/19
     (assert (and (<= 0 v)
@@ -96,14 +96,14 @@
       `(progn
          ,@body)
     (destructuring-bind (name &optional lisp-val) (car buffers)
-      `(cffi:with-foreign-pointer (,name 48)
+      `(cffi:with-foreign-pointer (,name 48.)
          ,@(when lisp-val
              `((xfer-to-c ,lisp-val ,name)))
          (with-fli-buffers ,(cdr buffers) ,@body))
       )))
 
 #+:LISPWORKS
-(editor:setup-indent "with-fli-buffers" 1)
+(editor:setup-indent "with-fli-buffers" 1.)
 
 ;; -------------------------------------------------------------------
 

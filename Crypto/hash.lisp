@@ -86,7 +86,8 @@ THE SOFTWARE.
   (:method ((x string))
    (hashable (map 'vector 'char-code x)))
   (:method ((x symbol))
-   (hashable (prin1-to-string x)))
+   (hashable (with-standard-io-syntax
+               (prin1-to-string x))))
   (:method ((x pathname))
    (hashable (namestring x)))
   (:method (x)
@@ -178,13 +179,13 @@ THE SOFTWARE.
   ;; as we do for safe-random values, because of difficulty of ECDLP.
   ;; &rest seeds -> hash, int(hash)
   (declare (integer range))
-  (check-type range (integer 2)) ;; produce N s.t. N in [0:N)
+  (check-type range (integer 2.)) ;; produce N s.t. N in [0:N)
   (apply (get-cached-symbol-data
           'hash/var 'hash-to-range range
           (lambda ()
             (let* ((nbits  (integer-length (1- range)))
-                   (nbytes (ceiling nbits 8))
-                   (nshr   (- nbits (* 8 nbytes))))
+                   (nbytes (ceiling nbits 8.))
+                   (nshr   (- nbits (* 8. nbytes))))
               (labels ((hash-fn (&rest args)
                          (let* ((vec (apply 'get-raw-hash-nbytes nbytes args))
                                 (n   (ash (int vec) nshr)))

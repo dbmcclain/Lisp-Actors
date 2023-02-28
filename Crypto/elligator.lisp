@@ -8,7 +8,7 @@
   (get-cached-symbol-data '*edcurve*
                           :elligator-limit *edcurve*
                           (lambda ()
-                            (floor (1+ *ed-q*) 2))))
+                            (floor (1+ *ed-q*) 2.))))
 
 (defun elligator-nbits ()
   (get-cached-symbol-data '*edcurve*
@@ -20,7 +20,7 @@
   (get-cached-symbol-data '*edcurve*
                           :elligator-nbytes *edcurve*
                           (lambda ()
-                            (ceiling (elligator-nbits) 8))))
+                            (ceiling (elligator-nbits) 8.))))
 
 (defun elligator-int-padding ()
   ;; generate random padding bits for an elligator int
@@ -28,7 +28,7 @@
          (nbits (mod enb 8)))
     (if (zerop nbits)
         0
-      (ash (ctr-drbg-int (- 8 nbits)) enb))
+      (ash (ctr-drbg-int (- 8. nbits)) enb))
     ))
 
 (defun compute-csr ()
@@ -36,13 +36,13 @@
   (with-mod *ed-q*
     (let* ((dp1  (+ *ed-d* 1))
            (dm1  (- *ed-d* 1))
-           (dsqrt (m* 2 (msqrt (- *ed-d*))))
+           (dsqrt (m* 2. (msqrt (- *ed-d*))))
            (c    (m/ (+ dsqrt dm1) dp1))
            (c    (if (quadratic-residue-p c)
                      c
                    (m/ (- dsqrt dm1) dp1)))
            (r    (m+ c (m/ c)))
-           (s    (msqrt (m/ 2 c))))
+           (s    (msqrt (m/ 2. c))))
       (list c s r ))))
 
 (defun csr ()
@@ -117,10 +117,10 @@
                      (etarp1sqm1 (- (m* etarp1 etarp1) 1))
                      (scm1       (m* s (- c 1))))
             (when (and (quadratic-residue-p etarp1sqm1)
-                       (or (not (zerop (m+ etar 2)))
+                       (or (not (zerop (m+ etar 2.)))
                            (m= x (m/ (m* 2 scm1 (mchi c))
                                      r))))
-              (um:bind* ((xx    (- (m^ etarp1sqm1 (floor (1+ *ed-q*) 4))
+              (um:bind* ((xx    (- (m^ etarp1sqm1 (floor (1+ *ed-q*) 4.))
                                     etarp1))
                          (z     (mchi (m* scm1
                                           xx
@@ -184,7 +184,7 @@
                             (mmod
                              (int
                               (hash/512
-                               (levn ix 4)
+                               (levn ix 4.)
                                (levn k-priv (elligator-nbytes))
                                msgv)))))
            (rpt   (ed-nth-pt r))
@@ -395,7 +395,7 @@
     (let* ((c4d        (m* *ed-c* *ed-c* *ed-c* *ed-c* *ed-d*))
            (c4dm1      (- c4d 1))
            (sqrt-c4dm1 (msqrt c4dm1)) ;; used during coord conversion
-           (a          (m/ (m* 2 (+ c4d 1)) c4dm1))
+           (a          (m/ (m* 2. (+ c4d 1)) c4dm1))
            (b          1)
            (u          (find-quadratic-nonresidue))
            (dscr       (- (m* a a) (m* 4 b))))
@@ -426,7 +426,7 @@
         (declare (ignore a b u))
         (with-mod *ed-q*
           (let* ((yv   (m* sqrt-c4dm1 yw))
-                 (x    (m/ (m* -2 *ed-c* xu) yv))
+                 (x    (m/ (m* -2. *ed-c* xu) yv))
                  (y    (m/ (m* *ed-c* (1+ xu)) (- 1 xu)))
                  (pt   (make-ecc-pt
                         :x  x
@@ -471,7 +471,7 @@
                                       (m* a v v)
                                       (m* b v))))
                        (xu   (- (m* eps v)
-                                (m/ (m* (- 1 eps) a) 2)))
+                                (m/ (m* (- 1 eps) a) 2.)))
                        (rhs  (m* xu
                                  (+ (m* xu xu)
                                     (m* a xu)
@@ -481,7 +481,7 @@
                        ;; Now convert- to our Edwards coordinates:
                        ;;   (xu,yw) --> (x,y): x^2 + y^2 = c^2*(1 + d*x^2*y^2)
                        (yv   (m* sqrt-c4dm1 yw))
-                       (x    (m/ (m* -2 *ed-c* xu) yv))
+                       (x    (m/ (m* -2. *ed-c* xu) yv))
                        (y    (m/ (m* *ed-c* (1+ xu)) (- 1 xu)))
                        (pt   (make-ecc-proj-pt
                               :x  x
@@ -511,7 +511,7 @@
                  ((sqrt-c4dm1 a b u) (elli2-ab))
                  (declare (ignore u))
                  (xu   (m/ (- y *ed-c*) (+ y *ed-c*)))
-                 (yv   (m/ (m* -2 *ed-c* xu) x ))
+                 (yv   (m/ (m* -2. *ed-c* xu) x ))
                  (yw   (m/ yv sqrt-c4dm1)))
         (assert (= (m* yw yw)
                    (m+ (m* xu xu xu)
@@ -534,7 +534,7 @@
                       ;; convert our Edwards coords to the form needed by Elligator-2
                       ;; for Montgomery curves
                       (xu   (m/ (- y *ed-c*) (+ y *ed-c*)))
-                      (yv   (m/ (m* -2 *ed-c* xu) x ))
+                      (yv   (m/ (m* -2. *ed-c* xu) x ))
                       (yw   (m/ yv sqrt-c4dm1))
                       (xu+a (+ xu a)))
              ;; now we have (x,y) --> (xu,yw) for:  yw^2 = xu^3 + A*xu^2 + B*xu

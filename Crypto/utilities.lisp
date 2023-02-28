@@ -62,7 +62,7 @@ THE SOFTWARE.
 
 (defun safe-char-code (c)
   (let ((v (char-code c)))
-    (if (<= 0 v 255)
+    (if (<= 0 v 255.)
         v
       (char-code #\?)) ))
 
@@ -96,7 +96,7 @@ THE SOFTWARE.
 #||#
 (defun hexit (x)
   (let ((*print-length* nil))
-    (write x :base 16)))
+    (write x :base 16.)))
 #|
 (defun hex ()
   (setf *print-base* 16))
@@ -115,7 +115,7 @@ THE SOFTWARE.
   ;; assume 8-xdigit groups (32-bits)
   (let ((ans 0))
     (loop for arg in args do
-          (setf ans (logior (ash ans 32)
+          (setf ans (logior (ash ans 32.)
                             arg)))
     ans))
 
@@ -127,26 +127,26 @@ THE SOFTWARE.
   (map 'string #'code-char bytes))
 
 (defun convert-int-to-nbytes (x n)
-  (do ((x   x   (ash x -8))
+  (do ((x   x   (ash x -8.))
        (ix  0   (1+ ix))
        (ans nil))
       ((>= ix n) ans)
-    (push (ldb (byte 8 0) x) ans)))
+    (push (ldb (byte 8. 0) x) ans)))
 
 (defun convert-int-to-nbytesv (x n)
   (ensure-8bitv (convert-int-to-nbytes x n)))
 
 (defun convert-int-to-bytes (x)
   (do ((ans nil)
-       (x  x   (ash x -8))
-       (nb (ceiling (integer-length (max 1 (abs x))) 8) (1- nb)))
+       (x  x   (ash x -8.))
+       (nb (ceiling (integer-length (max 1 (abs x))) 8.) (1- nb)))
       ((zerop nb) ans)
-    (push (ldb (byte 8 0) x) ans)))
+    (push (ldb (byte 8. 0) x) ans)))
 
 (defmethod convert-bytes-to-int ((lst list))
   (let ((ans 0))
     (loop for byte in lst do
-          (setf ans (logior (ash ans 8) byte)))
+          (setf ans (logior (ash ans 8.) byte)))
     ans))
 
 (defmethod convert-bytes-to-int ((v vector))
@@ -160,19 +160,19 @@ THE SOFTWARE.
     (mapcar #'convert-bytes-to-int
             (um:group lst size))) )
 
-(defun format-fragments (stream x &key (size 4))
+(defun format-fragments (stream x &key (size 4.))
   (format stream "(big32 ~{#x~8,'0x~^ ~} )" (fragmentize x :size size)))
 
 (defun strengthen-key (arr n)
   ;; key strengthening
-  (let ((ans (make-ub-array 32
+  (let ((ans (make-ub-array 32.
                          :initial-element 0)))
     (loop repeat n do
           (replace ans (sha2-buffers ans arr)))
     ans))
 
 (defun make-key-from-plaintext (text)
-  (convert-bytes-to-int (strengthen-key (convert-text-to-int8-array text) 8192)))
+  (convert-bytes-to-int (strengthen-key (convert-text-to-int8-array text) 8192.)))
 
 (defun print-c-array (arr)
   (format t "{ ~{0x~2,'0x~^, ~} };" (coerce arr 'list)))
@@ -201,9 +201,9 @@ THE SOFTWARE.
 (defun convert-lev-to-int (bytes)
   (let ((ans 0))
     (loop for b across bytes
-          for pos from 0 by 8
+          for pos from 0 by 8.
           do
-          (setf ans (dpb b (byte 8 pos) ans)))
+          (setf ans (dpb b (byte 8. pos) ans)))
     ans))
 
 (defun convert-int-to-lev (val &optional nb)
@@ -212,9 +212,9 @@ THE SOFTWARE.
          (ans (make-array nb
                           :element-type '(unsigned-byte 8))))
     (loop for ix from 0 below nb
-          for pos from 0 by 8
+          for pos from 0 by 8.
           do
-          (setf (aref ans ix) (ldb (byte 8 pos) val)))
+          (setf (aref ans ix) (ldb (byte 8. pos) val)))
     ans))
                          
 (defun encode-bytes-to-base58 (bytes)
@@ -234,24 +234,24 @@ THE SOFTWARE.
 ;; --------------------------------------------------
 
 (defun format-bytes (bytes &optional stream)
-  (let ((grps (um:group (coerce bytes 'list) 32)))
+  (let ((grps (um:group (coerce bytes 'list) 32.)))
     (format stream "~{~{~2,'0X~^~}~^~%~}" grps)))
 
 (defun read-blob (blob)
-  (let* ((blob  (remove-if (complement (um:rcurry #'digit-char-p 16)) blob))
+  (let* ((blob  (remove-if (complement (um:rcurry #'digit-char-p 16.)) blob))
          (len   (length blob)))
     (when (oddp len)
       (error "Invalid blob"))
-    (let* ((alen (truncate len 2))
-           (buf  (make-string 4))
+    (let* ((alen (truncate len 2.))
+           (buf  (make-string 4.))
            (enc  (make-ub-array alen)))
       (setf (char buf 0) #\#
             (char buf 1) #\x)
       (loop for ix from 0 below alen
-            for jx from 0 by 2
+            for jx from 0 by 2.
             do
-            (setf (aref buf 2)  (char blob jx)
-                  (aref buf 3)  (char blob (1+ jx))
+            (setf (aref buf 2.)  (char blob jx)
+                  (aref buf 3.)  (char blob (1+ jx))
                   (aref enc ix) (read-from-string buf)))
       enc)))
 
@@ -262,7 +262,7 @@ THE SOFTWARE.
   (write-sequence (convert-int-to-nbytes v nb) stream))
 
 (defun write-vector (v stream)
-  (write-int (length v) 4 stream)
+  (write-int (length v) 4. stream)
   (write-sequence v stream))
 
 (defun write-cp-string (s stream)
@@ -362,11 +362,11 @@ THE SOFTWARE.
 ;; AES-256/CBC Encrypted Payloads
 
 (defun convert-hashint-to-32bytes (x)
-  (let ((ans (make-ub-array 32
+  (let ((ans (make-ub-array 32.
                             :initial-element 0)))
-    (loop for ix from 31 downto 0 do
-          (setf (aref ans ix) (ldb (byte 8 0) x)
-                x             (ash x -8)))
+    (loop for ix from 31. downto 0 do
+          (setf (aref ans ix) (ldb (byte 8. 0) x)
+                x             (ash x -8.)))
     ans))
 
 
@@ -377,7 +377,7 @@ THE SOFTWARE.
 
 (defun shad2-file (fname)
   (let ((dig (ironclad:make-digest :sha256))
-        (pre (make-ub-array 64
+        (pre (make-ub-array 64.
                             :initial-element 0)))
     (safe-update-digest dig pre)
     (ironclad:digest-file dig fname)
@@ -405,7 +405,7 @@ THE SOFTWARE.
 (defun sha_d-256 (msg)
   (let ((dig (ironclad:make-digest :sha256))
         (m   (ensure-8bitv msg))
-        (pre (make-ub-array 64
+        (pre (make-ub-array 64.
                               :initial-element 0)))
     (safe-update-digest dig pre m)
     (let ((h  (ironclad:produce-digest dig)))
@@ -458,7 +458,7 @@ THE SOFTWARE.
 ;; -------------------------------------------
 
 (defun convert-int571-to-80bytes (x)
-  (ensure-8bitv (convert-int-to-nbytes x 80)))
+  (ensure-8bitv (convert-int-to-nbytes x 80.)))
 
 (defmacro with-sensitive-objects ((&rest names) &body body)
   `(unwind-protect
@@ -493,7 +493,7 @@ THE SOFTWARE.
                            (uuid:make-v1-uuid)))
                     ((not (eql next (shiftf prev next))) next)
                   (sleep 0))))
-      (convert-int-to-nbytesv (uuid:uuid-to-integer next) 16))))
+      (convert-int-to-nbytesv (uuid:uuid-to-integer next) 16.))))
 
 ;; -------------------------------------------------------
 #|

@@ -50,7 +50,7 @@ THE SOFTWARE.
   (lock (mpcompat:make-lock)))
 
 (defun basic-random-key-256 ()
-  (convert-int-to-nbytesv (basic-random (ash 1 256)) 32))
+  (convert-int-to-nbytesv (basic-random (ash 1 256.)) 32.))
 
 #|
 #+:WIN32
@@ -72,8 +72,8 @@ THE SOFTWARE.
 (defmethod reseed-ctr-hash-drbg ((state ctr-hash-drbg-state))
   (with-accessors ((key    ctr-hash-drbg-state-key)
                    (reseed ctr-hash-drbg-state-reseed)) state
-    (setf key    (get-entropy 32)
-          reseed (ash 1 24)) ))
+    (setf key    (get-entropy 32.)
+          reseed (ash 1 24.)) ))
 
 ;; --------------------------------------------------
 
@@ -90,7 +90,7 @@ THE SOFTWARE.
       
     (setf get-ix 0)
     (incf ctr)
-    (let ((cvec (convert-int-to-nbytesv ctr 16)))
+    (let ((cvec (convert-int-to-nbytesv ctr 16.)))
       (reinitialize-instance hash)
       (ironclad:update-digest hash key)
       (ironclad:update-digest hash seed)
@@ -135,8 +135,8 @@ THE SOFTWARE.
 
 (defun ctr-hash-drbg (nbits)
   ;; NIST Hash DRBG
-  (let ((ans (get-ctr-hash-drbg-bits (ctr-hash-drbg-state) (ceiling nbits 8))))
-    (mask-off ans (rem nbits 8)) ))
+  (let ((ans (get-ctr-hash-drbg-bits (ctr-hash-drbg-state) (ceiling nbits 8.))))
+    (mask-off ans (rem nbits 8.)) ))
 
 #|
 (defun ctr-hash-drbg-int (nbits)

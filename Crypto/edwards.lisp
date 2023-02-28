@@ -448,9 +448,9 @@ THE SOFTWARE.
 (defun nibbles (n)
   ;; for debug display to compare with windows4 output
   (let* ((nbits (integer-length n))
-         (limt  (* 4 (floor nbits 4))))
-    (loop for pos fixnum from limt downto 0 by 4 collect
-          (ldb (byte 4 pos) n))))
+         (limt  (* 4. (floor nbits 4))))
+    (loop for pos fixnum from limt downto 0 by 4. collect
+          (ldb (byte 4. pos) n))))
   
 (defun windows (n window-nbits)
   ;; return a big-endian list of balanced bipolar window values for
@@ -625,7 +625,7 @@ THE SOFTWARE.
           
           (t
            (generalized-bipolar-windowed-mul pt nn
-                                    :window-nbits 4))
+                                    :window-nbits 4.))
           )))
 
 (defun ed-div (pt n)
@@ -651,7 +651,7 @@ THE SOFTWARE.
   (get-cached-symbol-data '*edcurve*
                           :ed-nbytes *edcurve*
                           (lambda ()
-                            (ceiling (ed-nbits) 8))))
+                            (ceiling (ed-nbits) 8.))))
 
 ;; ----------------------------------------
 
@@ -665,7 +665,7 @@ THE SOFTWARE.
   (get-cached-symbol-data '*edcurve*
                           :ed-compressed-nbytes *edcurve*
                           (lambda ()
-                            (ceiling (ed-compressed-nbits) 8))))
+                            (ceiling (ed-compressed-nbits) 8.))))
 
 (defun ed-cmpr/h-sf ()
   (get-cached-symbol-data '*edcurve*
@@ -831,7 +831,7 @@ THE SOFTWARE.
 
 (defun ed-random-pair ()
   "Select a random private and public key from the curve"
-  (make-deterministic-keys :edpt (ctr-drbg 256)))
+  (make-deterministic-keys :edpt (ctr-drbg 256.)))
 
 ;; -----------------------------------------------------
 ;; Hashing onto curve
@@ -885,7 +885,7 @@ Else re-probe with (X^2 + 1)."
     ;; to make deterministic to avoid PlayStation attacks, yet
     ;; random because of hash - nothing up my sleeve...
     (let ((r   (int (hash-to-grp-range
-                     (levn ix 4)
+                     (levn ix 4.)
                      (levn k-priv (integer-length (1- *ed-q*))) ;; we want *ed-q* here to avoid truncating skey
                      msgv))))
       (if (plusp r)

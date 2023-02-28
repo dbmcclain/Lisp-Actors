@@ -161,7 +161,7 @@ THE SOFTWARE.
 ;; Declare Types UB8 and UB8-VECTOR
 
 (deftype ub8 ()
-  '(unsigned-byte 8))
+  '(unsigned-byte 8.))
 
 (deftype ub8-vector (&optional nel)
   `(array ub8 (,nel)))
@@ -275,33 +275,33 @@ THE SOFTWARE.
                                lev) ;; t for little-endian vector
   (let ((val  0))
     (labels ((acc (ix pos)
-               (setf val (dpb (aref vec ix) (byte 8 pos) val))))
+               (setf val (dpb (aref vec ix) (byte 8. pos) val))))
       (if lev
           (do ((ix  start  (1+ ix))
-               (pos 0      (+ pos 8)))
+               (pos 0      (+ pos 8.)))
               ((>= ix end)  val)
             (acc ix pos))
       ;; else
       (do ((ix  (1- end)  (1- ix))
-           (pos 0         (+ pos 8)))
+           (pos 0         (+ pos 8.)))
           ((< ix start)  val)
         (acc ix pos))
       ))))
 
 (defun convert-int-to-vec (val &key
                                lev
-                               (nb  (max 1 (ceiling (integer-length val) 8))))
+                               (nb  (max 1 (ceiling (integer-length val) 8.))))
   (let ((v  (make-ub8-vector nb)))
     (labels ((acc (ix pos)
-               (setf (aref v ix) (ldb (byte 8 pos) val))))
+               (setf (aref v ix) (ldb (byte 8. pos) val))))
       (if lev
           (do ((ix  0   (1+ ix))
-               (pos 0   (+ 8 pos)))
+               (pos 0   (+ 8. pos)))
               ((>= ix nb)  v)
             (acc ix pos))
           ;; else
           (do ((ix  (1- nb)  (1- ix))
-               (pos 0        (+ 8 pos)))
+               (pos 0        (+ 8. pos)))
               ((minusp ix)  v)
             (acc ix pos))
           ))))
@@ -396,9 +396,9 @@ THE SOFTWARE.
          (cy    0)
          (ix    0))
     (map nil (lambda (ch)
-               (setf cy (+ (ash cy 4) (digit-char-p ch 16)))
-               (incf occ 4)
-               (when (= occ 8)
+               (setf cy (+ (ash cy 4) (digit-char-p ch 16.)))
+               (incf occ 4.)
+               (when (= occ 8.)
                  (setf (aref ovec ix) cy
                        ix             (1+ ix)
                        occ            0
@@ -595,11 +595,11 @@ comparisons."
 
 (defun short-str (str)
   (let ((len (length str)))
-    (if (< len 17)
+    (if (< len 17.)
         str
       (concatenate 'simple-base-string
-              (subseq str 0 7)
+              (subseq str 0 7.)
               ".."
-              (subseq str (- len 7)))
+              (subseq str (- len 7.)))
       )))
 

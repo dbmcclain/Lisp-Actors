@@ -265,7 +265,7 @@ THE SOFTWARE.
           (values (minv base) (- exp))
         (values (mmod base) exp))
     (declare (integer x exp))
-    (if (< x 2)
+    (if (< x 2.)
         x ;; x = 0,1
       ;; we know that x^(q-1) = 1, so x^(n*(q-1) + r) = x^r
       (let ((exp (mod exp (1- *m*))))
@@ -273,9 +273,9 @@ THE SOFTWARE.
         (case exp
           (0  1)
           (1  x)
-          (2  (msqr x))
+          (2. (msqr x))
           (t  (generalized-windowed-exponentiation x exp
-                                                   :window-nbits 4
+                                                   :window-nbits 4.
                                                    :op-mul       'm*
                                                    :op-sqr       'msqr))
           )))
@@ -359,10 +359,10 @@ THE SOFTWARE.
   (declare (integer x))
   (let ((x (mmod x)))
     (declare (integer x))
-    (if (< x 2)
+    (if (< x 2.)
         x
       (multiple-value-bind (re im^2)
-          (um:nlet iter ((a  2))
+          (um:nlet iter ((a  2.))
             ;; look for quadratic nonresidue (the imaginary base)
             ;; where we already know that x must be a quadratic residue
             (declare (integer a))
@@ -393,10 +393,10 @@ THE SOFTWARE.
                  (cons
                   (m+ (m* are are)
                       (m* aim aim im^2))
-                  (m* 2 are aim)))))
+                  (m* 2. are aim)))))
           
           (car (generalized-windowed-exponentiation (cons re 1) (m/2u)
-                                                    :window-nbits  4
+                                                    :window-nbits  4.
                                                     :op-mul        #'fq2*
                                                     :op-sqr        #'fq2sqr))
           )))))
@@ -407,7 +407,7 @@ THE SOFTWARE.
                             (declare (integer base))
                             (lambda ()
                               (cond
-                               ((= 3 (ldb (byte 2 0) base))
+                               ((= 3. (ldb (byte 2. 0) base))
                                 (let ((p (ash (1+ base) -2)))
                                   (lambda (x)
                                     (m^ x p))))
@@ -493,7 +493,7 @@ THE SOFTWARE.
                                       (go-iter (ash q -1)
                                                (1+ s))))
                                 (declare (integer q s))
-                                (let ((z (um:nlet iter ((x 2))
+                                (let ((z (um:nlet iter ((x 2.))
                                            ;; on average, about 2 iters
                                            (declare (integer x))
                                            (if (quadratic-residue-p x)
