@@ -30,6 +30,18 @@
             )))
 
 ;; ----------------------------------------------------
+;; Ironclad needs a separate PRNG for each thread.
+
+(lw:defadvice (mp:process-run-function ensure-fresh-prng :around)
+    (name kwds fun &rest args)
+  (labels ((wrapper (&rest proc-args)
+             ;; (print "Starting thread with fresh PRNG")
+             (let ((ironclad:*prng* (ironclad:make-prng :os)))
+               (apply fun proc-args))))
+    (apply #'lw:call-next-advice name kwds #'wrapper args)
+    ))
+
+;; ----------------------------------------------------
 ;; Useful primitives...
 
 (defun encrypt/decrypt (ekey seq bytevec)

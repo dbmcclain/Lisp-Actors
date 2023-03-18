@@ -225,6 +225,7 @@
 (tst "david-pc.local")
 (tst "umbra.local")
 (tst "zircon.local")
+(tst "fornax.local")
 
 (defun tst (host n)
   (let* ((recho (remote-service :echo host))

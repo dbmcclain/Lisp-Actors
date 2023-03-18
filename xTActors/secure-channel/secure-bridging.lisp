@@ -96,6 +96,20 @@
 |#
 
 (defun actors-smult (pt)
+  (let* ((txt (with-output-to-string (s)
+                (sys:call-system-showing-output
+                 (with-standard-io-syntax
+                   (format nil "~~/bin/edwards-tpm \"#x~X\"" (int pt)))
+                 :output-stream s)
+                ))
+         (lines (um:split-string txt :delims '(#\newline))))
+    
+    ;; (print lines)
+    (ed-decompress-pt (read-from-string (subseq (cadr lines) 2)))
+    ))
+
+#|
+(defun actors-smult (pt)
   (let* ((paths (directory "~/bin/edwards-tpm"))
          (txt (with-output-to-string (s)
                 (sys:call-system-showing-output (list (namestring (car paths))
@@ -108,7 +122,8 @@
     (print lines)
     (ed-decompress-pt (read-from-string (subseq (cadr lines) 2)))
     ))
-               
+|#
+
 (defun actors-pkey ()
   ;; (edec:smult edec:*ed-gen*)
   (actors-smult edec:*ed-gen*))
