@@ -19,6 +19,7 @@
     (send* cust msg)))
 |#
 
+#-:lattice-crypto
 (defun server-crypto-gateway (socket local-services)
   ;; Foreign clients first make contact with us here. They send us
   ;; their client-id for this exchange, a random ECC point, and their
@@ -51,6 +52,36 @@
               )))
         )))
    ))
+
+;; ----------------------------------------------------------------
+
+#+:lattice-crypto
+(defun server-crypto-gateway (socket local-services)
+  ;; Foreign clients first make contact with us here. They send us
+  ;; their client-id for this exchange, a random ECC point, and their
+  ;; public key (ECC point).
+  ;;
+  ;; We develop a unique ECDH encryption key shared secretly between
+  ;; us and furnish a private handler ID for encrypted requests along
+  ;; with our own random ECC point and our public key.
+  (αα
+   ((client-id packet-list) / (and (typep client-id 'uuid:uuid)
+                                   (consp packet-list)
+                                   (eql 2 (length packet-list)))
+    (ignore-errors
+      (multiple-value-bind (akey id)
+          (lattice-ke:decode-server-connection-packet packet-list)
+        (multiple-value-bind (bkey reply-packet)
+            (lattice-ke:make-connection-to-client-packet id)
+          (let ((ekey  (hash/256 bkey akey)))
+            ;; silently ignore other kinds of requests
+            (β _
+                (send local-services β :set-crypto ekey socket)
+              (β (cnx-id)
+                  (create-service-proxy β local-services global-services)
+                (send socket client-id cnx-id reply-packet)))
+            ))))
+    )))
 
 ;; ---------------------------------------------------------------
 ;; For generating key-pairs...

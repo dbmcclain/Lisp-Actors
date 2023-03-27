@@ -40,6 +40,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :depends-on   ("com.ral.actors"
                  "snappy"
                  "com.ral.lisp-object-encoder"
-                 "edwards-ecc"))
+                 "edwards-ecc"
+                 "lattice-crypto"))
 
 

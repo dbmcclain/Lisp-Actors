@@ -113,48 +113,88 @@
 ;; Trevor Perrin and Moxie Marlinspike of Signal Foundation.
 ;;
 
-(def-actor negotiate-secure-channel
-  ;; EC Diffie-Hellman key exchange
-  (α (cust socket local-services)
-    (multiple-value-bind (arand apt)
-        (ed-random-pair)
-      (let ((responder
-             (αα
-              ((server-id bpt server-pkey) / (and (typep server-id 'uuid:uuid)
-                                                  (integerp bpt)
-                                                  (integerp server-pkey)
-                                                  (sets:mem *allowed-members* server-pkey))
-               (multiple-value-bind (bpt server-pkey)
-                   (handler-case
-                       (values (ed-validate-point bpt)
-                               (ed-validate-point server-pkey))
-                     (error ()
-                       (error "Server offered bogus identification")))
-                 (let* ((ekey  (hash/256 (ed-mul bpt arand)            ;; B*a
-                                         ;; (ed-mul bpt (actors-skey))    ;; B*c
-                                         (actors-smult bpt)
-                                         (ed-mul server-pkey arand)))  ;; S*a
+#-:lattice-crypto
+(progn
+  (def-actor negotiate-secure-channel
+    ;; EC Diffie-Hellman key exchange
+    (α (cust socket local-services)
+      (multiple-value-bind (arand apt)
+          (ed-random-pair)
+        (let ((responder
+               (αα
+                ((server-id bpt server-pkey) / (and (typep server-id 'uuid:uuid)
+                                                    (integerp bpt)
+                                                    (integerp server-pkey)
+                                                    (sets:mem *allowed-members* server-pkey))
+                 (multiple-value-bind (bpt server-pkey)
+                     (handler-case
+                         (values (ed-validate-point bpt)
+                                 (ed-validate-point server-pkey))
+                       (error ()
+                         (error "Server offered bogus identification")))
+                   (let* ((ekey  (hash/256 (ed-mul bpt arand)            ;; B*a
+                                           ;; (ed-mul bpt (actors-skey))    ;; B*c
+                                           (actors-smult bpt)
+                                           (ed-mul server-pkey arand)))  ;; S*a
+                          (chan  (α msg
+                                   (send* local-services :ssend server-id msg))))
+                     (β _
+                         (send local-services β :set-crypto ekey socket)
+                       (send connections cust :set-channel socket chan))
+                     )))
+                ( _
+                  (error "Server not following connection protocol"))
+                )))
+          (β (client-id)
+              (create-ephemeral-client-proxy β local-services responder)
+            (send socket +server-connect-id+ client-id (int apt) (int (actors-pkey))))
+          ))))
+
+  (def-actor client-gateway
+    ;; This is the main local client service used to initiate
+    ;; connections with foreign servers.
+    ;; Go lookup the encrypted channel for this IP, constructing it on
+    ;; demand if not already present.
+    (α (cust host-ip-addr)
+      (send client-connector cust negotiate-secure-channel host-ip-addr))))
+
+;; -----------------------------------------------------------------------------------
+
+#+:lattice-crypto
+(progn
+  (defun negotiator-beh (node-name)
+    (α (cust socket local-services)
+      (multiple-value-bind (akey packet-list)
+          (lattice-ke:make-connection-to-server-packet node-name)
+        (let ((responder
+               (αα
+                ((server-id packet) / (and (typep server-id 'uuid:uuid)
+                                           (vectorp packet))
+                 (let* ((bkey  (lattice-ke:decode-client-connection-packet packet))
+                        (ekey  (hash/256 bkey akey))
                         (chan  (α msg
                                  (send* local-services :ssend server-id msg))))
                    (β _
                        (send local-services β :set-crypto ekey socket)
                      (send connections cust :set-channel socket chan))
-                   )))
-              ( _
-                (error "Server not following connection protocol"))
-              )))
-        (β (client-id)
-            (create-ephemeral-client-proxy β local-services responder)
-          (send socket +server-connect-id+ client-id (int apt) (int (actors-pkey))))
-        ))))
+                   ))
+                ( _
+                  (error "Server not following connection protocol"))
+                )))
+          (β (client-id)
+              (create-ephemeral-client-proxy β local-services responder)
+            (send socket +server-connect-id+ client-id packet-list))
+          ))))
 
-(def-actor client-gateway
-  ;; This is the main local client service used to initiate
-  ;; connections with foreign servers.
-  ;; Go lookup the encrypted channel for this IP, constructing it on
-  ;; demand if not already present.
-  (α (cust host-ip-addr)
-    (send client-connector cust negotiate-secure-channel host-ip-addr)))
+  (def-actor client-gateway
+    ;; This is the main local client service used to initiate
+    ;; connections with foreign servers.
+    ;; Go lookup the encrypted channel for this IP, constructing it on
+    ;; demand if not already present.
+    (α (cust host-ip-addr)
+      (send client-connector cust
+            (create (negotiator-beh host-ip-addr))
+            host-ip-addr))))
 
 ;; ---------------------------------------------------
 ;; User side of Client Interface

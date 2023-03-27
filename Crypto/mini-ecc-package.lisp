@@ -36,6 +36,8 @@ THE SOFTWARE.
    (#:pbc-interface        #:com.ral.crypto.pbc-interface)
    (#:crypto-lib-loader    #:com.ral.crypto.crypto-lib-loader)
    (#:edwards-ecc          #:com.ral.crypto.edwards-ecc)
+   (#:lattice              #:com.ral.crypto.lattice-crypto)
+   (#:lattice-ke           #:com.ral.crypto.lattice-key-exchange)
    ))
 
 (defpackage #:com.ral.cached-var
@@ -647,10 +649,13 @@ THE SOFTWARE.
    #:with-ed-curve
    #:set-ed-curve
    #:ed-curves
+   #:*edcurve*
    #:*ed-gen*
    #:*ed-r*
    #:*ed-h*
    #:*ed-q*
+   #:*ed-c*
+   #:*ed-d*
    #:*ed-name*
    #:*ed-nb*
    #:*ed-nbits*
@@ -708,8 +713,21 @@ THE SOFTWARE.
    #:elligator-ed-dsa
    #:elligator-ed-dsa-validate
 
+   #:ecc-pt
+   #:ecc-pt-x
+   #:ecc-pt-y
    #:make-ecc-pt
 
+   #:ecc-proj-pt
+   #:ecc-proj-pt-x
+   #:ecc-proj-pt-y
+   #:ecc-proj-pt-z
+   #:make-ecc-proj-pt
+
+   #:ecc-cmpr-pt
+   #:ecc-cmpr-pt-cx
+   #:make-ecc-cmpr-pt
+   
    #:ed-vrf
    #:ed-prove-vrf
    #:ed-check-vrf

@@ -282,7 +282,125 @@ THE SOFTWARE.
     ))
 
 ;; ------------------------------------------------------------
+#|
+(defun fast-qr (v1 v2)
+  ;; Crude fast quotient and remainder of v1/v2.  Return quotient and
+  ;; remainder, with quotient in form nsh, where q = 2^nsh.  If v2
+  ;; does not divide v1, return nsh < 0.
+  #F
+  (declare (integer v1 v2))
+  (let* ((l1  (integer-length v1)) ;; = integer log2
+         (l2  (integer-length v2))
+         (nsh (- l1 l2)))
+    (declare (fixnum l1 l2 nsh))
+    (cond ((minusp nsh)
+           (values -1 v1))
+          
+          ((zerop nsh)
+           (let ((r (- v1 v2)))
+             (declare (integer r))
+             (if (minusp r)
+                 (values -1 v1)
+               (values 0 r))))
+          (t
+           ;; conservative under-estimate, to avoid checking and
+           ;; possible correction
+           (decf nsh)
+           (values nsh (- v1 (ash v2 nsh))))
+          )))
 
+(defun minv (a)
+  ;; Divide-free modular inverse by Extended Euclidean algorithm.
+  ;;
+  ;; Predicated on the fact that *ANY* positive multiple of divisor V2
+  ;; in V1/V2, subtracted from numerator V1, yields the same GCD,
+  ;; while continuing to produce a decreasing sequence of test values.
+  ;;
+  ;; So rather than subtracting the actual quotient multiple of V2
+  ;; from V1, we wing it with some V2*2^nsh such that this remains
+  ;; less than V1. This can be accomplished without long division.
+  (declare (integer a))
+  (um:nlet iter ((v  *m*)
+                 (u  (mmod a)) ;; ensure u >= 0
+                 (x2 0)
+                 (x1 1))
+    (declare (integer u v x1 x2))
+    (when (zerop v)
+      (error "No inverse"))
+    (if (= 1 u)
+        (mmod x1)
+      ;; else
+      (multiple-value-bind (nsh r) (fast-qr v u)
+        (declare (integer nsh r))
+        (if (minusp nsh)
+            (go-iter u v x1 x2)
+          (go-iter u r x1 (- x2 (ash x1 nsh))))
+        ))))
+
+(defun bezout (a b)
+  ;; Extended Euclidean algorithm
+  ;; Bezout's identity: gcd(a,b) = s*a + t*b
+  (declare (integer a b))
+  (um:nlet iter ((r0  a)
+                 (r1  b)
+                 (s0  1)
+                 (s1  0)
+                 (t0  0)
+                 (t1  1))
+    (declare (integer r0 r1 s0 s1 t0 t1))
+    (if (zerop r1)
+        (values r0  ;; gcd
+                s0  ;; gcd(a,b) = a*s + b*t
+                t0)
+      (multiple-value-bind (nsh r2) (fast-qr r0 r1)
+        (declare (fixnum  nsh)
+                 (integer r2))
+        (if (minusp nsh)
+            (go-iter r1 r0 s1 s0 t1 t0)
+          (go-iter r1 r2
+                   s1 (- s0 (ash s1 nsh))
+                   t1 (- t0 (ash t1 nsh))))
+        ))))
+|#
+(defun minv (a)
+  (declare (integer a))
+  (um:nlet iter ((v  *m*)
+                 (u  (mmod a)) ;; ensure u >= 0
+                 (x2 0)
+                 (x1 1))
+    (declare (integer u v x1 x2))
+    (when (zerop u)
+      (error "No inverse"))
+    (if (= 1 u)
+        (mmod x1)
+      ;; else
+      (multiple-value-bind (q r) (truncate v u)
+        (declare (integer q r))
+        (go-iter u r x1 (- x2 (* q x1)))
+        ))))
+
+(defun bezout (a b)
+  ;; Extended Euclidean algorithm
+  ;; Bezout's identity: gcd(a,b) = s*a + t*b
+  (declare (integer a b))
+  (um:nlet iter ((r0  a)
+                 (r1  b)
+                 (s0  1)
+                 (s1  0)
+                 (t0  0)
+                 (t1  1))
+    (declare (integer r0 r1 s0 s1 t0 t1))
+    (if (zerop r1)
+        (values r0  ;; gcd
+                s0  ;; gcd(a,b) = a*s + b*t
+                t0)
+      (multiple-value-bind (q r2) (truncate r0 r1)
+        (declare (integer q r2))
+        (go-iter r1 r2
+                 s1 (- s0 (* q s1))
+                 t1 (- t0 (* q t1)))
+        ))))
+#|
 (defun minv (a)
   ;; modular inverse by Extended Euclidean algorithm
   (declare (integer a))
@@ -300,12 +418,6 @@ THE SOFTWARE.
           (shiftf v u r)
           (shiftf x2 x1 x))
         ))))
-
-(defun m/ (arg &rest args)
-  (declare (integer arg))
-  (if args
-      (m* arg (minv (apply 'm* args)))
-    (minv arg)))
 
 (defun bezout (a b)
   ;; Extended Euclidean algorithm
@@ -328,7 +440,14 @@ THE SOFTWARE.
           (declare (integer q r2 s2 t2))
           (go-iter r1 r2 s1 s2 t1 t2)))
       )))
-        
+|#
+
+(defun m/ (arg &rest args)
+  (declare (integer arg))
+  (if args
+      (m* arg (minv (apply 'm* args)))
+    (minv arg)))
+
 ;; ------------------------------------------------------------
 
 (defun mchi (x)
