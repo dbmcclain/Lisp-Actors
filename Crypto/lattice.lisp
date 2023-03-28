@@ -324,10 +324,11 @@
     ))
 
 (defun gen-random-sel (nbits)
-  ;; Produce an nbits random value, with at lesat 3 bits nonzero.
+  ;; Produce an nbits random value, with at lesat a quarter of them
+  ;; nonzero.
   (um:nlet iter ()
     (let ((r  (prng:ctr-drbg-int nbits)))
-      (if (< (logcount r) 3)
+      (if (< (logcount r) (/ nbits 4))
           (go-iter)
         r)
       )))
