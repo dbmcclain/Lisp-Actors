@@ -115,6 +115,8 @@
              (go-outer (1+ ix)))
             ))))
 
+;; ------------------------------------------------------
+
 (defun to-bitvec (v)
   (declare (vector (unsigned-byte 8) v))
   (let ((bv (make-array (* 8 (length v))
@@ -321,6 +323,14 @@
            (vops:vscale (/ (mod-base) 4 vmax) v)))
     ))
 
+(defun gen-random-sel (nbits)
+  ;; Produce an nbits random value, with at lesat 3 bits nonzero.
+  (um:nlet iter ((r  (prng:ctr-drbg-int nbits)))
+    (if (< (logcount r) 3)
+        (go-iter (prng:ctr-drbg-int nbits))
+      r)
+    ))
+
 ;; --------------------------------------------------------
 ;; LWE Lattice Key-Pair Generation
 
@@ -365,17 +375,17 @@
 ;; ----------------------------------------------------
 ;; LWE Lattice Encoding
 
-(defun lat-encode1 (pkey b)
+(defun lat-encode1 (pkey bit)
   ;; pkey is [b | -A] matrix
-  ;; b is bit 0, 1
+  ;; bit 0, 1
   #F
-  (declare (fixnum b))
-  (let* ((ncols (length (aref pkey 0)))
-         (r     (prng:random-between 1 (ash 1 ncols)))
+  (declare (fixnum bit))
+  (let* ((nrows (length pkey))
+         (r     (gen-random-sel nrows))
          (v     (enc-mat*v pkey r)))
     (declare (vector fixnum v))
     (setf (aref v 0) (lm+ (aref v 0)
-                          (* b (ash (mod-base) -1))))
+                          (* bit (ash (mod-base) -1))))
     v))
 
 (defun lat-encode (pkey v)
@@ -505,7 +515,7 @@
                        (lat-encode pkey v)))))
      )))
 
-;; approx 1280 bps (yes, bits) at 320x256 size
+;; approx 1045 bps (yes, bits) at 320x256 size
 (chk-timing 100)
 
 (inspect
@@ -552,27 +562,20 @@
 (defun chk-errs (&optional (ntimes 1000))
   ;; Trace:  R = rekey, . = normal, x = soft error, X = hard error
   (let ((v (vec (hash/256 :hello 'there pi 15))))
-    (let ((errs *decode-errs*))
-      (dotimes (ix ntimes)
-        (when (zerop (mod ix 100))
-          (terpri)
-          (princ #\R)
-          (re-key))
-        (let ((ans (with-skey (skey *tst-skey*)
-                     (lat-decode skey
-                                 (with-pkey (pkey *tst-pkey*)
-                                   (lat-encode pkey v))))))
-          (princ
-           (if (equalp v ans)
-               (if (eql *decode-errs* errs)
-                   #\.
-                 (progn
-                   (setf errs *decode-errs*)
-                   #\x))
-             (progn
-               (setf errs *decode-errs*)
-               #\X)))
-          )))))
+    (dotimes (ix ntimes)
+      (when (zerop (mod ix 100))
+        (terpri)
+        (princ #\R)
+        (re-key))
+      (let ((ans (with-skey (skey *tst-skey*)
+                   (lat-decode skey
+                               (with-pkey (pkey *tst-pkey*)
+                                 (lat-encode pkey v))))))
+        (princ
+         (if (equalp v ans)
+             #\.
+           #\X))
+        ))))
 
 (chk-errs 1000)
 (chk-errs 100)
