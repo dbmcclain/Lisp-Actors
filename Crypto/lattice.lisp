@@ -15,7 +15,6 @@
    #:lat-gen-skey
    #:lat-gen-pkey
    #:lat-gen-keys ;; create dummy pair (skey, pkey) for testing
-   #:trn
    ))
 
 (in-package #:com.ral.crypto.lattice-crypto)
@@ -115,23 +114,51 @@
             (t
              (go-outer (1+ ix)))
             ))))
-               
-#||#
-(defun trn (m)
-  #F
-  (let* ((nrows (length m))
-         (ncols (length (aref m 0)))
-         (ans   (make-array ncols)))
-    (declare (fixnum nrows ncols))
-    (dotimes (col ncols)
-      (let ((colv (make-array nrows
-                              :element-type 'fixnum)))
-        (dotimes (row nrows)
-          (setf (aref colv row)
-                (aref (aref m row) col)))
-        (setf (aref ans col) colv)))
+
+(defun to-bitvec (v)
+  (declare (vector (unsigned-byte 8) v))
+  (let ((bv (make-array (* 8 (length v))
+                        :element-type 'bit)))
+    (declare (vector bit bv))
+    (loop for x fixnum across v
+          for ix fixnum from 0 by 8
+          do
+          (loop for jx fixnum from ix
+                for kx fixnum from 7 downto 0
+                do
+                (setf (sbit bv jx) (ldb (byte 1 kx) x))))
+    bv))
+
+(defun bitvec-to (bv pos nbits)
+  (declare (vector bit bv)
+           (fixnum pos nbits))
+  (let* ((nb  (length bv))
+         (end (min (+ pos nbits) nb))
+         (val 0))
+    (declare (fixnum nb end val))
+    (loop for ix fixnum from pos below end do
+            (setf val (+ val val (sbit bv ix))))
+    val))
+  
+(defun bitvec-to-nibble (bv pos)
+  (bitvec-to bv pos 4))
+
+(defun bitvec-to-octet (bv pos)
+  (bitvec-to bv pos 8))
+
+(defun bitvec-to-octets (bv)
+  (declare (vector bit bv))
+  (let* ((nb  (ash (length bv) -3))
+         (ans (make-array nb
+                         :element-type '(unsigned-byte 8))))
+    (declare (fixnum nb)
+             (vector (unsigned-byte 8) ans))
+    (loop for ix fixnum from 0 below nb
+          for bpos fixnum from 0 by 8
+          do
+          (setf (aref ans ix) (bitvec-to-octet bv bpos)))
     ans))
-#||#
+
 ;; ---------------------------------------------------
 ;; NRows sets the difficulty of the subset sum problem O(2^NRows)
 ;;
@@ -252,42 +279,6 @@
 (defvar *lattice-nrows*  320)  ;; cyphertext vectors have this length
 (defvar *lattice-ncols*  256)  ;; private key vector has this length
 
-(hcl:defglobal-variable *decode-errs*  0)
-(setf *decode-errs* 0)
-
-(defvar *hamming47-enc*
-  #(  0 105  42  67
-     76  37 102  15
-    112  25  90  51
-     60  85  22 127))
-
-(defvar *hamming47-dec*
-  #(0  0  0  3   0  5 14  7    0  9  2  7   4  7  7  7
-    0  9 14 11  14 13 14 14    9  9 10  9  12  9 14  7
-    0  5  2 11   5  5  6  5    2  1  2  2  12  5  2  7
-    8 11 11 11  12  5 14 11   12  9  2 11  12 12 12 15
-    
-    0  3  3  3   4 13  6  3    4  1 10  3   4  4  4  7
-    8 13 10  3  13 13 14 13   10  9 10 10   4 13 10 15
-    8  1  6  3   6  5  6  6    1  1  2  1   4  1  6 15
-    8  8  8 11   8 13  6 15    8  1 10 15  12 15 15 15))
-
-;; ------------------------------------------------------
-(progn
-  ;; check correctness of Hamming tables
-  (loop for ix from 0 below 16 do
-          (assert (eql ix (aref *hamming47-dec*
-                                (aref *hamming47-enc* ix)))))
-  
-  (let ((v  (make-array 16 :initial-element 0)))
-    (loop for ix from 0
-          for x across *hamming47-dec* do
-            (setf (aref v x) (logxor (aref v x)
-                                     ix)))
-    ;; (inspect v)
-    (assert (every (lambda (x)
-                     (eql x #x7f))
-                   v))))
 ;; ------------------------------------------------------
   
 (defun gen-random-list (nel)
@@ -301,19 +292,6 @@
 
 (defun gen-random-vec (nel)
   (coerce (gen-random-list nel) 'vector))
-
-#|
-(defun gen-select-vec (nel)
-  ;; geneerate a random non-zero binary row-selection vector
-  #F
-  (declare (fixnum nel))
-  (let ((r (prng:random-between 1 (ash 1 nel))))
-    (declare (integer r))
-    (coerce
-     (loop for ix fixnum from 0 below nel collect
-             (ldb (byte 1 ix) r))
-     'vector)))
-|#
 
 (defun gen-random-matrix (nrows ncols)
   ;; Matrix is a vector of row-vectors
@@ -384,61 +362,40 @@
                              :nrows   *lattice-nrows*)))
     (values skey pkey)))
 
-#|
-(with-standard-io-syntax
-  (print (lat-gen-skey))
-  (values))
-|#
-
 ;; ----------------------------------------------------
 ;; LWE Lattice Encoding
 
 (defun lat-encode1 (pkey b)
-  ;; pkey is ptrn matrix
+  ;; pkey is [b | -A] matrix
   ;; b is bit 0, 1
   #F
   (declare (fixnum b))
-  (with-mod *lattice-m*
-    (let* ((ncols (length (aref pkey 0)))
-           ;; (r     (gen-select-vec ncols))
-           ;; (v     (mat*v pkey r))
-           (r     (prng:random-between 1 (ash 1 ncols)))
-           (v     (enc-mat*v pkey r)))
-      (setf (aref v 0) (lm+ (aref v 0)
-                            (* b (ash (mod-base) -1))))
-      v)))
-
-(defun lat-encode-nib (pkey n)
-  #F
-  (declare (fixnum n))
-  #+nil
-  (let* ((encn (aref *hamming47-enc* n)))
-    (declare (fixnum encn))
-    (loop for pos fixnum from 6 downto 0 collect
-          (lat-encode1 pkey (ldb (byte 1 pos) encn))))
-  #-nil
-  (loop for pos fixnum from 3 downto 0 collect
-          (lat-encode1 pkey (ldb (byte 1 pos) n)))
-  )
-
-(defun lat-encode-byte (pkey x)
-  ;; Encode octet as big-endian bitwise encoding
-  ;; via Hamming(4,7) ECC encoding.
-  #F
-  (declare (fixnum x))
-  (nconc
-   (lat-encode-nib pkey (ldb (byte 4 4) x))
-   (lat-encode-nib pkey (ldb (byte 4 0) x))))
+  (let* ((ncols (length (aref pkey 0)))
+         (r     (prng:random-between 1 (ash 1 ncols)))
+         (v     (enc-mat*v pkey r)))
+    (declare (vector fixnum v))
+    (setf (aref v 0) (lm+ (aref v 0)
+                          (* b (ash (mod-base) -1))))
+    v))
 
 (defun lat-encode (pkey v)
   ;; v should be a vector of octets
   ;; Encodes octet vector into a list of cyphertext vectors
-  (coerce
-   (cons *lattice-m*
-         (loop for x across v nconc
-                 (lat-encode-byte pkey x)))
-   'vector))
-  
+  (with-mod *lattice-m*
+    (let* ((nb    (length v))
+           (nbits (* 8 nb))
+           (ans   (make-array (1+ nbits)))
+           (bv    (to-bitvec v)))
+      (declare (vector (unsigned-byte 8) ans)
+               (vector bit bv)
+               (fixnum nb nbits))
+      (setf (aref ans 0) *lattice-m*)
+      (loop for bit bit across bv
+            for ix fixnum from 1
+            do
+              (setf (aref ans ix) (lat-encode1 pkey bit)))
+      ans)))
+
 (defun lat-enc (pkey &rest objs)
   ;; general object encryption
   (lat-encode pkey (loenc:encode (coerce objs 'vector))))
@@ -462,69 +419,28 @@
 
 (defun lat-decode1 (skey c)
   ;; c is a cryptotext vector
-  (with-mod *lattice-m*
-    (let ((cdots (vdot c skey)))
-      (mod (round cdots (ash (mod-base) -1)) 2))
-    ))
-  
-(defun lat-decode-nib (skey cs)
-  ;; cs is a list of cryptotext vectors,
-  ;; one vector for each bit of the message.
-  ;; Encoding was a Hamming(4.7) code in big-endian bit order.
-  #F
-  #+nil
-  (um:nlet iter ((cs  cs)
-                 (n   0)
-                 (ct  7))
-    (declare (fixnum n ct))
-    (cond ((plusp ct)
-           (go-iter (cdr cs)
-                    (+ (ash n 1)
-                       (lat-decode1 skey (car cs)))
-                    (1- ct)))
-          (t
-           (unless (find n *hamming47-enc*)
-             (sys:atomic-fixnum-incf *decode-errs*))
-           (values (aref *hamming47-dec* n) cs))
-          ))
-  #-nil
-  (um:nlet iter ((cs  cs)
-                 (n   0)
-                 (ct  4))
-    (declare (fixnum n ct))
-    (cond ((plusp ct)
-           (go-iter (cdr cs)
-                    (+ (ash n 1)
-                       (lat-decode1 skey (car cs)))
-                    (1- ct)))
-          (t
-           (values n cs))
-          ))
-  )
-
-(defun lat-decode-byte (skey cs)
-  ;; cs is a list of cryptotext vectors,
-  ;; one vector for each bit of the message.
-  ;; Encoding is big-endian nibble-wise.
-  (multiple-value-bind (nhi new-cs)
-      (lat-decode-nib skey cs)
-    (multiple-value-bind (nlo new-cs)
-        (lat-decode-nib skey new-cs)
-      (values (+ (ash nhi 4) nlo) new-cs))
+  (let ((cdots (vdot c skey)))
+    (declare (fixnum cdots))
+    (mod (round cdots (ash (mod-base) -1)) 2)
     ))
 
 (defun lat-decode (skey cs)
   ;; decode a list of cyphertext vectors into an octet vector
-  (let ((cs (coerce cs 'list)))
-    (let ((m (car cs)))
-      (assert (eql m *lattice-m*)))
-    (um:nlet iter ((cs    (cdr cs))
-                   (bytes nil))
-      (if (endp cs)
-          (coerce (nreverse bytes) '(vector (unsigned-byte 8)))
-        (multiple-value-bind (b new-cs)
-            (lat-decode-byte skey cs)
-          (go-iter new-cs (cons b bytes)))
+  (declare (vector fixnum skey))
+  (let ((m (aref cs 0)))
+    (declare (fixnum m))
+    (assert (eql m *lattice-m*))
+    (let* ((nel  (length cs))
+           (bv   (make-array (1- nel)
+                             :element-type 'bit)))
+      (declare (fixnum nel)
+               (vector bit bv))
+      (with-mod m
+        (loop for ix fixnum from 1 below nel
+              for jx fixnum from 0
+              do
+                (setf (sbit bv jx) (lat-decode1 skey (aref cs ix))))
+        (bitvec-to-octets bv)
         ))))
 
 (defun lat-dec (skey cs)
@@ -724,5 +640,16 @@
                 b))))
       )))
 (tst)
+
+(let ((bv (make-array 8
+                      :element-type 'bit)))
+  (loop for ix from 0
+        for jx from 7 downto 0
+        do
+        (setf (sbit bv ix) (ldb (byte 1 jx) 15)))
+  bv)
+
+(bitvec-to-octet (to-bvec (vec (hash/256 :hello 'there pi 15))) 8)
+
 |#
 ;; ----------------------------------------------------------------------
