@@ -325,11 +325,12 @@
 
 (defun gen-random-sel (nbits)
   ;; Produce an nbits random value, with at lesat 3 bits nonzero.
-  (um:nlet iter ((r  (prng:ctr-drbg-int nbits)))
-    (if (< (logcount r) 3)
-        (go-iter (prng:ctr-drbg-int nbits))
-      r)
-    ))
+  (um:nlet iter ()
+    (let ((r  (prng:ctr-drbg-int nbits)))
+      (if (< (logcount r) 3)
+          (go-iter)
+        r)
+      )))
 
 ;; --------------------------------------------------------
 ;; LWE Lattice Key-Pair Generation
