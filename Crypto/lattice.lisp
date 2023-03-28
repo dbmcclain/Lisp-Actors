@@ -325,7 +325,8 @@
 
 (defun gen-random-sel (nbits)
   ;; Produce an nbits random value, with at lesat a quarter of them
-  ;; nonzero.
+  ;; nonzero.  At 320 nbits, the likelihood of fewer than 80 bits
+  ;; being 1 is a 9-sigma event, about 5.1e-20. Ain't gonna happen...
   (um:nlet iter ()
     (let ((r  (prng:ctr-drbg-int nbits)))
       (if (< (logcount r) (/ nbits 4))
@@ -655,6 +656,21 @@
   bv)
 
 (bitvec-to-octet (to-bvec (vec (hash/256 :hello 'there pi 15))) 8)
+
+(defun tst-bits (&optional (nel 10000))
+  ;; Binomial distribution for 320 trials of 50/50 outcome.
+  ;; Mean = 160, Stdev ~ 0.5 * Sqrt[320] = 8.94
+  (let* ((nbits 320)
+         (vals (loop repeat nel collect
+                       (logcount (prng:ctr-drbg-int nbits)))))
+    (print (list (float (vm:mean vals)) (vm:stdev vals)))
+    (plt:histogram 'histo vals
+                   :clear t
+                   :title "Count of Nonzero Bits in 30-bit Random Integers"
+                   :xtitle "Number of Nonzero Bits"
+                   :ytitle "Probability Density")))
+(tst-bits)
+
 
 |#
 ;; ----------------------------------------------------------------------
