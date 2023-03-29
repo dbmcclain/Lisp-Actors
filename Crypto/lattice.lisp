@@ -95,25 +95,16 @@
   ;; corresponding to non-zero bits in the selector integer.
   #F
   (declare (integer sel))
-  (let ((nrow (length m)))
-    (declare (fixnum nrow))
-    (um:nlet outer ((ix 0))
-      (declare (fixnum ix))
-      (cond ((logbitp ix sel)
-             (let ((ans  (copy-seq (aref m ix))))
-             (um:nlet inner ((ix  (1+ ix)))
-               (declare (fixnum ix))
-               (cond ((>= ix nrow)
-                      (map-into ans #'lmod ans))
-                     ((logbitp ix sel)
-                      (map-into ans #'+ ans (aref m ix))
-                      (go-inner (1+ ix)))
-                     (t
-                      (go-inner (1+ ix)))
-                     ))))
-            (t
-             (go-outer (1+ ix)))
-            ))))
+  (let ((vans (make-array (length (aref m 0))
+                          :element-type 'fixnum
+                          :initial-element 0)))
+    (declare (vector fixnum vans))
+    (loop for vrow across m
+          for ix fixnum from 0
+          do
+            (when (logbitp ix sel)
+              (map-into vans #'+ vans vrow)))
+    (map-into vans #'lmod vans)))
 
 ;; ------------------------------------------------------
 
