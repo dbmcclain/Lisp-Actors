@@ -365,42 +365,21 @@
   ;; Each chunk of data gets its own nonce and encryption key
   ;; ekey is hash/256, nonce is NIL or ub8-vect, bytevec is ub8-vect
   (let* ((nonce   (or nonce
-                      (vec (hash/256 :NONCE
-                                     (vec (uuid:make-v1-uuid))
-                                     (vec ekey)))))
+                      (subseq
+                       (vec (hash/256 :NONCE
+                                      (vec (uuid:make-v1-uuid))
+                                      (vec ekey)))
+                       0 16)))
          (key     (vec (hash/256 :ENCR
                                  (vec ekey)
                                  nonce)))
-         (nel     (length bytevec))
          (cipher  (ironclad:make-cipher :aes
                                         :key  key
-                                        :mode :ecb
-                                        :initialization-vector nonce))
-         (wrk     (make-ub8-vector 16.)))
-    (flet ((prep (ct)
-             (um:nlet iter ((ct   ct)
-                            (pos  0))
-               (cond ((zerop ct)
-                      (fill wrk 0 :start pos)
-                      (map-into wrk #'logxor nonce wrk))
-                     (t
-                      (setf (aref wrk pos) (logand #x0ff ct))
-                      (go-iter (ash ct -8.) (1+ pos)))
-                     )))
-           (post (ix end)
-             (loop for jx from ix below end
-                   for kx from 0
-                   do
-                     (setf (aref bytevec jx) (logxor (aref wrk kx) (aref bytevec jx)))
-                   )))
-      (loop for ix from 0 below nel by 16. do
-              (let ((end (min nel (+ ix 16.))))
-                (prep end)
-                (ironclad:encrypt-in-place cipher wrk)
-                (post ix end)
-                ))
-      nonce)))
-  
+                                        :mode :ctr
+                                        :initialization-vector nonce)))
+    (ironclad:encrypt-in-place cipher bytevec)
+    nonce))
+
 (defun encryptor (ekey)
   (actor (cust bytevec)
     (let ((nonce (encr/decr ekey nil bytevec)))

@@ -122,31 +122,12 @@
                  (prng:ctr-drbg 256))))
 
 (defun aes-enc/dec (key iv vsrc)
-  (let* ((vdst  (copy-seq vsrc))
-         (nel   (length vsrc))
-         (wrk   (make-array 16
-                            :element-type '(unsigned-byte 8)))
-         (subv  (make-array nel
-                            :element-type '(unsigned-byte 8)
-                            :adjustable t
-                            :displaced-to vdst))
-         (cipher (ironclad:make-cipher :aes
-                                       :mode :ecb
-                                       :key  key
-                                       :initialization-vector iv)))
-    (loop for pos from 0 below nel by 16 do
-            (let ((nb  (min 16 (- nel pos))))
-              (fill wrk 0)
-              (loop for ix from 0 below 4 do
-                      (setf (aref wrk ix)
-                            (ldb (byte 8 (* 8 ix)) pos)))
-              (ironclad:encrypt-in-place cipher wrk)
-              (adjust-array subv nb
-                            :element-type '(unsigned-byte 8)
-                            :displaced-to vdst
-                            :displaced-index-offset pos)
-              (map-into subv #'logxor wrk subv)))
-    vdst))
+  (let ((cipher (ironclad:make-cipher :aes
+                                      :mode :ctr
+                                      :key  key
+                                      :initialization-vector iv)))
+    (ironclad:encrypt-in-place cipher vsrc)
+    vsrc))
 
 (defun make-auth-chk (key iv cdata)
   (vec (hash/256 :chk key iv cdata)))
