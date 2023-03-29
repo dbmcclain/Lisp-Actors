@@ -131,7 +131,7 @@
                             :adjustable t
                             :displaced-to vdst))
          (cipher (ironclad:make-cipher :aes
-                                       :mode :ctr
+                                       :mode :ecb
                                        :key  key
                                        :initialization-vector iv)))
     (loop for pos from 0 below nel by 16 do

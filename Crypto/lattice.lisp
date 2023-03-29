@@ -150,16 +150,43 @@
 
 (defun bitvec-to-octets (bv)
   (declare (vector bit bv))
-  (let* ((nb  (ash (length bv) -3))
-         (ans (make-array nb
-                         :element-type '(unsigned-byte 8))))
-    (declare (fixnum nb)
+  (let* ((nel  (ash (length bv) -3))
+         (ans  (make-array nel
+                           :element-type '(unsigned-byte 8))))
+    (declare (fixnum nel)
              (vector (unsigned-byte 8) ans))
-    (loop for ix fixnum from 0 below nb
+    (loop for ix fixnum from 0 below nel
           for bpos fixnum from 0 by 8
           do
           (setf (aref ans ix) (bitvec-to-octet bv bpos)))
     ans))
+
+(defun bref (v ix)
+  ;; access an octet vector at bit position ix
+  ;; assumes big-endian encoding
+  #F
+  (declare (vector (unsigned-byte 8) v)
+           (fixnum ix))
+  (let ((x  (aref v (ash ix -3))))
+    (declare (fixnum x))
+    (ldb (byte 1 (- 7 (logand ix 7))) x)
+    ))
+
+(defun set-bref (v ix b)
+  ;; set actet vector v at bit position ix with bit value b
+  ;; assumes big-endian encoding
+  #F
+  (declare (vector (unsigned-byte 8) v)
+           (fixnum ix)
+           (bit b))
+  (let* ((ixv  (ash ix -3))
+         (x    (aref v ixv)))
+    (declare (fixnum ixv x))
+    (setf (aref v ixv)
+          (dpb b (byte 1 (- 7 (logand ix 7))) x))
+    ))
+
+(defsetf bref set-bref)
 
 ;; ---------------------------------------------------
 ;; NRows sets the difficulty of the subset sum problem O(2^NRows)
@@ -397,16 +424,15 @@
   (with-mod *lattice-m*
     (let* ((nb    (length v))
            (nbits (* 8 nb))
-           (ans   (make-array (1+ nbits)))
-           (bv    (to-bitvec v)))
+           (ans   (make-array (1+ nbits))))
       (declare (vector (unsigned-byte 8) ans)
-               (vector bit bv)
                (fixnum nb nbits))
       (setf (aref ans 0) *lattice-m*)
-      (loop for bit bit across bv
-            for ix fixnum from 1
+      (loop for bix from 0 below nbits
+            for vix from 1
             do
-              (setf (aref ans ix) (lat-encode1 pkey bit)))
+              (setf (aref ans vix)
+                    (lat-encode1 pkey (bref v bix))))
       ans)))
 
 (defun lat-enc (pkey &rest objs)
@@ -518,7 +544,7 @@
                        (lat-encode pkey v)))))
      )))
 
-;; approx 1045 bps (yes, bits) at 320x256 size
+;; approx 1080 bps (yes, bits) at 320x256 size
 (chk-timing 100)
 
 (inspect
