@@ -109,6 +109,7 @@
 ;; ------------------------------------------------------
 
 (defun to-bitvec (v)
+  #F
   (declare (vector (unsigned-byte 8) v))
   (let ((bv (make-array (* 8 (length v))
                         :element-type 'bit)))
@@ -123,6 +124,7 @@
     bv))
 
 (defun bitvec-to (bv pos nbits)
+  #F
   (declare (vector bit bv)
            (fixnum pos nbits))
   (let* ((nb  (length bv))
@@ -140,6 +142,7 @@
   (bitvec-to bv pos 8))
 
 (defun bitvec-to-octets (bv)
+  #F
   (declare (vector bit bv))
   (let* ((nel  (ash (length bv) -3))
          (ans  (make-array nel
@@ -300,7 +303,7 @@
 (defvar *lattice-ncols*  256)  ;; private key vector has this length
 
 ;; ------------------------------------------------------
-  
+
 (defun gen-random-list (nel)
   #F
   (declare (fixnum nel))
@@ -409,6 +412,7 @@
                           (* bit (ash (mod-base) -1))))
     v))
 
+#|
 (defun lat-encode (pkey v)
   ;; v should be a vector of octets
   ;; Encodes octet vector into a list of cyphertext vectors
@@ -425,6 +429,48 @@
               (setf (aref ans vix)
                     (lat-encode1 pkey (bref v bix))))
       ans)))
+|#
+
+(defun n-gate-beh (cust n)
+  #F
+  (declare (fixnum n))
+  (lambda (nel)
+    (declare (fixnum nel))
+    (let ((nm (- n nel)))
+      (declare (fixnum nm))
+      (if (plusp nm)
+          (ac:become (n-gate-beh cust nm))
+        (ac:send cust))
+      )))
+
+(defun lat-encode (pkey v)
+  ;; v should be a vector of octets
+  ;; Encodes octet vector into a list of cyphertext vectors
+  (with-mod *lattice-m*
+    (let* ((nb    (length v))
+           (nbits (* 8 nb))
+           (ans   (make-array (1+ nbits)))
+           (base  (mod-base))
+           (ngrp  256))
+      (declare (vector (unsigned-byte 8) ans)
+               (fixnum nb nbits base ngrp))
+      (ac:actors ((inner  (lambda (cust start)
+                            (declare (fixnum bix))
+                            (let ((end (min (+ start ngrp) nbits)))
+                              (declare (fixnum end))
+                              (with-mod base
+                                (loop for bix from start below end do
+                                        (setf (aref ans (1+ bix))
+                                              (lat-encode1 pkey (bref v bix))))
+                                (ac:send cust (- end start))))))
+                  (outer (lambda (cust)
+                           (loop for start from 0 below nbits by ngrp do
+                                   (ac:send inner ac:self start))
+                           (ac:become (n-gate-beh cust nbits)))))
+        (setf (aref ans 0) *lattice-m*)
+        (ac:ask outer)
+        ans))
+    ))
 
 (defun lat-enc (pkey &rest objs)
   ;; general object encryption

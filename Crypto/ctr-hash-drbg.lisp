@@ -29,9 +29,11 @@ THE SOFTWARE.
 
 ;; ------------------------------------------------------------------------
 
-(def-cached-var ctr-hash-prng
-  (ironclad:make-prng :fortuna :seed :urandom))
-
+(defun ctr-hash-prng ()
+  (or (mp:process-private-property 'ctr-hash-prng)
+      (setf (mp:process-private-property 'ctr-hash-prng)
+            (ironclad:make-prng :fortuna :seed :urandom))))
+        
 (defun get-entropy (nb)
   (ironclad:random-data nb (ctr-hash-prng)))
 
@@ -46,8 +48,7 @@ THE SOFTWARE.
 
 (defstruct ctr-hash-drbg-state
   seed key reseed ctr hash
-  get
-  (lock (mpcompat:make-lock)))
+  get)
 
 (defun basic-random-key-256 ()
   (convert-int-to-nbytesv (basic-random (ash 1 256.)) 32.))
@@ -106,32 +107,32 @@ THE SOFTWARE.
     (next-ctr-hash-drbg-block state)
     state))
 
-(def-cached-var ctr-hash-drbg-state
-  (make-new-ctr-hash-drbg-state))
+(defun ctr-hash-drbg-state ()
+  (or (mp:process-private-property 'ctr-hash-drbg-state)
+      (setf (mp:process-private-property 'ctr-hash-drbg-state)
+            (make-new-ctr-hash-drbg-state))))
 
 (defmethod get-ctr-hash-drbg-bits ((state ctr-hash-drbg-state) nb)
-  (with-accessors ((lock   ctr-hash-drbg-state-lock)
-                   (buf    ctr-hash-drbg-state-seed)
+  (with-accessors ((buf    ctr-hash-drbg-state-seed)
                    (get-ix ctr-hash-drbg-state-get)) state
     
-    (mpcompat:with-lock (lock)
-      (let* ((buflen (length buf))
-             (dst    (make-ub-array nb)))
-        
-        (um:nlet iter ((nb    nb)
-                       (start 0))
-          (when (plusp nb)
-            (unless (< get-ix buflen)
-              (next-ctr-hash-drbg-block state))
-            (let* ((nel (min nb
-                             (- buflen get-ix))))
-              (replace dst buf
-                       :start1 start  :end1 (+ start nel)
-                       :start2 get-ix :end2 (+ get-ix nel))
-              (incf get-ix nel)
-              (go-iter (- nb nel) (+ start nel)))
-            ))
-        dst))))
+    (let* ((buflen (length buf))
+           (dst    (make-ub-array nb)))
+      
+      (um:nlet iter ((nb    nb)
+                     (start 0))
+        (when (plusp nb)
+          (unless (< get-ix buflen)
+            (next-ctr-hash-drbg-block state))
+          (let* ((nel (min nb
+                           (- buflen get-ix))))
+            (replace dst buf
+                     :start1 start  :end1 (+ start nel)
+                     :start2 get-ix :end2 (+ get-ix nel))
+            (incf get-ix nel)
+            (go-iter (- nb nel) (+ start nel)))
+          ))
+      dst)))
 
 (defun ctr-hash-drbg (nbits)
   ;; NIST Hash DRBG
