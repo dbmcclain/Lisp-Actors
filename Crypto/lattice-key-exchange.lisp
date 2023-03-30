@@ -4,7 +4,7 @@
 ;; ----------------------------------
 
 (defpackage #:com.ral.crypto.lattice-key-exchange
-  (:use #:common-lisp #:lattice #:vec-repr #:hash)
+  (:use #:common-lisp #:lattice #:vec-repr #:hash #:ac)
   (:export
    #:lattice-skey
    #:lattice-local-id
@@ -18,6 +18,9 @@
    #:make-connection-to-client-packet
    #:decode-server-connection-packet
    #:decode-client-connection-packet
+
+   #:cnx-to-server-packet-maker
+   #:cnx-to-client-packet-maker
    ))
 
 (in-package #:com.ral.crypto.lattice-key-exchange)
@@ -198,7 +201,7 @@
             (with-pkey (pkey pkey)
               (lat-encode pkey rkey)))
     ))
-         
+
 (defun decode-server-connection-packet (packet)
   ;; At the server, we decode the random client key and their Lattice
   ;; ID.
@@ -216,6 +219,31 @@
          (rkey (with-skey (skey skey)
                  (lat-decode skey latcrypt))))
     rkey))
+
+;; ----------------------------------------------------
+;; For Actors-based code, using parallel Lattice encryption
+
+(deflex cnx-to-server-packet-maker
+  (create
+   (lambda (cust srv-node)
+     (let ((pkey  (lattice-pkey-for-node srv-node))
+           (rkey  (random-key))
+           (my-id (lattice-local-id)))
+       (β (lat-enc)
+           (send plat-encoder β pkey rkey)
+         (send cust rkey (list lat-enc (make-aes-packet rkey my-id))))
+       ))))
+           
+(deflex cnx-to-client-packet-maker
+  (create
+   (lambda (cust client-id)
+     (let ((pkey (lattice-pkey-for-id client-id))
+           (rkey (random-key)))
+       (β (lat-enc)
+           (send plat-encoder β pkey rkey)
+         (send cust rkey lat-enc))
+       ))))
+
 
 #|
 (

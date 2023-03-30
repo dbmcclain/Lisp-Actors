@@ -4,7 +4,7 @@
 ;; ----------------------------------
 
 (defpackage #:com.ral.crypto.lattice-crypto
-  (:use #:common-lisp #:edec #:modmath #:vec-repr #:hash)
+  (:use #:common-lisp #:edec #:modmath #:vec-repr #:hash #:ac)
   (:export
    #:with-skey
    #:with-pkey
@@ -15,6 +15,8 @@
    #:lat-gen-skey
    #:lat-gen-pkey
    #:lat-gen-keys ;; create dummy pair (skey, pkey) for testing
+
+   #:plat-encoder
    ))
 
 (in-package #:com.ral.crypto.lattice-crypto)
@@ -412,7 +414,6 @@
                           (* bit (ash (mod-base) -1))))
     v))
 
-#|
 (defun lat-encode (pkey v)
   ;; v should be a vector of octets
   ;; Encodes octet vector into a list of cyphertext vectors
@@ -429,48 +430,6 @@
               (setf (aref ans vix)
                     (lat-encode1 pkey (bref v bix))))
       ans)))
-|#
-
-(defun n-gate-beh (cust n)
-  #F
-  (declare (fixnum n))
-  (lambda (nel)
-    (declare (fixnum nel))
-    (let ((nm (- n nel)))
-      (declare (fixnum nm))
-      (if (plusp nm)
-          (ac:become (n-gate-beh cust nm))
-        (ac:send cust))
-      )))
-
-(defun lat-encode (pkey v)
-  ;; v should be a vector of octets
-  ;; Encodes octet vector into a list of cyphertext vectors
-  (with-mod *lattice-m*
-    (let* ((nb    (length v))
-           (nbits (* 8 nb))
-           (ans   (make-array (1+ nbits)))
-           (base  (mod-base))
-           (ngrp  256))
-      (declare (vector (unsigned-byte 8) ans)
-               (fixnum nb nbits base ngrp))
-      (ac:actors ((inner  (lambda (cust start)
-                            (declare (fixnum bix))
-                            (let ((end (min (+ start ngrp) nbits)))
-                              (declare (fixnum end))
-                              (with-mod base
-                                (loop for bix from start below end do
-                                        (setf (aref ans (1+ bix))
-                                              (lat-encode1 pkey (bref v bix))))
-                                (ac:send cust (- end start))))))
-                  (outer (lambda (cust)
-                           (loop for start from 0 below nbits by ngrp do
-                                   (ac:send inner ac:self start))
-                           (ac:become (n-gate-beh cust nbits)))))
-        (setf (aref ans 0) *lattice-m*)
-        (ac:ask outer)
-        ans))
-    ))
 
 (defun lat-enc (pkey &rest objs)
   ;; general object encryption
@@ -489,6 +448,60 @@
 
 #+:LISPWORKS
 (editor:setup-indent "with-pkey" 1)
+
+;; -------------------------------------------------
+;; Parallel Lattice encryption for Actors-based code
+
+(defun n-gate-beh (cust n)
+  #F
+  (declare (fixnum n))
+  (lambda (nel)
+    (declare (fixnum nel))
+    (let ((nm (- n nel)))
+      (declare (fixnum nm))
+      (if (plusp nm)
+          (become (n-gate-beh cust nm))
+        (send cust))
+      )))
+
+(deflex plat-encoder
+  (create
+   (lambda (cust pkey v)
+     ;; v should be a vector of octets
+     ;; Encodes octet vector into a list of cyphertext vectors
+     #F
+     (declare (vector (unsigned-byte 8) v))
+     (with-pkey (pkey pkey)
+       (with-mod *lattice-m*
+         (let* ((nb    (length v))
+                (nbits (* 8 nb))
+                (ans   (make-array (1+ nbits)))
+                (base  (mod-base))
+                (ngrp  256)
+                (inner (create
+                        (lambda (cust start)
+                          (declare (fixnum bix))
+                          (let ((end (min (+ start ngrp) nbits)))
+                            (declare (fixnum end))
+                            (with-mod base
+                              (loop for bix from start below end do
+                                      (setf (aref ans (1+ bix))
+                                            (lat-encode1 pkey (bref v bix))))
+                              (send cust (- end start)))))
+                        ))
+                (outer (create
+                        (lambda (cust)
+                          (loop for start from 0 below nbits by ngrp do
+                                  (send inner self start))
+                          (become (n-gate-beh cust nbits)))
+                        )))
+           (declare (vector (unsigned-byte 8) ans)
+                    (fixnum nb nbits base ngrp))
+           (setf (aref ans 0) *lattice-m*)
+           (β _
+               (send outer β)
+             (send cust ans))
+           ))))))
 
 ;; ---------------------------------------------------------------
 ;; LWE Lattice Decoding

@@ -164,8 +164,8 @@
 (progn
   (defun negotiator-beh (node-name)
     (α (cust socket local-services)
-      (multiple-value-bind (akey packet-list)
-          (lattice-ke:make-connection-to-server-packet node-name)
+      (β (akey packet-list)
+          (send lattice-ke:cnx-to-server-packet-maker β node-name)
         (let ((responder
                (αα
                 ((server-id packet) / (and (typep server-id 'uuid:uuid)

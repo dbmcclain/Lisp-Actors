@@ -71,8 +71,8 @@
     (ignore-errors
       (multiple-value-bind (akey id)
           (lattice-ke:decode-server-connection-packet packet-list)
-        (multiple-value-bind (bkey reply-packet)
-            (lattice-ke:make-connection-to-client-packet id)
+        (β (bkey reply-packet)
+            (send lattice-ke:cnx-to-client-packet-maker β id)
           (let ((ekey  (hash/256 bkey akey)))
             ;; silently ignore other kinds of requests
             (β _
