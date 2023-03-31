@@ -162,7 +162,7 @@
 
 #+:lattice-crypto
 (progn
-  (defun negotiator-beh (node-name)
+  (defun make-negotiator (node-name)
     (α (cust socket local-services)
       (β (akey packet-list)
           (send lattice-ke:cnx-to-server-packet-maker β node-name)
@@ -193,7 +193,7 @@
     ;; demand if not already present.
     (α (cust host-ip-addr)
       (send client-connector cust
-            (create (negotiator-beh host-ip-addr))
+            (make-negotiator host-ip-addr)
             host-ip-addr))))
 
 ;; ---------------------------------------------------
