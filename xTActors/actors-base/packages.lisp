@@ -304,6 +304,8 @@ THE SOFTWARE.
    #:lazy-fwd
    #:future-become-beh
    #:with-maximum-io-syntax
+
+   #:unhandled-message
    ))
 
 #+(OR :ALLEGRO :CCL)

@@ -150,7 +150,7 @@ THE SOFTWARE.
   #'do-nothing)
 
 (defun abort-beh ()
-  ;; In an Actor, unodes any BECOME and SENDS to this point, but
+  ;; In an Actor, undoes any BECOME and SENDS to this point, but
   ;; allows Actor to exit normally. In contrast to ERROR action which
   ;; aborts all BECOME and SENDs and exits immediately. ABORT-BEH
   ;; allows subsequent SENDs and BECOME to still take effect.
@@ -340,6 +340,11 @@ THE SOFTWARE.
 
 ;; ---------------------------------------------------
 
+(define-condition unhandled-message (error)
+  ((msg  :reader unhandled-message-msg :initarg :msg :initform "unknown"))
+  (:report (lambda (c stream)
+             (format stream "Unhandled message: ~A" (unhandled-message-msg c)))))
+
 (defmacro def-ser-beh (name args &rest clauses)
   ;; For Actors behind a SERIALIZER, define their behaviors so that,
   ;; in any event, a response is sent to cust. The cust must be the
@@ -355,7 +360,7 @@ THE SOFTWARE.
            (match (cons ,cust ,msg)
              ,@clauses
              (_
-              (send ,cust :unhandled-message ,msg))
+              (error 'unhandled-message :msg ,msg))
              ))
          ))
     ))
