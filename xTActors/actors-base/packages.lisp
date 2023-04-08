@@ -306,6 +306,8 @@ THE SOFTWARE.
    #:with-maximum-io-syntax
 
    #:unhandled-message
+   #:recursive-ask
+   #:allow-recursive-ask
    ))
 
 #+(OR :ALLEGRO :CCL)

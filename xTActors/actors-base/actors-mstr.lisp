@@ -454,11 +454,33 @@ THE SOFTWARE.
 ;; behavior it is still better to avoid using ASK, and use β-forms for
 ;; CPS Actor style.
 
+(define-condition recursive-ask (warning)
+  ()
+  (:report (lambda (c stream)
+             (declare (ignore c))
+             (format stream
+                     "Calling ASK from within an Actor has you violating transactional boundaries.
+         Try using β-forms instead."))))
+
+(defun do-with-allowed-recursive-ask (fn)
+  (handler-bind
+      ((recursive-ask (lambda (c)
+                        (let ((r (find-restart 'muffle-warning c)))
+                          (when r
+                            (invoke-restart r))))
+                      ))
+    (funcall fn)))
+
+(defmacro allow-recursive-ask (&body body)
+  ;; Under some special conditions we know it will be okay to allow
+  ;; recursive ASKs. This macro muffles the warning.
+  `(do-with-allowed-recursive-ask (lambda ()
+                                    ,@body)))
+
 (defun ask (actor &rest msg)
   (check-type actor actor)
   (when self
-    (warn "Calling ASK from within an Actor has you violating
-             transactional boundaries. Try using β-forms instead."))
+    (warn 'recursive-ask))
   (apply #'run-actors actor msg))
 
 ;; ------------------------------------------------------
