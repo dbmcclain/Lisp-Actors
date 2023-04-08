@@ -182,7 +182,7 @@
             ;; already exists or is pending
             (comm:async-io-state-abort-and-close io-state))
            
-           (t
+           (peer-ip
             ;; reserve our place while we create a channel
             (let ((server-name (format nil "~A#~D" (machine-instance)
                                        (sys:atomic-incf *server-count*)))
