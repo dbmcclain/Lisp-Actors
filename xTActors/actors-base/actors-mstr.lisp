@@ -286,6 +286,16 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------
 ;; Error Handling
 
+(defun err-chk (cust)
+  ;; like FWD, but checks for error return
+  (create
+   (alambda
+    ((:error-from _ err)
+     (error err))
+    (msg
+     (send* cust msg))
+    )))
+
 (defun do-with-error-response (cust fn fn-err)
   ;; Defined such that we don't lose any debugging context on errors.
   ;;
@@ -343,7 +353,7 @@ THE SOFTWARE.
 (define-condition unhandled-message (error)
   ((msg  :reader unhandled-message-msg :initarg :msg :initform "unknown"))
   (:report (lambda (c stream)
-             (format stream "Unhandled message: ~A" (unhandled-message-msg c)))))
+             (format stream "Unhandled message: ~S" (unhandled-message-msg c)))))
 
 (defmacro def-ser-beh (name args &rest clauses)
   ;; For Actors behind a SERIALIZER, define their behaviors so that,
@@ -474,10 +484,26 @@ THE SOFTWARE.
 (defmacro allow-recursive-ask (&body body)
   ;; Under some special conditions we know it will be okay to allow
   ;; recursive ASKs. This macro muffles the warning.
+  ;;
+  ;; E.g., an Actor executing a user supplied function on behalf of
+  ;; another thread. The function might (unwittingly) call ASK to
+  ;; query other portions of the Actor system.
+  ;;
+  ;; In that case, we are behaving as the client thread, running
+  ;; ostensibly single-threaded code, and pretend not to know about
+  ;; the Actors system.
   `(do-with-allowed-recursive-ask (lambda ()
                                     ,@body)))
 
 (defun ask (actor &rest msg)
+  ;; Unlike SEND, ASKs are not staged, but perform immediately,
+  ;; potentially violating transactional boundaries. This is normally
+  ;; okay, and expected behavior, from non-Actor client code. ASK
+  ;; behaves like a function call.
+  ;;
+  ;; But if called from within an Actor, the immediate behavior does
+  ;; violate transactional boundaries, since they occur (via activated
+  ;; SENDs) before all other staged SENDs.
   (check-type actor actor)
   (when self
     (warn 'recursive-ask))

@@ -308,6 +308,7 @@ THE SOFTWARE.
    #:unhandled-message
    #:recursive-ask
    #:allow-recursive-ask
+   #:err-chk
    ))
 
 #+(OR :ALLEGRO :CCL)
