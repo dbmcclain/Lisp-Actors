@@ -17,3 +17,6 @@
 (defmacro with-timeout (dt &rest body)
   `(let ((*timeout*  ,dt))
      ,@body))
+
+#+:LISPWORKS
+(editor:setup-indent "with-timeout" 1)

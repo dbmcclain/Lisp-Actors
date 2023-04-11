@@ -309,6 +309,10 @@ THE SOFTWARE.
    #:recursive-ask
    #:allow-recursive-ask
    #:err-chk
+   #:referred-error
+   #:terminated-ask
+   #:ask-timeout
+   #:check-for-errors
    ))
 
 #+(OR :ALLEGRO :CCL)

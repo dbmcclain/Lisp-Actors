@@ -203,13 +203,19 @@ THE SOFTWARE.
       (declare (dynamic-extent #'%send #'%become #'%abort-beh))
 
       (when (actor-p actor)
-        (let ((me  (create
-                    (lambda (&rest msg)
-                      (setf done (list msg))
-                      (become-sink))
-                    )))
+        (let ((targ (create
+                     (lambda (cust &rest msg)
+                       (let ((gate  (once cust)))
+                         (send-after *timeout* gate nil :timeout)
+                         (send* actor gate msg))
+                       )))
+              (me   (create
+                     (lambda (&rest msg)
+                       (setf done (list msg))
+                       (become-sink))
+                     )))
           (setf timeout +ASK-TIMEOUT+)
-          (mpc:mailbox-send *central-mail* (msg actor (cons me message)))
+          (mpc:mailbox-send *central-mail* (msg targ (cons me message)))
           ))
       
       ;; -------------------------------------------------------
@@ -286,15 +292,54 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------
 ;; Error Handling
 
+(define-condition referred-error (error)
+  ((from  :reader referred-error-from
+          :initarg :from)
+   (err   :reader referred-error-err
+          :initarg :err))
+  (:report (lambda (c stream)
+             (format stream
+                     "Referred Error from: ~A err: ~A"
+                     (referred-error-from c)
+                     (referred-error-err c)))
+   ))
+
+(define-condition terminated-ask (error)
+  ()
+  (:report (lambda (c stream)
+             (declare (ignore c))
+             (format stream "Terminated ASK"))
+   ))
+
+(define-condition timeout-error (error)
+  ()
+  (:report (lambda (c stream)
+             (declare (ignore c))
+             (format stream "Timeout"))
+   ))
+
+(defun check-for-errors (lst)
+  (match lst
+    ((nil 't)
+     ;; We had a "Terminate Actor thread" restart
+     (error 'terminated-ask))
+    
+    ((nil :TIMEOUT)
+     ;; We had a timeout
+     (error 'timeout-error))
+
+    ((nil err) / (typep err 'error)
+     (error err))
+
+    (_
+     lst)))
+
 (defun err-chk (cust)
   ;; like FWD, but checks for error return
   (create
-   (alambda
-    ((:error-from _ err)
-     (error err))
-    (msg
-     (send* cust msg))
-    )))
+   (lambda (&rest msg)
+     (check-for-errors msg)
+     (send* cust msg))))
 
 (defun do-with-error-response (cust fn fn-err)
   ;; Defined such that we don't lose any debugging context on errors.
@@ -318,7 +363,10 @@ THE SOFTWARE.
     ))
 
 (defun err-from (e)
-  `(:error-from ,self ,e))
+  (list nil
+        (make-condition 'referred-error
+                        :from self
+                        :err  e)))
 
 (defmacro with-error-response ((cust &optional (fn-err '#'err-from)) &body body)
   ;; Handler-wrapper that guarantees a customized message sent back to
@@ -507,7 +555,15 @@ THE SOFTWARE.
   (check-type actor actor)
   (when self
     (warn 'recursive-ask))
-  (apply #'run-actors actor msg))
+  ;; In normal situation, we get back the multiple value result from
+  ;; actor.  In exceptional situation, from restart "Terminate Actor
+  ;; thread", we get back two values nil and t.  If *TIMEOUT* is
+  ;; not-nil, and timeout occurs, we get back nil and :TIMEOUT.
+  (let ((ans (multiple-value-list
+              (apply #'run-actors actor msg))))
+    (check-for-errors ans)
+    (values-list ans)))
+
 
 ;; ------------------------------------------------------
 ;; FN-ACTOR - the most general way of computing something is to send
