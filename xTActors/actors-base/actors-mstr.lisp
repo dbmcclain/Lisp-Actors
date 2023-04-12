@@ -330,12 +330,12 @@ THE SOFTWARE.
   (let (err)
     (restart-case
         (handler-bind ((error (lambda (e)
+                                (abort-beh) ;; discard pending SEND, BECOME
                                 (setf err e))))
           (funcall fn))
       (abort ()
         :report "Handle next event, reporting"
         ;; generalized for use by ERL
-        (abort-beh) ;; NOP unless within an Actor
         (apply #'send-to-all (um:mklist cust) (um:mklist (funcall fn-err err)))
         ))
     ))
@@ -500,11 +500,7 @@ THE SOFTWARE.
 
 (defun do-with-allowed-recursive-ask (fn)
   (handler-bind
-      ((recursive-ask (lambda (c)
-                        (let ((r (find-restart 'muffle-warning c)))
-                          (when r
-                            (invoke-restart r))))
-                      ))
+      ((recursive-ask #'muffle-warning))
     (funcall fn)))
 
 (defmacro allow-recursive-ask (&body body)
