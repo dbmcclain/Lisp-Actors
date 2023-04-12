@@ -320,6 +320,7 @@ THE SOFTWARE.
      (send* cust msg))))
 
 (defun do-with-error-response (cust fn fn-err)
+  ;; Ensure that a message is sent to cust in event of error.
   ;; Defined such that we don't lose any debugging context on errors.
   ;;
   ;; Function fn-err takes an error condition as argument and returns
@@ -327,18 +328,20 @@ THE SOFTWARE.
   ;;
   ;; Function fn is a thunk.
   ;;
-  (let (err)
-    (restart-case
-        (handler-bind ((error (lambda (e)
-                                (abort-beh) ;; discard pending SEND, BECOME
-                                (setf err e))))
-          (funcall fn))
-      (abort ()
-        :report "Handle next event, reporting"
-        ;; generalized for use by ERL
-        (apply #'send-to-all (um:mklist cust) (um:mklist (funcall fn-err err)))
-        ))
-    ))
+  ;; It is unwise to use SEND in any UNWIND clauses. They may, or may
+  ;; not get executed because SEND is staged. If the error recovery
+  ;; throws beyond a normal return, those SEND's mey never be sent. So
+  ;; use SEND-TO-POOL when you need to have a message sent during
+  ;; UNWIND.
+  ;;
+  (handler-bind
+      ((error (lambda (e)
+                (abort-beh) ;; Discard pending SEND, BECOME
+                (let ((msg (um:mklist (funcall fn-err e))))
+                  (dolist (c (um:mklist cust))
+                    (apply #'send-to-pool c msg)))
+                )))
+    (funcall fn)))
 
 (defun err-from (e)
   (list nil

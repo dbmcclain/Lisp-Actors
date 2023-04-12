@@ -122,7 +122,7 @@
   ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST).
   ;; Read as "send the future result to cust".
   (actors ((fut (future-wait-beh tag))
-           (tag (tag-beh fut)))
+           (tag (once-tag-beh fut)))
     (send* actor tag msg)
     fut))
 
@@ -174,7 +174,7 @@
 
 (defun lazy-beh (actor &rest msg)
   (lambda (cust)
-    (let ((tag (tag self)))
+    (let ((tag (once-tag self)))
       (become (future-wait-beh tag cust))
       (send* actor tag msg)
       )))
@@ -199,7 +199,7 @@
 (defun lazy-fwd (actor &rest init-msg)
   (create
    (lambda (&rest msg)
-     (let ((tag (tag self)))
+     (let ((tag (once-tag self)))
        (become (future-fwd-wait-beh tag (list msg)))
        (send* actor tag init-msg))
      )))
@@ -373,7 +373,8 @@
                   (let ((fn (if self
                                 #'send-to-pool
                               #'send)))
-                    (apply fn actor msg))))
+                    (apply fn actor msg)
+                    :stop)))
            (let ((timer (mpc:make-timer #'sender)))
              (mpc:schedule-timer-relative timer dt))
            ))))

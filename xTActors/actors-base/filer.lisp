@@ -72,7 +72,7 @@
     (become (const-beh :closed)))
    
    (_
-    (let ((new-tag (timed-tag self timeout)))
+    (let ((new-tag (timed-once-tag self timeout)))
       (become (retrig-filer-gate-beh chan new-tag :timeout timeout))
       (repeat-send chan)))
    ))
@@ -89,7 +89,7 @@
            (fd   (apply #'open fname open-args)))
       (actors ((chan (serializer-beh (create (open-filer-beh fd op-timeout))))
                (gate (retrig-filter-gate-beh chan tag :timeout close-after))
-               (tag  (timed-tag-beh gate close-after)))
+               (tag  (timed-once-tag gate close-after)))
         (send cust gate))
       ))))
 
