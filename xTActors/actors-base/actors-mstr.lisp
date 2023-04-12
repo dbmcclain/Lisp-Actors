@@ -282,6 +282,7 @@ THE SOFTWARE.
                         )))
               (setf timeout +ASK-TIMEOUT+)
               (mpc:mailbox-send *central-mail* (msg svc (cons me message)))
+              ;; (sleep 1)
               (with-simple-restart (abort "Terminate ASK")
                 (dispatch))
               (when done
@@ -307,10 +308,11 @@ THE SOFTWARE.
    ))
 
 (defun check-for-errors (lst)
-  ;; Errors are reported as two elements NIL, Err
-  (match lst
-    ((nil err) / (typep err 'error)
-     (error err))))
+  ;; msg list should be a single element error condition for a
+  ;; reportable error
+  (when (and (null (cdr lst))
+             (typep (car lst) 'error))
+    (error (car lst))))
 
 (defun err-chk (cust)
   ;; like FWD, but checks for error return
@@ -344,10 +346,9 @@ THE SOFTWARE.
     (funcall fn)))
 
 (defun err-from (e)
-  (list nil
-        (make-condition 'referred-error
-                        :from self
-                        :err  e)))
+  (make-condition 'referred-error
+                  :from self
+                  :err  e))
 
 (defmacro with-error-response ((cust &optional (fn-err '#'err-from)) &body body)
   ;; Handler-wrapper that guarantees a customized message sent back to
