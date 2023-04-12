@@ -26,7 +26,7 @@
 
 (defun timed-gate (cust timeout)
   (let ((gate (once cust)))
-    (send-after timeout gate nil :timeout)
+    (send-after timeout gate nil timed-out)
     gate))
 
 (defun timed-service (svc timeout)
@@ -98,12 +98,12 @@
 
 (defun timed-tag (cust timeout)
   (let ((atag (tag cust)))
-    (send-after timeout atag nil :timeout)
+    (send-after timeout atag nil timed-out)
     atag))
 
 (defun timed-once-tag (cust timeout)
   (let ((atag (once-tag cust)))
-    (send-after timeout atag nil :timeout)
+    (send-after timeout atag nil timed-out)
     atag))
 
 ;; -------------------------------------------------
@@ -525,7 +525,7 @@
                                       (cond (on-timeout
                                              (send on-timeout me action start-msg timeout supv cust))
                                             (t
-                                             (send cust nil :timeout))
+                                             (send cust nil timed-out))
                                             )))
                                   ))
               (send* action tag-ok start-msg)

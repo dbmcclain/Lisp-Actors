@@ -61,7 +61,7 @@
   ;; timer. On timeout, a close is issued.  Once the file has been
   ;; closed, we reply :CLOSED to any new requests.
   (alambda
-   ((cust nil :timeout)
+   ((cust nil err) / (typep err 'timeout)
     (when (eql cust tag)
       (send chan sink :close)
       (become (const-beh :closed))

@@ -60,6 +60,8 @@ THE SOFTWARE.
 
 ;; --------------------------------------
 
+(deflex timed-out (make-condition 'timeout))
+
 (defun sink-beh ()
   #'do-nothing)
 
@@ -198,96 +200,96 @@ THE SOFTWARE.
            (%abort-beh ()
              (setf pend-beh self-beh
                    evt      (or evt sends)
-                   sends    nil)))
+                   sends    nil))
 
-      (declare (dynamic-extent #'%send #'%become #'%abort-beh))
-
-      (when (actor-p actor)
-        (let ((targ (create
-                     (lambda (cust &rest msg)
-                       (let ((gate  (once cust)))
-                         (send-after *timeout* gate nil :timeout)
-                         (send* actor gate msg))
-                       )))
-              (me   (create
-                     (lambda (&rest msg)
-                       (setf done (list msg))
-                       (become-sink))
-                     )))
-          (setf timeout +ASK-TIMEOUT+)
-          (mpc:mailbox-send *central-mail* (msg targ (cons me message)))
-          ))
+           (dispatch ()
+             ;; -------------------------------------------------------
+             ;; Think of the *current-x* global vars as dedicated registers
+             ;; of a special architecture CPU which uses a FIFO queue for its
+             ;; instruction stream, instead of linear memory, and which
+             ;; executes breadth-first instead of depth-first. This maximizes
+             ;; concurrency.
+             ;; -------------------------------------------------------
+             (loop
+                (with-simple-restart (abort "Handle next event")
+                  (loop
+                     ;; Fetch next event from event queue - ideally, this
+                     ;; would be just a handful of simple register/memory
+                     ;; moves and direct jump. No call/return needed, and
+                     ;; stack useful only for a microcoding assist. Our
+                     ;; depth is never more than one Actor at a time,
+                     ;; before trampolining back here.
+                     (when done
+                       (return-from #1# (values (car done) t)))
+                     (when (setf evt (mpc:mailbox-read *central-mail* nil timeout))
+                       (tagbody
+                        next
+                        (um:when-let (next-msgs (msg-link (the msg evt)))
+                          (mpc:mailbox-send *central-mail* next-msgs))
+                        
+                        (let* ((*current-actor*   (msg-actor (the msg evt)))  ;; self
+                               (*current-message* (msg-args  (the msg evt)))) ;; self-msg
+                          (declare (actor *current-actor*)
+                                   (list  *current-message*))
+                          
+                          (tagbody                   
+                           retry
+                           (setf pend-beh (actor-beh (the actor self))
+                                 sends    nil)
+                           (let ((*current-behavior* pend-beh))  ;; self-beh
+                             (declare (function *current-behavior*))
+                             ;; ---------------------------------
+                             ;; Dispatch to Actor behavior with message args
+                             (apply (the function pend-beh) self-msg)
+                             (cond ((or (eq self-beh pend-beh) ;; no BECOME
+                                        (%actor-cas self self-beh pend-beh)) ;; effective BECOME
+                                    (when sends
+                                      (cond ((or (mpc:mailbox-not-empty-p *central-mail*)
+                                                 done)
+                                             ;; messages await or we are finished
+                                             ;; so just add our sends to the queue
+                                             ;; and repeat loop
+                                             (mpc:mailbox-send *central-mail* sends))
+                                            
+                                            (t
+                                             ;; No messages await, we are front of queue,
+                                             ;; so grab first message for ourself.
+                                             ;; This is the most common case at runtime,
+                                             ;; giving us a dispatch timing of only 46ns on i9 processor.
+                                             (setf evt sends)
+                                             (go next))
+                                            )))
+                                   (t
+                                    ;; failed on behavior update - try again...
+                                    (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
+                                    (go retry))
+                                   )))
+                          ))
+                       ))
+                  ))
+             ))
+      (declare (dynamic-extent #'%send #'%become #'%abort-beh #'dispatch))
       
-      ;; -------------------------------------------------------
-      ;; Think of the *current-x* global vars as dedicated registers
-      ;; of a special architecture CPU which uses a FIFO queue for its
-      ;; instruction stream, instead of linear memory, and which
-      ;; executes breadth-first instead of depth-first. This maximizes
-      ;; concurrency.
-      ;; -------------------------------------------------------
       (let ((*send*      #'%send)
             (*become*    #'%become)
             (*abort-beh* #'%abort-beh))
         
-        (with-simple-restart (abort "Terminate Actor thread")
-          (loop
-             (with-simple-restart (abort "Handle next event")
-               (loop
-                  ;; Fetch next event from event queue - ideally, this
-                  ;; would be just a handful of simple register/memory
-                  ;; moves and direct jump. No call/return needed, and
-                  ;; stack useful only for a microcoding assist. Our
-                  ;; depth is never more than one Actor at a time,
-                  ;; before trampolining back here.
-                  (when done
-                    (return-from #1# (values-list (car done))))
-                  (when (setf evt (mpc:mailbox-read *central-mail* nil timeout))
-                    (tagbody
-                     next
-                     (um:when-let (next-msgs (msg-link (the msg evt)))
-                       (mpc:mailbox-send *central-mail* next-msgs))
-                     
-                     (let* ((*current-actor*   (msg-actor (the msg evt)))  ;; self
-                            (*current-message* (msg-args  (the msg evt)))) ;; self-msg
-                       (declare (actor *current-actor*)
-                                (list  *current-message*))
-                       
-                       (tagbody                   
-                        retry
-                        (setf pend-beh (actor-beh (the actor self))
-                              sends    nil)
-                        (let ((*current-behavior* pend-beh))  ;; self-beh
-                          (declare (function *current-behavior*))
-                          ;; ---------------------------------
-                          ;; Dispatch to Actor behavior with message args
-                          (apply (the function pend-beh) self-msg)
-                          (cond ((or (eq self-beh pend-beh) ;; no BECOME
-                                     (%actor-cas self self-beh pend-beh)) ;; effective BECOME
-                                 (when sends
-                                   (cond ((or (mpc:mailbox-not-empty-p *central-mail*)
-                                              done)
-                                          ;; messages await or we are finished
-                                          ;; so just add our sends to the queue
-                                          ;; and repeat loop
-                                          (mpc:mailbox-send *central-mail* sends))
-                                         
-                                         (t
-                                          ;; No messages await, we are front of queue,
-                                          ;; so grab first message for ourself.
-                                          ;; This is the most common case at runtime,
-                                          ;; giving us a dispatch timing of only 46ns on i9 processor.
-                                          (setf evt sends)
-                                          (go next))
-                                         )))
-                                (t
-                                 ;; failed on behavior update - try again...
-                                 (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
-                                 (go retry))
-                                )))
-                       ))
-                    ))
-               ))
-          )))))
+        (if (actor-p actor) ;; are we an ASK?
+            (let ((svc (timed-service actor *timeout*))
+                  (me  (create
+                        (lambda (&rest msg)
+                          (setf done (list msg)))
+                        )))
+              (setf timeout +ASK-TIMEOUT+)
+              (mpc:mailbox-send *central-mail* (msg svc (cons me message)))
+              (with-simple-restart (abort "Terminate ASK")
+                (dispatch))
+              (when done
+                (values (car done) t)))
+          ;; else - we are normal Dispatch thread
+          (with-simple-restart (abort "Terminate Actor thread")
+            (dispatch)))
+        ))))
 
 ;; ----------------------------------------------------------------
 ;; Error Handling
@@ -304,35 +306,11 @@ THE SOFTWARE.
                      (referred-error-err c)))
    ))
 
-(define-condition terminated-ask (error)
-  ()
-  (:report (lambda (c stream)
-             (declare (ignore c))
-             (format stream "Terminated ASK"))
-   ))
-
-(define-condition timeout-error (error)
-  ()
-  (:report (lambda (c stream)
-             (declare (ignore c))
-             (format stream "Timeout"))
-   ))
-
 (defun check-for-errors (lst)
+  ;; Errors are reported as two elements NIL, Err
   (match lst
-    ((nil 't)
-     ;; We had a "Terminate Actor thread" restart
-     (error 'terminated-ask))
-    
-    ((nil :TIMEOUT)
-     ;; We had a timeout
-     (error 'timeout-error))
-
     ((nil err) / (typep err 'error)
-     (error err))
-
-    (_
-     lst)))
+     (error err))))
 
 (defun err-chk (cust)
   ;; like FWD, but checks for error return
@@ -543,6 +521,13 @@ THE SOFTWARE.
   `(do-with-allowed-recursive-ask (lambda ()
                                     ,@body)))
 
+(define-condition terminated-ask (error)
+  ()
+  (:report (lambda (c stream)
+             (declare (ignore c))
+             (format stream "Terminated ASK"))
+   ))
+
 (defun ask (actor &rest msg)
   ;; Unlike SEND, ASKs are not staged, but perform immediately,
   ;; potentially violating transactional boundaries. This is normally
@@ -555,15 +540,35 @@ THE SOFTWARE.
   (check-type actor actor)
   (when self
     (warn 'recursive-ask))
-  ;; In normal situation, we get back the multiple value result from
-  ;; actor.  In exceptional situation, from restart "Terminate Actor
-  ;; thread", we get back two values nil and t.  If *TIMEOUT* is
-  ;; not-nil, and timeout occurs, we get back nil and :TIMEOUT.
-  (let ((ans (multiple-value-list
-              (apply #'run-actors actor msg))))
+  ;; In normal situation, we get back the result message as a list and
+  ;; flag t.  In exceptional situation, from restart "Terminate ASK",
+  ;; thread", we get back nil.  If *TIMEOUT* is not-nil, and timeout
+  ;; occurs, we get back list (nil <timeout-condiiton-object>) as ans.
+  (multiple-value-bind (ans okay)
+      (apply #'run-actors actor msg)
+    (unless okay
+      (error 'terminated-ask))
     (check-for-errors ans)
     (values-list ans)))
-
+;;
+;; ASK can generate errors:
+;;
+;;    TERMINATED-ASK -- happens if we, while acting as Dispatch
+;;    and awaiting our result, receive an error condition that the
+;;    user chooses to respond to with restart "Terminate Actor
+;;    thread". That error may arise from some other task that has
+;;    nothing to do with us, but happened on our watch.
+;;
+;;    TIMEOUT-ERROR - whatever we ASK'd to happen did not produce
+;;    a result for us before expiration of our timeout. Timout
+;;    duration is set by wrapping our ASK with WITH-TIMEOUT. By
+;;    default, it is nil, meaning no timeout.
+;;
+;;    REFERRED-ERROR - our request produced an error while being
+;;    handled by some Dispatcher. It will have been reported
+;;    already, but sent back to our ASK for our use. We have to
+;;    decide what to do with it.
+;;
 
 ;; ------------------------------------------------------
 ;; FN-ACTOR - the most general way of computing something is to send
