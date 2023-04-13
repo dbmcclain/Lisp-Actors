@@ -17,6 +17,11 @@
    #:lat-gen-keys ;; create dummy pair (skey, pkey) for testing
 
    #:plat-encoder
+   #:node-to-kw
+   #:lat2-encode
+   #:lat2-enc
+   #:lat2-decode
+   #:lat2-dec
    ))
 
 (in-package #:com.ral.crypto.lattice-crypto)

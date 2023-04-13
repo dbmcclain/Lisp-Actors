@@ -31,6 +31,7 @@ THE SOFTWARE.
   :in-order-to ((test-op (test-op "core-crypto-test")))
   :serial       t
   :components  ((:file "lattice")
+                (:file "lattice-v2")
                 (:file "lattice-key-exchange"))
   :depends-on   ("edwards-ecc"))
 
