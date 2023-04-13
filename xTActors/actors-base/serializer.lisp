@@ -203,7 +203,7 @@
       (multiple-value-bind (next-req new-queue) (popq queue)
         (destructuring-bind (next-cust . next-msg) next-req
           (let* ((new-tag (tag self))
-                 (lbl     (label tag next-cust))
+                 (lbl     (label new-tag next-cust))
                  (svct    (timed-service svc timeout)))
             (send* svct lbl next-msg)
             (become (busy-serializer-beh svc timeout new-tag new-queue))
