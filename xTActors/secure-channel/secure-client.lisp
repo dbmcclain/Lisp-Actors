@@ -170,14 +170,15 @@
                (αα
                 ((server-id packet) / (and (typep server-id 'uuid:uuid)
                                            (vectorp packet))
-                 (let* ((bkey  (lattice-ke:decode-client-connection-packet packet))
-                        (ekey  (hash/256 bkey akey))
-                        (chan  (α msg
-                                 (send* local-services :ssend server-id msg))))
-                   (β _
-                       (send local-services β :set-crypto ekey socket)
-                     (send connections cust :set-channel socket chan))
-                   ))
+                 (β (bkey)
+                     (send lattice-ke:client-connection-packet-decoder β packet)
+                   (let ((ekey  (hash/256 bkey akey))
+                         (chan  (α msg
+                                  (send* local-services :ssend server-id msg))))
+                     (β _
+                         (send local-services β :set-crypto ekey socket)
+                       (send connections cust :set-channel socket chan))
+                     )))
                 ( _
                   (error "Server not following connection protocol"))
                 )))

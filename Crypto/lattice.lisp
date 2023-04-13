@@ -17,7 +17,10 @@
    #:lat-gen-keys ;; create dummy pair (skey, pkey) for testing
 
    #:plat-encoder
-   #:node-to-kw
+   
+   ;; -------------------
+   ;; Lattice v/2
+   #:lattice-system
    #:lat2-encode
    #:lat2-enc
    #:lat2-decode

@@ -69,8 +69,8 @@
                                    (consp packet-list)
                                    (eql 2 (length packet-list)))
     (ignore-errors
-      (multiple-value-bind (akey id)
-          (lattice-ke:decode-server-connection-packet packet-list)
+      (β (akey id)
+          (send lattice-ke:server-connection-packet-decoder β packet-list)
         (β (bkey reply-packet)
             (send lattice-ke:cnx-to-client-packet-maker β id)
           (let ((ekey  (hash/256 bkey akey)))
