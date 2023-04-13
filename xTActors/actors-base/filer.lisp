@@ -46,34 +46,43 @@
 	       +-------------+   +------------+	  +------------+     	       
  |#
 
-(def-ser-beh open-filer-beh (fd timeout)
+(def-ser-beh open-filer-beh (fd)
   ((cust :close)
    (close fd)
    (become (const-beh :closed))
    (send cust :ok))
   
   ((cust :oper op)
-   (let ((gate (timed-gate cust timeout)))
-     (send op gate fd))) )
+   (send op cust fd)))
 
-(defun retrig-filer-gate-beh (chan tag &key (timeout 10))
+(defun retrig-filer-gate-beh (chan reply-tag timeout-tag &key (timeout 10))
   ;; Gateway to Open Filer. Every new request resets the timeout
   ;; timer. On timeout, a close is issued.  Once the file has been
   ;; closed, we reply :CLOSED to any new requests.
+  ;; Error replies from channel cause us to :CLOSE and become :CLOSED.
   (alambda
-   ((cust err) / (and (eql cust tag)
-                      (typep err 'timeout))
+   ((cust _ ) / (eql cust timeout-tag)
     (send chan sink :close)
     (become (const-beh :closed)))
 
+   ((atag cust err) / (and (eql atag reply-tag)
+                           (typep err 'error))
+    (send chan sink :close)
+    (become (const-beh :closed))
+    (send cust err))
+   
+   ((atag cust . reply) / (eql atag reply-tag)
+    (send* cust reply))
+   
    ((cust :close)
     (repeat-send chan)
     (become (const-beh :closed)))
-   
-   (_
-    (let ((new-tag (timed-once-tag self timeout)))
-      (become (retrig-filer-gate-beh chan new-tag :timeout timeout))
-      (repeat-send chan)))
+
+   ((cust . args)
+    (let ((new-tag    (timed-once-tag self timeout))
+          (reply-cust (label reply-tag cust)))
+      (become (retrig-filer-gate-beh chan reply-tag new-tag :timeout timeout))
+      (send* chan reply-cust args)))
    ))
 
 (defconstant +DEFAULT-OP-TIMEOUT+    10)
@@ -82,15 +91,24 @@
 (deflex filer
   (alambda
    ((cust :open fname . args)
-    (let* ((op-timeout  (getf args :op-timeout  +DEFAULT-OP-TIMEOUT+))
-           (close-after (getf args :close-after +DEFAULT-CLOSE-TIMEOUT+))
-           (open-args   (getf args :open-args))
-           (fd   (apply #'open fname open-args)))
-      (actors ((chan (serializer-beh (create (open-filer-beh fd op-timeout))))
-               (gate (retrig-filter-gate-beh chan tag :timeout close-after))
-               (tag  (timed-once-tag gate close-after)))
-        (send cust gate))
-      ))))
+    (apply #'(lambda (&rest _ &key
+                            (op-timeout  +DEFAULT-OP-TIMEOUT+)
+                            (close-after +DEFAULT-CLOSE-TIMEOUT+)
+                            open-args)
+               (declare (ignore _))
+               (let ((fd  (apply #'open fname open-args)))
+                 (actors ((chan        (serializer-beh
+                                        (create (open-filer-beh fd))
+                                        :timeout op-timeout))
+                          (reply-tag   (tag-beh gate))
+                          (timeout-tag (tag-beh gate))
+                          (gate        (retrig-filer-gate-beh chan reply-tag timeout-tag
+                                                              :timeout close-after)))
+                   (send-after close-after timeout-tag timed-out)
+                   (send cust gate))
+                 ))
+           args))
+   ))
 
 ;; --------------------------------------------------
 #|

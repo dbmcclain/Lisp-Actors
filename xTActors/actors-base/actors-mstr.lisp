@@ -308,11 +308,14 @@ THE SOFTWARE.
    ))
 
 (defun check-for-errors (lst)
-  ;; msg list should be a single element error condition for a
-  ;; reportable error
-  (when (and (null (cdr lst))
-             (typep (car lst) 'error))
-    (error (car lst))))
+  ;; Error replies for ASK are single element lists containing an
+  ;; error Condition object.
+  (apply #'(lambda (&optional x &rest args)
+             ;; forgiving destructuration
+             (when (and (null args)
+                        (typep x 'error))
+               (error x)))
+         lst))
 
 (defun err-chk (cust)
   ;; like FWD, but checks for error return

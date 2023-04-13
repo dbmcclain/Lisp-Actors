@@ -179,49 +179,43 @@
 ;; timeout mechanisms to help out. Just like in the real world...
 ;; -----------------------------------------------------------------
 
-(defun serializer (svc &key timeout)
-  (let (sav-beh)
-    (labels
-        ((idle-beh ()
-           ;; Quiescent state - nobody in waiting, just flag him through, but
-           ;; enter the busy state.
-           (or sav-beh
-               (setf sav-beh (alambda
-                              ((cust . msg)
-                               (let* ((tag  (tag self))
-                                      (gate (timed-gate tag timeout)))
-                                 (send* svc gate msg)
-                                 (become (busy-serializer-beh
-                                          tag cust nil))
-                                 )))
-                     )))
-         
-         (busy-serializer-beh (tag in-cust queue)
-           ;; Busy state - new arriving messages get enqueued until we receive
-           ;; a message through our interposed customer TAG.
-           (alambda
-            ((atag . msg) when (eql atag tag)
-             (send* in-cust msg)
-             (if (emptyq? queue)
-                 (become (idle-beh))
-               (multiple-value-bind (next-req new-queue) (popq queue)
-                 (destructuring-bind (next-cust . next-msg) next-req
-                   (let* ((new-tag (tag self))
-                          (gate    (timed-gate new-tag timeout)))
-                     (send* svc gate next-msg)
-                     (become (busy-serializer-beh
-                              new-tag next-cust new-queue))
-                     )))
-               ))
-            
-            ((cust . msg)
-             (become (busy-serializer-beh
-                      tag in-cust
-                      (addq queue (cons cust msg)))
-                     ))
+(defun serializer-beh (svc &key timeout)
+  ;; Quiescent state - nobody in waiting, just flag him through, but
+  ;; enter the busy state.
+  (alambda
+   ((cust . msg)
+    (let* ((tag   (tag self))
+           (lbl   (label tag cust))
+           (svct  (timed-service svc timeout)))
+      (send* svct lbl msg)
+      (become (busy-serializer-beh svc timeout tag nil))
+      ))
+   ))
+
+(defun busy-serializer-beh (svc timeout tag queue)
+  ;; Busy state - new arriving messages get enqueued until we receive
+  ;; a message through our interposed customer TAG.
+  (alambda
+   ((atag . reply) / (eql atag tag)
+    (send* reply) ;; reply has been labeled with cust
+    (if (emptyq? queue)
+        (become (serializer-beh svc :timeout timeout))
+      (multiple-value-bind (next-req new-queue) (popq queue)
+        (destructuring-bind (next-cust . next-msg) next-req
+          (let* ((new-tag (tag self))
+                 (lbl     (label tag next-cust))
+                 (svct    (timed-service svc timeout)))
+            (send* svct lbl next-msg)
+            (become (busy-serializer-beh svc timeout new-tag new-queue))
             )))
-      (create (idle-beh))
-      )))
+      ))
+   ((cust . msg)
+    (become (busy-serializer-beh svc timeout tag
+                                 (addq queue (cons cust msg)))))
+   ))
+
+(defun serializer (svc &key timeout)
+  (create (serializer-beh svc :timeout timeout)))
 
 ;; -----------------------------------------------------------
 
