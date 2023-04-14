@@ -48,10 +48,15 @@
   (getf sys :mat-a))
 
 (defun lat2-gen-skey (&optional (sys (get-lattice-system)))
-  (subseq
-   (second (lat-gen-skey :ncols   (lat2-ncols sys)
-                         :modulus (lat2-modulus sys)))
-   1))
+  (let ((ncols   (lat2-ncols sys))        
+        (modulus (lat2-modulus sys)))
+    (when (> modulus (ash 1 30))
+      (error "Modulus is too large: ~A" modulus))
+    (when (< ncols 256)
+      (error "NCols should be > 256: ~A" ncols))
+    (with-mod modulus
+      (gen-random-vec ncols))
+    ))
 
 (defun lat2-gen-pkey (skey &optional (sys (get-lattice-system)))
   (with-mod (lat2-modulus sys)
@@ -73,12 +78,11 @@
   ;; integer in the range [1,2^nrows). We simply add the matrix rows
   ;; corresponding to non-zero bits in the selector integer.
   #F
-  (declare (vector fixnum pkey)
-           (integer sel))
   (let ((vsum (make-array (lat2-ncols sys)
+                          :element-type 'fixnum
                           :initial-element 0))
         (bsum 0))
-    (declare (vector fixnum vsum)
+    (declare ((simple-array fixnum 1) vsum)
              (fixnum bsum))
     (loop for vrow across m
           for b fixnum across pkey
@@ -96,8 +100,6 @@
 (defun lat2-encode1 (pkey bit sys)
   ;; bit 0, 1
   #F
-  (declare (vector fixnum pkey)
-           (fixnum bit))
   (with-mod (lat2-modulus sys)
     (let* ((nrows (lat2-nrows sys))
            (mat-a (lat2-matrix sys))
@@ -112,11 +114,11 @@
 (defun lat2-encode (pkey v &optional (sys (get-lattice-system)))
   ;; v should be a vector of octets
   ;; Encodes octet vector into a list of cyphertext vectors
+  #F
   (let* ((nb    (length v))
          (nbits (* 8 nb))
          (ans   (make-array nbits)))
-    (declare (vector (unsigned-byte 8) ans)
-             (fixnum nb nbits))
+    (declare (fixnum nb nbits))
     (loop for bix fixnum from 0 below nbits
           do
             (setf (aref ans bix)
@@ -132,6 +134,7 @@
 
 (defun lat2-decode1 (skey c)
   ;; c is a cryptotext vector
+  #F
   (let ((cdots (- (aref c 0)
                   (vdot (aref c 1) skey))))
     (declare (fixnum cdots))
@@ -140,12 +143,10 @@
 
 (defun lat2-decode (skey cs &optional (sys (get-lattice-system)))
   ;; decode a list of cyphertext vectors into an octet vector
-  (declare (vector fixnum skey))
+  #F
   (let* ((nel  (length cs))
          (bv   (make-array nel
                            :element-type 'bit)))
-    (declare (fixnum nel)
-             (vector bit bv))
     (with-mod (lat2-modulus sys)
       (loop for ix fixnum from 0 below nel
             do
@@ -157,13 +158,3 @@
   ;; general object decryption
   (values-list (coerce (loenc:decode (lat2-decode skey cs)) 'list)))
 
-#|
-(let* ((msg :hello)
-       (enc (lat2-enc *my-lat2-pkey* msg))
-       (dec (lat2-dec *my-lat2-skey* enc)))
-  (assert (eql dec msg))
-  dec)
-
-(inspect (lat2-enc *my-lat2-pkey* :hello))
-(inspect (lat2-decode *my-lat2-skey* (lat2-enc *my-lat2-pkey* :hello)))
-|#

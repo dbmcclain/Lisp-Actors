@@ -6,20 +6,6 @@
 (defpackage #:com.ral.crypto.lattice-crypto
   (:use #:common-lisp #:edec #:modmath #:vec-repr #:hash #:ac)
   (:export
-   #:with-skey
-   #:with-pkey
-   #:lat-enc    ;; for encoding general objects
-   #:lat-dec    ;; for decoding back into general objects
-   #:lat-encode ;; for encoding octet vector
-   #:lat-decode ;; for decoding to octet vector
-   #:lat-gen-skey
-   #:lat-gen-pkey
-   #:lat-gen-keys ;; create dummy pair (skey, pkey) for testing
-
-   #:plat-encoder
-   
-   ;; -------------------
-   ;; Lattice v/2
    #:lattice-system
    #:lat2-encode
    #:lat2-enc
@@ -60,33 +46,28 @@
 
 (defun vec+ (v1 v2)
   #F
-  (declare (vector fixnum v1 v2))
-  ;; (assert (eql (length v1) (length v2)))
+  (assert (eql (length v1) (length v2)))
   (map 'vector #'lm+ v1 v2))
 
 (defun vdot (v1 v2)
   #F
-  (declare (vector fixnum v1 v2))
-  ;; (assert (eql (length v1) (length v2)))
+  (assert (eql (length v1) (length v2)))
   (let* ((m     (mod-base))
          (nbits (integer-length m))
          (wrap  (- (ash 1 nbits) m))
          (nshft (- nbits))
          (bits  (byte nbits 0)))
-    (declare (fixnum nbits wrap nshft))
-    (lmod (loop for x1 fixnum across v1
-                for x2 fixnum across v2
+    (declare (fixnum m nbits wrap nshft))
+    (lmod (loop for x1 across v1
+                for x2 across v2
                 sum
                   (if (zerop x2)
                       0
-                    (the fixnum
-                         (let ((prod (* x1 x2)))
-                           (declare (fixnum prod))
-                           (+ (the fixnum (ldb bits prod))
-                              (the fixnum (* wrap (ash prod nshft))))
-                           ))
-                    ))
-          )))
+                    (let ((prod (* x1 x2)))
+                      (+ (ldb bits prod)
+                         (* wrap (ash prod nshft)))
+                      ))))
+    ))
 
 (defun mat*v (m v)
   #F
@@ -104,11 +85,9 @@
   ;; integer in the range [1,2^nrows). We simply add the matrix rows
   ;; corresponding to non-zero bits in the selector integer.
   #F
-  (declare (integer sel))
   (let ((vans (make-array (length (aref m 0))
                           :element-type 'fixnum
                           :initial-element 0)))
-    (declare (vector fixnum vans))
     (loop for vrow across m
           for ix fixnum from 0
           do
@@ -120,10 +99,10 @@
 
 (defun to-bitvec (v)
   #F
-  (declare (vector (unsigned-byte 8) v))
+  (declare ((simple-array (unsigned-byte 8) 1) v))
   (let ((bv (make-array (* 8 (length v))
                         :element-type 'bit)))
-    (declare (vector bit bv))
+    (declare ((simple-array bit 1) bv))
     (loop for x fixnum across v
           for ix fixnum from 0 by 8
           do
@@ -135,7 +114,7 @@
 
 (defun bitvec-to (bv pos nbits)
   #F
-  (declare (vector bit bv)
+  (declare ((simple-array bit 1) bv)
            (fixnum pos nbits))
   (let* ((nb  (length bv))
          (end (min (+ pos nbits) nb))
@@ -153,12 +132,12 @@
 
 (defun bitvec-to-octets (bv)
   #F
-  (declare (vector bit bv))
+  (declare ((simple-array bit 1) bv))
   (let* ((nel  (ash (length bv) -3))
          (ans  (make-array nel
                            :element-type '(unsigned-byte 8))))
     (declare (fixnum nel)
-             (vector (unsigned-byte 8) ans))
+             ((simple-array (unsigned-byte 8) 1) ans))
     (loop for ix fixnum from 0 below nel
           for bpos fixnum from 0 by 8
           do
@@ -169,7 +148,7 @@
   ;; access an octet vector at bit position ix
   ;; assumes big-endian encoding
   #F
-  (declare (vector (unsigned-byte 8) v)
+  (declare ((simple-array (unsigned-byte 8) 1) v)
            (fixnum ix))
   (let ((x  (aref v (ash ix -3))))
     (declare (fixnum x))
@@ -180,7 +159,7 @@
   ;; set actet vector v at bit position ix with bit value b
   ;; assumes big-endian encoding
   #F
-  (declare (vector (unsigned-byte 8) v)
+  (declare ((simple-array (unsigned-byte 8) 1) v)
            (fixnum ix)
            (bit b))
   (let* ((ixv  (ash ix -3))
@@ -365,396 +344,4 @@
         r)
       )))
 
-;; --------------------------------------------------------
-;; LWE Lattice Key-Pair Generation
-
-(defun lat-gen-skey (&key (ncols *lattice-ncols*) (modulus *lattice-m*))
-  (when (> modulus (ash 1 30))
-    (error "Modulus is too large: ~A" modulus))
-  (when (< ncols 256)
-    (error "NCols should be > 256: ~A" ncols))
-  (with-mod modulus
-    (list modulus
-          (coerce (cons 1 (gen-random-list ncols)) 'vector))))
-
-(defun lat-gen-pkey (skey &key (nrows *lattice-nrows*))
-  (destructuring-bind (m s) skey
-    (unless (> nrows (length s))
-      (error "NRows should be > ~A: ~A" (length s) nrows))
-    (with-mod m
-      (let* ((id     (hash/256 skey))
-             (xv     (subseq s 1))
-             (ncols  (length xv))
-             (amat   (gen-random-matrix nrows ncols))
-             (noise  (gen-noise-vec nrows))
-             (b      (vec+ (mat*v amat xv) noise))
-             (pkey   (make-array nrows)))
-        (dotimes (row nrows)
-          (let ((rowv (make-array (1+ ncols)
-                                  :element-type 'fixnum)))
-            (setf (aref rowv 0) (aref b row))
-            (replace rowv (map 'vector #'- (aref amat row))
-                     :start1 1)
-            (setf (aref pkey row) rowv)))
-        (list (str (hex id)) m pkey))
-      )))
-
-(defun lat-gen-keys ()
-  (let* ((skey (lat-gen-skey :ncols   *lattice-ncols*
-                             :modulus *lattice-m*))
-         (pkey (lat-gen-pkey skey
-                             :nrows   *lattice-nrows*)))
-    (values skey pkey)))
-
-;; ----------------------------------------------------
-;; LWE Lattice Encoding
-
-(defun lat-encode1 (pkey bit)
-  ;; pkey is [b | -A] matrix
-  ;; bit 0, 1
-  #F
-  (declare (fixnum bit))
-  (let* ((nrows (length pkey))
-         (r     (gen-random-sel nrows))
-         (v     (enc-mat*v pkey r)))
-    (declare (vector fixnum v))
-    (setf (aref v 0) (lm+ (aref v 0)
-                          (* bit (ash (mod-base) -1))))
-    v))
-
-(defun lat-encode (pkey v)
-  ;; v should be a vector of octets
-  ;; Encodes octet vector into a list of cyphertext vectors
-  (with-mod *lattice-m*
-    (let* ((nb    (length v))
-           (nbits (* 8 nb))
-           (ans   (make-array (1+ nbits))))
-      (declare (vector (unsigned-byte 8) ans)
-               (fixnum nb nbits))
-      (setf (aref ans 0) *lattice-m*)
-      (loop for bix from 0 below nbits
-            for vix from 1
-            do
-              (setf (aref ans vix)
-                    (lat-encode1 pkey (bref v bix))))
-      ans)))
-
-(defun lat-enc (pkey &rest objs)
-  ;; general object encryption
-  (lat-encode pkey (loenc:encode (coerce objs 'vector))))
-
-(defun do-with-pkey (pkey fn)
-  (destructuring-bind (id m ptrn) pkey
-    (declare (ignore id))
-    (let ((*lattice-m* m))
-      (funcall fn ptrn))
-    ))
-
-(defmacro with-pkey ((key pkey) &rest body)
-  `(do-with-pkey ,pkey (lambda (,key)
-                         ,@body)))
-
-#+:LISPWORKS
-(editor:setup-indent "with-pkey" 1)
-
-;; -------------------------------------------------
-;; Parallel Lattice encryption for Actors-based code
-
-(defun n-gate-beh (cust n)
-  #F
-  (declare (fixnum n))
-  (lambda (nel)
-    (declare (fixnum nel))
-    (let ((nm (- n nel)))
-      (declare (fixnum nm))
-      (if (plusp nm)
-          (become (n-gate-beh cust nm))
-        (send cust))
-      )))
-
-(deflex plat-encoder
-  (create
-   (lambda (cust pkey v)
-     ;; v should be a vector of octets
-     ;; Encodes octet vector into a list of cyphertext vectors
-     #F
-     (declare (vector (unsigned-byte 8) v))
-     (with-pkey (pkey pkey)
-       (with-mod *lattice-m*
-         (let* ((nb    (length v))
-                (nbits (* 8 nb))
-                (ans   (make-array (1+ nbits)))
-                (base  (mod-base))
-                (ngrp  256)
-                (inner (create
-                        (lambda (cust start)
-                          (declare (fixnum bix))
-                          (let ((end (min (+ start ngrp) nbits)))
-                            (declare (fixnum end))
-                            (with-mod base
-                              (loop for bix from start below end do
-                                      (setf (aref ans (1+ bix))
-                                            (lat-encode1 pkey (bref v bix))))
-                              (send cust (- end start)))))
-                        ))
-                (outer (create
-                        (lambda (cust)
-                          (loop for start from 0 below nbits by ngrp do
-                                  (send inner self start))
-                          (become (n-gate-beh cust nbits)))
-                        )))
-           (declare (vector (unsigned-byte 8) ans)
-                    (fixnum nb nbits base ngrp))
-           (setf (aref ans 0) *lattice-m*)
-           (β _
-               (send outer β)
-             (send cust ans))
-           ))))))
-
-;; ---------------------------------------------------------------
-;; LWE Lattice Decoding
-
-(defun lat-decode1 (skey c)
-  ;; c is a cryptotext vector
-  (let ((cdots (vdot c skey)))
-    (declare (fixnum cdots))
-    (mod (round cdots (ash (mod-base) -1)) 2)
-    ))
-
-(defun lat-decode (skey cs)
-  ;; decode a list of cyphertext vectors into an octet vector
-  (declare (vector fixnum skey))
-  (let ((m (aref cs 0)))
-    (declare (fixnum m))
-    (assert (eql m *lattice-m*))
-    (let* ((nel  (length cs))
-           (bv   (make-array (1- nel)
-                             :element-type 'bit)))
-      (declare (fixnum nel)
-               (vector bit bv))
-      (with-mod m
-        (loop for ix fixnum from 1 below nel
-              for jx fixnum from 0
-              do
-                (setf (sbit bv jx) (lat-decode1 skey (aref cs ix))))
-        (bitvec-to-octets bv)
-        ))))
-
-(defun lat-dec (skey cs)
-  ;; general object decryption
-  (values-list (coerce (loenc:decode (lat-decode skey cs)) 'list)))
-
-(defun do-with-skey (skey fn)
-  (destructuring-bind (m key) skey
-    (let ((*lattice-m* m))
-      (funcall fn key))))
-
-(defmacro with-skey ((key skey) &body body)
-  `(do-with-skey ,skey (lambda (,key)
-                         ,@body)))
-
-#+:LISPWORKS
-(editor:setup-indent "with-skey" 1)
-
-;; -------------------------------------------------
-
-#|
-(defvar *tst-skey*)
-(defvar *tst-pkey*) ;
-
-(defun re-key ()
-  (multiple-value-bind (skey pkey)
-      (lat-gen-keys)
-    (setf *tst-skey* skey
-          *tst-pkey* pkey)))
-(re-key)
-
-;; -------------------------
-
-(with-skey (skey *tst-skey*)
-  (lat-dec skey
-           (with-pkey (pkey *tst-pkey*)
-                      (lat-enc pkey :hello 'there pi 15 (hash/256 :hash)))))
-
-(with-pkey (pkey *tst-pkey*)
-  (let ((enc (lat-enc pkey (hash/256 :hello 'there pi 15))))
-    (inspect enc)
-    (with-skey (skey *tst-skey*)
-      (lat-dec skey enc))))
-
-(with-pkey (pkey *tst-pkey*)
-  (let ((enc (lat-encode pkey (vec (hash/256 :hello 'there pi 15)))))
-    (inspect enc)))
-
-(let* ((v (vec (hash/256 :hello 'there pi 15)))
-       (e (with-pkey (pkey *tst-pkey*)
-            (lat-encode pkey v)))
-       (enc (loenc:encode (coerce e 'vector))))
-  (length enc))
-  
-(defun chk-timing (&optional (ntimes 1000))
-  (let ((v (vec (hash/256 :hello 'there pi 15))))
-    (time
-     (dotimes (ix ntimes)
-       (with-skey (skey *tst-skey*)
-         (lat-decode skey
-                     (with-pkey (pkey *tst-pkey*)
-                       (lat-encode pkey v)))))
-     )))
-
-;; approx 1080 bps (yes, bits) at 320x256 size
-(chk-timing 100)
-
-(inspect
- (let ((v (vec (hash/256 :hello 'there pi 15))))
-   (with-pkey (pkey *tst-pkey*)
-     (lat-encode pkey v))))
-
-(with-pkey (pkey *tst-pkey*)
-  (let* ((v (lat-encode pkey (vec (hash/256 :hello 'there pi 15))))
-         (lst (mapcan (lambda (x)
-                        (coerce x 'list))
-                      (coerce (subseq v 1) 'list))))
-    (plt:histogram 'histo lst
-                   :clear t
-                   :title "Lattice Encryption Image Histogram"
-                   :xtitle "Cryptotext Value"
-                   :ytitle "Probability Density"
-                   )))
-  
-(let* ((h     (hash/256 :hello 'there pi 15))
-       (v     (with-pkey (pkey *tst-pkey*)
-                (coerce (subseq (lat-encode pkey (vec h)) 1) 'list)
-                ))
-       (nrows (length v))
-       (ncols (length (car v)))
-       (magn  2)
-       (img   (make-array (list nrows ncols)
-                          :element-type 'fixnum)))
-  (loop for row from 0 below nrows
-        for rowv in v
-        do
-          (loop for col from 0 below ncols
-                for x across rowv
-                do
-                  (setf (aref img row col) x)))
-  (plt:window 'img
-              :height (* magn nrows)
-              :width  (* magn ncols))
-  (plt:tvscl 'img (vm:shifth img)
-             :clear t
-             :magn  magn)
-  (hex h))
-
-(defun chk-errs (&optional (ntimes 1000))
-  ;; Trace:  R = rekey, . = normal, x = soft error, X = hard error
-  (let ((v (vec (hash/256 :hello 'there pi 15))))
-    (dotimes (ix ntimes)
-      (when (zerop (mod ix 100))
-        (terpri)
-        (princ #\R)
-        (re-key))
-      (let ((ans (with-skey (skey *tst-skey*)
-                   (lat-decode skey
-                               (with-pkey (pkey *tst-pkey*)
-                                 (lat-encode pkey v))))))
-        (princ
-         (if (equalp v ans)
-             #\.
-           #\X))
-        ))))
-
-(chk-errs 1000)
-(chk-errs 100)
-
-(let* ((nbits 30)
-       (wrap  35)
-       (base  (- (ash 1 nbits) wrap))
-       (rsq   (mod (* wrap wrap) base))
-       (ninv  -6)
-       (shft  (- nbits))
-       (bits  (byte 30 0)))
-  (declare (fixnum nbits wrap base rsq ninv shft))
-  
-  (defun redc (x)
-    #F
-    (declare (fixnum x))
-    (let* ((q  (ldb bits (* (ldb bits x) ninv)))
-           (a  (ash (- x (* q base)) shft)))
-      (declare (fixnum q a))
-      (if (minusp a)
-          (+ a base)
-        a)))
-  
-  (defun to-monty (x)
-    #F
-    (declare (fixnum x))
-    (redc (* x rsq)))
-
-  (defun from-monty (x)
-    #F
-    (declare (fixnum x))
-    (redc x))
-
-  (defun f*monty (a b)
-    #F
-    (declare (fixnum a b))
-    (redc (* a b))))
-
-
-(defun tst ()
-  (with-mod *lattice-m*
-    (let ((niter 1000)
-          (x  (gen-random-vec 256))
-          (a  (gen-random-matrix 320 256))
-          (m  (mod-base)))
-      (time
-       (dotimes (ix niter)
-         (map 'vector (lambda (av)
-                        (mod (reduce #'+
-                                     (map 'vector (lambda (a b)
-                                                    (mod (* a b) m))
-                                          av x))
-                             m))
-              a)))
-      (let ((y  (map 'vector #'to-monty x))
-            (b  (map 'vector (lambda (av)
-                               (map 'vector #'to-monty av))
-                     a)))
-        (time
-         (dotimes (ix niter)
-           (map 'vector (lambda (av)
-                          (mod (reduce #'+
-                                       (map 'vector #'f*monty av y))
-                               m))
-                b))))
-      )))
-(tst)
-
-(let ((bv (make-array 8
-                      :element-type 'bit)))
-  (loop for ix from 0
-        for jx from 7 downto 0
-        do
-        (setf (sbit bv ix) (ldb (byte 1 jx) 15)))
-  bv)
-
-(bitvec-to-octet (to-bvec (vec (hash/256 :hello 'there pi 15))) 8)
-
-(defun tst-bits (&optional (nel 10000))
-  ;; Binomial distribution for 320 trials of 50/50 outcome.
-  ;; Mean = 160, Stdev ~ 0.5 * Sqrt[320] = 8.94
-  (let* ((nbits 320)
-         (vals (loop repeat nel collect
-                       (logcount (prng:ctr-drbg-int nbits)))))
-    (print (list (float (vm:mean vals)) (vm:stdev vals)))
-    (plt:histogram 'histo vals
-                   :clear t
-                   :title "Count of Nonzero Bits in 30-bit Random Integers"
-                   :xtitle "Number of Nonzero Bits"
-                   :ytitle "Probability Density")))
-(tst-bits)
-
-
-|#
 ;; ----------------------------------------------------------------------
