@@ -39,7 +39,11 @@
 (deflex lattice-pkey
   (create
    (lambda (cust node)
-     (send kvdb:kvdb cust :find (node-to-kw node :prefix "lat2-pkey-")))
+     (β (pkey)
+         (send kvdb:kvdb β :find (node-to-kw node :prefix "lat2-pkey-"))
+       (unless pkey
+         (error "No PKEY for node: ~A" node))
+       (send cust pkey)))
    ))
 
 (deflex lat2-encoder
