@@ -75,10 +75,10 @@
   #F
   (declare (vector fixnum pkey)
            (integer sel))
-  (let ((vans (make-array (lat2-ncols sys)
+  (let ((vsum (make-array (lat2-ncols sys)
                           :initial-element 0))
         (bsum 0))
-    (declare (vector fixnum vans)
+    (declare (vector fixnum vsum)
              (fixnum bsum))
     (loop for vrow across m
           for b fixnum across pkey
@@ -86,9 +86,9 @@
           do
             (when (logbitp ix sel)
               (incf bsum b)
-              (map-into vans #'+ vans vrow)))
+              (map-into vsum #'+ vsum vrow)))
     (values (lmod bsum)
-            (map-into vans #'lmod vans))))
+            (map-into vsum #'lmod vsum))))
 
 ;; ----------------------------------------------------
 ;; LWE Lattice Encoding
