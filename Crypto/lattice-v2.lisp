@@ -56,7 +56,7 @@
 (defun lat2-gen-pkey (skey &optional (sys (get-lattice-system)))
   (with-mod (lat2-modulus sys)
     (let* ((amat   (lat2-matrix sys))
-           (nrows  (lat2-ncols sys))
+           (nrows  (lat2-nrows sys))
            (noise  (gen-noise-vec nrows)))
       (vec+ (mat*v amat skey) noise))))
 
@@ -99,7 +99,7 @@
   (declare (vector fixnum pkey)
            (fixnum bit))
   (with-mod (lat2-modulus sys)
-    (let* ((nrows (length pkey))
+    (let* ((nrows (lat2-nrows sys))
            (mat-a (lat2-matrix sys))
            (r     (gen-random-sel nrows)))
       (multiple-value-bind (bsum vsum)

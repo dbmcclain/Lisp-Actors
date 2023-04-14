@@ -176,7 +176,7 @@
    ))
 
 #|
-(defun lat2-gen-all (&optional (sys (get-lattice-system)))
+(defun lat2-gen-all (&optional (sys (lattice::get-lattice-system)))
   (with-open-file (f "~/.syzygy"
                      :direction :output
                      :if-exists :supersede
@@ -190,7 +190,7 @@
         collect
           (let ((sym  (node-to-kw node :prefix "lat2-pkey-")))
             (multiple-value-bind (skey pkey)
-                (lat2-gen-keys sys)
+                (lattice::lat2-gen-keys sys)
               (with-standard-io-syntax
                 (print (list node skey pkey) f))
               (list sym skey pkey)))
