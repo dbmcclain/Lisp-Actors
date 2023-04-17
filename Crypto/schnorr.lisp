@@ -7,7 +7,7 @@
 (defvar *ssig-nonce*  (int (crypto-utils:make-nonce)))
 
 (defun ssig-nonce ()
-  (sys:atomic-incf *ssig-nonce*))
+  (mpc:atomic-incf *ssig-nonce*))
 
 (defun gen-sig-random (msg)
   ;; making r depend on message ensures that no two messages will have the same r, sans hash collisions

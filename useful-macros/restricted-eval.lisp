@@ -88,11 +88,21 @@
 
 (defparameter *restrict-reader*  nil)
 
+#+:LISPWORKS
 (lw:defadvice (cl:find-package restricted-eval :around)
     (name/package)
   (declare (optimize speed))
   (or *restrict-reader*
       (lw:call-next-advice name/package)))
+
+#+:ALLEGRO
+(progn
+  (excl:def-fwrapper restricted-eval (name/package)
+    (declare (optimize speed))
+    (or *restrict-reader*
+	(excl:call-next-fwrapper)))
+
+  (excl:fwrap 'find-package 'rrwfp 'restricted-eval))
 
 ;; ---------------------------
 

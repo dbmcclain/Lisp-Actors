@@ -88,7 +88,7 @@ THE SOFTWARE.
 
 (defun align-pwr2 (val pwr2)
   (check-type val (integer 0))
-  (check-type pwr2 (fixnum 0))
+  (check-type pwr2 (integer 0))
   (unchecked-align-pwr2 val pwr2))
 
 ;; -----------------------------------------------------------

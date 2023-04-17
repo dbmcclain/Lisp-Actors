@@ -30,10 +30,10 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------------
 
 (defun ctr-hash-prng ()
-  (or (mp:process-private-property 'ctr-hash-prng)
-      (setf (mp:process-private-property 'ctr-hash-prng)
+  (or (mpc:process-private-property 'ctr-hash-prng)
+      (setf (mpc:process-private-property 'ctr-hash-prng)
             (ironclad:make-prng :fortuna :seed :urandom))))
-        
+
 (defun get-entropy (nb)
   (ironclad:random-data nb (ctr-hash-prng)))
 
@@ -108,8 +108,8 @@ THE SOFTWARE.
     state))
 
 (defun ctr-hash-drbg-state ()
-  (or (mp:process-private-property 'ctr-hash-drbg-state)
-      (setf (mp:process-private-property 'ctr-hash-drbg-state)
+  (or (mpc:process-private-property 'ctr-hash-drbg-state)
+      (setf (mpc:process-private-property 'ctr-hash-drbg-state)
             (make-new-ctr-hash-drbg-state))))
 
 (defmethod get-ctr-hash-drbg-bits ((state ctr-hash-drbg-state) nb)

@@ -24,13 +24,13 @@
 (defstruct ecc-cmpr-pt
   cx)
 
-#|
+#+:ALLEGRO
 (defmethod make-load-form ((point ecc-pt) &optional env)
   (make-load-form-saving-slots point :environment env))
 
+#+:ALLEGRO
 (defmethod make-load-form ((point ecc-proj-pt) &optional env)
   (make-load-form-saving-slots point :environment env))
-|#
 
 (defmethod vec-repr:int ((pt ecc-pt))
   (vec-repr:int (ed-compress-pt pt)))

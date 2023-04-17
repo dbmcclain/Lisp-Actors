@@ -140,7 +140,7 @@ THE SOFTWARE.
                 (:file "file-eq")
                 (:file "fpl-hashtable")
                 (:file "restricted-eval")
-                (:file "debug-stream")
+                #-:ALLEGRO (:file "debug-stream")
                 (:file "jd")
                 )
   :serial       t

@@ -155,6 +155,12 @@
 ;; ---------------------------------------------
 ;; UCS - convert UTF-8 string to Unicode
 
+#+:ALLEGRO
+(defgeneric ucs (str)
+  (:method ((str string))
+	   str))
+
+#-:ALLEGRO
 (defgeneric ucs (str)
   (:method ((str string))
    str)

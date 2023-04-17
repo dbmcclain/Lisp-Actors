@@ -44,6 +44,7 @@
 
 (defmethod backend-store-object :around ((backend safe-marshaling-backend)
                                          obj stream)
+  (declare (ignore obj))
   (let ((pos (file-position stream)))
     (handler-case
         (call-next-method)

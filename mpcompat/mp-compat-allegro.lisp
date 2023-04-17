@@ -62,10 +62,10 @@ THE SOFTWARE.
   "Set the property named by key in the process' property list to val"
   (getf (process-plist proc) key default))
 
-(defun set-process-plist-entry (proc key val)
+(defun (setf process-plist-entry) (val proc key &optional default)
   "Set the property named by key in the process' property list to val"
   (let ((plist (process-plist proc)))
-    (setf (getf plist key) val
+    (setf (getf plist key default) val
           (mp:process-property-list proc) plist)))
 
 ;; --------------------------------------------------------------------------
@@ -75,24 +75,18 @@ THE SOFTWARE.
   (let ((plist (process-plist (or proc (current-process)))))
     (getf plist key default)))
 
-(defun (setf process-property) (value key &optional proc default)
+(defun (setf process-property) (val key &optional proc default)
   (let* ((proc  (or proc (current-process)))
          (plist (process-plist proc)))
-    (setf (getf plist key default) value
+    (setf (getf plist key default) val
           (mp:process-property-list proc) plist)
     ))
-
-;; (defsetf process-property set-process-property)
-
 
 (defun process-private-property (key &optional default)
   (process-property key nil default))
 
-(defun (setf process-private-property) (value key &optional default)
-  (setf (process-property key nil default) value))
-
-;; (defsetf process-private-property set-process-private-property)
-
+(defun (setf process-private-property) (val key &optional default)
+  (setf (process-property key nil default) val))
 
 ;; --------------------------------------------------------------------------
 
