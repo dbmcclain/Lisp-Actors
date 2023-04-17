@@ -355,6 +355,7 @@ THE SOFTWARE.
 ;;   present is the set whose top node contains an element equal to x
 
 (defmethod split ((tree empty) x)
+  (declare (ignore x))
   (list (empty) nil (empty)))
 
 (defmethod split ((tree node) x)
@@ -375,6 +376,7 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------------
 
 (defmethod mem ((tree empty) x)
+  (declare (ignore x))
   nil)
 
 (defmethod mem ((tree node) x)
@@ -404,6 +406,7 @@ THE SOFTWARE.
 
 
 (defmethod remove ((tree empty) x)
+  (declare (ignore x))
   tree)
 
 (defmethod remove ((tree node) x)
@@ -446,9 +449,11 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------------
 
 (defmethod intersection ((s1 empty) s2)
+  (declare (ignore s2))
   (empty))
 
 (defmethod intersection (s1 (s2 empty))
+  (declare (ignore s1))
   (empty))
 
 (defmethod intersection ((s1 node) (s2 node))
@@ -464,6 +469,7 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------------
 
 (defmethod diff ((s1 empty) s2)
+  (declare (ignore s2))
   s1)
 
 (defmethod diff (s1 (s2 empty))
@@ -503,9 +509,11 @@ THE SOFTWARE.
   0)
 
 (defmethod compare-enums ((e1 null) e2)
+  (declare (ignore e2))
   -1)
 
 (defmethod compare-enums (e1 (e2 null))
+  (declare (ignore e1))
   1)
 
 (defmethod compare-enums ((e1 cons) (e2 cons))
@@ -528,9 +536,11 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------------
 
 (defmethod subset ((s1 empty) s2)
+  (declare (ignore s2))
   t)
 
 (defmethod subset (s1 (s2 empty))
+  (declare (ignore s1))
   nil)
 
 (defmethod subset ((s1 node) (s2 node))
@@ -559,6 +569,7 @@ THE SOFTWARE.
 ;; --------------------------------------------------------
 
 (defmethod iter ((s empty) fn)
+  (declare (ignore fn))
   (values))
 
 (defmethod iter ((s node) fn)
@@ -571,6 +582,7 @@ THE SOFTWARE.
     (iter r fn)))
 
 (defmethod fold ((s empty) fn accu)
+  (declare (ignore fn))
   accu)
 
 (defmethod fold ((s node) fn accu)
@@ -581,6 +593,7 @@ THE SOFTWARE.
           (funcall fn v (fold l fn accu)))))
 
 (defmethod every ((s empty) pred)
+  (declare (ignore pred))
   t)
 
 (defmethod every ((s node) pred)
@@ -593,6 +606,7 @@ THE SOFTWARE.
 
 
 (defmethod some ((s empty) pred)
+  (declare (ignore pred))
   nil)
 
 (defmethod some ((s node) pred)
@@ -607,6 +621,7 @@ THE SOFTWARE.
   (filter-aux s pred (empty)))
 
 (defmethod filter-aux ((s empty) pred accu)
+  (declare (ignore pred))
   accu)
 
 (defmethod filter-aux ((s node) pred accu)
@@ -622,6 +637,7 @@ THE SOFTWARE.
   (partition-aux s pred (list (empty) (empty))))
 
 (defmethod partition-aux ((s empty) pred pair)
+  (declare (ignore pred))
   pair)
 
 (defmethod parition-aux ((s node) pred pair)
@@ -689,52 +705,55 @@ THE SOFTWARE.
                 ))
 |#
 
-(defmethod set-children (tree layout)
-  nil)
-
-(defmethod set-children ((tree node) layout)
-  (with-node-bindings (l _ r) tree
-    (let ((lx (if (is-empty l)
-                  (vector)
-                l))
-          (rx (if (is-empty r)
-                  (vector)
-                r)))
-      (cond ((and (is-empty l)
-                  (is-empty r))
-             nil)
-            (t
-             (case layout
-               ((:left-right :right-left) (list rx lx))
-               (t  (list lx rx))))
-            ))))
-
-(defmethod print-node (x keyfn)
-  "")
-
-(defmethod print-node ((tree node) keyfn)
-  (with-node-bindings (_ v) tree
-    (with-standard-io-syntax
-      (prin1-to-string (funcall keyfn v))
-      )))
-
-(defmethod key-fn (item)
-  item)
-
 #+:LISPWORKS
-(defmethod view-set ((s tree) &key (key #'key-fn) (layout :left-right) &allow-other-keys)
-  (capi:contain
-   (make-instance 'capi:graph-pane
-                  :layout-function   layout
-                  :roots             (list s)
-                  :children-function #'(lambda (node)
-                                         (set-children node layout))
-                  :print-function    #'(lambda (node)
-                                         (print-node node key))
-                  :action-callback   #'(lambda (item intf)
-                                         (declare (ignore intf))
-                                         (inspect item))
-                  )))
+(progn
+  (defmethod set-children (tree layout)
+    (declare (ignore tree layout))
+    nil)
+
+  (defmethod set-children ((tree node) layout)
+    (with-node-bindings (l _ r) tree
+      (let ((lx (if (is-empty l)
+                    (vector)
+                  l))
+            (rx (if (is-empty r)
+                    (vector)
+                  r)))
+        (cond ((and (is-empty l)
+                    (is-empty r))
+               nil)
+              (t
+               (case layout
+                 ((:left-right :right-left) (list rx lx))
+                 (t  (list lx rx))))
+              ))))
+  
+  (defmethod print-node (x keyfn)
+    (declare (ignore x keyfn))
+    "")
+  
+  (defmethod print-node ((tree node) keyfn)
+    (with-node-bindings (_ v) tree
+      (with-standard-io-syntax
+        (prin1-to-string (funcall keyfn v))
+        )))
+  
+  (defmethod key-fn (item)
+    item)
+  
+  (defmethod view-set ((s tree) &key (key #'key-fn) (layout :left-right) &allow-other-keys)
+    (capi:contain
+     (make-instance 'capi:graph-pane
+                    :layout-function   layout
+                    :roots             (list s)
+                    :children-function #'(lambda (node)
+                                           (set-children node layout))
+                    :print-function    #'(lambda (node)
+                                           (print-node node key))
+                    :action-callback   #'(lambda (item intf)
+                                           (declare (ignore intf))
+                                           (inspect item))
+                    ))) )
 
 #|
 ;; examine effects of constructing a tree in pure ascending or descending order

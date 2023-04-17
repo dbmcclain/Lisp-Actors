@@ -31,11 +31,14 @@ THE SOFTWARE.
 |#
 
 ;; --------------------------------------------------
-(in-package #:mp-compatibility)
+(in-package #:com.ral.mpcompat)
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) #|(SAFETY 0)|# #+:LISPWORKS (FLOAT 0)))
 ;; --------------------------------------------------
 ;; Compatibility Layer
+
+(defmacro defglobal (name val)
+  `(defvar ,name ,val))
 
 (defun current-process ()
   "Get the current Lisp process."
@@ -160,7 +163,7 @@ THE SOFTWARE.
 
 ;; --------------------------------------------------------------------------
 
-(defun make-mailbox (&key size)
+(defun make-mailbox (&key size &allow-other-keys)
   "Make a Lisp mailbox."
   (declare (ignorable size))
   (make-instance 'mp:queue))
@@ -225,6 +228,12 @@ A null timeout means wait forever."
 (defmacro atomic-decf (place)
   `(excl:decf-atomic ,place))
 
+(defmacro atomic-push (item place)
+  `(excl:push-atomic ,item ,place))
+
+(defmacro atomic-pop (place)
+  `(excl:pop-atomic ,place))
+
 (defun ensure-memory-after-store ()
   t)
 
@@ -239,3 +248,15 @@ A null timeout means wait forever."
   `(compare-and-swap ,place ,old ,new))
 
 
+(defun funcall-async (fn &rest args)
+  (apply #'mp:process-run-function "Async" fn args))
+
+(defun get-current-process ()
+  (current-process))
+
+(defun current-process-kill ()
+  (process-kill (current-process)))
+
+(defun process-terminate (proc &key join-timeout force-timeout)
+  (declare (ignore join-timeout force-timeout))
+  (process-kill proc))

@@ -91,11 +91,10 @@
 (deflex filer
   (alambda
    ((cust :open fname . args)
-    (apply #'(lambda (&rest _ &key
-                            (op-timeout  +DEFAULT-OP-TIMEOUT+)
-                            (close-after +DEFAULT-CLOSE-TIMEOUT+)
-                            open-args)
-               (declare (ignore _))
+    (apply #'(lambda (&key
+                      (op-timeout  +DEFAULT-OP-TIMEOUT+)
+                      (close-after +DEFAULT-CLOSE-TIMEOUT+)
+                      open-args)
                (let ((fd  (apply #'open fname open-args)))
                  (actors ((chan        (serializer-beh
                                         (create (open-filer-beh fd))

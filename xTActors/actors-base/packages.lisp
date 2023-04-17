@@ -314,6 +314,8 @@ THE SOFTWARE.
    #:ask-timeout
    #:check-for-errors
    #:timed-out
+
+   #:do-nothing
    ))
 
 #+(OR :ALLEGRO :CCL)
@@ -332,9 +334,6 @@ THE SOFTWARE.
    #:com.ral.actors
    #+(OR :ALLEGRO :CCL) #:com.ral.ansi-timer
    #:com.ral.usec)
-  #+:LISPWORKS
-  (:import-from #:lw
-   #:do-nothing)
   (:import-from #:um
    #:curry
    #:rcurry
@@ -353,10 +352,7 @@ THE SOFTWARE.
   (:use
    #:common-lisp
    #:com.ral.actors
-   #:com.ral.actors.base)
-  #+:LISPWORKS
-  (:import-from #:lw
-   #:do-nothing))
+   #:com.ral.actors.base))
 
 (defpackage #:com.ral.actors.user
   (:use

@@ -56,6 +56,8 @@ THE SOFTWARE.
                 #+(AND :COM.RAL :LISPWORKS) (:file "ctypes")
                 (:file "useful-macros")
                 #+:LISPWORKS (:file "editor-extensions")
+                (:file "encaps-type")
+                (:file "rmw-v2")
                 (:file "timeout")
 		(:file "usec")
                 #+(AND :LISPWORKS :MACOSX) (:file "OSX-UUID-Generate")
@@ -81,7 +83,6 @@ THE SOFTWARE.
                 (:file "bb")
                 
                 (:file "encstr")
-                (:file "rmw-v2")
                 (:file "capture")
                 ;; (:file "scraps")
                 (:file "pandoric")
@@ -123,7 +124,6 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
 
                 #+:LISPWORKS (:file "fpctl")
-                (:file "encaps-type")
                 (:file "clc")
 		(:file "comprehensions")
                 (:file "ffs")

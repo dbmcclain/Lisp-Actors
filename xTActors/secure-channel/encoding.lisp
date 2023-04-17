@@ -42,6 +42,13 @@
     ))
 
 ;; ----------------------------------------------------
+
+(defmethod ord:compare ((a uuid:uuid) (b uuid:uuid))
+  "Compare two UUIDs for ordering, as if by considering them
+               to be 128-bit integers"
+  (uuid:compare-uuid a b))
+
+;; ----------------------------------------------------
 ;; Useful primitives...
 
 (defun encrypt/decrypt (ekey seq bytevec)

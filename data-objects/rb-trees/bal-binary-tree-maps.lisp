@@ -58,6 +58,7 @@ THE SOFTWARE.
   (not (eql (map-cell-val a) (map-cell-val b))))
 
 (defmethod different-value (a b)
+  (declare (ignore a b))
   t)
 
 (defmethod add ((map tree) key val &key (replace t))

@@ -744,7 +744,8 @@ THE SOFTWARE.
 (progn
   (defvar *whitespace-chars*
       (list #\space #\tab #\newline #\return #\backspace #\Page))
-  
+
+  #+nil
   (defun whitespace-char-p (c)
     (member c *whitespace-chars*))
   

@@ -26,12 +26,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(defpackage :uuidgen
+(defpackage :com.ral.uuidgen
   (:use #:common-lisp)
   (:export
    #:generate))
 
-(in-package :uuidgen)
+(in-package :com.ral.uuidgen)
 
 ;; (require :foreign)
 

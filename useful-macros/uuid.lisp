@@ -682,5 +682,3 @@ built according code-char of each number in the uuid-string"
                       (ldb (byte 8. pos) mac))
                 )))))
 
-
-

@@ -146,7 +146,7 @@ THE SOFTWARE.
     ))
 |#
 
-#+(OR :WIN32 :ALLEGRO)
+#+:WIN32
 (progn
   #-:ALLEGRO
   (fli:define-foreign-function (_getTickCount "GetTickCount" :source)
@@ -246,3 +246,90 @@ THE SOFTWARE.
 #|
 (- (truncate (get-time-usec) 1000000) (get-universal-time))
 |#
+
+#+:xALLEGRO
+(progn
+  (require :foreign)
+  
+  (ff:def-foreign-call (_queryPerformanceCounter "QueryPerformanceCounter")
+      ((ans (:pointer :long-long)))
+    :returning :int
+    :convention :stdcall)
+
+  (defun queryPerformanceCounter ()
+    (let ((ctr  (make-array 1
+                            :element-type '(unsigned-byte 64)
+                            :initial-element 0)))
+        (_queryPerformanceCounter ctr)
+        (aref ctr 0)))
+  
+  
+  (ff:def-foreign-call (_queryPerformanceFrequency "QueryPerformanceFrequency")
+      ((ans (:pointer :long-long)))
+    :returning :int
+    :convention :stdcall)
+
+  (defun queryPerformanceFrequency ()
+    (let ((ctr  (make-array 1
+                            :element-type '(unsigned-byte 64)
+                            :initial-element 0)))
+      (_queryPerformanceFrequency ctr)
+      (aref ctr 0)))
+  
+  
+  (ff:def-foreign-call (_GetSystemTimeAsFileTime "GetSystemTimeAsFileTime")
+      ((ans (:pointer :long)))
+    :returning :int
+    :convention :stdcall)
+
+  (defun getSystemTimeAsFileTime ()
+    ;; returns time in 100ns units - but seems only good to 1ms
+    (let ((ctr (make-array 2
+                           :elemment-type '(unsigned-byte 32)
+                           :initial-element 0)))
+        (_GetSystemTimeAsFileTime ctr)
+        (logior (ash (aref ctr 1) 32)
+                (aref ctr 0))
+        ))
+  
+
+  #|
+  
+  (defvar *last-time* 0)
+  (defvar *time-incr* 0)
+
+  (defun get-time-usec ()
+    (let ((now (get-universal-time)))
+      (if (= now *last-time*)
+	  (incf *time-incr*)
+	(setf *time-incr* 0
+	      *last-time* now))
+      (+ (* now 1000 1000) *time-incr*)))
+  
+  (defun adjust-to-standard-universal-time-usec (tm)
+    tm)
+  |#
+  #|
+  (defun get-time-usec ()
+    (round (getSystemTimeAsFileTime) 10))
+
+  (defun adjust-to-standard-universal-time-usec (tm)
+    (declare (integer tm))
+    (- tm #.(* 1000000 9435484800)))
+  |#
+
+  (defvar *rate* nil)
+  (defvar *utc-offs* nil)
+  
+  (defun get-time-usec ()
+    (let ((rate (or *rate*
+                    (setf *rate* (queryPerformanceFrequency)))))
+      (round (* (queryPerformanceCounter) 1000000) rate)))
+
+  (defun adjust-to-standard-universal-time-usec (tm)
+    (declare (integer tm))
+    (let ((offs (or *utc-offs*
+                    (setf *utc-offs* (- (* 1000000 (get-universal-time))
+                                        (get-time-usec))))))
+      (+ tm offs)))
+  )

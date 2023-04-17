@@ -50,4 +50,5 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :SERIAL T
   :depends-on   ("com.ral.useful-macros"
                  ;; "com.ral.cps"
+                 #+:allegro "com.ral.prio-queue"
                  ))

@@ -306,7 +306,7 @@
    ))
 
 (defmacro def-actor (name &optional beh)
-  (lw:with-unique-names (behe)
+  (let ((behe (gensym (string :behe))))
     `(deflex ,name 
        (let ((,behe ,(if beh
                          `,beh 

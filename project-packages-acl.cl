@@ -13,8 +13,8 @@
 
 (in-package #:com.ral.project-packages)
 
-(defvar *mappings*  (make-hash-table :test #'string=))
-(defvar *map-lock*  (mp:make-lock :sharing t))
+(defvar *mappings*  (make-hash-table :test 'string=))
+(defvar *map-lock*  (mp:make-process-lock))
 (defvar *bypass-mapping*   nil)
 
 (defun normalize (name)
@@ -28,7 +28,7 @@
         ))
 
 (defun do-defproject (pairs)
-  (mp:with-exclusive-lock (*map-lock*)
+  (mp:with-process-lock (*map-lock*)
     (dolist (pair pairs)
       (destructuring-bind (from-name to-name) pair
         (let ((from-name (normalize from-name)))
@@ -49,7 +49,7 @@
                to-name)
            (when (find norm-name froms :test #'string=)
              (error "Cyclic mappong ~A" norm-name))
-           (mp:with-sharing-lock (*map-lock*)
+           (mp:with-process-lock (*map-lock*)
              (if (setf to-name (gethash norm-name *mappings*))
                  (map-name to-name (cons norm-name froms))
                name))))
@@ -57,11 +57,19 @@
 
 ;; ------------------------------------------------
 
-(lw:defadvice (find-package project-packages :around)
-    (name/package)
-    (declare (optimize speed))          ;this is critical code
-    (lw:call-next-advice
-     (map-name name/package)) )
+(excl:def-fwrapper wrapped-find-package (name/package)
+  (declare (optimize speed))          ;this is critical code
+  (setf name/package (map-name name/package))
+    (excl:call-next-fwrapper))
+
+(excl:fwrap 'find-package 'wfp1 'wrapped-find-package)
+
+(excl:def-fwrapper wrapped-package-name-to-package (name &rest args)
+  (declare (ignore args))
+  (setf name (map-name name))
+  (excl:call-next-fwrapper))
+
+(excl:fwrap 'excl::package-name-to-package 'wpntp1 'wrapped-package-name-to-package)
 
 #|
 (lw:defadvice (sys::find-package-without-lod project-packages :around)
@@ -72,6 +80,7 @@
   (lw:call-next-advice (map-name name)))
 |#
 #||#
+#+:LISPWORKS
 (lw:defadvice (sys::find-global-package project-packages :around)
     (name)
   ;; used by editor to set buffer package
@@ -89,9 +98,20 @@
   (apply #'lw:call-next-advice (map-name name) args))
 |#
 
-(lw:defadvice (in-package project-packages :around)
-    (call-form env)
-  (lw:call-next-advice `(in-package ,(map-name (cadr call-form))) env))
+(excl:def-fwrapper wrapped-in-package (&rest args)
+  (setf (cadar args) (map-name (cadar args)))
+  (excl:call-next-fwrapper))
+
+(excl:fwrap 'in-package 'wip1 'wrapped-in-package)
+
+(excl:def-fwrapper wrapped-use-package (pkgs &rest args)
+  (declare (ignore args))
+  (setf pkgs (if (listp pkgs)
+                 (mapcar #'map-name pkgs)
+               (map-name pkgs)))
+  (excl:call-next-fwrapper))
+
+(excl:fwrap 'use-package 'wup1 'wrapped-use-package)
 
 ;; ------------------------------------------------
 
@@ -102,21 +122,25 @@
 (defmethod in-quicklisp-p ((stream stream))
   nil)
 
-(lw:defadvice (load project-packages :around)
-    (filename &rest args)
+(excl:def-fwrapper wrapped-load (filename &rest args)
+  (declare (ignore args))
   (let ((*bypass-mapping* (in-quicklisp-p filename)))
-    (apply #'lw:call-next-advice filename args)))
+    (excl:call-next-fwrapper)))
 
-(lw:defadvice (compile-file project-packages :around)
-    (filename &rest args)
+(excl:fwrap 'load 'wld1 'wrapped-load)
+
+(excl:def-fwrapper wrapped-compile-file (filename &rest args)
+  (declare (ignore args))
   (let ((*bypass-mapping* (in-quicklisp-p filename)))
-    (apply #'lw:call-next-advice filename args)))
+    (excl:call-next-fwrapper)))
+
+(excl:fwrap 'compile-file 'wcf1 'wrapped-compile-file)
 
 ;; ------------------------------------------------------
 
 (defun show-mappings ()
   (let (lst)
-    (mp:with-sharing-lock (*map-lock*)
+    (mp:with-process-lock (*map-lock*)
       (with-hash-table-iterator (gen *mappings*)
         (loop
            (multiple-value-bind (more? key value) (gen)

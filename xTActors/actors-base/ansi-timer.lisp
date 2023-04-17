@@ -71,7 +71,8 @@
       (setf *cycle-bits* 0.0d0
             *last-check* now))
     ;; fire off expired timers
-    (maps:iter (lambda (t0 timer-list)
+    (maps:iter *timeout-tree*
+               (lambda (t0 timer-list)
                  (when (> t0 now)
                    (return-from #1#))
                  (setf *timeout-tree* (maps:remove t0 *timeout-tree*))
@@ -88,8 +89,8 @@
                      (when err
                        (unschedule-timer timer)))
                    |#
-                   ))
-               *timeout-tree*)))
+                   )))
+    ))
       
 (defun make-master-timer ()
   (mpcompat:process-run-function "Master Timer"

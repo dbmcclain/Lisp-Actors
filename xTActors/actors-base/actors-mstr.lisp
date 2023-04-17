@@ -432,6 +432,9 @@ THE SOFTWARE.
     ,stream)
   #+:SBCL
   `(let ((,var ,stream))
+     ,@body)
+  #+:ALLEGRO
+  `(let ((,var ,stream))
      ,@body))
 
 (def-actor println

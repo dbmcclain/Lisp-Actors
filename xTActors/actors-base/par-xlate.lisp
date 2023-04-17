@@ -497,7 +497,7 @@
 ;; -----------------------------------------------
 
 (defmacro if-β (test iftrue &optional iffalse)
-  (lw:with-unique-names (ans)
+  (let ((ans (gensym (string :ans))))
     `(with-and-β (,ans ,test)
        (if ,ans
            ,iftrue
@@ -505,13 +505,13 @@
     ))
 
 (defmacro when-β (test &body body)
-  (lw:with-unique-names (ans)
+  (let ((ans (gensym (string :ans))))
     `(with-and-β (,ans ,test)
        (when ,ans
          ,@body))))
 
 (defmacro unless-β (test &body body)
-  (lw:with-unique-names (ans)
+  (let ((ans (gensym (string :ans))))
     `(with-and-β (,ans ,test)
        (unless ,ans
          ,@body))))
@@ -519,7 +519,7 @@
 ;; -----------------------------------------------
 
 (defmacro if-and-β ((&rest clauses) iftrue &optional iffalse)
-  (lw:with-unique-names (ans)
+  (let ((ans (gensym (string :ans))))
     `(with-and-β (,ans ,@clauses)
        (if ,ans
            ,iftrue
@@ -527,7 +527,7 @@
     ))
 
 (defmacro if-or-β ((&rest clauses) iftrue &optional iffalse)
-  (lw:with-unique-names (ans)
+  (let ((ans (gensym (string :ans))))
     `(with-or-β (,ans ,@clauses)
        (if ,ans
            ,iftrue

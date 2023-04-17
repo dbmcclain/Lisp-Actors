@@ -185,7 +185,10 @@
 
 (define-rmw-functions (car cons))
 (define-rmw-functions (cdr cons))
+#-:ALLEGRO
 (define-rmw-functions (symbol-value sym))
+#+:ALLEGRO
+(define-rmw-functions (sys:global-symbol-value sym))
 (define-rmw-functions (svref svec ix))
 
 ;; -----------------------------------------------------------------------------------
