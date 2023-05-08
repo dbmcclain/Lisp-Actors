@@ -47,36 +47,47 @@
  |#
 
 (def-ser-beh open-filer-beh (fd)
-  ((cust :close)
-   (close fd)
-   (become (const-beh :closed))
-   (send cust :ok))
+  ((cust :close . abort)
+   (apply #'close fd abort)
+   (multiple-value-bind (x err)
+       ;; force an error to get a good descriptive error from the
+       ;; system.
+       (ignore-errors (read fd))
+     (declare (ignore x))
+     (become (const-beh err))
+     (send cust :ok)))
   
   ((cust :oper op)
    (send op cust fd)))
 
+
 (defun retrig-filer-gate-beh (chan reply-tag timeout-tag &key (timeout 10))
   ;; Gateway to Open Filer. Every new request resets the timeout
-  ;; timer. On timeout, a close is issued.  Once the file has been
-  ;; closed, we reply :CLOSED to any new requests.
-  ;; Error replies from channel cause us to :CLOSE and become :CLOSED.
+  ;; timer. On timeout, a close is issued.
+  ;;
+  ;; Once the file has been closed, the channel replies with a
+  ;; closed-file error for any new requests.
+  ;;
+  ;; Error replies from channel cause us to send an abort close
+  ;; request to the channel.
+  ;;
   (alambda
    ((cust _ ) / (eql cust timeout-tag)
     (send chan sink :close)
-    (become (const-beh :closed)))
+    (become (fwd-beh chan)))
 
    ((atag cust err) / (and (eql atag reply-tag)
                            (typep err 'error))
-    (send chan sink :close)
-    (become (const-beh :closed))
+    (send chan sink :close t)
+    (become (fwd-beh chan))
     (send cust err))
    
    ((atag cust . reply) / (eql atag reply-tag)
     (send* cust reply))
    
-   ((cust :close)
+   ((cust :close . abort)
     (repeat-send chan)
-    (become (const-beh :closed)))
+    (become (fwd-beh chan)))
 
    ((cust . args)
     (let ((new-tag    (timed-once-tag self timeout))
@@ -135,6 +146,28 @@
                 (send cust :ok)))
       (send writeln ans)
       )))
+(tst)
+
+
+(defun tst ()
+  (let* ((fname "junk.jnk")
+         (ac1 (create (lambda (cust)
+                        (with-open-file (f fname)
+                          (sleep 1)
+                          (send cust :ok)))))
+         (ac2 (create (lambda (cust)
+                        (with-open-file (f fname)
+                          (sleep 1)
+                          (send cust :ok))))))
+    (with-open-file (f fname
+                       :direction :output
+                       :if-exists :supersede
+                       :if-does-not-exist :create)
+      (print :hello f)
+      (send ac1 sink)
+      (ask ac2))
+    ))
+
 (tst)
 
 |#

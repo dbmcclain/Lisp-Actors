@@ -755,4 +755,12 @@ THE SOFTWARE.
    #:file-time-to-utc
 
    #:date-jd
+
+   #:thing
+   #:nothing
+   #:something
+   #:thing-p
+   #:nothing-p
+   #:something-p
+   #:mapfn
    ))

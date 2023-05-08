@@ -47,6 +47,7 @@ THE SOFTWARE.
 
                 (:file "dynamic-wind")
                 (:file "dflet")
+                (:file "option")
                 (:file "nlet")
                 (:file "sharp-quasiquote-reader")
                 (:file "bang-macros")

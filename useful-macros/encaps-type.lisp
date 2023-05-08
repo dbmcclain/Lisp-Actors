@@ -4,7 +4,7 @@
 
 (in-package :com.ral.useful-macros.encaps-type)
 
-;; Define a construtor for encapsulated types. These envelopes become
+;; Define a constructor for encapsulated types. These envelopes become
 ;; useful for CLOS dispatching, and keep the contents opaque. In the
 ;; macro, arguments:
 ;;
