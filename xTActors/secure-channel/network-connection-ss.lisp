@@ -36,16 +36,16 @@
 ;; Socket writer
 ;;
 ;;  byte-vec  +-----------+   +------------+    +-------------+
-;;     ------>|   Label   |-->| Serializer |<-->| Phys Writer |
+;;     ------>|    Gate   |-->| Serializer |<-->| Phys Writer |
 ;;            +-----------+   +------------+    +-------------+
 ;;
 ;; PhysWriter is the connection to the async output socket port.  The
 ;; Serializer is to prevent parallel access to the physical socket
-;; port.  Serializers need a customer, even if SINK. Label provides
+;; port.  Serializers need a customer, even if SINK. Gate provides
 ;; that SINK.
 ;;
-;; If anything goes wrong, the Phys Writer sends a shutdown signal and
-;; leaves the serializer blocked.
+;; If anything goes wrong, the Phys Writer sends a shutdown signal
+;; and causes Gate to become SINK.
 ;;
 
 (defun physical-writer-beh (state kill)
