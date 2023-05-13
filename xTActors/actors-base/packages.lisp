@@ -171,6 +171,7 @@ THE SOFTWARE.
    #:ser
    #:par
 
+   #:serializer-beh
    #:serializer
    #:serializer-sink
    #:blocking-serializer

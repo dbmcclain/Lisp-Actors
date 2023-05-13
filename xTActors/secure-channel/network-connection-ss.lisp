@@ -41,14 +41,14 @@
 ;;
 ;; PhysWriter is the connection to the async output socket port.  The
 ;; Serializer is to prevent parallel access to the physical socket
-;; port.  Serializers need a cutomer, even if SINK. Label provides
+;; port.  Serializers need a customer, even if SINK. Label provides
 ;; that SINK.
 ;;
 ;; If anything goes wrong, the Phys Writer sends a shutdown signal and
 ;; leaves the serializer blocked.
 ;;
 
-(defun physical-writer-beh (state)
+(defun physical-writer-beh (state kill)
   (lambda (cust byte-vec)
     (with-accessors ((decr-io-count  intf-state-decr-io-count-fn)
                      (state-io-state intf-state-io-state)
@@ -58,6 +58,7 @@
       (labels
           ;; these functions execute in the thread of the async socket handler
           ((terminate-connection ()
+             (send kill)
              (send shutdown))
            
            (finish-fail (io-state)
@@ -91,9 +92,22 @@
           (terminate-connection))
          )))))
 
+(defun writer-gate-beh (tag ser)
+  (alambda
+   ((atag) / (eql atag tag)
+    ;; sever link to serializer to allow GC
+    (become-sink))
+   (msg
+    ;; fwd msg to serializer with sink as cust
+    (send* ser sink msg))
+   ))
+
 (defun make-writer (state)
-  (serializer-sink
-   (create (physical-writer-beh state))))
+  (actors ((tag  (tag-beh gate))
+           (gate (writer-gate-beh tag ser))
+           (ser  (serializer-beh phys))
+           (phys (physical-writer-beh state tag)))
+    gate))
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
