@@ -29,8 +29,6 @@
            #:next-available-code
            #:store-count #:read-count
            #:$unbound-marker
-           #:before-store
-           #:after-retrieve
            #:store-standard-class #:restore-standard-class
            ;; Hooks into lower level circularity tracking
            ;; to reduce consing.

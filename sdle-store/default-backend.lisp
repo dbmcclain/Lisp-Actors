@@ -58,12 +58,6 @@
 
 (um:defconstant+ $unbound-marker #(:unbound-marker))
 
-(defmethod before-store (obj)
-  obj)
-
-(defmethod after-retrieve (obj)
-  obj)
-
 ;; setups for type code mapping
 (defun output-type-code (code stream)
   (declare (type ub32 code))
@@ -703,13 +697,8 @@
         (store-object (slot-value obj slot-name) stream) )) ))
 
 (defstore-sdle-store (obj standard-object stream)
-  (let ((objx (before-store obj)))
-    (cond ((eq objx obj)
-           (output-type-code +standard-object-code+ stream)    
-           (store-type-object obj stream))
-          (t
-           (store-object objx stream))
-          )))
+  (output-type-code +standard-object-code+ stream)    
+  (store-type-object obj stream))
 
 (defstore-sdle-store (obj condition stream)
   (output-type-code +condition-code+ stream)    
@@ -728,7 +717,7 @@
               ;; slot-names are always symbols so we don't
               ;; have to worry about circularities
               (setting (slot-value obj slot-name) (restore-object stream)))))
-    (after-retrieve new-instance)))
+    new-instance))
 
 (defrestore-sdle-store (standard-object stream)
   (restore-type-object stream))
@@ -761,7 +750,7 @@
               (when #+:LISPWORKS (clos:slot-exists-p new-instance slot-name)
                     #-:LISPWORKS (slot-exists-p new-instance slot-name)
                 (setting (slot-value obj slot-name) val))) ))
-    (after-retrieve new-instance)))
+    new-instance))
 
 (defun find-or-create-class (class-name obj-type slot-names)
   (or (find-class class-name nil)
@@ -1147,16 +1136,7 @@
   
 #-clisp
 (defstore-sdle-store (obj function stream)
-  (cond ((typep obj 'standard-object) ;; true for funcallable instances
-         (let ((objx (before-store obj)))
-           (cond ((eq objx obj)
-                  (store-function obj stream))
-                 (t
-                  (store-object objx stream))
-                 )))
-        (t
-         (store-function obj stream))
-        ))
+  (store-function obj stream))
 
 #-clisp
 (defun store-function (obj stream)

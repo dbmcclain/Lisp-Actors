@@ -388,11 +388,11 @@
 (aop:defdynfun translate-actor-to-proxy (ac)
   ac)
 
-(defmethod sdle-store:before-store ((obj actor))
+(defmethod sdle-store:backend-store-object :around (backend (obj actor) stream)
   (let ((xobj (translate-actor-to-proxy obj)))
     ;; (send fmt-println "Sending Proxy: ~S" xobj)
-    xobj))
-
+    (call-next-method backend xobj stream)))
+  
 (defun client-marshal-encoder (local-services)
   ;; serialize an outgoing message, translating all embedded Actors
   ;; into client proxies and planting corresponding ephemeral
@@ -400,15 +400,17 @@
   (α (cust &rest msg)
     (let (rcvrs)
       (aop:dflet ((translate-actor-to-proxy (ac)
-                    (sdle-store:before-store
-                     (if (is-pure-sink? ac)
-                         nil
-                       (let ((id (uuid:make-v1-uuid)))
-                         (push (cons id ac) rcvrs)
-                         (client-proxy id))
-                       ))
-                    ))
+                    (if (is-pure-sink? ac)
+                        nil
+                      (let ((id (uuid:make-v1-uuid)))
+                        (push (cons id ac) rcvrs)
+                        (client-proxy id))
+                      )))
+        ;; (send fmt-println "~%raw: ~s" msg)
         (let ((enc (loenc:encode (coerce msg 'vector))))
+          ;; (send fmt-println "~%e: ~S" (map 'string #'code-char enc))
+          ;; (send fmt-println "~%ee: ~S" enc)
+          ;; (send fmt-println "~%enc: ~s~%~%" (loenc:decode enc))
           (β _
               (send local-services β :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)
             (send cust enc))
@@ -434,10 +436,15 @@
 (aop:defdynfun translate-proxy-to-actor (proxy)
   proxy)
 
-(defmethod sdle-store:after-retrieve ((obj client-proxy))
-  ;; (send fmt-println "Receiving Proxy: ~S" obj)
-  (translate-proxy-to-actor obj))
+(defgeneric after-restore (obj)
+  (:method (obj)
+   obj)
+  (:method ((obj client-proxy))
+   (translate-proxy-to-actor obj)))
 
+(defmethod sdle-store:backend-restore-object :around (backend place)
+  (after-restore (call-next-method)))
+      
 (defun server-marshal-decoder (local-services)
   ;; deserialize an incoming message, translating all client Actor
   ;; proxies to server local proxie Actors aimed back at client.
@@ -445,10 +452,9 @@
    ((cust vec) / (typep vec 'ub8-vector)
     (aop:dflet ((translate-proxy-to-actor (proxy)
                   (let ((id (client-proxy-id proxy)))
-                    (sdle-store:after-retrieve
-                     (α msg
-                       (send* local-services :ssend id msg)))
-                    )))
+                    (α msg
+                      (send* local-services :ssend id msg)))
+                  ))
       (let ((dec (ignore-errors
                    (loenc:decode vec))))
         (when (and dec

@@ -301,5 +301,32 @@
 (tst "localhost")
 (tst "rincon.local")
 (tst "zircon.local")
+(tst "fornax.local")
+
+(defun tst (host)
+  (let ((reval (remote-service :eval host)))
+    (β (proxy)
+        (send (timed-service reval 10) nil `(send kvdb:kvdb ,β :req-proxy))
+      (β (uuid)
+          (send (timed-service proxy 10) β :find 'kvdb::version)
+        (send println (uuid:when-created uuid))
+        ))))
+
+(β (ans)
+    (send β (loenc:encode `(ask kvdb:kvdb β :req-proxy)))
+  (let ((*package* (find-package :cl)))
+    (send writeln (loenc:decode ans)))
+  ;; (send writeln ans)
+  )
+
+(defun tst (host)
+  (let ((reval (remote-service :eval host)))
+    (β (ans)
+        (send (timed-service reval 10) β `(send writeln '(ask kvdb:kvdb β :req-proxy)))
+      (send writeln ans))))
+
+(let ((ans (loenc:encode '(x y z))))
+  (let ((*package* (find-package :cl)))
+    (send writeln (loenc:decode ans))))
 
 |#

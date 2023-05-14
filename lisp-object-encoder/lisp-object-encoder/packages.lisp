@@ -31,7 +31,6 @@
    #:register-code
    #:next-available-code
    #:$unbound-marker
-   #:after-retrieve
    #:rawbytes
    #:rawbytes-bytes
    #:make-rawbytes)
@@ -55,7 +54,6 @@
    #:decode
    #:serialize
    #:deserialize
-   #:after-retrieve
    #:early-eof
    #:$unbound-marker
    #:rawbytes
