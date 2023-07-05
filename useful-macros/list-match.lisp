@@ -9,6 +9,7 @@
 (in-package :com.ral.useful-macros.list-match)
 
 ;; ----------------------------------------------------
+;; Runtime behavior
 
 (defun match-pat (msg pat)
   ;; collect binding values in reverse order
@@ -54,6 +55,49 @@
                    (apply tst vals)))
       (apply fn vals))
     ))
+
+;; ----------------------------------------------------
+;; Compiling behavior - Patterns are implicitly quoted compile-time
+;; constant expressions, where symbols refer to just a binding symbol.
+;; At runtime these pattern constants are implicitly quoted constants
+;; used during matching.
+;;
+;; Duplicate binding symbols are disallowed. If you need a pattern to
+;; match the same in more than one position, use a WHEN clause. E.g.,
+;;
+;;   Prolog Pattern: (A A) => Match Pattern: (A B) WHEN (EQL A B)
+;;
+;; Patterns cannot refer to runtime bindings. E.g.,
+;;
+;;    `(A ,B C) should be written as (A X C) WHEN (EQL X B)
+;;
+;; If you need to match against a constant symbol use a quote:
+;;
+;;    (A 'X B) -- will bind A to first arg of message, B to third arg,
+;;    and match only if second arg is 'X.
+;;
+;; Any non-symbol patten element matches against a message arg using
+;; EQUALP. This is of no concern for numbers, keywords, lists,
+;; vectors, but Characters and Strings will become case-agnostic
+;; matches. If you need other forms of equality testing, use a binding
+;; and a WHEN clause.  E.g.,
+;;      (A S B) WHEN (STRING= S "this")
+;;
+;; Matching does not descend into vectors, apart from EQUALP on
+;; constant item matching. Only lists and lists of lists. So don't put
+;; expected binding symbols inside of vectors. Arbitrarily complicated
+;; list trees are supported.
+;;
+;; Matching uses '_ as a wildcard element, matching anything. E.g.,
+;;  (A _ B . _) binds A to first arg, B to third arg, and don't care for
+;;  second arg, and matches any tail (including none).
+;;
+;; Prefer using dotted list notation instead of &REST. We transform
+;; &REST to dotted form, to be user friendly. But no other Lambda-list
+;; keywords (&OPTIONAL, &KEY, etc) are permitted.
+;;
+;; There are no default values on binding symbols.
+
 
 (defun collect-args (pat)
   ;; collect binding args in reverse order
@@ -172,5 +216,6 @@
               ((CUST :AVAILABLE-SERVICES LST) (SEND NEXT CUST :AVAILABLE-SERVICES (CONS NAME LST)))
               ((CUST :LIST LST) (SEND NEXT CUST :LIST (CONS NAME LST)))
               (_ (REPEAT-SEND NEXT)))
+
 |#
 

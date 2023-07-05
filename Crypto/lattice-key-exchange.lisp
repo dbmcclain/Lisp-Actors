@@ -197,6 +197,7 @@
           )))
 
 (setf *all-keys* (lat2-gen-all))
+(setf *my-lat2-skey* (second (fifth *all-keys*)))
 
 (dolist (pars *all-keys*)
   (send kvdb:kvdb println :add (car pars) (third pars)))
@@ -216,15 +217,21 @@
   (let ((sys (read f)))
     (send kvdb:kvdb println :add :lat2-system sys)))
 
-(with-open-file (f "~/.syzygy"
-                   :direction :input)
-  (um:nlet iter ()
-    (let ((rec (read f t f)))
-      (unless (eql rec f)
-        (destructuring-bind (name skey pkey) rec
-          (send kvdb:kvdb println :add (node-to-kw name :prefix "lat2-pkey-") pkey)
-          (when (string-equal name (machine-instance))
-            (send kvdb:kvdb println :add :lat2-syzygy skey))
-          (go-iter)))
-      )))
+(defun inhale ()
+  (with-open-file (f "~/.syzygy"
+                     :direction :input)
+    (let* ((machid  (machine-instance))
+           (machlen (length machid)))
+      (um:nlet iter ()
+        (let ((rec (read f t f)))
+          (unless (eql rec f)
+            (destructuring-bind (name skey pkey) rec
+              (send kvdb:kvdb println :add (node-to-kw name :prefix "lat2-pkey-") pkey)
+              (let ((len (length name)))
+                (when (and (>= len machlen)
+                           (string-equal (subseq name 0 machlen) machid))
+                  (send kvdb:kvdb println :add :lat2-syzygy skey))
+                (go-iter)))
+            ))))))
+(inhale)
 |#

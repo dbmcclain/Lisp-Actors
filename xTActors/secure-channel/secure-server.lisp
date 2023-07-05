@@ -68,19 +68,18 @@
    ((client-id packet-list) / (and (typep client-id 'uuid:uuid)
                                    (consp packet-list)
                                    (eql 2 (length packet-list)))
-    (ignore-errors
-      (β (akey id)
-          (send lattice-ke:server-connection-packet-decoder β packet-list)
-        (β (bkey reply-packet)
-            (send lattice-ke:cnx-to-client-packet-maker β id)
-          (let ((ekey  (hash/256 bkey akey)))
-            ;; silently ignore other kinds of requests
-            (β _
-                (send local-services β :set-crypto ekey socket)
-              (β (cnx-id)
-                  (create-service-proxy β local-services global-services)
-                (send socket client-id cnx-id reply-packet)))
-            ))))
+    (β (akey id)
+        (send lattice-ke:server-connection-packet-decoder β packet-list)
+      (β (bkey reply-packet)
+          (send lattice-ke:cnx-to-client-packet-maker β id)
+        (let ((ekey  (hash/256 bkey akey)))
+          ;; silently ignore other kinds of requests
+          (β _
+              (send local-services β :set-crypto ekey socket)
+            (β (cnx-id)
+                (create-service-proxy β local-services global-services)
+              (send socket client-id cnx-id reply-packet)))
+          )))
     )))
 
 ;; ---------------------------------------------------------------

@@ -473,7 +473,7 @@ THE SOFTWARE.
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world
 ;;
-;; Foretign threads can use ASK to query an Actor that provides a
+;; Foreign threads can use ASK to query an Actor that provides a
 ;; response to a customer. It is superfluous to do so from an Actor.
 ;;
 ;; For querying such an Actor, just leave out the customer arg in your

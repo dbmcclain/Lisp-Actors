@@ -179,7 +179,7 @@
 ;; timeout mechanisms to help out. Just like in the real world...
 ;; -----------------------------------------------------------------
 
-(defun serializer-beh (svc &key timeout)
+(defun serializer-beh (svc &key (timeout *timeout*))
   ;; Quiescent state - nobody in waiting, just flag him through, but
   ;; enter the busy state.
   (alambda
@@ -213,7 +213,7 @@
                                  (addq queue (cons cust msg)))))
    ))
 
-(defun serializer (svc &key timeout)
+(defun serializer (svc &key (timeout *timeout*))
   (create (serializer-beh svc :timeout timeout)))
 
 ;; -----------------------------------------------------------
@@ -225,7 +225,7 @@
   (label (serializer act) sink))
 
 
-(defun safe-serializer (action &key timeout on-timeout supv)
+(defun safe-serializer (action &key (timeout *timeout*) on-timeout supv)
   ;; If timeout happens, by default the serializer will be unblocked
   ;; with message :TIMEOUT.
   ;;

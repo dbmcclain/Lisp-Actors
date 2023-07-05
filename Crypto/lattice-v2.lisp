@@ -24,7 +24,7 @@
        :mat-a   mat))))
 
 #|
-(send kvdb:kvdb println :add :lattice-system (lat2-gen-system))
+(send kvdb:kvdb println :add :lat2-system (lat2-gen-system))
  |#
 
 (deflex lattice-system

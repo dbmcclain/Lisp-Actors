@@ -300,7 +300,6 @@ THE SOFTWARE.
 
    #:membrane
 
-   #:timed-gate
    #:timed-service
    #:lazy-fwd
    #:future-become-beh

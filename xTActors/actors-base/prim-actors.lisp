@@ -5,14 +5,29 @@
 (in-package :com.ral.actors.base)
 
 ;; ------------------------------------------------------
-;; There are, broadly, two conventions followed for Actor messages:
+;; There are, broadly, some conventions followed for Actor messages:
 ;;
 ;;  1. When an Actor expects a customer argument, it is always in
 ;;  first position.
 ;;
-;;  2. Sink Actors don't have customers, unless they live behind a
-;;  SERIALIZER gate. Every Actor living behind a SERIALIZER *must*
-;;  eventually send a response to the customer.
+;;  2. Every Actor living behind a SERIALIZER *must* send a reply to
+;;  the customer.
+;;
+;;  3. Sink Actors don't have customers, unless they live behind a
+;;  SERIALIZER gate.
+;;
+;;  4. Timeout conditions are signaled by sending TIMED-OUT to a
+;;  customer. This is a predefined timeout condition object.
+;;
+;;  5. When nothing else to send cust, send :OK. That helps when the
+;;  sender wants to sequence its behavior using continuation Actors
+;;  (β). If sender doesn't care, they will send SINK (or NIL) as
+;;  customer.
+;;
+;;  6. There are no guarantees that a message will be sent to a
+;;  customer. When in doubt you have no other choice but to rely on
+;;  timeout messaging. This is not unique to Actors, and can occur in
+;;  any system in which continuations / coroutines are employed.
 ;;
 ;; -------------------------------------------------------
 
@@ -24,17 +39,29 @@
 (defun once (cust)
   (create (once-beh cust)))
 
+#| ;; Don't use - the clock starts running as soon as this is invoked.
 (defun timed-gate (cust timeout)
-  (let ((gate (once cust)))
-    (send-after timeout gate timed-out)
-    gate))
+  (cond ((realp timeout)
+         (let ((gate (once cust)))
+           (send-after timeout gate timed-out)
+           gate))
+        (t
+         cust)))
+|#
 
-(defun timed-service (svc timeout)
-  (create
-   (lambda (cust &rest msg)
-     (let ((gate (timed-gate cust timeout)))
-       (send* svc gate msg)))
-   ))
+(defun timed-service (svc &optional (timeout *timeout*))
+  ;; Prefer this, so that the clock only starts running when a message
+  ;; is sent to svc.
+  (cond ((realp timeout)
+         (create
+          (lambda (cust &rest msg)
+            (let ((gate (once cust)))
+              (send-after timeout gate timed-out)
+              (send* svc gate msg)))
+          ))
+        (t
+         svc)
+        ))
 
 ;; ---------------------
 
@@ -96,12 +123,12 @@
 
 ;; ---------------------
 
-(defun timed-tag (cust timeout)
+(defun timed-tag (cust &optional (timeout *timeout*))
   (let ((atag (tag cust)))
     (send-after timeout atag timed-out)
     atag))
 
-(defun timed-once-tag (cust timeout)
+(defun timed-once-tag (cust &optional (timeout *timeout*))
   (let ((atag (once-tag cust)))
     (send-after timeout atag timed-out)
     atag))
@@ -395,7 +422,7 @@
     ;; we are the only ones that know about this edge Actor.
     ;;
     (when (and (actor-p actor)
-               dt)
+               (realp dt))
       (send* schedule-timer dt actor msg))))
 
 ;; --------------------------------------
@@ -515,7 +542,7 @@
    (send reply-to :ok))
   
   ((cust . start-msg)
-   (cond (timeout
+   (cond ((realp timeout)
           (let ((me  self))
             (actors ((tag-ok      (tag-beh gate))
                      (tag-timeout (tag-beh gate))
@@ -536,7 +563,7 @@
           (send* action cust start-msg))
      )))
 
-(defun watchdog-timer (action &key timeout on-timeout supv)
+(defun watchdog-timer (action &key (timeout *timeout*) on-timeout supv)
   ;; If timeout happens, then on-timeout is sent a message with the
   ;; watchdog, its action Actor, the message in progress, its timeout
   ;; duration, its supv, and customer, as arguments.

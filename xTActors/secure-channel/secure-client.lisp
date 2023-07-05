@@ -242,7 +242,7 @@
 
 (defun tst (host)
   (let ((recho (remote-service :echo host))
-        (txt   (hcl:file-string "./xTActors/encoding.lisp")))
+        (txt   (hcl:file-string "./xTActors/secure-channel/encoding.lisp")))
     (β (ans)
         (send recho β txt)
       (send fmt-println "echo comparison: ~A" (string= txt ans)))))
@@ -285,6 +285,7 @@
 (tst "localhost" 10)
 (tst "zircon.local" 10)
 (tst "rincon.local" 10)
+(tst "david-pc.local" 10)
 
 (defun tst (host)
   (let ((reval (remote-service :eval host)))
@@ -299,6 +300,7 @@
             ))))))
 
 (tst "localhost")
+(tst "arroyo.local")
 (tst "rincon.local")
 (tst "zircon.local")
 (tst "fornax.local")
@@ -311,22 +313,4 @@
           (send (timed-service proxy 10) β :find 'kvdb::version)
         (send println (uuid:when-created uuid))
         ))))
-
-(β (ans)
-    (send β (loenc:encode `(ask kvdb:kvdb β :req-proxy)))
-  (let ((*package* (find-package :cl)))
-    (send writeln (loenc:decode ans)))
-  ;; (send writeln ans)
-  )
-
-(defun tst (host)
-  (let ((reval (remote-service :eval host)))
-    (β (ans)
-        (send (timed-service reval 10) β `(send writeln '(ask kvdb:kvdb β :req-proxy)))
-      (send writeln ans))))
-
-(let ((ans (loenc:encode '(x y z))))
-  (let ((*package* (find-package :cl)))
-    (send writeln (loenc:decode ans))))
-
 |#

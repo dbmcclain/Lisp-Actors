@@ -24,12 +24,18 @@
 
 (in-package :com.ral.actors.base)
 
-(defun side-job (cust side-action &rest side-args)
-  ;; Forward a message to cust, and also send side-args to side-action
-  (actor (&rest msg)
-    (send* side-action side-args)
-    (send* cust msg)))
+(defun guard-selector-beh (must-do must-args)
+  (lambda (cust &rest msg)
+    (send* cust msg)
+    (send* must-do must-args)
+    (become-sink)))
 
+(defun guard-selector (cust fail must-do must-args)
+  (actors ((sel      (guard-selector-beh must-do must-args))
+           (lbl-ok   (label-beh sel cust))
+           (lbl-fail (label-beh sel fail)))
+    (values lbl-ok lbl-fail)))
+  
 (defun guard (action timeout must-do &rest must-args)
   ;; Guard manages the ultimate disposition of valued resources, such
   ;; as a file pointer that must be eventually closed.
@@ -49,22 +55,21 @@
   ;; Guards can be nested for cases with multiple resources.  The
   ;; action of the first guard can be another guard.
   ;;
-  (actor (cust fail &rest args)
-    (let* ((must-do-once  (once must-do))
-           (fail+side     (apply #'side-job fail must-do-once must-args))
-           (cust+side     (apply #'side-job cust must-do-once must-args)))
-      (send-after timeout fail+side)
-      (send* action cust+side fail+side args)
-      )))
+  (actor ((cust fail) &rest args)
+    (multiple-value-bind (lbl-ok lbl-fail)
+        (guard-selector cust fail must-do must-args)
+      (send-after timeout lbl-fail timed-out)
+      (send* action `(,lbl-ok ,lbl-fail) args))
+    ))
 
 ;; Some must-do's
 (deflex close-file
-  (once (actor (fp)
-          (close fp))))
+  (actor (fp)
+    (close fp)))
 
 (deflex secure-erase
-    (once (actor (buf)
-            (fill buf 0))))
+  (actor (buf)
+    (fill buf 0)))
 
 (defun perform (fn)
   (actor (&rest args)
@@ -76,8 +81,8 @@
 ;; after use.
 ;;
 (defun with-open-vault (vault)
-  (actor (cust on-fail &rest args)
+  (actor ((cust on-fail) &rest args)
     (let ((key (copy-seq (get-env "MySecretKey"))))
       (send* (guard unlock-vault 10 secure-erase key)
-             cust on-fail vault key args))
+             `(,cust ,on-fail) vault key args))
 |#

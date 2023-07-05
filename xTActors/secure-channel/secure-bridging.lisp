@@ -390,7 +390,6 @@
 
 (defmethod sdle-store:backend-store-object :around (backend (obj actor) stream)
   (let ((xobj (translate-actor-to-proxy obj)))
-    ;; (send fmt-println "Sending Proxy: ~S" xobj)
     (call-next-method backend xobj stream)))
   
 (defun client-marshal-encoder (local-services)
@@ -406,11 +405,7 @@
                         (push (cons id ac) rcvrs)
                         (client-proxy id))
                       )))
-        ;; (send fmt-println "~%raw: ~s" msg)
         (let ((enc (loenc:encode (coerce msg 'vector))))
-          ;; (send fmt-println "~%e: ~S" (map 'string #'code-char enc))
-          ;; (send fmt-println "~%ee: ~S" enc)
-          ;; (send fmt-println "~%enc: ~s~%~%" (loenc:decode enc))
           (β _
               (send local-services β :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)
             (send cust enc))
