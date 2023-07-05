@@ -587,46 +587,19 @@
 ;;
 ;; Very fast! Imagine all the cores of the CPU further encoding each
 ;; chunk in parallel.
-#|
-(defun chunker (&key (max-size 65536))
-  ;; takes a bytevec and produces a sequence of chunk encodings
-  (actor (cust byte-vec)
-    ;; (send fmt-println "Chunker")
-    (let ((size (length byte-vec)))
-      (cond ((<= size max-size)
-             ;; (send fmt-println "1 chunk, ~D bytes" size)
-             (send cust :pass byte-vec))
-            (t
-             (let* ((nchunks (ceiling size max-size))
-                    (id      (int (hash/256 (uuid:make-v1-uuid)))))
-               ;; (send fmt-println "~D chunks, ~D bytes" nchunks size)
-               (send cust :init id nchunks size)
-               (do ((offs  0  (+ offs max-size)))
-                   ((>= offs size))
-                 (let ((frag (subseq byte-vec offs (min size (+ offs max-size)) )))
-                   (send cust :chunk id offs frag)))
-               ))
-            ))))
-|#
 
-(defun chunker (&key (max-size 65536) ptr-tcount)
-  ;; Take a bytevec and produces a sequence of chunk encodings. Arg
-  ;; ptr-tcount, when used, should be a pointer to an int that will be
-  ;; set to the total number of chunks generated.
+(defun chunker (&optional (max-size 65536))
+  ;; Take a bytevec and produces a sequence of chunk encodings.
   (actor (cust byte-vec)
     ;; (send fmt-println "Chunker")
     (let ((size (length byte-vec)))
       (cond ((<= size max-size)
              ;; (send fmt-println "1 chunk, ~D bytes" size)
-             (when ptr-tcount
-               (setf (um:pointer-* ptr-tcount) 1))
              (send cust :pass byte-vec))
             (t
              (let ((nchunks (ceiling size max-size))
                    (id      (int (hash/256 (uuid:make-v1-uuid)))))
                ;; (send fmt-println "~D chunks, ~D bytes" nchunks size)
-               (when ptr-tcount
-                 (setf (um:pointer-* ptr-tcount) (1+ nchunks)))
                (send cust :init id nchunks size)
                (do ((offs  0  (+ offs max-size)))
                    ((>= offs size))
@@ -640,29 +613,42 @@
 ;; Chunk Monitor - solving the problem of determining when a chunked
 ;; write group has finished physically writing to I/O.
 ;;
-;; Construct a Chunk Monitor pointed toward original customer, and
-;; place the monitor near the end of the systolic encoding pipeline.
-;; Chunker fills in a pointer to an int to contain the total numnber
-;; of chunks being generated. Monitor keeps a count of chunks seen,
-;; and when it equals the total count, it fires a response back to
-;; cust.
+;; Construct a Chunk Monitor pointed toward original customer. Place
+;; the monitor just ahead of a chunker and again near the end of the
+;; systolic encoding pipeline.
+;;
+;; On first encounter, the monitor computes the expected number of
+;; chunk packets to be delivered, and then becomes a counter. After
+;; each packet is sent, the monitor counter increments until we have
+;; seen all packets, then finally sends a message to the original
+;; customer. Chunker packets will arrive in aribtrary order.
 
-(defun chunk-monitor (ptr-tcount cust)
-  (labels ((chunk-counter-beh (count)
-             (lambda* _
-               (let ((new-count (1+ count)))
-                 (become (chunk-counter-beh new-count))
-                 (when (>= new-count (um:pointer-* ptr-tcount))
-                   (send cust :ok))
+(defun chunk-monitor (max-size outer-cust)
+  (actor (cust byte-vec)
+    (send cust byte-vec) ;; pass along to chunker
+    (let* ((size    (length byte-vec))
+           (nchunks (cond ((<= size max-size) 1)
+                          (t  (1+ (ceiling size max-size)))
+                          )))
+      (labels ((chunk-counter-beh (count)
+                 (lambda* _
+                   (let ((new-count (1+ count)))
+                     (cond ((>= new-count nchunks)
+                            (send outer-cust :ok)
+                            (become-sink))
+                           (t
+                            (become (chunk-counter-beh new-count)))
+                           )))
                  ))
-             ))
-    (create-service (chunk-counter-beh 0))))
-
+        (become (chunk-counter-beh 0))
+        ))))
+    
 ;; ------------------------------------
-;; Dechunker - With message delivery not guaranteed in any order,
-;; multiple concurrent dechunkings can be happening, interleaved, some
-;; with data preceding their init records, and possible duplicate
-;; deliveries. We need to be robust against every possibility.
+;; Dechunker - With message delivery not guaranteed in any particular
+;; order, multiple concurrent dechunkings can be happening,
+;; interleaved, some with data preceding their init records, and
+;; possible duplicate deliveries. We need to be robust against every
+;; possibility.
 
 (def-beh dechunk-assembler-beh (cust nchunks chunks-seen out-vec)
   ;; Assemblers are constructed as soon as we have the init record
@@ -768,15 +754,12 @@
   (serializer
    (α (cust &rest msg)
      (with-error-response (cust)
-       (let* ((tcount     0)
-              (pcount     (um:pointer-& tcount))
-              (monitor    (chunk-monitor pcount cust)))
+       (let ((monitor  (chunk-monitor max-chunk cust)))
          (send* (sink-pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
                            (marshal-compressor)
-                           (chunker :max-size   max-chunk ;; we want to limit network message sizes
-                                    :ptr-tcount pcount)
+                           monitor                           
+                           (chunker max-chunk) ;; we want to limit network message sizes
                            ;; --- then, for each chunk... ---
-                           ;; monitor
                            (marshal-encoder)       ;; generates bytevec from chunker encoding
                            (encryptor ekey)        ;; generates seq, enctext
                            (signing skey)          ;; generates seq, enctext, sig
@@ -806,14 +789,12 @@
   (serializer
    (α (cust &rest msg)
      (with-error-response (cust)
-       (let* ((tcount     0)
-              (pcount     (um:pointer-& tcount))
-              (monitor    (chunk-monitor pcount cust)))
+       (let ((monitor  (chunk-monitor max-chunk cust)))
          (send* (sink-pipe (marshal-encoder)       ;; to get arb msg into bytevec form
                          (marshal-compressor)
-                         (chunker :max-size   max-chunk
-                                  :ptr-tcount pcount)
-                         ;; monitor
+                         monitor
+                         (chunker max-chunk)
+                         ;; -- then, for each chunk... --
                          (marshal-encoder)
                          (self-sync-encoder)
                          (serializer dest)

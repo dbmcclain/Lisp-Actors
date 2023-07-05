@@ -467,7 +467,7 @@
 (defun secure-sender (ekey local-services)
   (pipe (client-marshal-encoder local-services) ;; translate Actors to CLIENT-PROXY's
         (marshal-compressor)
-        (chunker :max-size 65000)
+        (chunker 65000)
         (marshal-encoder)
         (encryptor ekey)
         (authentication ekey)
