@@ -626,16 +626,17 @@
 (defun chunk-monitor (max-size outer-cust)
   (actor (cust byte-vec)
     (send cust byte-vec) ;; pass along to chunker
-    (let* ((size    (length byte-vec))
-           (nchunks (cond ((<= size max-size) 1)
-                          (t  (1+ (ceiling size max-size)))
-                          )))
+    (let* ((init-beh self-beh)
+           (size     (length byte-vec))
+           (nchunks  (cond ((<= size max-size) 1)
+                           (t  (1+ (ceiling size max-size)))
+                           )))
       (labels ((chunk-counter-beh (count)
                  (lambda* _
                    (let ((new-count (1+ count)))
                      (cond ((>= new-count nchunks)
                             (send outer-cust :ok)
-                            (become-sink))
+                            (become init-beh))
                            (t
                             (become (chunk-counter-beh new-count)))
                            )))
