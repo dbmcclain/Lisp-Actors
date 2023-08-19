@@ -10,8 +10,8 @@
 ;;  1. When an Actor expects a customer argument, it is always in
 ;;  first position.
 ;;
-;;  2. Every Actor living behind a SERIALIZER *must* send a reply to
-;;  the customer.
+;;  2. Every Actor network living behind a SERIALIZER *must* arrange
+;;  to send a reply to the customer.
 ;;
 ;;  3. Sink Actors don't have customers, unless they live behind a
 ;;  SERIALIZER gate.
@@ -26,8 +26,12 @@
 ;;
 ;;  6. There are no guarantees that a message will be sent to a
 ;;  customer. When in doubt you have no other choice but to rely on
-;;  timeout messaging. This is not unique to Actors, and can occur in
-;;  any system in which continuations / coroutines are employed.
+;;  timeout messaging.
+;;
+;;  This is to be contrasted with UNWNID-PROTECT. Such behavior is not
+;;  unique to Actors, and can occur in any system in which
+;;  continuations / coroutines are employed.
+;;
 ;;
 ;; -------------------------------------------------------
 
@@ -149,7 +153,7 @@
   ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST).
   ;; Read as "send the future result to cust".
   (actors ((fut (future-wait-beh tag))
-           (tag (once-tag-beh fut)))
+           (tag (tag-beh fut)))
     (send* actor tag msg)
     fut))
 
