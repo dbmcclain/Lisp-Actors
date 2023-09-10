@@ -202,9 +202,9 @@
 
 (defun parse-remote-actor (id)
   ;; parse id in form "eval@arroyo.local:65001"
-  (let ((apos (position id #\@)))
+  (let ((apos (position #\@ id)))
     (if apos
-        (values (um:kwsymbol (subseq id apos))
+        (values (um:kwsymbol (subseq id 0 apos))
                 (subseq id (1+ apos)))
       (error "No service specified: ~S" id)
       )))
@@ -255,6 +255,7 @@
         (send reval β '(um:capture-ans-or-exn
                             (error "test-error")))
         |#
+      (trace-me)
       (send fmt-println "reval sez: ~S" (um:recover-ans-or-exn ans)))
     ))
 (tst "localhost")

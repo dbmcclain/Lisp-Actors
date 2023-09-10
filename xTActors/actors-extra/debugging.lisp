@@ -98,6 +98,7 @@
       (cond
        (msg
         (unless (msg-id msg)
+          ;; global mutation, needs to be behind a Serializer
           (setf (msg-id msg) (uuid:make-v1-uuid)))
         (go-iter (msg-parent msg) (cons (list (msg-id msg)
                                               (msg-actor msg)

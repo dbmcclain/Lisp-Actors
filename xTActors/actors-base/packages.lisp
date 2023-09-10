@@ -317,6 +317,7 @@ THE SOFTWARE.
 
    #:do-nothing
    #:trace-me
+   #:tracer
    ))
 
 #+(OR :ALLEGRO :CCL)
