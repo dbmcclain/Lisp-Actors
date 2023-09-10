@@ -11,6 +11,7 @@
 (defvar *current-actor*    nil) ;; Current Actor
 (defvar *current-behavior* nil) ;; Current Actor's behavior
 (defvar *current-message*  nil) ;; Current Event Message
+(defvar *current-message-frame*  nil) ;; Current Event Whole Message
 
 (define-symbol-macro self         *current-actor*)
 (define-symbol-macro self-beh     *current-behavior*)

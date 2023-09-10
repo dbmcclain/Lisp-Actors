@@ -88,3 +88,29 @@
 (defun time-tag (actor)
   (create (time-tag-beh actor)))
 
+;; ====================================================
+
+(defun tracer-beh ()
+  (alambda
+   ((cust :trace from)
+    (um:nlet iter ((msg   from)
+                   (trail nil))
+      (cond
+       (msg
+        (unless (msg-id msg)
+          (setf (msg-id msg) (uuid:make-v1-uuid)))
+        (go-iter (msg-parent msg) (cons (list (msg-id msg)
+                                              (msg-actor msg)
+                                              (msg-args  msg))
+                                        trail)))
+       (t
+        (send cust (cons "=== Traceback ===" (nreverse trail))))
+       )))
+   ))
+
+(deflex tracer
+  (serializer (create (tracer-beh))))
+
+(defun trace-me ()
+  (send tracer writeln :trace *current-message-frame*))
+

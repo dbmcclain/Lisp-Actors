@@ -89,6 +89,8 @@ THE SOFTWARE.
 (defstruct (msg
             (:constructor msg (actor args &key link)))
   link
+  id
+  (parent              *current-message-frame*)
   (actor (create)      :type actor)
   (args  nil           :type list))
 
@@ -185,6 +187,10 @@ THE SOFTWARE.
   #F
   (let (sends evt pend-beh done timeout)
     (flet ((%send (actor &rest msg)
+             (setf sends (msg (the actor actor) msg :link sends)))
+
+           #| ;; this interferes with message auditing
+           (%send (actor &rest msg)
              (if evt
                  (setf (msg-link  (the msg evt)) sends
                        (msg-actor (the msg evt)) (the actor actor)
@@ -193,13 +199,14 @@ THE SOFTWARE.
                        evt        nil)
                ;; else
                (setf sends (msg (the actor actor) msg :link sends))))
-
+           |#
+           
            (%become (new-beh)
              (setf pend-beh new-beh))
 
            (%abort-beh ()
              (setf pend-beh self-beh
-                   evt      (or evt sends)
+                   ;; evt      (or evt sends)  ;; interferes with msg auditing
                    sends    nil))
 
            (dispatch ()
@@ -227,7 +234,8 @@ THE SOFTWARE.
                         (um:when-let (next-msgs (msg-link (the msg evt)))
                           (mpc:mailbox-send *central-mail* next-msgs))
                         
-                        (let* ((*current-actor*   (msg-actor (the msg evt)))  ;; self
+                        (let* ((*current-message-frame*      evt)
+                               (*current-actor*   (msg-actor (the msg evt)))  ;; self
                                (*current-message* (msg-args  (the msg evt)))) ;; self-msg
                           (declare (actor *current-actor*)
                                    (list  *current-message*))
@@ -261,7 +269,10 @@ THE SOFTWARE.
                                             )))
                                    (t
                                     ;; failed on behavior update - try again...
-                                    (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
+                                    
+                                    ;; -- iterferes with msg auditing --
+                                    ;; (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
+
                                     (go retry))
                                    )))
                           ))

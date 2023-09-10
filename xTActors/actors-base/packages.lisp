@@ -316,6 +316,7 @@ THE SOFTWARE.
    #:timed-out
 
    #:do-nothing
+   #:trace-me
    ))
 
 #+(OR :ALLEGRO :CCL)
