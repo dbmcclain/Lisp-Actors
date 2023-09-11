@@ -327,3 +327,17 @@
   (editor:setup-indent "def-actor" 0)
   (editor:setup-indent "define-behavior" 0))
 
+
+(defmacro restartable (&body body)
+  ;; Make a body of code restartable alongside potentially failing
+  ;; BECOME, which will auto-retry. The code might be non-idempotent,
+  ;; but it won't execute unless the BECOME succeeds without retry.
+  `(β _
+       (send β)
+     ,@body))
+
+(defmacro non-idempotent (&body body)
+  ;; A synonym for RESTARTABLE but could mark the code in a more
+  ;; obvious manner.
+  `(restartable ,@body))
+

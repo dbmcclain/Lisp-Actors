@@ -373,12 +373,10 @@
      (when rec
        ;; leaves all waiting custs hanging...
        (become (connections-list-beh (remove rec cnx-lst)))
-       (send executor sink
-             (lambda ()
-               (error "Can't connect to: ~S"
-                      (connection-rec-report-ip-addr rec)))
-             ))
-     ))
+       (restartable
+         (error "Can't connect to: ~S"
+                (connection-rec-report-ip-addr rec)))
+       )))
   
   ((cust :negotiate state socket)
    (let ((rec (find-connection-from-sender cnx-lst socket)))
@@ -400,19 +398,18 @@
               (new-cnxs (cons new-rec (remove rec cnx-lst))))
          (become (connections-list-beh new-cnxs))
          (when custs
-           (send executor sink
-                 (lambda ()
-                   (multiple-value-bind (peer-ip peer-port)
-                       #+:LISPWORKS8
-                     (comm:socket-connection-peer-address (intf-state-io-state state))
-                     #+:LISPWORKS7
-                     (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
-                     (send fmt-println "Client Socket (~S->~A:~D) starting up"
-                           (connection-rec-report-ip-addr rec)
-                           (comm:ip-address-string peer-ip) peer-port))
-                   (send-to-all custs chan))))
-         ))
-     ))
+           (restartable
+             (multiple-value-bind (peer-ip peer-port)
+                 #+:LISPWORKS8
+               (comm:socket-connection-peer-address (intf-state-io-state state))
+               #+:LISPWORKS7
+               (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
+               (send fmt-println "Client Socket (~S->~A:~D) starting up"
+                     (connection-rec-report-ip-addr rec)
+                     (comm:ip-address-string peer-ip) peer-port))
+             (send-to-all custs chan))))
+       )))
+    
   
   ((cust :remove state)
    (send cust :ok)

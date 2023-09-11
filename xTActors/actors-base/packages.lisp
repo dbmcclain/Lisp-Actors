@@ -316,6 +316,8 @@ THE SOFTWARE.
    #:timed-out
 
    #:executor
+   #:restartable
+   #:non-idempotent
    #:do-nothing
    #:trace-me
    #:tracer
