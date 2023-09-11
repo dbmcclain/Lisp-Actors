@@ -35,26 +35,20 @@
 ;; IO-Running controller - ensures that we don't write when socket has
 ;; been closed, and closes socket on input error conditions.
 
-(defun io-running-beh (io-state)
-  ;; In this state we are open to async reads, no writing under way,
+(defun io-base-beh (io-state)
   (alambda
-   ((cust :try-writing if-ok _)
-    (become (io-running-write-beh io-state))
-    (funcall if-ok)
-    (send cust :ok))
-
-   ((cust :done-reading)
-    (become (io-closed-beh))
-    (comm:close-async-io-state io-state)
-    (send cust :ok))
-
    ((cust :terminate)
     (become (io-closed-beh))
     (comm:async-io-state-abort-and-close io-state)
     (send cust :ok))
 
-   ((cust . _) ;; since we live behind a Serializer
+   ((cust :try-writing _ if-nok)
+    (send println "Can't happen - attempt to write while busy writing.")
+    (funcall if-nok)
     (send cust :err))
+
+   ((cust . _)
+    (send cust :err)) ;; unblock Serializer
    ))
 
 (defun io-closed-beh ()
@@ -64,15 +58,32 @@
     (funcall if-nok)
     (send cust :err))
    
-   ((cust . _) ;; just keeps the Serializer open (why?!)
+   ((cust . _) ;; unblock Serializer
     (send cust :err))
    ))
 
-(defun io-running-write-beh (io-state)
+(defun io-running-beh (io-state base)
+  ;; In this state we are open to async reads, no writing under way,
+  (alambda
+   ((cust :try-writing if-ok _)
+    (become (io-running-write-beh io-state base))
+    (funcall if-ok)
+    (send cust :ok))
+
+   ((cust :done-reading)
+    (become (io-closed-beh))
+    (comm:close-async-io-state io-state)
+    (send cust :ok))
+
+   (_
+    (repeat-send base))
+   ))
+
+(defun io-running-write-beh (io-state base)
   ;; Async reads are active, writing is under way.
   (alambda
    ((cust :finish-wr-ok)
-    (become (io-running-beh io-state))
+    (become (io-running-beh io-state base))
     (send cust :ok))
 
    ((cust :finish-wr-fail)
@@ -81,19 +92,14 @@
     (send cust :ok))
 
    ((cust :done-reading)
-    (become (io-running-not-reading-beh io-state))
+    (become (io-running-not-reading-beh io-state base))
     (send cust :ok))
 
-   ((cust :terminate)
-    (become (io-closed-beh))
-    (comm:async-io-state-abort-and-close io-state)
-    (send cust :ok))
-
-   ((cust . _) ;; since we live behind a Serializer
-    (send cust :err))
+   (_
+    (repeat-send base))
    ))
 
-(defun io-running-not-reading-beh (io-state)
+(defun io-running-not-reading-beh (io-state base)
   ;; writing is under way, but async reads are closed down
   (alambda
    ((cust msg) / (member msg '(:finish-wr-ok :finish-wr-fail))
@@ -101,12 +107,14 @@
     (comm:close-async-io-state io-state)
     (send cust :ok))
 
-   ((cust . _) ;; since we live behind a Serializer
-    (send cust :err))
+   (_
+    (repeat-send base))
    ))
 
 (defun make-io-running-monitor (io-state)
-  (serializer (create (io-running-beh io-state))))
+  (let ((base (create (io-base-beh io-state)) ))
+    (serializer (create (io-running-beh io-state base)))
+    ))
     
 ;; -------------------------------------------------------------------------
 ;; Socket writer
