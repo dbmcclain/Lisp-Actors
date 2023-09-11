@@ -1,4 +1,4 @@
-;; prim-actors.lisp - A collection of useful primitive Actors
+\;; prim-actors.lisp - A collection of useful primitive Actors
 ;;
 ;; DM/RAL 05/21
 ;; ------------------------------------------------------
@@ -44,6 +44,10 @@
 ;;  Message will only be sent at exit of body code, and only if BECOME
 ;;  succeeds. But the message args might have been created using
 ;;  non-idempotent code, so see (7).
+;;
+;;  9. Inside the body of a β-clause, NON-IDEMPOTENT, and RESTARTABLE,
+;;  the SELF object is no longer the containing Actor. So BECOME
+;;  should not be used there.
 ;;
 ;; -------------------------------------------------------
 
