@@ -35,6 +35,16 @@
 ;;
 ;; -------------------------------------------------------
 
+(deflex executor
+  ;; Use for performing non-idempotent actions
+  ;; when BECOME is being used.
+  (create
+   (lambda (cust fn)
+     (funcall fn)
+     (send cust :ok))))
+
+;; --------------------------------------------------------
+
 (defun once-beh (cust)
   (lambda (&rest msg)
     (send* cust msg)

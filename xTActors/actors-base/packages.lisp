@@ -315,6 +315,7 @@ THE SOFTWARE.
    #:check-for-errors
    #:timed-out
 
+   #:executor
    #:do-nothing
    #:trace-me
    #:tracer

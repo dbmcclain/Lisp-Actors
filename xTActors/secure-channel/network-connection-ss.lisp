@@ -34,13 +34,34 @@
 ;; -------------------------------------------------------------------------
 ;; IO-Running controller - ensures that we don't write when socket has
 ;; been closed, and closes socket on input error conditions.
+;;
+;; By placing all non-idempotent actions in leaf Actors, we avoid
+;; problems caused by parallel restarts when BECOME fails, since we
+;; are transactional. These Actors will only be sent messages when
+;; there was no restart. This avoids the need to place such Actors
+;; behind a Serializer.
+;;
+;; By having Actors send a result to a customer, they become sequenceable.
+
+(deflex socket-closer
+  (create
+   (lambda (cust io-state)
+     (comm:close-async-io-state io-state)
+     (send cust :ok))))
+
+(deflex forcible-socket-closer
+  (create
+   (lambda (cust io-state)
+     (comm:async-io-state-abort-and-close io-state)
+     (send cust :ok))))
+
+;; -----------------------------------------------
 
 (defun io-base-beh (io-state)
   (alambda
    ((cust :terminate)
     (become (io-closed-beh))
-    (comm:async-io-state-abort-and-close io-state)
-    (send cust :ok))
+    (send forcible-socket-closer cust io-state))
 
    ((cust :try-writing _ if-nok)
     (send println "Can't happen - attempt to write while busy writing.")
@@ -48,7 +69,7 @@
     (send cust :err))
 
    ((cust . _)
-    (send cust :err)) ;; unblock Serializer
+    (send cust :err))
    ))
 
 (defun io-closed-beh ()
@@ -58,7 +79,7 @@
     (funcall if-nok)
     (send cust :err))
    
-   ((cust . _) ;; unblock Serializer
+   ((cust . _)
     (send cust :err))
    ))
 
@@ -67,13 +88,11 @@
   (alambda
    ((cust :try-writing if-ok _)
     (become (io-running-write-beh io-state base))
-    (funcall if-ok)
-    (send cust :ok))
+    (send executor cust if-ok))
 
    ((cust :done-reading)
     (become (io-closed-beh))
-    (comm:close-async-io-state io-state)
-    (send cust :ok))
+    (send socket-closer cust io-state))
 
    (_
     (repeat-send base))
@@ -88,8 +107,7 @@
 
    ((cust :finish-wr-fail)
     (become (io-closed-beh))
-    (comm:async-io-state-abort-and-close io-state)
-    (send cust :ok))
+    (send forcible-socket-closer cust io-state))
 
    ((cust :done-reading)
     (become (io-running-not-reading-beh io-state base))
@@ -104,8 +122,7 @@
   (alambda
    ((cust msg) / (member msg '(:finish-wr-ok :finish-wr-fail))
     (become (io-closed-beh))
-    (comm:close-async-io-state io-state)
-    (send cust :ok))
+    (send socket-closer cust io-state))
 
    (_
     (repeat-send base))
@@ -113,7 +130,7 @@
 
 (defun make-io-running-monitor (io-state)
   (let ((base (create (io-base-beh io-state)) ))
-    (serializer (create (io-running-beh io-state base)))
+    (create (io-running-beh io-state base))
     ))
     
 ;; -------------------------------------------------------------------------
@@ -267,28 +284,28 @@
    (let ((rec (find-connection-from-ip cnx-lst peer-ip peer-port)))
      (cond (rec
             ;; already exists or is pending
-            (comm:async-io-state-abort-and-close io-state))
+            (send forcible-socket-closer sink io-state))
            
            (peer-ip
             ;; reserve our place while we create a channel
-            (β (ct)
-                (send get-server-count β)
-              (let ((server-name (format nil "~A#~D" (machine-instance) ct))
-                    (rec         (make-connection-rec
-                                  :ip-addr         peer-ip
-                                  :ip-port         peer-port
-                                  :state           :pending-server)))
-                (become (connections-list-beh (cons rec cnx-lst)))
-                (send fmt-println "Server Socket (~S->~A:~D) starting up"
-                      server-name (comm:ip-address-string peer-ip) peer-port)
-                (send (create-socket-intf :kind             :server
-                                          :ip-addr          peer-ip
-                                          :ip-port          peer-port
-                                          :report-ip-addr   server-name
-                                          :io-state         io-state)
-                      nil)
-                ))
-            ))))
+            (let ((rec (make-connection-rec
+                        :ip-addr         peer-ip
+                        :ip-port         peer-port
+                        :state           :pending-server)))
+              (become (connections-list-beh (cons rec cnx-lst)))
+              (β (ct)
+                  (send get-server-count β)
+                (let ((server-name (format nil "~A#~D" (machine-instance) ct)))
+                  (send fmt-println "Server Socket (~S->~A:~D) starting up"
+                        server-name (comm:ip-address-string peer-ip) peer-port)
+                  (send (create-socket-intf :kind             :server
+                                            :ip-addr          peer-ip
+                                            :ip-port          peer-port
+                                            :report-ip-addr   server-name
+                                            :io-state         io-state)
+                        nil))
+                )))
+            )))
         
   ((cust :add-socket ip-addr ip-port state sender)
    (send cust :ok)
@@ -356,7 +373,8 @@
      (when rec
        ;; leaves all waiting custs hanging...
        (become (connections-list-beh (remove rec cnx-lst)))
-       (send (α ()
+       (send executor sink
+             (lambda ()
                (error "Can't connect to: ~S"
                       (connection-rec-report-ip-addr rec)))
              ))
@@ -382,15 +400,17 @@
               (new-cnxs (cons new-rec (remove rec cnx-lst))))
          (become (connections-list-beh new-cnxs))
          (when custs
-           (multiple-value-bind (peer-ip peer-port)
-               #+:LISPWORKS8
-             (comm:socket-connection-peer-address (intf-state-io-state state))
-             #+:LISPWORKS7
-             (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
-             (send fmt-println "Client Socket (~S->~A:~D) starting up"
-                   (connection-rec-report-ip-addr rec)
-                   (comm:ip-address-string peer-ip) peer-port))
-           (send-to-all custs chan))
+           (send executor sink
+                 (lambda ()
+                   (multiple-value-bind (peer-ip peer-port)
+                       #+:LISPWORKS8
+                     (comm:socket-connection-peer-address (intf-state-io-state state))
+                     #+:LISPWORKS7
+                     (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
+                     (send fmt-println "Client Socket (~S->~A:~D) starting up"
+                           (connection-rec-report-ip-addr rec)
+                           (comm:ip-address-string peer-ip) peer-port))
+                   (send-to-all custs chan))))
          ))
      ))
   
