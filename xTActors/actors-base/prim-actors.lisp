@@ -1,4 +1,4 @@
-\;; prim-actors.lisp - A collection of useful primitive Actors
+;; prim-actors.lisp - A collection of useful primitive Actors
 ;;
 ;; DM/RAL 05/21
 ;; ------------------------------------------------------
