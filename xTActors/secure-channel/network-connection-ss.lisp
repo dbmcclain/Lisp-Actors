@@ -27,11 +27,87 @@
   io-state
   local-services
   kill-timer
-  (io-running (list 1))
-  decr-io-count-fn
+  io-running
   writer
   shutdown)
 
+;; -------------------------------------------------------------------------
+;; IO-Running controller - ensures that we don't write when socket has
+;; been closed, and closes socket on input error conditions.
+
+(defun io-running-beh (io-state)
+  ;; In this state we are open to async reads, no writing under way,
+  (alambda
+   ((cust :try-writing if-ok _)
+    (become (io-running-write-beh io-state))
+    (funcall if-ok)
+    (send cust :ok))
+
+   ((cust :done-reading)
+    (become (io-closed-beh))
+    (comm:close-async-io-state io-state)
+    (send cust :ok))
+
+   ((cust :terminate)
+    (become (io-closed-beh))
+    (comm:async-io-state-abort-and-close io-state)
+    (send cust :ok))
+
+   ((cust . _) ;; since we live behind a Serializer
+    (send cust :err))
+   ))
+
+(defun io-closed-beh ()
+  ;; Fully closed state
+  (alambda
+   ((cust :try-writing _ if-nok)
+    (funcall if-nok)
+    (send cust :err))
+   
+   ((cust . _) ;; just keeps the Serializer open (why?!)
+    (send cust :err))
+   ))
+
+(defun io-running-write-beh (io-state)
+  ;; Async reads are active, writing is under way.
+  (alambda
+   ((cust :finish-wr-ok)
+    (become (io-running-beh io-state))
+    (send cust :ok))
+
+   ((cust :finish-wr-fail)
+    (become (io-closed-beh))
+    (comm:async-io-state-abort-and-close io-state)
+    (send cust :ok))
+
+   ((cust :done-reading)
+    (become (io-running-not-reading-beh io-state))
+    (send cust :ok))
+
+   ((cust :terminate)
+    (become (io-closed-beh))
+    (comm:async-io-state-abort-and-close io-state)
+    (send cust :ok))
+
+   ((cust . _) ;; since we live behind a Serializer
+    (send cust :err))
+   ))
+
+(defun io-running-not-reading-beh (io-state)
+  ;; writing is under way, but async reads are closed down
+  (alambda
+   ((cust msg) / (member msg '(:finish-wr-ok :finish-wr-fail))
+    (become (io-closed-beh))
+    (comm:close-async-io-state io-state)
+    (send cust :ok))
+
+   ((cust . _) ;; since we live behind a Serializer
+    (send cust :err))
+   ))
+
+(defun make-io-running-monitor (io-state)
+  (serializer (create (io-running-beh io-state))))
+    
 ;; -------------------------------------------------------------------------
 ;; Socket writer
 ;;
@@ -41,86 +117,68 @@
 ;;
 ;; PhysWriter is the connection to the async output socket port.  The
 ;; Serializer is to prevent parallel access to the physical socket
-;; port.  Serializers need a customer, even if SINK. Gate provides
-;; that SINK.
+;; output port.  Serializers need a customer, even if SINK. Gate
+;; provides that SINK.
 ;;
-;; If anything goes wrong, the Phys Writer sends a shutdown signal
-;; and causes Gate to become SINK.
+;; If anything goes wrong, the Phys Writer sends a shutdown signal.
 ;;
 
-(defun physical-writer-beh (state kill)
+(defun physical-writer-beh (state)
   (lambda (cust byte-vec)
-    (with-accessors ((decr-io-count  intf-state-decr-io-count-fn)
-                     (state-io-state intf-state-io-state)
+    (with-accessors ((state-io-state intf-state-io-state)
                      (io-running     intf-state-io-running)
                      (kill-timer     intf-state-kill-timer)
                      (shutdown       intf-state-shutdown)) state
       (labels
           ;; these functions execute in the thread of the async socket handler
-          ((terminate-connection ()
-             (send kill)
-             (send shutdown))
-           
-           (finish-fail (io-state)
-             ;; socket send failure
-             (funcall decr-io-count io-state)
-             (terminate-connection))  ;; leaves serializer locked up
-           
-           (finish-ok (io-state)
-             ;; sockeet send was okay
-             (if (zerop (funcall decr-io-count io-state))
-                 (terminate-connection) ;; socket reader no longer running
-               (send cust :ok)))  ;; unblock serializer
+          ((not-writing ()
+             (send cust :err)) ;; clear the Serializer
            
            (write-done (io-state &rest _)
              ;; this is a callback routine, executed in the thread of
              ;; the async collection
              (declare (ignore _))
              (cond ((comm:async-io-state-write-status io-state)
-                    (finish-fail io-state))
+                    (β _
+                        (send io-running β :finish-wr-fail)
+                      (send shutdown)
+                      (send cust :err)))
                    (t
-                    (finish-ok io-state))
-                   )))
-        (cond
-         ((sys:compare-and-swap (car io-running) 1 2) ;; still running recieve?
-          (comm:async-io-state-write-buffer state-io-state
-                                            byte-vec
-                                            #'write-done)
-          (send kill-timer :resched))
+                    (send io-running cust :finish-wr-ok))
+                   ))
            
-         (t
-          (terminate-connection))
-         )))))
-
-(defun writer-gate-beh (tag ser)
-  (alambda
-   ((atag) / (eql atag tag)
-    ;; sever link to serializer to allow GC
-    (become-sink))
-   (msg
-    ;; fwd msg to serializer with sink as cust
-    (send* ser sink msg))
-   ))
+           (begin-write ()
+                (comm:async-io-state-write-buffer state-io-state
+                                                  byte-vec
+                                                  #'write-done)
+                (send kill-timer :resched)) )
+        
+        (send io-running sink :try-writing #'begin-write #'not-writing)
+        ))))
 
 (defun make-writer (state)
-  (actors ((tag  (tag-beh gate))
-           (gate (writer-gate-beh tag ser))
-           (ser  (serializer-beh phys))
-           (phys (physical-writer-beh state tag)))
-    gate))
+  (serializer-sink (create (physical-writer-beh state))))
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
 
+(defun watchdog-timer-beh (killer tag)
+  (alambda
+   ((:resched)
+    (let ((new-tag (tag self)))
+      (become (watchdog-timer-beh killer new-tag))
+      (send-after *socket-timeout-period* new-tag :timed-out)))
+   ((atag :timed-out) / (eql atag tag)
+    (send killer))
+   ((:discard)
+    (become-sink))
+   ))
+
 (defun make-kill-timer (timer-fn)
-  (let ((timer (mp:make-timer #'mp:funcall-async timer-fn)))
-    (αα
-     ((:resched)
-      (mp:schedule-timer-relative timer *socket-timeout-period*))
-     ((:discard)
-      (mp:unschedule-timer timer)
-      (become (sink-beh)))
-     )))
+  (actors ((tag    (tag-beh timer))
+           (killer timer-fn)
+           (timer  (watchdog-timer-beh killer tag)))
+    timer))
 
 ;; -------------------------------------------------------------
 ;; List of currently active sockets
@@ -186,7 +244,14 @@
 (defun find-connection-from-sender (cnx-lst sender)
   (find sender cnx-lst :key #'connection-rec-sender))
 
-(defvar *server-count* 0)
+(defun counter-beh (n)
+  (lambda (cust)
+    (let ((new-n (1+ n)))
+      (become (counter-beh new-n))
+      (send cust n))))
+
+(deflex get-server-count
+  (create (counter-beh 0)))
 
 (def-beh connections-list-beh (&optional cnx-lst)
    
@@ -198,23 +263,24 @@
            
            (peer-ip
             ;; reserve our place while we create a channel
-            (let ((server-name (format nil "~A#~D" (machine-instance)
-                                       (sys:atomic-incf *server-count*)))
-                  (rec         (make-connection-rec
-                                :ip-addr         peer-ip
-                                :ip-port         peer-port
-                                :state           :pending-server)))
-              (become (connections-list-beh (cons rec cnx-lst)))
-              (send fmt-println "Server Socket (~S->~A:~D) starting up"
-                    server-name (comm:ip-address-string peer-ip) peer-port)
-              (send (create-socket-intf :kind             :server
-                                        :ip-addr          peer-ip
-                                        :ip-port          peer-port
-                                        :report-ip-addr   server-name
-                                        :io-state         io-state)
-                    nil)
-              ))
-           )))
+            (β (ct)
+                (send get-server-count β)
+              (let ((server-name (format nil "~A#~D" (machine-instance) ct))
+                    (rec         (make-connection-rec
+                                  :ip-addr         peer-ip
+                                  :ip-port         peer-port
+                                  :state           :pending-server)))
+                (become (connections-list-beh (cons rec cnx-lst)))
+                (send fmt-println "Server Socket (~S->~A:~D) starting up"
+                      server-name (comm:ip-address-string peer-ip) peer-port)
+                (send (create-socket-intf :kind             :server
+                                          :ip-addr          peer-ip
+                                          :ip-port          peer-port
+                                          :report-ip-addr   server-name
+                                          :io-state         io-state)
+                      nil)
+                ))
+            ))))
         
   ((cust :add-socket ip-addr ip-port state sender)
    (send cust :ok)
@@ -336,20 +402,16 @@
   (actor ()
     (with-accessors ((kill-timer       intf-state-kill-timer)
                      (io-running       intf-state-io-running)
-                     (io-state         intf-state-io-state)
-                     (writer           intf-state-writer)
                      (title            intf-state-title)
                      (ip-addr          intf-state-ip-addr)) state
+      (become-sink)
       (send fmt-println "~A Socket (~S) shutting down"
             title ip-addr)
-      (send kill-timer :discard)
-      (send writer :discard)
-      (send connections sink :remove state)
-      ;; ---------------------
-      (unless (zerop (car io-running))
-        (wr (car io-running) 0)
-        (comm:async-io-state-abort-and-close io-state))
-      )))
+      (β _
+          (send io-running β :terminate)
+        (send kill-timer :discard)
+        (send connections sink :remove state)
+        ))))
 
 ;; ------------------------------------------------------------------------
 ;; For both clients and servers, we assemble the socket state, make
@@ -400,14 +462,16 @@
                             (io-state         intf-state-io-state)
                             (kill-timer       intf-state-kill-timer)
                             (io-running       intf-state-io-running)
-                            (decr-io-count-fn intf-state-decr-io-count-fn)) state
+                            (state-writer     intf-state-writer)
+                            (state-shutdown   intf-state-shutdown)) state
              
              (setf kill-timer (make-kill-timer
                                #'(lambda ()
                                    (send println "Inactivity shutdown request")
                                    (send shutdown)))
-                   (intf-state-writer   state) writer
-                   (intf-state-shutdown state) shutdown)
+                   state-writer   writer
+                   state-shutdown shutdown
+                   io-running     (make-io-running-monitor io-state))
              
              (labels
                  ((rd-callback-fn (state buffer end)
@@ -425,7 +489,9 @@
                              ;; terminate on any error
                              (comm:async-io-state-finish state)
                              (send fmt-println "~A Incoming error state: ~A" title status)
-                             (decr-io-count state))
+                             (β _
+                                 (send io-running β :done-reading)
+                               (send shutdown)))
                            
                             ((plusp end)
                              ;; Every input packet is numbered here,
@@ -441,15 +507,8 @@
                              (send kill-timer :resched)
                              (comm:async-io-state-discard state end))
                             )))
-                 
-                  (decr-io-count (io-state)
-                    (let ((ct (sys:atomic-fixnum-decf (car io-running))))
-                      (when (zerop ct) ;; >0 is running
-                        (comm:close-async-io-state io-state)
-                        (send shutdown))
-                      ct)))
-              
-               (setf decr-io-count-fn #'decr-io-count)
+                  (send-shutdown ()
+                    (send shutdown)))
               
                (send kill-timer :resched)
                (comm:async-io-state-read-with-checking io-state #'rd-callback-fn
