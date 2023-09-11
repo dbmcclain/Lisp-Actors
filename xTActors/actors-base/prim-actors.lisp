@@ -47,9 +47,21 @@
 ;;
 ;;  9. Inside the body of a β-clause, NON-IDEMPOTENT, and RESTARTABLE,
 ;;  the SELF object is no longer the containing Actor. So BECOME
-;;  should not be used there.
+;;  should not be used there. Same with (SEND SELF ...).
+;;
+;;  For (SEND SELF ...) you could capture the outer SELF into a
+;;  binding and send to it;
+;;
+;;      (...actor-body code...
+;;       (let ((ME  SELF))
+;;         (β _
+;;             (send some-actor β ...)
+;;           (SEND ME ..))))
+;;
+;;   But BECOME always pertains to SELF.
 ;;
 ;; -------------------------------------------------------
+
 
 (deflex executor
   ;; Use for performing non-idempotent actions
