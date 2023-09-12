@@ -5,29 +5,32 @@
 ;; System start-up and shut-down.
 ;;
 
-(def-ser-beh custodian-beh (&optional (count 0) threads)
+(def-ser-beh custodian-beh (&optional threads)
   ;; Custodian holds the list of parallel Actor dispatcher threads
   ((cust :add-executive id)
-   (send cust :ok)
-   (when (< count id)
-     ;; Not Idempotent - so we need to be behind a SERIALIZER.
+   (unless (assoc id threads)
      (let ((new-thread (mpc:process-run-function
                         (format nil "Actor Thread #~D" id)
                         ()
                         #'run-actors)
                        ))
-       (become (custodian-beh id (cons new-thread threads)))
-       )))
-   
+       (become (custodian-beh (acons id new-thread threads)))
+       ))
+   (send cust :ok))
+
+  ((cust :ensuring n ix)
+   (cond ((>= ix n)
+          (send cust :ok))
+         (t
+          (let ((me self))
+            (β _
+                (send self β :add-executive ix)
+              (send me cust :ensuring n (1+ ix)))
+            ))
+         ))
+  
   ((cust :ensure-executives n)
-   (if (< (length threads) n)
-       (let ((me  self)
-             (msg self-msg))
-         (β _
-             (send self β :add-executive (1+ count))
-           (send* me msg)))
-     ;; else
-     (send cust :ok)))
+   (send self cust :ensuring n 0))
      
   ((cust :add-executives n)
    (send self cust :ensure-executives (+ (length threads) n)))
@@ -37,7 +40,7 @@
    ;; KILL-ACTORS-SYSTEM from a non-Actor thread. Only works properly
    ;; when called by a non-Actor thread using a single-thread direct
    ;; dispatcher, as with CALL-ACTOR.
-   (become (custodian-beh 0 nil))
+   (become (custodian-beh nil))
    (send cust :ok)
    (let* ((my-thread     (mpc:get-current-process))
           (other-threads (remove my-thread threads)))
@@ -58,25 +61,31 @@
 
 (defun actors-running-p ()
   (or self
-      (call-actor custodian :get-threads)))
+      (ask custodian :get-threads)))
 
 (defun add-executives (n)
-  (call-actor custodian :add-executives n))
+  (if self
+      (send custodian sink :add-executives n)
+    (ask custodian :add-executives n)))
 
 (defun restart-actors-system (&optional (nbr-execs *nbr-pool*))
   ;; Users don't normally need to call this function. It is
   ;; automatically called on the first message SEND.
-  (call-actor custodian :ensure-executives nbr-execs))
+  (if self
+      (send custodian sink :ensure-executives nbr-execs)
+    (ask custodian :ensure-executives nbr-execs)))
 
 (defun kill-actors-system ()
   ;; The FUNCALL-ASYNC assures that this will work, even if called
   ;; from an Actor thread. Of course, that will also cause the Actor
   ;; (and all others) to be killed.
-  (mpc:funcall-async
-   (lambda ()
-     ;; we are now running in a known non-Actor thread
-     (call-actor custodian :kill-executives)
-     (setf *send* #'startup-send))))
+  (non-idempotent
+    (mpc:funcall-async
+     (lambda ()
+       ;; we are now running in a known non-Actor thread
+       (ask custodian :kill-executives)
+       (setf *send* #'startup-send))
+     )))
 
 #|
 (kill-actors-system)

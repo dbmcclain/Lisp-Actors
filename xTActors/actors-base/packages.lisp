@@ -112,10 +112,10 @@ THE SOFTWARE.
    #:send-combined-msg
    #:send-to-pool
    #:ask
-   #:stsend
-   #:with-single-thread
-   #:call-actor
-   #:*NO-ANSWER*
+   ;; #:stsend
+   ;; #:with-single-thread
+   ;; #:call-actor
+   ;; #:*NO-ANSWER*
    
    #:self
    #:self-beh

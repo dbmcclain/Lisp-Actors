@@ -430,42 +430,24 @@
 ;; -----------------------------------------
 ;; Delayed Send
 
-(let ((schedule-timer
-       (α (dt actor &rest msg)
-         ;; No BECOME, so no need to worry about being retried.
-         ;; Parallel-safe.
-         (flet ((sender ()
-                  ;; If we have a binding for SELF, then SEND is also
-                  ;; redirected. We need to avoid using that version...
-                  ;; But it also means that someone is listening to the
-                  ;; Central Mailbox.
-                  (let ((fn (if self
-                                #'send-to-pool
-                              #'send)))
-                    (apply fn actor msg)
-                    :stop)))
-           (let ((timer (mpc:make-timer #'sender)))
-             (mpc:schedule-timer-relative timer dt))
-           ))))
-         
-  (defun send-after (dt actor &rest msg)
-    ;; NOTE: Actors, except those at the edge, must never do anything
-    ;; that has observable effects beyond SEND and BECOME. Starting a
-    ;; timer running breaks this. The caller might have to be retried,
-    ;; in which case there will be a spurious timer running from a prior
-    ;; attempt.
-    ;;
-    ;; We place the timer launch in an edge Actor here, and SEND a
-    ;; message to trigger it. If we need to be retried, that SEND never
-    ;; happens.
-    ;;
-    ;; Edge Actors typically live behind a SERIALIZER wall, to prevent
-    ;; the possibility that they will need to be retried. In this case,
-    ;; we are the only ones that know about this edge Actor.
-    ;;
-    (when (and (actor-p actor)
-               (realp dt))
-      (send* schedule-timer dt actor msg))))
+(defun send-after (dt actor &rest msg)
+  ;; NOTE: Actors, except those at the edge, must never do anything
+  ;; that has observable effects beyond SEND and BECOME. Starting a
+  ;; timer running breaks this. The caller might have to be retried,
+  ;; in which case there will be a spurious timer running from a prior
+  ;; attempt.
+  ;;
+  ;; We mark the timer launch as non-idempotent so that it happens in
+  ;; an edge Actor, and gets launched via message SEND. If we get
+  ;; retried, that SEND is discarded and possibly tried again during
+  ;; message delivery retry.
+  ;;
+  (when (and (actor-p actor)
+             (realp dt))
+    (non-idempotent
+      (let ((timer (apply #'mpc:make-timer #'send actor msg)))
+        (mpc:schedule-timer-relative timer dt)))
+    ))
 
 ;; --------------------------------------
 

@@ -451,7 +451,7 @@ THE SOFTWARE.
 (def-actor println
   (α msg
     (with-printer (s *standard-output*)
-      (format s "~&~{~A~%~^~}" msg))))
+      (format s "~&~{~A~%~}" msg))))
 
 (defun do-with-maximum-io-syntax (fn)
   (with-standard-io-syntax
@@ -472,7 +472,7 @@ THE SOFTWARE.
   (α msg
     (with-printer (s *standard-output*)
       (with-maximum-io-syntax
-       (format s "~&~{~:W~%~^~}" msg)))))
+       (format s "~&~{~:W~%~}" msg)))))
 
 (def-actor fmt-println
   (α (fmt-str &rest args)
