@@ -185,54 +185,54 @@
 ;;
 ;;                == The Microcosm of Serializer ==
 ;;
-;;                                                   +---------+
-;;                                               +<--| TIMEOUT |
-;;                                               |   +---------+
-;;                                               v
-;;                        +-----+   +-----+   +------+
-;;                   +<---| TAG |<--| LBL |<--| ONCE |<--- reply ---+
-;;                   |    +-----+   +-----+   +------+              |
-;;                   v                                              |
-;;             +------------+                                    +-----+
-;;  --- msg -->| SERIALIZER |--- msg --------------------------->| svc |
-;;             +------------+                                    +-----+
+;;                                          +---------+
+;;                                      +---| TIMEOUT |
+;;                                      |   +---------+
+;;                                      v
+;;                        +-----+   +------+
+;;                   +----| TAG |<--| ONCE |<--- reply ---+
+;;                   |    +-----+   +------+              |
+;;                   v                                    |
+;;             +------------+                          +-----+
+;;  --- msg -->| SERIALIZER |--- msg ----------------->| svc |
+;;             +------------+                          +-----+
 ;;                   |
 ;;     <--- reply ---+
 ;;
 ;; -----------------------------------------------------------------
 
 (defun serializer-beh (svc &key (timeout *timeout*))
-  ;; Quiescent state - nobody in waiting, just flag him through, but
-  ;; enter the busy state.
+  ;; Quiescent state - nobody in waiting, just flag him through, and
+  ;; enter the busy state. As a precaution against re-use of the reply TAG
+  ;; we guard ourselves with a ONCE gate.
   (alambda
    ((cust . msg)
     (let* ((tag   (tag self))
-           (lbl   (label tag cust))
-           (svct  (timed-service svc timeout)))
-      (send* svct lbl msg)
-      (become (busy-serializer-beh svc timeout tag nil))
+           (once  (once tag)))
+      (send* svc once msg)
+      (send-after timeout once timeout)
+      (become (busy-serializer-beh svc timeout cust tag nil))
       ))
    ))
 
-(defun busy-serializer-beh (svc timeout tag queue)
+(defun busy-serializer-beh (svc timeout cur-cust tag queue)
   ;; Busy state - new arriving messages get enqueued until we receive
   ;; a message through our interposed customer TAG.
   (alambda
    ((atag . reply) / (eql atag tag)
-    (send* reply) ;; reply has been labeled with cust
+    (send* cur-cust reply)
     (if (emptyq? queue)
         (become (serializer-beh svc :timeout timeout))
       (multiple-value-bind (next-req new-queue) (popq queue)
         (destructuring-bind (next-cust . next-msg) next-req
-          (let* ((new-tag (tag self)) ;; prep to ignore any further replies on current tag
-                 (lbl     (label new-tag next-cust))
-                 (svct    (timed-service svc timeout)))
-            (send* svct lbl next-msg)
-            (become (busy-serializer-beh svc timeout new-tag new-queue))
+          (let ((once  (once tag)))
+            (send* svc once next-msg)
+            (send-after timeout once timeout)
+            (become (busy-serializer-beh svc timeout next-cust tag new-queue))
             )))
       ))
    ((cust . msg)
-    (become (busy-serializer-beh svc timeout tag
+    (become (busy-serializer-beh svc timeout cur-cust tag
                                  (addq queue (cons cust msg)))))
    ))
 
@@ -243,15 +243,17 @@
 ;;
 ;;                   == A Serializer SInk ==
 ;;
-;;
-;;                                +--- reply ---+
-;;                                |             |
-;;                                |           gating
-;;                                |             |
-;;                                v             | reply
-;;              +-----+    +------------+    +-----+
-;;  --- msg --->| LBL |--->| SERIALIZER |--->| svc |
-;;              +-----+    +------------+    +-----+
+;;                                                      +---------+
+;;                                                  +---| TIMEOUT |
+;;                                                  |   +---------+
+;;                                                  v
+;;                                     +-----+   +------+
+;;                                +----| TAG |<--| ONCE |<--- reply ---+
+;;                                |    +-----+   +------+              |
+;;                                v                                    |
+;;              +-----+    +------------+                           +-----+
+;;  --- msg --->| LBL |--->| SERIALIZER |--- msg ------------------>| svc |
+;;              +-----+    +------------+                           +-----+
 ;;                                |
 ;;                              reply
 ;;                                |
