@@ -202,11 +202,10 @@
         (become (serializer-beh svc :timeout timeout))
       (multiple-value-bind (next-req new-queue) (popq queue)
         (destructuring-bind (next-cust . next-msg) next-req
-          (let* ((new-tag (tag self))
-                 (lbl     (label new-tag next-cust))
-                 (svct    (timed-service svc timeout)))
+          (let* ((lbl     (label tag next-cust))
+                 (svct    (timed-service svc timeout))) ;; timed-service ensures that tag will only be msg'd just once
             (send* svct lbl next-msg)
-            (become (busy-serializer-beh svc timeout new-tag new-queue))
+            (become (busy-serializer-beh svc timeout tag new-queue))
             )))
       ))
    ((cust . msg)
@@ -224,24 +223,6 @@
   ;; and always send a response to cust - even though it appears to be
   ;; a sink from the caller's perspective.
   (label (serializer act) sink))
-
-
-(defun safe-serializer (action &key (timeout *timeout*) on-timeout supv)
-  ;; If timeout happens, by default the serializer will be unblocked
-  ;; with message :TIMEOUT.
-  ;;
-  ;; If ON-TIMEOUT is specified it will instead be called with the
-  ;; customer and message that was attempted. It is up to ON-TIMEOUT
-  ;; to clear the way with the SERIALIZER, perform retries, shut down
-  ;; the service, or whatever.. Rquests held in the SERIALIZER queue
-  ;; will remain blocked until the SERIALIZER hears a response.
-  (let ((wd (watchdog-timer action
-                              :timeout    timeout
-                              :on-timeout on-timeout
-                              :supv       supv)))
-    (values (serializer wd)
-            wd)
-    ))
 
 ;; ----------------------------------------------------------
 

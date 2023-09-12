@@ -112,10 +112,6 @@ THE SOFTWARE.
    #:send-combined-msg
    #:send-to-pool
    #:ask
-   ;; #:stsend
-   ;; #:with-single-thread
-   ;; #:call-actor
-   ;; #:*NO-ANSWER*
    
    #:self
    #:self-beh
@@ -269,8 +265,6 @@ THE SOFTWARE.
 
    #:splay-beh
    #:splay
-   #:watchdog-timer
-   #:safe-serializer
    #:yield
 
    #:and-β

@@ -556,69 +556,6 @@
 
 ;; ------------------------------------------------
 
-(def-beh watchdog-timer-beh (action timeout on-timeout &optional supv)
-  ;; Place WATCHDOG-TIMER after a SERIALIZER gate, to ensure new
-  ;; message release on timeout.
-  ((cust :become new-beh reply-to) when (and cust
-                                             (eql cust supv))
-   ;; allow a supervisor to change us out
-   (become new-beh)
-   (send reply-to :ok))
-  
-  ((cust . start-msg)
-   (cond ((realp timeout)
-          (let ((me  self))
-            (actors ((tag-ok      (tag-beh gate))
-                     (tag-timeout (tag-beh gate))
-                     (gate        (once-beh arbiter))
-                     (arbiter     (λ (tag . msg)
-                                    (if (eql tag tag-ok)
-                                        (send* cust msg)
-                                      (cond (on-timeout
-                                             (send on-timeout me action start-msg timeout supv cust))
-                                            (t
-                                             (send cust timed-out))
-                                            )))
-                                  ))
-              (send* action tag-ok start-msg)
-              (send-after timeout tag-timeout)
-              )))
-         (t
-          (send* action cust start-msg))
-     )))
-
-(defun watchdog-timer (action &key (timeout *timeout*) on-timeout supv)
-  ;; If timeout happens, then on-timeout is sent a message with the
-  ;; watchdog, its action Actor, the message in progress, its timeout
-  ;; duration, its supv, and customer, as arguments.
-  (cond ((or timeout supv)
-         (create (watchdog-timer-beh action timeout on-timeout supv)))
-        (t
-         action)))
-
-#|
-(send (safe-serializer (α (cust . msg)
-                         (send writeln msg)
-                         (sleep 2)
-                         (send cust :ok))
-                       :timeout 1)
-      println :hello)
-
-
-(send (safe-serializer sink
-                       :timeout 1
-                       ;; :on-timeout (label writeln :on-timeout)
-                       )
-      (label writeln :direct))
-
- |#
-#|
-(send (with-watchdog-timer 2.1 (actor (cust)
-                        (send-after 2 cust :ok))
-                    (actor _
-                      (send println :nah)))
-      println)
- |#
 #|
 (defun long-running-beh (action)
   (flet ((doit (cust args)
