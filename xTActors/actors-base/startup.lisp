@@ -43,11 +43,8 @@
    (become (custodian-beh nil))
    (send cust :ok)
    (let* ((my-thread     (mpc:get-current-process))
-          (other-threads (remove my-thread threads)))
+          (other-threads (remove my-thread (mapcar #'cdr threads))))
      (map nil #'mpc:process-terminate other-threads)
-     (when (find my-thread threads)
-       ;; this will cancel pending SEND/BECOME...
-       (mpc:current-process-kill))
      ))
      
   ((cust :get-threads)
