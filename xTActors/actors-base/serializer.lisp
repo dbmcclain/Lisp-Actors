@@ -210,7 +210,7 @@
     (let* ((tag   (tag self))
            (once  (once tag)))
       (send* svc once msg)
-      (send-after timeout once timeout)
+      (send-after timeout once timed-out)
       (become (busy-serializer-beh svc timeout cust tag nil))
       ))
    ))
@@ -227,7 +227,7 @@
         (destructuring-bind (next-cust . next-msg) next-req
           (let ((once  (once tag)))
             (send* svc once next-msg)
-            (send-after timeout once timeout)
+            (send-after timeout once timed-out)
             (become (busy-serializer-beh svc timeout next-cust tag new-queue))
             )))
       ))
