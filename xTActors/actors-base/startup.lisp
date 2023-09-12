@@ -39,7 +39,7 @@
    ;; Users should not send this message directly -- use function
    ;; KILL-ACTORS-SYSTEM from a non-Actor thread. Only works properly
    ;; when called by a non-Actor thread using a single-thread direct
-   ;; dispatcher, as with CALL-ACTOR.
+   ;; dispatcher, as with ASK.
    (become (custodian-beh nil))
    (send cust :ok)
    (let* ((my-thread     (mpc:get-current-process))
@@ -76,13 +76,14 @@
   ;; The FUNCALL-ASYNC assures that this will work, even if called
   ;; from an Actor thread. Of course, that will also cause the Actor
   ;; (and all others) to be killed.
-  (non-idempotent
-    (mpc:funcall-async
-     (lambda ()
-       ;; we are now running in a known non-Actor thread
-       (ask custodian :kill-executives)
-       (setf *send* #'startup-send))
-     )))
+  (when (actors-running-p)
+    (non-idempotent
+      (mpc:funcall-async
+       (lambda ()
+         ;; we are now running in a known non-Actor thread
+         (ask custodian :kill-executives)
+         (setf *send* #'startup-send))
+       ))))
 
 #|
 (kill-actors-system)
