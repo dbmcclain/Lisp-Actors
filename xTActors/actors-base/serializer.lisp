@@ -178,6 +178,24 @@
 ;; abuses of your Actor system. In most cases you will need to rely on
 ;; timeout mechanisms to help out. Just like in the real world...
 ;; -----------------------------------------------------------------
+;;
+;;                == The Microcosm of Serializer ==
+;;
+;;                                                   +---------+
+;;                                               +<--| TIMEOUT |
+;;                                               |   +---------+
+;;                                               v
+;;                        +-----+   +-----+   +------+
+;;                   +<---| TAG |<--| LBL |<--| ONCE |<--- reply ---+
+;;                   |    +-----+   +-----+   +------+              |
+;;                   v                                              |
+;;             +------------+                                    +-----+
+;;  --- msg -->| SERIALIZER |--- msg --------------------------->| svc |
+;;             +------------+                                    +-----+
+;;                   |
+;;     <--- reply ---+
+;;
+;; -----------------------------------------------------------------
 
 (defun serializer-beh (svc &key (timeout *timeout*))
   ;; Quiescent state - nobody in waiting, just flag him through, but
@@ -217,6 +235,27 @@
   (create (serializer-beh svc :timeout timeout)))
 
 ;; -----------------------------------------------------------
+;;
+;;                   == A Serializer SInk ==
+;;
+;;
+;;                                +--- reply ---+
+;;                                |             |
+;;                                |           gating
+;;                                |             |
+;;                                v             | reply
+;;              +-----+    +------------+    +-----+
+;;  --- msg --->| LBL |--->| SERIALIZER |--->| svc |
+;;              +-----+    +------------+    +-----+
+;;                                |
+;;                              reply
+;;                                |
+;;                                v
+;;                             +------+
+;;                             | SINK |
+;;                             +------+
+;;
+;; -------------------------------------------------------------
 
 (defun serializer-sink (act)
   ;; Turn an actor into a sink. Actor must accept a cust argument,
