@@ -69,8 +69,8 @@
 ;; All Actor instances runnning inside the body of the Actor view the
 ;; same closure parameters. Only one machine thread at a time can be
 ;; allowed to mutate the Hashtable, and it must happen while no other
-;; thread is attempting to read the Hashtable. In MPX land, you would
-;; use a LOCK. But in Actor land, we use a SERIALZER Gate.
+;; thread is attempting to read the Hashtable. In MPX-land, you would
+;; use a LOCK. But in Actor-land, we use a SERIALZER Gate.
 ;;
 ;; Once running inside an Actor body that is guarded by a SERIALIZER,
 ;; you can freely mutate globally visible items that are in the
@@ -107,6 +107,10 @@
 ;; Not quite: Full-out deadlocks are impossible in an Actors system.
 ;; But it is certainly possible to develop a logical livelock between
 ;; two or more logical threads of Actor activity.
+;;
+;; Note that Serializers only block message delivery. No machine
+;; threads are ever blocked from running useful activity. Just the
+;; logical thread that could emanate from a message.
 ;;
 ;; Suppose one Actor needs to use SERIALIZED resources A and B. And
 ;; another Actor neeeds to use SERIALIZED resources B and A.
@@ -149,7 +153,7 @@
 ;; obligated to send a message to its customer. That customer happens
 ;; to be through the SERIALZER gate, which interposes between the
 ;; running Actor and its actual customer. In that way, the SERIALIZER
-;; can detect when it is safe to release another Actor in waiting.
+;; can detect when it is safe to release another message in waiting.
 ;;
 ;; You should also realize, that once you send a message to the
 ;; customer, you are no longer the sole instance running in Actor
@@ -220,10 +224,11 @@
         (become (serializer-beh svc :timeout timeout))
       (multiple-value-bind (next-req new-queue) (popq queue)
         (destructuring-bind (next-cust . next-msg) next-req
-          (let* ((lbl     (label tag next-cust))
-                 (svct    (timed-service svc timeout))) ;; timed-service ensures that tag will only be msg'd just once
+          (let* ((new-tag (tag self)) ;; prep to ignore any further replies on current tag
+                 (lbl     (label new-tag next-cust))
+                 (svct    (timed-service svc timeout)))
             (send* svct lbl next-msg)
-            (become (busy-serializer-beh svc timeout tag new-queue))
+            (become (busy-serializer-beh svc timeout new-tag new-queue))
             )))
       ))
    ((cust . msg)
