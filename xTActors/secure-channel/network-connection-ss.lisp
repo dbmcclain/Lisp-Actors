@@ -65,10 +65,7 @@
 
    ((cust :try-writing _ if-nok)
     (send println "Can't happen - attempt to write while busy writing.")
-    (funcall if-nok)
-    (send cust :err))
-
-   ((cust . _)
+    (send if-nok)
     (send cust :err))
    ))
 
@@ -76,10 +73,7 @@
   ;; Fully closed state
   (alambda
    ((cust :try-writing _ if-nok)
-    (funcall if-nok)
-    (send cust :err))
-   
-   ((cust . _)
+    (send if-nok)
     (send cust :err))
    ))
 
@@ -88,7 +82,8 @@
   (alambda
    ((cust :try-writing if-ok _)
     (become (io-running-write-beh io-state base))
-    (send executor cust if-ok))
+    (send if-ok)
+    (send cust :ok))
 
    ((cust :done-reading)
     (become (io-closed-beh))
@@ -178,7 +173,9 @@
                                                   #'write-done)
                 (send kill-timer :resched)) )
         
-        (send io-running sink :try-writing #'begin-write #'not-writing)
+        (send io-running sink :try-writing
+              (create #'begin-write)
+              (create #'not-writing))
         ))))
 
 (defun make-writer (state)
@@ -430,10 +427,10 @@
                      (title            intf-state-title)
                      (ip-addr          intf-state-ip-addr)) state
       (become-sink)
-      (send fmt-println "~A Socket (~S) shutting down"
-            title ip-addr)
       (β _
           (send io-running β :terminate)
+        (send fmt-println "~A Socket (~S) shutting down"
+              title ip-addr)
         (send kill-timer :discard)
         (send connections sink :remove state)
         ))))
@@ -474,7 +471,7 @@
                       (sink-pipe (fail-silent-marshal-decoder)
                                  local-services)))
             (packet-ctr 0)  ;; a counter of input packet fragments 
-            (shutdown (once (make-socket-shutdown state))))
+            (shutdown (make-socket-shutdown state)))
        (β  _
            ;; provide a service to establish an encrypted channel
            (send local-services β :add-service-with-id +server-connect-id+
@@ -513,9 +510,9 @@
                       (cond (status
                              ;; terminate on any error
                              (comm:async-io-state-finish state)
-                             (send fmt-println "~A Incoming error state: ~A" title status)
                              (β _
                                  (send io-running β :done-reading)
+                               (send fmt-println "~A Incoming error state: ~A" title status)
                                (send shutdown)))
                            
                             ((plusp end)
