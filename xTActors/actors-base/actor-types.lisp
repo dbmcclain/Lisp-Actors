@@ -8,6 +8,9 @@
 
 (in-package #:com.ral.actors.types)
 
+;; equiv to #F
+(declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))
+
 ;; ----------------------------------
 
 (unless (fboundp 'do-nothing)
@@ -16,11 +19,35 @@
     (declare (ignore _))
     (values)))
 
-;; ----------------------------------------------------------
-
-(declaim (inline %actor-cas))
-
-;; ---------------------------------------------------
+;; -----------------------------------------------------
+;; Actors are simply indirect refs to a beh closure (= function + state).
+;;
+;; Actor behavior/state can change without affecting the identity of
+;; the Actor.
+;;               +------+-----+
+;;  Actor Ref -->| Type | Beh |
+;;               +------+-----+
+;;                  |      |
+;;                  |      v      Closure
+;;                  |    +----+-------+
+;;                  v    | Fn | State |
+;;             T(Actor)  +----+-------+     Bindings
+;;                         |      |      +------+-----+-----+---
+;;                         |      +----->| Data | ... | ... |
+;;                         |             +------+-----+-----|---
+;;                         |    +------+-----+-----+---
+;;                         +--->| Code | ... | ... |
+;;                              +------+-----+-----+---
+;; ------------------------------------------------------------------
+;;
+;; An Actor can use any function as its behavior. But by convention, a
+;; Service Actor is one which takes a customer in first position for
+;; all its messages. We cannot enforce this convention, so we have to
+;; trust the programmer.
+;;
+;; But Actors which comply with this convention, and which promise to
+;; reply to the customer, can take advantage of some parallel
+;; invocation macros, such as FORK/JOIN and others.
 
 (defstruct (actor
                (:constructor %create (beh)))
@@ -42,8 +69,15 @@
 
 ;; ----------------------------------------------------------
 
+(defun create (&optional (fn #'do-nothing))
+  (%create (screened-beh fn)))
+
 (defun create-service (&optional (fn #'do-nothing))
   (%create-service (screened-beh fn)))
+
+;; -------------------------------------------
+
+(declaim (inline %actor-cas))
 
 (defun %actor-cas (actor old-beh new-beh)
     (mpc:compare-and-swap (actor-beh (the actor actor)) old-beh new-beh))

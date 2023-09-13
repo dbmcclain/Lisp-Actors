@@ -373,15 +373,15 @@
 
 (defun decode (vec)
   ;; decoding (as a function) for self-contained encoded vectors
-  (let* ((mbox    (mp:make-mailbox))
-         (mba     (mbox-sender mbox))
-         (decoder (stream-decoder mba)))
-    (send decoder :deliver 1 vec)
-    (car (mp:mailbox-read mbox))))
+  (ask (create
+        (lambda (cust &rest msg)
+          (let ((decoder (stream-decoder cust)))
+            (send* decoder msg))))
+       :deliver 1 vec))
 
 ;; ---------------------------------------------------------------------------
 #|
-(setf s  (hcl:file-binary-bytes "taxes.lisp"))
+(setf s  (hcl:file-binary-bytes "Taxes/taxes.lisp"))
 (setf se (encode s))
 (map 'string #'code-char (self-sync:decode se))
 (map 'string #'code-char (decode se))

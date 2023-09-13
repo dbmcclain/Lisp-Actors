@@ -288,6 +288,7 @@ THE SOFTWARE.
    #:false
    #:def-actor
    #:define-behavior
+   #:sequential-β
    
    #:filer
    #:with-actors

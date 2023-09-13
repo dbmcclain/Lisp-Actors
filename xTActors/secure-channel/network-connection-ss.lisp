@@ -28,12 +28,28 @@
   local-services
   kill-timer
   io-running
-  writer
   shutdown)
 
+;; --------------------------------------------------
+;; Gentle and Forcible Socket Closing
+
+(deflex socket-closer
+  ;; Use only when it is known that no async streams are operating
+  (create
+   (lambda (cust io-state)
+     (comm:close-async-io-state io-state)
+     (send cust :ok))))
+
+(deflex forcible-socket-closer
+  ;; Used when an async reader or writer may currently be running
+  (create
+   (lambda (cust io-state)
+     (comm:async-io-state-abort-and-close io-state)
+     (send cust :ok))))
+
 ;; -------------------------------------------------------------------------
-;; IO-Running controller - ensures that we don't write when socket has
-;; been closed, and closes socket on input error conditions.
+;; IO-Running controller - Coordinates the activity and closure of
+;; socket streams.
 ;;
 ;; By placing all non-idempotent actions in leaf Actors, we avoid
 ;; problems caused by parallel restarts when BECOME fails, since we
@@ -41,20 +57,8 @@
 ;; there was no restart. This avoids the need to place such Actors
 ;; behind a Serializer.
 ;;
-;; By having Actors send a result to a customer, they become sequenceable.
-
-(deflex socket-closer
-  (create
-   (lambda (cust io-state)
-     (comm:close-async-io-state io-state)
-     (send cust :ok))))
-
-(deflex forcible-socket-closer
-  (create
-   (lambda (cust io-state)
-     (comm:async-io-state-abort-and-close io-state)
-     (send cust :ok))))
-
+;; By always having Actors send a result to a customer, they become
+;; sequenceable.
 ;; -----------------------------------------------
 
 (defun io-base-beh (io-state)
@@ -164,6 +168,7 @@
                       (send shutdown)
                       (send cust :err)))
                    (t
+                    ;; io-running will reply to our cust for us
                     (send io-running cust :finish-wr-ok))
                    ))
            
@@ -190,15 +195,18 @@
     (let ((new-tag (tag self)))
       (become (watchdog-timer-beh killer new-tag))
       (send-after *socket-timeout-period* new-tag :timed-out)))
+   
    ((atag :timed-out) / (eql atag tag)
+    (become-sink)
     (send killer))
+
    ((:discard)
     (become-sink))
    ))
 
-(defun make-kill-timer (timer-fn)
+(defun make-kill-timer (timer-beh)
   (actors ((tag    (tag-beh timer))
-           (killer timer-fn)
+           (killer timer-beh)
            (timer  (watchdog-timer-beh killer tag)))
     timer))
 
@@ -266,6 +274,10 @@
 (defun find-connection-from-sender (cnx-lst sender)
   (find sender cnx-lst :key #'connection-rec-sender))
 
+;; ---------------------
+;; A global counter to label instances of server connections from this
+;; host
+
 (defun counter-beh (n)
   (lambda (cust)
     (let ((new-n (1+ n)))
@@ -274,6 +286,9 @@
 
 (deflex get-server-count
   (create (counter-beh 0)))
+
+;; ------------------------
+;; The list of currently active socket connections
 
 (def-beh connections-list-beh (&optional cnx-lst)
    
@@ -370,7 +385,7 @@
      (when rec
        ;; leaves all waiting custs hanging...
        (become (connections-list-beh (remove rec cnx-lst)))
-       (restartable
+       (non-idempotent
          (error "Can't connect to: ~S"
                 (connection-rec-report-ip-addr rec)))
        )))
@@ -395,16 +410,15 @@
               (new-cnxs (cons new-rec (remove rec cnx-lst))))
          (become (connections-list-beh new-cnxs))
          (when custs
-           (restartable
-             (multiple-value-bind (peer-ip peer-port)
-                 #+:LISPWORKS8
-               (comm:socket-connection-peer-address (intf-state-io-state state))
-               #+:LISPWORKS7
-               (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
-               (send fmt-println "Client Socket (~S->~A:~D) starting up"
-                     (connection-rec-report-ip-addr rec)
-                     (comm:ip-address-string peer-ip) peer-port))
-             (send-to-all custs chan))))
+           (multiple-value-bind (peer-ip peer-port)
+               #+:LISPWORKS8
+             (comm:socket-connection-peer-address (intf-state-io-state state))
+             #+:LISPWORKS7
+             (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
+             (send fmt-println "Client Socket (~S->~A:~D) starting up"
+                   (connection-rec-report-ip-addr rec)
+                   (comm:ip-address-string peer-ip) peer-port))
+           (send-to-all custs chan)))
        )))
     
   
@@ -420,12 +434,12 @@
 
 ;; -------------------------------------------------------------
 
-(defun make-socket-shutdown (state)
-  (actor ()
-    (with-accessors ((kill-timer       intf-state-kill-timer)
-                     (io-running       intf-state-io-running)
-                     (title            intf-state-title)
-                     (ip-addr          intf-state-ip-addr)) state
+(defun socket-shutdown-beh (state)
+  (with-accessors ((kill-timer       intf-state-kill-timer)
+                   (io-running       intf-state-io-running)
+                   (title            intf-state-title)
+                   (ip-addr          intf-state-ip-addr)) state
+    (lambda ()
       (become-sink)
       (β _
           (send io-running β :terminate)
@@ -435,109 +449,119 @@
         (send connections sink :remove state)
         ))))
 
+(defun initial-socket-shutdown-beh ()
+  (alambda
+   ((cust :init state)
+    (become (socket-shutdown-beh state))
+    (send cust :ok))
+   ))
+
+(defun make-socket-shutdown ()
+  (create (initial-socket-shutdown-beh)))
+
 ;; ------------------------------------------------------------------------
 ;; For both clients and servers, we assemble the socket state, make
 ;; initial encoder/decoder which marshals and compresses and fragments
 ;; into 64kB packets. Set up the initial negotiation service in a per
-;; socket local-services, start the socket reader going, and return
-;; the state, enccoder, and local-services to the customer.
+;; socket local-services, start the socket reader going, and send the
+;; state and encoder to the customer.
+
+(defun socket-intf-beh (kind ip-addr ip-port io-state report-ip-addr)
+  (lambda (cust)
+    (let* ((title          (if (eq kind :client) "Client" "Server"))
+           (local-services (make-local-services))
+           (io-running     (make-io-running-monitor io-state))
+           (shutdown       (make-socket-shutdown))
+           (kill-timer     (make-kill-timer
+                            (lambda ()
+                              (send println "Inactivity shutdown request")
+                              (send shutdown))
+                            ))
+           (state (make-intf-state
+                   :title            title
+                   :ip-addr          report-ip-addr
+                   :io-state         io-state
+                   :local-services   local-services
+                   :io-running       io-running
+                   :shutdown         shutdown
+                   :kill-timer       kill-timer
+                   ))
+           (encoder (sink-pipe  (marshal-encoder) ;; async output is sent here
+                                (self-sync-encoder)
+                                (make-writer state)))
+           (accum    (self-synca:stream-decoder   ;; async arrivals are sent here
+                      (sink-pipe (fail-silent-marshal-decoder)
+                                 local-services))))
+      (sequential-β
+        (;; complete the STATE initialization
+         (send shutdown β :init state)
+         
+         ;; Inform LOCAL-SERVICES that we can form secure connections with clients
+         (send local-services β :add-service-with-id +server-connect-id+
+                   (server-crypto-gateway encoder local-services))
+
+         ;; Inform the system that we are an available socket interface
+         (send connections β :add-socket ip-addr ip-port state encoder))
+
+        ;; set up the async reader and start it running
+        
+        (let ((fragment-ctr 0))  ;; a counter of async input fragments 
+          (labels
+              ((rd-callback-fn (state buffer end)
+                 ;; callback for I/O thread - on continuous async read
+                 #|
+                 (send fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
+                       (comm:async-io-state-read-status state)
+                       end)
+                 |#
+                 (let ((status (or (comm:async-io-state-read-status state)
+                                   (when (> end +max-fragment-size+)
+                                     "Incoming packet too large"))
+                               ))
+                   (cond (status
+                          ;; terminate on any error
+                          (comm:async-io-state-finish state)
+                          (β _
+                              (send io-running β :done-reading)
+                            (send fmt-println "~A Incoming error state: ~A" title status)
+                            (send shutdown)))
+                         
+                         ((plusp end)
+                          ;; TCP assures that messages arrive on the
+                          ;; wire and are delivered here in whole, or
+                          ;; not at all. But the async input system
+                          ;; delivers them as they arrive in piecemeal
+                          ;; fashion.
+                          ;;
+                          ;; Every input fragment is numbered here,
+                          ;; starting from 1. But the Actor system
+                          ;; might jumble the order of fragment
+                          ;; delivery.
+                          ;;
+                          ;; (I have witnessed this happening.)
+                          ;;
+                          ;; Numbering them enables us to deal
+                          ;; properly with possible out-of-order
+                          ;; delivery to the self-sync decoder.
+                          ;;
+                          (send accum :deliver (incf fragment-ctr) (subseq buffer 0 end))
+                          (send kill-timer :resched)
+                          (comm:async-io-state-discard state end))
+                         ))))
+            
+            ;; Start things running...
+            (comm:async-io-state-read-with-checking io-state #'rd-callback-fn
+                                                    :element-type '(unsigned-byte 8))
+            (send kill-timer :resched)
+            
+            ;; And now we can tell our customer that our graph is complete and up and running
+            (send cust state encoder)
+            ))
+        ))))
 
 (defun create-socket-intf (&key kind ip-addr ip-port io-state report-ip-addr)
-  (create-service
-   (lambda (cust)
-     (let* ((title (if (eq kind :client) "Client" "Server"))
-            (local-services (make-local-services))
-            (state (make-intf-state
-                    :title            title
-                    :ip-addr          report-ip-addr
-                    :io-state         io-state
-                    :local-services   local-services))
-            ;; Use self-sync encoding on the wire. No more prefix
-            ;; counts on packets.
-            ;;
-            ;; Data are chunked to avoid over-large packets. There is a
-            ;; limit to allowable size in the async interface.
-            ;;
-            ;; Initial connection is unencrypted. Once the ECDH dance
-            ;; is over, an encrypting preprocessor is used ahead of the
-            ;; encoder, and a decrypting postprocessor is used at the
-            ;; tail of the decoder.
-            (writer  (make-writer state)) ;; async output is sent here
-            (encoder (sink-pipe  (marshal-encoder)
-                                 (self-sync-encoder)
-                                 writer))
-            (accum   (self-synca:stream-decoder
-                      ;; async arrivals are sent here
-                      (sink-pipe (fail-silent-marshal-decoder)
-                                 local-services)))
-            (packet-ctr 0)  ;; a counter of input packet fragments 
-            (shutdown (make-socket-shutdown state)))
-       (β  _
-           ;; provide a service to establish an encrypted channel
-           (send local-services β :add-service-with-id +server-connect-id+
-                 (server-crypto-gateway encoder local-services))
-         
-         (β  _
-             (send connections β :add-socket ip-addr ip-port state encoder)
-           
-           (with-accessors ((title            intf-state-title)
-                            (io-state         intf-state-io-state)
-                            (kill-timer       intf-state-kill-timer)
-                            (io-running       intf-state-io-running)
-                            (state-writer     intf-state-writer)
-                            (state-shutdown   intf-state-shutdown)) state
-             
-             (setf kill-timer (make-kill-timer
-                               #'(lambda ()
-                                   (send println "Inactivity shutdown request")
-                                   (send shutdown)))
-                   state-writer   writer
-                   state-shutdown shutdown
-                   io-running     (make-io-running-monitor io-state))
-             
-             (labels
-                 ((rd-callback-fn (state buffer end)
-                    ;; callback for I/O thread - on continuous async read
-                    #|
-                    (send fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
-                          (comm:async-io-state-read-status state)
-                          end)
-                    |#
-                    (let ((status (or (comm:async-io-state-read-status state)
-                                      (when (> end +max-fragment-size+)
-                                        "Incoming packet too large"))
-                                  ))
-                      (cond (status
-                             ;; terminate on any error
-                             (comm:async-io-state-finish state)
-                             (β _
-                                 (send io-running β :done-reading)
-                               (send fmt-println "~A Incoming error state: ~A" title status)
-                               (send shutdown)))
-                           
-                            ((plusp end)
-                             ;; Every input packet is numbered here,
-                             ;; starting from 1. This enables us to
-                             ;; deal properly with possible
-                             ;; out-of-order delivery to the self-sync
-                             ;; decoder. They arrive on the wire and
-                             ;; are delivered here in temporal order.
-                             ;; But the Actor subsystem might jumble
-                             ;; some deliveries to the decoder. (I have
-                             ;; witnessed this happening.)
-                             (send accum :deliver (incf packet-ctr) (subseq buffer 0 end))
-                             (send kill-timer :resched)
-                             (comm:async-io-state-discard state end))
-                            )))
-                  (send-shutdown ()
-                    (send shutdown)))
-              
-               (send kill-timer :resched)
-               (comm:async-io-state-read-with-checking io-state #'rd-callback-fn
-                                                       :element-type '(unsigned-byte 8))
-               (send cust state encoder)
-               ))))))))
-  
+  (create (socket-intf-beh kind ip-addr ip-port io-state report-ip-addr)))
+
 ;; -------------------------------------------------------------
 
 (defun make-socket-connection (ip-addr ip-port report-ip-addr)
@@ -615,8 +639,8 @@ See the discussion under START-CLIENT-MESSENGER for details."
   ;; so we can't dilly dally...
   (declare (ignore accepting-handle))
   (multiple-value-bind (peer-ip peer-port)
-      #+:LISPWORKS8 (comm:socket-connection-peer-address io-state)
-      #+:LISPWORKS7 (comm:get-socket-peer-address (slot-value io-state 'comm::object))
+      #+:LISPWORKS8+ (comm:socket-connection-peer-address io-state)
+      #+:LISPWORKS7  (comm:get-socket-peer-address (slot-value io-state 'comm::object))
       (send connections :add-server peer-ip peer-port io-state)
       ))
 

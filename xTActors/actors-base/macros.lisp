@@ -1,6 +1,15 @@
 
 (in-package :com.ral.actors.macros)
 
+;; ------------------------------------------------------
+;; ALAMBDA -- a behavior lambda for Actors with pattern matching on
+;; messages
+
+(defmacro alambda (&rest clauses)
+  (um:with-unique-names (msg)
+    `(lambda (&rest ,msg)
+       (match ,msg ,@clauses))))
+
 ;; --------------------------------------
 ;; ACTOR in function position acts like a higher level LAMBDA expression
 
@@ -30,6 +39,28 @@
        ,@(mapcar #2`(%set-beh ,a1 ,a2)
                  actors behs)
        ,@body)))
+
+;; ----------------------------------------------------
+
+(µ α (args &body body)
+  ;; α is to actor, what λ is to lambda
+  `(actor ,args ,@body))
+
+(µ αα (&rest clauses)
+  `(create
+    (alambda
+     ,@clauses)))
+
+(µ β (args form &body body)
+  ;; β is a BETA - see below
+  `(let ((β  (create (lambda* ,args
+                       ,@body))))
+     ,form))
+
+#+:LISPWORKS
+(progn
+  (editor:setup-indent "α" 1)
+  (editor:indent-like "β" 'destructuring-bind))
 
 ;; ----------------------------------------------
 
@@ -172,18 +203,31 @@
 #+:LISPWORKS
 (editor:indent-like "beta" 'destructuring-bind)
 
+;; ------------------------------------------------------
+
+(defmacro sequential-β (send-forms body-form)
+  ;; Macro to generate β-forms to cause the Actor system to perform a
+  ;; series of message sends sequentially before running the body
+  ;; form. Each send should refer to β as the customer. Each message
+  ;; target should respond to their customer, to permit the next send
+  ;; to execute.
+  ;;
+  ;; Without these β-forms all messages would be sent at once at exit
+  ;; of Actor body code. With sequential delivery we may avoid race
+  ;; conditions.
+  (um:nlet iter ((forms send-forms))
+    (if forms
+        `(β _
+             ,(car forms)
+           ,(iter (cdr forms)))
+    ;; else
+    body-form)))
+
+;; ------------------------------------------------------
+
 (defmacro concurrently (&body body)
   ;; spawn a new concurrent Actor to perform the body
   `(send (actor () ,@body)))
-
-;; ------------------------------------------------------
-;; ALAMBDA -- a behavior lambda for Actors with pattern matching on
-;; messages
-
-(defmacro alambda (&rest clauses)
-  (um:with-unique-names (msg)
-    `(lambda (&rest ,msg)
-       (match ,msg ,@clauses))))
 
 ;; ------------------------------------------------------
 
@@ -224,28 +268,6 @@
 #+:LISPWORKS
 (editor:indent-like "actor-nlet" 'nlet)
 
-;; ----------------------------------------------------
-
-(µ α (args &body body)
-  ;; α is to actor, what λ is to lambda
-  `(actor ,args ,@body))
-
-(µ αα (&rest clauses)
-  `(create
-    (alambda
-     ,@clauses)))
-
-(µ β (args form &body body)
-  ;; β is to beta
-  `(let ((β  (create (lambda* ,args
-                       ,@body))))
-     ,form))
-
-#+:LISPWORKS
-(progn
-  (editor:setup-indent "α" 1)
-  (editor:indent-like "β" 'destructuring-bind))
-
 ;; --------------------------------------------------
 
 (defmacro yield (&body body)
@@ -266,10 +288,10 @@
 
 ;; --------------------------------------------------------
 ;; Just as we have a need for cross-referrential Actors within code
-;; bodies, and we have ACTORS to provide them for us, we need
-;; something at global lexical level to allow as-yet undefined Actors
-;; to be declared, and then later fill in their behaviors. Forward
-;; references, if you will...
+;; bodies, and we have the ACTORS macro to provide them for us, we
+;; need something at global lexical level to allow as-yet undefined
+;; Actors to be declared, and then later fill in their behaviors.
+;; Forward references, if you will...
 ;;
 ;;  (def-actor Actor-A)             ;; declare here so Actor-B can see it.
 ;;
@@ -327,6 +349,7 @@
   (editor:setup-indent "def-actor" 0)
   (editor:setup-indent "define-behavior" 0))
 
+;; -----------------------------------------------------------
 
 (defmacro restartable (&body body)
   ;; Make a body of code restartable alongside potentially failing
@@ -337,7 +360,7 @@
      ,@body))
 
 (defmacro non-idempotent (&body body)
-  ;; A synonym for RESTARTABLE but could mark the code in a more
+  ;; A synonym for RESTARTABLE but marks the source code in a more
   ;; obvious manner.
   `(restartable ,@body))
 

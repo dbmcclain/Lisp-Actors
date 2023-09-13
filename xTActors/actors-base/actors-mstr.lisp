@@ -34,30 +34,6 @@ THE SOFTWARE.
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))
 
-;; -----------------------------------------------------
-;; Actors are simply indirect refs to a beh closure (= function + state).
-;;
-;; Actor behavior/state can change without affecting the identity of
-;; the Actor.
-;;               +------+-----+
-;;  Actor Ref -->| Type | Beh |
-;;               +------+-----+
-;;                  |      |
-;;                  |      v      Closure
-;;                  |    +----+-------+
-;;                  v    | Fn | State |
-;;             T(Actor)  +----+-------+     Bindings
-;;                         |      |      +------+-----+-----+---
-;;                         |      +----->| Data | ... | ... |
-;;                         |             +------+-----+-----|---
-;;                         |    +------+-----+-----+---
-;;                         +--->| Code | ... | ... |
-;;                              +------+-----+-----+---
-;; ------------------------------------------------------------------
-
-(defun create (&optional (fn #'do-nothing))
-  (%create (screened-beh fn)))
-
 ;; --------------------------------------
 
 (deflex timed-out (make-condition 'timeout))
@@ -81,10 +57,6 @@ THE SOFTWARE.
 ;; -------------------------------------------------
 ;; Message Frames - submitted to the event queue. These carry their
 ;; own link pointer to obviate consing on the event queue.
-;;
-;; Minimal garbage generation since most Actors send at least one
-;; message. We re-use the last message frame received. If no messages
-;; are sent by the Actor, then the message frame becomes garbage.
 
 (defstruct (msg
             (:constructor msg (actor args &key link)))
@@ -95,7 +67,7 @@ THE SOFTWARE.
   (args  nil           :type list))
 
 (defun send-to-pool (actor &rest msg)
-  ;; the default SEND for foreign threads
+  ;; the default SEND for foreign (non-Actor) threads
   #F
   (mpc:mailbox-send *central-mail* (msg (the actor actor) msg)))
 
@@ -149,15 +121,16 @@ THE SOFTWARE.
   (check-type new-beh function)
   (funcall *become* new-beh))
 
+;; -----------------------------------
+;; In an Actor, (ABORT-BEH) undoes any BECOME and SENDS to this point,
+;; but allows Actor to exit normally. In contrast to ERROR action
+;; which aborts all BECOME and SENDs and exits immediately. ABORT-BEH
+;; allows subsequent SENDs and BECOME to still take effect.
 
 (defvar *abort-beh*
   #'do-nothing)
 
 (defun abort-beh ()
-  ;; In an Actor, undoes any BECOME and SENDS to this point, but
-  ;; allows Actor to exit normally. In contrast to ERROR action which
-  ;; aborts all BECOME and SENDs and exits immediately. ABORT-BEH
-  ;; allows subsequent SENDs and BECOME to still take effect.
   (funcall *abort-beh*))
 
 ;; -----------------------------------------------------------------
@@ -167,16 +140,16 @@ THE SOFTWARE.
 ;;
 ;; Actors are now completely thread-safe, FPL pure, SENDs and BECOMEs
 ;; are staged for commit or rollback. Actors can run completely in
-;; parallel among different threads. If BECOME cannot commit, the
-;; Actor is retried after rolling back the BECOME and SENDs. This is
-;; maximum parallelism.
+;; parallel among different matchine threads. If BECOME cannot commit,
+;; the Actor is retried after rolling back the BECOME and SENDs. This
+;; is maximum parallelism.
 ;;
 ;; NOTE on SEND Ordering: Since all SENDs are staged for commit upon
 ;; successful return from Actors, there is no logical distinction
-;; between when each of them is sent, when there were more than one
+;; between when each of them is sent, if there were more than one
 ;; arising from the Actor execution. They are all sent logically at
-;; once - even though there may be some underyling ordering in the
-;; event queue.
+;; once - even though there may, or may not. be some underyling
+;; ordering in the event queue.
 ;;
 ;; You should not depend on any particular ordering of messages,
 ;; except that message sent from an earlier Actor activation will
@@ -189,7 +162,7 @@ THE SOFTWARE.
     (flet ((%send (actor &rest msg)
              (setf sends (msg (the actor actor) msg :link sends)))
 
-           #| ;; this interferes with message auditing
+           #| ;; this re-use interferes with message auditing
            (%send (actor &rest msg)
              (if evt
                  (setf (msg-link  (the msg evt)) sends

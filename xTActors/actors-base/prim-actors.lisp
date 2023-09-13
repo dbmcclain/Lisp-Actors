@@ -644,4 +644,7 @@
            (mem   (membrane-beh ctrl svcs alist)))
     (values svcs    ;; give this out to clients
             ctrl))) ;; for supv control of membrane
-   
+
+;; -----------------------------------------------
+
+
