@@ -262,11 +262,13 @@
   ip-addr ip-port state sender chan
   report-ip-addr handshake custs)
 
+(defun same-ip-test (ip-addr ip-port)
+  (lambda (rec)
+    (and (eql ip-addr (connection-rec-ip-addr rec))
+         (eql ip-port (connection-rec-ip-port rec)))))
+  
 (defun find-connection-from-ip (cnx-lst ip-addr ip-port)
-  (find-if (lambda (rec)
-             (and (eql ip-addr (connection-rec-ip-addr rec))
-                  (eql ip-port (connection-rec-ip-port rec))))
-           cnx-lst))
+  (find-if (same-ip-test ip-addr ip-port) cnx-lst))
 
 (defun find-connection-from-state (cnx-lst state)
   (find state cnx-lst :key #'connection-rec-state))
@@ -293,7 +295,7 @@
 (defun connections-list-beh (&optional cnx-lst)
   (alambda   
    ;; --------------------------------------------
-   ;; A Server sends this message when a new client connection is
+   ;; A Server sends :ADD-SERVER when a new client connection is
    ;; established. The peer-ip addr is that of the client.
    ;;
    ;; If a record already exists for this peer-ip, shut down our new
@@ -307,9 +309,11 @@
    ((:add-server peer-ip peer-port io-state)
     (let ((rec (find-connection-from-ip cnx-lst peer-ip peer-port)))
       (cond
+
        (rec
-        ;; already exists or is pending
+        ;; already exists or is pending - so shut down our attempt
         (send forcible-socket-closer sink io-state))
+       
        (peer-ip
         ;; reserve our place while we create a channel
         (let ((rec (make-connection-rec
@@ -332,6 +336,9 @@
       )))
         
    ;; --------------------------------------------
+   ;; Message :ADD-SOCKET is sent during construction of the socket
+   ;; interface graph.
+   ;;
    ;; Add an initial socket connection to our list of available
    ;; connections. At this point the connection is not-encrypted.
    ;;
@@ -386,6 +393,9 @@
             )))
   
    ;; --------------------------------------------
+   ;; Message :FIND-SOCKET is sent by client Actors on this machine,
+   ;; looking for a socket connection to a remote host.
+   ;;
    ;; Look for an available connection already in place.
    ;;
    ;; If we find one, and it has no waiting list, then send its
@@ -429,23 +439,34 @@
       ))
   
    ;; --------------------------------------------
-   ;; A connection to the server was attempted, but it failed. So
-   ;; remove this record from our list, and just leave the waiting
-   ;; list members hanging.
+   ;; Message :ABORT might be sent during an initial attempt to form a
+   ;; TCP connection with a server. If that connection fails, we get
+   ;; this message.
    ;;
-   ((:abort ip-addr ip-port)
-    (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
+   ;; Look for a records mentioning the ip adddr and purge it from our
+   ;; list of available connections. Future requests will begin anew.
+   ;; Any waiting clients will just be left hanging.
+   ;;
+   ((cust :abort ip-addr ip-port)
+    (send cust :ok)
+    (let* ((same-ip (same-ip-test ip-addr ip-port))
+           (rec     (find-if same-ip cnx-lst)))
       (when rec
         ;; leaves all waiting custs hanging...
-        (become (connections-list-beh (remove rec cnx-lst)))
-        (non-idempotent
-          (error "Can't connect to: ~S"
-                 (connection-rec-report-ip-addr rec)))
-        )))
+        (let ((new-lst (remove-if same-ip cnx-lst)))
+          (become (connections-list-beh new-lst))
+          (non-idempotent
+            ;; ...would also prevent us from updating the list...
+            (error "Can't connect to: ~S"
+                   (connection-rec-report-ip-addr rec)))
+          ))))
 
    ;; --------------------------------------------
-   ;; We succeeded in making an initial TCP connection to the server.
-   ;; He is now waiting for us to start the handshake crypto-dance.
+   ;; Mesasge :NEGOTIATE is sent after successfully forming a TCP
+   ;; connection with a server.
+   ;;
+   ;; The server is now waiting for us to start the handshake
+   ;; crypto-dance.
    ;;
    ;; Client Actors must await a secure channel. The only Actors that
    ;; are permitted to communicate over an insecure channeol are
@@ -471,7 +492,10 @@
       ))
   
    ;; --------------------------------------------
-   ;; During handshake, we establish a secure channel to the server.
+   ;; Message :SET-CHANNEL is sent during handshake after a secure
+   ;; channel writer (Actor) has been constructed for this socket
+   ;; connection.
+   ;;
    ;; The writeable endpoint Actor for that encrypted channel is
    ;; CHAN.
    ;;
@@ -505,16 +529,19 @@
         )))
     
    ;; --------------------------------------------
-   ;; Just remove any records referencing STATE. This happens when
-   ;; the connection shuts down.
+   ;; Message :REMOVE is sent when a socket connection is closed down.
+   ;; Just remove any records referencing STATE.
    ;;
    ((cust :remove state)
     (send cust :ok)
     (let ((rec (find-connection-from-state cnx-lst state)))
       (when rec
-        (become (connections-list-beh (remove rec cnx-lst))))
-      ))))
-
+        (let ((new-lst (remove state cnx-lst ;; should only be one...
+                               :key #'connection-rec-state)))
+          (become (connections-list-beh new-lst))
+          ))))
+   ))
+  
 (def-actor connections
   (create (connections-list-beh)))
 
@@ -660,7 +687,7 @@
                      (send println
                            (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
                            (apply #'format nil args))
-                     (send connections :abort ip-addr ip-port))
+                     (send connections sink :abort ip-addr ip-port))
                     
                     (t
                      (β (state socket)
