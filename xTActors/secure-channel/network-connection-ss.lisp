@@ -639,8 +639,8 @@ See the discussion under START-CLIENT-MESSENGER for details."
   ;; so we can't dilly dally...
   (declare (ignore accepting-handle))
   (multiple-value-bind (peer-ip peer-port)
-      #+:LISPWORKS8+ (comm:socket-connection-peer-address io-state)
-      #+:LISPWORKS7  (comm:get-socket-peer-address (slot-value io-state 'comm::object))
+      #+:LISPWORKS8 (comm:socket-connection-peer-address io-state)
+      #+:LISPWORKS7 (comm:get-socket-peer-address (slot-value io-state 'comm::object))
       (send connections :add-server peer-ip peer-port io-state)
       ))
 
