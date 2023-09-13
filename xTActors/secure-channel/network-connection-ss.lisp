@@ -291,34 +291,65 @@
 ;; The list of currently active socket connections
 
 (defun connections-list-beh (&optional cnx-lst)
-  (alambda
+  (alambda   
+   ;; --------------------------------------------
+   ;; A Server sends this message when a new client connection is
+   ;; established. The peer-ip addr is that of the client.
+   ;;
+   ;; If a record already exists for this peer-ip, shut down our new
+   ;; attempt here. No point having a duplicate path.
+   ;;
+   ;; Else, construct a new record for our list of connections,
+   ;; marked as a :PENDING-SERVER connection. The STATE and SENDER
+   ;; Actor will be filled in during the construction of a socket
+   ;; interface, which we initiate here.
+   ;;
    ((:add-server peer-ip peer-port io-state)
     (let ((rec (find-connection-from-ip cnx-lst peer-ip peer-port)))
-      (cond (rec
-             ;; already exists or is pending
-             (send forcible-socket-closer sink io-state))
-           
-            (peer-ip
-             ;; reserve our place while we create a channel
-             (let ((rec (make-connection-rec
-                         :ip-addr         peer-ip
-                         :ip-port         peer-port
-                         :state           :pending-server)))
-               (become (connections-list-beh (cons rec cnx-lst)))
-               (β (ct)
-                   (send get-server-count β)
-                 (let ((server-name (format nil "~A#~D" (machine-instance) ct)))
-                   (send fmt-println "Server Socket (~S->~A:~D) starting up"
-                         server-name (comm:ip-address-string peer-ip) peer-port)
-                   (send (create-socket-intf :kind             :server
-                                             :ip-addr          peer-ip
-                                             :ip-port          peer-port
-                                             :report-ip-addr   server-name
-                                             :io-state         io-state)
-                         nil))
-                 )))
+      (cond
+       (rec
+        ;; already exists or is pending
+        (send forcible-socket-closer sink io-state))
+       (peer-ip
+        ;; reserve our place while we create a channel
+        (let ((rec (make-connection-rec
+                    :ip-addr         peer-ip
+                    :ip-port         peer-port
+                    :state           :pending-server)))
+          (become (connections-list-beh (cons rec cnx-lst)))
+          (β (ct)
+              (send get-server-count β)
+            (let ((server-name (format nil "~A#~D" (machine-instance) ct)))
+              (send fmt-println "Server Socket (~S->~A:~D) starting up"
+                    server-name (comm:ip-address-string peer-ip) peer-port)
+              (send (create-socket-intf :kind             :server
+                                        :ip-addr          peer-ip
+                                        :ip-port          peer-port
+                                        :report-ip-addr   server-name
+                                        :io-state         io-state)
+                    sink))
             )))
+      )))
         
+   ;; --------------------------------------------
+   ;; Add an initial socket connection to our list of available
+   ;; connections. At this point the connection is not-encrypted.
+   ;;
+   ;; Look for an existing record for this same ip-addr:
+   ;;
+   ;;   1. If we find one and it is a :PENDING-SERVER record, then
+   ;;   record the STATE and SENDER (socket writer Actor) in the
+   ;;   record.  This makes it no longer pending, and available for
+   ;;   unsecured comms.
+   ;;
+   ;;   2. Otherwise, if we found a record, and the STATE is not us,
+   ;;   then shut the previous connection down. Record the new SENDER
+   ;;   and STATE in the record.
+   ;;
+   ;;   3. Else, no record was found, so construct a new one and add
+   ;;   it to our list. That happens when a client wants a connection
+   ;;   to a new server.
+   ;;
    ((cust :add-socket ip-addr ip-port state sender)
     (send cust :ok)
     (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
@@ -354,6 +385,22 @@
                ))
             )))
   
+   ;; --------------------------------------------
+   ;; Look for an available connection already in place.
+   ;;
+   ;; If we find one, and it has no waiting list, then send its
+   ;; writer Actor to the customer as an available connection to the
+   ;; server.
+   ;;
+   ;; If we find one, but it has a waiting list, then join the wait -
+   ;; they are waiting on a successful handshake with the server. All
+   ;; will be notified if it completes.
+   ;;
+   ;; If no records are found for the server ip address, then
+   ;; construct one with us as the first waiting member, add the new
+   ;; record to the list, and then try to form a network TCP
+   ;; connection with the server.
+   ;;
    ((cust :find-socket ip-addr ip-port report-ip-addr handshake)
     (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
       (if rec
@@ -381,6 +428,11 @@
           ))
       ))
   
+   ;; --------------------------------------------
+   ;; A connection to the server was attempted, but it failed. So
+   ;; remove this record from our list, and just leave the waiting
+   ;; list members hanging.
+   ;;
    ((:abort ip-addr ip-port)
     (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
       (when rec
@@ -390,15 +442,45 @@
           (error "Can't connect to: ~S"
                  (connection-rec-report-ip-addr rec)))
         )))
-  
+
+   ;; --------------------------------------------
+   ;; We succeeded in making an initial TCP connection to the server.
+   ;; He is now waiting for us to start the handshake crypto-dance.
+   ;;
+   ;; Client Actors must await a secure channel. The only Actors that
+   ;; are permitted to communicate over an insecure channeol are
+   ;; those involved in the crypto-dance of the initial handshake
+   ;; with the server. And even that is encrypted in a different way.
+   ;;
+   ;; When an initial TCP connection is esablished with a server on
+   ;; the network, that server just sits there silently waiting for
+   ;; the handshake dance to begin from the client side. The server
+   ;; only responds if it recognizes the client and its encrypted
+   ;; handshae message.
+   ;;
+   ;; If we didn't find any record of this TCP connection in our
+   ;; list, then just play dumb and say :OK.
+   ;;
    ((cust :negotiate state socket)
     (let ((rec (find-connection-from-sender cnx-lst socket)))
       (if rec
+          ;; Let the dance begin...
           (send (connection-rec-handshake rec) cust socket (intf-state-local-services state))
         ;; else
         (send cust :ok))
       ))
   
+   ;; --------------------------------------------
+   ;; During handshake, we establish a secure channel to the server.
+   ;; The writeable endpoint Actor for that encrypted channel is
+   ;; CHAN.
+   ;;
+   ;; Look up the record containing the non-secure writer, SENDER,
+   ;; and add the secure endpoint, CHAN, to the record.
+   ;;
+   ;; Then notify all waiting clients about it. Clear the waiting
+   ;; list and update our records.
+   ;;
    ((cust :set-channel sender chan)
     (send cust :ok)
     (let ((rec (find-connection-from-sender cnx-lst sender)))
@@ -422,7 +504,10 @@
             (send-to-all custs chan)))
         )))
     
-  
+   ;; --------------------------------------------
+   ;; Just remove any records referencing STATE. This happens when
+   ;; the connection shuts down.
+   ;;
    ((cust :remove state)
     (send cust :ok)
     (let ((rec (find-connection-from-state cnx-lst state)))
