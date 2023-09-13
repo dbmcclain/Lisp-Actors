@@ -135,13 +135,13 @@
 ;; -------------------------------------------------------------------------
 ;; Socket writer
 ;;
-;;  byte-vec  +-----------+   +------------+    +-------------+
-;;     ------>|    Gate   |-->| Serializer |<-->| Phys Writer |
-;;            +-----------+   +------------+    +-------------+
+;;  byte-vec  +-------+   +------------+    +-------------+
+;;     ------>| LABEL |-->| SERIALIZER |<-->| Phys Writer |
+;;            +-------+   +------------+    +-------------+
 ;;
 ;; PhysWriter is the connection to the async output socket port.  The
 ;; Serializer is to prevent parallel access to the physical socket
-;; output port.  Serializers need a customer, even if SINK. Gate
+;; output port.  Serializers need a customer, even if SINK. LABEL
 ;; provides that SINK.
 ;;
 ;; If anything goes wrong, the Phys Writer sends a shutdown signal.
@@ -290,149 +290,152 @@
 ;; ------------------------
 ;; The list of currently active socket connections
 
-(def-beh connections-list-beh (&optional cnx-lst)
-   
-  ((:add-server peer-ip peer-port io-state)
-   (let ((rec (find-connection-from-ip cnx-lst peer-ip peer-port)))
-     (cond (rec
-            ;; already exists or is pending
-            (send forcible-socket-closer sink io-state))
+(defun connections-list-beh (&optional cnx-lst)
+  (alambda
+   ((:add-server peer-ip peer-port io-state)
+    (let ((rec (find-connection-from-ip cnx-lst peer-ip peer-port)))
+      (cond (rec
+             ;; already exists or is pending
+             (send forcible-socket-closer sink io-state))
            
-           (peer-ip
-            ;; reserve our place while we create a channel
-            (let ((rec (make-connection-rec
-                        :ip-addr         peer-ip
-                        :ip-port         peer-port
-                        :state           :pending-server)))
-              (become (connections-list-beh (cons rec cnx-lst)))
-              (β (ct)
-                  (send get-server-count β)
-                (let ((server-name (format nil "~A#~D" (machine-instance) ct)))
-                  (send fmt-println "Server Socket (~S->~A:~D) starting up"
-                        server-name (comm:ip-address-string peer-ip) peer-port)
-                  (send (create-socket-intf :kind             :server
-                                            :ip-addr          peer-ip
-                                            :ip-port          peer-port
-                                            :report-ip-addr   server-name
-                                            :io-state         io-state)
-                        nil))
-                )))
+            (peer-ip
+             ;; reserve our place while we create a channel
+             (let ((rec (make-connection-rec
+                         :ip-addr         peer-ip
+                         :ip-port         peer-port
+                         :state           :pending-server)))
+               (become (connections-list-beh (cons rec cnx-lst)))
+               (β (ct)
+                   (send get-server-count β)
+                 (let ((server-name (format nil "~A#~D" (machine-instance) ct)))
+                   (send fmt-println "Server Socket (~S->~A:~D) starting up"
+                         server-name (comm:ip-address-string peer-ip) peer-port)
+                   (send (create-socket-intf :kind             :server
+                                             :ip-addr          peer-ip
+                                             :ip-port          peer-port
+                                             :report-ip-addr   server-name
+                                             :io-state         io-state)
+                         nil))
+                 )))
             )))
         
-  ((cust :add-socket ip-addr ip-port state sender)
-   (send cust :ok)
-   (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
-     (cond ((and rec
-                 (eql :pending-server (connection-rec-state rec)))
-            (let ((new-rec (make-connection-rec
-                            :ip-addr  ip-addr
-                            :ip-port  ip-port
-                            :state    state
-                            :sender   sender)))
-              (become (connections-list-beh (cons new-rec (remove rec cnx-lst))))
-              ))
+   ((cust :add-socket ip-addr ip-port state sender)
+    (send cust :ok)
+    (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
+      (cond ((and rec
+                  (eql :pending-server (connection-rec-state rec)))
+             (let ((new-rec (make-connection-rec
+                             :ip-addr  ip-addr
+                             :ip-port  ip-port
+                             :state    state
+                             :sender   sender)))
+               (become (connections-list-beh (cons new-rec (remove rec cnx-lst))))
+               ))
            
-           (rec
-            (let* ((old-state (connection-rec-state rec))
-                   (new-rec   (copy-with rec
-                                         :state  state
-                                         :sender sender))
-                   (new-lst (cons new-rec (remove rec cnx-lst))))
-              (unless (or (null old-state)
-                          (eql old-state state))
-                (send (intf-state-shutdown old-state)))
-              (become (connections-list-beh new-lst))
-              ))
+            (rec
+             (let* ((old-state (connection-rec-state rec))
+                    (new-rec   (copy-with rec
+                                          :state  state
+                                          :sender sender))
+                    (new-lst (cons new-rec (remove rec cnx-lst))))
+               (unless (or (null old-state)
+                           (eql old-state state))
+                 (send (intf-state-shutdown old-state)))
+               (become (connections-list-beh new-lst))
+               ))
            
-           (t
-            (let ((new-rec (make-connection-rec
-                            :ip-addr  ip-addr
-                            :ip-port  ip-port
-                            :state    state
-                            :sender   sender)))
-              (become (connections-list-beh (cons new-rec cnx-lst)))
+            (t
+             (let ((new-rec (make-connection-rec
+                             :ip-addr  ip-addr
+                             :ip-port  ip-port
+                             :state    state
+                             :sender   sender)))
+               (become (connections-list-beh (cons new-rec cnx-lst)))
+               ))
+            )))
+  
+   ((cust :find-socket ip-addr ip-port report-ip-addr handshake)
+    (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
+      (if rec
+          (let ((custs (connection-rec-custs rec)))
+            (if custs
+                ;; waiting custs so join the crowd
+                (let* ((new-rec (copy-with rec
+                                           :custs (cons cust custs)))
+                       (new-lst (cons new-rec (remove rec cnx-lst))))
+                  (become (connections-list-beh new-lst)))
+              ;; else - no waiting list, just send our chan to requestor
+              (send cust (connection-rec-chan rec))
               ))
-           )))
+        ;; else - no record yet, so create and wait on the channel
+        (let* ((new-rec (make-connection-rec
+                         :ip-addr        ip-addr
+                         :ip-port        ip-port
+                         :report-ip-addr report-ip-addr
+                         :handshake      handshake
+                         :custs          (list cust)))
+               (new-lst (cons new-rec cnx-lst)))
+          (become (connections-list-beh new-lst))
+          (non-idempotent
+            (try-to-connect-socket ip-addr ip-port report-ip-addr))
+          ))
+      ))
   
-  ((cust :find-socket ip-addr ip-port report-ip-addr handshake)
-   (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
-     (if rec
-         (let ((custs (connection-rec-custs rec)))
-           (if custs
-               ;; waiting custs so join the crowd
-               (let* ((new-rec (copy-with rec
-                                          :custs (cons cust custs)))
-                      (new-lst (cons new-rec (remove rec cnx-lst))))
-                 (become (connections-list-beh new-lst)))
-             ;; else - no waiting list, just send our chan to requestor
-             (send cust (connection-rec-chan rec))
-             ))
-       ;; else - no record yet, so create and wait on the channel
-       (let* ((new-rec (make-connection-rec
-                        :ip-addr        ip-addr
-                        :ip-port        ip-port
-                        :report-ip-addr report-ip-addr
-                        :handshake      handshake
-                        :custs          (list cust)))
-              (new-lst (cons new-rec cnx-lst)))
-         (become (connections-list-beh new-lst))
-         (send (make-socket-connection ip-addr ip-port report-ip-addr))
-         ))
-     ))
+   ((:abort ip-addr ip-port)
+    (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
+      (when rec
+        ;; leaves all waiting custs hanging...
+        (become (connections-list-beh (remove rec cnx-lst)))
+        (non-idempotent
+          (error "Can't connect to: ~S"
+                 (connection-rec-report-ip-addr rec)))
+        )))
   
-  ((:abort ip-addr ip-port)
-   (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
-     (when rec
-       ;; leaves all waiting custs hanging...
-       (become (connections-list-beh (remove rec cnx-lst)))
-       (non-idempotent
-         (error "Can't connect to: ~S"
-                (connection-rec-report-ip-addr rec)))
-       )))
+   ((cust :negotiate state socket)
+    (let ((rec (find-connection-from-sender cnx-lst socket)))
+      (if rec
+          (send (connection-rec-handshake rec) cust socket (intf-state-local-services state))
+        ;; else
+        (send cust :ok))
+      ))
   
-  ((cust :negotiate state socket)
-   (let ((rec (find-connection-from-sender cnx-lst socket)))
-     (if rec
-         (send (connection-rec-handshake rec) cust socket (intf-state-local-services state))
-       ;; else
-       (send cust :ok))
-     ))
-  
-  ((cust :set-channel sender chan)
-   (send cust :ok)
-   (let ((rec (find-connection-from-sender cnx-lst sender)))
-     (when rec
-       (let* ((custs    (connection-rec-custs rec))
-              (state    (connection-rec-state rec))
-              (new-rec  (copy-with rec
-                                   :chan  chan
-                                   :custs nil))
-              (new-cnxs (cons new-rec (remove rec cnx-lst))))
-         (become (connections-list-beh new-cnxs))
-         (when custs
-           (multiple-value-bind (peer-ip peer-port)
-               #+:LISPWORKS8
-             (comm:socket-connection-peer-address (intf-state-io-state state))
-             #+:LISPWORKS7
-             (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
-             (send fmt-println "Client Socket (~S->~A:~D) starting up"
-                   (connection-rec-report-ip-addr rec)
-                   (comm:ip-address-string peer-ip) peer-port))
-           (send-to-all custs chan)))
-       )))
+   ((cust :set-channel sender chan)
+    (send cust :ok)
+    (let ((rec (find-connection-from-sender cnx-lst sender)))
+      (when rec
+        (let* ((custs    (connection-rec-custs rec))
+               (state    (connection-rec-state rec))
+               (new-rec  (copy-with rec
+                                    :chan  chan
+                                    :custs nil))
+               (new-cnxs (cons new-rec (remove rec cnx-lst))))
+          (become (connections-list-beh new-cnxs))
+          (when custs
+            (multiple-value-bind (peer-ip peer-port)
+                #+:LISPWORKS8
+              (comm:socket-connection-peer-address (intf-state-io-state state))
+              #+:LISPWORKS7
+              (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
+              (send fmt-println "Client Socket (~S->~A:~D) starting up"
+                    (connection-rec-report-ip-addr rec)
+                    (comm:ip-address-string peer-ip) peer-port))
+            (send-to-all custs chan)))
+        )))
     
   
-  ((cust :remove state)
-   (send cust :ok)
-   (let ((rec (find-connection-from-state cnx-lst state)))
-     (when rec
-       (become (connections-list-beh (remove rec cnx-lst))))
-     )))
+   ((cust :remove state)
+    (send cust :ok)
+    (let ((rec (find-connection-from-state cnx-lst state)))
+      (when rec
+        (become (connections-list-beh (remove rec cnx-lst))))
+      ))))
 
 (def-actor connections
   (create (connections-list-beh)))
 
 ;; -------------------------------------------------------------
+;; Socket Shutdown needs the state, but itself is part of that state.
+;; So we implement a 2-stage construction here.
 
 (defun socket-shutdown-beh (state)
   (with-accessors ((kill-timer       intf-state-kill-timer)
@@ -492,6 +495,7 @@
            (accum    (self-synca:stream-decoder   ;; async arrivals are sent here
                       (sink-pipe (fail-silent-marshal-decoder)
                                  local-services))))
+      
       (sequential-β
         (;; complete the STATE initialization
          (send shutdown β :init state)
@@ -554,7 +558,7 @@
                                                     :element-type '(unsigned-byte 8))
             (send kill-timer :resched)
             
-            ;; And now we can tell our customer that our graph is complete and up and running
+            ;; And now we can tell our customer that our graph is complete and running
             (send cust state encoder)
             ))
         ))))
@@ -564,7 +568,7 @@
 
 ;; -------------------------------------------------------------
 
-(defun make-socket-connection (ip-addr ip-port report-ip-addr)
+(defun try-to-connect-socket (ip-addr ip-port report-ip-addr)
   (let ((handler (α (io-state args)
                    (cond
                     (args
@@ -588,16 +592,15 @@
              ;; performed in the process of collection, so keep it short.
              (send handler io-state args)))
       
-      (α ()
-        (apply 'mp:funcall-async 'comm:create-async-io-state-and-connected-tcp-socket
-               *ws-collection*
-               ip-addr ip-port #'callback
-               #-:WINDOWS
-               `(:connect-timeout 5 :ipv6 nil)
-               #+:WINDOWS
-               `(:connect-timeout 5)
-               ))
-      )))
+      (apply #'comm:create-async-io-state-and-connected-tcp-socket
+             *ws-collection*
+             ip-addr ip-port #'callback
+             #-:WINDOWS
+             `(:connect-timeout 5 :ipv6 nil)
+             #+:WINDOWS
+             `(:connect-timeout 5)
+             ))
+    ))
 
 (defun canon-ip-addr (ip-addr)
   (comm:get-host-entry ip-addr :fields '(:address)))

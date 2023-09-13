@@ -340,10 +340,9 @@
 ;; -----------------------------------------------
 
 (defun prog1-β (&rest services)
-  ;; Produce an Actor Service that performs a sequence Services
-  ;; and sends the result of the first Service to the Service
-  ;; customer. The sequence is performed serially and in-order
-  ;; specified.
+  ;; Produce an Actor Service that performs a sequence of Services and
+  ;; sends the result of the first Service to the Service customer.
+  ;; The sequence is performed serially and in-order specified.
   (cond ((endp services)
          false)
         ((endp (cdr services))

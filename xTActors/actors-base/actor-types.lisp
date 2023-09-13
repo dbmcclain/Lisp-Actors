@@ -41,9 +41,9 @@
 ;; ------------------------------------------------------------------
 ;;
 ;; An Actor can use any function as its behavior. But by convention, a
-;; Service Actor is one which takes a customer in first position for
-;; all its messages. We cannot enforce this convention, so we have to
-;; trust the programmer.
+;; Service Actor is one which takes a message containing only a
+;; customer.  We cannot enforce this convention, so we have to trust
+;; the programmer.
 ;;
 ;; But Actors which comply with this convention, and which promise to
 ;; reply to the customer, can take advantage of some parallel
