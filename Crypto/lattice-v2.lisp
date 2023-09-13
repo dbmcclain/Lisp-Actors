@@ -115,7 +115,8 @@
   ;; v should be a vector of octets
   ;; Encodes octet vector into a list of cyphertext vectors
   #F
-  (let* ((nb    (length v))
+  (let* ((v     (ub8v v)) ;; ensure simple vector of octets
+         (nb    (length v))
          (nbits (* 8 nb))
          (ans   (make-array nbits)))
     (declare (fixnum nb nbits))
