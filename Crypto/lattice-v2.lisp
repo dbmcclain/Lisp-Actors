@@ -58,6 +58,28 @@
       (gen-random-vec ncols))
     ))
 
+(defun lat2-gen-deterministic-skey (sys &rest seeds)
+  (let* ((sys     (or sys (get-lattice-system)))
+         (ncols   (lat2-ncols sys))        
+         (modulus (lat2-modulus sys)))
+    (when (> modulus (ash 1 30))
+      (error "Modulus is too large: ~A" modulus))
+    (when (< ncols 256)
+      (error "NCols should be > 256: ~A" ncols))
+    (let* ((nbits-per-word  (integer-length modulus))
+           (nbits-total     (* nbits-per-word ncols))
+           (hstretch        nil))
+      (dotimes (ix 1000)
+        (setf hstretch (apply #'hash/256 hstretch ix :deterministic-skey seeds)))
+      (let* ((h   (apply #'get-hash-nbits nbits-total hstretch :deterministic-skey seeds))
+             (hbv (to-bitvec (vec h))))
+        (with-mod modulus
+          (coerce
+           (loop for pos from 0 below nbits-total by nbits-per-word collect
+                   (lmod (bitvec-to hbv pos nbits-per-word)))
+           'vector))
+        ))))
+
 (defun lat2-gen-pkey (skey &optional (sys (get-lattice-system)))
   (with-mod (lat2-modulus sys)
     (let* ((amat   (lat2-matrix sys))
