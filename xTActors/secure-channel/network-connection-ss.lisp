@@ -71,6 +71,9 @@
     (send println "Can't happen - attempt to write while busy writing.")
     (send if-nok)
     (send cust :err))
+
+   ((cust :is-open)
+    (send cust t))
    ))
 
 (defun io-closed-beh ()
@@ -79,6 +82,9 @@
    ((cust :try-writing _ if-nok)
     (send if-nok)
     (send cust :err))
+
+   ((cust :is-open)
+    (send cust nil))
    ))
 
 (defun io-running-beh (io-state base)
@@ -88,10 +94,6 @@
     (become (io-running-write-beh io-state base))
     (send if-ok)
     (send cust :ok))
-
-   ((cust :done-reading)
-    (become (io-closed-beh))
-    (send socket-closer cust io-state))
 
    (_
     (repeat-send base))
@@ -107,21 +109,6 @@
    ((cust :finish-wr-fail)
     (become (io-closed-beh))
     (send forcible-socket-closer cust io-state))
-
-   ((cust :done-reading)
-    (become (io-running-not-reading-beh io-state base))
-    (send cust :ok))
-
-   (_
-    (repeat-send base))
-   ))
-
-(defun io-running-not-reading-beh (io-state base)
-  ;; writing is under way, but async reads are closed down
-  (alambda
-   ((cust msg) / (member msg '(:finish-wr-ok :finish-wr-fail))
-    (become (io-closed-beh))
-    (send socket-closer cust io-state))
 
    (_
     (repeat-send base))
@@ -293,7 +280,11 @@
 ;; The list of currently active socket connections
 
 (defun connections-list-beh (&optional cnx-lst)
-  (alambda   
+  (alambda
+   
+   ((cust :show)
+    (send cust cnx-lst))
+
    ;; --------------------------------------------
    ;; A Server sends :ADD-SERVER when a new client connection is
    ;; established. The peer-ip addr is that of the client.
@@ -412,18 +403,21 @@
    ;; connection with the server.
    ;;
    ((cust :find-socket ip-addr ip-port report-ip-addr handshake)
-    (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
-      (if rec
-          (let ((custs (connection-rec-custs rec)))
-            (if custs
-                ;; waiting custs so join the crowd
-                (let* ((new-rec (copy-with rec
-                                           :custs (cons cust custs)))
-                       (new-lst (cons new-rec (remove rec cnx-lst))))
-                  (become (connections-list-beh new-lst)))
-              ;; else - no waiting list, just send our chan to requestor
-              (send cust (connection-rec-chan rec))
-              ))
+    (let* ((rec    (find-connection-from-ip cnx-lst ip-addr ip-port))
+           (custs  (and rec (connection-rec-custs rec))))
+      (cond
+       ((and rec custs)
+        ;; waiting custs so join the crowd
+        (let* ((new-rec (copy-with rec
+                                   :custs (cons cust custs)))
+               (new-lst (cons new-rec (remove rec cnx-lst))))
+          (become (connections-list-beh new-lst))))
+
+       (rec
+        ;; no waiting list - just go
+        (send cust (connection-rec-chan rec)))
+
+       (t
         ;; else - no record yet, so create and wait on the channel
         (let* ((new-rec (make-connection-rec
                          :ip-addr        ip-addr
@@ -436,7 +430,7 @@
           (non-idempotent
             (try-to-connect-socket ip-addr ip-port report-ip-addr))
           ))
-      ))
+       )))
   
    ;; --------------------------------------------
    ;; Message :ABORT might be sent during an initial attempt to form a
@@ -614,6 +608,10 @@
 (def-actor connections
   (create (connections-list-beh)))
 
+#|
+(send connections (create #'inspect) :show)
+|#
+
 ;; -------------------------------------------------------------
 ;; Socket Shutdown needs the state, but itself is part of that state.
 ;; So we implement a 2-stage construction here.
@@ -706,10 +704,8 @@
                    (cond (status
                           ;; terminate on any error
                           (comm:async-io-state-finish state)
-                          (β _
-                              (send io-running β :done-reading)
-                            (send fmt-println "~A Incoming error state: ~A" title status)
-                            (send shutdown)))
+                          (send fmt-println "~A Incoming error state: ~A" title status)
+                          (send shutdown))
                          
                          ((plusp end)
                           ;; TCP assures that messages arrive on the

@@ -33,11 +33,75 @@
      (send kvdb:kvdb cust :find :lat2-syzygy))
    ))
 |#
+
+(defun lattice-skey-beh (&optional cached)
+  (alambda
+   ((cust)
+    (if cached
+        (send cust cached)
+      ;; else
+      (let* ((txt  (with-output-to-string (s)
+                     (sys:call-system-showing-output
+                      "security find-generic-password -a $USER -s 'LispActorsSystem' -w"
+                      :output-stream s)))
+             (seed (subseq (cadr (um:split-string txt :delims '(#\newline))) 2))
+             (me   self))
+        (β (sys)
+            (send lattice-system β)
+          (send me cust :update (lattice::lat2-gen-deterministic-skey sys seed)))
+        )))
+
+   ((cust :update skey)
+    (become (lattice-skey-beh skey))
+    (send cust skey))
+   ))
+
+(deflex lattice-skey
+  (create (lattice-skey-beh)))
+
+#|
+(send lattice-skey println)
+(β (skey)
+    (send lattice-skey β)
+  (β (sys)
+      (send lattice-system β)
+    (let* ((pkey     (lattice::lat2-gen-pkey skey sys))
+           (pkey-id  (um:kwsymb :pkey- (hex-str (hash/256 pkey)))))
+      (send kvdb:kvdb println :add :my-pkeyid pkey-id)
+      (send kvdb:kvdb println :add pkey-id pkey)
+      )))
+
+(let ((pkey-id (with-open-file (f "~/.my-pkeyid")
+                 (read f)))
+      (pkey    (with-open-file (f "~/.my-pkey")
+                 (read f))))
+  (send kvdb:kvdb println :add :my-pkeyid pkey-id)
+  (send kvdb:kvdb println :add pkey-id pkey))
+
+(β (pkey-id)
+    (send kvdb:kvdb β :find :my-pkeyid)
+  (β (pkey)
+      (send kvdb:kvdb β :find pkey-id)
+    (with-standard-io-syntax
+      (with-open-file (f "~/.my-pkeyid"
+                         :direction :output
+                         :if-exists :supersede)
+        (write pkey-id :stream f))
+      (with-open-file (f "~/.my-pkey"
+                         :direction :output
+                         :if-exists :supersede)
+        (write pkey :stream f))
+      )))
+
+|#
+
+#|
 (deflex lattice-skey
   (create
    (lambda (cust)
      (send kvdb:kvdb cust :find :my-syzygy))
    ))
+|#
 
 #|
 (defun node-to-kw (node-name &key (prefix "") (suffix ""))
@@ -175,8 +239,15 @@
 
 (deflex srv-pkey
   (create (lambda (cust)
-            (send kvdb:kvdb cust :find :PKEY-09508427274D7A861BD983E3992A09AB5B176790CB482F1120E2AD8A427E97E7))
+            (send kvdb:kvdb cust :find "{d73be812-5309-11ee-9c10-f643f5d48a65}"))
           ))
+#|
+(β (pkey)
+    (send srv-pkey β)
+  (let ((id "{d73be812-5309-11ee-9c10-f643f5d48a65}"))
+    (send kvdb:kvdb println :add id pkey)
+    (send kvdb:kvdb println :add :my-pkeyid id)))
+|#
 
 (deflex cnx-to-server-packet-maker
   (create
