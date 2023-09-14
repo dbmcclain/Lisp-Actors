@@ -34,30 +34,35 @@
    ))
 |#
 
-(defun lattice-skey-beh (&optional cached)
-  (alambda
-   ((cust)
-    (if cached
-        (send cust cached)
-      ;; else
-      (let* ((txt  (with-output-to-string (s)
-                     (sys:call-system-showing-output
-                      "security find-generic-password -a $USER -s 'LispActorsSystem' -w"
-                      :output-stream s)))
-             (seed (subseq (cadr (um:split-string txt :delims '(#\newline))) 2))
-             (me   self))
-        (β (sys)
-            (send lattice-system β)
-          (send me cust :update (lattice::lat2-gen-deterministic-skey sys seed)))
-        )))
-
-   ((cust :update skey)
-    (become (lattice-skey-beh skey))
-    (send cust skey))
-   ))
-
 (deflex lattice-skey
-  (create (lattice-skey-beh)))
+  (create
+   (alambda
+    ((cust)
+     (flet (
+            #+:MACOSX
+            (get-seed ()
+              (let ((txt (with-output-to-string (s)
+                           ;; Using Mac KeyChain to hold secret keying
+                           (sys:call-system-showing-output
+                            "security find-generic-password -a $USER -s 'LispActorsSystem' -w"
+                            :output-stream s))))
+                (subseq (cadr (um:split-string txt :delims '(#\newline))) 2)))
+            #+:WINDOWS
+            (get-seed ()
+              (with-open-file (f "~/.my-syzygy")
+                (read f))) )
+       (let ((me  self))
+         (β (sys)
+             (send lattice-system β)
+           (let* ((seed (get-seed))
+                  (skey (lattice::lat2-gen-deterministic-skey sys seed)))
+             (send me cust :update skey) ))
+         )))
+    
+    ((cust :update skey)
+     (become (const-beh skey))
+     (send cust skey))
+    )))
 
 #|
 (send lattice-skey println)
