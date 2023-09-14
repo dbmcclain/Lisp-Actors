@@ -26,12 +26,20 @@
 
 ;; ----------------------------------
 
+#|
 (deflex lattice-skey
   (create
    (lambda (cust)
      (send kvdb:kvdb cust :find :lat2-syzygy))
    ))
+|#
+(deflex lattice-skey
+  (create
+   (lambda (cust)
+     (send kvdb:kvdb cust :find :my-syzygy))
+   ))
 
+#|
 (defun node-to-kw (node-name &key (prefix "") (suffix ""))
   (intern (string-upcase (concatenate 'string prefix node-name suffix))
           (find-package :keyword)))
@@ -43,6 +51,16 @@
          (send kvdb:kvdb β :find (node-to-kw node :prefix "lat2-pkey-"))
        (unless pkey
          (error "No PKEY for node: ~A" node))
+       (send cust pkey)))
+   ))
+|#
+(deflex lattice-pkey
+  (create
+   (lambda (cust pkey-id)
+     (β (pkey)
+         (send kvdb:kvdb β :find pkey-id)
+       (unless pkey
+         (error "No PKEY for id: ~A" pkey-id))
        (send cust pkey)))
    ))
 
@@ -150,6 +168,31 @@
 ;; ----------------------------------------------------
 ;; For Actors-based code, using parallel Lattice encryption
 
+(deflex my-pkeyid
+  (create (lambda (cust)
+            (send kvdb:kvdb cust :find :my-pkeyid))
+          ))
+
+(deflex srv-pkey
+  (create (lambda (cust)
+            (send kvdb:kvdb cust :find :PKEY-09508427274D7A861BD983E3992A09AB5B176790CB482F1120E2AD8A427E97E7))
+          ))
+
+(deflex cnx-to-server-packet-maker
+  (create
+   (lambda (cust)
+     (β (pkey)
+         (send srv-pkey β)
+       (β (my-id)
+           (send my-pkeyid β)
+         (let ((rkey  (random-key)))
+           (β (lat-enc)
+               (send lat2-encoder β pkey rkey)
+             (send cust rkey (list lat-enc (make-aes-packet rkey my-id))))
+           ))))
+   ))
+
+#|
 (deflex cnx-to-server-packet-maker
   (create
    (lambda (cust srv-node)
@@ -162,7 +205,8 @@
            (send cust rkey (list lat-enc (make-aes-packet rkey my-id))))
          )))
    ))
-           
+|#
+
 (deflex cnx-to-client-packet-maker
   (create
    (lambda (cust client-id)
@@ -176,6 +220,38 @@
    ))
 
 #|
+(with-open-file (f "~/.my-pkeyid"
+                   :direction :input)
+  (read f))
+                   
+(multiple-value-bind (skey pkey)
+    (lattice::lat2-gen-keys (lattice::get-lattice-system))
+  (let ((pkey-id (um:kwsymb "Pkey-" (hex-str (hash/256 pkey)))))
+    (with-standard-io-syntax
+      (with-open-file (f "~/.my-pkeyid"
+                         :direction :output
+                         :if-exists :supersede)
+        (write pkey-id :stream f))
+      (with-open-file (f "~/.my-pkey"
+                         :direction :output
+                         :if-exists :supersede)
+        (write pkey :stream f))
+      (with-open-file (f "~/.my-syzygy"
+                         :direction :output
+                         :if-exists :supersede)
+        (write skey :stream f))
+      )))
+
+(let ((pkey-id  (with-open-file (f "~/.my-pkeyid")
+                  (read f))))
+  (send kvdb:kvdb println :add :my-pkeyid pkey-id)
+  (let ((pkey     (with-open-file (f "~/.my-pkey")
+                    (read f))))
+    (send kvdb:kvdb println :add pkey-id pkey))
+  (let ((skey     (with-open-file (f "~/.my-syzygy")
+                    (read f))))
+    (send kvdb:kvdb println :add :my-syzygy skey)))
+ 
 (defun lat2-gen-all (&optional (sys (lattice::get-lattice-system)))
   (with-open-file (f "~/.syzygy"
                      :direction :output

@@ -162,10 +162,10 @@
 
 #+:lattice-crypto
 (progn
-  (defun make-negotiator (node-name)
+  (deflex negotiator
     (α (cust socket local-services)
       (β (akey packet-list)
-          (send lattice-ke:cnx-to-server-packet-maker β node-name)
+          (send lattice-ke:cnx-to-server-packet-maker β)
         (let ((responder
                (αα
                 ((server-id packet) / (and (typep server-id 'uuid:uuid)
@@ -186,7 +186,7 @@
               (create-ephemeral-client-proxy β local-services responder)
             (send socket +server-connect-id+ client-id packet-list))
           ))))
-
+  
   (def-actor client-gateway
     ;; This is the main local client service used to initiate
     ;; connections with foreign servers.
@@ -194,8 +194,8 @@
     ;; demand if not already present.
     (α (cust host-ip-addr)
       (send client-connector cust
-            (make-negotiator host-ip-addr)
-            host-ip-addr))))
+            negotiator
+            host-ip-addr))) )
 
 ;; ---------------------------------------------------
 ;; User side of Client Interface

@@ -482,6 +482,75 @@
    ;; If we didn't find any record of this TCP connection in our
    ;; list, then just play dumb and say :OK.
    ;;
+   ;; Here STATE is the state devloped by the socket interface, and
+   ;; SOCKET is the unencrypted output Actor.
+   ;;
+   ;; All the SOCKET Actor does is to serialize whatever is being
+   ;; sent, then encode it into a self-sync byte streaam, before
+   ;; sending it out the physical async socket port. It doesn't even
+   ;; chop it into manageable blocks of data. So there will be some
+   ;; maximum size that can be transferred successfully across the TCP
+   ;; port.
+   ;;
+   ;; The server side has the same situation at this time. So whatever
+   ;; is transferred in either direction is done so in the clear,
+   ;; except for these simple encodings. Anyone listening with
+   ;; decoders for these serial protocols will be able to read what is
+   ;; sent.
+   ;; ------------------------------------------------------------
+   ;; With the Lattice crypto in place, the client first sends an
+   ;; ephemeral UUID that refers to himself as a recipient Actor on
+   ;; his side, and a list containing two encrypted packets. The first
+   ;; packet contains a public key encryption of an AES-256 key to
+   ;; unlock the second packet. The second packet contains the
+   ;; client's public key id (a key into the database that identifies
+   ;; his public key), and a 32-byte random vector, A
+   ;;
+   ;; On receipt of that transmission, the server checks that a UUID
+   ;; was received followed by the list of two encypted packets. He
+   ;; decrypts the first, using his private Lattice key. Then with the
+   ;; revealed AES key he decrypts the second packet.
+   ;;
+   ;; If the server recognizes the public key id of the client, he
+   ;; accepts random vector A, and sends back two items - an ephemeral
+   ;; UUID that refers to himself as a recipient Actor on his end, and
+   ;; a public key encrypted 32-byte random vector B.  Thereafter the
+   ;; session key will be the hash SHA3/256(B | A).
+   ;;
+   ;; Those are the only two transmissions performed "in the clear".
+   ;; All that the world can see are just two ephemeral UUID's, used
+   ;; to refer to the Actor sending the message. They can't even see
+   ;; the identity of the node, nor any public keys, from which the
+   ;; messages originated. TCP furnishes the IP address of the sending
+   ;; node, but that may be a forwarding node, not the originator of
+   ;; the message.
+   ;;
+   ;; Thereafter all transmissions are 3-element messages containing a
+   ;; message sequence vector (16 bytes from a hash), an AES-256
+   ;; encrypted vector of the actual message, and an authentication
+   ;; vector (32 bytes from a hash) for the transmitted message. Each
+   ;; new message triple, sent from either side, uses a unique
+   ;; evloving encryption key based on the secret session key
+   ;; developed during the initial handshake.
+   ;;
+   ;; Every incoming message triple is first checked to see that it
+   ;; isn't a replay message, already seen before. Then the
+   ;; authentication is verified. If that checks out then the AES
+   ;; cryptotext is decrypted to reveal an actual message.
+   ;;
+   ;; Actors referred to in messages, as for customers, and other
+   ;; args, are translated before sending, into ephemeral UUID's. On
+   ;; message receipt those UUID's are either logged for message
+   ;; reply, or looked up in a local directory to find the actual
+   ;; Actor behind them. Ephemeral UUID's expire after 10 sec.
+   ;;
+   ;; The entire socket connection is disolved after 20 sec of
+   ;; inactivity on either side. Fresh connections are reestablished
+   ;; on demand. At the user level, Actors don't even know if they are
+   ;; sending messages to other local Actors, or to Actors at the end
+   ;; of a remote connection. There is no difference, for them, in
+   ;; message sending.
+   ;;
    ((cust :negotiate state socket)
     (let ((rec (find-connection-from-sender cnx-lst socket)))
       (if rec
@@ -518,7 +587,7 @@
           (become (connections-list-beh new-cnxs))
           (when custs
             (multiple-value-bind (peer-ip peer-port)
-                #+:LISPWORKS8
+              #+:LISPWORKS8
               (comm:socket-connection-peer-address (intf-state-io-state state))
               #+:LISPWORKS7
               (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))

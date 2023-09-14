@@ -328,6 +328,7 @@ THE SOFTWARE.
                 (abort-beh) ;; Discard pending SEND, BECOME
                 (let ((msg (um:mklist (funcall fn-err e))))
                   (dolist (c (um:mklist cust))
+                    ;; these sends are unconditional and immediate
                     (apply #'send-to-pool c msg)))
                 )))
     (funcall fn)))
