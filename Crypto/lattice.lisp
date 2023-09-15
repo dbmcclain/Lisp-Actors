@@ -11,6 +11,7 @@
    #:lat2-enc
    #:lat2-decode
    #:lat2-dec
+   #:lat2-gen-deterministic-skey
    ))
 
 (in-package #:com.ral.crypto.lattice-crypto)

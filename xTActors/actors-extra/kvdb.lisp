@@ -17,183 +17,183 @@
    
 (in-package #:com.ral.actors.kvdb)
 
-;; ----------------------------------------------------------------------
-;; Using an FPL-pure Hashtable as the database. Hence the database
-;; serves as its own transaction ID. Lock-free design.
-;;
-;; You can save anything you like in the KV database. But if it can't
-;; be liberally persisted then it won't be faithfully saved in the
-;; backing store, and won't be properly restored in future sessions.
-;;
-;; [ Liberal Persistence - when an object is encountered that can't be
-;; usefully persisted, a substitution is made using a proxy object, to
-;; allow the dataset as a whole to be persisted. However, on
-;; read-back, those proxy items will likely fail your needs. ]
-;;
-;; Keys can be anything that can be (strictly) persisted. No
-;; requirements on key orderability here. Just need an EQUAL test
-;; between normalized keys. Key normalization is idempotent.
-;;
-;; [ Non-Liberal or Strict Persistence - unnamed compiled functions,
-;; functional closures, and some system level objects, as well as data
-;; structures that contain them, cannot be persisted.  Other, pure
-;; Lisp data structures can be persisted.
-;;
-;; So this excludes open streams, Actors, and many other low-level
-;; things.  Liberal Persistence substitutes proxy objects in their
-;; place.  Non-liberal Persistence throws an error.
-;;
-;; By special arrangement, Actors can be ferried across a network
-;; connection using substitution by special proxy Actor designators.
-;; But they cannot be persisted to disk.]
-;;
-;; If two persistable items are EQ when added to the KV database, they
-;; are restored to EQ in future sessions.
-;;
-;; ----------------------------------------------------------------------
-;; Notes about Concurrent (Parallel and Single-Threaded) Execution...
-;;
-;; Under the current Actors system we have concurrency and parallelism
-;; with multicore SMP. It is entirely possible for two tasks to be
-;; running in the same code simultaneously, both logically and
-;; physically.
-;;
-;; But even if we restrict the execution to a single machine thread,
-;; which dispenses with SMP parallelism, we still have concurrency.
-;; Two or more separate logical threads of execution can be running,
-;; logically simultaneously, against the same code.
-;;
-;; And, any time you have concurrency, you run the risk of data race
-;; conditions between separate threads (both logical and physical) of
-;; execution.
-;;
-;; Great! You say. I'll just make sure I write FPL-pure code. Well,
-;; for SMP parallel code, in the absence of using locks, that is
-;; certainly a minimum requirement. But that may not be enough.
-;;
-;; Imagine two threads (parallel or not) which share a reference to an
-;; Actor whose state may evolve in response to messsages sent to it.
-;; The Actor is written in perectly FPL-pure fashion; it never mutates
-;; its state variables, and only uses BECOME to evolve to a new state.
-;; Yet, outside observers only see that indeed the state has mutated.
-;; They can't actually observe the internal state, but they can
-;; observe a change in behavior.
-;;
-;; So, for read-modify-write processes, if there is any temporal
-;; separation between the act of reading state, and modifying state,
-;; we open ourselves up to potential data race conditions.
-;;
-;; Here, time can be measured by the number of message dispatches
-;; activating a particular Actor, which occur between two positions in
-;; time. To appear logically atomic, a read-modify-write state change
-;; must occur entirely within one activation of an Actor.
-;;
-;; In such case, the CAS semantics on BECOME will be enough to protect
-;; against data races. But if there is temporal separation between
-;; reading state, and writing state, as measured in separate Actor
-;; activations, then the CAS semantics will only retry the final
-;; BECOME mutation. That could leave us inconsistent. We actually need
-;; to retry from the point in time of initially reading the state.
-;;
-;; So if, e.g., we have a system where the shared Actor is queried in
-;; one message, the answer is viewed, and then an update message is
-;; sent, that occupies at least two message dispatches and cannot be
-;; seen as atomic. Another thread could sneak in there with the same
-;; intent, but with different purpose, and interfere with the first
-;; thread's plans. The result would be a system inconsistency.
-;;
-;; So not only does the code have to be written in FPL-pure fashion,
-;; any state changes must appear logically atomic to all outside
-;; observers. And the only way to effect that, in the case of
-;; temporally separated read / mutate, is to halt concurrent activity
-;; during that interrim period, within the mutating Actor.
-;;
-;; That is the purpose of SERIALIZER. It permits only one thread of
-;; execution at a time to proceeed beyond to the Actor subsystem under
-;; its control. All others are enqueued for execution only after a
-;; response is seen from the Actor subsystem, a reply back to the
-;; currently executing logical thread of execution.
-;;
-;; All client code using a SERIALIZER must provide a customer to which
-;; a response will be sent, even if only SINK. And the Actor system
-;; under control of the SERIALIZER must send a reply to its customer
-;; under all circumstances.
-;;
-;; This is necessary because the SERIALIZER inteposes between the
-;; Actor being controlled, and the actual customer of the SERIALIZER.
-;; When the SERIALIZER receives the message intended for the actual
-;; customer, it forwards the message to that customer and also
-;; releases another pending session in its queue.
-;;
-;; Be on guard: subtle bugs can seep into the code if you don't pay
-;; careful attention to the possibility of data race conditions.
-;;
-;; More obvious cases requiring only a single thread of execution
-;; would be situations in which a physical resource cannot be
-;; reasonably shared in parallel. E.g. file I/O. So again, a
-;; SERIALIZER is called for.
-;;
-;; ---------------------------------------------------------------------
-;; But all that aside, a SERIALIZER is only needed in one place in
-;; this KVDB code - at the very opening stage of the database on disk.
-;; Only one thread can be permitted to open and deserialize the
-;; initial database.  Thereafter, all of the code supports fully
-;; SMP parallel concurrency.
-;;
-;; Reading the database is always permitted. Commits of mutated
-;; database tables will succeed only if nothing has changed in the
-;; database during the time between when the database table was first
-;; accessed and when a commit of a mutated version is performed. If
-;; something has changed, then your retry Actor is called with a
-;; correct fresh copy of the database.
-;;
-;; Changing the value for any particular key is accomplished by
-;; ADD'ing the key-value pair, which overwrites the previous value.
-;;
-;; Physical updates to the disk image are delayed by 10s after the
-;; most recent update. The timer restarts on every new update, to
-;; allow for a cascade of updates before actually saving the image.
-;;
-;; The database is actually a read-only FPL Hashtable. On the local
-;; machine it is easy to pass around a copy of the actual database
-;; table. But for remote access, this could become a large data
-;; structure over time, and we need to avoid gratuitous message
-;; traffic on the network.
-;;
-;; [ Since you are running Lisp, you have the ability to destructively
-;; discard the FPL conventions and directly mutate collections
-;; belonging to database keys. Please resist that temptation. Your
-;; inner debugger will thank you for preserving its sanity. For us, it
-;; is read-only solely by respected convention. ]
-;;
-;; For remote access, once you have a handle to the remote KVDB Actor,
-;; you should immediately request a Proxy Actor which will prevent
-;; unnecessary transmissions of entire tables over the network.  The
-;; Proxy Actor will perform queries and mutations on your behalf, on
-;; the host machine of the database, sending you only the information
-;; you seek.
-;;
-;; To support coordinated updates among multiple databases, you can
-;; request exclusive commit access. Doing this returns a fresh copy of
-;; the database table to you (or your Proxy) and causes the database
-;; manager to enter a mode that acts like a kind of SERIALIZER.
-;;
-;; During the time that you hold exclusive commit permission, all
-;; reads continue to be allowed as before.  But any additional
-;; requests for exclusive access, and any commits, apart from your
-;; own, are enqueued for later execution.
-;;
-;; If you request exclusive commit access while the database is
-;; already in exclusive commit state, your activity wil be logically
-;; stalled until the current owner relinquishes control.
-;;
-;; You must relinquish exclusive status by either sending a COMMIT
-;; (which always succeeds), or by sending an ABORT.
-;;
-;; For remote access, mutliple database coordination, the KVDB Proxy
-;; Actor follows a similar protocol on your behalf. Again, this is for
-;; avoiding excessive network transmissions.
-;; ----------------------------------------------------------------------
+#| ----------------------------------------------------------------------
+   Using an FPL-pure Hashtable as the database. Hence the database
+   serves as its own transaction ID. Lock-free design.
+  
+   You can save anything you like in the KV database. But if it can't
+   be liberally persisted then it won't be faithfully saved in the
+   backing store, and won't be properly restored in future sessions.
+  
+   [ Liberal Persistence - when an object is encountered that can't be
+   usefully persisted, a substitution is made using a proxy object, to
+   allow the dataset as a whole to be persisted. However, on
+   read-back, those proxy items will likely fail your needs. ]
+  
+   Keys can be anything that can be (strictly) persisted. No
+   requirements on key orderability here. Just need an EQUAL test
+   between normalized keys. Key normalization is idempotent.
+  
+   [ Non-Liberal or Strict Persistence - unnamed compiled functions,
+   functional closures, and some system level objects, as well as data
+   structures that contain them, cannot be persisted.  Other, pure
+   Lisp data structures can be persisted.
+  
+   So this excludes open streams, Actors, and many other low-level
+   things.  Liberal Persistence substitutes proxy objects in their
+   place.  Non-liberal Persistence throws an error.
+  
+   By special arrangement, Actors can be ferried across a network
+   connection using substitution by special proxy Actor designators.
+   But they cannot be persisted to disk.]
+  
+   If two persistable items are EQ when added to the KV database, they
+   are restored to EQ in future sessions.
+  
+   ----------------------------------------------------------------------
+   Notes about Concurrent (Parallel and Single-Threaded) Execution...
+  
+   Under the current Actors system we have concurrency and parallelism
+   with multicore SMP. It is entirely possible for two tasks to be
+   running in the same code simultaneously, both logically and
+   physically.
+  
+   But even if we restrict the execution to a single machine thread,
+   which dispenses with SMP parallelism, we still have concurrency.
+   Two or more separate logical threads of execution can be running,
+   logically simultaneously, against the same code.
+  
+   And, any time you have concurrency, you run the risk of data race
+   conditions between separate threads (both logical and physical) of
+   execution.
+  
+   Great! You say. I'll just make sure I write FPL-pure code. Well,
+   for SMP parallel code, in the absence of using locks, that is
+   certainly a minimum requirement. But that may not be enough.
+  
+   Imagine two threads (parallel or not) which share a reference to an
+   Actor whose state may evolve in response to messsages sent to it.
+   The Actor is written in perectly FPL-pure fashion; it never mutates
+   its state variables, and only uses BECOME to evolve to a new state.
+   Yet, outside observers only see that indeed the state has mutated.
+   They can't actually observe the internal state, but they can
+   observe a change in behavior.
+  
+   So, for read-modify-write processes, if there is any temporal
+   separation between the act of reading state, and modifying state,
+   we open ourselves up to potential data race conditions.
+  
+   Here, time can be measured by the number of message dispatches
+   activating a particular Actor, which occur between two positions in
+   time. To appear logically atomic, a read-modify-write state change
+   must occur entirely within one activation of an Actor.
+  
+   In such case, the CAS semantics on BECOME will be enough to protect
+   against data races. But if there is temporal separation between
+   reading state, and writing state, as measured in separate Actor
+   activations, then the CAS semantics will only retry the final
+   BECOME mutation. That could leave us inconsistent. We actually need
+   to retry from the point in time of initially reading the state.
+  
+   So if, e.g., we have a system where the shared Actor is queried in
+   one message, the answer is viewed, and then an update message is
+   sent, that occupies at least two message dispatches and cannot be
+   seen as atomic. Another thread could sneak in there with the same
+   intent, but with different purpose, and interfere with the first
+   thread's plans. The result would be a system inconsistency.
+  
+   So not only does the code have to be written in FPL-pure fashion,
+   any state changes must appear logically atomic to all outside
+   observers. And the only way to effect that, in the case of
+   temporally separated read / mutate, is to halt concurrent activity
+   during that interrim period, within the mutating Actor.
+  
+   That is the purpose of SERIALIZER. It permits only one thread of
+   execution at a time to proceeed beyond to the Actor subsystem under
+   its control. All others are enqueued for execution only after a
+   response is seen from the Actor subsystem, a reply back to the
+   currently executing logical thread of execution.
+  
+   All client code using a SERIALIZER must provide a customer to which
+   a response will be sent, even if only SINK. And the Actor system
+   under control of the SERIALIZER must send a reply to its customer
+   under all circumstances.
+  
+   This is necessary because the SERIALIZER inteposes between the
+   Actor being controlled, and the actual customer of the SERIALIZER.
+   When the SERIALIZER receives the message intended for the actual
+   customer, it forwards the message to that customer and also
+   releases another pending session in its queue.
+  
+   Be on guard: subtle bugs can seep into the code if you don't pay
+   careful attention to the possibility of data race conditions.
+  
+   More obvious cases requiring only a single thread of execution
+   would be situations in which a physical resource cannot be
+   reasonably shared in parallel. E.g. file I/O. So again, a
+   SERIALIZER is called for.
+  
+   ---------------------------------------------------------------------
+   But all that aside, a SERIALIZER is only needed in one place in
+   this KVDB code - at the very opening stage of the database on disk.
+   Only one thread can be permitted to open and deserialize the
+   initial database.  Thereafter, all of the code supports fully
+   SMP parallel concurrency.
+  
+   Reading the database is always permitted. Commits of mutated
+   database tables will succeed only if nothing has changed in the
+   database during the time between when the database table was first
+   accessed and when a commit of a mutated version is performed. If
+   something has changed, then your retry Actor is called with a
+   correct fresh copy of the database.
+  
+   Changing the value for any particular key is accomplished by
+   ADD'ing the key-value pair, which overwrites the previous value.
+  
+   Physical updates to the disk image are delayed by 10s after the
+   most recent update. The timer restarts on every new update, to
+   allow for a cascade of updates before actually saving the image.
+  
+   The database is actually a read-only FPL Hashtable. On the local
+   machine it is easy to pass around a copy of the actual database
+   table. But for remote access, this could become a large data
+   structure over time, and we need to avoid gratuitous message
+   traffic on the network.
+  
+   [ Since you are running Lisp, you have the ability to destructively
+   discard the FPL conventions and directly mutate collections
+   belonging to database keys. Please resist that temptation. Your
+   inner debugger will thank you for preserving its sanity. For us, it
+   is read-only solely by respected convention. ]
+  
+   For remote access, once you have a handle to the remote KVDB Actor,
+   you should immediately request a Proxy Actor which will prevent
+   unnecessary transmissions of entire tables over the network.  The
+   Proxy Actor will perform queries and mutations on your behalf, on
+   the host machine of the database, sending you only the information
+   you seek.
+  
+   To support coordinated updates among multiple databases, you can
+   request exclusive commit access. Doing this returns a fresh copy of
+   the database table to you (or your Proxy) and causes the database
+   manager to enter a mode that acts like a kind of SERIALIZER.
+  
+   During the time that you hold exclusive commit permission, all
+   reads continue to be allowed as before.  But any additional
+   requests for exclusive access, and any commits, apart from your
+   own, are enqueued for later execution.
+  
+   If you request exclusive commit access while the database is
+   already in exclusive commit state, your activity wil be logically
+   stalled until the current owner relinquishes control.
+  
+   You must relinquish exclusive status by either sending a COMMIT
+   (which always succeeds), or by sending an ABORT.
+  
+   For remote access, mutliple database coordination, the KVDB Proxy
+   Actor follows a similar protocol on your behalf. Again, this is for
+   avoiding excessive network transmissions.
+   ---------------------------------------------------------------------- |#
 
 (defgeneric normalize-key (key)
   ;; Needs to be idempotent:

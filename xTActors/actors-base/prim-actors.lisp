@@ -4,63 +4,63 @@
 ;; ------------------------------------------------------
 (in-package :com.ral.actors.base)
 
-;; ------------------------------------------------------
-;; There are, broadly, some conventions followed for Actor messages:
-;;
-;;  1. When an Actor expects a customer argument it is, by
-;;  convention, always in first position.
-;;
-;;  2. Every Actor network living behind a SERIALIZER *must* arrange
-;;  to send a reply to the customer.
-;;
-;;  3. Sink Actors don't have customers, unless they live behind a
-;;  SERIALIZER gate.
-;;
-;;  4. Timeout conditions are signaled by sending TIMED-OUT to a
-;;  customer. This is a predefined timeout condition object.
-;;
-;;  5. When nothing else to send cust, send :OK. That helps when the
-;;  sender wants to sequence its behavior using continuation Actors
-;;  (β). If sender doesn't care, they will send SINK (or NIL) as
-;;  customer.
-;;
-;;  6. There are no guarantees that a message will be sent to a
-;;  customer. When in doubt you have no other choice but to rely on
-;;  timeout messaging.
-;;
-;;  This is to be contrasted with UNWNID-PROTECT. Such behavior is not
-;;  unique to Actors, and can occur in any system in which
-;;  continuations / coroutines are employed.
-;;
-;;  7. In a parallel environment, BECOME could fail and cause an
-;;  automatic retry of the message delivery. So you need to ensure
-;;  that any nono-idempotent code alongside BECOME is marked as
-;;  NON-IDEMPOTENT or RESTARTABLE, or package up in a thunk and send
-;;  to EXECUTOR. This ensures that the body of code will not be
-;;  executed unless BECOME succeeds.
-;;
-;;  8. Since Actors are transactional, SEND, SEND*, REPEAT-SEND,
-;;  SEND-TO-ALL, SEND-ALL-TO, and SEND-AFTER, are always idempotent.
-;;  Message will only be sent at exit of body code, and only if BECOME
-;;  succeeds. But the message args might have been created using
-;;  non-idempotent code, so see (7).
-;;
-;;  9. Inside the body of a β-clause, NON-IDEMPOTENT, and RESTARTABLE,
-;;  the SELF object is no longer the containing Actor. So BECOME
-;;  should not be used there. Same with (SEND SELF ...).
-;;
-;;  For (SEND SELF ...) you could capture the outer SELF into a
-;;  binding and send to it;
-;;
-;;      (...actor-body code...
-;;       (let ((ME  SELF))
-;;         (β _
-;;             (send some-actor β ...)
-;;           (SEND ME ..))))
-;;
-;;   But BECOME always pertains to SELF.
-;;
-;; -------------------------------------------------------
+#| ------------------------------------------------------
+   There are, broadly, some conventions followed for Actor messages:
+  
+    1. When an Actor expects a customer argument it is, by
+    convention, always in first position.
+  
+    2. Every Actor network living behind a SERIALIZER *must* arrange
+    to send a reply to the customer.
+  
+    3. Sink Actors don't have customers, unless they live behind a
+    SERIALIZER gate.
+  
+    4. Timeout conditions are signaled by sending TIMED-OUT to a
+    customer. This is a predefined timeout condition object.
+  
+    5. When nothing else to send cust, send :OK. That helps when the
+    sender wants to sequence its behavior using continuation Actors
+    (β). If sender doesn't care, they will send SINK (or NIL) as
+    customer.
+  
+    6. There are no guarantees that a message will be sent to a
+    customer. When in doubt you have no other choice but to rely on
+    timeout notification.
+  
+    This is to be contrasted with UNWNID-PROTECT. Such behavior is not
+    unique to Actors, and can occur in any system in which
+    continuations / coroutines are employed.
+  
+    7. In a parallel environment, BECOME could fail and cause an
+    automatic retry of the message delivery. So you need to ensure
+    that any non-idempotent code alongside BECOME is marked as
+    NON-IDEMPOTENT or RESTARTABLE, or package up in a thunk and send
+    to EXECUTOR. This ensures that the body of code will not be
+    executed unless BECOME succeeds.
+  
+    8. Since Actors are transactional, SEND, SEND*, REPEAT-SEND,
+    SEND-TO-ALL, SEND-ALL-TO, and SEND-AFTER, are always idempotent.
+    Message will only be sent at exit of body code, and only if BECOME
+    succeeds. But the message args might have been created using
+    non-idempotent code, so see (7).
+  
+    9. Inside the body of a β-clause, NON-IDEMPOTENT, and RESTARTABLE,
+    the SELF object is no longer the containing Actor. So BECOME
+    should not be used there. Same with (SEND SELF ...).
+  
+    For (SEND SELF ...) you could capture the outer SELF into a
+    binding and send to it;
+  
+        (...actor-body code...
+         (let ((ME  SELF))
+           (β _
+               (send some-actor β ...)
+             (SEND ME ..))))
+  
+     But BECOME always pertains to SELF.
+  
+   ------------------------------------------------------- |#
 
 
 (deflex executor

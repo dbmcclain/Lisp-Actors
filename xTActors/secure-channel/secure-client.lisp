@@ -164,27 +164,32 @@
 (progn
   (deflex negotiator
     (α (cust socket local-services)
-      (β (akey packet-list)
-          (send lattice-ke:cnx-to-server-packet-maker β)
-        (let ((responder
-               (αα
-                ((server-id packet) / (and (typep server-id 'uuid:uuid)
-                                           (vectorp packet))
-                 (β (bkey)
-                     (send lattice-ke:client-connection-packet-decoder β packet)
-                   (let ((ekey  (hash/256 bkey akey))
-                         (chan  (α msg
-                                  (send* local-services :ssend server-id msg))))
-                     (β _
-                         (send local-services β :set-crypto ekey socket)
-                       (send connections cust :set-channel socket chan))
-                     )))
-                ( _
-                  (error "Server not following connection protocol"))
+      (let ((client-id  (uuid:make-v1-uuid)))
+        (β (srv-pkeyid)
+            (send lattice-ke:srv-pkeyid β)
+          (β (my-pkeyid)
+              (send lattice-ke:my-pkeyid β)
+            (β (akey latcrypt aescrypt)
+                (send lattice-ke:cnx-packet-encoder β srv-pkeyid
+                      +server-connect-id+ client-id my-pkeyid)
+              (let ((responder
+                     (αα
+                      ((bkey server-id) /  (and (typep bkey 'ub8-vector)
+                                                (typep server-id 'uuid:uuid))
+                       (let ((ekey  (hash/256 bkey akey))
+                             (chan  (α msg
+                                      (send* local-services :ssend server-id msg))))
+                         (β _
+                             (send local-services β :set-crypto ekey socket)
+                           (send connections cust :set-channel socket chan))
+                         ))
+                      ( _
+                        (error "Server not following connection protocol"))
+                      )))
+                (β _
+                    (create-ephemeral-client-proxy-with-id β client-id local-services responder)
+                  (send socket latcrypt aescrypt))
                 )))
-          (β (client-id)
-              (create-ephemeral-client-proxy β local-services responder)
-            (send socket +server-connect-id+ client-id packet-list))
           ))))
   
   (def-actor client-gateway

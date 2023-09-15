@@ -254,93 +254,112 @@
 
 ;; -------------------------------------------------------------------
 
-(def-beh local-services-beh (&optional svcs encryptor decryptor)
-  ((cust :add-service-with-id id actor)
-   ;; insert ahead of any with same id
-   (let ((new-svcs (acons id (local-service actor) svcs)))
-     (become (local-services-beh new-svcs encryptor decryptor))
-     (send cust id)))
-
-  ((cust :add-ephemeral-client-with-id id actor ttl)
-   (let ((new-svcs (acons id (ephem-service actor ttl) svcs)))
-     (become (local-services-beh new-svcs encryptor decryptor))
-     (send cust id)
-     (when ttl
-       (send-after ttl self sink :remove-service id))))
-
-  ((cust :add-service actor)
-   ;; used for connection handlers
-   (send self cust :add-service-with-id (uuid:make-v1-uuid) actor))
+(defun local-services-beh (&optional svcs encryptor decryptor)
+  (alambda
+   ((cust :add-service-with-id id actor)
+    ;; insert ahead of any with same id
+    (let ((new-svcs (acons id (local-service actor) svcs)))
+      (become (local-services-beh new-svcs encryptor decryptor))
+      (send cust id)))
    
-  ((cust :add-ephemeral-client actor ttl)
-   ;; used for transient customer proxies
-   (send self cust :add-ephemeral-client-with-id (uuid:make-v1-uuid) actor ttl))
+   ((cust :add-ephemeral-client-with-id id actor ttl)
+    (let ((new-svcs (acons id (ephem-service actor ttl) svcs)))
+      (become (local-services-beh new-svcs encryptor decryptor))
+      (send cust id)
+      (when ttl
+        (send-after ttl self sink :remove-service id))))
+   
+   ((cust :add-service actor)
+    ;; used for connection handlers
+    (send self cust :add-service-with-id (uuid:make-v1-uuid) actor))
+   
+   ((cust :add-ephemeral-client actor ttl)
+    ;; used for transient customer proxies
+    (send self cust :add-ephemeral-client-with-id (uuid:make-v1-uuid) actor ttl))
+   
+   ((cust :add-ephemeral-clients clients ttl)
+    (if clients
+        (let ((me  self))
+          (destructuring-bind ((id . ac) . rest) clients
+            (β _
+                (send self β :add-ephemeral-client-with-id id ac ttl)
+              (send me cust :add-ephemeral-clients rest ttl))
+            ))
+      ;; else
+      (send cust :ok)))
+   
+   ((cust :remove-service id)
+    (let ((new-svcs (remove (assoc id svcs :test #'uuid:uuid=) svcs :count 1)))
+      (become (local-services-beh new-svcs encryptor decryptor))
+      (send cust :ok)))
+   
+   ((cust :set-crypto ekey socket)
+    ;; after this we promptly forget ekey...
+    (let ((encryptor (sink-pipe (secure-sender ekey self)
+                                socket))
+          (decryptor (sink-pipe (secure-reader ekey self)
+                                self)))
+      (become (local-services-beh svcs encryptor decryptor))
+      (send cust :ok)))
+   
+   ;; -------------------------------------------------------------------
+   ;; encrytped socket send - proxy Actors send to here...  The entire
+   ;; message, including UUID target, is encrypted. The only thing
+   ;; appearing on the wire are the (SEQ CTXT AUTH)
+   ((:ssend . msg) / encryptor
+    (send* encryptor msg))
+   
+   ;; -------------------------------------------------------------------
+   ;; unencrypted socket delivery
+   ((service-id . msg) / (typep service-id 'uuid:uuid)
+    (let ((pair (assoc service-id svcs :test #'uuid:uuid=)))
+      (when pair
+        (let ((svc (cdr pair)))
+          (send* (local-service-handler svc) msg)
+          (when (ephem-service-p svc)
+            (cond ((ephem-service-ttl svc)
+                   ;; possibly counterintuitive... if we have traffic on this
+                   ;; ephemeral connection, keep it alive a bit longer in case
+                   ;; it gets reused. Removal only removes one copy of the
+                   ;; pairing in the services list. Since a removal has already
+                   ;; been scheduled, we insert an extra one for it to work
+                   ;; against.
+                   (become (local-services-beh (cons pair svcs) encryptor decryptor))
+                   (send-after (ephem-service-ttl svc) self sink :remove-service (car pair)))
+                  (t
+                   ;; no TTL specified, so just remove it
+                   (become (local-services-beh (remove pair svcs :count 1) encryptor decryptor)))
+                  ))
+          ))))
 
-  ((cust :add-ephemeral-clients clients ttl)
-   (if clients
-       (let ((me  self))
-         (destructuring-bind ((id . ac) . rest) clients
-           (β _
-               (send self β :add-ephemeral-client-with-id id ac ttl)
-             (send me cust :add-ephemeral-clients rest ttl))
-           ))
-     ;; else
-     (send cust :ok)))
-    
-  ((cust :remove-service id)
-   (let ((new-svcs (remove (assoc id svcs :test #'uuid:uuid=) svcs :count 1)))
-     (become (local-services-beh new-svcs encryptor decryptor))
-     (send cust :ok)))
+   ;; -------------------------------------------------------------------
+   ;; encrypted handshake pair
+   
+   ((latcrypt aescrypt) / (and (null decryptor)
+                               (typep latcrypt 'vector)
+                               (consp aescrypt))
+    (β (rkey info)
+        (send lattice-ke:cnx-packet-decoder β latcrypt aescrypt)
+      (when (and (consp info)
+                 (typep (car info) 'uuid:uuid))
+        (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
+          (when pair
+            (let ((svc  (cdr pair)))
+              (send* (local-service-handler svc) rkey (cdr info))
+              ))))
+      ))
 
-  ((cust :set-crypto ekey socket)
-   ;; after this we promptly forget ekey...
-   (let ((encryptor (sink-pipe (secure-sender ekey self)
-                               socket))
-         (decryptor (sink-pipe (secure-reader ekey self)
-                               self)))
-     (become (local-services-beh svcs encryptor decryptor))
-     (send cust :ok)))
-
-  ;; -------------------------------------------------------------------
-  ;; encrytped socket send - proxy Actors send to here...  The entire
-  ;; message, including UUID target, is encrypted. The only thing
-  ;; appearing on the wire are the (SEQ CTXT AUTH)
-  ((:ssend . msg) / encryptor
-   (send* encryptor msg))
-
-  ;; -------------------------------------------------------------------
-  ;; unencrypted socket delivery
-  ((service-id . msg) / (typep service-id 'uuid:uuid)
-   (let ((pair (assoc service-id svcs :test #'uuid:uuid=)))
-     (when pair
-       (let ((svc (cdr pair)))
-         (send* (local-service-handler svc) msg)
-         (when (ephem-service-p svc)
-           (cond ((ephem-service-ttl svc)
-                  ;; possibly counterintuitive... if we have traffic on this
-                  ;; ephemeral connection, keep it alive a bit longer in case
-                  ;; it gets reused. Removal only removes one copy of the
-                  ;; pairing in the services list. Since a removal has already
-                  ;; been scheduled, we insert an extra one for it to work
-                  ;; against.
-                  (become (local-services-beh (cons pair svcs) encryptor decryptor))
-                  (send-after (ephem-service-ttl svc) self sink :remove-service (car pair)))
-                 (t
-                  ;; no TTL specified, so just remove it
-                  (become (local-services-beh (remove pair svcs :count 1) encryptor decryptor)))
-                 ))
-         ))))
-
-  ;; -------------------------------------------------------------------
-  ;; encrypted socket delivery -- decryptor decodes the message and
-  ;; sends back to us as an unencrypted socket delivery (see previous
-  ;; clause)
-  ((seq ctxt auth) / (and decryptor
-                          ;; (integerp seq)
-                          (typep seq  'ub8-vector)
-                          (typep ctxt 'ub8-vector)
-                          (typep auth 'ub8-vector))
-   (send decryptor seq ctxt auth)))
+   ;; -------------------------------------------------------------------
+   ;; encrypted socket delivery -- decryptor decodes the message and
+   ;; sends back to us as an unencrypted socket delivery (see previous
+   ;; clause)
+   ((seq ctxt auth) / (and decryptor
+                           ;; (integerp seq)
+                           (typep seq  'ub8-vector)
+                           (typep ctxt 'ub8-vector)
+                           (typep auth 'ub8-vector))
+    (send decryptor seq ctxt auth))
+   ))
 
 (defun make-local-services ()
   (create (local-services-beh)))
@@ -350,36 +369,41 @@
   ;; used by client side
   (send local-services cust :add-ephemeral-client svc ttl))
 
+(defun create-ephemeral-client-proxy-with-id (cust client-id local-services svc &key (ttl *default-ephemeral-ttl*))
+  ;; used by client side
+  (send local-services cust :add-ephemeral-client-with-id client-id svc ttl))
+
 (defun create-service-proxy (cust local-services svc)
   ;; used by server side
   (send local-services cust :add-service svc))
 
-;; ---------------------------------------------------
-;; Marshaling with Actor conversions
-;;
-;; On the way out, any Actors in message args are replaced by
-;; CLIENT-PROXY structs carrying a UUID as the identifier for the
-;; Actor on this side.
-;;
-;; On the way in, any CLIENT-PROXY structs are replaced by local proxy
-;; Actors which arrange to send back to the UUID client.
-;;
-;; We perform this substitution down inside of marshaling so that
-;; Actors can be buried to any depth anywhere among the message args
-;; and they will receive the translation.
-;;
-;; When the marshaler in SDLE-STORE is about to serialize a structure
-;; object, it first calls BEFORE-STORE and then serializes whatever
-;; that function returns. Nominally it just returns the argument
-;; struct object.
-;;
-;; After the marshaler deserializes a struct object, it returns
-;; whatever the result of AFTER-RETRIEVE returns. Normally it just
-;; returns its argument object.
-;;
-;; So rather than inventing whole new type encodings for Actors, we
-;; can use AOP and dynamic functions to effect the added translations
-;; just while we are encoding and decoding for socket transmission.
+#| ---------------------------------------------------
+   Marshaling with Actor conversions
+  
+   On the way out, any Actors in message args are replaced by
+   CLIENT-PROXY structs carrying a UUID as the identifier for the
+   Actor on this side.
+  
+   On the way in, any CLIENT-PROXY structs are replaced by local proxy
+   Actors which arrange to send back to the UUID client.
+  
+   We perform this substitution down inside of marshaling so that
+   Actors can be buried to any depth anywhere among the message args
+   and they will receive the translation.
+  
+   When the marshaler in SDLE-STORE is about to serialize a structure
+   object, it first calls BEFORE-STORE and then serializes whatever
+   that function returns. Nominally it just returns the argument
+   struct object.
+  
+   After the marshaler deserializes a struct object, it returns
+   whatever the result of AFTER-RETRIEVE returns. Normally it just
+   returns its argument object.
+  
+   So rather than inventing whole new type encodings for Actors, we
+   can use AOP and dynamic functions to effect the added translations
+   just while we are encoding and decoding for socket transmission.
+   --------------------------------------------------- |#
 
 (defstruct (client-proxy
             (:constructor client-proxy (&optional (id (uuid:make-v1-uuid)))))
