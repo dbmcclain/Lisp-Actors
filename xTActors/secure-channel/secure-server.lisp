@@ -64,21 +64,22 @@
   ;; We develop a unique ECDH encryption key shared secretly between
   ;; us and furnish a private handler ID for encrypted requests along
   ;; with our own random ECC point and our public key.
-  (αα
-   ((akey client-id client-pkeyid) / (and (typep akey 'ub8-vector)
-                                          (typep client-id 'uuid:uuid))
-    (β (cnx-id)
-        (create-service-proxy β local-services global-services)
-      (β (bkey latcrypt aescrypt)
-          (send lattice-ke:cnx-packet-encoder β client-pkeyid
+  (create
+   (alambda
+    ((akey client-id client-pkeyid) / (and (typep akey 'ub8-vector)
+                                           (typep client-id 'uuid:uuid))
+     (β (cnx-id)
+         (create-service-proxy β local-services global-services)
+       (β (bkey latcrypt aescrypt)
+           (send lattice-ke:cnx-packet-encoder β client-pkeyid
                 client-id cnx-id)
-        (let ((ekey  (hash/256 bkey akey)))
-          (β _
-              (send local-services β :set-crypto ekey socket)
-            (send socket latcrypt aescrypt))
-          ))))
-   ;; silently ignore other kinds of requests
-   ))
+         (let ((ekey  (hash/256 bkey akey)))
+           (β _
+               (send local-services β :set-crypto ekey socket)
+             (send socket latcrypt aescrypt))
+           ))))
+    ;; silently ignore other kinds of requests
+    )))
 
 ;; ---------------------------------------------------------------
 ;; For generating key-pairs...

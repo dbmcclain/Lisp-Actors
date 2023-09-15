@@ -41,6 +41,10 @@
 
 ;; ------------------------------------------------------
 
+(defconstant +server-connect-id+  {66895052-c57f-123a-9571-0a2cb67da316})
+
+;; ------------------------------------------------------
+
 #|
 (defgeneric wipe (x)
   (:method (x)
@@ -94,7 +98,7 @@
     (ed-decompress-pt (read-from-string (subseq (cadr lines) 2)))
     ))
 |#
-
+#-:lattice-crypto
 (defun actors-smult (pt)
   (let* ((txt (with-output-to-string (s)
                 (sys:call-system-showing-output
@@ -124,11 +128,10 @@
     ))
 |#
 
+#-:lattice-crypto
 (defun actors-pkey ()
   ;; (edec:smult edec:*ed-gen*)
   (actors-smult edec:*ed-gen*))
-
-(defconstant +server-connect-id+  {66895052-c57f-123a-9571-0a2cb67da316})
 
 ;; ----------------------------------------------------------------
 ;; Group Membership Verification
@@ -140,6 +143,7 @@
 ;; control the associated secret key, then they won't be able to
 ;; communicate across a connection. Problem solved.
 
+#-:lattice-crypto
 (defvar *allowed-members*
   (let ((s (sets:empty)))
     (dolist (pkey (with-open-file (f "~/.actor-nodes")
@@ -159,43 +163,46 @@
 ;; ----------------------------------------------------------------
 ;; Self-organizing list of services for Server and connection Actors
 
-(def-beh service-list-beh (lst)
-  ((cust :available-services)
-   (send cust (mapcar #'car lst)))
-  
-  ((cust :add-service name handler)
-   ;; replace or add
-   (become (service-list-beh (acons name handler
-                                    (remove (assoc name lst) lst))))
-   (send cust :ok))
-
-  ((cust :get-service name)
-   (send cust (cdr (assoc name lst))))
-
-  ((cust :remove-service name)
-   (become (service-list-beh (remove (assoc name lst) lst)))
-   (send cust :ok))
-
-  ((rem-cust verb . msg)
-   (let ((pair (assoc verb lst)))
-     (when pair
-       (send* (cdr pair) rem-cust msg))
-     )))
+(defun service-list-beh (lst)
+  (alambda
+   ((cust :available-services)
+    (send cust (mapcar #'car lst)))
+   
+   ((cust :add-service name handler)
+    ;; replace or add
+    (become (service-list-beh (acons name handler
+                                     (remove (assoc name lst) lst))))
+    (send cust :ok))
+   
+   ((cust :get-service name)
+    (send cust (cdr (assoc name lst))))
+   
+   ((cust :remove-service name)
+    (become (service-list-beh (remove (assoc name lst) lst)))
+    (send cust :ok))
+   
+   ((rem-cust verb . msg)
+    (let ((pair (assoc verb lst)))
+      (when pair
+        (send* (cdr pair) rem-cust msg))
+      ))))
 
 ;; -----------------------------------------------
 ;; Simple Services
 
-(def-actor remote-echo
-  (α (cust &rest msg)
-    (send* cust msg)))
+(deflex remote-echo
+  (create
+   (lambda (cust &rest msg)
+     (send* cust msg)) ))
 
 (defun cmpfn (&rest args)
   (compile nil `(lambda ()
                   ,@args)))
 
-(def-actor remote-eval
-  (α (cust form)
-    (send cust (funcall (cmpfn form)))))
+(deflex remote-eval
+  (create
+   (lambda (cust form)
+     (send cust (funcall (cmpfn form)))) ))
 
 ;; -----------------------------------------------
 
@@ -340,8 +347,7 @@
                                (consp aescrypt))
     (β (rkey info)
         (send lattice-ke:cnx-packet-decoder β latcrypt aescrypt)
-      (when (and (consp info)
-                 (typep (car info) 'uuid:uuid))
+      (when (typep (car info) 'uuid:uuid)
         (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
           (when pair
             (let ((svc  (cdr pair)))
@@ -420,21 +426,22 @@
   ;; serialize an outgoing message, translating all embedded Actors
   ;; into client proxies and planting corresponding ephemeral
   ;; forwarding receiver Actors.
-  (α (cust &rest msg)
-    (let (rcvrs)
-      (aop:dflet ((translate-actor-to-proxy (ac)
-                    (if (is-pure-sink? ac)
-                        nil
-                      (let ((id (uuid:make-v1-uuid)))
-                        (push (cons id ac) rcvrs)
-                        (client-proxy id))
-                      )))
-        (let ((enc (loenc:encode (coerce msg 'vector))))
-          (β _
-              (send local-services β :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)
-            (send cust enc))
-          )))
-    ))
+  (create
+   (lambda (cust &rest msg)
+     (let (rcvrs)
+       (aop:dflet ((translate-actor-to-proxy (ac)
+                     (if (is-pure-sink? ac)
+                         nil
+                       (let ((id (uuid:make-v1-uuid)))
+                         (push (cons id ac) rcvrs)
+                         (client-proxy id))
+                       )))
+         (let ((enc (loenc:encode (coerce msg 'vector))))
+           (β _
+               (send local-services β :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)
+             (send cust enc))
+           ))))
+   ))
 
 #|
 (def-actor echo
@@ -467,20 +474,22 @@
 (defun server-marshal-decoder (local-services)
   ;; deserialize an incoming message, translating all client Actor
   ;; proxies to server local proxie Actors aimed back at client.
-  (αα
-   ((cust vec) / (typep vec 'ub8-vector)
-    (aop:dflet ((translate-proxy-to-actor (proxy)
-                  (let ((id (client-proxy-id proxy)))
-                    (α msg
-                      (send* local-services :ssend id msg)))
-                  ))
-      (let ((dec (ignore-errors
-                   (loenc:decode vec))))
-        (when (and dec
-                   (vectorp dec))
-          (send* cust (coerce dec 'list)))
-        )))
-   ))
+  (create
+   (alambda
+    ((cust vec) / (typep vec 'ub8-vector)
+     (aop:dflet ((translate-proxy-to-actor (proxy)
+                   (let ((id (client-proxy-id proxy)))
+                     (create
+                      (lambda (&rest msg)
+                        (send* local-services :ssend id msg))
+                      ))))
+       (let ((dec (ignore-errors
+                    (loenc:decode vec))))
+         (when (and dec
+                    (vectorp dec))
+           (send* cust (coerce dec 'list)))
+         )))
+    )))
 
 ;; ---------------------------------------------------
 ;; Composite Actor pipes - used by both clients and servers. Both

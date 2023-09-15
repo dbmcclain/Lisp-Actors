@@ -160,7 +160,7 @@
          (send lattice-pkey β dest-pkeyid)
        (let* ((rkey       (random-key))
               (aes-packet (ignore-errors
-                            (apply #'make-aes-packet rkey info))))
+                            (apply #'make-aes-packet rkey :canary info))))
          (when aes-packet
            (β (lat-enc)
                (send lat2-encoder β pkey rkey)
@@ -181,8 +181,9 @@
          (send lat2-decoder β latcrypt)
        (let ((info (ignore-errors
                      (decode-aes-packet rkey aescrypt))))
-         (when info
-           (send cust rkey info)))
+         (when (and (consp info)
+                    (eq (car info) :canary))
+           (send cust rkey (cdr info))))
        ))
    ))
 

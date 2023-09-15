@@ -163,44 +163,49 @@
 #+:lattice-crypto
 (progn
   (deflex negotiator
-    (α (cust socket local-services)
-      (let ((client-id  (uuid:make-v1-uuid)))
-        (β (srv-pkeyid)
-            (send lattice-ke:srv-pkeyid β)
-          (β (my-pkeyid)
-              (send lattice-ke:my-pkeyid β)
-            (β (akey latcrypt aescrypt)
-                (send lattice-ke:cnx-packet-encoder β srv-pkeyid
-                      +server-connect-id+ client-id my-pkeyid)
-              (let ((responder
-                     (αα
-                      ((bkey server-id) /  (and (typep bkey 'ub8-vector)
-                                                (typep server-id 'uuid:uuid))
-                       (let ((ekey  (hash/256 bkey akey))
-                             (chan  (α msg
-                                      (send* local-services :ssend server-id msg))))
-                         (β _
-                             (send local-services β :set-crypto ekey socket)
-                           (send connections cust :set-channel socket chan))
-                         ))
-                      ( _
-                        (error "Server not following connection protocol"))
-                      )))
-                (β _
-                    (create-ephemeral-client-proxy-with-id β client-id local-services responder)
-                  (send socket latcrypt aescrypt))
+    (create
+     (lambda (cust socket local-services)
+       (let ((client-id  (uuid:make-v1-uuid)))
+         (β (srv-pkeyid)
+             (send lattice-ke:srv-pkeyid β)
+           (β (my-pkeyid)
+               (send lattice-ke:my-pkeyid β)
+             (β (akey latcrypt aescrypt)
+                 (send lattice-ke:cnx-packet-encoder β srv-pkeyid
+                       +server-connect-id+ client-id my-pkeyid)
+               (let ((responder
+                      (create
+                       (alambda
+                        ((bkey server-id) /  (and (typep bkey      'ub8-vector)
+                                                  (typep server-id 'uuid:uuid))
+                         (let ((ekey  (hash/256 bkey akey))
+                               (chan  (create
+                                       (lambda (&rest msg)
+                                         (send* local-services :ssend server-id msg))
+                                       )))
+                           (β _
+                               (send local-services β :set-crypto ekey socket)
+                             (send connections cust :set-channel socket chan))
+                           ))
+                        
+                        ( _
+                          (error "Server not following connection protocol"))
+                        ))))
+                 (β _
+                     (create-ephemeral-client-proxy-with-id β client-id local-services responder)
+                   (send socket latcrypt aescrypt))
                 )))
-          ))))
-  
-  (def-actor client-gateway
+           )))))
+    
+  (deflex client-gateway
     ;; This is the main local client service used to initiate
     ;; connections with foreign servers.
     ;; Go lookup the encrypted channel for this IP, constructing it on
     ;; demand if not already present.
-    (α (cust host-ip-addr)
-      (send client-connector cust
-            negotiator
-            host-ip-addr))) )
+    (create
+     (lambda (cust host-ip-addr)
+       (send client-connector cust negotiator host-ip-addr) )
+     )) )
 
 ;; ---------------------------------------------------
 ;; User side of Client Interface
