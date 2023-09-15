@@ -93,13 +93,12 @@
    (lambda (cust pubkey &rest info)
      (multiple-value-bind (rand rand-pt)
          (ed-random-pair)
-       (let* ((enc-pt   (ed-mul pubkey rand))
-              (aeskey   (vec (hash/256 :ecc-cnx-key enc-pt)))
-              (aescrypt (ignore-errors
-                          (apply #'make-aes-packet aeskey :canary info))))
-         (when aescrypt
-           (send cust rand (ed-affine rand-pt) aescrypt))
-         )))
+       (ignore-errors
+         (let* ((enc-pt     (ed-mul pubkey rand))
+                (aes-key    (vec (hash/256 :ecc-cnx-key enc-pt)))
+                (aes-packet (apply #'make-aes-packet aes-key :canary info)))
+           (send cust rand (ed-affine rand-pt) aes-packet)
+           ))))
    ))
 
 (deflex ecc-cnx-decrypt
@@ -107,13 +106,13 @@
    (lambda (cust rand-pt aes-packet)
      (β (skey)
          (send ecc-skey β)
-       (let* ((enc-pt   (ed-mul rand-pt skey))
-              (aes-key  (vec (hash/256 :ecc-cnx-key enc-pt)))
-              (info     (ignore-errors
-                          (decode-aes-packet aes-key aes-packet))))
-         (when (and (consp info)
-                    (eq (car info) :canary))
-           (send cust (cdr info)) ))
+       (ignore-errors
+         (let* ((enc-pt   (ed-mul rand-pt skey))
+                (aes-key  (vec (hash/256 :ecc-cnx-key enc-pt)))
+                (info     (decode-aes-packet aes-key aes-packet)))
+           (when (and (consp info)
+                      (eq (car info) :canary))
+             (send cust (cdr info)) )))
        ))))
 
 ;; ----------------------------------------------------
