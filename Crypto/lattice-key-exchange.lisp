@@ -71,7 +71,10 @@
    (lambda (cust pkey v)
      (β (sys)
          (send lattice-system β)
-       (send cust (lat2-encode pkey v sys))
+       (let ((enc (ignore-errors
+                    (lat2-encode pkey v sys))))
+         (when enc
+           (send cust enc)))
        ))
    ))
 
@@ -82,7 +85,10 @@
          (send lattice-system β)
        (β (skey)
            (send lattice-skey β)
-         (send cust (lat2-decode skey cs sys))
+         (let ((dec (ignore-errors
+                      (lat2-decode skey cs sys))))
+           (when dec
+             (send cust dec)))
          )))
    ))
 
@@ -153,11 +159,13 @@
      (β (pkey) ;; if not found just drop things on the floor
          (send lattice-pkey β dest-pkeyid)
        (let* ((rkey       (random-key))
-              (aes-packet (apply #'make-aes-packet rkey info)))
-         (β (lat-enc)
-             (send lat2-encoder β pkey rkey)
-           (send cust rkey lat-enc aes-packet)
-           ))))
+              (aes-packet (ignore-errors
+                            (apply #'make-aes-packet rkey info))))
+         (when aes-packet
+           (β (lat-enc)
+               (send lat2-encoder β pkey rkey)
+             (send cust rkey lat-enc aes-packet)
+             )))))
    ))
 
 (deflex cnx-packet-decoder
@@ -171,9 +179,11 @@
      ;; Client/Server differ only in the contents of that info.
      (β (rkey)
          (send lat2-decoder β latcrypt)
-       (let ((info (decode-aes-packet rkey aescrypt)))
-         (send cust rkey info)
-         )))
+       (let ((info (ignore-errors
+                     (decode-aes-packet rkey aescrypt))))
+         (when info
+           (send cust rkey info)))
+       ))
    ))
 
 ;; ----------------------------------------------------
