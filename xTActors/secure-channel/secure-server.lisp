@@ -69,7 +69,7 @@
     ((akey client-id client-pkeyid) / (and (typep akey 'ub8-vector)
                                            (typep client-id 'uuid:uuid))
      (β (cnx-id)
-         (create-service-proxy β local-services global-services)
+         (send local-services β :add-service global-services)
        (β (bkey latcrypt aescrypt)
            (send lattice-ke:cnx-packet-encoder β client-pkeyid
                 client-id cnx-id)
