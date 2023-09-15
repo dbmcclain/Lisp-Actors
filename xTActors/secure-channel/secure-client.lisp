@@ -113,6 +113,7 @@
 ;; Trevor Perrin and Moxie Marlinspike of Signal Foundation.
 ;;
 
+#|
 #-:lattice-crypto
 (progn
   (def-actor negotiate-secure-channel
@@ -157,6 +158,59 @@
     ;; demand if not already present.
     (α (cust host-ip-addr)
       (send client-connector cust negotiate-secure-channel host-ip-addr))))
+|#
+
+#-:lattice-crypto
+(progn
+  (deflex negotiator
+    (create
+     (lambda (cust socket local-services)
+       (let ((client-id  (uuid:make-v1-uuid)))
+         (β (srv-pkey)
+             (send eccke:srv-pkey β)
+           (β (my-pkeyid)
+               (send eccke:my-pkeyid β)
+             (β (arand apt aescrypt)
+                 (send eccke:ecc-cnx-encrypt β srv-pkey
+                       +server-connect-id+ client-id my-pkeyid)
+               (let ((responder
+                      (create
+                       (alambda
+                        ((bpt server-id) /  (and (typep bpt       'edec:ecc-pt)
+                                                 (typep server-id 'uuid:uuid))
+                         (β (my-skey)
+                             (send eccke:ecc-skey β)
+                           (let ((ekey  (hash/256 (ed-mul bpt arand)           ;; B*a
+                                                  (ed-mul bpt my-skey)         ;; B*c
+                                                  (ed-mul srv-pkey arand)))    ;; S*a
+                                 (chan  (create
+                                         (lambda (&rest msg)
+                                           (send* local-services :ssend server-id msg))
+                                         )))
+                             (β _
+                                 (send local-services β :set-crypto ekey socket)
+                               (send connections cust :set-channel socket chan))
+                             )))
+                          
+                        ( _
+                          (error "Server not following connection protocol"))
+                        ))))
+                   (β _
+                       (send local-services β :add-single-use-service client-id responder)
+                     (send socket apt aescrypt))
+                   )))
+           )))
+     ))
+    
+  (deflex client-gateway
+    ;; This is the main local client service used to initiate
+    ;; connections with foreign servers.
+    ;; Go lookup the encrypted channel for this IP, constructing it on
+    ;; demand if not already present.
+    (create
+     (lambda (cust host-ip-addr)
+       (send client-connector cust negotiator host-ip-addr) )
+     )) )
 
 ;; -----------------------------------------------------------------------------------
 
@@ -226,13 +280,14 @@
     (remote-service name host-ip-addr)))
 
 (defun remote-service (name host-ip-addr)
-    ;; An Actor and send target. Connection to remote service
-    ;; established on demand.
-    (α (cust &rest msg)
-      (β (chan)
-          (send client-gateway β host-ip-addr)
-        (send* chan cust name msg))
-      ))
+  ;; An Actor and send target. Connection to remote service
+  ;; established on demand.
+  (create
+   (lambda (cust &rest msg)
+     (β (chan)
+         (send client-gateway β host-ip-addr)
+       (send* chan cust name msg))
+     )))
 
 ;; ------------------------------------------------------------
 #|

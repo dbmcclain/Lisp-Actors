@@ -28,29 +28,34 @@
   ;; We develop a unique ECDH encryption key shared secretly between
   ;; us and furnish a private handler ID for encrypted requests along
   ;; with our own random ECC point and our public key.
-  (αα
-   ((client-id apt client-pkey) / (and (typep client-id 'uuid:uuid)
-                                       (integerp apt)
-                                       (integerp client-pkey)
-                                       (sets:mem *allowed-members* client-pkey))
-    ;; silently ignore other kinds of requests
-    (ignore-errors
-      (multiple-value-bind (apt client-pkey)
-          (values (ed-validate-point apt)
-                  (ed-validate-point client-pkey))
-        (multiple-value-bind (brand bpt)
-            (ed-random-pair)
-          (let ((ekey (hash/256 (ed-mul apt brand)            ;; A*b
-                                (ed-mul client-pkey brand)    ;; C*b
-                                ;; (ed-mul apt (actors-skey))
-                                (actors-smult apt)))) ;; A*s
-            (β _
-                (send local-services β :set-crypto ekey socket)
-              (β (cnx-id)
-                  (create-service-proxy β local-services global-services)
-                (send socket client-id cnx-id (int bpt) (int (actors-pkey)) ))
-              )))
-        )))
+  (create
+   (alambda
+    ((apt client-id client-pkeyid) / (and (typep apt       'edec:ecc-pt)
+                                          (typep client-id 'uuid:uuid))
+     ;; silently ignore other kinds of requests
+     (β (client-pkey)
+         (send eccke:ecc-pkey β client-pkeyid)
+       (when client-pkey
+         (ignore-errors
+           (multiple-value-bind (apt client-pkey)
+               (values (ed-validate-point apt)
+                       (ed-validate-point client-pkey))
+             (β (cnx-id)
+                 (send local-services β :add-service global-services)
+               (β (brand bpt aescrypt)
+                   (send eccke:ecc-cnx-encrypt β client-pkey
+                         client-id cnx-id)
+                 (β (my-skey)
+                     (send eccke:ecc-skey β)
+                   (let ((ekey (hash/256 (ed-mul apt brand)            ;; A*b
+                                         (ed-mul client-pkey brand)    ;; C*b
+                                         (ed-mul apt my-skey))         ;; A*s
+                               ))
+                     (β _
+                         (send local-services β :set-crypto ekey socket)
+                       (send socket bpt aescrypt)))
+                   ))))))
+       )))
    ))
 
 ;; ----------------------------------------------------------------

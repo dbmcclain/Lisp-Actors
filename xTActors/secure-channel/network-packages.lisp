@@ -3,7 +3,8 @@
   (project:defproject
    (#:self-synca  #:com.ral.actors.encoding.self-sync)
    (#:secure-comm #:com.ral.actors.secure-comm)
-   (#:encoding    #:com.ral.actors.encoding)))
+   (#:encoding    #:com.ral.actors.encoding)
+   (#:eccke       #:com.ral.crypto.ecc-key-exchange)))
 
 (defpackage :com.ral.actors.encoding.self-sync
   (:use #:cl #:actors)

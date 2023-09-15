@@ -348,6 +348,7 @@
    ;; -------------------------------------------------------------------
    ;; encrypted handshake pair
    
+   #+:lattice-crypto
    ((latcrypt aescrypt) / (and (null decryptor) ;; i.e., only valid during initial handshake dance
                                (typep latcrypt 'vector)
                                (consp aescrypt))
@@ -361,6 +362,20 @@
               ))))
       ))
 
+   #-:lattice-crypto
+   ((rand-pt aescrypt) / (and (null decryptor)
+                              (typep rand-pt 'edec:ecc-pt)
+                              (consp aescrypt))
+    (β (info)
+        (send eccke:ecc-cnx-decrypt β rand-pt aescrypt)
+      (when (typep (car info) 'uuid:uuid)
+        (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
+          (when pair
+            (let ((svc  (cdr pair)))
+              (send* (local-service-handler svc) rand-pt (cdr info))
+              ))))
+      ))
+        
    ;; -------------------------------------------------------------------
    ;; encrypted socket delivery -- decryptor decodes the message and
    ;; sends back to us as an unencrypted socket delivery (see previous

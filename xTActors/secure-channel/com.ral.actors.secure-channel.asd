@@ -31,6 +31,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :components  ((:file "network-packages")
                 (:file "self-sync-actors")
                 (:file "encoding")
+                (:file "ecc-key-exchange")
                 (:file "secure-bridging")
                 ;; (:file "network-connection")
                 (:file "network-connection-ss")
@@ -41,6 +42,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                  "snappy"
                  "com.ral.lisp-object-encoder"
                  "edwards-ecc"
-                 "lattice-crypto"))
+                 ;; "lattice-crypto"
+                 ))
 
 
