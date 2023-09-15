@@ -605,7 +605,7 @@
           ))))
    ))
   
-(def-actor connections
+(deflex connections
   (create (connections-list-beh)))
 
 #|
@@ -680,7 +680,7 @@
          (send shutdown β :init state)
          
          ;; Inform LOCAL-SERVICES that we can form secure connections with clients
-         (send local-services β :add-service-with-id +server-connect-id+
+         (send local-services β :add-single-use-service +server-connect-id+
                    (server-crypto-gateway encoder local-services))
 
          ;; Inform the system that we are an available socket interface
@@ -746,24 +746,25 @@
 ;; -------------------------------------------------------------
 
 (defun try-to-connect-socket (ip-addr ip-port report-ip-addr)
-  (let ((handler (α (io-state args)
-                   (cond
-                    (args
-                     (send println
-                           (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
-                           (apply #'format nil args))
-                     (send connections sink :abort ip-addr ip-port))
-                    
-                    (t
-                     (β (state socket)
-                         (send (create-socket-intf :kind           :client
-                                                   :ip-addr        ip-addr
-                                                   :ip-port        ip-port
-                                                   :report-ip-addr report-ip-addr
-                                                   :io-state       io-state)
-                               β)
-                       (send connections nil :negotiate state socket)))
-                    ))))
+  (let ((handler (create
+                  (lambda (io-state args)
+                    (cond
+                     (args
+                      (send println
+                            (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
+                            (apply #'format nil args))
+                      (send connections sink :abort ip-addr ip-port))
+                     
+                     (t
+                      (β (state socket)
+                          (send (create-socket-intf :kind           :client
+                                                    :ip-addr        ip-addr
+                                                    :ip-port        ip-port
+                                                    :report-ip-addr report-ip-addr
+                                                    :io-state       io-state)
+                                β)
+                        (send connections nil :negotiate state socket)))
+                     )))))
 
     (flet ((callback (io-state args)
              ;; performed in the process of collection, so keep it short.
@@ -794,17 +795,18 @@
                  (read-from-string (subseq addr (1+ cpos))))
        addr))))
 
-(def-actor client-connector
+(deflex client-connector
   ;; Called from client side wishing to connect to a server.
-  (α (cust handshake ip-addr &optional (ip-port *default-port*))
-    (multiple-value-bind (addr port)
+  (create
+   (lambda (cust handshake ip-addr &optional (ip-port *default-port*))
+     (multiple-value-bind (addr port)
         (parse-ip-addr ip-addr)
-      (let ((clean-ip-addr (canon-ip-addr addr))
-            (port          (or port ip-port *default-port*)))
-        (unless clean-ip-addr
-          (error "Unknown host: ~S" ip-addr))
-        (send connections cust :find-socket clean-ip-addr port ip-addr handshake)
-        ))))
+       (let ((clean-ip-addr (canon-ip-addr addr))
+             (port          (or port ip-port *default-port*)))
+         (unless clean-ip-addr
+           (error "Unknown host: ~S" ip-addr))
+         (send connections cust :find-socket clean-ip-addr port ip-addr handshake)
+         )))))
 
 ;; -------------------------------------------------------------
 
@@ -873,7 +875,7 @@ indicated port number."
   (unless *ws-collection*
     (start-tcp-server)))
 
-(def-actor terminator
+(deflex terminator
   (create-service
    (lambda (cust)
      (terminate-server cust))))

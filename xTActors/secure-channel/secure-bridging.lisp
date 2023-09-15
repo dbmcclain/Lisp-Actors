@@ -279,6 +279,12 @@
    ((cust :add-service actor)
     ;; used for connection handlers
     (send self cust :add-service-with-id (uuid:make-v1-uuid) actor))
+
+   ((cust :add-single-use-service id actor)
+    (let ((new-svcs (acons id (ephem-service actor) svcs)))
+      (become (local-services-beh new-svcs encryptor decryptor))
+      (send-after *default-ephemeral-ttl* self sink :remove-service id)
+      (send cust id)))
    
    ((cust :add-ephemeral-client actor ttl)
     ;; used for transient customer proxies
@@ -342,7 +348,7 @@
    ;; -------------------------------------------------------------------
    ;; encrypted handshake pair
    
-   ((latcrypt aescrypt) / (and (null decryptor)
+   ((latcrypt aescrypt) / (and (null decryptor) ;; i.e., only valid during initial handshake dance
                                (typep latcrypt 'vector)
                                (consp aescrypt))
     (β (rkey info)
