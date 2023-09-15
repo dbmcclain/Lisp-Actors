@@ -192,7 +192,7 @@
                           (error "Server not following connection protocol"))
                         ))))
                  (β _
-                     (create-ephemeral-client-proxy-with-id β client-id local-services responder)
+                     (send local-services β :add-single-use-service client-id responder)
                    (send socket latcrypt aescrypt))
                 )))
            )))))
