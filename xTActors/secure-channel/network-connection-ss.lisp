@@ -678,10 +678,13 @@
       (sequential-β
         (;; complete the STATE initialization
          (send shutdown β :init state)
-         
-         ;; Inform LOCAL-SERVICES that we can form secure connections with clients
-         (send local-services β :add-single-use-service +server-connect-id+
-                   (server-crypto-gateway encoder local-services))
+
+         (if (eq kind :client)
+             (send β)
+           ;; Else, inform LOCAL-SERVICES that we can form secure
+           ;; connections with clients
+           (send local-services β :add-single-use-service +server-connect-id+
+                 (server-crypto-gateway encoder local-services)))
 
          ;; Inform the system that we are an available socket interface
          (send connections β :add-socket ip-addr ip-port state encoder))
