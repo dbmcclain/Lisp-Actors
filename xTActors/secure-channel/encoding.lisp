@@ -535,12 +535,12 @@
                ;;
                (let ((nseq (int seq)))
                  (unless (sets:mem seqs nseq)
-                   (multiple-value-bind (check auth-key)
+                   (multiple-value-bind (is-ok auth-key)
                        (check-auth ekey seq emsg auth)
-                     (when check
+                     (when is-ok
                        (send cust seq emsg)
                        ;; publish the auth-key in the clear for repudiable encryption
-                       (send socket :auth-key seq auth-key)
+                       (send socket :auth-key seq (vec auth-key))
                        (become (auth-beh (sets:add seqs nseq)))
                        ))))
                )))
