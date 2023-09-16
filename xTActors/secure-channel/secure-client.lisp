@@ -113,53 +113,6 @@
 ;; Trevor Perrin and Moxie Marlinspike of Signal Foundation.
 ;;
 
-#|
-#-:lattice-crypto
-(progn
-  (def-actor negotiate-secure-channel
-    ;; EC Diffie-Hellman key exchange
-    (α (cust socket local-services)
-      (multiple-value-bind (arand apt)
-          (ed-random-pair)
-        (let ((responder
-               (αα
-                ((server-id bpt server-pkey) / (and (typep server-id 'uuid:uuid)
-                                                    (integerp bpt)
-                                                    (integerp server-pkey)
-                                                    (sets:mem *allowed-members* server-pkey))
-                 (multiple-value-bind (bpt server-pkey)
-                     (handler-case
-                         (values (ed-validate-point bpt)
-                                 (ed-validate-point server-pkey))
-                       (error ()
-                         (error "Server offered bogus identification")))
-                   (let* ((ekey  (hash/256 (ed-mul bpt arand)            ;; B*a
-                                           ;; (ed-mul bpt (actors-skey))    ;; B*c
-                                           (actors-smult bpt)
-                                           (ed-mul server-pkey arand)))  ;; S*a
-                          (chan  (α msg
-                                   (send* local-services :ssend server-id msg))))
-                     (β _
-                         (send local-services β :set-crypto ekey socket)
-                       (send connections cust :set-channel socket chan))
-                     )))
-                ( _
-                  (error "Server not following connection protocol"))
-                )))
-          (β (client-id)
-              (create-ephemeral-client-proxy β local-services responder)
-            (send socket +server-connect-id+ client-id (int apt) (int (actors-pkey))))
-          ))))
-
-  (def-actor client-gateway
-    ;; This is the main local client service used to initiate
-    ;; connections with foreign servers.
-    ;; Go lookup the encrypted channel for this IP, constructing it on
-    ;; demand if not already present.
-    (α (cust host-ip-addr)
-      (send client-connector cust negotiate-secure-channel host-ip-addr))))
-|#
-
 #-:lattice-crypto
 (progn
   (deflex negotiator
@@ -176,7 +129,7 @@
                (let ((responder
                       (create
                        (alambda
-                        ((bpt server-id) /  (and (typep bpt       'edec:ecc-pt)
+                        ((bpt server-id) /  (and (typep bpt       'ecc-pt)
                                                  (typep server-id 'uuid:uuid))
                          (β (my-skey)
                              (send eccke:ecc-skey β)

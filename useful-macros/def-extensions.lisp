@@ -14,6 +14,7 @@
    #:labels*
    #:flet*
    #:deflex
+   #:let+
    ))
 
 (in-package #:com.ral.useful-macros.def-extensions)
@@ -231,3 +232,27 @@ arguments when given."
   ;;; OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 )
 
+(defmacro let+ (bindings &body body)
+  (if bindings
+      (if (consp (caar bindings))
+          (let ((flat (um:flatten (caar bindings))))
+            (if (or (find '&optional flat)
+                    (find '&key      flat))
+                `(apply (lambda* ,(caar bindings)
+                          ,@body)
+                        ,@(cdar bindings))
+              ;; ekse
+              `(destructuring-bind ,(caar bindings)
+                   ,@(cdar bindings)
+                 (let+ ,(cdr bindings)
+                   ,@body))))
+        ;; else
+        `(let (,(car bindings))
+           (let+ ,(cdr bindings)
+             ,@body)))
+    ;; else
+    `(progn
+       ,@body)))
+
+#+:LISPWORKS
+(editor:setup-indent "let+" 1)

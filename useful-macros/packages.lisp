@@ -669,6 +669,7 @@ THE SOFTWARE.
    #:is-underscore?
    #:is-lambda-list-keyword?
    #:deflex
+   #:let+
    
    #:->
    #:_>

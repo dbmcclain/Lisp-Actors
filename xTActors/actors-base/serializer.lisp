@@ -215,6 +215,7 @@
       ))
    ))
 
+#+nil
 (defun busy-serializer-beh (svc timeout cur-cust tag queue)
   ;; Busy state - new arriving messages get enqueued until we receive
   ;; a message through our interposed customer TAG.
@@ -231,6 +232,25 @@
             (become (busy-serializer-beh svc timeout next-cust tag new-queue))
             )))
       ))
+   ((cust . msg)
+    (become (busy-serializer-beh svc timeout cur-cust tag
+                                 (addq queue (cons cust msg)))))
+   ))
+#-nil
+(defun busy-serializer-beh (svc timeout cur-cust tag queue)
+  ;; Busy state - new arriving messages get enqueued until we receive
+  ;; a message through our interposed customer TAG.
+  (alambda
+   ((atag . reply) / (eql atag tag)
+    (send* cur-cust reply)
+    (if (emptyq? queue)
+        (become (serializer-beh svc :timeout timeout))
+      (let+ (( ((next-cust . next-msg) new-queue) (multiple-value-list (popq queue)) )
+             (once  (once tag)))
+        (send* svc once next-msg)
+        (send-after timeout once timed-out)
+        (become (busy-serializer-beh svc timeout next-cust tag new-queue))
+        )))
    ((cust . msg)
     (become (busy-serializer-beh svc timeout cur-cust tag
                                  (addq queue (cons cust msg)))))

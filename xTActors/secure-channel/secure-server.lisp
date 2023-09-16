@@ -30,7 +30,7 @@
   ;; with our own random ECC point and our public key.
   (create
    (alambda
-    ((apt client-id client-pkeyid) / (and (typep apt       'edec:ecc-pt)
+    ((apt client-id client-pkeyid) / (and (typep apt       'ecc-pt)
                                           (typep client-id 'uuid:uuid))
      ;; silently ignore other kinds of requests
      (β (client-pkey)

@@ -77,14 +77,12 @@
     (list iv cdata chk)
     ))
 
-(defun decode-aes-packet (key packet)
-  (destructuring-bind (iv cdata chk) packet
-    (let ((chkx (make-auth-chk key iv cdata)))
-      (when (equalp chkx chk) ;; just drop on the floor if not valid
-        (let ((vdata  (aes-enc/dec key iv cdata)))
-          (coerce (loenc:decode vdata) 'list))
-        ))
-    ))
+(defun* decode-aes-packet (key (iv cdata chk))
+  (let ((chkx (make-auth-chk key iv cdata)))
+    (when (equalp chkx chk) ;; just drop on the floor if not valid
+      (let ((vdata  (aes-enc/dec key iv cdata)))
+        (coerce (loenc:decode vdata) 'list))
+      )))
 
 ;; ----------------------------------------------------
 

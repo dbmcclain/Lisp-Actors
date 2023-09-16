@@ -289,15 +289,14 @@
    ((cust :add-ephemeral-client actor ttl)
     ;; used for transient customer proxies
     (send self cust :add-ephemeral-client-with-id (uuid:make-v1-uuid) actor ttl))
-   
+
    ((cust :add-ephemeral-clients clients ttl)
     (if clients
-        (let ((me  self))
-          (destructuring-bind ((id . ac) . rest) clients
+        (let+ ((me  self)
+               ( ((id . ac) . rest) clients))
             (β _
                 (send self β :add-ephemeral-client-with-id id ac ttl)
-              (send me cust :add-ephemeral-clients rest ttl))
-            ))
+              (send me cust :add-ephemeral-clients rest ttl) ))
       ;; else
       (send cust :ok)))
    
