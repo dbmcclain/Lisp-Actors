@@ -66,11 +66,17 @@
 
 (defun make-auth (ekey seq emsg)
   (let ((auth-key (make-auth-key ekey seq)))
-    (vec (hash/256 auth-key seq emsg))))
+    (values (vec (hash/256 auth-key seq emsg))
+            auth-key)))
 
 (defun check-auth (ekey seq emsg auth)
   (ignore-errors
-    (equalp auth (make-auth ekey seq emsg))))
+    (multiple-value-bind (authx auth-key)
+        (make-auth ekey seq emsg)
+      (values 
+       (equalp auth authx)
+       auth-key)
+      )))
 
 ;; --------------------------------------------
 ;; Schnorr Signatures - Non-Repudiable
@@ -497,15 +503,6 @@
       (send cust seq emsg auth))
     ))
 
-(deflex publish-auth-key
-  ;; To make our crypto repudiable, once we have verified the
-  ;; authenticity of an incoming encrypted message, we publish the
-  ;; authentication key we used.
-  (create
-   (lambda (socket ekey seq)
-     (send socket :auth-key seq (vec (make-auth-key ekey seq))))
-   ))
-
 (defun check-authentication (ekey socket)
   (labels ((auth-beh (seqs)
              (lambda (cust seq emsg auth)
@@ -538,12 +535,14 @@
                ;;
                (let ((nseq (int seq)))
                  (unless (sets:mem seqs nseq)
-                   (when (check-auth ekey seq emsg auth)
-                     (send cust seq emsg)
-                     ;; publish the auth-key in the clear for repudiable encryption
-                     (send publish-auth-key socket ekey seq)
-                     (become (auth-beh (sets:add seqs nseq)))
-                     )))
+                   (multiple-value-bind (check auth-key)
+                       (check-auth ekey seq emsg auth)
+                     (when check
+                       (send cust seq emsg)
+                       ;; publish the auth-key in the clear for repudiable encryption
+                       (send socket :auth-key seq auth-key)
+                       (become (auth-beh (sets:add seqs nseq)))
+                       ))))
                )))
     (create (auth-beh (sets:empty)))
     ))
