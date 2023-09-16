@@ -309,7 +309,7 @@
     ;; after this we promptly forget ekey...
     (let ((encryptor (sink-pipe (secure-sender ekey self)
                                 socket))
-          (decryptor (sink-pipe (secure-reader ekey self)
+          (decryptor (sink-pipe (secure-reader ekey self socket)
                                 self)))
       (become (local-services-beh svcs encryptor decryptor))
       (send cust :ok)))
@@ -526,8 +526,8 @@
         (authentication ekey)
         ))
   
-(defun secure-reader (ekey local-services)
-  (pipe (check-authentication ekey)
+(defun secure-reader (ekey local-services socket)
+  (pipe (check-authentication ekey socket)
         (decryptor ekey)
         (fail-silent-marshal-decoder)
         (dechunker)

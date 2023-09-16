@@ -497,7 +497,16 @@
       (send cust seq emsg auth))
     ))
 
-(defun check-authentication (ekey)
+(deflex publish-auth-key
+  ;; To make our crypto repudiable, once we have verified the
+  ;; authenticity of an incoming encrypted message, we publish the
+  ;; authentication key we used.
+  (create
+   (lambda (socket ekey seq)
+     (send socket :auth-key seq (vec (make-auth-key ekey seq))))
+   ))
+
+(defun check-authentication (ekey socket)
   (labels ((auth-beh (seqs)
              (lambda (cust seq emsg auth)
                ;; seq, emsg, auth are u8 vectors.
@@ -531,6 +540,8 @@
                  (unless (sets:mem seqs nseq)
                    (when (check-auth ekey seq emsg auth)
                      (send cust seq emsg)
+                     ;; publish the auth-key in the clear for repudiable encryption
+                     (send publish-auth-key socket ekey seq)
                      (become (auth-beh (sets:add seqs nseq)))
                      )))
                )))
