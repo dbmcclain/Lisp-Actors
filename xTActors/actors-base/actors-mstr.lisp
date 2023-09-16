@@ -291,24 +291,12 @@ THE SOFTWARE.
                      (referred-error-err c)))
    ))
 
-#+nil
-(defun check-for-errors (lst)
+(defun* check-for-errors ((&optional x &rest args))
   ;; Error replies for ASK are single element lists containing an
   ;; error Condition object.
-  (apply #'(lambda (&optional x &rest args)
-             ;; forgiving destructuration
-             (when (and (null args)
-                        (typep x 'error))
-               (error x)))
-         lst))
-#-nil
-(defun check-for-errors (lst)
-  ;; Error replies for ASK are single element lists containing an
-  ;; error Condition object.
-  (let+ (( (&optional x &rest args) lst))
-    (when (and (null args)
-               (typep x 'error))
-      (error x))))
+  (when (and (null args)
+             (typep x 'error))
+    (error x)))
 
 (defun err-chk (cust)
   ;; like FWD, but checks for error return
