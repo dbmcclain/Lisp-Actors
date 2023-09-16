@@ -89,8 +89,7 @@
 (deflex ecc-cnx-encrypt
   (create
    (lambda (cust pubkey &rest info)
-     (multiple-value-bind (rand rand-pt)
-         (ed-random-pair)
+     (let+ ((:mvb (rand rand-pt) (ed-random-pair)))
        (ignore-errors
          (let* ((enc-pt     (ed-mul pubkey rand))
                 (aes-key    (vec (hash/256 :ecc-cnx-key enc-pt)))
@@ -102,8 +101,7 @@
 (deflex ecc-cnx-decrypt
   (create
    (lambda (cust rand-pt aes-packet)
-     (β (skey)
-         (send ecc-skey β)
+     (let-β ((skey ecc-skey))
        (ignore-errors
          (let* ((enc-pt   (ed-mul rand-pt skey))
                 (aes-key  (vec (hash/256 :ecc-cnx-key enc-pt)))

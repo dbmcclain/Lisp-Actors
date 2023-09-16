@@ -33,7 +33,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "encoding")
                 (:file "ecc-key-exchange")
                 (:file "secure-bridging")
-                ;; (:file "network-connection")
                 (:file "network-connection-ss")
                 (:file "secure-client")
                 (:file "secure-server"))
