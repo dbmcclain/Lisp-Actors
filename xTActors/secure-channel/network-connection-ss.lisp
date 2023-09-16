@@ -312,11 +312,12 @@
                     :ip-port         peer-port
                     :state           :pending-server)))
           (become (connections-list-beh (cons rec cnx-lst)))
-          (β (ct)
-              (send get-server-count β)
+          (let-β ((ct  get-server-count))
             (let ((server-name (format nil "~A#~D" (machine-instance) ct)))
               (send fmt-println "Server Socket (~S->~A:~D) starting up"
-                    server-name (comm:ip-address-string peer-ip) peer-port)
+                    server-name
+                    (comm:ip-address-string peer-ip)
+                    peer-port)
               (send (create-socket-intf :kind             :server
                                         :ip-addr          peer-ip
                                         :ip-port          peer-port
@@ -348,36 +349,38 @@
    ;;   it to our list. That happens when a client wants a connection
    ;;   to a new server.
    ;;
-   ((cust :add-socket ip-addr ip-port state sender)
+   ((cust :add-socket ip-addr ip-port new-state sender)
     (send cust :ok)
     (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
-      (cond ((and rec
-                  (eql :pending-server (connection-rec-state rec)))
-             (let ((new-rec (make-connection-rec
-                             :ip-addr  ip-addr
-                             :ip-port  ip-port
-                             :state    state
-                             :sender   sender)))
-               (become (connections-list-beh (cons new-rec (remove rec cnx-lst))))
-               ))
-           
-            (rec
-             (let* ((old-state (connection-rec-state rec))
-                    (new-rec   (copy-with rec
-                                          :state  state
-                                          :sender sender))
-                    (new-lst (cons new-rec (remove rec cnx-lst))))
-               (unless (or (null old-state)
-                           (eql old-state state))
-                 (send (intf-state-shutdown old-state)))
-               (become (connections-list-beh new-lst))
-               ))
+      (cond (rec
+             (let+ ((:slots ((old-state state)) rec))
+               (cond ((eql :pending-server old-state)
+                      (let ((new-rec (make-connection-rec
+                                      :ip-addr  ip-addr
+                                      :ip-port  ip-port
+                                      :state    new-state
+                                      :sender   sender)))
+                        (become (connections-list-beh (cons new-rec (remove rec cnx-lst))))
+                        ))
+                     
+                     (t
+                      (let+ ((:slots (shutdown) old-state)
+                             (new-rec   (copy-with rec
+                                                   :state  new-state
+                                                   :sender sender))
+                             (new-lst (cons new-rec (remove rec cnx-lst))))
+                        (unless (or (null old-state)
+                                    (eql old-state new-state))
+                          (send shutdown))
+                        (become (connections-list-beh new-lst))
+                        ))
+                     )))
            
             (t
              (let ((new-rec (make-connection-rec
                              :ip-addr  ip-addr
                              :ip-port  ip-port
-                             :state    state
+                             :state    new-state
                              :sender   sender)))
                (become (connections-list-beh (cons new-rec cnx-lst)))
                ))
@@ -403,19 +406,22 @@
    ;; connection with the server.
    ;;
    ((cust :find-socket ip-addr ip-port report-ip-addr handshake)
-    (let* ((rec    (find-connection-from-ip cnx-lst ip-addr ip-port))
-           (custs  (and rec (connection-rec-custs rec))))
+    (let ((rec  (find-connection-from-ip cnx-lst ip-addr ip-port)))
       (cond
-       ((and rec custs)
-        ;; waiting custs so join the crowd
-        (let* ((new-rec (copy-with rec
-                                   :custs (cons cust custs)))
-               (new-lst (cons new-rec (remove rec cnx-lst))))
-          (become (connections-list-beh new-lst))))
-
        (rec
-        ;; no waiting list - just go
-        (send cust (connection-rec-chan rec)))
+        (let+ ((:slots (custs
+                        chan) rec))
+          (cond (custs
+                 ;; waiting custs so join the crowd
+                 (let* ((new-rec (copy-with rec
+                                            :custs (cons cust custs)))
+                        (new-lst (cons new-rec (remove rec cnx-lst))))
+                   (become (connections-list-beh new-lst))))
+
+                (t
+                 ;; no waiting list - just go
+                 (send cust chan))
+                )))
 
        (t
         ;; else - no record yet, so create and wait on the channel
@@ -548,8 +554,10 @@
    ((cust :negotiate state socket)
     (let ((rec (find-connection-from-sender cnx-lst socket)))
       (if rec
-          ;; Let the dance begin...
-          (send (connection-rec-handshake rec) cust socket (intf-state-local-services state))
+          (let+ ((:slots (handshake)      rec)
+                 (:slots (local-services) state))
+            ;; Let the dance begin...
+            (send handshake cust socket local-services))
         ;; else
         (send cust :ok))
       ))
@@ -572,22 +580,25 @@
     (send cust :ok)
     (let ((rec (find-connection-from-sender cnx-lst sender)))
       (when rec
-        (let* ((custs    (connection-rec-custs rec))
-               (state    (connection-rec-state rec))
+        (let+ ((:slots (custs
+                        state
+                        report-ip-addr) rec)
+               (:slots (io-state) state)
                (new-rec  (copy-with rec
                                     :chan  chan
                                     :custs nil))
                (new-cnxs (cons new-rec (remove rec cnx-lst))))
           (become (connections-list-beh new-cnxs))
           (when custs
-            (multiple-value-bind (peer-ip peer-port)
-              #+:LISPWORKS8
-              (comm:socket-connection-peer-address (intf-state-io-state state))
-              #+:LISPWORKS7
-              (comm:get-socket-peer-address (slot-value (intf-state-io-state state) 'comm::object))
+            (let+ ((:mvb (peer-ip peer-port)
+                    #+:LISPWORKS8
+                    (comm:socket-connection-peer-address io-state)
+                    #+:LISPWORKS7
+                    (comm:get-socket-peer-address (slot-value io-state 'comm::object)) ))
               (send fmt-println "Client Socket (~S->~A:~D) starting up"
-                    (connection-rec-report-ip-addr rec)
-                    (comm:ip-address-string peer-ip) peer-port))
+                    report-ip-addr
+                    (comm:ip-address-string peer-ip)
+                    peer-port))
             (send-to-all custs chan)))
         )))
     
