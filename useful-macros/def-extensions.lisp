@@ -254,7 +254,7 @@ arguments when given."
                   ,@(rest bindings))
              ,@body) )
 
-         ((eq :struct (first binding))
+         ((eq :acc (first binding))
           (destructuring-bind (name slots form) (rest binding)
             `(with-accessors
                  ,(mapcar (lambda (sym)
@@ -264,6 +264,12 @@ arguments when given."
                (let+ ,(rest bindings)
                  ,@body))
             ))
+
+         ((eq :slots (first binding))
+          (destructuring-bind (slots form) (rest binding)
+            `(with-slots ,slots ,form
+               (let+ ,(rest bindings)
+                 ,@body)) ))
 
          ((eq :sym (first binding))
           `(symbol-macrolet ,(second binding)

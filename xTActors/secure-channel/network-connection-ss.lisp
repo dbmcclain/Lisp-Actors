@@ -136,10 +136,10 @@
 
 (defun physical-writer-beh (state)
   (lambda (cust byte-vec)
-    (let+ ((:struct intf-state (io-state
-                                io-running
-                                kill-timer
-                                shutdown) state))
+    (let+ ((:slots (io-state
+                    io-running
+                    kill-timer
+                    shutdown) state))
       (labels
           ;; these functions execute in the thread of the async socket handler
           ((not-writing ()
@@ -617,10 +617,10 @@
 ;; So we implement a 2-stage construction here.
 
 (defun socket-shutdown-beh (state)
-  (let+ ((:struct intf-state (kill-timer
-                              io-running
-                              title
-                              ip-addr) state))
+  (let+ ((:slots (kill-timer
+                  io-running
+                  title
+                  ip-addr) state))
     (lambda ()
       (become-sink)
       (β _
