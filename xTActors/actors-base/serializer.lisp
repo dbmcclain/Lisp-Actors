@@ -223,8 +223,7 @@
     (send* cur-cust reply)
     (if (emptyq? queue)
         (become (serializer-beh svc :timeout timeout))
-      (let+ (( ((next-cust . next-msg) new-queue) (multiple-value-list
-                                                   (popq queue)) )
+      (let+ ((:mv ((next-cust . next-msg) new-queue) (popq queue))
              (once  (once tag)))
         (send* svc once next-msg)
         (send-after timeout once timed-out)

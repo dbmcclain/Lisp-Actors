@@ -234,25 +234,57 @@ arguments when given."
 
 (defmacro let+ (bindings &body body)
   (if bindings
-      (if (consp (caar bindings))
-          (let ((flat (um:flatten (caar bindings))))
+      (let ((binding (first bindings)))
+        (cond
+         ((consp (first binding))
+          (let ((flat (um:flatten (first binding))))
             (if (or (find '&optional flat)
                     (find '&key      flat))
-                `(apply (lambda* ,(caar bindings)
-                          ,@body)
-                        ,@(cdar bindings))
+                `(apply (lambda* ,(first binding)
+                          (let+ ,(rest bindings) ,@body))
+                        ,@(rest binding))
               ;; ekse
-              `(destructuring-bind ,(caar bindings)
-                   ,@(cdar bindings)
-                 (let+ ,(cdr bindings)
-                   ,@body))))
-        ;; else
-        `(let (,(car bindings))
-           (let+ ,(cdr bindings)
-             ,@body)))
+              `(destructuring-bind ,(first binding)
+                   ,@(rest binding)
+                 (let+ ,(rest bindings)
+                   ,@body)))))
+
+         ((eq :mv (first binding))
+          `(let+ (( ,(second binding) (multiple-value-list ,(third binding)) )
+                  ,@(rest bindings))
+             ,@body) )
+
+         ((eq :struct (first binding))
+          (destructuring-bind (name slots form) (rest binding)
+            `(with-accessors
+                 ,(mapcar (lambda (sym)
+                            `(,sym ,(um:symb name #\- sym)))
+                          slots)
+                 ,form
+               (let+ ,(rest bindings)
+                 ,@body))
+            ))
+
+         ((eq :sym (first binding))
+          `(symbol-macrolet ,(second binding)
+             (let+ ,(rest bindings)
+               ,@body)) )
+         
+         (t
+          `(let (,binding)
+             (let+ ,(rest bindings)
+               ,@body)))
+         ))
     ;; else
     `(progn
        ,@body)))
 
 #+:LISPWORKS
 (editor:setup-indent "let+" 1)
+
+#|
+(let+ ((:struct thing (a b c) athing)) (doit))
+(let+ ((:sym ((a thinga)
+              (b (getf thingb :fld)))))
+  (doit))
+|#
