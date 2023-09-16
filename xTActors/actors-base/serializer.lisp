@@ -223,7 +223,7 @@
     (send* cur-cust reply)
     (if (emptyq? queue)
         (become (serializer-beh svc :timeout timeout))
-      (let+ ((:mv ((next-cust . next-msg) new-queue) (popq queue))
+      (let+ ((:mvl ((next-cust . next-msg) &optional new-queue) (popq queue))
              (once  (once tag)))
         (send* svc once next-msg)
         (send-after timeout once timed-out)
@@ -274,8 +274,7 @@
 #|
 (defun tst (n)
   (labels ((doit-beh (&optional (n 0))
-             (lambda (&rest _)
-               (declare (ignore _))
+             (lambda* _
                (let ((newct (1+ n)))
                  (send println newct)
                  (become (doit-beh newct))))))

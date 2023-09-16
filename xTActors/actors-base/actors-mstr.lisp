@@ -580,13 +580,11 @@ THE SOFTWARE.
 ;; ----------------------------------------
 ;; We must defer startup until the MP system has been instantiated.
 
-(defun lw-start-actors (&rest _)
-  (declare (ignore _))
+(defun* lw-start-actors _
   (setf *send* #'startup-send)
   (princ "Actors are alive!"))
 
-(defun lw-kill-actors (&rest _)
-  (declare (ignore _))
+(defun* lw-kill-actors _
   (kill-actors-system)
   (print "Actors have been shut down."))
 

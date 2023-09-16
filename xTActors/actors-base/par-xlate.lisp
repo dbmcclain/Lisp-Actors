@@ -320,22 +320,35 @@
   ;;
   ;; FORK works properly for zero or more services.
   ;;
-  `(β ,(mapcar #'car bindings)
-       (send (fork ,@(mapcar #'cadr bindings)) β)
-     ,@body))
+  (cond ((cdr bindings) ;; more than one
+         `(β ,(mapcar #'car bindings)
+              (send (fork ,@(mapcar #'cadr bindings)) β)
+            ,@body) )
+        
+        (bindings ;; only one
+         `(β (,@(um:mklist (caar bindings)) )
+              (send ,(cadar bindings) β)
+            ,@body) )
+        
+        (t  ;; none
+         `(progn
+            ,@body) )
+        ))
 
 #+:LISPWORKS
 (progn
   (editor:setup-indent "let-β"  1)
-  (editor:setup-indent "let-β*" 1))
+  (editor:setup-indent "let*-β" 1))
 
-(defmacro let-β* (bindings &body body)
+(defmacro let*-β (bindings &body body)
   ;; bindings should be to services
   (if bindings
       `(let-β (,(car bindings))
-         (let-β* ,(cdr bindings) ,@body))
+         (let*-β ,(cdr bindings)
+           ,@body))
+    ;; else
     `(progn
-       ,@body)))
+       ,@body) ))
 
 ;; -----------------------------------------------
 

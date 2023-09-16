@@ -15,8 +15,7 @@
 
 (unless (fboundp 'do-nothing)
   ;; needed for SBCL
-  (defun do-nothing (&rest _)
-    (declare (ignore _))
+  (defun* do-nothing _
     (values)))
 
 ;; -----------------------------------------------------
