@@ -246,6 +246,8 @@ arguments when given."
               ;; ekse
               `(destructuring-bind ,(first binding)
                    ,@(rest binding)
+                 ,@(when (find '_ flat)
+                     `((declare (ignore _))))
                  (let+ ,(rest bindings)
                    ,@body)))))
 
@@ -258,7 +260,9 @@ arguments when given."
           (destructuring-bind (name slots form) (rest binding)
             `(with-accessors
                  ,(mapcar (lambda (sym)
-                            `(,sym ,(um:symb name #\- sym)))
+                            (if (consp sym)
+                                sym
+                              `(,sym ,(um:symb name #\- sym))))
                           slots)
                  ,form
                (let+ ,(rest bindings)
@@ -289,6 +293,7 @@ arguments when given."
 (editor:setup-indent "let+" 1)
 
 #|
+(Let+ (( (_ a b _ _) lst)) (doit))
 (let+ ((:struct thing (a b c) athing)) (doit))
 (let+ ((:sym ((a thinga)
               (b (getf thingb :fld)))))
