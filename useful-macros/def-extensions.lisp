@@ -233,6 +233,17 @@ arguments when given."
 )
 
 (defmacro let+ (bindings &body body)
+  "LET+ defaults to LET* behavior, but allows several convenient
+extensions. The hope is to avoid use of a cumbersome mixture of LET,
+LET*, DESTRUCTURING-BIND, MULTIPLE-VALUE-BIND, WITH-SLOTS,
+WITH-ACCESSORS, in your code, putting it all into one place with LET+.
+
+There is one place where MULTIPLE-VALUE-BIND should still be used.
+With \"(LET+ ((:mv list-form verb-form) ...)\" it is expected that
+\"verb-form\" will furnish sufficient values that MULTIPLE-VALUE-LIST
+cam provide a proper destructuring using DESTRUCTURING-BIND with
+\"list-form\". But MULTIPLE-VALUE-BIND allows values to be missing,
+defaulting to NIL, that DESTRUCTURING-BIND would demand be present."
   (if bindings
       (let ((binding (first bindings)))
         (cond
@@ -252,9 +263,10 @@ arguments when given."
                    ,@body)))))
 
          ((eq :mv (first binding))
-          `(let+ (( ,(second binding) (multiple-value-list ,(third binding)) )
-                  ,@(rest bindings))
-             ,@body) )
+          (destructuring-bind (list-form verb-form) (rest binding)
+            `(let+ (( ,list-form (multiple-value-list ,verb-form))
+                    ,@(rest bindings))
+               ,@body) ))
 
          ((eq :acc (first binding))
           (destructuring-bind (name slots form) (rest binding)
