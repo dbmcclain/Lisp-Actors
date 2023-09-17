@@ -18,22 +18,23 @@
 (defconstant +MAX-FRAGMENT-SIZE+ 65536.)
 
 (deflex* async-socket-system
-  (serializer
+  (serializer ;; because we bang on global state...
    (create
     (let ((ws-collection        nil)
           (aio-accepting-handle nil))
       (alambda
        ((cust :terminate-server)
         (if aio-accepting-handle
-            (comm:close-accepting-handle aio-accepting-handle
-                                         (lambda (coll)
-                                           ;; we are operating in the collection process
-                                           (comm:close-wait-state-collection coll)
-                                           (setf ws-collection        nil
-                                                 aio-accepting-handle nil)
-                                           (send cust :ok)
-                                           (mpc:process-terminate (mpc:get-current-process))
-                                           ))
+            (with-error-response (cust)
+              (comm:close-accepting-handle aio-accepting-handle
+                                           (lambda (coll)
+                                             ;; we are operating in the collection process
+                                             (comm:close-wait-state-collection coll)
+                                             (setf ws-collection        nil
+                                                   aio-accepting-handle nil)
+                                             (send cust :ok)
+                                             (mpc:process-terminate (mpc:get-current-process))
+                                             )))
           ;; else
           (send cust :ok) ))
        
@@ -44,15 +45,16 @@
           (let-β ((_  (racurry self :terminate-server)))
             (let ((tcp-port-number (or (car options)
                                        *default-port*)))
-              (setf ws-collection         (comm:create-and-run-wait-state-collection "Actor Server")
-                    aio-accepting-handle  (comm:accept-tcp-connections-creating-async-io-states
-                                           ws-collection
-                                           tcp-port-number
-                                           #'start-server-messenger
-                                           :ipv6    nil
-                                           ) )
-              (send fmt-println "Actor Server started on port ~A" tcp-port-number)
-              (send cust :ok)) )
+              (with-error-response (cust)
+                (setf ws-collection         (comm:create-and-run-wait-state-collection "Actor Server")
+                      aio-accepting-handle  (comm:accept-tcp-connections-creating-async-io-states
+                                             ws-collection
+                                             tcp-port-number
+                                             #'start-server-messenger
+                                             :ipv6    nil
+                                             ) )
+                (send fmt-println "Actor Server started on port ~A" tcp-port-number)
+                (send cust :ok)) ))
           ))
 
        ((cust :connect ip-addr ip-port report-ip-addr)
@@ -79,15 +81,17 @@
                                                                    :io-state       io-state)))
                        (send cust sink :negotiate state socket)))
                     ))))
-          
-          (apply #'comm:create-async-io-state-and-connected-tcp-socket
-                 ws-collection
-                 ip-addr ip-port #'callback
-                 #-:WINDOWS
-                 `(:connect-timeout 5 :ipv6 nil)
-                 #+:WINDOWS
-                 `(:connect-timeout 5)
-                 ) ))
+
+          (with-error-response (cust)
+            (apply #'comm:create-async-io-state-and-connected-tcp-socket
+                   ws-collection
+                   ip-addr ip-port #'callback
+                   #-:WINDOWS
+                   `(:connect-timeout 5 :ipv6 nil)
+                   #+:WINDOWS
+                   `(:connect-timeout 5)
+                   ))
+          ))
        ))
     )))
 
@@ -233,10 +237,11 @@
                    ))
            
            (begin-write ()
-                (comm:async-io-state-write-buffer io-state
-                                                  byte-vec
-                                                  #'write-done)
-                (send kill-timer :resched)) )
+             (with-error-response (cust)
+               (comm:async-io-state-write-buffer io-state
+                                                 byte-vec
+                                                 #'write-done)
+               (send kill-timer :resched)) ))
         
         (send io-running sink :try-writing
               (create #'begin-write)
