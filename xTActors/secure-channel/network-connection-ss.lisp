@@ -24,38 +24,42 @@
           (aio-accepting-handle nil))
       (alambda
        ((cust :terminate-server)
-        (if aio-accepting-handle
-            (with-error-response (cust) ;; so we don't lock up Serializer on errors
-              (comm:close-accepting-handle aio-accepting-handle
-                                           (lambda (coll)
-                                             ;; we are operating in the collection process
-                                             (comm:close-wait-state-collection coll)
-                                             (setf ws-collection        nil
-                                                   aio-accepting-handle nil)
-                                             (send cust :ok)
-                                             (mpc:process-terminate (mpc:get-current-process))
-                                             )))
-          ;; else
-          (send cust :ok) ))
+        (flet ((ws-handler (coll)
+                 ;; we are operating in the collection process
+                 (with-error-response (cust)
+                   (comm:close-wait-state-collection coll)
+                   (setf ws-collection        nil
+                         aio-accepting-handle nil)
+                   (send cust :ok)
+                   (mpc:process-terminate (mpc:get-current-process))
+                   )))
+          (with-error-response (cust) ;; so we don't lock up Serializer on errors
+            (cond
+             (aio-accepting-handle
+              (comm:close-accepting-handle aio-accepting-handle #'ws-handler) )
+
+             (ws-collection
+              (comm:apply-in-wait-state-collection-process ws-collection #'ws-handler))
+             
+             (t
+              (send cust :ok))
+             ))
+          ))
        
        ((cust :start-tcp-server . options)
-        (if ws-collection
-            (send cust :ok)
-          ;; else
-          (let-β ((_  (racurry self :terminate-server)))
-            (let ((tcp-port-number (or (car options)
-                                       *default-port*)))
-              (with-error-response (cust)  ;; so we don't lock up Serializer on errors
-                (setf ws-collection         (comm:create-and-run-wait-state-collection "Actor Server")
-                      aio-accepting-handle  (comm:accept-tcp-connections-creating-async-io-states
-                                             ws-collection
-                                             tcp-port-number
-                                             #'start-server-messenger
-                                             :ipv6    nil
-                                             ) )
-                (send fmt-println "Actor Server started on port ~A" tcp-port-number)
-                (send cust :ok)) ))
-          ))
+        (let++ ((:β _  (racurry self :terminate-server))
+                (tcp-port-number (or (car options)
+                                     *default-port*)))
+          (with-error-response (cust)
+            (setf ws-collection (comm:create-and-run-wait-state-collection "Actor Server")
+                  aio-accepting-handle  (comm:accept-tcp-connections-creating-async-io-states
+                                         ws-collection
+                                         tcp-port-number
+                                         #'start-server-messenger
+                                         :ipv6    nil
+                                         ) )
+            (send fmt-println "Actor Server started on port ~A" tcp-port-number)
+            (send cust :ok)) ))
 
        ((cust :connect ip-addr ip-port report-ip-addr)
         ;; Message sent from clients wanting to connect to a server.
@@ -66,23 +70,26 @@
                    ;; Now we are on an Actors thread - after using only
                    ;; enough time to form a functional closure, wrap with
                    ;; an Actor envelope, and perform a SEND
-                   (cond
-                    (args
-                     (send println
-                           (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
-                           (apply #'format nil args))
-                     (send cust sink :abort ip-addr ip-port))
-                    
-                    (t
-                     (let-β (( (state socket)  (create-socket-intf :kind           :client
-                                                                   :ip-addr        ip-addr
-                                                                   :ip-port        ip-port
-                                                                   :report-ip-addr report-ip-addr
-                                                                   :io-state       io-state)))
-                       (send cust sink :negotiate state socket)))
-                    ))))
+                   (with-error-response (cust)
+                     (cond
+                      (args
+                       (send println
+                             (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
+                             (apply #'format nil args))
+                       (send cust sink :abort ip-addr ip-port))
+                      
+                      (t
+                       (let-β (( (state socket)  (create-socket-intf :kind           :client
+                                                                     :ip-addr        ip-addr
+                                                                     :ip-port        ip-port
+                                                                     :report-ip-addr report-ip-addr
+                                                                     :io-state       io-state)))
+                         (send cust sink :negotiate state socket)))
+                      )))))
 
           (with-error-response (cust)  ;; so we don't lock up Serializer on errors
+            (unless ws-collection
+              (setf ws-collection (comm:create-and-run-wait-state-collection "Actor Clients")))
             (apply #'comm:create-async-io-state-and-connected-tcp-socket
                    ws-collection
                    ip-addr ip-port #'callback
