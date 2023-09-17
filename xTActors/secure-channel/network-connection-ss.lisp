@@ -17,23 +17,82 @@
 
 (defconstant +MAX-FRAGMENT-SIZE+ 65536.)
 
-(defun netw-global-beh (&optional val)
-  (alambda
-   ((cust)
-    (send cust val))
-   
-   ((cust :set new-val)
-    (become (netw-global-beh new-val))
-    (send cust new-val))
-   ))
+(deflex* async-socket-system
+  (serializer
+   (create
+    (let ((ws-collection        nil)
+          (aio-accepting-handle nil))
+      (alambda
+       ((cust :terminate-server)
+        (if aio-accepting-handle
+            (comm:close-accepting-handle aio-accepting-handle
+                                         (lambda (coll)
+                                           ;; we are operating in the collection process
+                                           (comm:close-wait-state-collection coll)
+                                           (setf ws-collection        nil
+                                                 aio-accepting-handle nil)
+                                           (send cust :ok)
+                                           (mpc:process-terminate (mpc:get-current-process))
+                                           ))
+          ;; else
+          (send cust :ok) ))
+       
+       ((cust :start-tcp-server . options)
+        (if ws-collection
+            (send cust :ok)
+          ;; else
+          (let-β ((_  (racurry self :terminate-server)))
+            (let ((tcp-port-number (or (car options)
+                                       *default-port*)))
+              (setf ws-collection         (comm:create-and-run-wait-state-collection "Actor Server")
+                    aio-accepting-handle  (comm:accept-tcp-connections-creating-async-io-states
+                                           ws-collection
+                                           tcp-port-number
+                                           #'start-server-messenger
+                                           :ipv6    nil
+                                           ) )
+              (send fmt-println "Actor Server started on port ~A" tcp-port-number)
+              (send cust :ok)) )
+          ))
 
-(deflex* ws-collection
-  (create (netw-global-beh)))
-
-(deflex* aio-accepting-handle
-  (create (netw-global-beh)))
+       ((cust :connect ip-addr ip-port report-ip-addr)
+        ;; Message sent from clients wanting to connect to a server.
+        ;; Cust is the CONNECTIONS manager.
+        (flet ((callback (io-state args)
+                 ;; Performed in the process of collection, so keep it short.
+                 (with-actors
+                   ;; Now we are on an Actors thread - after using only
+                   ;; enough time to form a functional closure, wrap with
+                   ;; an Actor envelope, and perform a SEND
+                   (cond
+                    (args
+                     (send println
+                           (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
+                           (apply #'format nil args))
+                     (send cust sink :abort ip-addr ip-port))
+                    
+                    (t
+                     (let-β (( (state socket)  (create-socket-intf :kind           :client
+                                                                   :ip-addr        ip-addr
+                                                                   :ip-port        ip-port
+                                                                   :report-ip-addr report-ip-addr
+                                                                   :io-state       io-state)))
+                       (send cust sink :negotiate state socket)))
+                    ))))
+          
+          (apply #'comm:create-async-io-state-and-connected-tcp-socket
+                 ws-collection
+                 ip-addr ip-port #'callback
+                 #-:WINDOWS
+                 `(:connect-timeout 5 :ipv6 nil)
+                 #+:WINDOWS
+                 `(:connect-timeout 5)
+                 ) ))
+       ))
+    )))
 
 ;; -------------------------------------------------------------
+;; Socket connection state
 
 (defstruct intf-state
   title
@@ -211,46 +270,6 @@
     timer))
 
 ;; -------------------------------------------------------------
-;; Attempt to create a socket and form a physical TCP connection
-
-(deflex socket-connector
-  (create
-   (lambda (cust ip-addr ip-port report-ip-addr)
-     (flet ((callback (io-state args)
-              ;; Performed in the process of collection, so keep it short.
-              (with-actors
-                ;; Now we are on an Actors thread - after using only
-                ;; enough time to form a functional closure, wrap with
-                ;; an Actor envelope, and perform a SEND
-                (cond
-                 (args
-                  (send println
-                        (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
-                        (apply #'format nil args))
-                  (send cust sink :abort ip-addr ip-port))
-                 
-                 (t
-                  (let-β (( (state socket)  (create-socket-intf :kind           :client
-                                                                :ip-addr        ip-addr
-                                                                :ip-port        ip-port
-                                                                :report-ip-addr report-ip-addr
-                                                                :io-state       io-state)))
-                    (send cust sink :negotiate state socket)))
-                 ))))
-       
-       (let-β ((ws-coll ws-collection))
-         (apply #'comm:create-async-io-state-and-connected-tcp-socket
-                ws-coll
-                ip-addr ip-port #'callback
-                #-:WINDOWS
-                `(:connect-timeout 5 :ipv6 nil)
-                #+:WINDOWS
-                `(:connect-timeout 5)
-                ))
-       ))
-   ))
-   
-;; -------------------------------------------------------------
 ;; List of currently active sockets
 ;;
 ;; The socket is denoted externally by the encoder Actor used for
@@ -329,7 +348,7 @@
       (become (counter-beh new-n))
       (send cust n))))
 
-(deflex get-server-count
+(deflex* get-server-count
   (create (counter-beh 0)))
 
 ;; ------------------------
@@ -489,7 +508,7 @@
                          :custs          (list cust)))
                (new-lst (cons new-rec cnx-lst)))
           (become (connections-list-beh new-lst))
-          (send socket-connector self ip-addr ip-port report-ip-addr)
+          (send async-socket-system self :connect ip-addr ip-port report-ip-addr)
           ))
        )))
   
@@ -508,12 +527,12 @@
            (rec     (find-if same-ip cnx-lst)))
       (when rec
         ;; leaves all waiting custs hanging...
-        (let ((new-lst (remove-if same-ip cnx-lst)))
+        (let+ ((:slots (report-ip-addr) rec)
+               (new-lst (remove-if same-ip cnx-lst)))
           (become (connections-list-beh new-lst))
           (non-idempotent
             ;; ...would also prevent us from updating the list...
-            (error "Can't connect to: ~S"
-                   (connection-rec-report-ip-addr rec)))
+            (error "Can't connect to: ~S" report-ip-addr))
           ))))
 
    ;; --------------------------------------------
@@ -843,12 +862,7 @@
 ;; -------------------------------------------------------------
 
 (defun start-server-messenger (accepting-handle io-state)
-  "Internal routine to start a network interface from the server side.
-The interface is identical to that on the client side, but the
-connection handshake differs from this side.
-
-See the discussion under START-CLIENT-MESSENGER for details."
-
+  "Called, from the server, when a client connects to the server port."
   ;; this is a callback function from the socket event loop manager
   ;; so we can't dilly dally...
   (declare (ignore accepting-handle))
@@ -860,54 +874,6 @@ See the discussion under START-CLIENT-MESSENGER for details."
     ))
 
 ;; --------------------------------------------------------------
-
-(deflex terminate-server
-  (serializer ;; because we clobber shared globals
-   (create
-    (lambda (cust)
-      (let-β ((handle aio-accepting-handle))
-        (if handle
-            (comm:close-accepting-handle handle
-                                         (lambda (coll)
-                                           ;; we are operating in the collection process
-                                           (comm:close-wait-state-collection coll)
-                                           (unwind-protect
-                                               (mpc:process-terminate (mpc:get-current-process))
-                                             (let-β ((_ (racurry ws-collection        :set nil))
-                                                     (_ (racurry aio-accepting-handle :set nil)))
-                                               (send cust :ok))
-                                             )) )
-          ;; else
-          (send cust :ok))
-        ))
-    )))
-
-(deflex start-tcp-server
-  (serializer ;; because we clobber shared globals
-   (create
-    (lambda (cust &optional (tcp-port-number *default-port*))
-      (let-β ((coll ws-collection))
-        (if coll
-            (send cust :ok)
-          ;; else
-          (let*-β ((_        terminate-server)
-                   (ws-coll  (racurry ws-collection
-                                      :set (comm:create-and-run-wait-state-collection "Actor Server")))
-                   (_        (racurry aio-accepting-handle
-                                      :set (comm:accept-tcp-connections-creating-async-io-states
-                                            ws-coll
-                                            tcp-port-number
-                                            #'start-server-messenger
-                                            :ipv6    nil
-                                            ) )) )
-            (send fmt-println "Actor Server started on port ~A" tcp-port-number)
-            (send cust :ok)) )
-        ))
-    ))
-  "An internal routine to start up a server listener socket on the
-indicated port number.")
-
-;; --------------------------------------------------
 ;;
 
 (defun* lw-start-actor-server _
@@ -916,10 +882,10 @@ indicated port number.")
   ;; We need to delay the construction of the system logger till this
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
-  (ask start-tcp-server))
+  (ask async-socket-system :start-tcp-server))
 
 (defun* lw-reset-actor-server _
-  (ask terminate-server)
+  (ask async-socket-system :terminate-server)
   (print "Actor Server has been shut down."))
 
 (let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))
@@ -945,9 +911,8 @@ indicated port number.")
   (lw-start-actor-server))
 
 #| ;; for manual loading mode
-(unless (ask ws-collection)
-  (if (mpc:get-current-process)
-      (lw-start-tcp-server)
-    (pushnew '("Start Actor Server" () lw-start-tcp-server) mpc:*initial-processes*
-             :key #'third)))
+(if (mpc:get-current-process)
+    (lw-start-tcp-server)
+  (pushnew '("Start Actor Server" () lw-start-tcp-server) mpc:*initial-processes*
+           :key #'third))
 |#
