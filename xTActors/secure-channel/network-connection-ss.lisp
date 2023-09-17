@@ -211,6 +211,46 @@
     timer))
 
 ;; -------------------------------------------------------------
+;; Attempt to create a socket and form a physical TCP connection
+
+(deflex socket-connector
+  (create
+   (lambda (cust ip-addr ip-port report-ip-addr)
+     (flet ((callback (io-state args)
+              ;; Performed in the process of collection, so keep it short.
+              (with-actors
+                ;; Now we are on an Actors thread - after using only
+                ;; enough time to form a functional closure, wrap with
+                ;; an Actor envelope, and perform a SEND
+                (cond
+                 (args
+                  (send println
+                        (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
+                        (apply #'format nil args))
+                  (send cust sink :abort ip-addr ip-port))
+                 
+                 (t
+                  (let-β (( (state socket)  (create-socket-intf :kind           :client
+                                                                :ip-addr        ip-addr
+                                                                :ip-port        ip-port
+                                                                :report-ip-addr report-ip-addr
+                                                                :io-state       io-state)))
+                    (send cust sink :negotiate state socket)))
+                 ))))
+       
+       (let-β ((ws-coll ws-collection))
+         (apply #'comm:create-async-io-state-and-connected-tcp-socket
+                ws-coll
+                ip-addr ip-port #'callback
+                #-:WINDOWS
+                `(:connect-timeout 5 :ipv6 nil)
+                #+:WINDOWS
+                `(:connect-timeout 5)
+                ))
+       ))
+   ))
+   
+;; -------------------------------------------------------------
 ;; List of currently active sockets
 ;;
 ;; The socket is denoted externally by the encoder Actor used for
@@ -292,46 +332,6 @@
 (deflex get-server-count
   (create (counter-beh 0)))
 
-;; -------------------------------------------------------------
-;; Attempt to create a socket and form a physical TCP connection
-
-(deflex socket-connector
-  (create
-   (lambda (cust ip-addr ip-port report-ip-addr)
-     (flet ((callback (io-state args)
-              ;; Performed in the process of collection, so keep it short.
-              (with-actors
-                ;; Now we are on an Actors thread - after using only
-                ;; enough time to form a functional closure, wrap with
-                ;; an Actor envelope, and perform a SEND
-                (cond
-                 (args
-                  (send println
-                        (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
-                        (apply #'format nil args))
-                  (send cust sink :abort ip-addr ip-port))
-                 
-                 (t
-                  (let-β (( (state socket)  (create-socket-intf :kind           :client
-                                                                :ip-addr        ip-addr
-                                                                :ip-port        ip-port
-                                                                :report-ip-addr report-ip-addr
-                                                                :io-state       io-state)))
-                    (send cust sink :negotiate state socket)))
-                 ))))
-       
-       (let-β ((ws-coll ws-collection))
-         (apply #'comm:create-async-io-state-and-connected-tcp-socket
-                ws-coll
-                ip-addr ip-port #'callback
-                #-:WINDOWS
-                `(:connect-timeout 5 :ipv6 nil)
-                #+:WINDOWS
-                `(:connect-timeout 5)
-                ))
-       ))
-   ))
-   
 ;; ------------------------
 ;; The list of currently active socket connections
 
