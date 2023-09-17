@@ -117,37 +117,35 @@
 (deflex negotiator
   (create
    (lambda (cust socket local-services)
-     (let ((client-id  (uuid:make-v1-uuid)))
-       (let*-β ((srv-pkey   eccke:srv-pkey)
-                (my-pkeyid  eccke:my-pkeyid)
-                ((arand apt aescrypt) (racurry eccke:ecc-cnx-encrypt
-                                               srv-pkey +server-connect-id+ client-id my-pkeyid)))
-         
-         (let ((responder
-                (create
-                 (alambda
-                  ((bpt server-id) /  (and (typep bpt       'ecc-pt)
-                                           (typep server-id 'uuid:uuid))
-                   (let-β ((my-skey  eccke:ecc-skey))
-                     (let ((ekey  (hash/256 (ed-mul bpt arand)           ;; B*a
-                                            (ed-mul bpt my-skey)         ;; B*c
-                                            (ed-mul srv-pkey arand)))    ;; S*a
-                           (chan  (create
-                                   (lambda (&rest msg)
-                                     (send* local-services :ssend server-id msg))
-                                   )))
-                       (β _
-                           (send local-services β :set-crypto ekey socket)
-                         (send connections cust :set-channel socket chan))
-                       )))
-                  
-                  ( _
-                    (error "Server not following connection protocol"))
-                  ))))
-           (β _
-               (send local-services β :add-single-use-service client-id responder)
-             (send socket apt aescrypt))
-           ))))
+     (let++ ((client-id  (uuid:make-v1-uuid))
+             (:β srv-pkey   eccke:srv-pkey)
+             (:β my-pkeyid  eccke:my-pkeyid)
+             (:β (arand apt aescrypt) (racurry eccke:ecc-cnx-encrypt
+                                               srv-pkey +server-connect-id+ client-id my-pkeyid))
+             (responder  (create
+                          (alambda
+                           ((bpt server-id) /  (and (typep bpt       'ecc-pt)
+                                                    (typep server-id 'uuid:uuid))
+                            (let-β ((my-skey  eccke:ecc-skey))
+                              (let ((ekey  (hash/256 (ed-mul bpt arand)           ;; B*a
+                                                     (ed-mul bpt my-skey)         ;; B*c
+                                                     (ed-mul srv-pkey arand)))    ;; S*a
+                                    (chan  (create
+                                            (lambda (&rest msg)
+                                              (send* local-services :ssend server-id msg))
+                                            )))
+                                (β _
+                                    (send local-services β :set-crypto ekey socket)
+                                  (send connections cust :set-channel socket chan))
+                                )))
+                           
+                           ( _
+                             (error "Server not following connection protocol"))
+                           ))))
+       (β _
+           (send local-services β :add-single-use-service client-id responder)
+         (send socket apt aescrypt))
+       ))
    ))
   
 ;; -----------------------------------------------------------------------------------

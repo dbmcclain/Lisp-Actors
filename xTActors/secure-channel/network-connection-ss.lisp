@@ -299,13 +299,13 @@
 ;; Received messages are dispatched to local-services.
 ;;
 ;; Message structure for clients:
-;;      (SEND chan srv-id :SEND cust-id . message)
-;;                |------------------------------|
+;;      (SEND chan srv-id cust-id . message)
+;;                |------------------------|
 ;;                         = message sent to server local services list.
 ;;
 ;; Message structure for server replies:
-;;      (SEND chan cust-id :SEND . message)
-;;                |-----------------------|
+;;      (SEND chan cust-id . message)
+;;                |-----------------|
 ;;                         = message sent to client local services list
 ;;
 ;; chan represents either the socket Actor or another (typ. encrypted)
@@ -360,18 +360,18 @@
    ((cust :show)
     (send cust cnx-lst))
 
-   ;; --------------------------------------------
-   ;; A Server sends :ADD-SERVER when a new client connection is
-   ;; established. The peer-ip addr is that of the client.
-   ;;
-   ;; If a record already exists for this peer-ip, shut down our new
-   ;; attempt here. No point having a duplicate path.
-   ;;
-   ;; Else, construct a new record for our list of connections,
-   ;; marked as a :PENDING-SERVER connection. The STATE and SENDER
-   ;; Actor will be filled in during the construction of a socket
-   ;; interface, which we initiate here.
-   ;;
+   #| --------------------------------------------
+    A Server sends :ADD-SERVER when a new client connection is
+    established. The peer-ip addr is that of the client.
+   
+    If a record already exists for this peer-ip, shut down our new
+    attempt here. No point having a duplicate path.
+   
+    Else, construct a new record for our list of connections,
+    marked as a :PENDING-SERVER connection. The STATE and SENDER
+    Actor will be filled in during the construction of a socket
+    interface, which we initiate here.
+   |#
    ((:add-server peer-ip peer-port io-state)
     (let ((rec (find-connection-from-ip cnx-lst peer-ip peer-port)))
       (cond
@@ -387,43 +387,43 @@
                     :ip-port         peer-port
                     :state           :pending-server)))
           (become (connections-list-beh (cons rec cnx-lst)))
-          (let-β ((ct  get-server-count))
-            (let ((server-name (format nil "~A#~D" (machine-instance) ct)))
-              (send fmt-println "Server Socket (~S->~A:~D) starting up"
-                    server-name
-                    (comm:ip-address-string peer-ip)
-                    peer-port)
-              (send (create-socket-intf :kind             :server
-                                        :ip-addr          peer-ip
-                                        :ip-port          peer-port
-                                        :report-ip-addr   server-name
-                                        :io-state         io-state)
-                    sink))
-            )))
-      )))
+          (let++ ((:β ct  get-server-count)
+                  (server-name (format nil "~A#~D" (machine-instance) ct)))
+            (send fmt-println "Server Socket (~S->~A:~D) starting up"
+                  server-name
+                  (comm:ip-address-string peer-ip)
+                  peer-port)
+            (send (create-socket-intf :kind             :server
+                                      :ip-addr          peer-ip
+                                      :ip-port          peer-port
+                                      :report-ip-addr   server-name
+                                      :io-state         io-state)
+                  sink))
+          ))
+       )))
         
-   ;; --------------------------------------------
-   ;; Message :ADD-SOCKET is sent during construction of the socket
-   ;; interface graph.
-   ;;
-   ;; Add an initial socket connection to our list of available
-   ;; connections. At this point the connection is not-encrypted.
-   ;;
-   ;; Look for an existing record for this same ip-addr:
-   ;;
-   ;;   1. If we find one and it is a :PENDING-SERVER record, then
-   ;;   record the STATE and SENDER (socket writer Actor) in the
-   ;;   record.  This makes it no longer pending, and available for
-   ;;   unsecured comms.
-   ;;
-   ;;   2. Otherwise, if we found a record, and the STATE is not us,
-   ;;   then shut the previous connection down. Record the new SENDER
-   ;;   and STATE in the record.
-   ;;
-   ;;   3. Else, no record was found, so construct a new one and add
-   ;;   it to our list. That happens when a client wants a connection
-   ;;   to a new server.
-   ;;
+   #| --------------------------------------------
+    Message :ADD-SOCKET is sent during construction of the socket
+    interface graph.
+   
+    Add an initial socket connection to our list of available
+    connections. At this point the connection is not-encrypted.
+   
+    Look for an existing record for this same ip-addr:
+   
+      1. If we find one and it is a :PENDING-SERVER record, then
+      record the STATE and SENDER (socket writer Actor) in the
+      record.  This makes it no longer pending, and available for
+      unsecured comms.
+   
+      2. Otherwise, if we found a record, and the STATE is not us,
+      then shut the previous connection down. Record the new SENDER
+      and STATE in the record.
+   
+      3. Else, no record was found, so construct a new one and add
+      it to our list. That happens when a client wants a connection
+      to a new server.
+   |#
    ((cust :add-socket ip-addr ip-port new-state sender)
     (send cust :ok)
     (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
@@ -461,25 +461,25 @@
                ))
             )))
   
-   ;; --------------------------------------------
-   ;; Message :FIND-SOCKET is sent by client Actors on this machine,
-   ;; looking for a socket connection to a remote host.
-   ;;
-   ;; Look for an available connection already in place.
-   ;;
-   ;; If we find one, and it has no waiting list, then send its
-   ;; writer Actor to the customer as an available connection to the
-   ;; server.
-   ;;
-   ;; If we find one, but it has a waiting list, then join the wait -
-   ;; they are waiting on a successful handshake with the server. All
-   ;; will be notified if it completes.
-   ;;
-   ;; If no records are found for the server ip address, then
-   ;; construct one with us as the first waiting member, add the new
-   ;; record to the list, and then try to form a network TCP
-   ;; connection with the server.
-   ;;
+   #| --------------------------------------------
+    Message :FIND-SOCKET is sent by client Actors on this machine,
+    looking for a socket connection to a remote host.
+   
+    Look for an available connection already in place.
+   
+    If we find one, and it has no waiting list, then send its
+    writer Actor to the customer as an available connection to the
+    server.
+   
+    If we find one, but it has a waiting list, then join the wait -
+    they are waiting on a successful handshake with the server. All
+    will be notified if it completes.
+   
+    If no records are found for the server ip address, then
+    construct one with us as the first waiting member, add the new
+    record to the list, and then try to form a network TCP
+    connection with the server.
+   |#
    ((cust :find-socket ip-addr ip-port report-ip-addr handshake)
     (let ((rec  (find-connection-from-ip cnx-lst ip-addr ip-port)))
       (cond
@@ -512,15 +512,15 @@
           ))
        )))
   
-   ;; --------------------------------------------
-   ;; Message :ABORT might be sent during an initial attempt to form a
-   ;; TCP connection with a server. If that connection fails, we get
-   ;; this message.
-   ;;
-   ;; Look for a records mentioning the ip adddr and purge it from our
-   ;; list of available connections. Future requests will begin anew.
-   ;; Any waiting clients will just be left hanging.
-   ;;
+   #| --------------------------------------------
+    Message :ABORT might be sent during an initial attempt to form a
+    TCP connection with a server. If that connection fails, we get
+    this message.
+   
+    Look for a records mentioning the ip adddr and purge it from our
+    list of available connections. Future requests will begin anew.
+    Any waiting clients will just be left hanging.
+   |#
    ((cust :abort ip-addr ip-port)
     (send cust :ok)
     (let* ((same-ip (same-ip-test ip-addr ip-port))
@@ -535,96 +535,61 @@
             (error "Can't connect to: ~S" report-ip-addr))
           ))))
 
-   ;; --------------------------------------------
-   ;; Mesasge :NEGOTIATE is sent after successfully forming a TCP
-   ;; connection with a server.
-   ;;
-   ;; The server is now waiting for us to start the handshake
-   ;; crypto-dance.
-   ;;
-   ;; Client Actors must await a secure channel. The only Actors that
-   ;; are permitted to communicate over an insecure channeol are
-   ;; those involved in the crypto-dance of the initial handshake
-   ;; with the server. And even that is encrypted in a different way.
-   ;;
-   ;; When an initial TCP connection is esablished with a server on
-   ;; the network, that server just sits there silently waiting for
-   ;; the handshake dance to begin from the client side. The server
-   ;; only responds if it recognizes the client and its encrypted
-   ;; handshae message.
-   ;;
-   ;; If we didn't find any record of this TCP connection in our
-   ;; list, then just play dumb and say :OK.
-   ;;
-   ;; Here STATE is the state devloped by the socket interface, and
-   ;; SOCKET is the unencrypted output Actor.
-   ;;
-   ;; All the SOCKET Actor does is to serialize whatever is being
-   ;; sent, then encode it into a self-sync byte streaam, before
-   ;; sending it out the physical async socket port. It doesn't even
-   ;; chop it into manageable blocks of data. So there will be some
-   ;; maximum size that can be transferred successfully across the TCP
-   ;; port.
-   ;;
-   ;; The server side has the same situation at this time. So whatever
-   ;; is transferred in either direction is done so in the clear,
-   ;; except for these simple encodings. Anyone listening with
-   ;; decoders for these serial protocols will be able to read what is
-   ;; sent.
-   ;; ------------------------------------------------------------
-   ;; With the Lattice crypto in place, the client first sends an
-   ;; ephemeral UUID that refers to himself as a recipient Actor on
-   ;; his side, and a list containing two encrypted packets. The first
-   ;; packet contains a public key encryption of an AES-256 key to
-   ;; unlock the second packet. The second packet contains the
-   ;; client's public key id (a key into the database that identifies
-   ;; his public key), and a 32-byte random vector, A
-   ;;
-   ;; On receipt of that transmission, the server checks that a UUID
-   ;; was received followed by the list of two encypted packets. He
-   ;; decrypts the first, using his private Lattice key. Then with the
-   ;; revealed AES key he decrypts the second packet.
-   ;;
-   ;; If the server recognizes the public key id of the client, he
-   ;; accepts random vector A, and sends back two items - an ephemeral
-   ;; UUID that refers to himself as a recipient Actor on his end, and
-   ;; a public key encrypted 32-byte random vector B.  Thereafter the
-   ;; session key will be the hash SHA3/256(B | A).
-   ;;
-   ;; Those are the only two transmissions performed "in the clear".
-   ;; All that the world can see are just two ephemeral UUID's, used
-   ;; to refer to the Actor sending the message. They can't even see
-   ;; the identity of the node, nor any public keys, from which the
-   ;; messages originated. TCP furnishes the IP address of the sending
-   ;; node, but that may be a forwarding node, not the originator of
-   ;; the message.
-   ;;
-   ;; Thereafter all transmissions are 3-element messages containing a
-   ;; message sequence vector (16 bytes from a hash), an AES-256
-   ;; encrypted vector of the actual message, and an authentication
-   ;; vector (32 bytes from a hash) for the transmitted message. Each
-   ;; new message triple, sent from either side, uses a unique
-   ;; evloving encryption key based on the secret session key
-   ;; developed during the initial handshake.
-   ;;
-   ;; Every incoming message triple is first checked to see that it
-   ;; isn't a replay message, already seen before. Then the
-   ;; authentication is verified. If that checks out then the AES
-   ;; cryptotext is decrypted to reveal an actual message.
-   ;;
-   ;; Actors referred to in messages, as for customers, and other
-   ;; args, are translated before sending, into ephemeral UUID's. On
-   ;; message receipt those UUID's are either logged for message
-   ;; reply, or looked up in a local directory to find the actual
-   ;; Actor behind them. Ephemeral UUID's expire after 10 sec.
-   ;;
-   ;; The entire socket connection is disolved after 20 sec of
-   ;; inactivity on either side. Fresh connections are reestablished
-   ;; on demand. At the user level, Actors don't even know if they are
-   ;; sending messages to other local Actors, or to Actors at the end
-   ;; of a remote connection. There is no difference, for them, in
-   ;; message sending.
-   ;;
+   #| --------------------------------------------
+    Mesasge :NEGOTIATE is sent after successfully forming a TCP
+    connection with a server.
+   
+    The server is now waiting for us to start the DH handshake
+    crypto-dance.
+   
+    Client Actors must await a secure channel. The only Actors that
+    are permitted to communicate over an insecure channeol are
+    those involved in the DH crypto-dance of the initial handshake
+    with the server. And even that is encrypted in a different way.
+   
+    When an initial TCP connection is esablished with a server on
+    the network, that server just sits there silently waiting for
+    the handshake dance to begin from the client side. The server
+    only responds if it recognizes the client and its encrypted
+    handshae message.
+   
+    If we didn't find any record of this TCP connection in our
+    list, then just play dumb and say :OK.
+   
+    Here STATE is the state devloped by the socket interface, and
+    SOCKET is the unencrypted output Actor.
+   
+    All the SOCKET Actor does is to serialize whatever is being
+    sent, then encode it into a self-sync byte streaam, before
+    sending it out the physical async socket port. It doesn't even
+    chop it into manageable blocks of data. So there will be some
+    maximum size that can be transferred successfully across the TCP
+    port.
+   
+    The server side has the same situation at this time. So whatever
+    is transferred in either direction is done so in the clear,
+    except for these simple encodings. Anyone listening with
+    decoders for these serial protocols will be able to read what is
+    sent.
+    ------------------------------------------------------------
+    ;; The initial DH handshake sends encrypted random numbers across
+    ;; the cleartext link, along with small AES encrypted packets
+    ;; containing connection info for each party.
+    ;;
+    ;; For both Lattice Crypto and ECC we are immune to attack from
+    ;; Quantum Computing during the initial DH handshake dance. In the
+    ;; case of Lattice Crypto, the algorithms employed give no
+    ;; advantage to QC.
+    ;;
+    ;; But even in the case of ECC vulnerabilities against Schorr's
+    ;; Algorithm in QC, busting open our crypto keying provides no
+    ;; advantage because the messages passed are merely random numbers
+    ;; and have no overt relation to the AES keying in the data
+    ;; packets. No public keys are sent except under AES encryption.
+    ;;
+    ;; With SHA3 hashes and AES encryption, our data packets are
+    ;; immune to QC attack.
+   |#
    ((cust :negotiate state socket)
     (let ((rec (find-connection-from-sender cnx-lst socket)))
       (if rec
@@ -636,20 +601,20 @@
         (send cust :ok))
       ))
   
-   ;; --------------------------------------------
-   ;; Message :SET-CHANNEL is sent during handshake after a secure
-   ;; channel writer (Actor) has been constructed for this socket
-   ;; connection.
-   ;;
-   ;; The writeable endpoint Actor for that encrypted channel is
-   ;; CHAN.
-   ;;
-   ;; Look up the record containing the non-secure writer, SENDER,
-   ;; and add the secure endpoint, CHAN, to the record.
-   ;;
-   ;; Then notify all waiting clients about it. Clear the waiting
-   ;; list and update our records.
-   ;;
+   #| --------------------------------------------
+    Message :SET-CHANNEL is sent during handshake after a secure
+    channel writer (Actor) has been constructed for this socket
+    connection.
+   
+    The writeable endpoint Actor for that encrypted channel is
+    CHAN.
+   
+    Look up the record containing the non-secure writer, SENDER,
+    and add the secure endpoint, CHAN, to the record.
+   
+    Then notify all waiting clients about it. Clear the waiting
+    list and update our records.
+   |#
    ((cust :set-channel sender chan)
     (send cust :ok)
     (let ((rec (find-connection-from-sender cnx-lst sender)))
@@ -676,10 +641,10 @@
             (send-to-all custs chan)))
         )))
     
-   ;; --------------------------------------------
-   ;; Message :REMOVE is sent when a socket connection is closed down.
-   ;; Just remove any records referencing STATE.
-   ;;
+   #| --------------------------------------------
+    Message :REMOVE is sent when a socket connection is closed down.
+    Just remove any records referencing STATE.
+   |#
    ((cust :remove state)
     (send cust :ok)
     (let ((rec (find-connection-from-state cnx-lst state)))
@@ -736,99 +701,92 @@
 (defun create-socket-intf (&key kind ip-addr ip-port io-state report-ip-addr)
   (create
    (lambda (cust)
-     (let* ((title          (if (eq kind :client) "Client" "Server"))
-            (local-services (make-local-services))
-            (io-running     (make-io-running-monitor io-state))
-            (shutdown       (make-socket-shutdown))
-            (kill-timer     (make-kill-timer
-                             (create
-                              (lambda ()
-                                (send println "Inactivity shutdown request")
-                                (send shutdown))
-                              )))
-            (state (make-intf-state
-                    :title            title
-                    :ip-addr          report-ip-addr
-                    :io-state         io-state
-                    :local-services   local-services
-                    :io-running       io-running
-                    :shutdown         shutdown
-                    :kill-timer       kill-timer
-                    ))
-            (encoder (sink-pipe  (marshal-encoder) ;; async output is sent here
-                                 (self-sync-encoder)
-                                 (make-writer state)))
-            (accum    (self-synca:stream-decoder   ;; async arrivals are sent here
-                       (sink-pipe (fail-silent-marshal-decoder)
-                                  local-services))))
+     (let++ ((title          (if (eq kind :client) "Client" "Server"))
+             (local-services (make-local-services))
+             (io-running     (make-io-running-monitor io-state))
+             (shutdown       (make-socket-shutdown))
+             (kill-timer     (make-kill-timer
+                              (create
+                               (lambda ()
+                                 (send println "Inactivity shutdown request")
+                                 (send shutdown))
+                               )))
+             (state (make-intf-state
+                     :title            title
+                     :ip-addr          report-ip-addr
+                     :io-state         io-state
+                     :local-services   local-services
+                     :io-running       io-running
+                     :shutdown         shutdown
+                     :kill-timer       kill-timer
+                     ))
+             (encoder (sink-pipe  (marshal-encoder) ;; async output is sent here
+                                  (self-sync-encoder)
+                                  (make-writer state)))
+             (accum    (self-synca:stream-decoder   ;; async arrivals are sent here
+                        (sink-pipe (fail-silent-marshal-decoder)
+                                   local-services)))
+             (:β _    (progn-β
+                       (racurry shutdown :init state)
+                       (if (eq kind :server)
+                           (racurry local-services :add-single-use-service
+                                    +server-connect-id+
+                                    (server-crypto-gateway encoder local-services))
+                         ;; else
+                         true)
+                       (racurry connections
+                                :add-socket ip-addr ip-port state encoder) ))
+             (fragment-ctr  0)
+             (rd-callback-fn (lambda (state buffer end)
+                               ;; callback for I/O thread - on continuous async read
+                               #|
+                               (send fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
+                                     (comm:async-io-state-read-status state)
+                                     end)
+                               |#
+                               (let ((status (or (comm:async-io-state-read-status state)
+                                                 (when (> end +max-fragment-size+)
+                                                   "Incoming packet too large"))
+                                             ))
+                                 (cond (status
+                                        ;; terminate on any error
+                                        (comm:async-io-state-finish state)
+                                        (send fmt-println "~A Incoming error state: ~A" title status)
+                                        (send shutdown))
+                                       
+                                       ((plusp end)
+                                        #|
+                                        TCP ensures that messages arrive on the
+                                        wire and are delivered here in whole, or
+                                        not at all. But the async input system
+                                        delivers them as they arrive in piecemeal
+                                        fashion.
+                                        
+                                        Every input fragment is numbered here,
+                                        starting from 1. But the Actor system
+                                        might jumble the order of fragment-ctr
+                                        delivery.
+                                        
+                                        (I have witnessed this happening.)
+                                        
+                                        Numbering them enables us to deal
+                                        properly with possible out-of-order
+                                        delivery to the self-sync decoder.
+                                        |#
+                                        (send accum :deliver (incf fragment-ctr) (subseq buffer 0 end))
+                                        (send kill-timer :resched)
+                                        (comm:async-io-state-discard state end))
+                                       )))))
        
-       (sequential-β
-        (;; complete the STATE initialization
-         (send shutdown β :init state)
+         ;; Start things running...
+         (comm:async-io-state-read-with-checking io-state rd-callback-fn
+                                                 :element-type '(unsigned-byte 8))
+         (send kill-timer :resched)
          
-         (if (eq kind :client)
-             (send β)
-           ;; Else, inform LOCAL-SERVICES that we can form secure
-           ;; connections with clients
-           (send local-services β :add-single-use-service +server-connect-id+
-                 (server-crypto-gateway encoder local-services)))
-         
-         ;; Inform the system that we are an available socket interface
-         (send connections β :add-socket ip-addr ip-port state encoder))
-        
-        ;; set up the async reader and start it running
-        
-        (let ((fragment-ctr 0))  ;; a counter of async input fragments 
-          (labels
-              ((rd-callback-fn (state buffer end)
-                 ;; callback for I/O thread - on continuous async read
-                 #|
-                 (send fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
-                       (comm:async-io-state-read-status state)
-                       end)
-                 |#
-                 (let ((status (or (comm:async-io-state-read-status state)
-                                   (when (> end +max-fragment-size+)
-                                     "Incoming packet too large"))
-                               ))
-                   (cond (status
-                          ;; terminate on any error
-                          (comm:async-io-state-finish state)
-                          (send fmt-println "~A Incoming error state: ~A" title status)
-                          (send shutdown))
-                         
-                         ((plusp end)
-                          ;; TCP assures that messages arrive on the
-                          ;; wire and are delivered here in whole, or
-                          ;; not at all. But the async input system
-                          ;; delivers them as they arrive in piecemeal
-                          ;; fashion.
-                          ;;
-                          ;; Every input fragment is numbered here,
-                          ;; starting from 1. But the Actor system
-                          ;; might jumble the order of fragment
-                          ;; delivery.
-                          ;;
-                          ;; (I have witnessed this happening.)
-                          ;;
-                          ;; Numbering them enables us to deal
-                          ;; properly with possible out-of-order
-                          ;; delivery to the self-sync decoder.
-                          ;;
-                          (send accum :deliver (incf fragment-ctr) (subseq buffer 0 end))
-                          (send kill-timer :resched)
-                          (comm:async-io-state-discard state end))
-                         ))))
-            
-            ;; Start things running...
-            (comm:async-io-state-read-with-checking io-state #'rd-callback-fn
-                                                    :element-type '(unsigned-byte 8))
-            (send kill-timer :resched)
-            
-            ;; And now we can tell our customer that our graph is complete and running
-            (send cust state encoder)
-            ))
-        )))))
+         ;; And now we can tell our customer that our graph is complete and running
+         (send cust state encoder)
+         ))
+   ))
 
 ;; -------------------------------------------------------------
 
@@ -886,7 +844,8 @@
 
 (defun* lw-reset-actor-server _
   (ask async-socket-system :terminate-server)
-  (print "Actor Server has been shut down."))
+  (princ "Actor Server has been shut down."))
+
 
 (let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))
 

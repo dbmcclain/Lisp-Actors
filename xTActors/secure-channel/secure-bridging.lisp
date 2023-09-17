@@ -292,11 +292,10 @@
 
    ((cust :add-ephemeral-clients clients ttl)
     (if clients
-        (let+ ((me  self)
-               ( ((id . ac) . rest) clients))
-            (β _
-                (send self β :add-ephemeral-client-with-id id ac ttl)
-              (send me cust :add-ephemeral-clients rest ttl) ))
+        (let++ ((me  self)
+                ( ((id . ac) . rest) clients)
+                (:β _  (racurry me :add-ephemeral-client-with-id id ac ttl)))
+          (send me cust :add-ephemeral-clients rest ttl) )
       ;; else
       (send cust :ok)))
    
@@ -351,8 +350,7 @@
    ((latcrypt aescrypt) / (and (null decryptor) ;; i.e., only valid during initial handshake dance
                                (typep latcrypt 'vector)
                                (consp aescrypt))
-    (β (rkey info)
-        (send lattice-ke:cnx-packet-decoder β latcrypt aescrypt)
+    (let-β (( (rkey info)  (racurry lattice-ke:cnx-packet-decoder latcrypt aescrypt)) )
       (when (typep (car info) 'uuid:uuid)
         (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
           (when pair
@@ -365,8 +363,7 @@
    ((rand-pt aescrypt) / (and (null decryptor)
                               (typep rand-pt 'edec:ecc-pt)
                               (consp aescrypt))
-    (β (info)
-        (send eccke:ecc-cnx-decrypt β rand-pt aescrypt)
+    (let-β ((info  (racurry eccke:ecc-cnx-decrypt rand-pt aescrypt)))
       (when (typep (car info) 'uuid:uuid)
         (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
           (when pair
@@ -457,8 +454,7 @@
                          (client-proxy id))
                        )))
          (let ((enc (loenc:encode (coerce msg 'vector))))
-           (β _
-               (send local-services β :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)
+           (let-β ((_  (racurry local-services :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)))
              (send cust enc))
            ))))
    ))

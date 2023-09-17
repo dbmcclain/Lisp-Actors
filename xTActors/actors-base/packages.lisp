@@ -271,6 +271,7 @@ THE SOFTWARE.
    #:or-β
    #:let-β
    #:let*-β
+   #:let++
    #:prog1-β
    #:progn-β
    #:with-and-β

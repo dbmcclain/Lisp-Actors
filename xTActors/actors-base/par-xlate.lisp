@@ -338,7 +338,8 @@
 #+:LISPWORKS
 (progn
   (editor:setup-indent "let-β"  1)
-  (editor:setup-indent "let*-β" 1))
+  (editor:setup-indent "let*-β" 1)
+  (editor:setup-indent "let++"  1))
 
 (defmacro let*-β (bindings &body body)
   ;; bindings should be to services
@@ -350,62 +351,72 @@
     `(progn
        ,@body) ))
 
+(defmacro let++ (bindings &body body)
+  (if bindings
+      (let ((binding (car bindings)))
+        (case (car binding)
+          ((:β :beta)
+           `(let-β (,(cdr binding))
+              (let++ ,(cdr bindings)
+                ,@body)) )
+         
+          (t
+           `(let+ (,(car bindings))
+              (let++ ,(cdr bindings)
+                ,@body)) ) ))
+    ;; else
+    `(progn
+       ,@body)))
+
 ;; -----------------------------------------------
 
 (defun prog1-β (&rest services)
   ;; Produce an Actor Service that performs a sequence of Services and
-  ;; sends the result of the first Service to the Service customer.
-  ;; The sequence is performed serially and in-order specified.
+  ;; sends the result of the first Service to the customer after
+  ;; completing the remaining Services.  The sequence is performed
+  ;; serially and in-order specified.
   (cond ((endp services)
          false)
         ((endp (cdr services))
          (car services))
         (t
-         (labels ((beh1 (cust)
-                    ;; using a private continuation Actor keeps us
-                    ;; from becoming a 1-use only Service.
-                    (let ((cont (create #'beh2)))
-                      (β (ans)
-                          (send (car services) β)
-                        (send cont cust ans (cdr services)))
-                      ))
-                  (beh2 (cust ans services)
-                    (if (endp services)
-                        (send cust ans)
-                      (let ((me self))
-                        (β _
-                            (send (car services) β)
-                          (send me cust ans (cdr services)))
-                        ))))
-           (create-service #'beh1)))
+         (actors
+             ((iter   (lambda (cust svcs ans)
+                        (if (endp svcs)
+                            (send* cust ans)
+                          (β _
+                              (send (car svcs) β)
+                            (send iter cust (cdr svcs) ans))
+                          ))))
+           (create
+            (lambda (cust)
+              (β ans
+                  (send (car services) β)
+                (send iter cust (cdr services) ans) ) ))
+           ))
         ))
                      
 (defun progn-β (&rest services)
   ;; Produce an Actor Service that performs a sequence of Services
-  ;; and sends the result of the last Service to the Service customer.
+  ;; and sends the result of the last Service to the customer.
   ;; The sequence is performed serially and in-order specified.
   (cond ((endp services)
          false)
         ((endp (cdr services))
          (car services))
         (t
-         (labels ((beh1 (cust)
-                    ;; using a private continuation Actor keeps us
-                    ;; from becoming a 1-use only Service.
-                    (let ((cont (create #'beh2)))
-                      (β _
-                          (send (car services) β)
-                        (send cont cust (cdr services)))
-                      ))
-                  (beh2 (cust services)
-                    (if (endp (cdr services))
-                        (send (car services) cust)
-                      (let ((me self))
-                        (β _
-                            (send (car services) β)
-                          (send me cust (cdr services))))
-                      )))
-           (create-service #'beh1)))
+         (actors
+             ((iter  (lambda (cust svcs)
+                       (if (cdr svcs)
+                           (β _
+                               (send (car svcs) β)
+                             (send iter cust (cdr svcs)))
+                         (send (car svcs) cust))
+                       )))
+           (create
+            (lambda (cust)
+              (send iter cust services)))
+           ))
         ))
 
 #|
