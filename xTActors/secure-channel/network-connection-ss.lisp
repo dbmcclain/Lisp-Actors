@@ -25,7 +25,7 @@
       (alambda
        ((cust :terminate-server)
         (if aio-accepting-handle
-            (with-error-response (cust)
+            (with-error-response (cust) ;; so we don't lock up Serializer on errors
               (comm:close-accepting-handle aio-accepting-handle
                                            (lambda (coll)
                                              ;; we are operating in the collection process
@@ -45,7 +45,7 @@
           (let-β ((_  (racurry self :terminate-server)))
             (let ((tcp-port-number (or (car options)
                                        *default-port*)))
-              (with-error-response (cust)
+              (with-error-response (cust)  ;; so we don't lock up Serializer on errors
                 (setf ws-collection         (comm:create-and-run-wait-state-collection "Actor Server")
                       aio-accepting-handle  (comm:accept-tcp-connections-creating-async-io-states
                                              ws-collection
@@ -82,7 +82,7 @@
                        (send cust sink :negotiate state socket)))
                     ))))
 
-          (with-error-response (cust)
+          (with-error-response (cust)  ;; so we don't lock up Serializer on errors
             (apply #'comm:create-async-io-state-and-connected-tcp-socket
                    ws-collection
                    ip-addr ip-port #'callback
