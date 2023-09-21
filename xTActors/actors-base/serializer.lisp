@@ -206,7 +206,7 @@
   ;; enter the busy state. As a precaution against re-use of the reply TAG
   ;; we guard ourselves with a ONCE gate.
   (alambda
-   ((cust . msg) / (actor-p cust)
+   ((cust . msg)
     (let* ((tag   (tag self))
            (once  (once tag)))
       (send* svc once msg)
@@ -229,7 +229,7 @@
         (send-after timeout once timed-out)
         (become (busy-serializer-beh svc timeout next-cust tag new-queue))
         )))
-   ((cust . msg) / (actor-p cust)
+   ((cust . msg)
     (become (busy-serializer-beh svc timeout cur-cust tag
                                  (addq queue (cons cust msg)))))
    ))
