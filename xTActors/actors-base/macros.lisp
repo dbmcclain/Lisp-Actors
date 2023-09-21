@@ -43,8 +43,8 @@
 (defmacro actors (bindings &body body)
   ;; Bindings should generally be BEHAVIOR functions, not Actors.
   ;; But if Actors are provided we will become forwarding Actors to them.
-  (let ((actors (mapcar #'car bindings))
-        (behs   (mapcar #'cadr bindings)))
+  (let ((actors (um:firsts bindings))
+        (behs   (um:seconds bindings)))
     `(let ,(mapcar #`(,a1 (create (%becomer-beh))) actors)
        ,@(mapcar #2`(send ,a1 '%become ,a2)
                  actors behs)
@@ -241,12 +241,14 @@
 
 ;; ------------------------------------------------------
 
-(defmacro ret (&rest ans)
-  `(send γ ,@ans))
-
 (defmacro send* (actor &rest msg)
   ;; for when it is known that final arg in msg is a list
   `(apply #'send ,actor ,@msg))
+
+;; ------------------------------------------------------
+
+(defmacro ret (&rest ans)
+  `(send γ ,@ans))
 
 (defmacro ret* (&rest ans)
   `(send* γ ,@ans))
