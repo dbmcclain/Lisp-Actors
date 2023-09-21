@@ -345,7 +345,7 @@ THE SOFTWARE.
    #:wr)
   (:export
    #:*current-actor*
-   #:*current-env*
+   ;; #:*current-env*
    ))
 
 (defpackage #:com.ral.actors.macros

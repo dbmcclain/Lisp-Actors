@@ -27,7 +27,7 @@
 ;; -- DM/RAL  2022/12/12 06:34:30
 ;; Do it without direct mutation in an SMP-safe manner,
 ;; i.e., use BECOME and not SET-BEH
-
+#|
 (defun %set-beh (ac arg)
   (setf (actor-beh ac) (screened-beh arg)))
 
@@ -37,6 +37,16 @@
         (behs   (mapcar #'cadr bindings)))
     `(let ,(mapcar #`(,a1 (create)) actors)
        ,@(mapcar #2`(%set-beh ,a1 ,a2)
+                 actors behs)
+       ,@body)))
+|#
+(defmacro actors (bindings &body body)
+  ;; Bindings should generally be BEHAVIOR functions, not Actors.
+  ;; But if Actors are provided we will steal their behavior closures.
+  (let ((actors (mapcar #'car bindings))
+        (behs   (mapcar #'cadr bindings)))
+    `(let ,(mapcar #`(,a1 (create (%becomer-beh))) actors)
+       ,@(mapcar #2`(send ,a1 '%become ,a2)
                  actors behs)
        ,@body)))
 

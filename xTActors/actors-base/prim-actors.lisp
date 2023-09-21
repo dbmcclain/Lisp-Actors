@@ -126,11 +126,11 @@
   (create (apply #'race-beh actors)))
 
 ;; ---------------------
-
+#|
 (defun fwd-beh (actor)
   (lambda (&rest msg)
     (send* actor msg)))
-
+|#
 (defun fwd (actor)
   (create (fwd-beh actor)))
 
