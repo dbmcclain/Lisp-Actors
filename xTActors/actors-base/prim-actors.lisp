@@ -176,6 +176,41 @@
     atag))
 
 ;; -------------------------------------------------
+;; FUT - A non-macro β replacement?
+;;
+;;  Instead of:
+;;
+;;     (β (targ)
+;;          (send* targ-generator β generator-args)
+;;       (send* targ my-args))
+;;
+;;  do this:
+;;
+;;     (send* (fut targ-generator generator-args) my-args)
+
+(defun fut-wait-beh (tag msgs)
+  (alambda
+   ((atag act) / (eq atag tag)
+    (become (fwd-beh act))
+    (dolist (msg msgs)
+      (send* act msg)))
+   (msg
+    (become (fut-wait-beh tag (cons msg msgs))))
+   ))
+
+(defun fut (svc &rest args)
+  ;; svc is expected to provide an actor target for a future send
+  ;; lazy-eval - doesn't do anything until a message is sent to us
+  (create
+   (lambda (&rest msg)
+     (let ((tag  (tag self)))
+       (become (fut-wait-beh tag (list msg)))
+       (send* svc tag args)))
+   ))
+
+;; -----------------------------------------------
+;; Now two years out, and I still haven't found a use for FUTURE
+;; DM/RAL 09/23
 
 (defun future-wait-beh (tag &rest custs)
   (lambda (cust &rest msg)
@@ -595,56 +630,3 @@
 (defun make-long-running (action)
   (create (long-running-beh action)))
 |#
-;; ------------------------------------------------------
-
-;; --------------------------------------------------------
-;; Membranes - controlled access to selected services
-;;
-;; Supv constructs a membrane, can shut down through the ctrl channel.
-;; Construct with an AList of (kw . handler)
-;; Clients receive a svcs channel through which they can:
-;;    * Ask what services are offered (by KWSym?) - a list of designators.
-;;    * Request a channel to a service handler, get nil if not offered.
-;;    * Send a message to a service handler. Message may incl their cust.
-;;
-(defun membrane-beh (ctrl svcs alist)
-  (alambda
-   ((tag cust :close) when (eq tag ctrl)
-    ;; from (send ctrl cust :close) -- tag only known by supv
-    ;; controller says to shutdown, let him know we have
-    (become (membrane-beh ctrl (tag self) nil))  ;; svcs tag no longer useful
-    (send cust :ok))
-
-   ((tag cust :req-access svc) when (eq tag svcs)
-    ;; from (send svcs cust :req-access svc)
-    ;; only clients can (send svcs cust :req-access)
-    (let ((handler (assoc svc alist)))
-      (if handler
-          (send cust (label svcs (cdr handler)))
-        (send cust nil))))
-
-   ((tag cust :what-services?) when (eq tag svcs)
-    ;; from (send svcs cust :what-services?)
-    ;; only clients can ask
-    (send cust (mapcar #'car alist)))
-   
-   ((tag handler . msg) when (eq tag svcs)
-    ;; from (send portal . msg)
-    ;; msg may include cust reply-to
-    ;; send message to handler via the portal
-    (send* handler msg))
-
-   ))
-
-(defun membrane (alist)
-  ;; typically called by supv to set up a membrane controlled
-  ;; collection of services
-  (actors ((ctrl  (tag-beh mem))
-           (svcs  (tag-beh mem))
-           (mem   (membrane-beh ctrl svcs alist)))
-    (values svcs    ;; give this out to clients
-            ctrl))) ;; for supv control of membrane
-
-;; -----------------------------------------------
-
-

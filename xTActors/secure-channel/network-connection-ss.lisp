@@ -17,6 +17,9 @@
 
 (defconstant +MAX-FRAGMENT-SIZE+ 65536.)
 
+;; -----------------------------------------------
+;; The main async manager
+
 (deflex* async-socket-system
   (serializer ;; because we bang on global state...
    (create
@@ -76,7 +79,8 @@
                        (send println
                              (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
                              (apply #'format nil args))
-                       (send cust sink :abort ip-addr ip-port))
+                       (send cust :err)
+                       (send (connection-list-manager) sink :abort ip-addr ip-port))
                       
                       (t
                        (let-β (( (state socket)  (create-socket-intf :kind           :client
@@ -84,7 +88,8 @@
                                                                      :ip-port        ip-port
                                                                      :report-ip-addr report-ip-addr
                                                                      :io-state       io-state)))
-                         (send cust sink :negotiate state socket)))
+                         (send cust :ok)
+                         (send (connection-list-manager) sink :negotiate state socket)))
                       )))))
 
           (with-error-response (cust)  ;; so we don't lock up Serializer on errors
@@ -234,8 +239,7 @@
              ;; the async collection
              (declare (ignore _))
              (cond ((comm:async-io-state-write-status io-state)
-                    (β _
-                        (send io-running β :finish-wr-fail)
+                    (let-β ((_  (racurry io-running :finish-wr-fail)))
                       (send shutdown)
                       (send cust :err)))
                    (t
@@ -384,7 +388,8 @@
     Actor will be filled in during the construction of a socket
     interface, which we initiate here.
    |#
-   ((:add-server peer-ip peer-port io-state)
+   ((cust :add-server peer-ip peer-port io-state)
+    (send cust :ok)
     (let ((rec (find-connection-from-ip cnx-lst peer-ip peer-port)))
       (cond
 
@@ -520,8 +525,7 @@
                          :custs          (list cust)))
                (new-lst (cons new-rec cnx-lst)))
           (become (connections-list-beh new-lst))
-          (send async-socket-system self :connect ip-addr ip-port report-ip-addr)
-          ))
+          (send async-socket-system sink :connect ip-addr ip-port report-ip-addr)))
        )))
   
    #| --------------------------------------------
@@ -666,9 +670,12 @@
           (become (connections-list-beh new-lst))
           ))))
    ))
-  
+
 (deflex connections
   (create (connections-list-beh)))
+
+(defun connection-list-manager ()
+  connections)
 
 #|
 (send connections (create #'inspect) :show)
@@ -685,8 +692,7 @@
                   ip-addr) state))
     (lambda ()
       (become-sink)
-      (β _
-          (send io-running β :terminate)
+      (let-β ((_  (racurry io-running :terminate)))
         (send fmt-println "~A Socket (~S) shutting down"
               title ip-addr)
         (send kill-timer :discard)
@@ -723,31 +729,30 @@
                                  (send println "Inactivity shutdown request")
                                  (send shutdown))
                                )))
-             (state (make-intf-state
-                     :title            title
-                     :ip-addr          report-ip-addr
-                     :io-state         io-state
-                     :local-services   local-services
-                     :io-running       io-running
-                     :shutdown         shutdown
-                     :kill-timer       kill-timer
-                     ))
+             (state   (make-intf-state
+                       :title            title
+                       :ip-addr          report-ip-addr
+                       :io-state         io-state
+                       :local-services   local-services
+                       :io-running       io-running
+                       :shutdown         shutdown
+                       :kill-timer       kill-timer
+                       ))
              (encoder (sink-pipe  (marshal-encoder) ;; async output is sent here
                                   (self-sync-encoder)
                                   (make-writer state)))
-             (accum    (self-synca:stream-decoder   ;; async arrivals are sent here
-                        (sink-pipe (fail-silent-marshal-decoder)
-                                   local-services)))
-             (:β _    (progn-β
-                       (racurry shutdown :init state)
-                       (if (eq kind :server)
-                           (racurry local-services :add-single-use-service
-                                    +server-connect-id+
-                                    (server-crypto-gateway encoder local-services))
-                         ;; else
-                         true)
-                       (racurry connections
-                                :add-socket ip-addr ip-port state encoder) ))
+             (accum   (self-synca:stream-decoder    ;; async arrivals are sent here
+                       (sink-pipe (fail-silent-marshal-decoder)
+                                  local-services)))
+             (:β _    (racurry shutdown :init state))
+             (:β _    (if (eq kind :server)
+                          (racurry local-services :add-single-use-service
+                                   +server-connect-id+
+                                   (server-crypto-gateway encoder local-services))
+                        ;; else
+                        true))
+             (:β _    (racurry connections
+                               :add-socket ip-addr ip-port state encoder) )
              (fragment-ctr  0)
              (rd-callback-fn (lambda (state buffer end)
                                ;; callback for I/O thread - on continuous async read
@@ -840,7 +845,7 @@
           #+:LISPWORKS8 (comm:socket-connection-peer-address io-state)
           #+:LISPWORKS7 (comm:get-socket-peer-address (slot-value io-state 'comm::object))
           ))
-    (send connections :add-server peer-ip peer-port io-state)
+    (send connections sink :add-server peer-ip peer-port io-state)
     ))
 
 ;; --------------------------------------------------------------

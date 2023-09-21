@@ -225,9 +225,11 @@
   ac)
 
 (defmethod service ((ac actor) &rest args)
-  (create-service
-   (lambda (cust)
-     (send* ac cust args))))
+  (if args
+      (create-service
+       (lambda (cust)
+         (send* ac cust args)))
+    ac))
 
 (defmethod service ((fn function) &rest args)
   (create-service

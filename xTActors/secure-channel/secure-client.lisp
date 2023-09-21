@@ -134,16 +134,14 @@
                                             (lambda (&rest msg)
                                               (send* local-services :ssend server-id msg))
                                             )))
-                                (β _
-                                    (send local-services β :set-crypto ekey socket)
+                                (let-β ((_  (racurry local-services :set-crypto ekey socket)))
                                   (send connections cust :set-channel socket chan))
                                 )))
                            
                            ( _
                              (error "Server not following connection protocol"))
                            ))))
-       (β _
-           (send local-services β :add-single-use-service client-id responder)
+       (let-β ((_  (racurry local-services :add-single-use-service client-id responder)))
          (send socket apt aescrypt))
        ))
    ))
@@ -169,16 +167,14 @@
                                  (lambda (&rest msg)
                                    (send* local-services :ssend server-id msg))
                                  )))
-                     (β _
-                         (send local-services β :set-crypto ekey socket)
+                     (let-β ((_  (racurry local-services :set-crypto ekey socket)))
                        (send connections cust :set-channel socket chan))
                      ))
                   
                   ( _
                     (error "Server not following connection protocol"))
                   ))))
-           (β _
-               (send local-services β :add-single-use-service client-id responder)
+           (let-β ((_ (racurry local-services :add-single-use-service client-id responder)))
              (send socket latcrypt aescrypt))
            ))))
    ))
@@ -213,6 +209,7 @@
       (parse-remote-actor id)
     (remote-service name host-ip-addr)))
 
+#|
 (defun remote-service (name host-ip-addr)
   ;; An Actor and send target. Connection to remote service
   ;; established on demand.
@@ -222,6 +219,14 @@
          (send client-gateway β host-ip-addr)
        (send* chan cust name msg))
      )))
+|#
+(defun remote-service (name host-ip-addr)
+  ;; An Actor and send target. Connection to remote service
+  ;; established on demand.
+  (create
+   (lambda (cust &rest msg)
+     (send* (fut client-gateway host-ip-addr) cust name msg))
+   ))
 
 ;; ------------------------------------------------------------
 #|

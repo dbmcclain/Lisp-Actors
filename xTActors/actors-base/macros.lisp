@@ -330,9 +330,8 @@
 (defmacro def-actor (name &optional beh)
   (let ((behe (gensym (string :behe))))
     `(deflex ,name 
-       (let ((,behe ,(if beh
-                         `,beh 
-                       `(%becomer-beh))))
+       (let ((,behe ,(or beh
+                         `(%becomer-beh))))
          (if (service-p ,behe)
              (create-service ,behe)
            (create ,behe))))
