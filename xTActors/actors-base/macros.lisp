@@ -375,3 +375,23 @@
   ;; obvious manner.
   `(restartable ,@body))
 
+;; -------------------------------------------------------
+;; My convenience macros...
+
+(defmacro >> (&rest args)
+  `(send ,@args))
+
+(defmacro >>* (&rest args)
+  `(send* ,@args))
+
+(defmacro << (&rest args)
+  `(funcall ,@args))
+
+(defmacro <<* (&rest args)
+  `(apply ,@args))
+
+(defmacro ! (&rest args)
+  `(setf ,@args))
+
+(defmacro β! (arg)
+  `(become ,arg))

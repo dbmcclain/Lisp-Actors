@@ -316,6 +316,14 @@ THE SOFTWARE.
    #:do-nothing
    #:trace-me
    #:tracer
+
+   ;; convenience macros
+   #:<<
+   #:<<*
+   #:>>
+   #:>>*
+   #:!
+   #:β!
    ))
 
 #+(OR :ALLEGRO :CCL)

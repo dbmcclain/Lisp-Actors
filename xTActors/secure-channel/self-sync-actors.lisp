@@ -66,7 +66,7 @@
       (if (> ix 3)
           ans
         (multiple-value-bind (q r) (truncate n 256)
-          (setf (aref ans ix) r)
+          (! (aref ans ix) r)
           (go-iter (1+ ix) q)))
       )))
 
@@ -119,23 +119,23 @@
       (write-byte #x01 fout) ;; this code encodes Version 1
       (write-byte nb fout)
       (xwrite-sequence renc fout :start 0 :end short-end)
-      (setf start short-end)
+      (! start short-end)
       (while (< start end)
         (when (< nb max-ct)
           (incf start 2))
         (when (and pos
                    (< pos start))
-          (setf pos (find-start-seq renc start end)))
-        (setf max-ct +max-long-count+)
+          (! pos (find-start-seq renc start end)))
+        (! max-ct +max-long-count+)
         (let ((long-end (min (+ start +max-long-count+) (or pos end))))
-          (setf nb (- long-end start))
+          (! nb (- long-end start))
           (multiple-value-bind (q r)
               (truncate nb +long-count-base+)
             ;; in little-endian form
             (write-byte r fout)
             (write-byte q fout))
           (xwrite-sequence renc fout :start start :end long-end)
-          (setf start long-end)))
+          (! start long-end)))
       )))
     
 (defun encode (vec)
@@ -185,7 +185,7 @@
         (nel   -1))    ;; expected message length
     (declare (fixnum remct nel))
     (macrolet ((new-state (fn)
-                 `(setf state #',fn)))
+                 `(! state #',fn)))
       (labels (;; --------------------
                ;; Utility Functions
                (subrange-code? (b)
@@ -194,7 +194,7 @@
                
                (stuffer-init (ct)
                  (declare (fixnum ct))
-                 (setf nel       -1
+                 (! nel       -1
                        remct     ct
                        need-fefd (< ct +max-short-count+)
                        (fill-pointer aout) 0)
@@ -202,13 +202,13 @@
 
                (segm-init (ct)
                  (declare (fixnum ct))
-                 (setf remct     ct
+                 (! remct     ct
                        need-fefd (< ct +max-long-count+))
                  (new-state read-segm)
                  (check-finish))
 
                (raw-stuff (b)
-                 (funcall stuff-fn b aout))
+                 (<< stuff-fn b aout))
                
                (stuff (b)
                  (raw-stuff b)
@@ -218,7 +218,7 @@
                (check-finish ()
                  (when (zerop remct)
                    (when (minusp nel)
-                     (setf crcv (subseq aout 0 4)
+                     (! crcv (subseq aout 0 4)
                            lenv (subseq aout 4 8)
                            nel  (+ 8 (vec-le4-to-int lenv))))
                    (let ((nbuf  (length aout)))
@@ -235,7 +235,7 @@
                             (let* ((ans (subseq aout 8))
                                    (chk (crc32 lenv ans)))
                               (when (equalp crcv chk)
-                                (send dest ans))
+                                (>> dest ans))
                               ))
                            ))))
 
@@ -244,7 +244,7 @@
                  (start b))
 
                (inhale (b)
-                 (funcall state b))
+                 (<< state b))
                
                ;; ----------------
                ;; Machine States
@@ -290,7 +290,7 @@
                (read-long-count (b)
                  (declare (ub8 b))
                  (cond ((subrange-code? b)
-                        (setf remct b)
+                        (! remct b)
                         (new-state read-long-count-2))
                        (t
                         (restart b))
@@ -308,18 +308,18 @@
         (lambda (cust buf)
           (declare ((array ub8 *) buf))
           (map nil #'inhale buf)
-          (send cust :next))
+          (>> cust :next))
         ))))
 
 (defun decoder-fsm (dest &key max-reclen)
   (let (aout
         stuff-fn)
     (if max-reclen
-        (setf aout (make-ub8-vector (+ max-reclen 8)
+        (! aout (make-ub8-vector (+ max-reclen 8)
                                     :fill-pointer 0)
               stuff-fn #'vector-push)
       ;; else
-      (setf aout (make-ub8-vector 256
+      (! aout (make-ub8-vector 256
                                   :fill-pointer 0
                                   :adjustable   t)
             stuff-fn #'vector-push-extend))
@@ -332,31 +332,31 @@
 (def-beh stream-decoder-beh (fsm wait-ix queue)
   ((:deliver bufix buf)
    (cond ((eql bufix wait-ix)
-          (send fsm self buf)
-          (become (busy-stream-decoder-beh fsm (1+ bufix) queue)))
+          (>> fsm self buf)
+          (β! (busy-stream-decoder-beh fsm (1+ bufix) queue)))
           
          (t
-          (become (stream-decoder-beh fsm wait-ix (acons bufix buf queue))))
+          (β! (stream-decoder-beh fsm wait-ix (acons bufix buf queue))))
          ))
 
   ((:go-silent)
-   (become (sink-beh))))
+   (become-sink)) )
 
 (def-beh busy-stream-decoder-beh (fsm wait-ix queue)
   ((:next)
    (let ((pair (assoc wait-ix queue)))
      (cond (pair
-            (send fsm self (cdr pair))
-            (become (busy-stream-decoder-beh fsm (1+ wait-ix) (remove pair queue))))
+            (>> fsm self (cdr pair))
+            (β! (busy-stream-decoder-beh fsm (1+ wait-ix) (remove pair queue))))
            (t
-            (become (stream-decoder-beh fsm wait-ix queue)))
+            (β! (stream-decoder-beh fsm wait-ix queue)))
            )))
 
   ((:deliver bufix buf)
-   (become (busy-stream-decoder-beh fsm wait-ix (acons bufix buf queue))))
+   (β! (busy-stream-decoder-beh fsm wait-ix (acons bufix buf queue))))
 
   ((:go-silent)
-   (become (sink-beh))))
+   (become-sink)) )
 
 (defun stream-decoder (dest)
   ;; Construct an Actor that absorbs chunks of self-sync encoded input
@@ -376,13 +376,13 @@
   (ask (create
         (lambda (cust &rest msg)
           (let ((decoder (stream-decoder cust)))
-            (send* decoder msg))))
+            (>>* decoder msg))))
        :deliver 1 vec))
 
 ;; ---------------------------------------------------------------------------
 #|
-(setf s  (hcl:file-binary-bytes "Taxes/taxes.lisp"))
-(setf se (encode s))
+(! s  (hcl:file-binary-bytes "Taxes/taxes.lisp"))
+(! se (encode s))
 (map 'string #'code-char (self-sync:decode se))
 (map 'string #'code-char (decode se))
 
@@ -395,14 +395,14 @@
        (se (encode s))
        (dec (stream-decoder writeln)))
   (print se)
-  (send dec :deliver 1 se))
+  (>> dec :deliver 1 se))
 
   (decode se))
 
 (self-sync:decode (self-sync:encode (loenc:encode #(0 1 2 3 4 5))))
 
 (defun encser (ekey &rest objs)
-  (let* ((enc        (apply #'loenc:encode (coerce objs 'vector)))
+  (let* ((enc        (<<* #'loenc:encode (coerce objs 'vector)))
          (cmpr       (compress enc))
          (seq        (make-nonce))
          (emsg       (encrypt ekey seq cmpr))
@@ -411,9 +411,9 @@
          (enc-packet (loenc:encode packet)))
     (self-sync:encode enc-packet)))
 
-(setf s (hcl:file-string "taxes.lisp"))
-(setf se (loenc:encode s))
-(setf sess (encode se))
+(! s (hcl:file-string "taxes.lisp"))
+(! se (loenc:encode s))
+(! sess (encode se))
 
 (let ((out (stream-decoder
             (sink-pipe (printer)
@@ -429,11 +429,11 @@
              (α (x)
                (let ((nel (min 100 (length x))))
                  (when (plusp nel)
-                   (send out :deliver ct (subseq x 0 nel))
+                   (>> out :deliver ct (subseq x 0 nel))
                    (incf ct)
-                   (send self (subseq x nel)))
+                   (>> self (subseq x nel)))
                  ))))
-    (send (sink-pipe (marshal-encoder) (printer)
+    (>> (sink-pipe (marshal-encoder) (printer)
                      (self-sync-encoder) (printer)
                      (parser 1))
         s)))
@@ -456,16 +456,16 @@
                                      (let ((end (min (+ offs nb) nel)))
                                        (list ix (subseq x offs end))))))
                  (dolist (frag (nreverse frags))
-                   (send* out :deliver frag))
+                   (>>* out :deliver frag))
                  ))))
-    (send (sink-pipe (marshal-encoder) (printer)
+    (>> (sink-pipe (marshal-encoder) (printer)
                      (self-sync-encoder) (printer)
                      (parser))
         s)))
 
 (functionp (lambda (x) x))
 
-(send (sink-pipe (marshal-encoder)
+(>> (sink-pipe (marshal-encoder)
                  (marshal-decoder)
                  println)
       s)

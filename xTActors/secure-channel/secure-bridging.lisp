@@ -68,7 +68,7 @@
 
 (defun actors-skey ()
   (apply #'edec:skey (or *actors-node*
-                         (setf *actors-node*
+                         (! *actors-node*
                                (let ((x (with-open-file (f "~/.actors-node")
                                           (prog1
                                               (read f)
@@ -166,25 +166,25 @@
 (defun service-list-beh (lst)
   (alambda
    ((cust :available-services)
-    (send cust (mapcar #'car lst)))
+    (>> cust (mapcar #'car lst)))
    
    ((cust :add-service name handler)
     ;; replace or add
-    (become (service-list-beh (acons name handler
+    (β! (service-list-beh (acons name handler
                                      (remove (assoc name lst) lst))))
-    (send cust :ok))
+    (>> cust :ok))
    
    ((cust :get-service name)
-    (send cust (cdr (assoc name lst))))
+    (>> cust (cdr (assoc name lst))))
    
    ((cust :remove-service name)
-    (become (service-list-beh (remove (assoc name lst) lst)))
-    (send cust :ok))
+    (β! (service-list-beh (remove (assoc name lst) lst)))
+    (>> cust :ok))
    
    ((rem-cust verb . msg)
     (let ((pair (assoc verb lst)))
       (when pair
-        (send* (cdr pair) rem-cust msg))
+        (>>* (cdr pair) rem-cust msg))
       ))))
 
 ;; -----------------------------------------------
@@ -193,7 +193,7 @@
 (deflex remote-echo
   (create
    (lambda (cust &rest msg)
-     (send* cust msg)) ))
+     (>>* cust msg)) ))
 
 (defun cmpfn (&rest args)
   (compile nil `(lambda ()
@@ -202,7 +202,7 @@
 (deflex remote-eval
   (create
    (lambda (cust form)
-     (send cust (funcall (cmpfn form)))) ))
+     (>> cust (funcall (cmpfn form)))) ))
 
 ;; -----------------------------------------------
 
@@ -266,43 +266,43 @@
    ((cust :add-service-with-id id actor)
     ;; insert ahead of any with same id
     (let ((new-svcs (acons id (local-service actor) svcs)))
-      (become (local-services-beh new-svcs encryptor decryptor))
-      (send cust id)))
+      (β! (local-services-beh new-svcs encryptor decryptor))
+      (>> cust id)))
    
    ((cust :add-ephemeral-client-with-id id actor ttl)
     (let ((new-svcs (acons id (ephem-service actor ttl) svcs)))
-      (become (local-services-beh new-svcs encryptor decryptor))
-      (send cust id)
+      (β! (local-services-beh new-svcs encryptor decryptor))
+      (>> cust id)
       (when ttl
         (send-after ttl self sink :remove-service id))))
    
    ((cust :add-service actor)
     ;; used for connection handlers
-    (send self cust :add-service-with-id (uuid:make-v1-uuid) actor))
+    (>> self cust :add-service-with-id (uuid:make-v1-uuid) actor))
 
    ((cust :add-single-use-service id actor)
     (let ((new-svcs (acons id (ephem-service actor) svcs)))
-      (become (local-services-beh new-svcs encryptor decryptor))
+      (β! (local-services-beh new-svcs encryptor decryptor))
       (send-after *default-ephemeral-ttl* self sink :remove-service id)
-      (send cust id)))
+      (>> cust id)))
    
    ((cust :add-ephemeral-client actor ttl)
     ;; used for transient customer proxies
-    (send self cust :add-ephemeral-client-with-id (uuid:make-v1-uuid) actor ttl))
+    (>> self cust :add-ephemeral-client-with-id (uuid:make-v1-uuid) actor ttl))
 
    ((cust :add-ephemeral-clients clients ttl)
     (if clients
         (let++ ((me  self)
                 ( ((id . ac) . rest) clients)
                 (:β _  (racurry me :add-ephemeral-client-with-id id ac ttl)))
-          (send me cust :add-ephemeral-clients rest ttl) )
+          (>> me cust :add-ephemeral-clients rest ttl) )
       ;; else
-      (send cust :ok)))
+      (>> cust :ok)))
    
    ((cust :remove-service id)
     (let ((new-svcs (remove (assoc id svcs :test #'uuid:uuid=) svcs :count 1)))
-      (become (local-services-beh new-svcs encryptor decryptor))
-      (send cust :ok)))
+      (β! (local-services-beh new-svcs encryptor decryptor))
+      (>> cust :ok)))
    
    ((cust :set-crypto ekey socket)
     ;; after this we promptly forget ekey...
@@ -310,15 +310,15 @@
                                 socket))
           (decryptor (sink-pipe (secure-reader ekey self socket)
                                 self)))
-      (become (local-services-beh svcs encryptor decryptor))
-      (send cust :ok)))
+      (β! (local-services-beh svcs encryptor decryptor))
+      (>> cust :ok)))
    
    ;; -------------------------------------------------------------------
    ;; encrytped socket send - proxy Actors send to here...  The entire
    ;; message, including UUID target, is encrypted. The only thing
    ;; appearing on the wire are the (SEQ CTXT AUTH)
    ((:ssend . msg) / encryptor
-    (send* encryptor msg))
+    (>>* encryptor msg))
    
    ;; -------------------------------------------------------------------
    ;; unencrypted socket delivery
@@ -326,7 +326,7 @@
     (let ((pair (assoc service-id svcs :test #'uuid:uuid=)))
       (when pair
         (let ((svc (cdr pair)))
-          (send* (local-service-handler svc) msg)
+          (>>* (local-service-handler svc) msg)
           (when (ephem-service-p svc)
             (cond ((ephem-service-ttl svc)
                    ;; possibly counterintuitive... if we have traffic on this
@@ -335,11 +335,11 @@
                    ;; pairing in the services list. Since a removal has already
                    ;; been scheduled, we insert an extra one for it to work
                    ;; against.
-                   (become (local-services-beh (cons pair svcs) encryptor decryptor))
+                   (β! (local-services-beh (cons pair svcs) encryptor decryptor))
                    (send-after (ephem-service-ttl svc) self sink :remove-service (car pair)))
                   (t
                    ;; no TTL specified, so just remove it
-                   (become (local-services-beh (remove pair svcs :count 1) encryptor decryptor)))
+                   (β! (local-services-beh (remove pair svcs :count 1) encryptor decryptor)))
                   ))
           ))))
 
@@ -355,7 +355,7 @@
         (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
           (when pair
             (let ((svc  (cdr pair)))
-              (send* (local-service-handler svc) rkey (cdr info))
+              (>>* (local-service-handler svc) rkey (cdr info))
               ))))
       ))
 
@@ -368,7 +368,7 @@
         (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
           (when pair
             (let ((svc  (cdr pair)))
-              (send* (local-service-handler svc) rand-pt (cdr info))
+              (>>* (local-service-handler svc) rand-pt (cdr info))
               ))))
       ))
         
@@ -381,7 +381,7 @@
                            (typep seq  'ub8-vector)
                            (typep ctxt 'ub8-vector)
                            (typep auth 'ub8-vector))
-    (send decryptor seq ctxt auth))
+    (>> decryptor seq ctxt auth))
    ))
 
 (defun make-local-services ()
@@ -390,15 +390,15 @@
 
 (defun create-ephemeral-client-proxy (cust local-services svc &key (ttl *default-ephemeral-ttl*))
   ;; used by client side
-  (send local-services cust :add-ephemeral-client svc ttl))
+  (>> local-services cust :add-ephemeral-client svc ttl))
 
 (defun create-ephemeral-client-proxy-with-id (cust client-id local-services svc &key (ttl *default-ephemeral-ttl*))
   ;; used by client side
-  (send local-services cust :add-ephemeral-client-with-id client-id svc ttl))
+  (>> local-services cust :add-ephemeral-client-with-id client-id svc ttl))
 
 (defun create-service-proxy (cust local-services svc)
   ;; used by server side
-  (send local-services cust :add-service svc))
+  (>> local-services cust :add-service svc))
 
 #| ---------------------------------------------------
    Marshaling with Actor conversions
@@ -455,21 +455,21 @@
                        )))
          (let ((enc (loenc:encode (coerce msg 'vector))))
            (let-β ((_  (racurry local-services :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)))
-             (send cust enc))
+             (>> cust enc))
            ))))
    ))
 
 #|
 (def-actor echo
   (lambda (cust &rest msg)
-    (send cust msg)))
+    (>> cust msg)))
 
 (let ((encoder (client-marshal-encoder echo)))
   (let ((obj  println))
     (β (enc)
-        (send encoder β obj)
-      (send fmt-println"Encoding: ~S" enc)
-      (send fmt-println "Decoding: ~S" (loenc:decode enc))
+        (>> encoder β obj)
+      (>> fmt-println"Encoding: ~S" enc)
+      (>> fmt-println "Decoding: ~S" (loenc:decode enc))
       )))
 |#
 
@@ -497,13 +497,13 @@
                    (let ((id (client-proxy-id proxy)))
                      (create
                       (lambda (&rest msg)
-                        (send* local-services :ssend id msg))
+                        (>>* local-services :ssend id msg))
                       ))))
        (let ((dec (ignore-errors
                     (loenc:decode vec))))
          (when (and dec
                     (vectorp dec))
-           (send* cust (coerce dec 'list)))
+           (>>* cust (coerce dec 'list)))
          )))
     )))
 

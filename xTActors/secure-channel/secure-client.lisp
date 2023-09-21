@@ -132,17 +132,17 @@
                                                      (ed-mul srv-pkey arand)))    ;; S*a
                                     (chan  (create
                                             (lambda (&rest msg)
-                                              (send* local-services :ssend server-id msg))
+                                              (>>* local-services :ssend server-id msg))
                                             )))
                                 (let-β ((_  (racurry local-services :set-crypto ekey socket)))
-                                  (send connections cust :set-channel socket chan))
+                                  (>> connections cust :set-channel socket chan))
                                 )))
                            
                            ( _
                              (error "Server not following connection protocol"))
                            ))))
        (let-β ((_  (racurry local-services :add-single-use-service client-id responder)))
-         (send socket apt aescrypt))
+         (>> socket apt aescrypt))
        ))
    ))
   
@@ -165,17 +165,17 @@
                    (let ((ekey  (hash/256 bkey akey))
                          (chan  (create
                                  (lambda (&rest msg)
-                                   (send* local-services :ssend server-id msg))
+                                   (>>* local-services :ssend server-id msg))
                                  )))
                      (let-β ((_  (racurry local-services :set-crypto ekey socket)))
-                       (send connections cust :set-channel socket chan))
+                       (>> connections cust :set-channel socket chan))
                      ))
                   
                   ( _
                     (error "Server not following connection protocol"))
                   ))))
            (let-β ((_ (racurry local-services :add-single-use-service client-id responder)))
-             (send socket latcrypt aescrypt))
+             (>> socket latcrypt aescrypt))
            ))))
    ))
 
@@ -188,7 +188,7 @@
     ;; demand if not already present.
     (create
      (lambda (cust host-ip-addr)
-       (send client-connector cust negotiator host-ip-addr) )
+       (>> client-connector cust negotiator host-ip-addr) )
      ))
 
 ;; ---------------------------------------------------
@@ -216,8 +216,8 @@
   (create
    (lambda (cust &rest msg)
      (β (chan)
-         (send client-gateway β host-ip-addr)
-       (send* chan cust name msg))
+         (>> client-gateway β host-ip-addr)
+       (>>* chan cust name msg))
      )))
 |#
 (defun remote-service (name host-ip-addr)
@@ -225,7 +225,7 @@
   ;; established on demand.
   (create
    (lambda (cust &rest msg)
-     (send* (fut client-gateway host-ip-addr) cust name msg))
+     (>>* (fut client-gateway host-ip-addr) cust name msg))
    ))
 
 ;; ------------------------------------------------------------
@@ -234,8 +234,8 @@
   (let ((recho (remote-service :echo host))
         (msg   :hello))
     (β (ans)
-        (send recho β msg)
-      (send fmt-println "(send recho println ~S) sez: ~S" msg ans))))
+        (>> recho β msg)
+      (>> fmt-println "(>> recho println ~S) sez: ~S" msg ans))))
 (tst "localhost")
 (tst "arroyo.local")
 (tst "rincon.local")
@@ -248,19 +248,19 @@
   (let ((recho (remote-service :echo host))
         (txt   (hcl:file-string "./xTActors/secure-channel/encoding.lisp")))
     (β (ans)
-        (send recho β txt)
-      (send fmt-println "echo comparison: ~A" (string= txt ans)))))
+        (>> recho β txt)
+      (>> fmt-println "echo comparison: ~A" (string= txt ans)))))
 
 (defun tst (host)
   (let ((reval (remote-service :eval host)))
     (β (ans)
-        (send reval β '(list (get-universal-time) (machine-instance)))
+        (>> reval β '(list (get-universal-time) (machine-instance)))
       #|
-        (send reval β '(um:capture-ans-or-exn
+        (>> reval β '(um:capture-ans-or-exn
                             (error "test-error")))
         |#
       (trace-me)
-      (send fmt-println "reval sez: ~S" (um:recover-ans-or-exn ans)))
+      (>> fmt-println "reval sez: ~S" (um:recover-ans-or-exn ans)))
     ))
 (tst "localhost")
 (tst "arroyo.local")
@@ -280,12 +280,12 @@
                     (let ((me    self)
                           (start (usec:get-time-usec)))
                       (β _
-                          (send recho β "")
+                          (>> recho β "")
                         (let ((stop (usec:get-time-usec)))
-                          (send println (- stop start))
-                          (send me (1- n))))
+                          (>> println (- stop start))
+                          (>> me (1- n))))
                       )))))
-    (send ac1 n)))
+    (>> ac1 n)))
 
 (tst "localhost" 10)
 (tst "zircon.local" 10)
@@ -295,13 +295,13 @@
 (defun tst (host)
   (let ((reval (remote-service :eval host)))
     (β (ans)
-        (send (timed-service reval 10) β `(um:capture-ans-or-exn kvdb:kvdb))
+        (>> (timed-service reval 10) β `(um:capture-ans-or-exn kvdb:kvdb))
       (let ((rkvdb (um:recover-ans-or-exn ans)))
         (β (proxy)
-            (send (timed-service rkvdb 10) β :req-proxy)
+            (>> (timed-service rkvdb 10) β :req-proxy)
           (β (uuid)
-              (send (timed-service proxy 10) β :find 'kvdb::version)
-            (send println (uuid:when-created uuid))
+              (>> (timed-service proxy 10) β :find 'kvdb::version)
+            (>> println (uuid:when-created uuid))
             ))))))
 
 (tst "localhost")
@@ -313,9 +313,9 @@
 (defun tst (host)
   (let ((reval (remote-service :eval host)))
     (β (proxy)
-        (send (timed-service reval 10) nil `(send kvdb:kvdb ,β :req-proxy))
+        (>> (timed-service reval 10) nil `(>> kvdb:kvdb ,β :req-proxy))
       (β (uuid)
-          (send (timed-service proxy 10) β :find 'kvdb::version)
-        (send println (uuid:when-created uuid))
+          (>> (timed-service proxy 10) β :find 'kvdb::version)
+        (>> println (uuid:when-created uuid))
         ))))
 |#

@@ -26,84 +26,66 @@
     (let ((ws-collection        nil)
           (aio-accepting-handle nil))
       (alambda
+       ;; --------------------------------------
        ((cust :terminate-server)
-        (flet ((ws-handler (coll)
-                 ;; we are operating in the collection process
-                 (with-error-response (cust)
-                   (comm:close-wait-state-collection coll)
-                   (setf ws-collection        nil
-                         aio-accepting-handle nil)
-                   (send cust :ok)
-                   (mpc:process-terminate (mpc:get-current-process))
-                   )))
-          (with-error-response (cust) ;; so we don't lock up Serializer on errors
+        (with-error-response (cust) ;; so we don't lock up Serializer on errors
+          (flet ((ws-handler (coll)
+                   ;; we are operating in the collection process
+                   (with-error-response (cust)
+                     (comm:close-wait-state-collection coll)
+                     (! ws-collection        nil
+                        aio-accepting-handle nil)
+                     (>> cust :ok)
+                     (mpc:process-terminate (mpc:get-current-process))
+                     )))
             (cond
              (aio-accepting-handle
               (comm:close-accepting-handle aio-accepting-handle #'ws-handler) )
-
+             
              (ws-collection
               (comm:apply-in-wait-state-collection-process ws-collection #'ws-handler))
              
              (t
-              (send cust :ok))
+              (>> cust :ok))
              ))
           ))
        
+       ;; --------------------------------------
        ((cust :start-tcp-server . options)
-        (let++ ((:β _  (racurry self :terminate-server))
-                (tcp-port-number (or (car options)
-                                     *default-port*)))
-          (with-error-response (cust)
-            (setf ws-collection (comm:create-and-run-wait-state-collection "Actor Server")
-                  aio-accepting-handle  (comm:accept-tcp-connections-creating-async-io-states
-                                         ws-collection
-                                         tcp-port-number
-                                         #'start-server-messenger
-                                         :ipv6    nil
-                                         ) )
-            (send fmt-println "Actor Server started on port ~A" tcp-port-number)
-            (send cust :ok)) ))
-
-       ((cust :connect ip-addr ip-port report-ip-addr)
+        (with-error-response (cust)
+          (let++ ((:β _            (racurry self :terminate-server))
+                  (tcp-port-number (or (car options)
+                                       *default-port*)))
+            (! ws-collection         (comm:create-and-run-wait-state-collection "Actor Server")
+               aio-accepting-handle  (comm:accept-tcp-connections-creating-async-io-states
+                                      ws-collection
+                                      tcp-port-number
+                                      #'start-server-messenger
+                                      :ipv6    nil
+                                      ) )
+            (>> fmt-println "Actor Server started on port ~A" tcp-port-number)
+            (>> cust :ok)) ))
+       
+       ;; --------------------------------------
+       ((cust :connect ip-addr ip-port)
         ;; Message sent from clients wanting to connect to a server.
         ;; Cust is the CONNECTIONS manager.
-        (flet ((callback (io-state args)
-                 ;; Performed in the process of collection, so keep it short.
-                 (with-actors
-                   ;; Now we are on an Actors thread - after using only
-                   ;; enough time to form a functional closure, wrap with
-                   ;; an Actor envelope, and perform a SEND
-                   (with-error-response (cust)
-                     (cond
-                      (args
-                       (send println
-                             (format nil "CONNECTION-ERROR: ~S" report-ip-addr)
-                             (apply #'format nil args))
-                       (send cust :err)
-                       (send (connection-list-manager) sink :abort ip-addr ip-port))
-                      
-                      (t
-                       (let-β (( (state socket)  (create-socket-intf :kind           :client
-                                                                     :ip-addr        ip-addr
-                                                                     :ip-port        ip-port
-                                                                     :report-ip-addr report-ip-addr
-                                                                     :io-state       io-state)))
-                         (send cust :ok)
-                         (send (connection-list-manager) sink :negotiate state socket)))
-                      )))))
-
-          (with-error-response (cust)  ;; so we don't lock up Serializer on errors
+        (with-error-response (cust)  ;; so we don't lock up Serializer on errors
+          (flet ((callback (io-state args)
+                   ;; Performed in the process of collection, so keep it short.
+                   (>>* cust io-state args)))
             (unless ws-collection
-              (setf ws-collection (comm:create-and-run-wait-state-collection "Actor Clients")))
-            (apply #'comm:create-async-io-state-and-connected-tcp-socket
-                   ws-collection
-                   ip-addr ip-port #'callback
-                   #-:WINDOWS
-                   `(:connect-timeout 5 :ipv6 nil)
-                   #+:WINDOWS
-                   `(:connect-timeout 5)
-                   ))
+              (! ws-collection (comm:create-and-run-wait-state-collection "Actor Clients")))
+            (<<* #'comm:create-async-io-state-and-connected-tcp-socket
+                 ws-collection
+                 ip-addr ip-port #'callback
+                 #-:WINDOWS
+                 `(:connect-timeout 5 :ipv6 nil)
+                 #+:WINDOWS
+                 `(:connect-timeout 5)
+                 ))
           ))
+       
        ))
     )))
 
@@ -127,14 +109,14 @@
   (create
    (lambda (cust io-state)
      (comm:close-async-io-state io-state)
-     (send cust :ok))))
+     (>> cust :ok))))
 
 (deflex forcible-socket-closer
   ;; Used when an async reader or writer may currently be running
   (create
    (lambda (cust io-state)
      (comm:async-io-state-abort-and-close io-state)
-     (send cust :ok))))
+     (>> cust :ok))))
 
 ;; -------------------------------------------------------------------------
 ;; IO-Running controller - Coordinates the activity and closure of
@@ -153,36 +135,36 @@
 (defun io-base-beh (io-state)
   (alambda
    ((cust :terminate)
-    (become (io-closed-beh))
-    (send forcible-socket-closer cust io-state))
+    (β! (io-closed-beh))
+    (>> forcible-socket-closer cust io-state))
 
    ((cust :try-writing _ if-nok)
-    (send println "Can't happen - attempt to write while busy writing.")
-    (send if-nok)
-    (send cust :err))
+    (>> println "Can't happen - attempt to write while busy writing.")
+    (>> if-nok)
+    (>> cust :err))
 
    ((cust :is-open)
-    (send cust t))
+    (>> cust t))
    ))
 
 (defun io-closed-beh ()
   ;; Fully closed state
   (alambda
    ((cust :try-writing _ if-nok)
-    (send if-nok)
-    (send cust :err))
+    (>> if-nok)
+    (>> cust :err))
 
    ((cust :is-open)
-    (send cust nil))
+    (>> cust nil))
    ))
 
 (defun io-running-beh (io-state base)
   ;; In this state we are open to async reads, no writing under way,
   (alambda
    ((cust :try-writing if-ok _)
-    (become (io-running-write-beh io-state base))
-    (send if-ok)
-    (send cust :ok))
+    (β! (io-running-write-beh io-state base))
+    (>> if-ok)
+    (>> cust :ok))
 
    (_
     (repeat-send base))
@@ -192,12 +174,12 @@
   ;; Async reads are active, writing is under way.
   (alambda
    ((cust :finish-wr-ok)
-    (become (io-running-beh io-state base))
-    (send cust :ok))
+    (β! (io-running-beh io-state base))
+    (>> cust :ok))
 
    ((cust :finish-wr-fail)
-    (become (io-closed-beh))
-    (send forcible-socket-closer cust io-state))
+    (β! (io-closed-beh))
+    (>> forcible-socket-closer cust io-state))
 
    (_
     (repeat-send base))
@@ -232,7 +214,7 @@
       (labels
           ;; these functions execute in the thread of the async socket handler
           ((not-writing ()
-             (send cust :err)) ;; clear the Serializer
+             (>> cust :err)) ;; clear the Serializer
            
            (write-done (io-state &rest _)
              ;; this is a callback routine, executed in the thread of
@@ -240,11 +222,11 @@
              (declare (ignore _))
              (cond ((comm:async-io-state-write-status io-state)
                     (let-β ((_  (racurry io-running :finish-wr-fail)))
-                      (send shutdown)
-                      (send cust :err)))
+                      (>> shutdown)
+                      (>> cust :err)))
                    (t
                     ;; io-running will reply to our cust for us
-                    (send io-running cust :finish-wr-ok))
+                    (>> io-running cust :finish-wr-ok))
                    ))
            
            (begin-write ()
@@ -252,7 +234,7 @@
                (comm:async-io-state-write-buffer io-state
                                                  byte-vec
                                                  #'write-done)
-               (send kill-timer :resched)) ))
+               (>> kill-timer :resched)) ))
         
         (send io-running sink :try-writing
               (create #'begin-write)
@@ -269,12 +251,12 @@
   (alambda
    ((:resched)
     (let ((new-tag (tag self)))
-      (become (watchdog-timer-beh killer new-tag))
+      (β! (watchdog-timer-beh killer new-tag))
       (send-after *socket-timeout-period* new-tag :timed-out)))
    
    ((atag :timed-out) / (eql atag tag)
     (become-sink)
-    (send killer))
+    (>> killer))
 
    ((:discard)
     (become-sink))
@@ -361,8 +343,8 @@
 (defun counter-beh (n)
   (lambda (cust)
     (let ((new-n (1+ n)))
-      (become (counter-beh new-n))
-      (send cust n))))
+      (β! (counter-beh new-n))
+      (>> cust n))))
 
 (deflex* get-server-count
   (create (counter-beh 0)))
@@ -374,7 +356,7 @@
   (alambda
    
    ((cust :show)
-    (send cust cnx-lst))
+    (>> cust cnx-lst))
 
    #| --------------------------------------------
     A Server sends :ADD-SERVER when a new client connection is
@@ -389,13 +371,13 @@
     interface, which we initiate here.
    |#
    ((cust :add-server peer-ip peer-port io-state)
-    (send cust :ok)
+    (>> cust :ok)
     (let ((rec (find-connection-from-ip cnx-lst peer-ip peer-port)))
       (cond
 
        (rec
         ;; already exists or is pending - so shut down our attempt
-        (send forcible-socket-closer sink io-state))
+        (>> forcible-socket-closer sink io-state))
        
        (peer-ip
         ;; reserve our place while we create a channel
@@ -403,14 +385,14 @@
                     :ip-addr         peer-ip
                     :ip-port         peer-port
                     :state           :pending-server)))
-          (become (connections-list-beh (cons rec cnx-lst)))
+          (β! (connections-list-beh (cons rec cnx-lst)))
           (let++ ((:β ct  get-server-count)
                   (server-name (format nil "~A#~D" (machine-instance) ct)))
-            (send fmt-println "Server Socket (~S->~A:~D) starting up"
+            (>> fmt-println "Server Socket (~S->~A:~D) starting up"
                   server-name
                   (comm:ip-address-string peer-ip)
                   peer-port)
-            (send (create-socket-intf :kind             :server
+            (>> (create-socket-intf :kind             :server
                                       :ip-addr          peer-ip
                                       :ip-port          peer-port
                                       :report-ip-addr   server-name
@@ -442,7 +424,7 @@
       to a new server.
    |#
    ((cust :add-socket ip-addr ip-port new-state sender)
-    (send cust :ok)
+    (>> cust :ok)
     (let ((rec (find-connection-from-ip cnx-lst ip-addr ip-port)))
       (cond (rec
              (let+ ((:slots ((old-state state)) rec))
@@ -452,7 +434,7 @@
                                       :ip-port  ip-port
                                       :state    new-state
                                       :sender   sender)))
-                        (become (connections-list-beh (cons new-rec (remove rec cnx-lst))))
+                        (β! (connections-list-beh (cons new-rec (remove rec cnx-lst))))
                         ))
                      
                      (t
@@ -463,8 +445,8 @@
                              (new-lst (cons new-rec (remove rec cnx-lst))))
                         (unless (or (null old-state)
                                     (eql old-state new-state))
-                          (send shutdown))
-                        (become (connections-list-beh new-lst))
+                          (>> shutdown))
+                        (β! (connections-list-beh new-lst))
                         ))
                      )))
            
@@ -474,7 +456,7 @@
                              :ip-port  ip-port
                              :state    new-state
                              :sender   sender)))
-               (become (connections-list-beh (cons new-rec cnx-lst)))
+               (β! (connections-list-beh (cons new-rec cnx-lst)))
                ))
             )))
   
@@ -508,26 +490,50 @@
                  (let* ((new-rec (copy-with rec
                                             :custs (cons cust custs)))
                         (new-lst (cons new-rec (remove rec cnx-lst))))
-                   (become (connections-list-beh new-lst))))
+                   (β! (connections-list-beh new-lst))))
 
                 (t
                  ;; no waiting list - just go
-                 (send cust chan))
+                 (>> cust chan))
                 )))
 
        (t
         ;; else - no record yet, so create and wait on the channel
+        ;; No response will be issued from us here to the customer.
+        ;; If a connection succeeds, and the handshake completes,
+        ;; then the customer will be notified at that time.
         (let* ((new-rec (make-connection-rec
                          :ip-addr        ip-addr
                          :ip-port        ip-port
                          :report-ip-addr report-ip-addr
                          :handshake      handshake
                          :custs          (list cust)))
-               (new-lst (cons new-rec cnx-lst)))
-          (become (connections-list-beh new-lst))
-          (send async-socket-system sink :connect ip-addr ip-port report-ip-addr)))
+               (new-lst (cons new-rec cnx-lst))
+               (me      self))
+          (β! (connections-list-beh new-lst))
+          (let-β (( (io-state . args)  (racurry async-socket-system
+                                                :connect ip-addr ip-port) ))
+            (cond
+             (args
+              (>> fmt-println "CONNECTION-ERROR: ~S~%~S"
+                  report-ip-addr
+                  (<<* #'format nil args))
+              (>> me sink :abort ip-addr ip-port))
+
+             ((typep io-state 'comm:async-io-state)
+              (let-β (( (state socket)  (create-socket-intf :kind           :client
+                                                            :ip-addr        ip-addr
+                                                            :ip-port        ip-port
+                                                            :report-ip-addr report-ip-addr
+                                                            :io-state       io-state)))
+                (>> me sink :negotiate state socket)
+                ))
+
+             ;; else - some error happened, but has probably already been reported to user
+             ))
+          ))
        )))
-  
+       
    #| --------------------------------------------
     Message :ABORT might be sent during an initial attempt to form a
     TCP connection with a server. If that connection fails, we get
@@ -538,14 +544,14 @@
     Any waiting clients will just be left hanging.
    |#
    ((cust :abort ip-addr ip-port)
-    (send cust :ok)
+    (>> cust :ok)
     (let* ((same-ip (same-ip-test ip-addr ip-port))
            (rec     (find-if same-ip cnx-lst)))
       (when rec
         ;; leaves all waiting custs hanging...
         (let+ ((:slots (report-ip-addr) rec)
                (new-lst (remove-if same-ip cnx-lst)))
-          (become (connections-list-beh new-lst))
+          (β! (connections-list-beh new-lst))
           (non-idempotent
             ;; ...would also prevent us from updating the list...
             (error "Can't connect to: ~S" report-ip-addr))
@@ -612,9 +618,9 @@
           (let+ ((:slots (handshake)      rec)
                  (:slots (local-services) state))
             ;; Let the dance begin...
-            (send handshake cust socket local-services))
+            (>> handshake cust socket local-services))
         ;; else
-        (send cust :ok))
+        (>> cust :ok))
       ))
   
    #| --------------------------------------------
@@ -632,7 +638,7 @@
     list and update our records.
    |#
    ((cust :set-channel sender chan)
-    (send cust :ok)
+    (>> cust :ok)
     (let ((rec (find-connection-from-sender cnx-lst sender)))
       (when rec
         (let+ ((:slots (custs
@@ -643,14 +649,14 @@
                                     :chan  chan
                                     :custs nil))
                (new-cnxs (cons new-rec (remove rec cnx-lst))))
-          (become (connections-list-beh new-cnxs))
+          (β! (connections-list-beh new-cnxs))
           (when custs
             (let+ ((:mvb (peer-ip peer-port)
                     #+:LISPWORKS8
                     (comm:socket-connection-peer-address io-state)
                     #+:LISPWORKS7
                     (comm:get-socket-peer-address (slot-value io-state 'comm::object)) ))
-              (send fmt-println "Client Socket (~S->~A:~D) starting up"
+              (>> fmt-println "Client Socket (~S->~A:~D) starting up"
                     report-ip-addr
                     (comm:ip-address-string peer-ip)
                     peer-port))
@@ -662,23 +668,20 @@
     Just remove any records referencing STATE.
    |#
    ((cust :remove state)
-    (send cust :ok)
+    (>> cust :ok)
     (let ((rec (find-connection-from-state cnx-lst state)))
       (when rec
         (let ((new-lst (remove state cnx-lst ;; should only be one...
                                :key #'connection-rec-state)))
-          (become (connections-list-beh new-lst))
+          (β! (connections-list-beh new-lst))
           ))))
    ))
 
 (deflex connections
   (create (connections-list-beh)))
 
-(defun connection-list-manager ()
-  connections)
-
 #|
-(send connections (create #'inspect) :show)
+(>> connections (create #'inspect) :show)
 |#
 
 ;; -------------------------------------------------------------
@@ -693,17 +696,17 @@
     (lambda ()
       (become-sink)
       (let-β ((_  (racurry io-running :terminate)))
-        (send fmt-println "~A Socket (~S) shutting down"
+        (>> fmt-println "~A Socket (~S) shutting down"
               title ip-addr)
-        (send kill-timer :discard)
-        (send connections sink :remove state)
+        (>> kill-timer :discard)
+        (>> connections sink :remove state)
         ))))
 
 (defun initial-socket-shutdown-beh ()
   (alambda
    ((cust :init state)
-    (become (socket-shutdown-beh state))
-    (send cust :ok))
+    (β! (socket-shutdown-beh state))
+    (>> cust :ok))
    ))
 
 (defun make-socket-shutdown ()
@@ -726,8 +729,8 @@
              (kill-timer     (make-kill-timer
                               (create
                                (lambda ()
-                                 (send println "Inactivity shutdown request")
-                                 (send shutdown))
+                                 (>> println "Inactivity shutdown request")
+                                 (>> shutdown))
                                )))
              (state   (make-intf-state
                        :title            title
@@ -757,7 +760,7 @@
              (rd-callback-fn (lambda (state buffer end)
                                ;; callback for I/O thread - on continuous async read
                                #|
-                               (send fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
+                               (>> fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
                                      (comm:async-io-state-read-status state)
                                      end)
                                |#
@@ -768,8 +771,8 @@
                                  (cond (status
                                         ;; terminate on any error
                                         (comm:async-io-state-finish state)
-                                        (send fmt-println "~A Incoming error state: ~A" title status)
-                                        (send shutdown))
+                                        (>> fmt-println "~A Incoming error state: ~A" title status)
+                                        (>> shutdown))
                                        
                                        ((plusp end)
                                         #|
@@ -790,18 +793,18 @@
                                         properly with possible out-of-order
                                         delivery to the self-sync decoder.
                                         |#
-                                        (send accum :deliver (incf fragment-ctr) (subseq buffer 0 end))
-                                        (send kill-timer :resched)
+                                        (>> accum :deliver (incf fragment-ctr) (subseq buffer 0 end))
+                                        (>> kill-timer :resched)
                                         (comm:async-io-state-discard state end))
                                        )))))
        
          ;; Start things running...
          (comm:async-io-state-read-with-checking io-state rd-callback-fn
                                                  :element-type '(unsigned-byte 8))
-         (send kill-timer :resched)
+         (>> kill-timer :resched)
          
          ;; And now we can tell our customer that our graph is complete and running
-         (send cust state encoder)
+         (>> cust state encoder)
          ))
    ))
 
@@ -831,7 +834,7 @@
             (port          (or port ip-port *default-port*)))
        (unless clean-ip-addr
          (error "Unknown host: ~S" ip-addr))
-       (send connections cust :find-socket clean-ip-addr port ip-addr handshake)
+       (>> connections cust :find-socket clean-ip-addr port ip-addr handshake)
        ))))
 
 ;; -------------------------------------------------------------
@@ -845,7 +848,7 @@
           #+:LISPWORKS8 (comm:socket-connection-peer-address io-state)
           #+:LISPWORKS7 (comm:get-socket-peer-address (slot-value io-state 'comm::object))
           ))
-    (send connections sink :add-server peer-ip peer-port io-state)
+    (>> connections sink :add-server peer-ip peer-port io-state)
     ))
 
 ;; --------------------------------------------------------------

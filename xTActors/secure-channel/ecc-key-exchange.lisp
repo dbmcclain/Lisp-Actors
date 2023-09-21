@@ -35,15 +35,15 @@
               (with-open-file (f "~/.my-syzygy")
                 (read f))) )
        (let ((skey (make-deterministic-keys :skey (get-seed))))
-         (send cust skey)
-         (become (const-beh skey)))
+         (>> cust skey)
+         (β! (const-beh skey)))
        ))
    ))
     
 (deflex ecc-pkey
   (create
    (lambda (cust pkey-id)
-     (send kvdb:kvdb cust :find pkey-id))
+     (>> kvdb:kvdb cust :find pkey-id))
    ))
 
 ;; ------------------------------------------------------
@@ -93,8 +93,8 @@
        (ignore-errors
          (let* ((enc-pt     (ed-mul pubkey rand))
                 (aes-key    (vec (hash/256 :ecc-cnx-key enc-pt)))
-                (aes-packet (apply #'make-aes-packet aes-key :canary info)))
-           (send cust rand (ed-affine rand-pt) aes-packet)
+                (aes-packet (<<* #'make-aes-packet aes-key :canary info)))
+           (>> cust rand (ed-affine rand-pt) aes-packet)
            ))))
    ))
 
@@ -108,7 +108,7 @@
                 (info     (decode-aes-packet aes-key aes-packet)))
            (when (and (consp info)
                       (eq (car info) :canary))
-             (send cust (cdr info)) )))
+             (>> cust (cdr info)) )))
        ))))
 
 ;; ----------------------------------------------------
@@ -116,24 +116,24 @@
 
 (deflex my-pkeyid
   (create (lambda (cust)
-            (send kvdb:kvdb cust :find :my-ecc-pkeyid))
+            (>> kvdb:kvdb cust :find :my-ecc-pkeyid))
           ))
 
 (deflex srv-pkey
   (create (lambda (cust)
-            (send kvdb:kvdb cust :find "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
+            (>> kvdb:kvdb cust :find "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
           ))
 
 #|
 (β (skey)
-    (send ecc-skey β)
+    (>> ecc-skey β)
   (let ((pkey  (ed-nth-pt skey)))
-    (send kvdb:kvdb println :add :my-ecc-pkeyid "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}")
-    (send kvdb:kvdb println :add "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" pkey)))
+    (>> kvdb:kvdb println :add :my-ecc-pkeyid "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}")
+    (>> kvdb:kvdb println :add "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" pkey)))
 
 (β (pkey-id)
-    (send my-pkeyid β)
-  (send ecc-pkey println pkey-id))
+    (>> my-pkeyid β)
+  (>> ecc-pkey println pkey-id))
 
  |#
 

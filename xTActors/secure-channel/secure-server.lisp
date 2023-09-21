@@ -10,13 +10,13 @@
 #| ;; for debugging
 (defun show-server-outbound (socket)
   (actor (&rest msg)
-    (send println (format nil "s/out: ~S" msg))
-    (send* socket msg)))
+    (>> println (format nil "s/out: ~S" msg))
+    (>>* socket msg)))
 
 (defun show-server-inbound ()
   (actor (cust &rest msg)
-    (send println (format nil "s/in: ~S" msg))
-    (send* cust msg)))
+    (>> println (format nil "s/in: ~S" msg))
+    (>>* cust msg)))
 |#
 
 #-:lattice-crypto
@@ -47,8 +47,8 @@
                                    (ed-mul apt my-skey))         ;; A*s
                          ))
              (β _
-                 (send local-services β :set-crypto ekey socket)
-               (send socket bpt aescrypt))
+                 (>> local-services β :set-crypto ekey socket)
+               (>> socket bpt aescrypt))
              )))
        ))
     ;; silently ignore other requests
@@ -74,8 +74,8 @@
                                                  client-pkeyid client-id cnx-id)) )
        (let ((ekey  (hash/256 bkey akey)))
          (β _
-             (send local-services β :set-crypto ekey socket)
-           (send socket latcrypt aescrypt))
+             (>> local-services β :set-crypto ekey socket)
+           (>> socket latcrypt aescrypt))
          )))
     ;; silently ignore other kinds of requests
     )))
@@ -108,15 +108,15 @@
   ;; show the need to trim away prior garbage
   (alambda
    ((:show)
-    (send writeln args)
+    (>> writeln args)
     (when (eql a 1)
-      (become (apply #'tst-beh
+      (β! (apply #'tst-beh
                      :a 2
                      args))
-      (send self :show)))
+      (>> self :show)))
    ))
 
-(send (create (tst-beh :a 1 :b 2 :c 3)) :show)
+(>> (create (tst-beh :a 1 :b 2 :c 3)) :show)
 
  |#
 

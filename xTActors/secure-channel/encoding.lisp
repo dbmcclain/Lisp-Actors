@@ -37,8 +37,8 @@
   (labels ((wrapper (&rest proc-args)
              ;; (print "Starting thread with fresh PRNG")
              (let ((ironclad:*prng* (ironclad:make-prng :os)))
-               (apply fun proc-args))))
-    (apply #'lw:call-next-advice name kwds #'wrapper args)
+               (<<* fun proc-args))))
+    (<<* #'lw:call-next-advice name kwds #'wrapper args)
     ))
 
 ;; ----------------------------------------------------
@@ -125,12 +125,12 @@
 (defun list-imploder ()
   ;; take a sequence of args and send to cust as one list
   (actor (cust &rest msg)
-    (send cust msg)))
+    (>> cust msg)))
 
 (defun list-exploder ()
   ;; take one list and send to cust as a sequence of args
   (actor (cust msg-list)
-    (send* cust msg-list)))
+    (>>* cust msg-list)))
 
 (defun printer ()
   ;; prints the message and forwards to cust
@@ -142,25 +142,25 @@
 
 (defun marker (&rest txt)
   (actor (cust &rest msg)
-    (send* println txt)
-    (send* cust msg)))
+    (>>* println txt)
+    (>>* cust msg)))
 
 (defun marshal-encoder ()
   (actor (cust &rest args)
-    ;; (send fmt-println "Marshal Encoder")
-    (send cust (loenc:encode (coerce args 'vector)
+    ;; (>> fmt-println "Marshal Encoder")
+    (>> cust (loenc:encode (coerce args 'vector)
                              :max-portability t))
     ))
 
 (defun marshal-decoder ()
   (actor (cust vec)
-    ;; (send fmt-println "Marshal Decoder")
-    (send* cust (coerce (loenc:decode vec) 'list))))
+    ;; (>> fmt-println "Marshal Decoder")
+    (>>* cust (coerce (loenc:decode vec) 'list))))
 
 (defun fail-silent-marshal-decoder ()
   (αα
    ((cust vec) / (typep vec 'ub8-vector)
-    ;; (send fmt-println "Fail-Silent Marshal Decoder")
+    ;; (>> fmt-println "Fail-Silent Marshal Decoder")
     ;;
     ;; The premise here is that, when using malleable encrption and
     ;; refutable signatures, an attacker can form a validly signed but
@@ -172,7 +172,7 @@
                  (loenc:decode vec))))
       (when (and dec
                  (vectorp dec))
-        (send* cust (coerce dec 'list)))
+        (>>* cust (coerce dec 'list)))
       ))
    ))
 
@@ -180,7 +180,7 @@
 (defun marshal-cmpr-encoder ()
   (actor (cust &rest msg)
     ;; takes arbitrary objects and producdes an encoded bytevec
-    (send (marshal-compressor) cust (loenc:encode msg))))
+    (>> (marshal-compressor) cust (loenc:encode msg))))
 
 (defun uncompressed? (vec)
   (and (>= (length vec) 4)
@@ -190,13 +190,13 @@
   ;; takes an encoded bytevec and produces arbitrary objects
   (actor (cust msg)
     (beta (enc)
-        (send (marshal-decompressor) beta msg)
-      (send* cust (loenc:decode enc)))))
+        (>> (marshal-decompressor) beta msg)
+      (>>* cust (loenc:decode enc)))))
 
 (defun marshal-compressor ()
   ;; takes bytevec and produces bytevec
   (actor (cust bytevec)
-    (send cust (if (uncompressed? bytevec)
+    (>> cust (if (uncompressed? bytevec)
                    (handler-case
                        ;; sometimes zlib fails...
                        (let ((cmpr (subseq (zlib:compress bytevec :fixed) 0) ))
@@ -224,7 +224,7 @@
                      nil))
                  )))
       (when vec
-        (send cust vec))
+        (>> cust vec))
       )))
 |#
 
@@ -242,11 +242,11 @@
 ;; try using Google's SNAPPY
 (defun marshal-compressor ()
   (actor (cust vec)
-    (send cust (simple-compress vec))))
+    (>> cust (simple-compress vec))))
 
 (defun marshal-decompressor ()
   (actor (cust vec)
-    (send cust (simple-uncompress vec))))
+    (>> cust (simple-uncompress vec))))
 
 (defun fail-silent-marshal-decompressor ()
   (αα
@@ -254,7 +254,7 @@
     (let ((ans (ignore-errors
                  (simple-uncompress vec))))
       (when ans
-        (send cust ans))
+        (>> cust ans))
       ))
    ))
 
@@ -262,13 +262,13 @@
 #|
 (defun marshal-compressor ()
   (actor (cust vec)
-    ;; (send fmt-println "Marshal Compressor")
-    (send cust vec)))
+    ;; (>> fmt-println "Marshal Compressor")
+    (>> cust vec)))
 
 (defun marshal-decompressor ()
   (actor (cust vec)
-    ;; (send fmt-println "Marshal Decompressor")
-    (send cust vec)))
+    ;; (>> fmt-println "Marshal Decompressor")
+    (>> cust vec)))
 |#
 ;; ---------------------------------------------------------------
 #|
@@ -321,17 +321,17 @@
                  ;; We use the hash/256 of the UUID to preserve
                  ;; anonymity in the nonces.
                  ;;
-                 (send cust nonce)
+                 (>> cust nonce)
                  (let ((new-tag   (tag self))
                        (new-nonce (+ nonce #.(ash 1 256))))
-                   (become (noncer-beh new-nonce new-tag nonce-writer))
+                   (β! (noncer-beh new-nonce new-tag nonce-writer))
                    ;; sync to disk 10s after most recent get-nonce. If
                    ;; another happens during that time window, the
                    ;; sync is rescheduled.
                    (send-after 10 new-tag :write-nonce)))
                 
                 ((cust :write-nonce) when (eq cust tag)
-                 (send nonce-writer nonce))
+                 (>> nonce-writer nonce))
                 )))
       ;; all of the following will likely happen before MP has started...
       (create (noncer-beh (rd-nonce) #()
@@ -362,8 +362,8 @@
    ;; nonces.
    ;;
    (let ((new-nonce (+ nonce #.(ash 1 256))))
-     (send cust new-nonce)
-     (become (noncer-beh new-nonce)))))
+     (>> cust new-nonce)
+     (β! (noncer-beh new-nonce)))))
 
 (def-actor noncer (create
                    (noncer-beh
@@ -395,12 +395,12 @@
 (defun encryptor (ekey)
   (actor (cust bytevec)
     (let ((nonce (encr/decr ekey nil bytevec)))
-      (send cust nonce bytevec))))
+      (>> cust nonce bytevec))))
 
 (defun decryptor (ekey)
   (actor (cust seq bytevec)
     (encr/decr ekey seq bytevec)
-    (send cust bytevec)))
+    (>> cust bytevec)))
 
 #|
 (defun encryptor (ekey)
@@ -477,21 +477,21 @@
   ;; enough to prevent brute-force attacks.
   ;;
   (actor (cust bytevec)
-    ;; (send fmt-println "Encryptor")
+    ;; (>> fmt-println "Encryptor")
     (beta (seq)
-        (send noncer beta :get-nonce)
-      (send cust seq (encrypt/decrypt ekey seq bytevec))
+        (>> noncer beta :get-nonce)
+      (>> cust seq (encrypt/decrypt ekey seq bytevec))
       )))
 
 (defun decryptor (ekey)
   ;; Takes an encrypted bytevec and produces a bytevec
   (αα
    ((cust seq emsg)
-    ;; (send fmt-println "Decryptor")
+    ;; (>> fmt-println "Decryptor")
     (let ((bytvec (ignore-errors
                     (encrypt/decrypt ekey seq emsg))))
       (when bytvec
-        (send cust bytvec)
+        (>> cust bytvec)
         )))
    ))
 |#
@@ -500,7 +500,7 @@
 (defun authentication (ekey)
   (α (cust seq emsg)
     (let ((auth (make-auth ekey seq emsg)))
-      (send cust seq emsg auth))
+      (>> cust seq emsg auth))
     ))
 
 (defun check-authentication (ekey socket)
@@ -538,10 +538,10 @@
                    (multiple-value-bind (is-ok auth-key)
                        (check-auth ekey seq emsg auth)
                      (when is-ok
-                       (send cust seq emsg)
+                       (>> cust seq emsg)
                        ;; publish the auth-key in the clear for repudiable encryption
-                       (send socket :auth-key seq (vec auth-key))
-                       (become (auth-beh (sets:add seqs nseq)))
+                       (>> socket :auth-key seq (vec auth-key))
+                       (β! (auth-beh (sets:add seqs nseq)))
                        ))))
                )))
     (create (auth-beh (sets:empty)))
@@ -551,14 +551,14 @@
 
 (defun signing (skey)
   (actor (cust seq emsg)
-    ;; (send fmt-println "Signing")
+    ;; (>> fmt-println "Signing")
     (let ((sig (make-signature seq emsg skey)))
-      (send cust seq emsg sig))))
+      (>> cust seq emsg sig))))
 
 (defun signature-validation (pkey)
   (αα
    ((cust seq emsg sig) / (check-signature seq emsg sig pkey)
-    (send cust seq emsg))
+    (>> cust seq emsg))
    ))
 
 ;; --------------------------------------
@@ -566,14 +566,14 @@
 (defun self-sync-encoder ()
   ;; takes a bytevec and produces a self-sync bytevec
   (actor (cust bytevec)
-    (send cust (self-synca:encode bytevec))))
+    (>> cust (self-synca:encode bytevec))))
 
 ;; --------------------------------------
 
 (defun checksum ()
   ;; produce a prefix checksum on the message
   (actor (cust &rest msg)
-    (send* cust (vec (hash/256 msg)) msg)
+    (>>* cust (vec (hash/256 msg)) msg)
     ))
 
 (defun verify-checksum ()
@@ -582,7 +582,7 @@
   ;; checksum.
   (actor (cust check &rest msg)
     (when (equalp check (vec (hash/256 msg)))
-      (send* cust msg))
+      (>>* cust msg))
     ))
 
 ;; --------------------------------------------------------------
@@ -600,20 +600,20 @@
 (defun chunker (&optional (max-size 65536))
   ;; Take a bytevec and produces a sequence of chunk encodings.
   (actor (cust byte-vec)
-    ;; (send fmt-println "Chunker")
+    ;; (>> fmt-println "Chunker")
     (let ((size (length byte-vec)))
       (cond ((<= size max-size)
-             ;; (send fmt-println "1 chunk, ~D bytes" size)
-             (send cust :pass byte-vec))
+             ;; (>> fmt-println "1 chunk, ~D bytes" size)
+             (>> cust :pass byte-vec))
             (t
              (let ((nchunks (ceiling size max-size))
                    (id      (int (hash/256 (uuid:make-v1-uuid)))))
-               ;; (send fmt-println "~D chunks, ~D bytes" nchunks size)
-               (send cust :init id nchunks size)
+               ;; (>> fmt-println "~D chunks, ~D bytes" nchunks size)
+               (>> cust :init id nchunks size)
                (do ((offs  0  (+ offs max-size)))
                    ((>= offs size))
                  (let ((frag (subseq byte-vec offs (min size (+ offs max-size)) )))
-                   (send cust :chunk id offs frag)))
+                   (>> cust :chunk id offs frag)))
                ))
             ))
     ))
@@ -634,7 +634,7 @@
 
 (defun chunk-monitor (max-size outer-cust)
   (actor (cust byte-vec)
-    (send cust byte-vec) ;; pass along to chunker
+    (>> cust byte-vec) ;; pass along to chunker
     (let* ((init-beh self-beh)
            (size     (length byte-vec))
            (nchunks  (cond ((<= size max-size) 1)
@@ -644,13 +644,13 @@
                  (lambda* _
                    (let ((new-count (1+ count)))
                      (cond ((>= new-count nchunks)
-                            (send outer-cust :ok)
-                            (become init-beh))
+                            (>> outer-cust :ok)
+                            (β! init-beh))
                            (t
-                            (become (chunk-counter-beh new-count)))
+                            (β! (chunk-counter-beh new-count)))
                            )))
                  ))
-        (become (chunk-counter-beh 0))
+        (β! (chunk-counter-beh 0))
         ))))
     
 ;; ------------------------------------
@@ -664,21 +664,21 @@
   ;; Assemblers are constructed as soon as we have the init record
   ((offs byte-vec) / (and (integerp offs)
                           (typep byte-vec 'ub8-vector))
-   ;; (send fmt-println "Dechunk Assembler: offs ~D, size ~D" offs (length byte-vec))
+   ;; (>> fmt-println "Dechunk Assembler: offs ~D, size ~D" offs (length byte-vec))
    (unless (find offs chunks-seen) ;; toss duplicates
      (let ((replacer    (create
                          (lambda (cust)
                            ;; avoids repeated copying on BECOME retry
                            (replace out-vec byte-vec :start1 offs)
-                           (send cust out-vec))))
+                           (>> cust out-vec))))
            (new-seen    (cons offs chunks-seen))
            (new-nchunks (1- nchunks)))
        (cond ((zerop new-nchunks)
-              (send replacer cust)
-              (become (sink-beh)))
+              (>> replacer cust)
+              (β! (sink-beh)))
              (t
-              (send replacer nil)
-              (become (dechunk-assembler-beh cust new-nchunks new-seen out-vec)))
+              (>> replacer nil)
+              (β! (dechunk-assembler-beh cust new-nchunks new-seen out-vec)))
              )))
    ))
 
@@ -691,11 +691,11 @@
   ((_ :chunk an-id offs byte-vec) when (and (eql an-id id)
                                             (integerp offs)
                                             (typep byte-vec 'ub8-vector))
-   ;; (send fmt-println "Intercept Dechunker: CHUNK id ~A offs ~D, ~D bytes" an-id offs (length byte-vec))
-   (send assembler offs byte-vec))
+   ;; (>> fmt-println "Intercept Dechunker: CHUNK id ~A offs ~D, ~D bytes" an-id offs (length byte-vec))
+   (>> assembler offs byte-vec))
   
   ((_ :init an-id . _) when (eql an-id id)
-   ;; (send fmt-println "Intercept Dechunker: Spurious INIT id ~A" an-id)
+   ;; (>> fmt-println "Intercept Dechunker: Spurious INIT id ~A" an-id)
    ;; toss duplicates
    )
   
@@ -708,18 +708,18 @@
   ((cust :init an-id nchunks size) when (and (eql an-id id)
                                              (integerp nchunks)
                                              (integerp size))
-   ;; (send fmt-println "Pending Dechunker: INIT id ~A ~D chunks, ~D bytes" an-id nchunks size)
+   ;; (>> fmt-println "Pending Dechunker: INIT id ~A ~D chunks, ~D bytes" an-id nchunks size)
    (let ((assembler (make-dechunk-assembler cust nchunks size)))
-     (become (dechunk-interceptor-beh id assembler next))
+     (β! (dechunk-interceptor-beh id assembler next))
      (dolist (args pend)
-       (send* assembler args))
+       (>>* assembler args))
      ))
   
   ((_ :chunk an-id offs byte-vec) when (and (eql an-id id)
                                             (integerp offs)
                                             (typep byte-vec 'ub8-vector))
-   ;; (send fmt-println "Pending Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
-   (become (dechunk-pending-beh id
+   ;; (>> fmt-println "Pending Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
+   (β! (dechunk-pending-beh id
                                 (cons (list offs byte-vec) pend)
                                 next)))
   
@@ -728,24 +728,24 @@
 
 (def-beh null-dechunk-beh ()
   ((cust :pass bytevec) / (typep bytevec 'ub8-vector)
-   ;; (send fmt-println "Null Dechunker: pass")
-   (send cust bytevec))
+   ;; (>> fmt-println "Null Dechunker: pass")
+   (>> cust bytevec))
   
   ((cust :init id nchunks size) / (and (integerp id)
                                        (integerp nchunks)
                                        (integerp size))
-   ;; (send fmt-println "Null Dechunker: INIT id ~A ~D chunks, ~D bytes" id nchunks size)
+   ;; (>> fmt-println "Null Dechunker: INIT id ~A ~D chunks, ~D bytes" id nchunks size)
    (let ((next      (create self-beh))
          (assembler (make-dechunk-assembler cust nchunks size)))
-     (become (dechunk-interceptor-beh id assembler next))
+     (β! (dechunk-interceptor-beh id assembler next))
      ))
   
   ((_ :chunk id offs byte-vec) / (and (integerp id)
                                       (integerp offs)
                                       (typep byte-vec 'ub8-vector))
-   ;; (send fmt-println "Null Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
+   ;; (>> fmt-println "Null Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
    (let ((next (create self-beh)))
-     (become (dechunk-pending-beh id
+     (β! (dechunk-pending-beh id
                                   (list
                                    (list offs byte-vec))
                                   next))
@@ -765,7 +765,7 @@
    (α (cust &rest msg)
      (with-error-response (cust)
        (let ((monitor  (chunk-monitor max-chunk cust)))
-         (send* (sink-pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
+         (>>* (sink-pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
                            (marshal-compressor)
                            monitor                           
                            (chunker max-chunk) ;; we want to limit network message sizes
@@ -800,7 +800,7 @@
    (α (cust &rest msg)
      (with-error-response (cust)
        (let ((monitor  (chunk-monitor max-chunk cust)))
-         (send* (sink-pipe (marshal-encoder)       ;; to get arb msg into bytevec form
+         (>>* (sink-pipe (marshal-encoder)       ;; to get arb msg into bytevec form
                          (marshal-compressor)
                          monitor
                          (chunker max-chunk)
@@ -827,7 +827,7 @@
                          ;; blocking I/O so response happens only
                          ;; after the write has occurred
                          (write-sequence vec stream)
-                         (send cust :ok))))
+                         (>> cust :ok))))
     (disk-encoder stream-writer :max-chunk max-chunk)))
 
 (defun read-self-sync-stream (cust stream &key (start 0) end)
@@ -842,19 +842,19 @@
                 (< pos end))
         (let ((nel (read-sequence buf stream)))
           (when (plusp nel)
-            (send decoder :deliver bufix (subseq buf 0 nel))
+            (>> decoder :deliver bufix (subseq buf 0 nel))
             (go-iter (+ pos nel) (1+ bufix)))
           )))
     ))
 
 #|
-(setf s (hcl:file-string "taxes.lisp"))
+(! s (hcl:file-string "taxes.lisp"))
 
 (let* ((stream (ubyte-streams:make-ubyte-output-stream))
        (closer (α _
                  (let ((stream (ubyte-streams:make-ubyte-input-stream (ubyte-streams:stream-bytes stream))))
                    (read-self-sync-stream writeln stream))) ))
-  (send (self-sync-stream-writer stream 256) closer :write s))
+  (>> (self-sync-stream-writer stream 256) closer :write s))
 |#
 
 ;; Reed-Solomon? anyone?... TBD
@@ -868,21 +868,21 @@
          (reader (encr-disk-decoder ekey pkey writeln))
          (ct     0)
          (sender (α (chunk)
-                   (send reader :deliver (incf ct) chunk))))
-    (send (sink-pipe (encr-disk-encoder ekey skey :max-chunk 16)
+                   (>> reader :deliver (incf ct) chunk))))
+    (>> (sink-pipe (encr-disk-encoder ekey skey :max-chunk 16)
                      (writer)
                      sender)
           "This is a test")))
 
 (let ((junk (make-ub8-vector 1022)))
   (beta (ans)
-      (send (pipe (chunker :max-size 16) (dechunker)) beta junk)
-    (send println (if (equalp ans junk) :yes :no))))
+      (>> (pipe (chunker :max-size 16) (dechunker)) beta junk)
+    (>> println (if (equalp ans junk) :yes :no))))
 
 (multiple-value-bind (skey pkey)
     (make-deterministic-keys :test)
   (let ((ekey (hash/256 skey pkey)))
-    (send (pipe (marshal-encoder) (encryptor ekey)) println "This is a test")))
+    (>> (pipe (marshal-encoder) (encryptor ekey)) println "This is a test")))
 
 (let ((x (hcl:file-string "./xTActors/encoding.lisp"))
       ;; (x "test string")
@@ -892,17 +892,17 @@
     (let ((ekey (hash/256 skey pkey))
           (inp  nil))
       (beta (ans)
-          (send (encr-disk-encoder ekey skey) beta x)
-          ;; (send (disk-encoder) beta x)
-          ;; (send (netw-encoder ekey skey) beta x)
+          (>> (encr-disk-encoder ekey skey) beta x)
+          ;; (>> (disk-encoder) beta x)
+          ;; (>> (netw-encoder ekey skey) beta x)
           #|
-          (send (pipe (marshal-encoder)
+          (>> (pipe (marshal-encoder)
                       (chunker)
                       (marshal-encoder)
                       (writer)
                       (actor (cust bytvec)
-                        (setf inp bytvec)
-                        (send cust bytvec))
+                        (! inp bytvec)
+                        (>> cust bytvec))
                       (encryptor ekey)
                       (signing skey)
                       (writer)
@@ -911,21 +911,21 @@
                       (writer)
                       (actor (cust bytvec)
                         (let ((diff (map 'vector #'logxor bytvec inp)))
-                          (send println diff)
-                          (send println (position-if-not #'zerop diff))
-                          (send cust bytvec)))
+                          (>> println diff)
+                          (>> println (position-if-not #'zerop diff))
+                          (>> cust bytvec)))
                       (marshal-decoder)
                       (dechunker)
                       (marshal-decoder))
                 beta x)
           |#
-        (send (encr-disk-decoder ekey pkey) println ans)
-        ;; (send (disk-decoder) println ans)
-        ;; (send (netw-decoder ekey pkey) println ans)
-        ;; (send println ans)
+        (>> (encr-disk-decoder ekey pkey) println ans)
+        ;; (>> (disk-decoder) println ans)
+        ;; (>> (netw-decoder ekey pkey) println ans)
+        ;; (>> println ans)
         
-        (send println (format nil "x-size: ~A" (length x)))
-        (send println (format nil "enc-size: ~A" (length ans)))
+        (>> println (format nil "x-size: ~A" (length x)))
+        (>> println (format nil "enc-size: ~A" (length ans)))
         ))))
 
 (let* ((x   (hcl:file-string "./xTActors/encoding.lisp"))
@@ -975,7 +975,7 @@
     ;; single list to cust, along with AONT parameters
     (let ((pkey-vec (vec (ed-nth-pt skey))))
       (beta (data-packet)
-          (send* (pipe (marshal-encoder)
+          (>>* (pipe (marshal-encoder)
                        (marshal-compressor)
                        (encryptor ekey)
                        (signing skey)
@@ -983,7 +983,7 @@
                  beta msg)
           (let* ((aont-vec (vec (hash/256 pkey-vec data-packet))))
             (map-into aont-vec #'logxor aont-vec ekey)
-            (send cust pkey-vec data-packet aont-vec)
+            (>> cust pkey-vec data-packet aont-vec)
             ))
       )))
 
@@ -993,7 +993,7 @@
     (let ((pkey  (ed-decompress-pt pkey-vec))
           (ekey  (vec (hash/256 pkey-vec data-packet))))
       (map-into ekey #'logxor ekey aont-vec)
-      (send (pipe (marshal-decoder)
+      (>> (pipe (marshal-decoder)
                   (signature-validation pkey)
                   (decryptor ekey)
                   (marshal-decompressor)
@@ -1007,7 +1007,7 @@
   ;; writes a single AONT record to a file
   (actor (cust &rest msg)
     (beta vecs
-        (send* (aont-encoder skey ekey) beta msg)
+        (>>* (aont-encoder skey ekey) beta msg)
       (with-open-file (fd fname
                           :direction :output
                           :if-exists :supersede
@@ -1016,7 +1016,7 @@
         (write-sequence +AONT-FILE-TYPE-ID+ fd)
         (loenc:serialize vecs fd
                          :max-portability t)
-        (send cust :ok)
+        (>> cust :ok)
         ))))
 
 (defun aont-file-reader (fname)
@@ -1030,7 +1030,7 @@
        (let ((file-type (make-ub8-vector 16)))
          (read-sequence file-type fd)
          (if (equalp +AONT-FILE-TYPE-ID+ file-type)
-             (send* aont-decoder cust (loenc:deserialize fd))
+             (>>* aont-decoder cust (loenc:deserialize fd))
            (error "~A: Not an AONT encoded file" fname))
          )))))
 
@@ -1043,11 +1043,11 @@
         (make-deterministic-keys :test)
       (let ((ekey (vec (hash/256 skey pkey))))
         (beta (pkey-vec data-packet aont-vec)
-            (send (aont-encoder skey ekey) beta msg)
-          (send writeln (list pkey-vec data-packet aont-vec))
+            (>> (aont-encoder skey ekey) beta msg)
+          (>> writeln (list pkey-vec data-packet aont-vec))
           (beta (dmsg)
-              (send aont-decoder beta pkey-vec data-packet aont-vec)
-            (send writeln dmsg)
+              (>> aont-decoder beta pkey-vec data-packet aont-vec)
+            (>> writeln dmsg)
             (assert (equalp msg dmsg))
             )))
       )))
@@ -1059,7 +1059,7 @@
   (multiple-value-bind (skey pkey)
       (make-deterministic-keys :test)
     (let ((ekey (vec (hash/256 skey pkey))))
-      (send (aont-file-writer fout skey ekey) println msg)
+      (>> (aont-file-writer fout skey ekey) println msg)
       )))
 
 (defun tst ()
@@ -1067,7 +1067,7 @@
         (finp "./xTActors/aont-test")
         (fout "./xTActors/aont-test-result.txt"))
     (beta (dmsg)
-        (send (aont-file-reader finp) beta)
+        (>> (aont-file-reader finp) beta)
       (with-open-file (fd fout
                           :direction :output
                           :if-exists :supersede
@@ -1075,7 +1075,7 @@
         (write-string dmsg fd))
       
       (assert (string= dmsg msg))
-      (send writeln dmsg)
+      (>> writeln dmsg)
       )))
 (tst)
 
@@ -1114,7 +1114,7 @@
             (incf (aref arr ix) 0.0001)
             (loop for sym across (vec h) do
                   (incf (aref syms sym) (/ 256 320_000)))
-            (setf h (hash/256 h))
+            (! h (hash/256 h))
             ))
     (plt:plot 'syms syms
               :clear t
@@ -1134,7 +1134,7 @@
               :line-type :stepped)
     (let ((carr (copy-seq arr)))
       (loop for ix from 1 to 32 do
-            (setf (aref carr ix) (+ (aref carr ix)
+            (! (aref carr ix) (+ (aref carr ix)
                                     (aref carr (1- ix)))))
       (plt:plot 'cum carr
                 :clear t
@@ -1162,17 +1162,17 @@
             (loop for jx from ix
                   for kx from 0 below 32
                   do
-                  (setf (row-major-aref img jx) (aref v kx))
+                  (! (row-major-aref img jx) (aref v kx))
                   ))
-          (setf h (hash/256 h)))
+          (! h (hash/256 h)))
     (loop for ix from 250 below 350 do
           (loop for iy from 200 below 300 do
-                (setf (aref img ix iy) 0)))
+                (! (aref img ix iy) 0)))
     (plt:window 'img :width 512 :height 512)
     (plt:tvscl 'img img)
     (let ((ekey (hash/256 :again)))
       (beta (seq enc)
-          (send (pipe (marshal-encoder)
+          (>> (pipe (marshal-encoder)
                       (encryptor ekey))
                 beta img)
         (declare (ignore seq))
@@ -1195,12 +1195,12 @@
                           :initial-element 0)))
     (loop for ix from 250 below 350 do
           (loop for iy from 200 below 300 do
-                (setf (aref img ix iy) #xff)))
+                (! (aref img ix iy) #xff)))
     (plt:window 'img :width 512 :height 512)
     (plt:tvscl 'img img)
     (let ((ekey (hash/256 :again)))
       (beta (seq enc)
-          (send (pipe (marshal-encoder)
+          (>> (pipe (marshal-encoder)
                       (encryptor ekey))
                 beta img)
         (declare (ignore seq))
@@ -1228,28 +1228,28 @@
             (loop for jx from ix
                   for kx from 0 below 32
                   do
-                  (setf (row-major-aref img2 jx)
-                        (setf (row-major-aref img1 jx) (aref v kx)))
+                  (! (row-major-aref img2 jx)
+                        (! (row-major-aref img1 jx) (aref v kx)))
                   ))
-          (setf h (hash/256 h)))
+          (! h (hash/256 h)))
     (loop for ix from 250 below 350 do
           (loop for iy from 200 below 300 do
-                (setf (aref img1 ix iy) 0)))
+                (! (aref img1 ix iy) 0)))
     (loop for ix from 125 below 175 do
           (loop for iy from 125 below 175 do
-                (setf (aref img2 ix iy) 0)))
+                (! (aref img2 ix iy) 0)))
     (plt:window 'img1 :width 512 :height 512)
     (plt:tvscl 'img1 img1)
     (plt:window 'img2 :width 512 :height 512)
     (plt:tvscl 'img2 img2)
     (let ((ekey (hash/256 :again)))
       (beta (seq enc1)
-          (send (pipe (marshal-encoder)
+          (>> (pipe (marshal-encoder)
                       (encryptor ekey))
                 beta img1)
         (declare (ignore seq))
         (beta (seq enc2)
-            (send (pipe (marshal-encoder)
+            (>> (pipe (marshal-encoder)
                         (encryptor ekey))
                   beta img2)
           (declare (ignore seq))
@@ -1266,7 +1266,7 @@
 
 ;; -------------------------------------------------------------
 
-(setf s (hcl:file-string "./xTActors/encoding.lisp"))
+(! s (hcl:file-string "./xTActors/encoding.lisp"))
 
 (let ((pipe (sink-pipe (marshal-encoder)
                        (chunker :max-size 16000)
@@ -1277,6 +1277,6 @@
                        (dechunker)
                        (marshal-decoder)
                        println)))
-  (send (α _
-          (send pipe s))))
+  (>> (α _
+          (>> pipe s))))
   |#
