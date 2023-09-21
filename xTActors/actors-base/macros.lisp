@@ -22,7 +22,7 @@
 (editor:setup-indent "actor" 1)
 
 ;; ----------------------------------------------
-;; Like LETREC, but for Actor defs, cross-referential.
+;; Like LETREC, but for Actor defs, mutually-, or self-, referential.
 ;;
 ;; -- DM/RAL  2022/12/12 06:34:30
 ;; Do it without direct mutation in an SMP-safe manner,
@@ -42,7 +42,7 @@
 |#
 (defmacro actors (bindings &body body)
   ;; Bindings should generally be BEHAVIOR functions, not Actors.
-  ;; But if Actors are provided we will steal their behavior closures.
+  ;; But if Actors are provided we will become forwarding Actors to them.
   (let ((actors (mapcar #'car bindings))
         (behs   (mapcar #'cadr bindings)))
     `(let ,(mapcar #`(,a1 (create (%becomer-beh))) actors)
