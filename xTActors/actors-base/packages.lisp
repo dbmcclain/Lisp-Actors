@@ -297,7 +297,6 @@ THE SOFTWARE.
    #:fut
    
    #:timed-service
-   #:lazy-fwd
    #:future-become-beh
    #:with-maximum-io-syntax
 

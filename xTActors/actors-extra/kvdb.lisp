@@ -1074,7 +1074,7 @@
 ;; -----------------------------------------------------
 ;; One to goof around in...
 
-(deflex kvdb (lazy-fwd kvdb-maker :make-kvdb *db-path*))
+(deflex kvdb (fut kvdb-maker :make-kvdb *db-path*))
 
 ;; -----------------------------------------------------
 ;; more goofing around...

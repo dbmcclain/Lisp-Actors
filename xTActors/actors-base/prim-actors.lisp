@@ -192,8 +192,7 @@
   (alambda
    ((atag act) / (eq atag tag)
     (become (fwd-beh act))
-    (dolist (msg msgs)
-      (send* act msg)))
+    (send-all-to act msgs))
    (msg
     (become (fut-wait-beh tag (cons msg msgs))))
    ))
@@ -287,26 +286,6 @@
   ;; Like FUTURE, but delays evaluation of the Actor with message
   ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
   (create-service (apply 'lazy-beh actor msg)))
-
-;; --------------------------------------
-;; LAZY-FWD -- become a FWD on demand
-
-(defun future-fwd-wait-beh (tag msgs)
-  (alambda
-   ((atag dest) / (eq atag tag)
-    (become (fwd-beh dest))
-    (send-all-to dest msgs))
-   (msg
-    (become (future-fwd-wait-beh tag (cons msg msgs))))
-   ))
-
-(defun lazy-fwd (actor &rest init-msg)
-  (create
-   (lambda (&rest msg)
-     (let ((tag (once-tag self)))
-       (become (future-fwd-wait-beh tag (list msg)))
-       (send* actor tag init-msg))
-     )))
 
 ;; --------------------------------------
 ;; SER - make an Actor that evaluates a series of blocks sequentially
