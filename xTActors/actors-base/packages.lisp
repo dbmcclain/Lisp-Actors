@@ -324,6 +324,8 @@ THE SOFTWARE.
    #:>>*
    #:!
    #:β!
+   #:!β
+   #:αλ
    ))
 
 #+(OR :ALLEGRO :CCL)

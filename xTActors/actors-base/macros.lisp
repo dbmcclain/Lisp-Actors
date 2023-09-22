@@ -401,3 +401,10 @@
 
 (defmacro β! (arg)
   `(become ,arg))
+
+(defmacro !β (arg) ;; for dyslexics, like me
+  `(become ,arg))
+
+(defmacro αλ (&rest clauses)
+  `(alambda ,@clauses))
+

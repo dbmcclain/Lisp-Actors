@@ -21,7 +21,7 @@
 ;; The main async manager
 
 (defun async-socket-system-beh (&optional ws-collection aio-accepting-handle)
-  (alambda
+  (αλ
    ;; --------------------------------------
    ((cust :terminate-server)
     (flet ((ws-handler (coll)
@@ -139,7 +139,7 @@
 ;; -----------------------------------------------
 
 (defun io-base-beh (io-state)
-  (alambda
+  (αλ
    ((cust :terminate)
     (β! (io-closed-beh))
     (>> forcible-socket-closer cust io-state))
@@ -155,7 +155,7 @@
 
 (defun io-closed-beh ()
   ;; Fully closed state
-  (alambda
+  (αλ
    ((cust :try-writing _ if-nok)
     (>> if-nok)
     (>> cust :err))
@@ -166,7 +166,7 @@
 
 (defun io-running-beh (io-state base)
   ;; In this state we are open to async reads, no writing under way,
-  (alambda
+  (αλ
    ((cust :try-writing if-ok _)
     (β! (io-running-write-beh io-state base))
     (>> if-ok)
@@ -178,7 +178,7 @@
 
 (defun io-running-write-beh (io-state base)
   ;; Async reads are active, writing is under way.
-  (alambda
+  (αλ
    ((cust :finish-wr-ok)
     (β! (io-running-beh io-state base))
     (>> cust :ok))
@@ -254,7 +254,7 @@
 ;; Watchdog Timer - shuts down interface after prologned inactivity
 
 (defun watchdog-timer-beh (killer tag)
-  (alambda
+  (αλ
    ((:resched)
     (let ((new-tag (tag self)))
       (β! (watchdog-timer-beh killer new-tag))
@@ -359,7 +359,7 @@
 ;; The list of currently active socket connections
 
 (defun connections-list-beh (&optional cnx-lst)
-  (alambda
+  (αλ
    
    ((cust :show)
     (>> cust cnx-lst))
@@ -709,7 +709,7 @@
         ))))
 
 (defun initial-socket-shutdown-beh ()
-  (alambda
+  (αλ
    ((cust :init state)
     (β! (socket-shutdown-beh state))
     (>> cust :ok))
