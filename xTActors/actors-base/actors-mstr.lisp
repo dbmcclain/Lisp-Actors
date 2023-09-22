@@ -41,7 +41,8 @@ THE SOFTWARE.
 (defun sink-beh ()
   #'do-nothing)
 
-(def-actor sink)
+(deflex sink
+  (create (sink-beh)))
 
 (defun is-pure-sink? (actor)
   ;; used by networking code to avoid sending useless data
@@ -95,6 +96,7 @@ THE SOFTWARE.
       (restart-actors-system *nbr-pool*)
       (send* actor msg))
     #'startup-send))
+
 
 (defun send (actor &rest msg)
   #F
@@ -254,27 +256,32 @@ THE SOFTWARE.
              ))
       (declare (dynamic-extent #'%send #'%become #'%abort-beh #'dispatch))
       
-      (let ((*send*      #'%send)
-            (*become*    #'%become)
-            (*abort-beh* #'%abort-beh))
-        
-        (if (actor-p actor) ;; are we an ASK?
-            (let ((svc (timed-service actor *timeout*))
-                  (me  (create
-                        (lambda (&rest msg)
-                          (setf done (list msg)))
-                        )))
-              (setf timeout +ASK-TIMEOUT+)
-              (mpc:mailbox-send *central-mail* (msg svc (cons me message)))
-              ;; (sleep 1)
+      (if (actor-p actor) ;; are we an ASK?
+          (let ((svc (timed-service actor *timeout*))
+                (me  (create
+                      (lambda (&rest msg)
+                        (setf done (list msg)))
+                      )))
+            (setf timeout +ASK-TIMEOUT+)
+            (send* svc me message)
+            ;; (sleep 1)
+            (let ((*send*      #'%send)
+                  (*become*    #'%become)
+                  (*abort-beh* #'%abort-beh))
+              
               (with-simple-restart (abort "Terminate ASK")
                 (dispatch))
               (when done
-                (values (car done) t)))
-          ;; else - we are normal Dispatch thread
+                (values (car done) t))))
+        
+        ;; else - we are normal Dispatch thread
+        (let ((*send*      #'%send)
+              (*become*    #'%become)
+              (*abort-beh* #'%abort-beh))
+          
           (with-simple-restart (abort "Terminate Actor thread")
-            (dispatch)))
-        ))))
+            (dispatch))))
+      )))
 
 ;; ----------------------------------------------------------------
 ;; Error Handling
@@ -412,6 +419,9 @@ THE SOFTWARE.
     (lambda (,var)
       ,@body)
     ,stream)
+  #+:LISPWORKSx
+  `(let ((,var ,stream))
+     ,@body)
   #+:SBCL
   `(let ((,var ,stream))
      ,@body)
@@ -419,11 +429,12 @@ THE SOFTWARE.
   `(let ((,var ,stream))
      ,@body))
 
-(def-actor println
-  (α msg
-    (with-printer (s *standard-output*)
-      (format s "~&~{~A~%~}" msg))))
-
+(deflex println
+  (create
+   (lambda* msg
+     (with-printer (s *standard-output*)
+       (format s "~&~{~A~%~}" msg)))))
+  
 (defun do-with-maximum-io-syntax (fn)
   (with-standard-io-syntax
     (let ((*print-radix* t)
@@ -439,18 +450,20 @@ THE SOFTWARE.
 (defmacro with-maximum-io-syntax (&body body)
   `(do-with-maximum-io-syntax (lambda () ,@body)))
 
-(def-actor writeln
-  (α msg
-    (with-printer (s *standard-output*)
-      (with-maximum-io-syntax
-       (format s "~&~{~:W~%~}" msg)))))
+(deflex writeln
+  (create
+   (lambda* msg
+     (with-printer (s *standard-output*)
+       (with-maximum-io-syntax
+         (format s "~&~{~:W~%~}" msg))))))
 
-(def-actor fmt-println
-  (α (fmt-str &rest args)
-    (with-printer (s *standard-output*)
-      (format s "~&")
-      (apply #'format s fmt-str args))
-    ))
+(deflex fmt-println
+  (create
+   (lambda (fmt-str &rest args)
+     (with-printer (s *standard-output*)
+       (format s "~&")
+       (apply #'format s fmt-str args))
+     )))
 
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world

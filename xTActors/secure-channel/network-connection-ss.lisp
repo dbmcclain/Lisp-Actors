@@ -20,74 +20,80 @@
 ;; -----------------------------------------------
 ;; The main async manager
 
-(deflex* async-socket-system
-  (serializer ;; because we bang on global state...
-   (create
-    (let ((ws-collection        nil)
-          (aio-accepting-handle nil))
-      (alambda
-       ;; --------------------------------------
-       ((cust :terminate-server)
-        (with-error-response (cust) ;; so we don't lock up Serializer on errors
-          (flet ((ws-handler (coll)
-                   ;; we are operating in the collection process
-                   (with-error-response (cust)
-                     (comm:close-wait-state-collection coll)
-                     (! ws-collection        nil
-                        aio-accepting-handle nil)
-                     (>> cust :ok)
-                     (mpc:process-terminate (mpc:get-current-process))
-                     )))
-            (cond
-             (aio-accepting-handle
-              (comm:close-accepting-handle aio-accepting-handle #'ws-handler) )
-             
-             (ws-collection
-              (comm:apply-in-wait-state-collection-process ws-collection #'ws-handler))
-             
-             (t
-              (>> cust :ok))
+(defun async-socket-system-beh (&optional ws-collection aio-accepting-handle)
+  (alambda
+   ;; --------------------------------------
+   ((cust :terminate-server)
+    (flet ((ws-handler (coll)
+             ;; we are operating in the collection process
+             (comm:close-wait-state-collection coll)
+             (>> cust :ok)
+             (mpc:process-terminate (mpc:get-current-process))
              ))
+      (cond
+       (aio-accepting-handle
+        (β! (async-socket-system-beh))
+        (non-idempotent
+          (comm:close-accepting-handle aio-accepting-handle #'ws-handler) ))
+       
+       (ws-collection
+        (β! (async-socket-system-beh))
+        (non-idempotent
+          (comm:apply-in-wait-state-collection-process ws-collection #'ws-handler)))
+       
+       (t
+        (>> cust :ok))
+       )) )
+       
+   ;; --------------------------------------
+   ((cust :start-tcp-server . options)
+    (cond ((or ws-collection aio-accepting-handle)
+           (let++ ((me   self)
+                   (msg  self-msg)
+                   (:β _ (racurry self :terminate-server)))
+             (>>* me msg)))
+
+          (t
+           (let++ ((tcp-port-number (or (car options)
+                                        *default-port*))
+                   (ws-coll         (comm:create-and-run-wait-state-collection "Actor Server"))
+                   (handle          (comm:accept-tcp-connections-creating-async-io-states
+                                     ws-coll
+                                     tcp-port-number
+                                     #'start-server-listener
+                                     :ipv6    nil
+                                     ) ))
+             (β! (async-socket-system-beh ws-coll handle))
+             (>> fmt-println "-- Actor Server started on port ~A --" tcp-port-number)
+             (>> cust :ok)) )
           ))
-       
-       ;; --------------------------------------
-       ((cust :start-tcp-server . options)
-        (with-error-response (cust)
-          (let++ ((:β _            (racurry self :terminate-server))
-                  (tcp-port-number (or (car options)
-                                       *default-port*)))
-            (! ws-collection         (comm:create-and-run-wait-state-collection "Actor Server")
-               aio-accepting-handle  (comm:accept-tcp-connections-creating-async-io-states
-                                      ws-collection
-                                      tcp-port-number
-                                      #'start-server-messenger
-                                      :ipv6    nil
-                                      ) )
-            (>> fmt-println "Actor Server started on port ~A" tcp-port-number)
-            (>> cust :ok)) ))
-       
-       ;; --------------------------------------
-       ((cust :connect ip-addr ip-port)
-        ;; Message sent from clients wanting to connect to a server.
-        ;; Cust is the CONNECTIONS manager.
-        (with-error-response (cust)  ;; so we don't lock up Serializer on errors
-          (flet ((callback (io-state args)
-                   ;; Performed in the process of collection, so keep it short.
-                   (>>* cust io-state args)))
-            (unless ws-collection
-              (! ws-collection (comm:create-and-run-wait-state-collection "Actor Clients")))
-            (<<* #'comm:create-async-io-state-and-connected-tcp-socket
-                 ws-collection
-                 ip-addr ip-port #'callback
-                 #-:WINDOWS
-                 `(:connect-timeout 5 :ipv6 nil)
-                 #+:WINDOWS
-                 `(:connect-timeout 5)
-                 ))
+   
+   ;; --------------------------------------
+   ((cust :connect ip-addr ip-port)
+    ;; Message sent from clients wanting to connect to a server.
+    ;; Cust is the CONNECTIONS manager.
+    (cond (ws-collection
+           (flet ((callback (io-state args)
+                    ;; Performed in the process of collection, so keep it short.
+                    (>>* cust io-state args)))
+             (<<* #'comm:create-async-io-state-and-connected-tcp-socket
+                  ws-collection
+                  ip-addr ip-port #'callback
+                  #-:WINDOWS
+                  `(:connect-timeout 5 :ipv6 nil)
+                  #+:WINDOWS
+                  `(:connect-timeout 5)
+                  )))
+
+          (t
+           (let ((ws-coll  (comm:create-and-run-wait-state-collection "Actor Clients")))
+             (β! (async-socket-system-beh ws-coll))
+             (repeat-send self)))
           ))
-       
-       ))
-    )))
+   ))
+
+(deflex* async-socket-system
+  (create (async-socket-system-beh)))
 
 ;; -------------------------------------------------------------
 ;; Socket connection state
@@ -839,7 +845,7 @@
 
 ;; -------------------------------------------------------------
 
-(defun start-server-messenger (accepting-handle io-state)
+(defun start-server-listener (accepting-handle io-state)
   "Called, from the server, when a client connects to the server port."
   ;; this is a callback function from the socket event loop manager
   ;; so we can't dilly dally...
@@ -854,15 +860,16 @@
 ;; --------------------------------------------------------------
 ;;
 
-(defun* lw-start-actor-server _
+(defun* lw-start-actors-server _
   ;; called by Action list with junk args
   ;;
   ;; We need to delay the construction of the system logger till this
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
+  ;;
   (ask async-socket-system :start-tcp-server))
 
-(defun* lw-reset-actor-server _
+(defun* lw-reset-actors-server _
   (ask async-socket-system :terminate-server)
   (princ "Actor Server has been shut down."))
 
@@ -871,27 +878,27 @@
 
   (lw:define-action "Initialize LispWorks Tools"
                     "Start up Actor Server"
-                    'lw-start-actor-server
+                    'lw-start-actors-server
                     :after "Start up Actor System" ;; "Run the environment start up functions"
                     :once)
 
   (lw:define-action "Save Session Before"
                     "Stop Actor Server"
-                    'lw-reset-actor-server
+                    'lw-reset-actors-server
                     :before "Stop Actor System")
 
   (lw:define-action "Save Session After"
                     "Restart Actor Server"
-                    'lw-start-actor-server
+                    'lw-start-actors-server
                     :after "Restart Actor System")
   )
 
 (defun com.ral.actors:start ()
-  (lw-start-actor-server))
+  (lw-start-actors-server))
 
 #| ;; for manual loading mode
 (if (mpc:get-current-process)
     (lw-start-tcp-server)
-  (pushnew '("Start Actor Server" () lw-start-tcp-server) mpc:*initial-processes*
+  (pushnew '("Start Actor Server" () lw-start-actors-server) mpc:*initial-processes*
            :key #'third))
 |#

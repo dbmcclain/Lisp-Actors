@@ -117,15 +117,16 @@
 (deflex negotiator
   (create
    (lambda (cust socket local-services)
-     (let++ ((client-id  (uuid:make-v1-uuid))
+     (let++ ((client-id     (uuid:make-v1-uuid))
              (:β srv-pkey   eccke:srv-pkey)
              (:β my-pkeyid  eccke:my-pkeyid)
              (:β (arand apt aescrypt) (racurry eccke:ecc-cnx-encrypt
                                                srv-pkey +server-connect-id+ client-id my-pkeyid))
              (responder  (create
                           (alambda
-                           ((bpt server-id) /  (and (typep bpt       'ecc-pt)
-                                                    (typep server-id 'uuid:uuid))
+                           ((bpt server-id) /  (and (typep bpt         'ecc-pt)
+                                                    (ed-validate-point bpt)
+                                                    (typep server-id   'uuid:uuid))
                             (let-β ((my-skey  eccke:ecc-skey))
                               (let ((ekey  (hash/256 (ed-mul bpt arand)           ;; B*a
                                                      (ed-mul bpt my-skey)         ;; B*c
@@ -318,4 +319,37 @@
           (>> (timed-service proxy 10) β :find 'kvdb::version)
         (>> println (uuid:when-created uuid))
         ))))
+
+
+(defun tst (host)
+  (labels
+      ((counter-beh (&optional (count 0))
+         (alambda
+          ((:start)
+           (become (counter-beh 0))
+           (>> (create (timer-beh)) self)
+           (>> self :count)
+           (send-after 20 self :timeout)
+           (>> println :tst-starting))
+          ((:timeout)
+           (>> fmt-println "tst: emergency stop: count = ~D" count)
+           (become-sink))
+          ((:stop)
+           (>> fmt-println "tst: final count = ~D" count)
+           (become-sink))
+          ((:count)
+           (become (counter-beh (1+ count)))
+           (>> self :count))
+          (msg
+           (send fmt-println "tst: unexpected message: ~W" msg)
+           (become-sink))) )
+       (timer-beh ()
+         (lambda (cust)
+           (let ((recho (remote-service :echo host)))
+             (>> recho cust :stop) ))))
+    (>> (create (counter-beh)) :start)
+    ))
+
+(tst "rincon.local")
+(tst "rambo.local")
 |#
