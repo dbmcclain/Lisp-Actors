@@ -320,8 +320,46 @@
         (>> println (uuid:when-created uuid))
         ))))
 
-
+;; ---------------------------------------------------------
+;; Demonstrate Hewett's Unbounded Nondeterminism
+;;
 (defun tst (host)
+  ;; Make a counter Actor that increments its state by 1, on message
+  ;; :COUNT, and then sends itself another :COUNT message, until
+  ;; receiving a :STOP message.
+  ;;
+  ;; At :START it fires off a kind of timer to send itself a :STOP
+  ;; message ASAP and sends itself the first :COUNT message.
+  ;;
+  ;; The counter will stop and print out its count on receipt of the
+  ;; :STOP message.
+  ;;
+  ;; The timer here is the network delay in asking a remote server to
+  ;; send that :STOP message back to the counter Actor. It has unknown
+  ;; and variable delay.
+  ;;
+  ;; Lacking a response from the network, there is a secondary
+  ;; :TIMEOUT message sent by a parallel timer, to cause the Actor to
+  ;; cease counting. This second timer is reliable, unlike a TCP
+  ;; network.
+  ;;
+  ;; The final count is nondeterministic and unbounded, and the code
+  ;; is Halting. This program is something that a pure Lambda Calculus
+  ;; cannot perform. Hence, proving that Actors are more general than
+  ;; Lambda Calculus.
+  ;;
+  ;; Lambda Calculus performs comptation by substitution of bindings.
+  ;; Lambda Calculus is provably equivalent to a Turing Machine. Hence
+  ;; both are subsumed by Actors, and the notion of Universal
+  ;; Computation - being anything that a Turing Complete computing
+  ;; system can perform, is a proper subset of reality.
+  ;;
+  ;; Lisp is Lambda Calculus PLUS an Environment into which program
+  ;; state is recorded. Since I'm doing this in Lisp, it is obvious
+  ;; that Lisp transcends Lambda Calculus too. To the extent that I
+  ;; have captured all of Actors potential, it proves that Lisp and
+  ;; Actors Universality are the same.
+  ;;
   (labels
       ((counter-beh (&optional (count 0))
          (alambda
