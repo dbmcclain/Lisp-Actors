@@ -360,6 +360,9 @@
   ;; have captured all of Actors potential, it proves that Lisp and
   ;; Actors Universality are the same.
   ;;
+  ;; There is no mutation in this code, except for the controlled
+  ;; mutation provided by BECOME.
+  ;;
   (labels
       ((counter-beh (&optional (count 0))
          (alambda
