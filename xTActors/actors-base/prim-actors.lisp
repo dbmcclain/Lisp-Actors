@@ -675,10 +675,12 @@
       (funcall fn-form new-cust))
     ))
 
-(defmacro with-actors-open-file ((cust fd filename &rest open-args) &body body)
+(defmacro with-actors-open-file ((cust fd filename &rest open-args
+                                       &key (timeout *timeout*) &allow-other-keys)
+                                 &body body)
   `(let ((,fd  (open ,filename
                      ,@(um:remove-prop :timeout open-args))))
-     (unw-prot (,cust :timeout ,(getf open-args :timeout))
+     (unw-prot (,cust :timeout ,timeout)
          (progn
            ,@body)
        (send fmt-println "Closing file: ~A" ,filename)
