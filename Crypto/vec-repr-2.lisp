@@ -223,6 +223,21 @@ THE SOFTWARE.
 (defmethod base64-str (x)
   (base64-str (base64 x)))
 
+;; ----------------------------------------------------------
+;; Base85 encodes UB8 vectors and integers into character strings of
+;; the restricted alphabet. Encoding has a 6-character prefix that
+;; represents the total number of bytes in the vector, up to 2^32
+;; elements.
+
+(defclass base85 (ub8v-as-str)
+  ((val :reader base85-str
+        :initarg :str)))
+
+(defgeneric base85 (x))
+
+(defmethod base85-str (x)
+  (base85-str (base85 x)))
+
 ;; -----------------------------------------------------------
 ;; Hex-string representation, 1 char per 4-bit nibble
 
@@ -385,6 +400,35 @@ THE SOFTWARE.
   (base64 (bev-vec x)))
 
 ;; -------------------------------------------------------------
+;; Base85 Conversions
+
+(defun convert-vector-to-base85-string (ivec)
+  (binascii:encode-base85 ivec))
+
+(defun convert-base85-string-to-vector (str)
+  (let ((vec (ub8v
+              (binascii:decode-base85 str))))
+    ;; convert to simple-array (suitable for Ironclad input)
+    (subseq vec 0 (length vec))))
+
+;; ---
+
+(defmethod base85 ((x base85))
+  x)
+
+(defmethod base85 ((x sequence))
+  ;; assumes x is big endian vector
+  (make-instance 'base85
+                 :str (convert-vector-to-base85-string (ub8v x))))
+
+(defmethod base85 ((x string))
+  (check-repr (make-instance 'base85
+                             :str (sbs x))))
+
+(defmethod base85 (x)
+  (base85 (bev-vec x)))
+
+;; -------------------------------------------------------------
 ;; HEX Conversions
 ;;
 ;; A HEX is a convenient printable representation of the bytes
@@ -483,6 +527,10 @@ THE SOFTWARE.
   (make-instance 'bev
                  :vec (convert-base64-string-to-vector (str x))))
 
+(defmethod bev ((x base85))
+  (make-instance 'bev
+                 :vec (convert-base85-string-to-vector (str x))))
+
 (defmethod bev ((x hex))
   (make-instance 'bev
                  :vec (convert-hex-string-to-vector (str x))))
@@ -578,7 +626,7 @@ comparisons."
 
 (when (find-package :restricted)
   (restricted:add-symbols '(bev-vec hex ub8v-as-str
-                            base58 base64)
+                            base58 base64 base85)
                           ))
 
 (defmethod print-object ((obj ub8v-as-str) out-stream)

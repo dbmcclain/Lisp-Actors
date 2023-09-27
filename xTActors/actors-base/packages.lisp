@@ -291,7 +291,8 @@ THE SOFTWARE.
    #:define-behavior
    #:sequential-β
    
-   #:filer
+   #:unw-prot
+   #:open-file
    #:with-actors
 
    #:fut
@@ -302,7 +303,7 @@ THE SOFTWARE.
 
    #:unhandled-message
    #:recursive-ask
-   #:allow-recursive-ask
+   #:with-recursive-ask
    #:err-chk
    #:referred-error
    #:terminated-ask

@@ -80,6 +80,11 @@ THE SOFTWARE.
    #:encode-object-to-base64
    #:decode-object-from-base64
 
+   #:encode-bytes-to-base85
+   #:decode-bytes-from-base85
+   #:encode-object-to-base85
+   #:decode-object-from-base85
+
    #:convert-int-to-lev
    #:convert-lev-to-int
    
@@ -295,6 +300,8 @@ THE SOFTWARE.
    #:base58-chk
    #:base64
    #:base64-str
+   #:base85
+   #:base85-str
    #:hex
    #:hex-str
    #:levn
@@ -787,6 +794,7 @@ THE SOFTWARE.
    #:base58
    #:base58-chk
    #:base64
+   #:base85
    #:hex
    #:int
    #:int=
@@ -809,6 +817,7 @@ THE SOFTWARE.
    #:hex-str
    #:base58-str
    #:base64-str
+   #:base85-str
    #:bevn
    #:levn
    ;; from hash

@@ -3329,3 +3329,15 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
 |#
 ;; --------------------------------------------------------
 
+(defun map-tree (fn tree)
+  ;; A tree is an atom or a cons. But NIL always maps to NIL.
+  ;; MAP-TREE always produces a deep mapped copy of the tree.
+  (um:nlet iter ((tree tree))
+    (cond
+     ((consp tree)
+      (cons (iter (car tree))
+            (iter (cdr tree))))
+     (tree
+      (funcall fn tree))
+     )))
+

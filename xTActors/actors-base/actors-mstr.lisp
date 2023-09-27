@@ -255,7 +255,6 @@ THE SOFTWARE.
                   ))
              ))
       (declare (dynamic-extent #'%send #'%become #'%abort-beh #'dispatch))
-      
       (if (actor-p actor) ;; are we an ASK?
           (let ((svc (timed-service actor *timeout*))
                 (me  (create
@@ -263,24 +262,23 @@ THE SOFTWARE.
                         (setf done (list msg)))
                       )))
             (setf timeout +ASK-TIMEOUT+)
-            (send* svc me message)
-            ;; (sleep 1)
+            (if self
+                (apply #'send-to-pool svc me message)
+              (send* svc me message))
             (let ((*send*      #'%send)
                   (*become*    #'%become)
                   (*abort-beh* #'%abort-beh))
-              
               (with-simple-restart (abort "Terminate ASK")
                 (dispatch))
               (when done
                 (values (car done) t))))
-        
-        ;; else - we are normal Dispatch thread
-        (let ((*send*      #'%send)
-              (*become*    #'%become)
-              (*abort-beh* #'%abort-beh))
           
-          (with-simple-restart (abort "Terminate Actor thread")
-            (dispatch))))
+          ;; else - we are normal Dispatch thread
+          (let ((*send*      #'%send)
+                (*become*    #'%become)
+                (*abort-beh* #'%abort-beh))
+            (with-simple-restart (abort "Terminate Actor thread")
+              (dispatch))))
       )))
 
 ;; ----------------------------------------------------------------
@@ -331,7 +329,7 @@ THE SOFTWARE.
       ((error (lambda (e)
                 (abort-beh) ;; Discard pending SEND, BECOME
                 (let ((msg (um:mklist (funcall fn-err e))))
-                  (dolist (c (um:mklist cust))
+                  (dolist (c (um:flatten cust)) ;; flatten always produces a LIST
                     ;; these sends are unconditional and immediate
                     (apply #'send-to-pool c msg)))
                 )))
@@ -503,12 +501,12 @@ THE SOFTWARE.
                      "Calling ASK from within an Actor has you violating transactional boundaries.
          Try using β-forms instead."))))
 
-(defun do-with-allowed-recursive-ask (fn)
+(defun do-with-recursive-ask (fn)
   (handler-bind
       ((recursive-ask #'muffle-warning))
     (funcall fn)))
 
-(defmacro allow-recursive-ask (&body body)
+(defmacro with-recursive-ask (&body body)
   ;; Under some special conditions we know it will be okay to allow
   ;; recursive ASKs. This macro muffles the warning.
   ;;
@@ -519,8 +517,8 @@ THE SOFTWARE.
   ;; In that case, we are behaving as the client thread, running
   ;; ostensibly single-threaded code, and pretend not to know about
   ;; the Actors system.
-  `(do-with-allowed-recursive-ask (lambda ()
-                                    ,@body)))
+  `(do-with-recursive-ask (lambda ()
+                            ,@body)))
 
 (define-condition terminated-ask (error)
   ()

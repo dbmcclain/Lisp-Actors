@@ -45,7 +45,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 ;; (:file "dyn-env-clos")
                 (:file "prim-actors")
                 (:file "serializer")
-                (:file "filer")
+                ;; (:file "filer")
                 (:file "startup"))
   :SERIAL T
   :depends-on   ("com.ral.useful-macros"

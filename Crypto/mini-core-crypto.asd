@@ -30,5 +30,6 @@
                  "com.ral.lisp-object-encoder"
                  "s-base64"
                  "cl-base58"
+                 "binascii"
                  ))
 

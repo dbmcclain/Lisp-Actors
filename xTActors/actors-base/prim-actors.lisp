@@ -609,3 +609,77 @@
 (defun make-long-running (action)
   (create (long-running-beh action)))
 |#
+;; -------------------------------------------------------
+;; Unwind-Protect for Actors...
+;;
+
+(defmacro unw-prot ((cust &key (timeout *timeout*)) form &rest unw-clauses)
+  `(do-unw-prot ,cust ,timeout
+                (lambda (,cust)
+                  ,form)
+                (lambda ()
+                  ,@unw-clauses)))
+
+(defun do-unw-prot (cust timeout fn-form fn-unw)
+  ;; Actors don't participate in a dynamic context among themselves,
+  ;; unlike nested binding levels in a function. We have to rely on
+  ;; messages being sent onward to customers. And the unwind takes
+  ;; place in an interposer customer along the way.
+  ;;
+  ;; It is rare, but cust may be a composite tree of customers.
+  ;;
+  ;; Unwind clauses are non-transactional - they always happen.  Any
+  ;; SENDs in the unwind clauses become SEND-TO-POOL and can't be
+  ;; undone.
+  ;;
+  ;; Unlike UNWIND-PROTECT, the unwind does not happen on body exit,
+  ;; except in the case of ERROR. Otherwise it remains for the Actors
+  ;; to send a message to the customer, and the unwind occurs in an
+  ;; interposing customer.
+  ;;
+  ;; And the interposing customer unconditionally forwards the message
+  ;; to the original customer. There might be a whole chain of
+  ;; UNW-PROT waitint to unwind.
+  ;;
+  (let* ((unw  (once
+                (create
+                 (lambda ()
+                   (let ((*send* #'send-to-pool))
+                     (funcall fn-unw)))
+                 )))
+         (new-cust (um:map-tree (lambda (cust)
+                                  (once
+                                   (create
+                                    (lambda* msg
+                                      (send-to-pool unw)
+                                      (apply #'send-to-pool cust msg)))
+                                   ))
+                                cust))
+         (mux       (once
+                     (create
+                      (lambda* msg
+                        ;; FLATTEN always produces a flattened LIST,
+                        ;; even for atoms.
+                        (dolist (cust (um:flatten new-cust))
+                          (apply #'send-to-pool cust msg)))
+                      ))))
+    (send-after timeout mux timed-out)
+    (handler-bind
+        ((error (lambda (e)
+                  (abort-beh)
+                  (send-to-pool mux e))
+                ))
+      (funcall fn-form new-cust))
+    ))
+
+(defmacro open-file ((cust fd filename &rest open-args &key (timeout *timeout*)) &body body)
+  `(let* ((,fd (open ,filename
+                     :direction         ,(getf open-args :direction)
+                     :element-type      ,(getf open-args :element-type)
+                     :if-exists         ,(getf open-args :if-exists)
+                     :if-does-not-exist ,(getf open-args :if-does-not-exist)
+                     :external-format   ,(getf open-args :external-format))
+               ))
+     (unw-prot (,cust :timeout ,timeout) (progn ,@body) (close ,fd))
+     ))
+

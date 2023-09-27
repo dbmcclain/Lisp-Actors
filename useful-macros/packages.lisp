@@ -213,6 +213,7 @@ THE SOFTWARE.
    #:group
    #:flatten
    #:shallow-flatten
+   #:map-tree
    #:prune
    #:find2
    #:before
