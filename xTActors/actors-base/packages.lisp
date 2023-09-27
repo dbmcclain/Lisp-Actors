@@ -292,7 +292,7 @@ THE SOFTWARE.
    #:sequential-β
    
    #:unw-prot
-   #:open-file
+   #:with-actors-open-file
    #:with-actors
 
    #:fut

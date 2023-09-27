@@ -675,12 +675,26 @@
       (funcall fn-form new-cust))
     ))
 
-(defmacro open-file ((cust fd filename &rest open-args &key (timeout *timeout*)) &body body)
-  `(let ((,fd (open ,filename
-                    ,@(um:remove-prop :timeout open-args))
-              ))
-     (unw-prot (,cust :timeout ,timeout)
-         (progn ,@body)
-       (close ,fd))
-     ))
+(defmacro with-actors-open-file ((cust fd filename &rest open-args) &body body)
+  `(let ((,fd  (open ,filename
+                     ,@(um:remove-prop :timeout open-args))))
+     (unw-prot (,cust :timeout ,(getf open-args :timeout))
+         (progn
+           ,@body)
+       (send fmt-println "Closing file: ~A" ,filename)
+       (close ,fd))) )
 
+#|
+(let ((rdr (create
+            (lambda (cust fd)
+              (loop for line = (read-line fd nil fd)
+                    for ix from 0
+                    until (eql line fd)
+                    finally (send fmt-println "File has ~D lines" ix))
+              (send cust :ok))
+            )))
+  (β _
+    (with-actors-open-file (β fd "/Users/davidmcclain/quicklisp/dists/quicklisp/software/cl-zmq-20160318-git/src/package.lisp" :direction :input :timeout 3)
+      (send rdr β fd))
+  (send println "I guess we're done...")))
+|#
