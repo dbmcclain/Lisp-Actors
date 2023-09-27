@@ -3341,3 +3341,8 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
       (funcall fn tree))
      )))
 
+(defun remove-prop (key plist)
+  (let ((pairs (apply #'um:pairs plist)))
+    (um:flatten (remove (assoc key pairs) pairs))
+    ))
+

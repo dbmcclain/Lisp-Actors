@@ -620,6 +620,9 @@
                 (lambda ()
                   ,@unw-clauses)))
 
+#+:LISPWORKS
+(editor:indent-like "UNW-PROT" "IF")
+
 (defun do-unw-prot (cust timeout fn-form fn-unw)
   ;; Actors don't participate in a dynamic context among themselves,
   ;; unlike nested binding levels in a function. We have to rely on
@@ -639,7 +642,7 @@
   ;;
   ;; And the interposing customer unconditionally forwards the message
   ;; to the original customer. There might be a whole chain of
-  ;; UNW-PROT waitint to unwind.
+  ;; UNW-PROT waiting to unwind.
   ;;
   (let* ((unw  (once
                 (create
@@ -666,20 +669,18 @@
     (send-after timeout mux timed-out)
     (handler-bind
         ((error (lambda (e)
-                  (abort-beh)
+                  (abort-beh) ;; discard pending SEND, BECOME
                   (send-to-pool mux e))
                 ))
       (funcall fn-form new-cust))
     ))
 
 (defmacro open-file ((cust fd filename &rest open-args &key (timeout *timeout*)) &body body)
-  `(let* ((,fd (open ,filename
-                     :direction         ,(getf open-args :direction)
-                     :element-type      ,(getf open-args :element-type)
-                     :if-exists         ,(getf open-args :if-exists)
-                     :if-does-not-exist ,(getf open-args :if-does-not-exist)
-                     :external-format   ,(getf open-args :external-format))
-               ))
-     (unw-prot (,cust :timeout ,timeout) (progn ,@body) (close ,fd))
+  `(let ((,fd (open ,filename
+                    ,@(um:remove-prop :timeout open-args))
+              ))
+     (unw-prot (,cust :timeout ,timeout)
+         (progn ,@body)
+       (close ,fd))
      ))
 

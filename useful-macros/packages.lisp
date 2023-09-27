@@ -214,6 +214,7 @@ THE SOFTWARE.
    #:flatten
    #:shallow-flatten
    #:map-tree
+   #:remove-prop
    #:prune
    #:find2
    #:before
