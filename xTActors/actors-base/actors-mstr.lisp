@@ -91,10 +91,6 @@ THE SOFTWARE.
   (progn
     (defun startup-send (actor &rest msg)
       ;; the boot version of SEND
-      (let ((echo (create
-                   (lambda (cust)
-                     (send cust :ok)))))
-        (ask echo))
       (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
             *send*         #'send-to-pool)
       (restart-actors-system *nbr-pool*)
