@@ -91,6 +91,7 @@ THE SOFTWARE.
   (progn
     (defun startup-send (actor &rest msg)
       ;; the boot version of SEND
+      (ask true) ;; flush pending messages
       (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
             *send*         #'send-to-pool)
       (restart-actors-system *nbr-pool*)
@@ -158,7 +159,7 @@ THE SOFTWARE.
 ;; appear in the event queue in front of messages sent by a later
 ;; Actor activation. The event queue is a FIFO queue.
 
-(defun #1=run-actors (&optional actor &rest message)
+(defun #1=run-actors (&optional (actor nil actor-provided-p) &rest message)
   #F
   (let (sends evt pend-beh done timeout)
     (flet ((%send (actor &rest msg)
@@ -260,19 +261,17 @@ THE SOFTWARE.
                          ))))
                 )))
       (declare (dynamic-extent #'%send #'%become #'%abort-beh #'dispatch))
-      (if (actor-p actor) ;; are we an ASK?
-          (let ((svc (timed-service actor *timeout*))
-                (me  (create
-                      (lambda (&rest msg)
-                        (setf done (list msg)))
+      (cond
+       (actor-provided-p  ;; are we an ASK?
+        (when (actor-p actor)
+          (let ((me  (create-special
+                      (lambda* msg
+                        (setf done (list msg))
+                        (become-sink))
                       )))
             (setf timeout +ASK-TIMEOUT+)
-            #|
-            (if self
-                (apply #'send-to-pool svc me message)
-              (send* svc me message))
-            |#
-            (apply #'send-to-pool svc me message)
+            (apply #'send-to-pool actor me message)
+            (send-after *timeout* me timed-out)
             (let ((*send*      #'%send)
                   (*become*    #'%become)
                   (*abort-beh* #'%abort-beh))
@@ -280,14 +279,16 @@ THE SOFTWARE.
                 (dispatch))
               (when done
                 (values (car done) t))))
-          
-        ;; else - we are normal Dispatch thread
-        (let ((*send*      #'%send)
-              (*become*    #'%become)
-              (*abort-beh* #'%abort-beh))
-          (with-simple-restart (abort "Terminate Actor thread")
-            (dispatch))))
-      )))
+          ))
+       
+       (t  ;; else - we are normal Dispatch thread
+           (let ((*send*      #'%send)
+                 (*become*    #'%become)
+                 (*abort-beh* #'%abort-beh))
+             (with-simple-restart (abort "Terminate Actor thread")
+               (dispatch))
+             ))
+       ))))
 
 ;; ----------------------------------------------------------------
 ;; Error Handling
@@ -322,88 +323,6 @@ THE SOFTWARE.
    (lambda (&rest msg)
      (check-for-errors msg)
      (send* cust msg))))
-
-#|
-(defun do-with-error-response (cust fn fn-err)
-  ;; Ensure that a message is sent to cust in event of error.
-  ;; Defined such that we don't lose any debugging context on errors.
-  ;;
-  ;; Function fn-err takes an error condition as argument and returns
-  ;; the message to be sent back in event of error abort.
-  ;;
-  ;; Function fn is a thunk.
-  ;;
-  ;; It is unwise to use SEND in any UNWIND clauses. They may, or may
-  ;; not get executed because SEND is staged. If the error recovery
-  ;; throws beyond a normal return, those SEND's mey never be sent. So
-  ;; use SEND-TO-POOL when you need to have a message sent during
-  ;; UNWIND.
-  ;;
-  (handler-bind
-      ((error (lambda (e)
-                (abort-beh) ;; Discard pending SEND, BECOME
-                (let ((msg (um:mklist (funcall fn-err e))))
-                  (dolist (c (um:flatten cust)) ;; flatten always produces a LIST
-                    ;; these sends are unconditional and immediate
-                    (apply #'send-to-pool c msg)))
-                )))
-    (funcall fn)))
-
-(defmacro with-error-response ((cust &optional (fn-err '#'err-from)) &body body)
-  ;; Handler-wrapper that guarantees a customized message sent back to
-  ;; cust in event of error.
-  ;;
-  ;; Function fn-err should accept an error condition arg and compute
-  ;; a response message.
-  ;;
-  ;; Cust can be a single customer or a list of customers.
-  ;;
-  ;; The default fn-err is most useful for Actors guarded by a
-  ;; SERIALIZER. Failing to respond to the SERIALIZER-generated
-  ;; customer will block all future uses of the SERIALIZER.
-  ;;
-  ;; A customized (user specified fn-err) version finds most utility
-  ;; with services invoked by FORK, where you need to send only a
-  ;; single response item to the customer. Failing to respond to the
-  ;; FORK-generated customer will tie up the JOIN response forever.
-  ;; (In some cases, maybe that is what you want.)
-  ;;
-  ;; A links Actor, or list of Actors, used as the cust here, allows
-  ;; for Erlang-like supervisory Actors to be notified of unexpected
-  ;; conditions.
-  ;;
-  `(do-with-error-response ,cust (lambda () ,@body) ,fn-err))
-
-#+:LISPWORKS
-(editor:setup-indent "with-error-response" 1)
-|#
-;; ---------------------------------------------------
-#|
-(define-condition unhandled-message (error)
-  ((msg  :reader unhandled-message-msg :initarg :msg :initform "unknown"))
-  (:report (lambda (c stream)
-             (format stream "Unhandled message: ~S" (unhandled-message-msg c)))))
-
-(defmacro def-ser-beh (name args &rest clauses)
-  ;; For Actors behind a SERIALIZER, define their behaviors so that,
-  ;; in any event, a response is sent to cust. The cust must be the
-  ;; first arg of any message. Use ALAMBDA-style handler clauses.
-  ;;
-  ;; It becomes *Your* responsibilty to eventually respond to cust
-  ;; from each of your handler clauses.
-  ;;
-  (um:with-unique-names (cust msg)
-    `(defun ,name ,args
-       (lambda (,cust &rest ,msg)
-         (with-error-response (,cust)
-           (match (cons ,cust ,msg)
-             ,@clauses
-             (_
-              (error 'unhandled-message :msg ,msg))
-             ))
-         ))
-    ))
-|#
 
 ;; --------------------------------------
 ;; Alas, with MPX we still need locks sometimes. You might think that
@@ -528,21 +447,21 @@ THE SOFTWARE.
    ))
 
 (defun ask (actor &rest msg)
-  ;; Unlike SEND, ASKs are not staged, but perform immediately,
-  ;; potentially violating transactional boundaries. This is normally
-  ;; okay, and expected behavior, from non-Actor client code. ASK
-  ;; behaves like a function call.
+  ;; Unlike SEND, ASKs are not staged, and perform immediately,
+  ;; potentially violating transactional boundaries. From non-Actor
+  ;; code, this is normally okay, and expected behavior. ASK behaves
+  ;; like a function call.
   ;;
-  ;; But if called from within an Actor, the immediate behavior does
-  ;; violate transactional boundaries, since they occur (via activated
-  ;; SENDs) before all other staged SENDs.
+  ;; But if called from within an Actor, the immediacy violates
+  ;; transactional boundaries, since SEND is normally staged for
+  ;; execution at successful exit, or discarded if errors.
   (check-type actor actor)
   (when self
     (warn 'recursive-ask))
   ;; In normal situation, we get back the result message as a list and
   ;; flag t.  In exceptional situation, from restart "Terminate ASK",
-  ;; thread", we get back nil.  If *TIMEOUT* is not-nil, and timeout
-  ;; occurs, we get back list (nil <timeout-condiiton-object>) as ans.
+  ;; we get back nil.  If *TIMEOUT* is not-nil, and timeout occurs, we
+  ;; get back list (nil <timeout-condiiton-object>) as ans.
   (multiple-value-bind (ans okay)
       (apply #'run-actors actor msg)
     (unless okay
@@ -552,11 +471,11 @@ THE SOFTWARE.
 ;;
 ;; ASK can generate errors:
 ;;
-;;    TERMINATED-ASK -- happens if we, while acting as Dispatch
-;;    and awaiting our result, receive an error condition that the
-;;    user chooses to respond to with restart "Terminate Actor
-;;    thread". That error may arise from some other task that has
-;;    nothing to do with us, but happened on our watch.
+;;    TERMINATED-ASK -- happens if we, while acting as Dispatch and
+;;    awaiting our result, receive an error condition that the user
+;;    chooses to respond to with restart "Terminate Ask". That error
+;;    may arise from some other task that has nothing to do with us,
+;;    but happened on our watch.
 ;;
 ;;    TIMEOUT-ERROR - whatever we ASK'd to happen did not produce
 ;;    a result for us before expiration of our timeout. Timout

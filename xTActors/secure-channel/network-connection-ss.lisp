@@ -866,7 +866,9 @@
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
   ;;
-  (ask async-socket-system :start-tcp-server))
+  (ask async-socket-system :start-tcp-server)
+  ;; flush pending messages...
+  (ask true))
 
 (defun* lw-reset-actors-server _
   (ask async-socket-system :terminate-server)
