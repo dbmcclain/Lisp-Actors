@@ -672,7 +672,8 @@
 (defun db-svc-init-beh (ctrl-tag path)
   (λ _
     (let ((tag-to-me (tag self))
-          (saver (serializer (create (unopened-database-beh ctrl-tag)))
+          (saver (serializer (create (unopened-database-beh ctrl-tag))
+                             :timeout 5)
                  ))
       (send saver tag-to-me :open path)
       (become (nascent-database-beh tag-to-me saver nil))
@@ -874,7 +875,8 @@
   
 (deflex kvdb-maker
   (serializer ;; because we are doing file ops?
-   (create (kvdb-orchestrator-beh))))
+   (create (kvdb-orchestrator-beh))
+   :timeout 5))
 
 ;; -----------------------------------------------------
 ;; Local Proxy KVDB's for remote access - avoid shuttling entire map

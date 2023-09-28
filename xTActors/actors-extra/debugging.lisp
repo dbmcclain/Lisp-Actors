@@ -110,7 +110,8 @@
    ))
 
 (deflex tracer
-  (serializer (create (tracer-beh))))
+  (serializer (create (tracer-beh))
+              :timeout 5))
 
 (defun trace-me ()
   (send tracer writeln :trace *current-message-frame*))

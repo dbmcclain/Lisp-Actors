@@ -23,8 +23,9 @@
     (let ((pair (rassoc proc threads)))
       (cond
        (pair
-        (become (custodian-beh #1=(remove pair threads)))
-        (send cust #1#))
+        (let ((new-lst (remove pair threads)))
+          (become (custodian-beh new-lst))
+          (send cust new-lst)))
        (t
         (send cust :ok))
        )))
