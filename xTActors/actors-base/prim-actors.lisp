@@ -649,7 +649,7 @@
                      (create
                       (lambda* msg
                         ;; FLATTEN always produces a flattened LIST,
-                        ;; even for atoms.
+                        ;; even for lone atoms.
                         (dolist (cust (um:flatten new-cust))
                           (send* cust msg)))
                       ))))
