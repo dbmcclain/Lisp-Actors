@@ -185,13 +185,13 @@
 
                 == The Microcosm of Serializer ==
 
-                                          +---------+
-                                      +---| TIMEOUT |
-                                      |   +---------+
-                                      v
-                        +-----+   +------+
-                   +----| TAG |<--| ONCE |<--- reply ---+
-                   |    +-----+   +------+              |
+                                        +---------+
+                                   +----| TIMEOUT |
+                                   |    +---------+
+                                   v
+                        +-------------+   
+                   +----| SPECIAL-TAG |<------ reply ---+
+                   |    +-------------+                 |
                    v                                    |
              +------------+                          +-----+
   --- msg -->| SERIALIZER |--- msg ----------------->| svc |
@@ -199,6 +199,12 @@
                    |
      <--- reply ---+
 
+
+   A SPECIAL-TAG is a once-only forwarding Special Actor, which means
+   that anytime it appears as a customer in a message, the receiving
+   Actor can send a response to it, or in the event of error, the error
+   Condition object will be sent. And, lacking either of those, an
+   eventual timeout may be sent to it.
    ----------------------------------------------------------------- |#
 
 (defun special-tag (act timeout)
@@ -247,12 +253,12 @@
                    == A Serializer SInk ==
 
                                                       +---------+
-                                                  +---| TIMEOUT |
-                                                  |   +---------+
-                                                  v
-                                     +-----+   +------+
-                                +----| TAG |<--| ONCE |<--- reply ---+
-                                |    +-----+   +------+              |
+                                              +-------| TIMEOUT |
+                                              |       +---------+
+                                              v
+                                     +-------------+
+                                +----| SPECIAL-TAG |<------ reply ---+
+                                |    +-------------+                 |
                                 v                                    |
               +-----+    +------------+                           +-----+
   --- msg --->| LBL |--->| SERIALIZER |--- msg ------------------>| svc |
