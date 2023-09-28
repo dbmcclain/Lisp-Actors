@@ -641,9 +641,10 @@
   (assert (actor-p cust))
   (let* ((unw  (create
                 (lambda* msg
-                  (funcall fn-unw)
                   (send* cust msg)
-                  (become-sink))
+                  (become-sink)
+                  (non-idempotent
+                   (funcall fn-unw)))
                 )))
     (send-after *timeout* unw timed-out)
     (funcall fn-form unw)
