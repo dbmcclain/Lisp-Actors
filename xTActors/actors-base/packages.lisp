@@ -69,8 +69,7 @@ THE SOFTWARE.
    #:tee-beh
    #:service
    #:null-service
-   #:nil-service
-   #:t-service
+   #:echo-service
    #:fork
    #:simd
    #:mimd
@@ -121,12 +120,10 @@ THE SOFTWARE.
    
    #:actor
    #:actor-p
-   #:service-p
    #:actor-beh
    #:%actor-cas
    #:service
    #:create
-   #:create-service
    #:%create
    #:actors
    #:make-remote-actor

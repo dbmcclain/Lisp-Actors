@@ -126,15 +126,6 @@
   (create (apply #'race-beh actors)))
 
 ;; ---------------------
-#|
-(defun fwd-beh (actor)
-  (lambda (&rest msg)
-    (send* actor msg)))
-|#
-(defun fwd (actor)
-  (create (fwd-beh actor)))
-
-;; ---------------------
 ;; Finds good use when sending messages to a serialized sink
 
 (defun label-beh (cust lbl)
@@ -293,7 +284,7 @@
 ;; same initial message, and the results from each block are sent as
 ;; an ordered collection to cust.
 
-(def-actor ser
+(deflex ser
   (α (cust lst &rest msg)
     (if (null lst)
         (send cust)
@@ -305,52 +296,6 @@
             (send-combined-msg cust msg-hd msg-tl)))
         ))))
 
-;; -----------------------------------------------------------
-;; The previous FORK/JOIN ran into MULTIPLE-VALUES-LIMIT in a real
-;; application.
-;;
-;; So the alternative must have participant Actors accepting a
-;; customer and a single argument. The customers of the FORK should
-;; expect any number of result values.
-
-#|
-(defun join-beh (cust lbl1)
-  ;; Join a pair of two possible messages into one response. One of the
-  ;; incoming messages will be labeled lbl1, while the other has
-  ;; another label. There are only two possible incoming incoming
-  ;; messages, because in use, our Actor is ephemeral and anonymous. So no
-  ;; other incoming messages are possible.
-  (lambda (lbl &rest msg)
-    (cond ((eql lbl lbl1)
-           (become (lambda (_ &rest msg2)
-                     (declare (ignore _))
-                     (send* cust (append msg msg2)))
-                   ))
-          (t ;; could only be lbl2
-             (become (lambda (_ &rest msg1)
-                       (declare (ignore _))
-                       (send* cust (append msg1 msg)))
-                     ))
-          )))
-
-(defun fork (left right)
-  ;; Accept two message lists, lreq and rreq, sending lreq to left,
-  ;; and rreq to right, collecting combined results into one ordered
-  ;; response.
-  ;;
-  ;; Each service, left and right, should expect a customer and a
-  ;; single argument for their messages. The outer customer for this
-  ;; FORK should expect any number of results, i.e., (&rest ans).
-  ;; C.f., JOIN-BEH above. Services, left and right, are free to send
-  ;; any number of items in their results.
-  (actor (cust lreq rreq)
-    (actors ((join  (join-beh cust tag-l))
-             (tag-l (tag-beh join))
-             (tag-r (tag-beh join)))
-      (send left tag-l lreq)
-      (send right tag-r rreq))
-    ))
-|#
 ;; ----------------------------------------------
 
 (defun simd (svc)
@@ -374,73 +319,6 @@
                   (send (simd svc) lbl arg)))
          svcs args)))
 
-#|
-(def-actor par
-  ;; Send same msg to all actors in the lst, running them
-  ;; concurrently, and collect the results into one ordered response.
-  (α (cust lst msg)
-    ;; cust should expect a (&rest ans)
-    (if (null lst)
-        (send cust)
-      (actors ((join    (join-beh cust tag-car))
-               (tag-car (tag-beh join))
-               (tag-cdr (tag-beh join)))
-        (send (car lst) tag-car msg)
-        (send self tag-cdr (cdr lst) msg)))
-    ))
-|#
-#|
-(defun and-gate-beh (services &optional (last-ans t))
-  (lambda (cust)
-    (if (endp services)
-        (send cust last-ans)
-      (β (ans)
-          (send (car services) β)
-        (if ans
-            (progn
-              (become (and-gate-beh (cdr services) ans))
-              (send self cust))
-          (send cust nil))
-        ))))
-
-(defun and-gate (&rest services)
-  (create (and-gate-beh services)))
-
-(defun or-gate-beh (services)
-  (lambda (cust)
-    (if (endp services)
-        (send cust nil)
-      (β (ans)
-          (send (car services) β)
-        (if ans
-            (send cust ans)
-          (progn
-            (become (or-gate-beh (cdr services)))
-            (send self cust)))
-        ))))
-
-(defun or-gate (&rest services)
-  (create (or-gate-beh services)))
-|#
-
-;; ---------------------------------------------------------
-#|
-(send ser println
-      (list
-       (const :blk1)
-       (const :blk2)
-       (const :blk3)))
-
-(send par println
-      (list
-       (const :blk1)
-       (const :blk2)))
-
-(let* ((actor (create (lambda (cust) (sleep 2) (send cust :ok))))
-       (fut   (future actor)))
-  (send fut println)
-  (send fut println))
- |#
 ;; -----------------------------------------
 ;; Delayed Send
 
@@ -573,45 +451,6 @@
 
 ;; ------------------------------------------------
 
-#|
-(defun long-running-beh (action)
-  (flet ((doit (cust args)
-           (let ((tag  (tag self)))
-             (become (busy-running-beh action tag cust nil))
-             (send* action tag args))))
-    (alambda
-     ((cust :run . args)
-      (doit cust args))
-
-     ((cust :run-immediately . args)
-      (doit cust args))
-     )))
-
-(defun busy-running-beh (action tag cust queue)
-  ;; action should send back non-nil first arg in reply to indicate
-  ;; success..
-  (alambda
-   ((atag . ans) when (eql atag tag)
-    (send* cust ans)
-    (if (emptyq? queue)
-        (become (long-runinng-beh action))
-      (multiple-value-bind (next-up new-queue) (popq queue)
-        (destructuring-bind (next-cust . next-args) next-up
-          (let ((new-tag  (tag self)))
-            (become (busy-running-beh action new-tag next-cust new-queue))
-            (send* action new-tag next-args))
-          ))))
-
-   ((acust :run . args)
-    (become (busy-running-beh action tag cust (addq queue (cons acust args)))))
-
-   ((cust :run-immediately . _)
-    (send cust nil))
-   ))
-
-(defun make-long-running (action)
-  (create (long-running-beh action)))
-|#
 ;; -------------------------------------------------------
 ;; Unwind-Protect for Actors...
 ;;

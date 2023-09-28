@@ -52,15 +52,16 @@
                (:constructor %create (beh)))
   (beh #'do-nothing :type function))
 
-(defstruct (service
-            (:include actor)
-            (:constructor %create-service (beh))))
-
 ;; ----------------------------------------------------------
 
 (defun fwd-beh (actor)
   (lambda (&rest msg)
     (send* actor msg)))
+
+(defun fwd (actor)
+  (create (fwd-beh actor)))
+
+;; ----------------------------------------------------------
 
 (defgeneric screened-beh (arg)
   (:method ((fn function))
@@ -75,9 +76,6 @@
 
 (defun create (&optional (fn #'do-nothing))
   (%create (screened-beh fn)))
-
-(defun create-service (&optional (fn #'do-nothing))
-  (%create-service (screened-beh fn)))
 
 ;; -------------------------------------------
 

@@ -339,17 +339,6 @@
     (become (%becomer-beh (cons msg msgs))))
    ))
 
-#|
-(defmacro def-actor (name &optional beh)
-  (let ((behe (gensym (string :behe))))
-    `(deflex ,name 
-       (let ((,behe ,(or beh
-                         `(%becomer-beh))))
-         (if (service-p ,behe)
-             (create-service ,behe)
-           (create ,behe))))
-    ))
-|#
 (defmacro def-actor (name &optional beh)
   `(deflex ,name 
      (create ,(or beh

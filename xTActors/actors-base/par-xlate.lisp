@@ -221,29 +221,31 @@
 ;;
 ;; -----------------------------------------------
 
-(defmethod service ((ac service) &rest args)
-  ac)
-
 (defmethod service ((ac actor) &rest args)
   (if args
-      (create-service
-       (lambda (cust)
-         (send* ac cust args)))
+      (apply #'racurry ac args)
     ac))
 
 (defmethod service ((fn function) &rest args)
-  (create-service
+  (create
    (lambda (cust)
      (send cust (apply fn args)))))
 
 (defmethod service (x &rest args)
   (apply #'const x args))
 
-(def-actor null-service
-  (create-service
+;; ----------------------------------------
+
+(deflex null-service
+  (create
    (lambda (cust)
      (send cust))))
 
+(deflex echo-service
+  (create
+   (lambda* (cust . msg)
+     (send* cust msg))))
+     
 ;; ------------------------------------------------
 
 (defun const-beh (&rest msg)
@@ -251,10 +253,13 @@
     (send* cust msg)))
 
 (defun const (&rest msg)
-  (create-service (apply #'const-beh msg)))
+  (create (apply #'const-beh msg)))
 
-(def-actor true  (const t))
-(def-actor false (const nil))
+(deflex true
+  (create (const-beh t)))
+
+(deflex false
+  (create (const-beh nil)))
 
 ;; ---------------------------------------------------
 ;; Fork/Join against zero or more services
@@ -274,7 +279,7 @@
 (defun fork2 (service1 service2)
   ;; Produce a single service which fires both in parallel and sends
   ;; their results in the same order to eventual customer.
-  (create-service
+  (create
    (lambda (cust)
      (actors ((tag1   (tag-beh joiner))
               (tag2   (tag-beh joiner))
@@ -434,7 +439,7 @@
 ;; -----------------------------------------------
 
 (defun or2 (service1 service2)
-  (create-service
+  (create
    (lambda (cust)
      (β (ans)
          (send service1 β)
@@ -472,7 +477,7 @@
 ;; -----------------------------------------------
 
 (defun and2 (service1 service2)
-  (create-service
+  (create
    (lambda (cust)
      (β (ans)
          (send service1 β)
