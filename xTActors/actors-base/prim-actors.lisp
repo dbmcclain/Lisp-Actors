@@ -631,32 +631,19 @@
   ;;
   ;; It is rare, but cust may be a composite tree of customers.
   ;;
-  ;; Unwind clauses are non-transactional - they always happen.  Any
-  ;; SENDs in the unwind clauses become SEND-TO-POOL and can't be
-  ;; undone.
-  ;;
   ;; Unlike UNWIND-PROTECT, the unwind does not happen on body exit,
   ;; except in the case of ERROR. Otherwise it remains for the Actors
   ;; to send a message to the customer, and the unwind occurs in an
   ;; interposing customer.
   ;;
-  ;; And the interposing customer unconditionally forwards the message
-  ;; to the original customer. There might be a whole chain of
-  ;; UNW-PROT waiting to unwind.
-  ;;
-  (let* ((unw  (once
-                (create
-                 (lambda ()
-                   (let ((*send* #'send-to-pool))
-                     (funcall fn-unw)))
-                 )))
+  (let* ((unw      (once (create fn-unw)))
          (new-cust (um:map-tree (lambda (cust)
                                   (once
                                    (create
                                     (lambda* msg
-                                      (send-to-pool unw)
-                                      (apply #'send-to-pool cust msg)))
-                                   ))
+                                      (send unw)
+                                      (send* cust msg))
+                                    )))
                                 cust))
          (mux       (once
                      (create
@@ -664,7 +651,7 @@
                         ;; FLATTEN always produces a flattened LIST,
                         ;; even for atoms.
                         (dolist (cust (um:flatten new-cust))
-                          (apply #'send-to-pool cust msg)))
+                          (send* cust msg)))
                       ))))
     (send-after timeout mux timed-out)
     (handler-bind
@@ -678,12 +665,12 @@
 (defmacro with-actors-open-file ((cust fd filename &rest open-args
                                        &key (timeout *timeout*) &allow-other-keys)
                                  &body body)
-  `(let ((,fd  (open ,filename
+  `(let ((,fd  (open #1=,filename
                      ,@(um:remove-prop :timeout open-args))))
      (unw-prot (,cust :timeout ,timeout)
          (progn
            ,@body)
-       (send fmt-println "Closing file: ~A" ,filename)
+       (send fmt-println "Closing file: ~A" #1#)
        (close ,fd))) )
 
 #|
