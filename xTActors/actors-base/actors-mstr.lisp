@@ -269,8 +269,8 @@ THE SOFTWARE.
                         (become-sink))
                       )))
             (setf timeout +ASK-TIMEOUT+)
-            (apply #'send-to-pool actor me message)
             (send-after *timeout* me timed-out)
+            (apply #'send-to-pool actor me message)
             (let ((*send*      #'%send)
                   (*become*    #'%become)
                   (*abort-beh* #'%abort-beh))
@@ -460,7 +460,7 @@ THE SOFTWARE.
   ;; In normal situation, we get back the result message as a list and
   ;; flag t.  In exceptional situation, from restart "Terminate ASK",
   ;; we get back nil.  If *TIMEOUT* is not-nil, and timeout occurs, we
-  ;; get back list (nil <timeout-condiiton-object>) as ans.
+  ;; get back list (<timeout-condiiton-object>) as ans.
   (multiple-value-bind (ans okay)
       (apply #'run-actors actor msg)
     (unless okay
