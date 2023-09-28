@@ -56,10 +56,6 @@
             (:include actor)
             (:constructor %create-service (beh))))
 
-(defstruct (special-actor
-            (:include actor)
-            (:constructor %create-special-actor (beh))))
-
 ;; ----------------------------------------------------------
 
 (defun fwd-beh (actor)
@@ -82,9 +78,6 @@
 
 (defun create-service (&optional (fn #'do-nothing))
   (%create-service (screened-beh fn)))
-
-(defun create-special (&optional (fn #'do-nothing))
-  (%create-special-actor (screened-beh fn)))
 
 ;; -------------------------------------------
 

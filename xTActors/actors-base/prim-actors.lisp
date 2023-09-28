@@ -616,8 +616,8 @@
 ;; Unwind-Protect for Actors...
 ;;
 
-(defmacro unw-prot ((cust &key (timeout *timeout*)) form &rest unw-clauses)
-  `(do-unw-prot ,cust ,timeout
+(defmacro unw-prot (cust form &rest unw-clauses)
+  `(do-unw-prot ,cust
                 (lambda (,cust)
                   ,form)
                 (lambda ()
@@ -626,46 +626,32 @@
 #+:LISPWORKS
 (editor:indent-like "UNW-PROT" "IF")
 
-(defun do-unw-prot (cust timeout fn-form fn-unw)
-  ;; Actors don't participate in a dynamic context among themselves,
-  ;; unlike nested binding levels in a function. We have to rely on
-  ;; messages being sent onward to customers. And the unwind takes
-  ;; place in an interposer customer along the way.
+(defun do-unw-prot (cust fn-form fn-unw)
+  ;; Actors don't participate in a dynamic chain descending from one
+  ;; Actor to another, unlike nested binding levels in a function. We
+  ;; have to rely on messages being sent onward to customers. And the
+  ;; unwind takes place in an interposer customer along the way.
   ;;
-  ;; It is rare, but cust may be a composite tree of customers.
+  ;; Unlike UNWIND-PROTECT, the unwind does not happen on body exit.
+  ;; It remains for an Actor to send a message to the customer, and
+  ;; the unwind occurs in an interposing customer. There is a safety
+  ;; timeout available, if *TIMEOUT* is a positive real number of
+  ;; seconds to wait.
   ;;
-  ;; Unlike UNWIND-PROTECT, the unwind does not happen on body exit,
-  ;; except in the case of ERROR. Otherwise it remains for the Actors
-  ;; to send a message to the customer, and the unwind occurs in an
-  ;; interposing customer.
-  ;;
-  (let* ((unw      (once (create fn-unw)))
-         (new-cust (um:map-tree (lambda (cust)
-                                  (create-special
-                                   (lambda* msg
-                                     (send unw)
-                                     (send* cust msg)
-                                     (become-sink))
-                                   ))
-                                cust))
-         (mux       (once
-                     (create
-                      (lambda* msg
-                        ;; FLATTEN always produces a flattened LIST,
-                        ;; even for lone atoms.
-                        (dolist (cust (um:flatten new-cust))
-                          (send* cust msg)))
-                      ))))
-    (send-after timeout mux timed-out)
-    (funcall fn-form new-cust)
+  (assert (actor-p cust))
+  (let* ((unw  (create
+                (lambda* msg
+                  (funcall fn-unw)
+                  (send* cust msg)
+                  (become-sink))
+                )))
+    (send-after *timeout* unw timed-out)
+    (funcall fn-form unw)
     ))
 
-(defmacro with-actors-open-file ((cust fd filename &rest open-args
-                                       &key (timeout *timeout*) &allow-other-keys)
-                                 &body body)
-  `(let ((,fd  (open #1=,filename
-                     ,@(um:remove-prop :timeout open-args))))
-     (unw-prot (,cust :timeout ,timeout)
+(defmacro with-actors-open-file ((cust fd filename &rest open-args) &body body)
+  `(let ((,fd  (open #1=,filename ,@open-args)))
+     (unw-prot ,cust
          (progn
            ,@body)
        (send fmt-println "Closing file: ~A" #1#)
@@ -678,12 +664,14 @@
                     for ix from 0
                     until (eql line fd)
                     finally (send fmt-println "File has ~D lines" ix))
+              (error "What!?")
               (send cust :ok))
             )))
   (β _
-    (with-actors-open-file (β fd "/Users/davidmcclain/quicklisp/dists/quicklisp/software/cl-zmq-20160318-git/src/package.lisp" :direction :input :timeout 3)
-      (send rdr β fd))
-  (send println "I guess we're done...")))
+      (with-timeout 3
+        (with-actors-open-file (β fd "/Users/davidmcclain/quicklisp/dists/quicklisp/software/cl-zmq-20160318-git/src/package.lisp" :direction :input)
+          (send rdr β fd)))
+    (send println "I guess we're done...")))
 
 (let ((act (serializer
             (create
@@ -698,59 +686,3 @@
 
 |#
 
-;; ------------------------------------------------------
-;; Some customer Actors are special, in the sense that they need to
-;; see a response, no matter what.
-;;
-;; The UNW-PROT interposing customer is a case in point, where the
-;; customer handed downstream is responsible for releasing a vital
-;; resource, or performing some absolutely necessary function, on the
-;; way back to the original customer.
-;;
-;; Serializers present another situation needing a response, otherwise
-;; the queue of waiting messages just lingers indefinitely.
-;;
-;; There are several ways to respond to this kind of customer:.
-;;
-;;  1. A normal message send back to the customer
-;;
-;;  2. An error situation in which a response must be sent back.
-;; 
-;;  3. A missing pattern match on the message, which would normally
-;;  drop the message on the floor.
-;;
-;;  4. The customer becoming stashed into a queue that may or may not
-;;  ever be responded to...
-;;
-;;  5. The customer is sent across a network for a response from the
-;;  other side. That network message might never make it across.
-;;
-;; I can think of ways to wrap a behavior so that cases 1-3 are
-;; handled directly. Cases 4 & 5 can only be handled with some timeout
-;; mechanism previously provided in anticipation of such situations.
-;; Case 3 might also just be handled by the timeout mechanism, since
-;; this is equivalent to a lost packet on a network.
-;;
-;; It is too much to expect that downstream Actors, or the network,
-;; will behave properly.
-;;
-;; So we can invent special wrappers around the customer Actor that
-;; will provide for timeout if a response is not provided in a timely
-;; manner. This wrapper could also be detected, either by the
-;; dispatcher, or by the entry code of Actor behaviors, to guarantee a
-;; response when possible.
-;;
-;; If we allow case 3 to be handled by a timeout mechanism, then
-;; nothing special needs to be added to Actor behaviors, and the
-;; dispatcher could provide the needed response in the event of an
-;; error. This seems the least intrusive, and needs the fewest
-;; assumptions. But in this case, you absolutely cannot allow the lack
-;; of timeout handling.
-
-(defun special-actor (act &key (timeout *timeout*))
-  (let ((spec (create-special
-               (lambda* msg
-                 (send* act msg)
-                 (become-sink)))))
-    (send-after timeout spec timed-out)
-    spec))

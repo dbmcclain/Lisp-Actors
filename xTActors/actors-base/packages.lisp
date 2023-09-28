@@ -315,9 +315,6 @@ THE SOFTWARE.
    #:trace-me
    #:tracer
 
-   #:create-special
-   #:special-actor-p
-   
    ;; convenience macros
    #:<<
    #:<<*

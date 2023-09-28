@@ -185,13 +185,13 @@
 
                 == The Microcosm of Serializer ==
 
-                                        +---------+
-                                   +----| TIMEOUT |
-                                   |    +---------+
-                                   v
-                        +-------------+   
-                   +----| SPECIAL-TAG |<------ reply ---+
-                   |    +-------------+                 |
+                                  +---------+
+                             +----| TIMEOUT |
+                             |    +---------+
+                             v
+                        +---------+   
+                   +----| SER-TAG |<------ reply -------+
+                   |    +---------+                     |
                    v                                    |
              +------------+                          +-----+
   --- msg -->| SERIALIZER |--- msg ----------------->| svc |
@@ -199,29 +199,23 @@
                    |
      <--- reply ---+
 
-
-   A SPECIAL-TAG is a once-only forwarding Special Actor, which means
-   that anytime it appears as a customer in a message, the receiving
-   Actor can send a response to it, or in the event of error, the error
-   Condition object will be sent. And, lacking either of those, an
-   eventual timeout may be sent to it.
    ----------------------------------------------------------------- |#
 
-(defun special-tag (act timeout)
-  (let ((spec  (create-special
-                (lambda* msg
-                  (send* act self msg)
-                  (become-sink)))))
-    (send-after timeout spec timed-out)
-    spec))
+(defun ser-tag (act timeout)
+  (let ((tag  (create
+               (lambda* msg
+                 (send* act self msg)
+                 (become-sink)))))
+    (send-after timeout tag timed-out)
+    tag))
 
-(defun serializer-beh (svc &key (timeout *timeout*))
+(defun serializer-beh (svc timeout)
   ;; Quiescent state - nobody in waiting, just flag him through, and
   ;; enter the busy state. As a precaution against re-use of the reply TAG
   ;; we guard ourselves with a ONCE gate.
   (alambda
    ((cust . msg)
-    (let ((tag   (special-tag self timeout)))
+    (let ((tag   (ser-tag self timeout)))
       (send* svc tag msg)
       (become (busy-serializer-beh svc timeout cust tag nil))
       ))
@@ -234,9 +228,9 @@
    ((atag . reply) / (eql atag tag)
     (send* cur-cust reply)
     (if (emptyq? queue)
-        (become (serializer-beh svc :timeout timeout))
+        (become (serializer-beh svc timeout))
       (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
-             (new-tag  (special-tag self timeout)))
+             (new-tag  (ser-tag self timeout)))
         (send* svc new-tag next-msg)
         (become (busy-serializer-beh svc timeout next-cust new-tag new-queue))
         )))
@@ -245,24 +239,24 @@
                                  (addq queue (cons cust msg)))))
    ))
 
-(defun serializer (svc &key (timeout *timeout*))
-  (create (serializer-beh svc :timeout timeout)))
+(defun serializer (svc &optional (timeout *timeout*))
+  (create (serializer-beh svc timeout)))
 
 #| -----------------------------------------------------------
 
                    == A Serializer SInk ==
 
-                                                      +---------+
-                                              +-------| TIMEOUT |
-                                              |       +---------+
-                                              v
-                                     +-------------+
-                                +----| SPECIAL-TAG |<------ reply ---+
-                                |    +-------------+                 |
-                                v                                    |
-              +-----+    +------------+                           +-----+
-  --- msg --->| LBL |--->| SERIALIZER |--- msg ------------------>| svc |
-              +-----+    +------------+                           +-----+
+                                                  +---------+
+                                          +-------| TIMEOUT |
+                                          |       +---------+
+                                          v
+                                     +---------+
+                                +----| SER-TAG |<------ reply ---+
+                                |    +---------+                 |
+                                v                                |
+              +-----+    +------------+                       +-----+
+  --- msg --->| LBL |--->| SERIALIZER |--- msg -------------->| svc |
+              +-----+    +------------+                       +-----+
                                 |
                               reply
                                 |
@@ -274,11 +268,11 @@
    ------------------------------------------------------------- |#
 
 
-(defun serializer-sink (act)
+(defun serializer-sink (act &optional (timeout *timeout*))
   ;; Turn an actor into a sink. Actor must accept a cust argument,
   ;; and always send a response to cust - even though it appears to be
   ;; a sink from the caller's perspective.
-  (label (serializer act) sink))
+  (label (serializer act timeout) sink))
 
 ;; ----------------------------------------------------------
 
