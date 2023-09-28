@@ -197,8 +197,9 @@ THE SOFTWARE.
                   (handler-bind
                       ((error (lambda (e)
                                 ;; handle special actors needing a response
-                                (when (special-actor-p #2=(car (msg-args evt)))
-                                  (send-to-pool #2# e))
+                                (let ((cust (car (msg-args evt))))
+                                  (when (special-actor-p cust)
+                                    (send-to-pool cust e)))
                                 )))
                     (loop
                        ;; Fetch next event from event queue - ideally, this
