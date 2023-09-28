@@ -236,11 +236,10 @@
                    ))
            
            (begin-write ()
-             (with-error-response (cust)
-               (comm:async-io-state-write-buffer io-state
-                                                 byte-vec
-                                                 #'write-done)
-               (>> kill-timer :resched)) ))
+             (comm:async-io-state-write-buffer io-state
+                                               byte-vec
+                                               #'write-done)
+             (>> kill-timer :resched)) )
         
         (send io-running sink :try-writing
               (create #'begin-write)

@@ -5,52 +5,64 @@
 ;; System start-up and shut-down.
 ;;
 
-(def-ser-beh custodian-beh (&optional threads)
+(defun custodian-beh (&optional threads)
   ;; Custodian holds the list of parallel Actor dispatcher threads
-  ((cust :add-executive id)
-   (unless (assoc id threads)
-     (let ((new-thread (mpc:process-run-function
-                        (format nil "Actor Thread #~D" id)
-                        ()
-                        #'run-actors)
-                       ))
-       (become (custodian-beh (acons id new-thread threads)))
-       ))
-   (send cust :ok))
+  (alambda
+   ((cust :add-executive id)
+    (unless (assoc id threads)
+      (let ((new-thread (mpc:process-run-function
+                         (format nil "Actor Thread #~D" id)
+                         ()
+                         #'run-custodian-aware-actors)
+                        ))
+        (become (custodian-beh (acons id new-thread threads)))
+        ))
+    (send cust :ok))
 
-  ((cust :ensuring n ix)
-   (cond ((>= ix n)
-          (send cust :ok))
-         (t
-          (let ((me self))
-            (β _
-                (send self β :add-executive ix)
-              (send me cust :ensuring n (1+ ix)))
-            ))
-         ))
+   ((cust :remove-me proc)
+    (let ((pair (rassoc proc threads)))
+      (cond
+       (pair
+        (become (custodian-beh #1=(remove pair threads)))
+        (send cust #1#))
+       (t
+        (send cust :ok))
+       )))
   
-  ((cust :ensure-executives n)
-   (send self cust :ensuring n 0))
+   ((cust :ensuring n ix)
+    (cond ((>= ix n)
+           (send cust :ok))
+          (t
+           (let ((me self))
+             (β _
+                 (send self β :add-executive ix)
+               (send me cust :ensuring n (1+ ix)))
+             ))
+          ))
+  
+   ((cust :ensure-executives n)
+    (send self cust :ensuring n 0))
      
-  ((cust :add-executives n)
-   (send self cust :ensure-executives (+ (length threads) n)))
+   ((cust :add-executives n)
+    (send self cust :ensure-executives (+ (length threads) n)))
      
-  ((cust :kill-executives)
-   ;; Users should not send this message directly -- use function
-   ;; KILL-ACTORS-SYSTEM from a non-Actor thread. Only works properly
-   ;; when called by a non-Actor thread using a single-thread direct
-   ;; dispatcher, as with ASK.
-   (become (custodian-beh nil))
-   (send cust :ok)
-   (let* ((my-thread     (mpc:get-current-process))
-          (other-threads (remove my-thread (mapcar #'cdr threads))))
-     (map nil #'mpc:process-terminate other-threads)
-     ))
+   ((cust :kill-executives)
+    ;; Users should not send this message directly -- use function
+    ;; KILL-ACTORS-SYSTEM from a non-Actor thread. Only works properly
+    ;; when called by a non-Actor thread using a single-thread direct
+    ;; dispatcher, as with ASK.
+    (become (custodian-beh nil))
+    (send cust :ok)
+    (let* ((my-thread     (mpc:get-current-process))
+           (other-threads (remove my-thread (mapcar #'cdr threads))))
+      (map nil #'mpc:process-terminate other-threads)
+      ))
      
-  ((cust :get-threads)
-   (send cust threads)))
+   ((cust :get-threads)
+    (send cust threads))
+   ))
 
-(def-actor custodian
+(deflex* custodian
   (serializer (create (custodian-beh))))
 
 ;; --------------------------------------------------------------
@@ -85,7 +97,12 @@
          (setf *send* #'startup-send))
        ))))
 
+(defun run-custodian-aware-actors ()
+  (run-actors)
+  (unless (ask custodian :remove-me mp:*current-process*)
+    (setf *send* #'startup-send)))
+
 #|
 (kill-actors-system)
 (restart-actors-system)
- |#
+ |# ;

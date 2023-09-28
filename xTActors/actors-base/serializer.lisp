@@ -201,16 +201,22 @@
 
    ----------------------------------------------------------------- |#
 
+(defun special-tag (act timeout)
+  (let ((spec  (create-special
+                (lambda* msg
+                  (send* act self msg)
+                  (become-sink)))))
+    (send-after timeout spec timed-out)
+    spec))
+
 (defun serializer-beh (svc &key (timeout *timeout*))
   ;; Quiescent state - nobody in waiting, just flag him through, and
   ;; enter the busy state. As a precaution against re-use of the reply TAG
   ;; we guard ourselves with a ONCE gate.
   (alambda
    ((cust . msg)
-    (let* ((tag   (tag self))
-           (once  (once tag)))
-      (send* svc once msg)
-      (send-after timeout once timed-out)
+    (let ((tag   (special-tag self timeout)))
+      (send* svc tag msg)
       (become (busy-serializer-beh svc timeout cust tag nil))
       ))
    ))
@@ -223,11 +229,10 @@
     (send* cur-cust reply)
     (if (emptyq? queue)
         (become (serializer-beh svc :timeout timeout))
-      (let+ ((:mvl ((next-cust . next-msg) &optional new-queue) (popq queue))
-             (once  (once tag)))
-        (send* svc once next-msg)
-        (send-after timeout once timed-out)
-        (become (busy-serializer-beh svc timeout next-cust tag new-queue))
+      (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
+             (new-tag  (special-tag self timeout)))
+        (send* svc new-tag next-msg)
+        (become (busy-serializer-beh svc timeout next-cust new-tag new-queue))
         )))
    ((cust . msg)
     (become (busy-serializer-beh svc timeout cur-cust tag

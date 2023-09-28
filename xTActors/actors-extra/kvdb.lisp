@@ -407,57 +407,61 @@
 
 ;; ----------------------------------------------------------------
 
-(def-beh nascent-database-beh (tag saver msgs)
+(defun nascent-database-beh (tag saver msgs)
   ;; -------------------
   ;; We are the only one that knows the identity of tag and saver. So
   ;; this message could not have come from anywhere except saver
   ;; itself.
-  ((a-tag :opened db) / (eql a-tag tag)
-   (become (trans-gate-beh saver db))
-   ;; now open for business, resubmit pending client requests
-   (send-all-to self msgs))
+  (alambda
+   ((a-tag :opened db) / (eql a-tag tag)
+    (become (trans-gate-beh saver db))
+    ;; now open for business, resubmit pending client requests
+    (send-all-to self msgs))
    
-  ;; -------------------
-  ;; accumulate client requests until we open for business
-  (msg
-   (become (nascent-database-beh tag saver (cons msg msgs) ))))
+   ;; -------------------
+   ;; accumulate client requests until we open for business
+   (msg
+    (become (nascent-database-beh tag saver (cons msg msgs) )))
+   ))
 
 ;; -----------------------------------------------------------
 
 (defconstant +db-id+  {6f896744-6472-11ec-8ecb-24f67702cdaa})
 
-(def-ser-beh save-database-beh (path last-db ctrl-tag)
+(defun save-database-beh (path last-db ctrl-tag)
   ;; -------------------
-  ((cust :full-save db)
-   (let ((savdb (full-save path db ctrl-tag)))
-     (become (save-database-beh path savdb ctrl-tag))
-     (send cust :ok)))
-
-  ;; -------------------
-  ;; The db gateway is the only one that knows saver's identity.
-  ;; Don't bother doing anything unless the db has changed.
-  ((cust :save-log new-db)
-   (send fmt-println "Saving KVDB Deltas: ~S" path)
-   (handler-case
-       (let ((new-ver  (db-find new-db  'version))
-             (prev-ver (db-find last-db 'version)))
-         (when (uuid:uuid-time< prev-ver new-ver)
-           (let* ((delta (get-diffs last-db new-db)))
-             (with-open-file (f path
-                                :direction         :output
-                                :if-exists         :append
-                                :if-does-not-exist :error
-                                :element-type      '(unsigned-byte 8))
-               (loenc:serialize delta f
-                                :max-portability t
-                                :self-sync t))
-             )))
-     (error ()
-       ;; expected possible error due to file not existing yet
-       ;; or from non-existent version in prev-ver
-       (full-save path new-db ctrl-tag)))
-   (become (save-database-beh path new-db ctrl-tag))
-   (send cust :ok)))
+  (alambda
+   ((cust :full-save db)
+    (let ((savdb (full-save path db ctrl-tag)))
+      (become (save-database-beh path savdb ctrl-tag))
+      (send cust :ok)))
+   
+   ;; -------------------
+   ;; The db gateway is the only one that knows saver's identity.
+   ;; Don't bother doing anything unless the db has changed.
+   ((cust :save-log new-db)
+    (send fmt-println "Saving KVDB Deltas: ~S" path)
+    (handler-case
+        (let ((new-ver  (db-find new-db  'version))
+              (prev-ver (db-find last-db 'version)))
+          (when (uuid:uuid-time< prev-ver new-ver)
+            (let* ((delta (get-diffs last-db new-db)))
+              (with-open-file (f path
+                                 :direction         :output
+                                 :if-exists         :append
+                                 :if-does-not-exist :error
+                                 :element-type      '(unsigned-byte 8))
+                (loenc:serialize delta f
+                                 :max-portability t
+                                 :self-sync t))
+              )))
+      (error ()
+        ;; expected possible error due to file not existing yet
+        ;; or from non-existent version in prev-ver
+        (full-save path new-db ctrl-tag)))
+    (become (save-database-beh path new-db ctrl-tag))
+    (send cust :ok))
+   ))
   
 ;; ---------------------------------------------------------------
 
@@ -512,14 +516,16 @@
       (error 'not-a-kvdb :path dbpath))
     ))
 
-(defun unopened-database-beh (ctrl-tag)
+(defun #1=unopened-database-beh (ctrl-tag)
   (lambda (cust &rest msg)
-    ;; We are sitting behind a SERIALIZER. So a response is mandatory.
-    (with-error-response (cust
-                          (lambda (err)
-                            (become-sink)
-                            (send ctrl-tag :remove-entry)
-                            (err-from err)))
+    (handler-bind
+        ((error (lambda (err)
+                  (abort-beh)
+                  (become-sink)
+                  (send ctrl-tag :remove-entry)
+                  (send cust (err-from err))
+                  (return-from #1#))
+                ))
       (match msg
         ;; -------------------
         ;; message from kick-off starter routine
@@ -819,51 +825,53 @@
 (defun ino-key (path)
   (namestring (truename path)))
 
-(def-ser-beh kvdb-orchestrator-beh (&optional open-dbs)
+(defun kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
-  ((cust :make-kvdb path)
-   (cond ((ensure-file-exists path)
-          (let* ((key   (ino-key path))
-                 (quad  (find key open-dbs
-                              :key  #'car
-                              :test #'string-equal)))
-            (cond (quad
-                   (send cust (third quad)))
-                  (t
-                   (let* ((tag-to-me  (tag self))
-                          (kvdb       (%make-kvdb tag-to-me path)))
-                     (become (kvdb-orchestrator-beh
-                              (cons (list key tag-to-me kvdb path)
-                                    open-dbs)))
-                     (send cust kvdb)))
-                  )))
-         (t
-          (send cust (const (format nil "Database ~S Not Available" path))))
-         ))
-
-  ((atag :update-entry)
-   ;; when actual inode changes, as with full-save
-   (let ((quad (find atag open-dbs
-                     :key #'cadr)))
-     (when quad
-       (let* ((path  (fourth quad))
-              (key   (ino-key path)))
-         (unless (string-equal key (car quad))
-           (let* ((kvdb    (third quad))
-                  (new-dbs (cons (list key atag kvdb path)
-                                 (remove quad open-dbs))))
-             (become (kvdb-orchestrator-beh new-dbs))
-             ))
-         ))
-     ))
-
-  ((atag :remove-entry)
-   (let ((quad (find atag open-dbs
-                     :key #'cadr)))
-     (when quad
-       (become (kvdb-orchestrator-beh (remove quad open-dbs))))
-     )))
-
+  (alambda
+   ((cust :make-kvdb path)
+    (cond ((ensure-file-exists path)
+           (let* ((key   (ino-key path))
+                  (quad  (find key open-dbs
+                               :key  #'car
+                               :test #'string-equal)))
+             (cond (quad
+                    (send cust (third quad)))
+                   (t
+                    (let* ((tag-to-me  (tag self))
+                           (kvdb       (%make-kvdb tag-to-me path)))
+                      (become (kvdb-orchestrator-beh
+                               (cons (list key tag-to-me kvdb path)
+                                     open-dbs)))
+                      (send cust kvdb)))
+                   )))
+          (t
+           (send cust (const (format nil "Database ~S Not Available" path))))
+          ))
+   
+   ((atag :update-entry)
+    ;; when actual inode changes, as with full-save
+    (let ((quad (find atag open-dbs
+                      :key #'cadr)))
+      (when quad
+        (let* ((path  (fourth quad))
+               (key   (ino-key path)))
+          (unless (string-equal key (car quad))
+            (let* ((kvdb    (third quad))
+                   (new-dbs (cons (list key atag kvdb path)
+                                  (remove quad open-dbs))))
+              (become (kvdb-orchestrator-beh new-dbs))
+              ))
+          ))
+      ))
+   
+   ((atag :remove-entry)
+    (let ((quad (find atag open-dbs
+                      :key #'cadr)))
+      (when quad
+        (become (kvdb-orchestrator-beh (remove quad open-dbs))))
+      ))
+   ))
+  
 (deflex kvdb-maker
   (serializer ;; because we are doing file ops?
    (create (kvdb-orchestrator-beh))))

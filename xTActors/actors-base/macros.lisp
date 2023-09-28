@@ -366,6 +366,17 @@
   (editor:setup-indent "def-actor" 0)
   (editor:setup-indent "define-behavior" 0))
 
+#|
+(defmacro def-beh (name args &rest clauses)
+  `(defun ,name ,args
+     (alambda
+      ,@clauses)))
+
+#+:LISPWORKS
+(progn
+  ;; (editor:setup-indent "def-ser-beh" 2)
+  (editor:setup-indent "def-beh" 2))
+|#
 ;; -----------------------------------------------------------
 
 (defmacro restartable (&body body)

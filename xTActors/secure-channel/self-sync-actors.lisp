@@ -329,35 +329,39 @@
 ;; -----------------------------------------------------------------
 ;; Stream Decoding
 
-(def-beh stream-decoder-beh (fsm wait-ix queue)
-  ((:deliver bufix buf)
-   (cond ((eql bufix wait-ix)
-          (>> fsm self buf)
-          (β! (busy-stream-decoder-beh fsm (1+ bufix) queue)))
+(defun stream-decoder-beh (fsm wait-ix queue)
+  (alambda
+   ((:deliver bufix buf)
+    (cond ((eql bufix wait-ix)
+           (>> fsm self buf)
+           (β! (busy-stream-decoder-beh fsm (1+ bufix) queue)))
           
-         (t
-          (β! (stream-decoder-beh fsm wait-ix (acons bufix buf queue))))
-         ))
-
-  ((:go-silent)
-   (become-sink)) )
-
-(def-beh busy-stream-decoder-beh (fsm wait-ix queue)
-  ((:next)
-   (let ((pair (assoc wait-ix queue)))
-     (cond (pair
-            (>> fsm self (cdr pair))
-            (β! (busy-stream-decoder-beh fsm (1+ wait-ix) (remove pair queue))))
-           (t
-            (β! (stream-decoder-beh fsm wait-ix queue)))
-           )))
-
-  ((:deliver bufix buf)
+          (t
+           (β! (stream-decoder-beh fsm wait-ix (acons bufix buf queue))))
+          ))
+   
+   ((:go-silent)
+    (become-sink)) 
+   ))
+  
+(defun busy-stream-decoder-beh (fsm wait-ix queue)
+  (alambda
+   ((:next)
+    (let ((pair (assoc wait-ix queue)))
+      (cond (pair
+             (>> fsm self (cdr pair))
+             (β! (busy-stream-decoder-beh fsm (1+ wait-ix) (remove pair queue))))
+            (t
+             (β! (stream-decoder-beh fsm wait-ix queue)))
+            )))
+   
+   ((:deliver bufix buf)
    (β! (busy-stream-decoder-beh fsm wait-ix (acons bufix buf queue))))
-
-  ((:go-silent)
-   (become-sink)) )
-
+   
+   ((:go-silent)
+    (become-sink)) 
+   ))
+  
 (defun stream-decoder (dest)
   ;; Construct an Actor that absorbs chunks of self-sync encoded input
   ;; stream and which triggers events to the dest actor as completed

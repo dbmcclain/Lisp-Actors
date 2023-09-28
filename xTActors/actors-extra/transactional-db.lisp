@@ -225,101 +225,107 @@
 
 ;; ----------------------------------------------------------------
 
-(def-beh nascent-database-beh (tag saver msgs)
+(defunh nascent-database-beh (tag saver msgs)
   ;; -------------------
   ;; We are the only one that knows the identity of tag and saver. So
   ;; this message could not have come from anywhere except saver
   ;; itself.
-  ((a-tag :opened db) / (eql a-tag tag)
-   (become (trans-gate-beh saver db))
-   ;; now open for business, resubmit pending client requests
-   (send-all-to self msgs))
+  (alambda
+   ((a-tag :opened db) / (eql a-tag tag)
+    (become (trans-gate-beh saver db))
+    ;; now open for business, resubmit pending client requests
+    (send-all-to self msgs))
    
-  ;; -------------------
-  ;; accumulate client requests until we open for business
-  (msg
-   (become (nascent-database-beh tag saver (cons msg msgs) ))))
+   ;; -------------------
+   ;; accumulate client requests until we open for business
+   (msg
+    (become (nascent-database-beh tag saver (cons msg msgs) )))
+   ))
 
 ;; -----------------------------------------------------------
 
 (defconstant +db-id+  {6f896744-6472-11ec-8ecb-24f67702cdaa})
 
-(def-ser-beh save-database-beh (path last-db)
-  ;; -------------------
-  ((cust :full-save db)
-   (let ((savdb (full-save path db)))
-     (become (save-database-beh path savdb))
-     (send cust :ok)))
-
-  ;; -------------------
-  ;; The db gateway is the only one that knows saver's identity.
-  ;; Don't bother doing anything unless the db has changed.
-  ((cust :save-log new-db)
-   (let ((new-ver  (maps:find new-db  'version))
-         (prev-ver (maps:find last-db 'version)))
-     (when (uuid:uuid-time< prev-ver new-ver)
-       (let* ((savdb (persistable new-db))
-              (delta (get-diffs last-db savdb)))
-         (handler-case
-             (with-open-file (f path
-                                :direction         :output
-                                :if-exists         :append
-                                :if-does-not-exist :error
-                                :element-type      '(unsigned-byte 8))
-               (loenc:serialize delta f
-                                :self-sync t))
-           (error ()
-             ;; expected possible error due to file not existing yet
-             (full-save path savdb)))
-         (become (save-database-beh path savdb))))
-       (send cust :ok))))
+(defun save-database-beh (path last-db)
+  (alambda
+   ;; -------------------
+   ((cust :full-save db)
+    (let ((savdb (full-save path db)))
+      (become (save-database-beh path savdb))
+      (send cust :ok)))
+   
+   ;; -------------------
+   ;; The db gateway is the only one that knows saver's identity.
+   ;; Don't bother doing anything unless the db has changed.
+   ((cust :save-log new-db)
+    (let ((new-ver  (maps:find new-db  'version))
+          (prev-ver (maps:find last-db 'version)))
+      (when (uuid:uuid-time< prev-ver new-ver)
+        (let* ((savdb (persistable new-db))
+               (delta (get-diffs last-db savdb)))
+          (handler-case
+              (with-open-file (f path
+                                 :direction         :output
+                                 :if-exists         :append
+                                 :if-does-not-exist :error
+                                 :element-type      '(unsigned-byte 8))
+                (loenc:serialize delta f
+                                 :self-sync t))
+            (error ()
+              ;; expected possible error due to file not existing yet
+              (full-save path savdb)))
+          (become (save-database-beh path savdb))))
+      (send cust :ok)))
+   ))
   
 ;; ---------------------------------------------------------------
 
-(def-ser-beh unopened-database-beh ()
-  ;; -------------------
-  ;; message from kick-off starter routine
-  ((cust :open db-path)
-   (let ((db (maps:empty)))
-     (handler-case
-         (with-open-file (f db-path
-                            :direction         :input
-                            :if-does-not-exist :error
-                            :element-type      '(unsigned-byte 8))
-           (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
-                  (id   (make-array (length sig)
-                                    :element-type '(unsigned-byte 8)
-                                    :initial-element 0)))
-             (read-sequence id f)
-             (cond ((equalp id sig)
-                    (setf db (loenc:deserialize f))
-                    (let ((reader (self-sync:make-reader f)))
-                      (handler-case
-                          (loop for ans = (loenc:deserialize f
-                                                             :self-sync  reader)
-                                until (eq ans f)
-                                do
-                                  (destructuring-bind (removals additions changes) ans
-                                    (dolist (key removals)
-                                      (maps:removef db key))
-                                    (dolist (pair additions)
-                                      (destructuring-bind (key . val) pair
-                                        (maps:addf db key val)))
-                                    (dolist (pair changes)
-                                      (destructuring-bind (key . val) pair
-                                        (maps:addf db key val)))
-                                    ))
-                        (error (exn)
-                          (send println (um:format-error exn)))
-                        )))
-                   (t
-                    (error "Not a db file"))
-                   )))
-       (error ()
-         (setf db (maps:add (maps:empty) 'version (uuid:make-v1-uuid)))
-         (full-save db-path db)))
-     (become (save-database-beh db-path db))
-     (send cust :opened db))))
+(defun unopened-database-beh ()
+  (alambda
+   ;; -------------------
+   ;; message from kick-off starter routine
+   ((cust :open db-path)
+    (let ((db (maps:empty)))
+      (handler-case
+          (with-open-file (f db-path
+                             :direction         :input
+                             :if-does-not-exist :error
+                             :element-type      '(unsigned-byte 8))
+            (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
+                   (id   (make-array (length sig)
+                                     :element-type '(unsigned-byte 8)
+                                     :initial-element 0)))
+              (read-sequence id f)
+              (cond ((equalp id sig)
+                     (setf db (loenc:deserialize f))
+                     (let ((reader (self-sync:make-reader f)))
+                       (handler-case
+                           (loop for ans = (loenc:deserialize f
+                                                              :self-sync  reader)
+                                 until (eq ans f)
+                                 do
+                                   (destructuring-bind (removals additions changes) ans
+                                     (dolist (key removals)
+                                       (maps:removef db key))
+                                     (dolist (pair additions)
+                                       (destructuring-bind (key . val) pair
+                                         (maps:addf db key val)))
+                                     (dolist (pair changes)
+                                       (destructuring-bind (key . val) pair
+                                         (maps:addf db key val)))
+                                     ))
+                         (error (exn)
+                           (send println (um:format-error exn)))
+                         )))
+                    (t
+                     (error "Not a db file"))
+                    )))
+        (error ()
+          (setf db (maps:add (maps:empty) 'version (uuid:make-v1-uuid)))
+          (full-save db-path db)))
+      (become (save-database-beh db-path db))
+      (send cust :opened db)))
+   ))
 
 ;; --------------------------------------------------------------------
 

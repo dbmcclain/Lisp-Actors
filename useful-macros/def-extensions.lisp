@@ -288,8 +288,8 @@ WITH-ACCESSORS, in your code, putting it all into one place with LET+."
           (let ((flat (um:flatten (first binding))))
             `(destructuring-bind ,(first binding)
                  ,(second binding)
-               ,@(when (find '_ flat)
-                   `((declare (ignore _))))
+               ,@(when (find-if #'is-underscore? flat)
+                   `((declare (ignore ,(symb "_")))))
                (let+ ,(rest bindings)
                  ,@body))))
 

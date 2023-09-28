@@ -171,9 +171,7 @@ THE SOFTWARE.
    #:serializer
    #:serializer-sink
    #:blocking-serializer
-   #:with-error-response
    #:err-from
-   #:def-ser-beh
    #:timing
    #:sequenced-delivery
    #:mbox-sender
@@ -301,7 +299,6 @@ THE SOFTWARE.
    #:future-become-beh
    #:with-maximum-io-syntax
 
-   #:unhandled-message
    #:recursive-ask
    #:with-recursive-ask
    #:err-chk
@@ -318,6 +315,9 @@ THE SOFTWARE.
    #:trace-me
    #:tracer
 
+   #:create-special
+   #:special-actor-p
+   
    ;; convenience macros
    #:<<
    #:<<*

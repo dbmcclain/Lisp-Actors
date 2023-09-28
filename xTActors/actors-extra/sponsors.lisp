@@ -14,14 +14,16 @@
 
 (define-symbol-macro self-sponsor  *current-sponsor*)
 
-(def-beh sponsor-beh (mbox thread)
-  ((:shutdown)
-   (mp:process-terminate thread)
-   (become (sink-beh)))
+(defun sponsor-beh (mbox thread)
+  (alambda
+   ((:shutdown)
+    (mp:process-terminate thread)
+    (become (sink-beh)))
+   
+   ((actor . msg) when (actor-p actor)
+    (mp:mailbox-send mbox (msg actor msg)))
+   ))
   
-  ((actor . msg) when (actor-p actor)
-   (mp:mailbox-send mbox (msg actor msg))))
-
 (defun make-sponsor (name)
   (let* ((spon   (create))
          (mbox   (mp:make-mailbox))

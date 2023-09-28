@@ -489,27 +489,30 @@
 ;;   Provider sends :DELIVER with sequence counter and message
 ;;   Consumer sends :READY with customer and sequence counter of desired messaage
 
-(def-beh sequenced-beh (&optional items)
-  ((cust :ready ctr)
-   (let ((msg (assoc ctr items)))
-     (cond (msg
-            (send cust (cdr msg))
-            (become (sequenced-beh (remove msg items))))
-           (t
-            (become (pending-sequenced-beh cust ctr items)))
-           )))
+(defun sequenced-beh (&optional items)
+  (alambda
+   ((cust :ready ctr)
+    (let ((msg (assoc ctr items)))
+      (cond (msg
+             (send cust (cdr msg))
+             (become (sequenced-beh (remove msg items))))
+            (t
+             (become (pending-sequenced-beh cust ctr items)))
+            )))
+   
+   ((:deliver ctr . msg)
+    (become (sequenced-beh (acons ctr msg items))))
+   ))
 
-  ((:deliver ctr . msg)
-   (become (sequenced-beh (acons ctr msg items)))))
-
-(def-beh pending-sequenced-beh (cust ctr items)
-  ((:deliver in-ctr . msg)
-   (cond ((eql in-ctr ctr)
-          (send cust msg)
-          (become (sequenced-beh items)))
-         (t
-          (become (pending-sequenced-beh cust ctr (acons in-ctr msg items))))
-         )))
+(defun pending-sequenced-beh (cust ctr items)
+  (alambda
+   ((:deliver in-ctr . msg)
+    (cond ((eql in-ctr ctr)
+           (send cust msg)
+           (become (sequenced-beh items)))
+          (t
+           (become (pending-sequenced-beh cust ctr (acons in-ctr msg items))))
+          ))))
   
 (defun sequenced-delivery ()
   (create (sequenced-beh)))
@@ -560,11 +563,11 @@
                 (send* cust msg))
             #'send)))
 
-(def-beh splay-beh (&rest custs)
+(defun splay-beh (&rest custs)
   ;; Define a sink block that passes on the message to all custs
-  (msg
-   (apply #'send-to-all custs msg)))
-
+  (lambda* msg
+    (apply #'send-to-all custs msg)))
+  
 (defun splay (&rest custs)
   (create (apply #'splay-beh custs)))
 
@@ -638,12 +641,12 @@
   ;;
   (let* ((unw      (once (create fn-unw)))
          (new-cust (um:map-tree (lambda (cust)
-                                  (once
-                                   (create
-                                    (lambda* msg
-                                      (send unw)
-                                      (send* cust msg))
-                                    )))
+                                  (create-special
+                                   (lambda* msg
+                                     (send unw)
+                                     (send* cust msg)
+                                     (become-sink))
+                                   ))
                                 cust))
          (mux       (once
                      (create
@@ -654,12 +657,7 @@
                           (send* cust msg)))
                       ))))
     (send-after timeout mux timed-out)
-    (handler-bind
-        ((error (lambda (e)
-                  (abort-beh) ;; discard pending SEND, BECOME
-                  (send-to-pool mux e))
-                ))
-      (funcall fn-form new-cust))
+    (funcall fn-form new-cust)
     ))
 
 (defmacro with-actors-open-file ((cust fd filename &rest open-args
@@ -686,4 +684,73 @@
     (with-actors-open-file (β fd "/Users/davidmcclain/quicklisp/dists/quicklisp/software/cl-zmq-20160318-git/src/package.lisp" :direction :input :timeout 3)
       (send rdr β fd))
   (send println "I guess we're done...")))
+
+(let ((act (serializer
+            (create
+             (alambda
+              ((cust ix)
+               (send cust (1+ ix))
+               (when (oddp ix)
+                 (error "What!?")))
+              )))))
+  (send act println 1)
+  (send act println 2))
+
 |#
+
+;; ------------------------------------------------------
+;; Some customer Actors are special, in the sense that they need to
+;; see a response, no matter what.
+;;
+;; The UNW-PROT interposing customer is a case in point, where the
+;; customer handed downstream is responsible for releasing a vital
+;; resource, or performing some absolutely necessary function, on the
+;; way back to the original customer.
+;;
+;; Serializers present another situation needing a response, otherwise
+;; the queue of waiting messages just lingers indefinitely.
+;;
+;; There are several ways to respond to this kind of customer:.
+;;
+;;  1. A normal message send back to the customer
+;;
+;;  2. An error situation in which a response must be sent back.
+;; 
+;;  3. A missing pattern match on the message, which would normally
+;;  drop the message on the floor.
+;;
+;;  4. The customer becoming stashed into a queue that may or may not
+;;  ever be responded to...
+;;
+;;  5. The customer is sent across a network for a response from the
+;;  other side. That network message might never make it across.
+;;
+;; I can think of ways to wrap a behavior so that cases 1-3 are
+;; handled directly. Cases 4 & 5 can only be handled with some timeout
+;; mechanism previously provided in anticipation of such situations.
+;; Case 3 might also just be handled by the timeout mechanism, since
+;; this is equivalent to a lost packet on a network.
+;;
+;; It is too much to expect that downstream Actors, or the network,
+;; will behave properly.
+;;
+;; So we can invent special wrappers around the customer Actor that
+;; will provide for timeout if a response is not provided in a timely
+;; manner. This wrapper could also be detected, either by the
+;; dispatcher, or by the entry code of Actor behaviors, to guarantee a
+;; response when possible.
+;;
+;; If we allow case 3 to be handled by a timeout mechanism, then
+;; nothing special needs to be added to Actor behaviors, and the
+;; dispatcher could provide the needed response in the event of an
+;; error. This seems the least intrusive, and needs the fewest
+;; assumptions. But in this case, you absolutely cannot allow the lack
+;; of timeout handling.
+
+(defun special-actor (act &key (timeout *timeout*))
+  (let ((spec (create-special
+               (lambda* msg
+                 (send* act msg)
+                 (become-sink)))))
+    (send-after timeout spec timed-out)
+    spec))
