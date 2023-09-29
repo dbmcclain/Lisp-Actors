@@ -538,29 +538,33 @@
                    (plusp timeout)))
     (warn msg)))
 
-(defun unw-prot-beh (fn-form fn-unw)
-  (let ((timeout *timeout*))
-    (warn-timeout timeout nil
-                  "You are taking a risk not using an UNW-PROT Timeout.~%Wrap your UNW-PROT form with a WITH-TIMEOUT.")
-    (lambda (cust)
-      (β ans
-          (progn
-            (send-after timeout β +timed-out+)
-            (non-idempotent
-              (funcall fn-form β)))
-        (become-sink)
-        (send* cust ans)
-        (non-idempotent
-          (funcall fn-unw))
-        ))
-    ))
+
+(defun unw-prot-beh (fn-form fn-unw &key (timeout *timeout* timeout-provided-p))
+  (warn-timeout timeout timeout-provided-p
+                "You are taking a risk not using an UNW-PROT Timeout.")
+  (alambda
+   ((cust)
+    (β ans
+        (progn
+          (send-after timeout β +timed-out+)
+          (non-idempotent
+            (funcall fn-form β)))
+      (become-sink)
+      (send* cust ans)
+      (non-idempotent
+        (funcall fn-unw))
+      ))
+   ))
   
-(defmacro unw-prot ((cust) form &rest unw-clauses)
+(defmacro unw-prot ((cust) form (&rest unw-clauses)
+                    &key (timeout *timeout* timeout-provided-p))
   `(create (unw-prot-beh
             (lambda (,cust)
               ,form)
             (lambda ()
               ,@unw-clauses)
+            ,@(when timeout-provided-p
+                `(:timeout ,timeout))
             )))
 
 #|
@@ -568,48 +572,40 @@
   (send (unw-prot (cust)
                   (progn
                     (sleep 1)
-                    ;;  (error "What!?")
+                    ;; (error "What!?")
                     (send cust :hello))
-                  (send println :unwinding))
+                  ((send println :unwinding)))
         println))
 |#
 ;; -------------------------------------------------------
-#|
-(defun open-file-beh (timeout filename &rest open-args)
-  (check-type timeout (real 0))
-  (lambda (cust target)
-    ;; Target should expect a customer and a file-descr
-    (let ((fd (apply #'open filename open-args)))
-      (β ans
-          (progn
-            (send-after timeout β +timed-out+)
-            (send target β fd))
-        (become-sink)
-        (non-idempotent
-          (close fd))
-        (send fmt-println "File closed: ~A" filename)
-        (send* cust ans))
-      )))
-|#
-(defun open-file-beh (timeout filename &rest open-args)
-  (check-type timeout (real 0))
-  (lambda (cust target)
-    ;; Target should expect a customer and a file-descr
-    (let ((fd (apply #'open filename open-args)))
-      (with-timeout timeout
-        (send (unw-prot (cust)
-                        (send target cust fd)
-                        (non-idempotent
-                          (close fd))
-                        (send fmt-println "File closed: ~A" filename))
-              cust))
-      )))
+;; OPEN-FILE for Actors - using UNW-PROT to ensure file closing.
 
-(defun open-file (timeout filename &rest open-args)
-  (check-type timeout (real 0))
-  (serializer
-   (create (apply #'open-file-beh timeout filename open-args))
-   :timeout nil))
+(defun open-file-beh (filename &rest open-args
+                               &key (timeout *timeout* timeout-provided-p)
+                               &allow-other-keys)
+  (warn-timeout timeout timeout-provided-p "You are taking a risk not using an OPEN-FILE Timeout.")
+  (alambda
+   ((cust target)
+    ;; Target should expect a customer and a file-descr
+    (let ((fd  (apply #'open filename (um:remove-prop :timeout open-args))))
+      (send (unw-prot (cust)
+                      (send target cust fd)
+                      
+                      ((close fd)
+                       (send fmt-println "File closed: ~A" filename))
+                      :timeout timeout)
+              cust)
+      ))
+   ))
+
+(defun open-file (filename &rest open-args
+                           &key (timeout *timeout* timeout-provided-p)
+                           &allow-other-keys)
+  (declare (ignore timeout))
+  (apply #'serializer
+   (create (apply #'open-file-beh filename open-args))
+   (when timeout-provided-p
+     `(:timeout nil))))
           
 #|
 (let ((rdr (create
@@ -622,20 +618,13 @@
               (send cust :ok))
             )))
   (β _
-      (send (open-file 3 "/Users/davidmcclain/quicklisp/dists/quicklisp/software/cl-zmq-20160318-git/src/package.lisp" :direction :input)
+      (send (open-file "/Users/davidmcclain/quicklisp/dists/quicklisp/software/cl-zmq-20160318-git/src/package.lisp"
+                       :direction :input
+                       :timeout   3)
             β rdr)
     (send println "I guess we're done...")))
 
-(let ((act (serializer
-            (create
-             (alambda
-              ((cust ix)
-               (send cust (1+ ix))
-               (when (oddp ix)
-                 (error "What!?")))
-              )))))
-  (send act println 1)
-  (send act println 2))
+
 
 |#
 
