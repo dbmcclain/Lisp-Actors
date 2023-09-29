@@ -247,7 +247,8 @@
         ))))
 
 (defun make-writer (state)
-  (serializer-sink (create (physical-writer-beh state))))
+  (serializer-sink (create (physical-writer-beh state))
+                   :timeout nil))
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
