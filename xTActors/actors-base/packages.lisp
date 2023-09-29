@@ -303,7 +303,7 @@ THE SOFTWARE.
    #:terminated-ask
    #:ask-timeout
    #:check-for-errors
-   #:timed-out
+   #:+timed-out+
    #:warn-timeout
    
    #:executor

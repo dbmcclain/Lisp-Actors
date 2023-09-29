@@ -61,7 +61,86 @@
      But BECOME always pertains to SELF.
   
    ------------------------------------------------------- |#
-
+;; === NOTE: Irreversible Side-Effecting Behaviors ===
+;;
+;; When Actor bodies must perform irreversible side effects, aka
+;; non-idempotency, e.g, Drop the Bomb, which cannot be undone - you
+;; must take precautions.  Concurrent access to the same Actor code
+;; body is a given. You have to prevent duplication of effort. Ensure
+;; that only one logical thread of activity can succeed.
+;;
+;; You should always surround the code with (NON-IDEMPOTENT ...)
+;; which would then be executed in a separate anonymous Actor, but
+;; only if the entire rest of the behavior code successfully
+;; completes.
+;;
+;; An unsuccessful exection of the behavior can happen for two
+;; possible reasons:
+;;
+;;    1. Your code triggers an error condition and aborts, and so
+;;    nothing will have happened. Your staged SENDs, BECOME, and
+;;    NON-IDEMPOTENT clauses will be discarded.
+;;
+;;    2. You tried to BECOME while another logical thread commited a
+;;    BECOME just before your attempt to commit at code exit. And so,
+;;    all your staged actions will be discarded, and you will be
+;;    automatically retried.
+;;
+;;    But the non-idempotent action might already have been triggered.
+;;    You can't be certain unless there is only one clause in the
+;;    behavior that peforms a BECOME.  So a successful BECOME must
+;;    necessarily establish a new bahavior that precludes any repeat
+;;    of the same non-idempotent action.
+;;
+;; But this alone, does not ensure non-duplication of effort. Two
+;; concurrent logical threads of activity could both succeed in the
+;; Actor body, if there were no BECOME. Lacking a BECOME, the only
+;; hazard is execution error. And so this could have devastating
+;; consequences since both couild have performed the same
+;; non-idempotent action.
+;;
+;; So any non-idempotent clause should always be accompanied by a
+;; BECOME to some new behavior that preclude repitition of the
+;; non-idempotent action.
+;;
+;; In concurrent code, which must be assumed as the usual state of
+;; affairs for Actors code, you should never perform any
+;; non-idempotent action unless one of 3 possible situations:
+;;
+;;    1. Your Actor residees behind a SERIALIZER gate to ensure single
+;;    logical-thread access,
+;;
+;;    2. Your Actor performs an accompanying BECOME to a new behavior
+;;    that precludes repitition of the non-idempotent action.
+;;
+;;    3. Your Actor is a private Actor and has never been shared, nor
+;;    has any duplicate construct doing the same non-idempotent action
+;;    ever been created.
+;;
+;; There is one oft-used non-idempotent action taken in many Actors -
+;; BECOME-SINK, which turns the Actor into a one-time-only use. This a
+;; brute-force way to enforce single-task access. It just drops all
+;; future messages on the floor, after having succeeded just once.
+;;
+;; Concurrent code is fun, but requires deep, careful, thought. But
+;; concurrency has nothing at all to do with whether or not your
+;; machine has multiple threads running.
+;;
+;; Actors carry no sense of threads, locks, mutexes, etc. You can
+;; program as though you are single-threaded.  But concurrency spawns
+;; the notion of concurrent tasks, or logical-threads, all of which
+;; can be running at the same time.
+;;
+;; Multicore CPU's enable Parallel Concurrency. Lacking that you could
+;; still have Serial and/or Time-Sliced, Single- or Multi-Thread,
+;; Concurrency, which carries nearly identical hazards to Parallel
+;; Concurrency.
+;;
+;; The only difference between Parallel and non-Parallel is that the
+;; machine must perform cache-coherency operations among the CPU Cores
+;; for Parallel operation. This has almost nothing to do with the
+;; programmer.
+;; ------------------------------------------------------------
 
 (deflex executor
   ;; Use for performing non-idempotent actions
@@ -85,7 +164,7 @@
 (defun timed-gate (cust timeout)
   (cond ((realp timeout)
          (let ((gate (once cust)))
-           (send-after timeout gate timed-out)
+           (send-after timeout gate +timed-out+)
            gate))
         (t
          cust)))
@@ -98,7 +177,7 @@
          (create
           (lambda (cust &rest msg)
             (let ((gate (once cust)))
-              (send-after timeout gate timed-out)
+              (send-after timeout gate +timed-out+)
               (send* svc gate msg)))
           ))
         (t
@@ -158,12 +237,12 @@
 
 (defun timed-tag (cust &optional (timeout *timeout*))
   (let ((atag (tag cust)))
-    (send-after timeout atag timed-out)
+    (send-after timeout atag +timed-out+)
     atag))
 
 (defun timed-once-tag (cust &optional (timeout *timeout*))
   (let ((atag (once-tag cust)))
-    (send-after timeout atag timed-out)
+    (send-after timeout atag +timed-out+)
     atag))
 
 ;; -------------------------------------------------
@@ -455,9 +534,9 @@
 ;; Unwind-Protect for Actors...
 ;;
 
-(defmacro unw-prot (cust form &rest unw-clauses)
+(defmacro unw-prot ((cust-sym cust) form &rest unw-clauses)
   `(do-unw-prot ,cust
-                (lambda (,cust)
+                (lambda (,cust-sym)
                   ,form)
                 (lambda ()
                   ,@unw-clauses)))
@@ -482,28 +561,57 @@
   ;; timeout available, if *TIMEOUT* is a positive real number of
   ;; seconds to wait.
   ;;
-  (warn-timeout *timeout* "You are taking a big risk not using an UNW-PROT Timeout.~%Wrap your UNW-PROT with a WITH-TIMEOUT.")
-  (let* ((unw  (create
-                (lambda* msg
-                  (send* cust msg)
-                  (become-sink)
-                  (non-idempotent
-                   (funcall fn-unw)))
-                )))
-    (send-after *timeout* unw timed-out)
+  (let ((timeout *timeout*))
+    (warn-timeout timeout "You are taking a big risk not using an UNW-PROT Timeout.~%Wrap your UNW-PROT with a WITH-TIMEOUT.")
+    ;; Caller needs to be behind Serializer, or attempt a BECOME to a
+    ;; serializing form, or be a private Actor.
     (non-idempotent
-      (funcall fn-form unw))
+      ;; Everything below will only happen if caller succeeds. And
+      ;; everything below will succeed - so simple
+      (let* ((unw  (create
+                    (lambda* msg
+                      (become-sink)  ;; these three will succeed, so simple
+                      (send* cust msg)
+                      (non-idempotent
+                        (funcall fn-unw)))
+                    )))
+        (send-after timeout unw +timed-out+)
+        (non-idempotent                    
+          (funcall fn-form unw))
+        ))))
+
+;; -------------------------------------------------------
+
+(defmacro with-actors-open-file ((cust-sym cust) (fd-sym filename &rest open-args) &body body)
+  `(do-with-actors-open-file ,cust ,filename
+                             (lambda (,cust-sym ,fd-sym)
+                               ,@body)
+                             ,@open-args))
+
+(defun do-with-actors-open-file (cust filename body-fn &rest open-args)
+  (let ((timeout  *timeout*))
+    ;; Caller needs either to be behind a Serializer, or else attempt a
+    ;; BECOME to a serializing form, or be a private Actor
+    (non-idempotent
+      ;; The following only happens if caller succeeds
+      (let ((fd  (apply #'open filename open-args)))
+        ;; the following only happens if we successfully opened the
+        ;; file
+        (with-timeout timeout
+          (do-unw-prot cust
+              (um:rcurry body-fn fd)
+            (lambda ()
+              (send fmt-println "Closing file: ~A" filename)
+              (close fd)))
+          )))
     ))
 
-(defmacro with-actors-open-file ((cust fd filename &rest open-args) &body body)
-  `(let ((,fd  (open #1=,filename ,@open-args)))
-     (unw-prot ,cust
-         (progn
-           ,@body)
-       (send fmt-println "Closing file: ~A" #1#)
-       (close ,fd))) )
-
 #|
+(with-timeout 1 
+  (unw-prot (cust println)
+      (send cust :hello)
+    (send println :unwinding)))
+
 (let ((rdr (create
             (lambda (cust fd)
               (loop for line = (read-line fd nil fd)
@@ -515,8 +623,9 @@
             )))
   (β _
       (with-timeout 3
-        (with-actors-open-file (β fd "/Users/davidmcclain/quicklisp/dists/quicklisp/software/cl-zmq-20160318-git/src/package.lisp" :direction :input)
-          (send rdr β fd)))
+        (with-actors-open-file (cust β)
+            (fd "/Users/davidmcclain/quicklisp/dists/quicklisp/software/cl-zmq-20160318-git/src/package.lisp" :direction :input)
+          (send rdr cust fd)))
     (send println "I guess we're done...")))
 
 (let ((act (serializer

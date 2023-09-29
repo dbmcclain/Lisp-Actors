@@ -58,7 +58,7 @@
   (actor ((cust fail) &rest args)
     (multiple-value-bind (lbl-ok lbl-fail)
         (guard-selector cust fail must-do must-args)
-      (send-after timeout lbl-fail timed-out)
+      (send-after timeout lbl-fail +timed-out+)
       (send* action `(,lbl-ok ,lbl-fail) args))
     ))
 

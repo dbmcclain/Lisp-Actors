@@ -36,7 +36,7 @@ THE SOFTWARE.
 
 ;; --------------------------------------
 
-(deflex timed-out (make-condition 'timeout))
+(deflex +timed-out+ (make-condition 'timeout))
 
 (defun sink-beh ()
   #'do-nothing)
@@ -263,7 +263,7 @@ THE SOFTWARE.
                                           (become-sink))
                                         )))
                               (setf timeout +ASK-TIMEOUT+)
-                              (send-after *timeout* me timed-out)
+                              (send-after *timeout* me +timed-out+)
                               (apply #'send-to-pool actor me message)
                               (let ((*send*      #'%send)
                                     (*become*    #'%become)

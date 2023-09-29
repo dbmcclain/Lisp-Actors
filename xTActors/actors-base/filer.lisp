@@ -114,7 +114,7 @@
                           (timeout-tag (tag-beh gate))
                           (gate        (retrig-filer-gate-beh chan reply-tag timeout-tag
                                                               :timeout close-after)))
-                   (send-after close-after timeout-tag timed-out)
+                   (send-after close-after timeout-tag +timed-out+)
                    (send cust gate))
                  ))
            args))

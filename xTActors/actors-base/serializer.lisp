@@ -206,7 +206,7 @@
                (lambda* msg
                  (send* act self msg)
                  (become-sink)))))
-    (send-after timeout tag timed-out)
+    (send-after timeout tag +timed-out+)
     tag))
 
 (defun serializer-beh (svc timeout)
@@ -273,7 +273,7 @@
   ;; Turn an actor into a sink. Actor must accept a cust argument,
   ;; and always send a response to cust - even though it appears to be
   ;; a sink from the caller's perspective.
-  (label (serializer act timeout) sink))
+  (label (serializer act :timeout timeout) sink))
 
 ;; ----------------------------------------------------------
 
