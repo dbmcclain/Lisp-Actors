@@ -209,11 +209,7 @@
     (send-after timeout tag +timed-out+)
     tag))
 
-(defun serializer-beh (svc timeout)
-  ;; Quiescent state - nobody in waiting, just flag him through, and
-  ;; enter the busy state. As a precaution against re-use of the reply TAG
-  ;; we guard ourselves with a ONCE gate.
-  (warn-timeout timeout "You are taking a big risk not using a Serializer Timeout")
+(defun unchecked-serializer-beh (svc timeout)
   (alambda
    ((cust . msg)
     (let ((tag   (ser-tag self timeout)))
@@ -229,7 +225,7 @@
    ((atag . reply) / (eql atag tag)
     (send* cur-cust reply)
     (if (emptyq? queue)
-        (become (serializer-beh svc timeout))
+        (become (unchecked-serializer-beh svc timeout))
       (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
              (new-tag  (ser-tag self timeout)))
         (send* svc new-tag next-msg)
@@ -240,8 +236,16 @@
                                  (addq queue (cons cust msg)))))
    ))
 
-(defun serializer (svc &key (timeout *timeout*))
-  (create (serializer-beh svc timeout)))
+(defun serializer-beh (svc &key (timeout *timeout* timeout-provided-p))
+  ;; Quiescent state - nobody in waiting, just flag him through, and
+  ;; enter the busy state. As a precaution against re-use of the reply TAG
+  ;; we guard ourselves with a ONCE gate.
+  (warn-timeout timeout timeout-provided-p
+                "You are taking a risk not using a Serializer Timeout")
+  (unchecked-serializer-beh svc timeout))
+
+(defun serializer (svc &rest args)
+  (create (apply #'serializer-beh svc args)))
 
 #| -----------------------------------------------------------
 
@@ -269,11 +273,12 @@
    ------------------------------------------------------------- |#
 
 
-(defun serializer-sink (act &key (timeout *timeout*))
+(defun serializer-sink (act &rest args)
   ;; Turn an actor into a sink. Actor must accept a cust argument,
   ;; and always send a response to cust - even though it appears to be
   ;; a sink from the caller's perspective.
-  (label (serializer act :timeout timeout) sink))
+  (label (apply #'serializer act args)
+         sink))
 
 ;; ----------------------------------------------------------
 

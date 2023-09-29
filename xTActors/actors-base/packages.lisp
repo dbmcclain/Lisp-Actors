@@ -285,9 +285,11 @@ THE SOFTWARE.
    #:def-actor
    #:define-behavior
    #:sequential-β
-   
+
+   #:unw-prot-beh
    #:unw-prot
-   #:with-actors-open-file
+   #:open-file-beh
+   #:open-file
    #:with-actors
 
    #:fut

@@ -528,90 +528,90 @@
 (defun splay (&rest custs)
   (create (apply #'splay-beh custs)))
 
-;; ------------------------------------------------
-
 ;; -------------------------------------------------------
 ;; Unwind-Protect for Actors...
 ;;
 
-(defmacro unw-prot ((cust-sym cust) form &rest unw-clauses)
-  `(do-unw-prot ,cust
-                (lambda (,cust-sym)
-                  ,form)
-                (lambda ()
-                  ,@unw-clauses)))
-
-#+:LISPWORKS
-(editor:indent-like "UNW-PROT" "IF")
-
-(defun warn-timeout (timeout msg)
-  (unless (and (realp timeout)
-               (plusp timeout))
+(defun warn-timeout (timeout timeout-provided-p msg)
+  (unless (or timeout-provided-p
+              (and (realp timeout)
+                   (plusp timeout)))
     (warn msg)))
 
-(defun do-unw-prot (cust fn-form fn-unw)
-  ;; Actors don't participate in a dynamic chain descending from one
-  ;; Actor to another, unlike nested binding levels in a function. We
-  ;; have to rely on messages being sent onward to customers. And the
-  ;; unwind takes place in an interposer customer along the way.
-  ;;
-  ;; Unlike UNWIND-PROTECT, the unwind does not happen on body exit.
-  ;; It remains for an Actor to send a message to the customer, and
-  ;; the unwind occurs in an interposing customer. There is a safety
-  ;; timeout available, if *TIMEOUT* is a positive real number of
-  ;; seconds to wait.
-  ;;
+(defun unw-prot-beh (fn-form fn-unw)
   (let ((timeout *timeout*))
-    (warn-timeout timeout "You are taking a big risk not using an UNW-PROT Timeout.~%Wrap your UNW-PROT with a WITH-TIMEOUT.")
-    ;; Caller needs to be behind Serializer, or attempt a BECOME to a
-    ;; serializing form, or be a private Actor.
-    (non-idempotent
-      ;; Everything below will only happen if caller succeeds. And
-      ;; everything below will succeed - so simple
-      (let* ((unw  (create
-                    (lambda* msg
-                      (become-sink)  ;; these three will succeed, so simple
-                      (send* cust msg)
-                      (non-idempotent
-                        (funcall fn-unw)))
-                    )))
-        (send-after timeout unw +timed-out+)
-        (non-idempotent                    
-          (funcall fn-form unw))
-        ))))
-
-;; -------------------------------------------------------
-
-(defmacro with-actors-open-file ((cust-sym cust) (fd-sym filename &rest open-args) &body body)
-  `(do-with-actors-open-file ,cust ,filename
-                             (lambda (,cust-sym ,fd-sym)
-                               ,@body)
-                             ,@open-args))
-
-(defun do-with-actors-open-file (cust filename body-fn &rest open-args)
-  (let ((timeout  *timeout*))
-    ;; Caller needs either to be behind a Serializer, or else attempt a
-    ;; BECOME to a serializing form, or be a private Actor
-    (non-idempotent
-      ;; The following only happens if caller succeeds
-      (let ((fd  (apply #'open filename open-args)))
-        ;; the following only happens if we successfully opened the
-        ;; file
-        (with-timeout timeout
-          (do-unw-prot cust
-              (um:rcurry body-fn fd)
-            (lambda ()
-              (send fmt-println "Closing file: ~A" filename)
-              (close fd)))
-          )))
+    (warn-timeout timeout nil
+                  "You are taking a risk not using an UNW-PROT Timeout.~%Wrap your UNW-PROT form with a WITH-TIMEOUT.")
+    (lambda (cust)
+      (β ans
+          (progn
+            (send-after timeout β +timed-out+)
+            (non-idempotent
+              (funcall fn-form β)))
+        (become-sink)
+        (send* cust ans)
+        (non-idempotent
+          (funcall fn-unw))
+        ))
     ))
+  
+(defmacro unw-prot ((cust) form &rest unw-clauses)
+  `(create (unw-prot-beh
+            (lambda (,cust)
+              ,form)
+            (lambda ()
+              ,@unw-clauses)
+            )))
 
 #|
-(with-timeout 1 
-  (unw-prot (cust println)
-      (send cust :hello)
-    (send println :unwinding)))
+(with-timeout 1.1
+  (send (unw-prot (cust)
+                  (progn
+                    (sleep 1)
+                    ;;  (error "What!?")
+                    (send cust :hello))
+                  (send println :unwinding))
+        println))
+|#
+;; -------------------------------------------------------
+#|
+(defun open-file-beh (timeout filename &rest open-args)
+  (check-type timeout (real 0))
+  (lambda (cust target)
+    ;; Target should expect a customer and a file-descr
+    (let ((fd (apply #'open filename open-args)))
+      (β ans
+          (progn
+            (send-after timeout β +timed-out+)
+            (send target β fd))
+        (become-sink)
+        (non-idempotent
+          (close fd))
+        (send fmt-println "File closed: ~A" filename)
+        (send* cust ans))
+      )))
+|#
+(defun open-file-beh (timeout filename &rest open-args)
+  (check-type timeout (real 0))
+  (lambda (cust target)
+    ;; Target should expect a customer and a file-descr
+    (let ((fd (apply #'open filename open-args)))
+      (with-timeout timeout
+        (send (unw-prot (cust)
+                        (send target cust fd)
+                        (non-idempotent
+                          (close fd))
+                        (send fmt-println "File closed: ~A" filename))
+              cust))
+      )))
 
+(defun open-file (timeout filename &rest open-args)
+  (check-type timeout (real 0))
+  (serializer
+   (create (apply #'open-file-beh timeout filename open-args))
+   :timeout nil))
+          
+#|
 (let ((rdr (create
             (lambda (cust fd)
               (loop for line = (read-line fd nil fd)
@@ -622,10 +622,8 @@
               (send cust :ok))
             )))
   (β _
-      (with-timeout 3
-        (with-actors-open-file (cust β)
-            (fd "/Users/davidmcclain/quicklisp/dists/quicklisp/software/cl-zmq-20160318-git/src/package.lisp" :direction :input)
-          (send rdr cust fd)))
+      (send (open-file 3 "/Users/davidmcclain/quicklisp/dists/quicklisp/software/cl-zmq-20160318-git/src/package.lisp" :direction :input)
+            β rdr)
     (send println "I guess we're done...")))
 
 (let ((act (serializer
