@@ -238,19 +238,21 @@
 
 (deflex null-service
   (create
-   (lambda (cust)
-     (send cust))))
+   (alambda
+    ((cust . _)
+     (send cust))
+    )))
 
 (deflex echo-service
-  (create
-   (lambda* (cust . msg)
-     (send* cust msg))))
+  (create #'send))
      
 ;; ------------------------------------------------
 
 (defun const-beh (&rest msg)
-  (lambda* (cust . _)
-    (send* cust msg)))
+  (alambda
+   ((cust . _)
+    (send* cust msg))
+   ))
 
 (defun const (&rest msg)
   (create (apply #'const-beh msg)))
