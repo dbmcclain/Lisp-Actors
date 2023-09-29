@@ -56,7 +56,11 @@
           (t
            (let++ ((tcp-port-number (or (car options)
                                         *default-port*))
-                   (ws-coll         (comm:create-and-run-wait-state-collection "Actor Server"))
+                   (me              self)
+                   (ws-coll         (comm:create-and-run-wait-state-collection
+                                     "Actor Server"
+                                     :handler (lambda* _
+                                                (>> me sink :terminate-server))))
                    (handle          (comm:accept-tcp-connections-creating-async-io-states
                                      ws-coll
                                      tcp-port-number
@@ -86,7 +90,12 @@
                   )))
 
           (t
-           (let ((ws-coll  (comm:create-and-run-wait-state-collection "Actor Clients")))
+           (let* ((me       self)
+                  (ws-coll  (comm:create-and-run-wait-state-collection
+                            "Actor Clients"
+                            :handler (lambda* _
+                                       (>> me sink :terminate-server))
+                            )))
              (β! (async-socket-system-beh ws-coll))
              (repeat-send self)))
           ))
@@ -112,17 +121,15 @@
 
 (deflex socket-closer
   ;; Use only when it is known that no async streams are operating
-  (create
-   (lambda (cust io-state)
-     (comm:close-async-io-state io-state)
-     (>> cust :ok))))
+  (α (cust io-state)
+    (comm:close-async-io-state io-state)
+    (>> cust :ok)))
 
 (deflex forcible-socket-closer
   ;; Used when an async reader or writer may currently be running
-  (create
-   (lambda (cust io-state)
-     (comm:async-io-state-abort-and-close io-state)
-     (>> cust :ok))))
+  (α (cust io-state)
+    (comm:async-io-state-abort-and-close io-state)
+    (>> cust :ok)))
 
 ;; -------------------------------------------------------------------------
 ;; IO-Running controller - Coordinates the activity and closure of
@@ -248,7 +255,7 @@
 
 (defun make-writer (state)
   (serializer-sink (create (physical-writer-beh state))
-                   :timeout nil))
+                   :timeout nil)) ;; muffle warning, 'cause phys-writer always responds (eh?!)
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
