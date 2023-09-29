@@ -477,7 +477,6 @@
   ;; timeout available, if *TIMEOUT* is a positive real number of
   ;; seconds to wait.
   ;;
-  (assert (actor-p cust))
   (let* ((unw  (create
                 (lambda* msg
                   (send* cust msg)
