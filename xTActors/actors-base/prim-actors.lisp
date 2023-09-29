@@ -556,26 +556,37 @@
       ))
    ))
   
-(defmacro unw-prot ((cust) form (&rest unw-clauses)
-                    &key (timeout *timeout* timeout-provided-p))
-  `(create (unw-prot-beh
-            (lambda (,cust)
-              ,form)
-            (lambda ()
-              ,@unw-clauses)
-            ,@(when timeout-provided-p
-                `(:timeout ,timeout))
-            )))
+(defmacro unw-prot ((cust) form &rest unw-clauses)
+  (let* ((pos     (position :timeout unw-clauses))
+         (unspec  (gensym))
+         (timeout (if pos 
+                      (nth (1+ pos) unw-clauses)
+                    unspec))
+         (unwinds (if pos
+                      (append (um:take pos unw-clauses)
+                              (um:drop (+ 2 pos) unw-clauses))
+                    unw-clauses)))
+    `(create (unw-prot-beh
+              (lambda (,cust)
+                ,form)
+              (lambda ()
+                ,@unwinds)
+              ,@(unless (eq timeout unspec)
+                  `(:timeout ,timeout))
+              ))))
+  
+#+:LISPWORKS
+(editor:indent-like "UNW-PROT" "MULTIPLE-VALUE-BIND")
 
 #|
-(with-timeout 1.1
-  (send (unw-prot (cust)
-                  (progn
-                    (sleep 1)
-                    ;; (error "What!?")
-                    (send cust :hello))
-                  ((send println :unwinding)))
-        println))
+(send (unw-prot (cust)
+          (progn
+            (sleep 1)
+            ;; (error "What!?")
+            (send cust :hello))
+        :timeout 1.1
+        (send println :unwinding))
+      println))
 |#
 ;; -------------------------------------------------------
 ;; OPEN-FILE for Actors - using UNW-PROT to ensure file closing.
@@ -589,12 +600,12 @@
     ;; Target should expect a customer and a file-descr
     (let ((fd  (apply #'open filename (um:remove-prop :timeout open-args))))
       (send (unw-prot (cust)
-                      (send target cust fd)
-                      
-                      ((close fd)
-                       (send fmt-println "File closed: ~A" filename))
-                      :timeout timeout)
-              cust)
+                (send target cust fd)
+              
+              (close fd)
+              (send fmt-println "File closed: ~A" filename)
+              :timeout timeout)
+            cust)
       ))
    ))
 
