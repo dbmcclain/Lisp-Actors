@@ -465,6 +465,11 @@
 #+:LISPWORKS
 (editor:indent-like "UNW-PROT" "IF")
 
+(defun warn-timeout (timeout msg)
+  (unless (and (realp timeout)
+               (plusp timeout))
+    (warn msg)))
+
 (defun do-unw-prot (cust fn-form fn-unw)
   ;; Actors don't participate in a dynamic chain descending from one
   ;; Actor to another, unlike nested binding levels in a function. We
@@ -477,6 +482,7 @@
   ;; timeout available, if *TIMEOUT* is a positive real number of
   ;; seconds to wait.
   ;;
+  (warn-timeout *timeout* "You are taking a big risk not using an UNW-PROT Timeout.~%Wrap your UNW-PROT with a WITH-TIMEOUT.")
   (let* ((unw  (create
                 (lambda* msg
                   (send* cust msg)

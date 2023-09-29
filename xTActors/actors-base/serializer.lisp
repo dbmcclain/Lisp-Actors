@@ -213,6 +213,7 @@
   ;; Quiescent state - nobody in waiting, just flag him through, and
   ;; enter the busy state. As a precaution against re-use of the reply TAG
   ;; we guard ourselves with a ONCE gate.
+  (warn-timeout timeout "You are taking a big risk not using a Serializer Timeout")
   (alambda
    ((cust . msg)
     (let ((tag   (ser-tag self timeout)))
