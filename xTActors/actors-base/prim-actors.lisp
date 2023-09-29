@@ -491,7 +491,8 @@
                    (funcall fn-unw)))
                 )))
     (send-after *timeout* unw timed-out)
-    (funcall fn-form unw)
+    (non-idempotent
+      (funcall fn-form unw))
     ))
 
 (defmacro with-actors-open-file ((cust fd filename &rest open-args) &body body)
@@ -509,7 +510,7 @@
                     for ix from 0
                     until (eql line fd)
                     finally (send fmt-println "File has ~D lines" ix))
-              (error "What!?")
+              ;; (error "What!?")
               (send cust :ok))
             )))
   (β _
