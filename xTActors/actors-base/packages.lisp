@@ -292,10 +292,11 @@ THE SOFTWARE.
    #:open-file
    #:with-actors
 
+   #:fut-wait-beh
    #:fut
+   #:future-become-beh
    
    #:timed-service
-   #:future-become-beh
    #:with-maximum-io-syntax
 
    #:recursive-ask

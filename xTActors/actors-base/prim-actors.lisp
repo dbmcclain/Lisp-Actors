@@ -246,6 +246,22 @@
     atag))
 
 ;; -------------------------------------------------
+;; FUTURE-BECOME-BEH -- sometimes you need to BECOME, but you don't
+;; have all the parameters yet. So set up a private pipe back to us
+;; where the future behavior can be constructed and sent to us for our
+;; BECOME. In the meantime, keep a queue of pending messages sent to
+;; us.
+
+(defun future-become-beh (tag &optional msgs)
+  (alambda
+   ((atag beh) / (eql atag tag)
+    (become beh)
+    (send-all-to self msgs))
+   (msg
+    (becomee (future-become-beh tag (cons msg msgs))))
+   ))
+
+;; -------------------------------------------------
 ;; FUT - A non-macro β replacement?
 ;;
 ;;  Instead of:
@@ -258,7 +274,7 @@
 ;;
 ;;     (send* (fut targ-generator generator-args) my-args)
 
-(defun fut-wait-beh (tag msgs)
+(defun fut-wait-beh (tag &optional msgs)
   (alambda
    ((atag act) / (eq atag tag)
     (become (fwd-beh act))
@@ -536,12 +552,11 @@
   (unless (or timeout-provided-p
               (and (realp timeout)
                    (plusp timeout)))
-    (warn msg)))
+    (warn "You are taking a risk not using a Timeout for ~A." msg)))
 
 
 (defun unw-prot-beh (fn-form fn-unw &key (timeout *timeout* timeout-provided-p))
-  (warn-timeout timeout timeout-provided-p
-                "You are taking a risk not using an UNW-PROT Timeout.")
+  (warn-timeout timeout timeout-provided-p "UNW-PROT")
   (alambda
    ((cust)
     (β ans
@@ -594,7 +609,7 @@
 (defun open-file-beh (filename &rest open-args
                                &key (timeout *timeout* timeout-provided-p)
                                &allow-other-keys)
-  (warn-timeout timeout timeout-provided-p "You are taking a risk not using an OPEN-FILE Timeout.")
+  (warn-timeout timeout timeout-provided-p "OPEN-FILE")
   (alambda
    ((cust target)
     ;; Target should expect a customer and a file-descr

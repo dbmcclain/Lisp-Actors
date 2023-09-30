@@ -78,7 +78,7 @@
     (β (proxy)
         (send (cadr kvdbs-plist) β :req-proxy)
       (β (excl)
-          (send proxy β :req-excl owner)
+          (send proxy β :req-excl owner 10)
         (excl-commits cust (cddr kvdbs-plist) owner
                       (list* (car kvdbs-plist) excl acc))
         ))))

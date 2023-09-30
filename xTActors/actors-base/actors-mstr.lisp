@@ -177,7 +177,7 @@ THE SOFTWARE.
            |#
            
            (%become (new-beh)
-             (setf pend-beh new-beh))
+             (setf pend-beh (screened-beh new-beh)))
 
            (%abort-beh ()
              (setf pend-beh self-beh

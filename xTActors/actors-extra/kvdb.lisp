@@ -309,47 +309,48 @@
                          (eql a-db  db))
      (send saver sink :save-log db))
     ))
-    
+
 (defun trans-gate-beh (saver db)
-  (lambda (&rest msg)
-    (match msg
-      ((cust :req-excl owner)
-       ;; request exclusive :commit access
-       ;; customer must promise to either :commit or :abort
-       (send cust db)
-       (become (busy-trans-gate-beh saver db owner nil)))
-      
-      ;; -------------------
-      ;; commit after update
-      (( (cust . retry) :commit old-db new-db)
-       (cond ((eql old-db db) ;; make sure we have correct version
-              (cond ((eql new-db db)
-                     ;; no real change
-                     (send cust new-db))
-                    
-                    (t
-                     ;; changed db, so commit new
-                     (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
-                       ;; version key is actually 'com.ral.actors.kv-database::version
-                       (become (trans-gate-beh saver versioned-db))
-                       (send-after 10 self saver versioned-db)
-                       (send cust versioned-db)))
-                    ))
-             
-             (t
-              ;; had wrong version for old-db
-              (send retry db))
-             ))
+  (alambda
+   ((cust :req-excl owner timeout) / (and (realp timeout)
+                                          (plusp timeout))
+    ;; request exclusive :commit access
+    ;; customer must promise to either :commit or :abort
+    (send cust db)
+    (send-after timeout self saver 'forced-abort)
+    (become (busy-trans-gate-beh saver db owner nil)))
+   
+   ;; -------------------
+   ;; commit after update
+   (( (cust . retry) :commit old-db new-db)
+    (cond ((eql old-db db) ;; make sure we have correct version
+           (cond ((eql new-db db)
+                  ;; no real change
+                  (send cust new-db))
+                 
+                 (t
+                  ;; changed db, so commit new
+                  (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
+                    ;; version key is actually 'com.ral.actors.kv-database::version
+                    (become (trans-gate-beh saver versioned-db))
+                    (send-after 10 self saver versioned-db)
+                    (send cust versioned-db)))
+                 ))
+          
+          (t
+           ;; had wrong version for old-db
+           (send retry db))
+          ))
+   
+   (('maint-full-save)
+    (let ((new-db (db-rebuild db)))
+      (become (trans-gate-beh saver new-db))
+      (send saver sink :full-save new-db)))
+   
+   (msg
+    (common-trans-beh saver db msg))
+   ))
 
-      (('maint-full-save)
-       (let ((new-db (db-rebuild db)))
-         (become (trans-gate-beh saver new-db))
-         (send saver sink :full-save new-db)))
-
-      (_
-       (common-trans-beh saver db msg))
-      )))
-    
 ;; ----------------------------------------------------------------
 
 (defun busy-trans-gate-beh (saver db owner queue)
@@ -364,7 +365,7 @@
                (become (busy-trans-gate-beh saver db owner (addq queue msg)))))
       
       (match msg
-        ((acust :req-excl an-owner)
+        ((acust :req-excl an-owner _)
          (if (eql an-owner owner)
              (send acust db)
            (stash)))
@@ -372,10 +373,13 @@
         ((acust :abort an-owner) / (eql an-owner owner)
          ;; relinquish excl :commit ownership
          (release acust db))
+
+        ((atag 'forced-abort)  / (eql atag saver)
+         (release sink db))
       
-      ;; -------------------
-      ;; commit after update from owner, then relinquish excl :commit ownership
-      (( (acust . an-owner) :commit old-db new-db) / (eql an-owner owner)
+        ;; -------------------
+        ;; commit after update from owner, then relinquish excl :commit ownership
+        (( (acust . an-owner) :commit old-db new-db) / (eql an-owner owner)
          (cond ((eql old-db db) ;; make sure we have correct version
                 (cond ((eql new-db db)
                        ;; no real change
@@ -758,7 +762,7 @@
           (((_ . _) :commit _ _)
            (repeat-send dbmgr))
                 
-          ((_ :req-excl _)
+          ((_ :req-excl _ _)
            (repeat-send dbmgr))
                 
           ;; -----------------------------------
@@ -923,12 +927,14 @@
     ;; a proxy Actor.
     (send cust self))
 
-   ((cust :req-excl owner)
+   ((cust :req-excl owner timeout) / (and (realp timeout)
+                                          (plusp timeout))
     (let ((me  self)
           (tag (tag self)))
       (become (future-become-beh tag))
+      (send-after timeout self self 'forced-abort)
       (β (db)
-          (send kvdb β :req-excl owner)
+          (send kvdb β :req-excl owner timeout)
         (send tag (local-excl-proxy-for-remote-db-access-beh kvdb db db owner))
         (send cust me))
       ))
@@ -981,16 +987,18 @@
    ((cust :req-proxy)
     (send cust self))
    
-   ((cust :req-excl owner)
+   ((cust :req-excl owner timeout) / (and (realp timeout)
+                                          (plusp timeout))
     ;; This might have to abandon existing updates and start fresh.
     ;; You should have requested from outset.
     (let ((me  self)
           (tag (tag self)))
       (become (future-become-beh tag))
+      (send-after timeout self self 'forced-abort)
       (β _
           (send kvdb `(,β . ,β) :commit orig-map upd-map) ;; might fail
         (β (db)
-            (send kvdb β :req-excl owner)
+            (send kvdb β :req-excl owner timeout)
           (send tag (local-excl-proxy-for-remote-db-access-beh kvdb db db owner))
           (send cust me))
         )))
@@ -1056,7 +1064,7 @@
    ((cust :req-proxy)
     (send cust self))
    
-   ((cust :req-excl)
+   ((cust :req-excl . _)
     ;; Really no reason to be sending this message, we are already
     ;; under excl commit.
     (send cust self))
@@ -1069,6 +1077,10 @@
         (send cust me)
       )))
 
+   ((cust 'forced-abort) / (eql cust self)
+    (become (local-proxy-for-remote-db-access-beh kvdb))
+    (send kvdb sink :abort owner))
+      
    ((cust :commit)
     (let ((me self))
       (become (local-proxy-for-remote-db-access-beh kvdb))

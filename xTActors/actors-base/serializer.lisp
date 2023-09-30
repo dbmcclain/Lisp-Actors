@@ -240,8 +240,7 @@
   ;; Quiescent state - nobody in waiting, just flag him through, and
   ;; enter the busy state. As a precaution against re-use of the reply TAG
   ;; we guard ourselves with a ONCE gate.
-  (warn-timeout timeout timeout-provided-p
-                "You are taking a risk not using a Serializer Timeout")
+  (warn-timeout timeout timeout-provided-p "Serializer")
   (unchecked-serializer-beh svc timeout))
 
 (defun serializer (svc &rest args)
