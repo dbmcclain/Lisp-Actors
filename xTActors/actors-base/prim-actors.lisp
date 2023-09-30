@@ -246,22 +246,6 @@
     atag))
 
 ;; -------------------------------------------------
-;; FUTURE-BECOME-BEH -- sometimes you need to BECOME, but you don't
-;; have all the parameters yet. So set up a private pipe back to us
-;; where the future behavior can be constructed and sent to us for our
-;; BECOME. In the meantime, keep a queue of pending messages sent to
-;; us.
-
-(defun future-become-beh (tag &optional msgs)
-  (alambda
-   ((atag beh) / (eql atag tag)
-    (become beh)
-    (send-all-to self msgs))
-   (msg
-    (becomee (future-become-beh tag (cons msg msgs))))
-   ))
-
-;; -------------------------------------------------
 ;; FUT - A non-macro β replacement?
 ;;
 ;;  Instead of:
