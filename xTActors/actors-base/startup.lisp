@@ -100,7 +100,7 @@
 
 (defun run-custodian-aware-actors ()
   (run-actors)
-  (unless (ask custodian :remove-me mp:*current-process*)
+  (unless (ask custodian :remove-me (mpc:get-current-process))
     (setf *send* #'startup-send)))
 
 #|

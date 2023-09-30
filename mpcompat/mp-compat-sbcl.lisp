@@ -176,9 +176,10 @@ THE SOFTWARE.
 ;; --------------------------------------------------------------------------
 
 
-(defun mailbox-read (mbox &optional timeout) 
+(defun mailbox-read (mbox &optional wait-reason timeout) 
   "Wait with timeout for a message to arrive at the Lisp mailbox and return it.
 A null timeout means wait forever."
+  (declare (ignore wait-reason))
   (if timeout 
       (sb-concurrency:receive-message mbox :timeout timeout)
       (sb-concurrency:receive-message mbox)))
