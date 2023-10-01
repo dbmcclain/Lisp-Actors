@@ -378,7 +378,14 @@
 
 (defmacro non-idempotent (&body body)
   ;; A synonym for RESTARTABLE but marks the source code in a more
-  ;; obvious manner.
+  ;; obvious manner. Meaning - this body action is non-idempotent, ans
+  ;; so should only run if the Actor behavior is not retried.
+  `(restartable ,@body))
+
+(defmacro on-commit (&body body)
+  ;; Synonym for RESTARTABLE and NON-IDEMPOTENT.
+  ;; Meaning - the body action will only happen on
+  ;; successful commit of the Actor body actions.
   `(restartable ,@body))
 
 ;; -------------------------------------------------------

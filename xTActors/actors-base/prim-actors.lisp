@@ -35,9 +35,10 @@
     7. In a parallel environment, BECOME could fail and cause an
     automatic retry of the message delivery. So you need to ensure
     that any non-idempotent code alongside BECOME is marked as
-    NON-IDEMPOTENT or RESTARTABLE, or package up in a thunk and send
-    to EXECUTOR. This ensures that the body of code will not be
-    executed unless BECOME succeeds.
+    NON-IDEMPOTENT, ON-COMMIT, or RESTARTABLE (they all mean the same
+    thing), or package up in a thunk and send to EXECUTOR. This
+    ensures that the body of code will not be executed unless BECOME
+    succeeds.
   
     8. Since Actors are transactional, SEND, SEND*, REPEAT-SEND,
     SEND-TO-ALL, SEND-ALL-TO, and SEND-AFTER, are always idempotent.
@@ -45,9 +46,9 @@
     succeeds. But the message args might have been created using
     non-idempotent code, so see (7).
   
-    9. Inside the body of a β-clause, NON-IDEMPOTENT, and RESTARTABLE,
-    the SELF object is no longer the containing Actor. So BECOME
-    should not be used there. Same with (SEND SELF ...).
+    9. Inside the body of a β-clause, NON-IDEMPOTENT, ON-COMMIT, and
+    RESTARTABLE, the SELF object is no longer the containing Actor. So
+    BECOME should not be used there. Same with (SEND SELF ...).
   
     For (SEND SELF ...) you could capture the outer SELF into a
     binding and send to it;
@@ -415,7 +416,7 @@
   ;;
   (when (and (actor-p actor)
              (realp dt))
-    (non-idempotent
+    (on-commit
       (let ((timer (apply #'mpc:make-timer #'send-to-pool actor msg)))
         (mpc:schedule-timer-relative timer dt)))
     ))
@@ -546,11 +547,11 @@
     (β ans
         (progn
           (send-after timeout β +timed-out+)
-          (non-idempotent
+          (on-commit
             (funcall fn-form β)))
       (become-sink)
       (send* cust ans)
-      (non-idempotent
+      (on-commit
         (funcall fn-unw))
       ))
    ))

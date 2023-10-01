@@ -312,6 +312,7 @@ THE SOFTWARE.
    #:executor
    #:restartable
    #:non-idempotent
+   #:on-commit
    #:do-nothing
    #:tracing-send
    #:untraced-send
