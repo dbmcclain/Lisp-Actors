@@ -90,13 +90,17 @@
 
 ;; ====================================================
 
+(defun tracing-send (target &rest msg)
+  (let ((*current-message-frame* t))
+    (send* target msg)))
+
 (defun tracer-beh ()
   (alambda
    ((cust :trace from)
     (um:nlet iter ((msg   from)
                    (trail nil))
       (cond
-       (msg
+       ((msg-p msg)
         (unless (msg-id msg)
           ;; global mutation, needs to be behind a Serializer
           (setf (msg-id msg) (uuid:make-v1-uuid)))
@@ -117,10 +121,31 @@
   (send tracer writeln :trace *current-message-frame*))
 
 (defun dbg-trace ()
+  ;; for use in a debugger REPL
   (send-to-pool tracer writeln :trace *current-message-frame*))
 
 (defun dbg-trace-inspect ()
   ;; for use in a debugger REPL
   (send-to-pool tracer (create #'inspect) :trace *current-message-frame*))
 
+;; ---------------------------------------------------
+;; Memory Stressor...
 
+(defun stressor-beh (&optional (ctr 0))
+  (alambda
+   ((cust :??)
+    (send cust ctr))
+   ((cust :start)
+    (send cust :ok)
+    (become (stressor-beh 0))
+    (send self))
+   ((cust :stop)
+    (become-sink)
+    (send cust :ok))
+   (_
+    (become (stressor-beh (1+ ctr)))
+    (send self))
+   ))
+
+(deflex stressor 
+  (create (stressor-beh)))

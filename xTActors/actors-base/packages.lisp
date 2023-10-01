@@ -313,6 +313,7 @@ THE SOFTWARE.
    #:restartable
    #:non-idempotent
    #:do-nothing
+   #:tracing-send
    #:trace-me
    #:dbg-trace
    #:dbg-trace-inspect
