@@ -116,3 +116,11 @@
 (defun trace-me ()
   (send tracer writeln :trace *current-message-frame*))
 
+(defun dbg-trace ()
+  (send-to-pool tracer writeln :trace *current-message-frame*))
+
+(defun dbg-trace-inspect ()
+  ;; for use in a debugger REPL
+  (send-to-pool tracer (create #'inspect) :trace *current-message-frame*))
+
+

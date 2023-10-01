@@ -314,6 +314,8 @@ THE SOFTWARE.
    #:non-idempotent
    #:do-nothing
    #:trace-me
+   #:dbg-trace
+   #:dbg-trace-inspect
    #:tracer
 
    ;; convenience macros
