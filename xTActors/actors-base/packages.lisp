@@ -320,14 +320,14 @@ THE SOFTWARE.
    #:tracer
 
    ;; convenience macros
-   #:<<
-   #:<<*
-   #:>>
-   #:>>*
-   #:!
-   #:β!
-   #:!β
-   #:αλ
+   #:<<    ;; FUNCALL
+   #:<<*   ;; APPLY
+   #:>>    ;; SEND
+   #:>>*   ;; SEND*
+   #:!     ;; SETF
+   #:β!    ;; BECOME
+   #:!β    ;; BECOME (for us dyslexics)
+   #:αλ    ;; ALAMBDA
    ))
 
 #+(OR :ALLEGRO :CCL)
