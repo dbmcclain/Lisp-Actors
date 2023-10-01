@@ -309,7 +309,6 @@ THE SOFTWARE.
    #:+timed-out+
    #:warn-timeout
    
-   #:executor
    #:restartable
    #:non-idempotent
    #:on-commit

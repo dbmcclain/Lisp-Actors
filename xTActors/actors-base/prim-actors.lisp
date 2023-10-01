@@ -36,7 +36,7 @@
     automatic retry of the message delivery. So you need to ensure
     that any non-idempotent code alongside BECOME is marked as
     NON-IDEMPOTENT, ON-COMMIT, or RESTARTABLE (they all mean the same
-    thing), or package up in a thunk and send to EXECUTOR. This
+    thing), or SEND to a CREATE of the thunk packaging the code. This
     ensures that the body of code will not be executed unless BECOME
     succeeds.
   
@@ -142,16 +142,6 @@
 ;; for Parallel operation. This has almost nothing to do with the
 ;; programmer.
 ;; ------------------------------------------------------------
-
-(deflex executor
-  ;; Use for performing non-idempotent actions
-  ;; when BECOME is being used.
-  (create
-   (lambda (cust fn)
-     (funcall fn)
-     (send cust :ok))))
-
-;; --------------------------------------------------------
 
 (defun once-beh (cust)
   (lambda (&rest msg)

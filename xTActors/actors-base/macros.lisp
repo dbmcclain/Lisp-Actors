@@ -372,9 +372,8 @@
   ;; Make a body of code restartable alongside potentially failing
   ;; BECOME, which will auto-retry. The code might be non-idempotent,
   ;; but it won't execute unless the BECOME succeeds without retry.
-  `(β _
-       (send β)
-     ,@body))
+  `(send (create (lambda ()
+                   ,@body))) )
 
 (defmacro non-idempotent (&body body)
   ;; A synonym for RESTARTABLE but marks the source code in a more
