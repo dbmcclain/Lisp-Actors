@@ -129,22 +129,24 @@
   (send-to-pool tracer (create #'inspect) :trace *current-message-frame*))
 
 ;; ---------------------------------------------------
-;; Memory Stressor...
+;; Memory Stressor... When message tracing is on, this chews up
+;; unbounded memory
 
-(defun stressor-beh (&optional (ctr 0))
+(defun stressor-beh (&optional (ctr 0) tag)
   (alambda
    ((cust :??)
     (send cust ctr))
    ((cust :start)
-    (send cust :ok)
-    (become (stressor-beh 0))
-    (send self))
+    (let ((tag (tag self)))
+      (send cust :ok)
+      (become (stressor-beh 0 tag))
+      (send tag)))
    ((cust :stop)
-    (become-sink)
+    (become (stressor-beh ctr (tag self)))
     (send cust :ok))
-   (_
-    (become (stressor-beh (1+ ctr)))
-    (send self))
+   ((atag . _) / (eq atag tag)
+    (become (stressor-beh (1+ ctr) tag))
+    (send tag))
    ))
 
 (deflex stressor 
