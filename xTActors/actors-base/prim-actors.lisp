@@ -416,7 +416,7 @@
   (when (and (actor-p actor)
              (realp dt))
     (non-idempotent
-      (let ((timer (apply #'mpc:make-timer #'send actor msg)))
+      (let ((timer (apply #'mpc:make-timer #'send-to-pool actor msg)))
         (mpc:schedule-timer-relative timer dt)))
     ))
 
