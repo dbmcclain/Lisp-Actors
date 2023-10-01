@@ -33,12 +33,12 @@
       (cond
        (aio-accepting-handle
         (β! (async-socket-system-beh))
-        (non-idempotent
+        (on-commit
           (comm:close-accepting-handle aio-accepting-handle #'ws-handler) ))
        
        (ws-collection
         (β! (async-socket-system-beh))
-        (non-idempotent
+        (on-commit
           (comm:apply-in-wait-state-collection-process ws-collection #'ws-handler)))
        
        (t
@@ -565,7 +565,7 @@
         (let+ ((:slots (report-ip-addr) rec)
                (new-lst (remove-if same-ip cnx-lst)))
           (β! (connections-list-beh new-lst))
-          (non-idempotent
+          (on-commit
             ;; ...would also prevent us from updating the list...
             (error "Can't connect to: ~S" report-ip-addr))
           ))))

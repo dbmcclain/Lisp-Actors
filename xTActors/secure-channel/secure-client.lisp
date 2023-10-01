@@ -260,6 +260,7 @@
         (>> reval β '(um:capture-ans-or-exn
                             (error "test-error")))
         |#
+      ;; (error "Waht!?")
       (trace-me)
       (>> fmt-println "reval sez: ~S" (um:recover-ans-or-exn ans)))
     ))
