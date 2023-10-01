@@ -314,6 +314,7 @@ THE SOFTWARE.
    #:non-idempotent
    #:do-nothing
    #:tracing-send
+   #:untraced-send
    #:trace-me
    #:dbg-trace
    #:dbg-trace-inspect

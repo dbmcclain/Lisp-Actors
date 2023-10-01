@@ -94,6 +94,10 @@
   (let ((*current-message-frame* t))
     (send* target msg)))
 
+(defun untraced-send (target &rest msg)
+  (let ((*current-message-frame* nil))
+    (send* target msg)))
+
 (defun tracer-beh ()
   (alambda
    ((cust :trace from)
