@@ -255,7 +255,7 @@
 (defun tst (host)
   (let ((reval (remote-service :eval host)))
     (β (ans)
-        (>> reval β '(list (get-universal-time) (machine-instance)))
+        (>> reval β '(list (um:zulu-date-string) (machine-instance)))
       #|
         (>> reval β '(um:capture-ans-or-exn
                             (error "test-error")))

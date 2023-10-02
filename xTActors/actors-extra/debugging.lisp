@@ -12,8 +12,9 @@
       (truncate usec 1000000)
     (multiple-value-bind (ss mm hh d m y dow)
         (decode-universal-time utc 0)
-      (declare (ignore d m y dow))
-      (format nil "~{~2,'0D~^\:~}.~6,'0D" (list hh mm ss) frac))))
+      (declare (ignore dow))
+      (format nil "~{~2,'0D~^/~} ~{~2,'0D~^\:~}.~6,'0D UTC"
+              (list y m d) (list hh mm ss) frac))))
   
 (defun logger-timestamp ()
   (format-usec (usec:get-universal-time-usec)))

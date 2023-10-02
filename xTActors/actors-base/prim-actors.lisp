@@ -638,17 +638,18 @@ This the Actors equivalent of WITH-OPEN-FILE."
 #|
 (let ((line-counter (create
                      (lambda (cust fd)
+                       ;; (sleep 1)
                        (loop for line = (read-line fd nil fd)
                              for ix from 0
                              until (eql line fd)
                              finally (send fmt-println "File has ~D lines" ix))
                        ;; (error "What!?")
-                       (sleep 5)
+                       ;; (sleep 5)
                        (send cust :ok))
                      ))
       (word-counter (create
                      (lambda (cust fd)
-                       (sleep 2)
+                       ;; (sleep 2)
                        (let ((sum (loop for line = (read-line fd nil fd)
                                         until (eql line fd)
                                         sum (length (um:split-string line :delims '(\space \tab))))
@@ -662,10 +663,10 @@ This the Actors equivalent of WITH-OPEN-FILE."
               :direction :input
               :timeout   3)
              ))
-  (β _
+  (β ans
       (send (fork (racurry filer line-counter)
                   (racurry filer word-counter))
             β)
-    (send println "I guess we're done...")))
+    (send fmt-println "I guess we're done: ~A" ans)))
 |#
 
