@@ -149,8 +149,8 @@
     (become-sink)))
 
 (defun once (cust)
-  "Construct an Actor to behave as a FWD relay to the customer, just
-one time."
+  "ONCE -- Construct an Actor to behave as a FWD relay to the
+customer, just one time."
   (create (once-beh cust)))
 
 #| ;; Don't use - the clock starts running as soon as this is invoked.
@@ -180,12 +180,12 @@ one time."
 ;; ---------------------
 
 (defun send-to-all (actors &rest msg)
-  "Send a message to all of the indicated Actors."
+  "SEND-TO-ALL -- Send a message to all of the indicated Actors."
   (dolist (actor actors)
     (send* actor msg)))
 
 (defun send-all-to (actor msg-list)
-  "Send all of the messages to an Actor."
+  "SEND-ALL-TO -- Send all of the messages to an Actor."
   (dolist (msg msg-list)
     (send* actor msg)))
 
@@ -207,8 +207,8 @@ one time."
     (send* cust lbl msg)))
 
 (defun label (cust lbl)
-  "Construct an Actor to relay a message to the customer, prefixed by
-the label."
+  "LABEL -- Construct an Actor to relay a message to the customer,
+prefixed by the label."
   (create (label-beh cust lbl)))
 
 ;; ---------------------
@@ -218,8 +218,8 @@ the label."
     (send* cust self msg)))
 
 (defun tag (cust)
-  "Construct an Actor to relay a message to the customer, prefixed by
-our unique SELF identity/"
+  "TAG -- Construct an Actor to relay a message to the customer,
+prefixed by our unique SELF identity/"
   (create (tag-beh cust)))
 
 ;; ---------------------
@@ -553,7 +553,9 @@ our unique SELF identity/"
    ))
   
 (defmacro unw-prot ((cust) form &rest unw-clauses)
-  "Construct an Actor that expects a message indicating a customer.
+  "UNW-PROT -- Constructs an Actor that expects a message indicating a
+customer.
+
 It will peform the first clause and then guarantee that the remaining
 unwind clauses get performed, amd provide a response to the customer,
 no later than TIMEOUT seconds after initiating the first clause.
@@ -619,14 +621,21 @@ This is the Actors equivalent of UNWIND-PROTECT."
 (defun open-file (filename &rest open-args
                            &key (timeout *timeout* timeout-provided-p)
                            &allow-other-keys)
-  "Construct a serialized Actor that will open the file in the
-indicated mode, and ensure that the file gets closed, and issue a
-response to the customer, no later than TIMEOUT seconds after opening
-it.
+  "OPEN-FILE -- Constructs a serialized Actor that will open the file
+in the indicated mode, and ensure that the file gets closed, and issue
+a response to the customer, no later than TIMEOUT seconds after
+opening the file.
 
 The Actor expects a message with customer and target service, along
 with any args needed by the service. After opening the file, it will
 forward the customer, open file descr, and args, to the service.
+
+If the service sends a message back to the customer before the TIMEOUT
+period expires, that answer will be sent to the customer, and the file
+will be closed at that time.
+
+Since the Actor is Serialized, any response to the customer enables
+the next message awaiting use of the OPEN-FILE actor.
 
 This the Actors equivalent of WITH-OPEN-FILE."
   (declare (ignore timeout))
