@@ -537,12 +537,10 @@
     (β ans
         (progn
           (send-after timeout β +timed-out+)
-          (on-commit
-            (funcall fn-form β)))
+          (send (create fn-form) β))
       (become-sink)
       (send* cust ans)
-      (on-commit
-        (funcall fn-unw))
+      (send (create fn-unw))
       ))
    ))
   
