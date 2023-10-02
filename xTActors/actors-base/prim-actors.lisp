@@ -618,7 +618,7 @@ it.
 
 The Actor expects a message with customer and target service, along
 with any args needed by the service. After opening the file, it will
-forward the open file descxr and customer to the service.
+forward the customer, open file descr, and args, to the service.
 
 This the Actors equivalent of WITH-OPEN-FILE."
   (declare (ignore timeout))
