@@ -618,13 +618,11 @@ This is the Actors equivalent of UNWIND-PROTECT."
       ))
    ))
 
-(defun open-file (filename &rest open-args
-                           &key (timeout *timeout* timeout-provided-p)
-                           &allow-other-keys)
-  "OPEN-FILE -- Constructs a serialized Actor that will open the file
-in the indicated mode, and ensure that the file gets closed, and issue
-a response to the customer, no later than TIMEOUT seconds after
-opening the file.
+(defun open-file (filename &rest open-args)
+  "OPEN-FILE -- Constructs an Actor that will open the file in the
+indicated mode, and ensure that the file gets closed, and issue a
+response to the customer, no later than TIMEOUT seconds after opening
+the file.
 
 The Actor expects a message with customer and target service, along
 with any args needed by the service. After opening the file, it will
@@ -634,15 +632,8 @@ If the service sends a message back to the customer before the TIMEOUT
 period expires, that answer will be sent to the customer, and the file
 will be closed at that time.
 
-Since the Actor is Serialized, any response to the customer enables
-the next message awaiting use of the OPEN-FILE actor.
-
 This the Actors equivalent of WITH-OPEN-FILE."
-  (declare (ignore timeout))
-  (apply #'serializer
-   (create (apply #'open-file-beh filename open-args))
-   (when timeout-provided-p
-     `(:timeout nil))))
+  (create (apply #'open-file-beh filename open-args)))
           
 #|
 (let ((line-counter (create
@@ -652,16 +643,29 @@ This the Actors equivalent of WITH-OPEN-FILE."
                              until (eql line fd)
                              finally (send fmt-println "File has ~D lines" ix))
                        ;; (error "What!?")
+                       (sleep 5)
                        (send cust :ok))
                      ))
+      (word-counter (create
+                     (lambda (cust fd)
+                       (sleep 2)
+                       (let ((sum (loop for line = (read-line fd nil fd)
+                                        until (eql line fd)
+                                        sum (length (um:split-string line :delims '(\space \tab))))
+                                  ))
+                         (send fmt-println "File has ~D words" sum)
+                         ;; (error "What!?")
+                         (send cust :ok))
+                       )))
       (filer (open-file
               "/Users/davidmcclain/projects/Lispworks/color-theme.lisp"
               :direction :input
               :timeout   3)
              ))
-              
   (β _
-      (send filer β line-counter)
+      (send (fork (racurry filer line-counter)
+                  (racurry filer word-counter))
+            β)
     (send println "I guess we're done...")))
 |#
 
