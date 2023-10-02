@@ -208,7 +208,7 @@ one time."
 
 (defun label (cust lbl)
   "Construct an Actor to relay a message to the customer, prefixed by
-the laabel."
+the label."
   (create (label-beh cust lbl)))
 
 ;; ---------------------
