@@ -545,6 +545,16 @@
    ))
   
 (defmacro unw-prot ((cust) form &rest unw-clauses)
+  "Construct an Actor that expects a message indicating a customer.
+It will peform the first clause and then guarantee that the remaining
+unwind clauses get performed, amd provide a response to the customer,
+no later than TIMEOUT seconds after initiating the first clause.
+
+If the action of the first clause sends a response to the customer
+before the TIMEOUT period expires, that answer is provided to the
+customer, as well as performing the unwind clauses at that time.
+
+This is the Actors equivalent of UNWIND-PROTECT."
   (let* ((pos     (position :timeout unw-clauses))
          (unspec  (gensym))
          (timeout (if pos 
@@ -601,6 +611,16 @@
 (defun open-file (filename &rest open-args
                            &key (timeout *timeout* timeout-provided-p)
                            &allow-other-keys)
+  "Construct a serialized Actor that will open the file in the
+indicated mode, and ensure that the file gets closed, and issue a
+response to the customer, no later than TIMEOUT seconds after opening
+it.
+
+The Actor expects a message with customer and target service, along
+with any args needed by the service. After opening the file, it will
+forward the open file descxr and customer to the service.
+
+This the Actors equivalent of WITH-OPEN-FILE."
   (declare (ignore timeout))
   (apply #'serializer
    (create (apply #'open-file-beh filename open-args))
