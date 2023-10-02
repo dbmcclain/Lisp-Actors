@@ -16,7 +16,7 @@
     3. Sink Actors don't have customers, unless they live behind a
     SERIALIZER gate.
   
-    4. Timeout conditions are signaled by sending TIMED-OUT to a
+    4. Timeout conditions are signaled by sending +TIMED-OUT+ to a
     customer. This is a predefined timeout condition object.
   
     5. When nothing else to send cust, send :OK. That helps when the
@@ -75,7 +75,7 @@
 ;; only if the entire rest of the behavior code successfully
 ;; completes.
 ;;
-;; An unsuccessful exection of the behavior can happen for two
+;; An unsuccessful execution of the behavior can happen for two
 ;; possible reasons:
 ;;
 ;;    1. Your code triggers an error condition and aborts, and so
@@ -249,13 +249,13 @@
 ;;
 ;;     (send* (fut targ-generator generator-args) my-args)
 
-(defun fut-wait-beh (tag &optional msgs)
+(defun fut-wait-beh (tag &rest msgs)
   (alambda
    ((atag act) / (eq atag tag)
     (become (fwd-beh act))
     (send-all-to act msgs))
    (msg
-    (become (fut-wait-beh tag (cons msg msgs))))
+    (become (apply #'fut-wait-beh tag msg msgs)))
    ))
 
 (defun fut (svc &rest args)
@@ -264,7 +264,7 @@
   (create
    (lambda (&rest msg)
      (let ((tag  (tag self)))
-       (become (fut-wait-beh tag (list msg)))
+       (become (fut-wait-beh tag msg))
        (send* svc tag args)))
    ))
 
@@ -307,7 +307,7 @@
 
 ;; --------------------------------------------------
 
-(defun future-become-beh (tag &optional msgs)
+(defun future-become-beh (tag &rest msgs)
   ;; There are times when you know you need to BECOME, but the
   ;; parameters aren't yet available. This FUTURE-BECOME-BEH behavior
   ;; function allows you to wait until the behavior can be completely
@@ -331,7 +331,7 @@
     (become abeh)
     (send-all-to self msgs))
    (msg
-    (become (future-become-beh tag (cons msg msgs))))
+    (become (apply #'future-become-beh tag msg msgs)))
    ))
 
 ;; -----------------------------------------
@@ -584,16 +584,17 @@
                                &allow-other-keys)
   (warn-timeout timeout timeout-provided-p "OPEN-FILE")
   (alambda
-   ((cust target)
+   ((cust target . args)
     ;; Target should expect a customer and a file-descr
-    (let ((fd  (apply #'open filename (um:remove-prop :timeout open-args))))
-      (send (unw-prot (cust)
-                (send target cust fd)
-              
-              (close fd)
-              (send fmt-println "File closed: ~A" filename)
-              :timeout timeout)
-            cust)
+    (let* ((fd   (apply #'open filename (um:remove-prop :timeout open-args)))
+           (prot (unw-prot (cust)
+                     (send* target cust fd args)
+
+                   (close fd)
+                   (send fmt-println "File closed: ~A" filename)
+                   :timeout timeout) ))
+      (send fmt-println "File opened: ~A" filename)
+      (send prot cust)
       ))
    ))
 
@@ -607,23 +608,23 @@
      `(:timeout nil))))
           
 #|
-(let ((rdr (create
-            (lambda (cust fd)
-              (loop for line = (read-line fd nil fd)
-                    for ix from 0
-                    until (eql line fd)
-                    finally (send fmt-println "File has ~D lines" ix))
-              ;; (error "What!?")
-              (send cust :ok))
-            )))
+(let ((line-counter (create
+                     (lambda (cust fd)
+                       (loop for line = (read-line fd nil fd)
+                             for ix from 0
+                             until (eql line fd)
+                             finally (send fmt-println "File has ~D lines" ix))
+                       ;; (error "What!?")
+                       (send cust :ok))
+                     ))
+      (filer (open-file
+              "/Users/davidmcclain/projects/Lispworks/color-theme.lisp"
+              :direction :input
+              :timeout   3)
+             ))
+              
   (β _
-      (send (open-file "/Users/davidmcclain/quicklisp/dists/quicklisp/software/cl-zmq-20160318-git/src/package.lisp"
-                       :direction :input
-                       :timeout   3)
-            β rdr)
+      (send filer β line-counter)
     (send println "I guess we're done...")))
-
-
-
 |#
 
