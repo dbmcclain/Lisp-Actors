@@ -149,6 +149,8 @@
     (become-sink)))
 
 (defun once (cust)
+  "Construct an Actor to behave as a FWD relay to the customer, just
+one time."
   (create (once-beh cust)))
 
 #| ;; Don't use - the clock starts running as soon as this is invoked.
@@ -178,10 +180,12 @@
 ;; ---------------------
 
 (defun send-to-all (actors &rest msg)
+  "Send a message to all of the indicated Actors."
   (dolist (actor actors)
     (send* actor msg)))
 
 (defun send-all-to (actor msg-list)
+  "Send all of the messages to an Actor."
   (dolist (msg msg-list)
     (send* actor msg)))
 
@@ -203,6 +207,8 @@
     (send* cust lbl msg)))
 
 (defun label (cust lbl)
+  "Construct an Actor to relay a message to the customer, prefixed by
+the laabel."
   (create (label-beh cust lbl)))
 
 ;; ---------------------
@@ -212,6 +218,8 @@
     (send* cust self msg)))
 
 (defun tag (cust)
+  "Construct an Actor to relay a message to the customer, prefixed by
+our unique SELF identity/"
   (create (tag-beh cust)))
 
 ;; ---------------------
