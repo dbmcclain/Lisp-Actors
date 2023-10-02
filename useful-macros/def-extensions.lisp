@@ -236,7 +236,7 @@ arguments when given."
 
 (defmacro deflex* (var val &optional (doc nil docp))
   "Define a top level (global) lexical VAR with initial value VAL,
-  which is assigned unconditionally as with DEFPARAMETER. If a DOC
+  which is assigned unconditionally as with DEFVAR. If a DOC
   string is provided, it is attached to both the name |VAR| and the
   name *STORAGE-FOR-DEFLEX-VAR-|VAR|* as a documentation string of
   kind 'VARIABLE. The new VAR will have lexical scope and thus may be

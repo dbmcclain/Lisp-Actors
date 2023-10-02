@@ -61,6 +61,7 @@ THE SOFTWARE.
                 (:file "rmw-v2")
                 (:file "timeout")
 		(:file "usec")
+                (:file "zulu-time")
                 #+(AND :LISPWORKS :MACOSX) (:file "OSX-UUID-Generate")
                 #+(AND :ALLEGRO :MACOSX)   (:file "OSX-UUID-Generate-Allegro")
                 #-(OR (AND :MACOSX :LISPWORKS)

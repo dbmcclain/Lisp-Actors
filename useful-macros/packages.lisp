@@ -766,4 +766,7 @@ THE SOFTWARE.
    #:nothing-p
    #:something-p
    #:mapfn
+
+   #:get-zulu-time
+   #:zulu-date-string
    ))
