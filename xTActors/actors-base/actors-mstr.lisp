@@ -257,11 +257,10 @@ THE SOFTWARE.
       (cond
        (actor-provided-p  ;; are we an ASK?
                           (when (actor-p actor)
-                            (let ((me  (create
-                                        (lambda* msg
-                                          (send (create (lambda ()
-                                                          (setf done (list msg)))))
-                                          (become-sink))
+                            (let ((me  (once
+                                        (create
+                                         (lambda* msg
+                                           (setf done (list msg))))
                                         )))
                               (setf timeout +ASK-TIMEOUT+)
                               (send-after *timeout* me +timed-out+)
