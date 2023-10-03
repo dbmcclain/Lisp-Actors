@@ -259,7 +259,8 @@ THE SOFTWARE.
                           (when (actor-p actor)
                             (let ((me  (create
                                         (lambda* msg
-                                          (setf done (list msg))
+                                          (send (create (lambda ()
+                                                          (setf done (list msg)))))
                                           (become-sink))
                                         )))
                               (setf timeout +ASK-TIMEOUT+)
