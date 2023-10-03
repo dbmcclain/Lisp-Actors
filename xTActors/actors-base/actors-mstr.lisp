@@ -87,23 +87,23 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defvar *send* (lambda* _
-                 (error "Send hook not established")))
-  
-(defun startup-send (actor &rest msg)
-  ;; the boot version of SEND
-  (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
-        *send*         #'send-to-pool)
-  (restart-actors-system *nbr-pool*)
-  (send* actor msg))
+(defvar *send-lock*  (mpc:make-lock))
+(defvar *send* nil)
 
-(setf *send* #'startup-send)
-
+(defun get-send-hook ()
+  (or *send*
+      (mpc:with-lock (*send-lock*)
+        (or *send*
+            (prog1
+                (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
+                      *send*         #'send-to-pool)
+              (restart-actors-system *nbr-pool*))
+            ))))
 
 (defun send (actor &rest msg)
   #F
   (when (actor-p actor)
-    (apply *send* actor msg)))
+    (apply (get-send-hook) actor msg)))
 
 (defun repeat-send (actor)
   (send* actor self-msg))
@@ -506,7 +506,7 @@ THE SOFTWARE.
 ;; We must defer startup until the MP system has been instantiated.
 
 (defun* lw-start-actors _
-  (setf *send* #'startup-send)
+  (mpc:atomic-exchange *send* nil)
   (princ "Actors are alive!"))
 
 (defun* lw-kill-actors _

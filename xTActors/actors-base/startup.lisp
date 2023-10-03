@@ -95,13 +95,13 @@
        (lambda ()
          ;; we are now running in a known non-Actor thread
          (ask custodian :kill-executives)
-         (setf *send* #'startup-send))
+         (mpc:atomic-exchange *send* nil))
        ))))
 
 (defun run-custodian-aware-actors ()
   (run-actors)
   (unless (ask custodian :remove-me (mpc:get-current-process))
-    (setf *send* #'startup-send)))
+    (mpc:atomic-exchange *send* nil)))
 
 #|
 (kill-actors-system)
