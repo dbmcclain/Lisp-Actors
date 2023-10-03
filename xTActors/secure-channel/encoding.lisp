@@ -974,7 +974,7 @@
   not visible to the casual reader.
 |#
 
-(defconstant +AONT-FILE-TYPE-ID+ (vec {b532fc4e-bf2b-123a-9307-24f67702cdaa}))
+(defconstant +AONT-FILE-TYPE-ID+ (vec #/uuid/{b532fc4e-bf2b-123a-9307-24f67702cdaa}))
 
 (defun aont-encoder (skey ekey)
   (actor (cust &rest msg)

@@ -14,7 +14,7 @@
         (decode-universal-time utc 0)
       (declare (ignore dow))
       (format nil "~{~2,'0D~^/~} ~{~2,'0D~^\:~}.~6,'0D UTC"
-              (list y m d) (list hh mm ss) frac))))
+              (list (mod y 100) m d) (list hh mm ss) frac))))
   
 (defun logger-timestamp ()
   (format-usec (usec:get-universal-time-usec)))

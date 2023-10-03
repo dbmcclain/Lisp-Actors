@@ -180,7 +180,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
         (uuid txt))))
   
   (set-dispatch-macro-character #\# #\{ '|reader-for-#{|)
-  (set-macro-character #\} (get-macro-character #\) nil))
+  ;; (set-macro-character #\} (get-macro-character #\) nil))
   
   (defun |reader-for-{| (stream char)
     ;; We might as well... after more than 30 years with Lisp I haven't
@@ -190,7 +190,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
       (unless *read-suppress*
         (uuid txt))))
 
-  (set-macro-character #\{ #'|reader-for-{|)
+  ;; (set-macro-character #\{ #'|reader-for-{|)
 
   ;; -----------------------------------------------
 
@@ -210,15 +210,6 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
                                clock-seq-and-reserved clock-seq-low
                                node)))
 
-(defconstant +namespace-dns+ {6ba7b810-9dad-11d1-80b4-00c04fd430c8}
-  "The DNS Namespace. Can be used for the generation of uuids version 3 and 5")
-(defconstant +namespace-url+ {6ba7b811-9dad-11d1-80b4-00c04fd430c8}
-  "The URL Namespace. Can be used for the generation of uuids version 3 and 5")
-(defconstant +namespace-oid+ {6ba7b812-9dad-11d1-80b4-00c04fd430c8}
-  "The OID Namespace. Can be used for the generation of uuids version 3 and 5")
-(defconstant +namespace-x500+ {6ba7b814-9dad-11d1-80b4-00c04fd430c8}
-  "The x500+ Namespace. Can be used for the generation of uuids version 3 and 5")
-#|
 ;; Those should be constants but I couldn't find a way to define a CLOS object to be constant
 (defconstant+ +namespace-dns+ (make-uuid-from-string "6ba7b810-9dad-11d1-80b4-00c04fd430c8")
   "The DNS Namespace. Can be used for the generation of uuids version 3 and 5")
@@ -228,7 +219,6 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
   "The OID Namespace. Can be used for the generation of uuids version 3 and 5")
 (defconstant+ +namespace-x500+ (make-uuid-from-string "6ba7b814-9dad-11d1-80b4-00c04fd430c8")
   "The x500+ Namespace. Can be used for the generation of uuids version 3 and 5")
-|#
 
 #+(AND :MACOSX :LISPWORKS)
 (defun get-node-id ()
