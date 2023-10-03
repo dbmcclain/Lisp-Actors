@@ -86,6 +86,11 @@ THE SOFTWARE.
   "Kill the indicated Lisp process."
   (sb-thread:terminate-thread proc))
 
+(defun process-terminate (proc &key join-timeout force-timeout)
+  "Terminate the indicated Lisp process."
+  (declare (ignore join-timeout force-timeout))
+  (sb-thread:terminate-thread proc))
+                              
 (defun current-process-kill ()
   (sb-thread:abort-thread))
 
@@ -270,6 +275,8 @@ A null timeout means wait forever."
 (defmacro CAS (place old new)
   `(sb-ext:CAS ,place ,old ,new))
 
+(defmacro atomic-exchange (place new)
+  `(sb-ext:atomic-update ,place (constantly ,new)))
 
 (defun funcall-async (fn &rest args)
   (sb-thread:make-thread fn :arguments args))
