@@ -87,15 +87,17 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defvar *send*
-  (progn
-    (defun startup-send (actor &rest msg)
-      ;; the boot version of SEND
-      (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
-            *send*         #'send-to-pool)
-      (restart-actors-system *nbr-pool*)
-      (send* actor msg))
-    #'startup-send))
+(defvar *send* (lambda* _
+                 (error "Send hook not established")))
+  
+(defun startup-send (actor &rest msg)
+  ;; the boot version of SEND
+  (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
+        *send*         #'send-to-pool)
+  (restart-actors-system *nbr-pool*)
+  (send* actor msg))
+
+(setf *send* #'startup-send)
 
 
 (defun send (actor &rest msg)
