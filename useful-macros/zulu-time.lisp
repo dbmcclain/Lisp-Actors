@@ -10,23 +10,25 @@
 
 ;; ----------------------------------
 
-(defun get-zulu-time ()
+(defun get-zulu-time (&optional (universal-time (get-universal-time)))
+  ;; The assumption here is that if you supply a time, it must have
+  ;; originated on this system.
   (multiple-value-bind (sec min hr date mon yr day daylight-p zone)
       (get-decoded-time)
     (declare (ignore sec min hr date mon yr day daylight-p))
-    (+ (get-universal-time)
+    (+ universal-time
        (* 3600 zone))))
 
 #+:LISPWORKS
-(defun zulu-date-string ()
-  (format nil "~A UTC" (hcl:date-string (get-zulu-time))))
+(defun zulu-date-string (&optional (universal-time (get-universal-time)))
+  (format nil "~A UTC" (hcl:date-string (get-zulu-time universal-time))))
 
 #-:LISPWORKS
-(defun zulu-date-string ()
+(defun zulu-date-string (&optional (universal-time (get-universal-time)))
   (multiple-value-bind (sec min hr date mon yr day daylight-p zone)
-      (decode-universal-time (get-zulu-time))
+      (decode-universal-time (get-zulu-time universal-time))
     (declare (ignore daylight-p day zone))
     (format nil "~{~2,'0D~^/~} ~{~2,'0D~^\:~} UTC"
-            (list (mod yr 100) mon date)
+            (list yr mon date)
             (list hr min sec))
     ))
