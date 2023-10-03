@@ -276,7 +276,14 @@ A null timeout means wait forever."
   `(sb-ext:CAS ,place ,old ,new))
 
 (defmacro atomic-exchange (place new)
-  `(sb-ext:atomic-update ,place (constantly ,new)))
+  (let ((old    (gensym))
+        (retval (gensym)))
+    `(let (,retval)
+       (sb-ext:atomic-update ,place
+                             (lambda (,old)
+                               (setf ,retval ,old)
+                               ,new))
+       ,retval)) )
 
 (defun funcall-async (fn &rest args)
   (sb-thread:make-thread fn :arguments args))
