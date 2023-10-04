@@ -562,15 +562,21 @@
                                       ;; else
                                       (abort c))))
                       (corrupt-deltas (lambda (c)
-                                        (warn "Corrupt deltas encountered: ~S. Rebuilding."
-                                              (corrupt-deltas-path c))
-                                        (invoke-restart
-                                         (find-restart 'corrupt-deltas c))))
+                                        (if (yes-or-no-p
+                                             "Corrupt deltas encountered: ~S. Rebuild?"
+                                             (corrupt-deltas-path c))
+                                            (invoke-restart
+                                             (find-restart 'corrupt-deltas c))
+                                          ;; else
+                                          (abort c))))
                       (corrupt-kvdb   (lambda (c)
-                                        (warn "Corrupt KVDB: ~S. Rebuilding."
-                                              (corrupt-kvdb-path c))
-                                        (invoke-restart
-                                         (find-restart 'corrupt-kvdb c))))
+                                        (if (yes-or-no-p
+                                             "Corrupt KVDB: ~S. Rebuild?"
+                                             (corrupt-kvdb-path c))
+                                            (invoke-restart
+                                             (find-restart 'corrupt-kvdb c))
+                                          ;; else
+                                          (abort c))))
                       (file-error (lambda (c)
                                     (if (yes-or-no-p
                                          "File does not exist: ~S. Create?"
