@@ -88,7 +88,7 @@ THE SOFTWARE.
 ;; delivered.
 
 (defvar *send-lock*  (mpc:make-lock))
-(defvar *send* nil)
+(defvar *send*       nil)
 
 (defun get-send-hook ()
   (or *send*

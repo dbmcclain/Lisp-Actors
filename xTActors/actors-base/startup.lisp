@@ -99,9 +99,10 @@
        ))))
 
 (defun run-custodian-aware-actors ()
-  (run-actors)
-  (unless (ask custodian :remove-me (mpc:get-current-process))
-    (mpc:atomic-exchange *send* nil)))
+  (unwind-protect
+      (run-actors)
+    (unless (ask custodian :remove-me (mpc:get-current-process))
+      (mpc:atomic-exchange *send* nil))))
 
 #|
 (kill-actors-system)
