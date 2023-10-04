@@ -791,12 +791,13 @@ of the #> reader macro
 
 (defun read-chars-till-delim (stream delims &rest first-char)
   (let ((chars (copy-list first-char)))
-    (do ((ch (read-char stream)
-             (read-char stream)))
-        ((find ch delims))
+    (do ((ch (read-char stream nil stream)
+             (read-char stream nil stream)))
+        ((or (eq ch stream)
+             (find ch delims)))
       (push ch chars))
     (coerce (nreverse chars) 'string)))
-             
+
 ;; -------------------------------------------------------
 
 (defmacro! defaliasfn (new-name old-name)

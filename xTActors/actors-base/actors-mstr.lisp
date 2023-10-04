@@ -325,18 +325,36 @@ THE SOFTWARE.
 ;; participating Actors, not foreign threads trying to use the same
 ;; printer stream...
 
+#+:SBCL
+(defvar *out-stream-locks-lock*  (mpc:make-lock))
+
+#+:SBCL
+(defvar *out-stream-locks*
+  #+:LISPWORKS
+  (make-hash-table :weak-kind :key)
+  #+:SBCL
+  (make-hash-table :weakness :key))
+
+#+:SBCL
+(defun do-with-printer (stream fn)
+  (let ((lock  (or #1=(gethash stream *out-stream-locks*)
+                   (mpc:with-lock (*out-stream-locks-lock*)
+                     (or #1#
+                         (setf #1# (mpc:make-lock)))))
+               ))
+    (mpc:with-lock (lock)
+      (funcall fn))))
+
 (defmacro with-printer ((var stream) &body body)
   #+:LISPWORKS
   `(stream:apply-with-output-lock
     (lambda (,var)
       ,@body)
     ,stream)
-  #+:LISPWORKSx
-  `(let ((,var ,stream))
-     ,@body)
   #+:SBCL
   `(let ((,var ,stream))
-     ,@body)
+     (do-with-printer ,var (lambda ()
+                             ,@body)))
   #+:ALLEGRO
   `(let ((,var ,stream))
      ,@body))

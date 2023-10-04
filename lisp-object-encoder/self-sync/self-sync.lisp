@@ -48,10 +48,10 @@
 ;; Damaged encodings can be resync'd at next start sequence.
 ;;
 ;; ------------------------------------------------------------------
-(defconstant +long-count-base+  #xFD)
-(defconstant +max-short-count+  (1- +long-count-base+))
-(defconstant +max-long-count+   (1- (* +long-count-base+ +long-count-base+)))
-(defconstant +start-sequence+   #(#xFE #xFD))
+(defconstant+ +long-count-base+  #xFD)
+(defconstant+ +max-short-count+  (1- +long-count-base+))
+(defconstant+ +max-long-count+   (1- (* +long-count-base+ +long-count-base+)))
+(defconstant+ +start-sequence+   #(#xFE #xFD))
 ;; ------------------------------------------------------------------
 ;; Note: Use of XAREF, XPOSITION, XLENGTH, XWRITE-SEQUENCE, allows for
 ;; scatter-gather vectors. Hopefully more efficient than copying and
