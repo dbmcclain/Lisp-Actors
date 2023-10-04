@@ -59,7 +59,7 @@ THE SOFTWARE.
                 (:file "schnorr")
                 (:file "init-crypto")
                 (:file "data-check")
-                (:file "edwards-tpm"))
+                #+:LISPWORKS (:file "edwards-tpm"))
   
   :depends-on   ("mini-core-crypto"
                  "cffi"

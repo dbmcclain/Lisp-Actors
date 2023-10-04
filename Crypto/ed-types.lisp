@@ -13,6 +13,20 @@
   proj-add
   to-affine)
 
+#+:SBCL
+(defmethod make-load-form ((obj ed-curve) &optional environment)
+  (make-load-form-saving-slots obj
+                               :slot-names '(name c d q h r gen)
+                               :environment environment))
+
+#+:SBCL
+(defmethod make-load-form ((obj fast-ed-curve) &optional environment)
+  (make-load-form-saving-slots obj
+                               :slot-names '(name c d q h r gen
+                                                  affine-mul proj-mul
+                                                  proj-add to-affine)
+                               :environment environment))
+
 ;; -----------------------------------------------------------
 
 (defstruct ecc-pt
@@ -24,6 +38,22 @@
 (defstruct ecc-cmpr-pt
   cx)
 
+#+:SBCL
+(defmethod make-load-form ((obj ecc-pt) &optional environment)
+  (make-load-form-saving-slots obj
+                               :slot-names '(x y)
+                               :environment environment))
+#+:SBCL
+(defmethod make-load-form ((obj ecc-proj-pt) &optional environment)
+  (make-load-form-saving-slots obj
+                               :slot-names '(x y z)
+                               :environment environment))
+#+:SBCL
+(defmethod make-load-form ((obj ecc-cmpr-pt) &optional environment)
+  (make-load-form-saving-slots obj
+                               :slot-names '(cx)
+                               :environment environment))
+
 #+:ALLEGRO
 (defmethod make-load-form ((point ecc-pt) &optional env)
   (make-load-form-saving-slots point :environment env))
@@ -31,6 +61,7 @@
 #+:ALLEGRO
 (defmethod make-load-form ((point ecc-proj-pt) &optional env)
   (make-load-form-saving-slots point :environment env))
+
 
 (defmethod vec-repr:int ((pt ecc-pt))
   (vec-repr:int (ed-compress-pt pt)))

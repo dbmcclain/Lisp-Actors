@@ -4,10 +4,10 @@
 ;; ----------------------------------------------
 ;; Schnorr Signatures
 
-(defvar *ssig-nonce*  (int (crypto-utils:make-nonce)))
+(defvar *ssig-nonce*  (list (int (crypto-utils:make-nonce))))
 
 (defun ssig-nonce ()
-  (mpc:atomic-incf *ssig-nonce*))
+  (mpc:atomic-incf (car *ssig-nonce*)))
 
 (defun gen-sig-random (msg)
   ;; making r depend on message ensures that no two messages will have the same r, sans hash collisions
