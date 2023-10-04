@@ -135,11 +135,11 @@
                   (multiple-value-bind (cur-frag nel)
                       (get-current-frag-and-length vec cur-ix)
                     (let ((base (- vend nel)))
-                      (if-let (pos (apply #'xposition item cur-frag
-                                          :start (max (- start base) 0)
-                                          :end   (min (- end base) nel)
-                                          args))
-                          (+ pos base) ;; found it
+                      (um:if-let (pos (apply #'xposition item cur-frag
+                                             :start (max (- start base) 0)
+                                             :end   (min (- end base) nel)
+                                             args))
+                          (+ pos base) ;; found ite
                         ;; else - try next lower-case-p fragment
                         (go-iter (1- cur-ix) base))
                       )))
@@ -147,7 +147,7 @@
          (t
           (apply #'xdovec vec
                  (lambda (vec base &rest args)
-                   (when-let (pos (apply #'xposition item vec args))
+                   (um:when-let (pos (apply #'xposition item vec args))
                      (return-from #1# (+ base pos))))
                  args))
          )))
