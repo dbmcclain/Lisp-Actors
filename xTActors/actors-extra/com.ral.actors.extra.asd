@@ -8,19 +8,20 @@
   :version     "3.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2021-2022 by Refined Audiometrics Laboratory. MIT License terms apply."
-  :components  (#-:ALLEGRO (:file "debugging")
-                #-:ALLEGRO (:file "kvdb")
-                #-:ALLEGRO (:file "multi-commit")
+  :components  (#-:ALLEGRO   (:file "debugging")
+                #-:ALLEGRO   (:file "kvdb")
+                #+:LISPWORKS (:file "kvdb-gui")
+                #-:ALLEGRO   (:file "multi-commit")
                 (:file "reactive")
                 (:file "resource")
                 ;; (:file "sponsors")
                 )
   :SERIAL T
   :depends-on   ("com.ral.actors"
+                 "com.ral.useful-macros/ext"
                  "com.ral.rb-trees"              ;; maps for transactional db
                  "com.ral.lisp-object-encoder"   ;; encoding for transactional db
                  "mini-core-crypto"
-                 "com.ral.useful-macros/ext"
                  ))
 
 #|

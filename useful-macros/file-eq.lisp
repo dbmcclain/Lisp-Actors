@@ -32,6 +32,42 @@
 	   (ino (find-if (finder "st_ino=") items)))
       (values dev ino))))
 
+#+:SBCL
+(defun file-string (filename)
+  (with-open-file (f filename)
+    (with-output-to-string (s)
+      (loop for line = (read-line f nil f)
+              until (eql line f)
+              do (progn
+                   (princ line s)
+                   (terpri s))
+                 ))))
+
+#+:SBCL
+(defun call-system-showing-output (prog &rest args)
+  (with-output-to-string (s)
+    (sb-ext:run-program prog args
+                        :wait t
+                        :output s)))
+
+#+:SBCL
+(defun um:get-ino (fname)
+  ;; Return dev and inode for given file. Two files are the same if
+  ;; they have the same dev and inode, regardless of how you reach
+  ;; them through filenames, links, softlinks, etc.
+  (labels ((finder (s)
+             (let ((len  (length s)))
+               (lambda (str)
+                 (and (> (length str) len)
+                      (string-equal s str :end2 len)))
+               )))
+    (let* ((txt (call-system-showing-output
+                 "/usr/bin/stat" "-sL" (namestring (truename fname))) )
+           (items (um:split-string txt))
+           (dev (find-if (finder "st_dev=") items))
+           (ino (find-if (finder "st_ino=") items)))
+      (values dev ino))))
+
 #+:ALLEGRO
 (defun um:get-ino (fname)
   ;; Return dev and inode for given file. Two files are the same if
