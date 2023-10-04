@@ -752,7 +752,8 @@
                    (send dbmgr `(,β . ,self) :commit db new-db)
                  (send cust val))
                )))
-                
+
+          #+:LISPWORKS
           ((:show)
            (with-db db
              (let ((map (maps:empty)))
@@ -762,6 +763,14 @@
                          (maps:addf map k v)))
                (sets:view-set map))
              ))
+                
+          #-:LISPWORKS
+          ((:show)
+           (with-db db
+             (db-map db 
+                     (lambda (k v)
+                       (send writeln (list k v)))
+                     )))
                 
           ((cust :really-let-me-see-map)
            (with-db db
