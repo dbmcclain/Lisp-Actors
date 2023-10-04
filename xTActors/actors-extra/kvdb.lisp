@@ -436,7 +436,7 @@
 
 ;; -----------------------------------------------------------
 
-(defconstant +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
+(um:defconstant+ +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
 (defun save-database-beh (path last-db ctrl-tag)
   ;; -------------------
