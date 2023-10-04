@@ -94,36 +94,6 @@
    :title "KVDB Browser"))
 
 ;; -----------------------------------------------------------
-;; Utility Functions
-
-(defun key-to-string (key)
-  ;; Also used for value displays
-  (with-output-to-string (s)
-    (with-maximum-io-syntax ;; with-standard-io-syntax
-      (let ((*package* (find-package :cl)))
-        (handler-case
-            (let ((*print-readably* t))
-              (write key :stream s))
-          (error ()
-            ;; Some compiled functions refuse to display in
-            ;; *PRINT-READABLE* mode, and throw us here with an ERROR.
-            (let ((*print-readably* nil))
-              (write key :stream s)))
-          ))
-      )))
-
-(defun collect-keys (cust)
-  (β (db)
-      (send kvdb β :req)
-    (let (keys)
-      (db-map db
-              (lambda (k v)
-                (declare (ignore v))
-                (push k keys)))
-      (send cust (sort keys #'string< :key #'key-to-string))
-      )))
-
-;; -----------------------------------------------------------
 ;; Show the GUI
 
 (defun show-kvdb ()

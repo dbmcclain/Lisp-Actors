@@ -753,24 +753,21 @@
                  (send cust val))
                )))
 
-          #+:LISPWORKS
           ((:show)
            (with-db db
-             (let ((map (maps:empty)))
-               (db-map db 
+             (let ((map  (maps:empty))
+                   (keys nil))
+               (db-map db
                        (lambda (k v)
-                         (send writeln (list k v))
+                         (push k keys)
                          (maps:addf map k v)))
-               (sets:view-set map))
-             ))
-                
-          #-:LISPWORKS
-          ((:show)
-           (with-db db
-             (db-map db 
-                     (lambda (k v)
-                       (send writeln (list k v)))
-                     )))
+               #+:LISPWORKS
+               (sets:view-set map)
+               (send* writeln
+                      (loop for key in (sort keys #'string< :key #'key-to-string)
+                            collect
+                              (list key (maps:find map key))))
+               )))
                 
           ((cust :really-let-me-see-map)
            (with-db db
@@ -1124,6 +1121,36 @@
 ;; One to goof around in...
 
 (deflex kvdb (fut kvdb-maker :make-kvdb *db-path*))
+
+;; -----------------------------------------------------------
+;; Utility Functions
+
+(defun key-to-string (key)
+  ;; Also used for value displays
+  (with-output-to-string (s)
+    (with-maximum-io-syntax ;; with-standard-io-syntax
+      (let ((*package* (find-package :cl)))
+        (handler-case
+            (let ((*print-readably* t))
+              (write key :stream s))
+          (error ()
+            ;; Some compiled functions refuse to display in
+            ;; *PRINT-READABLE* mode, and throw us here with an ERROR.
+            (let ((*print-readably* nil))
+              (write key :stream s)))
+          ))
+      )))
+
+(defun collect-keys (cust)
+  (β (db)
+      (send kvdb β :req)
+    (let (keys)
+      (db-map db
+              (lambda (k v)
+                (declare (ignore v))
+                (push k keys)))
+      (send cust (sort keys #'string< :key #'key-to-string))
+      )))
 
 ;; -----------------------------------------------------
 ;; more goofing around...
