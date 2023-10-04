@@ -4,6 +4,7 @@
 ;; ----------------------------------------------------------------------------
 
 (defpackage #:com.ral.safe-marshaling
+  (:use #:common-lisp)
   (:import-from #:sdle-store
    #:find-backend
    #:defbackend
@@ -27,7 +28,7 @@
 (um:eval-always
   ;; the magic word for "RAL Safe Marshaling Backend"
   (defvar +safe-backend-magic+ (um:magic-word "RSMB"))
-
+  
   (unless (find-backend 'safe-marshaling-backend)
     (defbackend safe-marshaling-backend
                 :magic-number +safe-backend-magic+

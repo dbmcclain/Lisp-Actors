@@ -1,5 +1,5 @@
 
-(in-package :user)
+(in-package :common-lisp-user)
 
 (defpackage :com.ral.managed-buffers
   (:use #:common-lisp #:priq) ;; #:com.ral.prio-queue)

@@ -1,5 +1,5 @@
 
-(in-package :user)
+(in-package :common-lisp-user)
 
 (defpackage #:com.ral.ubyte-streams
   (:use #:common-lisp #:scatter-vec) ;; #:com.ral.scatter-vec)

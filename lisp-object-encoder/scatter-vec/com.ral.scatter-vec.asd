@@ -39,6 +39,6 @@ THE SOFTWARE.
                 (:file "scatter-vec"))
 
   :SERIAL T
-  :depends-on   ())
+  :depends-on   ("ironclad"))
 
 

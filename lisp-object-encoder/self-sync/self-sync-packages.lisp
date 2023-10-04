@@ -1,5 +1,5 @@
 
-(in-package :user)
+(in-package :common-lisp-user)
 
 (defpackage #:com.ral.self-sync
   (:use #:common-lisp #:um) ;; #:com.ral.useful-macros)

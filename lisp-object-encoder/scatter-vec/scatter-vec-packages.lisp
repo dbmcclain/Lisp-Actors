@@ -1,7 +1,8 @@
 
-(in-package :user)
+(in-package :common-lisp-user)
 
 (defpackage #:com.ral.scatter-vec
+  (:use :common-lisp)
   #+nil
   (:local-nicknames (#:um  #:com.ral.useful-macros))
   (:export

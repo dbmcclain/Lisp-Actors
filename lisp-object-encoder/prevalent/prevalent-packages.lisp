@@ -1,5 +1,5 @@
 
-(in-package :user)
+(in-package :common-lisp-user)
 
 #|
 (defpackage #:scatter-vec

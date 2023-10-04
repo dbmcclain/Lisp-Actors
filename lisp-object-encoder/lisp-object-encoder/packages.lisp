@@ -1,5 +1,5 @@
 
-(in-package :user)
+(in-package :common-lisp-user)
 
 (project:defproject
  (#:xzlib         #:com.ral.xzlib)
