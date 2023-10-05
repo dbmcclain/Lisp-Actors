@@ -1,6 +1,6 @@
 -- 5 October 2023 -- UNWIND-PROTECT for Actors !!
 ---
-We now have an Actor's equivalent of UNWIND-PROTECT. And with that we also now have the Actor's equivalent of WITH-OPEN-FILE.
+We now have an Actor's equivalent of UNWIND-PROTECT. And with that we also now also have the Actor's equivalent of WITH-OPEN-FILE.
 
 Actors do not participate in dynamic scoping the way that function-oriented Lisp code does. There is only ever just one level of scope during execution of Actor behaviors, no matter how deeply nested you have with continuation Actors and β-forms. Actors do not nest. They effectively perform one function call, then trampoline back through the Dispatcher to work on the next Actor message in the global event queue. Hence we cannot have UNWIND-PROTECT in the same sense as for Lisp code. 
 
