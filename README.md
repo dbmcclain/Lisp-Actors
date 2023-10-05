@@ -20,6 +20,8 @@ We can detect errors happening, but perhaps we shouldn't bother. An error fault 
 
 Once we accept these realities, it becomes trivial to write a UNW-PROT macro to wrap an Actor service with unwind clauses in response to an arriving reply to the original customer. The wrapped service has a timeout timer feeding into a ONCE-gate serving as the interposing customer, and that interposer contains the unwind clauses as well as forwarding the response message to the original customer. UNW-PROT wraps a service Actor (which could be an entire network of Actors), to produce an Actor to which messages should be sent. And those messages must include a customer to which responses will be directed. The Actor service must produce a response to its customer, or else a timeout will occur.
 
+PS: The code has been refined for use by SBCL. All of the Actors code, including base level support through the KVDB database, now runs properly in SBCL. The only thing remaining is to port the Async Socket system.
+
 
 -- 29 November 2022 -- Non-Blocking ASK !!
 ---
