@@ -122,7 +122,10 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
 
   (defun print-bytes (stream id)  
     "Prints the raw bytes in hex form. (example output 6ba7b8109dad11d180b400c04fd430c8)"
-    (format stream "~({~8,'0X-~4,'0X-~4,'0X-~2,'0X~2,'0X-~12,'0X}~)" 
+    (when *print-readably*
+      (princ "#/uuid/" stream))
+    (format stream
+            "{~8,'0X-~4,'0X-~4,'0X-~2,'0X~2,'0X-~12,'0X}"
             (time-low id)
             (time-mid id)
             (time-high id)
@@ -179,7 +182,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
       (unless *read-suppress*
         (uuid txt))))
   
-  (set-dispatch-macro-character #\# #\{ '|reader-for-#{|)
+  ;; (set-dispatch-macro-character #\# #\{ '|reader-for-#{|)
   ;; (set-macro-character #\} (get-macro-character #\) nil))
   
   (defun |reader-for-{| (stream char)
@@ -641,6 +644,7 @@ built according code-char of each number in the uuid-string"
                                                        (#\[ "]")
                                                        (#\( ")")
                                                        (#\< ">")
+                                                       (#\" "\"")
                                                        (t (list ch))) ))))))
 
 ;; -----------------------------------------------
