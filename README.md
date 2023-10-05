@@ -1,3 +1,30 @@
+-- 5 October 2023 -- UNWIND-PROTECT for Actors !!
+---
+We now have an Actor's equivalent of UNWIND-PROTECT. And with that we now also have the Actor's equivalent of WITH-OPEN-FILE.
+
+Actors do not participate in dynamic scoping the way that function-oriented Lisp code does. There is only ever just one level of scope during execution of Actor behaviors, no matter how deeply nested you have with continuation Actors and β-forms. Actors do not nest. They effectively perform one function call, then trampoline back through the Dispatcher to work on the next Actor message in the global event queue. Hence we cannot have UNWIND-PROTECT in the same sense as for Lisp code. 
+
+However, just as for SERIALIZER blocks, if we expect a customer argument in messages then we can interpose between the original customer and the Actor service expected to respond to the customer, to effect the same as UNWIND-PROTECT. And to make it more robust in the face of reality, where messages can get lost, we can ensure a response to the interposing customer using a timeout mechanism and a ONCE gate.
+
+When you have a customer Actor expecting a response, there are several ways in which that can fail:
+
+      1. Messages can become lost over a network connection.
+
+      2. An Actor behavior may have an error fault, and it becomres as though its message were never delivered.
+      
+      3. A message leading toward a response could be stashed into a queue and forgotten.
+      
+      4. A message handler fails to recognize a message pattern and drops it on the floor.
+
+      5. The service simply fails to send a message to its customer, whether by oversight or by design.
+
+We can detect errors happening, but perhaps we shouldn't bother. An error fault causes the same outcome as for lost network messages, dropped messages, or stashed and forgotten messages. None of those other situations can be automatically sensed. The only real defense, for all of them, is using a timeout mechanism. And by using a ONCE-gate behavior, only one response is permitted - either an actual response, or a timeout message.
+
+Once we accept these realities, it becomes trivial to write a UNW-PROT macro to wrap an Actor service with unwind clauses in response to an arriving reply to the original customer. The wrapped service has a timeout timer feeding into a ONCE-gate serving as the interposing customer, and that interposer contains the unwind clauses as well as forwarding the response message to the original customer. UNW-PROT wraps a service Actor (which could be an entire network of Actors), to produce an Actor to which messages should be sent. And those messages must include a customer to which responses will be directed. The Actor service must produce a response to its customer, or else a timeout will occur.
+
+PS: The code has been refined for use by SBCL. All of the Actors code, including base level support through the KVDB database, now runs properly in SBCL. The only thing remaining is to port the Async Socket system.
+
+
 -- 29 November 2022 -- Non-Blocking ASK !!
 ---
 I found a way forward that allows a thread to ASK of an Actor without overt blocking on a Mailbox response. This also makes the requestor's thread become an involuntary participant in the Dispatcher Thread Pool, until it gets a response from the Actor being ASK'ed. At that point it returns back to the caller of ASK with a multiple value response.
