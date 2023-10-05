@@ -16,7 +16,7 @@ When you have a customer Actor expecting a response, there are several ways in w
       
       4. A message handler fails to recognize a message pattern and drops it on the floor.
 
-      5. The service simply fails to send a message go its customer, whether by oversight or design.
+      5. The service simply fails to send a message to its customer, whether by oversight or by design.
 
 We can detect errors happening, but perhaps we shouldn't bother. An error fault causes the same outcome as for lost network messages, dropped messages, or stashed and forgotten messages. None of those other situations can be automatically sensed. The only real defense, for all of them, is using a timeout mechanism. And by using a ONCE-gate behavior, only one response is permitted - either an actual response, or a timeout message.
 
