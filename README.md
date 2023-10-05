@@ -16,6 +16,8 @@ When you have a customer Actor expecting a response, there are several ways in w
       
       4. A message handler fails to recognize a message pattern and drops it on the floor.
 
+      5. The service simply fails to send a message go its customer, whether by oversight or design.
+
 We can detect errors happening, but perhaps we shouldn't bother. An error fault causes the same outcome as for lost network messages, dropped messages, or stashed and forgotten messages. None of those other situations can be automatically sensed. The only real defense, for all of them, is using a timeout mechanism. And by using a ONCE-gate behavior, only one response is permitted - either an actual response, or a timeout message.
 
 Once we accept these realities, it becomes trivial to write a UNW-PROT macro to wrap an Actor service with unwind clauses in response to an arriving reply to the original customer. The wrapped service has a timeout timer feeding into a ONCE-gate serving as the interposing customer, and that interposer contains the unwind clauses as well as forwarding the response message to the original customer. UNW-PROT wraps a service Actor (which could be an entire network of Actors), to produce an Actor to which messages should be sent. And those messages must include a customer to which responses will be directed. The Actor service must produce a response to its customer, or else a timeout will occur.
