@@ -1,4 +1,4 @@
--- 5 October 2023 -- Unwind Protect for Actors !!
+-- 5 October 2023 -- UNWIND-PROTECT for Actors !!
 ---
 We now have an Actor's equivalent of UNWIND-PROTECT. And with that we also now have the Actor's equivalent of WITH-OPEN-FILE.
 
