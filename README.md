@@ -7,9 +7,13 @@ Actors do not participate in dynamic scoping the way that function-oriented Lisp
 However, just as for SERIALIZER blocks, if we expect a customer argument in messages then we can interpose between the original customer and the Actor service expected to respond to the customer, to effect the same as UNWIND-PROTECT. And to make it more robust in the face of reality, where messages can get lost, we can ensure a response to the interposing customer using a timeout mechanism and a ONCE gate.
 
 When you have a customer Actor expecting a response, there are several ways in which that can fail:
+
       1. Messages can become lost over a network connection.
+
       2. An Actor behavior may have an error fault, and it becomres as though its message were never delivered.
+      
       3. A message leading toward a response could be stashed into a queue and forgotten.
+      
       4. A message handler fails to recognize a message pattern and drops it on the floor.
 
 We can detect errors happening, but perhaps we shouldn't bother. An error fault causes the same outcome as for lost network messages, dropped messages, or stashed and forgotten messages. None of those other situations can be automatically sensed. The only real defense, for all of them, is using a timeout mechanism. And by using a ONCE-gate behavior, only one response is permitted - either an actual response, or a timeout message.
