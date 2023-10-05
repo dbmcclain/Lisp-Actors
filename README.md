@@ -2,7 +2,7 @@
 ---
 We now have an Actor's equivalent of UNWIND-PROTECT. And with that we also now have the Actor's equivalent of WITH-OPEN-FILE.
 
-Actors do not participate in dynamic scoping the way that function-oriented Lisp code does. There is only ever just one level of scope during execution of Actor behaviors, no matter how deeply nested you have with continuation Actors and β-forms. Actors do not nest. They effectively perform one function call, then trampoline back throught the Dispatcher to work on the next Actor message in the global event queue. Hence we cannot have UNWIND-PROTECT in the same sense as for Lisp code. 
+Actors do not participate in dynamic scoping the way that function-oriented Lisp code does. There is only ever just one level of scope during execution of Actor behaviors, no matter how deeply nested you have with continuation Actors and β-forms. Actors do not nest. They effectively perform one function call, then trampoline back through the Dispatcher to work on the next Actor message in the global event queue. Hence we cannot have UNWIND-PROTECT in the same sense as for Lisp code. 
 
 However, just as for SERIALIZER blocks, if we expect a customer argument in messages then we can interpose between the original customer and the Actor service expected to respond to the customer, to effect the same as UNWIND-PROTECT. And to make it more robust in the face of reality, where messages can get lost, we can ensure a response to the interposing customer using a timeout mechanism and a ONCE gate.
 
