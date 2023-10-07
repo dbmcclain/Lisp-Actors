@@ -166,16 +166,12 @@ customer, just one time."
 (defun timed-service (svc &optional (timeout *timeout*))
   ;; Prefer this, so that the clock only starts running when a message
   ;; is sent to svc.
-  (cond ((realp timeout)
-         (create
-          (lambda (cust &rest msg)
-            (let ((gate (once cust)))
-              (send-after timeout gate +timed-out+)
-              (send* svc gate msg)))
-          ))
-        (t
-         svc)
-        ))
+  (create
+   (lambda (cust &rest msg)
+     (let ((gate (once cust)))
+       (send-after timeout gate +timed-out+)
+       (send* svc gate msg)))
+   ))
 
 ;; ---------------------
 
@@ -543,10 +539,7 @@ prefixed by our unique SELF identity/"
   (alambda
    ((cust)
     (β ans
-        (progn
-          (send-after timeout β +timed-out+)
-          (send (create fn-form) β))
-      (become-sink)
+        (send (timed-service (create fn-form) timeout) β)
       (send* cust ans)
       (send (create fn-unw))
       ))

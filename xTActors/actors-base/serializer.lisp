@@ -201,18 +201,10 @@
 
    ----------------------------------------------------------------- |#
 
-(defun ser-tag (act timeout)
-  (let ((tag  (create
-               (lambda* msg
-                 (send* act self msg)
-                 (become-sink)))))
-    (send-after timeout tag +timed-out+)
-    tag))
-
 (defun unchecked-serializer-beh (svc timeout)
   (alambda
    ((cust . msg)
-    (let ((tag   (ser-tag self timeout)))
+    (let ((tag  (timed-once-tag self timeout)))
       (send* svc tag msg)
       (become (busy-serializer-beh svc timeout cust tag nil))
       ))
@@ -227,7 +219,7 @@
     (if (emptyq? queue)
         (become (unchecked-serializer-beh svc timeout))
       (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
-             (new-tag  (ser-tag self timeout)))
+             (new-tag  (timed-once-tag self timeout)))
         (send* svc new-tag next-msg)
         (become (busy-serializer-beh svc timeout next-cust new-tag new-queue))
         )))

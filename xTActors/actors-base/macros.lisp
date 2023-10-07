@@ -330,13 +330,13 @@
 
 ;; ----------------------------------------------------------
 
-(defun %becomer-beh (&optional msgs)
+(defun %becomer-beh (&rest msgs)
   (alambda
    (('%become arg)
     (become (screened-beh arg))
     (send-all-to self msgs))
    (msg
-    (become (%becomer-beh (cons msg msgs))))
+    (become (apply #'%becomer-beh msg msgs)))
    ))
 
 (defmacro def-actor (name &optional beh)

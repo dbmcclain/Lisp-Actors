@@ -161,6 +161,7 @@ THE SOFTWARE.
    #:tag
    #:once-tag
    #:timed-tag
+   #:timed-once-tag
    #:ser
    #:par
 
