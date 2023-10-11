@@ -117,33 +117,33 @@
 (deflex negotiator
   (create
    (lambda (cust socket local-services)
-     (let++ ((client-id     (uuid:make-v1-uuid))
-             (:β srv-pkey   eccke:srv-pkey)
-             (:β my-pkeyid  eccke:my-pkeyid)
-             (:β (arand apt aescrypt) (racurry eccke:ecc-cnx-encrypt
-                                               srv-pkey +server-connect-id+ client-id my-pkeyid))
-             (responder  (create
-                          (alambda
-                           ((bpt server-id) /  (and (typep bpt         'ecc-pt)
-                                                    (ed-validate-point bpt)
-                                                    (typep server-id   'uuid:uuid))
-                            (let-β ((my-skey  eccke:ecc-skey))
-                              (let ((ekey  (hash/256 (ed-mul bpt arand)           ;; B*a
-                                                     (ed-mul bpt my-skey)         ;; B*c
-                                                     (ed-mul srv-pkey arand)))    ;; S*a
-                                    (chan  (create
-                                            (lambda (&rest msg)
-                                              (>>* local-services :ssend server-id msg))
-                                            )))
-                                (let-β ((_  (racurry local-services :set-crypto ekey socket)))
-                                  (>> connections cust :set-channel socket chan))
-                                )))
-                           
-                           ( _
-                             (error "Server not following connection protocol"))
-                           ))))
-       (let-β ((_  (racurry local-services :add-single-use-service client-id responder)))
-         (>> socket apt aescrypt))
+     (let+ ((client-id     (uuid:make-v1-uuid))
+            (:β srv-pkey   eccke:srv-pkey)
+            (:β my-pkeyid  eccke:my-pkeyid)
+            (:β (arand apt aescrypt) (racurry eccke:ecc-cnx-encrypt
+                                              srv-pkey +server-connect-id+ client-id my-pkeyid))
+            (responder  (create
+                         (alambda
+                          ((bpt server-id) /  (and (typep bpt         'ecc-pt)
+                                                   (ed-validate-point bpt)
+                                                   (typep server-id   'uuid:uuid))
+                           (let+ ((:β my-skey  eccke:ecc-skey)
+                                  (ekey  (hash/256 (ed-mul bpt arand)           ;; B*a
+                                                   (ed-mul bpt my-skey)         ;; B*c
+                                                   (ed-mul srv-pkey arand)))    ;; S*a
+                                  (chan  (create
+                                          (lambda (&rest msg)
+                                            (>>* local-services :ssend server-id msg))
+                                          ))
+                                  (:β _  (racurry local-services :set-crypto ekey socket)))
+                             (>> connections cust :set-channel socket chan)
+                             ))
+                          
+                          ( _
+                            (error "Server not following connection protocol"))
+                          )))
+            (:β _  (racurry local-services :add-single-use-service client-id responder)) )
+       (>> socket apt aescrypt)
        ))
    ))
   
@@ -153,32 +153,32 @@
 (deflex negotiator
   (create
    (lambda (cust socket local-services)
-     (let ((client-id  (uuid:make-v1-uuid)))
-       (let*-β ((srv-pkeyid               lattice-ke:srv-pkeyid)
-                (my-pkeyid                lattice-ke:my-pkeyid)
-                ((akey latcrypt aescrypt) (racurry lattice-ke:cnx-packet-encoder
-                                                   srv-pkeyid +server-connect-id+ client-id my-pkeyid)) )
-         (let ((responder
-                (create
-                 (alambda
-                  ((bkey server-id) /  (and (typep bkey      'ub8-vector)
-                                            (typep server-id 'uuid:uuid))
-                   (let ((ekey  (hash/256 bkey akey))
-                         (chan  (create
-                                 (lambda (&rest msg)
-                                   (>>* local-services :ssend server-id msg))
-                                 )))
-                     (let-β ((_  (racurry local-services :set-crypto ekey socket)))
-                       (>> connections cust :set-channel socket chan))
-                     ))
-                  
-                  ( _
-                    (error "Server not following connection protocol"))
-                  ))))
-           (let-β ((_ (racurry local-services :add-single-use-service client-id responder)))
-             (>> socket latcrypt aescrypt))
-           ))))
-   ))
+     (let+ ((client-id       (uuid:make-v1-uuid))
+            (:β srv-pkeyid   lattice-ke:srv-pkeyid)
+            (:β my-pkeyid    lattice-ke:my-pkeyid)
+            (:β (akey latcrypt aescrypt) (racurry lattice-ke:cnx-packet-encoder
+                                                  srv-pkeyid +server-connect-id+
+                                                  client-id my-pkeyid))
+            (responder
+             (create
+              (alambda
+               ((bkey server-id) /  (and (typep bkey      'ub8-vector)
+                                         (typep server-id 'uuid:uuid))
+                (let+ ((ekey  (hash/256 bkey akey))
+                       (chan  (create
+                               (lambda (&rest msg)
+                                 (>>* local-services :ssend server-id msg))
+                               ))
+                       (:β (_  (racurry local-services :set-crypto ekey socket))))
+                  (>> connections cust :set-channel socket chan)
+                  ))
+               
+               ( _
+                 (error "Server not following connection protocol"))
+               )))
+            (:β _ (racurry local-services :add-single-use-service client-id responder)) )
+       (>> socket latcrypt aescrypt))
+     )))
 
 ;; -----------------------------------------------------------------------------------
 

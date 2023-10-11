@@ -318,64 +318,19 @@
 ;;                              +---+
 ;;
 ;; -----------------------------------------------
+;; Extend LET+ into β-forms
 
-(defmacro let-β (bindings &body body)
-  ;; bindings should be to services as in:
-  ;; 
-  ;;   (let-β ((n1 (service ,@e1))
-  ;;           (n2 (service ,@e2))
-  ;;           ... )
-  ;;      ,@body)
-  ;;
-  ;; FORK works properly for zero or more services.
-  ;;
-  (cond ((cdr bindings) ;; more than one
-         `(β ,(mapcar #'car bindings)
-              (send (fork ,@(mapcar #'cadr bindings)) β)
-            ,@body) )
-        
-        (bindings ;; only one
-         `(β (,@(um:mklist (caar bindings)) )
-              (send ,(cadar bindings) β)
-            ,@body) )
-        
-        (t  ;; none
-         `(progn
-            ,@body) )
-        ))
+(defmethod do-let+ ((fst (eql :β)) binding bindings body)
+  (destructuring-bind (list-form verb-form) (rest binding)  
+    `(β (,@(um:mklist list-form) )
+         (send ,verb-form β)
+       (let+ ,(rest bindings)
+         ,@body))
+    ))
 
-#+:LISPWORKS
-(progn
-  (editor:setup-indent "let-β"  1)
-  (editor:setup-indent "let*-β" 1)
-  (editor:setup-indent "let++"  1))
+(defmethod do-let+ ((fst (eql :beta)) binding bindings body)
+  (do-let+ :β binding bindings body))
 
-(defmacro let*-β (bindings &body body)
-  ;; bindings should be to services
-  (if bindings
-      `(let-β (,(car bindings))
-         (let*-β ,(cdr bindings)
-           ,@body))
-    ;; else
-    `(progn
-       ,@body) ))
-
-(defmacro let++ (bindings &body body)
-  (if bindings
-      (let ((binding (car bindings)))
-        (case (car binding)
-          ((:β :beta)
-           `(let-β (,(cdr binding))
-              (let++ ,(cdr bindings)
-                ,@body)) )
-         
-          (t
-           `(let+ (,(car bindings))
-              (let++ ,(cdr bindings)
-                ,@body)) ) ))
-    ;; else
-    `(progn
-       ,@body)))
 
 ;; -----------------------------------------------
 

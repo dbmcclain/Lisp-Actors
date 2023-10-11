@@ -48,25 +48,25 @@
    ;; --------------------------------------
    ((cust :start-tcp-server . options)
     (cond ((or ws-collection aio-accepting-handle)
-           (let++ ((me   self)
-                   (msg  self-msg)
-                   (:β _ (racurry self :terminate-server)))
+           (let+ ((me   self)
+                  (msg  self-msg)
+                  (:β _ (racurry self :terminate-server)))
              (>>* me msg)))
 
           (t
-           (let++ ((tcp-port-number (or (car options)
-                                        *default-port*))
-                   (me              self)
-                   (ws-coll         (comm:create-and-run-wait-state-collection
-                                     "Actor Server"
-                                     :handler (lambda* _
-                                                (>> me sink :terminate-server))))
-                   (handle          (comm:accept-tcp-connections-creating-async-io-states
-                                     ws-coll
-                                     tcp-port-number
-                                     #'start-server-listener
-                                     :ipv6    nil
-                                     ) ))
+           (let+ ((tcp-port-number (or (car options)
+                                       *default-port*))
+                  (me              self)
+                  (ws-coll         (comm:create-and-run-wait-state-collection
+                                    "Actor Server"
+                                    :handler (lambda* _
+                                               (>> me sink :terminate-server))))
+                  (handle          (comm:accept-tcp-connections-creating-async-io-states
+                                    ws-coll
+                                    tcp-port-number
+                                    #'start-server-listener
+                                    :ipv6    nil
+                                    ) ))
              (β! (async-socket-system-beh ws-coll handle))
              (>> fmt-println "-- Actor Server started on port ~A --" tcp-port-number)
              (>> cust :ok)) )
@@ -234,7 +234,7 @@
              ;; the async collection
              (declare (ignore _))
              (cond ((comm:async-io-state-write-status io-state)
-                    (let-β ((_  (racurry io-running :finish-wr-fail)))
+                    (let+ ((:β _  (racurry io-running :finish-wr-fail)))
                       (>> shutdown)
                       (>> cust :err)))
                    (t
@@ -399,8 +399,8 @@
                     :ip-port         peer-port
                     :state           :pending-server)))
           (β! (connections-list-beh (cons rec cnx-lst)))
-          (let++ ((:β ct  get-server-count)
-                  (server-name (format nil "~A#~D" (machine-instance) ct)))
+          (let+ ((:β ct  get-server-count)
+                 (server-name (format nil "~A#~D" (machine-instance) ct)))
             (>> fmt-println "Server Socket (~S->~A:~D) starting up"
                   server-name
                   (comm:ip-address-string peer-ip)
@@ -524,8 +524,8 @@
                (new-lst (cons new-rec cnx-lst))
                (me      self))
           (β! (connections-list-beh new-lst))
-          (let-β (( (io-state . args)  (racurry async-socket-system
-                                                :connect ip-addr ip-port) ))
+          (let+ ((:β (io-state . args)  (racurry async-socket-system
+                                                 :connect ip-addr ip-port) ))
             (cond
              (args
               (>> fmt-println "CONNECTION-ERROR: ~S~%~S"
@@ -534,11 +534,11 @@
               (>> me sink :abort ip-addr ip-port))
 
              ((typep io-state 'comm:async-io-state)
-              (let-β (( (state socket)  (create-socket-intf :kind           :client
-                                                            :ip-addr        ip-addr
-                                                            :ip-port        ip-port
-                                                            :report-ip-addr report-ip-addr
-                                                            :io-state       io-state)))
+              (let+ ((:β (state socket)  (create-socket-intf :kind           :client
+                                                             :ip-addr        ip-addr
+                                                             :ip-port        ip-port
+                                                             :report-ip-addr report-ip-addr
+                                                             :io-state       io-state)))
                 (>> me sink :negotiate state socket)
                 ))
 
@@ -708,9 +708,9 @@
                   ip-addr) state))
     (lambda ()
       (become-sink)
-      (let-β ((_  (racurry io-running :terminate)))
+      (let+ ((:β _  (racurry io-running :terminate)))
         (>> fmt-println "~A Socket (~S) shutting down"
-              title ip-addr)
+            title ip-addr)
         (>> kill-timer :discard)
         (>> connections sink :remove state)
         ))))
@@ -735,90 +735,90 @@
 (defun create-socket-intf (&key kind ip-addr ip-port io-state report-ip-addr)
   (create
    (lambda (cust)
-     (let++ ((title          (if (eq kind :client) "Client" "Server"))
-             (local-services (make-local-services))
-             (io-running     (make-io-running-monitor io-state))
-             (shutdown       (make-socket-shutdown))
-             (kill-timer     (make-kill-timer
-                              (create
-                               (lambda ()
-                                 (>> println "Inactivity shutdown request")
-                                 (>> shutdown))
-                               )))
-             (state   (make-intf-state
-                       :title            title
-                       :ip-addr          report-ip-addr
-                       :io-state         io-state
-                       :local-services   local-services
-                       :io-running       io-running
-                       :shutdown         shutdown
-                       :kill-timer       kill-timer
-                       ))
-             (encoder (sink-pipe  (marshal-encoder) ;; async output is sent here
-                                  (self-sync-encoder)
-                                  (make-writer state)))
-             (accum   (self-synca:stream-decoder    ;; async arrivals are sent here
-                       (sink-pipe (fail-silent-marshal-decoder)
-                                  local-services)))
-             (:β _    (racurry shutdown :init state))
-             (:β _    (if (eq kind :server)
-                          (racurry local-services :add-single-use-service
-                                   +server-connect-id+
-                                   (server-crypto-gateway encoder local-services))
-                        ;; else
-                        true))
-             (:β _    (racurry connections
-                               :add-socket ip-addr ip-port state encoder) )
-             (fragment-ctr  0)
-             (rd-callback-fn (lambda (state buffer end)
-                               ;; callback for I/O thread - on continuous async read
-                               #|
-                               (>> fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
-                                     (comm:async-io-state-read-status state)
-                                     end)
-                               |#
-                               (let ((status (or (comm:async-io-state-read-status state)
-                                                 (when (> end +max-fragment-size+)
-                                                   "Incoming packet too large"))
-                                             ))
-                                 (cond (status
-                                        ;; terminate on any error
-                                        (comm:async-io-state-finish state)
-                                        (>> fmt-println "~A Incoming error state: ~A" title status)
-                                        (>> shutdown))
-                                       
-                                       ((plusp end)
-                                        #|
-                                        TCP ensures that messages arrive on the
-                                        wire and are delivered here in whole, or
-                                        not at all. But the async input system
-                                        delivers them as they arrive in piecemeal
-                                        fashion.
-                                        
-                                        Every input fragment is numbered here,
-                                        starting from 1. But the Actor system
-                                        might jumble the order of fragment-ctr
-                                        delivery.
-                                        
-                                        (I have witnessed this happening.)
-                                        
-                                        Numbering them enables us to deal
-                                        properly with possible out-of-order
-                                        delivery to the self-sync decoder.
-                                        |#
-                                        (>> accum :deliver (incf fragment-ctr) (subseq buffer 0 end))
-                                        (>> kill-timer :resched)
-                                        (comm:async-io-state-discard state end))
-                                       )))))
+     (let+ ((title          (if (eq kind :client) "Client" "Server"))
+            (local-services (make-local-services))
+            (io-running     (make-io-running-monitor io-state))
+            (shutdown       (make-socket-shutdown))
+            (kill-timer     (make-kill-timer
+                             (create
+                              (lambda ()
+                                (>> println "Inactivity shutdown request")
+                                (>> shutdown))
+                              )))
+            (state   (make-intf-state
+                      :title            title
+                      :ip-addr          report-ip-addr
+                      :io-state         io-state
+                      :local-services   local-services
+                      :io-running       io-running
+                      :shutdown         shutdown
+                      :kill-timer       kill-timer
+                      ))
+            (encoder (sink-pipe  (marshal-encoder) ;; async output is sent here
+                                 (self-sync-encoder)
+                                 (make-writer state)))
+            (accum   (self-synca:stream-decoder    ;; async arrivals are sent here
+                                                   (sink-pipe (fail-silent-marshal-decoder)
+                                                              local-services)))
+            (:β _    (racurry shutdown :init state))
+            (:β _    (if (eq kind :server)
+                         (racurry local-services :add-single-use-service
+                                  +server-connect-id+
+                                  (server-crypto-gateway encoder local-services))
+                       ;; else
+                       true))
+            (:β _    (racurry connections
+                              :add-socket ip-addr ip-port state encoder) )
+            (fragment-ctr  0)
+            (rd-callback-fn (lambda (state buffer end)
+                              ;; callback for I/O thread - on continuous async read
+                              #|
+                              (>> fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
+                                  (comm:async-io-state-read-status state)
+                                  end)
+                              |#
+                              (let ((status (or (comm:async-io-state-read-status state)
+                                                (when (> end +max-fragment-size+)
+                                                  "Incoming packet too large"))
+                                            ))
+                                (cond (status
+                                       ;; terminate on any error
+                                       (comm:async-io-state-finish state)
+                                       (>> fmt-println "~A Incoming error state: ~A" title status)
+                                       (>> shutdown))
+                                      
+                                      ((plusp end)
+                                       #|
+                                       ;; TCP ensures that messages arrive on the
+                                       ;; wire and are delivered here in whole, or
+                                       ;; not at all. But the async input system
+                                       ;; delivers them as they arrive in piecemeal
+                                       ;; fashion.
+                                       ;;
+                                       ;; Every input fragment is numbered here,
+                                       ;; starting from 1. But the Actor system
+                                       ;; might jumble the order of fragment-ctr
+                                       ;; delivery.
+                                       ;; 
+                                       ;; (I have witnessed this happening.)
+                                       ;; 
+                                       ;; Numbering them enables us to deal
+                                       ;; properly with possible out-of-order
+                                       ;; delivery to the self-sync decoder.
+                                       |#
+                                       (>> accum :deliver (incf fragment-ctr) (subseq buffer 0 end))
+                                       (>> kill-timer :resched)
+                                       (comm:async-io-state-discard state end))
+                                      )))) )
        
-         ;; Start things running...
-         (comm:async-io-state-read-with-checking io-state rd-callback-fn
-                                                 :element-type '(unsigned-byte 8))
-         (>> kill-timer :resched)
-         
-         ;; And now we can tell our customer that our graph is complete and running
-         (>> cust state encoder)
-         ))
+       ;; Start things running...
+       (comm:async-io-state-read-with-checking io-state rd-callback-fn
+                                               :element-type '(unsigned-byte 8))
+       (>> kill-timer :resched)
+       
+       ;; And now we can tell our customer that our graph is complete and running
+       (>> cust state encoder)
+       ))
    ))
 
 ;; -------------------------------------------------------------

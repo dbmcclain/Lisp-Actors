@@ -1158,8 +1158,8 @@
 ;; These won't become permanent until/unless :maint-full-save
 
 (defun convert-db (new-db-proto)
-  (let++ ((:β db  (racurry kvdb :req))
-          (new-db new-db-proto))
+  (let+ ((:β db  (racurry kvdb :req))
+         (new-db new-db-proto))
     (db-map db (lambda (k v)
                  (setf new-db (db-add new-db k v))))
     (send kvdb `(,writeln . ,self) :commit db new-db)))

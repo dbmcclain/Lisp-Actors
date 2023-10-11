@@ -33,24 +33,21 @@
     ((apt client-id client-pkeyid) / (and (typep apt       'ecc-pt)
                                           (typep client-id 'uuid:uuid))
      ;; silently ignore other kinds of requests
-     (let-β ((client-pkey  (racurry eccke:ecc-pkey client-pkeyid)) )
+     (let+ ((:β client-pkey  (racurry eccke:ecc-pkey client-pkeyid)) )
        (when client-pkey
          (ignore-errors
-           (let++ ((:mvb (apt client-pkey)  (values (ed-validate-point apt)
-                                                    (ed-validate-point client-pkey)) )
-                   (:β cnx-id               (racurry local-services :add-service global-services))
-                   (:β (brand bpt aescrypt) (racurry eccke:ecc-cnx-encrypt
-                                                     client-pkey client-id cnx-id))
-                   (:β my-skey              eccke:ecc-skey)
-                   (ekey (hash/256 (ed-mul apt brand)            ;; A*b
-                                   (ed-mul client-pkey brand)    ;; C*b
-                                   (ed-mul apt my-skey))         ;; A*s
-                         ))
-             (β _
-                 (>> local-services β :set-crypto ekey socket)
-               (>> socket bpt aescrypt))
-             )))
-       ))
+           (let+ ((:mvb (apt client-pkey)  (values (ed-validate-point apt)
+                                                   (ed-validate-point client-pkey)) )
+                  (:β cnx-id               (racurry local-services :add-service global-services))
+                  (:β (brand bpt aescrypt) (racurry eccke:ecc-cnx-encrypt
+                                                    client-pkey client-id cnx-id))
+                  (:β my-skey              eccke:ecc-skey)
+                  (ekey (hash/256 (ed-mul apt brand)            ;; A*b
+                                  (ed-mul client-pkey brand)    ;; C*b
+                                  (ed-mul apt my-skey)) )       ;; A*s
+                  (:β _  (>> local-services β :set-crypto ekey socket)))
+             (>> socket bpt aescrypt))
+           ))))
     ;; silently ignore other requests
     )))
 
@@ -69,14 +66,13 @@
    (alambda
     ((akey client-id client-pkeyid) / (and (typep akey 'ub8-vector)
                                            (typep client-id 'uuid:uuid))
-     (let*-β ((cnx-id  (racurry local-services :add-service global-services))
-              ((bkey latcrypt aescrypt) (racurry lattice-ke:cnx-packet-encoder
-                                                 client-pkeyid client-id cnx-id)) )
-       (let ((ekey  (hash/256 bkey akey)))
-         (β _
-             (>> local-services β :set-crypto ekey socket)
-           (>> socket latcrypt aescrypt))
-         )))
+     (let+ ((:β cnx-id  (racurry local-services :add-service global-services))
+            ((bkey latcrypt aescrypt) (racurry lattice-ke:cnx-packet-encoder
+                                               client-pkeyid client-id cnx-id))
+            (ekey  (hash/256 bkey akey))
+            (:β _  (>> local-services β :set-crypto ekey socket)))
+       (>> socket latcrypt aescrypt)
+       ))
     ;; silently ignore other kinds of requests
     )))
 

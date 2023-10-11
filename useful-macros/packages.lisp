@@ -672,6 +672,7 @@ THE SOFTWARE.
    #:is-lambda-list-keyword?
    #:deflex
    #:let+
+   #:do-let+
    
    #:->
    #:_>

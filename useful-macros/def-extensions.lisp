@@ -16,6 +16,7 @@
    #:deflex  ;; a defparaemeter version of backing store
    #:deflex* ;; a defvar version of backing store
    #:let+
+   #:do-let+
    ))
 
 (in-package #:com.ral.useful-macros.def-extensions)
@@ -276,6 +277,61 @@ arguments when given."
   ;;; OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 )
 
+;; ---------------------------------------------------------------
+
+(defmethod do-let+ ((fst cons) binding bindings body)
+  ;; tree destructuring
+  (let ((flat (um:flatten fst)))
+    `(destructuring-bind ,fst
+         ,(second binding)
+       ,@(when (find-if #'is-underscore? flat)
+           `((declare (ignore ,(symb "_")))))
+       (let+ ,(rest bindings)
+         ,@body)) ))
+
+(defmethod do-let+ ((fst (eql :mvl)) binding bindings body)
+  (destructuring-bind (list-form verb-form) (rest binding)
+    `(let+ (( ,list-form (multiple-value-list ,verb-form))
+            ,@(rest bindings))
+       ,@body) ))
+
+(defmethod do-let+ ((fst (eql :mvb)) binding bindings body)
+  (destructuring-bind (list-form verb-form) (rest binding)
+    `(multiple-value-bind ,list-form
+         ,verb-form
+       (let+ ,(rest bindings)
+         ,@body)) ))
+
+(defmethod do-let+ ((fst (eql :acc)) binding bindings body)
+  (destructuring-bind (name slots form) (rest binding)
+    `(with-accessors
+         ,(mapcar (lambda (sym)
+                    (if (consp sym)
+                        sym
+                      `(,sym ,(um:symb name #\- sym))))
+                  slots)
+         ,form
+       (let+ ,(rest bindings)
+         ,@body))
+    ))
+
+(defmethod do-let+ ((fst (eql :slots)) binding bindings body)
+  (destructuring-bind (slots form) (rest binding)
+    `(with-slots ,slots ,form
+       (let+ ,(rest bindings)
+         ,@body)) ))
+
+(defmethod do-let+ ((fst (eql :sym)) binding bindings body)
+  `(symbol-macrolet ,(second binding)
+     (let+ ,(rest bindings)
+       ,@body)) )
+
+(defmethod do-let+ (fst binding bindings body)
+  ;; default case
+  `(let (,binding)
+     (let+ ,(rest bindings)
+       ,@body)) )
+
 (defmacro let+ (bindings &body body)
   "LET+ defaults to LET* behavior, but allows several convenient
 extensions. The hope is to avoid use of a cumbersome mixture of LET,
@@ -283,61 +339,11 @@ LET*, DESTRUCTURING-BIND, MULTIPLE-VALUE-BIND, WITH-SLOTS,
 WITH-ACCESSORS, in your code, putting it all into one place with LET+."
   (if bindings
       (let ((binding (first bindings)))
-        (cond
-         ((consp (first binding))
-          (let ((flat (um:flatten (first binding))))
-            `(destructuring-bind ,(first binding)
-                 ,(second binding)
-               ,@(when (find-if #'is-underscore? flat)
-                   `((declare (ignore ,(symb "_")))))
-               (let+ ,(rest bindings)
-                 ,@body))))
-
-         ((eq :mvl (first binding))
-          (destructuring-bind (list-form verb-form) (rest binding)
-            `(let+ (( ,list-form (multiple-value-list ,verb-form))
-                    ,@(rest bindings))
-               ,@body) ))
-
-         ((eq :mvb (first binding))
-          (destructuring-bind (list-form verb-form) (rest binding)
-            `(multiple-value-bind ,list-form
-                 ,verb-form
-               (let+ ,(rest bindings)
-                 ,@body)) ))
-
-         ((eq :acc (first binding))
-          (destructuring-bind (name slots form) (rest binding)
-            `(with-accessors
-                 ,(mapcar (lambda (sym)
-                            (if (consp sym)
-                                sym
-                              `(,sym ,(um:symb name #\- sym))))
-                          slots)
-                 ,form
-               (let+ ,(rest bindings)
-                 ,@body))
-            ))
-
-         ((eq :slots (first binding))
-          (destructuring-bind (slots form) (rest binding)
-            `(with-slots ,slots ,form
-               (let+ ,(rest bindings)
-                 ,@body)) ))
-
-         ((eq :sym (first binding))
-          `(symbol-macrolet ,(second binding)
-             (let+ ,(rest bindings)
-               ,@body)) )
-         
-         (t
-          `(let (,binding)
-             (let+ ,(rest bindings)
-               ,@body)))
-         ))
+        (do-let+ (first binding) binding bindings body))
     ;; else
     `(progn
-       ,@body)))
+       ,@body)
+    ))
 
 #+:LISPWORKS
 (editor:setup-indent "let+" 1)

@@ -91,7 +91,7 @@
    (lambda (cust pubkey &rest info)
      (let+ ((:mvb (rand rand-pt) (ed-random-pair)))
        (ignore-errors
-         (let* ((enc-pt     (ed-mul pubkey rand))
+         (let+ ((enc-pt     (ed-mul pubkey rand))
                 (aes-key    (vec (hash/256 :ecc-cnx-key enc-pt)))
                 (aes-packet (<<* #'make-aes-packet aes-key :canary info)))
            (>> cust rand (ed-affine rand-pt) aes-packet)
@@ -101,9 +101,9 @@
 (deflex ecc-cnx-decrypt
   (create
    (lambda (cust rand-pt aes-packet)
-     (let-β ((skey ecc-skey))
+     (let+ ((:β skey ecc-skey))
        (ignore-errors
-         (let* ((enc-pt   (ed-mul rand-pt skey))
+         (let+ ((enc-pt   (ed-mul rand-pt skey))
                 (aes-key  (vec (hash/256 :ecc-cnx-key enc-pt)))
                 (info     (decode-aes-packet aes-key aes-packet)))
            (when (and (consp info)

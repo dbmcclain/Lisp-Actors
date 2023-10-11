@@ -292,9 +292,9 @@
 
    ((cust :add-ephemeral-clients clients ttl)
     (if clients
-        (let++ ((me  self)
-                ( ((id . ac) . rest) clients)
-                (:β _  (racurry me :add-ephemeral-client-with-id id ac ttl)))
+        (let+ ((me  self)
+               ( ((id . ac) . rest) clients)
+               (:β _  (racurry me :add-ephemeral-client-with-id id ac ttl)))
           (>> me cust :add-ephemeral-clients rest ttl) )
       ;; else
       (>> cust :ok)))
@@ -350,7 +350,7 @@
    ((latcrypt aescrypt) / (and (null decryptor) ;; i.e., only valid during initial handshake dance
                                (typep latcrypt 'vector)
                                (consp aescrypt))
-    (let-β (( (rkey info)  (racurry lattice-ke:cnx-packet-decoder latcrypt aescrypt)) )
+    (let+ ((:β (rkey info)  (racurry lattice-ke:cnx-packet-decoder latcrypt aescrypt)) )
       (when (typep (car info) 'uuid:uuid)
         (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
           (when pair
@@ -363,7 +363,7 @@
    ((rand-pt aescrypt) / (and (null decryptor)
                               (typep rand-pt 'edec:ecc-pt)
                               (consp aescrypt))
-    (let-β ((info  (racurry eccke:ecc-cnx-decrypt rand-pt aescrypt)))
+    (let+ ((:β info  (racurry eccke:ecc-cnx-decrypt rand-pt aescrypt)))
       (when (typep (car info) 'uuid:uuid)
         (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
           (when pair
@@ -453,10 +453,10 @@
                          (push (cons id ac) rcvrs)
                          (client-proxy id))
                        )))
-         (let ((enc (loenc:encode (coerce msg 'vector))))
-           (let-β ((_  (racurry local-services :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)))
-             (>> cust enc))
-           ))))
+         (let+ ((enc (loenc:encode (coerce msg 'vector)))
+                (:β _  (racurry local-services :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)))
+           (>> cust enc))
+         )))
    ))
 
 #|
