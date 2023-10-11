@@ -279,58 +279,57 @@ arguments when given."
 
 ;; ---------------------------------------------------------------
 
-(defmethod do-let+ ((fst cons) binding bindings body)
+(defgeneric do-let+ (fst binding form))
+
+(defmethod do-let+ ((fst cons) binding form)
   ;; tree destructuring
   (let ((flat (um:flatten fst)))
     `(destructuring-bind ,fst
          ,(second binding)
        ,@(when (find-if #'is-underscore? flat)
            `((declare (ignore ,(symb "_")))))
-       (let+ ,(rest bindings)
-         ,@body)) ))
+       ,form)
+    ))
 
-(defmethod do-let+ ((fst (eql :mvl)) binding bindings body)
+(defmethod do-let+ ((fst (eql :mvl)) binding form)
   (destructuring-bind (list-form verb-form) (rest binding)
-    `(let+ (( ,list-form (multiple-value-list ,verb-form))
-            ,@(rest bindings))
-       ,@body) ))
+    `(let+ (( ,list-form (multiple-value-list ,verb-form)))
+       ,form)
+    ))
 
-(defmethod do-let+ ((fst (eql :mvb)) binding bindings body)
+(defmethod do-let+ ((fst (eql :mvb)) binding form)
   (destructuring-bind (list-form verb-form) (rest binding)
     `(multiple-value-bind ,list-form
          ,verb-form
-       (let+ ,(rest bindings)
-         ,@body)) ))
+       ,form) 
+    ))
 
-(defmethod do-let+ ((fst (eql :acc)) binding bindings body)
-  (destructuring-bind (name slots form) (rest binding)
+(defmethod do-let+ ((fst (eql :acc)) binding form)
+  (destructuring-bind (name slots binding-form) (rest binding)
     `(with-accessors
          ,(mapcar (lambda (sym)
                     (if (consp sym)
                         sym
                       `(,sym ,(um:symb name #\- sym))))
                   slots)
-         ,form
-       (let+ ,(rest bindings)
-         ,@body))
+         ,binding-form
+       ,form)
     ))
 
-(defmethod do-let+ ((fst (eql :slots)) binding bindings body)
-  (destructuring-bind (slots form) (rest binding)
-    `(with-slots ,slots ,form
-       (let+ ,(rest bindings)
-         ,@body)) ))
+(defmethod do-let+ ((fst (eql :slots)) binding form)
+  (destructuring-bind (slots binding-form) (rest binding)
+    `(with-slots ,slots ,binding-form
+       ,form)
+    ))
 
-(defmethod do-let+ ((fst (eql :sym)) binding bindings body)
+(defmethod do-let+ ((fst (eql :sym)) binding form)
   `(symbol-macrolet ,(second binding)
-     (let+ ,(rest bindings)
-       ,@body)) )
+     ,form) )
 
-(defmethod do-let+ (fst binding bindings body)
+(defmethod do-let+ (fst binding form)
   ;; default case
   `(let (,binding)
-     (let+ ,(rest bindings)
-       ,@body)) )
+     ,form))
 
 (defmacro let+ (bindings &body body)
   "LET+ defaults to LET* behavior, but allows several convenient
@@ -339,7 +338,9 @@ LET*, DESTRUCTURING-BIND, MULTIPLE-VALUE-BIND, WITH-SLOTS,
 WITH-ACCESSORS, in your code, putting it all into one place with LET+."
   (if bindings
       (let ((binding (first bindings)))
-        (do-let+ (first binding) binding bindings body))
+        (do-let+ (first binding) binding
+                 `(let+ ,(rest bindings)
+                    ,@body)))
     ;; else
     `(progn
        ,@body)

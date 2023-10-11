@@ -320,16 +320,15 @@
 ;; -----------------------------------------------
 ;; Extend LET+ into β-forms
 
-(defmethod do-let+ ((fst (eql :β)) binding bindings body)
+(defmethod do-let+ ((fst (eql :β)) binding form)
   (destructuring-bind (list-form verb-form) (rest binding)  
     `(β (,@(um:mklist list-form) )
          (send ,verb-form β)
-       (let+ ,(rest bindings)
-         ,@body))
+       ,form)
     ))
 
-(defmethod do-let+ ((fst (eql :beta)) binding bindings body)
-  (do-let+ :β binding bindings body))
+(defmethod do-let+ ((fst (eql :beta)) binding form)
+  (do-let+ :β binding form))
 
 
 ;; -----------------------------------------------
