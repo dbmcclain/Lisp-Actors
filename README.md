@@ -10,7 +10,7 @@ Two cases argue for multiple threads:
       1. To avoid idle CPU cycles during blocking I/O activity
       2. To paralellize activity when you have multiple CPU cores. But there is no guarantee that different threads will run on different cores. They might be, or they might simply be time-multiplexed onto one core, or some mix of both.
 
-In truth, there are a few locks in **our** system, managed exclusively by Dispatch when it commits a BECOME, and when it stashes and fetches from a potentially shared event FIFO queue (a mailbox). We implemented these lcoks because we do want to invoke paralellism across multiple CPU cores whenever possible. But in a single threaded implementation none of these locks would be needed, and the overall system would continue to run just fine in that single thread.
+In truth, there are a few locks in **our** system, managed exclusively by Dispatch when it commits a BECOME, and when it commits SENDs, and fetches from a potentially shared event FIFO queue (a mailbox). We implemented these lcoks because we do want to invoke paralellism across multiple CPU cores whenever possible. But in a single threaded implementation none of these locks would be needed, and the overall system would continue to run just fine in that single thread.
 
 Conventional Hewitt Actors have no RECV. Messages arrive in Dispatch and an Actor target is invoked. So where Erlang performs a RECV operation, we would see that as the termination of an Actor behavior, with a behavior change through BECOME taking over in response to what is received. Erlang halts execution of the code until a mesasage arrives for its RECV, whereas we simply set up the Actor for a message if it should ever arrive.
 
