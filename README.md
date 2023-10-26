@@ -9,7 +9,9 @@ That wrapping exists so that an Actor may change its behavior with BECOME while 
 There might be some machine threads beneath the Actor system, but the Actors are oblivious to them. Unlike a Process (in Erlang) you cannot "kill" an Actor. That concept doesn't make any sense to us. Just like you can't "kill" the SINE function. 
 
 Two cases argue for multiple threads:
+
       1. To avoid idle CPU cycles during blocking I/O activity
+      
       2. To paralellize activity when you have multiple CPU cores. But there is no guarantee that different threads will run on different cores. They might be, or they might simply be time-multiplexed onto one core, or some mix of both.
 
 In truth, there are a few locks in **our** system, managed exclusively by Dispatch when it commits a BECOME, and when it commits SENDs, and fetches from a potentially shared event FIFO queue (a mailbox). We implemented these lcoks because we do want to invoke paralellism across multiple CPU cores whenever possible. But in a single threaded implementation none of these locks would be needed, and the overall system would continue to run just fine in that single thread.
