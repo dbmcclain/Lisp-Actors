@@ -1,3 +1,27 @@
+-- 26 October 2023 -- Minimum Sufficient Concepts for Concurrent Programming
+---
+After having so much success with Transactional Conventional Hewitt Actors, and then hearing so much hype surrounding Erlang, I have been wondering to myself about the minimum necessary "molecules" needed for concurrent programming. Erlang has every right to claim for itself that it is an Actors language. Many other implementations also make that claim. 
+
+But I think I can claim that I can subsume all of these other systems with just the 3 basic elements of Transactional Conventinal Hewitt Actors - CREATE, SEND, and BECOME. There are no threads, nor locks, in this basic system. Actors are inert wrapped functional closures. That wrapping exists so that an Actor may change its behavior with BECOME while leaving its identity intact. The wrapped behavior function gets invoked by the central Dispatch routine whenever a message arrives for that Actor. The Actor has no "mailbox" - a message event queue belongs to the entire system and is seen only by the Dispatcher routine as it commits pending SENDs and fetches the next message in a FIFO manner. There is no need for locks since our Actor behaviors are purely functional as viewed from outside.
+
+There might be some machine threads beneath the Actor system, but the Actors are oblivious to them. Unlike a Process (in Erlang) you cannot "kill" an Actor. That concept doesn't make any sense to us. Just like you can't "kill" the SINE function. 
+
+Two cases argue for multiple threads:
+      1. To avoid idle CPU cycles during blocking I/O activity
+      2. To paralellize activity when you have multiple CPU cores. But there is no guarantee that different threads will run on different cores. They might be, or they might simply be time-multiplexed onto one core, or some mix of both.
+
+In truth, there are a few locks in *our* system, managed exclusively by Dispatch when it commits a BECOME, and when it stashes and fetches from a potentially shared event FIFO queue (a mailbox). We implemented these lcoks because we do want to invoke paralellism across multiple CPU cores whenever possible. But in a single threaded implementation none of these locks would be needed, and the overall system would continue to run just fine in that single thread.
+
+Conventional Hewitt Actors have no RECV. Messages arrive in Dispatch and an Actor target is invoked. So where Erlang performs a RECV operation, we would see that as the termination of an Actor behavior, with a behavior change through BECOME taking over in response to what is received. Erlang halts execution of the code until a mesasage arrives for its RECV, whereas we simply set up the Actor for a message if it should ever arrive.
+
+Erlang also has a selective RECV which looks into its mailbox for a particular pattern among the messages that have arrived. We would have our Actor either forward non-matching messages to itself for later consideration, or else set up an internal message queue of non-matching messages for later consideration, after arrival of the messsage pattern of interest.
+
+I don't think Erlang has anything similar to BECOME. But it does have "channels" connecting between different procs, to signal the other whenever some condition arises - such as death of the running proc due to error. We would handle that with an intercepted error condition and a SEND to the other procs. But our Actors cannot die.
+
+So, I believe we can emulate an Erlang system with Transactional Conventional Hewitt Actors. And it appears that Erlang needlessly conflates the notion of Threads and Mailboxes with Actors, making their procs unnecessarily complex.
+
+
+
 -- 5 October 2023 -- UNWIND-PROTECT for Actors !!
 ---
 We now have an Actor's equivalent of UNWIND-PROTECT. And with that we now also have the Actor's equivalent of WITH-OPEN-FILE.
