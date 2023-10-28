@@ -10,6 +10,7 @@
   :license     "Copyright (c) 2021-2022 by Refined Audiometrics Laboratory. MIT License terms apply."
   :components  (#-:ALLEGRO   (:file "debugging")
                 #-:ALLEGRO   (:file "kvdb")
+                #-:ALLEGRO   (:file "kvdb-server")
                 #+:LISPWORKS (:file "kvdb-gui")
                 #-:ALLEGRO   (:file "multi-commit")
                 (:file "reactive")

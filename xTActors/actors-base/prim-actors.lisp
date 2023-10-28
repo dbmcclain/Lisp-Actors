@@ -143,6 +143,15 @@
 ;; programmer.
 ;; ------------------------------------------------------------
 
+(defun fwd-beh (actor)
+  (lambda (&rest msg)
+    (send* actor msg)))
+
+(defun fwd (actor)
+  (create (fwd-beh actor)))
+
+;; ---------------------------------
+
 (defun once-beh (cust)
   (lambda (&rest msg)
     (send* cust msg)

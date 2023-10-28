@@ -54,23 +54,12 @@
 
 ;; ----------------------------------------------------------
 
-(defun fwd-beh (actor)
-  (lambda (&rest msg)
-    (send* actor msg)))
-
-(defun fwd (actor)
-  (create (fwd-beh actor)))
-
-;; ----------------------------------------------------------
-
 (defgeneric screened-beh (arg)
   (:method ((fn function))
    fn)
   (:method ((ac actor))
    ;; (actor-beh ac) ;; don't steal their beh, become a forwarding Actor
    (fwd-beh ac))
-  (:method ((sym symbol))
-   (symbol-function sym))
   (:method (x)
    (error "Invalid behavior: ~S" x)))
 

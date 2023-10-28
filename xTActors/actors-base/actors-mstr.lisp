@@ -122,8 +122,7 @@ THE SOFTWARE.
 
 (defun become (new-beh)
   #F
-  (check-type new-beh function)
-  (funcall *become* new-beh))
+  (funcall *become* (screened-beh new-beh)))
 
 ;; -----------------------------------
 ;; In an Actor, (ABORT-BEH) undoes any BECOME and SENDS to this point,
@@ -179,7 +178,7 @@ THE SOFTWARE.
            |#
            
            (%become (new-beh)
-             (setf pend-beh (screened-beh new-beh)))
+             (setf pend-beh new-beh))
 
            (%abort-beh ()
              (setf pend-beh self-beh
