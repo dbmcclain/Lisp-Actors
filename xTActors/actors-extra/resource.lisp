@@ -31,9 +31,10 @@
     (become-sink)))
 
 (defun guard-selector (cust fail must-do must-args)
-  (actors ((sel      (guard-selector-beh must-do must-args))
-           (lbl-ok   (label-beh sel cust))
-           (lbl-fail (label-beh sel fail)))
+  (letrec ((sel      (create
+                      (guard-selector-beh must-do must-args)))
+           (lbl-ok   (label sel cust))
+           (lbl-fail (label sel fail)))
     (values lbl-ok lbl-fail)))
   
 (defun guard (action timeout must-do &rest must-args)

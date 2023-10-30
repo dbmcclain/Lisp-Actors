@@ -107,13 +107,14 @@
                       (close-after +DEFAULT-CLOSE-TIMEOUT+)
                       open-args)
                (let ((fd  (apply #'open fname open-args)))
-                 (actors ((chan        (serializer-beh
-                                        (create (open-filer-beh fd))
-                                        :timeout op-timeout))
-                          (reply-tag   (tag-beh gate))
-                          (timeout-tag (tag-beh gate))
-                          (gate        (retrig-filer-gate-beh chan reply-tag timeout-tag
-                                                              :timeout close-after)))
+                 (um:letrec ((chan        (serializer
+                                           (create
+                                            (open-filer-beh fd))))
+                             (reply-tag   (tag gate))
+                             (timeout-tag (tag gate))
+                             (gate        (create
+                                           (retrig-filer-gate-beh chan reply-tag timeout-tag
+                                                                  :timeout close-after))))
                    (send-after close-after timeout-tag +timed-out+)
                    (send cust gate))
                  ))

@@ -21,35 +21,6 @@
 #+:LISPWORKS
 (editor:setup-indent "actor" 1)
 
-;; ----------------------------------------------
-;; Like LETREC, but for Actor defs, mutually-, or self-, referential.
-;;
-;; -- DM/RAL  2022/12/12 06:34:30
-;; Do it without direct mutation in an SMP-safe manner,
-;; i.e., use BECOME and not SET-BEH
-#|
-(defun %set-beh (ac arg)
-  (setf (actor-beh ac) (screened-beh arg)))
-
-(defmacro actors (bindings &body body)
-  ;; Bindings must be BEHAVIOR functions, not Actors
-  (let ((actors (mapcar #'car bindings))
-        (behs   (mapcar #'cadr bindings)))
-    `(let ,(mapcar #`(,a1 (create)) actors)
-       ,@(mapcar #2`(%set-beh ,a1 ,a2)
-                 actors behs)
-       ,@body)))
-|#
-(defmacro actors (bindings &body body)
-  ;; Bindings should generally be BEHAVIOR functions, not Actors.
-  ;; But if Actors are provided we will become forwarding Actors to them.
-  (let ((actors (um:firsts bindings))
-        (behs   (um:seconds bindings)))
-    `(let ,(mapcar #`(,a1 (create (%becomer-beh))) actors)
-       ,@(mapcar #2`(send ,a1 '%become ,a2)
-                 actors behs)
-       ,@body)))
-
 ;; ----------------------------------------------------
 
 (µ α (args &body body)

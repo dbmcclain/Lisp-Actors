@@ -283,9 +283,10 @@
   ;; their results in the same order to eventual customer.
   (create
    (lambda (cust)
-     (actors ((tag1   (tag-beh joiner))
-              (tag2   (tag-beh joiner))
-              (joiner (join2-beh cust tag1)))
+     (um:letrec ((tag1   (tag joiner))
+                 (tag2   (tag joiner))
+                 (joiner (create
+                          (join2-beh cust tag1))))
        (send service1 tag1)
        (send service2 tag2)
        ))))
@@ -343,14 +344,14 @@
         ((endp (cdr services))
          (car services))
         (t
-         (actors
-             ((iter   (lambda (cust svcs ans)
-                        (if (endp svcs)
-                            (send* cust ans)
-                          (β _
-                              (send (car svcs) β)
-                            (send iter cust (cdr svcs) ans))
-                          ))))
+         (um:letrec ((iter (create
+                            (lambda (cust svcs ans)
+                              (if (endp svcs)
+                                  (send* cust ans)
+                                (β _
+                                    (send (car svcs) β)
+                                  (send iter cust (cdr svcs) ans))
+                                )))))
            (create
             (lambda (cust)
               (β ans
@@ -368,14 +369,14 @@
         ((endp (cdr services))
          (car services))
         (t
-         (actors
-             ((iter  (lambda (cust svcs)
-                       (if (cdr svcs)
-                           (β _
-                               (send (car svcs) β)
-                             (send iter cust (cdr svcs)))
-                         (send (car svcs) cust))
-                       )))
+         (um:letrec ((iter (create
+                            (lambda (cust svcs)
+                              (if (cdr svcs)
+                                  (β _
+                                      (send (car svcs) β)
+                                    (send iter cust (cdr svcs)))
+                                (send (car svcs) cust))
+                              ))))
            (create
             (lambda (cust)
               (send iter cust services)))

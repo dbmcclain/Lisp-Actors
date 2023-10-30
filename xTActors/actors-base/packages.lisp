@@ -125,7 +125,6 @@ THE SOFTWARE.
    #:service
    #:create
    #:%create
-   #:actors
    #:make-remote-actor
    #:concurrently
    

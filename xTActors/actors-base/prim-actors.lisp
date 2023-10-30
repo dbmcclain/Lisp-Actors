@@ -298,8 +298,9 @@ prefixed by our unique SELF identity/"
   ;; Return an Actor that represents the future value. Send that value
   ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST).
   ;; Read as "send the future result to cust".
-  (actors ((fut (future-wait-beh tag))
-           (tag (tag-beh fut)))
+  (um:letrec ((fut (create
+                    (future-wait-beh tag)))
+              (tag (tag fut)))
     (send* actor tag msg)
     fut))
 

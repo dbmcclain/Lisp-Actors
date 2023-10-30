@@ -165,14 +165,16 @@
 #|
 ;; --- Example UDP Server ---
 (deflex srv-sender
-  (actors
-      ((sender   (udp-srv-port-beh :local-port 65002
-                                   :receive-actor handler))
-       (handler  (lambda (from-ip from-port message)
-                   (send fmt-println "Srv: from: ~S @ ~S (~D) ~S"
-                         from-port from-ip (length message) message)
-                   (send sender println from-ip from-port
-                         (map 'ub8-vector #'char-code "OK")))))
+  (um:letrec
+      ((sender   (create
+                  (udp-srv-port-beh :local-port 65002
+                                    :receive-actor handler)))
+       (handler  (create
+                  (lambda (from-ip from-port message)
+                    (send fmt-println "Srv: from: ~S @ ~S (~D) ~S"
+                          from-port from-ip (length message) message)
+                    (send sender println from-ip from-port
+                          (map 'ub8-vector #'char-code "OK"))))))
     (send sender sink :init)
     sender))
 
@@ -183,10 +185,12 @@
 
 ;; --- Example UDB Client ---
 (deflex cli-sender
-  (actors ((sender  (udp-cli-connected-port-beh "fornax.local" #|"localhost"|# 65002
-                                            :receive-actor handler))
-           (handler (lambda (message)
-                      (send fmt-println "Client RX: (~D) ~S" (length message) message))))
+  (um:letrec ((sender  (create
+                        (udp-cli-connected-port-beh "fornax.local" #|"localhost"|# 65002
+                                                    :receive-actor handler)))
+              (handler (create
+                        (lambda (message)
+                          (send fmt-println "Client RX: (~D) ~S" (length message) message)))))
     sender))
 
 (send cli-sender println (make-ub8-vector 3
@@ -213,11 +217,13 @@
 ;; ------------------------------------------------------------
 ;;
 (deflex cli-sender
-  (actors ((sender  (udp-cli-connected-port-beh "fornax.local" 65301
-                                            :receive-actor handler))
-           (handler (lambda (message)
-                      (send fmt-println "Client RX: (~D) ~S"
-                            (length message) message))))
+  (um:letrec ((sender  (create
+                        (udp-cli-connected-port-beh "fornax.local" 65301
+                                            :receive-actor handler)))
+              (handler (create
+                        (lambda (message)
+                          (send fmt-println "Client RX: (~D) ~S"
+                                (length message) message)))))
     sender))
 
 (send cli-sender println (make-ub8-vector 1
