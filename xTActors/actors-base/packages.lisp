@@ -231,12 +231,8 @@ THE SOFTWARE.
    #:kvdb
    #:deep-copy
 
-   #:fn-actor-beh
    #:fn-actor
-   #:reactive-obj-beh
-   #:reactive-obj
 
-   #:side-job
    #:guard
    #:close-file
    #:secure-erase

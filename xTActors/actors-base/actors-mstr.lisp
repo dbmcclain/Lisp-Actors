@@ -512,12 +512,11 @@ THE SOFTWARE.
 ;; 
 ;; See also: SERVICES.
 
-(defun fn-actor-beh (fn)
-  (λ (cust . args)
-    (send* cust (multiple-value-list (apply fn args)))))
-
 (defun fn-actor (fn)
-  (create (fn-actor-beh fn)))
+  (create
+   (λ (cust . args)
+     (send* cust (multiple-value-list (apply fn args))))
+   ))
 
 ;; ----------------------------------------
 ;; We must defer startup until the MP system has been instantiated.
