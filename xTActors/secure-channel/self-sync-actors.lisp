@@ -173,195 +173,157 @@
 ;; A state machine in call/return semantics, providing an Actor shell
 ;; for external use.
 
-(defun ssfsm-beh (dest aout stuff-fn)
-  #F
-  (declare (function stuff-fn)
-           ((ub8-vector *) aout))
-  (let (state          ;; machine state function
-        need-fefd      ;; when T we may need to insert #xFEFD
-        (remct 0)      ;; segment bytes remaining
-        crcv           ;; copy of 4-byte CRC field
-        lenv           ;; copy of 4-byte length field
-        (nel   -1))    ;; expected message length
-    (declare (fixnum remct nel))
-    (macrolet ((new-state (fn)
-                 `(! state #',fn)))
-      (labels (;; --------------------
-               ;; Utility Functions
-               (subrange-code? (b)
-                 (declare (ub8 b))
-                 (<= 0 b #xFC))
-               
-               (stuffer-init (ct)
-                 (declare (fixnum ct))
-                 (! nel       -1
-                       remct     ct
-                       need-fefd (< ct +max-short-count+)
-                       (fill-pointer aout) 0)
-                 (new-state read-segm))
-
-               (segm-init (ct)
-                 (declare (fixnum ct))
-                 (! remct     ct
-                       need-fefd (< ct +max-long-count+))
-                 (new-state read-segm)
-                 (check-finish))
-
-               (raw-stuff (b)
-                 (<< stuff-fn b aout))
-               
-               (stuff (b)
-                 (raw-stuff b)
-                 (decf remct)
-                 (check-finish))
-
-               (check-finish ()
-                 (when (zerop remct)
-                   (when (minusp nel)
-                     (! crcv (subseq aout 0 4)
-                           lenv (subseq aout 4 8)
-                           nel  (+ 8 (vec-le4-to-int lenv))))
-                   (let ((nbuf  (length aout)))
-                     (declare (fixnum nbuf))
-                     (when (and need-fefd
-                                (< nbuf nel))
-                       (raw-stuff #xFE)
-                       (raw-stuff #xFD)
-                       (incf nbuf 2))
-                     (cond ((< nbuf nel)
-                            (new-state read-long-count))
-                           (t
-                            (new-state start)
-                            (let* ((ans (subseq aout 8))
-                                   (chk (crc32 lenv ans)))
-                              (when (equalp crcv chk)
-                                (>> dest ans))
-                              ))
-                           ))))
-
-               (restart (b)
-                 (new-state start)
-                 (start b))
-
-               (inhale (b)
-                 (<< state b))
-               
-               ;; ----------------
-               ;; Machine States
-               (start (b)
-                 (declare (ub8 b))
-                 (when (eql b #xFE)
-                   (new-state check-start-fd)))
-               
-               (check-start-fd (b)
-                 (declare (ub8 b))
-                 (if (eql b #xFD)
-                     (new-state check-version)
-                   (restart b)))
-
-               (check-version (b)
-                 (declare (ub8 b))
-                 (if (eql b #x01)
-                     (new-state read-short-count)
-                   (restart b)))
-
-               (read-short-count (b)
-                 (if (subrange-code? b)
-                     (stuffer-init b)
-                   (restart b)))
-
-               (read-segm (b)
-                 (declare (ub8 b))
-                 (if (and (eql b #xFE)
-                          (> remct 1))
-                     (new-state check-segm-fd)
-                   (stuff b)))
-
-               (check-segm-fd (b)
-                 (declare (ub8 b))
-                 (cond ((eql b #xFD) ;; we just saw a start pattern #xFE #xFD
-                        (new-state check-version))
-                       (t
-                        (stuff #xFE)
-                        (new-state read-segm)
-                        (read-segm b))
-                       ))
-
-               (read-long-count (b)
-                 (declare (ub8 b))
-                 (cond ((subrange-code? b)
-                        (! remct b)
-                        (new-state read-long-count-2))
-                       (t
-                        (restart b))
-                       ))
-
-               (read-long-count-2 (b)
-                 (declare (ub8 b))
-                 (if (subrange-code? b)
-                     (segm-init (+ remct (* b +long-count-base+)))
-                   (restart b))))
-        
-        (new-state check-version) ;; initialize state
-        
-        ;; finally... we get to the Actor behavior function
-        (lambda (cust buf)
-          (declare ((array ub8 *) buf))
-          (map nil #'inhale buf)
-          (>> cust :next))
-        ))))
-
 (defun decoder-fsm (dest &key max-reclen)
-  (let (aout
-        stuff-fn)
-    (if max-reclen
-        (! aout (make-ub8-vector (+ max-reclen 8)
-                                    :fill-pointer 0)
-              stuff-fn #'vector-push)
-      ;; else
-      (! aout (make-ub8-vector 256
-                                  :fill-pointer 0
-                                  :adjustable   t)
-            stuff-fn #'vector-push-extend))
-    (create (ssfsm-beh dest aout stuff-fn))
-    ))
+  (multiple-value-bind (aout stuff-fn)
+      (if max-reclen
+          (values (make-ub8-vector (+ max-reclen 8)
+                                   :fill-pointer 0)
+                  #'vector-push)
+        ;; else
+        (values (make-ub8-vector 256
+                                 :fill-pointer 0
+                                 :adjustable   t)
+                #'vector-push-extend))
+    (declare (function stuff-fn)
+             ((ub8-vector *) aout))
+    (let (state          ;; machine state function
+          need-fefd      ;; when T we may need to insert #xFEFD
+          (remct 0)      ;; segment bytes remaining
+          crcv           ;; copy of 4-byte CRC field
+          lenv           ;; copy of 4-byte length field
+          (nel   -1))    ;; expected message length
+      (declare (fixnum remct nel))
+      (macrolet ((new-state (fn)
+                   `(! state #',fn)))
+        (labels (;; --------------------
+                 ;; Utility Functions
+                 (subrange-code? (b)
+                   (declare (ub8 b))
+                   (<= 0 b #xFC))
+                 
+                 (stuffer-init (ct)
+                   (declare (fixnum ct))
+                   (! nel       -1
+                      remct     ct
+                      need-fefd (< ct +max-short-count+)
+                      (fill-pointer aout) 0)
+                   (new-state read-segm))
+                 
+                 (segm-init (ct)
+                   (declare (fixnum ct))
+                   (! remct     ct
+                      need-fefd (< ct +max-long-count+))
+                   (new-state read-segm)
+                   (check-finish))
+                 
+                 (raw-stuff (b)
+                   (<< stuff-fn b aout))
+                 
+                 (stuff (b)
+                   (raw-stuff b)
+                   (decf remct)
+                   (check-finish))
+                 
+                 (check-finish ()
+                   (when (zerop remct)
+                     (when (minusp nel)
+                       (! crcv (subseq aout 0 4)
+                          lenv (subseq aout 4 8)
+                          nel  (+ 8 (vec-le4-to-int lenv))))
+                     (let ((nbuf  (length aout)))
+                       (declare (fixnum nbuf))
+                       (when (and need-fefd
+                                  (< nbuf nel))
+                         (raw-stuff #xFE)
+                         (raw-stuff #xFD)
+                         (incf nbuf 2))
+                       (cond ((< nbuf nel)
+                              (new-state read-long-count))
+                             (t
+                              (new-state start)
+                              (let* ((ans (subseq aout 8))
+                                     (chk (crc32 lenv ans)))
+                                (when (equalp crcv chk)
+                                  (>> dest ans))
+                                ))
+                             ))))
+                 
+                 (restart (b)
+                   (new-state start)
+                   (start b))
+                 
+                 (inhale (b)
+                   (<< state b))
+                 
+                 ;; ----------------
+                 ;; Machine States
+                 (start (b)
+                   (declare (ub8 b))
+                   (when (eql b #xFE)
+                     (new-state check-start-fd)))
+                 
+                 (check-start-fd (b)
+                   (declare (ub8 b))
+                   (if (eql b #xFD)
+                       (new-state check-version)
+                     (restart b)))
+                 
+                 (check-version (b)
+                   (declare (ub8 b))
+                   (if (eql b #x01)
+                       (new-state read-short-count)
+                     (restart b)))
+                 
+                 (read-short-count (b)
+                   (if (subrange-code? b)
+                       (stuffer-init b)
+                     (restart b)))
+                      
+                 (read-segm (b)
+                   (declare (ub8 b))
+                   (if (and (eql b #xFE)
+                            (> remct 1))
+                       (new-state check-segm-fd)
+                     (stuff b)))
+                 
+                 (check-segm-fd (b)
+                   (declare (ub8 b))
+                   (cond ((eql b #xFD) ;; we just saw a start pattern #xFE #xFD
+                          (new-state check-version))
+                         (t
+                          (stuff #xFE)
+                          (new-state read-segm)
+                          (read-segm b))
+                         ))
+                 
+                 (read-long-count (b)
+                   (declare (ub8 b))
+                   (cond ((subrange-code? b)
+                          (! remct b)
+                          (new-state read-long-count-2))
+                         (t
+                          (restart b))
+                         ))
+                 
+                 (read-long-count-2 (b)
+                   (declare (ub8 b))
+                   (if (subrange-code? b)
+                       (segm-init (+ remct (* b +long-count-base+)))
+                     (restart b))) )
+          
+          (new-state check-version) ;; initialize state
+          
+          ;; finally... we get to the Actor behavior function
+          (create
+           (lambda (cust buf)
+             (declare ((array ub8 *) buf))
+             (map nil #'inhale buf)
+             (>> cust :next))
+           ))))))
 
 ;; -----------------------------------------------------------------
 ;; Stream Decoding
 
-(defun stream-decoder-beh (fsm wait-ix queue)
-  (alambda
-   ((:deliver bufix buf)
-    (cond ((eql bufix wait-ix)
-           (>> fsm self buf)
-           (β! (busy-stream-decoder-beh fsm (1+ bufix) queue)))
-          
-          (t
-           (β! (stream-decoder-beh fsm wait-ix (acons bufix buf queue))))
-          ))
-   
-   ((:go-silent)
-    (become-sink)) 
-   ))
-  
-(defun busy-stream-decoder-beh (fsm wait-ix queue)
-  (alambda
-   ((:next)
-    (let ((pair (assoc wait-ix queue)))
-      (cond (pair
-             (>> fsm self (cdr pair))
-             (β! (busy-stream-decoder-beh fsm (1+ wait-ix) (remove pair queue))))
-            (t
-             (β! (stream-decoder-beh fsm wait-ix queue)))
-            )))
-   
-   ((:deliver bufix buf)
-   (β! (busy-stream-decoder-beh fsm wait-ix (acons bufix buf queue))))
-   
-   ((:go-silent)
-    (become-sink)) 
-   ))
-  
 (defun stream-decoder (dest)
   ;; Construct an Actor that absorbs chunks of self-sync encoded input
   ;; stream and which triggers events to the dest actor as completed
@@ -372,8 +334,42 @@
   ;; starting from 1.
   ;;
   (let ((fsm (decoder-fsm dest)))
-    (create (stream-decoder-beh fsm 1 nil))
-    ))
+    (labels
+        ((stream-decoder-beh (wait-ix queue)
+           (alambda
+            ((:deliver bufix buf)
+             (cond ((eql bufix wait-ix)
+                    (>> fsm self buf)
+                    (β! (busy-stream-decoder-beh (1+ bufix) queue)))
+                   
+                   (t
+                    (β! (stream-decoder-beh wait-ix (acons bufix buf queue))))
+                   ))
+            
+            ((:go-silent)
+             (become-sink)) 
+            ))
+         ;; ----------------------------
+         (busy-stream-decoder-beh (wait-ix queue)
+           (alambda
+            ((:next)
+             (let ((pair (assoc wait-ix queue)))
+               (cond (pair
+                      (>> fsm self (cdr pair))
+                      (β! (busy-stream-decoder-beh (1+ wait-ix) (remove pair queue))))
+                     (t
+                      (β! (stream-decoder-beh wait-ix queue)))
+                     )))
+            
+            ((:deliver bufix buf)
+             (β! (busy-stream-decoder-beh wait-ix (acons bufix buf queue))))
+            
+            ((:go-silent)
+             (become-sink)) 
+            )) )
+      
+      (create (stream-decoder-beh 1 nil))
+      )))
 
 (defun decode (vec)
   ;; decoding (as a function) for self-contained encoded vectors

@@ -662,108 +662,113 @@
 ;; possible duplicate deliveries. We need to be robust against every
 ;; possibility.
 
-(defun dechunk-assembler-beh (cust nchunks chunks-seen out-vec)
+(defun dechunk-assembler (cust nchunks size)
   ;; Assemblers are constructed as soon as we have the init record
-  (alambda
-   ((offs byte-vec) / (and (integerp offs)
-                           (typep byte-vec 'ub8-vector))
-    ;; (>> fmt-println "Dechunk Assembler: offs ~D, size ~D" offs (length byte-vec))
-    (unless (find offs chunks-seen) ;; toss duplicates
-      (let ((replacer    (create
-                          (lambda (cust)
-                            ;; avoids repeated copying on BECOME retry
-                            (replace out-vec byte-vec :start1 offs)
-                            (>> cust out-vec))))
-            (new-seen    (cons offs chunks-seen))
-            (new-nchunks (1- nchunks)))
-        (cond ((zerop new-nchunks)
-               (>> replacer cust)
-               (β! (sink-beh)))
-              (t
-               (>> replacer nil)
-               (β! (dechunk-assembler-beh cust new-nchunks new-seen out-vec)))
-              ))))
-   ))
-
-(defun make-dechunk-assembler (cust nchunks size)
-  (create (dechunk-assembler-beh cust nchunks nil (make-ub8-vector size) )))
-
-(defun dechunk-interceptor-beh (id assembler next)
-  ;; A node that intercepts incoming chunks for a given id, once the
-  ;; init record has been received
-  (alambda
-   ((_ :chunk an-id offs byte-vec) when (and (eql an-id id)
-                                             (integerp offs)
-                                             (typep byte-vec 'ub8-vector))
-    ;; (>> fmt-println "Intercept Dechunker: CHUNK id ~A offs ~D, ~D bytes" an-id offs (length byte-vec))
-    (>> assembler offs byte-vec))
-   
-   ((_ :init an-id . _) when (eql an-id id)
-    ;; (>> fmt-println "Intercept Dechunker: Spurious INIT id ~A" an-id)
-    ;; toss duplicates
-    )
-   
-   (_
-    (repeat-send next))
-   ))
-
-(defun dechunk-pending-beh (id pend next)
-  ;; A node that enqueues data chunks for a given id, while we await
-  ;; the arrival of the init record.
-  (alambda
-   ((cust :init an-id nchunks size) when (and (eql an-id id)
-                                              (integerp nchunks)
-                                              (integerp size))
-    ;; (>> fmt-println "Pending Dechunker: INIT id ~A ~D chunks, ~D bytes" an-id nchunks size)
-    (let ((assembler (make-dechunk-assembler cust nchunks size)))
-      (β! (dechunk-interceptor-beh id assembler next))
-      (dolist (args pend)
-        (>>* assembler args))
-      ))
-   
-   ((_ :chunk an-id offs byte-vec) when (and (eql an-id id)
-                                             (integerp offs)
-                                             (typep byte-vec 'ub8-vector))
-    ;; (>> fmt-println "Pending Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
-    (β! (dechunk-pending-beh id
-                             (cons (list offs byte-vec) pend)
-                             next)))
-   
-   (_
-    (repeat-send next))
-   ))
-
-(defun null-dechunk-beh ()
-  (alambda
-   ((cust :pass bytevec) / (typep bytevec 'ub8-vector)
-    ;; (>> fmt-println "Null Dechunker: pass")
-    (>> cust bytevec))
-   
-   ((cust :init id nchunks size) / (and (integerp id)
-                                        (integerp nchunks)
-                                        (integerp size))
-    ;; (>> fmt-println "Null Dechunker: INIT id ~A ~D chunks, ~D bytes" id nchunks size)
-    (let ((next      (create self-beh))
-          (assembler (make-dechunk-assembler cust nchunks size)))
-      (β! (dechunk-interceptor-beh id assembler next))
-      ))
-   
-   ((_ :chunk id offs byte-vec) / (and (integerp id)
-                                       (integerp offs)
-                                       (typep byte-vec 'ub8-vector))
-    ;; (>> fmt-println "Null Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
-    (let ((next (create self-beh)))
-      (β! (dechunk-pending-beh id
-                               (list
-                                (list offs byte-vec))
-                               next))
-      ))
-   ))
+  (let ((out-vec  (make-ub8-vector size)))
+    (labels
+        ((dechunk-assembler-beh (nchunks chunks-seen)
+           (alambda
+            ((offs byte-vec) / (and (integerp offs)
+                                    (typep byte-vec 'ub8-vector))
+             ;; (>> fmt-println "Dechunk Assembler: offs ~D, size ~D" offs (length byte-vec))
+             (unless (find offs chunks-seen) ;; toss duplicates
+               (let ((new-seen    (cons offs chunks-seen))
+                     (new-nchunks (1- nchunks)))
+                 (cond ((zerop new-nchunks)
+                        (become-sink)
+                        (on-commit
+                          (replace out-vec byte-vec :start1 offs)
+                          (>> cust out-vec)))
+                       (t
+                        (β! (dechunk-assembler-beh new-nchunks new-seen))
+                        (on-commit
+                          (replace out-vec byte-vec :start1 offs)))
+                       ))))
+            )) )
+      (create (dechunk-assembler-beh nchunks nil))
+      )))
 
 (defun dechunker ()
   ;; No assumptions about chunk or init delivery order.
   ;; Takes a sequence of chunk encodings and produces a bytevec
-  (create (null-dechunk-beh)))
+  (labels
+      ;; ----------------------------
+      ((dechunk-interceptor-beh (id assembler next)
+         ;; A node that intercepts incoming chunks for a given id, once the
+         ;; init record has been received
+         (alambda
+          ((_ :chunk an-id offs byte-vec) when (and (eql an-id id)
+                                                    (integerp offs)
+                                                    (typep byte-vec 'ub8-vector))
+           ;; (>> fmt-println "Intercept Dechunker: CHUNK id ~A offs ~D, ~D bytes" an-id offs (length byte-vec))
+           (>> assembler offs byte-vec))
+          
+          ((_ :init an-id . _) when (eql an-id id)
+           ;; (>> fmt-println "Intercept Dechunker: Spurious INIT id ~A" an-id)
+           ;; toss duplicates
+           )
+          
+          (_
+           (repeat-send next))
+          ))
+       
+       ;; ----------------------------
+       (dechunk-pending-beh (id pend next)
+         ;; A node that enqueues data chunks for a given id, while we await
+         ;; the arrival of the init record.
+         (alambda
+          ((cust :init an-id nchunks size) when (and (eql an-id id)
+                                                     (integerp nchunks)
+                                                     (integerp size))
+           ;; (>> fmt-println "Pending Dechunker: INIT id ~A ~D chunks, ~D bytes" an-id nchunks size)
+           (let ((assembler (dechunk-assembler cust nchunks size)))
+             (β! (dechunk-interceptor-beh id assembler next))
+             (dolist (args pend)
+               (>>* assembler args))
+             ))
+          
+          ((_ :chunk an-id offs byte-vec) when (and (eql an-id id)
+                                                    (integerp offs)
+                                                    (typep byte-vec 'ub8-vector))
+           ;; (>> fmt-println "Pending Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
+           (β! (dechunk-pending-beh id
+                                    (cons (list offs byte-vec) pend)
+                                    next)))
+          
+          (_
+           (repeat-send next))
+          ))
+
+       ;; ----------------------------
+       (null-dechunk-beh ()
+         (alambda
+          ((cust :pass bytevec) / (typep bytevec 'ub8-vector)
+           ;; (>> fmt-println "Null Dechunker: pass")
+           (>> cust bytevec))
+          
+          ((cust :init id nchunks size) / (and (integerp id)
+                                               (integerp nchunks)
+                                               (integerp size))
+           ;; (>> fmt-println "Null Dechunker: INIT id ~A ~D chunks, ~D bytes" id nchunks size)
+           (let ((next      (create (null-dechunk-beh)))
+                 (assembler (dechunk-assembler cust nchunks size)))
+             (β! (dechunk-interceptor-beh id assembler next))
+             ))
+          
+          ((_ :chunk id offs byte-vec) / (and (integerp id)
+                                              (integerp offs)
+                                              (typep byte-vec 'ub8-vector))
+           ;; (>> fmt-println "Null Dechunker: CHUNK id ~A, offs ~D, len ~D" id offs (length byte-vec))
+           (let ((next (create (null-dechunk-beh))))
+             (β! (dechunk-pending-beh id
+                                      (list
+                                       (list offs byte-vec))
+                                      next))
+             ))
+          )) )
+    
+    (create (null-dechunk-beh))
+    ))
 
 ;; -----------------------------------------------------------
 

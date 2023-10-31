@@ -266,31 +266,31 @@
 ;; ---------------------------------------------------
 ;; Fork/Join against zero or more services
 
-(defun join2-beh (cust tag1)
-  (alambda
-   ((tag . ans) when (eql tag tag1)
-    (become (lambda (tag &rest ans2)
-              (declare (ignore tag))
-              (send* cust (append ans ans2)))))
-   ((_ . ans)
-    (become (lambda (tag &rest ans1)
-              (declare (ignore tag))
-              (send* cust (append ans1 ans)))))
-   ))
-
 (defun fork2 (service1 service2)
   ;; Produce a single service which fires both in parallel and sends
   ;; their results in the same order to eventual customer.
-  (create
-   (lambda (cust)
-     (um:letrec ((tag1   (tag joiner))
-                 (tag2   (tag joiner))
-                 (joiner (create
-                          (join2-beh cust tag1))))
-       (send service1 tag1)
-       (send service2 tag2)
-       ))))
-
+  (flet ((join2-beh (cust tag1)
+           (alambda
+            ((tag . ans) when (eql tag tag1)
+             (become (lambda (tag &rest ans2)
+                       (declare (ignore tag))
+                       (send* cust (append ans ans2)))))
+            ((_ . ans)
+             (become (lambda (tag &rest ans1)
+                       (declare (ignore tag))
+                       (send* cust (append ans1 ans)))))
+            )) )
+    (create
+     (lambda (cust)
+       (um:letrec ((tag1   (tag joiner))
+                   (tag2   (tag joiner))
+                   (joiner (create
+                            (join2-beh cust tag1))))
+         (send service1 tag1)
+         (send service2 tag2)
+         )))
+    ))
+  
 (defun fork (&rest services)
   ;; Produces a single service from a collection of them. Will exec
   ;; each in parallel, returning all of their results to eventual

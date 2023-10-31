@@ -152,15 +152,14 @@
 
 ;; ---------------------------------
 
-(defun once-beh (cust)
-  (lambda (&rest msg)
-    (send* cust msg)
-    (become-sink)))
-
 (defun once (cust)
   "ONCE -- Construct an Actor to behave as a FWD relay to the
 customer, just one time."
-  (create (once-beh cust)))
+  (create
+   (lambda (&rest msg)
+     (send* cust msg)
+     (become-sink))
+   ))
 
 #| ;; Don't use - the clock starts running as soon as this is invoked.
 (defun timed-gate (cust timeout)
@@ -196,46 +195,42 @@ customer, just one time."
 
 ;; ---------------------
 
-(defun race-beh (&rest actors)
-  (lambda (cust &rest msg)
-    (let ((gate (once cust)))
-      (apply #'send-to-all actors gate msg))))
-
 (defun race (&rest actors)
-  (create (apply #'race-beh actors)))
-
+  (create
+   (lambda (cust &rest msg)
+     (let ((gate (once cust)))
+       (apply #'send-to-all actors gate msg)))
+   ))
+  
 ;; ---------------------
 ;; Finds good use when sending messages to a serialized sink
-
-(defun label-beh (cust lbl)
-  (lambda (&rest msg)
-    (send* cust lbl msg)))
 
 (defun label (cust lbl)
   "LABEL -- Construct an Actor to relay a message to the customer,
 prefixed by the label."
-  (create (label-beh cust lbl)))
+  (create
+   (lambda (&rest msg)
+     (send* cust lbl msg))
+   ))
 
 ;; ---------------------
-
-(defun tag-beh (cust)
-  (lambda (&rest msg)
-    (send* cust self msg)))
 
 (defun tag (cust)
   "TAG -- Construct an Actor to relay a message to the customer,
 prefixed by our unique SELF identity/"
-  (create (tag-beh cust)))
+  (create
+   (lambda (&rest msg)
+     (send* cust self msg))
+   ))
 
 ;; ---------------------
 
-(defun once-tag-beh (cust)
-  (lambda (&rest msg)
-    (send* cust self msg)
-    (become-sink)))
-
 (defun once-tag (cust)
-  (create (once-tag-beh cust)))
+  (create
+   (lambda (&rest msg)
+     (send* cust self msg)
+     (become-sink))
+   ))
 
 ;; ---------------------
 
@@ -262,24 +257,23 @@ prefixed by our unique SELF identity/"
 ;;
 ;;     (send* (fut targ-generator generator-args) my-args)
 
-(defun fut-wait-beh (tag &rest msgs)
-  (alambda
-   ((atag act) / (eq atag tag)
-    (become (fwd-beh act))
-    (send-all-to act msgs))
-   (msg
-    (become (apply #'fut-wait-beh tag msg msgs)))
-   ))
-
 (defun fut (svc &rest args)
   ;; svc is expected to provide an actor target for a future send
   ;; lazy-eval - doesn't do anything until a message is sent to us
-  (create
-   (lambda (&rest msg)
-     (let ((tag  (tag self)))
-       (become (fut-wait-beh tag msg))
-       (send* svc tag args)))
-   ))
+  (labels ((fut-wait-beh (tag &rest msgs)
+             (alambda
+              ((atag act) / (eq atag tag)
+               (become (fwd-beh act))
+               (send-all-to act msgs))
+              (msg
+               (become (apply #'fut-wait-beh tag msg msgs)))
+              )))             
+    (create
+     (lambda (&rest msg)
+       (let ((tag  (tag self)))
+         (become (fut-wait-beh tag msg))
+         (send* svc tag args)))
+     )))
 
 ;; -----------------------------------------------
 ;; Now two years out, and I still haven't found a use for FUTURE
@@ -319,6 +313,19 @@ prefixed by our unique SELF identity/"
    ... body using ans)
  |#
 
+;; -----------------------------------------
+
+(defun lazy (actor &rest msg)
+  ;; Like FUTURE, but delays evaluation of the Actor with message
+  ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
+  (flet ((lazy-beh (cust)
+           (let ((tag (once-tag self)))
+             (become (future-wait-beh tag cust))
+             (send* actor tag msg)
+             )))
+    (create #'lazy-beh)
+    ))
+
 ;; --------------------------------------------------
 
 (defun future-become-beh (tag &rest msgs)
@@ -347,20 +354,6 @@ prefixed by our unique SELF identity/"
    (msg
     (become (apply #'future-become-beh tag msg msgs)))
    ))
-
-;; -----------------------------------------
-
-(defun lazy-beh (actor &rest msg)
-  (lambda (cust)
-    (let ((tag (once-tag self)))
-      (become (future-wait-beh tag cust))
-      (send* actor tag msg)
-      )))
-
-(defun lazy (actor &rest msg)
-  ;; Like FUTURE, but delays evaluation of the Actor with message
-  ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
-  (create (apply 'lazy-beh actor msg)))
 
 ;; --------------------------------------
 ;; SER - make an Actor that evaluates a series of blocks sequentially
@@ -427,16 +420,14 @@ prefixed by our unique SELF identity/"
 
 ;; --------------------------------------
 
-(defun timing-beh (dut)
-  (lambda (cust &rest msg)
-    (let ((start (get-time-usec)))
-      (beta _
-          (send* dut beta msg)
-        (send cust (- (get-time-usec) start)))
-      )))
-
 (defun timing (dut)
-  (create (timing-beh dut)))
+  (create
+   (lambda (cust &rest msg)
+     (let ((start (get-time-usec)))
+       (β _
+           (send* dut β msg)
+         (send cust (- (get-time-usec) start)))
+       ))))
 
 #|
 (let* ((dut (actor (cust nsec)
@@ -451,64 +442,61 @@ prefixed by our unique SELF identity/"
 ;;   Provider sends :DELIVER with sequence counter and message
 ;;   Consumer sends :READY with customer and sequence counter of desired messaage
 
-(defun sequenced-beh (&optional items)
-  (alambda
-   ((cust :ready ctr)
-    (let ((msg (assoc ctr items)))
-      (cond (msg
-             (send cust (cdr msg))
-             (become (sequenced-beh (remove msg items))))
-            (t
-             (become (pending-sequenced-beh cust ctr items)))
-            )))
-   
-   ((:deliver ctr . msg)
-    (become (sequenced-beh (acons ctr msg items))))
-   ))
-
-(defun pending-sequenced-beh (cust ctr items)
-  (alambda
-   ((:deliver in-ctr . msg)
-    (cond ((eql in-ctr ctr)
-           (send cust msg)
-           (become (sequenced-beh items)))
-          (t
-           (become (pending-sequenced-beh cust ctr (acons in-ctr msg items))))
-          ))))
-  
 (defun sequenced-delivery ()
-  (create (sequenced-beh)))
+  (labels ((sequenced-beh (&optional items)
+             (alambda
+              ((cust :ready ctr)
+               (let ((msg (assoc ctr items)))
+                 (cond (msg
+                        (send cust (cdr msg))
+                        (become (sequenced-beh (remove msg items))))
+                       (t
+                        (become (pending-sequenced-beh cust ctr items)))
+                       )))
+              
+              ((:deliver ctr . msg)
+               (become (sequenced-beh (acons ctr msg items))))
+              ))
+
+           (pending-sequenced-beh (cust ctr items)
+             (alambda
+              ((:deliver in-ctr . msg)
+               (cond ((eql in-ctr ctr)
+                      (send cust msg)
+                      (become (sequenced-beh items)))
+                     (t
+                      (become (pending-sequenced-beh cust ctr (acons in-ctr msg items))))
+                     )))))
+    (create (sequenced-beh))
+    ))
 
 ;; -------------------------------------
 ;; Systolic Processing Pipelines
 
-(defun acurry-beh (actor &rest largs)
-  ;; like Curried functions, but for Actors
-  (lambda (&rest rargs)
-    (multiple-value-call #'send actor (values-list largs) (values-list rargs))))
-
 (defun acurry (actor &rest largs)
-  (create (apply #'acurry-beh actor largs)))
-
-(defun racurry-beh (actor &rest rargs)
-  (lambda (&rest largs)
-    (multiple-value-call #'send actor (values-list largs) (values-list rargs))))
-
+  ;; like Curried functions, but for Actors
+  (create
+   (lambda (&rest rargs)
+     (multiple-value-call #'send actor (values-list largs) (values-list rargs)))
+   ))
+  
 (defun racurry (actor &rest rargs)
-  (create (apply #'racurry-beh actor rargs)))
-
-(defun pipe-beh (&rest elts)
+  (create
+   (lambda (&rest largs)
+     (multiple-value-call #'send actor (values-list largs) (values-list rargs)))
+   ))
+  
+(defun pipe (&rest elts)
   ;; Hmmm... constructs a new pipe every time invoked. But is this any
   ;; worse than a sequence of nested Beta forms? Same effect, just
   ;; performed in advance here.
-  (lambda (cust &rest msg)
-    (send* (reduce #'acurry elts
-                   :from-end t
-                   :initial-value cust)
-           msg)))
-
-(defun pipe (&rest elts)
-  (create (apply #'pipe-beh elts)))
+  (create
+   (lambda (cust &rest msg)
+     (send* (reduce #'acurry elts
+                    :from-end t
+                    :initial-value cust)
+            msg))
+   ))
 
 (defun sink-pipe (&rest elts)
   ;; for pipelines whose last block are sinks
@@ -525,14 +513,13 @@ prefixed by our unique SELF identity/"
                 (send* cust msg))
             #'send)))
 
-(defun splay-beh (&rest custs)
-  ;; Define a sink block that passes on the message to all custs
-  (lambda* msg
-    (apply #'send-to-all custs msg)))
-  
 (defun splay (&rest custs)
-  (create (apply #'splay-beh custs)))
-
+  ;; Define a sink block that passes on the message to all custs
+  (create
+   (lambda* msg
+     (apply #'send-to-all custs msg))
+   ))
+  
 ;; -------------------------------------------------------
 ;; Unwind-Protect for Actors...
 ;;
@@ -602,26 +589,9 @@ This is the Actors equivalent of UNWIND-PROTECT."
 ;; -------------------------------------------------------
 ;; OPEN-FILE for Actors - using UNW-PROT to ensure file closing.
 
-(defun open-file-beh (filename &rest open-args
-                               &key (timeout *timeout* timeout-provided-p)
-                               &allow-other-keys)
-  (warn-timeout timeout timeout-provided-p "OPEN-FILE")
-  (alambda
-   ((cust target . args)
-    ;; Target should expect a customer and a file-descr
-    (let* ((fd   (apply #'open filename (um:remove-prop :timeout open-args)))
-           (prot (unw-prot (cust)
-                     (send* target cust fd args)
-
-                   (close fd)
-                   (send fmt-println "File closed: ~A" filename)
-                   :timeout timeout) ))
-      (send fmt-println "File opened: ~A" filename)
-      (send prot cust)
-      ))
-   ))
-
-(defun open-file (filename &rest open-args)
+(defun open-file (filename &rest open-args
+                           &key (timeout *timeout* timeout-provided-p)
+                           &allow-other-keys)
   "OPEN-FILE -- Constructs an Actor that will open the file in the
 indicated mode, and ensure that the file gets closed, and issue a
 response to the customer, no later than TIMEOUT seconds after opening
@@ -636,8 +606,23 @@ period expires, that answer will be sent to the customer, and the file
 will be closed at that time.
 
 This the Actors equivalent of WITH-OPEN-FILE."
-  (create (apply #'open-file-beh filename open-args)))
-          
+  (warn-timeout timeout timeout-provided-p "OPEN-FILE")
+  (create
+   (alambda
+    ((cust target . args)
+     ;; Target should expect a customer and a file-descr
+     (let* ((fd   (apply #'open filename (um:remove-prop :timeout open-args)))
+            (prot (unw-prot (cust)
+                      (send* target cust fd args)
+                    
+                    (close fd)
+                    (send fmt-println "File closed: ~A" filename)
+                    :timeout timeout) ))
+       (send fmt-println "File opened: ~A" filename)
+       (send prot cust)
+       )))
+   ))
+
 #|
 (let ((line-counter (create
                      (lambda (cust fd)

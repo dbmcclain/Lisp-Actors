@@ -62,11 +62,9 @@ THE SOFTWARE.
    #:γlambda
    #:γactor
    #:γ
-   #:pipe-beh
    #:pipe
    #:sink-pipe
    #:tee
-   #:tee-beh
    #:service
    #:null-service
    #:echo-service
@@ -164,7 +162,6 @@ THE SOFTWARE.
    #:ser
    #:par
 
-   #:serializer-beh
    #:serializer
    #:serializer-sink
    #:blocking-serializer
@@ -179,15 +176,7 @@ THE SOFTWARE.
    
    #:sink-beh
    #:const-beh
-   #:once-beh
-   #:race-beh
    #:fwd-beh
-   #:label-beh
-   #:tag-beh
-   #:time-tag-beh
-   #:scheduled-message-beh
-   #:timing-beh
-   #:mbox-sender-beh
    
    #:subscribe
    #:notify
@@ -228,8 +217,6 @@ THE SOFTWARE.
    #:encr-disk-encoder
    #:encr-disk-decoder
 
-   #:acurry-beh
-   #:racurry-beh
    #:acurry
    #:racurry
 
@@ -258,7 +245,6 @@ THE SOFTWARE.
    #:authentication
    #:check-authentication
 
-   #:splay-beh
    #:splay
    #:yield
 
@@ -283,13 +269,10 @@ THE SOFTWARE.
    #:define-behavior
    #:sequential-β
 
-   #:unw-prot-beh
    #:unw-prot
-   #:open-file-beh
    #:open-file
    #:with-actors
 
-   #:fut-wait-beh
    #:fut
    #:future-become-beh
    
