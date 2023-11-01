@@ -56,25 +56,29 @@
   ;; Guards can be nested for cases with multiple resources.  The
   ;; action of the first guard can be another guard.
   ;;
-  (actor ((cust fail) &rest args)
-    (multiple-value-bind (lbl-ok lbl-fail)
-        (guard-selector cust fail must-do must-args)
-      (send-after timeout lbl-fail +timed-out+)
-      (send* action `(,lbl-ok ,lbl-fail) args))
-    ))
+  (actor 
+      (lambda* ((cust fail) &rest args)
+        (multiple-value-bind (lbl-ok lbl-fail)
+            (guard-selector cust fail must-do must-args)
+          (send-after timeout lbl-fail +timed-out+)
+          (send* action `(,lbl-ok ,lbl-fail) args))
+        )))
 
 ;; Some must-do's
 (deflex close-file
-  (actor (fp)
-    (close fp)))
-
+  (actor 
+      (lambda (fp)
+        (close fp))))
+  
 (deflex secure-erase
-  (actor (buf)
-    (fill buf 0)))
+  (actor 
+      (lambda (buf)
+        (fill buf 0))))
 
 (defun perform (fn)
-  (actor (&rest args)
-    (apply fn args)))
+  (actor 
+      (lambda (&rest args)
+        (apply fn args))))
 
 #|
 ;; Example - carefully controlling the use of a secret key: Copy key
@@ -82,8 +86,10 @@
 ;; after use.
 ;;
 (defun with-open-vault (vault)
-  (actor ((cust on-fail) &rest args)
-    (let ((key (copy-seq (get-env "MySecretKey"))))
-      (send* (guard unlock-vault 10 secure-erase key)
-             `(,cust ,on-fail) vault key args))
-|#
+  (actor 
+      (lambda* ((cust on-fail) &rest args)
+        (let ((key (copy-seq (get-env "MySecretKey"))))
+          (send* (guard unlock-vault 10 secure-erase key)
+                 `(,cust ,on-fail) vault key args)))
+    ))
+  |#

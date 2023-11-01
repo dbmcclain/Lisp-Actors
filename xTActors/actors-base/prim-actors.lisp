@@ -378,23 +378,25 @@ prefixed by our unique SELF identity/"
 (defun simd (svc)
   ;; process an entire list of args in parallel
   ;; cust should expect a (&rest ans)
-  (actor (cust args)
-    (cond ((null args)
-           (send cust))
-          ((atom args)
-           (send svc cust args))
-          ((null (cdr args))
-           (send svc cust (car args)))
-          (t
-           (send (fork svc self) cust (car args) (cdr args)))
-          )))
+  (actor 
+      (lambda (cust args)
+        (cond ((null args)
+               (send cust))
+              ((atom args)
+               (send svc cust args))
+              ((null (cdr args))
+               (send svc cust (car args)))
+              (t
+               (send (fork svc self) cust (car args) (cdr args)))
+              ))))
 
 (defun mimd (&rest svcs)
-  (actor (cust &rest args)
-    (map 'nil (lambda (svc arg)
-                (let ((lbl (label cust svc)))
-                  (send (simd svc) lbl arg)))
-         svcs args)))
+  (actor 
+      (lambda (cust &rest args)
+        (map 'nil (lambda (svc arg)
+                    (let ((lbl (label cust svc)))
+                      (send (simd svc) lbl arg)))
+             svcs args))))
 
 ;; -----------------------------------------
 ;; Delayed Send
@@ -430,10 +432,11 @@ prefixed by our unique SELF identity/"
        ))))
 
 #|
-(let* ((dut (actor (cust nsec)
-             (sleep nsec)
-             (send cust)))
-      (timer (timing dut)))
+(let* ((dut (actor 
+                (lambda (cust nsec)
+                  (sleep nsec)
+                  (send cust)))
+            (timer (timing dut))))
   (send timer println 1))
 |#
 

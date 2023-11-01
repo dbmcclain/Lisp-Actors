@@ -33,8 +33,9 @@
 
 (defun in-sponsor (spon actor)
   (if spon
-      (actor (&rest msg)
-        (send* spon actor msg))
+      (actor 
+          (lambda (&rest msg)
+            (send* spon actor msg)))
     actor))
 
 (defun in-this-sponsor (actor)

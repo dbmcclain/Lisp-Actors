@@ -10,22 +10,12 @@
     `(lambda (&rest ,msg)
        (match ,msg ,@clauses))))
 
-;; --------------------------------------
-;; ACTOR in function position acts like a higher level LAMBDA expression
-
-(defmacro actor (args &body body)
-  `(create
-    (lambda* ,args
-      ,@body)))
-
-#+:LISPWORKS
-(editor:setup-indent "actor" 1)
-
 ;; ----------------------------------------------------
 
 (µ α (args &body body)
   ;; α is to actor, what λ is to lambda
-  `(actor ,args ,@body))
+  `(actor
+    (lambda* ,args ,@body)))
 
 (µ αα (&rest clauses)
   `(create
@@ -208,13 +198,7 @@
 
 (defmacro concurrently (&body body)
   ;; spawn a new concurrent Actor to perform the body
-  `(send (actor () ,@body)))
-
-;; ------------------------------------------------------
-
-(defmacro send* (actor &rest msg)
-  ;; for when it is known that final arg in msg is a list
-  `(apply #'send ,actor ,@msg))
+  `(send (actor (lambda () ,@body))))
 
 ;; ------------------------------------------------------
 
@@ -244,8 +228,9 @@
 
 (defmacro actor-nlet (name bindings &body body)
   `(let (,name)
-     (setf ,name (actor ,(um:firsts bindings)
-                   ,@body))
+     (setf ,name (actor 
+                     (lambda ,(um:firsts bindings)
+                       ,@body)))
      (send ,name ,@(um:seconds bindings))))
 
 #+:LISPWORKS

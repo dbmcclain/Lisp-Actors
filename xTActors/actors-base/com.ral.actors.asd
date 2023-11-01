@@ -51,4 +51,5 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :depends-on   ("com.ral.useful-macros"
                  ;; "com.ral.cps"
                  #+:allegro "com.ral.prio-queue"
+                 "closer-mop"
                  ))

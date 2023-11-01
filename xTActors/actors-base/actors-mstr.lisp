@@ -44,10 +44,14 @@ THE SOFTWARE.
 (deflex sink
   (create (sink-beh)))
 
-(defun is-pure-sink? (actor)
+(defgeneric is-pure-sink? (ac)
   ;; used by networking code to avoid sending useless data
-  (or (not (actor-p actor))
-      (eql (actor-beh actor) #'do-nothing)))
+  (:method ((ac actor))
+   (eql (actor-beh ac) #'do-nothing))
+  (:method ((ac function))
+   (eql ac #'do-nothing))
+  (:method (ac)
+   t) )
 
 (defun become-sink ()
   (become (sink-beh)))
@@ -100,13 +104,21 @@ THE SOFTWARE.
               (restart-actors-system *nbr-pool*))
             ))))
 
-(defun send (actor &rest msg)
-  #F
-  (when (actor-p actor)
-    (apply (get-send-hook) actor msg)))
+(defmethod send ((target actor) &rest msg)
+  (apply (get-send-hook) target msg))
 
-(defun repeat-send (actor)
-  (send* actor self-msg))
+(defmethod send ((target function) &rest msg) ;; is this useful?
+  ;; execution staged for commit
+  (apply #'send (fn-actor target) msg))
+
+(defmethod send (target &rest msg)) ;; NOP
+   
+(defun send* (&rest args)
+  ;; when last arg is a list that you want destructed
+  (apply #'send (apply #'list* args)))
+
+(defun repeat-send (target)
+  (send* target self-msg))
 
 (defun send-combined-msg (cust msg1 msg2)
   (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
@@ -458,28 +470,33 @@ THE SOFTWARE.
              (format stream "Terminated ASK"))
    ))
 
-(defun ask (actor &rest msg)
-  ;; Unlike SEND, ASKs are not staged, and perform immediately,
-  ;; potentially violating transactional boundaries. From non-Actor
-  ;; code, this is normally okay, and expected behavior. ASK behaves
-  ;; like a function call.
-  ;;
-  ;; But if called from within an Actor, the immediacy violates
-  ;; transactional boundaries, since SEND is normally staged for
-  ;; execution at successful exit, or discarded if errors.
-  (check-type actor actor)
-  (when self
-    (warn 'recursive-ask))
-  ;; In normal situation, we get back the result message as a list and
-  ;; flag t.  In exceptional situation, from restart "Terminate ASK",
-  ;; we get back nil.  If *TIMEOUT* is not-nil, and timeout occurs, we
-  ;; get back list (<timeout-condiiton-object>) as ans.
-  (multiple-value-bind (ans okay)
-      (apply #'run-actors actor msg)
-    (unless okay
-      (error 'terminated-ask))
-    (check-for-errors ans)
-    (values-list ans)))
+(defgeneric ask (target &rest msg)
+  (:method ((target actor) &rest msg)
+   ;; Unlike SEND, ASKs are not staged, and perform immediately,
+   ;; potentially violating transactional boundaries. From non-Actor
+   ;; code, this is normally okay, and expected behavior. ASK behaves
+   ;; like a function call.
+   ;;
+   ;; But if called from within an Actor, the immediacy violates
+   ;; transactional boundaries, since SEND is normally staged for
+   ;; execution at successful exit, or discarded if errors.
+   (when self
+     (warn 'recursive-ask))
+   ;; In normal situation, we get back the result message as a list and
+   ;; flag t.  In exceptional situation, from restart "Terminate ASK",
+   ;; we get back nil.  If *TIMEOUT* is not-nil, and timeout occurs, we
+   ;; get back list (<timeout-condiiton-object>) as ans.
+   (multiple-value-bind (ans okay)
+       (apply #'run-actors target msg)
+     (unless okay
+       (error 'terminated-ask))
+     (check-for-errors ans)
+     (values-list ans)))
+  (:method ((target function) &rest msg)
+   (apply target msg))
+  (:method (target &rest msg)
+   (check-type target actor)))
+   
 ;;
 ;; ASK can generate errors:
 ;;

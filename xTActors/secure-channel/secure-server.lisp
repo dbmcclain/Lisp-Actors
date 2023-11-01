@@ -9,14 +9,16 @@
 
 #| ;; for debugging
 (defun show-server-outbound (socket)
-  (actor (&rest msg)
-    (>> println (format nil "s/out: ~S" msg))
-    (>>* socket msg)))
+  (actor 
+      (lambda (&rest msg)
+        (>> println (format nil "s/out: ~S" msg))
+        (>>* socket msg))))
 
 (defun show-server-inbound ()
-  (actor (cust &rest msg)
-    (>> println (format nil "s/in: ~S" msg))
-    (>>* cust msg)))
+  (actor 
+      (lambda (cust &rest msg)
+        (>> println (format nil "s/in: ~S" msg))
+        (>>* cust msg))))
 |#
 
 #-:lattice-crypto

@@ -32,9 +32,10 @@
 
 (defun logger ()
   ;; provides a log output as the message is passed along
-  (actor (cust &rest msg)
-    (send* logger cust msg)
-    (send* cust msg)))
+  (actor 
+      (lambda (cust &rest msg)
+        (send* logger cust msg)
+        (send* cust msg))))
 
 (defun logged-beh (actor)
   (lambda (&rest msg)

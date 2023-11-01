@@ -9,7 +9,7 @@
 ;; remaining items. They update their internal state so that the next
 ;; customer will get the next generated value.
 ;;
-;; AMB is a generator pump. It sends each items from the generator,
+;; AMB is a generator pump. It sends each item from the generator,
 ;; along with a Next pump Actor, to the Cust. When the Generator runs
 ;; dry it sends to Fail.  The Cust Actor is expected to receive the
 ;; Next pump and an item. That Cust can send to Next to try again, or
@@ -91,5 +91,24 @@
   (send println arg)
   (send next))
 |#
-
+;; --------------------------------------------------------
+;; McCarthy's AMB is closely related to CALL/CC for reusing
+;; continuations. Let's see what happens for Actors....
+;;
+;; Any particular Cust argument in a SEND message serves as a
+;; continuation for the Actor network. By saving that Cust arg and
+;; later re-using it in another message, we can end up re-running the
+;; Actor network from that point forward with fresh args.
+;;
+;; So it appears we are already there. The Cust arg in a message is
+;; operationally the same as a captured continuation. The convention
+;; of sending along a Cust argument in messages is isomorphic to
+;; continuation passing style.
+;;
+;; To the extent that this is useful behavior, it vindicates an
+;; earlier design decision when β was constructed. Initial designs had
+;; that sending to target β would be a ONCE operation. That was later
+;; abandoned to place responsibility for one-timeness on the programmer
+;; if needed. My original reason was that ONCE behavior seemed
+;; unnecessarily burdensome at runtime for most uses of β.
 

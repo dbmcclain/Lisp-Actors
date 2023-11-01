@@ -48,32 +48,56 @@
 ;; reply to the customer, can take advantage of some parallel
 ;; invocation macros, such as FORK/JOIN and others.
 
-(defstruct (actor
-               (:constructor %create (beh)))
-  (beh #'do-nothing :type function))
+(defclass actor ()
+  ;; CAS needs to access a CONS cell, not an instance slot
+  ((beh-cons
+    :accessor actor-beh-cons))
+  (:metaclass
+   #+:LISPWORKS clos:funcallable-standard-class
+   #+:SBCL      sb-mop:funcallable-standard-class
+   ))
+
+(defmethod initialize-instance :after ((ac actor) &key (beh #'do-nothing) &allow-other-keys)
+  (setf (actor-beh-cons ac) (list beh))
+  (#+:LISPWORKS clos:set-funcallable-instance-function
+   #+:SBCL      sb-mop:set-funcallable-instance-function             
+   ac
+   (lambda* args
+     (send* ac args))))
+
+(defun actor (&optional (beh #'do-nothing))
+  (make-instance 'actor
+                 :beh (screened-beh beh)))
+
+(defun create (&optional (beh #'do-nothing))
+  (actor beh))
+
+(defgeneric actor-p (arg)
+  (:method ((arg actor)) ;; as distinct from Function
+   t)
+  (:method (arg)
+   nil))
+
+(defmethod actor-beh ((ac actor))
+  (car (the cons (actor-beh-cons ac))))
 
 ;; ----------------------------------------------------------
 
 (defgeneric screened-beh (arg)
-  (:method ((fn function))
-   fn)
-  (:method ((ac actor))
-   ;; (actor-beh ac) ;; don't steal their beh, become a forwarding Actor
-   (fwd-beh ac))
-  (:method (x)
-   (error "Invalid behavior: ~S" x)))
-
-;; ----------------------------------------------------------
-
-(defun create (&optional (fn #'do-nothing))
-  (%create (screened-beh fn)))
+  (:method ((arg function))
+   ;; Catches both Actors and Functions. Actors as behavior are
+   ;; self-forwarding.
+   arg)
+  (:method (arg)
+   (error "Invalid behavior: ~S" arg)))
 
 ;; -------------------------------------------
 
 (declaim (inline %actor-cas))
 
 (defun %actor-cas (actor old-beh new-beh)
-    (mpc:compare-and-swap (actor-beh (the actor actor)) old-beh new-beh))
+    (mpc:compare-and-swap (car (the cons (actor-beh-cons (the actor actor))))
+                          old-beh new-beh))
 
 ;; -----------------------------------------------------
 

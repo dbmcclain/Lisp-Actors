@@ -23,3 +23,4 @@
 
 (defconstant +ASK-TIMEOUT+  1)  ;; period of goal checking
 
+(defgeneric send (target &rest msg))

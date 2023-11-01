@@ -124,13 +124,15 @@
 
 (defun list-imploder ()
   ;; take a sequence of args and send to cust as one list
-  (actor (cust &rest msg)
-    (>> cust msg)))
+  (actor 
+      (lambda (cust &rest msg)
+        (>> cust msg))))
 
 (defun list-exploder ()
   ;; take one list and send to cust as a sequence of args
-  (actor (cust msg-list)
-    (>>* cust msg-list)))
+  (actor 
+      (lambda (cust msg-list)
+        (>>* cust msg-list))))
 
 (defun printer ()
   ;; prints the message and forwards to cust
@@ -141,22 +143,25 @@
   (tee writeln))
 
 (defun marker (&rest txt)
-  (actor (cust &rest msg)
-    (>>* println txt)
-    (>>* cust msg)))
+  (actor 
+      (lambda (cust &rest msg)
+        (>>* println txt)
+        (>>* cust msg))))
 
 (defun marshal-encoder ()
-  (actor (cust &rest args)
-    ;; (>> fmt-println "Marshal Encoder")
-    (>> cust (loenc:encode (coerce args 'vector)
-                             :max-portability t))
-    ))
+  (actor 
+      (lambda (cust &rest args)
+        ;; (>> fmt-println "Marshal Encoder")
+        (>> cust (loenc:encode (coerce args 'vector)
+                               :max-portability t))
+        )))
 
 (defun marshal-decoder ()
-  (actor (cust vec)
-    ;; (>> fmt-println "Marshal Decoder")
-    (>>* cust (coerce (loenc:decode vec) 'list))))
-
+  (actor 
+      (lambda (cust vec)
+        ;; (>> fmt-println "Marshal Decoder")
+        (>>* cust (coerce (loenc:decode vec) 'list)))))
+  
 (defun fail-silent-marshal-decoder ()
   (αα
    ((cust vec) / (typep vec 'ub8-vector)
@@ -178,9 +183,10 @@
 
 #|
 (defun marshal-cmpr-encoder ()
-  (actor (cust &rest msg)
-    ;; takes arbitrary objects and producdes an encoded bytevec
-    (>> (marshal-compressor) cust (loenc:encode msg))))
+  (actor 
+      (lambda (cust &rest msg)
+        ;; takes arbitrary objects and producdes an encoded bytevec
+        (>> (marshal-compressor) cust (loenc:encode msg)))))
 
 (defun uncompressed? (vec)
   (and (>= (length vec) 4)
@@ -188,44 +194,47 @@
 
 (defun marshal-decmpr-decoder ()
   ;; takes an encoded bytevec and produces arbitrary objects
-  (actor (cust msg)
-    (beta (enc)
-        (>> (marshal-decompressor) beta msg)
-      (>>* cust (loenc:decode enc)))))
+  (actor 
+      (lambda (cust msg)
+        (beta (enc)
+            (>> (marshal-decompressor) beta msg)
+          (>>* cust (loenc:decode enc))))))
 
 (defun marshal-compressor ()
   ;; takes bytevec and produces bytevec
-  (actor (cust bytevec)
-    (>> cust (if (uncompressed? bytevec)
-                   (handler-case
-                       ;; sometimes zlib fails...
-                       (let ((cmpr (subseq (zlib:compress bytevec :fixed) 0) ))
-                         ;; we'd like to know if compression ever mimics uncompressed...
-                         (assert (not (uncompressed? cmpr)))
-                         cmpr)
-                     (error (c)
-                       (declare (ignore c))
-                       (warn "~%ZLIB: compression failure")
-                       bytevec))
-                 ;; else - already compressed
-                 bytevec))))
+  (actor 
+      (lambda (cust bytevec)
+        (>> cust (if (uncompressed? bytevec)
+                     (handler-case
+                         ;; sometimes zlib fails...
+                         (let ((cmpr (subseq (zlib:compress bytevec :fixed) 0) ))
+                           ;; we'd like to know if compression ever mimics uncompressed...
+                           (assert (not (uncompressed? cmpr)))
+                           cmpr)
+                       (error (c)
+                         (declare (ignore c))
+                         (warn "~%ZLIB: compression failure")
+                         bytevec))
+                   ;; else - already compressed
+                   bytevec)))))
 
 (defun marshal-decompressor ()
   ;; takes a bytevec and produces a bytevec
-  (actor (cust cmprvec)
-    (let ((vec (if (uncompressed? cmprvec)
-                   cmprvec
-                 (handler-case
-                     (zlib:uncompress cmprvec) ;; Windows version has been producing some errors...
-                   (error (c)
-                     (declare (ignore c))
-                     (warn "~%ZLIB: decompression failure")
-                     ;; (error c)
-                     nil))
-                 )))
-      (when vec
-        (>> cust vec))
-      )))
+  (actor
+      (lambda (cust cmprvec)
+        (let ((vec (if (uncompressed? cmprvec)
+                       cmprvec
+                     (handler-case
+                         (zlib:uncompress cmprvec) ;; Windows version has been producing some errors...
+                       (error (c)
+                         (declare (ignore c))
+                         (warn "~%ZLIB: decompression failure")
+                         ;; (error c)
+                         nil))
+                     )))
+          (when vec
+            (>> cust vec))
+          ))))
 |#
 
 (defun simple-compress (vec)
@@ -241,13 +250,15 @@
 #||#
 ;; try using Google's SNAPPY
 (defun marshal-compressor ()
-  (actor (cust vec)
-    (>> cust (simple-compress vec))))
+  (actor 
+      (lambda (cust vec)
+        (>> cust (simple-compress vec)))))
 
 (defun marshal-decompressor ()
-  (actor (cust vec)
-    (>> cust (simple-uncompress vec))))
-
+  (actor 
+      (lambda (cust vec)
+        (>> cust (simple-uncompress vec)))))
+  
 (defun fail-silent-marshal-decompressor ()
   (αα
    ((cust vec)
@@ -261,14 +272,16 @@
 #||#
 #|
 (defun marshal-compressor ()
-  (actor (cust vec)
-    ;; (>> fmt-println "Marshal Compressor")
-    (>> cust vec)))
+  (actor 
+      (lambda (cust vec)
+        ;; (>> fmt-println "Marshal Compressor")
+        (>> cust vec))))
 
 (defun marshal-decompressor ()
-  (actor (cust vec)
-    ;; (>> fmt-println "Marshal Decompressor")
-    (>> cust vec)))
+  (actor 
+      (lambda (cust vec)
+        ;; (>> fmt-println "Marshal Decompressor")
+        (>> cust vec))))
 |#
 ;; ---------------------------------------------------------------
 #|
@@ -395,14 +408,16 @@
     nonce))
 
 (defun encryptor (ekey)
-  (actor (cust bytevec)
-    (let ((nonce (encr/decr ekey nil bytevec)))
-      (>> cust nonce bytevec))))
+  (actor 
+      (lambda (cust bytevec)
+        (let ((nonce (encr/decr ekey nil bytevec)))
+          (>> cust nonce bytevec)))))
 
 (defun decryptor (ekey)
-  (actor (cust seq bytevec)
-    (encr/decr ekey seq bytevec)
-    (>> cust bytevec)))
+  (actor
+      (lambda (cust seq bytevec)
+        (encr/decr ekey seq bytevec)
+        (>> cust bytevec))))
 
 #|
 (defun encryptor (ekey)
@@ -478,12 +493,13 @@
   ;; encryption key for the session. Those fields are still large
   ;; enough to prevent brute-force attacks.
   ;;
-  (actor (cust bytevec)
-    ;; (>> fmt-println "Encryptor")
-    (beta (seq)
-        (>> noncer beta :get-nonce)
-      (>> cust seq (encrypt/decrypt ekey seq bytevec))
-      )))
+  (actor 
+      (lambda (cust bytevec)
+        ;; (>> fmt-println "Encryptor")
+        (beta (seq)
+            (>> noncer beta :get-nonce)
+          (>> cust seq (encrypt/decrypt ekey seq bytevec))
+          ))))
 
 (defun decryptor (ekey)
   ;; Takes an encrypted bytevec and produces a bytevec
@@ -552,10 +568,11 @@
 ;; --------------------------------------
 
 (defun signing (skey)
-  (actor (cust seq emsg)
-    ;; (>> fmt-println "Signing")
-    (let ((sig (make-signature seq emsg skey)))
-      (>> cust seq emsg sig))))
+  (actor
+      (lambda (cust seq emsg)
+        ;; (>> fmt-println "Signing")
+        (let ((sig (make-signature seq emsg skey)))
+          (>> cust seq emsg sig)))))
 
 (defun signature-validation (pkey)
   (αα
@@ -567,25 +584,28 @@
 
 (defun self-sync-encoder ()
   ;; takes a bytevec and produces a self-sync bytevec
-  (actor (cust bytevec)
-    (>> cust (self-synca:encode bytevec))))
+  (actor 
+      (lambda (cust bytevec)
+        (>> cust (self-synca:encode bytevec)))))
 
 ;; --------------------------------------
 
 (defun checksum ()
   ;; produce a prefix checksum on the message
-  (actor (cust &rest msg)
-    (>>* cust (vec (hash/256 msg)) msg)
-    ))
+  (actor 
+      (lambda (cust &rest msg)
+        (>>* cust (vec (hash/256 msg)) msg)
+        )))
 
 (defun verify-checksum ()
   ;; if a replay attack with mutated encryption manages to become
   ;; unmarshalled, then we need to stop it here by checking the
   ;; checksum.
-  (actor (cust check &rest msg)
-    (when (equalp check (vec (hash/256 msg)))
-      (>>* cust msg))
-    ))
+  (actor 
+      (lambda (cust check &rest msg)
+        (when (equalp check (vec (hash/256 msg)))
+          (>>* cust msg))
+        )))
 
 ;; --------------------------------------------------------------
 ;; CHUNKER - splitting large vectors into chunks for transmission.
@@ -601,24 +621,25 @@
 
 (defun chunker (&optional (max-size 65536))
   ;; Take a bytevec and produces a sequence of chunk encodings.
-  (actor (cust byte-vec)
-    ;; (>> fmt-println "Chunker")
-    (let ((size (length byte-vec)))
-      (cond ((<= size max-size)
-             ;; (>> fmt-println "1 chunk, ~D bytes" size)
-             (>> cust :pass byte-vec))
-            (t
-             (let ((nchunks (ceiling size max-size))
-                   (id      (int (hash/256 (uuid:make-v1-uuid)))))
-               ;; (>> fmt-println "~D chunks, ~D bytes" nchunks size)
-               (>> cust :init id nchunks size)
-               (do ((offs  0  (+ offs max-size)))
-                   ((>= offs size))
-                 (let ((frag (subseq byte-vec offs (min size (+ offs max-size)) )))
-                   (>> cust :chunk id offs frag)))
-               ))
-            ))
-    ))
+  (actor 
+      (lambda (cust byte-vec)
+        ;; (>> fmt-println "Chunker")
+        (let ((size (length byte-vec)))
+          (cond ((<= size max-size)
+                 ;; (>> fmt-println "1 chunk, ~D bytes" size)
+                 (>> cust :pass byte-vec))
+                (t
+                 (let ((nchunks (ceiling size max-size))
+                       (id      (int (hash/256 (uuid:make-v1-uuid)))))
+                   ;; (>> fmt-println "~D chunks, ~D bytes" nchunks size)
+                   (>> cust :init id nchunks size)
+                   (do ((offs  0  (+ offs max-size)))
+                       ((>= offs size))
+                     (let ((frag (subseq byte-vec offs (min size (+ offs max-size)) )))
+                       (>> cust :chunk id offs frag)))
+                   ))
+                ))
+        )))
 
 ;; -------------------------------------------------------------------------
 ;; Chunk Monitor - solving the problem of determining when a chunked
@@ -635,25 +656,26 @@
 ;; customer. Chunker packets will arrive in aribtrary order.
 
 (defun chunk-monitor (max-size outer-cust)
-  (actor (cust byte-vec)
-    (>> cust byte-vec) ;; pass along to chunker
-    (let* ((init-beh self-beh)
-           (size     (length byte-vec))
-           (nchunks  (cond ((<= size max-size) 1)
-                           (t  (1+ (ceiling size max-size)))
-                           )))
-      (labels ((chunk-counter-beh (count)
-                 (lambda* _
-                   (let ((new-count (1+ count)))
-                     (cond ((>= new-count nchunks)
-                            (>> outer-cust :ok)
-                            (β! init-beh))
-                           (t
-                            (β! (chunk-counter-beh new-count)))
-                           )))
-                 ))
-        (β! (chunk-counter-beh 0))
-        ))))
+  (actor 
+      (lambda (cust byte-vec)
+        (>> cust byte-vec) ;; pass along to chunker
+        (let* ((init-beh self-beh)
+               (size     (length byte-vec))
+               (nchunks  (cond ((<= size max-size) 1)
+                               (t  (1+ (ceiling size max-size)))
+                               )))
+          (labels ((chunk-counter-beh (count)
+                     (lambda* _
+                       (let ((new-count (1+ count)))
+                         (cond ((>= new-count nchunks)
+                                (>> outer-cust :ok)
+                                (β! init-beh))
+                               (t
+                                (β! (chunk-counter-beh new-count)))
+                               )))
+                     ))
+            (β! (chunk-counter-beh 0))
+            )))))
     
 ;; ------------------------------------
 ;; Dechunker - With message delivery not guaranteed in any particular
@@ -912,20 +934,22 @@
                       (chunker)
                       (marshal-encoder)
                       (writer)
-                      (actor (cust bytvec)
-                        (! inp bytvec)
-                        (>> cust bytvec))
+                      (actor 
+                          (lambda (cust bytvec)
+                            (! inp bytvec)
+                            (>> cust bytvec)))
                       (encryptor ekey)
                       (signing skey)
                       (writer)
                       (signature-validation pkey)
                       (decryptor ekey)
                       (writer)
-                      (actor (cust bytvec)
-                        (let ((diff (map 'vector #'logxor bytvec inp)))
-                          (>> println diff)
-                          (>> println (position-if-not #'zerop diff))
-                          (>> cust bytvec)))
+                      (actor 
+                          (lambda (cust bytvec)
+                            (let ((diff (map 'vector #'logxor bytvec inp)))
+                              (>> println diff)
+                              (>> println (position-if-not #'zerop diff))
+                              (>> cust bytvec))))
                       (marshal-decoder)
                       (dechunker)
                       (marshal-decoder))
@@ -982,59 +1006,62 @@
 (defconstant +AONT-FILE-TYPE-ID+ (vec #/uuid/{b532fc4e-bf2b-123a-9307-24f67702cdaa}))
 
 (defun aont-encoder (skey ekey)
-  (actor (cust &rest msg)
-    ;; takes arbitrary Lisp data items and sends as an encrypted
-    ;; single list to cust, along with AONT parameters
-    (let ((pkey-vec (vec (ed-nth-pt skey))))
-      (beta (data-packet)
-          (>>* (pipe (marshal-encoder)
-                       (marshal-compressor)
-                       (encryptor ekey)
-                       (signing skey)
-                       (marshal-encoder))
-                 beta msg)
-          (let* ((aont-vec (vec (hash/256 pkey-vec data-packet))))
-            (map-into aont-vec #'logxor aont-vec ekey)
-            (>> cust pkey-vec data-packet aont-vec)
-            ))
-      )))
+  (actor 
+      (lambda (cust &rest msg)
+        ;; takes arbitrary Lisp data items and sends as an encrypted
+        ;; single list to cust, along with AONT parameters
+        (let ((pkey-vec (vec (ed-nth-pt skey))))
+          (beta (data-packet)
+              (>>* (pipe (marshal-encoder)
+                         (marshal-compressor)
+                         (encryptor ekey)
+                         (signing skey)
+                         (marshal-encoder))
+                   beta msg)
+            (let* ((aont-vec (vec (hash/256 pkey-vec data-packet))))
+              (map-into aont-vec #'logxor aont-vec ekey)
+              (>> cust pkey-vec data-packet aont-vec)
+              ))
+          ))))
 
 (def-actor aont-decoder
   ;; sends a sequence of original Lisp data items to cust
-  (actor (cust pkey-vec data-packet aont-vec)
-    (let ((pkey  (ed-decompress-pt pkey-vec))
-          (ekey  (vec (hash/256 pkey-vec data-packet))))
-      (map-into ekey #'logxor ekey aont-vec)
-      (>> (pipe (marshal-decoder)
-                  (signature-validation pkey)
-                  (decryptor ekey)
-                  (marshal-decompressor)
-                  (marshal-decoder))
-            cust data-packet)
-      )))
+  (actor 
+      (lambda (cust pkey-vec data-packet aont-vec)
+        (let ((pkey  (ed-decompress-pt pkey-vec))
+              (ekey  (vec (hash/256 pkey-vec data-packet))))
+          (map-into ekey #'logxor ekey aont-vec)
+          (>> (pipe (marshal-decoder)
+                    (signature-validation pkey)
+                    (decryptor ekey)
+                    (marshal-decompressor)
+                    (marshal-decoder))
+              cust data-packet)
+          ))))
 
 ;; ------------------------------------------------------
 
 (defun aont-file-writer (fname skey ekey)
   ;; writes a single AONT record to a file
-  (actor (cust &rest msg)
-    (beta vecs
-        (>>* (aont-encoder skey ekey) beta msg)
-      (with-open-file (fd fname
-                          :direction :output
-                          :if-exists :supersede
-                          :if-does-not-exist :create
-                          :element-type '(unsigned-byte 8))
-        (write-sequence +AONT-FILE-TYPE-ID+ fd)
-        (loenc:serialize vecs fd
-                         :max-portability t)
-        (>> cust :ok)
-        ))))
+  (actor 
+      (lambda (cust &rest msg)
+        (beta vecs
+            (>>* (aont-encoder skey ekey) beta msg)
+          (with-open-file (fd fname
+                              :direction :output
+                              :if-exists :supersede
+                              :if-does-not-exist :create
+                              :element-type '(unsigned-byte 8))
+            (write-sequence +AONT-FILE-TYPE-ID+ fd)
+            (loenc:serialize vecs fd
+                             :max-portability t)
+            (>> cust :ok)
+            )))))
 
 (defun aont-file-reader (fname)
   ;; Reads a single AONT record from a file, sending the original data
   ;; items as a sequence of args to cust.
-  (create-service
+  (actor
    (lambda (cust)
      (with-open-file (fd fname
                          :direction :input
