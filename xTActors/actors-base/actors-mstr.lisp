@@ -109,7 +109,7 @@ THE SOFTWARE.
 
 (defmethod send ((target function) &rest msg) ;; is this useful?
   ;; execution staged for commit
-  (apply #'send (fn-actor target) msg))
+  (apply #'send (actor target) msg))
 
 (defmethod send (target &rest msg)) ;; NOP
    
@@ -493,9 +493,7 @@ THE SOFTWARE.
      (check-for-errors ans)
      (values-list ans)))
   (:method ((target function) &rest msg)
-   (apply target msg))
-  (:method (target &rest msg)
-   (check-type target actor)))
+   (apply target msg)) )
    
 ;;
 ;; ASK can generate errors:
