@@ -106,9 +106,9 @@
 ;; continuation passing style.
 ;;
 ;; To the extent that this is useful behavior, it vindicates an
-;; earlier design decision when β was constructed. Initial designs had
-;; that sending to target β would be a ONCE operation. That was later
-;; abandoned to place responsibility for one-timeness on the programmer
-;; if needed. My original reason was that ONCE behavior seemed
-;; unnecessarily burdensome at runtime for most uses of β.
+;; earlier design decision when β was constructed. Initial designs
+;; held that sending to target β would be a ONCE operation. That was
+;; later abandoned to place responsibility for one-timeness on the
+;; programmer if needed. My original reason was that ONCE behavior
+;; seemed unnecessarily burdensome at runtime for most uses of β.
 
