@@ -582,11 +582,26 @@
 
 ;; --------------------------------------
 
+#|
+(deflex chk-ss
+  (create
+   (lambda (bytevec enc)
+     (β (ans)
+         (send (timed-service (self-synca:stream-decoder β) 1) :deliver 1 enc)
+       (assert (equalp bytevec ans))
+       ))
+   ))
+|#
+
 (defun self-sync-encoder ()
   ;; takes a bytevec and produces a self-sync bytevec
   (actor 
       (lambda (cust bytevec)
-        (>> cust (self-synca:encode bytevec)))))
+        (let ((enc (self-sync:encode bytevec)))
+          (>> cust enc)
+          ;; (>> chk-ss bytevec enc)
+          ))
+      ))
 
 ;; --------------------------------------
 

@@ -759,8 +759,8 @@
                                  (self-sync-encoder)
                                  (make-writer state)))
             (accum   (self-synca:stream-decoder    ;; async arrivals are sent here
-                                                   (sink-pipe (fail-silent-marshal-decoder)
-                                                              local-services)))
+                        (sink-pipe (fail-silent-marshal-decoder)
+                                   local-services)))
             (:β _    (racurry shutdown :init state))
             (:β _    (if (eq kind :server)
                          (racurry local-services :add-single-use-service
