@@ -27,7 +27,7 @@
             vec-repr:ub8-vector
             vec-repr:make-ub8-vector
             )))
-
+#|
 ;; ------------------------------------------------------------------
 ;; Encoding
 ;;   +-----------+---------+------------+---------------+---------------+--//--+
@@ -136,12 +136,13 @@
             (write-byte q fout))
           (xwrite-sequence renc fout :start start :end long-end)
           (! start long-end)))
+      (write-sequence +start-sequence+ fout)
       )))
     
 (defun encode (vec)
   (with-output-to-ubyte-stream (sout)
     (write-record vec sout)))
-
+|#
 ;; ---------------------------------------------------------------
 ;; Self-Sync Stream Decoding... done with mixed Actors and Functions
 ;;
@@ -170,9 +171,10 @@
 ;;
 ;; --------------------------------------------------------
 ;;
-;; A state machine in call/return semantics, providing an Actor shell
-;; for external use.
+;; A state machine in call/return semantics, providing an Actor
+;; wrapper for external use.
 
+#|
 (defun decoder-fsm (dest &key max-reclen)
   (multiple-value-bind (aout stuff-fn)
       (if max-reclen
@@ -223,31 +225,36 @@
                    (raw-stuff b)
                    (decf remct)
                    (check-finish))
-                 
+
                  (check-finish ()
                    (when (zerop remct)
                      (let ((nbuf  (length aout)))
                        (declare (fixnum nbuf))
-                       (when (>= nbuf 8)
-                         (when (minusp nel)
-                           (! crcv (subseq aout 0 4)
-                              lenv (subseq aout 4 8)
-                              nel  (+ 8 (vec-le4-to-int lenv))))
-                         (when (and need-fefd
-                                    (< nbuf nel))
-                           (raw-stuff #xFE)
-                           (raw-stuff #xFD)
-                           (incf nbuf 2))
-                         (cond ((< nbuf nel)
-                                (new-state read-long-count))
-                               (t
-                                (new-state start)
-                                (let* ((ans (subseq aout 8))
-                                       (chk (crc32 lenv ans)))
-                                  (when (equalp crcv chk)
-                                    (>> dest ans))
-                                  ))
-                               )))))
+                       (cond ((>= nbuf 8)
+                              (when (minusp nel)
+                                (! crcv (subseq aout 0 4)
+                                   lenv (subseq aout 4 8)
+                                   nel  (+ 8 (vec-le4-to-int lenv))))
+                              (when (and need-fefd
+                                         (< nbuf nel))
+                                (! need-fefd nil)
+                                (raw-stuff #xFE)
+                                (raw-stuff #xFD)
+                                (incf nbuf 2))
+                              (cond ((< nbuf nel)
+                                     (new-state read-long-count))
+                                    (t
+                                     ;; (new-state start)
+                                     (new-state check-version)
+                                     (let* ((ans (subseq aout 8))
+                                            (chk (crc32 lenv ans)))
+                                       (when (equalp crcv chk)
+                                         (>> dest ans))
+                                       ))
+                                    ))
+                             (t
+                              (new-state check-version))
+                             ))))
                  
                  (restart (b)
                    (new-state start)
@@ -321,6 +328,17 @@
              (map nil #'inhale buf)
              (>> cust :next))
            ))))))
+|#
+(defun decoder-fsm (dest &key max-reclen)
+  (let* ((finish-fn  (lambda (aout)
+                      (send dest aout)))
+         (machine    (self-sync:make-reader-fsm finish-fn :max-reclen max-reclen)))
+    (create
+     (lambda (cust buf)
+       (declare ((array ub8 *) buf))
+       (map nil machine buf)
+       (>> cust :next))
+     )))
 
 ;; -----------------------------------------------------------------
 ;; Stream Decoding

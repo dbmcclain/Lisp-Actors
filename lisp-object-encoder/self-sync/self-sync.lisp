@@ -134,6 +134,10 @@
             (write-byte q fout))
           (xwrite-sequence renc fout :start start :end long-end)
           (setf start long-end)))
+      ;; provide explicit termination of record
+      ;; - needed during async streaming over sockets
+      ;;   with fragmentary delivery
+      (write-sequence +start-sequence+ fout)
       )))
     
 ;; ------------------------------------------------------------------
