@@ -467,33 +467,53 @@ THE SOFTWARE.
            (vector-push-extend ch chars))
      (we-are-done ()
                   (finish (unless *read-suppress*
-                            (let ((ans (split-string-conserving chars)))
+                            (let ((ans (trim-common-leading-ws-from-lines chars)))
                               (if numarg
                                   ans
                                 `(string-interp ,ans)))
                             )))
      ))
 
-(unless (fboundp 'whitespace-char-p)
-  ;; needed by SBCL
-  (defun whitespace-char-p (ch)
-    (member ch '(#\space #\tab #\newline #\vt #\page #\return))))
+#+:SBCL
+(defun whitespace-char-p (ch)
+  (sb-unicode:whitespace-p ch))
 
-(defun split-string-conserving (str)
-  (let* ((start 0)
-         (lines (loop for p = (position #\newline str :start start)
-                      collect (subseq str start p)
-                      while p
-                      do (setf start (1+ p))
-                      ))
-         (leading-nws (loop for line in lines
-                            when (find-if-not #'whitespace-char-p line)
-                              minimize (position-if-not #'whitespace-char-p line)
-                              ))
-         (trimmed    (mapcar (lambda (line)
-                               (subseq line (min (length line) leading-nws)))
-                             lines)))
-    (apply #'paste-strings #\newline trimmed)))
+(defun whitespace-char-not-newline-p (ch)
+  (and (char/= ch #\newline)
+       (whitespace-char-p ch)))
+
+(defun trim-common-leading-ws-from-lines (str)
+  ;; split str into lines, discarding common leading whitespace, then
+  ;; rejoin into one string
+  (let ((maxlen (length str)))
+    (labels ((get-trimmed-lines (&optional (start 0) min-nws lines)
+               (let* ((p    (position #\newline str :start start))
+                      (new-start (if p
+                                     (1+ p)
+                                   maxlen))
+                      (line (subseq str start new-start))
+                      (pnws (position-if (complement #'whitespace-char-not-newline-p) line))
+                      (new-min-nws (if pnws
+                                       (if min-nws
+                                           (min min-nws pnws)
+                                         pnws)
+                                     min-nws))
+                      (new-lines (cons line lines)))
+               (cond ((< new-start maxlen)
+                      ;; counting on tail call optimization here...
+                      (get-trimmed-lines new-start new-min-nws new-lines))
+                     
+                     ((and new-min-nws
+                           (plusp new-min-nws))
+                      (mapcar (lambda (line)
+                                (subseq line (min (length line) new-min-nws)))
+                              new-lines))
+
+                     (t
+                      new-lines)
+                     ))))
+    (apply #'concatenate 'string (nreverse (get-trimmed-lines)))
+    )))
 #|
 (setf x #>.end
         this
@@ -505,25 +525,6 @@ THE SOFTWARE.
         .end)
  |#
 
-(defun split-and-trim (vec &optional (ignore-first-line t))
-  ;; vec is vector of character (aka string)
-  ;;
-  ;; Split vector at #\newlines, count minimum leading whitespace,
-  ;; then remove that much whitespace from each line, then concatenate
-  ;; the lines back to one vector.
-  (labels ((leading-ws-count (line)
-             (or (position-if (complement #'whitespace-char-p) line)
-                 (length line))))
-    (let* ((lines  (split-string-conserving vec))
-           (lines-to-test (if ignore-first-line (cdr lines) lines))
-           (nws     (reduce #'min (or (mapcar #'leading-ws-count lines-to-test) (list 0))))
-           (trimmer (rcurry #'subseq nws))
-           (trimmed (mapcar trimmer lines-to-test)))
-      (when ignore-first-line
-        (push (car lines) trimmed))
-      (apply #'paste-strings #\newline trimmed)
-      )))
-   
 (set-dispatch-macro-character
  #\# #\" '|reader-for-#"|)
   
@@ -536,46 +537,61 @@ THE SOFTWARE.
   (declare (ignore sub-char))
   (arun-fsm
       ;; bindings
-      (pattern
-       (patlen 0)
-       output
-       (outlen 0))
+      (tstpos 
+       (pattern (make-array 16
+                            :element-type (stream-element-type stream)
+                            :adjustable t
+                            :fill-pointer 0))
+       (s  (make-array 16
+                       :element-type (stream-element-type stream)
+                       :adjustable t
+                       :fill-pointer 0)))
       ;; feeder
-      (read-char stream)
+      (read-char stream nil stream t)
     ;; machine states - initial first
     (start (ch)
            ;; get stop-pattern
-           (cond ((char= ch #\newline)
+           (cond ((eq ch stream) ;; eof
+                  (we-are-done ""))
+                 
+                 ((char= ch #\newline)
                   (phase2))
-
+                 
                  ((whitespace-char-p ch)
                   (state skip-to-eol))
-
-                 (t 
-                  (push ch pattern)
-                  (incf patlen))
+                 
+                 (t
+                  (vector-push-extend ch pattern))
                  ))
     (skip-to-eol (ch)
-                 (when (char= ch #\newline)
-                   (phase2)))
+                 ;; ignore everything after pattern to EOL
+                 (cond ((eq ch stream) ;; eof
+                        (we-are-done ""))
+                       
+                       ((char= ch #\newline)
+                        (phase2))
+                       ))
     (phase2 ()
-            (if (zerop patlen)
-                (we-are-done)
+            (setf tstpos  (- (length pattern)))
+            (if (zerop tstpos)
+                (we-are-done "")
               (state absorb)))
     (absorb (ch)
-            ;; get string till stop-pattern
-            (push ch output)
-            (incf outlen)
-            (when (and (>= outlen patlen)
-                       (every #'char= pattern output))
-              (we-are-done)))
-    (we-are-done ()
+            (cond ((eq ch stream)
+                   (we-are-done s))
+                  
+                  (t
+                   (vector-push-extend ch s)
+                   (incf tstpos)
+                   (when (and (>= tstpos 0)
+                              (string= pattern s :start2 tstpos))
+                     (setf (fill-pointer s) tstpos)
+                     (we-are-done s)
+                     ))
+                  ))
+    (we-are-done (str)
                  (finish (unless *read-suppress*
-                           (let ((ans (split-string-conserving
-                                       (coerce
-                                        (nreverse
-                                         (nthcdr patlen output))
-                                        'string))))
+                           (let ((ans (trim-common-leading-ws-from-lines str)))
                              (if numarg
                                  ans
                                `(string-interp ,ans)))
