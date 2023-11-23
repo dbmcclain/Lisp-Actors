@@ -321,9 +321,15 @@
 ;; -----------------------------------------------
 ;; Extend LET+ into β-forms
 
+(defun beta-args (args)
+  (if (or (listp args)
+          (um:is-underscore? args))
+      args
+    (list args)))
+
 (defmethod do-let+ ((fst (eql :β)) binding form)
   (destructuring-bind (list-form verb-form) (rest binding)  
-    `(β (,@(um:mklist list-form) )
+    `(β ,(beta-args list-form)
          (send ,verb-form β)
        ,form)
     ))
