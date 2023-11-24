@@ -246,7 +246,7 @@
    ((rand-pt aescrypt) / (and (null decryptor)
                               (typep rand-pt 'edec:ecc-pt)
                               (consp aescrypt))
-    (let+ ((:β info  (racurry eccke:ecc-cnx-decrypt rand-pt aescrypt)))
+    (let+ ((:β (info)  (racurry eccke:ecc-cnx-decrypt rand-pt aescrypt)))
       (when (typep (car info) 'uuid:uuid)
         (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
           (when pair

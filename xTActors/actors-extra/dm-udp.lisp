@@ -80,7 +80,7 @@
 
    ((cust :init)
     (let++ ((me       self)
-            (:β  coll ws-coll)
+            (:β  (coll) ws-coll)
             (io-state (comm:create-async-io-state-and-udp-socket
                        coll
                        :local-address local-address
@@ -128,7 +128,7 @@
    
    (msg
     (let++ ((me       self)
-            (:β coll  ws-coll)
+            (:β (coll)  ws-coll)
             (io-state (comm:create-async-io-state-and-connected-udp-socket
                        coll
                        hostspec service

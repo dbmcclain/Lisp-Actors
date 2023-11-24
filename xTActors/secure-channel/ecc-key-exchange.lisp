@@ -101,7 +101,7 @@
 (deflex ecc-cnx-decrypt
   (create
    (lambda (cust rand-pt aes-packet)
-     (let+ ((:β skey ecc-skey))
+     (let+ ((:β (skey) ecc-skey))
        (ignore-errors
          (let+ ((enc-pt   (ed-mul rand-pt skey))
                 (aes-key  (vec (hash/256 :ecc-cnx-key enc-pt)))

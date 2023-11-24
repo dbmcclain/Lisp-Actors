@@ -400,7 +400,7 @@
                     :ip-port         peer-port
                     :state           :pending-server)))
           (β! (connections-list-beh (cons rec cnx-lst)))
-          (let+ ((:β ct  get-server-count)
+          (let+ ((:β (ct)  get-server-count)
                  (server-name (format nil "~A#~D" (machine-instance) ct)))
             (>> fmt-println "Server Socket (~S->~A:~D) starting up"
                   server-name
