@@ -105,24 +105,27 @@
               (args nil)
               (lsts nil))
     (cond ((atom pat)
-           (cond ((null pat)           (values args lsts))
-                 ((is-underscore? pat) (values args lsts))
-                 ((keywordp pat)       (values args lsts))
-                 ((symbolp pat)        (values (cons pat args) lsts))
-                 (t                    (values args lsts))
+           (cond ((or (null pat)
+                      (is-underscore? pat)
+                      (keywordp pat)
+                      (not (symbolp pat)))
+                  (values args lsts))
+                 (t
+                  (values (cons pat args) lsts))
                  ))
-          ((eql 'quote (car pat))    (values args lsts))
-          ((eql 'function (car pat)) (values args lsts))
+          ((member (car pat) '(quote function))
+           (values args lsts))
           (t
            (let ((hd (car pat))
                  (tl (cdr pat)))
              (multiple-value-bind (new-args new-lsts)
                  (iter hd args lsts)
-               (when (and tl
-                          (symbolp tl)
-                          (not (is-underscore? tl)))
-                 (push tl new-lsts))
-               (go-iter tl new-args new-lsts)
+               (go-iter tl new-args
+                        (if (and tl
+                                 (symbolp tl)
+                                 (not (is-underscore? tl)))
+                            (cons tl new-lsts)
+                          new-lsts))
                )))
           )))
 
@@ -132,8 +135,10 @@
 |#
 
 (defun duplicates-exist-p (lst)
-  (let ((nel (length lst)))
-    (not (eql nel (length (remove-duplicates lst))))))
+  (and (consp lst)
+       (or (find (car lst) (cdr lst))
+           (duplicates-exist-p (cdr lst)))
+       ))
 
 (defun transform-&rest (pat)
   ;; It is an all too easy mistake to make in writing patterns, that
@@ -151,32 +156,35 @@
         ))
 
 (defun parse-match-clause (lbl fail msg clause)
-  (destructuring-bind (pat . body) clause
-    (let* ((pat  (transform-&rest pat))
-           (tst  nil))
-      (multiple-value-bind (args lsts)
-          (collect-args pat)
-        (when (duplicates-exist-p args)
-          (warn "duplicate binding names in match pattern: ~A" args))
-        (when (some 'is-lambda-list-keyword? args)
-          (warn "lambda list keywords are not valid pattern elements"))
-        (when (member (car body) '(when /))
-          (setf tst  `(lambda ,args
-                        (declare (ignorable ,@args))
-                        ,@(if lsts
-                             `((declare (list ,@lsts))))
-                        ,(cadr body))
-                body (cddr body)))
-        `(block ,fail
-           (match-clause ,msg ',pat ,tst
-                         (lambda ,args
-                           (declare (ignorable ,@args))
-                           ,@(if lsts
-                                `((declare (list ,@lsts))))
-                           (return-from ,lbl
-                             (progn
-                               ,@body)))
-                         ))
+  (let ((pat  (transform-&rest (car clause)))
+        (body (cdr clause)))
+    (multiple-value-bind (args lsts)
+        (collect-args pat)
+      (when (duplicates-exist-p args)
+        (warn "duplicate binding names in match pattern: ~A" args))
+      (when (some 'is-lambda-list-keyword? args)
+        (warn "lambda list keywords are not valid pattern elements"))
+      (flet
+          ((xlate (tst body)
+             `(block ,fail
+                (match-clause ,msg ',pat ,tst
+                              (lambda ,args
+                                (declare (ignorable ,@args))
+                                ,@(if lsts
+                                      `((declare (list ,@lsts))))
+                                (return-from ,lbl
+                                  (progn
+                                    ,@body)))
+                              ))
+             ))
+        (if (member (car body) '(when /))
+            (xlate `(lambda ,args
+                      (declare (ignorable ,@args))
+                      ,@(if lsts
+                            `((declare (list ,@lsts))))
+                      ,(cadr body))
+                   (cddr body))
+          (xlate nil body))
         ))))
 
 (defmacro match (msg &body clauses)
