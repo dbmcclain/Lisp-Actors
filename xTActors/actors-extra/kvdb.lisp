@@ -819,15 +819,12 @@
              (setf db (db-add db 'kvdb-sequence (uuid:make-v1-uuid)))
              (full-save path db nil)
              )))
-    (let ((err nil))
       (restart-case
           (handler-bind
               ((file-error (lambda (c)
-                             (setf err c)
-                             (invoke-restart (find-restart 'create c))))
+                             (invoke-restart (find-restart 'create c) c)))
                (not-a-kvdb (lambda (c)
-                             (setf err c)
-                             (invoke-restart (find-restart 'overwrite c)))))
+                             (invoke-restart (find-restart 'overwrite c) c))))
             (with-open-file (fd path
                                 :direction :input
                                 :element-type '(unsigned-byte 8)
@@ -835,19 +832,19 @@
               (check-kvdb-sig fd path)
               ))
         ;; restarts
-        (create ()
+        (create (err)
           :test file-error-p
           (if (yes-or-no-p
                "Create file: ~S?" path)
               (init-kvdb)
             (error err)))
-        (overwrite ()
+        (overwrite (err)
           :test not-a-kvdb-p
           (if (yes-or-no-p
                "Rename existing and create new file: ~S?" path)
               (init-kvdb)
             (error err)))
-        ))))
+        )))
 
 #-:MSWINDOWS
 (defun ino-key (path)
