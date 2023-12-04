@@ -136,7 +136,7 @@
 
 (defun duplicates-exist-p (lst)
   (and (consp lst)
-       (or (find (car lst) (cdr lst))
+       (or (member (car lst) (cdr lst))
            (duplicates-exist-p (cdr lst)))
        ))
 
