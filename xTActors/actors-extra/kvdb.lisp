@@ -522,8 +522,8 @@
          (id   (vec-repr:make-ub8-vector (length sig))))
     (file-position fd 0)
     (read-sequence id fd)
-    (unless (equalp id sig)
-      (error 'not-a-kvdb :path dbpath))
+    (or (equalp id sig)
+        (error 'not-a-kvdb :path dbpath))
     ))
 
 (defun #1=unopened-database-beh (ctrl-tag)
@@ -818,31 +818,36 @@
              (setf db (db-add db 'version       (uuid:make-v1-uuid)))
              (setf db (db-add db 'kvdb-sequence (uuid:make-v1-uuid)))
              (full-save path db nil)
-             t)))
-    (restart-case
-        (handler-bind
-            ((file-error (lambda (c)
-                           (invoke-restart (find-restart 'create c))))
-             (not-a-kvdb (lambda (c)
-                           (invoke-restart (find-restart 'overwrite c)))))
-          (with-open-file (fd path
-                              :direction :input
-                              :element-type '(unsigned-byte 8)
-                              :if-does-not-exist :error)
-            (check-kvdb-sig fd path)
-            t))
-      ;; restarts
-      (create ()
-        :test file-error-p
-        (when (yes-or-no-p
+             )))
+    (let ((err nil))
+      (restart-case
+          (handler-bind
+              ((file-error (lambda (c)
+                             (setf err c)
+                             (invoke-restart (find-restart 'create c))))
+               (not-a-kvdb (lambda (c)
+                             (setf err c)
+                             (invoke-restart (find-restart 'overwrite c)))))
+            (with-open-file (fd path
+                                :direction :input
+                                :element-type '(unsigned-byte 8)
+                                :if-does-not-exist :error)
+              (check-kvdb-sig fd path)
+              ))
+        ;; restarts
+        (create ()
+          :test file-error-p
+          (if (yes-or-no-p
                "Create file: ~S?" path)
-          (init-kvdb)))
-      (overwrite ()
-        :test not-a-kvdb-p
-        (when (yes-or-no-p
+              (init-kvdb)
+            (error err)))
+        (overwrite ()
+          :test not-a-kvdb-p
+          (if (yes-or-no-p
                "Rename existing and create new file: ~S?" path)
-          (init-kvdb)))
-      )))
+              (init-kvdb)
+            (error err)))
+        ))))
 
 #-:MSWINDOWS
 (defun ino-key (path)
@@ -854,39 +859,47 @@
 (defun ino-key (path)
   (namestring (truename path)))
 
+(defstruct open-database
+  ino-key orch-tag kvdb-actor path)
+
 (defun kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
    ((cust :make-kvdb path)
-    (cond ((ensure-file-exists path)
-           (let* ((key   (ino-key path))
-                  (quad  (find key open-dbs
-                               :key  #'car
-                               :test #'string-equal)))
-             (cond (quad
-                    (send cust (third quad)))
-                   (t
-                    (let* ((tag-to-me  (tag self))
-                           (kvdb       (%make-kvdb tag-to-me path)))
-                      (become (kvdb-orchestrator-beh
-                               (cons (list key tag-to-me kvdb path)
-                                     open-dbs)))
-                      (send cust kvdb)))
-                   )))
-          (t
-           (send cust (const (format nil "Database ~S Not Available" path))))
-          ))
+    (ensure-file-exists path)
+    (let* ((key   (ino-key path))
+           (quad  (find key open-dbs
+                        :key  #'open-database-ino-key
+                        :test #'string-equal)))
+      (cond (quad
+             (send cust (open-database-kvdb-actor quad)))
+            (t
+             (let* ((tag-to-me  (tag self))
+                    (kvdb       (%make-kvdb tag-to-me path)))
+               (become (kvdb-orchestrator-beh
+                        (cons (make-open-database
+                               :ino-key    key
+                               :orch-tag   tag-to-me
+                               :kvdb-actor kvdb
+                               :path       path)
+                              open-dbs)))
+               (send cust kvdb)))
+            )))
    
    ((atag :update-entry)
     ;; when actual inode changes, as with full-save
     (let ((quad (find atag open-dbs
-                      :key #'cadr)))
+                      :key #'open-database-orch-tag)))
       (when quad
-        (let* ((path  (fourth quad))
+        (let* ((path  (open-database-path quad))
                (key   (ino-key path)))
-          (unless (string-equal key (car quad))
-            (let* ((kvdb    (third quad))
-                   (new-dbs (cons (list key atag kvdb path)
+          (unless (string-equal key (open-database-ino-key quad))
+            (let* ((kvdb    (open-database-kvdb-actor quad))
+                   (new-dbs (cons (make-open-database
+                                   :ino-key    key
+                                   :orch-tag   atag
+                                   :kvdb-actor kvdb
+                                   :path       path)
                                   (remove quad open-dbs))))
               (become (kvdb-orchestrator-beh new-dbs))
               ))
@@ -895,7 +908,7 @@
    
    ((atag :remove-entry)
     (let ((quad (find atag open-dbs
-                      :key #'cadr)))
+                      :key #'open-database-orch-tag)))
       (when quad
         (become (kvdb-orchestrator-beh (remove quad open-dbs))))
       ))
