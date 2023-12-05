@@ -526,117 +526,111 @@
         (error 'not-a-kvdb :path dbpath))
     ))
 
-(defun #1=unopened-database-beh (ctrl-tag)
-  (lambda (cust &rest msg)
-    (handler-bind
-        ((error (lambda (err)
-                  (abort-beh)
-                  (become-sink)
-                  (send ctrl-tag :remove-entry)
-                  (send cust (err-from err))
-                  (return-from #1#))
-                ))
-      (match msg
-        ;; -------------------
-        ;; message from kick-off starter routine
-        ((:open db-path)
-         (let ((db (db-new)))
-           (flet ((prep-and-save-db ()
-                    (unless (db-find db 'version)
-                      (setf db (db-add db 'version (uuid:make-v1-uuid))))
-                    (let (seq)
-                      (unless (and (setf seq (db-find db 'kvdb-sequence))
-                                   (typep seq 'uuid:uuid))
-                        (setf db (db-add db 'kvdb-sequence (uuid:make-v1-uuid)))
-                        ))
-                    (setf db (full-save db-path db ctrl-tag))))
-             
-             (restart-case
-                 (handler-bind
-                     ((not-a-kvdb (lambda (c)
-                                    (if (yes-or-no-p
-                                         "Not a KVDB file: ~S. Rename existing and create new?"
-                                         (not-a-kvdb-path c))
-                                        (invoke-restart
-                                         (find-restart 'rename-and-create c))
-                                      ;; else
-                                      (abort c))))
-                      (corrupt-deltas (lambda (c)
-                                        (if (yes-or-no-p
-                                             "Corrupt deltas encountered: ~S. Rebuild?"
-                                             (corrupt-deltas-path c))
-                                            (invoke-restart
-                                             (find-restart 'corrupt-deltas c))
-                                          ;; else
-                                          (abort c))))
-                      (corrupt-kvdb   (lambda (c)
-                                        (if (yes-or-no-p
-                                             "Corrupt KVDB: ~S. Rebuild?"
-                                             (corrupt-kvdb-path c))
-                                            (invoke-restart
-                                             (find-restart 'corrupt-kvdb c))
-                                          ;; else
-                                          (abort c))))
-                      (file-error (lambda (c)
-                                    (if (yes-or-no-p
-                                         "File does not exist: ~S. Create?"
-                                         (file-error-pathname c))
-                                        (invoke-restart
-                                         (find-restart 'create c))
-                                      ;; else
-                                      (abort c))) ))
-                   
-                   (with-open-file (f db-path
-                                      :direction         :input
-                                      :if-does-not-exist :error
-                                      :element-type      '(unsigned-byte 8))
-                     (check-kvdb-sig f db-path)
-                     
-                     (handler-case
-                         (progn
-                           (setf db (loenc:deserialize f))
-                           (db-find db 'version)) ;; try to force an error
-                       (error (exn)
-                         (send println (um:format-error exn))
-                         (setf db (db-new))
+(defun unopened-database-beh (ctrl-tag)
+  (alambda
+   ;; -------------------
+   ;; message from kick-off starter routine
+   ((cust :open db-path)
+    (block udb
+      (handler-bind
+          ;; we are behind a Serializer, so must reply to cust
+          ((error (lambda (err)
+                    (abort-beh) ;; clear out all Send & Become
+                    (become-sink)
+                    (send ctrl-tag :remove-entry) ;; tell orchestrator
+                    (send cust err)
+                    (return-from udb))
+                  ))
+        (labels ((normal-exit (db)
+                   (become (save-database-beh db-path db ctrl-tag))
+                   (send cust :opened db)
+                   (return-from udb))
+                 
+                 (prep-and-save-db (db)
+                   (let* ((ver (db-find db 'version))
+                          (dbv (if (typep ver 'uuid:uuid)
+                                   db
+                                 (db-add db 'version (uuid:make-v1-uuid))))
+                          (seq  (db-find dbv 'kvdb-sequence))
+                          (dbs  (if (typep seq 'uuid:uuid)
+                                    dbv
+                                  (db-add dbv 'kvdb-sequence (uuid:make-v1-uuid)))))
+                     (normal-exit (full-save db-path dbs ctrl-tag))))
+                 
+                 (prep-and-save-new-db ()
+                   (prep-and-save-db (db-new)))
+                 
+                 (try-deserialize-db (f)
+                   (handler-case
+                       (let ((db  (loenc:deserialize f)))
+                         (db-find db 'version) ;; try to tickle error
+                         db)
+                     (error ()
+                       ;; For cases:
+                       ;;  1. We cannot deserialize properly, or
+                       ;;  2. Not a usable database upon deserialization
+                       (if (yes-or-no-p
+                            "Corrupt KVDB: ~S. Rebuild?"
+                            db-path)
+                           (prep-and-save-new-db)
+                         ;; else
                          (error 'corrupt-kvdb :path db-path)))
-
-                     (let ((reader (self-sync:make-reader f)))
-                       (handler-case
-                           (loop for ans = (loenc:deserialize f :self-sync  reader)
-                                 until (eq ans f)
-                                 do
-                                   (destructuring-bind (removals additions changes) ans
-                                     (dolist (key removals)
-                                       (setf db (db-remove db key)))
-                                     (dolist (pair additions)
-                                       (destructuring-bind (key . val) pair
-                                         (setf db (db-add db key val))))
-                                     (dolist (pair changes)
-                                       (destructuring-bind (key . val) pair
-                                         (setf db (db-add db key val))))
-                                     ))
-                         (error (exn)
-                           (send println (um:format-error exn))
-                           (error 'corrupt-deltas :path db-path))
-                         ))))
-               ;; restarts
-               (corrupt-kvdb ()
-                 :test corrupt-kvdb-p
-                 (prep-and-save-db))
-               (corrupt-deltas ()
-                 :test corrupt-deltas-p
-                 (prep-and-save-db))
-               (rename-and-create ()
-                 :test not-a-kvdb-p
-                 (prep-and-save-db))
-               (create ()
-                 :test file-error-p
-                 (prep-and-save-db)))
-             ;; normal exit
-             (become (save-database-beh db-path db ctrl-tag))
-             (send cust :opened db)))
-         )))))
+                     ))
+                 
+                 (apply-deltas (f db reader)
+                   (handler-case
+                       (loop for ans = (loenc:deserialize f :self-sync reader)
+                             until   (eq ans f)
+                             finally (normal-exit db)
+                             do
+                               (destructuring-bind (removals additions changes) ans
+                                 (dolist (key removals)
+                                   (setf db (db-remove db key)))
+                                 (dolist (pair additions)
+                                   (destructuring-bind (key . val) pair
+                                     (setf db (db-add db key val))))
+                                 (dolist (pair changes)
+                                   (destructuring-bind (key . val) pair
+                                     (setf db (db-add db key val))))
+                                 ))
+                     (error ()
+                       ;; happens when can't deserialize properly
+                       (if (yes-or-no-p
+                            "Corrupt deltas encountered: ~S. Rebuild?"
+                            db-path)
+                           (prep-and-save-db db)
+                         ;; else
+                         (error 'corrupt-deltas :path db-path)) )
+                     )))
+          
+          (handler-case
+              (with-open-file (f db-path
+                                 :direction         :input
+                                 :if-does-not-exist :error
+                                 :element-type      '(unsigned-byte 8))
+                (check-kvdb-sig f db-path)
+                (let* ((db     (try-deserialize-db f))
+                       (reader (self-sync:make-reader f)))
+                  (apply-deltas f db reader)
+                  ))
+            
+            (file-error (err)
+              (if (yes-or-no-p
+                   "File does not exist: ~S. Create?"
+                   (file-error-pathname err))
+                  (prep-and-save-new-db)
+                ;; else
+                (error err)))
+            
+            (not-a-kvdb (err)
+              (if (yes-or-no-p
+                   "Not a KVDB file: ~S. Rename existing and create new?"
+                   (not-a-kvdb-path err))
+                  (prep-and-save-new-db)
+                ;; else
+                (error err)))
+            )))))
+   ))
   
 ;; --------------------------------------------------------------------
 
