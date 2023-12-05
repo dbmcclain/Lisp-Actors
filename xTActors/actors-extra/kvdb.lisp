@@ -577,22 +577,23 @@
                          (error 'corrupt-kvdb :path db-path)))
                      ))
                  
-                 (apply-deltas (f db reader)
+                 (apply-deltas (f db)
                    (handler-case
-                       (loop for ans = (loenc:deserialize f :self-sync reader)
-                             until   (eq ans f)
-                             finally (normal-exit db)
-                             do
-                               (destructuring-bind (removals additions changes) ans
-                                 (dolist (key removals)
-                                   (setf db (db-remove db key)))
-                                 (dolist (pair additions)
-                                   (destructuring-bind (key . val) pair
-                                     (setf db (db-add db key val))))
-                                 (dolist (pair changes)
-                                   (destructuring-bind (key . val) pair
-                                     (setf db (db-add db key val))))
-                                 ))
+                       (let ((reader (self-sync:make-reader f)))
+                         (loop for ans = (loenc:deserialize f :self-sync reader)
+                               until   (eq ans f)
+                               finally (normal-exit db)
+                               do
+                                 (destructuring-bind (removals additions changes) ans
+                                   (dolist (key removals)
+                                     (setf db (db-remove db key)))
+                                   (dolist (pair additions)
+                                     (destructuring-bind (key . val) pair
+                                       (setf db (db-add db key val))))
+                                   (dolist (pair changes)
+                                     (destructuring-bind (key . val) pair
+                                       (setf db (db-add db key val))))
+                                   )))
                      (error ()
                        ;; happens when can't deserialize properly
                        (if (yes-or-no-p
@@ -609,10 +610,7 @@
                                  :if-does-not-exist :error
                                  :element-type      '(unsigned-byte 8))
                 (check-kvdb-sig f db-path)
-                (let* ((db     (try-deserialize-db f))
-                       (reader (self-sync:make-reader f)))
-                  (apply-deltas f db reader)
-                  ))
+                (apply-deltas f  (try-deserialize-db f)))
             
             (file-error (err)
               (if (yes-or-no-p
