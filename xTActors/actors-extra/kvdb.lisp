@@ -320,11 +320,14 @@
   (alambda
    ((cust :req-excl owner timeout) / (and (realp timeout)
                                           (plusp timeout))
+    ;; ignored unless timeout is positive real number
     ;; request exclusive :commit access
-    ;; customer must promise to either :commit or :abort
-    (send cust db)
-    (send-after timeout self saver 'forced-abort)
-    (become (busy-trans-gate-beh saver db owner nil)))
+    ;; customer must either :commit or :abort within timeout period
+    (let ((fa-tag (tag self)))
+      (send cust db)
+      (send-after timeout fa-tag 'forced-abort)
+      (become (busy-trans-gate-beh saver db owner fa-tag nil))
+      ))
    
    ;; -------------------
    ;; commit after update
@@ -337,7 +340,7 @@
                  (t
                   ;; changed db, so commit new
                   (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
-                    ;; version key is actually 'com.ral.actors.kv-database::version
+                    ;; version key is actually 'com.ral.actors.kvdb::version
                     (become (trans-gate-beh saver versioned-db))
                     (send-after 10 self saver versioned-db)
                     (send cust versioned-db)))
@@ -359,7 +362,7 @@
 
 ;; ----------------------------------------------------------------
 
-(defun busy-trans-gate-beh (saver db owner queue)
+(defun busy-trans-gate-beh (saver db owner fa-tag queue)
   (lambda (&rest msg)
     (labels ((release (cust db)
                (send cust db)
@@ -368,7 +371,7 @@
                (become (trans-gate-beh saver db)))
 
              (stash ()
-               (become (busy-trans-gate-beh saver db owner (addq queue msg)))))
+               (become (busy-trans-gate-beh saver db owner fa-tag (addq queue msg)))))
       
       (match msg
         ((acust :req-excl an-owner _)
@@ -380,7 +383,7 @@
          ;; relinquish excl :commit ownership
          (release acust db))
 
-        ((atag 'forced-abort)  / (eql atag saver)
+        ((atag 'forced-abort)  / (eql atag fa-tag)
          (release sink db))
       
         ;; -------------------
@@ -394,7 +397,7 @@
                       (t
                        ;; changed db, so commit new
                        (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
-                         ;; version key is actually 'com.ral.actors.kv-database::version
+                         ;; version key is actually 'com.ral.actors.kvdb::version
                          (send-after 10 self saver versioned-db)
                          (release acust versioned-db)))
                       ))
