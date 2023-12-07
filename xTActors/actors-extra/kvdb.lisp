@@ -300,123 +300,142 @@
 
 ;; ----------------------------------------------------------------
 
-(defun common-trans-beh (saver db msg)
-  (match msg
-    ;; -------------------
-    ;; general entry for external clients
-    ((cust :req)
-     (send cust db))
-    
-    ;; -------------------
-    ;; We are the only one that knows the identity of saver, so this
-    ;; can't be forged by malicious clients. Also, a-db will only
-    ;; eql db if there have been no updates within the last 10 sec.
-    ((a-tag a-db) / (and (eql a-tag saver)
-                         (eql a-db  db))
-     (send saver sink :save-log db))
-    ))
+(defun common-trans-beh (msg state)
+  (with-state-vals ((db    :db)
+                    (saver :saver)) state
+    (match msg
+      ;; -------------------
+      ;; general entry for external clients
+      ((cust :req)
+       (send cust db))
+      
+      ;; -------------------
+      ;; We are the only one that knows the identity of saver, so this
+      ;; can't be forged by malicious clients. Also, a-db will only
+      ;; eql db if there have been no updates within the last 10 sec.
+      ((a-tag a-db) / (and (eql a-tag saver)
+                           (eql a-db  db))
+       (send saver sink :save-log db))
+      )))
 
-(defun trans-gate-beh (saver db)
-  (alambda
-   ((cust :req-excl owner timeout) / (and (realp timeout)
-                                          (plusp timeout))
-    ;; ignored unless timeout is positive real number
-    ;; request exclusive :commit access
-    ;; customer must either :commit or :abort within timeout period
-    (let ((fa-tag (tag self)))
-      (send cust db)
-      (send-after timeout fa-tag 'forced-abort)
-      (become (busy-trans-gate-beh saver db owner fa-tag nil))
-      ))
-   
-   ;; -------------------
-   ;; commit after update
-   (( (cust . retry) :commit old-db new-db)
-    (cond ((eql old-db db) ;; make sure we have correct version
-           (cond ((eql new-db db)
-                  ;; no real change
-                  (send cust new-db))
-                 
-                 (t
-                  ;; changed db, so commit new
-                  (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
-                    ;; version key is actually 'com.ral.actors.kvdb::version
-                    (become (trans-gate-beh saver versioned-db))
-                    (send-after 10 self saver versioned-db)
-                    (send cust versioned-db)))
-                 ))
-          
-          (t
-           ;; had wrong version for old-db
-           (send retry db))
-          ))
-   
-   (('maint-full-save)
-    (let ((new-db (db-rebuild db)))
-      (become (trans-gate-beh saver new-db))
-      (send saver sink :full-save new-db)))
-   
-   (msg
-    (common-trans-beh saver db msg))
-   ))
+;; ------------------------------
+
+(defun trans-gate-beh (state)
+  (with-state-vals ((db    :db)
+                    (saver :saver)) state
+    (alambda
+     ((cust :req-excl owner timeout) / (and (realp timeout)
+                                            (plusp timeout))
+      ;; ignored unless timeout is positive real number
+      ;; request exclusive :commit access
+      ;; customer must either :commit or :abort within timeout period
+      (let ((fa-tag (tag self)))
+        (send cust db)
+        (send-after timeout fa-tag 'forced-abort)
+        (become (busy-trans-gate-beh (state-with state
+                                                 :owner  owner
+                                                 :fa-tag fa-tag)))
+        ))
+     
+     ;; -------------------
+     ;; commit after update
+     (( (cust . retry) :commit old-db new-db)
+      (cond ((eql old-db db)  ;; make sure we have correct version
+             (cond ((eql new-db db)
+                    ;; no real change
+                    (send cust db))
+                   
+                   (t
+                    ;; changed db, so commit new
+                    (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
+                      ;; version key is actually 'com.ral.actors.kvdb::version
+                      (become (trans-gate-beh (state-with state
+                                                          :db versioned-db)))
+                      (send-after 10 self saver versioned-db)
+                      (send cust versioned-db)))
+                   ))
+            
+            (t
+             ;; had wrong version for old-db
+             (send retry db))
+            ))
+     
+     (('maint-full-save)
+      (let ((new-db (db-rebuild db)))
+        (become (trans-gate-beh (state-with state
+                                            :db new-db)))
+        (send saver sink :full-save new-db)))
+     
+     (msg
+      (common-trans-beh msg state))
+     )))
 
 ;; ----------------------------------------------------------------
 
-(defun busy-trans-gate-beh (saver db owner fa-tag queue)
-  (lambda (&rest msg)
-    (labels ((release (cust db)
-               (send cust db)
-               (do-queue (msg queue)
-                 (send* self msg))
-               (become (trans-gate-beh saver db)))
-
-             (stash ()
-               (become (busy-trans-gate-beh saver db owner fa-tag (addq queue msg)))))
-      
-      (match msg
-        ((acust :req-excl an-owner _)
-         (if (eql an-owner owner)
-             (send acust db)
-           (stash)))
-        
-        ((acust :abort an-owner) / (eql an-owner owner)
-         ;; relinquish excl :commit ownership
-         (release acust db))
-
-        ((atag 'forced-abort)  / (eql atag fa-tag)
-         (release sink db))
-      
-        ;; -------------------
-        ;; commit after update from owner, then relinquish excl :commit ownership
-        (( (acust . an-owner) :commit old-db new-db) / (eql an-owner owner)
-         (cond ((eql old-db db) ;; make sure we have correct version
-                (cond ((eql new-db db)
-                       ;; no real change
-                       (release acust db))
-
-                      (t
-                       ;; changed db, so commit new
-                       (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
-                         ;; version key is actually 'com.ral.actors.kvdb::version
-                         (send-after 10 self saver versioned-db)
-                         (release acust versioned-db)))
-                      ))
+(defun busy-trans-gate-beh (state)
+  (with-state-vals ((db     :db)
+                    (saver  :saver)
+                    (owner  :owner)
+                    (fa-tag :fa-tag)
+                    (queue  :queue)) state
+    (lambda (&rest msg)
+      (labels ((release (cust new-db)
+                 (send cust new-db)
+                 (do-queue (msg queue)
+                   (send* self msg))
+                 (become (trans-gate-beh (actor-state
+                                          :db    new-db
+                                          :saver saver))))
                
-               (t
-                ;; Sender must not have included the original db to
-                ;; check against.  This is a programming error...
-                (error "Should not happen"))
-               ))
-      
-      ((_ :commit . _)
-       (stash))
-      
-      (('maint-full-save)
-       (stash))
-
-      (_
-       (common-trans-beh saver db msg))
-      ))))
+               (stash ()
+                 (become (busy-trans-gate-beh (state-with state
+                                                          :queue (addq queue msg)))
+                         )))
+        
+        (match msg
+          ((acust :req-excl an-owner _)
+           (if (eql an-owner owner)
+               (send acust db)
+             (stash)))
+          
+          ((acust :abort an-owner) / (eql an-owner owner)
+           ;; relinquish excl :commit ownership
+           (release acust db))
+          
+          ((atag 'forced-abort)  / (eql atag fa-tag)
+           (release sink db))
+          
+          ;; -------------------
+          ;; commit after update from owner, then relinquish excl :commit ownership
+          (( (acust . an-owner) :commit old-db new-db) / (eql an-owner owner)
+           (cond ((eql old-db db) ;; make sure we have correct version
+                  (cond ((eql new-db db)
+                         ;; no real change
+                         (release acust db))
+                        
+                        (t
+                         ;; changed db, so commit new
+                         (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
+                           ;; version key is actually 'com.ral.actors.kvdb::version
+                           (send-after 10 self saver versioned-db)
+                           (release acust versioned-db)))
+                        ))
+                 
+                 (t
+                  ;; Sender must not have included the original db to
+                  ;; check against.  This is a programming error...
+                  (error "Should not happen"))
+                 ))
+          
+          ((_ :commit . _)
+           (stash))
+          
+          (('maint-full-save)
+           (stash))
+          
+          (_
+           (common-trans-beh msg state))
+          )))))
 
 ;; ----------------------------------------------------------------
 
@@ -427,7 +446,9 @@
   ;; itself.
   (alambda
    ((a-tag :opened db) / (eql a-tag tag)
-    (become (trans-gate-beh saver db))
+    (become (trans-gate-beh (actor-state
+                             :db    db
+                             :saver saver)))
     ;; now open for business, resubmit pending client requests
     (send-all-to self msgs))
    

@@ -34,6 +34,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 #-(OR :LISPWORKS :SBCL) (:file "ansi-timer")
 		(:file "cheapq")
                 (:file "globals")
+                (:file "actor-state")
                 (:file "macros")
                 #-:actors-experiments (:file "actor-types")
                 #+:actors-experiments (:file "actor-classes")

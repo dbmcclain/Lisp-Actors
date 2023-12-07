@@ -305,6 +305,11 @@ THE SOFTWARE.
    #:β!    ;; BECOME
    #:!β    ;; BECOME (for us dyslexics)
    #:αλ    ;; ALAMBDA
+
+   #:actor-state
+   #:state-with
+   #:state-val
+   #:with-state-vals
    ))
 
 #+(OR :ALLEGRO :CCL)
