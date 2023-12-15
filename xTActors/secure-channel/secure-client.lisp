@@ -211,7 +211,6 @@
       (parse-remote-actor id)
     (remote-service name host-ip-addr)))
 
-#|
 (defun remote-service (name host-ip-addr)
   ;; An Actor and send target. Connection to remote service
   ;; established on demand.
@@ -221,14 +220,6 @@
          (>> client-gateway β host-ip-addr)
        (>>* chan cust name msg))
      )))
-|#
-(defun remote-service (name host-ip-addr)
-  ;; An Actor and send target. Connection to remote service
-  ;; established on demand.
-  (create
-   (lambda (cust &rest msg)
-     (>>* (fut client-gateway host-ip-addr) cust name msg))
-   ))
 
 ;; ------------------------------------------------------------
 #|
