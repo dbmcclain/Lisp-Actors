@@ -350,23 +350,20 @@
 (defun find-connection-using-sender (cnx-lst sender)
   (find sender cnx-lst :key #'connection-rec-sender))
 
-(defun find-and-remove-using-ip (cnx-lst ip-addr ip-port)
-  (let ((rec (find-connection-using-ip cnx-lst ip-addr ip-port)))
+(defun find-and-remove (cnx-lst finder-fn &rest args)
+  (let ((rec (apply finder-fn cnx-lst args)))
     (when rec
-      (values rec (remove rec cnx-lst))
-      )))
+      (values rec (remove rec cnx-lst)))
+    ))
+
+(defun find-and-remove-using-ip (cnx-lst ip-addr ip-port)
+  (find-and-remove cnx-lst #'find-connection-using-ip ip-addr ip-port))
 
 (defun find-and-remove-using-state (cnx-lst state)
-  (let ((rec (find-connection-using-state cnx-lst state)))
-    (when rec
-      (values rec (remove rec cnx-lst))
-      )))
+  (find-and-remove cnx-lst #'find-connection-using-state state))
 
 (defun find-and-remove-using-sender (cnx-lst sender)
-  (let ((rec (find-connection-using-sender cnx-lst sender)))
-    (when rec
-      (values rec (remove rec cnx-lst))
-      )))
+  (find-and-remove cnx-lst #'find-connection-using-sender sender))
 
 ;; ---------------------
 ;; A global counter to label instances of server connections from this
