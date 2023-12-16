@@ -198,28 +198,27 @@
 
 (defun parse-remote-actor (id)
   ;; parse id in form "eval@arroyo.local:65001"
-  (let ((apos (position #\@ id)))
+  (let* ((sid  (string id))
+         (apos (position #\@ sid)))
     (if apos
-        (values (um:kwsymbol (subseq id 0 apos))
-                (subseq id (1+ apos)))
-      (error "No service specified: ~S" id)
-      )))
+        (values (um:kwsymbol (subseq sid 0 apos))
+                (subseq sid (1+ apos)))
+      (values (um:kwsymbol sid)))
+    ))
 
-(defun remote-service-by-id (id)
-  ;; id string: "svc@ipaddr:port"
-  (multiple-value-bind (name host-ip-addr)
-      (parse-remote-actor id)
-    (remote-service name host-ip-addr)))
-
-(defun remote-service (name host-ip-addr)
+(defun remote-service (name &optional host-ip-addr)
   ;; An Actor and send target. Connection to remote service
   ;; established on demand.
-  (create
-   (lambda (cust &rest msg)
-     (β (chan)
-         (>> client-gateway β host-ip-addr)
-       (>>* chan cust name msg))
-     )))
+  (let+ ((:mvb (svc host) (parse-remote-actor name))
+         (host (or host host-ip-addr)))
+    (unless host
+      (error "No server host specified: ~S" name))
+    (create
+     (lambda (cust &rest msg)
+       (β (chan)
+           (>> client-gateway β host)
+         (>>* chan cust svc msg))
+       ))))
 
 ;; ------------------------------------------------------------
 #|
