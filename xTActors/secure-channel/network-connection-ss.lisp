@@ -564,10 +564,10 @@
       (when rec
         ;; leaves all waiting custs hanging...
         (let+ ((:slots (report-ip-addr) rec)
-               (new-lst (remove-if same-ip cnx-lst)))
+               (new-lst (remove rec cnx-lst)))
           (β! (connections-list-beh new-lst))
           (on-commit
-            ;; ...would also prevent us from updating the list...
+            ;; ...would otherwise prevent us from updating the list...
             (error "Can't connect to: ~S" report-ip-addr))
           ))))
 
@@ -685,8 +685,7 @@
     (>> cust :ok)
     (let ((rec (find-connection-from-state cnx-lst state)))
       (when rec
-        (let ((new-lst (remove state cnx-lst ;; should only be one...
-                               :key #'connection-rec-state)))
+        (let ((new-lst (remove rec cnx-lst)))
           (β! (connections-list-beh new-lst))
           ))))
    ))
