@@ -350,7 +350,7 @@
 (defun find-connection-using-sender (cnx-lst sender)
   (find sender cnx-lst :key #'connection-rec-sender))
 
-(defun replace-rec (cnx-lst rec new-rec)
+(defun replace-connection (cnx-lst rec new-rec)
   (cons new-rec (remove rec cnx-lst :count 1)))
 
 ;; ---------------------
@@ -451,7 +451,7 @@
                                        :ip-port  ip-port
                                        :state    new-state
                                        :sender   sender))
-                             (new-cnx (replace-rec cnx-lst rec new-rec)))
+                             (new-cnx (replace-connection cnx-lst rec new-rec)))
                         (β! (connections-list-beh new-cnx))
                         ))
                      
@@ -460,7 +460,7 @@
                              (new-rec   (copy-with rec
                                                    :state  new-state
                                                    :sender sender))
-                             (new-cnx (replace-rec cnx-lst rec new-rec)))
+                             (new-cnx (replace-connection cnx-lst rec new-rec)))
                         (unless (or (null old-state)
                                     (eql old-state new-state))
                           (>> shutdown))
@@ -507,7 +507,7 @@
                  ;; waiting custs so join the crowd
                  (let+ ((new-rec (copy-with rec
                                             :custs (cons cust custs)))
-                        (new-cnx (replace-rec cnx-lst rec new-rec)))
+                        (new-cnx (replace-connection cnx-lst rec new-rec)))
                    (β! (connections-list-beh new-cnx))))
 
                 (t
@@ -664,7 +664,7 @@
                (new-rec  (copy-with rec
                                     :chan  chan
                                     :custs nil))
-               (new-cnx (replace-rec cnx-lst rec new-rec)))
+               (new-cnx (replace-connection cnx-lst rec new-rec)))
           (β! (connections-list-beh new-cnx))
           (when custs
             (let+ ((:mvb (peer-ip peer-port)
