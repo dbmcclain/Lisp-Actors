@@ -351,7 +351,7 @@
   (find sender cnx-lst :key #'connection-rec-sender))
 
 (defun replace-rec (cnx-lst rec new-rec)
-  (cons new-rec (remove rec cnx-lst)))
+  (cons new-rec (remove rec cnx-lst :count 1)))
 
 ;; ---------------------
 ;; A global counter to label instances of server connections from this
@@ -567,7 +567,7 @@
       (when rec
         ;; leaves all waiting custs hanging...
         (let+ ((:slots (report-ip-addr) rec))
-          (β! (connections-list-beh (remove rec cnx-lst)))
+          (β! (connections-list-beh (remove rec cnx-lst :count 1)))
           (on-commit
             ;; ...would otherwise prevent us from updating the list...
             (error "Can't connect to: ~S" report-ip-addr))
@@ -687,7 +687,7 @@
     (>> cust :ok)
     (let ((rec (find-connection-using-state cnx-lst state)))
       (when rec
-        (β! (connections-list-beh (remove rec cnx-lst)))
+        (β! (connections-list-beh (remove rec cnx-lst :count 1)))
         )))
    ))
 
