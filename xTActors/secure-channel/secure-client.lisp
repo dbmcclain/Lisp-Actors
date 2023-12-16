@@ -199,11 +199,11 @@
 (defun parse-remote-actor (id)
   ;; parse id in form "eval@arroyo.local:65001"
   (let* ((sid  (string id))
-         (apos (position #\@ sid)))
+         (apos (position #\@ sid))
+         (svc  (um:kwsymbol (subseq sid 0 apos))))
     (if apos
-        (values (um:kwsymbol (subseq sid 0 apos))
-                (subseq sid (1+ apos)))
-      (values (um:kwsymbol sid)))
+        (values svc (subseq sid (1+ apos)))
+      svc)
     ))
 
 (defun remote-service (name &optional host-ip-addr)
