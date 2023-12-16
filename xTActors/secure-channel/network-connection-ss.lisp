@@ -350,20 +350,8 @@
 (defun find-connection-using-sender (cnx-lst sender)
   (find sender cnx-lst :key #'connection-rec-sender))
 
-(defun find-and-remove (cnx-lst finder-fn &rest args)
-  (let ((rec (apply finder-fn cnx-lst args)))
-    (when rec
-      (values rec (remove rec cnx-lst)))
-    ))
-
-(defun find-and-remove-using-ip (cnx-lst ip-addr ip-port)
-  (find-and-remove cnx-lst #'find-connection-using-ip ip-addr ip-port))
-
-(defun find-and-remove-using-state (cnx-lst state)
-  (find-and-remove cnx-lst #'find-connection-using-state state))
-
-(defun find-and-remove-using-sender (cnx-lst sender)
-  (find-and-remove cnx-lst #'find-connection-using-sender sender))
+(defun replace-rec (cnx-lst rec new-rec)
+  (cons new-rec (remove rec cnx-lst)))
 
 ;; ---------------------
 ;; A global counter to label instances of server connections from this
@@ -454,16 +442,17 @@
    |#
    ((cust :add-socket ip-addr ip-port new-state sender)
     (>> cust :ok)
-    (let+ ((:mvb (rec trimmed) (find-and-remove-using-ip cnx-lst ip-addr ip-port)))
+    (let ((rec (find-connection-using-ip cnx-lst ip-addr ip-port)))
       (cond (rec
              (let+ ((:slots ((old-state state)) rec))
                (cond ((eql :pending-server old-state)
-                      (let ((new-rec (make-connection-rec
-                                      :ip-addr  ip-addr
-                                      :ip-port  ip-port
-                                      :state    new-state
-                                      :sender   sender)))
-                        (β! (connections-list-beh (cons new-rec trimmed)))
+                      (let+ ((new-rec (make-connection-rec
+                                       :ip-addr  ip-addr
+                                       :ip-port  ip-port
+                                       :state    new-state
+                                       :sender   sender))
+                             (new-cnx (replace-rec cnx-lst rec new-rec)))
+                        (β! (connections-list-beh new-cnx))
                         ))
                      
                      (t
@@ -471,11 +460,11 @@
                              (new-rec   (copy-with rec
                                                    :state  new-state
                                                    :sender sender))
-                             (new-lst (cons new-rec trimmed)))
+                             (new-cnx (replace-rec cnx-lst rec new-rec)))
                         (unless (or (null old-state)
                                     (eql old-state new-state))
                           (>> shutdown))
-                        (β! (connections-list-beh new-lst))
+                        (β! (connections-list-beh new-cnx))
                         ))
                      )))
            
@@ -509,17 +498,17 @@
     connection with the server.
    |#
    ((cust :find-socket ip-addr ip-port report-ip-addr handshake)
-    (let+ ((:mvb (rec trimmed)  (find-and-remove-using-ip cnx-lst ip-addr ip-port)))
+    (let ((rec (find-connection-using-ip cnx-lst ip-addr ip-port)))
       (cond
        (rec
         (let+ ((:slots (custs
                         chan) rec))
           (cond (custs
                  ;; waiting custs so join the crowd
-                 (let* ((new-rec (copy-with rec
+                 (let+ ((new-rec (copy-with rec
                                             :custs (cons cust custs)))
-                        (new-lst (cons new-rec trimmed)))
-                   (β! (connections-list-beh new-lst))))
+                        (new-cnx (replace-rec cnx-lst rec new-rec)))
+                   (β! (connections-list-beh new-cnx))))
 
                 (t
                  ;; no waiting list - just go
@@ -537,9 +526,9 @@
                          :report-ip-addr report-ip-addr
                          :handshake      handshake
                          :custs          (list cust)))
-               (new-lst (cons new-rec cnx-lst))
+               (new-cnx (cons new-rec cnx-lst))
                (me      self))
-          (β! (connections-list-beh new-lst))
+          (β! (connections-list-beh new-cnx))
           (let+ ((:β (io-state . args)  (racurry async-socket-system
                                                  :connect ip-addr ip-port) ))
             (cond
@@ -574,11 +563,11 @@
    |#
    ((cust :abort ip-addr ip-port)
     (>> cust :ok)
-    (let+ ((:mvb (rec trimmed) (find-and-remove-using-ip cnx-lst ip-addr ip-port)))
+    (let ((rec (find-connection-using-ip cnx-lst ip-addr ip-port)))
       (when rec
         ;; leaves all waiting custs hanging...
         (let+ ((:slots (report-ip-addr) rec))
-          (β! (connections-list-beh trimmed))
+          (β! (connections-list-beh (remove rec cnx-lst)))
           (on-commit
             ;; ...would otherwise prevent us from updating the list...
             (error "Can't connect to: ~S" report-ip-addr))
@@ -666,7 +655,7 @@
    |#
    ((cust :set-channel sender chan)
     (>> cust :ok)
-    (let+ ((:mvb (rec trimmed) (find-and-remove-using-sender cnx-lst sender)))
+    (let ((rec (find-connection-using-sender cnx-lst sender)))
       (when rec
         (let+ ((:slots (custs
                         state
@@ -675,8 +664,8 @@
                (new-rec  (copy-with rec
                                     :chan  chan
                                     :custs nil))
-               (new-cnxs (cons new-rec trimmed)))
-          (β! (connections-list-beh new-cnxs))
+               (new-cnx (replace-rec cnx-lst rec new-rec)))
+          (β! (connections-list-beh new-cnx))
           (when custs
             (let+ ((:mvb (peer-ip peer-port)
                     #+:LISPWORKS8
@@ -696,9 +685,9 @@
    |#
    ((cust :remove state)
     (>> cust :ok)
-    (let+ ((:mvb (rec trimmed) (find-and-remove-using-state cnx-lst state)))
+    (let ((rec (find-connection-using-state cnx-lst state)))
       (when rec
-        (β! (connections-list-beh trimmed))
+        (β! (connections-list-beh (remove rec cnx-lst)))
         )))
    ))
 
