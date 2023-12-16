@@ -103,6 +103,7 @@
    (lambda (cust rand-pt aes-packet)
      (let+ ((:β (skey) ecc-skey))
        (ignore-errors
+         (ed-validate-point rand-pt)
          (let+ ((enc-pt   (ed-mul rand-pt skey))
                 (aes-key  (vec (hash/256 :ecc-cnx-key enc-pt)))
                 (info     (decode-aes-packet aes-key aes-packet)))

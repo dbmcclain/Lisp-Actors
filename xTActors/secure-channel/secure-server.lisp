@@ -38,9 +38,8 @@
      (let+ ((:β (client-pkey)  (racurry eccke:ecc-pkey client-pkeyid)) )
        (when client-pkey
          (ignore-errors
-           (let+ ((:mvb (apt client-pkey)  (values (ed-validate-point apt)
-                                                   (ed-validate-point client-pkey)) )
-                  (:β (cnx-id)             (racurry local-services :add-service global-services))
+           (ed-validate-point client-pkey)
+           (let+ ((:β (cnx-id)             (racurry local-services :add-service global-services))
                   (:β (brand bpt aescrypt) (racurry eccke:ecc-cnx-encrypt
                                                     client-pkey client-id cnx-id))
                   (:β (my-skey)            eccke:ecc-skey)

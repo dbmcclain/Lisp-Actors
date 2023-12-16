@@ -329,6 +329,8 @@ arguments when given."
 (defmethod do-let+ (fst binding form)
   ;; default case
   `(let (,binding)
+     ,@(when (is-underscore? fst)
+         `((declare (ignore ,fst))))
      ,form))
 
 (defmacro let+ (bindings &body body)

@@ -8,36 +8,72 @@
 ;; Client side
 
 ;; ------------------------------------------------------------------
-;; ECDH Shared Key Development for Repudiable Communications
+;; X3DH Shared Key Development for Repudiable Communications
 ;;
 ;;     -- Initial Keying Exchanges --
+;;
+;;  Given: Client identified by Client-PKey-ID (a UUID)
+;;         Server identified by Server-PKey-ID (a UUID)
+;;
 ;;  Client                       Server
 ;;  ------                       ------
-;;  APt = a*G, a random
-;;  Ephem-ID APt Client-PKey --> +SERVER-CONNECT-ID+
-;;                               BPt = b*G, b random
-;;                  Ephem-ID <-- CnxID BPt Server-PKey
+;;  APt  = a*G, a random
+;;  Server-PKey = Lookup(Server-PKey-ID)
+;;  EKey = H(a*Server-PKey)
+;;  IV   = H(EKey, new UUID)
+;;  Ephem-ID = new UUID for comm channel
+;;  ctxt = E(EKey, IV, (+SERVER-CONNECT-ID+, Ephem-ID, Client-PKey-ID))
+;;  sig  = H(EKey, IV, ctxt)
+;;  (APt, (IV, ctxt, chk)) -->
 ;;
-;;    => EKey = H(a*BPt | client-skey*BPt | a*Server-PKey)    ;; at client side
-;;            = H(b*APt | b*Client-PKey   | server-skey*APt)  ;; at server side
-;;            = H(a*b*G | b*c*G | a*s*G)
+;;                               Validate APt pt
+;;                               EKey = H(server-skey * APt)
+;;                               Validate chk = H(EKey, IV, ctxt)
+;;                               (chan, Ephem-ID, Client-PKey-ID) = D(EKey, IV, ctxt)
+
+;;                               -- On chan +SERVER-CONNECT-ID+ -------------------
+;;                               Client-PKey = Lookup(Client-PKey-ID)
+;;                               Validate Client-PKey pt
+;;                               BPt = b*G, b random
+;;                               EKey' = H(b*Client-PKey)
+;;                               IV'   = H(EKey', new UUID)
+;;                               CnxID = new UUID for comm channel
+;;                               ctxt' = E(EKey', IV', (Ephem-ID, CnxID))
+;;                               chk'  = H(EKey', IV', ctxt')
+;;                           <-- (BPt, (IV', ctxt', chk'))
+;;                               Derive shared EKey'' for use on channel CnxID
+;;
+;;  Validate BPt pt
+;;  EKey' = H(client-skey * BPt)
+;;  Validate chk' = H(EKey', IV', ctxt')
+;;  (chan, CnxID) = D(EKey', IV', ctxt')
+;;
+;;  -- On chan Ephem-ID -------------------
+;;  Derive shared EKey'' for use on channel CnxID
+;;  
+;;
+;;    => EKey'' = H(a*BPt | client-skey*BPt | a*Server-PKey)    ;; at client side
+;;              = H(b*APt | b*Client-PKey   | server-skey*APt)  ;; at server side
+;;              = H(a*b*G | b*c*G | a*s*G)
 ;;
 ;; No signatures employed. There are no visible ties of a public key
 ;; to any encryption. All it takes is knowledge of public keys and
 ;; random points.  Anyone can do, even if totally faked. But only the
 ;; two sides participating will understand the resulting shared secret
-;; EKey.
+;; EKey''.
 ;;
-;; During a connection, the abilty to perform a request and receive a
-;; response is proof to both sides that the other controls the secret
-;; key behind the presented public key of the initial keying exchange.
+;; During a connection, the actual key employed is uniquely generated
+;; from EKey'' for each transmission. The abilty to perform a request
+;; and receive a response is proof to both sides that the other
+;; controls the secret key behind the presented public key ID of the
+;; initial keying exchange.
 ;;
 ;; Encryption and authentication have perfect forward secrecy, even
 ;; after a breach which discovers the secret keys for both client and
-;; server. EKey lasts only as long as the client-server connection
-;; remains open. After that EKey is forgotten by both parties. So even
-;; the client and server will not be able to decrypt a log of
-;; encrypted transmissions from prior sessions.
+;; server. The dynamic EKey'' lasts only as long as the client-server
+;; connection remains open. After that EKey'' is forgotten by both
+;; parties. So even the client and server will not be able to decrypt
+;; a log of encrypted transmissions from prior sessions.
 ;;
 ;; Anyone can forge a transcript by making up random (a, b) values for
 ;; the attacker and ther victim, and using their public key along with
@@ -48,17 +84,34 @@
 ;;     ...for all subsequent messages...
 ;;       Client                        Server
 ;;       ------                        ------
-;;       Ephem-ID' Seq E(msg) Auth --> CnxID                 
-;;                       Ephem-ID' <-- Seq' E(response) Auth'  ;; if we generate a response
+;;       IV = H(:NONCE, fresh-UUID, EKey'')
+;;       Key = H(:ENCR, EKey'', IV)
+;;       ctxt = E(Key, IV, (CnxID, msg))
+;;       authKey = H(:AUTH, Key'', IV)
+;;       auth = H(authKey, IV, ctxt)
+;;       (IV, ctxt, auth) -->
+;;                                     Discard duplicate IVs to prevent replay attacks
+;;                                     authKey = H(:AUTH, Key'', IV)
+;;                                     Check auth = H(authKey, IV, ctxt)
+;;                                     Broadcast (:AUTH-KEY, IV, authKey) for refutability
+;;                                     Key = H(:ENCR, EKey'', IV)
+;;                                     (chan, msg) = D(Key, IV, ctxt)
+;;                                     -- on chan CnxID perform message send ----
+;;                                     
 ;;
-;; Connection ID's are always sent in the clear (not encrypted, but
-;; encoded for serialization) so that receivers can dispatch. But
-;; these are randomly generated, ephemeral, UUID's.
+;; If a response is expected, the client message will contain a
+;; customer ID. That takes the place of CnxID in server side messages
+;; using the same protocol.
+;;
+;; The only things visible are the IV, cryptotext, and authentication.
+;; After validating the authentication, the authentication key is
+;; broadcast to the world in the clear, for refutability. The channel
+;; ID and message are kept hidden by encryption with a roving key.
 ;;
 ;; Connections are transparently established for users, and then are
 ;; shut down after some period of inactivity (currently 20s). All the
 ;; user needs to know is the IP Address of the server and the name of
-;; the service. Both parties are completely unaware of EKey and Seq.
+;; the service. Both parties are completely unaware of EKey and IV.
 ;;
 ;; Any computer running an Actors system can behave as both client and
 ;; server. The distinction is merely that clients send requests, and
@@ -66,24 +119,12 @@
 ;;
 ;;   G      = Generator Pt for Curve1174
 ;;   H      = SHA3/256
-;;   Nonce[0] = Int( H(Fresh-UUID/v1) ) < 2^256, init at start of Lisp session
-;;   Nonce[n] = Nonce[n-1] + 2^256, Noncer is global resource for Lisp session.
 ;;
-;;   Seq    = Nonce[++n]
-;;   Auth   = H( H(:AUTH | EKey | Seq) | Seq | E(msg))
-;;   E(msg) = SHAKE256(:ENC | EKey | Seq) XOR msg, effectively a one-time-pad
-;;
-;; Decryption is the same as Encryption.  All Seq are selected from
-;; sequential nonces and label each transmission. Generated
-;; independently on both sides. Allows for avoiding replay attacks.
-;;
-;; For all practical purposes, Nonces are true nonces. They start as
-;; the SHA3/256 of a fresh v1-UUID at the start of a Lisp session, and
-;; are provided to client code on demand. v1-UUID are 60-bit
-;; timestamped and increment every 100ns. Every Noncer request
-;; increments the global nonce by 2^256. Since SHA3/256 < 2^256, and
-;; since nobody has ever seen a hash collision in SHA3/256, these are
-;; essentially unique numbers.
+;; Encryption uses AES/256 in CTR mode. Decryption is the same as
+;; Encryption.  All IV are generated from monotonically increasing
+;; type-1 UUID and label each transmission. Message IV are checked for
+;; uniqueness, and messages with duplicate IV are discarded to prevent
+;; replay attacks.
 ;;
 ;; Prior to encryption and wire transmission, the arbitrary Lisp
 ;; objects of a message are serialized, compressed, and possibly
@@ -94,12 +135,9 @@
 ;; order of message fragments is usually scrambled due to parallel
 ;; concurrent activity and can be arbitrary.
 ;;
-;; Every fragment is assigned a fresh Seq, obtained from the Noncer.
-;; They may not be strictly sequential above 2^256 because other
-;; connections may be requesting Nonces too. But every fresh Seq will
-;; be some increment above the previous one.
+;; Every fragment is assigned a fresh IV, and hence have roving keying.
 ;;
-;; Since Seq is also a component of the encryption and authentication
+;; Since IV is also a component of the encryption and authentication
 ;; keying, every fragment is uniquely encrypted and authenticated. No
 ;; two encryptions of the same fragment will appear the same. This,
 ;; again, relies on SHA3/256 never having seen a hash collision.
@@ -119,13 +157,13 @@
    (lambda (cust socket local-services)
      (let+ ((client-id       (uuid:make-v1-uuid))
             (:β (srv-pkey)   eccke:srv-pkey)
+            (_   (ed-validate-point srv-pkey))
             (:β (my-pkeyid)  eccke:my-pkeyid)
             (:β (arand apt aescrypt) (racurry eccke:ecc-cnx-encrypt
                                               srv-pkey +server-connect-id+ client-id my-pkeyid))
             (responder  (create
                          (alambda
                           ((bpt server-id) /  (and (typep bpt         'ecc-pt)
-                                                   (ed-validate-point bpt)
                                                    (typep server-id   'uuid:uuid))
                            (let+ ((:β (my-skey)  eccke:ecc-skey)
                                   (ekey  (hash/256 (ed-mul bpt arand)           ;; B*a
