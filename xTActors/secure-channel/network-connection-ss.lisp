@@ -555,6 +555,13 @@
 
                 (t
                  ;; no waiting list - just go
+                 (unless (member report-ip-addr report-ip-addrs
+                                 :test #'string-equal)
+                   (let+ ((new-rec (copy-with rec
+                                              :report-ip-addrs (cons report-ip-addr report-ip-addrs)))
+                          (new-cnx (replace-connection cnx-lst rec new-rec)))
+                     (β! (connections-list-beh new-cnx))
+                     ))
                  (>> cust chan))
                 )))
 
@@ -628,7 +635,7 @@
     those involved in the DH crypto-dance of the initial handshake
     with the server. And even that is encrypted in a different way.
    
-    When an initial TCP connection is esablished with a server on
+    When an initial TCP connection is established with a server on
     the network, that server just sits there silently waiting for
     the handshake dance to begin from the client side. The server
     only responds if it recognizes the client and its encrypted
@@ -653,23 +660,30 @@
     decoders for these serial protocols will be able to read what is
     sent.
     ------------------------------------------------------------
-    ;; The initial DH handshake sends encrypted random numbers across
-    ;; the cleartext link, along with small AES encrypted packets
-    ;; containing connection info for each party.
+    ;; The initial X3DH handshake sends encrypted random numbers
+    ;; across the cleartext link, along with small AES encrypted
+    ;; packets containing connection info for each party.
     ;;
-    ;; For both Lattice Crypto and ECC we are immune to attack from
-    ;; Quantum Computing during the initial DH handshake dance. In the
-    ;; case of Lattice Crypto, the algorithms employed give no
-    ;; advantage to QC.
+    ;; For Lattice Crypto, QC offers no advantage.
+    ;;
+    ;; For ECC we are subject to Shor's Algorithm O(log^2 N) for the
+    ;; DLP, so we must choose a sufficiently large key size for
+    ;; protection.
     ;;
     ;; But even in the case of ECC vulnerabilities against Schorr's
     ;; Algorithm in QC, busting open our crypto keying provides no
     ;; advantage because the messages passed are merely random numbers
     ;; and have no overt relation to the AES keying in the data
-    ;; packets. No public keys are sent except under AES encryption.
+    ;; packets.
     ;;
-    ;; With SHA3 hashes and AES encryption, our data packets are
-    ;; immune to QC attack.
+    ;; No public keys are sent across the connection, just UUID's that
+    ;; refer to previously arranged public keys. Cracking would have
+    ;; to know the implicit public keys involved on both sides of the
+    ;; communication channel. Those may be generally known for
+    ;; advertised server nodes, but not for client nodes.
+    ;;
+    ;; With SHA3 hashes and AES/256 encryption, our data packets are
+    ;; resistant to QC attack by Grover's Algorithm, O(Sqrt N).
    |#
    ((cust :negotiate state socket)
     (let ((rec (find-connection-using-sender cnx-lst socket)))
