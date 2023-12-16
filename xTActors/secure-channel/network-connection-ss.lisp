@@ -515,7 +515,7 @@
                    )))
           
           ((integerp addr)
-           (send self cust :find-socket addr port (format nil "~D" addr) handshake))
+           (send self cust :find-socket addr port (comm:ip-address-string addr) handshake))
           ))
 
    #| --------------------------------------------
@@ -882,19 +882,6 @@
                  (read-from-string (subseq addr (1+ cpos))))
        addr))))
 
-#|
-(deflex client-connector
-  ;; Called from client side wishing to connect to a server.
-  (create
-   (lambda (cust handshake ip-addr &optional (ip-port *default-port*))
-     (let+ ((:mvb (addr port)  (parse-ip-addr ip-addr))
-            (clean-ip-addr (canon-ip-addr addr))
-            (port          (or port ip-port *default-port*)))
-       (unless clean-ip-addr
-         (error "Unknown host: ~S" ip-addr))
-       (>> connections cust :find-socket clean-ip-addr port ip-addr handshake)
-       ))))
-|#
 (deflex client-connector
   ;; Called from client side wishing to connect to a server.
   (create
