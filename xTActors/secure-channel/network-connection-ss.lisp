@@ -331,7 +331,7 @@
 
 (defstruct connection-rec
   ip-addr ip-port state sender chan
-  report-ip-addr handshake custs)
+  report-ip-addrs handshake custs)
 
 (defun same-ip-test (ip-addr ip-port)
   (lambda (rec)
@@ -340,9 +340,21 @@
       (and (eql ip-addr rec-ip-addr)
            (eql ip-port rec-ip-port))
       )))
-  
+
+(defun member-ip-test (ip-addr)
+  (lambda (rec)
+    (let+ ((:slots (report-ip-addrs) rec))
+      (member ip-addr report-ip-addrs :test #'string-equal)
+      )))
+
 (defun find-connection-using-ip (cnx-lst ip-addr ip-port)
   (find-if (same-ip-test ip-addr ip-port) cnx-lst))
+
+(defun find-connection-using-report-ip (cnx-lst ip-addr)
+  ;; Search for an existing record with ip-addr as one of its aliases,
+  ;; regardless of its ip-port - it will have been resolved to some
+  ;; DNS supplied IP Addr.
+  (find-if (member-ip-test ip-addr) cnx-lst))
 
 (defun find-connection-using-state (cnx-lst state)
   (find state cnx-lst :key #'connection-rec-state))
@@ -410,10 +422,10 @@
                   (comm:ip-address-string peer-ip)
                   peer-port)
             (>> (create-socket-intf :kind             :server
-                                      :ip-addr          peer-ip
-                                      :ip-port          peer-port
-                                      :report-ip-addr   server-name
-                                      :io-state         io-state)
+                                    :ip-addr          peer-ip
+                                    :ip-port          peer-port
+                                    :report-ip-addr   server-name
+                                    :io-state         io-state)
                   sink))
           ))
        )))
@@ -457,10 +469,10 @@
                      
                      (t
                       (let+ ((:slots (shutdown) old-state)
-                             (new-rec   (copy-with rec
-                                                   :state  new-state
-                                                   :sender sender))
-                             (new-cnx (replace-connection cnx-lst rec new-rec)))
+                             (new-rec  (copy-with rec
+                                                  :state  new-state
+                                                  :sender sender))
+                             (new-cnx  (replace-connection cnx-lst rec new-rec)))
                         (unless (or (null old-state)
                                     (eql old-state new-state))
                           (>> shutdown))
@@ -477,7 +489,35 @@
                (β! (connections-list-beh (cons new-rec cnx-lst)))
                ))
             )))
-  
+
+   #| -------------------------------------------- |#
+   ;; Called by client code. Search for existing connection, avoiding
+   ;; DNS lookup unless absolutely necessary. Any number of aliases
+   ;; for the same connection may exist.
+   ;;
+   ;; The REPORT-IP-ADDRS contains a list of known aliases which have
+   ;; resolved to the recorded IP Addr in the record, if it exists.
+   ;;
+   ;; Otherwise, if no record can be found having the alias, we need
+   ;; to do a DNS lookup and construct a new connection.
+   ((cust :find-connection addr port handshake)
+    (cond ((stringp addr)
+           (let ((rec (find-connection-using-report-ip cnx-lst addr)))
+             (cond (rec
+                    (let+ ((:slots (ip-addr) rec))
+                      (send self cust :find-socket ip-addr port addr handshake)))
+
+                   (t
+                    (let+ ((clean-ip-addr (canon-ip-addr addr)))
+                      (unless clean-ip-addr
+                        (error "Unknown host: ~S" addr))
+                      (send self cust :find-socket clean-ip-addr port addr handshake)))
+                   )))
+          
+          ((integerp addr)
+           (send self cust :find-socket addr port (format nil "~D" addr) handshake))
+          ))
+
    #| --------------------------------------------
     Message :FIND-SOCKET is sent by client Actors on this machine,
     looking for a socket connection to a remote host.
@@ -502,10 +542,13 @@
       (cond
        (rec
         (let+ ((:slots (custs
-                        chan) rec))
+                        chan
+                        report-ip-addrs) rec))
           (cond (custs
                  ;; waiting custs so join the crowd
                  (let+ ((new-rec (copy-with rec
+                                            :report-ip-addrs (adjoin report-ip-addr report-ip-addrs
+                                                                     :test #'string-equal)
                                             :custs (cons cust custs)))
                         (new-cnx (replace-connection cnx-lst rec new-rec)))
                    (β! (connections-list-beh new-cnx))))
@@ -521,11 +564,11 @@
         ;; If a connection succeeds, and the handshake completes,
         ;; then the customer will be notified at that time.
         (let* ((new-rec (make-connection-rec
-                         :ip-addr        ip-addr
-                         :ip-port        ip-port
-                         :report-ip-addr report-ip-addr
-                         :handshake      handshake
-                         :custs          (list cust)))
+                         :ip-addr         ip-addr
+                         :ip-port         ip-port
+                         :report-ip-addrs (list report-ip-addr)
+                         :handshake       handshake
+                         :custs           (list cust)))
                (new-cnx (cons new-rec cnx-lst))
                (me      self))
           (β! (connections-list-beh new-cnx))
@@ -566,11 +609,11 @@
     (let ((rec (find-connection-using-ip cnx-lst ip-addr ip-port)))
       (when rec
         ;; leaves all waiting custs hanging...
-        (let+ ((:slots (report-ip-addr) rec))
+        (let+ ((:slots (report-ip-addrs) rec))
           (β! (connections-list-beh (remove rec cnx-lst :count 1)))
           (on-commit
             ;; ...would otherwise prevent us from updating the list...
-            (error "Can't connect to: ~S" report-ip-addr))
+            (error "Can't connect to: ~S" (car report-ip-addrs)))
           ))))
 
    #| --------------------------------------------
@@ -659,7 +702,7 @@
       (when rec
         (let+ ((:slots (custs
                         state
-                        report-ip-addr) rec)
+                        report-ip-addrs) rec)
                (:slots (io-state) state)
                (new-rec  (copy-with rec
                                     :chan  chan
@@ -673,7 +716,7 @@
                     #+:LISPWORKS7
                     (comm:get-socket-peer-address (slot-value io-state 'comm::object)) ))
               (>> fmt-println "Client Socket (~S->~A:~D) starting up"
-                    report-ip-addr
+                    (car report-ip-addrs)
                     (comm:ip-address-string peer-ip)
                     peer-port))
             (send-to-all custs chan)))
@@ -839,6 +882,7 @@
                  (read-from-string (subseq addr (1+ cpos))))
        addr))))
 
+#|
 (deflex client-connector
   ;; Called from client side wishing to connect to a server.
   (create
@@ -849,6 +893,15 @@
        (unless clean-ip-addr
          (error "Unknown host: ~S" ip-addr))
        (>> connections cust :find-socket clean-ip-addr port ip-addr handshake)
+       ))))
+|#
+(deflex client-connector
+  ;; Called from client side wishing to connect to a server.
+  (create
+   (lambda (cust handshake ip-addr &optional (ip-port *default-port*))
+     (let+ ((:mvb (addr port)  (parse-ip-addr ip-addr))
+            (port              (or port ip-port *default-port*)))
+       (>> connections cust :find-connection addr port handshake)
        ))))
 
 ;; -------------------------------------------------------------
