@@ -3,15 +3,7 @@
 ;; DM/RAL  2023/12/27 11:56:04 UTC
 ;; ----------------------------------
 
-(defpackage #:unshared-list
-  (:use #:common-lisp)
-  (:export
-   #:unshared-list
-   #:unshared-list-p
-   #:unshared-list-cells
-   ))
-
-(in-package #:unshared-list)
+(in-package #:loenc)
 
 ;; ----------------------------------
 

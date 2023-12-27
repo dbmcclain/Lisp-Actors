@@ -152,7 +152,7 @@
   (actor 
       (lambda (cust &rest args)
         ;; (>> fmt-println "Marshal Encoder")
-        (>> cust (loenc:encode (coerce args 'vector)
+        (>> cust (loenc:encode (loenc:unshared-list args)
                                :max-portability t))
         )))
 
@@ -160,7 +160,7 @@
   (actor 
       (lambda (cust vec)
         ;; (>> fmt-println "Marshal Decoder")
-        (>>* cust (coerce (loenc:decode vec) 'list)))))
+        (>>* cust (loenc:unshared-list-cells (loenc:decode vec)) ))))
   
 (defun fail-silent-marshal-decoder ()
   (αα
@@ -176,8 +176,8 @@
     (let ((dec (ignore-errors
                  (loenc:decode vec))))
       (when (and dec
-                 (vectorp dec))
-        (>>* cust (coerce dec 'list)))
+                 (loenc:unshared-list-p dec))
+        (>>* cust (loenc:unshared-list-cells dec)))
       ))
    ))
 

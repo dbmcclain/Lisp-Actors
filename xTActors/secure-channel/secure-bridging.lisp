@@ -336,7 +336,7 @@
                          (push (cons id ac) rcvrs)
                          (client-proxy id))
                        )))
-         (let+ ((enc (loenc:encode (coerce msg 'vector)
+         (let+ ((enc (loenc:encode (loenc:unshared-list msg)
                                    :max-portability t))
                 (:β _  (racurry local-services :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)))
            (>> cust enc))
@@ -386,8 +386,8 @@
        (let ((dec (ignore-errors
                     (loenc:decode vec))))
          (when (and dec
-                    (vectorp dec))
-           (>>* cust (coerce dec 'list)))
+                    (loenc:unshared-list-p dec))
+           (>>* cust (loenc:unshared-list-cells dec)))
          )))
     )))
 

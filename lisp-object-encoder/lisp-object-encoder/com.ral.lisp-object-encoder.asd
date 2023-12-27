@@ -39,6 +39,7 @@ THE SOFTWARE.
                 (:file "xzlib") ;; ZLIB adapted to scatter vectors
                 (:file "lzw")
                 (:file "lisp-object-encoder")
+                (:file "unshared-list")
                 (:file "safe-marshaling"))
   :SERIAL T
   :depends-on   ("com.ral.self-sync"

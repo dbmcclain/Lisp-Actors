@@ -6,22 +6,13 @@
  (#:lzw           #:com.ral.lzw))
  
 (defpackage #:com.ral.xzlib
-  (:use #:cl #:scatter-vec) ;; #:com.ral.scatter-vec)
+  (:use #:cl #:scatter-vec)
   (:export
    #:compress
    #:uncompress))
 
 (defpackage :com.ral.lisp-object-encoder
-  (:use #:common-lisp #:scatter-vec) ;; #:com.ral.scatter-vec)
-   #+nl
-  (:local-nicknames
-   (#:loenc          #:com.ral.lisp-object-encoder)
-   (#:ubyte-streams  #:com.ral.ubyte-streams)
-   (#:self-sync      #:com.ral.self-sync)
-   (#:ubstream       #:com.ral.ubyte-streams)
-   (#:mgdbuf         #:com.ral.managed-buffers)
-   (#:uuid           #:com.ral.uuid)
-   (#:um             #:com.ral.useful-macros))
+  (:use #:common-lisp #:scatter-vec)
   (:import-from #:sdle-store
    #:output-type-code
    #:store-object
@@ -63,15 +54,15 @@
    #:decode-prefix-length
    #:loe-back-end
    #:ensure-portable-condition
+
+   #:after-restore
+   #:unshared-list
+   #:unshared-list-p
+   #:unshared-list-cells
    ))
 
 (defpackage #:com.ral.lzw
   (:use #:cl)
-  #+nil
-  (:local-nicknames
-   (#:um       #:com.ral.useful-macros)
-   (#:loenc    #:com.ral.lisp-object-encoder)
-   (#:ubstream #:com.ral.ubyte-streams))
   (:export
    #:compressed
    #:compressed-data
