@@ -160,7 +160,7 @@
   (actor 
       (lambda (cust vec)
         ;; (>> fmt-println "Marshal Decoder")
-        (>>* cust (loenc:unshared-list-cells (loenc:decode vec)) ))))
+        (>>* cust (loenc:decode vec)) )))
   
 (defun fail-silent-marshal-decoder ()
   (αα
@@ -176,8 +176,8 @@
     (let ((dec (ignore-errors
                  (loenc:decode vec))))
       (when (and dec
-                 (loenc:unshared-list-p dec))
-        (>>* cust (loenc:unshared-list-cells dec)))
+                 (listp dec))
+        (>>* cust dec))
       ))
    ))
 
@@ -186,7 +186,7 @@
   (actor 
       (lambda (cust &rest msg)
         ;; takes arbitrary objects and producdes an encoded bytevec
-        (>> (marshal-compressor) cust (loenc:encode msg
+        (>> (marshal-compressor) cust (loenc:encode (loenc:unshared-list msg)
                                                     :max-portability t)))))
 
 (defun uncompressed? (vec)

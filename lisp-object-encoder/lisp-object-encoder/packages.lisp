@@ -55,10 +55,9 @@
    #:loe-back-end
    #:ensure-portable-condition
 
+   #:before-store
    #:after-restore
    #:unshared-list
-   #:unshared-list-p
-   #:unshared-list-cells
    ))
 
 (defpackage #:com.ral.lzw

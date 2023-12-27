@@ -82,10 +82,13 @@
   (let ((chkx (make-auth-chk key iv cdata)))
     (when (equalp chkx chk) ;; just drop on the floor if not valid
       (let ((vdata  (aes-enc/dec key iv cdata)))
-        (loenc:unshared-list-cells (loenc:decode vdata)))
+        (loenc:decode vdata))
       )))
 
 ;; ----------------------------------------------------
+
+(defun aes-packet-key (pt)
+  (vec (hash/256 :ecc-cnx-key pt)))
 
 (deflex ecc-cnx-encrypt
   (create
@@ -93,7 +96,7 @@
      (let+ ((:mvb (rand rand-pt) (ed-random-pair)))
        (ignore-errors
          (let+ ((enc-pt     (ed-mul pubkey rand))
-                (aes-key    (vec (hash/256 :ecc-cnx-key enc-pt)))
+                (aes-key    (aes-packet-key enc-pt))
                 (aes-packet (<<* #'make-aes-packet aes-key :canary info)))
            (>> cust rand (ed-affine rand-pt) aes-packet)
            ))))
@@ -106,7 +109,7 @@
        (ignore-errors
          (ed-validate-point rand-pt)
          (let+ ((enc-pt   (ed-mul rand-pt skey))
-                (aes-key  (vec (hash/256 :ecc-cnx-key enc-pt)))
+                (aes-key  (aes-packet-key enc-pt))
                 (info     (decode-aes-packet aes-key aes-packet)))
            (when (and (consp info)
                       (eq (car info) :canary))

@@ -318,10 +318,9 @@
 (aop:defdynfun translate-actor-to-proxy (ac)
   ac)
 
-(defmethod sdle-store:backend-store-object :around (backend (obj actor) stream)
-  (let ((xobj (translate-actor-to-proxy obj)))
-    (call-next-method backend xobj stream)))
-  
+(defmethod loenc:before-store ((obj actor))
+  (translate-actor-to-proxy obj))
+   
 (defun client-marshal-encoder (local-services)
   ;; serialize an outgoing message, translating all embedded Actors
   ;; into client proxies and planting corresponding ephemeral
@@ -362,15 +361,9 @@
 (aop:defdynfun translate-proxy-to-actor (proxy)
   proxy)
 
-(defgeneric after-restore (obj)
-  (:method (obj)
-   obj)
-  (:method ((obj client-proxy))
-   (translate-proxy-to-actor obj)))
+(defmethod loenc:after-restore ((obj client-proxy))
+  (translate-proxy-to-actor obj))
 
-(defmethod sdle-store:backend-restore-object :around (backend place)
-  (after-restore (call-next-method)))
-      
 (defun server-marshal-decoder (local-services)
   ;; deserialize an incoming message, translating all client Actor
   ;; proxies to server local proxie Actors aimed back at client.
@@ -386,8 +379,8 @@
        (let ((dec (ignore-errors
                     (loenc:decode vec))))
          (when (and dec
-                    (loenc:unshared-list-p dec))
-           (>>* cust (loenc:unshared-list-cells dec)))
+                    (listp dec))
+           (>>* cust dec))
          )))
     )))
 

@@ -7,31 +7,33 @@
 
 ;; ----------------------------------
 
-(defstruct (unshared-list
-            (:constructor make-unshared-list (cells)))
-  (cells nil :type list))
+(defstruct (internal-unshared-list
+            (:constructor make-internal-unshared-list (cells)))
+  (cells #() :type vector :read-only t))
 
 (defgeneric unshared-list (obj)
   (:method ((obj list))
-   (make-unshared-list obj))
-  (:method ((obj unshared-list))
+   (make-internal-unshared-list (coerce obj 'vector)))
+  (:method ((obj internal-unshared-list))
    obj)
   (:method (obj)
    (error "List required: ~S" obj)))
 
-(defstruct private-unshared-vec
-  cells)
+;; -----------------------------------------------------
 
-(defmethod sdle-store:backend-store-object :around (backend (obj unshared-list) stream)
-  (let ((vobj (make-private-unshared-vec
-               :cells (coerce (unshared-list-cells obj) 'vector))))
-    (call-next-method backend vobj stream)))
+(defgeneric before-store (obj)
+  (:method (obj)
+   obj))
+
+(defmethod sdle-store:backend-store-object :around (backend obj stream)
+  (call-next-method backend (before-store obj) stream))
+
 
 (defgeneric after-restore (obj)
   (:method (obj)
    obj)
-  (:method ((obj private-unshared-vec))
-   (make-unshared-list (coerce (private-unshared-vec-cells obj) 'list))))
+  (:method ((obj internal-unshared-list))
+   (coerce (internal-unshared-list-cells obj) 'list)))
 
 (defmethod sdle-store:backend-restore-object :around (backend place)
   (after-restore (call-next-method)))
