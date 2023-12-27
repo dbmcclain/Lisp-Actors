@@ -421,7 +421,8 @@
 (self-sync:decode (self-sync:encode (loenc:encode #(0 1 2 3 4 5))))
 
 (defun encser (ekey &rest objs)
-  (let* ((enc        (<<* #'loenc:encode (coerce objs 'vector)))
+  (let* ((enc        (<<* #'loenc:encode (coerce objs 'vector)
+                          :max-portability t))
          (cmpr       (compress enc))
          (seq        (make-nonce))
          (emsg       (encrypt ekey seq cmpr))

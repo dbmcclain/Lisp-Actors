@@ -186,7 +186,8 @@
   (actor 
       (lambda (cust &rest msg)
         ;; takes arbitrary objects and producdes an encoded bytevec
-        (>> (marshal-compressor) cust (loenc:encode msg)))))
+        (>> (marshal-compressor) cust (loenc:encode msg
+                                                    :max-portability t)))))
 
 (defun uncompressed? (vec)
   (and (>= (length vec) 4)
@@ -980,7 +981,7 @@
         ))))
 
 (let* ((x   (hcl:file-string "./xTActors/encoding.lisp"))
-       (xe  (loenc:encode x))
+       (xe  (loenc:encode x :max-portability t))
        (xc  (subseq (xzlib:compress xe :fixed) 0))
        (xx  (xzlib:uncompress xc))
        (xd  (loenc:decode xx)))

@@ -70,7 +70,8 @@
    0 16))
 
 (defun make-aes-packet (key &rest data)
-  (let* ((vdata  (loenc:encode (coerce data 'vector)))
+  (let* ((vdata  (loenc:encode (coerce data 'vector)
+                               :max-portability t))
          (iv     (make-iv key))
          (cdata  (aes-enc/dec key iv vdata))
          (chk    (make-auth-chk key iv cdata)))
