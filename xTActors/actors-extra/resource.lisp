@@ -31,12 +31,12 @@
     (become-sink)))
 
 (defun guard-selector (cust fail must-do must-args)
-  (letrec ((sel      (create
+  (actors ((sel      (create
                       (guard-selector-beh must-do must-args)))
            (lbl-ok   (label sel cust))
            (lbl-fail (label sel fail)))
     (values lbl-ok lbl-fail)))
-  
+
 (defun guard (action timeout must-do &rest must-args)
   ;; Guard manages the ultimate disposition of valued resources, such
   ;; as a file pointer that must be eventually closed.

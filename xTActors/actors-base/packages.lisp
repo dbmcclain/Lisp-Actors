@@ -82,7 +82,9 @@ THE SOFTWARE.
    #:emptyq?
    #:iterq
    #:do-queue
-   
+
+   #:actors
+
    #:β
    #:beta
    #:beta-beh

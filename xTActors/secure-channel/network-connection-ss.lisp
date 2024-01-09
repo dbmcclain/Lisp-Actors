@@ -276,9 +276,9 @@
    ))
 
 (defun make-kill-timer (killer)
-  (um:letrec ((tag    (tag timer))
-              (timer  (create
-                       (watchdog-timer-beh killer tag))))
+  (actors ((tag    (tag timer))
+           (timer  (create
+                    (watchdog-timer-beh killer tag))))
     timer))
 
 ;; -------------------------------------------------------------

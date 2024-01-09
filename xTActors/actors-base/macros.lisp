@@ -11,6 +11,18 @@
        (match ,msg ,@clauses))))
 
 ;; ----------------------------------------------------
+;; ACTORS -- like LETREC, but for Actors
+;; Allows for construction of multiple Actors that reference each other.
+
+(defmacro actors (bindings &body body)
+  `(let ,(mapcar #`(,(car a1) (create)) bindings)
+     ,@(mapcar #`(setf (actor-beh ,(car a1)) (actor-beh ,(cadr a1))) bindings)
+     ,@body))
+
+#+:LISPWORKS
+(editor:setup-indent "actors" 1)
+
+;; ----------------------------------------------------
 
 (µ α (args &body body)
   ;; α is to actor, what λ is to lambda

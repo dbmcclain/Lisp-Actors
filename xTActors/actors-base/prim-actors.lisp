@@ -292,9 +292,9 @@ prefixed by our unique SELF identity/"
   ;; Return an Actor that represents the future value. Send that value
   ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST).
   ;; Read as "send the future result to cust".
-  (um:letrec ((fut (create
-                    (future-wait-beh tag)))
-              (tag (tag fut)))
+  (actors ((fut (create
+                 (future-wait-beh tag)))
+           (tag (tag fut)))
     (send* actor tag msg)
     fut))
 
@@ -378,17 +378,24 @@ prefixed by our unique SELF identity/"
 (defun simd (svc)
   ;; process an entire list of args in parallel
   ;; cust should expect a (&rest ans)
-  (actor 
-      (lambda (cust args)
-        (cond ((null args)
-               (send cust))
-              ((atom args)
-               (send svc cust args))
-              ((null (cdr args))
-               (send svc cust (car args)))
-              (t
-               (send (fork svc self) cust (car args) (cdr args)))
-              ))))
+  ;; svc expects only a cust arg and a single operand
+  (create
+   (alambda
+    ((cust arg1 arg2 . args)
+     (let ((me  self))
+       (send (fork (racurry svc arg1)
+                   (racurry svc arg2)
+                   (apply #'racurry me args))
+             cust)))
+    ((cust arg)
+     (send svc cust arg))
+    )))
+
+#|
+(let ((svc (create (lambda (cust arg)
+                     (send cust (1+ arg))))))
+  (send (simd svc) println 1 2 3))
+|#
 
 (defun mimd (&rest svcs)
   (actor 
