@@ -380,16 +380,8 @@ prefixed by our unique SELF identity/"
   ;; cust should expect a (&rest ans)
   ;; svc expects only a cust arg and a single operand
   (create
-   (alambda
-    ((cust arg1 arg2 . args)
-     (let ((me  self))
-       (send (fork (racurry svc arg1)
-                   (racurry svc arg2)
-                   (apply #'racurry me args))
-             cust)))
-    ((cust arg)
-     (send svc cust arg))
-    )))
+   (lambda (cust &rest args)
+     (send (apply #'fork (mapcar (curry #'racurry svc) args)) cust))))
 
 #|
 (let ((svc (create (lambda (cust arg)
@@ -398,12 +390,12 @@ prefixed by our unique SELF identity/"
 |#
 
 (defun mimd (&rest svcs)
-  (actor 
-      (lambda (cust &rest args)
-        (map 'nil (lambda (svc arg)
-                    (let ((lbl (label cust svc)))
-                      (send (simd svc) lbl arg)))
-             svcs args))))
+  ;; Multiple Instr, Mult Data - process a list of svc against a
+  ;; matching list of args. Each svc expects a cust and a single operand.
+  ;; cust should expect a (&rest ans)
+  (create
+   (lambda (cust &rest args)
+     (send (apply #'fork (mapcar #'racurry svcs args)) cust))))
 
 ;; -----------------------------------------
 ;; Delayed Send

@@ -295,6 +295,7 @@
               :initial-value (car (last services))
               :from-end t)
       null-service))
+
 ;;
 ;; We get for (FORK A B C):
 ;;
