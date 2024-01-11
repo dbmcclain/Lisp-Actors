@@ -379,6 +379,13 @@ prefixed by our unique SELF identity/"
   ;; process an entire list of args in parallel
   ;; cust should expect a (&rest ans)
   ;; svc expects only a cust arg and a single operand
+  ;;
+  ;; -- So, why ever do this? --
+  ;; You could as well just send individual messages to the svc,
+  ;; naming the cust which then has to accept individual results.
+  ;;
+  ;; Using SIMD just gathers all results into an ordered list for
+  ;; delivery to cust.
   (create
    (lambda (cust &rest args)
      (send (apply #'fork (mapcar (curry #'racurry svc) args)) cust))))
@@ -393,6 +400,7 @@ prefixed by our unique SELF identity/"
   ;; Multiple Instr, Mult Data - process a list of svc against a
   ;; matching list of args. Each svc expects a cust and a single operand.
   ;; cust should expect a (&rest ans)
+  ;; Why? -- same comments as for SIMD --
   (create
    (lambda (cust &rest args)
      (send (apply #'fork (mapcar #'racurry svcs args)) cust))))

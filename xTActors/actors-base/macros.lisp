@@ -11,12 +11,56 @@
        (match ,msg ,@clauses))))
 
 ;; ----------------------------------------------------
-;; ACTORS -- like LETREC, but for Actors
+;; ACTORS -- like LETREC, but for Actors.
 ;; Allows for construction of multiple Actors that reference each other.
-
+;;
+;; So what's the problem here? Why can't we just use LETREC?
+;;
+;; LETREC allows for the declaration of bindings that reference each
+;; other, but only if such references are found within lambda
+;; closures, not at top level.
+;;
+;; Example:
+;;    (letrec  ((FACTO  (lambda (n)
+;;                         (if (> n 1)
+;;                              (* n (funcall FACTO (1- n)))
+;;                            1)) ))
+;;         ...
+;;
+;; This translates into:
+;;
+;;    (let (FACTO)
+;;      (setf FACTO (lambda (n) ...))
+;;      ...
+;;
+;; So, as long as let LETREC bindings are referred to only from inside
+;; of a lambda closure, a delayed reference, this will work. But if
+;; one wants to use the value of a binding before all the SETF's have
+;; completed, then you run into trouble.
+;;
+;; Now consider the following:
+;;
+;;   (actors ((tag1  (tag ans))
+;;            (tag2  (tag ans))
+;;            (ans   (once (acurry fmt-println "Answer from ~S"))))
+;;      ...
+;;
+;;  Here we want to set up a race between two Actors that will
+;;  respond, respectively, to TAG1 and TAG2, which then send
+;;  themselves to ANS.
+;;
+;;  But because we are referencing ANS, in the value of bindings for
+;;  TAG1 and TAG2, at top-level, ANS must be an Actor at the time of
+;;  top-level reference, not later, from inside some lambda closure.
+;;
+;;  So the initial value given to each binding must be an Actor. Their
+;;  behaviors can be filled in later, which does not change their
+;;  identity.
+;;
 (defmacro actors (bindings &body body)
-  `(let ,(mapcar #`(,(car a1) (create)) bindings)
-     ,@(mapcar #`(setf (actor-beh ,(car a1)) (actor-beh ,(cadr a1))) bindings)
+  `(let ,(mapcar #`(,(first a1) (create)) bindings)
+     (setf ,@(mapcan #'identity
+                     (mapcar #`((actor-beh ,(first a1)) (actor-beh ,(second a1))) bindings)))
      ,@body))
 
 #+:LISPWORKS
