@@ -46,6 +46,9 @@ THE SOFTWARE.
      (setf ,@(mapcan #'identity bindings))
      ,@body))
 
+#+:LISPWORKS
+(editor:setup-indent "letrec" 1)
+
 ;; -------------------------------------------------------
 
 (define-condition cant-happen (error)
