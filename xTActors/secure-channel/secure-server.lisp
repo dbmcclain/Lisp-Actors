@@ -68,8 +68,8 @@
     ((akey client-id client-pkeyid) / (and (typep akey 'ub8-vector)
                                            (typep client-id 'uuid:uuid))
      (let+ ((:β (cnx-id)  (racurry local-services :add-service global-services))
-            ((bkey latcrypt aescrypt) (racurry lattice-ke:cnx-packet-encoder
-                                               client-pkeyid client-id cnx-id))
+            (:β (bkey latcrypt aescrypt) (racurry lattice-ke:cnx-packet-encoder
+                                                  client-pkeyid client-id cnx-id))
             (ekey  (hash/256 bkey akey))
             (:β _  (>> local-services β :set-crypto ekey socket)))
        (>> socket latcrypt aescrypt)
