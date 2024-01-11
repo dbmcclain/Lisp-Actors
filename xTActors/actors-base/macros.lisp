@@ -33,9 +33,9 @@
 ;;      (setf FACTO (lambda (n) ...))
 ;;      ...
 ;;
-;; So, as long as let LETREC bindings are referred to only from inside
-;; of a lambda closure, a delayed reference, this will work. But if
-;; one wants to use the value of a binding before all the SETF's have
+;; So, as long as LETREC bindings are referred to only from inside of
+;; a lambda closure, a delayed reference, this will work. But if one
+;; wants to use the value of a binding before all the SETF's have
 ;; completed, then you run into trouble.
 ;;
 ;; Now consider the following:
