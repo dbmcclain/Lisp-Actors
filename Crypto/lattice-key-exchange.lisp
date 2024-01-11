@@ -116,7 +116,8 @@
    0 16))
 
 (defun make-aes-packet (key &rest data)
-  (let* ((vdata  (loenc:encode (coerce data 'vector)))
+  (let* ((vdata  (loenc:encode (loenc:unshared-list data)
+                               :max-portability t))
          (iv     (make-iv key))
          (cdata  (aes-enc/dec key iv vdata))
          (chk    (make-auth-chk key iv cdata)))
@@ -128,9 +129,8 @@
     (let ((chkx (make-auth-chk key iv cdata)))
       (when (equalp chkx chk) ;; just drop on the floor if not valid
         (let ((vdata  (aes-enc/dec key iv cdata)))
-          (coerce (loenc:decode vdata) 'list))
-        ))
-    ))
+          (loenc:decode vdata)))
+        )))
 
 #|
    -----------------------------------------------------
