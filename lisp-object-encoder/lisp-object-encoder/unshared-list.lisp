@@ -9,12 +9,37 @@
 ;; Proper Lists that have no shared spine cells can be serialized
 ;; efficiently as a vector of elements. Determining whether or not a
 ;; list is both proper and unshared (except for possibly its head), is
-;; a problem of indefinite complexity.
+;; a problem of potentially exponential complexity.
 ;;
 ;; But sometimes you already know it is both proper and unshared, so
 ;; you can make your own declaration that it is an UNSHARED-LIST. We
 ;; translate that internally to a private struct that gets serialized
 ;; as a vector of elements, and deserialized as a list.
+;;
+;; Good example is a &REST list of args which has not yet been
+;; destructured.
+;;
+;; A LIST can be an UNSHARED-LIST if no other references exist to a
+;; tail of the list. A tail of a list is any (NTHCDR n list), for n > 0,
+;; which excludes the list head.
+;;
+;; LOENC:ENCODE seeks to abbreviate references to objects referenced
+;; more than once. The object is serialized just once, and thereafter
+;; an abbreviation marks the place of repeated references to it. This
+;; is how EQ items can be serialized and then be deserialized again as
+;; EQ.
+;;
+;; UNSHARED-LIST can often be serialized more efficiently than a LIST,
+;; since no abbreviations need to be constructed for NTHCDR tails.
+;;
+;; An UNSHARED-LIST needs only an abbreviation (at most) to just the
+;; head of the list, and not to any proper sub-tails of the list.
+;; Hence the list and its elements may be treated similarly to a
+;; vector and its vector elements.
+;;
+;; Without an explicit declaration and conversion to UNSHARED-LIST,
+;; trying to determine if a LIST could be an UNSHARED-LIST has
+;; potentially exponential complexity.
 ;;
 
 (defstruct (internal-unshared-list
