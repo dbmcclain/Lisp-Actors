@@ -62,10 +62,6 @@
 ;; BEFORE-STORE - allows you to translate an object into a specialized
 ;; form for serialization. Specialized forms are typically struct
 ;; wrappers encapsulating some data.
-;;
-;; AFTER-RESTORE -- allows the inverse translation from a specialized
-;; form to some more useful form. It might not necessarily become the
-;; same kind of object as handed to BEFORE-STORE.
 
 (defgeneric before-store (obj)
   (:method (obj)
@@ -75,6 +71,9 @@
   (call-next-method backend (before-store obj) stream))
 
 ;; -------------------------------
+;; AFTER-RESTORE -- allows the inverse translation from a specialized
+;; form to some more useful form. It might not necessarily become the
+;; same kind of object as handed to BEFORE-STORE.
 
 (defgeneric after-restore (obj)
   (:method (obj)
