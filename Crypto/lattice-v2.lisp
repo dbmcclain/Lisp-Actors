@@ -29,8 +29,16 @@
 
 (deflex lattice-system
   (create
-   (lambda (cust)
-     (send kvdb:kvdb cust :find :lat2-system))))
+   (alambda
+    ((cust)
+     (let+ ((me  self)
+            (:β  (sys) (racurry kvdb:kvdb :find :lat2-system)))
+       (send me cust :update sys)
+       ))
+    ((cust :update sys)
+     (become (const-beh sys))
+     (send cust sys))
+    )))
 
 (defun get-lattice-system ()
   (ask lattice-system))
