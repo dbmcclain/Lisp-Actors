@@ -30,16 +30,16 @@
 ;; EQ.
 ;;
 ;; UNSHARED-LIST can often be serialized more efficiently than a LIST,
-;; since no abbreviations need to be constructed for NTHCDR tails.
-;;
-;; An UNSHARED-LIST needs only an abbreviation (at most) to just the
-;; head of the list, and not to any proper sub-tails of the list.
-;; Hence the list and its elements may be treated similarly to a
-;; vector and its vector elements.
+;; since no abbreviations need to be constructed for CDR tails. An
+;; UNSHARED-LIST needs only an abbreviation (at most) to just the head
+;; of the list. Hence the list and its elements may be treated
+;; similarly to a vector and its vector elements.
 ;;
 ;; Without an explicit declaration and conversion to UNSHARED-LIST,
 ;; trying to determine if a LIST could be an UNSHARED-LIST has
-;; potentially exponential complexity.
+;; potentially exponential complexity. Or else it could only be
+;; encoded in a second pass, after all other elements have been
+;; examined and abbreviated.
 ;;
 
 (defstruct (internal-unshared-list
