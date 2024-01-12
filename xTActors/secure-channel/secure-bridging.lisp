@@ -366,7 +366,7 @@
 
 (defun server-marshal-decoder (local-services)
   ;; deserialize an incoming message, translating all client Actor
-  ;; proxies to server local proxie Actors aimed back at client.
+  ;; proxies to server local proxy Actors aimed back at client.
   (create
    (alambda
     ((cust vec) / (typep vec 'ub8-vector)
@@ -393,7 +393,7 @@
 (defun secure-sender (ekey local-services)
   (pipe (client-marshal-encoder local-services) ;; translate Actors to CLIENT-PROXY's
         (marshal-compressor)
-        ;; (chunker 65000)  ;; Async Sockets already chunks/dechunks data
+        ;; (chunker 65000)  ;; Async Sockets already chunk/dechunk data
         ;; (marshal-encoder)
         (encryptor ekey)
         (authentication ekey)
@@ -402,10 +402,10 @@
 (defun secure-reader (ekey local-services socket)
   (pipe (check-authentication ekey socket)
         (decryptor ekey)
-        ;; (fail-silent-marshal-decoder) ;; Async Sockets already chumks/dechunks data
+        ;; (fail-silent-marshal-decoder) ;; Async Sockets already chunk/dechunk data
         ;; (dechunker)
         (fail-silent-marshal-decompressor)
-        (server-marshal-decoder local-services) ;; translate CLIENT-PROXY's back to proxy Actors
+        (server-marshal-decoder local-services) ;; translate CLIENT-PROXY's into local proxy Actors
         ))
 
 ;; ----------------------------------------------

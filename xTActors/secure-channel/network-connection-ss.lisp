@@ -223,23 +223,33 @@
     (let+ ((:slots (io-state
                     io-running
                     kill-timer
-                    shutdown) state))
+                    shutdown) state)
+           (bytes-to-write (length byte-vec))
+           (bytes-written  0))
       (labels
           ;; these functions execute in the thread of the async socket handler
           ((not-writing ()
              (>> cust :err)) ;; clear the Serializer
            
-           (write-done (io-state &rest _)
+           (write-done (io-state buffer nb-written)
              ;; this is a callback routine, executed in the thread of
              ;; the async collection
-             (declare (ignore _))
+             (declare (ignore buffer))
              (cond ((comm:async-io-state-write-status io-state)
                     (let+ ((:β _  (racurry io-running :finish-wr-fail)))
                       (>> shutdown)
                       (>> cust :err)))
+                   
                    (t
-                    ;; io-running will reply to our cust for us
-                    (>> io-running cust :finish-wr-ok))
+                    (incf bytes-written nb-written)
+                    (if (< bytes-written bytes-to-write)
+                        ;; not strictly needed here... we should never reach here
+                        (comm:async-io-state-write-buffer io-state
+                                                          byte-vec
+                                                          #'write-done
+                                                          :start bytes-written)
+                      ;; io-running will reply to our cust for us
+                      (>> io-running cust :finish-wr-ok)))
                    ))
            
            (begin-write ()
