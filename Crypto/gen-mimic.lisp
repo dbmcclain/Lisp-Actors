@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :ecc-crypto-b571)
+(in-package :tolstoy-aont)
 
 
 (defun view-simple-tree (tree)
@@ -52,10 +52,12 @@ THE SOFTWARE.
                                                ))))
                   )))
 
+
 (defun assemble-huffman-tree (alst &optional viz)
-  (um:nlet iter ((alst (sort alst '< :key 'car)))
-    
-    (destructuring-bind ((ct (str . strs)) . tl) alst
+  ;; Sort by use count
+  #F
+  (let ((salst (sort alst '< :key 'car)))
+    (destructuring-bind ((ct (str . strs)) . tl) salst
       
       (cond
        
@@ -72,7 +74,7 @@ THE SOFTWARE.
             (push `(,ct (,str)) tl))
           
           (push `(,ct2 (,@dst-strs ,@(um:group strs 2))) tl)
-          (go-iter (sort tl '< :key 'car))
+          (assemble-huffman-tree tl viz)
           ))
        
        
@@ -89,7 +91,7 @@ THE SOFTWARE.
               (push `(,ct2 ,strs) tl))
             
             (push `(,ct-sum (,@dst-strs (,str2 ,str))) tl)
-            (iter (sort tl '< :key 'car))
+            (assemble-huffman-tree tl viz)
             )))
        
        (t
@@ -124,7 +126,7 @@ THE SOFTWARE.
    #\& #\;))
 
 (defun get-wp-lines ()
-  (let* ((xs (hcl:file-string "VTuning/crypto/tools/war-and-peace-edit.txt")))
+  (let* ((xs (hcl:file-string "Crypto/war-and-peace-edit.txt")))
     (remove-if (lambda (line)
                  (or (string= "" line)
                      (every 'lw:whitespace-char-p line)
@@ -137,11 +139,22 @@ THE SOFTWARE.
 ;; ------------------------------------------------------------------
 
 (defun get-word-usage-tree ()
+  ;; Generate a R-B Tree, keyed by distinct words found in the
+  ;; document. The tree nodes carry a count of usage and a subtree of
+  ;; what words it followed.
+  ;;
+  ;; The subtree similarly carries a use count and another subtree of
+  ;; what words that word-pair followed.
+  ;;
+  ;; That 2nd subtree also carries a subtree with use counts for the
+  ;; word-triple.
+  ;;
+  ;; Gives us a 3-level Markov-chain system.
+  ;;
   (let* ((tree  (maps:empty))
          (prev1 nil)
          (prev2 nil))
         
-    
     (dolist (line (get-wp-lines))
       (let* ((wds (um:tokens line
                              :test-not 'lw:whitespace-char-p)))
@@ -149,34 +162,34 @@ THE SOFTWARE.
           (unless (string= wd "")
             (let* ((p2    (shiftf prev2 prev1 wd))
                    (p1    prev2)
-                   (found (maps:find wd tree))
+                   (found (maps:find tree wd))
                    (node  (or found
                               (list 0
                                     (maps:empty)) )))
               (incf (car node))
               (unless found
-                (setf tree (maps:add wd node tree)))
+                (setf tree (maps:add tree wd node)))
               
               (when p1
-                (let* ((ent   (maps:find p1 tree))
-                       (found (maps:find wd (second ent)))
+                (let* ((ent   (maps:find tree p1))
+                       (found (maps:find (second ent) wd))
                        (node  (or found
                                   (list 0
                                         (maps:empty)))))
                   (incf (car node))
                   (unless found
-                    (setf (second ent) (maps:add wd node (second ent))))
+                    (setf (second ent) (maps:add (second ent) wd node)))
                   ))
               
               (when p2
-                (let* ((ent1  (maps:find p2 tree))
-                       (ent2  (maps:find p1 (second ent1)))
-                       (found (maps:find wd (second ent2)))
+                (let* ((ent1  (maps:find tree p2))
+                       (ent2  (maps:find (second ent1) p1))
+                       (found (maps:find (second ent2) wd))
                        (node  (or found
                                   (list 0))))
                   (incf (car node))
                   (unless found
-                    (setf (second ent2) (maps:add wd node (second ent2))))
+                    (setf (second ent2) (maps:add (second ent2) wd node)))
                   ))
               )))
         ))
@@ -184,15 +197,16 @@ THE SOFTWARE.
 
 
 (defun melt-tree (rb-tree)
-  ;; convert rb-tree mapping tree to pue cons form for speed of access
-  (cond ((maps:is-empty rb-tree)  nil)
-        (t (maps:with-node-bindings (l vn r _) rb-tree
-             (let ((k  (maps::map-cell-key vn))
-                   (v  (maps::map-cell-val vn)))
-               `(,(melt-tree l)
-                 (,k ,v)
-                 ,(melt-tree r)))))
-        ))
+  ;; convert rb-tree mapping tree to pure cons form for speed of
+  ;; access
+  (unless (maps:is-empty rb-tree)
+    (maps:with-node-bindings (l vn r _) rb-tree
+      (let ((k  (maps::map-cell-key vn))
+            (v  (maps::map-cell-val vn)))
+        `(,(melt-tree l)
+          (,k ,v)
+          ,(melt-tree r))))
+    ))
 
 (defun make-code-table (tree)
   (let ((tbl (maps:empty)))
@@ -203,32 +217,36 @@ THE SOFTWARE.
              (new-code  (ash code 1)))
         
         (if (stringp (car top))
-            (setf tbl (maps:add (car top) (list new-nbits new-code) tbl))
+            (setf tbl (maps:add tbl (car top) (list new-nbits new-code)))
           ;; else
           (iter (car top) new-nbits new-code))
         
         (if (stringp (cadr top))
-            (setf tbl (maps:add (cadr top) (list new-nbits (1+ new-code)) tbl))
+            (setf tbl (maps:add tbl (cadr top) (list new-nbits (1+ new-code))))
           ;; else
           (iter (cadr top) new-nbits (1+ new-code)))) )
     (melt-tree tbl)))
 
 (defun make-hufftree (tree)
-  (let* ((ctree   (maps:fold (lambda (k v accum)
-                               (let* ((found  (maps:find (car v) accum))
+  ;; ctree is a RB Tree keyed by use count, which contains the list of
+  ;; words with that usage.
+  ;;
+  ;; clst is an A-List of use count and word list derived from ctree.
+  (let* ((ctree   (maps:fold tree
+                             (lambda (k v accum)
+                               (let* ((found  (maps:find accum (car v)))
                                       (node   (or found
                                                   (list nil))))
                                  (setf (car node) (cons k (car node)))
                                  (if found
                                      accum
-                                   (maps:add (car v) node accum))
+                                   (maps:add accum (car v) node))
                                  ))
-                             tree
                              (maps:empty)))
-         
-         (clst    (maps:fold (lambda (ct v accum)
+         (clst    (maps:fold ctree
+                             (lambda (ct v accum)
                                (cons `(,ct ,@v) accum))
-                             ctree nil))
+                             nil))
          (htree   (assemble-huffman-tree clst))
          (hcodes  (make-code-table htree)))
     
@@ -236,22 +254,22 @@ THE SOFTWARE.
 
 (defun make-3rd-order-hufftree (tree)
   (melt-tree
-   (maps:fold (lambda (k v accum)
+   (maps:fold tree
+              (lambda (k v accum)
                 (if (< (maps:cardinal (second v)) 8)
                     accum
-                  (maps:add k (list (make-hufftree (second v))) accum)))
-              tree
+                  (maps:add accum k (list (make-hufftree (second v))))))
               (maps:empty))))
 
 (defun make-2nd-order-hufftree (tree)
   (melt-tree
-   (maps:fold (lambda (k v accum)
+   (maps:fold tree
+              (lambda (k v accum)
                 (if (< (maps:cardinal (second v)) 64)
                     accum
                   (let* ((ent (list (make-hufftree (second v))
                                     (make-3rd-order-hufftree (second v)))))
-                    (maps:add k ent accum))))
-              tree
+                    (maps:add accum k ent))))
               (maps:empty))))
 
 (defun make-huffman-trees ()
@@ -278,22 +296,27 @@ THE SOFTWARE.
 
 ;; ----------------------------------------------------------------------------
 
-#|             
-(let* ((htree (caar *xtrees*))
-      (ftbl   (cadr *xtrees*))
-      (prev1  nil)
-      (prev2  nil))
+#|
+(defparameter *my-xptrees*  *xptrees*)
+#|
+(setf *my-xptrees* (make-huffman-trees))
+(setf *xptrees* (make-huffman-trees))
+|#
+(let* ((htree  (caar *my-xptrees*))
+       (ftbl   (cadr *my-xptrees*))
+       (prev1  nil)
+       (prev2  nil))
   
   (labels ((next-tbl (wd)
              (princ wd)
              (princ #\space)
              (shiftf prev2 prev1 wd)
              (caar
-              (or (let ((ent (maps:find prev2 ftbl)))
+              (or (let ((ent (tree-find prev2 ftbl)))
                     (and ent
-                         (maps:find prev1 (second ent))))
-                  (maps:find prev1 ftbl)
-                  *xtrees*))
+                         (tree-find prev1 (second ent))))
+                  (tree-find prev1 ftbl)
+                  *my-xptrees*))
              ))
     (terpri)
     (um:nlet iter ((nwds 100)
@@ -308,7 +331,7 @@ THE SOFTWARE.
                  (go-iter nwds (cadr top))
                (go-iter (1- nwds) (next-tbl (cadr top)))))
           ) ))))
-                            
+
 |#
   
 #|
@@ -362,7 +385,7 @@ THE SOFTWARE.
                  `(,(char-code #\') 0.7))
   
     (plt:histogram 'hparas paras
-                 :title "Sentencs per Paragraph"
+                 :title "Sentences per Paragraph"
                  :xtitle "N Sentences"
                  :ytitle "PSD"
                  :cum   t
@@ -370,11 +393,11 @@ THE SOFTWARE.
                  :clear t)
   (plt:paramplot 'hparas '(0.01 0.99)
                  (lambda (y)
-                   (floor (max 2 (* -3 (log (- 1 y))))))
+                   (floor (max 2 (* -4 (log (- 1 y))))))
                  'identity
                  :color :red)
   ;; Sentences per paragraph:
-  ;;   n = floor(max(2, -3*ln(1-C))) ; C uniform random (0,1)
+  ;;   n = floor(max(2, -4*ln(1-C))) ; C uniform random (0,1)
   
   (plt:histogram 'hsents sents
                  :title "Words per Sentence"
@@ -385,11 +408,11 @@ THE SOFTWARE.
                  :clear t)
   (plt:paramplot 'hsents '(0.01 0.99)
                  (lambda (y)
-                   (ceiling (max 1 (* -15 (log (- 1 y))))))
+                   (ceiling (max 1 (* -13 (log (- 1 y))))))
                  'identity
                  :color :red)
   ;; Words per sentence
-  ;;   n = ceiling(max(1, -15*ln(1-C))) ; C uniform random (0,1)
+  ;;   n = ceiling(max(1, -13*ln(1-C))) ; C uniform random (0,1)
   
   ;; (inspect terms)
   (list :nparas nparas

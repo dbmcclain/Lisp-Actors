@@ -26,6 +26,12 @@
 (in-package #:com.ral.crypto.lattice-key-exchange)
 
 ;; ----------------------------------
+;;
+;; Store skey seed in system keychain with:
+;;  security add-generic-password -a $USER -s 'LispActorsSystem' -w <key>
+;;
+;; If you need to delete before adding:
+;;  security delete-generic-password -a $USER -s 'LispActorsSystem'
 
 (deflex lattice-skey
   (create

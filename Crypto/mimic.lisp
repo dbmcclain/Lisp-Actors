@@ -107,6 +107,15 @@ THE SOFTWARE.
   (with-accessors ((vlen   input-bit-vector-vlen)) ibv
     (setf vlen (length vec))))
 
+(defun do-with-input-from-bit-vector (fn vec)
+  (let ((ibv  (make-instance 'input-bit-vector
+                             :vec vec)))
+    (funcall fn ibv)))
+
+(defmacro with-input-from-bit-vector ((v vec) &body body)
+  `(do-with-input-from-bit-vector (lambda (,v) ,@body) ,vec))
+
+#|
 (defmacro with-input-from-bit-vector ((v vec) &body body)
   (let ((ibv (gensym)))
     `(let ((,ibv  (make-instance 'input-bit-vector
@@ -114,6 +123,7 @@ THE SOFTWARE.
        (funcall (lambda (,v)
                   ,@body)
                 ,ibv))))
+|#
 
 (defmethod read-bits ((ibv input-bit-vector) nbits)
   #F
@@ -123,9 +133,10 @@ THE SOFTWARE.
                    (bits    input-bit-vector-bits)
                    (nb      input-bit-vector-nbits)) ibv
     (cond  ((>= nb nbits)
-            (let* ((out-bits  (ldb (byte nbits (- nb nbits)) bits)))
-              (setf bits (ldb (byte (- nb nbits) 0) bits)
-                    nb   (- nb nbits))
+            (let* ((nrem      (- nb nbits))
+                   (out-bits  (ldb (byte nbits nrem) bits)))
+              (setf bits (ldb (byte nrem 0) bits)
+                    nb   nrem)
               (values out-bits nbits)))
 
            ((< vpos vlen)
@@ -160,6 +171,15 @@ THE SOFTWARE.
                                :vec (pop vs))))
     ))
 
+(defun do-with-input-from-compound-bit-vector (fn vlst)
+  (let ((cibv  (make-instance 'compound-input-bit-vector
+                              :vecs vlst)))
+    (funcall fn cibv)))
+
+(defmacro with-input-from-compound-bit-vector ((v veclst) &body body)
+  `(do-with-input-from-compound-bit-vector (lambda (,v) ,@body) ,veclst))
+
+#|
 (defmacro with-input-from-compound-bit-vector ((v veclst) &body body)
   (let ((cibv (gensym)))
     `(let ((,cibv  (make-instance 'compound-input-bit-vector
@@ -167,13 +187,15 @@ THE SOFTWARE.
        (funcall (lambda (,v)
                   ,@body)
                 ,cibv))))
+|#
 
 (defmethod read-bits ((cibv compound-input-bit-vector) nbits)
   #F
   (with-accessors ((ibv    cibv-ibv)
                    (vs     cibv-vs)) cibv
     (if ibv
-        (multiple-value-bind (bits nb) (read-bits ibv nbits)
+        (multiple-value-bind (bits nb)
+            (read-bits ibv nbits)
           
           (cond
            
@@ -186,7 +208,8 @@ THE SOFTWARE.
            ((< nb nbits)
             (um:nlet iter ((bits bits)
                            (nb   nb))
-              (multiple-value-bind (bits2 nb2) (read-bits cibv (- nbits nb))
+              (multiple-value-bind (bits2 nb2)
+                  (read-bits cibv (- nbits nb))
                 (cond ((eq bits2 :EOF)
                        (values bits nb))
                       
@@ -205,7 +228,8 @@ THE SOFTWARE.
             (values bits nb))
            ))
       ;; else
-      (values :eof 0))))
+      (values :eof 0))
+    ))
 
 ;; ------------------------------------------------------
 
@@ -223,12 +247,13 @@ THE SOFTWARE.
                    (write-32u (logxor x (length v)) s))))
          (hft  (make-instance 'huffman-tree))
          (llen 0)
-         (plen (expon-random 6)))
+         (plen (expon-random 4)))
 
     (with-output-to-string (s)
       (with-input-from-compound-bit-vector (ibv (list vct v))
         (labels ((next-bits ()
-                   (multiple-value-bind (b nb) (read-bits ibv 7)
+                   (multiple-value-bind (b nb)
+                       (read-bits ibv 7)
                      (cond
                       ((eq b :eof)  :eof)
                       (t
@@ -244,7 +269,7 @@ THE SOFTWARE.
                        (decf plen)
                        (unless (plusp plen)
                          (terpri s)
-                         (setf plen (expon-random 6)))
+                         (setf plen (expon-random 4)))
                        (setf llen len))
                      (princ wd s)
                      (princ #\space s)))
@@ -619,12 +644,13 @@ THE SOFTWARE.
   (map 'vector (um:rcurry '/ norm) v))
 
 (defun logw (v norm)
-  (map 'vector
-       (lambda (x)
-         (log (max x 1e-6) 10))
-       (norm v norm)))
+  (let ((lnorm (log norm 10)))
+    (map 'vector
+         (lambda (x)
+           (- (log (max x 1) 10) lnorm))
+         v)))
 
-(let ((fs (directory "VTuning/crypto/tools/*.lisp")))
+(let ((fs (directory "Crypto/*.lisp")))
   (fill *raw-hist* 0)
   (fill *cryp-hist* 0)
   (fill *enc-hist* 0)
