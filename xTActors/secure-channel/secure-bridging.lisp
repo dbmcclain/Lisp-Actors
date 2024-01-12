@@ -393,8 +393,8 @@
 (defun secure-sender (ekey local-services)
   (pipe (client-marshal-encoder local-services) ;; translate Actors to CLIENT-PROXY's
         (marshal-compressor)
-        (chunker 65000)
-        (marshal-encoder)
+        ;; (chunker 65000)  ;; Async Sockets already chunks/dechunks data
+        ;; (marshal-encoder)
         (encryptor ekey)
         (authentication ekey)
         ))
@@ -402,8 +402,8 @@
 (defun secure-reader (ekey local-services socket)
   (pipe (check-authentication ekey socket)
         (decryptor ekey)
-        (fail-silent-marshal-decoder)
-        (dechunker)
+        ;; (fail-silent-marshal-decoder) ;; Async Sockets already chumks/dechunks data
+        ;; (dechunker)
         (fail-silent-marshal-decompressor)
         (server-marshal-decoder local-services) ;; translate CLIENT-PROXY's back to proxy Actors
         ))
