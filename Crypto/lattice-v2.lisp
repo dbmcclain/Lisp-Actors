@@ -56,6 +56,7 @@
   (getf sys :mat-a))
 
 (defun lat2-gen-skey (&optional (sys (get-lattice-system)))
+  ;; skey is a ncol vector of 30-bit bipolar field values
   (let ((ncols   (lat2-ncols sys))        
         (modulus (lat2-modulus sys)))
     (when (> modulus (ash 1 30))
@@ -67,6 +68,7 @@
     ))
 
 (defun lat2-gen-deterministic-skey (sys &rest seeds)
+  ;; skey is a ncol vector of 30-bit bipolar field values
   (let* ((sys     (or sys (get-lattice-system)))
          (ncols   (lat2-ncols sys))        
          (modulus (lat2-modulus sys)))
@@ -89,6 +91,7 @@
         ))))
 
 (defun lat2-gen-pkey (skey &optional (sys (get-lattice-system)))
+  ;; pkey is a nrow vector of 30-bit bipolar field values
   (with-mod (lat2-modulus sys)
     (let* ((amat   (lat2-matrix sys))
            (nrows  (lat2-nrows sys))
@@ -96,6 +99,8 @@
       (vec+ (mat*v amat skey) noise))))
 
 (defun lat2-gen-keys (&optional (sys (get-lattice-system)))
+  ;; skey is a ncol vector of 30-bit bipolar field values
+  ;; pkey is a nrow vector of 30-bit bipolar field values
   (let* ((skey (lat2-gen-skey sys))
          (pkey (lat2-gen-pkey skey sys)))
     (values skey pkey)))
@@ -103,10 +108,13 @@
 ;; --------------------------------------------------------------
 
 (defun lat2-enc-mat*v (pkey m sel sys)
-  ;; m should be the Pkey matrix [b | -A] with column vector b
-  ;; prepended to -A matrix, stored row-wise. Selector is a random
-  ;; integer in the range [1,2^nrows). We simply add the matrix rows
-  ;; corresponding to non-zero bits in the selector integer.
+  ;; pkey is the nrow b column vector.
+  ;; m is the system matrix,
+  ;;    stored as an nrow vector of rows, each with ncol elements.
+  ;; sel is a random nrow-bit integer in the range [1,2^nrows).
+  ;;
+  ;; We simply add the matrix rows corresponding to non-zero bits in
+  ;; the selector integer.
   #F
   (let ((vsum (make-array (lat2-ncols sys)
                           :element-type 'fixnum
@@ -129,6 +137,8 @@
 
 (defun lat2-encode1 (pkey bit sys)
   ;; bit 0, 1
+  ;; Produces a 2 element vector, with a scalar followed by an ncol element vector.
+  ;; All elements modulo a 30-bit prime, expressed as a bipolar field value.
   #F
   (with-mod (lat2-modulus sys)
     (let* ((nrows (lat2-nrows sys))
