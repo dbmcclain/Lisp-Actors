@@ -212,6 +212,46 @@
 ;; Every time you encrypt a 1-bit message, you get a different random
 ;; cyphertext vector. Different random subset selection keying is used
 ;; for each encryption. So a chosen plaintext attack is useless.
+;; ----------------------------------------------------------
+;; Cracking the Encryption.
+;;
+;; It isn't any harder to perform a subset-sum solution against a
+;; vector sum than for a single scalar. If one element of the vector
+;; satisfies, then all other elements do too.
+;;
+;; In general for a scalar subset-sum, there may be more than one
+;; possible answer. If so, then it can be disambiguated by checking
+;; against the other vector elements until you find the sole solution
+;; of the selection vector used for the encryption.
+;;
+;; In general, this is NP-Hard, with a 2^NRows complexity. On my
+;; computer I get a worst-case solution duration of:
+;;
+;;     Log2(Duration) ≈ NRows - 19.4
+;;
+;;   -- or --
+;;
+;;     NRows > Log2(Duration) + 19.4
+;;
+;; for Duration in seconds. I was running a full parallel solution
+;; search over an effective collection of 4.8 cores.
+;;
+;; If we assume an attacker might be up to 1 billion times faster than
+;; me, then we should increase safety by adding 30 extra rows. So,
+;;
+;;   NRows >= Log2(Duration) + 50
+;;
+;; For 30-year security, we only need NRows >= 80.
+;;
+;; At our initial sizing with NRows = 320, we should have security for
+;; ≈ 10^81 years against the GHz attacker. A slight overkill?
+;;
+;; So why not choose NCols = 64, NRows = 80. With 30-bit modulo
+;; arithmetic, this produces a key strength of 4,320 bits against
+;; cracking the secret key. And it gives us 30 year security against
+;; decryption attacks. This would cut down on network traffic by 4
+;; times. Instead of the initial handshake being 366KB, we could get
+;; by with only 92 KB.
 ;;
 ;; ----------------------------------------------------------
 ;; For the problem of attacking the secret key, and obtaining the
@@ -308,7 +348,7 @@
 ;;
 ;; Quantity <ψ|r> is unknown, but it is guaranteed that
 ;;     Abs(<ψ|r>) < m/4,
-;; for all possoble selection vectors, |r>.
+;; for all possible selection vectors, |r>.
 ;;
 ;; Then,
 ;;     Round(<ψ|r> + (m/2)*bit, m/2) mod 2 => bit
@@ -375,3 +415,108 @@
       )))
 
 ;; ----------------------------------------------------------------------
+
+(defun stopwatch-beh (&optional (start 0))
+  (alambda
+   ((:start)
+    (become (stopwatch-beh (get-universal-time))))
+   ((:stop)
+    (send fmt-println "Duration: ~A sec" (- (get-universal-time) start)))
+   ))
+
+(deflex stopwatch (create (stopwatch-beh)))
+
+(defun subset-sum-beh (m found)
+  (alambda
+   ((cust n set pos sol)
+    (unless found
+      (when set
+        (send self cust n (cdr set) (cdr pos) sol)
+        (let ((new-n (with-mod m
+                       (lmod (- n (car set)))))
+              (new-sol (acons (car pos) (car set) sol)))
+          (when (zerop new-n)
+            (send cust (reverse new-sol))
+            (become (subset-sum-beh m t))
+            (send stopwatch :stop))
+          (send self cust new-n
+                (cdr set)
+                (cdr pos)
+                new-sol)))
+      ))
+   ((cust :init)
+    (become (subset-sum-beh m nil))
+    (send cust :ok))
+   ))
+
+(deflex subset-sum (create (subset-sum-beh *lattice-m* nil)))
+
+(defun solve-subset-sum (cust n set)
+  (send stopwatch :start)
+  (β _
+      (send subset-sum β :init)
+    (send subset-sum cust n set
+          (loop for x in set
+                for ix from 0
+                collect ix)
+          nil)))
+#|
+(solve-subset-sum println 5 '(1 2 1 3))
+(setf (actor-beh subset-sum) #'lw:do-nothing)
+(with-mod *lattice-m*
+  (let* ((nel 27)
+         (b   (gen-random-list nel))
+         (sel (gen-random-sel nel))
+         (sel (ash 1 (1- nel)))
+         (sum (lmod
+               (loop for x in b
+                     for ix from 0
+                     when (logbitp ix sel)
+                       sum x))))
+    (send println (list sum (format nil "~b" sel)))
+    (solve-subset-sum println sum b)))
+
+(let ((siz  #(20 21 22 23 24 25  26  27))
+      (tim  #( 1  3  6 13 22 45 101 265)))
+  (plt:plot 'plt siz tim
+            :clear t
+            :thick 2
+            :ylog  t
+            :title  "Scalar Subset-Sum Solution"
+            :xtitle "Set Size"
+            :ytitle "Worst Case Duration [s]"
+            )
+  #+nil
+  (multiple-value-bind (y0 sigma)
+      (linfit:regress-fixed-slope siz (map 'vector (um:rcurry #'log 2) tim) 1 1)
+    (list :y0 y0
+          :sigma sigma) )
+  
+  (multiple-value-bind (xmn ymn slope sigma)
+      (linfit:regression siz (map 'vector (um:rcurry #'log 2) tim) 1)
+    (let ((off (/ (loop for s across siz
+                        for tt across tim
+                        sum (- (log tt 2) s))
+                  (length siz))))
+      (plt:fplot 'plt '(0 100)
+                 (lambda (x)
+                   (expt 2 (+ off x)))
+               :color :red)
+      (list :xmn xmn
+            :ymn ymn
+            :slope slope
+            :sigma sigma)
+      (list :off off))))
+
+;; log2(dur) ≈ N - 19.4, i.e., at N = 19.4 we have 1s duration
+;; log10(dur) ≈ 0.3*N - 5.8
+;; Subtract 4.9 for Log10 duration in days
+;; Subtract 7.5 for Log10 duration in years
+;; So for 1 hour cloaking, use 31 NRows, 61 for 1G Safety
+;;        1 day                36        66
+;;        1 week               39        69
+;;        1 month              41        71
+;;        1 year               44        74
+;;       30 year               49        79
+;; Assume safety factor for attackers being 1 billion times faster
+|#
