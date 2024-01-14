@@ -81,10 +81,10 @@
     ans))
 
 (defun enc-mat*v (m sel)
-  ;; m should be the Pkey matrix [b | -A] with column vector b
-  ;; prepended to -A matrix, stored row-wise. Selector is a random
-  ;; integer in the range [1,2^nrows). We simply add the matrix rows
-  ;; corresponding to non-zero bits in the selector integer.
+  ;; m should be the system matrix, A, stored row-wise. Selector is a
+  ;; random NRows-bit integer in the range [1,2^nrows). We simply add
+  ;; the matrix rows corresponding to non-zero bits in the selector
+  ;; integer.
   #F
   (let ((vans (make-array (length (aref m 0))
                           :element-type 'fixnum
@@ -173,117 +173,146 @@
 (defsetf bref set-bref)
 
 ;; ---------------------------------------------------
-;; NRows sets the difficulty of the subset sum problem O(2^NRows)
+;; NRows sets the difficulty of the subset sum problem O(2^NRows).
 ;;
 ;; If you can solve the subset sum problem on each entry of the
-;; cryptotext vector then you could determine the bit value being
-;; encrypted.
+;; cryptotext vector then, with knowledge of the public key you could
+;; determine the bit value being encrypted.
 ;;
 ;; -----------------------------------------------------------
 ;; For the problem of attacking the encryption, when given the public
-;; key matrix and a cryptotext vector:
+;; key, the system random A matrix, and a cryptotext vector:
 ;;
-;; Public key matrix contains (NCols+1) rows by NRows columns.  Each
-;; element of the (NCols+1) element cryptotext vector represents the
-;; same subset sum of selected columns, of up to NRows elements, from
-;; the corresponding pubkey matrix row. I.e., element 1 is the sum of
-;; selected columns from row 1 of the public key matrix, element 2
-;; from row 2, and so on.
+;; The public key is a NRows vector, and the system matrix contains
+;; NRows by NCols of random values.  The first element of the
+;; cryptotext vector is a subset sum of public key vector elements
+;; plus the bit being encoded. The second element of the cryptotext
+;; vector is the subset sum vector of the same corresponding
+;; NCols-element row vectors of the system matrix.
 ;;
-;; There will always be at least one column selected. But you don't
-;; know which columns. Element 1 of the cryptovector also adds the
-;; scaled bit value of the 1-bit message.
+;; For encryption, each bit of the message uses a different randomly
+;; generated binary selection vector. We guarantee that no fewer than
+;; NRows/4 elements of the selection vector will contain a 1.
 ;;
-;; We do know that the selection weights are 0 or 1. And the bit value
-;; is either 0 or 1, scaled by m/2. There are (NCols+1) rows in the
-;; matrix, corresponding to the (NCols+1) elements of the cryptotext
-;; vector.
+;; But there are NRows selection weights to solve for, given only
+;; NCols representative sums from the system matrix rows. So if NCols
+;; < NRows, then the system is under-determined, and can't be solved
+;; directly. The only way to solve is by brute force search over a
+;; problem of O(2^NRows).
 ;;
-;; But there are NRows selection weights to solve for, plus the bit
-;; value, with NCols+1 equations.  So, if NCols < NRows, then the
-;; system is under-determined, and can't be solved directly. You could
-;; solve in the least-squares sense, but that isn't useful here. What
-;; we need to find is the (NRows+1)-bit "key".
-;;
-;; And because this "key" is purely random, and different for each
-;; conveyed message bit, having no algorithmic periodicities, a
-;; quantum computer offers no advantage here. The only weakness here
-;; may be the quality of the underlying random noise generator.
+;; And because this selected set is different for each encrypted bit
+;; of the message, you have a large number of subset sum problems to
+;; solve. We assume that generated random numbers are robust and
+;; unpredictable.
 ;;
 ;; This is an NP-hard problem, growing exponentially difficult with
-;; order O(2^(NRows+1)). A solution could be found by brute force, but
-;; that becomes infeasible when NRows is large.
+;; order O(2^NRows). For large enough NRows, a brute force search is
+;; unfeasible.
 ;;
 ;; Every time you encrypt a 1-bit message, you get a different random
-;; cyphertext vector. Different keying is used for each transmitted
-;; bit. So a chosen plaintext attack is useless.
+;; cyphertext vector. Different random subset selection keying is used
+;; for each encryption. So a chosen plaintext attack is useless.
 ;;
 ;; ----------------------------------------------------------
 ;; For the problem of attacking the secret key, and obtaining the
-;; weight vector and noise values: This has nothing to do with
-;; cryptovectors. It relies solely on cracking the pulic key matrix.
+;; weight vector and noise values: this has nothing to do with
+;; cryptovectors. It relies solely on cracking the public key with the
+;; given system matrix.
 ;;
-;; Each element of row 1 in the pubkey matrix represets a weighted sum
-;; of NCols elements from the column below, plus additive noise. There
+;; Each element of the pubkey vector represets a weighted sum of NCols
+;; elements from the system matrix, plus random additive noise. There
 ;; are NCols weights, and NRows noise values. All of these are
 ;; unconstrained values, unlike the 1-bit selection weights from the
 ;; previous attack.
 ;;
-;; You have NRows equations across the first row of the pubkey matrix.
-;; And since always NRows < (NCols + NRows), the system is forever
+;; You have NRows equations with (NRows + NCols) unknowns.
+;; And since always, NRows < (NCols + NRows), the system is forever
 ;; under-determined - meaning, you can't solve for the weights and
-;; noise, except in a least-squares sense. And since these weights and
-;; noise are essentially unconstrained values, a brute force search is
-;; infeasible for any dimensions.
+;; noise, except by brute force.
 ;;
 ;; Here, the constraints are that these values are somewhere in the
 ;; range [0,m), or about 2^30 possible choices for each. This is
 ;; effectively unconstrained. You need to find just the right 30-bit
-;; weight, for NRows x NCols of them. At 320x256 this becomes a 2.5
-;; Mbit "key" to search for.
+;; value, for (NRows + NCols) of them. At 320x256 this becomes a
+;; search for a 17,280-bit key. Even a Birthday attack needs on
+;; average 2^(8,640) ≈ 10^(2,592) trials.
 ;;
 ;; And, again, since all of these weights and noise are random values,
 ;; there are no underlying field periodicities to discover, rendering
 ;; no advantage to a quantum computer. The only weakness to this
 ;; system may be the underlying random noise generator.
 ;;
+;; Interestingly, since additive noise is used in forming the public
+;; key corresponding to a given secret key, there are any number of
+;; different public keys for the same secret key. For a 320x256 system
+;; matrix, and for 30-bit modular arithmetic over a prime field, the
+;; secret key is a 7,680-bit key, and the public keys are 9,600-bit
+;; keys.
 ;; ---------------------------------------------------------------
 ;;
-;; Secret key skey = #(1 | x), for x = #(x_1 x_2 ...  x_NCols), for
-;; x_i random in [-m/2,m/2), prime modulus m.
+;; Secret key SKey = |x> = #(x_1 x_2 ...  x_NCols), for
+;; x_i random in [-Ceil(m/2),Floor(m/2)], prime modulus m.
+;;
+;; Using Bra-Ket notation, |x> is a column-vector, and <x| is a
+;; row-vector.
 ;;
 ;; The A matrix is an Nrow x NCols random matrix, serving to expand
-;; the dimensionality of the secret key. A_i,j in [-m/2, m/2)
+;; the dimensionality of the secret key.
+;;        A_i,j in [-Ceil(m/2), Floor(m/2)],
+;; using bipolar modular representation.
 ;;
-;; We compute noisy expansion b = A•x + psi, for noise vector
-;; psi.  Each element of psi comes from a sampled Gaussian
-;; distribution with mean 0 and sigma 1, scaled by (m/4)/gmax, where
-;; gmax is determined as the max absolute sum of all positive samples
-;; vs all negative samples, considering that the worst case random
-;; selection vector will choose one of these pathalogical cases. This
-;; ensures that any summed noise contribution will never be outside of
-;; the bounds (-m/4, m/4).
+;; We compute noisy expansion |b> = A|x> + |ψ>, for noise vector |ψ>.
+;; Each element of ψ comes from a sampled Gaussian distribution with
+;; mean 0 and sigma 1, scaled by (m/4)/gmax, where gmax is determined
+;; as the max absolute sum of all positive samples vs all negative
+;; samples, considering that the worst case random selection vector
+;; will choose one of these pathalogical cases. This ensures that any
+;; summed noise contribution will never be outside of the bounds
+;; (-m/4, m/4).
 ;;
-;; Public key is presented as Ptrn = Trn(b | -A), i.e., first row is
-;; b, successive rows are from -Trn(A).
+;; Public key is presented as PKey = |b>. Because |ψ> is random noise,
+;; there are many possible PKey for each SKey.
 ;;
 ;; Encryption occurs one bit at a time, scaled by m/2. So bit value
 ;; with added noise will either be in the range (-m/4,m/4) for bit 0,
-;; or (-3m/4,-m/4) or (m/4,3m/4) for bit 1. Rounding these to m/2
+;; or (-3m/4,-m/4) or (m/4,3m/4) for bit 1. Rounding these by m/2
 ;; should return -1, 0, or +1. Take that modulo 2 to get back 0 or 1.
 ;;
-;; For each bit, encryption is by way of choosing non-zero random
-;; selection vector r = (r_1, r_2, ... r_Nrows) for r_i in (0,1). Then
-;; cryptotext vector for a single bit is: c = Ptrn•r + (m/2)*bit
+;; For each bit, encryption is by way of choosing a random NRow
+;; non-zero selection vector |r> = (r_1, r_2, ... r_Nrows), for r_i in
+;; (0,1).  Then 2-element cryptotext vector for a single bit is:
 ;;
-;; Decryption is by way of taking dot product of c with skey:
+;;    c = #( <b|r> + m/2*bit, Trn(A)|r> ),
 ;;
-;;  skey•c = skey•#((Trn(b)•r + (m/2)*bit) | -Trn(A)•r)
-;;           = #(1 | Trn(x))•(Trn(x)•Trn(A)•r + Trn(psi)•r + (m/2)*bit | -Trn(A)•r)
-;;           = Trn(x)•Trn(A)•r + Trn(psi)•r + (m/2)*bit - Trn(x) . Trn(A)•r
-;;           = Trn(psi)•r + (m/2)*bit
+;; where first element is a 30-bit scalar value, and second element,
+;; Trn(A)|r>, is an NCol vector of 30-bit values.
 ;;
-;; Then Round(skey•c, m/2) mod 2 => bit
+;; For |b> = A|x> + |ψ>, we have <b|r> = <x|Trn(A)|r> + <ψ|r>.
+;;
+;; With binary elements for selection vector |r>, then <b|r> is a
+;; scalar subset sum of selected elements of public key, |b>, and
+;; Trn(A)|r> is a vector subset sum of the NCol-element row vectors of
+;; matrix A.  Computationally, we never need to form the actual
+;; transpose of matrix A.
+;;
+;; Decryption is by way of taking the difference of the first c
+;; element, and the dot product of second element with SKey, <x|:
+;;
+;;  c[0] - <x|c[1]
+;;           = (<b|r> + m/2*bit) - <x|Trn(A)|r>
+;;           = ((<x|Trn(A) + <ψ|)|r> + m/2*bit) - <x|Trn(A)|r>
+;;           = <x|Trn(A)|r> + <ψ|r> + m/2*bit - <x|Trn(A)|r>
+;;           = <ψ|r> + m/2*bit
+;;
+;; All arithmetic is modulo m.
+;;
+;; Quantity <ψ|r> is unknown, but it is guaranteed that
+;;     Abs(<ψ|r>) < m/4,
+;; for all possoble selection vectors, |r>.
+;;
+;; Then,
+;;     Round(<ψ|r> + (m/2)*bit, m/2) mod 2 => bit
+;; where rounding occurs in the field of Integers.
 ;;
 ;; Here, prime modulus is chosen so that intermediate products remain
 ;; FIXNUM.
