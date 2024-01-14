@@ -246,12 +246,13 @@
 ;; At our initial sizing with NRows = 320, we should have security for
 ;; ≈ 10^81 years against the GHz attacker. A slight overkill?
 ;;
-;; So why not choose NCols = 64, NRows = 80. With 30-bit modulo
-;; arithmetic, this produces a key strength of 4,320 bits against
-;; cracking the secret key. And it gives us 30 year security against
-;; decryption attacks. This would cut down on network traffic by 4
-;; times. Instead of the initial handshake being 366KB, we could get
-;; by with only 92 KB.
+;; But then, we have to consider the "Birthday" effect, and square the
+;; complexity of our systems. So, why not choose KCols = 128, and
+;; NRows = 160? With 30-bit modulo arithmetic, this produces a key
+;; strength of 8,640 bits against cracking the secret key. And it
+;; gives us 30 year security against decryption attacks. This would
+;; cut down on network traffic by 2 times. Instead of the initial
+;; handshake being 366KB, we could get by with only 183 KB.
 ;;
 ;; ----------------------------------------------------------
 ;; For the problem of attacking the secret key, and obtaining the
@@ -358,8 +359,8 @@
 ;; FIXNUM.
 
 (defvar *lattice-m*      (- (ash 1 30) 35)) ;; prime modulus
-(defvar *lattice-nrows*  320)  ;; cyphertext vectors have this length
-(defvar *lattice-ncols*  256)  ;; private key vector has this length
+(defvar *lattice-nrows*  160)  ;; public keys have this length
+(defvar *lattice-ncols*  128)  ;; private key vector and cryptotext vectors have this length
 
 ;; ------------------------------------------------------
 

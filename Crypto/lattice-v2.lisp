@@ -6,26 +6,38 @@
 ;; ----------------------------------------------------
 ;; Rev-2 Uses shared constant A matrix.
 
+(defun check-system (sys)
+  (let ((ncols   (lat2-ncols sys))
+        (nrows   (lat2-nrows sys))
+        (modulus (lat2-modulus sys)))
+    (when (> modulus (ash 1 30))
+      (error "Modulus is too large: ~A" modulus))
+    (when (< ncols 128)
+      (error "NCols should be >= 128: ~A" ncols))
+    (when (< nrows 160)
+      (error "NRows should be >= 160: ~A" nrows))
+    (unless (> nrows ncols)
+      (error "NRows should be > NCols: ~A x ~A" nrows ncols))
+    ))
+
 (defun lat2-gen-system (&key (nrows *lattice-nrows*)
                              (ncols *lattice-ncols*)
                              (modulus *lattice-m*))
-  (when (> modulus (ash 1 30))
-    (error "Modulus is too large: ~A" modulus))
-  (when (< ncols 256)
-    (error "NCols should be > 256: ~A" ncols))
-  (unless (> nrows ncols)
-    (error "NRows should be > ~A: ~A" ncols nrows))
-  (with-mod modulus
-    (let ((mat  (gen-random-matrix nrows ncols)))
-      (list
-       :modulus modulus
-       :nrows   nrows
-       :ncols   ncols
-       :mat-a   mat))))
+  (let ((sys (with-mod modulus
+               (let ((mat  (gen-random-matrix nrows ncols)))
+                 (list
+                  :modulus modulus
+                  :nrows   nrows
+                  :ncols   ncols
+                  :mat-a   mat)))))
+    (check-system sys)
+    sys))
 
 #|
 (send kvdb:kvdb println :add :lat2-system (lat2-gen-system))
  |#
+
+;; ------------------------------------------------
 
 (deflex lattice-system
   (create
@@ -33,6 +45,7 @@
     ((cust)
      (let+ ((me  self)
             (:β  (sys) (racurry kvdb:kvdb :find :lat2-system)))
+       (check-system sys)
        (send me cust :update sys)
        ))
     ((cust :update sys)
@@ -57,41 +70,36 @@
 
 (defun lat2-gen-skey (&optional (sys (get-lattice-system)))
   ;; skey is a ncol vector of 30-bit bipolar field values
+  (check-system sys)
   (let ((ncols   (lat2-ncols sys))        
         (modulus (lat2-modulus sys)))
-    (when (> modulus (ash 1 30))
-      (error "Modulus is too large: ~A" modulus))
-    (when (< ncols 256)
-      (error "NCols should be > 256: ~A" ncols))
     (with-mod modulus
       (gen-random-vec ncols))
     ))
 
 (defun lat2-gen-deterministic-skey (sys &rest seeds)
   ;; skey is a ncol vector of 30-bit bipolar field values
+  (check-system sys)
   (let* ((sys     (or sys (get-lattice-system)))
          (ncols   (lat2-ncols sys))        
-         (modulus (lat2-modulus sys)))
-    (when (> modulus (ash 1 30))
-      (error "Modulus is too large: ~A" modulus))
-    (when (< ncols 256)
-      (error "NCols should be > 256: ~A" ncols))
-    (let* ((nbits-per-word  (integer-length modulus))
-           (nbits-total     (* nbits-per-word ncols))
-           (hstretch        nil))
-      (dotimes (ix 1000)
-        (setf hstretch (apply #'hash/256 hstretch ix :deterministic-skey seeds)))
-      (let* ((h   (apply #'get-hash-nbits nbits-total hstretch :deterministic-skey seeds))
-             (hbv (to-bitvec (vec h))))
-        (with-mod modulus
-          (coerce
-           (loop for pos from 0 below nbits-total by nbits-per-word collect
-                   (lmod (bitvec-to hbv pos nbits-per-word)))
-           'vector))
-        ))))
+         (modulus (lat2-modulus sys))
+         (nbits-per-word  (integer-length modulus))
+         (nbits-total     (* nbits-per-word ncols))
+         (hstretch        nil))
+    (dotimes (ix 1000)
+      (setf hstretch (apply #'hash/256 hstretch ix :deterministic-skey seeds)))
+    (let* ((h   (apply #'get-hash-nbits nbits-total hstretch :deterministic-skey seeds))
+           (hbv (to-bitvec (vec h))))
+      (with-mod modulus
+        (coerce
+         (loop for pos from 0 below nbits-total by nbits-per-word collect
+                 (lmod (bitvec-to hbv pos nbits-per-word)))
+         'vector))
+      )))
 
 (defun lat2-gen-pkey (skey &optional (sys (get-lattice-system)))
   ;; pkey is a nrow vector of 30-bit bipolar field values
+  (check-system sys)
   (with-mod (lat2-modulus sys)
     (let* ((amat   (lat2-matrix sys))
            (nrows  (lat2-nrows sys))
