@@ -24,7 +24,7 @@
                              (ncols *lattice-ncols*)
                              (modulus *lattice-m*))
   (let ((sys (with-mod modulus
-               (let ((mat  (gen-random-matrix nrows ncols)))
+               (let ((mat  (gen-random-gaussian-matrix nrows ncols)))
                  (list
                   :modulus modulus
                   :nrows   nrows
@@ -35,6 +35,8 @@
 
 #|
 (send kvdb:kvdb println :add :lat2-system (lat2-gen-system))
+
+(send kvdb:kvdb println :add :lat2g-system (lat2-gen-system))
  |#
 
 ;; ------------------------------------------------
@@ -44,7 +46,7 @@
    (alambda
     ((cust)
      (let+ ((me  self)
-            (:β  (sys) (racurry kvdb:kvdb :find :lat2-system)))
+            (:β  (sys) (racurry kvdb:kvdb :find :lat2g-system)))
        (check-system sys)
        (send me cust :update sys)
        ))
@@ -208,3 +210,24 @@
   ;; general object decryption
   (values-list (loenc:decode (lat2-decode skey cs))))
 
+;; ----------------------------------------------------------------
+
+#|
+(let* ((mat  (lat2-matrix))
+      (m     (lat2-modulus))
+      (nrows (lat2-nrows))
+      (ncols (lat2-ncols))
+      (vals  (make-array (list (* nrows ncols))
+                         :element-type 'single-float)))
+  (loop for row across mat
+        for rix from 0
+        do
+          (loop for x across row
+                for cix from 0
+                do
+                  (setf (aref vals (+ cix (* rix ncols))) (float (/ x m)))
+                  ))
+  (plt:histogram 'histo vals
+                 :clear t))
+  
+|#

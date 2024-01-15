@@ -12,6 +12,7 @@
    #:lat2-decode
    #:lat2-dec
    #:lat2-gen-deterministic-skey
+   #:lat2-gen-pkey
    ))
 
 (in-package #:com.ral.crypto.lattice-crypto)
@@ -398,11 +399,22 @@
                     (incf v+ x)
                   (decf v- x)))
          v)
-    (let ((vmax (max v+ v-)))
-      (declare (single-float vmax))
+    (let* ((vmax (max v+ v-))
+           (sf   (/ (mod-base) 4 vmax)))
+      (declare (single-float vmax sf))
+      (format t "~%VMax = ~f" vmax)
       (map 'vector #'round
-           (vops:vscale (/ (mod-base) 4 vmax) v)))
+           (vops:vscale sf v)))
     ))
+
+(defun gen-random-gaussian-matrix (nrows ncols)
+  (let ((sf  (/ (mod-base) 4 nrows ncols))
+        (mat (make-array nrows)))
+      (loop for rix from 0 below nrows do
+            (setf (aref mat rix)
+                  (map 'vector #'round
+                       (vops:vscale sf (vm:gnoise ncols)))))
+      mat))
 
 (defun gen-random-sel (nbits)
   ;; Produce an nbits random value, with at lesat a quarter of them
@@ -520,4 +532,67 @@
 ;;        1 year               44        74
 ;;       30 year               49        79
 ;; Assume safety factor for attackers being 1 billion times faster
+|#
+
+#|
+(let* ((mat   (lat2-matrix))
+       (m     (lat2-modulus))
+       (nrows (lat2-nrows))
+       (ncols (lat2-ncols))
+       (mat   (with-mod m
+                (gen-random-gaussian-matrix nrows ncols)))
+       (vals  (make-array (list (* nrows ncols))
+                          :element-type 'single-float)))
+  (loop for row across mat
+        for rix from 0
+        do
+          (loop for x across row
+                for cix from 0
+                do
+                  (setf (aref vals (+ cix (* rix ncols))) (float (/ x m)))
+                  ))
+  (plt:histogram 'histo vals
+                 :clear t))
+
+(let ((v (vm:gnoise 10000)))
+  (reduce (lambda (acc val)
+            (+ acc (abs val)))
+          v))
+
+(let* ((m     (lat2-modulus))
+       (nrows 3)
+       (ncols 2)
+       (mat   (with-mod m
+                (fgen-random-gaussian-matrix nrows ncols))))
+  (values (fgen-noise-vec nrows)
+          mat))
+
+(defun fgen-noise-vec (nel)
+  ;; generate a Gaussian random vector, worst-case bounded by [-m/4, m/4)
+  (declare (fixnum nel))
+  (let ((v  (vm:gnoise nel))
+        (v+ 0.0f0)
+        (v- 0.0f0))
+    (declare (single-float v+ v-))
+    (map 'nil (lambda (x)
+                (declare (single-float x))
+                (if (plusp x)
+                    (incf v+ x)
+                  (decf v- x)))
+         v)
+    (let* ((vmax (max v+ v-))
+           (sf   (/ 1 4 vmax)))
+      (declare (single-float vmax sf))
+      (format t "~%VMax = ~f" vmax)
+      (vops:vscale sf v))
+    ))
+
+(defun fgen-random-gaussian-matrix (nrows ncols)
+  (let ((sf  (/ 1 4 nrows ncols))
+        (mat (make-array nrows)))
+      (loop for rix from 0 below nrows do
+            (setf (aref mat rix)
+                  (vops:vscale sf (vm:gnoise ncols))))
+      mat))
+
 |#
