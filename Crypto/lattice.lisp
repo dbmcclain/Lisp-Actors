@@ -535,12 +535,14 @@
 |#
 
 #|
-(let* ((mat   (lat2-matrix))
-       (m     (lat2-modulus))
+(let* ((m     (lat2-modulus))
        (nrows (lat2-nrows))
        (ncols (lat2-ncols))
        (mat   (with-mod m
                 (gen-random-gaussian-matrix nrows ncols)))
+       (mat   (with-mod m
+                (gen-random-matrix nrows ncols)))
+       ;; (mat   (lat2-matrix))
        (vals  (make-array (list (* nrows ncols))
                           :element-type 'single-float)))
   (loop for row across mat
@@ -557,6 +559,11 @@
 (let ((v (vm:gnoise 10000)))
   (reduce (lambda (acc val)
             (+ acc (abs val)))
+          v))
+
+(let ((v (vm:gnoise 10000)))
+  (reduce (lambda (acc val)
+            (max acc (abs val)))
           v))
 
 (let* ((m     (lat2-modulus))
@@ -595,4 +602,50 @@
                   (vops:vscale sf (vm:gnoise ncols))))
       mat))
 
+(with-mod *lattice-m*
+  (let* ((mat   (gen-random-gaussian-matrix 2 2))
+         (map   (gen-random-matrix 2 2))
+         (noise (gen-noise-vec 2))
+         (skey  (gen-random-vec 2)))
+    (labels ((vdot (a b)
+               (lmod
+                (reduce #'+
+                        (map 'vector #'* a b))))
+             (v+ (a b)
+               (map 'vector #'lm+ a b))
+             (pk (skey)
+               (vector
+                (vdot skey (aref mat 0))
+                (vdot skey (aref mat 1))))
+             (pkn (skey)
+               (v+ noise (pk skey)))
+             (show (skey &rest args)
+               (let ((vec (pk skey)))
+                 (apply #'plt:plot 'plt
+                        (list (/ (aref vec 0) (mod-base)))
+                        (list (/ (aref vec 1) (mod-base)))
+                        ;; :symbol :circle
+                        args)))
+             (shown (skey &rest args)
+               (let ((vec (pkn skey)))
+                 (apply #'plt:plot 'plt
+                        (list (/ (aref vec 0) (mod-base)))
+                        (list (/ (aref vec 1) (mod-base)))
+                        ;; :symbol :circle
+                        args))))
+      (show skey :clear t :color :red
+            :xrange '(-0.5 0.5)
+            :yrange '(-0.5 0.5))
+      (loop for ix from -30 to 30 by 1 do
+              (loop for iy from -30 to 30 by 1 do
+                      (shown (v+ skey (vector ix iy)) :symbol :dot)
+                    ))
+      (let ((vec (pkn skey)))
+        (plt:draw-circle 'plt (/ (aref vec 0) (mod-base))
+                         (/ (aref vec 1) (mod-base))
+                         0.25 :color :gray70 :alpha 0.5))
+      (show skey :color :red :symbol :circle)
+      (shown skey :color :cyan :symbol :circle)
+      )))
+                           
 |#

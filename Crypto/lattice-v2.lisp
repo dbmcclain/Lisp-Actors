@@ -24,7 +24,7 @@
                              (ncols *lattice-ncols*)
                              (modulus *lattice-m*))
   (let ((sys (with-mod modulus
-               (let ((mat  (gen-random-gaussian-matrix nrows ncols)))
+               (let ((mat  (gen-random-matrix nrows ncols)))
                  (list
                   :modulus modulus
                   :nrows   nrows
