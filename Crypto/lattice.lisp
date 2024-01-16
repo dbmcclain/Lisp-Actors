@@ -359,7 +359,7 @@
 ;; Here, prime modulus is chosen so that intermediate products remain
 ;; FIXNUM.
 
-(defvar *lattice-m*      (- (ash 1 30) 35)) ;; prime modulus
+(defvar *lattice-m*      (- (ash 1 30) 35)) ;; prime modulus = 1 mod 4
 (defvar *lattice-nrows*  160)  ;; public keys have this length
 (defvar *lattice-ncols*  128)  ;; private key vector and cryptotext vectors have this length
 
@@ -387,7 +387,10 @@
    'vector))
 
 (defun gen-noise-vec (nel)
-  ;; generate a Gaussian random vector, worst-case bounded by [-m/4, m/4)
+  ;; m happens to be 1 mod 4. But wouldn't matter otherwise.
+  ;;
+  ;; Generate a Gaussian random vector, worst-case sum bounded by
+  ;;    [-(m >> 2)/4, (m >> 2)/4)
   (declare (fixnum nel))
   (let ((v  (vm:gnoise nel))
         (v+ 0.0f0)
@@ -400,15 +403,15 @@
                   (decf v- x)))
          v)
     (let* ((vmax (max v+ v-))
-           (sf   (/ (mod-base) 4 vmax)))
+           (sf   (/ (ash (mod-base) -2) vmax)))
       (declare (single-float vmax sf))
       (format t "~%VMax = ~f" vmax)
-      (map 'vector #'round
+      (map 'vector #'truncate ;; (abs (max sum)) < (m-1)/4
            (vops:vscale sf v)))
     ))
 
 (defun gen-random-gaussian-matrix (nrows ncols)
-  (let ((sf  (/ (mod-base) 4 nrows ncols))
+  (let ((sf  (/ (ash (mod-base) -2) nrows ncols))
         (mat (make-array nrows)))
       (loop for rix from 0 below nrows do
             (setf (aref mat rix)
