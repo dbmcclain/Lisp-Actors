@@ -4,10 +4,16 @@
 
 (in-package :com.ral.crypto.lattice-crypto)
 
+#|
 (defparameter *flat-nbits*    26)
 (defparameter *flat-ncode*     8)
 (defparameter *flat-nrows*   160)
 (defparameter *flat-ncols*   128)
+|#
+(defparameter *flat-nbits*   320)
+(defparameter *flat-ncode*   256)
+(defparameter *flat-nrows*   160)
+(defparameter *flat-ncols*     1)
 
 ;; ---------------------------------------------
 
@@ -56,9 +62,9 @@
         (nrows   (lat2-nrows sys))
         (nbits   (getf sys :nbits)))
     (when (> (ceiling (sum-nbits nbits nrows nsigma)) 60)
-      (error "NBits is too large: ~A" nbits))
-    (when (< ncols 128)
-      (error "NCols should be >= 128: ~A" ncols))
+      (warn "NBits is too large for FIXNUM arithmetic: ~A" nbits))
+    (when (< (* nbits (+ nrows ncols)) 256)
+      (error "NBits, NRows, NCols too weak: (~A,~A,~A)" nbits nrows ncols))
     (when (< nrows 160)
       (error "NRows should be >= 160: ~A" nrows))
     #|
@@ -82,10 +88,12 @@
                       (ncode *flat-ncode*)
                       (nrows *flat-nrows*)
                       (ncols *flat-ncols*))
-  (let ((a    (make-array nrows))
-        (base (1- (ash 1 nbits))))
+  (let ((a  (make-array nrows)))
     (loop for ix from 0 below nrows do
-            (setf (aref a ix) (map 'vector #'round (vm:unoise ncols base))))
+            (let ((v (make-array ncols)))
+              (loop for jx from 0 below ncols do
+                      (setf (aref v jx) (prng:ctr-drbg-int nbits)))
+              (setf (aref a ix) v)))
     (let ((sys (list :nbits nbits
                      :ncode ncode
                      :nrows nrows
@@ -98,25 +106,30 @@
 
 (defun fgen-skey (sys)
   (let* ((nbits (getf sys :nbits))
-         (base  (1- (ash 1 nbits)))
-         (ncols (getf sys :ncols)))
-    (map 'vector #'round (vm:unoise ncols base))))
+         (ncols (getf sys :ncols))
+         (ans   (make-array ncols)))
+    (loop for ix from 0 below ncols do
+            (setf (aref ans ix) (prng:ctr-drbg-int nbits)))
+    ans))
 
 (defun flat-gen-deterministic-skey (sys &rest seeds)
   ;; skey is a ncol vector of 26-bit values
   (fcheck-system sys)
   (let* ((ncols           (lat2-ncols sys))        
          (nbits-per-word  (getf sys :nbits))
+         (nbytes-per-word (ash nbits-per-word -3))
          (nbits-total     (* nbits-per-word ncols))
          (hstretch        nil))
     (dotimes (ix 1000)
       (setf hstretch (apply #'hash/256 hstretch ix :deterministic-skey seeds)))
-    (let* ((h   (apply #'get-hash-nbits nbits-total hstretch :deterministic-skey seeds))
-           (hbv (to-bitvec (vec h))))
-      (coerce
-       (loop for pos from 0 below nbits-total by nbits-per-word collect
-               (bitvec-to hbv pos nbits-per-word))
-       'vector))
+    (let* ((h    (vec (apply #'get-hash-nbits nbits-total hstretch :deterministic-skey seeds)))
+           (hlen (length h))
+           (ans  (make-array ncols)))
+      (loop for ix from 0 below ncols
+            for pos from 0 by nbytes-per-word
+            do
+              (setf (aref ans ix) (int (subseq h pos (min hlen (+ pos nbytes-per-word))))))
+      ans)
     ))
 
 (defun noise-nbits (nbits-for-unit nrows nsigma)
@@ -156,16 +169,13 @@
          (nsmall  (floor (noise-nbits (- nbits ncode) nrows nsigma)))
          (small   (ash 1 nsmall))
          (chk     (assert (> small (sqrt nrows))))
-         (small/2 (ash small -1))
-         (noise (map 'vector (lambda (x)
-                               (round (- x small/2)))
-                     (vm:unoise nrows small))))
+         (small/2 (ash small -1)))
     (declare (ignore chk))
-    (map 'vector (lambda (arow err)
+    (map 'vector (lambda (arow)
                    (flat-mod (+ (fvdot arow skey)
-                                err)
+                                (- (prng:ctr-drbg-int nsmall) small/2))
                              sys))
-         mat-a noise)))
+         mat-a)))
 
 ;; ------------------------------------------------------------------
 
@@ -179,7 +189,7 @@
          (sel   (gen-random-sel nrows))
          (bsum  0)
          (vsum  (make-array ncols
-                            :element-type 'fixnum
+                            ;; :element-type 'fixnum
                             :initial-element 0)))
     (loop for vrow across mat
           for b across pkey
@@ -195,15 +205,30 @@
     ))
 
 (defun flat-encode (pkey v &optional (sys (get-lattice-system)))
-  (let* ((v   (ub8v v))
-         (nb  (length v))
-         (ans (make-array nb)))
-    (declare (fixnum nb))
-    (loop for ix fixnum from 0 below nb
-          do
-            (setf (aref ans ix)
-                  (flat-encode1 (aref v ix) pkey sys)))
-    ans))
+  (let* ((v     (ub8v v))
+         (nb    (length v))
+         (ncode (getf sys :ncode)))
+    (declare (fixnum nb ncode))
+    (cond ((= ncode 8)
+           (let ((ans (make-array nb)))
+             (loop for ix fixnum from 0 below nb
+                   do
+                     (setf (aref ans ix)
+                           (flat-encode1 (aref v ix) pkey sys)))
+             ans))
+          ((zerop (logand ncode 7)) ;; multiples of 8
+           (let* ((ngrp (ash ncode -3))
+                  (nel  (ceiling nb ngrp))
+                  (ans  (make-array nel)))
+             (loop for ix fixnum from 0 below nel
+                   for pos from 0 by ngrp
+                   do
+                     (setf (aref ans ix)
+                           (flat-encode1 (int (subseq v pos (min nb (+ pos ngrp)))) pkey sys)))
+             ans))
+          (t
+           (error "non-nbyte data not yet supported"))
+          )))
 
 (defun flat-enc (pkey &rest objs)
   (flat-encode pkey (loenc:encode (loenc:unshared-list objs
@@ -227,13 +252,27 @@
 (defun flat-decode (skey cs &optional (sys (get-lattice-system)))
   ;; decode a list of cyphertext vectors into an octet vector
   #F
-  (let* ((nel  (length cs))
-         (bv   (make-array nel
-                           :element-type '(unsigned-byte 8))))
+  (let* ((nel   (length cs))
+         (ncode (getf sys :ncode))
+         (bv    (make-array nel
+                            :element-type `(unsigned-byte ,ncode))))
     (loop for ix fixnum from 0 below nel
           do
             (setf (aref bv ix) (flat-decode1 (aref cs ix) skey sys)))
-    bv))
+    (cond ((eql ncode 8)
+           bv)
+          (t
+           (let* ((nbytes-per-word (ash ncode -3))
+                  (tlen (* nbytes-per-word nel))
+                  (ans  (make-array tlen
+                                    :element-type '(unsigned-byte 8))))
+             (loop for ix from 0 below nel
+                   for pos from 0 by nbytes-per-word
+                   do
+                   (let ((vec (vec (aref bv ix))))
+                     (replace ans vec :start1 pos)))
+             ans))
+          )))
 
 (defun flat-dec (skey cs)
   (values-list (loenc:decode (flat-decode skey cs))))
