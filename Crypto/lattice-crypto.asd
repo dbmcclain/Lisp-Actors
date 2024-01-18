@@ -32,6 +32,7 @@ THE SOFTWARE.
   :serial       t
   :components  ((:file "lattice")
                 (:file "lattice-v2")
+                (:file "lattice-fast")
                 (:file "lattice-key-exchange"))
   :depends-on   ("edwards-ecc"))
 

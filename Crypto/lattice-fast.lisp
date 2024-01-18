@@ -88,21 +88,53 @@
        'vector))
     ))
 
+(defun noise-nbits (nbits-for-unit nrows nsigma)
+  (- nbits-for-unit 1
+     (- (log nsigma 2)
+        (/ (log 12 2) 2))
+     (/ (log nrows 2) 2)))
+
 (defun fgen-pkey (skey sys)
   (let* ((nrows   (getf sys :nrows))
-         (nbits   (getf sys :nbits))  ;; = q
-         (nsmall  (truncate nbits 2)) ;; = sqrt(q)
+         (nbits   (getf sys :nbits))
+         (ncode   (getf sys :ncode))
+         (mat-a   (getf sys :mat-a))
+         ;;
+         ;; -- Bipolar Noise Values --
+         ;;
+         ;; For a uniform distribution of width N, the variance is
+         ;; N^2/12.  If we sum NRows of these together, the variance
+         ;; becomes NRows*N^2/12.  We need to allow for some multiple of
+         ;; the standard deviation and that multiple must remain below
+         ;; half our unit scale.
+         ;;
+         ;; So, if unity is represented as 2^NUnit, then we need:
+         ;;
+         ;;  Log2(NSigma) + 1/2*Log2(NRows) + Log2(N) - 1/2*Log2(12) < NUnit-1
+         ;;
+         ;; Solving for N:
+         ;;
+         ;;  Log2(N) < NUnit - Log2(6) + 1/2*Log2(12) - 1/2*Log2(NRows)
+         ;;
+         ;; Plugging in NUnit = 18, NRows = 160, NSigma = 6, we get:
+         ;;
+         ;;    Log2(N) < 12.54, so use 12
+         ;;
+         ;; This needs to be greater than 1/2*log2(NRows) = 3.66, for security.
+         ;;
+         (nsmall  (floor (noise-nbits (- nbits ncode) nrows 6)))
          (small   (ash 1 nsmall))
+         (chk     (assert (> small (sqrt nrows))))
          (small/2 (ash small -1))
-         ;; bipolar noise values
          (noise (map 'vector (lambda (x)
                                (round (- x small/2)))
                      (vm:unoise nrows small))))
+    (declare (ignore chk))
     (map 'vector (lambda (arow err)
                    (flat-mod (+ (fvdot arow skey)
                                 err)
                              sys))
-         (getf sys :mat-a) noise)))
+         mat-a noise)))
 
 ;; ------------------------------------------------------------------
 
@@ -182,6 +214,15 @@
 (defparameter *tst-skey* (fgen-skey *flat-sys*))
 (defparameter *tst-pkey* (fgen-pkey *tst-skey* *flat-sys*))
 
+(defun sqr (x)
+  (* x x))
+
+(let* ((coll (vm:unoise 10000 2))
+       (sd   (vm:stdev coll)))
+  (list :mn (vm:mean coll)
+        :sd sd
+        :var (sqr sd)))
+
 (let* ((nel  160)
        (coll (loop repeat 10000 collect
                      (/ (reduce #'+
@@ -216,22 +257,25 @@
 ;; ----------------------------------------------------
 ;; Histogram of Raw Decryptions
 ;; Should look like a Gaussian distribution above the value of the x data value
-(let* ((x     0)
+(let* ((x     255)
        (nbits (getf *flat-sys* :nbits))
        (ncode (getf *flat-sys* :ncode))
        (pos   (- nbits ncode))
+       (half  (ash 1 (1- pos)))
+       (one   (ash 1 pos))
        (coll  (loop repeat 10000 collect
                       (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
                         (/ (flat-mod (+ (- (aref v 0)
                                            (fvdot *tst-skey* (aref v 1)))
-                                        (ash 1 (- nbits ncode 1)))
+                                        half)
                                      *flat-sys*)
-                           (ash 1 (- nbits ncode)))))))
-       (plt:histogram 'histo coll
-                      :clear t
-                      :norm  nil
-                      ;; :yrange '(0 100)
-                      ))
+                           one))
+                      )))
+  (plt:histogram 'histo coll
+                 :clear t
+                 :norm  nil
+                 ;; :yrange '(0 100)
+                 ))
 
 ;; -------------------------------------------
 ;; Histogram of Scaler component of Encryption
@@ -241,10 +285,11 @@
        (nbits (getf *flat-sys* :nbits))
        (ncode (getf *flat-sys* :ncode))
        (pos   (- nbits ncode))
+       (one   (ash 1 pos))
        (coll  (loop repeat 10000 collect
                       (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
-                        (/ (aref v 0)
-                           (ash 1 (- nbits ncode)))))))
+                        (/ (aref v 0) one)
+                        ))))
        (plt:histogram 'histo coll
                       :clear t
                       :norm  nil
