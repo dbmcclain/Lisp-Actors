@@ -114,7 +114,7 @@
          ;;
          ;; Solving for N:
          ;;
-         ;;  Log2(N) < NUnit - Log2(6) + 1/2*Log2(12) - 1/2*Log2(NRows)
+         ;;  Log2(N) < NUnit-1 - Log2(NSigma) + 1/2*Log2(12) - 1/2*Log2(NRows)
          ;;
          ;; Plugging in NUnit = 18, NRows = 160, NSigma = 6, we get:
          ;;
