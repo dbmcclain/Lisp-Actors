@@ -212,6 +212,7 @@
     ))
 
 (defun flat-encode (pkey v &optional (sys (get-lattice-system)))
+  ;; Encrypt an octet vector
   (let* ((v     (ub8v v))
          (nb    (length v))
          (ncode (getf sys :ncode)))
@@ -234,7 +235,7 @@
                            (flat-encode1 (int (subseq v pos (min nb (+ pos ngrp)))) pkey sys)))
              ans))
           (t
-           (error "non-nbyte data not yet supported"))
+           (error "non-NByte data not yet supported"))
           )))
 
 (defun flat-enc (pkey &rest objs)
@@ -276,8 +277,8 @@
              (loop for ix from 0 below nel
                    for pos from 0 by nbytes-per-word
                    do
-                   (let ((vec (vec (aref bv ix))))
-                     (replace ans vec :start1 pos)))
+                   (let ((v (vec (aref bv ix))))
+                     (replace ans v :start1 pos)))
              ans))
           )))
 
@@ -334,13 +335,13 @@
 ;; ----------------------------------------------------
 ;; Histogram of Raw Decryptions
 ;; Should look like a Gaussian distribution above the value of the x data value
-(let* ((x     255)
+(let* ((x     0)
        (nbits (getf *flat-sys* :nbits))
        (ncode (getf *flat-sys* :ncode))
        (pos   (- nbits ncode))
        (half  (ash 1 (1- pos)))
        (one   (ash 1 pos))
-       (coll  (loop repeat 10000 collect
+       (coll  (loop repeat 100000 collect
                       (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
                         (/ (flat-mod (+ (- (aref v 0)
                                            (fvdot *tst-skey* (aref v 1)))
@@ -355,23 +356,23 @@
                  ))
 
 ;; -------------------------------------------
-;; Histogram of Scaler component of Encryption
+;; Histogram of Scalar component of Encryption
 ;; Should look like a uniform distribution
 
-(let* ((x     2)
+(let* ((x     0)
        (nbits (getf *flat-sys* :nbits))
        (ncode (getf *flat-sys* :ncode))
        (pos   (- nbits ncode))
-       (one   (ash 1 pos))
-       (coll  (loop repeat 10000 collect
+       (one   (ash 1 nbits))
+       (coll  (loop repeat 100000 collect
                       (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
                         (/ (aref v 0) one)
                         ))))
-       (plt:histogram 'histo coll
-                      :clear t
-                      :norm  nil
-                      ;; :yrange '(0 100)
-                      ))
+  (plt:histogram 'histo coll
+                 :clear t
+                 :norm  nil
+                 :yrange '(0 600)
+                 ))
 
 |#
     
