@@ -40,7 +40,7 @@
 
 (send kvdb:kvdb println :add :lat2g-system (lat2-gen-system))
 
-(send kvdb:kvdb println :add :flat-system (fgen-sys))
+(send kvdb:kvdb println :add :flat-system (fgen-sys :modulus (- (ash 1 320) 197)))
  |#
 
 ;; ------------------------------------------------

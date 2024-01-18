@@ -22,11 +22,20 @@
 (defparameter *flat-nrows*   160)
 (defparameter *flat-ncols*     1)
 
+(defparameter *flat-modulus*  (- (ash 1 320) 197))
+
 ;; ---------------------------------------------
 
-(defun flat-mod (x sys)
-  (let ((nbits (getf sys :nbits)))
-    (ldb (byte nbits 0) x)))
+(defun flat-mod (x sys &optional modulus)
+  (let ((modulus (or modulus
+                     (and sys
+                          (getf sys :modulus)))))
+    (cond (modulus
+           (mod x modulus))
+          (t
+           (let ((nbits (getf sys :nbits)))
+             (ldb (byte nbits 0) x)))
+          )))
 
 (defun fvdot (v1 v2)
   (reduce #'+ (map 'vector #'* v1 v2)))
@@ -94,17 +103,24 @@
 (defun fgen-sys (&key (nbits *flat-nbits*)
                       (ncode *flat-ncode*)
                       (nrows *flat-nrows*)
-                      (ncols *flat-ncols*))
-  (let ((a  (make-array nrows)))
+                      (ncols *flat-ncols*)
+                      modulus)
+  (let ((a    (make-array nrows)))
     (loop for ix from 0 below nrows do
             (let ((v (make-array ncols)))
               (loop for jx from 0 below ncols do
-                      (setf (aref v jx) (prng:ctr-drbg-int nbits)))
+                      (let ((x (prng:ctr-drbg-int nbits)))
+                        (setf (aref v jx)
+                              (if modulus
+                                  (flat-mod x nil modulus)
+                                x))
+                        ))
               (setf (aref a ix) v)))
     (let ((sys (list :nbits nbits
                      :ncode ncode
                      :nrows nrows
                      :ncols ncols
+                     :modulus modulus
                      :mat-a a)))
       (fcheck-system sys)
       sys)))
@@ -116,7 +132,7 @@
          (ncols (getf sys :ncols))
          (ans   (make-array ncols)))
     (loop for ix from 0 below ncols do
-            (setf (aref ans ix) (prng:ctr-drbg-int nbits)))
+            (setf (aref ans ix) (flat-mod (prng:ctr-drbg-int nbits) sys)))
     ans))
 
 (defun flat-gen-deterministic-skey (sys &rest seeds)
@@ -135,7 +151,9 @@
       (loop for ix from 0 below ncols
             for pos from 0 by nbytes-per-word
             do
-              (setf (aref ans ix) (int (subseq h pos (min hlen (+ pos nbytes-per-word))))))
+              (let ((x (int (subseq h pos (min hlen (+ pos nbytes-per-word))))))
+                (setf (aref ans ix) (flat-mod x sys))
+                ))
       ans)
     ))
 
@@ -252,9 +270,10 @@
          (pos   (- nbits ncode))
          (half  (ash 1 (1- pos))))
     (ldb (byte ncode pos)
-         (+ (- bsum
-               (fvdot skey vsum))
-            half))
+         (flat-mod (+ (- bsum
+                         (fvdot skey vsum))
+                      half)
+                   sys))
     ))
 
 (defun flat-decode (skey cs &optional (sys (get-lattice-system)))
@@ -288,7 +307,9 @@
 ;; -----------------------------------------------------------------
 
 #|
+(defparameter *flat-sys* (fgen-sys :modulus *flat-modulus*))
 (defparameter *flat-sys* (fgen-sys))
+
 (defparameter *tst-skey* (fgen-skey *flat-sys*))
 (defparameter *tst-pkey* (fgen-pkey *tst-skey* *flat-sys*))
 
@@ -314,6 +335,7 @@
   (list :mn (float (vm:mean coll))
         :sd (float (vm:stdev coll))))
 
+;; !!Don't execute this on large code-spaces!!
 (let* ((pkey (fgen-pkey *tst-skey* *flat-sys*)))
   (loop for ix from 0 below (ash 1 (getf *flat-sys* :ncode)) do
           (let* ((v (flat-encode1 ix pkey *flat-sys*))
@@ -343,12 +365,14 @@
        (one   (ash 1 pos))
        (coll  (loop repeat 100000 collect
                       (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
-                        (/ (flat-mod (+ (- (aref v 0)
-                                           (fvdot *tst-skey* (aref v 1)))
-                                        half)
-                                     *flat-sys*)
-                           one))
-                      )))
+                        (float
+                         (/ (flat-mod (+ (- (aref v 0)
+                                            (fvdot *tst-skey* (aref v 1)))
+                                         half)
+                                      *flat-sys*)
+                            one)))
+                    )))
+  ;; (inspect coll)
   (plt:histogram 'histo coll
                  :clear t
                  :norm  nil
@@ -366,7 +390,7 @@
        (one   (ash 1 nbits))
        (coll  (loop repeat 100000 collect
                       (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
-                        (/ (aref v 0) one)
+                        (float (/ (aref v 0) one))
                         ))))
   (plt:histogram 'histo coll
                  :clear t
