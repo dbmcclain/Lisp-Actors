@@ -16,8 +16,10 @@
       (error "NCols should be >= 128: ~A" ncols))
     (when (< nrows 160)
       (error "NRows should be >= 160: ~A" nrows))
+    #|
     (unless (> nrows ncols)
       (error "NRows should be > NCols: ~A x ~A" nrows ncols))
+    |#
     ))
 
 (defun lat2-gen-system (&key (nrows *lattice-nrows*)
@@ -37,10 +39,13 @@
 (send kvdb:kvdb println :add :lat2-system (lat2-gen-system))
 
 (send kvdb:kvdb println :add :lat2g-system (lat2-gen-system))
+
+(send kvdb:kvdb println :add :flat-system (fgen-sys))
  |#
 
 ;; ------------------------------------------------
 
+#|
 (deflex lattice-system
   (create
    (alambda
@@ -48,6 +53,20 @@
      (let+ ((me  self)
             (:β  (sys) (racurry kvdb:kvdb :find :lat2g-system)))
        (check-system sys)
+       (send me cust :update sys)
+       ))
+    ((cust :update sys)
+     (become (const-beh sys))
+     (send cust sys))
+    )))
+|#
+(deflex lattice-system
+  (create
+   (alambda
+    ((cust)
+     (let+ ((me  self)
+            (:β  (sys) (racurry kvdb:kvdb :find :flat-system)))
+       (fcheck-system sys)
        (send me cust :update sys)
        ))
     ((cust :update sys)

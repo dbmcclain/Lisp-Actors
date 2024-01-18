@@ -13,6 +13,11 @@
    #:lat2-dec
    #:lat2-gen-deterministic-skey
    #:lat2-gen-pkey
+
+   #:fgen-pkey
+   #:flat-encode
+   #:flat-decode
+   #:flat-gen-deterministic-skey
    ))
 
 (in-package #:com.ral.crypto.lattice-crypto)
@@ -181,6 +186,7 @@
 ;; determine the bit value being encrypted.
 ;;
 ;; -----------------------------------------------------------
+;;
 ;; For the problem of attacking the encryption, when given the public
 ;; key, the system random A matrix, and a cryptotext vector:
 ;;
@@ -213,20 +219,67 @@
 ;; Every time you encrypt a 1-bit message, you get a different random
 ;; cyphertext vector. Different random subset selection keying is used
 ;; for each encryption. So a chosen plaintext attack is useless.
+;;
 ;; ----------------------------------------------------------
-;; Cracking the Encryption.
 ;;
-;; It isn't any harder to perform a subset-sum solution against a
-;; vector sum than for a single scalar. If one element of the vector
-;; satisfies, then all other elements do too.
+;; == Cracking the Encryption ==
 ;;
-;; In general for a scalar subset-sum, there may be more than one
-;; possible answer. If so, then it can be disambiguated by checking
-;; against the other vector elements until you find the sole solution
-;; of the selection vector used for the encryption.
+;; By just looking at the public key, b, we have:
 ;;
-;; In general, this is NP-Hard, with a 2^NRows complexity. On my
-;; computer I get a worst-case solution duration of:
+;;     b = A • x + ψ
+;;
+;; for system matrix, A, secret key, x, and noise vector, ψ.
+;;
+;; Cracking the code from this angle means recovering the NCols 30-bit
+;; numbers in secret key, x, plus NRows of 30-bit numbers in ψ. Total
+;; effective key length is (NRows + NCols)*30. This needs to be large
+;; enough to thwart a brute-force search, including the "Birthday"
+;; effect. For NRows = 160 and NCols = 128, we have an effective key
+;; length of 8,640 bits.
+;;
+;; A cryptotext vector is:
+;;
+;;     (u = bsum + bit*(m-1)/2, v = rowsum) mod m
+;;
+;; where bsum is a random subset sum of the public key, b, elements,
+;; and rowsum is the same subset-sum of rows of the system matrix, A.
+;;
+;; Decryption, to reveal bit, follows by perfoming:
+;;
+;;    u - v • x
+;;
+;; for secret key, x.
+;;
+;; So, cracking the encryption could mean recovering the secret key,
+;; x, and the message bit.  Secret key, x, is a vector of NCols x
+;; 30-bit numbers, for a total key length of 30*NCols bits. Clearly,
+;; we need NCols sufficiently large to thwart a brute-force search for
+;; the secret key.
+;;
+;; But there is still the unknown message bit, and every trial crack
+;; of the secret key would reveal either a 0 or 1 value for bit. This
+;; is a 50/50 proposition. We really need more than the secret key, x.
+;;
+;; Examining only the subset-sums, looking for that random selection
+;; used to form u and v in the encryption, means that if we could find
+;; that random subset then we could recover the bit from u, all
+;; without needing the secret key, x. The subset would be found from
+;; examination of the system A matrix and the vector elements of v.
+;;
+;; Cracking a subset sum of a rowsum vector is not much harder than
+;; cracking a subset sum for a single scalar. In general, since matrix
+;; A contains random values, and sums are modulo m, it is possible
+;; that there may be several subsets that produce the same sum, for
+;; any one vector element in rowsum. But the other elements can serve
+;; as a check on the subset, until all rowsum elements agree on the
+;; subset.
+;;
+;; So we need the subset selection vector to be large enough to thwart
+;; a brute-force search of the subset-sum solution. And that size is
+;; NRows.
+;;
+;; Subset-Sum is NP-Hard, with a O(2^NRows) complexity. On my computer
+;; I get a worst-case solution duration of:
 ;;
 ;;     Log2(Duration) ≈ NRows - 19.4
 ;;
@@ -255,11 +308,20 @@
 ;; cut down on network traffic by 2 times. Instead of the initial
 ;; handshake being 366KB, we could get by with only 183 KB.
 ;;
+;; So security requirements are:
+;;
+;;  1. (NRows + NCols)*30-bits > minimum key size in bits
+;;  2. NRows > minimum subset-sum size
+;;
+;; We use 30-bit prime modulus to keep all numbers and intermediate
+;; products to FIXNUM size.
+;;
 ;; ----------------------------------------------------------
+;;
 ;; For the problem of attacking the secret key, and obtaining the
 ;; weight vector and noise values: this has nothing to do with
-;; cryptovectors. It relies solely on cracking the public key with the
-;; given system matrix.
+;; cryptovectors.  It relies solely on cracking the public key with
+;; the given system matrix.
 ;;
 ;; Each element of the pubkey vector represets a weighted sum of NCols
 ;; elements from the system matrix, plus random additive noise. There
@@ -559,10 +621,16 @@
   (plt:histogram 'histo vals
                  :clear t))
 
+(let* ((v (vm:gnoise 10000))
+       (v (map 'vector 'abs v)))
+  (plt:histogram 'histo v
+                 :clear t))
+
 (let ((v (vm:gnoise 10000)))
-  (reduce (lambda (acc val)
-            (+ acc (abs val)))
-          v))
+  (/ (reduce (lambda (acc val)
+               (+ acc (abs val)))
+             v)
+     10000))
 
 (let ((v (vm:gnoise 10000)))
   (reduce (lambda (acc val)
