@@ -22,14 +22,12 @@
 (defparameter *flat-nrows*   160)
 (defparameter *flat-ncols*     1)
 
-(defparameter *flat-modulus*  (- (ash 1 320) 197))
+(defparameter *flat-modulus*  (- (ash 1 320) 197)) ;; nearest prime below 2^320
 
 ;; ---------------------------------------------
 
-(defun flat-mod (x sys &optional modulus)
-  (let ((modulus (or modulus
-                     (and sys
-                          (getf sys :modulus)))))
+(defun flat-mod (x sys)
+  (let ((modulus (getf sys :modulus)))
     (cond (modulus
            (mod x modulus))
           (t
@@ -76,9 +74,18 @@
 (defun fcheck-system (sys &optional (nsigma 6))
   (let ((ncols   (lat2-ncols sys))
         (nrows   (lat2-nrows sys))
-        (nbits   (getf sys :nbits)))
+        (nbits   (getf sys :nbits))
+        ;; (modulus (getf sys :modulus))
+        )
+    #|
+    (unless (and modulus
+                 (oddp modulus))
+      (error "Modulus is not prime: ~A" modulus))
+    |#
+    #|
     (when (> (ceiling (sum-nbits nbits nrows nsigma)) 60)
       (warn "NBits is too large for FIXNUM arithmetic: ~A" nbits))
+    |#
     (when (< (* nbits (+ nrows ncols)) 256)
       (error "NBits, NRows, NCols too weak: (~A,~A,~A)" nbits nrows ncols))
     (when (< nrows 160)
@@ -100,11 +107,11 @@
                      
  |#
 
-(defun fgen-sys (&key (nbits *flat-nbits*)
-                      (ncode *flat-ncode*)
-                      (nrows *flat-nrows*)
-                      (ncols *flat-ncols*)
-                      modulus)
+(defun fgen-sys (&key (nbits   *flat-nbits*)
+                      (ncode   *flat-ncode*)
+                      (nrows   *flat-nrows*)
+                      (ncols   *flat-ncols*)
+                      (modulus *flat-modulus*))
   (let ((a    (make-array nrows)))
     (loop for ix from 0 below nrows do
             (let ((v (make-array ncols)))
@@ -112,7 +119,7 @@
                       (let ((x (prng:ctr-drbg-int nbits)))
                         (setf (aref v jx)
                               (if modulus
-                                  (flat-mod x nil modulus)
+                                  (mod x modulus)
                                 x))
                         ))
               (setf (aref a ix) v)))
