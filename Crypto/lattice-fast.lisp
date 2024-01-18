@@ -55,7 +55,7 @@
   (let ((ncols   (lat2-ncols sys))
         (nrows   (lat2-nrows sys))
         (nbits   (getf sys :nbits)))
-    (when (> (sum-nbits nbits nrows nsigma) 60)
+    (when (> (ceiling (sum-nbits nbits nrows nsigma)) 60)
       (error "NBits is too large: ~A" nbits))
     (when (< ncols 128)
       (error "NCols should be >= 128: ~A" ncols))
