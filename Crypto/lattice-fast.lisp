@@ -10,6 +10,13 @@
 (defparameter *flat-nrows*   160)
 (defparameter *flat-ncols*   128)
 |#
+;; Using a bigger system allows us to connect across the network,
+;; sending a 256-bit key using only 80 bytes.
+;;
+;; Compare with 366kB for 1-bit transfers, and 20kB for 8-bit transfers.
+;;
+;; The cost is BIGNUM arithmetic instead of FIXNUM. But it was worthwhile.
+
 (defparameter *flat-nbits*   320)
 (defparameter *flat-ncode*   256)
 (defparameter *flat-nrows*   160)
