@@ -20,11 +20,42 @@
 
 ;; ---------------------------------------------
 
-(defun fcheck-system (sys)
+(defun sum-nbits (nbits nsum nsigma)
+  ;; For nsum of products with n-bit numbers, each from a uniform
+  ;; distribution, what is the expected max sum width in bits?
+  ;;
+  ;; For each number E(x) = 2^(NBits-1), Var(x) = 1/3*2^(2*NBits-2).
+  ;; Summing with NSum terms produces a variance NSum times larger.
+  ;;
+  ;; Var(x*y) = E(x)^2*Var(y) + E(y)^2*Var(x)
+  ;;          = 2*E(x)^2*Var(x)
+  ;;          = 2*2^(2*Nbits-2)*2^(2*NBits)/12
+  ;;          = 2^(2*NBits-2+1+2*NBits-2)/3
+  ;;          = 2/3*2^(4*NBits-4)
+  ;;
+  ;; Stdev(x*y) ≈ 2^(2*NBits-2)*Sqrt(2/3)
+  ;;
+  ;; Hence E(x*y) = E(x)*E(y) = E(x)^2 = 2^(2*NBits-2).
+  ;; E(Sum(x_i*y_i,{i,1,NSum})) = NSum*E(x*y) = NSum*2^(2*NBits-2))
+  ;; Var(Sum(x_i*y_i,{i,1,NSum})) = NSum*Var(x*y) = 2/3*NSum*2^(2*(2*NBits-2))
+  ;;
+  ;; For NSigma guard max, we could expect to need:
+  ;;
+  ;;  Max ≈ NSum*2^(2*NBits-2) + NSigma*Sqrt(2/3*NSum)*2^(2*NBits-2))
+  ;;      ≈ 2^(2*NBits-2)*NSum*(1 + NSigma*Sqrt(2/(3*NSum)))
+  ;;
+  ;; So, Log2(Max) ≈ 2*NBits-2+Log2(NSum)+1
+  ;;
+  (+ (* 2 nbits) -2
+     (log nsum 2)
+     (log (+ 1 (* nsigma (sqrt (/ 2 (* 3 nsum))))) 2)
+     ))
+
+(defun fcheck-system (sys &optional (nsigma 6))
   (let ((ncols   (lat2-ncols sys))
         (nrows   (lat2-nrows sys))
         (nbits   (getf sys :nbits)))
-    (when (> (+ nbits nbits (integer-length ncols)) 60)
+    (when (> (sum-nbits nbits nrows nsigma) 60)
       (error "NBits is too large: ~A" nbits))
     (when (< ncols 128)
       (error "NCols should be >= 128: ~A" ncols))
@@ -94,7 +125,7 @@
         (/ (log 12 2) 2))
      (/ (log nrows 2) 2)))
 
-(defun fgen-pkey (skey sys)
+(defun fgen-pkey (skey sys &optional (nsigma 6))
   (let* ((nrows   (getf sys :nrows))
          (nbits   (getf sys :nbits))
          (ncode   (getf sys :ncode))
@@ -122,7 +153,7 @@
          ;;
          ;; This needs to be greater than 1/2*log2(NRows) = 3.66, for security.
          ;;
-         (nsmall  (floor (noise-nbits (- nbits ncode) nrows 6)))
+         (nsmall  (floor (noise-nbits (- nbits ncode) nrows nsigma)))
          (small   (ash 1 nsmall))
          (chk     (assert (> small (sqrt nrows))))
          (small/2 (ash small -1))
