@@ -68,8 +68,12 @@
 ;;
 ;; -----------------------------------------------------------
 
-#| (defparameter *flat-nbits* 26) (defparameter *flat-ncode* 8)
-(defparameter *flat-nrows* 160) (defparameter *flat-ncols* 128)
+#|
+;; For 8-bit transfers
+(defparameter *flat-nbits* 26)
+(defparameter *flat-ncode* 8)
+(defparameter *flat-nrows* 160)
+(defparameter *flat-ncols* 128)
 |#
 
 ;; Using a bigger system allows us to connect across the network,
