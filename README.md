@@ -1,6 +1,6 @@
 -- 19 January 2024 -- Advances in LWE Lattice Crypto
 ---
-Our secure network protocol allows for two nodes, each running the Actors system, to communicate securely. The only distinction between Client and Server is that Clients initiate a connection by sending the Server information:
+Our secure network protocol allows for two nodes, each running the Actors system, to communicate securely. The only distinction between Client and Server is that Clients initiate a connection by sending the Server some information:
 
       1. Who the client is, a Public Key ID (a UUID),
       2. A reply-to Actor ID,
