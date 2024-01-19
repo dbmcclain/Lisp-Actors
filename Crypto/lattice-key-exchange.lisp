@@ -192,10 +192,14 @@
          (send lat2-decoder β latcrypt)
        (let ((info (ignore-errors
                      (decode-aes-packet rkey aescrypt))))
+         #|
          (when (and (consp info)
-                    #|(eq (car info) :canary)|#)
-           (send cust rkey (cdr info))))
-       ))
+                    (eq (car info) :canary))
+           (send cust rkey (cdr info)))
+         |#
+         (when (consp info)
+           (send cust rkey info))
+         )))
    ))
 
 ;; ----------------------------------------------------
