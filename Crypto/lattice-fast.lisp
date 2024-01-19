@@ -4,18 +4,76 @@
 
 (in-package :com.ral.crypto.lattice-crypto)
 
-#|
-(defparameter *flat-nbits*    26)
-(defparameter *flat-ncode*     8)
-(defparameter *flat-nrows*   160)
-(defparameter *flat-ncols*   128)
-|#
-;; Using a bigger system allows us to connect across the network,
-;; sending a 256-bit key using only 80 bytes.
+;; ----------------------------------------------
 ;;
-;; Compare with 366kB for 1-bit transfers, and 20kB for 8-bit transfers.
+;; The goal of this code is to enable sending an encryption key for an
+;; accompanying AES-256 ciphertext package, across the network, using
+;; as little network bandwidth as possible. We want to send an entire
+;; 256-bit key along with the AES cryptotext package.
 ;;
-;; The cost is BIGNUM arithmetic instead of FIXNUM. But it was worthwhile.
+;; The code here allows that to happen by sending across just two
+;; 320-bit numbers, using LWE Lattice Encryption, to represent the
+;; random AES-256 key used to unlock the accompanying data package.
+;;
+;; In the default case, the LWE Lattice System uses 320-bit values
+;; from a prime number field of integers, with 160 Rows and only 1
+;; Column. The Secret Key is a single 320-bit number. The Public key
+;; is a vector of 320-bit numbers that are the result of multiplying
+;; each element of the System Matrix by the Secret Key, then adding
+;; some random noise.
+;;
+;; Upon encryption, a message of 256 bits is added to the scalar
+;; component of the LWE pair, while the vector component has only a
+;; single element. The two elements of the LWE cryptotext, prior to
+;; adding in the message, are the result of a summing of randomly
+;; selected elements from the Public Key vector and the System Matrix.
+;;
+;; Noise added initially to each element of the Public Key vector,
+;; accumulate to mimic samples drawn from a Gaussian distribution, as
+;; per the Central Limit Theorem. The noise is bipolar and limited to
+;; some reasonable magnitude such that upon summing, the max additive
+;; error, in a worst case, will remain below 1/2 of the magnitude of
+;; an encrypted LSB in the key, but still large enough to provide good
+;; security against reverse engineering the secret key from
+;; observation of the System Matrix and the Public Key.
+;;
+;; Security against reverse engineering the System Matrix and Pubilc
+;; Key to discover the Secret Key is provided by an effective key size
+;; of 320 + 160*58 = 9,600 bits. That's 320 bits in the Secret Key,
+;; and 160 items of random noise of 58 bits each.
+;;
+;; Security of an encrypted message is provided by the intractability
+;; of solving a Subset-Sum against a random selection of 160 possible
+;; terms in the vector component of the LWE cryptotext. Subset-Sum is
+;; NP-Hard, and even after accounting for Birthday Paradox
+;; serendipity, an attacker faces a problem of order 2^80 with an
+;; anticipated solution duration of more than 10^17 years for a
+;; computer 1 billion times faster than my own computer.
+;;
+;; Chosen plaintext attacks are thwarted by having each encryption
+;; form its own random selection vector to form the subset-sums. It is
+;; highly unlikely that two encryptions of the same data will produce
+;; the same LWE cryptotext.
+;;
+;; Decryption under LWE is triviaily accomplished by subtracting the
+;; product of the Secret Key and the single element of the vector
+;; component of the LWE cryptotext from the scalar component, then
+;; scaling the result and rounding to discard the accumulated
+;; encryption noise.
+;;
+;; Arithmetic takes place in an integer field with prime modulus p =
+;; 2^320-197. Using a prime numnber field gives us maximum coverage
+;; without falling into short-cycles. All but 197 elements in the
+;; 2^320 range are available to us.
+;;
+;; -----------------------------------------------------------
+
+#| (defparameter *flat-nbits* 26) (defparameter *flat-ncode* 8)
+(defparameter *flat-nrows* 160) (defparameter *flat-ncols* 128) |# ;;
+Using a bigger system allows us to connect across the network, ;;
+sending a 256-bit key using only 80 bytes.  ;; ;; Compare with 366kB
+for 1-bit transfers, and 20kB for 8-bit transfers.  ;; ;; The cost is
+BIGNUM arithmetic instead of FIXNUM. But it was worthwhile.
 
 (defparameter *flat-nbits*   320)
 (defparameter *flat-ncode*   256)
@@ -78,15 +136,12 @@
                       (nrows   *flat-nrows*)
                       (ncols   *flat-ncols*)
                       (modulus *flat-modulus*))
-  (let ((a    (make-array nrows)))
+  (let ((a  (make-array nrows)))
     (loop for ix from 0 below nrows do
             (let ((v (make-array ncols)))
               (loop for jx from 0 below ncols do
                       (let ((x (prng:ctr-drbg-int nbits)))
-                        (setf (aref v jx)
-                              (if modulus
-                                  (mod x modulus)
-                                x))
+                        (setf (aref v jx) (mod x modulus))
                         ))
               (setf (aref a ix) v)))
     (let ((sys (list :nbits nbits
@@ -285,12 +340,6 @@
 ;; -----------------------------------------------------------------
 
 #|
-(defparameter *flat-sys* (fgen-sys :modulus *flat-modulus*))
-(defparameter *flat-sys* (fgen-sys))
-
-(defparameter *tst-skey* (fgen-skey *flat-sys*))
-(defparameter *tst-pkey* (fgen-pkey *tst-skey* *flat-sys*))
-
 (defun sqr (x)
   (* x x))
 
@@ -336,6 +385,10 @@
 ;; Histogram of Encryptionxs Noise
 ;; Should look like a Gaussian distribution above the value of the x data value
 
+(defparameter *flat-sys* (fgen-sys))
+(defparameter *tst-skey* (fgen-skey *flat-sys*))
+(defparameter *tst-pkey* (fgen-pkey *tst-skey* *flat-sys*))
+
 (let* ((x        (1- (ash 1 256)))
        (ncoll    100000)
        (ncode    (getf *flat-sys* :ncode))
@@ -344,24 +397,27 @@
        (half     (ceiling modulus (ash 1 (1+ ncode))))
        (coll     (loop repeat ncoll collect
                          (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
-                           (float
-                            (- (/ (mod (+ (- (aref v 0)
-                                             (fvdot *tst-skey* (aref v 1)))
-                                          half)
-                                       modulus)
-                                  one)
-                               x)))
+                           (-
+                            (float
+                             (- (/ (mod (+ (- (aref v 0)
+                                              (fvdot *tst-skey* (aref v 1)))
+                                           half)
+                                        modulus)
+                                   one)
+                                x))
+                            0.5))
                        )))
   ;; (inspect coll)
   (plt:histogram 'histo coll
                  :clear t
-                 :norm  nil
+                 ;; :cum   t
+                 ;; :norm  nil
                  ;; :yrange '(0 100)
-                 :title  "Recovered Encryption Noise + 0.5"
+                 :title  "Recovered Encryption Noise"
                  :xtitle (format nil "x - ~D" x)
-                 :ytitle "Occurrences"
+                 :ytitle "Density"
                  )
-  (list :mn (- (vm:mean coll) 0.5)
+  (list :mn (vm:mean coll)
         :sd (vm:stdev coll)))
 
 ;; -------------------------------------------
@@ -377,11 +433,12 @@
                           ))))
   (plt:histogram 'histo coll
                  :clear t
-                 :norm  nil
-                 :yrange '(0 600)
+                 ;; :cum   t
+                 ;; :norm  nil
+                 ;; :yrange '(0 600)
                  :title  "Raw Encryption Scalar"
                  :xtitle "Fractional Modular Value"
-                 :ytitle "Occurrences"
+                 :ytitle "Density"
                  )
   (list :mn (vm:mean coll)    ;; should ≈ 0.5
         :sd (vm:stdev coll))) ;; should ≈ 1/Sqrt(12) = 0.289
