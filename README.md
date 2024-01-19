@@ -57,9 +57,9 @@ Our network protocol provides that if any error occurs during initial keying han
 
 [ So all told, these insights have led to the following changes:
 
-      1. No :CANARY in AES packets, normal exchanges already have authentication checks, making this is redundant
-      2. No authentication checks during initial handshake dance
-      3. Some random noise is added to the scalar component of LWE Lattice crypto
+      1. No :CANARY in AES packets. Normal exchanges already have authentication checks, making this redundant.
+      2. No authentication checks during initial handshake dance.
+      3. Some random noise is added to the scalar component of LWE Lattice crypto.
 
 We don't want to give any hints to attackers. The should only be met by silence.
 
