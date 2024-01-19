@@ -245,7 +245,7 @@
          (ncode   (getf sys :ncode))
          (modulus (getf sys :modulus))
          (one     (floor modulus (ash 1 ncode)))
-         (half    (ceiling one 2)))
+         (half    (ceiling modulus (ash 1 (1+ ncode)))))
     (floor 
      (mod (+ (- bsum
                 (fvdot skey vsum))
@@ -333,43 +333,49 @@
                       ))
 
 ;; ----------------------------------------------------
-;; Histogram of Raw Decryptions
+;; Histogram of Encryptionxs Noise
 ;; Should look like a Gaussian distribution above the value of the x data value
-(let* ((x       0)
-       (nbits   (getf *flat-sys* :nbits))
-       (ncode   (getf *flat-sys* :ncode))
-       (modulus (getf *flat-sys* :modulus))
-       ;; (pos   (- nbits ncode))
-       ;; (half  (ash 1 (1- pos)))
-       ;; (one   (ash 1 pos))
+
+(let* ((x        (1- (ash 1 256)))
+       (ncoll    100000)
+       (nbits    (getf *flat-sys* :nbits))
+       (ncode    (getf *flat-sys* :ncode))
+       (modulus  (getf *flat-sys* :modulus))
        (one      (floor modulus (ash 1 ncode)))
-       (half     (ceiling one 2))
-       (coll     (loop repeat 100000 collect
+       (half     (ceiling modulus (ash 1 (1+ ncode))))
+       (coll     (loop repeat ncoll collect
                          (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
                            (float
-                            (/ (mod (+ (- (aref v 0)
-                                          (fvdot *tst-skey* (aref v 1)))
-                                       half)
-                                    modulus)
-                               one)))
+                            (- (/ (mod (+ (- (aref v 0)
+                                             (fvdot *tst-skey* (aref v 1)))
+                                          half)
+                                       modulus)
+                                  one)
+                               x)))
                        )))
   ;; (inspect coll)
   (plt:histogram 'histo coll
                  :clear t
                  :norm  nil
                  ;; :yrange '(0 100)
-                 ))
+                 :title  "Recovered Encryption Noise + 0.5"
+                 :xtitle (format nil "x - ~D" x)
+                 :ytitle "Occurrences"
+                 )
+  (list :mn (- (vm:mean coll) 0.5)
+        :sd (vm:stdev coll)))
 
 ;; -------------------------------------------
-;; Histogram of Scalar component of Encryption
+;; Histogram of Scalar Encryption Component
 ;; Should look like a uniform distribution
 
 (let* ((x     0)
+       (ncoll 100000)
        (nbits (getf *flat-sys* :nbits))
        (ncode (getf *flat-sys* :ncode))
        (pos   (- nbits ncode))
        (one   (ash 1 nbits))
-       (coll  (loop repeat 100000 collect
+       (coll  (loop repeat ncoll collect
                       (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
                         (float (/ (aref v 0) one))
                         ))))
@@ -377,7 +383,12 @@
                  :clear t
                  :norm  nil
                  :yrange '(0 600)
-                 ))
+                 :title  "Raw Encryption Scalar"
+                 :xtitle "Fractional Modular Value"
+                 :ytitle "Occurrences"
+                 )
+  (list :mn (vm:mean coll)    ;; should ≈ 0.5
+        :sd (vm:stdev coll))) ;; should ≈ 1/Sqrt(12) = 0.289
 
 |#
     
