@@ -57,18 +57,14 @@ Our network protocol provides that if any error occurs during initial keying han
 
 [ So all told, these insights have led to the following changes:
 
-      1. No :CANARY in AES packets. Normal exchanges already have authentication checks, making this redundant.
-      2. No authentication checks during initial handshake dance.
-      3. Some random noise is added to the scalar component of LWE Lattice crypto.
+-- No :CANARY in AES packets. 
+Normal exchanges already have authentication checks, making this redundant. During initial handshake negotiation, one packet is sent from Client to Server, and another is sent from Server to Client. These packets contain the necessary information to develop a shared session key. These initial handshake packets are sent without any authentication. Hence, providing no hint as to their correctness.
 
-We don't want to give any hints to attackers. They should only be met by silence.
+-- No Authentication during initial handshake dance.
+Normal exchanges will have authentication to prevent spoofing and DOS attacks.
 
-Item (1) provides no hints of an incorrect decryption during initial handshake. For other normal course transmissions, the :CANARY wasn't needed because the packets are authenticated.
-
-Item (2) provides no hints of incorrect decryption during initial handshake. You have no idea whether your trial decryption key is correct or not. If not, then you get an incorrect reply-to address and incorrect session keys. Either of these lead eventually to silence.
-
-Item (3) provides for no way to double check your trial subset-sum solution, if there is more than one. You have to check all possible subsets. If there is finally only one subset solution then you have the correct decryption key. But to get there you have to check all possible subsets. I won't hold my breath waiting for you to try...]
-
+-- Some random noise is added to the LWE Lattice scalar component of encryptions
+This means that it is highly unlikely to ever see a zero noise subset-sum in the scalar component, even when you have the correct subset. Again, no hints as to correctness. If there is more than one subset-sum solution you won't have any idea which one is the correct one. If there is only one solution, then you have it. But I won't wait around for you to find it. You have to consider all possible subsets of solutions to find the one and only.
       
 -- 26 October 2023 -- Minimum Sufficient Concepts for Concurrent Programming
 ---
