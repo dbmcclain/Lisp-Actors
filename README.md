@@ -35,7 +35,17 @@ Our compact LWE Lattice Crypto system uses 160 NRows by 1 NCols, in an integer f
 
 Conveying the 256-bit AES encryption key requires sending only 80 bytes of data, or 2x320 bits. I consider that pretty efficient for LWE Lattice crypto.
       
+[*Now this is somewhat interesting... Typically, in LWE Lattice crypto, the cryptotext carries a vector row-sum from the System Matrix. In solving the Subset-Sum problem, you might have several potential solutions, starting with solving for the first component of the row-sum. You can then verify the solution by seeing whether or not that same subset solves the other vector components. If not, then resume your search.
 
+But in our case here, with the vector row-sum containing only a single element, there is nothing else to cross-check your potential solution. You can try to back out the same subset of noisy Public Key elements from the scalar component to reveal the message. But there is no way to cross check your subset solution, other than trying to use the revealed message as an unlocking key on the accompanying AES-256 crypto packet. 
+
+As stands right now, that AES packet carries a :CANARY element to help the recipient double check on the validity of the unlocking key. But if I were to elide that canary item, the remaining items are just random values, providing no way to check for correctness. Perhaps I should elide the :CANARY.
+
+But apart from the :CANARY issue, I maintain that by providing only a single item for the row-sum vector of the LWE Lattice cryptotext, I have made the problem immeasurably harder than most other variants of LWE Lattice crypto. What might appear as a weakness in my approach - providing only a single element to attack - actually makes the problem substantially harder.
+
+And LWE Lattice crypto over a prime modular field provides a much harder Subset-Sum problem than ordinary arithmetic in the Reals. If you find a potential subset, it might be the solution, or it might not. The remaining elements not yet examined from the System Matrix might also provide a solution, because we are using modular arithmetic. Without the :CANARY to tip you off, you have to examine every possible elemenet in the System Matrix to find all or the Subset-Sum solution, and if there are more than one subset, then you have absolutely no idea which one of them is correct.
+
+Our network protocol provides that if any error occurs during initial keying handshake, then the nodes shut down and go quiet. You have only one chance to respond correctly.]
 
 -- 26 October 2023 -- Minimum Sufficient Concepts for Concurrent Programming
 ---
