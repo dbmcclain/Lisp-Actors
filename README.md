@@ -58,13 +58,23 @@ Our network protocol provides that if any error occurs during initial keying han
 So all told, these insights have led to the following changes:
 
 **No :CANARY in AES packets.**
-Normal exchanges already have authentication checks, making this redundant. During initial handshake negotiation, one packet is sent from Client to Server, and another is sent from Server to Client. These packets contain the necessary information to develop a shared session key. These initial handshake packets are sent without any authentication. Hence, providing no hint as to their correctness.
+Normal exchanges already have authentication checks, making this redundant. 
+
+During initial handshake negotiation, one packet is sent from Client to Server, and another is sent in reply from Server to Client. These packets contain the necessary information to develop a shared session key. But that information has been serialized into a byte stream. The packet contains only what appear to be random numbers. These initial handshake packets are sent without any authentication. Hence, providing no hints as to their correctness.
+
+To gain any further insight into packet correctness, they would have to be successfully deserialized back into Lisp data structures, and their content would have to be examined.
+
+So at the outside, there is nothing in these packets to help confirm a correct decryption attempt.
 
 **No Authentication during initial handshake dance.**
-Normal exchanges will have authentication to prevent spoofing and DOS attacks. But having no authentication on initial handshake means there is no way to ascertain whether or not you have a correct trial decryption. If not, you will eventually be met with silence.
+Normal exchanges will have authentication to prevent spoofing and DOS attacks. 
 
-**Some random noise is added to the LWE Lattice scalar component of encryptions.**
-This means that it is highly unlikely to ever see a zero noise subset-sum in the scalar component, even when you have the correct subset. Again, no hints as to correctness. If there is more than one subset-sum solution you won't have any idea which one is the correct one. If there is only one solution, then you have it. But I won't wait around for you to find it. You have to consider all possible subsets of solutions to find the one and only.
+But having no authentication on initial handshake means there is no way to ascertain whether or not an attacker has a correct trial decryption. If not, they will eventually be met with silence. 
+
+As spoofing attacks, any packet would need to contain properly serialized Lisp data structures. At the receiving end, when a packet cannot be successfully deserialized, the packet is dropped on the floor without further notice. An attacker is met with silence, and after 20 seconds of inactivity the socket port will be silently closed.
+
+**Random noise is added to the LWE Lattice scalar component of encryptions.**
+This means that it is highly unlikely to ever see a zero noise subset-sum in the scalar component of an LWE Lattice encryption, even when you have the correct subset. Again, no hints as to correctness. If there is more than one subset-sum solution you won't have any idea which one is the correct one. If there is only one solution, then you have it. But I won't wait around for you to find it. You have to consider all possible subsets of solutions to find the one and only.
       
 -- 26 October 2023 -- Minimum Sufficient Concepts for Concurrent Programming
 ---
