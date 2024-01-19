@@ -338,7 +338,6 @@
 
 (let* ((x        (1- (ash 1 256)))
        (ncoll    100000)
-       (nbits    (getf *flat-sys* :nbits))
        (ncode    (getf *flat-sys* :ncode))
        (modulus  (getf *flat-sys* :modulus))
        (one      (floor modulus (ash 1 ncode)))
@@ -369,16 +368,13 @@
 ;; Histogram of Scalar Encryption Component
 ;; Should look like a uniform distribution
 
-(let* ((x     0)
-       (ncoll 100000)
-       (nbits (getf *flat-sys* :nbits))
-       (ncode (getf *flat-sys* :ncode))
-       (pos   (- nbits ncode))
-       (one   (ash 1 nbits))
-       (coll  (loop repeat ncoll collect
-                      (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
-                        (float (/ (aref v 0) one))
-                        ))))
+(let* ((x       0)
+       (ncoll   100000)
+       (modulus (getf *flat-sys* :modulus))
+       (coll    (loop repeat ncoll collect
+                        (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
+                          (float (/ (aref v 0) modulus))
+                          ))))
   (plt:histogram 'histo coll
                  :clear t
                  :norm  nil
