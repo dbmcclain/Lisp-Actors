@@ -43,7 +43,7 @@ But in our case here, with the vector row-sum containing only a single element, 
 
 [ I guess, probabalistically, if you notice that backout out of the subset of Public Key elements from the scalar component leaves a noiseless result, you might conclude that this is highly unlikely, and therefore you will have found the correct solution. But a noiseless sum is a distinct possibility, albeit of low probability.]
 
-[Actually, our AES crypto packet carries an authentication signature. So if you don't have the correct key, you won't pass authentication. An attacker could try an athentication check to verify correctness in their subset-sum solution.] 
+[Actually, our AES crypto packet carries an authentication signature. So if you don't have the correct key, you won't pass authentication. An attacker could try an athentication check to verify correctness in their subset-sum solution. So perhaps I should elide authentication in the initial handshake dance. Incorrect decryptions would lead to nowhere as you would have an incorrect reply-to address and an incorrect shared session key. Eventually you would be cut off by the other node.] 
 
 As stands right now, that AES packet carries a :CANARY element to help the recipient double check on the validity of the unlocking key. But if I were to elide that canary item, the remaining items are just random values, providing no way to check for correctness. Perhaps I should elide the :CANARY.
 
