@@ -78,6 +78,8 @@ This means that it is highly unlikely to ever see a zero noise subset-sum residu
 
 Now, probabilistically, you might argue that if you find one solution for the vector component element, then you have likely found the sole solution. How likely is it, in a 320-bit modular field, to wind up with a zero residual after subtracting some subset of random values? Probably not very likely. But it could happen as a random outcome, even when you are not correct with the subset. We know there is one correct solution ouf of 2^160 possible subset constructions. So the random chance of an accidental zero residual would be ≥ O(1/2^160) if the numbers were truly randomly selected from a uniform distribution. I guess that depends on how good the PRNG really is...
 
+The random subset construction guarantees that at least 40 out of 160 possible selections are enabled. So that narrows down the search by a bit. We don't need to consider those subsets with fewer than 40 elements. That leaves only 1,461,501,637,330,902,918,203,684,832,716,283,018,556,420,915,200 ≈ 2^160 subsets that need to be considered.
+
 ... but what if we could engineer a higher likelihood by bending the PRNG? What would that do the the security arguments for LWE Lattice crypto?
       
 -- 26 October 2023 -- Minimum Sufficient Concepts for Concurrent Programming
