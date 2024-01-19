@@ -17,25 +17,26 @@
 ;;
 ;; In the default case, the LWE Lattice System uses 320-bit values
 ;; from a prime number field of integers, with 160 Rows and only 1
-;; Column. The Secret Key is a single 320-bit number. The Public key
-;; is a vector of 320-bit numbers that are the result of multiplying
-;; each element of the System Matrix by the Secret Key, then adding
-;; some random noise.
+;; Column of random values. The Secret Key is a single 320-bit random
+;; number. The Public key is a vector of 320-bit numbers that are the
+;; result of multiplying each element of the System Matrix by the
+;; Secret Key, then adding 58-bits of random noise.
 ;;
 ;; Upon encryption, a message of 256 bits is added to the scalar
 ;; component of the LWE pair, while the vector component has only a
 ;; single element. The two elements of the LWE cryptotext, prior to
-;; adding in the message, are the result of a summing of randomly
-;; selected elements from the Public Key vector and the System Matrix.
+;; adding in the message, are the result of a summation of randomly
+;; selected elements from the Public Key vector and row-sums from the
+;; System Matrix.
 ;;
 ;; Noise added initially to each element of the Public Key vector,
-;; accumulate to mimic samples drawn from a Gaussian distribution, as
-;; per the Central Limit Theorem. The noise is bipolar and limited to
-;; some reasonable magnitude such that upon summing, the max additive
-;; error, in a worst case, will remain below 1/2 of the magnitude of
-;; an encrypted LSB in the key, but still large enough to provide good
-;; security against reverse engineering the secret key from
-;; observation of the System Matrix and the Public Key.
+;; accumulates to mimic samples drawn from a Gaussian distribution, as
+;; per the Central Limit Theorem. The noise is bipolar, zero mean, and
+;; limited to some reasonable magnitude such that upon summing, the
+;; max additive error, in a worst case, will remain below 1/2 of the
+;; magnitude of an encrypted LSB in the key, but still large enough to
+;; provide good security against reverse engineering the secret key
+;; from observation of the System Matrix and the Public Key.
 ;;
 ;; Security against reverse engineering the System Matrix and Pubilc
 ;; Key to discover the Secret Key is provided by an effective key size
@@ -51,9 +52,9 @@
 ;; computer 1 billion times faster than my own computer.
 ;;
 ;; Chosen plaintext attacks are thwarted by having each encryption
-;; form its own random selection vector to form the subset-sums. It is
-;; highly unlikely that two encryptions of the same data will produce
-;; the same LWE cryptotext.
+;; create its own random selection vector to form the subset-sums. It
+;; is highly unlikely that two encryptions of the same data will
+;; produce the same LWE cryptotext.
 ;;
 ;; Decryption under LWE is triviaily accomplished by subtracting the
 ;; product of the Secret Key and the single element of the vector
@@ -78,8 +79,9 @@
 ;;
 ;; Remarkably, the process of LWE Lattice Encryption is astonishingly
 ;; simple, compared to RSA or Elliptic Curve crypto. The only
-;; potential weakness to the system will be found in the quality of
-;; the underlying random number generator.
+;; potential weakness in the system might be found in the quality of
+;; the underlying random number generator. Currently, we use Fortuna
+;; as the PRNG.
 ;; -----------------------------------------------------------
 
 #|
