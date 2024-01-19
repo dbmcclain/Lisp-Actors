@@ -66,6 +66,20 @@
 ;; without falling into short-cycles. All but 197 elements in the
 ;; 2^320 range are available to us.
 ;;
+;; LWE Lattice Encryption is Post-Quantum strength. An eventual
+;; Quantum Computer offers no advantage over conventional computers in
+;; attacking this problem.
+;;
+;; Public knowledge is the System Matrix and Public Keys, as well as
+;; the LWE Encryption Algorithm used here. Secret Keys are kept
+;; hidden. The noise added to the Public Keys is discarded and
+;; forgotten, as is the selection vector used for every new
+;; encryption.
+;;
+;; Remarkably, the process of LWE Lattice Encryption is astonishingly
+;; simple, compared to RSA or Elliptic Curve crypto. The only weakness
+;; to the system will be found in the quality of the underlying random
+;; number generator.
 ;; -----------------------------------------------------------
 
 #|
