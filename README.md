@@ -53,6 +53,20 @@ And LWE Lattice crypto over a prime modular field provides a much harder Subset-
 
 Our network protocol provides that if any error occurs during initial keying handshake, then the nodes shut down and go quiet. You have only one chance to respond correctly.]
 
+[ So all told, these insights have led to the following changes:
+      1. No :CANARY in AES packets, normal exchanges already have authentication checks to this is redundant
+      2. No authentication checks during initial handshake dance
+      3. Some random noise is added to the scalar component of LWE Lattice crypto
+
+We don't want to give any hints to attackers. The should only be met by silence.
+
+Item (1) provides no hints of an incorrect decryption during initial handshake. For other normal course transmissions, it wasn't needed because the packets are authenticated.
+
+Item (2) provides no hints of incorrect decryption during initial handshake. You have no idea whether your trial decryption key is correct or not. If not, then you get an incorrect reply-to address and incorrect session keys. Either of these lead eventually to silence.
+
+Item (3) provides for no way to double check your trial subset-sum solution, if there is more than one. You have to check all possible subsets. If there is finally only one subset solution then you have the correct decryption key. But to get there you have to check all possible subsets. I won't hold my breath waiting for you to try...]
+
+      
 -- 26 October 2023 -- Minimum Sufficient Concepts for Concurrent Programming
 ---
 After having so much success with Transactional Conventional Hewitt Actors, and then hearing so much hype surrounding Erlang, I have been wondering to myself about the minimum necessary "molecules" needed for concurrent programming. Erlang has every right to claim for itself that it is an Actors language. Many other implementations also make that claim. 
