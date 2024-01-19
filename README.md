@@ -41,7 +41,7 @@ Conveying the 256-bit AES encryption key requires sending only 80 bytes of data,
 
 But in our case here, with the vector row-sum containing only a single element, there is nothing else to cross-check your potential solution. You can try to back out the same subset of noisy Public Key elements from the scalar component to reveal the message. But there is no way to cross check your subset solution, other than trying to use the revealed message as an unlocking key on the accompanying AES-256 crypto packet. 
 
-[ I guess, probabalistically, if you notice that backout out the subset of Public Key elements from the scalar component leaves a noiseless result, you might conclude that this is highly unlikely, and therefore you will have found the correct solution. But a noiseless sum is a distinct possibility, albeit of low probability.]
+[ I guess, probabalistically, if you notice that backout out of the subset of Public Key elements from the scalar component leaves a noiseless result, you might conclude that this is highly unlikely, and therefore you will have found the correct solution. But a noiseless sum is a distinct possibility, albeit of low probability.]
 
 As stands right now, that AES packet carries a :CANARY element to help the recipient double check on the validity of the unlocking key. But if I were to elide that canary item, the remaining items are just random values, providing no way to check for correctness. Perhaps I should elide the :CANARY.
 
