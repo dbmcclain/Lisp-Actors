@@ -136,12 +136,18 @@
     ))
 
 (defun decode-aes-packet (key packet)
-  (destructuring-bind (iv cdata chk) packet
-    (let ((chkx (make-auth-chk key iv cdata)))
-      (when (equalp chkx chk) ;; just drop on the floor if not valid
+  (destructuring-bind (iv cdata &optional chk) packet
+    (cond
+     (chk ;; a normal packet
+          (let ((chkx (make-auth-chk key iv cdata)))
+            (when (equalp chkx chk) ;; just drop on the floor if not valid
+              (let ((vdata  (aes-enc/dec key iv cdata)))
+                (loenc:decode vdata)))
+            ))
+     (t ;; an unauthenticated packet used for initial handshake dance
         (let ((vdata  (aes-enc/dec key iv cdata)))
           (loenc:decode vdata)))
-        )))
+     )))
 
 #|
    -----------------------------------------------------

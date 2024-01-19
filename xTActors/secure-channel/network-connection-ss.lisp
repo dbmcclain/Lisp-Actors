@@ -253,6 +253,7 @@
                    ))
            
            (begin-write ()
+             ;; (>> fmt-println "Socket write: ~d bytes" bytes-to-write)
              (comm:async-io-state-write-buffer io-state
                                                byte-vec
                                                #'write-done)

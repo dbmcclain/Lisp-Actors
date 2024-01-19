@@ -47,7 +47,7 @@
                                   (ed-mul client-pkey brand)    ;; C*b
                                   (ed-mul apt my-skey)) )       ;; A*s
                   (:β _  (>> local-services β :set-crypto ekey socket)))
-             (>> socket bpt aescrypt))
+             (>> socket bpt (butlast aescrypt))) ;; elide auth check
            ))))
     ;; silently ignore other requests
     )))
@@ -72,7 +72,7 @@
                                                   client-pkeyid client-id cnx-id))
             (ekey  (hash/256 bkey akey))
             (:β _  (>> local-services β :set-crypto ekey socket)))
-       (>> socket latcrypt aescrypt)
+       (>> socket latcrypt (butlast aescrypt)) ;; elide auth check
        ))
     ;; silently ignore other kinds of requests
     )))
