@@ -61,7 +61,7 @@ Our network protocol provides that if any error occurs during initial keying han
       2. No authentication checks during initial handshake dance.
       3. Some random noise is added to the scalar component of LWE Lattice crypto.
 
-We don't want to give any hints to attackers. The should only be met by silence.
+We don't want to give any hints to attackers. They should only be met by silence.
 
 Item (1) provides no hints of an incorrect decryption during initial handshake. For other normal course transmissions, the :CANARY wasn't needed because the packets are authenticated.
 
