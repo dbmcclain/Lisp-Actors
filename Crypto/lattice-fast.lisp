@@ -77,9 +77,9 @@
 ;; encryption.
 ;;
 ;; Remarkably, the process of LWE Lattice Encryption is astonishingly
-;; simple, compared to RSA or Elliptic Curve crypto. The only weakness
-;; to the system will be found in the quality of the underlying random
-;; number generator.
+;; simple, compared to RSA or Elliptic Curve crypto. The only
+;; potential weakness to the system will be found in the quality of
+;; the underlying random number generator.
 ;; -----------------------------------------------------------
 
 #|
