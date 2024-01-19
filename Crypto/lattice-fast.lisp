@@ -26,15 +26,6 @@
 
 ;; ---------------------------------------------
 
-(defun flat-mod (x sys)
-  (let ((modulus (getf sys :modulus)))
-    (cond (modulus
-           (mod x modulus))
-          (t
-           (let ((nbits (getf sys :nbits)))
-             (ldb (byte nbits 0) x)))
-          )))
-
 (defun fvdot (v1 v2)
   (reduce #'+ (map 'vector #'* v1 v2)))
 
@@ -75,38 +66,12 @@
   (declare (ignore nsigma))
   (let ((ncols   (lat2-ncols sys))
         (nrows   (lat2-nrows sys))
-        (nbits   (getf sys :nbits))
-        ;; (modulus (getf sys :modulus))
-        )
-    #|
-    (unless (and modulus
-                 (oddp modulus))
-      (error "Modulus is not prime: ~A" modulus))
-    |#
-    #|
-    (when (> (ceiling (sum-nbits nbits nrows nsigma)) 60)
-      (warn "NBits is too large for FIXNUM arithmetic: ~A" nbits))
-    |#
+        (nbits   (getf sys :nbits)))
     (when (< (* nbits (+ nrows ncols)) 256)
       (error "NBits, NRows, NCols too weak: (~A,~A,~A)" nbits nrows ncols))
     (when (< nrows 160)
       (error "NRows should be >= 160: ~A" nrows))
-    #|
-    (unless (> nrows ncols)
-      (error "NRows should be > NCols: ~A x ~A" nrows ncols))
-    |#
     ))
-
-#|
-(let* ((base (1- (ash 1 *flat-nbits*)))
-       (coll (loop repeat 10000 collect
-                     (let ((v1 (map 'vector #'round (vm:unoise *flat-ncols* base)))
-                           (v2 (map 'vector #'round (vm:unoise *flat-ncols* base))))
-                       (integer-length (fvdot v1 v2))))))
-  (plt:histogram 'histogram coll
-                 :clear t))
-                     
- |#
 
 (defun fgen-sys (&key (nbits   *flat-nbits*)
                       (ncode   *flat-ncode*)
@@ -136,17 +101,21 @@
 ;; ---------------------------------------------
 
 (defun fgen-skey (sys)
-  (let* ((nbits (getf sys :nbits))
-         (ncols (getf sys :ncols))
-         (ans   (make-array ncols)))
+  (let* ((nbits   (getf sys :nbits))
+         (ncols   (getf sys :ncols))
+         (modulus (getf sys :modulus))
+         (ans     (make-array ncols)))
     (loop for ix from 0 below ncols do
-            (setf (aref ans ix) (flat-mod (prng:ctr-drbg-int nbits) sys)))
+            (setf (aref ans ix)
+                  (mod (prng:ctr-drbg-int nbits)
+                       modulus)))
     ans))
 
 (defun flat-gen-deterministic-skey (sys &rest seeds)
   ;; skey is a ncol vector of 26-bit values
   (fcheck-system sys)
-  (let* ((ncols           (lat2-ncols sys))        
+  (let* ((ncols           (lat2-ncols sys))
+         (modulus         (getf sys :modulus))
          (nbits-per-word  (getf sys :nbits))
          (nbytes-per-word (ash nbits-per-word -3))
          (nbits-total     (* nbits-per-word ncols))
@@ -160,7 +129,7 @@
             for pos from 0 by nbytes-per-word
             do
               (let ((x (int (subseq h pos (min hlen (+ pos nbytes-per-word))))))
-                (setf (aref ans ix) (flat-mod x sys))
+                (setf (aref ans ix) (mod x modulus))
                 ))
       ans)
     ))
@@ -176,6 +145,7 @@
          (nbits   (getf sys :nbits))
          (ncode   (getf sys :ncode))
          (mat-a   (getf sys :mat-a))
+         (modulus (getf sys :modulus))
          ;;
          ;; -- Bipolar Noise Values --
          ;;
@@ -205,9 +175,9 @@
          (small/2 (ash small -1)))
     (declare (ignore chk))
     (map 'vector (lambda (arow)
-                   (flat-mod (+ (fvdot arow skey)
-                                (- (prng:ctr-drbg-int nsmall) small/2))
-                             sys))
+                   (mod (+ (fvdot arow skey)
+                           (- (prng:ctr-drbg-int nsmall) small/2))
+                        modulus))
          mat-a)))
 
 ;; ------------------------------------------------------------------
@@ -216,15 +186,12 @@
   (let* ((nrows   (getf sys :nrows))
          (ncols   (getf sys :ncols))
          (mat     (getf sys :mat-a))
-         ;; (nbits   (getf sys :nbits))
          (ncode   (getf sys :ncode))
          (modulus (getf sys :modulus))
-         ;; (nsh     (- nbits ncode))
          (sf      (floor modulus (ash 1 ncode)))
          (sel     (gen-random-sel nrows))
          (bsum    0)
          (vsum    (make-array ncols
-                              ;; :element-type 'fixnum
                               :initial-element 0)))
     (loop for vrow across mat
           for b across pkey
@@ -233,11 +200,10 @@
             (when (logbitp ix sel)
               (incf bsum b)
               (map-into vsum #'+ vsum vrow)))
-    (vector (flat-mod (+ bsum
-                         ;; (ash x nsh)
-                         (* sf x))
-                      sys)
-            (map-into vsum (um:rcurry #'flat-mod sys) vsum))
+    (vector (mod (+ bsum
+                    (* sf x))
+                 modulus)
+            (map-into vsum (um:rcurry #'mod modulus) vsum))
     ))
 
 (defun flat-encode (pkey v &optional (sys (get-lattice-system)))
@@ -276,25 +242,15 @@
 (defun flat-decode1 (v skey sys)
   (let* ((bsum    (aref v 0))
          (vsum    (aref v 1))
-         ;; (nbits   (getf sys :nbits))
          (ncode   (getf sys :ncode))
          (modulus (getf sys :modulus))
-         ;; (pos     (- nbits ncode))
-         ;; (half    (ash 1 (1- pos)))
          (one     (floor modulus (ash 1 ncode)))
          (half    (ceiling one 2)))
-    #|
-    (ldb (byte ncode pos)
-         (flat-mod (+ (- bsum
-                         (fvdot skey vsum))
-                      half)
-                   sys))
-    |#
     (floor 
-     (flat-mod (+ (- bsum
-                     (fvdot skey vsum))
-                  half)
-               sys)
+     (mod (+ (- bsum
+                (fvdot skey vsum))
+             half)
+          modulus)
      one)
     ))
 
@@ -391,10 +347,10 @@
        (coll     (loop repeat 100000 collect
                          (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
                            (float
-                            (/ (flat-mod (+ (- (aref v 0)
-                                               (fvdot *tst-skey* (aref v 1)))
-                                            half)
-                                         *flat-sys*)
+                            (/ (mod (+ (- (aref v 0)
+                                          (fvdot *tst-skey* (aref v 1)))
+                                       half)
+                                    modulus)
                                one)))
                        )))
   ;; (inspect coll)
