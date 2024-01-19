@@ -43,6 +43,8 @@ But in our case here, with the vector row-sum containing only a single element, 
 
 [ I guess, probabalistically, if you notice that backout out of the subset of Public Key elements from the scalar component leaves a noiseless result, you might conclude that this is highly unlikely, and therefore you will have found the correct solution. But a noiseless sum is a distinct possibility, albeit of low probability.]
 
+[Actually, our AES crypto packet carries an authentication signature. So if you don't have the correct key, you won't pass authentication. An attacker could try an athentication check to verify correctness in their subset-sum solution.] 
+
 As stands right now, that AES packet carries a :CANARY element to help the recipient double check on the validity of the unlocking key. But if I were to elide that canary item, the remaining items are just random values, providing no way to check for correctness. Perhaps I should elide the :CANARY.
 
 But apart from the :CANARY issue, I maintain that by providing only a single item for the row-sum vector of the LWE Lattice cryptotext, I have made the problem immeasurably harder than most other variants of LWE Lattice crypto. What might appear as a weakness in my approach - providing only a single element to attack - actually makes the problem substantially harder.
