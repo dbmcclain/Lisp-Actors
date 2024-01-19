@@ -1,12 +1,16 @@
 -- 19 January 2024 -- Advances in LWE Lattice Crypto
 ---
 Our secure network protocol allows for two nodes, each running the Actors system, to communicate securely. The only distinction between Client and Server is that Clients initiate a connection by sending the Server information:
+
       1. Who the client is, a Public Key ID (a UUID),
       2. A reply-to Actor ID,
       3. A random number to use for establishing shared session keying.
+
 If the server recognizes the client Public Key ID, then it looks up the public key for the client and responds with:
+
       1. Its own random number to use for establishing shared session keying,
       2. A new connection Actor ID, which will handle any request of the client.
+
 With both sides now equipped with each other's random keying numbers, they form a unique shared session key for all future communications during this connection session. That key is ratcheted for each transmission so that they have perfect refutable forward secrecy. Attackers who successfully crack a transmission will not be able to use the cracked keying against other past or future transmissions.
 
 These initial packets of info are sent across the network in an AES-256 cryptotext. But the decryption key for these AES packets must also be sent along with them, in such a way that only the intended recipient is able to discern the AES decryption key. For that we use LWE Lattice crypto to send along the 256-bit AES key.
