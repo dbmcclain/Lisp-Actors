@@ -157,6 +157,35 @@
       (error "NRows should be >= 160: ~A" nrows))
     ))
 
+(defun noise-nbits (nbits-for-unit nrows nsigma)
+  ;;
+  ;; -- Bipolar Noise Values --
+  ;;
+  ;; For a uniform distribution of width N, the variance is
+  ;; N^2/12.  If we sum NRows of these together, the variance
+  ;; becomes NRows*N^2/12.  We need to allow for some multiple of
+  ;; the standard deviation and that multiple must remain below
+  ;; half our unit scale.
+  ;;
+  ;; So, if unity is represented as 2^NUnit, then we need:
+  ;;
+  ;;  Log2(NSigma) + 1/2*Log2(NRows) + Log2(N) - 1/2*Log2(12) < NUnit-1
+  ;;
+  ;; Solving for N:
+  ;;
+  ;;  Log2(N) < NUnit-1 - Log2(NSigma) + 1/2*Log2(12) - 1/2*Log2(NRows)
+  ;;
+  ;; Plugging in NUnit = 18, NRows = 160, NSigma = 6, we get:
+  ;;
+  ;;    Log2(N) < 12.54, so use 12
+  ;;
+  ;; This needs to be greater than 1/2*log2(NRows) = 3.66, for security.
+  ;;
+  (- nbits-for-unit 1
+     (- (log nsigma 2)
+        (/ (log 12 2) 2))
+     (/ (log nrows 2) 2)))
+
 (defun fgen-sys (&key (nbits   *flat-nbits*)
                       (ncode   *flat-ncode*)
                       (nrows   *flat-nrows*)
@@ -170,12 +199,15 @@
                         (setf (aref v jx) (mod x modulus))
                         ))
               (setf (aref a ix) v)))
-    (let ((sys (list :nbits nbits
-                     :ncode ncode
-                     :nrows nrows
-                     :ncols ncols
-                     :modulus modulus
-                     :mat-a a)))
+    (let* ((nsigma  6)
+           (noise-bits (floor (noise-nbits (- nbits ncode) nrows nsigma)))
+           (sys (list :nbits nbits
+                      :ncode ncode
+                      :nrows nrows
+                      :ncols ncols
+                      :modulus modulus
+                      :nnoise  noise-bits
+                      :mat-a a)))
       (fcheck-system sys)
       sys)))
 
@@ -215,50 +247,21 @@
       ans)
     ))
 
-(defun noise-nbits (nbits-for-unit nrows nsigma)
-  (- nbits-for-unit 1
-     (- (log nsigma 2)
-        (/ (log 12 2) 2))
-     (/ (log nrows 2) 2)))
+(defun gen-noise (sys)
+  (let* ((nsmall  (getf sys :nnoise))
+         (small/2 (ash 1 (1- nsmall))))
+    (- (prng:ctr-drbg-int nsmall) small/2)))
 
-(defun fgen-pkey (skey sys &optional (nsigma 6))
+(defun fgen-pkey (skey sys)
   (let* ((nrows   (getf sys :nrows))
-         (nbits   (getf sys :nbits))
-         (ncode   (getf sys :ncode))
          (mat-a   (getf sys :mat-a))
          (modulus (getf sys :modulus))
-         ;;
-         ;; -- Bipolar Noise Values --
-         ;;
-         ;; For a uniform distribution of width N, the variance is
-         ;; N^2/12.  If we sum NRows of these together, the variance
-         ;; becomes NRows*N^2/12.  We need to allow for some multiple of
-         ;; the standard deviation and that multiple must remain below
-         ;; half our unit scale.
-         ;;
-         ;; So, if unity is represented as 2^NUnit, then we need:
-         ;;
-         ;;  Log2(NSigma) + 1/2*Log2(NRows) + Log2(N) - 1/2*Log2(12) < NUnit-1
-         ;;
-         ;; Solving for N:
-         ;;
-         ;;  Log2(N) < NUnit-1 - Log2(NSigma) + 1/2*Log2(12) - 1/2*Log2(NRows)
-         ;;
-         ;; Plugging in NUnit = 18, NRows = 160, NSigma = 6, we get:
-         ;;
-         ;;    Log2(N) < 12.54, so use 12
-         ;;
-         ;; This needs to be greater than 1/2*log2(NRows) = 3.66, for security.
-         ;;
-         (nsmall  (floor (noise-nbits (- nbits ncode) nrows nsigma)))
+         (nsmall  (getf sys :nnoise))
          (small   (ash 1 nsmall))
-         (chk     (assert (> small (sqrt nrows))))
-         (small/2 (ash small -1)))
+         (chk     (assert (> small (sqrt nrows)))))
     (declare (ignore chk))
     (map 'vector (lambda (arow)
-                   (mod (+ (fvdot arow skey)
-                           (- (prng:ctr-drbg-int nsmall) small/2))
-                        modulus))
+                   (mod (+ (fvdot arow skey) (gen-noise sys)) modulus))
          mat-a)))
 
 ;; ------------------------------------------------------------------
@@ -271,7 +274,7 @@
          (modulus (getf sys :modulus))
          (sf      (floor modulus (ash 1 ncode)))
          (sel     (gen-random-sel nrows))
-         (bsum    0)
+         (bsum    (gen-noise sys))
          (vsum    (make-array ncols
                               :initial-element 0)))
     (loop for vrow across mat
