@@ -53,6 +53,8 @@ And LWE Lattice crypto over a prime modular field provides a much harder Subset-
 
 Our network protocol provides that if any error occurs during initial keying handshake, then the nodes shut down and go quiet. You have only one chance to respond correctly.]
 
+----
+
 [ So all told, these insights have led to the following changes:
       1. No :CANARY in AES packets, normal exchanges already have authentication checks to this is redundant
       2. No authentication checks during initial handshake dance
