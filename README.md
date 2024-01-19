@@ -63,7 +63,7 @@ Our network protocol provides that if any error occurs during initial keying han
 
 We don't want to give any hints to attackers. The should only be met by silence.
 
-Item (1) provides no hints of an incorrect decryption during initial handshake. For other normal course transmissions, it wasn't needed because the packets are authenticated.
+Item (1) provides no hints of an incorrect decryption during initial handshake. For other normal course transmissions, the :CANARY wasn't needed because the packets are authenticated.
 
 Item (2) provides no hints of incorrect decryption during initial handshake. You have no idea whether your trial decryption key is correct or not. If not, then you get an incorrect reply-to address and incorrect session keys. Either of these lead eventually to silence.
 
