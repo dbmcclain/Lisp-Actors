@@ -74,7 +74,11 @@ But having no authentication on initial handshake means there is no way to ascer
 As spoofing attacks, any packet would need to contain properly serialized Lisp data structures. At the receiving end, when a packet cannot be successfully deserialized, the packet is dropped on the floor without further notice. An attacker is met with silence, and after 20 seconds of inactivity the socket port will be silently closed.
 
 **Random noise is added to the LWE Lattice scalar component of encryptions.**
-This means that it is highly unlikely to ever see a zero noise subset-sum in the scalar component of an LWE Lattice encryption, even when you have the correct subset. Again, no hints as to correctness. If there is more than one subset-sum solution you won't have any idea which one is the correct one. If there is only one solution, then you have it. But I won't wait around for you to find it. You have to consider all possible subsets of solutions to find the one and only.
+This means that it is highly unlikely to ever see a zero noise subset-sum residual in the scalar component of an LWE Lattice encryption, even when you have subtracted the correct subset. Again, no hints as to correctness. If there is more than one subset-sum solution you won't have any idea which one is the correct one. If there is only one solution, then you have it. But I won't wait around for you to find it. You have to consider all possible subsets of solutions to find the one and only.
+
+Now, probabilistically, you might argue that if you find one solution for the vector component element, then you have likely found the sole solution. How likely is it, in a 320-bit modular field to wind up with a zero residual after subtracting some subset of random values? Probably not very likely. But it could happen as a random outcome, even when you are not correct with the subset. We know there is one correct solution ouf of 2^160 possible subset constructions. So the random chance of an accidental zero residual would be ≈ O(1/2^160) if the numbers were truly randomly selected from a uniform distribution. I guess that depends on how good the PRNG really is...
+
+... but what if we could engineer a higher likelihood by bending the PRNG? What would that do the the security arguments for LWE Lattice crypto?
       
 -- 26 October 2023 -- Minimum Sufficient Concepts for Concurrent Programming
 ---
