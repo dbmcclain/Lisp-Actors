@@ -72,6 +72,7 @@
      ))
 
 (defun fcheck-system (sys &optional (nsigma 6))
+  (declare (ignore nsigma))
   (let ((ncols   (lat2-ncols sys))
         (nrows   (lat2-nrows sys))
         (nbits   (getf sys :nbits))
@@ -212,17 +213,19 @@
 ;; ------------------------------------------------------------------
 
 (defun flat-encode1 (x pkey sys)
-  (let* ((nrows (getf sys :nrows))
-         (ncols (getf sys :ncols))
-         (mat   (getf sys :mat-a))
-         (nbits (getf sys :nbits))
-         (ncode (getf sys :ncode))
-         (nsh   (- nbits ncode))
-         (sel   (gen-random-sel nrows))
-         (bsum  0)
-         (vsum  (make-array ncols
-                            ;; :element-type 'fixnum
-                            :initial-element 0)))
+  (let* ((nrows   (getf sys :nrows))
+         (ncols   (getf sys :ncols))
+         (mat     (getf sys :mat-a))
+         ;; (nbits   (getf sys :nbits))
+         (ncode   (getf sys :ncode))
+         (modulus (getf sys :modulus))
+         ;; (nsh     (- nbits ncode))
+         (sf      (floor modulus (ash 1 ncode)))
+         (sel     (gen-random-sel nrows))
+         (bsum    0)
+         (vsum    (make-array ncols
+                              ;; :element-type 'fixnum
+                              :initial-element 0)))
     (loop for vrow across mat
           for b across pkey
           for ix from 0
@@ -231,7 +234,8 @@
               (incf bsum b)
               (map-into vsum #'+ vsum vrow)))
     (vector (flat-mod (+ bsum
-                         (ash x nsh))
+                         ;; (ash x nsh)
+                         (* sf x))
                       sys)
             (map-into vsum (um:rcurry #'flat-mod sys) vsum))
     ))
@@ -270,17 +274,28 @@
 ;; ------------------------------------------------------------------
 
 (defun flat-decode1 (v skey sys)
-  (let* ((bsum  (aref v 0))
-         (vsum  (aref v 1))
-         (nbits (getf sys :nbits))
-         (ncode (getf sys :ncode))
-         (pos   (- nbits ncode))
-         (half  (ash 1 (1- pos))))
+  (let* ((bsum    (aref v 0))
+         (vsum    (aref v 1))
+         ;; (nbits   (getf sys :nbits))
+         (ncode   (getf sys :ncode))
+         (modulus (getf sys :modulus))
+         ;; (pos     (- nbits ncode))
+         ;; (half    (ash 1 (1- pos)))
+         (one     (floor modulus (ash 1 ncode)))
+         (half    (ceiling one 2)))
+    #|
     (ldb (byte ncode pos)
          (flat-mod (+ (- bsum
                          (fvdot skey vsum))
                       half)
                    sys))
+    |#
+    (floor 
+     (flat-mod (+ (- bsum
+                     (fvdot skey vsum))
+                  half)
+               sys)
+     one)
     ))
 
 (defun flat-decode (skey cs &optional (sys (get-lattice-system)))
@@ -364,21 +379,24 @@
 ;; ----------------------------------------------------
 ;; Histogram of Raw Decryptions
 ;; Should look like a Gaussian distribution above the value of the x data value
-(let* ((x     0)
-       (nbits (getf *flat-sys* :nbits))
-       (ncode (getf *flat-sys* :ncode))
-       (pos   (- nbits ncode))
-       (half  (ash 1 (1- pos)))
-       (one   (ash 1 pos))
-       (coll  (loop repeat 100000 collect
-                      (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
-                        (float
-                         (/ (flat-mod (+ (- (aref v 0)
-                                            (fvdot *tst-skey* (aref v 1)))
-                                         half)
-                                      *flat-sys*)
-                            one)))
-                    )))
+(let* ((x       0)
+       (nbits   (getf *flat-sys* :nbits))
+       (ncode   (getf *flat-sys* :ncode))
+       (modulus (getf *flat-sys* :modulus))
+       ;; (pos   (- nbits ncode))
+       ;; (half  (ash 1 (1- pos)))
+       ;; (one   (ash 1 pos))
+       (one      (floor modulus (ash 1 ncode)))
+       (half     (ceiling one 2))
+       (coll     (loop repeat 100000 collect
+                         (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
+                           (float
+                            (/ (flat-mod (+ (- (aref v 0)
+                                               (fvdot *tst-skey* (aref v 1)))
+                                            half)
+                                         *flat-sys*)
+                               one)))
+                       )))
   ;; (inspect coll)
   (plt:histogram 'histo coll
                  :clear t
