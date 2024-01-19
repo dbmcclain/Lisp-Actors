@@ -34,7 +34,9 @@ Going the other way, attempting to crack the Secret Key corresponding to publish
 Our compact LWE Lattice Crypto system uses 160 NRows by 1 NCols, in an integer field with prime modulus p = 2^320 - 197. A cryptotext contains a 320-bit scalar component, and a rowsum vector of 1 element with 320 bits. A message of up to 256 bits can be carried by one 2-element cryptotext, by adding it to the scalar component. The System Matrix is really just a vector with 160 elements, the Secret Key is a vector with only one 320-bit number, and Public Keys are vectors of 160 320-bit numbers.
 
 Conveying the 256-bit AES encryption key requires sending only 80 bytes of data, or 2x320 bits. I consider that pretty efficient for LWE Lattice crypto.
-      
+
+----
+
 [*Now this is somewhat interesting... Typically, in LWE Lattice crypto, the cryptotext carries a vector row-sum from the System Matrix. In solving the Subset-Sum problem, you might have several potential solutions, starting with solving for the first component of the row-sum. You can then verify the solution by seeing whether or not that same subset solves the other vector components. If not, then resume your search.
 
 But in our case here, with the vector row-sum containing only a single element, there is nothing else to cross-check your potential solution. You can try to back out the same subset of noisy Public Key elements from the scalar component to reveal the message. But there is no way to cross check your subset solution, other than trying to use the revealed message as an unlocking key on the accompanying AES-256 crypto packet. 
