@@ -55,15 +55,15 @@ Our network protocol provides that if any error occurs during initial keying han
 
 ----
 
-[ So all told, these insights have led to the following changes:
+So all told, these insights have led to the following changes:
 
--- No :CANARY in AES packets. 
+**No :CANARY in AES packets.**
 Normal exchanges already have authentication checks, making this redundant. During initial handshake negotiation, one packet is sent from Client to Server, and another is sent from Server to Client. These packets contain the necessary information to develop a shared session key. These initial handshake packets are sent without any authentication. Hence, providing no hint as to their correctness.
 
--- No Authentication during initial handshake dance.
+**No Authentication during initial handshake dance.**
 Normal exchanges will have authentication to prevent spoofing and DOS attacks. But having no authentication on initial handshake means there is no way to ascertain whether or not you have a correct trial decryption. If not, you will eventually be met with silence.
 
--- Some random noise is added to the LWE Lattice scalar component of encryptions
+**Some random noise is added to the LWE Lattice scalar component of encryptions.**
 This means that it is highly unlikely to ever see a zero noise subset-sum in the scalar component, even when you have the correct subset. Again, no hints as to correctness. If there is more than one subset-sum solution you won't have any idea which one is the correct one. If there is only one solution, then you have it. But I won't wait around for you to find it. You have to consider all possible subsets of solutions to find the one and only.
       
 -- 26 October 2023 -- Minimum Sufficient Concepts for Concurrent Programming
