@@ -105,10 +105,28 @@
 ;; best algorithms range around O(2^(0.22*n)). So we multiply the
 ;; desired difficulty by 5x. For  O(2^128) we use NRows = 640.
 ;;
+;; ---------------------------------------------------------------
+;; Review of literature suggests that Subset-Sum is most difficult to solve
+;; for Density = 1, and when exactly half of the selections are taken.
+;;
+;;   Density = NRows / (Log2 (Max A_i)) for system matrix A.
+;;
+;; Unit density implies that NBits ≈ NRows.
+;;
+;; Security hardness is ≈ O(2^(NRows/8)).
+;;
+;; So, for Security of 128 bits, we need NRows = 1024. Unit density
+;; implies NBits = NRows.
+;;
+;; Problem is at its most difficult to solve when the subset consists
+;; of exactly half of the set. So our random selection seeks a random
+;; value with exactly 512 bits selected.
+;; -------------------------------------------------------------------
+
 (defparameter *flat-nbits*   1024)
-(defparameter *flat-ncode*   256)
+(defparameter *flat-ncode*    256)
 (defparameter *flat-nrows*   1024) ;; for density = 1
-(defparameter *flat-ncols*     1)
+(defparameter *flat-ncols*      1)
 
 (defparameter *flat-modulus*  ;; (- (ash 1 320) 197)) ;; nearest prime below 2^320
   (- (ash 1 1024) 105))
