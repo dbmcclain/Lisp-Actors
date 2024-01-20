@@ -100,10 +100,14 @@
 ;;
 ;; The cost is BIGNUM arithmetic instead of FIXNUM. But it was
 ;; worthwhile.
-
+;;
+;; Papers on the difficulty of Subset-Sum seem to indicate that the
+;; best algorithms range around O(2^(0.22*n)). So we multiply the
+;; desired difficulty by 5x. For  O(2^128) we use NRows = 640.
+;;
 (defparameter *flat-nbits*   320)
 (defparameter *flat-ncode*   256)
-(defparameter *flat-nrows*   160)
+(defparameter *flat-nrows*   640)
 (defparameter *flat-ncols*     1)
 
 (defparameter *flat-modulus*  (- (ash 1 320) 197)) ;; nearest prime below 2^320
@@ -418,8 +422,8 @@
 (defparameter *tst-skey* (fgen-skey *flat-sys*))
 (defparameter *tst-pkey* (fgen-pkey *tst-skey* *flat-sys*))
 
-(let* ((x        (1- (ash 1 256)))
-       (ncoll    100000)
+(let* ((x        0)
+       (ncoll    40000)
        (ncode    (getf *flat-sys* :ncode))
        (modulus  (getf *flat-sys* :modulus))
        (one      (floor modulus (ash 1 ncode)))
@@ -454,7 +458,7 @@
 ;; Should look like a uniform distribution
 
 (let* ((x       0)
-       (ncoll   100000)
+       (ncoll   40000)
        (modulus (getf *flat-sys* :modulus))
        (coll    (loop repeat ncoll collect
                         (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
@@ -472,5 +476,16 @@
   (list :mn (vm:mean coll)    ;; should ≈ 0.5
         :sd (vm:stdev coll))) ;; should ≈ 1/Sqrt(12) = 0.289
 
+;; -----------------------------------------------------------
+;;
+
+(let* ((nbits 640)
+       (ntrials 10000)
+       (coll (loop repeat ntrials collect
+                   (logcount (prng:ctr-drbg-int nbits)))))
+  (plt:histogram 'histo coll
+                 :clear t)
+  (list :mn (float (vm:mean coll))
+        :sd (vm:stdev coll)))
 |#
     
