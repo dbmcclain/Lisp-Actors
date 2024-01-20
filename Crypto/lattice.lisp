@@ -14,6 +14,7 @@
    #:lat2-gen-deterministic-skey
    #:lat2-gen-pkey
 
+   #:fgen-sys
    #:fgen-pkey
    #:flat-encode
    #:flat-decode
@@ -481,6 +482,7 @@
                        (vops:vscale sf (vm:gnoise ncols)))))
       mat))
 
+#|
 (defun gen-random-sel (nbits)
   ;; Produce an nbits random value, with at lesat a quarter of them
   ;; nonzero.  At 320 nbits, the likelihood of fewer than 80 bits
@@ -491,7 +493,30 @@
           (go-iter)
         r)
       )))
+|#
 
+(defun gen-random-sel (nbits &optional (ct 1))
+  ;; Produce an nbits random value with half of the bits zero.
+  (let ((r  (prng:ctr-drbg-int nbits)))
+    (if (= (logcount r) (ash nbits -1))
+        (values r ct)
+      (gen-random-sel nbits (1+ ct)))
+    ))
+#|
+ ;; Looks like an exponential distribution with mean of ≈ 40 attempts
+ ;; for 1024 bits
+(let* ((ntrials 1000)
+       (nbits   1024)
+       (coll    (loop repeat ntrials collect
+                      (multiple-value-bind (_ ct)
+                          (gen-random-sel nbits)
+                        ct))))
+  (plt:histogram 'histo coll
+                 :clear t)
+  (list :mn (float (vm:mean coll))
+        :sd (vm:stdev coll)))
+  
+  |#
 ;; ----------------------------------------------------------------------
 
 (defun stopwatch-beh (&optional (start 0))

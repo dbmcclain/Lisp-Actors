@@ -105,12 +105,13 @@
 ;; best algorithms range around O(2^(0.22*n)). So we multiply the
 ;; desired difficulty by 5x. For  O(2^128) we use NRows = 640.
 ;;
-(defparameter *flat-nbits*   320)
+(defparameter *flat-nbits*   1024)
 (defparameter *flat-ncode*   256)
-(defparameter *flat-nrows*   640)
+(defparameter *flat-nrows*   1024) ;; for density = 1
 (defparameter *flat-ncols*     1)
 
-(defparameter *flat-modulus*  (- (ash 1 320) 197)) ;; nearest prime below 2^320
+(defparameter *flat-modulus*  ;; (- (ash 1 320) 197)) ;; nearest prime below 2^320
+  (- (ash 1 1024) 105))
 
 ;; ---------------------------------------------
 
@@ -203,6 +204,12 @@
                         (setf (aref v jx) (mod x modulus))
                         ))
               (setf (aref a ix) v)))
+    (let* ((norm (loop for row across a maximize
+                         (loop for elt across row maximize elt)))
+           (l2norm (log norm 2))
+           (density (/ nrows l2norm)))
+      (format t "~%L2 Norm = ~f" l2norm)
+      (format t "~%Density = ~f" density))
     (let* ((nsigma  6)
            (noise-bits (floor (noise-nbits (- nbits ncode) nrows nsigma)))
            (sys (list :nbits nbits
@@ -278,7 +285,7 @@
          (modulus (getf sys :modulus))
          (sf      (floor modulus (ash 1 ncode)))
          (sel     (gen-random-sel nrows))
-         (bsum    (gen-noise sys))
+         (bsum    0) ;; xs(gen-noise sys))
          (vsum    (make-array ncols
                               :initial-element 0)))
     (loop for vrow across mat
@@ -419,6 +426,8 @@
 ;; Should look like a Gaussian distribution above the value of the x data value
 
 (defparameter *flat-sys* (fgen-sys))
+(ac:send kvdb:kvdb nil :add :flat-system *flat-sys*)
+
 (defparameter *tst-skey* (fgen-skey *flat-sys*))
 (defparameter *tst-pkey* (fgen-pkey *tst-skey* *flat-sys*))
 
@@ -487,5 +496,19 @@
                  :clear t)
   (list :mn (float (vm:mean coll))
         :sd (vm:stdev coll)))
+
+(let* ((nbits 57)
+       (nrows 640)
+       (ntrials 1000)
+       (zero   (ash 1 (1- nbits)))
+       ;; (zero  0)
+       (sums  (loop repeat ntrials collect
+                      (log (abs (loop repeat nrows sum
+                                        (- (prng:ctr-drbg-int nbits) zero)))
+                                2))))
+  (plt:histogram 'histo sums
+                 :clear t))
+       
+
 |#
     
