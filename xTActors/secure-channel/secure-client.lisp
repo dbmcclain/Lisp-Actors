@@ -181,7 +181,7 @@
                             (error "Server not following connection protocol"))
                           )))
             (:β _  (racurry local-services :add-single-use-service client-id responder)) )
-       (>> socket apt (butlast aescrypt)) ;; elide auth check
+       (>> socket apt aescrypt)
        ))
    ))
   
