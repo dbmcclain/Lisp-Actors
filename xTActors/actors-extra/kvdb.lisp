@@ -940,6 +940,11 @@
 ;; -----------------------------------------------------------
 ;; Utility Functions
 
+(defun inspect-kvdb ()
+  (β (map)
+      (send kvdb β :really-let-me-see-map)
+    (inspect map)))
+
 (defun key-to-string (key)
   ;; Also used for value displays
   (with-output-to-string (s)

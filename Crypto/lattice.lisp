@@ -482,19 +482,20 @@
                        (vops:vscale sf (vm:gnoise ncols)))))
       mat))
 
-#|
+#||#
 (defun gen-random-sel (nbits)
-  ;; Produce an nbits random value, with at lesat a quarter of them
-  ;; nonzero.  At 320 nbits, the likelihood of fewer than 80 bits
-  ;; being 1 is a 9-sigma event, about 5.1e-20. Ain't gonna happen...
+  ;; Produce an nbits random value. At 1024 nbits, the likelihood of
+  ;; the number of bits selected being outside of 512 ± 100 bits, is
+  ;; less than 3e-10.
   (um:nlet iter ()
     (let ((r  (prng:ctr-drbg-int nbits)))
       (if (< (logcount r) (/ nbits 4))
           (go-iter)
         r)
       )))
-|#
-
+#||#
+#|
+;; at 1024 nbits this is extreme
 (defun gen-random-sel (nbits &optional (ct 1))
   ;; Produce an nbits random value with half of the bits zero.
   (let ((r  (prng:ctr-drbg-int nbits)))
@@ -502,6 +503,7 @@
         (values r ct)
       (gen-random-sel nbits (1+ ct)))
     ))
+|#
 #|
  ;; Looks like an exponential distribution with mean of ≈ 40 attempts
  ;; for 1024 bits

@@ -224,9 +224,9 @@
               (setf (aref a ix) v)))
     (let* ((norm (loop for row across a maximize
                          (loop for elt across row maximize elt)))
-           (l2norm (log norm 2))
-           (density (/ nrows l2norm)))
-      (format t "~%L2 Norm = ~f" l2norm)
+           (maxnorm (log norm 2))
+           (density (/ nrows maxnorm)))
+      (format t "~%MaxNorm = ~f" maxnorm)
       (format t "~%Density = ~f" density))
     (let* ((nsigma  6)
            (noise-bits (floor (noise-nbits (- nbits ncode) nrows nsigma)))
@@ -444,13 +444,13 @@
 ;; Should look like a Gaussian distribution above the value of the x data value
 
 (defparameter *flat-sys* (fgen-sys))
-(ac:send kvdb:kvdb nil :add :flat-system *flat-sys*)
+;; (ac:send kvdb:kvdb nil :add :flat-system *flat-sys*)
 
 (defparameter *tst-skey* (fgen-skey *flat-sys*))
 (defparameter *tst-pkey* (fgen-pkey *tst-skey* *flat-sys*))
 
 (let* ((x        0)
-       (ncoll    40000)
+       (ncoll    4000)
        (ncode    (getf *flat-sys* :ncode))
        (modulus  (getf *flat-sys* :modulus))
        (one      (floor modulus (ash 1 ncode)))
@@ -485,7 +485,7 @@
 ;; Should look like a uniform distribution
 
 (let* ((x       0)
-       (ncoll   40000)
+       (ncoll   4000)
        (modulus (getf *flat-sys* :modulus))
        (coll    (loop repeat ncoll collect
                         (let ((v (flat-encode1 x *tst-pkey* *flat-sys*)))
@@ -506,8 +506,8 @@
 ;; -----------------------------------------------------------
 ;;
 
-(let* ((nbits 640)
-       (ntrials 10000)
+(let* ((nbits 1024)
+       (ntrials 1000)
        (coll (loop repeat ntrials collect
                    (logcount (prng:ctr-drbg-int nbits)))))
   (plt:histogram 'histo coll
@@ -515,8 +515,8 @@
   (list :mn (float (vm:mean coll))
         :sd (vm:stdev coll)))
 
-(let* ((nbits 57)
-       (nrows 640)
+(let* ((nbits 761)
+       (nrows 1024)
        (ntrials 1000)
        (zero   (ash 1 (1- nbits)))
        ;; (zero  0)
