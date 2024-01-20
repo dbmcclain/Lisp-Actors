@@ -55,20 +55,32 @@ Our network protocol provides that if any error occurs during initial keying han
 
 ----
 
-[ So all told, these insights have led to the following changes:
+So all told, these insights have led to the following changes:
 
-      1. No :CANARY in AES packets. Normal exchanges already have authentication checks, making this redundant.
-      2. No authentication checks during initial handshake dance.
-      3. Some random noise is added to the scalar component of LWE Lattice crypto.
+**No :CANARY in AES packets.**
+Normal exchanges already have authentication checks, making this redundant. 
 
-We don't want to give any hints to attackers. The should only be met by silence.
+During initial handshake negotiation, one packet is sent from Client to Server, and another is sent in reply from Server to Client. These packets contain the necessary information to develop a shared session key. But that information has been serialized into a byte stream. The packet contains only what appear to be random numbers. These initial handshake packets are sent without any authentication. Hence, providing no hints as to their correctness.
 
-Item (1) provides no hints of an incorrect decryption during initial handshake. For other normal course transmissions, the :CANARY wasn't needed because the packets are authenticated.
+To gain any further insight into packet correctness, they would have to be successfully deserialized back into Lisp data structures, and their content would have to be examined.
 
-Item (2) provides no hints of incorrect decryption during initial handshake. You have no idea whether your trial decryption key is correct or not. If not, then you get an incorrect reply-to address and incorrect session keys. Either of these lead eventually to silence.
+So at the outside, there is nothing in these packets to help confirm a correct decryption attempt.
 
-Item (3) provides for no way to double check your trial subset-sum solution, if there is more than one. You have to check all possible subsets. If there is finally only one subset solution then you have the correct decryption key. But to get there you have to check all possible subsets. I won't hold my breath waiting for you to try...]
+**No Authentication during initial handshake dance.**
+Normal exchanges will have authentication to prevent spoofing and DOS attacks. 
 
+But having no authentication on initial handshake means there is no way to ascertain whether or not an attacker has a correct trial decryption. If not, they will eventually be met with silence. 
+
+As spoofing attacks, any packet would need to contain properly serialized Lisp data structures. At the receiving end, when a packet cannot be successfully deserialized, the packet is dropped on the floor without further notice. An attacker is met with silence, and after 20 seconds of inactivity the socket port will be silently closed.
+
+**Random noise is added to the LWE Lattice scalar component of encryptions.**
+This means that it is highly unlikely to ever see a zero noise subset-sum residual in the scalar component of an LWE Lattice encryption, even when you have subtracted the correct subset. Again, no hints as to correctness. If there is more than one subset-sum solution you won't have any idea which one is the correct one. If there is only one solution, then you have it. But I won't wait around for you to find it. You have to consider all possible subsets of solutions to find the one and only.
+
+Now, probabilistically, you might argue that if you find one solution for the vector component element, then you have likely found the sole solution. How likely is it, in a 320-bit modular field, to wind up with a zero residual after subtracting some subset of random values? Probably not very likely. But it could happen as a random outcome, even when you are not correct with the subset. We know there is one correct solution ouf of 2^160 possible subset constructions. So the random chance of an accidental zero residual would be ≥ O(1/2^160) if the numbers were truly randomly selected from a uniform distribution. I guess that depends on how good the PRNG really is...
+
+The random subset construction guarantees that at least 40 out of 160 possible selections are enabled. So that narrows down the search by a bit. We don't need to consider those subsets with fewer than 40 elements. That leaves only 1,461,501,637,330,902,918,203,684,832,716,283,018,556,420,915,200 ≈ 2^160 subsets that need to be considered.
+
+... but what if we could engineer a higher likelihood by bending the PRNG? What would that do the the security arguments for LWE Lattice crypto?
       
 -- 26 October 2023 -- Minimum Sufficient Concepts for Concurrent Programming
 ---
