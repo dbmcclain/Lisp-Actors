@@ -93,7 +93,7 @@
 |#
 
 ;; Using a bigger system allows us to connect across the network,
-;; sending a 256-bit key using only 80 bytes.
+;; sending a 256-bit key using only 120 bytes = 3*320 bits.
 ;;
 ;; Compare with 366kB for 1-bit transfers, and 20kB for 8-bit
 ;; transfers.
