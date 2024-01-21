@@ -123,13 +123,15 @@
 ;; value with exactly 512 bits selected.
 ;; -------------------------------------------------------------------
 
-(defparameter *flat-nbits*   1024)
+(defparameter *flat-nbits*    320) ;; = NRows for density = 1
 (defparameter *flat-ncode*    256)
-(defparameter *flat-nrows*   1024) ;; for density = 1
+(defparameter *flat-nrows*    320)
 (defparameter *flat-ncols*      1)
 
-(defparameter *flat-modulus*  ;; (- (ash 1 320) 197)) ;; nearest prime below 2^320
-  (- (ash 1 1024) 105))
+(defparameter *flat-modulus*
+  (- (ash 1 320) 197) ;; nearest prime below 2^320
+  ;; (- (ash 1 1024) 105)
+  )
 
 ;; ---------------------------------------------
 
@@ -303,6 +305,7 @@
          (modulus (getf sys :modulus))
          (sf      (floor modulus (ash 1 ncode)))
          (sel     (gen-random-sel nrows))
+         (sgn     (gen-random-sel nrows))
          (bsum    0) ;; xs(gen-noise sys))
          (vsum    (make-array ncols
                               :initial-element 0)))
@@ -311,8 +314,14 @@
           for ix from 0
           do
             (when (logbitp ix sel)
-              (incf bsum b)
-              (map-into vsum #'+ vsum vrow)))
+              ;; weight is from (-1, 0, +1)
+              (cond ((logbitp ix sgn)
+                     (decf bsum b)
+                     (map-into vsum #'- vsum vrow))
+                    (t
+                     (incf bsum b)
+                     (map-into vsum #'+ vsum vrow))
+                    )))
     (vector (mod (+ bsum
                     (* sf x))
                  modulus)
@@ -444,13 +453,15 @@
 ;; Should look like a Gaussian distribution above the value of the x data value
 
 (defparameter *flat-sys* (fgen-sys))
-;; (ac:send kvdb:kvdb nil :add :flat-system *flat-sys*)
+;; -------------------------
+(ac:send kvdb:kvdb nil :add :flat-system *flat-sys*)
+;; --------------------------
 
 (defparameter *tst-skey* (fgen-skey *flat-sys*))
 (defparameter *tst-pkey* (fgen-pkey *tst-skey* *flat-sys*))
 
 (let* ((x        0)
-       (ncoll    4000)
+       (ncoll    40000)
        (ncode    (getf *flat-sys* :ncode))
        (modulus  (getf *flat-sys* :modulus))
        (one      (floor modulus (ash 1 ncode)))
@@ -528,5 +539,8 @@
                  :clear t))
        
 
+b = A^x + ψ
+B = Sum(b,s) 
+c = (B + m, A
 |#
     
