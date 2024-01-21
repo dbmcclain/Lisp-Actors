@@ -186,30 +186,34 @@
   ;;
   ;; -- Bipolar Noise Values --
   ;;
-  ;; For a uniform distribution of width N, the variance is
-  ;; N^2/12.  If we sum NRows of these together, the variance
-  ;; becomes NRows*N^2/12.  We need to allow for some multiple of
-  ;; the standard deviation and that multiple must remain below
-  ;; half our unit scale.
+  ;; With Subset-Sum weights, eps, in {-3,-2,-1,0,1,2,3}^NRows, we
+  ;; effectively add Log2(6) bits to the N-bit noise values.
+  ;;
+  ;; For a uniform distribution of width 2^(N+Log2(6)), the variance
+  ;; is (1/12)*2^(2*N+2*Log2(6)).  If we sum NRows of these together,
+  ;; the variance becomes NRows/12*2^(2*N+2*Log2(6)).  We need to allow
+  ;; for some multiple of the standard deviation and that multiple
+  ;; must remain below half our unit scale.
   ;;
   ;; So, if unity is represented as 2^NUnit, then we need:
   ;;
-  ;;  Log2(NSigma) + 1/2*Log2(NRows) + Log2(N) - 1/2*Log2(12) < NUnit-1
+  ;;  Log2(NSigma) + 1/2*Log2(NRows) + (N+Log2(6)) - 1/2*Log2(12) < NUnit-1
   ;;
   ;; Solving for N:
   ;;
-  ;;  Log2(N) < NUnit-1 - Log2(NSigma) + 1/2*Log2(12) - 1/2*Log2(NRows)
+  ;;  N < NUnit-1 - Log2(NSigma) + 1/2*Log2(12) - 1/2*Log2(NRows) - Log2(6)
   ;;
-  ;; Plugging in NUnit = 18, NRows = 160, NSigma = 6, we get:
+  ;; Plugging in NUnit = (320-256) = 64, NRows = 320, NSigma = 6, we get:
   ;;
-  ;;    Log2(N) < 12.54, so use 12
+  ;;    N < 55.46 bits, so use 55
   ;;
   ;; This needs to be greater than 1/2*log2(NRows) = 3.66, for security.
   ;;
   (- nbits-for-unit 1
      (- (log nsigma 2)
         (/ (log 12 2) 2))
-     (/ (log nrows 2) 2)))
+     (/ (log nrows 2) 2)
+     (log 6 2)))
 
 (defun fgen-sys (&key (nbits   *flat-nbits*)
                       (ncode   *flat-ncode*)
@@ -479,7 +483,7 @@
 (defparameter *tst-pkey* (fgen-pkey *tst-skey* *flat-sys*))
 
 (let* ((x        0)
-       (ncoll    40000)
+       (ncoll    16000)
        (ncode    (getf *flat-sys* :ncode))
        (modulus  (getf *flat-sys* :modulus))
        (one      (floor modulus (ash 1 ncode)))
