@@ -112,6 +112,8 @@
 ;; and tend toward exponential difficulty. Too low or too high density
 ;; results in sub-exponential or polynomial complexity.
 ;;
+;; -- For Secret Key Security --
+;;
 ;; We should use NCols > 1 in the System Matrix because, with only one
 ;; column, you can mount a restricted search for coincidence over the
 ;; noise intervals, which are relatively small. For NBits = 320, NCode
@@ -131,9 +133,13 @@
 ;; it becomes impossible to mount a search over a noise-restricted
 ;; space for a single numnber, x. You have to search the entire
 ;; modulus p search space, for several 320-bit Secret Key
-;; numnbers, as well as any coincident noise hyperspheres.
+;; numbers, as well as any coincident noise hyperspheres.
 ;;
-;; For encryption security, we rely on the Subset-Sum problem.
+;; -- For Encryption Security --
+;;
+;; We rely on the Subset-Sum problem. Which random selection of
+;; elements from the Public Key and System Matrix were involved in
+;; forming the cryptotext?
 ;;
 ;; We also invoke random selection with weights in the set
 ;; {-3,-2,-1,0,1,2,3}, making our overt Subset-Sum complexity
