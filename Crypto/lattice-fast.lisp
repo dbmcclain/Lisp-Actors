@@ -171,15 +171,31 @@
      (log (+ 1 (* nsigma (sqrt (/ 2 (* 3 nsum))))) 2)
      ))
 
+(defun density (sys)
+  (let* ((nrows    (getf sys :nrows))
+         (ncols    (getf sys :ncols))
+         (mat-a    (getf sys :mat-a))
+         (maxnorms (loop for colix from 0 below ncols collect
+                           (loop for row across mat-a maximize
+                                   (aref row colix)))))
+    (map 'vector (lambda (maxnorm)
+                   (/ nrows (log maxnorm 2)))
+         maxnorms)))
+
 (defun fcheck-system (sys &optional (nsigma 6))
   (declare (ignore nsigma))
   (let ((ncols   (lat2-ncols sys))
         (nrows   (lat2-nrows sys))
         (nbits   (getf sys :nbits)))
-    (when (< (* nbits (+ nrows ncols)) 256)
-      (error "NBits, NRows, NCols too weak: (~A,~A,~A)" nbits nrows ncols))
+    (when (< ncols 2)
+      (error "NCols should be 2 or more: ~A" ncols))
     (when (< nrows 160)
       (error "NRows should be >= 160: ~A" nrows))
+    (let ((density (density sys)))
+      (when (some (um:rcurry #'< 0.999) density)
+        (error "Density too low in at least one column: ~A" density))
+      (when (some (um:rcurry #'> 1.001) density)
+        (error "Density too high in at least one column: ~A" density)))
     ))
 
 (defun noise-nbits (nbits-for-unit nrows nsigma)
@@ -228,12 +244,6 @@
                         (setf (aref v jx) (mod x modulus))
                         ))
               (setf (aref a ix) v)))
-    (let* ((norm (loop for row across a maximize
-                         (loop for elt across row maximize elt)))
-           (maxnorm (log norm 2))
-           (density (/ nrows maxnorm)))
-      (format t "~%MaxNorm = ~f" maxnorm)
-      (format t "~%Density = ~f" density))
     (let* ((nsigma  6)
            (noise-bits (floor (noise-nbits (- nbits ncode) nrows nsigma)))
            (sys (list :nbits nbits
@@ -244,6 +254,7 @@
                       :nnoise  noise-bits
                       :mat-a a)))
       (fcheck-system sys)
+      (format t "~%Densities: ~S" (density sys)) 
       sys)))
 
 ;; ---------------------------------------------
