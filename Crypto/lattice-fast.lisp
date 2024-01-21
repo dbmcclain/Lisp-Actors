@@ -105,15 +105,11 @@
 ;; Review of literature suggests that Subset-Sum is most difficult to solve
 ;; for Density = 1, and when exactly half of the selections are taken.
 ;;
-;;   Density = NRows / (Log2 (Max A_i)) for system matrix A.
+;;   Density = NRows / (Log2 (Max A_i))
 ;;
-;; Unit density implies that NBits ≈ NRows.
-;;
-;; Security hardness is ≈ O(2^(NRows/8)). (?? Word of mouth.)
-;;
-;; Best literature search shows complexities Time/Space around
-;; 2^(0.22*NRows). Densities near unity are the most difficult and
-;; tend toward exponential difficulty. Too low or too high density
+;; Literature search shows best attack complexities, Time & Space,
+;; around 2^(0.22*NRows). Densities near unity are the most difficult
+;; and tend toward exponential difficulty. Too low or too high density
 ;; results in sub-exponential or polynomial complexity.
 ;;
 ;; We should use NCols > 1 in the System Matrix because, with only one
