@@ -113,14 +113,63 @@
 ;;
 ;; Unit density implies that NBits ≈ NRows.
 ;;
-;; Security hardness is ≈ O(2^(NRows/8)).
+;; Security hardness is ≈ O(2^(NRows/8)). (?? Word of mouth.)
 ;;
-;; So, for Security of 128 bits, we need NRows = 1024. Unit density
-;; implies NBits = NRows.
+;; Best literature search shows complexities Time/Space around
+;; 2^(0.22*NRows). Densities near unity are the most difficult and
+;; tend toward exponential difficulty. Too low or too high density
+;; results in sub-exponential or polynomial complexity.
 ;;
-;; Problem is at its most difficult to solve when the subset consists
-;; of exactly half of the set. So our random selection seeks a random
-;; value with exactly 512 bits selected.
+;; We should use NCols > 1 in the System Matrix because, with only one
+;; column, you can mount a restricted search for coincidence over the
+;; noise intervals, which are relatively small. For NBits = 320, NCode
+;; = 256, we have NNoise = 55 bits.
+;;
+;; For NCols = 1, each Public Key element is just:
+;;
+;;    b_i = (A_i * x + ψ_i) mod p
+;;
+;; And the Secret Key, x, is just a single number. The only
+;; uncertainty between Public Key elements is the 55-bit noise, ψ_i.
+;;
+;; By having each Public Key element:
+;;
+;;    B_i = (A_1,i * x_1 + A_2,i * x_2 + ... + ψ_i) mod p
+;;
+;; it becomes impossible to mount a search over a noise-restricted
+;; space for a single numnber, x. You have to search the entire
+;; modulus p search space, for several 320-bit Secret Key
+;; numnbers, as well as any coincident noise hyperspheres.
+;;
+;; For encryption security, we rely on the Subset-Sum problem.
+;;
+;; We also invoke random selection with weights in the set
+;; {-3,-2,-1,0,1,2,3}, making our overt Subset-Sum complexity
+;; O(7^NRows) ≈ O(2^(2.81*NRows)).
+;;
+;; Hence against the current worst case attacks, we have effective
+;; security around (0.22*2.81*NRows) = 0.62*NRows bits. For NRows =
+;; 320, that gives us 2^197 security against the current best
+;; Subset-Sum attacks.
+;;
+;; (I also get the impression from the research papers on best
+;; attacks, that they are considering arithmetic modulo 2^K instead of
+;; modulo p prime. Binary overflow/wrap does not change LSB bits,
+;; whereas modulo p prime does. Hence our use of prime modulus may
+;; also make the problem harder.)
+;;
+;; The Subset-Sum problem is at its most difficult when the random
+;; selection used for encryption contains exactly NRows/2 elements.
+;;
+;; But the statistics of a Binomial Distribution shows that NRows/2 is
+;; the peak of the selection bits histogram, with a stdev around
+;; (1/2)*Sqrt(NRows). The 1-sigma width is only around ±5.6% of peak
+;; value (NRows/2) for NRows = 320.  And at ±3σ, a call to generate
+;; 320 random bits should produce 160±27 non-zero bits.
+;;
+;; Surely, a deviation of only a few percent from exactly NRows/2
+;; would not be enough to significantly ease the problem.(??)
+;;
 ;; -------------------------------------------------------------------
 
 (defparameter *flat-nbits*    320) ;; = NRows for density = 1
@@ -186,16 +235,25 @@
   (declare (ignore nsigma))
   (let ((ncols   (lat2-ncols sys))
         (nrows   (lat2-nrows sys))
-        (nbits   (getf sys :nbits)))
+        (nbits   (getf sys :nbits))
+        (nnoise  (getf sys :nnoise)))
     (when (< ncols 2)
-      (error "NCols should be 2 or more: ~A" ncols))
-    (when (< nrows 160)
-      (error "NRows should be >= 160: ~A" nrows))
+      ;; For thwarting algebraic attacks on Public Key and System
+      ;; Matrix to find the Secret Key.
+      (error "NCols should be > 1: ~A" ncols))
+    
+    (when (< (* 0.62 NRows) 128)
+      ;; For 128-bit encryption security
+      (error "NRows should be > 206: ~A" nrows))
+
     (let ((density (density sys)))
       (when (some (um:rcurry #'< 0.999) density)
         (error "Density too low in at least one column: ~A" density))
       (when (some (um:rcurry #'> 1.001) density)
         (error "Density too high in at least one column: ~A" density)))
+    
+    (unless (> nnoise (* 0.5 (log nrows 2)))
+      (error "Too few noise bits: ~A" nnoise))
     ))
 
 (defun noise-nbits (nbits-for-unit nrows nsigma)

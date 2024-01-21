@@ -519,6 +519,16 @@
         :sd (vm:stdev coll)))
   
   |#
+#|
+(let* ((nbits  1280)
+       (ntrials 10000)
+       (coll (loop repeat ntrials collect
+                     (logcount (gen-random-sel nbits)))))
+  (plt:histogram 'bit-histo coll
+                 :clear t)
+  (list :mn  (float (vm:mean coll))
+        :stdev (float (vm:stdev coll))))
+  |#
 ;; ----------------------------------------------------------------------
 
 (defun stopwatch-beh (&optional (start 0))
