@@ -126,7 +126,7 @@
 (defparameter *flat-nbits*    320) ;; = NRows for density = 1
 (defparameter *flat-ncode*    256)
 (defparameter *flat-nrows*    320)
-(defparameter *flat-ncols*      1)
+(defparameter *flat-ncols*      2)
 
 (defparameter *flat-modulus*
   (- (ash 1 320) 197) ;; nearest prime below 2^320
@@ -308,11 +308,11 @@
          (ncode   (getf sys :ncode))
          (modulus (getf sys :modulus))
          (sf      (floor modulus (ash 1 ncode)))
-         (sel     (gen-random-sel nrows))
-         (sgn     (gen-random-sel nrows))
-         (scl     (gen-random-sel nrows))
-         (dbl     (gen-random-sel nrows))
-         (bsum    0) ;; xs(gen-noise sys))
+         (sel     (gen-random-sel nrows)) ;; selection bits
+         (sgn     (gen-random-sel nrows)) ;; sign bits
+         (scl     (gen-random-sel nrows)) ;; scale bits
+         (dbl     (gen-random-sel nrows)) ;; double scale bits
+         (bsum    0)
          (vsum    (make-array ncols
                               :initial-element 0)))
     (loop for vrow across mat
