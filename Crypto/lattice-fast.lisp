@@ -123,7 +123,7 @@
 ;;
 ;;    b_i = (A_i * x + ψ_i) mod p
 ;;
-;; And the Secret Key, x, is just a single number 320-bit. The only
+;; And the Secret Key, x, is just a single 320-bit number. The only
 ;; uncertainty between Public Key elements is the 55-bit noise, ψ_i.
 ;;
 ;; By having each Public Key element depend on more than one Secret
