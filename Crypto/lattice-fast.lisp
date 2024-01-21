@@ -101,10 +101,6 @@
 ;; The cost is BIGNUM arithmetic instead of FIXNUM. But it was
 ;; worthwhile.
 ;;
-;; Papers on the difficulty of Subset-Sum seem to indicate that the
-;; best algorithms range around O(2^(0.22*n)). So we multiply the
-;; desired difficulty by 5x. For  O(2^128) we use NRows = 640.
-;;
 ;; ---------------------------------------------------------------
 ;; Review of literature suggests that Subset-Sum is most difficult to solve
 ;; for Density = 1, and when exactly half of the selections are taken.
