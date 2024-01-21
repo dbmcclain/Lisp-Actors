@@ -121,7 +121,7 @@
 ;;
 ;; For NCols = 1, each Public Key element is just:
 ;;
-;;    b_i = (A_i * x + ψ_i) mod p
+;;    b_i = (A_i*x + ψ_i) mod p
 ;;
 ;; And the Secret Key, x, is just a single 320-bit number. The only
 ;; uncertainty between Public Key elements is the 55-bit noise, ψ_i.
@@ -129,7 +129,7 @@
 ;; By having each Public Key element depend on more than one Secret
 ;; Key element:
 ;;
-;;    b_i = (A_1,i * x_1 + A_2,i * x_2 + ... + ψ_i) mod p
+;;    b_i = (A_i1*x_1 + A_i2*x_2 + ... + ψ_i) mod p
 ;;
 ;; it becomes impossible to mount a search over a noise-restricted
 ;; space for a single numnber, x. You have to search the entire
