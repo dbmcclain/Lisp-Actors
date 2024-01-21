@@ -306,6 +306,7 @@
          (sf      (floor modulus (ash 1 ncode)))
          (sel     (gen-random-sel nrows))
          (sgn     (gen-random-sel nrows))
+         (scl     (gen-random-sel nrows))
          (bsum    0) ;; xs(gen-noise sys))
          (vsum    (make-array ncols
                               :initial-element 0)))
@@ -314,13 +315,19 @@
           for ix from 0
           do
             (when (logbitp ix sel)
-              ;; weight is from (-1, 0, +1)
+              ;; weight is from (-2, -1, 0, +1, +2)
               (cond ((logbitp ix sgn)
                      (decf bsum b)
-                     (map-into vsum #'- vsum vrow))
+                     (map-into vsum #'- vsum vrow)
+                     (when (logbitp ix scl)
+                       (decf bsum b)
+                       (map-into vsum #'- vsum vrow)))
                     (t
                      (incf bsum b)
-                     (map-into vsum #'+ vsum vrow))
+                     (map-into vsum #'+ vsum vrow)
+                     (when (logbitp ix scl)
+                       (incf bsum b)
+                       (map-into vsum #'+ vsum vrow)))
                     )))
     (vector (mod (+ bsum
                     (* sf x))
