@@ -307,6 +307,7 @@
          (sel     (gen-random-sel nrows))
          (sgn     (gen-random-sel nrows))
          (scl     (gen-random-sel nrows))
+         (dbl     (gen-random-sel nrows))
          (bsum    0) ;; xs(gen-noise sys))
          (vsum    (make-array ncols
                               :initial-element 0)))
@@ -314,20 +315,30 @@
           for b across pkey
           for ix from 0
           do
+            ;; Subset-Sum weight is in (-3, -2, -1, 0, +1, +2, +3).
+            ;; Random sel, sgn, scl, dbl.
+            ;;
+            ;; This has the effect of causing complexity to become
+            ;; O(7^NRows) = O(2^(2.81*NRows))
             (when (logbitp ix sel)
-              ;; weight is from (-2, -1, 0, +1, +2)
               (cond ((logbitp ix sgn)
                      (decf bsum b)
                      (map-into vsum #'- vsum vrow)
                      (when (logbitp ix scl)
                        (decf bsum b)
-                       (map-into vsum #'- vsum vrow)))
+                       (map-into vsum #'- vsum vrow)
+                       (when (logbitp ix dbl)
+                         (decf bsum b)
+                         (map-into vsum #'- vsum vrow))))
                     (t
                      (incf bsum b)
                      (map-into vsum #'+ vsum vrow)
                      (when (logbitp ix scl)
                        (incf bsum b)
-                       (map-into vsum #'+ vsum vrow)))
+                       (map-into vsum #'+ vsum vrow)
+                       (when (logbitp ix dbl)
+                         (incf bsum b)
+                         (map-into vsum #'+ vsum vrow))))
                     )))
     (vector (mod (+ bsum
                     (* sf x))
