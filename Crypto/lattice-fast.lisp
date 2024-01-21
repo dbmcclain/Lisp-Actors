@@ -207,7 +207,7 @@
   ;;
   ;;    N < 55.46 bits, so use 55
   ;;
-  ;; This needs to be greater than 1/2*log2(NRows) = 3.66, for security.
+  ;; This needs to be greater than 1/2*log2(NRows) = 19.22, for security.
   ;;
   (- nbits-for-unit 1
      (- (log nsigma 2)
