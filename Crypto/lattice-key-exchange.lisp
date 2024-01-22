@@ -254,6 +254,7 @@
   (send kvdb:kvdb sink :add "{B2DA77DC-B596-11EE-8E31-CB2DA3737401}" pkey))
 
 ;; ---------------------------------------------------------------------
+;; Store System for others
 
 (let ((sys  (ask kvdb:kvdb :find :flat-system))
       (pkey (ask kvdb:kvdb :find "{B2DA77DC-B596-11EE-8E31-CB2DA3737401}")))

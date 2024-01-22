@@ -11,77 +11,12 @@
 ;; as little network bandwidth as possible. We want to send an entire
 ;; 256-bit key along with the AES cryptotext package.
 ;;
-;; The code here allows that to happen by sending across just two
-;; 320-bit numbers, using LWE Lattice Encryption, to represent the
-;; random AES-256 key used to unlock the accompanying data package.
-;;
-;; In the default case, the LWE Lattice System uses 320-bit values
-;; from a prime number field of integers, with 160 Rows and only 1
-;; Column of random values. The Secret Key is a single 320-bit random
-;; number. The Public key is a vector of 320-bit numbers that are the
-;; result of multiplying each element of the System Matrix by the
-;; Secret Key, then adding 58-bits of random noise.
-;;
-;; Upon encryption, a message of 256 bits is added to the scalar
-;; component of the LWE pair, while the vector component has only a
-;; single element. The two elements of the LWE cryptotext, prior to
-;; adding in the message, are the result of a summation of randomly
-;; selected elements from the Public Key vector and row-sums from the
-;; System Matrix.
-;;
-;; Noise added initially to each element of the Public Key vector,
-;; accumulates to mimic samples drawn from a Gaussian distribution, as
-;; per the Central Limit Theorem. The noise is bipolar, zero mean, and
-;; limited to some reasonable magnitude such that upon summing, the
-;; max additive error, in a worst case, will remain below 1/2 of the
-;; magnitude of an encrypted LSB in the key, but still large enough to
-;; provide good security against reverse engineering the secret key
-;; from observation of the System Matrix and the Public Key.
-;;
-;; Security against reverse engineering the System Matrix and Pubilc
-;; Key to discover the Secret Key is provided by an effective key size
-;; of 320 + 160*58 = 9,600 bits. That's 320 bits in the Secret Key,
-;; and 160 items of random noise of 58 bits each.
-;;
-;; Security of an encrypted message is provided by the intractability
-;; of solving a Subset-Sum against a random selection of 160 possible
-;; terms in the vector component of the LWE cryptotext. Subset-Sum is
-;; NP-Hard, and even after accounting for Birthday Paradox
-;; serendipity, an attacker faces a problem of order 2^80 with an
-;; anticipated solution duration of more than 10^17 years for a
-;; computer 1 billion times faster than my own computer.
-;;
-;; Chosen plaintext attacks are thwarted by having each encryption
-;; create its own random selection vector to form the subset-sums. It
-;; is highly unlikely that two encryptions of the same data will
-;; produce the same LWE cryptotext.
-;;
-;; Decryption under LWE is triviaily accomplished by subtracting the
-;; product of the Secret Key and the single element of the vector
-;; component of the LWE cryptotext from the scalar component, then
-;; scaling the result and rounding to discard the accumulated
-;; encryption noise.
-;;
-;; Arithmetic takes place in an integer field with prime modulus p =
-;; 2^320-197. Using a prime numnber field gives us maximum coverage
-;; without falling into short-cycles. All but 197 elements in the
-;; 2^320 range are available to us.
-;;
-;; LWE Lattice Encryption is Post-Quantum strength. An eventual
-;; Quantum Computer offers no advantage over conventional computers in
-;; attacking this problem.
-;;
 ;; Public knowledge is the System Matrix and Public Keys, as well as
 ;; the LWE Encryption Algorithm used here. Secret Keys are kept
 ;; hidden. The noise added to the Public Keys is discarded and
 ;; forgotten, as is the selection vector used for every new
 ;; encryption.
 ;;
-;; Remarkably, the process of LWE Lattice Encryption is astonishingly
-;; simple, compared to RSA or Elliptic Curve crypto. The only
-;; potential weakness in the system might be found in the quality of
-;; the underlying random number generator. Currently, we use Fortuna
-;; as the PRNG.
 ;; -----------------------------------------------------------
 
 #|
@@ -92,8 +27,9 @@
 (defparameter *flat-ncols* 128)
 |#
 
+;; -----------------------------------------------------------
 ;; Using a bigger system allows us to connect across the network,
-;; sending a 256-bit key using only 120 bytes = 3*320 bits.
+;; sending a 256-bit key using 3990 bytes = 70*456 bits.
 ;;
 ;; Compare with 366kB for 1-bit transfers, and 20kB for 8-bit
 ;; transfers.
@@ -131,10 +67,12 @@
 ;;
 ;;    b_i = (A_i1*x_1 + A_i2*x_2 + ... + ψ_i) mod p
 ;;
-;; it becomes impossible to mount a search over a noise-restricted
-;; space for a single numnber, x. You have to search the entire
-;; modulus p search space, for several 320-bit Secret Key
-;; numbers, as well as any coincident noise hyperspheres.
+;; it becomes impossible to mount a search over a single
+;; noise-restricted space to solve for a single numnber, x. You have
+;; to search multiple noise-restricted spaces, in sufficient number to
+;; counter brute-force attacks. Then solve a square matrix for a
+;; provisional Secret Key, and verify the key by checking on the noise
+;; bounds in the remaining rows of the system. See below.
 ;;
 ;; -- For Encryption Security --
 ;;
@@ -171,8 +109,29 @@
 ;;
 ;; -------------------------------------------------------------------
 ;;
+;; --- Sizing Things Up ---
+;;
+;; Our goal is to minimize the size of the KEM transfer, which has
+;; size NBits*(1 + NCols).  Hence we make, NCols < NRows, for which it
+;; is always possible to form a square matrix from NCols rows. To
+;; protect against direct algebraic reverse engineering to discover
+;; the Secret Key, we add noise to each element of the Public Key.
+;;
+;; If you didn't care about the KEM size, then an alternative is to
+;; always have NCols > NRows. In that case, the Public Key is a
+;; transformed projection from the Secret Key space to the Public Key
+;; space of lower dimension. Adding noise seems unnecessary.
+;;
+;; A solution by matrix inversion becomes impossible. A least-squares
+;; solution by pseudo-inverse can be developed, but this isn't useful
+;; to anyone in this context. A brute-force search now has to survey
+;; the NCols*NBits Secret Key size.
+;;
+;; For the present case, NCols < NRows, and additive noise is
+;; necessary for the protection of the Secret Key.
+;;
 ;; NBits is determined by the need to accommodate NCode bits for
-;; message and NNoise bits of random noise added to public key
+;; message, and NNoise bits of random noise added to Public Key
 ;; elements.
 ;;
 ;; NNoise is determined by the desire for 3 categories of brute force
@@ -189,13 +148,14 @@
 ;;
 ;; NCols is determined by the number of such noise searches needed to
 ;; ensure that at least one of them will be Hard category. That
-;; prevents reverse engineering the Secret Key, given System Matrix
-;; and Public Key, by brute force.
+;; prevents reverse engineering, by brute force, the Secret Key, given
+;; System Matrix and Public Key.
 ;;
-;; A brute force search guesses NCols values of noise, ψ_i,
-;; subtracting that guess from the corresponding Public Key element,
-;; for NCols rows. Then solve the matrix equation on those rows of the
-;; System Matrix for the NCols values of Secret Key elements.
+;; But for out current case, where NCols < NRows, a brute force search
+;; guesses NCols values of noise, ψ_i, subtracting that guess from the
+;; corresponding Public Key elements, for NCols rows. Then solve the
+;; square matrix equation on those rows of the System Matrix for the
+;; NCols values of Secret Key elements.
 ;;
 ;; If you have the correct Secret Key elements, then the remaining
 ;; rows of Public Key should show:
@@ -220,11 +180,12 @@
 ;;   NBits = NCode + NNoise + NGuard
 ;;
 ;; The noise is from a uniform distribution with zero mean and a
-;; variance of 1/12*2^NNoise. Adding NRows of noise increases the
-;; variance by NRows. We should allow for NSigma growth in the sum. We
-;; have:
+;; variance of 1/12*2^(2*NNoise). Adding NRows of noise increases the
+;; variance by NRows. We should allow for NSigma growth in the sum.
+;; And we have to allow for the synthetically widened noise size used
+;; during encryption. We have:
 ;;
-;;    sigma = 2^(NNoise - 2)*Sqrt(NRows/3)
+;;    sigma = 2^NNoise*Sqrt(3*NRows)
 ;;
 ;;  Number of guard bits needed:
 ;;
@@ -232,7 +193,7 @@
 ;;
 ;; So,
 ;;
-;;   NBits = NCode + NNoise + log2(NSigma) - 2 + (1/2)*log2(NRows/3)
+;;   NBits = NCode + NNoise + log2(NSigma) + (1/2)*log2(3*NRows)
 ;;
 ;; To have our Subset-Sum problems show unit Density, we need NRows =
 ;; NBits, since:
