@@ -255,6 +255,9 @@
 ;; of the visible NCols Row-Sums in the vector component of the
 ;; encryption. We have encryption securty ≈ O(2^282).
 ;;
+;; Encryptions require 70 * 456 bits = 3990 Bytes to transmit a
+;; 256-bit (32-Byte) key.
+;;
 ;; ----------------------------------------------------------------------
 
 (defparameter *flat-nbits*    456) ;; = NRows for density = 1
