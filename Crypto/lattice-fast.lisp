@@ -69,10 +69,9 @@
 ;;
 ;; it becomes impossible to mount a search over a single
 ;; noise-restricted space to solve for a single numnber, x. You have
-;; to search multiple noise-restricted spaces, in sufficient number to
-;; counter brute-force attacks. Then solve a square matrix for a
-;; provisional Secret Key, and verify the key by checking on the noise
-;; bounds in the remaining rows of the system. See below.
+;; to search NCols noise-restricted spaces, then solve a square matrix
+;; for a provisional Secret Key, and verify the key by checking on the
+;; noise bounds in the remaining rows of the system. See below.
 ;;
 ;; -- For Encryption Security --
 ;;
@@ -84,16 +83,16 @@
 ;; {-3,-2,-1,0,1,2,3}, making our overt Subset-Sum complexity
 ;; O(7^NRows) ≈ O(2^(2.81*NRows)).
 ;;
-;; Hence against the current worst case attacks, we have effective
-;; security around (0.22*2.81*NRows) = 0.62*NRows bits. For NRows =
-;; 320, that gives us 2^197 security against the current best
-;; Subset-Sum attacks.
+;; Hence against the current best attacks, we have effective security
+;; around (0.22*2.81*NRows) = 0.62*NRows bits. For NRows = 320, that
+;; gives us 2^197 security.
 ;;
 ;; (I also get the impression from the research papers on best
-;; attacks, that they are considering arithmetic modulo 2^K instead of
-;; modulo p prime. Binary overflow/wrap does not change LSB bits,
-;; whereas modulo p prime does. Hence our use of prime modulus may
-;; also make the problem harder.)
+;; attacks, that they are considering arithmetic modulo 2^k instead of
+;; modulo p prime. Binary overflow/wrap does not change bits in the
+;; range of the modulus. It simply discards overflow bits. Modular
+;; arithmetic against a prime modulus does change significant bits.
+;; Hence our use of prime modulus may also make the problem harder.)
 ;;
 ;; The Subset-Sum problem is at its most difficult when the random
 ;; selection used for encryption contains exactly NRows/2 elements.
@@ -114,25 +113,27 @@
 ;; Our goal is to minimize the size of the KEM transfer, which has
 ;; size NBits*(1 + NCols).  Hence we make, NCols < NRows, for which it
 ;; is always possible to form a square matrix from NCols rows. To
-;; protect against direct algebraic reverse engineering to discover
-;; the Secret Key, we add noise to each element of the Public Key.
+;; protect against direct algebraic inversion to reveal the Secret
+;; Key, we add noise to each element of the Public Key.
+;;
+;; NBits is determined by the need to accommodate NCode bits for
+;; message, and NNoise bits of random noise added to Public Key
+;; elements.
 ;;
 ;; If you didn't care about the KEM size, then an alternative is to
 ;; always have NCols > NRows. In that case, the Public Key is a
 ;; transformed projection from the Secret Key space to the Public Key
 ;; space of lower dimension. Adding noise seems unnecessary.
 ;;
-;; A solution by matrix inversion becomes impossible. A least-squares
-;; solution by pseudo-inverse can be developed, but this isn't useful
-;; to anyone in this context. A brute-force search now has to survey
-;; the NCols*NBits Secret Key size.
+;; For that case, a solution by matrix inversion becomes impossible. A
+;; least-squares solution can be developed, but this isn't useful to
+;; anyone in this context. A brute-force search now has to survey the
+;; NCols*NBits Secret Key elements.
 ;;
-;; For the present case, NCols < NRows, and additive noise is
+;; But for the present case, NCols < NRows, and additive noise is
 ;; necessary for the protection of the Secret Key.
 ;;
-;; NBits is determined by the need to accommodate NCode bits for
-;; message, and NNoise bits of random noise added to Public Key
-;; elements.
+;; --- How Much Noise? ---
 ;;
 ;; NNoise is determined by the desire for 3 categories of brute force
 ;; search: Easy, Moderate, Hard. We would like Hard to be ≥ 128 bits
@@ -148,30 +149,38 @@
 ;;
 ;; NCols is determined by the number of such noise searches needed to
 ;; ensure that at least one of them will be Hard category. That
-;; prevents reverse engineering, by brute force, the Secret Key, given
-;; System Matrix and Public Key.
+;; resists brute force attacks for the Secret Key, given System Matrix
+;; and Public Key.
 ;;
-;; But for out current case, where NCols < NRows, a brute force search
-;; guesses NCols values of noise, ψ_i, subtracting that guess from the
+;; Since the size of noise is so much smaller than the overall key
+;; element size, an attacker would search the noise and derive trial
+;; key elements via matrix solution. A brute force search guesses
+;; NCols values of noise, ψ_i, subtracting that guess from the
 ;; corresponding Public Key elements, for NCols rows. Then solve the
-;; square matrix equation on those rows of the System Matrix for the
-;; NCols values of Secret Key elements.
+;; square matrix equation on those rows of the System Matrix for NCols
+;; trial values of Secret Key elements.
 ;;
-;; If you have the correct Secret Key elements, then the remaining
-;; rows of Public Key should show:
+;; Noise is zero mean, sampled from a Uniform Distribution with total
+;; range 2^NNoise. If you have the correct Secret Key elements, then
+;; the remaining rows of Public Key should show residuals that are
+;; just noise:
 ;;
-;;    |b_i - A . x| mod p < 2^(NNoise-1)
+;;    Abs(b_i - A . x) mod p < 2^(NNoise-1)
 ;;
 ;; If not, then try another guess on NCols noise values and iterate.
 ;; It is known that there is a solution among the NCols noise values.
 ;; We want to make finding it Hard.
 ;;
-;; To have a probability of encountering a Hard search > (1 - eps) we
-;; choose NCols searches, such that
+;; Lucky accidents happen when searching by brute force. We want to
+;; make those unlikely to happen.  To have a probability of
+;; encountering a Hard search, P(Hard) > (1 - eps), we need to make
+;; NCols large enough so that:
 ;;
 ;;     NCols > log2(eps) / log2(2/3)
 ;;
-;; For eps = 1e-12, NCols = 69.
+;; For eps = 1e-12, NCols = 69. 
+;;
+;; --- How Many Rows? ---
 ;;
 ;; Now that NNoise = 191 bits, and NCode = 256 bits, and since
 ;; NRows elements will be summed during encryption and we don't want
@@ -190,6 +199,7 @@
 ;;  Number of guard bits needed:
 ;;
 ;;   NGuard = ceiling(log2(NSigma*sigma)) - NNoise
+;;          = log2(NSigma) + (1/2)*log2(3*NRows)
 ;;
 ;; So,
 ;;
@@ -203,8 +213,10 @@
 ;; So solving iteratively for NRows, when NCode = 256, NNoise = 191,
 ;; and NSigma = 6, we get NRows = 456 and NBits = 456.
 ;;
-;; Hence the Secret Key is protected by the additive noise on the
-;; Public Key. It has an effective size of:
+;; --- What Effective Security Do We Have? ---
+;;
+;; The Secret Key is protected by the additive noise on the Public
+;; Key. It has an effective size of:
 ;;
 ;;   Effective Protective KeySize = NCols * NNoise = 13,179 bits.
 ;;
