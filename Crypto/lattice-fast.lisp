@@ -170,14 +170,104 @@
 ;; would not be enough to significantly ease the problem.(??)
 ;;
 ;; -------------------------------------------------------------------
+;;
+;; NBits is determined by the need to accommodate NCode bits for
+;; message and NNoise bits of random noise added to public key
+;; elements.
+;;
+;; NNoise is determined by the desire for 3 categories of brute force
+;; search: Easy, Moderate, Hard. We would like Hard to be ≥ 128 bits
+;; of brute force search effort.
+;;
+;; Hence the bit sizes of the 1/3 categories is:
+;;
+;;    Easy:       0.. 63 bits search
+;;    Moderate:  64..127
+;;    Hard:     128..191
+;;
+;; And so NNoise = 191 bits.
+;;
+;; NCols is determined by the number of such noise searches needed to
+;; ensure that at least one of them will be Hard category. That
+;; prevents reverse engineering the Secret Key, given System Matrix
+;; and Public Key, by brute force.
+;;
+;; A brute force search guesses NCols values of noise, ψ_i,
+;; subtracting that guess from the corresponding Public Key element,
+;; for NCols rows. Then solve the matrix equation on those rows of the
+;; System Matrix for the NCols values of Secret Key elements.
+;;
+;; If you have the correct Secret Key elements, then the remaining
+;; rows of Public Key should show:
+;;
+;;    |b_i - A . x| mod p < 2^(NNoise-1)
+;;
+;; If not, then try another guess on NCols noise values and iterate.
+;; It is known that there is a solution among the NCols noise values.
+;; We want to make finding it Hard.
+;;
+;; To have a probability of encountering a Hard search > (1 - eps) we
+;; choose NCols searches, such that
+;;
+;;     NCols > log2(eps) / log2(2/3)
+;;
+;; For eps = 1e-12, NCols = 69.
+;;
+;; Now that NNoise = 191 bits, and NCode = 256 bits, and since
+;; NRows elements will be summed during encryption and we don't want
+;; that additive noise overflowing into our message bits, we must have:
+;;
+;;   NBits = NCode + NNoise + NGuard
+;;
+;; The noise is from a uniform distribution with zero mean and a
+;; variance of 1/12*2^NNoise. Adding NRows of noise increases the
+;; variance by NRows. We should allow for NSigma growth in the sum. We
+;; have:
+;;
+;;    sigma = 2^(NNoise - 2)*Sqrt(NRows/3)
+;;
+;;  Number of guard bits needed:
+;;
+;;   NGuard = ceiling(log2(NSigma*sigma)) - NNoise
+;;
+;; So,
+;;
+;;   NBits = NCode + NNoise + log2(NSigma) - 2 + (1/2)*log2(NRows/3)
+;;
+;; To have our Subset-Sum problems show unit Density, we need NRows =
+;; NBits, since:
+;;
+;;     Density_i = NRows / log2(max(A_ji, j = 1..NRows))
+;;
+;; So solving iteratively for NRows, when NCode = 256, NNoise = 191,
+;; and NSigma = 6, we get NRows = 456 and NBits = 456.
+;;
+;; Hence the Secret Key is protected by the additive noise on the
+;; Public Key. It has an effective size of:
+;;
+;;   Effective Protective KeySize = NCols * NNoise = 13,179 bits.
+;;
+;; The system has less than 1e-12 chance of having attack difficulty
+;; less than O(2^128).
+;;
+;; From the previous section on the security of encryptions, with
+;; NRows = 456 and NBits = NRows, hence Density ≈ 1.00 for every one
+;; of the visible NCols Row-Sums in the vector component of the
+;; encryption. We have encryption securty ≈ O(2^282).
+;;
+;; ----------------------------------------------------------------------
 
-(defparameter *flat-nbits*    320) ;; = NRows for density = 1
+(defparameter *flat-nbits*    456) ;; = NRows for density = 1
 (defparameter *flat-ncode*    256)
-(defparameter *flat-nrows*    320)
-(defparameter *flat-ncols*      2)
+(defparameter *flat-nrows*    456)
+(defparameter *flat-ncols*     69) ;; for 1e-12 prob of non-hard key break
+(defparameter *flat-nnoise*   191)
 
 (defparameter *flat-modulus*
-  (- (ash 1 320) 197) ;; nearest prime below 2^320
+  (- (ash 1 456) 627)
+  ;; (- (ash 1 329) 139)
+  ;; (- (ash 1 393) 93)     ;; nearest prime below 2^393
+  ;; (- (ash 1 320) 197)    ;; nearest prime below 2^320
   ;; (- (ash 1 1024) 105)
   )
 
@@ -235,11 +325,12 @@
   (let ((ncols   (lat2-ncols sys))
         (nrows   (lat2-nrows sys))
         (nnoise  (getf sys :nnoise)))
+
     (when (< ncols 2)
       ;; For thwarting algebraic attacks on Public Key and System
       ;; Matrix to find the Secret Key.
       (error "NCols should be > 1: ~A" ncols))
-    
+   
     (when (< (* 0.62 NRows) 128)
       ;; For 128-bit encryption security
       (error "NRows should be > 206: ~A" nrows))
@@ -253,6 +344,24 @@
     (unless (> nnoise (* 0.5 (log nrows 2)))
       (error "Too few noise bits: ~A" nnoise))
     ))
+
+;; --------------------------------------------------------------------
+;; If we want NCode = 256, and NNoise > 128, then NRows = NBits = 393
+;; If we want NCode = 256, and NCols * NNoise > 128, then NRows = NBits = 329
+;; --------------------------------------------------------------------
+(defun nrows-for-nnoise (ncode nnoise nsigma)
+  (um:nlet iter ((nrows  (+ ncode nnoise)))
+    (let* ((nunit  (- nrows ncode))
+           (xnoise (noise-nbits nunit nrows nsigma)))
+      (if (> xnoise nnoise)
+          (list :nbits  nrows
+                :nrows  nrows
+                :ncode  ncode
+                :nnoise xnoise
+                :nsigma nsigma
+                :nunit  (- nrows ncode))
+        (go-iter (1+ nrows))
+        ))))
 
 (defun noise-nbits (nbits-for-unit nrows nsigma)
   ;;
@@ -550,7 +659,7 @@
 (defparameter *tst-pkey* (fgen-pkey *tst-skey* *flat-sys*))
 
 (let* ((x        0)
-       (ncoll    16000)
+       (ncoll    4000)
        (ncode    (getf *flat-sys* :ncode))
        (modulus  (getf *flat-sys* :modulus))
        (one      (floor modulus (ash 1 ncode)))
