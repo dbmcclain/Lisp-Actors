@@ -40,6 +40,56 @@ For myself, I'm experimenting with NRows = 40, NCols = 41. I think you just need
 
 So there you have it. The KEM transports a decryption key for an accompanying data packet on initial handshake between a client and the server. One of these KEM packages is sent from client to server, and another is sent from server to client in response. At the end of their handshake dance, they each share a session key for all future exchanges done with efficient symmetric cryptography.
 
+----
+**Illustrating Example:**
+Use Bra-Ket notation to help us keep our sanity. Row vectors are written as <v|, and column vectors are written as |v>. Dot products between two vectors are written as <v1|v2>.
+
+Suppose A = ((2 3 5)(1 4 7)), a 2x3 matrix, and <Skey| = (1 2 3). Then <PKey| = (23 30).
+
+To show that all potential Skeys live in a hyperspace parameterized by the 3rd component of <Skey|, let's first convert the A matrix to canonical form:
+
+      A => A' = ((1 0 -1/5) (0 1 9/5)) with <Pkey| => <Pkey'| = (2/5 37/5)
+
+So we could write that, for any trial solution:
+
+      <Skey'(x3)| = (x1 x2 x3), where
+        x1 = ( 2/5 + 1/5*x3) mod p
+        x2 = (37/5 - 9/5*x3) mod p
+
+Put in the actual x3 = 3 for <Skey'(3)|, and see that x1 = 1, x2 = 2, as expected. 
+
+We could write:
+
+      <Skey'(x3)| = <Skey| + (x3-3)*(1/5 -9/5 1)
+      
+Put in any other value for x3 and see a potential solution that still satisfies the defining system equation:
+
+      Pkey = A . Skey'(x3)
+
+The attacker must realize that by following the lattice in Skey space, all of his trial Skey'(x3) automatically satisfy the defining system equation just shown. All potential solutions have to lie on a straight line in 3D HyperSpace, and these solutions are found at the lattice points along that line correspond to integer values of x3. But to summarize, there is no way for the attacker to know whether or not they have the correct x3.
+
+Let's write things in a way to show us, more clearly from our perspective, what the attacker will be facing:
+
+      Skey'(x3) = SKey + (x3-3)*(1/5 -9/5 1)
+
+When an encryption takes place, the ciphertext becomes:
+
+      c = (b, v) where,
+        b = msg + (r1 r2).PKey
+          = msg + (r1 r2).(A.SKey)
+        v = ((r1 r2) (r1 r2) (r1 r2)).A
+        Note that:
+          (r1 r2).(A.Skey) = SKey.(((r1 r2) (r1 r2) (r1 r2)).A)
+
+Now the attacker can attempt a decryption with his provisional SKey'(x3):
+
+      msg =? b - Skey'(x3).v
+          =? msg + ((r1 r2).(A.Skey) - Skey.((r1 r2) (r1 r2) (r1 r2)).A) - (x3-3)*(1/5 -9/5 1).((r1 r2) (r1 r2) (r1 r2)).A
+          =? msg - (x3-3)*(1/5 -9/5 1).((r1 r2) (r1 r2) (r1 r2)).A
+
+since the second term evaluates to zero.
+
+
 -- 19 January 2024 -- Advances in LWE Lattice Crypto
 ---
 Our secure network protocol allows for two nodes, each running the Actors system, to communicate securely. The only distinction between Client and Server is that Clients initiate a connection by sending the Server some information:
