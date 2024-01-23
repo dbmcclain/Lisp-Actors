@@ -416,20 +416,24 @@
   (fcheck-system sys)
   (let* ((ncols           (lat2-ncols sys))
          (modulus         (getf sys :modulus))
-         (nbits-per-word  (getf sys :nbits))
-         (nbytes-per-word (ash nbits-per-word -3))
+         (nbits-per-word  (integer-length modulus))
          (nbits-total     (* nbits-per-word ncols))
+         (bytes-per-word  (ceiling nbits-per-word 8))
          (hstretch        nil))
     (dotimes (ix 1000)
       (setf hstretch (apply #'hash/256 hstretch ix :deterministic-skey seeds)))
     (let* ((h    (vec (apply #'get-hash-nbits nbits-total hstretch :deterministic-skey seeds)))
-           (hlen (length h))
            (ans  (make-array ncols)))
-      (loop for ix from 0 below ncols
-            for pos from 0 by nbytes-per-word
+      (loop for ixcol from 0 below ncols
+            for pos from 0 #|below nbits-total|# by nbits-per-word
             do
-              (let ((x (int (subseq h pos (min hlen (+ pos nbytes-per-word))))))
-                (setf (aref ans ix) (mod x modulus))
+              (let ((byte-pos (floor pos 8))
+                    (nbytes   (ceiling nbits-per-word 8)))
+                (setf (aref ans ixcol)
+                      (mod
+                       (ldb (byte nbits-per-word 0)
+                            (int (subseq h byte-pos (+ byte-pos bytes-per-word))))
+                       modulus))
                 ))
       ans)
     ))
