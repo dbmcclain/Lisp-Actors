@@ -34,7 +34,9 @@ What remains to decide is NRows and NCols. In LWE Lattice Encryption you have to
 
 At issue, for NRows, is wanting to avoid someone being able to tease apart the random scalings in the row-sums in the vector component, so that they could know which Public Key elements had seen what scaling, and thereby decrypt the cryptotext without needing a Secret Key. For small number scaling, the very best Quantum Computing attacks look like complexity in time and space of O(2^(0.22 * ScaleSize * NRows)). If you feel paranoid and choose to set NRows = NBits = 264, then we have ≥ O(2^(0.22*NRows^2)), or O(2^15,333).
 
-Whatever you choose for NRows, we need to make NCols a bit bigger. The security you could expect from a lattice attack depends on the dimensionality of that lattice hyperspace containing all the Secret Key candidates. The security is O(p^(NCols-NRows)). Since p is a 264-bit prime, it seems hard to argue for an excess of more than 1-3.
+Whatever you choose for NRows, we need to make NCols a bit bigger. The security you could expect from a lattice attack depends on the dimensionality of that lattice hyperspace containing all the Secret Key candidates. The security is O(p^(NCols-NRows)). Since p is a 264-bit prime, it seems hard to argue for an excess of more than 1-3. 
+
+For myself, I'm experimenting with NRows = 40, NCols = 41. I think you just need enough rows to mix the randomness well enough to have it appear to be from a Uniform Distribution. Using 40 rows seems to show that in trial histogram analyses. I think those sizes give me encryption security ≈ O(2^2300), and Secret Key security ≈ O(2^264).
 
 So there you have it. The KEM transports a decryption key for an accompanying data packet on initial handshake between a client and the server. One of these KEM packages is sent from client to server, and another is sent from server to client in response. At the end of their handshake dance, they each share a session key for all future exchanges done with efficient symmetric cryptography.
 
