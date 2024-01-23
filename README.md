@@ -43,9 +43,9 @@ So there you have it. The KEM transports a decryption key for an accompanying da
 ----
 **Illustrating Example:**
 
-Use Bra-Ket notation to help us keep our sanity. Row vectors are written as <v|, and column vectors are written as |v>. Dot products between two vectors are written as <v1|v2>. When row vectors are written (a b c), the corresponding column vector is (a; b; c).
+Use Bra-Ket notation to help us keep our sanity. Row vectors are written as <v|, and column vectors are written as |v>. Dot products between two vectors are written as <v1|v2>. When row vectors are written (a b c), the corresponding column vector is (a; b; c). A matrix A can be written as |a><a|, which is a tensor product of two vectors. As an operator between two vectors we can use the upper-case A for the matrix operator, <v1|A|v2>.
 
-Suppose A = ((2 3 5); (1 4 7)), a 2x3 matrix, and |Skey> = (1; 2; 3). Recall that |PKey> = A|Skey>. So |PKey> = (23; 30).
+Suppose A = |a><a| = ((2 3 5); (1 4 7)), a 2x3 matrix, and |Skey> = (1; 2; 3). Recall that |PKey> = |a><a|Skey>. So |PKey> = (23; 30).
 
 To show that all potential Skeys live in a hyperspace parameterized by the 3rd component of <Skey|, let's first convert the A matrix to canonical form:
 
@@ -69,7 +69,7 @@ To reiterate: Only we know the details of the null-space vector. Attackers do no
       
 Put in any other value for x3 and see a potential solution that still satisfies the defining system equation:
 
-      |Pkey> = A|SKey> = A|Skey'(x3)>
+      |Pkey> = |a><a|SKey> = |a><a|Skey'(x3)>
 
 The attacker must realize that by following the lattice in Skey-space, all of his trial |Skey'(x3)> automatically satisfy the defining system equation just shown. And so he must also realize that every trial solution looks the same to the system - they all lie in the null-space of the system, except for one of them. The attacker just doesn't know any of the details of the null-space they way we do. All they know is that all potential solutions have to lie on a straight line in 3D HyperSpace, and these solutions are found at the lattice points along that line corresponding to integer values of x3. And so, yes, they also lie in the system null-space. But what else can you do? We have to look there because that's where the light is shining...
 
@@ -81,7 +81,7 @@ When an encryption takes place, the ciphertext becomes:
         define random weight vector <r| = (r1 r2)
         b = msg + <r|PKey>
           = msg + <r|A|SKey>
-        <v| = <r|A
+        <v| = <r|a><a|
         Note that:
           <v|Skey> = <r|A|Skey>
         so,
