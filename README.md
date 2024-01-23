@@ -6,7 +6,7 @@ But LWD Lattice Crypto, which is PostQuantum in strength, has strong connections
 
 So, what if we discard the complicated noise used in LWE Lattice Crypto, and design an intentionally "bad" Linear Random coder, which is expressly not intended for data recovery. We don't want the rest of the world to be able to reconstruct our Secret Keying. We end up with a very robust, but not as efficient, coding system that provides partially Homomorphic encryption - unlimited sums and scaling. We are no longer bound by fears of Subset-Sum attacks because we can scale by wildly large values. And it is drop-dead simple to produce and use effectively.
 
-A Linear Random code has a random encoding matrix, A, with more columns than rows. We will choose a word size large enough to contain a message, say a 256-bit symmetric encryption key, to buld a KEM for ourselves. And we want to work in a modular arithmetic system, so choose a modulus large enough to contain our messages, say 264-bits (a nice round number of bytes). A good modulus might be p = 2^64-275.
+A Linear Random code has a random encoding matrix, A, with more columns than rows. We will choose a word size large enough to contain a message, say a 256-bit symmetric encryption key, to buld a KEM for ourselves. And we want to work in a modular arithmetic system, so choose a modulus large enough to contain our messages, say 264-bits (a nice round number of bytes). A good modulus might be p = 2^264-275.
 
 A Secret Key is a vector of random words, modulo p, of length NCols. The corresponding Public Key is a vector of length NRows, with elements computed as:
 
