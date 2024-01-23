@@ -1,6 +1,6 @@
 -- 22 January 2024 -- Cryptographic KEM Using Linear Random Codes --
 ---
-While deep into LWE Lattice Crypto, I noticed something that seemed amiss, and so I began digging and analyzing my own equations. It took a while, and I wondered why nobody else talks about it? Could it have weaknesses that I don't understand? I now don't think so. I think the massive push on LWE Lattice Crypto and its ilk is generated in part by the "Publish or Perish" syndrome in academia, and also by the search for compact system that can be deployed on small IOT processors.
+While deep into LWE Lattice Crypto, I noticed something that seemed amiss, and so I began digging and analyzing my own equations. It took a while, and I wondered why nobody else talks about it? Could it have weaknesses that I don't understand? I now don't think so. I think the massive push on LWE Lattice Crypto and its ilk is generated in part by the "Publish or Perish" syndrome in academia, and also by the search for compact systems that can be deployed on small IOT processors.
 
 But LWD Lattice Crypto, which is PostQuantum in strength, has strong connections to Linear Random Coding which is used in the communications industry for dealing with noisy channels and data corruption.
 
