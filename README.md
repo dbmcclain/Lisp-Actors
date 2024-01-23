@@ -64,12 +64,16 @@ We could write:
       <Skey'(x3)| = <Skey| + (x3-3)*(1/5 -9/5 1)
 
 The added vector lives in the null-space of the System Matrix, A. This means that the Pkey-space projection is oblivious to any multiple of that second vector being added to <SKey|. The vector is orthogonal to the projection plane of <PKey|. Lattice points are those along the null vector at integer values for x3. When x3=3 the lattice point lives in the Pkey-space projection plane.
+
+To reiterate: Only we know the details of the null-space vector. Attackers do not.
       
 Put in any other value for x3 and see a potential solution that still satisfies the defining system equation:
 
       |Pkey> = A|SKey> = A|Skey'(x3)>
 
-The attacker must realize that by following the lattice in Skey-space, all of his trial |Skey'(x3)> automatically satisfy the defining system equation just shown. And so he must realize that every trial solution looks the same to the system. All he knows is that all potential solutions have to lie on a straight line in 3D HyperSpace, and these solutions are found at the lattice points along that line corresponding to integer values of x3. So to summarize, there is no way for the attacker to know whether or not they have the correct x3.
+The attacker must realize that by following the lattice in Skey-space, all of his trial |Skey'(x3)> automatically satisfy the defining system equation just shown. And so he must also realize that every trial solution looks the same to the system - they all lie in the null-space of the system. The attacker just doesn't know any of the details of the null-space they way we do. All they know is that all potential solutions have to lie on a straight line in 3D HyperSpace, and these solutions are found at the lattice points along that line corresponding to integer values of x3. And so, yes, they also lie in the system null-space. But what else can you do? We have to look there because that's where the light is shining...
+
+So to summarize, there is no way for the attacker to know whether or not they have the correct x3.
 
 When an encryption takes place, the ciphertext becomes:
 
