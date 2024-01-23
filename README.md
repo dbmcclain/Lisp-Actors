@@ -1,3 +1,19 @@
+-- 22 January 2024 -- Cryptographic KEM Using Linear Random Codes --
+---
+While deep into LWE Lattice Crypto, I noticed something that seemed amiss, and so I began digging and analyzing my own equations. It took a while, and I wondered why nobody else talks about it? Could it have weaknesses that I don't understand? I now don't think so. I think the massive push on LWE Lattice Crypto and its ilk is generated in part by the "Publish or Perish" syndrome in academia, and also by the search for compact system that can be deployed on small IOT processors.
+
+But LWD Lattice Crypto, which is PostQuantum in strength, has strong connections to Linear Random Coding which is used in the communications industry for dealing with noisy channels and data corruption.
+
+So, what if we discard the complicated noise used in LWE Lattice Crypto, and design an intentionally "bad" Linear Random coder, which is expressly not intended for data recovery. We don't want the rest of the world to be able to reconstruct our Secret Keying. We end up with a very robust, but not as efficient, coding system that provides partially Homomorphic encryption - unlimited sums and scaling. We are no longer bound by fears of Subset-Sum attacks because we can scale by wildly large values. And it is drop-dead simple to produce and use effectively.
+
+A Linear Random code has a random encoding matrix, A, with more columns than rows. We will choose a word size large enough to contain a message, say a 256-bit symmetric encryption key, to buld a KEM for ourselves. And we want to work in a modular arithmetic system, so choose a modulus large enough to contain our messages, say 264-bits (a nice round number of bytes). A good modulus might be p = 2^64-275.
+
+A Secret Key is a vector of random words, modulo p, of length NCols. The corresponding Public Key is a vector of length NRows, with elements computed as:
+      pkey = A . skey
+
+Because our A matrix has more columns than rows, it represents an underdetermined system of equations. There is no possible analytic solution of the matrix with the Public Key to solve for the hidden Secret Key.
+
+
 -- 19 January 2024 -- Advances in LWE Lattice Crypto
 ---
 Our secure network protocol allows for two nodes, each running the Actors system, to communicate securely. The only distinction between Client and Server is that Clients initiate a connection by sending the Server some information:
