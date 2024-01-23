@@ -71,7 +71,7 @@ Put in any other value for x3 and see a potential solution that still satisfies 
 
       |Pkey> = A|SKey> = A|Skey'(x3)>
 
-The attacker must realize that by following the lattice in Skey-space, all of his trial |Skey'(x3)> automatically satisfy the defining system equation just shown. And so he must also realize that every trial solution looks the same to the system - they all lie in the null-space of the system. The attacker just doesn't know any of the details of the null-space they way we do. All they know is that all potential solutions have to lie on a straight line in 3D HyperSpace, and these solutions are found at the lattice points along that line corresponding to integer values of x3. And so, yes, they also lie in the system null-space. But what else can you do? We have to look there because that's where the light is shining...
+The attacker must realize that by following the lattice in Skey-space, all of his trial |Skey'(x3)> automatically satisfy the defining system equation just shown. And so he must also realize that every trial solution looks the same to the system - they all lie in the null-space of the system, except for one of them. The attacker just doesn't know any of the details of the null-space they way we do. All they know is that all potential solutions have to lie on a straight line in 3D HyperSpace, and these solutions are found at the lattice points along that line corresponding to integer values of x3. And so, yes, they also lie in the system null-space. But what else can you do? We have to look there because that's where the light is shining...
 
 So to summarize, there is no way for the attacker to know whether or not they have the correct x3.
 
