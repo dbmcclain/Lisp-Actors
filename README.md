@@ -45,11 +45,11 @@ So there you have it. The KEM transports a decryption key for an accompanying da
 
 Use Bra-Ket notation to help us keep our sanity. Row vectors are written as <v|, and column vectors are written as |v>. Dot products between two vectors are written as <v1|v2>. When row vectors are written (a b c), the corresponding column vector is (a; b; c).
 
-Suppose A = ((2 3 5); (1 4 7)), a 2x3 matrix, and <Skey| = (1 2 3). Recall that |PKey> = A|Skey>. So <PKey| = (23 30).
+Suppose A = ((2 3 5); (1 4 7)), a 2x3 matrix, and <Skey| = (1 2 3). Recall that |PKey> = A|Skey>. So |PKey> = (23; 30).
 
 To show that all potential Skeys live in a hyperspace parameterized by the 3rd component of <Skey|, let's first convert the A matrix to canonical form:
 
-      A => A' = ((1 0 -1/5); (0 1 9/5)) with <Pkey| => <Pkey'| = (2/5 37/5)
+      A => A' = ((1 0 -1/5); (0 1 9/5)) with |Pkey> => |Pkey'> = (2/5; 37/5)
 
 So we could write that, for any trial solution:
 
