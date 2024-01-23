@@ -2,7 +2,7 @@
 ---
 While deep into LWE Lattice Crypto, I noticed something that seemed amiss, and so I began digging and analyzing my own equations. It took a while, and I wondered why nobody else talks about it? Could it have weaknesses that I don't understand? I now don't think so. I think the massive push on LWE Lattice Crypto and its ilk is generated in part by the "Publish or Perish" syndrome in academia, and also by the search for compact systems that can be deployed on small IOT processors.
 
-But LWD Lattice Crypto, which is PostQuantum in strength, has strong connections to Linear Random Coding which is used in the communications industry for dealing with noisy channels and data corruption.
+But LWE Lattice Crypto, which is PostQuantum in strength, has strong connections to Linear Random Coding which is used in the communications industry for dealing with noisy channels and data corruption.
 
 So, what if we discard the complicated noise used in LWE Lattice Crypto, and design an intentionally "bad" Linear Random coder, which is expressly not intended for data recovery. We don't want the rest of the world to be able to reconstruct our Secret Keying. We end up with a very robust, but not as efficient, coding system that provides partially Homomorphic encryption - unlimited sums and scaling. We are no longer bound by fears of Subset-Sum attacks because we can scale by wildly large values. And it is drop-dead simple to produce and use effectively.
 
