@@ -30,6 +30,14 @@ At his/her end, the recipient simply takes their Secret Key vector, forms a vect
 
 It couldn't be simpler. In effect, the scalar sum of the cryptotext constructs a random one-time pad, and the accompanying row-sum vector tells the recipient how to subtract all the randomness to leave the message. All arithmetic is performed modulo p, but you can wait till all the intermediate arithmetic has finished before computing the mod operation.
 
+What remains to decide is NRows and NCols. In LWE Lattice Encryption you have to take care to make NRows = NBits so that the "Density" of the lattice problem is very close to unity. That's because they use small numbers, compared to the modulus size, and the L-3 Lenstra attack on Subset-Sums is nipping at your heels. But in our case, our scaling factors are random numbers modulo p, and are very large in comparison. So if you want to feel maximally safe, then use NRows = NBits. But I think that is probably massive overkill. 
+
+At issue, for NRows, is wanting to avoid someone being able to tease apart the random scalings in the row-sums in the vector component, so that they could know which Public Key elements had seen what scaling, and thereby decrypt the cryptotext without needing a Secret Key. For small number scaling, the very best Quantum Computing attacks look like complexity in time and space of O(2^(0.22 * ScaleSize * NRows)). If you feel paranoid and choose to set NRows = NBits = 264, then we have ≥ O(2^(0.22*NRows^2)), or O(2^15,333).
+
+Whatever you choose for NRows, we need to make NCols a bit bigger. The security you could expect from a lattice attack depends on the dimensionality of that lattice hypespace containing all the Secret Key candidates. The security is O(p^(NCols-NRows)). Since p is a 264-bit prime, it seems hard to argue for an excess of more than 1-3.
+
+So there you have it. The KEM transports a decryption key for an accompanying data packet on initial handshake between a client and the server. One of these KEM packages is sent from client to server, and another is sent from server to client in response. At the end of their handshake dance, they each share a session key for all future exchanges done with efficient symmetric cryptography.
+
 -- 19 January 2024 -- Advances in LWE Lattice Crypto
 ---
 Our secure network protocol allows for two nodes, each running the Actors system, to communicate securely. The only distinction between Client and Server is that Clients initiate a connection by sending the Server some information:
