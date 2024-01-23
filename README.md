@@ -42,6 +42,7 @@ So there you have it. The KEM transports a decryption key for an accompanying da
 
 ----
 **Illustrating Example:**
+
 Use Bra-Ket notation to help us keep our sanity. Row vectors are written as <v|, and column vectors are written as |v>. Dot products between two vectors are written as <v1|v2>.
 
 Suppose A = ((2 3 5)(1 4 7)), a 2x3 matrix, and <Skey| = (1 2 3). Then <PKey| = (23 30).
