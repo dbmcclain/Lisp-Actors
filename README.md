@@ -9,10 +9,26 @@ So, what if we discard the complicated noise used in LWE Lattice Crypto, and des
 A Linear Random code has a random encoding matrix, A, with more columns than rows. We will choose a word size large enough to contain a message, say a 256-bit symmetric encryption key, to buld a KEM for ourselves. And we want to work in a modular arithmetic system, so choose a modulus large enough to contain our messages, say 264-bits (a nice round number of bytes). A good modulus might be p = 2^64-275.
 
 A Secret Key is a vector of random words, modulo p, of length NCols. The corresponding Public Key is a vector of length NRows, with elements computed as:
+
       pkey = A . skey
 
-Because our A matrix has more columns than rows, it represents an underdetermined system of equations. There is no possible analytic solution of the matrix with the Public Key to solve for the hidden Secret Key.
+Because our A matrix has more columns than rows, it represents an underdetermined system of equations. There is no possible analytic solution of the matrix with the Public Key to solve for the hidden Secret Key. But we know, from Coding Theory, how to find the region of hyperspace where all the possible Secret Key lattice points live. They live in a hyper-cube of dimension (NCols-NRows). If NCols = NRows + 1, then that hyper-cube is just a straight line in NRows dimensions, parameterized by the final NCol element of the Secret Key.
 
+The system matrix, A, is published and everyone can study it. It is just a collection of random numbers modulo p. They can convert it to Canonical form, which has an identity matrix on the left, and a residuals matrix on the right. Doing that allows them to parameterize the hyperspace more easily, and see exactly where all the Secret Key candidates live. There are no fewer than p^(NCols-NRows) of them, but only one of them is the correct one.
+
+To encrypt a message we simply add up randomly scaled values of the Public Key vector, and perform the same scaling on row-sums of the system matrix, A. Then add the message bits to the scalar sum, and publish both the scalar sum and the vector row-sum. That is the encrypted KEM of the 256-bit key we wish to send along to the Public Key holder.
+
+      cryptotext = (b, v), where b = Sum(Pkey_i * random_i) + msg, and vector v_j = Sum(A_ij * random_i) 
+      
+where the sums extend over the NRows. Vector v has NCols elements. So sending the KEM entails sending (NCols+1)*NBits. This is generally larger than for LWE Lattice Encryption.
+
+But notice that the sum of two cryptotexts is the encryption of the sum of their messages. And scaling a cryptotext by some constant is the encryption of the scaled message. No noise buildup, and you can do this indefinitely without loss of precision. Sadly, we can multiply two cryptotexts.
+      
+At his/her end, the recipient simply takes their Secret Key vector, forms a vector dot product with the cryptotext vector row-sum, and subtracts that from the scalar sum. Voila! There lies the 256-bit message.
+
+      msg = b - Skey . v
+
+It couldn't be simpler. In effect, the scalar sum of the cryptotext constructs a random one-time pad, and the accompanying row-sum vector tells the recipient how to subtract all the randomness to leave the message. All arithmetic is performed modulo p, but you can wait till all the intermediate arithmetic has finished before computing the mod operation.
 
 -- 19 January 2024 -- Advances in LWE Lattice Crypto
 ---
