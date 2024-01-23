@@ -43,7 +43,7 @@ So there you have it. The KEM transports a decryption key for an accompanying da
 ----
 **Illustrating Example:**
 
-Use Bra-Ket notation to help us keep our sanity. Row vectors are written as <v|, and column vectors are written as |v>. Dot products between two vectors are written as <v1|v2>.
+Use Bra-Ket notation to help us keep our sanity. Row vectors are written as <v|, and column vectors are written as |v>. Dot products between two vectors are written as <v1|v2>. When row vectors are written (a b c), the corresponding column vector is (a; b; c).
 
 Suppose A = ((2 3 5)(1 4 7)), a 2x3 matrix, and <Skey| = (1 2 3). Recall that |PKey> = A|Skey>. So <PKey| = (23 30).
 
@@ -77,20 +77,20 @@ So to summarize, there is no way for the attacker to know whether or not they ha
 
 When an encryption takes place, the ciphertext becomes:
 
-      c = (b, |v>) where,
+      c = (b, <v|) where,
         define random weight vector <r| = (r1 r2)
         b = msg + <r|PKey>
           = msg + <r|A|SKey>
-        |v> = |(<r| <r| <r|).A> ;; matrix-matrix mult -> row-sum column vector
+        <v| = <r|A
         Note that:
-          <r|A|Skey> = <Skey|v> = <Skey|(<r| <r| <r|).A>
+          <v|Skey> = <r|A|Skey>
 
 Now the attacker can attempt a decryption with his provisional SKey'(x3):
 
-      msg =? b - <Skey'(x3)|v>
-          =? msg + <r|A|Skey> - <Skey'(x3)|v>
-          =? msg + (<r|A|Skey> - <SKey|v>) - (x3-3)*<(1/5 -9/5 1)|v>
-          =? msg - (x3-3)*<(1/5 -9/5 1)|v> ;; since second term vanishes
+      msg =? b - <v|Skey'(x3)>
+          =? msg + <r|A|Skey> - <v|Skey'(x3)>
+          =? msg + (<r|A|Skey> - <v|SKey>) - (x3-3)*<v|(1/5; -9/5; 1)>
+          =? msg - (x3-3)*<v|(1/5; -9/5; 1)> ;; since second term vanishes
 
 Unless the attacker has chosen x3=3, the decryption fails with a random residue remaining. That would probably not be obvious to them since most messages are just 256-bit random numbers anyway.
 
