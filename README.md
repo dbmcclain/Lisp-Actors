@@ -77,9 +77,9 @@ When an encryption takes place, the ciphertext becomes:
         define random weight vector <r| = (r1 r2)
         b = msg + <r|PKey>
           = msg + <r|A|SKey>
-        |v> = (<r| <r| <r|).A ;; matrix-matrix mult -> row-sum column vector
+        |v> = |(<r| <r| <r|).A> ;; matrix-matrix mult -> row-sum column vector
         Note that:
-          <r|A|Skey> = <Skey|v> = <Skey|(<r| <r| <r|).A
+          <r|A|Skey> = <Skey|v> = <Skey|(<r| <r| <r|).A>
 
 Now the attacker can attempt a decryption with his provisional SKey'(x3):
 
