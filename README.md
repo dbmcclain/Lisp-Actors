@@ -69,7 +69,7 @@ Put in any other value for x3 and see a potential solution that still satisfies 
 
       |Pkey> = A|SKey> = A|Skey'(x3)>
 
-The attacker must realize that by following the lattice in Skey-space, all of his trial |Skey'(x3)> automatically satisfy the defining system equation just shown. And so he must realize that every trial solution looks the same to the system. All he knows is that all potential solutions have to lie on a straight line in 3D HyperSpace, and these solutions are found at the lattice points along that line correspond to integer values of x3. So to summarize, there is no way for the attacker to know whether or not they have the correct x3.
+The attacker must realize that by following the lattice in Skey-space, all of his trial |Skey'(x3)> automatically satisfy the defining system equation just shown. And so he must realize that every trial solution looks the same to the system. All he knows is that all potential solutions have to lie on a straight line in 3D HyperSpace, and these solutions are found at the lattice points along that line corresponding to integer values of x3. So to summarize, there is no way for the attacker to know whether or not they have the correct x3.
 
 When an encryption takes place, the ciphertext becomes:
 
