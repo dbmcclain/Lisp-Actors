@@ -22,7 +22,7 @@ To encrypt a message we simply add up randomly scaled values of the Public Key v
       
 where the sums extend over the NRows. Vector v has NCols elements. So sending the KEM entails sending (NCols+1)*NBits. This is generally larger than for LWE Lattice Encryption.
 
-But notice that the sum of two cryptotexts is the encryption of the sum of their messages. And scaling a cryptotext by some constant is the encryption of the scaled message. No noise buildup, and you can do this indefinitely without loss of precision. Sadly, we can multiply two cryptotexts.
+But notice that the sum of two cryptotexts is the encryption of the sum of their messages. And scaling a cryptotext by some constant is the encryption of the scaled message. No noise buildup, and you can do this indefinitely without loss of precision. Sadly, we can't multiply two cryptotexts.
       
 At his/her end, the recipient simply takes their Secret Key vector, forms a vector dot product with the cryptotext vector row-sum, and subtracts that from the scalar sum. Voila! There lies the 256-bit message.
 
