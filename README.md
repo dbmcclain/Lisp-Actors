@@ -45,7 +45,7 @@ So there you have it. The KEM transports a decryption key for an accompanying da
 
 Use Bra-Ket notation to help us keep our sanity. Row vectors are written as <v|, and column vectors are written as |v>. Dot products between two vectors are written as <v1|v2>.
 
-Suppose A = ((2 3 5)(1 4 7)), a 2x3 matrix, and <Skey| = (1 2 3). Then <PKey| = (23 30).
+Suppose A = ((2 3 5)(1 4 7)), a 2x3 matrix, and <Skey| = (1 2 3). Recall that |PKey> = A|Skey>. So <PKey| = (23 30).
 
 To show that all potential Skeys live in a hyperspace parameterized by the 3rd component of <Skey|, let's first convert the A matrix to canonical form:
 
@@ -57,38 +57,40 @@ So we could write that, for any trial solution:
         x1 = ( 2/5 + 1/5*x3) mod p
         x2 = (37/5 - 9/5*x3) mod p
 
-Put in the actual x3 = 3 for <Skey'(3)|, and see that x1 = 1, x2 = 2, as expected. 
+Put in the actual x3 = 3 for <Skey'(3)|, and see that x1 = 1, x2 = 2, as expected for <Skey|. 
 
 We could write:
 
       <Skey'(x3)| = <Skey| + (x3-3)*(1/5 -9/5 1)
+
+The added vector lives in the null-space of the System Matrix, A. This means that the Pkey-space projection is oblivious to any multiple of that second vector being added to <SKey|. The vector is orthogonal to the projection plane of <PKey|. Lattice points are those along the null vector at integer values for x3. When x3=3 the lattice point lives in the Pkey-space projection plane.
       
 Put in any other value for x3 and see a potential solution that still satisfies the defining system equation:
 
-      Pkey = A . Skey'(x3)
+      |Pkey> = A|SKey> = A|Skey'(x3)>
 
-The attacker must realize that by following the lattice in Skey space, all of his trial Skey'(x3) automatically satisfy the defining system equation just shown. All potential solutions have to lie on a straight line in 3D HyperSpace, and these solutions are found at the lattice points along that line correspond to integer values of x3. But to summarize, there is no way for the attacker to know whether or not they have the correct x3.
-
-Let's write things in a way to show us, more clearly from our perspective, what the attacker will be facing:
-
-      Skey'(x3) = SKey + (x3-3)*(1/5 -9/5 1)
+The attacker must realize that by following the lattice in Skey-space, all of his trial |Skey'(x3)> automatically satisfy the defining system equation just shown. And so he must realize that every trial solution looks the same to the system. All he knows is that all potential solutions have to lie on a straight line in 3D HyperSpace, and these solutions are found at the lattice points along that line correspond to integer values of x3. So to summarize, there is no way for the attacker to know whether or not they have the correct x3.
 
 When an encryption takes place, the ciphertext becomes:
 
-      c = (b, v) where,
-        b = msg + (r1 r2).PKey
-          = msg + (r1 r2).(A.SKey)
-        v = ((r1 r2) (r1 r2) (r1 r2)).A
+      c = (b, |v>) where,
+        define random weight vector <r| = (r1 r2)
+        b = msg + <r|PKey>
+          = msg + <r|A|SKey>
+        |v> = (<r| <r| <r|).A ;; matrix-matrix mult -> row-sum column vector
         Note that:
-          (r1 r2).(A.Skey) = SKey.(((r1 r2) (r1 r2) (r1 r2)).A)
+          <r|A|Skey> = <Skey|v> = <Skey|(<r| <r| <r|).A
 
 Now the attacker can attempt a decryption with his provisional SKey'(x3):
 
-      msg =? b - Skey'(x3).v
-          =? msg + ((r1 r2).(A.Skey) - Skey.((r1 r2) (r1 r2) (r1 r2)).A) - (x3-3)*(1/5 -9/5 1).((r1 r2) (r1 r2) (r1 r2)).A
-          =? msg - (x3-3)*(1/5 -9/5 1).((r1 r2) (r1 r2) (r1 r2)).A
+      msg =? b - <Skey'(x3)|v>
+          =? msg + <r|A|Skey> - <Skey'(x3)|v>
+          =? msg - (<r|A|Skey> - <SKey|v>) - (x3-3)*<(1/5 -9/5 1)|v>
+          =? msg - (x3-3)*<(1/5 -9/5 1)|v>
 
-since the second term evaluates to zero.
+since the second term evaluates to zero. Unless the attacker has chosen x3=3, the decryption fails with a random residue remaining. That would probably not be obvious to them since most messages are just 256-bit random numbers anyway.
+
+So, in light of all this, as long as the prime modulus, p, is large, any attacker's chances are slim, even though they can easily find the Skey lattice. Is is very much like looking for a needle in a haystack.
 
 
 -- 19 January 2024 -- Advances in LWE Lattice Crypto
