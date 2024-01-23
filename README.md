@@ -90,7 +90,7 @@ Now the attacker can attempt a decryption with his provisional SKey'(x3):
 
 Unless the attacker has chosen x3=3, the decryption fails with a random residue remaining. That would probably not be obvious to them since most messages are just 256-bit random numbers anyway.
 
-So, in light of all this, as long as the prime modulus, p, is large, any attacker's chances are slim, even though they can easily find the Skey lattice. Is is very much like looking for a needle in a haystack.
+So, in light of all this, as long as the prime modulus, p, is large, any attacker's chances are slim, even though they can easily find the Skey lattice. It really is very much like looking for a needle in a haystack.
 
 
 -- 19 January 2024 -- Advances in LWE Lattice Crypto
