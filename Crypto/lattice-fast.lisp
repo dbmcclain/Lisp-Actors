@@ -132,6 +132,26 @@
 ;;
 ;; --- How Much Noise? ---
 ;;
+;; -- Given --
+;; NCode     = 256
+;; NSigma    =   6
+;; NSecurity = 256
+;;
+;; -- Constraints --
+;; NBits  = NCode + NGuard + NNoise
+;; NRows  = NBits
+;; NGuard = 3 + log2(NSigma) + (1/2)*log2(3*NRows)
+;; NNoise = NSecurity / NCols
+;; NNoise > (1/2)*Sqrt(NRows)
+;; NModulus = NBits
+;;
+;; -- Solution --
+;; NBits  = 280 ;; = 35 Bytes
+;; NGuard =  11
+;; NNoise =  13
+;; NCols  =  20
+;; Modulus = 2^280-47
+;;
 ;; NNoise is determined by the desire for 3 categories of brute force
 ;; search: Easy, Moderate, Hard. We would like Hard to be ≥ 128 bits
 ;; of brute force search effort.
@@ -230,14 +250,15 @@
 ;;
 ;; ----------------------------------------------------------------------
 
-(defparameter *flat-nbits*    456) ;; = NRows for density = 1
+(defparameter *flat-nbits*    280) ;; = NRows for density = 1
 (defparameter *flat-ncode*    256)
-(defparameter *flat-nrows*    456)
-(defparameter *flat-ncols*     69) ;; for 1e-12 prob of non-hard key break
-(defparameter *flat-nnoise*   191)
+(defparameter *flat-nrows*    280)
+(defparameter *flat-ncols*     16)
+(defparameter *flat-nnoise*    17)
 
 (defparameter *flat-modulus*
-  (- (ash 1 456) 627)
+  (- (ash 1 280) 47)
+  ;; (- (ash 1 456) 627)
   ;; (- (ash 1 329) 139)
   ;; (- (ash 1 393) 93)     ;; nearest prime below 2^393
   ;; (- (ash 1 320) 197)    ;; nearest prime below 2^320
@@ -373,24 +394,25 @@
                       (ncode   *flat-ncode*)
                       (nrows   *flat-nrows*)
                       (ncols   *flat-ncols*)
+                      (nnoise  *flat-nnoise*)
                       (modulus *flat-modulus*))
-  (let ((a  (make-array nrows)))
+  (let ((mat-a  (make-array nrows)))
     (loop for ix from 0 below nrows do
             (let ((v (make-array ncols)))
               (loop for jx from 0 below ncols do
                       (let ((x (prng:ctr-drbg-int nbits)))
                         (setf (aref v jx) (mod x modulus))
                         ))
-              (setf (aref a ix) v)))
-    (let* ((nsigma  6)
-           (noise-bits (floor (noise-nbits (- nbits ncode) nrows nsigma)))
-           (sys (list :nbits nbits
-                      :ncode ncode
-                      :nrows nrows
-                      :ncols ncols
+              (setf (aref mat-a ix) v)))
+    (let* (;; (nsigma  6)
+           ;; (noise-bits (floor (noise-nbits (- nbits ncode) nrows nsigma)))
+           (sys (list :nbits   nbits
+                      :ncode   ncode
+                      :nrows   nrows
+                      :ncols   ncols
                       :modulus modulus
-                      :nnoise  noise-bits
-                      :mat-a a)))
+                      :nnoise  nnoise
+                      :mat-a   mat-a)))
       (fcheck-system sys)
       (format t "~%Densities: ~S" (density sys)) 
       sys)))
@@ -424,8 +446,7 @@
       (loop for ixcol from 0 below ncols
             for pos from 0 #|below nbits-total|# by nbits-per-word
             do
-              (let ((byte-pos (floor pos 8))
-                    (nbytes   (ceiling nbits-per-word 8)))
+              (let ((byte-pos (floor pos 8)))
                 (setf (aref ans ixcol)
                       (mod
                        (ldb (byte nbits-per-word 0)
@@ -636,7 +657,7 @@
 (defparameter *tst-pkey* (fgen-pkey *tst-skey* *flat-sys*))
 
 (let* ((x        0)
-       (ncoll    4000)
+       (ncoll    64000)
        (ncode    (getf *flat-sys* :ncode))
        (modulus  (getf *flat-sys* :modulus))
        (one      (floor modulus (ash 1 ncode)))
