@@ -110,6 +110,14 @@
 ;;
 ;; --- Sizing Things Up ---
 ;;
+;; You should *NEVER* choose NCols > NRows. Doing so sets up a
+;; null-space of dimension (NCols-NRows), in which a nearly unlimited
+;; number of Secret Key synonyms can be easily found.  Finding them
+;; simply requires transforming the System Matrix and Public Key so
+;; that the left side of the System Matrix contains an identity
+;; matrix. Then it becomes trivial to find Secret Keys as a
+;; parameterization in each of the extra NCols > NRows dimensions.
+;;
 ;; Our goal is to minimize the size of the KEM transfer, which has
 ;; size NBits*(1 + NCols).  Hence we make, NCols < NRows, for which it
 ;; is always possible to form a square matrix from NCols rows. To
@@ -119,19 +127,6 @@
 ;; NBits is determined by the need to accommodate NCode bits for
 ;; message, and NNoise bits of random noise added to Public Key
 ;; elements.
-;;
-;; If you didn't care about the KEM size, then an alternative is to
-;; always have NCols > NRows. In that case, the Public Key is a
-;; transformed projection from the Secret Key space to the Public Key
-;; space of lower dimension. Adding noise seems unnecessary.
-;;
-;; For that case, a solution by matrix inversion becomes impossible. A
-;; least-squares solution can be developed, but this isn't useful to
-;; anyone in this context. A brute-force search now has to survey the
-;; NCols*NBits Secret Key elements.
-;;
-;; But for the present case, NCols < NRows, and additive noise is
-;; necessary for the protection of the Secret Key.
 ;;
 ;; --- How Much Noise? ---
 ;;
@@ -149,8 +144,8 @@
 ;;
 ;; NCols is determined by the number of such noise searches needed to
 ;; ensure that at least one of them will be Hard category. That
-;; resists brute force attacks for the Secret Key, given System Matrix
-;; and Public Key.
+;; resists brute force attacks for the Secret Key, given a System
+;; Matrix and Public Key.
 ;;
 ;; Since the size of noise is so much smaller than the overall key
 ;; element size, an attacker would search the noise and derive trial
