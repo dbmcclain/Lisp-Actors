@@ -117,6 +117,8 @@
 ;; that the left side of the System Matrix contains an identity
 ;; matrix. Then it becomes trivial to find Secret Keys as a
 ;; parameterization in each of the extra NCols > NRows dimensions.
+;; Every possible coordinate value in those extra dimensions generates
+;; a Secret Key synonym.
 ;;
 ;; Our goal is to minimize the size of the KEM transfer, which has
 ;; size NBits*(1 + NCols).  Hence we make, NCols < NRows, for which it
