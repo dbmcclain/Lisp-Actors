@@ -62,8 +62,8 @@
 ;; And the Secret Key, x, is just a single 320-bit number. The only
 ;; uncertainty between Public Key elements is the 55-bit noise, ψ_i.
 ;;
-;; By having each Public Key element depend on more than one Secret
-;; Key element:
+;; But by having each Public Key element depend on more than one
+;; Secret Key element:
 ;;
 ;;    b_i = (A_i1*x_1 + A_i2*x_2 + ... + ψ_i) mod p
 ;;
@@ -71,11 +71,13 @@
 ;; noise-restricted space to solve for a single numnber, x. You have
 ;; to search NCols noise-restricted spaces, then solve a square matrix
 ;; for a provisional Secret Key, and verify the key by checking on the
-;; noise bounds in the remaining rows of the system. See below.
+;; noise bounds in the remaining rows of the system.
+;;
+;; The Secret Key is protected by NCols*NNoise bits of keying.
 ;;
 ;; -- For Encryption Security --
 ;;
-;; We rely on the Subset-Sum problem. Which random selection of
+;; We rely on the Subset-Sum problem - which random selection of
 ;; elements from the Public Key and System Matrix were involved in
 ;; forming the cryptotext?
 ;;
@@ -94,11 +96,20 @@
 ;; arithmetic against a prime modulus does change significant bits.
 ;; Hence our use of prime modulus may also make the problem harder.)
 ;;
-;; The Subset-Sum problem is at its most difficult when the random
-;; selection used for encryption contains exactly NRows/2 elements.
+;; The Subset-Sum problem is at its most difficult when:
 ;;
-;; But the statistics of a Binomial Distribution shows that NRows/2 is
-;; the peak of the selection bits histogram, with a stdev around
+;;  (A) the random selection used for encryption contains exactly
+;; NRows/2 elements, and
+;;
+;;  (B) the difficulty tends toward exponential when the Density of
+;;  the problem is very close to unity:
+;;
+;;     Density = NRows / Log2(max A_i), for system matrix A.
+;;
+;;  This tends to be near unity when NRows = NBits.
+;;
+;; The statistics of a Binomial Distribution shows that NRows/2 is the
+;; peak of the selection bits histogram, with a stdev around
 ;; (1/2)*Sqrt(NRows). The 1-sigma width is only around ±5.6% of peak
 ;; value (NRows/2) for NRows = 320.  And at ±3σ, a call to generate
 ;; 320 random bits should produce 160±27 non-zero bits.
@@ -108,17 +119,34 @@
 ;;
 ;; -------------------------------------------------------------------
 ;;
-;; --- Sizing Things Up ---
+;; --- NOTE: WHAT NOT TO DO - EVER! ---
 ;;
-;; You should *NEVER* choose NCols > NRows. Doing so sets up a
-;; null-space of dimension (NCols-NRows), in which a nearly unlimited
-;; number of Secret Key synonyms can be easily found.  Finding them
-;; simply requires transforming the System Matrix and Public Key so
-;; that the left side of the System Matrix contains an identity
-;; matrix. Then it becomes trivial to find Secret Keys as a
-;; parameterization in each of the extra NCols > NRows dimensions.
-;; Every possible coordinate value in those extra dimensions generates
-;; a Secret Key synonym.
+;; You should *NEVER* choose NCols > NRows. Period!
+;;
+;; Doing so sets up a null-space of dimension (NCols-NRows), in which
+;; a nearly unlimited number of Secret Key synonyms can easily be
+;; found.
+;;
+;; Finding them simply requires transforming the System Matrix
+;; and Public Key so that the left side of the System Matrix contains
+;; an identity matrix.
+;;
+;; Then it becomes trivial to find Secret Keys as a parameterization
+;; in each of the extra (NCols-NRows) dimensions.  Every possible
+;; coordinate value in those extra dimensions generates a Secret Key
+;; synonym.
+;;
+;; Adding noise to the published PKey does nothing to protect
+;; encrypted messages. The purpose of the added noise was to make it
+;; difficult to find the SKey, not to cloak the encryption.
+;;
+;; But since you can easily find pseudo Skeys, which all behave the
+;; same during decryption as the actual Skey, it won't matter which
+;; pseudo SKey you choose. The pseudo SKeys are just the SKey with an
+;; added multiple of some null-space vector. And all vectors in the
+;; null-space do nothing during decryption of encrypted messages.
+;;
+;; --- Sizing Things Up ---
 ;;
 ;; Our goal is to minimize the size of the KEM transfer, which has
 ;; size NBits*(1 + NCols).  Hence we make, NCols < NRows, for which it
@@ -128,54 +156,38 @@
 ;;
 ;; NBits is determined by the need to accommodate NCode bits for
 ;; message, and NNoise bits of random noise added to Public Key
-;; elements.
+;; elements, plus NGuard bits to accommodate the growth of noise sums
+;; during encryption.
 ;;
 ;; --- How Much Noise? ---
 ;;
-;; -- Given --
-;; NCode     = 256
-;; NSigma    =   6
-;; NSecurity = 256
+;;   -- Given --
+;;   NCode     = 256
+;;   NSigma    =   6
+;;   NSecurity = 256
 ;;
-;; -- Constraints --
-;; NBits  = NCode + NGuard + NNoise
-;; NRows  = NBits
-;; NGuard = 3 + log2(NSigma) + (1/2)*log2(3*NRows)
-;; NNoise = NSecurity / NCols
-;; NNoise > (1/2)*Sqrt(NRows)
-;; NModulus = NBits
+;;   -- Constraints --
+;;   NBits  = NCode + NGuard + NNoise
+;;   NRows  = NBits
+;;   NGuard = log2(NSigma) + (1/2)*log2(3*NRows)
+;;   NNoise = NSecurity / NCols
+;;   NNoise > (1/2)*Sqrt(NRows)
+;;   NModulus = NBits
 ;;
-;; -- Solution --
-;; NBits  = 280 ;; = 35 Bytes
-;; NGuard =  11
-;; NNoise =  13
-;; NCols  =  20
-;; Modulus = 2^280-47
+;;   -- Iterative Solution --
+;;   NBits  = 280 ;; = 35 Bytes
+;;   NGuard =   7
+;;   NNoise =  17
+;;   NCols  =  16
+;;   Modulus = 2^280-47
 ;;
-;; NNoise is determined by the desire for 3 categories of brute force
-;; search: Easy, Moderate, Hard. We would like Hard to be ≥ 128 bits
-;; of brute force search effort.
-;;
-;; Hence the bit sizes of the 1/3 categories is:
-;;
-;;    Easy:       0.. 63 bits search
-;;    Moderate:  64..127
-;;    Hard:     128..191
-;;
-;; And so NNoise = 191 bits.
-;;
-;; NCols is determined by the number of such noise searches needed to
-;; ensure that at least one of them will be Hard category. That
-;; resists brute force attacks for the Secret Key, given a System
-;; Matrix and Public Key.
-;;
-;; Since the size of noise is so much smaller than the overall key
-;; element size, an attacker would search the noise and derive trial
-;; key elements via matrix solution. A brute force search guesses
-;; NCols values of noise, ψ_i, subtracting that guess from the
-;; corresponding Public Key elements, for NCols rows. Then solve the
-;; square matrix equation on those rows of the System Matrix for NCols
-;; trial values of Secret Key elements.
+;; Since the size of noise is so much smaller than the overall Secret
+;; Key size, an attacker would search the noise for NCols elements,
+;; then derive trial key elements via matrix solution. A brute force
+;; search guesses NCols values of noise, ψ_i, subtracting that guess
+;; from the corresponding Public Key elements, for NCols rows. Then
+;; solve the square matrix equation on those rows of the System Matrix
+;; for NCols trial values of Secret Key elements.
 ;;
 ;; Noise is zero mean, sampled from a Uniform Distribution with total
 ;; range 2^NNoise. If you have the correct Secret Key elements, then
@@ -188,65 +200,20 @@
 ;; It is known that there is a solution among the NCols noise values.
 ;; We want to make finding it Hard.
 ;;
-;; Lucky accidents happen when searching by brute force. We want to
-;; make those unlikely to happen.  To have a probability of
-;; encountering a Hard search, P(Hard) > (1 - eps), we need to make
-;; NCols large enough so that:
-;;
-;;     NCols > log2(eps) / log2(2/3)
-;;
-;; For eps = 1e-12, NCols = 69. 
-;;
-;; --- How Many Rows? ---
-;;
-;; Now that NNoise = 191 bits, and NCode = 256 bits, and since
-;; NRows elements will be summed during encryption and we don't want
-;; that additive noise overflowing into our message bits, we must have:
-;;
-;;   NBits = NCode + NNoise + NGuard
-;;
-;; The noise is from a uniform distribution with zero mean and a
-;; variance of 1/12*2^(2*NNoise). Adding NRows of noise increases the
-;; variance by NRows. We should allow for NSigma growth in the sum.
-;; And we have to allow for the synthetically widened noise size used
-;; during encryption. We have:
-;;
-;;    sigma = 2^NNoise*Sqrt(3*NRows)
-;;
-;;  Number of guard bits needed:
-;;
-;;   NGuard = ceiling(log2(NSigma*sigma)) - NNoise
-;;          = log2(NSigma) + (1/2)*log2(3*NRows)
-;;
-;; So,
-;;
-;;   NBits = NCode + NNoise + log2(NSigma) + (1/2)*log2(3*NRows)
-;;
-;; To have our Subset-Sum problems show unit Density, we need NRows =
-;; NBits, since:
-;;
-;;     Density_i = NRows / log2(max(A_ji, j = 1..NRows))
-;;
-;; So solving iteratively for NRows, when NCode = 256, NNoise = 191,
-;; and NSigma = 6, we get NRows = 456 and NBits = 456.
-;;
 ;; --- What Effective Security Do We Have? ---
 ;;
 ;; The Secret Key is protected by the additive noise on the Public
 ;; Key. It has an effective size of:
 ;;
-;;   Effective Protective KeySize = NCols * NNoise = 13,179 bits.
-;;
-;; The system has less than 1e-12 chance of having attack difficulty
-;; less than O(2^128).
+;;   Effective Protective KeySize = NCols * NNoise.
 ;;
 ;; From the previous section on the security of encryptions, with
-;; NRows = 456 and NBits = NRows, hence Density ≈ 1.00 for every one
+;; NRows = NBits, hence Density ≈ 1.00 for every one
 ;; of the visible NCols Row-Sums in the vector component of the
-;; encryption. We have encryption securty ≈ O(2^282).
+;; encryption. We have encryption securty ≈ O(2^0.58*NBits).
 ;;
-;; Encryptions require 70 * 456 bits = 3990 Bytes to transmit a
-;; 256-bit (32-Byte) key.
+;; Encryptions require NBits*(NCols+1) bits to convey an NCode-bits
+;; message.
 ;;
 ;; ----------------------------------------------------------------------
 
@@ -256,14 +223,7 @@
 (defparameter *flat-ncols*     16)
 (defparameter *flat-nnoise*    17)
 
-(defparameter *flat-modulus*
-  (- (ash 1 280) 47)
-  ;; (- (ash 1 456) 627)
-  ;; (- (ash 1 329) 139)
-  ;; (- (ash 1 393) 93)     ;; nearest prime below 2^393
-  ;; (- (ash 1 320) 197)    ;; nearest prime below 2^320
-  ;; (- (ash 1 1024) 105)
-  )
+(defparameter *flat-modulus*  (- (ash 1 280) 47))
 
 ;; ---------------------------------------------
 
@@ -431,7 +391,7 @@
     ans))
 
 (defun flat-gen-deterministic-skey (sys &rest seeds)
-  ;; skey is a ncol vector of 26-bit values
+  ;; SKey is a NCols vector of NBits values
   (fcheck-system sys)
   (let* ((ncols           (lat2-ncols sys))
          (modulus         (getf sys :modulus))
@@ -444,7 +404,7 @@
     (let* ((h    (vec (apply #'get-hash-nbits nbits-total hstretch :deterministic-skey seeds)))
            (ans  (make-array ncols)))
       (loop for ixcol from 0 below ncols
-            for pos from 0 #|below nbits-total|# by nbits-per-word
+            for pos from 0 by nbits-per-word
             do
               (let ((byte-pos (floor pos 8)))
                 (setf (aref ans ixcol)
@@ -462,6 +422,8 @@
     (- (prng:ctr-drbg-int nsmall) small/2)))
 
 (defun fgen-pkey (skey sys)
+  ;; PKey is a NRows vector of NBits values with added NNoise-bits of
+  ;; uniformly distributed zero-mean noise.
   (let* ((nrows   (getf sys :nrows))
          (mat-a   (getf sys :mat-a))
          (modulus (getf sys :modulus))
