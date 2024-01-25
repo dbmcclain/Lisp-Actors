@@ -131,20 +131,27 @@
 ;; and Public Key so that the left side of the System Matrix contains
 ;; an identity matrix.
 ;;
-;; Then it becomes trivial to find Secret Keys as a parameterization
-;; in each of the extra (NCols-NRows) dimensions.  Every possible
-;; coordinate value in those extra dimensions generates a Secret Key
-;; synonym.
+;; Then it becomes trivial to find usable Secret Keys as a
+;; parameterization in each of the extra (NCols-NRows) dimensions.
+;; Every possible coordinate value in those extra dimensions generates
+;; a Secret Key synonym.
 ;;
-;; Adding noise to the published PKey does nothing to protect
+;; Worse yet, because you solve the system against noisy PKey values,
+;; the use of these pseudo SKeys works even better than the true SKey
+;; because they can completely remove the noise in the encryption.
+;;
+;; Adding noise to the published PKey was never intended to protect
 ;; encrypted messages. The purpose of the added noise was to make it
 ;; difficult to find the SKey, not to cloak the encryption.
 ;;
-;; But since you can easily find pseudo Skeys, which all behave the
-;; same during decryption as the actual Skey, it won't matter which
-;; pseudo SKey you choose. The pseudo SKeys are just the SKey with an
-;; added multiple of some null-space vector. And all vectors in the
-;; null-space do nothing during decryption of encrypted messages.
+;; But since you can easily find pseudo Skeys, which all behave even
+;; better, during decryption, than the actual Skey, it won't matter
+;; which pseudo SKey you choose. The only difference between each
+;; pseudo SKey is some null-space vector, and null-space vectors do
+;; absolutely nothing during decryption.
+;;
+;; Nothing could be worse. You might as well publish the SKey.
+;; ------------------------------------------------------------------
 ;;
 ;; --- Sizing Things Up ---
 ;;
