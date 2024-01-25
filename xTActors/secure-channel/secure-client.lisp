@@ -30,7 +30,7 @@
 ;;                               EKey = H(server-skey * APt)
 ;;                               Validate chk = H(EKey, IV, ctxt)
 ;;                               (chan, Ephem-ID, Client-PKey-ID) = D(EKey, IV, ctxt)
-
+;;
 ;;                               -- On chan +SERVER-CONNECT-ID+ -------------------
 ;;                               Client-PKey = Lookup(Client-PKey-ID)
 ;;                               Validate Client-PKey pt
@@ -147,6 +147,21 @@
 ;; objects. Arrival order of message fragments can be arbitrary
 ;; despite in-order TCP packet reassembly.
 ;;
+;; I believe that our ECC X3DH is QC resistant. We never expose any
+;; keying, neither Public nor Private, to the network unless it is
+;; contained inside an AES-256 packet. We expose only random ECC
+;; Points to the network.
+;;
+;; To derive the shared session keying, you have to see both random
+;; ECC Points, obtain the DLP for one of those points, AND know the
+;; Secret Key of the originator, AND the Public Key of the recipient.
+;;
+;; To crack the initial AES packets, you have to know the Public key
+;; of the recipient and the DLP of the random ECC point sent, or
+;; equivalently, know the random ECC point and the recipient's Secret
+;; Key. Only Public Keys are ever send along inside AES packets, never
+;; any Secret Keys.
+;;
 ;; The bit of repudiable cleverness is derived from ideas presented by
 ;; Trevor Perrin and Moxie Marlinspike of Signal Foundation.
 ;;
@@ -157,7 +172,6 @@
    (lambda (cust socket local-services)
      (let+ ((client-id       (uuid:make-v1-uuid))
             (:β (srv-pkey)   eccke:srv-pkey)
-            (_   (ed-validate-point srv-pkey))
             (:β (my-pkeyid)  eccke:my-pkeyid)
             (:β (arand apt aescrypt) (racurry eccke:ecc-cnx-encrypt
                                               srv-pkey +server-connect-id+ client-id my-pkeyid))

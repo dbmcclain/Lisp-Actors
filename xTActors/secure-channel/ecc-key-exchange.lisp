@@ -45,11 +45,21 @@
          (β! (const-beh skey)))
        ))
    ))
-    
+
+(defun pkey-validation-gate (cust)
+  (create
+   (lambda (pkey)
+     (when (and pkey
+                (ignore-errors
+                  (ed-validate-point pkey)))
+       (>> cust pkey))
+     (become-sink))
+   ))
+
 (deflex ecc-pkey
   (create
    (lambda (cust pkey-id)
-     (>> kvdb:kvdb cust :find pkey-id))
+     (>> kvdb:kvdb (pkey-validation-gate cust) :find pkey-id))
    ))
 
 ;; ------------------------------------------------------
@@ -126,14 +136,23 @@
 ;; For Actors-based code, using ECC encryption
 
 (deflex my-pkeyid
-  (create (lambda (cust)
-            (>> kvdb:kvdb cust :find :my-ecc-pkeyid))
-          ))
+  (create
+   (lambda (cust)
+     (let ((gate (create
+                  (lambda (id)
+                    (when id
+                      (>> cust id))
+                    (become-sink))
+                  )))
+       (>> kvdb:kvdb gate :find :my-ecc-pkeyid)))
+   ))
 
 (deflex srv-pkey
-  (create (lambda (cust)
-            (>> kvdb:kvdb cust :find "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
-          ))
+  (create
+   (lambda (cust)
+     (>> kvdb:kvdb (pkey-validation-gate cust)
+         :find "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
+   ))
 
 #|
 (β (skey)

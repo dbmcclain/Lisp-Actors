@@ -35,20 +35,17 @@
     ((apt client-id client-pkeyid) / (and (typep apt       'ecc-pt)
                                           (typep client-id 'uuid:uuid))
      ;; silently ignore other kinds of requests
-     (let+ ((:β (client-pkey)  (racurry eccke:ecc-pkey client-pkeyid)) )
-       (when client-pkey
-         (ignore-errors
-           (ed-validate-point client-pkey)
-           (let+ ((:β (cnx-id)             (racurry local-services :add-service global-services))
-                  (:β (brand bpt aescrypt) (racurry eccke:ecc-cnx-encrypt
-                                                    client-pkey client-id cnx-id))
-                  (:β (my-skey)            eccke:ecc-skey)
-                  (ekey (hash/256 (ed-mul apt brand)            ;; A*b
-                                  (ed-mul client-pkey brand)    ;; C*b
-                                  (ed-mul apt my-skey)) )       ;; A*s
-                  (:β _  (>> local-services β :set-crypto ekey socket)))
-             (>> socket bpt aescrypt)) ;; elide auth check
-           ))))
+     (let+ ((:β (client-pkey)  (racurry eccke:ecc-pkey client-pkeyid))
+            (:β (cnx-id)       (racurry local-services :add-service global-services))
+            (:β (brand bpt aescrypt) (racurry eccke:ecc-cnx-encrypt
+                                              client-pkey client-id cnx-id))
+            (:β (my-skey)      eccke:ecc-skey)
+            (ekey (hash/256 (ed-mul apt brand)            ;; A*b
+                            (ed-mul client-pkey brand)    ;; C*b
+                            (ed-mul apt my-skey)) )       ;; A*s
+            (:β _  (>> local-services β :set-crypto ekey socket)))
+       (>> socket bpt aescrypt)) ;; elide auth check
+     )
     ;; silently ignore other requests
     )))
 

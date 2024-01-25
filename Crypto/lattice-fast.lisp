@@ -180,6 +180,8 @@
 ;;   NNoise = NSecurity / NCols
 ;;   NNoise > (1/2)*Sqrt(NRows)
 ;;   NModulus = NBits
+;;   2*log2(NCols) < log2(q) < 1+2*log2(NCols)
+;;   NRows ≈ (1+eps)*(1+NCols)*log2(q)
 ;;
 ;;   -- Iterative Solution --
 ;;   NBits  = 280 ;; = 35 Bytes
