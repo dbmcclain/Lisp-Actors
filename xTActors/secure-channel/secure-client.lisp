@@ -162,6 +162,10 @@
 ;; Key. Only Public Keys are ever sent along inside AES packets, never
 ;; any Secret Keys.
 ;;
+;; Although we refer to Public Keys, they are never openly published
+;; anywhere. They are as protected as Secret Keys, except for making
+;; them available to others via secure transport.
+;;
 ;; The bit of repudiable cleverness is derived from ideas presented by
 ;; Trevor Perrin and Moxie Marlinspike of Signal Foundation.
 ;;
