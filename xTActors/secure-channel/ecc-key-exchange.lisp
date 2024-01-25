@@ -113,7 +113,7 @@
        (ignore-errors
          (let+ ((enc-pt     (ed-mul pubkey rand))
                 (aes-key    (aes-packet-key enc-pt))
-                (aes-packet (<<* #'make-aes-packet aes-key :canary info)))
+                (aes-packet (<<* #'make-aes-packet aes-key info)))
            (>> cust rand (ed-affine rand-pt) aes-packet)
            ))))
    ))
@@ -127,10 +127,11 @@
          (let+ ((enc-pt   (ed-mul rand-pt skey))
                 (aes-key  (aes-packet-key enc-pt))
                 (info     (decode-aes-packet aes-key aes-packet)))
-           (when (and (consp info)
-                      (eq (car info) :canary))
-             (>> cust (cdr info)) )))
-       ))))
+           (when (consp info)
+             (>> cust info))
+           ))
+       ))
+   ))
 
 ;; ----------------------------------------------------
 ;; For Actors-based code, using ECC encryption
