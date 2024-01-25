@@ -210,7 +210,7 @@
 ;; From the previous section on the security of encryptions, with
 ;; NRows = NBits, hence Density ≈ 1.00 for every one
 ;; of the visible NCols Row-Sums in the vector component of the
-;; encryption. We have encryption securty ≈ O(2^0.58*NBits).
+;; encryption. We have encryption securty ≈ O(2^(0.62*NBits)).
 ;;
 ;; Encryptions require NBits*(NCols+1) bits to convey an NCode-bits
 ;; message.
