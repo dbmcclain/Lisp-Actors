@@ -159,7 +159,7 @@
 ;; To crack the initial AES packets, you have to know the Public key
 ;; of the recipient and the DLP of the random ECC point sent, or
 ;; equivalently, know the random ECC point and the recipient's Secret
-;; Key. Only Public Keys are ever send along inside AES packets, never
+;; Key. Only Public Keys are ever sent along inside AES packets, never
 ;; any Secret Keys.
 ;;
 ;; The bit of repudiable cleverness is derived from ideas presented by
