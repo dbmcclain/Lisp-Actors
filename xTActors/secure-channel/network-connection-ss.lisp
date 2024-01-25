@@ -226,6 +226,7 @@
                     shutdown) state)
            (bytes-to-write (length byte-vec))
            (bytes-written  0))
+      ;; (send fmt-println "Socket Write: ~A bytes" bytes-to-write)
       (labels
           ;; these functions execute in the thread of the async socket handler
           ((not-writing ()
