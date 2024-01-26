@@ -180,6 +180,10 @@
 ;; them available, indirectly via PKey-ID, to others via secure
 ;; transport.
 ;;
+;; New public keys are introduced, along with a PKey-ID, either
+;; through side channels, or else by way of introduction from a
+;; recognized sponsor using encrypted messaging.
+;;
 ;; ----------------------------------------------------------------
 ;;
 ;; The bit of repudiable cleverness is derived from ideas presented by
