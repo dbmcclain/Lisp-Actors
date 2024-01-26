@@ -148,7 +148,8 @@
 ;; despite in-order TCP packet reassembly.
 ;;
 ;; ---------------------------------------------------------------
-;; -- Post-QC Security --
+;;
+;;                  -- Post-QC Security --
 ;;
 ;; I believe that our use of ECC X3DH is QC resistant. We never expose
 ;; any keying, neither Public nor Private, to the network.
