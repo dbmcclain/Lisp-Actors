@@ -4,7 +4,7 @@
 ;; ----------------------------------
 
 (defpackage #:com.ral.crypto.ecc-key-exchange
-  (:use #:common-lisp #:vec-repr #:hash #:edec #:ac)
+  (:use #:common-lisp #:vec-repr #:hash #:edec #:ac #:modmath)
   (:export
    #:ecc-cnx-encrypt
    #:ecc-cnx-decrypt
@@ -46,15 +46,48 @@
        ))
    ))
 
+;; -----------------------------------------------------------
+
+(defun signed-item (item skey)
+  ;; provide a package containing item and a verifiable Schnorr
+  ;; signature from skey
+  (let* ((pkey  (ed-nth-pt skey))
+         (nonce (edec::ssig-nonce))
+         (krand (int (hash/256 nonce item skey pkey)))
+         (kpt   (ed-nth-pt krand))
+         (h     (int (hash/256 item kpt pkey)))
+         (u     (with-mod *ed-r*
+                  (m+ krand (m* h skey))))
+         (upt   (ed-nth-pt u)))
+    (list item (int upt) krand)))
+
+(defun* verify-item ((item upt krand) pkey)
+  ;; Verify that item was signed by pkey
+  (ignore-errors
+    (ed-validate-point pkey)
+    (let* ((kpt  (ed-nth-pt krand))
+           (h    (int (hash/256 item kpt pkey))))
+      (values item (ed-pt= (ed-decompress-pt upt)
+                           (ed-add kpt (ed-mul pkey h))))
+      )))
+           
 (defun pkey-validation-gate (cust)
   (create
-   (lambda (pkey)
-     (when (and pkey
-                (ignore-errors
-                  (ed-validate-point pkey)))
-       (>> cust pkey))
+   (lambda (info)
+     ;; should be a verifiable pkey
+     ;; proof that whoever provided pkey also has knowledge of skey.
+     (when info
+       (multiple-value-bind (pkey ok)
+           (verify-item info (car info))
+         (when (and ok
+                    (ignore-errors
+                      (ed-validate-point pkey)))
+           (>> cust pkey))
+         ))
      (become-sink))
    ))
+
+;; -----------------------------------------------------------
 
 (deflex ecc-pkey
   (create
@@ -160,7 +193,7 @@
     (>> ecc-skey β)
   (let ((pkey  (ed-nth-pt skey)))
     (>> kvdb:kvdb println :add :my-ecc-pkeyid "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}")
-    (>> kvdb:kvdb println :add "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" pkey)))
+    (>> kvdb:kvdb println :add "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" (signed-item pkey skey))))
 
 (β (pkey-id)
     (>> my-pkeyid β)
