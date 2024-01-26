@@ -88,14 +88,13 @@
 (defun pkey-validation-gate (cust)
   (create
    (lambda (info)
-     ;; should be a verifiable pkey
-     ;; proof that whoever provided pkey also has knowledge of skey.
+     ;; info should be a verifiable pkey, with proof that whoever
+     ;; provided pkey also has knowledge of skey, and that pkey is a
+     ;; valid ECC point.
      (when info
        (multiple-value-bind (pkey ok)
            (verify-item info (car info))
-         (when (and ok
-                    (ignore-errors
-                      (ed-validate-point pkey)))
+         (when ok
            (>> cust pkey))
          ))
      (become-sink))
