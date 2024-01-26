@@ -16,6 +16,10 @@
 
 (in-package #:com.ral.crypto.ecc-key-exchange)
 
+(um:eval-always
+  (import '(com.ral.actors.encoding:make-auth
+            com.ral.actors.encoding:check-auth)))
+
 ;; ----------------------------------
 ;;
 ;; Store skey seed in system keychain with:
@@ -84,20 +88,67 @@
               (hash= hk
                      (hash/256 item hpt)) )
       )))
-           
+
+;; ----------------------------------------------------
+;; Secure Storage in Database
+;;
+;; We protect PKeys from general browsing. PKeys are always stored as
+;; encrypted items with authentication. The PKeys are themselves
+;; accompanied by a proof of validity.
+
+(deflex database-key
+  (create
+   (lambda (cust)
+     (β (skey)
+         (send ecc-skey β)
+       (let ((ekey (hash/256 :database skey)))
+         (become (const-beh ekey))
+         (send cust ekey))
+       ))
+   ))
+
+(deflex encrypt-for-database
+  (create
+   (lambda (cust item)
+     (β (ekey)
+         (send database-key β)
+       (β (nonce byte-vec)
+           (>> (encryptor ekey) β (loenc:encode item))
+         (let ((auth (make-auth ekey nonce byte-vec)))
+           (>> cust (list nonce byte-vec auth))
+           ))))
+   ))
+
+(deflex decrypt-from-database
+  (create
+   (lambda* (cust (nonce byte-vec auth))
+     (β (ekey)
+         (send database-key β)
+       (when (check-auth ekey nonce byte-vec auth)
+         (β (dec-vec)
+             (send (decryptor ekey) β nonce (copy-seq byte-vec))
+           (send cust (loenc:decode dec-vec))
+           ))))
+   ))
+
+;; ----------------------------------------------
+
 (defun pkey-validation-gate (cust)
   (create
    (lambda (info)
      ;; info should be a verifiable pkey, with proof that whoever
      ;; provided pkey also has knowledge of skey, and that pkey is a
      ;; valid ECC point.
-     (when info
-       (multiple-value-bind (pkey ok)
-           (verify-item info (car info))
-         (when ok
-           (>> cust pkey))
-         ))
-     (become-sink))
+     (become-sink)
+     (when (and info
+                (consp info))
+       (β (signed)
+           (send decrypt-from-database β info)
+         (multiple-value-bind (pkey ok)
+             (verify-item signed (car signed))
+           (when ok
+             (>> cust pkey))
+           ))))
    ))
 
 ;; -----------------------------------------------------------
@@ -206,7 +257,12 @@
     (>> ecc-skey β)
   (let ((pkey  (ed-nth-pt skey)))
     (>> kvdb:kvdb println :add :my-ecc-pkeyid "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}")
-    (>> kvdb:kvdb println :add "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" (signed-item pkey skey))))
+    (β (enc)
+        (send encrypt-for-database β (signed-item pkey skey))
+      (β (enc)
+          (send encrypt-for-database β (signed-item pkey skey))
+        (>> kvdb:kvdb println :add "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" enc))
+      )))
 
 (β (pkey-id)
     (>> my-pkeyid β)
