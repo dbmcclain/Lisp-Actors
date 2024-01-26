@@ -147,28 +147,38 @@
 ;; objects. Arrival order of message fragments can be arbitrary
 ;; despite in-order TCP packet reassembly.
 ;;
-;; I believe that our ECC X3DH is QC resistant. We never expose any
-;; keying, neither Public nor Private, to the network unless it is
-;; contained inside an AES-256 packet. We expose only random ECC
-;; Points to the network.
+;; ---------------------------------------------------------------
+;; -- Post-QC Security --
+;;
+;; I believe that our use of ECC X3DH is QC resistant. We never expose
+;; any keying, neither Public nor Private, to the network.
+;;
+;; When we need to convey a public key, it must already be known to
+;; the recipient, and is identified by PKey-ID. That ID is looked up
+;; in a local database to find the actual PKey. PKey-ID are never
+;; exposed to the network, but always conveyed in an AES-256 encrypted
+;; wrapper.
+;;
+;; To crack the initial key exchange AES packets, you have to know the
+;; Public key of the recipient and the DLP of the random ECC point
+;; sent, or equivalently, know the random ECC point and the
+;; recipient's Secret Key.
 ;;
 ;; To derive the shared session keying, you have to see both random
 ;; ECC Points, obtain the DLP for one of those points, AND know the
 ;; Secret Key of the originator, AND the Public Key of the recipient.
 ;;
-;; To crack the initial AES packets, you have to know the Public key
-;; of the recipient and the DLP of the random ECC point sent, or
-;; equivalently, know the random ECC point and the recipient's Secret
-;; Key. Only Public Keys are ever sent along inside AES packets, never
-;; any Secret Keys.
-;;
 ;; Although we refer to Public Keys, they are never openly published
-;; anywhere. They are as protected as Secret Keys, except for making
-;; them available to others via secure transport.
+;; anywhere. They are as guarded as Secret Keys, except for making
+;; them available, indirectly via PKey-ID, to others via secure
+;; transport.
+;;
+;; ----------------------------------------------------------------
 ;;
 ;; The bit of repudiable cleverness is derived from ideas presented by
 ;; Trevor Perrin and Moxie Marlinspike of Signal Foundation.
 ;;
+;; ----------------------------------------------------------------
 
 #-:lattice-crypto
 (deflex negotiator
