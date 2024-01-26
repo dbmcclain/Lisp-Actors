@@ -96,7 +96,7 @@
 (defmacro with-state-vals (bindings state &body body)
   (let ((glist (gensym)))
     `(let* ((,glist (actor-state-plist ,state))
-            ,@(mapcar #`(,(car a1) (getf ,glist ,(or (cadr a1) (car a1)) ,@(cddr a1))) bindings))
+            ,@(mapcar #`(,(car a1) (getf ,glist ,(cadr a1) ,@(cddr a1))) bindings))
        ,@body)
     ))
 
