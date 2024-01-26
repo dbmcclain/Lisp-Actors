@@ -176,9 +176,9 @@
 ;; forgotten after the connecton is closed.
 ;;
 ;; We use repudiable communications, where the two parties can be
-;; certain of each other's message originator, yet message
-;; authentication can be easily forged by 3rd parties after the
-;; message has been received.
+;; certain of each other's message origination, yet authenticated
+;; messages can be easily forged by 3rd parties after the message has
+;; been received.
 ;;
 ;; The recipient broadcasts the authentication keying used in the
 ;; received message. This allows anyone to construct a fake transcript
