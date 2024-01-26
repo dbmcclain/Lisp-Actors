@@ -111,17 +111,34 @@
   (create
    (lambda* (cust (seq emsg auth))
      (when (check-auth ekey seq emsg auth)
-       (send cust seq (copy-seq emsg))))
+       (send cust seq emsg)))
+   ))
+
+(deflex base85-encoder
+  (create
+   (lambda (cust &rest args)
+     ;; args should all be ub8v
+     (send* cust (mapcar #'base85-str args)))
+   ))
+
+(deflex base85-decoder
+  (create
+   (lambda (cust pkt)
+     (send cust (mapcar #'(lambda (str)
+                            (vec (base85 str)))
+                        pkt)))
    ))
 
 (defun db-encryptor (ekey)
   (pipe (marshal-encoder)
         (marshal-compressor)
         (encryptor ekey)
-        (authentication ekey)))
+        (authentication ekey)
+        base85-encoder))
 
 (defun db-decryptor (ekey)
-  (pipe (check-db-authentication ekey)
+  (pipe base85-decoder
+        (check-db-authentication ekey)
         (decryptor ekey)
         (fail-silent-marshal-decompressor)
         (fail-silent-marshal-decoder)))
