@@ -64,7 +64,8 @@
 
 (defun* verify-item ((item u hk) pkey)
   ;; Verify that item was signed by pkey.
-  ;; We provide number, u, and random hash, Hk, such that:
+  ;;
+  ;; We provide number, u, and random hash of item, Hk, such that:
   ;;
   ;;   Hk = H(item, u*G + Hk*P)
   ;;
