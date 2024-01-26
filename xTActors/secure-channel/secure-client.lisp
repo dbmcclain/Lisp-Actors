@@ -170,7 +170,7 @@
 ;; Secret Key of the originator, AND the Public Key of the recipient.
 ;;
 ;; Once the parties have a shared session key, all further
-;; communications occurs via AES-256 encrypted packets, using
+;; communication occurs via AES-256 encrypted packets, using
 ;; ratcheted keying based off of the initial shared session key,
 ;; advancing the ratchet for every message. Shared session keys are
 ;; forgotten after the connecton is closed.
