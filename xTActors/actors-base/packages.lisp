@@ -310,6 +310,7 @@ THE SOFTWARE.
 
    #:actor-state
    #:state-with
+   #:state-without
    #:state-val
    #:with-state-vals
    ))
