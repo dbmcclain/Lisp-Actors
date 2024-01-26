@@ -37,13 +37,10 @@
 ;; CREATE for defining new behavior.
 ;;
 ;; We offer WITH-STATE-VALS as a convenient way to refer to the actual
-;; state vars in the property list - much like WITH-ACCESSORS. When
-;; used, WITH-STATE-VALS rebinds the names to local lexical bindings
-;; that are visible only to the current invocation of the Actor.
+;; state vars in the property list - much like WITH-ACCESSORS.
 ;;
 ;; You can also set default values in case the names were not already
-;; in the plist. Any destructive mutation of these bindings will not
-;; be propagated to the original ACTOR-STATE object.
+;; in the plist. Take care not to mutate any of these symbol mappings.
 ;;
 ;; -------------------------------------------------------------------
 
@@ -95,8 +92,9 @@
 
 (defmacro with-state-vals (bindings state &body body)
   (let ((glist (gensym)))
-    `(let* ((,glist (actor-state-plist ,state))
-            ,@(mapcar #`(,(car a1) (getf ,glist ,(cadr a1) ,@(cddr a1))) bindings))
-       ,@body)
+    `(let ((,glist (actor-state-plist ,state)))
+       (symbol-macrolet 
+           (,@(mapcar #`(,(car a1) (getf ,glist ,(cadr a1) ,@(cddr a1))) bindings))
+         ,@body))
     ))
 
