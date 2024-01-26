@@ -107,28 +107,39 @@
        ))
    ))
 
+(defun check-db-authentication (ekey)
+  (create
+   (lambda* (cust (seq emsg auth))
+     (when (check-auth ekey seq emsg auth)
+       (send cust seq (copy-seq emsg))))
+   ))
+
+(defun db-encryptor (ekey)
+  (pipe (marshal-encoder)
+        (marshal-compressor)
+        (encryptor ekey)
+        (authentication ekey)))
+
+(defun db-decryptor (ekey)
+  (pipe (check-db-authentication ekey)
+        (decryptor ekey)
+        (fail-silent-marshal-decompressor)
+        (fail-silent-marshal-decoder)))
+
 (deflex encrypt-for-database
   (create
    (lambda (cust item)
      (β (ekey)
          (send database-key β)
-       (β (nonce byte-vec)
-           (>> (encryptor ekey) β (loenc:encode item))
-         (let ((auth (make-auth ekey nonce byte-vec)))
-           (>> cust (list nonce byte-vec auth))
-           ))))
+       (send (db-encryptor ekey) cust item)))
    ))
 
 (deflex decrypt-from-database
   (create
-   (lambda* (cust (nonce byte-vec auth))
+   (lambda (cust data)
      (β (ekey)
          (send database-key β)
-       (when (check-auth ekey nonce byte-vec auth)
-         (β (dec-vec)
-             (send (decryptor ekey) β nonce (copy-seq byte-vec))
-           (send cust (loenc:decode dec-vec))
-           ))))
+       (send (db-decryptor ekey) cust data)))
    ))
 
 ;; ----------------------------------------------
@@ -142,13 +153,14 @@
      (become-sink)
      (when (and info
                 (consp info))
-       (β (signed)
+       (β (pkey-pkg)
            (send decrypt-from-database β info)
          (multiple-value-bind (pkey ok)
-             (verify-item signed (car signed))
+             (verify-item pkey-pkg (car pkey-pkg))
            (when ok
-             (>> cust pkey))
-           ))))
+             (send cust pkey))
+           ))
+       ))
    ))
 
 ;; -----------------------------------------------------------
@@ -257,11 +269,9 @@
     (>> ecc-skey β)
   (let ((pkey  (ed-nth-pt skey)))
     (>> kvdb:kvdb println :add :my-ecc-pkeyid "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}")
-    (β (enc)
+    (β enc
         (send encrypt-for-database β (signed-item pkey skey))
-      (β (enc)
-          (send encrypt-for-database β (signed-item pkey skey))
-        (>> kvdb:kvdb println :add "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" enc))
+      (>> kvdb:kvdb println :add "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" enc)
       )))
 
 (β (pkey-id)
