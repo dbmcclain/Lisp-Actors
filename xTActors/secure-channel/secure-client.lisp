@@ -175,6 +175,22 @@
 ;; advancing the ratchet for every message. Shared session keys are
 ;; forgotten after the connecton is closed.
 ;;
+;; We use repudiable communications, where the two parties can be
+;; certain of each other's message originator, yet message
+;; authentication can be easily forged by 3rd parties after the
+;; message has been received.
+;;
+;; The recipient broadcasts the authentication keying used in the
+;; received message. This allows anyone to construct a fake transcript
+;; of the session by posing as one of the parties involved. Hence,
+;; repudiable communications.
+;;
+;; We are protected against replay attacks by ensuring that every
+;; message received carries a fresh sequence number.
+;;
+;; At the first sign of tampering, the connection is silently closed.
+;; Invalid messages are ignored.
+;;
 ;; Although we refer to Public Keys, they are never openly published
 ;; anywhere. They are as guarded as Secret Keys, except for making
 ;; them available, indirectly via PKey-ID, to others via secure
