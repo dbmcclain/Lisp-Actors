@@ -55,19 +55,18 @@
          (nonce (edec::ssig-nonce))
          (krand (int (hash/256 nonce item skey pkey)))
          (kpt   (ed-nth-pt krand))
-         (h     (int (hash/256 item kpt pkey)))
+         (hk    (hash/256 item kpt))
          (u     (with-mod *ed-r*
-                  (m- krand (m* h skey))))
-         (upt   (ed-nth-pt u)))
-    (list item u kpt)
+                  (m- krand (m* (int hk) skey))
+                  )))
+    (list item u hk)
     ))
 
-(defun* verify-item ((item u kpt) pkey)
+(defun* verify-item ((item u hk) pkey)
   ;; Verify that item was signed by pkey.
-  ;; We provide number, u, and random point, K, such that:
+  ;; We provide number, u, and random hash, Hk, such that:
   ;;
-  ;;   Hk = H(item | K | P)
-  ;;      = H(item | u*G + Hk*P | P)
+  ;;   Hk = H(item, u*G + Hk*P)
   ;;
   ;;     -- IOW, Hk has a pre-image based on itself. Could only
   ;;        happen if pkey knows skey.
@@ -76,13 +75,12 @@
   ;; Kind of like an Ouroboros...
   (ignore-errors
     (ed-validate-point pkey)
-    (ed-validate-point kpt)
-    (let* ((upt (ed-nth-pt u))
-           (h   (hash/256 item kpt pkey))
-           (hpt (ed-add upt (ed-mul pkey (int h))) ))
+    (let ((hpt (ed-add (ed-nth-pt u)
+                       (ed-mul pkey (int hk) )
+                       )))
       (values item
-              (hash= h
-                     (hash/256 item hpt pkey)))
+              (hash= hk
+                     (hash/256 item hpt)) )
       )))
            
 (defun pkey-validation-gate (cust)
