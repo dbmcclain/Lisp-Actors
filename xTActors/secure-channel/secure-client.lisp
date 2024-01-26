@@ -169,6 +169,12 @@
 ;; ECC Points, obtain the DLP for one of those points, AND know the
 ;; Secret Key of the originator, AND the Public Key of the recipient.
 ;;
+;; Once the parties have a shared session key, all further
+;; communications occurs via AES-256 encrypted packets, using
+;; ratcheted keying based off of the initial shared session key,
+;; advancing the ratchet for every message. Shared session keys are
+;; forgotten after the connecton is closed.
+;;
 ;; Although we refer to Public Keys, they are never openly published
 ;; anywhere. They are as guarded as Secret Keys, except for making
 ;; them available, indirectly via PKey-ID, to others via secure
