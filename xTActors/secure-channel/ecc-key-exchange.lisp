@@ -57,18 +57,27 @@
          (kpt   (ed-nth-pt krand))
          (h     (int (hash/256 item kpt pkey)))
          (u     (with-mod *ed-r*
-                  (m+ krand (m* h skey))))
+                  (m- krand (m* h skey))))
          (upt   (ed-nth-pt u)))
-    (list item (int upt) krand)))
+    (list item (int upt) (int kpt))))
 
-(defun* verify-item ((item upt krand) pkey)
-  ;; Verify that item was signed by pkey
+(defun* verify-item ((item upt kpt) pkey)
+  ;; Verify that item was signed by pkey.
+  ;; We provide two points, (U,K), such that:
+  ;;
+  ;;   Hk = H(item | K | P) = H(item | U + P*Hk | P)
+  ;;
+  ;;     -- IOW, Hk has a pre-image based on itself. Could only
+  ;;        happen if pkey knows skey.
+  ;;
+  ;; This version of test seems easier to comprehend.
+  ;; Kind of like an Ouroboros...
   (ignore-errors
     (ed-validate-point pkey)
-    (let* ((kpt  (ed-nth-pt krand))
-           (h    (int (hash/256 item kpt pkey))))
-      (values item (ed-pt= (ed-decompress-pt upt)
-                           (ed-add kpt (ed-mul pkey h))))
+    (let* ((h   (hash/256 item kpt pkey))
+           (hpt (ed-add (ed-decompress-pt upt)
+                        (ed-mul pkey (int h)))))
+      (values item (hash= h (hash/256 item hpt pkey)))
       )))
            
 (defun pkey-validation-gate (cust)
