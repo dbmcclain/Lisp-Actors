@@ -84,9 +84,9 @@
     (let ((hpt (ed-add (ed-nth-pt u)
                        (ed-mul pkey (int hk) )
                        )))
-      (values item
-              (hash= hk
-                     (hash/256 item hpt)) )
+      (values (hash= hk
+                     (hash/256 item hpt))
+              item)
       )))
 
 ;; ----------------------------------------------------
@@ -172,7 +172,7 @@
                 (consp info))
        (β (pkey-pkg)
            (send decrypt-from-database β info)
-         (multiple-value-bind (pkey ok)
+         (multiple-value-bind (ok pkey)
              (verify-item pkey-pkg (car pkey-pkg))
            (when ok
              (send cust pkey))
@@ -281,15 +281,20 @@
          :find "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
    ))
 
+(defun store-pkey (pkey-id pkey-pkg)
+  (when (verify-item pkey-pkg (car pkey-pkg))
+    (β enc
+        (send encrypt-for-database β pkey-pkg)
+      (send kvdb:kvdb :add pkey-id enc))
+    ))
+
 #|
 (β (skey)
     (>> ecc-skey β)
   (let ((pkey  (ed-nth-pt skey)))
     (>> kvdb:kvdb println :add :my-ecc-pkeyid "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}")
-    (β enc
-        (send encrypt-for-database β (signed-item pkey skey))
-      (>> kvdb:kvdb println :add "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" enc)
-      )))
+    (store-pkey "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" (signed-item pkey skey))
+    ))
 
 (β (pkey-id)
     (>> my-pkeyid β)
