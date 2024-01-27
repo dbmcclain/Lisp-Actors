@@ -200,8 +200,8 @@
 ;;
 ;; It verfies that the database entry exists, that it is an
 ;; Encrypted-Entry, that it decrypts to a Signed-Item, and that the
-;; Schnorr signature self-certifies to the validity of the item
-;; considered as the PKey.
+;; Schnorr signature is valid. The Signed-Item carries a copy of the
+;; PKey.
 ;;
 ;; That verification includes a test of PKey being a legitimate ECC
 ;; curve point, and not a member of a small group.
