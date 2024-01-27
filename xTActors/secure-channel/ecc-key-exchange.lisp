@@ -96,6 +96,7 @@
   ;;
   ;; This version of test seems easier to comprehend.
   ;; Kind of like an Ouroboros...
+  ;;
   (ignore-errors
     (ed-validate-point pkey)
     (with-slots (item u hk) obj
