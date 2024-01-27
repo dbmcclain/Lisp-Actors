@@ -51,20 +51,17 @@
    ))
 
 ;; -----------------------------------------------------------
-;; Signed Items - data + Schnorr signature. The signature does not
-;; carry the public key.
+;; Signed Items - data + PKey + Schnorr signature.
 ;;
-;; Instead, the item must be presented by a representative who claims
-;; that it represents what they say it does, and they should furnish
-;; the public key to use for verification. Without knowing a Public
-;; Key, Signed-Items cannot be verified.
+;; An item is signed by claimant, PKey, attesting that they vouch for
+;; the item. They identify themselves with their Public Key, and
+;; provide proof that the signature was not forged.
 ;;
-;; However, Public Keys are self-verifying, since the ITEM slot is the
-;; Public Key. And that is the expected use for Signed-Items here.
+;; Signature = (u, Hk) where Hk = H(u*G + Hk*P, P, item)
 
 (defstruct (signed-item
             (:constructor %signed-item))
-  item u hk)
+  item pkey u hk)
 
 (defun signed-item (item skey)
   ;; provide a package containing item and a verifiable Schnorr
@@ -79,11 +76,12 @@
                   )))
     (%signed-item
      :item item
+     :pkey pkey
      :u    u
      :hk   hk)
     ))
 
-(defmethod verify-item ((obj signed-item) pkey)
+(defmethod verify-signature ((obj signed-item))
   ;; Verify that item was signed by pkey.
   ;;
   ;; Signature (u, Hk) provides number, u, and random hash of item, 
@@ -97,9 +95,9 @@
   ;; This version of test seems easier to comprehend.
   ;; Kind of like an Ouroboros...
   ;;
-  (ignore-errors
-    (ed-validate-point pkey)
-    (with-slots (item u hk) obj
+  (with-slots (item pkey u hk) obj
+    (ignore-errors
+      (ed-validate-point pkey)
       (let ((hpt (ed-add (ed-nth-pt u)
                          (ed-mul pkey (int hk) )
                          )))
@@ -220,15 +218,13 @@
      (become-sink)
      (when (and info
                 (encrypted-entry-p info))
-       (β (pkey-pkg)
+       (β (item)
            (send decrypt-from-database β info)
-         (when (signed-item-p pkey-pkg)
-           (multiple-value-bind (ok pkey)
-               (verify-item pkey-pkg (signed-item-item pkey-pkg))
-             (when ok
-               (send cust pkey))
-             ))
-         )))
+         (when (and (signed-item-p item)
+                    (verify-signature item))
+           (send cust (signed-item-pkey item))
+           ))
+       ))
    ))
 
 ;; -----------------------------------------------------------
@@ -335,7 +331,7 @@
    ))
 
 (defmethod store-pkey (pkey-id (pkey-pkg signed-item))
-  (when (verify-item pkey-pkg (signed-item-item pkey-pkg))
+  (when (verify-signature pkey-pkg)
     (β (enc)
         (send encrypt-for-database β pkey-pkg)
       (send kvdb:kvdb println :add pkey-id enc))
@@ -344,10 +340,8 @@
 #|
 (β (skey)
     (>> ecc-skey β)
-  (let ((pkey  (ed-nth-pt skey)))
-    (>> kvdb:kvdb println :add :my-ecc-pkeyid "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}")
-    (store-pkey "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" (signed-item pkey skey))
-    ))
+  (>> kvdb:kvdb println :add :my-ecc-pkeyid "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}")
+  (store-pkey "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" (signed-item :PKEY skey)))
 
 (β (pkey-id)
     (>> my-pkeyid β)
