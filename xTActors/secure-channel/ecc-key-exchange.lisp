@@ -122,7 +122,7 @@
   (create
    (lambda (cust seq emsg auth)
      (when (check-auth ekey seq emsg auth)
-       (send cust seq emsg)))
+       (send cust seq (copy-seq emsg)))) ;; decryption is mutating
    ))
 
 (deflex format-encoder
@@ -317,6 +317,3 @@
   (>> ecc-pkey println pkey-id))
 
  |#
-
-
-
