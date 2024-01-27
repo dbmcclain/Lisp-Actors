@@ -52,6 +52,10 @@
 
 ;; -----------------------------------------------------------
 
+(defstruct (signed-item
+            (:constructor %signed-item))
+  item u hk)
+
 (defun signed-item (item skey)
   ;; provide a package containing item and a verifiable Schnorr
   ;; signature from skey
@@ -63,10 +67,13 @@
          (u     (with-mod *ed-r*
                   (m- krand (m* (int hk) skey))
                   )))
-    (list item u hk)
+    (%signed-item
+     :item item
+     :u    u
+     :hk   hk)
     ))
 
-(defun* verify-item ((item u hk) pkey)
+(defmethod verify-item ((obj signed-item) pkey)
   ;; Verify that item was signed by pkey.
   ;;
   ;; Signature (u, Hk) provides number, u, and random hash of item, 
@@ -81,13 +88,14 @@
   ;; Kind of like an Ouroboros...
   (ignore-errors
     (ed-validate-point pkey)
-    (let ((hpt (ed-add (ed-nth-pt u)
-                       (ed-mul pkey (int hk) )
-                       )))
-      (values (hash= hk
-                     (hash/256 item hpt))
-              item)
-      )))
+    (with-slots (item u hk) obj
+      (let ((hpt (ed-add (ed-nth-pt u)
+                         (ed-mul pkey (int hk) )
+                         )))
+        (values (hash= hk
+                       (hash/256 item hpt))
+                item)
+        ))))
 
 ;; ----------------------------------------------------
 ;; Secure Storage in Database
@@ -95,6 +103,9 @@
 ;; We protect PKeys from general browsing. PKeys are always stored as
 ;; encrypted items with authentication. The PKeys are themselves
 ;; accompanied by a proof of validity.
+
+(defstruct encrypted-entry
+  iv enc auth)
 
 (deflex database-key
   (create
@@ -109,24 +120,28 @@
 
 (defun check-db-authentication (ekey)
   (create
-   (lambda* (cust (seq emsg auth))
+   (lambda (cust seq emsg auth)
      (when (check-auth ekey seq emsg auth)
        (send cust seq emsg)))
    ))
 
-(deflex base85-encoder
+(deflex format-encoder
   (create
-   (lambda (cust &rest args)
+   (lambda (cust iv enc auth)
      ;; args should all be ub8v
-     (send* cust (mapcar #'base85-str args)))
+     (send cust
+           (make-encrypted-entry
+            :iv   iv
+            :enc  enc
+            :auth auth)))
    ))
 
-(deflex base85-decoder
+(deflex format-decoder
   (create
    (lambda (cust pkt)
-     (send cust (mapcar #'(lambda (str)
-                            (vec (base85 str)))
-                        pkt)))
+     (when (encrypted-entry-p pkt)
+       (with-slots (iv enc auth) pkt
+         (send cust iv enc auth))))
    ))
 
 (defun db-encryptor (ekey)
@@ -134,10 +149,11 @@
         (marshal-compressor)
         (encryptor ekey)
         (authentication ekey)
-        base85-encoder))
+        format-encoder
+        ))
 
 (defun db-decryptor (ekey)
-  (pipe base85-decoder
+  (pipe format-decoder
         (check-db-authentication ekey)
         (decryptor ekey)
         (fail-silent-marshal-decompressor)
@@ -169,11 +185,11 @@
      ;; valid ECC point.
      (become-sink)
      (when (and info
-                (consp info))
+                (encrypted-entry-p info))
        (β (pkey-pkg)
            (send decrypt-from-database β info)
          (multiple-value-bind (ok pkey)
-             (verify-item pkey-pkg (car pkey-pkg))
+             (verify-item pkey-pkg (signed-item-item pkey-pkg))
            (when ok
              (send cust pkey))
            ))
@@ -281,11 +297,11 @@
          :find "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
    ))
 
-(defun store-pkey (pkey-id pkey-pkg)
-  (when (verify-item pkey-pkg (car pkey-pkg))
-    (β enc
+(defmethod store-pkey (pkey-id (pkey-pkg signed-item))
+  (when (verify-item pkey-pkg (signed-item-item pkey-pkg))
+    (β (enc)
         (send encrypt-for-database β pkey-pkg)
-      (send kvdb:kvdb :add pkey-id enc))
+      (send kvdb:kvdb println :add pkey-id enc))
     ))
 
 #|
