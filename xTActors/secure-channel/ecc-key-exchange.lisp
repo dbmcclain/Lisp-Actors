@@ -51,6 +51,16 @@
    ))
 
 ;; -----------------------------------------------------------
+;; Signed Items - data + Schnorr signature. The signature does not
+;; carry the public key.
+;;
+;; Instead, the item must be presented by a representative who claims
+;; that it represents what they say it does, and they should furnish
+;; the public key to use for verification. Without knowing a Public
+;; Key, Signed-Items cannot be verified.
+;;
+;; However, Public Keys are self-verifying, since the ITEM slot is the
+;; Public Key. And that is the expected use for Signed-Items here.
 
 (defstruct (signed-item
             (:constructor %signed-item))
@@ -102,7 +112,17 @@
 ;;
 ;; We protect PKeys from general browsing. PKeys are always stored as
 ;; encrypted items with authentication. The PKeys are themselves
-;; accompanied by a proof of validity.
+;; accompanied by a Schnorr signature as proof of their own validity -
+;; meaning that the originator of the Public Key knows the accompanying
+;; Secret Key.
+;;
+;; We encapsulate encrypted items in a formal struct so that you can
+;; at least visually identify such items in the database.
+;;
+;; Encryptions include an IV vector for AES-256 encryption, the
+;; encrypted data vector, and an authentication vector. Since AES-256
+;; is malleable, you need the authentication to conclude that it
+;; represents a valid database entry, and has not been altered.
 
 (defstruct encrypted-entry
   iv enc auth)
@@ -176,6 +196,19 @@
    ))
 
 ;; ----------------------------------------------
+;; A validation gate serves as an interposing customer for database
+;; queries about Public Keys.
+;;
+;; It verfies that the database entry exists, that it is an
+;; Encrypted-Entry, that it decrypts to a Signed-Item, and that the
+;; Schnorr signature self-certifies to the validity of the item
+;; considered as the PKey.
+;;
+;; That verification includes a test of PKey being a legitimate ECC
+;; curve point, not a member of a small group.
+;;
+;; IFF the PKey passes these tests, it is forwarded to the original
+;; customer.
 
 (defun pkey-validation-gate (cust)
   (create
@@ -188,17 +221,20 @@
                 (encrypted-entry-p info))
        (β (pkey-pkg)
            (send decrypt-from-database β info)
-         (multiple-value-bind (ok pkey)
-             (verify-item pkey-pkg (signed-item-item pkey-pkg))
-           (when ok
-             (send cust pkey))
-           ))
-       ))
+         (when (signed-item-p pkey-pkg)
+           (multiple-value-bind (ok pkey)
+               (verify-item pkey-pkg (signed-item-item pkey-pkg))
+             (when ok
+               (send cust pkey))
+             ))
+         )))
    ))
 
 ;; -----------------------------------------------------------
 
 (deflex ecc-pkey
+  ;; All PKey queries to the database go through a validation handler
+  ;; before being sent to the customer.
   (create
    (lambda (cust pkey-id)
      (>> kvdb:kvdb (pkey-validation-gate cust) :find pkey-id))
