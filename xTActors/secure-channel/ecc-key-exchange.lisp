@@ -87,7 +87,7 @@
   ;; Verify that item was signed by pkey.
   ;;
   ;; Signature (u, Hk) provides number, u, and random hash of item, 
-  ;; Hk = H(krand, item, P), such that:
+  ;; Hk = H(krand, P, item), such that:
   ;;
   ;;   Hk = H(u*G + Hk*P, P, item)
   ;;
