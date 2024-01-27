@@ -73,7 +73,7 @@
          (nonce (edec::ssig-nonce))
          (krand (int (hash/256 nonce item skey pkey)))
          (kpt   (ed-nth-pt krand))
-         (hk    (hash/256 item kpt))
+         (hk    (hash/256 kpt pkey item))
          (u     (with-mod *ed-r*
                   (m- krand (m* (int hk) skey))
                   )))
@@ -87,9 +87,9 @@
   ;; Verify that item was signed by pkey.
   ;;
   ;; Signature (u, Hk) provides number, u, and random hash of item, 
-  ;; Hk = H(item, krand), such that:
+  ;; Hk = H(krand, item, P), such that:
   ;;
-  ;;   Hk = H(item, u*G + Hk*P)
+  ;;   Hk = H(u*G + Hk*P, P, item)
   ;;
   ;;     -- IOW, Hk has a pre-image based on itself. Could only
   ;;        happen if pkey knows skey.
@@ -103,7 +103,7 @@
                          (ed-mul pkey (int hk) )
                          )))
         (values (hash= hk
-                       (hash/256 item hpt))
+                       (hash/256 hpt pkey item))
                 item)
         ))))
 
@@ -205,7 +205,7 @@
 ;; considered as the PKey.
 ;;
 ;; That verification includes a test of PKey being a legitimate ECC
-;; curve point, not a member of a small group.
+;; curve point, and not a member of a small group.
 ;;
 ;; IFF the PKey passes these tests, it is forwarded to the original
 ;; customer.
