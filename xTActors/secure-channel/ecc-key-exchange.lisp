@@ -195,6 +195,26 @@
        (send (db-decryptor ekey) cust data)))
    ))
 
+(deflex secure-kvdb
+  (create
+   (alambda
+    ((cust :secure-find key)
+     (β (item)
+         (send kvdb β :find key)
+       (if (encrypted-entry-p item)
+           (send decrypt-from-database cust item)
+         (send cust item))
+       ))
+
+    ((cust :secure-add key item)
+     (β (enc)
+         (send encrypt-for-database β item)
+       (send kvdb :add key enc)))
+    
+    (msg
+     (send* kvdb msg))
+    )))
+
 ;; ----------------------------------------------
 ;; A validation gate serves as an interposing customer for database
 ;; queries about Public Keys.
@@ -212,19 +232,14 @@
 
 (defun pkey-validation-gate (cust)
   (create
-   (lambda (info)
+   (lambda (item)
      ;; info should be a verifiable pkey, with proof that whoever
      ;; provided pkey also has knowledge of skey, and that pkey is a
      ;; valid ECC point.
      (become-sink)
-     (when (and info
-                (encrypted-entry-p info))
-       (β (item)
-           (send decrypt-from-database β info)
-         (when (and (signed-item-p item)
-                    (verify-signature item))
-           (send cust (signed-item-pkey item))
-           ))
+     (when (and (signed-item-p item)
+                (verify-signature item))
+       (send cust (signed-item-pkey item))
        ))
    ))
 
@@ -235,7 +250,7 @@
   ;; before being sent to the customer.
   (create
    (lambda (cust pkey-id)
-     (>> kvdb:kvdb (pkey-validation-gate cust) :find pkey-id))
+     (>> secure-kvdb (pkey-validation-gate cust) :secure-find pkey-id))
    ))
 
 ;; ------------------------------------------------------
@@ -323,27 +338,24 @@
                       (>> cust id))
                     (become-sink))
                   )))
-       (>> kvdb:kvdb gate :find :my-ecc-pkeyid)))
+       (>> secure-kvdb gate :find :my-ecc-pkeyid)))
    ))
 
 (deflex srv-pkey
   (create
    (lambda (cust)
-     (>> kvdb:kvdb (pkey-validation-gate cust)
-         :find "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
+     (>> secure-kvdb (pkey-validation-gate cust)
+         :secure-find "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
    ))
 
 (defmethod store-pkey (pkey-id (pkey-pkg signed-item))
   (when (verify-signature pkey-pkg)
-    (β (enc)
-        (send encrypt-for-database β pkey-pkg)
-      (send kvdb:kvdb println :add pkey-id enc))
-    ))
+    (send secure-kvdb println :secure-add pkey-id pkey-pkg)))
 
 #|
 (β (skey)
     (>> ecc-skey β)
-  (>> kvdb:kvdb println :add :my-ecc-pkeyid "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}")
+  (>> secure-kvdb println :add :my-ecc-pkeyid "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}")
   (store-pkey "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}" (signed-item :PKEY skey)))
 
 (β (pkey-id)
