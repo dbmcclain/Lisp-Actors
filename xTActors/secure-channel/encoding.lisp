@@ -391,7 +391,11 @@
 (defun encr/decr (ekey nonce bytevec)
   ;; Using AES/256-CTR Encryption
   ;; Each chunk of data gets its own nonce and encryption key
-  ;; ekey is hash/256, nonce is NIL or ub8-vect, bytevec is ub8-vect
+  ;; ekey is hash/256, nonce is NIL or ub8-vect, bytevec is ub8-vect.
+  ;;
+  ;; Uses in-place encrypt/decrypt. So be sure the buffer is safe to
+  ;; mutate!
+  ;;
   (let* ((nonce   (or nonce
                       (subseq
                        (vec (hash/256 :NONCE
@@ -412,13 +416,31 @@
   (actor 
       (lambda (cust bytevec)
         (let ((nonce (encr/decr ekey nil bytevec)))
-          (>> cust nonce bytevec)))))
+          (>> cust nonce bytevec)))
+      ))
+
+(defun non-destructive-encryptor (ekey)
+  (actor
+   (lambda (cust bytevec)
+     (let* ((buf   (copy-seq bytevec))
+            (nonce (encr/decr ekey nil buf)))
+       (>> cust nonce buf)))
+   ))
 
 (defun decryptor (ekey)
   (actor
       (lambda (cust seq bytevec)
         (encr/decr ekey seq bytevec)
-        (>> cust bytevec))))
+        (>> cust bytevec))
+      ))
+
+(defun non-destructive-decryptor (ekey)
+  (actor
+   (lambda (cust seq bytevec)
+     (let ((buf  (copy-seq bytevec)))
+       (encr/decr ekey seq buf)
+       (>> cust buf)))
+   ))
 
 #|
 (defun encryptor (ekey)

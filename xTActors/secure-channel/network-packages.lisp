@@ -51,6 +51,8 @@
    #:noncer
    #:encryptor
    #:decryptor
+   #:non-destructive-encryptor
+   #:non-destructive-decryptor
    #:authentication
    #:check-authentication
    #:signing

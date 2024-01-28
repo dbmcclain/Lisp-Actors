@@ -18,7 +18,8 @@
 
 (um:eval-always
   (import '(com.ral.actors.encoding:make-auth
-            com.ral.actors.encoding:check-auth)))
+            com.ral.actors.encoding:check-auth
+            com.ral.actors.encoding:non-destructive-decryptor)))
 
 ;; ----------------------------------
 ;;
@@ -141,7 +142,7 @@
   (create
    (lambda (cust seq emsg auth)
      (when (check-auth ekey seq emsg auth)
-       (send cust seq (copy-seq emsg)))) ;; decryption is mutating
+       (send cust seq emsg)))
    ))
 
 (deflex format-encoder
@@ -174,7 +175,7 @@
 (defun db-decryptor (ekey)
   (pipe format-decoder
         (check-db-authentication ekey)
-        (decryptor ekey)
+        (non-destructive-decryptor ekey)
         (fail-silent-marshal-decompressor)
         (fail-silent-marshal-decoder)))
 
