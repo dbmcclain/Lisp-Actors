@@ -305,7 +305,8 @@
   (create
    (lambda (cust pubkey &rest info)
      (let+ ((:mvb (rand rand-tau)
-             (compute-deterministic-elligator-skey :CONNECT (int (uuid:make-v1-uuid)))))
+             (compute-deterministic-elligator-skey
+              :CONNECT (int (uuid:make-v1-uuid)))))
        (ignore-errors
          (let+ ((enc-pt     (ed-mul pubkey rand))
                 (aes-key    (aes-packet-key enc-pt))
@@ -347,8 +348,7 @@
 (deflex srv-pkey
   (create
    (lambda (cust)
-     (>> secure-kvdb (pkey-validation-gate cust)
-         :find "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
+     (>> ecc-pkey cust "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
    ))
 
 (defmethod store-pkey (pkey-id (pkey-pkg signed-item))
