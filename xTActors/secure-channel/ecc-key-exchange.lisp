@@ -198,7 +198,7 @@
 (deflex secure-kvdb
   (create
    (alambda
-    ((cust :secure-find key)
+    ((cust :find key)
      (β (item)
          (send kvdb β :find key)
        (if (encrypted-entry-p item)
@@ -250,7 +250,7 @@
   ;; before being sent to the customer.
   (create
    (lambda (cust pkey-id)
-     (>> secure-kvdb (pkey-validation-gate cust) :secure-find pkey-id))
+     (>> secure-kvdb (pkey-validation-gate cust) :find pkey-id))
    ))
 
 ;; ------------------------------------------------------
@@ -345,7 +345,7 @@
   (create
    (lambda (cust)
      (>> secure-kvdb (pkey-validation-gate cust)
-         :secure-find "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
+         :find "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
    ))
 
 (defmethod store-pkey (pkey-id (pkey-pkg signed-item))
