@@ -21,6 +21,9 @@
         (>>* cust msg))))
 |#
 
+;; (defconstant +ECC-CURVE+ :curve1174)
+(defconstant +ECC-CURVE+ :curve-e521)
+
 #-:lattice-crypto
 (defun server-crypto-gateway (socket local-services)
   ;; Foreign clients first make contact with us here. They send us
@@ -40,9 +43,10 @@
             (:β (brand bpt aescrypt) (racurry eccke:ecc-cnx-encrypt
                                               client-pkey client-id cnx-id))
             (:β (my-skey)      eccke:ecc-skey)
-            (ekey (hash/256 (ed-mul apt brand)            ;; A*b
-                            (ed-mul client-pkey brand)    ;; C*b
-                            (ed-mul apt my-skey)) )       ;; A*s
+            (ekey (with-ed-curve +ECC-CURVE+
+                    (hash/256 (ed-mul apt brand)            ;; A*b
+                              (ed-mul client-pkey brand)    ;; C*b
+                              (ed-mul apt my-skey)) ))       ;; A*s
             (:β _  (>> local-services β :set-crypto ekey socket)))
        (>> socket bpt aescrypt)))
     

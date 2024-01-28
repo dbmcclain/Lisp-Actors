@@ -21,6 +21,9 @@
             com.ral.actors.encoding:check-auth
             com.ral.actors.encoding:non-destructive-decryptor)))
 
+;; (defconstant +ECC-CURVE+ :curve1174)
+(defconstant +ECC-CURVE+ :curve-e521)
+
 ;; ----------------------------------
 ;;
 ;; Store skey seed in system keychain with:
@@ -45,7 +48,8 @@
             (get-seed ()
               (with-open-file (f "~/.my-syzygy")
                 (read f))) )
-       (let ((skey (make-deterministic-keys :skey (get-seed))))
+       (let ((skey (with-ed-curve +ECC-CURVE+
+                     (make-deterministic-keys :skey (get-seed)))))
          (>> cust skey)
          (β! (const-beh skey)))
        ))
@@ -67,20 +71,21 @@
 (defun signed-item (item skey)
   ;; provide a package containing item and a verifiable Schnorr
   ;; signature from skey
-  (let* ((pkey  (ed-nth-pt skey))
-         (nonce (edec::ssig-nonce))
-         (krand (int (hash/256 nonce item skey pkey)))
-         (kpt   (ed-nth-pt krand))
-         (hk    (hash/256 kpt pkey item))
-         (u     (with-mod *ed-r*
-                  (m- krand (m* (int hk) skey))
-                  )))
-    (%signed-item
-     :item item
-     :pkey pkey
-     :u    u
-     :hk   hk)
-    ))
+  (with-ed-curve +ECC-CURVE+
+    (let* ((pkey  (ed-nth-pt skey))
+           (nonce (edec::ssig-nonce))
+           (krand (int (hash/256 nonce item skey pkey)))
+           (kpt   (ed-nth-pt krand))
+           (hk    (hash/256 kpt pkey item))
+           (u     (with-mod *ed-r*
+                    (m- krand (m* (int hk) skey))
+                    )))
+      (%signed-item
+       :item item
+       :pkey (ed-compress-pt pkey)
+       :u    u
+       :hk   hk)
+      )))
 
 (defmethod verify-signature ((obj signed-item))
   ;; Verify that item was signed by pkey.
@@ -97,15 +102,17 @@
   ;; Kind of like an Ouroboros...
   ;;
   (with-slots (item pkey u hk) obj
-    (ignore-errors
-      (ed-validate-point pkey)
-      (let ((hpt (ed-add (ed-nth-pt u)
-                         (ed-mul pkey (int hk) )
-                         )))
-        (values (hash= hk
-                       (hash/256 hpt pkey item))
-                item)
-        ))))
+    (with-ed-curve +ECC-CURVE+
+      (let ((pkey (ed-decompress-pt pkey)))
+        (ignore-errors
+          (ed-validate-point pkey)
+          (let ((hpt (ed-add (ed-nth-pt u)
+                             (ed-mul pkey (int hk) )
+                             )))
+            (values (hash= hk
+                           (hash/256 hpt pkey item))
+                    item)
+            ))))))
 
 (defmethod verify-signature (obj)
   ;; no signature to verify, so NO
@@ -242,7 +249,8 @@
      ;; valid ECC point.
      (become-sink)
      (when (verify-signature item)
-       (send cust (signed-item-pkey item))
+       (send cust (with-ed-curve +ECC-CURVE+
+                    (ed-decompress-pt (signed-item-pkey item))))
        ))
    ))
 
@@ -304,30 +312,32 @@
 (deflex ecc-cnx-encrypt
   (create
    (lambda (cust pubkey &rest info)
-     (let+ ((:mvb (rand rand-tau)
-             (compute-deterministic-elligator-skey
-              :CONNECT (int (uuid:make-v1-uuid)))))
-       (ignore-errors
-         (let+ ((enc-pt     (ed-mul pubkey rand))
-                (aes-key    (aes-packet-key enc-pt))
-                (aes-packet (<<* #'make-aes-packet aes-key info)))
-           (>> cust rand rand-tau aes-packet)
-           ))))
+     (with-ed-curve +ECC-CURVE+
+       (let+ ((:mvb (rand rand-tau)
+               (compute-deterministic-elligator-skey
+                :CONNECT (int (uuid:make-v1-uuid)))))
+         (ignore-errors
+           (let+ ((enc-pt     (ed-mul pubkey rand))
+                  (aes-key    (aes-packet-key enc-pt))
+                  (aes-packet (<<* #'make-aes-packet aes-key info)))
+             (>> cust rand rand-tau aes-packet)
+             )))))
    ))
 
 (deflex ecc-cnx-decrypt
   (create
    (lambda (cust rand-tau aes-packet)
-     (let+ ((:β (skey) ecc-skey)
-            (rand-pt   (elli2-decode rand-tau)))
-       (ignore-errors
-         (ed-validate-point rand-pt)
-         (let+ ((enc-pt   (ed-mul rand-pt skey))
-                (aes-key  (aes-packet-key enc-pt))
-                (info     (decode-aes-packet aes-key aes-packet)))
-           (>> cust (ed-affine rand-pt) info)
-           ))
-       ))
+     (let+ ((:β (skey) ecc-skey))
+       (with-ed-curve +ECC-CURVE+
+         (let+ ((rand-pt   (elli2-decode rand-tau)))
+           (ignore-errors
+             (ed-validate-point rand-pt)
+             (let+ ((enc-pt   (ed-mul rand-pt skey))
+                    (aes-key  (aes-packet-key enc-pt))
+                    (info     (decode-aes-packet aes-key aes-packet)))
+               (>> cust (ed-affine rand-pt) info)
+               )))
+         )))
    ))
 
 ;; ----------------------------------------------------

@@ -207,6 +207,9 @@
 ;;
 ;; ----------------------------------------------------------------
 
+;; (defconstant +ECC-CURVE+ :curve1174)
+(defconstant +ECC-CURVE+ :curve-e521)
+
 #-:lattice-crypto
 (deflex negotiator
   (create
@@ -221,9 +224,10 @@
                           ((bpt server-id) /  (and (typep bpt         'ecc-pt)
                                                    (typep server-id   'uuid:uuid))
                            (let+ ((:β (my-skey)  eccke:ecc-skey)
-                                  (ekey  (hash/256 (ed-mul bpt arand)           ;; B*a
-                                                   (ed-mul bpt my-skey)         ;; B*c
-                                                   (ed-mul srv-pkey arand)))    ;; S*a
+                                  (ekey  (with-ed-curve +ECC-CURVE+
+                                           (hash/256 (ed-mul bpt arand)           ;; B*a
+                                                     (ed-mul bpt my-skey)         ;; B*c
+                                                     (ed-mul srv-pkey arand))))    ;; S*a
                                   (chan  (create
                                           (lambda (&rest msg)
                                             (>>* local-services :ssend server-id msg))
