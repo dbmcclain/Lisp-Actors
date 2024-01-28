@@ -107,6 +107,10 @@
                 item)
         ))))
 
+(defmethod verify-signature (obj)
+  ;; no signature to verify, so NO
+  nil)
+
 ;; ----------------------------------------------------
 ;; Secure Storage in Database
 ;;
@@ -237,8 +241,7 @@
      ;; provided pkey also has knowledge of skey, and that pkey is a
      ;; valid ECC point.
      (become-sink)
-     (when (and (signed-item-p item)
-                (verify-signature item))
+     (when (verify-signature item)
        (send cust (signed-item-pkey item))
        ))
    ))
