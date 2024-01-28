@@ -229,11 +229,26 @@
    ;; -------------------------------------------------------------------
    ;; encrypted handshake pair
    
+   #-:lattice-crypto
+   ((rand-tau aescrypt) / (and (null decryptor)
+                              (consp aescrypt))
+    (let+ ((:β (rand-pt info)
+               (racurry eccke:ecc-cnx-decrypt rand-tau aescrypt)))
+      (when (and (consp info)
+                 (typep (car info) 'uuid:uuid))
+        (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
+          (when pair
+            (let ((svc  (cdr pair)))
+              (>>* (local-service-handler svc) rand-pt (cdr info))
+              ))))
+      ))
+        
    #+:lattice-crypto
    ((latcrypt aescrypt) / (and (null decryptor) ;; i.e., only valid during initial handshake dance
                                (typep latcrypt 'vector)
                                (consp aescrypt))
-    (let+ ((:β (rkey info)  (racurry lattice-ke:cnx-packet-decoder latcrypt aescrypt)) )
+    (let+ ((:β (rkey info)
+               (racurry lattice-ke:cnx-packet-decoder latcrypt aescrypt)) )
       (when (typep (car info) 'uuid:uuid)
         (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
           (when pair
@@ -242,19 +257,6 @@
               ))))
       ))
 
-   #-:lattice-crypto
-   ((rand-pt aescrypt) / (and (null decryptor)
-                              (typep rand-pt 'edec:ecc-pt)
-                              (consp aescrypt))
-    (let+ ((:β (info)  (racurry eccke:ecc-cnx-decrypt rand-pt aescrypt)))
-      (when (typep (car info) 'uuid:uuid)
-        (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
-          (when pair
-            (let ((svc  (cdr pair)))
-              (>>* (local-service-handler svc) rand-pt (cdr info))
-              ))))
-      ))
-        
    ;; -------------------------------------------------------------------
    ;; encrypted socket delivery -- decryptor decodes the message and
    ;; sends back to us as an unencrypted socket delivery (see previous

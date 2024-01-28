@@ -277,6 +277,7 @@
       )))
 
 ;; ----------------------------------------------------
+;; We have Elligators for just this purpose. Let's use them here.
 
 (defun aes-packet-key (pt)
   (vec (hash/256 :ecc-cnx-key pt)))
@@ -284,26 +285,27 @@
 (deflex ecc-cnx-encrypt
   (create
    (lambda (cust pubkey &rest info)
-     (let+ ((:mvb (rand rand-pt) (ed-random-pair)))
+     (let+ ((:mvb (rand rand-tau)
+             (compute-deterministic-elligator-skey :CONNECT (int (uuid:make-v1-uuid)))))
        (ignore-errors
          (let+ ((enc-pt     (ed-mul pubkey rand))
                 (aes-key    (aes-packet-key enc-pt))
                 (aes-packet (<<* #'make-aes-packet aes-key info)))
-           (>> cust rand (ed-affine rand-pt) aes-packet)
+           (>> cust rand rand-tau aes-packet)
            ))))
    ))
 
 (deflex ecc-cnx-decrypt
   (create
-   (lambda (cust rand-pt aes-packet)
-     (let+ ((:β (skey) ecc-skey))
+   (lambda (cust rand-tau aes-packet)
+     (let+ ((:β (skey) ecc-skey)
+            (rand-pt   (elli2-decode rand-tau)))
        (ignore-errors
          (ed-validate-point rand-pt)
          (let+ ((enc-pt   (ed-mul rand-pt skey))
                 (aes-key  (aes-packet-key enc-pt))
                 (info     (decode-aes-packet aes-key aes-packet)))
-           (when (consp info)
-             (>> cust info))
+           (>> cust (ed-affine rand-pt) info)
            ))
        ))
    ))
