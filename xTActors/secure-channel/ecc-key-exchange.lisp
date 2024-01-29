@@ -49,7 +49,9 @@
               (with-open-file (f "~/.my-syzygy")
                 (read f))) )
        (let ((skey (with-ed-curve +ECC-CURVE+
-                     (make-deterministic-keys :skey (get-seed)) )))
+                     (compute-deterministic-elligator-skey :skey (get-seed))
+                     ;; (make-deterministic-keys :skey (get-seed))
+                     )))
          (>> cust skey)
          (β! (const-beh skey)))
        ))
