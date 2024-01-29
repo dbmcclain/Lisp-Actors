@@ -207,8 +207,10 @@
 ;;
 ;; ----------------------------------------------------------------
 
-;; (defconstant +ECC-CURVE+ :curve1174)
-(defconstant +ECC-CURVE+ :curve-e521)
+#-:lattice-crypto
+(um:eval-always
+  (import '(com.ral.crypto.ecc-key-exchange:+ECC-CURVE+
+            )))
 
 #-:lattice-crypto
 (deflex negotiator

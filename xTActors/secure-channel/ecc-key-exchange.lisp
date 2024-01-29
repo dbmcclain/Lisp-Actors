@@ -12,6 +12,7 @@
    #:ecc-pkey
    #:my-pkeyid
    #:srv-pkey
+   #:+ECC-CURVE+
    ))
 
 (in-package #:com.ral.crypto.ecc-key-exchange)
