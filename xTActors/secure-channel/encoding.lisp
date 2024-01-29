@@ -25,6 +25,9 @@
             edec:*ed-r*
             edec:ed-pt=
             edec:with-ed-curve
+            edec:compute-deterministic-elligator-skey
+            edec:elli2-decode
+            com.ral.crypto.ecc-key-exchange:+ECC-CURVE+
             modmath:with-mod
             modmath:m+
             modmath:m*
@@ -445,26 +448,23 @@
 
 ;; ---------------------------------------------
 
-(um:eval-always
-  (import '(com.ral.crypto.ecc-key-exchange:+ECC-CURVE+
-            )))
-
 (defun next-ekey (&rest args)
   (apply #'hash/256 :next-ekey args))
 
 (defun advancing-encryptor-beh (ekey pkey)
   (lambda (cust bytevec)
     (with-ed-curve +ECC-CURVE+
-      (let* ((krand (prng:ctr-drbg-int (integer-length *ed-r*)))
-             (dhpt  (ed-nth-pt krand))
-             (msgv  (loenc:encode (list dhpt bytevec)))
-             (nonce (encr/decr ekey nil msgv))
-             (auth  (make-auth ekey nonce msgv)))
-        (>> cust nonce msgv auth)
-        (become (advancing-encryptor-beh
-                 (next-ekey ekey (ed-mul pkey krand))
-                 pkey))
-        ))))
+      (multiple-value-bind (dh-rand dh-tau)
+          (compute-deterministic-elligator-skey :dh-key ekey)
+        (let* ((msgv  (loenc:encode (list dh-tau bytevec)))
+               (nonce (encr/decr ekey nil msgv))
+               (auth  (make-auth ekey nonce msgv)))
+          (>> cust nonce msgv auth)
+          (become (advancing-encryptor-beh
+                   (next-ekey ekey (ed-mul pkey dh-rand))
+                   pkey))
+          )))
+    ))
 
 (defun advancing-encryptor (ekey pkey)
   (create (advancing-encryptor-beh ekey pkey)))
@@ -478,11 +478,11 @@
         (>> socket :auth-key seq (vec auth-key))
         (encr/decr ekey seq bytevec)
         (with-ed-curve +ECC-CURVE+
-          (destructuring-bind (dhpt msg)
+          (destructuring-bind (dh-tau msg)
               (loenc:decode bytevec)
             (send cust msg)
             (become (advancing-decryptor-beh
-                     (next-ekey ekey (ed-mul dhpt skey))
+                     (next-ekey ekey (ed-mul (elli2-decode dh-tau) skey))
                      socket skey))))
         ))))
   
