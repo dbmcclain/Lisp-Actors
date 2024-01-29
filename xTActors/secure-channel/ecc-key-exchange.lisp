@@ -49,7 +49,7 @@
               (with-open-file (f "~/.my-syzygy")
                 (read f))) )
        (let ((skey (with-ed-curve +ECC-CURVE+
-                     (make-deterministic-keys :skey (get-seed)))))
+                     (make-deterministic-keys :skey (get-seed)) )))
          (>> cust skey)
          (β! (const-beh skey)))
        ))
@@ -103,8 +103,8 @@
   ;;
   (with-slots (item pkey u hk) obj
     (with-ed-curve +ECC-CURVE+
-      (let ((pkey (ed-decompress-pt pkey)))
-        (ignore-errors
+      (ignore-errors
+        (let ((pkey (ed-decompress-pt pkey)))
           (ed-validate-point pkey)
           (let ((hpt (ed-add (ed-nth-pt u)
                              (ed-mul pkey (int hk) )
@@ -220,7 +220,7 @@
     ((cust :secure-add key item)
      (β (enc)
          (send encrypt-for-database β item)
-       (send kvdb :add key enc)))
+       (send kvdb cust :add key enc)))
     
     (msg
      (send* kvdb msg))
@@ -312,31 +312,32 @@
 (deflex ecc-cnx-encrypt
   (create
    (lambda (cust pubkey &rest info)
-     (with-ed-curve +ECC-CURVE+
-       (let+ ((:mvb (rand rand-tau)
-               (compute-deterministic-elligator-skey
-                :CONNECT (int (uuid:make-v1-uuid)))))
-         (ignore-errors
-           (let+ ((enc-pt     (ed-mul pubkey rand))
-                  (aes-key    (aes-packet-key enc-pt))
-                  (aes-packet (<<* #'make-aes-packet aes-key info)))
-             (>> cust rand rand-tau aes-packet)
-             )))))
+     (ignore-errors
+       (with-ed-curve +ECC-CURVE+
+         (let+ ((:mvb (rand rand-tau)
+                 (compute-deterministic-elligator-skey
+                  :CONNECT (uuid:make-v1-uuid)))
+                (enc-pt     (ed-mul pubkey rand))
+                (aes-key    (aes-packet-key enc-pt))
+                (aes-packet (apply #'make-aes-packet aes-key info)))
+           (>> cust rand rand-tau aes-packet)
+           ))
+       ))
    ))
 
 (deflex ecc-cnx-decrypt
   (create
    (lambda (cust rand-tau aes-packet)
      (let+ ((:β (skey) ecc-skey))
-       (with-ed-curve +ECC-CURVE+
-         (let+ ((rand-pt   (elli2-decode rand-tau)))
-           (ignore-errors
-             (ed-validate-point rand-pt)
-             (let+ ((enc-pt   (ed-mul rand-pt skey))
-                    (aes-key  (aes-packet-key enc-pt))
-                    (info     (decode-aes-packet aes-key aes-packet)))
-               (>> cust (ed-affine rand-pt) info)
-               )))
+       (ignore-errors
+         (with-ed-curve +ECC-CURVE+
+           (let+ ((rand-pt  (elli2-decode rand-tau))
+                  (_        (ed-validate-point rand-pt))
+                  (enc-pt   (ed-mul rand-pt skey))
+                  (aes-key  (aes-packet-key enc-pt))
+                  (info     (decode-aes-packet aes-key aes-packet)))
+             (>> cust (ed-affine rand-pt) info)
+             ))
          )))
    ))
 

@@ -139,15 +139,18 @@
 
 ;; -------------------------------------------------------
 
-(defun compute-deterministic-elligator-skey (seed &optional (index 0))
+(defun compute-deterministic-elligator-skey (&rest seeds)
   ;; compute a private key from the seed that is safe, and produces an
   ;; Elligator-capable public key.
-  (let* ((skey (compute-deterministic-skey seed index))
-         (pkey (ed-nth-pt skey))
-         (tau  (elli2-encode pkey)))
-    (if tau
-        (values skey tau index)
-      (compute-deterministic-elligator-skey seed (1+ index)))
+  (labels ((helper (seed index)
+             (let* ((skey (compute-deterministic-skey seed index))
+                    (pkey (ed-nth-pt skey))
+                    (tau  (elli2-encode pkey)))
+               (if tau
+                   (values skey tau index)
+                 (helper seed (1+ index)))
+               )))
+    (helper seeds 0)
     ))
 
 (defun compute-elligator-summed-pkey (sum-pkey)
