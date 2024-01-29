@@ -206,6 +206,46 @@
 ;; Trevor Perrin and Moxie Marlinspike of Signal Foundation.
 ;;
 ;; ----------------------------------------------------------------
+;;
+;;           === Double-Ratchet Encryption Advancing ===
+;;
+;; We now use a double-ratchet mechanism to advance the encryption
+;; keying on every message exchange. The sender of a message chooses a
+;; random DH point and transmits that along with the message. The pair
+;; are encrypted and authenticated, usng the shared session key, for
+;; transmission over the network.
+;;
+;; The random (DHpt = krand*G) implies a new shared DH key, (DHKey =
+;; krand*PKey = skey*DHpt), between both parties, where PKey is the
+;; recipient's Public Key, and skey is our own Secret Key.
+;;
+;; On the sender side, the new DH Key will be (krand*PKey), using the
+;; Public Key of the recipient. A new session encryption key is formed
+;; by hashing together the existing sesion encryption key and this new
+;; DHKey.
+;;
+;; On reception of a message, the current session key is used to
+;; authenticate and decrypt the incoming message. The random DH point
+;; is peeled off and the rest of the message is forwarded to the
+;; customer.
+;;
+;; The random DH point is multiplied by the Secret Key to find the new
+;; shared DH session key, and the next shared encryption key will be
+;; the hash of the current session key and this new DH key.
+;;
+;; There is no need to remember message ID's for protection against
+;; replay attacks. There can be no valid replay messsages.  Every new
+;; messsage is sent using a fresh key, and all older keys will have
+;; been forgotten. So any replayed messages simply won't authenticate
+;; under the advancing session keying.
+;;
+;; Just knowing a session key is not enough to enable breaking into
+;; future messages, nor any past messages. And getting the next
+;; encryption key is more than merely hashing the existing key.  You
+;; also have to know how to compute the next shared DHKey for the
+;; session. This is the double ratchet.
+;;
+;; ---------------------------------------------------------------
 
 #-:lattice-crypto
 (um:eval-always
