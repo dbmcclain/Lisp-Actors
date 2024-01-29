@@ -220,16 +220,16 @@
 ;; recipient's Public Key, and skey is our own Secret Key.
 ;;
 ;; On the sender side, the new DH Key will be (krand*PKey), using the
-;; Public Key of the recipient. A new session encryption key is formed
-;; by hashing together the existing sesion encryption key and this new
-;; DHKey.
+;; Public Key of the recipient. A new session next encryption key is
+;; formed by hashing together the existing session encryption key and
+;; this new DHKey.
 ;;
 ;; On reception of a message, the current session key is used to
 ;; authenticate and decrypt the incoming message. The random DH point
 ;; is peeled off and the rest of the message is forwarded to the
 ;; customer.
 ;;
-;; The random DH point is multiplied by the Secret Key to find the new
+;; The random DH point is multiplied by our Secret Key to find the new
 ;; shared DH session key, and the next shared encryption key will be
 ;; the hash of the current session key and this new DH key.
 ;;
