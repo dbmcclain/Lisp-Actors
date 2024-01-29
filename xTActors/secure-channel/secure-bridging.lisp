@@ -187,11 +187,11 @@
       (β! (local-services-beh new-svcs encryptor decryptor))
       (>> cust :ok)))
    
-   ((cust :set-crypto ekey socket)
+   ((cust :set-crypto ekey socket skey pkey)
     ;; after this we promptly forget ekey...
-    (let ((encryptor (sink-pipe (secure-sender ekey self)
+    (let ((encryptor (sink-pipe (secure-sender ekey self pkey)
                                 socket))
-          (decryptor (sink-pipe (secure-reader ekey self socket)
+          (decryptor (sink-pipe (secure-reader ekey self socket skey)
                                 self)))
       (β! (local-services-beh svcs encryptor decryptor))
       (>> cust :ok)))
@@ -392,7 +392,7 @@
 ;; client and server is that client begins the channel connection, and
 ;; server offers to supply global services.
 
-(defun secure-sender (ekey local-services)
+(defun secure-sender (ekey local-services pkey)
   (pipe (client-marshal-encoder local-services) ;; translate Actors to CLIENT-PROXY's
         (marshal-compressor)
         ;; (chunker 65000)  ;; Async Sockets already chunk/dechunk data
@@ -401,15 +401,15 @@
         (encryptor ekey)
         (authentication ekey)
         |#
-        (advancing-encryptor ekey)
+        (advancing-encryptor ekey pkey)
         ))
   
-(defun secure-reader (ekey local-services socket)
+(defun secure-reader (ekey local-services socket skey)
   (pipe #|
         (check-authentication ekey socket)
         (decryptor ekey)
         |#
-        (advancing-decryptor ekey socket)
+        (advancing-decryptor ekey socket skey)
         ;; (fail-silent-marshal-decoder) ;; Async Sockets already chunk/dechunk data
         ;; (dechunker)
         (fail-silent-marshal-decompressor)

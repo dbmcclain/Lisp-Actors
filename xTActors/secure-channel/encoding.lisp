@@ -24,6 +24,7 @@
             edec:ed-nth-pt
             edec:*ed-r*
             edec:ed-pt=
+            edec:with-ed-curve
             modmath:with-mod
             modmath:m+
             modmath:m*
@@ -444,34 +445,49 @@
 
 ;; ---------------------------------------------
 
-(defun next-ekey (ekey)
-  (hash/256 :next-ekey ekey))
+(um:eval-always
+  (import '(com.ral.crypto.ecc-key-exchange:+ECC-CURVE+
+            )))
 
-(defun advancing-encryptor-beh (ekey)
+(defun next-ekey (&rest args)
+  (apply #'hash/256 :next-ekey args))
+
+(defun advancing-encryptor-beh (ekey pkey)
   (lambda (cust bytevec)
-    (let* ((nonce (encr/decr ekey nil bytevec))
-           (auth  (make-auth ekey nonce bytevec)))
-      (>> cust nonce bytevec auth)
-      (become (advancing-encryptor-beh (next-ekey ekey)))
-      )))
+    (with-ed-curve +ECC-CURVE+
+      (let* ((krand (prng:ctr-drbg-int (integer-length *ed-r*)))
+             (dhpt  (ed-nth-pt krand))
+             (msgv  (loenc:encode (list dhpt bytevec)))
+             (nonce (encr/decr ekey nil msgv))
+             (auth  (make-auth ekey nonce msgv)))
+        (>> cust nonce msgv auth)
+        (become (advancing-encryptor-beh
+                 (next-ekey ekey (ed-mul pkey krand))
+                 pkey))
+        ))))
 
-(defun advancing-encryptor (ekey)
-  (create (advancing-encryptor-beh ekey)))
+(defun advancing-encryptor (ekey pkey)
+  (create (advancing-encryptor-beh ekey pkey)))
 
 
-(defun advancing-decryptor-beh (ekey socket)
+(defun advancing-decryptor-beh (ekey socket skey)
   (lambda (cust seq bytevec auth)
     (multiple-value-bind (is-ok auth-key)
         (check-auth ekey seq bytevec auth)
       (when is-ok
         (>> socket :auth-key seq (vec auth-key))
         (encr/decr ekey seq bytevec)
-        (send cust bytevec)
-        (become (advancing-decryptor-beh (next-ekey ekey) socket)))
-      )))
-
-(defun advancing-decryptor (ekey socket)
-  (create (advancing-decryptor-beh ekey socket)))
+        (with-ed-curve +ECC-CURVE+
+          (destructuring-bind (dhpt msg)
+              (loenc:decode bytevec)
+            (send cust msg)
+            (become (advancing-decryptor-beh
+                     (next-ekey ekey (ed-mul dhpt skey))
+                     socket skey))))
+        ))))
+  
+(defun advancing-decryptor (ekey socket skey)
+  (create (advancing-decryptor-beh ekey socket skey)))
 
 
 #|

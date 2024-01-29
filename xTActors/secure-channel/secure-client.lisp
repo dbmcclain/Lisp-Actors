@@ -229,12 +229,13 @@
                                   (ekey  (with-ed-curve +ECC-CURVE+
                                            (hash/256 (ed-mul bpt arand)           ;; B*a
                                                      (ed-mul bpt my-skey)         ;; B*c
-                                                     (ed-mul srv-pkey arand))))    ;; S*a
+                                                     (ed-mul srv-pkey arand))))   ;; S*a
                                   (chan  (create
                                           (lambda (&rest msg)
                                             (>>* local-services :ssend server-id msg))
                                           ))
-                                  (:β _  (racurry local-services :set-crypto ekey socket)))
+                                  (:β _  (racurry local-services :set-crypto
+                                                  ekey socket my-skey srv-pkey)))
                              (>> connections cust :set-channel socket chan)
                              ))
                           
