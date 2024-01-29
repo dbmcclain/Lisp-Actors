@@ -397,13 +397,19 @@
         (marshal-compressor)
         ;; (chunker 65000)  ;; Async Sockets already chunk/dechunk data
         ;; (marshal-encoder)
+        #|
         (encryptor ekey)
         (authentication ekey)
+        |#
+        (advancing-encryptor ekey)
         ))
   
 (defun secure-reader (ekey local-services socket)
-  (pipe (check-authentication ekey socket)
+  (pipe #|
+        (check-authentication ekey socket)
         (decryptor ekey)
+        |#
+        (advancing-decryptor ekey socket)
         ;; (fail-silent-marshal-decoder) ;; Async Sockets already chunk/dechunk data
         ;; (dechunker)
         (fail-silent-marshal-decompressor)

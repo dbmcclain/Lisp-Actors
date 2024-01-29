@@ -442,6 +442,38 @@
        (>> cust buf)))
    ))
 
+;; ---------------------------------------------
+
+(defun next-ekey (ekey)
+  (hash/256 :next-ekey ekey))
+
+(defun advancing-encryptor-beh (ekey)
+  (lambda (cust bytevec)
+    (let* ((nonce (encr/decr ekey nil bytevec))
+           (auth  (make-auth ekey nonce bytevec)))
+      (>> cust nonce bytevec auth)
+      (become (advancing-encryptor-beh (next-ekey ekey)))
+      )))
+
+(defun advancing-encryptor (ekey)
+  (create (advancing-encryptor-beh ekey)))
+
+
+(defun advancing-decryptor-beh (ekey socket)
+  (lambda (cust seq bytevec auth)
+    (multiple-value-bind (is-ok auth-key)
+        (check-auth ekey seq bytevec auth)
+      (when is-ok
+        (>> socket :auth-key seq (vec auth-key))
+        (encr/decr ekey seq bytevec)
+        (send cust bytevec)
+        (become (advancing-decryptor-beh (next-ekey ekey) socket)))
+      )))
+
+(defun advancing-decryptor (ekey socket)
+  (create (advancing-decryptor-beh ekey socket)))
+
+
 #|
 (defun encryptor (ekey)
   ;; Takes a bytevec and produces an encrypted bytevec.
