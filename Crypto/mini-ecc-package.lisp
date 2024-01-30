@@ -240,6 +240,7 @@ THE SOFTWARE.
    #:mchi
    #:quadratic-residue-p
    #:m!
+   #:mabs
 
    #:msqrt*
    #:mmax

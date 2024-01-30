@@ -46,6 +46,11 @@ THE SOFTWARE.
     (:darwin     "libLispCurve1174.dylib")
     (:linux      "libLispCurve1174.so")
     (t (:default "libLispCurve1174")))
+  (cffi:define-foreign-library
+      :libCurveE521
+    (:darwin     "libLispCurveE521.dylib")
+    (:linux      "libLispCurveE521.so")
+    (t (:default "libLispCurveE521")))
   #|
   (cffi:define-foreign-library
       :libLispPBC 
@@ -67,6 +72,11 @@ THE SOFTWARE.
    (:darwin     "libLispCurve1174.dylib")
    (:linux      "libLispCurve1174.so")
    (t (:default "libLispCurve1174")))
+  (cffi:define-foreign-library
+      :libCurveE521
+    (:darwin     "libLispCurveE521.dylib")
+    (:linux      "libLispCurveE521.so")
+    (t (:default "libLispCurveE521")))
   #|
   (cffi:define-foreign-library
       :libLispPBC
@@ -156,7 +166,9 @@ THE SOFTWARE.
     (with-aimed-load-paths
       ;; (cffi:use-foreign-library :libLispPBC)
       (cffi:use-foreign-library :libEd3363)
-      (cffi:use-foreign-library :libCurve1174)))
+      (cffi:use-foreign-library :libCurve1174)
+      (cffi:use-foreign-library :libCurveE521)
+      ))
    
    (t
     (format t " -- Skip re-loading libraries"))
@@ -168,6 +180,7 @@ THE SOFTWARE.
     ;; (cffi:close-foreign-library :libLispPBC)
     (cffi:close-foreign-library :libed3363)
     (cffi:close-foreign-library :libcurve1174)
+    (cffi:close-foreign-library :libCurveE521)
     (setf *load-counter* 0)
     ))
 

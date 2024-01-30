@@ -187,6 +187,9 @@ THE SOFTWARE.
 (defun m- (&rest args)
   (mmod (apply '- args)))
 
+(defun mabs (x)
+  (min x (- (mod-base) x)))
+
 ;; -----------------------------------------------------
 ;; Precomputed powers cache
 
