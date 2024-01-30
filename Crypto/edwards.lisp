@@ -87,6 +87,11 @@ THE SOFTWARE.
 (defstub _Curve1174-projective-add)
 (defstub _Curve1174-to-affine)
 
+(defstub _CurveE521-affine-mul)
+(defstub _CurveE521-projective-mul)
+(defstub _CurveE521-projective-add)
+(defstub _CurveE521-to-affine)
+
 (defstub _Ed3363-affine-mul)
 (defstub _Ed3363-projective-mul)
 (defstub _Ed3363-projective-add)

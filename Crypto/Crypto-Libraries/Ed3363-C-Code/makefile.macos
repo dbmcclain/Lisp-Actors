@@ -1,9 +1,10 @@
-GCC=g++ -dynamiclib -I$(PREFIX)/include  -O3 -msse3 -mfpmath=sse -m64
+GCC=g++ -dynamiclib -I$(PREFIX)/include  -O3 -m64
 
 TARGET=$(PREFIX)/lib/libLispEd3363.dylib
 TARGET2=$(PREFIX)/lib/libLispCurve1174.dylib
+TARGET3=$(PREFIX)/lib/libLispCurve-E521.dylib
 
-all: $(TARGET) $(TARGET2)
+all: $(TARGET) $(TARGET2) #(TARGET3)
 
 $(TARGET): ed3363_intf.cpp ed3363_intf.h
 	$(GCC) -o libLispEd3363.dylib \
@@ -14,3 +15,8 @@ $(TARGET2): curve1174_intf.cpp curve1174_intf.h
 	$(GCC) -o libLispCurve1174.dylib \
 		curve1174_intf.cpp
 	mv libLispCurve1174.dylib $(TARGET2)
+
+$(TARGET3): curve-e521_intf.cpp curve-e521_intf.h
+	$(GCC) -o libLispCurve-E521.dylib \
+		curve-e521_intf.cpp
+	mv libLispCurve-E521.dylib $(TARGET2)
