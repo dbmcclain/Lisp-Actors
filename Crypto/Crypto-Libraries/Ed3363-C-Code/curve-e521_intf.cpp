@@ -34,7 +34,7 @@ typedef int64_t type64;
 // 2^521 mod q = 1
 // 521 = 10 groups of 53-bits
 // 2^(10*53) mod q = 512 (9 bits)
-
+static const int    kCells    = 10; // 10 cells (0..9) of 53-bits
 static const type64 bot53bits = 0x1FFFFFFFFFFFFF;
 static const type64 bot44bits = 0x000FFFFFFFFFFF;
 static const int    kCurveD   = -376014;
@@ -234,7 +234,7 @@ void gmuli(type64 *w,int i)
 }
 
 // z=x^2
-#define prod(a,ia,b,ib)  (type128)(a)[ia]*(b)[ib]
+#define prod(a,ia,b,ib)  ((type128)((a)[ia]))*((type128)((b)[ib]))
 #define sqx(x,ia,ib)     prod(x,ia,x,ib)
 
 static
@@ -716,7 +716,7 @@ void add_2(ECp *Q,ECp *P)
 static
 void inf(ECp *P)
 {
-	for (int i=0;i<=9;i++)
+    for (int i=0;i<kCells;i++)
 		P->x[i]=P->y[i]=P->z[i]=P->t[i]=0;
 	P->y[0]=P->z[0]=1;
 }
@@ -726,7 +726,7 @@ void inf(ECp *P)
 static
 void init(type64 *x,type64 *y,ECp *P)
 {
-	for (int i=0;i<=9;i++)
+    for (int i=0;i<kCells;i++)
 	{
 		P->x[i]=x[i];
 		P->y[i]=y[i];
@@ -741,7 +741,7 @@ void init(type64 *x,type64 *y,ECp *P)
 static
 void copy(ECp *Q,ECp *P)
 {
-	for (int i=0;i<=9;i++)
+    for (int i=0;i<kCells;i++)
 	{
 		P->x[i]=Q->x[i];
 		P->y[i]=Q->y[i];
@@ -755,7 +755,7 @@ void copy(ECp *Q,ECp *P)
 static
 void neg(ECp *Q,ECp *P)
 {
-	for (int i=0;i<=9;i++)
+    for (int i=0;i<kCells;i++)
 	{
 		P->x[i]=-Q->x[i]; 
 		P->y[i]=Q->y[i];
@@ -869,8 +869,7 @@ static void select(ECp *T,ECp W[],int b)
   cmov(T,&W[6],equal(babs,6));
   cmov(T,&W[7],equal(babs,7));
   cmov(T,&W[8],equal(babs,8)); 
-  cmov(T,&W[9],equal(babs,9));
-
+ 
   neg(T,&MT);  // minus t
   cmov(T,&MT,m&1);
 }
@@ -1089,6 +1088,28 @@ void gstore(type64 *w, unsigned char* v)
     pv[8] =                 (pw[9] >> 35);
 }
 
+#if 0
+bool chk_zero(type64 *w) {
+    return (w[0] == 0 &&
+            w[1] == 0 &&
+            w[2] == 0 &&
+            w[3] == 0 &&
+            w[4] == 0 &&
+            w[5] == 0 &&
+            w[6] == 0 &&
+            w[7] == 0 &&
+            w[8] == 0 &&
+            w[9] == 0);
+}
+
+if(chk_zero(P.x) &&
+   chk_zero(P.y)) {
+    syslog(1,"Curve521: zero x & y");
+}
+#endif
+
+#include <syslog.h>
+
 extern "C"
 void CurveE521_affine_mul(unsigned char* ptx,
                           unsigned char* pty,
@@ -1166,7 +1187,7 @@ void CurveE521_projective_mul(unsigned char* ptx,
 static
 void init_proj(type64 *x,type64 *y,type64 *z, ECp *P)
 {
-    for (int i=0;i<=9;i++)
+    for (int i=0;i<kCells;i++)
     {
         P->x[i]=x[i];
         P->y[i]=y[i];
@@ -1268,6 +1289,8 @@ void CurveE521_to_affine(unsigned char* lpx,
 extern "C"
 bool g521_sqrt(unsigned char* lpsrc, unsigned char* lpdst)
 {
+    // Square root of Curve-Field numbers (p = 2^521-1).
+    // NOTE: Not applicable to Field on the curve, but to point-space.
     type64 src[10], dst[10];
     
     gfetch(lpsrc, src);
@@ -1279,6 +1302,8 @@ bool g521_sqrt(unsigned char* lpsrc, unsigned char* lpdst)
 extern "C"
 void g521_inv(unsigned char* lpsrc, unsigned char* lpdst)
 {
+    // Inverse of Curve-Field numbers (p = 2^521-1)
+    // NOTE: Not applicable to Field on the curve, but to point-space.
     type64 src[10];
     
     gfetch(lpsrc, src);
@@ -1289,6 +1314,8 @@ void g521_inv(unsigned char* lpsrc, unsigned char* lpdst)
 extern "C"
 void g521_mul(unsigned char* lpsrc1, unsigned char* lpsrc2, unsigned char *lpdst)
 {
+    // Multiply two field numbers. Intended for point-space (p = 2^521-1).
+    // But perhaps also useful for field numbers on the curve (q = 2^519-big).
     type64 src1[10], src2[10], dst[10];
     
     gfetch(lpsrc1, src1);
