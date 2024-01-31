@@ -492,7 +492,7 @@
 ;; -----------------------------------------------------------
 ;; Double-Ratchet done properly...
 
-(defun ratchet-manager-beh (role state)
+(defun ratchet-manager-beh (role state &optional tag)
   (labels ((iter-key (key pt ct)
              (if (zerop ct)
                  key
@@ -517,7 +517,8 @@
           (become (ratchet-manager-beh
                    role
                    (state-with state
-                               :tx-nbr  next-tx-nbr)))
+                               :tx-nbr  next-tx-nbr)
+                   tag))
           (send cust next-tx-nbr dh-tau ack-tau tx-key)))
 
        ;; --------------------------------------------------------
@@ -545,6 +546,7 @@
                               (rx-key     (iter-key new-root new-ack-pt seq))
                               (new-dict   (maps:add dict
                                                     ack-key (actor-state
+                                                             :bday  (get-universal-time)
                                                              :root  new-root
                                                              :dh-pt new-ack-pt
                                                              :seqs  (list seq))
@@ -553,6 +555,7 @@
                       (:SERVER ;; servers simply respond at first
                        (let+ ((new-dict   (maps:add dict
                                                     ack-key (actor-state
+                                                             :bday  (get-universal-time)
                                                              :root  root-key
                                                              :dh-pt new-ack-pt
                                                              :seqs  (list seq))
@@ -572,7 +575,8 @@
                         (compute-deterministic-elligator-skey
                          :ratchet2 new-root dh-pt))
                        (new-dh-key (int (ed-nth-pt new-dh-rand)))
-                       (new-dh-pt  (ed-mul pkey new-dh-rand)))
+                       (new-dh-pt  (ed-mul pkey new-dh-rand))
+                       (tag        (tag self)))
                   (become (ratchet-manager-beh
                            role
                            (state-with state
@@ -583,8 +587,9 @@
                                        :dh-pt    new-dh-pt
                                        :dh-key   new-dh-key
                                        :dict     new-dict)
-                           ))
+                           tag))
                   (send cust rx-key auth-key)
+                  (send-after 10 tag :clean)
                   ))
               ))
            
@@ -606,18 +611,58 @@
                           (check-auth rx-key iv ctxt auth)))
                     (when is-ok
                       (let+ ((new-entry (state-with entry
+                                                    :bday (get-universal-time)
                                                     :seqs (cons seq seqs)))
-                             (new-dict  (maps:add dict ack-key new-entry)))
+                             (new-dict  (maps:add dict ack-key new-entry))
+                             (tag       (tag self)))
                         (become (ratchet-manager-beh
                                  role
                                  (state-with state
-                                             :dict new-dict)))
+                                             :dict new-dict)
+                                 tag))
                         (send cust rx-key auth-key)
+                        (send-after 10 tag :clean)
                         ))))
                 )))
-           ;; ---------------------------------------------------
            )))
+       ;; ---------------------------------------------------
+       ;; Clean out old stale-keying entries
+       
+       ((atag :clean) / (eq atag tag)
+        (let+ ((now  (get-universal-time))
+               (lst  (maps:fold dict (lambda (k v acc)
+                                       (with-state-vals ((bday :bday)) v
+                                         (if (> (- now bday) 10)
+                                             (cons k acc)
+                                           acc)))
+                                nil)))
+          (um:nlet iter ((m   dict)
+                         (lst lst))
+            (cond ((endp lst)
+                   (let ((tag (unless (maps:is-empty m)
+                                (tag self))))
+                     (become (ratchet-manager-beh
+                              role
+                              (state-with state
+                                          :dict m)
+                              tag))
+                     (when tag
+                       (send-after 10 tag :clean))
+                     ))
+                  (t
+                   (go-iter (maps:remove m (car lst)) (cdr lst)))
+                  ))
+          ))
        ))))
+
+(let* ((m  (maps:add
+            (maps:add
+             (maps:add (maps:empty) 'a 1)
+             'b 2)
+            'c 3)))
+  (maps:fold m (lambda (k v acc)
+                 (acons k v acc))
+             nil))
 
 (defun dummy-ratchet-keying (ekey)
   (let+ ((ack-pt  (ed-nth-pt 99))
