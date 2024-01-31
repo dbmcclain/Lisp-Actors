@@ -76,6 +76,10 @@
    #:aont-decoder
    #:aont-file-writer
    #:aont-file-reader
+   #:client-ratchet-manager
+   #:server-ratchet-manager
+   #:ratchet-encryptor
+   #:ratchet-decryptor
    ))
 
 (defpackage :com.ral.actors.secure-comm

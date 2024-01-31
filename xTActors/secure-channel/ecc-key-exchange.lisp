@@ -22,8 +22,9 @@
             com.ral.actors.encoding:check-auth
             com.ral.actors.encoding:non-destructive-decryptor)))
 
-;; (defconstant +ECC-CURVE+ :curve1174)
-(defconstant +ECC-CURVE+ :curve-e521f)
+(defconstant +ECC-CURVE+ :curve1174)
+;; (defconstant +ECC-CURVE+ :curve-e521f)
+;; (defconstant +ECC-CURVE+ :curve-e521)
 
 ;; ----------------------------------
 ;;

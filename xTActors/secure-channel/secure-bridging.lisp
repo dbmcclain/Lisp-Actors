@@ -186,7 +186,8 @@
     (let ((new-svcs (remove (assoc id svcs :test #'uuid:uuid=) svcs :count 1)))
       (β! (local-services-beh new-svcs encryptor decryptor))
       (>> cust :ok)))
-   
+
+   #|
    ((cust :set-crypto ekey socket skey pkey)
     ;; after this we promptly forget ekey...
     (let ((encryptor (sink-pipe (secure-sender ekey self pkey)
@@ -194,6 +195,16 @@
           (decryptor (sink-pipe (secure-reader ekey self socket skey)
                                 self)))
       (β! (local-services-beh svcs encryptor decryptor))
+      (>> cust :ok)))
+   |#
+   ((cust :set-crypto socket encryptor decryptor)
+    (let ((enc  (sink-pipe (secure-sender self)
+                           encryptor
+                           socket))
+          (dec  (sink-pipe decryptor
+                           (secure-reader self)
+                           self)))
+      (β! (local-services-beh svcs enc dec))
       (>> cust :ok)))
    
    ;; -------------------------------------------------------------------
@@ -261,12 +272,23 @@
    ;; encrypted socket delivery -- decryptor decodes the message and
    ;; sends back to us as an unencrypted socket delivery (see previous
    ;; clause)
+   #|
    ((seq ctxt auth) / (and decryptor
                            ;; (integerp seq)
                            (typep seq  'ub8-vector)
                            (typep ctxt 'ub8-vector)
                            (typep auth 'ub8-vector))
     (>> decryptor seq ctxt auth))
+   |#
+   ((seq tau ack iv ctxt auth) / (and decryptor
+                                      ;; (integerp seq)
+                                      (integerp seq)
+                                      (integerp tau)
+                                      (integerp ack)
+                                      (typep iv   'ub8-vector)
+                                      (typep ctxt 'ub8-vector)
+                                      (typep auth 'ub8-vector))
+    (>> decryptor seq tau ack iv ctxt auth))
    ))
 
 (defun make-local-services ()
@@ -391,7 +413,7 @@
 ;; receive the exact same treatment. The only distinction between
 ;; client and server is that client begins the channel connection, and
 ;; server offers to supply global services.
-
+#|
 (defun secure-sender (ekey local-services pkey)
   (pipe (client-marshal-encoder local-services) ;; translate Actors to CLIENT-PROXY's
         (marshal-compressor)
@@ -413,6 +435,15 @@
         ;; (fail-silent-marshal-decoder) ;; Async Sockets already chunk/dechunk data
         ;; (dechunker)
         (fail-silent-marshal-decompressor)
+        (server-marshal-decoder local-services) ;; translate CLIENT-PROXY's into local proxy Actors
+        ))
+|#
+(defun secure-sender (local-services)
+  (pipe (client-marshal-encoder local-services) ;; translate Actors to CLIENT-PROXY's
+        (marshal-compressor)))
+  
+(defun secure-reader (local-services)
+  (pipe (fail-silent-marshal-decompressor)
         (server-marshal-decoder local-services) ;; translate CLIENT-PROXY's into local proxy Actors
         ))
 

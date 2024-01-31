@@ -274,8 +274,15 @@
                                           (lambda (&rest msg)
                                             (>>* local-services :ssend server-id msg))
                                           ))
+                                  (ratchet   (client-ratchet-manager ekey my-skey srv-pkey))
+                                  (encryptor (ratchet-encryptor ratchet))
+                                  (decryptor (ratchet-decryptor socket ratchet))
+                                  #|
                                   (:β _  (racurry local-services :set-crypto
-                                                  ekey socket my-skey srv-pkey)))
+                                                  ekey socket my-skey srv-pkey))
+                                  |#
+                                  (:β _  (racurry local-services :set-crypto
+                                                  socket encryptor decryptor)))
                              (>> connections cust :set-channel socket chan)
                              ))
                           

@@ -48,9 +48,16 @@
             (ekey (with-ed-curve +ECC-CURVE+
                     (hash/256 (ed-mul apt brand)            ;; A*b
                               (ed-mul client-pkey brand)    ;; C*b
-                              (ed-mul apt my-skey)) ))       ;; A*s
+                              (ed-mul apt my-skey)) ))      ;; A*s
+            (ratchet   (server-ratchet-manager ekey my-skey client-pkey))
+            (encryptor (ratchet-encryptor ratchet))
+            (decryptor (ratchet-decryptor socket ratchet))
+            (:β _      (racurry local-services :set-crypto
+                                socket encryptor decryptor))
+            #|
             (:β _  (>> local-services β :set-crypto
-                       ekey socket my-skey client-pkey)))
+                       ekey socket my-skey client-pkey))
+            |#)
        (>> socket bpt aescrypt)))
     
     ;; silently ignore other requests
