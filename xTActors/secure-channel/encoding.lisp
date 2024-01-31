@@ -520,7 +520,28 @@
                                :tx-nbr  next-tx-nbr)
                    tag))
           (send cust next-tx-nbr dh-tau ack-tau tx-key)))
-
+       ;;                ^         ^       ^      ^
+       ;;                |         |       |      |
+       ;;                |         |       |      +-- encryption key to use
+       ;;                |         |       +-- Old keying acknowledgement
+       ;;                |         +-- New keying in use
+       ;;                +-- Tx in series for DH-TAU keying: 1,2,3...
+       ;;
+       ;; DH-TAU, ACK-TAU are Elligator encodings of random EC points (integer).
+       ;; NEXT-TX-NBR is a simple integer. Every message numbered sequentially.
+       ;; TX-KEY is a 256-bit hash, used as an AES-256 key.
+       ;;
+       ;; (Hint: DH = Diffie-Hellman. I send you a random point, R = r*G.
+       ;; Our shared key is
+       ;;
+       ;;           K = s*R = r*P = r*s*G
+       ;;
+       ;;  where s is recipient's secret key, and P is recipient's
+       ;;  public key. I know the random value, r, used.
+       ;;
+       ;;  But we actually send across an Elligator encoding of random
+       ;;  point, R.)
+       ;;
        ;; --------------------------------------------------------
        ;; Get decryption keying
        
