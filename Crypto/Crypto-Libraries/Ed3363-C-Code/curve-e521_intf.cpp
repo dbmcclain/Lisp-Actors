@@ -18,8 +18,8 @@
 #include <inttypes.h>
 #include "curve-e521_intf.h"
 
-// curve-E521 needs 521 bits for curve points = 10 groups of 53 bits +
-// < 131 groups of 4 bits
+// curve-E521 needs 521 bits for curve points = 10 groups of 53 bits
+// scalar multiples of curve points (q = 2^519-big) need 130 groups of 4 bits
 
 // Group multiplication by field scalars. Scalars have size 519-bits
 #define WINDOW   4  // mult curves by 4-bits at a time
@@ -27,22 +27,28 @@
 
 using namespace std;
 
+#define NGRP  10  // 10 cells of 53-bits
+
 typedef __int128 type128;  /* non-standard type */
-typedef int64_t type64;
+typedef int64_t  type64;
+typedef type64 coord_t[NGRP];
 
 // q = 2^521-1
 // 2^521 mod q = 1
 // 521 = 10 groups of 53-bits
 // 2^(10*53) mod q = 512 (9 bits)
-static const int    kCells    = 10; // 10 cells (0..9) of 53-bits
 static const type64 bot53bits = 0x1FFFFFFFFFFFFF;
 static const type64 bot44bits = 0x000FFFFFFFFFFF;
 static const int    kCurveD   = -376014;
 static const int    kBPW      = 53;
 static const int    kBPWFinal = 44; // = 521 - 9*53
-static const type64 kwrap     = 512; // = 2^(10*53) mod q, 41 bits
+static const type64 kwrap     = 512; // = 2^(10*53) mod q, 9 bits
 
 #include <stdint.h>
+
+#define gcopy(src,dst)   memcpy(dst,src,sizeof(coord_t))
+#define gzap(dst)        memset(dst,0,sizeof(coord_t))
+
 #if 0
    __inline__ uint64_t rdtsc() {
    uint32_t lo, hi;
@@ -61,103 +67,47 @@ inline uint64_t rdtsc() {
 
 // w=x+y
 static
-void gadd(type64 *x,type64 *y,type64 *w)
+void gadd(coord_t& x,coord_t& y,coord_t& w)
 {
-	w[0]=x[0]+y[0];
-	w[1]=x[1]+y[1];
-	w[2]=x[2]+y[2];
-	w[3]=x[3]+y[3];
-	w[4]=x[4]+y[4];
-	w[5]=x[5]+y[5];
-	w[6]=x[6]+y[6];
-	w[7]=x[7]+y[7];
-	w[8]=x[8]+y[8];
-	w[9]=x[9]+y[9];
+    for(int i = 0; i < NGRP; ++i)
+        w[i] = x[i] + y[i];
 }
 
 // w=x-y
 static
-void gsub(type64 *x,type64 *y,type64 *w)
+void gsub(coord_t& x,coord_t& y,coord_t& w)
 {
-	w[0]=x[0]-y[0];
-	w[1]=x[1]-y[1];
-	w[2]=x[2]-y[2];
-	w[3]=x[3]-y[3];
-	w[4]=x[4]-y[4];
-	w[5]=x[5]-y[5];
-	w[6]=x[6]-y[6];
-	w[7]=x[7]-y[7];
-	w[8]=x[8]-y[8];
-	w[9]=x[9]-y[9];
+    for(int i = 0; i < NGRP; ++i)
+        w[i] = x[i] - y[i];
 }
 
 // w-=x
 static
-void gdec(type64 *x,type64 *w)
+void gdec(coord_t& x,coord_t& w)
 {
-	w[0]-=x[0];
-	w[1]-=x[1];
-	w[2]-=x[2];
-	w[3]-=x[3];
-	w[4]-=x[4];
-	w[5]-=x[5];
-	w[6]-=x[6];
-	w[7]-=x[7];
-	w[8]-=x[8];
-	w[9]-=x[9];
-}
-
-// w=x
-static
-void gcopy(type64 *x,type64 *w)
-{
-	w[0]=x[0];
-	w[1]=x[1];
-	w[2]=x[2];
-	w[3]=x[3];
-	w[4]=x[4];
-	w[5]=x[5];
-	w[6]=x[6];
-	w[7]=x[7];
-	w[8]=x[8];
-	w[9]=x[9];
+    for(int i = 0; i < NGRP; ++i)
+        w[i] -= x[i];
 }
 
 // w*=2
 static
-void gmul2(type64 *w)
+void gmul2(coord_t& w)
 {
-	w[0]*=2;
-	w[1]*=2;
-	w[2]*=2;
-	w[3]*=2;
-	w[4]*=2;
-	w[5]*=2;
-	w[6]*=2;
-	w[7]*=2;
-	w[8]*=2;
-	w[9]*=2;
+    for(int i = 0; i < NGRP; ++i)
+        w[i] *= 2;
 }
 
 // w-=2*x
 static
-void gsb2(type64 *x,type64 *w)
+void gsb2(coord_t& x,coord_t& w)
 {
-	w[0]-=2*x[0];
-	w[1]-=2*x[1];
-	w[2]-=2*x[2];
-	w[3]-=2*x[3];
-	w[4]-=2*x[4];
-	w[5]-=2*x[5];
-	w[6]-=2*x[6];
-	w[7]-=2*x[7];
-	w[8]-=2*x[8];
-	w[9]-=2*x[9];
+    for(int i = 0; i < NGRP; ++i)
+        w[i] -= 2*x[i];
 }
 
 // reduce w - Short Coefficient Reduction
 static
-void scr(type64 *w)
+void scr(coord_t& w)
 {
 	type64 t0,t1,t2;
 	t0=w[0]&bot53bits;
@@ -190,13 +140,12 @@ void scr(type64 *w)
 	w[9]=t1&bot44bits;
 
 	w[0]=t0+(t1>>kBPWFinal);
-
 }
 
 // multiply w by a constant, w*=i
 
 static
-void gmuli(type64 *w,int i)
+void gmuli(coord_t& w,int i)
 {
 	type128 t;
 
@@ -238,7 +187,7 @@ void gmuli(type64 *w,int i)
 #define sqx(x,ia,ib)     prod(x,ia,x,ib)
 
 static
-void gsqr(type64 *x,type64 *z)
+void gsqr(coord_t& x,coord_t& z)
 {
     type128 t0,t1;
     
@@ -300,9 +249,8 @@ void gsqr(type64 *x,type64 *z)
     z[0]+=(t0>>kBPWFinal);
 }
 
-#if 1
 static
-void gmul(type64 *x,type64 *y,type64 *z)
+void gmul(coord_t& x,coord_t& y,coord_t& z)
 {
     type128 t0,t1;
     
@@ -395,58 +343,6 @@ void gmul(type64 *x,type64 *y,type64 *z)
     z[0]+=(t0>>kBPWFinal);
 }
 
-#else
-
-// z=x*y - Granger's method
-
-static
-void gmul(type64 *x,type64 *y,type64 *z)
-{
-	type128 t0,t1,t2;
-	type128 a0,a1,a2,a3,a4,a5;
-	type128 b0,b1,b2,b3,b4;
-	a0=(type128)x[0]*y[0];  // 5M
-	a1=(type128)x[1]*y[1];
-	a2=(type128)x[2]*y[2];
-	a3=(type128)x[3]*y[3];
-	a4=(type128)x[4]*y[4];
-
-	b3=a4+a3;    // 4A
-	b2=b3+a2;
-	b1=b2+a1;
-	b0=b1+a0;
-
-	// 2M + 6A
-	t0=b0-(type128)(x[0]-x[4])*(y[0]-y[4])-(type128)(x[1]-x[3])*(y[1]-y[3]);
-	z[4]=((type64) t0)&bot44bits;
-
-	// 4M + 8A
-	t1=a0+144*(b1-(type128)(x[1]-x[4])*(y[1]-y[4])-(type128)(x[2]-x[3])*(y[2]-y[3]))+9*(t0>>kBPWFinal);
-	z[0]=((type64) t1)&bot53bits;
-
-	// 3M + 9A
-	a0=a0+a1;
-	t0=a0-(type128)(x[0]-x[1])*(y[0]-y[1])+144*(b2-(type128)(x[2]-x[4])*(y[2]-y[4]))+(t1>>kBPW);
-	z[1]=((type64) t0)&bot53bits;
-
-	// 3M + 9A
-	a0=a0+a2;
-	t1=a0-(type128)(x[0]-x[2])*(y[0]-y[2])+144*(b3-(type128)(x[3]-x[4])*(y[3]-y[4]))+(t0>>kBPW);
-	z[2]=((type64) t1)&bot53bits;
-
-	// 3M + 9A
-	a0=a0+a3;
-	t0=144*a4 + a0-(type128)(x[0]-x[3])*(y[0]-y[3])-(type128)(x[1]-x[2])*(y[1]-y[2])+(t1>>kBPW);
-	z[3]=((type64) t0)&bot53bits;
-
-	// ---- to this point = 20M + 45A
-	t1=z[4]+(t0>>kBPW);
-	z[4]=((type64) t1)&bot44bits;
-	z[0]+=9*(t1>>kBPWFinal);
-
-}
-#endif
-
 // Inverse x = 1/x = x^(p-2) mod p
 // the exponent (p-2) = "1FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD"
 // p-2 = 2^521-3 = (2^2)*(2^519-1)+1
@@ -454,12 +350,12 @@ void gmul(type64 *x,type64 *y,type64 *z)
 //
 // x^(p-2) = x^((2^2)*(2^519-1)+1)
 static
-void ginv(type64 *x)
+void ginv(coord_t& x)
 {
 	// --------------------------------------
 	// 205*M
 	int    i;
-	type64 w[10],t1[10],t2[10],sav2[10];
+    coord_t w,t1,t2,sav2;
 
     gsqr(x,t2);
 	gmul(x,t2,sav2); // 2 bits, x^(2^2-1)
@@ -542,91 +438,80 @@ void ginv(type64 *x)
 }
 
 static
-void gneg(type64 *x, type64 *y) {
-  y[ 0] = -x[ 0];
-  y[ 1] = -x[ 1];
-  y[ 2] = -x[ 2];
-  y[ 3] = -x[ 3];
-  y[ 4] = -x[ 4];
-  y[ 5] = -x[ 5];
-  y[ 6] = -x[ 6];
-  y[ 7] = -x[ 7];
-  y[ 8] = -x[ 8];
-  y[ 9] = -x[ 9];
+void gneg(coord_t& x, coord_t& y) {
+    for(int i = 0; i < NGRP; ++i)
+        y[i] = -x[i];
 }
    
 static
-void gnorm(type64 *x, type64 *y) {
-  type64 tmp[10];
-  gneg(x, tmp);
-  scr(tmp);
-  gneg(tmp, y);
-  scr(y);
-  scr(y);
+void gnorm(coord_t& x, coord_t& y) {
+    coord_t tmp;
+    gneg(x, tmp);
+    scr(tmp);
+    gneg(tmp, y);
+    scr(y);
+    scr(y);
 }
 
 static
-bool geq(type64 *x, type64 *y) {
-  // compare x, y for equality
-  type64 z1[10], z2[10];
-  gsub(x, y, z1);
-  gnorm(z1, z2);
-  return (z2[0] == 0
-       && z2[1] == 0
-       && z2[2] == 0
-       && z2[3] == 0
-       && z2[4] == 0
-       && z2[5] == 0
-       && z2[6] == 0
-       && z2[7] == 0
-       && z2[8] == 0
-       && z2[9] == 0);
+bool geq(coord_t& x, coord_t& y) {
+    // compare x, y for equality
+    coord_t z1, z2;
+    gsub(x, y, z1);
+    gnorm(z1, z2);
+    type64 m = 0;
+    for(int i = 0; i < NGRP; ++i)
+        m |= z2[i];
+    return (0 == m);
 }
 
 // -----------------------------------------------------
 // Curve-E521 has modulus q = 2^521-1
 // q mod 4 = 3
 static
-bool gsqrt(type64 *x, type64 *y) {
-  // Sqrt(x) -> y
-  //
-  // By Fermat's theorem, for prime |Fq|, |Fq| mod 4 = 3
-  // when X is a quadratic residue in the field,
-  // we have Sqrt(X) = X^((|Fq|+1)/4) mod |Fq|
-  // where |Fq| = 2^521-1, (|Fq|+1)/4 = 2^519
-  // Return true if X was a quadratic-residue of Fq.
-
-  int i;
-  type64 tmp1[10], tmp2[10];
-
-  gcopy(x, tmp1);
-  for(i = 0; i < 259; ++i) {
+bool gsqrt(coord_t& x, coord_t& y) {
+    // Sqrt(x) -> y
+    //
+    // By Fermat's theorem, for prime |Fq|, |Fq| mod 4 = 3
+    // when X is a quadratic residue in the field,
+    // we have Sqrt(X) = X^((|Fq|+1)/4) mod |Fq|
+    // where |Fq| = 2^521-1, (|Fq|+1)/4 = 2^519
+    // Return true if X was a quadratic-residue of Fq.
+    
+    int i;
+    coord_t tmp1, tmp2;
+    
+    gcopy(x, tmp1);
+    for(i = 0; i < 259; ++i) {
+        gsqr(tmp1,tmp2);
+        gsqr(tmp2,tmp1);
+    }
     gsqr(tmp1,tmp2);
-    gsqr(tmp2,tmp1);
-  }
-  gsqr(tmp1,tmp2);
-  // copy ans to output y
-  // and return true if y*y = x
-  gcopy(tmp2, y);
-  gsqr(y, tmp1);
-  return geq(tmp1, x);
+    // copy ans to output y
+    // and return true if y*y = x
+    gcopy(tmp2, y);
+    gsqr(y, tmp1);
+    return geq(tmp1, x);
 }
 
 // Point Structure
 
 typedef struct {
-type64 x[10];
-type64 y[10];
-type64 z[10];
-type64 t[10];
+    coord_t x;
+    coord_t y;
+    coord_t z;
+    coord_t t;
 } ECp;
+
+#define zap(pt)        memset(pt,0,sizeof(ECp))
+#define copy(src,dst)  memcpy(dst,src,sizeof(ECp))
 
 // P+=P
 
 static
 void double_1(ECp *P)
 {
-	type64 a[10],b[10],e[10],f[10],g[10],h[10];
+	coord_t a,b,e,f,g,h;
 	gsqr(P->x,a);
 	gsqr(P->y,b);
 	gcopy(P->t,e);
@@ -645,7 +530,7 @@ void double_1(ECp *P)
 static
 void double_2(ECp *P)
 {
-	type64 a[10],b[10],c[10],e[10],f[10],g[10],h[10];
+    coord_t a,b,c,e,f,g,h;
 	gsqr(P->x,a);
 	gsqr(P->y,b); 
 	gsqr(P->z,c); gmul2(c); 
@@ -661,7 +546,7 @@ void double_2(ECp *P)
 static
 void double_3(ECp *P)
 {
-	type64 a[10],b[10],c[10],e[10],f[10],g[10],h[10];
+    coord_t a,b,c,e,f,g,h;
 	gsqr(P->x,a);
 	gsqr(P->y,b);
 	gsqr(P->z,c); gmul2(c);
@@ -680,7 +565,7 @@ void double_3(ECp *P)
 static
 void add_1(ECp *Q,ECp *P)
 {
-	type64 a[10],b[10],c[10],d[10],e[10],f[10],g[10],h[10];
+    coord_t a,b,c,d,e,f,g,h;
 	gmul(P->x,Q->x,a);
 	gmul(P->y,Q->y,b);
 	gmul(P->t,Q->t,c);
@@ -697,7 +582,7 @@ void add_1(ECp *Q,ECp *P)
 static
 void add_2(ECp *Q,ECp *P)
 {
-	type64 a[10],b[10],c[10],d[10],e[10],f[10],g[10],h[10];
+    coord_t a,b,c,d,e,f,g,h;
 	gmul(P->x,Q->x,a);
 	gmul(P->y,Q->y,b);
 	gmul(P->t,Q->t,c);
@@ -716,38 +601,19 @@ void add_2(ECp *Q,ECp *P)
 static
 void inf(ECp *P)
 {
-    for (int i=0;i<kCells;i++)
-		P->x[i]=P->y[i]=P->z[i]=P->t[i]=0;
+    zap(P);
 	P->y[0]=P->z[0]=1;
 }
 
 // Initialise P
-
 static
-void init(type64 *x,type64 *y,ECp *P)
+void init(coord_t& x,coord_t& y,ECp *P)
 {
-    for (int i=0;i<kCells;i++)
-	{
-		P->x[i]=x[i];
-		P->y[i]=y[i];
-		P->z[i]=0;
-	}
+    gcopy(x,P->x);
+    gcopy(y,P->y);
+    gzap(P->z);
 	P->z[0]=1;
 	gmul(x,y,P->t);
-}
-
-//P=Q
-
-static
-void copy(ECp *Q,ECp *P)
-{
-    for (int i=0;i<kCells;i++)
-	{
-		P->x[i]=Q->x[i];
-		P->y[i]=Q->y[i];
-		P->z[i]=Q->z[i];
-		P->t[i]=Q->t[i];
-	}
 }
 
 // P=-Q
@@ -755,13 +621,10 @@ void copy(ECp *Q,ECp *P)
 static
 void neg(ECp *Q,ECp *P)
 {
-    for (int i=0;i<kCells;i++)
-	{
-		P->x[i]=-Q->x[i]; 
-		P->y[i]=Q->y[i];
-		P->z[i]=Q->z[i];
-		P->t[i]=-Q->t[i]; 
-	}
+    gneg(Q->x,P->x);
+    gcopy(Q->y,P->y);
+    gcopy(Q->z,P->z);
+    gneg(Q->t,P->t);
 }
    
 /* Make Affine */
@@ -769,8 +632,8 @@ void neg(ECp *Q,ECp *P)
 static
 void norm(ECp *P)
 {
-	type64 w[10],t[10];
-	gcopy(P->z,w);
+    coord_t w,t;
+    gcopy(P->z,w);
 	ginv(w);
 	gmul(P->x,w,t); scr(t); gcopy(t,P->x);
 	gmul(P->y,w,t); scr(t); gcopy(t,P->y);
@@ -795,14 +658,8 @@ void precomp(ECp *P,ECp W[])
 	copy(&W[4],&W[8]); double_3(&W[8]);
 
 /* premultiply t parameter by curve constant */
-
-	gmuli(W[2].t,kCurveD);
-	gmuli(W[3].t,kCurveD);
-	gmuli(W[4].t,kCurveD);
-	gmuli(W[5].t,kCurveD);
-	gmuli(W[6].t,kCurveD);
-	gmuli(W[7].t,kCurveD);
-	gmuli(W[8].t,kCurveD);
+    for(int i = 2; i <= 8; ++i)
+        gmuli(W[i].t, kCurveD);
 }
 
 /* Window of width 4 */
@@ -824,18 +681,10 @@ Constant time table look-up - borrowed from ed25519
 static
 void fe_cmov(type64 f[],type64 g[],int ib)
 {
-  type64 b=ib;
-  b=-b;
-  f[0]^=(f[0]^g[0])&b;
-  f[1]^=(f[1]^g[1])&b;
-  f[2]^=(f[2]^g[2])&b;
-  f[3]^=(f[3]^g[3])&b;
-  f[4]^=(f[4]^g[4])&b;
-  f[5]^=(f[5]^g[5])&b;
-  f[6]^=(f[6]^g[6])&b;
-  f[7]^=(f[7]^g[7])&b;
-  f[8]^=(f[8]^g[8])&b;
-  f[9]^=(f[9]^g[9])&b;
+    type64 b=ib;
+    b=-b;
+    for(int i = 0; i < NGRP; ++i)
+        f[i] ^= (f[i] ^ g[i]) & b;
 }
 
 static void cmov(ECp *w,ECp *u,int b)
@@ -856,22 +705,14 @@ static int equal(int b,int c)
 
 static void select(ECp *T,ECp W[],int b)
 {
-  ECp MT; 
-  int m=b>>31;
-  int babs=(b^m)-m;
-
-  cmov(T,&W[0],equal(babs,0));  // conditional move
-  cmov(T,&W[1],equal(babs,1));
-  cmov(T,&W[2],equal(babs,2));
-  cmov(T,&W[3],equal(babs,3));
-  cmov(T,&W[4],equal(babs,4));
-  cmov(T,&W[5],equal(babs,5));
-  cmov(T,&W[6],equal(babs,6));
-  cmov(T,&W[7],equal(babs,7));
-  cmov(T,&W[8],equal(babs,8)); 
- 
-  neg(T,&MT);  // minus t
-  cmov(T,&MT,m&1);
+    ECp MT;
+    int m=b>>31;
+    int babs=(b^m)-m;
+    
+    for(int i = 0; i <= 8; ++i)
+        cmov(T,&W[i],equal(babs,i));
+    neg(T,&MT);  // minus t
+    cmov(T,&MT,m&1);
 }
 
 #define testing 0
@@ -942,7 +783,7 @@ void output(ECp *P)
 
 w[0]= 5; w[1]= -5; w[2]= 2; w[3]= -5; w[4]= -8;
 w[5]= -3; w[6]= 5; w[7]= -2; w[8]= -4; w[9]= 3; 
-w[10]= -5; w[10]= -4; w[12]= -6; w[13]= -4; w[14]= -7;
+w[NGRP]= -5; w[NGRP]= -4; w[12]= -6; w[13]= -4; w[14]= -7;
 w[15]= -8; w[16]= -5; w[17]= -2; w[18]= 4; w[19]= -2;
 w[20]= -7; w[21]= 2; w[22]= 7; w[23]= -5; w[24]= -8;
 w[25]= -4; w[26]= -1; w[27]= -8; w[28]= 7; w[29]= -6;
@@ -967,7 +808,7 @@ w[80]= -6; w[81]= -8; w[82]= -3; w[83]= 1;
 #if WINDOW==4
 w[0]= 5; w[1]= 0; w[2]= -8; w[3]= -5; w[4]= 0;
 w[5]= -6; w[6]= -1; w[7]= 4; w[8]= 7; w[9]= -7;
-w[10]= 6; w[10]= -7; w[12]= 0; w[13]= 3; w[14]= -5;
+w[NGRP]= 6; w[NGRP]= -7; w[12]= 0; w[13]= 3; w[14]= -5;
 w[15]= -8; w[16]= -5; w[17]= -5; w[18]= -4; w[19]= 4;
 w[20]= -7; w[21]= 0; w[22]= -8; w[23]= -7; w[24]= -4;
 w[25]= 7; w[26]= -3; w[27]= -4; w[28]= 1; w[29]= -4;
@@ -1018,6 +859,7 @@ void mul_to_proj(int *w,ECp *P)
 		select(&Q,W,w[i]);
 		window(&Q,P);
 	}
+    norm(P);
 }
 
 static
@@ -1048,7 +890,7 @@ void win4(unsigned char* nv, int *w)
 }
 
 static
-void gfetch(unsigned char* v, type64 *w)
+void gfetch(unsigned char* v, coord_t& w)
 {
     // fetch 53-bit words from consecutively stored 64-bit words in v.
     // Assumes input value is < 2^521
@@ -1068,10 +910,10 @@ void gfetch(unsigned char* v, type64 *w)
 }
 
 static
-void gstore(type64 *w, unsigned char* v)
+void gstore(coord_t& w, unsigned char* v)
 {
     // store 53-bit words into consecutively stored 64-bit words in v.
-    type64 wn[10];
+    coord_t wn;
     
     gnorm(w, wn);
 
@@ -1088,27 +930,8 @@ void gstore(type64 *w, unsigned char* v)
     pv[8] =                 (pw[9] >> 35);
 }
 
-#if 0
-bool chk_zero(type64 *w) {
-    return (w[0] == 0 &&
-            w[1] == 0 &&
-            w[2] == 0 &&
-            w[3] == 0 &&
-            w[4] == 0 &&
-            w[5] == 0 &&
-            w[6] == 0 &&
-            w[7] == 0 &&
-            w[8] == 0 &&
-            w[9] == 0);
-}
-
-if(chk_zero(P.x) &&
-   chk_zero(P.y)) {
-    syslog(1,"Curve521: zero x & y");
-}
-#endif
-
-#include <syslog.h>
+// -----------------------------------------------------
+// Lisp Intetface
 
 extern "C"
 void CurveE521_affine_mul(unsigned char* ptx,
@@ -1126,7 +949,7 @@ void CurveE521_affine_mul(unsigned char* ptx,
     
     int w[PANES];
     ECp P;
-    type64 px[10], py[10];
+    coord_t px, py;
     
     win4(nv, w);
     gfetch(ptx, px);
@@ -1141,9 +964,9 @@ void CurveE521_affine_mul(unsigned char* ptx,
 }
 
 static
-void normz(type64 *px, type64 *py, type64 *pz)
+void normz(coord_t& px, coord_t& py, coord_t& pz)
 {
-    type64 t[10];
+    coord_t t;
     
     ginv(pz);
     gmul(px, pz, t); scr(t); gcopy(t, px);
@@ -1166,7 +989,7 @@ void CurveE521_projective_mul(unsigned char* ptx,
     
     int w[PANES];
     ECp P;
-    type64 px[10], py[10], pz[10];
+    coord_t px, py, pz;
     
     win4(nv, w);
     gfetch(ptx, px);
@@ -1185,15 +1008,12 @@ void CurveE521_projective_mul(unsigned char* ptx,
 // Initialise P
 
 static
-void init_proj(type64 *x,type64 *y,type64 *z, ECp *P)
+void init_proj(coord_t& x,coord_t& y,coord_t& z, ECp *P)
 {
-    for (int i=0;i<kCells;i++)
-    {
-        P->x[i]=x[i];
-        P->y[i]=y[i];
-        P->z[i]=z[i];
-        P->t[i]=0;
-    }
+    gcopy(x,P->x);
+    gcopy(y,P->y);
+    gcopy(z,P->z);
+    gzap(P->t);
 }
 
 static
@@ -1202,7 +1022,7 @@ void add_proj(ECp *Q, ECp *P)
     // Add Q to P, both in projective (X,Y,Z) coordinates. We don't use T here.
     //
     // careful here... the 3-address code cannot share output with input
-    type64 A[10], B[10], C[10], D[10], E[10], F[10], G[10], X3[10], Y3[10], Z3[10];
+    coord_t A,B,C,D,E,F,G,X3,Y3,Z3;
     
     gmul(Q->z, P->z, A);
     gsqr(A,B);
@@ -1240,7 +1060,7 @@ void CurveE521_projective_add(unsigned char* lp1x,
     //
     
     ECp P, Q;
-    type64 px[10], py[10], pz[10], qx[10], qy[10], qz[10];
+    coord_t px, py, pz, qx, qy, qz;
     
     gfetch(lp1x,px);
     gfetch(lp1y,py);
@@ -1272,7 +1092,7 @@ void CurveE521_to_affine(unsigned char* lpx,
     // in little-endian order (assumes Intel conventions)
     //
     
-    type64 px[10], py[10], pz[10], t[10];
+    coord_t px, py, pz, t;
     
     gfetch(lpx, px);
     gfetch(lpy, py);
@@ -1291,7 +1111,7 @@ bool g521_sqrt(unsigned char* lpsrc, unsigned char* lpdst)
 {
     // Square root of Curve-Field numbers (p = 2^521-1).
     // NOTE: Not applicable to Field on the curve, but to point-space.
-    type64 src[10], dst[10];
+    coord_t src,dst;
     
     gfetch(lpsrc, src);
     bool ans = gsqrt(src, dst);
@@ -1304,7 +1124,7 @@ void g521_inv(unsigned char* lpsrc, unsigned char* lpdst)
 {
     // Inverse of Curve-Field numbers (p = 2^521-1)
     // NOTE: Not applicable to Field on the curve, but to point-space.
-    type64 src[10];
+    coord_t src;
     
     gfetch(lpsrc, src);
     ginv(src);
@@ -1316,7 +1136,7 @@ void g521_mul(unsigned char* lpsrc1, unsigned char* lpsrc2, unsigned char *lpdst
 {
     // Multiply two field numbers. Intended for point-space (p = 2^521-1).
     // But perhaps also useful for field numbers on the curve (q = 2^519-big).
-    type64 src1[10], src2[10], dst[10];
+    coord_t src1, src2, dst;
     
     gfetch(lpsrc1, src1);
     gfetch(lpsrc2, src2);
