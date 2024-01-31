@@ -629,29 +629,24 @@
        ;; Clean out old stale-keying entries
        
        ((atag :clean) / (eq atag tag)
-        (let+ ((now  (get-universal-time))
-               (lst  (maps:fold dict (lambda (k v acc)
-                                       (with-state-vals ((bday :bday)) v
-                                         (if (> (- now bday) 10)
-                                             (cons k acc)
-                                           acc)))
-                                nil)))
-          (um:nlet iter ((m   dict)
-                         (lst lst))
-            (cond ((endp lst)
-                   (let ((tag (unless (maps:is-empty m)
-                                (tag self))))
-                     (become (ratchet-manager-beh
-                              role
-                              (state-with state
-                                          :dict m)
-                              tag))
-                     (when tag
-                       (send-after 10 tag :clean))
-                     ))
-                  (t
-                   (go-iter (maps:remove m (car lst)) (cdr lst)))
-                  ))
+        (let+ ((now      (get-universal-time))
+               (new-dict (maps:fold dict (lambda (k v acc)
+                                           (with-state-vals ((bday :bday)) v
+                                             (if (> (- now bday) 10)
+                                                 (maps:remove acc k)
+                                               acc)))
+                                dict)))
+          (unless (eq dict new-dict)
+            (let ((tag (unless (maps:is-empty new-dict)
+                         (tag self))))
+              (become (ratchet-manager-beh
+                       role
+                       (state-with state
+                                   :dict new-dict)
+                       tag))
+              (when tag
+                (send-after 10 tag :clean))
+              ))
           ))
        ))))
 
