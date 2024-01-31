@@ -630,11 +630,12 @@
        
        ((atag :clean) / (eq atag tag)
         (let+ ((now      (get-universal-time))
-               (new-dict (maps:fold dict (lambda (k v acc)
-                                           (with-state-vals ((bday :bday)) v
-                                             (if (> (- now bday) 10)
-                                                 (maps:remove acc k)
-                                               acc)))
+               (new-dict (maps:fold dict
+                                    (lambda (k v acc)
+                                      (with-state-vals ((bday :bday)) v
+                                        (if (> (- now bday) 10)
+                                            (maps:remove acc k)
+                                          acc)))
                                 dict)))
           (unless (eq dict new-dict)
             (let ((tag (unless (maps:is-empty new-dict)
