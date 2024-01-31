@@ -519,6 +519,8 @@
                    (state-with state
                                :tx-nbr  next-tx-nbr)
                    tag))
+          ;; Encryption key, tk-key, is: K(n)= H(root, dh-pt)^n,
+          ;; for tx-nbr = n, root-key = root, dh-pt = random point, R.
           (send cust next-tx-nbr dh-tau ack-tau tx-key)))
        ;;                ^         ^       ^      ^
        ;;                |         |       |      |
