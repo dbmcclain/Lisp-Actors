@@ -655,15 +655,6 @@
           ))
        ))))
 
-(let* ((m  (maps:add
-            (maps:add
-             (maps:add (maps:empty) 'a 1)
-             'b 2)
-            'c 3)))
-  (maps:fold m (lambda (k v acc)
-                 (acons k v acc))
-             nil))
-
 (defun dummy-ratchet-keying (ekey)
   (let+ ((ack-pt  (ed-nth-pt 99))
          (:mvb (ack-rand ack-tau)
