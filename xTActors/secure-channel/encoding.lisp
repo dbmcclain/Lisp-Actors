@@ -537,7 +537,8 @@
        ;;           K = s*R = r*P = r*s*G
        ;;
        ;;  where s is recipient's secret key, and P is recipient's
-       ;;  public key. I know the random value, r, used.
+       ;;  public key. I know the random value, r, used, and
+       ;;  recipient's public key, P.
        ;;
        ;;  But we actually send across an Elligator encoding of random
        ;;  point, R.)
