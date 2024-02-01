@@ -51,8 +51,6 @@
    #:noncer
    #:encryptor
    #:decryptor
-   #:advancing-encryptor
-   #:advancing-decryptor
    #:non-destructive-encryptor
    #:non-destructive-decryptor
    #:authentication

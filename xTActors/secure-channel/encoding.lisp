@@ -446,49 +446,6 @@
        (>> cust buf)))
    ))
 
-;; ---------------------------------------------
-
-(defun next-ekey (&rest args)
-  (apply #'hash/256 :next-ekey args))
-
-(defun advancing-encryptor-beh (ekey pkey)
-  (lambda (cust bytevec)
-    (with-ed-curve +ECC-CURVE+
-      (multiple-value-bind (dh-rand dh-tau)
-          (compute-deterministic-elligator-skey :dh-key ekey)
-        (let* ((msgv  (loenc:encode (list dh-tau bytevec)))
-               (nonce (encr/decr ekey nil msgv))
-               (auth  (make-auth ekey nonce msgv)))
-          (>> cust nonce msgv auth)
-          (become (advancing-encryptor-beh
-                   (next-ekey ekey (ed-mul pkey dh-rand))
-                   pkey))
-          )))
-    ))
-
-(defun advancing-encryptor (ekey pkey)
-  (create (advancing-encryptor-beh ekey pkey)))
-
-
-(defun advancing-decryptor-beh (ekey socket skey)
-  (lambda (cust seq bytevec auth)
-    (multiple-value-bind (is-ok auth-key)
-        (check-auth ekey seq bytevec auth)
-      (when is-ok
-        (>> socket :auth-key seq (vec auth-key))
-        (encr/decr ekey seq bytevec)
-        (with-ed-curve +ECC-CURVE+
-          (destructuring-bind (dh-tau msg)
-              (loenc:decode bytevec)
-            (send cust msg)
-            (become (advancing-decryptor-beh
-                     (next-ekey ekey (ed-mul (elli2-decode dh-tau) skey))
-                     socket skey))))
-        ))))
-  
-(defun advancing-decryptor (ekey socket skey)
-  (create (advancing-decryptor-beh ekey socket skey)))
-
 ;; -----------------------------------------------------------
 
 #|
