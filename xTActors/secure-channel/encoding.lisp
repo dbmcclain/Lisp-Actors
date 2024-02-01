@@ -242,15 +242,15 @@
           ))))
 |#
 
-(defun simple-compress (vec)
+(defun simple-compress (vec &optional (start 0))
   ;; vec is UB8
   (multiple-value-bind (outvec nb)
-      (snappy:compress vec 0 (length vec))
+      (snappy:compress vec start (- (length vec) start))
     (adjust-array outvec nb)))
 
-(defun simple-uncompress (vec)
+(defun simple-uncompress (vec &optional (start 0))
   ;; vec is UB8
-  (snappy:uncompress vec 0 (length vec)))
+  (snappy:uncompress vec start (- (length vec) start)))
 
 #||#
 ;; try using Google's SNAPPY
@@ -271,6 +271,46 @@
                  (simple-uncompress vec))))
       (when ans
         (>> cust ans))
+      ))
+   ))
+
+;; ------------------------------------------------
+;; try using Google's SNAPPY
+(defvar *smart-compressor-savings* 0)
+
+(defun smart-compressor ()
+  (actor 
+      (lambda (cust vec)
+        (let ((ans  (simple-compress vec)))
+          (cond ((>= (length ans) (length vec))
+                 (sys:atomic-fixnum-incf *smart-compressor-savings* (- (length ans) (length vec)))
+                 (let ((ovec (make-ub8-vector (1+ (length vec))) ))
+                   (setf (aref ovec 0) 0)
+                   (replace ovec vec :start1 1)
+                   (>> cust ovec)))
+                (t
+                 (let ((ovec (make-ub8-vector (1+ (length ans))) ))
+                   (setf (aref ovec 0) 1)
+                   (replace ovec ans :start1 1)
+                   (>> cust ovec)))
+                )))
+      ))
+
+(defun smart-decompressor ()
+  (actor 
+      (lambda (cust vec)
+        (if (= 1 (aref vec 0))
+            (>> cust (simple-uncompress (subseq vec 1)))
+          (>> cust (subseq vec 1)))
+        )))
+  
+(defun fail-silent-smart-decompressor ()
+  (αα
+   ((cust vec)
+    (ignore-errors
+      (if (= 1 (aref vec 0))
+          (>> cust (simple-uncompress (subseq vec 1)))
+        (>> cust (subseq vec 1)))
       ))
    ))
 

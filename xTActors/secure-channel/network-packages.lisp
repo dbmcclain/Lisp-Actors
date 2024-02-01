@@ -47,6 +47,9 @@
    #:marshal-compressor
    #:marshal-decompressor
    #:fail-silent-marshal-decompressor
+   #:smart-compressor
+   #:smart-decompressor
+   #:fail-silent-smart-decompressor
    #:noncer-beh
    #:noncer
    #:encryptor

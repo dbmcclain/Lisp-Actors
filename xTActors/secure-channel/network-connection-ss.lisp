@@ -825,10 +825,12 @@
                       :kill-timer       kill-timer
                       ))
             (encoder (sink-pipe  (marshal-encoder) ;; async output is sent here
+                                 (smart-compressor)
                                  (self-sync-encoder)
                                  (make-writer state)))
             (accum   (self-synca:stream-decoder    ;; async arrivals are sent here
-                        (sink-pipe (fail-silent-marshal-decoder)
+                        (sink-pipe (fail-silent-smart-decompressor)
+                                   (fail-silent-marshal-decoder)
                                    local-services)))
             (:β _    (racurry shutdown :init state))
             (:β _    (if (eq kind :server)
