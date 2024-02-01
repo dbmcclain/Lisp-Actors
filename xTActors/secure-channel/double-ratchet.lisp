@@ -115,7 +115,7 @@
                 (when is-ok
                   (let+ ((:mvb (new-dh-rand new-dh-tau)
                           (compute-deterministic-elligator-skey
-                           :ratchet2 new-root dh-pt))
+                           :ratchet-2 new-root dh-pt))
                          (new-dh-key (int (ed-nth-pt new-dh-rand)))
                          (new-dh-pt  (ed-mul pkey new-dh-rand))
                          (tag        (tag self)))
