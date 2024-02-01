@@ -262,7 +262,8 @@
      (let+ ((:β (ekey auth-key)
                 (racurry ratchet-manager
                          :rx-key seq tau ack nonce bytevec auth)))
-       (>> socket :auth-key seq tau ack nonce (vec auth-key))
+       ;; Our committment to refutability - publish the last auth-key
+       (>> socket :auth-key (vec auth-key))
        (encr/decr ekey nonce bytevec)
        (send cust bytevec))
      ))

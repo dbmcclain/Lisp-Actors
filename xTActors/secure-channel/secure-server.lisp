@@ -53,11 +53,7 @@
             (encryptor (ratchet-encryptor ratchet))
             (decryptor (ratchet-decryptor socket ratchet))
             (:β _      (racurry local-services :set-crypto
-                                socket encryptor decryptor))
-            #|
-            (:β _  (>> local-services β :set-crypto
-                       ekey socket my-skey client-pkey))
-            |#)
+                                socket encryptor decryptor)))
        (>> socket bpt aescrypt)))
     
     ;; silently ignore other requests

@@ -187,22 +187,14 @@
       (β! (local-services-beh new-svcs encryptor decryptor))
       (>> cust :ok)))
 
-   #|
-   ((cust :set-crypto ekey socket skey pkey)
-    ;; after this we promptly forget ekey...
-    (let ((encryptor (sink-pipe (secure-sender ekey self pkey)
-                                socket))
-          (decryptor (sink-pipe (secure-reader ekey self socket skey)
-                                self)))
-      (β! (local-services-beh svcs encryptor decryptor))
-      (>> cust :ok)))
-   |#
    ((cust :set-crypto socket encryptor decryptor)
-    (let ((enc  (sink-pipe (secure-sender self)
+    (let ((enc  (sink-pipe (client-marshal-encoder self) ;; translate Actors to CLIENT-PROXY's
+                           (marshal-compressor)
                            encryptor
                            socket))
           (dec  (sink-pipe decryptor
-                           (secure-reader self)
+                           (fail-silent-marshal-decompressor)
+                           (server-marshal-decoder self) ;; translate CLIENT-PROXY's into local proxy Actors
                            self)))
       (β! (local-services-beh svcs enc dec))
       (>> cust :ok)))
@@ -272,14 +264,6 @@
    ;; encrypted socket delivery -- decryptor decodes the message and
    ;; sends back to us as an unencrypted socket delivery (see previous
    ;; clause)
-   #|
-   ((seq ctxt auth) / (and decryptor
-                           ;; (integerp seq)
-                           (typep seq  'ub8-vector)
-                           (typep ctxt 'ub8-vector)
-                           (typep auth 'ub8-vector))
-    (>> decryptor seq ctxt auth))
-   |#
    ((seq tau ack iv ctxt auth) / (and decryptor
                                       ;; (integerp seq)
                                       (integerp seq)
@@ -409,42 +393,3 @@
     )))
 
 ;; ---------------------------------------------------
-;; Composite Actor pipes - used by both clients and servers. Both
-;; receive the exact same treatment. The only distinction between
-;; client and server is that client begins the channel connection, and
-;; server offers to supply global services.
-#|
-(defun secure-sender (ekey local-services pkey)
-  (pipe (client-marshal-encoder local-services) ;; translate Actors to CLIENT-PROXY's
-        (marshal-compressor)
-        ;; (chunker 65000)  ;; Async Sockets already chunk/dechunk data
-        ;; (marshal-encoder)
-        #|
-        (encryptor ekey)
-        (authentication ekey)
-        |#
-        (advancing-encryptor ekey pkey)
-        ))
-  
-(defun secure-reader (ekey local-services socket skey)
-  (pipe #|
-        (check-authentication ekey socket)
-        (decryptor ekey)
-        |#
-        (advancing-decryptor ekey socket skey)
-        ;; (fail-silent-marshal-decoder) ;; Async Sockets already chunk/dechunk data
-        ;; (dechunker)
-        (fail-silent-marshal-decompressor)
-        (server-marshal-decoder local-services) ;; translate CLIENT-PROXY's into local proxy Actors
-        ))
-|#
-(defun secure-sender (local-services)
-  (pipe (client-marshal-encoder local-services) ;; translate Actors to CLIENT-PROXY's
-        (marshal-compressor)))
-  
-(defun secure-reader (local-services)
-  (pipe (fail-silent-marshal-decompressor)
-        (server-marshal-decoder local-services) ;; translate CLIENT-PROXY's into local proxy Actors
-        ))
-
-;; ----------------------------------------------
