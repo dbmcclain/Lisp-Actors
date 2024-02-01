@@ -167,23 +167,23 @@
         (>>* cust (loenc:decode vec)) )))
   
 (defun fail-silent-marshal-decoder ()
-  (αα
-   ((cust vec) / (typep vec 'ub8-vector)
-    ;; (>> fmt-println "Fail-Silent Marshal Decoder")
-    ;;
-    ;; The premise here is that, when using malleable encrption and
-    ;; refutable signatures, an attacker can form a validly signed but
-    ;; mutated encryption in a replay attack. That will likely produce
-    ;; gibberish as a marshal encoding, and we need to intercept these
-    ;; kinds of attacks and not let them pass, nor cause trouble for
-    ;; us.
-    (let ((dec (ignore-errors
-                 (loenc:decode vec))))
-      (when (and dec
-                 (listp dec))
-        (>>* cust dec))
-      ))
-   ))
+  (create
+   (alambda
+    ((cust vec) / (typep vec 'ub8-vector)
+     ;; (>> fmt-println "Fail-Silent Marshal Decoder")
+     ;;
+     ;; The premise here is that, when using malleable encrption and
+     ;; refutable signatures, an attacker can form a validly signed but
+     ;; mutated encryption in a replay attack. That will likely produce
+     ;; gibberish as a marshal encoding, and we need to intercept these
+     ;; kinds of attacks and not let them pass, nor cause trouble for
+     ;; us.
+     (ignore-errors
+       (let ((dec (loenc:decode vec)))
+         (when (listp dec)
+           (>>* cust dec))
+       )))
+    )))
 
 #|
 (defun marshal-cmpr-encoder ()
@@ -256,20 +256,19 @@
 ;; try using Google's SNAPPY
 (defun marshal-compressor ()
   (actor 
-      (lambda (cust vec)
-        (>> cust (simple-compress vec)))))
+   (lambda (cust vec)
+     (>> cust (simple-compress vec)))))
 
 (defun marshal-decompressor ()
   (actor 
-      (lambda (cust vec)
-        (>> cust (simple-uncompress vec)))))
+   (lambda (cust vec)
+     (>> cust (simple-uncompress vec)))))
   
 (defun fail-silent-marshal-decompressor ()
-  (αα
-   ((cust vec)
-    (let ((ans (ignore-errors
-                 (simple-uncompress vec))))
-      (when ans
+  (actor
+   (lambda (cust vec)
+    (ignore-errors
+      (let ((ans (simple-uncompress vec)))
         (>> cust ans))
       ))
    ))
@@ -280,38 +279,38 @@
 
 (defun smart-compressor ()
   (actor 
-      (lambda (cust vec)
-        (let ((ans  (simple-compress vec)))
-          (cond ((>= (length ans) (length vec))
-                 (sys:atomic-fixnum-incf *smart-compressor-savings* (- (length ans) (length vec)))
-                 (let ((ovec (make-ub8-vector (1+ (length vec))) ))
-                   (setf (aref ovec 0) 0)
-                   (replace ovec vec :start1 1)
-                   (>> cust ovec)))
-                (t
-                 (let ((ovec (make-ub8-vector (1+ (length ans))) ))
-                   (setf (aref ovec 0) 1)
-                   (replace ovec ans :start1 1)
-                   (>> cust ovec)))
-                )))
-      ))
+   (lambda (cust vec)
+     (let ((ans  (simple-compress vec)))
+       (cond ((>= (length ans) (length vec))
+              (sys:atomic-fixnum-incf *smart-compressor-savings* (- (length ans) (length vec)))
+              (let ((ovec (make-ub8-vector (1+ (length vec))) ))
+                (setf (aref ovec 0) 0)
+                (replace ovec vec :start1 1)
+                (>> cust ovec)))
+             (t
+              (let ((ovec (make-ub8-vector (1+ (length ans))) ))
+                (setf (aref ovec 0) 1)
+                (replace ovec ans :start1 1)
+                (>> cust ovec)))
+             )))
+   ))
 
 (defun smart-decompressor ()
   (actor 
-      (lambda (cust vec)
-        (if (= 1 (aref vec 0))
-            (>> cust (simple-uncompress (subseq vec 1)))
-          (>> cust (subseq vec 1)))
+   (lambda (cust vec)
+     (if (= 1 (aref vec 0))
+         (>> cust (simple-uncompress (subseq vec 1)))
+       (>> cust (subseq vec 1)))
         )))
   
 (defun fail-silent-smart-decompressor ()
   (actor
    (lambda (cust vec)
-    (ignore-errors
-      (if (= 1 (aref vec 0))
-          (>> cust (simple-uncompress (subseq vec 1)))
-        (>> cust (subseq vec 1)))
-      ))
+     (ignore-errors
+       (if (= 1 (aref vec 0))
+           (>> cust (simple-uncompress (subseq vec 1)))
+         (>> cust (subseq vec 1)))
+       ))
    ))
 
 #||#
