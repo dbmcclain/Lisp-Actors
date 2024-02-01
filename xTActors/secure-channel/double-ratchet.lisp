@@ -194,7 +194,8 @@
        ))))
 
 (defun dummy-ratchet-keying (ekey)
-  (let+ ((ack-pt  (ed-nth-pt 99))
+  (let+ ((ack-pt  (edec:ed-pt-from-seed
+                   :initial-ack-point ekey))
          (:mvb (ack-rand ack-tau)
           (compute-deterministic-elligator-skey
            :ratchet-2 ekey ack-pt))
