@@ -305,8 +305,8 @@
         )))
   
 (defun fail-silent-smart-decompressor ()
-  (αα
-   ((cust vec)
+  (actor
+   (lambda (cust vec)
     (ignore-errors
       (if (= 1 (aref vec 0))
           (>> cust (simple-uncompress (subseq vec 1)))

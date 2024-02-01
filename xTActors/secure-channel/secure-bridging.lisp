@@ -189,11 +189,13 @@
 
    ((cust :set-crypto socket encryptor decryptor)
     (let ((enc  (sink-pipe (client-marshal-encoder self) ;; translate Actors to CLIENT-PROXY's
-                           (marshal-compressor)
+                           ;; (marshal-compressor)
+                           (smart-compressor)
                            encryptor
                            socket))
           (dec  (sink-pipe decryptor
-                           (fail-silent-marshal-decompressor)
+                           ;; (fail-silent-marshal-decompressor)
+                           (fail-silent-smart-decompressor)
                            (server-marshal-decoder self) ;; translate CLIENT-PROXY's into local proxy Actors
                            self)))
       (β! (local-services-beh svcs enc dec))
@@ -265,7 +267,6 @@
    ;; sends back to us as an unencrypted socket delivery (see previous
    ;; clause)
    ((seq tau ack iv ctxt auth) / (and decryptor
-                                      ;; (integerp seq)
                                       (integerp seq)
                                       (integerp tau)
                                       (integerp ack)
