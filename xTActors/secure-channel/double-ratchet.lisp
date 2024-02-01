@@ -39,12 +39,12 @@
             ;; Encryption key, tk-key, is: K(n)= H(root, dh-pt)^n,
             ;; for tx-nbr = n, root-key = root, dh-pt = random point, R.
             (send cust next-tx-nbr dh-tau ack-tau tx-key) )))
-       ;;                ^         ^       ^      ^
-       ;;                |         |       |      |
-       ;;                |         |       |      +-- encryption key to use
-       ;;                |         |       +-- Old keying acknowledgement
-       ;;                |         +-- New keying in use
-       ;;                +-- Tx in series for DH-TAU keying: 1,2,3...
+       ;;                  ^         ^       ^      ^
+       ;;                  |         |       |      |
+       ;;                  |         |       |      +-- encryption key to use
+       ;;                  |         |       +-- Old keying acknowledgement
+       ;;                  |         +-- New keying in use
+       ;;                  +-- Tx in series for DH-TAU keying: 1,2,3...
        ;;
        ;; DH-TAU, ACK-TAU are Elligator encodings of random EC points (integer).
        ;; NEXT-TX-NBR is a simple integer. Every message numbered sequentially.
