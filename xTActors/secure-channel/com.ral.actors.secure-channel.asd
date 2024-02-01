@@ -32,6 +32,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "self-sync-actors")
                 (:file "ecc-key-exchange")
                 (:file "encoding")
+                (:file "double-ratchet")
                 (:file "secure-bridging")
                 (:file "network-connection-ss")
                 (:file "secure-client")
