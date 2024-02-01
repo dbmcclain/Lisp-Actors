@@ -9,10 +9,10 @@
 ;; Double-Ratchet done properly...
 
 (defun ratchet-manager-beh (role state &optional tag)
-  (labels ((iter-key (key pt ct)
+  (labels ((iter-hash (key pt ct)
              (if (zerop ct)
                  key
-               (iter-key (hash/256 :ekey key pt) pt (1- ct))
+               (iter-hash (hash/256 :ekey key pt) pt (1- ct))
                )))
     (with-state-vals ((root-key :root-key)
                       (tx-nbr   :tx-nbr)
@@ -28,16 +28,17 @@
        ;; Get encryption keying and preamble
        
        ((cust :tx-key)
-        (let* ((next-tx-nbr  (1+ tx-nbr))
-               (tx-key       (iter-key root-key dh-pt next-tx-nbr)))
-          (become (ratchet-manager-beh
-                   role
-                   (state-with state
-                               :tx-nbr  next-tx-nbr)
-                   tag))
-          ;; Encryption key, tk-key, is: K(n)= H(root, dh-pt)^n,
-          ;; for tx-nbr = n, root-key = root, dh-pt = random point, R.
-          (send cust next-tx-nbr dh-tau ack-tau tx-key)))
+        (with-ed-curve +ECC-CURVE+
+          (let* ((next-tx-nbr  (1+ tx-nbr))
+                 (tx-key       (iter-hash root-key dh-pt next-tx-nbr)))
+            (become (ratchet-manager-beh
+                     role
+                     (state-with state
+                                 :tx-nbr  next-tx-nbr)
+                     tag))
+            ;; Encryption key, tk-key, is: K(n)= H(root, dh-pt)^n,
+            ;; for tx-nbr = n, root-key = root, dh-pt = random point, R.
+            (send cust next-tx-nbr dh-tau ack-tau tx-key) )))
        ;;                ^         ^       ^      ^
        ;;                |         |       |      |
        ;;                |         |       |      +-- encryption key to use
@@ -84,7 +85,7 @@
                       (case role
                         (:CLIENT ;; clients always initiate a conversation
                          (let+ ((new-root   (hash/256 :ratchet-1 root-key dh-pt))
-                                (rx-key     (iter-key new-root new-ack-pt seq))
+                                (rx-key     (iter-hash new-root new-ack-pt seq))
                                 (new-dict   (maps:add dict
                                                       ack-key (actor-state
                                                                :bday  (get-universal-time)
@@ -101,7 +102,7 @@
                                                                :dh-pt new-ack-pt
                                                                :seqs  (list seq))
                                                       ))
-                                (rx-key     (iter-key root-key new-ack-pt seq))
+                                (rx-key     (iter-hash root-key new-ack-pt seq))
                                 (new-root   (hash/256 :ratchet-1 root-key new-ack-pt)))
                            (values new-root rx-key new-dict)))
                         ))
@@ -143,7 +144,7 @@
                                   (seqs  :seqs)) entry
                   ;; avoid replay attacks
                   (unless (member seq seqs)
-                    (let+ ((rx-key  (iter-key root dh-pt seq))
+                    (let+ ((rx-key  (iter-hash root dh-pt seq))
                            ;; ------------------------------------------
                            ;; At this point we have a decryption key. Let's be
                            ;; sure we aren't being spoofed before making any
