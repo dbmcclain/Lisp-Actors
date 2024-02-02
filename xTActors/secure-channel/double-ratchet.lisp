@@ -14,14 +14,14 @@
                  key
                (iter-hash (hash/256 :ekey key pt) pt (1- ct))
                )))
-    (with-state-vals ((root-key :root-key)
-                      (tx-nbr   :tx-nbr)
-                      (skey     :skey)
-                      (pkey     :pkey)
-                      (dh-pt    :dh-pt)
-                      (dh-key   :dh-key)
-                      (ack-key  :ack-key)
-                      (dict     :dict)) state
+    (with-state-vals ((root-key :root-key)    ;; current root for ratcheting, hash - evolving
+                      (tx-nbr   :tx-nbr)      ;; sequence number of last Tx cryptotext
+                      (skey     :skey)        ;; my secret key
+                      (pkey     :pkey)        ;; other party's public key
+                      (dh-pt    :dh-pt)       ;; current DH shared point, integer - evolving
+                      (dh-key   :dh-key)      ;; current DH random point, integer - evolving
+                      (ack-key  :ack-key)     ;; prior DH random point, integer - from recipient
+                      (dict     :dict)) state ;; limited dictionary of stale encryption keying
       (alambda
        ;; ------------------------------------------------------
        ;; Get encryption keying and preamble
@@ -131,8 +131,8 @@
                                          :root-key new-root
                                          :tx-nbr   0
                                          :ack-key  (int tau-pt)
-                                         :dh-pt    new-dh-pt
                                          :dh-key   new-dh-key
+                                         :dh-pt    new-dh-pt
                                          :dict     new-dict)
                              tag))
                     (send cust rx-key auth-key)
