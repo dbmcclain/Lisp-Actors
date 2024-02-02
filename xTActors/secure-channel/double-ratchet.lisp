@@ -28,13 +28,12 @@
        
        ((cust :tx-key)
         (with-ed-curve +ECC-CURVE+
-          ;; Recomputing the Elligator encodings, dh-tau and ack-tau,
-          ;; randomizes the ouput preamble, even when the underlying
-          ;; information is constant. Every Elligator encoding of a
-          ;; curve point is different.
+          ;; Refreshing the Elligator encodings provides for a slighly
+          ;; randomized presentation when the unerlying Elligators are
+          ;; repeated in another preamble.
           (let* ((next-tx-nbr  (1+ tx-nbr))
-                 (dh-tau       (edec:elli2-encode (ed-decompress-pt dh-key)))
-                 (ack-tau      (edec:elli2-encode (ed-decompress-pt ack-key)))
+                 (dh-tau       (refresh-elligator dh-key))
+                 (ack-tau      (refresh-elligator ack-key))
                  (tx-key       (iter-hash root-key dh-pt next-tx-nbr)))
             (become (ratchet-manager-beh
                      role
@@ -81,14 +80,16 @@
         ;; representation first.
         ;;
         (with-ed-curve +ECC-CURVE+
-          (let ((inp-ack-key (ignore-errors ;; defend against improper args
-                               (int (elli2-decode ack))))
+          (let ((inp-ack-key (ignore-errors
+                               (elligator-body ack)))
                 (tau-pt      (ignore-errors
                                (elli2-decode tau))))
             (cond
-             ((or (null inp-ack-key)
-                  (null tau-pt))
-              ;; just drop and ignore the input message
+             ((null tau-pt)
+              ;; Intentional injection attack. Extremely rare bit
+              ;; pattern to be one of the very few invalid encodings.
+              ;; Else, just wasn't an integer. Just drop and ignore
+              ;; the input message.
               )
              ;; ----------------------------------
              
@@ -129,10 +130,10 @@
                      (:mvb (is-ok auth-key)
                       (check-auth rx-key iv ctxt auth)))
                 (when is-ok
-                  (let+ ((:mvb (new-dh-rand) ;; new random Elligator elligible G multiplier
+                  (let+ ((:mvb (new-dh-rand new-dh-tau) ;; new random Elligator
                           (compute-deterministic-elligator-skey
                            :ratchet-2 new-root dh-pt))
-                         (new-dh-key (int (ed-nth-pt new-dh-rand)))   ;; our new DH random point
+                         (new-dh-key (elligator-body new-dh-tau))     ;; our new DH random point
                          (new-dh-pt  (int (ed-mul pkey new-dh-rand))) ;; our new DH shared point
                          (tag        (tag self)))
                     (become (ratchet-manager-beh
@@ -140,8 +141,8 @@
                              (state-with state
                                          :root-key new-root
                                          :tx-nbr   0            ;; start counting anew
-                                         :ack-key  (int tau-pt) ;; sender's last DH random point
-                                         :dh-key   new-dh-key   ;; our new DH random point
+                                         :ack-key  (elligator-body tau) ;; sender's last DH Elligator
+                                         :dh-key   new-dh-key   ;; our new DH Elligator
                                          :dh-pt    new-dh-pt    ;; our DH shared point
                                          :dict     new-dict)
                              tag))
@@ -209,22 +210,22 @@
        ))))
 
 (defun dummy-ratchet-keying (ekey)
-  (let+ ((ack-pt  (int (edec:ed-pt-from-seed
+  (let+ ((ack-pt  (int (ed-pt-from-seed
                         :initial-ack-point ekey)))
-         (:mvb (ack-rand)
+         (:mvb (_ ack-tau)
           (compute-deterministic-elligator-skey
            :ratchet-2 ekey ack-pt))
-         (ack-key (int (ed-nth-pt ack-rand))))
+         (ack-key (elligator-body ack-tau)))
     (values ack-pt ack-key)))
   
 (defun client-ratchet-manager (ekey skey pkey)
   (with-ed-curve +ECC-CURVE+
     (let+ ((:mvb (ack-pt ack-key)
             (dummy-ratchet-keying ekey))
-           (:mvb (dh-rand)
+           (:mvb (dh-rand dh-tau)
             (compute-deterministic-elligator-skey
              :ratchet-2 ekey ack-pt pkey))
-           (dh-key (int (ed-nth-pt dh-rand)))
+           (dh-key (elligator-body dh-tau))
            (dh-pt  (int (ed-mul pkey dh-rand))))
       (create
        (ratchet-manager-beh

@@ -699,10 +699,11 @@ THE SOFTWARE.
    #:elligator-limit
    #:elligator-nbits
    #:to-elligator-range
-   
    #:elli2-encode
    #:elli2-decode
    #:elli2-random-pt
+   #:elligator-body
+   #:refresh-elligator
    
    #:ed-schnorr-sig
    #:ed-schnorr-sig-verify

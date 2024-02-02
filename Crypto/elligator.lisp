@@ -31,6 +31,13 @@
       (ash (ctr-drbg-int (- 8. nbits)) enb))
     ))
 
+(defun elligator-body (enc)
+  (let ((enb  (elligator-nbits)))
+    (ldb (byte enb 0) enc)))
+
+(defun refresh-elligator (enc)
+  (logior (elligator-body enc) (elligator-int-padding)))
+
 (defun compute-csr ()
   ;; from Bernstein -- correct only for isomorph curve *ed-c* = 1
   (with-mod *ed-q*
@@ -145,7 +152,10 @@
   (labels ((helper (seed index)
              (let* ((skey (compute-deterministic-skey seed index))
                     (pkey (ed-nth-pt skey))
+                    (_    (assert (not (and (zerop (ecc-pt-y pkey))     ;; for tracking down
+                                            (zerop (ecc-pt-x pkey)))))) ;; problem with curve-e521f
                     (tau  (elli2-encode pkey)))
+               (declare (ignore _))
                (if tau
                    (values skey tau index)
                  (helper seed (1+ index)))

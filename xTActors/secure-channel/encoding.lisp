@@ -26,7 +26,11 @@
             edec:ed-pt=
             edec:with-ed-curve
             edec:compute-deterministic-elligator-skey
+            edec:ed-pt-from-seed
+            edec:elli2-encode
             edec:elli2-decode
+            edec:refresh-elligator
+            edec:elligator-body
             com.ral.crypto.ecc-key-exchange:+ECC-CURVE+
             modmath:with-mod
             modmath:m+
