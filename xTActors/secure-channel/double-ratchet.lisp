@@ -81,13 +81,21 @@
         ;; representation first.
         ;;
         (with-ed-curve +ECC-CURVE+
-          (let ((inp-ack-key (int (elli2-decode ack))))
+          (let ((inp-ack-key (ignore-errors ;; defend against improper args
+                               (int (elli2-decode ack))))
+                (tau-pt      (ignore-errors
+                               (elli2-decode tau))))
             (cond
+             ((or (null inp-ack-key)
+                  (null tau-pt))
+              ;; just drop and ignore the input message
+              )
+             ;; ----------------------------------
+             
              ((eql inp-ack-key dh-key) ;; does message ack our proposed keying?
               ;; Time to ratchet forward...
               ;; Choose new root-key and DH points
-              (let+ ((tau-pt      (elli2-decode tau))
-                     (new-ack-pt  (int (ed-mul tau-pt skey))) ;; other party's random DH point
+              (let+ ((new-ack-pt  (int (ed-mul tau-pt skey))) ;; other party's random DH point
                      (:mvb (new-root rx-key new-dict)
                       (case role
                         (:CLIENT ;; clients always initiate a conversation
