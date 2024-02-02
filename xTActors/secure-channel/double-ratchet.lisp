@@ -19,9 +19,8 @@
                       (skey     :skey)
                       (pkey     :pkey)
                       (dh-pt    :dh-pt)
-                      (dh-tau   :dh-tau)
                       (dh-key   :dh-key)
-                      (ack-tau  :ack-tau)
+                      (ack-key  :ack-key)
                       (dict     :dict)) state
       (alambda
        ;; ------------------------------------------------------
@@ -30,6 +29,8 @@
        ((cust :tx-key)
         (with-ed-curve +ECC-CURVE+
           (let* ((next-tx-nbr  (1+ tx-nbr))
+                 (dh-tau       (edec:elli2-encode (ed-decompress-pt dh-key)))
+                 (ack-tau      (edec:elli2-encode (ed-decompress-pt ack-key)))
                  (tx-key       (iter-hash root-key dh-pt next-tx-nbr)))
             (become (ratchet-manager-beh
                      role
@@ -64,7 +65,7 @@
        ;;
        ;; --------------------------------------------------------
        ;; Get decryption keying
-       
+
        ((cust :rx-key seq tau ack iv ctxt auth)
         ;; It is the nature of the beast, that Elligator makes a curve
         ;; point appear as a random string, and does so in a random
@@ -76,11 +77,12 @@
         ;; representation first.
         ;;
         (with-ed-curve +ECC-CURVE+
-          (let ((ack-key (int (elli2-decode ack))))
+          (let ((inp-ack-key (int (elli2-decode ack))))
             (cond
-             ((eql ack-key dh-key) ;; does message ack our proposed keying?
+             ((eql inp-ack-key dh-key) ;; does message ack our proposed keying?
               ;; Time to ratchet forward...
-              (let+ ((new-ack-pt (ed-mul (elli2-decode tau) skey))
+              (let+ ((tau-pt      (elli2-decode tau))
+                     (new-ack-pt  (int (ed-mul tau-pt skey)))
                      (:mvb (new-root rx-key new-dict)
                       (case role
                         (:CLIENT ;; clients always initiate a conversation
@@ -113,19 +115,18 @@
                      (:mvb (is-ok auth-key)
                       (check-auth rx-key iv ctxt auth)))
                 (when is-ok
-                  (let+ ((:mvb (new-dh-rand new-dh-tau)
+                  (let+ ((:mvb (new-dh-rand)
                           (compute-deterministic-elligator-skey
                            :ratchet-2 new-root dh-pt))
                          (new-dh-key (int (ed-nth-pt new-dh-rand)))
-                         (new-dh-pt  (ed-mul pkey new-dh-rand))
+                         (new-dh-pt  (int (ed-mul pkey new-dh-rand)))
                          (tag        (tag self)))
                     (become (ratchet-manager-beh
                              role
                              (state-with state
                                          :root-key new-root
                                          :tx-nbr   0
-                                         :ack-tau  tau
-                                         :dh-tau   new-dh-tau
+                                         :ack-key  (int tau-pt)
                                          :dh-pt    new-dh-pt
                                          :dh-key   new-dh-key
                                          :dict     new-dict)
@@ -138,7 +139,7 @@
              ;; ----------------------------------------------
              ;; Stale keying in message - lookup how to decrypt
              (t
-              (um:when-let (entry (maps:find dict ack-key))
+              (um:when-let (entry (maps:find dict inp-ack-key))
                 (with-state-vals ((root  :root)
                                   (dh-pt :dh-pt)
                                   (seqs  :seqs)) entry
@@ -194,23 +195,23 @@
        ))))
 
 (defun dummy-ratchet-keying (ekey)
-  (let+ ((ack-pt  (edec:ed-pt-from-seed
-                   :initial-ack-point ekey))
-         (:mvb (ack-rand ack-tau)
+  (let+ ((ack-pt  (int (edec:ed-pt-from-seed
+                        :initial-ack-point ekey)))
+         (:mvb (ack-rand)
           (compute-deterministic-elligator-skey
            :ratchet-2 ekey ack-pt))
          (ack-key (int (ed-nth-pt ack-rand))))
-    (values ack-tau ack-pt ack-key)))
+    (values ack-pt ack-key)))
   
 (defun client-ratchet-manager (ekey skey pkey)
   (with-ed-curve +ECC-CURVE+
-    (let+ ((:mvb (ack-tau ack-pt)
+    (let+ ((:mvb (ack-pt ack-key)
             (dummy-ratchet-keying ekey))
-           (:mvb (dh-rand dh-tau)
+           (:mvb (dh-rand)
             (compute-deterministic-elligator-skey
              :ratchet-2 ekey ack-pt pkey))
            (dh-key (int (ed-nth-pt dh-rand)))
-           (dh-pt  (ed-mul pkey dh-rand)))
+           (dh-pt  (int (ed-mul pkey dh-rand))))
       (create
        (ratchet-manager-beh
         :CLIENT
@@ -219,17 +220,16 @@
          :pkey      pkey
          :skey      skey
          :tx-nbr    0
-         :dh-tau    dh-tau
          :dh-pt     dh-pt
          :dh-key    dh-key
-         :ack-tau   ack-tau
+         :ack-key   ack-key
          :dict      (maps:empty)
          )))
       )))
 
 (defun server-ratchet-manager (ekey skey pkey)
   (with-ed-curve +ECC-CURVE+
-    (let+ ((:mvb (ack-tau ack-pt ack-key)
+    (let+ ((:mvb (ack-pt ack-key)
             (dummy-ratchet-keying ekey)))
       (create
        (ratchet-manager-beh
@@ -238,7 +238,6 @@
          :root-key  ekey
          :pkey      pkey
          :skey      skey
-         :dh-tau    ack-tau
          :dh-pt     ack-pt
          :dh-key    ack-key
          :dict      (maps:empty)
