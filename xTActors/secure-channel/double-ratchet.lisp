@@ -85,19 +85,21 @@
             (cond
              ((eql inp-ack-key dh-key) ;; does message ack our proposed keying?
               ;; Time to ratchet forward...
+              ;; Choose new root-key and DH points
               (let+ ((tau-pt      (elli2-decode tau))
-                     (new-ack-pt  (int (ed-mul tau-pt skey)))
+                     (new-ack-pt  (int (ed-mul tau-pt skey))) ;; other party's random DH point
                      (:mvb (new-root rx-key new-dict)
                       (case role
                         (:CLIENT ;; clients always initiate a conversation
                          (let+ ((new-root   (hash/256 :ratchet-1 root-key dh-pt))
                                 (rx-key     (iter-hash new-root new-ack-pt seq))
                                 (new-dict   (maps:add dict
-                                                      ack-key (actor-state
-                                                               :bday  (get-universal-time)
-                                                               :root  new-root
-                                                               :dh-pt new-ack-pt
-                                                               :seqs  (list seq))
+                                                      ack-key
+                                                      (actor-state
+                                                       :bday  (get-universal-time) ;; birthday of entry
+                                                       :root  new-root             ;; root at time of ratchet
+                                                       :dh-pt new-ack-pt           ;; new DH random pt
+                                                       :seqs  (list seq))
                                                       )))
                            (values new-root rx-key new-dict)))
                         (:SERVER ;; servers simply respond at first
@@ -119,24 +121,24 @@
                      (:mvb (is-ok auth-key)
                       (check-auth rx-key iv ctxt auth)))
                 (when is-ok
-                  (let+ ((:mvb (new-dh-rand)
+                  (let+ ((:mvb (new-dh-rand) ;; new random Elligator elligible G multiplier
                           (compute-deterministic-elligator-skey
                            :ratchet-2 new-root dh-pt))
-                         (new-dh-key (int (ed-nth-pt new-dh-rand)))
-                         (new-dh-pt  (int (ed-mul pkey new-dh-rand)))
+                         (new-dh-key (int (ed-nth-pt new-dh-rand)))   ;; our new DH random point
+                         (new-dh-pt  (int (ed-mul pkey new-dh-rand))) ;; our new DH shared point
                          (tag        (tag self)))
                     (become (ratchet-manager-beh
                              role
                              (state-with state
                                          :root-key new-root
-                                         :tx-nbr   0
-                                         :ack-key  (int tau-pt)
-                                         :dh-key   new-dh-key
-                                         :dh-pt    new-dh-pt
+                                         :tx-nbr   0            ;; start counting anew
+                                         :ack-key  (int tau-pt) ;; sender's last DH random point
+                                         :dh-key   new-dh-key   ;; our new DH random point
+                                         :dh-pt    new-dh-pt    ;; our DH shared point
                                          :dict     new-dict)
                              tag))
                     (send cust rx-key auth-key)
-                    (send-after 10 tag :clean)
+                    (send-after 10 tag :clean) ;; clear out stale encryption info in 10 sec
                     ))
                 ))
              
@@ -144,8 +146,8 @@
              ;; Stale keying in message - lookup how to decrypt
              (t
               (um:when-let (entry (maps:find dict inp-ack-key))
-                (with-state-vals ((root  :root)
-                                  (dh-pt :dh-pt)
+                (with-state-vals ((root  :root)  ;; root key at time we saw inp-ack to ratchet forward
+                                  (dh-pt :dh-pt) ;; DH shared pt
                                   (seqs  :seqs)) entry
                   ;; avoid replay attacks
                   (unless (member seq seqs)
@@ -158,7 +160,7 @@
                             (check-auth rx-key iv ctxt auth)))
                       (when is-ok
                         (let+ ((new-entry (state-with entry
-                                                      :bday (get-universal-time)
+                                                      :bday (get-universal-time) ;; new birthday for entry
                                                       :seqs (cons seq seqs)))
                                (new-dict  (maps:add dict ack-key new-entry))
                                (tag       (tag self)))
