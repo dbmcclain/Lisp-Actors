@@ -54,7 +54,7 @@
        ;; NEXT-TX-NBR is a simple integer. Every message numbered sequentially.
        ;; TX-KEY is a 256-bit hash, used as an AES-256 key.
        ;;
-       ;; (Hint: DH = Diffie-Hellman. I send you a random point, R = r*G.
+       ;; (Hint: DH = Diffie-Hellman). I send you a random point, R = r*G.
        ;; Our shared key is
        ;;
        ;;           K = s*R = r*P = r*s*G
