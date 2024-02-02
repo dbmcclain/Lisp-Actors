@@ -28,6 +28,10 @@
        
        ((cust :tx-key)
         (with-ed-curve +ECC-CURVE+
+          ;; Recomputing the Elligator encodings, dh-tau and ack-tau,
+          ;; randomizes the ouput preamble, even when the underlying
+          ;; information is constant. Every Elligator encoding of a
+          ;; curve point is different.
           (let* ((next-tx-nbr  (1+ tx-nbr))
                  (dh-tau       (edec:elli2-encode (ed-decompress-pt dh-key)))
                  (ack-tau      (edec:elli2-encode (ed-decompress-pt ack-key)))
