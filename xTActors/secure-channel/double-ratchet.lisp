@@ -85,7 +85,8 @@
                 (tau-pt      (ignore-errors
                                (elli2-decode tau))))
             (cond
-             ((null tau-pt)
+             ((or (null tau-pt)
+                  (not (integerp seq)))
               ;; Intentional injection attack. Extremely rare bit
               ;; pattern to be one of the very few invalid encodings.
               ;; Else, just wasn't an integer. Just drop and ignore
@@ -128,7 +129,8 @@
                      ;; sure we aren't being spoofed before making any
                      ;; updates to our state.
                      (:mvb (is-ok auth-key)
-                      (check-auth rx-key iv ctxt auth)))
+                      (ignore-errors
+                        (check-auth rx-key iv ctxt auth))))
                 (when is-ok
                   (let+ ((:mvb (new-dh-rand new-dh-tau) ;; new random Elligator
                           (compute-deterministic-elligator-skey
