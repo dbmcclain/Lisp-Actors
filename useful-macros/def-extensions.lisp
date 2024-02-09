@@ -17,6 +17,8 @@
    #:deflex* ;; a defvar version of backing store
    #:let+
    #:do-let+
+   #:maybe-ignore_
+   #:to-proper-list
    ))
 
 (in-package #:com.ral.useful-macros.def-extensions)
@@ -281,13 +283,30 @@ arguments when given."
 
 (defgeneric do-let+ (fst binding form))
 
+(defun to-proper-list (arg &optional ans)
+  ;; convert dotted-list to proper list with &REST
+  (cond
+   ((null arg)
+    (nreverse ans))
+   ((atom arg)
+    (nreverse (list* arg '&rest ans)))
+   (t
+    (to-proper-list (cdr arg) (cons (car arg) ans)))
+   ))
+    
+(defun maybe-ignore_ (arg)
+  (when (or (is-underscore? arg)
+            (and (consp arg)
+                 (find-if #'is-underscore? (to-proper-list arg))))
+    `((declare (ignore ,(symb "_"))))
+    ))
+
 (defmethod do-let+ ((fst cons) binding form)
   ;; tree destructuring
   (let ((flat (um:flatten fst)))
     `(destructuring-bind ,fst
          ,(second binding)
-       ,@(when (find-if #'is-underscore? flat)
-           `((declare (ignore ,(symb "_")))))
+       ,@(maybe-ignore_ flat)
        ,form)
     ))
 
@@ -301,8 +320,7 @@ arguments when given."
   (destructuring-bind (list-form verb-form) (rest binding)
     `(multiple-value-bind ,list-form
          ,verb-form
-       ,@(when (find-if #'is-underscore? list-form)
-           `((declare (ignore ,(symb "_")))))
+       ,@(maybe-ignore_ list-form)
        ,form) 
     ))
 
@@ -331,8 +349,7 @@ arguments when given."
 (defmethod do-let+ (fst binding form)
   ;; default case
   `(let (,binding)
-     ,@(when (is-underscore? fst)
-         `((declare (ignore ,fst))))
+     ,@(maybe-ignore_ fst)
      ,form))
 
 (defmacro let+ (bindings &body body)
