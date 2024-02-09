@@ -378,7 +378,7 @@ THE SOFTWARE.
   
 (defun do-with-maximum-io-syntax (fn)
   (with-standard-io-syntax
-    (let ((*print-radix* t)
+    (let ((*print-radix*  t)
           (*print-circle* t)
           (*read-default-float-format* 'double-float))
       (handler-case

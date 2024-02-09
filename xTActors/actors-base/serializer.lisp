@@ -290,3 +290,23 @@
       )))
 (tst 100)
 |#
+
+(defmacro with-intercepted-errors ((cust &optional (err-fn #'identity)) &body body)
+  ;; Use in Actors under supervision of a Serializer.
+  ;;
+  ;; Intercepts errors and provides a send to cust in event of error.
+  ;; User can alter sent value with err-fn, which defaults to just
+  ;; sending the error condition to the customer. Err-fn shauld accept
+  ;; the error condition as an arg.
+  `(do-with-intercepted-errors ,cust ,err-fn
+                               (lambda () ,@body)))
+
+(defun #1=do-with-intercepted-errors (cust err-fn fn)
+  (handler-bind
+      ((error (lambda (e)
+                (abort-beh)
+                (send cust (funcall err-fn e))
+                (return-from #1#))
+              ))
+    (funcall fn)))
+

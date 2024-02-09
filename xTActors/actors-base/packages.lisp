@@ -166,6 +166,7 @@ THE SOFTWARE.
 
    #:serializer
    #:serializer-sink
+   #:with-intercepted-errors
    #:blocking-serializer
    #:err-from
    #:timing
