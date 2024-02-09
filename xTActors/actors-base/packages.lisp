@@ -168,6 +168,9 @@ THE SOFTWARE.
    #:serializer-sink
    #:with-intercepted-errors
    #:blocking-serializer
+   #:condenser
+   #:spreader
+   #:map-reduce
    #:err-from
    #:timing
    #:sequenced-delivery
