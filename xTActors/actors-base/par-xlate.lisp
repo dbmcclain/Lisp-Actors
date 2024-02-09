@@ -360,11 +360,7 @@
   (destructuring-bind (list-form verb-form) (rest binding)  
     `(β ,list-form
          (send ,verb-form β)
-       ,@(when (or (um:is-underscore? list-form)
-                   (and (consp list-form)
-                        (alexandria:proper-list-p list-form) ;; i.e., not a dotted arg list
-                        (find-if #'um:is-underscore? list-form)))
-           `((declare (ignore ,(um:symb "_")))))
+       ,@(um:maybe-ignore_ list-form)
        ,form)
     ))
 
