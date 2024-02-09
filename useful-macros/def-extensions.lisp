@@ -301,6 +301,8 @@ arguments when given."
   (destructuring-bind (list-form verb-form) (rest binding)
     `(multiple-value-bind ,list-form
          ,verb-form
+       ,@(when (find-if #'is-underscore? list-form)
+           `((declare (ignore ,(symb "_")))))
        ,form) 
     ))
 

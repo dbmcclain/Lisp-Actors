@@ -314,12 +314,57 @@
 ;;                              +---+
 ;;
 ;; -----------------------------------------------
+
+(defun spreader (cust)
+  ;; convert a cust Actor, which expects a single list arg, into an
+  ;; Actor that accepts many args.
+  (create
+   (lambda (&rest args)
+     (send cust args))
+   ))
+
+(defun condenser (cust)
+  ;; convert a cust Actor, which expects many args, into an Actor
+  ;; which can accept a single list arg.
+  (create
+   (lambda (arg-list)
+     (send* cust arg-list))
+   ))
+
+(deflex map-reduce
+  ;; MAP-REDUCE - an Actor that accepts a customer, an action Actor, a
+  ;; filtering function, and a list of args.
+  ;;
+  ;; Fork the action across all the args, and filter the accumulated
+  ;; answers before sending on to customer.
+  ;;
+  ;; Customer should accept many args. Use a SPREADER on the cust if
+  ;; it only accepts a single list result.
+  (create
+   (lambda (cust action filter-fn &rest args)
+     (send (apply #'fork (mapcar (lambda (arg)
+                                   (racurry action arg))
+                                 args))
+           (create (lambda (&rest ans)
+                     (let ((reduced (remove-if (complement filter-fn) ans)))
+                       (when reduced
+                         (send* cust reduced))
+                       )))
+           ))
+   ))
+
+;; ------------------------------------------------------------------
 ;; Extend LET+ into β-forms
 
 (defmethod do-let+ ((fst (eql :β)) binding form)
   (destructuring-bind (list-form verb-form) (rest binding)  
     `(β ,list-form
          (send ,verb-form β)
+       ,@(when (or (um:is-underscore? list-form)
+                   (and (consp list-form)
+                        (alexandria:proper-list-p list-form) ;; i.e., not a dotted arg list
+                        (find-if #'um:is-underscore? list-form)))
+           `((declare (ignore ,(um:symb "_")))))
        ,form)
     ))
 
