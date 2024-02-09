@@ -315,7 +315,7 @@
 ;;
 ;; -----------------------------------------------
 
-(defun spreader (cust)
+(defun condenser (cust)
   ;; convert a cust Actor, which expects a single list arg, into an
   ;; Actor that accepts many args.
   (create
@@ -323,7 +323,7 @@
      (send cust args))
    ))
 
-(defun condenser (cust)
+(defun spreader (cust)
   ;; convert a cust Actor, which expects many args, into an Actor
   ;; which can accept a single list arg.
   (create
@@ -333,13 +333,15 @@
 
 (deflex map-reduce
   ;; MAP-REDUCE - an Actor that accepts a customer, an action Actor, a
-  ;; filtering function, and a list of args.
+  ;; filtering function, and any number of args.
   ;;
   ;; Fork the action across all the args, and filter the accumulated
   ;; answers before sending on to customer.
   ;;
-  ;; Customer should accept many args. Use a SPREADER on the cust if
-  ;; it only accepts a single list result.
+  ;; Action should always send a result to its customer.
+  ;;
+  ;; Customer should accept any number of args. Use a CONDENSER on the
+  ;; cust if it only accepts a single list result.
   (create
    (lambda (cust action filter-fn &rest args)
      (send (apply #'fork (mapcar (lambda (arg)
