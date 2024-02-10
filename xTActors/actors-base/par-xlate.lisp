@@ -334,7 +334,7 @@
   ;; in the args list.
   ;;
   ;; Action must be an Actor that always sends a result to its
-  ;; customer.
+  ;; customer. Action must accept a customer and an arg.
   (apply #'abstract-forker (um:curry #'service action) args))
 
 ;; ------------------------------------------------
