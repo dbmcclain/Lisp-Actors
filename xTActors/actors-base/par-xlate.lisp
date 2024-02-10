@@ -287,17 +287,22 @@
        (send service2 tag2)
        ))
    ))
-  
+
+(defun abstract-forker (svc-fn &rest args)
+  ;; Abstraction of FORK -- svc-fn should accept an arg and return a
+  ;; service Actor.
+  (or (reduce (lambda (arg tail)
+                (fork2 (funcall svc-fn arg) tail))
+              (butlast args)
+              :initial-value (apply svc-fn (last args))
+              :from-end t)
+      null-service))
+
 (defun fork (&rest services)
   ;; Produces a single service from a collection of them. Will exec
   ;; each in parallel, returning all of their results to eventual
   ;; customer, in the same order as stated in the service list.
-  (or (reduce (lambda (svc tail)
-                (fork2 svc tail))
-              (butlast services)
-              :initial-value (car (last services))
-              :from-end t)
-      null-service))
+  (apply #'abstract-forker #'identity services))
 
 ;;
 ;; We get for (FORK A B C):
@@ -321,12 +326,11 @@
 ;; perform some action against each from a list of args.
 
 (defun par-map (action &rest args)
-  (or (reduce (lambda (arg tail)
-                (fork2 (service action arg) tail))
-              (butlast args)
-              :initial-value (apply #'service action (last args))
-              :from-end t)
-      null-service))
+  ;; Produces a single service performing ACTION on each of a
+  ;; collection of args. Will exec each in parallel, returning all of
+  ;; their results to eventual customer, in the same order as stated
+  ;; in the args list.
+  (apply #'abstract-forker (um:curry #'service action) args))
 
 ;; ------------------------------------------------
 
