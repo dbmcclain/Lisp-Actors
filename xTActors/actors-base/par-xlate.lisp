@@ -302,6 +302,8 @@
   ;; Produces a single service from a collection of them. Will exec
   ;; each in parallel, returning all of their results to eventual
   ;; customer, in the same order as stated in the service list.
+  ;;
+  ;; All services in the list must return a result to their customer.
   (apply #'abstract-forker #'identity services))
 
 ;;
@@ -330,6 +332,9 @@
   ;; collection of args. Will exec each in parallel, returning all of
   ;; their results to eventual customer, in the same order as stated
   ;; in the args list.
+  ;;
+  ;; Action must be an Actor that always sends a result to its
+  ;; customer.
   (apply #'abstract-forker (um:curry #'service action) args))
 
 ;; ------------------------------------------------
