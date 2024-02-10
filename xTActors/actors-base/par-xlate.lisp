@@ -300,7 +300,7 @@
 
 (defun fork (&rest services)
   ;; Produces a single service from a collection of them. Will exec
-  ;; each in parallel, returning all of their results to eventual
+  ;; each in parallel, sending accumulated results to eventual
   ;; customer, in the same order as stated in the service list.
   ;;
   ;; All services in the list must return a result to their customer.
@@ -329,9 +329,9 @@
 
 (defun par-map (action &rest args)
   ;; Produces a single service performing ACTION on each of a
-  ;; collection of args. Will exec each in parallel, returning all of
-  ;; their results to eventual customer, in the same order as stated
-  ;; in the args list.
+  ;; collection of args. Will exec each in parallel, sending
+  ;; accumulated results to eventual customer, in the same order as
+  ;; stated in the args list.
   ;;
   ;; Action must be an Actor that always sends a result to its
   ;; customer. Action must accept a customer and an arg.
