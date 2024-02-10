@@ -69,6 +69,7 @@ THE SOFTWARE.
    #:null-service
    #:echo-service
    #:fork
+   #:par-map
    #:simd
    #:mimd
    #:actor-nlet

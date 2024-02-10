@@ -266,6 +266,15 @@
 ;; ---------------------------------------------------
 ;; Fork/Join against zero or more services
 
+(defun join2 (cust tag1)
+  (create
+   (lambda* (tag . ans1)
+     (become (lambda* (_ . ans2)
+               (send* cust (if (eq tag tag1)
+                               (append ans1 ans2)
+                             (append ans2 ans1)) )))
+     )))
+
 (defun fork2 (service1 service2)
   ;; Produce a single service which fires both in parallel and sends
   ;; their results in the same order to eventual customer.
@@ -273,16 +282,10 @@
    (lambda (cust)
      (actors ((tag1   (tag joiner))
               (tag2   (tag joiner))
-              (joiner (create
-                       (lambda* (tag . ans1)
-                         (become (lambda* (_ . ans2)
-                                   (send* cust (if (eq tag tag1)
-                                                   (append ans1 ans2)
-                                                 (append ans2 ans1))) ))
-                         )) ))
-             (send service1 tag1)
-             (send service2 tag2)
-             ))
+              (joiner (join2 cust tag1)))
+       (send service1 tag1)
+       (send service2 tag2)
+       ))
    ))
   
 (defun fork (&rest services)
@@ -314,6 +317,18 @@
 ;;                              +---+
 ;;
 ;; -----------------------------------------------
+;; PAR-MAP -- produce a service Actor that forks a bunch of Actors to
+;; perform some action against each from a list of args.
+
+(defun par-map (action &rest args)
+  (or (reduce (lambda (arg tail)
+                (fork2 (service action arg) tail))
+              (butlast args)
+              :initial-value (apply #'service action (last args))
+              :from-end t)
+      null-service))
+
+;; ------------------------------------------------
 
 (defun condenser (cust)
   ;; convert a cust Actor, which expects a single list arg, into an
@@ -338,15 +353,14 @@
   ;; Fork the action across all the args, and filter the accumulated
   ;; answers before sending on to customer.
   ;;
-  ;; Action should always send a result to its customer.
+  ;; Action is an Actor that expects a customer and an arg. Action
+  ;; should always send a result to its customer.
   ;;
   ;; Customer should accept any number of args. Use a CONDENSER on the
   ;; cust if it only accepts a single list result.
   (create
    (lambda (cust action filter-fn &rest args)
-     (send (apply #'fork (mapcar (lambda (arg)
-                                   (racurry action arg))
-                                 args))
+     (send (apply #'par-map action args)
            (create (lambda (&rest ans)
                      (let ((reduced (remove-if (complement filter-fn) ans)))
                        (when reduced
