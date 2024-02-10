@@ -258,10 +258,10 @@
   (create (apply #'const-beh msg)))
 
 (deflex true
-  (create (const-beh t)))
+  (const t))
 
 (deflex false
-  (create (const-beh nil)))
+  (const nil))
 
 ;; ---------------------------------------------------
 ;; Fork/Join against zero or more services
