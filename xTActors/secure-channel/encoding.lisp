@@ -278,13 +278,29 @@
    ))
 
 ;; ------------------------------------------------
-;; try using Google's SNAPPY
+;; try using Google's ZStd
+
+(defun zstd-compress (vec)
+  (ubstream:with-output-to-ubyte-stream (s)
+    (zstd:with-compressing-stream (c s)
+      (write-sequence vec c))))
+
+(defun zstd-uncompress (vec)
+  (let ((buf  (make-ub8-vector 4096)))
+    (ubstream:with-output-to-ubyte-stream (so)
+      (ubstream:with-input-from-ubyte-stream (si vec)
+        (zstd:with-decompressing-stream (c si)
+          (let ((nel (read-sequence buf c)))
+            (write-sequence buf so :end nel))
+          )))
+    ))
+
 (defvar *smart-compressor-savings* 0)
 
 (defun smart-compressor ()
   (actor 
    (lambda (cust vec)
-     (let ((ans  (simple-compress vec)))
+     (let ((ans  (zstd-compress vec)))
        (cond ((>= (length ans) (length vec))
               (sys:atomic-fixnum-incf *smart-compressor-savings* (- (length ans) (length vec)))
               (let ((ovec (make-ub8-vector (1+ (length vec))) ))
@@ -303,7 +319,7 @@
   (actor 
    (lambda (cust vec)
      (if (= 1 (aref vec 0))
-         (>> cust (simple-uncompress (subseq vec 1)))
+         (>> cust (zstd-uncompress (subseq vec 1)))
        (>> cust (subseq vec 1)))
         )))
   
@@ -312,7 +328,7 @@
    (lambda (cust vec)
      (ignore-errors
        (if (= 1 (aref vec 0))
-           (>> cust (simple-uncompress (subseq vec 1)))
+           (>> cust (zstd-uncompress (subseq vec 1)))
          (>> cust (subseq vec 1)))
        ))
    ))

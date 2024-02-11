@@ -40,6 +40,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :SERIAL T
   :depends-on   ("com.ral.actors"
                  "snappy"
+                 "zstd"
                  "com.ral.lisp-object-encoder"
                  "edwards-ecc"
                  ;; "lattice-crypto"
