@@ -285,10 +285,10 @@
     (zstd:with-compressing-stream (c s)
       (write-sequence vec c))))
 
-(defun zstd-uncompress (vec)
+(defun zstd-uncompress (vec &key (start 0))
   (let ((buf  (make-ub8-vector 4096)))
     (ubstream:with-output-to-ubyte-stream (so)
-      (ubstream:with-input-from-ubyte-stream (si vec)
+      (ubstream:with-input-from-ubyte-stream (si vec :start start)
         (zstd:with-decompressing-stream (c si)
           (let ((nel (read-sequence buf c)))
             (write-sequence buf so :end nel))
@@ -319,7 +319,7 @@
   (actor 
    (lambda (cust vec)
      (if (= 1 (aref vec 0))
-         (>> cust (zstd-uncompress (subseq vec 1)))
+         (>> cust (zstd-uncompress vec :start 1))
        (>> cust (subseq vec 1)))
         )))
   
