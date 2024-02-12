@@ -5,15 +5,6 @@
 
 (in-package #:com.ral.crypto.ecc-key-exchange)
 
-(um:eval-always
-  (import '(com.ral.actors.encoding:make-auth
-            com.ral.actors.encoding:check-auth
-            com.ral.actors.encoding:non-destructive-decryptor)))
-
-(defconstant +ECC-CURVE+ :curve1174)
-;; (defconstant +ECC-CURVE+ :curve-e521f)
-;; (defconstant +ECC-CURVE+ :curve-e521)
-
 ;; ----------------------------------
 ;;
 ;; Store skey seed in system keychain with:

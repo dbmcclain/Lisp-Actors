@@ -248,11 +248,6 @@
 ;; ---------------------------------------------------------------
 
 #-:lattice-crypto
-(um:eval-always
-  (import '(com.ral.crypto.ecc-key-exchange:+ECC-CURVE+
-            )))
-
-#-:lattice-crypto
 (deflex negotiator
   (create
    (lambda (cust socket local-services)

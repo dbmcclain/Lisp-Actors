@@ -22,11 +22,6 @@
 |#
 
 #-:lattice-crypto
-(um:eval-always
-  (import '(com.ral.crypto.ecc-key-exchange:+ECC-CURVE+
-            )))
-
-#-:lattice-crypto
 (defun server-crypto-gateway (socket local-services)
   ;; Foreign clients first make contact with us here. They send us
   ;; their client-id for this exchange, a random ECC point, and their

@@ -31,11 +31,14 @@
             edec:elli2-decode
             edec:refresh-elligator
             edec:elligator-body
-            com.ral.crypto.ecc-key-exchange:+ECC-CURVE+
             modmath:with-mod
             modmath:m+
             modmath:m*
             )))
+
+(defconstant +ECC-CURVE+ :curve1174)
+;; (defconstant +ECC-CURVE+ :curve-e521f)
+;; (defconstant +ECC-CURVE+ :curve-e521)
 
 ;; ----------------------------------------------------
 ;; Ironclad needs a separate PRNG for each thread.
@@ -96,16 +99,17 @@
   ;; message and seq always produces the same signature, for the given
   ;; secret key, skey. This is doubly cautious here, since seq is only
   ;; ever supposed to be used just once.
-  (let* ((pkey  (ed-nth-pt skey))
-         (krand (int (hash/256 seq emsg skey pkey)))
-         (kpt   (ed-nth-pt krand))
-         (h     (int (hash/256 seq emsg kpt pkey)))
-         (u     (with-mod *ed-r*
-                  (m+ krand (m* h skey))))
-         (upt   (ed-nth-pt u)))
-    (list (int upt) krand)
-    ))
-
+  (with-ed-curve +ECC-CURVE+
+    (let* ((pkey  (ed-nth-pt skey))
+           (krand (int (hash/256 seq emsg skey pkey)))
+           (kpt   (ed-nth-pt krand))
+           (h     (int (hash/256 seq emsg kpt pkey)))
+           (u     (with-mod *ed-r*
+                    (m+ krand (m* h skey))))
+           (upt   (ed-nth-pt u)))
+      (list (int upt) krand)
+      )))
+  
 (defun* check-signature (seq emsg (upt krand) pkey)
   ;; takes seq, emsg, and sig (a Schnorr signature on seq+emsg),
   ;; and produce t/f on signature as having come from pkey.
@@ -118,10 +122,11 @@
   ;; Similarly, when we compress a point to hand off to someone, we
   ;; divide by the cofactor before compression.
   (ignore-errors
-    (let* ((kpt  (ed-nth-pt krand))
-           (h    (int (hash/256 seq emsg kpt pkey))))
-      (ed-pt= (ed-decompress-pt upt) (ed-add kpt (ed-mul pkey h)))
-      )))
+    (with-ed-curve +ECC-CURVE+
+      (let* ((kpt  (ed-nth-pt krand))
+             (h    (int (hash/256 seq emsg kpt pkey))))
+        (ed-pt= (ed-decompress-pt upt) (ed-add kpt (ed-mul pkey h)))
+        ))))
 
 ;; --------------------------------------------------
 ;; The term "Arbitrary Objects" here refers to serializable objects -
@@ -1091,7 +1096,7 @@
   not visible to the casual reader.
 |#
 
-(defconstant +AONT-FILE-TYPE-ID+ (vec #/uuid/{b532fc4e-bf2b-123a-9307-24f67702cdaa}))
+(defconstant +AONT-FILE-TYPE-ID+  (vec #/uuid/{b532fc4e-bf2b-123a-9307-24f67702cdaa}))
 
 (defun aont-encoder (skey ekey)
   (actor 
