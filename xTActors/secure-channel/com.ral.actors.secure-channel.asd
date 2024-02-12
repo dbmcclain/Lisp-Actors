@@ -30,8 +30,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :license     "Copyright (c) 2021 by Refined Audiometrics Laboratory. MIT License terms apply."
   :components  ((:file "network-packages")
                 (:file "self-sync-actors")
-                (:file "ecc-key-exchange")
                 (:file "encoding")
+                (:file "ecc-key-exchange")
                 (:file "double-ratchet")
                 (:file "secure-bridging")
                 (:file "network-connection-ss")

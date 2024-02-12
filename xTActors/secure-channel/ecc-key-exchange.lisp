@@ -3,18 +3,6 @@
 ;; DM/RAL  2023/09/15 08:56:51
 ;; ----------------------------------
 
-(defpackage #:com.ral.crypto.ecc-key-exchange
-  (:use #:common-lisp #:vec-repr #:hash #:edec #:ac #:modmath)
-  (:export
-   #:ecc-cnx-encrypt
-   #:ecc-cnx-decrypt
-   #:ecc-skey
-   #:ecc-pkey
-   #:my-pkeyid
-   #:srv-pkey
-   #:+ECC-CURVE+
-   ))
-
 (in-package #:com.ral.crypto.ecc-key-exchange)
 
 (um:eval-always
@@ -180,8 +168,8 @@
    ))
 
 (defun db-encryptor (ekey)
-  (pipe (marshal-encoder)
-        (marshal-compressor)
+  (pipe marshal-encoder
+        marshal-compressor
         (encryptor ekey)
         (authentication ekey)
         format-encoder
@@ -191,8 +179,8 @@
   (pipe format-decoder
         (check-db-authentication ekey)
         (non-destructive-decryptor ekey)
-        (fail-silent-marshal-decompressor)
-        (fail-silent-marshal-decoder)))
+        fail-silent-marshal-decompressor
+        fail-silent-marshal-decoder))
 
 (deflex encrypt-for-database
   (create

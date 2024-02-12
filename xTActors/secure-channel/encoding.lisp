@@ -130,13 +130,13 @@
 ;; ---------------------------------------------------------------------
 ;; Useful Actors
 
-(defun list-imploder ()
+(deflex list-imploder
   ;; take a sequence of args and send to cust as one list
   (actor 
       (lambda (cust &rest msg)
         (>> cust msg))))
 
-(defun list-exploder ()
+(deflex list-exploder
   ;; take one list and send to cust as a sequence of args
   (actor 
       (lambda (cust msg-list)
@@ -156,7 +156,7 @@
         (>>* println txt)
         (>>* cust msg))))
 
-(defun marshal-encoder ()
+(deflex marshal-encoder
   (actor 
       (lambda (cust &rest args)
         ;; (>> fmt-println "Marshal Encoder")
@@ -164,13 +164,13 @@
                                :max-portability t))
         )))
 
-(defun marshal-decoder ()
+(deflex marshal-decoder
   (actor 
       (lambda (cust vec)
         ;; (>> fmt-println "Marshal Decoder")
         (>>* cust (loenc:decode vec)) )))
   
-(defun fail-silent-marshal-decoder ()
+(deflex fail-silent-marshal-decoder
   (create
    (alambda
     ((cust vec) / (typep vec 'ub8-vector)
@@ -258,17 +258,17 @@
 
 #||#
 ;; try using Google's SNAPPY
-(defun marshal-compressor ()
+(deflex marshal-compressor
   (actor 
    (lambda (cust vec)
      (>> cust (simple-compress vec)))))
 
-(defun marshal-decompressor ()
+(deflex marshal-decompressor
   (actor 
    (lambda (cust vec)
      (>> cust (simple-uncompress vec)))))
   
-(defun fail-silent-marshal-decompressor ()
+(deflex fail-silent-marshal-decompressor
   (actor
    (lambda (cust vec)
     (ignore-errors
@@ -282,7 +282,7 @@
 
 (defvar *smart-compressor-savings* 0)
 
-(defun smart-compressor ()
+(deflex smart-compressor
   (actor 
    (lambda (cust vec)
      (let ((ans  (zstd:compress-buffer vec)))
@@ -300,7 +300,7 @@
              )))
    ))
 
-(defun smart-decompressor ()
+(deflex smart-decompressor
   (actor 
    (lambda (cust vec)
      (if (= 1 (aref vec 0))
@@ -308,7 +308,7 @@
        (>> cust (subseq vec 1)))
         )))
   
-(defun fail-silent-smart-decompressor ()
+(deflex fail-silent-smart-decompressor
   (actor
    (lambda (cust vec)
      (ignore-errors
@@ -666,7 +666,7 @@
    ))
 |#
 
-(defun self-sync-encoder ()
+(deflex self-sync-encoder
   ;; takes a bytevec and produces a self-sync bytevec
   (actor 
       (lambda (cust bytevec)
@@ -678,14 +678,14 @@
 
 ;; --------------------------------------
 
-(defun checksum ()
+(deflex checksum
   ;; produce a prefix checksum on the message
   (actor 
       (lambda (cust &rest msg)
         (>>* cust (vec (hash/256 msg)) msg)
         )))
 
-(defun verify-checksum ()
+(deflex verify-checksum
   ;; if a replay attack with mutated encryption manages to become
   ;; unmarshalled, then we need to stop it here by checking the
   ;; checksum.
@@ -888,16 +888,16 @@
   (serializer
    (α (cust &rest msg)
      (let ((monitor  (chunk-monitor max-chunk cust)))
-       (>>* (sink-pipe (marshal-encoder)       ;; to get arb msg objects into bytevecc form
-                       (marshal-compressor)
+       (>>* (sink-pipe marshal-encoder       ;; to get arb msg objects into bytevecc form
+                       marshal-compressor
                        monitor                           
                        (chunker max-chunk) ;; we want to limit network message sizes
                        ;; --- then, for each chunk... ---
-                       (marshal-encoder)       ;; generates bytevec from chunker encoding
+                       marshal-encoder       ;; generates bytevec from chunker encoding
                        (encryptor ekey)        ;; generates seq, enctext
                        (signing skey)          ;; generates seq, enctext, sig
-                       (marshal-encoder)       ;; turn seq, etext, sig into byte vector
-                       (self-sync-encoder)
+                       marshal-encoder       ;; turn seq, etext, sig into byte vector
+                       self-sync-encoder
                        (serializer dest)
                        monitor)
             msg)
@@ -907,13 +907,13 @@
 (defun netw-decoder (ekey pkey cust)
   ;; takes a bytevec and produces arbitrary objects
   (self-synca:stream-decoder
-   (sink-pipe (fail-silent-marshal-decoder)       ;; decodes byte vector into seq, enc text, sig
+   (sink-pipe fail-silent-marshal-decoder       ;; decodes byte vector into seq, enc text, sig
               (signature-validation pkey) ;; pass along seq, enc text
               (decryptor ekey)        ;; generates a bytevec
-              (fail-silent-marshal-decoder)       ;; generates chunker encoding
+              fail-silent-marshal-decoder       ;; generates chunker encoding
               (dechunker)             ;; de-chunking back into original byte vector
-              (fail-silent-marshal-decompressor)
-              (fail-silent-marshal-decoder)       ;; decode byte vector into message objects
+              fail-silent-marshal-decompressor
+              fail-silent-marshal-decoder       ;; decode byte vector into message objects
               cust)))
 
 (defun disk-encoder (dest &key (max-chunk 65536.))
@@ -922,13 +922,13 @@
   (serializer
    (α (cust &rest msg)
      (let ((monitor  (chunk-monitor max-chunk cust)))
-       (>>* (sink-pipe (marshal-encoder)       ;; to get arb msg into bytevec form
-                       (marshal-compressor)
+       (>>* (sink-pipe marshal-encoder       ;; to get arb msg into bytevec form
+                       marshal-compressor
                        monitor
                        (chunker max-chunk)
                        ;; -- then, for each chunk... --
-                       (marshal-encoder)
-                       (self-sync-encoder)
+                       marshal-encoder
+                       self-sync-encoder
                        (serializer dest)
                        monitor)
             msg)
@@ -938,10 +938,10 @@
 (defun disk-decoder (cust)
   ;; takes chunks of self-sync data and produces arbitrary objects
   (self-synca:stream-decoder
-   (sink-pipe (marshal-decoder)
+   (sink-pipe marshal-decoder
               (dechunker)
-              (marshal-decompressor)
-              (marshal-decoder)
+              marshal-decompressor
+              marshal-decoder
               cust)))
   
 (defun self-sync-stream-writer (stream &optional (max-chunk 65536.))
@@ -1100,11 +1100,11 @@
         ;; single list to cust, along with AONT parameters
         (let ((pkey-vec (vec (ed-nth-pt skey))))
           (beta (data-packet)
-              (>>* (pipe (marshal-encoder)
-                         (marshal-compressor)
+              (>>* (pipe marshal-encoder
+                         marshal-compressor
                          (encryptor ekey)
                          (signing skey)
-                         (marshal-encoder))
+                         marshal-encoder)
                    beta msg)
             (let* ((aont-vec (vec (hash/256 pkey-vec data-packet))))
               (map-into aont-vec #'logxor aont-vec ekey)
@@ -1119,11 +1119,11 @@
         (let ((pkey  (ed-decompress-pt pkey-vec))
               (ekey  (vec (hash/256 pkey-vec data-packet))))
           (map-into ekey #'logxor ekey aont-vec)
-          (>> (pipe (marshal-decoder)
+          (>> (pipe marshal-decoder
                     (signature-validation pkey)
                     (decryptor ekey)
-                    (marshal-decompressor)
-                    (marshal-decoder))
+                    marshal-decompressor
+                    marshal-decoder)
               cust data-packet)
           ))))
 

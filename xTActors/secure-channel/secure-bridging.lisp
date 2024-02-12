@@ -190,12 +190,12 @@
    ((cust :set-crypto socket encryptor decryptor)
     (let ((enc  (sink-pipe (client-marshal-encoder self) ;; translate Actors to CLIENT-PROXY's
                            ;; (marshal-compressor)
-                           (smart-compressor)
+                           smart-compressor
                            encryptor
                            socket))
           (dec  (sink-pipe decryptor
                            ;; (fail-silent-marshal-decompressor)
-                           (fail-silent-smart-decompressor)
+                           fail-silent-smart-decompressor
                            (server-marshal-decoder self) ;; translate CLIENT-PROXY's into local proxy Actors
                            self)))
       (β! (local-services-beh svcs enc dec))

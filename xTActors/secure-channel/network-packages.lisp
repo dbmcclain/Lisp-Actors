@@ -26,7 +26,8 @@
 (defpackage :com.ral.actors.encoding
   (:use
    #:common-lisp
-   #:actors)
+   #:actors
+   #:edec)
   (:export
    #:encrypt/decrypt
    #:make-auth-key
@@ -81,6 +82,18 @@
    #:server-ratchet-manager
    #:ratchet-encryptor
    #:ratchet-decryptor
+   ))
+
+(defpackage #:com.ral.crypto.ecc-key-exchange
+  (:use #:common-lisp #:vec-repr #:hash #:edec #:ac #:modmath #:com.ral.actors.encoding)
+  (:export
+   #:ecc-cnx-encrypt
+   #:ecc-cnx-decrypt
+   #:ecc-skey
+   #:ecc-pkey
+   #:my-pkeyid
+   #:srv-pkey
+   #:+ECC-CURVE+
    ))
 
 (defpackage :com.ral.actors.secure-comm
