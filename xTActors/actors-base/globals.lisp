@@ -21,6 +21,6 @@
 
 (mpc:defglobal *nbr-pool*  8 )  ;; nbr threads in dispatch pool
 
-(defconstant +ASK-TIMEOUT+  1)  ;; period of goal checking
+(defconstant +ASK-TIMEOUT+  0.1)  ;; period of goal checking
 
 (defgeneric send (target &rest msg))
