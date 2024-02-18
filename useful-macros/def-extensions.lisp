@@ -302,6 +302,7 @@ arguments when given."
     ))
 
 (defmethod do-let+ ((fst cons) binding form)
+  ;; CONS first binding element is implied DESTRUCTURING-BIND
   ;; tree destructuring
   (let ((flat (um:flatten fst)))
     `(destructuring-bind ,fst
@@ -310,13 +311,21 @@ arguments when given."
        ,form)
     ))
 
+(defmethod do-let+ ((fst (eql :decl)) binding form)
+  ;; :DECL prefix is for DECLARE
+  `(locally
+     (declare ,@(rest binding))
+     ,form))
+
 (defmethod do-let+ ((fst (eql :mvl)) binding form)
+  ;; :MVL prefix is for MULTIPLE-VALUE-LIST
   (destructuring-bind (list-form verb-form) (rest binding)
     `(let+ (( ,list-form (multiple-value-list ,verb-form)))
        ,form)
     ))
 
 (defmethod do-let+ ((fst (eql :mvb)) binding form)
+  ;; :MVB prefix is for MULTIPLE-VALUE-BIND
   (destructuring-bind (list-form verb-form) (rest binding)
     `(multiple-value-bind ,list-form
          ,verb-form
@@ -325,6 +334,7 @@ arguments when given."
     ))
 
 (defmethod do-let+ ((fst (eql :acc)) binding form)
+  ;; :ACC prefix is for WITH-ACCESSORS
   (destructuring-bind (name slots binding-form) (rest binding)
     `(with-accessors
          ,(mapcar (lambda (sym)
@@ -337,17 +347,20 @@ arguments when given."
     ))
 
 (defmethod do-let+ ((fst (eql :slots)) binding form)
+  ;; :SLOTS prefix is for WITH-SLOTS
   (destructuring-bind (slots binding-form) (rest binding)
     `(with-slots ,slots ,binding-form
        ,form)
     ))
 
 (defmethod do-let+ ((fst (eql :sym)) binding form)
+  ;; :SYM prefix is for SYMBOL-MACROLET
   `(symbol-macrolet ,(second binding)
      ,form) )
 
 (defmethod do-let+ (fst binding form)
-  ;; default case
+  ;; default case is just normal LET
+  ;; But we are cascaded such that the effect of multiple bindings is LET*
   `(let (,binding)
      ,@(maybe-ignore_ fst)
      ,form))
