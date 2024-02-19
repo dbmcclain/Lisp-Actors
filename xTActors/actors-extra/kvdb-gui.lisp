@@ -132,13 +132,13 @@
   ;; CAPI Callback function - on entry we are running in CAPI thread.
   (β (val)
       (send kvdb β :find key)
-    (let* ((key-string (key-to-string val :pretty t :right-margin 78 :readably nil))
+    (let* ((val-string (key-to-string val :pretty t :right-margin 78 :readably nil))
            (intf       (capi:element-interface pane))
            (ed-pane    (value-panel intf)))
       (capi:apply-in-pane-process
        ed-pane
        (λ ()
-         (setf (capi:editor-pane-text ed-pane) key-string)
+         (setf (capi:editor-pane-text ed-pane) val-string)
          (capi:call-editor ed-pane "Beginning of Buffer")))
       )))
 
