@@ -11,31 +11,6 @@
 ;; GUI for KVDB - an interesting interplay between CAPI thread and
 ;; Actors.
 
-;; ---------------------------------------------------------
-;; For our own sanity... Let's keep things, as much as possible, on
-;; one playing field.
-
-(deflex i-capi
-  (create
-   ;; Expects intf, fn, args in message
-   #'capi:execute-with-interface))
-
-(deflex p-capi
-  (create
-   ;; Expects pane, fn, args in message
-   #'capi:apply-in-pane-process))
-
-;; ------------
-
-(defmacro with-capi-intf (intf &body body)
-  `(send i-capi ,intf (lambda () ,@body)))
-
-(defmacro with-capi-pane (pane &body body)
-  `(send p-capi ,pane (lambda () ,@body)))
-
-;; -----------------------------------------------------------
-;; Now for the GUI...
-
 (capi:define-interface kvdb-display ()
   ((db-pathname :reader kv-db-pathname :initarg :path))
   (:panes
@@ -109,22 +84,28 @@
 ;; -----------------------------------------------------------
 
 (defun select-and-show-key (intf key)
-  (with-capi-intf intf
-    (let ((keys-pane (keys-panel intf)))
-      (setf (capi:choice-selected-item keys-pane) key)
-      (click-show-value key keys-pane))
-    ))
+  (let ((keys-pane  (keys-panel intf)))
+    (capi:apply-in-pane-process
+     keys-pane
+     (λ ()
+       (setf (capi:choice-selected-item keys-pane) key)
+       (click-show-value key keys-pane))
+     )))
   
 (defun refresh-select-and-show-first-item (intf)
   (β _
       (refresh-keys nil intf β)
-    (with-capi-intf intf
-      (let* ((keys-pane (keys-panel intf))
-             (keys      (capi:collection-items keys-pane)))
-        (when (plusp (length keys))
-          (select-and-show-key intf (aref keys 0))
-          )))
-    ))
+    (let* ((keys-pane (keys-panel intf))
+           (keys      (capi:collection-items keys-pane)))
+      (when (plusp (length keys))
+        (let ((key (aref keys 0)))
+          (capi:apply-in-pane-process
+           keys-pane
+           (λ ()
+             (setf (capi:choice-selected-item keys-pane) key)
+             (click-show-value key keys-pane))
+           )))
+      )))
 
 (defun refresh-select-and-show-key (intf key)
   (β _
@@ -139,22 +120,27 @@
   (declare (ignore xxx))
   (β (keys)
       (collect-keys β)
-    (with-capi-intf intf
-      (let ((keys-panel (keys-panel intf)))
-        (setf (capi:collection-items keys-panel) keys)
-        (send cust :ok))) ;; for sequencing
-    ))
+    (let ((keys-panel (keys-panel intf)))
+      (capi:apply-in-pane-process
+       keys-panel
+       (λ ()
+         (setf (capi:collection-items keys-panel) keys)
+         (send cust :ok))) ;; for sequencing
+      )))
 
 (defun click-show-value (key pane)
   ;; CAPI Callback function - on entry we are running in CAPI thread.
   (β (val)
       (send kvdb β :find key)
-    (with-capi-pane pane
-      (let* ((intf    (capi:element-interface pane))
-             (ed-pane (value-panel intf)))
-        (setf (capi:editor-pane-text ed-pane) (key-to-string val))
-        (capi:call-editor ed-pane "End of Buffer")))
-    ))
+    (let* ((key-string (key-to-string val))
+           (intf       (capi:element-interface pane))
+           (ed-pane    (value-panel intf)))
+      (capi:apply-in-pane-process
+       ed-pane
+       (λ ()
+         (setf (capi:editor-pane-text ed-pane) key-string)
+         (capi:call-editor ed-pane "Beginning of Buffer")))
+      )))
 
 #|
 (defun search-keys (text intf)
