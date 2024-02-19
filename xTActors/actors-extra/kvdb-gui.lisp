@@ -12,14 +12,15 @@
 ;; Actors.
 
 (capi:define-interface kvdb-display ()
-  ((db-pathname :reader kv-db-pathname :initarg :path))
+  ((db-pathname :reader kv-db-pathname :initarg :path)
+   (all-keys    :accessor all-keys     :initform nil))
   (:panes
-   #|
+   #||#
    (search-pane   capi:text-input-pane
                   :accessor           search-pane
-                  :title              "Search..."
+                  :title              "Search"
                   :callback           'search-keys)
-   |#
+   #||#
    (db-path-pane  capi:title-pane
                   :text               db-pathname
                   :foreground         :seagreen)
@@ -62,7 +63,7 @@
    (central-layout capi:row-layout
                 '(keys-layout :divider value-display))
    (keys-layout capi:column-layout
-                '(#|search-pane|# keys-list but-layout))
+                '(search-pane keys-list but-layout))
    (but-layout capi:row-layout
                '(refr-but del-but add-but)))
   (:default-initargs
@@ -120,6 +121,7 @@
   (declare (ignore xxx))
   (β (keys)
       (collect-keys β)
+    (setf (all-keys intf) keys)
     (let ((keys-panel (keys-panel intf)))
       (capi:apply-in-pane-process
        keys-panel
@@ -142,11 +144,21 @@
          (capi:call-editor ed-pane "Beginning of Buffer")))
       )))
 
-#|
+#||#
 (defun search-keys (text intf)
-  (declare (ignore intf))
-  (print text))
-|#
+  (let ((selected (loop for key in (all-keys intf)
+                        when (search text (key-to-string key)
+                                     :test #'char-equal)
+                          collect key))
+        (keys-panel (keys-panel intf)))
+    (capi:apply-in-pane-process
+     keys-panel
+     (λ ()
+       (setf (capi:collection-items keys-panel) selected)
+       (select-and-show-key intf (car selected))
+       ))
+    ))
+#||#
 
 (defun click-refresh-keys (xxx intf)
   (declare (ignore xxx))
