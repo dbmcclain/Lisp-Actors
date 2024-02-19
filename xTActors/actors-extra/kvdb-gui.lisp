@@ -132,7 +132,7 @@
   ;; CAPI Callback function - on entry we are running in CAPI thread.
   (β (val)
       (send kvdb β :find key)
-    (let* ((key-string (key-to-string val))
+    (let* ((key-string (key-to-string val :pretty t :right-margin 62))
            (intf       (capi:element-interface pane))
            (ed-pane    (value-panel intf)))
       (capi:apply-in-pane-process

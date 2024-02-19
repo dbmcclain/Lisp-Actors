@@ -945,11 +945,11 @@
       (send kvdb β :really-let-me-see-map)
     (inspect map)))
 
-(defun key-to-string (key)
+(defun key-to-string (key &rest options)
   ;; Also used for value displays
   (with-output-to-string (s)
     (with-maximum-io-syntax
-      (write key :stream s))
+      (apply #'write key :stream s options))
     ))
 
 (defun collect-keys (cust)
