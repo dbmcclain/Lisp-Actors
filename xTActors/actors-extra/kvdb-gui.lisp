@@ -40,7 +40,7 @@
                   :text               ""
                   :buffer-name        :temp
                   :foreground         #+:MACOSX :yellow #-:MACOSX :black
-                  :visible-min-width  400
+                  :visible-min-width  '(:character 80) ;; 400
                   :visible-min-height 300)
    (refr-but      capi:push-button
                   :text               "Refresh"
@@ -76,7 +76,7 @@
   (β (path)
       (send kvdb β :db-path)
     (let ((intf (capi:display
-                 (make-instance 'kvdb-display
+                (make-instance 'kvdb-display
                                 :path (namestring path)))))
       (refresh-select-and-show-first-item intf))
     ))
@@ -132,7 +132,7 @@
   ;; CAPI Callback function - on entry we are running in CAPI thread.
   (β (val)
       (send kvdb β :find key)
-    (let* ((key-string (key-to-string val :pretty t :right-margin 62))
+    (let* ((key-string (key-to-string val :pretty t :right-margin 78 :readably nil))
            (intf       (capi:element-interface pane))
            (ed-pane    (value-panel intf)))
       (capi:apply-in-pane-process
