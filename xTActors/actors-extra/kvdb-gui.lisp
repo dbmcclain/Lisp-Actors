@@ -15,12 +15,10 @@
   ((db-pathname :reader kv-db-pathname :initarg :path)
    (all-keys    :accessor all-keys     :initform nil))
   (:panes
-   #||#
    (search-pane   capi:text-input-pane
                   :accessor           search-pane
                   :title              "Search"
                   :callback           'search-keys)
-   #||#
    (db-path-pane  capi:title-pane
                   :text               db-pathname
                   :foreground         :seagreen)
@@ -84,14 +82,18 @@
 
 ;; -----------------------------------------------------------
 
+(defmacro with-capi-pane (pane &body body)
+  `(capi:apply-in-pane-process ,pane (lambda ()
+                                       ,@body)))
+
+;; -----------------------------------------------------------
+
 (defun select-and-show-key (intf key)
   (let ((keys-pane  (keys-panel intf)))
-    (capi:apply-in-pane-process
-     keys-pane
-     (λ ()
-       (setf (capi:choice-selected-item keys-pane) key)
-       (click-show-value key keys-pane))
-     )))
+    (with-capi-pane keys-pane
+      (setf (capi:choice-selected-item keys-pane) key)
+      (click-show-value key keys-pane))
+    ))
   
 (defun refresh-select-and-show-first-item (intf)
   (β _
@@ -100,13 +102,11 @@
            (keys      (capi:collection-items keys-pane)))
       (when (plusp (length keys))
         (let ((key (aref keys 0)))
-          (capi:apply-in-pane-process
-           keys-pane
-           (λ ()
-             (setf (capi:choice-selected-item keys-pane) key)
-             (click-show-value key keys-pane))
-           )))
-      )))
+          (with-capi-pane keys-pane
+            (setf (capi:choice-selected-item keys-pane) key)
+            (click-show-value key keys-pane))
+          )))
+    ))
 
 (defun refresh-select-and-show-key (intf key)
   (β _
@@ -123,11 +123,9 @@
       (collect-keys β)
     (setf (all-keys intf) keys)
     (let ((keys-panel (keys-panel intf)))
-      (capi:apply-in-pane-process
-       keys-panel
-       (λ ()
-         (setf (capi:collection-items keys-panel) keys)
-         (send cust :ok))) ;; for sequencing
+      (with-capi-pane keys-panel
+        (setf (capi:collection-items keys-panel) keys)
+        (send cust :ok)) ;; for sequencing
       )))
 
 (defun click-show-value (key pane)
@@ -137,28 +135,21 @@
     (let* ((val-string (key-to-string val :pretty t :right-margin 78 :readably nil))
            (intf       (capi:element-interface pane))
            (ed-pane    (value-panel intf)))
-      (capi:apply-in-pane-process
-       ed-pane
-       (λ ()
-         (setf (capi:editor-pane-text ed-pane) val-string)
-         (capi:call-editor ed-pane "Beginning of Buffer")))
+      (with-capi-pane ed-pane
+        (setf (capi:editor-pane-text ed-pane) val-string)
+        (capi:call-editor ed-pane "Beginning of Buffer"))
       )))
 
-#||#
 (defun search-keys (text intf)
   (let ((selected (loop for key in (all-keys intf)
                         when (search text (key-to-string key)
                                      :test #'char-equal)
                           collect key))
         (keys-panel (keys-panel intf)))
-    (capi:apply-in-pane-process
-     keys-panel
-     (λ ()
-       (setf (capi:collection-items keys-panel) selected)
-       (select-and-show-key intf (car selected))
-       ))
+    (with-capi-pane keys-panel
+      (setf (capi:collection-items keys-panel) selected)
+      (select-and-show-key intf (car selected)))
     ))
-#||#
 
 (defun click-refresh-keys (xxx intf)
   (declare (ignore xxx))
