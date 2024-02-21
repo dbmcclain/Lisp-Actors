@@ -268,24 +268,25 @@ THE SOFTWARE.
                 )))
       (declare (dynamic-extent #'%send #'%become #'%abort-beh #'dispatch))
       (cond
-       (actor-provided-p  ;; are we an ASK?
-                          (when (actor-p actor)
-                            (let ((me  (once
-                                        (create
-                                         (lambda* msg
-                                           (setf done (list msg))))
-                                        )))
-                              (setf timeout +ASK-TIMEOUT+)
-                              (send-after *timeout* me +timed-out+)
-                              (apply #'send-to-pool actor me message)
-                              (let ((*send*      #'%send)
-                                    (*become*    #'%become)
-                                    (*abort-beh* #'%abort-beh))
-                                (with-simple-restart (abort "Terminate ASK")
-                                  (dispatch))
-                                (when done
-                                  (values (car done) t))))
-                            ))
+       (actor-provided-p
+        ;; are we an ASK?
+        (when (actor-p actor)
+          (let ((me  (once
+                      (create
+                       (lambda* msg
+                         (setf done (list msg))))
+                      )))
+            (setf timeout +ASK-TIMEOUT+)
+            (send-after *timeout* me +timed-out+)
+            (apply #'send-to-pool actor me message)
+            (let ((*send*      #'%send)
+                  (*become*    #'%become)
+                  (*abort-beh* #'%abort-beh))
+              (with-simple-restart (abort "Terminate ASK")
+                (dispatch))
+              (when done
+                (values (car done) t))))
+          ))
        
        (t  ;; else - we are normal Dispatch thread
            (let ((*send*      #'%send)
@@ -482,6 +483,9 @@ THE SOFTWARE.
    ;; execution at successful exit, or discarded if errors.
    (when self
      (warn 'recursive-ask))
+
+   (get-send-hook) ;; ensures that the Actors system is running
+  
    ;; In normal situation, we get back the result message as a list and
    ;; flag t.  In exceptional situation, from restart "Terminate ASK",
    ;; we get back nil.  If *TIMEOUT* is not-nil, and timeout occurs, we
