@@ -28,7 +28,7 @@
             #+:WINDOWS
             (get-seed ()
               (with-open-file (f "~/.my-syzygy")
-                (read f))) )
+                (read-line f))) )
        (let ((skey (with-ed-curve +ECC-CURVE+
                      (compute-deterministic-elligator-skey :skey (get-seed))
                      ;; (make-deterministic-keys :skey (get-seed))
