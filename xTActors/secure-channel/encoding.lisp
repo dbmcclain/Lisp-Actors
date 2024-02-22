@@ -902,7 +902,7 @@
    (α (cust &rest msg)
      (let ((monitor  (chunk-monitor max-chunk cust)))
        (>>* (sink-pipe marshal-encoder       ;; to get arb msg objects into bytevecc form
-                       marshal-compressor
+                       smart-compressor
                        monitor                           
                        (chunker max-chunk) ;; we want to limit network message sizes
                        ;; --- then, for each chunk... ---
@@ -925,7 +925,7 @@
               (decryptor ekey)        ;; generates a bytevec
               fail-silent-marshal-decoder       ;; generates chunker encoding
               (dechunker)             ;; de-chunking back into original byte vector
-              fail-silent-marshal-decompressor
+              fail-silent-smart-decompressor
               fail-silent-marshal-decoder       ;; decode byte vector into message objects
               cust)))
 
@@ -936,7 +936,7 @@
    (α (cust &rest msg)
      (let ((monitor  (chunk-monitor max-chunk cust)))
        (>>* (sink-pipe marshal-encoder       ;; to get arb msg into bytevec form
-                       marshal-compressor
+                       smart-compressor
                        monitor
                        (chunker max-chunk)
                        ;; -- then, for each chunk... --
@@ -953,7 +953,7 @@
   (self-synca:stream-decoder
    (sink-pipe marshal-decoder
               (dechunker)
-              marshal-decompressor
+              smart-decompressor
               marshal-decoder
               cust)))
   
@@ -1114,7 +1114,7 @@
         (let ((pkey-vec (vec (ed-nth-pt skey))))
           (beta (data-packet)
               (>>* (pipe marshal-encoder
-                         marshal-compressor
+                         smart-compressor
                          (encryptor ekey)
                          (signing skey)
                          marshal-encoder)
@@ -1135,7 +1135,7 @@
           (>> (pipe marshal-decoder
                     (signature-validation pkey)
                     (decryptor ekey)
-                    marshal-decompressor
+                    smart-decompressor
                     marshal-decoder)
               cust data-packet)
           ))))
