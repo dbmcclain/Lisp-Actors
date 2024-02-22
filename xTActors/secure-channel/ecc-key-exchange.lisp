@@ -160,7 +160,7 @@
 
 (defun db-encryptor (ekey)
   (pipe marshal-encoder
-        marshal-compressor
+        smart-compressor
         (encryptor ekey)
         (authentication ekey)
         format-encoder
@@ -170,7 +170,7 @@
   (pipe format-decoder
         (check-db-authentication ekey)
         (non-destructive-decryptor ekey)
-        fail-silent-marshal-decompressor
+        fail-silent-smart-decompressor
         fail-silent-marshal-decoder))
 
 (deflex encrypt-for-database
