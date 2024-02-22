@@ -381,14 +381,14 @@
 ;; A global counter to label instances of server connections from this
 ;; host
 
-(defun counter-beh (n)
+(defun auto-counter-beh (n)
   (lambda (cust)
     (let ((new-n (1+ n)))
-      (β! (counter-beh new-n))
+      (β! (auto-counter-beh new-n))
       (>> cust n))))
 
 (deflex* get-server-count
-  (create (counter-beh 0)))
+  (create (auto-counter-beh 0)))
 
 ;; ------------------------
 ;; The list of currently active socket connections

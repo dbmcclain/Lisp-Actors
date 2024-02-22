@@ -318,6 +318,9 @@ THE SOFTWARE.
    #:state-without
    #:state-val
    #:with-state-vals
+
+   #:counter-beh
+   #:counter
    ))
 
 #+(OR :ALLEGRO :CCL)

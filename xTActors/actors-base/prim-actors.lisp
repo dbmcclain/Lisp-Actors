@@ -668,3 +668,33 @@ This the Actors equivalent of WITH-OPEN-FILE."
     (send fmt-println "I guess we're done: ~A" ans)))
 |#
 
+;; ---------------------------------------
+
+(defun counter-beh (&optional (ct 0))
+  (alambda
+   ((:inc)
+    (become (counter-beh (1+ ct))))
+   ((:inc delta)
+    (become (counter-beh (+ ct delta))))
+   ((:dec)
+    (become (counter-beh (1- ct))))
+   ((:dec delta)
+    (become (counter-beh (- ct delta))))
+   ((:reset)
+    (become (counter-beh 0)))
+   ((:reset init)
+    (become (counter-beh init)))
+   ((cust :read)
+    (send cust ct))
+   ((cust :read-reset)
+    (send cust ct)
+    (become (counter-beh 0)))
+   ((cust :read-reset init)
+    (send cust ct)
+    (become (counter-beh init)))
+   ))
+
+(defun counter (&optional (initial-ct 0))
+  (create (counter-beh initial-ct)))
+
+    

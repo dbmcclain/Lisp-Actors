@@ -285,20 +285,24 @@
 ;; ------------------------------------------------
 ;; try using Google's ZStd
 
-(defvar *smart-compressor-savings* 0)
+(deflex compressor-savings  (counter))
 
 (deflex smart-compressor
   (actor 
    (lambda (cust vec)
-     (let ((ans  (zstd:compress-buffer vec)))
-       (cond ((>= (length ans) (length vec))
-              (sys:atomic-fixnum-incf *smart-compressor-savings* (- (length ans) (length vec)))
-              (let ((ovec (make-ub8-vector (1+ (length vec))) ))
+     (let* ((vlen (length vec))
+            (ans  ;; (zstd:compress-buffer vec)
+                  (snappy:compress vec 0 vlen)
+                  )
+            (alen (length ans)))
+       (cond ((>= alen vlen)
+              (send compressor-savings :inc (- alen vlen))
+              (let ((ovec (make-ub8-vector (1+ vlen)) ))
                 (setf (aref ovec 0) 0)
                 (replace ovec vec :start1 1)
                 (>> cust ovec)))
              (t
-              (let ((ovec (make-ub8-vector (1+ (length ans))) ))
+              (let ((ovec (make-ub8-vector (1+ alen)) ))
                 (setf (aref ovec 0) 1)
                 (replace ovec ans :start1 1)
                 (>> cust ovec)))
@@ -309,7 +313,9 @@
   (actor 
    (lambda (cust vec)
      (if (= 1 (aref vec 0))
-         (>> cust (zstd:decompress-buffer vec :start 1))
+         (>> cust ;; (zstd:decompress-buffer vec :start 1)
+             (snappy:uncompress vec 1 (length vec))
+             )
        (>> cust (subseq vec 1)))
         )))
   
@@ -318,7 +324,9 @@
    (lambda (cust vec)
      (ignore-errors
        (if (= 1 (aref vec 0))
-           (>> cust (zstd:decompress-buffer vec :start 1))
+           (>> cust ;; (zstd:decompress-buffer vec :start 1)
+               (snappy:uncompress vec 1 (length vec))
+               )
          (>> cust (subseq vec 1)))
        ))
    ))
