@@ -376,7 +376,7 @@ WITH-ACCESSORS, in your code, putting it all into one place with LET+."
                  `(let+ ,(rest bindings)
                     ,@body)))
     ;; else
-    `(progn
+    `(locally
        ,@body)
     ))
 
