@@ -466,9 +466,10 @@
          (key     (vec (hash/256 :ENCR
                                  (vec ekey)
                                  nonce)))
-         (iv      (vec (hash/256 :IV
-                                 (vec ekey)
-                                 nonce)))
+         (iv      (subseq (vec (hash/256 :IV
+                                         (vec ekey)
+                                         nonce))
+                          0 16))
          (cipher  (ironclad:make-cipher :aes
                                         :key  key
                                         :mode :ctr
