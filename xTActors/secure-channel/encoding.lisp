@@ -466,10 +466,13 @@
          (key     (vec (hash/256 :ENCR
                                  (vec ekey)
                                  nonce)))
+         (iv      (vec (hash/256 :IV
+                                 (vec ekey)
+                                 nonce)))
          (cipher  (ironclad:make-cipher :aes
                                         :key  key
                                         :mode :ctr
-                                        :initialization-vector nonce)))
+                                        :initialization-vector iv)))
     (ironclad:encrypt-in-place cipher bytevec)
     nonce))
 
