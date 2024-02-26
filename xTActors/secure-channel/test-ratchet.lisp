@@ -22,8 +22,9 @@
             (send recho rcvr :inc))
     ))
 
+#|
 (tst "localhost")
-(tst "arroyo.local" 2)
+(tst "arroyo.local" 20)
 (tst "rincon.local")
 (tst "rambo.local")
 (tst "dachshund.local")
@@ -35,3 +36,4 @@
 
 (send rcvr :show)
 (send rcvr sink :reset)
+|#

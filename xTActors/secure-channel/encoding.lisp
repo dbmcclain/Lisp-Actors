@@ -452,7 +452,8 @@
 
 (defun padder (bytevec)
   (let* ((nel  (length bytevec))
-         (cnel (* 1024 (ceiling (+ nel 2) 1024)))
+         (nn   (+ nel 2 1023))
+         (cnel (- nn (logand nn 1023)))
          (rem  (- cnel nel))
          (bv   (make-ub8-vector cnel)))
     (replace bv bytevec)
@@ -539,14 +540,7 @@
       ))
 
 (defun non-destructive-encryptor (ekey)
-  (actor
-   (lambda (cust bytevec)
-     (ignore-errors
-       (let* ((buf   (copy-seq bytevec))
-              (bv    (padder buf))
-              (nonce (encr/decr ekey nil bv)))
-         (>> cust nonce bv))))
-   ))
+  (encryptor ekey))
 
 (defun decryptor (ekey)
   (actor
