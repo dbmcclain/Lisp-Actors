@@ -480,7 +480,18 @@
 (defun encryptor (ekey)
   (actor 
       (lambda (cust bytevec)
-        (let ((nonce (encr/decr ekey nil bytevec)))
+        (let* ((nel  (length bytevec))
+               (rem  (logand nel 15))
+               (cnel (if (zerop rem)
+                         nel
+                       (+ nel (- 16 rem))))
+               (bv   (if (eql nel cnel)
+                         bytevec
+                       (let ((bv  (make-ub8-vector cnel)))
+                         (replace bv bytevec)
+                         bv)
+                       ))
+               (nonce (encr/decr ekey nil bv)))
           (>> cust nonce bytevec)))
       ))
 
