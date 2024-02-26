@@ -104,7 +104,7 @@
                          (let+ ((new-root   (hash/256 :ratchet-1 root-key dh-pt))
                                 (rx-key     (iter-hash new-root new-ack-pt seq))
                                 (new-dict   (maps:add dict
-                                                      ack-key
+                                                      inp-ack-key
                                                       (actor-state
                                                        :bday  (get-universal-time) ;; birthday of entry
                                                        :root  new-root             ;; root at time of ratchet
@@ -114,11 +114,12 @@
                            (values new-root rx-key new-dict)))
                         (:SERVER ;; servers simply respond at first
                          (let+ ((new-dict   (maps:add dict
-                                                      ack-key (actor-state
-                                                               :bday  (get-universal-time)
-                                                               :root  root-key
-                                                               :dh-pt new-ack-pt
-                                                               :seqs  (list seq))
+                                                      inp-ack-key
+                                                      (actor-state
+                                                       :bday  (get-universal-time)
+                                                       :root  root-key
+                                                       :dh-pt new-ack-pt
+                                                       :seqs  (list seq))
                                                       ))
                                 (rx-key     (iter-hash root-key new-ack-pt seq))
                                 (new-root   (hash/256 :ratchet-1 root-key new-ack-pt)))
