@@ -254,6 +254,7 @@
   (vec (hash/256 :random-key (uuid:make-v1-uuid)
                  (prng:ctr-drbg 256))))
 
+#|
 (defun aes-enc/dec (key iv vsrc)
   (let ((cipher (ironclad:make-cipher :aes
                                       :mode :ctr
@@ -262,17 +263,33 @@
     (ironclad:encrypt-in-place cipher vsrc)
     vsrc))
 
-(defun make-auth-chk (key iv cdata)
-  (vec (hash/256 :chk key iv cdata)))
-
 (defun make-iv (key)
   (subseq
    (vec (hash/256 :iv key (uuid:make-v1-uuid)))
    0 16))
+|#
+#||#
+(defun aes-enc/dec (key iv vsrc)
+  (let ((cipher (ironclad:make-cipher :xchacha
+                                      :mode :stream
+                                      :key  key
+                                      :initialization-vector iv)))
+    (ironclad:encrypt-in-place cipher vsrc)
+    vsrc))
+
+(defun make-iv (key)
+  (subseq
+   (vec (hash/256 :iv key (uuid:make-v1-uuid)))
+   4 28))
+#||#
+
+(defun make-auth-chk (key iv cdata)
+  (vec (hash/256 :chk key iv cdata)))
 
 (defun make-aes-packet (key &rest data)
-  (let* ((vdata  (loenc:encode (loenc:unshared-list data)
-                               :max-portability t))
+  (let* ((vdata  (padder
+                  (loenc:encode (loenc:unshared-list data)
+                                :max-portability t)))
          (iv     (make-iv key))
          (cdata  (aes-enc/dec key iv vdata))
          (chk    (make-auth-chk key iv cdata)))
@@ -283,7 +300,7 @@
   (let ((chkx (make-auth-chk key iv cdata)))
     (when (equalp chkx chk) ;; just drop on the floor if not valid
       (let ((vdata  (aes-enc/dec key iv cdata)))
-        (loenc:decode vdata))
+        (loenc:decode (unpadder vdata)))
       )))
 
 ;; ----------------------------------------------------

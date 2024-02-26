@@ -83,6 +83,8 @@
    #:server-ratchet-manager
    #:ratchet-encryptor
    #:ratchet-decryptor
+   #:padder
+   #:unpadder
    ))
 
 (defpackage #:com.ral.crypto.ecc-key-exchange

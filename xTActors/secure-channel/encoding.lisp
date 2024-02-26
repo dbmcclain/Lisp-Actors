@@ -448,7 +448,59 @@
                     )))
 
 ;; -------------------------------------------------------------------
+;; Pad buffer to multiple of 1024 bytes to cloak actual length
 
+(defun padder (bytevec)
+  (let* ((nel  (length bytevec))
+         (cnel (* 1024 (ceiling (+ nel 2) 1024)))
+         (rem  (- cnel nel))
+         (bv   (make-ub8-vector cnel)))
+    (replace bv bytevec)
+    (fill bv 0 :start nel :end (- cnel 2))
+    (setf (aref bv (1- cnel))  (ldb (byte 8 0) rem)
+          (aref bv (- cnel 2)) (ldb (byte 8 8) rem))
+    bv))
+
+(defun unpadder (bytevec)
+  (let* ((nel  (length bytevec))
+         (rem  (logior (aref bytevec (1- nel))
+                       (ash (aref bytevec (- nel 2)) 8))
+               ))
+    (subseq bytevec 0 (- nel rem))
+    ))
+
+;; -------------------------------------------------------------------
+#||#
+(defun encr/decr (ekey nonce bytevec)
+  ;; Using AES/256-CTR Encryption
+  ;; Each chunk of data gets its own nonce and encryption key
+  ;; ekey is hash/256, nonce is NIL or ub8-vect, bytevec is ub8-vect.
+  ;;
+  ;; Uses in-place encrypt/decrypt. So be sure the buffer is safe to
+  ;; mutate!
+  ;;
+  (let* ((nonce   (or nonce
+                      (subseq
+                       (vec (hash/256 :NONCE
+                                      (vec (uuid:make-v1-uuid))
+                                      (vec ekey)))
+                       0 16)))
+         (key     (vec (hash/256 :ENCR
+                                 (vec ekey)
+                                 nonce)))
+         (iv      (subseq (vec (hash/256 :IV
+                                         (vec ekey)
+                                         nonce))
+                          4 28))
+         (cipher  (ironclad:make-cipher :xchacha
+                                        :key  key
+                                        :mode :stream
+                                        :initialization-vector iv))
+         )
+    (ironclad:encrypt-in-place cipher bytevec)
+    nonce))
+#||#
+#|
 (defun encr/decr (ekey nonce bytevec)
   ;; Using AES/256-CTR Encryption
   ;; Each chunk of data gets its own nonce and encryption key
@@ -476,46 +528,41 @@
                                         :initialization-vector iv)))
     (ironclad:encrypt-in-place cipher bytevec)
     nonce))
+|#
 
 (defun encryptor (ekey)
   (actor 
       (lambda (cust bytevec)
-        (let* ((nel  (length bytevec))
-               (rem  (logand nel 15))
-               (cnel (if (zerop rem)
-                         nel
-                       (+ nel (- 16 rem))))
-               (bv   (if (eql nel cnel)
-                         bytevec
-                       (let ((bv  (make-ub8-vector cnel)))
-                         (replace bv bytevec)
-                         bv)
-                       ))
+        (let* ((bv    (padder bytevec))
                (nonce (encr/decr ekey nil bv)))
-          (>> cust nonce bytevec)))
+          (>> cust nonce bv)))
       ))
 
 (defun non-destructive-encryptor (ekey)
   (actor
    (lambda (cust bytevec)
-     (let* ((buf   (copy-seq bytevec))
-            (nonce (encr/decr ekey nil buf)))
-       (>> cust nonce buf)))
+     (ignore-errors
+       (let* ((buf   (copy-seq bytevec))
+              (bv    (padder buf))
+              (nonce (encr/decr ekey nil bv)))
+         (>> cust nonce bv))))
    ))
 
 (defun decryptor (ekey)
   (actor
       (lambda (cust seq bytevec)
-        (encr/decr ekey seq bytevec)
-        (>> cust bytevec))
+        (ignore-errors
+          (encr/decr ekey seq bytevec)
+          (>> cust (unpadder bytevec))))
       ))
 
 (defun non-destructive-decryptor (ekey)
   (actor
    (lambda (cust seq bytevec)
-     (let ((buf  (copy-seq bytevec)))
-       (encr/decr ekey seq buf)
-       (>> cust buf)))
+     (ignore-errors
+       (let ((buf  (copy-seq bytevec)))
+         (encr/decr ekey seq buf)
+         (>> cust (unpadder buf)))))
    ))
 
 ;; -----------------------------------------------------------

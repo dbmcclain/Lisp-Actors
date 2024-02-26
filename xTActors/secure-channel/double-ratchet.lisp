@@ -266,9 +266,10 @@
   (create
    (lambda (cust bytevec)
      (let+ ((:β (seq tau ack ekey) (racurry ratchet-manager :tx-key))
-            (nonce (encr/decr ekey nil bytevec))
-            (auth  (make-auth ekey nonce bytevec)))
-       (>> cust seq tau ack nonce bytevec auth)
+            (bv    (padder bytevec))
+            (nonce (encr/decr ekey nil bv))
+            (auth  (make-auth ekey nonce bv)))
+       (>> cust seq tau ack nonce bv auth)
        ))
    ))
 
@@ -282,7 +283,7 @@
        ;; Our committment to refutability - publish the last auth-key
        (>> socket :auth-key (vec auth-key))
        (encr/decr ekey nonce bytevec)
-       (send cust bytevec))
+       (send cust (unpadder bytevec)))
      ))
    ))
 
