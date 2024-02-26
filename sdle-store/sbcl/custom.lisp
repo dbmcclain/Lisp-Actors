@@ -21,7 +21,7 @@
   (store-type-object obj stream))
 
 (defrestore-sdle-store (structure-object stream)
-  (restore-type-object stream 'structure-object))
+  (restore-type-object stream 'structure-object 'structure-class))
 
 
 ;; Structure definition storing

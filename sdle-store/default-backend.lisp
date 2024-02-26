@@ -732,13 +732,13 @@
 ;; indicated slots.
 ;; -----------------------------------------------------------
 
-(defun restore-type-object (stream obj-type)
+(defun restore-type-object (stream obj-type metaclass)
   ;; (declare (xoptimize speed))
   (let* ((class-name   (restore-object stream))
          (count        (read-count stream))
          (slot-names   (loop repeat count
                              collect (restore-object stream)))
-         (class        (find-or-create-class class-name obj-type slot-names))
+         (class        (find-or-create-class class-name obj-type slot-names metaclass))
          (new-instance (allocate-instance class)))
     
     (resolving-object (obj new-instance)
@@ -752,7 +752,7 @@
                 (setting (slot-value obj slot-name) val))) ))
     new-instance))
 
-(defun find-or-create-class (class-name obj-type slot-names)
+(defun find-or-create-class (class-name obj-type slot-names metaclass)
   (or (find-class class-name nil)
       (ensure-class class-name
                     :direct-slots (mapcar (lambda (slot-name)
@@ -764,13 +764,15 @@
                                               :writers    nil))
                                           slot-names)
                     :direct-superclasses (list obj-type)
-                    :metaclass 'standard-class) ))
+                    ;; :metaclass 'standard-class
+                    :metaclass metaclass
+                    ) ))
 
 (defrestore-sdle-store (standard-object stream)
-  (restore-type-object stream 'standard-object))
+  (restore-type-object stream 'standard-object 'standard-class))
 
 (defrestore-sdle-store (condition stream)
-  (restore-type-object stream 'condition))
+  (restore-type-object stream 'condition 'standard-class))
 
 
 ;; -------------------------------------------------------

@@ -56,7 +56,7 @@
          (count         (read-count stream))
          (slot-names    (loop repeat count
                               collect (restore-object stream)))
-         (class         (find-or-create-class class-name 'standard-object slot-names)))
+         (class         (find-or-create-class class-name 'standard-object slot-names 'standard-class)))
     (cond ((eq (type-of class) 'structure-class)
            ;; we apparently found the class and it was a struture
            (let* ((new-instance  (structure::allocate-instance class))
