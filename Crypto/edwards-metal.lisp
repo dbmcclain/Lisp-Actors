@@ -169,9 +169,9 @@
              cptx cpty cptz cwv)
     
     (make-ecc-proj-pt
-              :x (xfer-from-c cptx) ;; projective out...
-              :y (xfer-from-c cpty)
-              :z (xfer-from-c cptz))
+     :x (xfer-from-c cptx) ;; projective out...
+     :y (xfer-from-c cpty)
+     :z (xfer-from-c cptz))
     ))
 
 (defmethod %ecc-fast-mul ((pt ecc-pt) n)
@@ -179,7 +179,7 @@
                      (cpty (ecc-pt-y pt))
                      (cptz)
                      (cwv  n))
-
+    
     (funcall (fast-ed-curve-affine-mul *edcurve*)
              cptx cpty cptz cwv)
     
@@ -200,14 +200,14 @@
                      (cpt2yv (ecc-proj-pt-y pt2))
                      (cpt2zv (ecc-proj-pt-z pt2)))
     
-             (funcall (fast-ed-curve-proj-add *edcurve*)
-                      cpt1xv cpt1yv cpt1zv
-                      cpt2xv cpt2yv cpt2zv)
+    (funcall (fast-ed-curve-proj-add *edcurve*)
+             cpt1xv cpt1yv cpt1zv
+             cpt2xv cpt2yv cpt2zv)
     
     (make-ecc-proj-pt ;; projective out...
-     :x (xfer-from-c cpt1xv)
-     :y (xfer-from-c cpt1yv)
-     :z (xfer-from-c cpt1zv))
+                      :x (xfer-from-c cpt1xv)
+                      :y (xfer-from-c cpt1yv)
+                      :z (xfer-from-c cpt1zv))
     ))
 
 (defun %ecc-fast-to-affine (pt)
@@ -222,6 +222,8 @@
      :x (xfer-from-c cptx) ;; affine out...
      :y (xfer-from-c cpty))
     ))
+
+;; ---------------------------------------------------
 
 (defun %ecc-fast-grp-mul (n1 n2)
   (with-fli-buffers ((cn1  n1)
@@ -272,4 +274,104 @@
        (pt2 (with-ed-curve :curve-e521f
               (ed-affine (ed-mul *ed-gen* 15)))))
   (list pt pt2))
+
+(with-ed-curve :curve-e521f
+  (compute-deterministic-elligator-skey :test (random *ed-r*)))
+
+(defun tst ()
+ (with-ed-curve :curve-e521f ;; 5.6x faster than :curve-e521
+   (let ((h  (hash/256 :hello (uuid:make-v1-uuid))))
+     (loop for ix from 0 below 1000 do
+             (compute-deterministic-elligator-skey :test h)
+             (setf h (hash/256 h))
+           ))))
+(time (tst))
+
+(defun tst ()
+ (with-ed-curve :curve-e521f ;; 5.6x faster than :curve-e521
+   (loop for ix from 0 below 1000 do
+           (compute-deterministic-elligator-skey :test (random *ed-r*))
+           )))
+(time (tst))
+
+(defun tst ()
+  (loop for ix from 0 below 1000 do
+        (let* ((r (random *ed-r*))
+               (pt1 (with-ed-curve :curve-e521
+                      (ed-nth-pt r)))
+               (pt2 (with-ed-curve :curve-e521f
+                      (ed-nth-pt r))))
+          (assert (ed-pt= pt1 pt2))
+          )))
+(time (tst))
+
+;; --------------------------------------------
+
+(defun tst (niter)
+  (with-ed-curve :curve-e521f
+    (loop repeat niter do
+          (let* ((r1 (random *ed-q*))
+                 (r2 (random *ed-q*))
+                 (p1 (with-mod *ed-q*
+                       (m* r1 r2)))
+                 (p2 (%ecc-fast-grp-mul r1 r2)))
+            (assert (= p1 p2))
+            ))))
+(time (tst 1_000_000)))
+
+(defun tst (niter)
+  (with-ed-curve :curve-e521f
+    (loop repeat niter do
+          (let* ((r1 (random *ed-q*))
+                 (p1 (with-mod *ed-q*
+                       (m/ r1)))
+                 (p2 (%ecc-fast-grp-inv r1)))
+            (assert (= p1 p2))
+            ))))
+(time (tst 100_000)))
+
+(defun tst (niter)
+  (with-ed-curve :curve-e521f
+    (loop repeat niter do
+          (let* ((r1 (random *ed-q*))
+                 (p1 (with-mod *ed-q*
+                       (ignore-errors
+                         (msqrt r1))))
+                 (p2 (when p1
+                       (%ecc-fast-grp-sqrt r1))))
+            (when p1
+              (assert (= p1 p2)))
+            ))))
+(time (tst 100_000))
+`
+;; ---------------------------------------------------
+
+(defun tst (niter)
+  (with-ed-curve :curve-e521f
+    (loop repeat niter do
+            (let* ((r1 (random *ed-r*))
+                   (p1 (with-ed-curve :curve-e521
+                         (ed-nth-pt r1)))
+                   (p2 (ed-nth-pt r1)))
+              (unless (and (zerop (ecc-pt-x p2))
+                           (zerop (ecc-pt-y p2)))
+                (assert (and (= (ecc-pt-x p1)
+                                (ecc-pt-x p2))
+                             (= (ecc-pt-y p1)
+                                (ecc-pt-y p2)))))
+              ))))
+
+(time (tst 1_000))
+
+;; -------------------------------------------------
+
+(defun tst (curve-id niter)
+  (with-ed-curve curve-id
+    (loop repeat niter do
+          (multiple-value-bind (skey pkey)
+              (ed-random-pair)
+            (ed-validate-point pkey))
+          )))
+(time (tst :curve1174  10_000)) ;; 540 µs/iter
+(time (tst :curve-e521 1_000))  ;;  20 ms/iter, 40x slower
 |#

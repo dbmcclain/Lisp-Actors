@@ -23,7 +23,7 @@
 
 // Group multiplication by field scalars. Scalars have size 519-bits
 #define WINDOW   4  // mult curves by 4-bits at a time
-#define PANES  130  // nbr of windows in multiplier
+#define PANES  132  // nbr of windows in multiplier
 
 using namespace std;
 
