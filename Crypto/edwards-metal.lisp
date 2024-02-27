@@ -342,8 +342,8 @@
             (when p1
               (assert (= p1 p2)))
             ))))
-(time (tst 100_000))
-`
+(time (tst 10_000))
+
 ;; ---------------------------------------------------
 
 (defun tst (niter)
@@ -353,12 +353,10 @@
                    (p1 (with-ed-curve :curve-e521
                          (ed-nth-pt r1)))
                    (p2 (ed-nth-pt r1)))
-              (unless (and (zerop (ecc-pt-x p2))
-                           (zerop (ecc-pt-y p2)))
-                (assert (and (= (ecc-pt-x p1)
-                                (ecc-pt-x p2))
-                             (= (ecc-pt-y p1)
-                                (ecc-pt-y p2)))))
+              (assert (and (= (ecc-pt-x p1)
+                              (ecc-pt-x p2))
+                           (= (ecc-pt-y p1)
+                              (ecc-pt-y p2))))
               ))))
 
 (time (tst 1_000))

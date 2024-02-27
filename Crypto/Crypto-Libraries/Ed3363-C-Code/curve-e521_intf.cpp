@@ -348,93 +348,78 @@ void gmul(coord_t& x,coord_t& y,coord_t& z)
 // p-2 = 2^521-3 = (2^2)*(2^519-1)+1
 // (129 F's)
 //
-// x^(p-2) = x^((2^2)*(2^519-1)+1)
+// This calls for repeated application of the identity:
+//    (2^(2*N) - 1) = (2^N - 1) * (2^N + 1)
+//                  = (2^N-1)*2^N + (2^N-1) -- shift arg big with SQR and then mult with arg
+// so,
+// (p-2)   = 2^521-3
+// 2^521-3 = (2^2)*(2^519-1)+1
+// 2^519-1 = (2^512-1)*2^7+(2^7-1)
+//
+// 2^512-1 = (2^256-1)*2^256 + (2^256-1)
+// 2^256-1 = (2^128-1)*2^128 + (2^128-1)
+// 2^128-1 = (2^64-1)*2^64 + (2^64-1)
+// 2^64-1  = (2^32-1)*2^32 + (2^32-1)
+// 2^32-1  = (2^16-1)*2^16 + (2^16-1)
+// 2^16-1  = (2^8-1)*2^8 + (2^8-1)
+// 2^8-1   = (2^4-1)*2^4 + (2^4-1) => x^255 = (x^15)^16 * x^15
+// 2^4-1   = (2^2-1)*2^2 + (2^2-1) => x^15 = (x^3)^4 * x^3
+// 2^2-1   = (2^1-1)*2^1 + (2^1-1) => x^3 = x^2 * x
+//
+// 2^7-1 = (2^4-1)*2^3 + (2^3-1) => x^127 = (x^15)^8 * x^7
+// 2^3-1 = (2^2-1)*2^1 + (2^1-1) =>   x^7 = (x^3)^2 * x
+//
+// shmul(x,1,x,x2)  // 2 bits
+// shmul(x2,1,x,x3) // 3 bits
+// shmul(x2,2,x2,x4) // 4 bits
+// shmul(x4,3,x3,x7) // 7 bits
+//
+// shmul(x4,4,x4,x8) // 8 bits
+// shmul(x8,8,x8,x16) // 16 bits
+// shmul(x16,16,x16,x32) // 32 bits
+// shmul(x32,32,x32,x64) // 64 bits
+// shmul(x64,64,x64,x128) // 128 bits
+// shmul(x128,128,x128,x256) // 256 bits
+// shmul(x256,256,x256,x512) // 512 bits
+//
+// shmul(x512,7,x7,x519) // 519 bits
+// shmul(x519,2,x,ans)   // x^521-3 = x^(p-2)
+// return ans
+//
+static void shmul(coord_t &x, int nsh, coord_t &y, coord_t &dst) {
+    // Shift arg X left by nsh using gsqr, then mult by Y.
+    // We make copies of x, y locally, so that dst can overlap with either of them.
+    // That isn't allowed with gmul - all gmul args must be distinct.
+    coord_t t,t2;
+    
+    if(1 & nsh)
+        gsqr(x,t);
+    else
+        gcopy(x,t);
+    for(int ix = (nsh >> 1); ix-- > 0;) {
+        gsqr(t,t2);
+        gsqr(t2,t);
+    }
+    gcopy(y,t2);
+    gmul(t2,t,dst);
+}
+
 static
 void ginv(coord_t& x)
 {
-	// --------------------------------------
-	// 205*M
-	int    i;
-    coord_t w,t1,t2,sav2;
-
-    gsqr(x,t2);
-	gmul(x,t2,sav2); // 2 bits, x^(2^2-1)
-	
-	gsqr(sav2,t1);
-	gsqr(t1,t2);
-	gmul(t2,sav2,w); // 4 bits, x^(2^4-1)
-	
-    gcopy(w,t1);
-	for(i = 2; --i >= 0; )
-	  {
-	    gsqr(t1,t2);
-	    gsqr(t2,t1);
-	  }
-	gmul(t1,w,t2); // 8 bits, x^(2^8-1)
-
-	gcopy(t2,w);
-	for(i = 4; --i >= 0;)
-	  {
-	    gsqr(t2,t1);
-	    gsqr(t1,t2);
-	  }
-	gmul(t2,w,t1); // 16 bits, x^(2^16-1)
-
-	gcopy(t1,w);
-	for(i = 8; --i >= 0; )
-	  {
-	    gsqr(t1,t2);
-	    gsqr(t2,t1);
-	  }
-	gmul(t1,w,t2); // 32 bits, x^(2^32-1)
-
-	gcopy(t2,w);
-	for(i = 16; --i >= 0;)
-	  {
-	    gsqr(t2,t1);
-	    gsqr(t1,t2);
-	  }
-	gmul(t2,w,t1); // 64 bits, x^(2^64-1)
-
-	gcopy(t1,w);
-	for(i = 32; --i >= 0; )
-	  {
-	    gsqr(t1,t2);
-	    gsqr(t2,t1);
-	  }
-	gmul(t1,w,t2); // 128 bits, x^(2^128-1)
-
-	gcopy(t2,w);
-	for(i = 64; --i >= 0;)
-	  {
-	    gsqr(t2,t1);
-	    gsqr(t1,t2);
-	  }
-	gmul(t2,w,t1); // 256 bits, x^(2^256-1)
-
-	gcopy(t1,w);
-	for(i = 128; --i >= 0; )
-	  {
-	    gsqr(t1,t2);
-	    gsqr(t2,t1);
-	  }
-	gmul(t1,w,t2); // 512 bits, x^(2^512-1)
-
-    // left shift 6 bits
-	for(i = 3; --i >= 0;)
-	  {
-	    gsqr(t2,t1);
-	    gsqr(t1,t2);
-        gcopy(t2,t1);
-        gmul(t1,sav2,t2);
-	  }
-    gsqr(t2,t1); // left shift 7 bits
-	gmul(t1,x,t2); // 519 bits, x^(2^519-1)
-
-    gsqr(t2,t1);    // left shift 2 bits
-	gsqr(t1,t2);
-	gmul(t2,x,w);  // 2^521-3
-	gcopy(w,x);
+    coord_t t,x7;
+    
+    shmul(x,1,x,t);    // shmul(x,1,x,x2)   // 2 bits
+    shmul(t,1,x,x7);   // shmul(x2,1,x,x3)  // 3 bits
+    shmul(t,2,t,t);    // shmul(x2,2,x2,x4) // 4 bits
+    shmul(t,3,x7,x7);  // shmul(x4,3,x3,x7) // 7 bits - we need this below
+    //
+    for(int nsh = 4; nsh < 512; nsh <<= 1) {
+        shmul(t,nsh,t,t);
+    }
+    //
+    shmul(t,7,x7,t);  // shmul(x512,7,x7,x519) // 519 bits
+    shmul(t,2,x,x);   // shmul(x519,2,x,ans)   // x^521-3 = x^(p-2)
 }
 
 static
