@@ -448,7 +448,8 @@
                     )))
 
 ;; -------------------------------------------------------------------
-;; Pad buffer to multiple of 1024 bytes to cloak actual length
+;; Pad buffer to multiple of 1024 bytes to cloak actual length. Record
+;; length excess in last 2 bytes.
 
 (defun padder (bytevec)
   (let* ((nel  (length bytevec))
