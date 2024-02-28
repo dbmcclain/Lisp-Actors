@@ -300,87 +300,65 @@ void gmul(type64 *x,type64 *y,type64 *z)
 
 // Inverse x = 1/x = x^(p-2) mod p
 // the exponent (p-2) = "07FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5"
+//                    = 2^251 - 11
 // (61 F's)
+//
+// 2^251 - 11 = (2^247-1)*(2^4) + 5   // shmul(x247,4,x5,ans)
+//
+// 247 = 128 + 119
+// 128 =  64 +  64
+//  64 =  32 +  32
+//  32 =  16 +  16
+//  16 =   8 +   8
+//   8 =   4 +   4 = 7 + 1
+//   4 =   2 +   2 = 3 + 1
+//   2 =   1 +   1
+//
+// 119 =  64 +  55
+//  55 =  32 +  23
+//  23 =  16 +   7
+//   7 =   4 +   3
+//   3 =   2 +   1
+//
+static void shmul(type64 *x, int nsh, type64 *y, type64 *dst) {
+    // Shift arg X left by nsh using gsqr, then mult by Y.
+    // We make copies of x, y locally, so that dst can overlap with either of them.
+    // That isn't allowed with gmul - all gmul args must be distinct.
+    type64 t[5],t2[5];
+    
+    if(1 & nsh)
+        gsqr(x,t);
+    else
+        gcopy(x,t);
+    for(int ix = (nsh >> 1); ix-- > 0;) {
+        gsqr(t,t2);
+        gsqr(t2,t);
+    }
+    gcopy(y,t2);
+    gmul(t2,t,dst);
+}
 
 static
 void ginv(type64 *x)
 {
-	// --------------------------------------
-	// 205*M
-	int    i;
-	type64 w[5],t1[5],t2[5],x3[5],x5[5];
-	
-	gsqr(x,w);      // w = x^2
-	gmul(x,w,x3);   // x3 = x^3 = x^(2^2-1)
-	gmul(w,x3,x5);  // x5 = x^5
-
-	gsqr(x3,w);
-	gsqr(w,t1);     // t1 = x^(2^4-4)
-	gmul(x3,t1,w);  // w = x^(2^4-1)
-
-	gsqr(w,t1);
-	gsqr(t1,w);     // w = x^(2^6-4)
-	gmul(x3,w,t1);  // t1 = x^(2^6-1)
-	gcopy(t1,t2);
-	for(i = 3; --i >= 0; )
-	  {
-	    gsqr(t1,w);
-	    gsqr(w,t1);
-	  }
-	gmul(t1,t2,w);  // w = x^(2^12-1)
-
-	gsqr(w,t1);
-	gsqr(t1,w);     // w = x^(2^14-4)
-	gmul(x3,w,t1);  // t1 = x^(2^14-1)
-	gcopy(t1,t2);
-	for(i = 7; --i >= 0; )
-	  {
-	    gsqr(t1,w);
-	    gsqr(w,t1);
-	  }
-	gmul(t1,t2,w);  // w = x^(2^28-1)
-
-	gsqr(w,t1);
-	gsqr(t1,w);     // w = x^(2^30-4)
-	gmul(x3,w,t1);  // t1 = x^(2^30-1)
-	gcopy(t1,t2);
-	for(i = 15; --i >= 0; )
-	  {
-	    gsqr(t1,w);
-	    gsqr(w,t1);
-	  }
-	gmul(t1,t2,w);  // w = x^(2^60-1)
-
-	gcopy(w,t2);
-	for(i = 30; --i >= 0; )
-	  {
-	    gsqr(w,t1);
-	    gsqr(t1,w);
-	  }
-	gmul(w,t2,t1);  // t1 = x^(2^120-1)
-
-	gsqr(t1,w);
-	gsqr(w,t1);     // t1 = x^(2^122 - 4)
-	gmul(x3,t1,w);  // w = x^(2^122-1)
-	gcopy(w,t2);
-	for(i = 61; --i >= 0;)
-	  {
-	    gsqr(w,t1);
-	    gsqr(t1,w);
-	  }
-	gmul(w,t2,t1);  // t1 = x^(2^244-1)
-
-	gsqr(t1,w);     // w = x^(2^245-2)
-	gmul(x,w,t1);   // t1 = x^(2^245-1)
-	gsqr(t1,w);      
-	gsqr(w,t1);     // t1 = x^(2^247-4)
-	gmul(x3,t1,w);  // w = x^(2^247-1)
-	
-	gsqr(w,t1);
-	gsqr(t1,w);
-	gsqr(w,t1);
-	gsqr(t1,w);     // w = x^(2^251-16)
-	gmul(x5,w,x);   // x = x^(2^251-11)
+    type64 x2[5], x3[5], x6[5], x7[5], x14[5], x15[5],
+           x30[5],x60[5],x61[5], x122[5], x123[5],
+           x246[5], x247[5], xp5[5];
+    shmul(x,      2, x,    xp5); // save for final
+    shmul(x,      1, x,    x2);
+    shmul(x2,     1, x,    x3);
+    shmul(x3,     3, x3,   x6);
+    shmul(x6,     1, x,    x7);
+    shmul(x7,     7, x7,   x14);
+    shmul(x14,    1, x,    x15);
+    shmul(x15,   15, x15,  x30);
+    shmul(x30,   30, x30,  x60);
+    shmul(x60,    1, x,    x61);
+    shmul(x61,   61, x61,  x122);
+    shmul(x122,   1, x,    x123);
+    shmul(x123, 123, x123, x246);
+    shmul(x246,   1, x,    x247);
+    shmul(x247,   4, xp5,  x);
 }
 
 static
@@ -424,91 +402,28 @@ bool gsqrt(type64 *x, type64 *y) {
   // we have Sqrt(X) = X^((|Fq|+1)/4) mod |Fq|
   // where (|Fq|+1)/4 = 0x1FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
   // Return true if X was a quadratic-residue of Fq.
+  //
+  // |Fq| = 2^251-9
+  // (|Fq|+1)/4 = 2^249-2 = 2*(2^248-1)
 
-  int i;
-  type64 tmp1[5], tmp2[5], ans[5];
-
-  // generate large run components
-  // bits_1 = x^(2^1-1) = x
-  type64 bits_2[5]; // = x^(2^2-1)
-  gsqr(x, tmp1);
-  gmul(x, tmp1, bits_2);
-
-  type64 bits_4[5];  // = x^(2^4-1)
-  gcopy(bits_2, tmp1);
-  gsqr(tmp1, tmp2);
-  gsqr(tmp2, tmp1);
-  gmul(bits_2, tmp1, bits_4);
-
-  type64 bits_8[5];  // = x^(2^8-1)
-  gcopy(bits_4, tmp1);
-  for(i = 0; i < 2; ++i) {
-    gsqr(tmp1, tmp2);
-    gsqr(tmp2, tmp1); }
-  gmul(bits_4, tmp1, bits_8);
-
-  type64 bits_16[5];  // = x^(2^16-1)
-  gcopy(bits_8, tmp1);
-  for(i = 0; i < 4; ++i) {
-    gsqr(tmp1, tmp2);
-    gsqr(tmp2, tmp1); }
-  gmul(bits_8, tmp1, bits_16);
-
-  type64 bits_32[5];  // = x^(2^32-1)
-  gcopy(bits_16, tmp1);
-  for(i = 0; i < 8; ++i) {
-    gsqr(tmp1, tmp2);
-    gsqr(tmp2, tmp1); }
-  gmul(bits_16, tmp1, bits_32);
-
-  type64 bits_64[5];  // = x^(2^64-1)
-  gcopy(bits_32, tmp1);
-  for(i = 0; i < 16; ++i) {
-    gsqr(tmp1, tmp2);
-    gsqr(tmp2, tmp1); }
-  gmul(bits_32, tmp1, bits_64);
-
-  type64 bits_128[5];  // = x^(2^128-1)
-  gcopy(bits_64, tmp1);
-  for(i = 0; i < 32; ++i) {
-    gsqr(tmp1, tmp2);
-    gsqr(tmp2, tmp1); }
-  gmul(bits_64, tmp1, bits_128);
-
-  // generate partial answer
-  // we need x^(2^248-1)
-  gcopy(bits_128, tmp1);
-  for(i = 0; i < 32; ++i) {
-    gsqr(tmp1, tmp2);
-    gsqr(tmp2, tmp1); }
-  gmul(bits_64, tmp1, ans);
-
-  gcopy(ans, tmp1);
-  for(i = 0; i < 16; ++i) {
-    gsqr(tmp1, tmp2);
-    gsqr(tmp2, tmp1); }
-  gmul(bits_32, tmp1, ans);
-
-  gcopy(ans, tmp1);
-  for(i = 0; i < 8; ++i) {
-    gsqr(tmp1, tmp2);
-    gsqr(tmp2, tmp1); }
-  gmul(bits_16, tmp1, ans);
-
-  gcopy(ans, tmp1);
-  for(i = 0; i < 4; ++i) {
-    gsqr(tmp1, tmp2);
-    gsqr(tmp2, tmp1); }
-  gmul(bits_8, tmp1, ans);
-
-  // generate small residue of exponent
-  gsqr(ans, tmp1);
-  gcopy(tmp1, ans);
-  // copy ans to output y
-  // and return true if y*y = x
-  gcopy(ans, y);
-  gsqr(y, tmp1);
-  return geq(tmp1, x);
+    type64 tmp1[5], x248[5], x124[5], x62[5], x31[5], x30[5],
+            x15[5], x14[5],x7[5],x6[5],x3[5],x2[5];
+    
+    shmul(x,      1, x,      x2);
+    shmul(x2,     1, x,      x3);
+    shmul(x3,     3, x3,     x6);
+    shmul(x6,     1, x,      x7);
+    shmul(x7,     7, x7,    x14);
+    shmul(x14,    1, x,     x15);
+    shmul(x15,   15, x15,   x30);
+    shmul(x30,    1, x,     x31);
+    shmul(x31,   31, x31,   x62);
+    shmul(x62,   62, x62,  x124);
+    shmul(x124, 124, x124, x248);
+    gadd(x248,x248,y);
+    
+    gsqr(y, tmp1);
+    return geq(tmp1, x);
 }
 
 

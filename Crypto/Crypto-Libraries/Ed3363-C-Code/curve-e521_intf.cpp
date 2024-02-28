@@ -407,8 +407,9 @@ static void shmul(coord_t &x, int nsh, coord_t &y, coord_t &dst) {
 static
 void ginv(coord_t& x)
 {
-    coord_t t,x7;
-    
+    /*
+     coord_t t,x7;
+     
     shmul(x,1,x,t);    // shmul(x,1,x,x2)   // 2 bits
     shmul(t,1,x,x7);   // shmul(x2,1,x,x3)  // 3 bits
     shmul(t,2,t,t);    // shmul(x2,2,x2,x4) // 4 bits
@@ -420,6 +421,23 @@ void ginv(coord_t& x)
     //
     shmul(t,7,x7,t);  // shmul(x512,7,x7,x519) // 519 bits
     shmul(t,2,x,x);   // shmul(x519,2,x,ans)   // x^521-3 = x^(p-2)
+     */
+    coord_t x519, x518, x259, x258, x129, x128, x64, x32, x16, x8, x4, x2;
+
+    shmul(x,      1, x,   x2);
+    shmul(x2,     2, x2,  x4);
+    shmul(x4,     4, x4,  x8);
+    shmul(x8,     8, x8,  x16);
+    shmul(x16,   16, x16, x32);
+    shmul(x32,   32, x32, x64);
+    shmul(x64,   64, x64, x128);
+    shmul(x128,   1, x,   x129);
+    shmul(x129, 129, x129,x258);
+    shmul(x258,   1, x,   x259);
+    shmul(x259, 259, x259,x518);
+    shmul(x518,   1, x,   x519);
+    shmul(x519,   2, x,   x);   // shmul(x519,2,x,ans)   // x^521-3 = x^(p-2)
+
 }
 
 static
@@ -462,21 +480,15 @@ bool gsqrt(coord_t& x, coord_t& y) {
     // we have Sqrt(X) = X^((|Fq|+1)/4) mod |Fq|
     // where |Fq| = 2^521-1, (|Fq|+1)/4 = 2^519
     // Return true if X was a quadratic-residue of Fq.
+    //
+    coord_t one, tmp;
     
-    int i;
-    coord_t tmp1, tmp2;
+    gzap(one);
+    one[0] = 1;
+    shmul(x,519,one,y);
     
-    gcopy(x, tmp1);
-    for(i = 0; i < 259; ++i) {
-        gsqr(tmp1,tmp2);
-        gsqr(tmp2,tmp1);
-    }
-    gsqr(tmp1,tmp2);
-    // copy ans to output y
-    // and return true if y*y = x
-    gcopy(tmp2, y);
-    gsqr(y, tmp1);
-    return geq(tmp1, x);
+    gsqr(y,tmp);
+    return geq(tmp,x);
 }
 
 // Point Structure
