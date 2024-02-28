@@ -46,8 +46,11 @@ THE SOFTWARE.
 
 using namespace std;
 
+#define NGRP  5  // 10 cells of 53-bits
+
 typedef __int128 type128;  /* non-standard type */
-typedef int64_t type64;
+typedef int64_t  type64;
+typedef type64 coord_t[NGRP];
 
 static const type64 bot51bits = 0x7ffffffffffff;
 static const type64 bot47bits =  0x7fffffffffff;
@@ -341,24 +344,23 @@ static void shmul(type64 *x, int nsh, type64 *y, type64 *dst) {
 static
 void ginv(type64 *x)
 {
-    type64 x2[5], x3[5], x6[5], x7[5], x14[5], x15[5],
-           x30[5],x60[5],x61[5], x122[5], x123[5],
-           x246[5], x247[5], xp5[5];
-    shmul(x,      2, x,    xp5); // save for final
-    shmul(x,      1, x,    x2);
-    shmul(x2,     1, x,    x3);
-    shmul(x3,     3, x3,   x6);
-    shmul(x6,     1, x,    x7);
-    shmul(x7,     7, x7,   x14);
-    shmul(x14,    1, x,    x15);
-    shmul(x15,   15, x15,  x30);
-    shmul(x30,   30, x30,  x60);
-    shmul(x60,    1, x,    x61);
-    shmul(x61,   61, x61,  x122);
-    shmul(x122,   1, x,    x123);
-    shmul(x123, 123, x123, x246);
-    shmul(x246,   1, x,    x247);
-    shmul(x247,   4, xp5,  x);
+    coord_t w, xp5;
+
+    shmul(x,   2, x, xp5); // x^5 used below
+    shmul(x,   1, x, w); //   2-bits
+    shmul(w,   1, x, w); //   3-bits
+    shmul(w,   3, w, w); //   6-bits
+    shmul(w,   1, x, w); //   7-bits
+    shmul(w,   7, w, w); //  14-bits
+    shmul(w,   1, x, w); //  15-bits
+    shmul(w,  15, w, w); //  30-bits
+    shmul(w,  30, w, w); //  60-bits
+    shmul(w,   1, x, w); //  61-bits
+    shmul(w,  61, w, w); // 122-bits
+    shmul(w,   1, x, w); // 123-bits
+    shmul(w, 123, w, w); // 246-bits
+    shmul(w,   1, x, w); // 247-bits
+    shmul(w,   4, xp5, x);
 }
 
 static
@@ -406,24 +408,22 @@ bool gsqrt(type64 *x, type64 *y) {
   // |Fq| = 2^251-9
   // (|Fq|+1)/4 = 2^249-2 = 2*(2^248-1)
 
-    type64 tmp1[5], x248[5], x124[5], x62[5], x31[5], x30[5],
-            x15[5], x14[5],x7[5],x6[5],x3[5],x2[5];
-    
-    shmul(x,      1, x,      x2);
-    shmul(x2,     1, x,      x3);
-    shmul(x3,     3, x3,     x6);
-    shmul(x6,     1, x,      x7);
-    shmul(x7,     7, x7,    x14);
-    shmul(x14,    1, x,     x15);
-    shmul(x15,   15, x15,   x30);
-    shmul(x30,    1, x,     x31);
-    shmul(x31,   31, x31,   x62);
-    shmul(x62,   62, x62,  x124);
-    shmul(x124, 124, x124, x248);
-    gadd(x248,x248,y);
-    
-    gsqr(y, tmp1);
-    return geq(tmp1, x);
+    coord_t w;
+
+    shmul(x,   1, x, w); //   2-bits
+    shmul(w,   1, x, w); //   3-bits
+    shmul(w,   3, w, w); //   6-bits
+    shmul(w,   1, x, w); //   7-bits
+    shmul(w,   7, w, w); //  14-bits
+    shmul(w,   1, x, w); //  15-bits
+    shmul(w,  15, w, w); //  30-bits
+    shmul(w,   1, x, w); //  31-bits
+    shmul(w,  31, w, w); //  62-bits
+    shmul(w,  62, w, w); // 124-bits
+    shmul(w, 124, w, w); // 248-bits
+    gadd(w, w, y);
+    gsqr(y, w);
+    return geq(w, x);
 }
 
 
