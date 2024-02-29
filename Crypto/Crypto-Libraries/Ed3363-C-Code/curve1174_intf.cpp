@@ -46,17 +46,18 @@ THE SOFTWARE.
 
 using namespace std;
 
-#define NGRP  5  // 10 cells of 53-bits
+#define NGRP  5  // 4 cells of 51-bits + 1 cell of 47 bits
 
 typedef __int128 type128;  /* non-standard type */
 typedef int64_t  type64;
 typedef type64 coord_t[NGRP];
 
-static const type64 bot51bits = 0x7ffffffffffff;
-static const type64 bot47bits =  0x7fffffffffff;
+static const type64 bot51bits = 0x7ffffffffffffL;
+static const type64 bot47bits =  0x7fffffffffffL;
 static const int    kCurveD   = -1174;
 static const int    kBPW      = 51;
 static const int    kBPWFinal = 47;
+static const type64 qbase[NGRP] = {0x7fffffffffff7L, 0x7ffffffffffffL, 0x7ffffffffffffL, 0x7ffffffffffffL, 0x07fffffffffffL};
 
 #include <stdint.h>
 #if 0
@@ -141,53 +142,71 @@ void gsb2(type64 *x,type64 *w)
 	w[4]-=2*x[4];
 }
 
+#define KBPW          51
+#define KBITS         ((1L << KBPW) - 1)
+#define KWRAP         144
+#define KHIBPW        47
+#define KHIBITS       ((1L << KHIBPW) - 1)
+#define KHIWRAP       9
+#define lobits(x,msk) (((type64)x) & msk)
+#define hibits(x,nsh) (x >> nsh)
+    
 // reduce w - Short Coefficient Reduction
 static
-void scr(type64 *w)
+void scr(type64 *x)
 {
-	type64 t0,t1,t2;
-	t0=w[0]&bot51bits;
-
-	t1=w[1]+(w[0]>>kBPW);
-	w[1]=t1&bot51bits;
-
-	t2=w[2]+(t1>>kBPW);
-	w[2]=t2&bot51bits;
-
-	t1=w[3]+(t2>>kBPW);
-	w[3]=t1&bot51bits;
-
-	t2=w[4]+(t1>>kBPW);
-	w[4]=t2&bot47bits;
-
-	w[0]=t0+9*(t2>>kBPWFinal);
-
+    // After one round of scr(), all elements, x[i], will be positiive values,
+    // with the possible exception of x[0]. One more round will force all elements,
+    // x[i] to positive values. But we could still be beyond the modular range.
+    type64 w;
+    
+    w = x[4];
+    x[4] = lobits(w, KHIBITS);
+    
+    w = x[0] + KHIWRAP*hibits(w, KHIBPW);
+    x[0] = lobits(w, KBITS);
+    
+    w = x[1] + hibits(w, KBPW);
+    x[1] = lobits(w, KBITS);
+    
+    w = x[2] + hibits(w, KBPW);
+    x[2] = lobits(w, KBITS);
+    
+    w = x[3] + hibits(w, KBPW);
+    x[3] = lobits(w, KBITS);
+    
+    w = x[4] + hibits(w, KBPW);
+    x[4] = lobits(w, KHIBITS);
+    x[0] += KHIWRAP * hibits(w, KHIBPW);
 }
 
 // multiply w by a constant, w*=i
 
 static
-void gmuli(type64 *w,int i)
+void gmuli(type64 *x,int i)
 {
-	type128 t;
+	type128 w;
 
-	t=(type128)w[0]*i;
-	w[0]=((type64)t)&bot51bits;
-
-	t=(type128)w[1]*i+(t>>kBPW);
-	w[1]=((type64)t)&bot51bits;
-
-	t=(type128)w[2]*i+(t>>kBPW);
-	w[2]=((type64)t)&bot51bits;
-
-	t=(type128)w[3]*i+(t>>kBPW);
-	w[3]=((type64)t)&bot51bits;
-
-	t=(type128)w[4]*i+(t>>kBPW);
-	w[4]=((type64)t)&bot47bits;
-
-	w[0]+=9*(t>>kBPWFinal);
-
+#define muli(ix)   ((type128)x[ix])*i
+    w = muli(4);
+    x[4] = lobits(w,KHIBITS);
+    
+    w = muli(0) + KHIWRAP*hibits(w, KHIBPW);
+    x[0] = lobits(w, KBITS);
+    
+    w = muli(1) + hibits(w, KBPW);
+    x[1] = lobits(w, KBITS);
+    
+    w = muli(2) + hibits(w, KBPW);
+    x[2] = lobits(w, KBITS);
+    
+    w = muli(3) + hibits(w, KBPW);
+    x[3] = lobits(w, KBITS);
+    
+    w     = x[4] + hibits(w, KBPW);
+    x[4]  = lobits(w, KHIBITS);
+    x[0] += KHIWRAP * hibits(w, KHIBPW);
+#undef muli
 }
 
 // z=x^2
@@ -195,58 +214,62 @@ void gmuli(type64 *w,int i)
 static
 void gsqr(type64 *x,type64 *z)
 {
-	type128 t0,t1;
+#define sqr(ix,iy)   ((type128)x[ix])*((type128)x[iy])
+    type128 w;
 
-	t0=2*((type128)x[0]*x[4]+(type128)x[1]*x[3])+(type128)x[2]*x[2];
-	z[4]=((type64) t0)&bot47bits;
+    w = 2*(sqr(0,4) + sqr(1,3)) + sqr(2,2);
+    z[4] = lobits(w, KHIBITS);
 
-	t1=(type128)x[0]*x[0]+288*((type128)x[1]*x[4]+(type128)x[2]*x[3])+9*(t0>>kBPWFinal);
-	z[0]=((type64) t1)&bot51bits;
+    w = sqr(0,0) + 2*KWRAP*(sqr(1,4) + sqr(2,3)) + KHIWRAP*hibits(w, KHIBPW);
+    z[0] = lobits(w, KBITS);
 
-        t0=2*(type128)x[0]*x[1]+288*(type128)x[2]*x[4]+144*(type128)x[3]*x[3]+(t1>>kBPW);
-	z[1]=((type64) t0)&bot51bits;
+    w = 2*(sqr(0, 1) + KWRAP*sqr(2,4)) + KWRAP*sqr(3,3) + hibits(w, KBPW);
+    z[1] = lobits(w, KBITS);
 
-	t1=(type128)x[1]*x[1]+2*(type128)x[0]*x[2]+288*(type128)x[3]*x[4]+(t0>>kBPW);
-	z[2]=((type64) t1)&bot51bits;
+    w = sqr(1,1) + 2*(sqr(0,2) + KWRAP*sqr(3,4)) + hibits(w, KBPW);
+    z[2] = lobits(w, KBITS);
 
-	t0=144*(type128)x[4]*x[4]+2*((type128)x[0]*x[3]+(type128)x[1]*x[2])+(t1>>kBPW);
-	z[3]=((type64) t0)&bot51bits;
+    w = 2*(sqr(0,3) + sqr(1,2)) + KWRAP*sqr(4,4) + hibits(w, KBPW);
+    z[3] = lobits(w, KBITS);
 
-	t1=z[4]+(t0>>kBPW);
-	z[4]=((type64) t1)&bot47bits;
-	z[0]+=9*(t1>>kBPWFinal);
+    w     = z[4] + hibits(w, KBPW);
+    z[4]  = lobits(w, KHIBITS);
+    z[0] += KHIWRAP * hibits(w, KHIBPW);
+#undef sqr
 }
 
 #if 1
 static
 void gmul(type64 *x,type64 *y,type64 *z)
 {
-	type128 t0,t1;
+#define prd(ix,iy)  ((type128)x[ix])*((type128)y[iy])
+    type128 w;
 
-	// 5M + 4A
-	t0=(type128)x[0]*y[4]+(type128)x[4]*y[0]+(type128)x[1]*y[3]+(type128)x[3]*y[1]+(type128)x[2]*y[2];
-	z[4]=((type64) t0)&bot47bits;
+    // 5M + 4A
+    w = prd(0,4) + prd(1,3)+ prd(2,2) + prd(3,1) + prd(4,0);
+    z[4] = lobits(w, KHIBITS);
 
-	// 7M + 5A
-	t1=(type128)x[0]*y[0]+144*((type128)x[1]*y[4]+(type128)x[4]*y[1]+(type128)x[2]*y[3]+(type128)x[3]*y[2])+9*(t0>>kBPWFinal);
-	z[0]=((type64) t1)&bot51bits;
+    // 7M + 5A
+    w = prd(0,0) + KWRAP*(prd(1,4) + prd(2,3) + prd(3,2) + prd(4,1)) + KHIWRAP*hibits(w, KHIBPW);
+    z[0] = lobits(w, KBITS);
 
-	// 6M + 5A
-        t0=(type128)x[0]*y[1]+(type128)x[1]*y[0]+144*((type128)x[3]*y[3]+(type128)x[2]*y[4]+(type128)x[4]*y[2])+(t1>>kBPW);
-	z[1]=((type64) t0)&bot51bits;
+    // 6M + 5A
+    w = prd(0,1) + prd(1,0) + KWRAP*(prd(2,4) + prd(3,3) + prd(4,2)) + hibits(w, KBPW);
+    z[1] = lobits(w, KBITS);
 
-	// 6M + 5A
-	t1=(type128)x[1]*y[1]+(type128)x[0]*y[2]+(type128)x[2]*y[0]+144*((type128)x[3]*y[4]+(type128)x[4]*y[3])+(t0>>kBPW);
-	z[2]=((type64) t1)&bot51bits;
+    // 6M + 5A
+    w = prd(0,2) + prd(1,1) + prd(2,0) + KWRAP*(prd(3,4) + prd(4,3)) + hibits(w, KBPW);
+    z[2] = lobits(w, KBITS);
 
-	// 6M + 5A
-	t0=144*(type128)x[4]*y[4]+(type128)x[0]*y[3]+(type128)x[3]*y[0]+(type128)x[1]*y[2]+(type128)x[2]*y[1]+(t1>>kBPW);
-	z[3]=((type64) t0)&bot51bits;
+    // 6M + 5A
+    w = prd(0,3) + prd(1,2) + prd(2,1) + prd(3,0) + KWRAP*prd(4,4) + hibits(w, KBPW);
+    z[3] = lobits(w, KBITS);
 
-	// -------- to this point = 30M + 24A => this clocks as faster than Granger's method for Curve1174
-	t1=z[4]+(t0>>kBPW);
-	z[4]=((type64) t1)&bot47bits;
-	z[0]+=9*(t1>>kBPWFinal);
+    // -------- to this point = 30M + 24A => this clocks as faster than Granger's method for Curve1174
+    w     = z[4] + hibits(w, KBPW);
+    z[4]  = lobits(w, KHIBITS);
+    z[0] += KHIWRAP * hibits(w, KHIBPW);
+#undef prd
 }
 
 #else
@@ -374,12 +397,22 @@ void gneg(type64 *x, type64 *y) {
    
 static
 void gnorm(type64 *x, type64 *y) {
-  type64 tmp[5];
-  gneg(x, tmp);
-  scr(tmp);
-  gneg(tmp, y);
-  scr(y);
-  scr(y);
+    gcopy(x,y);
+    scr(y);
+    if(y[0] != lobits(y[0], KBPW))
+        scr(y);
+    if (y[4] == qbase[4] &&
+        y[3] == qbase[3] &&
+        y[2] == qbase[2] &&
+        y[1] == qbase[1] &&
+        y[0] >= qbase[0]) {
+        // subtract the modular base
+        y[0] -= qbase[0];
+        y[1] = 0;
+        y[2] = 0;
+        y[3] = 0;
+        y[4] = 0;
+    }
 }
 
 static

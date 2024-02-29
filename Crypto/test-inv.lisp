@@ -51,6 +51,8 @@
 #|
 (tst)
 |#
+;; ---------------------------------------------------------------------
+;; Compare costs of exponent splitting
 
 (defun cost-of-tree (exp2 &optional (cost 0))
   (cond
@@ -101,7 +103,10 @@
 (cost-of-tree 519)
 (cost-of-tree-p2 519)
 
+;; -----------------------------------------------------------
+;; Machine generated code
 
+;; generate exponentiation trees for group inverse and grp sqrt
 (defun gen-tree (exp2 &optional (cost 0) seen nodes)
   (cond
    ((eql 1 exp2)
@@ -144,3 +149,52 @@
 
 (gen-tree 519) ;; :curve-e521 inverse
 
+
+;; look for optimum nbr of bits per cell. Choose the one with highest fractional value
+(loop for ix from 45 to 56 collect (list ix (float (/ 251 ix))))
+
+;; generate code for group multiply
+(let* ((n 5)
+       (grps (um:group
+              (sort 
+               (loop for x from 0 below n nconc
+                       (loop for y from 0 below n
+                             collect
+                               (list
+                                (mod (+ x y) n)
+                                (>= (+ x y) n)
+                                x y)))
+               #'<
+               :key 'car)
+              n)))
+  (with-output-to-string (s)
+    (format s "~%type128 w;")
+    (format s "~%#define prd(ix,iy)  ((type128)x[ix])*((type128)y[iy])")
+    (dolist (grp grps)
+      (let ((dst (caar grp)))
+        (format s "~%w = ")
+        (um:nlet iter ((terms    grp)
+                       (wrapping nil))
+          (cond ((endp terms)
+                 (when wrapping
+                   (princ ")" s))
+                 (if (plusp dst)
+                     (format s " + (w >> KBPW);")
+                   (format s ";"))
+                 (if (eql dst (1- n))
+                     (progn
+                       (format s "~%z[~d] = ((type64)w) & KHIBITS;" dst)
+                       (format s "~%z[0] += KHIWRAP * (type64)(w >> KHIBPW);")
+                       (format s "~%#undef prd~%"))
+                   (format s "~%z[~d] = ((type64)w) & KBITS;" dst)))
+                (t
+                 (destructuring-bind (w wrap x y) (car terms)
+                   (unless (zerop x)
+                     (format s " + "))
+                   (if (eql wrap wrapping)
+                       (format s "prd(~d,~d)" x y)
+                     (format s "KWRAP*(prd(~d,~d)" x y))
+                   (go-iter (cdr terms) wrap)
+                   ))
+                ))
+        ))))

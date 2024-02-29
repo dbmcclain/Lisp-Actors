@@ -43,6 +43,9 @@ static const int    kCurveD   = -376014;
 static const int    kBPW      = 53;
 static const int    kBPWFinal = 44; // = 521 - 9*53
 static const type64 kwrap     = 512; // = 2^(10*53) mod q, 9 bits
+static const type64 qbase[NGRP] = {0x1FFFFFFFFFFFFF, 0x1FFFFFFFFFFFFF, 
+    0x1FFFFFFFFFFFFF, 0x1FFFFFFFFFFFFF, 0x1FFFFFFFFFFFFF,
+    0x1FFFFFFFFFFFFF, 0x1FFFFFFFFFFFFF, 0x1FFFFFFFFFFFFF, 0x000FFFFFFFFFFF};
 
 #include <stdint.h>
 
@@ -105,242 +108,203 @@ void gsb2(coord_t& x,coord_t& w)
         w[i] -= 2*x[i];
 }
 
+#define KBPW          kBPW
+#define KBITS         ((1L << KBPW) - 1)
+#define KWRAP         kwrap
+#define KHIBPW        kBPWFinal
+#define KHIBITS       ((1L << KHIBPW) - 1)
+#define KHIWRAP       1
+#define lobits(x,msk) (((type64)x) & msk)
+#define hibits(x,nsh) (x >> nsh)
+
 // reduce w - Short Coefficient Reduction
 static
-void scr(coord_t& w)
+void scr(coord_t& x)
 {
-	type64 t0,t1,t2;
-	t0=w[0]&bot53bits;
-
-	t1=w[1]+(w[0]>>kBPW);
-	w[1]=t1&bot53bits;
-
-	t2=w[2]+(t1>>kBPW);
-	w[2]=t2&bot53bits;
-
-	t1=w[3]+(t2>>kBPW);
-	w[3]=t1&bot53bits;
-
-	t2=w[4]+(t1>>kBPW);
-	w[4]=t2&bot53bits;
-
-	t1=w[5]+(t2>>kBPW);
-	w[5]=t1&bot53bits;
-
-	t2=w[6]+(t1>>kBPW);
-	w[6]=t2&bot53bits;
-
-	t1=w[7]+(t2>>kBPW);
-	w[7]=t1&bot53bits;
-
-	t2=w[8]+(t1>>kBPW);
-	w[8]=t2&bot53bits;
-
-	t1=w[9]+(t2>>kBPW);
-	w[9]=t1&bot44bits;
-
-	w[0]=t0+(t1>>kBPWFinal);
+    // After one round of scr(), all elements, x[i], will be positiive values,
+    // with the possible exception of x[0]. One more round will force all elements,
+    // x[i] to positive values. But we could still be beyond the modular range.
+    type64 w;
+    
+    w = x[9];
+    x[9] = lobits(w, KHIBITS);
+    
+    w = x[0] + KHIWRAP*hibits(w, KHIBPW);
+    x[0] = lobits(w, KBITS);
+    
+    w = x[1] + hibits(w, KBPW);
+    x[1] = lobits(w, KBITS);
+    
+    w = x[2] + hibits(w, KBPW);
+    x[2] = lobits(w, KBITS);
+    
+    w = x[3] + hibits(w, KBPW);
+    x[3] = lobits(w, KBITS);
+    
+    w = x[4] + hibits(w, KBPW);
+    x[4] = lobits(w, KBITS);
+    
+    w = x[5] + hibits(w, KBPW);
+    x[5] = lobits(w, KBITS);
+    
+    w = x[6] + hibits(w, KBPW);
+    x[6] = lobits(w, KBITS);
+    
+    w = x[7] + hibits(w, KBPW);
+    x[7] = lobits(w, KBITS);
+    
+    w = x[8] + hibits(w, KBPW);
+    x[8] = lobits(w, KBITS);
+    
+    w     = x[9] + hibits(w, KBPW);
+    x[9]  = lobits(w, KHIBITS);
+    x[0] += KHIWRAP * hibits(w, KHIBPW);
 }
 
 // multiply w by a constant, w*=i
 
 static
-void gmuli(coord_t& w,int i)
+void gmuli(coord_t& x,int i)
 {
-	type128 t;
+    type128 w;
 
-	t=(type128)w[0]*i;
-	w[0]=((type64)t)&bot53bits;
-
-	t=(type128)w[1]*i+(t>>kBPW);
-	w[1]=((type64)t)&bot53bits;
-
-	t=(type128)w[2]*i+(t>>kBPW);
-	w[2]=((type64)t)&bot53bits;
-
-	t=(type128)w[3]*i+(t>>kBPW);
-	w[3]=((type64)t)&bot53bits;
-
-	t=(type128)w[4]*i+(t>>kBPW);
-	w[4]=((type64)t)&bot53bits;
-
-	t=(type128)w[5]*i+(t>>kBPW);
-	w[5]=((type64)t)&bot53bits;
-
-	t=(type128)w[6]*i+(t>>kBPW);
-	w[6]=((type64)t)&bot53bits;
-
-	t=(type128)w[7]*i+(t>>kBPW);
-	w[7]=((type64)t)&bot53bits;
-
-	t=(type128)w[8]*i+(t>>kBPW);
-	w[8]=((type64)t)&bot53bits;
-
-	t=(type128)w[9]*i+(t>>kBPW);
-	w[9]=((type64)t)&bot44bits;
-
-	w[0]+=(t>>kBPWFinal);
+#define muli(ix)   ((type128)x[ix])*i
+    w = muli(9);
+    x[9] = lobits(w,KHIBITS);
+    
+    w = muli(0) + KHIWRAP*hibits(w, KHIBPW);
+    x[0] = lobits(w, KBITS);
+    
+    w = muli(1) + hibits(w, KBPW);
+    x[1] = lobits(w, KBITS);
+    
+    w = muli(2) + hibits(w, KBPW);
+    x[2] = lobits(w, KBITS);
+    
+    w = muli(3) + hibits(w, KBPW);
+    x[3] = lobits(w, KBITS);
+    
+    w = muli(4) + hibits(w, KBPW);
+    x[4] = lobits(w, KBITS);
+    
+    w = muli(5) + hibits(w, KBPW);
+    x[5] = lobits(w, KBITS);
+    
+    w = muli(6) + hibits(w, KBPW);
+    x[6] = lobits(w, KBITS);
+    
+    w = muli(7) + hibits(w, KBPW);
+    x[7] = lobits(w, KBITS);
+    
+    w = muli(8) + hibits(w, KBPW);
+    x[8] = lobits(w, KBITS);
+    
+    w     = x[9] + hibits(w, KBPW);
+    x[9]  = lobits(w, KHIBITS);
+    x[0] += KHIWRAP * hibits(w, KHIBPW);
+#undef muli
 }
 
 // z=x^2
-#define prod(a,ia,b,ib)  ((type128)((a)[ia]))*((type128)((b)[ib]))
-#define sqx(x,ia,ib)     prod(x,ia,x,ib)
-
 static
 void gsqr(coord_t& x,coord_t& z)
 {
-    type128 t0,t1;
+    type128 w;
     
-    t0=2*(sqx(x,0,9)+sqx(x,1,8)+sqx(x,2,7)+sqx(x,3,6)+sqx(x,4,5));
-    z[9]=((type64) t0)&bot44bits;
+#define sqr(ix, iy)   ((type128)(x[ix]))*((type128)(x[iy]))
     
-    t1=sqx(x,0,0)+
-       kwrap*(2*(sqx(x,1,9)+sqx(x,2,8)+sqx(x,3,7)+sqx(x,4,6))+
-              sqx(x,5,5))+
-       (t0>>kBPWFinal);
-    z[0]=((type64) t1)&bot53bits;
+    w=2*(sqr(0,9)+sqr(1,8)+sqr(2,7)+sqr(3,6)+sqr(4,5));
+    z[9]=lobits(w, KHIBITS);
     
-    t0=2*(sqx(x,0,1)+
-          kwrap*(sqx(x,2,9)+sqx(x,3,8)+sqx(x,4,7)+sqx(x,5,6)))+
-       (t1>>kBPW);
-    z[1]=((type64) t0)&bot53bits;
+    w=sqr(0,0)+
+       KWRAP*(2*(sqr(1,9)+sqr(2,8)+sqr(3,7)+sqr(4,6))+
+              sqr(5,5))+
+        KHIWRAP*hibits(w, KHIBPW);
+    z[0]=lobits(w, KBITS);
     
-    t1=2*sqx(x,0,2)+
-       sqx(x,1,1)+
-       kwrap*(2*(sqx(x,3,9)+sqx(x,4,8)+sqx(x,5,7))+sqx(x,6,6))+
-       (t0>>kBPW);
-    z[2]=((type64) t1)&bot53bits;
+    w=2*(sqr(0,1)+
+          KWRAP*(sqr(2,9)+sqr(3,8)+sqr(4,7)+sqr(5,6)))+
+        hibits(w, KBPW);
+    z[1]=lobits(w, KBITS);
     
-    t0=2*(sqx(x,0,3)+sqx(x,1,2))+
-       2*kwrap*(sqx(x,4,9)+sqx(x,5,8)+sqx(x,6,7))+
-       (t1>>kBPW);
-    z[3]=((type64) t0)&bot53bits;
+    w=2*sqr(0,2)+
+       sqr(1,1)+
+       KWRAP*(2*(sqr(3,9)+sqr(4,8)+sqr(5,7))+sqr(6,6))+
+       hibits(w, KBPW);
+    z[2]=lobits(w, KBITS);
     
-    t1=2*(sqx(x,0,4)+sqx(x,1,3))+
-       sqx(x,2,2)+
-       kwrap*(2*(sqx(x,5,9)+sqx(x,6,8))+sqx(x,7,7))+
-       (t0>>kBPW);
-    z[4]=((type64) t1)&bot53bits;
+    w=2*(sqr(0,3)+sqr(1,2))+
+       2*KWRAP*(sqr(4,9)+sqr(5,8)+sqr(6,7))+
+       hibits(w, KBPW);
+    z[3]=lobits(w, KBITS);
     
-    t0=2*(sqx(x,0,5)+sqx(x,1,4)+sqx(x,2,3))+
-       2*kwrap*(sqx(x,6,9)+sqx(x,7,8))+
-       (t1>>kBPW);
-    z[5]=((type64) t0)&bot53bits;
+    w=2*(sqr(0,4)+sqr(1,3))+
+       sqr(2,2)+
+       KWRAP*(2*(sqr(5,9)+sqr(6,8))+sqr(7,7))+
+       hibits(w, KBPW);
+    z[4]=lobits(w, KBITS);
     
-    t1=2*(sqx(x,0,6)+sqx(x,1,5)+sqx(x,2,4))+
-       sqx(x,3,3)+
-       kwrap*(2*sqx(x,7,9)+sqx(x,8,8))+
-       (t0>>kBPW);
-    z[6]=((type64) t1)&bot53bits;
+    w=2*(sqr(0,5)+sqr(1,4)+sqr(2,3))+
+       2*KWRAP*(sqr(6,9)+sqr(7,8))+
+       hibits(w, KBPW);
+    z[5]=lobits(w, KBITS);
     
-    t0=2*(sqx(x,0,7)+sqx(x,1,6)+sqx(x,2,5)+sqx(x,3,4))+
-       2*kwrap*sqx(x,8,9)+
-       (t1>>kBPW);
-    z[7]=((type64) t0)&bot53bits;
+    w=2*(sqr(0,6)+sqr(1,5)+sqr(2,4))+
+       sqr(3,3)+
+       KWRAP*(2*sqr(7,9)+sqr(8,8))+
+       hibits(w, KBPW);
+    z[6]=lobits(w, KBITS);
     
-    t1=2*(sqx(x,0,8)+sqx(x,1,7)+sqx(x,2,6)+sqx(x,3,5))+
-       sqx(x,4,4)+
-       kwrap*sqx(x,9,9)+
-       (t0>>kBPW);
-    z[8]=((type64) t1)&bot53bits;
+    w=2*(sqr(0,7)+sqr(1,6)+sqr(2,5)+sqr(3,4))+
+       2*KWRAP*sqr(8,9)+
+        hibits(w, KBPW);
+    z[7]=lobits(w, KBITS);
     
-    t0=z[9]+(t1>>kBPW);
-    z[9]=((type64) t0)&bot44bits;
-    z[0]+=(t0>>kBPWFinal);
+    w=2*(sqr(0,8)+sqr(1,7)+sqr(2,6)+sqr(3,5))+
+       sqr(4,4)+
+       KWRAP*sqr(9,9)+
+        hibits(w, KBPW);
+    z[8]=lobits(w, KBITS);
+    
+    w     = z[9] + hibits(w, KBPW);
+    z[9]  = lobits(w, KHIBITS);
+    z[0] += KHIWRAP * hibits(w, KHIBPW);
+#undef sqr
 }
 
 static
 void gmul(coord_t& x,coord_t& y,coord_t& z)
 {
-    type128 t0,t1;
+    type128 w;
     
-    t0=prod(x,0,y,9)+prod(x,9,y,0)+
-       prod(x,1,y,8)+prod(x,8,y,1)+
-       prod(x,2,y,7)+prod(x,7,y,2)+
-       prod(x,3,y,6)+prod(x,6,y,3)+
-       prod(x,4,y,5)+prod(x,5,y,4);
-    z[9]=((type64) t0)&bot44bits;
+#define prd(ix,iy)  ((type128)x[ix])*y[iy]
     
-    t1=prod(x,0,y,0)+
-       kwrap*(prod(x,1,y,9)+prod(x,9,y,1)+
-              prod(x,2,y,8)+prod(x,8,y,2)+
-              prod(x,3,y,7)+prod(x,7,y,3)+
-              prod(x,4,y,6)+prod(x,6,y,4)+
-              prod(x,5,y,5))+
-      (t0>>kBPWFinal);
-    z[0]=((type64) t1)&bot53bits;
+    w = prd(0,9) + prd(1,8) + prd(2,7) + prd(3,6) + prd(4,5) + prd(5,4) + prd(6,3) + prd(7,2) + prd(8,1) + prd(9,0);
+    z[9] = lobits(w, KHIBITS);
     
-    t0=prod(x,0,y,1)+prod(x,1,y,0)+
-       kwrap*(prod(x,2,y,9)+prod(x,9,y,2)+
-              prod(x,3,y,8)+prod(x,8,y,3)+
-              prod(x,4,y,7)+prod(x,7,y,4)+
-              prod(x,5,y,6)+prod(x,6,y,5))+
-       (t1>>kBPW);
-    z[1]=((type64) t0)&bot53bits;
+    w = prd(0,0) + KWRAP*(prd(1,9) + prd(2,8) + prd(3,7) + prd(4,6) + prd(5,5) + prd(6,4) + prd(7,3) + prd(8,2) + prd(9,1)) + KHIWRAP*hibits(w, KHIBPW);
+    z[0] = lobits(w, KBITS);
+    w = prd(0,1) + prd(1,0) + KWRAP*(prd(2,9) + prd(3,8) + prd(4,7) + prd(5,6) + prd(6,5) + prd(7,4) + prd(8,3) + prd(9,2)) + hibits(w, KBPW);
+    z[1] = lobits(w, KBITS);
+    w = prd(0,2) + prd(1,1) + prd(2,0) + KWRAP*(prd(3,9) + prd(4,8) + prd(5,7) + prd(6,6) + prd(7,5) + prd(8,4) + prd(9,3)) + hibits(w, KBPW);
+    z[2] = lobits(w, KBITS);
+    w = prd(0,3) + prd(1,2) + prd(2,1) + prd(3,0) + KWRAP*(prd(4,9) + prd(5,8) + prd(6,7) + prd(7,6) + prd(8,5) + prd(9,4)) + hibits(w, KBPW);
+    z[3] = lobits(w, KBITS);
+    w = prd(0,4) + prd(1,3) + prd(2,2) + prd(3,1) + prd(4,0) + KWRAP*(prd(5,9) + prd(6,8) + prd(7,7) + prd(8,6) + prd(9,5)) + hibits(w, KBPW);
+    z[4] = lobits(w, KBITS);
+    w = prd(0,5) + prd(1,4) + prd(2,3) + prd(3,2) + prd(4,1) + prd(5,0) + KWRAP*(prd(6,9) + prd(7,8) + prd(8,7) + prd(9,6)) + hibits(w, KBPW);
+    z[5] = lobits(w, KBITS);
+    w = prd(0,6) + prd(1,5) + prd(2,4) + prd(3,3) + prd(4,2) + prd(5,1) + prd(6,0) + KWRAP*(prd(7,9) + prd(8,8) + prd(9,7)) + hibits(w, KBPW);
+    z[6] = lobits(w, KBITS);
+    w = prd(0,7) + prd(1,6) + prd(2,5) + prd(3,4) + prd(4,3) + prd(5,2) + prd(6,1) + prd(7,0) + KWRAP*(prd(8,9) + prd(9,8)) + hibits(w, KBPW);
+    z[7] = lobits(w, KBITS);
+    w = prd(0,8) + prd(1,7) + prd(2,6) + prd(3,5) + prd(4,4) + prd(5,3) + prd(6,2) + prd(7,1) + prd(8,0) + KWRAP*(prd(9,9)) + hibits(w, KBPW);
+    z[8] = lobits(w, KBITS);
     
-    t1=prod(x,0,y,2)+prod(x,2,y,0)+
-       prod(x,1,y,1)+
-       kwrap*(prod(x,3,y,9)+prod(x,9,y,3)+
-              prod(x,4,y,8)+prod(x,8,y,4)+
-              prod(x,5,y,7)+prod(x,7,y,5)+
-              prod(x,6,y,6))+
-       (t0>>kBPW);
-    z[2]=((type64) t1)&bot53bits;
-    
-    t0=prod(x,0,y,3)+prod(x,3,y,0)+
-       prod(x,1,y,2)+prod(x,2,y,1)+
-       kwrap*(prod(x,4,y,9)+prod(x,9,y,4)+
-              prod(x,5,y,8)+prod(x,8,y,5)+
-              prod(x,6,y,7)+prod(x,7,y,6))+
-    (t1>>kBPW);
-    z[3]=((type64) t0)&bot53bits;
-    
-    t1=prod(x,0,y,4)+prod(x,4,y,0)+
-       prod(x,1,y,3)+prod(x,3,y,1)+
-       prod(x,2,y,2)+
-       kwrap*(prod(x,5,y,9)+prod(x,9,y,5)+
-              prod(x,6,y,8)+prod(x,8,y,6)+
-              prod(x,7,y,7))+
-       (t0>>kBPW);
-    z[4]=((type64) t1)&bot53bits;
-    
-    t0=prod(x,0,y,5)+prod(x,5,y,0)+
-       prod(x,1,y,4)+prod(x,4,y,1)+
-       prod(x,2,y,3)+prod(x,3,y,2)+
-       kwrap*(prod(x,6,y,9)+prod(x,9,y,6)+
-              prod(x,7,y,8)+prod(x,8,y,7))+
-       (t1>>kBPW);
-    z[5]=((type64) t0)&bot53bits;
-    
-    t1=prod(x,0,y,6)+prod(x,6,y,0)+
-       prod(x,1,y,5)+prod(x,5,y,1)+
-       prod(x,2,y,4)+prod(x,4,y,2)+
-       prod(x,3,y,3)+
-       kwrap*(prod(x,7,y,9)+prod(x,9,y,7)+
-              prod(x,8,y,8))+
-       (t0>>kBPW);
-    z[6]=((type64) t1)&bot53bits;
-    
-    t0=prod(x,0,y,7)+prod(x,7,y,0)+
-       prod(x,1,y,6)+prod(x,6,y,1)+
-       prod(x,2,y,5)+prod(x,5,y,2)+
-       prod(x,3,y,4)+prod(x,4,y,3)+
-       kwrap*(prod(x,8,y,9)+prod(x,9,y,8))+
-       (t1>>kBPW);
-    z[7]=((type64) t0)&bot53bits;
-    
-    t1=prod(x,0,y,8)+prod(x,8,y,0)+
-       prod(x,1,y,7)+prod(x,7,y,1)+
-       prod(x,2,y,6)+prod(x,6,y,2)+
-       prod(x,3,y,5)+prod(x,5,y,3)+
-       prod(x,4,y,4)+
-       kwrap*prod(x,9,y,9)+
-       (t0>>kBPW);
-    z[8]=((type64) t1)&bot53bits;
-    
-    t0=z[9]+(t1>>kBPW);
-    z[9]=((type64) t0)&bot44bits;
-    z[0]+=(t0>>kBPWFinal);
+    w     = z[9] + hibits(w, KBPW);
+    z[9]  = lobits(w, KHIBITS);
+    z[0] += KHIWRAP * hibits(w, KHIBPW);
+#undef prd
 }
 
 // Inverse x = 1/x = x^(p-2) mod p
@@ -398,13 +362,33 @@ void gneg(coord_t& x, coord_t& y) {
 }
    
 static
-void gnorm(coord_t& x, coord_t& y) {
-    coord_t tmp;
-    gneg(x, tmp);
-    scr(tmp);
-    gneg(tmp, y);
+void gnorm(coord_t &x, coord_t &y) {
+    gcopy(x,y);
     scr(y);
-    scr(y);
+    if(y[0] != lobits(y[0], KBPW))
+        scr(y);
+    if (y[9] == qbase[9] &&
+        y[8] == qbase[8] &&
+        y[7] == qbase[7] &&
+        y[6] == qbase[6] &&
+        y[5] == qbase[5] &&
+        y[4] == qbase[4] &&
+        y[3] == qbase[3] &&
+        y[2] == qbase[2] &&
+        y[1] == qbase[1] &&
+        y[0] >= qbase[0]) {
+        // subtract the modular base
+        y[0] -= qbase[0];
+        y[1] = 0;
+        y[2] = 0;
+        y[3] = 0;
+        y[4] = 0;
+        y[5] = 0;
+        y[6] = 0;
+        y[7] = 0;
+        y[8] = 0;
+        y[9] = 0;
+    }
 }
 
 static

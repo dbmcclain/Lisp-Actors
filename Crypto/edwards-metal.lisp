@@ -370,6 +370,7 @@
               (ed-random-pair)
             (ed-validate-point pkey))
           )))
-(time (tst :curve1174  10_000)) ;; 540 µs/iter
-(time (tst :curve-e521 1_000))  ;;  20 ms/iter, 40x slower
+(time (tst :curve1174  10_000))  ;; 540 µs/iter
+(time (tst :curve-e521 1_000))   ;;  20 ms/iter, 40x slower
+(time (tst :curve-e521f 10_000))  ;;  840 µs/iter, 1.5x slower
 |#
