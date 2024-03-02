@@ -124,14 +124,15 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
     "Prints the raw bytes in hex form. (example output 6ba7b8109dad11d180b400c04fd430c8)"
     (when *print-readably*
       (princ "#/uuid/" stream))
-    (format stream
-            "{~8,'0X-~4,'0X-~4,'0X-~2,'0X~2,'0X-~12,'0X}"
-            (time-low id)
-            (time-mid id)
-            (time-high id)
-            (clock-seq-var id)
-            (clock-seq-low id)
-            (node id)))
+    (um:without-abbrev
+      (format stream
+              "{~8,'0X-~4,'0X-~4,'0X-~2,'0X~2,'0X-~12,'0X}"
+              (time-low id)
+              (time-mid id)
+              (time-high id)
+              (clock-seq-var id)
+              (clock-seq-low id)
+              (node id))))
   
   (defun uuid-string (uuid)
     (print-bytes nil uuid))
@@ -155,7 +156,7 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
   
   (defun make-uuid-from-string (uuid-string)
     "Creates an uuid from the string represenation of an uuid. (example input string 6ba7b810-9dad-11d1-80b4-00c04fd430c8)"
-    (setf uuid-string (string-trim "{}" uuid-string))
+    (setf uuid-string (string-trim "{}_" uuid-string))
     (make-instance 'uuid
                    :time-low (parse-integer uuid-string :start 0 :end 8. :radix 16.)
                    :time-mid (parse-integer uuid-string :start 9. :end 13. :radix 16.)

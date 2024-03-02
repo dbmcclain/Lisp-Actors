@@ -105,12 +105,12 @@ THE SOFTWARE.
                 ;; (:file "monitor-macros")
                 ;; (:file "lazy") ;; supplanted by a better, simpler, version
                 #+:LISPWORKS (:file "underscore")
+                #+:LISPWORKS (:file "abbrev-bignums")
+
                	(:file "uuid")
                 ;; (:file "xfli")
 		;; (:file "rubber-objects")
                 
-
-                #+:LISPWORKS (:file "abbrev-bignums")
 
                 (:file "sep")
                 (:file "handlers")
