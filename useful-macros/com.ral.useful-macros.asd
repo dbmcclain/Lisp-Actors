@@ -118,14 +118,17 @@ THE SOFTWARE.
                 (:file "wordlist")
                 (:file "call-fwd")
 
+                #|
                 #+:LISPWORKS (:file "fixmes")
                 #+:LISPWORKS (:file "safe-streams")
                 #+:LISPWORKS (:file "safe-read-patch")
                 (:file "safe-read-from-string")
+                |#
+
+                ;; #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
+                ;; DM 03/24 #-:relative-package-names (:file "hierarchical-packages")
+
 		#+(AND :LISPWORKS :MACOSX) (:file "objc")
-
-                #+:LISPWORKS (:file "my-complete-symbol") ;; fix problem in LW for hierarchical package support
-
                 #+:LISPWORKS (:file "fpctl")
                 (:file "clc")
 		(:file "comprehensions")
@@ -137,9 +140,8 @@ THE SOFTWARE.
                 (:file "computed-metaclass")
                 (:file "lazy-v2") ;; not supplanted by Actors
                 #+(AND :COM.RAL :LISPWORKS) (:file "remembered-filenames")
-                #+(AND :COM.RAL :LISPWORKS) (:file "lexb4")
+                ;; DM 03/24 #+(AND :COM.RAL :LISPWORKS) (:file "lexb4")
                 #+(AND :COM.RAL :LISPWORKS) (:file "safe-call-system")
-                #-:relative-package-names (:file "hierarchical-packages")
                 (:file "file-eq")
                 (:file "fpl-hashtable")
                 (:file "restricted-eval")

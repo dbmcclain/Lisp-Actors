@@ -2,6 +2,8 @@
 (defpackage :com.ral.useful-macros.abbrev-bignums
   (:use #:common-lisp #:um)
   (:export
+   #:with-abbrev
+   #:without-abbrev
    #:abbrev-str))
 
 (in-package :com.ral.useful-macros.abbrev-bignums)
@@ -36,20 +38,12 @@ e.g.,
               (subseq str (- len *abbrev-length*)))
       )))
 
-#+:LISPWORKS
-(lw:defadvice
-    ((method print-object (integer t))
-     bignum-around-print-object :around)
-    (x out-stream)
-  (if (or *print-readably*
-          (not *print-bignum-abbrev*))
-      (lw:call-next-advice x out-stream)
-    (let ((str (with-output-to-string (s)
-                 (lw:call-next-advice x s))))
-      (princ (abbrev-str str) out-stream))))
-
 (defmacro without-abbrev (&body body)
   `(let ((*print-bignum-abbrev* nil))
+     ,@body))
+
+(defmacro with-abbrev (&body body)
+  `(let ((*print-bignum-abbrev* t))
      ,@body))
 
 #+:LISPWORKS
@@ -58,4 +52,40 @@ e.g.,
     (form env)
   `(let ((*print-bignum-abbrev* nil))
      ,(lw:call-next-advice form env)))
+
+#+:LISPWORKS
+(lw:defadvice
+    (prin1 avoid-bignum-abbrev :around)
+    (obj &optional stream)
+  (without-abbrev
+    (lw:call-next-advice obj stream)))
+
+#+:LISPWORKS
+(lw:defadvice
+    (princ bignum-around-princ :around)
+    (obj &optional stream)
+  (cond
+   ((integerp obj)
+    (if (or *print-readably*
+            (not *print-bignum-abbrev*))
+        (lw:call-next-advice obj stream)
+      (print-object obj (or stream
+                            *standard-output*))
+      ))
+   (t
+    (lw:call-next-advice obj stream))
+   ))
+
+#+:LISPWORKS
+(lw:defadvice
+    ((method print-object (integer t))
+     bignum-around-print-object :around)
+    (obj out-stream)
+  (if (or *print-readably*
+          (not *print-bignum-abbrev*))
+      (lw:call-next-advice obj out-stream)
+    (let ((str (with-output-to-string (s)
+                 (prin1 obj s))))
+      (princ (abbrev-str str) out-stream)
+      obj)))
 

@@ -28,5 +28,22 @@
         
     
 (defun sepi (str &key (sep #\_) (count 5))
-  (apply 'paste-strings sep
-         (group str count :from-end t)))
+  (let* ((wstr  (reverse str))
+         (nel   (length wstr)))
+    (labels
+        ((scan (pos ct chars)
+           (if (>= pos nel)
+               (coerce chars 'string)
+             (let ((ch (char wstr pos)))
+               (cond ((digit-char-p ch *print-base*)
+                      (if (>= ct count)
+                          (scan (1+ pos) 1 (list* ch sep chars))
+                        (scan (1+ pos) (1+ ct) (cons ch chars))))
+                     (t
+                      (loop for ix from pos below nel do
+                              (push (char wstr ix) chars))
+                      (scan nel 0 chars))
+                     ))
+             )))
+      (scan 0 0 nil))
+    ))

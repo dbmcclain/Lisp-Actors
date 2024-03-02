@@ -647,6 +647,7 @@ THE SOFTWARE.
    #:snd
 
    #:*print-bignum-abbrev*
+   #:with-abbrev
    #:without-abbrev
    #:abbrev-str
 
