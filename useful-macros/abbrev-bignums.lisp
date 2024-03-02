@@ -28,7 +28,8 @@ e.g.,
 (defun abbrev-str (str)
   (let ((len (length str)))
     (if (< len *max-unabbrev-length*)
-        str
+	(um:sepi str 
+		 :count (if (eql *print-base* 16.) 4. 5.))
       (concatenate 'string
               (subseq str 0 *abbrev-length*)
               ".."
@@ -45,10 +46,6 @@ e.g.,
       (lw:call-next-advice x out-stream)
     (let ((str (with-output-to-string (s)
                  (lw:call-next-advice x s))))
-      (when (and (eql *print-base* 16.)
-                 (< (length str) *max-unabbrev-length*)
-                 (every (um:rcurry #'digit-char-p 16.) str)) 
-        (setf str (um:sepi str :count 4.)))
       (princ (abbrev-str str) out-stream))))
 
 (defmacro without-abbrev (&body body)

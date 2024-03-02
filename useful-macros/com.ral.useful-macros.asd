@@ -105,6 +105,7 @@ THE SOFTWARE.
                 ;; (:file "monitor-macros")
                 ;; (:file "lazy") ;; supplanted by a better, simpler, version
                 #+:LISPWORKS (:file "underscore")
+                (:file "sep")
                 #+:LISPWORKS (:file "abbrev-bignums")
 
                	(:file "uuid")
@@ -112,7 +113,6 @@ THE SOFTWARE.
 		;; (:file "rubber-objects")
                 
 
-                (:file "sep")
                 (:file "handlers")
                 #+:LISPWORKS (:file "defalias")
                 (:file "wordlist")
