@@ -15,29 +15,6 @@
 
 (defvar *print-bignum-abbrev*  t)
 
-#| I don't need no steenking digits, man...
-e.g.,
-(setf *print-base* 16)
-(setf *print-bignum-abbrev* nil)
-*ed-r* -> 1FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF77965C4DFD307348944D45FD166C971
-(setf *print-bignum-abbrev* t)
-*ed-r* -> 1FFFFFF..166C971
-|#
-
-(defvar *max-unabbrev-length*  17.)
-(defvar *abbrev-length*         7.)
-
-(defun abbrev-str (str)
-  (let ((len (length str)))
-    (if (< len *max-unabbrev-length*)
-	(um:sepi str 
-		 :count (if (eql *print-base* 16.) 4. 5.))
-      (concatenate 'string
-              (subseq str 0 *abbrev-length*)
-              ".."
-              (subseq str (- len *abbrev-length*)))
-      )))
-
 (defmacro without-abbrev (&body body)
   `(let ((*print-bignum-abbrev* nil))
      ,@body))
@@ -52,6 +29,44 @@ e.g.,
     (form env)
   `(let ((*print-bignum-abbrev* nil))
      ,(lw:call-next-advice form env)))
+
+;; ---------------------------------------------------------
+#| I don't need no steenking digits, man...
+e.g.,
+(setf *print-base* 16)
+(setf *print-bignum-abbrev* nil)
+*ed-r* -> 1FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF77965C4DFD307348944D45FD166C971
+(setf *print-bignum-abbrev* t)
+*ed-r* -> 1FFFFFF..166C971
+|#
+
+(defvar *abbrev-length*  7.)
+
+(defun cut-and-splice (str)
+  (concatenate 'string
+               (subseq str 0 *abbrev-length*)
+               ".."
+               (subseq str (- (length str) *abbrev-length*))))
+  
+(defun max-unabbrev-length ()
+  (* 2 (1+ *abbrev-length*)))
+
+(defun abbrev-str (str)
+  (let ((len (length str)))
+    (if (<= len (max-unabbrev-length))
+	str
+      (cut-and-splice str))
+    ))
+
+(defun abbrev-istr (str)
+  (let ((len (length str)))
+    (if (<= len (max-unabbrev-length))
+	(um:sepi str 
+		 :count (if (eql *print-base* 16.) 4. 5.))
+      (cut-and-splice str))
+    ))
+
+;; -------------------------------------------------------
 
 #+:LISPWORKS
 (lw:defadvice
@@ -86,6 +101,6 @@ e.g.,
       (lw:call-next-advice obj out-stream)
     (let ((str (with-output-to-string (s)
                  (prin1 obj s))))
-      (princ (abbrev-str str) out-stream)
+      (princ (abbrev-istr str) out-stream)
       obj)))
 
