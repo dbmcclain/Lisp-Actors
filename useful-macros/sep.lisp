@@ -27,14 +27,16 @@
      )))
         
     
-(defun sepi (str &key (sep #\_) (count 5))
+(defun sepi (str &key (sep #\_) (count 5) (base *print-base*))
+  ;; Insert separators into an integer string.
+  ;; String can have leading sign, and trailing non-digits, e.g., decimal point?
   (labels
-      ((scan  (pos chars)
+      ((scan (pos chars)
          ;; deal with trailing non-digits?
          (if (minusp (decf pos))
              (coerce chars 'string)
            (let ((ch (char str pos)))
-             (if (digit-char-p ch *print-base*)
+             (if (digit-char-p ch base)
                  (scan2 pos 1 (cons ch chars))
                (scan pos (cons ch chars)))
              )))
@@ -43,7 +45,7 @@
          (if (minusp (decf pos))
              (coerce chars 'string)
            (let ((ch (char str pos)))
-             (cond ((digit-char-p ch *print-base*)
+             (cond ((digit-char-p ch base)
                     (if (>= ct count)
                         (scan2 pos 1 (list* ch sep chars))
                       (scan2 pos (1+ ct) (cons ch chars))))
