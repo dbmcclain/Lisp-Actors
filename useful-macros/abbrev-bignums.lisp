@@ -52,19 +52,15 @@ e.g.,
   (* 2 (1+ *abbrev-length*)))
 
 (defun abbrev-str (str)
-  (let ((len (length str)))
-    (if (<= len (max-unabbrev-length))
-	str
-      (cut-and-splice str))
-    ))
+  (if (<= (length str) (max-unabbrev-length))
+      str
+    (cut-and-splice str)))
 
 (defun abbrev-istr (str)
-  (let ((len (length str)))
-    (if (<= len (max-unabbrev-length))
-	(um:sepi str 
-		 :count (if (eql *print-base* 16.) 4. 5.))
-      (cut-and-splice str))
-    ))
+  (if (<= (length str) (max-unabbrev-length))
+      (um:sepi str 
+               :count (if (eql *print-base* 16.) 4. 5.))
+    (cut-and-splice str)))
 
 (defun print-int-obj (obj stream)
   (let ((str (with-output-to-string (s)
