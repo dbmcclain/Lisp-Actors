@@ -66,41 +66,38 @@ e.g.,
       (cut-and-splice str))
     ))
 
+(defun print-int-obj (obj stream)
+  (let ((str (with-output-to-string (s)
+               (prin1 obj s) )))
+    (princ (abbrev-istr str) stream)
+    obj))
+
 ;; -------------------------------------------------------
 
 #+:LISPWORKS
 (lw:defadvice
     (prin1 avoid-bignum-abbrev :around)
-    (obj &optional stream)
+    (obj &optional (stream *standard-output*))
   (without-abbrev
     (lw:call-next-advice obj stream)))
 
 #+:LISPWORKS
 (lw:defadvice
     (princ bignum-around-princ :around)
-    (obj &optional stream)
-  (cond
-   ((integerp obj)
-    (if (or *print-readably*
-            (not *print-bignum-abbrev*))
-        (lw:call-next-advice obj stream)
-      (print-object obj (or stream
-                            *standard-output*))
-      ))
-   (t
-    (lw:call-next-advice obj stream))
-   ))
+    (obj &optional (stream *standard-output*))
+  (if (or (not (integerp obj))
+          *print-readably*
+          (not *print-bignum-abbrev*))
+      (lw:call-next-advice obj stream)
+    (print-int-obj obj stream)))
 
 #+:LISPWORKS
 (lw:defadvice
     ((method print-object (integer t))
      bignum-around-print-object :around)
-    (obj out-stream)
+    (obj stream)
   (if (or *print-readably*
           (not *print-bignum-abbrev*))
-      (lw:call-next-advice obj out-stream)
-    (let ((str (with-output-to-string (s)
-                 (prin1 obj s))))
-      (princ (abbrev-istr str) out-stream)
-      obj)))
+      (lw:call-next-advice obj stream)
+    (print-int-obj obj stream)))
 
