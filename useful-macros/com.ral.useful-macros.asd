@@ -36,6 +36,7 @@ THE SOFTWARE.
   	        #+:SBCL    (:file "sbcl-compat")
 		#+:ALLEGRO (:file "allegro-compat")
                 
+                ;; (:file "fix-aref") ;; is too fraught with problems DM/RAL 03/24
                 (:file "sharp-f")
                 (:file "stub-functions")
                 (:file "basic-useful")

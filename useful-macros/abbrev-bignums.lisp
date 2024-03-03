@@ -64,18 +64,37 @@ e.g.,
 
 (defun print-int-obj (obj stream)
   (let ((str (with-output-to-string (s)
-               (prin1 obj s) )))
+               (without-abbrev
+                 (prin1 obj s) ))))
     (princ (abbrev-istr str) stream)
     obj))
 
 ;; -------------------------------------------------------
 
+#|
+  ;; This version complies with the spec - PRIN1 should produce a machine readable display.
+  ;; PRIN1 is for machines, PRINC is for humans.
+  ;; Unfortunately, the REPL appears to call PRIN1 after every eval.
 #+:LISPWORKS
 (lw:defadvice
     (prin1 avoid-bignum-abbrev :around)
     (obj &optional (stream *standard-output*))
   (without-abbrev
     (lw:call-next-advice obj stream)))
+|#
+
+;; This version departs from the spec. Human friendly REPL displayed
+;; results. If you need machine readable, use WITH-STANDARD-IO-SYNTAX
+;; around the call to PRIN1.
+#+:LISPWORKS
+(lw:defadvice
+    (prin1 bignum-around-princ :around)
+    (obj &optional (stream *standard-output*))
+  (if (or (not (integerp obj))
+          *print-readably*
+          (not *print-bignum-abbrev*))
+      (lw:call-next-advice obj stream)
+    (print-int-obj obj stream)))
 
 #+:LISPWORKS
 (lw:defadvice
