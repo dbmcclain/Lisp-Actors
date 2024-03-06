@@ -42,7 +42,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                  "snappy"
                  ;; "zstd"
                  "com.ral.lisp-object-encoder"
-                 "edwards-ecc"
+                 "edwards-ecc-v2"
                  ;; "lattice-crypto"
                  ))
 
