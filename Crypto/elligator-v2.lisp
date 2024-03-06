@@ -41,18 +41,17 @@
 
 (defun compute-csr ()
   ;; from Bernstein -- correct only for isomorph curve *ed-c* = 1
-  (with-embedding-field
-    (let* ((dp1  (ff+ *ed-d* 1))
-           (dm1  (ff- *ed-d* 1))
-           (dsqrt (ff* 2. (ffsqrt (ff- *ed-d*))))
-           (c    (ff/ (ff+ dsqrt dm1) dp1))
-           (c    (if (ff-quadratic-residue-p c)
-                     c
-                   (ff/ (ff- dsqrt dm1) dp1)))
-           (r    (ff+ c (ff/ c)))
-           (s    (ffsqrt (ff/ 2. c))))
-      (list c s r )
-      )))
+  (let* ((dp1  (ff+ *ed-d* 1))
+         (dm1  (ff- *ed-d* 1))
+         (dsqrt (ff* 2. (ffsqrt (ff- *ed-d*))))
+         (c    (ff/ (ff+ dsqrt dm1) dp1))
+         (c    (if (ff-quadratic-residue-p c)
+                   c
+                 (ff/ (ff- dsqrt dm1) dp1)))
+         (r    (ff+ c (ff/ c)))
+         (s    (ffsqrt (ff/ 2. c))))
+    (list c s r )
+    ))
 
 (defun csr ()
   ;; Bernstein's Elligator c,s,r depend only on the curve.
@@ -150,20 +149,21 @@
 (defun compute-deterministic-elligator-skey (&rest seeds)
   ;; compute a private key from the seed that is safe, and produces an
   ;; Elligator-capable public key.
-  (with-embedding-field
-    (labels ((helper (seed index)
-               (let* ((skey (compute-deterministic-skey seed index))
-                      (pkey (ed-nth-pt skey))
-                      (_    (assert (not (and (ff= 0 (ecc-pt-y pkey))     ;; for tracking down
-                                              (ff= 0 (ecc-pt-x pkey)))))) ;; problem with curve-e521f
-                      (tau  (elli2-encode pkey)))
-                 (declare (ignore _))
-                 (if tau
-                     (values skey tau index)
-                   (helper seed (1+ index)))
-                 )))
-      (helper seeds 0)
-      )))
+  (labels ((helper (seed index)
+             (let* ((skey (compute-deterministic-skey seed index))
+                    (pkey (ed-nth-pt skey))
+                    #|
+                     (_    (assert (not (and (ff= 0 (ecc-pt-y pkey))     ;; for tracking down
+                                             (ff= 0 (ecc-pt-x pkey)))))) ;; problem with curve-e521f
+                     |#
+                    (tau  (elli2-encode pkey)))
+               (declare (ignore _))
+               (if tau
+                   (values skey tau index)
+                 (helper seed (1+ index)))
+               )))
+    (helper seeds 0)
+    ))
 
 (defun compute-elligator-summed-pkey (sum-pkey)
   ;; post-processing step after summing public keys. This corrects the
@@ -197,9 +197,9 @@
   (um:nlet iter ((ix 0))
     (let* ((r     (with-curve-field
                     (normalize
-                     (hash/512
-                      (levn ix 4.)
-                      (levn k-priv (elligator-nbytes))
+                   (hash/512
+                    (levn ix 4.)
+                    (levn k-priv (elligator-nbytes))
                       msgv))))
            (rpt   (ed-nth-pt r))
            (tau-r (elli2-encode rpt)))
@@ -234,7 +234,7 @@
                        (int
                         (ff+ r
                              (ff* k-priv
-                                  (int
+                                  (ff-normalize
                                    (hash/512
                                     (levn tau-r nbytes)
                                     (levn tau-pub nbytes)
@@ -406,17 +406,16 @@
   ;; to get: w^2 = u^3 + A*u^2 + B*u
   ;; we precompute c4d = c^4*d, A = 2*(c^4*d+1)/(c^4*d-1), and B = 1
   ;; must have: A*B*(A^2 - 4*B) != 0
-  (with-embedding-field
-    (let* ((c4d        (ff* *ed-c* *ed-c* *ed-c* *ed-c* *ed-d*))
-           (c4dm1      (ff- c4d 1))
-           (sqrt-c4dm1 (ffsqrt c4dm1)) ;; used during coord conversion
-           (a          (ff/ (ff* 2. (ff+ c4d 1)) c4dm1))
-           (b          1)
-           (u          (find-quadratic-nonresidue))
-           (dscr       (ff- (ff* a a) (ff* 4 b))))
-      ;; (assert (not (ff-quadratic-residue-p (field-base) dscr)))
-      (assert (not (ff= 0 (ff* a b dscr))))
-      (list sqrt-c4dm1 a b u))))
+  (let* ((c4d        (ff* *ed-c* *ed-c* *ed-c* *ed-c* *ed-d*))
+         (c4dm1      (ff- c4d 1))
+         (sqrt-c4dm1 (ffsqrt c4dm1)) ;; used during coord conversion
+         (a          (ff/ (ff* 2. (ff+ c4d 1)) c4dm1))
+         (b          1)
+         (u          (find-quadratic-nonresidue))
+         (dscr       (ff- (ff* a a) (ff* 4 b))))
+    ;; (assert (not (ff-quadratic-residue-p (field-base) dscr)))
+    (assert (not (ff= 0 (ff* a b dscr))))
+    (list sqrt-c4dm1 a b u)))
   
 (defun elli2-ab ()
   ;; Bernstein's Elligator c,s,r depend only on the curve.
@@ -444,8 +443,8 @@
                  (x    (ff/ (ff* -2. *ed-c* xu) yv))
                  (y    (ff/ (ff* *ed-c* (ff+ 1 xu)) (ff- 1 xu)))
                  (pt   (make-ecc-pt
-                        :x  x
-                        :y  y)))
+                        :x  (int x)
+                        :y  (int y))))
             (assert (ed-satisfies-curve pt))
             pt ))
         ))))
@@ -533,8 +532,9 @@
                           (ff* a xu xu)
                           (ff* b xu))))
         (make-ecc-pt
-         :x xu
-         :y yw)))))
+         :x (int xu)
+         :y (int yw))
+        ))))
              
 (defun elli2-encode (pt)
   ;; Elligator2 mapping of pt to Zk

@@ -155,11 +155,11 @@
 (defmethod %ecc-fast-mul ((pt ecc-proj-pt) n)
   ;; about a 10% speed penalty over using affine points
   (with-embedding-field
-    (with-fli-buffers ((cptx (normalize (ecc-proj-pt-x pt)))  ;; projective in...
-                       (cpty (normalize (ecc-proj-pt-y pt)))
-                       (cptz (normalize (ecc-proj-pt-z pt)))
+    (with-fli-buffers ((cptx (ff-normalize (ecc-proj-pt-x pt)))  ;; projective in...
+                       (cpty (ff-normalize (ecc-proj-pt-y pt)))
+                       (cptz (ff-normalize (ecc-proj-pt-z pt)))
                        (cwv  (with-curve-field
-                               (normalize n))))
+                               (ff-normalize n))))
       
       (funcall (fast-ed-curve-proj-mul *edcurve*)
                cptx cpty cptz cwv)
@@ -172,11 +172,11 @@
 
 (defmethod %ecc-fast-mul ((pt ecc-pt) n)
   (with-embedding-field
-    (with-fli-buffers ((cptx (normalize (ecc-pt-x pt)))  ;; affine in...
-                       (cpty (normalize (ecc-pt-y pt)))
+    (with-fli-buffers ((cptx (ff-normalize (ecc-pt-x pt)))  ;; affine in...
+                       (cpty (ff-normalize (ecc-pt-y pt)))
                        (cptz)
                        (cwv  (with-curve-field
-                               (normalize n))))
+                               (ff-normalize n))))
       
       (funcall (fast-ed-curve-affine-mul *edcurve*)
                cptx cpty cptz cwv)
@@ -192,12 +192,12 @@
 
 (defun %ecc-fast-add (pt1 pt2)
   (with-embedding-field
-    (with-fli-buffers ((cpt1xv (normalize (ecc-proj-pt-x pt1))) ;; projective in...
-                       (cpt1yv (normalize (ecc-proj-pt-y pt1)))
-                       (cpt1zv (normalize (ecc-proj-pt-z pt1)))
-                       (cpt2xv (normalize (ecc-proj-pt-x pt2)))
-                       (cpt2yv (normalize (ecc-proj-pt-y pt2)))
-                       (cpt2zv (normalize (ecc-proj-pt-z pt2))))
+    (with-fli-buffers ((cpt1xv (ff-normalize (ecc-proj-pt-x pt1))) ;; projective in...
+                       (cpt1yv (ff-normalize (ecc-proj-pt-y pt1)))
+                       (cpt1zv (ff-normalize (ecc-proj-pt-z pt1)))
+                       (cpt2xv (ff-normalize (ecc-proj-pt-x pt2)))
+                       (cpt2yv (ff-normalize (ecc-proj-pt-y pt2)))
+                       (cpt2zv (ff-normalize (ecc-proj-pt-z pt2))))
       
       (funcall (fast-ed-curve-proj-add *edcurve*)
                cpt1xv cpt1yv cpt1zv
@@ -211,9 +211,9 @@
 
 (defun %ecc-fast-to-affine (pt)
   (with-embedding-field
-    (with-fli-buffers ((cptx (normalize (ecc-proj-pt-x pt))) ;; projective in...
-                       (cpty (normalize (ecc-proj-pt-y pt)))
-                       (cptz (normalize (ecc-proj-pt-z pt))))
+    (with-fli-buffers ((cptx (ff-normalize (ecc-proj-pt-x pt))) ;; projective in...
+                       (cpty (ff-normalize (ecc-proj-pt-y pt)))
+                       (cptz (ff-normalize (ecc-proj-pt-z pt))))
       
       (funcall (fast-ed-curve-to-affine *edcurve*)
                cptx cpty cptz)

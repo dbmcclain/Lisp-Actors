@@ -11,18 +11,19 @@
     (let* ((wm-name         (string-trim '(#\*) name))
            (ff-embed-name   (um:symb wm-name "-ff-embed"))
            (ff-curve-name   (um:symb wm-name "-ff-curve")))
-      `(let ((,embed-ff (ffbase ,(getf args :q) :inst-class ',ff-embed-name))
-             (,curve-ff (ffbase ,(getf args :r) :inst-class ',ff-curve-name)))
-         (define-ffield1 ,ff-embed-name ,embed-ff)
-         (define-ffield1 ,ff-curve-name ,curve-ff)
-         (defparameter ,name
-           (,(if (getf args :affine-mul)
-                 'make-fast-ed-curve
-               'make-ed-curve)
-            :ff-embed ,embed-ff
-            :ff-curve ,curve-ff
-            ,@args)))
-      )))
+      `(um:eval-always
+         (let ((,embed-ff (ffbase ,(getf args :q) :inst-class ',ff-embed-name))
+               (,curve-ff (ffbase ,(getf args :r) :inst-class ',ff-curve-name)))
+           (define-ffield1 ,ff-embed-name ,embed-ff)
+           (define-ffield1 ,ff-curve-name ,curve-ff)
+           (defparameter ,name
+             (,(if (getf args :affine-mul)
+                   'make-fast-ed-curve
+                 'make-ed-curve)
+              :ff-embed ,embed-ff
+              :ff-curve ,curve-ff
+              ,@args)))
+         ))))
 
 (defmacro with-embedding-field (&body body)
   `(with-field *ed-ff-embed*

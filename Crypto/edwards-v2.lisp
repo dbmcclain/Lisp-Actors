@@ -585,7 +585,7 @@ THE SOFTWARE.
   |#
   ;; (tally :ecmul)
   (let ((nn  (with-curve-field
-               (normalize n))))
+               (ff-normalize n))))
     (declare (integer nn))
     
     (cond ((zerop nn)

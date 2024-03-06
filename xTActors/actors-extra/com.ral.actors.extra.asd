@@ -23,7 +23,7 @@
                  "com.ral.rb-trees"              ;; maps for transactional db
                  "com.ral.lisp-object-encoder"   ;; encoding for transactional db
                  ;; "mini-core-crypto"
-                 "edwards-ecc"
+                 "edwards-ecc-v2"
                  ))
 
 #|

@@ -168,7 +168,10 @@ THE SOFTWARE.
   ;; adds/subtracts we permit a modular excess to accumulate in
   ;; intermediate sums. That excess is removed after the sequence has
   ;; ended. Products always remain properly normalized.
-  ((val  :accessor ffld-val  :initarg :val  :initform 0)))
+  ((val  :accessor ffld-val
+         :initarg  :val
+         :initform 0)
+   ))
 
 (defclass ff-montgomery-mixin ()
   ;; These objects have been scaled to Montgomery form, for use with
@@ -245,7 +248,7 @@ THE SOFTWARE.
   (:method ((proto ffld) x)
    (ffld proto (vec-repr:int x))))
 
-(defgeneric normalize (x)
+(defgeneric ff-normalize (x)
   (:method ((x ffld))
    ;; Returns the integer value modulo base.
    ;; It also replaces the value inside x with its normalized integer.
@@ -260,7 +263,7 @@ THE SOFTWARE.
 
 (defmethod vec-repr:int ((x ffld))
   ;; Normalize, just in case. In most cases this should be gratuitous.
-  (normalize x))
+  (ff-normalize x))
 
 (defmethod hash:hashable ((x ffld))
   ;; We want all instances of the same field value to hash to the same
@@ -272,11 +275,11 @@ THE SOFTWARE.
   (let ((montgy-name  (um:symb name "-MONTGOMERY-FORM")))
     `(progn
        (defclass ,name (ffld)
-         ((base  :reader     ffld-base
-                 :allocation :class
-                 :initform   ,base)))
+         ())
        (defclass ,montgy-name (ff-montgomery-mixin ,name)
          ())
+       (defmethod ffld-base ((x ,name))
+         ,base)
        (defmethod ffld-class ((x ,name))
          ',name)
        (defmethod ffld-montgomery-class ((x ,name))
@@ -468,7 +471,7 @@ THE SOFTWARE.
   (let ((ans  (reduce #'ffadd= args
                       :initial-value (copy-ffld arg))))
     ;; sum has been permitted to overflow the modular range
-    (normalize ans)
+    (ff-normalize ans)
     ans))
          
 
@@ -477,7 +480,7 @@ THE SOFTWARE.
       (let ((ans (reduce #'ffsub= args
                          :initial-value (copy-ffld arg))))
         ;; sum has been permitted to overflow the modular range
-        (normalize ans)
+        (ff-normalize ans)
         ans)
     (ffneg arg)))
 
@@ -944,7 +947,7 @@ THE SOFTWARE.
 (defgeneric ffmod (x)
   ;; Returns an integer value in the modular range.
   (:method ((x ffld))
-   (normalize x))
+   (ff-normalize x))
   (:method ((x integer))
    (basic-normalize *field* x)))
 

@@ -797,7 +797,7 @@ THE SOFTWARE.
    #:%basic-ffld
    #:%basic-fmfld
 
-   #:normalize
+   #:ff-normalize
 
    #:define-ffield
    #:define-ffield1
