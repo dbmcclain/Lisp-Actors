@@ -53,13 +53,15 @@ THE SOFTWARE.
                 #-:WINDOWS (:file "subkey-derivation")
                 #-:WINDOWS (:file "proofs")
                 |#
+		
                 (:file "keying")
                 (:file "ed-keying-v2")
                 (:file "my-keying-v2")
+
                 (:file "schnorr-v2")
                 (:file "init-crypto")
                 (:file "data-check-v2")
-                #+:LISPWORKS (:file "edwards-tpm"))
+		)
   
   :depends-on   ("mini-core-crypto"
                  "cffi"

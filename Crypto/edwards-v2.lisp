@@ -739,10 +739,11 @@ THE SOFTWARE.
 
 (defgeneric ed-valid-point-p (pt)
   (:method ((pt ecc-pt))
-   (and (ed-satisfies-curve pt)
-        (not (or (ff= 0 (ecc-pt-x pt))
-                 (ff= 0 (ecc-pt-y pt))))
-        pt))
+   (with-embedding-field
+     (and (ed-satisfies-curve pt)
+          (not (or (ff= 0 (ecc-pt-x pt))
+                   (ff= 0 (ecc-pt-y pt))))
+          pt)))
   (:method ((pt ecc-proj-pt))
    (ed-valid-point-p (ed-affine pt)))
   (:method ((pt ecc-cmpr-pt))
