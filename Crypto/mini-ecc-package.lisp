@@ -785,17 +785,12 @@ THE SOFTWARE.
    #:ffld
    #:ffld-val
    #:copy-ffld
-   #:ff-montgomery-mixin
-   #:subclass-responsibility
+   
    #:ffield-mismatch
    #:need-same-ffield
    #:ffld-base
    #:ffld-class
    #:ffld-montgomery-class
-
-   #:%wrapped-basic-ffld
-   #:%basic-ffld
-   #:%basic-fmfld
 
    #:ff-normalize
 
@@ -813,26 +808,22 @@ THE SOFTWARE.
    #:ffsqr=
    #:ffinv
    #:ffdiv
+
    #:ff+
    #:ff-
    #:ff*
    #:ff/
-
-   #:%redc
-   #:ff-to-montgy
-   #:ff-from-montgy
-   #:ff-montgy-mul
-   #:ff-montgy-mul=
-   #:ff-montgy-sqr=
+   #:ff^
 
    #:ff=
+   #:ff/=
    #:ff<
+   #:ff<=
    #:ff>=
-
-   #:ffabs
+   #:ff>
+   #:ff0=
    
-   #:generalized-windowed-exponentiation
-   #:ff^
+   #:ffabs
 
    #:non-square-residue
    #:ffsqrt

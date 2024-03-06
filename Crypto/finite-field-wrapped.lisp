@@ -390,7 +390,7 @@ THE SOFTWARE.
   (ffmul x (ffinv y)))
 
 ;; ---------------------------------------------
-
+#|
 (defun ff+ (arg &rest args)
   (let ((ans (reduce #'ffadd= args
                      :initial-value (copy-ffld arg))))
@@ -404,6 +404,17 @@ THE SOFTWARE.
         (ff-normalize ans)
         ans)
     (ffneg arg)))
+|#
+
+(defun ff+ (arg &rest args)
+  (reduce #'ffadd= args
+          :initial-value (copy-ffld arg)))
+
+(defun ff- (arg &rest args)
+  (if args
+      (reduce #'ffsub= args
+              :initial-value (copy-ffld arg))
+    (ffneg arg)))
 
 (defun ff* (arg &rest args)
   (reduce #'ffmul= args
@@ -416,26 +427,29 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------
 
-(defun ff-compare (test-fn x y)
-  (funcall test-fn (ff-normalize x) (ff-normalize y)))
+(defun ff-compare (test-fn xs)
+  (apply test-fn (mapcar #'ff-normalize xs)))
 
-(defun ff= (x y)
-  (ff-compare #'= x y))
+(defun ff= (x &rest ys)
+  (ff-compare #'= (cons x ys)))
 
-(defun ff/= (x y)
-  (ff-compare #'/= x y))
+(defun ff/= (x &rest ys)
+  (ff-compare #'/= (cons x ys)))
 
-(defun ff< (x y)
-  (ff-compare #'< x y))
+(defun ff< (x &rest ys)
+  (ff-compare #'< (cons x ys)))
 
-(defun ff<= (x y)
-  (ff-compare #'<= x y))
+(defun ff<= (x &rest ys)
+  (ff-compare #'<= (cons x ys)))
 
-(defun ff> (x y)
-  (ff-compare #'> x y))
+(defun ff> (x &rest ys)
+  (ff-compare #'> (cons x ys)))
 
-(defun ff>= (x y)
-  (ff-compare #'>= x y))
+(defun ff>= (x &rest ys)
+  (ff-compare #'>= (cons x ys)))
+
+(defun ff0= (x)
+  (zerop (ff-normalize x)))
 
 ;; ------------------------------------------------------
 
@@ -515,8 +529,7 @@ THE SOFTWARE.
 ;; ---------------------------------------------------------------------------------------------
 
 (defgeneric ff^ (x n)
-  (:method ((x ffld) n)
-   (declare (integer n))
+  (:method ((x ffld) (n integer))
    (cond ((minusp n)
           (ff^ (ffinv x) (- n)))
          ((ff< x 2.) ;; x = 0,1 -- test also normalizes x
@@ -536,8 +549,8 @@ THE SOFTWARE.
                                                        :op-sqr       'ffsqr=))
               )))
          ))
-  (:method (x n)
-   ;; put x into an FFLD to avoid incessant calls to basic-normalize
+  (:method (x (n integer))
+   ;; put x into an FFLD to avoid excessive calls to basic-normalize
    ;; on every copy-ffld
    (ff^ (copy-ffld x) n)))
 

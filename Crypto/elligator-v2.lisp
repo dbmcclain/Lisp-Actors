@@ -117,14 +117,14 @@
     (with-embedding-field
       (um:bind* ((:struct-accessors ecc-pt (x y) (ed-affine pt))
                  (yp1  (ff+ 1 y)))
-        (unless (ff= 0 yp1)
+        (unless (ff0= yp1)
           (um:bind* (((c s r) (csr))
                      (etar       (ff* r (ff/ (ff- y 1) (ff* 2 yp1))))
                      (etarp1     (ff+ 1 etar))
                      (etarp1sqm1 (ff- (ff* etarp1 etarp1) 1))
                      (scm1       (ff* s (ff- c 1))))
             (when (and (ff-quadratic-residue-p etarp1sqm1)
-                       (or (not (ff= 0 (ff+ etar 2.)))
+                       (or (not (ff0= (ff+ etar 2.)))
                            (ff= x (ff/ (ff* 2 scm1 (ff-chi c))
                                        r))))
               (um:bind* ((xx    (ff- (ff^ etarp1sqm1 (floor (1+ (field-base)) 4.))
@@ -153,8 +153,8 @@
              (let* ((skey (compute-deterministic-skey seed index))
                     (pkey (ed-nth-pt skey))
                     #|
-                     (_    (assert (not (and (ff= 0 (ecc-pt-y pkey))     ;; for tracking down
-                                             (ff= 0 (ecc-pt-x pkey)))))) ;; problem with curve-e521f
+                     (_    (assert (not (and (ff0= (ecc-pt-y pkey))     ;; for tracking down
+                                             (ff0= (ecc-pt-x pkey)))))) ;; problem with curve-e521f
                      |#
                     (tau  (elli2-encode pkey)))
                (declare (ignore _))
