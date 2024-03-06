@@ -25,7 +25,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :edec-mm)
+(in-package :edec-ff)
 
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) #|(SAFETY 0)|# #+:LISPWORKS (FLOAT 0)))
@@ -114,32 +114,23 @@ THE SOFTWARE.
 
 ;; -------------------------------------------------------------------
 
-(defmacro modq (&body body)
-  `(with-mod *ed-q* ,@body))
-
-(defmacro modr (&body body)
-  `(with-mod *ed-r* ,@body))
-
-;; -------------------------------------------------------------------
-
 (defmethod ed-affine ((pt ecc-pt))
   pt)
 
 (defmethod ed-affine ((pt ecc-proj-pt))
-  (um:bind* ((:struct-accessors ecc-proj-pt ((x x) (y y) (z z)) pt)
-             (declare (integer x y z)))
-    (cond ((= 1 z)
-           (make-ecc-pt
-            :x  x
-            :y  y))
-          ((have-fast-impl)
-           (%ecc-fast-to-affine pt))
-          (t
-           (with-mod *ed-q*
+  (with-embedding-field
+    (um:bind* ((:struct-accessors ecc-proj-pt ((x x) (y y) (z z)) pt))
+      (cond ((ff= 1 z)
              (make-ecc-pt
-              :x  (m/ x z)
-              :y  (m/ y z))))
-          )))
+              :x  x
+              :y  y))
+            ((have-fast-impl)
+             (%ecc-fast-to-affine pt))
+            (t
+             (make-ecc-pt
+              :x  (ff/ x z)
+              :y  (ff/ y z)))
+            ))))
 
 (defmethod ed-affine ((pt ecc-cmpr-pt))
   (ed-affine (ed-decompress-pt pt)))
@@ -150,8 +141,7 @@ THE SOFTWARE.
   pt)
 
 (defmethod ed-projective ((pt ecc-pt))
-  (um:bind* ((:struct-accessors ecc-pt ((x x) (y y)) pt)
-             (declare (integer x y)))
+  (um:bind* ((:struct-accessors ecc-pt ((x x) (y y)) pt))
     (make-ecc-proj-pt
      :x x
      :y y
@@ -159,13 +149,12 @@ THE SOFTWARE.
   
 #|
 (defmethod ed-projective ((pt ecc-pt))
-  (um:bind* ((:struct-accessors ecc-pt ((x x) (y y)) pt)
-             (declare (integer x y))
-             (alpha (field-random *ed-q*)))
-    (with-mod *ed-q*
+  (with-embedding-field
+    (um:bind* ((:struct-accessors ecc-pt ((x x) (y y)) pt)
+               (alpha (field-random (field-base))))
       (make-ecc-proj-pt
-       :x (m* alpha x)
-       :y (m* alpha y)
+       :x (ff* alpha x)
+       :y (ff* alpha y)
        :z alpha)
       )))
 |#
@@ -176,27 +165,25 @@ THE SOFTWARE.
 ;; -------------------------------------------------------------------
 
 (defmethod ed-random-projective ((pt ecc-pt))
-  (um:bind* ((:struct-accessors ecc-pt ((x x) (y y)) pt)
-             (declare (integer x y))
-             (alpha (safe-field-random *ed-q*))
-             (declare (integer alpha)))
-    (with-mod *ed-q*
+  (with-embedding-field
+    (um:bind* ((:struct-accessors ecc-pt ((x x) (y y)) pt)
+               (alpha (safe-field-random (field-base)))
+               (declare (integer alpha)))
       (make-ecc-proj-pt
-       :x (m* alpha x)
-       :y (m* alpha y)
+       :x (ff* alpha x)
+       :y (ff* alpha y)
        :z alpha)
       )))
 
 (defmethod ed-random-projective ((pt ecc-proj-pt))
-  (um:bind* ((:struct-accessors ecc-proj-pt ((x x) (y y) (z z)) pt)
-             (declare (integer x y z))
-             (alpha (safe-field-random *ed-q*))
-             (declare (integer alpha)))
-    (with-mod *ed-q*
+  (with-embedding-field
+    (um:bind* ((:struct-accessors ecc-proj-pt ((x x) (y y) (z z)) pt)
+               (alpha (safe-field-random (field-base)))
+               (declare (integer alpha)))
       (make-ecc-proj-pt
-       :x (m* alpha x)
-       :y (m* alpha y)
-       :z (m* alpha z))
+       :x (ff* alpha x)
+       :y (ff* alpha y)
+       :z (ff* alpha z))
       )))
 
 (defmethod ed-random-projective ((pt ecc-cmpr-pt))
@@ -205,40 +192,34 @@ THE SOFTWARE.
 ;; -------------------------------------------------------------------
 
 (defmethod ed-pt= ((pt1 ecc-pt) pt2)
-  (um:bind* ((:struct-accessors ecc-pt ((x1 x) (y1 y)) pt1)
-             (declare (integer x1 y1))
-             (:struct-accessors ecc-pt ((x2 x) (y2 y)) (ed-affine pt2))
-             (declare (integer x2 y2)))
-    (with-mod *ed-q*
-      (and (= x1 x2)
-           (= y1 y2))
+  (with-embedding-field
+    (um:bind* ((:struct-accessors ecc-pt ((x1 x) (y1 y)) pt1)
+               (:struct-accessors ecc-pt ((x2 x) (y2 y)) (ed-affine pt2)))
+      (and (ff= x1 x2)
+           (ff= y1 y2))
       )))
 
 #|
 (defmethod ed-pt= ((pt1 ecc-proj-pt) (pt2 ecc-pt))
-  (um:bind* ((:struct-accessors ecc-pt ((x1 x) (y1 y) (z1 z)) pt1)
-             (declare (integer x1 y1 z1))
-             (:struct-accessors ecc-pt ((x2 x) (y2 y)) pt2)
-             (declare (integer x2 y2)))
-    (with-mod *ed-q*
-      (and (= (m* z1 x2) x1)
-           (= (m* z1 y2) y1))
+  (with-embedding-field
+    (um:bind* ((:struct-accessors ecc-pt ((x1 x) (y1 y) (z1 z)) pt1)
+               (:struct-accessors ecc-pt ((x2 x) (y2 y)) pt2))
+      (and (ff= (ff* z1 x2) x1)
+           (ff= (ff* z1 y2) y1))
     )))
 |#
 
 (defmethod ed-pt= ((pt1 ecc-proj-pt) pt2)
-  (um:bind* ((:struct-accessors ecc-proj-pt ((x1 x) (y1 y) (z1 z)) pt1)
-             (declare (integer x1 y1 z1))
-             (:struct-accessors ecc-proj-pt ((x2 x) (y2 y) (z2 z)) (ed-projective pt2))
-             (declare (integer x2 y2 z2)))
-    (with-mod *ed-q*
-      (and (= (m* z1 x2) (m* z2 x1))
-           (= (m* z1 y2) (m* z2 y1)))
+  (with-embedding-field
+    (um:bind* ((:struct-accessors ecc-proj-pt ((x1 x) (y1 y) (z1 z)) pt1)
+               (:struct-accessors ecc-proj-pt ((x2 x) (y2 y) (z2 z)) (ed-projective pt2)))
+      (and (ff= (ff* z1 x2) (ff* z2 x1))
+           (ff= (ff* z1 y2) (ff* z2 y1)))
       )))
 
 (defmethod ed-pt= ((pt1 ecc-cmpr-pt) (pt2 ecc-cmpr-pt))
-  (= (ecc-cmpr-pt-cx pt1)
-     (ecc-cmpr-pt-cx pt2)))
+  (ff= (ecc-cmpr-pt-cx pt1)
+       (ecc-cmpr-pt-cx pt2)))
 
 (defmethod ed-pt= ((pt1 ecc-cmpr-pt) pt2)
   (ed-pt= (ed-affine pt1) pt2))
@@ -246,29 +227,27 @@ THE SOFTWARE.
 ;; -------------------------------------------------------------------
 
 (defmethod ed-satisfies-curve ((pt ecc-pt))
-  (um:bind* ((:struct-accessors ecc-pt ((x x) (y y)) pt)
-             (declare (integer x y)))
-    ;; x^2 + y^2 = c^2*(1 + d*x^2*y^2)
-    (with-mod *ed-q*
-      (let ((xx (m* x x))
-            (yy (m* y y)))
-        (= (m+ xx yy)
-           (m* *ed-c* *ed-c*
-               (m+ 1 (m* *ed-d* xx yy))))
+  (with-embedding-field
+    (um:bind* ((:struct-accessors ecc-pt ((x x) (y y)) pt))
+      ;; x^2 + y^2 = c^2*(1 + d*x^2*y^2)
+      (let ((xx (ff* x x))
+            (yy (ff* y y)))
+        (ff= (ff+ xx yy)
+           (ff* *ed-c* *ed-c*
+               (ff+ 1 (ff* *ed-d* xx yy))))
         ))))
   
 (defmethod ed-satisfies-curve ((pt ecc-proj-pt))
-  (um:bind* ((:struct-accessors ecc-proj-pt ((x x) (y y) (z z)) pt)
-             (declare (integer x y z)))
-    ;; z^2*(x^2 + y^2) = c^2*(z^4 + d*x^2*y^2)
-    (with-mod *ed-q*
-      (let ((xx (m* x x))
-            (yy (m* y y))
-            (zz (m* z z)))
-        (= (m* zz (m+ xx yy))
-           (m* *ed-c* *ed-c*
-               (+ (m* zz zz)
-                  (m* *ed-d* xx yy))))
+  (with-embedding-field
+    (um:bind* ((:struct-accessors ecc-proj-pt ((x x) (y y) (z z)) pt))
+      ;; z^2*(x^2 + y^2) = c^2*(z^4 + d*x^2*y^2)
+      (let ((xx (ff* x x))
+            (yy (ff* y y))
+            (zz (ff* z z)))
+        (ff= (ff* zz (ff+ xx yy))
+             (ff* *ed-c* *ed-c*
+                  (ff+ (ff* zz zz)
+                       (ff* *ed-d* xx yy))))
         ))))
 
 (defmethod ed-satisfies-curve ((pt ecc-cmpr-pt))
@@ -278,60 +257,42 @@ THE SOFTWARE.
 
 (defun ed-affine-add (pt1 pt2)
   ;; x^2 + y^2 = c^2*(1 + d*x^2*y^2)
-  (with-mod *ed-q*
+  (with-embedding-field
     (um:bind* ((:struct-accessors ecc-pt ((x1 x) (y1 y)) pt1)
-               (declare (integer x1 y1))
                (:struct-accessors ecc-pt ((x2 x) (y2 y)) pt2)
-               (declare (integer x2 y2))
-               (y1y2  (m* y1 y2))
-               (declare (integer y1y2))
-               (x1x2  (m* x1 x2))
-               (declare (integer x1x2))
-               (x1x2y1y2 (m* *ed-d* x1x2 y1y2))
-               (declare (integer x1x2y1y2))
-               (denx  (m* *ed-c* (1+ x1x2y1y2)))
-               (declare (integer denx))
-               (deny  (m* *ed-c* (- 1 x1x2y1y2)))
-               (declare (integer deny))
-               (numx  (+ (m* x1 y2)
-                         (m* y1 x2)))
-               (declare (integer numx))
-               (numy  (- y1y2 x1x2))
-               (declare (integer numy)))
+               (y1y2  (ff* y1 y2))
+               (x1x2  (ff* x1 x2))
+               (x1x2y1y2 (ff* *ed-d* x1x2 y1y2))
+               (denx  (ff* *ed-c* (1+ x1x2y1y2)))
+               (deny  (ff* *ed-c* (- 1 x1x2y1y2)))
+               (numx  (ff+ (ff* x1 y2)
+                           (ff* y1 x2)))
+               (numy  (ff- y1y2 x1x2)))
       (make-ecc-pt
-       :x  (m/ numx denx)
-       :y  (m/ numy deny))
+       :x  (ff/ numx denx)
+       :y  (ff/ numy deny))
       )))
 
 (defun ed-projective-add (pt1 pt2)
-  (with-mod *ed-q*
+  (with-embedding-field
     (um:bind* ((:struct-accessors ecc-proj-pt ((x1 x)
                                                (y1 y)
                                                (z1 z)) pt1)
-               (declare (integer x1 y1 z1))
                (:struct-accessors ecc-proj-pt ((x2 x)
                                                (y2 y)
                                                (z2 z)) pt2)
-               (declare (integer x2 y2 z2))
-               (a  (m* z1 z2))
-               (declare (integer a))
-               (b  (m* a a))
-               (declare (integer b))
-               (c  (m* x1 x2))
-               (declare (integer c))
-               (d  (m* y1 y2))
-               (declare (integer d))
-               (e  (m* *ed-d* c d))
-               (declare (integer e))
-               (f  (- b e))
-               (declare (integer f))
-               (g  (+ b e))
-               (declare (integer g))
-               (x3 (m* a f (- (m* (+ x1 y1)
-                                  (+ x2 y2))
-                               c d)))
-               (y3 (m* a g (- d c)))
-               (z3 (m* *ed-c* f g)))
+               (a  (ff* z1 z2))
+               (b  (ff* a a))
+               (c  (ff* x1 x2))
+               (d  (ff* y1 y2))
+               (e  (ff* *ed-d* c d))
+               (f  (ff- b e))
+               (g  (ff+ b e))
+               (x3 (ff* a f (ff- (ff* (ff+ x1 y1)
+                                      (ff+ x2 y2))
+                                 c d)))
+               (y3 (ff* a g (ff- d c)))
+               (z3 (ff* *ed-c* f g)))
       (make-ecc-proj-pt
        :x  x3
        :y  y3
@@ -358,20 +319,18 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------
 
 (defmethod ed-negate ((pt ecc-pt))
-  (um:bind* ((:struct-accessors ecc-pt ((x x) (y y)) pt)
-             (declare (integer x y)))
-    (with-mod *ed-q*
+  (with-embedding-field
+    (um:bind* ((:struct-accessors ecc-pt ((x x) (y y)) pt))
       (make-ecc-pt
-       :x  (m- x)
+       :x  (ff- x)
        :y  y)
       )))
 
 (defmethod ed-negate ((pt ecc-proj-pt))
-  (um:bind* ((:struct-accessors ecc-proj-pt ((x x) (y y) (z z)) pt)
-             (declare (integer x y z)))
-    (with-mod *ed-q*
+  (with-embedding-field
+    (um:bind* ((:struct-accessors ecc-proj-pt ((x x) (y y) (z z)) pt))
       (make-ecc-proj-pt
-       :x  (m- x)
+       :x  (ff- x)
        :y  y
        :z  z)
       )))
@@ -624,9 +583,9 @@ THE SOFTWARE.
   (let* ((alpha  (* *ed-r* *ed-h* (field-random #.(ash 1 48)))))
     (ed-basic-mul pt (+ n alpha)))
   |#
-  (declare (integer n))
   ;; (tally :ecmul)
-  (let ((nn  (mod n *ed-r*)))
+  (let ((nn  (with-curve-field
+               (normalize n))))
     (declare (integer nn))
     
     (cond ((zerop nn)
@@ -645,8 +604,8 @@ THE SOFTWARE.
           )))
 
 (defun ed-div (pt n)
-  (with-mod *ed-r*
-    (ed-mul pt (m/ n))))
+  (with-curve-field
+    (ed-mul pt (ff/ n))))
 
 (defun ed-nth-proj-pt (n)
   (ed-mul *ed-gen* n))
@@ -661,7 +620,9 @@ THE SOFTWARE.
   (get-cached-symbol-data '*edcurve*
                           :ed-nbits *edcurve*
                           (lambda ()
-                            (integer-length *ed-q*))))
+                            (with-embedding-field
+                              (integer-length (field-base))))
+                          ))
 
 (defun ed-nbytes ()
   (get-cached-symbol-data '*edcurve*
@@ -687,8 +648,8 @@ THE SOFTWARE.
   (get-cached-symbol-data '*edcurve*
                           :ed-cmpr/h-sf *edcurve*
                           (lambda ()
-                            (with-mod *ed-r*
-                              (m/ *ed-h*)))))
+                            (with-curve-field
+                              (ff/ *ed-h*)))))
 
 (defun ed-decmpr*h-fn ()
   (get-cached-symbol-data '*edcurve*
@@ -723,17 +684,18 @@ THE SOFTWARE.
   ;; If lev is true, then a little-endian UB8 vector is produced,
   ;; else an integer value.
   ;;
-  (um:bind* ((cmpr/h  (ed-cmpr/h-sf))
-             (:struct-accessors ecc-pt (x y)
-              (ed-affine (ed-mul pt cmpr/h))))
-    (let ((val  (dpb (ldb (byte 1 0) y)
-                     (byte 1 (ed-nbits)) x)))
-      (ecase enc
-        ((nil)    (make-ecc-cmpr-pt :cx val))
-        (:bev     (bevn val (ed-compressed-nbytes)))
-        (:lev     (levn val (ed-compressed-nbytes)))
-        (:base58  (base58 (bevn val (ed-compressed-nbytes))))
-        ))))
+  (with-embedding-field
+    (um:bind* ((cmpr/h  (ed-cmpr/h-sf))
+               (:struct-accessors ecc-pt (x y)
+                (ed-affine (ed-mul pt cmpr/h))))
+      (let ((val  (dpb (ldb (byte 1 0) (int y))
+                       (byte 1 (ed-nbits)) (int x))))
+        (ecase enc
+          ((nil)    (make-ecc-cmpr-pt :cx val))
+          (:bev     (bevn val (ed-compressed-nbytes)))
+          (:lev     (levn val (ed-compressed-nbytes)))
+          (:base58  (base58 (bevn val (ed-compressed-nbytes))))
+          )))))
 
 ;; --------------------------
 
@@ -750,14 +712,14 @@ THE SOFTWARE.
   (ed-decompress-pt (int x)))
 
 (defmethod ed-decompress-pt ((v integer))
-  (with-mod *ed-q*
+  (with-embedding-field
     (let* ((decmpr-fn (ed-decmpr*h-fn))
-           (nbits (ed-nbits))
-           (sign  (ldb (byte 1 nbits) v))
-           (x     (ldb (byte nbits 0) v))
-           (y     (ed-solve-y x)))
+           (nbits     (ed-nbits))
+           (sign      (ldb (byte 1 nbits) v))
+           (x         (ldb (byte nbits 0) v))
+           (y         (ed-solve-y x)))
       (unless (= sign (ldb (byte 1 0) y))
-        (setf y (m- y)))
+        (setf y (ff- y)))
       (funcall decmpr-fn
                (make-ecc-proj-pt
                 :x  x
@@ -766,18 +728,20 @@ THE SOFTWARE.
       )))
 
 (defun ed-solve-y (x)
-  (with-mod *ed-q*
-    (msqrt (m/ (m* (+ *ed-c* x)
-                   (- *ed-c* x))
-               (- 1 (m* x x *ed-c* *ed-c* *ed-d*))))))
+  (with-embedding-field
+    (int
+     (ffsqrt (ff/ (ff* (ff+ *ed-c* x)
+                       (ff- *ed-c* x))
+                  (ff- 1 (ff* x x *ed-c* *ed-c* *ed-d*) )
+                  )))))
 
 ;; -----------------------------------------------------------------
 
 (defgeneric ed-valid-point-p (pt)
   (:method ((pt ecc-pt))
    (and (ed-satisfies-curve pt)
-        (not (or (zerop (ecc-pt-x pt))
-                 (zerop (ecc-pt-y pt))))
+        (not (or (ff= 0 (ecc-pt-x pt))
+                 (ff= 0 (ecc-pt-y pt))))
         pt))
   (:method ((pt ecc-proj-pt))
    (ed-valid-point-p (ed-affine pt)))
@@ -826,10 +790,12 @@ THE SOFTWARE.
 ;; -----------------------------------------------------------
 
 (defun hash-to-grp-range (&rest args)
-  (apply 'hash-to-range *ed-r* args))
+  (with-curve-field
+    (apply 'hash-to-range (field-base) args)))
 
 (defun hash-to-pt-range (&rest args)
-  (apply 'hash-to-range *ed-q* args))
+  (with-embedding-field
+    (apply 'hash-to-range (field-base) args)))
 
 ;; -------------------------------------------------
 
@@ -856,8 +822,8 @@ THE SOFTWARE.
   "Hash onto curve. Treat h as X coord, just like a compressed point.
 Then if Y is a quadratic residue we are done.
 Else re-probe with (X^2 + 1)."
-  (let ((cof-fn  (ed-decmpr*h-fn)))
-    (with-mod *ed-q*
+  (with-embedding-field
+    (let ((cof-fn  (ed-decmpr*h-fn)))
       (um:nlet iter ((x  hintval))
         (or
          (um:when-let (y (ignore-errors (ed-solve-y x)))
@@ -874,7 +840,7 @@ Else re-probe with (X^2 + 1)."
              (and (not (ed-neutral-point-p pt))
                   pt)))
          ;; else - invalid point, so re-probe at x^2+1
-         (go-iter (m+ 1 (m* x x)))
+         (go-iter (ff+ 1 (ff* x x)))
          )))))
 
 (defun ed-pt-from-seed (&rest seeds)
@@ -920,15 +886,16 @@ Else re-probe with (X^2 + 1)."
         (compute-schnorr-deterministic-random msg-enc skey)
       (let* ((rpt-cmpr  (ed-compress-pt rpt))
              (nbcmpr    (ed-compressed-nbytes))
-             (s         (with-mod *ed-r*
-                          (m+ r
-                              (m* skey
-                                  (int
-                                   (hash-to-grp-range
-                                    (levn rpt-cmpr  nbcmpr)
-                                    (levn pkey-cmpr nbcmpr)
-                                    msg-enc))
-                                  )))))
+             (s         (with-curve-field
+                          (int
+                           (ff+ r
+                                (ff* skey
+                                     (int
+                                      (hash-to-grp-range
+                                       (levn rpt-cmpr  nbcmpr)
+                                       (levn pkey-cmpr nbcmpr)
+                                       msg-enc))
+                                     ))))))
         (list
          :msg   msg
          :pkey  pkey-cmpr
@@ -992,8 +959,8 @@ Else re-probe with (X^2 + 1)."
                    vrf                               ;; v
                    (ed-compress-pt (ed-nth-pt r))    ;; g^r
                    (ed-compress-pt (ed-mul h r)))))  ;; h^r
-           (tt   (with-mod *ed-r*                    ;; tt = r - s * skey
-                   (m- r (m* s skey)))))
+           (tt   (with-curve-field                   ;; tt = r - s * skey
+                   (int (ff- r (ff* s skey))))))
 
       (list :v vrf   ;; the VRF value (a compressed pt)
             :s s     ;; a check scalar

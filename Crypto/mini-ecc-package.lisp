@@ -38,6 +38,7 @@ THE SOFTWARE.
    (#:edwards-ecc          #:com.ral.crypto.edwards-ecc)
    (#:lattice              #:com.ral.crypto.lattice-crypto)
    (#:lattice-ke           #:com.ral.crypto.lattice-key-exchange)
+   (#:finite-field         #:com.ral.crypto.finite-field)
    ))
 
 (defpackage #:com.ral.cached-var
@@ -642,7 +643,6 @@ THE SOFTWARE.
   (:nicknames #:edec)
   (:use
    #:common-lisp
-   #:modmath
    #:crypto-utils
    #:cached-var
    #:vec-repr
@@ -744,18 +744,110 @@ THE SOFTWARE.
    #:modr
    #:modq
 
+   #:with-embedding-field
+   #:with-curve-field
+   
    #:gen-key-pair
    #:gen-shares
    #:solve-shares
    #:skey
 
    #:smult
+
+   #:*my-pkey*
+   #:*my-skey*
+   #:*curve1174*
+   #:*curve-E382*
+   #:*curve41417*
+   #:*curve-Ed448*
+   #:*curve-e521*
+   #:*curve-Ed3363*
+   ))
+
+(defpackage #:com.ral.crypto.finite-field
+  (:use #:common-lisp #:def*)
+  (:export
+   #:ffbase
+   #:ffbase-base
+   #:ffbase-nbits
+   #:ffbase-bits
+   #:ffbase-wrap
+   #:ffbase-sqrt-fn
+   #:ffbase-montgy-ninv
+   #:ffbase-montgy-rsq
+   #:ffbase-inst-class
+   
+   #:basic-normalize
+
+   #:with-field
+   #:field-base
+   
+   #:ffld
+   #:ffld-val
+   #:copy-ffld
+   #:ff-montgomery-mixin
+   #:subclass-responsibility
+   #:ffield-mismatch
+   #:need-same-ffield
+   #:ffld-base
+   #:ffld-class
+   #:ffld-montgomery-class
+
+   #:%wrapped-basic-ffld
+   #:%basic-ffld
+   #:%basic-fmfld
+
+   #:normalize
+
+   #:define-ffield
+   #:define-ffield1
+
+   #:ffadd
+   #:ffadd=
+   #:ffsub
+   #:ffsub=
+   #:ffneg
+   #:ffmul
+   #:ffmul=
+   #:ffsqr
+   #:ffsqr=
+   #:ffinv
+   #:ffdiv
+   #:ff+
+   #:ff-
+   #:ff*
+   #:ff/
+
+   #:%redc
+   #:ff-to-montgy
+   #:ff-from-montgy
+   #:ff-montgy-mul
+   #:ff-montgy-mul=
+   #:ff-montgy-sqr=
+
+   #:ff=
+   #:ff<
+   #:ff>=
+
+   #:ffabs
+   
+   #:generalized-windowed-exponentiation
+   #:ff^
+
+   #:non-square-residue
+   #:ffsqrt
+
+   #:ffmod
+   #:ff-signed
+   #:ff-bezout
+   #:ff-chi
+   #:ff-quadratic-residue-p
    ))
 
 (defpackage #:com.ral.crypto.core-crypto
-  (:use
-   #:common-lisp
+  (:use #:common-lisp
    #:modmath
+   #:finite-field
    #:edwards-ecc
    #:cached-var
    #:crypto-utils
@@ -766,8 +858,7 @@ THE SOFTWARE.
    #:read-safely
    #:address
    #:addr
-   #:addr-str
-   )
+   #:addr-str)
   (:export
    #:defstub
    #:stub-function-p
@@ -790,6 +881,21 @@ THE SOFTWARE.
    #:mchi
    #:quadratic-residue-p
    #:m!
+
+   ;; from crypto/finite-field
+   #:with-field
+   #:define-field
+   #:ff=
+   #:ff^
+   #:ffsqrt
+   #:ffsqr
+   #:ff+
+   #:ff-
+   #:ff*
+   #:ff/
+   #:ffinv
+   #:ffmod
+   
    ;; from vec-repr
    #:bev
    #:lev
@@ -913,3 +1019,37 @@ THE SOFTWARE.
    #:load-dlls
    #:unload-dlls
    ))
+
+(defpackage #:com.ral.crypto.edwards-ecc-modmath
+  (:nicknames #:edec-mm)
+  (:use #:common-lisp
+   #:edec
+   #:modmath
+   #:crypto-utils
+   #:cached-var
+   #:vec-repr
+   #:hash
+   #:prng)
+  (:import-from #:um ;; #:com.ral.useful-macros
+   #:defstub
+   #:with-fast-impl)
+  (:export
+   ))
+
+(defpackage #:com.ral.crypto.edwards-ecc-finite-field
+  (:nicknames #:edec-ff)
+  (:use #:common-lisp
+   #:edec
+   #:finite-field
+   #:crypto-utils
+   #:cached-var
+   #:vec-repr
+   #:hash
+   #:prng)
+  (:import-from #:um ;; #:com.ral.useful-macros
+   #:defstub
+   #:with-fast-impl)
+  (:export
+   ))
+
+

@@ -12,6 +12,7 @@
                 (:file "utilities")
                 (:file "vec-repr-2")
                 (:file "hash")
+                (:file "finite-field")
                 (:file "ctr-hash-drbg")
                 ;; (:file "primes")
                 ;; (:file "startup")

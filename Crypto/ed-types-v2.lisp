@@ -1,17 +1,28 @@
 
-(in-package :edec-mm)
+(in-package :edec-ff)
 
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) #|(SAFETY 0)|# #+:LISPWORKS (FLOAT 0)))
 
 (defstruct ed-curve
-  name c d q h r gen)
+  name c d q h r gen ff-embed ff-curve)
 
 (defstruct (fast-ed-curve (:include ed-curve))
   affine-mul
   proj-mul
   proj-add
   to-affine)
+
+(defmethod hash:hashable ((obj ed-curve))
+  (with-slots (name c d q h r gen) obj
+    (hash:hashable `(ed-curve
+                     :name ',name
+                     :c    ,c
+                     :d    ,d
+                     :q    ,q
+                     :h    ,h
+                     :r    ,r
+                     :gen  ,gen))))
 
 #+:SBCL
 (defmethod make-load-form ((obj ed-curve) &optional environment)

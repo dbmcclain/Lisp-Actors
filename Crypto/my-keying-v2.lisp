@@ -1,4 +1,4 @@
-(in-package :edec-mm)
+(in-package :edec-ff)
 
 ;; -----------------------------------------------
 ;; this part would be replaced by node state info

@@ -1,5 +1,5 @@
 
-(in-package :edec)
+(in-package :edec-mm)
 
 ;; -----------------------------------------------
 ;; Public/Private Key pair generation, splitting, reassembly

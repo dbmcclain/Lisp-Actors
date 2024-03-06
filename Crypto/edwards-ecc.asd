@@ -58,7 +58,49 @@ THE SOFTWARE.
                 (:file "my-keying")
                 (:file "schnorr")
                 (:file "init-crypto")
-                (:file "data-check")
+                (:file "data-check"))
+  
+  :depends-on   ("mini-core-crypto"
+                 "cffi"
+		 #-:WINDOWS "edwards-ecc/libraries"
+                 ))
+
+(defsystem "edwards-ecc-v2"
+  :description "edwards-ecc: Single-curve ECC crypto along Edwards Curves"
+  :version     "1.0.1"
+  :author      "D.McClain <dbm@refined-audiometrics.com>"
+  :license     "Copyright (c) 2024 by Refined Audiometrics Laboratory. All rights reserved."
+  :in-order-to ((test-op (test-op "core-crypto-test")))
+  :serial       t
+  :components  (
+                #|
+                (:file "primes")
+                (:file "startup")
+                #-:WINDOWS (:file "lib-loads")
+                |#
+                (:file "startup")
+                #-:WINDOWS (:file "lib-loads")
+
+                (:file "ed-types-v2")
+                (:file "ed-curves-v2")
+                #-:WINDOWS (:file "edwards-metal-v2")
+                (:file "edwards-v2")
+                (:file "elligator-v2")
+                #|
+                (:file "proofs-ecc")
+                (:file "lagrange-4-square")
+                #-:WINDOWS (:file "pbc-cffi")
+                #-:WINDOWS (:file "crypto-safe-reader")
+                #-:WINDOWS (:file "pbc")
+                #-:WINDOWS (:file "subkey-derivation")
+                #-:WINDOWS (:file "proofs")
+                |#
+                (:file "keying")
+                (:file "ed-keying-v2")
+                (:file "my-keying-v2")
+                (:file "schnorr-v2")
+                (:file "init-crypto")
+                (:file "data-check-v2")
                 #+:LISPWORKS (:file "edwards-tpm"))
   
   :depends-on   ("mini-core-crypto"

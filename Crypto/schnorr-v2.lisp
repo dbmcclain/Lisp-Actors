@@ -1,5 +1,5 @@
 
-(in-package :edec-mm)
+(in-package :edec-ff)
 
 ;; ----------------------------------------------
 ;; Schnorr Signatures
@@ -20,19 +20,18 @@
   ;; e = H(K || M)
   ;; u = r - e * skey
   ;; publish sig = (u e)
-  (with-mod *ed-r*
+  (with-curve-field
     (let* ((r  (gen-sig-random msg)) ;; deterministic pseudo-randomness
-           (K  (ed-compress-pt (ed-mul *ed-gen* r)))
+           (K  (ed-mul *ed-gen* r))
            (e  (hash/256 K msg))
-           (u  (m- r (m* (int e) *my-skey*))))
+           (u  (int (ff- r (ff* (int e) *my-skey*)))))
       (list msg
             (ed-compress-pt (ed-mul *ed-gen* *my-skey*))
             u e))))
 
 (defun ssig-verify (msg pkey u e)
-  (let* ((Kv  (ed-compress-pt
-               (ed-add (ed-mul *ed-gen* u)
-                       (ed-mul (ed-decompress-pt pkey) (int e)))))
+  (let* ((Kv  (ed-add (ed-mul *ed-gen* u)
+                      (ed-mul (ed-decompress-pt pkey) (int e))))
          (ev  (hash/256 Kv msg)))
     (hash= ev e)))
 
@@ -60,9 +59,9 @@
   ;; coordinator provides cloaked-r and hashsum
   (let* ((cloak (collective-sig-cloaker nonce))
          (r     (logxor cloaked-r cloak)))
-    (with-mod *ed-r*
+    (with-curve-field
       ;; send this u value back to coordinator
-      (m- r (m* (int hashsum) *my-skey*))
+      (int (ff- r (ff* (int hashsum) *my-skey*)))
       )))
 
 #|

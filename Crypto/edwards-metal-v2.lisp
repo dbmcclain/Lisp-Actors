@@ -1,5 +1,5 @@
 
-(in-package :edec-mm)
+(in-package :edec-ff)
 
 ;; -----------------------------------------------------------------------
 
@@ -107,10 +107,10 @@
         (cffi:mem-aref cvec :uint64 2.) (ldb (byte 64. 128.) val)
         (cffi:mem-aref cvec :uint64 3.) (ldb (byte 64. 192.) val))
   (when (or (eql *edcurve* *curve-ed3363*)
-            (eql *edcurve* *curve-e521f*))
+            (eql *edcurve* *curve-e521*))
     (setf (cffi:mem-aref cvec :uint64 4.) (ldb (byte 64. 256.) val)
           (cffi:mem-aref cvec :uint64 5.) (ldb (byte 64. 320.) val))
-    (when (eql *edcurve* *curve-e521f*)
+    (when (eql *edcurve* *curve-e521*)
       (setf (cffi:mem-aref cvec :uint64 6.) (ldb (byte 64. 384.) val)
             (cffi:mem-aref cvec :uint64 7.) (ldb (byte 64. 448.) val)
             (cffi:mem-aref cvec :uint64 8.) (ldb (byte 64. 512.) val)))
@@ -125,20 +125,14 @@
           v (dpb (cffi:mem-aref cvec :uint64 2.) (byte 64. 128.) v)
           v (dpb (cffi:mem-aref cvec :uint64 3.) (byte 64. 192.) v))
     (when (or (eql *edcurve* *curve-ed3363*)
-              (eql *edcurve* *curve-e521f*))
+              (eql *edcurve* *curve-e521*))
       (setf v (dpb (cffi:mem-aref cvec :uint64 4.) (byte 64. 256.) v)
             v (dpb (cffi:mem-aref cvec :uint64 5.) (byte 64. 320.) v))
-      (when (eql *edcurve* *curve-e521f*)
+      (when (eql *edcurve* *curve-e521*)
         (setf v (dpb (cffi:mem-aref cvec :uint64 6.) (byte 64. 384.) v)
               v (dpb (cffi:mem-aref cvec :uint64 7.) (byte 64. 448.) v)
               v (dpb (cffi:mem-aref cvec :uint64 8.) (byte 64. 512.) v))
         ))
-    #|
-      ;; libs now handle conversion properly - DM 03/19
-    (assert (and (<= 0 v)
-                 (< v *ed-q*)))
-    (mod v *ed-q*)
-    |#
     v
     ))
 
@@ -160,68 +154,74 @@
 
 (defmethod %ecc-fast-mul ((pt ecc-proj-pt) n)
   ;; about a 10% speed penalty over using affine points
-  (with-fli-buffers ((cptx (ecc-proj-pt-x pt))  ;; projective in...
-                     (cpty (ecc-proj-pt-y pt))
-                     (cptz (ecc-proj-pt-z pt))
-                     (cwv  n))
-    
-    (funcall (fast-ed-curve-proj-mul *edcurve*)
-             cptx cpty cptz cwv)
-    
-    (make-ecc-proj-pt
-     :x (xfer-from-c cptx) ;; projective out...
-     :y (xfer-from-c cpty)
-     :z (xfer-from-c cptz))
-    ))
+  (with-embedding-field
+    (with-fli-buffers ((cptx (normalize (ecc-proj-pt-x pt)))  ;; projective in...
+                       (cpty (normalize (ecc-proj-pt-y pt)))
+                       (cptz (normalize (ecc-proj-pt-z pt)))
+                       (cwv  (with-curve-field
+                               (normalize n))))
+      
+      (funcall (fast-ed-curve-proj-mul *edcurve*)
+               cptx cpty cptz cwv)
+      
+      (make-ecc-proj-pt
+       :x (xfer-from-c cptx) ;; projective out...
+       :y (xfer-from-c cpty)
+       :z (xfer-from-c cptz))
+      )))
 
 (defmethod %ecc-fast-mul ((pt ecc-pt) n)
-  (with-fli-buffers ((cptx (ecc-pt-x pt))  ;; affine in...
-                     (cpty (ecc-pt-y pt))
-                     (cptz)
-                     (cwv  n))
-    
-    (funcall (fast-ed-curve-affine-mul *edcurve*)
-             cptx cpty cptz cwv)
-    
-    (make-ecc-proj-pt
-     :x (xfer-from-c cptx) ;; projective out...
-     :y (xfer-from-c cpty)
-     :z (xfer-from-c cptz))
-    ))
+  (with-embedding-field
+    (with-fli-buffers ((cptx (normalize (ecc-pt-x pt)))  ;; affine in...
+                       (cpty (normalize (ecc-pt-y pt)))
+                       (cptz)
+                       (cwv  (with-curve-field
+                               (normalize n))))
+      
+      (funcall (fast-ed-curve-affine-mul *edcurve*)
+               cptx cpty cptz cwv)
+      
+      (make-ecc-proj-pt
+       :x (xfer-from-c cptx) ;; projective out...
+       :y (xfer-from-c cpty)
+       :z (xfer-from-c cptz))
+      )))
 
 (defmethod %ecc-fast-mul ((pt ecc-cmpr-pt) n)
   (%ecc-fast-mul (ed-projective pt) n))
 
 (defun %ecc-fast-add (pt1 pt2)
-  (with-fli-buffers ((cpt1xv (ecc-proj-pt-x pt1)) ;; projective in...
-                     (cpt1yv (ecc-proj-pt-y pt1))
-                     (cpt1zv (ecc-proj-pt-z pt1))
-                     (cpt2xv (ecc-proj-pt-x pt2))
-                     (cpt2yv (ecc-proj-pt-y pt2))
-                     (cpt2zv (ecc-proj-pt-z pt2)))
-    
-    (funcall (fast-ed-curve-proj-add *edcurve*)
-             cpt1xv cpt1yv cpt1zv
-             cpt2xv cpt2yv cpt2zv)
-    
-    (make-ecc-proj-pt ;; projective out...
-                      :x (xfer-from-c cpt1xv)
-                      :y (xfer-from-c cpt1yv)
-                      :z (xfer-from-c cpt1zv))
-    ))
+  (with-embedding-field
+    (with-fli-buffers ((cpt1xv (normalize (ecc-proj-pt-x pt1))) ;; projective in...
+                       (cpt1yv (normalize (ecc-proj-pt-y pt1)))
+                       (cpt1zv (normalize (ecc-proj-pt-z pt1)))
+                       (cpt2xv (normalize (ecc-proj-pt-x pt2)))
+                       (cpt2yv (normalize (ecc-proj-pt-y pt2)))
+                       (cpt2zv (normalize (ecc-proj-pt-z pt2))))
+      
+      (funcall (fast-ed-curve-proj-add *edcurve*)
+               cpt1xv cpt1yv cpt1zv
+               cpt2xv cpt2yv cpt2zv)
+      
+      (make-ecc-proj-pt ;; projective out...
+                        :x (xfer-from-c cpt1xv)
+                        :y (xfer-from-c cpt1yv)
+                        :z (xfer-from-c cpt1zv))
+      )))
 
 (defun %ecc-fast-to-affine (pt)
-  (with-fli-buffers ((cptx (ecc-proj-pt-x pt)) ;; projective in...
-                     (cpty (ecc-proj-pt-y pt))
-                     (cptz (ecc-proj-pt-z pt)))
-    
-    (funcall (fast-ed-curve-to-affine *edcurve*)
-             cptx cpty cptz)
-    
-    (make-ecc-pt
-     :x (xfer-from-c cptx) ;; affine out...
-     :y (xfer-from-c cpty))
-    ))
+  (with-embedding-field
+    (with-fli-buffers ((cptx (normalize (ecc-proj-pt-x pt))) ;; projective in...
+                       (cpty (normalize (ecc-proj-pt-y pt)))
+                       (cptz (normalize (ecc-proj-pt-z pt))))
+      
+      (funcall (fast-ed-curve-to-affine *edcurve*)
+               cptx cpty cptz)
+      
+      (make-ecc-pt
+       :x (xfer-from-c cptx) ;; affine out...
+       :y (xfer-from-c cpty))
+      )))
 
 ;; ---------------------------------------------------
 
@@ -245,7 +245,7 @@
     (xfer-from-c cdst)))
 
 #|
-(with-ed-curve :curve-e521f
+(with-ed-curve :curve-e521
   (with-mod *ed-q*
     (let* ((x    22)
            (xinv (m/ 22)))
@@ -253,7 +253,7 @@
        (m* x xinv)
        (%ecc-fast-grp-mul x xinv)))))
 
-(with-ed-curve :curve-e521f
+(with-ed-curve :curve-e521
   (with-mod *ed-q*
     (let* ((x    22)
            (xinv (m/ 22)))
@@ -261,7 +261,7 @@
        xinv
        (%ecc-fast-grp-inv x)))))
 
-(with-ed-curve :curve-e521f
+(with-ed-curve :curve-e521
   (with-mod *ed-q*
     (let* ((x    23)
            (xrt (msqrt x)))
@@ -271,15 +271,15 @@
 
 (let* ((pt (with-ed-curve :curve-e521
              (ed-affine (ed-mul *ed-gen* 15))))
-       (pt2 (with-ed-curve :curve-e521f
+       (pt2 (with-ed-curve :curve-e521
               (ed-affine (ed-mul *ed-gen* 15)))))
   (list pt pt2))
 
-(with-ed-curve :curve-e521f
+(with-ed-curve :curve-e521
   (compute-deterministic-elligator-skey :test (random *ed-r*)))
 
 (defun tst ()
- (with-ed-curve :curve-e521f ;; 5.6x faster than :curve-e521
+ (with-ed-curve :curve-e521 ;; 5.6x faster than :curve-e521
    (let ((h  (hash/256 :hello (uuid:make-v1-uuid))))
      (loop for ix from 0 below 1000 do
              (compute-deterministic-elligator-skey :test h)
@@ -288,7 +288,7 @@
 (time (tst))
 
 (defun tst ()
- (with-ed-curve :curve-e521f ;; 5.6x faster than :curve-e521
+ (with-ed-curve :curve-e521 ;; 5.6x faster than :curve-e521
    (loop for ix from 0 below 1000 do
            (compute-deterministic-elligator-skey :test (random *ed-r*))
            )))
@@ -299,7 +299,7 @@
         (let* ((r (random *ed-r*))
                (pt1 (with-ed-curve :curve-e521
                       (ed-nth-pt r)))
-               (pt2 (with-ed-curve :curve-e521f
+               (pt2 (with-ed-curve :curve-e521
                       (ed-nth-pt r))))
           (assert (ed-pt= pt1 pt2))
           )))
@@ -308,7 +308,7 @@
 ;; --------------------------------------------
 
 (defun tst (niter)
-  (with-ed-curve :curve-e521f
+  (with-ed-curve :curve-e521
     (loop repeat niter do
           (let* ((r1 (random *ed-q*))
                  (r2 (random *ed-q*))
@@ -320,7 +320,7 @@
 (time (tst 1_000_000)))
 
 (defun tst (niter)
-  (with-ed-curve :curve-e521f
+  (with-ed-curve :curve-e521
     (loop repeat niter do
           (let* ((r1 (random *ed-q*))
                  (p1 (with-mod *ed-q*
@@ -331,7 +331,7 @@
 (time (tst 100_000)))
 
 (defun tst (niter)
-  (with-ed-curve :curve-e521f
+  (with-ed-curve :curve-e521
     (loop repeat niter do
           (let* ((r1 (random *ed-q*))
                  (p1 (with-mod *ed-q*
@@ -347,7 +347,7 @@
 ;; ---------------------------------------------------
 
 (defun tst (niter)
-  (with-ed-curve :curve-e521f
+  (with-ed-curve :curve-e521
     (loop repeat niter do
             (let* ((r1 (random *ed-r*))
                    (p1 (with-ed-curve :curve-e521
@@ -372,5 +372,5 @@
           )))
 (time (tst :curve1174  10_000))  ;; 540 µs/iter
 (time (tst :curve-e521 1_000))   ;;  20 ms/iter, 40x slower
-(time (tst :curve-e521f 10_000))  ;;  840 µs/iter, 1.5x slower
+(time (tst :curve-e521 10_000))  ;;  840 µs/iter, 1.5x slower
 |#
