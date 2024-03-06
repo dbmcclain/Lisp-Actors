@@ -1,5 +1,5 @@
-;; modular-arith-v2.lisp -- Prime Field Arithmetic
-;; DM/RAL 03/18
+;; finite-field.lisp -- Prime Field Arithmetic
+;; DM/RAL 03/24
 ;; -----------------------------------------------------
 #|
 The MIT License
@@ -299,7 +299,7 @@ THE SOFTWARE.
 (defmacro define-ffield (name base)
   ;; Define a modular field. Constructs its FFBASE, define the field
   ;; class, and offer the classname as a constructor verb.
-  (lw:with-unique-names (base-var)
+  (let ((base-var (gensym)))
     `(let ((,base-var (ffbase ,base :inst-class ',name)))
        (define-ffield1 ,name ,base-var))
     ))

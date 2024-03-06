@@ -124,7 +124,8 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
     "Prints the raw bytes in hex form. (example output 6ba7b8109dad11d180b400c04fd430c8)"
     (when *print-readably*
       (princ "#/uuid/" stream))
-    (um:without-abbrev
+    (#+:LISPWORKS um:without-abbrev
+     #-:LISPWORKS progn
       (format stream
               "{~8,'0X-~4,'0X-~4,'0X-~2,'0X~2,'0X-~12,'0X}"
               (time-low id)

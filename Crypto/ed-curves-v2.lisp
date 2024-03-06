@@ -7,7 +7,8 @@
 ;; -----------------------------------------------------------------
 
 (defmacro define-ecc-curve (name &rest args)
-  (lw:with-unique-names (embed-ff curve-ff)
+  (let ((embed-ff  (gensym))
+        (curve-ff  (gensym)))
     (let* ((wm-name         (string-trim '(#\*) name))
            (ff-embed-name   (um:symb wm-name "-ff-embed"))
            (ff-curve-name   (um:symb wm-name "-ff-curve")))
