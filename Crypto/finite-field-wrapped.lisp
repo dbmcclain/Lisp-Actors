@@ -248,7 +248,6 @@ THE SOFTWARE.
 
 (defun %basic-ffld (proto x)
   ;; this does not wrap on entry of value x
-  (declare (type ffld proto))
   (%wrapped-basic-ffld (ffld-class proto) x))
 
 (defgeneric ffld (proto x)
