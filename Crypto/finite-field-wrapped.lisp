@@ -109,7 +109,6 @@ THE SOFTWARE.
 
 ;; -------------------------------
 
-#|
   ;; The hope was that using a single wrap after FFMUL would be
   ;; sufficient. But that causes non-termination of FFSQRT in some
   ;; cases...
@@ -131,10 +130,9 @@ THE SOFTWARE.
       (let ((bits (ffbase-bits p))
             (wrap (ffbase-wrap p)))
         (declare (integer wrap))
-        (+ (the integer (ldb bits x))
-           (the integer (* hi wrap)))
+        (basic-wrap p (+ (the integer (ldb bits x))
+                         (the integer (* hi wrap))))
         ))))
-|#
 
 (defmethod basic-normalize ((p ffbase) (x integer))
   #F
@@ -158,24 +156,13 @@ THE SOFTWARE.
   ;; non-negative. Return that DIFF value. Else DIFF will be negative,
   ;; which means that x is already in modular range, so return it..
   ;;
-  (let* ((nbits  (ffbase-nbits p))
-         (hi     (ash x (the fixnum (- nbits))) ))
-    (declare (fixnum nbits)
-             (integer hi))
-    (if (zerop hi)
-        (let* ((base (ffbase-base p))
-               (diff (- x base)))
-          (declare (integer base diff))
-          (if (minusp diff)
-              x
-            diff))
-      ;; else
-      (let ((bits (ffbase-bits p))
-            (wrap (ffbase-wrap p)))
-        (declare (integer wrap))
-        (basic-normalize p (+ (the integer (ldb bits x))
-                              (the integer (* hi wrap)) )))
-      )))
+  (let* ((ans  (basic-wrap p x))
+         (base (ffbase-base p))
+         (diff (- ans base)))
+    (declare (integer ans base diff))
+    (if (minusp diff)
+        ans
+      diff)))
 
 ;; -----------------------------------------------------
 ;; FFLD - instance of finite field values. Their class points to the
@@ -193,10 +180,10 @@ THE SOFTWARE.
    ))
 
 (defmethod ffld-val ((x integer))
-  (basic-normalize *field* x))
+  x)
 
 (defmethod ffld-val (x)
-  (ffld-val (vec-repr:int x)))
+  (vec-repr:int x))
 
 (defun %wrapped-basic-ffld (class x)
   (make-instance class
@@ -207,7 +194,7 @@ THE SOFTWARE.
   (:method ((x ffld))
    (%wrapped-basic-ffld (class-of x) (ffld-val x)))
   (:method ((x integer))
-   (%wrapped-basic-ffld (ffbase-inst-class *field*) (basic-normalize *field* x)))
+   (%wrapped-basic-ffld (ffbase-inst-class *field*) x))
   (:method (x)
    (copy-ffld (vec-repr:int x))))
 
@@ -255,7 +242,7 @@ THE SOFTWARE.
   (:method (proto (x ffld))
    x)
   (:method (proto (x integer))
-   (%basic-ffld proto (basic-normalize (ffld-base proto) x)))
+   (%basic-ffld proto x))
   (:method (proto x)
    (ffld proto (vec-repr:int x))))
 
@@ -292,7 +279,7 @@ THE SOFTWARE.
         x)
        (:method ((x integer))
         (make-instance ',name
-                       :val (basic-normalize ,base x)
+                       :val x
                        ))
        (:method (x)
         (,name (vec-repr:int x)))
@@ -352,15 +339,15 @@ THE SOFTWARE.
 (defun ffmul (x y)
   (need-same-ffield x y)
   (%basic-ffld x
-	       (basic-normalize (ffld-base x)
-                                (* (ffld-val x) (ffld-val y)))
+	       (basic-wrap (ffld-base x)
+                           (* (ffld-val x) (ffld-val y)))
 	       ))
 
 (defgeneric ffmul= (x y)
   (:method ((x ffld) y)
    (need-same-ffield x y)
-   (setf (ffld-val x) (basic-normalize (ffld-base x)
-                                       (* (ffld-val x) (ffld-val y))))
+   (setf (ffld-val x) (basic-wrap (ffld-base x)
+                                  (* (ffld-val x) (ffld-val y))))
    x))
 
 (defun ffsqr (x)
