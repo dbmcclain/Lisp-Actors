@@ -376,21 +376,6 @@ THE SOFTWARE.
   (ffmul x (ffinv y)))
 
 ;; ---------------------------------------------
-#|
-(defun ff+ (arg &rest args)
-  (let ((ans (reduce #'ffadd= args
-                     :initial-value (copy-ffld arg))))
-    (ff-normalize ans)
-    ans))
-
-(defun ff- (arg &rest args)
-  (if args
-      (let ((ans (reduce #'ffsub= args
-                         :initial-value (copy-ffld arg))))
-        (ff-normalize ans)
-        ans)
-    (ffneg arg)))
-|#
 
 (defun ff+ (arg &rest args)
   (reduce #'ffadd= args
