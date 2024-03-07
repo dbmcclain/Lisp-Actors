@@ -896,10 +896,11 @@ void store_bits(unsigned char* v, int maxlen, int start, int nbits, type64 val) 
         else
             nel = end_bit - bit_pos;
         if(nel > 0) {
-            int mask = (1 << nel) - 1;
+            int mask = ((1 << nel) - 1) << bit_pos;
             int byte = v[pos];
-            int bits = (((int)(val >> kbits)) & mask) << bit_pos;
-            byte |= bits;
+            int bits = ((int)(val >> kbits)) << bit_pos;
+            byte &= ~mask;
+            byte |= (bits & mask);
             v[pos] = byte;
             kbits += nel;
         }
