@@ -108,18 +108,31 @@ THE SOFTWARE.
   (ffbase-base *field*))
 
 ;; -------------------------------
+;;
+;; The code in this module allows for indefinite buildup of modular
+;; excess on entry and from arithmetic Add/Subtract operations. But
+;; products from FMUL and FSQR are always wrapped to no more than the
+;; containing size of the modulus. That is, if the prime modulus, q,
+;; is 2^(n-1) < q < 2^n, then products are wrapped to no larger than
+;; 2^n.
+;;
+;; To do otherwise, during large exponentiations, which happens for
+;; FFSQRT, where exponents are on the order of 2^250 or larger, the
+;; gradual buildup of modular excesses, even if only by 1 bit
+;; occasionally, end up consuming impossibly large amounts of memory.
+;; The system exhibits non-terminating behavior simply because memory
+;; quickly exhausts.
+;;
+;; Actual modulo operations are delayed until you need to read out the
+;; value of an FFLD instance, and during comparisons where the true
+;; value of the instance is needed.
 
-  ;; The hope was that using a single wrap after FFMUL would be
-  ;; sufficient. But that causes non-termination of FFSQRT in some
-  ;; cases...
 (defmethod basic-wrap ((p ffbase) (x integer))
   #F
   ;; Simply wrap the hi bits of a large number into the low bits. This
-  ;; does not guarantee anything about the size of the result, except
-  ;; that it will likely be shorter than originally had in x.
-  ;;
-  ;; It simply prevents an outrageous growth in the size of product
-  ;; numbers. Final reduction is to be had with BASIC-NORMALIZE.
+  ;; is not modulo the field base, but rather, modulo 2^n, where
+  ;; 2^(n-1) < q < 2^n. Doing so prevents impossibly large buildup of
+  ;; modular excesses during large exponentiations.
   ;;
   (let* ((nbits  (ffbase-nbits p))
          (hi     (ash x (the fixnum (- nbits)))))
