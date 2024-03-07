@@ -99,56 +99,35 @@
 ;; Support for C-level Ed3363 curve
 
 (defun xfer-to-c (val cvec)
-  ;; transfer val to C vector in 9 8-byte words
+  ;; Max of 66 bytes to accommodate Curve-E521
+  ;; Data should already be noramlized modular values,
+  ;; will be stored in the vector in little-endian order.
+  ;;
   (declare (integer val))
-  (setf val (mod val *ed-q*))
-  (setf (cffi:mem-aref cvec :uint64 0.) (ldb (byte 64.   0.) val)
-        (cffi:mem-aref cvec :uint64 1.) (ldb (byte 64.  64.) val)
-        (cffi:mem-aref cvec :uint64 2.) (ldb (byte 64. 128.) val)
-        (cffi:mem-aref cvec :uint64 3.) (ldb (byte 64. 192.) val))
-  (when (or (eql *edcurve* *curve-ed3363*)
-            (eql *edcurve* *curve-e521*))
-    (setf (cffi:mem-aref cvec :uint64 4.) (ldb (byte 64. 256.) val)
-          (cffi:mem-aref cvec :uint64 5.) (ldb (byte 64. 320.) val))
-    (when (eql *edcurve* *curve-e521*)
-      (setf (cffi:mem-aref cvec :uint64 6.) (ldb (byte 64. 384.) val)
-            (cffi:mem-aref cvec :uint64 7.) (ldb (byte 64. 448.) val)
-            (cffi:mem-aref cvec :uint64 8.) (ldb (byte 64. 512.) val)))
-    ))
+  (loop for ix from 0 below 66. do
+          (setf (cffi:mem-aref cvec :uint8 ix) (ldb (byte 8. (* 8. ix)) val)))
+  cvec)
 
 (defun xfer-from-c (cvec)
-  ;; retrieve val from C vector in 9 8-byte words
-  (let ((v 0))
-    (declare (integer v))
-    (setf v (dpb (cffi:mem-aref cvec :uint64 0.) (byte 64.   0.) v)
-          v (dpb (cffi:mem-aref cvec :uint64 1.) (byte 64.  64.) v)
-          v (dpb (cffi:mem-aref cvec :uint64 2.) (byte 64. 128.) v)
-          v (dpb (cffi:mem-aref cvec :uint64 3.) (byte 64. 192.) v))
-    (when (or (eql *edcurve* *curve-ed3363*)
-              (eql *edcurve* *curve-e521*))
-      (setf v (dpb (cffi:mem-aref cvec :uint64 4.) (byte 64. 256.) v)
-            v (dpb (cffi:mem-aref cvec :uint64 5.) (byte 64. 320.) v))
-      (when (eql *edcurve* *curve-e521*)
-        (setf v (dpb (cffi:mem-aref cvec :uint64 6.) (byte 64. 384.) v)
-              v (dpb (cffi:mem-aref cvec :uint64 7.) (byte 64. 448.) v)
-              v (dpb (cffi:mem-aref cvec :uint64 8.) (byte 64. 512.) v))
-        ))
-    v
-    ))
+  ;; retrieve val from C vector stored in little-endian order
+  (let ((val 0))
+    (declare (integer val))
+    (loop for ix from 0 below 66. do
+            (setf (ldb (byte 8. (* 8. ix)) val) (cffi:mem-aref cvec :uint8 ix)))
+    val))
 
 (defmacro with-fli-buffers (buffers &body body)
   (if (endp buffers)
       `(progn
          ,@body)
-    (destructuring-bind (name &optional lisp-val) (car buffers)
-      `(cffi:with-foreign-pointer (,name 72.)
-         ,@(when lisp-val
-             `((xfer-to-c ,lisp-val ,name)))
+    (destructuring-bind (name &optional (lisp-val 0)) (car buffers)
+      `(cffi:with-foreign-pointer (,name 66.)
+         (xfer-to-c ,lisp-val ,name)
          (with-fli-buffers ,(cdr buffers) ,@body))
       )))
 
 #+:LISPWORKS
-(editor:setup-indent "with-fli-buffers" 1.)
+(editor:setup-indent "with-fli-buffers" 1)
 
 ;; -------------------------------------------------------------------
 

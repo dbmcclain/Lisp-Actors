@@ -822,44 +822,93 @@ void win4(unsigned char* nv, int *w)
 }
 
 static
+type64 fetch_bits(unsigned char* v, int maxlen, int start, int nbits) {
+    // Fetch "nbits" bits starting at bit "start" from byte vector "v" stored
+    // in little-endian form, with a maximum vector length of "maxlen" bytes.
+    // Return fetched bits in a type64 value.
+    //
+    // Bytes in vector v are numbered consecutively from 0 toward ascending addresses.
+    // Bit positions are designated as 0 for LSB and increasing toward MSB.
+    // Bytes have a length of 8 bits.
+    //
+    // So, e.g., bit position starting at 13 corresponds to bit number 5 of byte number 1.
+    
+    int start_byte = start >> 3;
+    int start_bit  = start & 7;
+    int end_byte   = (start + nbits) >> 3;
+    int end_bit    = (start + nbits) & 7;
+    type64 ans  = 0;
+    int bit_pos = start_bit;
+    int kbits   = 0;
+    for(int pos = start_byte; pos < maxlen; ++pos) {
+        int nel;
+        if(pos < end_byte)
+            nel = 8 - bit_pos;
+        else
+            nel = end_bit - bit_pos;
+        if(nel > 0) {
+            int mask = (1 << nel) - 1;
+            int bits = v[pos];
+            ans |= ((type64)((bits >> bit_pos) & mask)) << kbits;
+            kbits += nel;
+        }
+        if(pos >= end_byte)
+            break;
+        bit_pos = 0;
+    }
+    return ans;
+}
+
+static
+void store_bits(unsigned char* v, int maxlen, int start, int nbits, type64 val) {
+    // Store little-endian encoding of value "val" in byte-vector "v",
+    // which has maximum length of "maxlen" bytes. We store "nbits" bits of "val"
+    // into "v" starting at bit position "start".
+    int start_byte = start >> 3;
+    int start_bit  = start & 7;
+    int end_byte   = (start + nbits) >> 3;
+    int end_bit    = (start + nbits) & 7;
+    int bit_pos = start_bit;
+    int kbits   = 0;
+    for(int pos = start_byte; pos < maxlen; ++pos) {
+        int nel;
+        if(pos < end_byte)
+            nel = 8 - bit_pos;
+        else
+            nel = end_bit - bit_pos;
+        if(nel > 0) {
+            int mask = (1 << nel) - 1;
+            int byte = v[pos];
+            int bits = (((int)(val >> kbits)) & mask) << bit_pos;
+            byte |= bits;
+            v[pos] = byte;
+            kbits += nel;
+        }
+        if(pos >= end_byte)
+            break;
+        bit_pos = 0;
+    }
+}
+
+static
 void gfetch(unsigned char* v, coord_t& w)
 {
-    // fetch 53-bit words from consecutively stored 64-bit words in v.
-    // Assumes input value is < 2^521
+    // fetch 51-bit words from consecutively stored 64-bit words in v.
+    // Assumes input value is < 2^251
     
-    uint64_t *pv = (uint64_t*)v;
-    uint64_t *pw = (uint64_t*)w;
-    pw[0] =   pv[0] & bot53bits;
-    pw[1] = ((pv[1] << 11) | (pv[0] >> 53)) & bot53bits;
-    pw[2] = ((pv[2] << 22) | (pv[1] >> 42)) & bot53bits;
-    pw[3] = ((pv[3] << 33) | (pv[2] >> 31)) & bot53bits;
-    pw[4] = ((pv[4] << 44) | (pv[3] >> 20)) & bot53bits;
-    pw[5] =                  (pv[4] >>  9)  & bot53bits;
-    pw[6] = ((pv[5] <<  2) | (pv[4] >> 62)) & bot53bits;
-    pw[7] = ((pv[6] << 13) | (pv[5] >> 51)) & bot53bits;
-    pw[8] = ((pv[7] << 24) | (pv[6] >> 40)) & bot53bits;
-    pw[9] = ((pv[8] << 35) | (pv[7] >> 29)) & bot44bits;
+    for(int ix = 0; ix < NGRP; ++ix)
+        w[ix] = fetch_bits(v, 66, ix * KBPW, KBPW);
 }
 
 static
 void gstore(coord_t& w, unsigned char* v)
 {
-    // store 53-bit words into consecutively stored 64-bit words in v.
-    coord_t wn;
-    
-    gnorm(w, wn);
-
-    uint64_t *pv = (uint64_t*)v;
-    uint64_t *pw = (uint64_t*)wn;
-    pv[0] = (pw[1] << 53) | pw[0];
-    pv[1] = (pw[2] << 42) | (pw[1] >> 11);
-    pv[2] = (pw[3] << 31) | (pw[2] >> 22);
-    pv[3] = (pw[4] << 20) | (pw[3] >> 33);
-    pv[4] = (pw[6] << 62) | (pw[5] <<  9) | (pw[4] >> 44);
-    pv[5] = (pw[7] << 51) | (pw[6] >>  2);
-    pv[6] = (pw[8] << 40) | (pw[7] >> 13);
-    pv[7] = (pw[9] << 29) | (pw[8] >> 24);
-    pv[8] =                 (pw[9] >> 35);
+    // store 51-bit words into consecutively stored 64-bit words in v.
+    // NOTE: Lisp-provided buffers should have a length of 66 bytes.
+    // This much accommodates curves up to E-521.
+    memset(v, 0, 66);
+    for(int ix = 0; ix < NGRP; ++ix)
+        store_bits(v, 66, ix * KBPW, KBPW, w[ix]);
 }
 
 // -----------------------------------------------------
