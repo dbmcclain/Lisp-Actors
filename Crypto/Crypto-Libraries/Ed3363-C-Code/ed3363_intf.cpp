@@ -23,6 +23,8 @@
 
 using namespace std;
 
+#define NGRP  6 // 6 cells of 56 bits
+
 typedef __int128 type128;  /* non-standard type */
 typedef int64_t type64;
 
@@ -839,52 +841,97 @@ void win4(unsigned char* nv, int *w)
 }
 
 static
+type64 fetch_bits(unsigned char* v, int maxlen, int start, int nbits) {
+    // Fetch "nbits" bits starting at bit "start" from byte vector "v" stored
+    // in little-endian form, with a maximum vector length of "maxlen" bytes.
+    // Return fetched bits in a type64 value.
+    //
+    // Bytes in vector v are numbered consecutively from 0 toward ascending addresses.
+    // Bit positions are designated as 0 for LSB and increasing toward MSB.
+    // Bytes have a length of 8 bits.
+    //
+    // So, e.g., bit position starting at 13 corresponds to bit number 5 of byte number 1.
+    
+    int start_byte = start >> 3;
+    int start_bit  = start & 7;
+    int end_byte   = (start + nbits) >> 3;
+    int end_bit    = (start + nbits) & 7;
+    type64 ans  = 0;
+    int bit_pos = start_bit;
+    int kbits   = 0;
+    for(int pos = start_byte; pos < maxlen; ++pos) {
+        int nel;
+        if(pos < end_byte)
+            nel = 8 - bit_pos;
+        else
+            nel = end_bit - bit_pos;
+        if(nel > 0) {
+            int mask = (1 << nel) - 1;
+            int bits = v[pos];
+            ans |= ((type64)((bits >> bit_pos) & mask)) << kbits;
+            kbits += nel;
+        }
+        if(pos >= end_byte)
+            break;
+        bit_pos = 0;
+    }
+    return ans;
+}
+
+static
+void store_bits(unsigned char* v, int maxlen, int start, int nbits, type64 val) {
+    // Store little-endian encoding of value "val" in byte-vector "v",
+    // which has maximum length of "maxlen" bytes. We store "nbits" bits of "val"
+    // into "v" starting at bit position "start".
+    int start_byte = start >> 3;
+    int start_bit  = start & 7;
+    int end_byte   = (start + nbits) >> 3;
+    int end_bit    = (start + nbits) & 7;
+    int bit_pos = start_bit;
+    int kbits   = 0;
+    for(int pos = start_byte; pos < maxlen; ++pos) {
+        int nel;
+        if(pos < end_byte)
+            nel = 8 - bit_pos;
+        else
+            nel = end_bit - bit_pos;
+        if(nel > 0) {
+            int mask = (1 << nel) - 1;
+            int byte = v[pos];
+            int bits = (((int)(val >> kbits)) & mask) << bit_pos;
+            byte |= bits;
+            v[pos] = byte;
+            kbits += nel;
+        }
+        if(pos >= end_byte)
+            break;
+        bit_pos = 0;
+    }
+}
+
+
+static
 void gfetch(unsigned char* v, type64 *w)
 {
-  // fetch 56-bit words from consecutively stored 64-bit words in v.
-  // Assumes input value is < 2^336
-  
-  type64 *pv;
-  uint64_t t1, t2;
-  
-  pv = (type64*)v;
-  t1 = pv[0];
-  w[0] = t1 & bot56bits;
-  t2 = pv[1];
-  w[1] = ((t2 <<  8) | (t1 >> 56)) & bot56bits;
-  t1 = pv[2];
-  w[2] = ((t1 << 16) | (t2 >> 48)) & bot56bits;
-  t2 = pv[3];
-  w[3] = ((t2 << 24) | (t1 >> 40)) & bot56bits;
-  t1 = pv[4];
-  w[4] = ((t1 << 32) | (t2 >> 32)) & bot56bits;
-  t2 = pv[5];
-  w[5] = ((t2 << 40) | (t1 >> 24)) & bot56bits;
+    // fetch 51-bit words from consecutively stored 64-bit words in v.
+    // Assumes input value is < 2^336 = 42 bytes, exactly
+    
+    for(int ix = 0; ix < NGRP; ++ix)
+        w[ix] = fetch_bits(v, 42, ix * kBPW, kBPW);
 }
 
 static
 void gstore(type64 *w, unsigned char* v)
 {
-  // store 56-bit words into consecutively stored 64-bit words in v.
-  type64 *pv;
-  uint64_t t1,t2;
-  type64 wn[6];
-
-  gnorm(w, wn);
-  t1 = w[0];
-  t2 = w[1];
-  pv = (type64*)v;
-  pv[0] = t1 | (t2 << 56);
-  t1 = w[2];
-  pv[1] = (t2 >>  8) | (t1 << 48);
-  t2 = w[3];
-  pv[2] = (t1 >> 16) | (t2 << 40);
-  t1 = w[4];
-  pv[3] = (t2 >> 24) | (t1 << 32);
-  t2 = w[5];
-  pv[4] = (t1 >> 32) | (t2 << 24);
-  pv[5] = (t2 >> 40);
+    // store 51-bit words into consecutively stored 64-bit words in v.
+    // NOTE: Lisp-provided buffers should have a length of 66 bytes.
+    // This much accommodates curves up to E-521.
+    
+    memset(v, 0, 66);
+    for(int ix = 0; ix < NGRP; ++ix)
+        store_bits(v, 42, ix * kBPW, kBPW, w[ix]);
 }
+
 
 extern "C"
 void Ed3363_affine_mul(unsigned char* ptx,
