@@ -280,6 +280,8 @@ THE SOFTWARE.
   (hash:hashable (vec-repr:int x)))
 
 (defmacro define-ffield1 (name base)
+  ;; Here, base should represent an FFBASE instance, not the modular
+  ;; base.
   `(progn
      (defclass ,name (ffld)
        ())
