@@ -7,8 +7,11 @@
 ;; -------------------------------------------------
 ;; Structs used to hold working info on ECC curves
 
-(defstruct ed-curve
-  name c d q h r gen ff-embed ff-curve)
+(defstruct portable-ed-curve
+  name c d q h r gen)
+
+(defstruct (ed-curve (:include portable-ed-curve))
+  ff-embed ff-curve)
 
 (defstruct (fast-ed-curve (:include ed-curve))
   affine-mul
@@ -19,19 +22,17 @@
 ;; -------------------------------------------------
 ;; For object serialization
 
-(defstruct portable-ed-curve
-  name c d q h r gen)
-
 (defmethod loenc:before-store ((obj ed-curve))
+  ;; useful to elide non-portable items from ed-curve
   (with-slots (name c d q h r gen) obj
     (make-portable-ed-curve
-     :name name
-     :c    c
-     :d    d
-     :q    q
-     :h    h
-     :r    r
-     :gen  gen)))
+     :name  name
+     :c     c
+     :d     d
+     :q     q
+     :h     h
+     :r     r
+     :gen   gen)))
 
 ;; -------------------------------------------------
 
