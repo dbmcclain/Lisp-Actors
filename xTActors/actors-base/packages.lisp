@@ -315,6 +315,7 @@ THE SOFTWARE.
 
    #:actor-state
    #:state-with
+   #:with
    #:state-without
    #:state-val
    #:with-state-vals

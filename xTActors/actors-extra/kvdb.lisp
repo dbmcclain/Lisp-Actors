@@ -332,9 +332,9 @@
       (let ((fa-tag (tag self)))
         (send cust db)
         (send-after timeout fa-tag 'forced-abort)
-        (become (busy-trans-gate-beh (state-with state
-                                                 :owner  owner
-                                                 :fa-tag fa-tag)))
+        (become (busy-trans-gate-beh (with state
+                                       :owner  owner
+                                       :fa-tag fa-tag)))
         ))
      
      ;; -------------------
@@ -349,8 +349,8 @@
                     ;; changed db, so commit new
                     (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
                       ;; version key is actually 'com.ral.actors.kvdb::version
-                      (become (trans-gate-beh (state-with state
-                                                          :db versioned-db)))
+                      (become (trans-gate-beh (with state
+                                                :db versioned-db)))
                       (send-after 10 self saver versioned-db)
                       (send cust versioned-db)))
                    ))
@@ -362,8 +362,8 @@
      
      (('maint-full-save)
       (let ((new-db (db-rebuild db)))
-        (become (trans-gate-beh (state-with state
-                                            :db new-db)))
+        (become (trans-gate-beh (with state
+                                  :db new-db)))
         (send saver sink :full-save new-db)))
      
      (msg
@@ -388,8 +388,8 @@
                                           :saver saver))))
                
                (stash ()
-                 (become (busy-trans-gate-beh (state-with state
-                                                          :queue (addq queue msg)))
+                 (become (busy-trans-gate-beh (with state
+                                                :queue (addq queue msg)))
                          )))
         
         (match msg
@@ -583,7 +583,7 @@
                  
                  (prep-and-save-new-db ()
                    (prep-and-save-db (db-new)))
-                 
+
                  (try-deserialize-db (f)
                    (handler-case
                        (let ((db  (loenc:deserialize f)))
@@ -600,7 +600,7 @@
                          ;; else
                          (error 'corrupt-kvdb :path db-path)))
                      ))
-                 
+
                  (apply-deltas (f db)
                    (handler-case
                        (let ((reader (self-sync:make-reader f)))

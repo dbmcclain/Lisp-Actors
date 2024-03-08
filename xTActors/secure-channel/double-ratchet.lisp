@@ -37,8 +37,8 @@
                  (tx-key       (iter-hash root-key dh-pt next-tx-nbr)))
             (become (ratchet-manager-beh
                      role
-                     (state-with state
-                                 :tx-nbr  next-tx-nbr)
+                     (with state
+                       :tx-nbr  next-tx-nbr)
                      tag))
             ;; Encryption key, tk-key, is: K(n)= H(root, dh-pt)^n,
             ;; for tx-nbr = n, root-key = root, dh-pt = random point, R.
@@ -141,13 +141,13 @@
                          (tag        (tag self)))
                     (become (ratchet-manager-beh
                              role
-                             (state-with state
-                                         :root-key new-root
-                                         :tx-nbr   0            ;; start counting anew
-                                         :ack-key  (elligator-body tau) ;; sender's last DH Elligator
-                                         :dh-key   new-dh-key   ;; our new DH Elligator
-                                         :dh-pt    new-dh-pt    ;; our DH shared point
-                                         :dict     new-dict)
+                             (with state
+                               :root-key new-root
+                               :tx-nbr   0            ;; start counting anew
+                               :ack-key  (elligator-body tau) ;; sender's last DH Elligator
+                               :dh-key   new-dh-key   ;; our new DH Elligator
+                               :dh-pt    new-dh-pt    ;; our DH shared point
+                               :dict     new-dict)
                              tag))
                     (send cust rx-key auth-key)
                     (send-after 10 tag :clean) ;; clear out stale encryption info in 10 sec
@@ -171,15 +171,15 @@
                            (:mvb (is-ok auth-key)
                             (check-auth rx-key iv ctxt auth)))
                       (when is-ok
-                        (let+ ((new-entry (state-with entry
-                                                      :bday (get-universal-time) ;; new birthday for entry
-                                                      :seqs (cons seq seqs)))
+                        (let+ ((new-entry (with entry
+                                            :bday (get-universal-time) ;; new birthday for entry
+                                            :seqs (cons seq seqs)))
                                (new-dict  (maps:add dict ack-key new-entry))
                                (tag       (tag self)))
                           (become (ratchet-manager-beh
                                    role
-                                   (state-with state
-                                               :dict new-dict)
+                                   (with state
+                                     :dict new-dict)
                                    tag))
                           (send cust rx-key auth-key)
                           (send-after 10 tag :clean)
@@ -203,8 +203,8 @@
                          (tag self))))
               (become (ratchet-manager-beh
                        role
-                       (state-with state
-                                   :dict new-dict)
+                       (with state
+                         :dict new-dict)
                        tag))
               (when tag
                 (send-after 10 tag :clean))
