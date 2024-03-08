@@ -241,9 +241,9 @@ THE SOFTWARE.
    (ffbase-inst-class *field*)))
 
 (defun need-same-ffield (x y)
-  ;; Not only same base for field, but also sameness as Montgomery
-  ;; mixin or not.
-  (unless (eql (ffld-class x) (ffld-class y))
+  ;; Need same numerical prime base
+  (unless (eql (ffbase-base (ffld-base x))
+               (ffbase-base (ffld-base y)))
     (error 'ffield-mismatch)))
 
 (defun %basic-ffld (proto x)
