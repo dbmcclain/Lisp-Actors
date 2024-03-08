@@ -4,6 +4,9 @@
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) #|(SAFETY 0)|# #+:LISPWORKS (FLOAT 0)))
 
+;; -------------------------------------------------
+;; Structs used to hold working info on ECC curves
+
 (defstruct ed-curve
   name c d q h r gen ff-embed ff-curve)
 
@@ -13,6 +16,26 @@
   proj-add
   to-affine)
 
+;; -------------------------------------------------
+;; For object serialization
+
+(defstruct portable-ed-curve
+  name c d q h r gen)
+
+(defmethod loenc:before-store ((obj ed-curve))
+  (with-slots (name c d q h r gen) obj
+    (make-portable-ed-curve
+     :name name
+     :c    c
+     :d    d
+     :q    q
+     :h    h
+     :r    r
+     :gen  gen)))
+
+;; -------------------------------------------------
+
+#|
 (defmethod hash:hashable ((obj ed-curve))
   (with-slots (name c d q h r gen) obj
     (hash:hashable `(ed-curve
@@ -23,6 +46,7 @@
                      :h    ,h
                      :r    ,r
                      :gen  ,gen))))
+|#
 
 #+:SBCL
 (defmethod make-load-form ((obj ed-curve) &optional environment)
