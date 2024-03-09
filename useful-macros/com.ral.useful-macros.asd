@@ -75,6 +75,7 @@ THE SOFTWARE.
                  "alexandria"
                  "cffi"
                  "com.ral.mpcompat"
+                 "closer-mop"
                  ))
 
 ;; Actors can be invoked after first loading "useful-macros"
