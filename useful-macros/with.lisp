@@ -59,18 +59,23 @@
   (:method ((obj condition))
    (copyable-slots-using-class obj (class-of obj))))
 
-(defun get-keyword-symbol (sym)
-  (find-symbol (symbol-name sym) :keyword))
-
 (defun copy-obj (obj &rest props)
-  (let* ((class (class-name (class-of obj)))
+  (let* ((class (class-of obj))
+         (prop-names (nlet iter ((props props)
+                                 (ans   nil))
+                       (if (endp props)
+                           ans
+                         (destructuring-bind (key val . rest) props
+                           (declare (ignore val))
+                           (go-iter rest (cons key ans)))
+                         )))
          (slots (remove-if
                  (complement
                   (lambda (slot)
                     (let ((slot-name (slot-definition-name slot)))
                       (and (slot-boundp obj slot-name)
-                           (not (eql (slot-definition-allocation slot) :class))
-                           (slot-definition-initargs slot))
+                           (slot-definition-initargs slot)
+                           (null (intersection (slot-definition-initargs slot) prop-names)))
                       )))
                  (copyable-slots obj)))
          (extant-props (mapcan (lambda (slot)
