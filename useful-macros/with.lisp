@@ -27,6 +27,13 @@
             (go-iter rest)))
         ))))
 
+(eval-always
+  (import '(closer-mop:class-slots
+            closer-mop:slot-definition-name
+            closer-mop:slot-definition-allocation
+            closer-mop:slot-definition-initargs
+            )))
+
 (defgeneric copyable-slots-using-class (obj class)
   (:method (obj (class standard-class))
    (class-slots class))
@@ -52,31 +59,25 @@
   (:method ((obj condition))
    (copyable-slots-using-class obj (class-of obj))))
 
+(defun get-keyword-symbol (sym)
+  (find-symbol (symbol-name sym) :keyword))
+
 (defun copy-obj (obj &rest props)
-  (let* ((class-name (class-name (class-of obj)))
-         (pkg        (symbol-package class-name))
-         (slot-names (remove-if
-                      (complement
-                       (lambda (slot)
-                         (let ((slot-name (slot-definition-name slot)))
-                           (and (slot-boundp obj slot-name)
-                                (not (eql (slot-definition-allocation slot) :class)))
-                           )))
-                      (copyable-slots obj)))
-         (extant-props (mapcan (lambda (slot-name)
-                                 (list slot-name (slot-value obj slot-name)))
-                               slot-names))
-         (new-props (nlet iter ((props (reverse props))
-                                (ans   nil))
-                      (if (endp props)
-                          ans
-                        ;; translate slot keyword to slot name
-                        (destructuring-bind (val name . rest) props
-                          (go-iter rest (list* (find-symbol (symbol-name name) pkg)
-                                               val
-                                               ans)))
-                        ))))
-    (apply #'make-instance class-name (append new-props extant-props))))
+  (let* ((class (class-name (class-of obj)))
+         (slots (remove-if
+                 (complement
+                  (lambda (slot)
+                    (let ((slot-name (slot-definition-name slot)))
+                      (and (slot-boundp obj slot-name)
+                           (not (eql (slot-definition-allocation slot) :class))
+                           (slot-definition-initargs slot))
+                      )))
+                 (copyable-slots obj)))
+         (extant-props (mapcan (lambda (slot)
+                                 (list (car (slot-definition-initargs slot))
+                                       (slot-value obj (slot-definition-name slot))))
+                               slots)))
+    (apply #'make-instance class (append props extant-props))))
     
 (defmethod with ((obj standard-object) &rest props)
   (apply #'copy-obj obj props))
@@ -92,4 +93,15 @@
 (let* ((x  (make-my-thing :a 1 :b 2 :c 3)))
   (with x
     :a 15))
+
+(defclass my-obj ()
+  ((a   :accessor my-obj-a :initarg :a)
+   (b   :accessor my-obj-b :initarg :b)))
+
+(let ((x (make-instance 'my-obj
+                        :a  1
+                        :b  2)))
+  (inspect (list x (with x :a 15)))
+  ;; (inspect (mapcar #'slot-definition-name (copyable-slots x)))
+  )
 |#
