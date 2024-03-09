@@ -60,7 +60,12 @@
    :plist (validate-plist plist)))
 
 (defmethod state-with ((state actor-state) &rest props)
-  (let ((new-plist  (copy-seq (actor-state-plist state))))
+  (let ((new-plist  (um:if-let (elisions (getf props :without))
+                        (progn
+                          (remf props :without)
+                          (apply #'state-without state (um:mklist elisions)))
+                      ;; else
+                      (copy-seq (actor-state-plist state)))))
     (um:nlet iter ((keys props)
                    (vals (cdr props)))
       (when keys
@@ -98,13 +103,7 @@
        ,@body)
     ))
 
-(defmacro with (state &rest props)
+(defmethod um:with ((state actor-state) &rest props)
   ;; WITH state props [:WITHOUT (prop-name | list-of-prop-names)] -> new-state
-  ;;
-  (if (member :without props)
-      (let ((rems (getf props :without)))
-        (remf props :without)
-        `(state-with
-          (state-without ,state ,@(um:mklist rems))
-          ,@props))
-    `(state-with ,state ,@props)))
+  (apply #'state-with state props))
+

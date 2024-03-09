@@ -50,6 +50,7 @@ THE SOFTWARE.
                 (:file "dflet")
                 (:file "option")
                 (:file "nlet")
+                (:file "with")
                 (:file "sharp-quasiquote-reader")
                 (:file "bang-macros")
                 (:file "ppcre-reader")

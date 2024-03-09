@@ -120,10 +120,10 @@ THE SOFTWARE.
   (car (the cons (last lst))))
 
 ;; ----------------------------------------
-
+#| ;; nobody uses this, so elide in favor of WITH for struct copying
 (defmacro with (bindings &body body)
   `(let* ,bindings ,@body))
-
+|#
 (defmacro letp (bindings &body body)
   `(let ,bindings ,@body))
 

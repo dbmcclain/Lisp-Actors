@@ -46,6 +46,7 @@ THE SOFTWARE.
    #:*timeout*
    #:with-timeout)
   (:import-from #:um
+   #:with
    #:match
    #:match-fail
    #:letrec)
