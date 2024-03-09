@@ -79,8 +79,9 @@
                       )))
                  (copyable-slots obj)))
          (extant-props (mapcan (lambda (slot)
-                                 (list (car (slot-definition-initargs slot))
-                                       (slot-value obj (slot-definition-name slot))))
+                                 (ignore-errors ;; in case we can't actually read the slot-value (computed slots?)
+                                   (list (car (slot-definition-initargs slot))
+                                         (slot-value obj (slot-definition-name slot)))))
                                slots)))
     (apply #'make-instance class (append props extant-props))))
     
