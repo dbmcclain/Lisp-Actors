@@ -100,7 +100,9 @@
 
 (defmacro with (state &rest props)
   (if (member :without props)
-      `(state-with
-        (state-without ,state ,@(um:mklist (getf props :without)))
-        ,@(remf props :without))
+      (let ((rems (getf props :without)))
+        (remf props :without)
+        `(state-with
+          (state-without ,state ,@(um:mklist rems))
+          ,@props))
     `(state-with ,state ,@props)))
