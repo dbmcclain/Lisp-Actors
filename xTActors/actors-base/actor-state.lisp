@@ -99,6 +99,8 @@
     ))
 
 (defmacro with (state &rest props)
+  ;; WITH state props [:WITHOUT (prop-name | list-of-prop-names)] -> new-state
+  ;;
   (if (member :without props)
       (let ((rems (getf props :without)))
         (remf props :without)
