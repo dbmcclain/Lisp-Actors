@@ -48,11 +48,8 @@
   (plist nil :read-only t))
 
 (defun validate-plist (plist)
-  (um:nlet iter ((keys plist))
-    (when keys
-      (assert (symbolp (car keys)))
-      (go-iter (cddr keys)))
-    )
+  (loop for key in plist by #'cddr do
+          (assert (symbolp key)))
   plist)
 
 (defun actor-state (&rest plist)
@@ -60,36 +57,26 @@
    :plist (validate-plist plist)))
 
 (defmethod state-with ((state actor-state) &rest props)
-  (let ((new-plist  (um:if-let (elisions (getf props :without))
-                        (progn
-                          (remf props :without)
-                          (apply #'state-without state (um:mklist elisions)))
-                      ;; else
-                      (copy-seq (actor-state-plist state)))))
-    (um:nlet iter ((keys props)
-                   (vals (cdr props)))
-      (when keys
-        (let ((key  (car keys))
-              (val  (car vals)))
-          (assert (symbolp key))
-          (setf (getf new-plist key) val)
-          (go-iter (cddr keys) (cddr vals)))
-        ))
-    (make-actor-state
-     :plist new-plist)
+  (let ((new-plist  (copy-list
+                     (actor-state-plist
+                      (um:if-let (elisions (getf props :without))
+                          (progn
+                            (setf props (copy-list props))
+                            (remf props :without)
+                            (apply #'state-without state (um:mklist elisions)))
+                        ;; else
+                        state)
+                      ))))
+    (loop for (key val) on props by #'cddr do
+            (setf (getf new-plist key) val))
+    (apply #'actor-state new-plist)
     ))
 
 (defmethod state-without ((state actor-state) &rest removals)
-  (let ((new-plist  (copy-seq (actor-state-plist state))))
-    (um:nlet iter ((keys removals))
-      (when keys
-        (let ((key (car keys)))
-          (assert (symbolp key))
-          (remf new-plist key)
-          (go-iter (cdr keys)))
-        ))
-    (make-actor-state
-     :plist new-plist)
+  (let ((new-plist  (copy-list (actor-state-plist state))))
+    (loop for key in removals do
+            (remf new-plist key))
+    (apply #'actor-state new-plist)
     ))
 
 (defmethod state-val ((state actor-state) (key symbol) &optional default)
