@@ -13,19 +13,13 @@
 
 ;; ----------------------------------
 
-#+:LISPWORKS
 (defmethod with ((obj structure-object) &rest props)
   (let* ((new  (copy-structure obj))
          (pkg  (symbol-package (class-name (class-of obj))) ))
-    (nlet iter ((props props))
-      (if (endp props)
-          new
-        ;; else
-        (destructuring-bind (key val . rest) props
-          (let ((slot-name (find-symbol (symbol-name key) pkg)))
-            (setf (slot-value new slot-name) val)
-            (go-iter rest)))
-        ))))
+    (loop for (key val) on props by #'cddr do
+            (let ((slot-name (find-symbol (symbol-name key) pkg)))
+              (setf (slot-value new slot-name) val)))
+    new))
 
 (eval-always
   (import '(closer-mop:class-slots
