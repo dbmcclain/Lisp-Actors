@@ -48,7 +48,7 @@
  Actors live by the discipline of lock-free, purely functional code.
  The only global mutation permitted in this inherently parallel
  operating environment is the Behavior slot of an Actor, using
- BECOME. And that is carefully coordinated by the Message
+ BECOME. And that mutation is carefully coordinated by the Message
  Dispatchers running in every Actor machine thread.
 
  And as long as you live by FPL you can freely have multiple
@@ -56,21 +56,32 @@
  when the Actor performs a BECOME to change shared closure
  parameters.
 
- And that is why you see us using Lisp REMOVE on Actor parameter
- lists, instead of the mutating imperative DELETE. REMOVE does not
- damage the shared list, so multiple threads can happily access it
- in parallel.  It can only be changed for all to see, as a result of
- a successful BECOME.
+ If two or more Actors attempt a BECOME inside the same Actor body,
+ only one of them will succeed. The others will be silently retried
+ with their message delivery to the Actor.
+ 
+ And so Functional Purity is demanded of every item that can be seen
+ by more than one logical thread. That is why you see us using Lisp
+ REMOVE on Actor parameter lists, instead of the mutating imperative
+ DELETE. REMOVE does not damage the shared list, so multiple threads
+ can happily access it in parallel.  It can only be changed for all
+ to see, as a result of a successful BECOME using a modified copy of
+ the list.
 
  However, sometimes you just can't be FPL pure, and must make
  mutations that could be visible outside the running Actor instance.
- A Hashtable in an Actor closure parameter list is a good example.
+ A Hashtable in an Actor closure parameter list is a good example. Or
+ writing data to a file is another mutation that cannot be hidden.
 
  All Actor instances runnning inside the body of the Actor view the
  same closure parameters. Only one machine thread at a time can be
- allowed to mutate the Hashtable, and it must happen while no other
- thread is attempting to read the Hashtable. In MPX-land, you would
- use a LOCK. But in Actor-land, we use a SERIALZER Gate.
+ allowed to mutate the Hashtable or File, and it must happen while
+ no other thread is attempting to use the same resource.
+
+ In MPX-land, you would use a LOCK. But that locks up an entire
+ machine thread while waiting for the lock to become free again. So in
+ Actor-land, we use a SERIALZER Gate. That leaves all machine threads
+ running and free to dispatch other messages for other logical threads.
 
  Once running inside an Actor body that is guarded by a SERIALIZER,
  you can freely mutate globally visible items that are in the
@@ -101,8 +112,9 @@
  its message will be automatically retried. BECOME Contention.
 
  ----------------------------------------------------------------
- *** ACTORS ARE LOCK-FREE.  SO, CAN DEADLOCKS BE ELIMINATED BY USING
- ACTORS? ***
+ *** ACTORS ARE LOCK-FREE ***
+
+ SO, CAN DEADLOCKS BE ELIMINATED BY USING ACTORS?
 
  Not quite: Full-out deadlocks are impossible in an Actors system.
  But it is certainly possible to develop a logical livelock between
@@ -155,9 +167,10 @@
  running Actor and its actual customer. In that way, the SERIALIZER
  can detect when it is safe to release another message in waiting.
 
- You should also realize, that once you send a message to the
- customer, you are no longer the sole instance running in Actor
- bodies.
+ You should also realize that once you send a message to the
+ customer, you may no longer be the sole instance running in Actor
+ bodies on the service side of the Serializer. So don't send the
+ message until you are finished with the service.
 
  (Keep in mind: SENDs and BECOMEs never actually occur until the
  successful exit of the Actor body. Until then, they are privately
@@ -171,7 +184,7 @@
  happen until many Actor blocks beyond the SERIALIZER. But somewhere
  along that logical thread, a message must be sent to the customer.
  Failing to do so results in a permanent logical blocking for any
- other chains of activity that need to use the same resource.
+ other chains of activity that need to use the same service.
 
  Unlike in CALL/RETURN architectures, we don't have an
  UNWIND-PROTECT on which to rely. There is no scoping with Actor
@@ -180,26 +193,31 @@
 
  It is difficult to defensively program against all possible future
  abuses of your Actor system. In most cases you will need to rely on
- timeout mechanisms to help out. Just like in the real world...
+ timeout mechanisms to help out. Just like in the real world..
+ .
   -----------------------------------------------------------------
 
-                == The Microcosm of Serializer ==
+   +------------------The Microcosm of Serializer -------------------+
+   |                                                                 |
+   |                                              +-------------+    |
+   |                                       +------+   TIMEOUT   |    |
+   |                                       |      +-------------+    |
+   |                                       |                         |
+   |                                       v                         |
+   |                                +-------------+                  |
+   |                       +--------+  ONCE-TAG   |<-- reply -----+  |
+   |                       |        +-------------+               |  |
+   |                       |                                      |  |
+   |                       v                                      |  |
+   |                +-------------+             +-------------+   |  |
+   |     -- msg --->| SERIALIZER  +---- msg --->|     svc     +---+  |
+   |                +------+------+             +-------------+      |
+   |                       |                                         |
+   |         <-- reply ----+                                         |
+   |                                                                 |
+   +-----------------------------------------------------------------+
 
-                                  +---------+
-                             +----| TIMEOUT |
-                             |    +---------+
-                             v
-                        +---------+   
-                   +----| SER-TAG |<------ reply -------+
-                   |    +---------+                     |
-                   v                                    |
-             +------------+                          +-----+
-  --- msg -->| SERIALIZER |--- msg ----------------->| svc |
-             +------------+                          +-----+
-                   |
-     <--- reply ---+
-
-   ----------------------------------------------------------------- |#
+  ----------------------------------------------------------------- |#
 
 (defun serializer (svc &key (timeout *timeout* timeout-provided-p))
   (warn-timeout timeout timeout-provided-p "Serializer")
@@ -238,26 +256,30 @@
 
 #| -----------------------------------------------------------
 
-                   == A Serializer SInk ==
-
-                                                  +---------+
-                                          +-------| TIMEOUT |
-                                          |       +---------+
-                                          v
-                                     +---------+
-                                +----| SER-TAG |<------ reply ---+
-                                |    +---------+                 |
-                                v                                |
-              +-----+    +------------+                       +-----+
-  --- msg --->| LBL |--->| SERIALIZER |--- msg -------------->| svc |
-              +-----+    +------------+                       +-----+
-                                |
-                              reply
-                                |
-                                v
-                             +------+
-                             | SINK |
-                             +------+
+   +------------------The Microcosm of Serializer-Sink --------------+
+   |                                                                 |
+   |                                             +-------------+     |
+   |                                      +------+   TIMEOUT   |     |
+   |                                      |      +-------------+     |
+   |                                      |                          |
+   |                                      v                          |
+   |                               +-------------+                   |
+   |                      +--------+  ONCE-TAG   |<--- reply ----+   |
+   |                      |        +-------------+               |   |
+   |                      |                                      |   |
+   |                      |                                      |   |
+   |               +------v------+             +-------------+   |   |
+   |    -- msg --->| SERIALIZER  +---- msg --->|     svc     +---+   |
+   |               +------+------+             +-------------+       |
+   |                      |                                          |
+   |                    reply                                        |
+   |                      |                                          |
+   |                      v                                          |
+   |               +-------------+                                   |
+   |               |    SINK     |                                   |
+   |               +-------------+                                   |
+   |                                                                 |
+   +-----------------------------------------------------------------+
 
    ------------------------------------------------------------- |#
 
