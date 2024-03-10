@@ -34,7 +34,7 @@
             closer-mop:slot-definition-initargs
             )))
 
-(defgeneric copyable-slots-using-class (obj class)
+(defgeneric all-slots-using-class (obj class)
   (:method (obj (class standard-class))
    (class-slots class))
   #+(or sbcl cmu openmcl)
@@ -50,39 +50,35 @@
   (:method (obj (class pcl::condition-class))
    (class-slots class)))
 
-(defgeneric copyable-slots (obj)
+(defgeneric all-slots (obj)
   (:method ((obj standard-object))
-   (copyable-slots-using-class obj (class-of obj)))
+   (all-slots-using-class obj (class-of obj)))
   #+(or sbcl cmu openmcl allegro)
   (:method ((obj structure-object))
-   (copyable-slots-using-class obj (class-of obj)))
+   (all-slots-using-class obj (class-of obj)))
   (:method ((obj condition))
-   (copyable-slots-using-class obj (class-of obj))))
+   (all-slots-using-class obj (class-of obj))))
 
 (defun copy-obj (obj &rest props)
   (let* ((class (class-of obj))
-         (prop-names (nlet iter ((props props)
-                                 (ans   nil))
-                       (if (endp props)
-                           ans
-                         (destructuring-bind (key val . rest) props
-                           (declare (ignore val))
-                           (go-iter rest (cons key ans)))
-                         )))
-         (slots (remove-if
-                 (complement
-                  (lambda (slot)
-                    (let ((slot-name (slot-definition-name slot)))
-                      (and (slot-boundp obj slot-name)
-                           (slot-definition-initargs slot)
-                           (null (intersection (slot-definition-initargs slot) prop-names)))
-                      )))
-                 (copyable-slots obj)))
-         (extant-props (mapcan (lambda (slot)
-                                 (ignore-errors ;; in case we can't actually read the slot-value (computed slots?)
-                                   (list (car (slot-definition-initargs slot))
-                                         (slot-value obj (slot-definition-name slot)))))
-                               slots)))
+         (prop-names (loop for key in props by #'cddr collecting key))
+         (extant-props (mapcan
+                        (lambda (slot)
+                          (let ((name     (slot-definition-name slot))
+                                (initargs (slot-definition-initargs slot))
+                                val)
+                            ;; This ought to work for 99% of class instances.
+                            ;; But, being Lisp, there will surely be exceptions.
+                            (when (and initargs
+                                       (null (intersection initargs prop-names))
+                                       (ignore-errors
+                                         ;; check that we can actually read the slot
+                                         ;; it might be unbound, or computed
+                                         (setf val (slot-value obj name))
+                                         t))
+                              (list (car initargs) val))
+                            ))
+                        (all-slots obj))))
     (apply #'make-instance class (append props extant-props))))
     
 (defmethod with ((obj standard-object) &rest props)
