@@ -24,7 +24,6 @@
 (eval-always
   (import '(closer-mop:class-slots
             closer-mop:slot-definition-name
-            closer-mop:slot-definition-allocation
             closer-mop:slot-definition-initargs
             )))
 
