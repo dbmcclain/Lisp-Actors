@@ -762,6 +762,10 @@ THE SOFTWARE.
    #:*curve-Ed448*
    #:*curve-e521*
    #:*curve-Ed3363*
+
+   #:ssig-nonce
+   #:ssig-sign
+   #:ssig-verify
    ))
 
 (defpackage #:com.ral.crypto.finite-field

@@ -56,7 +56,7 @@
   ;; signature from skey
   (with-ed-curve +ECC-CURVE+
     (let* ((pkey  (ed-nth-pt skey))
-           (nonce (edec::ssig-nonce))
+           (nonce (ssig-nonce))
            (krand (int (hash/256 nonce item skey pkey)))
            (kpt   (ed-nth-pt krand))
            (hk    (hash/256 kpt pkey item))
