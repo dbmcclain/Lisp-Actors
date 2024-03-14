@@ -45,7 +45,7 @@
  ----------------------------------------------------------------
  *** WHEN TO USE A SERIALIZER? ***
 
- Actors live by the discipline of lock-free, purely functional code.
+ Actors live by the discipline of lock-free, purely functional, code.
  The only global mutation permitted in this inherently parallel
  operating environment is the Behavior slot of an Actor, using
  BECOME. And that mutation is carefully coordinated by the Message

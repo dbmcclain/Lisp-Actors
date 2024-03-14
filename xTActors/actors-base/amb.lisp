@@ -50,8 +50,8 @@
 ;; -----------------------------
 ;; The AMB generator pump
 (defun amb (cust fail gen)
-  ;; Gen furnishes successive items to Cust. If no more items, Gen
-  ;; sends to Fail.
+  ;; Gen furnishes successive items to Cust on every send to Next. If
+  ;; no more items, Gen sends to Fail.
   (um:letrec ((next (create
                      (lambda ()
                        (β args
