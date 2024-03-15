@@ -288,25 +288,26 @@
 ;; ---------------------------------------------------
 ;; Fork/Join against zero or more services
 
-(defun join2-beh (cust tag1)
+(defun join2 (cust tag1)
   ;; Wait for two answers and then forward them in proper order to the
   ;; customer.
-  (lambda* (tag . ans1)
-    (become (lambda* (_ . ans2)
-              (become-sink)
-              (send* cust (if (eq tag tag1)
-                              (append ans1 ans2)
-                            (append ans2 ans1)) )))
-    ))
+  (create
+   (lambda* (tag . ans1)
+     (become (lambda* (_ . ans2)
+               (become-sink)
+               (send* cust (if (eq tag tag1)
+                               (append ans1 ans2)
+                             (append ans2 ans1)) )))
+     )))
 
 (defun fork2 (service1 service2)
   ;; Produce a single service which fires both services in parallel
   ;; and sends their results in the same order to customer.
   (create
    (lambda (cust)
-     (actors ((tag1   (tag-beh joiner))
-              (tag2   (tag-beh joiner))
-              (joiner (join2-beh cust tag1)))
+     (actors ((tag1   (tag joiner))
+              (tag2   (tag joiner))
+              (joiner (join2 cust tag1)))
        (send service1 tag1)
        (send service2 tag2)
        ))

@@ -215,14 +215,13 @@ prefixed by the label."
 
 ;; ---------------------
 
-(defun tag-beh (cust)
-  (lambda (&rest msg)
-    (send* cust self msg)))
-
 (defun tag (cust)
   "TAG -- Construct an Actor to relay a message to the customer,
 prefixed by our unique SELF identity/"
-  (create (tag-beh cust)))
+  (create
+     (lambda (&rest msg)
+       (send* cust self msg))
+     ))
 
 ;; ---------------------
 
