@@ -404,7 +404,7 @@
   ;; cust if it only accepts a single list result.
   (create
    (alambda
-    ((cust action filter-fn &rest args)
+    ((cust action filter-fn . args)
      (send (apply #'par-map action args)
            (create (lambda (&rest ans)
                      (send* cust (um:collect-if filter-fn ans)))
