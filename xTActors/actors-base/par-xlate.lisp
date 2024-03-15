@@ -221,22 +221,42 @@
 ;;
 ;; -----------------------------------------------
 
-(defmethod service ((ac actor) &rest args)
-  (if args
-      (apply #'racurry ac args)
-    ac))
-
-(defmethod service ((fn function) &rest args)
-  (create
-   (lambda (cust)
-     (send cust (apply fn args)))))
-
-(defmethod service (x &rest args)
-  (apply #'const x args))
+(defgeneric service (x &rest args)
+  ;; Accept an Actor, Function, or Item, along with other args.
+  ;; Produce a Service Actor that expects a message containing an
+  ;; eventual customer.
+  ;;
+  ;; If x is an Actor, then we get an Actor that expects a customer in
+  ;; a message, then forwards that customer and the construction args
+  ;; to x.
+  ;;
+  ;; If x is a Function, the we get an Actor that expects at least a
+  ;; customer in a message, applies the function to the construction
+  ;; args, and sends the result to that customer Actor.
+  ;;
+  ;; If x is anything else, say a number, the we get an Actor that
+  ;; expects a customer in a message, and then sends x and
+  ;; construction args to that customer.
+  ;;
+  (:method ((ac actor) &rest args)
+   (if args
+       (apply #'racurry ac args)
+     ac))
+  (:method ((fn function) &rest args)
+   (create
+    (alambda
+     ((cust . _)
+      (send* cust (multiple-value-list
+                   (apply fn args))))
+     )))
+  (:method (x &rest args)
+   (apply #'const x args)))
 
 ;; ----------------------------------------
 
 (deflex null-service
+  ;; A Service Actor that expects at least a customer in a message,
+  ;; then perform a bare SEND (no message args) to that customer.
   (create
    (alambda
     ((cust . _)
@@ -244,6 +264,8 @@
     )))
 
 (deflex echo-service
+  ;; A Service Actor that simply sends back to the customer in the
+  ;; message, the rest of the message. Like an on-the-fly FWD.
   (create #'send))
      
 ;; ------------------------------------------------
@@ -266,31 +288,33 @@
 ;; ---------------------------------------------------
 ;; Fork/Join against zero or more services
 
-(defun join2 (cust tag1)
-  (create
-   (lambda* (tag . ans1)
-     (become (lambda* (_ . ans2)
-               (send* cust (if (eq tag tag1)
-                               (append ans1 ans2)
-                             (append ans2 ans1)) )))
-     )))
+(defun join2-beh (cust tag1)
+  ;; Wait for two answers and then forward them in proper order to the
+  ;; customer.
+  (lambda* (tag . ans1)
+    (become (lambda* (_ . ans2)
+              (become-sink)
+              (send* cust (if (eq tag tag1)
+                              (append ans1 ans2)
+                            (append ans2 ans1)) )))
+    ))
 
 (defun fork2 (service1 service2)
-  ;; Produce a single service which fires both in parallel and sends
-  ;; their results in the same order to eventual customer.
+  ;; Produce a single service which fires both services in parallel
+  ;; and sends their results in the same order to customer.
   (create
    (lambda (cust)
-     (actors ((tag1   (tag joiner))
-              (tag2   (tag joiner))
-              (joiner (join2 cust tag1)))
+     (actors ((tag1   (tag-beh joiner))
+              (tag2   (tag-beh joiner))
+              (joiner (join2-beh cust tag1)))
        (send service1 tag1)
        (send service2 tag2)
        ))
    ))
 
 (defun abstract-forker (svc-fn &rest args)
-  ;; Abstraction of FORK -- svc-fn should accept an arg and return a
-  ;; service Actor.
+  ;; Abstraction of FORK -- svc-fn should accept a specialization arg and
+  ;; return a service Actor that expects a customer as it message.
   (or (reduce (lambda (arg tail)
                 (fork2 (funcall svc-fn arg) tail))
               (butlast args)
@@ -303,29 +327,36 @@
   ;; each in parallel, sending accumulated results to eventual
   ;; customer, in the same order as stated in the service list.
   ;;
-  ;; All services in the list must return a result to their customer.
+  ;; All services in the list must send a result to their customer.
+  ;;
   (apply #'abstract-forker #'identity services))
 
 ;;
 ;; We get for (FORK A B C):
-;;
-;;                    +---+
-;;                    | A |
-;;                    +---+     +---+
-;;         +------+  /          | B |
-;;      -->| FORK |/            +---+
-;;         +------+\           /
-;;                   \+------+/
-;;                    | FORK |
-;;                    +------+\
-;;                             \
-;;                              +---+
-;;                              | C |
-;;                              +---+
-;;
-;; -----------------------------------------------
+#|
+                              +----+                                              +----------+             
+                          +-->| A  |--------------------------------------------->|          |             
+                          |   +----+                                              |  JOIN2   |--- cust --->
+            +----------+  |                                                  +--->|          |             
+            |          |--+                                                  |    +----------+             
+ -- cust -->|  FORK2   |                        +----+                       |                             
+            |          |--+                 +-->| B  |---+                   |                             
+            +----------+  |   +----------+  |   +----+   |    +----------+   |                             
+                          |   |          |--+            +--->|          |   |                             
+                          +-->|  FORK2   |                    |  JOIN2   |---+                             
+                              |          |--+            +--->|          |                                 
+                              +----------+  |   +----+   |    +----------+                                 
+                                            +-->| C  |---+                                                 
+                                                +----+
+
+|# 
+;; ----------------------------------------------------------------------------------
 ;; PAR-MAP -- produce a service Actor that forks a bunch of Actors to
 ;; perform some action against each from a list of args.
+;;
+;; (Recall that a Service is an Actor that expects a customer as its
+;; only message arg. Any specialization args are pre-cooked into its
+;; behavior closure.)
 
 (defun par-map (action &rest args)
   ;; Produces a single service performing ACTION on each of a
@@ -334,7 +365,10 @@
   ;; stated in the args list.
   ;;
   ;; Action must be an Actor that always sends a result to its
-  ;; customer. Action must accept a customer and an arg.
+  ;; customer. Action must accept a customer and an arg. (I.e., Action
+  ;; is not a Service, but gets turned into one by way of SERVICE and
+  ;; Actor-Currying.)
+  ;;
   (apply #'abstract-forker (um:curry #'service action) args))
 
 ;; ------------------------------------------------
@@ -351,9 +385,10 @@
   ;; convert a cust Actor, which expects many args, into an Actor
   ;; which can accept a single list arg.
   (create
-   (lambda (arg-list)
-     (send* cust arg-list))
-   ))
+   (alambda
+    ((arg-list) 
+     (send* cust (um:mklist arg-list)))
+    )))
 
 (deflex map-reduce
   ;; MAP-REDUCE - an Actor that accepts a customer, an action Actor, a
@@ -368,15 +403,13 @@
   ;; Customer should accept any number of args. Use a CONDENSER on the
   ;; cust if it only accepts a single list result.
   (create
-   (lambda (cust action filter-fn &rest args)
+   (alambda
+    ((cust action filter-fn &rest args)
      (send (apply #'par-map action args)
            (create (lambda (&rest ans)
-                     (let ((reduced (remove-if (complement filter-fn) ans)))
-                       (when reduced
-                         (send* cust reduced))
-                       )))
-           ))
-   ))
+                     (send* cust (um:collect-if filter-fn ans)))
+                   )))
+    )))
 
 ;; ------------------------------------------------------------------
 ;; Extend LET+ into β-forms
