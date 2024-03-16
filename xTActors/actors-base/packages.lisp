@@ -252,8 +252,10 @@ THE SOFTWARE.
    #:splay
    #:yield
 
-   #:and-β
-   #:or-β
+   #:and-ser-β
+   #:or-ser-β
+   #:and-par-β
+   #:or-par-β
    #:prog1-β
    #:progn-β
    #:with-and-β

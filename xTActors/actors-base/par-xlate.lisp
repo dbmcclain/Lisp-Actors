@@ -489,91 +489,144 @@
     ...)
  |#
 ;; -----------------------------------------------
+;; So now... when it comes to AND and OR as short-circuit operations
+;; against Actors, we have two ways to go here:
+;;
+;; We can perform each service serially in the order stated and look
+;; for a short-circuit send back to customer. This corresponds to the
+;; Lisp AND and OR operators.
+;;
+;; Or we can perform all services in parallel and accept a
+;; short-circuit from the first to respond appropriately.
 
-(defun or2 (service1 service2)
-  (create
-   (lambda (cust)
-     (β (ans)
-         (send service1 β)
-       (if ans
-           (send cust ans)
-         (send service2 cust))))
-   ))
+;; -----------------------------------------------------
+;; Serial Forms
 
-(defun or-β (&rest services)
+(defun or-ser-β (&rest services)
+  ;; Construct a service Actor that performs in-order messaging of
+  ;; services until one of them replies non-nil, then send reply to
+  ;; cust.
   (if services
-      (reduce (lambda (head svc)
-                (or2 head svc))
-              services)
+      (let+ (( (svc . svcs) services))
+        (if svcs
+            (create
+             (alambda
+              ((cust)
+               (β (ans . anss)
+                   (send svc β)
+                 (if ans
+                     (send* cust ans anss)
+                   (send (apply #'or-ser-β svcs) cust))))
+              ))
+          ;; else
+          svc))
+    ;; else
     false))
-        
-;;
-;; We get for (OR-β A B C):
-;;
-;;                          +---+
-;;                          | A |
-;;                          +---+
-;;               +------+  /
-;;               |  OR  |/
-;;               +------+\ 
-;;                  /      \+---+
-;;                 /        | B |
-;;                /         +---+
-;;      +------+ /
-;;   -->|  OR  |/
-;;      +------+\
-;;               \+---+
-;;                | C |
-;;                +---+
-;;
-;; -----------------------------------------------
 
-(defun and2 (service1 service2)
-  (create
-   (lambda (cust)
-     (β (ans)
-         (send service1 β)
-       (if ans
-           (send service2 cust)
-         (send cust nil))))
-   ))
-   
-(defun and-β (&rest services)
+(defun and-ser-β (&rest services)
+  ;; Construct a service Actor that performs in-order messaging of
+  ;; services until one of them replies nil. If that happens, send nil
+  ;; to the service customer. Else, send the final reply to customer.
   (if services
-      (reduce (lambda (head svc)
-                (and2 head svc))
-              services)
+      (let+ (( (svc . svcs) services))
+        (if svcs
+            (create
+             (alambda
+              ((cust)
+               (β (ans . anss)
+                   (send svc β)
+                 (if ans
+                     (send (apply #'and-ser-β svcs) cust)
+                   (send* cust ans anss))))
+              ))
+          ;; else
+          svc))
+    ;; else
     true))
 
-;;
-;; We get for (AND-β A B C):
-;;
-;;                          +---+
-;;                          | A |
-;;                          +---+
-;;               +------+  /
-;;               |  AND |/
-;;               +------+\ 
-;;                  /      \+---+
-;;                 /        | B |
-;;                /         +---+
-;;      +------+ /
-;;   -->|  AND |/
-;;      +------+\
-;;               \+---+
-;;                | C |
-;;                +---+
-;;
+;; -----------------------------------------------------
+;; Parallel Forms
+
+(defun or-par-β (&rest services)
+  ;; Construct a service Actor that launches all services in parallel.
+  ;; The first to reply non-nil has its full reply sent to customer.
+  (if services
+      (if (cdr services)
+          (create
+           (alambda
+            ((cust)
+             (labels ((beh (tags)
+                        (alambda
+                         ((tag ans . anss) / (find tag tags)
+                          (if ans
+                              (progn
+                                (become-sink)
+                                (send* cust ans anss))
+                            ;; else
+                            (let ((new-tags (remove tag tags)))
+                              (become (beh new-tags))
+                              (unless new-tags
+                                (send cust nil)))
+                            ))
+                         )))
+               (let ((tags (mapcar (lambda (svc)
+                                     (let ((tag (tag self)))
+                                       (send svc tag)
+                                       tag))
+                                   services)))
+                 (become (beh tags)))
+               ))
+            ))
+        ;; else
+        (car services))
+    ;; else
+    false))
+
+(defun and-par-β (&rest services)
+  ;; Construct a service Actor that launches all services in parallel.
+  ;; The first to reply nil has its full reply sent to customer.
+  (if services
+      (if (cdr services)
+          (create
+           (alambda
+            ((cust)
+             (labels ((beh (tags)
+                        (alambda
+                         ((tag ans . anss) / (find tag tags)
+                          (if (not ans)
+                              (progn
+                                (become-sink)
+                                (send* cust ans anss))
+                            ;; else
+                            (let ((new-tags (remove tag tags)))
+                              (become (beh new-tags))
+                              (unless new-tags
+                                (send cust t)))
+                            ))
+                         )))
+               (let ((tags (mapcar (lambda (svc)
+                                     (let ((tag (tag self)))
+                                       (send svc tag)
+                                       tag))
+                                   services)))
+                 (become (beh tags)))
+               ))
+            ))
+        ;; else
+        (car services))
+    ;; else
+    true))
+
 ;; -----------------------------------------------
 
 (defmacro with-and-β ((ans &rest clauses) &body body)
   `(β (,ans)
-       (send (and-β ,@clauses) β)
+       (send (and-ser-β ,@clauses) β)
      ,@body))
 
 (defmacro with-or-β ((ans &rest clauses) &body body)
   `(β (,ans)
-       (send (or-β ,@clauses) β)
+       (send (or-ser-β ,@clauses) β)
      ,@body))
 
 ;; -----------------------------------------------
