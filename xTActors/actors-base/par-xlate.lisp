@@ -502,10 +502,7 @@
 ;; -----------------------------------------------------
 ;; Serial Forms
 
-(defun or-ser-β (&rest services)
-  ;; Construct a service Actor that performs in-order messaging of
-  ;; services until one of them replies non-nil, then send reply to
-  ;; cust.
+(defun ser-and/or (test-fn zero-act services)
   (if services
       (let+ (( (svc . svcs) services))
         (if svcs
@@ -514,35 +511,26 @@
               ((cust)
                (β (ans . anss)
                    (send svc β)
-                 (if ans
+                 (if (funcall test-fn ans)
                      (send* cust ans anss)
-                   (send (apply #'or-ser-β svcs) cust))))
+                   (send (ser-and/or test-fn zero-act svcs) cust))))
               ))
           ;; else
           svc))
     ;; else
-    false))
+    zero-act))
+
+(defun or-ser-β (&rest services)
+  ;; Construct a service Actor that performs in-order messaging of
+  ;; services until one of them replies non-nil, then send reply to
+  ;; cust.
+  (ser-and/or #'identity false services))
 
 (defun and-ser-β (&rest services)
   ;; Construct a service Actor that performs in-order messaging of
   ;; services until one of them replies nil. If that happens, send nil
   ;; to the service customer. Else, send the final reply to customer.
-  (if services
-      (let+ (( (svc . svcs) services))
-        (if svcs
-            (create
-             (alambda
-              ((cust)
-               (β (ans . anss)
-                   (send svc β)
-                 (if ans
-                     (send (apply #'and-ser-β svcs) cust)
-                   (send* cust ans anss))))
-              ))
-          ;; else
-          svc))
-    ;; else
-    true))
+  (ser-and/or #'not true services))
 
 ;; -----------------------------------------------------
 ;; Parallel Forms
