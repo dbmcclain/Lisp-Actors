@@ -547,58 +547,48 @@
 ;; -----------------------------------------------------
 ;; Parallel Forms
 
-(defun par-and/or (test-fn final-ans cust services)
-  (labels ((beh (tags)
-             (alambda
-              ((tag ans . anss) / (find tag tags)
-               (if (funcall test-fn ans)
-                   (progn
-                     (become-sink)
-                     (send* cust ans anss))
-                 ;; else
-                 (let ((new-tags (remove tag tags)))
-                   (become (beh new-tags))
-                   (unless new-tags
-                     (send cust final-ans)))
-                 ))
-              )))
-    (let ((tags (mapcar (lambda (svc)
-                          (let ((tag  (tag self)))
-                            (send svc tag)
-                            tag))
-                        services)))
-      (become (beh tags)))
-    ))
+(defun par-and/or (test-fn final-ans zero-act services)
+  (if services
+      (if (cdr services)
+          (create
+           (alambda
+            ((cust)
+             (labels ((beh (tags)
+                        (alambda
+                         ((tag ans . anss) / (find tag tags)
+                          (if (funcall test-fn ans)
+                              (progn
+                                (become-sink)
+                                (send* cust ans anss))
+                            ;; else
+                            (let ((new-tags (remove tag tags)))
+                              (become (beh new-tags))
+                              (unless new-tags
+                                (send cust final-ans)))
+                            ))
+                         )))
+               (let ((tags (mapcar (lambda (svc)
+                                     (let ((tag  (tag self)))
+                                       (send svc tag)
+                                       tag))
+                                   services)))
+                 (become (beh tags)))
+               ))
+            ))
+        ;; else
+        (car services))
+    ;; else
+    zero-act))
 
 (defun or-par-β (&rest services)
   ;; Construct a service Actor that launches all services in parallel.
   ;; The first to reply non-nil has its full reply sent to customer.
-  (if services
-      (if (cdr services)
-          (create
-           (alambda
-            ((cust)
-             (par-and/or #'identity nil cust services))
-            ))
-        ;; else
-        (car services))
-    ;; else
-    false))
+  (par-and/or #'identity nil false services))
 
 (defun and-par-β (&rest services)
   ;; Construct a service Actor that launches all services in parallel.
   ;; The first to reply nil has its full reply sent to customer.
-  (if services
-      (if (cdr services)
-          (create
-           (alambda
-            ((cust)
-             (par-and/or #'not t cust services))
-            ))
-        ;; else
-        (car services))
-    ;; else
-    true))
+  (par-and/or #'not t true services))
 
 ;; -----------------------------------------------
 
