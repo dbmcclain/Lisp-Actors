@@ -547,6 +547,29 @@
 ;; -----------------------------------------------------
 ;; Parallel Forms
 
+(defun par-and/or (test-fn final-ans cust services)
+  (labels ((beh (tags)
+             (alambda
+              ((tag ans . anss) / (find tag tags)
+               (if (funcall test-fn ans)
+                   (progn
+                     (become-sink)
+                     (send* cust ans anss))
+                 ;; else
+                 (let ((new-tags (remove tag tags)))
+                   (become (beh new-tags))
+                   (unless new-tags
+                     (send cust final-ans)))
+                 ))
+              )))
+    (let ((tags (mapcar (lambda (svc)
+                          (let ((tag  (tag self)))
+                            (send svc tag)
+                            tag))
+                        services)))
+      (become (beh tags)))
+    ))
+
 (defun or-par-β (&rest services)
   ;; Construct a service Actor that launches all services in parallel.
   ;; The first to reply non-nil has its full reply sent to customer.
@@ -555,27 +578,7 @@
           (create
            (alambda
             ((cust)
-             (labels ((beh (tags)
-                        (alambda
-                         ((tag ans . anss) / (find tag tags)
-                          (if ans
-                              (progn
-                                (become-sink)
-                                (send* cust ans anss))
-                            ;; else
-                            (let ((new-tags (remove tag tags)))
-                              (become (beh new-tags))
-                              (unless new-tags
-                                (send cust nil)))
-                            ))
-                         )))
-               (let ((tags (mapcar (lambda (svc)
-                                     (let ((tag (tag self)))
-                                       (send svc tag)
-                                       tag))
-                                   services)))
-                 (become (beh tags)))
-               ))
+             (par-and/or #'identity nil cust services))
             ))
         ;; else
         (car services))
@@ -590,27 +593,7 @@
           (create
            (alambda
             ((cust)
-             (labels ((beh (tags)
-                        (alambda
-                         ((tag ans . anss) / (find tag tags)
-                          (if (not ans)
-                              (progn
-                                (become-sink)
-                                (send* cust ans anss))
-                            ;; else
-                            (let ((new-tags (remove tag tags)))
-                              (become (beh new-tags))
-                              (unless new-tags
-                                (send cust t)))
-                            ))
-                         )))
-               (let ((tags (mapcar (lambda (svc)
-                                     (let ((tag (tag self)))
-                                       (send svc tag)
-                                       tag))
-                                   services)))
-                 (become (beh tags)))
-               ))
+             (par-and/or #'not t cust services))
             ))
         ;; else
         (car services))
