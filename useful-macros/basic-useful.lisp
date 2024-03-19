@@ -147,18 +147,17 @@ THE SOFTWARE.
 (defun kwsymb (&rest args)
   (values (intern-symbol (apply #'mkstr args) (find-package :keyword))))
 
-(defmethod kwsymbol ((name string))
-  (intern-symbol name (find-package :keyword)))
-
-(defmethod kwsymbol ((sym symbol))
-  (if (keywordp sym)
-      sym
-    (intern (symbol-name sym) (find-package :keyword))))
-
-(defmethod kwsymbol ((cons cons))
-  (if (eq 'quote (car cons))
-      (kwsymbol (cadr cons))
-    (call-next-method)))
+(defgeneric kwsymbol (x)
+  (:method ((name string))
+   (intern-symbol name (find-package :keyword)))
+  (:method ((sym symbol))
+   (if (keywordp sym)
+       sym
+     (intern (symbol-name sym) (find-package :keyword))))
+  (:method ((cons cons))
+   (if (eq 'quote (car cons))
+       (kwsymbol (cadr cons))
+     (call-next-method))))
 
 (defun symbol-gensym (s)
   (gensym (format nil "~A-" (symbol-name s))))

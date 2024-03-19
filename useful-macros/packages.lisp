@@ -772,4 +772,10 @@ THE SOFTWARE.
    #:mapfn
 
    #:zulu-date-string
+   #:user-defined-sequence
+   #:user-defined-sequence-element-type
+   #:user-defined-sequence-length
+   #:user-defined-sequence-fetch
+   #:user-defined-sequence-to-vector
+   #:ovly-vec
    ))

@@ -87,7 +87,8 @@ THE SOFTWARE.
   :license     "Copyright (c) 2008 by Refined Audiometrics Laboratory, LLC. All rights reserved."
   :components  ((:file "dlambder")
                 (:file "bb")
-                
+
+                (:file "user-def-sequences")
                 (:file "encstr")
                 (:file "capture")
                 ;; (:file "scraps")
