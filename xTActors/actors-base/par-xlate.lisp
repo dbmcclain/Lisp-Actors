@@ -327,35 +327,26 @@
 
 (defun abstract-forker (svc-fn &rest args)
   (if args
-      (let ((svcs (mapcar svc-fn args))
-            (ansv (make-array (length args))))
+      (let* ((svcs   (mapcar svc-fn args))
+             (no-ans (vector :no-answer)) ;; a globally unique value
+             (ansv   (make-array (length args)
+                                 :initial-element no-ans)))
         (assert (every #'actor-p svcs))
         (create
          (alambda
           ((cust)
-           (labels ((indexed-tag (cust ix)
-                      (create
-                       (lambda (&rest ans)
-                         (send* cust self ix ans))
+           (loop for ix from 0
+                 for svc in svcs
+                 do
+                   (send svc (label self ix)))
+           (become (alambda
+                    ((ix . ans) / (eq no-ans (aref ansv ix))
+                     ;; guard protects against repeated replies
+                     (setf (aref ansv ix) (car ans)) ;; only first result is returned
+                     (unless (find no-ans ansv)
+                       (send* cust (coerce ansv 'list))
                        ))
-                    (joiner-beh (tags)
-                      (alambda
-                       ((atag ix . ans) / (member atag tags)
-                        ;; tags guard protects against repeated replies
-                        (setf (aref ansv ix) (car ans)) ;; only first result is returned
-                        (let ((new-tags  (remove atag tags)))
-                          (become (joiner-beh new-tags))
-                          (unless new-tags
-                            (send* cust (coerce ansv 'list)))
-                          ))
-                       )))
-             (become (joiner-beh (loop for ix from 0
-                                       for svc in svcs
-                                       collect
-                                         (let ((tag  (indexed-tag self ix)))
-                                           (send svc tag)
-                                           tag))))
-             ))
+                    )))
           )))
     ;; else
     null-service))
