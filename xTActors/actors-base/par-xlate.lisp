@@ -327,10 +327,8 @@
 
 (defun abstract-forker (svc-fn &rest args)
   (if args
-      (let* ((svcs   (mapcar svc-fn args))
-             (no-ans (vector :no-answer)) ;; a globally unique value
-             (ansv   (make-array (length args)
-                                 :initial-element no-ans)))
+      (let ((svcs   (mapcar svc-fn args))
+            (no-ans (vector :no-answer))) ;; globally unique value
         (assert (every #'actor-p svcs))
         (create
          (alambda
@@ -339,14 +337,20 @@
                  for svc in svcs
                  do
                    (send svc (label self ix)))
-           (become (alambda
-                    ((ix . ans) / (eq no-ans (aref ansv ix))
-                     ;; guard protects against repeated replies
-                     (setf (aref ansv ix) (car ans)) ;; only first result is returned
-                     (unless (find no-ans ansv)
-                       (send* cust (coerce ansv 'list))
-                       ))
-                    )))
+           (labels ((beh (ansv)
+                      (alambda
+                       ((ix . ans) / (eq no-ans (aref ansv ix))
+                        ;; guard against repeated replies
+                        (let ((new-ansv (copy-seq ansv)))
+                          (setf (aref new-ansv ix) (car ans))
+                          (become (beh new-ansv))
+                          (unless (find no-ans new-ansv)
+                            (send* cust (coerce new-ansv 'list)))
+                          ))
+                       )))
+             (become (beh (make-array (length svcs)
+                                      :initial-element no-ans)))
+             ))
           )))
     ;; else
     null-service))
