@@ -88,7 +88,7 @@ THE SOFTWARE.
   :components  ((:file "dlambder")
                 (:file "bb")
 
-                (:file "user-def-sequences")
+                #+:LISPWORKS (:file "user-def-sequences")
                 (:file "encstr")
                 (:file "capture")
                 ;; (:file "scraps")
