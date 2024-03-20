@@ -336,11 +336,10 @@
            (loop for ix from 0
                  for svc in svcs
                  do
-                   (send svc (label self ix)))
+                   (send svc (once (label self ix))))
            (labels ((beh (ansv)
                       (alambda
-                       ((ix . ans) / (eq no-ans (aref ansv ix))
-                        ;; guard against repeated replies
+                       ((ix . ans)
                         (let ((new-ansv (copy-seq ansv)))
                           (setf (aref new-ansv ix) (car ans))
                           (become (beh new-ansv))
