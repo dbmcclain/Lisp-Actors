@@ -288,6 +288,7 @@
 ;; ---------------------------------------------------
 ;; Fork/Join against zero or more services
 
+#|
 (defun join2 (cust tag1)
   ;; Wait for two answers and then forward them in proper order to the
   ;; customer.
@@ -322,6 +323,43 @@
               :initial-value (apply svc-fn (last args))
               :from-end t)
       null-service))
+|#
+
+(defun abstract-forker (svc-fn &rest args)
+  (if args
+      (let ((svcs (mapcar svc-fn args))
+            (ansv (make-array (length args))))
+        (assert (every #'actor-p svcs))
+        (create
+         (alambda
+          ((cust)
+           (labels ((indexed-tag (cust ix)
+                      (create
+                       (lambda (&rest ans)
+                         (send* cust self ix ans))
+                       ))
+                    (joiner-beh (tags)
+                      (alambda
+                       ((atag ix . ans) / (member atag tags)
+                        ;; tags guard protects against repeated replies
+                        (setf (aref ansv ix) (car ans)) ;; only first result is returned
+                        (let ((new-tags  (remove atag tags)))
+                          (become (joiner-beh new-tags))
+                          (unless new-tags
+                            (send* cust (coerce ansv 'list)))
+                          ))
+                       )))
+             (become (joiner-beh (loop for ix from 0
+                                       for svc in svcs
+                                       collect
+                                         (let ((tag  (indexed-tag self ix)))
+                                           (send svc tag)
+                                           tag))))
+             ))
+          )))
+    ;; else
+    null-service))
+
 
 (defun fork (&rest services)
   ;; Produces a single service from a collection of them. Will exec
