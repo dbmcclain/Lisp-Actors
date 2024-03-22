@@ -98,22 +98,39 @@
 ;;
 ;; There are no default values on binding symbols.
 
+(defun system-reserved-sym (x)
+  (or (member x '(t nil))
+      (member x lambda-list-keywords)
+      (keywordp x)))
+
+(defun acceptable-placeholder (x)
+  (and (symbolp x)
+       (not (system-reserved-sym x))
+       ))
+
+(defun matchable-argpat (x)
+  (and (acceptable-placeholder x)
+       (not (is-underscore? x))))
 
 (defun collect-args (pat)
   ;; collect binding args in reverse order
+  ;; second value is a list of args that represent lists
+  (when (and (atom pat)
+             (not (acceptable-placeholder pat)))
+    ;; a single atom pattern should be an acceptable placeholder to
+    ;; represent the entire arg list
+    (error "Invalid pattern: ~S" pat))
+  
   (nlet iter ((pat  pat)
               (args nil)
-              (lsts nil))
-    (cond ((atom pat)
-           (cond ((or (null pat)
-                      (is-underscore? pat)
-                      (keywordp pat)
-                      (not (symbolp pat)))
-                  (values args lsts))
-                 (t
-                  (values (cons pat args) lsts))
-                 ))
-          ((member (car pat) '(quote function))
+              (lsts (when (matchable-argpat pat)
+                      (list pat))))
+    (cond ((matchable-argpat pat)
+           (values (cons pat args) lsts))
+          ((member pat lambda-list-keywords)
+           (error "Invalid pattern element: ~S" pat))
+          ((or (atom pat)
+               (member (car pat) '(quote function)))
            (values args lsts))
           (t
            (let ((hd (car pat))
@@ -121,9 +138,7 @@
              (multiple-value-bind (new-args new-lsts)
                  (iter hd args lsts)
                (go-iter tl new-args
-                        (if (and tl
-                                 (symbolp tl)
-                                 (not (is-underscore? tl)))
+                        (if (matchable-argpat tl)
                             (cons tl new-lsts)
                           new-lsts))
                )))
@@ -131,14 +146,30 @@
 
 #|
 (collect-args '(a b _ (c 15 d . e) . f))
-(collect-args '(&whole x a b c))
+(collect-args '(&whole x a b c)) ;; invalid
+(collect-args '('x))
+(collect-args 'x)
+(collect-args '_)
+(collect-args :x) ;; invalid pattern
+(collect-args 15) ;; invalid pattern
+
+(collect-args '('%become arg))
 |#
 
 (defun duplicates-exist-p (lst)
   (and (consp lst)
+       (consp (cdr lst))
        (or (member (car lst) (cdr lst))
            (duplicates-exist-p (cdr lst)))
        ))
+
+#|
+(block nil
+  (maplist (lambda (lst)
+             (when (member (car lst) (cdr lst))
+               (return t)))
+           '(a b c a d e)))
+ |#
 
 (defun transform-&rest (pat)
   ;; It is an all too easy mistake to make in writing patterns, that
@@ -209,7 +240,11 @@
   ((a b a)
    :what)
   )
-  
+
+(match '(a b . c) (msg diddly))
+
+
+
 (MATCH #:MSG4106
               ((ACTORS/BASE::CUST :PRUNE) (SEND ACTORS/BASE::CUST :PRUNED SELF-BEH))
               ((CUST :SEND VERB . MSG) WHEN (EQL VERB NAME) (SEND* HANDLER CUST MSG))
