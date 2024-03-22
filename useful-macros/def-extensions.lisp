@@ -279,6 +279,14 @@ arguments when given."
   ;;; OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 )
 
+#+:LISPWORKS
+(dspec:define-dspec-alias deflex (name)
+  `(defparameter ,name))
+
+#+:LISPWORKS
+(dspec:define-dspec-alias deflex* (name)
+  `(defvar ,name))
+
 ;; ---------------------------------------------------------------
 
 (defgeneric do-let+ (fst binding form))
