@@ -164,26 +164,24 @@
         (warn "duplicate binding names in match pattern: ~A" args))
       (when (some 'is-lambda-list-keyword? args)
         (warn "lambda list keywords are not valid pattern elements"))
-      (flet
-          ((xlate (tst body)
+      (labels
+          ((lam (form)
+             `(lambda ,args
+                (declare (ignorable ,@args))
+                ,@(if lsts
+                      `((declare (list ,@lsts))))
+                ,form))
+           (xlate (tst body)
              `(block ,fail
                 (match-clause ,msg ',pat ,tst
-                              (lambda ,args
-                                (declare (ignorable ,@args))
-                                ,@(if lsts
-                                      `((declare (list ,@lsts))))
-                                (return-from ,lbl
-                                  (progn
-                                    ,@body)))
+                              ,(lam 
+                                `(return-from ,lbl
+                                   (progn
+                                     ,@body)))
                               ))
              ))
         (if (member (car body) '(when /))
-            (xlate `(lambda ,args
-                      (declare (ignorable ,@args))
-                      ,@(if lsts
-                            `((declare (list ,@lsts))))
-                      ,(cadr body))
-                   (cddr body))
+            (xlate (lam (cadr body)) (cddr body))
           (xlate nil body))
         ))))
 
