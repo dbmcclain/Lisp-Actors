@@ -98,36 +98,39 @@
 ;;
 ;; There are no default values on binding symbols.
 
-(defun system-reserved-sym (x)
+(defun system-reserved-sym-p (x)
   (or (member x '(t nil))
       (member x lambda-list-keywords)
-      (keywordp x)))
+      ))
 
-(defun acceptable-placeholder (x)
+(defun acceptable-placeholder-p (x)
   (and (symbolp x)
-       (not (system-reserved-sym x))
+       (not (keywordp x))
+       (not (system-reserved-sym-p x))
        ))
 
-(defun matchable-argpat (x)
-  (and (acceptable-placeholder x)
+(defun matchable-argpat-p (x)
+  (and (acceptable-placeholder-p x)
        (not (is-underscore? x))))
 
 (defun collect-args (pat)
   ;; collect binding args in reverse order
   ;; second value is a list of args that represent lists
   (when (and (atom pat)
-             (not (acceptable-placeholder pat)))
+             (not (acceptable-placeholder-p pat)))
     ;; a single atom pattern should be an acceptable placeholder to
     ;; represent the entire arg list
     (error "Invalid pattern: ~S" pat))
   
   (nlet iter ((pat  pat)
               (args nil)
-              (lsts (when (matchable-argpat pat)
+              (lsts (when (matchable-argpat-p pat)
                       (list pat))))
-    (cond ((matchable-argpat pat)
+    (cond ((null pat)
+           (values args lsts))
+          ((matchable-argpat-p pat)
            (values (cons pat args) lsts))
-          ((member pat lambda-list-keywords)
+          ((system-reserved-sym-p pat)
            (error "Invalid pattern element: ~S" pat))
           ((or (atom pat)
                (member (car pat) '(quote function)))
@@ -138,7 +141,7 @@
              (multiple-value-bind (new-args new-lsts)
                  (iter hd args lsts)
                (go-iter tl new-args
-                        (if (matchable-argpat tl)
+                        (if (matchable-argpat-p tl)
                             (cons tl new-lsts)
                           new-lsts))
                )))
@@ -152,6 +155,7 @@
 (collect-args '_)
 (collect-args :x) ;; invalid pattern
 (collect-args 15) ;; invalid pattern
+
 
 (collect-args '('%become arg))
 |#
@@ -243,6 +247,10 @@
 
 (match '(a b . c) (msg diddly))
 
+(match 'msg
+  ((cust :ok) (print 'doit))
+  (_
+   (print 'didit)))
 
 
 (MATCH #:MSG4106
