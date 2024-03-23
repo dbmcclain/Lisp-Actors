@@ -26,11 +26,15 @@
                   ))
            ((eql 'quote (car pat))
             (values (equalp msg (cadr pat)) vals))
+           
+           #| ;; I have never seen this clause used... DM/RAL 03/24
            ((eql 'function (car pat))
             (let ((desig (cadr pat)))
               (values (and (symbolp desig)
                            (eq msg (symbol-function desig)))
                       vals)))
+           |#
+
            ((consp msg)
             (multiple-value-bind (ok new-vals)
                 (iter (car pat) (car msg) vals)
@@ -44,9 +48,10 @@
            '(a b _ (c 15 d . e) . f))
 (match-pat (list 1 #'1+ 3) '(a #'1+ b))
 (match-pat 1 'x)
+(match-pat 1 '_)
 |#
 
-(defun match-clause (msg pat tst fn)
+(defun match-list-clause (msg pat tst fn)
   #F
   (multiple-value-bind (ok vals)
       (match-pat msg pat)
@@ -55,6 +60,20 @@
                    (apply tst vals)))
       (apply fn vals))
     ))
+
+(defun match-wild-clause (msg pat tst fn)
+  #F
+  (declare (ignore msg pat))
+  (when (or (null tst)
+            (funcall tst))
+    (funcall fn)))
+
+(defun match-symbol-clause (msg pat tst fn)
+  #F
+  (declare (ignore pat))
+  (when (or (null tst)
+            (apply tst (mklist msg)))
+    (apply fn (mklist msg))))
 
 ;; ----------------------------------------------------
 ;; Compiling behavior - Patterns are implicitly quoted compile-time
@@ -221,27 +240,33 @@
       (when (and (consp args)
                  (some 'is-lambda-list-keyword? args))
         (warn "lambda list keywords are not valid pattern elements"))
-      (labels
-          ((lam (form)
-             `(lambda* ,args
-                (declare (ignorable ,@(mklist args)))
-                ,@(when lsts
-                    `((declare (list ,@lsts))))
-                ,form))
-           (xlate (tst body)
-             `(block ,fail
-                (match-clause ,msg ',pat ,tst
-                              ,(lam 
-                                `(return-from ,lbl
-                                   (progn
-                                     ,@body)))
-                              ))
-             ))
-        (if (member (car body) '(when /))
-            (xlate (lam (cadr body)) (cddr body))
-          (xlate nil body))
-        ))))
-
+      (let ((matcher (cond ((is-underscore? args)
+                            'match-wild-clause)
+                           ((symbolp args)
+                             'match-symbol-clause)
+                           (t
+                            'match-list-clause))))
+        (labels
+            ((lam (form)
+               `(lambda* ,args
+                  (declare (ignorable ,@(mklist args)))
+                  ,@(when lsts
+                      `((declare (list ,@lsts))))
+                  ,form))
+             (xlate (tst body)
+               `(block ,fail
+                  (,matcher ,msg ',pat ,tst
+                            ,(lam 
+                              `(return-from ,lbl
+                                 (progn
+                                   ,@body)))
+                            ))
+               ))
+          (if (member (car body) '(when /))
+              (xlate (lam (cadr body)) (cddr body))
+            (xlate nil body))
+          )))))
+  
 (defmacro match (msg &body clauses)
   (with-unique-names (lbl fail gmsg)
     `(block ,lbl
@@ -263,7 +288,7 @@
    (+ x y))
   ((x :a y)
    (- x y))
-  ((a b a)
+  ((a b c)
    :what)
   )
 

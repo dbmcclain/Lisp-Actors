@@ -30,7 +30,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :version     "3.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2021-2024 by Refined Audiometrics Laboratory. MIT License terms apply."
-  :components  ((:file "packages")
+  :components  ((:file "optima-bridge")
+                (:file "packages")
                 #-(OR :LISPWORKS :SBCL) (:file "ansi-timer")
 		(:file "cheapq")
                 (:file "globals")
@@ -53,4 +54,5 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                  ;; "com.ral.cps"
                  #+:allegro "com.ral.prio-queue"
                  ;; "closer-mop"
+                 :optima
                  ))

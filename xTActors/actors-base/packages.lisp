@@ -47,9 +47,11 @@ THE SOFTWARE.
    #:with-timeout)
   (:import-from #:um
    #:with
-   #:match
-   #:match-fail
+   ;; #:match
+   ;; #:match-fail
    #:letrec)
+  (:import-from #:optima-bridge
+   #:match)
   (:export
    #:match
    #:match-fail
