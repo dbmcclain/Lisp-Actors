@@ -50,11 +50,8 @@
                     ,@body)))
     ))
     
-(defun translate-clauses (clauses)
-  (mapcar #'translate-clause clauses))
-
 (defmacro match (msg &rest clauses)
-  `(optima:match ,msg ,@(translate-clauses clauses)))
+  `(optima:match ,msg ,@(mapcar #'translate-clause clauses)))
 
 #|
 (let ((tag :me))
