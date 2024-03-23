@@ -126,14 +126,16 @@
         (t :CONS)))
 
 (defun collect-args (pat)
-  ;; collect binding args in reverse order
-  ;; second value is a list of args that represent lists
+  ;; Collect binding args in reverse order.
+  ;; Second value is a list of args that represent lists.
   (let ((class (classify-pat pat)))
+
+    ;; An acceptable pattern is either a list of sub-patterns
+    ;; (:CONS), or a single symbol representing the whole arg list.
+    ;; That symbol can either be the underscore (:WILD), or a
+    ;; bindable symbol (:VAR).
+
     (unless (member class '(:VAR :WILD :CONS))
-      ;; An acceptable pattern is either a list of sub-patterns
-      ;; (:CONS), or a single symbol representing the whole arg list.
-      ;; That symbol can either be the underscore (:WILD), or a
-      ;; bindable symbol (:VAR).
       (error "Invalid pattern: ~S" pat))
     
     (nlet iter ((class class)
