@@ -113,39 +113,57 @@
   (and (acceptable-placeholder-p x)
        (not (is-underscore? x))))
 
+(defun classify-pat (pat)
+  (cond ((null pat) :NULL)
+        ((symbolp pat)
+         (cond ((system-reserved-sym-p pat) :SYSTEM)
+               ((keywordp pat)              :KEYWORD)
+               ((is-underscore? pat)        :WILD)
+               (t                           :VAR)
+               ))
+        ((atom pat) :ATOM)
+        ((member (car pat) '(quote function)) :QUOTE)
+        (t :CONS)))
+
 (defun collect-args (pat)
   ;; collect binding args in reverse order
   ;; second value is a list of args that represent lists
-  (when (and (atom pat)
-             (not (acceptable-placeholder-p pat)))
-    ;; a single atom pattern should be an acceptable placeholder to
-    ;; represent the entire arg list
-    (error "Invalid pattern: ~S" pat))
-  
-  (nlet iter ((pat  pat)
-              (args nil)
-              (lsts (when (matchable-argpat-p pat)
-                      (list pat))))
-    (cond ((null pat)
-           (values args lsts))
-          ((matchable-argpat-p pat)
-           (values (cons pat args) lsts))
-          ((system-reserved-sym-p pat)
-           (error "Invalid pattern element: ~S" pat))
-          ((or (atom pat)
-               (member (car pat) '(quote function)))
-           (values args lsts))
-          (t
-           (let ((hd (car pat))
-                 (tl (cdr pat)))
-             (multiple-value-bind (new-args new-lsts)
-                 (iter hd args lsts)
-               (go-iter tl new-args
-                        (if (matchable-argpat-p tl)
+  (let ((class (classify-pat pat)))
+    (unless (member class '(:VAR :WILD :CONS))
+      ;; An acceptable pattern is either a list of sub-patterns
+      ;; (:CONS), or a single symbol representing the whole arg list.
+      ;; That symbol can either be the underscore (:WILD), or a
+      ;; bindable symbol (:VAR).
+      (error "Invalid pattern: ~S" pat))
+    
+    (nlet iter ((class class)
+                (pat   pat)
+                (args  nil)
+                (lsts  (when (eq class :VAR)
+                         (list pat))))
+      (ecase class
+        ((:NULL :ATOM :WILD :KEYWORD :QUOTE)
+         ;; :NULL occurs at end of a list pattern.
+         ;; The other possibilities serve as items for literal matching
+         (values args lsts))
+        (:VAR
+         ;; we have a bindable symbol
+         (values (cons pat args) lsts))
+        (:SYSTEM
+         (error "Invalid pattern element: ~S" pat))
+        (:CONS
+         ;; we have a list sub-pattern
+         (let ((hd (car pat))
+               (tl (cdr pat)))
+           (multiple-value-bind (new-args new-lsts)
+               (iter (classify-pat hd) hd args lsts)
+             (let ((tl-class (classify-pat tl)))
+               (go-iter tl-class tl new-args
+                        (if (eq tl-class :VAR)
                             (cons tl new-lsts)
                           new-lsts))
-               )))
-          )))
+               ))))
+        ))))
 
 #|
 (collect-args '(a b _ (c 15 d . e) . f))
@@ -156,7 +174,6 @@
 (collect-args :x) ;; invalid pattern
 (collect-args 15) ;; invalid pattern
 
-
 (collect-args '('%become arg))
 |#
 
@@ -166,14 +183,6 @@
        (or (member (car lst) (cdr lst))
            (duplicates-exist-p (cdr lst)))
        ))
-
-#|
-(block nil
-  (maplist (lambda (lst)
-             (when (member (car lst) (cdr lst))
-               (return t)))
-           '(a b c a d e)))
- |#
 
 (defun transform-&rest (pat)
   ;; It is an all too easy mistake to make in writing patterns, that
