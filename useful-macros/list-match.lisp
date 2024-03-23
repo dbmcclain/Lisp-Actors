@@ -20,7 +20,7 @@
     (cond  ((atom pat) ;; NIL (as in ENDP) is also an atom
             (cond ((null pat)            (values (null msg) vals)) ;; NIL is also a symbol (!!)
                   ((is-underscore? pat)  (values t vals))
-                  ((keywordp pat)        (values (eql msg pat) vals))
+                  ((keywordp pat)        (values (eq msg pat) vals))
                   ((symbolp pat)         (values t (cons msg vals)))
                   (t                     (values (equalp msg pat) vals))
                   ))
@@ -128,6 +128,7 @@
 (defun collect-args (pat)
   ;; Collect binding args in reverse order.
   ;; Second value is a list of args that represent lists.
+  
   (let ((class (classify-pat pat)))
 
     ;; An acceptable pattern is either a list of sub-patterns
@@ -146,7 +147,7 @@
       (ecase class
         ((:NULL :ATOM :WILD :KEYWORD :QUOTE)
          ;; :NULL occurs at end of a list pattern.
-         ;; The other possibilities serve as items for literal matching
+         ;; The other possibilities serve as items for literal matching.
          (values args lsts))
         (:VAR
          ;; we have a bindable symbol
