@@ -213,10 +213,10 @@
         (warn "lambda list keywords are not valid pattern elements"))
       (labels
           ((lam (form)
-             `(lambda ,args
+             `(lambda* ,args
                 (declare (ignorable ,@args))
-                ,@(if lsts
-                      `((declare (list ,@lsts))))
+                ,@(when lsts
+                    `((declare (list ,@lsts))))
                 ,form))
            (xlate (tst body)
              `(block ,fail
