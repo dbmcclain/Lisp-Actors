@@ -595,20 +595,16 @@ THE SOFTWARE.
                            )))
     ))
 
-#|
-(defun first-arg (a &rest ignored)
-  (declare (ignore ignored))
-  a)
-|#
-
 (set-dispatch-macro-character
  #\# #\> '|reader-for-#>|)
 
+
 #| ;; example
+(progn 
 #>.end
 This is a test
 of the #> reader macro
-.end
+.end)
 |#
 
 #|

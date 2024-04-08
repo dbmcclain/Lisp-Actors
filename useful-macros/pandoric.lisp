@@ -28,7 +28,7 @@ THE SOFTWARE.
 (in-package :com.ral.useful-macros.pandoric)
 
 ;; Macros which make use of anaphoric symbols may sometimes fail with
-;; unbound symbol when evaluated in intrpreter mode in some thread
+;; unbound symbol when evaluated in interpreter mode in some thread
 ;; other than the thread in use when the form or definition was
 ;; initially constructed.
 ;;
