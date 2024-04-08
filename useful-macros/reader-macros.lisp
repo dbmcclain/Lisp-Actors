@@ -359,8 +359,9 @@ THE SOFTWARE.
                          (stuff-it (pos)
                            (cond ((or (zerop pos)
                                       (and (plusp pos)
-                                           (char/= (char str (1- pos)) #\\)))
-                                  (princ (subseq str start pos) s)
+                                           (char/= (char str (1- pos)) #\\)
+                                           (princ (subseq str start pos) s)
+                                           ))
                                   (princ "~A" s)
                                   (multiple-value-bind (val new-pos)
                                       (read-from-string str t nil
@@ -370,17 +371,17 @@ THE SOFTWARE.
                                     (go-iter new-pos)))
                                  
                                  (t
+                                  ;; elide the #\\
                                   (princ (subseq str start (1- pos)) s)
                                   (princ #\$ s)
                                   (go-iter (1+ pos)))
                                  )))
-                      (if (< start len)
-                          (let ((pos (position #\$ str :start start)))
-                            (if pos
-                                (stuff-it pos)
-                              (final)))
-                        ;; else
-                        (final))))
+                      (when (< start len)
+                        (let ((pos (position #\$ str :start start)))
+                          (if pos
+                              (stuff-it pos)
+                            (final))))
+                      ))
                   )))
     `(format nil ,fmt ,@(nreverse parts))
     ))
@@ -478,10 +479,6 @@ THE SOFTWARE.
 (defun whitespace-char-p (ch)
   (sb-unicode:whitespace-p ch))
 
-(defun whitespace-char-not-newline-p (ch)
-  (and (char/= ch #\newline)
-       (whitespace-char-p ch)))
-
 (defun trim-common-leading-ws-from-lines (str)
   ;; split str into lines, discarding common leading whitespace, then
   ;; rejoin into one string
@@ -492,7 +489,8 @@ THE SOFTWARE.
                                      (1+ p)
                                    maxlen))
                       (line (subseq str start new-start))
-                      (pnws (position-if (complement #'whitespace-char-not-newline-p) line))
+                      ;; lines with only whitespace do not contribute to the leading whitespace calc.
+                      (pnws (position-if (complement #'whitespace-char-p) line))
                       (new-min-nws (if pnws
                                        (if min-nws
                                            (min min-nws pnws)
@@ -506,7 +504,14 @@ THE SOFTWARE.
                      ((and new-min-nws
                            (plusp new-min-nws))
                       (mapcar (lambda (line)
-                                (subseq line (min (length line) new-min-nws)))
+                                (let* ((len   (length line))
+                                       (hasnl (and (plusp len)
+                                                   (char= #\newline (char line (1- len)))))
+                                       (start (min new-min-nws
+                                                   (if hasnl
+                                                       (1- len)
+                                                     len))))
+                                  (subseq line start)))
                               new-lines))
 
                      (t
@@ -514,20 +519,22 @@ THE SOFTWARE.
                      ))))
     (apply #'concatenate 'string (nreverse (get-trimmed-lines)))
     )))
-#|
-(setf x #>.end
-        this
-        is
-
-        a
-
-        test
-        .end)
- |#
 
 (set-dispatch-macro-character
  #\# #\" '|reader-for-#"|)
   
+#|
+(let ((x #>.end
+        this
+        is
+
+          a
+
+        test
+        .end))
+  x)
+|#
+
 ;; --------------------------------------------
 ;; Reader macro for #>
 ;; like the Bourne shell > to-lists for surrounding strings
