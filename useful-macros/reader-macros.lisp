@@ -755,63 +755,6 @@ of the #> reader macro
 (unalias 'this)
 |#
 
-;; ---------------------------------------------------
-#|
-;; Package Aliases #!name
-;; #!name looks up name in per-package alist and returns cdr symbol
-
-(defvar *symbol-aliases-table* (make-hash-table)) ;; one alist per package
-
-(defun aliases (&optional (package *package*))
-  (gethash (find-package package) *symbol-aliases-table*))
-
-(defsetf aliases (&optional (package *package*)) (alist)
-  `(setf (gethash (find-package ,package) *symbol-aliases-table*) ,alist))
-
-(defun lookup-alias (keysym &optional (package *package*))
-  (let* ((keysym-name (symbol-name keysym))
-         (package     (find-package package)))
-    #|
-    (unless (eq package (symbol-package keysym))
-      (setf keysym (intern keysym-name package)))
-    |#
-    (or (cdr (assoc keysym (aliases package)))
-        (error "No alias named ~A" keysym))))
-  
-(defun alias (keysym sym &optional (package *package*))
-  (unless keysym
-    (error "Can't alias NIL"))
-  (let* ((package (find-package package))
-         (alist   (aliases package)))
-    #|
-    (unless (eq package (symbol-package keysym))
-      (setf keysym (intern (symbol-name keysym) package)))
-    |#
-    (if sym
-        (let ((pair (assoc keysym alist)))
-          (if pair
-              (setf (cdr pair) sym)
-            (setf (aliases package) (acons keysym sym alist))) )
-      (setf (aliases package) (delete keysym alist :key 'first))) ))
-
-(defun unalias (keysym &optional (package *package*))
-  (alias keysym nil package))
-
-(defun |reader-for-#?| (stream sub-char numarg)
-  (declare (ignore sub-char numarg))
-  (let* ((key (read stream t nil t)))
-    (lookup-alias key)) ) ;; note: can't alias NIL
-
-(set-dispatch-macro-character
- #\# #\? '|reader-for-#?|)
-
-#| ;; example
-(alias 'this 'that)
-(quote #?this)
-(aliases)
-(unalias 'this)
-|#
-|#
 ;; ------------------------------------------------------------
 
 (defun read-chars-till-delim (stream delims &rest first-char)
