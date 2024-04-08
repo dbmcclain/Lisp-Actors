@@ -25,7 +25,6 @@
 
 #+:LISPWORKS
 (progn
-  (editor:bind-string-to-key "λ" #\not-sign) ;; Option-L on Mac keyboard
   (editor:setup-indent "µ" 1)
   (editor:setup-indent "∂" 1)
   (editor:setup-indent "λ" 1)
