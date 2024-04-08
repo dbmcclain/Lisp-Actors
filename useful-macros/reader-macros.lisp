@@ -386,6 +386,53 @@ THE SOFTWARE.
     `(format nil ,fmt ,@(nreverse parts))
     ))
 
+;; -------------------------------------------------------------------------------
+
+#+:SBCL
+(defun whitespace-char-p (ch)
+  (sb-unicode:whitespace-p ch))
+
+(defun trim-common-leading-ws-from-lines (str)
+  ;; split str into lines, discarding common leading whitespace, then
+  ;; rejoin into one string
+  (let ((maxlen (length str)))
+    (labels ((get-trimmed-lines (&optional (start 0) min-nws lines)
+               (let* ((p    (position #\newline str :start start))
+                      (new-start (if p
+                                     (1+ p)
+                                   maxlen))
+                      (line (subseq str start new-start))
+                      ;; lines with only whitespace do not contribute to the leading whitespace calc.
+                      (pnws (position-if (complement #'whitespace-char-p) line))
+                      (new-min-nws (if pnws
+                                       (if min-nws
+                                           (min min-nws pnws)
+                                         pnws)
+                                     min-nws))
+                      (new-lines (cons line lines)))
+               (cond ((< new-start maxlen)
+                      ;; counting on tail call optimization here...
+                      (get-trimmed-lines new-start new-min-nws new-lines))
+                     
+                     ((and new-min-nws
+                           (plusp new-min-nws))
+                      (mapcar (lambda (line)
+                                (let* ((len   (length line))
+                                       (hasnl (and (plusp len)
+                                                   (char= #\newline (char line (1- len)))))
+                                       (start (min new-min-nws
+                                                   (if hasnl
+                                                       (1- len)
+                                                     len))))
+                                  (subseq line start)))
+                              new-lines))
+
+                     (t
+                      new-lines)
+                     ))))
+    (apply #'concatenate 'string (nreverse (get-trimmed-lines)))
+    )))
+
 ;; ----------------------------------------------------------------------
 ;; Nestable suggestion from Daniel Herring rewritten (DM/RAL) using
 ;; our state-machine macro Use backslash for escaping literal chars.
@@ -475,65 +522,8 @@ THE SOFTWARE.
                             )))
      ))
 
-#+:SBCL
-(defun whitespace-char-p (ch)
-  (sb-unicode:whitespace-p ch))
-
-(defun trim-common-leading-ws-from-lines (str)
-  ;; split str into lines, discarding common leading whitespace, then
-  ;; rejoin into one string
-  (let ((maxlen (length str)))
-    (labels ((get-trimmed-lines (&optional (start 0) min-nws lines)
-               (let* ((p    (position #\newline str :start start))
-                      (new-start (if p
-                                     (1+ p)
-                                   maxlen))
-                      (line (subseq str start new-start))
-                      ;; lines with only whitespace do not contribute to the leading whitespace calc.
-                      (pnws (position-if (complement #'whitespace-char-p) line))
-                      (new-min-nws (if pnws
-                                       (if min-nws
-                                           (min min-nws pnws)
-                                         pnws)
-                                     min-nws))
-                      (new-lines (cons line lines)))
-               (cond ((< new-start maxlen)
-                      ;; counting on tail call optimization here...
-                      (get-trimmed-lines new-start new-min-nws new-lines))
-                     
-                     ((and new-min-nws
-                           (plusp new-min-nws))
-                      (mapcar (lambda (line)
-                                (let* ((len   (length line))
-                                       (hasnl (and (plusp len)
-                                                   (char= #\newline (char line (1- len)))))
-                                       (start (min new-min-nws
-                                                   (if hasnl
-                                                       (1- len)
-                                                     len))))
-                                  (subseq line start)))
-                              new-lines))
-
-                     (t
-                      new-lines)
-                     ))))
-    (apply #'concatenate 'string (nreverse (get-trimmed-lines)))
-    )))
-
 (set-dispatch-macro-character
  #\# #\" '|reader-for-#"|)
-  
-#|
-(let ((x #>.end
-        this
-        is
-
-          a
-
-        test
-        .end))
-  x)
-|#
 
 ;; --------------------------------------------
 ;; Reader macro for #>
@@ -619,6 +609,18 @@ THE SOFTWARE.
 This is a test
 of the #> reader macro
 .end
+|#
+
+#|
+(let ((x #>.end
+        this
+        is
+
+          a
+
+        test
+        .end))
+  x)
 |#
 ;; --------------------------------------------
 
