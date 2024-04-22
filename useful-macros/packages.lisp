@@ -100,6 +100,7 @@ THE SOFTWARE.
    #:collector-stuff-contents
    #:collector-nstuff-contents
    #:collector-ncontents
+   #:collector-contents
    #:collector-length
    #:collector-empty-p
    #:collector-append1

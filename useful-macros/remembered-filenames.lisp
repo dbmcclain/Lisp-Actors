@@ -49,18 +49,17 @@ THE SOFTWARE.
    (and key
         ;; No last remembered by key.
         ;; So start with last one, regardless of keyed context
-        (gethash nil *remembered-filenames*))))
+        (values (gethash nil *remembered-filenames*)))))
 
 (defun do-with-remembered-filename (message key prompt-keys init fn)
   ;; can use null key for non-selective recall - starts with last
   ;; prompted filename regardless of former keyed context.
-  (when-let (fname (if init
-                          (funcall init (remembered-filename key))
-                        (multiple-value-call #'capi:prompt-for-file
-                          message
-                          (values-list prompt-keys)
-                          :pathname (remembered-filename key))
-                        ))
+  (when-let (fname (or init
+                       (multiple-value-call #'capi:prompt-for-file
+                         message
+                         (values-list prompt-keys)
+                         :pathname (remembered-filename key))
+                       ))
     (remember-filename key fname)
     (funcall fn fname)))
   
@@ -77,11 +76,9 @@ If INIT is null, then use CAPI:PROMPT-FOR-FILE with MESSAGE \
 and any PROMPT-KEYS. Otherwise, INIT should be a Lisp form \
 that uses FNAME as a bound argument, and computes and returns \
 the new filename."
-  `(do-with-remembered-filename ,message ,key (list ,@prompt-keys :filter ,filter)
-                                ,(and init
-                                      `(lambda (,fname)
-                                         (declare (ignorable ,fname))
-                                         ,init))
+  `(do-with-remembered-filename ,message ,key
+                                (list ,@prompt-keys :filter ,filter)
+                                ,init
                                 (lambda (,fname)
                                   (declare (ignorable ,fname))
                                   ,@body)))
