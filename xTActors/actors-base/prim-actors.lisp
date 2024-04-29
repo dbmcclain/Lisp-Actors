@@ -219,9 +219,9 @@ prefixed by the label."
   "TAG -- Construct an Actor to relay a message to the customer,
 prefixed by our unique SELF identity/"
   (create
-     (lambda (&rest msg)
-       (send* cust self msg))
-     ))
+   (lambda* msg
+     (send* cust self msg))
+   ))
 
 ;; ---------------------
 
@@ -243,6 +243,34 @@ prefixed by our unique SELF identity/"
   (let ((atag (once-tag cust)))
     (send-after timeout atag +timed-out+)
     atag))
+
+;; -------------------------------------------------
+
+(defun rate-limited-customer (cust dt)
+  ;; Construct an Actor that allows sending a message to cust no
+  ;; sooner than dt sec from when we exit the current behavior.
+  ;; -- useful for real-time animation of graphs where we want to
+  ;; control the animation update rate --
+  (let* ((joiner  (create))
+         (tag-dt  (tag joiner))
+         (tag-svc (tag joiner)))
+    (labels ((sans-tag (atag &rest ans)
+               (declare (ignore atag))
+               (send* cust ans))
+             (waiting (&rest anss)
+               (lambda* (atag . ans)
+                 (cond
+                  ((eq atag tag-dt)
+                   (become #'sans-tag)
+                   (send-all-to cust anss))
+                  
+                  (t ;; we had tag-svc
+                     (become (apply #'waiting ans anss)))
+                  ))))
+      (setf (actor-beh joiner) (waiting))
+      (send-after dt tag-dt) ;; won't fire until we exit beh
+      tag-svc
+      )))
 
 ;; -------------------------------------------------
 ;; FUT - A non-macro β replacement?
