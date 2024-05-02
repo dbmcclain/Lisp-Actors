@@ -50,11 +50,17 @@
     (let ((me  self)
           (tag (tag self)))
       (become (future-become-beh tag))
-      (send-after timeout self self 'forced-abort)
       (β (db)
           (send kvdb β :req-excl owner timeout)
-        (send tag (local-excl-proxy-for-remote-db-access-beh kvdb db db owner))
-        (send cust me))
+        (cond
+         ((eq :fail db)
+          (send tag (local-proxy-for-remote-db-access-beh kvdb)) ;; revert beh
+          (send cust :fail))
+         (t
+          (send-after timeout me me 'forced-abort)
+          (send tag (local-excl-proxy-for-remote-db-access-beh kvdb db db owner))
+          (send cust me))
+         ))
       ))
 
    (((cust . _) :commit)
@@ -108,17 +114,12 @@
    ((cust :req-excl owner timeout) / (and (realp timeout)
                                           (plusp timeout))
     ;; This might have to abandon existing updates and start fresh.
-    ;; You should have requested from outset.
-    (let ((me  self)
-          (tag (tag self)))
-      (become (future-become-beh tag))
-      (send-after timeout self self 'forced-abort)
+    ;; You should have requested excl from outset.
+    (let ((me  self))
+      (become (local-proxy-for-remote-db-access-beh kvdb))
       (β _
           (send kvdb `(,β . ,β) :commit orig-map upd-map) ;; might fail
-        (β (db)
-            (send kvdb β :req-excl owner timeout)
-          (send tag (local-excl-proxy-for-remote-db-access-beh kvdb db db owner))
-          (send cust me))
+        (send me cust :req-excl owner timeout)
         )))
 
    ((cust :abort)

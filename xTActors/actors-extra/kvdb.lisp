@@ -394,9 +394,10 @@
         
         (match msg
           ((acust :req-excl an-owner _)
-           (if (eql an-owner owner)
-               (send acust db)
-             (stash)))
+           (send acust
+                 (if (eql an-owner owner)
+                     db
+                   :fail)))
           
           ((acust :abort an-owner) / (eql an-owner owner)
            ;; relinquish excl :commit ownership
