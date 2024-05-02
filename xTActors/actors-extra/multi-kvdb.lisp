@@ -39,15 +39,13 @@
          ((member :fail (list db-from db-to))
           (send kvdb-from sink :abort me)
           (send kvdb-to   sink :abort me)
-          (let ((new-count (1+ count)))
-            (if (< new-count 5)
-                ;; delay by random amount, try again
-                (β _
-                    (send-after (random 1.0) β)
-                  (transfer cust kvdb-from kvdb-to amt new-count))
-              ;; else - give up
-              (send cust :fail))
-            ))
+          (if (< count 5)
+              ;; delay by random amount, try again
+              (β _
+                  (send-after (random 1.0) β)
+                (transfer cust kvdb-from kvdb-to amt (1+ count)))
+            ;; else - give up
+            (send cust :fail)))
          
          (t
           (let* ((bal-from      (db-find db-from :bank-bal 0))
