@@ -161,12 +161,14 @@
                     (upd-map   :upd-map)
                     (owner     :owner)
                     (abort-tag :abort-tag)) state
+    ;;
     ;; Inside here we have the kvdb under commit lock, so keep it short,
     ;; Jack...
     ;;
     ;; Remote user must issue one or more of these provided message
     ;; types and finish with either :ABORT or :COMMIT. This proxy avoids
     ;; shuttling entire map objects across the network.
+    ;;
     (alambda
      ((cust :add key val)
       (become (local-excl-proxy-for-remote-db-access-beh
@@ -214,7 +216,7 @@
           (send cust me)
           )))
 
-     ((atag 'forced-abort) / (eql atag abort-tag)
+     ((atag 'forced-abort) / (eq atag abort-tag)
       (become (local-proxy-for-remote-db-access-beh kvdb))
       (send kvdb sink :abort owner))
      
