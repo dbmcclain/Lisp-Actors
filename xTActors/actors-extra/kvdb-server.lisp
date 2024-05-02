@@ -57,8 +57,8 @@
           (send tag (local-proxy-for-remote-db-access-beh kvdb)) ;; revert beh
           (send cust :fail))
          (t
-          (send-after timeout me me 'forced-abort)
-          (send tag (local-excl-proxy-for-remote-db-access-beh kvdb db db owner))
+          (send-after timeout tag 'forced-abort)
+          (send tag (local-excl-proxy-for-remote-db-access-beh kvdb db db owner tag))
           (send cust me))
          ))
       ))
@@ -141,7 +141,7 @@
     (repeat-send kvdb))
    ))
 
-(defun local-excl-proxy-for-remote-db-access-beh (kvdb orig-map upd-map owner)
+(defun local-excl-proxy-for-remote-db-access-beh (kvdb orig-map upd-map owner abort-tag)
   ;; Inside here we have the kvdb under commit lock, so keep it short,
   ;; Jack...
   ;;
@@ -153,14 +153,16 @@
     (become (local-excl-proxy-for-remote-db-access-beh
              kvdb orig-map
              (db-add upd-map key val)
-             owner))
+             owner
+             abort-tag))
     (send cust self))
    
    ((cust :remove key)
     (become (local-excl-proxy-for-remote-db-access-beh
              kvdb orig-map
              (db-remove upd-map key)
-             owner))
+             owner
+             abort-tag))
     (send cust self))
 
    ((cust :find key . default)
@@ -170,7 +172,7 @@
     (multiple-value-bind (val new-db)
         (db-find-or-add upd-map key def-val)
       (become (local-excl-proxy-for-remote-db-access-beh
-               kvdb orig-map new-db owner))
+               kvdb orig-map new-db owner abort-tag))
       (send cust val)))
 
    ((cust :really-let-me-see-map)
@@ -196,7 +198,7 @@
         (send cust me)
       )))
 
-   ((cust 'forced-abort) / (eql cust self)
+   ((atag 'forced-abort) / (eql atag abort-tag)
     (become (local-proxy-for-remote-db-access-beh kvdb))
     (send kvdb sink :abort owner))
       
