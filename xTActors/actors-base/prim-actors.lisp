@@ -251,26 +251,25 @@ prefixed by our unique SELF identity/"
   ;; sooner than dt sec from when we exit the current behavior.
   ;; -- useful for real-time animation of graphs where we want to
   ;; control the animation update rate --
-  (let* ((joiner   (create))
-         (tag-dt   (tag joiner))
-         (tag-cust (tag joiner)))
-    (labels ((sans-tag-beh (atag &rest ans)
-               (declare (ignore atag))
-               (send* cust ans))
-             (waiting-beh (&rest anss)
-               (lambda* (atag . ans)
-                 (cond
-                  ((eq atag tag-dt)
-                   (become #'sans-tag-beh)
-                   (send-all-to cust anss))
-                  
-                  (t ;; we had tag-cust
-                     (become (apply #'waiting-beh ans anss)))
-                  ))))
-      (setf (actor-beh joiner) (waiting-beh))
-      (send-after dt tag-dt) ;; won't fire until we exit beh
-      tag-cust
-      )))
+  (actors ((tag-dt   (tag joiner))
+           (tag-cust (tag joiner))
+           (joiner   (create
+                      (labels
+                          ((waiting-beh (&rest anss)
+                             (lambda* (atag . ans)
+                               (cond
+                                ((eq atag tag-dt)
+                                 (become (lambda* (_ . ans)
+                                           (send* cust ans)))
+                                 (send-all-to cust anss))
+                                
+                                (t
+                                 (become (apply #'waiting-beh ans anss)))
+                                ))))
+                        (waiting-beh)))))
+    (send-after dt tag-dt) ;; won't fire until we exit beh
+    tag-cust
+    ))
 
 ;; -------------------------------------------------
 ;; FUT - A non-macro β replacement?
