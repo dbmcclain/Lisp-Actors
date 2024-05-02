@@ -11,6 +11,14 @@
 (defpackage #:com.ral.actors.kvdb
   (:use #:cl #:com.ral.actors)
   (:export
+   #:db-find
+   #:db-add
+   #:db-find-or-add
+   #:db-remove
+   #:db-map
+   #:db-get-keys
+   #:db-rebuild
+   
    #:kvdb
    #:kvdb-maker
    #:show-kvdb
@@ -35,10 +43,10 @@
    requirements on key orderability here. Just need an EQUAL test
    between normalized keys. Key normalization is idempotent.
   
-   [ Non-Liberal or Strict Persistence - unnamed compiled functions,
+   [ Non-Liberal or Strict Persistence - Pure Lisp data structures
+   can be persisted. But unnamed compiled functions,
    functional closures, and some system level objects, as well as data
-   structures that contain them, cannot be persisted.  Other, pure
-   Lisp data structures can be persisted.
+   structures that contain them, cannot be persisted.
   
    So this excludes open streams, Actors, and many other low-level
    things.  Liberal Persistence substitutes proxy objects in their
@@ -49,7 +57,7 @@
    But they cannot be persisted to disk.]
   
    If two persistable items are EQ when added to the KV database, they
-   are restored to EQ in future sessions.
+   are restored to EQ upon retrieval in future sessions.
   
    ----------------------------------------------------------------------
    Notes about Concurrent (Parallel and Single-Threaded) Execution...
@@ -832,6 +840,8 @@
 (defun ensure-file-exists (path)
   (flet ((init-kvdb ()
            (let ((db (db-new)))
+             ;; version is updated with each change to the contents
+             ;; kvdb-sequence is a unique ID permanently associated with the database
              (setf db (db-add db 'version       (uuid:make-v1-uuid)))
              (setf db (db-add db 'kvdb-sequence (uuid:make-v1-uuid)))
              (full-save path db nil)
