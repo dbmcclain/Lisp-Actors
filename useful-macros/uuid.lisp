@@ -635,7 +635,8 @@ built according code-char of each number in the uuid-string"
   (uuid-universal-time id))
 
 (set-/-dispatch-reader "uuid"
-                       (lambda (stream)
+                       (lambda (stream &rest _)
+                         (declare (ignore _))
                          (make-uuid-from-string
                           (let ((ch (read-char stream)))
                             (if (digit-char-p ch 16.)

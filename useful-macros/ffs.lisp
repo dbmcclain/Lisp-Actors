@@ -49,7 +49,8 @@
 (defun map-filename (fname)
   (prefix-translation fname mappings))
 
-(defun ffs-reader (stream)
+(defun ffs-reader (stream &rest _)
+  (declare (ignore _))
   (map-filename (string (read stream))))
 
 (um:set-/-dispatch-reader 'ffs #'ffs-reader)

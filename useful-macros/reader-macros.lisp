@@ -515,7 +515,9 @@ THE SOFTWARE.
            (vector-push-extend ch chars))
      (we-are-done ()
                   (finish (unless *read-suppress*
-                            (let ((ans (trim-common-leading-ws-from-lines chars)))
+                            (let ((ans (if numarg
+                                           chars
+                                         (trim-common-leading-ws-from-lines chars))))
                               (if numarg
                                   ans
                                 `(string-interp ,ans)))
@@ -668,11 +670,10 @@ of the #> reader macro
 (defvar /-reader-macros (make-hash-table :test 'equalp))
 
 (defun |reader-for-#/| (stream sub-char numarg)
-  (declare (ignore sub-char numarg))
   (let* ((key    (first (segment-reader stream #\/ 1)))
          (reader (get-/-dispatch-reader key)))
     (if reader
-        (funcall reader stream)
+        (funcall reader stream sub-char numarg)
       (unless *read-suppress*
         (error "No /-Reader Macro for ~A" key)))))
 
@@ -688,7 +689,8 @@ of the #> reader macro
 
 #|
 (set-/-dispatch-reader "test"
-                       (lambda (stream)
+                       (lambda (stream &rest _)
+                         (declare (ignore _))
                          (let ((data (read stream t nil t)))
                            (match data
                              ((x) :when (numberp x) (/ x))
@@ -697,6 +699,23 @@ of the #> reader macro
 #/test/1.2
 #/test/this
 |#
+;; ----------------------------------------------------------
+;; Literal String Reader - incl embedded quotes
+
+(set-/-dispatch-reader "lit"
+                       (lambda (stream &rest _)
+                         (declare (ignore _))
+                         (let ((delim (read-char stream t nil t)))
+                           (case delim
+                             (#\(  (setf delim #\)))
+                             (#\[  (setf delim #\]))
+                             (#\{  (setf delim #\}))
+                             (#\«  (setf delim #\»)) )
+                           (read-chars-till-delim stream (list delim))
+                           )))
+
+;; ----------------------------------------------------------
+
 ;; ---------------------------------------------------
 ;; Symbol Aliases #?name
 ;; #?name looks up name in per-package alist and returns cdr symbol
