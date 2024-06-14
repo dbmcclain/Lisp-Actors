@@ -714,6 +714,9 @@ of the #> reader macro
                            (read-chars-till-delim stream (list delim))
                            )))
 
+(set-macro-character #\} (get-macro-character #\) nil))
+(set-macro-character #\] (get-macro-character #\) nil))
+(set-macro-character #\» (get-macro-character #\) nil))
 ;; ----------------------------------------------------------
 
 ;; ---------------------------------------------------

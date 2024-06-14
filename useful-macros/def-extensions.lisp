@@ -279,16 +279,30 @@ arguments when given."
     `((declare (ignore ,(symb "_"))))
     ))
 
+(defun prep-igns (lst)
+  (let* ((igns nil)
+         (elst (map-tree (lambda (x)
+                           (if (is-underscore? x)
+                               (let ((g  (gensym)))
+                                 (push g igns)
+                                 g)
+                             x))
+                         lst)))
+    (values elst igns)))
+         
 (defmethod do-let+ ((fst cons) binding form)
   ;; CONS first binding element is implied DESTRUCTURING-BIND
   ;; tree destructuring
-  (let ((flat (um:flatten fst)))
-    `(destructuring-bind ,fst
+  (multiple-value-bind (efst igns)
+      (prep-igns fst)
+    `(destructuring-bind ,efst
          ,(second binding)
-       ,@(maybe-ignore_ flat)
+       ,@(when igns
+           `((declare (ignore ,@igns))))
        ,form)
     ))
 
+#|
 (defmethod do-let+ ((fst (eql :decl)) binding form)
   ;; :DECL prefix is for DECLARE
   `(locally
@@ -301,15 +315,19 @@ arguments when given."
     `(let+ (( ,list-form (multiple-value-list ,verb-form)))
        ,form)
     ))
+|#
 
 (defmethod do-let+ ((fst (eql :mvb)) binding form)
   ;; :MVB prefix is for MULTIPLE-VALUE-BIND
   (destructuring-bind (list-form verb-form) (rest binding)
-    `(multiple-value-bind ,list-form
-         ,verb-form
-       ,@(maybe-ignore_ list-form)
-       ,form) 
-    ))
+    (multiple-value-bind (elst igns)
+        (prep-igns list-form)
+      `(multiple-value-bind ,elst
+           ,verb-form
+         ,@(when igns
+             `((declare (ignore ,@igns))))
+         ,form)
+      )))
 
 (defmethod do-let+ ((fst (eql :acc)) binding form)
   ;; :ACC prefix is for WITH-ACCESSORS
