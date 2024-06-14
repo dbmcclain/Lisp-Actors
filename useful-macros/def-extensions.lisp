@@ -308,6 +308,7 @@ arguments when given."
   `(locally
      (declare ,@(rest binding))
      ,form))
+|#
 
 (defmethod do-let+ ((fst (eql :mvl)) binding form)
   ;; :MVL prefix is for MULTIPLE-VALUE-LIST
@@ -315,7 +316,6 @@ arguments when given."
     `(let+ (( ,list-form (multiple-value-list ,verb-form)))
        ,form)
     ))
-|#
 
 (defmethod do-let+ ((fst (eql :mvb)) binding form)
   ;; :MVB prefix is for MULTIPLE-VALUE-BIND
