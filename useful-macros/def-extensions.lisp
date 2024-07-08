@@ -354,6 +354,11 @@ arguments when given."
   `(symbol-macrolet ,(second binding)
      ,form) )
 
+(defmethod do-let+ ((fst (eql :fn)) binding form)
+  ;; :FN prefix is for LABELS
+  `(labels ((,(second binding) ,(third binding) ,@(cdddr binding)))
+     ,form))
+
 (defmethod do-let+ (fst binding form)
   ;; default case is just normal LET
   ;; But we are cascaded such that the effect of multiple bindings is LET*
