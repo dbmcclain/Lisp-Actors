@@ -483,7 +483,6 @@
    ;; The db gateway is the only one that knows saver's identity.
    ;; Don't bother doing anything unless the db has changed.
    ((cust :save-log new-db)
-    (send fmt-println "Saving KVDB Deltas: ~S" path)
     (handler-case
         (let ((new-ver  (db-find new-db  'version))
               (prev-ver (db-find last-db 'version)))
@@ -498,6 +497,7 @@
                                  :max-portability t
                                  :self-sync t))
               (become (save-database-beh path new-db ctrl-tag))
+              (send fmt-println "Saved KVDB Deltas: ~S" path)
               (send cust :ok)
               )))
       (error ()
@@ -673,7 +673,6 @@
 ;; --------------------------------------------------------------------
 
 (defun full-save (db-path db ctrl-tag)
-  (send fmt-println "Saving full KVDB: ~S" db-path)
   (ensure-directories-exist db-path)
   (let ((sav-db (db-rebuild db)))
     (with-open-file (f db-path
@@ -686,6 +685,7 @@
         (loenc:serialize sav-db f
                          :max-portability t)
         ))
+    (send fmt-println "Saved full KVDB: ~S" db-path)
     (send ctrl-tag :update-entry) ;; inode has changed
     sav-db))
 
@@ -693,20 +693,23 @@
   (let* ((new-wrk   (db-rebuild new-db))
          (old-keys  (db-get-keys old-db))
          (new-keys  (db-get-keys new-wrk))
+         ;; keys in old but absent from new
          (removals  (set-difference old-keys new-keys :test #'equal))
+         ;; keys in new but absent from old
          (additions (mapcan #'identity
                             (mapcar (lambda (k)
                                       (list (cons k (db-find new-wrk k))))
                                     (set-difference new-keys old-keys  :test #'equal))))
+         ;; value changes among common keys
          (changes   (mapcan #'identity
                             (mapcar (lambda (k)
                                       (let ((old-val (db-find old-db k new-wrk))
                                             (new-val (db-find new-wrk k)))
-                                        (cond ((eq old-val new-wrk)  nil)   ;; missing from old
+                                        (cond ((eq old-val new-wrk)  (break) nil)   ;; missing from old (?? - should never happen)
                                               ((eql old-val new-val) nil)   ;; unchanged
-                                        (t  (list (cons k new-val)))        ;; changed
+                                              (t  (list (cons k new-val)))  ;; changed
                                         )))
-                                    (set-difference new-keys (mapcar #'car additions)))
+                                    (set-difference new-keys (mapcar #'car additions) :test #'equal))
                             ))
          (log       (list
                      removals
