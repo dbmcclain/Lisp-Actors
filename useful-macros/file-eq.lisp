@@ -10,6 +10,7 @@
 
 ;; ----------------------------------
 
+#|
 #+:LISPWORKS
 (defun um:get-ino (fname)
   ;; Return dev and inode for given file. Two files are the same if
@@ -31,6 +32,13 @@
 	   (dev (find-if (finder "st_dev=") items))
 	   (ino (find-if (finder "st_ino=") items)))
       (values dev ino))))
+|#
+
+(defun um:get-ino (fname)
+  (let ((stat  (sys:get-file-stat fname)))
+    (values (sys:file-stat-device stat)
+            (sys:file-stat-inode  stat))
+    ))
 
 #+:SBCL
 (defun file-string (filename)
