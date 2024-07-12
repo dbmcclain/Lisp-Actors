@@ -131,6 +131,7 @@ THE SOFTWARE.
    #:%create
    #:make-remote-actor
    #:concurrently
+   #:sequentially
    
    #:send-after
 
@@ -276,7 +277,6 @@ THE SOFTWARE.
    #:false
    #:def-actor
    #:define-behavior
-   #:sequential-β
 
    #:unw-prot
    #:open-file

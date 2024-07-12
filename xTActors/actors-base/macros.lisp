@@ -232,6 +232,7 @@
 
 ;; ------------------------------------------------------
 
+#|
 (defmacro sequential-β (send-forms body-form)
   ;; Macro to generate β-forms to cause the Actor system to perform a
   ;; series of message sends sequentially before running the body
@@ -255,6 +256,20 @@
 (defmacro concurrently (&body body)
   ;; spawn a new concurrent Actor to perform the body
   `(send (create (lambda () ,@body))))
+|#
+
+;; --------------------------------------------------------
+;; Lisp is already inherently sequential, so a verb like SEQUENTIALLY
+;; is redundant.
+
+(defmacro concurrently (&rest exprs)
+  `(tagbody
+     ,@(mapcar (lambda (e)
+                 `(send (create
+                         (lambda ()
+                           ,e))))
+               exprs)
+     ))
 
 ;; ------------------------------------------------------
 
