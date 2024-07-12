@@ -346,15 +346,17 @@
 ;; ------------------------------------------------------------
 
 (defun abstract-forker (svc-fn &rest args)
-  (if args
-      (let ((svcs   (mapcar svc-fn args))
-            (no-ans (vector :no-answer))) ;; globally unique value
-        (assert (every #'actor-p svcs))
-        (create
-         (alambda
-          ((cust)
-           (labels
-               ((joiner-beh (ansv)
+  (cond
+   ((cdr args)
+    ;; more than one args
+    (let ((svcs   (mapcar svc-fn args))
+          (no-ans (vector :no-answer))) ;; globally unique value
+      (assert (every #'actor-p svcs))
+      (create
+       (alambda
+        ((cust)
+         (labels
+             ((joiner-beh (ansv)
                   (lambda* (ix . ans)
                     (let ((new-ansv (copy-seq ansv)))
                       (setf (aref new-ansv ix) (car ans))
@@ -365,17 +367,24 @@
                         (become-sink)
                         (send* cust (coerce new-ansv 'list)))
                        )))))
-             (let ((joiner (create
-                            (joiner-beh (make-array (length svcs)
-                                                    :initial-element no-ans)))))
-               (loop for ix from 0
-                     for svc in svcs
-                     do
-                       (send svc (label joiner ix)))
-               )))
-          )) )
-    ;; else
-    null-service))
+           (let ((joiner (create
+                          (joiner-beh (make-array (length svcs)
+                                                  :initial-element no-ans)))))
+             (loop for ix from 0
+                   for svc in svcs
+                   do
+                     (send svc (label joiner ix)))
+             )))
+        )) ))
+   (args
+    ;; just one args
+    (let ((svc (apply svc-fn args)))
+      (assert (actor-p svc))
+      svc))
+   (t
+    ;; no args
+    null-service)
+   ))
 
 (defun fork (&rest services)
   ;; Produces a single service from a collection of them. Will exec
