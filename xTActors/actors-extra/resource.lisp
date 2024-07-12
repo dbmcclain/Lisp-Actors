@@ -56,7 +56,7 @@
   ;; Guards can be nested for cases with multiple resources.  The
   ;; action of the first guard can be another guard.
   ;;
-  (actor 
+  (create
       (lambda* ((cust fail) &rest args)
         (multiple-value-bind (lbl-ok lbl-fail)
             (guard-selector cust fail must-do must-args)
@@ -66,17 +66,17 @@
 
 ;; Some must-do's
 (deflex close-file
-  (actor 
+  (create
       (lambda (fp)
         (close fp))))
   
 (deflex secure-erase
-  (actor 
+  (create
       (lambda (buf)
         (fill buf 0))))
 
 (defun perform (fn)
-  (actor 
+  (create
       (lambda (&rest args)
         (apply fn args))))
 
@@ -86,7 +86,7 @@
 ;; after use.
 ;;
 (defun with-open-vault (vault)
-  (actor 
+  (create
       (lambda* ((cust on-fail) &rest args)
         (let ((key (copy-seq (get-env "MySecretKey"))))
           (send* (guard unlock-vault 10 secure-erase key)

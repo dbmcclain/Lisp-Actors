@@ -109,7 +109,7 @@ THE SOFTWARE.
 
 (defmethod send ((target function) &rest msg) ;; is this useful?
   ;; execution staged for commit
-  (apply #'send (actor target) msg))
+  (apply #'send (create target) msg))
 
 (defmethod send (target &rest msg)) ;; NOP
    

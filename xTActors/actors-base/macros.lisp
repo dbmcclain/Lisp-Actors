@@ -70,7 +70,7 @@
 
 (µ α (args &body body)
   ;; α is to actor, what λ is to lambda
-  `(actor
+  `(create
     (lambda* ,args ,@body)))
 
 (µ αα (&rest clauses)
@@ -254,7 +254,7 @@
 
 (defmacro concurrently (&body body)
   ;; spawn a new concurrent Actor to perform the body
-  `(send (actor (lambda () ,@body))))
+  `(send (create (lambda () ,@body))))
 
 ;; ------------------------------------------------------
 
@@ -284,7 +284,7 @@
 
 (defmacro actor-nlet (name bindings &body body)
   `(let (,name)
-     (setf ,name (actor 
+     (setf ,name (create
                      (lambda ,(um:firsts bindings)
                        ,@body)))
      (send ,name ,@(um:seconds bindings))))

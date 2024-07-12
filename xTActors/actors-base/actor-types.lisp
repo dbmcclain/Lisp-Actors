@@ -52,11 +52,8 @@
             (:constructor %create (beh)))
   (beh  #'do-nothing  :type function))
 
-(defun actor (&optional (beh #'do-nothing))
-  (%create (screened-beh beh)))
-
 (defun create (&optional (beh #'do-nothing))
-  (actor beh))
+  (%create (screened-beh beh)))
 
 ;; ----------------------------------------------------------
 

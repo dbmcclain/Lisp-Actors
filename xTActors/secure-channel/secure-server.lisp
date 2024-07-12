@@ -9,13 +9,13 @@
 
 #| ;; for debugging
 (defun show-server-outbound (socket)
-  (actor 
+  (create
       (lambda (&rest msg)
         (>> println (format nil "s/out: ~S" msg))
         (>>* socket msg))))
 
 (defun show-server-inbound ()
-  (actor 
+  (create 
       (lambda (cust &rest msg)
         (>> println (format nil "s/in: ~S" msg))
         (>>* cust msg))))

@@ -32,7 +32,7 @@
 
 (defun logger ()
   ;; provides a log output as the message is passed along
-  (actor 
+  (create
       (lambda (cust &rest msg)
         (send* logger cust msg)
         (send* cust msg))))

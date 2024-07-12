@@ -403,6 +403,7 @@
 (tst "umbra.local")
 (tst "zircon.local")
 (tst "fornax.local")
+(tst "sextans.local")
 
 (defun tst (host n)
   (let* ((recho (remote-service :echo host))

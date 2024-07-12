@@ -466,7 +466,7 @@ prefixed by our unique SELF identity/"
        ))))
 
 #|
-(let* ((dut (actor 
+(let* ((dut (create
                 (lambda (cust nsec)
                   (sleep nsec)
                   (send cust)))

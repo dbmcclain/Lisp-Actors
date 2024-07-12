@@ -137,13 +137,13 @@
 
 (deflex list-imploder
   ;; take a sequence of args and send to cust as one list
-  (actor 
+  (create 
       (lambda (cust &rest msg)
         (>> cust msg))))
 
 (deflex list-exploder
   ;; take one list and send to cust as a sequence of args
-  (actor 
+  (create 
       (lambda (cust msg-list)
         (>>* cust msg-list))))
 
@@ -156,13 +156,13 @@
   (tee writeln))
 
 (defun marker (&rest txt)
-  (actor 
+  (create 
       (lambda (cust &rest msg)
         (>>* println txt)
         (>>* cust msg))))
 
 (deflex marshal-encoder
-  (actor 
+  (create 
       (lambda (cust &rest args)
         ;; (>> fmt-println "Marshal Encoder")
         (>> cust (loenc:encode (loenc:unshared-list args)
@@ -170,7 +170,7 @@
         )))
 
 (deflex marshal-decoder
-  (actor 
+  (create 
       (lambda (cust vec)
         ;; (>> fmt-println "Marshal Decoder")
         (>>* cust (loenc:decode vec)) )))
@@ -196,7 +196,7 @@
 
 #|
 (defun marshal-cmpr-encoder ()
-  (actor 
+  (create 
       (lambda (cust &rest msg)
         ;; takes arbitrary objects and producdes an encoded bytevec
         (>> (marshal-compressor) cust (loenc:encode (loenc:unshared-list msg)
@@ -208,7 +208,7 @@
 
 (defun marshal-decmpr-decoder ()
   ;; takes an encoded bytevec and produces arbitrary objects
-  (actor 
+  (create 
       (lambda (cust msg)
         (beta (enc)
             (>> (marshal-decompressor) beta msg)
@@ -216,7 +216,7 @@
 
 (defun marshal-compressor ()
   ;; takes bytevec and produces bytevec
-  (actor 
+  (create 
       (lambda (cust bytevec)
         (>> cust (if (uncompressed? bytevec)
                      (handler-case
@@ -234,7 +234,7 @@
 
 (defun marshal-decompressor ()
   ;; takes a bytevec and produces a bytevec
-  (actor
+  (create
       (lambda (cust cmprvec)
         (let ((vec (if (uncompressed? cmprvec)
                        cmprvec
@@ -264,17 +264,17 @@
 #||#
 ;; try using Google's SNAPPY
 (deflex marshal-compressor
-  (actor 
+  (create 
    (lambda (cust vec)
      (>> cust (simple-compress vec)))))
 
 (deflex marshal-decompressor
-  (actor 
+  (create 
    (lambda (cust vec)
      (>> cust (simple-uncompress vec)))))
   
 (deflex fail-silent-marshal-decompressor
-  (actor
+  (create
    (lambda (cust vec)
     (ignore-errors
       (let ((ans (simple-uncompress vec)))
@@ -288,7 +288,7 @@
 (deflex compressor-savings  (counter))
 
 (deflex smart-compressor
-  (actor 
+  (create 
    (lambda (cust vec)
      (let* ((vlen (length vec))
             (ans  ;; (zstd:compress-buffer vec)
@@ -310,7 +310,7 @@
    ))
 
 (deflex smart-decompressor
-  (actor 
+  (create 
    (lambda (cust vec)
      (if (= 1 (aref vec 0))
          (>> cust ;; (zstd:decompress-buffer vec :start 1)
@@ -320,7 +320,7 @@
         )))
   
 (deflex fail-silent-smart-decompressor
-  (actor
+  (create
    (lambda (cust vec)
      (ignore-errors
        (if (= 1 (aref vec 0))
@@ -334,13 +334,13 @@
 #||#
 #|
 (defun marshal-compressor ()
-  (actor 
+  (create 
       (lambda (cust vec)
         ;; (>> fmt-println "Marshal Compressor")
         (>> cust vec))))
 
 (defun marshal-decompressor ()
-  (actor 
+  (create 
       (lambda (cust vec)
         ;; (>> fmt-println "Marshal Decompressor")
         (>> cust vec))))
@@ -533,7 +533,7 @@
 |#
 
 (defun encryptor (ekey)
-  (actor 
+  (create 
       (lambda (cust bytevec)
         (let* ((bv    (padder bytevec))
                (nonce (encr/decr ekey nil bv)))
@@ -544,7 +544,7 @@
   (encryptor ekey))
 
 (defun decryptor (ekey)
-  (actor
+  (create
       (lambda (cust seq bytevec)
         (ignore-errors
           (encr/decr ekey seq bytevec)
@@ -552,7 +552,7 @@
       ))
 
 (defun non-destructive-decryptor (ekey)
-  (actor
+  (create
    (lambda (cust seq bytevec)
      (ignore-errors
        (let ((buf  (copy-seq bytevec)))
@@ -636,7 +636,7 @@
   ;; encryption key for the session. Those fields are still large
   ;; enough to prevent brute-force attacks.
   ;;
-  (actor 
+  (create 
       (lambda (cust bytevec)
         ;; (>> fmt-println "Encryptor")
         (beta (seq)
@@ -711,7 +711,7 @@
 ;; --------------------------------------
 
 (defun signing (skey)
-  (actor
+  (create
       (lambda (cust seq emsg)
         ;; (>> fmt-println "Signing")
         (let ((sig (make-signature seq emsg skey)))
@@ -738,7 +738,7 @@
 
 (deflex self-sync-encoder
   ;; takes a bytevec and produces a self-sync bytevec
-  (actor 
+  (create 
       (lambda (cust bytevec)
         (let ((enc (self-sync:encode bytevec)))
           (>> cust enc)
@@ -750,7 +750,7 @@
 
 (deflex checksum
   ;; produce a prefix checksum on the message
-  (actor 
+  (create 
       (lambda (cust &rest msg)
         (>>* cust (vec (hash/256 msg)) msg)
         )))
@@ -759,7 +759,7 @@
   ;; if a replay attack with mutated encryption manages to become
   ;; unmarshalled, then we need to stop it here by checking the
   ;; checksum.
-  (actor 
+  (create 
       (lambda (cust check &rest msg)
         (when (equalp check (vec (hash/256 msg)))
           (>>* cust msg))
@@ -779,7 +779,7 @@
 
 (defun chunker (&optional (max-size 65536))
   ;; Take a bytevec and produces a sequence of chunk encodings.
-  (actor 
+  (create 
       (lambda (cust byte-vec)
         ;; (>> fmt-println "Chunker")
         (let ((size (length byte-vec)))
@@ -814,7 +814,7 @@
 ;; customer. Chunker packets will arrive in aribtrary order.
 
 (defun chunk-monitor (max-size outer-cust)
-  (actor 
+  (create 
       (lambda (cust byte-vec)
         (>> cust byte-vec) ;; pass along to chunker
         (let* ((init-beh self-beh)
@@ -1092,7 +1092,7 @@
                       (chunker)
                       (marshal-encoder)
                       (writer)
-                      (actor 
+                      (create 
                           (lambda (cust bytvec)
                             (! inp bytvec)
                             (>> cust bytvec)))
@@ -1102,7 +1102,7 @@
                       (signature-validation pkey)
                       (decryptor ekey)
                       (writer)
-                      (actor 
+                      (create 
                           (lambda (cust bytvec)
                             (let ((diff (map 'vector #'logxor bytvec inp)))
                               (>> println diff)
@@ -1164,7 +1164,7 @@
 (defconstant +AONT-FILE-TYPE-ID+  (vec #/uuid/{b532fc4e-bf2b-123a-9307-24f67702cdaa}))
 
 (defun aont-encoder (skey ekey)
-  (actor 
+  (create 
       (lambda (cust &rest msg)
         ;; takes arbitrary Lisp data items and sends as an encrypted
         ;; single list to cust, along with AONT parameters
@@ -1184,7 +1184,7 @@
 
 (def-actor aont-decoder
   ;; sends a sequence of original Lisp data items to cust
-  (actor 
+  (create 
       (lambda (cust pkey-vec data-packet aont-vec)
         (let ((pkey  (ed-decompress-pt pkey-vec))
               (ekey  (vec (hash/256 pkey-vec data-packet))))
@@ -1201,7 +1201,7 @@
 
 (defun aont-file-writer (fname skey ekey)
   ;; writes a single AONT record to a file
-  (actor 
+  (create 
       (lambda (cust &rest msg)
         (beta vecs
             (>>* (aont-encoder skey ekey) beta msg)
@@ -1219,7 +1219,7 @@
 (defun aont-file-reader (fname)
   ;; Reads a single AONT record from a file, sending the original data
   ;; items as a sequence of args to cust.
-  (actor
+  (create
    (lambda (cust)
      (with-open-file (fd fname
                          :direction :input
