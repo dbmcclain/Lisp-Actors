@@ -497,13 +497,14 @@
                 (loenc:serialize delta f
                                  :max-portability t
                                  :self-sync t))
+              (become (save-database-beh path new-db ctrl-tag))
+              (send cust :ok)
               )))
       (error ()
         ;; expected possible error due to file not existing yet
         ;; or from non-existent version in prev-ver
-        (full-save path new-db ctrl-tag)))
-    (become (save-database-beh path new-db ctrl-tag))
-    (send cust :ok))
+        (send self cust :full-save new-db))
+      ))
    ))
   
 ;; ---------------------------------------------------------------
@@ -520,6 +521,8 @@
   (:method ((err not-a-kvdb))
    t))
 
+;; ---------------------------------------------------------------
+
 (define-condition corrupt-deltas (error)
   ((path :accessor corrupt-deltas-path :initarg :path))
   (:report (lambda (cx stream)
@@ -531,6 +534,8 @@
    nil)
   (:method ((err corrupt-deltas))
    t))
+
+;; ---------------------------------------------------------------
 
 (define-condition corrupt-kvdb (error)
   ((path :accessor corrupt-kvdb-path :initarg :path))
@@ -549,6 +554,8 @@
    nil)
   (:method ((err file-error))
    t))
+
+;; ---------------------------------------------------------------
 
 (defun check-kvdb-sig (fd dbpath)
   (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
@@ -877,11 +884,13 @@
 (defun ino-key (path)
   (multiple-value-bind (dev ino)
       (um:get-ino path)
-    (um:mkstr dev #\space ino)))
+    (with-standard-io-syntax
+      (um:mkstr dev #\: ino))))
 
 #+:MSWINDOWS
 (defun ino-key (path)
   (namestring (truename path)))
+
 
 (defstruct open-database
   ino-key orch-tag kvdb-actor path)
