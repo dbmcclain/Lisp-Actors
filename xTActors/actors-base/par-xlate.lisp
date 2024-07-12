@@ -353,21 +353,26 @@
         (create
          (alambda
           ((cust)
-           (let* ((ansv (make-array (length svcs)
-                                    :initial-element no-ans))
-                  (joiner (create
-                           (lambda* (ix . ans)
-                             (setf (aref ansv ix) (car ans))
-                             (unless (find no-ans ansv)
-                               (become-sink)
-                               (send* cust (coerce ansv 'list))
-                               ))
-                            )))
-             (loop for ix from 0
-                   for svc in svcs
-                   do
-                     (send svc (label joiner ix)))
-             ))
+           (labels
+               ((joiner-beh (ansv)
+                  (lambda* (ix . ans)
+                    (let ((new-ansv (copy-seq ansv)))
+                      (setf (aref new-ansv ix) (car ans))
+                      (cond
+                       ((find no-ans new-ansv)
+                        (become (joiner-beh new-ansv)))
+                       (t
+                        (become-sink)
+                        (send* cust (coerce new-ansv 'list)))
+                       )))))
+             (let ((joiner (create
+                            (joiner-beh (make-array (length svcs)
+                                                    :initial-element no-ans)))))
+               (loop for ix from 0
+                     for svc in svcs
+                     do
+                       (send svc (label joiner ix)))
+               )))
           )) )
     ;; else
     null-service))
