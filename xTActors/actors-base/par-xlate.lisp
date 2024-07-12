@@ -350,7 +350,7 @@
    ((cdr args)
     ;; more than one args
     (let ((svcs   (mapcar svc-fn args))
-          (no-ans (vector :no-answer))) ;; globally unique value
+          (no-ans #.(vector :no-answer))) ;; globally unique value
       (assert (every #'actor-p svcs))
       (create
        (alambda
