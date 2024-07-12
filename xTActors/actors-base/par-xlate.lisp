@@ -323,47 +323,6 @@
               :initial-value (apply svc-fn (last args))
               :from-end t)
       null-service))
-|#
-
-(defun abstract-forker (svc-fn &rest args)
-  (if args
-      (let ((svcs   (mapcar svc-fn args))
-            (no-ans (vector :no-answer))) ;; globally unique value
-        (assert (every #'actor-p svcs))
-        (create
-         (alambda
-          ((cust)
-           (loop for ix from 0
-                 for svc in svcs
-                 do
-                   (send svc (once (label self ix))))
-           (labels ((beh (ansv)
-                      (alambda
-                       ((ix . ans)
-                        (let ((new-ansv (copy-seq ansv)))
-                          (setf (aref new-ansv ix) (car ans))
-                          (become (beh new-ansv))
-                          (unless (find no-ans new-ansv)
-                            (send* cust (coerce new-ansv 'list)))
-                          ))
-                       )))
-             (become (beh (make-array (length svcs)
-                                      :initial-element no-ans)))
-             ))
-          )))
-    ;; else
-    null-service))
-
-
-(defun fork (&rest services)
-  ;; Produces a single service from a collection of them. Will exec
-  ;; each in parallel, sending accumulated results to eventual
-  ;; customer, in the same order as stated in the service list.
-  ;;
-  ;; All services in the list must send a result to their customer.
-  ;;
-  (apply #'abstract-forker #'identity services))
-
 ;;
 ;; We get for (FORK A B C):
 #|
@@ -383,6 +342,45 @@
                                                 +----+
 
 |# 
+|#
+;; ------------------------------------------------------------
+
+(defun abstract-forker (svc-fn &rest args)
+  (if args
+      (let ((svcs   (mapcar svc-fn args))
+            (no-ans (vector :no-answer))) ;; globally unique value
+        (assert (every #'actor-p svcs))
+        (create
+         (alambda
+          ((cust)
+           (let* ((ansv (make-array (length svcs)
+                                    :initial-element no-ans))
+                  (joiner (create
+                           (lambda* (ix . ans)
+                             (setf (aref ansv ix) (car ans))
+                             (unless (find no-ans ansv)
+                               (become-sink)
+                               (send* cust (coerce ansv 'list))
+                               ))
+                            )))
+             (loop for ix from 0
+                   for svc in svcs
+                   do
+                     (send svc (label joiner ix)))
+             ))
+          )) )
+    ;; else
+    null-service))
+
+(defun fork (&rest services)
+  ;; Produces a single service from a collection of them. Will exec
+  ;; each in parallel, sending accumulated results to eventual
+  ;; customer, in the same order as stated in the service list.
+  ;;
+  ;; All services in the list must send a result to their customer.
+  ;;
+  (apply #'abstract-forker #'identity services))
+
 ;; ----------------------------------------------------------------------------------
 ;; PAR-MAP -- produce a service Actor that forks a bunch of Actors to
 ;; perform some action against each from a list of args.
