@@ -219,6 +219,45 @@
 
   ----------------------------------------------------------------- |#
 
+;; ------------------------------------
+;; For a timed race to comply with a response, sometimes the target
+;; Actor of a Serializer knows better what the timeout period should
+;; really be.
+;;
+;; In that case, they can send to their CUST arg a :KEEP-ALIVE-PING
+;; message with the better determined timeout period.
+;;
+;; As long as they respond with an actual reply, or another
+;; :KEEP-ALIVE-PING, before the timeout happens, they will keep the
+;; door open.
+;;
+;; By default, the initial timeout is whatever the Serializer imposes.
+
+(defun timed-once-tag-with-ka-beh (cust ix)
+  (alambda
+   ((:keep-alive-ping dt) / (and (realp dt)
+                                 (plusp dt))
+    (let ((new-ix (1+ ix)))
+      (become (timed-once-tag-with-ka-beh cust new-ix))
+      (send-after dt self +timed-out+ new-ix)))
+   ((msg an-ix) / (and (eq msg +timed-out+)
+                       (integerp an-ix))
+    (when (eql an-ix ix)
+      (send cust self +timed-out+)
+      (become-sink)))
+   (msg
+    (send* cust self msg)
+    (become-sink))
+   ))
+
+(defun timed-once-tag-with-ka (cust &optional (timeout *timeout*))
+  (let* ((ix   (random (ash 1 24)))
+         (atag (create (timed-once-tag-with-ka-beh cust ix))))
+    (send-after timeout atag +timed-out+ ix)
+    atag))
+
+;; ---------------------------------------------------------------
+
 (defun serializer (svc &key (timeout *timeout* timeout-provided-p))
   (warn-timeout timeout timeout-provided-p "Serializer")
   (labels
@@ -228,7 +267,7 @@
          ;; we guard ourselves with a ONCE gate.
          (alambda
           ((cust . msg)
-           (let ((tag  (timed-once-tag self timeout)))
+           (let ((tag  (timed-once-tag-with-ka self timeout)))
              (send* svc tag msg)
              (become (busy-serializer-beh cust tag nil))
              ))
@@ -243,7 +282,7 @@
            (if (emptyq? queue)
                (become (serializer-beh))
              (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
-                    (new-tag  (timed-once-tag self timeout)))
+                    (new-tag  (timed-once-tag-with-ka self timeout)))
                (send* svc new-tag next-msg)
                (become (busy-serializer-beh next-cust new-tag new-queue))
                )))

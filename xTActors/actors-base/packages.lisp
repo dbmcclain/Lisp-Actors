@@ -166,6 +166,7 @@ THE SOFTWARE.
    #:once-tag
    #:timed-tag
    #:timed-once-tag
+   #:timed-once-tag-with-ka
    #:rate-limited-customer
    #:ser
    #:par
