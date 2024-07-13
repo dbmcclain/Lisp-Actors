@@ -271,6 +271,22 @@
                exprs)
      ))
 
+;; -----------------------------------------------------
+
+(defmacro par (args exprs &body body)
+  (lw:with-unique-names (cust)
+    `(β ,args
+         (send (fork ,@(mapcar (lambda (e)
+                                 `(create
+                                   (lambda (,cust)
+                                     (send ,cust ,e))))
+                               exprs))
+               β)
+       ,@body)))
+
+#+:LISPWORKS
+(editor:indent-like "par" 'destructuring-bind)
+
 ;; ------------------------------------------------------
 
 (defmacro ret (&rest ans)

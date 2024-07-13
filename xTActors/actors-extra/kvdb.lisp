@@ -471,6 +471,7 @@
 
 (um:defconstant+ +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
+#|
 (defun save-database-beh (path last-db ctrl-tag)
   ;; -------------------
   (alambda
@@ -505,6 +506,93 @@
         ;; or from non-existent version in prev-ver
         (send self cust :full-save new-db))
       ))
+   ))
+|#
+;; -----------------------------------------------------
+
+(deflex db-differencer
+  (create
+   (lambda (cust old-db new-db)
+     (let+ ((:par (new-keys old-keys)
+                ((db-get-keys new-db)
+                 (db-get-keys old-db)))
+            (:par (removals additions common-keys)
+                ((set-difference old-keys new-keys :test #'equal)
+                 (let ((adds (set-difference new-keys old-keys :test #'equal)))
+                   (pairlis adds (mapcar (um:curry #'db-find new-db) adds)))
+                 (intersection new-keys old-keys :test #'equal)) ))
+         (send (create
+                (lambda (keys &optional changes)
+                  (if keys
+                      (let ((me   self)
+                            (key  (car keys))
+                            (tl   (cdr keys)))
+                        (par (new-val old-val)
+                            ((db-find new-db key)
+                             (db-find old-db key))
+                          (send me tl
+                                (if (eql new-val old-val)
+                                    changes
+                                  (acons key new-val changes)))
+                          ))
+                    ;; else
+                    (send cust (list removals
+                                     additions
+                                     changes))
+                    )))
+               common-keys)
+         ))
+   ))
+
+;; -----------------------------------------------------
+
+(defun save-database-beh (path last-db ctrl-tag)
+  ;; -------------------
+  (alambda
+   ((cust :full-save db)
+    (let ((savdb (full-save path db ctrl-tag)))
+      (become (save-database-beh path savdb ctrl-tag))
+      (send cust :ok)))
+   
+   ((cust :become intro new-db) / (eq intro self)
+    (become (save-database-beh path new-db ctrl-tag))
+    (send cust :ok))
+   
+   ;; -------------------
+   ;; The db gateway is the only one that knows saver's identity.
+   ;; Don't bother doing anything unless the db has changed.
+   ;;
+   ((cust :save-log new-db)
+    (let+ ((me self)
+           (:fn recover ()
+            (send me cust :full-save new-db))
+           (:par (new-ver prev-ver)
+               ((db-find new-db 'version)
+                (db-find last-db 'version))) )
+      (handler-case
+          (when (uuid:uuid-time< prev-ver new-ver)
+            (β (delta)
+                (send db-differencer β last-db new-db)
+              (handler-case
+                  (progn
+                    (with-open-file (f path
+                                       :direction         :output
+                                       :if-exists         :append
+                                       :if-does-not-exist :error
+                                       :element-type      '(unsigned-byte 8))
+                      (loenc:serialize delta f
+                                       :max-portability t
+                                       :self-sync t))
+                    (send me cust :become me new-db)
+                    (send fmt-println "Saved KVDB Deltas: ~S" path))
+                (error ()
+                  ;; possible error because file not existing yet
+                  (recover))
+                )))
+        (error ()
+          ;; possible error from non-existent prev-ver
+          (recover))
+        )))
    ))
   
 ;; ---------------------------------------------------------------
@@ -689,6 +777,7 @@
     (send ctrl-tag :update-entry) ;; inode has changed
     sav-db))
 
+#|
 (defun get-diffs (old-db new-db)
   (let* ((new-wrk   (db-rebuild new-db))
          (old-keys  (db-get-keys old-db))
@@ -717,6 +806,7 @@
                      changes)))
     ;; (send writeln log)
     log))
+|#
 
 ;; -----------------------------------------------------------
 

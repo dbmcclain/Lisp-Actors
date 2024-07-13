@@ -470,6 +470,12 @@
 (defmethod do-let+ ((fst (eql :beta)) binding form)
   (do-let+ :β binding form))
 
+(defmethod do-let+ ((fst (eql :par)) binding form)
+  (destructuring-bind (list-form verb-form) (rest binding)
+    `(par ,list-form
+         ,verb-form
+       ,@(um:maybe-ignore_ list-form)
+       ,form)))
 
 ;; -----------------------------------------------
 
