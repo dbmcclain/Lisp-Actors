@@ -142,6 +142,16 @@
   ;; full image on backing store, or just the deltas.
   ;; -------------------
   (alambda
+   ((cust :retry-open)
+    ;; Might happen when a file problem was encountered and user had
+    ;; to respond to a Y-or-N query, meanwhile the Serializer timed
+    ;; out.  If we made it to this state, then everything is happy and
+    ;; we simply need to reply with our copy of the kvdb.
+    ;;
+    ;; If we didn't make it to this state, we will have become a CONST
+    ;; with the error code.
+    (send cust :opened last-db))
+    
    ((cust :full-save db)
     (let ((savdb (full-save path db ctrl-tag)))
       (become (save-database-beh path savdb ctrl-tag))
@@ -265,7 +275,7 @@
           ;; we are behind a Serializer, so must reply to cust
           ((error (lambda (err)
                     (abort-beh) ;; clear out all Send & Become
-                    (become-sink)
+                    (become (const-beh :error err))
                     (send ctrl-tag :remove-entry) ;; tell Orchestrator
                     (send cust :error err)        ;; tell KVDB Manager
                     (return-from udb)) ;; being an Actor, the return value is irrelevant and ignored.

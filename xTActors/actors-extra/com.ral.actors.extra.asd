@@ -12,6 +12,7 @@
                 #-:ALLEGRO   (:file "kvdb-package")
                 #-:ALLEGRO   (:file "kvdb-intf")
                 #-:ALLEGRO   (:file "kvdb-saver")
+                #-:ALLEGRO   (:file "kvdb-mgr")
                 #-:ALLEGRO   (:file "kvdb")
                 #-:ALLEGRO   (:file "kvdb-server")
                 #+:LISPWORKS (:file "kvdb-gui")

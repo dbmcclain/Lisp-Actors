@@ -286,21 +286,40 @@ prefixed by our unique SELF identity/"
 
 (defun fut (svc &rest args)
   ;; svc is expected to provide an actor target for a future send
-  ;; lazy-eval - doesn't do anything until a message is sent to us
-  (labels ((fut-wait-beh (tag &rest msgs)
+  ;; lazy-eval - doesn't do anything until a message is sent to us.
+  ;;
+  ;; If anything else is sent to us by the servce, e.g., Serializer
+  ;; timeout, error condition, etc., we see to it that this reply is
+  ;; echoed to all waiting customers, and we reset ourselves to nascent
+  ;; state.
+  ;;
+  (labels ((pend-beh (&rest msg)
+             (let ((tag  (tag self)))
+               (become (fut-wait-beh tag msg))
+               (send* svc tag args)))
+           
+           (fut-wait-beh (tag &rest msgs)
              (alambda
-              ((atag act) / (eq atag tag)
+              ((atag act) / (and (eq atag tag)
+                                 (actor-p act))
                (become (fwd-beh act))
                (send-all-to act msgs))
+              
+              ((atag . msg) / (eq atag tag)
+               ;; By strict convention, the customer arg is always
+               ;; stated first. Hence by making the reply into a
+               ;; CONST, we ensure that all customers get notified of
+               ;; the reply.
+               (become #'pend-beh)
+               (let ((k  (apply #'const msg)))
+                 (send-all-to k msgs)
+                 ))
+              
               (msg
                (become (apply #'fut-wait-beh tag msg msgs)))
-              )))             
-    (create
-     (lambda (&rest msg)
-       (let ((tag  (tag self)))
-         (become (fut-wait-beh tag msg))
-         (send* svc tag args)))
-     )))
+              )))
+    (create #'pend-beh)
+    ))
 
 ;; -----------------------------------------------
 ;; Now two years out, and I still haven't found a use for FUTURE
