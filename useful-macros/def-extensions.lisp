@@ -356,8 +356,22 @@ arguments when given."
 
 (defmethod do-let+ ((fst (eql :fn)) binding form)
   ;; :FN prefix is for LABELS
+  (if (consp (second binding))
+      ;; for multiple cross-ref functions
+      `(labels ,@(cdr binding)
+         ,form)
+    ;; else - for single function decl
   `(labels ((,(second binding) ,(third binding) ,@(cdddr binding)))
-     ,form))
+     ,form)))
+
+(defmethod do-let+ ((fst (eql :mac)) binding form)
+  ;; :MAC is for MACROLET
+  (if (consp (second binding))
+      `(macrolet ,@(cdr binding)
+         ,form)
+    ;; else - for single macro def
+    `(macrolet ((,(second binding) ,(third binding) ,@(cdddr binding)))
+       ,form)))
 
 (defmethod do-let+ (fst binding form)
   ;; default case is just normal LET
@@ -390,4 +404,7 @@ WITH-ACCESSORS, in your code, putting it all into one place with LET+."
 (let+ ((:sym ((a thinga)
               (b (getf thingb :fld)))))
   (doit))
+(let+ ((:fn ((a (x) (doit x))
+             (b (x) (a x)))))
+  (b 15))
 |#
