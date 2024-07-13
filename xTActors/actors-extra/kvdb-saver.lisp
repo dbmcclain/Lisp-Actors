@@ -82,21 +82,22 @@
   (create
    (lambda (cust old-db new-db)
      (let+ ((:par (new-keys old-keys)
-                ((db-get-keys new-db)
-                 (db-get-keys old-db)))
+                ((db-get-keys new-db)   ;; new keys
+                 (db-get-keys old-db))) ;; old keys
             (:par (removals additions common-keys)
-                ((set-difference old-keys new-keys :test #'equal)
-                 (let ((adds (set-difference new-keys old-keys :test #'equal)))
+                ((set-difference old-keys new-keys :test #'equal)               ;; removals
+                 (let ((adds (set-difference new-keys old-keys :test #'equal))) ;; additions
                    (pairlis adds (mapcar (um:curry #'db-find new-db) adds)))
-                 (intersection new-keys old-keys :test #'equal)) ))
+                 (intersection new-keys old-keys :test #'equal)) ))             ;; common keys
          (send (create
                 (lambda (keys &optional changes)
+                  ;; compute list of changes
                   (if keys
                       (let+ ((me  self)
                              ((key . tl) keys)
                              (:par (new-val old-val)
-                                 ((db-find new-db key)
-                                  (db-find old-db key))))
+                                 ((db-find new-db key)     ;; new val
+                                  (db-find old-db key))))  ;; old val
                         (send me tl
                               (if (eql new-val old-val)
                                   changes
@@ -109,6 +110,11 @@
                common-keys)
          ))
    ))
+
+;; ---------------------------------------------------------------
+;; The unique KVDB Signature at the front of every valid KVDB backing store.
+
+(um:defconstant+ +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
 
 ;; --------------------------------------------------------------------
 
@@ -132,6 +138,8 @@
 ;; -----------------------------------------------------
 
 (defun save-database-beh (path last-db ctrl-tag)
+  ;; The steady state of the SAVER. Await messages to either store a
+  ;; full image on backing store, or just the deltas.
   ;; -------------------
   (alambda
    ((cust :full-save db)
@@ -230,9 +238,9 @@
 
 ;; ---------------------------------------------------------------
 
-(um:defconstant+ +db-id+  #/uuid/{6f896744-6472-11ec-8ecb-24f67702cdaa})
-
 (defun check-kvdb-sig (fd dbpath)
+  ;; Verify that we really have a KVDB signature at the front of the
+  ;; file.
   (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
          (id   (vec-repr:make-ub8-vector (length sig))))
     (file-position fd 0)
@@ -241,7 +249,13 @@
         (error 'not-a-kvdb :path dbpath))
     ))
 
+;; ----------------------------------------------------------------
+
 (defun unopened-database-beh (ctrl-tag)
+  ;; The starting state of the SAVER. Await a message to Open the KVDB
+  ;; on backing store, set up the in-memory KVDB, then become a real
+  ;; Saver which computes and saves the deltas on demand from the KVDB
+  ;; manager.
   (alambda
    ;; -------------------
    ;; message from kick-off starter routine
@@ -252,30 +266,35 @@
           ((error (lambda (err)
                     (abort-beh) ;; clear out all Send & Become
                     (become-sink)
-                    (send ctrl-tag :remove-entry) ;; tell orchestrator
-                    (send cust err)
-                    (return-from udb))
+                    (send ctrl-tag :remove-entry) ;; tell Orchestrator
+                    (send cust :error err)        ;; tell KVDB Manager
+                    (return-from udb)) ;; being an Actor, the return value is irrelevant and ignored.
                   ))
         (labels ((normal-exit (db)
+                   ;; Become a SAVER Actor and tell the KVDB manager
+                   ;; that we are now open for business, and provide
+                   ;; the in-memory KVDB.
                    (become (save-database-beh db-path db ctrl-tag))
                    (send cust :opened db)
-                   (return-from udb))
+                   (return-from udb)) ;; return value irrelevant
                  
                  (prep-and-save-db (db)
-                   (let* ((ver (db-find db 'version))
-                          (dbv (if (typep ver 'uuid:uuid)
-                                   db
-                                 (db-add db 'version (uuid:make-v1-uuid))))
-                          (seq  (db-find dbv 'kvdb-sequence))
+                   ;; Called only when recovering from file errors of
+                   ;; various kinds.
+                   (let* ((dbv  (db-add db 'version (uuid:make-v1-uuid))) ;; update its version
+                          (seq  (db-find dbv 'kvdb-sequence))             ;; ensure it has a kvdb-sequence
                           (dbs  (if (typep seq 'uuid:uuid)
                                     dbv
                                   (db-add dbv 'kvdb-sequence (uuid:make-v1-uuid)))))
                      (normal-exit (full-save db-path dbs ctrl-tag))))
                  
                  (prep-and-save-new-db ()
+                   ;; Called when error recovery requires the nuclear
+                   ;; option. A totally empty database results.
                    (prep-and-save-db (db-new)))
-
+                 
                  (try-deserialize-db (f)
+                   ;; read in the core of the database
                    (handler-case
                        (let ((db  (loenc:deserialize f)))
                          (db-find db 'version) ;; try to tickle error
@@ -291,26 +310,43 @@
                          ;; else
                          (error 'corrupt-kvdb :path db-path)))
                      ))
-
+                 
                  (apply-deltas (f db)
+                   ;; Apply the historical log of deltas to the base
+                   ;; database. The log is stored as successive
+                   ;; records in self-sync form. Each record contains
+                   ;; a list of removals, additions, and changes.
                    (handler-case
                        (let ((reader (self-sync:make-reader f)))
                          (loop for ans = (loenc:deserialize f :self-sync reader)
                                until   (eq ans f)
                                finally (normal-exit db)
                                do
-                                 (destructuring-bind (removals additions changes) ans
+                                 (let+ (( (removals additions changes) ans)
+                                        (:fn add (pairs)
+                                         (dolist (pair pairs)
+                                           (let+ (( (key . val) pair))
+                                             (setf db (db-add db key val))
+                                             ))))
                                    (dolist (key removals)
                                      (setf db (db-remove db key)))
-                                   (dolist (pair additions)
-                                     (destructuring-bind (key . val) pair
-                                       (setf db (db-add db key val))))
-                                   (dolist (pair changes)
-                                     (destructuring-bind (key . val) pair
-                                       (setf db (db-add db key val))))
+                                   (add additions)
+                                   (add changes)
                                    )))
                      (error ()
-                       ;; happens when can't deserialize properly
+                       ;; Happens when can't deserialize properly.
+                       ;;
+                       ;; Under normal circumstances, the self-sync
+                       ;; encoding should just skip over damaged
+                       ;; sections of the log and continue applying
+                       ;; from that point forward. The database could
+                       ;; be somewhat inconsistent if that happens.
+                       ;;
+                       ;; We should, however, never encounter this
+                       ;; error which could only arise if a log record
+                       ;; does not contain a list of removals,
+                       ;; additions, and changes.
+                       ;;
                        (if (yes-or-no-p
                             "Corrupt deltas encountered: ~S. Rebuild?"
                             db-path)
@@ -327,6 +363,7 @@
                 (check-kvdb-sig f db-path)
                 (apply-deltas f  (try-deserialize-db f)))
             
+            ;; Under the Orchestrator these errors should never occur.
             (file-error (err)
               (if (yes-or-no-p
                    "File does not exist: ~S. Create?"
@@ -348,6 +385,8 @@
 ;; ---------------------------------------------------------------
 
 (defun ensure-file-exists (path)
+  ;; Called by the Orchestrator to ensure that there is a valid
+  ;; DEVICE+INODE identification for the backing store of a KVDB.
   (flet ((init-kvdb ()
            (let ((db (db-new)))
              ;; version is updated with each change to the contents
@@ -382,6 +421,9 @@
               (init-kvdb)
             (error err)))
         )))
+
+;; --------------------------------------------------------------
+;; Unique file identification by DEVICE+INODE
 
 #-:MSWINDOWS
 (defun ino-key (path)

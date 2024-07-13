@@ -316,6 +316,13 @@
                              :saver saver)))
     ;; now open for business, resubmit pending client requests
     (send-all-to self msgs))
+
+   ((a-tag :error err) / (eql a-tag tag)
+    ;; Who knows what will happen with this response? But probably
+    ;; better than just going silent... Orchestrator will eventually
+    ;; remove references to us.
+    (become (const-beh err))
+    (send-all-to self msgs))
    
    ;; -------------------
    ;; accumulate client requests until we open for business
@@ -461,12 +468,18 @@
 ;; file.
 
 (defstruct open-database
-  ino-key orch-tag kvdb-actor path)
+  ino-key     ;; the unique DEVICE+INODE identity of the physical backing store
+  orch-tag    ;; the unique TAG used for opening this KVDB
+  kvdb-actor  ;; the Actor in charge of KVDB management for this KVDB
+  path)       ;; the pathname to the backing store
 
 (defun kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
    ((cust :make-kvdb path)
+    ;; The call to ENSURE-FILE-EXISTS might produce an error. If so,
+    ;; we will exit immediately, and the Serializer we are behind will
+    ;; open back up on a time-out.
     (ensure-file-exists path)
     (let* ((key   (ino-key path))
            (quad  (find key open-dbs
