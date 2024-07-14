@@ -3,9 +3,6 @@
 ;; DM/RAL  2022/10/24 16:56:15
 ;; ----------------------------------
 
-(defpackage #:com.ral.actors.types
-  (:use #:common-lisp #:ac))
-
 (in-package #:com.ral.actors.types)
 
 ;; equiv to #F
@@ -74,4 +71,26 @@
                           old-beh new-beh))
 
 ;; -----------------------------------------------------
+;; Sending messages is not supported until MultiProcessing is running.
+;;
+;; The only truly safe way to do this...  Actors are inviolable,
+;; immutable, bindings. Any reference to SELF from within an Actor
+;; behavior must forever continue to point to the same object.
+;;
+;; You can refer, freely, to an Actor's behavior, but only the Actor
+;; can mutate its own behavior, using BECOME.
+
+(defun %patch-beh (actor target)
+  ;; Actor is presumed to be a %BECOMER
+  ;; Target is an Actor or a behavior function
+  (if (mpc:get-current-process) ;; MP running?
+      ;; yes - could have accessed SELF, or received messages already
+      (send actor '%become target)
+    ;; else - could not have accessed SELF, nor received any messages
+    (setf (actor-beh actor) (cond
+                             ((functionp target) target)
+                             ((actor-p target)   (actor-beh target))
+                             (t (error "Actor or behavior function expected."))
+                             ))
+    ))
 

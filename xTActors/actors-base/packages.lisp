@@ -125,6 +125,7 @@ THE SOFTWARE.
    #:actor
    #:actor-p
    #:actor-beh
+   #:%patch-beh
    #:%actor-cas
    #:service
    #:create
@@ -362,6 +363,11 @@ THE SOFTWARE.
    #:*current-actor*
    ;; #:*current-env*
    ))
+
+(defpackage #:com.ral.actors.types
+  (:use
+   #:common-lisp
+   #:com.ral.actors))
 
 (defpackage #:com.ral.actors.macros
   (:use

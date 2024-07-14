@@ -57,10 +57,16 @@
 ;;  behaviors can be filled in later, which does not change their
 ;;  identity.
 ;;
+
 (defmacro actors (bindings &body body)
-  `(let ,(mapcar #`(,(first a1) (create)) bindings)
-     (setf ,@(mapcan #'identity
-                     (mapcar #`((actor-beh ,(first a1)) (actor-beh ,(second a1))) bindings)))
+  ;; The only truly safe way to do this...  Actors are inviolable,
+  ;; immutable, bindings. Any reference to SELF from within an Actor
+  ;; behavior must forever continue to point to the same object.
+  ;;
+  ;; You can refer, freely, to an Actor's behavior, but only the Actor
+  ;; can mutate its own behavior, using BECOME.
+  `(let ,(mapcar #`(,(first a1) (create (%becomer-beh))) bindings)
+     ,@(mapcar #`(%patch-beh ,(first a1) ,(second a1)) bindings)
      ,@body))
 
 #+:LISPWORKS
@@ -390,7 +396,7 @@
 (defmacro define-behavior (name fn)
   `(progn
      (assert (actor-p ,name))
-     (send ,name '%become ,fn)
+     (%patch-beh ,name ,fn)
      ))
 
 #+:LISPWORKS
