@@ -84,13 +84,15 @@
   ;; Actor is presumed to be a %BECOMER
   ;; Target is an Actor or a behavior function
   (if (mpc:get-current-process) ;; MP running?
-      ;; yes - could have accessed SELF, or received messages already
+      ;; yes - Target could have accessed SELF, or Actor could have
+      ;; received messages already
       (send actor '%become target)
-    ;; else - could not have accessed SELF, nor received any messages
+    ;; else - Target could not have accessed SELF, nor Actor receive
+    ;; any messages
     (setf (actor-beh actor) (cond
                              ((functionp target) target)
                              ((actor-p target)   (actor-beh target))
-                             (t (error "Actor or behavior function expected."))
+                             (t (error "Actor, or behavior function, expected."))
                              ))
     ))
 
