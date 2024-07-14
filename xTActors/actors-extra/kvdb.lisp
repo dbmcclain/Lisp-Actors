@@ -99,7 +99,7 @@
 (defvar *kvdb-lock* (mpc:make-lock)) ;; rare instance of overt locking
 (defvar *kvdb-orch* nil)             ;; the sole Orchestrator
 
-(deflex* kvdb-maker
+(defun get-kvdb-maker ()
   (sys-unique *kvdb-orch* *kvdb-lock*
               (actors ((gate (serializer
                               ;; because we are doing file ops
@@ -122,7 +122,7 @@
 (deflex kvdb
   ;; The main Actor for just the goof-around KVDB. Make your own for
   ;; others.
-  (fut kvdb-maker :make-kvdb *db-path*))
+  (fut (get-kvdb-maker) :make-kvdb *db-path*))
 
 ;; -----------------------------------------------------------
 ;; Utility Functions
