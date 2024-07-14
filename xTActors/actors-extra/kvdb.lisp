@@ -28,7 +28,7 @@
   kvdb-actor  ;; the Actor in charge of KVDB management for this KVDB
   path)       ;; the pathname to the backing store
 
-(defun #1=kvdb-orchestrator-beh (&optional open-dbs)
+(defun #1=kvdb-orchestrator-beh (gate &optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
    ((cust :make-kvdb path)
@@ -55,12 +55,13 @@
         (if quad
             (send cust (open-database-kvdb-actor quad))
           ;; else - new Open
-          (let* ((tag-to-me  (tag self))
-                 (kvdb       (%make-kvdb tag-to-me path)))
+          (let* ((tag-to-orch  (tag gate))
+                 (kvdb         (%make-kvdb tag-to-orch path)))
             (become (kvdb-orchestrator-beh
+                     gate
                      (cons (make-open-database
                             :ino-key    key
-                            :orch-tag   tag-to-me
+                            :orch-tag   tag-to-orch
                             :kvdb-actor kvdb
                             :path       path)
                            open-dbs)))
@@ -82,7 +83,7 @@
                                    :kvdb-actor kvdb
                                    :path       path)
                                   (remove quad open-dbs))))
-              (become (kvdb-orchestrator-beh new-dbs))
+              (become (kvdb-orchestrator-beh gate new-dbs))
               ))
           ))
       ))
@@ -91,14 +92,24 @@
     (let ((quad (find atag open-dbs
                       :key #'open-database-orch-tag)))
       (when quad
-        (become (kvdb-orchestrator-beh (remove quad open-dbs))))
+        (become (kvdb-orchestrator-beh gate (remove quad open-dbs))))
       ))
    ))
-  
-(deflex kvdb-maker
-  (serializer ;; because we are doing file ops?
-   (create (kvdb-orchestrator-beh))
-   :timeout 5))
+
+(defvar *kvdb-lock* (mpc:make-lock)) ;; rare instance of overt locking
+(defvar *kvdb-orch* nil)             ;; the sole Orchestrator
+
+(deflex* kvdb-maker
+  (or *kvdb-orch*
+      (mpc:with-lock (*kvdb-lock*)
+        (or *kvdb-orch*
+            (setf *kvdb-orch*
+                  (actors ((gate (serializer
+                                  ;; because we are doing file ops
+                                  (create (kvdb-orchestrator-beh gate))
+                                  :timeout 5)))
+                    gate))
+            ))))
 
 ;; -----------------------------------------------------
 ;; One to goof around in...
