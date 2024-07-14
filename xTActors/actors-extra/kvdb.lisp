@@ -100,16 +100,12 @@
 (defvar *kvdb-orch* nil)             ;; the sole Orchestrator
 
 (deflex* kvdb-maker
-  (or *kvdb-orch*
-      (mpc:with-lock (*kvdb-lock*)
-        (or *kvdb-orch*
-            (setf *kvdb-orch*
-                  (actors ((gate (serializer
-                                  ;; because we are doing file ops
-                                  (create (kvdb-orchestrator-beh gate))
-                                  :timeout 5)))
-                    gate))
-            ))))
+  (sys-unique *kvdb-orch* *kvdb-lock*
+              (actors ((gate (serializer
+                              ;; because we are doing file ops
+                              (create (kvdb-orchestrator-beh gate))
+                              :timeout 5)))
+                gate)))
 
 ;; -----------------------------------------------------
 ;; One to goof around in...

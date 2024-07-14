@@ -458,3 +458,13 @@
   `(alambda ,@clauses))
 
 ;; -------------------------------------------------------
+;; Codify a recurring pattern - system wide unique binding
+
+(defmacro sys-unique (place lock val-expr)
+  ;; PLACE and LOCK must be previously defined.
+  `(or #1=,place
+       (mpc:with-lock (,lock)
+         (or #1#
+             (setf #1# ,val-expr)
+             ))))
+         

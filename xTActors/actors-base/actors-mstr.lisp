@@ -95,14 +95,12 @@ THE SOFTWARE.
 (defvar *send*       nil)
 
 (defun get-send-hook ()
-  (or *send*
-      (mpc:with-lock (*send-lock*)
-        (or *send*
-            (prog1
-                (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
-                      *send*         #'send-to-pool)
-              (restart-actors-system *nbr-pool*))
-            ))))
+  (sys-unique *send* *send-lock*
+              (prog1
+                  (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
+                        *send*         #'send-to-pool)
+                (restart-actors-system *nbr-pool*))
+              ))
 
 (defmethod send ((target actor) &rest msg)
   (apply (get-send-hook) target msg))
@@ -349,10 +347,9 @@ THE SOFTWARE.
 
 #+:SBCL
 (defun do-with-printer (stream fn)
-  (let ((lock  (or #1=(gethash stream *out-stream-locks*)
-                   (mpc:with-lock (*out-stream-locks-lock*)
-                     (or #1#
-                         (setf #1# (mpc:make-lock)))))
+  (let ((lock  (sys-unique (gethash stream *out-stream-locks*)
+                           *out-stream-locks-lock*
+                           (mpc:make-lock))
                ))
     (mpc:with-lock (lock)
       (funcall fn))))
