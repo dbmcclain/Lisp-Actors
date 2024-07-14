@@ -11,7 +11,7 @@
    #:db-rebuild
    
    #:kvdb
-   #:kvdb-maker
+   #:get-kvdb-maker
    #:show-kvdb
   ))
    
