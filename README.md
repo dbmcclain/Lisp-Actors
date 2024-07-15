@@ -42,7 +42,8 @@ Unlike Call/Return programming, as experienced by most of Lisp code, the use of 
 Being a system programmed in Lisp, in which you can do anything, the use of programming conventions is essential. Our conventions are unenforceable by us, but they are:
 
       1. Behavior code should be FPL pure - no mutation of state. Change of state must only happen by way of BECOME.
-            1a. Never need to use Locks or Threads, or any other MP cognizant functions. FPL code is inherently parallel and safe.
+            1a. Never need to use Locks or Threads, or any other MP cognizant functions. 
+            1b. FPL code is inherently parallel and safe.
       2. If behavior code contains a BECOME, then you must have idempotent behavior becuase a retry is always possible.
             2a. SEND and BECOME have no observable effect during the execution of behavior code, thanks to our Transactional Behavior protocol.
       3. Customer Actors are either provided at CREATE time, or else always the first argument of a delivered message.
