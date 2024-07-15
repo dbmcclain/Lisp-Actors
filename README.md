@@ -21,7 +21,9 @@ But that also means that any SEND and BECOME cannot be observed by the executing
 
 Messages are delivered in a FIFO order, but that order may become jumbled by environmental events. You cannot count on determinism in the order of message delivery. Messages are delivered to Actors in a mostly fair manner. There is no priority delivery.
 
-Execution of the Actors System occurs concurrently. What does that really mean?
+Execution of the Actors System occurs asynchronously and concurrently. What does that really mean?
+
+First off, asynchronous. SEND never waits for any acknowledgement. It happens immediately and silently. When messages are committed to the global mailbox, they are acted upon as soon as possible. No acknowledgement happens unless the target Actor SENDs a response.
 
 We have Logical Tasks - portions of Actor behavior code running as a result of a cascade of messages emanating from the delivery of some message to an Actor. At any one instant, a single Logical Task can only be executing the behavior code of one Actor. But there may be multiple concurrent Logical Tasks. And some of them may be executing the same Actor behavior code.
 
