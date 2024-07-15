@@ -3,7 +3,7 @@
 
 My xTActors system has been a wonderful playground for experimenting with ideas, based on Hewitt's notion of Actors. 
 
-A Hewitt Actor is a passive object that can respond to messages by executing some behavior code against a delivered message and its current state - whatever "state" means to it. The Actors System has no global dynamic context - each Actor stands as an isolated island, but may know about other Actors that were introduced to it when it was created, or were contained in the current message.
+A Hewitt Actor is a passive object that can respond to messages by executing some behavior code against a delivered message and its current state - whatever "state" means to it. The Actors System offers no dynamic context - each Actor stands as an isolated island, but may know about other Actors that were introduced to it when it was created, or were contained in the current message.
 
 Hewitt Actors have an Identity - they are objects in the Lisp system. Their identity is immutable. Inside that object is a functional closure, in our Lisp-based system, and nothing more. That closure can change, but only from actions taken by the Actor itself. To all outside observers you should consider an Actor object as an opaque immutable object. A functional closure contains executable behavior code, and possibly some bindings carrying Actor state.
 
