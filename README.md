@@ -1,3 +1,45 @@
+-- 15 July 2024 -- TLDR; Time for a Recap
+---
+
+My xTActors system has been a wonderful playground for experimenting with ideas, based on Hewitt's notion of Actors. 
+
+A Hewitt Actor is a passive object that can respond to messages by executing some behavior code against a delivered message and its current state - whatever "state" means to it. The Actors System has no global context - each Actor stands as an isolated island, but may know about other Actors that were introduced to it when it was created, or were contained in the current message.
+
+Hewitt Actors have an Identity - they are objects in the Lisp system. Their identity is immutable. Inside that object is a functional closure, in our Lisp-based system, and nothing more. That closure can change, but only from actions taken by the Actor itself. To all outside observers you should consider an Actor object as an opaque immutable object. A functional closure contains executable behavior code, and possibly some bindings carrying Actor state.
+
+Hewitt Actors can do one of 3 things (plus augmentation from our Lisp environment, such as performing function calls):
+
+      1. An Actor can CREATE new Actors, specifying their initial behavior function and some arguments for its initial state.
+      2. An Actor can SEND a message to another Actor, where the arguments to SEND specify the target Actor, and other args that become the message to be delivered to the target Actor.
+      3. An Actor can use BECOME in response to some message, to alter its internal state and/or behavior function.
+
+Our special twist on Hewitt Actors also makes them Transactional, in the sense that all SEND and BECOME are stashed for execution at the successful exit of the behavior function. If any errors occcur, those stashed items are discarded and it becomes as though the message were never delivered. 
+
+The only visible effect of a failed message will be some elapsed time and transient memory allocations that will be cleared up by the Lisp Garbage Collector over time. Otherwise, no observable effect in the system.
+
+But that also means that any SEND and BECOME cannot be observed by the executing behavior code. Those won't happen until the behavior code exits without error. Hence, message delivery becomes a useful measure of progressing time in the system. Since Actors are FPL, and SEND/BECOME are stashed, the duration of execution of the behavior code happens within one tick of the effective clock, and all actions appear to happen simultaneously in that time system.
+
+Messages are delivered in a FIFO order, but that order may become jumbled by environmental events. You cannot count on determinism in the order of message delivery. Messages are delivered to Actors
+
+We do not require multiprocessing, in general, but if you have it, you can experience fully parallel concurrency in the operation of the system. Any one Actor can be having its behavior function executing by any number of machine threads simultaneously. If you only allow a single machine thread (you have to have at least one, right?), then the system continues to produce the same results, perhaps more slowly, and all concurrency happens serially within that one thread.
+
+However, given the possibility of simultaneous parallel execution, your behavior functions should utilize Functionally-Pure coding techniques to avoid data race conditions among multiple threads. In an Actors environment, apart from that FPL requirement (which cannot be enforced by us), you write your code as though it were entirely single-threaded. That is, as far as the programmer is concerned, there are no THREADS, LOCKS, Mutexes, Semaphores, etc. Instead, there are one or more "Logical Tasks" which may consist of any number of message chains that flow from one starting message. While there really are machine threads, the programmer never needs to concern themselves with such details. Any one Logical Task may become multiplexed across machine threads and CPU cores in an arbitrary non-deterministic manner.
+
+Coordination among Logical Tasks requires a mindset that understands the effects of concurrent execution. That concurrency may or may not happen in parallel.
+
+In order to effect such a system, all messages are delivered to a global communal mailbox, and multiple machine threads may be executing the role of message dispatcher. All such threads feed from the same mailbox. When two or more threads attempt to mutate the behavior slot of an Actor, only one of them will succeed and all others will have their message automatically re-sent for a retry. Hence Actors need to be idempotent whenever there is a possibility of a retry - whenever a BECOME is somewhere within their behavior function.
+
+As miniscule and restrictive as all of this may seem, the experience of writing Actors code is exhilarating, and much easier than equivalent overt multi-threaded applications. Actor networks are assembled like Leggo Blocks, from elementary reusable component Actors, to become highly intelligent sub-systems. A single front-facing Actor serves as the gateway to the assemblage.
+
+This ease allowed us to write a fairly elaborate, highly encrypted, Network Layer, in just a short time, to make the experience of interacting with remote Actors as seamless as interacting with local Actors. You cannot discern whether an Actor is local or remote, except by examining the source code to see what behavior function was given to the Actor at CREATE time. SEND is never aware of what kind of Actor might be targeted. And Actors are never aware of the source of any delivered message, unless the message itself carries an indication of its source.
+
+You can only SEND messages to known Actors. A SEND to anything else, or any other object, just silently drops the message. If you know an Actor then you have permission to use it. If you want to restrict permissions then simply avoid telling other Actors about the gateway Actor. Gateways can be made smart, and made to respond to a control channel that can tell the gateway Actor to switch its behavior, perhaps by blocking any further responses to an detected abusive client. 
+
+Unlike Call/Return programming, as experienced by most of Lisp code, the use of Actors requires an indication, in the message or in its state, of where to SEND any results of Actor execution. By convention, we refer to the Customer of an Actor to which it should SEND any results. And, unless the Actor was created with knowledge of its customer, then by convention, that Customer is always the first item of any message.
+
+What I have found is that Lisp has its strengths in Call/Return by being very fast compiled code. But when faced with elaborate interactions between subsystems of Lisp code, it is far easier to coordinate these activities by using Actors as the orchestrating control system. Deadlock simply cannot ever happen in an Actor System. You might encounter stalled Logical Tasks, but the Actor system remains alive and responsive to other messages.
+
+
 -- 19 January 2024 -- Advances in LWE Lattice Crypto
 ---
 Our secure network protocol allows for two nodes, each running the Actors system, to communicate securely. The only distinction between Client and Server is that Clients initiate a connection by sending the Server some information:
