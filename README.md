@@ -29,7 +29,7 @@ Coordination among Logical Tasks requires a mindset that understands the effects
 
 In order to effect such a system, all messages are delivered to a global communal mailbox, and multiple machine threads may be executing the role of Message Dispatcher. A Message Dispatcher takes the next available message from the communal mailbox and executes the target Actor's behavior with the message contents as function call arguments. On return the Dispather effects the accumulated SENDs and performs a stashed BECOME if necessary, before dispatching the next available message. The Dispatcher contains a general Restart to use in the case of behavior function errors. In that case the stashed SENDs and BECOME are discarded, and the next available message is dispatched. 
 
-All such threads feed from the same communal mailbox. When two or more threads attempt to mutate the behavior slot of an Actor, only one of them will succeed and all others will have their message delivery automatically retried. Hence Actors need to be idempotent whenever there is a possibility of a retry - whenever a BECOME is somewhere within their behavior function.
+All such threads feed from the same communal mailbox. Behavior code is treated as reentrant - which means that there can be multiple concurrent Logical Tasks executing the same body of behavior code concurrently. That may mean concurrent parallel in a multi-threaded environment, or serially in a single-threaded system. When two or more concurrent Logical Tasks attempt to mutate the behavior slot of an Actor, only one of them will succeed and all others will have their message delivery automatically retried. Hence Actors need to be idempotent whenever there is a possibility of a retry - whenever a BECOME is somewhere within their behavior function.
 
 As miniscule and restrictive as all of this may seem, the experience of writing Actors code is exhilarating, and much easier than equivalent overt multi-threaded applications. Actor networks are assembled like Leggo Blocks, from elementary reusable component Actors, to become highly intelligent sub-systems. A single front-facing Actor serves as the gateway to the assemblage.
 
@@ -45,7 +45,8 @@ Being a system programmed in Lisp, in which you can do anything, the use of prog
             1a. Change of state must only happen by way of BECOME.
             1b. Never need to use Locks or Threads, or any other MP cognizant functions. 
             1c. FPL code is inherently parallel and safe.
-      2. If behavior code contains a BECOME, then you must have idempotent behavior becuase a retry is always possible.
+      2. If behavior code contains a BECOME, then you must have idempotent behavior.
+            2a. With BECOME, in a reentrant concurrrent system, a retry is always a possibility, even if there is only one thread.
             2a. SEND and BECOME have no observable effect during the execution of behavior code, thanks to our Transactional Behavior protocol.
       3. Customer Actors are either provided at CREATE time, or else always the first argument of a delivered message.
 
