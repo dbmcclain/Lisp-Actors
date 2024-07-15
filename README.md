@@ -45,7 +45,7 @@ Being a system programmed in Lisp, in which you can do anything, the use of prog
             2a. SEND and BECOME have no observable effect during the execution of behavior code, thanks to our Transactional Behavior protocol.
       3. Customer Actors are either provided at CREATE time, or else always the first argument of a delivered message.
 
-What I have found is that Lisp has its strengths in Call/Return by producing very fast compiled code. But when faced with elaborate interactions between subsystems of Lisp code, it is far easier to coordinate these activities by using Actors as the orchestrating control system. Prime examples here are a GUI, and our Network Layer. Deadlock simply cannot happen in an Actor System. You might encounter stalled Logical Tasks, but the Actor system remains alive and responsive to other messages.
+What I have found is that Lisp has its strengths in Call/Return by producing very fast compiled code. But when faced with elaborate interactions between subsystems of Lisp code, it is far easier to coordinate these activities by using Actors as the orchestrating control system. Prime examples here are a GUI, and our Network Layer. Deadlock simply cannot happen in an Actor System. You might encounter stalled Logical Tasks, but the Actors System remains alive and responsive to other messages.
 
 
 -- 19 January 2024 -- Advances in LWE Lattice Crypto
