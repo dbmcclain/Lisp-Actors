@@ -63,7 +63,7 @@ Being a system programmed in Lisp, in which you can do anything, the use of prog
       3. Non-idempotent behavior must be relegated to the edges of an Actor network, where no BECOME is present.
       4. Customer Actors are either provided at CREATE time, or else always the first argument of a delivered message.
 
-What I have found is that Lisp has its strengths in Call/Return by producing very fast compiled code. But when faced with elaborate interactions between subsystems of Lisp code, it is far easier to coordinate these activities by using Actors as the orchestrating control system. Prime examples here are a GUI, and our Network Layer. Deadlock simply cannot happen in an Actor System. You might encounter stalled Logical Tasks, but the Actors System remains alive and responsive to other messages.
+What I have found is that Lisp has its strengths in Call/Return by producing very fast compiled code. But when faced with elaborate interactions between subsystems of Lisp code, it is far easier to coordinate these activities by using Actors as the orchestrating control system. Prime examples here are a GUI, and our Network Layer. Deadlock simply cannot happen in an Actors System. You might encounter stalled Logical Tasks, but the Actors System remains alive and responsive to other messages.
 
 
 -- 19 January 2024 -- Advances in LWE Lattice Crypto
