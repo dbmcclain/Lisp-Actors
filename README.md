@@ -37,7 +37,15 @@ You can only SEND messages to known Actors. A SEND to anything else, or any othe
 
 Unlike Call/Return programming, as experienced by most of Lisp code, the use of Actors requires an indication, in the message or in its state, of where to SEND any results of Actor execution. By convention, we refer to the Customer of an Actor to which it should SEND any results. And, unless the Actor was created with knowledge of its Customer, then by convention, that Customer is always the first item of any message.
 
-What I have found is that Lisp has its strengths in Call/Return by being very fast compiled code. But when faced with elaborate interactions between subsystems of Lisp code, it is far easier to coordinate these activities by using Actors as the orchestrating control system. Deadlock simply cannot ever happen in an Actor System. You might encounter stalled Logical Tasks, but the Actor system remains alive and responsive to other messages.
+Being a system programmed in Lisp, in which you can do anything, the use of programming conventions is essential. Our conventions are unenforceable by us, but they are:
+
+      1. Behavior code should be FPL pure - no mutation of state. Change of state must happen by way of BECOME.
+            1a. Never need to use Locks or Threads, or any other MP cognizant functions. FPL code is inherently parallel and safe.
+      2. If behavior code contains a BECOME, then you must have idempotent behavior becuase a retry is always possible.
+            2a. SEND and BECOME have no observable effect during the execution of behavior code, thanks to our Transactional Behavior protocol.
+      3. Customer Actors are either provided at CREATE time, or else always the first argument of a delivered message.
+
+What I have found is that Lisp has its strengths in Call/Return by producing very fast compiled code. But when faced with elaborate interactions between subsystems of Lisp code, it is far easier to coordinate these activities by using Actors as the orchestrating control system. Deadlock simply cannot happen in an Actor System. You might encounter stalled Logical Tasks, but the Actor system remains alive and responsive to other messages.
 
 
 -- 19 January 2024 -- Advances in LWE Lattice Crypto
