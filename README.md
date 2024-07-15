@@ -17,7 +17,7 @@ Our special twist on Hewitt Actors also makes them Transactional, in the sense t
 
 The only visible effect of a failed message will be some elapsed time and transient memory allocations that will be cleared up by the Lisp Garbage Collector over time. Otherwise, no observable effect in the system.
 
-But that also means that any SEND and BECOME cannot be observed by the executing behavior code. Those won't happen until the behavior code exits without error. Hence, message delivery becomes a useful measure of progressing time in the system. Since Actors are FPL, and SEND/BECOME are stashed, the duration of execution of the behavior code happens within one tick of the effective clock, and all actions appear to happen simultaneously in that time system.
+But that also means that any SEND and BECOME cannot be observed by the executing behavior code. Those won't happen until the behavior code exits without error. Hence, message delivery becomes a useful measure for the progression of time in the system. Since Actors are FPL, and SEND/BECOME are stashed, the duration of execution of the behavior code happens within one tick of the effective clock, and all actions appear to happen simultaneously in that time system.
 
 Messages are delivered in a FIFO order, but that order may become jumbled by environmental events. You cannot count on determinism in the order of message delivery. Messages are delivered to Actors
 
