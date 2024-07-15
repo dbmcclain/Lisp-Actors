@@ -96,16 +96,12 @@
       ))
    ))
 
-(defvar *kvdb-lock* (mpc:make-lock)) ;; rare instance of overt locking
-(defvar *kvdb-orch* nil)             ;; the sole Orchestrator
-
 (deflex* kvdb-maker
-  (sys-unique *kvdb-orch* *kvdb-lock*
-              (actors ((gate (serializer
-                              ;; because we are doing file ops
-                              (create (kvdb-orchestrator-beh gate))
-                              :timeout 5)))
-                gate)))
+  (actors ((gate (serializer
+                  ;; because we are doing file ops
+                  (create (kvdb-orchestrator-beh gate))
+                  :timeout 5)))
+    gate))
 
 ;; -----------------------------------------------------
 ;; One to goof around in...

@@ -91,11 +91,10 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defvar *send-lock*  (mpc:make-lock))
-(defvar *send*       nil)
+(defvar *send*  nil)
 
 (defun get-send-hook ()
-  (sys-unique *send* *send-lock*
+  (sys-unique *send*
               (prog1
                   (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
                         *send*         #'send-to-pool)
@@ -336,9 +335,6 @@ THE SOFTWARE.
 ;; printer stream...
 
 #+:SBCL
-(defvar *out-stream-locks-lock*  (mpc:make-lock))
-
-#+:SBCL
 (defvar *out-stream-locks*
   #+:LISPWORKS
   (make-hash-table :weak-kind :key)
@@ -348,7 +344,6 @@ THE SOFTWARE.
 #+:SBCL
 (defun do-with-printer (stream fn)
   (let ((lock  (sys-unique (gethash stream *out-stream-locks*)
-                           *out-stream-locks-lock*
                            (mpc:make-lock))
                ))
     (mpc:with-lock (lock)
