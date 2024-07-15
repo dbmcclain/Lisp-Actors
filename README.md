@@ -27,7 +27,7 @@ However, given the possibility of simultaneous parallel execution, your behavior
 
 Coordination among Logical Tasks requires a mindset that understands the effects of concurrent execution. That concurrency may or may not happen in parallel.
 
-In order to effect such a system, all messages are delivered to a global communal mailbox, and multiple machine threads may be executing the role of message dispatcher. All such threads feed from the same mailbox. When two or more threads attempt to mutate the behavior slot of an Actor, only one of them will succeed and all others will have their message automatically re-sent for a retry. Hence Actors need to be idempotent whenever there is a possibility of a retry - whenever a BECOME is somewhere within their behavior function.
+In order to effect such a system, all messages are delivered to a global communal mailbox, and multiple machine threads may be executing the role of Message Dispatcher. All such threads feed from the same communal mailbox. When two or more threads attempt to mutate the behavior slot of an Actor, only one of them will succeed and all others will have their message automatically re-sent for a retry. Hence Actors need to be idempotent whenever there is a possibility of a retry - whenever a BECOME is somewhere within their behavior function.
 
 As miniscule and restrictive as all of this may seem, the experience of writing Actors code is exhilarating, and much easier than equivalent overt multi-threaded applications. Actor networks are assembled like Leggo Blocks, from elementary reusable component Actors, to become highly intelligent sub-systems. A single front-facing Actor serves as the gateway to the assemblage.
 
