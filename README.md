@@ -58,7 +58,7 @@ Being a system programmed in Lisp, in which you can do anything, the use of prog
             1b. Never need to use Locks or Threads, or any other MP cognizant functions. 
             1c. FPL code is inherently parallel and safe.
       2. If behavior code contains a BECOME, then you must have idempotent behavior.
-            2a. With BECOME, in a reentrant concurrrent system, a retry is always a possibility, even if there is only one thread.
+            2a. With BECOME, in a concurrrent multi-threaded system, a retry is always a possibility.
             2a. SEND and BECOME have no observable effect during the execution of behavior code, thanks to our Transactional Behavior protocol.
       3. Customer Actors are either provided at CREATE time, or else always the first argument of a delivered message.
 
