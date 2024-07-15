@@ -8,15 +8,15 @@
 (in-package #:com.ral.actors.multi-kvdb)
 
 (defun init-bank-bal ()
-  (let+ ((:β (kvdb1) (racurry (get-kvdb-maker) :make-kvdb "diddly1.db"))
-         (:β (kvdb2) (racurry (get-kvdb-maker) :make-kvdb "diddly2.db"))
+  (let+ ((:β (kvdb1) (racurry kvdb-maker :make-kvdb "diddly1.db"))
+         (:β (kvdb2) (racurry kvdb-maker :make-kvdb "diddly2.db"))
          (:β _       (racurry kvdb1 :add :bank-bal 10))
          (:β _       (racurry kvdb2 :add :bank-bal 0)))
     (check-bals)))
 
 (defun check-bals ()
-  (let+ ((:β (kvdb1) (racurry (get-kvdb-maker) :make-kvdb "diddly1.db"))
-         (:β (kvdb2) (racurry (get-kvdb-maker) :make-kvdb "diddly2.db"))
+  (let+ ((:β (kvdb1) (racurry kvdb-maker :make-kvdb "diddly1.db"))
+         (:β (kvdb2) (racurry kvdb-maker :make-kvdb "diddly2.db"))
          (:β (bal1)  (racurry kvdb1 :find :bank-bal))
          (:β (bal2)  (racurry kvdb2 :find :bank-bal)))
     (send fmt-println "Bal1 = ~A" bal1)
@@ -62,13 +62,13 @@
 
 #|
   ;; tranfer 10 from diddly1 to diddly2
-(let+ ((:β (kvdb-from) (racurry (get-kvdb-maker) :make-kvdb "diddly1.db"))
-       (:β (kvdb-to)   (racurry (get-kvdb-maker) :make-kvdb "diddly2.db")))
+(let+ ((:β (kvdb-from) (racurry kvdb-maker :make-kvdb "diddly1.db"))
+       (:β (kvdb-to)   (racurry kvdb-maker :make-kvdb "diddly2.db")))
   (transfer println kvdb-from kvdb-to 10))
 
   ;; tranfer 10 from diddly2 to diddly1
-(let+ ((:β (kvdb-from) (racurry (get-kvdb-maker) :make-kvdb "diddly2.db"))
-       (:β (kvdb-to)   (racurry (get-kvdb-maker) :make-kvdb "diddly1.db")))
+(let+ ((:β (kvdb-from) (racurry kvdb-maker :make-kvdb "diddly2.db"))
+       (:β (kvdb-to)   (racurry kvdb-maker :make-kvdb "diddly1.db")))
   (transfer println kvdb-from kvdb-to 10))
 |#
 
