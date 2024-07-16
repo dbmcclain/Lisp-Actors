@@ -62,6 +62,9 @@
   ;; For cross- and self-referential Actor constructions...
   ;; All binding values must represent fresh Actor constructions.
   ;; Violations may lead to undefined behavior.
+  ;;
+  ;; Macros are syntax engines and cannot infer semantic actions.
+  ;; There is no way to ensure proper use of this macro.
   `(let ,(mapcar #`(,(first a1) (create)) bindings)
      (setf ,@(mapcan #`((actor-beh ,(first a1)) (actor-beh ,(second a1))) bindings))
      ,@body))
