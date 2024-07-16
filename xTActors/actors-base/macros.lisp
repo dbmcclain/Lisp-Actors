@@ -66,6 +66,10 @@
   ;; Macros are syntax engines and cannot infer semantic actions.
   ;; Hence, there is no way to ensure proper use of this macro.
   ;;
+  ;; Thanks to the Transactional Actor Behavior Protocol, no other
+  ;; thread can learn the identity of any freshly constructed Actor
+  ;; until we exit the behavior code.
+  ;;
   ;; Since we are freshly constructing Actors for all the names in the
   ;; binding list, we are the only executing thread that knows about
   ;; them here, and it is therefore safe to immediately directly
