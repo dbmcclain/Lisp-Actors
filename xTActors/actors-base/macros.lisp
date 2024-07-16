@@ -59,12 +59,9 @@
 ;;
 
 (defmacro actors (bindings &body body)
-  ;; The only truly safe way to do this...  Actors are inviolable,
-  ;; immutable, bindings. Any reference to SELF from within an Actor
-  ;; behavior must forever continue to point to the same object.
-  ;;
-  ;; You can refer, freely, to an Actor's behavior, but only the Actor
-  ;; can mutate its own behavior, using BECOME.
+  ;; As long as the binding values are freshly constructed Actors,
+  ;; this will work properly. Otherwise, undefined behavior could
+  ;; ensue.
   `(let ,(mapcar #`(,(first a1) (create)) bindings)
      (setf ,@(mapcan #`((actor-beh ,(first a1)) (actor-beh ,(second a1))) bindings))
      ,@body))
