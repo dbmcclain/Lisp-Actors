@@ -58,16 +58,15 @@
   (lw:defadvice (send send-tracer :before)
       (&rest msg)
     (when *atrace*
-      (with-printer (s *standard-output*)
-	(format s "~&~{~A~%~^~}"
-		(mapcar (lambda (args)
-			  (apply #'format nil args))
-			`(("----- Send at ~A -----" ,(logger-timestamp))
-			  ("  From: ~A" ,self)
-			  ("  To: ~A" ,(car msg))
-			  ("  With: ~S" ,(cdr msg))
-			  )))
-	))))
+      (format t "~&~{~A~%~^~}"
+              (mapcar (lambda (args)
+                        (apply #'format nil args))
+                      `(("----- Send at ~A -----" ,(logger-timestamp))
+                        ("  From: ~A" ,self)
+                        ("  To: ~A" ,(car msg))
+                        ("  With: ~S" ,(cdr msg))
+                        )))
+      )))
 
 #+:LISPWORKS
 (defun uninstall-atrace ()

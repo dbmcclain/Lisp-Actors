@@ -125,7 +125,6 @@ THE SOFTWARE.
    #:actor
    #:actor-p
    #:actor-beh
-   #:%patch-beh
    #:%actor-cas
    #:service
    #:create

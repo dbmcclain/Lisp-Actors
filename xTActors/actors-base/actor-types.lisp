@@ -72,30 +72,3 @@
     (mpc:compare-and-swap (actor-beh (the actor actor))
                           old-beh new-beh))
 
-;; -----------------------------------------------------
-;; Sending messages is not supported until MultiProcessing is running.
-;;
-;; The only truly safe way to do this...  Actors are inviolable,
-;; immutable, bindings. Any reference to SELF from within an Actor
-;; behavior must forever continue to point to the same object.
-;;
-;; You can refer, freely, to an Actor's behavior, but only the Actor
-;; can mutate its own behavior, using BECOME.
-
-(defun %patch-beh (actor target)
-  ;; Actor is presumed to be a %BECOMER
-  ;; Target is an Actor or a behavior function
-  (if (mpc:get-current-process) ;; MP running?
-      ;; yes - Target could have accessed SELF, or Actor could have
-      ;; received messages already
-      (send actor '%become target)
-    ;; else - Target could not have accessed SELF, nor Actor receive
-    ;; any messages
-    (setf (actor-beh actor) (cond
-                             ((functionp target) target)
-                             ((actor-p target)   (actor-beh target))
-                             ((null target)      target)
-                             (t (error "Actor, or behavior function, expected."))
-                             ))
-    ))
-

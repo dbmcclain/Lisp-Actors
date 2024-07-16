@@ -65,8 +65,8 @@
   ;;
   ;; You can refer, freely, to an Actor's behavior, but only the Actor
   ;; can mutate its own behavior, using BECOME.
-  `(let ,(mapcar #`(,(first a1) (create (%becomer-beh))) bindings)
-     ,@(mapcar #`(%patch-beh ,(first a1) ,(second a1)) bindings)
+  `(let ,(mapcar #`(,(first a1) (create)) bindings)
+     (setf ,@(mapcan #`((actor-beh ,(first a1)) (actor-beh ,(second a1))) bindings))
      ,@body))
 
 #+:LISPWORKS
@@ -396,7 +396,7 @@
 (defmacro define-behavior (name fn)
   `(progn
      (assert (actor-p ,name))
-     (%patch-beh ,name ,fn)
+     (send ,name '%become ,fn)
      ))
 
 #+:LISPWORKS

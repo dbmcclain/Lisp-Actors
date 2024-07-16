@@ -233,16 +233,15 @@
 ;;
 ;; By default, the initial timeout is whatever the Serializer imposes.
 
-(defun timed-once-tag-with-ka-beh (cust ix)
+(defun timed-once-tag-with-ka-beh (cust tag id)
   (alambda
    ((:keep-alive-ping dt) / (and (realp dt)
                                  (plusp dt))
-    (let ((new-ix (1+ ix)))
-      (become (timed-once-tag-with-ka-beh cust new-ix))
-      (send-after dt self +timed-out+ new-ix)))
-   ((msg an-ix) / (and (eq msg +timed-out+)
-                       (integerp an-ix))
-    (when (eql an-ix ix)
+    (let ((new-id (create)))
+      (become (timed-once-tag-with-ka-beh cust tag new-id))
+      (send-after dt tag new-id)))
+   ((atag an-id) / (eq atag tag)
+    (when (eq an-id id)
       (send cust self +timed-out+)
       (become-sink)))
    (msg
@@ -251,10 +250,11 @@
    ))
 
 (defun timed-once-tag-with-ka (cust &optional (timeout *timeout*))
-  (let* ((ix   (random (ash 1 24)))
-         (atag (create (timed-once-tag-with-ka-beh cust ix))))
-    (send-after timeout atag +timed-out+ ix)
-    atag))
+  (actors ((tag    (tag ka-tag))
+           (id     (create))
+           (ka-tag (create (timed-once-tag-with-ka-beh cust tag id))))
+    (send-after timeout tag id)
+    ka-tag))
 
 ;; ---------------------------------------------------------------
 
