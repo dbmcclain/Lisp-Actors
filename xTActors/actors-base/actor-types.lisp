@@ -47,9 +47,9 @@
 
 (defstruct (actor
             (:constructor %create (beh)))
-  (beh  #'do-nothing  :type function))
+  beh)
 
-(defun create (&optional (beh #'do-nothing))
+(defun create (&optional beh)
   (%create (screened-beh beh)))
 
 ;; ----------------------------------------------------------
@@ -59,6 +59,8 @@
    arg)
   (:method ((arg actor))
    (fwd-beh arg))
+  (:method ((arg null))
+   arg)
   (:method (arg)
    (error "Invalid behavior: ~S" arg)))
 
@@ -92,6 +94,7 @@
     (setf (actor-beh actor) (cond
                              ((functionp target) target)
                              ((actor-p target)   (actor-beh target))
+                             ((null target)      target)
                              (t (error "Actor, or behavior function, expected."))
                              ))
     ))
