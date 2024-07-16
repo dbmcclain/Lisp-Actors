@@ -143,6 +143,63 @@
 ;; programmer.
 ;; ------------------------------------------------------------
 
+;; ------------------------------------------------------
+;; FN-ACTOR - the most general way of computing something is to send
+;; the result of an Actor execution to a customer. That may involve an
+;; indefinite number of message sends along with continuation Actors
+;; before arriving at the result to send to the customer.
+;;
+;; But sometimes all we need is a simple direct function call against
+;; some args. In order to unify these two situations, we make
+;; FN-ACTORs which encapsulate a function call inside of an Actor.
+;; 
+;; See also: SERVICES.
+
+(defun fn-actor (fn)
+  (create
+   (λ (cust . args)
+     (send* cust (multiple-value-list (apply fn args))))
+   ))
+
+;; ------------------------------------------------------
+
+(deflex println
+  (create
+   (lambda* msg
+     (format t "~&~{~A~%~}" msg))
+   ))
+  
+(defun do-with-maximum-io-syntax (fn)
+  (with-standard-io-syntax
+    (let ((*print-radix*  t)
+          (*print-circle* t)
+          (*read-default-float-format* 'double-float))
+      (handler-case
+          (funcall fn)
+        (print-not-readable ()
+          (let ((*print-readably* nil))
+            (funcall fn)))
+        ))))
+  
+(defmacro with-maximum-io-syntax (&body body)
+  `(do-with-maximum-io-syntax (lambda () ,@body)))
+
+(deflex writeln
+  (create
+   (lambda* msg
+     (with-maximum-io-syntax
+       (format t "~&~{~:W~%~}" msg)))
+   ))
+
+(deflex fmt-println
+  (create
+   (lambda (fmt-str &rest args)
+     (terpri)
+     (apply #'format t fmt-str args))
+   ))
+
+;; ---------------------------------
+
 (defun fwd-beh (actor)
   (lambda (&rest msg)
     (send* actor msg)))

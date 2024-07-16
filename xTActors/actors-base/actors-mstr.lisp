@@ -94,22 +94,17 @@ THE SOFTWARE.
 (defvar *send*  nil)
 
 (defun get-send-hook ()
-  (sys-unique *send*
+  (sys-cached *send*
               (prog1
                   (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
                         *send*         #'send-to-pool)
                 (restart-actors-system *nbr-pool*))
               ))
 
-(defmethod send ((target actor) &rest msg)
-  (apply (get-send-hook) target msg))
+(defun send (target &rest msg)
+  (when (actor-p target)
+    (apply (get-send-hook) target msg)))
 
-(defmethod send ((target function) &rest msg) ;; is this useful?
-  ;; execution staged for commit
-  (apply #'send (create target) msg))
-
-(defmethod send (target &rest msg)) ;; NOP
-   
 (defun send* (&rest args)
   ;; when last arg is a list that you want destructed
   (apply #'send (apply #'list* args)))
@@ -328,77 +323,6 @@ THE SOFTWARE.
      (check-for-errors msg)
      (send* cust msg))))
 
-;; --------------------------------------
-;; Alas, with MPX we still need locks sometimes. You might think that
-;; we could use a SERIALIZER here. But that would cover only
-;; participating Actors, not foreign threads trying to use the same
-;; printer stream...
-
-#+:SBCL
-(defvar *out-stream-locks*
-  #+:LISPWORKS
-  (make-hash-table :weak-kind :key)
-  #+:SBCL
-  (make-hash-table :weakness :key))
-
-#+:SBCL
-(defun do-with-printer (stream fn)
-  (let ((lock  (sys-unique (gethash stream *out-stream-locks*)
-                           (mpc:make-lock))
-               ))
-    (mpc:with-lock (lock)
-      (funcall fn))))
-
-(defmacro with-printer ((var stream) &body body)
-  #+:LISPWORKS
-  `(stream:apply-with-output-lock
-    (lambda (,var)
-      ,@body)
-    ,stream)
-  #+:SBCL
-  `(let ((,var ,stream))
-     (do-with-printer ,var (lambda ()
-                             ,@body)))
-  #+:ALLEGRO
-  `(let ((,var ,stream))
-     ,@body))
-
-(deflex println
-  (create
-   (lambda* msg
-     (with-printer (s *standard-output*)
-       (format s "~&~{~A~%~}" msg)))))
-  
-(defun do-with-maximum-io-syntax (fn)
-  (with-standard-io-syntax
-    (let ((*print-radix*  t)
-          (*print-circle* t)
-          (*read-default-float-format* 'double-float))
-      (handler-case
-          (funcall fn)
-        (print-not-readable ()
-          (let ((*print-readably* nil))
-            (funcall fn)))
-        ))))
-  
-(defmacro with-maximum-io-syntax (&body body)
-  `(do-with-maximum-io-syntax (lambda () ,@body)))
-
-(deflex writeln
-  (create
-   (lambda* msg
-     (with-printer (s *standard-output*)
-       (with-maximum-io-syntax
-         (format s "~&~{~:W~%~}" msg))))))
-
-(deflex fmt-println
-  (create
-   (lambda (fmt-str &rest args)
-     (with-printer (s *standard-output*)
-       (format s "~&")
-       (apply #'format s fmt-str args))
-     )))
-
 ;; ------------------------------------------------
 ;; The bridge between imperative code and the Actors world
 ;;
@@ -497,8 +421,8 @@ THE SOFTWARE.
 ;;    TERMINATED-ASK -- happens if we, while acting as Dispatch and
 ;;    awaiting our result, receive an error condition that the user
 ;;    chooses to respond to with restart "Terminate Ask". That error
-;;    may arise from some other task that has nothing to do with us,
-;;    but happened on our watch.
+;;    may arise from some other logical task that has nothing to do
+;;    with us, but happened on our watch.
 ;;
 ;;    TIMEOUT-ERROR - whatever we ASK'd to happen did not produce
 ;;    a result for us before expiration of our timeout. Timout
@@ -510,24 +434,6 @@ THE SOFTWARE.
 ;;    already, but sent back to our ASK for our use. We have to
 ;;    decide what to do with it.
 ;;
-
-;; ------------------------------------------------------
-;; FN-ACTOR - the most general way of computing something is to send
-;; the result of an Actor execution to a customer. That may involve an
-;; indefinite number of message sends along with continuation Actors
-;; before arriving at the result to send to the customer.
-;;
-;; But sometimes all we need is a simple direct function call against
-;; some args. In order to unify these two situations, we make
-;; FN-ACTORs which encapsulate a function call inside of an Actor.
-;; 
-;; See also: SERVICES.
-
-(defun fn-actor (fn)
-  (create
-   (λ (cust . args)
-     (send* cust (multiple-value-list (apply fn args))))
-   ))
 
 ;; ----------------------------------------
 ;; We must defer startup until the MP system has been instantiated.

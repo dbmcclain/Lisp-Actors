@@ -331,7 +331,7 @@ THE SOFTWARE.
    #:counter-beh
    #:counter
 
-   #:sys-unique
+   #:sys-cached
    ))
 
 #+(OR :ALLEGRO :CCL)
