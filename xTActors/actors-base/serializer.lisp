@@ -237,7 +237,7 @@
   (alambda
    ((:keep-alive-ping dt) / (and (realp dt)
                                  (plusp dt))
-    (let ((new-id (create)))
+    (let ((new-id (create))) ;; something unique
       (become (timed-once-tag-with-ka-beh cust tag new-id))
       (send-after dt tag new-id)))
    ((atag an-id) / (eq atag tag)
@@ -251,7 +251,7 @@
 
 (defun timed-once-tag-with-ka (cust &optional (timeout *timeout*))
   (actors ((tag    (tag ka-tag))
-           (id     (create))
+           (id     (create)) ;; just something unique
            (ka-tag (create (timed-once-tag-with-ka-beh cust tag id))))
     (send-after timeout tag id)
     ka-tag))
