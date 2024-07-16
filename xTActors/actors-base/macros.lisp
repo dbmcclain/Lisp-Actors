@@ -86,11 +86,11 @@
   ;; closure. The possibility of future divergence between them
   ;; exists. That might be okay, but beware.
   ;;
-  ;; Note that making our names into Forwarding Actors will not work
-  ;; correctly for common use cases. A TAG is expected to furnish
-  ;; itself to the customer. A (FWD TAG) will not present the correct
-  ;; identity to a customer who was only told the identity of the FWD
-  ;; Actor.
+  ;; Note that making our names into Forwarding Actors, to avoid
+  ;; divergence, will not work correctly for common use cases. A TAG
+  ;; is expected to furnish itself to the customer. A (FWD TAG) will
+  ;; not present the correct identity to a customer who was only told
+  ;; the identity of the FWD Actor.
   ;;
   `(let ,(mapcar #`(,(first a1) (create)) bindings)
      (setf ,@(mapcan #`((actor-beh ,(first a1)) (actor-beh ,(second a1))) bindings))
