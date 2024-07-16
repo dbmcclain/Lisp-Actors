@@ -59,9 +59,9 @@
 ;;
 
 (defmacro actors (bindings &body body)
-  ;; As long as the binding values are freshly constructed Actors,
-  ;; this will work properly. Otherwise, undefined behavior could
-  ;; ensue.
+  ;; For cross- and self-referential Actor constructions...
+  ;; All binding values must represent fresh Actor constructions.
+  ;; Violations may lead to undefined behavior.
   `(let ,(mapcar #`(,(first a1) (create)) bindings)
      (setf ,@(mapcan #`((actor-beh ,(first a1)) (actor-beh ,(second a1))) bindings))
      ,@body))
