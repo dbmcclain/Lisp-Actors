@@ -309,23 +309,20 @@ prefixed by our unique SELF identity/"
   ;; -- useful for real-time animation of graphs where we want to
   ;; control the animation update rate --
   (actors ((tag-dt   (tag joiner))
-           (tag-cust (tag joiner))
            (joiner   (create
                       (labels
-                          ((waiting-beh (&rest anss)
-                             (lambda* (atag . ans)
-                               (cond
-                                ((eq atag tag-dt)
-                                 (become (lambda* (_ . ans)
-                                           (send* cust ans)))
-                                 (send-all-to cust anss))
-                                
-                                (t
-                                 (become (apply #'waiting-beh ans anss)))
-                                ))))
+                          ((waiting-beh (&rest msgs)
+                             (alambda
+                               ((atag) / (eq atag tag-dt)
+                                (become (fwd-beh cust))
+                                (send-all-to cust msgs))
+                               
+                               (msg
+                                (become (apply #'waiting-beh msg msgs)))
+                               )))
                         (waiting-beh)))))
     (send-after dt tag-dt) ;; won't fire until we exit beh
-    tag-cust
+    joiner
     ))
 
 ;; -------------------------------------------------
