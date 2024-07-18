@@ -11,7 +11,7 @@
        (match ,msg ,@clauses))))
 
 ;; ----------------------------------------------------
-;; ACTORS -- like LETREC, but for Actors.
+;; ACTORS -- like LABELS, but for Actors.
 ;; Allows for construction of multiple Actors that reference each other.
 ;;
 ;; So what's the problem here? Why can't we just use LETREC?
