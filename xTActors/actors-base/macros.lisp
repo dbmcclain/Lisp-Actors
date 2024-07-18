@@ -42,8 +42,8 @@
 ;;
 ;;   (actors ((tag1  (tag ans))
 ;;            (tag2  (tag ans))
-;;            (ans   (once (acurry fmt-println "Answer from ~S"))))
-;;      ...
+;;            (ans   (gate tag1 tag2 (acurry fmt-println "Answer from ~S"))))
+;;      ...)
 ;;
 ;;  Here we want to set up a race between two Actors that will
 ;;  respond, respectively, to TAG1 and TAG2, which then send
