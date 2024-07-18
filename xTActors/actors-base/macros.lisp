@@ -52,6 +52,7 @@
 ;;  But because we are referencing ANS, in the value of bindings for
 ;;  TAG1 and TAG2, at top-level, ANS must be an Actor at the time of
 ;;  top-level reference, not later, from inside some lambda closure.
+;;  But ANS cannot be defined until TAG1 and TAG2 have been defined.
 ;;
 ;;  So the initial value given to each binding must be an Actor. Their
 ;;  behaviors can be filled in later, which does not change their
