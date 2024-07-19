@@ -373,6 +373,12 @@ arguments when given."
     `(macrolet ((,(second binding) ,(third binding) ,@(cdddr binding)))
        ,form)))
 
+(defmethod do-let+ ((fst (eql :dcl)) binding form)
+  ;; :DCL is for DECLARE
+  `(locally
+     (declare ,(second binding))
+     ,form))
+
 (defmethod do-let+ (fst binding form)
   ;; default case is just normal LET
   ;; But we are cascaded such that the effect of multiple bindings is LET*
@@ -407,4 +413,10 @@ WITH-ACCESSORS, in your code, putting it all into one place with LET+."
 (let+ ((:fn ((a (x) (doit x))
              (b (x) (a x)))))
   (b 15))
+(let+ ((a 1)
+       (:dcl (integer a))
+       (b (1+ a))
+       (:dcl (integer b)))
+  (+ a b))
+
 |#
