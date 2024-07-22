@@ -100,7 +100,7 @@
   (actors ((gate (serializer
                   ;; because we are doing file ops
                   (create (kvdb-orchestrator-beh gate))
-                  :timeout 5)))
+                  )))
     gate))
 
 ;; -----------------------------------------------------

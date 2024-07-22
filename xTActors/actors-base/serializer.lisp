@@ -219,47 +219,7 @@
 
   ----------------------------------------------------------------- |#
 
-;; ------------------------------------
-;; For a timed race to comply with a response, sometimes the target
-;; Actor of a Serializer knows better what the timeout period should
-;; really be.
-;;
-;; In that case, they can send to their CUST arg a :KEEP-ALIVE-PING
-;; message with the better determined timeout period.
-;;
-;; As long as they respond with an actual reply, or another
-;; :KEEP-ALIVE-PING, before the timeout happens, they will keep the
-;; door open.
-;;
-;; By default, the initial timeout is whatever the Serializer imposes.
-
-(defun timed-once-tag-with-ka-beh (cust tag id)
-  (alambda
-   ((:keep-alive-ping dt) / (and (realp dt)
-                                 (plusp dt))
-    (let ((new-id (create))) ;; something unique
-      (become (timed-once-tag-with-ka-beh cust tag new-id))
-      (send-after dt tag new-id)))
-   ((atag an-id) / (eq atag tag)
-    (when (eq an-id id)
-      (send cust self +timed-out+)
-      (become-sink)))
-   (msg
-    (send* cust self msg)
-    (become-sink))
-   ))
-
-(defun timed-once-tag-with-ka (cust &optional (timeout *timeout*))
-  (actors ((tag    (tag ka-tag))
-           (id     (create)) ;; just something unique
-           (ka-tag (create (timed-once-tag-with-ka-beh cust tag id))))
-    (send-after timeout tag id)
-    ka-tag))
-
-;; ---------------------------------------------------------------
-
-(defun serializer (svc &key (timeout *timeout* timeout-provided-p))
-  (warn-timeout timeout timeout-provided-p "Serializer")
+(defun serializer (svc)
   (labels
       ((serializer-beh ()
          ;; Quiescent state - nobody in waiting, just flag him through, and
@@ -267,7 +227,7 @@
          ;; we guard ourselves with a ONCE gate.
          (alambda
           ((cust . msg)
-           (let ((tag  (timed-once-tag-with-ka self timeout)))
+           (let ((tag  (tag self)))
              (send* svc tag msg)
              (become (busy-serializer-beh cust tag nil))
              ))
@@ -282,7 +242,7 @@
            (if (emptyq? queue)
                (become (serializer-beh))
              (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
-                    (new-tag  (timed-once-tag-with-ka self timeout)))
+                    (new-tag  (tag self)))
                (send* svc new-tag next-msg)
                (become (busy-serializer-beh next-cust new-tag new-queue))
                )))
@@ -323,11 +283,11 @@
    ------------------------------------------------------------- |#
 
 
-(defun serializer-sink (act &rest args)
+(defun serializer-sink (act)
   ;; Turn an actor into a sink. Actor must accept a cust argument,
   ;; and always send a response to cust - even though it appears to be
   ;; a sink from the caller's perspective.
-  (label (apply #'serializer act args)
+  (label (serializer act)
          sink))
 
 ;; ----------------------------------------------------------
