@@ -194,19 +194,14 @@
  It is difficult to defensively program against all possible future
  abuses of your Actor system. In most cases you will need to rely on
  timeout mechanisms to help out. Just like in the real world..
- .
+ 
   -----------------------------------------------------------------
 
    +------------------The Microcosm of Serializer -------------------+
    |                                                                 |
-   |                                              +-------------+    |
-   |                                       +------+   TIMEOUT   |    |
-   |                                       |      +-------------+    |
-   |                                       |                         |
-   |                                       v                         |
-   |                                +-------------+                  |
-   |                       +--------+  ONCE-TAG   |<-- reply -----+  |
-   |                       |        +-------------+               |  |
+   |                                +--------+                       |
+   |                       +--------+  TAG   |<-- reply ----------+  |
+   |                       |        +--------+                    |  |
    |                       |                                      |  |
    |                       v                                      |  |
    |                +-------------+             +-------------+   |  |
@@ -223,8 +218,7 @@
   (labels
       ((serializer-beh ()
          ;; Quiescent state - nobody in waiting, just flag him through, and
-         ;; enter the busy state. As a precaution against re-use of the reply TAG
-         ;; we guard ourselves with a ONCE gate.
+         ;; enter the busy state.
          (alambda
           ((cust . msg)
            (let ((tag  (tag self)))
@@ -257,14 +251,9 @@
 
    +------------------The Microcosm of Serializer-Sink --------------+
    |                                                                 |
-   |                                             +-------------+     |
-   |                                      +------+   TIMEOUT   |     |
-   |                                      |      +-------------+     |
-   |                                      |                          |
-   |                                      v                          |
-   |                               +-------------+                   |
-   |                      +--------+  ONCE-TAG   |<--- reply ----+   |
-   |                      |        +-------------+               |   |
+   |                               +--------+                        |
+   |                      +--------+  TAG   |<--- reply ---------+   |
+   |                      |        +--------+                    |   |
    |                      |                                      |   |
    |                      |                                      |   |
    |               +------v------+             +-------------+   |   |
