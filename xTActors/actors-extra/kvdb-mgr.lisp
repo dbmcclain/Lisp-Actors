@@ -168,6 +168,9 @@
       ((cust :req)
        (send cust db))
 
+      ((cust :find-multiple . keys)
+       (send cust (mapcar (um:curry #'db-find db) keys)))
+
       ((cust :find key . default)
        (send cust (db-find db key (car default)) ))
       
@@ -224,6 +227,25 @@
 
        ((cust :remove key)
         (upd cust (db-remove db key) :ok))
+
+       ((cust :add-multiple . keys-vals)
+        ;; keys-vals should be an ALIST of (KEY . VAL) pairs
+        (let ((new-db  db))
+          (dolist (pair keys-vals)
+            (setf new-db (db-add new-db (car pair) (cdr pair))))
+          (if (eq new-db db)
+              (send cust :ok)
+            (upd cust new-db :ok))
+          ))
+
+       ((cust :remove-multiple . keys)
+        (let ((new-db db))
+          (dolist (key keys)
+            (setf new-db (db-remove new-db key)))
+          (if (eq new-db db)
+              (send cust :ok)
+            (upd cust new-db :ok))
+          ))
        
        ;; -------------------
        ;; commit after update
@@ -406,6 +428,15 @@
           ((cust :find-or-add key def-val)
            (send dbmgr cust :find-or-add key def-val))
 
+          ((cust :find-multiple . keys)
+           (send* dbmgr cust :find-multiple keys))
+
+          ((cust :add-multiple . keys-vals)
+           (send* dbmgr cust :add-multiple keys-vals))
+
+          ((cust :remove-multiple . keys)
+           (send* dbmgr cust :remove-multiple keys))
+          
           ((:show)
            (with-db db
              (let ((map  (maps:empty))
