@@ -336,14 +336,21 @@
   ;; forwarding receiver Actors.
   (create
    (lambda (cust &rest msg)
-     (let (rcvrs)
+     (let (rcvrs   ;; these last only for the duration of this message handling
+           proxies)
        (aop:dflet ((translate-actor-to-proxy (ac)
                      (if (is-pure-sink? ac)
                          nil
-                       (let ((id (uuid:make-v1-uuid)))
-                         (push (cons id ac) rcvrs)
-                         (client-proxy id))
-                       )))
+                       (let ((pair (rassoc ac rcvrs)))
+                         (if pair
+                             (cdr (assoc ac proxies))
+                           ;; else - not already present
+                           (let* ((id    (uuid:make-v1-uuid))
+                                  (proxy (client-proxy id)))
+                             (setf rcvrs   (acons id ac rcvrs)
+                                   proxies (acons ac proxy proxies))
+                             proxy))
+                         ))))
          (let+ ((enc (loenc:encode (loenc:unshared-list msg)
                                    :max-portability t))
                 (:β _  (racurry local-services :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)))
@@ -379,18 +386,26 @@
   (create
    (alambda
     ((cust vec) / (typep vec 'ub8-vector)
-     (aop:dflet ((translate-proxy-to-actor (proxy)
-                   (let ((id (client-proxy-id proxy)))
-                     (create
-                      (lambda (&rest msg)
-                        (>>* local-services :ssend id msg))
-                      ))))
-       (let ((dec (ignore-errors
-                    (loenc:decode vec))))
-         (when (and dec
-                    (listp dec))
-           (>>* cust dec))
-         )))
-    )))
+     (let (proxies)  ;; these last only for the duration of this message handling
+       (aop:dflet ((translate-proxy-to-actor (proxy)
+                     (let* ((id    (client-proxy-id proxy))
+                            (pair  (assoc id proxies :test #'uuid:uuid=)))
+                       (if pair
+                           (cdr pair)
+                         ;; else -- proxy not present yet
+                         (let ((proxy (create
+                                       (lambda (&rest msg)
+                                         (>>* local-services :ssend id msg))
+                                       )))
+                           (setf proxies (acons id proxy proxies))
+                           proxy))
+                       )))
+         (let ((dec (ignore-errors
+                      (loenc:decode vec))))
+           (when (and dec
+                      (listp dec))
+             (>>* cust dec))
+           )))
+     ))))
 
 ;; ---------------------------------------------------
