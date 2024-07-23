@@ -266,8 +266,7 @@
         ))))
 
 (defun make-writer (state)
-  (serializer-sink (create (physical-writer-beh state))
-                   :timeout nil)) ;; muffle warning, 'cause phys-writer always responds (eh?!)
+  (serializer-sink (create (physical-writer-beh state))))
 
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity

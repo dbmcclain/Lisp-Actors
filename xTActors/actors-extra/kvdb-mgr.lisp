@@ -167,6 +167,9 @@
       ;; general entry for external clients
       ((cust :req)
        (send cust db))
+
+      ((cust :find key . default)
+       (send cust (db-find db key (car default)) ))
       
       ;; -------------------
       ;; We are the only one that knows the identity of saver, so this
@@ -183,52 +186,72 @@
   ;; General behavior of KVDB manager
   (with-state-vals ((db    :db)
                     (saver :saver)) state
-    (alambda
-     ((cust :req-excl owner timeout) / (and (realp timeout)
-                                            (plusp timeout))
-      ;; ignored unless timeout is positive real number
-      ;; request exclusive :commit access
-      ;; customer must either :commit or :abort within timeout period
-      (let ((fa-tag (tag self)))
-        (send cust db)
-        (send-after timeout fa-tag 'forced-abort)
-        (become (busy-trans-gate-beh (with state
-                                       :owner  owner
-                                       :fa-tag fa-tag)))
-        ))
-     
-     ;; -------------------
-     ;; commit after update
-     (( (cust . retry) :commit old-db new-db)
-      (cond ((eql old-db db)  ;; make sure we have correct version
-             (cond ((eql new-db db)
-                    ;; no real change
-                    (send cust db))
-                   
-                   (t
-                    ;; changed db, so commit new
-                    (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
-                      ;; version key is actually 'com.ral.actors.kvdb::version
-                      (become (trans-gate-beh (with state
-                                                :db versioned-db)))
-                      (send-after 10 self saver versioned-db)
-                      (send cust versioned-db)))
-                   ))
-            
-            (t
-             ;; had wrong version for old-db
-             (send retry db))
-            ))
-     
-     (('maint-full-save)
-      (let ((new-db (db-rebuild db)))
-        (become (trans-gate-beh (with state
-                                  :db new-db)))
-        (send saver sink :full-save new-db)))
-     
-     (msg
-      (common-trans-beh msg state))
-     )))
+    (labels ((upd (cust adb ans)
+               (let ((new-db (db-add adb 'version (uuid:make-v1-uuid))))
+                 ;; version key is actually 'com.ral.actors.kvdb::version
+                 (send cust ans)
+                 (send-after 10 self saver new-db)
+                 (become (trans-gate-beh (with state
+                                          :db  new-db)))
+                 ))
+             (add (cust key val)
+               (let ((new-db  (db-add db key val)))
+                 (upd cust new-db val))))
+      (alambda
+       ((cust :req-excl owner timeout) / (and (realp timeout)
+                                              (plusp timeout))
+        ;; ignored unless timeout is positive real number
+        ;; request exclusive :commit access
+        ;; customer must either :commit or :abort within timeout period
+        (let ((fa-tag (tag self)))
+          (send cust db)
+          (send-after timeout fa-tag 'forced-abort)
+          (become (busy-trans-gate-beh (with state
+                                         :owner  owner
+                                         :fa-tag fa-tag)))
+          ))
+       
+       ((cust :find-or-add key val)
+        (let ((ans (db-find db key db)))
+          (if (eq ans db)
+              (add cust key val)
+            ;; else
+            (send cust ans))
+          ))
+              
+       ((cust :add key val)
+        (add cust key val))
+
+       ((cust :remove key)
+        (upd cust (db-remove db key) :ok))
+       
+       ;; -------------------
+       ;; commit after update
+       (( (cust . retry) :commit old-db new-db)
+        (cond ((eql old-db db)  ;; make sure we have correct version
+               (cond ((eql new-db db)
+                      ;; no real change
+                      (send cust :ok))
+                     
+                     (t
+                      ;; changed db, so commit new
+                      (upd cust new-db :ok))
+                     ))
+              
+              (t
+               ;; had wrong version for old-db
+               (send retry db))
+              ))
+       
+       (('maint-full-save)
+        (let ((new-db (db-rebuild db)))
+          (become (trans-gate-beh (with state
+                                    :db new-db)))
+          (send saver sink :full-save new-db)))
+       
+       (msg
+        (common-trans-beh msg state))
+       ))))
 
 ;; ----------------------------------------------------------------
 
@@ -324,14 +347,6 @@
     (become (const-beh err))
     (send-all-to self msgs))
 
-   ((a-tag msg) / (and (eq a-tag tag)
-                       (eq msg +timed-out+))
-    ;; Could happen if Open routine runs into a problem needing a user
-    ;; Y-or-N response and the Serializer times out. Could happen
-    ;; repeatedly in this case. Just keep trying until you get a
-    ;; response - either :ERROR or :OPENED.
-    (send saver tag :retry-open))
-   
    ;; -------------------
    ;; accumulate client requests until we open for business
    (msg
@@ -346,9 +361,9 @@
   ;; to the KVDB.
   (λ _
     (let ((tag-to-me (tag self))
-          (saver (serializer (create (unopened-database-beh ctrl-tag))
-                             :timeout 5)
-                 ))
+          (saver (serializer
+                  (create (unopened-database-beh ctrl-tag))
+                  )))
       (send saver tag-to-me :open path)
       (become (nascent-database-beh tag-to-me saver nil))
       (repeat-send self))))
@@ -378,31 +393,18 @@
           ;; avoid excessive network traffic.
                 
           ((cust :add key val)
-           (with-db db
-             (send dbmgr `(,cust . ,self) :commit db (db-add db key val))
-             ))
+           (send dbmgr cust :add key val))
                 
           ((cust :remove key)
-           (with-db db
-             (unless (eq self (db-find db key self))
-               (send dbmgr `(,cust . ,self) :commit db (db-remove db key)))
-             ))
+           (send dbmgr cust :remove key))
                 
           ;; ---------------------------------------------
                 
           ((cust :find key . default)
-           (with-db db
-             (send cust (db-find db key (car default)))
-             ))
+           (send dbmgr cust :find key (car default)))
                 
           ((cust :find-or-add key def-val)
-           (with-db db
-             (multiple-value-bind (val new-db)
-                 (db-find-or-add db key def-val)
-               (β _
-                   (send dbmgr `(,β . ,self) :commit db new-db)
-                 (send cust val))
-               )))
+           (send dbmgr cust :find-or-add key def-val))
 
           ((:show)
            (with-db db
