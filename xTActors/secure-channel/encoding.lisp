@@ -972,7 +972,7 @@
                        monitor)
             msg)
        ))
-   :timeout 5))
+   ))
 
 (defun netw-decoder (ekey pkey cust)
   ;; takes a bytevec and produces arbitrary objects
@@ -1003,7 +1003,7 @@
                        monitor)
             msg)
        ))
-   :timeout 5))
+   ))
 
 (defun disk-decoder (cust)
   ;; takes chunks of self-sync data and produces arbitrary objects
