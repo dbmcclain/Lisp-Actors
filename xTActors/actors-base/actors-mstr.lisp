@@ -195,67 +195,71 @@ THE SOFTWARE.
              ;; executes breadth-first instead of depth-first. This maximizes
              ;; concurrency.
              ;; -------------------------------------------------------
-             (loop
-                (with-simple-restart (abort "Handle next event")
-                  (loop
-                     ;; Fetch next event from event queue - ideally, this
-                     ;; would be just a handful of simple register/memory
-                     ;; moves and direct jump. No call/return needed, and
-                     ;; stack useful only for a microcoding assist. Our
-                     ;; depth is never more than one Actor at a time,
-                     ;; before trampolining back here.
-                     (when done
-                       (return-from #1# (values (car done) t)))
-                     (when (setf evt (mpc:mailbox-read *central-mail* nil timeout))
-                       (tagbody
-                        next
-                        (when (msg-p evt)
-                          (um:when-let (next-msgs (msg-link (the msg evt)))
-                            (mpc:mailbox-send *central-mail* next-msgs))
-                        
-                          (let* ((*current-message-frame*      (and (msg-parent (the msg evt)) evt))
-                                 (*current-actor*   (msg-actor (the msg evt)))  ;; self
-                                 (*current-message* (msg-args  (the msg evt)))) ;; self-msg
-                            (when (actor-p *current-actor*)
-                              (tagbody                   
-                               retry
-                               (setf pend-beh (actor-beh (the actor self))
-                                     sends    nil)
-                               (when (functionp pend-beh)
-                                 (let ((*current-behavior* pend-beh))  ;; self-beh
-                                   ;; ---------------------------------
-                                   ;; Dispatch to Actor behavior with message args
-                                   (apply (the function pend-beh) (the list self-msg))
-                                   (cond ((or (eq self-beh pend-beh) ;; no BECOME
-                                              (%actor-cas self self-beh pend-beh)) ;; effective BECOME
-                                          (when sends
-                                            (cond ((or (mpc:mailbox-not-empty-p *central-mail*)
-                                                       done)
-                                                   ;; messages await or we are finished
-                                                   ;; so just add our sends to the queue
-                                                   ;; and repeat loop
-                                                   (mpc:mailbox-send *central-mail* sends))
-                                                  
-                                                  (t
-                                                   ;; No messages await, we are front of queue,
-                                                   ;; so grab first message for ourself.
-                                                   ;; This is the most common case at runtime,
-                                                   ;; giving us a dispatch timing of only 46ns on i9 processor.
-                                                   (setf evt sends)
-                                                   (go next))
-                                                  )))
-                                         (t
-                                          ;; failed on behavior update - try again...
-                                          
-                                          ;; -- iterferes with msg auditing --
-                                          ;; (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
-                                          
-                                          (go retry))
-                                         )))
-                               ))
-                            ))
-                       ))
-                     )))))
+             (tagbody
+              TOP
+              (with-simple-restart (abort "Handle next event")
+                (tagbody
+                 AGAIN
+                 ;; Fetch next event from event queue - ideally, this
+                 ;; would be just a handful of simple register/memory
+                 ;; moves and direct jump. No call/return needed, and
+                 ;; stack useful only for a microcoding assist. Our
+                 ;; depth is never more than one Actor at a time,
+                 ;; before trampolining back here.
+                 (when done
+                   (return-from #1# (values (car done) t)))
+                 (when (msg-p (setf evt (mpc:mailbox-read *central-mail* nil timeout)))
+                   (tagbody
+                    NEXT
+                    (um:when-let (next-msgs (msg-link (the msg evt)))
+                      (mpc:mailbox-send *central-mail* next-msgs))
+                    
+                    (let* ((*current-message-frame*      (and (msg-parent (the msg evt)) evt))
+                           (*current-actor*   (msg-actor (the msg evt)))  ;; self
+                           (*current-message* (msg-args  (the msg evt)))) ;; self-msg
+                      (when (actor-p *current-actor*)
+                        (tagbody                   
+                         RETRY
+                         (setf pend-beh (actor-beh (the actor self))
+                               sends    nil)
+                         (when (functionp pend-beh)
+                           (let ((*current-behavior* pend-beh))  ;; self-beh
+                             ;; ---------------------------------
+                             ;; Dispatch to Actor behavior with message args
+                             (apply (the function pend-beh) (the list self-msg))
+                             (cond ((or (eq self-beh pend-beh) ;; no BECOME
+                                        (%actor-cas self self-beh pend-beh)) ;; effective BECOME
+                                    (when sends
+                                      (cond ((or (mpc:mailbox-not-empty-p *central-mail*)
+                                                 done)
+                                             ;; messages await or we are finished
+                                             ;; so just add our sends to the queue
+                                             ;; and repeat loop
+                                             (mpc:mailbox-send *central-mail* sends)
+                                             (go AGAIN))
+                                            
+                                            (t
+                                             ;; No messages await, we are front of queue,
+                                             ;; so grab first message for ourself.
+                                             ;; This is the most common case at runtime,
+                                             ;; giving us a dispatch timing of only 46ns on i9 processor.
+                                             (setf evt sends)
+                                             (go NEXT))
+                                            )))
+                                   (t
+                                    ;; failed on behavior update - try again...
+                                    
+                                    ;; -- iterferes with msg auditing --
+                                    ;; (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
+                                    
+                                    (go RETRY))
+                                   )))
+                         ))
+                      )))
+                 (go AGAIN)
+                 ))
+              (go TOP)
+              )))
       (declare (dynamic-extent #'%send #'%become #'%abort-beh #'dispatch))
       (cond
        (actor-provided-p
