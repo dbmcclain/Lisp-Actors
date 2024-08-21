@@ -153,13 +153,20 @@ THE SOFTWARE.
 ;; successful return from Actors, there is no logical distinction
 ;; between when each of them is sent, if there were more than one
 ;; arising from the Actor execution. They are all sent logically at
-;; once - even though there may, or may not. be some underyling
+;; once - even though there may, or may not, be some underyling
 ;; ordering in the event queue.
 ;;
 ;; You should not depend on any particular ordering of messages,
-;; except that message sent from an earlier Actor activation will
-;; appear in the event queue in front of messages sent by a later
-;; Actor activation. The event queue is a FIFO queue.
+;; except that the last message sent from an earlier Actor invocation
+;; will appear in the event queue in front of messages sent by a later
+;; Actor invocation. The event queue is a FIFO queue.
+;;
+;; Multiple message SENDs are chunked into a linked list. The entire
+;; chunk is placed onto the global event queue. Messages are retreived
+;; as these chunks, the first message of the chunk (last sent) is
+;; peeled off for handling, while the remaining messages of the chunk
+;; are placed back onto the global event queue. So initial message
+;; order gets gradually blended with later messages.
 
 (defun #1=run-actors (&optional (actor nil actor-provided-p) &rest message)
   #F
@@ -265,14 +272,14 @@ THE SOFTWARE.
       (cond
        (actor-provided-p
         ;; are we an ASK?
-        (when (actor-p actor)
+        (unless (is-pure-sink? actor)
           (let ((me  (once
                       (create
                        (lambda* msg
                          (setf done (list msg))))
                       )))
-            (setf timeout +ASK-TIMEOUT+)
-            (send-after *timeout* me +timed-out+)
+            (setf timeout +ASK-TIMEOUT+)          ;; for periodic DONE checking
+            (send-after *timeout* me +timed-out+) ;; overall ASK timeout from caller
             (apply #'send-to-pool actor me message)
             (let ((*send*      #'%send)
                   (*become*    #'%become)
