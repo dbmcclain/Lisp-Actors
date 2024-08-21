@@ -55,6 +55,7 @@
 ;; ----------------------------------------------------------
 
 (defgeneric resolved-beh (beh)
+  #F
   (:method ((beh function))
    beh)
   (:method ((beh symbol))
@@ -64,6 +65,7 @@
    nil))
 
 (defgeneric screened-beh (arg)
+  #F
   (:method ((arg actor))
    (fwd-beh arg))
   (:method (arg)
