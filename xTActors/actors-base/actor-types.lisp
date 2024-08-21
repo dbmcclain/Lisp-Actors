@@ -54,15 +54,20 @@
 
 ;; ----------------------------------------------------------
 
+(defgeneric resolved-beh (beh)
+  (:method ((beh function))
+   beh)
+  (:method ((beh symbol))
+   (and (fboundp beh)
+        (symbol-function beh)))
+  (:method (beh)
+   nil))
+
 (defgeneric screened-beh (arg)
-  (:method ((arg function))
-   arg)
   (:method ((arg actor))
    (fwd-beh arg))
-  (:method ((arg null))
-   arg)
   (:method (arg)
-   (error "Invalid behavior: ~S" arg)))
+   arg))
 
 ;; -------------------------------------------
 

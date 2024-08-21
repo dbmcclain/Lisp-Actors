@@ -47,7 +47,7 @@ THE SOFTWARE.
 (defgeneric is-pure-sink? (ac)
   ;; used by networking code to avoid sending useless data
   (:method ((ac actor))
-   (not (functionp (actor-beh ac))))
+   (not (functionp (resolved-beh (actor-beh ac)))))
   (:method (ac)
    t) )
 
@@ -214,13 +214,13 @@ THE SOFTWARE.
                     (um:when-let (next-msgs (msg-link (the msg evt)))
                       (mpc:mailbox-send *central-mail* next-msgs))
                     
-                    (let* ((*current-message-frame*      (and (msg-parent (the msg evt)) evt))
-                           (*current-actor*   (msg-actor (the msg evt)))  ;; self
-                           (*current-message* (msg-args  (the msg evt)))) ;; self-msg
+                    (let ((*current-message-frame*  (and (msg-parent (the msg evt)) evt))
+                          (*current-actor*          (msg-actor (the msg evt)))  ;; self
+                          (*current-message*        (msg-args  (the msg evt)))) ;; self-msg
                       (when (actor-p *current-actor*)
                         (tagbody                   
                          RETRY
-                         (setf pend-beh (actor-beh (the actor self))
+                         (setf pend-beh (resolved-beh (actor-beh (the actor self)))
                                sends    nil)
                          (when (functionp pend-beh)
                            (let ((*current-behavior* pend-beh))  ;; self-beh

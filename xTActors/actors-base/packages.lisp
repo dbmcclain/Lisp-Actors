@@ -121,6 +121,7 @@ THE SOFTWARE.
    #:self-env
    #:self-msg
    #:screened-beh
+   #:resolved-beh
    
    #:actor
    #:actor-p
