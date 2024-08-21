@@ -271,8 +271,10 @@ THE SOFTWARE.
       (declare (dynamic-extent #'%send #'%become #'%abort-beh #'dispatch))
       (cond
        (actor-provided-p
-        ;; are we an ASK?
-        (unless (is-pure-sink? actor)
+        ;; we are an ASK
+        (if (is-pure-sink? actor)
+            (values nil t)
+          ;; else
           (let ((me  (once
                       (create
                        (lambda* msg
@@ -423,7 +425,9 @@ THE SOFTWARE.
      (check-for-errors ans)
      (values-list ans)))
   (:method ((target function) &rest msg)
-   (apply target msg)) )
+   (apply target msg))
+  (:method (target &rest msg)
+   (values)))
    
 ;;
 ;; ASK can generate errors:
