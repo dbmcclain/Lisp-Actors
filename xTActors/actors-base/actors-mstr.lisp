@@ -220,13 +220,14 @@ THE SOFTWARE.
                       (when (actor-p *current-actor*)
                         (tagbody                   
                          RETRY
-                         (setf pend-beh (resolved-beh (actor-beh (the actor self)))
+                         (setf pend-beh (actor-beh (the actor self))
                                sends    nil)
-                         (when (functionp pend-beh)
-                           (let ((*current-behavior* pend-beh))  ;; self-beh
+                         (let ((*current-behavior*  pend-beh) ;; self-beh
+                               (behfn               (resolved-beh pend-beh)))
+                           (when (functionp behfn)
                              ;; ---------------------------------
                              ;; Dispatch to Actor behavior with message args
-                             (apply (the function pend-beh) (the list self-msg))
+                             (apply (the function behfn) (the list self-msg))
                              (cond ((or (eq self-beh pend-beh) ;; no BECOME
                                         (%actor-cas self self-beh pend-beh)) ;; effective BECOME
                                     (when sends
