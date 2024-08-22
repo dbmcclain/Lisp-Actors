@@ -508,6 +508,13 @@ prefixed by our unique SELF identity/"
 ;; -----------------------------------------
 ;; Delayed Send
 
+(defun forced-send-after (dt actor &rest msg)
+  (when (and (actor-p actor)
+             (realp dt))
+    (let ((timer (apply #'mpc:make-timer #'send-to-pool actor msg)))
+      (mpc:schedule-timer-relative timer (max 0 dt)))
+    ))
+  
 (defun send-after (dt actor &rest msg)
   ;; NOTE: Actors, except those at the edge, must never do anything
   ;; that has observable effects beyond SEND and BECOME. Starting a
@@ -520,12 +527,8 @@ prefixed by our unique SELF identity/"
   ;; retried, that SEND is discarded and possibly tried again during
   ;; message delivery retry.
   ;;
-  (when (and (actor-p actor)
-             (realp dt))
-    (on-commit
-      (let ((timer (apply #'mpc:make-timer #'send-to-pool actor msg)))
-        (mpc:schedule-timer-relative timer (max 0 dt))))
-    ))
+  (on-commit
+    (apply #'forced-send-after dt actor msg)))
 
 ;; --------------------------------------
 

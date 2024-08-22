@@ -291,10 +291,7 @@ THE SOFTWARE.
                            (setf done (list msg))))
                         )))
               (setf timeout +ASK-TIMEOUT+)  ;; for periodic DONE checking
-              (when (realp *timeout*)
-                ;; overall ASK timeout from caller
-                (let ((timer (mpc:make-timer #'send-to-pool me +timed-out+)))
-                  (mpc:schedule-timer-relative timer (max 0 *timeout*))))
+              (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
               
               (apply #'send-to-pool actor me message)
               (with-simple-restart (abort "Terminate ASK")
