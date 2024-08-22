@@ -524,7 +524,7 @@ prefixed by our unique SELF identity/"
              (realp dt))
     (on-commit
       (let ((timer (apply #'mpc:make-timer #'send-to-pool actor msg)))
-        (mpc:schedule-timer-relative timer dt)))
+        (mpc:schedule-timer-relative timer (max 0 dt))))
     ))
 
 ;; --------------------------------------
