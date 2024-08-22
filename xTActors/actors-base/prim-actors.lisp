@@ -524,8 +524,8 @@ prefixed by our unique SELF identity/"
   ;;
   ;; We mark the timer launch as non-idempotent so that it happens in
   ;; an edge Actor, and gets launched via message SEND. If we get
-  ;; retried, that SEND is discarded and possibly tried again during
-  ;; message delivery retry.
+  ;; retried, that SEND will have been discarded and possibly tried
+  ;; again during message delivery retry.
   ;;
   (on-commit
     (apply #'forced-send-after dt actor msg)))
