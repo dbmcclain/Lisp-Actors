@@ -36,6 +36,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 		(:file "cheapq")
                 (:file "globals")
                 (:file "actor-state")
+                (:file "lexprot")
                 (:file "macros")
                 #-:actors-experiments (:file "actor-types")
                 #+:actors-experiments (:file "actor-classes")

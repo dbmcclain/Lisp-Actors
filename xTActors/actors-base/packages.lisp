@@ -332,6 +332,8 @@ THE SOFTWARE.
    #:counter
 
    #:sys-cached
+   #:behav
+   #:blambda
    ))
 
 #+(OR :ALLEGRO :CCL)

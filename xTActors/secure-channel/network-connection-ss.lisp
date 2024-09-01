@@ -235,7 +235,6 @@
            (write-done (io-state buffer nb-written)
              ;; this is a callback routine, executed in the thread of
              ;; the async collection
-             (declare (ignore buffer))
              (cond ((comm:async-io-state-write-status io-state)
                     (let+ ((:β _  (racurry io-running :finish-wr-fail)))
                       (>> shutdown)

@@ -5,9 +5,17 @@
 ;; ALAMBDA -- a behavior lambda for Actors with pattern matching on
 ;; messages
 
+(defmacro blambda (args &body body)
+  `(behav
+    (lambda* ,args
+      ,@body)))
+
+#+:LISPWORKS
+(editor:indent-like 'blambda 'lambda)
+
 (defmacro alambda (&rest clauses)
   (um:with-unique-names (msg)
-    `(lambda (&rest ,msg)
+    `(blambda (&rest ,msg)
        (match ,msg ,@clauses))))
 
 ;; ----------------------------------------------------
@@ -105,7 +113,7 @@
 (µ α (args &body body)
   ;; α is to actor, what λ is to lambda
   `(create
-    (lambda* ,args ,@body)))
+    (blambda ,args ,@body)))
 
 (µ αα (&rest clauses)
   `(create
@@ -114,8 +122,9 @@
 
 (µ β (args form &body body)
   ;; β is a BETA - see below
-  `(let ((β  (create (lambda* ,args
-                       ,@body))))
+  `(let ((β  (create
+              (blambda ,args
+                ,@body))))
      ,form))
 
 #+:LISPWORKS
@@ -248,7 +257,7 @@
         ;; must use LET not LABELS here, because we still need beta as a
         ;; macro function
         `(labels ((beta-beh ,params
-                    (lambda* ,binding-args
+                    (blambda ,binding-args
                       ,@body))
                   (beta-gen ,params
                     (create (beta-beh ,@params))))
@@ -257,7 +266,8 @@
              ;; this beta redef lasts only for the next form
              ,form))
       ;; else
-      `(let ((beta (create (lambda* ,args ,@body))))
+      `(let ((beta (create
+                    (blambda ,args ,@body))))
          ,form)
       )))
 
@@ -300,7 +310,7 @@
   `(tagbody
      ,@(mapcar (lambda (e)
                  `(send (create
-                         (lambda ()
+                         (blambda ()
                            ,e))))
                exprs)
      ))
@@ -312,7 +322,7 @@
     `(β ,args
          (send (fork ,@(mapcar (lambda (e)
                                  `(create
-                                   (lambda (,cust)
+                                   (blambda (,cust)
                                      (send ,cust ,e))))
                                exprs))
                β)
@@ -338,7 +348,7 @@
 (defmacro γactor (args &body body)
   ;; use RET or RET* instead of SEND CUST
   `(create
-    (lambda* (γ ,@(if (consp args)
+    (blambda (γ ,@(if (consp args)
                       args
                     `(&rest ,args)))
       ,@body)))
@@ -350,8 +360,8 @@
 (defmacro actor-nlet (name bindings &body body)
   `(let (,name)
      (setf ,name (create
-                     (lambda ,(um:firsts bindings)
-                       ,@body)))
+                  (blambda ,(um:firsts bindings)
+                    ,@body)))
      (send ,name ,@(um:seconds bindings))))
 
 #+:LISPWORKS
@@ -418,8 +428,9 @@
 
 (defmacro def-actor (name &optional beh)
   `(deflex ,name 
-     (create ,(or beh
-                  `(%becomer-beh))) ))
+     (create
+      ,(or beh
+           `(%becomer-beh))) ))
 
 (defmacro define-behavior (name fn)
   `(progn
@@ -449,8 +460,9 @@
   ;; Make a body of code restartable alongside potentially failing
   ;; BECOME, which will auto-retry. The code might be non-idempotent,
   ;; but it won't execute unless the BECOME succeeds without retry.
-  `(send (create (lambda ()
-                   ,@body))) )
+  `(send (create
+          (blambda ()
+            ,@body))) )
 
 (defmacro non-idempotent (&body body)
   ;; A synonym for RESTARTABLE but marks the source code in a more
