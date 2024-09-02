@@ -219,7 +219,7 @@
 ;;
 
 (defun physical-writer-beh (state)
-  (lambda (cust byte-vec)
+  (behav (cust byte-vec)
     (let+ ((:slots (io-state
                     io-running
                     kill-timer
@@ -233,6 +233,7 @@
              (>> cust :err)) ;; clear the Serializer
            
            (write-done (io-state buffer nb-written)
+             (declare (ignore buffer))
              ;; this is a callback routine, executed in the thread of
              ;; the async collection
              (cond ((comm:async-io-state-write-status io-state)
@@ -380,7 +381,7 @@
 ;; host
 
 (defun auto-counter-beh (n)
-  (lambda (cust)
+  (behav (cust)
     (let ((new-n (1+ n)))
       (β! (auto-counter-beh new-n))
       (>> cust n))))
@@ -774,7 +775,7 @@
                   io-running
                   title
                   ip-addr) state))
-    (lambda ()
+    (behav ()
       (become-sink)
       (let+ ((:β _  (racurry io-running :terminate)))
         (>> fmt-println "~A Socket (~S) shutting down"
@@ -802,14 +803,14 @@
 
 (defun create-socket-intf (&key kind ip-addr ip-port io-state report-ip-addr)
   (create
-   (lambda (cust)
+   (behav (cust)
      (let+ ((title          (if (eq kind :client) "Client" "Server"))
             (local-services (make-local-services))
             (io-running     (make-io-running-monitor io-state))
             (shutdown       (make-socket-shutdown))
             (kill-timer     (make-kill-timer
                              (create
-                              (lambda ()
+                              (behav ()
                                 (>> println "Inactivity shutdown request")
                                 (>> shutdown))
                               )))
@@ -911,7 +912,7 @@
 (deflex client-connector
   ;; Called from client side wishing to connect to a server.
   (create
-   (lambda (cust handshake ip-addr &optional (ip-port *default-port*))
+   (behav (cust handshake ip-addr &optional (ip-port *default-port*))
      (let+ ((:mvb (addr port)  (parse-ip-addr ip-addr))
             (port              (or port ip-port *default-port*)))
        (>> connections cust :find-connection addr port handshake)

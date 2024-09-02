@@ -264,7 +264,7 @@
 
 (defun ratchet-encryptor (ratchet-manager)
   (create
-   (lambda (cust bytevec)
+   (behav (cust bytevec)
      (let+ ((:β (seq tau ack ekey) (racurry ratchet-manager :tx-key))
             (bv    (padder bytevec))
             (nonce (encr/decr ekey nil bv))

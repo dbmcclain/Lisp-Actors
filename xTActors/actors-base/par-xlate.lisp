@@ -357,7 +357,7 @@
         ((cust)
          (labels
              ((joiner-beh (ansv)
-                  (lambda* (ix . ans)
+                  (behav (ix . ans)
                     (let ((new-ansv (copy-seq ansv)))
                       (setf (aref new-ansv ix) (car ans))
                       (cond
@@ -422,7 +422,7 @@
   ;; convert a cust Actor, which expects a single list arg, into an
   ;; Actor that accepts many args.
   (create
-   (lambda (&rest args)
+   (behav (&rest args)
      (send cust args))
    ))
 
@@ -451,7 +451,7 @@
    (alambda
     ((cust action filter-fn . args)
      (send (apply #'par-map action args)
-           (create (lambda (&rest ans)
+           (create (behav (&rest ans)
                      (send* cust (um:collect-if filter-fn ans)))
                    )))
     )))
@@ -490,7 +490,7 @@
          (car services))
         (t
          (um:letrec ((iter (create
-                            (lambda (cust svcs ans)
+                            (behav (cust svcs ans)
                               (if (endp svcs)
                                   (send* cust ans)
                                 (β _
@@ -498,7 +498,7 @@
                                   (send iter cust (cdr svcs) ans))
                                 )))))
            (create
-            (lambda (cust)
+            (behav (cust)
               (β ans
                   (send (car services) β)
                 (send iter cust (cdr services) ans) ) ))
@@ -515,7 +515,7 @@
          (car services))
         (t
          (um:letrec ((iter (create
-                            (lambda (cust svcs)
+                            (behav (cust svcs)
                               (if (cdr svcs)
                                   (β _
                                       (send (car svcs) β)
@@ -523,7 +523,7 @@
                                 (send (car svcs) cust))
                               ))))
            (create
-            (lambda (cust)
+            (behav (cust)
               (send iter cust services)))
            ))
         ))

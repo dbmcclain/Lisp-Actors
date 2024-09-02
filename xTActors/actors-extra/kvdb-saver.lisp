@@ -80,7 +80,7 @@
   ;; An Actor that computes and sends to cust, the list of removals,
   ;; additions, and changes, from old-db to new-db.
   (create
-   (lambda (cust old-db new-db)
+   (behav (cust old-db new-db)
      (let+ ((:par (new-keys old-keys)
                 ((db-get-keys new-db)   ;; new keys
                  (db-get-keys old-db))) ;; old keys
@@ -90,24 +90,23 @@
                    (pairlis adds (mapcar (um:curry #'db-find new-db) adds)))
                  (intersection new-keys old-keys :test #'equal)) ))             ;; common keys
          (send (create
-                (behav
-                 (lambda (keys &optional changes)
-                   ;; compute list of changes
-                   (if keys
-                       (let+ ((me  self)
-                              ((key . tl) keys)
-                              (:par (new-val old-val)
-                                  ((db-find new-db key)     ;; new val
-                                   (db-find old-db key))))  ;; old val
-                         (send me tl
-                               (if (eql new-val old-val)
-                                   changes
-                                 (acons key new-val changes))))
-                     ;; else
-                     (send cust (list removals
-                                      additions
-                                      changes))
-                     ))))
+                (behav (keys &optional changes)
+                  ;; compute list of changes
+                  (if keys
+                      (let+ ((me  self)
+                             ((key . tl) keys)
+                             (:par (new-val old-val)
+                                 ((db-find new-db key)     ;; new val
+                                  (db-find old-db key))))  ;; old val
+                        (send me tl
+                              (if (eql new-val old-val)
+                                  changes
+                                (acons key new-val changes))))
+                    ;; else
+                    (send cust (list removals
+                                     additions
+                                     changes))
+                    )))
                common-keys)
          ))
    ))

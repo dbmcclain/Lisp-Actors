@@ -165,7 +165,7 @@
 
 (deflex println
   (create
-   (lambda* msg
+   (behav msg
      (format t "~&~{~A~%~}" msg))
    ))
   
@@ -186,14 +186,14 @@
 
 (deflex writeln
   (create
-   (lambda* msg
+   (behav msg
      (with-maximum-io-syntax
        (format t "~&~{~:W~%~}" msg)))
    ))
 
 (deflex fmt-println
   (create
-   (lambda (fmt-str &rest args)
+   (behav (fmt-str &rest args)
      (terpri)
      (apply #'format t fmt-str args))
    ))
@@ -201,7 +201,7 @@
 ;; ---------------------------------
 
 (defun fwd-beh (actor)
-  (lambda (&rest msg)
+  (behav (&rest msg)
     (send* actor msg)))
 
 (defun fwd (actor)
@@ -213,7 +213,7 @@
   "ONCE -- Construct an Actor to behave as a FWD relay to the
 customer, just one time."
   (create
-   (lambda (&rest msg)
+   (behav (&rest msg)
      (send* cust msg)
      (become-sink))
    ))
@@ -232,7 +232,7 @@ customer, just one time."
   ;; Prefer this, so that the clock only starts running when a message
   ;; is sent to svc.
   (create
-   (lambda (cust &rest msg)
+   (behav (cust &rest msg)
      (let ((gate (once cust)))
        (send-after timeout gate +timed-out+)
        (send* svc gate msg)))
@@ -254,7 +254,7 @@ customer, just one time."
 
 (defun race (&rest actors)
   (create
-   (lambda (cust &rest msg)
+   (behav (cust &rest msg)
      (let ((gate (once cust)))
        (apply #'send-to-all actors gate msg)))
    ))
@@ -266,7 +266,7 @@ customer, just one time."
   "LABEL -- Construct an Actor to relay a message to the customer,
 prefixed by the label."
   (create
-   (lambda (&rest msg)
+   (behav (&rest msg)
      (send* cust lbl msg))
    ))
 
@@ -276,7 +276,7 @@ prefixed by the label."
   "TAG -- Construct an Actor to relay a message to the customer,
 prefixed by our unique SELF identity/"
   (create
-   (lambda* msg
+   (behav msg
      (send* cust self msg))
    ))
 
@@ -284,7 +284,7 @@ prefixed by our unique SELF identity/"
 
 (defun once-tag (cust)
   (create
-   (lambda (&rest msg)
+   (behav (&rest msg)
      (send* cust self msg)
      (become-sink))
    ))
@@ -380,7 +380,7 @@ prefixed by our unique SELF identity/"
 ;; DM/RAL 09/23
 
 (defun future-wait-beh (tag &rest custs)
-  (lambda (cust &rest msg)
+  (behav (cust &rest msg)
     (cond ((eq cust tag)
            (become (apply #'const-beh msg))
            (apply #'send-to-all custs msg))
@@ -487,11 +487,11 @@ prefixed by our unique SELF identity/"
   ;; Using SIMD just gathers all results into an ordered list for
   ;; delivery to cust.
   (create
-   (lambda (cust &rest args)
+   (behav (cust &rest args)
      (send (apply #'fork (mapcar (curry #'racurry svc) args)) cust))))
 
 #|
-(let ((svc (create (lambda (cust arg)
+(let ((svc (create (behav (cust arg)
                      (send cust (1+ arg))))))
   (send (simd svc) println 1 2 3))
 |#
@@ -502,7 +502,7 @@ prefixed by our unique SELF identity/"
   ;; cust should expect a (&rest ans)
   ;; Why? -- same comments as for SIMD --
   (create
-   (lambda (cust &rest args)
+   (behav (cust &rest args)
      (send (apply #'fork (mapcar #'racurry svcs args)) cust))))
 
 ;; -----------------------------------------
@@ -534,7 +534,7 @@ prefixed by our unique SELF identity/"
 
 (defun timing (dut)
   (create
-   (lambda (cust &rest msg)
+   (behav (cust &rest msg)
      (let ((start (get-time-usec)))
        (β _
            (send* dut β msg)
@@ -543,7 +543,7 @@ prefixed by our unique SELF identity/"
 
 #|
 (let* ((dut (create
-                (lambda (cust nsec)
+                (behav (cust nsec)
                   (sleep nsec)
                   (send cust)))
             (timer (timing dut))))
@@ -589,13 +589,13 @@ prefixed by our unique SELF identity/"
 (defun acurry (actor &rest largs)
   ;; like Curried functions, but for Actors
   (create
-   (lambda (&rest rargs)
+   (behav (&rest rargs)
      (multiple-value-call #'send actor (values-list largs) (values-list rargs)))
    ))
   
 (defun racurry (actor &rest rargs)
   (create
-   (lambda (&rest largs)
+   (behav (&rest largs)
      (multiple-value-call #'send actor (values-list largs) (values-list rargs)))
    ))
   
@@ -604,7 +604,7 @@ prefixed by our unique SELF identity/"
   ;; worse than a sequence of nested Beta forms? Same effect, just
   ;; performed in advance here.
   (create
-   (lambda (cust &rest msg)
+   (behav (cust &rest msg)
      (send* (reduce #'acurry elts
                     :from-end t
                     :initial-value cust)
@@ -621,7 +621,7 @@ prefixed by our unique SELF identity/"
   ;; can be used to convert a sink into a filter component
   ;; A sink-block is one that does not take a cust arg in messages.
   (create (if sink-blks
-              (lambda (cust &rest msg)
+              (behav (cust &rest msg)
                 (apply #'send-to-all sink-blks msg)
                 (send* cust msg))
             #'send)))
@@ -629,7 +629,7 @@ prefixed by our unique SELF identity/"
 (defun splay (&rest custs)
   ;; Define a sink block that passes on the message to all custs
   (create
-   (lambda* msg
+   (behav msg
      (apply #'send-to-all custs msg))
    ))
   
@@ -738,7 +738,7 @@ This the Actors equivalent of WITH-OPEN-FILE."
 
 #|
 (let ((line-counter (create
-                     (lambda (cust fd)
+                     (behav (cust fd)
                        ;; (sleep 1)
                        (loop for line = (read-line fd nil fd)
                              for ix from 0
@@ -749,7 +749,7 @@ This the Actors equivalent of WITH-OPEN-FILE."
                        (send cust :ok))
                      ))
       (word-counter (create
-                     (lambda (cust fd)
+                     (behav (cust fd)
                        ;; (sleep 2)
                        (let ((sum (loop for line = (read-line fd nil fd)
                                         until (eql line fd)

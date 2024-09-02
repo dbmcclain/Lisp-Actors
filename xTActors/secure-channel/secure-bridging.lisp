@@ -75,7 +75,7 @@
 
 (deflex remote-echo
   (create
-   (lambda (cust &rest msg)
+   (behav (cust &rest msg)
      (>>* cust msg)) ))
 
 (defun cmpfn (&rest args)
@@ -84,7 +84,7 @@
 
 (deflex remote-eval
   (create
-   (lambda (cust form)
+   (behav (cust form)
      (>> cust (funcall (cmpfn form)))) ))
 
 ;; -----------------------------------------------
@@ -335,7 +335,7 @@
   ;; into client proxies and planting corresponding ephemeral
   ;; forwarding receiver Actors.
   (create
-   (lambda (cust &rest msg)
+   (behav (cust &rest msg)
      (let (rcvrs   ;; these last only for the duration of this message handling
            proxies)
        (aop:dflet ((translate-actor-to-proxy (ac)
@@ -360,7 +360,7 @@
 
 #|
 (def-actor echo
-  (lambda (cust &rest msg)
+  (behav (cust &rest msg)
     (>> cust msg)))
 
 (let ((encoder (client-marshal-encoder echo)))
@@ -394,7 +394,7 @@
                            (cdr pair)
                          ;; else -- proxy not present yet
                          (let ((proxy (create
-                                       (lambda (&rest msg)
+                                       (behav (&rest msg)
                                          (>>* local-services :ssend id msg))
                                        )))
                            (setf proxies (acons id proxy proxies))

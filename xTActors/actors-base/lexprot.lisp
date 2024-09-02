@@ -43,10 +43,6 @@
         (declare (ignorable ,@varnames))
         ,@forms))))
 
-(defmacro behav (form)
-  `(protecting-variables ()
-     ,form))
-
 ;; -------------------------------------------------
 #|
 (defun foo (x)

@@ -10,13 +10,13 @@
 #| ;; for debugging
 (defun show-server-outbound (socket)
   (create
-      (lambda (&rest msg)
+      (behav (&rest msg)
         (>> println (format nil "s/out: ~S" msg))
         (>>* socket msg))))
 
 (defun show-server-inbound ()
   (create 
-      (lambda (cust &rest msg)
+      (behav (cust &rest msg)
         (>> println (format nil "s/in: ~S" msg))
         (>>* cust msg))))
 |#

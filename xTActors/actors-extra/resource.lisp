@@ -25,7 +25,7 @@
 (in-package :com.ral.actors.base)
 
 (defun guard-selector-beh (must-do must-args)
-  (lambda (cust &rest msg)
+  (behav (cust &rest msg)
     (send* cust msg)
     (send* must-do must-args)
     (become-sink)))
@@ -57,7 +57,7 @@
   ;; action of the first guard can be another guard.
   ;;
   (create
-      (lambda* ((cust fail) &rest args)
+      (behav ((cust fail) &rest args)
         (multiple-value-bind (lbl-ok lbl-fail)
             (guard-selector cust fail must-do must-args)
           (send-after timeout lbl-fail +timed-out+)
@@ -67,17 +67,17 @@
 ;; Some must-do's
 (deflex close-file
   (create
-      (lambda (fp)
+      (behav (fp)
         (close fp))))
   
 (deflex secure-erase
   (create
-      (lambda (buf)
+      (behav (buf)
         (fill buf 0))))
 
 (defun perform (fn)
   (create
-      (lambda (&rest args)
+      (behav (&rest args)
         (apply fn args))))
 
 #|
@@ -87,7 +87,7 @@
 ;;
 (defun with-open-vault (vault)
   (create
-      (lambda* ((cust on-fail) &rest args)
+      (behav ((cust on-fail) &rest args)
         (let ((key (copy-seq (get-env "MySecretKey"))))
           (send* (guard unlock-vault 10 secure-erase key)
                  `(,cust ,on-fail) vault key args)))

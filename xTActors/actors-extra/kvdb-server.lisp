@@ -142,10 +142,10 @@
      
      (((cust . retry) :commit)
       (let* ((me  self)
-             (committed (create (lambda (ans)
+             (committed (create (behav (ans)
                                   (declare (ignore ans))
                                   (send cust me))))
-             (lcl-retry (create (lambda (ans)
+             (lcl-retry (create (behav (ans)
                                   (declare (ignore ans))
                                   (send retry me)))))
         (become (local-proxy-for-remote-db-access-beh kvdb))

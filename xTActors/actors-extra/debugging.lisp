@@ -33,12 +33,12 @@
 (defun logger ()
   ;; provides a log output as the message is passed along
   (create
-      (lambda (cust &rest msg)
+      (behav (cust &rest msg)
         (send* logger cust msg)
         (send* cust msg))))
 
 (defun logged-beh (actor)
-  (lambda (&rest msg)
+  (behav (&rest msg)
     (send* logger actor msg)
     (send* actor msg)))
 
@@ -85,7 +85,7 @@
 |#
 
 (defun time-tag-beh (actor)
-  (lambda* msg
+  (behav msg
     (send* actor (usec:get-universal-time-usec) msg)))
 
 (defun time-tag (actor)

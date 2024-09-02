@@ -117,6 +117,7 @@
 ;; GUI CAPI Callback Functions
 
 (defun refresh-keys (xxx intf &optional cust)
+  (declare (ignore xxx))
   ;; CAPI Callback function - on entry we are running in CAPI thread.
   (β (keys)
       (collect-keys β)
@@ -155,6 +156,7 @@
   (refresh-select-and-show-first-item intf))
 
 (defun click-delete-key (xxx intf)
+  (declare (ignore xxx))
   ;; CAPI Callback function - on entry we are running in CAPI thread.
   (let* ((keys-pane (keys-panel intf))
          (key       (capi:choice-selected-item keys-pane)))
@@ -201,6 +203,7 @@
     ))
 
 (defun click-add/change-key (xxx intf)
+  (declare (ignore xxx))
   ;; CAPI Callback function - on entry we are running in CAPI thread.
   (let* ((keys-pane (keys-panel intf))
          (key       (capi:choice-selected-item keys-pane)))

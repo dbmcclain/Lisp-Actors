@@ -5,17 +5,36 @@
 ;; ALAMBDA -- a behavior lambda for Actors with pattern matching on
 ;; messages
 
-(defmacro blambda (args &body body)
-  `(behav
-    (lambda* ,args
-      ,@body)))
+#|
+(defmacro prot-vars (&body body)
+  `(macrolet ((setf* (&rest pairs)
+                `(cl:setf ,@pairs))
+              (setf (&rest pairs)
+                (error "Can't mutate")))
+     ,@body))
+
+(defmacro behav (args &body body)
+  `(prot-vars
+     (lambda* ,args
+       ,@body)))
+|#
+#|
+(defmacro behav (args &body body)
+  `(protecting-variables ()
+     (lambda* ,args
+       ,@body)))
+|#
+
+(defmacro behav (args &body body)
+  `(lambda* ,args
+       ,@body))
 
 #+:LISPWORKS
-(editor:indent-like 'blambda 'lambda)
+(editor:indent-like 'behav 'lambda)
 
 (defmacro alambda (&rest clauses)
   (um:with-unique-names (msg)
-    `(blambda (&rest ,msg)
+    `(behav (&rest ,msg)
        (match ,msg ,@clauses))))
 
 ;; ----------------------------------------------------
@@ -113,7 +132,7 @@
 (µ α (args &body body)
   ;; α is to actor, what λ is to lambda
   `(create
-    (blambda ,args ,@body)))
+    (behav ,args ,@body)))
 
 (µ αα (&rest clauses)
   `(create
@@ -123,7 +142,7 @@
 (µ β (args form &body body)
   ;; β is a BETA - see below
   `(let ((β  (create
-              (blambda ,args
+              (behav ,args
                 ,@body))))
      ,form))
 
@@ -257,7 +276,7 @@
         ;; must use LET not LABELS here, because we still need beta as a
         ;; macro function
         `(labels ((beta-beh ,params
-                    (blambda ,binding-args
+                    (behav ,binding-args
                       ,@body))
                   (beta-gen ,params
                     (create (beta-beh ,@params))))
@@ -267,7 +286,7 @@
              ,form))
       ;; else
       `(let ((beta (create
-                    (blambda ,args ,@body))))
+                    (behav ,args ,@body))))
          ,form)
       )))
 
@@ -310,7 +329,7 @@
   `(tagbody
      ,@(mapcar (lambda (e)
                  `(send (create
-                         (blambda ()
+                         (behav ()
                            ,e))))
                exprs)
      ))
@@ -322,7 +341,7 @@
     `(β ,args
          (send (fork ,@(mapcar (lambda (e)
                                  `(create
-                                   (blambda (,cust)
+                                   (behav (,cust)
                                      (send ,cust ,e))))
                                exprs))
                β)
@@ -348,7 +367,7 @@
 (defmacro γactor (args &body body)
   ;; use RET or RET* instead of SEND CUST
   `(create
-    (blambda (γ ,@(if (consp args)
+    (behav (γ ,@(if (consp args)
                       args
                     `(&rest ,args)))
       ,@body)))
@@ -360,7 +379,7 @@
 (defmacro actor-nlet (name bindings &body body)
   `(let (,name)
      (setf ,name (create
-                  (blambda ,(um:firsts bindings)
+                  (behav ,(um:firsts bindings)
                     ,@body)))
      (send ,name ,@(um:seconds bindings))))
 
@@ -461,7 +480,7 @@
   ;; BECOME, which will auto-retry. The code might be non-idempotent,
   ;; but it won't execute unless the BECOME succeeds without retry.
   `(send (create
-          (blambda ()
+          (behav ()
             ,@body))) )
 
 (defmacro non-idempotent (&body body)

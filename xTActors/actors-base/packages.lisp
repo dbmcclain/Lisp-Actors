@@ -333,7 +333,6 @@ THE SOFTWARE.
 
    #:sys-cached
    #:behav
-   #:blambda
    ))
 
 #+(OR :ALLEGRO :CCL)
@@ -364,6 +363,7 @@ THE SOFTWARE.
   (:export
    #:*current-actor*
    ;; #:*current-env*
+   #:protecting-variables
    ))
 
 (defpackage #:com.ral.actors.types

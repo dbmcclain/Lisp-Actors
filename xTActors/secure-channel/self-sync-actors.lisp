@@ -323,7 +323,7 @@
           
           ;; finally... we get to the Actor behavior function
           (create
-           (lambda (cust buf)
+           (behav (cust buf)
              (declare ((array ub8 *) buf))
              (map nil #'inhale buf)
              (>> cust :next))
@@ -334,7 +334,7 @@
                       (send dest aout)))
          (machine    (self-sync:make-reader-fsm finish-fn :max-reclen max-reclen)))
     (create
-     (lambda (cust buf)
+     (behav (cust buf)
        (declare ((array ub8 *) buf))
        (map nil machine buf)
        (>> cust :next))
@@ -393,7 +393,7 @@
 (defun decode (vec)
   ;; decoding (as a function) for self-contained encoded vectors
   (ask (create
-        (lambda (cust &rest msg)
+        (behav (cust &rest msg)
           (let ((decoder (stream-decoder cust)))
             (>>* decoder msg))))
        :deliver 1 vec))

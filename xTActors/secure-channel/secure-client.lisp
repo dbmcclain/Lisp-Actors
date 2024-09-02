@@ -250,7 +250,7 @@
 #-:lattice-crypto
 (deflex negotiator
   (create
-   (lambda (cust socket local-services)
+   (behav (cust socket local-services)
      (let+ ((client-id       (uuid:make-v1-uuid))
             (:β (srv-pkey)   eccke:srv-pkey)
             (:β (my-pkeyid)  eccke:my-pkeyid)
@@ -266,7 +266,7 @@
                                                      (ed-mul bpt my-skey)         ;; B*c
                                                      (ed-mul srv-pkey arand))))   ;; S*a
                                   (chan  (create
-                                          (lambda (&rest msg)
+                                          (behav (&rest msg)
                                             (>>* local-services :ssend server-id msg))
                                           ))
                                   (ratchet   (client-ratchet-manager ekey my-skey srv-pkey))
@@ -290,7 +290,7 @@
 #+:lattice-crypto
 (deflex negotiator
   (create
-   (lambda (cust socket local-services)
+   (behav (cust socket local-services)
      (let+ ((client-id         (uuid:make-v1-uuid))
             (:β (srv-pkeyid)   lattice-ke:srv-pkeyid)
             (:β (my-pkeyid)    lattice-ke:my-pkeyid)
@@ -304,7 +304,7 @@
                                          (typep server-id 'uuid:uuid))
                 (let+ ((ekey  (hash/256 bkey akey))
                        (chan  (create
-                               (lambda (&rest msg)
+                               (behav (&rest msg)
                                  (>>* local-services :ssend server-id msg))
                                ))
                        (:β _  (racurry local-services :set-crypto ekey socket)))
@@ -327,7 +327,7 @@
     ;; Go lookup the encrypted channel for this IP, constructing it on
     ;; demand if not already present.
     (create
-     (lambda (cust host-ip-addr)
+     (behav (cust host-ip-addr)
        (>> client-connector cust negotiator host-ip-addr) )
      ))
 
@@ -352,7 +352,7 @@
     (unless host
       (error "No server host specified: ~S" name))
     (create
-     (lambda (cust &rest msg)
+     (behav (cust &rest msg)
        (β (chan)
            (>> client-gateway β host)
          (>>* chan cust svc msg))
@@ -516,7 +516,7 @@
            (send fmt-println "tst: unexpected message: ~W" msg)
            (become-sink))) )
        (timer-beh ()
-         (lambda (cust)
+         (behav (cust)
            (let ((recho (remote-service :echo host)))
              (>> recho cust :stop) ))))
     (>> (create (counter-beh)) :start)

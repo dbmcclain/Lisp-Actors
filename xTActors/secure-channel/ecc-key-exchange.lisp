@@ -15,7 +15,7 @@
 
 (deflex ecc-skey
   (create
-   (lambda (cust)
+   (behav (cust)
      (flet (
             #+:MACOSX
             (get-seed ()
@@ -123,7 +123,7 @@
 
 (deflex database-key
   (create
-   (lambda (cust)
+   (behav (cust)
      (β (skey)
          (send ecc-skey β)
        (let ((ekey (hash/256 :database skey)))
@@ -134,14 +134,14 @@
 
 (defun check-db-authentication (ekey)
   (create
-   (lambda (cust seq emsg auth)
+   (behav (cust seq emsg auth)
      (when (check-auth ekey seq emsg auth)
        (send cust seq emsg)))
    ))
 
 (deflex format-encoder
   (create
-   (lambda (cust iv enc auth)
+   (behav (cust iv enc auth)
      ;; args should all be ub8v
      (send cust
            (make-encrypted-entry
@@ -152,7 +152,7 @@
 
 (deflex format-decoder
   (create
-   (lambda (cust pkt)
+   (behav (cust pkt)
      (when (encrypted-entry-p pkt)
        (with-slots (iv enc auth) pkt
          (send cust iv enc auth))))
@@ -175,7 +175,7 @@
 
 (deflex encrypt-for-database
   (create
-   (lambda (cust item)
+   (behav (cust item)
      (β (ekey)
          (send database-key β)
        (send (db-encryptor ekey) cust item)))
@@ -183,7 +183,7 @@
 
 (deflex decrypt-from-database
   (create
-   (lambda (cust data)
+   (behav (cust data)
      (β (ekey)
          (send database-key β)
        (send (db-decryptor ekey) cust data)))
@@ -226,7 +226,7 @@
 
 (defun pkey-validation-gate (cust)
   (create
-   (lambda (item)
+   (behav (item)
      ;; info should be a verifiable pkey, with proof that whoever
      ;; provided pkey also has knowledge of skey, and that pkey is a
      ;; valid ECC point.
@@ -243,7 +243,7 @@
   ;; All PKey queries to the database go through a validation handler
   ;; before being sent to the customer.
   (create
-   (lambda (cust pkey-id)
+   (behav (cust pkey-id)
      (>> secure-kvdb (pkey-validation-gate cust) :find pkey-id))
    ))
 
@@ -311,7 +311,7 @@
 
 (deflex ecc-cnx-encrypt
   (create
-   (lambda (cust pubkey &rest info)
+   (behav (cust pubkey &rest info)
      (ignore-errors
        (with-ed-curve +ECC-CURVE+
          (let+ ((:mvb (rand rand-tau)
@@ -327,7 +327,7 @@
 
 (deflex ecc-cnx-decrypt
   (create
-   (lambda (cust rand-tau aes-packet)
+   (behav (cust rand-tau aes-packet)
      (let+ ((:β (skey) ecc-skey))
        (ignore-errors
          (with-ed-curve +ECC-CURVE+
@@ -346,9 +346,9 @@
 
 (deflex my-pkeyid
   (create
-   (lambda (cust)
+   (behav (cust)
      (let ((gate (create
-                  (lambda (id)
+                  (behav (id)
                     (when id
                       (>> cust id))
                     (become-sink))
@@ -358,7 +358,7 @@
 
 (deflex srv-pkey
   (create
-   (lambda (cust)
+   (behav (cust)
      (>> ecc-pkey cust "{a6f4ce88-53e2-11ee-9ce9-f643f5d48a65}"))
    ))
 

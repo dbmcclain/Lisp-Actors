@@ -284,7 +284,7 @@
                     (owner  :owner)
                     (fa-tag :fa-tag)
                     (queue  :queue)) state
-    (lambda (&rest msg)
+    (behav (&rest msg)
       (labels ((release (cust new-db)
                  (send cust new-db)
                  (do-queue (msg queue)
@@ -381,7 +381,7 @@
   ;; Factory function to produce a lazy behavior function. It waits
   ;; until a message arrives before actually opening the backing store
   ;; to the KVDB.
-  (λ _
+  (behav _
     (let ((tag-to-me (tag self))
           (saver (serializer
                   (create (unopened-database-beh ctrl-tag))

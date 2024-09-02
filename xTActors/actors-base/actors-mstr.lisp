@@ -336,7 +336,7 @@ THE SOFTWARE.
 (defun err-chk (cust)
   ;; like FWD, but checks for error return
   (create
-   (lambda (&rest msg)
+   (behav (&rest msg)
      (check-for-errors msg)
      (send* cust msg))))
 
