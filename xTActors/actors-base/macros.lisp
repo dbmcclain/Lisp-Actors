@@ -1,23 +1,6 @@
 
 (in-package :com.ral.actors.macros)
 
-;; ------------------------------------------------------
-;; ALAMBDA -- a behavior lambda for Actors with pattern matching on
-;; messages
-
-#|
-(defmacro prot-vars (&body body)
-  `(macrolet ((setf* (&rest pairs)
-                `(cl:setf ,@pairs))
-              (setf (&rest pairs)
-                (error "Can't mutate")))
-     ,@body))
-
-(defmacro behav (args &body body)
-  `(prot-vars
-     (lambda* ,args
-       ,@body)))
-|#
 #|
 (defmacro behav (args &body body)
   `(protecting-variables ()
@@ -31,6 +14,10 @@
 
 #+:LISPWORKS
 (editor:indent-like 'behav 'lambda)
+
+;; ------------------------------------------------------
+;; ALAMBDA -- a behavior lambda for Actors with pattern matching on
+;; messages
 
 (defmacro alambda (&rest clauses)
   (um:with-unique-names (msg)
