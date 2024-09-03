@@ -40,7 +40,7 @@
 ;; state vars in the property list - much like WITH-ACCESSORS.
 ;;
 ;; You can also set default values in case the names were not already
-;; in the plist. Take care not to mutate any of these symbol mappings.
+;; in the plist. All of the accessor names are read-only.
 ;;
 ;; -------------------------------------------------------------------
 
