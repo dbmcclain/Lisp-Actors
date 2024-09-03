@@ -57,20 +57,17 @@
    :plist (validate-plist plist)))
 
 (defmethod state-with ((state actor-state) &rest props)
-  (let+ ((elisions (getf props :without state))
-         (props    (if (eq elisions state)
-                       props
-                     (let ((new-props (copy-list props)))
-                       (remf new-props :without)
-                       new-props)
-                     ))
-         (state    (if (eq elisions state)
-                       state
-                     (apply #'state-without state (um:mklist elisions))
-                     ))
-         (new-plist (copy-list
-                     (actor-state-plist state))
-                    ))
+  (let* ((new-plist (copy-list (actor-state-plist state)))
+         (elisions  (getf props :without new-plist))
+         (props     (if (eq elisions new-plist)
+                        props
+                      (let ((new-props (copy-list props)))
+                        (remf new-props :without)
+                        new-props)
+                      )))
+    (unless (eq elisions new-plist)
+      (loop for key in (um:mklist elisions) do
+              (remf new-plist key)))
     (loop for (key val) on props by #'cddr do
             (setf (getf new-plist key) val))
     (apply #'actor-state new-plist)
