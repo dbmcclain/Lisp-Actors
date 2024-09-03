@@ -57,16 +57,20 @@
    :plist (validate-plist plist)))
 
 (defmethod state-with ((state actor-state) &rest props)
-  (let ((new-plist  (copy-list
-                     (actor-state-plist
-                      (um:if-let (elisions (getf props :without))
-                          (progn
-                            (setf props (copy-list props))
-                            (remf props :without)
-                            (apply #'state-without state (um:mklist elisions)))
-                        ;; else
-                        state)
-                      ))))
+  (let+ ((elisions (getf props :without state))
+         (props    (if (eq elisions state)
+                       props
+                     (let ((new-props (copy-list props)))
+                       (remf new-props :without)
+                       new-props)
+                     ))
+         (state    (if (eq elisions state)
+                       state
+                     (apply #'state-without state (um:mklist elisions))
+                     ))
+         (new-plist (copy-list
+                     (actor-state-plist state))
+                    ))
     (loop for (key val) on props by #'cddr do
             (setf (getf new-plist key) val))
     (apply #'actor-state new-plist)
@@ -83,11 +87,12 @@
   (getf (actor-state-plist state) key default))
 
 (defmacro with-state-vals (bindings state &body body)
-  (let ((glist (gensym)))
-    `(symbol-macrolet 
-         ((,glist (actor-state-plist ,state))
-          ,@(mapcar #`(,(car a1) (getf ,glist ,(cadr a1) ,@(cddr a1))) bindings))
-       ,@body)
+  ;; bindings can include a default val following the plist symbol
+  (let ((gstate (gensym)))
+    `(let ((,gstate ,state))
+       (symbol-macrolet 
+           ,(mapcar #`(,(car a1) (state-val ,gstate ,@(cdr a1))) bindings)
+         ,@body))
     ))
 
 (defmethod um:with ((state actor-state) &rest props)
