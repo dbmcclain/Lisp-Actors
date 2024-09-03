@@ -56,6 +56,11 @@
   (make-actor-state
    :plist (validate-plist plist)))
 
+(defun trim-plist (plist removals)
+  (loop for key in removals do
+          (remf plist key))
+  plist)
+
 (defmethod state-with ((state actor-state) &rest props)
   (let* ((new-plist (copy-list (actor-state-plist state)))
          (elisions  (getf props :without new-plist))
@@ -66,8 +71,7 @@
                         new-props)
                       )))
     (unless (eq elisions new-plist)
-      (loop for key in (um:mklist elisions) do
-              (remf new-plist key)))
+      (setf new-plist (trim-plist new-plist (um:mklist elisions))))
     (loop for (key val) on props by #'cddr do
             (setf (getf new-plist key) val))
     (apply #'actor-state new-plist)
@@ -75,8 +79,7 @@
 
 (defmethod state-without ((state actor-state) &rest removals)
   (let ((new-plist  (copy-list (actor-state-plist state))))
-    (loop for key in removals do
-            (remf new-plist key))
+    (setf new-plist (trim-plist new-plist removals))
     (apply #'actor-state new-plist)
     ))
 
