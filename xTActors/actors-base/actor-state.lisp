@@ -63,15 +63,10 @@
 
 (defmethod state-with ((state actor-state) &rest props)
   (let* ((new-plist (copy-list (actor-state-plist state)))
-         (elisions  (getf props :without new-plist))
-         (props     (if (eq elisions new-plist)
-                        props
-                      (let ((new-props (copy-list props)))
-                        (remf new-props :without)
-                        new-props)
-                      )))
+         (elisions  (getf props :without new-plist)))
     (unless (eq elisions new-plist)
-      (setf new-plist (trim-plist new-plist (um:mklist elisions))))
+      (setf new-plist (trim-plist new-plist (um:mklist elisions)))
+      (remf props :without))
     (loop for (key val) on props by #'cddr do
             (setf (getf new-plist key) val))
     (apply #'actor-state new-plist)
