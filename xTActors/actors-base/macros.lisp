@@ -324,7 +324,7 @@
 ;; -----------------------------------------------------
 
 (defmacro par (args exprs &body body)
-  (lw:with-unique-names (cust)
+  (let ((cust (gensym)))
     `(β ,args
          (send (fork ,@(mapcar (lambda (e)
                                  `(create

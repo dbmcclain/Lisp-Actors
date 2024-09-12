@@ -34,6 +34,7 @@
       (values dev ino))))
 |#
 
+#+:LISPWORKS
 (defun um:get-ino (fname)
   (let ((stat  (sys:get-file-stat fname)))
     (with-standard-io-syntax
