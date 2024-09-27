@@ -195,7 +195,7 @@
                                           :db  new-db)))
                  ))
              (add (cust key val)
-               (let ((new-db  (db-add db key val)))
+               (let ((new-db  (db-add (state :db) key val)))
                  (upd cust new-db val))))
       (alambda
        ((cust :req-excl owner timeout) / (and (realp timeout)

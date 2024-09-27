@@ -166,7 +166,7 @@
                   ;; :seqs  - history
                   
                   ;; avoid replay attacks
-                  (unless (member seq seqs)
+                  (unless (member seq (entry :seqs))
                     (let+ ((rx-key  (iter-hash (entry :root) (entry :dh-pt) seq))
                            ;; ------------------------------------------
                            ;; At this point we have a decryption key. Let's be
@@ -177,7 +177,7 @@
                       (when is-ok
                         (let+ ((new-entry (entry with
                                             :bday (get-universal-time) ;; new birthday for entry
-                                            :seqs (cons seq seqs)))
+                                            :seqs (cons seq (entry :seqs))))
                                (new-dict  (maps:add (state :dict) (state :ack-key) new-entry))
                                (tag       (tag self)))
                           (become (ratchet-manager-beh
