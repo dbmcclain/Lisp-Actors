@@ -107,8 +107,15 @@
     (with-smart-object x
       (x :a))))
 |#
+;; ------------------------------------
 
 (defun slot-ref (obj sym)
+  ;; This probably represents a substantial slowdown over using direct
+  ;; accessors.
+  ;;
+  ;; The advantage is that we don't need to know the package where the
+  ;; struct class was defined, in order to refer to its slots.
+  ;;
   (let* ((pkg       (symbol-package (class-name (class-of obj))))
          (slot-name (or  ;; for decent error reporting on missing slots
                      (find-symbol (symbol-name sym) pkg)
@@ -135,6 +142,9 @@
   ;; make a copy of itself using WITH, or else access a slot value.
   `(with-smart-objects (,name) ,@body))
 
+;; ------------------------------------
+;; Do something Fortran'ish for arrays and vectors
+
 (defmacro with-smart-arrays (names &body body)
   `(macrolet ,(mapcar (lambda (name)
                         `(,name (ix &rest ixs)
@@ -144,6 +154,7 @@
 
 (defmacro with-smart-array (name &body body)
   `(with-smart-arrays (,name) ,@body))
+
 
 (defmacro with-smart-row-major-arrays (names &body body)
   `(macrolet ,(mapcar (lambda (name)
