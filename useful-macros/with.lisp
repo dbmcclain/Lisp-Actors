@@ -127,8 +127,8 @@
 
 
 (defmacro with-smart-array (name &body body)
-  `(macrolet ((,name (ix &rest ixs))
-              `(aref ,',name ,ix ,@ixs))
+  `(macrolet ((,name (ix &rest ixs)
+                `(aref ,',name ,ix ,@ixs)))
      ,@body))
 
 #+:LISPWORKS
