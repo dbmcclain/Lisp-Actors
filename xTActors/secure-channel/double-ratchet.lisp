@@ -14,14 +14,16 @@
                  key
                (iter-hash (hash/256 :ekey key pt) pt (1- ct))
                )))
-    (with-state-vals ((root-key :root-key)    ;; current root for ratcheting, hash - evolving
-                      (tx-nbr   :tx-nbr)      ;; sequence number of last Tx cryptotext
-                      (skey     :skey)        ;; my secret key
-                      (pkey     :pkey)        ;; other party's public key
-                      (dh-pt    :dh-pt)       ;; current DH shared point, integer - evolving
-                      (dh-key   :dh-key)      ;; current DH random point, integer - evolving
-                      (ack-key  :ack-key)     ;; prior DH random point, integer - from recipient
-                      (dict     :dict)) state ;; limited dictionary of stale encryption keying
+    (with-actor-state state
+      ;; :root-key - current root for ratcheting, hash - evolving
+      ;; :tx-nbr   - sequence number of last Tx cryptotext
+      ;; :skey     - my secret key
+      ;; :pkey     - other party's public key
+      ;; :dh-pt    - current DH shared point, integer - evolving
+      ;; :dh-key   - current DH random point, integer - evolving
+      ;; :ack-key  - prior DH random point, integer - from recipient
+      ;; :dict     - limited dictionary of stale encryption keying
+      
       (alambda
        ;; ------------------------------------------------------
        ;; Get encryption keying and preamble
@@ -31,13 +33,13 @@
           ;; Refreshing the Elligator encodings provides for a slighly
           ;; randomized presentation when the unerlying Elligators are
           ;; repeated in another preamble.
-          (let* ((next-tx-nbr  (1+ tx-nbr))
-                 (dh-tau       (refresh-elligator dh-key))
-                 (ack-tau      (refresh-elligator ack-key))
-                 (tx-key       (iter-hash root-key dh-pt next-tx-nbr)))
+          (let* ((next-tx-nbr  (1+ (state :tx-nbr)))
+                 (dh-tau       (refresh-elligator (state :dh-key)))
+                 (ack-tau      (refresh-elligator (state :ack-key)))
+                 (tx-key       (iter-hash (state :root-key) (state :dh-pt) next-tx-nbr)))
             (become (ratchet-manager-beh
                      role
-                     (with state
+                     (state with
                        :tx-nbr  next-tx-nbr)
                      tag))
             ;; Encryption key, tk-key, is: K(n)= H(root, dh-pt)^n,
@@ -94,16 +96,16 @@
               )
              ;; ----------------------------------
              
-             ((eql inp-ack-key dh-key) ;; does message ack our proposed keying?
+             ((eql inp-ack-key (state :dh-key)) ;; does message ack our proposed keying?
               ;; Time to ratchet forward...
               ;; Choose new root-key and DH points
-              (let+ ((new-ack-pt  (int (ed-mul tau-pt skey))) ;; other party's random DH point
+              (let+ ((new-ack-pt  (int (ed-mul tau-pt (state :skey)))) ;; other party's random DH point
                      (:mvb (new-root rx-key new-dict)
                       (case role
                         (:CLIENT ;; clients always initiate a conversation
-                         (let+ ((new-root   (hash/256 :ratchet-1 root-key dh-pt))
+                         (let+ ((new-root   (hash/256 :ratchet-1 (state :root-key) (state :dh-pt)))
                                 (rx-key     (iter-hash new-root new-ack-pt seq))
-                                (new-dict   (maps:add dict
+                                (new-dict   (maps:add (state :dict)
                                                       inp-ack-key
                                                       (actor-state
                                                        :bday  (get-universal-time) ;; birthday of entry
@@ -113,16 +115,16 @@
                                                       )))
                            (values new-root rx-key new-dict)))
                         (:SERVER ;; servers simply respond at first
-                         (let+ ((new-dict   (maps:add dict
+                         (let+ ((new-dict   (maps:add (state :dict)
                                                       inp-ack-key
                                                       (actor-state
                                                        :bday  (get-universal-time)
-                                                       :root  root-key
+                                                       :root  (state :root-key)
                                                        :dh-pt new-ack-pt
                                                        :seqs  (list seq))
                                                       ))
-                                (rx-key     (iter-hash root-key new-ack-pt seq))
-                                (new-root   (hash/256 :ratchet-1 root-key new-ack-pt)))
+                                (rx-key     (iter-hash (state :root-key) new-ack-pt seq))
+                                (new-root   (hash/256 :ratchet-1 (state :root-key) new-ack-pt)))
                            (values new-root rx-key new-dict)))
                         ))
                      ;; ------------------------------------------
@@ -135,13 +137,13 @@
                 (when is-ok
                   (let+ ((:mvb (new-dh-rand new-dh-tau) ;; new random Elligator
                           (compute-deterministic-elligator-skey
-                           :ratchet-2 new-root dh-pt))
+                           :ratchet-2 new-root (state :dh-pt)))
                          (new-dh-key (elligator-body new-dh-tau))     ;; our new DH random point
-                         (new-dh-pt  (int (ed-mul pkey new-dh-rand))) ;; our new DH shared point
+                         (new-dh-pt  (int (ed-mul (state :pkey) new-dh-rand))) ;; our new DH shared point
                          (tag        (tag self)))
                     (become (ratchet-manager-beh
                              role
-                             (with state
+                             (state with
                                :root-key new-root
                                :tx-nbr   0            ;; start counting anew
                                :ack-key  (elligator-body tau) ;; sender's last DH Elligator
@@ -157,13 +159,15 @@
              ;; ----------------------------------------------
              ;; Stale keying in message - lookup how to decrypt
              (t
-              (um:when-let (entry (maps:find dict inp-ack-key))
-                (with-state-vals ((root  :root)  ;; root key at time we saw inp-ack to ratchet forward
-                                  (dh-pt :dh-pt) ;; DH shared pt
-                                  (seqs  :seqs)) entry
+              (um:when-let (entry (maps:find (state :dict) inp-ack-key))
+                (with-actor-state entry
+                  ;; :root  - root key at time we saw inp-ack to ratchet forward
+                  ;; :dh-pt - DH shared pt
+                  ;; :seqs  - history
+                  
                   ;; avoid replay attacks
                   (unless (member seq seqs)
-                    (let+ ((rx-key  (iter-hash root dh-pt seq))
+                    (let+ ((rx-key  (iter-hash (entry :root) (entry :dh-pt) seq))
                            ;; ------------------------------------------
                            ;; At this point we have a decryption key. Let's be
                            ;; sure we aren't being spoofed before making any
@@ -171,14 +175,14 @@
                            (:mvb (is-ok auth-key)
                             (check-auth rx-key iv ctxt auth)))
                       (when is-ok
-                        (let+ ((new-entry (with entry
+                        (let+ ((new-entry (entry with
                                             :bday (get-universal-time) ;; new birthday for entry
                                             :seqs (cons seq seqs)))
-                               (new-dict  (maps:add dict ack-key new-entry))
+                               (new-dict  (maps:add (state :dict) (state :ack-key) new-entry))
                                (tag       (tag self)))
                           (become (ratchet-manager-beh
                                    role
-                                   (with state
+                                   (state with
                                      :dict new-dict)
                                    tag))
                           (send cust rx-key auth-key)
@@ -191,19 +195,19 @@
        
        ((atag :clean) / (eq atag tag)
         (let+ ((now      (get-universal-time))
-               (new-dict (maps:fold dict
+               (new-dict (maps:fold (state :dict)
                                     (lambda (k v acc)
-                                      (with-state-vals ((bday :bday)) v
-                                        (if (> (- now bday) 10)
+                                      (with-actor-state v
+                                        (if (> (- now (v :bday)) 10)
                                             (maps:remove acc k)
                                           acc)))
-                                dict)))
-          (unless (eq dict new-dict)
+                                (state :dict))))
+          (unless (eq (state :dict) new-dict)
             (let ((tag (unless (maps:is-empty new-dict)
                          (tag self))))
               (become (ratchet-manager-beh
                        role
-                       (with state
+                       (state with
                          :dict new-dict)
                        tag))
               (when tag

@@ -94,3 +94,18 @@
   ;; WITH state props [:WITHOUT (prop-name | list-of-prop-names)] -> new-state
   (apply #'state-with state props))
 
+
+(defmacro with-actor-state (name &body body)
+  ;; Let's try something a bit different...
+  ;;
+  ;; Declare an actor state binding which can then be used as a
+  ;; function with various behaviors... namely, selecting content, and
+  ;; producing a fresh state with modified bindings.
+  `(macrolet ((,name (cmd &rest args)
+                (case cmd
+                  (with
+                      `(with ,',name ,@args))
+                  (otherwise
+                   `(state-val ,',name ,cmd ,@args))
+                  )))
+     ,@body))
