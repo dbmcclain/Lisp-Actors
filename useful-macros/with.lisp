@@ -104,34 +104,39 @@
           :a 1
           :b 2
           :c 3)))
-  (with-smart-binding x
-    (x :a)))
+    (with-smart-object x
+      (x :a))))
 |#
+
+(defun slot-ref (obj sym)
+  (let* ((pkg       (symbol-package (class-name (class-of obj))))
+         (slot-name (find-symbol (symbol-name sym) pkg)))
+    (slot-value obj slot-name)))
 
 (defmacro with-smart-object (name &body body)
   ;; Turn a struct or class instance binding into a function that can either
   ;; make a copy of itself using WITH, or else access a slot value.
-  `(macrolet ((,name (cmd &rest args)
-                (case cmd
+  `(macrolet ((,name (sym &rest args)
+                (case sym
                   (with
                       ;; args should be a property list of slot names and values
                       `(with ,',name ,@args))
                   (otherwise
                    ;; cmd should be a slot name for structs & classes
-                   `(slot-value ,',name ',(find-symbol (string cmd))))
+                   `(slot-ref ,',name ',sym))
                   )))
      ,@body))
 
 (defmacro with-smart-objects (names &body body)
   `(macrolet ,(mapcar (lambda (name)
-                        `(,name (cmd &rest args)
-                                (case cmd
+                        `(,name (sym &rest args)
+                                (case sym
                                   (with
                                    ;; args should be a property list of slot names and values
                                    `(with ,',name ,@args))
                                   (otherwise
                                    ;; cmd should be a slot name for structs & classes
-                                   `(slot-value ,',name ',(find-symbol (string cmd))))
+                                   `(slot-ref ,',name ',sym))
                                   )))
                       names)
      ,@body))
