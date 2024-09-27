@@ -115,43 +115,25 @@
                      sym)))
     (slot-value obj slot-name)))
 
-(defmacro with-smart-object (name &body body)
-  ;; Turn a struct or class instance binding into a function that can either
-  ;; make a copy of itself using WITH, or else access a slot value.
-  `(macrolet ((,name (sym &rest args)
-                (case (kwsymb sym)
-                  (:with
-                      ;; args should be a property list of slot names and values
-                      `(with ,',name ,@args))
-                  (otherwise
-                   ;; cmd should be a slot name for structs & classes
-                   `(slot-ref ,',name ',sym))
-                  )))
-     ,@body))
+(defmacro slot-refmaker (name sym &rest args)
+  (case (kwsymb sym)
+    (:with
+        `(with ,name ,@args))
+    (otherwise
+     `(slot-ref ,name ',sym))
+    ))
 
 (defmacro with-smart-objects (names &body body)
   `(macrolet ,(mapcar (lambda (name)
                         `(,name (sym &rest args)
-                                (case (kwsymb sym)
-                                  (:with
-                                   ;; args should be a property list of slot names and values
-                                   `(with ,',name ,@args))
-                                  (otherwise
-                                   ;; cmd should be a slot name for structs & classes
-                                   `(slot-ref ,',name ',sym))
-                                  )))
+                                `(slot-refmaker ,',name ,sym ,@args) ))
                       names)
      ,@body))
-  
-(defmacro with-smart-array (name &body body)
-  `(macrolet ((,name (ix &rest ixs)
-                `(aref ,',name ,ix ,@ixs)))
-     ,@body))
 
-(defmacro with-smart-row-major-array (name &body body)
-  `(macrolet ((,name (ix &rest ixs)
-                `(row-major-aref ,',name ,ix ,@ixs)))
-     ,@body))
+(defmacro with-smart-object (name &body body)
+  ;; Turn a struct or class instance binding into a function that can either
+  ;; make a copy of itself using WITH, or else access a slot value.
+  `(with-smart-objects (,name) ,@body))
 
 (defmacro with-smart-arrays (names &body body)
   `(macrolet ,(mapcar (lambda (name)
@@ -160,12 +142,18 @@
                       names)
      ,@body))
 
+(defmacro with-smart-array (name &body body)
+  `(with-smart-arrays (,name) ,@body))
+
 (defmacro with-smart-row-major-arrays (names &body body)
   `(macrolet ,(mapcar (lambda (name)
                         `(,name (ix)
                             `(row-major-aref ,',name ,ix)))
                       names)
      ,@body))
+
+(defmacro with-smart-row-major-array (name &body body)
+  `(with-smart-row-major-arrays (,name) ,@body))
 
 
 #+:LISPWORKS
