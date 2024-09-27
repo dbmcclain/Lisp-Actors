@@ -159,6 +159,7 @@ THE SOFTWARE.
 
    #:with
    #:with-smart-binding
+   #:with-smart-array
    #:letp
    #:wholepart
    #:fracpart
