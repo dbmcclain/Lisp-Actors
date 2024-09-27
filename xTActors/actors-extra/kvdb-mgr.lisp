@@ -282,7 +282,8 @@
                  (do-queue (msg (state :queue))
                    (send* self msg))
                  (become (trans-gate-beh (state with
-                                          :db  new-db) )))
+                                                :queue nil
+                                                :db    new-db) )))
                (stash ()
                  (become (busy-trans-gate-beh (state with
                                                 :queue (addq (state :queue) msg)))
