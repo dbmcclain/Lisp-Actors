@@ -99,4 +99,28 @@
   (inspect (list x (with x :a 15)))
   ;; (inspect (mapcar #'slot-definition-name (copyable-slots x)))
   )
+
+(let ((x (make-my-thing
+          :a 1
+          :b 2
+          :c 3)))
+  (with-smart-binding x
+    (x :a)))
 |#
+
+(defmacro with-smart-binding (name &body body)
+  ;; Turn a struct or class instance binding into a function that can either
+  ;; make a copy of itself using WITH, or else access a slot value.
+  `(macrolet ((,name (cmd &rest args)
+                (case cmd
+                  (with
+                      ;; args should be a property list of slot names and values
+                      `(with ,',name ,@args))
+                  (otherwise
+                   ;; cmd should be a slot name for structs & classes
+                   `(slot-value ,',name ',(find-symbol (string cmd))))
+                  )))
+     ,@body))
+
+#+:LISPWORKS
+(editor:setup-indent "with-smart-binding" 1)

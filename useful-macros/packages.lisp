@@ -158,6 +158,7 @@ THE SOFTWARE.
    #:+fe_towardzero+
 
    #:with
+   #:with-smart-binding
    #:letp
    #:wholepart
    #:fracpart
