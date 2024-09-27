@@ -133,3 +133,13 @@
 
 #+:LISPWORKS
 (editor:setup-indent "with-smart-array" 1)
+
+(defmacro with-smart-arrays (names &body body)
+  `(macrolet ,(mapcar #`(,a1 (ix &rest ixs)
+                          `(aref ,',a1 ,ix ,@ixs))
+                      names)
+     ,@body))
+
+#+:LISPWORKS
+(editor:setup-indent "with-smart-arrays" 1)
+
