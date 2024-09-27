@@ -125,10 +125,11 @@
 #+:LISPWORKS
 (editor:setup-indent "with-smart-binding" 1)
 
+
 (defmacro with-smart-array (name &body body)
   `(macrolet ((,name (ix &rest ixs))
               `(aref ,',name ,ix ,@ixs))
      ,@body))
 
 #+:LISPWORKS
-(editor:setup-indent "with-smart-binding" 1)
+(editor:setup-indent "with-smart-array" 1)
