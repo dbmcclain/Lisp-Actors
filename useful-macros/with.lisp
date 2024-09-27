@@ -135,8 +135,9 @@
 (editor:setup-indent "with-smart-array" 1)
 
 (defmacro with-smart-arrays (names &body body)
-  `(macrolet ,(mapcar #`(,a1 (ix &rest ixs)
-                          `(aref ,',a1 ,ix ,@ixs))
+  `(macrolet ,(mapcar (lambda (name)
+                        `(,name (ix &rest ixs)
+                            `(aref ,',name ,ix ,@ixs)))
                       names)
      ,@body))
 
