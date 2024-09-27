@@ -161,6 +161,7 @@
              (t
               (um:when-let (entry (maps:find (state :dict) inp-ack-key))
                 (with-actor-state entry
+                  ;; :bday  - time of creation of this entry
                   ;; :root  - root key at time we saw inp-ack to ratchet forward
                   ;; :dh-pt - DH shared pt
                   ;; :seqs  - history
