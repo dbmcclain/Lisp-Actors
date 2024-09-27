@@ -158,9 +158,12 @@ THE SOFTWARE.
    #:+fe_towardzero+
 
    #:with
-   #:with-smart-binding
+   #:with-smart-object
+   #:with-smart-objects
    #:with-smart-array
    #:with-smart-arrays
+   #:with-smart-row-major-array
+   #:with-smart-row-major-arrays
    #:letp
    #:wholepart
    #:fracpart

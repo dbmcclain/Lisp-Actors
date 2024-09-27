@@ -108,7 +108,7 @@
     (x :a)))
 |#
 
-(defmacro with-smart-binding (name &body body)
+(defmacro with-smart-object (name &body body)
   ;; Turn a struct or class instance binding into a function that can either
   ;; make a copy of itself using WITH, or else access a slot value.
   `(macrolet ((,name (cmd &rest args)
@@ -122,17 +122,29 @@
                   )))
      ,@body))
 
-#+:LISPWORKS
-(editor:setup-indent "with-smart-binding" 1)
-
-
+(defmacro with-smart-objects (names &body body)
+  `(macrolet ,(mapcar (lambda (name)
+                        `(,name (cmd &rest args)
+                                (case cmd
+                                  (with
+                                   ;; args should be a property list of slot names and values
+                                   `(with ,',name ,@args))
+                                  (otherwise
+                                   ;; cmd should be a slot name for structs & classes
+                                   `(slot-value ,',name ',(find-symbol (string cmd))))
+                                  )))
+                      names)
+     ,@body))
+  
 (defmacro with-smart-array (name &body body)
   `(macrolet ((,name (ix &rest ixs)
                 `(aref ,',name ,ix ,@ixs)))
      ,@body))
 
-#+:LISPWORKS
-(editor:setup-indent "with-smart-array" 1)
+(defmacro with-smart-row-major-array (name &body body)
+  `(macrolet ((,name (ix &rest ixs)
+                `(row-major-aref ,',name ,ix ,@ixs)))
+     ,@body))
 
 (defmacro with-smart-arrays (names &body body)
   `(macrolet ,(mapcar (lambda (name)
@@ -141,6 +153,20 @@
                       names)
      ,@body))
 
+(defmacro with-smart-row-major-arrays (names &body body)
+  `(macrolet ,(mapcar (lambda (name)
+                        `(,name (ix)
+                            `(row-major-aref ,',name ,ix)))
+                      names)
+     ,@body))
+
+
 #+:LISPWORKS
-(editor:setup-indent "with-smart-arrays" 1)
+(progn
+  (editor:setup-indent "with-smart-object"  1)
+  (editor:setup-indent "with-smart-objects" 1)
+  (editor:setup-indent "with-smart-array"   1)
+  (editor:setup-indent "with-smart-arrays"  1)
+  (editor:setup-indent "with-smart-row-major-array"  1)
+  (editor:setup-indent "with-smart-row-major-arrays" 1))
 
