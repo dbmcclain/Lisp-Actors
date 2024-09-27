@@ -124,3 +124,6 @@
                    `(state-val ,',name ,cmd ,@args))
                   )))
      ,@body))
+
+#+:LISPWORKS
+(editor:setup-indent "with-actor-state" 1)
