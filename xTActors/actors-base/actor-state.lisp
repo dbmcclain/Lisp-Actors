@@ -101,6 +101,21 @@
   ;; Declare an actor state binding which can then be used as a
   ;; function with various behaviors... namely, selecting content, and
   ;; producing a fresh state with modified bindings.
+  ;;
+  ;; E.g.,
+  ;;
+  ;;    (defun beh (STATE)
+  ;;      (WITH-ACTOR-STATE STATE
+  ;;        (alambda
+  ;;           ((item) /. (eql item (STATE :item))
+  ;;                   ...
+  ;;                   (become (beh (STATE WITH
+  ;;                                       :item new-item)))
+  ;;         ))))
+  ;;
+  ;;  So WITH-ACTOR-STATE turns a plist binding into an intelligent plist.
+  ;;  (Thanks go to Lisp for having separate function and value namespaces for each symbol!)
+  ;;
   `(macrolet ((,name (cmd &rest args)
                 (case cmd
                   (with
