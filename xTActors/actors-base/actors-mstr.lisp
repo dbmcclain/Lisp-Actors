@@ -146,6 +146,9 @@ THE SOFTWARE.
 ;; completion of the Actor behavior code invocation, and discarded
 ;; otherwise.
 ;;
+;; All sent messages are collected in the stash, but only the last
+;; BECOME will have effect.
+;;
 ;; Actors will run fully in parallel on multiple machine threads.
 ;; If BECOME cannot commit because it clashes with a parallel BECOME,
 ;; the Actor is retried after rolling back the BECOME and SENDs. This
@@ -163,12 +166,37 @@ THE SOFTWARE.
 ;;
 ;; Actor behaviors should be written as FPL pure to make them thread
 ;; safe. E.g, banish the use of SETF against Actor state bindings, and
-;; use REMOVE, never DELETE, with Actor state sequences.
+;; use REMOVE, never DELETE, with Actor state sequences. FPL code is
+;; the easiest to write correctly and debug.
 ;;
 ;; In all cases, Actor state should only ever be changed through the
 ;; use of BECOME with a mutated copy of state, since Actor state is
 ;; visible to all parallel threads executing the same Actor behavior
 ;; code.
+;;
+;; SEND and BECOME produce the only system-wide acceptable global
+;; mutations. SEND modifies the global event queue at commit time, and
+;; BECOME alters the behavior slot of a gobally visible Actor wrapper.
+;;
+;; In this context, GLOBAL means a binding or an object that is
+;; potentially visible to more than one thread. When you first CREATE
+;; an Actor, it is not visible to anyone else until it is shared
+;; through a SEND, or made part of the Actor state with BECOME, or
+;; handed to a newly created Actor for its state, where that Actor
+;; will be shared.
+;;
+;; If you live within these constraints, then there is never any need
+;; for spawning new machine threads, exerting thread control, nor
+;; using locks around global bindings. All global information becomes
+;; subsumed by purpose-built Actors who act as custodians of the state
+;; bindings as their own state.
+;;
+;; You never need to think about machine threads, multitasking, locks,
+;; semaphoes, etc. Just write FPL Actors code as though you are the
+;; sole occupant of the machine, and the code is also naturally
+;; parallel in this Actors system. It runs as well on a single thread
+;; or on multiple threads, albeit potentially more slowly on a single
+;; thread.
 ;;
 ;; NOTE on SEND Ordering: Since all SENDs are staged for commit upon
 ;; successful return from Actors, there is no logical distinction
