@@ -141,13 +141,33 @@ THE SOFTWARE.
 ;; -----------------------------------------------------------------
 ;; Generic RUN for all threads
 ;;
-;; SENDs and BECOME are staged for commit.
+;; Actors are now completely transactional. SENDs and BECOME are
+;; staged for commit or rollback. They are committed upon successful
+;; completion of the Actor behavior code invocation, and discarded
+;; otherwise.
 ;;
-;; Actors are now completely thread-safe, FPL pure, SENDs and BECOMEs
-;; are staged for commit or rollback. Actors can run completely in
-;; parallel among different matchine threads. If BECOME cannot commit,
+;; Actors will run fully in parallel on multiple machine threads.
+;; If BECOME cannot commit because it clashes with a parallel BECOME,
 ;; the Actor is retried after rolling back the BECOME and SENDs. This
-;; is maximum parallelism.
+;; is maximum optimistic parallelism.
+;;
+;; Possible retries also means that any behavior code executing a
+;; BECOME should be idempotent. Idempotence implies never causing any
+;; globally visible effects. No I/O or timer launches should be
+;; performed in that branch of the behavior code.
+;;
+;; If you want to produce some effect while also performing a BECOME,
+;; then relegate the effect to a NON-IDEMPOTENT, or ON-COMMIT, clause
+;; of the code. That clause will only be performed if the
+;; transactional commit succeeds.
+;;
+;; Actor behaviors should be written as FPL pure to make them thread
+;; safe. E.g, banish the use of SETF against Actor state bindings, and
+;; use REMOVE, never DELETE, with Actor state sequences.
+;;
+;; In all cases, Actor state should only ever be changed through the
+;; use of BECOME, since Actor state is visible to all parallel threads
+;; executing the same Actor behavior code.
 ;;
 ;; NOTE on SEND Ordering: Since all SENDs are staged for commit upon
 ;; successful return from Actors, there is no logical distinction
@@ -157,10 +177,16 @@ THE SOFTWARE.
 ;; ordering in the event queue.
 ;;
 ;; You should not depend on any particular ordering of messages,
-;; except that the last message sent from an earlier Actor invocation
-;; will appear in the event queue in front of messages sent by a later
-;; Actor invocation. The event queue is a FIFO queue.
+;; except that no messages sent from an Actor invocation can appear in
+;; the event queue before its behavior code exits normally. BECOME is
+;; likewise staged.
 ;;
+;; Hence, no executing Actor behavior code can see the results of its
+;; own BECOME and SENDs. Nor can anyone else, until the behavior code
+;; exits normally.
+;;
+;; The event queue is a FIFO queue, but message ordering might become
+;; jumbled if they are ever delivered and then re-sent.
 
 (defun #1=run-actors (&optional (actor nil actor-provided-p) &rest message)
   #F
