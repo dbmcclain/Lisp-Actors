@@ -161,12 +161,6 @@ THE SOFTWARE.
 ;; will appear in the event queue in front of messages sent by a later
 ;; Actor invocation. The event queue is a FIFO queue.
 ;;
-;; Multiple message SENDs are chunked into a linked list. The entire
-;; chunk is placed onto the global event queue. Messages are retreived
-;; as these chunks, the first message of the chunk (last sent) is
-;; peeled off for handling, while the remaining messages of the chunk
-;; are placed back onto the global event queue. So initial message
-;; order gets gradually blended with later messages.
 
 (defun #1=run-actors (&optional (actor nil actor-provided-p) &rest message)
   #F
