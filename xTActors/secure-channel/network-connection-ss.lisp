@@ -511,6 +511,7 @@
    ;;
    ;; Otherwise, if no record can be found having the alias, we need
    ;; to do a DNS lookup and construct a new connection.
+   ;;
    ((cust :find-connection addr port handshake)
     (cond ((stringp addr)
            (let ((rec (find-connection-using-report-ip cnx-lst addr)))
@@ -581,6 +582,7 @@
         ;; No response will be issued from us here to the customer.
         ;; If a connection succeeds, and the handshake completes,
         ;; then the customer will be notified at that time.
+        ;;
         (let* ((new-rec (make-connection-rec
                          :ip-addr         ip-addr
                          :ip-port         ip-port
