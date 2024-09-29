@@ -198,6 +198,26 @@ THE SOFTWARE.
 ;; or on multiple threads, albeit potentially more slowly on a single
 ;; thread.
 ;;
+;; Since Actors are inert wrapped functional closures, they are not
+;; "alive" and cannot be killed. You cannot kill an Actor any more
+;; than you can kill the SQRT function. But once running in response
+;; to a delivered message, their code can refer to their Actor
+;; wrapper as SELF.
+;;
+;; There is always some machine thread, of completely unknown and
+;; irrelevant identity, that is running an Actor's behavior code upon
+;; message delivery. In a multiple thread system, each separate
+;; message delivery to any one Actor can happen on an aribtrary and
+;; possibly different machine thread. And on multi-core CPU's several
+;; different messages to the same Actor can be executing
+;; simultanesously on different machine threads running in separate
+;; CPU cores.
+;;
+;; Keeping your Actors code FPL-clean means you never have to concern
+;; yourself with such low level details. Just be mindful that any code
+;; branch with a BECOME needs to be idempotent, or else have its
+;; effects wrapped inside an ON-COMMIT clause.
+;;
 ;; NOTE on SEND Ordering: Since all SENDs are staged for commit upon
 ;; successful return from Actors, there is no logical distinction
 ;; between when each of them is sent, if there were more than one
