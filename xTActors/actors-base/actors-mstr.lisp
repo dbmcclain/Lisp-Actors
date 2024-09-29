@@ -172,6 +172,8 @@ THE SOFTWARE.
   #F
   (let (sends evt pend-beh done timeout)
     (labels ((%send (actor &rest msg-args)
+               ;; Within one behavior invocation there can be no
+               ;; significance to the ordering of sent messages.
                (setf sends (msg actor msg-args sends)))
 
              (%become (new-beh)
@@ -179,7 +181,6 @@ THE SOFTWARE.
              
              (%abort-beh ()
                (setf pend-beh self-beh
-                     ;; evt      (or evt sends)  ;; interferes with msg auditing
                      sends    nil))
 
              (commit-sends (msg)
