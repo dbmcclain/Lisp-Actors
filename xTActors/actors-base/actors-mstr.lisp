@@ -62,17 +62,17 @@ THE SOFTWARE.
 ;; own link pointer to obviate consing on the event queue.
 
 (defstruct (msg
-            (:constructor msg (actor args &key link)))
+            (:constructor msg (actor args &optional link)))
   link
   id
   (parent              *current-message-frame*)
   (actor (create)      :type actor)
   (args  nil           :type list))
 
-(defun send-to-pool (actor &rest msg)
+(defun send-to-pool (actor &rest msg-args)
   ;; the default SEND for foreign (non-Actor) threads
   #F
-  (mpc:mailbox-send *central-mail* (msg (the actor actor) msg)))
+  (mpc:mailbox-send *central-mail* (msg actor msg-args)))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME
@@ -171,19 +171,19 @@ THE SOFTWARE.
 (defun #1=run-actors (&optional (actor nil actor-provided-p) &rest message)
   #F
   (let (sends evt pend-beh done timeout)
-    (labels ((%send (actor &rest msg)
-               (setf sends (msg (the actor actor) msg :link sends)))
+    (labels ((%send (actor &rest msg-args)
+               (setf sends (msg actor msg-args sends)))
 
              #| ;; this re-use interferes with message auditing
              (%send (actor &rest msg)
                (if evt
                    (setf (msg-link  (the msg evt)) sends
                          (msg-actor (the msg evt)) (the actor actor)
-                         (msg-args  (the msg evt)) msg
+                         (msg-args  (the msg evt)) msg-args
                          sends      evt
                          evt        nil)
                  ;; else
-                 (setf sends (msg (the actor actor) msg :link sends))))
+                 (setf sends (msg actor msg-args sends))))
              |#
            
              (%become (new-beh)
@@ -194,6 +194,13 @@ THE SOFTWARE.
                      ;; evt      (or evt sends)  ;; interferes with msg auditing
                      sends    nil))
 
+             (commit-msgs (msg)
+               (when msg
+                 (let ((next (shiftf (msg-link msg) nil))) ;; for GC
+                   (mpc:mailbox-send *central-mail* msg)
+                   (commit-msgs next)
+                   )))
+             
              (dispatch-loop ()
                ;; -------------------------------------------------------
                ;; Think of the *current-x* global vars as dedicated registers
@@ -214,10 +221,6 @@ THE SOFTWARE.
                   (return-from #1# (values (car done) t)))
                 (unless (msg-p (setf evt (mpc:mailbox-read *central-mail* nil timeout)))
                   (go AGAIN))
-                
-                NEXT
-                (um:when-let (next-msgs (msg-link (the msg evt)))
-                  (mpc:mailbox-send *central-mail* next-msgs))
                 
                 (let ((*current-message-frame*  (and (msg-parent (the msg evt)) evt))
                       (*current-actor*          (msg-actor (the msg evt)))  ;; self
@@ -248,24 +251,9 @@ THE SOFTWARE.
                        ;; (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
                        
                        (go RETRY))
-                     
-                     (unless sends
-                       (go AGAIN))
-                     
-                     (when (or (mpc:mailbox-not-empty-p *central-mail*)
-                               done)
-                       ;; messages await or we are finished
-                       ;; so just add our sends to the queue
-                       ;; and repeat loop
-                       (mpc:mailbox-send *central-mail* sends)
-                       (go AGAIN))
-                     
-                     ;; No messages await, we are front of queue,
-                     ;; so grab first message for ourself.
-                     ;; This is the most common case at runtime,
-                     ;; giving us a dispatch timing of only 46ns on i9 processor.
-                     (setf evt sends)
-                     (go NEXT)
+
+                     (commit-msgs sends)
+                     (go AGAIN)
                      ))
                   )))
              
@@ -275,7 +263,7 @@ THE SOFTWARE.
                     (dispatch-loop))
                   )))
       (declare (dynamic-extent #'%send #'%become #'%abort-beh
-                               #'dispatch-loop #'dispatcher))
+                               #'dispatch-loop #'dispatcher #'commit-msgs))
       (let ((*send*      #'%send)
             (*become*    #'%become)
             (*abort-beh* #'%abort-beh))
