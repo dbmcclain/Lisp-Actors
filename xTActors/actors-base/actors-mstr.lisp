@@ -174,18 +174,6 @@ THE SOFTWARE.
     (labels ((%send (actor &rest msg-args)
                (setf sends (msg actor msg-args sends)))
 
-             #| ;; this re-use interferes with message auditing
-             (%send (actor &rest msg)
-               (if evt
-                   (setf (msg-link  (the msg evt)) sends
-                         (msg-actor (the msg evt)) (the actor actor)
-                         (msg-args  (the msg evt)) msg-args
-                         sends      evt
-                         evt        nil)
-                 ;; else
-                 (setf sends (msg actor msg-args sends))))
-             |#
-           
              (%become (new-beh)
                (setf pend-beh new-beh))
              
@@ -194,11 +182,11 @@ THE SOFTWARE.
                      ;; evt      (or evt sends)  ;; interferes with msg auditing
                      sends    nil))
 
-             (commit-msgs (msg)
+             (commit-sends (msg)
                (when msg
                  (let ((next (shiftf (msg-link msg) nil))) ;; for GC
                    (mpc:mailbox-send *central-mail* msg)
-                   (commit-msgs next)
+                   (commit-sends next)
                    )))
              
              (dispatch-loop ()
@@ -246,13 +234,9 @@ THE SOFTWARE.
                      (unless (or (eq self-beh pend-beh)               ;; no BECOME
                                  (%actor-cas self self-beh pend-beh)) ;; effective BECOME
                        ;; failed on behavior update - try again...
-                       
-                       ;; -- iterferes with msg auditing --
-                       ;; (setf evt (or evt sends)) ;; prep for next SEND, reuse existing msg block
-                       
                        (go RETRY))
 
-                     (commit-msgs sends)
+                     (commit-sends sends)
                      (go AGAIN)
                      ))
                   )))
@@ -263,7 +247,7 @@ THE SOFTWARE.
                     (dispatch-loop))
                   )))
       (declare (dynamic-extent #'%send #'%become #'%abort-beh
-                               #'dispatch-loop #'dispatcher #'commit-msgs))
+                               #'dispatch-loop #'dispatcher #'commit-sends))
       (let ((*send*      #'%send)
             (*become*    #'%become)
             (*abort-beh* #'%abort-beh))
