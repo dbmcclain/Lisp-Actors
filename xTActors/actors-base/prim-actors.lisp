@@ -509,6 +509,15 @@ prefixed by our unique SELF identity/"
 ;; Delayed Send
 
 (defun forced-send-after (dt actor &rest msg)
+  ;; FORCED-SEND-AFTER -- unsafe for use in a BECOME branch of
+  ;; behavior code...
+  ;;
+  ;; NOTE: Actors, except those at the edge, must never do anything
+  ;; that has observable effects beyond SEND and BECOME. Starting a
+  ;; timer running breaks this. Our caller might have to be retried,
+  ;; in which case there will be a spurious timer running from a prior
+  ;; attempt.
+  ;;
   (when (and (actor-p actor)
              (realp dt))
     (let ((timer (apply #'mpc:make-timer #'send-to-pool actor msg)))
@@ -519,12 +528,6 @@ prefixed by our unique SELF identity/"
   ;; SEND-AFTER is safe to use in a BECOME branch of behavior code.
   ;; The timer doesn't get launched unless the SENDS and BECOME commit
   ;; at our exit.
-  ;;
-  ;; NOTE: Actors, except those at the edge, must never do anything
-  ;; that has observable effects beyond SEND and BECOME. Starting a
-  ;; timer running breaks this. The caller might have to be retried,
-  ;; in which case there will be a spurious timer running from a prior
-  ;; attempt.
   ;;
   ;; We mark the timer launch as non-idempotent so that it happens in
   ;; an edge Actor, and gets launched via message SEND. If we get
