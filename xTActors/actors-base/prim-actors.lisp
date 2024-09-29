@@ -516,6 +516,10 @@ prefixed by our unique SELF identity/"
     ))
   
 (defun send-after (dt actor &rest msg)
+  ;; SEND-AFTER is safe to use in a BECOME branch of behavior code.
+  ;; The timer doesn't get launched unless the SENDS and BECOME commit
+  ;; at our exit.
+  ;;
   ;; NOTE: Actors, except those at the edge, must never do anything
   ;; that has observable effects beyond SEND and BECOME. Starting a
   ;; timer running breaks this. The caller might have to be retried,
