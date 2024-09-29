@@ -166,8 +166,9 @@ THE SOFTWARE.
 ;; use REMOVE, never DELETE, with Actor state sequences.
 ;;
 ;; In all cases, Actor state should only ever be changed through the
-;; use of BECOME, since Actor state is visible to all parallel threads
-;; executing the same Actor behavior code.
+;; use of BECOME with a mutated copy of state, since Actor state is
+;; visible to all parallel threads executing the same Actor behavior
+;; code.
 ;;
 ;; NOTE on SEND Ordering: Since all SENDs are staged for commit upon
 ;; successful return from Actors, there is no logical distinction
