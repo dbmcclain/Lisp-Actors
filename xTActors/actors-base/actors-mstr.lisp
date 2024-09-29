@@ -216,6 +216,12 @@ THE SOFTWARE.
 ;;
 ;; The event queue is a FIFO queue, but message ordering might become
 ;; jumbled if they are ever delivered and then re-sent.
+;;
+;; NOTE: You can call SEND from non-Actor code. That SEND happens
+;; immediately.  BECOME cannot be called from non-Actor code.  CREATE
+;; can be called from non-Actor code, but it won't be visible to
+;; anyone else until it is either shared via SEND, or have a message
+;; sent to it, or it is given as the value of a global binding.
 
 (defun #1=run-actors (&optional (actor nil actor-provided-p) &rest message)
   #F
