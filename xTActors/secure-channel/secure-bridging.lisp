@@ -209,7 +209,7 @@
     (>>* encryptor msg))
    
    ;; -------------------------------------------------------------------
-   ;; unencrypted socket delivery
+   ;; unencrypted/decrypted socket delivery
    ((service-id . msg) / (typep service-id 'uuid:uuid)
     (let ((pair (assoc service-id svcs :test #'uuid:uuid=)))
       (when pair
@@ -236,7 +236,7 @@
    
    #-:lattice-crypto
    ((rand-tau aescrypt) / (and (null decryptor)
-                              (consp aescrypt))
+                               (consp aescrypt))
     (let+ ((:β (rand-pt info)
                (racurry eccke:ecc-cnx-decrypt rand-tau aescrypt)))
       (when (and (consp info)
