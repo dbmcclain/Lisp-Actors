@@ -20,6 +20,23 @@
 ;;     E(Key, IV) XOR ctxt => msg  = decrypted message
 ;;
 ;;  Hashing, H, is SHA3/256 of concatenated args
+;;
+;;  Comm channels are logically labeled with unique UUIDs, called
+;;  Channel ID's. Messages are directed toward these channels.
+;;
+;;  Actors on a sending machine are denoted by unique UUID Channel IDs
+;;  for the other machines on the network. Local Actors embedded in a
+;;  network transmitted message get converted to local Comm Channel
+;;  UUIDs for transmission, and ephemeral channel handlers are
+;;  installed on the local machine. These handlers will forward
+;;  incoming network messages to their local Actors.
+;;
+;;  On receipt of a message, any UUID encoded Actor channels cause the
+;;  construction of, and replacement by, local proxy Actors on the
+;;  recipient machine. The only job of a proxy Actor is to forward
+;;  messages across the network to their Comm Channels on the
+;;  originating machine.
+;;
 ;;     
 ;;  Client                       Server
 ;;  ------                       ------
