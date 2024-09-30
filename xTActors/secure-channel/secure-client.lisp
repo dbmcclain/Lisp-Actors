@@ -21,8 +21,8 @@
 ;;
 ;;  Hashing, H, is SHA3/256 of concatenated args
 ;;
-;;  Comm channels are logically labeled with unique UUIDs, called
-;;  Channel ID's. Messages are directed toward these channels.
+;;  Comm channels are logically labeled with Channel UUIDs. Network
+;;  messages are directed toward these channels.
 ;;
 ;;  Client                       Server
 ;;  ------                       ------
