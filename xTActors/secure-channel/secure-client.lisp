@@ -198,10 +198,12 @@
 ;;
 ;;                  -- Post-QC Security --
 ;;
-;; I believe that our use of ECC X3DH is QC resistant to 3rd party and
-;; MITM attacks. We never expose any keying, neither Public nor
-;; Private, to the network. All that is visible is a random ECC point
-;; and an AES/256 encrypted ciphertext.
+;; I believe that our use of ECC X3DH is QC resistant to 3rd party
+;; observers and MITM attacks. Our resistance rises to the level of
+;; resistance granted by using AES/256 symmetric key encryption. We
+;; never expose any keying, neither Public nor Private, to the
+;; network. All that is visible is a random ECC point and an AES/256
+;; encrypted ciphertext.
 ;;
 ;; Being able to solve the DLP on the random ECC point is useless - it
 ;; simply gives the corresponding random integer. To be of any value,
@@ -262,7 +264,7 @@
 ;; solved by using more robust (longer keys) or Post-QC encryption.
 ;;
 ;; Alas, as a general network protocol, we are vulnerable to DOS
-;; attacks.
+;; (non-disclosing) attacks.
 ;;
 ;; ----------------------------------------------------------------
 ;;
