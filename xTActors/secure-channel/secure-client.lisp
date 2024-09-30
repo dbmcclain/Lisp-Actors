@@ -24,20 +24,6 @@
 ;;  Comm channels are logically labeled with unique UUIDs, called
 ;;  Channel ID's. Messages are directed toward these channels.
 ;;
-;;  Actors on a sending machine are denoted by unique UUID Channel IDs
-;;  for the other machines on the network. Local Actors embedded in a
-;;  network transmitted message get converted to local Comm Channel
-;;  UUIDs for transmission, and ephemeral channel handlers are
-;;  installed on the local machine. These handlers will forward
-;;  incoming network messages to their local Actors.
-;;
-;;  On receipt of a message, any UUID encoded Actor channels cause the
-;;  construction of, and replacement by, local proxy Actors on the
-;;  recipient machine. The only job of a proxy Actor is to forward
-;;  messages across the network to their Comm Channels on the
-;;  originating machine.
-;;
-;;     
 ;;  Client                       Server
 ;;  ------                       ------
 ;;  APt  = a*G, a random
@@ -176,6 +162,37 @@
 ;; (unchunked), then decompressed, and then deserialized back to Lisp
 ;; objects. Arrival order of message fragments can be arbitrary
 ;; despite in-order TCP packet reassembly.
+;;
+;; ---------------------------------------------------------------------
+;;
+;;            -- Actors on the Network --
+;;
+;; Actors on a sending machine are denoted by Comm Channel UUIDs for
+;; the other machines on the network. Local Actors embedded in a
+;; network transmitted message get converted to local Comm Channel
+;; UUIDs for transmission, and ephemeral channel handlers are
+;; installed on the local machine. These handlers will forward
+;; incoming network messages to their local Actors.
+;;
+;; On receipt of a message, any UUID encoded Actor channels cause the
+;; construction of, and replacement by, local proxy Actors on the
+;; recipient machine. The only job of a proxy Actor is to forward
+;; messages across the network to their Comm Channels on the
+;; originating machine.
+;;
+;; By these means, sending a message to a remote Actor appears the
+;; same as sending a message to a local Actor. Network connections are
+;; established on demand, and this all happens in hidden layers below
+;; the user code. The only discernible difference between using a
+;; local Actor and a remote Actor might be the longer delays caused by
+;; the network communications.
+;;
+;; But too, as with storing to persistent file contents, you can only
+;; send network messages that are serializable. That precludes sending
+;; compiled functions, or any structure that contains such. By special
+;; dispensation, we can send Actors across the network, as described
+;; above. But these involve ephemeral objects and cannot be persisted
+;; to external storage whose lifespan would outlive the objects.
 ;;
 ;; ---------------------------------------------------------------
 ;;
