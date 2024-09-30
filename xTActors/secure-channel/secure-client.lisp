@@ -498,7 +498,6 @@
       ((counter-beh (&optional (count 0))
          (alambda
           ((:start)
-           (become (counter-beh 0))
            (>> (create (timer-beh)) self)
            (>> self :count)
            (send-after 20 self :timeout)
@@ -524,4 +523,5 @@
 
 (tst "rincon.local")
 (tst "rambo.local")
+(tst "sextans.local")
 |#
