@@ -1,10 +1,16 @@
 
 (in-package :com.ral.actors.encoding.self-sync)
 
+;; ------------------------------------------------------------------
+;; Active portion of FSM reader. We place this in its own separate
+;; Actor because we need its customer to be idempotent, and the invocations
+;; of us to be sequenceable.
+
 (defun decoder-fsm (dest &key max-reclen)
   (let* ((finish-fn  (lambda (aout)
                       (send dest aout)))
-         (machine    (self-sync:make-reader-fsm finish-fn :max-reclen max-reclen)))
+         (machine    (self-sync:make-reader-fsm finish-fn
+                                                :max-reclen max-reclen)))
     (create
      (behav (cust buf)
        (declare ((array (unsigned-byte 8) *) buf))
@@ -31,14 +37,11 @@
             ((:deliver bufix buf)
              (cond ((eql bufix wait-ix)
                     (>> fsm self buf)
-                    (β! (busy-stream-decoder-beh (1+ bufix) queue)))
+                    (β! (busy-stream-decoder-beh (1+ wait-ix) queue)))
                    
                    (t
                     (β! (stream-decoder-beh wait-ix (acons bufix buf queue))))
                    ))
-            
-            ((:go-silent)
-             (become-sink)) 
             ))
          ;; ----------------------------
          (busy-stream-decoder-beh (wait-ix queue)
@@ -54,13 +57,13 @@
             
             ((:deliver bufix buf)
              (β! (busy-stream-decoder-beh wait-ix (acons bufix buf queue))))
-            
-            ((:go-silent)
-             (become-sink)) 
             )) )
       
       (create (stream-decoder-beh 1 nil))
       )))
+
+;; ---------------------------------------------------
+;; For manual testing...
 
 (defun decode (vec)
   ;; decoding (as a function) for self-contained encoded vectors
