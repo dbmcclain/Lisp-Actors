@@ -199,13 +199,20 @@
 ;;                  -- Post-QC Security --
 ;;
 ;; I believe that our use of ECC X3DH is QC resistant. We never expose
-;; any keying, neither Public nor Private, to the network.
+;; any keying, neither Public nor Private, to the network. All that is
+;; visible is a random ECC point and an AES/256 encrypted ciphertext.
+;;
+;; Being able to solve the DLP on the random ECC point is useless - it
+;; simply gives the corresponding random integer. To be of any value,
+;; you also need either the public key of the intended recipient, or
+;; their secret key. But secret keys are kept secret, and public keys
+;; are here also kept secret.
 ;;
 ;; When we need to convey a public key, it must already be known to
 ;; the recipient, and is identified by PKey-ID. That ID is looked up
 ;; in a local database to find the actual PKey. PKey-ID are never
-;; exposed to the network, but always conveyed in an AES/256 encrypted
-;; wrapper.
+;; exposed to the network, but always conveyed inside an AES/256
+;; encrypted wrapper.
 ;;
 ;; To crack the initial key exchange AES packets, you have to know the
 ;; Public key of the recipient and the DLP of the random ECC point
@@ -245,7 +252,7 @@
 ;; transport.
 ;;
 ;; New public keys are introduced, along with a PKey-ID and a proof of
-;; validity, either through side channels, or else by way of
+;; validity, either through secure side channels, or else by way of an
 ;; introduction from a recognized sponsor using encrypted messaging.
 ;;
 ;; ----------------------------------------------------------------
