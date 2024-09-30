@@ -235,7 +235,7 @@
    ;; encrypted handshake pair
    
    #-:lattice-crypto
-   ((rand-tau aescrypt) / (and (null decryptor)
+   ((rand-tau aescrypt) / (and (null decryptor) ;; i.e., only valid during initial handshake dance
                                (integerp rand-tau)
                                (consp aescrypt))
     (let+ ((:β (rand-pt info)
