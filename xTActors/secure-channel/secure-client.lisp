@@ -213,9 +213,16 @@
 ;;
 ;; When we need to convey a public key, it must already be known to
 ;; the recipient, and is identified by PKey-ID. That ID is looked up
-;; in a local database to find the actual PKey. PKey-ID are never
-;; exposed to the network, but always conveyed inside an AES/256
-;; encrypted wrapper.
+;; in a local database to find the actual PKey. There is no
+;; algorithmic derivation of a Public Key from its corresponding
+;; Pkey-ID. And PKey-IDs are never exposed to the network, but always
+;; conveyed inside an AES/256 encrypted wrapper.
+;;
+;; The use of PKey-ID's instead of PKeys prevents 3rd parties (MITM)
+;; from engaging in a conversation with a Server. Only a circle of
+;; insiders identified in, and with copies of, the PKey-ID/PKey
+;; database can engage. Their PKeys will be known to all in the group,
+;; but each has their own secret key.
 ;;
 ;; To crack the initial key exchange AES packets, you have to know the
 ;; Public key of the recipient and the DLP of the random ECC point
