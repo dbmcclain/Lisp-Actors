@@ -151,11 +151,6 @@
     (β! (io-closed-beh))
     (>> forcible-socket-closer cust io-state))
 
-   ((cust :try-writing _ if-nok)
-    (>> println "Can't happen - attempt to write while busy writing.")
-    (>> if-nok)
-    (>> cust :err))
-
    ((cust :is-open)
     (>> cust t))
    ))
@@ -193,6 +188,11 @@
    ((cust :finish-wr-fail)
     (β! (io-closed-beh))
     (>> forcible-socket-closer cust io-state))
+
+   ((cust :try-writing _ if-nok)
+    (>> println "Can't happen - attempt to write while busy writing.")
+    (>> if-nok)
+    (>> cust :err))
 
    (_
     (repeat-send base))
