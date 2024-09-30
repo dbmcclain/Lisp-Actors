@@ -1,23 +1,6 @@
 
 (in-package :com.ral.actors.encoding.self-sync)
 
-;; ------------------------------------------------------------------
-;; Active portion of FSM reader. We place this in its own separate
-;; Actor because we need its customer to be idempotent, and the invocations
-;; of us to be sequenceable.
-
-(defun decoder-fsm (dest &key max-reclen)
-  (let* ((finish-fn  (lambda (aout)
-                      (send dest aout)))
-         (machine    (self-sync:make-reader-fsm finish-fn
-                                                :max-reclen max-reclen)))
-    (create
-     (behav (cust buf)
-       (declare ((array (unsigned-byte 8) *) buf))
-       (map nil machine buf)
-       (>> cust :next))
-     )))
-
 ;; -----------------------------------------------------------------
 ;; Stream Decoding
 
@@ -30,7 +13,12 @@
   ;; chronological sequence number. Packets can arrive in any order,
   ;; starting from 1.
   ;;
-  (let ((fsm (decoder-fsm dest)))
+  (let* ((machine (self-sync:make-reader-fsm (um:curry #'send dest)))
+         (fsm     (create
+                   (behav (cust buf)
+                     (map nil machine buf)
+                     (send cust :next)))
+                  ))
     (labels
         ((stream-decoder-beh (wait-ix queue)
            (alambda
