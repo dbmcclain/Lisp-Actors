@@ -236,6 +236,7 @@
    
    #-:lattice-crypto
    ((rand-tau aescrypt) / (and (null decryptor)
+                               (integerp rand-tau)
                                (consp aescrypt))
     (let+ ((:β (rand-pt info)
                (racurry eccke:ecc-cnx-decrypt rand-tau aescrypt)))
