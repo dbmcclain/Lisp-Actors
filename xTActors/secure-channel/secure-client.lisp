@@ -198,9 +198,10 @@
 ;;
 ;;                  -- Post-QC Security --
 ;;
-;; I believe that our use of ECC X3DH is QC resistant. We never expose
-;; any keying, neither Public nor Private, to the network. All that is
-;; visible is a random ECC point and an AES/256 encrypted ciphertext.
+;; I believe that our use of ECC X3DH is QC resistant to 3rd party and
+;; MITM attacks. We never expose any keying, neither Public nor
+;; Private, to the network. All that is visible is a random ECC point
+;; and an AES/256 encrypted ciphertext.
 ;;
 ;; Being able to solve the DLP on the random ECC point is useless - it
 ;; simply gives the corresponding random integer. To be of any value,
@@ -254,6 +255,14 @@
 ;; New public keys are introduced, along with a PKey-ID and a proof of
 ;; validity, either through secure side channels, or else by way of an
 ;; introduction from a recognized sponsor using encrypted messaging.
+;;
+;; If the DLP can be solved for ECC points then we *are* vulnerable to
+;; malicious insiders who have access to the ID/PKey database. This is
+;; the only outstanding disclosing vulnerability, and this could be
+;; solved by using more robust (longer keys) or Post-QC encryption.
+;;
+;; Alas, as a general network protocol, we are vulnerable to DOS
+;; attacks.
 ;;
 ;; ----------------------------------------------------------------
 ;;
