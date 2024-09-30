@@ -15,40 +15,46 @@
 ;;  Given: Client identified by Client-PKey-ID (a UUID)
 ;;         Server identified by Server-PKey-ID (a UUID)
 ;;
+;;  Encryption is AES/256 with Key and IV, using CTR mode:
+;;     E(Key, IV) XOR msg  => ctxt = enceypted message
+;;     E(Key, IV) XOR ctxt => msg  = decrypted message
+;;
+;;  Hashing, H, is SHA3/256 of concatenated args
+;;     
 ;;  Client                       Server
 ;;  ------                       ------
 ;;  APt  = a*G, a random
 ;;  Server-PKey = Lookup(Server-PKey-ID)
+;;  Validate Server-PKey pt
 ;;  EKey = H(a*Server-PKey)
 ;;  IV   = H(EKey, new UUID)
 ;;  Ephem-ID = new UUID for comm channel
-;;  ctxt = E(EKey, IV, (+SERVER-CONNECT-ID+, Ephem-ID, Client-PKey-ID))
-;;  sig  = H(EKey, IV, ctxt)
+;;  ctxt = E(EKey, IV) XOR (+SERVER-CONNECT-ID+, Ephem-ID, Client-PKey-ID)
+;;  chk  = H(EKey, IV, ctxt)
 ;;  (APt, (IV, ctxt, chk)) -->
-;;
 ;;                               Validate APt pt
 ;;                               EKey = H(server-skey * APt)
-;;                               Validate chk = H(EKey, IV, ctxt)
-;;                               (chan, Ephem-ID, Client-PKey-ID) = D(EKey, IV, ctxt)
+;;                               Validate chk == H(EKey, IV, ctxt)
+;;                               (chan, Ephem-ID, Client-PKey-ID) = H(EKey, IV) XOR ctxt
 ;;
-;;                               -- On chan +SERVER-CONNECT-ID+ -------------------
+;;                               -- IF chan == +SERVER-CONNECT-ID+ -------------------
 ;;                               Client-PKey = Lookup(Client-PKey-ID)
 ;;                               Validate Client-PKey pt
-;;                               BPt = b*G, b random
+;;                               BPt   = b*G, b random
 ;;                               EKey' = H(b*Client-PKey)
 ;;                               IV'   = H(EKey', new UUID)
 ;;                               CnxID = new UUID for comm channel
-;;                               ctxt' = E(EKey', IV', (Ephem-ID, CnxID))
+;;                               ctxt' = E(EKey', IV') XOR (Ephem-ID, CnxID)
 ;;                               chk'  = H(EKey', IV', ctxt')
 ;;                           <-- (BPt, (IV', ctxt', chk'))
 ;;                               Derive shared EKey'' for use on channel CnxID
 ;;
 ;;  Validate BPt pt
 ;;  EKey' = H(client-skey * BPt)
-;;  Validate chk' = H(EKey', IV', ctxt')
-;;  (chan, CnxID) = D(EKey', IV', ctxt')
+;;  Validate chk' == H(EKey', IV', ctxt')
+;;  (chan, CnxID) = E(EKey', IV') XOR ctxt'
 ;;
-;;  -- On chan Ephem-ID -------------------
+;;  -- If chan == Ephem-ID -------------------
 ;;  Derive shared EKey'' for use on channel CnxID
 ;;  
 ;;
@@ -63,10 +69,12 @@
 ;; EKey''.
 ;;
 ;; During a connection, the actual key employed is uniquely generated
-;; from EKey'' for each transmission. The abilty to perform a request
-;; and receive a response is proof to both sides that the other
-;; controls the secret key behind the presented public key ID of the
-;; initial keying exchange.
+;; from EKey'' for each transmission. Keying is advanced using a
+;; Double-Ratchet mechanism.
+;;
+;; The mere abilty to perform a successful keying exchange is proof to
+;; both sides that the other controls the secret key behind the public
+;; key ID used by each side in the initial keying exchange.
 ;;
 ;; Encryption and authentication have perfect forward secrecy, even
 ;; after a breach which discovers the secret keys for both client and
@@ -81,22 +89,22 @@
 ;; participant actually held a conversation. No signatures means
 ;; nothing to refute.
 ;;
-;;     ...for all subsequent messages...
+;;       ...for all subsequent messages...
 ;;       Client                        Server
 ;;       ------                        ------
 ;;       IV = H(:NONCE, fresh-UUID, EKey'')
 ;;       Key = H(:ENCR, EKey'', IV)
-;;       ctxt = E(Key, IV, (CnxID, msg))
+;;       ctxt = E(Key, IV) XOR (CnxID, msg)
 ;;       authKey = H(:AUTH, Key'', IV)
 ;;       auth = H(authKey, IV, ctxt)
 ;;       (IV, ctxt, auth) -->
 ;;                                     Discard duplicate IVs to prevent replay attacks
 ;;                                     authKey = H(:AUTH, Key'', IV)
-;;                                     Check auth = H(authKey, IV, ctxt)
+;;                                     Check auth == H(authKey, IV, ctxt)
 ;;                                     Broadcast (:AUTH-KEY, IV, authKey) for refutability
 ;;                                     Key = H(:ENCR, EKey'', IV)
 ;;                                     (chan, msg) = D(Key, IV, ctxt)
-;;                                     -- on chan CnxID perform message send ----
+;;                                     -- on chan CnxID perform local message send ----
 ;;                                     
 ;;
 ;; If a response is expected, the client message will contain a
@@ -105,26 +113,30 @@
 ;;
 ;; The only things visible are the IV, cryptotext, and authentication.
 ;; After validating the authentication, the authentication key is
-;; broadcast to the world in the clear, for refutability. The channel
-;; ID and message are kept hidden by encryption with a roving key.
+;; broadcast to the world in the clear, for our refutability. The
+;; channel ID and message are kept hidden by encryption with a roving
+;; key.
 ;;
 ;; Connections are transparently established for users, and then are
 ;; shut down after some period of inactivity (currently 20s). All the
-;; user needs to know is the IP Address of the server and the name of
-;; the service. Both parties are completely unaware of EKey and IV.
+;; client needs to know is the IP Address of the server and the name
+;; of the service. Both parties are completely unaware of EKey and IV
+;; being used in layers beneath them.
 ;;
 ;; Any computer running an Actors system can behave as both client and
 ;; server. The distinction is merely that clients send requests, and
-;; servers might respond with replies.
+;; servers might respond with replies. On initial connection, the
+;; client side initiates the keying handshake.
 ;;
 ;;   G      = Generator Pt for Curve1174
 ;;   H      = SHA3/256
+;;   E      = AES/256 in CTR mode
 ;;
 ;; Encryption uses AES/256 in CTR mode. Decryption is the same as
 ;; Encryption.  All IV are generated from monotonically increasing
-;; type-1 UUID and label each transmission. Message IV are checked for
-;; uniqueness, and messages with duplicate IV are discarded to prevent
-;; replay attacks.
+;; (time based to nearest 10 ns) type-1 UUID, and these IV label each
+;; transmission. Message IV are checked for uniqueness, and messages
+;; with duplicate IV are discarded to prevent replay attacks.
 ;;
 ;; Prior to encryption and wire transmission, the arbitrary Lisp
 ;; objects of a message are serialized, compressed, and possibly
@@ -135,7 +147,8 @@
 ;; order of message fragments is usually scrambled due to parallel
 ;; concurrent activity and can be arbitrary.
 ;;
-;; Every fragment is assigned a fresh IV, and hence have roving keying.
+;; Every fragment is assigned a fresh IV, and double-ratchet produces
+;; roving keying.
 ;;
 ;; Since IV is also a component of the encryption and authentication
 ;; keying, every fragment is uniquely encrypted and authenticated. No
@@ -157,7 +170,7 @@
 ;; When we need to convey a public key, it must already be known to
 ;; the recipient, and is identified by PKey-ID. That ID is looked up
 ;; in a local database to find the actual PKey. PKey-ID are never
-;; exposed to the network, but always conveyed in an AES-256 encrypted
+;; exposed to the network, but always conveyed in an AES/256 encrypted
 ;; wrapper.
 ;;
 ;; To crack the initial key exchange AES packets, you have to know the
@@ -170,8 +183,8 @@
 ;; Secret Key of the originator, AND the Public Key of the recipient.
 ;;
 ;; Once the parties have a shared session key, all further
-;; communication occurs via AES-256 encrypted packets, using
-;; ratcheted keying based off of the initial shared session key,
+;; communication occurs via AES/256 encrypted packets, using
+;; double-ratchet keying based off of the initial shared session key,
 ;; advancing the ratchet for every message. Shared session keys are
 ;; forgotten after the connecton is closed.
 ;;
@@ -183,13 +196,14 @@
 ;; The recipient broadcasts the authentication keying used in the
 ;; received message. This allows anyone to construct a fake transcript
 ;; of the session by posing as one of the parties involved. Hence,
-;; repudiable communications.
+;; we have repudiable communications.
 ;;
 ;; We are protected against replay attacks by ensuring that every
-;; message received carries a fresh sequence number.
+;; message received carries a fresh (IV) sequence number.
 ;;
 ;; At the first sign of tampering, the connection is silently closed.
-;; Invalid messages are ignored.
+;; Invalid messages are ignored. Failures of decryption,
+;; decompression, or unmarshaling are taken as signs of tampering.
 ;;
 ;; Although we refer to Public Keys, they are never openly published
 ;; anywhere. They are as guarded as Secret Keys, except for making
