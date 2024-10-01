@@ -502,7 +502,7 @@
             )))
 
    #| -------------------------------------------- |#
-   ;; Message :FIND-CONNECTION - sent by Client-Connector.
+   ;; Message :FIND-CONNECTION - sent by CLIENT-CONNECTOR.
    ;;
    ;; Called by client code. Search for existing connection, avoiding
    ;; DNS lookup unless absolutely necessary. Any number of aliases
