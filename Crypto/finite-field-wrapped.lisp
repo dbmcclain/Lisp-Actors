@@ -127,55 +127,57 @@ THE SOFTWARE.
 ;; value of an FFLD instance, and during comparisons where the true
 ;; value of the instance is needed.
 
-(defmethod basic-wrap ((p ffbase) (x integer))
-  #F
-  ;; Simply wrap the hi bits of a large number into the low bits. This
-  ;; is not modulo the field base, but rather, modulo 2^n, where
-  ;; 2^(n-1) < q < 2^n. Doing so prevents impossibly large buildup of
-  ;; modular excesses during large exponentiations.
-  ;;
-  (let* ((nbits  (ffbase-nbits p))
-         (hi     (ash x (the fixnum (- nbits)))))
-    (declare (fixnum nbits)
-             (integer hi))
-    (if (zerop hi)
-        x
-      (let ((bits (ffbase-bits p))
-            (wrap (ffbase-wrap p)))
-        (declare (integer wrap))
-        (basic-wrap p (+ (the integer (ldb bits x))
-                         (the integer (* hi wrap))))
-        ))))
+(defgeneric basic-wrap (p x)
+  (:method ((p ffbase) (x integer))
+   #F
+   ;; Simply wrap the hi bits of a large number into the low bits. This
+   ;; is not modulo the field base, but rather, modulo 2^n, where
+   ;; 2^(n-1) < q < 2^n. Doing so prevents impossibly large buildup of
+   ;; modular excesses during large exponentiations.
+   ;;
+   (let* ((nbits  (ffbase-nbits p))
+          (hi     (ash x (the fixnum (- nbits)))))
+     (declare (fixnum nbits)
+              (integer hi))
+     (if (zerop hi)
+         x
+       (let ((bits (ffbase-bits p))
+             (wrap (ffbase-wrap p)))
+         (declare (integer wrap))
+         (basic-wrap p (+ (the integer (ldb bits x))
+                          (the integer (* hi wrap))))
+         )))) )
 
-(defmethod basic-normalize ((p ffbase) (x integer))
-  #F
-  ;; Ensure a proper modular value.
-  ;;
-  ;; ...If you were C and didn't have BIGNUM MOD...
-  ;; (Turns out this really is faster than MOD !!
-  ;;  this: 0.55 µs, MOD: 1.08 µs, essentially 2x faster)
-  ;;
-  ;; Iterate wrapping until no more excess MSB, then modulo base.
-  ;;
-  ;; On entry, integer x may be positive or negative. The LDB
-  ;; operation extracts the low bits as an unsigned integer, but the
-  ;; ASH is an arithmetic right shift with sign extension.
-  ;;
-  ;; After enough iterations, the integer argument, x, will be
-  ;; positive: 0 <= x < 2^N, and where prime base is:
-  ;;    2^(N-1) < BASE < 2^N.
-  ;;
-  ;; If x is: BASE <= x < 2^N, then DIFF = (x - BASE) will be
-  ;; non-negative. Return that DIFF value. Else DIFF will be negative,
-  ;; which means that x is already in modular range, so return it..
-  ;;
-  (let* ((ans  (basic-wrap p x))
-         (base (ffbase-base p))
-         (diff (- ans base)))
-    (declare (integer ans base diff))
-    (if (minusp diff)
-        ans
-      diff)))
+(defgeneric basic-normalize (p x)
+  (:method ((p ffbase) (x integer))
+   #F
+   ;; Ensure a proper modular value.
+   ;;
+   ;; ...If you were C and didn't have BIGNUM MOD...
+   ;; (Turns out this really is faster than MOD !!
+   ;;  this: 0.55 µs, MOD: 1.08 µs, essentially 2x faster)
+   ;;
+   ;; Iterate wrapping until no more excess MSB, then modulo base.
+   ;;
+   ;; On entry, integer x may be positive or negative. The LDB
+   ;; operation extracts the low bits as an unsigned integer, but the
+   ;; ASH is an arithmetic right shift with sign extension.
+   ;;
+   ;; After enough iterations, the integer argument, x, will be
+   ;; positive: 0 <= x < 2^N, and where prime base is:
+   ;;    2^(N-1) < BASE < 2^N.
+   ;;
+   ;; If x is: BASE <= x < 2^N, then DIFF = (x - BASE) will be
+   ;; non-negative. Return that DIFF value. Else DIFF will be negative,
+   ;; which means that x is already in modular range, so return it..
+   ;;
+   (let* ((ans  (basic-wrap p x))
+          (base (ffbase-base p))
+          (diff (- ans base)))
+     (declare (integer ans base diff))
+     (if (minusp diff)
+         ans
+       diff))) )
 
 ;; -----------------------------------------------------
 ;; FFLD - instance of finite field values. Their class points to the
@@ -368,8 +370,9 @@ THE SOFTWARE.
 (defun ffsqr (x)
   (ffmul x x))
 
-(defmethod ffsqr= ((x ffld))
-  (ffmul= x x))
+(defgeneric ffsqr= (x)
+  (:method ((x ffld))
+   (ffmul= x x)) )
 
 (defun ffinv (x)
   (um:nlet iter ((v  (ffbase-base (ffld-base x)))
@@ -468,19 +471,20 @@ THE SOFTWARE.
                    :op-sqr op-sqr
                    :op-mul op-mul)))
 
-(defmethod get-prec ((wc window-cache) (ix integer))
-  ;; compute powers of x^n, n = 1..(2^nbits-1) on demand
-  (declare (fixnum ix))
-  (with-accessors ((precv  window-cache-precv)
-                   (x^1    window-cache-x^1)
-                   (op-mul window-cache-op-mul)
-                   (op-sqr window-cache-op-sqr)) wc
-    (or (aref precv ix)
-        (setf (aref precv ix)
-              (if (oddp ix)
-                  (funcall op-mul (copy-ffld x^1) (get-prec wc (1- ix)))
-                (funcall op-sqr (copy-ffld (get-prec wc (ash ix -1)))))
-              ))))
+(defgeneric get-prec (wc ix)
+  (:method ((wc window-cache) (ix integer))
+   ;; compute powers of x^n, n = 1..(2^nbits-1) on demand
+   (declare (fixnum ix))
+   (with-accessors ((precv  window-cache-precv)
+                    (x^1    window-cache-x^1)
+                    (op-mul window-cache-op-mul)
+                    (op-sqr window-cache-op-sqr)) wc
+     (or (aref precv ix)
+         (setf (aref precv ix)
+               (if (oddp ix)
+                   (funcall op-mul (copy-ffld x^1) (get-prec wc (1- ix)))
+                 (funcall op-sqr (copy-ffld (get-prec wc (ash ix -1)))))
+               )))) )
 
 ;; -----------------------------------------------------
 ;; Generalized fixed-window exponentiation algorithm
@@ -488,7 +492,7 @@ THE SOFTWARE.
 ;; Used by both modular exponentiation, and Cipolla algorithm for
 ;; modular square roots.
 
-(defmethod generalized-windowed-exponentiation (x n &key window-nbits op-mul op-sqr)
+(defun generalized-windowed-exponentiation (x n &key window-nbits op-mul op-sqr)
   ;; modular x^n using fixed-width window algorithm
   (let* ((ans   nil)
          (wc    (make-window-cache
@@ -498,7 +502,10 @@ THE SOFTWARE.
                  :op-sqr op-sqr))
          (nbits (integer-length n)))
     (declare (fixnum nbits))
-    (loop for pos fixnum from (* window-nbits (floor nbits window-nbits)) downto 0 by window-nbits do
+    (loop for pos fixnum from (* window-nbits (floor nbits window-nbits))
+            downto 0
+            by window-nbits
+          do
           (when ans
             (loop repeat window-nbits do
                   (setf ans (funcall op-sqr ans))))
