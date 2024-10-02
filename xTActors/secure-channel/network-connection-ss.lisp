@@ -116,7 +116,7 @@
      ;; :SHUTDOWN - user level message.
      ;; Terminates all extant servers, kills off the async manager.
 
-      ((cust :shutdown)
+     ((cust :shutdown)
       (cond (aio-accepting-handles
              (let+ ((me   self)
                     (msg  self-msg)
