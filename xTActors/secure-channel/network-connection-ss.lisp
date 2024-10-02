@@ -67,27 +67,27 @@
              (retry-after-ws-start))
             ))
    
-   ;; --------------------------------------
-   ((cust :connect ip-addr ip-port)
-    ;; Message sent from clients wanting to connect to a server.
-    ;; Cust is the CONNECTIONS manager.
-    (cond (ws-collection
-           (<<* #'comm:create-async-io-state-and-connected-tcp-socket
-                ws-collection
-                ip-addr ip-port
-                (lambda (io-state args)
-                  ;; Performed in the process of collection, so keep it short.
-                  (>>* cust io-state args))
-                #-:WINDOWS
-                `(:connect-timeout 5 :ipv6 nil)
-                #+:WINDOWS
-                `(:connect-timeout 5)
-                ))
-
-          (t
-           (retry-after-ws-start))
-          ))
-
+     ;; --------------------------------------
+     ((cust :connect ip-addr ip-port)
+      ;; Message sent from clients wanting to connect to a server.
+      ;; Cust is the CONNECTIONS manager.
+      (cond (ws-collection
+             (<<* #'comm:create-async-io-state-and-connected-tcp-socket
+                  ws-collection
+                  ip-addr ip-port
+                  (lambda (io-state args)
+                    ;; Performed in the process of collection, so keep it short.
+                    (>>* cust io-state args))
+                  #-:WINDOWS
+                  `(:connect-timeout 5 :ipv6 nil)
+                  #+:WINDOWS
+                  `(:connect-timeout 5)
+                  ))
+            
+            (t
+             (retry-after-ws-start))
+            ))
+     
      ;; --------------------------------------
      ((cust :shutdown)
       (cond (aio-accepting-handles
