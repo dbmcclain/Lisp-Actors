@@ -102,7 +102,7 @@
    ))
 
 (deflex* async-socket-system
-  (create (async-socket-system-beh)))
+  (serializer (create (async-socket-system-beh))))
 
 ;; -------------------------------------------------------------
 ;; Socket connection state
