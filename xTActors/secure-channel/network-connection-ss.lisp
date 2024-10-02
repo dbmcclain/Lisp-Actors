@@ -72,17 +72,17 @@
     ;; Message sent from clients wanting to connect to a server.
     ;; Cust is the CONNECTIONS manager.
     (cond (ws-collection
-           (flet ((callback (io-state args)
-                    ;; Performed in the process of collection, so keep it short.
-                    (>>* cust io-state args)))
-             (<<* #'comm:create-async-io-state-and-connected-tcp-socket
-                  ws-collection
-                  ip-addr ip-port #'callback
-                  #-:WINDOWS
-                  `(:connect-timeout 5 :ipv6 nil)
-                  #+:WINDOWS
-                  `(:connect-timeout 5)
-                  )))
+           (<<* #'comm:create-async-io-state-and-connected-tcp-socket
+                ws-collection
+                ip-addr ip-port
+                (lambda (io-state args)
+                  ;; Performed in the process of collection, so keep it short.
+                  (>>* cust io-state args))
+                #-:WINDOWS
+                `(:connect-timeout 5 :ipv6 nil)
+                #+:WINDOWS
+                `(:connect-timeout 5)
+                ))
 
           (t
            (retry-after-ws-start))
