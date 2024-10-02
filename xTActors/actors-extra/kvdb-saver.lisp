@@ -439,8 +439,10 @@
 (defun ino-key (path)
   (multiple-value-bind (dev ino)
       (um:get-ino path)
-    (with-standard-io-syntax
-      (um:mkstr dev #\: ino))))
+    (when dev
+      (with-standard-io-syntax
+        (um:mkstr dev #\: ino)))
+    ))
 
 #+:MSWINDOWS
 (defun ino-key (path)

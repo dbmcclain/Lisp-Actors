@@ -37,10 +37,11 @@
 #+:LISPWORKS
 (defun um:get-ino (fname)
   (let ((stat  (sys:get-file-stat fname)))
-    (with-standard-io-syntax
-      (values (format nil "~X" (sys:file-stat-device stat))
-              (format nil "~X" (sys:file-stat-inode  stat)))
-      )))
+    (when stat
+      (with-standard-io-syntax
+        (values (format nil "~X" (sys:file-stat-device stat))
+                (format nil "~X" (sys:file-stat-inode  stat)))
+        ))))
 
 #+:SBCL
 (defun file-string (filename)

@@ -28,7 +28,7 @@
   kvdb-actor  ;; the Actor in charge of KVDB management for this KVDB
   path)       ;; the pathname to the backing store
 
-(defun kvdb-orchestrator-beh (gate &optional open-dbs)
+(defun kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
    ((cust :make-kvdb path)
@@ -48,18 +48,17 @@
                     (send cust :error e)
                     (return-from #1#))
                   ))
-        (ensure-file-exists path)
         (let* ((key   (ino-key path))
-               (quad  (find key open-dbs
-                            :key  #'open-database-ino-key
-                            :test #'string-equal)))
+               (quad  (and key
+                           (find key open-dbs
+                                 :key  #'open-database-ino-key
+                                 :test #'string-equal))))
           (if quad
               (send cust (open-database-kvdb-actor quad))
             ;; else - new Open
-            (let* ((tag-to-orch  (tag gate))
+            (let* ((tag-to-orch  (tag self))
                    (kvdb         (%make-kvdb tag-to-orch path)))
               (become (kvdb-orchestrator-beh
-                       gate
                        (cons (make-open-database
                               :ino-key    key
                               :orch-tag   tag-to-orch
@@ -74,9 +73,11 @@
     (let ((quad (find atag open-dbs
                       :key #'open-database-orch-tag)))
       (when quad
-        (let* ((path  (open-database-path quad))
-               (key   (ino-key path)))
-          (unless (string-equal key (open-database-ino-key quad))
+        (let* ((path    (open-database-path quad))
+               (old-key (open-database-ino-key quad))
+               (key     (ino-key path)))
+          (unless (and old-key
+                       (string-equal key old-key))
             (let* ((kvdb    (open-database-kvdb-actor quad))
                    (new-dbs (cons (make-open-database
                                    :ino-key    key
@@ -84,7 +85,7 @@
                                    :kvdb-actor kvdb
                                    :path       path)
                                   (remove quad open-dbs))))
-              (become (kvdb-orchestrator-beh gate new-dbs))
+              (become (kvdb-orchestrator-beh new-dbs))
               ))
           ))
       ))
@@ -93,16 +94,21 @@
     (let ((quad (find atag open-dbs
                       :key #'open-database-orch-tag)))
       (when quad
-        (become (kvdb-orchestrator-beh gate (remove quad open-dbs))))
+        (become (kvdb-orchestrator-beh (remove quad open-dbs))))
       ))
    ))
 
+#|
 (deflex* kvdb-maker
   (actors ((gate (serializer
                   ;; because we are doing file ops
                   (create (kvdb-orchestrator-beh gate))
                   )))
     gate))
+|#
+
+(deflex* kvdb-maker
+  (create (kvdb-orchestrator-beh)))
 
 ;; -----------------------------------------------------
 ;; One to goof around in...
@@ -134,14 +140,14 @@
              
            (stashing-beh (tag msgs)
              (alambda
-              ((atag :error . _) / (eq atag tag)
-               (become #'initial-beh)
-               (send-all-to self msgs))
-              
               ((atag a-kvdb) / (eq atag tag)
                (become (fwd-beh a-kvdb))
                (send-all-to self msgs))
 
+              ((atag . _) / (eq atag tag)
+               (become #'initial-beh)
+               (send-all-to self msgs))
+              
               (msg
                (become (stashing-beh tag (cons msg msgs))))
               )))
