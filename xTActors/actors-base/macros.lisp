@@ -569,7 +569,7 @@
         (handler-bind
             ((error (lambda (c)
                       (setf err c)
-                      (send-to-pool self tag 'abort))
+                      (send-to-pool tag 'abort))
                     ))
           (let ((new-beh (apply beh-upd-fn info)))
             (unless err  ;; guard against debugger restarts
@@ -583,12 +583,17 @@
   ;; Works hand-in-glove with SHUNTING-BEH to catch error conditions
   ;; in the non-idempotent action, and cause the original Actor to
   ;; revert back to its former behavior.
-  (handler-bind
-      ((error (lambda (c)
-                (declare (ignore c))
-                (send-to-pool tag 'abort)))) ;; unconditional immediate SEND
-    (send* tag (multiple-value-list (funcall fn)))
-    ))
+  (let ((err nil))
+    (handler-bind
+        ((error (lambda (c)
+                  (setf err c)
+                  (send-to-pool tag 'abort)) ;; unconditional immediate SEND
+                ))
+      (let ((info (multiple-value-list (funcall fn))))
+        (unless err
+          (send* tag info)
+          ))
+      )))
   
 (defmacro shunting-become (info-args action-form &body body)
   ;; Has the form of MULTIPLE-VALUE-BIND, but body must produce a
@@ -599,7 +604,7 @@
   ;; behavior.
   ;;
   (um:with-unique-names (tag)
-    `(let ((,tag  (once-tag self))) ;; once-tag to avoid possible re-issue during error recovery
+    `(let ((,tag  (tag self)))
        (become (shunting-beh ,tag self-beh
                              (lambda* ,info-args
                                ,@body)))
