@@ -485,26 +485,26 @@
 ;; -------------------------------------------------------
 ;; My convenience macros...
 
-(defmacro >> (&rest args)
-  `(send ,@args))
+(defun >> (&rest args)
+  (send* args))
 
-(defmacro >>* (&rest args)
-  `(send* ,@args))
+(defun >>* (&rest args)
+  (apply #'send* args))
 
-(defmacro << (&rest args)
-  `(funcall ,@args))
+(defun << (&rest args)
+  (apply #'funcall args))
 
-(defmacro <<* (&rest args)
-  `(apply ,@args))
+(defun <<* (&rest args)
+  (apply #'apply args))
 
 (defmacro ! (&rest args)
   `(setf ,@args))
 
-(defmacro β! (arg)
-  `(become ,arg))
+(defun β! (arg)
+  (become arg))
 
-(defmacro !β (arg) ;; for dyslexics, like me
-  `(become ,arg))
+(defun !β (arg) ;; for dyslexics, like me
+  (become arg))
 
 (defmacro αλ (&rest clauses)
   `(alambda ,@clauses))
