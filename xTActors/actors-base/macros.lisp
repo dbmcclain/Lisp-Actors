@@ -557,26 +557,55 @@
 ;; This is all elegantly produced by macro SHUNTING-BECOME, which
 ;; carries the surface syntax of MULTIPLE-VALUE-BIND.
 
-(defun shunting-beh (tag beh-upd-fn &optional pending)
-  (alambda
-   ((atag . info) / (eq atag tag)
-    (become (apply beh-upd-fn info))
-    (send-all-to self pending))
-   (msg
-    (become (shunting-beh tag beh-upd-fn (cons msg pending))))
-   ))
-   
+(defun shunting-beh (tag sav-beh beh-upd-fn &optional pending)
+  (flet ((exit (beh)
+           (become beh)
+           (send-all-to self pending)))
+    (alambda
+     ((atag 'abort) / (eq atag tag)
+      (exit sav-beh))
+     ((atag . info) / (eq atag tag)
+      (let ((err nil))
+        (handler-bind
+            ((error (lambda (c)
+                      (setf err c)
+                      (send-to-pool self tag 'abort))
+                    ))
+          (let ((new-beh (apply beh-upd-fn info)))
+            (unless err  ;; guard against debugger restarts
+              (exit new-beh))
+            ))))
+     (msg
+      (become (shunting-beh tag sav-beh beh-upd-fn (cons msg pending))))
+     )))
+
+(defun guarded-non-idempotence (tag fn)
+  ;; Works hand-in-glove with SHUNTING-BEH to catch error conditions
+  ;; in the non-idempotent action, and cause the original Actor to
+  ;; revert back to its former behavior.
+  (handler-bind
+      ((error (lambda (c)
+                (declare (ignore c))
+                (send-to-pool tag 'abort)))) ;; unconditional immediate SEND
+    (send* tag (multiple-value-list (funcall fn)))
+    ))
+  
 (defmacro shunting-become (info-args action-form &body body)
   ;; Has the form of MULTIPLE-VALUE-BIND, but body must produce a
   ;; behavior function.  INFO-ARGS will be the multiple-value result
   ;; of the action-form.
+  ;;
+  ;; Any errors along the way cause us to revert to our previous
+  ;; behavior.
+  ;;
   (um:with-unique-names (tag)
-    `(let ((,tag  (tag self)))
-       (become (shunting-beh ,tag (lambda* ,info-args
-                                    ,@body)))
+    `(let ((,tag  (once-tag self))) ;; once-tag to avoid possible re-issue during error recovery
+       (become (shunting-beh ,tag self-beh
+                             (lambda* ,info-args
+                               ,@body)))
        (on-commit
-         (send* ,tag (multiple-value-list ,action-form))
-         ))
+         (guarded-non-idempotence ,tag (lambda ()
+                                         ,action-form))))
     ))
 
 (defmacro β-become (info-args action-form &body body)
