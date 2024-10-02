@@ -116,11 +116,38 @@
                                     (format nil "~A/" (sb-ext:posix-getenv "HOME")))
                    ))
 
+#|
 (deflex kvdb
   ;; The main Actor for just the goof-around KVDB. Make your own for
   ;; others.
   (fut kvdb-maker :make-kvdb *db-path*))
+|#
 
+(deflex kvdb
+  ;; The main Actor for just the goof-around KVDB. Make your own for
+  ;; others.
+  (labels ((initial-beh (&rest msg)
+             (let ((tag  (tag self)))
+               (become (stashing-beh tag (list msg)))
+               (send kvdb-maker tag :make-kvdb *db-path*)
+               ))
+             
+           (stashing-beh (tag msgs)
+             (alambda
+              ((atag :error . _) / (eq atag tag)
+               (become #'initial-beh)
+               (send-all-to self msgs))
+              
+              ((atag a-kvdb) / (eq atag tag)
+               (become (fwd-beh a-kvdb))
+               (send-all-to self msgs))
+
+              (msg
+               (become (stashing-beh tag (cons msg msgs))))
+              )))
+    (create #'initial-beh)
+    ))
+                 
 ;; -----------------------------------------------------------
 ;; Utility Functions
 
