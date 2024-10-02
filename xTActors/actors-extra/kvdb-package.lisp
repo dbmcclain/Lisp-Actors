@@ -9,7 +9,8 @@
    #:db-map
    #:db-get-keys
    #:db-rebuild
-   
+
+   #:kvdb-gateway
    #:kvdb
    #:kvdb-maker
    #:show-kvdb

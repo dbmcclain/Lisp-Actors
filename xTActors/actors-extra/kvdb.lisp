@@ -98,44 +98,14 @@
       ))
    ))
 
-#|
-(deflex* kvdb-maker
-  (actors ((gate (serializer
-                  ;; because we are doing file ops
-                  (create (kvdb-orchestrator-beh gate))
-                  )))
-    gate))
-|#
-
-(deflex* kvdb-maker
+(deflex* kvdb-orchestrator
   (create (kvdb-orchestrator-beh)))
 
-;; -----------------------------------------------------
-;; One to goof around in...
-
-(defvar *db-path*
-  (merge-pathnames "LispActors/Actors Transactional Database.dat"
-                   #+:LISPWORKS
-                   (sys:get-folder-path :appdata)
-                   #+:sbcl
-                   (merge-pathnames "Library/Application Support/"
-                                    (format nil "~A/" (sb-ext:posix-getenv "HOME")))
-                   ))
-
-#|
-(deflex kvdb
-  ;; The main Actor for just the goof-around KVDB. Make your own for
-  ;; others.
-  (fut kvdb-maker :make-kvdb *db-path*))
-|#
-
-(deflex kvdb
-  ;; The main Actor for just the goof-around KVDB. Make your own for
-  ;; others.
+(defun kvdb-gateway (path)
   (labels ((initial-beh (&rest msg)
              (let ((tag  (tag self)))
                (become (stashing-beh tag (list msg)))
-               (send kvdb-maker tag :make-kvdb *db-path*)
+               (send kvdb-orchestrator tag :make-kvdb path)
                ))
              
            (stashing-beh (tag msgs)
@@ -153,6 +123,23 @@
               )))
     (create #'initial-beh)
     ))
+  
+;; -----------------------------------------------------
+;; One to goof around in...
+
+(defvar *db-path*
+  (merge-pathnames "LispActors/Actors Transactional Database.dat"
+                   #+:LISPWORKS
+                   (sys:get-folder-path :appdata)
+                   #+:sbcl
+                   (merge-pathnames "Library/Application Support/"
+                                    (format nil "~A/" (sb-ext:posix-getenv "HOME")))
+                   ))
+
+(deflex kvdb
+  ;; The main Actor for just the goof-around KVDB. Make your own for
+  ;; others.
+  (kvdb-gateway *db-path*))
                  
 ;; -----------------------------------------------------------
 ;; Utility Functions
