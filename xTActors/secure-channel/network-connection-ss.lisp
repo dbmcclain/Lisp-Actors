@@ -20,56 +20,135 @@
 ;; -----------------------------------------------
 ;; The main async manager
 
-(defun async-socket-system-beh (&optional ws-collection aio-accepting-handle)
+(defun async-socket-system-beh (&optional ws-collection aio-accepting-handles)
   (αλ
    ;; --------------------------------------
-   ((cust :terminate-server)
-    (flet ((ws-handler (coll)
-             ;; we are operating in the collection process
-             (comm:close-wait-state-collection coll)
-             (>> cust :ok)
-             (mpc:process-terminate (mpc:get-current-process))
+   ((cust :terminate-ws-collection)
+    (cond (aio-accepting-handles
+           (send self cust :shutdown))
+          
+          (ws-collection
+           (β! (async-socket-system-beh))
+           (on-commit
+             (comm:apply-in-wait-state-collection-process
+              ws-collection
+              (lambda (coll)
+                ;; we are operating in the collection process
+                (comm:close-wait-state-collection coll)
+                ;; this SEND is immediate, since we are not now executing in an Actor
+                (>> cust :ok)
+                (mpc:process-terminate (mpc:get-current-process))
+                ))
              ))
-      (cond
-       (aio-accepting-handle
-        (β! (async-socket-system-beh))
-        (on-commit
-          (comm:close-accepting-handle aio-accepting-handle #'ws-handler) ))
-       
-       (ws-collection
-        (β! (async-socket-system-beh))
-        (on-commit
-          (comm:apply-in-wait-state-collection-process ws-collection #'ws-handler)))
-       
-       (t
-        (>> cust :ok))
-       )) )
-       
+          
+          (t
+           (>> cust :ok))
+          ))
+
    ;; --------------------------------------
-   ((cust :start-tcp-server . options)
-    (cond ((or ws-collection aio-accepting-handle)
+   ((cust :terminate-server)
+    (>> self cust :termniate-server *default-port*))
+   
+   ;; --------------------------------------
+   ((cust :terminate-server port)
+    (let ((pair (assoc port aio-accepting-handles)))
+      (cond (pair
+             (β! (async-socket-system-beh
+                  ws-collection
+                  (remove pair aio-accepting-handles)))
+             (on-commit
+               (comm:close-accepting-handle
+                (cdr pair)
+                (lambda (coll)
+                  (declare (ignore coll))
+                  ;; We are operating in the collection process
+                  ;; This SEND is immediate, since we are not now executing in an Actor
+                  (>> cust :ok)))
+               ))
+            
+            (t
+             (>> cust :ok))
+            )))
+
+   ;; --------------------------------------
+   ((cust :shutdown)
+    (cond (aio-accepting-handles
            (let+ ((me   self)
                   (msg  self-msg)
-                  (:β _ (racurry self :terminate-server)))
-             (>>* me msg)))
-
+                  (port (caar aio-accepting-handles))
+                  (:β _ (racurry self :terminate-server port)))
+             (>>* me msg)
+             ))
           (t
-           (let+ ((tcp-port-number (or (car options)
-                                       *default-port*))
-                  (me              self)
-                  (ws-coll         (comm:create-and-run-wait-state-collection
-                                    "Actor Server"
-                                    :handler (lambda* _
-                                               (>> me sink :terminate-server))))
-                  (handle          (comm:accept-tcp-connections-creating-async-io-states
-                                    ws-coll
-                                    tcp-port-number
-                                    #'start-server-listener
-                                    :ipv6    nil
-                                    ) ))
-             (β! (async-socket-system-beh ws-coll handle))
-             (>> fmt-println "-- Actor Server started on port ~A --" tcp-port-number)
-             (>> cust :ok)) )
+           (>> self cust :terminate-ws-collection))
+          ))
+
+   ;; --------------------------------------
+   ((cust :start-ws-coll)
+    (cond (ws-collection ;; already present?
+           (>> cust :ok))
+          (t
+           (assert (null aio-accepting-handles)) ;; sanity check
+           (let ((tag (tag self)))
+             (labels ((starting-ws-coll-beh (&optional pending)
+                        (alambda
+                         ((atag :coll ws-coll) / (eq atag tag)
+                          (β! (async-socket-system-beh ws-coll))
+                          (>> cust :ok)
+                          (send-all-to self pending))
+                         
+                         (msg
+                          (β! (starting-ws-coll-beh (cons msg pending))))
+                         )))
+               (β! (starting-ws-coll-beh))
+               (on-commit
+                 (let ((ws-coll (comm:create-and-run-wait-state-collection
+                                 "Actor Server"
+                                 :handler t)))
+                   (>> tag :coll ws-coll)))
+               )))
+          ))
+   
+   ;; --------------------------------------
+   ((cust :start-tcp-server)
+    (send self cust :start-tcp-server *default-port*))
+   
+   ;; --------------------------------------
+   ((cust :start-tcp-server port)
+    (cond ((assoc port aio-accepting-handles) ;; already present?
+           (>> cust :ok))
+
+          (ws-collection  ;; already have an async manager?
+           (let ((tag  (tag self)))
+             (labels ((adding-handle-beh (&optional pending)
+                        (alambda
+                         ((atag :handle handle) / (eq atag tag)
+                          (β! (async-socket-system-beh
+                               ws-collection
+                               (acons port handle aio-accepting-handles)))
+                          (>> cust :ok)
+                          (>> fmt-println "-- Actor Server started on port ~A --" port)
+                          (send-all-to self pending))
+
+                         (msg
+                          (β! (adding-handle-beh (cons msg pending))))
+                         )))
+               (β! (adding-handle-beh))
+               (on-commit
+                 (let ((handle  (comm:accept-tcp-connections-creating-async-io-states
+                                 ws-collection
+                                 port
+                                 #'start-server-listener
+                                 :ipv6    nil
+                                 ) ))
+                   (>> tag :handle handle)))
+               )))
+          
+          (t
+           (let+ ((me   self)
+                  (msg  self-msg)
+                  (:β _ (racurry self :start-ws-coll)))
+             (>>* me msg)))
           ))
    
    ;; --------------------------------------
@@ -90,19 +169,15 @@
                   )))
 
           (t
-           (let* ((me       self)
-                  (ws-coll  (comm:create-and-run-wait-state-collection
-                            "Actor Clients"
-                            :handler (lambda* _
-                                       (>> me sink :terminate-server))
-                            )))
-             (β! (async-socket-system-beh ws-coll))
-             (repeat-send self)))
+           (let+ ((me   self)
+                  (msg  self-msg)
+                  (:β _ (racurry self :start-ws-coll)))
+             (>>* me msg)))
           ))
    ))
 
 (deflex* async-socket-system
-  (serializer (create (async-socket-system-beh))))
+  (create (async-socket-system-beh)))
 
 ;; -------------------------------------------------------------
 ;; Socket connection state
@@ -951,7 +1026,7 @@
   (ask true))
 
 (defun* lw-reset-actors-server _
-  (ask async-socket-system :terminate-server)
+  (ask async-socket-system :shutdown)
   (princ "Actor Server has been shut down."))
 
 
