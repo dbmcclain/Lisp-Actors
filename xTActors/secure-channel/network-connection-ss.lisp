@@ -39,51 +39,21 @@
             
             (ws-collection
              ;; already have an async manager?
-             (let ((tag  (tag self)))
-               (labels ((adding-handle-beh (&optional pending)
-                          ;; Shunting behavior awaiting new state information
-                          (alambda
-                           ((atag :handle handle) / (eq atag tag)
-                            ;; Revert back to our original behavior with the updated state info.
-                            (β! (async-socket-system-beh
-                                 ws-collection
-                                 (acons port handle aio-accepting-handles)))
-                            ;; Tell the customer that we succeeded.
-                            (>> cust :ok)
-                            (>> fmt-println "-- Actor Server started on port ~A --" port)
-                            ;; And send ourself all enqueued messages
-                            (send-all-to self pending))
-                           
-                           (msg
-                            (β! (adding-handle-beh (cons msg pending))))
-                           )))
-                 ;; Non-idempotent behavior must always be relegated
-                 ;; to edge Actors (those without BECOME).
-                 ;;
-                 ;; We can do that by using ON-COMMIT, which will only
-                 ;; be performed if the BECOME is successfully
-                 ;; committed.
-                 ;;
-                 ;; But we need to augment our Actor state with the
-                 ;; results of the non-idempotent action. To do so, we
-                 ;; switch behavior to a special one awaiting the
-                 ;; state update information, while shunting future
-                 ;; messages to a queue.
-                 ;;
-                 ;; Once we get the update info, we can become ourself
-                 ;; again with updated state, and release those pending
-                 ;; messages for re-delivery.
-
-                 (β! (adding-handle-beh))
-                 (on-commit
-                   (let ((handle  (comm:accept-tcp-connections-creating-async-io-states
-                                   ws-collection
-                                   port
-                                   #'start-server-listener
-                                   :ipv6    nil
-                                   ) ))
-                     (>> tag :handle handle)))
-                 )))
+             (β-become (handle)
+                 ;; non-idempotent action, so we need β-become
+                 (comm:accept-tcp-connections-creating-async-io-states
+                  ws-collection
+                  port
+                  #'start-server-listener
+                  :ipv6 nil)
+               
+               ;; Tell the customer that we succeeded.
+               (>> cust :ok)
+               (>> fmt-println "-- Actor Server started on port ~A --" port)
+               (async-socket-system-beh
+                ws-collection
+                (acons port handle aio-accepting-handles))
+               ))
             
             (t
              (retry-after-ws-start))
@@ -167,45 +137,14 @@
             
             (t
              (assert (null aio-accepting-handles)) ;; sanity check
-             (let ((tag (tag self)))
-               (labels ((starting-ws-coll-beh (&optional pending)
-                          ;; Shunting behavior awaiting new state information
-                          (alambda
-                           ((atag :coll ws-coll) / (eq atag tag)
-                            ;; Revert back to our original behavior with the updated state info.
-                            (β! (async-socket-system-beh ws-coll))
-                            ;; Tell the customer that we succeeded.
-                            (>> cust :ok)
-                            ;; And send ourself all enqueued messages
-                            (send-all-to self pending))
-                           
-                           (msg
-                            (β! (starting-ws-coll-beh (cons msg pending))))
-                           )))
-                 ;; Non-idempotent behavior must always be relegated
-                 ;; to edge Actors (those without BECOME).
-                 ;;
-                 ;; We can do that by using ON-COMMIT, which will only
-                 ;; be performed if the BECOME is successfully
-                 ;; committed.
-                 ;;
-                 ;; But we need to augment our Actor state with the
-                 ;; results of the non-idempotent action. To do so, we
-                 ;; switch behavior to a special one awaiting the
-                 ;; state update information, while shunting future
-                 ;; messages to a queue.
-                 ;;
-                 ;; Once we get the update info, we can become ourself
-                 ;; again with updated state, and release those pending
-                 ;; messages for re-delivery.
-                 
-                 (β! (starting-ws-coll-beh))
-                 (on-commit
-                   (let ((ws-coll (comm:create-and-run-wait-state-collection
-                                   "Actor Server"
-                                   :handler t)))
-                     (>> tag :coll ws-coll)))
-                 )))
+             (β-become (ws-coll)
+                 ;; non-idempotent action, so we need β-become
+                 (comm:create-and-run-wait-state-collection
+                  "Actor Server"
+                  :handler t)
+               (>> cust :ok)
+               (async-socket-system-beh ws-coll)
+               ))
             ))
      
      ;; --------------------------------------

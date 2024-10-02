@@ -523,4 +523,66 @@
          (or #1#
              (setf #1# ,val-expr)
              ))) )
-         
+
+;; ----------------------------------------------------------
+;; SHUNTING-BECOME - a useful idiom for when non-idemptent actions
+;; produce information that needs to become part of an evolving Actor
+;; state.
+;;
+;; Non-idempotent behavior needs to be relegated to edge Actors
+;; (without BECOME). You can acheive that by wrapping the
+;; non-idempotent actions with ON-COMMIT, which only executes if
+;; successful commit of BECOME.
+;;
+;; But sometimes, those non-idempotent actions produce information
+;; that needs to be folded into the evolving Actor state. The solution
+;; for this is:
+;;
+;;   (A) Use a SERIALIZER around the Actor, then go ahead and perform
+;;   BECOME along with non-idempotent actions - but this penalizes all
+;;   message handlers in the Actor.
+;;
+;; Or else,
+;;
+;;   (B) Temporarily BECOME a shunting behavior which shunts all
+;;   futures messages to a queue while looking for specific update
+;;   information from an ON-COMMIT action.
+;;
+;;   The ON-COMMIT must send its non-idempotent information to this
+;;   temporary Actor behavior. Once the shunting behavior receives the
+;;   state update info, it can revert to its former behavior with
+;;   updated state, and then it can release the pending messages for
+;;   re-delivery to SELF.
+;;
+;; This is all elegantly produced by macro SHUNTING-BECOME, which
+;; carries the surface syntax of MULTIPLE-VALUE-BIND.
+
+(defun shunting-beh (tag beh-upd-fn &optional pending)
+  (alambda
+   ((atag . info) / (eq atag tag)
+    (become (apply beh-upd-fn info))
+    (send-all-to self pending))
+   (msg
+    (become (shunting-beh tag beh-upd-fn (cons msg pending))))
+   ))
+   
+(defmacro shunting-become (info-args action-form &body body)
+  ;; Has the form of MULTIPLE-VALUE-BIND, but body must produce a
+  ;; behavior function.  INFO-ARGS will be the multiple-value result
+  ;; of the action-form.
+  (um:with-unique-names (tag)
+    `(let ((,tag  (tag self)))
+       (become (shunting-beh ,tag (lambda* ,info-args
+                                    ,@body)))
+       (on-commit
+         (send* ,tag (multiple-value-list ,action-form))
+         ))
+    ))
+
+(defmacro β-become (info-args action-form &body body)
+  `(shunting-become ,info-args ,action-form ,@body))
+
+#+:LISPWORKS
+(progn
+  (editor:indent-like "shunting-become" 'destructuring-bind)
+  (editor:indent-like "β-become" 'destructuring-bind))

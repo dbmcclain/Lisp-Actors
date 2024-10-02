@@ -303,6 +303,8 @@ THE SOFTWARE.
    #:restartable
    #:non-idempotent
    #:on-commit
+   #:shunting-become
+   #:β-become
    #:do-nothing
    #:tracing-send
    #:untraced-send
