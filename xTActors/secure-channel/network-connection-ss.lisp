@@ -51,7 +51,7 @@
                             ;; Tell the customer that we succeeded.
                             (>> cust :ok)
                             (>> fmt-println "-- Actor Server started on port ~A --" port)
-                            ;; And send ourself all enqueue messages
+                            ;; And send ourself all enqueued messages
                             (send-all-to self pending))
                            
                            (msg
@@ -176,7 +176,7 @@
                             (β! (async-socket-system-beh ws-coll))
                             ;; Tell the customer that we succeeded.
                             (>> cust :ok)
-                            ;; And send ourself all enqueue messages
+                            ;; And send ourself all enqueued messages
                             (send-all-to self pending))
                            
                            (msg
