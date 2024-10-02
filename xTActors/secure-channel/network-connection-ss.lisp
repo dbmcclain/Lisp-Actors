@@ -28,10 +28,11 @@
              (>>* me msg))))
     (αλ
      ;; --------------------------------------
+     ;; :START-TCP-SERVER - user level message
+
      ((cust :start-tcp-server)
       (send self cust :start-tcp-server *default-port*))
      
-     ;; --------------------------------------
      ((cust :start-tcp-server port)
       (cond ((assoc port aio-accepting-handles) ;; already present?
              (>> cust :ok))
@@ -40,18 +41,39 @@
              ;; already have an async manager?
              (let ((tag  (tag self)))
                (labels ((adding-handle-beh (&optional pending)
+                          ;; Shunting behavior awaiting new state information
                           (alambda
                            ((atag :handle handle) / (eq atag tag)
+                            ;; Revert back to our original behavior with the updated state info.
                             (β! (async-socket-system-beh
                                  ws-collection
                                  (acons port handle aio-accepting-handles)))
+                            ;; Tell the customer that we succeeded.
                             (>> cust :ok)
                             (>> fmt-println "-- Actor Server started on port ~A --" port)
+                            ;; And send ourself all enqueue messages
                             (send-all-to self pending))
                            
                            (msg
                             (β! (adding-handle-beh (cons msg pending))))
                            )))
+                 ;; Non-idempotent behavior must always be relegated
+                 ;; to edge Actors (those without BECOME).
+                 ;;
+                 ;; We can do that by using ON-COMMIT, which will only
+                 ;; be performed if the BECOME is successfully
+                 ;; committed.
+                 ;;
+                 ;; But we need to augment our Actor state with the
+                 ;; results of the non-idempotent action. To do so, we
+                 ;; switch behavior to a special one awaiting the
+                 ;; state update information, while shunting future
+                 ;; messages to a queue.
+                 ;;
+                 ;; Once we get the update info, we can become ourself
+                 ;; again with updated state, and release those pending
+                 ;; messages for re-delivery.
+
                  (β! (adding-handle-beh))
                  (on-commit
                    (let ((handle  (comm:accept-tcp-connections-creating-async-io-states
@@ -68,9 +90,11 @@
             ))
    
      ;; --------------------------------------
+     ;; :CONNECT - user level message
+     ;; Sent from clients wanting to connect to a server.
+     ;; Cust is the CONNECTIONS manager.
+
      ((cust :connect ip-addr ip-port)
-      ;; Message sent from clients wanting to connect to a server.
-      ;; Cust is the CONNECTIONS manager.
       (cond (ws-collection
              (<<* #'comm:create-async-io-state-and-connected-tcp-socket
                   ws-collection
@@ -89,7 +113,10 @@
             ))
      
      ;; --------------------------------------
-     ((cust :shutdown)
+     ;; :SHUTDOWN - user level message.
+     ;; Terminates all extant servers, kills off the async manager.
+
+      ((cust :shutdown)
       (cond (aio-accepting-handles
              (let+ ((me   self)
                     (msg  self-msg)
@@ -103,10 +130,12 @@
             ))
      
      ;; --------------------------------------
-     ((cust :terminate-server)
+     ;; :TERMINATE-SERVER - internal message
+     ;; Normally sent from :SHUTDOWN, but could also be sent by user.
+     
+     ((cust :terminate-server) 
       (>> self cust :termniate-server *default-port*))
      
-     ;; --------------------------------------
      ((cust :terminate-server port)
       (let ((pair (assoc port aio-accepting-handles)))
         (cond (pair
@@ -128,7 +157,10 @@
               )))
      
      ;; --------------------------------------
-     ((cust :start-ws-coll)
+     ;; :START-WS-COLL -- internal message,
+     ;; Sent on demand from :CONNECT and :START-TCP-SERVER.
+     
+     ((cust :start-ws-coll) 
       (cond (ws-collection
              ;; already present?
              (>> cust :ok))
@@ -137,15 +169,36 @@
              (assert (null aio-accepting-handles)) ;; sanity check
              (let ((tag (tag self)))
                (labels ((starting-ws-coll-beh (&optional pending)
+                          ;; Shunting behavior awaiting new state information
                           (alambda
                            ((atag :coll ws-coll) / (eq atag tag)
+                            ;; Revert back to our original behavior with the updated state info.
                             (β! (async-socket-system-beh ws-coll))
+                            ;; Tell the customer that we succeeded.
                             (>> cust :ok)
+                            ;; And send ourself all enqueue messages
                             (send-all-to self pending))
                            
                            (msg
                             (β! (starting-ws-coll-beh (cons msg pending))))
                            )))
+                 ;; Non-idempotent behavior must always be relegated
+                 ;; to edge Actors (those without BECOME).
+                 ;;
+                 ;; We can do that by using ON-COMMIT, which will only
+                 ;; be performed if the BECOME is successfully
+                 ;; committed.
+                 ;;
+                 ;; But we need to augment our Actor state with the
+                 ;; results of the non-idempotent action. To do so, we
+                 ;; switch behavior to a special one awaiting the
+                 ;; state update information, while shunting future
+                 ;; messages to a queue.
+                 ;;
+                 ;; Once we get the update info, we can become ourself
+                 ;; again with updated state, and release those pending
+                 ;; messages for re-delivery.
+                 
                  (β! (starting-ws-coll-beh))
                  (on-commit
                    (let ((ws-coll (comm:create-and-run-wait-state-collection
@@ -156,6 +209,9 @@
             ))
      
      ;; --------------------------------------
+     ;; :TERMINATE-WS-COLLECTION -- internal message
+     ;; Sent from :SHUTDOWN.
+     
      ((cust :terminate-ws-collection)
       (cond (aio-accepting-handles
              (send self cust :shutdown))
