@@ -97,6 +97,7 @@
                     (:β _ (racurry self :terminate-server port)))
                (>>* me msg)
                ))
+            
             (t
              (>> self cust :terminate-ws-collection))
             ))
@@ -128,8 +129,10 @@
      
      ;; --------------------------------------
      ((cust :start-ws-coll)
-      (cond (ws-collection ;; already present?
-                           (>> cust :ok))
+      (cond (ws-collection
+             ;; already present?
+             (>> cust :ok))
+            
             (t
              (assert (null aio-accepting-handles)) ;; sanity check
              (let ((tag (tag self)))
