@@ -28,7 +28,7 @@
   kvdb-actor  ;; the Actor in charge of KVDB management for this KVDB
   path)       ;; the pathname to the backing store
 
-(defun #1=kvdb-orchestrator-beh (gate &optional open-dbs)
+(defun kvdb-orchestrator-beh (gate &optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
    ((cust :make-kvdb path)
@@ -41,32 +41,33 @@
     ;; the +timed-out+ message. In that case we are happy, and the
     ;; sender just needs to reissue the request.
     ;;
-    (handler-bind
-        ((error (lambda (e)
-                  (abort-beh)
-                  (send cust :error e)
-                  (return-from #1#))
-                ))
-      (ensure-file-exists path)
-      (let* ((key   (ino-key path))
-             (quad  (find key open-dbs
-                          :key  #'open-database-ino-key
-                          :test #'string-equal)))
-        (if quad
-            (send cust (open-database-kvdb-actor quad))
-          ;; else - new Open
-          (let* ((tag-to-orch  (tag gate))
-                 (kvdb         (%make-kvdb tag-to-orch path)))
-            (become (kvdb-orchestrator-beh
-                     gate
-                     (cons (make-open-database
-                            :ino-key    key
-                            :orch-tag   tag-to-orch
-                            :kvdb-actor kvdb
-                            :path       path)
-                           open-dbs)))
-            (send cust kvdb)))
-        )))
+    (block #1=maker
+      (handler-bind
+          ((error (lambda (e)
+                    (abort-beh)
+                    (send cust :error e)
+                    (return-from #1#))
+                  ))
+        (ensure-file-exists path)
+        (let* ((key   (ino-key path))
+               (quad  (find key open-dbs
+                            :key  #'open-database-ino-key
+                            :test #'string-equal)))
+          (if quad
+              (send cust (open-database-kvdb-actor quad))
+            ;; else - new Open
+            (let* ((tag-to-orch  (tag gate))
+                   (kvdb         (%make-kvdb tag-to-orch path)))
+              (become (kvdb-orchestrator-beh
+                       gate
+                       (cons (make-open-database
+                              :ino-key    key
+                              :orch-tag   tag-to-orch
+                              :kvdb-actor kvdb
+                              :path       path)
+                             open-dbs)))
+              (send cust kvdb)))
+          ))))
    
    ((atag :update-entry)
     ;; when actual inode changes, as with full-save
