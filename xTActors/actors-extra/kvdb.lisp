@@ -115,8 +115,8 @@
                (send-all-to self msgs))
 
               ((atag . _) / (eq atag tag)
-               (become #'initial-beh)
-               (send-all-to self msgs))
+               ;; error situation
+               (become-sink))
               
               (msg
                (become (stashing-beh tag (cons msg msgs))))
