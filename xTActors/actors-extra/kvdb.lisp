@@ -41,12 +41,11 @@
     ;; the +timed-out+ message. In that case we are happy, and the
     ;; sender just needs to reissue the request.
     ;;
-    (block #1=maker
+    (with-simple-restart (abort "Exit KVDB Orchestrator")
       (handler-bind
           ((error (lambda (e)
                     (abort-beh)
-                    (send cust :error e)
-                    (return-from #1#))
+                    (send cust :error e))
                   ))
         (let* ((key   (ino-key path))
                (quad  (and key

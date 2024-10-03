@@ -271,125 +271,125 @@
    ;; message from kick-off starter routine
    ((cust :open db-path)
     (block udb
-      (handler-bind
-          ;; we are behind a Serializer, so must reply to cust
-          ((error (lambda (err)
-                    (abort-beh) ;; clear out all Send & Become
-                    (become (const-beh :error err))
-                    (send ctrl-tag :remove-entry) ;; tell Orchestrator
-                    (send cust :error err)        ;; tell KVDB Manager
-                    (return-from udb)) ;; being an Actor, the return value is irrelevant and ignored.
-                  ))
-        (labels ((normal-exit (db)
-                   ;; Become a SAVER Actor and tell the KVDB manager
-                   ;; that we are now open for business, and provide
-                   ;; the in-memory KVDB.
-                   (become (save-database-beh db-path db ctrl-tag))
-                   (send cust :opened db)
-                   (return-from udb)) ;; return value irrelevant
+      (handler-case
+          (labels ((normal-exit (db)
+                     ;; Become a SAVER Actor and tell the KVDB manager
+                     ;; that we are now open for business, and provide
+                     ;; the in-memory KVDB.
+                     (become (save-database-beh db-path db ctrl-tag))
+                     (send cust :opened db)
+                     (return-from udb)) ;; return value irrelevant
                  
-                 (prep-and-save-db (db)
-                   ;; Called only when recovering from file errors of
-                   ;; various kinds.
-                   (let* ((dbv  (db-add db 'version (uuid:make-v1-uuid))) ;; update its version
-                          (seq  (db-find dbv 'kvdb-sequence))             ;; ensure it has a kvdb-sequence
-                          (dbs  (if (typep seq 'uuid:uuid)
-                                    dbv
-                                  (db-add dbv 'kvdb-sequence (uuid:make-v1-uuid)))))
-                     (normal-exit (full-save db-path dbs ctrl-tag))))
+                   (prep-and-save-db (db)
+                     ;; Called only when recovering from file errors of
+                     ;; various kinds.
+                     (let* ((dbv  (db-add db 'version (uuid:make-v1-uuid))) ;; update its version
+                            (seq  (db-find dbv 'kvdb-sequence))             ;; ensure it has a kvdb-sequence
+                            (dbs  (if (typep seq 'uuid:uuid)
+                                      dbv
+                                    (db-add dbv 'kvdb-sequence (uuid:make-v1-uuid)))))
+                       (normal-exit (full-save db-path dbs ctrl-tag))))
                  
-                 (prep-and-save-new-db ()
-                   ;; Called when error recovery requires the nuclear
-                   ;; option. A totally empty database results.
-                   (prep-and-save-db (db-new)))
+                   (prep-and-save-new-db ()
+                     ;; Called when error recovery requires the nuclear
+                     ;; option. A totally empty database results.
+                     (prep-and-save-db (db-new)))
                  
-                 (try-deserialize-db (f)
-                   ;; read in the core of the database
-                   (handler-case
-                       (let ((db  (loenc:deserialize f)))
-                         (db-find db 'version) ;; try to tickle error
-                         db)
-                     (error ()
-                       ;; For cases:
-                       ;;  1. We cannot deserialize properly, or
-                       ;;  2. Not a usable database upon deserialization
-                       (if (yes-or-no-p
-                            "Corrupt KVDB: ~S. Rebuild?"
-                            db-path)
-                           (prep-and-save-new-db)
-                         ;; else
-                         (error 'corrupt-kvdb :path db-path)))
-                     ))
+                   (try-deserialize-db (f)
+                     ;; read in the core of the database
+                     (handler-case
+                         (let ((db  (loenc:deserialize f)))
+                           (db-find db 'version) ;; try to tickle error
+                           db)
+                       (error ()
+                         ;; For cases:
+                         ;;  1. We cannot deserialize properly, or
+                         ;;  2. Not a usable database upon deserialization
+                         (if (yes-or-no-p
+                              "Corrupt KVDB: ~S. Rebuild?"
+                              db-path)
+                             (prep-and-save-new-db)
+                           ;; else
+                           (error 'corrupt-kvdb :path db-path)))
+                       ))
                  
-                 (apply-deltas (f db)
-                   ;; Apply the historical log of deltas to the base
-                   ;; database. The log is stored as successive
-                   ;; records in self-sync form. Each record contains
-                   ;; a list of removals, additions, and changes.
-                   (handler-case
-                       (let ((reader (self-sync:make-reader f)))
-                         (loop for ans = (loenc:deserialize f :self-sync reader)
-                               until   (eq ans f)
-                               finally (normal-exit db)
-                               do
-                                 (let+ (( (removals additions changes) ans)
-                                        (:fn add (pairs)
-                                         (dolist (pair pairs)
-                                           (let+ (( (key . val) pair))
-                                             (setf db (db-add db key val))
-                                             ))))
-                                   (dolist (key removals)
-                                     (setf db (db-remove db key)))
-                                   (add additions)
-                                   (add changes)
-                                   )))
-                     (error ()
-                       ;; Happens when can't deserialize properly.
-                       ;;
-                       ;; Under normal circumstances, the self-sync
-                       ;; encoding should just skip over damaged
-                       ;; sections of the log and continue applying
-                       ;; from that point forward. The database could
-                       ;; be somewhat inconsistent if that happens.
-                       ;;
-                       ;; We should, however, never encounter this
-                       ;; error which could only arise if a log record
-                       ;; does not contain a list of removals,
-                       ;; additions, and changes.
-                       ;;
-                       (if (yes-or-no-p
-                            "Corrupt deltas encountered: ~S. Rebuild?"
-                            db-path)
-                           (prep-and-save-db db)
-                         ;; else
-                         (error 'corrupt-deltas :path db-path)) )
-                     )))
+                   (apply-deltas (f db)
+                     ;; Apply the historical log of deltas to the base
+                     ;; database. The log is stored as successive
+                     ;; records in self-sync form. Each record contains
+                     ;; a list of removals, additions, and changes.
+                     (handler-case
+                         (let ((reader (self-sync:make-reader f)))
+                           (loop for ans = (loenc:deserialize f :self-sync reader)
+                                 until   (eq ans f)
+                                 finally (normal-exit db)
+                                 do
+                                   (let+ (( (removals additions changes) ans)
+                                          (:fn add (pairs)
+                                           (dolist (pair pairs)
+                                             (let+ (( (key . val) pair))
+                                               (setf db (db-add db key val))
+                                               ))))
+                                     (dolist (key removals)
+                                       (setf db (db-remove db key)))
+                                     (add additions)
+                                     (add changes)
+                                     )))
+                       (error ()
+                         ;; Happens when can't deserialize properly.
+                         ;;
+                         ;; Under normal circumstances, the self-sync
+                         ;; encoding should just skip over damaged
+                         ;; sections of the log and continue applying
+                         ;; from that point forward. The database could
+                         ;; be somewhat inconsistent if that happens.
+                         ;;
+                         ;; We should, however, never encounter this
+                         ;; error which could only arise if a log record
+                         ;; does not contain a list of removals,
+                         ;; additions, and changes.
+                         ;;
+                         (if (yes-or-no-p
+                              "Corrupt deltas encountered: ~S. Rebuild?"
+                              db-path)
+                             (prep-and-save-db db)
+                           ;; else
+                           (error 'corrupt-deltas :path db-path)) )
+                       )))
           
-          (handler-case
-              (with-open-file (f db-path
-                                 :direction         :input
-                                 :if-does-not-exist :error
-                                 :element-type      '(unsigned-byte 8))
-                (check-kvdb-sig f db-path)
-                (apply-deltas f  (try-deserialize-db f)))
+            (handler-case
+                (with-open-file (f db-path
+                                   :direction         :input
+                                   :if-does-not-exist :error
+                                   :element-type      '(unsigned-byte 8))
+                  (check-kvdb-sig f db-path)
+                  (apply-deltas f  (try-deserialize-db f)))
             
-            ;; Under the Orchestrator these errors should never occur.
-            (file-error (err)
-              (if (yes-or-no-p
-                   "File does not exist: ~S. Create?"
-                   (file-error-pathname err))
-                  (prep-and-save-new-db)
-                ;; else
-                (error err)))
+              ;; Under the Orchestrator these errors should never occur.
+              (file-error (err)
+                (if (yes-or-no-p
+                     "File does not exist: ~S. Create?"
+                     (file-error-pathname err))
+                    (prep-and-save-new-db)
+                  ;; else
+                  (error err)))
             
-            (not-a-kvdb (err)
-              (if (yes-or-no-p
-                   "Not a KVDB file: ~S. Rename existing and create new?"
-                   (not-a-kvdb-path err))
-                  (prep-and-save-new-db)
-                ;; else
-                (error err)))
-            )))))
+              (not-a-kvdb (err)
+                (if (yes-or-no-p
+                     "Not a KVDB file: ~S. Rename existing and create new?"
+                     (not-a-kvdb-path err))
+                    (prep-and-save-new-db)
+                  ;; else
+                  (error err)))
+              ))
+        (error (err)
+          ;; we are behind a Serializer, so must reply to cust
+          (abort-beh) ;; clear out all Send & Become
+          (become (const-beh :error err))
+          (send ctrl-tag :remove-entry) ;; tell Orchestrator
+          (send cust :error err)        ;; tell KVDB Manager
+          ))
+      ))
    ))
   
 ;; ---------------------------------------------------------------
