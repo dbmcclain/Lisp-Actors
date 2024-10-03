@@ -116,7 +116,7 @@
 
               ((atag . _) / (eq atag tag)
                ;; error situation
-               (become-sink))
+               (become #'initial-beh))
               
               (msg
                (become (stashing-beh tag (cons msg msgs))))
