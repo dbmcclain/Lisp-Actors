@@ -40,7 +40,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 (:file "macros")
                 #-:actors-experiments (:file "actor-types")
                 #+:actors-experiments (:file "actor-classes")
-                (:file "actors-mstr")
+                ;; (:file "actors-mstr")
+                (:file "actors-mstr2")
                 (:file "par-xlate")
                 ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
                 ;; (:file "st-send")

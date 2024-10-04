@@ -423,7 +423,7 @@
                             (error "test-error")))
         |#
       ;; (error "Waht!?")
-      (trace-me)
+      ;; (trace-me)
       (>> fmt-println "reval sez: ~S" (um:recover-ans-or-exn ans)))
     ))
 (tst "localhost")
