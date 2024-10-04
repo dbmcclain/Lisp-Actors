@@ -47,7 +47,7 @@
 
 (defstruct (actor
             (:constructor %create (beh)))
-  (beh  #'do-nothing))
+  (beh  #'do-nothing  :type function))
 
 (defun create (&optional (beh #'do-nothing))
   (%create (screened-beh beh)))
@@ -58,10 +58,8 @@
   #F
   (:method ((arg actor))
    (fwd-beh arg))
-  (:method ((arg function))
-   arg)
   (:method (arg)
-   #'do-nothing))
+   arg))
 
 ;; -------------------------------------------
 
