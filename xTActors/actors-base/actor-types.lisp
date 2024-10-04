@@ -47,29 +47,21 @@
 
 (defstruct (actor
             (:constructor %create (beh)))
-  beh)
+  (beh  #'do-nothing))
 
-(defun create (&optional beh)
+(defun create (&optional (beh #'do-nothing))
   (%create (screened-beh beh)))
 
 ;; ----------------------------------------------------------
-
-(defgeneric resolved-beh (beh)
-  #F
-  (:method ((beh function))
-   beh)
-  (:method ((beh symbol))
-   (and (fboundp beh)
-        (symbol-function beh)))
-  (:method (beh)
-   nil))
 
 (defgeneric screened-beh (arg)
   #F
   (:method ((arg actor))
    (fwd-beh arg))
+  (:method ((arg function))
+   arg)
   (:method (arg)
-   arg))
+   #'do-nothing))
 
 ;; -------------------------------------------
 

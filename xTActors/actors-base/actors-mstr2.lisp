@@ -47,9 +47,10 @@ THE SOFTWARE.
 (defgeneric is-pure-sink? (ac)
   ;; used by networking code to avoid sending useless data
   (:method ((ac actor))
-   (not (functionp (resolved-beh (actor-beh ac)))))
+   (eq (sink-beh) (actor-beh ac)))
   (:method (ac)
-   t) )
+   t))
+   
 
 (defun become-sink ()
   (become (sink-beh)))
@@ -62,9 +63,10 @@ THE SOFTWARE.
 ;; simple lists, where the head element specifies the target actor for
 ;; the rest of the message.
 
-(defun send-to-pool (&rest msg)
+(defun send-to-pool (target &rest msg)
   ;; the default SEND for foreign (non-Actor) threads
-  (mpc:mailbox-send *central-mail* msg))
+  (when (actor-p target)
+    (mpc:mailbox-send *central-mail* (cons target msg))))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME
@@ -116,7 +118,7 @@ THE SOFTWARE.
 
 (defun become (new-beh)
   #F
-  (funcall *become* (screened-beh new-beh)))
+  (funcall *become* new-beh))
 
 ;; -----------------------------------
 ;; In an Actor, (ABORT-BEH) undoes any BECOME and SENDS to this point,
