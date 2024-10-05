@@ -303,26 +303,28 @@ THE SOFTWARE.
                  (loop until done
                        do
                          (when-let (evt (mpc:mailbox-read *central-mail* nil timeout))
-                           (let ((*current-message-frame*  (and (car evt) evt))
-                                 (*current-actor*          (cadr evt))   ;; self
-                                 (*current-message*        (cddr evt)))  ;; self-msg
+                           (let ((*current-message-frame*  (and (car (the cons evt)) evt))
+                                 (*current-actor*          (cadr (the cons evt)))   ;; self
+                                 (*current-message*        (cddr (the cons evt))))  ;; self-msg
                              (tagbody
                               RETRY
-                              (setf pend-beh (actor-beh self)
+                              (setf pend-beh (actor-beh (the actor self))
                                     sends    nil)
                               (let ((*current-behavior*  pend-beh)) ;; self-beh
                                 ;; ---------------------------------
                                 ;; Dispatch to Actor behavior with message args
-                                (apply pend-beh self-msg)
+                                (apply (the function pend-beh) (the list self-msg))
                                 
                                 ;; ---------------------------------
                                 ;; Commit BECOME and SENDS
-                                (unless (or (eq self-beh pend-beh)               ;; no BECOME
-                                            (%actor-cas self self-beh pend-beh)) ;; effective BECOME
+                                (unless (or (eq self-beh pend-beh)   ;; no BECOME
+                                            (mpc:compare-and-swap
+                                             (actor-beh (the actor self))
+                                             self-beh pend-beh))     ;; effective BECOME
                                   ;; failed on behavior update - try again...
                                   (go RETRY))
                                 )))
-                           (dolist (msg sends)
+                           (dolist (msg (the list sends))
                              (mpc:mailbox-send *central-mail* msg))
                            ))
                  ))))

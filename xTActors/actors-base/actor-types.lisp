@@ -24,10 +24,10 @@
 ;;  Actor Ref -->| Type | Beh |
 ;;               +------+-----+
 ;;                  |      |
-;;                  |      v      Closure
+;;                  |      v    Closure
 ;;                  |    +----+-------+
 ;;                  v    | Fn | State |
-;;             T(Actor)  +----+-------+     Bindings
+;;             T(Actor)  +----+-------+  Bindings
 ;;                         |      |      +------+-----+-----+---
 ;;                         |      +----->| Data | ... | ... |
 ;;                         |             +------+-----+-----|---
@@ -55,16 +55,10 @@
 ;; ----------------------------------------------------------
 
 (defgeneric screened-beh (arg)
+  (:method ((arg function))
+   arg)
   (:method ((arg actor))
-   (fwd-beh arg))
-  (:method (arg)
-   arg))
+   (fwd-beh arg)) )
 
 ;; -------------------------------------------
-
-(declaim (inline %actor-cas))
-
-(defun %actor-cas (actor old-beh new-beh)
-    (mpc:compare-and-swap (actor-beh (the actor actor))
-                          old-beh new-beh))
 
