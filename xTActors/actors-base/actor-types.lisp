@@ -55,7 +55,6 @@
 ;; ----------------------------------------------------------
 
 (defgeneric screened-beh (arg)
-  #F
   (:method ((arg actor))
    (fwd-beh arg))
   (:method (arg)
