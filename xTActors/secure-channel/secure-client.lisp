@@ -423,7 +423,7 @@
                             (error "test-error")))
         |#
       ;; (error "Waht!?")
-      ;; (trace-me)
+      (trace-me)
       (>> fmt-println "reval sez: ~S" (um:recover-ans-or-exn ans)))
     ))
 (tst "localhost")
@@ -437,6 +437,9 @@
 (tst "zircon.local")
 (tst "fornax.local")
 (tst "sextans.local")
+
+(tracing-on)
+(tracing-off)
 
 (defun tst (host n)
   (let* ((recho (remote-service :echo host))

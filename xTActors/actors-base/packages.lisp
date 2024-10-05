@@ -306,6 +306,10 @@ THE SOFTWARE.
    #:shunting-become
    #:β-become
    #:do-nothing
+   #:tracing-on
+   #:tracing-off
+   #:with-tracing
+   #:without-tracing
    #:tracing-send
    #:untraced-send
    #:trace-me

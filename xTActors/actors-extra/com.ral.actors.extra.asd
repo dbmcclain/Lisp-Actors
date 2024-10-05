@@ -8,7 +8,7 @@
   :version     "3.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2021-2022 by Refined Audiometrics Laboratory. MIT License terms apply."
-  :components  (;; #-:ALLEGRO   (:file "debugging")
+  :components  (#-:ALLEGRO   (:file "debugging")
                 #-:ALLEGRO   (:file "kvdb-package")
                 #-:ALLEGRO   (:file "kvdb-intf")
                 #-:ALLEGRO   (:file "kvdb-saver")

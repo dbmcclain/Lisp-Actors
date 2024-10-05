@@ -93,12 +93,26 @@
 
 ;; ====================================================
 
+(defun tracing-on ()
+  (setf *current-message-frame* t))
+
+(defun tracing-off ()
+  (setf *current-message-frame* nil))
+
+(defmacro with-tracing (&body body)
+  `(let ((*current-message-frame* t))
+     ,@body))
+
+(defmacro without-tracing (&body body)
+  `(let ((*current-message-frame* nil))
+     ,@body))
+
 (defun tracing-send (target &rest msg)
-  (let ((*current-message-frame* t))
+  (with-tracing
     (send* target msg)))
 
 (defun untraced-send (target &rest msg)
-  (let ((*current-message-frame* nil))
+  (without-tracing
     (send* target msg)))
 
 (defun tracer-beh ()
@@ -107,16 +121,18 @@
     (um:nlet iter ((msg   from)
                    (trail nil))
       (cond
-       ((msg-p msg)
-        (unless (msg-id msg)
-          ;; global mutation, needs to be behind a Serializer
-          (setf (msg-id msg) (uuid:make-v1-uuid)))
-        (go-iter (msg-parent msg) (cons (list (msg-id msg)
-                                              (msg-actor msg)
-                                              (msg-args  msg))
-                                        trail)))
+       ((and (consp msg)
+             (consp (car msg)))
+        ;; global mutation, needs to be behind a Serializer
+        (let ((parent (shiftf (car msg) (uuid:make-v1-uuid))))
+          (go-iter parent (cons msg trail))
+          ))
        (t
-        (send cust (cons "=== Traceback ===" (nreverse trail))))
+        (send cust (cons "=== Traceback ===" (nreverse
+                                              (if msg
+                                                  (cons msg trail)
+                                                trail))
+                         )))
        )))
    ))
 

@@ -63,10 +63,17 @@ THE SOFTWARE.
 ;; simple lists, where the head element specifies the target actor for
 ;; the rest of the message.
 
+(defun msg (target args)
+  (declare (list args))
+  (list* *current-message-frame* target args))
+
+(defun raw-send-to-pool (msg)
+  (mpc:mailbox-send *central-mail* msg))
+
 (defun send-to-pool (target &rest msg)
   ;; the default SEND for foreign (non-Actor) threads
   (when (actor-p target)
-    (mpc:mailbox-send *central-mail* (cons target msg))))
+    (raw-send-to-pool (msg target msg))))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME
@@ -89,13 +96,13 @@ THE SOFTWARE.
   (sys-cached *send*
               (prog1
                   (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
-                        *send*         #'send-to-pool)
+                        *send*         #'raw-send-to-pool)
                 (restart-actors-system *nbr-pool*))
               ))
 
 (defun send (target &rest msg)
   (when (actor-p target)
-    (apply (get-send-hook) target msg)))
+    (funcall (get-send-hook) (msg target msg))))
 
 (defun send* (&rest args)
   ;; when last arg is a list that you want destructed
@@ -259,7 +266,7 @@ THE SOFTWARE.
            
            (let (sends pend-beh)
              (flet
-                 ((%send (&rest msg)
+                 ((%send (msg)
                     ;; Within one behavior invocation there can be no
                     ;; significance to the ordering of sent messages.
                     (push msg sends))
@@ -278,9 +285,9 @@ THE SOFTWARE.
                  (loop until done
                        do
                          (when-let (evt (mpc:mailbox-read *central-mail* nil timeout))
-                           (let (;; (*current-message-frame*  (and (msg-parent (the msg evt)) evt))
-                                 (*current-actor*    (car evt))  ;; self
-                                 (*current-message*  (cdr evt))) ;; self-msg
+                           (let ((*current-message-frame*  (and (car evt) evt))
+                                 (*current-actor*          (cadr evt))   ;; self
+                                 (*current-message*        (cddr evt)))  ;; self-msg
                              (tagbody
                               RETRY
                               (setf pend-beh (actor-beh self)
