@@ -142,8 +142,14 @@
 
 (defun search-keys (text intf)
   (let ((selected (loop for key in (all-keys intf)
-                        when (search text (key-to-string key)
-                                     :test #'char-equal)
+                        when
+                          #+:LISPWORKS
+                          (lw:find-regexp-in-string
+                           text
+                           (key-to-string key))
+                          #-:LISPWORKS
+                          (search text (key-to-string key)
+                                  :test #'char-equal)
                           collect key))
         (keys-panel (keys-panel intf)))
     (with-capi-pane keys-panel
