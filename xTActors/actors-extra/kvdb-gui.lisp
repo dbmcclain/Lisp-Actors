@@ -141,17 +141,13 @@
       )))
 
 (defun search-keys (text intf)
-  (let ((selected (loop for key in (all-keys intf)
-                        when
-                          #+:LISPWORKS
-                          (lw:find-regexp-in-string
-                           text
-                           (key-to-string key))
-                          #-:LISPWORKS
-                          (search text (key-to-string key)
-                                  :test #'char-equal)
-                          collect key))
-        (keys-panel (keys-panel intf)))
+  (let* ((pat      (lw:precompile-regexp text))
+         (selected (loop for key in (all-keys intf)
+                         when (lw:find-regexp-in-string
+                               pat
+                               (key-to-string key))
+                           collect key))
+         (keys-panel (keys-panel intf)))
     (with-capi-pane keys-panel
       (setf (capi:collection-items keys-panel) selected)
       (select-and-show-key intf (car selected)))
