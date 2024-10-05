@@ -56,16 +56,34 @@ THE SOFTWARE.
   (become (sink-beh)))
 
 ;; --------------------------------------------------------
-;; Core RUN for Actors
+;; Core RUN Dispatcher for Actors
 
 ;; -------------------------------------------------
-;; Message Frames - submitted to the event queue. Message frames are
-;; simple lists, where the head element specifies the target actor for
-;; the rest of the message.
+;; Message Event Frames - submitted to the event queue. Message frames
+;; are simple lists, where a head element specifies the target actor
+;; for the rest of the message.
+#|
+     Message Event Frame: Just a LIST of items.
+
+      Event
+        |
+     ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐
+     │ Link │ │Target│ │ Msg  │ │ ...  │ │ ...  │
+     └──────┘ └──────┘ └──────┘ └──────┘ └──────┘
+                 |        |
+                SELF      |
+                       SELF-MSG
+                       
+     When tracing, LINK points to parent message frame. Otherwise, NIL.
+     (Potentially very memory and GC costly to keep all parent
+      chains, except those needed along an activation chain of interest.)
+|#
 
 (defun msg (target args)
   (declare (list args))
   (list* *current-message-frame* target args))
+
+;; --------------------------------------------
 
 (defun raw-send-to-pool (msg)
   (mpc:mailbox-send *central-mail* msg))
