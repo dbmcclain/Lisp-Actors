@@ -160,9 +160,9 @@
              (on-commit
                (comm:apply-in-wait-state-collection-process
                 ws-collection
-                (lambda (coll)
+                (lambda ()
                   ;; we are operating in the collection process
-                  (comm:close-wait-state-collection coll)
+                  (comm:close-wait-state-collection ws-collection)
                   ;; this SEND is immediate, since we are not now executing in an Actor
                   (>> cust :ok)
                   (mpc:process-terminate (mpc:get-current-process))
@@ -1055,4 +1055,8 @@
     (lw-start-tcp-server)
   (pushnew '("Start Actor Server" () lw-start-actors-server) mpc:*initial-processes*
            :key #'third))
+|#
+
+#|
+(lw-reset-actors-server)                      
 |#
