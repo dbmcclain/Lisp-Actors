@@ -47,9 +47,6 @@
 ;; Pool. But this cannot be nulled from within a running Actor. It
 ;; must be nulled out by a non-Actor thread.
 
-
-(defvar *exit-lock* (mpc:make-lock))
-
 (defun custodian-beh (&optional threads)
   ;; Custodian holds the list of parallel Actor dispatcher threads
   (alambda
@@ -93,15 +90,17 @@
            (pair    (rassoc my-proc threads)))
       (cond
        (pair
-        ;; Found my proc in the pool.
-        (mpc:with-lock (*exit-lock*)
-          (setf threads (remove pair threads))
-          (if threads
-              ;; more to go
-              (send-to-pool self cust :kill-executives)
-            ;; else - we were the last one.
-            ;; Unblock the SERIALIZER.
-            (send-to-pool cust :ok)))
+        ;; Found my proc in the pool.  Direct mutation okay here,
+        ;; since we are behind a SERIALIZER, *and* during shutdown,
+        ;; only one KILL message is present at a time - even though
+        ;; rebroadcasts may be avoiding the SERIALIZER.
+        (setf threads (remove pair threads))
+        (if threads
+            ;; more to go
+            (send-to-pool self cust :kill-executives)
+          ;; else - we were the last one.
+          ;; Unblock the SERIALIZER.
+          (send-to-pool cust :ok))
         (mpc:process-terminate my-proc)) ;; Adios!
        
        (t
