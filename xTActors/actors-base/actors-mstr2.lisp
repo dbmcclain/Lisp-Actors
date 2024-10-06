@@ -520,6 +520,9 @@ THE SOFTWARE.
 
 (defun* lw-kill-actors _
   (kill-actors-system)
+  (mpc:process-wait "Waiting for Actors Shutdown"
+                    (lambda ()
+                      (null *send*)))
   (print "Actors have been shut down."))
 
 #+:LISPWORKS
