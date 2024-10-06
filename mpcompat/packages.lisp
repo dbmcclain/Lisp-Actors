@@ -35,6 +35,7 @@ THE SOFTWARE.
   (:import-from #:mp
    #:process-name
    #:process-run-function
+   #:process-alive-p
    #:process-kill
    #:process-interrupt
    #:without-preemption
@@ -97,6 +98,7 @@ THE SOFTWARE.
    #:process-property
    #:process-private-property
    #:process-run-function
+   #:process-alive-p
    #:process-terminate
    #:process-interrupt
    #:without-preemption

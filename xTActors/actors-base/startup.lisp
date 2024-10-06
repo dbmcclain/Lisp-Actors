@@ -4,6 +4,41 @@
 ;; ----------------------------------------------------------------
 ;; System start-up and shut-down.
 ;;
+;; A tour de force in SMP programming, the old way...
+;;
+;; Here we have the full blending of Actors with SMP Threading.  Apart
+;; from a small bit in RUN-ACTORS, here we have to wrestle with the
+;; fact that we have no direct control over which threads are running
+;; the Custodian code. But we want each of the dispatch pool threads
+;; to run it during :KILL-EXECUTIVES.
+;;
+;; We want each of the dispatch pool threads to perform its own
+;; suicide from within the Custodian. That way we know that the thread
+;; will be exiting cleanly.
+;;
+;; We can invent one non-pool thread, using ASK, to serve as a
+;; surrogate dispatcher while all the pool threads are shutting down.
+;; But we cannot force that surrogate thread to run anything at all
+;; while performing the ASK.
+;;
+;; Just know that as pool threads die off, we will inevitably find our
+;; ASK thread running the Custodian code.  This might happen very
+;; quickly, or the ASK may get delayed indefinitely by another
+;; delivery task in the event queue.
+;;
+;; But that ASK thread won't be killed. It just needs to find its way
+;; into Custodian so we can have it sleep for bit to stay out of the
+;; way, while pool threads are exiting. The ASK thread will resume
+;; later and perform its duties as a dispatcher. It won't be satisfied
+;; until the :KILL-EXECUTIVES completes.
+;;
+;; But too, it is unknown if any dispatch pool threads are tied up
+;; with long-running tasks, or blocked waiting on I/O. And it may
+;; happen that one or more of those dispatch pool threads will never
+;; see the Custodian code during the shutdown grace period (currently
+;; 5 sec). In that case, we may have to forcibly terminate the
+;; threads.
+;;
 ;; --------------------------------------------
 ;; It is important to realize that going through a SERIALIZER
 ;; *DOESN'T* block a machine thread. It merely prevents the delivery
@@ -42,15 +77,16 @@
 ;; deed. And we have to use a direct SEND-TO-POOL instead of a SEND,
 ;; to avoid restarting the whole pool again.
 ;;
-;; Additionally, when the Pool Threads have shut down, the *SEND*
-;; hook must be nulled, so that future SENDS will restart the thread
-;; Pool. But this cannot be nulled from within a running Actor. It
-;; must be nulled out by a non-Actor thread.
+;; Additionally, when the Pool Threads have shut down, the *SEND* hook
+;; must be nulled, so that future SENDS will restart the thread Pool.
+;; But this hook cannot be nulled from within a running Actor. It must
+;; be nulled out by a non-Actor thread.
 
 (defun custodian-beh (&optional threads)
   ;; Custodian holds the list of parallel Actor dispatcher threads
   (alambda
-   ((cust 'add-executive id)
+   ;; --------------------------------------------
+   ((cust 'add-executive id) ;; internal routine
     (unless (assoc id threads)
       (let ((new-thread (mpc:process-run-function
                          (format nil "Actor Thread #~D" id)
@@ -60,7 +96,7 @@
         (become (custodian-beh (acons id new-thread threads)))
         ))
     (send cust :ok))
-     
+   ;; --------------------------------------------
    ((cust :ensure-executives n)
     (let* ((outer-me  self)
            (rep       (create
@@ -76,10 +112,10 @@
                                )))))
       (send rep 1)
       ))
-     
+   ;; --------------------------------------------
    ((cust :add-executives n)
     (send self cust :ensure-executives (+ (length threads) n)))
-     
+   ;; --------------------------------------------
    ((cust :remove-executive proc)
     (send cust :ok)
     (when threads
@@ -89,7 +125,7 @@
         (unless new-threads
           (%kill-send-hook))
         )))
-    
+   ;; --------------------------------------------
    ((cust :kill-executives)
     ;; Users should not send this message directly -- use function
     ;; KILL-ACTORS-SYSTEM. It sends the :KILL-EXECUTIVES message from
@@ -154,8 +190,7 @@
               ;; We have to unblock the SERIALIZER.
               (send-to-pool gate :ok))))
            )))))
-    
-      
+   ;; --------------------------------------------
    ((cust :get-threads)
     (send cust threads))
    ))
@@ -187,8 +222,8 @@
 ;; In case of long-running Actor behaviors...
 ;;
 ;; If any Dispatch threads remain alive after the grace period,
-;; following a shutdown request, then we hae to forcibly terminate the
-;; threads.
+;; following a shutdown request, then we have to forcibly terminate
+;; the threads.
 
 (defparameter *actors-grace-period*  5f0)
 

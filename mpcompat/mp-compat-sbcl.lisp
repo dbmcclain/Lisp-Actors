@@ -294,3 +294,5 @@ A null timeout means wait forever."
 (defun schedule-timer-relative (timer dt)
   (sb-ext:schedule-timer timer dt))
 
+(defun process-alive-p (proc)
+  (nyi 'process-alive-p))
