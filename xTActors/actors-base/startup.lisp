@@ -31,7 +31,7 @@
        )))
   
    ((cust :ensuring n ix)
-    (cond ((>= ix n)
+    (cond ((> ix n)
            (send cust :ok))
           (t
            (let ((me self))
@@ -42,7 +42,7 @@
           ))
   
    ((cust :ensure-executives n)
-    (send self cust :ensuring n 0))
+    (send self cust :ensuring n 1))
      
    ((cust :add-executives n)
     (send self cust :ensure-executives (+ (length threads) n)))
