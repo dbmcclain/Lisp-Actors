@@ -5,44 +5,37 @@
 ;; System start-up and shut-down.
 ;;
 
+(defvar *exit-lock* (mpc:make-lock))
+
 (defun custodian-beh (&optional threads)
   ;; Custodian holds the list of parallel Actor dispatcher threads
   (alambda
-   ((cust :add-executive id)
+   ((cust 'add-executive id)
     (unless (assoc id threads)
       (let ((new-thread (mpc:process-run-function
                          (format nil "Actor Thread #~D" id)
                          ()
-                         #'run-custodian-aware-actors)
-                        ))
+                         #'run-actors
+                         )))
         (become (custodian-beh (acons id new-thread threads)))
         ))
     (send cust :ok))
 
-   ((cust :remove-me proc)
-    (let ((pair (rassoc proc threads)))
-      (cond
-       (pair
-        (let ((new-lst (remove pair threads)))
-          (become (custodian-beh new-lst))
-          (send cust new-lst)))
-       (t
-        (send cust :ok))
-       )))
-  
-   ((cust :ensuring n ix)
-    (cond ((> ix n)
-           (send cust :ok))
-          (t
-           (let ((me self))
-             (β _
-                 (send self β :add-executive ix)
-               (send me cust :ensuring n (1+ ix)))
-             ))
-          ))
-  
    ((cust :ensure-executives n)
-    (send self cust :ensuring n 1))
+    (let* ((outer-me  self)
+           (rep       (create
+                       (lambda (ix)
+                         (cond ((> ix n)
+                                (send cust :ok))
+                               (t
+                                (let ((inner-me self))
+                                  (β _
+                                      (send outer-me β 'add-executive ix)
+                                    (send inner-me (1+ ix)))
+                                  ))
+                               )))))
+      (send rep 1)
+      ))
      
    ((cust :add-executives n)
     (send self cust :ensure-executives (+ (length threads) n)))
@@ -50,15 +43,39 @@
    ((cust :kill-executives)
     ;; Users should not send this message directly -- use function
     ;; KILL-ACTORS-SYSTEM from a non-Actor thread. Only works properly
-    ;; when called by a non-Actor thread using a single-thread direct
-    ;; dispatcher, as with ASK.
-    (become (custodian-beh nil))
-    (send cust :ok)
-    (let* ((my-thread     (mpc:get-current-process))
-           (other-threads (remove my-thread (mapcar #'cdr threads))))
-      (map nil #'mpc:process-terminate other-threads)
-      ))
-     
+    ;; when called by a non-Actor thread using a direct dispatcher, as
+    ;; with ASK.
+    ;;
+    (let* ((my-proc (mpc:get-current-process))
+           (pair    (rassoc my-proc threads)))
+      (cond
+       (pair
+        ;; Found my proc in the pool.
+        (mpc:with-lock (*exit-lock*)
+          (setf threads (remove pair threads))
+          (if threads
+              ;; more to go
+              (send-to-pool self cust :kill-executives)
+            ;; else - we were the last one.
+            ;; Unblock the SERIALIZER.
+            (send-to-pool cust :ok)))
+        (mpc:process-terminate my-proc)) ;; Adios!
+       
+       (t
+        ;; We must be in a non-pool ASK thread.
+        (cond
+         (threads
+          ;; Still are some active pool threads,
+          ;; so try again and get out of the way for a moment.
+          (send-to-pool self cust :kill-executives)
+          (sleep 1))
+         
+         (t
+          ;; Someone else must have done this before we did.
+          ;; We have to unblock the SERIALIZER.
+          (send cust :ok))))
+       )))
+
    ((cust :get-threads)
     (send cust threads))
    ))
@@ -70,8 +87,7 @@
 ;; User-level Functions
 
 (defun actors-running-p ()
-  (or self
-      (ask custodian :get-threads)))
+  *send*)
 
 (defun add-executives (n)
   (if self
@@ -90,21 +106,17 @@
   ;; from an Actor thread. Of course, that will also cause the Actor
   ;; (and all others) to be killed.
   (when (actors-running-p)
-    (non-idempotent
-      (mpc:funcall-async
-       (lambda ()
-         ;; we are now running in a known non-Actor thread
-         (ask custodian :kill-executives)
-         (mpc:atomic-exchange *send* nil))
-       ))))
-
-(defun run-custodian-aware-actors ()
-  (unwind-protect
-      (run-actors)
-    (unless (ask custodian :remove-me (mpc:get-current-process))
-      (mpc:atomic-exchange *send* nil))))
+    (mpc:funcall-async
+     (lambda ()
+       ;; We are now running in a known non-Actor thread
+       (ask custodian :kill-executives)
+       (mpc:atomic-exchange *send* nil))
+     )))
 
 #|
 (kill-actors-system)
 (restart-actors-system)
- |# ;
+
+(mpc:atomic-exchange *send* nil)
+(identity *send*)
+|#
