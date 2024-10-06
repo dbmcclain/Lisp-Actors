@@ -4,6 +4,49 @@
 ;; ----------------------------------------------------------------
 ;; System start-up and shut-down.
 ;;
+;; --------------------------------------------
+;; It is important to realize that going through a SERIALIZER
+;; *DOESN'T* block a machine thread. It merely prevents the delivery
+;; of additional messages to an Actor. The dispatch threads remain
+;; unblocked and ready to handle any other messages.
+;;
+;; Message SENDS are *NOT* talking to other threads. They are simply
+;; stating that, if a dispatch thread is available, it should pick up
+;; and deliver the message to an Actor. The Actor system is thread
+;; agnostic. But it needs at least one Dispatch thread running.
+;;
+;; Any of the Dispatch threads can enter the CUSTODIAN, including all
+;; the Dispatch Pool threads and any additional extant ASK threads.
+;; But due to the SERIALIZER, only one of them can enter the Custodian
+;; at a time.
+;;
+;; For graceful Shutdown, we have each of the Pool threads terminate
+;; themself. That way we aren't clobbering some activity in its midst.
+;;
+;; But there is no guarantee that a Pool thread is running the
+;; Custodian. It might be an ASK thread helping out.
+;;
+;; If an ASK thread is the one running the Custodian for Shutdown,
+;; then it must re-broadcast the :KILL-EXECUTIVES message using
+;; immediate SEND-TO-POOL, then stand down for a while to allow some
+;; Pool thread to handle the message. But this time, the message
+;; avoids going through the SERIALIZER.
+;;
+;; As a pool thread finds itself handling the Kill message, it removes
+;; itself from the ledger of pool threads and, if any remain, it
+;; re-broadcasts the Kill messasge to nudge another pool thread to
+;; have a go.
+;;
+;; The SERIALIZER gets unblocked after the last Pool Thread has killed
+;; itself. For message delivery, a running ASK handler has to do the
+;; deed. And we have to use a direct SEND-TO-POOL instead of a SEND,
+;; to avoid restarting the whole pool again.
+;;
+;; Additionally, when the Pool Threads have shut down, the *SEND*
+;; hook must be nulled, so that future SENDS will restart the thread
+;; Pool. But this cannot be nulled from within a running Actor. It
+;; must be nulled out by a non-Actor thread.
+
 
 (defvar *exit-lock* (mpc:make-lock))
 
@@ -73,7 +116,7 @@
          (t
           ;; Someone else must have done this before we did.
           ;; We have to unblock the SERIALIZER.
-          (send cust :ok))))
+          (send-to-pool cust :ok))))
        )))
 
    ((cust :get-threads)
