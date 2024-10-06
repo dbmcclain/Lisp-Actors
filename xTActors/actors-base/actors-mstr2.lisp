@@ -85,13 +85,13 @@ THE SOFTWARE.
 
 ;; --------------------------------------------
 
-(defun raw-send-to-pool (msg)
+(defun %send-to-pool (msg)
   (mpc:mailbox-send *central-mail* msg))
 
 (defun send-to-pool (target &rest msg)
   ;; the default SEND for foreign (non-Actor) threads
   (when (actor-p target)
-    (raw-send-to-pool (msg target msg))))
+    (%send-to-pool (msg target msg))))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME
@@ -114,7 +114,7 @@ THE SOFTWARE.
   (sys-cached *send*
               (prog1
                   (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
-                        *send*         #'raw-send-to-pool)
+                        *send*         #'%send-to-pool)
                 (restart-actors-system *nbr-pool*))
               ))
 
@@ -398,7 +398,7 @@ THE SOFTWARE.
      (send* cust msg))))
 
 ;; ------------------------------------------------
-;; The bridge between imperative code and the Actors world
+;; ASK - The bridge between imperative code and the Actors world
 ;;
 ;; Foreign threads can use ASK to query an Actor that provides a
 ;; response to a customer. It is superfluous to do so from an Actor.
@@ -412,7 +412,7 @@ THE SOFTWARE.
 ;; Then at the eariliest opportunity the (now dispatcher) current
 ;; thread returns with that answer.
 ;;
-;; If your thread is busy performing a behavior, you have to wait
+;; If your thread becomes busy performing a behavior, you have to wait
 ;; until that behavior finishes. If it is idle, waiting for message
 ;; Events at the Central Mailbox when the answer is generated, then
 ;; you will return within 1s. If your thread is the one generating the
@@ -424,15 +424,15 @@ THE SOFTWARE.
 ;; ASK performs an immediate reified SEND. So, when called from within
 ;; an Actor behavior, that violates transactional boundaries, and can
 ;; produce leakage that is best avoided. If you are in an Actor
-;; behavior it is still better to avoid using ASK, and use β-forms for
-;; CPS Actor style.
+;; behavior it is better to avoid using ASK, and use β-forms for CPS
+;; Actor style.
 
 (define-condition recursive-ask (warning)
   ()
   (:report (lambda (c stream)
              (declare (ignore c))
              (format stream
-                     "Calling ASK from within an Actor has you violating transactional boundaries.
+                     "An Actor calling ASK violates transactional boundaries.
          Try using β-forms instead."))))
 
 (defun do-with-recursive-ask (fn)
