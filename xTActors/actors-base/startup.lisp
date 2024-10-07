@@ -174,7 +174,7 @@
               ;; Unblock the SERIALIZER, and kill the send-hook.
               (send-to-pool gate :ok)) )
             
-            (mpc:process-terminate my-proc)) ;; Adios!
+            (mpc:current-process-kill)) ;; Adios!
            
            (t
             ;; We must be in a non-pool ASK thread.
