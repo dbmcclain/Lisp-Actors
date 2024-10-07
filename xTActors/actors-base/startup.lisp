@@ -97,7 +97,7 @@
         ))
     (send cust :ok))
    ;; --------------------------------------------
-   ((cust :ensure-executives n)
+   ((cust 'ensure-executives n)
     (let* ((outer-me  self)
            (rep       (create
                        (lambda (ix)
@@ -113,10 +113,10 @@
       (send rep 1)
       ))
    ;; --------------------------------------------
-   ((cust :add-executives n)
-    (send self cust :ensure-executives (+ (length threads) n)))
+   ((cust 'add-executives n)
+    (send self cust 'ensure-executives (+ (length threads) n)))
    ;; --------------------------------------------
-   ((cust :remove-executive proc)
+   ((cust 'remove-executive proc)
     (send cust :ok)
     (when threads
       (let* ((pair        (rassoc proc threads))
@@ -126,7 +126,7 @@
           (%kill-send-hook))
         )))
    ;; --------------------------------------------
-   ((cust :kill-executives)
+   ((cust 'kill-executives)
     ;; Users should not send this message directly -- use function
     ;; KILL-ACTORS-SYSTEM. It sends the :KILL-EXECUTIVES message from
     ;; a non-Actor thread. This code only works properly if there is a
@@ -190,10 +190,10 @@
               ;; We have to unblock the SERIALIZER.
               (send-to-pool gate :ok))))
            )))))
-   ;; --------------------------------------------
-   ((cust :get-threads)
-    (send cust threads))
-   ))
+    ;; --------------------------------------------
+    ((cust :get-threads)
+     (send cust threads))
+    ))
 
 (deflex* custodian
   (serializer (create (custodian-beh))))
@@ -263,32 +263,37 @@ Do you want to terminate them?")
   *send*)
 
 (defun add-executives (n)
+  (check-type n (integer 0 *))
   (if self
-      (send custodian sink :add-executives n)
-    (ask custodian :add-executives n)))
+      (send custodian sink 'add-executives n)
+    (ask custodian 'add-executives n)))
 
 (defun restart-actors-system (&optional (nbr-execs *nbr-pool*))
   ;; Users don't normally need to call this function. It is
   ;; automatically called on the first message SEND.
+  (check-type nbr-execs (integer 1 *))
   (if self
-      (send custodian sink :ensure-executives nbr-execs)
-    (ask custodian :ensure-executives nbr-execs)))
+      (send custodian sink 'ensure-executives nbr-execs)
+    (ask custodian 'ensure-executives nbr-execs)))
 
 (defun kill-actors-system ()
   ;; The FUNCALL-ASYNC assures that this will work, even if called
   ;; from an Actor thread. Of course, that will also cause the Actor
   ;; (and all others) to be killed.
-  (mpc:funcall-async
-   (lambda ()
-     ;; We are now running in a known non-Actor thread
-     (ask custodian :kill-executives)
-     )))
+  (when (actors-running-p)
+    (mpc:funcall-async
+     (lambda ()
+       ;; We are now running in a known non-Actor thread
+       (ask custodian 'kill-executives)
+       ))))
 
 (defun custodian-aware-run-actors ()
+  ;; A type of dispatcher that will remove itself from the Custodian
+  ;; on abnormal exit.
   (unwind-protect
       (run-actors)
     (let ((proc  (mpc:get-current-process)))
-      (send-to-pool custodian sink :remove-executive proc))
+      (send-to-pool custodian sink 'remove-executive proc))
     ))
 
 #|
