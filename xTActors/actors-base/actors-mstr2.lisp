@@ -516,14 +516,16 @@ THE SOFTWARE.
 
 (defun* lw-start-actors _
   (mpc:atomic-exchange *send* nil)
-  (princ "Actors are alive!"))
+  (princ "Actors are alive!")
+  (values))
 
 (defun* lw-kill-actors _
   (kill-actors-system)
   (mpc:process-wait "Waiting for Actors Shutdown"
                     (lambda ()
                       (null *send*)))
-  (print "Actors have been shut down."))
+  (princ "Actors have been shut down.")
+  (values))
 
 #+:LISPWORKS
 (let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))
