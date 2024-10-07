@@ -108,10 +108,6 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-#|
-(defvar *send-hook*  nil)
-|#
-
 (defun get-send-hook ()
   (sys-cached *send-hook*
               (prog1
@@ -136,15 +132,6 @@ THE SOFTWARE.
 
 ;; ---------------------------------------
 
-#|
-(defvar *not-actor*  "Not in an Actor")
-
-(defvar *become-hook*
-  (lambda (new-beh)
-    (declare (ignore new-beh))
-    (error *not-actor*)))
-|#
-
 (defun become (new-beh)
   #F
   (funcall *become-hook* new-beh))
@@ -154,11 +141,6 @@ THE SOFTWARE.
 ;; but allows Actor to exit normally. In contrast to ERROR action
 ;; which aborts all BECOME and SENDs and exits immediately. ABORT-BEH
 ;; allows subsequent SENDs and BECOME to still take effect.
-
-#|
-(defvar *abort-beh-hook*
-  #'do-nothing)
-|#
 
 (defun abort-beh ()
   (funcall *abort-beh-hook*))
