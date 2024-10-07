@@ -93,28 +93,31 @@
 
 ;; ====================================================
 
+(defun set-parent (t/f)
+  (setf com.ral.actors.base:*self-msg-parent* t/f))
+
 (defun tracing-on ()
-  (setf msg-parent t))
+  (set-parent t))
 
 (defun tracing-off ()
-  (setf msg-parent nil))
+  (set-parent nil))
 
-(defun do-with-protected-frame (state fn)
-  (let ((old-frame msg-parent))
+(defun do-with-protected-parent (t/f fn)
+  (let ((old-parent self-msg-parent))
     (unwind-protect
         (progn
-          (setf msg-parent state)
+          (set-parent t/f)
           (funcall fn))
-      (setf msg-parent old-frame)
+      (set-parent old-parent)
       )))
 
 (defmacro with-tracing (&body body)
-  `(do-with-protected-frame t (lambda ()
-                                ,@body)))
+  `(do-with-protected-parent t (lambda ()
+                                 ,@body)))
 
 (defmacro without-tracing (&body body)
-  `(do-with-protected-frame nil (lambda ()
-                                  ,@body)))
+  `(do-with-protected-parent nil (lambda ()
+                                   ,@body)))
 
 (defun tracing-send (target &rest msg)
   (with-tracing
@@ -149,15 +152,15 @@
   (serializer (create (tracer-beh))))
 
 (defun trace-me ()
-  (send tracer writeln :trace msg-parent))
+  (send tracer writeln :trace self-msg-parent))
 
 (defun dbg-trace ()
   ;; for use in a debugger REPL
-  (send-to-pool tracer writeln :trace msg-parent))
+  (send-to-pool tracer writeln :trace self-msg-parent))
 
 (defun dbg-trace-inspect ()
   ;; for use in a debugger REPL
-  (send-to-pool tracer (create #'inspect) :trace msg-parent))
+  (send-to-pool tracer (create #'inspect) :trace self-msg-parent))
 
 ;; ---------------------------------------------------
 ;; Memory Stressor... When message tracing is on, this chews up

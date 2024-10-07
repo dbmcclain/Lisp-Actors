@@ -25,31 +25,70 @@
 ;;
 ;; Group them all together into one single dynamic binding for speed.
 
-(defstruct dyn-specials
+(defstruct user-dyn-specials
+  ;; User level bindings are read-only
+  (self            nil :read-only t)
+  (self-beh        nil :read-only t)
+  (self-msg        nil :read-only t)
+  (self-msg-parent nil :read-only t))
+
+(defstruct (sys-dyn-specials
+            (:include user-dyn-specials
+             (self            nil :read-only nil)
+             (self-beh        nil :read-only nil)
+             (self-msg        nil :read-only nil)
+             (self-msg-parent nil :read-only nil)))
+  ;; Sys level access has both readers and writers.
+  ;; We need this to be a STRUCT so that we can
+  ;; emply CAS against a slot.
   (send-hook      nil)
   (become-hook    (lambda (new-beh)
                     (declare (ignore new-beh))
                     (error "Not in an Actor")))
-  (abort-beh-hook #'do-nothing)
-  self self-beh self-msg msg-parent)
+  (abort-beh-hook #'do-nothing))
 
-(defvar *dyn-specials* (make-dyn-specials))
+(defvar *dyn-specials*  (make-sys-dyn-specials))
+
+;; --------------------------------------------
+;; R/W Access for the system level code
 
 (define-symbol-macro *send-hook*
-  (dyn-specials-send-hook      (the dyn-specials *dyn-specials*)))
-(define-symbol-macro *become-hook*
-  (dyn-specials-become-hook    (the dyn-specials *dyn-specials*)))
-(define-symbol-macro *abort-beh-hook*
-  (dyn-specials-abort-beh-hook (the dyn-specials *dyn-specials*)))
-(define-symbol-macro self
-  (dyn-specials-self           (the dyn-specials *dyn-specials*)))
-(define-symbol-macro self-beh
-  (dyn-specials-self-beh       (the dyn-specials *dyn-specials*)))
-(define-symbol-macro self-msg
-  (dyn-specials-self-msg       (the dyn-specials *dyn-specials*)))
-(define-symbol-macro msg-parent
-  (dyn-specials-msg-parent     (the dyn-specials *dyn-specials*)))
+  (sys-dyn-specials-send-hook (the sys-dyn-specials *dyn-specials*)))
 
+(define-symbol-macro *become-hook*
+  (sys-dyn-specials-become-hook (the sys-dyn-specials *dyn-specials*)))
+
+(define-symbol-macro *abort-beh-hook*
+  (sys-dyn-specials-abort-beh-hook (the sys-dyn-specials *dyn-specials*)))
+
+(define-symbol-macro *self*
+  (sys-dyn-specials-self (the sys-dyn-specials *dyn-specials*)))
+
+(define-symbol-macro *self-beh*
+  (sys-dyn-specials-self-beh (the sys-dyn-specials *dyn-specials*)))
+
+(define-symbol-macro *self-msg*
+  (sys-dyn-specials-self-msg (the sys-dyn-specials *dyn-specials*)))
+
+(define-symbol-macro *self-msg-parent*
+  (sys-dyn-specials-self-msg-parent (the sys-dyn-specials *dyn-specials*)))
+
+;; --------------------------------------------
+;; Readonly versions for user code
+
+(define-symbol-macro self
+  (user-dyn-specials-self (the user-dyn-specials *dyn-specials*)))
+
+(define-symbol-macro self-beh
+  (user-dyn-specials-self-beh (the user-dyn-specials *dyn-specials*)))
+
+(define-symbol-macro self-msg
+  (user-dyn-specials-self-msg (the user-dyn-specials *dyn-specials*)))
+
+(define-symbol-macro self-msg-parent
+  (user-dyn-specials-self-msg-parent (the user-dyn-specials *dyn-specials*)))
+
+;; --------------------------------------------
 #|
  *SEND-HOOK*, *BECOME-HOOK*, *ABORT-BEH-HOOK*
    - dynamic runtime hooks for SEND, BECOME, ABORT-BEH

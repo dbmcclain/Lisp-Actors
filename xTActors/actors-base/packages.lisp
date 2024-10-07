@@ -115,9 +115,9 @@ THE SOFTWARE.
    #:self-beh
    #:self-env
    #:self-msg
+   #:self-msg-parent
    #:screened-beh
    #:resolved-beh
-   #:msg-frame
    
    #:actor
    #:actor-p
@@ -364,9 +364,8 @@ THE SOFTWARE.
    #:rd
    #:wr)
   (:export
-   #:*current-actor*
-   ;; #:*current-env*
    #:protecting-variables
+   #:*self-msg-parent*
    ))
 
 (defpackage #:com.ral.actors.types

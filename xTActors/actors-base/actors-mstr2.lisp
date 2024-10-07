@@ -81,7 +81,7 @@ THE SOFTWARE.
 
 (defun msg (target args)
   (declare (list args))
-  (list* msg-parent target args))
+  (list* self-msg-parent target args))
 
 ;; --------------------------------------------
 
@@ -303,14 +303,14 @@ THE SOFTWARE.
            (loop until done
                  do
                    (when-let (evt (mpc:mailbox-read *central-mail* nil timeout))
-                     (setf msg-parent (and (car (the cons evt)) evt)
-                           self       (cadr (the cons evt))   ;; self
-                           self-msg   (cddr (the cons evt)))  ;; self-msg
+                     (setf *self-msg-parent* (and (car (the cons evt)) evt)
+                           *self*            (cadr (the cons evt))   ;; self
+                           *self-msg*        (cddr (the cons evt)))  ;; self-msg
                      (tagbody
                       RETRY
-                      (setf pend-beh (actor-beh (the actor self))
-                            sends    nil
-                            self-beh pend-beh)
+                      (setf pend-beh   (actor-beh (the actor self))
+                            sends      nil
+                            *self-beh* pend-beh)
                       ;; ---------------------------------
                       ;; Dispatch to Actor behavior with message args
                       (apply (the function pend-beh) (the list self-msg))
@@ -338,7 +338,7 @@ THE SOFTWARE.
                                #'dispatch-loop #'dispatcher))
       ;; --------------------------------------------
 
-      (let ((our-specials (make-dyn-specials
+      (let ((our-specials (make-sys-dyn-specials
                            :send-hook      #'%send
                            :become-hook    #'%become
                            :abort-beh-hook #'%abort-beh
