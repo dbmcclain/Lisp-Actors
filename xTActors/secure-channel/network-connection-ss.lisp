@@ -836,7 +836,7 @@
         )))
    ))
 
-(deflex connections
+(deflex* connections
   (create (connections-list-beh)))
 
 #|
@@ -1019,6 +1019,9 @@
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
   ;;
+  (setf async-socket-system (create (async-socket-system-beh)))
+  (setf get-server-count    (create (auto-counter-beh)))
+  (setf connections         (create (connections-list-beh)))
   (ask async-socket-system :start-tcp-server)
   ;; flush pending messages...
   (ask true))
