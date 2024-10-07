@@ -147,9 +147,9 @@
                     ;; should be running, but THREADS may still have
                     ;; them in the list. It is safe to zap the list
                     ;; here. We are running in an ASK thread.
-                    (send-to-pool cust ans)
                     (setf threads nil)
-                    (%kill-send-hook))
+                    (%kill-send-hook)
+                    (send-to-pool cust ans))
                   ))))
       (%setup-dead-man-switch gate (mapcar #'cdr threads))
       (with-actors
