@@ -233,13 +233,13 @@
         ((kill-with-prejudice ()
            (when-let (alive  (remove-if (complement #'mpc:process-alive-p) procs))
              (cond
-              ((y-or-n-p "Some dispatch threads have not shut down.
-Do you want to terminate them?")
+              ((y-or-n-p "Some dispatch threads are still running.
+Terminate them?")
                (dolist (proc alive)
                  (mpc:process-terminate proc))
                (send-to-pool cust :ok)
                (terpri)
-               (princ "Dispatch threads had to be forcefully terminated."))
+               (princ "Dispatch threads were forcefully terminated."))
               
               (t
                (mpc:schedule-timer-relative timer *actors-grace-period*))
