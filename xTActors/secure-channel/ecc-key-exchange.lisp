@@ -13,9 +13,8 @@
 ;; If you need to delete before adding:
 ;;  security delete-generic-password -a $USER -s 'LispActorsSystem'
 
-(deflex ecc-skey
-  (create
-   (behav (cust)
+(defun ecc-skey-beh ()
+  (behav (cust)
      (flet (
             #+:MACOSX
             (get-seed ()
@@ -35,8 +34,36 @@
                      )))
          (>> cust skey)
          (β! (const-beh skey)))
-       ))
-   ))
+       )))
+
+(deflex ecc-skey
+  (create (ecc-skey-beh)))
+
+;; --------------------------------------------
+
+(defun* lw-start-ke _
+  (setf ecc-skey (create (ecc-skey-beh))))
+
+(defun* lw-kill-ke _
+  (setf ecc-skey (create (ecc-skey-beh))))
+
+#+:LISPWORKS
+(let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))
+
+  (lw:define-action "Initialize LispWorks Tools"
+                    "Start up ECC Key Exchange"
+                    'lw-start-ke
+                    :after "Run the environment start up functions"
+                    :once)
+
+  (lw:define-action "Save Session Before"
+                    "Stop ECC Key Exchange"
+                    'lw-kill-ke)
+
+  (lw:define-action "Save Session After"
+                    "Restart ECC Key Exchange"
+                    'lw-start-ke)
+  )
 
 ;; -----------------------------------------------------------
 ;; Signed Items - data + PKey + Schnorr signature.

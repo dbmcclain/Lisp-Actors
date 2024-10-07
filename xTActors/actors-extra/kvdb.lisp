@@ -135,7 +135,7 @@
                                     (format nil "~A/" (sb-ext:posix-getenv "HOME")))
                    ))
 
-(deflex kvdb
+(deflex* kvdb
   ;; The main Actor for just the goof-around KVDB. Make your own for
   ;; others.
   (kvdb-gateway *db-path*))
@@ -164,6 +164,35 @@
               (push k keys)))
     (send cust (sort keys #'string< :key #'key-to-string))
     ))
+
+;; --------------------------------------------
+
+(defun* lw-start-kvdb _
+  (setf kvdb-orchestrator  (create (kvdb-orchestrator-beh)))
+  (setf kvdb               (kvdb-gateway *db-path*)))
+
+(defun* lw-kill-kvdb _
+  (princ "Allowing KVDB to sync before shutting down.")
+  (sleep 11)) ;; give us time to sync
+
+#+:LISPWORKS
+(let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))
+
+  (lw:define-action "Initialize LispWorks Tools"
+                    "Start up KVDB"
+                    'lw-start-kvdb
+                    :after "Run the environment start up functions"
+                    :once)
+
+  (lw:define-action "Save Session Before"
+                    "Stop KVDB"
+                    'lw-kill-kvdb)
+
+  (lw:define-action "Save Session After"
+                    "Restart KVDB"
+                    'lw-start-kvdb)
+  )
+
 
 ;; -----------------------------------------------------
 ;; more goofing around...

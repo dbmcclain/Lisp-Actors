@@ -516,6 +516,7 @@ THE SOFTWARE.
 
 (defun* lw-start-actors _
   (mpc:atomic-exchange *send* nil)
+  (init-custodian)
   (princ "Actors are alive!")
   (values))
 

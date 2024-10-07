@@ -1,4 +1,5 @@
 
+
 (in-package #:com.ral.actors.base)
 
 ;; ----------------------------------------------------------------
@@ -197,6 +198,9 @@
 
 (deflex* custodian
   (serializer (create (custodian-beh))))
+
+(defun init-custodian ()
+  (setf custodian (serializer (create (custodian-beh)))))
 
 ;; --------------------------------------------
 ;; Resetting the *SEND* hook after shutdown
