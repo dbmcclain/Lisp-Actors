@@ -102,11 +102,6 @@ THE SOFTWARE.
    #:kill-actors-system
    #:add-executives
 
-   #:*current-actor*
-   #:*current-beh*
-   #:*current-message*
-   #:*current-env*
-   
    #:become
    #:abort-beh
    #:send
@@ -122,6 +117,7 @@ THE SOFTWARE.
    #:self-msg
    #:screened-beh
    #:resolved-beh
+   #:msg-frame
    
    #:actor
    #:actor-p

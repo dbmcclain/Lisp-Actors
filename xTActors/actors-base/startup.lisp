@@ -203,7 +203,7 @@
   (setf custodian (serializer (create (custodian-beh)))))
 
 ;; --------------------------------------------
-;; Resetting the *SEND* hook after shutdown
+;; Resetting the *SEND-HOOK* after shutdown
 
 (defun %kill-send-hook ()
   (mpc:funcall-async
@@ -218,7 +218,7 @@
           (go again)
           ))
        (unless threads
-         (mpc:atomic-exchange *send* nil))
+         (mpc:atomic-exchange *send-hook* nil))
        ))
    ))
 
@@ -228,8 +228,6 @@
 ;; If any Dispatch threads remain alive after the grace period,
 ;; following a shutdown request, then we have to forcibly terminate
 ;; the threads.
-
-(defparameter *actors-grace-period*  5f0)
 
 (defun %setup-dead-man-switch (cust procs)
   (let (timer)
@@ -275,7 +273,7 @@ Terminate them?")
 ;; User-level Functions
 
 (defun actors-running-p ()
-  *send*)
+  *send-hook*)
 
 (defun add-executives (n)
   (check-type n (integer 0 *))
@@ -306,7 +304,7 @@ Terminate them?")
 (kill-actors-system)
 (restart-actors-system)
 
-(mpc:atomic-exchange *send* nil)
-(print *send*)
+(mpc:atomic-exchange *send-hook* nil)
+(print *send-hook*)
 (send println :hello)
 |#
