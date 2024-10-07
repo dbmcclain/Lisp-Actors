@@ -91,7 +91,7 @@
       (let ((new-thread (mpc:process-run-function
                          (format nil "Actor Thread #~D" id)
                          ()
-                         #'custodian-aware-run-actors
+                         #'custodian-aware-dispatcher
                          )))
         (become (custodian-beh (acons id new-thread threads)))
         ))
@@ -256,6 +256,17 @@ Terminate them?")
   (sleep 1)
   (lw-kill-actors))
 |#
+;; --------------------------------------------
+
+(defun custodian-aware-dispatcher ()
+  ;; A type of dispatcher that will remove itself from the Custodian's
+  ;; dispatch pool on abnormal exit.
+  (unwind-protect
+      (run-actors)
+    (let ((proc  (mpc:get-current-process)))
+      (send-to-pool custodian sink 'remove-executive proc))
+    ))
+
 ;; --------------------------------------------------------------
 ;; User-level Functions
 
@@ -286,15 +297,6 @@ Terminate them?")
        ;; We are now running in a known non-Actor thread
        (ask custodian 'kill-executives)
        ))))
-
-(defun custodian-aware-run-actors ()
-  ;; A type of dispatcher that will remove itself from the Custodian
-  ;; on abnormal exit.
-  (unwind-protect
-      (run-actors)
-    (let ((proc  (mpc:get-current-process)))
-      (send-to-pool custodian sink 'remove-executive proc))
-    ))
 
 #|
 (kill-actors-system)
