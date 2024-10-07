@@ -74,7 +74,7 @@
   (sys-dyn-specials-self-msg-parent (the sys-dyn-specials *dyn-specials*)))
 
 ;; --------------------------------------------
-;; Readonly versions for user code
+;; Read-only versions for user code
 
 (define-symbol-macro self
   (user-dyn-specials-self (the user-dyn-specials *dyn-specials*)))
