@@ -31,7 +31,7 @@ THE SOFTWARE.
 |#
 
 ;; -------------------------------------------
-(in-package #:primes)
+(in-package #:com.ral.crypto.primes)
 ;; -------------------------------------------
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) #|(SAFETY 0)|# #+:LISPWORKS (FLOAT 0))

@@ -26,7 +26,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package :edec)
+(in-package :edec-ff)
 
 #|
 Any commitment, written as C = H^x, in bent nomenclature, can be
@@ -148,7 +148,7 @@ verifier sees that:
 This keeps original message (x, gammma) hidden, but proves that we can
 open a related commitment. Since x is cloaked by gamma and then d,
 there are no concerns about x being in small range."
-  (modr
+  (with-curve-field
     (let ((seed  (vec (hash/256 (uuid:make-v1-uuid))))
           (gamma (rand)))
       (multiple-value-bind (gpt hpt)
@@ -163,8 +163,8 @@ there are no concerns about x being in small range."
                (vapt  (vec apt))
                ;; challenge z = hash of public info
                (z     (int (hash/256 seed *ed-name* vcmt vapt)))
-               (mp    (m+ (m* z x) d))
-               (rp    (m+ (m* z gamma) r)))
+               (mp    (ff+ (ff* z x) d))
+               (rp    (ff+ (ff* z gamma) r)))
           (values
            (make-ped-proof
             :curve *ed-name*
@@ -196,7 +196,7 @@ there are no concerns about x being in small range."
             (generate-pedersen-basis seed)
           (destructuring-bind (cmt apt)
               (mapcar 'ed-valid-point-p (list vcmt vapt))
-            (modr
+            (with-curve-field
               (let* ((z     (int (hash:hash/256 seed curve vcmt vapt)))
                      (gzpt  (ed-add (ed-mul hpt (int vrp))
                                     (ed-mul gpt (int vmp))))
@@ -223,18 +223,18 @@ there are no concerns about x being in small range."
   (subseq v n))
 
 (defun vdot (av bv)
-  (reduce 'm+
-          (map 'vector 'm* av bv)))
+  (reduce 'ff+
+          (map 'vector 'ff* av bv)))
 
 (defun ptdot (ptv xv)
   (reduce 'ed-add
           (map 'vector 'ed-mul ptv xv)))
                          
 (defun vscale (v x)
-  (map 'vector (um:rcurry 'm* x) v))
+  (map 'vector (um:rcurry 'ff* x) v))
 
 (defun vadd (v1 v2)
-  (map 'vector 'm+ v1 v2))
+  (map 'vector 'ff+ v1 v2))
 
 (defun ptv-scale (ptv x)
   (map 'vector (um:rcurry 'ed-mul x) ptv))
@@ -354,7 +354,7 @@ there are no concerns about x being in small range."
               av (concatenate 'vector av (map 'vector 'rand zv))
               bv (concatenate 'vector bv zv))
         ))
-    (modr
+    (with-curve-field
       (let* ((rv    (map 'vector 'rand av))  ;; generate blinding values
              (sv    (map 'vector 'rand bv))
              (alpha (rand))
@@ -368,7 +368,7 @@ there are no concerns about x being in small range."
                  (s-cmt  (vcommit gv hv h rv sv beta))
                  (va-cmt (vec a-cmt))
                  (vs-cmt (vec s-cmt))
-                 (t1     (m+ (vdot av sv) (vdot bv rv)))
+                 (t1     (ff+ (vdot av sv) (vdot bv rv)))
                  (t2     (vdot rv sv))
                  (tau1   (rand))
                  (tau2   (rand))
@@ -387,9 +387,9 @@ there are no concerns about x being in small range."
 
                  (lv     (vadd av (vscale rv x)))
                  (rv     (vadd bv (vscale sv x)))
-                 (tx     (m+ c (m* x (m+ t1 (m* x t2)))))
-                 (taux   (m* x (m+ tau1 (m* x tau2))))
-                 (mu     (m+ alpha (m* beta x))))
+                 (tx     (ff+ c (ff* x (ff+ t1 (ff* x t2)))))
+                 (taux   (ff* x (ff+ tau1 (ff* x tau2))))
+                 (mu     (ff+ alpha (ff* beta x))))
             (multiple-value-bind (lr-cmt proof)
                 (inner-prod-proof seed (vec x) gv hv h lv rv)
               (make-dotprod-proof
@@ -468,14 +468,14 @@ there are no concerns about x being in small range."
                    (xh   (hash-to-grp-range seed vx vlf vrt))
                    (vx   (vec xh))
                    (x    (int xh))
-                   (xinv (m/ x))
-                   (xsq  (m* x x))
+                   (xinv (ff/ x))
+                   (xsq  (ff* x x))
                    (cmt/2 (ptdot (vector lf cmt rt)  ;; x^2*L + P + R/x^2
-                                 (vector xsq 1 (m/ xsq))))
-                   (av/2  (map 'vector 'm+           ;; x*avl + avr/x
+                                 (vector xsq 1 (ff/ xsq))))
+                   (av/2  (map 'vector 'ff+           ;; x*avl + avr/x
                                (vscale avl x)
                                (vscale avr xinv)))
-                   (bv/2  (map 'vector 'm+           ;; bvl/x + x*bvr
+                   (bv/2  (map 'vector 'ff+           ;; bvl/x + x*bvr
                                (vscale bvl xinv)
                                (vscale bvr x))))
               (multiple-value-bind (gv/2 hv/2)
@@ -528,7 +528,7 @@ there are no concerns about x being in small range."
               (mapcar 'int (list vc vtx vtaux vmu))
             (multiple-value-bind (gv hv g h)
                 (generate-dotprod-basis n seed)
-              (modr
+              (with-curve-field
                 ;; Fiat-Shamir challenge, x
                 (let ((x  (int (hash-to-grp-range seed curve n
                                                   vc va-cmt vs-cmt
@@ -537,7 +537,7 @@ there are no concerns about x being in small range."
                         (ptdot (vector g  h)
                                (vector tx taux))
                         (ptdot (vector g t1-cmt t2-cmt)
-                               (vector c x      (m* x x))))
+                               (vector c x      (ff* x x))))
                        (ed-pt= (ptdot (vector a-cmt s-cmt)
                                       (vector 1     x))
                                (ptdot (vector h  lr-cmt)
@@ -569,7 +569,7 @@ there are no concerns about x being in small range."
                  (mapcar (um:rcurry 'aref 0) (list gv hv))
                (ed-pt= cmt
                        (ptdot (vector g h u)
-                              (vector a b (m* a b))
+                              (vector a b (ff* a b))
                               ))
                ))))
 
@@ -585,10 +585,10 @@ there are no concerns about x being in small range."
                                                vlf vrt))
                     (vx     (vec xh))
                     (x      (int xh))
-                    (xsq    (m* x x))
+                    (xsq    (ff* x x))
                     (cmt/2  (ptdot (vector lf cmt rt)
-                                   (vector xsq 1 (m/ xsq))))
-                    (xinv  (m/ x))
+                                   (vector xsq 1 (ff/ xsq))))
+                    (xinv  (ff/ x))
                     (n/2   (ash n -1))
                     (vlst  (list gv hv)))
                (destructuring-bind (gvl hvl)

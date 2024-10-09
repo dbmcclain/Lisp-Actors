@@ -76,21 +76,21 @@ THE SOFTWARE.
 
 (defvar *use-fast-impl*  t)
 
-(defmacro with-slow-impl (&body body)
+(defmacro with-slow-ed-impl (&body body)
   `(let ((*use-fast-impl*  nil))
      ,@body))
 
-(defmacro with-fast-impl (&body body)
+(defmacro with-fast-ed-impl (&body body)
   `(let ((*use-fast-impl*  t))
      ,@body))
 
 #-:WINDOWS
-(defun have-fast-impl ()
+(defun have-fast-ed-impl ()
   (and *use-fast-impl*
        (fast-ed-curve-p *edcurve*)))
 
 #+:WINDOWS
-(defmacro have-fast-impl ()
+(defmacro have-fast-ed-impl ()
   nil)
 
 (defstub _Curve1174-affine-mul)
@@ -124,7 +124,7 @@ THE SOFTWARE.
              (make-ecc-pt
               :x  x
               :y  y))
-            ((have-fast-impl)
+            ((have-fast-ed-impl)
              (%ecc-fast-to-affine pt))
             (t
              (make-ecc-pt
@@ -306,7 +306,7 @@ THE SOFTWARE.
   (let ((ppt1 (ed-projective pt1))  ;; projective add is so much faster than affine add
         (ppt2 (ed-projective pt2))) ;; so it pays to make the conversion
     (cond
-     ((have-fast-impl)
+     ((have-fast-ed-impl)
       (%ecc-fast-add ppt1 ppt2))
 
      (t 
@@ -595,7 +595,7 @@ THE SOFTWARE.
                (ed-neutral-point-p pt))
            pt)
 
-          ((have-fast-impl)
+          ((have-fast-ed-impl)
            (%ecc-fast-mul pt nn))
           
           (t

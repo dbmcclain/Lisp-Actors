@@ -39,6 +39,8 @@ THE SOFTWARE.
    (#:lattice              #:com.ral.crypto.lattice-crypto)
    (#:lattice-ke           #:com.ral.crypto.lattice-key-exchange)
    (#:finite-field         #:com.ral.crypto.finite-field)
+   (#:kdf                  #:com.ral.crypto.kdf)
+   (#:ciphers              #:com.ral.crypto.ciphers)
    ))
 
 (defpackage #:com.ral.cached-var
@@ -403,7 +405,7 @@ THE SOFTWARE.
    #:generic-ctr-cipher
    #:ctr-cipher-key
    #:ctr-cipher-salt
-   #:ctr-cpher-nonce
+   #:ctr-cipher-nonce
    #:ctr-cipher-ctr
    #:ctr-cipher-cvec
    #:ctr-cipher-sig
@@ -449,7 +451,8 @@ THE SOFTWARE.
    #:gflib
    #:prng
    #:ciphers
-   #:crypto-utils)
+   #:crypto-utils
+   #:kdf)
   ;; (:nicknames #:ecc)
   (:import-from #:um ;; #:com.ral.useful-macros
    #:defstub

@@ -43,11 +43,11 @@ THE SOFTWARE.
                 (:file "3ctr-hmac-encryption"))
   :serial       t
   :depends-on   ("ironclad"
-                 "useful-macros"
-                 "lisp-object-encoder"
+                 "com.ral.useful-macros"
+                 "com.ral.lisp-object-encoder"
                  "s-base64"
                  ;; "plotter"
-                 ;; "data-objects"
+                 "data-objects"
                  "core-crypto"
                  ))
 

@@ -32,23 +32,24 @@ THE SOFTWARE.
   :serial       t
   :components  ((:file "ecc-package")
                 (:file "primes")
-                (:file "startup")
-                #-:WINDOWS (:file "lib-loads")
+                ;; (:file "startup")                  ;; edwards-ecc-v2
+                ;; #-:WINDOWS (:file "lib-loads")     ;; edwards-ecc-v2
                 (:file "proofs-ecc")
                 (:file "lagrange-4-square")
-                #-:WINDOWS (:file "pbc-cffi")
-                #-:WINDOWS (:file "crypto-safe-reader")
-                #-:WINDOWS (:file "pbc")
-                #-:WINDOWS (:file "subkey-derivation")
-                #-:WINDOWS (:file "proofs")
-                (:file "init-crypto")
-                (:file "keying")
-                (:file "ed-keying")
-                (:file "my-keying")
-                (:file "schnorr")
-                (:file "data-check")
+                ;; #-:WINDOWS (:file "pbc-cffi")
+                ;; #-:WINDOWS (:file "crypto-safe-reader")
+                ;; #-:WINDOWS (:file "pbc")
+                ;; #-:WINDOWS (:file "subkey-derivation")
+                ;; #-:WINDOWS (:file "proofs")
+                ;; (:file "init-crypto")              ;; edwards-ecc-v2
+                ;; (:file "keying")                   ;; edwards-ecc-v2
+                ;; (:file "ed-keying")                ;; edwards-ecc-v2
+                ;; (:file "my-keying")                ;; edwards-ecc-v2
+                ;; (:file "schnorr")                  ;; edwards-ecc-v2
+                ;; (:file "data-check")               ;; edwards-ecc-v2
                 )
-  :depends-on   ("edwards-ecc"
+  :depends-on   ("edwards-ecc-v2"
+                 ;; "edwards-ecc"
                  ;; "ironclad"
                  ;; "useful-macros"
                  ;; "mpcompat"
@@ -81,10 +82,12 @@ THE SOFTWARE.
                       ,(namestring (system-relative-pathname
                                     :core-crypto "./etc/build-crypto-ecc.bash")))
                     :output :string :error :string)
+       #|
        (run-program `("bash"
                       ,(namestring (system-relative-pathname
                                     :core-crypto "./etc/build-crypto-pairings.bash")))
                     :output :string :error :string)
+       |#
        (format *standard-output* "~tWhew!  Finished.~&")))))
 
 |#
