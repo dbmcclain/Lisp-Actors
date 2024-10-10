@@ -416,7 +416,7 @@ THE SOFTWARE.
    #:eql-tree
    
    #:move
-   #:pwr2-q
+   #:pwr2-p
    #:pwr2
    #:unchecked-pwr2
    #:ceiling-pwr2

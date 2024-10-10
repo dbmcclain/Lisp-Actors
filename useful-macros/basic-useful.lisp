@@ -34,8 +34,9 @@ THE SOFTWARE.
                  unchecked-floor-log2   unchecked-floor-pwr2
                  unchecked-align-pwr2))
 
-(defun pwr2-q (n)
-  (and (plusp n)
+(defun pwr2-p (n)
+  (and (integerp n)
+       (plusp n)
        (= 1 (logcount n))))
 
 (defun unchecked-pwr2 (n)
