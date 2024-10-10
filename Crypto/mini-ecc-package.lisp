@@ -32,6 +32,7 @@ THE SOFTWARE.
    (#:crypto-utils         #:com.ral.crypto.crypto-utils)
    (#:cryptolib            #:com.ral.crypto.cryptolib)
    (#:gflib                #:com.ral.crypto.gflib)
+   (#:ecc                  #:ecc-crypto-b571)
    (#:ecc-crypto-b571      #:com.ral.crypto.ecc-crypto-b571)
    (#:pbc-interface        #:com.ral.crypto.pbc-interface)
    (#:crypto-lib-loader    #:com.ral.crypto.crypto-lib-loader)

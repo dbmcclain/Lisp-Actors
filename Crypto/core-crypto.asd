@@ -48,7 +48,7 @@ THE SOFTWARE.
                 ;; (:file "schnorr")                  ;; edwards-ecc-v2
                 ;; (:file "data-check")               ;; edwards-ecc-v2
                 )
-  :depends-on   ("edwards-ecc-v2"
+  :depends-on   (;; "edwards-ecc-v2"
                  ;; "edwards-ecc"
                  ;; "ironclad"
                  ;; "useful-macros"

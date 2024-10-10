@@ -39,8 +39,10 @@ THE SOFTWARE.
                 (:file "startup")
                 #-:WINDOWS (:file "lib-loads")
 
+                (:file "aont-backup")
                 (:file "ed-types-v2")
                 (:file "ed-curves-v2")
+                (:file "ed-verify-curves")
                 #-:WINDOWS (:file "edwards-metal-v2")
                 (:file "edwards-v2")
                 (:file "elligator-v2")
@@ -53,17 +55,18 @@ THE SOFTWARE.
                 #-:WINDOWS (:file "subkey-derivation")
                 #-:WINDOWS (:file "proofs")
                 |#
-		
+
                 (:file "keying")
                 (:file "ed-keying-v2")
                 (:file "my-keying-v2")
 
                 (:file "schnorr-v2")
                 (:file "init-crypto")
-                (:file "data-check-v2")
+                ;; (:file "data-check-v2")
 		)
   
   :depends-on   ("mini-core-crypto"
+                 "ecc-keying"
                  "cffi"
 		 #-:WINDOWS "edwards-ecc/libraries"
                  ))

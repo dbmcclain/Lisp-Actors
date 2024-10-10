@@ -36,7 +36,7 @@ THE SOFTWARE.
                 (:file "kdf")
                 (:file "crypto-environ")
                 (:file "passwds")
-                (:file "ecc-keys")
+                ;; (:file "ecc-keys")
                 (:file "encryption")
                 (:file "gfc-encryption")
                 (:file "ctr-hmac-encryption")

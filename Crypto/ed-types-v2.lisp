@@ -36,6 +36,26 @@
 
 ;; -------------------------------------------------
 
+(defun do-verify-curve (name val enc)
+  (let ((dec  (ecc::aont-rs-decode enc)))
+    (labels ((cmp (slot-name)
+               (equalp (slot-value dec slot-name)
+                       (slot-value val slot-name))))
+      (unless (every #'cmp '(name c d q r h gen))
+        (format t "~%~%!!! Important: Your copy of ~A is likely incorrect. !!!" name)
+        (format t "~%Please change the source code value to read:")
+        (with-standard-io-syntax
+          (let ((*print-radix* t))
+            (terpri)
+            (write dec))
+          (error "Source code error!")
+          )))))
+
+(defmacro verify-curve (place enc)
+  `(do-verify-curve 'place ,place ,enc))
+
+;; -------------------------------------------------
+
 #|
 (defmethod hash:hashable ((obj ed-curve))
   (with-slots (name c d q h r gen) obj
