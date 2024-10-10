@@ -737,12 +737,23 @@ THE SOFTWARE.
 
 ;; -----------------------------------------------------------------
 
+(defun ed-validate-curve (curve)
+  (with-ed-curve curve
+    (with-embedding-field
+      ;; check that random value in embedding field satisfies: 1 = x^(q-1)
+      (assert (ff= 1 (ff^ (int (hash/256 *ed-r*)) (1- *ed-q*)))))
+    ;; check that generator point is valid
+    (ed-validate-point *ed-gen*)
+    ))
+
 (defgeneric ed-valid-point-p (pt)
   (:method ((pt ecc-pt))
    (with-embedding-field
      (and (ed-satisfies-curve pt)
           (not (or (ff0= (ecc-pt-x pt))
                    (ff0= (ecc-pt-y pt))))
+          (not (ed-neutral-point-p (ed-mul pt *ed-h*)))
+          (ed-neutral-point-p (ed-mul pt *ed-r*))
           pt)))
   (:method ((pt ecc-proj-pt))
    (ed-valid-point-p (ed-affine pt)))

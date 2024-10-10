@@ -20,12 +20,15 @@
 
 #|
 (defun gen-rs-backup (curve)
+  (ed-validate-curve curve)
   (let ((ctxt (ecc::aont-rs-encode curve)))
     (with-standard-io-syntax
       (let ((*print-radix* t))
         (write ctxt)
         (values)
         ))))
+
+(gen-rs-backup *curve1174*)
 |#
 ;; --------------------------------------------
 (verify-curve *curve-E382*

@@ -677,6 +677,7 @@ THE SOFTWARE.
    #:ed-pt=
    #:ed-neutral-point
    #:ed-neutral-point-p
+   #:ed-validate-curve
    #:ed-satisfies-curve
    #:ed-add
    #:ed-negate

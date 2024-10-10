@@ -276,6 +276,7 @@
 
      ∀ x ∊ GF: x+x = 0
      ∀ a,b ∊ GF: a+b = a-b
+     ∀ a,b ∊ φ:  (a + b)^2 = a^2 + b^2
 
      [Chk1] = 1/Det [1   1][x0^2 P(x0)]
      [Chk2]         [x1 x0][x1^2 P(x1)]
