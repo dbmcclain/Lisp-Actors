@@ -84,7 +84,8 @@
   (with-ed-curve +ECC-CURVE+
     (let* ((pkey  (ed-nth-pt skey))
            (nonce (ssig-nonce))
-           (krand (int (hash/256 nonce item skey pkey)))
+           (now   (uuid:make-v1-uuid))
+           (krand (int (hash/256 nonce now skey item)))
            (kpt   (ed-nth-pt krand))
            (hk    (hash/256 kpt pkey item))
            (u     (with-mod *ed-r*
@@ -101,7 +102,7 @@
   ;; Verify that item was signed by pkey.
   ;;
   ;; Signature (u, Hk) provides number, u, and random hash of item, 
-  ;; Hk = H(krand, P, item), such that:
+  ;; Hk = H(krand*G, P, item), such that:
   ;;
   ;;   Hk = H(u*G + Hk*P, P, item)
   ;;
@@ -404,3 +405,4 @@
   (>> ecc-pkey println pkey-id))
 
  |#
+;; --------------------------------------------
