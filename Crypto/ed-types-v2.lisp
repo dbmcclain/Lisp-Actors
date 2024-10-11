@@ -37,7 +37,7 @@
 ;; -------------------------------------------------
 
 (defun do-verify-curve (name val enc)
-  (let ((dec  (ecc::aont-rs-decode enc)))
+  (let ((dec  (ecc::simple-rs-decode enc)))
     (labels ((cmp (slot-name)
                (equalp (slot-value dec slot-name)
                        (slot-value val slot-name))))
