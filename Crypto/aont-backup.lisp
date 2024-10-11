@@ -723,8 +723,7 @@ export zle_bracketed_paste=( )
 (defun aont-encode (obj)
   (let* ((bytes  (loenc:encode obj))
          (nel    (length bytes))
-         keypos
-         (key    (make-random-v 32)) ;; AES/256
+         (key    (make-random-v 16)) ;; AES/128
          (nonce  (make-random-v 16))
          (cipher (ironclad:make-cipher :aes
                                        :key  key
@@ -733,23 +732,28 @@ export zle_bracketed_paste=( )
          (digest (ironclad:make-digest :sha3/256)))
     (multiple-value-bind (ngrps nrem)
         ;; 16 for nonce
-        ;; 16 for canary
-        ;; 32 for embedded key
-        (ceiling (+ nel 16 16 32) 96)
+        ;; 16 for canary-buffer
+        ;; 16 for embedded key
+        (ceiling (+ nel 16 16 16) 96)
       (declare (ignore ngrps))
-      (setf bytes  (ub-cat-vecs nonce
-                                *canary*
-                                bytes
-                                (make-ub-vec (- nrem))
-                                key)
-            nel    (length bytes)
-            keypos (- nel 32))
-      (ironclad:encrypt-in-place cipher bytes :start 16 :end keypos)
-      (ironclad:update-digest digest bytes :end keypos)
-      (let ((hash (ironclad:produce-digest digest)))
-        (map-into key #'logxor hash key)
-        (replace bytes key :start1 keypos))
-      bytes)))
+      (let* ((bytes     (ub-cat-vecs nonce
+                                     bytes
+                                     (make-ub-vec (- 16 nrem))
+                                     key))
+             (nel       (length bytes))
+             (keypos    (- nel 16))
+             (canarypos (- keypos 16)))
+        (ironclad:update-digest digest bytes :start 16 :end canarypos)
+        (let ((hash (ironclad:produce-digest digest)))
+          (replace bytes hash :start1 canarypos :end1 keypos)
+          (reinitialize-instance digest))
+        (ironclad:encrypt-in-place cipher bytes :start 16 :end keypos)
+        (ironclad:update-digest digest bytes :start 16 :end keypos)
+        (let ((hash (ironclad:produce-digest digest)))
+          (map-into key #'logxor hash key)
+          (replace bytes key :start1 keypos))
+        bytes
+        ))))
 
 (defun rs-encode (bytes)
   (assert (and (vectorp bytes)
@@ -796,25 +800,30 @@ export zle_bracketed_paste=( )
   (assert (and (vectorp bytes)
                (every #'is-ubyte bytes)
                (zerop (rem (length bytes) 16))
-               (> (length bytes) 48)))
-  (let* ((nel    (length bytes))
-         (keypos (- nel 32))
-         (nonce  (subseq bytes  0 16))
-         (canary (subseq bytes 16 32))
-         (key    (subseq bytes keypos))
-         (digest (ironclad:make-digest :sha3/256)))
-    (ironclad:update-digest digest bytes :end keypos)
+               (>= (length bytes) 48)))
+  (let* ((nel       (length bytes))
+         (keypos    (- nel 16))
+         (canarypos (- keypos 16))
+         (nonce     (subseq bytes  0 16))
+         (key       (subseq bytes keypos))
+         (digest    (ironclad:make-digest :sha3/256)))
+    (ironclad:update-digest digest bytes :start 16 :end keypos)
     (let ((hash (ironclad:produce-digest digest)))
-      (map-into key #'logxor hash key))
+      (map-into key #'logxor hash key)
+      (reinitialize-instance digest))
     (let ((cipher (ironclad:make-cipher :aes
                                         :key  key
                                         :mode :ctr
                                         :initialization-vector nonce)))
-      (ironclad:decrypt-in-place cipher canary)
-      (unless (equalp canary *canary*)
-        (error "Can't decode"))
-      (ironclad:decrypt-in-place cipher bytes :start 32 :end keypos)
-      (loenc:decode bytes :start 32))
+      (ironclad:decrypt-in-place cipher bytes :start 16 :end keypos)
+      (ironclad:update-digest digest bytes :start 16 :end canarypos)
+      (let ((hash      (ironclad:produce-digest digest))
+            (canarybuf (subseq bytes canarypos keypos)))
+        (map-into canarybuf #'logxor canarybuf hash)
+        (unless (zerop (reduce #'logior canarybuf))
+          (error "Can't decode AONT")
+          ))
+      (loenc:decode bytes :start 16))
     ))
 
 (defun aont-rs-decode (vecs)
@@ -841,6 +850,15 @@ export zle_bracketed_paste=( )
              'vector))
        (enc (enc-6/8-128 vec))
        (dec (dec-6/8-128 enc)))
+  (assert (equalp dec vec))
+  `(:original ,vec
+    :enc      ,enc))
+
+(let* ((vec (coerce
+             (loop repeat 96 collect (random-between 0 256))
+             'vector))
+       (enc (aont-encode vec))
+       (dec (aont-decode enc)))
   (assert (equalp dec vec))
   `(:original ,vec
     :enc      ,enc))
