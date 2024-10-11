@@ -30,30 +30,30 @@ THE SOFTWARE.
 
 #|
 Any commitment, written as C = H^x, in bent nomenclature, can be
-rewritten in log form as log C = x*log H. where log H = alpha * log G
-= alpha, considering group element G as the identity element for
+rewritten in log form as log C = x*log H. where log H = α * log G = α,
+considering group element G as the identity element for
 exponentiation, or base of the log i.e., the base generator of the
 cryptosystem over the curve on which C and H are defined.
 
-So, a Pedersen commitment of the form C = H^gamma * G^x can be
-rewritten as log C = gamma * log H + x * log G = gamma * log H + x, for
-independent generators G, H.
+So, a Pedersen commitment of the form C = H^γ * G^x can be rewritten
+as log C = γ*log H + x*log G = γ*log H + x, for independent generators
+G, H.
 
-In un-bent nomenclature that Pedersen commitment would be written as
-C = gamma * H + x * G, where H = alpha * G for some randomly selected
-alpha. So unbent nomenclature is already in log form.
+In un-bent nomenclature that Pedersen commitment would be written as C
+= γ*H + x*G, where H = α*G for some randomly selected α. So unbent
+nomenclature is already in log form.
 
-We share knowledge of H, G, C, and keep x, gamma hidden. When asked to
-open the commitment for C we rturn x, always keeping randomness gamma
+We share knowledge of H, G, C, and keep x, γ hidden. When asked to
+open the commitment for C we return x, always keeping randomness γ
 hidden.
 
 A commitment in the form C = x*G is computationally binding, but not
 hiding, because anyone capable of performing ECDLP can solve for x. A
-commitment of the form C' = gamma*H + x*G, for random gamma and
-independent generator H, is both computationally binding and hiding
-because the ability to perform ECDLP does not help in the face of
-unknmown randomness gamma, and there is no known relationship between
-generators H and G.
+commitment of the form C' = γ*H + x*G, for random γ and independent
+generator H, is both computationally binding and hiding because the
+ability to perform ECDLP does not help in the face of unknmown
+randomness γ, and there is no known relationship between generators H
+and G.
 
 To build a proof that x = v, we need to provide a commitment to x and
 offer a function of random variable z, such that the challenger cnn
@@ -70,7 +70,7 @@ field. 0 < z_rand < group order, N.
 
 A \"safe\" random value lies in the interval (Sqrt[N], N-Sqrt[N])
 to discourage brute force searches."
-  (safe-field-random *ed-r*))
+  (safe-field-random (field-base)))
 
 ;; ------------------------------------------------------------
 ;; A better approach that allows a simple Pedersen commitment to
@@ -85,7 +85,7 @@ know an opening."
   seed    ;; for basis gen and challenge seeding
   ;; -----------------
   ;; Initial Commits
-  cmt     ;; the commitment C = x*G + gamma*H
+  cmt     ;; the commitment C = x*G + γ*H
   apt     ;; proof point A = d*G + r*H
   ;; -----------------
   ;; After Challenge Values
@@ -97,7 +97,7 @@ know an opening."
   seed    ;; identifies the Pedersen commitment
   x       ;; value committed
   gamma   ;; cloaking used
-  d r)    ;; proof params:   mp = z*x + d, rp = z*gamma + r
+  d r)    ;; proof params:   mp = z*x + d, rp = z*γ + r
 
 ;; --------------------------------------------------------------------
 
@@ -129,9 +129,9 @@ know an opening."
 
 (defun make-pedersen-proof (x)
   "Make a Pedersen commitment to x with computational binding, and
-random hiding, gamma:
+random hiding, γ:
 
-    C = x*G + gamma*H
+    C = x*G + γ*H
 
 for randomly selected, independent generators G, H.
 Publish G, H, and C.
@@ -140,13 +140,13 @@ Prover supplies random point A = d*G + r*H for random values d,r.
 
 Verifier supplies random probe z, which by Fiat-Shamir will be H(G, H, C, A).
 
-Prover then supplies opening (m',r') = (z*x + d, z*gamma + r) and
+Prover then supplies opening (m',r') = (z*x + d, z*γ + r) and
 verifier sees that:
 
      m'*G + r'*H = z*C + A
 
-This keeps original message (x, gammma) hidden, but proves that we can
-open a related commitment. Since x is cloaked by gamma and then d,
+This keeps original message (x, γ) hidden, but proves that we can
+open a related commitment. Since x is cloaked by γ and then d,
 there are no concerns about x being in small range."
   (with-curve-field
     (let ((seed  (vec (hash/256 (uuid:make-v1-uuid))))
@@ -264,7 +264,7 @@ there are no concerns about x being in small range."
     (values gv hv g h)))
 
 ;; --------------------------------------------------------------------
-;; Vector Dot-Product NIZKP:  av • bv = c
+;; Vector Dot-Product NIZKP:  av•bv = c
 #|
   Size:     n
   Values:   av[1..n]
@@ -278,8 +278,8 @@ there are no concerns about x being in small range."
           c  = av•bv
           t1 = (av•sv) + (bv•rv)
           t2 = (rv•sv)
-          T1 = t1*G + tau1*H        ;; tau1 random
-          T2 = t2*G + tau2*H        ;; tau2 random
+          T1 = t1*G + τ1*H        ;; τ1 random
+          T2 = t2*G + τ2*H        ;; τ2 random
 
   Publish: A, S, c, T1, T2
   
@@ -290,11 +290,11 @@ there are no concerns about x being in small range."
 
   Publish:   C    = lv•Gv + rv•Hv
              tx   = c + t1*x + t2*x^2
-             taux = tau1*x + tau2*x^2   ;; blinding for tx
+             τx = τ1*x + τ2*x^2         ;; blinding for tx
              µ    = α + β*x             ;; α,β blinding for A,S
              Inner-Prod Proof P = C + tx*H => (lv•rv == tx)
 
-  Verify:   (1) tx*G + taux*H =?= c*G + x*T1 + x^2*T2
+  Verify:   (1) tx*G + τx*H =?= c*G + x*T1 + x^2*T2
             (2) A + x*S =?= µ*H + C
             (3) validate inner-prod proof P
 
@@ -311,11 +311,11 @@ there are no concerns about x being in small range."
   seed      ;; for basis generation, and make Fiat-Shamir safe
   ;; ----------------------------------
   ;; Initial Commits
-  c         ;; the ostensible value of the (av • bv)
+  c         ;; the ostensible value of the (av•bv)
   a-cmt     ;; av•Gv + bv•Hv + α*H
   s-cmt     ;; rv•Gv + sv•Hv + β*H
-  t1-cmt    ;; t1*G + tau1*H
-  t2-cmt    ;; t2*G + tau2*H
+  t1-cmt    ;; t1*G + τ1*H
+  t2-cmt    ;; t2*G + τ2*H
   ;; ----------------------------------
   ;; After Challenge Values
   taux      ;; blinding for tx
@@ -324,89 +324,92 @@ there are no concerns about x being in small range."
   lr-cmt    ;; lv•Gv + rv•Hv
   tx-proof) ;; recursive inner-product proof on lv•rv = tx
 
+;; --------------------------------------------
+
 (defun dotprod-proof (av bv)
   ;; Dot-Product Proofs
   ;;
   ;; For vector av of values, and vector bv of coefficients, we claim
-  ;; to prove, with zero knowledge, that (av • bv) = c.  Values and
-  ;; coffs are kept secret.  Dotprod value, c = (av • bv) is made
+  ;; to prove, with zero knowledge, that (av•bv) = c.  Values and
+  ;; coffs are kept secret.  Dotprod value, c = (av•bv) is made
   ;; public.
   ;;
   ;; We cloak the values and coffs using vectors of random values in parallel
   ;; with the value and coff vectors.
   ;;
   ;; E.g., suppose we claim to know a, b such that a + 2*b = 15. Then
-  ;; vectors av = #(a b), bv = #(1 2). And we should have (av • bv) =
-  ;; c = 15. We don't presuppose a value for c, but rather honestly
-  ;; compute it from (av • bv).
+  ;; vectors av = #(a b), bv = #(1 2). And we should have (av•bv) = c
+  ;; = 15. We don't presuppose a value for c, but rather honestly
+  ;; compute it from (av•bv).
   ;;
-  (let ((n  (length av)))
-    (assert (plusp n))            ;; non-empty
-    (assert (= n (length bv)))    ;; av same length as bv
-    (assert (every 'integerp av)) ;; all av and bv are integers
-    (assert (every 'integerp bv))
-    (unless (= 1 (logcount n))
-      ;; pad to pwr2 length
-      (let* ((npwr2  (um:ceiling-pwr2 n))
-             (npad   (- npwr2 n))
-             (zv     (zerov npad)))
-        (setf n  npwr2
-              av (concatenate 'vector av (map 'vector 'rand zv))
-              bv (concatenate 'vector bv zv))
-        ))
-    (with-curve-field
-      (let* ((rv    (map 'vector 'rand av))  ;; generate blinding values
-             (sv    (map 'vector 'rand bv))
-             (alpha (rand))
-             (beta  (rand))
-             (c     (vdot av bv))
-             (vc    (vec c))
-             (seed  (vec (hash/256 (uuid:make-v1-uuid)))))
-        (multiple-value-bind (gv hv g h)
-            (generate-dotprod-basis n seed)
-          (let* ((a-cmt  (vcommit gv hv h av bv alpha))
-                 (s-cmt  (vcommit gv hv h rv sv beta))
-                 (va-cmt (vec a-cmt))
-                 (vs-cmt (vec s-cmt))
-                 (t1     (ff+ (vdot av sv) (vdot bv rv)))
-                 (t2     (vdot rv sv))
-                 (tau1   (rand))
-                 (tau2   (rand))
-                 (t1-cmt (ptdot (vector g  h)
-                                (vector t1 tau1)))
-                 (vt1-cmt (vec t1-cmt))
-                 (t2-cmt (ptdot (vector g  h)
-                                (vector t2 tau2)))
-                 (vt2-cmt (vec t2-cmt))
+  (with-curve-field
+    (let ((n  (length av)))
+      (assert (plusp n))            ;; non-empty
+      (assert (= n (length bv)))    ;; av same length as bv
+      (assert (every 'integerp av)) ;; all av and bv are integers
+      (assert (every 'integerp bv))
+      (unless (= 1 (logcount n))
+        ;; pad to pwr2 length
+        (let* ((npwr2  (um:ceiling-pwr2 n))
+               (npad   (- npwr2 n))
+               (zv     (zerov npad)))
+          (setf n  npwr2
+                av (concatenate 'vector av (map 'vector 'rand zv))
+                bv (concatenate 'vector bv zv))
+          ))
+      (with-curve-field
+        (let* ((rv    (map 'vector 'rand av))  ;; generate blinding values
+               (sv    (map 'vector 'rand bv))
+               (alpha (rand))
+               (beta  (rand))
+               (c     (vdot av bv))
+               (vc    (vec c))
+               (seed  (vec (hash/256 (uuid:make-v1-uuid)))))
+          (multiple-value-bind (gv hv g h)
+              (generate-dotprod-basis n seed)
+            (let* ((a-cmt  (vcommit gv hv h av bv alpha))
+                   (s-cmt  (vcommit gv hv h rv sv beta))
+                   (va-cmt (vec a-cmt))
+                   (vs-cmt (vec s-cmt))
+                   (t1     (ff+ (vdot av sv) (vdot bv rv)))
+                   (t2     (vdot rv sv))
+                   (tau1   (rand))
+                   (tau2   (rand))
+                   (t1-cmt (ptdot (vector g  h)
+                                  (vector t1 tau1)))
+                   (vt1-cmt (vec t1-cmt))
+                   (t2-cmt (ptdot (vector g  h)
+                                  (vector t2 tau2)))
+                   (vt2-cmt (vec t2-cmt))
                  
-                 ;; Fiat-Shamir challenge, x
-                 ;; safe: fold in seed, plus size, c and proof
-                 (x      (int (hash-to-grp-range seed *ed-name* n
-                                                 vc va-cmt vs-cmt
-                                                 vt1-cmt vt2-cmt)))
+                   ;; Fiat-Shamir challenge, x
+                   ;; safe: fold in seed, plus size, c and proof
+                   (x      (int (hash-to-grp-range seed *ed-name* n
+                                                   vc va-cmt vs-cmt
+                                                   vt1-cmt vt2-cmt)))
 
-                 (lv     (vadd av (vscale rv x)))
-                 (rv     (vadd bv (vscale sv x)))
-                 (tx     (ff+ c (ff* x (ff+ t1 (ff* x t2)))))
-                 (taux   (ff* x (ff+ tau1 (ff* x tau2))))
-                 (mu     (ff+ alpha (ff* beta x))))
-            (multiple-value-bind (lr-cmt proof)
-                (inner-prod-proof seed (vec x) gv hv h lv rv)
-              (make-dotprod-proof
-               :curve    *ed-name*
-               :seed     seed
-               :n        n
-               :c        vc
-               :a-cmt    va-cmt
-               :s-cmt    vs-cmt
-               :t1-cmt   vt1-cmt
-               :t2-cmt   vt2-cmt
-               :taux     (vec taux)
-               :tx       (vec tx)
-               :mu       (vec mu)
-               :lr-cmt   (vec lr-cmt)
-               :tx-proof proof)
-              )))))))
+                   (lv     (vadd av (vscale rv x)))
+                   (rv     (vadd bv (vscale sv x)))
+                   (tx     (ff+ c (ff* x (ff+ t1 (ff* x t2)))))
+                   (taux   (ff* x (ff+ tau1 (ff* x tau2))))
+                   (mu     (ff+ alpha (ff* beta x))))
+              (multiple-value-bind (lr-cmt proof)
+                  (inner-prod-proof seed (vec x) gv hv h lv rv)
+                (make-dotprod-proof
+                 :curve    *ed-name*
+                 :seed     seed
+                 :n        n
+                 :c        vc
+                 :a-cmt    va-cmt
+                 :s-cmt    vs-cmt
+                 :t1-cmt   vt1-cmt
+                 :t2-cmt   vt2-cmt
+                 :taux     (vec taux)
+                 :tx       (vec tx)
+                 :mu       (vec mu)
+                 :lr-cmt   (vec lr-cmt)
+                 :tx-proof proof)
+                ))))))))
 
 (defstruct terminal-proof
   a b)
@@ -425,7 +428,8 @@ there are no concerns about x being in small range."
          (cmt  (vcommit gv hv u av bv 0))
          ;; Fiat-Shamir challenge, x
          (xh   (hash-to-grp-range seed vx
-                                  (vec c) (vec cmt)))
+                                  (vec c)
+                                  (vec cmt)))
          (vx   (vec xh))
          (x    (int xh))
          (ux   (ed-mul u x))
@@ -439,10 +443,10 @@ there are no concerns about x being in small range."
 (defun half-basis (gvl gvr hvl hvr x xinv)
   (values
    ;; Hadamard "products" in Curve group
-   (map 'vector 'ed-add   ;; Gvl/x º x*Gvr
+   (map 'vector 'ed-add   ;; Gvl/x ⨂ x*Gvr
         (ptv-scale gvl xinv)
         (ptv-scale gvr x))
-   (map 'vector 'ed-add   ;; x*Hvl ª Hvr/x
+   (map 'vector 'ed-add   ;; x*Hvl ⨂ Hvr/x
         (ptv-scale hvl x)
         (ptv-scale hvr xinv))
    ))

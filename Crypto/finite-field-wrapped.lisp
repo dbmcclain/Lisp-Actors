@@ -275,6 +275,9 @@ THE SOFTWARE.
   ;; Normalize, just in case. In most cases this should be gratuitous.
   (ff-normalize x))
 
+(defmethod vec-repr:vec ((x ffld))
+  (vec-repr:vec (vec-repr:int x)))
+
 (defmethod hash:hashable ((x ffld))
   ;; We want all instances of the same field value to hash to the same
   ;; hash value. Same as a simple integer without field dressing. So
