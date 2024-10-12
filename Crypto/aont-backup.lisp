@@ -20,7 +20,7 @@
 ;; -------------------------------------------------------------
 ;; polynomials are represented by coefficent vectors (lowest to highest order)
 ;;
-;; poly-xxx fns are expected to be called within (WITH-MOD base ...)
+;; poly-xxx fns are expected to be called within (WITH-FIELD base ...)
 ;; gf-poly-xx fns are expected to be called within (WITH-GFxxx ...)
 
 ;; ----------------------------------------------
@@ -66,7 +66,7 @@
     (trim-order (map 'vector add-fn a b))))
 
 (defun poly-add (a b)
-  (gen-poly-add a b #'m+))
+  (gen-poly-add a b #'ff+))
 
 (defun gf-poly-add (a b)
   (gen-poly-add a b #'gf+))
@@ -75,7 +75,7 @@
   (gen-poly-add a b #'+))
 
 (defun poly-sub (a b)
-  (gen-poly-add a b #'m-))
+  (gen-poly-add a b #'ff-))
 
 (defun gf-poly-sub (a b)
   (gen-poly-add a b #'gf-))
@@ -88,7 +88,7 @@
   (map 'vector (um:curry mul-fn sf) v))
 
 (defun poly-scale (v sf)
-  (gen-poly-scale v sf #'m*))
+  (gen-poly-scale v sf #'ff*))
 
 (defun gf-poly-scale (v sf)
   (gen-poly-scale v sf #'gf*))
@@ -149,7 +149,7 @@
           )))))
 
 (defun poly-divmod (p q)
-  (gen-poly-divmod p q #'m/ #'m* #'m-))
+  (gen-poly-divmod p q #'ff/ #'ff* #'ff-))
 
 (defun gf-poly-divmod (p q)
   (gen-poly-divmod p q #'gf/ #'gf* #'gf-))
@@ -167,7 +167,7 @@
           :from-end t))
 
 (defun poly-eval (p x)
-  (gen-poly-eval p x #'m+ #'m*))
+  (gen-poly-eval p x #'ff+ #'ff*))
 
 (defun gf-poly-eval (p x)
   (gen-poly-eval p x #'gf+ #'gf*))
@@ -182,7 +182,7 @@
   (reduce op-add (map 'vector op-mul v1 v2)))
 
 (defun poly-dot (v1 v2)
-  (gen-poly-dot v1 v2 #'m+ #'m*))
+  (gen-poly-dot v1 v2 #'ff+ #'ff*))
 
 (defun gf-poly-dot (v1 v2)
   (gen-poly-dot v1 v2 #'gf+ #'gf*))
@@ -724,9 +724,121 @@ export zle_bracketed_paste=( )
               :displaced-index-offset off))
 
 ;; --------------------------------------------
-;; Encoding
+;; Reed-Solomon Encoding
+;;
+;; The goal here is to produce a printed representation of numeric
+;; data that is resistant to inadvertent alteration at the keyboard.
+;;
+;; It will serve as a backup check against hand written data structure
+;; source code. We want to assure that no inadvertent digit keystrokes
+;; have entered into long numerical bignum constants in the data
+;; structure.
+;;
+;; So we serialize the compiled image of the data structure, then
+;; encode it here, and print it for use in a Lisp verification
+;; expression against nearby source code.
+;;
+;; Extra digits, or too few, typed accidentally into a written bignum
+;; constant are hard to notice. Once you have a known working version
+;; of your data structure, encode it, print it for use in a verifier
+;; expression, and rest easier thereafter.
+;;
+;; --------------------------------------------
+;;
+;; Example:
+;;
+;; Suppose your data structure looks like this:
+;;
+;;   '(904625697166532776746648320380374280092339035279495474023489261773642975601)
+;;
+;; That quantity of bignum digits is dizzying, and it is hard to be
+;; sure it is correct.  Once you know it is correct, encode it to
+;; produce this:
+;;
+;;   #(#.(COERCE #(31 171 116 86 50 39 163 37 178 142 213 63 149 101 159 243)
+;;        '(SIMPLE-ARRAY (UNSIGNED-BYTE 8) (16)))
+;;     #.(COERCE #(153 189 113 1 3 175 13 69 72 115 83 15 195 47 64 117)
+;;        '(SIMPLE-ARRAY (UNSIGNED-BYTE 8) (16)))
+;;     #.(COERCE #(82 65 76 69 4 143 255 255 255 255 255 255 255 255 255 255)
+;;        '(SIMPLE-ARRAY (UNSIGNED-BYTE 8) (16)))
+;;     #.(COERCE #(255 255 255 255 255 255 255 238 249 178 241 155 253 152 156 233)
+;;        '(SIMPLE-ARRAY (UNSIGNED-BYTE 8) (16)))
+;;     #.(COERCE #(137 162 181 139 253 139 155 146 113 0 0 0 0 0 0 0)
+;;        '(SIMPLE-ARRAY (UNSIGNED-BYTE 8) (16)))
+;;     #.(COERCE #(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+;;        '(SIMPLE-ARRAY (UNSIGNED-BYTE 8) (16)))
+;;     #.(COERCE #(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+;;        '(SIMPLE-ARRAY (UNSIGNED-BYTE 8) (16)))
+;;     #.(COERCE #(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+;;        '(SIMPLE-ARRAY (UNSIGNED-BYTE 8) (16))))
+;;
+;; Plant this encoding into a verifier expression near the data
+;; structure source code, and compare against the compiled image of
+;; your bignum.
+;;
+;; The encoding looks daunting, but it is less tempting to change by
+;; editing. And taking any one of those "#.(COERCE" vectors, the RS
+;; encoding ensures that it is immune to damage, no matter how much
+;; the damage, as long as the others are intact along the
+;; corresponding damage region.
+;;
+;; And too, since you now have a golden copy of the bignum, if it
+;; differs from what your data structure source code produces, you can
+;; have your verifier print a message like this:
+;;
+;; !!! Attention: Your data structure is likely incorrect as written. !!!
+;; Please edit it to show:
+;;   '(904625697166532776746648320380374280092339035279495474023489261773642975601)
+;;
+;; --------------------------------------------------------
+
 
 (defun rs-encode-grps (bytes)
+  ;;
+  ;; Convert bytes to encoded groups. Data are taken 96 bytes (6
+  ;; chunks of 16-bytes) at a time, adding 2 16-byte check vectors.
+  ;;
+  ;; A list is produced containing encodings for each successive
+  ;; 96-byte group of data.  Encodings are 8 element vectors for each
+  ;; group.
+  ;;
+  ;; So, consider an input byte vector that looks like this:
+  ;;
+  ;;   #(1 1 1 ... 2 2 2 ... 3 3 3 ... 4 4 4 ....)
+  ;;
+  ;; where each run of digits has 16 elements.
+  ;;
+  ;; The output would look like this:
+  ;;
+  ;;   '(#(#(chk1 chk1 chk1 ...)  ;; 1st encoding group for 96 data bytes
+  ;;       #(chk2 chk2 chk2 ...)  ;; (Each vector contains 16 bytes)
+  ;;       #(1 1 1 ...)           ;; (Each vector is a GF(2^128) element)
+  ;;       #(2 2 2 ...)
+  ;;       ...
+  ;;       #(6 6 6 ...))
+  ;;
+  ;;     #(#(chk1 chk1 chk1 ...)  ;; 2nd encoding group for next 96 data bytes
+  ;;       #(chk2 chk2 chk2 ...)
+  ;;       #(7 7 7 ...)
+  ;;       #(8 8 8 ...)
+  ;;       ...
+  ;;       #(12 12 12 ...))
+  ;;
+  ;;       ...)
+  ;;
+  ;; Each inner vector contains 16 bytes and represents an encoding of
+  ;; a single GF(2^128) element. Those are contained in vectors of 8
+  ;; elements forming a block encoding group for 96 data bytes.
+  ;; Successive groups form the outermost list.
+  ;;
+  ;; Using GF(2^128) and (8,6) encoding means that we can detect
+  ;; errors in each group and automatically correct the group if only
+  ;; one element is damaged. That correction represents fully 16 bytes
+  ;; of data.
+  ;;
+  ;; This is intended to represent an intermediate stage to the final
+  ;; output representation offered by RS-ENCODE-BYTES below.
+  ;;
   (assert (and (vectorp bytes)
                (zerop (rem (length bytes) 96))
                (every #'is-ubyte bytes)))
@@ -737,6 +849,43 @@ export zle_bracketed_paste=( )
         ))
 
 (defun rs-encode-bytes (bytes)
+  ;;
+  ;; Convert bytes into 8 separate vectors, each one corresponding to
+  ;; one of the encoding positions 0..7. Groups are peeled off 16
+  ;; bytes at time from each position vector during decoding.
+  ;;
+  ;; So, consider an input byte vector that looks like this:
+  ;;
+  ;;   #(1 1 1 ... 2 2 2 ... 3 3 3 ... 4 4 4 ....)
+  ;;
+  ;; where each group of digits has a length of 16.
+  ;;
+  ;; The first two output vectors contain the two check positions. Our
+  ;; data begins in the 3rd position vector, and that vector contains
+  ;; the first 16 bytes, followed by the 7th group of 16 bytes,
+  ;; followed by the 13th group, etc.
+  ;;                                             Encoding Position
+  ;;   #(#(chk1 ...  |...         |...         )     0
+  ;;     #(chk2 ...  |...         |...         )     1
+  ;;     #(1 1 1 ... | 7  7  7 ...|13 13 13 ...)     2
+  ;;     #(2 2 2 ... | 8  8  8 ...|14 14 14 ...)     3
+  ;;     ...         |            |                  ...
+  ;;     #(6 6 6 ... |12 12 12 ...|18 18 18 ...))    7
+  ;;        Group 1     Group 2      Group 3 ...
+  ;;
+  ;; Each group of 16 bytes in the encoding position vectors
+  ;; represents a single GF(2^128) element.
+  ;;
+  ;; What this means in practical terms is that accidental damage is
+  ;; likely to occur in linear bursts along one of these 8 position
+  ;; vectors. That's a good thing because that means the damage will
+  ;; be completely correctable, no matter how long the burst of damage.
+  ;;
+  ;; To be uncorrectable, at least 2 separate position vectors have to
+  ;; be damaged together, hitting the same relative group of 16 in
+  ;; each of them. But that is much less likely because they appear on
+  ;; separate lines of text in the printed data encoding.
+  ;;
   (let* ((ans     (make-array 8))
          (enc     (rs-encode-grps bytes)))
     (loop for ix from 0 below 8 do
@@ -886,13 +1035,39 @@ export zle_bracketed_paste=( )
 
 #|
 (let* ((vec (coerce
-             (loop repeat 96 collect (random-between 0 256))
+             (loop for ix from 1 to 6 nconc
+                   (make-list 16 :initial-element ix))
+             ;; (loop repeat 96 collect (random-between 0 256))
              'vector))
        (enc (enc-6/8-128 vec))
        (dec (dec-6/8-128 enc)))
   (assert (equalp dec vec))
   `(:original ,vec
     :enc      ,enc))
+
+(let* ((vec (coerce
+             (loop for ix from 1 to 24 nconc
+                   (make-list 16 :initial-element ix))
+             'vector))
+       (enc (rs-encode-grps vec))
+       (dec (rs-decode-grps enc)))
+  (assert (equalp dec vec))
+  (with-standard-io-syntax
+    (write
+     `(:original ,vec
+       :enc      ,enc))))
+
+(let* ((vec (coerce
+             (loop for ix from 1 to 12 nconc
+                   (make-list 16 :initial-element ix))
+             'vector))
+       (enc (rs-encode-bytes vec))
+       (dec (rs-decode-bytes enc)))
+  (assert (equalp dec vec))
+  (with-standard-io-syntax
+    (write
+     `(:original ,vec
+       :enc      ,enc))))
 
 (let* ((vec (coerce
              (loop repeat 96 collect (random-between 0 256))

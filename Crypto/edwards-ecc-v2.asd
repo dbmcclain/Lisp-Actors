@@ -47,7 +47,6 @@ THE SOFTWARE.
                 (:file "edwards-v2")
                 (:file "elligator-v2")
                 #|
-                (:file "proofs-ecc")
                 (:file "lagrange-4-square")
                 #-:WINDOWS (:file "pbc-cffi")
                 #-:WINDOWS (:file "crypto-safe-reader")
@@ -56,6 +55,7 @@ THE SOFTWARE.
                 #-:WINDOWS (:file "proofs")
                 |#
 
+                (:file "proofs-ecc")
                 (:file "keying")
                 (:file "ed-keying-v2")
                 (:file "my-keying-v2")

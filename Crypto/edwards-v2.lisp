@@ -880,7 +880,8 @@ Else re-probe with (X^2 + 1)."
     ;; random because of hash - nothing up my sleeve...
     (let ((r   (int (hash-to-grp-range
                      (levn ix 4.)
-                     (levn k-priv (integer-length (1- *ed-q*))) ;; we want *ed-q* here to avoid truncating skey
+                     ;; we want *ed-q* here to avoid truncating skey
+                     (levn k-priv (integer-length (1- *ed-q*)))
                      msgv))))
       (if (plusp r)
           (values r (ed-nth-pt r) ix)

@@ -443,24 +443,6 @@ THE SOFTWARE.
    #:delivered-ctr-hmac-encrypt
    ))
 
-(defpackage #:com.ral.crypto.ecc-crypto-b571
-  (:use
-   #:common-lisp
-   #:modmath
-   #:cached-var
-   #:cryptolib
-   #:gflib
-   #:prng
-   #:ciphers
-   #:crypto-utils
-   #:kdf)
-  ;; (:nicknames #:ecc)
-  (:import-from #:um ;; #:com.ral.useful-macros
-   #:defstub
-   #:with-fast-impl)
-  (:export
-   ))
-
 #|
 (defpackage #:com.ral.primes
   (:use #:common-lisp)
@@ -842,6 +824,25 @@ THE SOFTWARE.
    #:ff-bezout
    #:ff-chi
    #:ff-quadratic-residue-p
+   ))
+
+(defpackage #:com.ral.crypto.ecc-crypto-b571
+  (:use
+   #:common-lisp
+   #:modmath
+   #:cached-var
+   #:cryptolib
+   #:gflib
+   #:prng
+   #:ciphers
+   #:crypto-utils
+   #:kdf
+   #:finite-field)
+  ;; (:nicknames #:ecc)
+  (:import-from #:um ;; #:com.ral.useful-macros
+   #:defstub
+   #:with-fast-impl)
+  (:export
    ))
 
 (defpackage #:com.ral.crypto.core-crypto

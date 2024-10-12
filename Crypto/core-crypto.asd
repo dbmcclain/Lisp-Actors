@@ -34,7 +34,7 @@ THE SOFTWARE.
                 (:file "primes")
                 ;; (:file "startup")                  ;; edwards-ecc-v2
                 ;; #-:WINDOWS (:file "lib-loads")     ;; edwards-ecc-v2
-                (:file "proofs-ecc")
+                ;; (:file "proofs-ecc")
                 (:file "lagrange-4-square")
                 ;; #-:WINDOWS (:file "pbc-cffi")
                 ;; #-:WINDOWS (:file "crypto-safe-reader")
