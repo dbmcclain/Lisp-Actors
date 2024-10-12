@@ -15,7 +15,18 @@
 ;; DM/RAL  2024/10/09 20:04:19 UTC
 ;; ----------------------------------
 
-(in-package :ecc)
+;; aont-backup.lisp
+;;
+;; DM/RAL  2024/10/12 17:03:01 UTC
+;; ----------------------------------
+
+(defpackage #:aont-backup
+  (:use #:common-lisp #:ecc))
+
+(in-package #:aont-backup)
+
+;; ----------------------------------
+
 
 ;; -------------------------------------------------------------
 ;; polynomials are represented by coefficent vectors (lowest to highest order)

@@ -843,6 +843,29 @@ THE SOFTWARE.
    #:defstub
    #:with-fast-impl)
   (:export
+   #:simple-rs-encode
+   #:simple-rs-decode
+   #:rs-encode-bytes
+   #:rs-decode-bytes
+   #:aont-encode
+   #:aont-decode
+   #:aont-rs-encode
+   #:aont-rs-decode
+
+   #:with-gf2^8
+   #:with-gf2^128
+   #:with-gf2^256
+   #:gf+
+   #:gf-
+   #:gf*
+   #:gf/
+   #:gf^
+   #:gf^2
+   #:gf-sqrt
+   #:gf-trace
+   #:gf-htrace
+   #:gf-solve-quadratic
+   #:gfmod
    ))
 
 (defpackage #:com.ral.crypto.core-crypto

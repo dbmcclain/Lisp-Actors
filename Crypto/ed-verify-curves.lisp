@@ -21,6 +21,21 @@
         (values)
         ))))
 
+(defun verify-curve (curve enc)
+  (with-ed-curve curve
+    (let ((key (um:kwsymb :ed-curves/ *ed-name*))
+          (key-rs (um:kwsymb :ed-curves/rs-enc/ *ed-name*)))
+      (ac:send ac:kvdb ac:sink :add key-rs enc)
+      (ac:send ac:kvdb ac:sink :add key (ecc::simple-rs-decode enc))
+      )))
+
+(let ((x (ac:ask kvdb:kvdb :find :ed-curves/curve1174)))
+  (with-standard-io-syntax
+    (let ((*print-radix* t))
+      (write x)
+      (values)
+      )))
+
 (gen-rs-backup *curve1174*)
 |#
 ;; --------------------------------------------
