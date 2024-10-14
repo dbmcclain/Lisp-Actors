@@ -56,6 +56,9 @@ THE SOFTWARE.
                 |#
 
                 (:file "proofs-ecc")
+                (:file "provable-sharing")
+                (:file "aont-distr")
+                
                 (:file "keying")
                 (:file "ed-keying-v2")
                 (:file "my-keying-v2")

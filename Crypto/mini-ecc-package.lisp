@@ -656,6 +656,7 @@ THE SOFTWARE.
    #:ecc-pt
    #:ecc-proj-pt
    #:ed-affine
+   #:ed-projective
    #:ed-pt=
    #:ed-neutral-point
    #:ed-neutral-point-p

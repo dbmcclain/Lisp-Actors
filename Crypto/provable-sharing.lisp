@@ -1,5 +1,14 @@
+;; provable-sharing.lisp
+;;
+;; DM/RAL  2024/10/13 13:27:43 UTC
+;; ----------------------------------
 
-(in-package :edec-ff)
+(defpackage #:provable-sharing
+  (:use #:common-lisp #:finite-field #:hash #:vec-repr))
+
+(in-package #:provable-sharing)
+
+;; ----------------------------------
 
 #|
 
@@ -154,7 +163,7 @@ See that F(k)*G = C_k
                                         shares
                                         :initial-value 1))
                          (1/den (cdr (assoc k 1/dens))))
-                    (ff+ acc (ff* fk num 1/den))
+                    (ff+ acc (ff* fk (ff* num 1/den)))
                     )))
               shares
               :initial-value 0)
@@ -166,9 +175,47 @@ See that F(k)*G = C_k
          (ks  (um:range 1 10))
          (fks (mapcar yfn ks))
          (shares (pairlis ks fks))
-         (lfn (lagrange shares)))
+         (lfn (lagrange-ff shares)))
     (int (funcall lfn 0))))
 |#
+
+;; --------------------------------------------
+
+(defun generalized-gen-shares (secret nneeded op+ op* &optional (nshares nneeded))
+  ;; Each share consists of:
+  ;;
+  ;;    ((abscissa-index . ordinate-value)
+  ;;     coff-committments-list)
+  ;;
+  (check-type nneeded (integer 2))
+  (check-type nshares (integer 2))
+  (assert (>= nshares nneeded))
+  (edec:with-curve-field
+    (let* ((ks    (um:range 1 (1+ nshares)))
+           (coffs (mapcar (lambda (j)
+                            (declare (ignore j))
+                            (edec-ff::rand))
+                          (um:range 1 nneeded)))
+           (fpoly (lambda (x)
+                    (um:nlet iter ((x^n   x)
+                                   (coffs coffs)
+                                   (acc   secret))
+                      (if (endp coffs)
+                          acc
+                        (go-iter (ff* x x^n)
+                                 (cdr coffs)
+                                 (funcall op+ acc (funcall op* (car coffs) x^n)))
+                        ))))
+           (fks   (mapcar fpoly ks))
+           (cjs   (mapcar #'edec:ed-nth-pt (cons secret coffs))))
+      (values (hash/256 cjs)
+              ;; hash is sensitive to both value and order of
+              ;; coeffients
+              (mapcar (lambda (k fk)
+                        (list (cons k fk) cjs))
+                      ks fks))
+      )))
+
 
 (defun gen-shares (secret nneeded &optional (nshares nneeded))
   ;; Each share consists of:
@@ -179,7 +226,7 @@ See that F(k)*G = C_k
   (check-type nneeded (integer 2))
   (check-type nshares (integer 2))
   (assert (>= nshares nneeded))
-  (with-curve-field
+  (edec:with-curve-field
     (let* ((ks    (um:range 1 (1+ nshares)))
            (coffs (mapcar (lambda (j)
                             (declare (ignore j))
@@ -196,30 +243,33 @@ See that F(k)*G = C_k
                                  (ff+ acc (ff* x^n (car coffs))))
                         ))))
            (fks   (mapcar fpoly ks))
-           (cjs   (mapcar #'ed-nth-pt (cons secret coffs))))
-      (values (hash/256 cjs)
-              ;; hash is sensitive to both value and order of
-              ;; coeffients
-              (mapcar (lambda (k fk)
-                        (list (cons k fk) cjs))
-                      ks fks))
+           (cjs   (mapcar #'edec:ed-nth-pt (cons secret coffs))))
+      (values
+       (vec (hash/256 cjs)) ;; the sharing problem index
+       ;; hash is sensitive to both value and order of
+       ;; coeffients
+       (mapcar (lambda (k fk)
+                 (list (cons k (int fk)) cjs))
+               ks fks))
       )))
 
-(defun validate-share (problem-hash share)
+(defun validate-share (problem-index share)
   ;; Validate a share as belonging to a problem set and having
   ;; self-consistent values.
   ;;
   ;; If a share does not pertain to the problem designated by
-  ;; problem-hash, then reject it. It's problem set is the hash of
+  ;; problem-index, then reject it. It's problem index is the hash of
   ;; its coefficient committments.
   ;;
   ;; If a share carries a bogus abscissa or ordinate, reject it.
   ;;
-  (and
-   ;; hash of share coeffs matches the problem hash we expect?
-   (hash= (hash/256 cjs) problem-hash)
-   ;; fk commitment equal to poly sum over coff committments?
-   (validate-share-point share)))
+  (destructuring-bind ((k . fk) cjs) share
+    (declare (ignore k fk))
+    (and
+     ;; hash of share coeffs matches the problem hash we expect?
+     (equalp (vec (hash/256 cjs)) problem-index)
+     ;; fk commitment equal to poly sum over coff committments?
+     (validate-share-point share))))
 
 (defun validate-share-point (share)
   ;; Validate a share as having self-consistent values.
@@ -232,28 +282,28 @@ See that F(k)*G = C_k
   ;; In this sense, the share represents a homomorphic encryption of
   ;; the sharing polynomial.
   ;;
-  (with-curve-field
+  (edec:with-curve-field
     (destructuring-bind ((k . fk) cjs) share
-      (ed-pt= (ed-nth-pt fk)
+      (edec:ed-pt= (edec:ed-nth-pt fk)
               (um:nlet iter ((cjs cjs)
                              (k^j 1)
-                             (acc (ed-neutral-point)))
+                             (acc (edec:ed-neutral-point)))
                 (if (endp cjs)
                     acc
-                  (let ((term (ed-mul (car cjs) k^j)))
+                  (let ((term (edec:ed-mul (car cjs) k^j)))
                     (go-iter (cdr cjs)
                              (ff* k k^j)
-                             (ed-add acc term))
+                             (edec:ed-add acc term))
                     ))
                 ))
       )))
 
-(defun combine-shares (problem-hash shares)
+(defun combine-shares (problem-index shares)
   ;; Filter out bogus shares and deduce the hidden secret value.
-  ;; Working only on the recovery problem designated by problem-hash.
-  (with-curve-field
+  ;; Working only on the recovery problem designated by problem-index.
+  (edec:with-curve-field
     (let* ((rejecting       (complement
-                             (um:curry #'validate-share problem-hash)))
+                             (um:curry #'validate-share problem-index)))
            (good-shares     (remove-if rejecting shares))
            (coffs           (second (first good-shares)))
            (ncoffs          (length coffs))
@@ -308,3 +358,4 @@ Then y_n is revealed at x = 0 in D[P(x),x,n].
 
 
 |#
+;; --------------------------------------------

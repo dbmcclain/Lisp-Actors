@@ -60,9 +60,7 @@
   ;; two ZKP's to find randomness, k, nor scalar, s.
   ;;
   (let* ((Cp     (ed-nth-pt s))         ;; committment, Cp
-         (nonce  (ssig-nonce))
-         (now    (uuid:make-v1-uuid))
-         (k      (int (hash/256 nonce now s item))) ;; random scalar, k
+         (k      (int (hash/256 Cp item))) ;; random scalar, k
          (Kp     (ed-nth-pt k))         ;; random point committment, Kp
          (Hk     (hash/256 Kp Cp item)) ;; challenge, Hk
          (z      (with-curve-field      ;; proof response, z

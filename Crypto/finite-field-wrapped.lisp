@@ -72,9 +72,10 @@ THE SOFTWARE.
                   :base       ,(ffbase-base obj)
                   :inst-class ',(ffbase-inst-class obj)))
 
+#|
 (defmethod hash:hashable ((obj ffbase))
   (hash:hashable (make-load-form obj)))
-
+|#
 
 ;; ----------------------------------------------------
 ;; FFBASE as a verb. Construct or return the associated FFBASE object.
@@ -278,11 +279,13 @@ THE SOFTWARE.
 (defmethod vec-repr:vec ((x ffld))
   (vec-repr:vec (vec-repr:int x)))
 
+#|
 (defmethod hash:hashable ((x ffld))
   ;; We want all instances of the same field value to hash to the same
   ;; hash value. Same as a simple integer without field dressing. So
   ;; no indication of elevated status.
   (hash:hashable (vec-repr:int x)))
+|#
 
 (defmacro define-ffield1 (name base)
   ;; Here, base should represent an FFBASE instance, not the modular

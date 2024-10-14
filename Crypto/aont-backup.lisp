@@ -703,12 +703,11 @@ export zle_bracketed_paste=( )
                 )))
       )))
 
-(defvar *canary* (uuid:uuid-to-byte-array #/uuid/{314ab850-4c7e-11eb-8209-787b8acbe32e}))
 
 (defun make-random-v (nel)
-  (let ((ans (make-ub-vec nel)))
-    (loop for ix from 0 below nel do
-          (setf (aref ans ix) (random-between 0 256)))
+  (let ((ans (make-ub-vec nel
+                          :initial-element 0)))
+    (replace ans (vec-repr:vec (ironclad:random-bits (* nel 8))))
     ans))
 
 (defun ub-catl-vecs (vecs)
@@ -851,13 +850,19 @@ export zle_bracketed_paste=( )
   ;; output representation offered by RS-ENCODE-BYTES below.
   ;;
   (assert (and (vectorp bytes)
-               (zerop (rem (length bytes) 96))
                (every #'is-ubyte bytes)))
-  (loop for start from 0 below (length bytes) by 96
-        for end from 96 by 96
-        collect
-        (enc-6/8-128 (subseq bytes start end))
-        ))
+  (let ((nel (length bytes)))
+    (loop for start from 0 below nel by 96
+          for end from 96 by 96
+          collect
+            (enc-6/8-128
+             (if (> end nel)
+                 (let ((wrk (make-ub-vec 96
+                                         :initial-element 0)))
+                   (replace wrk bytes :start2 start)
+                   wrk)
+               (subseq bytes start end)))
+          )))
 
 (defun rs-encode-bytes (bytes)
   ;;
@@ -909,7 +914,7 @@ export zle_bracketed_paste=( )
 (defun aont-encode (obj)
   (let* ((bytes  (loenc:encode obj))
          (nel    (length bytes))
-         (key    (make-random-v 16)) ;; AES/128
+         (key    (make-random-v 32)) ;; AES/256
          (nonce  (make-random-v 16))
          (cipher (ironclad:make-cipher :aes
                                        :key  key
@@ -919,24 +924,24 @@ export zle_bracketed_paste=( )
     (multiple-value-bind (ngrps nrem)
         ;; 16 for nonce
         ;; 16 for canary-buffer
-        ;; 16 for embedded key
-        (ceiling (+ nel 16 16 16) 96)
+        ;; 32 for embedded key
+        (ceiling (+ nel 16 16 32) 96)
       (declare (ignore ngrps))
       (let* ((bytes     (ub-cat-vecs nonce
                                      bytes
                                      (make-ub-vec (- 16 nrem))
                                      key))
              (nel       (length bytes))
-             (keypos    (- nel 16))
+             (keypos    (- nel 32))
              (canarypos (- keypos 16)))
-        (ironclad:update-digest digest bytes :start 16 :end canarypos)
+        (ironclad:update-digest digest bytes :end canarypos)
         (let ((hash (ironclad:produce-digest digest)))
           (replace bytes hash :start1 canarypos :end1 keypos)
           (reinitialize-instance digest))
         (ironclad:encrypt-in-place cipher bytes :start 16 :end keypos)
-        (ironclad:update-digest digest bytes :start 16 :end keypos)
+        (ironclad:update-digest digest bytes :end keypos)
         (let ((hash (ironclad:produce-digest digest))
-              (hkey (ovly bytes 16 keypos)))
+              (hkey (ovly bytes 32 keypos)))
           (map-into hkey #'logxor hash key))
         bytes
         ))))
@@ -965,7 +970,8 @@ export zle_bracketed_paste=( )
 ;; --------------------------------------------
 ;; Decoding
 
-(defun rs-decode-grps (vecs)
+(defun rs-decode-grps (vecs &optional era)
+  (assert (<= (length era) 2))
   (assert (and (consp vecs)
                (every (lambda (v)
                         (and (vectorp v)
@@ -982,25 +988,43 @@ export zle_bracketed_paste=( )
     (loop for grp in vecs
           for pos from 0 by 96
           do
-          (replace bytes (dec-6/8-128 grp) :start1 pos))
+          (replace bytes (dec-6/8-128 grp :erasure era)
+                   :start1 pos))
     bytes))
 
 (defun rs-decode-bytes (vecs)
   (assert (and (vectorp vecs)
-               (eql 8 (length vecs))
-               (every (lambda (v)
-                        (and (vectorp v)
-                             (zerop (rem (length v) 16))
-                             (every #'is-ubyte v)))
-                      vecs)))
-  (let* ((nel  (length (aref vecs 0)))
-         (grps (loop for pos from 0 by 16 below nel collect
-                     (apply #'vector
-                            (map 'list (lambda (v)
-                                         (subseq v pos (+ pos 16)))
-                                 vecs)))))
-    (rs-decode-grps grps)
-    ))
+               (eql 8 (length vecs))))
+  (let ((nel  (reduce #'max (map 'list #'length vecs))))
+    (multiple-value-bind (wvecs era)
+        (um:nlet iter ((ix  0)
+                       (wv  nil)
+                       (era nil))
+          (if (>= ix 8)
+              (values (nreverse wv) era)
+            ;; else
+            (let* ((v (aref vecs ix)))
+              (if (zerop (length v))
+                  (go-iter (1+ ix)
+                           (cons (make-ub-vec nel :initial-element 0) wv)
+                           (cons ix era))
+                (progn
+                  (assert (and (zerop (rem (length v) 16))
+                               (= (length v) nel)
+                               (every #'is-ubyte v)))
+                  (go-iter (1+ ix)
+                           (cons v wv)
+                           era)
+                  )))
+            ))
+      (let ((grps (loop for pos from 0 by 16 below nel collect
+                          (apply #'vector
+                                 (map 'list (lambda (v)
+                                              (subseq v pos (+ pos 16)))
+                                      wvecs))
+                        )))
+        (rs-decode-grps grps era)
+        ))))
 
 ;; --------------------------------------------
 
@@ -1008,14 +1032,14 @@ export zle_bracketed_paste=( )
   (assert (and (vectorp bytes)
                (every #'is-ubyte bytes)
                (zerop (rem (length bytes) 16))
-               (>= (length bytes) 48)))
+               (>= (length bytes) 64)))
   (let* ((nel       (length bytes))
-         (keypos    (- nel 16))
+         (keypos    (- nel 32))
          (canarypos (- keypos 16))
          (nonce     (ovly bytes 16))
          (key       (subseq bytes keypos))
          (digest    (ironclad:make-digest :sha3/256)))
-    (ironclad:update-digest digest bytes :start 16 :end keypos)
+    (ironclad:update-digest digest bytes :end keypos)
     (let ((hash (ironclad:produce-digest digest)))
       (map-into key #'logxor hash key)
       (reinitialize-instance digest))
@@ -1024,7 +1048,7 @@ export zle_bracketed_paste=( )
                                         :mode :ctr
                                         :initialization-vector nonce)))
       (ironclad:decrypt-in-place cipher bytes :start 16 :end keypos)
-      (ironclad:update-digest digest bytes :start 16 :end canarypos)
+      (ironclad:update-digest digest bytes :end canarypos)
       (let* ((hash   (ironclad:produce-digest digest))
              (hashv  (ovly hash 16))
              (canary (ovly bytes 16 canarypos)))
@@ -1069,7 +1093,7 @@ export zle_bracketed_paste=( )
        :enc      ,enc))))
 
 (let* ((vec (coerce
-             (loop for ix from 1 to 12 nconc
+             (loop for ix from 1 to 24 nconc
                    (make-list 16 :initial-element ix))
              'vector))
        (enc (rs-encode-bytes vec))
@@ -1080,18 +1104,34 @@ export zle_bracketed_paste=( )
      `(:original ,vec
        :enc      ,enc))))
 
+;; --------------------------------------------
+;; demonstrate erasure coding
 (let* ((vec (coerce
-             (loop repeat 96 collect (random-between 0 256))
+             (loop for ix from 1 to 24 nconc ;; some multiple of 6
+                   (make-list 16 :initial-element ix))
              'vector))
+       (enc (rs-encode-bytes vec))
+       (dec (progn
+              (when (zerop (random 2))
+                (setf (aref enc (random 8)) #()))
+              (when (zerop (random 2))
+                (setf (aref enc (random 8)) #()))
+              (rs-decode-bytes enc))))
+  (assert (equalp dec vec))
+  (with-standard-io-syntax
+    (write
+     `(:original ,vec
+       :enc      ,enc))))
+;; --------------------------------------------
+
+(let* ((vec (make-random-v 96))
        (enc (aont-encode vec))
        (dec (aont-decode enc)))
   (assert (equalp dec vec))
   `(:original ,vec
     :enc      ,enc))
 
-(let* ((vec (coerce
-             (loop repeat 96 collect (random-between 0 256))
-             'vector))
+(let* ((vec (make-random-v 96))
        (enc (simple-rs-encode vec))
        (dec (simple-rs-decode enc)))
   (assert (equalp dec vec))
