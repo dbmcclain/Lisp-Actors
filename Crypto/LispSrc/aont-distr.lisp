@@ -11,7 +11,7 @@
 ;; ----------------------------------
 
 (defun schnorr-signature (skey data)
-  (edec-ff::with-curve-field
+  (edec:with-curve-field
    (let* ((pkey  (edec:ed-nth-pt skey))
           (hash  (hash/256 pkey data))
           (krand (int hash))
@@ -21,7 +21,7 @@
      (list kpt u))))
 
 (defun validate-schnorr-signature (pkey data sig)
-  (edec-ff::with-curve-field
+  (edec:with-curve-field
    (destructuring-bind (kpt u) sig
      (let* ((hash  (hash/256 kpt pkey data)))
        (edec:ed-pt= (edec:ed-nth-pt u)
@@ -30,7 +30,7 @@
        ))))
 
 #|
-(edec-ff::with-curve-field
+(edec:with-curve-field
   (let* ((skey (edec-ff::rand))
          (pkey (edec:ed-nth-pt skey))
          (data :testing))
@@ -49,7 +49,7 @@
   index chan share data sig)
 
 (defun aont-distr-encode (obj &optional my-seed)
-  (edec-ff::with-curve-field
+  (edec:with-curve-field
    (let* ((bytes         (ecc:aont-encode obj))
           (my-seed       (or my-seed (edec-ff::rand)))
           (dist-seed     (edec-ff::rand))
@@ -155,7 +155,7 @@
                                            (list index chan share data)
                                            sig)
                (not (find share (entry-shares entry)
-                          :key #'caar))
+                          :key #'provable-sharing::share-abscissa))
                (null (aref (entry-rsvec entry) chan)))
           (let ((new-shares (cons share (entry-shares entry)))
                 (new-rsvec  (copy-seq (entry-rsvec entry)))
@@ -241,5 +241,6 @@
   (with-standard-io-syntax
     (write
      `(:original ,vec
-       :enc      ,enc))))                      
+       :enc      ,enc))))
+
 |#

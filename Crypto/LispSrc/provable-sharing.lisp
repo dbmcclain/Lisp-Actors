@@ -134,37 +134,42 @@ See that k are all distinct, no duplicates
 See that F(k)*G = C_k
 |#
 
+(defstruct share
+  abscissa
+  ordinate
+  committments)
+
 (defun lagrange (shares)
   ;; Denominators are constant with respect to x.
   ;; Pre-compute the inverse denominators.
   (let ((1/dens (mapcar (lambda (share)
-                        (destructuring-bind (k . fk) share
-                          (declare (ignore fk))
-                          (cons k
-                                (ff/ (reduce (lambda (acc share)
-                                               (let ((m (car share)))
-                                                 (if (= m k)
-                                                     acc
-                                                   (ff* acc (ff- k m)))
-                                                 ))
-                                             shares
-                                             :initial-value 1)))
-                          ))
+                          (let ((k (share-abscissa share)))
+                            (cons k
+                                  (ff/ (reduce (lambda (acc share)
+                                                 (let ((m (share-abscissa share)))
+                                                   (if (= m k)
+                                                       acc
+                                                     (ff* acc (ff- k m)))
+                                                   ))
+                                               shares
+                                               :initial-value 1)))
+                            ))
                         shares)))
     (lambda (x)
       (reduce (lambda (acc share)
-                (destructuring-bind (k . fk) share
-                  (let* ((num   (reduce (lambda (acc share)
-                                          (let ((m (car share)))
-                                            (if (= m k)
-                                                acc
-                                              (ff* acc (ff- x m)))
-                                            ))
-                                        shares
-                                        :initial-value 1))
-                         (1/den (cdr (assoc k 1/dens))))
-                    (ff+ acc (ff* fk (ff* num 1/den)))
-                    )))
+                (let* ((k  (share-abscissa share))
+                       (fk (share-ordinate share))
+                       (num   (reduce (lambda (acc share)
+                                        (let ((m (share-abscissa share)))
+                                          (if (= m k)
+                                              acc
+                                            (ff* acc (ff- x m)))
+                                          ))
+                                      shares
+                                      :initial-value 1))
+                       (1/den (cdr (assoc k 1/dens))))
+                  (ff+ acc (ff* fk (ff* num 1/den)))
+                  ))
               shares
               :initial-value 0)
       )))
@@ -180,42 +185,6 @@ See that F(k)*G = C_k
 |#
 
 ;; --------------------------------------------
-
-(defun generalized-gen-shares (secret nneeded op+ op* &optional (nshares nneeded))
-  ;; Each share consists of:
-  ;;
-  ;;    ((abscissa-index . ordinate-value)
-  ;;     coff-committments-list)
-  ;;
-  (check-type nneeded (integer 2))
-  (check-type nshares (integer 2))
-  (assert (>= nshares nneeded))
-  (edec:with-curve-field
-    (let* ((ks    (um:range 1 (1+ nshares)))
-           (coffs (mapcar (lambda (j)
-                            (declare (ignore j))
-                            (edec-ff::rand))
-                          (um:range 1 nneeded)))
-           (fpoly (lambda (x)
-                    (um:nlet iter ((x^n   x)
-                                   (coffs coffs)
-                                   (acc   secret))
-                      (if (endp coffs)
-                          acc
-                        (go-iter (ff* x x^n)
-                                 (cdr coffs)
-                                 (funcall op+ acc (funcall op* (car coffs) x^n)))
-                        ))))
-           (fks   (mapcar fpoly ks))
-           (cjs   (mapcar #'edec:ed-nth-pt (cons secret coffs))))
-      (values (hash/256 cjs)
-              ;; hash is sensitive to both value and order of
-              ;; coeffients
-              (mapcar (lambda (k fk)
-                        (list (cons k fk) cjs))
-                      ks fks))
-      )))
-
 
 (defun gen-shares (secret nneeded &optional (nshares nneeded))
   ;; Each share consists of:
@@ -249,7 +218,10 @@ See that F(k)*G = C_k
        ;; hash is sensitive to both value and order of
        ;; coeffients
        (mapcar (lambda (k fk)
-                 (list (cons k (int fk)) cjs))
+                 (make-share
+                  :abscissa k
+                  :ordinate (int fk)
+                  :committments cjs))
                ks fks))
       )))
 
@@ -263,8 +235,7 @@ See that F(k)*G = C_k
   ;;
   ;; If a share carries a bogus abscissa or ordinate, reject it.
   ;;
-  (destructuring-bind ((k . fk) cjs) share
-    (declare (ignore k fk))
+  (let ((cjs (share-committments share)))
     (and
      ;; hash of share coeffs matches the problem hash we expect?
      (equalp (vec (hash/256 cjs)) problem-index)
@@ -283,7 +254,9 @@ See that F(k)*G = C_k
   ;; the sharing polynomial.
   ;;
   (edec:with-curve-field
-    (destructuring-bind ((k . fk) cjs) share
+    (with-accessors ((k   share-abscissa)
+                     (fk  share-ordinate)
+                     (cjs share-committments)) share
       (edec:ed-pt= (edec:ed-nth-pt fk)
               (um:nlet iter ((cjs cjs)
                              (k^j 1)
@@ -305,15 +278,14 @@ See that F(k)*G = C_k
     (let* ((rejecting       (complement
                              (um:curry #'validate-share problem-index)))
            (good-shares     (remove-if rejecting shares))
-           (coffs           (second (first good-shares)))
+           (coffs           (share-committments (first good-shares)))
            (ncoffs          (length coffs))
            (selected-shares
             (um:nlet iter ((shares good-shares)
                            (acc    nil))
               (unless (endp shares)
                 (let* ((new-shares (adjoin (car shares) acc
-                                           ;; abscissa
-                                           :key #'caar)))
+                                           :key #'share-abscissa)))
                   ;; filter out duplicate abscissa shares
                   (if (>= (length new-shares) ncoffs)
                       new-shares
@@ -322,9 +294,8 @@ See that F(k)*G = C_k
             ))
       (unless selected-shares
         (error "Too few good shares"))
-      (let ((share-points (mapcar #'first selected-shares)))
-        (int (funcall (lagrange share-points) 0))
-        ))))
+      (int (funcall (lagrange selected-shares) 0))
+      )))
 
 #|
 (gen-shares 15 2 2)

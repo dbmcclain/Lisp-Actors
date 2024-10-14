@@ -34,7 +34,7 @@ THE SOFTWARE.
 
 (defun define-dev-dlls ()
   "loads the DLLs (.so and .dylib) at runtime, from pre-specified directories"
-  (pushnew (asdf:system-relative-pathname :core-crypto "./var/local/lib/")
+  (pushnew (asdf:system-relative-pathname :core-crypto "../var/local/lib/")
            cffi:*foreign-library-directories* :test 'equal)
   (cffi:define-foreign-library
       :libEd3363 
@@ -128,9 +128,9 @@ THE SOFTWARE.
                              (make-pathname
                               :directory (pathname-directory (lw:lisp-image-name))))
                           ;; else - use our ../var/local/lib path
-                          (asdf:system-relative-pathname :core-crypto "./var/local/lib/"))
+                          (asdf:system-relative-pathname :core-crypto "../var/local/lib/"))
                         |#
-                        (asdf:system-relative-pathname :core-crypto "./var/local/lib/"))
+                        (asdf:system-relative-pathname :core-crypto "../var/local/lib/"))
            (sav-ld    (pref-env-var ld-name pref)))
       (unwind-protect
           (funcall fn)

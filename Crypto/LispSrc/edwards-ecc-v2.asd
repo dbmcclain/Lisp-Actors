@@ -82,7 +82,7 @@ THE SOFTWARE.
    (let ((wildcard-for-libraries
           (make-pathname :defaults 
                          (asdf:system-relative-pathname
-                          :core-crypto "./var/local/lib/libLispCurve1174")
+                          :core-crypto "../var/local/lib/libLispCurve1174")
                          :type :wild)))
      (unless (directory wildcard-for-libraries)
        (format *standard-output*
@@ -91,7 +91,7 @@ THE SOFTWARE.
                wildcard-for-libraries)
        (run-program `("bash"
                       ,(namestring (system-relative-pathname
-                                    :core-crypto "./etc/build-crypto-ecc.bash")))
+                                    :core-crypto "../etc/build-crypto-ecc.bash")))
                     :output :string :error :string)
        (format *standard-output* "~tWhew!  Finished.~&")))))
 
