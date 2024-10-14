@@ -72,10 +72,8 @@ THE SOFTWARE.
                   :base       ,(ffbase-base obj)
                   :inst-class ',(ffbase-inst-class obj)))
 
-#|
 (defmethod hash:hashable ((obj ffbase))
   (hash:hashable (make-load-form obj)))
-|#
 
 ;; ----------------------------------------------------
 ;; FFBASE as a verb. Construct or return the associated FFBASE object.

@@ -71,16 +71,16 @@ THE SOFTWARE.
 (defmethod hashable (x)
   (loenc:encode x))
 |#
-#|
+
 (defgeneric hashable (x)
   (:method ((x ub8v-obj))
    (bev-vec x))
   (:method ((x integer))
    (hashable (bev x)))
-  #|
   (:method ((x cons))
-   (loenc:encode (mapcar #'hashable x)))
-  |#
+   (or (ignore-errors
+         (loenc:encode (mapcar #'hashable x)))
+       (call-next-method)))
   (:method ((x sequence))
    (or (ignore-errors
          (coerce x 'ub8-vector))
@@ -94,14 +94,8 @@ THE SOFTWARE.
    (hashable (namestring x)))
   (:method (x)
    (loenc:encode x)))
-|#
 
-(defun hashable (x)
-  (if (typep x '(simple-array (unsigned-byte 8)))
-      x
-    (loenc:encode x)))
-              
-              
+
 ;; -------------------------------------------------
 
 (defun local-digest (dig-kind dig-class &rest args)
