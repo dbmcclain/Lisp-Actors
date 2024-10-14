@@ -44,6 +44,7 @@ THE SOFTWARE.
    (bits        :reader ffbase-bits        )
    (wrap        :reader ffbase-wrap        )
    (sqrt-fn     :reader ffbase-sqrt-fn     )
+   (ts-parms    :reader ffbase-tonelli-shanks-parms  :initform nil)
    ))
 
 (defmethod initialize-instance :after ((obj ffbase) &key &allow-other-keys)
@@ -585,8 +586,9 @@ THE SOFTWARE.
   ;; aka Legendre Symbol (x|m)
   (= 1 (ff-chi x)))
           
-
+;; --------------------------------------------
 #| ;; NOT YET PORTED  DM/RAL 03/24
+                    
 (defun fast-cipolla (x)
   ;; Cipolla method for finding square root of x over prime field m
   ;; use fixed 4-bit window evaluation
@@ -648,70 +650,6 @@ THE SOFTWARE.
 |#
 
 ;; -----------------------------------------------------------
-#| ;; NOT YET PORTED  DM/RAL 03.24
-(defun get-tonelli-shanks-params ()
-  (get-cached-symbol-data '*m* :tonelli *m*
-                          (let ((base *m*))
-                            (declare (integer base))
-                            (lambda ()
-                              (multiple-value-bind (q s)
-                                  (um:nlet iter ((q  (1- base))
-                                                 (s  0))
-                                    (declare (integer q s))
-                                    (if (oddp q)
-                                        (values q s)
-                                      (go-iter (ash q -1)
-                                               (1+ s))))
-                                (declare (integer q s))
-                                (let ((z (um:nlet iter ((x 2.))
-                                           ;; on average, about 2 iters
-                                           (declare (integer x))
-                                           (if (quadratic-residue-p x)
-                                               (go-iter (1+ x))
-                                             x))))
-                                  (declare (integer z))
-                                  (list q s z)))))))
-
-(defun tonelli-shanks (arg)
-  "Tonelli-Shanks algorithm for Sqrt in prime field"
-  (declare (integer arg))
-  (let ((x (mmod arg)))
-    (declare (integer x))
-    (if (< x 2)
-        x
-      (progn
-        #|
-        (unless (quadratic-residue-p x)
-          (error "Not a quadratic residue"))
-        |#
-        (destructuring-bind (q s z) (get-tonelli-shanks-params)
-          (declare (integer q s z))
-          (um:nlet iter ((m  s)
-                         (c  (m^ z q))
-                         (tt (m^ x q))
-                         (r  (m^ x (ash (1+ q) -1))))
-            (declare (integer m c tt r))
-            (cond ((zerop tt) 0)
-                  ((= tt 1)   r)
-                  (t
-                   (let* ((i  (um:nlet iteri ((i  1)
-                                              (x  (msqr tt)))
-                                (declare (integer i x))
-                                (cond ((= i m)  (error 'non-square-residue :arg arg))
-                                      ((= x 1)  i)
-                                      (t        (go-iteri (1+ i) (msqr x)))
-                                      )))
-                          (b  (m^ c (ash 1 (- m i 1))))
-                          (new-m  i)
-                          (new-c  (msqr b))
-                          (new-tt (m* tt new-c))
-                          (new-r  (m* r b)))
-                     (declare (integer i b new-m new-c new-tt new-r))
-                     (go-iter new-m new-c new-tt new-r)))
-                  ))
-          )))))
-|#
-
 #|
   ;; looks like Tonelli-Shanks is the speed winner here, by more than 2:1
   ;; cacheing of precomputed parameters is important, as is the removal of the
@@ -732,6 +670,71 @@ THE SOFTWARE.
  |#
 
 ;; ----------------------------------------------------
+
+(defun compute-tonelli-shanks-parms (base)
+  (declare (ffbase base))
+  (with-field base
+    (let ((x  (ffbase-base base)))
+      (declare (integer x))
+      (multiple-value-bind (q s)
+          (um:nlet iter ((q  (1- x))
+                         (s  0))
+            (declare (integer q s))
+            (if (oddp q)
+                (values q s)
+              (go-iter (ash q -1)
+                       (1+ s))))
+        (let ((z (um:nlet iter ((x 2.))
+                   ;; on average, about 2 iters
+                   (declare (integer x))
+                   (if (ff-quadratic-residue-p x)
+                       (go-iter (1+ x))
+                     x))))
+          (list q s z)
+          )))))
+
+(defun tonelli-shanks (arg)
+  "Tonelli-Shanks algorithm for Sqrt in prime field"
+  (let ((x (ffmod arg)))
+    (declare (integer x))
+    (if (< x 2)
+        (copy-ffld x)
+      (progn
+        #| ;; we will find out below... (takes too long here)
+        (unless (ff-quadratic-residue-p x)
+          (error "Not a quadratic residue"))
+        |#
+        (destructuring-bind (q s z)
+            (or (ffbase-tonelli-shanks-parms *field*)
+                (setf (slot-value *field* 'ts-parms)
+                      (compute-tonelli-shanks-parms *field*)))
+          (declare (integer q s z))
+          (um:nlet iter ((m  s)
+                         (c  (ff^ z q))
+                         (tt (ff^ x q))
+                         (r  (ff^ x (ash (1+ q) -1))))
+            (declare (integer m))
+            (cond ((zerop (ffmod tt)) (copy-ffld 0))
+                  ((= (ffmod tt) 1)   r)
+                  (t
+                   (let* ((i  (um:nlet iteri ((i  1)
+                                              (x  (ffsqr tt)))
+                                (declare (integer i))
+                                (cond ((= i m)  (error 'non-square-residue :arg arg))
+                                      ((= (ffmod x) 1)  i)
+                                      (t        (go-iteri (1+ i) (ffsqr x)))
+                                      )))
+                          (b  (ff^ c (ash 1 (- m i 1))))
+                          (new-m  i)
+                          (new-c  (ffsqr b))
+                          (new-tt (ff* tt new-c))
+                          (new-r  (ff* r b)))
+                     (declare (integer new-m))
+                     (go-iter new-m new-c new-tt new-r)))
+                  ))
+          )))))
+
+;; --------------------------------------------
 
 (defgeneric ffmod (x)
   ;; Returns an integer value in the modular range.
