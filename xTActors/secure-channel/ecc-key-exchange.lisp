@@ -82,10 +82,9 @@
   ;; provide a package containing item and a verifiable Schnorr
   ;; signature from skey
   (with-ed-curve +ECC-CURVE+
-    (let* ((pkey  (ed-nth-pt skey))
-           (nonce (ssig-nonce))
-           (now   (uuid:make-v1-uuid))
-           (krand (int (hash/256 nonce now skey item)))
+    (let* ((pkey  (ed-compress-pt (ed-nth-pt skey)))
+           (hash  (hash/256 pkey item))
+           (krand (int hash))
            (kpt   (ed-nth-pt krand))
            (hk    (hash/256 kpt pkey item))
            (u     (with-mod *ed-r*
@@ -93,7 +92,7 @@
                     )))
       (%signed-item
        :item item
-       :pkey (ed-compress-pt pkey)
+       :pkey pkey
        :u    u
        :hk   hk)
       )))
