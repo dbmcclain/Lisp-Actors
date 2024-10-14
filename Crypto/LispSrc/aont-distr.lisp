@@ -11,10 +11,32 @@
 ;; ----------------------------------
 
 (defun schnorr-signature (skey data)
+  ;; Schnorr signatures are versatile, but must be cautiosly designed.
+  ;; In the verification equation:
+  ;;
+  ;;      u*G = K + H(K,P,data)*P
+  ;;
+  ;; which derives from:
+  ;;
+  ;;      u = krand + H(K,P,Data)*s
+  ;;
+  ;; If krand were constant per (s,P) keying, even if randomly
+  ;; dependent on keying, then two successive data sets with different
+  ;; hash values for H(K,P,data) could be used to discover secret key
+  ;; s:
+  ;;
+  ;;     u1 = krand(s,P) + H(K,P,data1)*s
+  ;;     u2 = krand(s,P) + H(K,P,data2)*s
+  ;; hence
+  ;;     s = (u1-u2)/(H(K,P,data1)-H(K,P,data2))
+  ;;
+  ;; So it is very important that krand be dependent also on data
+  ;; krand(s,P,data), or else thoroughly randomly chosen each time.
+  
   (edec:with-curve-field
    (let* ((pkey  (edec:ed-nth-pt skey))
-          (hash  (hash/256 pkey data))
-          (krand (int hash))
+          (hash  (hash/256 pkey data)) ;; <-- Warning!
+          (krand (int hash))           ;; krand must be random per PKey and Data
           (kpt   (edec:ed-nth-pt krand))
           (h     (int (hash/256 kpt pkey data)))
           (u     (int (ff+ krand (ff* h skey)))))

@@ -277,13 +277,17 @@ THE SOFTWARE.
 (defmethod vec-repr:vec ((x ffld))
   (vec-repr:vec (vec-repr:int x)))
 
-#|
+;; --------------------------------------------
+;; Important: a field value should hash to one value, regardless of
+;; its internal representation. The same field value may exist in
+;; normalized or non-normalized forms.
+
 (defmethod hash:hashable ((x ffld))
-  ;; We want all instances of the same field value to hash to the same
-  ;; hash value. Same as a simple integer without field dressing. So
-  ;; no indication of elevated status.
+  ;; Same as a simple integer without field dressing. So no indication
+  ;; of elevated status.
   (hash:hashable (vec-repr:int x)))
-|#
+
+;; --------------------------------------------
 
 (defmacro define-ffield1 (name base)
   ;; Here, base should represent an FFBASE instance, not the modular

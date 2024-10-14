@@ -787,6 +787,13 @@ THE SOFTWARE.
         (ed-validate-point (ed-mul pt (- n)))))
  |#
 ;; -----------------------------------------------------------------
+;; NOTE: It is important that the same ECC curve point hash to one
+;; value regardless of its specific representation. It is the same
+;; point, whether represented as Affine, Projective, or Compressed,
+;; and so should hash to the same value.
+;;
+;; If you need a representation-specific hash then first serialize the
+;; data structure and hash that.
 
 (defmethod hashable ((x ecc-proj-pt))
   (hashable (ed-compress-pt x :enc :lev)))
