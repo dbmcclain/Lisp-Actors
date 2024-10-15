@@ -164,6 +164,8 @@ THE SOFTWARE.
    #:with-smart-arrays
    #:with-smart-row-major-array
    #:with-smart-row-major-arrays
+   #:with-plist
+   #:with-alist
    #:letp
    #:wholepart
    #:fracpart
@@ -785,4 +787,23 @@ THE SOFTWARE.
    #:user-defined-sequence-fetch
    #:user-defined-sequence-to-vector
    #:ovly-vec
+
+   #:dpl
+   #:fdpl
+   #:fdpl-p
+   #:fdpl-val
+   #:fdpl-n
+   #:fdpl-w
+   #:fdpl-f
+   #:fdpl-flags
+   #:fdpl-parse-flags
+   #:fdpl-format-frac
+   #:int-round
+
+   #:nfmt
+   #:nfmt-val
+   #:nfmt-fmt
+   #:nfmt-p
+   #:set-default-nfmt
+   #:*default-nfmt*
    ))

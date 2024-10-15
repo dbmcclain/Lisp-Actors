@@ -151,6 +151,7 @@ THE SOFTWARE.
                 (:file "restricted-eval")
                 #+:LISPWORKS (:file "debug-stream")
                 (:file "jd")
+                (:file "fdpl")
                 )
   :serial       t
   :depends-on   ("com.ral.useful-macros"

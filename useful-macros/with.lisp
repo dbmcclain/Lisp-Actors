@@ -176,3 +176,22 @@
   (editor:setup-indent "with-smart-row-major-array"  1)
   (editor:setup-indent "with-smart-row-major-arrays" 1))
 
+;; --------------------------------------------
+
+(defmacro with-plist (bindings plist &body body)
+  (let ((gplist (gensym)))
+    `(let ((,gplist ,plist))
+       (symbol-macrolet ,(mapcar (lambda (a1)
+                                   `(,(car a1) (getf ,gplist ,@(cdr a1))))
+                                 bindings)
+         ,@body))
+    ))
+
+(defmacro with-alist (bindings alist &body body)
+  (let ((galist (gensym)))
+    `(let ((,galist ,alist))
+       (symbol-macrolet ,(mapcar (lambda (a1)
+                                   `(,(car a1) (cdr (assoc ,(cadr a1) ,galist ,@(cddr a1)))))
+                                 bindings)
+         ,@body))
+    ))
