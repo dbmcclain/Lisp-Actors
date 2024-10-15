@@ -1,17 +1,34 @@
-;; aont-distr.lisp
+;; aont-distr.lisp - Secure Distributed File Sharing
 ;;
 ;; DM/RAL  2024/10/13 09:41:02 UTC
 ;; ----------------------------------
 
 (defpackage #:aont-distr
-  (:use #:common-lisp #:vec-repr #:hash #:finite-field #:ac))
+  (:use #:common-lisp #:vec-repr #:hash #:finite-field #:edec #:ac))
 
 (in-package #:aont-distr)
 
 ;; ----------------------------------
+;; Because we use Schnorr signatures on the distributed portions,
+;; there is no need for VSS since the shared secret exists only for
+;; our benefit.
+;;
+;; Even the Schnorr signatures do not need to be verifiable by anyone
+;; else. So we elide the Public key part of the Schnorr signature,
+;; making it impossible to forge a valid signature.  We retain the
+;; public key for our verifcation purposes.
+;;
+;; If any custodian of our data tries to cheat, it will
+;; be detected with non-valid Schnorr signatures in the returned
+;; portions.
+;;
+;; We can use the Hash of the non-disclosed PKey as our half of the
+;; XOR decryption mask, the Hash of the shared secret being the other
+;; half.
 
 (defun schnorr-signature (skey data)
   ;; Schnorr signatures are versatile, but must be cautiosly designed.
+  ;;
   ;; In the verification equation:
   ;;
   ;;      u*G = K + H(K,P,data)*P
@@ -32,29 +49,32 @@
   ;;
   ;; So it is very important that krand be dependent also on data
   ;; krand(s,P,data), or else thoroughly randomly chosen each time.
-  
-  (edec:with-curve-field
-   (let* ((pkey  (edec:ed-nth-pt skey))
+  ;;
+  (with-curve-field
+   (let* ((pkey  (ed-nth-pt skey))
           (hash  (hash/256 pkey data)) ;; <-- Warning!
           (krand (int hash))           ;; krand must be random per PKey and Data
-          (kpt   (edec:ed-nth-pt krand))
+          (kpt   (ed-nth-pt krand))
           (h     (int (hash/256 kpt pkey data)))
           (u     (int (ff+ krand (ff* h skey)))))
-     (list kpt u))))
+     (list (ed-compress-pt pkey)
+           (ed-compress-pt kpt)
+           u)
+     )))
 
-(defun validate-schnorr-signature (pkey data sig)
-  (edec:with-curve-field
-   (destructuring-bind (kpt u) sig
+(defun validate-schnorr-signature (data sig)
+  (with-curve-field
+   (destructuring-bind (pkey kpt u) sig
      (let* ((hash  (hash/256 kpt pkey data)))
-       (edec:ed-pt= (edec:ed-nth-pt u)
-                    (edec:ed-add kpt
-                                 (edec:ed-mul pkey (int hash))))
+       (ed-pt= (ed-nth-pt u)
+                    (ed-add kpt
+                                 (ed-mul pkey (int hash))))
        ))))
 
 #|
-(edec:with-curve-field
+(with-curve-field
   (let* ((skey (edec-ff::rand))
-         (pkey (edec:ed-nth-pt skey))
+         (pkey (ed-nth-pt skey))
          (data :testing))
     (inspect
      (list (schnorr-signature skey data)
@@ -65,28 +85,55 @@
 ;; --------------------------------------------
 
 (defstruct aont-local
-  index pkey seed)
+  index pkey)
 
 (defstruct aont-distr
   index chan share data sig)
 
-(defun aont-distr-encode (obj &optional my-seed)
-  (edec:with-curve-field
+(defun gen-aont-shares (secret nneeded &optional (nshares nneeded))
+  (with-curve-field
+    (let* ((ks    (um:range 1 (1+ nshares)))
+           (coffs (mapcar (lambda (j)
+                            (declare (ignore j))
+                            (edec-ff::rand))
+                          (um:range 1 nneeded)))
+           (fpoly (lambda (x)
+                    (um:nlet iter ((x^n   x)
+                                   (coffs coffs)
+                                   (acc   secret))
+                      (if (endp coffs)
+                          acc
+                        (go-iter (ff* x x^n)
+                                 (cdr coffs)
+                                 (ff+ acc (ff* x^n (car coffs))))
+                        ))))
+           (fks   (mapcar fpoly ks))
+           (cjs   (mapcar #'ed-nth-pt (cons secret coffs))))
+      (values
+       (vec (hash/256 cjs)) ;; the sharing problem index
+       ;; hash is sensitive to both value and order of
+       ;; coeffients
+       (mapcar (lambda (k fk)
+                 (cons k (int fk)))
+               ks fks))
+      )))
+  
+(defun aont-distr-encode (obj)
+  (with-curve-field
    (let* ((bytes         (ecc:aont-encode obj))
-          (my-seed       (or my-seed (edec-ff::rand)))
+          (skey          (edec-ff::rand))
+          (pkey          (ed-compress-pt (ed-nth-pt skey)))
           (dist-seed     (edec-ff::rand))
-          (my-xor-mask   (vec (hash/256 my-seed)))
+          (my-xor-mask   (vec (hash/256 pkey)))
           (dist-xor-mask (vec (hash/256 dist-seed))))
      (map-into bytes #'logxor bytes my-xor-mask dist-xor-mask)
      (let* ((rsenc (ecc:rs-encode-bytes bytes)))
        (multiple-value-bind (index shares)
-           (provable-sharing::gen-shares dist-seed 6 8)
+           (gen-aont-shares dist-seed 6 8)
          (let* ((share-index-str (vec-repr:hex-str index))
-                (skey            (edec-ff::rand))
                 (my-entry        (make-aont-local
                                   :index share-index-str
-                                  :pkey  (edec:ed-nth-pt skey)
-                                  :seed  my-seed))
+                                  :pkey  (vec-repr:hex-str pkey)))
                 (distr-shares    (map 'list
                                       (lambda (chan share data)
                                         (make-aont-distr
@@ -94,9 +141,10 @@
                                          :chan  chan
                                          :share share
                                          :data  data
-                                         :sig   (schnorr-signature
-                                                 skey
-                                                 (list share-index-str chan share data))
+                                         :sig   (cdr ;; elide Pkey
+                                                 (schnorr-signature
+                                                  skey
+                                                  (list share-index-str chan share data)))
                                          ))
                                       (um:range 0 8)
                                       shares
@@ -105,6 +153,42 @@
                    distr-shares)
            )))
      )))
+
+(defun lagrange (shares)
+  ;; Shares is a list of dotted-pairs (abscissa . ordinate).
+  ;; Denominators are constant with respect to x.
+  ;; Pre-compute the inverse denominators.
+  (let ((1/dens (mapcar (lambda (share)
+                          (let ((k (car share)))
+                            (cons k
+                                  (ff/ (reduce (lambda (acc share)
+                                                 (let ((m (car share)))
+                                                   (if (= m k)
+                                                       acc
+                                                     (ff* acc (ff- k m)))
+                                                   ))
+                                               shares
+                                               :initial-value 1)))
+                            ))
+                        shares)))
+    (lambda (x)
+      (reduce (lambda (acc share)
+                (let* ((k  (car share))
+                       (fk (cdr share))
+                       (num   (reduce (lambda (acc share)
+                                        (let ((m (car share)))
+                                          (if (= m k)
+                                              acc
+                                            (ff* acc (ff- x m)))
+                                          ))
+                                      shares
+                                      :initial-value 1))
+                       (1/den (cdr (assoc k 1/dens))))
+                  (ff+ acc (ff* fk (ff* num 1/den)))
+                  ))
+              shares
+              :initial-value 0)
+      )))
 
 #|
 (defun #1=aont-distr-decode (local slices)
@@ -140,7 +224,7 @@
 ;; --------------------------------------------
 
 (defstruct entry
-  dest pkey seed shares rsvec)
+  dest pkey shares rsvec)
 
 (defun share-combiner-beh (&optional (tree (maps:empty)))
   (alambda
@@ -148,12 +232,12 @@
    
    ((cust :start local-info dest)
     (send cust :ok)
-    (with-slots (index pkey seed) local-info
+    (with-slots (index pkey) local-info
       (become (share-combiner-beh
                (maps:add tree index (make-entry
                                      :dest   dest
-                                     :pkey   pkey
-                                     :seed   seed
+                                     :pkey   (ed-decompress-pt
+                                              (vec-repr:hex pkey))
                                      :shares nil
                                      :rsvec  (make-array 8
                                                          :initial-element nil))
@@ -168,16 +252,14 @@
                  chan
                  data
                  sig) slice
-      (let ((prob-index (vec (hex index)))
-            (entry      nil))
+      (let ((entry  nil))
         (when (and
                (setf entry (maps:find tree index))
                (entry-dest entry)
-               (validate-schnorr-signature (entry-pkey entry)
-                                           (list index chan share data)
-                                           sig)
+               (validate-schnorr-signature (list index chan share data)
+                                           (cons (entry-pkey entry) sig))
                (not (find share (entry-shares entry)
-                          :key #'provable-sharing::share-abscissa))
+                          :key #'car))
                (null (aref (entry-rsvec entry) chan)))
           (let ((new-shares (cons share (entry-shares entry)))
                 (new-rsvec  (copy-seq (entry-rsvec entry)))
@@ -190,15 +272,13 @@
                             (maps:add tree index new-entry))
                            ))
                   (t
-                   (let ((dist-seed (ignore-errors
-                                      (provable-sharing::combine-shares
-                                       prob-index new-shares)))
+                   (let ((dist-seed (with-curve-field
+                                      (funcall (lagrange new-shares) 0)))
                          (bytes     (ecc:rs-decode-bytes new-rsvec)))
-                     (cond ((and dist-seed
-                                 bytes)
+                     (cond (bytes
                             (become (share-combiner-beh
                                      (maps:add tree index (make-entry))))
-                            (let ((xor-mask       (vec (hash/256 (entry-seed entry))))
+                             (let ((xor-mask      (vec (hash/256 (entry-pkey entry))))
                                   (dist-xor-mask  (vec (hash/256 dist-seed))))
                               (map-into bytes #'logxor bytes xor-mask dist-xor-mask)
                               (send (entry-dest entry) (ecc:aont-decode bytes))
@@ -222,7 +302,7 @@
     (aont-distr-encode :testing)
   (inspect (list local slices))
   (with-slots ((id index)
-               seed) local
+               pkey) local
     (β _
         (send share-combiner β :start local println)
       (send (create
@@ -239,9 +319,9 @@
 
 (multiple-value-bind (local slices)
     (aont-distr-encode :testing)
-  ;; (inspect (list local slices))
+  (inspect (list local slices))
   (with-slots ((id index)
-               seed) local
+               pkey) local
     (β _
         (send share-combiner β :start local println)
       (dolist (slice slices)
