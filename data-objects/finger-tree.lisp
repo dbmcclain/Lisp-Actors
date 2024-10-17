@@ -375,7 +375,7 @@
 (defmethod addq ((ft SE) x)
   (writeq ft #'addq x))
 
-(defvar +unique+ "unique")
+(um:define-constant +unique+ "unique")
 
 (defmethod readq ((ft SE) reader-fn)
   (let ((ans +unique+))

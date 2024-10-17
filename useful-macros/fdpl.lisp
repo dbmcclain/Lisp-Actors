@@ -65,7 +65,7 @@
    ))
 
 #+:LISPWORKS
-(lw:defadvice (cl:float augmented-value :around)
+(lw:defadvice (float augmented-value :around)
     (x &rest args)
   ;; Gets the original value of FDPL.
   ;;

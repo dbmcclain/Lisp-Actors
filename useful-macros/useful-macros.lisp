@@ -3349,3 +3349,9 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
     (um:flatten (remove (assoc key pairs) pairs))
     ))
 
+;; --------------------------------------------
+;; In response to the pickiness of SBCL
+
+(defmacro define-constant (name value &optional doc)
+  `(defconstant ,name (if (boundp ',name) (symbol-value ',name) ,value)
+                      ,@(when doc (list doc))))

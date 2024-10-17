@@ -811,4 +811,5 @@ THE SOFTWARE.
    #:with-nfmt
    
    #:ffmt
+   #:define-constant
    ))

@@ -84,11 +84,6 @@
     ;; else
     x))
 
-(defun neg (x)
-  (let* ((xval (val-of x))
-         (xun  (units-of x)))
-    (units (cl:- xval) xun)))
-
 (defun - (x &rest args)
   (if args
       (reduce (lambda (a b)
@@ -102,7 +97,10 @@
               args
               :initial-value x)
     ;; else
-    (neg x)))
+    (let ((xval (val-of x))
+          (xun  (units-of x)))
+      (units (cl:- xval) xun))
+    ))
 
 (defun sqr (x)
   (expt x 2))
@@ -346,6 +344,7 @@
      (kg 1)))
 
 #|
+;; THz for 1ev photon
 (/ (ev 1)
    *hplanck*
    (thz 1))
