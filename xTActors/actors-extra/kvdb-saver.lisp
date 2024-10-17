@@ -258,7 +258,7 @@
   ;; Verify that we really have a KVDB signature at the front of the
   ;; file.
   (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
-         (id   #+:LISPWORKS (vec-rsepr:make-ub8-vector (length sig))
+         (id   #+:LISPWORKS (vec-repr:make-ub8-vector (length sig))
                #-:LISPWORKS (make-ub8-vector (length sig))
                ))
     (file-position fd 0)
