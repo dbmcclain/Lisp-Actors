@@ -248,11 +248,19 @@
 
 ;; ---------------------------------------------------------------
 
+#-:LISPWORKS
+(defun make-ub8-vector (nel &rest args)
+  (apply #'make-array nel
+         :element-type '(unsigned-byte 8)
+         args))
+
 (defun check-kvdb-sig (fd dbpath)
   ;; Verify that we really have a KVDB signature at the front of the
   ;; file.
   (let* ((sig  (uuid:uuid-to-byte-array +db-id+))
-         (id   (vec-repr:make-ub8-vector (length sig))))
+         (id   #+:LISPWORKS (vec-rsepr:make-ub8-vector (length sig))
+               #-:LISPWORKS (make-ub8-vector (length sig))
+               ))
     (file-position fd 0)
     (read-sequence id fd)
     (or (equalp id sig)

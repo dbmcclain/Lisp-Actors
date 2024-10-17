@@ -28,10 +28,10 @@ THE SOFTWARE.
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2008 by Refined Audiometrics Laboratory, LLC. All rights reserved."
   :components  ((:file "packages")
-                (:file "ref-v4")
+                ;; (:file "ref-v4")
                 (:file "bankers-queue")
                 (:file "finger-tree")
-                (:file "prio-queue-lf")
+                ;; (:file "prio-queue-lf")
                 (:file "resource")
                 (:file "locked-resource")
                 ;; (:file "mi-rubber-objects-2")
@@ -44,19 +44,19 @@ THE SOFTWARE.
                 #+(AND :COM.RAL :LISPWORKS) (:file "lf-bag")
                 #+(AND :COM.RAL :LISPWORKS) (:file "lw-rwgate")
                 #+(AND :COM.RAL :LISPWORKS) (:file "progress-bar")
-                #+(AND :COM.RAL :LISPWORKS) (:file "debug-stream")
-                #+(AND :COM.RAL :LISPWORKS) (:file "collector2")
+                ;; #+(AND :COM.RAL :LISPWORKS) (:file "debug-stream") ;; already exists in com.ral.useful-macros
+                ;; #+(AND :COM.RAL :LISPWORKS) (:file "collector2")
                 (:file "interval-trees")
                 (:file "zorder-maps")
-                (:file "rpsx")
+                ;; (:file "rpsx")
                 (:file "btree-clos")
                 (:file "memory-btrees-clos")
                 (:file "trie")
 		#+(AND :COM.RAL :LISPWORKS) (:file "protocols")
                 )
   :serial t
-  :depends-on   ("useful-macros"
-                 "cps"
+  :depends-on   ("com.ral.useful-macros"
+                 "com.ral.cps"
                  "optima"
                  "trivia"
                  ))

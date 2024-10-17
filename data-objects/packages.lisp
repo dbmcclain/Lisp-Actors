@@ -58,9 +58,10 @@ THE SOFTWARE.
    ))
 |#
 
+#|
 (defpackage #:ref ;; for V3
   (:use #:common-lisp)
-  (:import-from :um
+  (:import-from #:com.ral.useful-macros
    #:rmw
    #:rd
    #:wr
@@ -94,6 +95,7 @@ THE SOFTWARE.
    #:tree
    #:tree-lst
    ))
+|#
 
 #| ;; for V2
 (defpackage #:mcas
@@ -122,11 +124,11 @@ THE SOFTWARE.
 
 (defpackage #:mcas ;; for V3
   (:use #:common-lisp #:def*)
-  (:import-from #:ref
+  (:import-from #:com.ral.ref
    #:ref
    #:val
    #:ref-val)
-  (:import-from #:useful-macros
+  (:import-from #:com.ral.useful-macros
    #:cas)
   (:export
    #:mcas-ref
@@ -139,7 +141,7 @@ THE SOFTWARE.
 
 (defpackage :multilock
   (:use #:cl)
-  (:import-from #:timeout
+  (:import-from #:com.ral.useful-macros
    *timeout*
    timeout)
   (:import-from #:orderable
@@ -155,6 +157,7 @@ THE SOFTWARE.
    #:with-exclusive-multilocks
    ))
 
+#|
 (defpackage #:priq
   (:use #:common-lisp #:def*)
   #-OPENMCL (:import-from :mpcompat
@@ -195,6 +198,7 @@ THE SOFTWARE.
    
    #:locked-exec
    ))
+|#
 
 #|
 (defpackage #:dstm
@@ -257,7 +261,7 @@ THE SOFTWARE.
   (:import-from :orderable
    #:<orderable-mixin>
    #:order-id)
-  (:import-from :ref
+  (:import-from #:com.ral.ref
    #:ref
    #:val
    #:wval
@@ -704,15 +708,16 @@ THE SOFTWARE.
    ))
 |#
 
+#|
 (defpackage #:debug-stream
   (:use #:common-lisp)
-  (:nicknames #:dbgstrm #:dbgw)
   (:export
    #:make-debug-stream
    #:debug-print
    #:pr
    #:clear
    #:cls))
+|#
 
 (defpackage #:progress-bar
   (:use #:common-lisp)

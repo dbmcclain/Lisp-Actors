@@ -31,7 +31,7 @@ THE SOFTWARE.
 (defpackage :rubber-objects
   (:use #:common-lisp)
   (:nicknames #:ro)
-  (:import-from #:useful-macros
+  (:import-from #:com.ral.useful-macros
    #:defmacro!
    #:nlet
    #:symb

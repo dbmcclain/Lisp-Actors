@@ -25,6 +25,7 @@
 ;;
 ;; Group them all together into one single dynamic binding for speed.
 
+#+:LISPWORKS
 (defstruct user-dyn-specials
   ;; User level bindings are read-only
   (self            nil :read-only t)
@@ -32,12 +33,32 @@
   (self-msg        nil :read-only t)
   (self-msg-parent nil :read-only t))
 
+#+:LISPWORKS
 (defstruct (sys-dyn-specials
             (:include user-dyn-specials
              (self            nil :read-only nil)
              (self-beh        nil :read-only nil)
              (self-msg        nil :read-only nil)
              (self-msg-parent nil :read-only nil)))
+  ;; Sys level access has both readers and writers.
+  ;; We need this to be a STRUCT so that we can
+  ;; emply CAS against a slot.
+  (send-hook      nil)
+  (become-hook    (lambda (new-beh)
+                    (declare (ignore new-beh))
+                    (error "Not in an Actor")))
+  (abort-beh-hook #'do-nothing))
+
+
+#-:LISPWORKS
+(defstruct user-dyn-specials
+  ;; User level bindings are read-only
+  self self-beh self-msg
+  self-msg-parent)
+
+#-:LISPWORKS
+(defstruct (sys-dyn-specials
+            (:include user-dyn-specials))
   ;; Sys level access has both readers and writers.
   ;; We need this to be a STRUCT so that we can
   ;; emply CAS against a slot.

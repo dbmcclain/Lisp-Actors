@@ -42,6 +42,6 @@
                 (cons (car q) (cddr q)))
       (let ((new-tl (reverse (car q))))
         (values (car new-tl)
-                (qnorm (cons nil (cdr new-tl))))
+                (q-norm (cons nil (cdr new-tl))))
         ))))
 

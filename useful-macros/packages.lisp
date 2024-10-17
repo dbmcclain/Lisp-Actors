@@ -788,10 +788,14 @@ THE SOFTWARE.
    #:user-defined-sequence-to-vector
    #:ovly-vec
 
+   #:augmented-value
+   #:val-of
+   #:units
+   #:units-of
+   #:display-form
+   
    #:dpl
    #:fdpl
-   #:fdpl-p
-   #:fdpl-val
    #:fdpl-n
    #:fdpl-w
    #:fdpl-f
@@ -801,9 +805,10 @@ THE SOFTWARE.
    #:int-round
 
    #:nfmt
-   #:nfmt-val
    #:nfmt-fmt
-   #:nfmt-p
    #:set-default-nfmt
    #:*default-nfmt*
+   #:with-nfmt
+   
+   #:ffmt
    ))

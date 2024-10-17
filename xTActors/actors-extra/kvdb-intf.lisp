@@ -49,6 +49,7 @@
                   :max-portability t)))
   (:method ((key uuid:uuid))
    (uuid:uuid-string key))
+  #+:LISPWORKS
   (:method ((key vector))
    (if (typep key 'vec-repr:ub8-vector)
        ;; these typically come from loenc:encode

@@ -7,7 +7,7 @@
 
 (in-package #:trie)
 
-(defconstant +empty+ "empty")
+(defvar +empty+ "empty")
 
 (defstruct trie
   ch children

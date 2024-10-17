@@ -28,7 +28,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 |#
 
-(in-package #:um.collector)
+(defpackage #:com.ral.useful-macros.collector
+  (:use #:common-lisp #:com.ral.useful-macros))
+
+(in-package #:com.ral.useful-macros.collector)
 
 (defclass <collector> ()
   ((hd   :accessor collector-hd :initform nil)
