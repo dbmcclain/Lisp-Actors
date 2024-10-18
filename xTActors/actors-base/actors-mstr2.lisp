@@ -250,6 +250,41 @@ THE SOFTWARE.
 ;; anyone else until it is either shared via SEND, or have a message
 ;; sent to it, or it is given as the value of a global binding.
 
+;; --------------------------------------------
+;; H&S Monitoring
+
+(defun collision-collector-beh (&optional (start (get-universal-time)) db)
+  ;; An Actor that keeps in in-memory database of BECOME collisions
+  (alambda
+   ((cust :collision . args)
+    (become (collision-collector-beh start (cons args db)))
+    (send cust :ok))
+   ((cust :report)
+    (send cust db))
+   ((cust :count)
+    (send cust start (length db)))
+   ((cust :reset)
+    (become (collision-collector-beh))
+    (send cust :ok))
+   ))
+(defvar collision-collector
+  (create (collision-collector-beh)))
+(defun report-collision ()
+  (send-to-pool collision-collector sink :collision self self-beh self-msg))
+(defun cph ()
+  (let+ ((now   (get-universal-time))
+         (:mvb  (start count) (ask collision-collector :count)))
+    (format t "~%Collisions: count = ~d, rate = ~,2f/hr" count (* 3600 (/ count (- now start))))
+    (values)
+    ))
+         
+#|
+(cph)
+(inspect (ask collision-collector :report))
+(send collision-collect sink :reset)
+|#
+;; --------------------------------------------
+
 (defun run-actors (&optional (actor nil actor-provided-p) &rest message)
   #F
   (let (done timeout sends pend-beh)
@@ -304,6 +339,7 @@ THE SOFTWARE.
                                    (actor-beh (the actor self))
                                    self-beh pend-beh))     ;; effective BECOME
                         ;; failed on behavior update - try again...
+                        (report-collision) ;; for engineering telemetry
                         (go RETRY)))
                      
                      (dolist (msg (the list sends))
