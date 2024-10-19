@@ -203,19 +203,16 @@ FDPL 38 > (float (getf * :pi))
     (without-abbrev
      (multiple-value-bind (sign dpl comma-char comma-interval sep-char sep-interval)
          (fdpl-parse-flags x)
-       (let* ((frac  (fdpl-format-frac x sep-char sep-interval))
-              (fmt   (concatenate 'string
-                                  "~"
-                                  (if (and comma-char comma-interval)
-                                      (format nil ",,'~c,~d:"
-                                              comma-char
-                                              comma-interval)
-                                    "")
-                                  sign
-                                  "D"))
-              (whole  (format nil fmt (fdpl-w x))))
-         (format out-stream "~A~c~A" whole dpl frac)
-         )))
+       (let ((frac  (fdpl-format-frac x sep-char sep-interval))
+             (fmt   (concatenate 'string
+                                 "~,,v,v:"
+                                 sign
+                                 "D~C~A")))
+         (format out-stream fmt
+                 comma-char comma-interval
+                 (fdpl-w x)
+                 dpl frac))
+       ))
     ))
 
 ;; --------------------------------------------
@@ -259,7 +256,7 @@ FDPL 38 > (float (getf * :pi))
                      lst)))
 
 (with-nfmt "~,1f"
-  (let* ((lst '((:aegis . 970.8)
+  (let* ((lst '((:aegis . 974.0)
                 (:hsa   .  20)
                 (:schw  . 307.5)
                 (:gold  . 115)
@@ -308,13 +305,6 @@ FDPL 38 > (float (getf * :pi))
 (defun set-default-nfmt (fmt)
   (setf *default-nfmt* fmt))
 
-(defmacro with-nfmt (fmt &body body)
-  ;; Use fmt NIL for system default formatting. Outermost NFMT takes
-  ;; precedence over inner, so you can easily override final display.
-  `(let ((*default-nfmt*  ,fmt))
-     (nfmt (progn
-             ,@body))) )
-
 ;; --------------------------------------------
 ;; Uses a specified (or default) format when displaying the value
 ;; (nfmt = numeric formatter) Affects only floating point values.
@@ -347,6 +337,20 @@ FDPL 38 > (float (getf * :pi))
                (nfmt-fmt x))))
       (print-object (val-of x) out-stream))
     ))
+
+#|
+(defmacro with-nfmt (fmt &body body)
+  ;; Use fmt NIL for system default formatting. Outermost NFMT takes
+  ;; precedence over inner, so you can easily override final display.
+  `(let ((*default-nfmt*  ,fmt))
+     (nfmt (progn
+             ,@body))) )
+|#
+(defmacro with-nfmt (fmt &body body)
+  ;; Use fmt NIL for system default formatting. Outermost NFMT takes
+  ;; precedence over inner, so you can easily override final display.
+  `(let ((*in-nfmt*  ,fmt))
+     ,@body))
 
 #|
 FDPL 39 > (list :pi (nfmt pi) :e (nfmt (exp 1)))
