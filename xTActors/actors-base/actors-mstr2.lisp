@@ -252,6 +252,25 @@ THE SOFTWARE.
 
 ;; --------------------------------------------
 ;; H&S Monitoring
+;;
+;; Because we allow full parallel operation of the Actors, with
+;; optimistic commits, there can sometimes be collisions when two or
+;; more Actors are executing the same behavior code and they both
+;; attempt a BECOME.
+;;
+;; Initial findings show that collisions increase whenever the Mac
+;; system has its attention diverted to other running programs.
+;;
+;; Despite that, with numerous task switches during the test run, I
+;; find that we get about 0.05% collision rate when at least two
+;; competing activity tasks are being Forked and must rendezvous.
+;; During the rendezvous, is when the collisions are happening.
+;;
+;; In my test, I have several live telemetry graphs monitoring a
+;; remote audio processing system, and those graphics are being
+;; forked. They update collectively at 20 Hz, and I get about 30
+;; collisions per hour. (approx 0.05% collision rate, or 1 in 2000
+;; updates)
 
 (defun collision-collector-beh (&optional (start (get-universal-time)) db)
   ;; An Actor that keeps in in-memory database of BECOME collisions
@@ -269,19 +288,24 @@ THE SOFTWARE.
    ))
 (defvar collision-collector
   (create (collision-collector-beh)))
+
 (defun report-collision ()
-  (send-to-pool collision-collector sink :collision self self-beh self-msg))
+  (send-to-pool collision-collector sink
+                :collision *self* *self-beh* *self-msg*))
+
 (defun cph ()
+  ;; Report Collisions per Hour
   (let+ ((now   (get-universal-time))
-         (:mvb  (start count) (ask collision-collector :count)))
-    (format t "~%Collisions: count = ~d, rate = ~,2f/hr" count (* 3600 (/ count (- now start))))
+         (:mvb (start count) (ask collision-collector :count)))
+    (format t "~%Collisions: count = ~d, rate = ~,2f/hr"
+            count (* 3600 (/ count (- now start))))
     (values)
     ))
          
 #|
 (cph)
 (inspect (ask collision-collector :report))
-(send collision-collect sink :reset)
+(send collision-collector sink :reset)
 |#
 ;; --------------------------------------------
 
@@ -298,7 +322,7 @@ THE SOFTWARE.
            (setf pend-beh new-beh))
          
          (%abort-beh ()
-           (setf pend-beh self-beh
+           (setf pend-beh *self-beh*
                  sends    nil))
 
          (dispatch-loop ()
@@ -325,19 +349,19 @@ THE SOFTWARE.
                            *self-msg*        (cddr (the cons evt)))  ;; self-msg
                      (tagbody
                       RETRY
-                      (setf pend-beh   (actor-beh (the actor self))
+                      (setf pend-beh   (actor-beh (the actor *self*))
                             sends      nil
                             *self-beh* pend-beh)
                       ;; ---------------------------------
                       ;; Dispatch to Actor behavior with message args
-                      (apply (the function pend-beh) (the list self-msg))
+                      (apply (the function pend-beh) (the list *self-msg*))
                       
                       ;; ---------------------------------
                       ;; Commit BECOME and SENDS
-                      (unless (or (eq self-beh pend-beh)   ;; no BECOME
+                      (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
                                   (mpc:compare-and-swap
-                                   (actor-beh (the actor self))
-                                   self-beh pend-beh))     ;; effective BECOME
+                                   (actor-beh (the actor *self*))
+                                   *self-beh* pend-beh))     ;; effective BECOME
                         ;; failed on behavior update - try again...
                         (report-collision) ;; for engineering telemetry
                         (go RETRY)))
@@ -356,41 +380,39 @@ THE SOFTWARE.
                                #'dispatch-loop #'dispatcher))
       ;; --------------------------------------------
 
-      (let ((our-specials (make-sys-dyn-specials
-                           :send-hook      #'%send
-                           :become-hook    #'%become
-                           :abort-beh-hook #'%abort-beh
-                           )))
-        (declare (dynamic-extent our-specials))
+      (let ((*dyn-specials* (make-dyn-specials
+                             :send-hook      #'%send
+                             :become-hook    #'%become
+                             :abort-beh-hook #'%abort-beh
+                             )))
+        (declare (dynamic-extent *dyn-specials*))
         ;; --------------------------------------------
-
-        (let ((*dyn-specials*  our-specials))
-          (cond
-           (actor-provided-p
-            ;; we are an ASK
-            (if (is-pure-sink? actor)
-                (values nil t)
-              ;; else
-              (let ((me  (once
-                          (create
-                           (lambda* msg
-                             (setf done (list msg))))
-                          )))
-                (setf timeout *ASK-TIMEOUT*)  ;; for periodic DONE checking
-                (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
-                
-                (apply #'send-to-pool actor me message)
-                (with-simple-restart (abort "Terminate ASK")
-                  (dispatcher))
-                (when done
-                  (values (car done) t)))
-              ))
-           
-           (t  ;; else - we are normal Dispatch thread
-               (with-simple-restart (abort "Terminate Actor thread")
-                 (dispatcher)))
-           ))
-        ))))
+        (cond
+         (actor-provided-p
+          ;; we are an ASK
+          (if (is-pure-sink? actor)
+              (values nil t)
+            ;; else
+            (let ((me  (once
+                        (create
+                         (lambda* msg
+                           (setf done (list msg))))
+                        )))
+              (setf timeout *ASK-TIMEOUT*)  ;; for periodic DONE checking
+              (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
+              
+              (apply #'send-to-pool actor me message)
+              (with-simple-restart (abort "Terminate ASK")
+                (dispatcher))
+              (when done
+                (values (car done) t)))
+            ))
+         
+         (t  ;; else - we are normal Dispatch thread
+             (with-simple-restart (abort "Terminate Actor thread")
+               (dispatcher)))
+         ))
+      )))
 
 ;; ----------------------------------------------------------------
 ;; Error Handling

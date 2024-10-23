@@ -24,90 +24,83 @@
 ;; User code should treat all of these dynamic globals as read-only!
 ;;
 ;; Group them all together into one single dynamic binding for speed.
-
-#+:LISPWORKS
-(defstruct user-dyn-specials
-  ;; User level bindings are read-only
-  (self            nil :read-only t)
-  (self-beh        nil :read-only t)
-  (self-msg        nil :read-only t)
-  (self-msg-parent nil :read-only t))
-
-#+:LISPWORKS
-(defstruct (sys-dyn-specials
-            (:include user-dyn-specials
-             (self            nil :read-only nil)
-             (self-beh        nil :read-only nil)
-             (self-msg        nil :read-only nil)
-             (self-msg-parent nil :read-only nil)))
-  ;; Sys level access has both readers and writers.
-  ;; We need this to be a STRUCT so that we can
-  ;; emply CAS against a slot.
-  (send-hook      nil)
-  (become-hook    (lambda (new-beh)
-                    (declare (ignore new-beh))
-                    (error "Not in an Actor")))
-  (abort-beh-hook #'do-nothing))
-
-
-#-:LISPWORKS
-(defstruct user-dyn-specials
-  ;; User level bindings are read-only
-  self self-beh self-msg
-  self-msg-parent)
-
-#-:LISPWORKS
-(defstruct (sys-dyn-specials
-            (:include user-dyn-specials))
-  ;; Sys level access has both readers and writers.
-  ;; We need this to be a STRUCT so that we can
-  ;; emply CAS against a slot.
-  (send-hook      nil)
-  (become-hook    (lambda (new-beh)
-                    (declare (ignore new-beh))
-                    (error "Not in an Actor")))
-  (abort-beh-hook #'do-nothing))
-
-(defvar *dyn-specials*  (make-sys-dyn-specials))
+;; --------------------------------------------
 
 ;; --------------------------------------------
-;; R/W Access for the system level code
+;; Oh, SBCL -- too much!! Let's see if we can write something that
+;; works for both of us...
+;; --------------------------------------------
 
-(define-symbol-macro *send-hook*
-  (sys-dyn-specials-send-hook (the sys-dyn-specials *dyn-specials*)))
+(defconstant +self-off+             0                         )
+(defconstant +self-beh-off+         (1+ +self-off+)           )
+(defconstant +self-msg-off+         (1+ +self-beh-off+)       )
+(defconstant +self-msg-parent-off+  (1+ +self-msg-off+)       )
+(defconstant +send-hook-off+        (1+ +self-msg-parent-off+))
+(defconstant +become-hook-off+      (1+ +send-hook-off+)      )
+(defconstant +abort-beh-hook-off+   (1+ +become-hook-off+)    )
+(defconstant +dyn-specials-size+    (1+ +abort-beh-hook-off+) )
 
-(define-symbol-macro *become-hook*
-  (sys-dyn-specials-become-hook (the sys-dyn-specials *dyn-specials*)))
+(defun make-dyn-specials (&key send-hook become-hook abort-beh-hook)
+  (let ((v  (make-array +dyn-specials-size+
+                        :initial-element nil)))
+    (setf (aref v +send-hook-off+) send-hook
+          (aref v +become-hook-off+)
+          (or become-hook
+              (lambda (new-beh)
+                (declare (ignore new-beh))
+                (error "Not in an Actor")))
+          (aref v +abort-beh-hook-off+)
+          (or abort-beh-hook
+              #'do-nothing))
+    v))
 
-(define-symbol-macro *abort-beh-hook*
-  (sys-dyn-specials-abort-beh-hook (the sys-dyn-specials *dyn-specials*)))
+;; --------------------------------------------
+
+(defvar *dyn-specials*  (make-dyn-specials))
+
+;; --------------------------------------------
+;; System level has R/W access
 
 (define-symbol-macro *self*
-  (sys-dyn-specials-self (the sys-dyn-specials *dyn-specials*)))
+  (svref (the simple-vector *dyn-specials*) +self-off+))
 
 (define-symbol-macro *self-beh*
-  (sys-dyn-specials-self-beh (the sys-dyn-specials *dyn-specials*)))
+  (svref (the simple-vector *dyn-specials*) +self-beh-off+))
 
 (define-symbol-macro *self-msg*
-  (sys-dyn-specials-self-msg (the sys-dyn-specials *dyn-specials*)))
+  (svref (the simple-vector *dyn-specials*) +self-msg-off+))
 
 (define-symbol-macro *self-msg-parent*
-  (sys-dyn-specials-self-msg-parent (the sys-dyn-specials *dyn-specials*)))
+  (svref (the simple-vector *dyn-specials*) +self-msg-parent-off+))
+
+(define-symbol-macro *send-hook*
+  (svref (the simple-vector *dyn-specials*) +send-hook-off+))
+
+(define-symbol-macro *become-hook*
+  (svref (the simple-vector *dyn-specials*) +become-hook-off+))
+
+(define-symbol-macro *abort-beh-hook*
+  (svref (the simple-vector *dyn-specials*) +abort-beh-hook-off+))
 
 ;; --------------------------------------------
-;; Read-only versions for user code
+;; User level has Read-Only access
 
-(define-symbol-macro self
-  (user-dyn-specials-self (the user-dyn-specials *dyn-specials*)))
+(defun self ()
+  *self*)
 
-(define-symbol-macro self-beh
-  (user-dyn-specials-self-beh (the user-dyn-specials *dyn-specials*)))
+(defun self-beh ()
+  *self-beh*)
 
-(define-symbol-macro self-msg
-  (user-dyn-specials-self-msg (the user-dyn-specials *dyn-specials*)))
+(defun self-msg ()
+  *self-msg*)
 
-(define-symbol-macro self-msg-parent
-  (user-dyn-specials-self-msg-parent (the user-dyn-specials *dyn-specials*)))
+(defun self-msg-parent ()
+  *self-msg-parent*)
+
+(define-symbol-macro self             (self))
+(define-symbol-macro self-beh         (self-beh))
+(define-symbol-macro self-msg         (self-msg))
+(define-symbol-macro self-msg-parent  (self-msg-parent))
 
 ;; --------------------------------------------
 #|
