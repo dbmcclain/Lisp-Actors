@@ -238,11 +238,11 @@ FDPL 38 > (float (getf * :pi))
 
 (let* ((lst '((:aegis . 970.8)
               (:hsa   .  20)
-              (:schw  . 307.5)
+              (:schw  . 307.1)
               (:gold  . 115)
-              (:chase .  46.4)
-              (:bachb .  18.3)
-              (:bacdm .  24.4)))
+              (:chase .  44.0)
+              (:bachb .  21.4)
+              (:bacdm .  26.4)))
        (tot (reduce '+ (mapcar 'cdr lst))))
   `(list
     :total ,(dpl 1 tot)
@@ -255,25 +255,30 @@ FDPL 38 > (float (getf * :pi))
                          ))
                      lst)))
 
+;; --------------------------------------------
+;; --------------------------------------------
 (with-nfmt "~,1f"
-  (let* ((lst '((:aegis . 974.0)
-                (:hsa   .  20)
-                (:schw  . 307.5)
-                (:gold  . 115)
-                (:chase .  46.4)
-                (:bachb .  18.3)
-                (:bacdm .  24.4)))
+  (let* ((lst `((:aegis . 955.0)
+                (:hsa   .  20.0)
+                (:schw  . 307.1)
+                (:gold  . ,(* 2720/1000 43.2))
+                (:chase .  53.9)
+                (:bachb .  21.4)
+                (:bacdm .  26.4)))
          (tot (reduce '+ (mapcar 'cdr lst))))
-  `(list
-    :total ,tot
-    :pcs   ',(mapcar (lambda (pair)
-                       `(,(car pair)
-                         .
-                         ,(/ (* 100 (cdr pair)) tot)
-                         ;; ,(/ (round (/ (* 100 (cdr pair)) tot) 0.1) 10.0)
-                         ;; ,(* 0.1 (round (/ (* 100 (cdr pair)) tot) 0.1))
-                         ))
-                     lst))))
+    `(list
+      :total ,tot
+      :pcs   ,(mapcar (lambda (pair)
+                        `(,(car pair)
+                          ,(cdr pair)
+                          ,(/ (* 100 (cdr pair)) tot)
+                          ;; ,(/ (round (/ (* 100 (cdr pair)) tot) 0.1) 10.0)
+                          ;; ,(* 0.1 (round (/ (* 100 (cdr pair)) tot) 0.1))
+                          ))
+                      lst))
+    ))
+;; --------------------------------------------
+;; --------------------------------------------
 
 (defun dpl (n x)
   (let ((sf  (if (< n 5)
@@ -349,8 +354,11 @@ FDPL 38 > (float (getf * :pi))
 (defmacro with-nfmt (fmt &body body)
   ;; Use fmt NIL for system default formatting. Outermost NFMT takes
   ;; precedence over inner, so you can easily override final display.
-  `(let ((*in-nfmt*  ,fmt))
-     ,@body))
+  `(let* ((*in-nfmt*  ,fmt)
+          (*default-nfmt* *in-nfmt*))
+     (nfmt (progn
+             ,@body))
+     ))
 
 #|
 FDPL 39 > (list :pi (nfmt pi) :e (nfmt (exp 1)))

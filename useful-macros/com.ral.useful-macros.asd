@@ -124,8 +124,8 @@ THE SOFTWARE.
 
                 #|
                 #+:LISPWORKS (:file "fixmes")
-                #+:LISPWORKS (:file "safe-streams")
-                #+:LISPWORKS (:file "safe-read-patch")
+                ;; #+:LISPWORKS (:file "safe-streams")
+                ;; #+:LISPWORKS (:file "safe-read-patch")
                 (:file "safe-read-from-string")
                 |#
 
@@ -156,6 +156,6 @@ THE SOFTWARE.
   :serial       t
   :depends-on   ("com.ral.useful-macros"
                  "ironclad"
-                 "safe-read" ;; thanks Michal!
+                 ;; "safe-read" ;; thanks Michal!
                  ))
 
