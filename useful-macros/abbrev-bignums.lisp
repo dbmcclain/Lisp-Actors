@@ -59,22 +59,30 @@ e.g.,
 (defun abbrev-istr (str)
   (if (<= (length str) (max-unabbrev-length))
       (um:sepi str 
-               :count (if (eql *print-base* 16.) 4. 5.))
+               :count (case *print-base*
+                        (16.  4.)
+                        (10.  3.)
+                        (t    5.)))
     (cut-and-splice str)))
 
-(defun print-int-obj (obj stream)
+(defun print-int-obj (obj &optional (stream *standard-output*))
   (let ((str (with-output-to-string (s)
                (without-abbrev
-                 (prin1 obj s) ))))
+                 (prin1 obj s)))))
     (princ (abbrev-istr str) stream)
-    obj))
+    obj
+    ))
 
 ;; -------------------------------------------------------
 
 #|
   ;; This version complies with the spec - PRIN1 should produce a machine readable display.
   ;; PRIN1 is for machines, PRINC is for humans.
+  ;;
   ;; Unfortunately, the REPL appears to call PRIN1 after every eval.
+  ;;
+  ;; Both PRIN1 and PRINC appear to call PRINT-OBJECT for integers >= 2^64
+  
 #+:LISPWORKS
 (lw:defadvice
     (prin1 avoid-bignum-abbrev :around)
@@ -83,9 +91,11 @@ e.g.,
     (lw:call-next-advice obj stream)))
 |#
 
+#|
 ;; This version departs from the spec. Human friendly REPL displayed
 ;; results. If you need machine readable, use WITH-STANDARD-IO-SYNTAX
 ;; around the call to PRIN1.
+
 #+:LISPWORKS
 (lw:defadvice
     (prin1 bignum-around-princ :around)
@@ -95,24 +105,61 @@ e.g.,
           (not *print-bignum-abbrev*))
       (lw:call-next-advice obj stream)
     (print-int-obj obj stream)))
+|#
+
+;; --------------------------------------------
+;; --------------------------------------------
+;; PRIN1
+
+#+:LISPWORKS
+(lw:defadvice
+    (prin1 bignum-around-princ :around)
+    (obj &optional (stream *standard-output*))
+  (if (integerp obj)
+      (print-object obj stream)
+    (lw:call-next-advice obj stream)))
+
+#|
+(hcl:delete-advice prin1 bignum-around-princ)
+|#
+
+;; --------------------------------------------
+;; PRINC
 
 #+:LISPWORKS
 (lw:defadvice
     (princ bignum-around-princ :around)
     (obj &optional (stream *standard-output*))
-  (if (or (not (integerp obj))
-          *print-readably*
-          (not *print-bignum-abbrev*))
-      (lw:call-next-advice obj stream)
-    (print-int-obj obj stream)))
+  (if (integerp obj)
+      (print-object obj stream)
+    (lw:call-next-advice obj stream)))
+
+#|
+(hcl:delete-advice princ bignum-around-princ)
+|#
+
+;; --------------------------------------------
+;; METHOD PRINT-OBJECT (INTEGER T)
 
 #+:LISPWORKS
 (lw:defadvice
     ((method print-object (integer t))
      bignum-around-print-object :around)
     (obj stream)
-  (if (or *print-readably*
-          (not *print-bignum-abbrev*))
-      (lw:call-next-advice obj stream)
-    (print-int-obj obj stream)))
+  (if (and (not *print-readably*)
+           *print-bignum-abbrev*)
+      (print-int-obj obj stream)
+    (lw:call-next-advice obj stream)))
 
+;; --------------------------------------------
+;; Misc adjustments?
+
+#+:LISPWORKS
+(lw:defadvice
+    (comm:open-tcp-stream no-abbrev :around)
+    (&rest args)
+  ;; COMM:OPEN-TCP-STREAM appears to call PRINC-TO-STRING with its
+  ;; PORT argument for effect, and expects an unadulterated digit
+  ;; string in return.
+  (without-abbrev
+    (apply #'lw:call-next-advice args)))
