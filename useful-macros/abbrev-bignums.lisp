@@ -129,7 +129,6 @@ e.g.,
         (t
          (lw:call-next-advice obj stream))
         ))
-
 #|
 (hcl:delete-advice prin1 bignum-around-princ)
 |#
@@ -154,7 +153,6 @@ e.g.,
         (t
          (lw:call-next-advice obj stream))
         ))
-
 #|
 (hcl:delete-advice princ bignum-around-princ)
 |#
@@ -174,7 +172,7 @@ e.g.,
                        (with-output-to-string (s)
                          (setf ans (lw:call-next-advice obj s))
                          ))))
-           (lw:call-next-advice (abbrev-istr str) stream)
+           (print-object (abbrev-istr str) stream)
            ans))
         (t
          (lw:call-next-advice obj stream))
