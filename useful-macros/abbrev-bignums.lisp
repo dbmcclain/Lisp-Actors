@@ -57,13 +57,14 @@ e.g.,
     (cut-and-splice str)))
 
 (defun abbrev-istr (str)
-  (if (<= (length str) (max-unabbrev-length))
+  (if (< (length str) (max-unabbrev-length))
       (um:sepi str 
                :count (case *print-base*
                         (16.  4.)
                         (10.  3.)
                         (t    5.)))
     (cut-and-splice str)))
+         
 
 (defun print-int-obj (obj &optional (stream *standard-output*))
   (let ((str (with-output-to-string (s)
@@ -115,9 +116,19 @@ e.g.,
 (lw:defadvice
     (prin1 bignum-around-princ :around)
     (obj &optional (stream *standard-output*))
-  (if (integerp obj)
-      (print-object obj stream)
-    (lw:call-next-advice obj stream)))
+  (cond ((and (integerp obj)
+              (not *print-readably*)
+              *print-bignum-abbrev*)
+         (let* (ans
+                (str (without-abbrev
+                       (with-output-to-string (s)
+                         (setf ans (lw:call-next-advice obj s))
+                         ))))
+           (lw:call-next-advice (abbrev-istr str) stream)
+           ans))
+        (t
+         (lw:call-next-advice obj stream))
+        ))
 
 #|
 (hcl:delete-advice prin1 bignum-around-princ)
@@ -130,9 +141,19 @@ e.g.,
 (lw:defadvice
     (princ bignum-around-princ :around)
     (obj &optional (stream *standard-output*))
-  (if (integerp obj)
-      (print-object obj stream)
-    (lw:call-next-advice obj stream)))
+  (cond ((and (integerp obj)
+              (not *print-readably*)
+              *print-bignum-abbrev*)
+         (let* (ans
+                (str (without-abbrev
+                       (with-output-to-string (s)
+                         (setf ans (lw:call-next-advice obj s))
+                         ))))
+           (lw:call-next-advice (abbrev-istr str) stream)
+           ans))
+        (t
+         (lw:call-next-advice obj stream))
+        ))
 
 #|
 (hcl:delete-advice princ bignum-around-princ)
@@ -146,10 +167,18 @@ e.g.,
     ((method print-object (integer t))
      bignum-around-print-object :around)
     (obj stream)
-  (if (and (not *print-readably*)
-           *print-bignum-abbrev*)
-      (print-int-obj obj stream)
-    (lw:call-next-advice obj stream)))
+  (cond ((and (not *print-readably*)
+              *print-bignum-abbrev*)
+         (let* (ans
+                (str (without-abbrev
+                       (with-output-to-string (s)
+                         (setf ans (lw:call-next-advice obj s))
+                         ))))
+           (lw:call-next-advice (abbrev-istr str) stream)
+           ans))
+        (t
+         (lw:call-next-advice obj stream))
+        ))
 
 ;; --------------------------------------------
 ;; Misc adjustments?
