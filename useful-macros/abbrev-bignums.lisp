@@ -109,6 +109,13 @@ e.g.,
 |#
 
 ;; --------------------------------------------
+(defun common-code (obj stream)
+  (let ((str (without-abbrev
+               (princ-to-string obj)
+               )))
+    (let ((*print-escape* nil))
+      (print-object (abbrev-istr str) stream))
+    obj))
 ;; --------------------------------------------
 ;; PRIN1
 
@@ -119,11 +126,7 @@ e.g.,
   (cond ((and (integerp obj)
               (not *print-readably*)
               *print-bignum-abbrev*)
-         (let ((str (without-abbrev
-                      (PRINC-TO-STRING obj))
-                    ))
-           (princ (abbrev-istr str) stream)
-           obj))
+         (common-code obj stream))
         (t
          (lw:call-next-advice obj stream))
         ))
@@ -141,11 +144,7 @@ e.g.,
   (cond ((and (integerp obj)
               (not *print-readably*)
               *print-bignum-abbrev*)
-         (let ((str (without-abbrev
-                      (PRINC-TO-STRING obj)
-                      )))
-           (lw:call-next-advice (abbrev-istr str) stream)
-           obj))
+         (common-code obj stream))
         (t
          (lw:call-next-advice obj stream))
         ))
@@ -163,12 +162,7 @@ e.g.,
     (obj stream)
   (cond ((and (not *print-readably*)
               *print-bignum-abbrev*)
-         (let ((str (without-abbrev
-                      (princ-to-string obj)
-                      )))
-           (let ((*print-escape* nil))
-             (print-object (abbrev-istr str) stream))
-           obj))
+         (common-code obj stream))
         (t
          (lw:call-next-advice obj stream))
         ))
