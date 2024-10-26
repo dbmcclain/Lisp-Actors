@@ -119,13 +119,11 @@ e.g.,
   (cond ((and (integerp obj)
               (not *print-readably*)
               *print-bignum-abbrev*)
-         (let* (ans
-                (str (without-abbrev
-                       (with-output-to-string (s)
-                         (setf ans (lw:call-next-advice obj s))
-                         ))))
-           (lw:call-next-advice (abbrev-istr str) stream)
-           ans))
+         (let ((str (without-abbrev
+                      (PRINC-TO-STRING obj))
+                    ))
+           (princ (abbrev-istr str) stream)
+           obj))
         (t
          (lw:call-next-advice obj stream))
         ))
@@ -143,13 +141,11 @@ e.g.,
   (cond ((and (integerp obj)
               (not *print-readably*)
               *print-bignum-abbrev*)
-         (let* (ans
-                (str (without-abbrev
-                       (with-output-to-string (s)
-                         (setf ans (lw:call-next-advice obj s))
-                         ))))
+         (let ((str (without-abbrev
+                      (PRINC-TO-STRING obj)
+                      )))
            (lw:call-next-advice (abbrev-istr str) stream)
-           ans))
+           obj))
         (t
          (lw:call-next-advice obj stream))
         ))
@@ -167,13 +163,12 @@ e.g.,
     (obj stream)
   (cond ((and (not *print-readably*)
               *print-bignum-abbrev*)
-         (let* (ans
-                (str (without-abbrev
-                       (with-output-to-string (s)
-                         (setf ans (lw:call-next-advice obj s))
-                         ))))
-           (print-object (abbrev-istr str) stream)
-           ans))
+         (let ((str (without-abbrev
+                      (princ-to-string obj)
+                      )))
+           (let ((*print-escape* nil))
+             (print-object (abbrev-istr str) stream))
+           obj))
         (t
          (lw:call-next-advice obj stream))
         ))
