@@ -69,29 +69,36 @@ THE SOFTWARE.
 ;; functional closure. It cannot perform that closing-over at the time
 ;; it needs it in function position.
 ;;
-;; So, instead, we have our manufacturer in the reader macro build us
-;; a cache CONS cell and provide that to us on construction of the
-;; lambda. It is private, unseen by anyone else, no binding holds it,
-;; except for the function call referring to it with 'SCANNER in
-;; argument position. That same CONS cell gets used every time the
-;; lambda executes. And it was freshly made, as (LIST NIL), for our
-;; private use, not a reference to some constant value like '(NIL).
+;; So, instead, we manufacturer a cache CONS cell and provide that to
+;; the construction of the lambda. It is private, unseen by anyone
+;; else, no binding holds it, except for the function call referring
+;; to it as 'SCANNER-CACHE in argument position. That same CONS cell
+;; gets used every time the lambda executes.
+;;
+;; And it was freshly made, as (LIST NIL), for our private use, not a
+;; reference to some shared constant value like '(NIL). It resides
+;; solely in the Constants section of the function, not in its
+;; environment. It should be a constant, but we are the only ones who
+;; know about it, and so if it gets mutated for our benefit then
+;; nobody else will notice.
 
 
 #+cl-ppcre
-(defmacro! match-mode-ppcre-lambda-form (o!scanner o!args)
-  ``(lambda (,',g!str)
-      (cl-ppcre:scan
-       (get-cache ',,g!scanner ,(car ,g!args))
-       ,',g!str)))
+(defmacro! match-mode-ppcre-lambda-form (o!args)
+  (let ((g!scanner-cache  '(list nil)))  ;; make a private cache cell
+    ``(lambda (,',g!str)
+        (cl-ppcre:scan
+         (get-cache ',,g!scanner-cache ,(car ,g!args))
+         ,',g!str))))
 
 #+cl-ppcre
-(defmacro! subst-mode-ppcre-lambda-form (o!scanner o!args)
-  ``(lambda (,',g!str)
-      (cl-ppcre:regex-replace-all
-       (get-cache ',,g!scanner ,(car ,g!args))
-       ,',g!str
-       ,(cadr ,g!args))))
+(defmacro! subst-mode-ppcre-lambda-form (o!args)
+  (let ((g!scanner-cache  '(list nil)))  ;; make a private cache cell
+    ``(lambda (,',g!str)
+        (cl-ppcre:regex-replace-all
+         (get-cache ',,g!scanner-cache ,(car ,g!args))
+         ,',g!str
+         ,(cadr ,g!args)))))
 
 ;; --------------------------------------------
 ;; Reader macro for #~ for pattern matching/substitution
@@ -105,14 +112,12 @@ THE SOFTWARE.
                  
                  ((char= mode-char #\m)
                   (match-mode-ppcre-lambda-form
-                   (list nil) ;; private scanner cache
                    (segment-reader stream
                                    (read-char stream)
                                    1)))
                    
                  ((char= mode-char #\s)
                   (subst-mode-ppcre-lambda-form
-                   (list nil) ;; private scanner cache
                    (segment-reader stream
                                    (read-char stream)
                                    2)))
