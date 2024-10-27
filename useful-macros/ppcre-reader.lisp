@@ -44,6 +44,7 @@ THE SOFTWARE.
 ;; Cached compiled scanners - compile on first use.
 ;; DM/RAL  2024/10/27 00:12:06 UTC
 
+#|
 (defvar *ppcre-cache*  (make-hash-table
                         :test #'string=))
 
@@ -52,6 +53,14 @@ THE SOFTWARE.
   ;; needs.
   (or (gethash str *ppcre-cache*)
       (setf (gethash str *ppcre-cache*)
+            (ppcre:create-scanner str))
+      ))
+|#
+
+(defun get-cache (cache str)
+  ;; Use local cache instead of hash-table
+  (or (car cache)
+      (setf (car cache)
             (ppcre:create-scanner str))
       ))
 
@@ -76,23 +85,24 @@ THE SOFTWARE.
 
 ;; --------------------------------------------
 ;; Use cached compiled scanners
-ll DM/RAL  2024/10/27 00:12:41 UTC
+;; DM/RAL  2024/10/27 00:12:41 UTC
 
 #+cl-ppcre
-(defmacro! match-mode-ppcre-lambda-form (o!args)
+(defmacro! match-mode-ppcre-lambda-form (o!scanner o!args)
   ``(lambda (,',g!str)
       (cl-ppcre:scan
-       (get-cache ,(car ,g!args))
+       (get-cache ',,g!scanner ,(car ,g!args))
        ,',g!str)))
 
 #+cl-ppcre
-(defmacro! subst-mode-ppcre-lambda-form (o!args)
+(defmacro! subst-mode-ppcre-lambda-form (o!scanner o!args)
   ``(lambda (,',g!str)
       (cl-ppcre:regex-replace-all
-       (get-cache ,(car ,g!args))
+       (get-cache ',,g!scanner ,(car ,g!args))
        ,',g!str
-       ,(cadr ,g!args))))
+       ,(third ,g!args))))
 
+;; --------------------------------------------
 ;; Reader macro for #~ for pattern matching/substitution
 ;; Produces a function that can be applied to strings
   
@@ -104,12 +114,14 @@ ll DM/RAL  2024/10/27 00:12:41 UTC
                  
                  ((char= mode-char #\m)
                   (match-mode-ppcre-lambda-form
+                   (list nil)
                    (segment-reader stream
                                    (read-char stream)
                                    1)))
                    
                  ((char= mode-char #\s)
                   (subst-mode-ppcre-lambda-form
+                   (list nil)
                    (segment-reader stream
                                    (read-char stream)
                                    2)))
