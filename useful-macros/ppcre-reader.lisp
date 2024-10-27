@@ -123,7 +123,7 @@ THE SOFTWARE.
       (cl-ppcre:regex-replace-all
        (get-cache ',,g!scanner ,(car ,g!args))
        ,',g!str
-       ,(third ,g!args))))
+       ,(cadr ,g!args))))
 
 ;; --------------------------------------------
 ;; Reader macro for #~ for pattern matching/substitution
