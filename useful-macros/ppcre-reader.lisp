@@ -44,44 +44,12 @@ THE SOFTWARE.
 ;; Cached compiled scanners - compile on first use.
 ;; DM/RAL  2024/10/27 00:12:06 UTC
 
-#|
-(defvar *ppcre-cache*  (make-hash-table
-                        :test #'string=))
-
-(defun get-cache (str)
-  ;; Get cached scanner, or compile on demand and cache for future
-  ;; needs.
-  (or (gethash str *ppcre-cache*)
-      (setf (gethash str *ppcre-cache*)
-            (ppcre:create-scanner str))
-      ))
-|#
-
 (defun get-cache (cache str)
   ;; Use private local cache instead of hash-table
   (or (car cache)
       (setf (car cache)
             (ppcre:create-scanner str))
       ))
-
-;; ---------------------------------------
-#|
-#+cl-ppcre
-(defmacro! match-mode-ppcre-lambda-form (o!args)
-  ``(lambda (,',g!str)
-      (cl-ppcre:scan
-       ,(car ,g!args)
-       ,',g!str)))
-
-
-#+cl-ppcre
-(defmacro! subst-mode-ppcre-lambda-form (o!args)
-  ``(lambda (,',g!str)
-      (cl-ppcre:regex-replace-all
-       ,(car ,g!args)
-       ,',g!str
-       ,(cadr ,g!args))))
-|#
 
 ;; --------------------------------------------
 ;; Use cached compiled scanners
