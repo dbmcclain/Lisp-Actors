@@ -111,7 +111,8 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "underscore")
                 (:file "sep")
                 #+:LISPWORKS (:file "abbrev-bignums")
-
+                (:file  "picfmt")
+                
                	(:file "uuid")
                 ;; (:file "xfli")
 		;; (:file "rubber-objects")

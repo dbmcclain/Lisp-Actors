@@ -40,8 +40,23 @@ THE SOFTWARE.
         (cons (coerce (nreverse chars) 'string)
               (segment-reader stream ch (- n 1))))))
 
-;; ---------------------------------------
+;; --------------------------------------------
+;; Cached compiled scanners - compile on first use.
+;; DM/RAL  2024/10/27 00:12:06 UTC
 
+(defvar *ppcre-cache*  (make-hash-table
+                        :test #'string=))
+
+(defun get-cache (str)
+  ;; Get cached scanner, or compile on demand and cache for future
+  ;; needs.
+  (or (gethash str *ppcre-cache*)
+      (setf (gethash str *ppcre-cache*)
+            (ppcre:create-scanner str))
+      ))
+
+;; ---------------------------------------
+#|
 #+cl-ppcre
 (defmacro! match-mode-ppcre-lambda-form (o!args)
   ``(lambda (,',g!str)
@@ -49,11 +64,32 @@ THE SOFTWARE.
        ,(car ,g!args)
        ,',g!str)))
 
+
 #+cl-ppcre
 (defmacro! subst-mode-ppcre-lambda-form (o!args)
   ``(lambda (,',g!str)
       (cl-ppcre:regex-replace-all
        ,(car ,g!args)
+       ,',g!str
+       ,(cadr ,g!args))))
+|#
+
+;; --------------------------------------------
+;; Use cached compiled scanners
+ll DM/RAL  2024/10/27 00:12:41 UTC
+
+#+cl-ppcre
+(defmacro! match-mode-ppcre-lambda-form (o!args)
+  ``(lambda (,',g!str)
+      (cl-ppcre:scan
+       (get-cache ,(car ,g!args))
+       ,',g!str)))
+
+#+cl-ppcre
+(defmacro! subst-mode-ppcre-lambda-form (o!args)
+  ``(lambda (,',g!str)
+      (cl-ppcre:regex-replace-all
+       (get-cache ,(car ,g!args))
        ,',g!str
        ,(cadr ,g!args))))
 
