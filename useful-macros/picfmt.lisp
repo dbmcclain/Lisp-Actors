@@ -233,6 +233,9 @@
 (#~m":.+[.,]|[.,]" "+24000:00:00.0")
 (lw:find-regexp-in-string ":.+\\([.,]\\|$\\)\\|[.,]" "+24000:00:00.0")
 
+(lw:find-regexp-in-string #":.+\([.,]\|$\)\|[.,]"# "+24000:00:00.0")
+
+(identity #":.+\([.,]\|$\)\|[.,]"#)
 |#
 
 (defun common-insert-spacers (str spacer-char spacer-interval)

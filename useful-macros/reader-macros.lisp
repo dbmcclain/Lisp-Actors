@@ -440,165 +440,281 @@ THE SOFTWARE.
 ;; trailing ("#).
 ;;
 ;; DM/RAL 12/21 - now incorporates Swift-style string interpolation.
-;; DM/RAL 2022/11/04 06:52:54 - use prefix numarg to prevent string
-;; interpolation, as in #1>.
+;; DM/RAL 2022/11/04 06:52:54 - use prefix numarg to cause string
+;; interpolation, as in #1> or #1".
+;;
+;; DM/RAL 2024/10/27 11:25:43 UTC - cleaned up substantially by going
+;; back to Doug Comer's original code.
 
-(defun |reader-for-#"| (stream sub-char numarg)
-   (declare (ignore sub-char))
-   (arun-fsm
-       ;; initial bindings
-       ((chars (make-rubber-vector
-                :element-type 'character))
-        (depth 1))
-       ;; feeder clause
-       (read-char stream)
-     ;; state machine - initial state first
-     (normal (ch)
-             (case ch
-               ((#\#) 
-                (keep ch)
-                (state read-sharp))
-                   
-               ((#\") 
-                (state read-quote))
-                   
-               ((#\\)
-                (state read-escape))
-                   
-               (t
-                (keep ch))
-               ))
-     
-     (read-escape (ch)
-                  (keep ch)
-                  (state normal))
-     
-     (read-sharp (ch)
-                 (case ch
-                   ((#\")
-                    (keep ch)
-                    (incf depth)
-                    (state normal))
-                   
-                   ((#\\)
-                    (state read-escape))
-                       
-                    (t
-                     (keep ch)
-                     (state normal))
-                    ))
-     
-     (read-quote (ch)
-                 (case ch
-                   ((#\#)
-                    (decf depth)
-                    (when (zerop depth)
-                      (we-are-done))
-                    (keep #\")
-                    (keep #\#)
-                    (state normal))
-                       
-                   ((#\")
-                    (keep ch))
+(defun |#"-reader| (stream sub-char numarg)
+  (declare (ignore sub-char))
+  ;; numarg here means interpolation
+  (let (chars)
+    (do ((prev (read-char stream) curr)
+         (curr (read-char stream) (read-char stream)))
+        ((and (char= prev #\") (char= curr #\#)))
+      (push prev chars))
+    (let ((chars (coerce (nreverse chars) 'string)))
+      ;; this bit is added to Doug's code to enable string interpolation
+      (unless *read-suppress*
+        (let ((ans (if numarg
+                       (trim-common-leading-ws-from-lines chars)
+                     chars)))
+          (if numarg
+              `(string-interp ,ans)
+            ans))
+        ))))
 
-                   ((#\\)
-                    (keep #\")
-                    (state read-escape))
-                       
-                   (t
-                    (keep #\")
-                    (keep ch)
-                    (state normal))
-                   ))
-     ;; not a state, but becomes a labels clause that can be used
-     (keep (ch)
-           (vector-push-extend ch chars))
-     (we-are-done ()
-                  (finish (unless *read-suppress*
-                            (let ((ans (if numarg
-                                           chars
-                                         (trim-common-leading-ws-from-lines chars))))
-                              (if numarg
-                                  ans
-                                `(string-interp ,ans)))
-                            )))
-     ))
+;;; #|
+;;; ;; Doug Comer's original definition
+;;; (defun |#"-reader| (stream sub-char numarg)
+;;;   (declare (ignore sub-char numarg))
+;;;   (let (chars)
+;;;     (do ((prev (read-char stream) curr)
+;;;          (curr (read-char stream) (read-char stream)))
+;;;         ((and (char= prev #\") (char= curr #\#)))
+;;;       (push prev chars))
+;;;     (unless *read-suppress*
+;;;       (coerce (nreverse chars) 'string))))
+;;; |#
 
 (set-dispatch-macro-character
- #\# #\" '|reader-for-#"|)
+  #\# #\" #'|#"-reader|)
+
+;;; #|
+;;; (defun |reader-for-#"| (stream sub-char numarg)
+;;;    (declare (ignore sub-char))
+;;;    (arun-fsm
+;;;        ;; initial bindings
+;;;        ((chars (make-rubber-vector
+;;;                 :element-type 'character))
+;;;         (depth 1))
+;;;        ;; feeder clause
+;;;        (read-char stream)
+;;;      ;; state machine - initial state first
+;;;      (normal (ch)
+;;;              (case ch
+;;;                ((#\#) 
+;;;                 (keep ch)
+;;;                 (state read-sharp))
+;;;                    
+;;;                ((#\") 
+;;;                 (state read-quote))
+;;;                    
+;;;                ((#\\)
+;;;                 (state read-escape))
+;;;                    
+;;;                (t
+;;;                 (keep ch))
+;;;                ))
+;;;      
+;;;      (read-escape (ch)
+;;;                   (keep ch)
+;;;                   (state normal))
+;;;      
+;;;      (read-sharp (ch)
+;;;                  (case ch
+;;;                    ((#\")
+;;;                     (keep ch)
+;;;                     (incf depth)
+;;;                     (state normal))
+;;;                    
+;;;                    ((#\\)
+;;;                     (state read-escape))
+;;;                        
+;;;                     (t
+;;;                      (keep ch)
+;;;                      (state normal))
+;;;                     ))
+;;;      
+;;;      (read-quote (ch)
+;;;                  (case ch
+;;;                    ((#\#)
+;;;                     (decf depth)
+;;;                     (when (zerop depth)
+;;;                       (we-are-done))
+;;;                     (keep #\")
+;;;                     (keep #\#)
+;;;                     (state normal))
+;;;                        
+;;;                    ((#\")
+;;;                     (keep ch))
+
+;;;                    ((#\\)
+;;;                     (keep #\")
+;;;                     (state read-escape))
+;;;                        
+;;;                    (t
+;;;                     (keep #\")
+;;;                     (keep ch)
+;;;                     (state normal))
+;;;                    ))
+;;;      ;; not a state, but becomes a labels clause that can be used
+;;;      (keep (ch)
+;;;            (vector-push-extend ch chars))
+;;;      (we-are-done ()
+;;;                   (finish (unless *read-suppress*
+;;;                             (let ((ans (if numarg
+;;;                                            chars
+;;;                                          (trim-common-leading-ws-from-lines chars))))
+;;;                               (if numarg
+;;;                                   ans
+;;;                                 `(string-interp ,ans)))
+;;;                             )))
+;;;      ))
+
+;;; (set-dispatch-macro-character
+;;;  #\# #\" '|reader-for-#"|)
+
+;;; |#
 
 ;; --------------------------------------------
 ;; Reader macro for #>
 ;; like the Bourne shell > to-lists for surrounding strings
-;; String is interpolatable. Use prefix numarg to prevent interpolation.
+;; String is interpolatable. Use prefix numarg to enable interpolation.
+;;
+;; DM/RAL 2024/10/27 11:25:43 UTC - cleaned up substantially by going
+;; back to Doug Comer's original code.
 
-(defun |reader-for-#>| (stream sub-char numarg)
+(defun |#>-reader| (stream sub-char numarg)
   (declare (ignore sub-char))
-  (arun-fsm
-      ;; bindings
-      (tstpos 
-       (pattern (make-array 16
-                            :element-type (stream-element-type stream)
-                            :adjustable t
-                            :fill-pointer 0))
-       (s  (make-array 16
-                       :element-type (stream-element-type stream)
-                       :adjustable t
-                       :fill-pointer 0)))
-      ;; feeder
-      (read-char stream nil stream t)
-    ;; machine states - initial first
-    (start (ch)
-           ;; get stop-pattern
-           (cond ((eq ch stream) ;; eof
-                  (we-are-done ""))
-                 
-                 ((char= ch #\newline)
-                  (phase2))
-                 
-                 ((whitespace-char-p ch)
-                  (state skip-to-eol))
-                 
-                 (t
-                  (vector-push-extend ch pattern))
+  ;; numarg enables string interpolation
+  (let (chars)
+    (do ((curr (read-char stream)
+               (read-char stream)))
+        ((char= #\newline curr))
+      (push curr chars))
+    (let* ((pattern (nreverse chars))
+           (pointer pattern)
+           (output))
+      (do ((curr (read-char stream)
+                 (read-char stream)))
+          ((null pointer))
+        (push curr output)
+        (setf pointer
+              (if (char= (car pointer) curr)
+                (cdr pointer)
+                pattern))
+        (if (null pointer)
+          (return)))
+      (let ((str (coerce
+                  (nreverse
+                   (nthcdr (length pattern) output))
+                  'string)
                  ))
-    (skip-to-eol (ch)
-                 ;; ignore everything after pattern to EOL
-                 (cond ((eq ch stream) ;; eof
-                        (we-are-done ""))
-                       
-                       ((char= ch #\newline)
-                        (phase2))
-                       ))
-    (phase2 ()
-            (setf tstpos  (- (length pattern)))
-            (if (zerop tstpos)
-                (we-are-done "")
-              (state absorb)))
-    (absorb (ch)
-            (cond ((eq ch stream)
-                   (we-are-done s))
-                  
-                  (t
-                   (vector-push-extend ch s)
-                   (incf tstpos)
-                   (when (and (>= tstpos 0)
-                              (string= pattern s :start2 tstpos))
-                     (setf (fill-pointer s) tstpos)
-                     (we-are-done s)
-                     ))
-                  ))
-    (we-are-done (str)
-                 (finish (unless *read-suppress*
-                           (let ((ans (trim-common-leading-ws-from-lines str)))
-                             (if numarg
-                                 ans
-                               `(string-interp ,ans)))
-                           )))
+        ;; this bit is added to Doug's code to enable string interpolation
+        (unless *read-suppress*
+          (let ((ans (trim-common-leading-ws-from-lines str)))
+            (if numarg
+                `(string-interp ,ans)
+              ans))
+          )))
     ))
 
 (set-dispatch-macro-character
- #\# #\> '|reader-for-#>|)
+  #\# #\> #'|#>-reader|)
+
+;;; #|
+;;; ;; Doug Comer's original code
+;;; (defun |#>-reader| (stream sub-char numarg)
+;;;   (declare (ignore sub-char numarg))
+;;;   (let (chars)
+;;;     (do ((curr (read-char stream)
+;;;                (read-char stream)))
+;;;         ((char= #\newline curr))
+;;;       (push curr chars))
+;;;     (let* ((pattern (nreverse chars))
+;;;            (pointer pattern)
+;;;            (output))
+;;;       (do ((curr (read-char stream)
+;;;                  (read-char stream)))
+;;;           ((null pointer))
+;;;         (push curr output)
+;;;         (setf pointer
+;;;               (if (char= (car pointer) curr)
+;;;                 (cdr pointer)
+;;;                 pattern))
+;;;         (if (null pointer)
+;;;           (return)))
+;;;       (coerce
+;;;         (nreverse
+;;;           (nthcdr (length pattern) output))
+;;;         'string))))
+
+;;; (set-dispatch-macro-character
+;;;   #\# #\> #'|#>-reader|)
+;;; |#
+
+;;; #|
+;;; (defun |reader-for-#>| (stream sub-char numarg)
+;;;   (declare (ignore sub-char))
+;;;   ;; numarg means string interpolation
+;;;   (arun-fsm
+;;;       ;; bindings
+;;;       (tstpos 
+;;;        (pattern (make-array 16
+;;;                             :element-type (stream-element-type stream)
+;;;                             :adjustable t
+;;;                             :fill-pointer 0))
+;;;        (s  (make-array 16
+;;;                        :element-type (stream-element-type stream)
+;;;                        :adjustable t
+;;;                        :fill-pointer 0)))
+;;;       ;; feeder
+;;;       (read-char stream nil stream t)
+;;;     ;; machine states - initial first
+;;;     (start (ch)
+;;;            ;; get stop-pattern
+;;;            (cond ((eq ch stream) ;; eof
+;;;                   (we-are-done ""))
+;;;                  
+;;;                  ((char= ch #\newline)
+;;;                   (phase2))
+;;;                  
+;;;                  ((whitespace-char-p ch)
+;;;                   (state skip-to-eol))
+;;;                  
+;;;                  (t
+;;;                   (vector-push-extend ch pattern))
+;;;                  ))
+;;;     (skip-to-eol (ch)
+;;;                  ;; ignore everything after pattern to EOL
+;;;                  (cond ((eq ch stream) ;; eof
+;;;                         (we-are-done ""))
+;;;                        
+;;;                        ((char= ch #\newline)
+;;;                         (phase2))
+;;;                        ))
+;;;     (phase2 ()
+;;;             (setf tstpos  (- (length pattern)))
+;;;             (if (zerop tstpos)
+;;;                 (we-are-done "")
+;;;               (state absorb)))
+;;;     (absorb (ch)
+;;;             (cond ((eq ch stream)
+;;;                    (we-are-done s))
+;;;                   
+;;;                   (t
+;;;                    (vector-push-extend ch s)
+;;;                    (incf tstpos)
+;;;                    (when (and (>= tstpos 0)
+;;;                               (string= pattern s :start2 tstpos))
+;;;                      (setf (fill-pointer s) tstpos)
+;;;                      (we-are-done s)
+;;;                      ))
+;;;                   ))
+;;;     (we-are-done (str)
+;;;                  (finish (unless *read-suppress*
+;;;                            (let ((ans (trim-common-leading-ws-from-lines str)))
+;;;                              (if numarg
+;;;                                  `(string-interp ,ans)
+;;;                                ans))
+;;;                            )))
+;;;     ))
+
+;;; (set-dispatch-macro-character
+;;;  #\# #\> '|reader-for-#>|)
+;;; |#
 
 
 #| ;; example
@@ -660,8 +776,10 @@ of the #> reader macro
                                  ((x) :when (numberp x) (/ x))
                                  (_   (list 'quote data)))))
 
+#|
 #$(:test 15)
 #$(:test :this)
+|#
 |#
 ;; ----------------------------------------------------------
 ;; Reader for #/
@@ -696,8 +814,10 @@ of the #> reader macro
                              ((x) :when (numberp x) (/ x))
                              (_   (list 'quote data))))))
 
+#|
 #/test/1.2
 #/test/this
+|#
 |#
 ;; ----------------------------------------------------------
 ;; Literal String Reader - incl embedded quotes
