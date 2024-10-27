@@ -320,7 +320,8 @@
     (let ((*print-escape* nil))
       (print-object str stream))
     obj))
-  
+
+#+:LISPWORKS
 (lw:defadvice
     (princ insert-number-spacers :around)
     (obj &optional (stream *standard-output*))
@@ -346,6 +347,7 @@
 (in-base 36. edec:*ed-r* :comma-char nil)
 |#
 
+#+:LISPWORKS
 (lw:defadvice
     ((method print-object (integer t))
      insert-number-spacers :around)

@@ -58,7 +58,7 @@ THE SOFTWARE.
 |#
 
 (defun get-cache (cache str)
-  ;; Use local cache instead of hash-table
+  ;; Use private local cache instead of hash-table
   (or (car cache)
       (setf (car cache)
             (ppcre:create-scanner str))
@@ -86,6 +86,29 @@ THE SOFTWARE.
 ;; --------------------------------------------
 ;; Use cached compiled scanners
 ;; DM/RAL  2024/10/27 00:12:41 UTC
+;;
+;; The #~M, #~S, reader macros are used in function position - meaning
+;; they expect to produce a lambda function.
+;;
+;; A let-over-lambda is a natural solution to having a local cache - a
+;; simple CONS cell whose CAR contains NIL on first use, and which
+;; gets replaced by the compiled scanner function. But we cannot do...
+;;
+;; You cannot use a let-over-lambda in function position. That would
+;; require construction of a functional closure to capture the
+;; let-binding surrounding the lambda function. And that is a stretch
+;; too far for Lisp. It needs a function, or a previously closed over
+;; functional closure. It cannot perform that closing-over at the time
+;; it needs it in function position.
+;;
+;; So, instead, we have our manufacturer in the reader macro build us
+;; a cache CONS cell and provide that to us on construction of the
+;; lambda. It is private, unseen by anyone else, no binding holds it,
+;; except for the function call referring to it with 'SCANNER in
+;; argument position. That same CONS cell gets used every time the
+;; lambda executes. And it was freshly made, as (LIST NIL), for our
+;; private use, not a reference to some constant value like '(NIL).
+
 
 #+cl-ppcre
 (defmacro! match-mode-ppcre-lambda-form (o!scanner o!args)
@@ -114,14 +137,14 @@ THE SOFTWARE.
                  
                  ((char= mode-char #\m)
                   (match-mode-ppcre-lambda-form
-                   (list nil)
+                   (list nil) ;; private scanner cache
                    (segment-reader stream
                                    (read-char stream)
                                    1)))
                    
                  ((char= mode-char #\s)
                   (subst-mode-ppcre-lambda-form
-                   (list nil)
+                   (list nil) ;; private scanner cache
                    (segment-reader stream
                                    (read-char stream)
                                    2)))
