@@ -134,8 +134,7 @@
   (let ((*print-base* 10.)
         (x  (* turns 86400. (expt 10. ndp))))
     (if (plusp ndp)
-        (apply (pic-formatter (sign ds ddc ddc #\. nd))
-               x ndp args)
+        (apply (pic-formatter (sign ds ddc ddc #\. nd)) x ndp args)
       (apply (pic-formatter (sign ds ddc ddc)) x args))
     ))
 
