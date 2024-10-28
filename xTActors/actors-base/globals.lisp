@@ -66,6 +66,8 @@
 ;; --------------------------------------------
 ;; User level has Read-Only access
 
+(declaim (inline self self-beh self-msg self-msg-parent))
+
 (defun self ()
   *self*)
 
