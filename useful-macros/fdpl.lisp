@@ -80,141 +80,53 @@
     ))
 
 ;; --------------------------------------------
-;; Rounding to n decimal places for display, while retaining the
-;; original value.
+;; Augmented numbers that display with N decimal places
 
 (defclass fdpl (augmented-value)
-  ;; By making FDPL into a CLOS Class, we enable smoother subclassing
-  ;; by user types that wish to extend and take advantage of what FDPL
-  ;; offers.
-  ((n     :reader fdpl-n        :initarg :n)
-   (w     :reader fdpl-w        :initarg :w)
-   (f     :reader fdpl-f        :initarg :f)
-   (flags :reader fdpl-flags    :initarg :flags))
+  ((ndpl     :accessor fdpl-ndpl  :initarg :ndpl)
+   (fmt      :accessor fdpl-fmt   :initarg :fmt)
+   (flags    :accessor fdpl-flags :initarg :flags))
   (:default-initargs
-   :w     nil
-   :flags '(:sep (#\, 3 #\_ 5))
+   :ndpl   2
+   :fmt    '(sign ds dp nd)
+   :flags  '(:dpchar         #\.
+             :comma-char     #\,
+             :comma-interval 3
+             :sep-char       #\_
+             :sep-interval   5)
    ))
 
-(defmethod initialize-instance :after ((obj fdpl) &key &allow-other-keys)
-  (with-slots (val n w f) obj
-    (check-type n   (integer 0))
-    ;; (check-type val real)
-    (unless w
-      ;; Subclasses might provide their own W,F.
-      (multiple-value-bind (q r)
-          (int-round n (val-of val))
-        (setf w q
-              f r)
-        ))))
+(defgeneric fdpl-prepval (x)
+  (:method (x)
+   (val-of x)))
 
-(defun fdpl (n x &rest flags)
-  ;; round x to n decimal places
-  (make-instance 'fdpl
-                 :n     n
-                 :val   x
-                 :flags flags))
-
-#|
-FDPL 35 > (list :pi (fdpl 3 pi) :e (fdpl 3 (exp 1)))
-(:PI 3.142 :E 2.718)
-
-FDPL 36 > (mapcar 'val-of *)
-(:PI 3.141592653589793 :E 2.7182818F0)
-
-FDPL 37 > **
-(:PI 3.142 :E 2.718)
-
-FDPL 38 > (float (getf * :pi))
-3.141592653589793
-|#
-
-;; --------------------------------------------
-;; worker function
-
-(defun int-round (n x)
-  ;; Split fp x to n dpl, into whole and frac integers
-  (let ((sf (if (< n 5)
-                (aref #.#(1 10 100 1000 1000) n)
-              (expt 10 n))))
-    (declare (integer sf))
-    (truncate (round (* sf x)) sf)
-    ))
-
-;; --------------------------------------------
-
-(defun fdpl-parse-flags (x)
-  (let ((flags          (fdpl-flags x))
-        (nosep          nil)
-        (sep            nil)
-        (sign           "")
-        (dpl            #\.)
-        (comma-char     nil)
-        (comma-interval nil)
-        (sep-char       nil)
-        (sep-interval   nil))
-    (setf nosep (member :nosep flags))
-    (when(member :sign flags)
-      (setf sign "@"))
-    (when-let (lst (member :sep flags))
-      (when (consp (cadr lst))
-        (setf sep (cadr lst))))
-    (when-let (lst (member :dpl flags))
-      (when (characterp (cadr lst))
-        (setf dpl (cadr lst))))
-    (setf comma-char     (let ((ch (first sep)))
-                           (and (characterp ch)
-                                ch))
-          comma-interval (let ((int (second sep)))
-                           (and (integerp int)
-                                (max int 1)))
-          sep-char       (let ((ch (third sep)))
-                           (and (characterp ch)
-                                ch))
-          sep-interval   (let ((int (fourth sep)))
-                           (and (integerp int)
-                                (max int 1))))
-    (when nosep
-      (setf comma-char nil
-            sep-char   nil))
-    (values sign       dpl
-            comma-char comma-interval
-            sep-char   sep-interval)
-    ))
-
-(defun fdpl-format-frac (x sep-char sep-interval)
-  (let* ((frac  (format nil "~D" (abs (fdpl-f x))))
-         (nfrac (length frac))
-         (nz    (max 0 (- (fdpl-n x) nfrac)))
-         (frac  (if (plusp nz)
-                    (concatenate 'string
-                                 (make-string nz :initial-element #\0)
-                                 frac)
-                  frac)))
-    (if (and sep-char sep-interval)
-        (apply #'paste-strings sep-char
-               (um:group frac sep-interval))
-      frac)
-    ))
-    
 (defmethod print-object ((x fdpl) out-stream)
   (if *print-readably*
       (call-next-method)
-    (without-abbrev
-     (multiple-value-bind (sign dpl comma-char comma-interval sep-char sep-interval)
-         (fdpl-parse-flags x)
-       (let ((frac  (fdpl-format-frac x sep-char sep-interval))
-             (fmt   (concatenate 'string
-                                 "~,,v,v:"
-                                 sign
-                                 "D~C~A")))
-         (format out-stream fmt
-                 comma-char comma-interval
-                 (fdpl-w x)
-                 dpl frac))
-       ))
+    (um:without-abbrev
+      (with-accessors ((val   fdpl-prepval)
+                       (fmt   fdpl-fmt)
+                       (ndpl  fdpl-ndpl)
+                       (flags fdpl-flags)) x
+        (let* ((*print-base*   10.)
+               (*print-escape* nil)
+               (formatter (eval `(picfmt:pic-formatter ,fmt))))
+          (print-object
+           (apply formatter val :ndpl ndpl flags)
+           out-stream)
+          )))
     ))
 
+(defun fdpl (n val &rest args)
+  (apply #'make-instance 'fdpl
+         :val  val
+         :ndpl n
+         args))
+
+#|
+(fdpl 3 pi)                      
+|#
+    
 ;; --------------------------------------------
 #|
 (let* ((lst '((:aegis . 971.4)

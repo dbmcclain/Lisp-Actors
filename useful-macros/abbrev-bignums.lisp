@@ -4,7 +4,8 @@
   (:export
    #:with-abbrev
    #:without-abbrev
-   #:abbrev-str))
+   #:abbrev-str
+   #:abbrev-istr))
 
 (in-package :com.ral.useful-macros.abbrev-bignums)
 
@@ -58,11 +59,7 @@ e.g.,
 
 (defun abbrev-istr (str)
   (if (< (length str) (max-unabbrev-length))
-      (um:sepi str 
-               :count (case *print-base*
-                        (16.  4.)
-                        (10.  3.)
-                        (t    5.)))
+      (um:sepi str)
     (cut-and-splice str)))
          
 
@@ -118,7 +115,7 @@ e.g.,
     obj))
 ;; --------------------------------------------
 ;; PRIN1
-
+#|
 #+:LISPWORKS
 (lw:defadvice
     (prin1 bignum-around-princ :around)
@@ -130,13 +127,14 @@ e.g.,
         (t
          (lw:call-next-advice obj stream))
         ))
+|#
 #|
 (hcl:delete-advice prin1 bignum-around-princ)
 |#
 
 ;; --------------------------------------------
 ;; PRINC
-
+#|
 #+:LISPWORKS
 (lw:defadvice
     (princ bignum-around-princ :around)
@@ -148,13 +146,14 @@ e.g.,
         (t
          (lw:call-next-advice obj stream))
         ))
+|#
 #|
 (hcl:delete-advice princ bignum-around-princ)
 |#
 
 ;; --------------------------------------------
-;; METHOD PRINT-OBJECT (INTEGER T)
-
+;; Method PRINT-OBJECT (INTEGER T)
+#|
 #+:LISPWORKS
 (lw:defadvice
     ((method print-object (integer t))
@@ -166,7 +165,7 @@ e.g.,
         (t
          (lw:call-next-advice obj stream))
         ))
-
+|#
 ;; --------------------------------------------
 ;; Misc adjustments?
 
@@ -179,3 +178,83 @@ e.g.,
   ;; string in return.
   (without-abbrev
     (apply #'lw:call-next-advice args)))
+#|
+(hcl:delete-advice comm:open-tcp-stream no-abbrev)
+|#
+;; --------------------------------------------
+
+#+:LISPWORKS
+(lw:defadvice
+    (princ-to-string bignum-around :around)
+    (obj)
+  (without-abbrev
+    (lw:call-next-advice obj)))
+
+#+:LISPWORKS
+(defmethod print-object ((obj integer) (stream lw-xp::xp-structure))
+  (cond ((and (not *print-readably*)
+              *print-bignum-abbrev*)
+         (common-code obj stream))
+        (t
+         (call-next-method)
+        )))
+
+#+:LISPWORKS
+(lw:defadvice
+    (princ bignum-around :around)
+    (obj &optional (stream *standard-output*))
+  (cond ((and (integerp obj)
+              (not *print-readably*)
+              *print-bignum-abbrev*)
+         (common-code obj stream))
+        (t
+         (lw:call-next-advice obj stream))
+        ))
+
+#+:LISPWORKS
+(lw:defadvice
+    (prin1 bignum-around :around)
+    (obj &optional (stream *standard-output*))
+  (cond ((and (integerp obj)
+              (not *print-readably*)
+              *print-bignum-abbrev*)
+         (common-code obj stream))
+        (t
+         (lw:call-next-advice obj stream))
+        ))
+#|
+(hcl:delete-advice princ-to-string bignum-around)
+(hcl:delete-advice prin1 bignum-around)
+(hcl:delete-advice princ bignum-around)
+|#
+;; --------------------------------------------
+
+#|
+#+:LISPWORKS
+(defmethod print-object ((obj integer) (stream editor::editor-output-stream))
+  (cond ((and (not *print-readably*)
+              *print-bignum-abbrev*)
+         (common-code obj stream))
+        (t
+         (call-next-method)
+        )))
+|#
+#|
+#+:LISPWORKS
+(defmethod print-object ((obj integer) (stream editor::rubber-stream))
+  (cond ((and (not *print-readably*)
+              *print-bignum-abbrev*)
+         (common-code obj stream))
+        (t
+         (call-next-method)
+        )))
+|#
+#|
+(trace (method print-object (integer lw-xp::xp-structure)))
+(trace common-code)
+(untrace)
+(princ-to-string edec:*ed-r*)
+(princ edec:*ed-r*)
+(inspect *standard-output*)
+|#
+

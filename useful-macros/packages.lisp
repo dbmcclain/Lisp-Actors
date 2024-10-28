@@ -796,13 +796,10 @@ THE SOFTWARE.
    
    #:dpl
    #:fdpl
-   #:fdpl-n
-   #:fdpl-w
-   #:fdpl-f
+   #:fdpl-ndpl
+   #:fdpl-fmt
    #:fdpl-flags
-   #:fdpl-parse-flags
-   #:fdpl-format-frac
-   #:int-round
+   #:fdpl-prepval
 
    #:nfmt
    #:nfmt-fmt

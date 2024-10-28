@@ -32,6 +32,14 @@
 ;; By defining all the verbs as global functions, feeding off global
 ;; (dynamic) bindings for parameters, we can set up the dispatch table
 ;; just once and for all.
+;;
+;; General Keyword Args:
+;;   :ndpl           - nbr of decimal places to use
+;;   :dpchar         - decimal point character
+;;   :comma-char     - comma separator char for integer portion
+;;   :comma-interval - how often :comma-char is inserted
+;;   :sep-char       - separator char for fraction portion
+;;   :sep-interval   - how often :sep-char is inserted
 
 (defvar *pad*   nil)
 (defvar *nabs*  nil)
@@ -53,14 +61,17 @@
 (defun dc ()
   (let ((*print-base* 6))
     (d))
-  (hold #\:))
+  (hold (getf *args* :colon-char #\:)))
 
 (defun ddc ()
   (d)
   (dc))
 
+(defun dp ()
+  (hold (getf *args* :dpchar #\.)))
+
 (defun nd ()
-  (dotimes (ix (pop *args*))
+  (dotimes (ix (getf *args* :ndpl 0))
     (d)))
 
 (defun rstr (s)
@@ -84,6 +95,7 @@
       :ds	ds       ;; all the rest, but at least one
       :dc	dc       ;; :#, sexagisimal digit + ':'
       :ddc	ddc      ;; :##, 2 digits mod 60 + ':'
+      :dp       dp       ;; prints the decimal point char (keyword arg :dpchar)
       :nd	nd       ;; n digits, by arg
       :sign	sign     ;; - if negative
       :sign+	sign+))  ;; - if negative, else +
@@ -111,7 +123,7 @@
 
 (defun %pic-run (fn *n* &rest args)
   (let ((*pad*  (make-pad))
-        (*nabs* (abs (round *n*)))
+        (*nabs* (abs (round (* (expt 10. (getf args :ndpl 0)) *n*))))
         (*args* args))
     (funcall fn)
     (apply #'insert-spacers (nreverse *pad*) *args*)
@@ -130,29 +142,31 @@
   `(funcall (pic-formatter ,fmtlst) ,n ,@args))
 
 #|
-(fmt (sign+ ds ddc ddc #\. nd) (* 86400. (expt 10. 6) 100.75) 6)
+(fmt (sign+ ds ddc ddc dp nd) (* 86400. (expt 10. 6) 100.75) :ndpl 6)
+(let ((fmtlst '(sign ds #\. nd)))
+  (inspect (compile nil (eval `(pic-formatter ,fmtlst)))))
 |#
 ;; --------------------------------------------
 
-(defun hms (turns &rest args &key (ndp 1))
+(defun hms (turns &rest args)
   (let ((*print-base* 10.)
-        (x  (* turns 86400. (expt 10. ndp))))
-    (if (plusp ndp)
-        (apply (pic-formatter (sign ds ddc ddc #\. nd)) x ndp args)
+        (x  (* turns 86400.)))
+    (if (plusp (getf args :ndpl 0))
+        (apply (pic-formatter (sign ds ddc ddc dp nd)) x args)
       (apply (pic-formatter (sign ds ddc ddc)) x args))
     ))
 
 #|
-(hms 0.8 :ndp 2)
-(fmt (sign+ ds ddc ddc #\. d " hrs") (* 864000. 0.8))
+(hms 0.8 :ndpl 2)
+(fmt (sign+ ds ddc ddc dp d " hrs") (* 86400. 0.8) :ndpl 1)
 |#
 
-(defun ndp (ndp x &rest args)
+(defun ndp (ndpl x &rest args)
   (if (>= (abs x) 1e12)
       (apply #'insert-spacers
              (format nil "~,vE" ndp x) args)
     (apply (pic-formatter (sign ds #\. nd))
-           (* x (expt 10. ndp)) ndp args)
+           x :ndpl ndpl args)
     ))
 
 (defun 2dp (x &rest args)
@@ -176,7 +190,7 @@
   
   (declare (ignore dpchar))
   (multiple-value-bind (start end)
-      (#~m"(:.+[.,])|(:.+$)|[.,]" str)  ;; PPCRE is much easier to use than LW regexps
+      (#~m"([: ].+[.,])|([: ].+$)|[.,]" str)  ;; PPCRE is much easier to use than LW regexps
     (if start
         (values
          (subseq str 0 start)      ;; return beginning, middle, end
@@ -197,7 +211,10 @@
 
 (let ((str "+24000:00:00.00"))
   (split-at-decimal str))
-                          ;; 0....5...10...15
+(let ((str "+24000 00 00.00"))
+  (split-at-decimal str))
+
+;; 0....5...10...15
 (#~m"(:.+[.,])|(:.+$)|[.,]" "+24000:00:00.00")
 ;; (#~m%((:[0-9]{2}){1,2}(\.|$))|\.% "+24000:00:00.0")
 
