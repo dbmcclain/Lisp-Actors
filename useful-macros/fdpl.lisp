@@ -86,7 +86,7 @@
   ((ndpl      :accessor fdpl-ndpl  :initarg :ndpl)
    (fmt       :accessor fdpl-fmt   :initarg :fmt)
    (flags     :accessor fdpl-flags :initarg :flags)
-   (formatter :accessor fdpl-formatter :initform nil))
+   (dsply     :accessor fdpl-dsply :initform nil))
   (:default-initargs
    :ndpl   2
    :fmt    '(sign ds dp nd)
@@ -123,15 +123,15 @@
                        (fmt       fdpl-fmt)
                        (ndpl      fdpl-ndpl)
                        (flags     fdpl-flags)
-                       (formatter fdpl-formatter)) x
+                       (dsply     fdpl-dsply)) x
         (let* ((*print-base*   10.)
                (*print-escape* nil)
-               (formatter (or formatter
-                              (setf formatter (get-formatter-cache fmt))
-                              )))
-          (print-object
-           (apply formatter val :ndpl ndpl flags)
-           out-stream)
+               (dsply  (or dsply
+                           (setf dsply
+                                 (apply (get-formatter-cache fmt)
+                                        val :ndpl ndpl flags)
+                                 ))))
+          (print-object dsply out-stream)
           )))
     ))
 
