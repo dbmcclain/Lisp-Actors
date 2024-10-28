@@ -104,29 +104,29 @@
     (apply #'insert-spacers (nreverse *pad*) *args*)
     ))
 
-(defun pic-worker-fn (fmtlst)
-  (compile nil
-           `(lambda ()
-              ,@(mapcan (lambda (sym)
-                          (cond ((symbolp sym)
-                                 (um:when-let (fn (getf *fns* (um:kwsymb sym)))
-                                   `((,fn))))
-                                ((characterp sym)
-                                 `((hold ,sym)))
-                                ((stringp sym)
-                                 `((rstr ,(reverse sym))))
-                                ))
-                        (reverse fmtlst))
-              )))
+(um:eval-always
+  (defun pic-worker-fn (fmtlst)
+    `(lambda ()
+       ,@(mapcan (lambda (sym)
+                   (cond ((symbolp sym)
+                          (um:when-let (fn (getf *fns* (um:kwsymb sym)))
+                            `((,fn))))
+                         ((characterp sym)
+                          `((hold ,sym)))
+                         ((stringp sym)
+                          `((rstr ,(reverse sym))))
+                         ))
+                 (reverse fmtlst))
+       )))
 
-(defun pic-formatter (fmtlst)
-  (um:curry #'%pic-run (pic-worker-fn fmtlst)))
+(defmacro pic-formatter (fmtlst)
+  `(um:curry #'%pic-run ,(pic-worker-fn fmtlst)))
 
-(defun fmt (fmtlst n &rest args)
-  (apply (pic-formatter fmtlst) n args))
+(defmacro fmt (fmtlst n &rest args)
+  `(funcall (pic-formatter ,fmtlst) ,n ,@args))
 
 #|
-(fmt '(sign+ ds ddc ddc #\. nd) (* 86400. (expt 10. 6) 100.75) 6)
+(fmt (sign+ ds ddc ddc #\. nd) (* 86400. (expt 10. 6) 100.75) 6)
 |#
 ;; --------------------------------------------
 
@@ -134,21 +134,21 @@
   (let ((*print-base* 10.)
         (x  (* turns 86400. (expt 10. ndp))))
     (if (plusp ndp)
-        (apply (load-time-value (pic-formatter '(sign ds ddc ddc #\. nd)))
+        (apply (pic-formatter (sign ds ddc ddc #\. nd))
                x ndp args)
-      (apply (load-time-value (pic-formatter '(sign ds ddc ddc))) x args))
+      (apply (pic-formatter (sign ds ddc ddc)) x args))
     ))
 
 #|
 (hms 0.8 :ndp 2)
-(fmt '(sign+ ds ddc ddc #\. d " hrs") (* 864000. 0.8))
+(fmt (sign+ ds ddc ddc #\. d " hrs") (* 864000. 0.8))
 |#
 
 (defun ndp (ndp x &rest args)
   (if (>= (abs x) 1e12)
       (apply #'insert-spacers
              (format nil "~,vE" ndp x) args)
-    (apply (load-time-value (pic-formatter '(sign ds #\. nd)))
+    (apply (pic-formatter (sign ds #\. nd))
            (* x (expt 10. ndp)) ndp args)
     ))
 
@@ -303,8 +303,9 @@
         (t
          (lw:call-next-advice obj stream))
         ))
+
 #|
-(hcl:delete-advice princ insert-number-spacders)
+(hcl:delete-advice princ insert-number-spacers)
 
 (trace princ (method print-object (integer t)))
 (trace print-object)
@@ -318,6 +319,16 @@
 (in-base 36. edec:*ed-r* :comma-char nil)
 |#
 
+#|
+(defmethod print-object :around ((obj integer) stream)
+  (cond ((and (not *print-readably*)
+              *expecting-spacers*)
+         (common-code obj stream))
+        (t
+         (call-next-method))
+        ))
+|#  
+#|
 #+:LISPWORKS
 (lw:defadvice
     ((method print-object (integer t))
@@ -329,6 +340,7 @@
         (t
          (lw:call-next-advice obj stream))
         ))
+|#
 #|
 (hcl:delete-advice (method print-object (real t)) insert-number-spacers)
 |#
@@ -360,9 +372,10 @@
 (in-base 36 edec:*ed-r*)
 (in-base 36 edec:*ed-r* :comma-char nil)
 (in-base 17 edec:*ed-r*)
-(let ((*read-base* 36.))
-  (in-base 36.
+(in-base 16.
+         (let ((*read-base* 36.))
            (read-from-string "dbm")))
 |#
 
 ;; --------------------------------------------
+
