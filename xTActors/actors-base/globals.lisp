@@ -31,28 +31,9 @@
 ;; works for both of us...
 ;; --------------------------------------------
 
-(defconstant +self-off+             0                         )
-(defconstant +self-beh-off+         (1+ +self-off+)           )
-(defconstant +self-msg-off+         (1+ +self-beh-off+)       )
-(defconstant +self-msg-parent-off+  (1+ +self-msg-off+)       )
-(defconstant +send-hook-off+        (1+ +self-msg-parent-off+))
-(defconstant +become-hook-off+      (1+ +send-hook-off+)      )
-(defconstant +abort-beh-hook-off+   (1+ +become-hook-off+)    )
-(defconstant +dyn-specials-size+    (1+ +abort-beh-hook-off+) )
-
-(defun make-dyn-specials (&key send-hook become-hook abort-beh-hook)
-  (let ((v  (make-array +dyn-specials-size+
-                        :initial-element nil)))
-    (setf (aref v +send-hook-off+) send-hook
-          (aref v +become-hook-off+)
-          (or become-hook
-              (lambda (new-beh)
-                (declare (ignore new-beh))
-                (error "Not in an Actor")))
-          (aref v +abort-beh-hook-off+)
-          (or abort-beh-hook
-              #'do-nothing))
-    v))
+(defstruct dyn-specials
+  self self-beh self-msg self-msg-parent
+  send-hook become-hook abort-beh-hook)
 
 ;; --------------------------------------------
 
@@ -62,25 +43,25 @@
 ;; System level has R/W access
 
 (define-symbol-macro *self*
-  (svref (the simple-vector *dyn-specials*) +self-off+))
+  (dyn-specials-self (the dyn-specials *dyn-specials*)))
 
 (define-symbol-macro *self-beh*
-  (svref (the simple-vector *dyn-specials*) +self-beh-off+))
+  (dyn-specials-self-beh (the dyn-specials *dyn-specials*)))
 
 (define-symbol-macro *self-msg*
-  (svref (the simple-vector *dyn-specials*) +self-msg-off+))
+  (dyn-specials-self-msg (the dyn-specials *dyn-specials*)))
 
 (define-symbol-macro *self-msg-parent*
-  (svref (the simple-vector *dyn-specials*) +self-msg-parent-off+))
+  (dyn-specials-self-msg-parent (the dyn-specials *dyn-specials*)))
 
 (define-symbol-macro *send-hook*
-  (svref (the simple-vector *dyn-specials*) +send-hook-off+))
+  (dyn-specials-send-hook (the dyn-specials *dyn-specials*)))
 
 (define-symbol-macro *become-hook*
-  (svref (the simple-vector *dyn-specials*) +become-hook-off+))
+  (dyn-specials-become-hook (the dyn-specials *dyn-specials*)))
 
 (define-symbol-macro *abort-beh-hook*
-  (svref (the simple-vector *dyn-specials*) +abort-beh-hook-off+))
+  (dyn-specials-abort-beh-hook (the dyn-specials *dyn-specials*)))
 
 ;; --------------------------------------------
 ;; User level has Read-Only access

@@ -6,9 +6,8 @@
 (defpackage #:picfmt
   (:use #:common-lisp)
   (:export
-   #:picfmt
+   #:fmt
    #:pic-formatter
-   #:interpret-pic
 
    #:hms
    #:ndp
@@ -97,86 +96,61 @@
               :adjustable   t
               :fill-pointer 0))
 
-(defun interpret-pic (fmtlst *n* &rest args)
-  ;; slow
+(defun %pic-run (fn *n* &rest args)
   (let ((*pad*  (make-pad))
         (*nabs* (abs (round *n*)))
         (*args* args))
-    (map nil (lambda (sym)
-               (cond ((keywordp sym)
-                      (um:when-let (fn (getf *fns* sym))
-                        (funcall fn)))
-                     ((characterp sym)
-                      (hold sym))
-                     ((stringp sym)
-                      (rstr (reverse sym))) ))
-         (reverse fmtlst))
-    (nreverse *pad*)))
+    (funcall fn)
+    (apply #'insert-spacers (nreverse *pad*) *args*)
+    ))
 
-(um:eval-always
-(defun pic-compile (fmtlst)
-  `(lambda (*n* &rest args)
-     (let ((*pad*  (make-pad))
-           (*nabs* (abs (round *n*)))
-           (*args* args))
-     ,@(mapcan (lambda (sym)
-                 (cond ((keywordp sym)
-                        (um:when-let (fn (getf *fns* sym))
-                          `((,fn))))
-                       ((characterp sym)
-                        `((hold ,sym)))
-                       ((stringp sym)
-                        `((rstr ,(reverse sym))))
-                       ))
-               (reverse fmtlst))
-     (nreverse *pad*) )) )
-)
+(defun pic-worker-fn (fmtlst)
+  (compile nil
+           `(lambda ()
+              ,@(mapcan (lambda (sym)
+                          (cond ((symbolp sym)
+                                 (um:when-let (fn (getf *fns* (um:kwsymb sym)))
+                                   `((,fn))))
+                                ((characterp sym)
+                                 `((hold ,sym)))
+                                ((stringp sym)
+                                 `((rstr ,(reverse sym))))
+                                ))
+                        (reverse fmtlst))
+              )))
 
-;; --------------------------------------------
+(defun pic-formatter (fmtlst)
+  (um:curry #'%pic-run (pic-worker-fn fmtlst)))
 
-(defmacro picfmt (fmtlist n &rest args)
-  `(,(pic-compile fmtlist) ,n ,@args))
+(defun fmt (fmtlst n &rest args)
+  (apply (pic-formatter fmtlst) n args))
 
-(defmacro pic-formatter (fmt)
-  `(compile nil (pic-compile ,fmt)))
-
-;; --------------------------------------------
 #|
-(defstruct compiled-formatter
-  fn)
-
-(defun precompile-fmt (fmt)
-  (make-compiled-formatter
-   :fn (compile nil (pic-compile fmt))))
-
-(defgeneric picfmt (fmt n &rest args)
-  (:method ((fmt list) n &rest args)
-   (apply #'picfmt (precompile-fmt fmt) n args))
-  (:method ((fmt compiled-formatter) n &rest args)
-   (apply (compiled-formatter-fn fmt) n args)))
+(fmt '(sign+ ds ddc ddc #\. nd) (* 86400. (expt 10. 6) 100.75) 6)
 |#
 ;; --------------------------------------------
 
 (defun hms (turns &rest args &key (ndp 1))
-  (let ((x  (* turns 86400. (expt 10. ndp))))
-    (apply #'insert-spacers
-           (if (plusp ndp)
-               (picfmt (:sign+ :ds :ddc :ddc #\. :nd) x ndp)
-             ;; else
-             (picfmt (:sign :ds :ddc :ddc) x))
-           args)))
+  (let ((*print-base* 10.)
+        (x  (* turns 86400. (expt 10. ndp))))
+    (if (plusp ndp)
+        (apply (load-time-value (pic-formatter '(sign ds ddc ddc #\. nd)))
+               x ndp args)
+      (apply (load-time-value (pic-formatter '(sign ds ddc ddc))) x args))
+    ))
 
 #|
 (hms 0.8 :ndp 2)
-(interpret-pic '(:sign+ :ds :ddc :ddc #\. :d " hrs") (* 864000. 0.8))
+(fmt '(sign+ ds ddc ddc #\. d " hrs") (* 864000. 0.8))
 |#
 
 (defun ndp (ndp x &rest args)
-  (apply #'insert-spacers
-         (if (>= (abs x) 1e12)
-             (format nil "~,vE" ndp x)
-           (picfmt (:sign :ds #\. :nd) (* x (expt 10. ndp)) ndp))
-         args))
+  (if (>= (abs x) 1e12)
+      (apply #'insert-spacers
+             (format nil "~,vE" ndp x) args)
+    (apply (load-time-value (pic-formatter '(sign ds #\. nd)))
+           (* x (expt 10. ndp)) ndp args)
+    ))
 
 (defun 2dp (x &rest args)
   (apply #'ndp 2 x args))
@@ -187,13 +161,6 @@
 (ndp 7 1e12)
 |#
 
-#|
-(defun hms (turns &rest args)
-  (let ((fmt '(:sign+ :ds :ddc :ddc #\. :d " hrs")))
-    (apply #'insert-spacers
-           (funcall (pic-formatter fmt) (* 864000. turns))
-           args)))
-|#
 ;; --------------------------------------------
 
 (defun split-at-decimal (str &key (dpchar #\.))
@@ -206,7 +173,7 @@
   
   (declare (ignore dpchar))
   (multiple-value-bind (start end)
-      (#~m":.+([.,]|$)|[.,]" str)  ;; PPCRE is much easier to use than LW regexps
+      (#~m"(:.+[.,])|(:.+$)|[.,]" str)  ;; PPCRE is much easier to use than LW regexps
     (if start
         (values
          (subseq str 0 start)      ;; return beginning, middle, end
@@ -227,10 +194,11 @@
 
 (let ((str "+24000:00:00.00"))
   (split-at-decimal str))
-
+                          ;; 0....5...10...15
+(#~m"(:.+[.,])|(:.+$)|[.,]" "+24000:00:00.00")
 ;; (#~m%((:[0-9]{2}){1,2}(\.|$))|\.% "+24000:00:00.0")
 
-(#~m":.+[.,]|[.,]" "+24000:00:00.0")
+(#~m"(:.+[.,])|[.,]" "+24000:00:00.0")
 (lw:find-regexp-in-string ":.+\\([.,]\\|$\\)\\|[.,]" "+24000:00:00.0")
 
 (lw:find-regexp-in-string #":.+\([.,]\|$\)\|[.,]"# "+24000:00:00.0")
