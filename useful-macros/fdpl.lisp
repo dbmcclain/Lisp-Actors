@@ -82,38 +82,76 @@
 ;; --------------------------------------------
 ;; Augmented numbers that display with N decimal places
 
+(defvar *fdpl-default-flags*
+  '(:dpchar         #\.
+    :comma-char     #\,
+    :comma-interval 3
+    :sep-char       #\_
+    :sep-interval   5))
+
 (defclass fdpl (augmented-value)
   ((ndpl      :accessor fdpl-ndpl  :initarg :ndpl)
    (fmt       :accessor fdpl-fmt   :initarg :fmt)
-   (flags     :accessor fdpl-flags :initarg :flags)
+   (flags     :accessor fdpl-flags)
    (dsply     :accessor fdpl-dsply :initform nil))
   (:default-initargs
-   :ndpl   2
-   :fmt    '(sign ds dp nd)
-   :flags  '(:dpchar         #\.
-             :comma-char     #\,
-             :comma-interval 3
-             :sep-char       #\_
-             :sep-interval   5)
+   :ndpl        2
+   :fmt         '(sign ds dp nd)
+   :fdpl-flags  *fdpl-default-flags*
    ))
 
 (defgeneric fdpl-prepval (x)
   (:method (x)
    (val-of x)))
 
+(defun gather-flags (plist)
+  ;; Subclasses can offer up their flag overrides under a key
+  ;; :xxx-flags where xxx is their subclass name. Users will furnish
+  ;; their own construction flags under key :flags.
+  ;;
+  ;; (Flag names must be unique, or else they will have the effect of
+  ;; cancelling default flags from ancestor classes.)
+  ;;
+  ;; We gather up all the "flags" vals and stack them in order from
+  ;; user, through subclasses, to base class FDPL.
+  ;;
+  ;; Future GETF's will find the first key matching the request - the
+  ;; one nearest the front of the list.
+  ;;
+  ;; Now that we have this is place, users can offer flag :WIDTH
+  ;; without also cancelling all the other default flags.
+  ;;
+  (um:nlet iter ((lst plist)
+                 (acc nil))
+    (if lst
+        (go-iter (cddr lst)
+                 (if (#~m%FLAGS$% (string (car lst)))
+                     (cons (cadr lst) acc)
+                   acc))
+      (apply #'nconc (nreverse acc)))
+    ))
+
+(defmethod initialize-instance :after ((obj fdpl) &rest args &key &allow-other-keys)
+  (setf (fdpl-flags obj) (gather-flags args)))
+
+;; --------------------------------------------
+;; Formatters cache
+
 (let ((cache-lock  (mpc:make-lock))
       (cache-alist nil))
-  
+
   (defun get-formatter-cache (fmt)
-    (or (cdr (assoc fmt cache-alist :test 'equalp))
-        (mpc:with-lock (cache-lock)
-          (or (cdr (assoc fmt cache-alist :test 'equalp))
-              (let* ((formatter (compile nil (eval `(picfmt:pic-formatter ,fmt))))
-                     (new-cache (acons fmt formatter cache-alist)))
-                (setf cache-alist new-cache)
-                formatter))
-          ))
-    ))
+    (let ((key (mapcar #'string fmt)))
+      (or (cdr (assoc key cache-alist :test #'equalp))
+          (mpc:with-lock (cache-lock)
+            (or (cdr (assoc key cache-alist :test #'equalp))
+                (let* ((formatter (compile nil (eval `(picfmt:pic-formatter ,fmt))))
+                       (new-cache (acons key formatter cache-alist)))
+                  (setf cache-alist new-cache)
+                  formatter))
+            ))
+      )))
+;; --------------------------------------------
 
 (defmethod print-object ((x fdpl) out-stream)
   (if *print-readably*
@@ -135,14 +173,16 @@
           )))
     ))
 
-(defun fdpl (n val &rest args)
-  (apply #'make-instance 'fdpl
-         :val  val
-         :ndpl n
+(defun fdpl-maker (class val &rest args)
+  (apply #'make-instance class
+         :val val
          args))
 
+(defun fdpl (n val &rest args)
+  (apply #'fdpl-maker 'fdpl val :ndpl n args))
+
 #|
-(fdpl 3 pi)
+(fdpl 3 pi :flags '(:width 10 :fill-char #\#))
 |#
     
 ;; --------------------------------------------

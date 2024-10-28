@@ -34,12 +34,15 @@
 ;; just once and for all.
 ;;
 ;; General Keyword Args:
-;;   :ndpl           - nbr of decimal places to use
-;;   :dpchar         - decimal point character
-;;   :comma-char     - comma separator char for integer portion
-;;   :comma-interval - how often :comma-char is inserted
-;;   :sep-char       - separator char for fraction portion
-;;   :sep-interval   - how often :sep-char is inserted
+;;   :ndpl           - nbr of decimal places to use, def = 0
+;;   :dpchar         - decimal point character, def = #\.
+;;   :colon-char     - what char to use for sexigisimal output, def = #\:
+;;   :comma-char     - comma separator char for integer portion, def = #\,
+;;   :comma-interval - how often :comma-char is inserted, def = 3
+;;   :sep-char       - separator char for fraction portion, def = #\_
+;;   :sep-interval   - how often :sep-char is inserted, def = 5
+;;   :width          - how wide the output string should be, def = NIL
+;;   :fill-char      - char to use to pad out to width, def = #\Space
 
 (defvar *pad*   nil)
 (defvar *nabs*  nil)
@@ -126,7 +129,15 @@
         (*nabs* (abs (round (* (expt 10. (getf args :ndpl 0)) *n*))))
         (*args* args))
     (funcall fn)
-    (apply #'insert-spacers (nreverse *pad*) *args*)
+    (let ((ans (apply #'insert-spacers (nreverse *pad*) *args*))
+          (wd  (getf args :width)))
+      (if wd
+          (let ((nel  (length ans)))
+            (concatenate 'string
+                         (make-string (max 0 (- wd nel))
+                                      :initial-element (getf args :fill-char #\space))
+                         ans))
+        ans))
     ))
 
 ;; --------------------------------------------
@@ -164,7 +175,7 @@
 (defun ndp (ndpl x &rest args)
   (if (>= (abs x) 1e12)
       (apply #'insert-spacers
-             (format nil "~,vE" ndp x) args)
+             (format nil "~,vE" ndpl x) args)
     (apply (pic-formatter (sign ds #\. nd))
            x :ndpl ndpl args)
     ))
