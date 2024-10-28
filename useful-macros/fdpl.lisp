@@ -83,9 +83,10 @@
 ;; Augmented numbers that display with N decimal places
 
 (defclass fdpl (augmented-value)
-  ((ndpl     :accessor fdpl-ndpl  :initarg :ndpl)
-   (fmt      :accessor fdpl-fmt   :initarg :fmt)
-   (flags    :accessor fdpl-flags :initarg :flags))
+  ((ndpl      :accessor fdpl-ndpl  :initarg :ndpl)
+   (fmt       :accessor fdpl-fmt   :initarg :fmt)
+   (flags     :accessor fdpl-flags :initarg :flags)
+   (formatter :accessor fdpl-formatter :initform nil))
   (:default-initargs
    :ndpl   2
    :fmt    '(sign ds dp nd)
@@ -100,17 +101,34 @@
   (:method (x)
    (val-of x)))
 
+(let ((cache-lock  (mpc:make-lock))
+      (cache-alist nil))
+  
+  (defun get-formatter-cache (fmt)
+    (or (cdr (assoc fmt cache-alist :test 'equalp))
+        (mpc:with-lock (cache-lock)
+          (or (cdr (assoc fmt cache-alist :test 'equalp))
+              (let* ((formatter (compile nil (eval `(picfmt:pic-formatter ,fmt))))
+                     (new-cache (acons fmt formatter cache-alist)))
+                (setf cache-alist new-cache)
+                formatter))
+          ))
+    ))
+
 (defmethod print-object ((x fdpl) out-stream)
   (if *print-readably*
       (call-next-method)
     (um:without-abbrev
-      (with-accessors ((val   fdpl-prepval)
-                       (fmt   fdpl-fmt)
-                       (ndpl  fdpl-ndpl)
-                       (flags fdpl-flags)) x
+      (with-accessors ((val       fdpl-prepval)
+                       (fmt       fdpl-fmt)
+                       (ndpl      fdpl-ndpl)
+                       (flags     fdpl-flags)
+                       (formatter fdpl-formatter)) x
         (let* ((*print-base*   10.)
                (*print-escape* nil)
-               (formatter (eval `(picfmt:pic-formatter ,fmt))))
+               (formatter (or formatter
+                              (setf formatter (get-formatter-cache fmt))
+                              )))
           (print-object
            (apply formatter val :ndpl ndpl flags)
            out-stream)
@@ -124,7 +142,7 @@
          args))
 
 #|
-(fdpl 3 pi)                      
+(fdpl 3 pi)
 |#
     
 ;; --------------------------------------------
