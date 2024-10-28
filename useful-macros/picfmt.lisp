@@ -79,15 +79,28 @@
 ;; --------------------------------------------
 ;; Dispatch table
 (um:eval-always
-(defvar *fns*
-  '(:d		d        ;; 1 digit, #
-    :ds		ds       ;; all the rest, but at least one
-    :dc		dc       ;; :#, sexagisimal digit + ':'
-    :ddc	ddc      ;; :##, 2 digits mod 60 + ':'
-    :nd		nd       ;; n digits, by arg
-    :sign	sign     ;; - if negative
-    :sign+	sign+))  ;; - if negative, else +
-)
+  (defvar *fns*
+    '(:d	d        ;; 1 digit, #
+      :ds	ds       ;; all the rest, but at least one
+      :dc	dc       ;; :#, sexagisimal digit + ':'
+      :ddc	ddc      ;; :##, 2 digits mod 60 + ':'
+      :nd	nd       ;; n digits, by arg
+      :sign	sign     ;; - if negative
+      :sign+	sign+))  ;; - if negative, else +
+
+  (defun pic-worker-fn (fmtlst)
+    `(lambda ()
+       ,@(mapcan (lambda (sym)
+                   (cond ((symbolp sym)
+                          (um:when-let (fn (getf *fns* (um:kwsymb sym)))
+                            `((,fn))))
+                         ((characterp sym)
+                          `((hold ,sym)))
+                         ((stringp sym)
+                          `((rstr ,(reverse sym))))
+                         ))
+                 (reverse fmtlst))
+       )))
 ;; --------------------------------------------
 
 (defun make-pad ()
@@ -104,20 +117,7 @@
     (apply #'insert-spacers (nreverse *pad*) *args*)
     ))
 
-(um:eval-always
-  (defun pic-worker-fn (fmtlst)
-    `(lambda ()
-       ,@(mapcan (lambda (sym)
-                   (cond ((symbolp sym)
-                          (um:when-let (fn (getf *fns* (um:kwsymb sym)))
-                            `((,fn))))
-                         ((characterp sym)
-                          `((hold ,sym)))
-                         ((stringp sym)
-                          `((rstr ,(reverse sym))))
-                         ))
-                 (reverse fmtlst))
-       )))
+;; --------------------------------------------
 
 (defmacro pic-formatter (fmtlst)
   `(um:curry #'%pic-run ,(pic-worker-fn fmtlst)))
