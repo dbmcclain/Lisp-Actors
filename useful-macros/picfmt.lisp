@@ -120,7 +120,11 @@
 ;; --------------------------------------------
 
 (defmacro pic-formatter (fmtlst)
-  `(um:curry #'%pic-run ,(pic-worker-fn fmtlst)))
+  (let ((n    (gensym))
+        (args (gensym)))
+    `(lambda (,n &rest ,args)
+       (apply #'%pic-run ,(pic-worker-fn fmtlst) ,n ,args))
+    ))
 
 (defmacro fmt (fmtlst n &rest args)
   `(funcall (pic-formatter ,fmtlst) ,n ,@args))
