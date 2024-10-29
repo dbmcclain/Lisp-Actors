@@ -129,20 +129,30 @@
 ;; --------------------------------------------
 ;; Formatters cache
 
-(let ((cache-lock  (mpc:make-lock))
-      (cache-alist nil))
+(defstruct intent
+  fn)
 
+(let ((cache-alist (list nil)))
+
+  ;; Lock-free design
   (defun get-formatter-cache (fmt)
-    (let ((key (mapcar #'string fmt)))
-      (or #1=(cdr (assoc key cache-alist :test #'equalp))
-          (mpc:with-lock (cache-lock)
-            (or #1#
-                (let* ((formatter (compile nil (eval `(picfmt:pic-formatter ,fmt))))
-                       (new-cache (acons key formatter cache-alist)))
-                  (setf cache-alist new-cache)
-                  formatter))
-            ))
-      )))
+    (let* ((key       (mapcar #'string fmt))
+           (formatter nil))
+      (um:rmw
+       (car cache-alist)
+       (lambda (alist)
+         ;; We may be called more than once...
+         (let ((new-alist  alist))
+           (setf formatter
+                 (or (cdr (assoc key alist :test #'equalp))
+                     (let ((new-formatter
+                            (or formatter        ;; if repeating
+                                (compile nil (eval `(picfmt:pic-formatter ,fmt)))
+                                )))
+                       (setf new-alist (acons key new-formatter alist))
+                       new-formatter)))
+           new-alist)))
+      formatter)))
 ;; --------------------------------------------
 
 (defmethod print-object ((x fdpl) out-stream)
