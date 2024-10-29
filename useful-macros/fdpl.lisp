@@ -104,7 +104,27 @@
    (val-of x)))
 
 (defmethod initialize-instance :after ((obj fdpl) &rest args &key &allow-other-keys)
-  (setf (fdpl-flags obj) args))
+  (setf (fdpl-flags obj)
+        ;; flatten out the list, replacing ":xxx-flags '(:a 1 :b 2)"
+        ;; with ":a 1 :b 2" along the way
+        (um:nlet iter ((lst args)
+                       (acc nil))
+          (cond
+           ((endp lst)
+            acc)
+           ((member (car lst) '(:fmt :val))
+            ;; ignore :fmt and :val
+            (go-iter (cddr lst) acc))
+           ((consp (cadr lst))
+            ;; a :xxx-flags list - drop the :xxx-flags and append the options
+            (go-iter (cddr lst)
+                     (append acc (cadr lst))))
+           (t
+            ;; some other item like :ndpl or such, pick it up verbatim
+            (go-iter (cddr lst)
+                     (append acc (list (car lst) (cadr lst)))))
+           ))
+        ))
 
 ;; --------------------------------------------
 ;; Formatters cache
