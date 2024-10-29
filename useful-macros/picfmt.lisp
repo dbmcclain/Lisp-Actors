@@ -172,6 +172,7 @@
 
 #|
 (fmt (sign+ ds ddc ddc dp nd) (* 86400. (expt 10. 6) 100.75) 6 :ndpl 6)
+(fmt (sign+ ds ddc ddc dp ndpl) (* 86400. (expt 10. 6) 100.75) :ndpl 6)
 (let ((fmtlst '(sign ds #\. nd)))
   (inspect (compile nil (eval `(pic-formatter ,fmtlst)))))
 |#

@@ -31,7 +31,23 @@
 ;; ----------------------------------
 
 (defpackage #:com.ral.useful-macros.fdpl
-  (:use #:common-lisp #:ac))
+  (:use #:common-lisp #:ac)
+  (:import-from #:um
+   #:augmented-value
+   #:val-of
+   #:display-form
+   #:dpl
+   #:fdpl
+   #:fdpl-maker
+   #:fdpl-prepval
+   #:nfmt
+   #:nfmt-fmt
+   #:set-default-nfmt
+   #:*default-nfmt*
+   #:with-nfmt
+   #:ffmt
+   ))
+   
 
 (in-package #:com.ral.useful-macros.fdpl)
 

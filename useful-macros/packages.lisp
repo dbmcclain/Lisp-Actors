@@ -796,9 +796,6 @@ THE SOFTWARE.
    
    #:dpl
    #:fdpl
-   #:fdpl-ndpl
-   #:fdpl-fmt
-   #:fdpl-flags
    #:fdpl-prepval
    #:fdpl-maker
    
