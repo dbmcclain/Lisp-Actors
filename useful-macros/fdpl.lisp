@@ -126,10 +126,9 @@
     (if lst
         (go-iter (cddr lst)
                  (if (#~m%FLAGS$% (string (car lst)))
-                     (cons (cadr lst) acc)
+                     (append acc (cadr lst))
                    acc))
-      (apply #'nconc (nreverse acc)))
-    ))
+      acc)))
 
 (defmethod initialize-instance :after ((obj fdpl) &rest args &key &allow-other-keys)
   (setf (fdpl-flags obj) (gather-flags args)))

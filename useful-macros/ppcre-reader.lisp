@@ -44,14 +44,14 @@ THE SOFTWARE.
 (defmacro! match-mode-ppcre-lambda-form (o!args)
   ``(lambda (,',g!str)
       (cl-ppcre:scan
-       (load-time-value (ppcre:create-scanner ,(car ,g!args)))
+       (load-time-value (ppcre:create-scanner ,(car ,g!args)) t)
        ,',g!str)))
 
 #+cl-ppcre
 (defmacro! subst-mode-ppcre-lambda-form (o!args)
   ``(lambda (,',g!str)
       (cl-ppcre:regex-replace-all
-       (load-time-value (ppcre:create-scanner ,(car ,g!args)))
+       (load-time-value (ppcre:create-scanner ,(car ,g!args)) t)
        ,',g!str
        ,(cadr ,g!args))))
 

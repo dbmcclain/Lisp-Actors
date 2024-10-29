@@ -377,6 +377,8 @@
 |#
 
 ;; --------------------------------------------
+;; In the following, arg N could a number or anything that contains a
+;; number.
 
 (defun in-base (base n &rest args)
   (let ((*print-base*        base)
