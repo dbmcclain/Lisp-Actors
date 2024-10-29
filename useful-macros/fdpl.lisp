@@ -134,9 +134,9 @@
 
   (defun get-formatter-cache (fmt)
     (let ((key (mapcar #'string fmt)))
-      (or (cdr (assoc key cache-alist :test #'equalp))
+      (or #1=(cdr (assoc key cache-alist :test #'equalp))
           (mpc:with-lock (cache-lock)
-            (or (cdr (assoc key cache-alist :test #'equalp))
+            (or #1#
                 (let* ((formatter (compile nil (eval `(picfmt:pic-formatter ,fmt))))
                        (new-cache (acons key formatter cache-alist)))
                   (setf cache-alist new-cache)
