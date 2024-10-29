@@ -90,8 +90,7 @@
     :sep-interval   5))
 
 (defclass fdpl (augmented-value)
-  ((ndpl      :accessor fdpl-ndpl  :initarg :ndpl)
-   (fmt       :accessor fdpl-fmt   :initarg :fmt)
+  ((fmt       :accessor fdpl-fmt   :initarg :fmt)
    (flags     :accessor fdpl-flags)
    (dsply     :accessor fdpl-dsply :initform nil))
   (:default-initargs
@@ -104,34 +103,8 @@
   (:method (x)
    (val-of x)))
 
-(defun gather-flags (plist)
-  ;; Subclasses can offer up their flag overrides under a key
-  ;; :xxx-flags where xxx is their subclass name. Users will furnish
-  ;; their own construction flags under key :flags.
-  ;;
-  ;; (Flag names must be unique, or else they will have the effect of
-  ;; cancelling default flags from ancestor classes.)
-  ;;
-  ;; We gather up all the "flags" vals and stack them in order from
-  ;; user, through subclasses, to base class FDPL.
-  ;;
-  ;; Future GETF's will find the first key matching the request - the
-  ;; one nearest the front of the list.
-  ;;
-  ;; Now that we have this is place, users can offer flag :WIDTH
-  ;; without also cancelling all the other default flags.
-  ;;
-  (um:nlet iter ((lst plist)
-                 (acc nil))
-    (if lst
-        (go-iter (cddr lst)
-                 (if (#~m%FLAGS$% (string (car lst)))
-                     (append acc (cadr lst))
-                   acc))
-      acc)))
-
 (defmethod initialize-instance :after ((obj fdpl) &rest args &key &allow-other-keys)
-  (setf (fdpl-flags obj) (gather-flags args)))
+  (setf (fdpl-flags obj) args))
 
 ;; --------------------------------------------
 ;; Formatters cache
@@ -158,7 +131,6 @@
     (um:without-abbrev
       (with-accessors ((val       fdpl-prepval)
                        (fmt       fdpl-fmt)
-                       (ndpl      fdpl-ndpl)
                        (flags     fdpl-flags)
                        (dsply     fdpl-dsply)) x
         (let* ((*print-base*   10.)
@@ -166,7 +138,7 @@
                (dsply  (or dsply
                            (setf dsply
                                  (apply (get-formatter-cache fmt)
-                                        val :ndpl ndpl flags)
+                                        val flags)
                                  ))))
           (print-object dsply out-stream)
           )))
@@ -181,7 +153,7 @@
   (apply #'fdpl-maker 'fdpl val :ndpl n args))
 
 #|
-(fdpl 3 pi :flags '(:width 10 :fill-char #\#))
+(fdpl 3 pi :width 10 :fill-char #\#)
 |#
     
 ;; --------------------------------------------
