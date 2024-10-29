@@ -44,6 +44,9 @@
 ;;   :width          - how wide the output string should be, def = NIL
 ;;   :fill-char      - char to use to pad out to width, def = #\Space
 
+;; And yes... inspired by Forth's pictured formatting:
+;; <# # # '.' hold #s sign #>
+
 (defvar *pad*   nil)
 (defvar *nabs*  nil)
 (defvar *args*  nil)
@@ -74,6 +77,11 @@
   (hold (getf *args* :dpchar #\.)))
 
 (defun nd ()
+  ;; should have a numeric arg on the *args* pseudo-stack
+  (dotimes (ix (pop *args*))
+    (d)))
+
+(defun ndpl ()
   (dotimes (ix (getf *args* :ndpl 0))
     (d)))
 
@@ -99,7 +107,8 @@
       :dc	dc       ;; :#, sexagisimal digit + ':'
       :ddc	ddc      ;; :##, 2 digits mod 60 + ':'
       :dp       dp       ;; prints the decimal point char (keyword arg :dpchar)
-      :nd	nd       ;; n digits, by arg
+      :nd	nd       ;; n digits, by stack arg
+      :ndpl     ndpl     ;; n digits, by arg :ndpl, def 0.
       :sign	sign     ;; - if negative
       :sign+	sign+))  ;; - if negative, else +
 
@@ -124,18 +133,27 @@
               :adjustable   t
               :fill-pointer 0))
 
+(defun kw-args (lst)
+  ;; skip to keywords portion of lst
+  (and lst
+       (if (keywordp (car lst))
+           lst
+         (kw-args (cdr lst)))
+       ))
+
 (defun %pic-run (fn *n* &rest args)
-  (let ((*pad*  (make-pad))
-        (*nabs* (abs (round (* (expt 10. (getf args :ndpl 0)) *n*))))
-        (*args* args))
+  (let* ((*pad*  (make-pad))
+         (kwargs (kw-args args))
+         (*nabs* (abs (round (* (expt 10. (getf kwargs :ndpl 0)) *n*))))
+         (*args* args))
     (funcall fn)
     (let ((ans (apply #'insert-spacers (nreverse *pad*) *args*))
-          (wd  (getf args :width)))
+          (wd  (getf kwargs :width)))
       (if wd
           (let ((nel  (length ans)))
             (concatenate 'string
                          (make-string (max 0 (- wd nel))
-                                      :initial-element (getf args :fill-char #\space))
+                                      :initial-element (getf kwargs :fill-char #\space))
                          ans))
         ans))
     ))
@@ -153,7 +171,7 @@
   `(funcall (pic-formatter ,fmtlst) ,n ,@args))
 
 #|
-(fmt (sign+ ds ddc ddc dp nd) (* 86400. (expt 10. 6) 100.75) :ndpl 6)
+(fmt (sign+ ds ddc ddc dp nd) (* 86400. (expt 10. 6) 100.75) 6 :ndpl 6)
 (let ((fmtlst '(sign ds #\. nd)))
   (inspect (compile nil (eval `(pic-formatter ,fmtlst)))))
 |#
@@ -161,9 +179,10 @@
 
 (defun hms (turns &rest args)
   (let ((*print-base* 10.)
-        (x  (* turns 86400.)))
-    (if (plusp (getf args :ndpl 0))
-        (apply (pic-formatter (sign ds ddc ddc dp nd)) x args)
+        (x  (* turns 86400.))
+        (nd (getf args :ndpl 0)))
+    (if (plusp nd)
+        (apply (pic-formatter (sign ds ddc ddc dp ndpl)) x args)
       (apply (pic-formatter (sign ds ddc ddc)) x args))
     ))
 
@@ -176,7 +195,7 @@
   (if (>= (abs x) 1e12)
       (apply #'insert-spacers
              (format nil "~,vE" ndpl x) args)
-    (apply (pic-formatter (sign ds #\. nd))
+    (apply (pic-formatter (sign ds #\. ndpl))
            x :ndpl ndpl args)
     ))
 

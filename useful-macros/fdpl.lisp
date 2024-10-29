@@ -95,7 +95,7 @@
    (dsply     :accessor fdpl-dsply :initform nil))
   (:default-initargs
    :ndpl        2
-   :fmt         '(sign ds dp nd)
+   :fmt         '(sign ds dp ndpl)
    :fdpl-flags  *fdpl-default-flags*
    ))
 
