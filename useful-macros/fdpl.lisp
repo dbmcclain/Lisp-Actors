@@ -31,7 +31,7 @@
 ;; ----------------------------------
 
 (defpackage #:com.ral.useful-macros.fdpl
-  (:use #:common-lisp #:um))
+  (:use #:common-lisp #:ac))
 
 (in-package #:com.ral.useful-macros.fdpl)
 
@@ -129,30 +129,56 @@
 ;; --------------------------------------------
 ;; Formatters cache
 
-(defstruct intent
-  fn)
+#|
+;; Using traditional locks - locks out all further requests until
+;; cache update is completed - even if some of those are already in
+;; the cache.
+(let ((cache-alist nil)
+      (cache-lock  (mpc:make-lock)))
 
-(let ((cache-alist (list nil)))
-
-  ;; Lock-free design
   (defun get-formatter-cache (fmt)
-    (let* ((key       (mapcar #'string fmt))
-           (formatter nil))
-      (um:rmw
-       (car cache-alist)
-       (lambda (alist)
-         ;; We may be called more than once...
-         (let ((new-alist  alist))
-           (setf formatter
-                 (or (cdr (assoc key alist :test #'equalp))
-                     (let ((new-formatter
-                            (or formatter        ;; if repeating
-                                (compile nil (eval `(picfmt:pic-formatter ,fmt)))
-                                )))
-                       (setf new-alist (acons key new-formatter alist))
-                       new-formatter)))
-           new-alist)))
-      formatter)))
+    (let ((key  (mapcar #'string fmt)))
+      (or #1=(cdr (assoc key cache-alist :test #'equalp))
+          (mpc:with-lock (cache-lock)
+            (or #1#
+                (let ((formatter (compile nil (eval `(picfmt:pic-formatter ,fmt)))))
+                  (setf cache-alist (acons key formatter cache-alist))
+                  formatter)
+                ))
+          ))))
+|#
+;; Using Actors - remains alive to other requests even while updating
+;; the cache.
+(defun cache-beh (&optional alist busy-tag waiting)
+  (alambda
+   ((cust :req fmt key)
+    (um:if-let (formatter (cdr (assoc key alist :test #'equalp)))
+        (send cust formatter)
+      (if busy-tag
+          (become (cache-beh alist busy-tag (cons self-msg waiting)))
+        (let ((tag  (tag self)))
+          (become (cache-beh alist tag))
+          (on-commit
+            (let ((formatter (compile nil (eval `(picfmt:pic-formatter ,fmt)))))
+              (send cust formatter)
+              (send tag :upd (acons key formatter alist)))
+            )))
+      ))
+   ((atag :upd new-alist) / (eq atag busy-tag)
+    (become (cache-beh new-alist))
+    (send-all-to self waiting))
+   ((cust :show)
+    (send cust alist))
+   ))
+
+(deflex* fmt-cache (create (cache-beh)))
+
+(defun get-formatter-cache (fmt)
+  (ask fmt-cache :req fmt (mapcar #'string fmt)))
+
+#|
+(ask fmt-cache :show)                      
+|#
 ;; --------------------------------------------
 
 (defmethod print-object ((x fdpl) out-stream)
