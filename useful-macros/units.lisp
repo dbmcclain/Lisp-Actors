@@ -28,8 +28,33 @@
                    :units units)
     ))
 
+(defun units-to-text (units)
+  (with-output-to-string (s)
+    (let* ((names '("g" "cm" "s")))
+      (map 'nil (lambda (name xp)
+                  (when (plusp xp)
+                    (princ name s)
+                    (unless (= xp 1)
+                      (format s "^~d" xp))
+                    (princ #\space s)
+                    ))
+           names units)
+      (when (some #'minusp units)
+        (princ "/ " s)
+        (map nil (lambda (name xp)
+                   (when (minusp xp)
+                     (princ name s)
+                     (unless (= xp -1)
+                       (format s "^~d" (- xp)))
+                     (princ #\space s)))
+             names units)))
+    ))
+                         
 (defmethod display-form ((obj units))
-  `(,(nfmt (val-of obj)) ,(units-of obj)))
+  `(,(nfmt (val-of obj)) ,(units-to-text (units-of obj))))
+
+(defmacro to (units x)
+  `(/ ,x (,units 1)))
 
 ;; --------------------------------------------
 ;; Units arithmetic
@@ -162,6 +187,16 @@
 (defun mi (x)
   (ft (* 5280.0 x)))
 
+(defun au (x)
+  (m (* x 149.598e9)))
+
+(defun pc (x)
+  (m (* x 3.0857e16)))
+
+(defun ly (x)
+  (km (* x 9460730472580.8)))
+
+
 ;; --------------------------------------------
 ;; Time
 
@@ -277,17 +312,20 @@
 (defun tev (x)
   (gev (* x 1000.0)))
 
+(defvar *kboltz*
+  (joule 1.380649E-23))
+
 ;; --------------------------------------------
 ;; Power
 
-(defun watts (x)
+(defun w (x)  ;; watts
   (/ (joule x) (s 1)))
 
 (defun kw (x)
-  (watts (* x 1000.0)))
+  (w (* x 1000.0)))
 
 (defun mw (x)
-  (watts (/ x 1000.0)))
+  (w (/ x 1000.0)))
 
 (defun μw (x)
   (mw (/ x 1000.0)))
@@ -299,7 +337,7 @@
   (mgw (* x 1000.0)))
 
 (defun hp (x)
-  (watts (* x 745.7)))
+  (w (* x 745.7)))
 
 #|
 (/ *gravity* (ft/s^2 1))
@@ -343,22 +381,24 @@
   (/ (* (newt 6.67e-11) (sqr (m 1)))
      (kg 1)))
 
+(defun jy (x) ;; Jansky spectral irradiance
+  (/ (w (* x 1e-26))
+     (sqr (m 1))
+     (hz 1)))
+
 #|
 ;; THz for 1ev photon
-(/ (ev 1)
-   *hplanck*
-   (thz 1))
+(to thz (/ (ev 1)
+           *hplanck*))
 
 ;; λ = h c/E
 ;; fm for 1 Gev
-(/ (* *hplanck* *clight*)
-   (gev 1)
-   (fm 1))
+(to fm (/ (* *hplanck* *clight*)
+          (gev 1)))
 
 ;; mm Wavelength for 115 GHz
-(/ *clight*
-   (ghz 115)
-   (mm 1))
+(to mm (/ *clight*
+          (ghz 115)))
 
 ;; Wavelength for 115 GHz
 (/ *clight* (ghz 115))
@@ -368,4 +408,6 @@
 (* *clight* (/ (milhz 10) (mhz 10) 2)) ;; 15 cm/s
 
 (/ (milhz 10) (mhz 10))
+
+;; From E λ = h c we get h c = 1.24 ev μm = 1241 ev nm
 |#

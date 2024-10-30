@@ -189,8 +189,17 @@
 
 (deflex* fmt-cache (create (cache-beh)))
 
-(defun get-formatter-cache (fmt)
-  (ask fmt-cache :req fmt (mapcar #'string fmt)))
+(let ((last  nil))
+  
+  (defun get-formatter-cache (fmt)
+    (let ((key  (mapcar #'string fmt))
+          (pair last))
+      (if (equalp key (car pair))
+          (cdr pair)
+        (let ((formatter (ask fmt-cache :req fmt key)))
+          (setf last (cons key formatter))
+          formatter))
+      )))
 
 #|
 (ask fmt-cache :show)                      

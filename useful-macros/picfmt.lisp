@@ -50,6 +50,7 @@
 (defvar *pad*   nil)
 (defvar *nabs*  nil)
 (defvar *args*  nil)
+(defvar *stk*   nil)
 (defvar *n*     nil)
 
 (defun d ()
@@ -77,8 +78,8 @@
   (hold (getf *args* :dpchar #\.)))
 
 (defun nd ()
-  ;; should have a numeric arg on the *args* pseudo-stack
-  (dotimes (ix (pop *args*))
+  ;; should have a numeric arg on the *stk* pseudo-stack
+  (dotimes (ix (pop *stk*))
     (d)))
 
 (defun ndpl ()
@@ -133,30 +134,30 @@
               :adjustable   t
               :fill-pointer 0))
 
-(defun kw-args (lst)
+(defun kw-args (lst &optional stk)
   ;; skip to keywords portion of lst
   (and lst
        (if (keywordp (car lst))
-           lst
-         (kw-args (cdr lst)))
+           (values lst (nreverse stk))
+         (kw-args (cdr lst) (cons (car lst) stk)))
        ))
 
 (defun %pic-run (fn *n* &rest args)
-  (let* ((*pad*  (make-pad))
-         (kwargs (kw-args args))
-         (*nabs* (abs (round (* (expt 10. (getf kwargs :ndpl 0)) *n*))))
-         (*args* args))
-    (funcall fn)
-    (let ((ans (apply #'insert-spacers (nreverse *pad*) *args*))
-          (wd  (getf kwargs :width)))
-      (if wd
-          (let ((nel  (length ans)))
-            (concatenate 'string
-                         (make-string (max 0 (- wd nel))
-                                      :initial-element (getf kwargs :fill-char #\space))
-                         ans))
-        ans))
-    ))
+  (multiple-value-bind (*args* *stk*)
+      (kw-args args)
+    (let* ((*pad*  (make-pad))
+           (*nabs* (abs (round (* (expt 10. (getf *args* :ndpl 0)) *n*)))))
+      (funcall fn)
+      (let ((ans (apply #'insert-spacers (nreverse *pad*) *args*))
+            (wd  (getf *args* :width)))
+        (if wd
+            (let ((nel  (length ans)))
+              (concatenate 'string
+                           (make-string (max 0 (- wd nel))
+                                        :initial-element (getf *args* :fill-char #\space))
+                           ans))
+          ans))
+      )))
 
 ;; --------------------------------------------
 

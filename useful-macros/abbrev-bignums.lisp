@@ -14,7 +14,7 @@
 ;; wrap them in special functions - this affects all displays,
 ;; printouts, inspectors, debuggers, etc. Very nice to have.
 
-(defvar *print-bignum-abbrev*  t)
+(defvar *print-bignum-abbrev*  nil)
 
 (defmacro without-abbrev (&body body)
   `(let ((*print-bignum-abbrev* nil))
