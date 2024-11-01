@@ -49,18 +49,24 @@
 Documentation strings are recognized only if DOCUMENTATION is true.
 Syntax errors in body are signalled and WHOLE is used in the signal
 arguments when given."
-  (let (doc decls current)
+  (let (doc decls)
     (tagbody
-     :declarations
-     (setf current (car body))
-     (when (and documentation (stringp current) (cdr body))
-       (if doc
-           (error "Too many documentation strings in ~S." (or whole body))
-         (push (pop body) doc)) ;; Alexandira fails here...
-       (go :declarations))
-     (when (and (listp current) (eql (first current) 'declare))
-       (push (pop body) decls)
-       (go :declarations)))
+     collect-declarations
+     (let ((current (car body)))
+       (cond
+        ((and documentation
+              (stringp current)
+              (cdr body))
+         (if doc
+             (error "Too many documentation strings in ~S." (or whole body))
+           (push (pop body) doc)) ;; Alexandira fails here...
+         (go collect-declarations))
+        
+        ((and (consp current)
+              (eq (car current) 'declare))
+         (push (pop body) decls)
+         (go collect-declarations))
+        )))
     (values body (nreverse decls) doc)))
 
 (defun is-lambda-list-keyword? (arg)
