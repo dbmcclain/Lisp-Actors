@@ -1,4 +1,6 @@
-;; picfmt.lisp
+;; picfmt.lisp - Pictured Output Formatting for Lisp
+;;
+;; Inspired by Forth and PostScript.
 ;;
 ;; DM/RAL  2024/10/26 09:51:33 UTC
 ;; ----------------------------------
@@ -53,6 +55,14 @@
 (defvar *stk*   nil)
 (defvar *n*     nil)
 
+(defun ensure-n ()
+  (setf *n*    (pop *stk*)
+        *nabs* (abs (round (* (expt 10. (getf *args* :ndpl 0)) *n*)))
+        ))
+
+(defun swap ()
+  (rotatef (car *stk*) (cadr *stk*)))
+
 (defun d ()
   (multiple-value-bind (q r)
       (truncate *nabs* *print-base*)
@@ -99,6 +109,26 @@
 (defun hold (ch)
   (vector-push-extend ch *pad*))
 
+(defun chld ()
+  (hold (pop *stk*)))
+
+(defun shld ()
+  (rstr (reverse (pop *stk*))))
+
+(defun nchld ()
+  (let* ((n   (pop *stk*))
+         (ch  (pop *stk*)))
+    (dotimes (ix n)
+      (hold ch))
+    ))
+
+(defun nshld ()
+  (let* ((n    (pop *stk*))
+         (rstr (reverse (pop *stk*))))
+    (dotimes (ix n)
+      (rstr rstr))
+    ))
+
 ;; --------------------------------------------
 ;; Dispatch table
 (um:eval-always
@@ -110,22 +140,40 @@
       :dp       dp       ;; prints the decimal point char (keyword arg :dpchar)
       :nd	nd       ;; n digits, by stack arg
       :ndpl     ndpl     ;; n digits, by arg :ndpl, def 0.
+      :chld     chld     ;; pops character from stack and adds to pad string
+      :shld     shld     ;; pops string from stack and adds top pad string
+      :nchld    nchld    ;; pops char and count from stack to add to pad string
+      :nshld    nshld    ;; pops str and count to add to pad string
       :sign	sign     ;; - if negative
       :sign+	sign+))  ;; - if negative, else +
 
   (defun pic-worker-fn (fmtlst)
-    `(lambda ()
-       ,@(mapcan (lambda (sym)
-                   (cond ((symbolp sym)
-                          (um:when-let (fn (getf *fns* (um:kwsymb sym)))
-                            `((,fn))))
-                         ((characterp sym)
-                          `((hold ,sym)))
-                         ((stringp sym)
-                          `((rstr ,(reverse sym))))
-                         ))
-                 (reverse fmtlst))
-       )))
+    (let ((n-grabbed nil))
+      `(lambda ()
+         ,@(mapcan (lambda (sym)
+                     (cond ((symbolp sym)
+                            (let ((kw  (um:kwsymb sym)))
+                              (um:if-let (fn (getf *fns* kw))
+                                (cond (n-grabbed
+                                       `((,fn)))
+                                      ((member fn '(d ds dc ddc nd ndpl sign sign+))
+                                       (setf n-grabbed t)
+                                       (let ((out `((ensure-n) (,fn))))
+                                         (if (eql fn 'nd)
+                                             (cons '(swap) out)
+                                           out)))
+                                      (t
+                                       `((,fn))) )
+                                ;; else
+                                (error "bad formatting symbol: ~S" sym))
+                              ))
+                           ((characterp sym)
+                            `((hold ,sym)))
+                           ((stringp sym)
+                            `((rstr ,(reverse sym))))
+                           ))
+                   (reverse fmtlst))
+         ))))
 ;; --------------------------------------------
 
 (defun make-pad ()
@@ -134,19 +182,23 @@
               :adjustable   t
               :fill-pointer 0))
 
-(defun kw-args (lst &optional stk)
+(defun kw-args (lst)
   ;; skip to keywords portion of lst
-  (and lst
-       (if (keywordp (car lst))
-           (values lst (nreverse stk))
-         (kw-args (cdr lst) (cons (car lst) stk)))
-       ))
-
-(defun %pic-run (fn *n* &rest args)
+  (um:nlet iter ((lst  lst)
+                 (stk  nil))
+    (if (endp lst)
+        (values nil stk)
+      (if (keywordp (car lst))
+          (values lst stk)
+        (go-iter (cdr lst) (cons (car lst) stk))
+        ))))
+   
+(defun %pic-run (fn &rest args)
   (multiple-value-bind (*args* *stk*)
       (kw-args args)
     (let* ((*pad*  (make-pad))
-           (*nabs* (abs (round (* (expt 10. (getf *args* :ndpl 0)) *n*)))))
+           (*n*    nil)
+           (*nabs* nil))
       (funcall fn)
       (let ((ans (apply #'insert-spacers (nreverse *pad*) *args*))
             (wd  (getf *args* :width)))
@@ -162,20 +214,23 @@
 ;; --------------------------------------------
 
 (defmacro pic-formatter (fmtlst)
-  (let ((n    (gensym))
-        (args (gensym)))
-    `(lambda (,n &rest ,args)
-       (apply #'%pic-run ,(pic-worker-fn fmtlst) ,n ,args))
+  (let ((args (gensym)))
+    `(lambda (&rest ,args)
+       (apply #'%pic-run ,(pic-worker-fn fmtlst) ,args))
     ))
 
-(defmacro fmt (fmtlst n &rest args)
-  `(funcall (pic-formatter ,fmtlst) ,n ,@args))
+(defmacro fmt (fmtlst &rest args)
+  `(funcall (pic-formatter ,fmtlst) ,@args))
 
 #|
 (fmt (sign+ ds ddc ddc dp nd) (* 86400. (expt 10. 6) 100.75) 6 :ndpl 6)
 (fmt (sign+ ds ddc ddc dp ndpl) (* 86400. (expt 10. 6) 100.75) :ndpl 6)
 (let ((fmtlst '(sign ds #\. nd)))
   (inspect (compile nil (eval `(pic-formatter ,fmtlst)))))
+(fmt (ds nshld ) 15 " +/-" 30) 
+(fmt (nshld ds) "+/- " 30 15)
+(pic-formatter (nshld ds))
+(fmt (sign+ ds ddc ddc dp nd) (* 86400. (expt 10. 2) 0.75) 2)
 |#
 ;; --------------------------------------------
 
