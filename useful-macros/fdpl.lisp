@@ -100,10 +100,12 @@
 
 (defvar *fdpl-default-flags*
   '(:dpchar         #\.
+    :colon-char     #\:
     :comma-char     #\,
     :comma-interval 3
     :sep-char       #\_
-    :sep-interval   5))
+    :sep-interval   5
+    :pad-char       #\Space))
 
 (defclass fdpl (augmented-value)
   ((fmt       :accessor fdpl-fmt   :initarg :fmt)
@@ -111,7 +113,7 @@
    (dsply     :accessor fdpl-dsply :initform nil))
   (:default-initargs
    :ndpl        2
-   :fmt         '(sign ds dp ndpl)
+   :fmt         'cl-stk:fdpl
    :fdpl-flags  *fdpl-default-flags*
    ))
 
@@ -142,70 +144,6 @@
            ))
         ))
 
-;; --------------------------------------------
-;; Formatters cache
-
-#|
-;; Using traditional locks - locks out all further requests until
-;; cache update is completed - even if some of those are already in
-;; the cache.
-(let ((cache-alist nil)
-      (cache-lock  (mpc:make-lock)))
-
-  (defun get-formatter-cache (fmt)
-    (let ((key  (mapcar #'string fmt)))
-      (or #1=(cdr (assoc key cache-alist :test #'equalp))
-          (mpc:with-lock (cache-lock)
-            (or #1#
-                (let ((formatter (compile nil (eval `(picfmt:pic-formatter ,fmt)))))
-                  (setf cache-alist (acons key formatter cache-alist))
-                  formatter)
-                ))
-          ))))
-|#
-;; Using Actors - remains alive to other requests even while updating
-;; the cache.
-(defun cache-beh (&optional alist busy-tag waiting)
-  (alambda
-   ((cust :req fmt key)
-    (um:if-let (formatter (cdr (assoc key alist :test #'equalp)))
-        (send cust formatter)
-      (if busy-tag
-          (become (cache-beh alist busy-tag (cons self-msg waiting)))
-        (let ((tag  (tag self)))
-          (become (cache-beh alist tag))
-          (on-commit
-            (let ((formatter (compile nil (eval `(picfmt:pic-formatter ,fmt)))))
-              (send cust formatter)
-              (send tag :upd (acons key formatter alist)))
-            )))
-      ))
-   ((atag :upd new-alist) / (eq atag busy-tag)
-    (become (cache-beh new-alist))
-    (send-all-to self waiting))
-   ((cust :show)
-    (send cust alist))
-   ))
-
-(deflex* fmt-cache (create (cache-beh)))
-
-(let ((last  nil))
-  
-  (defun get-formatter-cache (fmt)
-    (let ((key  (mapcar #'string fmt))
-          (pair last))
-      (if (equalp key (car pair))
-          (cdr pair)
-        (let ((formatter (ask fmt-cache :req fmt key)))
-          (setf last (cons key formatter))
-          formatter))
-      )))
-
-#|
-(ask fmt-cache :show)                      
-|#
-;; --------------------------------------------
-
 (defmethod print-object ((x fdpl) out-stream)
   (if *print-readably*
       (call-next-method)
@@ -218,8 +156,7 @@
                (*print-escape* nil)
                (dsply  (or dsply
                            (setf dsply
-                                 (apply (get-formatter-cache fmt)
-                                        val flags)
+                                 (apply fmt val flags)
                                  ))))
           (print-object dsply out-stream)
           )))
@@ -234,7 +171,7 @@
   (apply #'fdpl-maker 'fdpl val :ndpl n args))
 
 #|
-(fdpl 3 pi :width 10 :fill-char #\#)
+(fdpl 3 pi :width 10 :pad-char #\#)
 |#
     
 ;; --------------------------------------------

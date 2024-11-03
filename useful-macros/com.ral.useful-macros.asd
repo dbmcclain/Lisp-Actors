@@ -111,7 +111,7 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "underscore")
                 (:file "sep")
                 #+:LISPWORKS (:file "abbrev-bignums")
-                (:file  "picfmt")
+                ;; (:file  "picfmt")
                 
                	(:file "uuid")
                 ;; (:file "xfli")
@@ -123,8 +123,8 @@ THE SOFTWARE.
                 (:file "wordlist")
                 (:file "call-fwd")
 
-                #|
                 #+:LISPWORKS (:file "fixmes")
+                #|
                 ;; #+:LISPWORKS (:file "safe-streams")
                 ;; #+:LISPWORKS (:file "safe-read-patch")
                 (:file "safe-read-from-string")
@@ -152,6 +152,7 @@ THE SOFTWARE.
                 (:file "restricted-eval")
                 #+:LISPWORKS (:file "debug-stream")
                 (:file "jd")
+                (:file "cl-stk")
                 #+:LISPWORKS (:file "fdpl")
                 )
   :serial       t
