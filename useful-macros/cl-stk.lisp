@@ -354,7 +354,15 @@
 (/ (* 1e7 pi) 86400.)
 (directory "*.txt")
 |#
+#|
+(define-symbol-macro doit (doit))
+(defun doit ()
+  (print :doit))
+(dotimes (ix 3)
+  doit
+  (print :ok))
 
+|#
 #|
 (defclass thing ()
   ((tx :accessor thing-tx :initarg :tx :allocation :class)
