@@ -29,7 +29,7 @@ THE SOFTWARE.
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2008 by Refined Audiometrics Laboratory, LLC. All rights reserved."
   :components  ((:file "packages")
-                (:file "fix-walker")
+                #+:LISPWORKS (:file "fix-walker")
                 (:file "eval-always")
                 (:file "def-extensions")
 
