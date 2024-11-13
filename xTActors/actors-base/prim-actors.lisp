@@ -166,7 +166,11 @@
 (deflex println
   (create
    (behav msg
-     (format t "~&~{~A~%~}" msg))
+     (#+:LISPWORKS stream:apply-with-output-lock
+      #-:LISPWORKS funcall
+      (lambda* _
+        (format t "~&~{~A~%~}" msg))
+      *standard-output*))
    ))
   
 (defun do-with-maximum-io-syntax (fn)
@@ -187,15 +191,23 @@
 (deflex writeln
   (create
    (behav msg
-     (with-maximum-io-syntax
-       (format t "~&~{~:W~%~}" msg)))
+     (#+:LISPWORKS stream:apply-with-output-lock
+      #-:LISPWORKS funcall
+      (lambda* _
+        (with-maximum-io-syntax
+          (format t "~&~{~:W~%~}" msg)))
+      *standard-output*))
    ))
 
 (deflex fmt-println
   (create
    (behav (fmt-str &rest args)
-     (terpri)
-     (apply #'format t fmt-str args))
+     (#+:LISPWORKS stream:apply-with-output-lock
+      #-:LISPWORKS funcall
+      (lambda* _
+        (terpri)
+        (apply #'format t fmt-str args))
+      *standard-output*))
    ))
 
 ;; ---------------------------------

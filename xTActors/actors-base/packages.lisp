@@ -51,7 +51,8 @@ THE SOFTWARE.
    ;; #:match-fail
    #:letrec)
   (:import-from #:optima-bridge
-   #:match)
+   #:match
+   #:match-fail)
   (:export
    #:match
    #:match-fail

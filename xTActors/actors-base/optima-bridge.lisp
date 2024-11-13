@@ -6,7 +6,8 @@
 (defpackage #:optima-bridge
   (:use #:common-lisp)
   (:export
-   #:match))
+   #:match
+   #:match-fail))
 
 (in-package #:optima-bridge)
 
@@ -52,6 +53,9 @@
     
 (defmacro match (msg &rest clauses)
   `(optima:match ,msg ,@(mapcar #'translate-clause clauses)))
+
+(defmacro match-fail ()
+  `(optima:fail))
 
 #|
 (let ((tag :me))
