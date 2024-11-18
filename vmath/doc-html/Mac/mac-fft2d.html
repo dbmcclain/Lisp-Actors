@@ -1,0 +1,2474 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="../cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+mac-fft2d</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="mac-dfft.html">
+Prev:&nbsp;mac-dfft.lisp</a>
+<br/>
+<a href="../nr-glue.html">
+Next:&nbsp;nr-glue.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+mac-fft2d.lisp</b>
+<br/>
+<a href="../index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+mac-fft2d.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38564">
+com.ral.fft2d:c2r</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38573">
+com.ral.fft2d:fwd</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38577">
+com.ral.fft2d:fwd-magnitude</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38581">
+com.ral.fft2d:fwd-magnitude-db</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38583">
+com.ral.fft2d:fwd-phase</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38585">
+com.ral.fft2d:fwd-phase-deg</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38579">
+com.ral.fft2d:fwd-power</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38523">
+com.ral.fft2d:get-imag</a>
+</td>
+<td class="summary">
+fftbuf</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38522">
+com.ral.fft2d:get-real</a>
+</td>
+<td class="summary">
+fftbuf</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38574">
+com.ral.fft2d:inv</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38521">
+com.ral.fft2d:make-fft-buffer</a>
+</td>
+<td class="summary">
+ny nx type</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38558">
+com.ral.fft2d:r2c</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38526">
+com.ral.fft2d:set-imag</a>
+</td>
+<td class="summary">
+fftbuf (arr vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38527">
+com.ral.fft2d:set-imag</a>
+</td>
+<td class="summary">
+fftbuf (val real)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38524">
+com.ral.fft2d:set-real</a>
+</td>
+<td class="summary">
+fftbuf (arr vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38525">
+com.ral.fft2d:set-real</a>
+</td>
+<td class="summary">
+fftbuf (val real)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Method summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38529">
+check-dimensions</a>
+</td>
+<td class="summary">
+(arr array)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38530">
+check-dimensions</a>
+</td>
+<td class="summary">
+(arr fft-buffer)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38531">
+effective-array-dimensions</a>
+</td>
+<td class="summary">
+(arr array)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38532">
+effective-array-dimensions</a>
+</td>
+<td class="summary">
+(arr fft-buffer)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38534">
+effective-array-element-type</a>
+</td>
+<td class="summary">
+(arr vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38535">
+effective-array-element-type</a>
+</td>
+<td class="summary">
+(arr array)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38536">
+effective-array-element-type</a>
+</td>
+<td class="summary">
+(arr fft-buffer)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38526">
+set-imag</a>
+</td>
+<td class="summary">
+fftbuf (arr vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38527">
+set-imag</a>
+</td>
+<td class="summary">
+fftbuf (val real)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38524">
+set-real</a>
+</td>
+<td class="summary">
+fftbuf (arr vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38525">
+set-real</a>
+</td>
+<td class="summary">
+fftbuf (val real)</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38564">
+c2r</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38554">
+convert-complex-cvect-magnitudes-db-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38551">
+convert-complex-cvect-magnitudes-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38556">
+convert-complex-cvect-phases-deg-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38555">
+convert-complex-cvect-phases-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38553">
+convert-complex-cvect-power-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38545">
+convert-complex-cvect-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38544">
+convert-real-cvect-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38540">
+copy-array-to-complex-cvect</a>
+</td>
+<td class="summary">
+arr cdst ny nx <em>&amp;key</em> precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38539">
+copy-array-to-real-cvect</a>
+</td>
+<td class="summary">
+arr cdst ny nx <em>&amp;key</em> precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38528">
+copy-fft-buffer-contents</a>
+</td>
+<td class="summary">
+src dst</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38567">
+d-convert-split-complex-cvect-to-array</a>
+</td>
+<td class="summary">
+src-r roff src-i ioff ny nx dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38566">
+d-copy-array-to-split-complex-cvect</a>
+</td>
+<td class="summary">
+arr dst-r roff dst-i ioff ny nx nya nxa</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38547">
+db10</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38546">
+db20</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38548">
+dtor</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38537">
+effective-ctype</a>
+</td>
+<td class="summary">
+precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38533">
+effective-type</a>
+</td>
+<td class="summary">
+type</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38575">
+fast-capable-p</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38576">
+fast-fft-oper</a>
+</td>
+<td class="summary">
+arr after-fn dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38578">
+fast-fwd-magnitude</a>
+</td>
+<td class="summary">
+arr dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38582">
+fast-fwd-magnitude-db</a>
+</td>
+<td class="summary">
+arr dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38584">
+fast-fwd-phase</a>
+</td>
+<td class="summary">
+arr dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38586">
+fast-fwd-phase-deg</a>
+</td>
+<td class="summary">
+arr dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38580">
+fast-fwd-power</a>
+</td>
+<td class="summary">
+arr dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38573">
+fwd</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38577">
+fwd-magnitude</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38581">
+fwd-magnitude-db</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38583">
+fwd-phase</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38585">
+fwd-phase-deg</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38579">
+fwd-power</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38523">
+get-imag</a>
+</td>
+<td class="summary">
+fftbuf</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38522">
+get-real</a>
+</td>
+<td class="summary">
+fftbuf</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38565">
+get-split-temp-array-2d</a>
+</td>
+<td class="summary">
+ny nx type</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38519">
+half-dim</a>
+</td>
+<td class="summary">
+n</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38574">
+inv</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38543">
+make-complex-result-array</a>
+</td>
+<td class="summary">
+ny nx precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38521">
+make-fft-buffer</a>
+</td>
+<td class="summary">
+ny nx type</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38542">
+make-result-array</a>
+</td>
+<td class="summary">
+ny nx precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38520">
+nfloats</a>
+</td>
+<td class="summary">
+nb type-size</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38550">
+phase-deg</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38558">
+r2c</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38557">
+r2c-body</a>
+</td>
+<td class="summary">
+arr finish-fn <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38541">
+reduced-dimensions</a>
+</td>
+<td class="summary">
+ny nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38549">
+rtod</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38570">
+s-convert-split-complex-cvect-to-array</a>
+</td>
+<td class="summary">
+src-r roff src-i ioff ny nx dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38569">
+s-copy-array-to-split-complex-cvect</a>
+</td>
+<td class="summary">
+arr dst-r roff dst-i ioff ny nx nya nxa</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38559">
+slow-fwd-magnitude</a>
+</td>
+<td class="summary">
+arr precision dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38561">
+slow-fwd-magnitude-db</a>
+</td>
+<td class="summary">
+arr precision dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38562">
+slow-fwd-phase</a>
+</td>
+<td class="summary">
+arr precision dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38563">
+slow-fwd-phase-deg</a>
+</td>
+<td class="summary">
+arr precision dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38560">
+slow-fwd-power</a>
+</td>
+<td class="summary">
+arr precision dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38552">
+sq</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38571">
+unsafe-c2c</a>
+</td>
+<td class="summary">
+arr dir ny nx nya nxa dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38568">
+unsafe-z2z</a>
+</td>
+<td class="summary">
+arr dir ny nx nya nxa dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38538">
+vec</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (size (array-total-size arr)) (offset 0)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft2d.html#_g38572">
+z2z</a>
+</td>
+<td class="summary">
+arr direction precision dest</td>
+</tr>
+</table>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38529">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+check-dimensions&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(arr array)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38530">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+check-dimensions&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(arr fft-buffer)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38531">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+effective-array-dimensions&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(arr array)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38532">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+effective-array-dimensions&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(arr fft-buffer)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38534">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+effective-array-element-type&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(arr vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38535">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+effective-array-element-type&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(arr array)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38536">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+effective-array-element-type&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(arr fft-buffer)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38526">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-imag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf (arr vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38527">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-imag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf (val real)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38524">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-real&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf (arr vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38525">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-real&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf (val real)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38564">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+c2r&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38554">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-complex-cvect-magnitudes-db-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38551">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-complex-cvect-magnitudes-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38556">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-complex-cvect-phases-deg-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38555">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-complex-cvect-phases-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38553">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-complex-cvect-power-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38545">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-complex-cvect-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38544">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-real-cvect-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38540">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy-array-to-complex-cvect&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr cdst ny nx <em>&amp;key</em> precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38539">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy-array-to-real-cvect&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr cdst ny nx <em>&amp;key</em> precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38528">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy-fft-buffer-contents&nbsp;&nbsp;</td>
+<td class="lambda-list">
+src dst</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38567">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+d-convert-split-complex-cvect-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+src-r roff src-i ioff ny nx dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38566">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+d-copy-array-to-split-complex-cvect&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dst-r roff dst-i ioff ny nx nya nxa</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38547">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+db10&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38546">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+db20&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38548">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+dtor&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38537">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+effective-ctype&nbsp;&nbsp;</td>
+<td class="lambda-list">
+precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38533">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+effective-type&nbsp;&nbsp;</td>
+<td class="lambda-list">
+type</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38575">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fast-capable-p&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38576">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fast-fft-oper&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr after-fn dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38578">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fast-fwd-magnitude&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38582">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fast-fwd-magnitude-db&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38584">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fast-fwd-phase&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38586">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fast-fwd-phase-deg&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38580">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fast-fwd-power&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38573">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38577">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-magnitude&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38581">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-magnitude-db&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38583">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-phase&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38585">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-phase-deg&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38579">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-power&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38523">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-imag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38522">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-real&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38565">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-split-temp-array-2d&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx type</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38519">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+half-dim&nbsp;&nbsp;</td>
+<td class="lambda-list">
+n</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38574">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+inv&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38543">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-complex-result-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38521">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-fft-buffer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx type</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38542">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-result-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38520">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+nfloats&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nb type-size</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38550">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+phase-deg&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38558">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+r2c&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38557">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+r2c-body&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr finish-fn <em>&amp;key</em> (precision (effective-array-element-type arr)) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38541">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+reduced-dimensions&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38549">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+rtod&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38570">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+s-convert-split-complex-cvect-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+src-r roff src-i ioff ny nx dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38569">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+s-copy-array-to-split-complex-cvect&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dst-r roff dst-i ioff ny nx nya nxa</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38559">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+slow-fwd-magnitude&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr precision dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38561">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+slow-fwd-magnitude-db&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr precision dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38562">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+slow-fwd-phase&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr precision dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38563">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+slow-fwd-phase-deg&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr precision dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38560">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+slow-fwd-power&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr precision dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38552">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sq&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38571">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+unsafe-c2c&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dir ny nx nya nxa dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38568">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+unsafe-z2z&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dir ny nx nya nxa dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38538">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vec&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (size (array-total-size arr)) (offset 0)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38572">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+z2z&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr direction precision dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

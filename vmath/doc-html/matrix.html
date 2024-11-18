@@ -1,0 +1,5327 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+matrix</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="vmath.html">
+Prev:&nbsp;vmath.lisp</a>
+<br/>
+<a href="lmfit.html">
+Next:&nbsp;lmfit.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+matrix.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+matrix.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38134">
+com.ral.matrix-ops:aref</a>
+</td>
+<td class="summary">
+(m matrix) row col</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38135">
+com.ral.matrix-ops:aref</a>
+</td>
+<td class="summary">
+(a array) row col</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38142">
+com.ral.matrix-ops:as-vector</a>
+</td>
+<td class="summary">
+lst</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38227">
+com.ral.matrix-ops:cholsl</a>
+</td>
+<td class="summary">
+m v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38147">
+com.ral.matrix-ops:copy</a>
+</td>
+<td class="summary">
+x <em>&amp;key</em> (fn #'identity)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38148">
+com.ral.matrix-ops:copy</a>
+</td>
+<td class="summary">
+(v vector) <em>&amp;key</em> (fn #'identity)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38149">
+com.ral.matrix-ops:copy</a>
+</td>
+<td class="summary">
+(m matrix) <em>&amp;key</em> (fn #'identity)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38151">
+com.ral.matrix-ops:copy</a>
+</td>
+<td class="summary">
+(a array) <em>&amp;key</em> (fn #'identity)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38153">
+com.ral.matrix-ops:copyi</a>
+</td>
+<td class="summary">
+(v vector) <em>&amp;key</em> (fn #'identityi)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38154">
+com.ral.matrix-ops:copyi</a>
+</td>
+<td class="summary">
+(m matrix) <em>&amp;key</em> (fn #'identityi)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38155">
+com.ral.matrix-ops:copyi</a>
+</td>
+<td class="summary">
+(a array) <em>&amp;key</em> (fn #'identityi)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38216">
+com.ral.matrix-ops:det</a>
+</td>
+<td class="summary">
+x</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38217">
+com.ral.matrix-ops:det</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38218">
+com.ral.matrix-ops:det</a>
+</td>
+<td class="summary">
+(a array)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38174">
+com.ral.matrix-ops:diag</a>
+</td>
+<td class="summary">
+x</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38175">
+com.ral.matrix-ops:diag</a>
+</td>
+<td class="summary">
+(v vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38176">
+com.ral.matrix-ops:diag</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38177">
+com.ral.matrix-ops:diag</a>
+</td>
+<td class="summary">
+(a array)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38178">
+com.ral.matrix-ops:diag</a>
+</td>
+<td class="summary">
+(c cons)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38204">
+com.ral.matrix-ops:get-col</a>
+</td>
+<td class="summary">
+(v vector) col</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38205">
+com.ral.matrix-ops:get-col</a>
+</td>
+<td class="summary">
+(m matrix) col</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38206">
+com.ral.matrix-ops:get-col</a>
+</td>
+<td class="summary">
+(a array) col</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38197">
+com.ral.matrix-ops:get-row</a>
+</td>
+<td class="summary">
+(m matrix) row</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38198">
+com.ral.matrix-ops:get-row</a>
+</td>
+<td class="summary">
+(v vector) row</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38199">
+com.ral.matrix-ops:get-row</a>
+</td>
+<td class="summary">
+(a array) row</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38173">
+com.ral.matrix-ops:idn</a>
+</td>
+<td class="summary">
+n</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38220">
+com.ral.matrix-ops:inv</a>
+</td>
+<td class="summary">
+x</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38221">
+com.ral.matrix-ops:inv</a>
+</td>
+<td class="summary">
+(x cons)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38222">
+com.ral.matrix-ops:inv</a>
+</td>
+<td class="summary">
+(x vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38223">
+com.ral.matrix-ops:inv</a>
+</td>
+<td class="summary">
+(a array)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38224">
+com.ral.matrix-ops:inv</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38127">
+com.ral.matrix-ops:make-matrix</a>
+</td>
+<td class="summary">
+<em>&amp;key</em> rows</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38125">
+com.ral.matrix-ops:matrix</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Class</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38193">
+com.ral.matrix-ops:maxabs</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> args</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38211">
+com.ral.matrix-ops:msolve</a>
+</td>
+<td class="summary">
+(m matrix) v</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38212">
+com.ral.matrix-ops:msolve</a>
+</td>
+<td class="summary">
+(a array) v</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38131">
+com.ral.matrix-ops:ncols</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38132">
+com.ral.matrix-ops:ncols</a>
+</td>
+<td class="summary">
+(v vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38133">
+com.ral.matrix-ops:ncols</a>
+</td>
+<td class="summary">
+(a array)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38128">
+com.ral.matrix-ops:nrows</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38129">
+com.ral.matrix-ops:nrows</a>
+</td>
+<td class="summary">
+(v vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38130">
+com.ral.matrix-ops:nrows</a>
+</td>
+<td class="summary">
+(a array)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38141">
+com.ral.matrix-ops:prod</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38140">
+com.ral.matrix-ops:sum</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38194">
+com.ral.matrix-ops:swap-rows</a>
+</td>
+<td class="summary">
+(m matrix) row1 row2</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38195">
+com.ral.matrix-ops:swap-rows</a>
+</td>
+<td class="summary">
+(v vector) row1 row2</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38196">
+com.ral.matrix-ops:swap-rows</a>
+</td>
+<td class="summary">
+(a array) row1 row2</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38189">
+com.ral.matrix-ops:trace</a>
+</td>
+<td class="summary">
+x</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38190">
+com.ral.matrix-ops:trace</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38191">
+com.ral.matrix-ops:trace</a>
+</td>
+<td class="summary">
+(a array)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38185">
+com.ral.matrix-ops:trn</a>
+</td>
+<td class="summary">
+x</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38186">
+com.ral.matrix-ops:trn</a>
+</td>
+<td class="summary">
+(v vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38187">
+com.ral.matrix-ops:trn</a>
+</td>
+<td class="summary">
+(a array)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38188">
+com.ral.matrix-ops:trn</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38180">
+com.ral.matrix-ops:*</a>
+</td>
+<td class="summary">
+x m</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38181">
+com.ral.matrix-ops:*</a>
+</td>
+<td class="summary">
+(x cons) m</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38182">
+com.ral.matrix-ops:*</a>
+</td>
+<td class="summary">
+(v vector) x</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38183">
+com.ral.matrix-ops:*</a>
+</td>
+<td class="summary">
+(m matrix) x</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38184">
+com.ral.matrix-ops:*</a>
+</td>
+<td class="summary">
+(a array) x</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38156">
+com.ral.matrix-ops:+</a>
+</td>
+<td class="summary">
+x m</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38157">
+com.ral.matrix-ops:+</a>
+</td>
+<td class="summary">
+(x cons) m</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38158">
+com.ral.matrix-ops:+</a>
+</td>
+<td class="summary">
+(v vector) x</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38159">
+com.ral.matrix-ops:+</a>
+</td>
+<td class="summary">
+(m matrix) x</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38160">
+com.ral.matrix-ops:+</a>
+</td>
+<td class="summary">
+(a array) x</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38161">
+com.ral.matrix-ops:-</a>
+</td>
+<td class="summary">
+a b</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38162">
+com.ral.matrix-ops:/</a>
+</td>
+<td class="summary">
+a b</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38166">
+com.ral.matrix-ops:/</a>
+</td>
+<td class="summary">
+(a cons) b</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38170">
+com.ral.matrix-ops:/</a>
+</td>
+<td class="summary">
+(a vector) b</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38143">
+com.ral.matrix-ops:&lt;*&gt;</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> vs</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38144">
+com.ral.matrix-ops:&gt;*&lt;</a>
+</td>
+<td class="summary">
+v1 v2</td>
+<td class="summary-type">
+Function</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Class summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38125">
+matrix</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Method summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38163">
+a*invb</a>
+</td>
+<td class="summary">
+(b cons) a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38164">
+a*invb</a>
+</td>
+<td class="summary">
+(b vector) a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38165">
+a*invb</a>
+</td>
+<td class="summary">
+b a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38134">
+aref</a>
+</td>
+<td class="summary">
+(m matrix) row col</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38135">
+aref</a>
+</td>
+<td class="summary">
+(a array) row col</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38167">
+c/b</a>
+</td>
+<td class="summary">
+b a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38168">
+c/b</a>
+</td>
+<td class="summary">
+(b cons) a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38169">
+c/b</a>
+</td>
+<td class="summary">
+(b vector) a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38147">
+copy</a>
+</td>
+<td class="summary">
+x <em>&amp;key</em> (fn #'identity)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38148">
+copy</a>
+</td>
+<td class="summary">
+(v vector) <em>&amp;key</em> (fn #'identity)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38149">
+copy</a>
+</td>
+<td class="summary">
+(m matrix) <em>&amp;key</em> (fn #'identity)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38151">
+copy</a>
+</td>
+<td class="summary">
+(a array) <em>&amp;key</em> (fn #'identity)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38153">
+copyi</a>
+</td>
+<td class="summary">
+(v vector) <em>&amp;key</em> (fn #'identityi)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38154">
+copyi</a>
+</td>
+<td class="summary">
+(m matrix) <em>&amp;key</em> (fn #'identityi)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38155">
+copyi</a>
+</td>
+<td class="summary">
+(a array) <em>&amp;key</em> (fn #'identityi)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38216">
+det</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38217">
+det</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38218">
+det</a>
+</td>
+<td class="summary">
+(a array)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38174">
+diag</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38175">
+diag</a>
+</td>
+<td class="summary">
+(v vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38176">
+diag</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38177">
+diag</a>
+</td>
+<td class="summary">
+(a array)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38178">
+diag</a>
+</td>
+<td class="summary">
+(c cons)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38204">
+get-col</a>
+</td>
+<td class="summary">
+(v vector) col</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38205">
+get-col</a>
+</td>
+<td class="summary">
+(m matrix) col</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38206">
+get-col</a>
+</td>
+<td class="summary">
+(a array) col</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38197">
+get-row</a>
+</td>
+<td class="summary">
+(m matrix) row</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38198">
+get-row</a>
+</td>
+<td class="summary">
+(v vector) row</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38199">
+get-row</a>
+</td>
+<td class="summary">
+(a array) row</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38220">
+inv</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38221">
+inv</a>
+</td>
+<td class="summary">
+(x cons)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38222">
+inv</a>
+</td>
+<td class="summary">
+(x vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38223">
+inv</a>
+</td>
+<td class="summary">
+(a array)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38224">
+inv</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38126">
+matrix-rows</a>
+</td>
+<td class="summary">
+matrix</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38211">
+msolve</a>
+</td>
+<td class="summary">
+(m matrix) v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38212">
+msolve</a>
+</td>
+<td class="summary">
+(a array) v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38131">
+ncols</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38132">
+ncols</a>
+</td>
+<td class="summary">
+(v vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38133">
+ncols</a>
+</td>
+<td class="summary">
+(a array)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38128">
+nrows</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38129">
+nrows</a>
+</td>
+<td class="summary">
+(v vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38130">
+nrows</a>
+</td>
+<td class="summary">
+(a array)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38207">
+put-col</a>
+</td>
+<td class="summary">
+(v vector) col x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38208">
+put-col</a>
+</td>
+<td class="summary">
+(m matrix) col v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38209">
+put-col</a>
+</td>
+<td class="summary">
+(a array) col v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38200">
+put-row</a>
+</td>
+<td class="summary">
+(v vector) row x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38201">
+put-row</a>
+</td>
+<td class="summary">
+(m matrix) row v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38202">
+put-row</a>
+</td>
+<td class="summary">
+(a array) row v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38136">
+set-aref</a>
+</td>
+<td class="summary">
+(m matrix) row col x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38137">
+set-aref</a>
+</td>
+<td class="summary">
+(a array) row col x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38194">
+swap-rows</a>
+</td>
+<td class="summary">
+(m matrix) row1 row2</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38195">
+swap-rows</a>
+</td>
+<td class="summary">
+(v vector) row1 row2</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38196">
+swap-rows</a>
+</td>
+<td class="summary">
+(a array) row1 row2</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38189">
+trace</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38190">
+trace</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38191">
+trace</a>
+</td>
+<td class="summary">
+(a array)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38185">
+trn</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38186">
+trn</a>
+</td>
+<td class="summary">
+(v vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38187">
+trn</a>
+</td>
+<td class="summary">
+(a array)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38188">
+trn</a>
+</td>
+<td class="summary">
+(m matrix)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38171">
+v/b</a>
+</td>
+<td class="summary">
+(b vector) v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38172">
+v/b</a>
+</td>
+<td class="summary">
+b v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38259">
+x*a</a>
+</td>
+<td class="summary">
+x a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38260">
+x*a</a>
+</td>
+<td class="summary">
+(m matrix) a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38261">
+x*a</a>
+</td>
+<td class="summary">
+(x array) a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38247">
+x*c</a>
+</td>
+<td class="summary">
+x c</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38248">
+x*c</a>
+</td>
+<td class="summary">
+(x cons) c</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38249">
+x*c</a>
+</td>
+<td class="summary">
+(x vector) c</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38231">
+x*m</a>
+</td>
+<td class="summary">
+x m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38232">
+x*m</a>
+</td>
+<td class="summary">
+(v vector) m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38233">
+x*m</a>
+</td>
+<td class="summary">
+(x matrix) m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38234">
+x*m</a>
+</td>
+<td class="summary">
+(x array) m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38236">
+x*ml</a>
+</td>
+<td class="summary">
+x m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38237">
+x*ml</a>
+</td>
+<td class="summary">
+(v vector) m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38241">
+x*nm</a>
+</td>
+<td class="summary">
+m x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38242">
+x*nm</a>
+</td>
+<td class="summary">
+(v vector) x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38243">
+x*nm</a>
+</td>
+<td class="summary">
+(m matrix) x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38253">
+x*v</a>
+</td>
+<td class="summary">
+x v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38254">
+x*v</a>
+</td>
+<td class="summary">
+(x cons) v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38255">
+x*v</a>
+</td>
+<td class="summary">
+(x vector) v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38256">
+x*v</a>
+</td>
+<td class="summary">
+(m matrix) v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38257">
+x+a</a>
+</td>
+<td class="summary">
+x a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38258">
+x+a</a>
+</td>
+<td class="summary">
+(x array) a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38244">
+x+c</a>
+</td>
+<td class="summary">
+x c</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38245">
+x+c</a>
+</td>
+<td class="summary">
+(x cons) c</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38246">
+x+c</a>
+</td>
+<td class="summary">
+(x vector) c</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38228">
+x+m</a>
+</td>
+<td class="summary">
+x m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38229">
+x+m</a>
+</td>
+<td class="summary">
+(x matrix) m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38230">
+x+m</a>
+</td>
+<td class="summary">
+(x array) m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38238">
+x+nm</a>
+</td>
+<td class="summary">
+m x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38239">
+x+nm</a>
+</td>
+<td class="summary">
+(v vector) x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38240">
+x+nm</a>
+</td>
+<td class="summary">
+(m matrix) x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38250">
+x+v</a>
+</td>
+<td class="summary">
+x v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38251">
+x+v</a>
+</td>
+<td class="summary">
+(x cons) v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38252">
+x+v</a>
+</td>
+<td class="summary">
+(x vector) v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38180">
+*</a>
+</td>
+<td class="summary">
+x m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38181">
+*</a>
+</td>
+<td class="summary">
+(x cons) m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38182">
+*</a>
+</td>
+<td class="summary">
+(v vector) x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38183">
+*</a>
+</td>
+<td class="summary">
+(m matrix) x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38184">
+*</a>
+</td>
+<td class="summary">
+(a array) x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38156">
++</a>
+</td>
+<td class="summary">
+x m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38157">
++</a>
+</td>
+<td class="summary">
+(x cons) m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38158">
++</a>
+</td>
+<td class="summary">
+(v vector) x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38159">
++</a>
+</td>
+<td class="summary">
+(m matrix) x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38160">
++</a>
+</td>
+<td class="summary">
+(a array) x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38162">
+/</a>
+</td>
+<td class="summary">
+a b</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38166">
+/</a>
+</td>
+<td class="summary">
+(a cons) b</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38170">
+/</a>
+</td>
+<td class="summary">
+(a vector) b</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38142">
+as-vector</a>
+</td>
+<td class="summary">
+lst</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38226">
+choldc</a>
+</td>
+<td class="summary">
+m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38227">
+cholsl</a>
+</td>
+<td class="summary">
+m v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38214">
+compute-diagonal-form</a>
+</td>
+<td class="summary">
+mwrk vwrk</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38213">
+compute-upper-triangular-form</a>
+</td>
+<td class="summary">
+mwrk vwrk</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38219">
+det-m-or-a</a>
+</td>
+<td class="summary">
+a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38179">
+diag-m-or-a</a>
+</td>
+<td class="summary">
+m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38152">
+identityi</a>
+</td>
+<td class="summary">
+x <em>&amp;rest</em> ixs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38173">
+idn</a>
+</td>
+<td class="summary">
+n</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38225">
+inv-m-or-a</a>
+</td>
+<td class="summary">
+m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38150">
+make-array-like</a>
+</td>
+<td class="summary">
+a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38127">
+make-matrix</a>
+</td>
+<td class="summary">
+<em>&amp;key</em> rows</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38193">
+maxabs</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38215">
+msolve-m-or-a</a>
+</td>
+<td class="summary">
+m v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38141">
+prod</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38138">
+(setf aref)</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38210">
+(setf get-col)</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38203">
+(setf get-row)</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38140">
+sum</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38192">
+trace-m-or-a</a>
+</td>
+<td class="summary">
+a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38235">
+x*m-m-or-a</a>
+</td>
+<td class="summary">
+x m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38161">
+-</a>
+</td>
+<td class="summary">
+a b</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38143">
+&lt;*&gt;</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> vs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38144">
+&gt;*&lt;</a>
+</td>
+<td class="summary">
+v1 v2</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Macro summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38146">
+define-unary-operators</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="matrix.html#_g38145">
+defunop</a>
+</td>
+<td class="summary">
+name op</td>
+</tr>
+</table>
+<div class="defpackage">
+<div class="defunsignatures">
+<a id="_g38124">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+COM.RAL.MATRIX-OPS&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Package]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defclass">
+<div class="defunsignatures">
+<a id="_g38125">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+matrix&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Class]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+<div class="defclass-initargs">
+<div>
+<div>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+:rows&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Initarg]</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="defclass-slots-doc">
+</div>
+<div class="defclass-generics">
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38126">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+matrix-rows&nbsp;&nbsp;</td>
+<td class="lambda-list">
+matrix</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the rows of the specified matrix 
+ </p>
+</div>
+</div>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38163">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+a*invb&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(b cons) a</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38164">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+a*invb&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(b vector) a</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38165">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+a*invb&nbsp;&nbsp;</td>
+<td class="lambda-list">
+b a</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38134">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+aref&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) row col</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38135">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+aref&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array) row col</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38167">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+c/b&nbsp;&nbsp;</td>
+<td class="lambda-list">
+b a</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38168">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+c/b&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(b cons) a</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38169">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+c/b&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(b vector) a</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38147">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x <em>&amp;key</em> (fn #'identity)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38148">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) <em>&amp;key</em> (fn #'identity)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38149">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) <em>&amp;key</em> (fn #'identity)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38151">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array) <em>&amp;key</em> (fn #'identity)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38153">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copyi&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) <em>&amp;key</em> (fn #'identityi)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38154">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copyi&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) <em>&amp;key</em> (fn #'identityi)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38155">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copyi&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array) <em>&amp;key</em> (fn #'identityi)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38216">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+det&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38217">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+det&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38218">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+det&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38174">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+diag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38175">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+diag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38176">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+diag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38177">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+diag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38178">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+diag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(c cons)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38204">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-col&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) col</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38205">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-col&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) col</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38206">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-col&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array) col</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38197">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-row&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) row</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38198">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-row&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) row</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38199">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-row&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array) row</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38220">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+inv&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38221">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+inv&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x cons)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38222">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+inv&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38223">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+inv&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38224">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+inv&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38211">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+msolve&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38212">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+msolve&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array) v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38131">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+ncols&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38132">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+ncols&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38133">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+ncols&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38128">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+nrows&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38129">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+nrows&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38130">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+nrows&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38207">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+put-col&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) col x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38208">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+put-col&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) col v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38209">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+put-col&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array) col v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38200">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+put-row&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) row x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38201">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+put-row&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) row v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38202">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+put-row&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array) row v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38136">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-aref&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) row col x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38137">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-aref&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array) row col x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38194">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+swap-rows&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) row1 row2</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38195">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+swap-rows&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) row1 row2</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38196">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+swap-rows&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array) row1 row2</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38189">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+trace&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38190">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+trace&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38191">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+trace&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38185">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+trn&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38186">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+trn&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38187">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+trn&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38188">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+trn&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38171">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+v/b&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(b vector) v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38172">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+v/b&nbsp;&nbsp;</td>
+<td class="lambda-list">
+b v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38259">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*a&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x a</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38260">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*a&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) a</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38261">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*a&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x array) a</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38247">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*c&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x c</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38248">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*c&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x cons) c</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38249">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*c&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x vector) c</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38231">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*m&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38232">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*m&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38233">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*m&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x matrix) m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38234">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*m&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x array) m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38236">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*ml&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38237">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*ml&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38241">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*nm&nbsp;&nbsp;</td>
+<td class="lambda-list">
+m x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38242">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*nm&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38243">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*nm&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38253">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*v&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38254">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*v&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x cons) v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38255">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*v&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x vector) v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38256">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*v&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38257">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+a&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x a</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38258">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+a&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x array) a</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38244">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+c&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x c</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38245">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+c&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x cons) c</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38246">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+c&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x vector) c</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38228">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+m&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38229">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+m&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x matrix) m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38230">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+m&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x array) m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38238">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+nm&nbsp;&nbsp;</td>
+<td class="lambda-list">
+m x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38239">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+nm&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38240">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+nm&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38250">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+v&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38251">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+v&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x cons) v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38252">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x+v&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x vector) v</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38180">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38181">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x cons) m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38182">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38183">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38184">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array) x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38156">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
++&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38157">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
++&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(x cons) m</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38158">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
++&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector) x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38159">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
++&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(m matrix) x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38160">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
++&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array) x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38162">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+/&nbsp;&nbsp;</td>
+<td class="lambda-list">
+a b</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38166">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+/&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a cons) b</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38170">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+/&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a vector) b</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38142">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+as-vector&nbsp;&nbsp;</td>
+<td class="lambda-list">
+lst</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38226">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+choldc&nbsp;&nbsp;</td>
+<td class="lambda-list">
+m</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38227">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+cholsl&nbsp;&nbsp;</td>
+<td class="lambda-list">
+m v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38214">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+compute-diagonal-form&nbsp;&nbsp;</td>
+<td class="lambda-list">
+mwrk vwrk</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38213">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+compute-upper-triangular-form&nbsp;&nbsp;</td>
+<td class="lambda-list">
+mwrk vwrk</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38219">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+det-m-or-a&nbsp;&nbsp;</td>
+<td class="lambda-list">
+a</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38179">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+diag-m-or-a&nbsp;&nbsp;</td>
+<td class="lambda-list">
+m</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38152">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+identityi&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x <em>&amp;rest</em> ixs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38173">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+idn&nbsp;&nbsp;</td>
+<td class="lambda-list">
+n</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38225">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+inv-m-or-a&nbsp;&nbsp;</td>
+<td class="lambda-list">
+m</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38150">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-array-like&nbsp;&nbsp;</td>
+<td class="lambda-list">
+a</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38127">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-matrix&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;key</em> rows</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38193">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+maxabs&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38215">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+msolve-m-or-a&nbsp;&nbsp;</td>
+<td class="lambda-list">
+m v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38141">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+prod&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38140">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sum&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38192">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+trace-m-or-a&nbsp;&nbsp;</td>
+<td class="lambda-list">
+a</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38235">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+x*m-m-or-a&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x m</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38161">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+-&nbsp;&nbsp;</td>
+<td class="lambda-list">
+a b</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38143">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+&lt;*&gt;&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> vs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38144">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+&gt;*&lt;&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v1 v2</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38138">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+(setf aref <em class="args">m row col</em>)&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v)</td>
+<td class="symbol-type">
+&nbsp;[Setf&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38210">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+(setf get-col <em class="args">m col</em>)&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v)</td>
+<td class="symbol-type">
+&nbsp;[Setf&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38203">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+(setf get-row <em class="args">m row</em>)&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v)</td>
+<td class="symbol-type">
+&nbsp;[Setf&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38146">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+define-unary-operators&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38145">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+defunop&nbsp;&nbsp;</td>
+<td class="lambda-list">
+name op</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.MATRIX-OPS</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

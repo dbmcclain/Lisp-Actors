@@ -1,0 +1,479 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+kaiser</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="fft-tools.html">
+Prev:&nbsp;fft-tools.lisp</a>
+<br/>
+<a href="simplex.html">
+Next:&nbsp;simplex.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+kaiser.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+kaiser.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38339">
+com.ral.kaiser:bessel-i0</a>
+</td>
+<td class="summary">
+x</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38341">
+com.ral.kaiser:beta-factor</a>
+</td>
+<td class="summary">
+a</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38340">
+com.ral.kaiser:compute-fir-filter-order</a>
+</td>
+<td class="summary">
+a df</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38342">
+com.ral.kaiser:kaiser-window</a>
+</td>
+<td class="summary">
+m a</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38343">
+com.ral.kaiser:sinc</a>
+</td>
+<td class="summary">
+x</td>
+<td class="summary-type">
+Function</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38339">
+bessel-i0</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38341">
+beta-factor</a>
+</td>
+<td class="summary">
+a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38335">
+bref</a>
+</td>
+<td class="summary">
+arr <em>&amp;rest</em> ixlist</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38340">
+compute-fir-filter-order</a>
+</td>
+<td class="summary">
+a df</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38334">
+dfloat</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38342">
+kaiser-window</a>
+</td>
+<td class="summary">
+m a</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38337">
+make-sfvector</a>
+</td>
+<td class="summary">
+nel <em>&amp;key</em> initial-contents (initial-element
+                           (and (null initial-contents) 0.0))</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38336">
+(setf bref)</a>
+</td>
+<td class="summary">
+val arr <em>&amp;rest</em> ixlist</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38333">
+sfloat</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38338">
+sfvector</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> items</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kaiser.html#_g38343">
+sinc</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+</table>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38339">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+bessel-i0&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KAISER</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38341">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+beta-factor&nbsp;&nbsp;</td>
+<td class="lambda-list">
+a</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KAISER</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38335">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+bref&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;rest</em> ixlist</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KAISER</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38340">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+compute-fir-filter-order&nbsp;&nbsp;</td>
+<td class="lambda-list">
+a df</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KAISER</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38334">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+dfloat&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KAISER</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38342">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+kaiser-window&nbsp;&nbsp;</td>
+<td class="lambda-list">
+m a</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KAISER</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38337">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-sfvector&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nel <em>&amp;key</em> initial-contents (initial-element
+                           (and (null initial-contents) 0.0))</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KAISER</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38336">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+(setf bref)&nbsp;&nbsp;</td>
+<td class="lambda-list">
+val arr <em>&amp;rest</em> ixlist</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KAISER</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38333">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sfloat&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KAISER</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38338">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sfvector&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> items</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KAISER</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38343">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sinc&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KAISER</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

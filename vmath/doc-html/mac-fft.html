@@ -1,0 +1,1314 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+mac-fft</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="mac_fft_intf.html">
+Prev:&nbsp;mac_fft_intf.lisp</a>
+<br/>
+<a href="dgesvd.html">
+Next:&nbsp;dgesvd.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+mac-fft.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+mac-fft.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12436">
+fft:c2r</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12440">
+fft:fwd</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12431">
+fft:fwd-magnitude</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12433">
+fft:fwd-magnitude-db</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12434">
+fft:fwd-phase</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12435">
+fft:fwd-phase-deg</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12432">
+fft:fwd-power</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12441">
+fft:inv</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12429">
+fft:r2c</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Constant summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12438">
+$fftw-forward</a>
+</td>
+<td class="summary">
+0</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12439">
+$fftw-inverse</a>
+</td>
+<td class="summary">
+1</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12436">
+c2r</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12407">
+check-dimensions</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12425">
+convert-complex-cvect-magnitudes-db-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12422">
+convert-complex-cvect-magnitudes-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12427">
+convert-complex-cvect-phases-deg-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12426">
+convert-complex-cvect-phases-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12424">
+convert-complex-cvect-power-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12417">
+convert-complex-cvect-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12416">
+convert-real-cvect-to-array</a>
+</td>
+<td class="summary">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12412">
+copy-array-to-complex-cvect</a>
+</td>
+<td class="summary">
+arr cdst ny nx <em>&amp;key</em> precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12411">
+copy-array-to-real-cvect</a>
+</td>
+<td class="summary">
+arr cdst ny nx <em>&amp;key</em> precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12418">
+db20</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12419">
+dtor</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12408">
+effective-array-dimensions</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12409">
+effective-ctype</a>
+</td>
+<td class="summary">
+precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12440">
+fwd</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12431">
+fwd-magnitude</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12433">
+fwd-magnitude-db</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12434">
+fwd-phase</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12435">
+fwd-phase-deg</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12432">
+fwd-power</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12430">
+half-dim</a>
+</td>
+<td class="summary">
+n</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12441">
+inv</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12415">
+make-complex-result-array</a>
+</td>
+<td class="summary">
+ny nx precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12414">
+make-result-array</a>
+</td>
+<td class="summary">
+ny nx precision</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12421">
+phase-deg</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12429">
+r2c</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12428">
+r2c-body</a>
+</td>
+<td class="summary">
+arr finish-fn <em>&amp;key</em> (precision :single-float) dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12413">
+reduced-dimensions</a>
+</td>
+<td class="summary">
+ny nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12420">
+rtod</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12423">
+sq</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12410">
+vec</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> (size (array-total-size arr)) (offset 0)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-fft.html#_g12437">
+z2z</a>
+</td>
+<td class="summary">
+arr dir <em>&amp;key</em> (precision :single-float) dest</td>
+</tr>
+</table>
+<div class="defconstant">
+<div class="defunsignatures">
+<a id="_g12438">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+$fftw-forward&nbsp;&nbsp;</td>
+<td class="lambda-list">
+0</td>
+<td class="symbol-type">
+&nbsp;[Constant]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defconstant">
+<div class="defunsignatures">
+<a id="_g12439">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+$fftw-inverse&nbsp;&nbsp;</td>
+<td class="lambda-list">
+1</td>
+<td class="symbol-type">
+&nbsp;[Constant]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12436">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+c2r&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12407">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+check-dimensions&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12425">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-complex-cvect-magnitudes-db-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12422">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-complex-cvect-magnitudes-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12427">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-complex-cvect-phases-deg-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12426">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-complex-cvect-phases-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12424">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-complex-cvect-power-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12417">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-complex-cvect-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12416">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+convert-real-cvect-to-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+csrc ny nx <em>&amp;key</em> dest precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12412">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy-array-to-complex-cvect&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr cdst ny nx <em>&amp;key</em> precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12411">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy-array-to-real-cvect&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr cdst ny nx <em>&amp;key</em> precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12418">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+db20&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12419">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+dtor&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12408">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+effective-array-dimensions&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12409">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+effective-ctype&nbsp;&nbsp;</td>
+<td class="lambda-list">
+precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12440">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12431">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-magnitude&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12433">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-magnitude-db&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12434">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-phase&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12435">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-phase-deg&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12432">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-power&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12430">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+half-dim&nbsp;&nbsp;</td>
+<td class="lambda-list">
+n</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12441">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+inv&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12415">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-complex-result-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12414">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-result-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx precision</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12421">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+phase-deg&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12429">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+r2c&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12428">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+r2c-body&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr finish-fn <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12413">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+reduced-dimensions&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12420">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+rtod&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12423">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sq&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12410">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vec&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> (size (array-total-size arr)) (offset 0)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g12437">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+z2z&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dir <em>&amp;key</em> (precision :single-float) dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: FFT</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by&nbsp;<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2008-07-24 19:20:41</div>
+</body>
+</html>

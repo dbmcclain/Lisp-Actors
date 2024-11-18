@@ -1,0 +1,413 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+monotonic-spline</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="interpolate.html">
+Prev:&nbsp;interpolate.lisp</a>
+<br/>
+<a href="integrate.html">
+Next:&nbsp;integrate.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+monotonic-spline.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+monotonic-spline.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="monotonic-spline.html#_g38307">
+com.ral.interpolation:monotonic-spline</a>
+</td>
+<td class="summary">
+(xs vector) (ys vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="monotonic-spline.html#_g38308">
+com.ral.interpolation:monotonic-splint</a>
+</td>
+<td class="summary">
+(mspl &lt;monotonic-spline-data&gt;) (x real) <em>&amp;optional</em> (prev-index
+                                                   (prev-k mspl))</td>
+<td class="summary-type">
+Method</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Class summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="monotonic-spline.html#_g38302">
+&lt;monotonic-spline-data&gt;</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Method summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="monotonic-spline.html#_g38307">
+monotonic-spline</a>
+</td>
+<td class="summary">
+(xs vector) (ys vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="monotonic-spline.html#_g38308">
+monotonic-splint</a>
+</td>
+<td class="summary">
+(mspl &lt;monotonic-spline-data&gt;) (x real) <em>&amp;optional</em> (prev-index
+                                                   (prev-k mspl))</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="monotonic-spline.html#_g38304">
+ms-vector</a>
+</td>
+<td class="summary">
+&lt;monotonic-spline-data&gt;</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="monotonic-spline.html#_g38303">
+prev-k</a>
+</td>
+<td class="summary">
+&lt;monotonic-spline-data&gt;</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="monotonic-spline.html#_g38306">
+xs-vector</a>
+</td>
+<td class="summary">
+&lt;monotonic-spline-data&gt;</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="monotonic-spline.html#_g38305">
+ys-vector</a>
+</td>
+<td class="summary">
+&lt;monotonic-spline-data&gt;</td>
+</tr>
+</table>
+<div class="defclass">
+<div class="defunsignatures">
+<a id="_g38302">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+&lt;monotonic-spline-data&gt;&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Class]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTERPOLATION</div>
+<div class="defclass-initargs">
+<div>
+<div>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+:ms&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Initarg]</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div>
+<div>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+:xs&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Initarg]</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div>
+<div>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+:ys&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Initarg]</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="defclass-slots-doc">
+</div>
+<div class="defclass-generics">
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38304">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+ms-vector&nbsp;&nbsp;</td>
+<td class="lambda-list">
+&lt;monotonic-spline-data&gt;</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTERPOLATION</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the ms-vector of the specified &lt;monotonic-spline-data&gt; 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38303">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+prev-k&nbsp;&nbsp;</td>
+<td class="lambda-list">
+&lt;monotonic-spline-data&gt;</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTERPOLATION</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the prev-k of the specified &lt;monotonic-spline-data&gt; 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38306">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+xs-vector&nbsp;&nbsp;</td>
+<td class="lambda-list">
+&lt;monotonic-spline-data&gt;</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTERPOLATION</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the xs-vector of the specified &lt;monotonic-spline-data&gt; 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38305">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+ys-vector&nbsp;&nbsp;</td>
+<td class="lambda-list">
+&lt;monotonic-spline-data&gt;</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTERPOLATION</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the ys-vector of the specified &lt;monotonic-spline-data&gt; 
+ </p>
+</div>
+</div>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38307">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+monotonic-spline&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(xs vector) (ys vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTERPOLATION</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38308">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+monotonic-splint&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(mspl &lt;monotonic-spline-data&gt;) (x real) <em>&amp;optional</em> (prev-index
+                                                   (prev-k mspl))</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTERPOLATION</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

@@ -1,0 +1,694 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="../cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+fft-twids</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="mac-fft.html">
+Prev:&nbsp;mac-fft.lisp</a>
+<br/>
+<a href="mac-sfft.html">
+Next:&nbsp;mac-sfft.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+fft-twids.lisp</b>
+<br/>
+<a href="../index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+fft-twids.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38461">
+com.ral.fft:get-dtmp</a>
+</td>
+<td class="summary">
+nx</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38452">
+com.ral.fft:get-process-split-tmp</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38460">
+com.ral.fft:get-stmp</a>
+</td>
+<td class="summary">
+nx</td>
+<td class="summary-type">
+Function</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Variable summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38445">
+*twids*</a>
+</td>
+<td class="summary">
+nil</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38444">
+*twids-lock*</a>
+</td>
+<td class="summary">
+(mp:make-lock)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38446">
+*twids-timer*</a>
+</td>
+<td class="summary">
+nil</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38451">
+do-with-twids</a>
+</td>
+<td class="summary">
+twids fn</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38461">
+get-dtmp</a>
+</td>
+<td class="summary">
+nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38450">
+get-dtwids</a>
+</td>
+<td class="summary">
+nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38452">
+get-process-split-tmp</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38456">
+get-process-tmp</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38455">
+get-split-temp-array</a>
+</td>
+<td class="summary">
+nx type</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38460">
+get-stmp</a>
+</td>
+<td class="summary">
+nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38449">
+get-stwids</a>
+</td>
+<td class="summary">
+nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38459">
+get-temp-array</a>
+</td>
+<td class="summary">
+nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38448">
+get-twids</a>
+</td>
+<td class="summary">
+nx prec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38447">
+scan-twids</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38453">
+set-process-split-tmp</a>
+</td>
+<td class="summary">
+tmp</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38457">
+set-process-tmp</a>
+</td>
+<td class="summary">
+tmp</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38454">
+(setf get-process-split-tmp)</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-twids.html#_g38458">
+(setf get-process-tmp)</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+</table>
+<div class="defparam">
+<div class="defunsignatures">
+<a id="_g38445">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*twids*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Variable]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defparam">
+<div class="defunsignatures">
+<a id="_g38444">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*twids-lock*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Variable]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defparam">
+<div class="defunsignatures">
+<a id="_g38446">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*twids-timer*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Variable]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38451">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+do-with-twids&nbsp;&nbsp;</td>
+<td class="lambda-list">
+twids fn</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38461">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-dtmp&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38450">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-dtwids&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38452">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-process-split-tmp&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38456">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-process-tmp&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38455">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-split-temp-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nx type</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38460">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-stmp&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38449">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-stwids&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38459">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-temp-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38448">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-twids&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nx prec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38447">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+scan-twids&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38453">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-process-split-tmp&nbsp;&nbsp;</td>
+<td class="lambda-list">
+tmp</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38457">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-process-tmp&nbsp;&nbsp;</td>
+<td class="lambda-list">
+tmp</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38454">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+(setf get-process-split-tmp)&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em class="cl">=&gt; set-process-split-tmp</em></td>
+<td class="symbol-type">
+&nbsp;[Setf&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38458">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+(setf get-process-tmp)&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em class="cl">=&gt; set-process-tmp</em></td>
+<td class="symbol-type">
+&nbsp;[Setf&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

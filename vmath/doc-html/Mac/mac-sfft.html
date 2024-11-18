@@ -1,0 +1,1131 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="../cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+mac-sfft</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="fft-twids.html">
+Prev:&nbsp;fft-twids.lisp</a>
+<br/>
+<a href="mac-dfft.html">
+Next:&nbsp;mac-dfft.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+mac-sfft.lisp</b>
+<br/>
+<a href="../index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+mac-sfft.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38481">
+com.ral.sfft:c2c</a>
+</td>
+<td class="summary">
+arr dir</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38480">
+com.ral.sfft:c2r</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38482">
+com.ral.sfft:fwd</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38485">
+com.ral.sfft:fwd-magnitude</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38487">
+com.ral.sfft:fwd-magnitude-db</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38488">
+com.ral.sfft:fwd-phase</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38489">
+com.ral.sfft:fwd-phase-deg</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38486">
+com.ral.sfft:fwd-power</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38467">
+com.ral.sfft:get-imag</a>
+</td>
+<td class="summary">
+fftbuf</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38466">
+com.ral.sfft:get-real</a>
+</td>
+<td class="summary">
+fftbuf</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38483">
+com.ral.sfft:inv</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38465">
+com.ral.sfft:make-fft-buffer</a>
+</td>
+<td class="summary">
+nx</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38479">
+com.ral.sfft:r2c</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38470">
+com.ral.sfft:set-imag</a>
+</td>
+<td class="summary">
+fftbuf (arr vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38471">
+com.ral.sfft:set-imag</a>
+</td>
+<td class="summary">
+fftbuf (val single-float)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38468">
+com.ral.sfft:set-real</a>
+</td>
+<td class="summary">
+fftbuf (arr vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38469">
+com.ral.sfft:set-real</a>
+</td>
+<td class="summary">
+fftbuf (val single-float)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Method summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38470">
+set-imag</a>
+</td>
+<td class="summary">
+fftbuf (arr vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38471">
+set-imag</a>
+</td>
+<td class="summary">
+fftbuf (val single-float)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38468">
+set-real</a>
+</td>
+<td class="summary">
+fftbuf (arr vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38469">
+set-real</a>
+</td>
+<td class="summary">
+fftbuf (val single-float)</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38474">
+ampl</a>
+</td>
+<td class="summary">
+r i</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38481">
+c2c</a>
+</td>
+<td class="summary">
+arr dir</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38480">
+c2r</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38472">
+copy-fft-buffer-contents</a>
+</td>
+<td class="summary">
+src dst</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38475">
+db10</a>
+</td>
+<td class="summary">
+r i</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38484">
+fast-real-fft-oper</a>
+</td>
+<td class="summary">
+arr after-fn dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38482">
+fwd</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38485">
+fwd-magnitude</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38487">
+fwd-magnitude-db</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38488">
+fwd-phase</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38489">
+fwd-phase-deg</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38486">
+fwd-power</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38467">
+get-imag</a>
+</td>
+<td class="summary">
+fftbuf</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38466">
+get-real</a>
+</td>
+<td class="summary">
+fftbuf</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38463">
+half-dim</a>
+</td>
+<td class="summary">
+n</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38483">
+inv</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38465">
+make-fft-buffer</a>
+</td>
+<td class="summary">
+nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38464">
+nfloats</a>
+</td>
+<td class="summary">
+nb</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38478">
+phs</a>
+</td>
+<td class="summary">
+r i</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38477">
+phs-deg</a>
+</td>
+<td class="summary">
+r i</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38473">
+pwr</a>
+</td>
+<td class="summary">
+r i</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38479">
+r2c</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-sfft.html#_g38476">
+rtod</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+</table>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38470">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-imag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf (arr vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38471">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-imag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf (val single-float)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38468">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-real&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf (arr vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38469">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-real&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf (val single-float)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38474">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+ampl&nbsp;&nbsp;</td>
+<td class="lambda-list">
+r i</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38481">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+c2c&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dir</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38480">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+c2r&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38472">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy-fft-buffer-contents&nbsp;&nbsp;</td>
+<td class="lambda-list">
+src dst</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38475">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+db10&nbsp;&nbsp;</td>
+<td class="lambda-list">
+r i</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38484">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fast-real-fft-oper&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr after-fn dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38482">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38485">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-magnitude&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38487">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-magnitude-db&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38488">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-phase&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38489">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-phase-deg&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38486">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-power&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38467">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-imag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38466">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-real&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38463">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+half-dim&nbsp;&nbsp;</td>
+<td class="lambda-list">
+n</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38483">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+inv&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38465">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-fft-buffer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38464">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+nfloats&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nb</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38478">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+phs&nbsp;&nbsp;</td>
+<td class="lambda-list">
+r i</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38477">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+phs-deg&nbsp;&nbsp;</td>
+<td class="lambda-list">
+r i</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38473">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+pwr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+r i</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38479">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+r2c&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38476">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+rtod&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.SFFT</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

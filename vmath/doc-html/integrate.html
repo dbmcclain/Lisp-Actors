@@ -1,0 +1,540 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+integrate</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="monotonic-spline.html">
+Prev:&nbsp;monotonic-spline.lisp</a>
+<br/>
+<a href="roots.html">
+Next:&nbsp;roots.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+integrate.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+integrate.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38316">
+com.ral.integrate:mtriple</a>
+</td>
+<td class="summary">
+fn a b <em>&amp;optional</em> state</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38318">
+com.ral.integrate:qromb</a>
+</td>
+<td class="summary">
+fn a b <em>&amp;key</em> (eps 1.0E-8) (ord 5) (nmax 20)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38319">
+com.ral.integrate:qrombm</a>
+</td>
+<td class="summary">
+fn a b <em>&amp;key</em> (eps 1.0E-8) (ord 5) (nmax 20)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38317">
+com.ral.integrate:sub-array</a>
+</td>
+<td class="summary">
+arr start nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38315">
+com.ral.integrate:trapm</a>
+</td>
+<td class="summary">
+fn a b <em>&amp;optional</em> state</td>
+<td class="summary-type">
+Function</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Class summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38310">
+&lt;integration-state&gt;</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Method summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38311">
+dx</a>
+</td>
+<td class="summary">
+&lt;integration-state&gt;</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38313">
+npts</a>
+</td>
+<td class="summary">
+&lt;integration-state&gt;</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38314">
+print-object</a>
+</td>
+<td class="summary">
+(obj &lt;integration-state&gt;) stream</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38312">
+sum</a>
+</td>
+<td class="summary">
+&lt;integration-state&gt;</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38316">
+mtriple</a>
+</td>
+<td class="summary">
+fn a b <em>&amp;optional</em> state</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38318">
+qromb</a>
+</td>
+<td class="summary">
+fn a b <em>&amp;key</em> (eps 1.0E-8) (ord 5) (nmax 20)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38319">
+qrombm</a>
+</td>
+<td class="summary">
+fn a b <em>&amp;key</em> (eps 1.0E-8) (ord 5) (nmax 20)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38317">
+sub-array</a>
+</td>
+<td class="summary">
+arr start nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="integrate.html#_g38315">
+trapm</a>
+</td>
+<td class="summary">
+fn a b <em>&amp;optional</em> state</td>
+</tr>
+</table>
+<div class="defclass">
+<div class="defunsignatures">
+<a id="_g38310">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+&lt;integration-state&gt;&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Class]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTEGRATE</div>
+<div class="defclass-initargs">
+<div>
+<div>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+:dx&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Initarg]</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div>
+<div>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+:n&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Initarg]</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div>
+<div>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+:sum&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Initarg]</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="defclass-slots-doc">
+</div>
+<div class="defclass-generics">
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38311">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+dx&nbsp;&nbsp;</td>
+<td class="lambda-list">
+&lt;integration-state&gt;</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTEGRATE</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the dx of the specified &lt;integration-state&gt; 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38313">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+npts&nbsp;&nbsp;</td>
+<td class="lambda-list">
+&lt;integration-state&gt;</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTEGRATE</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the npts of the specified &lt;integration-state&gt; 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38312">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sum&nbsp;&nbsp;</td>
+<td class="lambda-list">
+&lt;integration-state&gt;</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTEGRATE</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the sum of the specified &lt;integration-state&gt; 
+ </p>
+</div>
+</div>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38314">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+print-object&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(obj &lt;integration-state&gt;) stream</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTEGRATE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38316">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+mtriple&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn a b <em>&amp;optional</em> state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTEGRATE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38318">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+qromb&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn a b <em>&amp;key</em> (eps 1.0E-8) (ord 5) (nmax 20)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTEGRATE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38319">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+qrombm&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn a b <em>&amp;key</em> (eps 1.0E-8) (ord 5) (nmax 20)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTEGRATE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38317">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sub-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr start nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTEGRATE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38315">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+trapm&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn a b <em>&amp;optional</em> state</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.INTEGRATE</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

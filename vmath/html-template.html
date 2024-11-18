@@ -1,0 +1,968 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html> 
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <title>COM.RAL.VECTORIZED-MATH - a library for vectorized math</title>
+  <style type="text/css">
+  pre { padding:5px; background-color:#e0e0e0 }
+  h3, h4 { text-decoration: underline; }
+  a { text-decoration: none; padding: 1px 2px 1px 2px; }
+  a:visited { text-decoration: none; padding: 1px 2px 1px 2px; }
+  a:hover { text-decoration: none; padding: 1px 1px 1px 1px; border: 1px solid #000000; } 
+  a:focus { text-decoration: none; padding: 1px 2px 1px 2px; border: none; }
+  a.none { text-decoration: none; padding: 0; }
+  a.none:visited { text-decoration: none; padding: 0; } 
+  a.none:hover { text-decoration: none; border: none; padding: 0; } 
+  a.none:focus { text-decoration: none; border: none; padding: 0; } 
+  a.noborder { text-decoration: none; padding: 0; } 
+  a.noborder:visited { text-decoration: none; padding: 0; } 
+  a.noborder:hover { text-decoration: none; border: none; padding: 0; } 
+  a.noborder:focus { text-decoration: none; border: none; padding: 0; }  
+  pre.none { padding:5px; background-color:#ffffff }
+  </style>
+</head>
+
+<body bgcolor=white>
+
+<h2> COM.RAL.VECTORIZED-MATH - a library for vectorized math</h2>
+
+<br>&nbsp;<br><h3><a class=none name="contents">Contents</a></h3>
+<ol>
+  <li><a href="#dictionary">The COM.RAL.VECTORIZED-MATH dictionary</a>
+    <ol>
+      <li><a href="#acanon"><code>acanon</code></a>
+      <li><a href="#bipolar-framp"><code>bipolar-framp</code></a>
+      <li><a href="#bipolar-xplane"><code>bipolar-xplane</code></a>
+      <li><a href="#bipolar-yplane"><code>bipolar-yplane</code></a>
+      <li><a href="#copy"><code>copy</code></a>
+      <li><a href="#dgesvd"><code>dgesvd</code></a>
+      <li><a href="#dgesvd-bksb"><code>dgesvd-bksb</code></a>
+      <li><a href="#dgesvd-predict"><code>dgesvd-predict</code></a>
+      <li><a href="#dgesvd-solve"><code>dgesvd-solve</code></a>
+      <li><a href="#dist"><code>dist</code></a>
+      <li><a href="#dramp"><code>dramp</code></a>
+      <li><a href="#elementwise"><code>elementwise</code></a>
+      <li><a href="#elementwise-reduce"><code>elementwise-reduce</code></a>
+      <li><a href="#fones"><code>fones</code></a>
+      <li><a href="#framp"><code>framp</code></a>
+      <li><a href="#fzeros"><code>fzeros</code></a>
+      <li><a href="#gasdev"><code>gasdev</code></a>
+      <li><a href="#general-inner-prod"><code>general-inner-prod</code></a>
+      <li><a href="#general-outer-prod"><code>general-outer-prod</code></a>
+      <li><a href="#gensyms-for-args"><code>gensyms-for-args</code></a>
+      <li><a href="#gnoise"><code>gnoise</code></a>
+      <li><a href="#histogram"><code>histogram</code></a>
+      <li><a href="#hypot"><code>hypot</code></a>
+      <li><a href="#inner-prod"><code>inner-prod</code></a>
+      <li><a href="#iones"><code>iones</code></a>
+      <li><a href="#iramp"><code>iramp</code></a>
+      <li><a href="#ixsort"><code>ixsort</code></a>
+      <li><a href="#izeros"><code>izeros</code></a>
+      <li><a href="#logabs"><code>logabs</code></a>
+      <li><a href="#mad"><code>mad</code></a>
+      <li><a href="#map-dimension"><code>map-dimension</code></a>
+      <li><a href="#mean"><code>mean</code></a>
+      <li><a href="#median"><code>median</code></a>
+      <li><a href="#negmad"><code>negmad</code></a>
+      <li><a href="#outer-prod"><code>outer-prod</code></a>
+      <li><a href="#percentile"><code>percentile</code></a>
+      <li><a href="#percentiles"><code>percentiles</code></a>
+      <li><a href="#reduce-dimension"><code>reduce-dimension</code></a>
+      <li><a href="#require-same-shape"><code>require-same-shape</code></a>
+      <li><a href="#require-same-size"><code>require-same-size</code></a>
+      <li><a href="#reshape"><code>reshape</code></a>
+      <li><a href="#shift"><code>shift</code></a>
+      <li><a href="#shifted-bipolar-framp"><code>shifted-bipolar-framp</code></a>
+      <li><a href="#shifted-bipolar-xplane"><code>shifted-bipolar-xplane</code></a>
+      <li><a href="#shifted-bipolar-yplane"><code>shifted-bipolar-yplane</code></a>
+      <li><a href="#shifth"><code>shifth</code></a>
+      <li><a href="#simplex"><code>simplex</code></a>
+      <li><a href="#sinc"><code>sinc</code></a>
+      <li><a href="#slice"><code>slice</code></a>
+      <li><a href="#split"><code>split</code></a>
+      <li><a href="#standard-percentiles"><code>standard-percentiles</code></a>
+      <li><a href="#stdev"><code>stdev</code></a>
+      <li><a href="#total"><code>total</code></a>
+      <li><a href="#transpose"><code>transpose</code></a>
+      <li><a href="#unoise"><code>unoise</code></a>
+      <li><a href="#variance"><code>variance</code></a>
+      <li><a href="#vector-of"><code>vector-of</code></a>
+      <li><a href="#vectorwise"><code>vectorwise</code></a>
+      <li><a href="#vrotl"><code>vrotl</code></a>
+      <li><a href="#vrotr"><code>vrotr</code></a>
+      <li><a href="#vshifth"><code>vshifth</code></a>
+      <li><a href="#without-denormals"><code>without-denormals</code></a>
+      <li><a href="#wtmean"><code>wtmean</code></a>
+      <li><a href="#wtstdev"><code>wtstdev</code></a>
+      <li><a href="#wtvariance"><code>wtvariance</code></a>
+      <li><a href="#xplane"><code>xplane</code></a>
+      <li><a href="#yplane"><code>yplane</code></a>
+    </ol>
+  <li><a href="#ack">Acknowledgements</a>
+</ol>
+
+<br>&nbsp;<br><h3><a class=none name="dictionary">The COM.RAL.VECTORIZED-MATH dictionary</a></h3>
+
+
+
+<!-- Entry for ACANON -->
+
+<p><br>[Function]<br><a class=none name='acanon'><b>acanon</b> <i>arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ACANON -->
+
+
+<!-- Entry for BIPOLAR-FRAMP -->
+
+<p><br>[Function]<br><a class=none name='bipolar-framp'><b>bipolar-framp</b> <i>nel</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for BIPOLAR-FRAMP -->
+
+
+<!-- Entry for BIPOLAR-XPLANE -->
+
+<p><br>[Function]<br><a class=none name='bipolar-xplane'><b>bipolar-xplane</b> <i>ny nx</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for BIPOLAR-XPLANE -->
+
+
+<!-- Entry for BIPOLAR-YPLANE -->
+
+<p><br>[Function]<br><a class=none name='bipolar-yplane'><b>bipolar-yplane</b> <i>ny nx</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for BIPOLAR-YPLANE -->
+
+
+<!-- Entry for COPY -->
+
+<p><br>[Function]<br><a class=none name='copy'><b>copy</b> <i>arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for COPY -->
+
+
+<!-- Entry for DGESVD -->
+
+<p><br>[Function]<br><a class=none name='dgesvd'><b>dgesvd</b> <i>arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DGESVD -->
+
+
+<!-- Entry for DGESVD-BKSB -->
+
+<p><br>[Function]<br><a class=none name='dgesvd-bksb'><b>dgesvd-bksb</b> <i>u-mat w-vec vt-mat b-vec <tt>&amp;key</tt> tolerance</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DGESVD-BKSB -->
+
+
+<!-- Entry for DGESVD-PREDICT -->
+
+<p><br>[Function]<br><a class=none name='dgesvd-predict'><b>dgesvd-predict</b> <i>vec xvec ndim npred ll hh <tt>&amp;key</tt> tolerance</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DGESVD-PREDICT -->
+
+
+<!-- Entry for DGESVD-SOLVE -->
+
+<p><br>[Function]<br><a class=none name='dgesvd-solve'><b>dgesvd-solve</b> <i>arr vec <tt>&amp;key</tt> tolerance</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DGESVD-SOLVE -->
+
+
+<!-- Entry for DIST -->
+
+<p><br>[Function]<br><a class=none name='dist'><b>dist</b> <i>ny nx</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DIST -->
+
+
+<!-- Entry for DRAMP -->
+
+<p><br>[Function]<br><a class=none name='dramp'><b>dramp</b> <i>nel</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for DRAMP -->
+
+
+<!-- Entry for ELEMENTWISE -->
+
+<p><br>[Macro]<br><a class=none name='elementwise'><b>elementwise</b> <i>arg-bindings body-form <tt>&amp;key</tt> dest index</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ELEMENTWISE -->
+
+
+<!-- Entry for ELEMENTWISE-REDUCE -->
+
+<p><br>[Macro]<br><a class=none name='elementwise-reduce'><b>elementwise-reduce</b> <i>fn arg <tt>&amp;rest</tt> keys</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for ELEMENTWISE-REDUCE -->
+
+
+<!-- Entry for FONES -->
+
+<p><br>[Function]<br><a class=none name='fones'><b>fones</b> <i>nel</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FONES -->
+
+
+<!-- Entry for FRAMP -->
+
+<p><br>[Function]<br><a class=none name='framp'><b>framp</b> <i>nel</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FRAMP -->
+
+
+<!-- Entry for FZEROS -->
+
+<p><br>[Function]<br><a class=none name='fzeros'><b>fzeros</b> <i>nel</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for FZEROS -->
+
+
+<!-- Entry for GASDEV -->
+
+<p><br>[Function]<br><a class=none name='gasdev'><b>gasdev</b> <i><tt>&amp;optional</tt> random-state</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for GASDEV -->
+
+
+<!-- Entry for GENERAL-INNER-PROD -->
+
+<p><br>[Function]<br><a class=none name='general-inner-prod'><b>general-inner-prod</b> <i>inner-op arr1 arr2 outer-op</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for GENERAL-INNER-PROD -->
+
+
+<!-- Entry for GENERAL-OUTER-PROD -->
+
+<p><br>[Function]<br><a class=none name='general-outer-prod'><b>general-outer-prod</b> <i>op arr1 arr2</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for GENERAL-OUTER-PROD -->
+
+
+<!-- Entry for GENSYMS-FOR-ARGS -->
+
+<p><br>[Function]<br><a class=none name='gensyms-for-args'><b>gensyms-for-args</b> <i>args <tt>&amp;optional</tt> pref</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for GENSYMS-FOR-ARGS -->
+
+
+<!-- Entry for GNOISE -->
+
+<p><br>[Function]<br><a class=none name='gnoise'><b>gnoise</b> <i>nel <tt>&amp;key</tt> mean sd random-state</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for GNOISE -->
+
+
+<!-- Entry for HISTOGRAM -->
+
+<p><br>[Function]<br><a class=none name='histogram'><b>histogram</b> <i>arr <tt>&amp;key</tt> min max range nbins binwidth</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for HISTOGRAM -->
+
+
+<!-- Entry for HYPOT -->
+
+<p><br>[Function]<br><a class=none name='hypot'><b>hypot</b> <i>x y</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for HYPOT -->
+
+
+<!-- Entry for INNER-PROD -->
+
+<p><br>[Function]<br><a class=none name='inner-prod'><b>inner-prod</b> <i>arr1 arr2</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for INNER-PROD -->
+
+
+<!-- Entry for IONES -->
+
+<p><br>[Function]<br><a class=none name='iones'><b>iones</b> <i>nel</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for IONES -->
+
+
+<!-- Entry for IRAMP -->
+
+<p><br>[Function]<br><a class=none name='iramp'><b>iramp</b> <i>nel</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for IRAMP -->
+
+
+<!-- Entry for IXSORT -->
+
+<p><br>[Function]<br><a class=none name='ixsort'><b>ixsort</b> <i>arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for IXSORT -->
+
+
+<!-- Entry for IZEROS -->
+
+<p><br>[Function]<br><a class=none name='izeros'><b>izeros</b> <i>nel</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for IZEROS -->
+
+
+<!-- Entry for LOGABS -->
+
+<p><br>[Function]<br><a class=none name='logabs'><b>logabs</b> <i>x <tt>&amp;optional</tt> base</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for LOGABS -->
+
+
+<!-- Entry for MAD -->
+
+<p><br>[Function]<br><a class=none name='mad'><b>mad</b> <i>arr <tt>&amp;optional</tt> med</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MAD -->
+
+
+<!-- Entry for MAP-DIMENSION -->
+
+<p><br>[Function]<br><a class=none name='map-dimension'><b>map-dimension</b> <i>fn arr dim</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MAP-DIMENSION -->
+
+
+<!-- Entry for MEAN -->
+
+<p><br>[Function]<br><a class=none name='mean'><b>mean</b> <i>arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MEAN -->
+
+
+<!-- Entry for MEDIAN -->
+
+<p><br>[Function]<br><a class=none name='median'><b>median</b> <i>arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for MEDIAN -->
+
+
+<!-- Entry for NEGMAD -->
+
+<p><br>[Function]<br><a class=none name='negmad'><b>negmad</b> <i>arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for NEGMAD -->
+
+
+<!-- Entry for OUTER-PROD -->
+
+<p><br>[Function]<br><a class=none name='outer-prod'><b>outer-prod</b> <i>arr1 arr2</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for OUTER-PROD -->
+
+
+<!-- Entry for PERCENTILE -->
+
+<p><br>[Function]<br><a class=none name='percentile'><b>percentile</b> <i>arr pc</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for PERCENTILE -->
+
+
+<!-- Entry for PERCENTILES -->
+
+<p><br>[Function]<br><a class=none name='percentiles'><b>percentiles</b> <i>pcs arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for PERCENTILES -->
+
+
+<!-- Entry for REDUCE-DIMENSION -->
+
+<p><br>[Function]<br><a class=none name='reduce-dimension'><b>reduce-dimension</b> <i>fn arr dim</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for REDUCE-DIMENSION -->
+
+
+<!-- Entry for REQUIRE-SAME-SHAPE -->
+
+<p><br>[Function]<br><a class=none name='require-same-shape'><b>require-same-shape</b> <i><tt>&amp;rest</tt> args</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for REQUIRE-SAME-SHAPE -->
+
+
+<!-- Entry for REQUIRE-SAME-SIZE -->
+
+<p><br>[Function]<br><a class=none name='require-same-size'><b>require-same-size</b> <i><tt>&amp;rest</tt> args</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for REQUIRE-SAME-SIZE -->
+
+
+<!-- Entry for RESHAPE -->
+
+<p><br>[Function]<br><a class=none name='reshape'><b>reshape</b> <i>arr dims</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for RESHAPE -->
+
+
+<!-- Entry for SHIFT -->
+
+<p><br>[Function]<br><a class=none name='shift'><b>shift</b> <i>arr nels</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SHIFT -->
+
+
+<!-- Entry for SHIFTED-BIPOLAR-FRAMP -->
+
+<p><br>[Function]<br><a class=none name='shifted-bipolar-framp'><b>shifted-bipolar-framp</b> <i>nel</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SHIFTED-BIPOLAR-FRAMP -->
+
+
+<!-- Entry for SHIFTED-BIPOLAR-XPLANE -->
+
+<p><br>[Function]<br><a class=none name='shifted-bipolar-xplane'><b>shifted-bipolar-xplane</b> <i>ny nx</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SHIFTED-BIPOLAR-XPLANE -->
+
+
+<!-- Entry for SHIFTED-BIPOLAR-YPLANE -->
+
+<p><br>[Function]<br><a class=none name='shifted-bipolar-yplane'><b>shifted-bipolar-yplane</b> <i>ny nx</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SHIFTED-BIPOLAR-YPLANE -->
+
+
+<!-- Entry for SHIFTH -->
+
+<p><br>[Function]<br><a class=none name='shifth'><b>shifth</b> <i>arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SHIFTH -->
+
+
+<!-- Entry for SIMPLEX -->
+
+<p><br>[Function]<br><a class=none name='simplex'><b>simplex</b> <i>errfn v <tt>&amp;key</tt> nmax tol</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SIMPLEX -->
+
+
+<!-- Entry for SINC -->
+
+<p><br>[Function]<br><a class=none name='sinc'><b>sinc</b> <i>x</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SINC -->
+
+
+<!-- Entry for SLICE -->
+
+<p><br>[Function]<br><a class=none name='slice'><b>slice</b> <i>arr dim <tt>&amp;rest</tt> ixs</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SLICE -->
+
+
+<!-- Entry for SPLIT -->
+
+<p><br>[Function]<br><a class=none name='split'><b>split</b> <i>arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for SPLIT -->
+
+
+<!-- Entry for STANDARD-PERCENTILES -->
+
+<p><br>[Function]<br><a class=none name='standard-percentiles'><b>standard-percentiles</b> <i>arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for STANDARD-PERCENTILES -->
+
+
+<!-- Entry for STDEV -->
+
+<p><br>[Function]<br><a class=none name='stdev'><b>stdev</b> <i>arr <tt>&amp;optional</tt> mn</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for STDEV -->
+
+
+<!-- Entry for TOTAL -->
+
+<p><br>[Function]<br><a class=none name='total'><b>total</b> <i>arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for TOTAL -->
+
+
+<!-- Entry for TRANSPOSE -->
+
+<p><br>[Function]<br><a class=none name='transpose'><b>transpose</b> <i>arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for TRANSPOSE -->
+
+
+<!-- Entry for UNOISE -->
+
+<p><br>[Function]<br><a class=none name='unoise'><b>unoise</b> <i>nel limit <tt>&amp;optional</tt> random-state</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for UNOISE -->
+
+
+<!-- Entry for VARIANCE -->
+
+<p><br>[Function]<br><a class=none name='variance'><b>variance</b> <i>arr <tt>&amp;optional</tt> mn</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VARIANCE -->
+
+
+<!-- Entry for VECTOR-OF -->
+
+<p><br>[Generic function]<br><a class=none name='vector-of'><b>vector-of</b> <i>x</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VECTOR-OF -->
+
+
+<!-- Entry for VECTOR-OF -->
+
+<p><br>[Method]<br><a class=none><b>vector-of</b> <i>(x array)</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VECTOR-OF -->
+
+
+<!-- Entry for VECTOR-OF -->
+
+<p><br>[Method]<br><a class=none><b>vector-of</b> <i>(x vector)</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VECTOR-OF -->
+
+
+<!-- Entry for VECTOR-OF -->
+
+<p><br>[Method]<br><a class=none><b>vector-of</b> <i>(x list)</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VECTOR-OF -->
+
+
+<!-- Entry for VECTOR-OF -->
+
+<p><br>[Method]<br><a class=none><b>vector-of</b> <i>x</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VECTOR-OF -->
+
+
+<!-- Entry for VECTORWISE -->
+
+<p><br>[Macro]<br><a class=none name='vectorwise'><b>vectorwise</b> <i>arg-bindings body-form <tt>&amp;key</tt> dest index</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VECTORWISE -->
+
+
+<!-- Entry for VROTL -->
+
+<p><br>[Function]<br><a class=none name='vrotl'><b>vrotl</b> <i>vec nel</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VROTL -->
+
+
+<!-- Entry for VROTR -->
+
+<p><br>[Function]<br><a class=none name='vrotr'><b>vrotr</b> <i>vec nel</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VROTR -->
+
+
+<!-- Entry for VSHIFTH -->
+
+<p><br>[Function]<br><a class=none name='vshifth'><b>vshifth</b> <i>vec</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for VSHIFTH -->
+
+
+<!-- Entry for WITHOUT-DENORMALS -->
+
+<p><br>[Macro]<br><a class=none name='without-denormals'><b>without-denormals</b> <i>declaration* statement*</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for WITHOUT-DENORMALS -->
+
+
+<!-- Entry for WTMEAN -->
+
+<p><br>[Function]<br><a class=none name='wtmean'><b>wtmean</b> <i>wts arr</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for WTMEAN -->
+
+
+<!-- Entry for WTSTDEV -->
+
+<p><br>[Function]<br><a class=none name='wtstdev'><b>wtstdev</b> <i>wts arr <tt>&amp;optional</tt> mn</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for WTSTDEV -->
+
+
+<!-- Entry for WTVARIANCE -->
+
+<p><br>[Function]<br><a class=none name='wtvariance'><b>wtvariance</b> <i>wts arr <tt>&amp;optional</tt> mn</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for WTVARIANCE -->
+
+
+<!-- Entry for XPLANE -->
+
+<p><br>[Function]<br><a class=none name='xplane'><b>xplane</b> <i>ny nx</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for XPLANE -->
+
+
+<!-- Entry for YPLANE -->
+
+<p><br>[Function]<br><a class=none name='yplane'><b>yplane</b> <i>ny nx</i> =&gt; <i>result</i></a>
+<blockquote><br>
+
+
+
+</blockquote>
+
+<!-- End of entry for YPLANE -->
+
+
+<br>&nbsp;<br><h3><a class=none name="ack">Acknowledgements</a></h3>
+
+<p>
+This documentation was prepared with a locally modified version of Edi Weitz's <a href="http://weitz.de/documentation-template/">DOCUMENTATION-TEMPLATE</a>.
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.
+</p>
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+roots</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="integrate.html">
+Prev:&nbsp;integrate.lisp</a>
+<br/>
+<a href="fft-tools.html">
+Next:&nbsp;fft-tools.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+roots.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+roots.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38325">
+com.ral.roots:deriv</a>
+</td>
+<td class="summary">
+fn dx</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38327">
+com.ral.roots:find-root</a>
+</td>
+<td class="summary">
+fn start <em>&amp;optional</em> start2</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38326">
+com.ral.roots:newton</a>
+</td>
+<td class="summary">
+fn start eps der</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38322">
+com.ral.roots:rtbis</a>
+</td>
+<td class="summary">
+func x1 x2 <em>&amp;key</em> (xacc 0) (jmax 60)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38323">
+com.ral.roots:rtsec</a>
+</td>
+<td class="summary">
+func x1 x2 <em>&amp;key</em> (xacc 0) (maxit 30)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38321">
+com.ral.roots:zbrac</a>
+</td>
+<td class="summary">
+func x1 x2 <em>&amp;key</em> (factor 1.6) (ntry 50)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38324">
+com.ral.roots:zbrent</a>
+</td>
+<td class="summary">
+func x1 x2 <em>&amp;key</em> (tol 0) (itmax 100) (eps 1.0E-16)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38325">
+deriv</a>
+</td>
+<td class="summary">
+fn dx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38327">
+find-root</a>
+</td>
+<td class="summary">
+fn start <em>&amp;optional</em> start2</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38326">
+newton</a>
+</td>
+<td class="summary">
+fn start eps der</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38322">
+rtbis</a>
+</td>
+<td class="summary">
+func x1 x2 <em>&amp;key</em> (xacc 0) (jmax 60)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38323">
+rtsec</a>
+</td>
+<td class="summary">
+func x1 x2 <em>&amp;key</em> (xacc 0) (maxit 30)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38321">
+zbrac</a>
+</td>
+<td class="summary">
+func x1 x2 <em>&amp;key</em> (factor 1.6) (ntry 50)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="roots.html#_g38324">
+zbrent</a>
+</td>
+<td class="summary">
+func x1 x2 <em>&amp;key</em> (tol 0) (itmax 100) (eps 1.0E-16)</td>
+</tr>
+</table>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38325">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+deriv&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn dx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ROOTS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38327">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+find-root&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn start <em>&amp;optional</em> start2</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ROOTS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38326">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+newton&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn start eps der</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ROOTS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38322">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+rtbis&nbsp;&nbsp;</td>
+<td class="lambda-list">
+func x1 x2 <em>&amp;key</em> (xacc 0) (jmax 60)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ROOTS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38323">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+rtsec&nbsp;&nbsp;</td>
+<td class="lambda-list">
+func x1 x2 <em>&amp;key</em> (xacc 0) (maxit 30)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ROOTS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38321">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+zbrac&nbsp;&nbsp;</td>
+<td class="lambda-list">
+func x1 x2 <em>&amp;key</em> (factor 1.6) (ntry 50)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ROOTS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38324">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+zbrent&nbsp;&nbsp;</td>
+<td class="lambda-list">
+func x1 x2 <em>&amp;key</em> (tol 0) (itmax 100) (eps 1.0E-16)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.ROOTS</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

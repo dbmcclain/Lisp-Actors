@@ -1,0 +1,1131 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="../cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+mac-dfft</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="mac-sfft.html">
+Prev:&nbsp;mac-sfft.lisp</a>
+<br/>
+<a href="mac-fft2d.html">
+Next:&nbsp;mac-fft2d.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+mac-dfft.lisp</b>
+<br/>
+<a href="../index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+mac-dfft.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38507">
+com.ral.dfft:d2z</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38510">
+com.ral.dfft:fwd</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38513">
+com.ral.dfft:fwd-magnitude</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38515">
+com.ral.dfft:fwd-magnitude-db</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38516">
+com.ral.dfft:fwd-phase</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38517">
+com.ral.dfft:fwd-phase-deg</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38514">
+com.ral.dfft:fwd-power</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38495">
+com.ral.dfft:get-imag</a>
+</td>
+<td class="summary">
+fftbuf</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38494">
+com.ral.dfft:get-real</a>
+</td>
+<td class="summary">
+fftbuf</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38511">
+com.ral.dfft:inv</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38493">
+com.ral.dfft:make-fft-buffer</a>
+</td>
+<td class="summary">
+nx</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38498">
+com.ral.dfft:set-imag</a>
+</td>
+<td class="summary">
+fftbuf (arr vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38499">
+com.ral.dfft:set-imag</a>
+</td>
+<td class="summary">
+fftbuf (val double-float)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38496">
+com.ral.dfft:set-real</a>
+</td>
+<td class="summary">
+fftbuf (arr vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38497">
+com.ral.dfft:set-real</a>
+</td>
+<td class="summary">
+fftbuf (val double-float)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38508">
+com.ral.dfft:z2d</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38509">
+com.ral.dfft:z2z</a>
+</td>
+<td class="summary">
+arr dir</td>
+<td class="summary-type">
+Function</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Method summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38498">
+set-imag</a>
+</td>
+<td class="summary">
+fftbuf (arr vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38499">
+set-imag</a>
+</td>
+<td class="summary">
+fftbuf (val double-float)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38496">
+set-real</a>
+</td>
+<td class="summary">
+fftbuf (arr vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38497">
+set-real</a>
+</td>
+<td class="summary">
+fftbuf (val double-float)</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38502">
+ampl</a>
+</td>
+<td class="summary">
+r i</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38500">
+copy-fft-buffer-contents</a>
+</td>
+<td class="summary">
+src dst</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38507">
+d2z</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38503">
+db10</a>
+</td>
+<td class="summary">
+r i</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38512">
+fast-real-fft-oper</a>
+</td>
+<td class="summary">
+arr after-fn dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38510">
+fwd</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38513">
+fwd-magnitude</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38515">
+fwd-magnitude-db</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38516">
+fwd-phase</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38517">
+fwd-phase-deg</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38514">
+fwd-power</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38495">
+get-imag</a>
+</td>
+<td class="summary">
+fftbuf</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38494">
+get-real</a>
+</td>
+<td class="summary">
+fftbuf</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38491">
+half-dim</a>
+</td>
+<td class="summary">
+n</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38511">
+inv</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> dest</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38493">
+make-fft-buffer</a>
+</td>
+<td class="summary">
+nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38492">
+nfloats</a>
+</td>
+<td class="summary">
+nb</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38506">
+phs</a>
+</td>
+<td class="summary">
+r i</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38505">
+phs-deg</a>
+</td>
+<td class="summary">
+r i</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38501">
+pwr</a>
+</td>
+<td class="summary">
+r i</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38504">
+rtod</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38508">
+z2d</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="mac-dfft.html#_g38509">
+z2z</a>
+</td>
+<td class="summary">
+arr dir</td>
+</tr>
+</table>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38498">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-imag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf (arr vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38499">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-imag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf (val double-float)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38496">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-real&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf (arr vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38497">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+set-real&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf (val double-float)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38502">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+ampl&nbsp;&nbsp;</td>
+<td class="lambda-list">
+r i</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38500">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy-fft-buffer-contents&nbsp;&nbsp;</td>
+<td class="lambda-list">
+src dst</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38507">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+d2z&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38503">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+db10&nbsp;&nbsp;</td>
+<td class="lambda-list">
+r i</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38512">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fast-real-fft-oper&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr after-fn dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38510">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38513">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-magnitude&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38515">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-magnitude-db&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38516">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-phase&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38517">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-phase-deg&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38514">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fwd-power&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38495">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-imag&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38494">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-real&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fftbuf</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38491">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+half-dim&nbsp;&nbsp;</td>
+<td class="lambda-list">
+n</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38511">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+inv&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> dest</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38493">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-fft-buffer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38492">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+nfloats&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nb</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38506">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+phs&nbsp;&nbsp;</td>
+<td class="lambda-list">
+r i</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38505">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+phs-deg&nbsp;&nbsp;</td>
+<td class="lambda-list">
+r i</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38501">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+pwr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+r i</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38504">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+rtod&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38508">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+z2d&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38509">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+z2z&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dir</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.DFFT</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

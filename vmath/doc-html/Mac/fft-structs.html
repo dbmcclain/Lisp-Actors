@@ -1,0 +1,1062 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="../cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+fft-structs</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="mac_fft_intf.html">
+Prev:&nbsp;mac_fft_intf.lisp</a>
+<br/>
+<a href="mac-fft.html">
+Next:&nbsp;mac-fft.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+fft-structs.lisp</b>
+<br/>
+<a href="../index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+fft-structs.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38362">
+com.ral.fft:fft-buffer</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Struct</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38353">
+com.ral.fft:twids</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Struct</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38377">
+com.ral.fft:with-dtwids</a>
+</td>
+<td class="summary">
+(dtwids nx) <em>&amp;body</em> body</td>
+<td class="summary-type">
+Macro</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38376">
+com.ral.fft:with-stwids</a>
+</td>
+<td class="summary">
+(stwids nx) <em>&amp;body</em> body</td>
+<td class="summary-type">
+Macro</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Structure summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38362">
+fft-buffer</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38353">
+twids</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38375">
+copy-fft-buffer</a>
+</td>
+<td class="summary">
+fft-buffer</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38361">
+copy-twids</a>
+</td>
+<td class="summary">
+twids</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38366">
+fft-buffer-hr</a>
+</td>
+<td class="summary">
+fft-buffer</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38369">
+fft-buffer-i</a>
+</td>
+<td class="summary">
+fft-buffer</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38367">
+fft-buffer-ioff</a>
+</td>
+<td class="summary">
+fft-buffer</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38371">
+fft-buffer-nx</a>
+</td>
+<td class="summary">
+fft-buffer</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38372">
+fft-buffer-ny</a>
+</td>
+<td class="summary">
+fft-buffer</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38374">
+fft-buffer-p</a>
+</td>
+<td class="summary">
+object</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38363">
+fft-buffer-pi</a>
+</td>
+<td class="summary">
+fft-buffer</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38364">
+fft-buffer-pr</a>
+</td>
+<td class="summary">
+fft-buffer</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38370">
+fft-buffer-r</a>
+</td>
+<td class="summary">
+fft-buffer</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38368">
+fft-buffer-roff</a>
+</td>
+<td class="summary">
+fft-buffer</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38365">
+fft-buffer-siz</a>
+</td>
+<td class="summary">
+fft-buffer</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38373">
+make-fft-buf</a>
+</td>
+<td class="summary">
+<em>&amp;key</em> ny nx r i roff ioff hr siz pr pi</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38359">
+make-twids</a>
+</td>
+<td class="summary">
+<em>&amp;key</em> expir refct prec log2n psetup</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38358">
+twids-expir</a>
+</td>
+<td class="summary">
+twids</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38355">
+twids-log2n</a>
+</td>
+<td class="summary">
+twids</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38360">
+twids-p</a>
+</td>
+<td class="summary">
+object</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38356">
+twids-prec</a>
+</td>
+<td class="summary">
+twids</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38354">
+twids-psetup</a>
+</td>
+<td class="summary">
+twids</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38357">
+twids-refct</a>
+</td>
+<td class="summary">
+twids</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Macro summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38377">
+with-dtwids</a>
+</td>
+<td class="summary">
+(dtwids nx) <em>&amp;body</em> body</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="fft-structs.html#_g38376">
+with-stwids</a>
+</td>
+<td class="summary">
+(stwids nx) <em>&amp;body</em> body</td>
+</tr>
+</table>
+<div class="defstruct">
+<div class="defunsignatures">
+<a id="_g38362">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fft-buffer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Structure]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="defclass-initargs">
+</div>
+<div class="defclass-slots-doc">
+</div>
+<div class="defclass-generics">
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38366">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fft-buffer-hr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fft-buffer</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the hr of the specified fft-buffer 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38369">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fft-buffer-i&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fft-buffer</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the i of the specified fft-buffer 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38367">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fft-buffer-ioff&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fft-buffer</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the ioff of the specified fft-buffer 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38371">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fft-buffer-nx&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fft-buffer</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the nx of the specified fft-buffer 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38372">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fft-buffer-ny&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fft-buffer</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the ny of the specified fft-buffer 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38363">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fft-buffer-pi&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fft-buffer</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the pi of the specified fft-buffer 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38364">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fft-buffer-pr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fft-buffer</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the pr of the specified fft-buffer 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38370">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fft-buffer-r&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fft-buffer</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the r of the specified fft-buffer 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38368">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fft-buffer-roff&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fft-buffer</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the roff of the specified fft-buffer 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38365">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fft-buffer-siz&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fft-buffer</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the siz of the specified fft-buffer 
+ </p>
+</div>
+</div>
+</div>
+<div class="defstruct-defuns">
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38373">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-fft-buf&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;key</em> ny nx r i roff ioff hr siz pr pi</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns a newly created fft-buffer. 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38375">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy-fft-buffer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fft-buffer</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns a copy of the specified fft-buffer. 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38374">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fft-buffer-p&nbsp;&nbsp;</td>
+<td class="lambda-list">
+object</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns T if the specified object is of type fft-buffer. 
+ </p>
+</div>
+</div>
+</div>
+</div>
+<div class="defstruct">
+<div class="defunsignatures">
+<a id="_g38353">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+twids&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Structure]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="defclass-initargs">
+</div>
+<div class="defclass-slots-doc">
+</div>
+<div class="defclass-generics">
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38358">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+twids-expir&nbsp;&nbsp;</td>
+<td class="lambda-list">
+twids</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the expir of the specified twids 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38355">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+twids-log2n&nbsp;&nbsp;</td>
+<td class="lambda-list">
+twids</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the log2n of the specified twids 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38356">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+twids-prec&nbsp;&nbsp;</td>
+<td class="lambda-list">
+twids</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the prec of the specified twids 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38354">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+twids-psetup&nbsp;&nbsp;</td>
+<td class="lambda-list">
+twids</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the psetup of the specified twids 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38357">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+twids-refct&nbsp;&nbsp;</td>
+<td class="lambda-list">
+twids</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the refct of the specified twids 
+ </p>
+</div>
+</div>
+</div>
+<div class="defstruct-defuns">
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38359">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-twids&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;key</em> expir refct prec log2n psetup</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns a newly created twids. 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38361">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy-twids&nbsp;&nbsp;</td>
+<td class="lambda-list">
+twids</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns a copy of the specified twids. 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38360">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+twids-p&nbsp;&nbsp;</td>
+<td class="lambda-list">
+object</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+<div class="doc-body">
+<p>
+Returns T if the specified object is of type twids. 
+ </p>
+</div>
+</div>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38377">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+with-dtwids&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(dtwids nx) <em>&amp;body</em> body</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38376">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+with-stwids&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(stwids nx) <em>&amp;body</em> body</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

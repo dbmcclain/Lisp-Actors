@@ -1,0 +1,1479 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+simple-vector-ops</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="packages.html">
+Prev:&nbsp;packages.lisp</a>
+<br/>
+<a href="vmath.html">
+Next:&nbsp;vmath.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+simple-vector-ops.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+simple-vector-ops.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g37996">
+com.ral.vector-ops:blit</a>
+</td>
+<td class="summary">
+src srcoff dst dstoff nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38023">
+com.ral.vector-ops:clip</a>
+</td>
+<td class="summary">
+x lim&lt; lim&gt;</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38020">
+com.ral.vector-ops:destructure-vector</a>
+</td>
+<td class="summary">
+(<em>&amp;rest</em> args) vec <em>&amp;body</em> body</td>
+<td class="summary-type">
+Macro</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38027">
+com.ral.vector-ops:extrema</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> args</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38000">
+com.ral.vector-ops:vabs</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38002">
+com.ral.vector-ops:vadd</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> vs</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38013">
+com.ral.vector-ops:vceiling</a>
+</td>
+<td class="summary">
+v <em>&amp;optional</em> (unit 1)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38024">
+com.ral.vector-ops:vclip</a>
+</td>
+<td class="summary">
+v lim&lt; lim&gt;</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38004">
+com.ral.vector-ops:vdiv</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> vs</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g37997">
+com.ral.vector-ops:vec</a>
+</td>
+<td class="summary">
+arr offs <em>&amp;optional</em> (nel (- (length arr) offs))</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g37999">
+com.ral.vector-ops:vexp</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38018">
+com.ral.vector-ops:vexpt</a>
+</td>
+<td class="summary">
+v expon</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38028">
+com.ral.vector-ops:vextrema</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38012">
+com.ral.vector-ops:vfloor</a>
+</td>
+<td class="summary">
+v <em>&amp;optional</em> (unit 1)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38022">
+com.ral.vector-ops:vlimit&lt;</a>
+</td>
+<td class="summary">
+v lim&lt;</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38021">
+com.ral.vector-ops:vlimit&gt;</a>
+</td>
+<td class="summary">
+v lim&gt;</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g37998">
+com.ral.vector-ops:vlog</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38016">
+com.ral.vector-ops:vlog10</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38008">
+com.ral.vector-ops:vmax</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38007">
+com.ral.vector-ops:vmin</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38003">
+com.ral.vector-ops:vmul</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> vs</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38006">
+com.ral.vector-ops:voffset</a>
+</td>
+<td class="summary">
+offs v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38017">
+com.ral.vector-ops:vpow10</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38010">
+com.ral.vector-ops:vprod</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38011">
+com.ral.vector-ops:vround</a>
+</td>
+<td class="summary">
+v <em>&amp;optional</em> (unit 1)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38005">
+com.ral.vector-ops:vscale</a>
+</td>
+<td class="summary">
+sf v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38014">
+com.ral.vector-ops:vsqr</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38015">
+com.ral.vector-ops:vsqrt</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38001">
+com.ral.vector-ops:vsub</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> vs</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38009">
+com.ral.vector-ops:vsum</a>
+</td>
+<td class="summary">
+v</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38026">
+com.ral.vector-ops:vwrap</a>
+</td>
+<td class="summary">
+v lim&lt; lim&gt;</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38025">
+com.ral.vector-ops:wrap</a>
+</td>
+<td class="summary">
+x lim&lt; lim&gt;</td>
+<td class="summary-type">
+Function</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g37996">
+blit</a>
+</td>
+<td class="summary">
+src srcoff dst dstoff nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38023">
+clip</a>
+</td>
+<td class="summary">
+x lim&lt; lim&gt;</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38027">
+extrema</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38019">
+undot-the-list</a>
+</td>
+<td class="summary">
+lst <em>&amp;optional</em> ans</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38000">
+vabs</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38002">
+vadd</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> vs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38013">
+vceiling</a>
+</td>
+<td class="summary">
+v <em>&amp;optional</em> (unit 1)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38024">
+vclip</a>
+</td>
+<td class="summary">
+v lim&lt; lim&gt;</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38004">
+vdiv</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> vs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g37997">
+vec</a>
+</td>
+<td class="summary">
+arr offs <em>&amp;optional</em> (nel (- (length arr) offs))</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g37999">
+vexp</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38018">
+vexpt</a>
+</td>
+<td class="summary">
+v expon</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38028">
+vextrema</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38012">
+vfloor</a>
+</td>
+<td class="summary">
+v <em>&amp;optional</em> (unit 1)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38022">
+vlimit&lt;</a>
+</td>
+<td class="summary">
+v lim&lt;</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38021">
+vlimit&gt;</a>
+</td>
+<td class="summary">
+v lim&gt;</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g37998">
+vlog</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38016">
+vlog10</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38008">
+vmax</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38007">
+vmin</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38003">
+vmul</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> vs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38006">
+voffset</a>
+</td>
+<td class="summary">
+offs v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38017">
+vpow10</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38010">
+vprod</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38011">
+vround</a>
+</td>
+<td class="summary">
+v <em>&amp;optional</em> (unit 1)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38005">
+vscale</a>
+</td>
+<td class="summary">
+sf v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38014">
+vsqr</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38015">
+vsqrt</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38001">
+vsub</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> vs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38009">
+vsum</a>
+</td>
+<td class="summary">
+v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38026">
+vwrap</a>
+</td>
+<td class="summary">
+v lim&lt; lim&gt;</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38025">
+wrap</a>
+</td>
+<td class="summary">
+x lim&lt; lim&gt;</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Macro summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="simple-vector-ops.html#_g38020">
+destructure-vector</a>
+</td>
+<td class="summary">
+(<em>&amp;rest</em> args) vec <em>&amp;body</em> body</td>
+</tr>
+</table>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g37996">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+blit&nbsp;&nbsp;</td>
+<td class="lambda-list">
+src srcoff dst dstoff nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38023">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+clip&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x lim&lt; lim&gt;</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38027">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+extrema&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38019">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+undot-the-list&nbsp;&nbsp;</td>
+<td class="lambda-list">
+lst <em>&amp;optional</em> ans</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38000">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vabs&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38002">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vadd&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> vs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38013">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vceiling&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v <em>&amp;optional</em> (unit 1)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38024">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vclip&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v lim&lt; lim&gt;</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38004">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vdiv&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> vs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g37997">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vec&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr offs <em>&amp;optional</em> (nel (- (length arr) offs))</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g37999">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vexp&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38018">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vexpt&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v expon</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38028">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vextrema&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38012">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vfloor&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v <em>&amp;optional</em> (unit 1)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38022">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vlimit&lt;&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v lim&lt;</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38021">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vlimit&gt;&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v lim&gt;</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g37998">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vlog&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38016">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vlog10&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38008">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vmax&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38007">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vmin&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38003">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vmul&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> vs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38006">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+voffset&nbsp;&nbsp;</td>
+<td class="lambda-list">
+offs v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38017">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vpow10&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38010">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vprod&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38011">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vround&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v <em>&amp;optional</em> (unit 1)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38005">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vscale&nbsp;&nbsp;</td>
+<td class="lambda-list">
+sf v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38014">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vsqr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38015">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vsqrt&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38001">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vsub&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> vs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38009">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vsum&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38026">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vwrap&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v lim&lt; lim&gt;</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38025">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+wrap&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x lim&lt; lim&gt;</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38020">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+destructure-vector&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(<em>&amp;rest</em> args) vec <em>&amp;body</em> body</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTOR-OPS</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

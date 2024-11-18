@@ -1,0 +1,4088 @@
+;; plotter.lsp -- Plotting support for Lisp
+;; DM 02/07
+;;
+;; The basic notions are as follows:
+;;
+;; For Mac OS/X we want to utilize Display PDF to the max. We can do that by drawing
+;; directly in the pane. Making a backing store image of the screen looks good only while
+;; viewing the screen. Making such a backing image interferes with nice PDF file output, or
+;; copy/paste. So for those times, we avoid constructing an image of the screen to allow the
+;; full PDF elegance to shine through.
+;;
+;; OS/X Cocoa cannot perform XOR image combination in PDF space. So for full cross-hairs
+;; that follow the cursor position, we resort to a fast(!!) copying of the backing store
+;; image to the screen followed by overdrawing of the crosshairs.
+
+;; For Win/XP the output does not look as nice since Win/XP is limited to bitmapped
+;; graphics. Furthermore, it is necessary to draw initially in an off-screen compatible
+;; pixmap, then create an image of that pixmap for backing store and for direct transfer
+;; the output screen. Only in this way is it possible to produce backing images unmolested
+;; by overlapping windows. In general Win/XP is severely limited. E.g., it cannot use
+;; fractional line widths or coordinates. Bad things happen if you try. So we intercept
+;; those possibilities and produce corrected requests on behalf of the caller.
+;;
+;; Win/XP can produce output with XOR combination, so we don't have to use the heavy-handed
+;; approach of constantly refreshing the image on the screen for full crosshair cursors. We
+;; just need to use the overall BG-complement of the desired cursor color in XOR draw mode.
+;;
+;; So, to accommodate both kinds of drawing needs with one body of source code, most of
+;; the drawing primitive routines take two arguments - pane and port -- in addition to
+;; other specializing arguments. The pane refers to the <plotter-pane> object described
+;; below, which contains all of the plotting specific information. The port object is
+;; that used by the GP primitives for the actual drawing operations. On OS/X the pane and the
+;; port point to the same underlying object. But for Win/XP the pane is the <plotter-pane>
+;; and the port is a temporary off-screen pixmap port.
+;;
+;; Until the backing store image of the screen exists, both systems utilze an ordered
+;; collection of lambda closures representing the various plotting commands needed to build
+;; up the whole image. Once those commands have executed we can grab a copy of the
+;; screen image for use as a fast-copy backing store.
+;;
+;; ------------------------------------------
+;; All of the plotting commands now require a keyword PANE argument
+;; so that our plotting routines are multiprocessing safe, and can operate on
+;; an embedded <plotter-pane> or some subclass thereof...
+;; There is no longer any notion of a "current plotting window".
+;;
+
+(defpackage "PLOTX"
+  (:nicknames "PLTX")
+  (:use common-lisp vector-ops)
+  (:export
+   ))
+
+(in-package "PLOTX")
+
+(defclass <plot> (capi:pinboard-object)
+  ;; stuff used by 2-D plot scaling and plotting
+  ((xlog      :accessor plotter-xlog           :initform nil)
+   (xmin      :accessor plotter-xmin           :initform 0.0d0)
+   (xmax      :accessor plotter-xmax           :initform 1.0d0)
+
+   (ylog      :accessor plotter-ylog           :initform nil)
+   (ymin      :accessor plotter-ymin           :initform 0.0d0)
+   (ymax      :accessor plotter-ymax           :initform 1.0d0)
+   
+   (box       :accessor plotter-box)
+   (xform     :accessor plotter-xform          :initform '(1 0 0 1 0 0))
+   (inv-xform :accessor plotter-inv-xform      :initform '(1 0 0 1 0 0))
+   (dlist     :accessor plotter-display-list   :initform (um:make-mpsafe-monitored-collector))
+   (timer     :accessor plotter-resize-timer   :initform nil)
+   (delayed   :accessor plotter-delayed-update :initform 0)
+   
+   ;; stuff for paramplot
+   (trange    :accessor plotter-trange)
+   (xsf       :accessor plotter-xsf)
+   (ysf       :accessor plotter-ysf)
+   (tprepfns  :accessor plotter-tprepfns)
+   (xprepfns  :accessor plotter-xprepfns)
+   (yprepfns  :accessor plotter-yprepfns)
+
+   ;; info for nice looking zooming
+   (title     :accessor plotter-base-title     :initarg :base-title     :initform "Plot")
+   (def-wd    :accessor plotter-nominal-width  :initarg :nominal-width  :initform nil)
+   (def-ht    :accessor plotter-nominal-height :initarg :nominal-height :initform nil)
+   (def-x     :accessor plotter-x              :initarg :x-position     :initform 0)
+   (def-y     :accessor plotter-y              :initarg :y-position     :initform 0)
+   
+   (sf        :accessor plotter-sf    :initarg :scale :initform 1)
+   (magn      :accessor plotter-magn  :initarg :magn  :initform 1)
+
+   (legend    :accessor plotter-legend-info        :initform (um:make-collector))
+   (legend-x  :accessor plotter-legend-x           :initform '(:frac 0.75))
+   (legend-y  :accessor plotter-legend-y           :initform '(:frac 0.9))
+   (legend-anchor :accessor plotter-legend-anchor  :initform :nw)
+   
+   (full-crosshair  :accessor plotter-full-crosshair :initform nil)
+   (prev-x          :accessor plotter-prev-x         :initform nil)
+   (prev-y          :accessor plotter-prev-y         :initform nil)
+   
+   (x-ro-hook :accessor plotter-x-readout-hook     :initform #'identity)
+   (y-ro-hook :accessor plotter-y-readout-hook     :initform #'identity)
+
+   (delay-backing  :accessor plotter-delay-backing :initform nil)
+   (backing        :accessor plotter-backing       :initform nil)
+
+   (background     :accessor plotter-background    :initform :white)
+   (foreground     :accessor plotter-foreground    :initform :black)
+
+   (capi::destroy-callback
+                   :initform   'discard-backing-image
+                   :allocation :class)
+   ))
+
+;; ------------------------------------------
+(defstruct legend-info
+  color        ; line or filled-symbol interior color
+  thick        ; line or symbol border thickness
+  linedashing  ; line dashing of lines
+  symbol       ; plotting symbol
+  plot-joined  ; whether symbols are joined by lines
+  border-color ; border color for filled symbols
+  text)        ; actual text of legend entry
+
+;; ---------------------------------------------------------
+(defgeneric plotter-pane-of  (pane-rep)
+  ;; rep might be a <plotter-pane>,
+  ;; a subclass of capi:interface,
+  ;; or a symbolic name of a window
+  )
+
+(defmethod plotter-pane-of ((pane <plot>))
+  ;; it is me...
+  pane)
+
+;; ------------------------------------------
+;; Win32/OS X compatibility constants and functions
+;; ------------------------------------------
+(defconstant $tiny-times-font-size
+  #+:COCOA 10
+  #+:WIN32  8)
+
+(defconstant $normal-times-font-size
+  #+:COCOA 12
+  #+:WIN32  9)
+
+(defconstant $big-times-font-size
+  #+:COCOA 14
+  #+:WIN32 10)
+  
+(defun find-best-font (pane &key
+                            (family "Times")
+                            size
+                            (weight :normal)
+                            (slant :roman))
+  (gp:find-best-font pane
+                     (gp:make-font-description
+                      :family family
+                      :size   size
+                      :weight weight
+                      :slant  slant)))
+
+;; ------------------------------------------
+#+:WIN32
+(defun adjust-linewidth (wd)
+  ;; Win/XP can't handle fractional linewidths
+  (max 1 (round wd)))
+
+#+:COCOA
+(defun adjust-linewidth (wd)
+  ;; ... but Display PDF can...
+  wd)
+
+;; ------------------------------------------
+(defun background-color (pane)
+  (gp:graphics-state-background
+   (gp:get-graphics-state pane)))
+
+(defun foreground-color (pane)
+  (gp:graphics-state-foreground
+   (gp:get-graphics-state pane)))
+
+#+:WIN32
+(defun adjust-color (pane color alpha)
+  ;; Win/XP can't handle true alpha blending. So we use a make-pretend system
+  ;; that assumes the color will be blending with the background color. That only
+  ;; works properly as long as the drawing is actually over that background color.
+  (if (null alpha)
+      color
+    (let* ((bg (color:get-color-spec (background-color pane)))
+           (c  (color:get-color-spec color))
+           (1malpha (- 1.0 alpha)))
+      (labels ((mix (fn)
+                 (+ (* 1malpha (funcall fn bg))
+                    (* alpha   (funcall fn c)))))
+        (color:make-rgb
+         (mix #'color:color-red)
+         (mix #'color:color-green)
+         (mix #'color:color-blue))
+        ))))
+      
+#+:COCOA
+(defun adjust-color (pane color alpha)
+  ;; Mac OS/X Cocoa can do real alpha blending. Here we take the user's
+  ;; requested color, and a possibly separate alpha level (alpha might be nil)
+  ;; to produce a color that will be properly alpha blended over a varying background.
+  (declare (ignore pane))
+  (if (null alpha)
+      color
+    (let ((c (color:get-color-spec color)))
+      (color:make-rgb
+       (color:color-red   c)
+       (color:color-green c)
+       (color:color-blue  c)
+       alpha)
+      )))
+
+#+:WIN32
+(defun complementary-color (color background)
+  ;; produce a color such that XOR mode of that color against the background
+  ;; will produce the requested color...
+  (let* ((c  (color:get-color-spec color))
+         (bg (color:get-color-spec background)))
+    
+    (labels ((color-xor (compon1 compon2)
+               (let ((icompon1  (round (* 255 compon1)))
+                     (icompon2  (round (* 255 compon2))))
+                 (/ (logxor icompon1 icompon2) 255.0)))
+
+             (color-xor-components (fn)
+               (color-xor (funcall fn c) (funcall fn bg))))
+      
+      (color:make-rgb
+       (color-xor-components #'color:color-red)
+       (color-xor-components #'color:color-green)
+       (color-xor-components #'color:color-blue))
+      )))
+
+;; ------------------------------------------
+#+:WIN32
+(defun adjust-box (box)
+  ;; Win/XP can't handle fractional box coords
+  (mapcar #'round box))
+
+#+:COCOA
+(defun adjust-box (box)
+  ;; ... but OS/X Cocoa can...
+  box)
+
+;; ------------------------------------------
+;; infinitep true if non-zero numeric arg with zero reciprocal
+;; works for plus or minus infinity. As a secondary effect,
+;; the truth value will be the largest double precision value.
+(defun infinitep (v)
+  (and (not (zerop v))
+       (zerop (/ v))
+       (if (plusp v)
+           most-positive-double-float
+         most-negative-double-float)))
+
+;; nanp true if numeric v not equal to itself
+(defun nanp (v)
+  (/= v v))
+
+(defun inf-nan-p (v)
+  (or (infinitep v)
+      (nanp v)))
+
+(defun simple-real-number (v)
+  (and (realp v)
+       (not (inf-nan-p v))))
+
+(defun real-eval-with-nans (fn &rest args)
+  (handler-case
+      (let ((v (apply fn args)))
+        (if (simple-real-number v)
+            v
+          :nan))
+    (arithmetic-error (err)
+      (declare (ignore err))
+      :nan)))
+
+(defun nan-or-infinite-p (v)
+  (not (simple-real-number v)))
+
+;; -------------------------------------------------------------------
+(defmethod coerce-to-vector ((v vector))
+  v)
+
+(defmethod coerce-to-vector ((lst list))
+  (coerce lst 'vector))
+
+(defmethod coerce-to-vector ((a array))
+  (make-array (array-total-size a)
+              :element-type (array-element-type a)
+              :displaced-to a))
+
+(defmethod coerce-to-vector ((cv c-arrays:<carray>))
+  (coerce-to-vector (c-arrays:convert-to-lisp-object cv)))
+
+;; ---------------------------------------------
+;; filtering out nans and infinities
+;;
+(defmethod filter-x-y-nans-and-infinities ((xs cons) (ys cons))
+  ;; remove paired values if either of the (x,y) pair is nan or infinite
+  (let ((pairs (loop for x in xs
+                     for y in ys
+                     when (and (simple-real-number x)
+                               (simple-real-number y))
+                     collect (list x y))))
+    (values (mapcar #'first  pairs)
+            (mapcar #'second pairs))
+    ))
+
+(defmethod filter-x-y-nans-and-infinities ((xs vector) (ys vector))
+  ;; remove paired values if either of the (x,y) pair is nan or infinite
+  (let ((pairs (loop for x across xs
+                     for y across ys
+                     when (and (simple-real-number x)
+                               (simple-real-number y))
+                     collect (list x y))))
+    (values (mapcar #'first  pairs)
+            (mapcar #'second pairs))
+    ))
+
+(defmethod filter-x-y-nans-and-infinities (xs ys)
+  ;; remove paired values if either of the (x,y) pair is nan or infinite
+  (filter-x-y-nans-and-infinities (coerce-to-vector xs) (coerce-to-vector ys)))
+
+
+(defun filter-nans-and-infinities (xs)
+  ;; remove values from the sequence if they are nans or infinities
+  (remove-if (complement #'simple-real-number) xs))
+
+;; ----------------------------------------------------------------------
+;; filter out potential nans and infinities for logarithmic axes
+(defun acceptable-value (v islog)
+  (and (simple-real-number v)
+       (or (not islog)
+           (and islog
+                (plusp v)))))
+
+(defmethod filter-potential-x-y-nans-and-infinities ((xs cons) (ys cons) xlog ylog)
+  ;; remove paired values if either of the (x,y) pair is nan or infinite
+  (let ((pairs (loop for x in xs
+                     for y in ys
+                     when (and (acceptable-value x xlog)
+                               (acceptable-value y ylog))
+                     collect (list x y))))
+    (values (mapcar #'first  pairs)
+            (mapcar #'second pairs))
+    ))
+
+(defmethod filter-potential-x-y-nans-and-infinities ((xs vector) (ys vector) xlog ylog)
+  ;; remove paired values if either of the (x,y) pair is nan or infinite
+  (let ((pairs (loop for x across xs
+                     for y across ys
+                     when (and (acceptable-value x xlog)
+                               (acceptable-value y ylog))
+                     collect (list x y))))
+    (values (mapcar #'first  pairs)
+            (mapcar #'second pairs))
+    ))
+
+(defmethod filter-potential-x-y-nans-and-infinities (xs ys xlog ylog)
+  ;; remove paired values if either of the (x,y) pair is nan or infinite
+  (filter-x-y-nans-and-infinities (coerce-to-vector xs) (coerce-to-vector ys)))
+
+
+(defun filter-potential-nans-and-infinities (xs islog)
+  ;; remove values from the sequence if they are nans or infinities
+  (remove-if (complement (um:rcurry #'acceptable-value islog)) xs))
+
+;; ---------------------------------------------
+;; Define some safe image access macros...
+;;
+(defmacro with-image ((port (image imgexpr)) &body body)
+  ;; returned value will be that of the body
+  `(let ((,image ,imgexpr))
+     (unwind-protect
+         (progn
+           ,@body)
+       (gp:free-image ,port ,image))
+     ))
+
+(defmacro with-image-access ((acc access-expr) &body body)
+  ;; returned value will be that of the body
+  `(let ((,acc ,access-expr))
+     (unwind-protect
+         (progn
+           ,@body)
+       (gp:free-image-access ,acc))
+     ))
+
+;; ------------------------------------------
+;; We can use WITH-DELAYED-UPDATE to ward off immediate and slowing
+;; direct drawing operations. Delayed sections can be nested. Meanwhile,
+;; within a delayed section we are simply building up a display list of
+;; parameterized lambda closures that collectively will produce the sum
+;; of all delayed operations, once the delay goes back to zero.
+;;
+#|
+(defun do-sync-with-capi (capi-fn capi-elt fn args)
+  ;; use a mailbox to synchronize with an interface process executing a function for us.
+  ;; we wait until that function execution completes.
+  (let ((mbox (mp:make-mailbox)))
+    (funcall capi-fn capi-elt
+             (lambda ()
+               (apply fn args)
+               (mp:mailbox-send mbox :done)))
+    (mp:mailbox-read mbox)))
+
+(defmethod sync-with-capi ((intf capi:interface) fn &rest args)
+  (do-sync-with-capi #'capi:execute-with-interface intf fn args))
+
+(defmethod sync-with-capi ((pane capi:simple-pane) fn &rest args)
+  (do-sync-with-capi #'capi:apply-in-pane-process pane fn args))
+
+;; ------------------------------------------
+
+(defun do-with-delayed-update (pane fn)
+  (let* ((pane    (plotter-pane-of pane)) ;; could be called by user with symbolic name for pane
+         (prev-ct (um:post-incf (plotter-delayed-update pane))))
+    (when (zerop prev-ct)
+      ;; asking if changed, resets the changed indiction
+      (um:changed-p (plotter-display-list pane)))
+    (unwind-protect
+        (progn
+          (funcall fn)
+          (when (and (zerop prev-ct)
+                     (um:changed-p (plotter-display-list pane)))
+            (sync-with-capi pane
+                            (lambda ()
+                              (discard-backing-image pane)
+                              (gp:invalidate-rectangle pane))
+                            )))
+      (decf (plotter-delayed-update pane))
+      )))
+|#
+
+#|
+;; test delayed updates -- entire composite plot should appear at one time
+(let ((win (pltx::wset 'myplot)))
+  (pltx::clear win)
+  (pltx::fplot win '(-20 20) (lambda (x) (/ (sin x) x)) :thick 2 :title "Sinc")
+  (sleep 2)
+  (pltx::fplot win '(-20 20) (lambda (x) (/ (sin x) x)) :symbol :circle :color :blue))
+|#
+#|
+(defun do-with-delayed-update (pane fn)
+  (let* ((pane (plotter-pane-of pane)) ;; could be called by user with symbolic name for pane
+         (ct   (plotter-delayed-update pane)))
+    (incf (plotter-delayed-update pane))
+    (when (zerop ct) ;; asking if changed resets the changed indiction
+      (um:changed-p (plotter-display-list pane)))
+    (unwind-protect
+        (progn
+          (funcall fn)
+          (when (and (zerop ct)
+                     (um:changed-p (plotter-display-list pane)))
+            (sync-with-capi pane
+                            (lambda ()
+                              (discard-backing-image pane)
+                              (gp:invalidate-rectangle pane))
+                            )))
+      (decf (plotter-delayed-update pane))
+      )))
+|#
+#|
+;; capi:with-atomic-redisplay does not nest properly
+(defun do-with-delayed-update (pane fn)
+  (capi:with-atomic-redisplay (pane)
+    (funcall fn)
+    (discard-backing-image pane)
+    (gp:invalidate-rectangle pane)))
+|#
+#|
+;; user callable macro
+(defmacro with-delayed-update ((pane) &body body)
+  `(do-with-delayed-update ,pane
+    (lambda ()
+      ,@body)))
+|#
+
+(defun append-display-list (pane item)
+  (um:collector-append-item (plotter-display-list pane) item))
+
+(defun discard-display-list (pane)
+  (um:collector-discard-contents (plotter-display-list pane))
+  (um:collector-discard-contents (plotter-legend-info pane)))
+
+(defun display-list-items (pane &key discard)
+  (um:collector-contents (plotter-display-list pane) :discard discard))
+
+(defun display-list-empty-p (pane)
+  (um:collector-empty-p (plotter-display-list pane)))
+
+
+(defun append-legend (pane item)
+  (um:collector-append-item (plotter-legend-info pane) item))
+
+(defun all-legends (pane)
+  (um:collector-contents (plotter-legend-info pane)))
+
+;; ------------------------------------------
+
+(defun log10 (x)
+  (if (not (plusp x))
+      -300
+    (log x 10.0d0)))
+
+(defun pow10 (x)
+  (expt 10.0d0 x))
+
+;; ------------------------------------------
+(defun inset-box-sides (box dxleft dytop 
+                            &optional (dxright dxleft)
+                                      (dybottom dytop))
+  (list (+ (gp:rectangle-left   box) dxleft)
+        (+ (gp:rectangle-top    box) dytop)
+        (- (gp:rectangle-right  box) dxright)
+        (- (gp:rectangle-bottom box) dybottom)))
+
+(defmacro box-left (box)
+  `(gp:rectangle-left ,box))
+
+(defmacro box-top (box)
+  `(gp:rectangle-top ,box))
+
+(defmacro box-right (box)
+  `(gp:rectangle-right ,box))
+
+(defmacro box-bottom (box)
+  `(gp:rectangle-bottom ,box))
+
+(defmacro box-width (box)
+  `(gp:rectangle-width ,box))
+
+(defmacro box-height (box)
+  `(gp:rectangle-height ,box))
+
+(defmacro box-top-left (box)
+  (let ((gbx (gensym)))
+    `(let ((,gbx ,box))
+       (list (box-left ,gbx) (box-top ,gbx)))))
+
+(defmacro box-top-right (box)
+  (let ((gbx (gensym)))
+    `(let ((,gbx ,box))
+       (list (box-right ,gbx) (box-top ,gbx)))))
+
+(defmacro box-bottom-left (box)
+  (let ((gbx (gensym)))
+    `(let ((,gbx ,box))
+       (list (box-left ,gbx) (box-bottom ,gbx)))))
+
+(defmacro box-bottom-right (box)
+  (let ((gbx (gensym)))
+    `(let ((,gbx ,box))
+       (list (box-right ,gbx) (box-bottom ,gbx)))))
+
+;; ------------------------------------------
+(defun qrange (rng &optional (default 0.1))
+  (if (zerop rng)
+      default
+    rng))
+
+(defun qdiv (a b &optional (default 0.1))
+  (/ a (qrange b default)))
+
+;; ------------------------------------------
+;; generalized operators to accommodate <carrays> and others
+;;
+
+;;---------
+(defmethod length-of (arg)
+  (length arg))
+
+(defmethod length-of ((arg array))
+  (array-total-size arg))
+
+(defmethod length-of ((arg ca:<carray>))
+  (ca:carray-total-size arg))
+
+;;---------
+(defmethod vmax-of (arg)
+  (vmax arg))
+
+(defmethod vmax-of ((arg array))
+  (loop for ix from 0 below (array-total-size arg)
+        maximize (row-major-aref arg ix)))
+
+(defmethod vmax-of ((arg ca:<carray>))
+  (loop for ix from 0 below (ca:carray-total-size arg)
+        maximize (ca:row-major-caref arg ix)))
+
+;;---------
+(defmethod vmin-of (arg)
+  (vmin arg))
+
+(defmethod vmin-of ((arg array))
+  (loop for ix from 0 below (array-total-size arg)
+        minimize (row-major-aref arg ix)))
+
+(defmethod vmin-of ((arg ca:<carray>))
+  (loop for ix from 0 below (ca:carray-total-size arg)
+        minimize (ca:row-major-caref arg ix)))
+
+;;---------
+(defmethod array-total-size-of (arg)
+  (array-total-size arg))
+
+(defmethod array-total-size-of ((arg ca:<carray>))
+  (ca:carray-total-size arg))
+
+;;---------
+(defmethod array-dimension-of (arg n)
+  (array-dimension arg n))
+
+(defmethod array-dimension-of ((arg ca:<carray>) n)
+  (ca:carray-dimension arg n))
+
+;;---------
+(defmethod aref-of (arg &rest indices)
+  (apply #'aref arg indices))
+
+(defmethod aref-of ((arg ca:<carray>) &rest indices)
+  (apply #'ca:caref arg indices))
+
+;;---------
+(defmethod subseq-of (arg start &optional end)
+  (subseq arg start end))
+
+(defmethod subseq-of ((arg array) start &optional end)
+  (let* ((limit (array-total-size arg))
+         (nel   (- (or end limit) start))
+         (ans   (make-array nel :element-type (array-element-type arg))))
+    (loop for ix from start below (or end limit)
+          for jx from 0
+          do
+          (setf (aref ans jx) (row-major-aref arg ix)))
+    ans))
+
+(defmethod subseq-of ((arg ca:<carray>) start &optional end)
+  (let* ((limit  (ca:carray-total-size arg))
+         (nel    (- (or end limit) start))
+         (ans    (make-array nel
+                             :element-type
+                             (cond ((ca:is-float-array  arg) 'single-float)
+                                   ((ca:is-double-array arg) 'double-float)
+                                   (t 'bignum))
+                             )))
+    (loop for ix from start below (or end limit)
+          for jx from 0
+          do
+          (setf (aref ans jx) (ca:caref arg ix)))
+    ans))
+          
+;; ------------------------------------------
+(defun get-range (range v islog)
+  (if range
+      range
+    (let ((v (if islog
+                 (remove-if (complement #'plusp) v)
+               v)))
+      (if (plusp (length-of v))
+          (list (vmin-of v) (vmax-of v))
+        (list (if islog 0.1 0) 1))
+      )))
+
+(defconstant $largest-permissible-value
+  (/ least-positive-normalized-single-float))
+
+(defmethod pw-init-xv-yv ((cpw <plot>) xv yv
+                          &key xrange yrange box xlog ylog aspect
+                          &allow-other-keys)
+  ;; initialize basic plotting parameters -- log scale axes, axis ranges,
+  ;; plotting interior region (the box), and the graphic transforms to/from
+  ;; data space to "pixel" space.  Pixel in quotes because they are real pixels
+  ;; on Win/XP, but something altogether different on OS/X Display PDF.
+  (capi:with-geometry cpw
+    (let* ((sf (plotter-sf cpw))
+           (_box (or box
+                     (inset-box-sides (list 0 0
+                                            capi:%width%
+                                            capi:%height%)
+                                      (* sf 30) (* sf 20) (* sf 10) (* sf 30))
+                     )))
+      (destructuring-bind (_xmin _xmax)
+          (if xv
+              (get-range xrange xv xlog)
+            (get-range xrange (list 0 (1- (length-of yv))) xlog))
+        (destructuring-bind (_ymin _ymax) (get-range yrange yv ylog)
+          
+          (if xlog
+              (setf _xmin (log10 _xmin)
+                    _xmax (log10 _xmax)))
+          (if ylog
+              (setf _ymin (log10 _ymin)
+                    _ymax (log10 _ymax)))
+          
+          (unless yrange
+            (let ((dy (/ (qrange (- _ymax _ymin)) 18)))
+              (setf _ymin (max (- _ymin dy) (- $largest-permissible-value)))
+              (setf _ymax (min (+ _ymax dy) $largest-permissible-value))
+              ))
+          
+          (unless xrange
+            (let ((dx (/ (qrange (- _xmax _xmin)) 18)))
+              (setf _xmin (max (- _xmin dx) (- $largest-permissible-value)))
+              (setf _xmax (min (+ _xmax dx) $largest-permissible-value))
+              ))
+          
+          (setf (plotter-box  cpw) _box
+                (plotter-xmin cpw) _xmin
+                (plotter-xmax cpw) _xmax
+                (plotter-ymin cpw) _ymin
+                (plotter-ymax cpw) _ymax
+                (plotter-xlog cpw) xlog
+                (plotter-ylog cpw) ylog)
+          
+          (let ((xscale (qdiv (- (box-right _box) (box-left _box))
+                              (- _xmax _xmin)))
+                (yscale (qdiv (- (box-bottom _box) (box-top _box))
+                              (- _ymax _ymin))))
+            
+            (if (and (numberp aspect)
+                     (plusp aspect))
+                
+                (let* ((x-squeeze (<= aspect 1))
+                       (scale     (if x-squeeze
+                                      (min xscale yscale)
+                                    (max xscale yscale))))
+                  (setf xscale (if x-squeeze
+                                   (* aspect scale)
+                                 scale)
+                        yscale (if x-squeeze
+                                   scale
+                                 (/ scale aspect)))
+                  ))
+            
+            (let ((xform     (gp:make-transform))
+                  (inv-xform (gp:make-transform)))
+              (gp:apply-translation xform (- _xmin) (- _ymin))
+              (gp:apply-scale xform xscale (- yscale))
+              (gp:apply-translation xform (box-left _box) (box-bottom _box))
+              (gp:invert-transform xform inv-xform)
+              (setf (plotter-xform     cpw) xform
+                    (plotter-inv-xform cpw) inv-xform)
+              )))
+        ))))
+
+;; ---------------------------------------------------------
+
+(defun vector-group-min (yvecs)
+  (reduce #'min (mapcar #'vmin-of yvecs)))
+
+(defun vector-group-max (yvecs)
+  (reduce #'max (mapcar #'vmax-of yvecs)))
+
+(defun pw-init-bars-xv-yv (cpw xvec yvecs &rest args)
+  ;; just run the usual scaling initialization
+  ;; but against a y-vector that contains those values
+  ;; from the multiple vectors which have the largest absolute values
+  (apply #'pw-init-xv-yv cpw
+         (or (and xvec
+                  (list (vmin-of xvec) (vmax-of xvec)))
+             (and yvecs
+                  (list 0 (1- (length-of (first yvecs))))
+                  ))
+         (and yvecs
+              (list (vector-group-min yvecs)
+                    (vector-group-max yvecs)))
+         args))
+
+;; ------------------------------------------
+(defun draw-path (port &rest positions)
+  (gp:draw-polygon port
+                   (mapcan #'append positions)))
+
+(defun bounds-overlap-p (bounds1 bounds2)
+  (labels ((overlaps-p (bounds1 bounds2)
+             (destructuring-bind (left1 right1) bounds1
+               (destructuring-bind (left2 right2) bounds2
+                 (declare (ignore right2))
+                 (<= left1 left2 right1))
+               )))
+    (or (overlaps-p bounds1 bounds2)
+        (overlaps-p bounds2 bounds1))
+    ))
+
+(defun expand-bounds (bounds dx)
+  (list (- (first bounds) dx)
+        (+ (second bounds) dx)))
+
+;; ------------------------------------------
+;; Convenience macros
+
+(defmacro with-color ((pane color) &body body)
+  `(gp:with-graphics-state
+       (,pane
+        :foreground ,color)
+     ,@body))
+  
+(defmacro with-mask ((pane mask) &body body)
+  `(gp:with-graphics-state
+       (,pane
+        :mask ,mask)
+     ,@body))
+
+;; ------------------------------------------
+(defun draw-string-x-y (pane port string x y
+                             &key 
+                             (x-alignment :left) 
+                             (y-alignment :baseline)
+                             prev-bounds
+                             font
+                             (margin 2)
+                             (transparent t)
+                             (color :black)
+                             clip
+                             &allow-other-keys)
+  ;; Draw a string at some location, unless the bounds of the new string
+  ;; overlap the previous bounds. This is used to avoid placing axis labels
+  ;; too closely together along the grid.
+  (multiple-value-bind (left top right bottom)
+      (gp:get-string-extent port string font)
+    (let* ((dx (ecase x-alignment
+                 (:left     0)
+                 (:right    (- left right))
+                 (:center   (floor (- left right) 2))
+                 ))
+           (dy (ecase y-alignment
+                 (:top      (- top))
+                 (:bottom   0)
+                 (:center   (- (floor (- top bottom) 2) top))
+                 (:baseline 0)))
+           (new-bounds (list (+ x left dx) (+ x right dx))))
+      
+      (if (and prev-bounds
+               (bounds-overlap-p (expand-bounds prev-bounds margin) new-bounds))
+          prev-bounds
+
+        (with-color (port color)
+          (with-mask (port (and clip
+                                (adjust-box (plotter-box pane))))
+              (gp:draw-string port string (+ x dx) (+ y dy)
+                              :font font
+                              :block (not transparent))
+            new-bounds
+            )))
+      )))
+
+;; ------------------------------------------
+#+:COCOA
+(defun draw-vert-string-x-y (plot port string x y
+                                  &key
+                                  (x-alignment :left)
+                                  (y-alignment :baseline)
+                                  font
+                                  prev-bounds
+                                  (margin 2)
+                                  (color :black)
+                                  ;;(transparent t)
+                                  )
+  ;;
+  ;; draw vertical string by appealing directly to Cocoa
+  ;;
+  (multiple-value-bind (lf tp rt bt)
+      (gp:get-string-extent port string font)
+    (declare (ignore bt tp))
+
+    (let* ((wd (- rt lf -1))
+           (dx (ecase x-alignment
+                 (:right    0)
+                 (:left     (- wd))
+                 (:center   (- (floor wd 2)))
+                 ))
+           (new-bounds (list (+ y lf dx) (+ y rt dx)))
+           (font-attrs (gp:font-description-attributes (gp:font-description font)))
+           (font-size  (getf font-attrs :size))
+           (font-name  (getf font-attrs :name)))
+
+      (if (and prev-bounds
+               (bounds-overlap-p (expand-bounds prev-bounds margin) new-bounds))
+
+          prev-bounds
+
+        (capi:with-geometry plot
+          (plt::add-label port string (+ x capi:%x%) (+ y capi:%y%)
+                          :font      font-name
+                          :font-size font-size
+                          :color     color
+                          :alpha     1.0
+                          :x-alignment x-alignment
+                          :y-alignment y-alignment
+                          :angle     90.0)
+          new-bounds))
+      )))
+
+#+:WIN32
+(defun draw-vert-string-x-y (plot port string x y
+                                  &key
+                                  (x-alignment :left)
+                                  (y-alignment :baseline)
+                                  font
+                                  prev-bounds
+                                  (margin 2)
+                                  (color :black)
+                                  (transparent t))
+  ;;
+  ;; draw vertical string by rotating bitmap of horizontal string
+  ;;
+  (multiple-value-bind (lf tp rt bt)
+      (gp:get-string-extent port string font)
+
+    (let* ((wd (- rt lf -1))
+           (ht (- bt tp -1))
+           (dy (ecase y-alignment
+                 (:top      0)
+                 (:bottom   (- ht))
+                 (:baseline tp)
+                 (:center   (floor tp 2))
+                 ))
+           (dx (ecase x-alignment
+                 (:right    0)
+                 (:left     (- wd))
+                 (:center   (- (floor wd 2)))
+                 ))
+           (new-bounds (list (+ y lf dx) (+ y rt dx))))
+      
+      (if (and prev-bounds
+               (bounds-overlap-p (expand-bounds prev-bounds margin) new-bounds))
+
+          prev-bounds
+        
+        (gp:with-pixmap-graphics-port (ph port wd ht
+                                          :clear t)
+          (with-color (ph color)
+            (gp:draw-string ph string
+                            0 (- tp)
+                            :font font
+                            :block (not transparent)))
+          
+          (with-image (port (v-image #+:COCOA (gp:make-image port ht wd)
+                                     #+:WIN32 (gp:make-image port ht wd :alpha nil)
+                                     ))
+             (with-image (ph (h-image (gp:make-image-from-port ph)))
+                 (with-image-access (ha (gp:make-image-access ph h-image))
+                    (with-image-access (va (gp:make-image-access port v-image))
+                      (gp:image-access-transfer-from-image ha)
+                      (loop for ix from 0 below wd do
+                            (loop for iy from 0 below ht do
+                                  (setf (gp:image-access-pixel va iy (- wd ix 1))
+                                        (gp:image-access-pixel ha ix iy))
+                                  ))
+                      (gp:image-access-transfer-to-image va)
+                      )))
+             (gp:draw-image port v-image (+ x dy) (+ y dx)))
+          new-bounds
+          ))
+      )))
+
+;;-------------------------------------------------------------------
+;; Abstract superclass <scanner> represent objects that respond to the NEXT-ITEM method
+;;
+
+(defclass <scanner> ()
+  ())
+
+(defclass <limited-scanner> (<scanner>)
+  ((limit  :accessor scanner-limit    :initarg :limit)
+   (pos    :accessor scanner-position :initform 0)))
+
+(defclass <counting-scanner> (<limited-scanner>)
+  ())
+
+(defclass <vector-scanner> (<limited-scanner>)
+  ((vec  :accessor scanner-vector :initarg :vector)))
+
+(defclass <list-scanner> (<limited-scanner>)
+  ((lst        :accessor scanner-list :initarg :list)
+   (lst-backup :accessor scanner-list-backup)))
+
+(defclass <array-scanner> (<limited-scanner>)
+  ((arr  :accessor scanner-array :initarg :array)))
+
+(defclass <carray-scanner> (<limited-scanner>)
+  ((arr  :accessor scanner-array :initarg :array)))
+
+;; ===============
+(defmethod make-scanner ((limit integer) &key (max-items limit))
+  (make-instance '<counting-scanner>
+                 :limit (min limit max-items)))
+
+(defmethod make-scanner ((vec vector) &key (max-items (length vec)))
+  (make-instance '<vector-scanner>
+                 :limit   (min (length vec) max-items)
+                 :vector  vec))
+
+(defmethod make-scanner ((lst list) &key (max-items (length lst)))
+  (make-instance '<list-scanner>
+                 :list  lst
+                 :limit (min (length lst) max-items)))
+
+(defmethod initialize-instance :after ((self <list-scanner>)
+                                       &rest args &key &allow-other-keys)
+  (setf (scanner-list-backup self) (scanner-list self)))
+
+(defmethod make-scanner ((arr array) &key (max-items (array-total-size arr)))
+  (make-instance '<array-scanner>
+                 :array  arr
+                 :limit  (min (array-total-size arr) max-items)))
+
+(defmethod make-scanner ((arr ca:<carray>) &key (max-items (ca:carray-total-size arr)))
+  (make-instance '<carray-scanner>
+                 :array  arr
+                 :limit  (min (ca:carray-total-size arr) max-items)))
+
+;; ===============
+;; All scanners pass through NIL as the terminal value
+(defmethod next-item ((cscanner <counting-scanner>))
+  (with-accessors ((position   scanner-position)
+                   (limit      scanner-limit   )) cscanner
+    (let ((ans position))
+      (when (< ans limit)
+        (incf position)
+        ans)
+      )))
+
+(defmethod next-item ((lscanner <list-scanner>))
+  (with-accessors ((limit    scanner-limit   )
+                   (position scanner-position)
+                   (its-list scanner-list    )) lscanner
+    (when (< position limit)
+      (incf position)
+      (pop its-list))
+    ))
+
+(defmethod next-item ((vscanner <vector-scanner>))
+  (with-accessors ((position   scanner-position)
+                   (limit      scanner-limit   )
+                   (its-vector scanner-vector  )) vscanner
+  
+  (when (< position limit)
+    (let ((ans (aref its-vector position)))
+      (incf position)
+      ans))
+  ))
+
+(defmethod next-item ((ascanner <array-scanner>))
+  (with-accessors ((position  scanner-position)
+                   (limit     scanner-limit   )
+                   (its-array scanner-array   )) ascanner
+    (when (< position limit)
+      (let ((ans (row-major-aref its-array position)))
+        (incf position)
+        ans))
+    ))
+
+(defmethod next-item ((cascanner <carray-scanner>))
+  (with-accessors ((position  scanner-position)
+                   (limit     scanner-limit   )
+                   (its-array scanner-array   )) cascanner
+    (when (< position limit)
+      (let ((ans (ca:row-major-caref its-array position)))
+        (incf position)
+        ans))
+    ))
+
+;; ===============
+(defmethod reset-scanner ((scanner <limited-scanner>))
+  (setf (scanner-position scanner) 0))
+
+(defmethod reset-scanner :after ((scanner <list-scanner>))
+  (setf (scanner-list scanner) (scanner-list-backup scanner)))
+
+;; ===============
+(defclass <transformer> (<scanner>)
+  ((src   :accessor transformer-source  :initarg :source)
+   (xform :accessor transformer-xform   :initarg :xform)))
+
+(defmethod make-transformer ((src <scanner>) (xform function))
+  (make-instance '<transformer>
+                 :source src
+                 :xform  xform))
+
+(defmethod next-item ((xf <transformer>))
+  ;; pass along NIL as a terminal value
+  (with-accessors  ((source   transformer-source)
+                    (xform    transformer-xform )) xf
+    (let ((item (next-item source)))
+      (when item
+        (funcall xform item)))
+    ))
+
+(defmethod reset-scanner ((xf <transformer>))
+  (reset-scanner (transformer-source xf)))
+
+;; ===============
+(defclass <pair-scanner> (<scanner>)
+  ((xsrc   :accessor pair-scanner-xsrc   :initarg :xsrc)
+   (ysrc   :accessor pair-scanner-ysrc   :initarg :ysrc)
+   (pair   :accessor pair-scanner-values :initform (make-array 2))
+   ))
+
+(defmethod make-pair-scanner ((xs <scanner>) (ys <scanner>))
+  (make-instance '<pair-scanner>
+                 :xsrc  xs
+                 :ysrc  ys
+                 ))
+
+(defmethod next-item ((pairs <pair-scanner>))
+  (with-accessors ((xs    pair-scanner-xsrc  )
+                   (ys    pair-scanner-ysrc  )
+                   (pair  pair-scanner-values)) pairs
+    (let* ((x (next-item xs))
+           (y (next-item ys)))
+      (when (and x y)
+        (setf (aref pair 0) x
+              (aref pair 1) y)
+        pair))
+    ))
+
+(defmethod reset-scanner ((pairs <pair-scanner>))
+  (reset-scanner (pair-scanner-xsrc pairs))
+  (reset-scanner (pair-scanner-ysrc pairs)))
+
+;; ------------------------------------------
+#|
+(defun zip (&rest seqs)
+  (apply #'map 'list #'list seqs))
+
+(defun staircase (xv yv)
+  (let ((pairs (zip xv yv)))
+    (um:foldl
+     (lambda (ans pair)
+       (destructuring-bind (x y) pair
+         (destructuring-bind (xprev yprev &rest _) ans
+           (declare (ignore _))
+           (let ((xmid (* 0.5 (+ x xprev))))
+             (nconc (list x y xmid y xmid yprev) ans)
+             ))))
+     (first pairs)
+     (rest pairs)
+     )))
+
+(defun make-bars (xv yv)
+  (let ((pairs (zip xv yv)))
+    (um:foldl
+     (lambda (ans pair)
+       (destructuring-bind (x y) pair
+         (destructuring-bind (xprev &rest _) ans
+           (declare (ignore _))
+           (let ((xmid (* 0.5 (+ x xprev))))
+             (nconc (list x y xmid y) ans)
+             ))))
+     (first pairs)
+     (rest pairs)
+     )))
+
+(defun interleave (&rest seqs)
+  (mapcan #'nconc (apply #'zip seqs)))
+
+|#
+;; -------------------------------------------------------
+(defmethod draw-vertical-bars (port (bars <pair-scanner>))
+  (let* (xprev
+         yprev
+         last-x
+         (wd   (* 0.1 (gp:port-width port))) ;; default if only one data point
+         (wd/2 (* 0.5 wd)))
+    (loop for pair = (next-item bars)
+          while pair
+          do
+          (destructure-vector (x y) pair
+            (when xprev
+              (setf wd   (abs (- x xprev))
+                    wd/2 (* 0.5 wd))
+              (unless (= y yprev)
+                (let ((next-x (+ xprev wd/2))
+                      (prev-x (or last-x
+                                  (- xprev wd/2))
+                              ))
+                  (gp:draw-rectangle port prev-x 0 (- next-x prev-x) yprev :filled t)
+                  (setf last-x next-x)
+                  )))
+            (setf xprev x
+                  yprev y))
+          finally
+          (when xprev
+            ;; use the last known width
+            (let ((next-x (+ xprev wd/2))
+                  (prev-x (or last-x
+                              (- xprev wd/2))
+                          ))
+              (gp:draw-rectangle port prev-x 0 (- next-x prev-x) yprev :filled t)
+              ))
+          )))
+                             
+(defmethod draw-horizontal-bars (port (bars <pair-scanner>))
+  (let* (xprev
+         yprev
+         last-y
+         (wd   (* 0.1 (gp:port-height port))) ;; default if only one data point
+         (wd/2 (* 0.5 wd)))
+    (loop for pair = (next-item bars)
+          while pair
+          do
+          (destructure-vector (x y) pair
+            (when yprev
+              (setf wd   (abs (- y yprev))
+                    wd/2 (* 0.5 wd))
+              (unless (= x xprev)
+                (let ((next-y (+ yprev wd/2))
+                      (prev-y (or last-y
+                                  (- yprev wd/2))
+                              ))
+                  (gp:draw-rectangle port 0 prev-y xprev (- next-y prev-y) :filled t)
+                  (setf last-y next-y)
+                  )))
+            (setf xprev x
+                  yprev y))
+          finally
+          (when xprev
+            ;; use the last known width
+            (let ((next-y (+ yprev wd/2))
+                  (prev-y (or last-y
+                              (- yprev wd/2))
+                          ))
+              (gp:draw-rectangle port 0 prev-y xprev (- next-y prev-y) :filled t)
+              ))
+          )))
+
+(defmethod draw-staircase (port (pairs <pair-scanner>))
+  (let* (xprev
+         yprev
+         last-x
+         (wd    (* 0.1 (gp:port-width port)))     ;; default for only one data point
+         (wd/2  (* 0.5 wd)))
+    (loop for pair = (next-item pairs)
+          while pair
+          do
+          (destructure-vector (x y) pair
+            (when xprev
+              (setf wd   (abs (- x xprev))
+                    wd/2 (* 0.5 wd))
+              (unless (= y yprev)
+                (let ((next-x (- x wd/2)))
+                  (gp:draw-polygon port
+                                   (list (or last-x (- xprev wd/2)) yprev
+                                         next-x yprev
+                                         next-x y)
+                                   :closed nil)
+                  (setf last-x next-x)
+                  )))
+            (setf xprev x
+                  yprev y))
+          finally
+          (when xprev
+            (gp:draw-line port
+                          (or last-x (- xprev wd/2)) yprev
+                          (+ xprev wd/2) yprev))
+          )))
+
+(defmethod draw-polyline (port (pairs <pair-scanner>))
+  (let (xprev yprev)
+    (loop for pair = (next-item pairs)
+          while pair
+          do
+          (destructure-vector (x y) pair
+            (when (and (simple-real-number x)
+                       (simple-real-number y))
+              (when (and xprev
+                         (or (/= x xprev)
+                             (/= y yprev)))
+                  (gp:draw-line port xprev yprev x y))
+              (setf xprev x
+                    yprev y)))
+          )))
+  
+;; ----------------------------------------------------------  
+(defun get-symbol-plotfn (port symbol border-color)
+  (labels ((translucent+frame (fn)
+             #+:COCOA
+             (with-color (port #.(color:make-gray 1.0 0.25))
+               ;; translucent interior
+               (funcall fn t))
+             ;; solid frame
+             (funcall fn))
+           
+           (solid+frame (fn)
+             (funcall fn t)
+             (with-color (port (or border-color
+                                   (foreground-color port)))
+               (funcall fn))))
+    
+    (ecase symbol
+      (:cross     (lambda (x y)
+                    (gp:draw-line port (- x 3) y (+ x 3) y)
+                    (gp:draw-line port x (- y 3) x (+ y 3))
+                    ))
+      
+      (:circle
+       (lambda (x y)
+         (labels ((draw-circle (&optional filled)
+                    (gp:draw-circle port
+                                    x 
+                                    #+:COCOA (- y 0.5)
+                                    #+:WIN32 y
+                                    3
+                                    :filled filled)))
+           (translucent+frame #'draw-circle)
+           )))
+      
+      (:filled-circle
+       (lambda (x y)
+         (labels ((draw-circle (&optional filled)
+                    (gp:draw-circle port
+                                    (if filled (1+ x) x)
+                                    (1- y) 3
+                                    :filled filled)))
+           (solid+frame #'draw-circle)
+           )))
+      
+      ((:box :square)
+       (lambda (x y)
+         (labels ((draw-rectangle (&optional filled)
+                    (gp:draw-rectangle port (- x 3) (- y 3) 6 6
+                                       :filled filled)))
+           (translucent+frame #'draw-rectangle)
+           )))
+      
+      ((:filled-box :filled-square)
+       (lambda (x y)
+         (labels ((draw-rectangle (&optional filled)
+                    (gp:draw-rectangle port (- x 3) (- y 3) 6 6
+                                       :filled filled)))
+           (solid+frame #'draw-rectangle)
+           )))
+      
+      ((:triangle :up-triangle)
+       (lambda (x y)
+         (labels ((draw-triangle (&optional filled)
+                    (gp:draw-polygon port
+                                     (list (- x 3) (+ y 3)
+                                           x (- y 4)
+                                           (+ x 3) (+ y 3))
+                                     :closed t
+                                     :filled filled)))
+           (translucent+frame #'draw-triangle)
+           )))
+      
+      (:down-triangle
+       (lambda (x y)
+         (labels ((draw-triangle (&optional filled)
+                    (gp:draw-polygon port
+                                     (list (- x 3) (- y 3)
+                                           x (+ y 4)
+                                           (+ x 3) (- y 3))
+                                     :closed t
+                                     :filled filled)))
+           (translucent+frame #'draw-triangle)
+           )))
+      
+      ((:filled-triangle :filled-up-triangle)
+       (lambda (x y)
+         (labels ((draw-triangle (&optional filled)
+                    (gp:draw-polygon port
+                                     (list (- x 3) (+ y 3)
+                                           x (- y 4)
+                                           (+ x 3) (+ y 3))
+                                     :closed t
+                                     :filled filled)))
+           (solid+frame #'draw-triangle)
+           )))
+      
+      (:filled-down-triangle
+       (lambda (x y)
+         (labels ((draw-triangle (&optional filled)
+                    (gp:draw-polygon port
+                                     (list (- x 3) (- y 3)
+                                           x (+ y 4)
+                                           (+ x 3) (- y 3))
+                                     :closed t
+                                     :filled filled)))
+           (solid+frame #'draw-triangle)
+           )))
+      
+      (:dot
+       (lambda (x y)
+         (gp:draw-circle port x (1- y) 0.5)
+         ))
+      )))
+
+(defmethod pw-plot-xv-yv ((cpw <plot>) port xvector yvector 
+                          &key
+                          (color #.(color:make-rgb 0.0 0.5 0.0))
+                          alpha
+                          thick
+                          (linewidth (or thick 1))
+                          linedashing
+                          symbol
+                          plot-joined
+                          legend
+                          legend-x
+                          legend-y
+                          legend-anchor
+                          border-color
+                          barwidth
+                          bar-offset
+                          &allow-other-keys)
+  ;; this is the base plotting routine
+  ;; called only from within the pane process
+  (let* ((sf        (plotter-sf  cpw))
+         (box       (let ((box (plotter-box cpw)))
+                      (capi:with-geometry cpw
+                        (adjust-box
+                         (list (+ 1 capi:%x% (* #|sf|# (box-left box)))
+                               (+ capi:%y% (* #|sf|# (box-top box)))
+                               (1- (* #|sf|# (box-width box)))
+                               (* #|sf|# (box-height box))))
+                        )))
+         (xform     (plotter-xform cpw))
+         (color     (adjust-color cpw color alpha))
+         (linewidth (adjust-linewidth (* sf linewidth)))
+
+         (nel       (if xvector
+                        (min (length-of xvector) (length-of yvector))
+                      (length-of yvector)))
+
+         (xs         (let ((scanner (make-scanner (or xvector
+                                                      nel))
+                                    ))
+                       (if (plotter-xlog cpw)
+                           (make-transformer scanner #'log10)
+                         scanner)))
+
+         (ys         (let ((scanner (make-scanner yvector)))
+                       (if (plotter-ylog cpw)
+                           (make-transformer scanner #'log10)
+                         scanner)))
+         (pairs     (make-pair-scanner xs ys)))
+
+    (when legend
+      (append-legend cpw
+                     (make-legend-info
+                      :color        color
+                      :thick        linewidth
+                      :linedashing  linedashing
+                      :symbol       symbol
+                      :border-color border-color
+                      :plot-joined  plot-joined
+                      :text         legend)))
+
+    (when legend-x
+      (setf (plotter-legend-x cpw) legend-x))
+    (when legend-y
+      (setf (plotter-legend-y cpw) legend-y))
+    (when legend-anchor
+      (setf (plotter-legend-anchor cpw) legend-anchor))
+    
+    (gp:with-graphics-state (port
+                             :thickness  linewidth
+                             :dashed     (not (null linedashing))
+                             :dash       (mapcar (um:expanded-curry (v) #'* sf) linedashing)
+                             :foreground color
+                             :line-end-style   :butt
+                             :line-joint-style :miter
+                             :mask       box)
+
+      (progn ;;gp:with-graphics-scale (port sf sf)
+        
+        (case symbol
+          (:steps
+           (gp:with-graphics-transform (port xform)
+             (draw-staircase port pairs)))
+          
+          (:vbars
+           (if barwidth
+               (let* ((wd   (get-x-width cpw barwidth))
+                      (wd/2 (* 0.5 wd))
+                      (off  (if bar-offset
+                                (get-x-width cpw bar-offset)
+                              0)))
+                 (loop for pair = (next-item pairs)
+                       while pair
+                       do
+                       (destructure-vector (x y) pair
+                         (multiple-value-bind (xx yy)
+                             (gp:transform-point xform x y)
+                           (multiple-value-bind (_ yy0)
+                               (gp:transform-point xform x 0)
+                             (declare (ignore _))
+                             (gp:draw-rectangle port
+                                                (+ off (- xx wd/2)) yy0
+                                                wd (- yy yy0)
+                                                :filled t)
+                             )))
+                       ))
+             (gp:with-graphics-transform (port xform)
+               (draw-vertical-bars port pairs))
+             ))
+          
+          (:hbars
+           (if barwidth
+               (let* ((wd   (get-y-width cpw barwidth))
+                      (wd/2 (* 0.5 wd))
+                      (off  (if bar-offset
+                                (get-y-width cpw bar-offset)
+                              0)))
+                 (loop for pair = (next-item pairs)
+                       while pair
+                       do
+                       (destructure-vector (x y) pair
+                         (multiple-value-bind (xx yy)
+                             (gp:transform-point xform x y)
+                           (multiple-value-bind (xx0 _)
+                               (gp:transform-point xform 0 y)
+                             (declare (ignore _))
+                             (gp:draw-rectangle port
+                                                xx0 (+ off (- yy wd/2))
+                                                (- xx xx0) wd
+                                                :filled t)
+                             )))
+                       ))
+             (gp:with-graphics-transform (port xform)
+               (draw-horizontal-bars port pairs))
+             ))
+
+          (:sampled-data
+           (let ((dotfn (get-symbol-plotfn port :filled-circle border-color)))
+             (loop for pair = (next-item pairs)
+                   while pair
+                   do
+                   (destructure-vector (x y) pair
+                     (multiple-value-bind (xx yy)
+                         (gp:transform-point xform x y)
+                       (multiple-value-bind (_ yy0)
+                           (gp:transform-point xform x 0)
+                         (declare (ignore _))
+                         (gp:draw-line port xx yy0 xx yy)
+                         (funcall dotfn xx yy))
+                       ))
+                   )))
+          
+          (otherwise
+           (when (or (not symbol)
+                     plot-joined)
+             (gp:with-graphics-transform (port xform)
+               (draw-polyline port pairs))
+             (when symbol
+               (reset-scanner pairs)))
+           
+           (when symbol
+             (let ((plotfn (get-symbol-plotfn port symbol border-color)))
+               (loop for pair = (next-item pairs)
+                     while pair
+                     do
+                     (destructure-vector (x y) pair
+                       (multiple-value-bind (xx yy)
+                           (gp:transform-point xform x y)
+                         (funcall plotfn xx yy)
+                         )))
+               ))
+           ))
+        ));)
+    ))
+
+(defun get-bar-symbol-plotfn (port symbol color neg-color bar-width testfn)
+  ;; bear in mind that the y values at this point are absolute screen
+  ;; coords and are inverted with respect to data ordering
+  (ecase symbol
+    (:sigma
+     (lambda (x ys)
+       (destructure-vector (ymin ymax) ys
+         (gp:draw-line port x ymin x ymax)
+         (gp:draw-line port (- x (/ bar-width 2)) ymin (+ x (/ bar-width 2)) ymin)
+         (gp:draw-line port (- x (/ bar-width 2)) ymax (+ x (/ bar-width 2)) ymax)
+         )))
+
+    (:hl-bar
+     (lambda (x ys)
+       (destructure-vector (ymin ymax) ys
+         (gp:draw-line port x ymin x ymax)
+         )))
+    
+    (:hlc-bar
+     (lambda (x ys)
+       (destructure-vector (h l c) ys
+         (gp:draw-line port x l x h)
+         (gp:draw-line port x c (+ x (/ bar-width 2)) c)
+         )))
+    
+    (:ohlc-bar
+     (lambda (x ys)
+       (destructure-vector (o h l c) ys
+         (with-color (port (if (funcall testfn c o) neg-color color))
+           (gp:draw-line port x l x h)
+           (gp:draw-line port (- x (/ bar-width 2)) o x o)
+           (gp:draw-line port x c (+ x (/ bar-width 2)) c)
+           ))))
+    
+    (:candlestick
+     (lambda (x ys)
+       (destructure-vector (o h l c) ys
+         (if (funcall testfn c o)
+             (with-color (port neg-color)
+               (gp:draw-line port x l x h)
+               (gp:draw-rectangle port (- x (/ bar-width 2)) o bar-width (- c o)
+                                  :filled t))
+           (progn
+             (with-color (port :black)
+               (gp:draw-line port x l x h))
+             (with-color (port color)
+               (gp:draw-rectangle port (- x (/ bar-width 2)) o bar-width (- c o)
+                                  :filled t))
+             (with-color (port :black)
+               (gp:draw-rectangle port (- x (/ bar-width 2)) o bar-width (- c o)))
+             ))
+         )))
+    ))
+
+;;-------------------------------------------------------------------
+(defmethod pw-plot-bars-xv-yv ((cpw <plot>) port xvector yvectors 
+                          &key
+                          (color #.(color:make-rgb 0.0 0.5 0.0))
+                          (neg-color color)
+                          alpha
+                          thick
+                          (linewidth (or thick 1))
+                          (bar-width 6)
+                          (symbol (ecase (length yvectors)
+                                    (2 :sigma)
+                                    (3 :hlc-bar)
+                                    (4 :ohlc-bar)))
+                          &allow-other-keys)
+  ;; this is the base bar-plotting routine
+  ;; called only from within the pane process
+  (let* ((sf        (plotter-sf  cpw))
+         (box       (let ((box (plotter-box cpw)))
+                      (capi:with-geometry cpw
+                        (adjust-box
+                         (list (+ 1 capi:%x% (* #|sf|# (box-left box)))
+                               (+ capi:%y% (* #|sf|# (box-top box)))
+                               (1- (* #|sf|# (box-width box)))
+                               (* #|sf|# (box-height box))))
+                        )))
+         (xform     (plotter-xform cpw))
+         (color     (adjust-color cpw color alpha))
+         (neg-color (adjust-color cpw neg-color alpha))
+         (linewidth (adjust-linewidth (* sf linewidth)))
+
+         (nel       (let ((nely (reduce #'min (mapcar #'length-of yvectors))))
+                      (if xvector
+                          (min (length-of xvector) nely)
+                        nely)))
+         
+         (xs        (let* ((xform   (lambda (x)
+                                      (gp:transform-point xform x 0)))
+                           (scanner (make-scanner (or xvector
+                                                      nel)
+                                                  :max-items nel)))
+                      (make-transformer scanner
+                                        (if (plotter-xlog cpw)
+                                            (um:compose xform #'log10)
+                                          xform))
+                      ))
+
+         (xform-y   (lambda (y)
+                      (second (multiple-value-list
+                               (gp:transform-point xform 0 y)))
+                      ))
+
+         (ys        (let* ((scanners (mapcar #'make-scanner yvectors)))
+                      (mapcar (um:rcurry #'make-transformer
+                                         (if (plotter-ylog cpw)
+                                             (um:compose xform-y #'log10)
+                                           xform-y))
+                              scanners)
+                      ))
+         (c<o-testfn (let ((y1 (funcall xform-y 0))
+                           (y2 (funcall xform-y 1)))
+                       (if (< y2 y1)
+                           #'>
+                         #'<)))
+         (plotfn (get-bar-symbol-plotfn port symbol
+                                        color neg-color bar-width
+                                        c<o-testfn))
+         (tmp       (make-array (length ys))))
+    
+    (gp:with-graphics-state (port
+                             :thickness  linewidth
+                             :foreground color
+                             :line-end-style   :butt
+                             :line-joint-style :miter
+                             :mask       box)
+      
+      (progn ;; gp:with-graphics-scale (port sf sf)
+        (loop for x = (next-item xs)
+              while x
+              do
+              (map-into tmp #'next-item ys)
+              (funcall plotfn x tmp)))
+      )))
+
+;; ============================================================
+(defun plt-draw-shape (pane port shape x0 y0 x1 y1
+                          &key
+                          color alpha filled
+                          border-thick border-color border-alpha
+                          start-angle sweep-angle)
+  ;; for rectangles: shape = :rect, (x0,y0) and (x1,y1) are opposite corners
+  ;; for ellipses:   shape = :ellipse, (x0,y0) is ctr (x1,y1) are radii
+  (let* ((x0        (if (plotter-xlog pane)
+                        (log10 x0)
+                      x0))
+         (x1        (if (plotter-xlog pane)
+                        (log10 x1)
+                      x1))
+         (y0        (if (plotter-ylog pane)
+                        (log10 y0)
+                      y0))
+         (y1        (if (plotter-ylog pane)
+                        (log10 y1)
+                      y1))
+         (wd        (- x1 x0))
+         (ht        (- y1 y0))
+         (sf        (plotter-sf  pane))
+         (box       (let ((box (plotter-box pane)))
+                      (adjust-box
+                       (list (1+ (* #|sf|# (box-left box)))
+                             (* #|sf|# (box-top box))
+                             (1- (* #|sf|# (box-width box)))
+                             (* #|sf|# (box-height box))))
+                      ))
+         (xform     (plotter-xform pane))
+         (color     (adjust-color pane color alpha))
+         (bcolor    (adjust-color pane border-color border-alpha))
+         (linewidth (adjust-linewidth (* sf (or border-thick 0)))))
+    
+    (gp:with-graphics-state (port
+                             :thickness  linewidth
+                             :foreground color
+                             :line-end-style   :butt
+                             :line-joint-style :miter
+                             :mask       box)
+
+      (progn ;; gp:with-graphics-scale (port sf sf)
+
+        (gp:with-graphics-transform (port xform)
+          (when filled
+            (ecase shape
+              (:rect
+               (gp:draw-rectangle port
+                                  x0 y0 wd ht
+                                  :filled t))
+              (:ellipse
+               (gp:draw-ellipse port
+                                x0 y0 x1 y1
+                                :filled t))
+              
+              (:arc
+               (gp:draw-arc port
+                            x0 y0 wd ht
+                            start-angle sweep-angle
+                            :filled t))
+              ))
+          
+          (when border-thick
+            (with-color (port bcolor)
+              (case shape
+                (:rect
+                 (gp:draw-rectangle port
+                                    x0 y0 wd ht
+                                    :filled nil))
+                (:ellipse
+                 (gp:draw-ellipse port
+                                  x0 y0 x1 y1
+                                  :filled nil))
+
+                (:arc
+                 (gp:draw-arc port
+                              x0 y0 wd ht
+                              start-angle sweep-angle
+                              :filled nil))
+                )))
+          )))
+    ))
+
+
+;; ------------------------------------------
+(defun calc-start-delta (vmin vmax)
+  ;; compute a good axis increment and starting value
+  ;; these are considered good if the increment is a multiple of 1, 2, or 5.
+  ;; The starting value must be the largest whole part of the axis values:
+  ;; e.g.,
+  ;; if the axis ranges from 1.23 to 3.28, then the largest whole part will be 2.00.
+  ;; That will be our starting label, and we then number by (non-overlapping strings)
+  ;; at increment spacings on either side of that largest whole part.
+  ;;
+  ;; This avoid bizarre labels like 1.23 ... 1.37 ... 2.45 ...
+  ;; giving instead, someting like  1.2 .. 1.6 .. 2.0 .. 2.4 ...
+  ;; which is enormously more readable than what most plotting packages produce.
+  ;; (This is the way a human would chart the axes)
+  ;;
+  (destructuring-bind (sf c)
+      (loop for sf = (/ (pow10
+                         (ceiling (log10 (max (abs vmin)
+                                              (abs vmax))
+                                         ))
+                         ))
+            then (* 10.0d0 sf)
+            do
+            ;;
+            ;; this loop finds the scale factor sf and minimum integer value c such that
+            ;; the scaled min and max values span a range greater than 1
+            ;; and c is no further from the scaled min value than that range.
+            ;; It is the case that a <= c <= b, where a and b are the scaled min and max values,
+            ;; and abs(c) is some integer multiple (positive, zero, or negative) of 10.
+            ;;
+            (let* ((a   (* sf vmin))
+                   (b   (* sf vmax))
+                   (rng (abs (- b a)))
+                   (c   (* 10.0d0 (ceiling (min a b) 10.0d0))))
+              (if (and (> rng 1.0d0)
+                       (<= (abs (- c a)) rng))
+                  (return (list sf c)))
+              ))
+    (loop for sf2 = 1.0d0 then (* 0.1d0 sf2)
+          do
+          (let* ((a   (* sf sf2 vmin))
+                 (b   (* sf sf2 vmax))
+                 (c   (* sf2 c))
+                 (rng (abs (- b a))))
+            
+            (if (<= rng 10.0d0)
+                (let* ((dv  (cond ((> rng 5.0d0) 1.0d0)
+                                  ((> rng 2.0d0) 0.5d0)
+                                  (t             0.2d0)))
+                       (nl  (floor (abs (- c a)) dv))
+                       (nu  (floor (abs (- b c)) dv))
+                       (v0  (if (not (plusp (* a b)))
+                                0.0d0
+                              (/ c sf sf2)))
+                       (dv  (/ dv sf sf2)))
+                  (return (list v0 dv nl nu)))
+              ))
+          )))
+
+;; ------------------------------------------
+(defparameter *ext-logo*
+  (ignore-errors
+    (gp:read-external-image
+     (translate-logical-pathname
+      #+:COCOA "PROJECTS:DYLIB;Logo75Img-Alpha25y.pdf"
+      #+:WIN32 "PROJECTS:DYLIB;Logo75Img-Alpha25y.bmp")
+     )))
+
+(defun stamp-plot-logo (plot port)
+  (when *ext-logo*
+    (let* ((box (plotter-box plot))
+           (sf  (plotter-sf  plot)))
+      (with-image (port
+                   (logo (gp:convert-external-image port *ext-logo*)))
+        (let* ((top  (+ (box-top box)
+                        (* 0.5
+                           (- (box-height box)
+                              (* sf (gp:image-height logo)))
+                           )))
+               (left (+ (box-left box)
+                        (* 0.5 (- (box-width box)
+                                  (* sf (gp:image-width logo)))
+                           ))))
+          (gp:with-graphics-translation (port left top)
+            (gp:with-graphics-scale (port sf sf)
+              (gp:draw-image port logo 0 0)))
+          ))
+      )))
+
+(defun watermark-plot (plot port)
+  (let* ((box (plotter-box plot))
+         (sf  (plotter-sf  plot))
+         (cright1 "Copyright (c) 2006-2007 by Refined Audiometrics Laboratory, LLC")
+         (cright2 "All rights reserved.")
+         (font2   (find-best-font port
+                                  :size (* sf $tiny-times-font-size)))
+         (color2  #.(color:make-gray 0.7)))
+
+    (stamp-plot-logo plot port)
+
+    (gp:with-graphics-translation (port (+ (box-left box)   (* sf 10))
+                                        (- (box-bottom box) (* sf 14)))
+      (draw-string-x-y plot port cright1
+                       0 (- (* sf 11))
+                       :x-alignment :left
+                       :y-alignment :top
+                       :font  font2
+                       :color color2)
+      (draw-string-x-y plot port cright2
+                       0 0
+                        :x-alignment :left
+                       :y-alignment :top
+                       :font  font2
+                       :color color2)
+      )))
+
+(defun get-scale (wd ht)
+  (min (/ ht 300)
+       (/ wd 400)))
+
+(defun stamp-logo (port sf)
+  (when *ext-logo*
+    (with-image (port
+                 (logo (gp:convert-external-image port *ext-logo*)))
+      (capi:with-geometry port
+        (labels ((compute-offset (portdim imgdimfn)
+                   (* 0.5 (- portdim (* sf (funcall imgdimfn logo))))
+                   ))
+          (gp:with-graphics-translation
+              (port
+               (compute-offset capi:%width%  #'gp:image-width)
+               (compute-offset capi:%height% #'gp:image-height))
+            (gp:with-graphics-scale (port sf sf)
+              (gp:draw-image port logo 0 0)))
+          ))
+      )))
+
+(defun watermark (port)
+  (capi:with-geometry port
+    (let* ((sf (get-scale capi:%width% capi:%height%))
+           (cright1 "Copyright (c) 2006-2007 by Refined Audiometrics Laboratory, LLC")
+           (cright2 "All rights reserved.")
+           (font2   (find-best-font port
+                                    :size (* sf $tiny-times-font-size)))
+           (color2  #.(color:make-gray 0.7)))
+      
+      (stamp-logo port sf)
+
+      (gp:with-graphics-translation
+          (port (* sf 2)
+                (- capi:%height% (* sf 14)))
+        (draw-string-x-y port port cright1
+                         0
+                         (- (* sf 11))
+                         :x-alignment :left
+                         :y-alignment :top
+                         :font  font2
+                         :color color2)
+        (draw-string-x-y port port cright2
+                         0
+                         0
+                         :x-alignment :left
+                         :y-alignment :top
+                         :font  font2
+                         :color color2))
+      )))
+
+(defclass <watermark> (capi:pinboard-object)
+  ())
+
+(defmethod capi:draw-pinboard-object (pane (wmark <watermark>) &key &allow-other-keys)
+  (watermark pane))
+
+;; ------------------------------------------
+(defparameter *log-subdivs*
+  (mapcar #'log10
+          '(0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9
+                2 3 4 5 6 7 8 9)))
+
+(defmethod pw-axes ((cpw <plot>) port
+                    &key
+                    (fullgrid t)
+                    (xtitle "X")
+                    (ytitle "Y")
+                    (title  "Plot")
+                    (watermarkfn #'watermark-plot)
+                    &allow-other-keys)
+  (let* ((box   (plotter-box cpw))
+         (sf    (plotter-sf cpw))
+         (font  (find-best-font cpw
+                                :size (* sf $normal-times-font-size)))
+         (xlog  (plotter-xlog cpw))
+         (ylog  (plotter-ylog cpw)))
+    
+    (labels
+        ((qxlog (x)
+           (if xlog (log10 x) x))
+         (qylog (y)
+           (if ylog (log10 y) y))
+         (iqxlog (x)
+           (if xlog (pow10 x) x))
+         (iqylog (y)
+           (if ylog (pow10 y) y))
+         (trim-mantissa (v)
+           (string-right-trim
+            "."
+            (string-right-trim
+             "0" v)))
+         (plabel (val)
+           (if (or (zerop val)
+                   (and (<= 0.01 (abs val))
+                        (< (abs val) 10000)))
+               (trim-mantissa (format nil "~,3F" (float val 1.0)))
+             (destructuring-bind (mant expon)
+                 (um:split-string (format nil "~,2E" (float val 1.0))
+                                  :delims "E")
+               (um:mkstr (trim-mantissa mant) "e" (remove #\+ expon)))
+             )))
+
+      ;;(gp:clear-graphics-port port)
+      (if watermarkfn
+          (funcall watermarkfn cpw port))
+
+      (when title
+        (draw-string-x-y cpw port title
+                         ;; (floor (* sf (+ (box-left box) (box-right box))) 2)
+                         (floor (+ (box-left box) (box-right box)) 2)
+                         0
+                         :x-alignment :center
+                         :y-alignment :top
+                         :font        (find-best-font port
+                                                      :size (* sf
+                                                               $big-times-font-size))
+                         ))
+
+      (progn ;; gp:with-graphics-scale (port sf sf)
+        (gp:with-graphics-state (port :scale-thickness t)
+          (draw-path port
+                     (box-top-left     box)
+                     (box-bottom-left  box)
+                     (box-bottom-right box)
+                     )))
+        
+      (pw-plot-xv-yv cpw port
+                     (vector (iqxlog (plotter-xmin cpw))
+                             (iqxlog (plotter-xmax cpw)))
+                     (vector (iqylog 0) (iqylog 0))
+                     :color #.(color:make-gray 0.5)
+                     :thick sf)
+        
+      (pw-plot-xv-yv cpw port
+                     (vector (iqxlog 0) (iqxlog 0))
+                     (vector (iqylog (plotter-ymin cpw))
+                             (iqylog (plotter-ymax cpw)))
+                     :color #.(color:make-gray 0.5)
+                     :thick sf)
+
+      (when xtitle
+        (draw-string-x-y cpw port xtitle
+                         ;; (floor (* sf (+ (box-left box) (box-right box))) 2)
+                         (floor (+ (box-left box) (box-right box)) 2)
+                         ;;(* sf (+ (box-bottom box) 26))
+                         (+ (box-bottom box) (* sf 26))
+                         :font font
+                         :x-alignment :center
+                         :y-alignment :bottom)
+          
+        (let* ((_xmin (plotter-xmin cpw))
+               (_xmax (plotter-xmax cpw))
+               (_xlast nil)
+               (_xstart nil))
+          (destructuring-bind (x0 dx nl nu) (calc-start-delta _xmin _xmax)
+            (declare (ignore nl nu))
+            (if xlog
+                (setf dx 1))
+            (labels ((xwork (xval xprev)
+                       (let* ((xpos  (gp:transform-point (plotter-xform cpw)
+                                                         xval 0))
+                              (xlast (draw-string-x-y
+                                      cpw port (plabel (iqxlog xval))
+                                      xpos
+                                      (+ (* sf 4) (box-bottom box))
+                                      :prev-bounds xprev
+                                      :margin (* 2 sf)
+                                      :x-alignment :center
+                                      :y-alignment :top
+                                      :font font)))
+                           
+                         (progn ;; gp:with-graphics-scale (port sf sf)
+                           (gp:with-graphics-state
+                               (port
+                                :scale-thickness t
+                                :thickness sf)
+                             (when fullgrid
+                               (when xlog
+                                 (with-color (port #.(color:make-gray 0.75))
+                                   (let ((xscale (first (plotter-xform cpw))))
+                                     (loop for ix in *log-subdivs* do
+                                           (let ((x (+ xpos (* xscale ix))))
+                                             (if (< (box-left box) x
+                                                    (box-right box))
+                                                 (gp:draw-line
+                                                  port
+                                                  x (box-top box)
+                                                  x (box-bottom box))
+                                               )))
+                                     )))
+                               (unless (zerop xval)
+                                 (with-color (port (if (vectorp fullgrid)
+                                                       fullgrid
+                                                     (color:make-gray
+                                                      (if xlog 0.5 0.75))))
+                                   (gp:draw-line port
+                                                 xpos (box-top box)
+                                                 xpos (box-bottom box))
+                                   )))
+                               
+                             (gp:draw-line port
+                                           xpos (- (box-bottom box) 2)
+                                           xpos (+ (box-bottom box) 3))))
+                           
+                         xlast)))
+                
+                
+              (loop for xval = x0 then (- xval dx)
+                    until (< xval (if (> _xmax _xmin) _xmin _xmax))
+                    do
+                    (setf _xlast (xwork xval _xlast))
+                    (unless _xstart
+                      (setf _xstart _xlast)))
+                
+              (setf _xlast _xstart)
+                
+              (loop for xval = (+ x0 dx) then (+ xval dx)
+                    until (> xval (if (< _xmin _xmax) _xmax _xmin))
+                    do
+                    (setf _xlast (xwork xval _xlast)))
+              ))))
+        
+      (when ytitle
+        (draw-vert-string-x-y cpw port ytitle
+                              #+:WIN32 0 #+:COCOA (* sf 3)
+                              (floor (+ (box-top box)
+                                        (box-bottom box)) 2)
+                              :font  font
+                              :x-alignment :center
+                              :y-alignment :top)
+        (let* ((_ymin (plotter-ymin cpw))
+               (_ymax (plotter-ymax cpw))
+               (_ylast  nil)
+               (_ystart nil))
+          (destructuring-bind (y0 dy nl nu) (calc-start-delta _ymin _ymax)
+            (declare (ignore nl nu))
+            (if ylog
+                (setf dy 1))
+            (labels ((ywork (yval yprev)
+                       (multiple-value-bind (xpos ypos)
+                           (gp:transform-point (plotter-xform cpw) 0 yval)
+                         (declare (ignore xpos))
+                           
+                         (let ((ylast (draw-vert-string-x-y
+                                       cpw port
+                                       (plabel (iqylog yval))
+                                       (- (box-left box) (* sf #+:WIN32 1 #+:COCOA 3))
+                                       ypos
+                                       :prev-bounds yprev
+                                       :margin (* 2 sf)
+                                       :x-alignment :center
+                                       :y-alignment :bottom
+                                       :font font)))
+                             
+                           (progn ;; gp:with-graphics-scale (port sf sf)
+                             (gp:with-graphics-state
+                                 (port :scale-thickness t
+                                       :thickness sf)
+                               (when fullgrid
+                                 (when ylog
+                                   (with-color (port #.(color:make-gray 0.75))
+                                     (let ((yscale (fourth (plotter-xform cpw))))
+                                       (loop for ix in *log-subdivs* do
+                                             (let ((y (+ ypos (* yscale ix))))
+                                               (if (> (box-bottom box) y
+                                                      (box-top box))
+                                                   (gp:draw-line
+                                                    port
+                                                    (1+ (box-left box)) y
+                                                    (box-right box) y)
+                                                 ))))
+                                     ))
+                                 (unless (zerop yval)
+                                   (with-color (port (if (vectorp fullgrid)
+                                                         fullgrid
+                                                       (color:make-gray
+                                                        (if ylog 0.5 0.75))))
+                                     (gp:draw-line port
+                                                   (1+ (box-left box))  ypos
+                                                   (box-right box) ypos)
+                                     )))
+                                 
+                               (gp:draw-line port
+                                             (- (box-left box) 2) ypos
+                                             (+ (box-left box) 3) ypos)))
+                           ylast))))
+                
+              (loop for yval = y0 then (- yval dy)
+                    until (< yval (if (> _ymax _ymin) _ymin _ymax))
+                    do
+                    (setf _ylast (ywork yval _ylast))
+                    (unless _ystart
+                      (setf _ystart _ylast)))
+                
+              (setf _ylast _ystart)
+                
+              (loop for yval = (+ y0 dy) then (+ yval dy)
+                    until (> yval (if (< _ymin _ymax) _ymax _ymin))
+                    do
+                    (setf _ylast (ywork yval _ylast)))
+              )))
+        ))
+    ))
+
+;; ----------------------------------------------------------------
+;; pane location decoding for strings and legends
+;;
+(defun parse-location (sym pane)
+  ;; BEWARE:: '1.2d+3p means (:pixel 1200) NOT (:data 1.2 +3)
+  ;; be sure to disambiguate the "d" as in '1.2data+3p
+  (let* ((s    (if (stringp sym)
+                   sym
+                 (symbol-name sym)))
+         (slen (length s)))
+
+    (capi:with-geometry pane
+      (labels ((iter (state ix ans)
+                 (ecase state
+                   (:initial
+                    (cond ((>= ix slen)
+                           ;; have been all number constituents
+                           ;;assume we have pixels specified
+                           (list :pixel (read-from-string s) 0))
+                          
+                          ((digit-char-p (char s ix))
+                           ;; still have number constituent
+                           (iter :initial (1+ ix) nil))
+                          
+                          ((char= #\. (char s ix))
+                           ;; still have number constituent
+                           (iter :initial (1+ ix) nil))
+                          
+                          ((char-equal #\d (char s ix))
+                           ;; might be part of an exponential notation
+                           ;; or it might be a frac or data specifier
+                           (iter :check-for-exponent (1+ ix) nil))
+                          
+                          ((char-equal #\t (char s ix))
+                           ;; 't' for top
+                           (iter :scan-to-plus-or-minus (1+ ix)
+                                 (list :pixel capi:%height%)
+                                 ))
+                          
+                          ((char-equal #\r (char s ix))
+                           ;; 'r' for right
+                           (iter :scan-to-plus-or-minus (1+ ix)
+                                 (list :pixel capi:%width%)
+                                 ))
+                          
+                          ((or (char-equal #\b (char s ix))
+                               (char-equal #\l (char s ix)))
+                           ;; 'b' for bottom, 'l' for left
+                           (iter :scan-to-plus-or-minus (1+ ix)
+                                 (list :pixel 0)
+                                 ))
+                          
+                          (t
+                           (iter :get-units ix (read-from-string s t :eof :end ix)))
+                          ))
+                   
+                   (:check-for-exponent
+                    (cond ((>= ix slen)
+                           ;; we had a D so it must have been (:data nn.nnn)
+                           (list :data
+                                 (read-from-string s t :eof :end (1- ix))
+                                 ))
+                          
+                          ((alpha-char-p (char s ix))
+                           ;; can't be a +/- sign, so must have been (:data nn.nn)
+                           (iter :scan-to-plus-or-minus (1+ ix)
+                                 (list :data
+                                       (read-from-string s t :eof :end (1- ix))
+                                       )))
+                          
+                          (t ;; assume we have a +/- sign and continue with number scan
+                             (iter :initial (1+ ix) nil))
+                          ))
+                   
+                   (:get-units
+                    (ecase (char-upcase (char s ix))
+                      (#\P  (iter :scan-to-plus-or-minus (1+ ix) (list :pixel ans)))
+                      (#\D  (iter :scan-to-plus-or-minus (1+ ix) (list :data  ans)))
+                      (#\F  (iter :scan-to-plus-or-minus (1+ ix) (list :frac  ans)))))
+                   
+                   (:scan-to-plus-or-minus
+                    (cond ((>= ix slen)
+                           ;; no offset, we a finished
+                           ans)
+                          
+                          ((or (char= #\+ (char s ix))
+                               (char= #\- (char s ix)))
+                           (let ((end (position-if #'alpha-char-p s :start ix)))
+                             ;; read the offset and return
+                             (list (first ans)  ;; type
+                                   (second ans) ;; value
+                                   (read-from-string s t :eof :start ix :end end) ;; offset
+                                   )))
+                          
+                          (t ;; keep looking
+                           (iter :scan-to-plus-or-minus (1+ ix) ans))
+                          ))
+                   )))
+        
+        (iter :initial 0 nil)
+        ))))
+
+(defun get-location (pane pos-expr axis &key scale)
+  (capi:with-geometry pane
+    (cond
+     
+     ((consp pos-expr)
+      (let* ((sym (um:mkstr (first pos-expr)))
+             (val (second pos-expr)))
+        (ecase (char-upcase (char sym 0))
+          ;; accommodates :DATA :DAT :D :DATUM, :FRAC :F :FRACTION, :PIXEL :P :PIX :PIXELS, etc.
+          (#\F  ;; pane fraction  0 = left, bottom;  1 = right, top
+                (ecase axis
+                  (:x  (* val capi:%width%))
+                  
+                  ;; port y axis is inverted, top at 0
+                  (:y  (* (- 1 val) capi:%height%))
+                  ))
+          
+          (#\D  ;; data coordinates
+                (ecase axis
+                  (:x
+                   (let ((ans (gp:transform-point (plotter-xform pane)
+                                                  (if (plotter-xlog pane)
+                                                      (log10 val)
+                                                    val)
+                                                  0)))
+                     (if scale
+                         (- ans (gp:transform-point (plotter-xform pane) 0 0))
+                       ans)))
+                  
+                  (:y
+                   (let ((ans (multiple-value-bind (xx yy)
+                                  (gp:transform-point (plotter-xform pane)
+                                                      0
+                                                      (if (plotter-ylog pane)
+                                                          (log10 val)
+                                                        val))
+                                (declare (ignore xx))
+                                yy)))
+                     (if scale
+                         (- ans (second (multiple-value-list
+                                         (gp:transform-point (plotter-xform pane)
+                                                             0 0))))
+                       ans)))
+                  ))
+          
+          (#\P  ;; direct pixel positioning
+                (ecase axis
+                  (:x val)
+                  
+                  ;; port y axis is inverted, top at 0
+                  (:y (- capi:%height% val 1))
+                  ))
+          )))
+     
+     ((numberp pos-expr) ;; assume :DATA
+      (get-location pane (list :data pos-expr) axis :scale scale))
+     
+     (t ;; else, expect a parsable symbol or string '1.2data+3pix
+        (destructuring-bind (vtype v &optional (dv 0)) (parse-location pos-expr pane)
+          (+ (get-location pane (list vtype v) axis :scale scale)
+             (ecase axis
+               (:x dv)
+               (:y (- dv))  ;; port y axis is inverted, top at 0
+               ))))
+     )))
+  
+(defun get-x-location (pane x)
+  (get-location pane x :x))
+
+(defun get-y-location (pane y)
+  (get-location pane y :y))
+
+(defun get-x-width (pane wd)
+  (get-location pane wd :x :scale t))
+
+(defun get-y-width (pane wd)
+  (get-location pane wd :y :scale t))
+
+;; ----------------------------------------------------------------
+(defun draw-legend (pane port)
+  (let ((items (all-legends pane)))
+    (when items
+      (let* ((sf   (plotter-sf pane))
+             (font (find-best-font port
+                                   :size (* sf $tiny-times-font-size)))
+             (nitems (length items)))
+        
+        (multiple-value-bind (txtwd txtht txtbase)
+            (let ((maxwd   0)
+                  (maxht   0)
+                  (maxbase 0))
+              (loop for item in items do
+                    (multiple-value-bind (lf tp rt bt)
+                        (gp:get-string-extent port (legend-info-text item) font)
+                      (setf maxwd   (max maxwd (- rt lf))
+                            maxht   (max maxht (- bt tp))
+                            maxbase (max maxbase tp))))
+              (values maxwd maxht maxbase))
+          
+          (declare (ignore txtbase))
+          (let* ((totwd (+ txtwd  (* sf 40)))
+                 (totht (* nitems (+ txtht 0)))
+                 (effwd (/ totwd 1 #|sf|#))
+                 (effht (/ totht 1 #|sf|#))
+                 (effht1 (/ txtht 1 #|sf|#))
+                 (x     (let ((x (get-x-location pane (plotter-legend-x pane))))
+                          (ecase (plotter-legend-anchor pane)
+                            ((:nw :w :sw)  x)
+                            ((:ne :e :se)  (- x effwd))
+                            ((:n  :ctr :s) (- x (/ effwd 2)))
+                            )))
+                 (y     (let ((y (get-y-location pane (plotter-legend-y pane))))
+                          (case (plotter-legend-anchor pane)
+                            ((:nw :n :ne)  y)
+                            ((:sw :s :sw)  (- y effht))
+                            ((:w  :ctr :e) (- y (/ effht 2)))
+                            ))))
+            
+            (progn ;; gp:with-graphics-scale (port sf sf)
+              
+              (with-color (port (color:make-rgb 1 1 1 0.75))
+                (gp:draw-rectangle port x y effwd effht
+                                   :filled t))
+              
+              (gp:with-graphics-state (port :thickness #+:COCOA sf #+:WIN32 (round sf))
+                (gp:draw-rectangle port x y effwd effht))
+              
+              (loop for item in items
+                    for y from (+ y effht1) by effht1
+                    do
+                    (gp:with-graphics-state
+                        (port
+                         :foreground (legend-info-color item)
+                         :thickness  (legend-info-thick item)
+                         :dashed     (not (null (legend-info-linedashing item)))
+                         :dash       (legend-info-linedashing item))
+
+                      (when (member (legend-info-symbol item) '(:vbars :hbars))
+                        (gp:with-graphics-state
+                            (port
+                             :thickness 5)
+                          (let ((y (floor (- y (/ effht1 2)))))
+                            (gp:draw-line port
+                                          (+ x  (* sf 3)) y
+                                          (+ x (* sf 33)) y)
+                            )))
+                      
+                      (when (or (null (legend-info-symbol item))
+                                (eq (legend-info-symbol item) :steps)
+                                (legend-info-plot-joined item))
+                        (let ((y (floor (- y (/ effht1 2)))))
+                          (gp:draw-line port
+                                        (+ x  (* sf 3)) y
+                                        (+ x (* sf 33)) y)
+                          ))
+                      
+                      (when (and (legend-info-symbol item)
+                                 (not (member (legend-info-symbol item)
+                                              '(:steps :vbars :hbars))))
+                        (funcall (get-symbol-plotfn port (legend-info-symbol item)
+                                                    (legend-info-border-color item))
+                                 (+ x (* sf 18)) (- y (/ effht1 2))
+                                 )))
+                    (gp:draw-string port (legend-info-text item) (+ x (* sf 36)) (- y (* sf 2))
+                                    :font font))
+              
+              )))
+        ))
+    ))
+                 
+                 
+                 
+    
+    
+;; ----------------------------------------------------------------
+#|
+(defun filter-nans (x y)
+  (let ((vals 
+         (loop for xv across x and
+               yv across y keep-unless
+               (or (nanp xv) (nanp yv)))))
+    (values (apply 'vector (mapcar 'first  vals))
+            (apply 'vector (mapcar 'second vals)))
+    ))
+|#
+
+(defun do-plot (cpw port xvector yvector
+                    &rest args)
+  (apply #'pw-init-xv-yv cpw xvector yvector args)
+  (apply #'pw-axes cpw port args)
+  ;;
+  ;; Now plot the data points
+  ;; 
+  (apply #'pw-plot-xv-yv cpw port xvector yvector args))
+
+(defun do-plot-bars (cpw port xvector yvectors
+                         &rest args)
+  (apply #'pw-init-bars-xv-yv cpw xvector yvectors args)
+  (apply #'pw-axes cpw port args)
+  ;;
+  ;; Now plot the data points
+  ;; 
+  (apply #'pw-plot-bars-xv-yv cpw port xvector yvectors args))
+
+;; -------------------------------------------------------------------
+
+(defparameter *default-plotting-args*
+  (list
+   :watermarkfn #'watermark-plot
+   ))
+
+(defmacro with-default-plotting-args (args &body body)
+  `(let ((*default-plotting-args* (append ',args *default-plotting-args*)))
+     (declare (special *default-plotting-args*))
+     ,@body))
+
+(defparameter *delayed-update* nil)
+
+(defun do-with-delayed-update (plots fn)
+  (let ((*delayed-update* t))
+     (declare (special *delayed-update*))
+     (funcall fn))
+  (unless *delayed-update*
+    (dolist (plot plots)
+      (capi:redraw-pinboard-object plot))
+    ))
+
+(defmacro with-delayed-update ((&rest plots) &body body)
+  `(do-with-delayed-update (list ,@plots)
+                           (lambda () ,@body)))
+
+(defun update-view (plot)
+  (discard-backing-image plot)
+  ;;(gp:invalidate-rectangle plot)
+  (capi:redraw-pinboard-object plot (not *delayed-update*)))
+
+(defun draw-shape (shape plot x0 y0 x1 y1
+                     &key
+                     (color :darkgreen)
+                     (filled t)
+                     (alpha 1)
+                     border-thick
+                     (border-color :black)
+                     (border-alpha 1)
+                     start-angle  ;; for arc
+                     sweep-angle  ;; for arc
+                     )
+  (append-display-list plot
+                       #'(lambda (plot port x y width height)
+                           (declare (ignore x y width height))
+                           (plt-draw-shape plot port shape
+                                           x0 y0 x1 y1
+                                           :color  color
+                                           :alpha  alpha
+                                           :filled filled
+                                           :border-thick border-thick
+                                           :border-color border-color
+                                           :border-alpha border-alpha
+                                           :start-angle  start-angle
+                                           :sweep-angle  sweep-angle))
+                       )
+  (update-view plot))
+
+;; user callable function
+(defun draw-rect (&rest args)
+  (apply #'draw-shape :rect (append args *default-plotting-args*)))
+
+;; user callable function
+(defun draw-ellipse (&rest args)
+  (apply #'draw-shape :ellipse (append args *default-plotting-args*)))
+
+;; user callable function
+(defun draw-arc (&rest args)
+  (apply #'draw-shape :arc (append args *default-plotting-args*)))
+
+
+(defun oplot2 (plot xv yv 
+                  &rest args
+                  &key
+                  clear
+                  ;;draw-axes
+                  ;;(color :darkgreen)
+                  thick
+                  xlog
+                  ylog
+                  (linewidth (or thick 1))
+                  ;;(fullgrid t)
+                  &allow-other-keys)
+  
+  (multiple-value-bind (xv yv)
+      (cond (xv
+             (filter-potential-x-y-nans-and-infinities xv yv xlog ylog))
+            (yv
+             (values nil
+                     (filter-potential-nans-and-infinities yv ylog)))
+            (t (values nil nil)))
+    
+    (if (or clear
+            (display-list-empty-p plot))
+        (progn
+          #|
+                (setf (plotter-x-readout-hook plot) #'identity
+                      (plotter-y-readout-hook plot) #'identity)
+                |#
+          (discard-display-list plot)
+          (append-display-list plot
+                               #'(lambda (plot port x y width height)
+                                   (declare (ignore x y width height))
+                                   (apply #'do-plot plot port xv yv
+                                          ;; :color     color
+                                          :linewidth linewidth
+                                          ;; :fullgrid  fullgrid
+                                          args))))
+      (append-display-list plot
+                           #'(lambda (plot port x y width height)
+                               (declare (ignore x y width height))
+                               (apply #'pw-plot-xv-yv plot port xv yv 
+                                      ;; :color color
+                                      args))
+                           ))
+    (update-view plot)
+    ))
+
+(defun oplot-bars2 (plot xv yvs
+                       &rest args
+                       &key
+                       ;; draw-axes
+                       clear
+                       (color     :black)
+                       (neg-color color)
+                       thick
+                       (linewidth (or thick 1))
+                       ;; (fullgrid t)
+                       &allow-other-keys)
+  (if (or clear
+          (display-list-empty-p plot))
+      (progn
+        #|
+                (setf (plotter-x-readout-hook plot) #'identity
+                      (plotter-y-readout-hook plot) #'identity)
+                |#
+        (discard-display-list plot)
+        (append-display-list plot
+                             #'(lambda (plot port x y width height)
+                                 (declare (ignore x y width height))
+                                 (apply #'do-plot-bars plot port xv yvs
+                                        :color     color
+                                        :neg-color neg-color
+                                        :linewidth linewidth
+                                        ;; :fullgrid  fullgrid
+                                        args))))
+    (append-display-list plot
+                         #'(lambda (plot port x y width height)
+                             (declare (ignore x y width height))
+                             (apply #'pw-plot-bars-xv-yv plot port xv yvs 
+                                    :color color
+                                    :neg-color neg-color
+                                    args))
+                         ))
+  (update-view plot))
+
+;; ------------------------------------------
+(defun find-x-y-parms (args)
+  (let* ((nargs (or (position-if #'keywordp args)
+                    (length args))))
+    (case nargs
+      (0   (list nil nil args))
+      (1   (list nil (first args) (rest args)))
+      (2   (list (first args) (second args) (rest (rest args))))
+      (otherwise (error "Too many arguments"))
+      )))
+
+(defun vector-to-plotfn (fn plot args)
+  (destructuring-bind (xs ys parms) (find-x-y-parms args)
+    (apply fn plot xs ys (append parms *default-plotting-args*))))
+
+;; user callable function
+(defun plot (plot &rest args)
+  (vector-to-plotfn #'oplot2 plot args))
+
+;; user callable function
+(defun plot-bars (plot &rest args)
+  (vector-to-plotfn #'oplot-bars2 plot args))
+
+;; ------------------------------------------
+
+;; user callable function
+(defun clear (plot)
+  (discard-display-list plot))
+
+(defun axes2 (plot xvector yvectors &rest args &key xrange xlog ylog &allow-other-keys)
+  ;; allow a list of yvectors to be given
+  ;; so that we can find the best fitting autoscale that accommodates all of them
+  (multiple-value-bind (xv yv)
+      (let ((ylist (um:mklist yvectors)))
+        (values (or (and xvector
+                         (let ((xv (filter-potential-nans-and-infinities xvector xlog)))
+                           (vector (vmin-of xv) (vmax-of xv))))
+                    (and (null xrange)
+                         ylist
+                         (vector (if xlog 0.1 0) (1- (length-of (first ylist))))
+                         ))
+                (and ylist
+                     (let ((ys (mapcar (um:rcurry #'filter-potential-nans-and-infinities ylog) ylist)))
+                       (vector (vector-group-min ys)
+                               (vector-group-max ys))))
+                ))
+        #|
+    (setf (plotter-x-readout-hook plot) #'identity
+          (plotter-y-readout-hook plot) #'identity)
+    |#
+        (clear plot)
+        (append-display-list plot 
+                             #'(lambda (plot port x y width height)
+                                 (declare (ignore x y width height))
+                                 (apply #'pw-init-xv-yv plot
+                                        xv yv args)
+                                 (apply #'pw-axes plot port args))
+                             )
+        (update-view plot)))
+
+;; user callable function
+(defun axes (plot &rest args)
+  (vector-to-plotfn #'axes2 plot args))
+
+;; ------------------------------------------
+;; these callbacks are only called from the capi process
+;;
+;; For COCOA the backing store is a pixmap image
+;; For Win32 the backing store is a pixmap
+
+#+:COCOA
+(defun save-backing-image (plot port)  
+  (with-accessors ((backing-image plotter-backing)) plot
+    (capi:with-geometry plot
+      (setf backing-image
+            (gp:make-image-from-port port
+                                     capi:%x% capi:%y%
+                                     capi:%width%
+                                     capi:%height%)))
+    ))
+
+#+:WIN32
+(defun save-backing-image (plot port)
+  (with-accessors ((backing-image  plotter-backing )) plot
+    (setf backing-image port)))
+
+#+:COCOA
+(defun discard-backing-image (plot)
+  (with-accessors ((backing-image plotter-backing)) plot
+    (when backing-image
+      (gp:free-image (capi:element-parent plot) backing-image)
+      (setf backing-image nil))
+    ))
+
+#+:WIN32
+(defun discard-backing-image (plot)
+  (with-accessors ((backing-image plotter-backing)) plot
+    (when backing-image
+      (gp:destroy-pixmap-port backing-image)
+      (setf backing-image nil))
+    ))
+
+
+;; --------------------------------------------------
+#+:WIN32
+(defun draw-crosshair-lines (plot output-pane color x y)
+  (when (and x y)
+    (gp:with-graphics-state
+        (output-pane
+         :foreground color
+         :operation  boole-xor)
+      (gp:draw-line output-pane x 0 x (gp:port-height plot))
+      (gp:draw-line output-pane 0 y (gp:port-width  plot) y))
+    ))
+
+#+:COCOA
+(defun draw-crosshair-lines (plot output-pane color x y)
+  (when (and x y)
+    (with-color (output-pane color)
+      (gp:draw-line output-pane x 0 x (gp:port-height plot))
+      (gp:draw-line output-pane 0 y (gp:port-width plot) y)
+      )))
+
+(defmethod capi:draw-pinboard-object (output-pane (self <plot>)
+                                                  &key x y width height &allow-other-keys)
+  (with-accessors ((sf              plotter-sf            )
+                   (magn            plotter-magn          )
+                   (xform           plotter-xform         )
+                   (backing-image   plotter-backing       )
+                   #+:COCOA
+                   (delay-backing   plotter-delay-backing )
+                   (full-crosshair  plotter-full-crosshair)
+                   (prev-x          plotter-prev-x        )
+                   (prev-y          plotter-prev-y        )) self
+
+    (capi:with-geometry self
+      
+      ;;(gp:clear-graphics-port-state self)
+      
+      (setf xform '(1 0 0 1 0 0))
+      (setf sf    (get-scale capi:%width% capi:%height%))
+      #|
+          magn  1
+          sf    (min (/ (gp:port-height output-pane) nominal-height)
+                     (/ (gp:port-width  output-pane) nominal-width))
+    |#
+      
+      #|
+    (print (list x y width height sf
+                 nominal-width port-width
+                 nominal-height port-height))
+    |#
+      
+      #+:COCOA
+      (if backing-image
+          (progn
+            (gp:draw-image output-pane backing-image capi:%x% capi:%y%
+                           :from-width  (gp:image-width  backing-image)
+                           :from-height (gp:image-height backing-image)
+                           :to-width    capi:%width%
+                           :to-height   capi:%height%)
+            (unless (and (= capi:%width% (gp:image-width backing-image))
+                         (= capi:%height% (gp:image-height backing-image)))
+              (with-accessors ((resize-timer plotter-resize-timer)) self
+                (unless resize-timer
+                  (setf resize-timer
+                        (mp:make-timer #'update-view self)
+                        ))
+                (mp:schedule-timer-relative-milliseconds resize-timer 100)
+                )))
+        (progn
+          (gp:with-graphics-translation (output-pane capi:%x% capi:%y%)
+            (dolist (item (display-list-items self))
+              (funcall item self output-pane x y width height))
+            (draw-legend self output-pane))
+          
+          (unless delay-backing
+            (save-backing-image self output-pane))))
+      
+      #+:WIN32
+      (progn
+        (unless backing-image
+          (let* ((gs   (gp:get-graphics-state self))
+                 (fg   (gp:graphics-state-foreground gs))
+                 (bg   (gp:graphics-state-background gs))
+                 (port (gp:create-pixmap-port self port-width port-height
+                                              :background bg
+                                              :foreground fg
+                                              :clear      t)))
+            (dolist (item (display-list-items self))
+              (funcall item self port x y width height))
+            (draw-legend self port)
+            (save-backing-image self port)))
+        
+        (gp:copy-pixels output-pane backing-image 0 0 port-width port-height 0 0))
+      
+      
+      (when full-crosshair
+        (draw-crosshair-lines self output-pane full-crosshair prev-x prev-y))
+      )))
+
+#|
+(defmethod display-callback ((pane <plot>) x y width height)
+  (with-accessors ((nominal-width   plotter-nominal-width )
+                   (nominal-height  plotter-nominal-height)
+                   (sf              plotter-sf            )
+                   (magn            plotter-magn          )
+                   (xform           plotter-xform         )
+                   (port-width      gp:port-width         )
+                   (port-height     gp:port-height        )
+                   (backing-image   plotter-backing       )
+                   #+:COCOA
+                   (delay-backing   plotter-delay-backing )
+                   (full-crosshair  plotter-full-crosshair)
+                   (prev-x          plotter-prev-x        )
+                   (prev-y          plotter-prev-y        )) pane
+
+    (unless nominal-width
+      (setf nominal-width  width
+            nominal-height height))
+    
+    (gp:clear-graphics-port-state pane)
+    
+    (setf xform '(1 0 0 1 0 0)
+          magn  1
+          sf    (min (/ port-height nominal-height)
+                     (/ port-width  nominal-width)))
+
+
+    #|
+    (print (list x y width height sf
+                 nominal-width port-width
+                 nominal-height port-height))
+    |#
+
+    #+:COCOA
+    (if backing-image
+        (gp:draw-image pane backing-image 0 0
+                       :from-width  (gp:image-width  backing-image)
+                       :from-height (gp:image-height backing-image)
+                       :to-width    (* sf nominal-width)
+                       :to-height   (* sf nominal-height))
+      (progn
+        (dolist (item (display-list-items pane))
+          (funcall item pane pane x y width height))
+        (draw-legend pane pane)
+        
+        (unless delay-backing
+          (save-backing-image pane pane))))
+
+    #+:WIN32
+    (progn
+      (unless backing-image
+        (let* ((gs   (gp:get-graphics-state pane))
+               (fg   (gp:graphics-state-foreground gs))
+               (bg   (gp:graphics-state-background gs))
+               (port (gp:create-pixmap-port pane port-width port-height
+                                            :background bg
+                                            :foreground fg
+                                            :clear      t)))
+          (dolist (item (display-list-items pane))
+            (funcall item pane port x y width height))
+          (draw-legend pane port)
+          (save-backing-image pane port)))
+    
+      (gp:copy-pixels pane backing-image 0 0 port-width port-height 0 0))
+    
+    
+    (when full-crosshair
+      (draw-crosshair-lines pane full-crosshair prev-x prev-y))
+    ))
+    
+(defun resize-callback (pane x y width height)
+  (declare (ignore x y width height))
+  (with-accessors ((resize-timer  plotter-resize-timer)) pane
+    (unless resize-timer
+      (setf resize-timer
+            (mp:make-timer
+             (lambda ()
+               (discard-backing-image pane)
+               (capi:apply-in-pane-process pane
+                                           #'gp:invalidate-rectangle
+                                           pane)))
+            ))
+    (mp:schedule-timer-relative-milliseconds resize-timer 100)
+    ))
+|#
+
+(defun compute-x-y-at-cursor (plot x y)
+  (with-accessors  ((sf         plotter-sf                 )
+                    (magn       plotter-magn               )
+                    (inv-xform  plotter-inv-xform          )
+                    (xlog       plotter-xlog               )
+                    (ylog       plotter-ylog               )
+                    (x-readout-hook  plotter-x-readout-hook)
+                    (y-readout-hook  plotter-y-readout-hook)) plot
+    (let ((eff-sf (* sf magn)))
+      (multiple-value-bind (xx yy)
+          (gp:transform-point inv-xform (/ x eff-sf) (/ y eff-sf))
+        (list (funcall ;;real-eval-with-nans
+               (if xlog
+                   (um:compose x-readout-hook #'pow10)
+                 x-readout-hook)
+               xx)
+              (funcall ;;real-eval-with-nans
+               (if ylog
+                   (um:compose y-readout-hook #'pow10)
+                 y-readout-hook)
+               yy)
+              ))
+      )))
+
+#|
+(defun mouse-move (pane x y &rest args)
+  (declare (ignore args))
+  (let ((intf (capi:top-level-interface pane)))
+    (destructuring-bind (xx yy) (compute-x-y-at-cursor pane x y)
+      (setf (capi:interface-title intf)
+            (format nil "~A  x = ~,5g  y = ~,5g"
+                    (plotter-base-title pane) xx yy))
+
+      (let ((full-crosshair  (plotter-full-crosshair pane)))
+        (when full-crosshair
+          (with-accessors ((prev-x   plotter-prev-x)
+                           (prev-y   plotter-prev-y)) pane
+            #+:WIN32
+            (progn
+              (draw-crosshair-lines pane full-crosshair prev-x prev-y)
+              (draw-crosshair-lines pane full-crosshair x      y)
+              
+              (setf prev-x x
+                    prev-y y))
+            
+            #+:COCOA
+            (let ((xx (shiftf prev-x x))
+                  (yy (shiftf prev-y y)))
+              (if (plotter-backing pane)
+                  (let ((wd (gp:port-width pane))
+                        (ht (gp:port-height pane)))
+                    (gp:invalidate-rectangle pane xx 0 1 ht)
+                    (gp:invalidate-rectangle pane 0 yy wd 1)
+                    (gp:invalidate-rectangle pane x 0 1 ht)
+                    (gp:invalidate-rectangle pane 0 y wd 1))
+                (gp:invalidate-rectangle pane)
+                ))
+            )))
+      )))
+|#
+
+(defun show-x-y-at-cursor (plot x y &rest _)
+  (declare (ignore _))
+  (destructuring-bind (xx yy) (compute-x-y-at-cursor plot x y)
+    (let ((xstr (format nil "~,5g" xx))
+          (ystr (format nil "~,5g" yy)))
+      (capi:display-tooltip plot
+                            :x  (+ x 10)
+                            :y  (+ y 10)
+                            :text (format nil "(~A, ~A)"
+                                          (string-trim " " xstr)
+                                          (string-trim " " ystr))
+                            ))))
+
+;; user callable function
+(defun set-x-readout-hook (plot fn)
+  (setf (plotter-x-readout-hook plot) fn))
+
+;; user callable function
+(defun set-y-readout-hook (plot fn)
+  (setf (plotter-y-readout-hook plot) fn))
+
+;; -----------------------------------------------------------
+#+:WIN32
+(defun draw-nominal-image (plot port)
+  (with-accessors ((nominal-width   plotter-nominal-width )
+                   (nominal-height  plotter-nominal-height)
+                   (sf              plotter-sf            )
+                   (magn            plotter-magn          )
+                   (xform           plotter-xform         )
+                   (display-list    plotter-display-list  )) plot
+
+    (let ((save-xform  xform)
+          (save-magn   magn)
+          (save-sf     sf))
+      (unwind-protect
+          (progn
+            (gp:clear-graphics-port-state plot)
+            
+            (setf xform '(1 0 0 1 0 0)
+                  magn  1
+                  sf    1)
+
+            (dolist (item (display-list-items plot))
+              (funcall item plot port 0 0 nominal-width nominal-height))
+            (draw-legend plot port))
+        
+        (progn
+          (setf sf    save-sf
+                magn  save-magn
+                xform save-xform))
+        ))))
+
+#+:WIN32
+(defun get-nominal-image (plot)
+  ;; should only be called by the capi process
+  (let* ((xpane (gp:create-pixmap-port plot
+                                       (plotter-nominal-width plot)
+                                       (plotter-nominal-height plot)
+                                       :background (background-color plot)
+                                       :foreground (foreground-color plot)
+                                       :clear      t)))
+    ;; this avoids image artifacts due to image shrinkage or expansion
+    ;; just draw at original (nominal) scale
+    (draw-nominal-image plot xpane)
+    
+    #|
+  (let* ((sf (/ (plotter-sf plot))))
+    
+    (if (plotter-backing plot)
+        (gp:with-graphics-scale (xpane sf sf)
+          (gp:draw-image xpane (plotter-backing plot) 0 0))
+      
+      (with-image (plot (img (gp:make-image-from-port plot)))
+        (gp:with-graphics-scale (xpane sf sf)
+          (gp:draw-image xpane img 0 0)
+          ))))
+    |#
+    
+    (values xpane (gp:make-image-from-port xpane))
+    ))
+
+#+:WIN32
+(defmacro with-nominal-image ((plot img) &body body)
+  ;; should only be used by functions called by the capi process
+  (um:with-gensyms (xpane)
+    `(multiple-value-bind (,xpane ,img)
+         (get-nominal-image ,plot)
+       (unwind-protect
+           (progn
+             ,@body)
+         (progn
+           (gp:free-image ,xpane ,img)
+           (gp:destroy-pixmap-port ,xpane))))
+    ))
+
+;; ----------------------------------------------------------
+;;
+#+:COCOA
+(defun delay-backing-store (plot)
+  (capi:apply-in-pane-process plot
+                              (lambda ()
+                                (discard-backing-image plot)
+                                (setf (plotter-delay-backing plot) t)
+                                (gp:invalidate-rectangle plot))))
+
+#+:COCOA
+(defun undelay-backing-store (plot)
+  (setf (plotter-delay-backing plot) nil))
+
+#+:COCOA
+(defmacro with-bare-pdf-image ((plot) &body body)
+  (let ((save-hair (gensym))
+        (save-sf   (gensym)))
+    `(let ((,save-hair (shiftf (plotter-full-crosshair ,plot) nil))
+           (,save-sf   (shiftf (plotter-sf ,plot) 1)))
+       (delay-backing-store ,plot)
+       (unwind-protect
+           (progn
+             ,@body)
+         (progn
+           (undelay-backing-store ,plot)
+           (setf (plotter-full-crosshair ,plot) ,save-hair
+                 (plotter-sf ,plot) ,save-sf))
+         ))
+    ))
+
+;; user callable function
+(defun save-plot-image (plot file &key &allow-other-keys)
+  ;; can be called from anywhere
+  (let ((dest (or file
+                  (capi:prompt-for-file
+                   "Write Image to File"
+                   :operation :save
+                   :filter #+:COCOA "*.pdf"
+                           #+:WIN32 "*.bmp"))))
+    (when dest
+      #+:COCOA
+      (lambda ()
+        (with-bare-pdf-image (plot)
+          (plt::save-pdf-plot plot (namestring dest))))
+      #+:WIN32
+      (lambda ()
+        (with-nominal-image (plot img)
+                            (let ((eimg (gp:externalize-image plot img)))
+                              (gp:write-external-image eimg dest
+                                                       :if-exists :supersede)
+                              )))
+      )))
+
+;; user callable function
+(defun save-plot (&rest args)
+  (apply #'save-plot-image args))
+
+(defun save-image-from-menu (plot &rest args)
+  ;; called only in the pane's process
+  (declare (ignore args))
+  (let ((dest (capi:prompt-for-file
+               "Write Image to File"
+               :operation :save
+               :filter #+:COCOA "*.pdf"
+                       #+:WIN32 "*.bmp")))
+    (when dest
+      #+:COCOA (with-bare-pdf-image (plot)
+                 (plt::save-pdf-plot plot (namestring dest)))
+      #+:WIN32 (save-plot-image (namestring dest) :pane plot))
+    ))
+
+(defun copy-image-to-clipboard (plot &rest args)
+  ;; called only as a callback in the capi process
+  (declare (ignore args))
+  #+:COCOA
+  (with-bare-pdf-image (plot)
+     (plt::copy-pdf-plot plot))
+  #+:WIN32
+  (with-nominal-image (plot img)
+    (capi:set-clipboard plot nil nil (list :image img)))
+  )
+
+(defun print-plotter-pane (plot &rest args)
+  (declare (ignore args))
+  ;; executed in the process of the capi pane
+  #+:COCOA
+  (with-bare-pdf-image (plot)
+     (capi:simple-print-port plot
+                             :interactive t))
+  #+:WIN32
+  (with-nominal-image (plot img)
+    (capi:simple-print-port plot
+                            :interactive t))
+  )
+
+(defparameter *cross-cursor*
+  (ignore-errors
+    (capi:load-cursor
+     '((:win32 "c:/projects/lib/crosshair.cur")
+       (:cocoa "/usr/local/lib/crosshair.gif"
+        :x-hot 7
+        :y-hot 7))
+     )))
+
+;; user callable function
+(defun set-full-crosshair (plot full-crosshair)
+  (lambda ()
+    (setf (plotter-full-crosshair plot)
+          #+:COCOA full-crosshair
+          #+:WIN32
+          (and full-crosshair
+               (complementary-color full-crosshair
+                                    (background-color plot))
+               ))
+    (when (null full-crosshair)
+      (setf (plotter-prev-x plot) nil
+            (plotter-prev-y plot) nil))
+    
+    (gp:invalidate-rectangle plot)))
+
+;; called only from the plotter-window menu (CAPI process)
+(defun toggle-full-crosshair (plot &rest args)
+  (declare (ignore args))
+  (setf (plotter-full-crosshair plot)
+        (if (plotter-full-crosshair plot)
+            (setf (plotter-prev-x plot) nil
+                  (plotter-prev-y plot) nil)
+          #+:COCOA :red
+          #+:WIN32 (complementary-color :red
+                                        (background-color plot))))
+  (gp:invalidate-rectangle plot))
+                                        
+;; ------------------------------------------
+(capi:define-interface plotter-window ()
+  ((name :accessor plotter-window-name :initarg :name)
+   (plot :accessor plotter-plot        :initform (list (make-instance '<plot>))))
+  (:panes
+   (drawing-area capi:pinboard-layout
+                 :draw-pinboard-objects t
+                 :description plot
+                 #|
+                        :display-callback 'draw-plot
+                        :resize-callback  'resize-callback
+                        :input-model      '((:motion mouse-move)
+                                            ((:button-1 :press) show-x-y-at-cursor)
+                                            ((:gesture-spec "Control-c")
+                                             copy-image-to-clipboard)
+                                            ((:gesture-spec "Control-p")
+                                             print-plotter-pane)
+                                            ((:gesture-spec "Control-s")
+                                             save-image-from-menu)
+                                            ((:gesture-spec "C")
+                                             toggle-full-crosshair)
+                                            ((:gesture-spec "c")
+                                             toggle-full-crosshair)
+                                            )
+                        :cursor   (or *cross-cursor*
+                                      :crosshair)
+                        |#
+                 :visible-min-width  200
+                 :visible-min-height 150
+                 :visible-max-width  800
+                 :visible-max-height 600
+                 ;;:foreground :black
+                 ;;:background :white
+                 :accessor drawing-area))
+  #|
+  (:layouts (default-layout
+             capi:pinboard-layout
+             '(drawing-area)))
+  |#
+  (:menus (pane-menu "Pane"
+                     (("Copy"
+                       :callback      'copy-image-to-clipboard
+                       :accelerator   "accelerator-c")
+                      ("Save as..."
+                       :callback      'save-image-from-menu
+                       :accelerator   "accelerator-s")
+                      ("Print..."
+                       :callback      'print-plotter-pane
+                       :accelerator   "accelerator-p"))
+                     :callback-type :data
+                     :callback-data  drawing-area))
+  
+  (:menu-bar pane-menu)
+  
+  (:default-initargs
+   ;; :layout              'default-layout
+   :best-width  400
+   :best-height 300
+   :window-styles       '(:internal-borderless)
+   ))
+
+(defmethod capi:interface-match-p ((intf plotter-window) &rest initargs
+                              &key name &allow-other-keys)
+  (declare (ignore initargs))
+  (equalp name (plotter-window-name intf)))
+
+(defmethod capi:interface-reuse-p ((intf plotter-window) &rest initargs
+                                   &key &allow-other-keys)
+  ;; called only if capi cannot find the window specified by name 
+  ;; with the above capi:interface-match-p function
+  nil)
+
+;; ---------------------------------------------------------------
+(defmethod plotter-pane-of ((intf plotter-window))
+  (drawing-area intf))
+
+(defmethod plotter-pane-of (name)
+  ;; allow for symbolic names in place of plotter-windows or <plotter-pane>s
+  ;; names must match under EQUALP (i.e., case insensitive strings, symbols, numbers, etc.)
+  (wset name))
+    
+(defun find-named-plotter-pane (name)
+  ;; locate the named plotter window and return its <plotter-pane> object
+  (let ((win (capi:locate-interface 'plotter-window :name name)))
+    (and win
+         (first (plotter-plot win))
+         )))
+
+;; ---------------------------------------------------------------
+(defun make-plotter-window (&key
+                            (name       0)
+                            (title      "Plot")
+                            (fg         :black)
+                            (bg         :white)
+                            (foreground fg)
+                            (background bg)
+                            (xsize      400)
+                            (ysize      300)
+                            xpos
+                            ypos
+                            (best-width         xsize)
+                            (best-height        ysize)
+                            (best-x             xpos)
+                            (best-y             ypos)
+                            (visible-min-width  (/ xsize 2))
+                            (visible-min-height (/ ysize 2))
+                            (visible-max-width  (* xsize 2))
+                            (visible-max-height (* ysize 2))
+                            full-crosshair)
+  (let* ((intf (make-instance 'plotter-window
+                              :name                name
+                              :title               title
+                              :best-width          best-width
+                              :best-height         best-height
+                              :visible-min-width   visible-min-width
+                              :visible-min-height  visible-min-height
+                              :visible-max-width   visible-max-width
+                              :visible-max-height  visible-max-height
+                              :best-x              best-x
+                              :best-y              best-y
+                              :background          background
+                              :foreground          foreground))
+         (plot (first (plotter-plot intf))))
+    
+    (setf ;;(plotter-background plot) background
+          ;;(plotter-foreground plot) foreground
+          ;;(plotter-nominal-width  plot)      best-width
+          ;;(plotter-nominal-height plot)      best-height
+          (plotter-base-title     plot)      title
+          (plotter-full-crosshair plot)      #+:COCOA full-crosshair
+                                             #+:WIN32 (and full-crosshair
+                                                           (complementary-color
+                                                            full-crosshair background)))
+    intf))
+
+;; ------------------------------------------
+(defun window (name &rest args &key
+                    (title      (format nil "Plotter:~A" name))
+                    (background #.(color:make-gray 1))
+                    (foreground #.(color:make-gray 0))
+                    (xsize      400)
+                    (ysize      300)
+                    xpos
+                    ypos
+                    (best-width         xsize)
+                    (best-height        ysize)
+                    (best-x             xpos)
+                    (best-y             ypos)
+                    (visible-min-width  (/ xsize 2))
+                    (visible-min-height (/ ysize 2))
+                    (visible-max-width  (* xsize 2))
+                    (visible-max-height (* ysize 2))
+                    full-crosshair)
+
+  (let ((plot (find-named-plotter-pane name)))
+    (when (or args
+              (null plot))
+
+      (when plot
+        (wclose name))
+      
+      (let ((intf (make-plotter-window
+                   :name                name
+                   :title               title
+                   :best-width          best-width
+                   :best-height         best-height
+                   :visible-min-width   visible-min-width
+                   :visible-min-height  visible-min-height
+                   :visible-max-width   visible-max-width
+                   :visible-max-height  visible-max-height
+                   :best-x              best-x
+                   :best-y              best-y
+                   :background          background
+                   :foreground          foreground
+                   :full-crosshair      full-crosshair)))
+        
+        (setf plot (first (plotter-plot intf)))
+        (capi:display intf)
+        ))
+    plot))
+
+;; ------------------------------------------
+(defun wset (name &key clear)
+  ;; If window exists don't raise it to the top.
+  ;; If window does not exist then create it with default parameters.
+  ;; Return the plotting pane object
+  (let ((plot (window name))) ;; locate existing or create anew
+    (when clear
+      (clear plot))
+    plot))
+
+;; ------------------------------------------
+(defun wshow (name)
+  ;; If window exists then raise it to the top.
+  ;; If window does not exist then create it with default parameters
+  (let* ((plot (window name))  ;; locate existing or create anew
+         (intf (capi:top-level-interface plot)))
+    (capi:execute-with-interface intf
+                                 #'capi:raise-interface intf)
+    ))
+
+;; ------------------------------------------
+(defun wclose (name)
+  ;; if window exists then ask it to commit suicide and disappear
+  (let ((intf (capi:locate-interface 'plotter-window :name name)))
+    (when intf
+      (capi:execute-with-interface intf #'capi:destroy intf))
+    ))
+
+;; ------------------------------------------
+;; ------------------------------------------
+(defun outsxy (plot x y str
+                  &rest args
+                  &key
+                  (font-size $normal-times-font-size)
+                  (font "Times")
+                  anchor
+                  (align :w)
+                  (offset-x 0) ;; pixel offsets
+                  (offset-y 0)
+                  clip
+                  (color :black)
+                  alpha
+                  &allow-other-keys)
+  (append-display-list plot
+                       #'(lambda (plot port xarg yarg width height)
+                           (declare (ignore xarg yarg width height))
+                           (let* ((xx (+ offset-x (get-x-location plot x)))
+                                  (yy (+ offset-y (get-y-location plot y)))
+                                  (sf   (plotter-sf plot))
+                                  (font (find-best-font plot
+                                                        :family font
+                                                        :size   (* sf font-size)))
+                                  (x-align (ecase (or anchor align)
+                                             ((:nw :w :sw) :left)
+                                             ((:n :s :ctr) :center)
+                                             ((:ne :e :se) :right)))
+                                  (y-align (ecase (or anchor align)
+                                             ((:nw :n :ne) :top)
+                                             ((:w :ctr :e) :center)
+                                             ((:sw :s :se) :baseline)))
+                                  (mask (and clip
+                                             (adjust-box
+                                              (mapcar (um:expanded-curry (v) #'* sf)
+                                                      (plotter-box plot))
+                                              )))
+                                  (color (adjust-color plot color alpha)))
+                             
+                             #+:WIN32
+                             (with-mask (port mask)
+                                 (apply #'draw-string-x-y plot port str
+                                        (* sf xx) (* sf yy)
+                                        :font font
+                                        :x-alignment x-align
+                                        :y-alignment y-align
+                                        :color       color
+                                        args))
+                             #+:COCOA
+                             (let* ((font-attrs (gp:font-description-attributes
+                                                 (gp:font-description font)))
+                                    (font-name  (getf font-attrs :name))
+                                    (font-size  (getf font-attrs :size)))
+                               (apply #'plt::add-label port str (* sf xx) (* sf yy)
+                                      :font        font-name
+                                      :font-size   font-size
+                                      :color       color
+                                      :x-alignment x-align
+                                      :y-alignment y-align
+                                      :box         mask
+                                      args))
+                             
+                             ))))
+
+;; ---------------------------------------------------------
+;; org can be a list of (type xorg yorg), e.g., '(:frac 0.9 0.96)
+;; or a pair of typed values ((type xorg) (type yorg)), e.g., '((:frac 0.9) (:data 14.3))
+;;
+;; convert to a list of typed pairs, e.g., '((:frac 0.9) (:data 14.3))
+;;
+(defun get-xy-orgs (org)
+  (if (= 3 (length org))
+      (list (list (first org) (second org))
+            (list (first org) (third org)))
+    org))
+
+(defun draw-text (plot str org &rest args)
+  (destructuring-bind (xorg yorg) (get-xy-orgs org)
+    (apply #'outsxy plot xorg yorg str args)))
+
+;; ------------------------------------------
+(defun plot-histogram (plot v &rest args
+                            &key min max range nbins binwidth
+                            ylog cum norm
+                            (symbol :steps)
+                            &allow-other-keys)
+  (multiple-value-bind (x h)
+      (vm:histogram v
+                    :min      min
+                    :max      max
+                    :range    range
+                    :nbins    nbins
+                    :binwidth binwidth)
+    (let (tot minnz)
+      (when norm
+        (setf tot (vsum h))
+        (loop for v across h
+              for ix from 0
+              do
+              (setf (aref h ix) (/ v tot))
+              ))
+      (when cum
+        (loop for v across h
+              for ix from 0
+              for sum = v then (+ sum v)
+              do
+              (setf (aref h ix) sum)
+              (unless (or minnz
+                          (zerop sum))
+                (setf minnz sum))
+              ))
+      (when ylog
+        (let ((zlim (cond (cum  minnz)
+                          (norm (/ 0.9 tot))
+                          (t     0.9)
+                          )))
+          (loop for v across h
+                for ix from 0
+                do
+                (when (zerop v)
+                  (setf (aref h ix) zlim)))
+          ))
+      (apply #'plot plot x h :symbol symbol args)
+      )))
+
+;; -----------------------------------------------------------------
+;; Functional plotting with adaptive gridding
+;; DM/RAL 12/06
+;; ----------------------------------------------------------------------------------------
+;; Parametric Plotting with adaptive gridding
+;;
+(defun do-param-plotting (plotfn plot xfn yfn npts args)
+  (destructuring-bind ((tmin    tmax)
+                       (tprepfn itprepfn)
+                       (xprepfn ixprepfn)
+                       (yprepfn iyprepfn))
+      (list (plotter-trange   plot)
+            (plotter-tprepfns plot)
+            (plotter-xprepfns plot)
+            (plotter-yprepfns plot))
+    (declare (ignore tprepfn))
+    
+    (let* ((xsf (plotter-xsf plot))
+           (ysf (plotter-ysf plot))
+           (ts  (if npts
+                    (loop for ix from 0 to npts collect
+                          (+ tmin (* ix (/ (- tmax tmin) npts))))
+                  (loop for ix from 0 to 16 collect
+                        (+ tmin (* ix 0.0625 (- tmax tmin))))))
+           (xfn (um:curry #'real-eval-with-nans
+                          (um:compose xprepfn xfn itprepfn)))
+           (yfn (um:curry #'real-eval-with-nans
+                          (um:compose yprepfn yfn itprepfn)))
+           (xs  (mapcar xfn ts))
+           (ys  (mapcar yfn ts)))
+      
+      (labels ((midpt (v1 v2)
+                 (* 0.5 (+ v1 v2)))
+               
+               (split-interval (lvl t0 t1 x0 x1 y0 y1 new-xs new-ys)
+                 (if (> lvl 9)
+                     
+                     (list (cons x0 new-xs)
+                           (cons y0 new-ys))
+                   
+                   (let* ((tmid (real-eval-with-nans #'midpt t0 t1))
+                          (xmid (real-eval-with-nans #'midpt x0 x1))
+                          (ymid (real-eval-with-nans #'midpt y0 y1))
+                          (xmv  (funcall xfn tmid))
+                          (ymv  (funcall yfn tmid)))
+                     
+                     (if (or (not (simple-real-number xmv))
+                             (not (simple-real-number xmid))
+                             (not (simple-real-number ymv))
+                             (not (simple-real-number ymid))
+                             (> (abs (* xsf (- xmv xmid))) 0.5)
+                             (> (abs (* ysf (- ymv ymid))) 0.5))
+                         
+                         (destructuring-bind (new-xs new-ys)
+                             (split-interval (1+ lvl)
+                                             t0 tmid x0 xmv y0 ymv
+                                             new-xs new-ys)
+                           
+                           (split-interval (1+ lvl)
+                                           tmid t1 xmv x1 ymv y1
+                                           new-xs new-ys))
+                       
+                       (list (cons x0 new-xs)
+                             (cons y0 new-ys))))
+                   ))
+               
+               (iter-points (ts xs ys new-xs new-ys)
+                 (if (endp (rest ts))
+                     
+                     (list (cons (first xs) new-xs)
+                           (cons (first ys) new-ys))
+
+                   (destructuring-bind ((t0 t1 &rest trest)
+                                        (x0 x1 &rest xrest)
+                                        (y0 y1 &rest yrest))
+                       (list ts xs ys)
+                     (declare (ignore trest xrest yrest))
+                     
+                     (destructuring-bind (new-xs new-ys)
+                         (split-interval 0 t0 t1 x0 x1 y0 y1
+                                         new-xs new-ys)
+                       
+                       (iter-points (rest ts) (rest xs) (rest ys)
+                                    new-xs new-ys)
+                       ))
+                   )))
+
+        (destructuring-bind (xs ys)
+            (if npts
+                (list xs ys)
+              (iter-points ts xs ys nil nil))
+          (let ((xs (if ixprepfn
+                        (mapcar (um:curry #'real-eval-with-nans ixprepfn) xs)
+                      xs))
+                (ys (if iyprepfn
+                        (mapcar (um:curry #'real-eval-with-nans iyprepfn) ys)
+                      ys)))
+            (multiple-value-bind (xsn ysn)
+                (filter-x-y-nans-and-infinities xs ys)
+              (apply plotfn plot xsn ysn args)
+              (list (length xsn) xsn ysn)
+              )))
+        ))
+    ))
+
+;; ------------------------------------------
+(defun paramplot (plot domain xfn yfn &rest args
+                         &key tlog xlog ylog xrange yrange npts
+                         &allow-other-keys)
+  (labels ((get-prepfns (islog)
+             (if islog
+                 (values #'log10 #'pow10)
+               (values #'identity #'identity)))
+           
+           (get-minmax (est-minmax req-minmax prepfn)
+             (destructuring-bind (est-min est-max) est-minmax
+               (destructuring-bind (req-min req-max) req-minmax
+                 (if (= req-min req-max)
+                     (if (= est-min est-max)
+                         (let* ((vmin (funcall prepfn est-min))
+                                (vmax (if (zerop vmin) 0.1 (* 1.1 vmin))))
+                           (values vmin vmax))
+                       (values (funcall prepfn est-min)
+                               (funcall prepfn est-max)))
+                   (values (funcall prepfn req-min)
+                           (funcall prepfn req-max)))
+                 ))))
+    
+    (multiple-value-bind (tprepfn itprepfn) (get-prepfns tlog)
+      (multiple-value-bind (xprepfn ixprepfn) (get-prepfns xlog)
+        (multiple-value-bind (yprepfn iyprepfn) (get-prepfns ylog)
+          (multiple-value-bind (tmin tmax) (get-minmax '(0 0) domain tprepfn)
+            
+            (multiple-value-bind (xs ys)
+                (let* ((ts (loop for ix from 0 to 16 collect
+                                 (+ tmin (* ix 0.0625 (- tmax tmin))))))
+
+                  (values (mapcar (um:curry #'real-eval-with-nans
+                                            (um:compose xfn itprepfn))
+                                  ts)
+                          (mapcar (um:curry #'real-eval-with-nans
+                                            (um:compose yfn itprepfn))
+                                  ts)))
+              
+              (multiple-value-bind (xmin xmax) (get-minmax
+                                                (let ((xsn (filter-nans-and-infinities xs)))
+                                                  (list (vmin xsn)
+                                                        (vmax xsn)))
+                                                (or xrange '(0 0))
+                                                xprepfn)
+                
+                (multiple-value-bind (ymin ymax) (get-minmax
+                                                  (let ((ysn (filter-nans-and-infinities ys)))
+                                                    (list (vmin ysn)
+                                                          (vmax ysn)))
+                                                  (or yrange '(0 0))
+                                                  yprepfn)
+                  (capi:with-geometry plot
+                    (setf (plotter-trange plot)   (list tmin tmax)
+                          (plotter-xsf plot)      (qdiv capi:%width%
+                                                        (- xmax xmin))
+                          (plotter-ysf plot)      (qdiv capi:%height%
+                                                        (- ymax ymin))
+                          (plotter-tprepfns plot) (list tprepfn itprepfn)
+                          (plotter-xprepfns plot) (list xprepfn (and xlog ixprepfn))
+                          (plotter-yprepfns plot) (list yprepfn (and ylog iyprepfn))))
+                  (do-param-plotting #'plot plot xfn yfn npts args))
+                )))
+          )))
+    ))
+
+(defun fplot (plot domain fn &rest args)
+  (apply #'paramplot plot domain #'identity fn args))
+
+;; ------------------------------------------
+(defconstant $gray-colormap
+  (let ((map (make-array 256)))
+    (loop for ix from 0 to 255 do
+          (setf (aref map ix) (color:make-gray (/ (float ix) 255.0))
+                ))
+    map))
+
+(defconstant $heat-colormap
+  (let ((map (make-array 256)))
+    (labels ((clip (v)
+               (max 0.0 (min 1.0 (/ v 255)))))
+      (loop for ix from 0 to 255 do
+            (setf (aref map ix)
+                  (color:make-rgb
+                   (clip (/ (* 255 ix) 176))
+                   (clip (/ (* 255 (- ix 120)) 135))
+                   (clip (/ (* 255 (- ix 190)) 65)))
+                  )))
+    map))
+
+(defparameter *current-colormap* $heat-colormap) ;;$gray-colormap
+
+(defparameter *tst-img*
+  (let ((img (make-array '(64 64))))
+    (loop for row from 0 below 64 do
+          (loop for col from 0 below 64 do
+                (setf (aref img row col) (* row col))
+                ))
+    img))
+
+(defun tvscl (plot arr
+              &key (magn 1)
+              (colormap *current-colormap*)
+              &allow-other-keys)
+  (append-display-list
+   plot
+   #'(lambda (plot port x y width height)
+       (declare (ignore x y width height))
+       (let* ((wd   (array-dimension-of arr 1))
+              (ht   (array-dimension-of arr 0))
+              (mn   (vmin-of arr))
+              (mx   (vmax-of arr))
+              (sf   (/ 255 (- mx mn))))
+         
+         (with-image (port (img #+:COCOA (gp:make-image port wd ht)
+                                #+:WIN32 (gp:make-image port wd ht :alpha nil)
+                                ))
+           (with-image-access (acc (gp:make-image-access port img))
+             (loop for row from 0 below ht do
+                   (loop for col from 0 below wd do
+                         (setf (gp:image-access-pixel acc row col)
+                               (color:convert-color
+                                port
+                                (aref colormap
+                                      (round (* sf (- (aref-of arr row col) mn)))))
+                               )))
+             (gp:image-access-transfer-to-image acc))
+           
+           (let ((sf (* magn (plotter-sf plot))))
+             (gp:with-graphics-scale (port sf sf)
+               (gp:draw-image port img 0 0))
+             ))
+         (setf (plotter-magn plot) magn)
+         )))
+  (update-view plot))
+
+(defun render-image (plot ext-img
+                     &key
+                     (magn 1)
+                     (to-x 0)
+                     (to-y 0)
+                     (from-x 0)
+                     (from-y 0)
+                     to-width
+                     to-height
+                     from-width
+                     from-height
+                     transform
+                     global-alpha
+                     &allow-other-keys)
+  (append-display-list
+   plot
+   #'(lambda (plot port x y wd ht)
+       (declare (ignore x y wd ht))
+       (let ((sf (* magn (plotter-sf plot))))
+         (with-image (port (img (gp:convert-external-image port ext-img)))
+           (gp:with-graphics-scale (port sf sf)
+             (gp:draw-image port img to-x to-y
+                            :transform    transform
+                            :from-x       from-x
+                            :from-y       from-y
+                            :to-width     to-width
+                            :to-height    to-height
+                            :from-width   from-width
+                            :from-height  from-height
+                            :global-alpha global-alpha)
+             ))
+         (setf (plotter-magn plot) magn)
+         )))
+  (update-view plot))
+
+(defun read-image (&optional file)
+  (gp:read-external-image (or file
+                              (capi:prompt-for-file
+                               "Select Image File"
+                               :filter "*.*"))
+                          ))
+
+(defun dump-hex (arr &key (nlines 10))
+  (loop for ix from 0 below (array-total-size-of arr) by 16
+        for line from 0 below nlines
+        do
+        (format t "~%~4,'0x: ~{~{~2,'0x ~} ~} ~A"
+                ix
+                (loop for jx from 0 below 16 by 4
+                      collect
+                      (coerce (subseq-of arr (+ ix jx) (+ ix jx 4)) 'list))
+                (let ((s (make-string 16)))
+                  (loop for jx from 0 below 16 do
+                        (setf (aref s jx)
+                              (let ((v (code-char (aref-of arr (+ ix jx)))))
+                                (if (graphic-char-p v)
+                                    v
+                                  #\.))
+                              ))
+                  s))
+        ))
+
+(defun sinc (x)
+  (/ (sin x) x))
+
+#|
+(window 2)
+(fplot '(0.001 10) (lambda (x) (/ (sin x) x)))
+(tvscl *tst-img* :magn 4)
+|#
+
+;; ------------------------------------------
+#| Test code...
+
+(let (x y)
+  (defun ramp (min max npts)
+    (let ((val (make-array npts))
+          (rate (/ (- max min) npts)))
+      (dotimes (ix npts val)
+        (setf (aref val ix) (+ min (* ix rate))))
+      ))
+  
+  (setf x (ramp -10 10 100))
+  (defun sinc (val)
+    (if (zerop val)
+        1.0
+      (/ (sin val) val)))
+  (setf y (map 'vector 'sinc x))
+  
+  (window 0 :xsize 400 :ysize 300)
+  (plot x y 
+        :color (color:make-rgb 1.0 0.0 0.0 0.25) ;;:red
+        :thick 2
+        :title "Sinc(x)"
+        :xtitle "X Values"
+        :ytitle "Y Values")
+
+  ;;  (window 1 :background :black :foreground :yellow :xsize 400 :ysize 300)
+  ;;  (plot x y 
+  ;;        :color (color:make-rgb 1.0 0.0 1.0 0.25) ;;:magenta
+  ;;        :linewidth 2
+  ;;        :fullgrid (color:make-gray 0.25)
+  ;;        :title "Sinc(x)"
+  ;;        :xtitle "X Values"
+  ;;        :ytitle "Y Values")
+  )
+|#
+
+
+;; *eof* ;;
+
+
+#|
+(defun sinc (x)
+  (/ (sin x) x))
+
+(defun resize-me (pane x y width height)
+  (let ((sf (get-scale width height)))
+    (loop for plot in (rest (capi:layout-description pane))
+          for x0 in '(0 200 0   200)
+          for y0 in '(0 0   150 150)
+          do
+          (setf (plotter-sf plot) (* sf 0.5)
+                (plotter-x plot)  (* sf x0)
+                (plotter-y plot)  (* sf y0))
+    )))
+
+(defun display-me (pane x y width height)
+  (watermark pane pane
+             :box (list 0 0 (gp:port-width pane) (gp:port-height pane))
+             :sf  1)
+  (loop for plot in (capi:layout-description pane)
+        do
+        (capi:draw-pinboard-object pane plot x y width height)))
+
+(let ((p1 (make-instance '<plot>
+                         :x     0
+                         :y     0
+                         :visible-min-width 200
+                         :visible-min-height 150))
+      (p2 (make-instance '<plot>
+                         :x    200
+                         :y     0
+                         :visible-min-width 200
+                         :visible-min-height 150))
+      (p3 (make-instance '<plot>
+                         :x    0
+                         :y    150
+                         :visible-min-width 200
+                         :visible-min-height 150))
+      (p4 (make-instance '<plot>
+                         :x     200
+                         :y     150
+                         :visible-min-width 200
+                         :visible-min-height 150))
+      (wmark (make-instance '<watermark>)))
+  
+    (capi:contain
+     (make-instance 'capi:pinboard-layout
+                    :visible-max-width  800
+                    :visible-max-height 600
+                    ;;:resize-callback 'resize-me
+                    ;;:display-callback 'display-me
+                    :draw-pinboard-objects t 
+                    :description (list wmark p1 p2 p3 p4)
+                    ))
+    (with-default-plotting-args (:watermarkfn nil)
+      (fplot p1 '(-20 20) #'sinc)
+      (fplot p2 '(-10 10) #'sinc :color :red
+             :legend "Sinc Red")
+      (fplot p3 '(0 20)   #'sinc :color :blue   :thick 2
+             :legend "Sinc Blue")
+      (fplot p4 '(-20 0)  #'sinc :color :orange :thick 2  :title "Sinc")))
+
+
+(let ((p4 (make-instance '<plot>
+                         :scale 0.5
+                         :x     0
+                         :y     0
+                         :visible-min-width 400
+                         :visible-min-height 300))
+      (wmark (make-instance '<watermark>)))
+  
+    (capi:contain
+     (make-instance 'capi:pinboard-layout
+                    ;;:visible-min-width  400
+                    ;;:visible-min-height 300
+                    :visible-max-width  800
+                    :visible-max-height 600
+                    ;;:resize-callback 'resize-me
+                    ;;:display-callback 'display-me
+                    :draw-pinboard-objects t 
+                    :description (list p4)
+                    ))
+    (with-default-plotting-args ()
+      (fplot p4 '(-20 0)  #'sinc :color :orange :thick 2  :title "Sinc")))
+
+
+(let ((p4 (make-instance '<plot>
+                         :visible-min-width 400
+                         :visible-min-height 300))
+      (wmark (make-instance '<watermark>)))
+  
+    (capi:contain
+     (make-instance 'capi:column-layout
+                    ;;:visible-min-width  400
+                    ;;:visible-min-height 300
+                    :visible-max-width  800
+                    :visible-max-height 600
+                    ;;:resize-callback 'resize-me
+                    ;;:display-callback 'display-me
+                    ;;:draw-pinboard-objects t 
+                    :description (list p4)
+                    ))
+    (with-default-plotting-args ()
+      (fplot p4 '(-20 0)  #'sinc :color :orange :thick 2  :title "Sinc"
+             :legend "Sinc Orange")
+      (fplot p4 '(-20 0) (um:compose #'sinc (um:curry #'* 2))
+             :color :blue :thick 2 :legend "Sinc Blue"
+             :legend-x '(:frac 0.1))
+      (sleep 5)
+      (clear p4)
+      (tvscl p4 *tst-img* :magn 4)))
+
+
+(let ((p1 (make-instance '<plot>
+                         :visible-min-width 200
+                         :visible-min-height 150))
+      (p2 (make-instance '<plot>
+                         :visible-min-width 200
+                         :visible-min-height 150))
+      (p3 (make-instance '<plot>
+                         :visible-min-width 200
+                         :visible-min-height 150))
+      (p4 (make-instance '<plot>
+                         :visible-min-width 200
+                         :visible-min-height 150))
+      (wmark (make-instance '<watermark>)))
+  
+    (capi:contain
+     (make-instance 'capi:grid-layout
+                    :visible-max-width  800
+                    :visible-max-height 600
+                    ;;:resize-callback 'resize-me
+                    ;;:display-callback 'display-me
+                    ;;:draw-pinboard-objects t 
+                    :description (list #|wmark|# p1 p2 p3 p4)
+                    :columns 2
+                    ))
+    (with-default-plotting-args () ;; (:watermarkfn nil)
+      (with-delayed-update (p1 p2 p3 p4)
+        (fplot p1 '(-20 20) #'sinc)
+        (fplot p2 '(-10 10) #'sinc :color :red
+               :legend "Sinc Red")
+        (fplot p3 '(0 20)   #'sinc :color :blue   :thick 2
+               :legend "Sinc Blue")
+        (fplot p4 '(-20 0)  #'sinc :color :orange :thick 2  :title "Sinc"))))
+
+(let ((win (wset 'xx)))
+  (fplot win '(-20 20) #'sinc :color :blue :thick 2 :title "Sinc"))
+
+|#

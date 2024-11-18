@@ -1,0 +1,634 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+kalman</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="linfit.html">
+Prev:&nbsp;linfit.lisp</a>
+<br/>
+<a href="locate.html">
+Next:&nbsp;locate.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+kalman.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+kalman.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38277">
+com.ral.kalman:filter</a>
+</td>
+<td class="summary">
+</td>
+<td class="summary-type">
+Class</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38282">
+com.ral.kalman:make-filter</a>
+</td>
+<td class="summary">
+<em>&amp;key</em> (p 1) (q 0.002) (r 0.1) x0</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38283">
+com.ral.kalman:predict</a>
+</td>
+<td class="summary">
+kf</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38275">
+com.ral.kalman:smooth</a>
+</td>
+<td class="summary">
+v <em>&amp;key</em> (q 0.002) (p 1) (r 0.1)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38276">
+com.ral.kalman:smooth-fb</a>
+</td>
+<td class="summary">
+v <em>&amp;rest</em> args <em>&amp;key</em> (q 0.002) (p 1) (r 0.1)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38285">
+com.ral.kalman:update</a>
+</td>
+<td class="summary">
+kf x</td>
+<td class="summary-type">
+Function</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Class summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38277">
+filter</a>
+</td>
+<td class="summary">
+</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Method summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38281">
+kf-p</a>
+</td>
+<td class="summary">
+filter</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38280">
+kf-q</a>
+</td>
+<td class="summary">
+filter</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38279">
+kf-r</a>
+</td>
+<td class="summary">
+filter</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38278">
+kf-xk</a>
+</td>
+<td class="summary">
+filter</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38282">
+make-filter</a>
+</td>
+<td class="summary">
+<em>&amp;key</em> (p 1) (q 0.002) (r 0.1) x0</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38283">
+predict</a>
+</td>
+<td class="summary">
+kf</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38275">
+smooth</a>
+</td>
+<td class="summary">
+v <em>&amp;key</em> (q 0.002) (p 1) (r 0.1)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38276">
+smooth-fb</a>
+</td>
+<td class="summary">
+v <em>&amp;rest</em> args <em>&amp;key</em> (q 0.002) (p 1) (r 0.1)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38284">
+sq</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="kalman.html#_g38285">
+update</a>
+</td>
+<td class="summary">
+kf x</td>
+</tr>
+</table>
+<div class="defpackage">
+<div class="defunsignatures">
+<a id="_g38274">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+COM.RAL.KALMAN&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Package]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.LINFIT</div>
+</div>
+<div class="defclass">
+<div class="defunsignatures">
+<a id="_g38277">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+filter&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Class]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KALMAN</div>
+<div class="defclass-initargs">
+<div>
+<div>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+:p&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Initarg]</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div>
+<div>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+:q&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Initarg]</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div>
+<div>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+:r&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Initarg]</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div>
+<div>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+:x0&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Initarg]</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="defclass-slots-doc">
+</div>
+<div class="defclass-generics">
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38281">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+kf-p&nbsp;&nbsp;</td>
+<td class="lambda-list">
+filter</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KALMAN</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the p of the specified filter 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38280">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+kf-q&nbsp;&nbsp;</td>
+<td class="lambda-list">
+filter</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KALMAN</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the q of the specified filter 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38279">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+kf-r&nbsp;&nbsp;</td>
+<td class="lambda-list">
+filter</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KALMAN</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the r of the specified filter 
+ </p>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38278">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+kf-xk&nbsp;&nbsp;</td>
+<td class="lambda-list">
+filter</td>
+<td class="symbol-type">
+&nbsp;[Generic&nbsp;function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KALMAN</div>
+<div class="doc-body">
+<p>
+Returns and (with setf) changes the xk of the specified filter 
+ </p>
+</div>
+</div>
+</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38282">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-filter&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;key</em> (p 1) (q 0.002) (r 0.1) x0</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KALMAN</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38283">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+predict&nbsp;&nbsp;</td>
+<td class="lambda-list">
+kf</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KALMAN</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38275">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+smooth&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v <em>&amp;key</em> (q 0.002) (p 1) (r 0.1)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KALMAN</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38276">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+smooth-fb&nbsp;&nbsp;</td>
+<td class="lambda-list">
+v <em>&amp;rest</em> args <em>&amp;key</em> (q 0.002) (p 1) (r 0.1)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KALMAN</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38284">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sq&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KALMAN</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38285">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+update&nbsp;&nbsp;</td>
+<td class="lambda-list">
+kf x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.KALMAN</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

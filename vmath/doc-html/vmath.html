@@ -1,0 +1,3804 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+vmath</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="simple-vector-ops.html">
+Prev:&nbsp;simple-vector-ops.lisp</a>
+<br/>
+<a href="matrix.html">
+Next:&nbsp;matrix.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+vmath.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+vmath.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38076">
+com.ral.vectorized-math:acanon</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38055">
+com.ral.vectorized-math:bipolar-framp</a>
+</td>
+<td class="summary">
+nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38085">
+com.ral.vectorized-math:bipolar-xplane</a>
+</td>
+<td class="summary">
+ny nx</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38086">
+com.ral.vectorized-math:bipolar-yplane</a>
+</td>
+<td class="summary">
+ny nx</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38104">
+com.ral.vectorized-math:copy</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38093">
+com.ral.vectorized-math:dist</a>
+</td>
+<td class="summary">
+ny nx</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38054">
+com.ral.vectorized-math:dramp</a>
+</td>
+<td class="summary">
+nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38049">
+com.ral.vectorized-math:elementwise</a>
+</td>
+<td class="summary">
+arg-bindings body-form <em>&amp;key</em> dest index</td>
+<td class="summary-type">
+Macro</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38051">
+com.ral.vectorized-math:elementwise-reduce</a>
+</td>
+<td class="summary">
+fn arg <em>&amp;rest</em> keys</td>
+<td class="summary-type">
+Macro</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38079">
+com.ral.vectorized-math:fones</a>
+</td>
+<td class="summary">
+nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38053">
+com.ral.vectorized-math:framp</a>
+</td>
+<td class="summary">
+nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38080">
+com.ral.vectorized-math:fzeros</a>
+</td>
+<td class="summary">
+nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38058">
+com.ral.vectorized-math:gasdev</a>
+</td>
+<td class="summary">
+<em>&amp;optional</em> (random-state lispworks:*mt-random-state*)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38067">
+com.ral.vectorized-math:general-inner-prod</a>
+</td>
+<td class="summary">
+inner-op arr1 arr2 outer-op</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38077">
+com.ral.vectorized-math:general-outer-prod</a>
+</td>
+<td class="summary">
+op arr1 arr2</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38035">
+com.ral.vectorized-math:gensyms-for-args</a>
+</td>
+<td class="summary">
+args <em>&amp;optional</em> pref</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38059">
+com.ral.vectorized-math:gnoise</a>
+</td>
+<td class="summary">
+nel <em>&amp;key</em> (mean 0.0F0) (sd 1.0F0) (random-state
+                                  lispworks:*mt-random-state*)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38120">
+com.ral.vectorized-math:histogram</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> min max range nbins binwidth</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38060">
+com.ral.vectorized-math:hypot</a>
+</td>
+<td class="summary">
+x y</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38068">
+com.ral.vectorized-math:inner-prod</a>
+</td>
+<td class="summary">
+arr1 arr2</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38081">
+com.ral.vectorized-math:iones</a>
+</td>
+<td class="summary">
+nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38052">
+com.ral.vectorized-math:iramp</a>
+</td>
+<td class="summary">
+nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38112">
+com.ral.vectorized-math:ixsort</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38082">
+com.ral.vectorized-math:izeros</a>
+</td>
+<td class="summary">
+nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38062">
+com.ral.vectorized-math:logabs</a>
+</td>
+<td class="summary">
+x <em>&amp;optional</em> base</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38108">
+com.ral.vectorized-math:mad</a>
+</td>
+<td class="summary">
+arr <em>&amp;optional</em> (med (median arr))</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38100">
+com.ral.vectorized-math:map-dimension</a>
+</td>
+<td class="summary">
+fn arr dim</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38114">
+com.ral.vectorized-math:mean</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38107">
+com.ral.vectorized-math:median</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38109">
+com.ral.vectorized-math:negmad</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38078">
+com.ral.vectorized-math:outer-prod</a>
+</td>
+<td class="summary">
+arr1 arr2</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38106">
+com.ral.vectorized-math:percentile</a>
+</td>
+<td class="summary">
+arr pc</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38111">
+com.ral.vectorized-math:percentiles</a>
+</td>
+<td class="summary">
+pcs arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38102">
+com.ral.vectorized-math:reduce-dimension</a>
+</td>
+<td class="summary">
+fn arr dim</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38032">
+com.ral.vectorized-math:require-same-shape</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> args</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38033">
+com.ral.vectorized-math:require-same-size</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> args</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38103">
+com.ral.vectorized-math:reshape</a>
+</td>
+<td class="summary">
+arr dims</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38094">
+com.ral.vectorized-math:shift</a>
+</td>
+<td class="summary">
+arr nels</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38090">
+com.ral.vectorized-math:shifted-bipolar-framp</a>
+</td>
+<td class="summary">
+nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38091">
+com.ral.vectorized-math:shifted-bipolar-xplane</a>
+</td>
+<td class="summary">
+ny nx</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38092">
+com.ral.vectorized-math:shifted-bipolar-yplane</a>
+</td>
+<td class="summary">
+ny nx</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38096">
+com.ral.vectorized-math:shifth</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38061">
+com.ral.vectorized-math:sinc</a>
+</td>
+<td class="summary">
+x</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38098">
+com.ral.vectorized-math:slice</a>
+</td>
+<td class="summary">
+arr dim <em>&amp;rest</em> ixs</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38071">
+com.ral.vectorized-math:split</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38110">
+com.ral.vectorized-math:standard-percentiles</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38116">
+com.ral.vectorized-math:stdev</a>
+</td>
+<td class="summary">
+arr <em>&amp;optional</em> (mn (mean arr))</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38113">
+com.ral.vectorized-math:total</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38097">
+com.ral.vectorized-math:transpose</a>
+</td>
+<td class="summary">
+arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38056">
+com.ral.vectorized-math:unoise</a>
+</td>
+<td class="summary">
+nel limit <em>&amp;optional</em> (random-state lispworks:*mt-random-state*)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38115">
+com.ral.vectorized-math:variance</a>
+</td>
+<td class="summary">
+arr <em>&amp;optional</em> (mn (mean arr))</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38063">
+com.ral.vectorized-math:vector-of</a>
+</td>
+<td class="summary">
+x</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38064">
+com.ral.vectorized-math:vector-of</a>
+</td>
+<td class="summary">
+(lst list)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38065">
+com.ral.vectorized-math:vector-of</a>
+</td>
+<td class="summary">
+(v vector)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38066">
+com.ral.vectorized-math:vector-of</a>
+</td>
+<td class="summary">
+(arr array)</td>
+<td class="summary-type">
+Method</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38047">
+com.ral.vectorized-math:vectorwise</a>
+</td>
+<td class="summary">
+arg-bindings body-form <em>&amp;key</em> dest index</td>
+<td class="summary-type">
+Macro</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38088">
+com.ral.vectorized-math:vrotl</a>
+</td>
+<td class="summary">
+vec nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38087">
+com.ral.vectorized-math:vrotr</a>
+</td>
+<td class="summary">
+vec nel</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38089">
+com.ral.vectorized-math:vshifth</a>
+</td>
+<td class="summary">
+vec</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38122">
+com.ral.vectorized-math:without-denormals</a>
+</td>
+<td class="summary">
+<em>&amp;body</em> body</td>
+<td class="summary-type">
+Macro</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38117">
+com.ral.vectorized-math:wtmean</a>
+</td>
+<td class="summary">
+wts arr</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38119">
+com.ral.vectorized-math:wtstdev</a>
+</td>
+<td class="summary">
+wts arr <em>&amp;optional</em> (mn (wtmean wts arr))</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38118">
+com.ral.vectorized-math:wtvariance</a>
+</td>
+<td class="summary">
+wts arr <em>&amp;optional</em> (mn (wtmean wts arr))</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38083">
+com.ral.vectorized-math:xplane</a>
+</td>
+<td class="summary">
+ny nx</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38084">
+com.ral.vectorized-math:yplane</a>
+</td>
+<td class="summary">
+ny nx</td>
+<td class="summary-type">
+Function</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Variable summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38057">
+*v-other*</a>
+</td>
+<td class="summary">
+nil</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Method summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38030">
+size-of</a>
+</td>
+<td class="summary">
+(v vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38031">
+size-of</a>
+</td>
+<td class="summary">
+(a array)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38063">
+vector-of</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38064">
+vector-of</a>
+</td>
+<td class="summary">
+(lst list)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38065">
+vector-of</a>
+</td>
+<td class="summary">
+(v vector)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38066">
+vector-of</a>
+</td>
+<td class="summary">
+(arr array)</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38076">
+acanon</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38075">
+aflat</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38074">
+aflat-dimensions</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38095">
+array-strides</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38055">
+bipolar-framp</a>
+</td>
+<td class="summary">
+nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38085">
+bipolar-xplane</a>
+</td>
+<td class="summary">
+ny nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38086">
+bipolar-yplane</a>
+</td>
+<td class="summary">
+ny nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38069">
+blit-array</a>
+</td>
+<td class="summary">
+src offs dst offd nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38104">
+copy</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38042">
+dest-vwise</a>
+</td>
+<td class="summary">
+fn dest <em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38093">
+dist</a>
+</td>
+<td class="summary">
+ny nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38121">
+do-without-denormals</a>
+</td>
+<td class="summary">
+fn</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38054">
+dramp</a>
+</td>
+<td class="summary">
+nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38072">
+foldl</a>
+</td>
+<td class="summary">
+op init v</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38073">
+foldr</a>
+</td>
+<td class="summary">
+op v init</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38079">
+fones</a>
+</td>
+<td class="summary">
+nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38053">
+framp</a>
+</td>
+<td class="summary">
+nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38080">
+fzeros</a>
+</td>
+<td class="summary">
+nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38058">
+gasdev</a>
+</td>
+<td class="summary">
+<em>&amp;optional</em> (random-state lispworks:*mt-random-state*)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38067">
+general-inner-prod</a>
+</td>
+<td class="summary">
+inner-op arr1 arr2 outer-op</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38077">
+general-outer-prod</a>
+</td>
+<td class="summary">
+op arr1 arr2</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38035">
+gensyms-for-args</a>
+</td>
+<td class="summary">
+args <em>&amp;optional</em> pref</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38039">
+get-args-from-bindings</a>
+</td>
+<td class="summary">
+arg-bindings</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38059">
+gnoise</a>
+</td>
+<td class="summary">
+nel <em>&amp;key</em> (mean 0.0F0) (sd 1.0F0) (random-state
+                                  lispworks:*mt-random-state*)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38120">
+histogram</a>
+</td>
+<td class="summary">
+arr <em>&amp;key</em> min max range nbins binwidth</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38060">
+hypot</a>
+</td>
+<td class="summary">
+x y</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38040">
+indexed-dest-vwise</a>
+</td>
+<td class="summary">
+fn dest <em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38044">
+indexed-null-vwise</a>
+</td>
+<td class="summary">
+fn <em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38041">
+indexed-vwise</a>
+</td>
+<td class="summary">
+fn <em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38068">
+inner-prod</a>
+</td>
+<td class="summary">
+arr1 arr2</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38099">
+internal-map-dimension</a>
+</td>
+<td class="summary">
+fn arr dim</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38101">
+internal-reduce-dimension</a>
+</td>
+<td class="summary">
+fn arr dim</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38081">
+iones</a>
+</td>
+<td class="summary">
+nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38052">
+iramp</a>
+</td>
+<td class="summary">
+nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38112">
+ixsort</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38070">
+izero</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38082">
+izeros</a>
+</td>
+<td class="summary">
+nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38062">
+logabs</a>
+</td>
+<td class="summary">
+x <em>&amp;optional</em> base</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38108">
+mad</a>
+</td>
+<td class="summary">
+arr <em>&amp;optional</em> (med (median arr))</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38038">
+make-destination-vector</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38036">
+make-overlay-vector</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38100">
+map-dimension</a>
+</td>
+<td class="summary">
+fn arr dim</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38114">
+mean</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38107">
+median</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38046">
+need-symbolic-index-var</a>
+</td>
+<td class="summary">
+index</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38109">
+negmad</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38045">
+null-vwise</a>
+</td>
+<td class="summary">
+fn <em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38078">
+outer-prod</a>
+</td>
+<td class="summary">
+arr1 arr2</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38034">
+pair-up</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38037">
+pair-up-gensyms-with-overlay-vectors</a>
+</td>
+<td class="summary">
+gargs args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38106">
+percentile</a>
+</td>
+<td class="summary">
+arr pc</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38111">
+percentiles</a>
+</td>
+<td class="summary">
+pcs arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38102">
+reduce-dimension</a>
+</td>
+<td class="summary">
+fn arr dim</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38032">
+require-same-shape</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38033">
+require-same-size</a>
+</td>
+<td class="summary">
+<em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38103">
+reshape</a>
+</td>
+<td class="summary">
+arr dims</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38105">
+select-kth</a>
+</td>
+<td class="summary">
+vec ixs k left right</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38094">
+shift</a>
+</td>
+<td class="summary">
+arr nels</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38090">
+shifted-bipolar-framp</a>
+</td>
+<td class="summary">
+nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38091">
+shifted-bipolar-xplane</a>
+</td>
+<td class="summary">
+ny nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38092">
+shifted-bipolar-yplane</a>
+</td>
+<td class="summary">
+ny nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38096">
+shifth</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38061">
+sinc</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38098">
+slice</a>
+</td>
+<td class="summary">
+arr dim <em>&amp;rest</em> ixs</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38071">
+split</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38110">
+standard-percentiles</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38116">
+stdev</a>
+</td>
+<td class="summary">
+arr <em>&amp;optional</em> (mn (mean arr))</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38113">
+total</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38097">
+transpose</a>
+</td>
+<td class="summary">
+arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38056">
+unoise</a>
+</td>
+<td class="summary">
+nel limit <em>&amp;optional</em> (random-state lispworks:*mt-random-state*)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38115">
+variance</a>
+</td>
+<td class="summary">
+arr <em>&amp;optional</em> (mn (mean arr))</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38088">
+vrotl</a>
+</td>
+<td class="summary">
+vec nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38087">
+vrotr</a>
+</td>
+<td class="summary">
+vec nel</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38089">
+vshifth</a>
+</td>
+<td class="summary">
+vec</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38043">
+vwise</a>
+</td>
+<td class="summary">
+fn <em>&amp;rest</em> args</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38117">
+wtmean</a>
+</td>
+<td class="summary">
+wts arr</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38119">
+wtstdev</a>
+</td>
+<td class="summary">
+wts arr <em>&amp;optional</em> (mn (wtmean wts arr))</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38118">
+wtvariance</a>
+</td>
+<td class="summary">
+wts arr <em>&amp;optional</em> (mn (wtmean wts arr))</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38083">
+xplane</a>
+</td>
+<td class="summary">
+ny nx</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38084">
+yplane</a>
+</td>
+<td class="summary">
+ny nx</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Macro summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38049">
+elementwise</a>
+</td>
+<td class="summary">
+arg-bindings body-form <em>&amp;key</em> dest index</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38050">
+elementwise-iter</a>
+</td>
+<td class="summary">
+arg-bindings body-form <em>&amp;key</em> index</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38051">
+elementwise-reduce</a>
+</td>
+<td class="summary">
+fn arg <em>&amp;rest</em> keys</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38047">
+vectorwise</a>
+</td>
+<td class="summary">
+arg-bindings body-form <em>&amp;key</em> dest index</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38048">
+vectorwise-iter</a>
+</td>
+<td class="summary">
+arg-bindings body-form <em>&amp;key</em> index</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="vmath.html#_g38122">
+without-denormals</a>
+</td>
+<td class="summary">
+<em>&amp;body</em> body</td>
+</tr>
+</table>
+<div class="defparam">
+<div class="defunsignatures">
+<a id="_g38057">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+*v-other*&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Variable]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38030">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+size-of&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38031">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+size-of&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(a array)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38063">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vector-of&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38064">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vector-of&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(lst list)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38065">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vector-of&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(v vector)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38066">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vector-of&nbsp;&nbsp;</td>
+<td class="lambda-list">
+(arr array)</td>
+<td class="symbol-type">
+&nbsp;[Method]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38076">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+acanon&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38075">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+aflat&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38074">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+aflat-dimensions&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38095">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+array-strides&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38055">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+bipolar-framp&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38085">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+bipolar-xplane&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38086">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+bipolar-yplane&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38069">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+blit-array&nbsp;&nbsp;</td>
+<td class="lambda-list">
+src offs dst offd nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38104">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+copy&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38042">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+dest-vwise&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn dest <em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38093">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+dist&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38121">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+do-without-denormals&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38054">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+dramp&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38072">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+foldl&nbsp;&nbsp;</td>
+<td class="lambda-list">
+op init v</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38073">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+foldr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+op v init</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38079">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fones&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38053">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+framp&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38080">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fzeros&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38058">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+gasdev&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;optional</em> (random-state lispworks:*mt-random-state*)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38067">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+general-inner-prod&nbsp;&nbsp;</td>
+<td class="lambda-list">
+inner-op arr1 arr2 outer-op</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38077">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+general-outer-prod&nbsp;&nbsp;</td>
+<td class="lambda-list">
+op arr1 arr2</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38035">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+gensyms-for-args&nbsp;&nbsp;</td>
+<td class="lambda-list">
+args <em>&amp;optional</em> pref</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38039">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+get-args-from-bindings&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arg-bindings</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38059">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+gnoise&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nel <em>&amp;key</em> (mean 0.0F0) (sd 1.0F0) (random-state
+                                  lispworks:*mt-random-state*)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38120">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+histogram&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;key</em> min max range nbins binwidth</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38060">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+hypot&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x y</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38040">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+indexed-dest-vwise&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn dest <em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38044">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+indexed-null-vwise&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn <em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38041">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+indexed-vwise&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn <em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38068">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+inner-prod&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr1 arr2</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38099">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+internal-map-dimension&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn arr dim</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38101">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+internal-reduce-dimension&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn arr dim</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38081">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+iones&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38052">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+iramp&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38112">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+ixsort&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38070">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+izero&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38082">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+izeros&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38062">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+logabs&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x <em>&amp;optional</em> base</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38108">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+mad&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;optional</em> (med (median arr))</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38038">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-destination-vector&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38036">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+make-overlay-vector&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38100">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+map-dimension&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn arr dim</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38114">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+mean&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38107">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+median&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38046">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+need-symbolic-index-var&nbsp;&nbsp;</td>
+<td class="lambda-list">
+index</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38109">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+negmad&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38045">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+null-vwise&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn <em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38078">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+outer-prod&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr1 arr2</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38034">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+pair-up&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38037">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+pair-up-gensyms-with-overlay-vectors&nbsp;&nbsp;</td>
+<td class="lambda-list">
+gargs args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38106">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+percentile&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr pc</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38111">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+percentiles&nbsp;&nbsp;</td>
+<td class="lambda-list">
+pcs arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38102">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+reduce-dimension&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn arr dim</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38032">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+require-same-shape&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38033">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+require-same-size&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38103">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+reshape&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dims</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38105">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+select-kth&nbsp;&nbsp;</td>
+<td class="lambda-list">
+vec ixs k left right</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38094">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+shift&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr nels</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38090">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+shifted-bipolar-framp&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38091">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+shifted-bipolar-xplane&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38092">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+shifted-bipolar-yplane&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38096">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+shifth&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38061">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sinc&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38098">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+slice&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr dim <em>&amp;rest</em> ixs</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38071">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+split&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38110">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+standard-percentiles&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38116">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+stdev&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;optional</em> (mn (mean arr))</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38113">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+total&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38097">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+transpose&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38056">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+unoise&nbsp;&nbsp;</td>
+<td class="lambda-list">
+nel limit <em>&amp;optional</em> (random-state lispworks:*mt-random-state*)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38115">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+variance&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;optional</em> (mn (mean arr))</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38088">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vrotl&nbsp;&nbsp;</td>
+<td class="lambda-list">
+vec nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38087">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vrotr&nbsp;&nbsp;</td>
+<td class="lambda-list">
+vec nel</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38089">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vshifth&nbsp;&nbsp;</td>
+<td class="lambda-list">
+vec</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38043">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vwise&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn <em>&amp;rest</em> args</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38117">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+wtmean&nbsp;&nbsp;</td>
+<td class="lambda-list">
+wts arr</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38119">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+wtstdev&nbsp;&nbsp;</td>
+<td class="lambda-list">
+wts arr <em>&amp;optional</em> (mn (wtmean wts arr))</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38118">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+wtvariance&nbsp;&nbsp;</td>
+<td class="lambda-list">
+wts arr <em>&amp;optional</em> (mn (wtmean wts arr))</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38083">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+xplane&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38084">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+yplane&nbsp;&nbsp;</td>
+<td class="lambda-list">
+ny nx</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38049">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+elementwise&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arg-bindings body-form <em>&amp;key</em> dest index</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38050">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+elementwise-iter&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arg-bindings body-form <em>&amp;key</em> index</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38051">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+elementwise-reduce&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fn arg <em>&amp;rest</em> keys</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38047">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vectorwise&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arg-bindings body-form <em>&amp;key</em> dest index</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38048">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+vectorwise-iter&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arg-bindings body-form <em>&amp;key</em> index</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38122">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+without-denormals&nbsp;&nbsp;</td>
+<td class="lambda-list">
+<em>&amp;body</em> body</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.VECTORIZED-MATH</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>

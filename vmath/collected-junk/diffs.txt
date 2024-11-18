@@ -1,0 +1,109 @@
+c-writer.lisp
+defsys.lisp
+86c86
+< #+:LISPWORKS4.2
+---
+> #+(or :LISPWORKS4.2 :LISPWORKS4.3)
+104c104
+< #-:LISPWORKS4.2
+---
+> #+:LISPWORKS4.1
+deliver.lisp
+dfft.lisp
+fft.lisp
+fft_intf.lisp
+fontchange.lisp
+images.lisp
+junk.lisp
+photom.lisp
+photom_ca.lisp
+photom_old.lisp
+retro.lisp
+retro_2.lisp
+saver.lisp
+scigraph.lisp
+scigraph_intf.lisp
+surfplot.lisp
+vmath-clos.lisp
+vmath.lisp
+115c115
+< #+:lispworks
+---
+> #+(and :lispworks (not :LISPWORKS4.3))
+124a125,133
+> #+:LISPWORKS4.3 ;; deprecates lw:top-level-form
+> (defmacro defun-ffp (name args &body body)
+>   `(defun ,name ,args
+>      (declare (optimize (speed  3)
+>                         (safety 0)
+>                         (debug  0)
+>                         (float  0)))
+>      ,@body))
+> 
+326,327c335,336
+< 				(the float (random flimit random-state))
+< 				))
+---
+>             (the float (random flimit random-state))
+>             ))
+336,355c345,364
+<       (let ((v1 (- (* 2.0 
+< 						(the float (random 1.0 random-state))
+< 						) 1.0))
+<             (v2 (- (* 2.0 
+< 						(the float (random 1.0 random-state))
+< 						) 1.0)))
+<         (declare (type float v1 v2))
+<         (let ((r2 (+ (* v1 v1) (* v2 v2))))
+<           (declare (type float r2))
+<           (if (and (plusp r2)
+<                    (< r2 1.0))
+<               (let ((fac 
+< 						(the float (sqrt (/ (* -2.0 (the float (log r2))) r2)))
+< 						))
+<                 (declare (type float fac))
+<                 (setf *v-other* (* fac v1))
+<                 (* fac v2))
+< 	      (gasdev random-state))
+<           ))
+<   ))
+---
+>     (let ((v1 (- (* 2.0 
+>                     (the float (random 1.0 random-state))
+>                     ) 1.0))
+>           (v2 (- (* 2.0 
+>                     (the float (random 1.0 random-state))
+>                     ) 1.0)))
+>       (declare (type float v1 v2))
+>       (let ((r2 (+ (* v1 v1) (* v2 v2))))
+>         (declare (type float r2))
+>         (if (and (plusp r2)
+>                  (< r2 1.0))
+>             (let ((fac 
+>                    (the float (sqrt (/ (* -2.0 (the float (log r2))) r2)))
+>                    ))
+>               (declare (type float fac))
+>               (setf *v-other* (* fac v1))
+>               (* fac v2))
+>           (gasdev random-state))
+>         ))
+>     ))
+369,370c378,379
+< 						(the float (gasdev random-state))
+< 						))))
+---
+>                         (the float (gasdev random-state))
+>                         ))))
+375c384
+<   
+---
+> 
+382,383c391,392
+< 				(the float (sin fx)) 
+< 				fx))))
+---
+>        (the float (sin fx)) 
+>        fx))))
+vmath.old.lisp
+vmath_old2.lisp
+vscids.lisp

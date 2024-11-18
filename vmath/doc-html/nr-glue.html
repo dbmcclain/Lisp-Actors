@@ -1,0 +1,551 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html>
+<head>
+<link rel="Stylesheet" type="text/css" href="cludg.css"/>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>
+nr-glue</title>
+</head>
+<body>
+<div id="navbar">
+<table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
+<colgroup span="3">
+<col width="0*"/>
+<col width="0*"/>
+<col width="1*"/>
+</colgroup>
+<tr>
+<td align="left" valign="baseline">
+<a href="Mac/mac-fft2d.html">
+Prev:&nbsp;mac-fft2d.lisp</a>
+<br/>
+<a href="burg.html">
+Next:&nbsp;burg.lisp</a>
+</td>
+<td>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<td align="left" valign="baseline">
+<span class="upchain">
+<b>
+nr-glue.lisp</b>
+<br/>
+<a href="index.html">
+Table of Contents</a>
+</span>
+&nbsp;&nbsp;&nbsp;&nbsp;</td>
+</tr>
+</table>
+</div>
+<div class="cludg-doc-body">
+<h2>
+nr-glue.lisp
+</h2>
+<table style="width: 100%;" class="external-summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="3">
+External symbol summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38598">
+com.ral.nrglue:evlmem</a>
+</td>
+<td class="summary">
+fdt cof pm</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38599">
+com.ral.nrglue:fixrts</a>
+</td>
+<td class="summary">
+d <em>&amp;key</em> (npmax 100)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38595">
+com.ral.nrglue:laguer</a>
+</td>
+<td class="summary">
+a m x <em>&amp;key</em> (eps 1.0E-6) (polish t) (epss 6.0E-8) (maxit 100)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38597">
+com.ral.nrglue:memcof</a>
+</td>
+<td class="summary">
+data m</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38600">
+com.ral.nrglue:predic</a>
+</td>
+<td class="summary">
+data d nfut <em>&amp;key</em> (npmax 100)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38596">
+com.ral.nrglue:zroots</a>
+</td>
+<td class="summary">
+a <em>&amp;key</em> (polish nil) (eps 1.0E-6) (epss 1.0E-6) (maxit 100)</td>
+<td class="summary-type">
+Function</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Function summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38589">
+dfloat</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38598">
+evlmem</a>
+</td>
+<td class="summary">
+fdt cof pm</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38599">
+fixrts</a>
+</td>
+<td class="summary">
+d <em>&amp;key</em> (npmax 100)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38595">
+laguer</a>
+</td>
+<td class="summary">
+a m x <em>&amp;key</em> (eps 1.0E-6) (polish t) (epss 6.0E-8) (maxit 100)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38597">
+memcof</a>
+</td>
+<td class="summary">
+data m</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38600">
+predic</a>
+</td>
+<td class="summary">
+data d nfut <em>&amp;key</em> (npmax 100)</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38596">
+zroots</a>
+</td>
+<td class="summary">
+a <em>&amp;key</em> (polish nil) (eps 1.0E-6) (epss 1.0E-6) (maxit 100)</td>
+</tr>
+</table>
+<table style="width: 100%;" class="summary-table">
+<tr class="table-heading-color">
+<th class="summary" colspan="2">
+Macro summary</th>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38590">
+fproclaim</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38591">
+fref</a>
+</td>
+<td class="summary">
+arr <em>&amp;rest</em> indices</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38592">
+fset</a>
+</td>
+<td class="summary">
+a b</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38593">
+sngl</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+<tr class="table-row-color">
+<td class="summary-name">
+<a href="nr-glue.html#_g38594">
+2-</a>
+</td>
+<td class="summary">
+x</td>
+</tr>
+</table>
+<div class="defpackage">
+<div class="defunsignatures">
+<a id="_g38588">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+COM.RAL.NRGLUE&nbsp;&nbsp;</td>
+<td class="lambda-list">
+</td>
+<td class="symbol-type">
+&nbsp;[Package]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.FFT2D</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38589">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+dfloat&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.NRGLUE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38598">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+evlmem&nbsp;&nbsp;</td>
+<td class="lambda-list">
+fdt cof pm</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.NRGLUE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38599">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fixrts&nbsp;&nbsp;</td>
+<td class="lambda-list">
+d <em>&amp;key</em> (npmax 100)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.NRGLUE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38595">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+laguer&nbsp;&nbsp;</td>
+<td class="lambda-list">
+a m x <em>&amp;key</em> (eps 1.0E-6) (polish t) (epss 6.0E-8) (maxit 100)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.NRGLUE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38597">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+memcof&nbsp;&nbsp;</td>
+<td class="lambda-list">
+data m</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.NRGLUE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38600">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+predic&nbsp;&nbsp;</td>
+<td class="lambda-list">
+data d nfut <em>&amp;key</em> (npmax 100)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.NRGLUE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38596">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+zroots&nbsp;&nbsp;</td>
+<td class="lambda-list">
+a <em>&amp;key</em> (polish nil) (eps 1.0E-6) (epss 1.0E-6) (maxit 100)</td>
+<td class="symbol-type">
+&nbsp;[Function]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.NRGLUE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38590">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fproclaim&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.NRGLUE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38591">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fref&nbsp;&nbsp;</td>
+<td class="lambda-list">
+arr <em>&amp;rest</em> indices</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.NRGLUE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38592">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+fset&nbsp;&nbsp;</td>
+<td class="lambda-list">
+a b</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.NRGLUE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38593">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+sngl&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.NRGLUE</div>
+</div>
+<div class="defun">
+<div class="defunsignatures">
+<a id="_g38594">
+</a>
+<table cellpadding="0" cellspacing="0" width="100%">
+<colgroup span="3">
+<col width="0*"/>
+<col width="1*"/>
+<col width="0*"/>
+</colgroup>
+<tbody>
+<tr>
+<td class="symbol-name">
+2-&nbsp;&nbsp;</td>
+<td class="lambda-list">
+x</td>
+<td class="symbol-type">
+&nbsp;[Macro]</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="doc-package">
+Package: COM.RAL.NRGLUE</div>
+</div>
+</div>
+<div class="cludg-footer">
+Generated by a locally modified version of<a href="mailto:ihatchondo@common-lisp.net" lang="en">
+CLDOC</a>
+- 2022-10-17 00:04:05<br/>
+This document is Copyright (C) 2008-2011 by SpectroDynamics, LLC. All rights reserved.</div>
+</body>
+</html>
