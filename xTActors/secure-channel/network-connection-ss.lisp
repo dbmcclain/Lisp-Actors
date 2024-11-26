@@ -1,12 +1,8 @@
 ;; --------------------------------------------
 ;; network-connection-ss.lisp -- Secure Network with Self-Sync Stream Encoding
 ;; --------------------------------------------------------------------------------------
-;; Butterfly -- a system for easy distributed computing, going beyond what is available
-;; in Erlang with the full power of Common Lisp.
 ;;
-;; Copyright (C) 2008,2009 by Refined Audiometrics Laboratory, LLC. All rights reserved.
-;;
-;; DM/SD  08/08, 06-12/09
+;; DM/RAL  2024/11/26 16:00:54 UTC
 ;; --------------------------------------------------------------------------------------
 
 (in-package #:com.ral.actors.network)
