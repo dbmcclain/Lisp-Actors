@@ -530,7 +530,7 @@
 ;; state.
 ;;
 ;; Non-idempotent behavior needs to be relegated to edge Actors
-;; (without BECOME). You can acheive that by wrapping the
+;; (Actors without BECOME). You can acheive that by wrapping the
 ;; non-idempotent actions with ON-COMMIT, which only executes if
 ;; successful commit of BECOME.
 ;;
@@ -565,16 +565,15 @@
      ((atag 'abort) / (eq atag tag)
       (exit sav-beh))
      ((atag . info) / (eq atag tag)
-      (let ((err nil))
-        (handler-bind
-            ((error (lambda (c)
-                      (setf err c)
-                      (send-to-pool tag 'abort))
-                    ))
-          (let ((new-beh (apply beh-upd-fn info)))
-            (unless err  ;; guard against debugger restarts
-              (exit new-beh))
-            ))))
+      (handler-bind
+          ((error (lambda (c)
+                    (declare (ignore c))
+                    (send-to-pool tag 'abort) ;; unconditional immediate SEND
+                    ;; Since this just returns, we will enter the debugger here.
+                    ;; Only recourse will be to abort to a higher handler.
+                    )))
+        (exit (apply beh-upd-fn info))
+        ))
      (msg
       (become (shunting-beh tag sav-beh beh-upd-fn (cons msg pending))))
      )))
@@ -583,18 +582,23 @@
   ;; Works hand-in-glove with SHUNTING-BEH to catch error conditions
   ;; in the non-idempotent action, and cause the original Actor to
   ;; revert back to its former behavior.
+  ;;
+  ;; Here is where we develop the additional state info and send it to
+  ;; TAG.
   (handler-bind
       ((error (lambda (c)
                 (declare (ignore c))
-                (send-to-pool tag 'abort)) ;; unconditional immediate SEND
-              ))
+                (send-to-pool tag 'abort) ;; unconditional immediate SEND
+                ;; Since this just returns, we will enter the debugger here.
+                ;; Only recourse will be to abort to a higher handler.
+                )))
     (send* tag (multiple-value-list (funcall fn)))
     ))
   
 (defmacro shunting-become (info-args action-form &body body)
   ;; Has the form of MULTIPLE-VALUE-BIND, but body must produce a
-  ;; behavior function.  INFO-ARGS will be the multiple-value result
-  ;; of the action-form.
+  ;; behavior function.  INFO-ARGS will be the multiple-value-list
+  ;; result of the action-form.
   ;;
   ;; Any errors along the way cause us to revert to our previous
   ;; behavior.

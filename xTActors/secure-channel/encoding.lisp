@@ -48,8 +48,8 @@
   (labels ((wrapper (&rest proc-args)
              ;; (print "Starting thread with fresh PRNG")
              (let ((ironclad:*prng* (ironclad:make-prng :os)))
-               (<<* fun proc-args))))
-    (<<* #'lw:call-next-advice name kwds #'wrapper args)
+               (apply fun proc-args))))
+    (apply #'lw:call-next-advice name kwds #'wrapper args)
     ))
 
 ;; ----------------------------------------------------
