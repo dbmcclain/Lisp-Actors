@@ -132,6 +132,7 @@ THE SOFTWARE.
    #:sequentially
    
    #:send-after
+   #:forced-send-after
 
    #:start
    #:start-tcp-server

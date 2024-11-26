@@ -583,17 +583,13 @@
   ;; Works hand-in-glove with SHUNTING-BEH to catch error conditions
   ;; in the non-idempotent action, and cause the original Actor to
   ;; revert back to its former behavior.
-  (let ((err nil))
-    (handler-bind
-        ((error (lambda (c)
-                  (setf err c)
-                  (send-to-pool tag 'abort)) ;; unconditional immediate SEND
-                ))
-      (let ((info (multiple-value-list (funcall fn))))
-        (unless err
-          (send* tag info)
-          ))
-      )))
+  (handler-bind
+      ((error (lambda (c)
+                (declare (ignore c))
+                (send-to-pool tag 'abort)) ;; unconditional immediate SEND
+              ))
+    (send* tag (multiple-value-list (funcall fn)))
+    ))
   
 (defmacro shunting-become (info-args action-form &body body)
   ;; Has the form of MULTIPLE-VALUE-BIND, but body must produce a
