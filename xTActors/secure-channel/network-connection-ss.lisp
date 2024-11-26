@@ -164,6 +164,7 @@
      ;; Sent from :SHUTDOWN.
      
      ((cust :terminate-ws-collection)
+      (setf *server-started* nil)
       (cond (aio-accepting-handles
              (send self cust :shutdown))
             
