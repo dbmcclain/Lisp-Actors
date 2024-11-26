@@ -11,6 +11,7 @@
 
 (defparameter *default-port*            65001.)
 (defparameter *socket-timeout-period*   20.)
+(defvar *server-started*  nil)
 
 (defconstant +MAX-FRAGMENT-SIZE+ 65536.)
 
@@ -58,6 +59,7 @@
                  ;; Tell the customer that we succeeded.
                  (send cust :ok)
                  (send fmt-println "-- Actor Server started on port ~A --" port)
+                 (setf *server-started* port)
                  (async-socket-system-beh
                   ws-collection
                   (acons port handle aio-accepting-handles))
@@ -115,6 +117,7 @@
       (send self cust :termniate-server *default-port*))
      
      ((cust :terminate-server port)
+      (setf *server-started* nil)
       (let ((pair (assoc port aio-accepting-handles)))
         (cond (pair
                (become (async-socket-system-beh
@@ -1022,7 +1025,6 @@
 
 ;; --------------------------------------------------------------
 ;;
-(defvar *server-started*  nil)
 
 (defun* lw-start-actors-server _
   ;; called by Action list with junk args
@@ -1041,8 +1043,7 @@
 
 (defun* lw-reset-actors-server _
   (when *server-started*
-    (ask async-socket-system :shutdown)
-    (setf *server-started* nil))
+    (ask async-socket-system :shutdown))
   (princ "Actor Server has been shut down."))
 
 
