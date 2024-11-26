@@ -11,14 +11,13 @@
 
 (defparameter *default-port*            65001.)
 (defparameter *socket-timeout-period*   20.)
-(defvar *server-started*  nil)
 
 (defconstant +MAX-FRAGMENT-SIZE+ 65536.)
 
 ;; -----------------------------------------------
 ;; The main async manager
 
-(defun async-socket-system-beh (&optional ws-collection aio-accepting-handles)
+(defun async-socket-system-beh (&optional ws-collection aio-accepting-handles servers)
   (flet ((retry-after-ws-start ()
            (let ((me   self)
                  (msg  self-msg))
@@ -59,10 +58,10 @@
                  ;; Tell the customer that we succeeded.
                  (send cust :ok)
                  (send fmt-println "-- Actor Server started on port ~A --" port)
-                 (setf *server-started* port)
                  (async-socket-system-beh
                   ws-collection
-                  (acons port handle aio-accepting-handles))
+                  (acons port handle aio-accepting-handles)
+                  (cons port servers))
                  )))
             
             (t
@@ -117,12 +116,12 @@
       (send self cust :termniate-server *default-port*))
      
      ((cust :terminate-server port)
-      (setf *server-started* nil)
       (let ((pair (assoc port aio-accepting-handles)))
         (cond (pair
                (become (async-socket-system-beh
                         ws-collection
-                        (remove pair aio-accepting-handles)))
+                        (remove pair aio-accepting-handles)
+                        (remove (car pair) servers)))
                (on-commit
                  (comm:close-accepting-handle
                   (cdr pair)
@@ -164,7 +163,6 @@
      ;; Sent from :SHUTDOWN.
      
      ((cust :terminate-ws-collection)
-      (setf *server-started* nil)
       (cond (aio-accepting-handles
              (send self cust :shutdown))
             
@@ -185,6 +183,11 @@
             (t
              (send cust :ok))
             ))
+     ;; --------------------------------------------
+     ;; SERVER-RUNNING?
+
+     ((cust :server-running?)
+      (send cust servers))
      )))
 
 (deflex* async-socket-system
@@ -1034,16 +1037,15 @@
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
   ;;
-  (unless *server-started*
+  (unless (ask async-socket-system :server-running?)
     (setf async-socket-system (create (async-socket-system-beh))
           get-server-count    (create (auto-counter-beh))
-          connections         (create (connections-list-beh))
-          *server-started*    t)
+          connections         (create (connections-list-beh)))
     (send-after 3 async-socket-system sink :start-tcp-server)
     ))
 
 (defun* lw-reset-actors-server _
-  (when *server-started*
+  (when (ask async-socket-system :server-running?)
     (ask async-socket-system :shutdown))
   (princ "Actor Server has been shut down."))
 
