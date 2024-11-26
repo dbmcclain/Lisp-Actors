@@ -48,7 +48,7 @@
                    (handler-bind
                        ((error (lambda (c)
                                  (send-to-pool println "Start-TCP-Server failed.")
-                                 (send-to-pool cust :nok)
+                                 (send-to-pool cust c)
                                  (send-to-pool me sink :shutdown)
                                  (error c))
                                ))
@@ -1026,6 +1026,7 @@
 
 ;; --------------------------------------------------------------
 ;;
+(defvar *server-started*  nil)
 
 (defun* lw-start-actors-server _
   ;; called by Action list with junk args
@@ -1034,16 +1035,18 @@
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
   ;;
-  (setf async-socket-system (create (async-socket-system-beh)))
-  (setf get-server-count    (create (auto-counter-beh)))
-  (setf connections         (create (connections-list-beh)))
-  (send-after 3 async-socket-system sink :start-tcp-server)
-  ;; flush pending messages...
-  ;; (ask true)
-  )
+  (unless *server-started*
+    (setf async-socket-system (create (async-socket-system-beh))
+          get-server-count    (create (auto-counter-beh))
+          connections         (create (connections-list-beh))
+          *server-started*    t)
+    (send-after 3 async-socket-system sink :start-tcp-server)
+    ))
 
 (defun* lw-reset-actors-server _
-  (ask async-socket-system :shutdown)
+  (when *server-started*
+    (ask async-socket-system :shutdown)
+    (setf *server-started* nil))
   (princ "Actor Server has been shut down."))
 
 
@@ -1052,7 +1055,7 @@
   (lw:define-action "Initialize LispWorks Tools"
                     "Start up Actor Server"
                     'lw-start-actors-server
-                    :after "Start up Actor System" ;; "Run the environment start up functions"
+                    :after "Start up Actor System"
                     :once)
 
   (lw:define-action "Save Session Before"
@@ -1063,7 +1066,8 @@
   (lw:define-action "Save Session After"
                     "Restart Actor Server"
                     'lw-start-actors-server
-                    :after "Restart Actor System")
+                    :after "Restart Actor System"
+                    :once)
   )
 
 (defun com.ral.actors:start ()
