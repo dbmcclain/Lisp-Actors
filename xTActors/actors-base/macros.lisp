@@ -571,37 +571,34 @@
                             (cons msg pending))))
      )))
 
-(defun guarded-non-idempotence (tag err fn)
+(defun do-shunting-become (fn)
   ;; Works hand-in-glove with SHUNTING-BEH to catch error conditions
-  ;; in the non-idempotent action, and cause the original Actor to
-  ;; revert back to its former behavior.
+  ;; in the non-idempotent action, and cause the Actor to revert back
+  ;; to its former behavior.
   ;;
-  ;; Here is where we develop the new behavior function based on
-  ;; non-idempotent derived state info.
-  (handler-bind
-      ((error (lambda (c)
-                (declare (ignore c))
-                (send-to-pool err) ;; unconditional immediate SEND
-                ;; Since this just returns, we will enter the debugger here.
-                ;; Only recourse will be to abort to a higher handler.
-                )))
-    (send tag (funcall fn))
+  ;; The non-idempotent expr develops a new behavior function for the
+  ;; Actor.
+  (let ((tag  (tag self))
+        (err  (tag self)))
+    (become (shunting-beh tag err self-beh))
+    (on-commit
+      (handler-bind
+          ((error (lambda (c)
+                    (declare (ignore c))
+                    (send-to-pool err) ;; unconditional immediate SEND
+                    ;; Since this just returns, we will enter the debugger here.
+                    ;; Only recourse will be to abort to a higher handler.
+                    )))
+        (send tag (funcall fn))
+        ))
     ))
-  
+
 (defmacro shunting-become (expr)
   ;; Expr must produce a new behavior function. As always, any errors
   ;; along the way cancels the BECOME.
   ;;
-  (um:with-unique-names (tag err)
-    `(let ((,tag  (tag self))
-           (,err  (tag self)))
-       (become (shunting-beh ,tag ,err self-beh))
-       (on-commit
-         (guarded-non-idempotence ,tag ,err
-                                  (lambda ()
-                                    ,expr))
-         ))
-    ))
+  `(do-shunting-become (lambda ()
+                         ,expr)))
 
 (defmacro β-become (expr)
   `(shunting-become ,expr))
