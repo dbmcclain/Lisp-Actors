@@ -557,28 +557,28 @@
 ;; This is all elegantly produced by macro SHUNTING-BECOME, which
 ;; carries the surface syntax of MULTIPLE-VALUE-BIND.
 
-(defun shunting-beh (tag sav-beh beh-upd-fn &optional pending)
+(defun shunting-beh (tag err sav-beh beh-upd-fn &optional pending)
   (flet ((exit (beh)
            (become beh)
            (send-all-to self pending)))
     (alambda
-     ((atag 'abort) / (eq atag tag)
+     ((atag) / (eq atag err)
       (exit sav-beh))
      ((atag . info) / (eq atag tag)
       (handler-bind
           ((error (lambda (c)
                     (declare (ignore c))
-                    (send-to-pool tag 'abort) ;; unconditional immediate SEND
+                    (send-to-pool err) ;; unconditional immediate SEND
                     ;; Since this just returns, we will enter the debugger here.
                     ;; Only recourse will be to abort to a higher handler.
                     )))
         (exit (apply beh-upd-fn info))
         ))
      (msg
-      (become (shunting-beh tag sav-beh beh-upd-fn (cons msg pending))))
+      (become (shunting-beh tag err sav-beh beh-upd-fn (cons msg pending))))
      )))
 
-(defun guarded-non-idempotence (tag fn)
+(defun guarded-non-idempotence (tag err fn)
   ;; Works hand-in-glove with SHUNTING-BEH to catch error conditions
   ;; in the non-idempotent action, and cause the original Actor to
   ;; revert back to its former behavior.
@@ -588,7 +588,7 @@
   (handler-bind
       ((error (lambda (c)
                 (declare (ignore c))
-                (send-to-pool tag 'abort) ;; unconditional immediate SEND
+                (send-to-pool err) ;; unconditional immediate SEND
                 ;; Since this just returns, we will enter the debugger here.
                 ;; Only recourse will be to abort to a higher handler.
                 )))
@@ -603,14 +603,15 @@
   ;; Any errors along the way cause us to revert to our previous
   ;; behavior.
   ;;
-  (um:with-unique-names (tag)
-    `(let ((,tag  (tag self)))
-       (become (shunting-beh ,tag self-beh
+  (um:with-unique-names (tag err)
+    `(let ((,tag  (tag self))
+           (,err  (tag self)))
+       (become (shunting-beh ,tag ,err self-beh
                              (lambda* ,info-args
                                ,@body)))
        (on-commit
-         (guarded-non-idempotence ,tag (lambda ()
-                                         ,action-form))))
+         (guarded-non-idempotence ,tag ,err (lambda ()
+                                              ,action-form))))
     ))
 
 (defmacro β-become (info-args action-form &body body)
