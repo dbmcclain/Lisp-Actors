@@ -39,7 +39,7 @@
             (ws-collection
              ;; already have an async manager?
              (let ((me self))
-               (β-become (handle)
+               (β-become 
                    ;; non-idempotent action, so we need β-become
                    (handler-bind
                        ((error (lambda (c)
@@ -48,20 +48,20 @@
                                  (send-to-pool me sink :shutdown)
                                  (error c))
                                ))
-                     (comm:accept-tcp-connections-creating-async-io-states
-                      ws-collection
-                      port
-                      #'start-server-listener
-                      :init-timeout 1
-                      :ipv6 nil))
-                 
-                 ;; Tell the customer that we succeeded.
-                 (send cust :ok)
-                 (send fmt-println "-- Actor Server started on port ~A --" port)
-                 (async-socket-system-beh
-                  ws-collection
-                  (acons port handle aio-accepting-handles))
-                 )))
+                     (let ((handle (comm:accept-tcp-connections-creating-async-io-states
+                                    ws-collection
+                                    port
+                                    #'start-server-listener
+                                    :init-timeout 1
+                                    :ipv6 nil)))
+                       ;; Tell the customer that we succeeded.
+                       (send cust :ok)
+                       (send fmt-println "-- Actor Server started on port ~A --" port)
+                       (async-socket-system-beh
+                        ws-collection
+                        (acons port handle aio-accepting-handles))
+                       )))
+               ))
             
             (t
              (retry-after-ws-start))
@@ -145,15 +145,14 @@
             
             (t
              (assert (null aio-accepting-handles)) ;; sanity check
-             (β-become (ws-coll)
+             (β-become
                  ;; non-idempotent action, so we need β-become
-                 (comm:create-and-run-wait-state-collection
-                  "Actor Server"
-                  :handler t)
-               (send cust :ok)
-               ;; (send println "Making new ws-collection")
-               (async-socket-system-beh ws-coll)
-               ))
+                 (let ((ws-coll (comm:create-and-run-wait-state-collection
+                                 "Actor Server"
+                                 :handler t)))
+                   (send cust :ok)
+                   (async-socket-system-beh ws-coll)
+                   )))
             ))
      
      ;; --------------------------------------

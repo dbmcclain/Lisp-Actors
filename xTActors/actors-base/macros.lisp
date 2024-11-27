@@ -548,11 +548,11 @@
 ;;   futures messages to a queue while looking for specific update
 ;;   information from an ON-COMMIT action.
 ;;
-;;   The ON-COMMIT must send its non-idempotent information to this
-;;   temporary Actor behavior. Once the shunting behavior receives the
-;;   state update info, it can revert to its former behavior with
-;;   updated state, and then it can release the pending messages for
-;;   re-delivery to SELF.
+;;   The ON-COMMIT action must compute its non-idempotent information
+;;   and produce a new behavior function which is sent to the shunting
+;;   Actor behavior. The shunting behavior then becomes the new
+;;   behavior and it can release the pending messages for re-delivery
+;;   to SELF.
 ;;
 ;; This is all elegantly produced by macro SHUNTING-BECOME, which
 ;; carries the surface syntax of MULTIPLE-VALUE-BIND.
@@ -571,13 +571,13 @@
                             (cons msg pending))))
      )))
 
-(defun guarded-non-idempotence (tag err fn beh-fn)
+(defun guarded-non-idempotence (tag err fn)
   ;; Works hand-in-glove with SHUNTING-BEH to catch error conditions
   ;; in the non-idempotent action, and cause the original Actor to
   ;; revert back to its former behavior.
   ;;
-  ;; Here is where we develop the additional state info and send it to
-  ;; TAG.
+  ;; Here is where we develop the new behavior function based on
+  ;; non-idempotent derived state info.
   (handler-bind
       ((error (lambda (c)
                 (declare (ignore c))
@@ -585,16 +585,12 @@
                 ;; Since this just returns, we will enter the debugger here.
                 ;; Only recourse will be to abort to a higher handler.
                 )))
-    (send tag (multiple-value-call beh-fn (funcall fn)))
+    (send tag (funcall fn))
     ))
   
-(defmacro shunting-become (info-args action-form &body body)
-  ;; Has the form of MULTIPLE-VALUE-BIND, but body must produce a
-  ;; behavior function.  INFO-ARGS will be the multiple-value-list
-  ;; result of the action-form.
-  ;;
-  ;; Any errors along the way cause us to revert to our previous
-  ;; behavior.
+(defmacro shunting-become (expr)
+  ;; Expr must produce a new behavior function. As always, any errors
+  ;; along the way cancels the BECOME.
   ;;
   (um:with-unique-names (tag err)
     `(let ((,tag  (tag self))
@@ -603,13 +599,12 @@
        (on-commit
          (guarded-non-idempotence ,tag ,err
                                   (lambda ()
-                                    ,action-form)
-                                  (lambda* ,info-args
-                                    ,@body))))
+                                    ,expr))
+         ))
     ))
 
-(defmacro β-become (info-args action-form &body body)
-  `(shunting-become ,info-args ,action-form ,@body))
+(defmacro β-become (expr)
+  `(shunting-become ,expr))
 
 #+:LISPWORKS
 (progn
