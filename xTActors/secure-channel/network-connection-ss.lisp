@@ -45,7 +45,7 @@
                        ((error (lambda (c)
                                  (send-to-pool println "Start-TCP-Server failed.")
                                  (send-to-pool cust c)
-                                 (send-to-pool me sink :shutdown)
+                                 ;; (send-to-pool me sink :shutdown)
                                  (error c))
                                ))
                      (let ((handle (comm:accept-tcp-connections-creating-async-io-states
@@ -185,7 +185,7 @@
      ;; running on this system.
 
      ((cust :server-running?)
-      (send cust (mapcar #'car aio-accepting-handles)))
+      (send cust ws-collection))
      )))
 
 (deflex* async-socket-system
@@ -1044,8 +1044,9 @@
 
 (defun* lw-reset-actors-server _
   (when (ask async-socket-system :server-running?)
-    (ask async-socket-system :shutdown))
-  (princ "Actor Server has been shut down."))
+    (ask async-socket-system :shutdown)
+    (princ "Actor Server has been shut down."))
+  (values))
 
 
 (let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))

@@ -584,10 +584,8 @@
     (on-commit
       (handler-bind
           ((error (lambda (c)
-                    (declare (ignore c))
                     (send-to-pool err) ;; unconditional immediate SEND
-                    ;; Since this just returns, we will enter the debugger here.
-                    ;; Only recourse will be to abort to a higher handler.
+                    (error c)
                     )))
         (send tag (funcall fn))
         ))
