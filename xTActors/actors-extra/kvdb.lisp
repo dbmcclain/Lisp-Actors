@@ -45,7 +45,7 @@
       (handler-bind
           ((error (lambda (e)
                     (abort-beh)
-                    (send cust :error e))
+                    (send-to-pool cust :error e))
                   ))
         (let* ((key   (ino-key path))
                (quad  (and key
@@ -55,16 +55,18 @@
           (if quad
               (send cust (open-database-kvdb-actor quad))
             ;; else - new Open
-            (let* ((tag-to-orch  (tag self))
-                   (kvdb         (%make-kvdb tag-to-orch path)))
-              (become (kvdb-orchestrator-beh
-                       (cons (make-open-database
-                              :ino-key    key
-                              :orch-tag   tag-to-orch
-                              :kvdb-actor kvdb
-                              :path       path)
-                             open-dbs)))
-              (send cust kvdb)))
+            (let* ((tag-to-orch  (tag self)))
+              (β-become
+                  (let ((kvdb  (%make-kvdb tag-to-orch path)))
+                    (send cust kvdb)
+                    (kvdb-orchestrator-beh
+                     (cons (make-open-database
+                            :ino-key    key
+                            :orch-tag   tag-to-orch
+                            :kvdb-actor kvdb
+                            :path       path)
+                           open-dbs))
+                    ))))
           ))))
    
    ((atag :update-entry)
@@ -99,6 +101,8 @@
 
 (deflex* kvdb-orchestrator
   (create (kvdb-orchestrator-beh)))
+
+;; --------------------------------------------
 
 (defun kvdb-gateway (path)
   (labels ((initial-beh (&rest msg)
