@@ -41,33 +41,30 @@
     ;; the +timed-out+ message. In that case we are happy, and the
     ;; sender just needs to reissue the request.
     ;;
-    (with-simple-restart (abort "Exit KVDB Orchestrator")
-      (handler-bind
-          ((error (lambda (e)
-                    (abort-beh)
-                    (send-to-pool cust :error e))
-                  ))
-        (let* ((key   (ino-key path))
-               (quad  (and key
-                           (find key open-dbs
-                                 :key  #'open-database-ino-key
-                                 :test #'string-equal))))
-          (if quad
+    (handler-bind
+        ((error (lambda (e)
+                  (send-to-pool cust :error e))
+                ))
+      (let* ((key   (ino-key path)) ;; might trigger error
+             (quad  (and key
+                         (find key open-dbs
+                               :key  #'open-database-ino-key
+                               :test #'string-equal))))
+        (if quad
               (send cust (open-database-kvdb-actor quad))
-            ;; else - new Open
-            (let* ((tag-to-orch  (tag self)))
-              (β-become
-                  (let ((kvdb  (%make-kvdb tag-to-orch path)))
+          ;; else - new Open
+          (let* ((tag-to-orch  (tag self))
+                 (kvdb         (%make-kvdb tag-to-orch path)))
                     (send cust kvdb)
-                    (kvdb-orchestrator-beh
-                     (cons (make-open-database
-                            :ino-key    key
-                            :orch-tag   tag-to-orch
-                            :kvdb-actor kvdb
-                            :path       path)
-                           open-dbs))
-                    ))))
-          ))))
+                    (become (kvdb-orchestrator-beh
+                             (cons (make-open-database
+                                    :ino-key    key
+                                    :orch-tag   tag-to-orch
+                                    :kvdb-actor kvdb
+                                    :path       path)
+                                   open-dbs)))
+                    ))
+        )))
    
    ((atag :update-entry)
     ;; when actual inode changes, as with full-save
