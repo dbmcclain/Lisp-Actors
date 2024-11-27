@@ -17,7 +17,7 @@
 ;; -----------------------------------------------
 ;; The main async manager
 
-(defun async-socket-system-beh (&optional ws-collection aio-accepting-handles servers)
+(defun async-socket-system-beh (&optional ws-collection aio-accepting-handles)
   (flet ((retry-after-ws-start ()
            (let ((me   self)
                  (msg  self-msg))
@@ -60,8 +60,7 @@
                  (send fmt-println "-- Actor Server started on port ~A --" port)
                  (async-socket-system-beh
                   ws-collection
-                  (acons port handle aio-accepting-handles)
-                  (cons port servers))
+                  (acons port handle aio-accepting-handles))
                  )))
             
             (t
@@ -120,8 +119,7 @@
         (cond (pair
                (become (async-socket-system-beh
                         ws-collection
-                        (remove pair aio-accepting-handles)
-                        (remove (car pair) servers)))
+                        (remove pair aio-accepting-handles)))
                (on-commit
                  (comm:close-accepting-handle
                   (cdr pair)
@@ -184,10 +182,11 @@
              (send cust :ok))
             ))
      ;; --------------------------------------------
-     ;; SERVER-RUNNING?
+     ;; SERVER-RUNNING? - return port numbers for servers currently
+     ;; running on this system.
 
      ((cust :server-running?)
-      (send cust servers))
+      (send cust (mapcar #'car aio-accepting-handles)))
      )))
 
 (deflex* async-socket-system
