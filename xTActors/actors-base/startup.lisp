@@ -7,6 +7,42 @@
 ;;
 ;; A tour de force in SMP programming, the old way...
 ;;
+;; --------------------------------------------
+;;
+;; Must keep in mind that Actors split the concept of Logical Tasks
+;; from Machine Threads. The two are orthogonal concepts. We have
+;; become accustomed to thinking of them as the same thing. And in
+;; non-Actor systems they are the same. But not here.
+;;
+;; One logical task can be multiplexed across any number of different
+;; machine threads during the course of its execution. A logical task
+;; is a series of messages handled by various Actors, whose collective
+;; intention is to accomplish some goal or sub-goal of a job to be
+;; done. It makes no difference to the Actors which machine thread
+;; executes them.
+;;
+;; SMP deals with machine threads, which may be multiplexing portions
+;; of any number of logical tasks. A machine thread has no notion of
+;; logical task progression. It is merely called upon to execute some
+;; Actors which may be participating in any number of different
+;; logical tasks. A machine thread is simply a workhorse used to
+;; exercise a CPU on behalf of logical tasks.
+;;
+;; There is no direct connection between a running Actor and the
+;; machine thread on which it is currently running. It could even be
+;; running in parallel on more than one machine thread at the same
+;; time. And every time you look, the machine thread running an Actor
+;; could be different from previous executions.
+;;
+;; All you can know is that once execution of an Actor has begun on
+;; one machine thread, that thread will carry on until Actor exit. As
+;; long as there is at least one machine thread executing the
+;; Dispatcher code, then an Actors system is running. It makes no
+;; logical difference how many Dispatcher threads are running. Only
+;; the runtime performance varies.
+;;
+;; --------------------------------------------
+;;
 ;; Here we have the full blending of Actors with SMP Threading.  Apart
 ;; from a small bit in RUN-ACTORS, here we have to wrestle with the
 ;; fact that we have no direct control over which threads are running
@@ -17,10 +53,10 @@
 ;; suicide from within the Custodian. That way we know that the thread
 ;; will be exiting cleanly.
 ;;
-;; We can invent one non-pool thread, using ASK, to serve as a
-;; surrogate dispatcher while all the pool threads are shutting down.
-;; But we cannot force that surrogate thread to run anything at all
-;; while performing the ASK.
+;; We can invent one non-pool thread, calling ASK from outside of the
+;; Actors system, to serve as a surrogate dispatcher while all the
+;; pool threads are shutting down.  But we cannot force that surrogate
+;; thread to run anything at all while performing the ASK.
 ;;
 ;; Just know that as pool threads die off, we will inevitably find our
 ;; ASK thread running the Custodian code.  This might happen very
@@ -41,10 +77,12 @@
 ;; threads.
 ;;
 ;; --------------------------------------------
+;;
 ;; It is important to realize that going through a SERIALIZER
-;; *DOESN'T* block a machine thread. It merely prevents the delivery
-;; of additional messages to an Actor. The dispatch threads remain
-;; unblocked and ready to handle any other messages.
+;; *DOESN'T* cause any machine thread to block waiting. It merely
+;; prevents the delivery of additional messages to an Actor. The
+;; dispatch threads remain unblocked and ready to handle any other
+;; messages.
 ;;
 ;; Message SENDS are *NOT* talking to other threads. They are simply
 ;; stating that, if a dispatch thread is available, it should pick up
@@ -71,7 +109,7 @@
 ;; As a pool thread finds itself handling the Kill message, it removes
 ;; itself from the ledger of pool threads and, if any remain, it
 ;; re-broadcasts the Kill messasge to nudge another pool thread to
-;; have a go.
+;; have a go, just prior to self immolation.
 ;;
 ;; The SERIALIZER gets unblocked after the last Pool Thread has killed
 ;; itself. For message delivery, a running ASK handler has to do the
@@ -82,6 +120,8 @@
 ;; must be nulled, so that future SENDS will restart the thread Pool.
 ;; But this hook cannot be nulled from within a running Actor. It must
 ;; be nulled out by a non-Actor thread.
+;;
+;; --------------------------------------------
 
 (defun custodian-beh (&optional threads)
   ;; Custodian holds the list of parallel Actor dispatcher threads
@@ -154,7 +194,8 @@
                   ))))
       (%setup-dead-man-switch gate (mapcar #'cdr threads))
       (with-actors
-        ;; SELF is now an anonymous sub-Actor
+        ;; SELF is now an anonymous sub-Actor running on some
+        ;; arbitrary Dispatcher thread.
         (let* ((my-proc (mpc:get-current-process))
                (pair    (rassoc my-proc threads)))
           (cond

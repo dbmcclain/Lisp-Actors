@@ -65,6 +65,8 @@
 
 ;; --------------------------------------------
 ;; User level has Read-Only access
+;;
+;; (In general, to make something read-only, place it within a function.)
 
 (declaim (inline self self-beh self-msg self-msg-parent))
 
