@@ -205,7 +205,7 @@
   (let (timer)
     (labels
         ((kill-with-prejudice ()
-           (when-let (alive  (remove-if (complement #'mpc:process-alive-p) procs))
+           (when-let (alive (remove-if (complement #'mpc:process-alive-p) procs))
              (cond
               ((y-or-n-p "Some dispatch threads are still running.
 Terminate them?")
@@ -252,6 +252,9 @@ Terminate them?")
 (defun actors-running-p ()
   *send-hook*)
 
+(defun get-dispatch-threads ()
+  (mapcar #'cdr (ask custodian :get-threads)))
+
 (defun add-executives (n)
   (check-type n (integer 0 *))
   (if self
@@ -274,17 +277,16 @@ Terminate them?")
     (mpc:funcall-async
      (lambda ()
        ;; We are now running in a known non-Actor thread
-       (let ((threads (ask custodian :get-threads)))
-         (when threads
-           (%setup-dead-man-switch (mapcar #'cdr threads))
-           (tagbody
-            again
-            (dotimes (ix (length threads))
-              (send-to-pool custodian 'poison-pill))
-            (sleep 1)
-            (when (setf threads (ask custodian :get-threads))
-              (go again)))
-           ))
+       (when-let (threads (get-dispatch-threads))
+         (%setup-dead-man-switch threads)
+         (tagbody
+          again
+          (dotimes (ix (length threads))
+            (send-to-pool custodian 'poison-pill))
+          (sleep 1)
+          (when (setf threads (get-dispatch-threads))
+            (go again))
+          ))
        (mpc:atomic-exchange *send-hook* nil)
        ))
     ))
@@ -297,6 +299,7 @@ Terminate them?")
 (print *send-hook*)
 (inspect *central-mail*)
 (ask custodian :get-threads)
-(setf custodian (custodian-beh (ask custodian :get-threads)))
+(get-dispatch-threads)
+(setf custodian (create (custodian-beh (ask custodian :get-threads))))
 (send println :hello)
 |#
