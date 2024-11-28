@@ -185,6 +185,9 @@
      ;; running on this system.
 
      ((cust :server-running?)
+      (send cust (mapcar #'car aio-accepting-handles)))
+     
+     ((cust :async-running?)
       (send cust ws-collection))
      )))
 
@@ -1035,15 +1038,15 @@
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
   ;;
-  (unless (ask async-socket-system :server-running?)
+  (unless (ask async-socket-system :async-running?)
     (setf async-socket-system (create (async-socket-system-beh))
           get-server-count    (create (auto-counter-beh))
-          connections         (create (connections-list-beh)))
-    (send-after 3 async-socket-system sink :start-tcp-server)
-    ))
+          connections         (create (connections-list-beh))))
+  (unless (ask async-socket-system :server-running?)
+    (send-after 3 async-socket-system sink :start-tcp-server)) )
 
 (defun* lw-reset-actors-server _
-  (when (ask async-socket-system :server-running?)
+  (when (ask async-socket-system :async-running?)
     (ask async-socket-system :shutdown)
     (princ "Actor Server has been shut down."))
   (values))

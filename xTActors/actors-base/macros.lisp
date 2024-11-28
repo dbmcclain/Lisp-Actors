@@ -472,7 +472,7 @@
 
 (defmacro non-idempotent (&body body)
   ;; A synonym for RESTARTABLE but marks the source code in a more
-  ;; obvious manner. Meaning - this body action is non-idempotent, ans
+  ;; obvious manner. Meaning - this body action is non-idempotent, and
   ;; so should only run if the Actor behavior is not retried.
   `(restartable ,@body))
 
