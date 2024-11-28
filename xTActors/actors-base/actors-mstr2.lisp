@@ -573,7 +573,8 @@ THE SOFTWARE.
   ;; atomic-exchange result
   (do-nothing (mpc:atomic-exchange *send-hook* nil))
   (init-custodian)
-  (princ "Actors are alive!")
+  ;; (princ "Actors are alive!")
+  (its-alive!!)
   (values))
 
 (defun* lw-kill-actors _

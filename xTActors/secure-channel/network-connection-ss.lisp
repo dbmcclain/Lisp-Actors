@@ -1049,26 +1049,16 @@
     (princ "Actor Server has been shut down."))
   (values))
 
+#||#
+(lw:defadvice (restart-actors-system :network-actors :after)
+    (&optional nbr-execs)
+  (declare (ignore nbr-execs))
+  (lw-start-actors-server))
 
-(let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))
-
-  (lw:define-action "Initialize LispWorks Tools"
-                    "Start up Actor Server"
-                    'lw-start-actors-server
-                    :after "Start up Actor System"
-                    :once)
-
-  (lw:define-action "Save Session Before"
-                    "Stop Actor Server"
-                    'lw-reset-actors-server
-                    :before "Stop Actor System")
-
-  (lw:define-action "Save Session After"
-                    "Restart Actor Server"
-                    'lw-start-actors-server
-                    :after "Restart Actor System"
-                    :once)
-  )
+(lw:defadvice (kill-actors-system :network-actors :before)
+   ()
+  (lw-reset-actors-server))
+#||#
 
 (defun com.ral.actors:start ()
   (lw-start-actors-server))

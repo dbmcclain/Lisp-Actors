@@ -210,6 +210,9 @@
       *standard-output*))
    ))
 
+(defun its-alive!! ()
+  (send println "Actors are alive!"))
+
 ;; ---------------------------------
 
 (defun fwd-beh (actor)

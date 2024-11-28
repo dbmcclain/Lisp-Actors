@@ -126,17 +126,22 @@
 (defun custodian-beh (&optional threads)
   ;; Custodian holds the list of parallel Actor dispatcher threads
   (alambda
+
    ;; --------------------------------------------
    ((cust 'add-executive id) ;; internal routine
-    (unless (assoc id threads)
-      (let ((new-thread (mpc:process-run-function
-                         (format nil "Actor Thread #~D" id)
-                         ()
-                         #'custodian-aware-dispatcher
-                         )))
-        (become (custodian-beh (acons id new-thread threads)))
-        ))
-    (send cust :ok))
+    (if (assoc id threads)
+        (send cust :ok)
+      (β-become
+          (let ((new-thread (mpc:process-run-function
+                             (format nil "Actor Thread #~D" id)
+                             ()
+                             #'custodian-aware-dispatcher
+                             )))
+            (send cust :ok)
+            (custodian-beh (acons id new-thread threads))
+            ))
+      ))
+    
    ;; --------------------------------------------
    ((cust 'ensure-executives n)
     (let* ((outer-me  self)
@@ -153,115 +158,41 @@
                                )))))
       (send rep 1)
       ))
+
    ;; --------------------------------------------
    ((cust 'add-executives n)
     (send self cust 'ensure-executives (+ (length threads) n)))
+   
    ;; --------------------------------------------
    ((cust 'remove-executive proc)
+    ;; Sent after one of our Custodian-Aware Dispatchers is killed-off.
     (send cust :ok)
     (when threads
       (let* ((pair        (rassoc proc threads))
              (new-threads (remove pair threads)))
-        (become (custodian-beh new-threads))
-        (unless new-threads
-          (%kill-send-hook))
-        )))
+        (become (custodian-beh new-threads)))
+      ))
+
    ;; --------------------------------------------
-   ((cust 'kill-executives)
-    ;; Users should not send this message directly -- use function
-    ;; KILL-ACTORS-SYSTEM. It sends the :KILL-EXECUTIVES message from
-    ;; a non-Actor thread. This code only works properly if there is a
-    ;; non-pool thread using a direct dispatcher, as with ASK.
-    ;;
-    (let ((gate (once
-                 ;; We are in a race between self-exits and a
-                 ;; dead-man-switch, which forcibly terminates them.
-                 ;;
-                 ;; Some dispatch pool threads may be indefinitely
-                 ;; delayed due to I/O blocking or long-running tasks.
-                 ;;
-                 ;; The dead-man-switch has a generous delay. And the
-                 ;; user is given the final choice to terminate them.
-                 (create
-                  (lambda (ans)
-                    ;; By the time we reach here, no pool threads
-                    ;; should be running, but THREADS may still have
-                    ;; them in the list. It is safe to zap the list
-                    ;; here. We are running in an ASK thread.
-                    (setf threads nil)
-                    (%kill-send-hook)
-                    (send-to-pool cust ans))
-                  ))))
-      (%setup-dead-man-switch gate (mapcar #'cdr threads))
-      (with-actors
-        ;; SELF is now an anonymous sub-Actor running on some
-        ;; arbitrary Dispatcher thread.
-        (let* ((my-proc (mpc:get-current-process))
-               (pair    (rassoc my-proc threads)))
-          (cond
-           (pair
-            ;; Found my proc in the pool.  Direct mutation okay here,
-            ;; since we are behind a SERIALIZER, *and* during shutdown,
-            ;; only one KILL message is present at a time - even though
-            ;; rebroadcasts avoid the SERIALIZER.
-            (setf threads (remove pair threads))
-            
-            (cond
-             (threads
-              ;; more to go - bypass SERIALIZER
-              (send-to-pool self))
-             
-             (t
-              ;; Else - we were the last one.
-              ;; Unblock the SERIALIZER, and kill the send-hook.
-              (send-to-pool gate :ok)) )
-            
-            (mpc:current-process-kill)) ;; Adios!
-           
-           (t
-            ;; We must be in a non-pool ASK thread.
-            (cond
-             (threads
-              ;; Still are some active pool threads,
-              ;; so try again and get out of the way for a moment.
-              (send-to-pool self)
-              (sleep 1))
-             
-             (t
-              ;; Someone else must have done this before we did.
-              ;; We have to unblock the SERIALIZER.
-              (send-to-pool gate :ok))))
-           )))))
-    ;; --------------------------------------------
-    ((cust :get-threads)
-     (send cust threads))
-    ))
+   (('poison-pill)
+    ;; Try to kill off one of our Custodian-Aware Dispatchers
+    (let* ((my-proc (mpc:get-current-process))
+           (pair    (rassoc my-proc threads)))
+      (when pair
+        ;; Found it, die.
+        (mpc:current-process-kill))
+      ))
+
+   ;; --------------------------------------------
+   ((cust :get-threads)
+    (send cust threads))
+   ))
 
 (deflex* custodian
-  (serializer (create (custodian-beh))))
+  (create (custodian-beh)))
 
 (defun init-custodian ()
-  (setf custodian (serializer (create (custodian-beh)))))
-
-;; --------------------------------------------
-;; Resetting the *SEND-HOOK* after shutdown
-
-(defun %kill-send-hook ()
-  (mpc:funcall-async
-   (lambda ()
-     (let (threads)
-       (tagbody
-        again
-        (sleep 1)  ;; allow things to settle
-        ;; our ASK helps clear the message pipeline
-        (setf threads (ask custodian :get-threads))
-        (unless (mpc:mailbox-empty-p *central-mail*)
-          (go again)
-          ))
-       (unless threads
-         (mpc:atomic-exchange *send-hook* nil))
-       ))
-   ))
+  (setf custodian (create (custodian-beh))))
 
 ;; --------------------------------------------
 ;; In case of long-running Actor behaviors...
@@ -270,9 +201,9 @@
 ;; following a shutdown request, then we have to forcibly terminate
 ;; the threads.
 
-(defun %setup-dead-man-switch (cust procs)
+(defun %setup-dead-man-switch (procs)
   (let (timer)
-    (flet
+    (labels
         ((kill-with-prejudice ()
            (when-let (alive  (remove-if (complement #'mpc:process-alive-p) procs))
              (cond
@@ -280,15 +211,19 @@
 Terminate them?")
                (dolist (proc alive)
                  (mpc:process-terminate proc))
-               (send-to-pool cust :ok)
                (terpri)
                (princ "Dispatch threads were forcefully terminated."))
               
               (t
-               (mpc:schedule-timer-relative timer *actors-grace-period*))
-              ))))
+               (launch-timer))
+              )))
+         
+         (launch-timer ()
+           (mpc:schedule-timer-relative timer *actors-grace-period*)
+           ))
+      
       (setf timer (mpc:make-timer #'mpc:funcall-async #'kill-with-prejudice))
-      (mpc:schedule-timer-relative timer *actors-grace-period*)
+      (launch-timer)
       )))
 
 #|
@@ -306,8 +241,9 @@ Terminate them?")
   ;; dispatch pool on abnormal exit.
   (unwind-protect
       (run-actors)
-    (let ((proc  (mpc:get-current-process)))
-      (send-to-pool custodian sink 'remove-executive proc))
+    ;; Can't just SEND here, might be nobody left to handle the
+    ;; message...
+    (ask custodian 'remove-executive (mpc:get-current-process))
     ))
 
 ;; --------------------------------------------------------------
@@ -338,8 +274,20 @@ Terminate them?")
     (mpc:funcall-async
      (lambda ()
        ;; We are now running in a known non-Actor thread
-       (ask custodian 'kill-executives)
-       ))))
+       (let ((threads (ask custodian :get-threads)))
+         (when threads
+           (%setup-dead-man-switch (mapcar #'cdr threads))
+           (tagbody
+            again
+            (dotimes (ix (length threads))
+              (send-to-pool custodian 'poison-pill))
+            (sleep 1)
+            (when (setf threads (ask custodian :get-threads))
+              (go again)))
+           ))
+       (mpc:atomic-exchange *send-hook* nil)
+       ))
+    ))
 
 #|
 (kill-actors-system)
@@ -347,5 +295,8 @@ Terminate them?")
 
 (mpc:atomic-exchange *send-hook* nil)
 (print *send-hook*)
+(inspect *central-mail*)
+(ask custodian :get-threads)
+(setf custodian (custodian-beh (ask custodian :get-threads)))
 (send println :hello)
 |#
