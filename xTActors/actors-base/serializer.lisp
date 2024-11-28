@@ -317,8 +317,8 @@
       ((error (lambda (e)
                 ;; doing it this way allows the debugger to be entered,
                 ;; while ensuring that cust is notified.
-                (abort-beh)
-                (send-to-pool cust (funcall err-fn e)))
+                (send-to-pool cust (funcall err-fn e))
+                (error e))
               ))
     (funcall fn)
     ))
