@@ -1057,7 +1057,8 @@
 
 (lw:defadvice (kill-actors-system :network-actors :before)
    ()
-  (lw-reset-actors-server))
+  (when (actors-running-p)
+    (lw-reset-actors-server)))
 #||#
 
 (defun com.ral.actors:start ()
