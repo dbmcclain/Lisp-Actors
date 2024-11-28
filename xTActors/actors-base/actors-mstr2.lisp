@@ -512,6 +512,9 @@ THE SOFTWARE.
              (format stream "Terminated ASK"))
    ))
 
+(defmacro ensure-actors-running ()
+  `(get-send-hook)) ;; ensures that the Actors system is running
+  
 (defgeneric ask (target &rest msg)
   (:method ((target actor) &rest msg)
    ;; Unlike SEND, ASKs are not staged, and perform immediately,
@@ -522,10 +525,10 @@ THE SOFTWARE.
    ;; But if called from within an Actor, the immediacy violates
    ;; transactional boundaries, since SEND is normally staged for
    ;; execution at successful exit, or discarded if errors.
-   (when self
-     (warn 'recursive-ask))
-
-   (get-send-hook) ;; ensures that the Actors system is running
+   (if self
+       (warn 'recursive-ask)
+     ;; else
+     (ensure-actors-running))
   
    ;; In normal situation, we get back the result message as a list and
    ;; flag t.  In exceptional situation, from restart "Terminate ASK",
