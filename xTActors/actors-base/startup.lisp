@@ -276,27 +276,29 @@ Terminate them?")
    ))
 
 (defgeneric kill-actors-system ()
+  (:method :around ()
+   (when (actors-running-p)
+     (call-next-method)))
   (:method ()
    ;; The FUNCALL-ASYNC assures that this will work, even if called
    ;; from an Actor thread. Of course, that will also cause the Actor
    ;; (and all others) to be killed.
-   (when (actors-running-p)
-     (mpc:funcall-async
-      (lambda ()
-        ;; We are now running in a known non-Actor thread
-        (when-let (threads (get-dispatch-threads))
-          (%setup-dead-man-switch threads)
-          (tagbody
-           again
-           (dotimes (ix (length threads))
-             (send-to-pool custodian 'poison-pill))
-           (sleep 1)
-           (when (setf threads (get-dispatch-threads))
-             (go again))
-           ))
-        (mpc:atomic-exchange *send-hook* nil)
-        ))
-     )))
+   (mpc:funcall-async
+    (lambda ()
+      ;; We are now running in a known non-Actor thread
+      (when-let (threads (get-dispatch-threads))
+        (%setup-dead-man-switch threads)
+        (tagbody
+         again
+         (dotimes (ix (length threads))
+           (send-to-pool custodian 'poison-pill))
+         (sleep 1)
+         (when (setf threads (get-dispatch-threads))
+           (go again))
+         ))
+      (mpc:atomic-exchange *send-hook* nil)
+      ))
+   ))
 
 ;; --------------------------------------------
 #|

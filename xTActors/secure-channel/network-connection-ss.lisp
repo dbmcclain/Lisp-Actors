@@ -1054,8 +1054,7 @@
   (lw-start-actors-server))
 
 (defmethod kill-actors-system :before ()
-  (when (actors-running-p)
-    (lw-reset-actors-server)))
+  (lw-reset-actors-server))
 
 (defun com.ral.actors:start ()
   (lw-start-actors-server))
