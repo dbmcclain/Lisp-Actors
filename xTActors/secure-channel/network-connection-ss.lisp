@@ -1027,7 +1027,7 @@
     ))
 
 ;; --------------------------------------------------------------
-;;
+;; Startup and Shutdown
 
 (defun* lw-start-actors-server _
   ;; called by Action list with junk args
@@ -1049,17 +1049,13 @@
     (princ "Actor Server has been shut down."))
   (values))
 
-#||#
-(lw:defadvice (restart-actors-system :network-actors :after)
-    (&optional nbr-execs)
+(defmethod restart-actors-system :after (&optional nbr-execs)
   (declare (ignore nbr-execs))
   (lw-start-actors-server))
 
-(lw:defadvice (kill-actors-system :network-actors :before)
-   ()
+(defmethod kill-actors-system :before ()
   (when (actors-running-p)
     (lw-reset-actors-server)))
-#||#
 
 (defun com.ral.actors:start ()
   (lw-start-actors-server))
