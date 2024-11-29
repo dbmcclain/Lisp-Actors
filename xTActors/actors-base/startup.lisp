@@ -212,7 +212,7 @@ Terminate them?")
                (dolist (proc alive)
                  (mpc:process-terminate proc))
                (terpri)
-               (princ "Dispatch threads were forcefully terminated."))
+               (princ "Dispatch threads were forcibly terminated."))
               
               (t
                (launch-timer))
@@ -275,6 +275,8 @@ Terminate them?")
      (ask custodian 'ensure-executives nbr-execs))
    ))
 
+(defvar *kill-lock*  (mpc:make-lock))
+
 (defgeneric kill-actors-system ()
   (:method :around ()
    (when (actors-running-p)
@@ -286,18 +288,20 @@ Terminate them?")
    (mpc:funcall-async
     (lambda ()
       ;; We are now running in a known non-Actor thread
-      (when-let (threads (get-dispatch-threads))
-        (%setup-dead-man-switch threads)
-        (tagbody
-         again
-         (dotimes (ix (length threads))
-           (send-to-pool custodian 'poison-pill))
-         (sleep 1)
-         (when (setf threads (get-dispatch-threads))
-           (go again))
-         ))
-      (mpc:atomic-exchange *send-hook* nil)
-      ))
+      (mpc:with-lock (*kill-lock*)
+        (when (actors-running-p)
+          (when-let (threads (get-dispatch-threads))
+            (%setup-dead-man-switch threads)
+            (tagbody
+             again
+             (dotimes (ix (length threads))
+               (send-to-pool custodian 'poison-pill))
+             (sleep 1)
+             (when (setf threads (get-dispatch-threads))
+               (go again))
+             ))
+          (setf *send-hook* nil))
+        )))
    ))
 
 ;; --------------------------------------------
