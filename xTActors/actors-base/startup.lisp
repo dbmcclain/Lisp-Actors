@@ -167,11 +167,11 @@
    ((cust 'remove-executive proc)
     ;; Sent after one of our Custodian-Aware Dispatchers is killed-off.
     (send cust :ok)
-    (when threads
-      (let* ((pair        (rassoc proc threads))
-             (new-threads (remove pair threads)))
-        (become (custodian-beh new-threads)))
-      ))
+    (let ((pair  (rassoc proc threads)))
+      (when pair
+        (let ((new-threads (remove pair threads)))
+          (become (custodian-beh new-threads)))
+        )))
 
    ;; --------------------------------------------
    (('poison-pill)
@@ -195,13 +195,83 @@
   (setf custodian (create (custodian-beh))))
 
 ;; --------------------------------------------
+
+(defun custodian-aware-dispatcher ()
+  ;; A type of dispatcher that will remove itself from the Custodian's
+  ;; dispatch pool on abnormal exit.
+  (unwind-protect
+      (run-actors)
+    ;; Can't just SEND here, might be nobody left to handle the
+    ;; message...
+    (ask custodian 'remove-executive (mpc:get-current-process))
+    ))
+
+;; --------------------------------------------------------------
+;; User-level Functions
+
+(defun actors-running-p ()
+  *send-hook*)
+
+(defun get-dispatch-threads ()
+  (mapcar #'cdr (ask custodian :get-threads)))
+
+(defun add-executives (n)
+  (check-type n (integer 0 *))
+  (if self
+      (send custodian sink 'add-executives n)
+    (ask custodian 'add-executives n)))
+
+;; --------------------------------------------
+;; The following are made into generic functions to support later
+;; extensions involving the async socket system.
+
+(defvar *actors-lock*  (mpc:make-lock))
+
+(defgeneric restart-actors-system (&optional nbr-execs)
+  (:method (&optional (nbr-execs *nbr-pool*))
+   ;; Users don't normally need to call this function. It is
+   ;; automatically called on the first message SEND.
+   (check-type nbr-execs (integer 1 *))
+   (if self
+       (send custodian sink 'ensure-executives nbr-execs)
+     (ask custodian 'ensure-executives nbr-execs))
+   ))
+
+(defgeneric kill-actors-system ()
+  (:method :around ()
+   (when (actors-running-p)
+     (call-next-method)))
+  (:method ()
+   ;; The FUNCALL-ASYNC assures that this will work, even if called
+   ;; from an Actor thread. Of course, that will also cause the Actor
+   ;; (and all others) to be killed.
+   (mpc:funcall-async
+    (lambda ()
+      ;; We are now running in a known non-Actor thread
+      (mpc:with-lock (*actors-lock*)
+        (when (actors-running-p)
+          (when-let (threads (get-dispatch-threads))
+            (setup-dead-man-switch threads)
+            (tagbody
+             again
+             (dotimes (ix (length threads))
+               (send-to-pool custodian 'poison-pill))
+             (sleep 1)
+             (when (setf threads (get-dispatch-threads))
+               (go again))
+             ))
+          (setf *send-hook* nil))
+        )))
+   ))
+
+;; --------------------------------------------
 ;; In case of long-running Actor behaviors...
 ;;
 ;; If any Dispatch threads remain alive after the grace period,
 ;; following a shutdown request, then we have to forcibly terminate
 ;; the threads.
 
-(defun %setup-dead-man-switch (procs)
+(defun setup-dead-man-switch (procs)
   (let (timer)
     (labels
         ((kill-with-prejudice ()
@@ -234,76 +304,6 @@ Terminate them?")
   (sleep 1)
   (lw-kill-actors))
 |#
-;; --------------------------------------------
-
-(defun custodian-aware-dispatcher ()
-  ;; A type of dispatcher that will remove itself from the Custodian's
-  ;; dispatch pool on abnormal exit.
-  (unwind-protect
-      (run-actors)
-    ;; Can't just SEND here, might be nobody left to handle the
-    ;; message...
-    (ask custodian 'remove-executive (mpc:get-current-process))
-    ))
-
-;; --------------------------------------------------------------
-;; User-level Functions
-
-(defun actors-running-p ()
-  *send-hook*)
-
-(defun get-dispatch-threads ()
-  (mapcar #'cdr (ask custodian :get-threads)))
-
-(defun add-executives (n)
-  (check-type n (integer 0 *))
-  (if self
-      (send custodian sink 'add-executives n)
-    (ask custodian 'add-executives n)))
-
-;; --------------------------------------------
-;; The following are made into generic functions to support later
-;; extensions involving the async socket system.
-
-(defgeneric restart-actors-system (&optional nbr-execs)
-  (:method (&optional (nbr-execs *nbr-pool*))
-   ;; Users don't normally need to call this function. It is
-   ;; automatically called on the first message SEND.
-   (check-type nbr-execs (integer 1 *))
-   (if self
-       (send custodian sink 'ensure-executives nbr-execs)
-     (ask custodian 'ensure-executives nbr-execs))
-   ))
-
-(defvar *kill-lock*  (mpc:make-lock))
-
-(defgeneric kill-actors-system ()
-  (:method :around ()
-   (when (actors-running-p)
-     (call-next-method)))
-  (:method ()
-   ;; The FUNCALL-ASYNC assures that this will work, even if called
-   ;; from an Actor thread. Of course, that will also cause the Actor
-   ;; (and all others) to be killed.
-   (mpc:funcall-async
-    (lambda ()
-      ;; We are now running in a known non-Actor thread
-      (mpc:with-lock (*kill-lock*)
-        (when (actors-running-p)
-          (when-let (threads (get-dispatch-threads))
-            (%setup-dead-man-switch threads)
-            (tagbody
-             again
-             (dotimes (ix (length threads))
-               (send-to-pool custodian 'poison-pill))
-             (sleep 1)
-             (when (setf threads (get-dispatch-threads))
-               (go again))
-             ))
-          (setf *send-hook* nil))
-        )))
-   ))
-
 ;; --------------------------------------------
 #|
 (kill-actors-system)

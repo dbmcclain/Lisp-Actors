@@ -94,7 +94,8 @@
                  (handler-bind
                      ((error (lambda (c)
                                (declare (ignore c))
-                               (qreset)) ;; unroll SENDs
+                               (qreset) ;; unroll SENDs
+                               (error c))
                              ))
                    (loop
                       (when (mp:mailbox-not-empty-p mbox)

@@ -43,7 +43,8 @@
     ;;
     (handler-bind
         ((error (lambda (e)
-                  (send-to-pool cust :error e))
+                  (send-to-pool cust :error e)
+                  (error e))
                 ))
       (let* ((key   (ino-key path)) ;; might trigger error
              (quad  (and key
