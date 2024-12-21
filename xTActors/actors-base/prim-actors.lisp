@@ -162,7 +162,62 @@
    ))
 
 ;; ------------------------------------------------------
+;; Get everyone playing off the same sheet of music...
+;;
+;; The trouble with printing is that any arbitrary thread can execute
+;; a println, writeln, or fmt-println. Where that output goes depends
+;; on the thread.
+;;
+;; Most of the time, it goes to the background print stream. But if
+;; you happen to ASK from the Listener REPL, then some output may also
+;; go to the Listener window. It just depends on which thread is
+;; available for message dispatch.
+;;
+;; So by dedicating a specific (non-Actor) thread to perform all
+;; printing activity, we can be assured that the output will always go
+;; to just one destination - the background printer stream.
 
+(deflex* print-queue  (mpc:make-mailbox))
+(deflex* printer      nil)
+(deflex* printer-lock (mpc:make-lock))
+
+(defun ensure-printer ()
+  (unless printer
+    (mpc:with-lock (printer-lock)
+      (unless printer
+        (setf printer (mpc:process-run-function "Printer" () 'printer-fn))
+        ))))
+
+(defmacro with-printer (&body body)
+  `(progn
+     (ensure-printer)
+     (mpc:mailbox-send print-queue
+                       (lambda* _
+                         ,@body))
+     ))
+
+(defun stop-printer ()
+  (when printer
+    (mpc:with-lock (printer-lock)
+      (when printer
+        (with-printer
+          (throw 'finish nil))
+        (setf printer nil)))
+    ))
+
+(defun printer-fn ()
+  (catch 'finish
+    (loop
+       (let ((fn (mpc:mailbox-read print-queue)))
+         (#+:LISPWORKS stream:apply-with-output-lock
+          #-:LISPWORKS funcall
+          fn
+          *standard-output*)
+         ))))
+
+;; --------------------------------------------
+
+#|
 (deflex println
   (create
    (behav msg
@@ -172,7 +227,14 @@
         (format t "~&~{~A~%~}" msg))
       *standard-output*))
    ))
-  
+|#
+(deflex println
+  (create
+   (behav msg
+     (with-printer
+      (format t "~&~{~A~%~}" msg))
+     )))
+
 (defun do-with-maximum-io-syntax (fn)
   (with-standard-io-syntax
     (let ((*print-radix*  t)
@@ -188,6 +250,7 @@
 (defmacro with-maximum-io-syntax (&body body)
   `(do-with-maximum-io-syntax (lambda () ,@body)))
 
+#|
 (deflex writeln
   (create
    (behav msg
@@ -198,7 +261,16 @@
           (format t "~&~{~:W~%~}" msg)))
       *standard-output*))
    ))
+|#
+(deflex writeln
+  (create
+   (behav msg
+     (with-printer
+      (with-maximum-io-syntax
+        (format t "~&~{~:W~%~}" msg)))
+     )))
 
+#|
 (deflex fmt-println
   (create
    (behav (fmt-str &rest args)
@@ -209,6 +281,14 @@
         (apply #'format t fmt-str args))
       *standard-output*))
    ))
+|#
+(deflex fmt-println
+  (create
+   (behav (fmt-str &rest args)
+     (with-printer
+        (terpri)
+        (apply #'format t fmt-str args))
+     )))
 
 (defun its-alive!! ()
   (send println "Actors are alive!"))
