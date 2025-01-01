@@ -281,6 +281,7 @@ THE SOFTWARE.
    #:unw-prot
    #:open-file
    #:with-actors
+   #:delegate
 
    #:fut
    #:future-become-beh

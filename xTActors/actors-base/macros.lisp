@@ -391,6 +391,12 @@
        (send β)
      ,@body))
 
+;; ... yet another way to do the same thing
+(defmacro delegate (&body body)
+  `(β _
+       (send β)
+     ,@body))
+
 ;; --------------------------------------------------------
 ;; Just as we have a need for cross-referrential Actors within code
 ;; bodies, and we have the ACTORS macro to provide them for us, we
