@@ -1,3 +1,27 @@
+-- 19 Jan 2024 -- Graduation Day!!
+---
+Actors programming has graduated with flying colors. I claim this technique is no longer a toy.
+
+We have, now, several instances of applications for Transactional Hewitt Actors:
+
+      1. A fully asynchronous network interface including on-demand connection negotiation with secure password exchange, refutable double-ratchet message encryption. and connection retiring. Actors are unaware whether they are sending messages to local Actors, or to remote Actors. They look the same, with local proxy Actors being automatically generated on each side of the connection to serialize message flow across the network.
+      2. A highly parallel audio loudness analyzer capable of sniffing out all audio tracks on the computer and running parallel analyses and database updates for loudness time profiles on every track. This performs analyses against 12 hours of playback in about 2 minutes. In addition to the analysis engine, there is a GUI layer for graphic presentation of database updates, and ad-hoc user browsing.
+      3. A realtime data acquisition and analysis system with hard realtime requirements for the data acquisition. Includes a GUI layer, direct data acquisition tasks, intermediate phase-coherent buffering so that higher level analyses can work with artifact-free data, telemetry generation and encoding in a sub-band, IRIG-B timestamp recovery, and data recording with deferred playback.
+
+Each of these applications are real-world, and would have been an unholy nightmare to program with threads, locks, function call/return only. They would have been a tangle of callbacks and a bookkeeping fright.
+
+Simple message passing is all that is required. No threads, no locks, no callbacks, no Async/Await. They run as well on a single threaded CPU, or on a fully SMP parallel multi-core system.
+
+Many people confuse Actors with message flow - thinking that every Actor must have its own mailbox. I claim otherwise. Transactional Hewitt Actors are simply passive functional closures that respond to messages when delivered to them, wrapped in a single level of indirection. The 3 primitive operations that must be supported are SEND, CREATE, and BECOME. Transactional Actors respond to messages either without error, or else not at all. No visible state change occurs until an Actor's code exits successfully.
+
+There is a separate mechanism with a shared communal event queue for message passing, and a pool of messsage dispatch threads below the surface that arrange to deliver messages to Actors, and to enforce their transactional behavior.
+
+Actors support fully parallel concurrent activity. The are exceedingly simple to use for making your code behave with a high degree of parallelism, without any complicating factors such as thread control, critical section locking, mutexes, etc. You program as though you are the sole occupant of the machine, but with an eye toward purely functional style. No shared data to worry about, except that if this data is globally visible, you mustn't mutate it.
+
+The Transactional Conventional Hewitt Actor paradigm has real teeth!!
+
+
+
 -- 15 July 2024 -- TLDR; Time for a Recap
 ---
 
