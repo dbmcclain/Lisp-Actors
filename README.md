@@ -18,7 +18,7 @@ Many people confuse Actors with message flow - thinking that every Actor must ha
 
 There is a separate mechanism with a shared communal event queue for message passing, and a pool of messsage dispatch threads below the surface that arrange to deliver messages to Actors, detect state mutation collisions with automatic message delivery retry, and to enforce their transactional behavior.
 
-Actors support fully parallel concurrent activity. The are exceedingly simple to use for making your code behave with a high degree of parallelism, without any complicating factors such as thread control, critical section locking, mutexes, etc. You program as though you are the sole occupant of the machine, but with an eye toward purely functional style. No shared data to worry about, except that if this data is globally visible, you mustn't mutate it.
+Actors support fully parallel concurrent activity. They are exceedingly simple to use for making your code behave with a high degree of parallelism, without any complicating factors such as thread control, critical section locking, mutexes, etc. You program as though you are the sole occupant of the machine, but with an eye toward purely functional style. No shared data to worry about, except that if this data is globally visible, you mustn't mutate it.
 
 The Transactional Conventional Hewitt Actor paradigm has real teeth!!
 
