@@ -16,7 +16,7 @@ Simple message passing is all that is required. No threads, no locks, no callbac
 
 Many people confuse Actors with message flow - thinking that every Actor must have its own mailbox. I claim otherwise. Transactional Hewitt Actors are simply passive functional closures that respond to messages when delivered to them, wrapped in a single level of indirection. The 3 primitive operations that must be supported are SEND, CREATE, and BECOME. Transactional Actors respond to messages either without error, or else not at all. No visible state change occurs until an Actor's code exits successfully.
 
-There is a separate mechanism with a shared communal event queue for message passing, and a pool of messsage dispatch threads below the surface that arrange to deliver messages to Actors, and to enforce their transactional behavior.
+There is a separate mechanism with a shared communal event queue for message passing, and a pool of messsage dispatch threads below the surface that arrange to deliver messages to Actors, detect state mutation collisions with automatic retry, and to enforce their transactional behavior.
 
 Actors support fully parallel concurrent activity. The are exceedingly simple to use for making your code behave with a high degree of parallelism, without any complicating factors such as thread control, critical section locking, mutexes, etc. You program as though you are the sole occupant of the machine, but with an eye toward purely functional style. No shared data to worry about, except that if this data is globally visible, you mustn't mutate it.
 
