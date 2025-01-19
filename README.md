@@ -12,7 +12,7 @@ We have, now, several instances of applications for Transactional Hewitt Actors:
 
 Each of these applications are real-world, and would have been an unholy nightmare to program with threads, locks, function call/return only. They would have been a tangle of callbacks and a bookkeeping fright.
 
-Simple message passing is all that is required. No threads, no locks, no callbacks, no Async/Await. They run as well on a single threaded CPU, or on a fully SMP parallel multi-core system.
+Simple asynchronous message passing is all that is required. No threads, no locks, no callbacks, no Async/Await. They run as well on a single threaded CPU, or on a fully SMP parallel multi-core system. Messages are free-form, and can contain anything. Pattern matching in the Actor behavior code further dispatches incoming messages.
 
 Many people confuse Actors with message flow - thinking that every Actor must have its own mailbox. I claim otherwise. Transactional Hewitt Actors are simply passive functional closures that respond to messages when delivered to them, wrapped in a single level of indirection. The 3 primitive operations that must be supported are SEND, CREATE, and BECOME. Transactional Actors respond to messages either without error, or else not at all. No visible state change occurs until an Actor's code exits successfully.
 
