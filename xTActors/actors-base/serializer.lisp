@@ -214,6 +214,29 @@
 
   ----------------------------------------------------------------- |#
 
+;; ---------------------
+;; Finds good use when sending messages to a serialized sink
+
+(defun label (cust lbl)
+  "LABEL -- Construct an Actor to relay a message to the customer,
+prefixed by the label."
+  (create
+   (behav (&rest msg)
+     (send* cust lbl msg))
+   ))
+
+;; ---------------------
+
+(defun tag (cust)
+  "TAG -- Construct an Actor to relay a message to the customer,
+prefixed by our unique SELF identity/"
+  (create
+   (behav msg
+     (send* cust self msg))
+   ))
+
+;; ---------------------
+
 (defun serializer (svc)
   (labels
       ((serializer-beh ()

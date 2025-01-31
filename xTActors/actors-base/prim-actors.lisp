@@ -173,61 +173,40 @@
 ;; go to the Listener window. It just depends on which thread is
 ;; available for message dispatch.
 ;;
-;; So by dedicating a specific (non-Actor) thread to perform all
+;; So by ensuring a non-Actor background thread to perform all
 ;; printing activity, we can be assured that the output will always go
 ;; to just one destination - the background printer stream.
 
-(deflex* print-queue  (mpc:make-mailbox))
-(deflex* printer      nil)
-(deflex* printer-lock (mpc:make-lock))
-
-(defun ensure-printer ()
-  (unless printer
-    (mpc:with-lock (printer-lock)
-      (unless printer
-        (setf printer (mpc:process-run-function "Printer" () 'printer-fn))
-        ))))
-
-(defmacro with-printer (&body body)
-  `(progn
-     (ensure-printer)
-     (mpc:mailbox-send print-queue
-                       (lambda* _
-                         ,@body))
-     ))
-
-(defun stop-printer ()
-  (when printer
-    (mpc:with-lock (printer-lock)
-      (when printer
-        (with-printer
-          (throw 'finish nil))
-        (setf printer nil)))
+(defun printing-handler (cust fn)
+  ;; Not Actor code - no difference between SEND and SEND-TO-POOL
+  (handler-bind
+      ((error (lambda (c)
+                (declare (ignore c))
+                ;; Allows debugger to be entered, but ensures that serializer cust gets notified.
+                (send-to-pool cust :err))
+              ))
+    (funcall fn)
+    (send cust :ok)
     ))
 
-(defun printer-fn ()
-  (catch 'finish
-    (loop
-       (let ((fn (mpc:mailbox-read print-queue)))
-         (#+:LISPWORKS stream:apply-with-output-lock
-          #-:LISPWORKS funcall
-          fn
-          *standard-output*)
-         ))))
+;; --------------------------------------------
+;; Central Printer
+;;   - SERIALIZER ensures that only one request will be in flight at any time.
+;;   - FUNCALL-ASYNC ensures that a background thread will be used for consistent printing behavior.
+
+(deflex* printer
+  (serializer-sink
+   (create
+    (lambda (cust fn)
+      (mpc:funcall-async #'printing-handler cust fn))
+    )))
+  
+(defmacro with-printer (&body body)
+  `(send printer (lambda ()
+                   ,@body)))
 
 ;; --------------------------------------------
 
-#|
-(deflex println
-  (create
-   (behav msg
-     (#+:LISPWORKS stream:apply-with-output-lock
-      #-:LISPWORKS funcall
-      (lambda* _
-        (format t "~&~{~A~%~}" msg))
-      *standard-output*))
-   ))
-|#
 (deflex println
   (create
    (behav msg
@@ -250,18 +229,6 @@
 (defmacro with-maximum-io-syntax (&body body)
   `(do-with-maximum-io-syntax (lambda () ,@body)))
 
-#|
-(deflex writeln
-  (create
-   (behav msg
-     (#+:LISPWORKS stream:apply-with-output-lock
-      #-:LISPWORKS funcall
-      (lambda* _
-        (with-maximum-io-syntax
-          (format t "~&~{~:W~%~}" msg)))
-      *standard-output*))
-   ))
-|#
 (deflex writeln
   (create
    (behav msg
@@ -270,18 +237,6 @@
         (format t "~&~{~:W~%~}" msg)))
      )))
 
-#|
-(deflex fmt-println
-  (create
-   (behav (fmt-str &rest args)
-     (#+:LISPWORKS stream:apply-with-output-lock
-      #-:LISPWORKS funcall
-      (lambda* _
-        (terpri)
-        (apply #'format t fmt-str args))
-      *standard-output*))
-   ))
-|#
 (deflex fmt-println
   (create
    (behav (fmt-str &rest args)
@@ -354,27 +309,6 @@ customer, just one time."
        (apply #'send-to-all actors gate msg)))
    ))
   
-;; ---------------------
-;; Finds good use when sending messages to a serialized sink
-
-(defun label (cust lbl)
-  "LABEL -- Construct an Actor to relay a message to the customer,
-prefixed by the label."
-  (create
-   (behav (&rest msg)
-     (send* cust lbl msg))
-   ))
-
-;; ---------------------
-
-(defun tag (cust)
-  "TAG -- Construct an Actor to relay a message to the customer,
-prefixed by our unique SELF identity/"
-  (create
-   (behav msg
-     (send* cust self msg))
-   ))
-
 ;; ---------------------
 
 (defun once-tag (cust)

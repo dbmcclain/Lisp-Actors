@@ -578,7 +578,6 @@ THE SOFTWARE.
   (values))
 
 (defun* lw-kill-actors _
-  (stop-printer)
   (kill-actors-system)
   (mpc:process-wait "Waiting for Actors Shutdown"
                     (lambda ()

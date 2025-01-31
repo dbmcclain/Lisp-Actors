@@ -47,8 +47,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 ;; (:file "st-send")
                 ;; (:file "dyn-env")
                 ;; (:file "dyn-env-clos")
-                (:file "prim-actors")
                 (:file "serializer")
+                (:file "prim-actors")
                 ;; (:file "filer")
                 (:file "startup"))
   :SERIAL T
