@@ -179,15 +179,9 @@
 
 (defun printing-handler (cust fn)
   ;; Not Actor code - no difference between SEND and SEND-TO-POOL
-  (handler-bind
-      ((error (lambda (c)
-                (declare (ignore c))
-                ;; Allows debugger to be entered, but ensures that serializer cust gets notified.
-                (send-to-pool cust :err))
-              ))
-    (funcall fn)
-    (send cust :ok)
-    ))
+  (unwind-protect
+      (funcall fn)
+    (send-to-pool cust)))
 
 ;; --------------------------------------------
 ;; Central Printer
