@@ -120,6 +120,7 @@ THE SOFTWARE.
 
 (defun convert-sexigisimal (s)
   ;; hh:mm:ss.ss, or hh:mm
+  ;; return sec
   (multiple-value-bind (start end gstart gend)
       (#~m/^([+-])?([0-9]+):([0-9]{1,2})(:[0-9]{1,2}(\.[0-9_,]*)?)?$/ s)
     (declare (ignore end))
@@ -136,13 +137,13 @@ THE SOFTWARE.
         (ignore-errors
           (let* ((hh   (read-from-string (subseq s hstart hend)))
                  (mm   (read-from-string (subseq s mstart mend)))
-                 (valm (+ mm (* 60 hh)))
+                 (valm (* 60 (+ mm (* 60 hh))))
                  (ss   (if sstart
                            (read-from-string (delete-separators
                                               (subseq s (1+ sstart) send)))
                          0))
                  (val  (if sstart
-                           (+ (* 60 valm)
+                           (+ valm
                               (if sfrac
                                   (float ss 1d0)
                                 ss))

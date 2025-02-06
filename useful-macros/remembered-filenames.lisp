@@ -54,15 +54,18 @@ THE SOFTWARE.
 (defun do-with-remembered-filename (message key prompt-keys init fn)
   ;; can use null key for non-selective recall - starts with last
   ;; prompted filename regardless of former keyed context.
-  (when-let (fname (or init
-                       (multiple-value-call #'capi:prompt-for-file
-                         message
-                         (values-list prompt-keys)
-                         :pathname (remembered-filename key))
-                       ))
-    (remember-filename key fname)
-    (funcall fn fname)))
-  
+  (let* ((prev-name  (remembered-filename key))
+         (init-name  (or init ""))
+         (trial-name (if prev-name
+                         (merge-pathnames init-name prev-name)
+                       init-name)))
+    (when-let (fname (multiple-value-call #'capi:prompt-for-file
+                       message
+                       (values-list prompt-keys)
+                       :pathname trial-name))
+      (remember-filename key fname)
+      (funcall fn fname))))
+
 (defmacro with-remembered-filename ((fname message
                                            &optional key init
                                            &rest prompt-keys

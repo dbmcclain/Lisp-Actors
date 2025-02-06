@@ -781,6 +781,8 @@ THE SOFTWARE.
    #:mapfn
 
    #:zulu-date-string
+   #:local-date-string
+   
    #:user-defined-sequence
    #:user-defined-sequence-element-type
    #:user-defined-sequence-length
