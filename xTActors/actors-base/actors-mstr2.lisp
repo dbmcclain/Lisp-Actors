@@ -273,6 +273,7 @@ THE SOFTWARE.
 ;; updates)
 
 (defvar *collision-counter* 0)
+(defvar *collision-start*   0)
 
 (defun report-collision ()
   (sys:atomic-incf *collision-counter*))
