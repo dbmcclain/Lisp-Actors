@@ -329,7 +329,7 @@ prefixed by the label."
   ;;
   ;; Intercepts errors and provides a send to cust in event of error.
   ;; User can alter sent value with err-fn, which defaults to just
-  ;; sending the error condition to the customer. Err-fn shauld accept
+  ;; sending the error condition to the customer. Err-fn should accept
   ;; the error condition as an arg.
   
   `(do-with-intercepted-errors ,cust ,err-fn

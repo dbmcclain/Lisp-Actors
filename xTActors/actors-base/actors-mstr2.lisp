@@ -272,31 +272,16 @@ THE SOFTWARE.
 ;; collisions per hour. (approx 0.05% collision rate, or 1 in 2000
 ;; updates)
 
-(defun collision-collector-beh (&optional (start (get-universal-time)) db)
-  ;; An Actor that keeps in in-memory database of BECOME collisions
-  (alambda
-   ((cust :collision . args)
-    (become (collision-collector-beh start (cons args db)))
-    (send cust :ok))
-   ((cust :report)
-    (send cust db))
-   ((cust :count)
-    (send cust start (length db)))
-   ((cust :reset)
-    (become (collision-collector-beh))
-    (send cust :ok))
-   ))
-(defvar collision-collector
-  (create (collision-collector-beh)))
+(defvar *collision-counter* 0)
 
 (defun report-collision ()
-  (send-to-pool collision-collector sink
-                :collision *self* *self-beh* *self-msg*))
+  (sys:atomic-incf *collision-counter*))
 
 (defun cph ()
   ;; Report Collisions per Hour
-  (let+ ((now   (get-universal-time))
-         (:mvb (start count) (ask collision-collector :count)))
+  (let* ((now   (get-universal-time))
+         (start (shiftf *collision-start* now))
+         (count (sys:atomic-exchange *collision-counter* 0)))
     (format t "~%Collisions: count = ~d, rate = ~,2f/hr"
             count (* 3600 (/ count (- now start))))
     (values)
@@ -304,8 +289,6 @@ THE SOFTWARE.
          
 #|
 (cph)
-(inspect (ask collision-collector :report))
-(send collision-collector sink :reset)
 |#
 ;; --------------------------------------------
 
