@@ -1,7 +1,7 @@
 2025
 --
 
-Forget about this early version of Actors... This is based on a Chinese Restaurant Menu style of Actor behaviors. That's a bunch of nonsense...
+Forget about this early version of Actors... This is based on a "Chinese Restaurant Menu" style of Actor behaviors. That's a bunch of nonsense...
 
 Go on over to the xTActors folder for the real stuff -- Transactional Conventional Hewitt Actors.
 
