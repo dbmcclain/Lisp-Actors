@@ -1,3 +1,12 @@
+2025
+--
+
+Forget about this early version of Actors... This is based on a Chinese Restaurant Menu style of Actor behaviors. That's a bunch of nonsense...
+
+Go on over to the xTActors folder for the real stuff -- Transactional Conventional Hewitt Actors.
+
+--
+
 This folder contains the start of an experiment in minimalism. Just
 how simple can an Actors system become? And what are the benefits of
 it?
