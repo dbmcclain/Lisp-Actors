@@ -3,8 +3,9 @@
 
 Forget about this early version of Actors... This is based on a "Chinese Restaurant Menu" style of Actor behaviors. That's a bunch of nonsense...
 
-Go on over to the xTActors folder for the real stuff -- Transactional Conventional Hewitt Actors.
+Go on over to the xTActors folder for the real stuff -- Transactional Conventional Hewitt Actors, where Actors systems are assembled from reusable Leggo-blocks of behaviors.
 
+Earlier... (2018...2024)
 --
 
 This folder contains the start of an experiment in minimalism. Just
