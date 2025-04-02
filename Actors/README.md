@@ -1,7 +1,7 @@
 2025
 --
 
-Forget about this early version of Actors... This is based on a "Chinese Restaurant Menu" style of Actor behaviors with each Actor holding its own mailbox. That's a bunch of nonsense...
+Forget about this early version of Actors... This is based on a "Chinese Restaurant Menu" style of Actor behaviors, with each Actor holding its own mailbox. That's a bunch of nonsense...
 
 Go on over to the xTActors folder for the real stuff -- Transactional Conventional Hewitt Actors, where Actors systems are assembled from reusable Leggo-blocks of behaviors. Actors are simply passive functional closures contained in a 1-slot wrapper. No mailbox belonging to any one Actor. There is a global Event Queue which holds messages to be Dispatched to individual Actors.
 
