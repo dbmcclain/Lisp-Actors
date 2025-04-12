@@ -22,6 +22,7 @@ There becomes no inherent limit to the number of concurrent parallel tasks in a 
 
 The end result is that it becomes super-easy to write highly scalable, multi-threaded, distributed, code by writing it as though you are the sole occupant of the machine inside each code snippet. Then, on execution, you get massive parallel concurrent code execution, whose concurrency boundaries are up to you in how you apportioned pieces of one or more tasks to different "Actor" snippets.
 
+The use of Actors cleanly factors the dimensions of mutli-threading, concurrency, distribution, and communication, into separate domains. The Actors code can be written without overt awareness of any of these other dimensions.
 
 
 -- 19 Jan 2025 -- Graduation Day!!
