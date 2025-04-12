@@ -24,7 +24,7 @@ There becomes no inherent limit to the number of concurrent parallel tasks in a 
 
 Automatically instantiated local Proxy Actors provide a highly secure communication facility with remote Actors. Security is by way of unattributable, authenticated, malleable encrypted communications using a double-ratchet evolving key-set between connection endpoints. Initial keying is established with a randomized secure key exchange protocol.
 
-Security is enhanced because Actor snippets will respond only to valid messages directed at them. Posession of an Actor address implies permission to communicate with the Actor code. But invalid messages will be silently ignored. Messages sent to non-Actor addresses are silently dropped. Actors never reply to a message, but parameters in a message, or in its state data, can indicate other Actors that should be told the results.
+Security is enhanced because Actor snippets will respond only to valid messages directed at them. Posession of an Actor address implies permission to communicate with the Actor code. But invalid messages will be silently ignored. Messages sent to non-Actor addresses are silently dropped. Actors never reply to a message, but parameters in a message, or in its state data, can indicate other Actors that should be told the results from valid messages.
 
 The end result is that it becomes super-easy to write highly scalable, multi-threaded, distributed, code by writing it as though you are the sole occupant of the machine inside each code snippet. Then, on execution, you get massive parallel concurrent code execution, whose concurrency boundaries are up to you in how you apportioned pieces of one or more tasks to different "Actor" snippets.
 
