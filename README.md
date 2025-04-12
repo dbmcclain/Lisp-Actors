@@ -16,7 +16,7 @@ But as a twist, nothing happens, as far as the outside world can see, until a sn
 
 We must keep in mind that parallel execution of code snippets is possible at any time. But rather than relying on Locks, we make use of Functional Programming techniques to avoid mutating any shared data. BECOME is used to change state in a manner that is safe. Two or more parallel executions that attempt a BECOME, in the same snippet of code, are silently coodinated - only one of them will succeed, and the others will be automatically retried with re-delivery of the messages that they previously received.
 
-So it is really pretty much the same idea as conventional multi-thread programming, but slightly more generalized - to the point where "threads" and "locks" become irrelevant. They are both present, but only used beneath the Actors protocol, never overtly by snippet "Actor" code. 
+So it is really pretty much the same idea as conventional multi-thread programming, but slightly more generalized - to the point where "threads" and "locks" become irrelevant. They are both present, but only used beneath the Actors protocol, never overtly by snippet "Actor" code. Deadlocks are a thing of the past.
 
 There becomes no inherent limit to the number of concurrent parallel tasks in a running Actors system. It scales extremely well, easily accommodating millions of concurrent tasks. Actors can SEND messages to remote Actors without even realizing it. So distributed code becomes a natural thing to do. And the distribution of code can be changed on the fly without affecting any other code.
 
