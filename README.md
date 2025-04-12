@@ -20,6 +20,8 @@ So it is really pretty much the same idea as conventional multi-thread programmi
 
 There becomes no inherent limit to the number of concurrent parallel tasks in a running Actors system. It scales extremely well, easily accommodating millions of concurrent tasks. Actors can SEND messages to remote Actors without even realizing it. So distributed code becomes a natural thing to do. And the distribution of code can be changed on the fly without affecting any other code.
 
+Tasks can be assembled from reusable "Leggo Blocks" of Actor snippets. Actors can be created on the fly with CREATE. Security is enhanced because Actor snippets will respond only to valid messages directed at them. Posession of an Actor address implies permission to communicate with the Actor code. But invalid messages will be silently ignored. Messages sent to non-Actor addresses are silently dropped. Actors never reply to a message, but parameters in a message can indicate Actors that should be told the results.
+
 The end result is that it becomes super-easy to write highly scalable, multi-threaded, distributed, code by writing it as though you are the sole occupant of the machine inside each code snippet. Then, on execution, you get massive parallel concurrent code execution, whose concurrency boundaries are up to you in how you apportioned pieces of one or more tasks to different "Actor" snippets.
 
 The use of Actors cleanly factors the dimensions of mutli-threading, concurrency, distribution, and communication, into separate domains. Your Actors code can be written without overt awareness of any of these other dimensions.
