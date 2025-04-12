@@ -12,9 +12,10 @@ There is a single mailbox, or Event Queue, from which all threads in the pool fe
 
 But as a twist, nothing happens, as far as the outside world can see, until a snippet returns without error. At that moment, all message SENDs and internal BECOME are seen by the world. Otherwise, except for some wasted CPU cycles, there is no effect and it becomes as though the errant message were never delivered. This is the essence of Transactional Actors.
 
+Rather than relying on Locks, we keep in mind that parallel execution of code snippets is possible at any time. And so we make use of Functional Programming techniques to avoid mutating any shared data. BECOME is used to safely change state in a manner that is safe. Two or more parallel executions that attempt a BECOME are silently coodinated - only one of them will succeed, and the others will be automatically retried with delivery of the messages that they previously received.
+
 So it is really pretty much the same idea as conventional multi-thread programming, but slightly more generalized - to the point where "threads" and "locks" become irrelevant. They are both present, but only used beneath the Actors protocol, never overtly by snippet "Actor" code. The end result is that it becomes super-easy to write multi-threaded code by writing it as though you are the sole occupant of the machine inside each code snippet. Then, on execution, you get massive parallel concurrent code execution, whose concurrency boundaries are up to you in how you apportioned pieces of one or more tasks.
 
-Rather than relying on Locks, we keep in mind that parallel execution of code snippets is possible at any time. And so we make use of Functional Programming techniques to avoid mutating any shared data. BECOME is used to safely change state in a manner that is safe. Two or more parallel executions that attempt a BECOME are silently coodinated - only one of them will succeed, and the others will be automatically retried with delivery of the messages that they previously received.
 
 
 -- 19 Jan 2025 -- Graduation Day!!
