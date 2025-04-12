@@ -22,7 +22,9 @@ We must keep in mind that parallel execution of code snippets is possible at any
 
 So it is really pretty much the same idea as conventional multi-thread programming, but slightly more generalized - to the point where "threads" and "locks" become irrelevant. They are both present, but only used beneath the Actors protocol, never overtly by snippet "Actor" code. Deadlocks are a thing of the past. 
 
-Tasks can be assembled from reusable "Leggo Blocks" of Actor snippets. Actors can be created on the fly with CREATE. As a simple example, consider a ONCE block - an Actor that will allow the passage of only the first arriving message to its target destination Actor:
+Tasks can be assembled from reusable "Leggo Blocks" of Actor snippets. Actors can be created on the fly with CREATE. Messages to an Actor can arrive at any time, and from any number of sources. The source of a message is unknown. 
+
+As a simple example, consider a ONCE block - an Actor that will allow the passage of only the first arriving message to its target destination Actor:
 ```
 (deflex sink-beh
   (lambda (&rest msg)
@@ -35,7 +37,7 @@ Tasks can be assembled from reusable "Leggo Blocks" of Actor snippets. Actors ca
 
 (create (once-beh my-target-actor))
 ```
-Messages to an Actor can arrive at any time, and from any number of sources. The source of a message is unknown. You can see that by executing ONCE-BEH, with a target Actor adddress, produces a functional closure with that target address in its local closure environment. Calling CREATE with this new behavior closure produces an Actor envelope which encapsulates the behavior closure. SEND* is just (APPLY #'SEND ...), which enables us to use our target destination Actor as the SEND target on a received message. After the first execution of our CREATE'd ONCE block, the block turns itself into a SINK block that ignores all other incoming messages.
+You can see that by executing ONCE-BEH, with a target Actor adddress, produces a functional closure with that target address in its local closure environment. Calling CREATE with this new behavior closure produces an Actor envelope which encapsulates the behavior closure. SEND* is just (APPLY #'SEND ...), which enables us to use our target destination Actor as the SEND target on a received message. After the first execution of our CREATE'd ONCE block, the block turns itself into a SINK block that ignores all other incoming messages.
 
 There becomes no inherent limit to the number of concurrent parallel tasks in a running Actors system. It scales extremely well, easily accommodating millions of concurrent tasks. Actors can SEND messages to remote Actors without even realizing it. So distributed code becomes a natural thing to do. And the distribution of code can be changed on the fly without affecting any other code. 
 
