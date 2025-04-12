@@ -22,7 +22,7 @@ Tasks can be assembled from reusable "Leggo Blocks" of Actor snippets. Actors ca
 
 There becomes no inherent limit to the number of concurrent parallel tasks in a running Actors system. It scales extremely well, easily accommodating millions of concurrent tasks. Actors can SEND messages to remote Actors without even realizing it. So distributed code becomes a natural thing to do. And the distribution of code can be changed on the fly without affecting any other code. 
 
-Automatically instantiated local Proxy Actors provide a highly secure communication facility with remote Actors. Security is by way of unattributable, authenticated, malleable encrypted communications using a double-ratchet evolving key-set between connection endpoints. Initial keying is established with a randomized secure key exchange protocol.
+Automatically instantiated local Proxy Actors provide a highly secure communication facility with remote Actors. Security is by way of unattributable, authenticated, malleable encrypted communications using a double-ratchet evolving key-set between connection endpoints. Initial keying is established with a randomized secure key exchange protocol. Message boundaries are detected by a self-synchronizing encoding across the wire stream.
 
 Security is enhanced because Actor snippets will respond only to valid messages directed at them. Posession of an Actor address implies permission to communicate with the Actor code. But invalid messages will be silently ignored. Messages sent to non-Actor addresses are silently dropped. Actors never reply to a message, but parameters in a message, or in its state data, can indicate other Actors that should be told the results from valid messages.
 
