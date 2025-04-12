@@ -12,7 +12,7 @@ We no longer pay much attention to "threads" in the system, but more attention i
 
 To facilitate BECOME without also changing the identity of the snippet, we must encapsulate the functional closure in a 1-slot envelope structure. Messages are SEND to these envelopes, called Actors. The Actor is then free to change its behavior and data without affecting its envelope identity. One level of indirection makes this possible.
 
-There is a single mailbox, or Event Queue, from which all threads in the pool feed, and to which all message SENDs are sent. No thread-specific message mailboxes. Messages are sent to the Actors "system" which then apportions out new messages to any available thread in the dispatch pool. Code does not belong to any thread. But all threads can execute code on demand as needed.
+There is a single mailbox, or Event Queue, from which all threads in the pool feed, and to which all message SENDs are directed. No thread-specific message mailboxes. Messages are sent to the Actors "system" which then apportions out new messages to any available thread in the dispatch pool. Code does not belong to any thread. But all threads can execute code on demand as needed.
 
 Actors are therefore simple inert functional closures encapuslated in an addressable envelope, and nothing more. They are not alive, and cannot be killed - any more than you could kill the SINE function. Actors do not have their own message mailbox. Their behavior code is executed by a dedicated Dispatch thread whenever a message is directed toward their Actor envelope.
 
