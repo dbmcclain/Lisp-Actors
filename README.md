@@ -41,7 +41,7 @@ As a simple example, consider a ONCE block - an Actor that will allow the passag
 
 (create (once-beh my-target-actor))
 ```
-You can see that by executing ONCE-BEH, with a target Actor adddress, produces a functional closure with that target address in its local closure environment. Calling CREATE with this new behavior closure produces an Actor envelope which encapsulates the behavior closure. SEND* is just (APPLY #'SEND ...), which enables us to use our target destination Actor as the SEND target on a received message. After the first execution of our CREATE'd ONCE block, the block turns itself into a SINK block that ignores all other incoming messages.
+You can see that by executing ONCE-BEH, with a target Actor adddress, produces a functional closure with that target address in its local closure environment. Calling CREATE with this new behavior closure produces an Actor envelope which encapsulates the behavior closure. SEND* is just (APPLY #'SEND ...), which enables us to use our target destination Actor as the SEND target on an arbitrary received message. After the first execution of our CREATE'd ONCE block, the block turns itself into a SINK block that ignores all other incoming messages.
 
 There becomes no inherent limit to the number of concurrent parallel tasks in a running Actors system. It scales extremely well, easily accommodating millions of concurrent tasks. Actors can SEND messages to remote Actors without even realizing it. So distributed code becomes a natural thing to do. And the distribution of code can be changed on the fly without affecting any other code. 
 
