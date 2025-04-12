@@ -14,6 +14,8 @@ To facilitate BECOME without also changing the identity of the snippet, we must 
 
 There is a single mailbox, or Event Queue, from which all threads in the pool feed, and to which all message SENDs are sent. No thread-specific message mailboxes. Messages are sent to the Actors "system" which then apportions out new messages to any available thread in the dispatch pool. Code does not belong to any thread. But all threads can execute code on demand as needed.
 
+Actors are therefore simple inert functional closures encapuslated in an addressable envelope, and nothing more. They are not alive, and cannot be killed - any more than you could kill the SINE function.
+
 But as a twist, nothing happens, as far as the outside world can see, until a snippet returns without error. At that moment, all message SENDs and internal BECOME are seen by the world. Otherwise, except for some wasted CPU cycles, there is no effect and it becomes as though the errant message were never delivered. This is the essence of Transactional Actors.
 
 We must keep in mind that parallel execution of code snippets is possible at any time. But rather than relying on Locks, we make use of Functional Programming techniques to avoid mutating any shared data. BECOME is used to change state in a manner that is safe. Two or more parallel executions that attempt a BECOME, in the same snippet of code, are silently coodinated - only one of them will succeed, and the others will be automatically retried with re-delivery of the messages that they previously received.
