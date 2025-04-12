@@ -16,13 +16,15 @@ But as a twist, nothing happens, as far as the outside world can see, until a sn
 
 We must keep in mind that parallel execution of code snippets is possible at any time. But rather than relying on Locks, we make use of Functional Programming techniques to avoid mutating any shared data. BECOME is used to change state in a manner that is safe. Two or more parallel executions that attempt a BECOME, in the same snippet of code, are silently coodinated - only one of them will succeed, and the others will be automatically retried with re-delivery of the messages that they previously received.
 
-So it is really pretty much the same idea as conventional multi-thread programming, but slightly more generalized - to the point where "threads" and "locks" become irrelevant. They are both present, but only used beneath the Actors protocol, never overtly by snippet "Actor" code. Deadlocks are a thing of the past.
+So it is really pretty much the same idea as conventional multi-thread programming, but slightly more generalized - to the point where "threads" and "locks" become irrelevant. They are both present, but only used beneath the Actors protocol, never overtly by snippet "Actor" code. Deadlocks are a thing of the past. 
+
+Tasks can be assembled from reusable "Leggo Blocks" of Actor snippets. Actors can be created on the fly with CREATE. 
 
 There becomes no inherent limit to the number of concurrent parallel tasks in a running Actors system. It scales extremely well, easily accommodating millions of concurrent tasks. Actors can SEND messages to remote Actors without even realizing it. So distributed code becomes a natural thing to do. And the distribution of code can be changed on the fly without affecting any other code. 
 
 Automatically instantiated Proxy Actors provide a highly secure communication facility with remote Actors. Security is by way of unattributable, authenticated, malleable encrypted communications using a double-ratchet evolving key-set between connection endpoints. Initial keying is established with a randomized secure key exchange protocol.
 
-Tasks can be assembled from reusable "Leggo Blocks" of Actor snippets. Actors can be created on the fly with CREATE. Security is enhanced because Actor snippets will respond only to valid messages directed at them. Posession of an Actor address implies permission to communicate with the Actor code. But invalid messages will be silently ignored. Messages sent to non-Actor addresses are silently dropped. Actors never reply to a message, but parameters in a message, or in its state data, can indicate other Actors that should be told the results.
+Security is enhanced because Actor snippets will respond only to valid messages directed at them. Posession of an Actor address implies permission to communicate with the Actor code. But invalid messages will be silently ignored. Messages sent to non-Actor addresses are silently dropped. Actors never reply to a message, but parameters in a message, or in its state data, can indicate other Actors that should be told the results.
 
 The end result is that it becomes super-easy to write highly scalable, multi-threaded, distributed, code by writing it as though you are the sole occupant of the machine inside each code snippet. Then, on execution, you get massive parallel concurrent code execution, whose concurrency boundaries are up to you in how you apportioned pieces of one or more tasks to different "Actor" snippets.
 
