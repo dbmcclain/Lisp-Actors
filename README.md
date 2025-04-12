@@ -4,7 +4,7 @@ So what is Actors programming *really* all about?
 
 All of us have had the experience of writing multi-threaded code. Generally, we assign some dedicated thread to some particular function, e.g., a thread to handle remote comms, etc. We generally set up a dedicated mailbox to communicate to that thread.
 
-But this doesn't scale well. There is some machine limit to the number of threads that the system can handle.
+But this doesn't scale well. There is some machine limit to the number of threads that the system can handle. Attempting to distribute the code among several servers becomes a coordination chore.
 
 The Actors protocol is simply an extension of this idea, but instead of dedicating threads to specific tasks, we make all participating threads in a thread pool respond to generalized messages that can initiate the execution of arbitrary snippets of code. Which thread will run which snippet becomes unimportant. And more generally, there can be multiple simultaneous executions of the same snippet on different threads.
 
