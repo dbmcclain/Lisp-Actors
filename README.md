@@ -1,3 +1,17 @@
+-- 12 Apr 2025 -- Grand Recap
+---
+So what is Actors programming *really* all about?
+
+All of us have had the experience of writing multi-threaded code. Generally, we assign some dedicated thread to some particular function, e.g., a thread to handle remote comms, etc. We generally set up a dedicated mailbox to communicate to that thread.
+
+The Actors protocol is simply an extension of this idea, but instead of dedicating threads to specific tasks, we make all participating threads in a thread pool respond to generalized messages that can initiate the execution of arbitrary snippets of code. Which thread will run which snippet becomes unimportant. And more generally, there can be multiple simultaneous executions of the same snippet on different threads.
+
+We no longer pay much attention to "threads" in the system, but more attention is paid to "tasks" which must be run. Those tasks are sequences of code snippets that should be run with coordination, each snippet initiated by sending it a message containing parameters. The snippets themselves are functional closures which contain both their code and their state. And the snippets can morph into different code and/or state via the BECOME command that only they alone can execute.
+
+But as a twist, nothing happens, as far as the outside world can see, until a snippet returns without error. At that moment, all message SENDs and internal BECOME are seen by the world. Otherwise, except for some wasted CPU cycles, there is no effect and it becomes as though the errant message were never delivered. This is the essence of Transactional Actors.
+
+
+
 -- 19 Jan 2025 -- Graduation Day!!
 ---
 Actors programming has graduated with flying colors. I claim this technique is no longer a toy.
