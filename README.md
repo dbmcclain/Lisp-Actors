@@ -4,6 +4,8 @@ So what is Actors programming *really* all about?
 
 All of us have had the experience of writing multi-threaded code. Generally, we assign some dedicated thread to some particular function, e.g., a thread to handle remote comms, etc. We generally set up a dedicated mailbox to communicate to that thread.
 
+But this doesn't scale well. There is some machine limit to the number of threads that the system can handle.
+
 The Actors protocol is simply an extension of this idea, but instead of dedicating threads to specific tasks, we make all participating threads in a thread pool respond to generalized messages that can initiate the execution of arbitrary snippets of code. Which thread will run which snippet becomes unimportant. And more generally, there can be multiple simultaneous executions of the same snippet on different threads.
 
 We no longer pay much attention to "threads" in the system, but more attention is paid to "tasks" which must be run. Those tasks are sequences of code snippets that should be run with coordination, each snippet initiated by sending it a message containing parameters. The snippets themselves are functional closures which contain both their code and their state. And the snippets can morph into different code and/or state via the BECOME command that only they alone can execute.
@@ -15,6 +17,8 @@ But as a twist, nothing happens, as far as the outside world can see, until a sn
 Rather than relying on Locks, we keep in mind that parallel execution of code snippets is possible at any time. And so we make use of Functional Programming techniques to avoid mutating any shared data. BECOME is used to change state in a manner that is safe. Two or more parallel executions that attempt a BECOME, in the same snippet of code, are silently coodinated - only one of them will succeed, and the others will be automatically retried with re-delivery of the messages that they previously received.
 
 So it is really pretty much the same idea as conventional multi-thread programming, but slightly more generalized - to the point where "threads" and "locks" become irrelevant. They are both present, but only used beneath the Actors protocol, never overtly by snippet "Actor" code. 
+
+There becomes no inherent limit to the number of concurrent parallel tasks in a running Actors system. It scales extremely well, easily accommodating millions of concurrent tasks.
 
 The end result is that it becomes super-easy to write multi-threaded code by writing it as though you are the sole occupant of the machine inside each code snippet. Then, on execution, you get massive parallel concurrent code execution, whose concurrency boundaries are up to you in how you apportioned pieces of one or more tasks to different "Actor" snippets.
 
