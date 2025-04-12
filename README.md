@@ -22,7 +22,7 @@ We must keep in mind that parallel execution of code snippets is possible at any
 
 So it is really pretty much the same idea as conventional multi-thread programming, but slightly more generalized - to the point where "threads" and "locks" become irrelevant. They are both present, but only used beneath the Actors protocol, never overtly by snippet "Actor" code. Deadlocks are a thing of the past. 
 
-Tasks can be assembled from reusable "Leggo Blocks" of Actor snippets. Actors can be created on the fly with CREATE. As a simple example, consider a ONCE block - an Actor that will allow the passage of only the first arriving message to its target destination Actor.
+Tasks can be assembled from reusable "Leggo Blocks" of Actor snippets. Actors can be created on the fly with CREATE. As a simple example, consider a ONCE block - an Actor that will allow the passage of only the first arriving message to its target destination Actor:
 ```
 (deflex sink-beh
   (lambda (&rest msg)
