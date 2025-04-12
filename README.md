@@ -10,6 +10,8 @@ The Actors protocol is simply an extension of this idea, but instead of dedicati
 
 We no longer pay much attention to "threads" in the system, but more attention is paid to "tasks" which must be run. Those tasks are sequences of code snippets that should be run with coordination, each snippet initiated by sending it a message containing parameters. The snippets themselves are functional closures which contain both their code and their state. And the snippets can morph into different code and/or state via the BECOME command that only they alone can execute.
 
+To facilitate BECOME without also changing the identity of the snippet, we must encapsulate the functional closure in a 1-slot envelope structure. Messages are SEND to these envelopes, called Actors. The Actor is then free to change its behavior and data without affecting its envelope identity. One level of indirection makes this possible.
+
 There is a single mailbox, or Event Queue, from which all threads in the pool feed, and to which all message SENDs are sent. No thread-specific message mailboxes. Messages are sent to the Actors "system" which then apportions out new messages to any available thread in the dispatch pool. Code does not belong to any thread. But all threads can execute code on demand as needed.
 
 But as a twist, nothing happens, as far as the outside world can see, until a snippet returns without error. At that moment, all message SENDs and internal BECOME are seen by the world. Otherwise, except for some wasted CPU cycles, there is no effect and it becomes as though the errant message were never delivered. This is the essence of Transactional Actors.
