@@ -14,7 +14,7 @@ To facilitate BECOME without also changing the identity of the snippet, we must 
 
 There is a single mailbox, or Event Queue, from which all threads in the pool feed, and to which all message SENDs are sent. No thread-specific message mailboxes. Messages are sent to the Actors "system" which then apportions out new messages to any available thread in the dispatch pool. Code does not belong to any thread. But all threads can execute code on demand as needed.
 
-Actors are therefore simple inert functional closures encapuslated in an addressable envelope, and nothing more. They are not alive, and cannot be killed - any more than you could kill the SINE function. Actors do not have their own message mailbox.
+Actors are therefore simple inert functional closures encapuslated in an addressable envelope, and nothing more. They are not alive, and cannot be killed - any more than you could kill the SINE function. Actors do not have their own message mailbox. Their behavior code is simply executed by a Dispatch thread whenever a message is directed toward them.
 
 But as a twist, nothing happens, as far as the outside world can see, until a snippet returns without error. At that moment, all message SENDs and internal BECOME are seen by the world. Otherwise, except for some wasted CPU cycles, there is no effect and it becomes as though the errant message were never delivered. This is the essence of Transactional Actors.
 
