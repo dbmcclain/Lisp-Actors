@@ -45,7 +45,7 @@ Automatically instantiated local Proxy Actors provide a highly secure communicat
 
 Security is enhanced because Actor snippets will respond only to valid messages directed at them. Posession of an Actor address implies permission to communicate with the Actor code. But invalid messages will be silently ignored. Messages sent to non-Actor addresses are silently dropped. Actors never reply to a message, but parameters in a message, or in its state data, can indicate other Actors that should be told the results from valid messages.
 
-The end result is that it becomes super-easy to write highly scalable, multi-threaded, securely distributed, code by writing it as though you are the sole occupant of the machine inside each code snippet. Then, on execution, you get massive parallel concurrent code execution, whose concurrency boundaries are up to you in how you apportioned pieces of one or more tasks to different "Actor" snippets.
+The end result is that it becomes super-easy to write highly scalable, multi-threaded, securely distributed, code by writing it as though you are the sole occupant of the machine inside each code snippet, albeit functionally pure code. Then, on execution, you get massive parallel concurrent code execution, whose concurrency boundaries are up to you in how you apportioned pieces of one or more tasks to different "Actor" snippets.
 
 The use of Actors cleanly factors the dimensions of mutli-threading, concurrency, distribution, communication, and security, into separate domains. Your Actors code can be written without overt awareness of any of these other dimensions.
 
