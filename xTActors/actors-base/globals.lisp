@@ -37,7 +37,11 @@
 
 ;; --------------------------------------------
 
-(defvar *dyn-specials*  (make-dyn-specials))
+(defvar *dyn-specials*  (make-dyn-specials
+                         :become-hook    (lambda* _
+                                           (error "BECOME while not in an Actor"))
+                         :abort-beh-hook #'do-nothing
+                         ))
 
 ;; --------------------------------------------
 ;; System level has R/W access

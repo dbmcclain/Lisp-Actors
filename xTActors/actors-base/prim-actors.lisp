@@ -165,8 +165,8 @@
 ;; Get everyone playing off the same sheet of music...
 ;;
 ;; The trouble with printing is that any arbitrary thread can execute
-;; a println, writeln, or fmt-println. Where that output goes depends
-;; on the thread.
+;; a println, writeln, or fmt-println. And where that output goes
+;; depends on the thread.
 ;;
 ;; Most of the time, it goes to the background print stream. But if
 ;; you happen to ASK from the Listener REPL, then some output may also

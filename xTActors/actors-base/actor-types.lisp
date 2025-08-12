@@ -45,14 +45,12 @@
 ;; reply to the customer, can take advantage of some parallel
 ;; invocation macros, such as FORK/JOIN and others.
 
+;; -------------------------------------------
+
 (defstruct (actor
             (:constructor %create (beh)))
   (beh  #'do-nothing  :type function))
 
-(defun create (&optional (beh #'do-nothing))
-  (%create (screened-beh beh)))
-
-;; ----------------------------------------------------------
 
 (defgeneric screened-beh (arg)
   (:method ((arg function))
@@ -60,5 +58,9 @@
   (:method ((arg actor))
    (fwd-beh arg)) )
 
-;; -------------------------------------------
+
+(defun create (&optional (beh #'do-nothing))
+  (%create (screened-beh beh)))
+
+;; ----------------------------------------------------------
 
