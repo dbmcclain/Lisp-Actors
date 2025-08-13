@@ -4,7 +4,7 @@ So what is Actors programming *really* all about?
 
 __*(As a reminder, you should be using the Transactional Conventional Hewitt Actors found in folder xTActors)*__
 
-All of us have had the experience of writing multi-threaded code. Generally, we assign some dedicated thread to some particular function, e.g., a thread to handle remote comms, etc. We generally set up a dedicated mailbox to communicate to that thread.
+All of us have had the experience of writing multi-threaded code. Generally, we assign some dedicated thread to some particular function, e.g., a thread to handle remote comms, etc. And we set up a dedicated mailbox to communicate to that thread.
 
 But this doesn't scale well. There is some machine limit to the number of threads that the system can handle. Attempting to distribute the code among several servers becomes a communication, coordination, and security chore. A dedicated thread may become under-utilized, as a machine resource.
 
