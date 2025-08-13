@@ -36,15 +36,32 @@
 ;;                              +------+-----+-----+---
 ;; ------------------------------------------------------------------
 ;;
-;; An Actor can use any function as its behavior. But by convention, a
-;; Service Actor is one which takes a message containing only a
-;; customer.  We cannot enforce this convention, so we have to trust
-;; the programmer.
+;; An Actor can use any function as its behavior. And, by convention,
+;; messages have, as their first element, a reference to a customer
+;; Actor to which results should be sent.
 ;;
-;; But Actors which comply with this convention, and which promise to
-;; reply to the customer, can take advantage of some parallel
-;; invocation macros, such as FORK/JOIN and others.
-
+;; We cannot enforce this convention, so we have to trust the
+;; programmer.
+;;
+;; A Service Actor is one which takes a message containing only a
+;; customer, and whose behavior code sends a result to this customer.
+;; Actors which comply with this Service convention can take advantage
+;; of some parallel invocation macros, such as FORK/JOIN and others.
+;;
+;; Any Actor which accepts more arguments in messages can be converted
+;; into a Service Actor by placing it behind an invocation forwarding
+;; Actor which accepts the single customer argument, but which has
+;; been created with values for the other message args and the target
+;; Actor. It then forwards the invocation to the target Actor using
+;; the customer supplied in the message, concatenated with the other
+;; args specified in its creation state.
+;;
+;; This can be automated using the macro RACURRY, supplying the target
+;; Actor and the remaining message args to supply on invocation of the
+;; target Actor. RACURRY works like RCURRY, but for Actors instead of
+;; Functions. RACURRY creates a forwarding Actor to which messages
+;; containing only the customer can be sent.
+;;
 ;; -------------------------------------------
 
 (defstruct (actor
