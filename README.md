@@ -2,7 +2,7 @@
 ---
 So what is Actors programming *really* all about? 
 
-__*(As a reminder, you should be using the Transactional Conventional Hewitt Actors found in folder xTActors)*__
+__*(As a reminder, you should be using the Transactional Conventional Hewitt Actors, found in folder xTActors)*__
 
 All of us have had the experience of writing multi-threaded code. Generally, we assign some dedicated thread to some particular function, e.g., a thread to handle remote comms, etc. And we set up a dedicated mailbox to communicate to that thread.
 
