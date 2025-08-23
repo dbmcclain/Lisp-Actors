@@ -562,7 +562,7 @@
 ;;
 ;; This is all elegantly produced by macro SHUNTING-BECOME, which
 ;; carries the surface syntax of MULTIPLE-VALUE-BIND.
-
+#|
 (defun shunting-beh (tag err sav-beh &optional pending)
   (flet ((exit (beh)
            (become beh)
@@ -576,6 +576,25 @@
       (become (shunting-beh tag err sav-beh
                             (cons msg pending))))
      )))
+|#
+
+(defun shunting-beh (tag err sav-beh &optional pending)
+  (flet ((exit (beh)
+           (become beh)
+           (send-all-to self pending)))
+    (with-contention-free-semantics
+      (lambda (&rest msg)
+        (without-contention
+         (match msg
+           ((atag) / (eq atag err)
+            (exit sav-beh))
+           ((atag new-beh) / (eq atag tag)
+            (exit new-beh))
+           (msg
+            (become (shunting-beh tag err sav-beh
+                                  (cons msg pending))))
+           )))
+      )))
 
 (defun do-shunting-become (fn)
   ;; Works hand-in-glove with SHUNTING-BEH to catch error conditions

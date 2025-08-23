@@ -39,10 +39,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 #+:actors-experiments (:file "actor-classes")
                 (:file "globals")
                 ;; (:file "lexprot")
+                (:file "anti-collision")
                 (:file "macros")
                 ;; (:file "actors-mstr")
                 (:file "actors-mstr2")
-                (:file "anti-collision")
                 (:file "par-xlate")
                 ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
                 ;; (:file "st-send")

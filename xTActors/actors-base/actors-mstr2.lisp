@@ -371,9 +371,6 @@ THE SOFTWARE.
                              :send-hook         #'%send
                              :become-hook       #'%become
                              :abort-beh-hook    #'%abort-beh
-                             :my-go-around-hook (lambda (&rest msg)
-                                                  (abort-beh)
-                                                  (%send-to-pool (msg self msg)))
                              )))
         (declare (dynamic-extent *dyn-specials*))
         ;; --------------------------------------------

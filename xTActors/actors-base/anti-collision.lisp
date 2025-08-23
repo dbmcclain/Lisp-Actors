@@ -29,7 +29,7 @@
 (in-package #:com.ral.actors.base)
 
 #|
-(defun do-without-contention (fn)
+(defun do-with-serialized-execution (guard fn)
   ;; SELF is a global construct (a global binding visible to all threads)
   ;; *SELF* and *SELF-BEH* are thread-local bindings, different for each thread.
   ;; SAV-BEH is local to the execution, once past the CAS operation.
@@ -45,12 +45,10 @@
       (apply *my-go-around* *self-msg*))
     ))
 
-(defmacro without-contention (&body body)
-  ;; Should be placed around BECOME clauses.
-  `(do-without-contention (lambda () ,@body)))
-  
 (defmacro with-serialized-execution (&body body)
-  `(without-contention ,@body))
+  `(let ((,cfguard  (list nil)))
+     (do-with-serialized-execution guard (lambda ()
+                                           ,@body))))
 |#
 
 ;; --------------------------------------------
@@ -67,16 +65,18 @@
 (defun do-without-contention (guard fn)
   (let ((me  (mpc:get-current-process))
         (sav (car (the cons guard))))
-    (if (or (eq me sav)
-            (mpc:compare-and-swap (car (the cons guard)) nil me))
-        (if sav
-            (funcall fn)
-          (unwind-protect
-              (funcall fn)
-            (setf (car (the cons guard)) nil)))
-      ;; else
-      (%send-to-pool (msg self self-msg)))
-    ))
+    (cond ((or (eq me sav)
+               (mpc:compare-and-swap (car (the cons guard)) nil me))
+           (if sav
+               (funcall fn)
+             (unwind-protect
+                 (funcall fn)
+               (setf (car (the cons guard)) nil))))
+          
+          (t
+           (%send-to-pool (msg self self-msg))
+           (abort))
+          )))
 
 (defun do-become (guard fn)
   (do-without-contention guard (lambda ()
