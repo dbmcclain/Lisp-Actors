@@ -33,7 +33,8 @@
 
 (defstruct dyn-specials
   self self-beh self-msg self-msg-parent
-  send-hook become-hook abort-beh-hook)
+  send-hook become-hook abort-beh-hook
+  my-go-around-hook)
 
 ;; --------------------------------------------
 
@@ -66,6 +67,10 @@
 
 (define-symbol-macro *abort-beh-hook*
   (dyn-specials-abort-beh-hook (the dyn-specials *dyn-specials*)))
+
+(define-symbol-macro *my-go-around*
+  ;; for WITHOUT-CONTENTION
+  (dyn-specials-my-go-around-hook (the dyn-specials *dyn-specials*)))
 
 ;; --------------------------------------------
 ;; User level has Read-Only access

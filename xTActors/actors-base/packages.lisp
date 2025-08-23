@@ -339,6 +339,9 @@ THE SOFTWARE.
 
    #:sys-cached
    #:behav
+
+   #:without-contention
+   #:with-serialized-execution
    ))
 
 #+(OR :ALLEGRO :CCL)

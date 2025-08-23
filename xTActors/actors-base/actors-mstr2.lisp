@@ -274,8 +274,10 @@ THE SOFTWARE.
 
 (defvar *collision-counter* 0)
 (defvar *collision-start*   0)
+(defvar *which-actor*       nil)
 
-(defun report-collision ()
+(defun report-collision (beh)
+  (setf *which-actor* beh)
   (sys:atomic-incf *collision-counter*))
 
 (defun cph ()
@@ -283,16 +285,17 @@ THE SOFTWARE.
   (let* ((now   (get-universal-time))
          (start (shiftf *collision-start* now))
          (count (sys:atomic-exchange *collision-counter* 0)))
-    (format t "~%Collisions: count = ~d, rate = ~,2f/hr"
-            count (* 3600 (/ count (- now start))))
+    (format t "~%Collisions: count = ~d, rate = ~,2f/s"
+            count (* 1 (/ count (- now start))))
     (values)
     ))
          
 #|
 (cph)
+(inspect *which-actor*)
 |#
 ;; --------------------------------------------
-
+#||#
 (defun run-actors (&optional (actor nil actor-provided-p) &rest message)
   #F
   (let (done timeout sends pend-beh)
@@ -347,12 +350,127 @@ THE SOFTWARE.
                                    (actor-beh (the actor *self*))
                                    *self-beh* pend-beh))     ;; effective BECOME
                         ;; failed on behavior update - try again...
-                        (report-collision) ;; for engineering telemetry
+                        (report-collision *self-beh*) ;; for engineering telemetry
                         (go RETRY)))
                      
                      (dolist (msg (the list sends))
                        (mpc:mailbox-send *central-mail* msg))
                      )))
+         
+         (dispatcher ()
+           (loop until done 
+                 do
+                   (with-simple-restart (abort "Handle next event")
+                     (dispatch-loop))
+                 )))
+      (declare (dynamic-extent #'%send #'%become #'%abort-beh
+                               #'dispatch-loop #'dispatcher))
+      ;; --------------------------------------------
+
+      (let ((*dyn-specials* (make-dyn-specials
+                             :send-hook         #'%send
+                             :become-hook       #'%become
+                             :abort-beh-hook    #'%abort-beh
+                             :my-go-around-hook (lambda (&rest msg)
+                                                  (abort-beh)
+                                                  (%send-to-pool (msg self msg)))
+                             )))
+        (declare (dynamic-extent *dyn-specials*))
+        ;; --------------------------------------------
+        (cond
+         (actor-provided-p
+          ;; we are an ASK
+          (if (is-pure-sink? actor)
+              (values nil t)
+            ;; else
+            (let ((me  (once
+                        (create
+                         (lambda* msg
+                           (setf done (list msg))))
+                        )))
+              (setf timeout *ASK-TIMEOUT*)  ;; for periodic DONE checking
+              (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
+              
+              (apply #'send-to-pool actor me message)
+              (with-simple-restart (abort "Terminate ASK")
+                (dispatcher))
+              (when done
+                (values (car done) t)))
+            ))
+         
+         (t  ;; else - we are normal Dispatch thread
+             (with-simple-restart (abort "Terminate Actor thread")
+               (dispatcher)))
+         ))
+      )))
+#||#
+#|
+;; ---------------------------------------------------------------------
+;; Collision-free Actor Dispatching...  Only one thread can be
+;; running in any one Actor. Parallel attempts are rerouted to
+;; GO-AROUND, which enqueues the message for later delivery.
+;;
+;; (This also means that we no longer need to have pure functional behaviors.)
+
+(defun go-around (&rest msg)
+  (send* self msg))
+
+(defun run-actors (&optional (actor nil actor-provided-p) &rest message)
+  #F
+  (let (done timeout sends pend-beh)
+    (labels
+        ((%send (msg)
+           ;; Within one behavior invocation there can be no
+           ;; significance to the ordering of sent messages.
+           (push msg sends))
+         
+         (%become (new-beh)
+           (setf pend-beh new-beh))
+         
+         (%abort-beh ()
+           (setf pend-beh *self-beh*
+                 sends    nil))
+
+         (dispatch-loop ()
+           ;; -------------------------------------------------------
+           ;; Think of the *current-x* global vars as dedicated registers
+           ;; of a special architecture CPU which uses a FIFO queue for its
+           ;; instruction stream, instead of linear memory, and which
+           ;; executes breadth-first instead of depth-first. This maximizes
+           ;; concurrency.
+           ;; -------------------------------------------------------
+           
+           ;; Fetch next event from event queue - ideally, this
+           ;; would be just a handful of simple register/memory
+           ;; moves and direct jump. No call/return needed, and
+           ;; stack useful only for a microcoding assist. Our
+           ;; depth is never more than one Actor at a time,
+           ;; before trampolining back here.
+
+           (handler-bind
+               ((error (lambda (c)
+                         (mpc:compare-and-swap (actor-beh (the actor *self*)) #'go-around *self-beh*)
+                         (error c)) ))
+             (loop until done
+                   do
+                     (when-let (evt (mpc:mailbox-read *central-mail* nil timeout))
+                       (setf *self-msg-parent* (and (car (the cons evt)) evt)
+                             *self*            (cadr (the cons evt))   ;; self
+                             *self-msg*        (cddr (the cons evt))  ;; self-msg
+                             
+                             pend-beh   (actor-beh (the actor *self*))
+                             sends      nil
+                             *self-beh* pend-beh)
+                       (cond
+                        ((mpc:compare-and-swap (actor-beh (the actor *self*)) *self-beh* #'go-around)
+                         (apply (the function pend-beh) (the list *self-msg*))
+                         (mpc:compare-and-swap (actor-beh (the actor *self*)) #'go-around pend-beh)
+                         (dolist (msg (the list sends))
+                           (mpc:mailbox-send *central-mail* msg)))
+                      
+                        (t
+                         (mpc:mailbox-send *central-mail* evt))
+                        )))))
          
          (dispatcher ()
            (loop until done 
@@ -397,7 +515,7 @@ THE SOFTWARE.
                (dispatcher)))
          ))
       )))
-
+|#
 ;; ----------------------------------------------------------------
 ;; Error Handling
 

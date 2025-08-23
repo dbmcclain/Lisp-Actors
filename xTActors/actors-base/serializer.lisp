@@ -233,10 +233,11 @@ prefixed by our unique SELF identity/"
          ;; enter the busy state.
          (alambda
           ((cust . msg)
-           (let ((tag  (tag self)))
-             (send* svc tag msg)
-             (become (busy-serializer-beh cust tag nil))
-             ))
+           (without-contention
+             (let ((tag  (tag self)))
+               (send* svc tag msg)
+               (become (busy-serializer-beh cust tag nil))
+               )))
           ))
 
        (busy-serializer-beh (cur-cust tag queue)
@@ -244,17 +245,19 @@ prefixed by our unique SELF identity/"
          ;; a message through our interposed customer TAG.
          (alambda
           ((atag . reply) / (eql atag tag)
-           (send* cur-cust reply)
-           (if (emptyq? queue)
-               (become (serializer-beh))
-             (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
-                    (new-tag  (tag self)))
-               (send* svc new-tag next-msg)
-               (become (busy-serializer-beh next-cust new-tag new-queue))
-               )))
+           (without-contention
+             (send* cur-cust reply)
+             (if (emptyq? queue)
+                 (become (serializer-beh))
+               (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
+                      (new-tag  (tag self)))
+                 (send* svc new-tag next-msg)
+                 (become (busy-serializer-beh next-cust new-tag new-queue))
+                 ))))
           ((cust . msg)
-           (become (busy-serializer-beh cur-cust tag
-                                        (addq queue (cons cust msg)))))
+           (without-contention
+             (become (busy-serializer-beh cur-cust tag
+                                          (addq queue (cons cust msg))))))
           )) )
     (create (serializer-beh))
     ))
