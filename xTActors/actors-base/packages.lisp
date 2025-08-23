@@ -340,6 +340,7 @@ THE SOFTWARE.
    #:sys-cached
    #:behav
 
+   #:with-contention-free-semantics
    #:without-contention
    #:with-serialized-execution
    ))

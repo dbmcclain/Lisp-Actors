@@ -28,6 +28,7 @@
 
 (in-package #:com.ral.actors.base)
 
+#|
 (defun do-without-contention (fn)
   ;; SELF is a global construct (a global binding visible to all threads)
   ;; *SELF* and *SELF-BEH* are thread-local bindings, different for each thread.
@@ -50,3 +51,45 @@
   
 (defmacro with-serialized-execution (&body body)
   `(without-contention ,@body))
+|#
+
+;; --------------------------------------------
+;; Do it without disturbing the Actor itself.
+;;
+;; We handle it with a private closure binding. All clauses in the
+;; behavior which might call BECOME should be encapsulated by macro
+;; WITHOUT-CONTENTION.
+;;
+;; Doing it this way allows non-mutating clauses to execute in
+;; parallel, instead of forcing single-thread behavior for all
+;; clauses.
+
+(defun do-without-contention (guard fn)
+  (let ((me  (mpc:get-current-process))
+        (sav (car (the cons guard))))
+    (if (or (eq me sav)
+            (mpc:compare-and-swap (car (the cons guard)) nil me))
+        (if sav
+            (funcall fn)
+          (unwind-protect
+              (funcall fn)
+            (setf (car (the cons guard)) nil)))
+      ;; else
+      (%send-to-pool (msg self self-msg)))
+    ))
+
+(defun do-become (guard fn)
+  (do-without-contention guard (lambda ()
+                                 (become fn))))
+  
+(defmacro with-contention-free-semantics (&body body)
+  ;; Should be used at the level of closure vars for the behavior
+  ;; which follows, e.g, after DEFUN and before ALAMBDA.
+  (let  ((cfguard  (gensym)))
+    `(let ((,cfguard  (list nil)))
+       (macrolet ((become (fn)
+                    `(do-become ,',cfguard ,fn))
+                  (without-contention (&body body)
+                    `(do-without-contention ,',cfguard (lambda () ,@body))))
+         ,@body))))
+

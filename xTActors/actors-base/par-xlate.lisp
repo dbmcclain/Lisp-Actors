@@ -358,19 +358,21 @@
        (alambda
         ((cust)
          (let ((joiner (create
-                        (lambda* (ix . ans)
-                          (without-contention
-                            (setf (aref ansv ix) (car ans))
-                            (unless (find no-ans ansv)
-                              (become-sink)
-                              (send* cust (coerce ansv 'list)))
-                            )))))
+                        (with-contention-free-semantics
+                          (lambda* (ix . ans)
+                            (without-contention
+                              (setf (aref ansv ix) (car ans))
+                              (unless (find no-ans ansv)
+                                (become-sink)
+                                (send* cust (coerce ansv 'list)))
+                              ))))))
            (loop for ix from 0
                  for svc in svcs
                  do
                    (send svc (label joiner ix)))
            ))
-        )) ))
+        ))
+      ))
    (args
     ;; just one args
     (let ((svc (apply svc-fn args)))
