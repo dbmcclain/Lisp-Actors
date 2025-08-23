@@ -21,35 +21,12 @@
 ;;
 ;; The WITHOUT-CONTENTION macro could also be used to enforce local
 ;; serialized execution, in the event of functionally impure Actor
-;; code. (I hate to encourage this...) AKA WITH-SERIALIZED-EXECUTION.
+;; code. (I hate to encourage this...)
 ;;
 ;; DM/RAL 08/25
 ;; -----------------------------------------------------------
 
 (in-package #:com.ral.actors.base)
-
-#|
-(defun do-with-serialized-execution (guard fn)
-  ;; SELF is a global construct (a global binding visible to all threads)
-  ;; *SELF* and *SELF-BEH* are thread-local bindings, different for each thread.
-  ;; SAV-BEH is local to the execution, once past the CAS operation.
-  (symbol-macrolet ((beh  (actor-beh (the actor *self*))))
-    (if (mpc:compare-and-swap beh *self-beh* *my-go-around*)
-        (let ((sav-beh (shiftf *self-beh* *my-go-around*)))  ;; allow nested WITHOUT-CONTENTION
-          (unwind-protect
-              (funcall fn)
-            (setf *self-beh* sav-beh)
-            (mpc:compare-and-swap beh *my-go-around* sav-beh)
-            ))
-      ;; else
-      (apply *my-go-around* *self-msg*))
-    ))
-
-(defmacro with-serialized-execution (&body body)
-  `(let ((,cfguard  (list nil)))
-     (do-with-serialized-execution guard (lambda ()
-                                           ,@body))))
-|#
 
 ;; --------------------------------------------
 ;; Do it without disturbing the Actor itself.
