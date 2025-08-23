@@ -1,28 +1,32 @@
 -- 12 Apr 2025 -- Grand Recap
 ---
-So what is Actors programming *really* all about?
+So what is Actors programming *really* all about? 
 
-All of us have had the experience of writing multi-threaded code. Generally, we assign some dedicated thread to some particular function, e.g., a thread to handle remote comms, etc. We generally set up a dedicated mailbox to communicate to that thread.
+__*(As a reminder, you should be using the Transactional Conventional Hewitt Actors, found in folder xTActors)*__
 
-But this doesn't scale well. There is some machine limit to the number of threads that the system can handle. Attempting to distribute the code among several servers becomes a communication, coordination, and security chore. A dedicated thread may become under-utilized, as a machine resource.
+All of us have had the experience of writing multi-threaded code. Generally, we assign some dedicated thread to some particular function, e.g., a thread to handle remote comms, etc. And we set up a dedicated mailbox to communicate to that thread.
+
+But this doesn't scale well. There is some machine limit to the number of threads that the system can handle. Attempting to distribute the code among several servers becomes a communication, coordination, and security chore. Furthermore, a dedicated thread may become under-utilized, as a machine resource.
 
 The Actors protocol is simply an extension of this idea, but instead of dedicating threads to specific tasks, we make all participating threads in a thread pool respond to generalized messages that can initiate the execution of arbitrary snippets of code. Which thread will run which snippet becomes unimportant. And more generally, there can be multiple simultaneous executions of the same snippet on different threads.
 
-We no longer pay much attention to "threads" in the system, but more attention is paid to "tasks" which must be run. Those tasks are sequences of code snippets that should be run with coordination, each snippet initiated by sending it a message containing parameters. The snippets themselves are functional closures which contain both their code and their state. And the snippets can morph into different code and/or state via the BECOME command that only they alone can execute.
+We no longer pay much attention to "threads" in the system, but more attention is paid to "tasks" which must be run. Those tasks are sequences of code snippets that should be run with coordination, each snippet initiated by sending it a message containing parameters. The snippets themselves are functional closures which contain both their code and their state. And the snippets can morph into different code and/or state via the BECOME command that only they, alone, can execute.
 
-To facilitate BECOME without also changing the identity of the snippet, we must encapsulate the functional closure in a 1-slot envelope structure. Messages are SEND to these envelopes, called Actors. The Actor is then free to change its behavior and data without affecting its envelope identity. One level of indirection makes this possible.
+To facilitate BECOME without also changing the identity of the snippet, we must encapsulate the functional closure in a 1-slot envelope structure. Messages are sent, via SEND, to these envelopes, called Actors. The Actor is then free to change its behavior and data without affecting its envelope identity. One level of indirection makes this possible.
 
 There is a single mailbox, or Event Queue, from which all threads in the pool feed, and to which all message SENDs are directed. No thread-specific message mailboxes. Messages are sent to the Actors "system" which then apportions out new messages to any available thread in the dispatch pool. Code does not belong to any thread. But all threads can execute code on demand as needed.
 
 Actors are therefore simple inert functional closures encapuslated in an addressable envelope, and nothing more. They are not alive, and cannot be killed - any more than you could kill the SINE function. Actors do not have their own message mailbox. Their behavior code is executed by a dedicated Dispatch thread whenever a message is directed toward their Actor envelope.
 
-But as a twist, nothing happens, as far as the outside world can see, until a snippet returns without error. At that moment, all message SENDs and internal BECOME are seen by the world. Otherwise, except for some wasted CPU cycles, there is no effect and it becomes as though the errant message were never delivered. This is the essence of Transactional Actors.
+But as a twist, nothing happens, as far as the outside world can see, until a snippet returns without error. At that moment, all message SENDs and internal BECOME are seen by the world. Otherwise, except for some wasted CPU cycles, there is no effect and it becomes as though the errant message were never delivered. This is the essence of Transactional Actors. 
 
-We must keep in mind that parallel execution of code snippets is possible at any time. But rather than relying on Locks, we make use of Functional Programming techniques to avoid mutating any shared data. BECOME is used to change state in a safe manner. Two or more parallel executions that attempt a BECOME, in the same functional closure of behavior code, are silently coordinated - only one of them will succeed, and the others will be automatically retried with re-delivery of the messages that they previously received.
+You can view each Actor as a little building block, like a Leggo block, that can be created as desired, using CREATE. The same Actor code can be used in many different places. Actors send messages to other Actors, creating an informal processing network of Actor blocks which handle tasks. They perform asynchronously and concurrently, possibly even in parallel if you have a mutlicore CPU.
+
+We must keep in mind that parallel execution of code snippets is possible at any time. And rather than relying on Locks, we make use of Functional Programming techniques to avoid mutating any shared data. BECOME is used to change state in a safe manner. Two or more parallel executions that attempt a BECOME, in the same functional closure of behavior code, are silently coordinated - only one of them will succeed, and the others will be automatically retried with re-delivery of the messages to the Actor which now has updated state.
 
 So it is really pretty much the same idea as conventional multi-thread programming, but slightly more generalized - to the point where "threads" and "locks" become irrelevant. They are both present, but only used beneath the Actors protocol, never overtly by snippet "Actor" code. Deadlocks are a thing of the past. 
 
-For those portions of a task that need exclusive access, you can place your Actor blocks behind a SERIALIZER block. This allows the passage of only one message at a time to the following Actor blocks, until that Actor network sends a response back to the SERIALIZER, to enable the passage of the next message. 
+For those portions of a task that need exclusive serialized access, you can place your Actors behind a SERIALIZER block. This allows the passage of only one message at a time to the following Actor blocks, until that Actor network sends a response back to the SERIALIZER, which then enables the passage of the next message. 
 
 Deadlocks cannot occur in an Actor system, but livelocks can happen, where two tasks are each enqueued in opposing SERIALIZER blocks, each awaiting a response from the other which will never occur. In such case, progress in those two tasks will halt, but the overall Actor system remains responsive to other messages.
 
@@ -45,7 +49,7 @@ You can see that by executing ONCE-BEH, with a target Actor adddress, produces a
 
 There becomes no inherent limit to the number of concurrent parallel tasks in a running Actors system. It scales extremely well, easily accommodating millions of concurrent tasks. Actors can SEND messages to remote Actors without even realizing it. So distributed code becomes a natural thing to do. And the distribution of code can be changed on the fly without affecting any other code. 
 
-Automatically instantiated local Proxy Actors provide a highly secure communication facility with remote Actors. Security is by way of refutable, authenticated, malleable encrypted communications using a double-ratchet evolving key-set between connection endpoints. Initial keying is established with a randomized secure key exchange protocol. Message boundaries are detected by a self-synchronizing encoding across the wire stream.
+When a target Actor resides on a remote machine, automatically instantiated local Proxy Actors provide a highly secure communication facility with remote Actors. Security is by way of refutable, authenticated, malleable encrypted communications using a double-ratchet evolving key-set between connection endpoints. Initial keying is established with a randomized secure key exchange protocol. Message boundaries are detected by a self-synchronizing encoding across the wire stream.
 
 Security is enhanced because Actor snippets will respond only to valid messages directed at them. Posession of an Actor address implies permission to communicate with the Actor code. But invalid messages will be silently ignored. Messages sent to non-Actor addresses are silently dropped. Actors never reply to a message, but parameters in a message, or in its state data, can indicate other Actors that should be told the results from valid messages.
 
