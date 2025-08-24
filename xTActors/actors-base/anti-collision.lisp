@@ -37,14 +37,11 @@
 (defun bad-become ()
   (error "Unguarded BECOME in contention-free semantics"))
 
-(defvar *do-cf-fn* (vector '*do-cf-fn*)) ;; a unique message token
-
 (defun make-cf-closure (beh-fn)
   (let ((proc  (list nil)))
     (alambda
-     ((tok fn) / (eq tok *do-cf-fn*)
-      (let ((me  (mpc:get-current-process))
-            (sav (make-cf-closure beh-fn)))
+     (('contention-free fn)
+      (let ((me  (mpc:get-current-process)))
         ;;
         ;; First thread to attempt WITHOUT-CONTENTION takes it,
         ;; preemptively blocking all other threads from mutating the
@@ -56,11 +53,13 @@
         ;; keep the behavior code functionally pure.
         ;;
         (when (mpc:compare-and-swap (car (the cons proc)) nil me)
-          (become sav))
+          (become (make-cf-closure beh-fn)))
         (cond ((eq me (car (the cons proc)))
                (handler-bind
                    ((error (lambda (c)
-                             (mpc:compare-and-swap (actor-beh (the actor *self*)) *self-beh* sav)
+                             (mpc:compare-and-swap (actor-beh (the actor *self*))
+                                                   *self-beh*
+                                                   (make-cf-closure beh-fn))
                              (error c)) ))
                  (funcall fn)))
               (t
@@ -72,7 +71,7 @@
      )))
 
 (defun do-without-contention (fn)
-  (funcall *self-beh* *do-cf-fn* fn))
+  (funcall *self-beh* 'contention-free fn))
 
 (defmacro with-contention-free-semantics (fn-form)
   ;; Should wrap a behavior function.
