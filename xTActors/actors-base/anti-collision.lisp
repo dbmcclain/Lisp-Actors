@@ -1,4 +1,4 @@
-;; anti-collision.lisp --
+;; anti-collision.lisp -- Sometimes it is better to avoid contention races...
 ;;
 ;; A wrapper for Actor behavior code to prevent collisions by multiple
 ;; threads all attempting, in parallel, to mutate Actor state via
@@ -28,36 +28,6 @@
 
 (in-package #:com.ral.actors.base)
 
-;; --------------------------------------------
-;; Do it without disturbing the Actor itself.
-;;
-;; We handle it with a private closure binding. All clauses in the
-;; behavior which might call BECOME should be encapsulated by macro
-;; WITHOUT-CONTENTION.
-;;
-;; Doing it this way allows non-mutating clauses to execute in
-;; parallel, instead of forcing single-thread behavior for all
-;; clauses.
-
-#|
-(defun do-without-contention (guard fn)
-  (symbol-macrolet ((gcar  (car (the cons guard))))
-    (let ((me  (mpc:get-current-process))
-          (sav gcar))
-    (cond ((or (eq me sav)
-               (mpc:compare-and-swap gcar nil me))
-           (if sav
-               (funcall fn)
-             (unwind-protect
-                 (funcall fn)
-               (setf gcar nil))))
-          
-          (t
-           (%send-to-pool (msg self self-msg))
-           (abort))
-          ))))
-|#
-
 (defun do-become (fn)
   (become fn))
 
@@ -67,88 +37,46 @@
 (defun bad-become ()
   (error "Unguarded BECOME in contention-free semantics"))
 
-#|
-(defmacro with-contention-free-semantics (&body body)
-  ;; Should be used at the level of closure vars for the behavior
-  ;; which follows, e.g, after DEFUN and before ALAMBDA.
-  (let  ((cfguard  (gensym)))
-    `(let ((,cfguard  (list nil)))
-       (macrolet ((become (fn)
-                    (declare (ignore fn))
-                    (bad-become))
-                  (become-sink ()
-                    (bad-become))
-                  (without-contention (&body body)
-                    `(do-without-contention ,',cfguard
-                                            (lambda ()
-                                              (macrolet ((become (fn)
-                                                           `(do-become ,fn))
-                                                         (become-sink ()
-                                                           `(do-become-sink)))
-                                                ,@body)))))
-         ,@body))
-    ))
-|#
-#|
-(defun tst (x)
-  (with-contention-free-semantics
+(defvar *do-cf-fn* (vector '*do-cf-fn*))
+
+(defun make-cf-closure (beh-fn)
+  (let ((proc  (list nil)))
     (alambda
-     ((cust :ok)
-      (without-contention
-       (become (sink))))
+     ((tok fn) / (eq tok *do-cf-fn*)
+      (let ((me  (mpc:get-current-process))
+            (sav (make-cf-closure beh-fn)))
+        (when (mpc:compare-and-swap (car (the cons proc)) nil me)
+          (become sav))
+        (cond ((eq me (car (the cons proc)))
+               (handler-bind
+                   ((error (lambda (c)
+                             (mpc:compare-and-swap (actor-beh (the actor *self*)) *self-beh* sav)
+                             (error c)) ))
+                 (funcall fn)))
+              (t
+               (%send-to-pool (msg *self* *self-msg*))
+               (abort))
+              )))
+     (msg
+      (apply beh-fn msg))
      )))
-|#
 
-(defclass cf-closure ()
-  ((beh-fn    :reader cf-closure-beh-fn  :initarg :beh)
-   (cell      :reader cf-closure-cell    :initform (list nil)))
-  (:metaclass clos:funcallable-standard-class))
-
-(defmethod initialize-instance :after ((cf cf-closure) &key beh (proc nil) &allow-other-keys)
-  (setf (car (cf-closure-cell cf)) proc)
-  (clos:set-funcallable-instance-function cf beh))
-
-(defmethod cf-closure-proc ((beh cf-closure))
-  (let ((me      (mpc:get-current-process))
-        (sav-beh (make-instance 'cf-closure
-                                :beh (cf-closure-beh-fn beh))))
-    (symbol-macrolet ((proc (car (cf-closure-cell beh))))
-      (when (mpc:compare-and-swap proc nil me)
-        (become sav-beh))
-      (values me proc sav-beh))
-    ))
-         
 (defun do-without-contention (fn)
-  (symbol-macrolet ((beh  (actor-beh (the actor *self*))))
-    (multiple-value-bind (me proc sav-beh)
-        (cf-closure-proc *self-beh*)
-      (cond ((eq me proc)
-             (handler-bind
-                 ((error (lambda (c)
-                           (mpc:compare-and-swap beh *self-beh* sav-beh)
-                           (error c))
-                         ))
-               (funcall fn)))
+  (funcall *self-beh* *do-cf-fn* fn))
 
-            (t
-             (%send-to-pool (msg *self* *self-msg*))
-             (abort))
-            ))
-    ))
-
-(defmacro with-contention-free-semantics (&body body)
-  ;; Should be used at the level of closure vars for the behavior
-  ;; which follows, e.g, after DEFUN and before ALAMBDA.
-  `(macrolet ((become (fn)
-                (declare (ignore fn))
-                (bad-become))
-              (become-sink ()
-                (bad-become))
-              (without-contention (&body body)
-                `(do-without-contention (lambda ()
-                                          (macrolet ((become (fn)
-                                                       `(do-become ,fn))
-                                                     (become-sink ()
-                                                       `(do-become-sink)))
-                                            ,@body)))))
-     (make-instance 'cf-closure :beh ,@body)))
+(defmacro with-contention-free-semantics (fn-form)
+  ;; Should wrap a behavior function.
+  `(make-cf-closure
+    (macrolet ((become (fn)
+                 (declare (ignore fn))
+                 (bad-become))
+               (become-sink ()
+                 (bad-become))
+               (without-contention (&body body)
+                 `(do-without-contention (lambda ()
+                                           (macrolet ((become (fn)
+                                                        `(do-become ,fn))
+                                                      (become-sink ()
+                                                        `(do-become-sink)))
+                                             ,@body)))))
+      ,fn-form)))

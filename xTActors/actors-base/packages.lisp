@@ -342,7 +342,6 @@ THE SOFTWARE.
 
    #:with-contention-free-semantics
    #:without-contention
-   #:with-serialized-execution
    ))
 
 #+(OR :ALLEGRO :CCL)
