@@ -41,23 +41,25 @@
   (let ((proc  (list nil)))
     (alambda
      (('contention-free fn)
-      (let ((me  (mpc:get-current-process)))
-        ;;
-        ;; First thread to attempt WITHOUT-CONTENTION takes it,
-        ;; preemptively blocking all other threads from mutating the
-        ;; Actor. Other threads simply put their message back on the
-        ;; queue for later delivery.
-        ;;
-        ;; Non-mutating threads continue to execute in parallel
-        ;; concurrent manner. So it continues to be a good idea to
-        ;; keep the behavior code functionally pure.
-        ;;
-        (symbol-macrolet ((owner  (car (the cons proc))))
-          (when (and (null owner)
+      (symbol-macrolet ((owner  (car (the cons proc))))
+        (let ((me     (mpc:get-current-process))
+              (holder owner))
+          ;;
+          ;; First thread to attempt WITHOUT-CONTENTION takes it,
+          ;; preemptively blocking all other threads from mutating the
+          ;; Actor. Other threads simply put their message back on the
+          ;; queue for later delivery.
+          ;;
+          ;; Non-mutating threads continue to execute in parallel
+          ;; concurrent manner. So it continues to be a good idea to
+          ;; keep the behavior code functionally pure.
+          ;;
+          (when (and (null holder)
                      (mpc:compare-and-swap owner nil me))
             ;; resets in absence of other BECOMEs
+            (setf holder me)
             (become (make-cf-closure beh-fn)))
-          (cond ((eq me owner)
+          (cond ((eq me holder)
                  (handler-bind
                      ((error (lambda (c)
                                ;; reset on error
