@@ -285,14 +285,15 @@ THE SOFTWARE.
   (let* ((now   (get-universal-time))
          (start (shiftf *collision-start* now))
          (count (sys:atomic-exchange *collision-counter* 0)))
-    (format t "~%Collisions: count = ~d, rate = ~,2f/s"
-            count (* 1 (/ count (- now start))))
+    (format t "~%Collisions: count = ~d, rate = ~,2f/hr"
+            count (* 3600 (/ count (- now start))))
     (values)
     ))
          
 #|
-(cph)
-(inspect *which-actor*)
+(progn
+  (cph)
+  (inspect *which-actor*))
 |#
 ;; --------------------------------------------
 #||#
