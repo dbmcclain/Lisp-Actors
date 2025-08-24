@@ -53,7 +53,8 @@
         ;; keep the behavior code functionally pure.
         ;;
         (symbol-macrolet ((owner  (car (the cons proc))))
-          (when (mpc:compare-and-swap owner nil me)
+          (when (and (null owner)
+                     (mpc:compare-and-swap owner nil me))
             ;; resets in absence of other BECOMEs
             (become (make-cf-closure beh-fn)))
           (cond ((eq me owner)
