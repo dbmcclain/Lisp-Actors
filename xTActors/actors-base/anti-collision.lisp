@@ -40,24 +40,30 @@
 ;; clauses.
 
 (defun do-without-contention (guard fn)
-  (let ((me  (mpc:get-current-process))
-        (sav (car (the cons guard))))
+  (symbol-macrolet ((gcar  (car (the cons guard))))
+    (let ((me  (mpc:get-current-process))
+          (sav gcar))
     (cond ((or (eq me sav)
-               (mpc:compare-and-swap (car (the cons guard)) nil me))
+               (mpc:compare-and-swap gcar nil me))
            (if sav
                (funcall fn)
              (unwind-protect
                  (funcall fn)
-               (setf (car (the cons guard)) nil))))
+               (setf gcar nil))))
           
           (t
            (%send-to-pool (msg self self-msg))
            (abort))
-          )))
+          ))))
 
-(defun do-become (guard fn)
-  (do-without-contention guard (lambda ()
-                                 (become fn))))
+(defun do-become (fn)
+  (become fn))
+
+(defun do-become-sink ()
+  (become-sink))
+
+(defun bad-become ()
+  (error "Unguarded BECOME in contention-free semantics"))
   
 (defmacro with-contention-free-semantics (&body body)
   ;; Should be used at the level of closure vars for the behavior
@@ -65,8 +71,27 @@
   (let  ((cfguard  (gensym)))
     `(let ((,cfguard  (list nil)))
        (macrolet ((become (fn)
-                    `(do-become ,',cfguard ,fn))
+                    (declare (ignore fn))
+                    (bad-become))
+                  (become-sink ()
+                    (bad-become))
                   (without-contention (&body body)
-                    `(do-without-contention ,',cfguard (lambda () ,@body))))
-         ,@body))))
+                    `(do-without-contention ,',cfguard
+                                            (lambda ()
+                                              (macrolet ((become (fn)
+                                                           `(do-become ,fn))
+                                                         (become-sink ()
+                                                           `(do-become-sink)))
+                                                ,@body)))))
+         ,@body))
+    ))
 
+#|
+(defun tst (x)
+  (with-contention-free-semantics
+    (alambda
+     ((cust :ok)
+      (without-contention
+       (become (sink))))
+     )))
+|#

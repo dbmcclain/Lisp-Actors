@@ -579,22 +579,20 @@
 |#
 
 (defun shunting-beh (tag err sav-beh &optional pending)
-  (flet ((exit (beh)
-           (become beh)
-           (send-all-to self pending)))
-    (with-contention-free-semantics
-      (lambda (&rest msg)
+  (with-contention-free-semantics
+    (flet ((exit (beh)
+             (without-contention
+              (become beh)
+              (send-all-to self pending))))
+      (alambda
+       ((atag) / (eq atag err)
+        (exit sav-beh))
+       ((atag new-beh) / (eq atag tag)
+        (exit new-beh))
+       (msg
         (without-contention
-         (match msg
-           ((atag) / (eq atag err)
-            (exit sav-beh))
-           ((atag new-beh) / (eq atag tag)
-            (exit new-beh))
-           (msg
-            (become (shunting-beh tag err sav-beh
-                                  (cons msg pending))))
-           )))
-      )))
+         (push msg pending))) ;; since we are single-threaded here...
+       ))))
 
 (defun do-shunting-become (fn)
   ;; Works hand-in-glove with SHUNTING-BEH to catch error conditions
