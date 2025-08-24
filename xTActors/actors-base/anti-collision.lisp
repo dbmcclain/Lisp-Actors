@@ -37,7 +37,7 @@
 (defun bad-become ()
   (error "Unguarded BECOME in contention-free semantics"))
 
-(defvar *do-cf-fn* (vector '*do-cf-fn*))
+(defvar *do-cf-fn* (vector '*do-cf-fn*)) ;; a unique message token
 
 (defun make-cf-closure (beh-fn)
   (let ((proc  (list nil)))
@@ -45,6 +45,16 @@
      ((tok fn) / (eq tok *do-cf-fn*)
       (let ((me  (mpc:get-current-process))
             (sav (make-cf-closure beh-fn)))
+        ;;
+        ;; First thread to attempt WITHOUT-CONTENTION takes it,
+        ;; preemptively blocking all other threads from mutating the
+        ;; Actor. Other threads simply put their message back on the
+        ;; queue for later delivery.
+        ;;
+        ;; Non-mutating threads continue to execute in parallel
+        ;; concurrent manner. So it continues to be a good idea to
+        ;; keep the behavior code functionally pure.
+        ;;
         (when (mpc:compare-and-swap (car (the cons proc)) nil me)
           (become sav))
         (cond ((eq me (car (the cons proc)))
