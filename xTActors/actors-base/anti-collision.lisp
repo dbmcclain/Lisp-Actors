@@ -52,20 +52,21 @@
         ;; concurrent manner. So it continues to be a good idea to
         ;; keep the behavior code functionally pure.
         ;;
-        (when (mpc:compare-and-swap (car (the cons proc)) nil me)
-          (become (make-cf-closure beh-fn)))
-        (cond ((eq me (car (the cons proc)))
-               (handler-bind
-                   ((error (lambda (c)
-                             (mpc:compare-and-swap (actor-beh (the actor *self*))
-                                                   *self-beh*
-                                                   (make-cf-closure beh-fn))
-                             (error c)) ))
-                 (funcall fn)))
-              (t
-               (%send-to-pool (msg *self* *self-msg*))
-               (abort))
-              )))
+        (symbol-macrolet ((owner  (car (the cons proc))))
+          (when (mpc:compare-and-swap owner nil me)
+            ;; resets in absence of other BECOMEs
+            (become (make-cf-closure beh-fn)))
+          (cond ((eq me owner)
+                 (handler-bind
+                     ((error (lambda (c)
+                               ;; reset on error
+                               (setf owner nil)
+                               (error c)) ))
+                   (funcall fn)))
+                (t
+                 (%send-to-pool (msg *self* *self-msg*))
+                 (abort)) ;; go do next message
+                ))))
      (msg
       (apply beh-fn msg))
      )))
@@ -75,6 +76,8 @@
 
 (defmacro with-contention-free-semantics (fn-form)
   ;; Should wrap a behavior function.
+  ;; WITHOUT-CONTENTION available only within WITH-CONTENTION-FREE-SEMANTICS.
+  ;; All BECOME clauses should be wrapped inside of WITHOUT-CONTENTION.
   `(make-cf-closure
     (macrolet ((become (fn)
                  (declare (ignore fn))
