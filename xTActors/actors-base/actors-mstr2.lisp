@@ -134,7 +134,9 @@ THE SOFTWARE.
 
 (defun become (new-beh)
   #F
-  (funcall *become-hook* new-beh))
+  (if *become-disabled*
+      (bad-become)
+    (funcall *become-hook* new-beh)))
 
 ;; -----------------------------------
 ;; In an Actor, (ABORT-BEH) undoes any BECOME and SENDS to this point,

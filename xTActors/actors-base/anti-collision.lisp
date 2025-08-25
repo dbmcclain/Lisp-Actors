@@ -28,50 +28,60 @@
 
 (in-package #:com.ral.actors.base)
 
-(defun do-become (fn)
-  (become fn))
+;; --------------------------------------------
 
-(defun do-become-sink ()
-  (become-sink))
+(defvar *become-disabled*  nil)
+
+(defmacro with-become-disabled (&body body)
+  `(let ((*become-disabled* t))
+     ,@body))
+
+(defmacro with-become-enabled (&body body)
+  `(let ((*become-disabled* nil))
+     ,@body))
 
 (defun bad-become ()
   (error "Unguarded BECOME in contention-free semantics"))
+
+;; --------------------------------------------
 
 (defun make-cf-closure (beh-fn)
   (let ((proc  (list nil)))
     (alambda
      (('contention-free fn)
       (symbol-macrolet ((owner  (car (the cons proc))))
-        (let ((me     (mpc:get-current-process))
-              (holder owner))
-          ;;
-          ;; First thread to attempt WITHOUT-CONTENTION takes it,
-          ;; preemptively blocking all other threads from mutating the
-          ;; Actor. Other threads simply put their message back on the
-          ;; queue for later delivery.
-          ;;
-          ;; Non-mutating threads continue to execute in parallel
-          ;; concurrent manner. So it continues to be a good idea to
-          ;; keep the behavior code functionally pure.
-          ;;
-          (when (and (null holder)
-                     (mpc:compare-and-swap owner nil me))
-            ;; resets in absence of other BECOMEs
-            (setf holder me)
-            (become (make-cf-closure beh-fn)))
-          (cond ((eq me holder)
-                 (handler-bind
-                     ((error (lambda (c)
-                               ;; reset on error
-                               (setf owner nil)
-                               (error c)) ))
-                   (funcall fn)))
-                (t
-                 (%send-to-pool (msg *self* *self-msg*))
-                 (abort)) ;; go do next message
-                ))))
+        (with-become-enabled
+         (let ((me     (mpc:get-current-process))
+               (holder owner))
+           ;;
+           ;; First thread to attempt WITHOUT-CONTENTION takes it,
+           ;; preemptively blocking all other threads from mutating the
+           ;; Actor. Other threads simply put their message back on the
+           ;; queue for later delivery.
+           ;;
+           ;; Non-mutating threads continue to execute in parallel
+           ;; concurrent manner. So it continues to be a good idea to
+           ;; keep the behavior code functionally pure.
+           ;;
+           (when (and (null holder)
+                      (mpc:compare-and-swap owner nil me))
+             ;; resets in absence of other BECOMEs
+             (setf holder me)
+             (become (make-cf-closure beh-fn)))
+           (cond ((eq me holder)
+                  (handler-bind
+                      ((error (lambda (c)
+                                ;; reset on error
+                                (setf owner nil)
+                                (error c)) ))
+                    (funcall fn)))
+                 (t
+                  (%send-to-pool (msg *self* *self-msg*))
+                  (abort)) ;; go do next message
+                 )))))
      (msg
-      (apply beh-fn msg))
+      (with-become-disabled
+       (apply beh-fn msg)))
      )))
 
 (defun do-without-contention (fn)
@@ -82,16 +92,7 @@
   ;; WITHOUT-CONTENTION available only within WITH-CONTENTION-FREE-SEMANTICS.
   ;; All BECOME clauses should be wrapped inside of WITHOUT-CONTENTION.
   `(make-cf-closure
-    (macrolet ((become (fn)
-                 (declare (ignore fn))
-                 (bad-become))
-               (become-sink ()
-                 (bad-become))
-               (without-contention (&body body)
+    (macrolet ((without-contention (&body body)
                  `(do-without-contention (lambda ()
-                                           (macrolet ((become (fn)
-                                                        `(do-become ,fn))
-                                                      (become-sink ()
-                                                        `(do-become-sink)))
-                                             ,@body)))))
+                                           ,@body))))
       ,fn-form)))
