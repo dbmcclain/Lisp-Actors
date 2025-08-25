@@ -349,30 +349,29 @@
   (cond
    ((cdr args)
     ;; more than one args
-    (let*((svcs   (mapcar svc-fn args))
-          (no-ans #.(vector :no-answer)) ;; globally unique value
-          (ansv   (make-array (length svcs)
-                              :initial-element no-ans)))
-      (assert (every #'actor-p svcs))
-      (create
-       (alambda
-        ((cust)
-         (let ((joiner (create
-                        (with-contention-free-semantics
-                          (lambda* (ix . ans)
-                            (without-contention
-                              (setf (aref ansv ix) (car ans))
-                              (unless (find no-ans ansv)
-                                (become-sink)
-                                (send* cust (coerce ansv 'list)))
-                              ))))))
-           (loop for ix from 0
-                 for svc in svcs
-                 do
-                   (send svc (label joiner ix)))
-           ))
-        ))
-      ))
+    (create
+     (alambda
+      ((cust)
+       (let* ((ansv   (make-array (length args)
+                                  :initial-element 'no-ans))
+              (joiner (create
+                       (with-contention-free-semantics
+                        (lambda* (ix . ans)
+                          (without-contention
+                           ;; (Ahem...)
+                           (setf (aref ansv ix) (car ans))
+                           (unless (find 'no-ans ansv)
+                             (become-sink)
+                             (send* cust (coerce ansv 'list)))
+                           ))))))
+         (loop for ix from 0
+               for arg in args
+               do
+                 (let ((svc (funcall svc-fn arg)))
+                   (assert (actor-p svc))
+                   (send svc (label joiner ix))))
+         ))
+      )))
    (args
     ;; just one args
     (let ((svc (apply svc-fn args)))

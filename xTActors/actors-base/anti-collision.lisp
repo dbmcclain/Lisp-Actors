@@ -65,8 +65,8 @@
            ;;
            (when (and (null holder)
                       (mpc:compare-and-swap owner nil me))
-             ;; resets in absence of other BECOMEs
              (setf holder me)
+             ;; resets in absence of other BECOMEs
              (become (make-cf-closure beh-fn)))
            (cond ((eq me holder)
                   (handler-bind

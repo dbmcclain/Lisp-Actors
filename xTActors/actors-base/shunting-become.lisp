@@ -66,6 +66,7 @@
         (exit new-beh))
        (msg
         (without-contention
+         ;; (naughty, naughty...)
          (push msg pending))) ;; since we are single-threaded here...
        ))))
 
