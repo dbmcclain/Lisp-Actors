@@ -75,6 +75,7 @@
 
 (defmacro actors (bindings &body body)
   ;; For cross- and self-referential Actor constructions...
+  ;;
   ;; All binding values should represent fresh Actor constructions.
   ;; Violations may lead to undefined behavior.
   ;;

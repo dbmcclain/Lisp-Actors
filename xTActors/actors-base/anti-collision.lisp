@@ -45,6 +45,18 @@
 
 ;; --------------------------------------------
 
+(define-condition go-around ()
+  ())
+
+(defun go-around ()
+  ;; Re-enqueue our message for later delivery, and go process the
+  ;; next available message. This drops all pending BECOME and SEND.
+  (when *self*
+    ;; pointless unless we are in an Actor.
+    (%send-to-pool (msg *self* *self-msg*))
+    (signal 'go-around) ;; In case called from within contention-free zone.
+    (abort)))
+
 (defun make-cf-closure (beh-fn)
   (let ((proc  (list nil)))
     (alambda
@@ -66,18 +78,23 @@
            (when (and (null holder)
                       (mpc:compare-and-swap owner nil me))
              (setf holder me)
-             ;; resets in absence of other BECOMEs
+             ;; this BECOME resets in absence of other BECOMEs
              (become (make-cf-closure beh-fn)))
            (cond ((eq me holder)
                   (handler-bind
                       ((error (lambda (c)
                                 ;; reset on error
                                 (setf owner nil)
-                                (error c)) ))
-                    (funcall fn)))
+                                (error c)))
+                       (go-around (lambda (c)
+                                    (declare (ignore c))
+                                    ;; reset on GO-AROUND
+                                    (setf owner nil)
+                                    (abort))))
+                    (funcall fn)
+                    ))
                  (t
-                  (%send-to-pool (msg *self* *self-msg*))
-                  (abort)) ;; go do next message
+                  (go-around))
                  )))))
      (msg
       (with-become-disabled
@@ -96,3 +113,4 @@
                  `(do-without-contention (lambda ()
                                            ,@body))))
       ,fn-form)))
+
