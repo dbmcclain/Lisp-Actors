@@ -77,14 +77,14 @@
               ;; this BECOME resets in absence of other BECOMEs
               (become (make-cf-closure beh-fn)))
             (cond ((eq me holder)
-                   (let ((aborting t))
+                   (let ((normal-exit nil))
                      (unwind-protect
                          (progn
                            (funcall fn)
-                           (setf aborting nil))
-                       (when aborting
-                         (setf owner nil))
-                       )))
+                           (setf normal-exit t))
+                       (unless normal-exit
+                         (mpc:compare-and-swap owner me nil)))
+                     ))
                   (t
                    (go-around))
                   )))))
