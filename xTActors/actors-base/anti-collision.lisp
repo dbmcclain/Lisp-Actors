@@ -83,6 +83,15 @@
                            (funcall fn)
                            (setf normal-exit t))
                        (unless normal-exit
+                         ;; Normal exit uses a BECOME.  But here, on
+                         ;; abnormal exit, we must clear the owner on
+                         ;; the way to an ABORT restart.
+                         ;;
+                         ;; We need to use CAS because we might have
+                         ;; had nested WITHOUT-CONTENTION, in which
+                         ;; case another thread might have grabbed the
+                         ;; Actor after the inner abnormal exit
+                         ;; cleared the owner.
                          (mpc:compare-and-swap owner me nil)))
                      ))
                   (t
