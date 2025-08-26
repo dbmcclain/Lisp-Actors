@@ -57,40 +57,40 @@
   (let ((proc  (list nil)))
     (alambda
      (('contention-free fn)
-      (symbol-macrolet ((owner  (car (the cons proc))))
-        (with-become-enabled
-         (let ((me     (mpc:get-current-process))
-               (holder owner))
-           ;;
-           ;; First thread to attempt WITHOUT-CONTENTION takes it,
-           ;; preemptively blocking all other threads from mutating the
-           ;; Actor. Other threads simply put their message back on the
-           ;; queue for later delivery.
-           ;;
-           ;; Non-mutating threads continue to execute in parallel
-           ;; concurrent manner. So it continues to be a good idea to
-           ;; keep the behavior code functionally pure.
-           ;;
-           (when (and (null holder)
-                      (mpc:compare-and-swap owner nil me))
-             (setf holder me)
-             ;; this BECOME resets in absence of other BECOMEs
-             (become (make-cf-closure beh-fn)))
-           (cond ((eq me holder)
-                  (let ((aborting t))
-                    (unwind-protect
-                        (progn
-                          (funcall fn)
-                          (setf aborting nil))
-                      (when aborting
-                        (setf owner nil))
-                      )))
-                 (t
-                  (go-around))
-                 )))))
+      (with-become-enabled
+        (symbol-macrolet ((owner  (car (the cons proc))))
+          (let ((me     (mpc:get-current-process))
+                (holder owner))
+            ;;
+            ;; First thread to attempt WITHOUT-CONTENTION takes it,
+            ;; preemptively blocking all other threads from mutating the
+            ;; Actor. Other threads simply put their message back on the
+            ;; queue for later delivery.
+            ;;
+            ;; Non-mutating threads continue to execute in parallel
+            ;; concurrent manner. So it continues to be a good idea to
+            ;; keep the behavior code functionally pure.
+            ;;
+            (when (and (null holder)
+                       (mpc:compare-and-swap owner nil me))
+              (setf holder me)
+              ;; this BECOME resets in absence of other BECOMEs
+              (become (make-cf-closure beh-fn)))
+            (cond ((eq me holder)
+                   (let ((aborting t))
+                     (unwind-protect
+                         (progn
+                           (funcall fn)
+                           (setf aborting nil))
+                       (when aborting
+                         (setf owner nil))
+                       )))
+                  (t
+                   (go-around))
+                  )))))
      (msg
       (with-become-disabled
-       (apply beh-fn msg)))
+        (apply beh-fn msg)))
      )))
 
 (defun do-without-contention (fn)
