@@ -59,10 +59,11 @@ THE SOFTWARE.
          (trial-name (if prev-name
                          (merge-pathnames init-name prev-name)
                        init-name)))
-    (when-let (fname (multiple-value-call #'capi:prompt-for-file
-                       message
-                       (values-list prompt-keys)
-                       :pathname trial-name))
+    (when-let (fname (or init
+                         (multiple-value-call #'capi:prompt-for-file
+                           message
+                           (values-list prompt-keys)
+                           :pathname trial-name)))
       (remember-filename key fname)
       (funcall fn fname))))
 
