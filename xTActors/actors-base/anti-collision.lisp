@@ -45,16 +45,12 @@
 
 ;; --------------------------------------------
 
-(define-condition go-around ()
-  ())
-
 (defun go-around ()
   ;; Re-enqueue our message for later delivery, and go process the
   ;; next available message. This drops all pending BECOME and SEND.
   (when *self*
     ;; pointless unless we are in an Actor.
     (%send-to-pool (msg *self* *self-msg*))
-    (signal 'go-around) ;; In case called from within contention-free zone.
     (abort)))
 
 (defun make-cf-closure (beh-fn)
@@ -81,18 +77,14 @@
              ;; this BECOME resets in absence of other BECOMEs
              (become (make-cf-closure beh-fn)))
            (cond ((eq me holder)
-                  (handler-bind
-                      ((error (lambda (c)
-                                ;; reset on error
-                                (setf owner nil)
-                                (error c)))
-                       (go-around (lambda (c)
-                                    (declare (ignore c))
-                                    ;; reset on GO-AROUND
-                                    (setf owner nil)
-                                    (abort))))
-                    (funcall fn)
-                    ))
+                  (let ((aborting t))
+                    (unwind-protect
+                        (progn
+                          (funcall fn)
+                          (setf aborting nil))
+                      (when aborting
+                        (setf owner nil))
+                      )))
                  (t
                   (go-around))
                  )))))
