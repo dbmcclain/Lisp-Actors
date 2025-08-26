@@ -143,6 +143,9 @@ THE SOFTWARE.
               (error "Bad let bindings")))
       (let-binding-transform (cdr bs)))))
 
+#|
+(let-binding-transform '(a (b 2) c))
+ |#
 ;; ----------------------------------------------------------------------
 
 (defun tree-leaves%% (tree test result)
@@ -220,7 +223,7 @@ THE SOFTWARE.
 (editor:setup-indent "pandoriclet" 1)
 
 #|
-(pandoriclet ((a 1) (b 2)) () (lambda (x y) body))
+(pandoriclet () ((a 1) (b 2)) (lambda (x y) body))
 |#
 
 (defun pandoric-get-error (sym)
@@ -272,16 +275,16 @@ THE SOFTWARE.
 (with-pandoric (a b c) thebox (dobody a b))
 
 (setf (symbol-function 'pantest)
-      (pandoriclet ((acc 0))
+      (pandoriclet () ((acc 0))
           (lambda (n) (incf acc n))))
 (pantest 3)
 (pantest 5)
-(pantest :pandoric-get 'acc)
-(pantest :pandoric-set 'acc 100)
+(pantest :pandoric-get :acc)
+(pantest :pandoric-set :acc 100)
 (pantest 3)
-(pantest :pandoric-get 'this)
-(get-pandoric #'pantest 'acc)
-(setf (get-pandoric #'pantest 'acc) -10)
+(pantest :pandoric-get :this)
+(get-pandoric #'pantest :acc)
+(setf (get-pandoric #'pantest :acc) -10)
 (pantest 3)
 (with-pandoric (acc) #'pantest
   (format t "Value of acc: ~A~%" acc))
