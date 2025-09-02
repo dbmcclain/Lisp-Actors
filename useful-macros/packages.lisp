@@ -681,6 +681,7 @@ THE SOFTWARE.
    #:is-underscore?
    #:is-lambda-list-keyword?
    #:deflex
+   #:deflex*
    #:let+
    #:do-let+
    #:maybe-ignore_
