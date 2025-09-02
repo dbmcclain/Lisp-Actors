@@ -155,7 +155,7 @@
 
 (defprim prep-to-int
   ;; Leave original number on the stack,
-  ;; and push a scaled absoltue value integer on the stack.
+  ;; and push a scaled absolute value integer on the stack.
   (sp-! (abs
          (round
           (* tos
@@ -258,6 +258,8 @@
 
 (defun bipolar (x)
   (- (unipolar (+ x 0.5)) 0.5))
+
+;; --------------------------------------------
 
 (defun %hms (fn turns env-args)
   (with-vm env-args
