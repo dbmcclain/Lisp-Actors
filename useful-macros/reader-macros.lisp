@@ -95,9 +95,9 @@ THE SOFTWARE.
   
 (defun match-number (s)
   (multiple-value-bind (start end)
-      (#~m/^[+-]?[0-9][0-9_,]*(\.[0-9_,]*([eEdD][+-]?[0-9]+)?)?/ s)
+      (#~m/^[+-]?[0-9][0-9]*(\.[0-9]*([eEdDsSfF][+-]?[0-9]+)?)?/ s)
     (when start
-      (values (read-from-string (delete-separators (subseq s start end)))
+      (values (read-from-string (subseq s start end))
               (subseq s end))
       )))
 
@@ -139,8 +139,7 @@ THE SOFTWARE.
                  (mm   (read-from-string (subseq s mstart mend)))
                  (valm (* 60 (+ mm (* 60 hh))))
                  (ss   (if sstart
-                           (read-from-string (delete-separators
-                                              (subseq s (1+ sstart) send)))
+                           (read-from-string (subseq s (1+ sstart) send))
                          0))
                  (val  (if sstart
                            (+ valm
@@ -274,18 +273,21 @@ THE SOFTWARE.
   (when (or (#~m/^0[xXoObB]/ s)
             (#~m/^[0-9]+[rR]/ s))
     (ignore-errors
-      (read-from-string (format nil "#~A" (remove-separators s))))
+      ;; Our upgraded Lisp Reader already handles these.
+      ;; See: 
+      (read-from-string (concatenate 'string "#" s)))
     ))
     
 (defun read-extended-number-syntax (s)
-  (cond ((convert-real-or-complex s))
-        ((convert-sexigisimal s))
-        ((convert-utc-date s))
-        ;; ((convert-date s))
-        ((convert-american-short-date s))
-        ((convert-hyphenated-number s))
-        ((convert-other-base-number s))
-        ))
+  (let ((s  (remove-separators s))) ;; sep "," or "_"
+    (cond ((convert-real-or-complex s))
+          ((convert-sexigisimal s))
+          ((convert-utc-date s))
+          ;; ((convert-date s))
+          ((convert-american-short-date s))
+          ((convert-hyphenated-number s))
+          ((convert-other-base-number s))
+          )))
 
 ;; Reader macro for #N
 ;; Parses a variety of numbers
@@ -307,6 +309,7 @@ THE SOFTWARE.
 #n1_000
 #n|12:45|
 #n2009/08/15
+#N|123-45-6789|
 #n1+2j
 |#
 ;; --------------------------------------
