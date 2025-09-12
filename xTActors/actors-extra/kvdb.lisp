@@ -101,31 +101,6 @@
   (create (kvdb-orchestrator-beh)))
 
 ;; --------------------------------------------
-
-(defun kvdb-gateway (path)
-  (labels ((initial-beh (&rest msg)
-             (let ((tag  (tag self)))
-               (become (stashing-beh tag (list msg)))
-               (send kvdb-orchestrator tag :make-kvdb path)
-               ))
-             
-           (stashing-beh (tag msgs)
-             (alambda
-              ((atag a-kvdb) / (eq atag tag)
-               (become (fwd-beh a-kvdb))
-               (send-all-to self msgs))
-
-              ((atag . _) / (eq atag tag)
-               ;; error situation
-               (become #'initial-beh))
-              
-              (msg
-               (become (stashing-beh tag (cons msg msgs))))
-              )))
-    (create #'initial-beh)
-    ))
-  
-;; -----------------------------------------------------
 ;; One to goof around in...
 
 (defvar *db-path*
@@ -140,7 +115,9 @@
 (deflex* kvdb
   ;; The main Actor for just the goof-around KVDB. Make your own for
   ;; others.
-  (kvdb-gateway *db-path*))
+  ;;
+  ;; The FUT is a lazy eval, doing nothing until a message is sent to us.
+  (lazy-future kvdb-orchestrator :make-kvdb *db-path*))
                  
 ;; -----------------------------------------------------------
 ;; Utility Functions
@@ -171,7 +148,7 @@
 
 (defun* lw-start-kvdb _
   (setf kvdb-orchestrator  (create (kvdb-orchestrator-beh)))
-  (setf kvdb               (kvdb-gateway *db-path*)))
+  (setf kvdb               (lazy-future kvdb-orchestrator :make-kvdb *db-path*)))
 
 (defun* lw-kill-kvdb _
   (princ "Allowing KVDB to sync before shutting down.")

@@ -349,7 +349,7 @@ customer, just one time."
     ))
 
 ;; -------------------------------------------------
-;; FUT - A non-macro β replacement?
+;; LAZY-FUTURE - A non-macro β replacement?
 ;;
 ;;  Instead of:
 ;;
@@ -359,67 +359,38 @@ customer, just one time."
 ;;
 ;;  do this:
 ;;
-;;     (send* (fut targ-generator generator-args) my-args)
-
-(defun fut (svc &rest args)
-  ;; svc is expected to provide an actor target for a future send
-  ;; lazy-eval - doesn't do anything until a message is sent to us.
-  ;;
-  ;; If anything else is sent to us by the servce, e.g., Serializer
-  ;; timeout, error condition, etc., we see to it that this reply is
-  ;; echoed to all waiting customers, and we reset ourselves to nascent
-  ;; state.
-  ;;
-  (labels ((pend-beh (&rest msg)
-             (let ((tag  (tag self)))
-               (become (fut-wait-beh tag msg))
-               (send* svc tag args)))
-           
-           (fut-wait-beh (tag &rest msgs)
-             (alambda
-              ((atag act) / (and (eq atag tag)
-                                 (actor-p act))
-               (become (fwd-beh act))
-               (send-all-to act msgs))
-              
-              ((atag . msg) / (eq atag tag)
-               ;; By strict convention, the customer arg is always
-               ;; stated first. Hence by making the reply into a
-               ;; CONST, we ensure that all customers get notified of
-               ;; the reply.
-               (become #'pend-beh)
-               (let ((k  (apply #'const msg)))
-                 (send-all-to k msgs)
-                 ))
-              
-              (msg
-               (become (apply #'fut-wait-beh tag msg msgs)))
-              )))
-    (create #'pend-beh)
-    ))
+;;     (send* (lazy-future targ-generator generator-args) my-args)
 
 ;; -----------------------------------------------
 ;; Now two years out, and I still haven't found a use for FUTURE
 ;; DM/RAL 09/23
 
-(defun future-wait-beh (tag &rest custs)
-  (behav (cust &rest msg)
-    (cond ((eq cust tag)
-           (become (apply #'const-beh msg))
-           (apply #'send-to-all custs msg))
-          (t
-           (become (apply 'future-wait-beh tag cust custs)))
-          )))
+(defun future-wait-beh (tag &optional msgs)
+  (alambda
+   ((atag actor) / (eq tag atag)
+    (become (fwd-beh actor))
+    (send-all-to actor msgs))
+   (msg
+    (become (future-wait-beh tag (cons msg msgs))))
+   ))
 
-(defun future (actor &rest msg)
-  ;; Return an Actor that represents the future value. Send that value
-  ;; (when it arrives) to cust with (SEND (FUTURE actor ...) CUST).
-  ;; Read as "send the future result to cust".
+(defun future (actor &rest constr-args)
+  ;; Return a value that represents a future Actor target. Send the
+  ;; Actor arg its constructor args to produce that future Actor
+  ;; target.
   (actors ((fut (create
                  (future-wait-beh tag)))
            (tag (tag fut)))
-    (send* actor tag msg)
+    (send* actor tag constr-args)
     fut))
+
+(defun lazy-future (actor &rest constr-args)
+  (create
+   (lambda* msg
+     (let ((tag  (tag self)))
+       (become (future-wait-beh tag (list msg)))
+       (send* actor tag constr-args)))
+   ))
 
 #|
 ;; This peculiar construct is roughly equiv to a beta form, but more
@@ -437,19 +408,6 @@ customer, just one time."
  |#
 
 ;; -----------------------------------------
-
-(defun lazy (actor &rest msg)
-  ;; Like FUTURE, but delays evaluation of the Actor with message
-  ;; until someone demands it. (SEND (LAZY actor ... ) CUST)
-  (flet ((lazy-beh (cust)
-           (let ((tag (once-tag self)))
-             (become (future-wait-beh tag cust))
-             (send* actor tag msg)
-             )))
-    (create #'lazy-beh)
-    ))
-
-;; --------------------------------------------------
 
 (defun future-become-beh (tag &rest msgs)
   ;; There are times when you know you need to BECOME, but the

@@ -79,6 +79,7 @@ THE SOFTWARE.
    #:actor-nlet
    #:is-pure-sink?
    #:deflex
+   #:deflex*
    #:µ
    #:∂
    #:addq
@@ -139,7 +140,7 @@ THE SOFTWARE.
    #:terminate-server
 
    #:future
-   #:lazy
+   #:lazy-future
    #:sink
    #:become-sink
    #:const
@@ -283,7 +284,6 @@ THE SOFTWARE.
    #:with-actors
    #:delegate
 
-   #:fut
    #:future-become-beh
    
    #:timed-service
