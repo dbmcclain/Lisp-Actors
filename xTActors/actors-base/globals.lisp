@@ -16,16 +16,13 @@
 (mpc:defglobal *ASK-TIMEOUT*          0.1)  ;; period of goal checking
 (mpc:defglobal *actors-grace-period*  5f0)  ;; period before forced shutdown termination
 
-(defun ensure-actors-running ()
+(defun %send-to-pool (msg)
   (unless *central-mail*
     (mpc:with-lock (*central-mail-lock*)
       (unless *central-mail*
         (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail"))
         (restart-actors-system *nbr-pool*)
-        ))))
-
-(defun %send-to-pool (msg)
-  (ensure-actors-running)
+        )))
   (mpc:mailbox-send *central-mail* msg))
 
 ;; --------------------------------------------
