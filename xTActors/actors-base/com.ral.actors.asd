@@ -29,34 +29,24 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   :description "Transactional Parallel-Concurrent Hewitt Actors..."
   :version     "3.0"
   :author      "D.McClain <dbm@refined-audiometrics.com>"
-  :license     "Copyright (c) 2021-2024 by Refined Audiometrics Laboratory. MIT License terms apply."
+  :license     "Copyright (c) 2021-2025 by Refined Audiometrics Laboratory. MIT License terms apply."
   :components  ((:file "optima-bridge")
                 (:file "packages")
                 #-(OR :LISPWORKS :SBCL) (:file "ansi-timer")
 		(:file "cheapq")
                 (:file "actor-state")
-                #-:actors-experiments (:file "actor-types")
-                #+:actors-experiments (:file "actor-classes")
+                (:file "actor-types")
                 (:file "globals")
-                ;; (:file "lexprot")
                 (:file "macros")
                 (:file "anti-collision")
                 (:file "shunting-become")
-                ;; (:file "actors-mstr")
-                (:file "actors-mstr2")
+                (:file "actors-mstr")
                 (:file "par-xlate")
-                ;; (:file "actors-instr") ;; swap out for actors-mstr to get instrumented dispatch
-                ;; (:file "st-send")
-                ;; (:file "dyn-env")
-                ;; (:file "dyn-env-clos")
                 (:file "serializer")
                 (:file "prim-actors")
-                ;; (:file "filer")
                 (:file "startup"))
   :SERIAL T
   :depends-on   ("com.ral.useful-macros"
-                 ;; "com.ral.cps"
                  #+:allegro "com.ral.prio-queue"
-                 ;; "closer-mop"
                  :optima
                  ))

@@ -337,7 +337,6 @@ THE SOFTWARE.
    #:counter-beh
    #:counter
 
-   #:sys-cached
    #:behav
 
    #:with-contention-free-semantics

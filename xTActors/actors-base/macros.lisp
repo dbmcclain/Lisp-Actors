@@ -516,18 +516,3 @@
 (defmacro αλ (&rest clauses)
   `(alambda ,@clauses))
 
-;; -------------------------------------------------------
-;; Codify a recurring pattern - MP-safe system wide cached binding
-
-(defvar *sys-cached-lock*  (mpc:make-lock))
-
-(defmacro sys-cached (place val-expr)
-  ;; PLACE must be previously defined and initially bound to NIL.
-  ;; Val-Expr will only ever be executed just once, on demand, for the
-  ;; Place binding value.
-  `(or #1=,place
-       (mpc:with-lock (*sys-cached-lock*)
-         (or #1#
-             (setf #1# ,val-expr)
-             ))) )
-

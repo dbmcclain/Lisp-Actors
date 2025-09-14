@@ -1,4 +1,4 @@
-;; Actors.lisp -- An implementation of Actors
+;; actor-mstr.lisp -- An implementation of Actors
 ;;
 ;; Single thread semantics across multithreaded and SMP systems
 ;;
@@ -33,46 +33,65 @@ THE SOFTWARE.
 
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))
-
+(declaim  (inline sink-beh))
 ;; --------------------------------------
 
 (deflex +timed-out+ (make-condition 'timeout))
 
 (defun sink-beh ()
-  nil)
+  #'do-nothing)
 
 (deflex sink
-  (create))
+  (create (sink-beh)))
 
 (defgeneric is-pure-sink? (ac)
   ;; used by networking code to avoid sending useless data
   (:method ((ac actor))
-   (not (functionp (resolved-beh (actor-beh ac)))))
+   (eq (sink-beh) (actor-beh ac)))
   (:method (ac)
-   t) )
+   t))
+   
 
 (defun become-sink ()
   (become (sink-beh)))
 
 ;; --------------------------------------------------------
-;; Core RUN for Actors
+;; Core RUN Dispatcher for Actors
 
 ;; -------------------------------------------------
-;; Message Frames - submitted to the event queue. These carry their
-;; own link pointer to obviate consing on the event queue.
+;; Message Event Frames - submitted to the event queue. Message frames
+;; are simple lists, where a head element specifies the target actor
+;; for the rest of the message.
+#|
+     Message Event Frame: Just a LIST of items.
 
-(defstruct (msg
-            (:constructor msg (actor args &optional link)))
-  link
-  id
-  (parent              *current-message-frame*)
-  (actor (create)      :type actor)
-  (args  nil           :type list))
+      Event
+        |
+     ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐
+     │ Link │ │Target│ │ Msg  │ │ ...  │ │ ...  │
+     └──────┘ └──────┘ └──────┘ └──────┘ └──────┘
+                 |        |----->
+                SELF      |
+                       SELF-MSG
+                       
+     When tracing, LINK points to parent message frame. Otherwise, NIL.
+     (Potentially very memory and GC costly to keep all parent
+      chains, except those needed along an activation chain of interest.)
+|#
 
-(defun send-to-pool (actor &rest msg-args)
+(defun msg (target args)
+  (declare (list args))
+  (list* self-msg-parent target args))
+
+;; --------------------------------------------
+
+(defun %send-to-pool (msg)
+  (mpc:mailbox-send *central-mail* msg))
+
+(defun send-to-pool (target &rest msg)
   ;; the default SEND for foreign (non-Actor) threads
-  #F
-  (mpc:mailbox-send *central-mail* (msg actor msg-args)))
+  (when (actor-p target)
+    (%send-to-pool (msg target msg))))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME
@@ -89,19 +108,19 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defvar *send*  nil)
-
 (defun get-send-hook ()
-  (sys-cached *send*
-              (prog1
-                  (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
-                        *send*         #'send-to-pool)
-                (restart-actors-system *nbr-pool*))
-              ))
+  (or *send-hook*
+      (mpc:with-lock ((get '*send-hook* 'lock))
+        (setf *central-mail* (mpc:make-mailbox :lock-name "Central Mail")
+              *send-hook*    #'%send-to-pool)
+        (restart-actors-system *nbr-pool*)
+        *send-hook*)
+      ))
+(setf (get '*send-hook* 'lock) (mpc:make-lock))
 
 (defun send (target &rest msg)
   (when (actor-p target)
-    (apply (get-send-hook) target msg)))
+    (funcall (get-send-hook) (msg target msg))))
 
 (defun send* (&rest args)
   ;; when last arg is a list that you want destructed
@@ -110,21 +129,16 @@ THE SOFTWARE.
 (defun repeat-send (target)
   (send* target self-msg))
 
-(defun send-combined-msg (cust msg1 msg2)
-  (multiple-value-call #'send cust (values-list msg1) (values-list msg2)))
+(defun send-combined-msg (target msg1 msg2)
+  (multiple-value-call #'send target (values-list msg1) (values-list msg2)))
 
 ;; ---------------------------------------
 
-(defvar *not-actor*  "Not in an Actor")
-
-(defvar *become*
-  (lambda (new-beh)
-    (declare (ignore new-beh))
-    (error *not-actor*)))
-
 (defun become (new-beh)
   #F
-  (funcall *become* (screened-beh new-beh)))
+  (if *become-disabled*
+      (bad-become)
+    (funcall *become-hook* new-beh)))
 
 ;; -----------------------------------
 ;; In an Actor, (ABORT-BEH) undoes any BECOME and SENDS to this point,
@@ -132,11 +146,8 @@ THE SOFTWARE.
 ;; which aborts all BECOME and SENDs and exits immediately. ABORT-BEH
 ;; allows subsequent SENDs and BECOME to still take effect.
 
-(defvar *abort-beh*
-  #'do-nothing)
-
 (defun abort-beh ()
-  (funcall *abort-beh*))
+  (funcall *abort-beh-hook*))
 
 ;; -----------------------------------------------------------------
 ;; Generic RUN for all threads
@@ -243,90 +254,131 @@ THE SOFTWARE.
 ;; anyone else until it is either shared via SEND, or have a message
 ;; sent to it, or it is given as the value of a global binding.
 
-(defun #1=run-actors (&optional (actor nil actor-provided-p) &rest message)
+;; --------------------------------------------
+;; H&S Monitoring
+;;
+;; Because we allow full parallel operation of the Actors, with
+;; optimistic commits, there can sometimes be collisions when two or
+;; more Actors are executing the same behavior code and they both
+;; attempt a BECOME.
+;;
+;; Initial findings show that collisions increase whenever the Mac
+;; system has its attention diverted to other running programs.
+;;
+;; Despite that, with numerous task switches during the test run, I
+;; find that we get about 0.05% collision rate when at least two
+;; competing activity tasks are being Forked and must rendezvous.
+;; During the rendezvous, is when the collisions are happening.
+;;
+;; In my test, I have several live telemetry graphs monitoring a
+;; remote audio processing system, and those graphics are being
+;; forked. They update collectively at 20 Hz, and I get about 30
+;; collisions per hour. (approx 0.05% collision rate, or 1 in 2000
+;; updates)
+
+(defvar *collision-counter* 0)
+(defvar *collision-start*   0)
+(defvar *which-actor*       nil)
+
+(defun report-collision (beh)
+  (setf *which-actor* beh)
+  (sys:atomic-incf *collision-counter*))
+
+(defun cph ()
+  ;; Report Collisions per Hour
+  (let* ((now   (get-universal-time))
+         (start (shiftf *collision-start* now))
+         (count (sys:atomic-exchange *collision-counter* 0)))
+    (format t "~%Collisions: count = ~d, rate = ~,2f/hr"
+            count (* 3600 (/ count (- now start))))
+    (values)
+    ))
+         
+#|
+(progn
+  (cph)
+  (inspect *which-actor*))
+|#
+;; --------------------------------------------
+
+(defun run-actors (&optional (actor nil actor-provided-p) &rest message)
   #F
-  (let (sends evt pend-beh done timeout)
-    (labels ((%send (actor &rest msg-args)
-               ;; Within one behavior invocation there can be no
-               ;; significance to the ordering of sent messages.
-               (setf sends (msg actor msg-args sends)))
+  (let (done timeout sends pend-beh)
+    (labels
+        ((%send (msg)
+           ;; Within one behavior invocation there can be no
+           ;; significance to the ordering of sent messages.
+           (push msg sends))
+         
+         (%become (new-beh)
+           (setf pend-beh new-beh))
+         
+         (%abort-beh ()
+           (setf pend-beh *self-beh*
+                 sends    nil))
 
-             (%become (new-beh)
-               (setf pend-beh new-beh))
-             
-             (%abort-beh ()
-               (setf pend-beh self-beh
-                     sends    nil))
-
-             (commit-sends (msg)
-               (when msg
-                 (let ((next (shiftf (msg-link msg) nil))) ;; for GC
-                   (mpc:mailbox-send *central-mail* msg)
-                   (commit-sends next)
-                   )))
-             
-             (dispatch-loop ()
-               ;; -------------------------------------------------------
-               ;; Think of the *current-x* global vars as dedicated registers
-               ;; of a special architecture CPU which uses a FIFO queue for its
-               ;; instruction stream, instead of linear memory, and which
-               ;; executes breadth-first instead of depth-first. This maximizes
-               ;; concurrency.
-               ;; -------------------------------------------------------
-               (tagbody
-                AGAIN
-                ;; Fetch next event from event queue - ideally, this
-                ;; would be just a handful of simple register/memory
-                ;; moves and direct jump. No call/return needed, and
-                ;; stack useful only for a microcoding assist. Our
-                ;; depth is never more than one Actor at a time,
-                ;; before trampolining back here.
-                (when done
-                  (return-from #1# (values (car done) t)))
-                (unless (msg-p (setf evt (mpc:mailbox-read *central-mail* nil timeout)))
-                  (go AGAIN))
-                
-                (let ((*current-message-frame*  (and (msg-parent (the msg evt)) evt))
-                      (*current-actor*          (msg-actor (the msg evt)))  ;; self
-                      (*current-message*        (msg-args  (the msg evt)))) ;; self-msg
-                  (unless (actor-p *current-actor*)
-                    (go AGAIN))
-                  
-                  (tagbody
-                   RETRY
-                   (setf pend-beh (actor-beh (the actor self))
-                         sends    nil)
-                   (let ((*current-behavior*  pend-beh) ;; self-beh
-                         (behfn               (resolved-beh pend-beh)))
-                     (unless (functionp behfn)
-                       (go AGAIN))
+         (dispatch-loop ()
+           ;; -------------------------------------------------------
+           ;; Think of the *current-x* global vars as dedicated registers
+           ;; of a special architecture CPU which uses a FIFO queue for its
+           ;; instruction stream, instead of linear memory, and which
+           ;; executes breadth-first instead of depth-first. This maximizes
+           ;; concurrency.
+           ;; -------------------------------------------------------
+           
+           ;; Fetch next event from event queue - ideally, this
+           ;; would be just a handful of simple register/memory
+           ;; moves and direct jump. No call/return needed, and
+           ;; stack useful only for a microcoding assist. Our
+           ;; depth is never more than one Actor at a time,
+           ;; before trampolining back here.
+           
+           (loop until done
+                 do
+                   (when-let (evt (mpc:mailbox-read *central-mail* nil timeout))
+                     (setf *self-msg-parent* (and (car (the cons evt)) evt)
+                           *self*            (cadr (the cons evt))   ;; self
+                           *self-msg*        (cddr (the cons evt)))  ;; self-msg
+                     (tagbody
+                      RETRY
+                      (setf pend-beh   (actor-beh (the actor *self*))
+                            sends      nil
+                            *self-beh* pend-beh)
+                      ;; ---------------------------------
+                      ;; Dispatch to Actor behavior with message args
+                      (apply (the function pend-beh) (the list *self-msg*))
+                      
+                      ;; ---------------------------------
+                      ;; Commit BECOME and SENDS
+                      (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
+                                  (mpc:compare-and-swap
+                                   (actor-beh (the actor *self*))
+                                   *self-beh* pend-beh))     ;; effective BECOME
+                        ;; failed on behavior update - try again...
+                        (report-collision *self-beh*) ;; for engineering telemetry
+                        (go RETRY)))
                      
-                     ;; ---------------------------------
-                     ;; Dispatch to Actor behavior with message args
-                     (apply (the function behfn) (the list self-msg))
-                     
-                     ;; ---------------------------------
-                     ;; Commit BECOME and SENDS
-                     (unless (or (eq self-beh pend-beh)               ;; no BECOME
-                                 (%actor-cas self self-beh pend-beh)) ;; effective BECOME
-                       ;; failed on behavior update - try again...
-                       (go RETRY))
-
-                     (commit-sends sends)
-                     (go AGAIN)
-                     ))
-                  )))
-             
-             (dispatcher ()
-               (loop
-                  (with-simple-restart (abort "Handle next event")
-                    (dispatch-loop))
-                  )))
+                     (dolist (msg (the list sends))
+                       (mpc:mailbox-send *central-mail* msg))
+                     )))
+         
+         (dispatcher ()
+           (loop until done 
+                 do
+                   (with-simple-restart (abort "Handle next event")
+                     (dispatch-loop))
+                 )))
       (declare (dynamic-extent #'%send #'%become #'%abort-beh
-                               #'dispatch-loop #'dispatcher #'commit-sends))
-      (let ((*send*      #'%send)
-            (*become*    #'%become)
-            (*abort-beh* #'%abort-beh))
+                               #'dispatch-loop #'dispatcher))
+      ;; --------------------------------------------
+
+      (let ((*dyn-specials* (make-dyn-specials
+                             :send-hook         #'%send
+                             :become-hook       #'%become
+                             :abort-beh-hook    #'%abort-beh
+                             )))
+        (declare (dynamic-extent *dyn-specials*))
+        ;; --------------------------------------------
         (cond
          (actor-provided-p
           ;; we are an ASK
@@ -338,7 +390,7 @@ THE SOFTWARE.
                          (lambda* msg
                            (setf done (list msg))))
                         )))
-              (setf timeout +ASK-TIMEOUT+)  ;; for periodic DONE checking
+              (setf timeout *ASK-TIMEOUT*)  ;; for periodic DONE checking
               (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
               
               (apply #'send-to-pool actor me message)
@@ -351,7 +403,7 @@ THE SOFTWARE.
          (t  ;; else - we are normal Dispatch thread
              (with-simple-restart (abort "Terminate Actor thread")
                (dispatcher)))
-       ))
+         ))
       )))
 
 ;; ----------------------------------------------------------------
@@ -389,7 +441,7 @@ THE SOFTWARE.
      (send* cust msg))))
 
 ;; ------------------------------------------------
-;; The bridge between imperative code and the Actors world
+;; ASK - The bridge between imperative code and the Actors world
 ;;
 ;; Foreign threads can use ASK to query an Actor that provides a
 ;; response to a customer. It is superfluous to do so from an Actor.
@@ -403,7 +455,7 @@ THE SOFTWARE.
 ;; Then at the eariliest opportunity the (now dispatcher) current
 ;; thread returns with that answer.
 ;;
-;; If your thread is busy performing a behavior, you have to wait
+;; If your thread becomes busy performing a behavior, you have to wait
 ;; until that behavior finishes. If it is idle, waiting for message
 ;; Events at the Central Mailbox when the answer is generated, then
 ;; you will return within 1s. If your thread is the one generating the
@@ -415,15 +467,15 @@ THE SOFTWARE.
 ;; ASK performs an immediate reified SEND. So, when called from within
 ;; an Actor behavior, that violates transactional boundaries, and can
 ;; produce leakage that is best avoided. If you are in an Actor
-;; behavior it is still better to avoid using ASK, and use β-forms for
-;; CPS Actor style.
+;; behavior it is better to avoid using ASK, and use β-forms for CPS
+;; Actor style.
 
 (define-condition recursive-ask (warning)
   ()
   (:report (lambda (c stream)
              (declare (ignore c))
              (format stream
-                     "Calling ASK from within an Actor has you violating transactional boundaries.
+                     "An Actor calling ASK violates transactional boundaries.
          Try using β-forms instead."))))
 
 (defun do-with-recursive-ask (fn)
@@ -452,6 +504,9 @@ THE SOFTWARE.
              (format stream "Terminated ASK"))
    ))
 
+(defmacro ensure-actors-running ()
+  `(get-send-hook)) ;; ensures that the Actors system is running
+  
 (defgeneric ask (target &rest msg)
   (:method ((target actor) &rest msg)
    ;; Unlike SEND, ASKs are not staged, and perform immediately,
@@ -462,10 +517,10 @@ THE SOFTWARE.
    ;; But if called from within an Actor, the immediacy violates
    ;; transactional boundaries, since SEND is normally staged for
    ;; execution at successful exit, or discarded if errors.
-   (when self
-     (warn 'recursive-ask))
-
-   (get-send-hook) ;; ensures that the Actors system is running
+   (if self
+       (warn 'recursive-ask)
+     ;; else
+     (ensure-actors-running))
   
    ;; In normal situation, we get back the result message as a list and
    ;; flag t.  In exceptional situation, from restart "Terminate ASK",
@@ -506,12 +561,21 @@ THE SOFTWARE.
 ;; We must defer startup until the MP system has been instantiated.
 
 (defun* lw-start-actors _
-  (mpc:atomic-exchange *send* nil)
-  (princ "Actors are alive!"))
+  ;; ...the compiler complains that I'm not making use of an
+  ;; atomic-exchange result
+  (do-nothing (mpc:atomic-exchange *send-hook* nil))
+  (init-custodian)
+  ;; (princ "Actors are alive!")
+  (its-alive!!)
+  (values))
 
 (defun* lw-kill-actors _
   (kill-actors-system)
-  (print "Actors have been shut down."))
+  (mpc:process-wait "Waiting for Actors Shutdown"
+                    (lambda ()
+                      (null *send-hook*)))
+  (princ "Actors have been shut down.")
+  (values))
 
 #+:LISPWORKS
 (let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))
