@@ -110,9 +110,9 @@
  *SEND-HOOK*, *BECOME-HOOK*, *ABORT-BEH-HOOK*
    - dynamic runtime hooks for SEND, BECOME, ABORT-BEH
  
-     SELF = current Actor during behavior execution
- SELF-MSG = current message during behavior execution
- SELF-BEH = Actor behavior function when its execution was initiated
-MSG-FRAME = Parent message frame for current message (used for message tracing)
+           SELF = current Actor during behavior execution
+       SELF-MSG = current message during behavior execution
+       SELF-BEH = Actor behavior function when its execution was initiated
+SELF-MSG-PARENT = Parent message frame for current message (used for message tracing)
 |#
 
