@@ -125,58 +125,61 @@
 
 (defun custodian-beh (&optional threads)
   ;; Custodian holds the list of parallel Actor dispatcher threads
-  (alambda
-
-   ;; --------------------------------------------
-   ((cust 'add-executive id) ;; internal routine
-    (if (assoc id threads)
-        (send cust :ok)
-      (β-become
-          (let ((new-thread (mpc:process-run-function
-                             (format nil "Actor Thread #~D" id)
-                             ()
-                             #'custodian-aware-dispatcher
-                             )))
-            (send cust :ok)
-            (custodian-beh (acons id new-thread threads))
-            ))
-      ))
+  (with-contention-free-semantics
+   (alambda
     
-   ;; --------------------------------------------
-   ((cust 'ensure-executives n)
-    (dotimes (ix n)
-      (send self cust 'add-executive (1+ ix))
-      (setf cust sink)))
+    ;; --------------------------------------------
+    ((cust 'add-executive id) ;; internal routine
+     (if (assoc id threads)
+         (send cust :ok)
+       (without-contention
+        (let ((new-thread (mpc:process-run-function
+                           (format nil "Actor Thread #~D" id)
+                           ()
+                           #'custodian-aware-dispatcher
+                           )))
+          (send cust :ok)
+          (become (custodian-beh (acons id new-thread threads)))
+          ))
+       ))
     
+    ;; --------------------------------------------
+    ((cust 'ensure-executives n)
+     (dotimes (ix n)
+       (send self cust 'add-executive (1+ ix))
+       (setf cust sink)))
 
-   ;; --------------------------------------------
-   ((cust 'add-executives n)
-    (send self cust 'ensure-executives (+ (length threads) n)))
-   
-   ;; --------------------------------------------
-   ((cust 'remove-executive proc)
-    ;; Sent after one of our Custodian-Aware Dispatchers is killed-off.
-    (send cust :ok)
-    (let ((pair  (rassoc proc threads)))
-      (when pair
-        (let ((new-threads (remove pair threads)))
-          (become (custodian-beh new-threads)))
-        )))
-
-   ;; --------------------------------------------
-   (('poison-pill)
-    ;; Try to kill off one of our Custodian-Aware Dispatchers
-    (let* ((my-proc (mpc:get-current-process))
-           (pair    (rassoc my-proc threads)))
-      (when pair
-        ;; Found it, die.
-        (mpc:current-process-kill))
-      ))
-
-   ;; --------------------------------------------
-   ((cust :get-threads)
-    (send cust threads))
-   ))
+    ;; --------------------------------------------
+    ((cust 'add-executives n)
+     (send self cust 'ensure-executives (+ (length threads) n)))
+    
+    ;; --------------------------------------------
+    ((cust 'remove-executive proc)
+     ;; Sent after one of our Custodian-Aware Dispatchers is killed-off.
+     (let ((pair  (rassoc proc threads)))
+       (if pair
+           (without-contention
+            (let ((new-threads (remove pair threads)))
+              (become (custodian-beh new-threads))
+              (send cust :ok)
+              ))
+         (send cust :ok)
+         )))
+    
+    ;; --------------------------------------------
+    (('poison-pill)
+     ;; Try to kill off one of our Custodian-Aware Dispatchers
+     (let* ((my-proc (mpc:get-current-process))
+            (pair    (rassoc my-proc threads)))
+       (when pair
+         ;; Found it, die.
+         (mpc:current-process-kill))
+       ))
+    
+    ;; --------------------------------------------
+    ((cust :get-threads)
+     (send cust threads))
+    )))
 
 (deflex* custodian
   (create (custodian-beh)))
