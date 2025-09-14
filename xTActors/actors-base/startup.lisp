@@ -246,20 +246,21 @@
    (mpc:funcall-async
     (lambda ()
       ;; We are now running in a known non-Actor thread
-      (mpc:with-lock (*central-mail-lock*)
-        (when (actors-running-p)
-          (when-let (threads (get-dispatch-threads))
-            (setup-dead-man-switch threads)
-            (tagbody
-             again
-             (dotimes (ix (length threads))
-               (send-to-pool custodian 'poison-pill))
-             (sleep 1)
-             (when (setf threads (get-dispatch-threads))
-               (go again))
-             ))
-          (setf *central-mail* nil))
-        )))
+      (when (actors-running-p)
+        (mpc:with-lock (*central-mail-lock*)
+          (when (actors-running-p)
+            (when-let (threads (get-dispatch-threads))
+              (setup-dead-man-switch threads)
+              (tagbody
+               again
+               (dotimes (ix (length threads))
+                 (send-to-pool custodian 'poison-pill))
+               (sleep 1)
+               (when (setf threads (get-dispatch-threads))
+                 (go again))
+               ))
+            (setf *central-mail* nil))
+          ))))
    ))
 
 ;; --------------------------------------------
