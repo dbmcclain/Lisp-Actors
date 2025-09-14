@@ -144,20 +144,10 @@
     
    ;; --------------------------------------------
    ((cust 'ensure-executives n)
-    (let* ((outer-me  self)
-           (rep       (create
-                       (lambda (ix)
-                         (cond ((> ix n)
-                                (send cust :ok))
-                               (t
-                                (let ((inner-me self))
-                                  (β _
-                                      (send outer-me β 'add-executive ix)
-                                    (send inner-me (1+ ix)))
-                                  ))
-                               )))))
-      (send rep 1)
-      ))
+    (dotimes (ix n)
+      (send self cust 'add-executive (1+ ix))
+      (setf cust sink)))
+    
 
    ;; --------------------------------------------
    ((cust 'add-executives n)
