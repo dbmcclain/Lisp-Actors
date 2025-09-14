@@ -210,7 +210,7 @@
 ;; User-level Functions
 
 (defun actors-running-p ()
-  *send-hook*)
+  *central-mail*)
 
 (defun get-dispatch-threads ()
   (mapcar #'cdr (ask custodian :get-threads)))
@@ -224,8 +224,6 @@
 ;; --------------------------------------------
 ;; The following are made into generic functions to support later
 ;; extensions involving the async socket system.
-
-(defvar *actors-lock*  (mpc:make-lock))
 
 (defgeneric restart-actors-system (&optional nbr-execs)
   (:method (&optional (nbr-execs *nbr-pool*))
@@ -248,7 +246,7 @@
    (mpc:funcall-async
     (lambda ()
       ;; We are now running in a known non-Actor thread
-      (mpc:with-lock (*actors-lock*)
+      (mpc:with-lock (*central-mail-lock*)
         (when (actors-running-p)
           (when-let (threads (get-dispatch-threads))
             (setup-dead-man-switch threads)
@@ -260,7 +258,7 @@
              (when (setf threads (get-dispatch-threads))
                (go again))
              ))
-          (setf *send-hook* nil))
+          (setf *central-mail* nil))
         )))
    ))
 
@@ -309,8 +307,8 @@ Terminate them?")
 (kill-actors-system)
 (restart-actors-system)
 
-(mpc:atomic-exchange *send-hook* nil)
-(print *send-hook*)
+(mpc:atomic-exchange *central-mail* nil)
+(print *central-mail*)
 (inspect *central-mail*)
 (ask custodian :get-threads)
 (get-dispatch-threads)
