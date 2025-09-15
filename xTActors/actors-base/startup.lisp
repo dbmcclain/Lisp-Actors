@@ -125,16 +125,30 @@
      (send self cust 'ensure-executives (+ (length threads) n)))
     
     ;; --------------------------------------------
-    (('poison-pill)
+    ((cust 'poison-pill)
      ;; Try to kill off one of our Dispatchers
-     (let* ((my-proc (mpc:get-current-process))
-            (pair    (rassoc my-proc threads)))
-       (when pair
-         ;; Found it, die.
-         (without-contention
-          (setf threads (delete pair threads))
-          (mpc:current-process-kill)))
-       ))
+     (cond (threads
+            (let* ((my-proc (mpc:get-current-process))
+                   (pair    (rassoc my-proc threads)))
+              (cond (pair
+                     ;; Found it, die.
+                     (without-contention
+                      (setf threads (delete pair threads))
+                      (if threads
+                          (send-to-pool self cust 'poison-pill)
+                        (send-to-pool cust :ok))
+                      (mpc:current-process-kill)))
+                    (t
+                     ;; not one of the Dispatchers, try again
+                     (repeat-send self))
+                    )))
+           (t
+            (send cust :ok))
+           ))
+
+    (('reset-custodian)
+     (without-contention
+      (setf threads nil)))
     
     ;; --------------------------------------------
     ((cust :get-threads)
@@ -187,22 +201,14 @@
    (mpc:funcall-async
     (lambda ()
       ;; We are now running in a known non-Actor thread
-      (when (actors-running-p)
-        (mpc:with-lock (*central-mail-lock*)
-          (when (actors-running-p)
-            (when-let (threads (get-dispatch-threads))
-              (setup-dead-man-switch threads)
-              (tagbody
-               again
-               (dotimes (ix (length threads))
-                 (send-to-pool custodian 'poison-pill))
-               (sleep 1)
-               (when (setf threads (get-dispatch-threads))
-                 (go again))
-               ))
-            (setf *central-mail* nil))
-          ))))
-   ))
+      (mpc:with-lock (*central-mail-lock*)
+        (when (actors-running-p)
+          (when-let (procs (get-dispatch-threads))
+            (setup-dead-man-switch procs)
+            (ask custodian 'poison-pill))
+          (setf *central-mail* nil))
+        ))
+    )))
 
 ;; --------------------------------------------
 ;; In case of long-running Actor behaviors...
@@ -215,12 +221,13 @@
   (let (timer)
     (labels
         ((kill-with-prejudice ()
-           (when-let (alive (remove-if (complement #'mpc:process-alive-p) procs))
+           (when (setf procs (delete-if (complement #'mpc:process-alive-p) procs))
              (cond
               ((y-or-n-p "Some dispatch threads are still running.
 Terminate them?")
-               (dolist (proc alive)
+               (dolist (proc procs)
                  (mpc:process-terminate proc))
+               (send-to-pool custodian 'reset-custodian)
                (terpri)
                (princ "Dispatch threads were forcibly terminated."))
               
