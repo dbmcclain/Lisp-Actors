@@ -78,12 +78,6 @@
 ;;
 ;; --------------------------------------------
 ;;
-;; It is important to realize that going through a SERIALIZER
-;; *DOESN'T* cause any machine thread to block waiting. It merely
-;; prevents the delivery of additional messages to an Actor. The
-;; dispatch threads remain unblocked and ready to handle any other
-;; messages.
-;;
 ;; Message SENDS are *NOT* talking to other threads. They are simply
 ;; stating that, if a dispatch thread is available, it should pick up
 ;; and deliver the message to an Actor. The Actor system is thread
@@ -91,35 +85,9 @@
 ;;
 ;; Any of the Dispatch threads can enter the CUSTODIAN, including all
 ;; the Dispatch Pool threads and any additional extant ASK threads.
-;; But due to the SERIALIZER, only one of them can enter the Custodian
-;; at a time.
 ;;
 ;; For graceful Shutdown, we have each of the Pool threads terminate
 ;; themself. That way we aren't clobbering some activity in its midst.
-;;
-;; But there is no guarantee that a Pool thread is running the
-;; Custodian. It might be an ASK thread helping out.
-;;
-;; If an ASK thread is the one running the Custodian for Shutdown,
-;; then it must re-broadcast the :KILL-EXECUTIVES message using
-;; immediate SEND-TO-POOL, then stand down for a while to allow some
-;; Pool thread to handle the message. But this time, the message
-;; avoids going through the SERIALIZER.
-;;
-;; As a pool thread finds itself handling the Kill message, it removes
-;; itself from the ledger of pool threads and, if any remain, it
-;; re-broadcasts the Kill messasge to nudge another pool thread to
-;; have a go, just prior to self immolation.
-;;
-;; The SERIALIZER gets unblocked after the last Pool Thread has killed
-;; itself. For message delivery, a running ASK handler has to do the
-;; deed. And we have to use a direct SEND-TO-POOL instead of a SEND,
-;; to avoid restarting the whole pool again.
-;;
-;; Additionally, when the Pool Threads have shut down, the *SEND* hook
-;; must be nulled, so that future SENDS will restart the thread Pool.
-;; But this hook cannot be nulled from within a running Actor. It must
-;; be nulled out by a non-Actor thread.
 ;;
 ;; --------------------------------------------
 
@@ -130,13 +98,14 @@
     
     ;; --------------------------------------------
     ((cust 'add-executive id) ;; internal routine
+     (check-type id (integer 1 *))
      (if (assoc id threads)
          (send cust :ok)
        (without-contention
         (let ((new-thread (mpc:process-run-function
                            (format nil "Actor Thread #~D" id)
                            ()
-                           #'custodian-aware-dispatcher
+                           #'run-actors
                            )))
           (send cust :ok)
           (become (custodian-beh (acons id new-thread threads)))
@@ -145,35 +114,26 @@
     
     ;; --------------------------------------------
     ((cust 'ensure-executives n)
+     (check-type n (integer 1 *))
      (dotimes (ix n)
        (send self cust 'add-executive (1+ ix))
        (setf cust sink)))
 
     ;; --------------------------------------------
     ((cust 'add-executives n)
+     (check-type n (integer 0 *))
      (send self cust 'ensure-executives (+ (length threads) n)))
     
     ;; --------------------------------------------
-    ((cust 'remove-executive proc)
-     ;; Sent after one of our Custodian-Aware Dispatchers is killed-off.
-     (let ((pair  (rassoc proc threads)))
-       (if pair
-           (without-contention
-            (let ((new-threads (remove pair threads)))
-              (become (custodian-beh new-threads))
-              (send cust :ok)
-              ))
-         (send cust :ok)
-         )))
-    
-    ;; --------------------------------------------
     (('poison-pill)
-     ;; Try to kill off one of our Custodian-Aware Dispatchers
+     ;; Try to kill off one of our Dispatchers
      (let* ((my-proc (mpc:get-current-process))
             (pair    (rassoc my-proc threads)))
        (when pair
          ;; Found it, die.
-         (mpc:current-process-kill))
+         (without-contention
+          (setf threads (delete pair threads))
+          (mpc:current-process-kill)))
        ))
     
     ;; --------------------------------------------
@@ -186,18 +146,6 @@
 
 (defun init-custodian ()
   (setf custodian (create (custodian-beh))))
-
-;; --------------------------------------------
-
-(defun custodian-aware-dispatcher ()
-  ;; A type of dispatcher that will remove itself from the Custodian's
-  ;; dispatch pool on abnormal exit.
-  (unwind-protect
-      (run-actors)
-    ;; Can't just SEND here, might be nobody left to handle the
-    ;; message...
-    (ask custodian 'remove-executive (mpc:get-current-process))
-    ))
 
 ;; --------------------------------------------------------------
 ;; User-level Functions
