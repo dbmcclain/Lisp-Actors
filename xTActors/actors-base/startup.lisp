@@ -131,22 +131,25 @@
             (let* ((my-proc (mpc:get-current-process))
                    (pair    (rassoc my-proc threads)))
               (cond (pair
-                     ;; Found it, die.
+                     ;; We are one, so die.
                      (without-contention
-                      (setf threads (delete pair threads))
+                      (setf threads (remove pair threads))
                       (if threads
                           (send-to-pool self cust 'poison-pill)
                         (send-to-pool cust :ok))
                       (mpc:current-process-kill)))
                     (t
-                     ;; not one of the Dispatchers, try again
+                     ;; Not one of the Dispatchers, try again
                      (repeat-send self))
                     )))
            (t
+            ;; No dispatch threads remain, we are done.
             (send cust :ok))
            ))
 
     (('reset-custodian)
+     ;; Sent after forcibly killing off the Dispatch threads in the
+     ;; dead-man timer.
      (without-contention
       (setf threads nil)))
     
