@@ -263,24 +263,25 @@ THE SOFTWARE.
 ;; collisions per hour. (approx 0.05% collision rate, or 1 in 2000
 ;; updates)
 
-(defvar *collision-counter* 0)
-(defvar *collision-start*   0)
-(defvar *which-actor*       nil)
-
-(defun report-collision (beh)
-  (setf *which-actor* beh)
-  (sys:atomic-incf *collision-counter*))
-
-(defun cph ()
-  ;; Report Collisions per Hour
-  (let* ((now   (get-universal-time))
-         (start (shiftf *collision-start* now))
-         (count (sys:atomic-exchange *collision-counter* 0)))
-    (format t "~%Collisions: count = ~d, rate = ~,2f/hr"
-            count (* 3600 (/ count (- now start))))
-    (values)
-    ))
-         
+#+:LISPWORKS
+(progn
+  (defvar *collision-counter* 0)
+  (defvar *collision-start*   0)
+  (defvar *which-actor*       nil)
+  
+  (defun report-collision (beh)
+    (setf *which-actor* beh)
+    (sys:atomic-incf *collision-counter*))
+  
+  (defun cph ()
+    ;; Report Collisions per Hour
+    (let* ((now   (get-universal-time))
+           (start (shiftf *collision-start* now))
+           (count (sys:atomic-exchange *collision-counter* 0)))
+      (format t "~%Collisions: count = ~d, rate = ~,2f/hr"
+              count (* 3600 (/ count (- now start))))
+      (values)
+      )))
 #|
 (progn
   (cph)
@@ -342,6 +343,7 @@ THE SOFTWARE.
                                    (actor-beh (the actor *self*))
                                    *self-beh* pend-beh))     ;; effective BECOME
                         ;; failed on behavior update - try again...
+                        #+:LISPWORKS
                         (report-collision *self-beh*) ;; for engineering telemetry
                         (go RETRY)))
                      
