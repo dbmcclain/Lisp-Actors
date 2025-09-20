@@ -748,14 +748,13 @@ of the #> reader macro
 (defun |reader-for-#$| (stream sub-char numarg)
   (declare (ignore sub-char numarg))
   (let ((inp (read stream t nil t)))
-    (if (and (consp inp)
-             (symbolp (car inp)))
-        (let ((fn (get-$-dispatch-reader (car inp))))
-          (if fn
-              (apply fn (cdr inp))
-            (unless *read-suppress*
-              (error "No $-Reader Macro for ~A" (car inp)))))
-      (unless *read-suppress*
+    (unless *read-suppress*
+      (if (and (consp inp)
+               (symbolp (car inp)))
+          (let ((fn (get-$-dispatch-reader (car inp))))
+            (if fn
+                (apply fn (cdr inp))
+              (error "No $-Reader Macro for ~A" (car inp))))
         (error "badly formed #$ input: ~A" inp)))))
 
 (defun set-$-dispatch-reader (key fn)
@@ -766,14 +765,15 @@ of the #> reader macro
 (defun get-$-dispatch-reader (key)
   (gethash (string key) $-reader-macros key))
 
-#|
 (set-dispatch-macro-character
  #\# #\$ '|reader-for-#$|)
 
-(set-$-dispatch-reader :test (lambda (&rest data)
-                               (match data
-                                 ((x) :when (numberp x) (/ x))
-                                 (_   (list 'quote data)))))
+#|
+(set-$-dispatch-reader :test (ac:alambda
+                              ((x) when (numberp x)
+                               (/ x))
+                              (data
+                               (list 'quote data))))
 
 #|
 #$(:test 15)
@@ -789,9 +789,9 @@ of the #> reader macro
 (defun |reader-for-#/| (stream sub-char numarg)
   (let* ((key    (first (segment-reader stream #\/ 1)))
          (reader (get-/-dispatch-reader key)))
-    (if reader
-        (funcall reader stream sub-char numarg)
-      (unless *read-suppress*
+    (unless *read-suppress*
+      (if reader
+          (funcall reader stream sub-char numarg)
         (error "No /-Reader Macro for ~A" key)))))
 
     
