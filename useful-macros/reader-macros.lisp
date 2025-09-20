@@ -809,8 +809,8 @@ of the #> reader macro
                        (lambda (stream &rest _)
                          (declare (ignore _))
                          (let ((data (read stream t nil t)))
-                           (match data
-                             ((x) :when (numberp x) (/ x))
+                           (ac:match data
+                             (x when (numberp x) (/ x))
                              (_   (list 'quote data))))))
 
 #|
