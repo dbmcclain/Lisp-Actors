@@ -411,7 +411,13 @@ THE SOFTWARE.
                                        (min min-nws pnws))
                                   pnws
                                   min-nws))
-                    (new-lines (cons line lines)))
+                    (new-lines (cons (or
+                                      (and pnws
+                                           line)
+                                      (and p
+                                           #.(make-string 1 :initial-element #\newline))
+                                      "")
+                                     lines)))
                (cond (new-start
                       ;; counting on tail call optimization here...
                       (get-trimmed-lines new-start new-min-nws new-lines))
