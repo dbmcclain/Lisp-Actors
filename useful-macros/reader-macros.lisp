@@ -411,33 +411,26 @@ THE SOFTWARE.
                                        (min min-nws pnws))
                                   pnws
                                   min-nws))
-                    (new-lines (cons (or
-                                      (and pnws
-                                           line)
-                                      (and p
-                                           #.(make-string 1 :initial-element #\newline))
-                                      "")
-                                     lines)))
+                    (new-lines (acons (and pnws
+                                           (plusp pnws)
+                                           pnws)
+                                      (or
+                                       (and pnws
+                                            line)
+                                       (and p
+                                            #.(make-string 1 :initial-element #\newline))
+                                       "")
+                                      lines)))
                (cond (new-start
                       ;; counting on tail call optimization here...
                       (get-trimmed-lines new-start new-min-nws new-lines))
-                     
-                     ((and new-min-nws
-                           (plusp new-min-nws))
-                      (mapcar (lambda (line)
-                                (let* ((len     (length line))
-                                       (adj-len (or
-                                                 (and (plusp len)
-                                                      (char= #\newline
-                                                             (char line (1- len)))
-                                                      (1- len))
-                                                 len))
-                                       (start (min new-min-nws adj-len)))
-                                  (subseq line start)))
-                              new-lines))
-                     
+
                      (t
-                      new-lines)
+                      (mapcar (lambda (pair)
+                                (if (car pair)
+                                    (subseq (cdr pair) new-min-nws)
+                                  (cdr pair)))
+                              new-lines))
                      ))))
     (apply #'concatenate 'string (nreverse (get-trimmed-lines)))
     ))
