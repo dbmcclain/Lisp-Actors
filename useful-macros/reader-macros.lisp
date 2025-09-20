@@ -412,8 +412,7 @@ THE SOFTWARE.
                                   pnws
                                   min-nws))
                     (new-lines (acons (and pnws
-                                           (plusp pnws)
-                                           pnws)
+                                           (plusp pnws))
                                       (or
                                        (and pnws
                                             line)
@@ -421,18 +420,17 @@ THE SOFTWARE.
                                             #.(make-string 1 :initial-element #\newline))
                                        "")
                                       lines)))
-               (cond (new-start
-                      ;; counting on tail call optimization here...
-                      (get-trimmed-lines new-start new-min-nws new-lines))
-
-                     (t
-                      (mapcar (lambda (pair)
-                                (if (car pair)
-                                    (subseq (cdr pair) new-min-nws)
-                                  (cdr pair)))
-                              new-lines))
-                     ))))
-    (apply #'concatenate 'string (nreverse (get-trimmed-lines)))
+               (if new-start
+                   ;; counting on tail call optimization here...
+                   (get-trimmed-lines new-start new-min-nws new-lines)
+                 (nreverse
+                  (mapcar (lambda (pair)
+                            (if (car pair)
+                                (subseq (cdr pair) new-min-nws)
+                              (cdr pair)))
+                          new-lines)))
+               )))
+    (apply #'concatenate 'string (get-trimmed-lines))
     ))
 
 ;; ----------------------------------------------------------------------
