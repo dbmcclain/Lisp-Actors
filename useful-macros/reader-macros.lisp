@@ -433,6 +433,14 @@ THE SOFTWARE.
     (apply #'concatenate 'string (get-trimmed-lines))
     ))
 
+(defun interpolated-string (numarg str)
+  (unless *read-suppress*
+    (let ((ans (trim-common-leading-ws-from-lines str)))
+      (if numarg
+          `(string-interp ,ans)
+        ans))
+    ))
+
 ;; ----------------------------------------------------------------------
 ;; Nestable suggestion from Daniel Herring rewritten (DM/RAL) using
 ;; our state-machine macro Use backslash for escaping literal chars.
@@ -456,14 +464,9 @@ THE SOFTWARE.
       (push prev chars))
     (let ((chars (coerce (nreverse chars) 'string)))
       ;; this bit is added to Doug's code to enable string interpolation
-      (unless *read-suppress*
-        (let ((ans (if numarg
-                       (trim-common-leading-ws-from-lines chars)
-                     chars)))
-          (if numarg
-              `(string-interp ,ans)
-            ans))
-        ))))
+      (interpolated-string numarg chars))
+    ))
+
 
 ;;; #|
 ;;; ;; Doug Comer's original definition
@@ -603,13 +606,8 @@ THE SOFTWARE.
                   'string)
                  ))
         ;; this bit is added to Doug's code to enable string interpolation
-        (unless *read-suppress*
-          (let ((ans (trim-common-leading-ws-from-lines str)))
-            (if numarg
-                `(string-interp ,ans)
-              ans))
-          )))
-    ))
+        (interpolated-string numarg str))
+      )))
 
 (set-dispatch-macro-character
   #\# #\> #'|#>-reader|)
