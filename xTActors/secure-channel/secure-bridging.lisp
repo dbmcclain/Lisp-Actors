@@ -146,18 +146,14 @@
 
 (defun local-services-beh (&optional svcs encryptor decryptor)
   (alambda
+
+   ;; --------------------------------------------
+
    ((cust :add-service-with-id id actor)
     ;; insert ahead of any with same id
     (let ((new-svcs (acons id (local-service actor) svcs)))
       (β! (local-services-beh new-svcs encryptor decryptor))
       (>> cust id)))
-   
-   ((cust :add-ephemeral-client-with-id id actor ttl)
-    (let ((new-svcs (acons id (ephem-service actor ttl) svcs)))
-      (β! (local-services-beh new-svcs encryptor decryptor))
-      (>> cust id)
-      (when ttl
-        (send-after ttl self sink :remove-service id))))
    
    ((cust :add-service actor)
     ;; used for connection handlers
@@ -168,11 +164,22 @@
       (β! (local-services-beh new-svcs encryptor decryptor))
       (send-after *default-ephemeral-ttl* self sink :remove-service id)
       (>> cust id)))
+
+   ;; --------------------------------------------
+
+   ((cust :add-ephemeral-client-with-id id actor ttl)
+    (let ((new-svcs (acons id (ephem-service actor ttl) svcs)))
+      (β! (local-services-beh new-svcs encryptor decryptor))
+      (>> cust id)
+      (when ttl
+        (send-after ttl self sink :remove-service id))))
    
+   #| ;; unused
    ((cust :add-ephemeral-client actor ttl)
     ;; used for transient customer proxies
     (>> self cust :add-ephemeral-client-with-id (uuid:make-v1-uuid) actor ttl))
-
+   |#
+   
    ((cust :add-ephemeral-clients clients ttl)
     (if clients
         (let+ ((me  self)
@@ -182,10 +189,14 @@
       ;; else
       (>> cust :ok)))
    
+   ;; --------------------------------------------
+
    ((cust :remove-service id)
     (let ((new-svcs (remove (assoc id svcs :test #'uuid:uuid=) svcs :count 1)))
       (β! (local-services-beh new-svcs encryptor decryptor))
       (>> cust :ok)))
+
+   ;; --------------------------------------------
 
    ((cust :set-crypto socket encryptor decryptor)
     (let ((enc  (sink-pipe (client-marshal-encoder self) ;; translate Actors to CLIENT-PROXY's
@@ -280,7 +291,8 @@
 (defun make-local-services ()
   (create (local-services-beh)))
 
-
+;; --------------------------------------------
+#| ;; Unused...
 (defun create-ephemeral-client-proxy (cust local-services svc &key (ttl *default-ephemeral-ttl*))
   ;; used by client side
   (>> local-services cust :add-ephemeral-client svc ttl))
@@ -292,7 +304,7 @@
 (defun create-service-proxy (cust local-services svc)
   ;; used by server side
   (>> local-services cust :add-service svc))
-
+|#
 #| ---------------------------------------------------
    Marshaling with Actor conversions
   
@@ -362,13 +374,14 @@
 #|
 (def-actor echo
   (behav (cust &rest msg)
+    (>> writeln msg)
     (>> cust msg)))
 
 (let ((encoder (client-marshal-encoder echo)))
   (let ((obj  println))
     (β (enc)
         (>> encoder β obj)
-      (>> fmt-println"Encoding: ~S" enc)
+      (>> fmt-println "Encoding: ~S" enc)
       (>> fmt-println "Decoding: ~S" (loenc:decode enc))
       )))
 |#
