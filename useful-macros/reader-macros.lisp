@@ -349,10 +349,15 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------------
 ;; Swift-like string interpolation
 
-(defun string-interp (str)
+(defmacro string-interp (str)
   ;; Substitute value of form following $ inside string.
   ;; Escape literal $ using "...\$..."
   ;; Prefer established $ conventions. No need for ${}, since we are Lisp.
+  ;;
+  ;; Note: We want this to be a macro so that we can separately call
+  ;; on STRING-INTERP with an arbitrary string argument constructed
+  ;; however. It needs to be a macro so that it can properly capture
+  ;; local lexical binding values.
   (let ((len (length str)))
     (nlet iter ((start 0)
                 (pos   0)
@@ -381,6 +386,10 @@ THE SOFTWARE.
                   ))))
       )))
 
+#|
+(let ((x 15))
+  #1"x = $x"#)
+ |#
 ;; -------------------------------------------------------------------------------
 
 #+:SBCL
@@ -428,7 +437,7 @@ THE SOFTWARE.
   (unless *read-suppress*
     (let ((ans (trim-common-leading-ws-from-lines str)))
       (if numarg
-          (string-interp ans)
+          `(string-interp ,ans)
         ans))
     ))
 
