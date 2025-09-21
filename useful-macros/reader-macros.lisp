@@ -351,7 +351,7 @@ THE SOFTWARE.
 
 (defmacro string-interp (str)
   ;; Substitute value of form following $ inside string.
-  ;; Escape literal $ using "...\$..."
+  ;; Escape literal $ using "...\\$..."
   ;; Prefer established $ conventions. No need for ${}, since we are Lisp.
   ;;
   ;; Note: We want this to be a macro so that we can separately call
