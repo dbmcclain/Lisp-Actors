@@ -351,7 +351,7 @@ THE SOFTWARE.
 
 (defun string-interp (str)
   ;; Substitute value of form following $ inside string.
-  ;; Escape literal $ using "...\\$..."
+  ;; Escape literal $ using "...\$..."
   ;; Prefer established $ conventions. No need for ${}, since we are Lisp.
   (let ((out     (make-array 16
                              :element-type 'character
