@@ -403,7 +403,7 @@ THE SOFTWARE.
                                                    (char= #\+ (char str new-pos))
                                                    (all-xdig '(2. 3. 4. 5.)))
                                               (xconv 2. 6.)
-                                            (xerr "Erroneous Unicode ~A" 6.)))
+                                            (xerr "Invalid Unicode ~A" 6.)))
                                     (t    ch)) ))
                      (go-iter new-pos new-pos nil (cons
                                                    (make-string 1 :initial-element new-ch)

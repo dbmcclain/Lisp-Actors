@@ -8,7 +8,7 @@
   (let* ((gs    (gensyms bindings))
          (gn    (gensym))
          (vars  (mapcar #'car bindings))
-         (xvars (loop repeat (length vars) collect (gensym))))
+         (xvars (gensyms vars)))
     (multiple-value-bind (body decls doc)
         (parse-body decls+body :documentation t :whole whole)
       `(labels ((,name ,xvars

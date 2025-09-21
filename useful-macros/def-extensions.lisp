@@ -119,6 +119,8 @@ arguments when given."
     ))
 
 (defun wrap-assembly (name args &rest body)
+  ;; Used for DEFUN*, LAMBDA*,
+  ;; and for each function of FLET* and LABELS*
   (multiple-value-bind (wargs wigns)
       (us-conv args)
     (if (destr-lambda-list-p wargs)
@@ -137,6 +139,7 @@ arguments when given."
     ))
   
 (defun wrap-bindings (hd bindings body)
+  ;; Used for FLET* and LABELS*
   `(,hd ,(mapcar (lambda (form)
                    (apply #'wrap-assembly form))
                  bindings)
@@ -279,8 +282,8 @@ arguments when given."
    ))
     
 (defun maybe-ignore_ (arg)
-  (when (or (is-underscore? arg)
-            (and (consp arg)
+  (when (or (is-underscore? arg)  ;; as in (LAMBDA* _ ...)
+            (and (consp arg)      ;; or as in (LAMBDA* (_ . rest) ...)
                  (find-if #'is-underscore? (to-proper-list arg))))
     `((declare (ignore ,(symb "_"))))
     ))
@@ -297,7 +300,7 @@ arguments when given."
     (values elst igns)))
          
 (defmethod do-let+ ((fst cons) binding form)
-  ;; CONS first binding element is implied DESTRUCTURING-BIND
+  ;; CONS first binding element is an implied DESTRUCTURING-BIND
   ;; tree destructuring
   (multiple-value-bind (efst igns)
       (prep-igns fst)
@@ -307,14 +310,6 @@ arguments when given."
            `((declare (ignore ,@igns))))
        ,form)
     ))
-
-#|
-(defmethod do-let+ ((fst (eql :decl)) binding form)
-  ;; :DECL prefix is for DECLARE
-  `(locally
-     (declare ,@(rest binding))
-     ,form))
-|#
 
 (defmethod do-let+ ((fst (eql :mvl)) binding form)
   ;; :MVL prefix is for MULTIPLE-VALUE-LIST
@@ -384,6 +379,14 @@ arguments when given."
   `(locally
      (declare ,(second binding))
      ,form))
+
+#|
+(defmethod do-let+ ((fst (eql :decl)) binding form)
+  ;; :DECL prefix is for DECLARE
+  `(locally
+     (declare ,@(rest binding))
+     ,form))
+|#
 
 (defmethod do-let+ (fst binding form)
   ;; default case is just normal LET
