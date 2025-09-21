@@ -448,8 +448,7 @@
   (multiple-value-bind (dev ino)
       (um:get-ino path)
     (when dev
-      (with-standard-io-syntax
-        (um:mkstr dev #\: ino)))
+      (um:mkstr dev #\: ino))
     ))
 
 #+:MSWINDOWS

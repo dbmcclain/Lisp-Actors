@@ -401,12 +401,12 @@
                            (setf proxies (acons id proxy proxies))
                            proxy))
                        )))
-         (let ((dec (ignore-errors
-                      (loenc:decode vec))))
-           (when (and dec
-                      (listp dec))
-             (>>* cust dec))
-           )))
-     ))))
+         (multiple-value-bind (dec cx)
+             (ignore-errors
+               (loenc:decode vec))
+           (unless cx
+             (>>* cust dec)))
+         )))
+    )))
 
 ;; ---------------------------------------------------
