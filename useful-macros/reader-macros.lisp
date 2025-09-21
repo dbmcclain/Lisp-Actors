@@ -379,6 +379,21 @@ THE SOFTWARE.
                                   (#\v  #\VT)
                                   (#\f  #\Page)
                                   (#\a  #\Bell)
+                                  (#\U  (if (and (<= (+ pos 6.) len)
+                                                 (char= #\+ (char str new-pos))
+                                                 (every (lambda (n)
+                                                          (let ((dch (char str (+ pos n))))
+                                                            (digit-char-p dch 16.)))
+                                                        '(2. 3. 4. 5.)))
+                                            (let ((*read-base* 16.))
+                                              (incf new-pos 5.)
+                                              (code-char
+                                               (read-from-string
+                                                (subseq str (+ pos 2.) (+ pos 6.)))) )
+                                          ;; else
+                                          (error "Erroneous Unicode ~A"
+                                                 (subseq str (1- pos) (min len (+ pos 6.))))
+                                          ))
                                   (t    ch)) ))
                    (go-iter new-pos new-pos nil (cons
                                                  (make-string 1 :initial-element new-ch)
@@ -404,8 +419,14 @@ THE SOFTWARE.
       )))
 
 #|
-(let ((x 15))
+(let ((x 15.))
   #1"x = $x\n"#)
+
+(let ((x 15.))
+  (string-interp "x = $x\\n"))
+
+(string-interp "\\U+03BB")
+(string-interp "abc \\U+X3bbdef")
  |#
 ;; -------------------------------------------------------------------------------
 
