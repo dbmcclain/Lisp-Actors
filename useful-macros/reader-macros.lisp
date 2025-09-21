@@ -371,34 +371,46 @@ THE SOFTWARE.
         (let ((ch      (char str pos))
               (new-pos (1+ pos)))
           (cond (esc
-                 (let ((new-ch  (case ch
-                                  (#\n  #\Newline)
-                                  (#\r  #\Return)
-                                  (#\t  #\Tab)
-                                  (#\b  #\Backspace)
-                                  (#\v  #\VT)
-                                  (#\f  #\Page)
-                                  (#\a  #\Bell)
-                                  (#\U  (if (and (<= (+ pos 6.) len)
-                                                 (char= #\+ (char str new-pos))
-                                                 (every (lambda (n)
-                                                          (let ((dch (char str (+ pos n))))
-                                                            (digit-char-p dch 16.)))
-                                                        '(2. 3. 4. 5.)))
-                                            (let ((*read-base* 16.))
-                                              (incf new-pos 5.)
-                                              (code-char
-                                               (read-from-string
-                                                (subseq str (+ pos 2.) (+ pos 6.)))) )
-                                          ;; else
-                                          (error "Erroneous Unicode ~A"
-                                                 (subseq str (1- pos) (min len (+ pos 6.))))
-                                          ))
-                                  (t    ch)) ))
-                   (go-iter new-pos new-pos nil (cons
-                                                 (make-string 1 :initial-element new-ch)
-                                                 parts))
-                   ))
+                 (labels ((xdig (n)
+                            (let ((dch  (char str (+ pos n))))
+                              (digit-char-p dch 16.)))
+                          (all-xdig (nlst)
+                            (every #'xdig nlst))
+                          (xconv (start end)
+                            (incf new-pos (1- end))
+                            (let ((*read-base* 16.))
+                              (code-char
+                               (read-from-string
+                                (subseq str (+ pos start) (+ pos end)))
+                               ))))
+                   (let ((new-ch  (case ch
+                                    (#\n  #\Newline)   ;; #x0A
+                                    (#\r  #\Return)    ;; #x0D
+                                    (#\t  #\Tab)       ;; #x09
+                                    (#\b  #\Backspace) ;; #x08
+                                    (#\v  #\VT)        ;; #x0B
+                                    (#\f  #\Page)      ;; #x0C
+                                    (#\a  #\Bell)      ;; #x07
+                                    (#\x  (if (and (<= (+ pos 3.) len)
+                                                   (all-xdig '(1 2.)))
+                                              (xconv 1 3.)
+                                            (error "Invalid Hex ~A"
+                                                   (subseq str (1- pos)
+                                                           (min len (+ pos 3.))))
+                                            ))
+                                    (#\U  (if (and (<= (+ pos 6.) len)
+                                                   (char= #\+ (char str new-pos))
+                                                   (all-xdig '(2. 3. 4. 5.)))
+                                              (xconv 2. 6.)
+                                            (error "Erroneous Unicode ~A"
+                                                   (subseq str (1- pos)
+                                                           (min len (+ pos 6.))))
+                                            ))
+                                    (t    ch)) ))
+                     (go-iter new-pos new-pos nil (cons
+                                                   (make-string 1 :initial-element new-ch)
+                                                   parts))
+                     )))
                 ((char= #\\ ch)
                  (go-iter new-pos new-pos t (cons
                                              (subseq str start pos)
@@ -437,49 +449,45 @@ THE SOFTWARE.
 (defun trim-common-leading-ws-from-lines (str)
   ;; split str into lines, discarding common leading whitespace, then
   ;; rejoin into one string
-  (if (find #\Newline str)
-      (labels ((get-trimmed-lines (&optional (start 0) min-nws lines)
-                 (let* ((p    (position #\newline str :start start))
-                        (new-start (and p (1+ p)))
-                        (line (subseq str start new-start))
-                        ;; lines with only whitespace do not contribute to the leading whitespace calc.
-                        (pnws (position-if (complement #'whitespace-char-p) line))
-                        (new-min-nws (or
-                                      (and pnws
-                                           min-nws
-                                           (min min-nws pnws))
-                                      pnws
-                                      min-nws))
-                        (new-lines (acons (and pnws
-                                               (plusp pnws))
-                                          (or
-                                           (and pnws
-                                                line)
-                                           (and p
-                                                #.(make-string 1 :initial-element #\newline))
-                                           "")
-                                          lines)))
-                   (if new-start
-                       ;; counting on tail call optimization here...
-                       (get-trimmed-lines new-start new-min-nws new-lines)
-                     (nreverse
-                      (mapcar (lambda (pair)
-                                (if (car pair)
-                                    (subseq (cdr pair) new-min-nws)
-                                  (cdr pair)))
-                              new-lines)))
-                   )))
-        (apply #'concatenate 'string (get-trimmed-lines)))
-    ;; else
-    str))
+  (labels ((get-trimmed-lines (&optional (start 0) min-nws lines)
+             (let* ((p    (position #\newline str :start start))
+                    (new-start (and p (1+ p)))
+                    (line (subseq str start new-start))
+                    ;; lines with only whitespace do not contribute to the leading whitespace calc.
+                    (pnws (position-if (complement #'whitespace-char-p) line))
+                    (new-min-nws (or
+                                  (and pnws
+                                       min-nws
+                                       (min min-nws pnws))
+                                  pnws
+                                  min-nws))
+                    (new-lines (acons (and pnws
+                                           (plusp pnws))
+                                      (or
+                                       (and pnws
+                                            line)
+                                       (and p
+                                            #.(make-string 1 :initial-element #\newline))
+                                       "")
+                                      lines)))
+               (if new-start
+                   ;; counting on tail call optimization here...
+                   (get-trimmed-lines new-start new-min-nws new-lines)
+                 (nreverse
+                  (mapcar (lambda (pair)
+                            (if (car pair)
+                                (subseq (cdr pair) new-min-nws)
+                              (cdr pair)))
+                          new-lines)))
+               )))
+    (apply #'concatenate 'string (get-trimmed-lines))
+    ))
 
 (defun interpolated-string (numarg str)
-  (unless *read-suppress*
-    (let ((ans str)) ;; (trim-common-leading-ws-from-lines str)))
-      (if numarg
-          `(string-interp ,ans)
-        ans))
-    ))
+  (let ((ans str)) ;; (trim-common-leading-ws-from-lines str)))
+    (if numarg
+        `(string-interp ,ans)
+      ans)))
 
 ;; ----------------------------------------------------------------------
 ;; Nestable suggestion from Daniel Herring rewritten (DM/RAL) using
@@ -502,10 +510,11 @@ THE SOFTWARE.
          (curr (read-char stream) (read-char stream)))
         ((and (char= prev #\") (char= curr #\#)))
       (push prev chars))
-    (let ((chars (coerce (nreverse chars) 'string)))
-      ;; this bit is added to Doug's code to enable string interpolation
-      (interpolated-string numarg chars))
-    ))
+    (unless *read-suppress*
+      (let ((chars (coerce (nreverse chars) 'string)))
+        ;; this bit is added to Doug's code to enable string interpolation
+        (interpolated-string numarg chars))
+      )))
 
 
 ;;; #|
@@ -640,14 +649,15 @@ THE SOFTWARE.
                 pattern))
         (if (null pointer)
           (return)))
-      (let ((str (coerce
-                  (nreverse
-                   (nthcdr (length pattern) output))
-                  'string)
-                 ))
-        ;; this bit is added to Doug's code to enable string interpolation
-        (interpolated-string numarg str))
-      )))
+      (unless *read-suppress*
+        (let ((str (coerce
+                    (nreverse
+                     (nthcdr (length pattern) output))
+                    'string)
+                   ))
+          ;; this bit is added to Doug's code to enable string interpolation
+          (interpolated-string numarg str))
+        ))))
 
 (set-dispatch-macro-character
   #\# #\> #'|#>-reader|)
