@@ -351,7 +351,7 @@ THE SOFTWARE.
 
 (defmacro string-interp (str)
   ;; Substitute value of form following $ inside string.
-  ;; Escape literal $ using "...\\$..."
+  ;; Escape literal $ using "...\$..."
   ;; Prefer established $ conventions. No need for ${}, since we are Lisp.
   ;;
   ;; Note: We want this to be a macro so that we can separately call
@@ -368,30 +368,44 @@ THE SOFTWARE.
                         ,@(nreverse
                            (cons (subseq str start)
                                  parts)))
-        (let ((ch  (char str pos)))
-          (flet ((addch (new-esc)
-                   (go-iter start (1+ pos) new-esc parts)))
-            (cond (esc
-                   (addch nil))
-                  ((char= #\\ ch)
-                   (addch t))
-                  ((char= #\$ ch)
-                   (multiple-value-bind (val new-pos)
-                       (read-from-string str t nil
-                                         :start (1+ pos)
-                                         :preserve-whitespace t)
-                     (go-iter new-pos new-pos nil (list* `(princ-to-string ,val)
-                                                         (subseq str start pos)
-                                                         parts))
-                     ))
-                  (t
-                   (addch nil))
-                  ))))
+        (let ((ch      (char str pos))
+              (new-pos (1+ pos)))
+          (cond (esc
+                 (let ((new-ch  (case ch
+                                  (#\n  #\Newline)
+                                  (#\r  #\Return)
+                                  (#\t  #\Tab)
+                                  (#\b  #\Backspace)
+                                  (#\v  #\VT)
+                                  (#\f  #\Page)
+                                  (#\a  #\Bell)
+                                  (t    ch)) ))
+                   (go-iter new-pos new-pos nil (cons
+                                                 (make-string 1 :initial-element new-ch)
+                                                 parts))
+                   ))
+                ((char= #\\ ch)
+                 (go-iter new-pos new-pos t (cons
+                                             (subseq str start pos)
+                                             parts)))
+                ((char= #\$ ch)
+                 (multiple-value-bind (val epos)
+                     (read-from-string str t nil
+                                       :start new-pos
+                                       :end   (position #\\ str :start new-pos)
+                                       :preserve-whitespace t)
+                   (go-iter epos epos nil (list* `(princ-to-string ,val)
+                                                 (subseq str start pos)
+                                                 parts))
+                   ))
+                (t
+                 (go-iter start new-pos nil parts))
+                )))
       )))
 
 #|
 (let ((x 15))
-  #1"x = $x"#)
+  #1"x = $x\n"#)
  |#
 ;; -------------------------------------------------------------------------------
 
