@@ -353,39 +353,39 @@ THE SOFTWARE.
   ;; Substitute value of form following $ inside string.
   ;; Escape literal $ using "...\\$..."
   ;; Prefer established $ conventions. No need for ${}, since we are Lisp.
-  (let* ((len   (length str))
-         (parts nil)
-         (fmt   (with-output-to-string (s)
-                  (nlet iter ((start  0))
-                    (flet
-                        ((final ()
-                           (princ (subseq str start) s))
-                         (stuff-it (pos)
-                           (cond ((and (plusp pos)
-                                       (char= (char str (1- pos)) #\\))
-                                  (princ (subseq str start (1- pos)) s)
-                                  (princ #\$ s)
-                                  (go-iter (1+ pos)))
-
-                                 (t
-                                  (princ (subseq str start pos) s)
-                                  (princ "~A" s)
-                                  (multiple-value-bind (val new-pos)
-                                      (read-from-string str t nil
-                                                        :start (1+ pos)
-                                                        :preserve-whitespace t)
-                                    (push val parts)
-                                    (go-iter new-pos)))
-                                 )))
-                      (when (< start len)
-                        (let ((pos (position #\$ str :start start)))
-                          (if pos
-                              (stuff-it pos)
-                            (final))))
-                      ))
-                  )))
-    `(format nil ,fmt ,@(nreverse parts))
-    ))
+  (let ((out     (make-array 16
+                             :element-type 'character
+                             :adjustable   t
+                             :fill-pointer 0))
+        (len     (length str)))
+    (nlet iter ((pos   0)
+                (esc   nil)
+                (parts nil))
+      (if (>= pos len)
+          `(concatenate 'string ,@(nreverse (cons out parts)))
+        (let ((ch  (char str pos)))
+          (flet ((addch (new-esc)
+                   (vector-push-extend ch out)
+                   (go-iter (1+ pos) new-esc parts)))
+            (cond (esc
+                   (addch nil))
+                  ((char= #\\ ch)
+                   (addch t))
+                  ((char= #\$ ch)
+                   (multiple-value-bind (val new-pos)
+                       (read-from-string str t nil
+                                         :start (1+ pos)
+                                         :preserve-whitespace t)
+                     (let ((new-parts (list* `(princ-to-string ,val)
+                                             (copy-seq out)
+                                             parts)))
+                       (setf (fill-pointer out) 0)
+                       (go-iter new-pos nil new-parts)
+                       )))
+                  (t
+                   (addch nil))
+                  ))))
+      )))
 
 ;; -------------------------------------------------------------------------------
 
