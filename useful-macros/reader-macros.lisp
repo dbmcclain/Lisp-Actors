@@ -437,43 +437,45 @@ THE SOFTWARE.
 (defun trim-common-leading-ws-from-lines (str)
   ;; split str into lines, discarding common leading whitespace, then
   ;; rejoin into one string
-  (labels ((get-trimmed-lines (&optional (start 0) min-nws lines)
-             (let* ((p    (position #\newline str :start start))
-                    (new-start (and p (1+ p)))
-                    (line (subseq str start new-start))
-                    ;; lines with only whitespace do not contribute to the leading whitespace calc.
-                    (pnws (position-if (complement #'whitespace-char-p) line))
-                    (new-min-nws (or
-                                  (and pnws
-                                       min-nws
-                                       (min min-nws pnws))
-                                  pnws
-                                  min-nws))
-                    (new-lines (acons (and pnws
-                                           (plusp pnws))
-                                      (or
-                                       (and pnws
-                                            line)
-                                       (and p
-                                            #.(make-string 1 :initial-element #\newline))
-                                       "")
-                                      lines)))
-               (if new-start
-                   ;; counting on tail call optimization here...
-                   (get-trimmed-lines new-start new-min-nws new-lines)
-                 (nreverse
-                  (mapcar (lambda (pair)
-                            (if (car pair)
-                                (subseq (cdr pair) new-min-nws)
-                              (cdr pair)))
-                          new-lines)))
-               )))
-    (apply #'concatenate 'string (get-trimmed-lines))
-    ))
+  (if (find #\Newline str)
+      (labels ((get-trimmed-lines (&optional (start 0) min-nws lines)
+                 (let* ((p    (position #\newline str :start start))
+                        (new-start (and p (1+ p)))
+                        (line (subseq str start new-start))
+                        ;; lines with only whitespace do not contribute to the leading whitespace calc.
+                        (pnws (position-if (complement #'whitespace-char-p) line))
+                        (new-min-nws (or
+                                      (and pnws
+                                           min-nws
+                                           (min min-nws pnws))
+                                      pnws
+                                      min-nws))
+                        (new-lines (acons (and pnws
+                                               (plusp pnws))
+                                          (or
+                                           (and pnws
+                                                line)
+                                           (and p
+                                                #.(make-string 1 :initial-element #\newline))
+                                           "")
+                                          lines)))
+                   (if new-start
+                       ;; counting on tail call optimization here...
+                       (get-trimmed-lines new-start new-min-nws new-lines)
+                     (nreverse
+                      (mapcar (lambda (pair)
+                                (if (car pair)
+                                    (subseq (cdr pair) new-min-nws)
+                                  (cdr pair)))
+                              new-lines)))
+                   )))
+        (apply #'concatenate 'string (get-trimmed-lines)))
+    ;; else
+    str))
 
 (defun interpolated-string (numarg str)
   (unless *read-suppress*
-    (let ((ans (trim-common-leading-ws-from-lines str)))
+    (let ((ans str)) ;; (trim-common-leading-ws-from-lines str)))
       (if numarg
           `(string-interp ,ans)
         ans))
