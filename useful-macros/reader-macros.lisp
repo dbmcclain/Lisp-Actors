@@ -382,7 +382,11 @@ THE SOFTWARE.
                               (code-char
                                (read-from-string
                                 (subseq str (+ pos start) (+ pos end)))
-                               ))))
+                               )))
+                          (xerr  (msg end)
+                            (error msg (subseq str (1- pos)
+                                               (min len (+ pos end))))
+                            ))
                    (let ((new-ch  (case ch
                                     (#\n  #\Newline)   ;; #x0A
                                     (#\r  #\Return)    ;; #x0D
@@ -391,21 +395,15 @@ THE SOFTWARE.
                                     (#\v  #\VT)        ;; #x0B
                                     (#\f  #\Page)      ;; #x0C
                                     (#\a  #\Bell)      ;; #x07
-                                    (#\x  (if (and (<= (+ pos 3.) len)
+                                    (#\x  (if (and (<= (+ pos 3.) len)  ;; \xnn
                                                    (all-xdig '(1 2.)))
                                               (xconv 1 3.)
-                                            (error "Invalid Hex ~A"
-                                                   (subseq str (1- pos)
-                                                           (min len (+ pos 3.))))
-                                            ))
-                                    (#\U  (if (and (<= (+ pos 6.) len)
+                                            (xerr "Invalid Hex ~A" 3.)))
+                                    (#\U  (if (and (<= (+ pos 6.) len)  ;; \U+nnnn
                                                    (char= #\+ (char str new-pos))
                                                    (all-xdig '(2. 3. 4. 5.)))
                                               (xconv 2. 6.)
-                                            (error "Erroneous Unicode ~A"
-                                                   (subseq str (1- pos)
-                                                           (min len (+ pos 6.))))
-                                            ))
+                                            (xerr "Erroneous Unicode ~A" 6.)))
                                     (t    ch)) ))
                      (go-iter new-pos new-pos nil (cons
                                                    (make-string 1 :initial-element new-ch)
