@@ -353,20 +353,16 @@ THE SOFTWARE.
   ;; Substitute value of form following $ inside string.
   ;; Escape literal $ using "...\$..."
   ;; Prefer established $ conventions. No need for ${}, since we are Lisp.
-  (let ((out     (make-array 16
-                             :element-type 'character
-                             :adjustable   t
-                             :fill-pointer 0))
-        (len     (length str)))
-    (nlet iter ((pos   0)
+  (let ((len (length str)))
+    (nlet iter ((start 0)
+                (pos   0)
                 (esc   nil)
                 (parts nil))
       (if (>= pos len)
-          `(concatenate 'string ,@(nreverse (cons out parts)))
+          `(concatenate 'string ,@(nreverse (cons (subseq str start) parts)))
         (let ((ch  (char str pos)))
           (flet ((addch (new-esc)
-                   (vector-push-extend ch out)
-                   (go-iter (1+ pos) new-esc parts)))
+                   (go-iter start (1+ pos) new-esc parts)))
             (cond (esc
                    (addch nil))
                   ((char= #\\ ch)
@@ -376,12 +372,10 @@ THE SOFTWARE.
                        (read-from-string str t nil
                                          :start (1+ pos)
                                          :preserve-whitespace t)
-                     (let ((new-parts (list* `(princ-to-string ,val)
-                                             (copy-seq out)
-                                             parts)))
-                       (setf (fill-pointer out) 0)
-                       (go-iter new-pos nil new-parts)
-                       )))
+                     (go-iter new-pos new-pos nil (list* `(princ-to-string ,val)
+                                                         (subseq str start pos)
+                                                         parts))
+                     ))
                   (t
                    (addch nil))
                   ))))
