@@ -361,11 +361,14 @@ THE SOFTWARE.
                         ((final ()
                            (princ (subseq str start) s))
                          (stuff-it (pos)
-                           (cond ((or (zerop pos)
-                                      (and (plusp pos)
-                                           (char/= (char str (1- pos)) #\\)
-                                           (princ (subseq str start pos) s)
-                                           ))
+                           (cond ((and (plusp pos)
+                                       (char= (char str (1- pos)) #\\))
+                                  (princ (subseq str start (1- pos)) s)
+                                  (princ #\$ s)
+                                  (go-iter (1+ pos)))
+
+                                 (t
+                                  (princ (subseq str start pos) s)
                                   (princ "~A" s)
                                   (multiple-value-bind (val new-pos)
                                       (read-from-string str t nil
@@ -373,12 +376,6 @@ THE SOFTWARE.
                                                         :preserve-whitespace t)
                                     (push val parts)
                                     (go-iter new-pos)))
-                                 
-                                 (t
-                                  ;; elide the #\\
-                                  (princ (subseq str start (1- pos)) s)
-                                  (princ #\$ s)
-                                  (go-iter (1+ pos)))
                                  )))
                       (when (< start len)
                         (let ((pos (position #\$ str :start start)))
