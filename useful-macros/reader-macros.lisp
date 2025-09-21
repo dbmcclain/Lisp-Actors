@@ -349,7 +349,7 @@ THE SOFTWARE.
 ;; ----------------------------------------------------------------------
 ;; Swift-like string interpolation
 
-(defmacro string-interp (str)
+(defun string-interp (str)
   ;; Substitute value of form following $ inside string.
   ;; Escape literal $ using "...\\$..."
   ;; Prefer established $ conventions. No need for ${}, since we are Lisp.
@@ -434,7 +434,7 @@ THE SOFTWARE.
   (unless *read-suppress*
     (let ((ans (trim-common-leading-ws-from-lines str)))
       (if numarg
-          `(string-interp ,ans)
+          (string-interp ans)
         ans))
     ))
 
