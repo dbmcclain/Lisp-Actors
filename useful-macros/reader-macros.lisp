@@ -364,7 +364,10 @@ THE SOFTWARE.
                 (esc   nil)
                 (parts nil))
       (if (>= pos len)
-          `(concatenate 'string ,@(nreverse (cons (subseq str start) parts)))
+          `(concatenate 'string
+                        ,@(nreverse
+                           (cons (subseq str start)
+                                 parts)))
         (let ((ch  (char str pos)))
           (flet ((addch (new-esc)
                    (go-iter start (1+ pos) new-esc parts)))
