@@ -122,7 +122,6 @@ THE SOFTWARE.
 ;; ---------------------------------------
 
 (defun become (new-beh)
-  #F
   (if *become-disabled*
       (bad-become)
     (funcall *become-hook* new-beh)))
