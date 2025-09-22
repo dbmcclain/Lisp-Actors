@@ -38,7 +38,7 @@
 ;;                               Validate APt pt
 ;;                               EKey = H(server-skey * APt)
 ;;                               Validate chk == H(EKey, IV, ctxt)
-;;                               (chan, Ephem-ID, Client-PKey-ID) = H(EKey, IV) XOR ctxt
+;;                               (chan, Ephem-ID, Client-PKey-ID) = E(EKey, IV) XOR ctxt
 ;;
 ;;                               -- IF chan == +SERVER-CONNECT-ID+ -------------------
 ;;                               Client-PKey = Lookup(Client-PKey-ID)
@@ -437,6 +437,7 @@
 (tst "zircon.local")
 (tst "fornax.local")
 (tst "sextans.local")
+(tst "pictoris.local")
 
 (tracing-on)
 (tracing-off)
