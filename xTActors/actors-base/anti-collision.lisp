@@ -79,8 +79,9 @@
             (if (eq me owner)
                 (let ((normal-exit nil))
                   (unwind-protect
-                      (with-become-enabled
-                        (funcall fn)
+                      (prog1
+                          (with-become-enabled
+                            (funcall fn))
                         (setf normal-exit t))
                     (unless normal-exit
                       ;; Normal exit uses a commit action to clear
