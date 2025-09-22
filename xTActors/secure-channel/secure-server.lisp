@@ -37,8 +37,9 @@
      ;; silently ignore other kinds of requests
      (let+ ((:β (client-pkey)  (racurry eccke:ecc-pkey client-pkeyid))
             (:β (cnx-id)       (racurry local-services :add-service global-services))
-            (:β (brand bpt aescrypt) (racurry eccke:ecc-cnx-encrypt
-                                              client-pkey client-id cnx-id))
+            (:β (brand bpt aescrypt) (racurry eccke:ecc-cnx-encrypt client-pkey
+                                              ;; the reply message packet
+                                              client-id cnx-id))
             (:β (my-skey)      eccke:ecc-skey)
             (ekey (with-ed-curve +ECC-CURVE+
                     (hash/256 (ed-mul apt brand)            ;; A*b

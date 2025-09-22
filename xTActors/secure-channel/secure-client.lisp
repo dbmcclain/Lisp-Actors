@@ -287,8 +287,9 @@
      (let+ ((client-id       (uuid:make-v1-uuid))
             (:β (srv-pkey)   eccke:srv-pkey)
             (:β (my-pkeyid)  eccke:my-pkeyid)
-            (:β (arand apt aescrypt) (racurry eccke:ecc-cnx-encrypt
-                                              srv-pkey +server-connect-id+ client-id my-pkeyid))
+            (:β (arand apt aescrypt) (racurry eccke:ecc-cnx-encrypt srv-pkey
+                                              ;; and now the 3 element message packet
+                                              +server-connect-id+ client-id my-pkeyid))
             (responder  (create
                          (alambda
                           ((bpt server-id) /  (and (typep bpt         'ecc-pt)
@@ -327,8 +328,8 @@
      (let+ ((client-id         (uuid:make-v1-uuid))
             (:β (srv-pkeyid)   lattice-ke:srv-pkeyid)
             (:β (my-pkeyid)    lattice-ke:my-pkeyid)
-            (:β (akey latcrypt aescrypt) (racurry lattice-ke:cnx-packet-encoder
-                                                  srv-pkeyid +server-connect-id+
+            (:β (akey latcrypt aescrypt) (racurry lattice-ke:cnx-packet-encoder srv-pkeyid
+                                                  +server-connect-id+
                                                   client-id my-pkeyid))
             (responder
              (create

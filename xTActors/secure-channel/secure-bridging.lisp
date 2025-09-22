@@ -243,7 +243,7 @@
           ))))
 
    ;; -------------------------------------------------------------------
-   ;; encrypted handshake pair
+   ;; encrypted handshake pair - the first message sent to server by a prospective client.
    
    #-:lattice-crypto
    ((rand-tau aescrypt) / (and (null decryptor) ;; i.e., only valid during initial handshake dance
