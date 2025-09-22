@@ -117,18 +117,19 @@
       ((cust :terminate-server port)
        (let ((pair (assoc port aio-accepting-handles)))
          (cond (pair
-                (become (async-socket-system-beh
-                         ws-collection
-                         (remove pair aio-accepting-handles)))
-                (on-commit
-                  (comm:close-accepting-handle
-                   (cdr pair)
-                   (lambda (coll)
-                     (declare (ignore coll))
-                     ;; We are operating in the collection process
-                     ;; This SEND is immediate, since we are not now executing in an Actor
-                     (send cust :ok)))
-                  ))
+                (without-contention
+                 (become (async-socket-system-beh
+                          ws-collection
+                          (remove pair aio-accepting-handles)))
+                 (on-commit
+                   (comm:close-accepting-handle
+                    (cdr pair)
+                    (lambda (coll)
+                      (declare (ignore coll))
+                      ;; We are operating in the collection process
+                      ;; This SEND is immediate, since we are not now executing in an Actor
+                      (send cust :ok)))
+                   )))
               
                (t
                 (send cust :ok))
@@ -165,18 +166,19 @@
               (send self cust :shutdown))
             
              (ws-collection
-              (become (async-socket-system-beh))
-              (on-commit
-                (comm:apply-in-wait-state-collection-process
-                 ws-collection
-                 (lambda ()
-                   ;; we are operating in the collection process
-                   (comm:close-wait-state-collection ws-collection)
-                   ;; this SEND is immediate, since we are not now executing in an Actor
-                   (send cust :ok)
-                   (mpc:process-terminate (mpc:get-current-process))
-                   ))
-                ))
+              (without-contention
+               (become (async-socket-system-beh))
+               (on-commit
+                 (comm:apply-in-wait-state-collection-process
+                  ws-collection
+                  (lambda ()
+                    ;; we are operating in the collection process
+                    (comm:close-wait-state-collection ws-collection)
+                    ;; this SEND is immediate, since we are not now executing in an Actor
+                    (send cust :ok)
+                    (mpc:process-terminate (mpc:get-current-process))
+                    )))
+               ))
             
              (t
               (send cust :ok))

@@ -220,7 +220,9 @@
     (>>* encryptor msg))
    
    ;; -------------------------------------------------------------------
-   ;; unencrypted/decrypted socket delivery
+   ;; unencrypted/decrypted socket delivery - messages come here after
+   ;; being decrypted.
+   
    ((service-id . msg) / (typep service-id 'uuid:uuid)
     (let ((pair (assoc service-id svcs :test #'uuid:uuid=)))
       (when pair
@@ -243,7 +245,24 @@
           ))))
 
    ;; -------------------------------------------------------------------
-   ;; encrypted handshake pair - the first message sent to server by a prospective client.
+   ;; encrypted socket delivery -- decryptor decodes the message and
+   ;; sends back to us as an unencrypted socket delivery (See previous
+   ;; message handler clause)
+   ((seq tau ack iv ctxt auth) / (and decryptor
+                                      (integerp seq)
+                                      (integerp tau)
+                                      (integerp ack)
+                                      (typep iv   'ub8-vector)
+                                      (typep ctxt 'ub8-vector)
+                                      (typep auth 'ub8-vector))
+    (>> decryptor seq tau ack iv ctxt auth))
+
+   ;; -------------------------------------------------------------------
+   ;; encrypted handshake pair - The first message sent to server by a
+   ;; prospective client, and the first reply back to client from
+   ;; server. There are no encrypting/decrypting channels developed
+   ;; yet, so we have to do our own crypto for the initial handshake
+   ;; messsages. Both sides have this receiving dispatcher waiting.
    
    #-:lattice-crypto
    ((rand-tau aescrypt) / (and (null decryptor) ;; i.e., only valid during initial handshake dance
@@ -273,19 +292,6 @@
               (>>* (local-service-handler svc) rkey (cdr info))
               ))))
       ))
-
-   ;; -------------------------------------------------------------------
-   ;; encrypted socket delivery -- decryptor decodes the message and
-   ;; sends back to us as an unencrypted socket delivery (see previous
-   ;; clause)
-   ((seq tau ack iv ctxt auth) / (and decryptor
-                                      (integerp seq)
-                                      (integerp tau)
-                                      (integerp ack)
-                                      (typep iv   'ub8-vector)
-                                      (typep ctxt 'ub8-vector)
-                                      (typep auth 'ub8-vector))
-    (>> decryptor seq tau ack iv ctxt auth))
    ))
 
 (defun make-local-services ()
