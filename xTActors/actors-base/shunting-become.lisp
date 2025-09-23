@@ -83,9 +83,9 @@
     (on-commit
       (handler-bind
           ((error (lambda (c)
-                    (send-to-pool err) ;; unconditional immediate SEND
-                    (error c)
-                    )))
+                    (declare (ignore c))
+                    (send-to-pool err)) ;; unconditional immediate SEND
+                  ))
         (send tag (funcall fn))
         ))
     ))
