@@ -45,8 +45,7 @@
                (handler-bind
                    ((error (lambda (c)
                              (send-to-pool println "Start-TCP-Server failed.")
-                             (send-to-pool cust c)
-                             (error c))
+                             (send-to-pool cust c))
                            ))
                  (let ((handle (comm:accept-tcp-connections-creating-async-io-states
                                 ws-collection

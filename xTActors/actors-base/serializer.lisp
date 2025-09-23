@@ -345,8 +345,7 @@ prefixed by the label."
       ((error (lambda (e)
                 ;; doing it this way allows the debugger to be entered,
                 ;; while ensuring that cust is notified.
-                (send-to-pool cust (funcall err-fn e))
-                (error e))
+                (send-to-pool cust (funcall err-fn e)))
               ))
     (funcall fn)
     ))
