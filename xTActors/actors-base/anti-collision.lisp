@@ -54,8 +54,10 @@
             (let ((me  (mpc:get-current-process)))
               (flet ((acquire ()
                        (mpc:compare-and-swap owner nil me))
-                     (release ()
+                     (release (&rest ignored)
+                       (declare (ignore ignored))
                        (mpc:compare-and-swap owner me nil)))
+                (declare (dynamic-extent #'acquire))
                 ;;
                 ;; First thread to attempt WITHOUT-CONTENTION takes it,
                 ;; preemptively blocking all other threads from mutating the
@@ -67,30 +69,12 @@
                 ;; keep the behavior code functionally pure.
                 ;;
                 (when (acquire)
-                  (on-commit
-                    (release)))
+                  (send (create #'release)))
                 (if (eq me owner)
-                    (let ((normal-exit nil))
-                      (unwind-protect
-                          (prog1
-                              (with-become-enabled
-                               (funcall fn))
-                            (setf normal-exit t))
-                        (unless normal-exit
-                          ;; Normal exit uses a commit action to clear
-                          ;; ownership. This avoids a race condition at
-                          ;; commit time between competing BECOMEs.
-                          ;;
-                          ;; But here, on abnormal exit, we must clear
-                          ;; the owner on the way to an ABORT restart.
-                          ;;
-                          ;; We need to use CAS because we might have
-                          ;; had nested WITHOUT-CONTENTION, in which
-                          ;; case another thread might have grabbed the
-                          ;; Actor after the inner abnormal exit
-                          ;; cleared the owner.
-                          (release))
-                        ))
+                    (handler-bind
+                        ((error #'release))
+                      (with-become-enabled
+                       (funcall fn)))
                   ;; else, Re-enqueue our message for later delivery,
                   ;; and go process the next available message. This
                   ;; drops all pending BECOME and SEND.
