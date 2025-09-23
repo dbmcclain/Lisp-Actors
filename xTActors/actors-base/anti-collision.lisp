@@ -30,45 +30,42 @@
 
 ;; --------------------------------------------
 
-(defun make-without-contention-fn (guard become-hook)
+(defun do-without-contention (guard *become-hook* clos)
   (declare (cons guard)
-           (function become-hook))
+           (function clos))
   (symbol-macrolet ((owner  (car (the cons guard))))
-    (lambda (clos)
-      (declare (function clos))
-      (let ((*become-hook* become-hook)
-            (me  (mpc:get-current-process)))
-        
-        (flet ((go-around ()
-                 (%send-to-pool (msg self self-msg))
-                 (abort))
-               (acquire ()
-                 (mpc:compare-and-swap owner nil me))
-               (release (&rest ignored)
-                 (declare (ignore ignored))
-                 (mpc:compare-and-swap owner me nil)))
-          (declare (dynamic-extent #'go-around #'acquire))
-          ;;
-          ;; First thread to attempt WITHOUT-CONTENTION takes it,
-          ;; preemptively blocking all other threads from mutating the
-          ;; Actor. Other threads simply put their message back on the
-          ;; queue for later delivery.
-          ;;
-          ;; Non-mutating threads continue to execute in parallel
-          ;; concurrent manner. So it continues to be a good idea to
-          ;; keep the behavior code functionally pure.
-          ;;
-          (when (acquire)
-            (send (create #'release)))
-          (if (eq me owner)
-              (handler-bind
-                  ((error #'release))
-                (funcall clos))
-            ;; else, Re-enqueue our message for later delivery,
-            ;; and go process the next available message. This
-            ;; drops all pending BECOME and SEND.
-            (go-around))
-          )))
+    (let ((me  (mpc:get-current-process)))
+      
+      (flet ((go-around ()
+               (%send-to-pool (msg self self-msg))
+               (abort))
+             (acquire ()
+               (mpc:compare-and-swap owner nil me))
+             (release (&rest ignored)
+               (declare (ignore ignored))
+               (mpc:compare-and-swap owner me nil)))
+        (declare (dynamic-extent #'go-around #'acquire))
+        ;;
+        ;; First thread to attempt WITHOUT-CONTENTION takes it,
+        ;; preemptively blocking all other threads from mutating the
+        ;; Actor. Other threads simply put their message back on the
+        ;; queue for later delivery.
+        ;;
+        ;; Non-mutating threads continue to execute in parallel
+        ;; concurrent manner. So it continues to be a good idea to
+        ;; keep the behavior code functionally pure.
+        ;;
+        (when (acquire)
+          (send (create #'release)))
+        (if (eq me owner)
+            (handler-bind
+                ((error #'release))
+              (funcall clos))
+          ;; else, Re-enqueue our message for later delivery,
+          ;; and go process the next available message. This
+          ;; drops all pending BECOME and SEND.
+          (go-around))
+        ))
     ))
 
 (defun do-without-become (beh-fn msg)
@@ -92,14 +89,16 @@
   ;; code. But you would miss the ones in external functions. We are
   ;; left with runtime error trapping.
   ;;
-  (um:with-unique-names (g!guard g!msg g!body g!cf-free-fn)
+  (um:with-unique-names (g!guard g!msg g!body g!become-sav)
     `(let ((,g!guard (list nil)))
        (lambda (&rest ,g!msg)
-         (let ((,g!cf-free-fn (make-without-contention-fn ,g!guard *become-hook*)))
+         (let ((,g!become-sav *become-hook*))
            (do-without-become
             (macrolet ((without-contention (&body ,g!body)
-                         `(funcall ,',g!cf-free-fn (lambda ()
-                                                     ,@,g!body))))
+                         `(do-without-contention ,',g!guard
+                                                 ,',g!become-sav
+                                                 (lambda ()
+                                                   ,@,g!body))))
               ,beh-fn-form)
             ,g!msg))))
     ))
