@@ -30,7 +30,7 @@
 
 ;; --------------------------------------------
 
-(defun do-without-contention (guard *become-hook* clos)
+(defun do-without-contention (guard clos)
   (declare (cons guard)
            (function clos))
   (symbol-macrolet ((owner  (car (the cons guard))))
@@ -68,10 +68,9 @@
         ))
     ))
 
-(defun do-without-become (beh-fn msg)
-  (let ((*become-hook* (lambda* _
-                         (error "Unguarded BECOME in contention-free semantics"))))
-    (apply beh-fn msg)))
+(defun bad-become (beh)
+  (declare (ignore ben))
+  (error "Unguarded BECOME in contention-free semantics"))
   
 (defmacro with-contention-free-semantics (beh-fn-form)
   ;; Should wrap a behavior function.
@@ -92,13 +91,14 @@
   (um:with-unique-names (g!guard g!msg g!body g!become-sav)
     `(let ((,g!guard (list nil)))
        (lambda (&rest ,g!msg)
-         (let ((,g!become-sav *become-hook*))
-           (do-without-become
+         (let ((,g!become-sav *become-hook*)
+               (*become-hook* #'bad-become))
+           (apply
             (macrolet ((without-contention (&body ,g!body)
-                         `(do-without-contention ,',g!guard
-                                                 ,',g!become-sav
-                                                 (lambda ()
-                                                   ,@,g!body))))
+                         `(let ((*become-hook* ,',g!become-sav))
+                            (do-without-contention ,',g!guard
+                                                   (lambda ()
+                                                     ,@,g!body)))))
               ,beh-fn-form)
             ,g!msg))))
     ))
