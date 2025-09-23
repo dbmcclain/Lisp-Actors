@@ -122,9 +122,7 @@ THE SOFTWARE.
 ;; ---------------------------------------
 
 (defun become (new-beh)
-  (if *become-disabled*
-      (bad-become)
-    (funcall *become-hook* new-beh)))
+  (funcall *become-hook* new-beh))
 
 ;; -----------------------------------
 ;; In an Actor, (ABORT-BEH) undoes any BECOME and SENDS to this point,
@@ -323,32 +321,34 @@ THE SOFTWARE.
            (loop until done
                  do
                    (when-let (evt (mpc:mailbox-read *central-mail* nil timeout))
-                     (setf *self-msg-parent* (and (car (the cons evt)) evt)
-                           *self*            (cadr (the cons evt))   ;; self
-                           *self-msg*        (cddr (the cons evt)))  ;; self-msg
-                     (tagbody
-                      RETRY
-                      (setf pend-beh   (actor-beh (the actor *self*))
-                            sends      nil
-                            *self-beh* pend-beh)
-                      ;; ---------------------------------
-                      ;; Dispatch to Actor behavior with message args
-                      (apply (the function pend-beh) (the list *self-msg*))
-                      
-                      ;; ---------------------------------
-                      ;; Commit BECOME and SENDS
-                      (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
-                                  (mpc:compare-and-swap
-                                   (actor-beh (the actor *self*))
-                                   *self-beh* pend-beh))     ;; effective BECOME
-                        ;; failed on behavior update - try again...
-                        #+:LISPWORKS
-                        (report-collision *self-beh*) ;; for engineering telemetry
-                        (go RETRY)))
+                     (let ((*self-msg-parent* (and (car (the cons evt)) evt))
+                           (*self*            (cadr (the cons evt)))   ;; self
+                           (*self-msg*        (cddr (the cons evt))))  ;; self-msg
+                       (tagbody
+                        RETRY
+                        (setf pend-beh   (actor-beh (the actor *self*))
+                              sends      nil)
+                        (let ((*self-beh*  pend-beh))
+                          ;; ---------------------------------
+                          ;; Dispatch to Actor behavior with message args
+                          (apply (the function pend-beh) (the list *self-msg*))
+                          
+                          ;; ---------------------------------
+                          ;; Commit BECOME and SENDS
+                          (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
+                                      (mpc:compare-and-swap
+                                       (actor-beh (the actor *self*))
+                                       *self-beh* pend-beh))     ;; effective BECOME
+                            ;; failed on behavior update - try again...
+                            #+:LISPWORKS
+                            (report-collision *self-beh*) ;; for engineering telemetry
+                            (go RETRY))
                      
-                     (dolist (msg (the list sends))
-                       (mpc:mailbox-send *central-mail* msg))
-                     )))
+                          (dolist (msg (the list sends))
+                            (mpc:mailbox-send *central-mail* msg))
+                          ))
+                       ))
+                 ))
          
          (dispatcher ()
            (loop until done 
@@ -360,12 +360,11 @@ THE SOFTWARE.
                                #'dispatch-loop #'dispatcher))
       ;; --------------------------------------------
 
-      (let ((*dyn-specials* (make-dyn-specials
-                             :send-hook         #'%send
-                             :become-hook       #'%become
-                             :abort-beh-hook    #'%abort-beh
-                             )))
-        (declare (dynamic-extent *dyn-specials*))
+      (let ((*send-hook*      #'%send)
+            (*become-hook*    #'%become)
+            (*become-bak*     #'%become)
+            (*abort-beh-hook* #'%abort-beh))
+        
         ;; --------------------------------------------
         (cond
          (actor-provided-p

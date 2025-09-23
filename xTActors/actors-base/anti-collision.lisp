@@ -30,81 +30,78 @@
 
 ;; --------------------------------------------
 
-(defvar *become-disabled*  nil)
-
-(defmacro with-become-disabled (&body body)
-  `(let ((*become-disabled* t))
-     ,@body))
-
-(defmacro with-become-enabled (&body body)
-  `(let ((*become-disabled* nil))
-     ,@body))
-
-(defun bad-become ()
-  (error "Unguarded BECOME in contention-free semantics"))
-
-;; --------------------------------------------
-
-(defun go-around ()
-  ;; Re-enqueue our message for later delivery, and go process the
-  ;; next available message. This drops all pending BECOME and SEND.
-  (when self
-    ;; pointless unless we are in an Actor.
-    (%send-to-pool (msg self self-msg))
-    (abort)))
-
 (defun make-cf-closure (beh-fn)
   (let ((proc  (list nil)))
     (symbol-macrolet ((owner  (car (the cons proc))))
-      (alambda
-       (('contention-free fn)
-        (let ((me  (mpc:get-current-process)))
-          (flet ((acquire ()
-                   (mpc:compare-and-swap owner nil me))
-                 (release ()
-                   (mpc:compare-and-swap owner me nil)))
-            ;;
-            ;; First thread to attempt WITHOUT-CONTENTION takes it,
-            ;; preemptively blocking all other threads from mutating the
-            ;; Actor. Other threads simply put their message back on the
-            ;; queue for later delivery.
-            ;;
-            ;; Non-mutating threads continue to execute in parallel
-            ;; concurrent manner. So it continues to be a good idea to
-            ;; keep the behavior code functionally pure.
-            ;;
-            (when (acquire)
-              (on-commit
-                (release)))
-            (if (eq me owner)
-                (let ((normal-exit nil))
-                  (unwind-protect
-                      (prog1
-                          (with-become-enabled
-                            (funcall fn))
-                        (setf normal-exit t))
-                    (unless normal-exit
-                      ;; Normal exit uses a commit action to clear
-                      ;; ownership. This avoids a race condition at
-                      ;; commit time between competing BECOMEs.
-                      ;;
-                      ;; But here, on abnormal exit, we must clear
-                      ;; the owner on the way to an ABORT restart.
-                      ;;
-                      ;; We need to use CAS because we might have
-                      ;; had nested WITHOUT-CONTENTION, in which
-                      ;; case another thread might have grabbed the
-                      ;; Actor after the inner abnormal exit
-                      ;; cleared the owner.
-                      (release))
-                    ))
-              ;; else
-              (go-around))
-            )))
-       (msg
-        (with-become-disabled
-          (apply beh-fn msg)))
-       ))))
+      
+      (flet ((bad-become (&rest ignored)
+               (declare (ignore ignored))
+               (error "Unguarded BECOME in contention-free semantics"))
+             (go-around ()
+               (%send-to-pool (msg self self-msg))
+               (abort)))
+
+        (macrolet ((with-become-enabled (&body body)
+                     `(let ((*become-hook* *become-bak*))
+                        ,@body))
+                   (with-become-disabled (&body body)
+                     `(let ((*become-hook* #'bad-become))
+                        ,@body)))
+
+          (alambda
+           (('contention-free fn)
+            
+            (let ((me  (mpc:get-current-process)))
+              (flet ((acquire ()
+                       (mpc:compare-and-swap owner nil me))
+                     (release ()
+                       (mpc:compare-and-swap owner me nil)))
+                ;;
+                ;; First thread to attempt WITHOUT-CONTENTION takes it,
+                ;; preemptively blocking all other threads from mutating the
+                ;; Actor. Other threads simply put their message back on the
+                ;; queue for later delivery.
+                ;;
+                ;; Non-mutating threads continue to execute in parallel
+                ;; concurrent manner. So it continues to be a good idea to
+                ;; keep the behavior code functionally pure.
+                ;;
+                (when (acquire)
+                  (on-commit
+                    (release)))
+                (if (eq me owner)
+                    (let ((normal-exit nil))
+                      (unwind-protect
+                          (prog1
+                              (with-become-enabled
+                               (funcall fn))
+                            (setf normal-exit t))
+                        (unless normal-exit
+                          ;; Normal exit uses a commit action to clear
+                          ;; ownership. This avoids a race condition at
+                          ;; commit time between competing BECOMEs.
+                          ;;
+                          ;; But here, on abnormal exit, we must clear
+                          ;; the owner on the way to an ABORT restart.
+                          ;;
+                          ;; We need to use CAS because we might have
+                          ;; had nested WITHOUT-CONTENTION, in which
+                          ;; case another thread might have grabbed the
+                          ;; Actor after the inner abnormal exit
+                          ;; cleared the owner.
+                          (release))
+                        ))
+                  ;; else, Re-enqueue our message for later delivery,
+                  ;; and go process the next available message. This
+                  ;; drops all pending BECOME and SEND.
+                  (go-around))
+                )))
+           
+           (msg
+            (with-become-disabled
+             (apply beh-fn msg)))
+           ))))
+    ))
 
 (defun do-without-contention (fn)
   (funcall self-beh 'contention-free fn))
