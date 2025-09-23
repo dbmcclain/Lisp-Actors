@@ -47,7 +47,6 @@
 
 (defvar *send-hook*      #'%send-to-pool)
 (defvar *become-hook*    #'not-in-actor)
-(defvar *become-bak*     #'not-in-actor)
 (defvar *abort-beh-hook* #'do-nothing)
   
 ;; --------------------------------------------

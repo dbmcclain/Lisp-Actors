@@ -362,7 +362,6 @@ THE SOFTWARE.
 
       (let ((*send-hook*      #'%send)
             (*become-hook*    #'%become)
-            (*become-bak*     #'%become)
             (*abort-beh-hook* #'%abort-beh))
         
         ;; --------------------------------------------
