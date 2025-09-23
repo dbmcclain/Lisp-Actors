@@ -88,18 +88,19 @@
   ;; code. But you would miss the ones in external functions. We are
   ;; left with runtime error trapping.
   ;;
-  (um:with-unique-names (g!guard g!msg g!body g!become-sav)
+  (um:with-unique-names (g!guard g!msg g!become-sav g!guarded-clause)
     `(let ((,g!guard (list nil)))
        (lambda (&rest ,g!msg)
          (let ((,g!become-sav *become-hook*)
                (*become-hook* #'bad-become))
-           (apply
-            (macrolet ((without-contention (&body ,g!body)
-                         `(let ((*become-hook* ,',g!become-sav))
-                            (do-without-contention ,',g!guard
-                                                   (lambda ()
-                                                     ,@,g!body)))))
-              ,beh-fn-form)
-            ,g!msg))))
+           (flet ((,g!guarded-clause (clos)
+                    (let ((*become-hook* ,g!become-sav))
+                      (do-without-contention ,g!guard clos))))
+             (apply
+              (macrolet ((without-contention (&body body)
+                           `(,',g!guarded-clause (lambda ()
+						   ,@body))))
+                ,beh-fn-form)
+              ,g!msg)))))
     ))
 

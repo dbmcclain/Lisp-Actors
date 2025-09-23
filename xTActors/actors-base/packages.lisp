@@ -341,7 +341,6 @@ THE SOFTWARE.
 
    #:with-contention-free-semantics
    #:without-contention
-   #:go-around
    ))
 
 #+(OR :ALLEGRO :CCL)
