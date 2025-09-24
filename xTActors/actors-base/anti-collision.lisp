@@ -71,8 +71,8 @@
 (defun bad-become (beh)
   (declare (ignore ben))
   (error "Unguarded BECOME in contention-free semantics"))
-  
-(defmacro with-contention-free-semantics (beh-fn-form)
+
+(defmacro with-contention-free-semantics (&body body)
   ;; Should wrap a behavior function.
   ;;
   ;; WITHOUT-CONTENTION available only within
@@ -88,19 +88,18 @@
   ;; code. But you would miss the ones in external functions. We are
   ;; left with runtime error trapping.
   ;;
-  (um:with-unique-names (g!guard g!msg g!become-sav g!guarded-clause)
+  (um:with-unique-names (g!guard g!msg g!become-sav)
     `(let ((,g!guard (list nil)))
        (lambda (&rest ,g!msg)
          (let ((,g!become-sav *become-hook*)
                (*become-hook* #'bad-become))
-           (flet ((,g!guarded-clause (clos)
-                    (let ((*become-hook* ,g!become-sav))
-                      (do-without-contention ,g!guard clos))))
-             (apply
+           (apply
+            (progn
               (macrolet ((without-contention (&body body)
-                           `(,',g!guarded-clause (lambda ()
-						   ,@body))))
-                ,beh-fn-form)
-              ,g!msg)))))
+                           `(let ((*become-hook* ,',g!become-sav))
+                              (do-without-contention ,',g!guard (lambda ()
+                                                                  ,@body)))
+                           ))
+                ,@body))
+            ,g!msg))))
     ))
-
