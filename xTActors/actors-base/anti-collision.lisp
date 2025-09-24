@@ -39,10 +39,11 @@
 ;; So the purpose of WITH-COLLISION-FREE-SEMANTICS isn't to prevent
 ;; concurrent actions. It simply seeks to reduce the wasted compute
 ;; cycles resulting from mutating action contention, where only one
-;; thread will win the round, and the other threads will be forced to
-;; retry. Guarding the BECOME clauses with WITHOUT-CONTENTION allows
-;; us to forego the wasted compute cycles, and force an early
-;; go-around for all the non-winning threads.
+;; thread will win the round, and the other threads will be
+;; automatically retried. Guarding the BECOME clauses with
+;; WITHOUT-CONTENTION allows us to forego the wasted compute cycles
+;; leading up to a failed BECOME, and force an early go-around for all
+;; the non-winning threads.
 ;;
 ;; DM/RAL 08/25
 ;; -----------------------------------------------------------
