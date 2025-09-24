@@ -23,6 +23,18 @@
 ;; serialized execution, in the event of functionally impure Actor
 ;; code. (I hate to encourage this...)
 ;;
+;; So what's the difference between using
+;; WITH-COLLISION-FREE-SEMANTICS and using a Serializer?
+;;
+;; Ah well, a Serialilzer prevents all activity except one thread from
+;; entering the Actor. That includes mutating as well as non-mutating
+;; actions.
+;;
+;; But it is really okay for non-mutating actions to occur
+;; simultaneously with mutating actions, so long as there is only one
+;; thread doing the mutation. So using WITH-COLLISION-FREE-SEMANTICS
+;; allows for a higher degree of concurrency.
+;;
 ;; DM/RAL 08/25
 ;; -----------------------------------------------------------
 
