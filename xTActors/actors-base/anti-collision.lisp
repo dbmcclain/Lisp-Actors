@@ -93,13 +93,15 @@
        (lambda (&rest ,g!msg)
          (let ((,g!become-sav *become-hook*)
                (*become-hook* #'bad-become))
-           (apply
-            (progn
-              (macrolet ((without-contention (&body body)
-                           `(let ((*become-hook* ,',g!become-sav))
-                              (do-without-contention ,',g!guard (lambda ()
-                                                                  ,@body)))
-                           ))
-                ,@body))
-            ,g!msg))))
-    ))
+           (macrolet ((without-contention (&body body)
+                        `(let ((*become-hook* ,',g!become-sav))
+                           (do-without-contention ,',g!guard (lambda ()
+                                                               ,@body)))
+                        ))
+             (apply
+              (progn
+                ,@body)
+              ,g!msg)
+             ))))
+       ))
+
