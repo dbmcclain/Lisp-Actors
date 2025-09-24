@@ -31,9 +31,18 @@
 ;; actions.
 ;;
 ;; But it is really okay for non-mutating actions to occur
-;; simultaneously with mutating actions, so long as there is only one
-;; thread doing the mutation. So using WITH-COLLISION-FREE-SEMANTICS
-;; allows for a higher degree of concurrency.
+;; simultaneously with mutating actions, *PROVIDED* that the code is
+;; functionally pure. Using a Serializer would prevent many concurrent
+;; activities that could otherwise occur under
+;; WITH-COLLISION-FREE-SEMANTICS.
+;;
+;; So the purpose of WITH-COLLISION-FREE-SEMANTICS isn't to prevent
+;; concurrent actions. It simply seeks to reduce the wasted compute
+;; cycles resulting from mutating action contention, where only one
+;; thread will win the round, and the other threads will be forced to
+;; retry. Guarding the BECOME clauses with WITHOUT-CONTENTION allows
+;; us to forego the wasted compute cycles, and force an early
+;; go-around for all the non-winning threads.
 ;;
 ;; DM/RAL 08/25
 ;; -----------------------------------------------------------
