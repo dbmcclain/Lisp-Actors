@@ -72,7 +72,7 @@
   (declare (ignore ben))
   (error "Unguarded BECOME in contention-free semantics"))
 
-(defmacro with-contention-free-semantics (&body body)
+(defmacro with-contention-free-semantics (beh-fn)
   ;; Should wrap a behavior function.
   ;;
   ;; WITHOUT-CONTENTION available only within
@@ -98,10 +98,7 @@
                            (do-without-contention ,',g!guard (lambda ()
                                                                ,@body)))
                         ))
-             (apply
-              (progn
-                ,@body)
-              ,g!msg)
+             (apply ,beh-fn ,g!msg)
              ))))
-       ))
+    ))
 
