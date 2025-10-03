@@ -40,7 +40,8 @@ THE SOFTWARE.
                 (:file "lzw")
                 (:file "lisp-object-encoder")
                 (:file "unshared-list")
-                (:file "safe-marshaling"))
+                (:file "safe-marshaling")
+                (:file "dump"))
   :SERIAL T
   :depends-on   ("com.ral.self-sync"
                  "com.ral.ubyte-streams"

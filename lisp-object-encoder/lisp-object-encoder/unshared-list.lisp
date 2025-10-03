@@ -83,3 +83,26 @@
 
 (defmethod sdle-store:backend-restore-object :around (backend place)
   (after-restore (call-next-method)))
+
+;; --------------------------------------------
+;; Special Abbreviated format for UNSHARED-LIST items.
+
+(defconstant +UNSHARED-LIST+ (register-code 124 'internal-unshared-list))
+
+(defstore (obj internal-unshared-list stream)
+  (output-type-code +UNSHARED-LIST+ stream)
+  (let* ((vec  (internal-unshared-list-cells obj))
+         (nel  (length vec)))
+    (store-count nel stream)
+    (loop for item across vec do
+            (store-object item stream))))
+
+(defrestore (internal-unshared-list stream)
+  (let* ((nel  (read-count stream))
+         (vec  (make-array nel)))
+    (sdle-store:resolving-object (obj vec)
+      (dotimes (ix nel)
+        (sdle-store:setting (aref obj ix) (restore-object stream))))
+    (make-internal-unshared-list vec)))
+
+
