@@ -97,6 +97,8 @@ THE SOFTWARE.
      :data vec)))
 
 
+;; --------------------------------------------
+
 (defconstant +LZW-ZL-code+ (register-code 125 'lzw:zl-compressed))
 
 (defstore (obj LZW:ZL-COMPRESSED stream)
@@ -114,10 +116,10 @@ THE SOFTWARE.
 
 ;; -------------------------------------------
 
-(defstruct unserializable-object)
+(defstruct unserializable-object
+  type)
 
-(defvar *unserializable-object*  (make-unserializable-object))
-
+#|
 (defconstant +UNSERIALIZABLE-OBJECT-code+ (register-code 124 'unserializeable-object))
 
 (defstore (obj UNSERIALIZABLE-OBJECT stream)
@@ -125,6 +127,7 @@ THE SOFTWARE.
 
 (defrestore (UNSERIALIZABLE-OBJECT stream)
   *unserializable-object*)
+|#
 
 (defvar *unserializable-object-proxies* nil)
 
@@ -134,12 +137,16 @@ THE SOFTWARE.
     (sdle-store:store-error (e)
       ;; We come here if obj cannot be serialized
       (cond (*unserializable-object-proxies*
-             (warn "Unserializable object of type ~A encountered - using proxy object." (type-of obj))
-             (sdle-store:backend-store-object backend *unserializable-object* stream))
+             (let ((type  (type-of obj))
+                   (*unserializable-object-proxies* nil))
+               (warn "Unserializable object of type ~A encountered - using proxy object." type)
+               (sdle-store:backend-store-object backend (make-unserializable-object :type type) stream)))
             (t
              (error e))
             ))
     ))
+
+;; --------------------------------------------
 
 (defvar *portable-conditions* nil)
 
@@ -210,17 +217,17 @@ Encrypted data is marked as such by making the prefix count odd."
                         (let ((bknd (if use-magic
                                         (sdle-store:copy-backend backend
                                                                  :magic-number use-magic)
-                                      backend)))
-                          (let ((sdle-store:*force-unserializable-functions*
-                                 (or force-unserializable-functions
-                                     max-portability))
-                                (*unserializable-object-proxies*
-                                 (or unserializable-object-proxies
-                                     max-portability))
-                                (*portable-conditions*
-                                 (or portable-conditions
-                                     max-portability)))
-                            (sdle-store:store msg s bknd)))
+                                      backend))
+                              (sdle-store:*force-unserializable-functions*
+                               (or force-unserializable-functions
+                                   max-portability))
+                              (*unserializable-object-proxies*
+                               (or unserializable-object-proxies
+                                   max-portability))
+                              (*portable-conditions*
+                               (or portable-conditions
+                                   max-portability)))
+                          (sdle-store:store msg s bknd))
                         
                         ;; pad data to an even number of bytes
                         (let* ((data-len (- (ubstream:stream-file-position s)
