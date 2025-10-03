@@ -462,9 +462,8 @@
 (defun dump-proper-list (list length stream)
   (output-type-code +proper-list-code+ stream)
   (store-count length stream)
-  (loop repeat length
-        for x in list do
-        (store-object x stream)))
+  (dolist (x list)
+    (store-object x stream)))
 
 (defun dump-general-list (list length last stream)
   (declare ;; (xoptimize speed (safety 1) (debug 0))
@@ -476,6 +475,7 @@
         (store-object (car x) stream))
   (store-object last stream))
 
+#|
 (defun restore-proper-list (stream)
   (let (ret)
     (setf ret
@@ -492,6 +492,15 @@
                             *need-to-fix*)))
                   obj))
           )))
+|#
+(defun restore-proper-list (stream)
+  (let* ((nel  (read-count stream))
+         (lst  (make-list nel)))
+    (resolving-object (obj lst)
+      (dotimes (ix nel)
+        (let ((pos ix))
+          (setting (nth pos lst) (restore-object stream)))))
+    lst))
 
 (defun restore-general-list (stream)
   ;; (declare (xoptimize speed (safety 1) (debug 0)))
@@ -513,8 +522,8 @@
         (if ret
             (setf (cdr tail) (list obj) 
                   tail (cdr tail))
-            (setf ret (list obj)
-                  tail (last ret)))))
+          (setf ret (list obj)
+                tail (last ret)))))
     (let ((last1 (restore-object stream)))
       ;; and check for the last possible circularity
       (if (and *check-for-circs*
@@ -527,6 +536,7 @@
     ret))
 
 #|
+#+nil
 (defstore-sdle-store (list cons stream)
   (multiple-value-bind (length last) (safe-length list)
     (if last
@@ -556,12 +566,24 @@
   (store-object (cdr list) stream))
 
 (defun restore-tree (stream)
-  (let* ((hd (restore-object stream))
-         (tl (restore-object stream)))
-    (cons hd tl)))
+  (let* ((cell (list nil))
+         (hd   (restore-object stream))
+         (tl   (restore-object stream)))
+    (resolving-object (obj cell)
+      (setting (car cell) hd)
+      (setting (cdr cell) tl))
+    cell))
 
 (defstore-sdle-store (list cons stream)
-  (dump-tree list stream))
+  (dump-tree list stream)
+  #|
+  (multiple-value-bind (length last) (safe-length list)
+    (if last
+        (dump-tree list stream)
+      (dump-proper-list list length stream))
+    )
+  |#
+  )
 
 (defrestore-sdle-store (cons stream)
   (restore-general-list stream))
