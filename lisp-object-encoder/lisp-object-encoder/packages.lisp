@@ -58,6 +58,8 @@
    #:before-store
    #:after-restore
    #:unshared-list
+
+   #:dump
    ))
 
 (defpackage #:com.ral.lzw
