@@ -102,7 +102,9 @@
          (vec  (make-array nel)))
     (sdle-store:resolving-object (obj vec)
       (dotimes (ix nel)
-        (sdle-store:setting (aref obj ix) (restore-object stream))))
+        (let ((pos ix))
+          (sdle-store:setting (aref obj pos) (restore-object stream)))
+        ))
     (make-internal-unshared-list vec)))
 
 
