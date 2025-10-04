@@ -457,8 +457,21 @@
   t)
 
 ;; -------------------------------------------------------
-
-;; Lists
+;; Lists - not as simple as they might seem...
+;;
+;; Every cons cell along the spine of a list is potentially referenced
+;; by some other data. If not, then you should have used a vector,
+;; which cannot have references to any of its sub-vectors.
+;;
+;; The only valid approach is to assume nothing, and treat the whole
+;; list as a tree, where each cons cell is potentially referenced by
+;; other portions of the data, and where each cons cell is potentially
+;; just two data items instead of always a data item in the CAR and a
+;; pointer to the tail of a list in the CDR.
+;;
+;; ================================================================
+#| --- Stupid attempts to enconomize the marshaling of lists... ---
+  
 (defun dump-proper-list (list length stream)
   (output-type-code +proper-list-code+ stream)
   (store-count length stream)
@@ -560,6 +573,15 @@
     ))
 |#
 
+(defrestore-sdle-store (cons stream)
+  (restore-general-list stream))
+
+(defrestore-sdle-store (proper-list stream)
+  (restore-proper-list stream))
+
+|# ;; --- end of Stupid list econimizations --- ;;
+;; ================================================================
+
 (defun dump-tree (list stream)
   (output-type-code +tree-code+ stream)
   (store-object (car list) stream)
@@ -575,25 +597,10 @@
     cell))
 
 (defstore-sdle-store (list cons stream)
-  (dump-tree list stream)
-  #|
-  (multiple-value-bind (length last) (safe-length list)
-    (if last
-        (dump-tree list stream)
-      (dump-proper-list list length stream))
-    )
-  |#
-  )
-
-(defrestore-sdle-store (cons stream)
-  (restore-general-list stream))
-
-(defrestore-sdle-store (proper-list stream)
-  (restore-proper-list stream))
+  (dump-tree list stream))
 
 (defrestore-sdle-store (tree stream)
   (restore-tree stream))
-
 
 ;; -------------------------------------------------------
 
