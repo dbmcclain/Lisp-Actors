@@ -499,7 +499,7 @@
     (resolving-object (obj lst)
       (dotimes (ix nel)
         (let ((pos ix))
-          (setting (nth pos lst) (restore-object stream)))))
+          (setting (nth pos obj) (restore-object stream)))))
     lst))
 
 (defun restore-general-list (stream)
@@ -570,8 +570,8 @@
          (hd   (restore-object stream))
          (tl   (restore-object stream)))
     (resolving-object (obj cell)
-      (setting (car cell) hd)
-      (setting (cdr cell) tl))
+      (setting (car obj) hd)
+      (setting (cdr obj) tl))
     cell))
 
 (defstore-sdle-store (list cons stream)
