@@ -91,20 +91,10 @@
 
 (defstore (obj internal-unshared-list stream)
   (output-type-code +UNSHARED-LIST+ stream)
-  (let* ((vec  (internal-unshared-list-cells obj))
-         (nel  (length vec)))
-    (store-count nel stream)
-    (loop for item across vec do
-            (store-object item stream))))
+  (sdle-store::store-simple-vector-body (internal-unshared-list-cells obj) stream))
 
 (defrestore (internal-unshared-list stream)
-  (let* ((nel  (read-count stream))
-         (vec  (make-array nel)))
-    (sdle-store:resolving-object (obj vec)
-      (dotimes (ix nel)
-        (let ((pos ix))
-          (sdle-store:setting (aref obj pos) (restore-object stream)))
-        ))
+  (let ((vec  (sdle-store::restore-simple-vector-body stream)))
     (make-internal-unshared-list vec)))
 
 

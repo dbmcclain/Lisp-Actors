@@ -920,12 +920,18 @@
   (declare ;; (xoptimize speed (safety 0) (debug 0))
            (type simple-vector obj))
   (output-type-code +simple-vector-code+ stream)
+  (store-simple-vector-body obj stream))
+
+(defun store-simple-vector-body (obj stream)
   (store-count (length obj) stream)
   (loop for x across obj do
     (store-object x stream)))
 
 (defrestore-sdle-store (simple-vector stream)
   ;; (declare (xoptimize speed (safety 1) (debug 0)))
+  (restore-simple-vector-body stream))
+
+(defun restore-simple-vector-body (stream)
   (let* ((size (read-count stream))
          (res (make-array size)))
     (declare (type array-size size))
