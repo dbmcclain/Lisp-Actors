@@ -292,15 +292,14 @@
    (behav (cust vec)
      (let* ((vlen (length vec))
             (ans  ;; (zstd:compress-buffer vec)
-                  (snappy:compress vec 0 vlen)
-                  )
+                  (simple-compress vec))
             (alen (length ans)))
        (flet ((sending (flag nel vec)
                 (let ((ovec (make-ub8-vector (1+ nel))))
                   (setf (aref ovec 0) flag)
-                  (replace ovec vec :start 1)
+                  (replace ovec vec :start1 1)
                   (>> cust ovec))))
-         (cond ((>= alen vlen)
+         (cond ((< vlen alen)
                 (sending 0 vlen vec))
                (t
                 (send compressor-savings :inc (- vlen alen))
@@ -308,27 +307,24 @@
                ))))
    ))
 
+(defun smart-decompressor-core (cust vec)
+  (let ((subvec (subseq vec 1)))
+    (if (= 1 (aref vec 0))
+        (>> cust ;; (zstd:decompress-buffer vec :start 1)
+            (simple-uncompress subvec))
+      (>> cust subvec))
+    ))
+  
 (deflex smart-decompressor
   (create 
    (behav (cust vec)
-     (if (= 1 (aref vec 0))
-         (>> cust ;; (zstd:decompress-buffer vec :start 1)
-             (snappy:uncompress vec 1 (length vec))
-             )
-       (>> cust (subseq vec 1)))
-        )))
+     (smart-decompressor-core cust vec))))
   
 (deflex fail-silent-smart-decompressor
   (create
    (behav (cust vec)
      (ignore-errors
-       (if (= 1 (aref vec 0))
-           (>> cust ;; (zstd:decompress-buffer vec :start 1)
-               (snappy:uncompress vec 1 (length vec))
-               )
-         (>> cust (subseq vec 1)))
-       ))
-   ))
+       (smart-decompressor-core cust vec)))))
 
 #||#
 #|
