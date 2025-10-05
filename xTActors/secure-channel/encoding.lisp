@@ -295,18 +295,17 @@
                   (snappy:compress vec 0 vlen)
                   )
             (alen (length ans)))
-       (cond ((>= alen vlen)
-              (send compressor-savings :inc (- alen vlen))
-              (let ((ovec (make-ub8-vector (1+ vlen)) ))
-                (setf (aref ovec 0) 0)
-                (replace ovec vec :start1 1)
-                (>> cust ovec)))
-             (t
-              (let ((ovec (make-ub8-vector (1+ alen)) ))
-                (setf (aref ovec 0) 1)
-                (replace ovec ans :start1 1)
-                (>> cust ovec)))
-             )))
+       (flet ((sending (flag nel vec)
+                (let ((ovec (make-ub8-vector (1+ nel))))
+                  (setf (aref ovec 0) flag)
+                  (replace ovec vec :start 1)
+                  (>> cust ovec))))
+         (cond ((>= alen vlen)
+                (sending 0 vlen vec))
+               (t
+                (send compressor-savings :inc (- vlen alen))
+                (sending 1 alen ans))
+               ))))
    ))
 
 (deflex smart-decompressor
@@ -986,6 +985,8 @@
               fail-silent-marshal-decoder       ;; decode byte vector into message objects
               cust)))
 
+;; --------------------------------------------
+
 (defun disk-encoder (dest &key (max-chunk 65536.))
   ;; takes arbitrary objects and sends one or more bytevecs to dest
   ;; dest must reply with :OK after writing to disk.
@@ -1014,6 +1015,8 @@
               marshal-decoder
               cust)))
   
+;; --------------------------------------------
+
 (defun self-sync-stream-writer (stream &optional (max-chunk 65536.))
   (let ((stream-writer (α (cust vec)
                          ;; blocking I/O so response happens only
@@ -1039,8 +1042,9 @@
           )))
     ))
 
+;; --------------------------------------------
 #|
-(! s (hcl:file-string "taxes.lisp"))
+(! s (hcl:file-string "Taxes/taxes.lisp"))
 
 (let* ((stream (ubyte-streams:make-ubyte-output-stream))
        (closer (α _
