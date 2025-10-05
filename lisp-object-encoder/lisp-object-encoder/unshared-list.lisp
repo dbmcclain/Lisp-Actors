@@ -42,8 +42,7 @@
 ;; examined and abbreviated.
 ;;
 
-(defstruct (internal-unshared-list
-            (:constructor make-internal-unshared-list (cells)))
+(defstruct unshared-list
   (cells #() :type vector :read-only t))
 
 (defgeneric unshared-list (obj)
@@ -51,9 +50,9 @@
    (let ((vec (ignore-errors ;; catch improper lists
                 (coerce obj 'vector))))
      (or (and vec
-              (make-internal-unshared-list vec))
+              (make-unshared-list :cells vec))
          obj)))
-  (:method ((obj internal-unshared-list))
+  (:method ((obj unshared-list))
    obj)
   (:method (obj)
    (error "List required: ~S" obj)))
@@ -78,8 +77,8 @@
 (defgeneric after-restore (obj)
   (:method (obj)
    obj)
-  (:method ((obj internal-unshared-list))
-   (coerce (internal-unshared-list-cells obj) 'list)))
+  (:method ((obj unshared-list))
+   (coerce (unshared-list-cells obj) 'list)))
 
 (defmethod sdle-store:backend-restore-object :around (backend place)
   (after-restore (call-next-method)))
@@ -87,14 +86,14 @@
 ;; --------------------------------------------
 ;; Special Abbreviated format for UNSHARED-LIST items.
 
-(defconstant +UNSHARED-LIST+ (register-code 124 'internal-unshared-list))
+(defconstant +UNSHARED-LIST-code+ (register-code 124 'unshared-list))
 
-(defstore (obj internal-unshared-list stream)
-  (output-type-code +UNSHARED-LIST+ stream)
-  (sdle-store::store-simple-vector-body (internal-unshared-list-cells obj) stream))
+(defstore (obj unshared-list stream)
+  (output-type-code +UNSHARED-LIST-code+ stream)
+  (sdle-store::store-simple-vector-body (unshared-list-cells obj) stream))
 
-(defrestore (internal-unshared-list stream)
+(defrestore (unshared-list stream)
   (let ((vec  (sdle-store::restore-simple-vector-body stream)))
-    (make-internal-unshared-list vec)))
+    (make-unshared-list :cells vec)))
 
 
