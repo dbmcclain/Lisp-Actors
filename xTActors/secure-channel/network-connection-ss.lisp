@@ -49,7 +49,6 @@
        (send cust nil))
       ))))
      
-    
 (defun active-async-socket-system-beh (ws-collection &optional aio-accepting-handles)
   (with-contention-free-semantics
    (alambda
@@ -1023,7 +1022,7 @@
           get-server-count    (create (auto-counter-beh))
           connections         (create (connections-list-beh))))
   (unless (ask async-socket-system :server-running?)
-    (send-after 3 async-socket-system sink :start-tcp-server)) )
+    (send-after 1 async-socket-system sink :start-tcp-server)) )
 
 (defun* lw-reset-actors-server _
   (when (ask async-socket-system :async-running?)
