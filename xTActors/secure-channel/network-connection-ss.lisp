@@ -415,8 +415,8 @@
 ;;
 
 (defstruct connection-rec
-  ip-addr          ;; Canonical IP Address and port for connection
-  ip-port
+  ip-addr          ;; Canonical IP Address 
+  ip-port          ;;    and port for connection
   state            ;; State struct for connection
   sender           ;; Actor target for sending through this connection
   chan             ;; Actor target for encrypted sending through this connection
@@ -460,14 +460,16 @@
 ;; A global counter to label instances of server connections from this
 ;; host session
 
-(defun auto-counter-beh (&optional (n 0))
+(defun gen-srv-name-beh (&optional (n 0))
   (behav (cust)
-    (let ((new-n (1+ n)))
-      (become (auto-counter-beh new-n))
-      (send cust n))))
+    (let* ((new-n (1+ n))
+           (name  (format nil "~A#~D" (machine-instance) new-n)))
+      (become (gen-srv-name-beh new-n))
+      (send cust name))
+    ))
 
-(deflex* get-server-count
-  (create (auto-counter-beh)))
+(deflex* gen-srv-name
+  (create (gen-srv-name-beh)))
 
 ;; ------------------------
 ;; The list of currently active socket connections
@@ -506,18 +508,17 @@
                     :ip-port         peer-port
                     :state           :pending-server)))
           (become (connections-list-beh (cons rec cnx-lst)))
-          (let+ ((:β (ct)  get-server-count)
-                 (server-name (format nil "~A#~D" (machine-instance) ct)))
+          (let+ ((:β (server-name) gen-srv-name)
+                 (constr      (socket-intf-constructor :kind             :server
+                                                       :ip-addr          peer-ip
+                                                       :ip-port          peer-port
+                                                       :report-ip-addr   server-name
+                                                       :io-state         io-state)))
             (send fmt-println "Server Socket (~S->~A:~D) starting up"
                   server-name
                   (comm:ip-address-string peer-ip)
                   peer-port)
-            (send (create-socket-intf :kind             :server
-                                      :ip-addr          peer-ip
-                                      :ip-port          peer-port
-                                      :report-ip-addr   server-name
-                                      :io-state         io-state)
-                  sink))
+            (send constr sink))
           ))
        )))
         
@@ -686,11 +687,11 @@
               (send me sink :abort ip-addr ip-port))
 
              ((typep io-state 'comm:async-io-state)
-              (let+ ((:β (state socket)  (create-socket-intf :kind           :client
-                                                             :ip-addr        ip-addr
-                                                             :ip-port        ip-port
-                                                             :report-ip-addr report-ip-addr
-                                                             :io-state       io-state)))
+              (let+ ((:β (state socket)  (socket-intf-constructor :kind           :client
+                                                                  :ip-addr        ip-addr
+                                                                  :ip-port        ip-port
+                                                                  :report-ip-addr report-ip-addr
+                                                                  :io-state       io-state)))
                 (send me sink :negotiate state socket)
                 ))
 
@@ -783,15 +784,10 @@
     ;; resistant to QC attack by Grover's Algorithm, O(Sqrt N).
    |#
    ((cust :negotiate state socket)
-    (let ((rec (find-connection-using-sender cnx-lst socket)))
-      (if rec
-          (let+ ((:slots (handshake)      rec)
-                 (:slots (local-services) state))
-            ;; Let the dance begin...
-            (send handshake cust socket local-services))
-        ;; else
-        (send cust :ok))
-      ))
+    (let+ ((:slots (handshake)      (find-connection-using-sender cnx-lst socket))
+           (:slots (local-services) state))
+      ;; Let the dance begin...
+      (send handshake cust socket local-services)))
   
    #| --------------------------------------------
     Message :SET-CHANNEL is sent during handshake after a secure
@@ -938,7 +934,7 @@
 ;; socket local-services, start the socket reader going, and send the
 ;; state and encoder to the customer.
 
-(defun create-socket-intf (&key kind ip-addr ip-port io-state report-ip-addr)
+(defun socket-intf-constructor (&key kind ip-addr ip-port io-state report-ip-addr)
   (create
    (behav (cust)
      (let+ ((title          (if (eq kind :client) "Client" "Server"))
@@ -970,24 +966,17 @@
                         (sink-pipe fail-silent-smart-decompressor
                                    fail-silent-marshal-decoder
                                    local-services)))
-            
-            ;; The following β_ clauses all have the effect of sending
-            ;; a message, then awaiting a reply, before doing the next
-            ;; clause.
-            ;;
-            ;; So, not the same as a sequence of SEND's which would
-            ;; all happen at once on exit. No telling when they would
-            ;; all be delivered and acted upon.
-
-            (:β _    (racurry shutdown :init state))
-            (:β _    (if (eq kind :server)
-                         (racurry local-services :add-single-use-service
-                                  +server-connect-id+
-                                  (server-crypto-gateway encoder local-services))
-                       ;; else
-                       true))
-            (:β _    (racurry connections
-                              :add-socket ip-addr ip-port state encoder) ))
+            (:β _ (fork
+                   (racurry shutdown :init state)
+                   (if (eq kind :server)
+                       (racurry local-services :add-single-use-service
+                                +server-connect-id+
+                                (server-crypto-gateway encoder local-services))
+                     ;; else
+                     true)
+                   (racurry connections
+                            :add-socket ip-addr ip-port state encoder))
+              ))
        
        ;; Start things running...
        (comm:async-io-state-read-with-checking io-state
@@ -1052,7 +1041,7 @@
   ;;
   (unless (ask async-socket-system :async-running?)
     (setf async-socket-system (create (async-socket-system-beh))
-          get-server-count    (create (auto-counter-beh))
+          gen-srv-name        (create (gen-srv-name-beh))
           connections         (create (connections-list-beh))))
   (unless (ask async-socket-system :server-running?)
     (send-after 1 async-socket-system sink :start-tcp-server)) )
