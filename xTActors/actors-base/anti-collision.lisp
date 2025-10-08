@@ -110,13 +110,12 @@
   ;; code. But you would miss the ones in external functions. We are
   ;; left with runtime error trapping.
   ;;
-  (um:with-unique-names (g!guard g!msg g!become-sav)
+  (um:with-unique-names (g!guard g!msg)
     `(let ((,g!guard (list nil)))
        (lambda (&rest ,g!msg)
-         (let ((,g!become-sav *become-hook*)
-               (*become-hook* #'bad-become))
+         (let ((*become-hook* #'bad-become))
            (macrolet ((without-contention (&body body)
-                        `(let ((*become-hook* ,',g!become-sav))
+                        `(let ((*become-hook* *ac-become-hook*))
                            (do-without-contention ,',g!guard (lambda ()
                                                                ,@body)))
                         ))

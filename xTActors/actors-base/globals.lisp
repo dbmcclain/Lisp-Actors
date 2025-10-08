@@ -48,7 +48,8 @@
 (defvar *send-hook*      #'%send-to-pool)
 (defvar *become-hook*    #'not-in-actor)
 (defvar *abort-beh-hook* #'do-nothing)
-  
+(defvar *ac-become-hook* #'not-in-actor)
+
 ;; --------------------------------------------
 ;; User level has Read-Only access
 ;;
