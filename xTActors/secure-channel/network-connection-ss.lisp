@@ -56,7 +56,7 @@
     ;; :START-TCP-SERVER - user level message
     
     ((cust :start-tcp-server)
-     (send self cust :start-tcp-server *default-port*))
+     (re-deliver cust :start-tcp-server *default-port*))
     
     ((cust :start-tcp-server port)
      (cond ((assoc port aio-accepting-handles) ;; already present?
@@ -138,8 +138,8 @@
       ;; :TERMINATE-SERVER - internal message
       ;; Normally sent from :SHUTDOWN, but could also be sent by user.
      
-      ((cust :terminate-server) 
-       (send self cust :terminate-server *default-port*))
+      ((cust :terminate-server)
+       (re-deliver cust :terminate-server *default-port*))
      
       ((cust :terminate-server port)
        (let ((pair (assoc port aio-accepting-handles)))
@@ -206,7 +206,7 @@
      (send cust :ok))))
 
 ;; -------------------------------------------------------------------------
-;; IO-Running controller - Coordinates the activity and closure of
+;; IO-Running controller - Coordinates the activity and closings of
 ;; socket streams.
 ;;
 ;; By placing all non-idempotent actions in leaf Actors, we avoid
@@ -415,8 +415,14 @@
 ;;
 
 (defstruct connection-rec
-  ip-addr ip-port state sender chan
-  report-ip-addrs handshake custs)
+  ip-addr          ;; Canonical IP Address and port for connection
+  ip-port
+  state            ;; State struct for connection
+  sender           ;; Actor target for sending through this connection
+  chan             ;; Actor target for encrypted sending through this connection
+  report-ip-addrs  ;; list of non-canonical IP addresses used for this connection
+  handshake        ;; Actor target for handshake negotiation
+  custs)           ;; List of customers waiting for this connection to become established
 
 (defun same-ip-test (ip-addr ip-port)
   (lambda (rec)
@@ -507,10 +513,10 @@
                   (comm:ip-address-string peer-ip)
                   peer-port)
             (send (create-socket-intf :kind             :server
-                                    :ip-addr          peer-ip
-                                    :ip-port          peer-port
-                                    :report-ip-addr   server-name
-                                    :io-state         io-state)
+                                      :ip-addr          peer-ip
+                                      :ip-port          peer-port
+                                      :report-ip-addr   server-name
+                                      :io-state         io-state)
                   sink))
           ))
        )))
@@ -553,14 +559,14 @@
                         ))
                      
                      (t
-                      (let+ ((:slots (shutdown) old-state)
-                             (new-rec  (copy-with rec
+                      (let+ ((new-rec  (copy-with rec
                                                   :state  new-state
                                                   :sender sender))
                              (new-cnx  (replace-connection cnx-lst rec new-rec)))
                         (unless (or (null old-state)
                                     (eql old-state new-state))
-                          (send shutdown))
+                          (let+ ((:slots (shutdown) old-state))
+                            (send shutdown)))
                         (become (connections-list-beh new-cnx))
                         ))
                      )))
@@ -589,22 +595,24 @@
    ;; to do a DNS lookup and construct a new connection.
    ;;
    ((cust :find-connection addr port handshake)
-    (cond ((stringp addr)
-           (let ((rec (find-connection-using-report-ip cnx-lst addr)))
-             (cond (rec
-                    (let+ ((:slots (ip-addr) rec))
-                      (send self cust :find-socket ip-addr port addr handshake)))
+    (let+ ((:mvb (clean-ip-addr addr-str)
+               (cond ((integerp addr)
+                      (values addr (comm:ip-address-string addr)))
 
-                   (t
-                    (let+ ((clean-ip-addr (canon-ip-addr addr)))
-                      (unless clean-ip-addr
-                        (error "Unknown host: ~S" addr))
-                      (send self cust :find-socket clean-ip-addr port addr handshake)))
-                   )))
-          
-          ((integerp addr)
-           (send self cust :find-socket addr port (comm:ip-address-string addr) handshake))
-          ))
+                     (t
+                      (let ((saddr (string addr)))
+                        (values
+                         (let ((rec (find-connection-using-report-ip cnx-lst saddr)))
+                           (cond (rec
+                                  (connection-rec-ip-addr rec))
+                                 (t
+                                  (or (canon-ip-addr saddr)
+                                      (error "Unknown host: ~S" addr)))
+                                 ))
+                         saddr)))
+                     )))
+      (re-deliver cust :find-socket clean-ip-addr port addr-str handshake)
+      ))
 
    #| --------------------------------------------
     Message :FIND-SOCKET is sent by client Actors on this machine,
@@ -872,6 +880,57 @@
 (defun make-socket-shutdown ()
   (create (initial-socket-shutdown-beh)))
 
+;; --------------------------------------------
+;; The async reader for all socket connections
+
+(defun make-reader-callback-fn (title accum kill-timer shutdown)
+  (let ((fragment-ctr 0))
+    (lambda (state buffer end)
+      ;; callback for I/O thread - on continuous async read
+      #|
+      (send fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
+            (comm:async-io-state-read-status state)
+            end)
+      |#
+      (let ((status (or (comm:async-io-state-read-status state)
+                        (when (> end +max-fragment-size+)
+                          "Incoming packet too large"))
+                    ))
+        (cond (status
+               ;; terminate on any error
+               (comm:async-io-state-finish state)
+               (send fmt-println "~A Incoming error state: ~A" title status)
+               (send shutdown))
+              
+              ((plusp end)
+               #|
+               ;; TCP ensures that messages arrive on the wire and are
+               ;; delivered here in whole, or not at all. But the async
+               ;; input system delivers them as they arrive in piecemeal
+               ;; fashion.
+               ;;
+               ;; Every input fragment is numbered here, starting from 1.
+               ;; But the Actor system might jumble the order of
+               ;; fragment-ctr delivery.
+               ;; 
+               ;; (I have witnessed this happening.)
+               ;;
+               ;; Numbering them enables us to deal properly with possible
+               ;; out-of-order delivery to the self-sync decoder.
+               |#
+               (send accum :deliver (incf fragment-ctr) (subseq buffer 0 end))
+               (send kill-timer :resched)
+               (comm:async-io-state-discard state end))
+              )))))
+
+;; --------------------------------------------
+
+(defun fwd-with-message (report-msg target)
+  (create
+   (lambda* msg
+     (send println report-msg)
+     (send* target msg))))
+
 ;; ------------------------------------------------------------------------
 ;; For both clients and servers, we assemble the socket state, make
 ;; initial encoder/decoder which marshals and compresses and fragments
@@ -886,12 +945,10 @@
             (local-services (make-local-services))
             (io-running     (make-io-running-monitor io-state))
             (shutdown       (make-socket-shutdown))
+
             (kill-timer     (make-kill-timer
-                             (create
-                              (behav ()
-                                (send println "Inactivity shutdown request")
-                                (send shutdown))
-                              )))
+                             (fwd-with-message "Inactivity shutdown request" shutdown)))
+            
             (state   (make-intf-state
                       :title            title
                       :ip-addr          report-ip-addr
@@ -901,14 +958,27 @@
                       :shutdown         shutdown
                       :kill-timer       kill-timer
                       ))
-            (encoder (sink-pipe  marshal-encoder ;; async output is sent here
+
+            ;; async output is sent here
+            (encoder (sink-pipe  marshal-encoder
                                  smart-compressor
                                  self-sync-encoder
                                  (make-writer state)))
-            (accum   (self-synca:stream-decoder    ;; async arrivals are sent here
+
+            ;; async arrivals are sent here
+            (accum   (self-synca:stream-decoder
                         (sink-pipe fail-silent-smart-decompressor
                                    fail-silent-marshal-decoder
                                    local-services)))
+            
+            ;; The following β_ clauses all have the effect of sending
+            ;; a message, then awaiting a reply, before doing the next
+            ;; clause.
+            ;;
+            ;; So, not the same as a sequence of SEND's which would
+            ;; all happen at once on exit. No telling when they would
+            ;; all be delivered and acted upon.
+
             (:β _    (racurry shutdown :init state))
             (:β _    (if (eq kind :server)
                          (racurry local-services :add-single-use-service
@@ -917,48 +987,11 @@
                        ;; else
                        true))
             (:β _    (racurry connections
-                              :add-socket ip-addr ip-port state encoder) )
-            (fragment-ctr  0)
-            (rd-callback-fn (lambda (state buffer end)
-                              ;; callback for I/O thread - on continuous async read
-                              #|
-                              (send fmt-println "Socket Reader Callback (STATUS = ~A, END = ~A)"
-                                  (comm:async-io-state-read-status state)
-                                  end)
-                              |#
-                              (let ((status (or (comm:async-io-state-read-status state)
-                                                (when (> end +max-fragment-size+)
-                                                  "Incoming packet too large"))
-                                            ))
-                                (cond (status
-                                       ;; terminate on any error
-                                       (comm:async-io-state-finish state)
-                                       (send fmt-println "~A Incoming error state: ~A" title status)
-                                       (send shutdown))
-                                      
-                                      ((plusp end)
-                                       #|
-                                       ;; TCP ensures that messages arrive on the wire and are
-                                       ;; delivered here in whole, or not at all. But the async
-                                       ;; input system delivers them as they arrive in piecemeal
-                                       ;; fashion.
-                                       ;;
-                                       ;; Every input fragment is numbered here, starting from 1.
-                                       ;; But the Actor system might jumble the order of
-                                       ;; fragment-ctr delivery.
-                                       ;; 
-                                       ;; (I have witnessed this happening.)
-                                       ;;
-                                       ;; Numbering them enables us to deal properly with possible
-                                       ;; out-of-order delivery to the self-sync decoder.
-                                       |#
-                                       (send accum :deliver (incf fragment-ctr) (subseq buffer 0 end))
-                                       (send kill-timer :resched)
-                                       (comm:async-io-state-discard state end))
-                                      )))) )
+                              :add-socket ip-addr ip-port state encoder) ))
        
        ;; Start things running...
-       (comm:async-io-state-read-with-checking io-state rd-callback-fn
+       (comm:async-io-state-read-with-checking io-state
+                                               (make-reader-callback-fn title accum kill-timer shutdown)
                                                :element-type '(unsigned-byte 8))
        (send kill-timer :resched)
        
@@ -981,7 +1014,7 @@
    (let ((cpos (position #\: addr)))
      (if cpos
          (values (subseq addr 0 cpos)
-                 (read-from-string (subseq addr (1+ cpos))))
+                 (read-from-string addr :start (1+ cpos)))
        addr))))
 
 (deflex client-connector
