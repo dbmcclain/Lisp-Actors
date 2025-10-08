@@ -955,13 +955,13 @@
                       :kill-timer       kill-timer
                       ))
 
-            ;; async output is sent here
+            ;; async output is sent to encoder
             (encoder (sink-pipe  marshal-encoder
                                  smart-compressor
                                  self-sync-encoder
                                  (make-writer state)))
 
-            ;; async arrivals are sent here
+            ;; async arrivals are sent to accum
             (accum   (self-synca:stream-decoder
                         (sink-pipe fail-silent-smart-decompressor
                                    fail-silent-marshal-decoder
