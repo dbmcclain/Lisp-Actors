@@ -29,7 +29,7 @@
 ;;
 
 (defpackage #:dm-udp
-  (:use #:common-lisp #:ac)
+  (:use #:common-lisp #:ac #:def*)
   (:import-from #:vec-repr
    #:ub8-vector
    #:make-ub8-vector)
@@ -65,13 +65,14 @@
     ))
 
 (deflex ws-coll  (create (ws-coll-beh)))
-  
+
 ;; -----------------------------------------------------------------------
 ;; Server Side using raw socket
 
 (defun udp-srv-port-beh (&key
                          (ipv6 nil)
-                         local-address local-port
+                         local-address
+                         local-port
                          (receive-actor (error "RECEIVE-ACTOR must not be NIL")))
   (alambda
    ((cust :become-srv beh)
@@ -79,13 +80,13 @@
     (send cust :ok))
 
    ((cust :init)
-    (let++ ((me       self)
-            (:β  (coll) ws-coll)
-            (io-state (comm:create-async-io-state-and-udp-socket
-                       coll
-                       :local-address local-address
-                       :local-port    local-port
-                       :ipv6          ipv6)))
+    (let+ ((me       self)
+           (:β  (coll) ws-coll)
+           (io-state (comm:create-async-io-state-and-udp-socket
+                      coll
+                      :local-address local-address
+                      :local-port    local-port
+                      :ipv6          ipv6)))
       (labels
           ((udp-srv-port-receive-next (buffer)
              (comm:async-io-state-receive-message io-state
@@ -127,7 +128,7 @@
     (send cust :ok))
    
    (msg
-    (let++ ((me       self)
+    (let+ ((me       self)
             (:β (coll)  ws-coll)
             (io-state (comm:create-async-io-state-and-connected-udp-socket
                        coll
@@ -188,7 +189,7 @@
   (actors ((sender  (create
                      (udp-cli-connected-port-beh "fornax.local" #|"localhost"|# 65002
                                                  :receive-actor handler)))
-           (handler (create-
+           (handler (create
                      (lambda (message)
                        (send fmt-println "Client RX: (~D) ~S" (length message) message)))))
     sender))
@@ -207,20 +208,22 @@
               0 1500))
 
 
-
+;; --------------------------------------------
 ;; By increasing max size to 64kB we can reach 9216 byte messages,
 ;; This appears to be a Mac limit.
+
 (send cli-sender println
       (subseq (map 'ub8-vector #'char-code (hcl:file-string "port-server.lisp"))
               0 9202))
 
 ;; ------------------------------------------------------------
-;;
+;; Read from Crescendo Telemetry Server
+
 (deflex cli-sender
   (actors ((sender  (create
                      (udp-cli-connected-port-beh "fornax.local" 65301
                                                  :receive-actor handler)))
-           (handler (create-
+           (handler (create
                      (lambda (message)
                        (send fmt-println "Client RX: (~D) ~S"
                              (length message) message)))))
@@ -230,7 +233,8 @@
                                           :initial-contents '(1)))
 (send cli-sender println :close)
 |#
-
+;; --------------------------------------------
+#|
 (with-open-stream (http (comm:open-tcp-stream 
                          "fornax.local" 5555)) 
   (write-byte 5 http)
@@ -247,3 +251,4 @@
   (loop for line = (read-line http nil nil)
         while line
         do (write-line line)))
+|#
