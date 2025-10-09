@@ -52,21 +52,32 @@
 
 ;; --------------------------------------------
 
-(defun do-without-contention (guard clos)
+(defun bad-become (beh)
+  (declare (ignore ben))
+  (error "Unguarded BECOME in contention-free semantics"))
+
+(defun do-with-disallowed-contention (msg fn)
+  (let ((*become-hook* #'bad-become))
+    (apply fn msg)
+    ))
+
+(defun go-around ()
+  (%send-to-pool (msg self self-msg))
+  (abort))
+
+(defun do-without-contention (guard thunk)
   (declare (cons guard)
-           (function clos))
+           (function thunk))
   (symbol-macrolet ((owner  (car (the cons guard))))
-    (let ((me  (mpc:get-current-process)))
-      
-      (flet ((go-around ()
-               (%send-to-pool (msg self self-msg))
-               (abort))
-             (acquire ()
+    (let ((*become-hook* *ac-become-hook*)
+          (me  (mpc:get-current-process)))
+          
+      (flet ((acquire ()
                (mpc:compare-and-swap owner nil me))
              (release (&rest ignored)
                (declare (ignore ignored))
                (mpc:compare-and-swap owner me nil)))
-        (declare (dynamic-extent #'go-around #'acquire))
+        (declare (dynamic-extent #'acquire))
         ;;
         ;; First thread to attempt WITHOUT-CONTENTION takes it,
         ;; preemptively blocking all other threads from mutating the
@@ -82,17 +93,13 @@
         (if (eq me owner)
             (handler-bind
                 ((error #'release))
-              (funcall clos))
+              (funcall thunk))
           ;; else, Re-enqueue our message for later delivery,
           ;; and go process the next available message. This
           ;; drops all pending BECOME and SEND.
           (go-around))
         ))
     ))
-
-(defun bad-become (beh)
-  (declare (ignore ben))
-  (error "Unguarded BECOME in contention-free semantics"))
 
 (defmacro with-contention-free-semantics (beh-fn)
   ;; Should wrap a behavior function.
@@ -113,13 +120,12 @@
   (um:with-unique-names (g!guard g!msg)
     `(let ((,g!guard (list nil)))
        (lambda (&rest ,g!msg)
-         (let ((*become-hook* #'bad-become))
-           (macrolet ((without-contention (&body body)
-                        `(let ((*become-hook* *ac-become-hook*))
-                           (do-without-contention ,',g!guard (lambda ()
-                                                               ,@body)))
-                        ))
-             (apply ,beh-fn ,g!msg)
-             ))))
+         (do-with-disallowed-contention
+          ,g!msg
+          (macrolet ((without-contention (&body body)
+                       `(do-without-contention ,',g!guard (lambda ()
+                                                            ,@body))
+                       ))
+            ,beh-fn))
+         ))
     ))
-
