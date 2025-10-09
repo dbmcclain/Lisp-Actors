@@ -114,7 +114,7 @@
               (let+ ((me   self)
                      (msg  self-msg)
                      (port (caar aio-accepting-handles))
-                     (:β _ (racurry self :terminate-server port)))
+                     (:β _ (racurry :terminate-server port)))
                 (send* me msg)
                 ))
              
