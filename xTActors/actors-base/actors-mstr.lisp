@@ -119,12 +119,6 @@ THE SOFTWARE.
 (defun send-combined-msg (target msg1 msg2)
   (multiple-value-call #'send target (values-list msg1) (values-list msg2)))
 
-(defun re-deliver (&rest msg)
-  (apply self-beh msg))
-
-(defun re-deliver* (&rest msg)
-  (apply self-beh (apply #'list* msg)))
-
 ;; ---------------------------------------
 
 (defun become (new-beh)

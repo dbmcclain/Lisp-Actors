@@ -111,8 +111,6 @@ THE SOFTWARE.
    #:repeat-send
    #:send-combined-msg
    #:send-to-pool
-   #:re-deliver
-   #:re-deliver*
    #:ask
    
    #:self

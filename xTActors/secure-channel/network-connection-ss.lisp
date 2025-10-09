@@ -56,7 +56,7 @@
     ;; :START-TCP-SERVER - user level message
     
     ((cust :start-tcp-server)
-     (re-deliver cust :start-tcp-server *default-port*))
+     (send self cust :start-tcp-server *default-port*))
     
     ((cust :start-tcp-server port)
      (cond ((assoc port aio-accepting-handles) ;; already present?
@@ -139,7 +139,7 @@
       ;; Normally sent from :SHUTDOWN, but could also be sent by user.
      
       ((cust :terminate-server)
-       (re-deliver cust :terminate-server *default-port*))
+       (send self cust :terminate-server *default-port*))
      
       ((cust :terminate-server port)
        (let ((pair (assoc port aio-accepting-handles)))
@@ -616,7 +616,7 @@
                                  ))
                          saddr)))
                      )))
-      (re-deliver cust :find-socket clean-ip-addr port addr-str handshake)
+      (send self cust :find-socket clean-ip-addr port addr-str handshake)
       ))
 
    #| --------------------------------------------
