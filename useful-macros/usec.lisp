@@ -32,21 +32,47 @@ THE SOFTWARE.
    #:adjust-to-standard-universal-time-usec
    #:get-universal-time-usec
    #:_getTickCount
+   #:monotonic-time
+   #:mach-timebase-info
    ))
 
 ;; ----------------------------------------------------------------
 (in-package #:com.ral.usec)
 ;; ----------------------------------------------------------------
+
+;; --------------------------------------------
+;; Monotonic Adjustment
+
+(defvar *monotonic-lock*    (mpc:make-lock))
+(defvar *monotonic-offset*  0)
+(defvar *last-tod*          0)
+
+(defun adjust-to-monotonic (t_us)
+  (mpc:with-lock (*monotonic-lock*)
+    (let ((adj_us  (+ t_us *monotonic-offset*)))
+      (cond ((> adj_us *last-tod*)
+             (setf *last-tod* adj_us))
+            (t
+             (incf *last-tod*)
+             (setf *monotonic-offset* (- *last-tod* t_us))
+             *last-tod*)
+            ))))
+ 
 ;; ----------------------------------------------------------------
 ;; Timestamps to the nearest microsecond
 
 ;;--- MAC OS/X ---
 
-#-:WIN32
+#-(OR :WIN32
+      :ALLEGRO)
 (defun adjust-to-standard-universal-time-usec (tm)
   (declare (integer tm))
   (+ tm #.(* 1000000 (encode-universal-time 0 0 0 1 1 1970 0))))
 
+(defun get-universal-time-usec ()
+  (adjust-to-standard-universal-time-usec (get-time-usec)))
+
+;; --------------------------------------------
 
 #+(AND :LISPWORKS (OR :LINUX :MACOSX))
 (PROGN
@@ -64,17 +90,42 @@ THE SOFTWARE.
 		:nelems 2
 		:fill   0)))
 	 (if (zerop (_get-time-of-day arr fli:*null-pointer*))
-             (+ (* 1000000 (the integer (fli:dereference arr :index 0)))
-                (the integer (fli:dereference arr :index 1)))
+             (adjust-to-monotonic
+              (+ (* 1000000 (the integer (fli:dereference arr :index 0)))
+                 (the integer (fli:dereference arr :index 1))))
            (error "Can't perform Posix gettimeofday()"))
 	 ))))
 
-#-(OR (AND :LISPWORKS (OR :LINUX :MACOSX))
-      :WIN32
-      :ALLEGRO)
-(defun adjust-to-standard-universal-time-usec (tm)
-   (declare (integer tm))
-   (+ tm #.(* 1000000 (encode-universal-time 0 0 0 1 1 1970 0))))
+;; --------------------------------------------
+;; Return Mach monotonic time in "Tick" units. See ratio returned by
+;; MACH-TIMEBASE-INFO for conversion to ns.
+
+#+:MACOSX
+(fli:define-foreign-function (monotonic-time "mach_continuous_time" :source)
+    ()
+  :result-type :int64)
+
+;; --------------------------------------------
+#+:MACOSX
+(progn
+  (fli:define-foreign-function (_mach-timebase-info "mach_timebase_info" :source)
+      ((info :pointer))
+    :result-type :int)
+  
+  (defun mach-timebase-info ()
+    ;; E.g., I get 125/3 on M1 iMac.
+    (fli:with-dynamic-foreign-objects ()
+      (let ((arr (fli:allocate-dynamic-foreign-object
+                  :type   '(:unsigned :int) ;; numer and denom are both 32-bits
+                  :nelems 2
+                  :fill   0)))
+        (if (zerop (_mach-timebase-info arr))
+            (/ (fli:dereference arr :index 0)
+               (fli:dereference arr :index 1))
+          (error "Can't perform mach_timebase_info()")
+          )))))
+
+;; --------------------------------------------
 
 #+:CLOZURE
 (defun get-time-usec ()
@@ -82,8 +133,9 @@ THE SOFTWARE.
   (declare (optimize (speed 3) (debug 0)))
   (ccl::rlet ((now :timeval))
     (ccl::gettimeofday now)
-    (+ (* 1000000 (the (unsigned-byte 32) (ccl:pref now :timeval.tv_sec)))
-       (the fixnum (ccl:pref now :timeval.tv_usec)))))
+    (adjust-to-monotonic
+     (+ (* 1000000 (the (unsigned-byte 32) (ccl:pref now :timeval.tv_sec)))
+        (the fixnum (ccl:pref now :timeval.tv_usec))))))
 
 #-(OR :CLOZURE
       (AND :LISPWORKS (OR :LINUX :MACOSX))
@@ -91,9 +143,6 @@ THE SOFTWARE.
       :ALLEGRO)
 (defun get-time-usec ()
   (error "Not yet implemented"))
-
-(defun get-universal-time-usec ()
-  (adjust-to-standard-universal-time-usec (get-time-usec)))
 
 ;; ------- WIN/32 -----------------
 #|
@@ -145,6 +194,8 @@ THE SOFTWARE.
           internal-time-units-per-second))
     ))
 |#
+
+;; --------------------------------------------
 
 #+:WIN32
 (progn
@@ -233,7 +284,8 @@ THE SOFTWARE.
   (defun get-time-usec ()
     (let ((rate (or *rate*
                     (setf *rate* (queryPerformanceFrequency)))))
-      (round (* (queryPerformanceCounter) 1000000) rate)))
+      (adjust-to-monotonic
+       (round (* (queryPerformanceCounter) 1000000) rate))))
 
   (defun adjust-to-standard-universal-time-usec (tm)
     (declare (integer tm))
@@ -246,6 +298,8 @@ THE SOFTWARE.
 #|
 (- (truncate (get-time-usec) 1000000) (get-universal-time))
 |#
+
+;; --------------------------------------------
 
 #+:xALLEGRO
 (progn
@@ -324,7 +378,8 @@ THE SOFTWARE.
   (defun get-time-usec ()
     (let ((rate (or *rate*
                     (setf *rate* (queryPerformanceFrequency)))))
-      (round (* (queryPerformanceCounter) 1000000) rate)))
+      (adjust-to-monotonic
+       (round (* (queryPerformanceCounter) 1000000) rate))))
 
   (defun adjust-to-standard-universal-time-usec (tm)
     (declare (integer tm))

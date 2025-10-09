@@ -34,7 +34,6 @@
     make-array
     make-string
     make-list
-    make-char
     make-condition
     unsigned-byte
     simple-array
@@ -158,12 +157,12 @@
     ))
 
 (ac:with-maximum-io-syntax
- (let ((x #{25123714-6f56-11ed-9a1c-787b8acbe32e})
-       (y #{27e2ebd2-6f56-11ed-9a1c-787b8acbe32e}))
+ (let ((x #/uuid/{25123714-6f56-11ed-9a1c-787b8acbe32e})
+       (y #/uuid/{27e2ebd2-6f56-11ed-9a1c-787b8acbe32e}))
    (prin1 (list x y (vector x x y)))))
 
-(read-from-string "(#1=#{25123714-6f56-11ed-9a1c-787b8acbe32e}
-                    #2=#{27e2ebd2-6f56-11ed-9a1c-787b8acbe32e}
+(read-from-string "(#1=#/uuid/{25123714-6f56-11ed-9a1c-787b8acbe32e}
+                    #2=#/uuid/{27e2ebd2-6f56-11ed-9a1c-787b8acbe32e}
                     #(#1# #1# #2#))")
 |#
 

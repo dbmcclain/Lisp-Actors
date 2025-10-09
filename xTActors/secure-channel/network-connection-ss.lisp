@@ -317,14 +317,18 @@
                    
                    (t
                     (incf bytes-written nb-written)
-                    (if (< bytes-written bytes-to-write)
-                        ;; not strictly needed here... we should never reach here
-                        (comm:async-io-state-write-buffer io-state
-                                                          byte-vec
-                                                          #'write-done
-                                                          :start bytes-written)
-                      ;; io-running will reply to our cust for us
-                      (send io-running cust :finish-wr-ok)))
+                    (cond ((< bytes-written bytes-to-write)
+                           ;; not strictly needed here... we should never reach here
+                           (comm:async-io-state-write-buffer io-state
+                                                             byte-vec
+                                                             #'write-done
+                                                             :start bytes-written)
+                           (send kill-timer :resched))
+
+                          (t
+                           ;; io-running will reply to our cust for us
+                           (send io-running cust :finish-wr-ok))
+                          ))
                    ))
            
            (begin-write ()
