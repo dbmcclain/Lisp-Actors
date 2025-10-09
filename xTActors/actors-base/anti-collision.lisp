@@ -52,12 +52,22 @@
 
 ;; --------------------------------------------
 
+#|
 (defun bad-become (beh)
   (declare (ignore ben))
   (error "Unguarded BECOME in contention-free semantics"))
+|#
 
-(defun do-with-disallowed-contention (msg fn)
-  (let ((*become-hook* #'bad-become))
+(defun do-with-disallowed-contention (msg guard fn)
+  ;; If user forgets to surround their BECOME clause with
+  ;; WITHOUT-CONTENTION, then we still let them try, but they have to go
+  ;; through the same protection protocol as all the other clauses
+  ;; using WITHOUT-CONTENTION.
+  (let ((*become-hook* (lambda (beh)
+                         (warn "Calling BECOME outside of WITHOUT-CONTENTION")
+                         (do-without-contention guard (lambda ()
+                                                        (become beh))))
+                       ))
     (apply fn msg)
     ))
 
@@ -123,6 +133,7 @@
        (lambda (&rest ,g!msg)
          (do-with-disallowed-contention
           ,g!msg
+          ,g!guard
           (macrolet ((without-contention (&body body)
                        `(do-without-contention ,',g!guard (lambda ()
                                                             ,@body))
