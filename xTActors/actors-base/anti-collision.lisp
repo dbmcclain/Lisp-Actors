@@ -89,7 +89,8 @@
         ;; keep the behavior code functionally pure.
         ;;
         (when (acquire)
-          (send (create #'release)))
+          (on-commit
+            (release)))
         (if (eq me owner)
             (handler-bind
                 ((error #'release))
