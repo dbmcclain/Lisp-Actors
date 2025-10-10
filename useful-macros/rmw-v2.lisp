@@ -83,7 +83,7 @@
 
 ;; -----------------------------------------------------------------------------------
 ;; Define generalized RMW functions with logic defined just once for all cases
-
+#|
 (defstruct rmw-desc
   old     ;; captured old value
   new-fn) ;; mutator function
@@ -112,6 +112,51 @@
         (setf (rmw-desc-old desc) old)
         (if (funcall cas-fn old desc)
             (funcall cas-fn desc (funcall new-fn old))
+          (go again))
+        ))))
+|#
+;; --------------------------------------------
+;; Extend the defns to allow for aux return values from a successful RMW op.
+
+(defstruct rmw-desc
+  old     ;; captured old value
+  new-fn  ;; mutator function
+          ;; - Warning! can be called multiple times and from arbitrary threads
+  ans)    ;; multiple-value-list of return vals from successful RMW
+
+(defun rd-gen (rdr-fn cas-fn)
+  (prog ()
+    again
+    (let ((v (funcall rdr-fn)))
+      (cond ((rmw-desc-p v)
+             (let* ((ans (multiple-value-list 
+                          (funcall (rmw-desc-new-fn v) (rmw-desc-old v))))
+                    (new (car ans)))
+               (cond ((funcall cas-fn v new)
+                      (setf (rmw-desc-ans v) ans)
+                      (return new))
+                     (t
+                      (go again))
+                     )))
+            (t
+             (return v))
+            ))))
+
+(defun rmw-gen (rdr-fn cas-fn new-fn)
+  (let ((desc (make-rmw-desc
+               :new-fn new-fn)))
+    ;; NOTE: desc cannot be dynamic-extent
+    (prog ()
+      again
+      (let ((old (rd-gen rdr-fn cas-fn)))
+        (setf (rmw-desc-old desc) old)
+        (if (funcall cas-fn old desc)
+            (let* ((ans (multiple-value-list (funcall new-fn old)))
+                   (new (car ans)))
+              (if (funcall cas-fn desc new)
+                  (return (values-list ans))
+                (return (values-list (rmw-desc-ans desc)))
+                ))
           (go again))
         ))))
 

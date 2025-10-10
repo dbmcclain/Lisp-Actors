@@ -49,6 +49,8 @@ THE SOFTWARE.
   (last 0))
 
 (defun adjust-to-monotonic (state t_us)
+  ;; Ensure that every call to GET-TIME-USEC produces a new,
+  ;; monotonically increasing, value.
   #F
   (declare (fixnum t_us)
            (mono-state state))

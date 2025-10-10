@@ -377,6 +377,7 @@
 
 (um:define-constant +unique+ "unique")
 
+#| ;; INCORRECT!!
 (defmethod readq ((ft SE) reader-fn)
   (let ((ans +unique+))
     (um:rmw (SD ft) (lambda (tree)
@@ -388,6 +389,16 @@
     (if (eq ans +unique+)
         (values)
       (values ans t))))
+|#
+(defmethod readq ((ft SE) reader-fn)
+  (multiple-value-bind (_ ans found)
+      (um:rmw (SD ft) (lambda (tree)
+                        (when tree
+                          (multiple-value-bind (x treex)
+                              (funcall reader-fn tree)
+                            (values treex x t)))))
+    (declare (ignore _))
+    (values ans found)))
 
 (defmethod popq ((ft SE))
   (readq ft #'popq))

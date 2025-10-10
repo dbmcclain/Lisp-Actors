@@ -58,14 +58,18 @@ THE SOFTWARE.
    #:defslotfn
    ))
 
+;; --------------------------------------------
+
 (in-package :rubber-objects)
 
+;; --------------------------------------------
 ;; equiv to #F
 (proclaim '(optimize (speed  3)
                      ;; (safety 0)
                      (float  0)))
 
 ;; ------------------------------------------------------------------
+
 (define-condition no-property (error)
   ((key :reader no-property-key :initarg :key)
    (obj :reader no-property-obj :initarg :obj))
@@ -87,48 +91,54 @@ THE SOFTWARE.
           (next-property-obj cx)))
   
 ;; ------------------------------------------------------------------
+
+(defgeneric parent (obj)
+  (:method (obj)
+   nil))
+
 (defclass rubber-object ()
   ((parent     :reader   parent      :initarg :parent     :initform nil)
    (props-ref  :accessor props-ref   :initarg :props-ref  :initform (ref:ref (maps:empty)))))
 
-(defmethod props ((obj rubber-object))
-  (ref:val (props-ref obj)))
-
 (defvar =top= (make-instance 'rubber-object))
 
-(defmethod is-a ((obj rubber-object) archetype)
+(defgeneric props (obj)
+  (:method ((obj rubber-object))
+   (ref:val (props-ref obj)))
+  (:method (obj)
+   nil))
+
+(defun is-a (obj archetype)
   (nlet iter ((obj obj))
     (when obj
       (if (eq obj archetype)
           t
-        (go-iter (parent obj))))))
-
-(defmethod props (obj)
-  nil) ;; default for all other objects
-
-(defmethod parent (obj)
-  nil)
-
-(defmethod prop ((obj rubber-object) key &optional default)
-  ;; return the direct or ancestor property value
-  ;; as a secondary value we return the object in which the prop was found
-  (nlet iter ((obj  obj))
-    (if obj
-        (multiple-value-bind (ans found)
-            (maps:find (props obj) key)
-          (if found
-              (values ans obj)
-            ;; else
-            (go-iter (parent obj))))
-      ;; else
-      (values default nil))
+        (go-iter (parent obj))))
     ))
+  
+(defgeneric prop (obj key &optional default)
+  (:method ((obj rubber-object) key &optional default)
+   ;; return the direct or ancestor property value
+   ;; as a secondary value we return the object in which the prop was found
+   (nlet iter ((obj  obj))
+     (if obj
+         (multiple-value-bind (ans found)
+             (maps:find (props obj) key)
+           (if found
+               (values ans obj)
+             ;; else
+             (go-iter (parent obj))))
+       ;; else
+      (values default nil))
+     )))
 
-(defmethod set-prop ((obj rubber-object) key val)
-  ;; copy-on-write semantics. Any changes to properties
-  ;; occur in the direct object, not in any of the inheritaned ancestors
-  (um:rmw (ref:ref-val (props-ref obj)) (lambda (map)
-                                          (maps:add map key val))))
+(defgeneric set-prop (obj key val)
+  (:method ((obj rubber-object) key val)
+   ;; copy-on-write semantics. Any changes to properties
+   ;; occur in the direct object, not in any of the inheritaned ancestors
+   (um:rmw (ref:ref-val (props-ref obj)) (lambda (map)
+                                           (maps:add map key val)))
+   ))
 
 (defsetf prop set-prop)
 
@@ -152,11 +162,7 @@ THE SOFTWARE.
 (defmacro make-prop-accessors (&rest keys)
   `(progn
      ,@(mapcar (lambda (key)
-                 (cond ((consp key)
-                        `(make-prop-accessor ,(car key) ,(cadr key)))
-                       (t
-                        `(make-prop-accessor ,key))
-                       ))
+                 `(make-prop-accessor ,@(um:mklist key)))
                keys)))
 
 (defmethod print-object ((obj rubber-object) out-stream)
@@ -172,26 +178,31 @@ THE SOFTWARE.
                (sets:add accu k))
              accum))
 
-(defmethod direct-prop-keys ((obj rubber-object))
-  (sets:elements (%direct-prop-keys obj (sets:empty))))
+(defgeneric direct-prop-keys (obj)
+  (:method ((obj rubber-object))
+   (sets:elements (%direct-prop-keys obj (sets:empty)))))
 
-(defmethod prop-keys ((obj rubber-object))
-  (nlet collect ((obj   obj)
-                 (accum (sets:empty)))
-    (if obj
-        (go-collect (parent obj) (%direct-prop-keys obj accum))
-      (sets:elements accum))))
+(defgeneric prop-keys (obj)
+  (:method ((obj rubber-object))
+   (nlet collect ((obj   obj)
+                  (accum (sets:empty)))
+     (if obj
+         (go-collect (parent obj) (%direct-prop-keys obj accum))
+       (sets:elements accum)))))
 
-(defmethod has-direct-prop ((obj rubber-object) key)
-  (second (multiple-value-list (maps:find (props obj) key))))
+(defgeneric has-direct-prop (obj key)
+  (:method ((obj rubber-object) key)
+   (second (multiple-value-list (maps:find (props obj) key)))))
 
-(defmethod has-prop ((obj rubber-object) key)
-  (second (multiple-value-list (prop obj key))))
+(defgeneric has-prop (obj key)
+  (:method ((obj rubber-object) key)
+   (second (multiple-value-list (prop obj key)))))
 
-(defmethod remove-direct-prop ((obj rubber-object) key)
-  (um:rmw (ref:ref-val (props-ref obj))
-          (lambda (map)
-            (maps:remove map key))))
+(defgeneric remove-direct-prop (obj key)
+  (:method ((obj rubber-object) key)
+   (um:rmw (ref:ref-val (props-ref obj))
+           (lambda (map)
+             (maps:remove map key)))))
 
 (defun %merge-props (new-props old-props)
   ;; reversing here removes duplicates by taking the
@@ -203,22 +214,23 @@ THE SOFTWARE.
       (go-iter (cddr lst))))
   old-props)
 
-(defmethod copy-obj ((obj rubber-object) &rest new-props)
-  ;; make a copy of an object, possibly with new or modified properties
-  ;; result has same parent as source object
-  (make-instance (class-of obj)
-                 :parent (parent obj)
-                 :props  (ref:ref (%merge-props new-props (props obj)))))
+(defgeneric copy-obj (obj &rest new-props)
+  (:method ((obj rubber-object) &rest new-props)
+   ;; make a copy of an object, possibly with new or modified properties
+   ;; result has same parent as source object
+   (make-instance (class-of obj)
+                  :parent (parent obj)
+                  :props  (ref:ref (%merge-props new-props (props obj))))))
 
-(defmethod inherit-from ((obj rubber-object) &rest new-props)
-  ;; make a child object with obj as its parent, possibly with
-  ;; new or modified properties
-  (make-instance (class-of obj)
-                 :parent obj
-                 :props  (ref:ref (%merge-props new-props (maps:empty)))))
-
-(defmethod inherit-from ((obj null) &rest new-props)
-  (apply #'inherit-from =top= new-props))
+(defgeneric inherit-from (obj &rest new-props)
+  (:method ((obj rubber-object) &rest new-props)
+   ;; make a child object with obj as its parent, possibly with
+   ;; new or modified properties
+   (make-instance (class-of obj)
+                  :parent obj
+                  :props  (ref:ref (%merge-props new-props (maps:empty)))))
+  (:method ((obj null) &rest new-props)
+   (apply #'inherit-from =top= new-props)))
 
 
 #| -----------------------------------------------------------------------------------------------
@@ -256,7 +268,8 @@ THE SOFTWARE.
 
 (defgeneric call (obj key &rest args)
   (:method ((obj rubber-object) *key* &rest args)
-   (multiple-value-bind (fn *responder*) (prop obj *key*)
+   (multiple-value-bind (fn *responder*)
+       (prop obj *key*)
      (if *responder*
          (if (functionp fn)
              (apply fn obj args)
@@ -265,7 +278,8 @@ THE SOFTWARE.
 
 (defun #1=%call-next (&rest args)
   (when-let (par (parent *responder*))
-    (multiple-value-bind (fn *responder*) (prop par *key*)
+    (multiple-value-bind (fn *responder*)
+        (prop par *key*)
       (when *responder*
         (return-from #1#
           (if (functionp fn)
@@ -303,3 +317,7 @@ THE SOFTWARE.
                      nil))
           stream)
   obj)
+
+;; --------------------------------------------
+
+
