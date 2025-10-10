@@ -43,6 +43,33 @@ THE SOFTWARE.
 ;; --------------------------------------------
 ;; Monotonic Adjustment
 
+(defstruct mono-state
+  off last)
+
+(let ((state (list
+              (make-mono-state
+               :off  0
+               :last 0))))
+  
+  (defun adjust-to-monotonic (t_us)
+    #F
+    (declare (fixnum t_us))
+    (loop
+       (let* ((mstate    (car state))
+              (new-state (copy-mono-state mstate))
+              (off       (mono-state-off  mstate))
+              (last      (mono-state-last mstate))
+              (adj_us    (+ t_us off)))
+         (declare (fixnum off last adj_us))
+         (unless (> adj_us last)
+           (setf adj_us (1+ last)
+                 (mono-state-off new-state) (- adj_us t_us)))
+         (setf (mono-state-last new-state) adj_us)
+         (when (mpc:compare-and-swap (car state) mstate new-state)
+           (return-from adjust-to-monotonic adj_us))
+         ))))
+
+#|
 (defvar *monotonic-lock*    (mpc:make-lock))
 (defvar *monotonic-offset*  0)
 (defvar *last-tod*          0)
@@ -57,7 +84,8 @@ THE SOFTWARE.
              (setf *monotonic-offset* (- *last-tod* t_us))
              *last-tod*)
             ))))
- 
+|#
+
 ;; ----------------------------------------------------------------
 ;; Timestamps to the nearest microsecond
 
@@ -113,7 +141,7 @@ THE SOFTWARE.
     :result-type :int)
   
   (defun mach-timebase-info ()
-    ;; E.g., I get 125/3 on M1 iMac.
+    ;; E.g., I get 3/125 on M1 iMac.
     (fli:with-dynamic-foreign-objects ()
       (let ((arr (fli:allocate-dynamic-foreign-object
                   :type   '(:unsigned :int) ;; numer and denom are both 32-bits
