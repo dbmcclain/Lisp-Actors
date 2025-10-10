@@ -9,7 +9,7 @@
 
 ;; -----------------------------------------------------------------------
 
-(defparameter *default-port*            65001.)
+(defparameter *default-port*            4096.)
 (defparameter *socket-timeout-period*   20.)
 
 (defconstant +MAX-FRAGMENT-SIZE+ 65536.)
