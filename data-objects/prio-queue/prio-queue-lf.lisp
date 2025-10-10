@@ -191,27 +191,6 @@ THE SOFTWARE.
                             (normalize-fifo hd (cons item tl)))
           ))
 
-#| ;; INCORRECT!
-   ;; The function passed into UM:RMW may be called multiple times.
-   ;; One evaluation will produce the final result, but that eval may
-   ;; not be the final one performed.
-   ;;
-   ;; The function should be idempotent, i.e., without producing any
-   ;; side effects.
-(defmethod popq ((q fifo) &key &allow-other-keys)
-  (let (ans
-        found)
-    (um:rmw (ref:ref-val q) (lambda* ((&whole cell hd . tl))
-                              (cond (hd
-                                     (setf ans   (car hd)
-                                           found t)
-                                     (normalize-fifo (cdr hd) tl))
-                                    
-                                    (t
-                                     cell)
-                                    )))
-    (values ans found)))
-|#
 (defmethod popq ((q fifo) &key &allow-other-keys)
   (multiple-value-bind (_ ans found)
       (um:rmw (ref:ref-val q) (lambda* ((&whole cell hd . tl))
@@ -232,20 +211,6 @@ THE SOFTWARE.
 (defmethod emptyq-p ((q fifo))
   (null (car (um:rd (ref:ref-val q)))))
 
-#| ;; INCORRECT!!
-   ;; The function passed into UM:RMW may be called multiple times.
-   ;; One evaluation will produce the final result, but that eval may
-   ;; not be the final one performed.
-   ;;
-   ;; The function must be idempotent, i.e., without side effects.
-(defmethod contents ((q fifo))
-  (let (pair)
-    (um:rmw (ref:ref-val q) (lambda (qpair)
-                              (setf pair qpair)
-                              (cons nil nil)))
-    (append (car pair) (reverse (cdr pair)))
-    ))
-|#
 (defmethod contents ((q fifo))
   (let ((pair (mpc:atomic-exchange (ref:ref-val q) (cons nil nil))))
     (append (car pair) (reverse (cdr pair)))
@@ -366,56 +331,6 @@ THE SOFTWARE.
                               (maps:add tree prio fq))) ;; MAPS:ADD replaces any existing entry
           ))
 
-#| ;; INCORRECT!
-   ;; The function passed into UM:RMW may be called multiple times.
-   ;; One evaluation will produce the final result, but that eval may
-   ;; not be the final one performed.
-   ;;
-   ;; The function should be idempotent, i.e., without producing any
-   ;; side effects.
-(defmethod popq ((q priq) &key prio)
-  (let (ans
-        found)
-    (um:rmw (ref:ref-val q)
-            (lambda (tree)
-              ;;
-              ;; The beautiful thing about this is that while inside
-              ;; this function, the use of purely functional data types
-              ;; ensures that our view of tree won't change, and
-              ;; nothing we do to it (if we play by functional rules!)
-              ;; can be seen by any other processes until we are
-              ;; finished.
-              ;;
-              ;; We might be called to perform this body of code more
-              ;; than once in case someone else changed the underlying
-              ;; data structure before we could finish. But each time
-              ;; through, our view of tree is entirely ours.
-              ;;
-              (labels ((no ()
-                         tree)
-                       
-                       (yes (prio fq)
-                         (setf ans   (popq fq)
-                               found t)
-                         (if (emptyq-p fq)
-                             (maps:remove tree prio)
-                           (maps:add tree prio fq))))
-                
-                (cond ((maps:is-empty tree) (no))
-                      
-                      (prio
-                       (um:if-let (fq (maps:find tree prio))
-                           (yes prio fq)
-                         (no)))
-                      
-                      (t 
-                       (let* ((node (sets:max-elt tree))
-                              (prio (maps:map-cell-key node))
-                              (fq   (maps:map-cell-val node)))
-                         (yes prio fq)))
-                      )) ))
-    (values ans found)))
-|#
 (defmethod popq ((q priq) &key prio)
   (multiple-value-bind (_ ans found)
       (um:rmw (ref:ref-val q)

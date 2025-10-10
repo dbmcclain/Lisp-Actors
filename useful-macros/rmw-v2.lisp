@@ -82,41 +82,9 @@
   (setf (gethash accessor *rmw-functions*) (cons rd-fn rmw-fn)))
 
 ;; -----------------------------------------------------------------------------------
-;; Define generalized RMW functions with logic defined just once for all cases
-#|
-(defstruct rmw-desc
-  old     ;; captured old value
-  new-fn) ;; mutator function
-          ;; - Warning! can be called multiple times and from arbitrary threads
-
-(defun rd-gen (rdr-fn cas-fn)
-  (prog ()
-    again
-    (let ((v (funcall rdr-fn)))
-      (cond ((rmw-desc-p v)
-             (let ((new (funcall (rmw-desc-new-fn v) (rmw-desc-old v))))
-               (if (funcall cas-fn v new)
-                   (return new)
-                 (go again))))
-            (t
-             (return v))
-            ))))
-
-(defun rmw-gen (rdr-fn cas-fn new-fn)
-  (let ((desc (make-rmw-desc
-               :new-fn new-fn)))
-    ;; NOTE: desc cannot be dynamic-extent
-    (prog ()
-      again
-      (let ((old (rd-gen rdr-fn cas-fn)))
-        (setf (rmw-desc-old desc) old)
-        (if (funcall cas-fn old desc)
-            (funcall cas-fn desc (funcall new-fn old))
-          (go again))
-        ))))
-|#
-;; --------------------------------------------
+;; Define generalized RMW functions with logic defined just once for all cases.
 ;; Extend the defns to allow for aux return values from a successful RMW op.
+;; --------------------------------------------
 
 (defstruct rmw-desc
   old     ;; captured old value
