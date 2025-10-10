@@ -44,47 +44,26 @@ THE SOFTWARE.
 ;; Monotonic Adjustment
 
 (defstruct mono-state
-  off last)
+  (lock (mpc:make-lock))
+  (off  0)
+  (last 0))
 
-(let ((state (list
-              (make-mono-state
-               :off  0
-               :last 0))))
-  
-  (defun adjust-to-monotonic (t_us)
-    #F
-    (declare (fixnum t_us))
-    (loop
-       (let* ((mstate    (car state))
-              (new-state (copy-mono-state mstate))
-              (off       (mono-state-off  mstate))
-              (last      (mono-state-last mstate))
-              (adj_us    (+ t_us off)))
-         (declare (fixnum off last adj_us))
-         (unless (> adj_us last)
-           (setf adj_us (1+ last)
-                 (mono-state-off new-state) (- adj_us t_us)))
-         (setf (mono-state-last new-state) adj_us)
-         (when (mpc:compare-and-swap (car state) mstate new-state)
-           (return-from adjust-to-monotonic adj_us))
-         ))))
-
-#|
-(defvar *monotonic-lock*    (mpc:make-lock))
-(defvar *monotonic-offset*  0)
-(defvar *last-tod*          0)
-
-(defun adjust-to-monotonic (t_us)
-  (mpc:with-lock (*monotonic-lock*)
-    (let ((adj_us  (+ t_us *monotonic-offset*)))
-      (cond ((> adj_us *last-tod*)
-             (setf *last-tod* adj_us))
-            (t
-             (incf *last-tod*)
-             (setf *monotonic-offset* (- *last-tod* t_us))
-             *last-tod*)
-            ))))
-|#
+(defun adjust-to-monotonic (state t_us)
+  #F
+  (declare (fixnum t_us)
+           (mono-state state))
+  (with-accessors ((lock  mono-state-lock)
+                   (off   mono-state-off)
+                   (last  mono-state-last)) state
+    (declare (fixnum off last))
+    (mpc:with-lock (lock)
+      (let ((adj_us (+ t_us off)))
+        (declare (fixnum adj_us))
+        (unless (> adj_us last)
+          (setf adj_us (1+ last)
+                off    (- adj_us t_us)))
+        (setf last adj_us)))
+    ))
 
 ;; ----------------------------------------------------------------
 ;; Timestamps to the nearest microsecond
@@ -109,20 +88,22 @@ THE SOFTWARE.
      (tzinfo :pointer))
    :result-type :long)
 
- (defun get-time-usec ()
-   ;; time since midnight Jan 1, 1970, measured in microseconds
-   (fli:with-dynamic-foreign-objects ()
-	(um:bind*
-	 ((arr (fli:allocate-dynamic-foreign-object
-		:type   '(:unsigned :long)
-		:nelems 2
-		:fill   0)))
-	 (if (zerop (_get-time-of-day arr fli:*null-pointer*))
-             (adjust-to-monotonic
-              (+ (* 1000000 (the integer (fli:dereference arr :index 0)))
-                 (the integer (fli:dereference arr :index 1))))
+ (let ((state  (make-mono-state)))
+   (defun get-time-usec ()
+     ;; time since midnight Jan 1, 1970, measured in microseconds
+     #F
+     (fli:with-dynamic-foreign-objects ()
+       (um:bind*
+           ((arr (fli:allocate-dynamic-foreign-object
+                  :type   '(:unsigned :long)
+                  :nelems 2
+                  :fill   0)))
+         (if (zerop (_get-time-of-day arr fli:*null-pointer*))
+             (adjust-to-monotonic state
+              (+ (the fixnum (* 1000000 (the fixnum (fli:dereference arr :index 0))))
+                 (the fixnum (fli:dereference arr :index 1))))
            (error "Can't perform Posix gettimeofday()"))
-	 ))))
+         )))))
 
 ;; --------------------------------------------
 ;; Return Mach monotonic time in "Tick" units. See ratio returned by
@@ -131,7 +112,7 @@ THE SOFTWARE.
 #+:MACOSX
 (fli:define-foreign-function (monotonic-time "mach_continuous_time" :source)
     ()
-  :result-type :int64)
+  :result-type :uint64)
 
 ;; --------------------------------------------
 #+:MACOSX
@@ -141,10 +122,10 @@ THE SOFTWARE.
     :result-type :int)
   
   (defun mach-timebase-info ()
-    ;; E.g., I get 3/125 on M1 iMac.
+    ;; E.g., I get 125/3 on M1 iMac.
     (fli:with-dynamic-foreign-objects ()
       (let ((arr (fli:allocate-dynamic-foreign-object
-                  :type   '(:unsigned :int) ;; numer and denom are both 32-bits
+                  :type   :uint32 ;; numer and denom are both 32-bits
                   :nelems 2
                   :fill   0)))
         (if (zerop (_mach-timebase-info arr))
@@ -156,14 +137,15 @@ THE SOFTWARE.
 ;; --------------------------------------------
 
 #+:CLOZURE
-(defun get-time-usec ()
-  ;; time since midnight Jan 1, 1970, measured in microseconds
-  (declare (optimize (speed 3) (debug 0)))
-  (ccl::rlet ((now :timeval))
-    (ccl::gettimeofday now)
-    (adjust-to-monotonic
-     (+ (* 1000000 (the (unsigned-byte 32) (ccl:pref now :timeval.tv_sec)))
-        (the fixnum (ccl:pref now :timeval.tv_usec))))))
+(let ((state  (make-mono-state)))
+  (defun get-time-usec ()
+    ;; time since midnight Jan 1, 1970, measured in microseconds
+    (declare (optimize (speed 3) (debug 0)))
+    (ccl::rlet ((now :timeval))
+               (ccl::gettimeofday now)
+               (adjust-to-monotonic state
+                (+ (* 1000000 (the (unsigned-byte 32) (ccl:pref now :timeval.tv_sec)))
+                   (the fixnum (ccl:pref now :timeval.tv_usec)))))))
 
 #-(OR :CLOZURE
       (AND :LISPWORKS (OR :LINUX :MACOSX))
@@ -309,11 +291,12 @@ THE SOFTWARE.
   (defvar *rate* nil)
   (defvar *utc-offs* nil)
   
-  (defun get-time-usec ()
-    (let ((rate (or *rate*
-                    (setf *rate* (queryPerformanceFrequency)))))
-      (adjust-to-monotonic
-       (round (* (queryPerformanceCounter) 1000000) rate))))
+  (let ((state  (make-mono-state)))
+    (defun get-time-usec ()
+      (let ((rate (or *rate*
+                      (setf *rate* (queryPerformanceFrequency)))))
+        (adjust-to-monotonic state
+         (round (* (queryPerformanceCounter) 1000000) rate)))))
 
   (defun adjust-to-standard-universal-time-usec (tm)
     (declare (integer tm))
@@ -403,12 +386,13 @@ THE SOFTWARE.
   (defvar *rate* nil)
   (defvar *utc-offs* nil)
   
-  (defun get-time-usec ()
-    (let ((rate (or *rate*
-                    (setf *rate* (queryPerformanceFrequency)))))
-      (adjust-to-monotonic
-       (round (* (queryPerformanceCounter) 1000000) rate))))
-
+  (let ((state  (make-mono-state)))
+    (defun get-time-usec ()
+      (let ((rate (or *rate*
+                      (setf *rate* (queryPerformanceFrequency)))))
+        (adjust-to-monotonic state
+                             (round (* (queryPerformanceCounter) 1000000) rate)))))
+  
   (defun adjust-to-standard-universal-time-usec (tm)
     (declare (integer tm))
     (let ((offs (or *utc-offs*
