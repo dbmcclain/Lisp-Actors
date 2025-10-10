@@ -9,7 +9,7 @@
 
 ;; -----------------------------------------------------------------------
 
-(defparameter *default-port*            4096.)
+(defparameter *default-port*            48896.) ;; #xBF00
 (defparameter *socket-timeout-period*   20.)
 
 (defconstant +MAX-FRAGMENT-SIZE+ 65536.)
@@ -1017,7 +1017,7 @@
    (let ((cpos (position #\: addr)))
      (if cpos
          (values (subseq addr 0 cpos)
-                 (read-from-string addr :start (1+ cpos)))
+                 (read-from-string addr nil nil :start (1+ cpos)))
        addr))))
 
 (deflex client-connector
