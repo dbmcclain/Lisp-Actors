@@ -375,8 +375,6 @@
 (defmethod addq ((ft SE) x)
   (writeq ft #'addq x))
 
-(um:define-constant +unique+ "unique")
-
 (defmethod readq ((ft SE) reader-fn)
   (multiple-value-bind (_ ans found)
       (um:rmw (SD ft) (lambda (tree)
