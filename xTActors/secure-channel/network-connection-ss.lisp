@@ -75,6 +75,7 @@
                               ws-collection
                               port
                               #'start-server-listener
+                              :handle-name "Actors Server"
                               :init-timeout 1
                               :ipv6 nil)))
                  ;; Tell the customer that we succeeded.
@@ -465,9 +466,16 @@
 ;; host session
 
 (defun gen-srv-name-beh (&optional (n 0))
-  (behav (cust)
+  (behav (cust accepting-handle peer-ip peer-port)
     (let* ((new-n (1+ n))
-           (name  (format nil "~A#~D" (machine-instance) new-n)))
+           (name  (format nil "~A:~D ~A #~D->~A:~D"
+                          (machine-instance)
+                          (comm:accepting-handle-local-port accepting-handle)
+                          (comm:accepting-handle-name accepting-handle)
+                          new-n
+                          (comm:ip-address-string peer-ip)
+                          peer-port)
+                  ))
       (become (gen-srv-name-beh new-n))
       (send cust name))
     ))
@@ -496,9 +504,13 @@
     Actor will be filled in during the construction of a socket
     interface, which we initiate here.
    |#
-   ((cust :add-server peer-ip peer-port io-state)
+   ((cust :add-server accepting-handle io-state)
     (send cust :ok)
-    (let ((rec (find-connection-using-ip cnx-lst peer-ip peer-port)))
+    (let+ ((:mvb (peer-ip peer-port)
+               #+:LISPWORKS8 (comm:socket-connection-peer-address io-state)
+             #+:LISPWORKS7 (comm:get-socket-peer-address (slot-value io-state 'comm::object))
+             )
+           (rec (find-connection-using-ip cnx-lst peer-ip peer-port)))
       (cond
 
        (rec
@@ -512,16 +524,13 @@
                     :ip-port         peer-port
                     :state           :pending-server)))
           (become (connections-list-beh (cons rec cnx-lst)))
-          (let+ ((:β (server-name) gen-srv-name)
+          (let+ ((:β (server-name) (racurry gen-srv-name accepting-handle peer-ip peer-port))
                  (constr      (socket-intf-constructor :kind             :server
                                                        :ip-addr          peer-ip
                                                        :ip-port          peer-port
                                                        :report-ip-addr   server-name
                                                        :io-state         io-state)))
-            (send fmt-println "Server Socket (~S->~A:~D) starting up"
-                  server-name
-                  (comm:ip-address-string peer-ip)
-                  peer-port)
+            (send fmt-println "Server Socket (~S) starting up" server-name)
             (send constr sink))
           ))
        )))
@@ -825,13 +834,14 @@
                     #+:LISPWORKS8
                     (comm:socket-connection-peer-address io-state)
                     #+:LISPWORKS7
-                    (comm:get-socket-peer-address (slot-value io-state 'comm::object)) ))
-              (send fmt-println "Client Socket (~S->~A:~D) starting up"
-                    (car report-ip-addrs)
-                    (comm:ip-address-string peer-ip)
-                    peer-port))
-            (send-to-all custs chan)))
-        )))
+                    (comm:get-socket-peer-address (slot-value io-state 'comm::object)) )
+                   (client-name (format nil "~A->~A:~D"
+                                        (car report-ip-addrs)
+                                        (comm:ip-address-string peer-ip)
+                                        peer-port)))
+              (send fmt-println "Client Socket (~S) starting up" client-name)
+              (send-to-all custs chan)))
+          ))))
     
    #| --------------------------------------------
     Message :REMOVE is sent when a socket connection is closed down.
@@ -1025,13 +1035,7 @@
   "Called, from the server, when a client connects to the server port."
   ;; this is a callback function from the socket event loop manager
   ;; so we can't dilly dally...
-  (declare (ignore accepting-handle))
-  (let+ ((:mvb (peer-ip peer-port)
-          #+:LISPWORKS8 (comm:socket-connection-peer-address io-state)
-          #+:LISPWORKS7 (comm:get-socket-peer-address (slot-value io-state 'comm::object))
-          ))
-    (send connections sink :add-server peer-ip peer-port io-state)
-    ))
+  (send connections sink :add-server accepting-handle io-state))
 
 ;; --------------------------------------------------------------
 ;; Startup and Shutdown
