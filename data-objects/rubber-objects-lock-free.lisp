@@ -305,6 +305,8 @@ THE SOFTWARE.
 (defvar *key*       nil)
 (defvar *this*      nil)
 
+(declaim (inline this))
+
 (defun this ()
   *this*)
 
@@ -316,7 +318,7 @@ THE SOFTWARE.
        (prop *this* *key*)
      (if *responder*
          (if (functionp fn)
-             (apply fn *this* args)
+             (apply fn args)
            fn)
        (error 'no-property :key *key* :obj *this*)))))
 
@@ -327,7 +329,7 @@ THE SOFTWARE.
       (when *responder*
         (return-from #1#
           (if (functionp fn)
-              (apply fn *this* args)
+              (apply fn args)
             fn))
         )))
   (error 'no-next-property :key *key* :obj *responder*))
@@ -348,17 +350,17 @@ THE SOFTWARE.
 #+:LISPWORKS
 (editor:setup-indent "defslotfn" 3)
 
-(defslotfn :print-object =top= (obj &optional (stream *standard-output*))
-  (print-unreadable-object (obj stream :identity t)
+(defslotfn :print-object =top= (&optional (stream *standard-output*))
+  (print-unreadable-object (this stream :identity t)
     (format stream "~:(~S~)"
-            (class-name (class-of obj))))
+            (class-name (class-of this))))
   (terpri stream)
   (princ "Properties:" stream)
-  (pprint (sort (um:group (props obj) 2)
+  (pprint (sort (um:group (props this) 2)
                 #'ord:less
                 :key  #'car)
           stream)
-  obj)
+  this)
 
 ;; --------------------------------------------
 
