@@ -235,8 +235,8 @@ THE SOFTWARE.
       lst
     (destructuring-bind (key val &rest tl) new-props
       (if (eq +not-found+ (getf lst key +not-found+))
-          (%merge-props tl (list* key val lst))
-        (%merge-props tl lst))
+          (%absorb-props tl (list* key val lst))
+        (%absorb-props tl lst))
       )))
 
 (defgeneric copy-obj (obj &rest new-props)
@@ -245,7 +245,7 @@ THE SOFTWARE.
    ;; result has same parent as source object
    (make-instance (class-of obj)
                   :parent (parent obj)
-                  :props  (ref:ref (%absorb-props (props-obj)
+                  :props  (ref:ref (%absorb-props (props obj)
                                                   (%absorb-props new-props)))
                   )))
 
@@ -266,11 +266,20 @@ THE SOFTWARE.
   ;; Speed of hashtable is relatively constant for any number of entries in the table (as expected)
   ;; Speed of property list is blazing fast here.
   ;; Speed of map is offensively slow, in comparison.
-(defun tst (&key (nel 20) (niter 1_000_000))
+(defun tst (&key (nel 20) (niter 1000000))
   #F
-  (let* ((keys (loop repeat nel collect (lw:mt-random (* 5 nel))))
-         (vals (loop repeat nel collect (lw:mt-random 1000)))
-         (queries (loop repeat niter collect (lw:mt-random (* 5 nel))))
+  (let* ((keys (loop repeat nel collect
+		     #+:LISPWORKS (lw:mt-random (* 5 nel))
+		     #-:LISPWORKS (random (* 5 nel))
+		     ))
+         (vals (loop repeat nel collect
+		     #+:LISPWORKS (lw:mt-random 1000)
+		     #-:LISPWORKS (random 1000)
+		     ))
+         (queries (loop repeat niter collect
+			#+:LISPWORKS (lw:mt-random (* 5 nel))
+			#-:LISPWORKS (random (* 5 nel))
+			))
          (ht   (make-hash-table))
          (lst  (mapcan 'list keys vals))
          (map  (maps:empty)))
