@@ -185,32 +185,31 @@ THE SOFTWARE.
     (no-property ()
       (call-next-method))))
 
-(defun %direct-prop-keys (obj accum)
+(defun %direct-prop-keys (obj &optional accum)
   (um:nlet iter ((lst  (props obj))
                  (acc  accum))
     (if (endp lst)
         acc
-      (go-iter (cddr lst) (sets:add acc (car lst)))
+      (go-iter (cddr lst) (adjoin (car lst) acc))
       )))
 
 (defgeneric direct-prop-keys (obj)
   (:method ((obj rubber-object))
-   (sets:elements (%direct-prop-keys obj (sets:empty)))))
+   (%direct-prop-keys obj)))
 
 (defgeneric prop-keys (obj)
   (:method ((obj rubber-object))
    (nlet collect ((obj   obj)
-                  (accum (sets:empty)))
+                  (accum nil))
      (if obj
          (go-collect (parent obj) (%direct-prop-keys obj accum))
-       (sets:elements accum)))))
+       accum)
+     )))
 
 (defgeneric has-direct-prop (obj key)
   (:method ((obj rubber-object) key)
-   (let ((ans (getf (props obj) key +not-found+)))
-     (unless (eq ans +not-found+)
-       t))
-   ))
+   (not (eq +not-found+ (getf (props obj) key +not-found+))
+        )))
 
 (defgeneric has-prop (obj key)
   (:method ((obj rubber-object) key)
@@ -220,19 +219,29 @@ THE SOFTWARE.
   (:method ((obj rubber-object) key)
    (um:rmw (ref:ref-val (props-ref obj))
            (lambda (lst)
-             (remf lst key)
-             lst))
-   ))
+             (um:nlet iter ((tl  lst)
+                            (pos 0))
+               (if (endp tl)
+                   lst
+                 (if (eq key (car tl))
+                     (nconc (subseq lst 0 pos) (cddr tl))
+                   (go-iter (cddr tl) (+ pos 2))
+                   ))
+               ))
+           )))
 
 (defun %merge-props (new-props old-props)
   ;; reversing here removes duplicates by taking the
   ;; earliest as final
-  (assert (evenp (length new-props)))
-  (um:nlet iter ((lst (reverse new-props)))
-    (when lst
-      (setf (getf old-props (cadr lst)) (car lst))
-      (go-iter (cddr lst))))
-  old-props)
+  (labels ((merge (lst props)
+             (if (endp props)
+                 lst
+               (destructuring-bind (key val &rest tl) props
+                 (if (eq +not-found+ (getf lst key +not-found+))
+                     (merge (list* key val lst) tl)
+                   (merge lst tl)))
+               )))
+    (merge (merge nil new-props) old-props)))
 
 (defgeneric copy-obj (obj &rest new-props)
   (:method ((obj rubber-object) &rest new-props)
