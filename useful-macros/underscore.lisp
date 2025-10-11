@@ -10,20 +10,23 @@
 (progn
   (defadvice (sys::read-token underscore-skipper :around)
       (&rest args)
-    (let ((ans  (multiple-value-list (apply #'call-next-advice args))))
-      (cond ((and (symbolp (car ans))
-                  (find #\_ (symbol-name (car ans))))
-             (let* ((namex (remove #\_ (symbol-name (car ans))))
-                    (ans2  (multiple-value-list (read-from-string namex nil nil))))
-               (if (and (numberp (car ans2))
-			(eql (cadr ans2) (length namex)))
-                   (progn
-                     (unintern (car ans))
-                     (apply #'values (car ans2) (cdr ans)))
-		   (apply #'values ans))
-               ))
+    (let* ((ans  (multiple-value-list (apply #'call-next-advice args)))
+           (val  (car ans))
+           name)
+      (cond ((and (symbolp val)
+                  (find #\_ (setf name (symbol-name val))))
+             (let ((namex (remove #\_ name)))
+               (multiple-value-bind (ans2 end)
+                   (read-from-string namex nil nil)
+                 (if (and (numberp ans2)
+                          (eql end (length namex)))
+                     (progn
+                       (unintern val (symbol-package val))
+                       (apply #'values ans2 (cdr ans)))
+		   (values-list ans))
+                 )))
             (t
-             (apply #'values ans))
+             (values-list ans))
             )))
   
   ;; ----------------------------------------------------
@@ -38,12 +41,13 @@
   
   (defadvice (sys::new-read-extended-token underscore-skipper :around)
       (&rest args)
-    (let ((ans (multiple-value-list (apply #'call-next-advice args))))
+    (let* ((ans (multiple-value-list (apply #'call-next-advice args)))
+           (val (car ans)))
       (cond ((and *in-sharp-r*
-                  (stringp (car ans)))
-             (apply #'values (remove #\_ (car ans)) (cdr ans)))
+                  (stringp val))
+             (apply #'values (remove #\_ val) (cdr ans)))
             (t
-             (apply #'values ans))
+             (values-list ans))
             ))))
 
 ;; --------------------------------------------
@@ -68,7 +72,7 @@
 					    (if (and (numberp ans)
 						     (eql end (length namex)))
 						(progn
-						  (unintern result)
+						  (unintern result (symbol-package result))
 						  (values flag ans))
 						(values flag result))
 					    )))
