@@ -230,18 +230,14 @@ THE SOFTWARE.
                ))
            )))
 
-(defun %merge-props (new-props old-props)
-  ;; reversing here removes duplicates by taking the
-  ;; earliest as final
-  (labels ((merge (lst props)
-             (if (endp props)
-                 lst
-               (destructuring-bind (key val &rest tl) props
-                 (if (eq +not-found+ (getf lst key +not-found+))
-                     (merge (list* key val lst) tl)
-                   (merge lst tl)))
-               )))
-    (merge (merge nil new-props) old-props)))
+(defun %absorb-props (new-props &optional lst)
+  (if (endp new-props)
+      lst
+    (destructuring-bind (key val &rest tl) new-props
+      (if (eq +not-found+ (getf lst key +not-found+))
+          (%merge-props tl (list* key val lst))
+        (%merge-props tl lst))
+      )))
 
 (defgeneric copy-obj (obj &rest new-props)
   (:method ((obj rubber-object) &rest new-props)
@@ -249,7 +245,9 @@ THE SOFTWARE.
    ;; result has same parent as source object
    (make-instance (class-of obj)
                   :parent (parent obj)
-                  :props  (ref:ref (%merge-props new-props (props obj))))))
+                  :props  (ref:ref (%absorb-props (props-obj)
+                                                  (%absorb-props new-props)))
+                  )))
 
 (defgeneric inherit-from (obj &rest new-props)
   (:method ((obj rubber-object) &rest new-props)
@@ -257,7 +255,7 @@ THE SOFTWARE.
    ;; new or modified properties
    (make-instance (class-of obj)
                   :parent obj
-                  :props  (ref:ref (%merge-props new-props nil))
+                  :props  (ref:ref (%absorb-props new-props))
                   ))
   (:method ((obj null) &rest new-props)
    (apply #'inherit-from =top= new-props)))
