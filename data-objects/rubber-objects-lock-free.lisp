@@ -56,6 +56,7 @@ THE SOFTWARE.
    #:call
    #:super
    #:defslotfn
+   #:this
    ))
 
 ;; --------------------------------------------
@@ -98,7 +99,8 @@ THE SOFTWARE.
 
 (defclass rubber-object ()
   ((parent     :reader   parent      :initarg :parent     :initform nil)
-   (props-ref  :accessor props-ref   :initarg :props-ref  :initform (ref:ref (maps:empty)))))
+   (props-ref  :accessor props-ref   :initarg :props-ref  :initform (ref:ref nil))
+   ))
 
 (defvar =top= (make-instance 'rubber-object))
 
@@ -115,29 +117,41 @@ THE SOFTWARE.
           t
         (go-iter (parent obj))))
     ))
-  
+
+(defvar +not-found+ (list "not found"))
+
 (defgeneric prop (obj key &optional default)
   (:method ((obj rubber-object) key &optional default)
    ;; return the direct or ancestor property value
    ;; as a secondary value we return the object in which the prop was found
    (nlet iter ((obj  obj))
      (if obj
-         (multiple-value-bind (ans found)
-             (maps:find (props obj) key)
-           (if found
-               (values ans obj)
+         (let ((ans (getf (props obj) key +not-found+)))
+           (if (eq ans +not-found+)
+               (go-iter (parent obj))
              ;; else
-             (go-iter (parent obj))))
+             (values ans obj)
+             ))
        ;; else
-      (values default nil))
-     )))
+       default))
+   ))
 
 (defgeneric set-prop (obj key val)
   (:method ((obj rubber-object) key val)
    ;; copy-on-write semantics. Any changes to properties
    ;; occur in the direct object, not in any of the inheritaned ancestors
-   (um:rmw (ref:ref-val (props-ref obj)) (lambda (map)
-                                           (maps:add map key val)))
+   (um:rmw (ref:ref-val (props-ref obj))
+           (lambda (lst)
+             (um:nlet iter ((tl  lst)
+                            (pos 0))
+               (if (endp tl)
+                   (list* key val lst)
+                 (if (eq key (car tl))
+                     (nconc (subseq lst 0 pos)
+                            (list* key val (cddr tl)))
+                   (go-iter (cddr tl) (+ pos 2))
+                   )))
+             ))
    ))
 
 (defsetf prop set-prop)
@@ -172,11 +186,12 @@ THE SOFTWARE.
       (call-next-method))))
 
 (defun %direct-prop-keys (obj accum)
-  (maps:fold (props obj)
-             (lambda (k v accu)
-               (declare (ignore v))
-               (sets:add accu k))
-             accum))
+  (um:nlet iter ((lst  (props obj))
+                 (acc  accum))
+    (if (endp lst)
+        acc
+      (go-iter (cddr lst) (sets:add acc (car lst)))
+      )))
 
 (defgeneric direct-prop-keys (obj)
   (:method ((obj rubber-object))
@@ -192,7 +207,10 @@ THE SOFTWARE.
 
 (defgeneric has-direct-prop (obj key)
   (:method ((obj rubber-object) key)
-   (second (multiple-value-list (maps:find (props obj) key)))))
+   (let ((ans (getf (props obj) key +not-found+)))
+     (unless (eq ans +not-found+)
+       t))
+   ))
 
 (defgeneric has-prop (obj key)
   (:method ((obj rubber-object) key)
@@ -201,8 +219,10 @@ THE SOFTWARE.
 (defgeneric remove-direct-prop (obj key)
   (:method ((obj rubber-object) key)
    (um:rmw (ref:ref-val (props-ref obj))
-           (lambda (map)
-             (maps:remove map key)))))
+           (lambda (lst)
+             (remf lst key)
+             lst))
+   ))
 
 (defun %merge-props (new-props old-props)
   ;; reversing here removes duplicates by taking the
@@ -210,7 +230,7 @@ THE SOFTWARE.
   (assert (evenp (length new-props)))
   (um:nlet iter ((lst (reverse new-props)))
     (when lst
-      (maps:addf old-props (cadr lst) (car lst))
+      (setf (getf old-props (cadr lst)) (car lst))
       (go-iter (cddr lst))))
   old-props)
 
@@ -228,7 +248,8 @@ THE SOFTWARE.
    ;; new or modified properties
    (make-instance (class-of obj)
                   :parent obj
-                  :props  (ref:ref (%merge-props new-props (maps:empty)))))
+                  :props  (ref:ref (%merge-props new-props nil))
+                  ))
   (:method ((obj null) &rest new-props)
    (apply #'inherit-from =top= new-props)))
 
@@ -236,45 +257,61 @@ THE SOFTWARE.
 #| -----------------------------------------------------------------------------------------------
   ;; compare speed of access between property lists and hashtables
   ;; Speed of hashtable is relatively constant for any number of entries in the table (as expected)
-  ;; Speed of property list is head:head with hashtable for fewer than 100 elements,
-  ;; about half as fast at 500 elements.
-(let* ((nel  1000)
-       (niter 1000000)
-       (keys (loop repeat nel collect (lw:mt-random (* 5 nel))))
-       (vals (loop repeat nel collect (lw:mt-random 1000)))
-       (ht   (make-hash-table))
-       (lst  (mapcan 'list keys vals))
-       (map  (maps:empty))
-       (queries (loop repeat niter collect (lw:mt-random (* 5 nel)))))
-  (loop for key in keys
-        for val in vals
-        do
-        (setf (gethash key ht) val)
-        (maps:addf map key val))
-  (print "Timing HT")
-  (time (dolist (query queries)
-          (gethash query ht)))
-  (print "Timing Lst")
-  (time (dolist (query queries)
-          (getf lst query)))
-  (print "Timing Map")
-  (time (dolist (query queries)
-          (maps:find map query)))
-  )
+  ;; Speed of property list is blazing fast here.
+  ;; Speed of map is offensively slow, in comparison.
+(defun tst (&key (nel 20) (niter 1_000_000))
+  #F
+  (let* ((keys (loop repeat nel collect (lw:mt-random (* 5 nel))))
+         (vals (loop repeat nel collect (lw:mt-random 1000)))
+         (queries (loop repeat niter collect (lw:mt-random (* 5 nel))))
+         (ht   (make-hash-table))
+         (lst  (mapcan 'list keys vals))
+         (map  (maps:empty)))
+    (loop for key in keys
+          for val in vals
+          do
+            (setf (gethash key ht) val)
+            (maps:addf map key val))
+
+    ;; --------------------------------------------
+    ;; HT - minor amount of allocation, no page faults, no GC, 20 ms
+    (print "Timing HT")
+    (time (dolist (query queries)
+            (gethash query ht)))
+
+    ;; --------------------------------------------
+    ;; LST - no allocation, no page faults, no GC, 3 ms
+    (print "Timing Lst")
+    (time (dolist (query queries)
+            (getf lst query)))
+
+    ;; --------------------------------------------
+    ;; MAP - lots of allocation, 38 page faults, no GC, 2449 ms.
+    (print "Timing Map")
+    (time (dolist (query queries)
+            (maps:find map query)))
+    ))
+(tst :nel 1000)
 |#
 
 (defvar *responder* nil)
 (defvar *key*       nil)
+(defvar *this*      nil)
+
+(defun this ()
+  *this*)
+
+(define-symbol-macro this (this))
 
 (defgeneric call (obj key &rest args)
-  (:method ((obj rubber-object) *key* &rest args)
+  (:method ((*this* rubber-object) *key* &rest args)
    (multiple-value-bind (fn *responder*)
-       (prop obj *key*)
+       (prop *this* *key*)
      (if *responder*
          (if (functionp fn)
-             (apply fn obj args)
+             (apply fn *this* args)
            fn)
-       (error 'no-property :key *key* :obj obj)))))
+       (error 'no-property :key *key* :obj *this*)))))
 
 (defun #1=%call-next (&rest args)
   (when-let (par (parent *responder*))
@@ -283,14 +320,14 @@ THE SOFTWARE.
       (when *responder*
         (return-from #1#
           (if (functionp fn)
-              (apply fn args)
+              (apply fn *this* args)
             fn))
         )))
   (error 'no-next-property :key *key* :obj *responder*))
     
 (defmacro! defslotfn (key obj (&rest args) &body body)
   ;; slot functions can refer to inherited slot functions for the same
-  ;; slot key by calling CALL-SUPER
+  ;; slot key by calling SUPER
   `(let ((,g!obj ,obj)
          (,g!key ,key))
      (setf (prop ,g!obj ,g!key)
@@ -310,11 +347,9 @@ THE SOFTWARE.
             (class-name (class-of obj))))
   (terpri stream)
   (princ "Properties:" stream)
-  (pprint (nreverse
-           (maps:fold (props obj)
-                      (lambda (k v accum)
-                        (acons k v accum))
-                     nil))
+  (pprint (sort (um:group (props obj) 2)
+                #'ord:less
+                :key  #'car)
           stream)
   obj)
 
