@@ -212,7 +212,11 @@ THE SOFTWARE.
   (null (car (um:rd (ref:ref-val q)))))
 
 (defmethod contents ((q fifo))
-  (let ((pair (mpc:atomic-exchange (ref:ref-val q) (cons nil nil))))
+  ;; Can't simply use ATOMIC-EXCHANGE here, because an RMW might be in
+  ;; progress. Must abide by the RD/RMW protocol.
+  (multiple-value-bind (_ pair)
+      (um:rmw (ref:ref-val q) (lambda (lst)
+                                (values (cons nil nil) lst)))
     (append (car pair) (reverse (cdr pair)))
     ))
 
