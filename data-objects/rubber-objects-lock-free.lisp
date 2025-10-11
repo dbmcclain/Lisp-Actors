@@ -71,26 +71,26 @@ THE SOFTWARE.
 
 ;; ------------------------------------------------------------------
 
+(defun report-no-property (cx stream)
+  (format stream "No property ~S on ~A"
+          (no-property-key cx)
+          (no-property-obj cx)))
+
 (define-condition no-property (error)
   ((key :reader no-property-key :initarg :key)
    (obj :reader no-property-obj :initarg :obj))
   (:report report-no-property))
 
-(defun report-no-property (cx stream)
-  (format stream "No property ~S on ~A"
-          (no-property-key cx)
-          (no-property-obj cx)))
+(defun report-no-next-property (cx stream)
+  (format stream "No next property ~S on ~A"
+          (next-property-key cx)
+          (next-property-obj cx)))
 
 (define-condition no-next-property (error)
   ((key  :reader next-property-key :initarg :key)
    (obj  :reader next-property-obj :initarg :obj))
   (:report report-no-next-property))
 
-(defun report-no-next-property (cx stream)
-  (format stream "No next property ~S on ~A"
-          (next-property-key cx)
-          (next-property-obj cx)))
-  
 ;; ------------------------------------------------------------------
 
 (defgeneric parent (obj)
@@ -266,7 +266,7 @@ THE SOFTWARE.
   ;; Speed of hashtable is relatively constant for any number of entries in the table (as expected)
   ;; Speed of property list is blazing fast here.
   ;; Speed of map is offensively slow, in comparison.
-(defun tst (&key (nel 20) (niter 1000000))
+(defun tst (&key (nel 20) (niter 1_000_000))
   #F
   (let* ((keys (loop repeat nel collect
 		     #+:LISPWORKS (lw:mt-random (* 5 nel))

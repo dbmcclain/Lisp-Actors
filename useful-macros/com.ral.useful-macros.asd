@@ -109,7 +109,7 @@ THE SOFTWARE.
                 ;; (:file "match-macro-ex3")
                 ;; (:file "monitor-macros")
                 ;; (:file "lazy") ;; supplanted by a better, simpler, version
-                #+:LISPWORKS (:file "underscore")
+                (:file "underscore")
                 (:file "sep")
                 #+:LISPWORKS (:file "abbrev-bignums")
                 ;; (:file  "picfmt")

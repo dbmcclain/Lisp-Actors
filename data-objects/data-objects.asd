@@ -36,7 +36,7 @@ THE SOFTWARE.
                 (:file "locked-resource")
                 ;; (:file "mi-rubber-objects-2")
 		;; (:file "rubber-objects-maps")
-                #+:LISPWORKS (:file "rubber-objects-lock-free")
+                (:file "rubber-objects-lock-free")
                 #+(AND :COM.RAL :LISPWORKS) (:file "mcas-v4")
                 #+:LISPWORKS (:file "multilock")
                 #+:LISPWORKS (:file "tl2")
