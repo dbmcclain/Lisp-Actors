@@ -22,7 +22,8 @@
                           (eql end (length namex)))
                      (progn
                        (unintern val (symbol-package val))
-                       (apply #'values ans2 (cdr ans)))
+                       ans2) ;; just 1 retval - same as when a normal number is encountered
+                   ;; else
 		   (values-list ans))
                  )))
             (t
