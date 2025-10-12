@@ -137,7 +137,6 @@
   (multiple-value-bind (vars vals store-vars writer-form reader-form)
       (get-setf-expansion place)
     (declare (ignore store-vars writer-form))
-    (setf reader-form `(,(car reader-form) (mpcompat:globally-accessible ,(cadr reader-form)) ,@(cddr reader-form)))
     (with-unique-names (old new rdr-fn cas-fn)
       `(let* ,(mapcar #'list vars vals)
          (flet ((,rdr-fn ()
