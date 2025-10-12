@@ -243,7 +243,7 @@ A null timeout means wait forever."
   `(nyi 'atomic-pop))
 
 (defmacro globally-accessible (place)
-  place)
+  `(nyi 'globally-accessible))
 
 (defun process-sharing-lock (&rest args)
   (nyi 'process-sharing-lock))
