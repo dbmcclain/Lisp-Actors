@@ -42,10 +42,10 @@
 ;;
 ;; We can't really know what value is held in obj for any length of
 ;; time after our mutation of it.  Another thread could come along and
-;; mutate right after we did.  So we break precedent with SETF and
-;; don't bother returning what we just set it to. When you need to
-;; know what value is held in obj, perform a RD on it to get the value
-;; it had at the time of the RD call.
+;; mutate right after we did.  So what we return is the value that was
+;; stored but which may not reflect reality by the time you look
+;; again.  When you need to know what value is held in obj, perform a
+;; RD on it to get the value it had at the time of the RD call.
 
 ;; ---------------------------------------------
 ;; This version uses a 2-phase approach, where competing threads help
@@ -80,7 +80,9 @@
   ;; RMW functions should always be added in pairs for each accessor,
   ;; since RMW depends on RD
   (setf (gethash accessor *rmw-functions*) (cons rd-fn rmw-fn)))
-
+#|
+(setf *rmw-functions* (make-hash-table))                      
+|#
 ;; -----------------------------------------------------------------------------------
 ;; Define generalized RMW functions with logic defined just once for all cases.
 ;; Extend the defns to allow for aux return values from a successful RMW op.
@@ -135,6 +137,7 @@
   (multiple-value-bind (vars vals store-vars writer-form reader-form)
       (get-setf-expansion place)
     (declare (ignore store-vars writer-form))
+    (setf reader-form `(,(car reader-form) (mpcompat:globally-accessible ,(cadr reader-form)) ,@(cddr reader-form)))
     (with-unique-names (old new rdr-fn cas-fn)
       `(let* ,(mapcar #'list vars vals)
          (flet ((,rdr-fn ()
@@ -172,7 +175,16 @@
       )))
 
 (defmacro wr (place new)
+  ;; We need to abide by the RMW protocol. An RMW might be under way,
+  ;; and the caller might be depending on the answer to their op.
+  `(rmw ,place (constantly ,new)))
+
+(defsetf rd wr)
+
+#|
+(defmacro ???
   `(setf (mpcompat:globally-accessible ,place) ,new))
+|#
 
 (defmacro cas (place old new)
   `(mpcompat:compare-and-swap ,place ,old ,new))
