@@ -61,16 +61,19 @@
           (remf plist key))
   plist)
 
-(defmethod state-with ((state actor-state) &rest props)
-  (let* ((new-plist (copy-list (actor-state-plist state)))
+(defun augment-plist (plist &rest props)
+  (let* ((new-plist (copy-list plist))
          (elisions  (getf props :without new-plist)))
     (unless (eq elisions new-plist)
       (setf new-plist (trim-plist new-plist (um:mklist elisions)))
       (remf props :without))
     (loop for (key val) on props by #'cddr do
             (setf (getf new-plist key) val))
-    (apply #'actor-state new-plist)
-    ))
+    new-plist))
+  
+(defmethod state-with ((state actor-state) &rest props)
+  (apply #'actor-state
+         (apply #'augment-plist (actor-state-plist state) props)))
 
 (defmethod state-without ((state actor-state) &rest removals)
   (let ((new-plist  (copy-list (actor-state-plist state))))
@@ -93,6 +96,10 @@
 (defmethod um:with ((state actor-state) &rest props)
   ;; WITH state props [:WITHOUT (prop-name | list-of-prop-names)] -> new-state
   (apply #'state-with state props))
+
+(defmethod um:with ((state list) &rest props)
+  ;; State LIST is assumed to be a property list of alternating keywords and values.
+  (apply #'augment-plist state props))
 
 
 (defmacro with-actor-state (name &body body)
@@ -127,3 +134,14 @@
 
 #+:LISPWORKS
 (editor:setup-indent "with-actor-state" 1)
+
+;; --------------------------------------------
+
+(defmacro dictionary-bind (kw-args dict &body body)
+  `(apply (lambda (&key ,@kw-args &allow-other-keys)
+            ,@body)
+          ,dict))
+
+(defmethod do-let+ ((fst (eql :db)) list-form form)
+  `(dictionary-bind ,(cadr list-form) ,(third list-form) ,form))
+

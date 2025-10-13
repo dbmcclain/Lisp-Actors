@@ -333,6 +333,7 @@ THE SOFTWARE.
    #:state-val
    #:with-state-vals
    #:with-actor-state
+   #:dictionary-bind
    
    #:counter-beh
    #:counter

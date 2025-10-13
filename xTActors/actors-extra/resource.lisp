@@ -6,11 +6,12 @@
 ;; DM/RAL 12/21
 ;; ------------------------------------------------------------------
 ;;
-;; Actors vs UNWIND-PROTECT and RESTART... Actors do not retain a
-;; useable dynamic environment, since they exit immediately after
-;; sending messages. By the time the sent-to receiver gets activated,
-;; the sending Actor is long gone, and there if no record of the
-;; sender. So UNWIND-PROTECT, RESTART-HANDLER, etc. are ineffective.
+;; Actors vs UNWIND-PROTECT and RESTART... Actor execution does not
+;; retain a useable dynamic environment, since they exit immediately
+;; after sending messages. By the time the sent-to receiver gets
+;; activated, the sending Actor is long gone, and there if no record
+;; of the sender. So UNWIND-PROTECT, RESTART-HANDLER, etc. are
+;; ineffective.
 ;;
 ;; Instead, when we have actions that may need to restart, we send
 ;; along a customer for the normal case, and an on-fail Actor to
