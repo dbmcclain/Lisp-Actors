@@ -43,7 +43,41 @@
 ;; in the plist. All of the accessor names are read-only.
 ;;
 ;; -------------------------------------------------------------------
+;; No need for ACTOR-STATE... Just use PLists.
 
+(defun trim-plist (plist removals)
+  (loop for key in removals do
+          (remf plist key))
+  plist)
+
+(defun augment-plist (plist &rest props)
+  (let* ((new-plist (copy-list plist))
+         (elisions  (getf props :without new-plist)))
+    (unless (eq elisions new-plist)
+      (setf new-plist (trim-plist new-plist (um:mklist elisions))
+            props     (copy-list props))
+      (remf props :without))
+    (loop for (key val) on props by #'cddr do
+            (setf (getf new-plist key) val))
+    new-plist))
+  
+(defmacro dictionary-bind (kw-args dict &body body)
+  ;; Because we are providing a function arglist of &KEY args, this
+  ;; also supports default values for missing items, as well as
+  ;; present-p predicates.
+  `(apply (lambda (&key ,@kw-args &allow-other-keys)
+            ,@body)
+          ,dict))
+
+(defmethod do-let+ ((fst (eql :db)) list-form form)
+  `(dictionary-bind ,(cadr list-form) ,(third list-form) ,form))
+
+(defmethod um:with ((state list) &rest props)
+  ;; State LIST is assumed to be a property list of alternating keywords and values.
+  (apply #'augment-plist state props))
+
+;; --------------------------------------------
+#|
 (defstruct actor-state
   (plist nil :read-only t))
 
@@ -56,29 +90,13 @@
   (make-actor-state
    :plist (validate-plist plist)))
 
-(defun trim-plist (plist removals)
-  (loop for key in removals do
-          (remf plist key))
-  plist)
-
-(defun augment-plist (plist &rest props)
-  (let* ((new-plist (copy-list plist))
-         (elisions  (getf props :without new-plist)))
-    (unless (eq elisions new-plist)
-      (setf new-plist (trim-plist new-plist (um:mklist elisions)))
-      (remf props :without))
-    (loop for (key val) on props by #'cddr do
-            (setf (getf new-plist key) val))
-    new-plist))
-  
 (defmethod state-with ((state actor-state) &rest props)
   (apply #'actor-state
          (apply #'augment-plist (actor-state-plist state) props)))
 
 (defmethod state-without ((state actor-state) &rest removals)
   (let ((new-plist  (copy-list (actor-state-plist state))))
-    (setf new-plist (trim-plist new-plist removals))
-    (apply #'actor-state new-plist)
+    (apply #'actor-state (trim-plist new-plist removals))
     ))
 
 (defmethod state-val ((state actor-state) (key symbol) &optional default)
@@ -96,11 +114,6 @@
 (defmethod um:with ((state actor-state) &rest props)
   ;; WITH state props [:WITHOUT (prop-name | list-of-prop-names)] -> new-state
   (apply #'state-with state props))
-
-(defmethod um:with ((state list) &rest props)
-  ;; State LIST is assumed to be a property list of alternating keywords and values.
-  (apply #'augment-plist state props))
-
 
 (defmacro with-actor-state (name &body body)
   ;; Let's try something a bit different...
@@ -137,11 +150,4 @@
 
 ;; --------------------------------------------
 
-(defmacro dictionary-bind (kw-args dict &body body)
-  `(apply (lambda (&key ,@kw-args &allow-other-keys)
-            ,@body)
-          ,dict))
-
-(defmethod do-let+ ((fst (eql :db)) list-form form)
-  `(dictionary-bind ,(cadr list-form) ,(third list-form) ,form))
-
+|#

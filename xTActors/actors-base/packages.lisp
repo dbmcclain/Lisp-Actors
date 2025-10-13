@@ -326,14 +326,16 @@ THE SOFTWARE.
    #:!β    ;; BECOME (for us dyslexics)
    #:αλ    ;; ALAMBDA
 
+   #:with
+   #:dictionary-bind
+   #|
    #:actor-state
    #:state-with
-   #:with
    #:state-without
    #:state-val
    #:with-state-vals
    #:with-actor-state
-   #:dictionary-bind
+   |#
    
    #:counter-beh
    #:counter

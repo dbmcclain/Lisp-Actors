@@ -54,208 +54,211 @@
                  key
                (iter-hash (hash/256 :ekey key pt) pt (1- ct))
                )))
-    (with-actor-state state
-      ;; :root-key - current root for ratcheting, hash - evolving
-      ;; :tx-nbr   - sequence number of last Tx cryptotext
-      ;; :skey     - my secret key
-      ;; :pkey     - other party's public key
-      ;; :dh-pt    - current DH shared point, integer - evolving
-      ;; :dh-key   - current DH random point, integer - evolving
-      ;; :ack-key  - prior DH random point, integer - from recipient
-      ;; :dict     - limited dictionary of stale encryption keying
+    ;; STATE Items:
+    ;; :root-key - current root for ratcheting, hash - evolving
+    ;; :tx-nbr   - sequence number of last Tx cryptotext
+    ;; :skey     - my secret key
+    ;; :pkey     - other party's public key
+    ;; :dh-pt    - current DH shared point, integer - evolving
+    ;; :dh-key   - current DH random point, integer - evolving
+    ;; :ack-key  - prior DH random point, integer - from recipient
+    ;; :dict     - limited dictionary of stale encryption keying
       
-      (alambda
-       ;; ------------------------------------------------------
-       ;; Get encryption keying and preamble
-       
-       ((cust :tx-key)
-        (with-ed-curve +ECC-CURVE+
-          ;; Refreshing the Elligator encodings provides for a slighly
-          ;; randomized presentation when the unerlying Elligators are
-          ;; repeated in another preamble.
-          (let* ((next-tx-nbr  (1+ (state :tx-nbr)))
-                 (dh-tau       (refresh-elligator (state :dh-key)))
-                 (ack-tau      (refresh-elligator (state :ack-key)))
-                 (tx-key       (iter-hash (state :root-key) (state :dh-pt) next-tx-nbr)))
+    (alambda
+     ;; ------------------------------------------------------
+     ;; Get encryption keying and preamble
+     
+     ((cust :tx-key)
+      (with-ed-curve +ECC-CURVE+
+        ;; Refreshing the Elligator encodings provides for a slighly
+        ;; randomized presentation when the unerlying Elligators are
+        ;; repeated in another preamble.
+        (let+ ((:db (tx-nbr dh-key ack-key root-key dh-pt) state)
+               (next-tx-nbr  (1+ tx-nbr))
+               (dh-tau       (refresh-elligator dh-key))
+               (ack-tau      (refresh-elligator ack-key))
+               (tx-key       (iter-hash root-key dh-pt next-tx-nbr)))
+          (become (ratchet-manager-beh
+                   role
+                   (with state
+                     :tx-nbr  next-tx-nbr)
+                   tag))
+          ;; Encryption key, tk-key, is: K(n)= H(root, dh-pt)^n,
+          ;; for tx-nbr = n, root-key = root, dh-pt = random point, R.
+          (send cust next-tx-nbr dh-tau ack-tau tx-key) )))
+     ;;                  ^         ^       ^      ^
+     ;;                  |         |       |      |
+     ;;                  |         |       |      +-- encryption key to use
+     ;;                  |         |       +-- Old keying acknowledgement
+     ;;                  |         +-- New keying in use
+     ;;                  +-- Tx in series for DH-TAU keying: 1,2,3...
+     ;;
+     ;; DH-TAU, ACK-TAU are Elligator encodings of random EC points (integer).
+     ;; NEXT-TX-NBR is a simple integer. Every message numbered sequentially.
+     ;; TX-KEY is a 256-bit hash, used as an AES-256 key.
+     ;;
+     ;; (Hint: DH = Diffie-Hellman). I send you a random point, R = r*G.
+     ;; Our shared key is
+     ;;
+     ;;           K = s*R = r*P = r*s*G
+     ;;
+     ;;  where s is recipient's secret key, and P is recipient's
+     ;;  public key. I know the random value, r, used, and
+     ;;  recipient's public key, P.
+     ;;
+     ;;  But we actually send across an Elligator encoding of random
+     ;;  point, R.)
+     ;;
+     ;; --------------------------------------------------------
+     ;; Get decryption keying
+     
+     ((cust :rx-key seq tau ack iv ctxt auth)
+      ;; It is the nature of the beast, that Elligator makes a curve
+      ;; point appear as a random string, and does so in a random
+      ;; manner.
+      ;;
+      ;; Every new Elligator encoding of a point will look
+      ;; different. So you can't use an Elligator encoding to
+      ;; discern differences. You have to decode to a fixed
+      ;; representation first.
+      ;;
+      (with-ed-curve +ECC-CURVE+
+        (let+ ((:db (dh-key) state)
+               (inp-ack-key (ignore-errors
+                              (elligator-body ack)))
+               (tau-pt      (ignore-errors
+                              (elli2-decode tau))))
+        (cond
+         ((or (null tau-pt)
+              (not (integerp seq)))
+          ;; Intentional injection attack. Extremely rare bit
+          ;; pattern to be one of the very few invalid encodings.
+          ;; Else, just wasn't an integer. Just drop and ignore
+          ;; the input message.
+          )
+         ;; ----------------------------------
+         
+         ((eql inp-ack-key dh-key)  ;; does message ack our proposed keying?
+          ;; Time to ratchet forward...
+          ;; Choose new root-key and DH points
+          (let+ ((:db (pkey skey root-key dh-pt dict) state)
+                 (new-ack-pt  (int (ed-mul tau-pt skey))) ;; other party's random DH point
+                 (:mvb (new-root rx-key new-dict)
+                     (case role
+                       (:CLIENT ;; clients always initiate a conversation
+                        (let+ ((new-root   (hash/256 :ratchet-1 root-key dh-pt))
+                               (rx-key     (iter-hash new-root new-ack-pt seq))
+                               (new-dict   (maps:add dict
+                                                     inp-ack-key
+                                                     `(:bday  ,(get-universal-time) ;; birthday of entry
+                                                       :root  ,new-root             ;; root at time of ratchet
+                                                       :dh-pt ,new-ack-pt           ;; new DH random pt
+                                                       :seqs  ,(list seq))
+                                                     )))
+                          (values new-root rx-key new-dict)))
+                       (:SERVER ;; servers simply respond at first
+                        (let+ ((new-dict   (maps:add dict
+                                                     inp-ack-key
+                                                     `(:bday  ,(get-universal-time)
+                                                       :root  ,root-key
+                                                       :dh-pt ,new-ack-pt
+                                                       :seqs  ,(list seq))
+                                                     ))
+                               (rx-key     (iter-hash root-key new-ack-pt seq))
+                               (new-root   (hash/256 :ratchet-1 root-key new-ack-pt)))
+                          (values new-root rx-key new-dict)))
+                       ))
+                 ;; ------------------------------------------
+                 ;; At this point we have a decryption key. Let's be
+                 ;; sure we aren't being spoofed before making any
+                 ;; updates to our state.
+                 (:mvb (is-ok auth-key)
+                     (ignore-errors
+                       (check-auth rx-key iv ctxt auth))))
+            (when is-ok
+              (let+ ((:mvb (new-dh-rand new-dh-tau) ;; new random Elligator
+                         (compute-deterministic-elligator-skey
+                          :ratchet-2 new-root dh-pt))
+                     (new-dh-key (elligator-body new-dh-tau))     ;; our new DH random point
+                     (new-dh-pt  (int (ed-mul pkey new-dh-rand))) ;; our new DH shared point
+                     (tag        (tag self)))
+                (become (ratchet-manager-beh
+                         role
+                         (with state
+                           :root-key new-root
+                           :tx-nbr   0            ;; start counting anew
+                           :ack-key  (elligator-body tau) ;; sender's last DH Elligator
+                           :dh-key   new-dh-key   ;; our new DH Elligator
+                           :dh-pt    new-dh-pt    ;; our DH shared point
+                           :dict     new-dict)
+                         tag))
+                (send cust rx-key auth-key)
+                (send-after 10 tag :clean) ;; clear out stale encryption info in 10 sec
+                ))
+            ))
+         
+         ;; ----------------------------------------------
+         ;; Stale keying in message - lookup how to decrypt
+         (t
+          (let+ ((:db (dict) state))
+            (um:when-let (entry (maps:find dict inp-ack-key))
+              (let+ ((:db (bday root dh-pt seqs) entry))
+                ;; :bday  - time of creation of this entry
+                ;; :root  - root key at time we saw inp-ack to ratchet forward
+                ;; :dh-pt - DH shared pt
+                ;; :seqs  - history
+                
+                ;; avoid replay attacks
+                (unless (member seq seqs)
+                  (let+ ((rx-key  (iter-hash root dh-pt seq))
+                         ;; ------------------------------------------
+                         ;; At this point we have a decryption key. Let's be
+                         ;; sure we aren't being spoofed before making any
+                         ;; updates to our state.
+                         (:mvb (is-ok auth-key)
+                             (check-auth rx-key iv ctxt auth)))
+                    (when is-ok
+                      (let+ ((new-entry (with entry
+                                          :bday (get-universal-time) ;; new birthday for entry
+                                          :seqs (cons seq seqs)))
+                             (new-dict  (maps:add dict ack-key new-entry))
+                             (tag       (tag self)))
+                        (become (ratchet-manager-beh
+                                 role
+                                 (with state
+                                   :dict new-dict)
+                                 tag))
+                        (send cust rx-key auth-key)
+                        (send-after 10 tag :clean)
+                        ))))
+                ))))
+         ))))
+     ;; ---------------------------------------------------
+     ;; Clean out old stale-keying entries
+     
+     ((atag :clean) / (eq atag tag)
+      (let+ ((now      (get-universal-time))
+             (:db (dict) state)
+             (new-dict (maps:fold dict
+                                  (lambda (k v acc)
+                                    (let+ ((:db (bday) v))
+                                      (if (> (- now bday) 10)
+                                          (maps:remove acc k)
+                                        acc)))
+                                  dict)))
+        (unless (eq dict new-dict)
+          (let ((tag (unless (maps:is-empty new-dict)
+                       (tag self))))
             (become (ratchet-manager-beh
                      role
-                     (state with
-                       :tx-nbr  next-tx-nbr)
+                     (with state
+                       :dict new-dict)
                      tag))
-            ;; Encryption key, tk-key, is: K(n)= H(root, dh-pt)^n,
-            ;; for tx-nbr = n, root-key = root, dh-pt = random point, R.
-            (send cust next-tx-nbr dh-tau ack-tau tx-key) )))
-       ;;                  ^         ^       ^      ^
-       ;;                  |         |       |      |
-       ;;                  |         |       |      +-- encryption key to use
-       ;;                  |         |       +-- Old keying acknowledgement
-       ;;                  |         +-- New keying in use
-       ;;                  +-- Tx in series for DH-TAU keying: 1,2,3...
-       ;;
-       ;; DH-TAU, ACK-TAU are Elligator encodings of random EC points (integer).
-       ;; NEXT-TX-NBR is a simple integer. Every message numbered sequentially.
-       ;; TX-KEY is a 256-bit hash, used as an AES-256 key.
-       ;;
-       ;; (Hint: DH = Diffie-Hellman). I send you a random point, R = r*G.
-       ;; Our shared key is
-       ;;
-       ;;           K = s*R = r*P = r*s*G
-       ;;
-       ;;  where s is recipient's secret key, and P is recipient's
-       ;;  public key. I know the random value, r, used, and
-       ;;  recipient's public key, P.
-       ;;
-       ;;  But we actually send across an Elligator encoding of random
-       ;;  point, R.)
-       ;;
-       ;; --------------------------------------------------------
-       ;; Get decryption keying
-
-       ((cust :rx-key seq tau ack iv ctxt auth)
-        ;; It is the nature of the beast, that Elligator makes a curve
-        ;; point appear as a random string, and does so in a random
-        ;; manner.
-        ;;
-        ;; Every new Elligator encoding of a point will look
-        ;; different. So you can't use an Elligator encoding to
-        ;; discern differences. You have to decode to a fixed
-        ;; representation first.
-        ;;
-        (with-ed-curve +ECC-CURVE+
-          (let ((inp-ack-key (ignore-errors
-                               (elligator-body ack)))
-                (tau-pt      (ignore-errors
-                               (elli2-decode tau))))
-            (cond
-             ((or (null tau-pt)
-                  (not (integerp seq)))
-              ;; Intentional injection attack. Extremely rare bit
-              ;; pattern to be one of the very few invalid encodings.
-              ;; Else, just wasn't an integer. Just drop and ignore
-              ;; the input message.
-              )
-             ;; ----------------------------------
-             
-             ((eql inp-ack-key (state :dh-key)) ;; does message ack our proposed keying?
-              ;; Time to ratchet forward...
-              ;; Choose new root-key and DH points
-              (let+ ((new-ack-pt  (int (ed-mul tau-pt (state :skey)))) ;; other party's random DH point
-                     (:mvb (new-root rx-key new-dict)
-                      (case role
-                        (:CLIENT ;; clients always initiate a conversation
-                         (let+ ((new-root   (hash/256 :ratchet-1 (state :root-key) (state :dh-pt)))
-                                (rx-key     (iter-hash new-root new-ack-pt seq))
-                                (new-dict   (maps:add (state :dict)
-                                                      inp-ack-key
-                                                      (actor-state
-                                                       :bday  (get-universal-time) ;; birthday of entry
-                                                       :root  new-root             ;; root at time of ratchet
-                                                       :dh-pt new-ack-pt           ;; new DH random pt
-                                                       :seqs  (list seq))
-                                                      )))
-                           (values new-root rx-key new-dict)))
-                        (:SERVER ;; servers simply respond at first
-                         (let+ ((new-dict   (maps:add (state :dict)
-                                                      inp-ack-key
-                                                      (actor-state
-                                                       :bday  (get-universal-time)
-                                                       :root  (state :root-key)
-                                                       :dh-pt new-ack-pt
-                                                       :seqs  (list seq))
-                                                      ))
-                                (rx-key     (iter-hash (state :root-key) new-ack-pt seq))
-                                (new-root   (hash/256 :ratchet-1 (state :root-key) new-ack-pt)))
-                           (values new-root rx-key new-dict)))
-                        ))
-                     ;; ------------------------------------------
-                     ;; At this point we have a decryption key. Let's be
-                     ;; sure we aren't being spoofed before making any
-                     ;; updates to our state.
-                     (:mvb (is-ok auth-key)
-                      (ignore-errors
-                        (check-auth rx-key iv ctxt auth))))
-                (when is-ok
-                  (let+ ((:mvb (new-dh-rand new-dh-tau) ;; new random Elligator
-                          (compute-deterministic-elligator-skey
-                           :ratchet-2 new-root (state :dh-pt)))
-                         (new-dh-key (elligator-body new-dh-tau))     ;; our new DH random point
-                         (new-dh-pt  (int (ed-mul (state :pkey) new-dh-rand))) ;; our new DH shared point
-                         (tag        (tag self)))
-                    (become (ratchet-manager-beh
-                             role
-                             (state with
-                               :root-key new-root
-                               :tx-nbr   0            ;; start counting anew
-                               :ack-key  (elligator-body tau) ;; sender's last DH Elligator
-                               :dh-key   new-dh-key   ;; our new DH Elligator
-                               :dh-pt    new-dh-pt    ;; our DH shared point
-                               :dict     new-dict)
-                             tag))
-                    (send cust rx-key auth-key)
-                    (send-after 10 tag :clean) ;; clear out stale encryption info in 10 sec
-                    ))
-                ))
-             
-             ;; ----------------------------------------------
-             ;; Stale keying in message - lookup how to decrypt
-             (t
-              (um:when-let (entry (maps:find (state :dict) inp-ack-key))
-                (with-actor-state entry
-                  ;; :bday  - time of creation of this entry
-                  ;; :root  - root key at time we saw inp-ack to ratchet forward
-                  ;; :dh-pt - DH shared pt
-                  ;; :seqs  - history
-                  
-                  ;; avoid replay attacks
-                  (unless (member seq (entry :seqs))
-                    (let+ ((rx-key  (iter-hash (entry :root) (entry :dh-pt) seq))
-                           ;; ------------------------------------------
-                           ;; At this point we have a decryption key. Let's be
-                           ;; sure we aren't being spoofed before making any
-                           ;; updates to our state.
-                           (:mvb (is-ok auth-key)
-                            (check-auth rx-key iv ctxt auth)))
-                      (when is-ok
-                        (let+ ((new-entry (entry with
-                                            :bday (get-universal-time) ;; new birthday for entry
-                                            :seqs (cons seq (entry :seqs))))
-                               (new-dict  (maps:add (state :dict) (state :ack-key) new-entry))
-                               (tag       (tag self)))
-                          (become (ratchet-manager-beh
-                                   role
-                                   (state with
-                                     :dict new-dict)
-                                   tag))
-                          (send cust rx-key auth-key)
-                          (send-after 10 tag :clean)
-                          ))))
-                  )))
-             ))))
-       ;; ---------------------------------------------------
-       ;; Clean out old stale-keying entries
-       
-       ((atag :clean) / (eq atag tag)
-        (let+ ((now      (get-universal-time))
-               (new-dict (maps:fold (state :dict)
-                                    (lambda (k v acc)
-                                      (with-actor-state v
-                                        (if (> (- now (v :bday)) 10)
-                                            (maps:remove acc k)
-                                          acc)))
-                                (state :dict))))
-          (unless (eq (state :dict) new-dict)
-            (let ((tag (unless (maps:is-empty new-dict)
-                         (tag self))))
-              (become (ratchet-manager-beh
-                       role
-                       (state with
-                         :dict new-dict)
-                       tag))
-              (when tag
-                (send-after 10 tag :clean))
-              ))
-          ))
-       ))))
+            (when tag
+              (send-after 10 tag :clean))
+            ))
+        ))
+     )))
 
 ;; -----------------------------------------------------
 
@@ -283,16 +286,15 @@
       (create
        (ratchet-manager-beh
         :CLIENT
-        (actor-state
-         :root-key  ekey
-         :pkey      pkey
-         :skey      skey
-         :tx-nbr    0
-         :dh-pt     dh-pt
-         :dh-key    dh-key
-         :ack-key   ack-key
-         :dict      (maps:empty)
-         )))
+        `(:root-key  ,ekey
+          :pkey      ,pkey
+          :skey      ,skey
+          :tx-nbr    0
+          :dh-pt     ,dh-pt
+          :dh-key    ,dh-key
+          :ack-key   ,ack-key
+          :dict      ,(maps:empty)
+          )))
       )))
 
 (defun server-ratchet-manager (ekey skey pkey)
@@ -302,15 +304,14 @@
       (create
        (ratchet-manager-beh
         :SERVER
-        (actor-state
-         :root-key  ekey
-         :pkey      pkey
-         :skey      skey
-         :dh-pt     ack-pt
-         :dh-key    ack-key
-         :dict      (maps:empty)
-         ))
-       ))))
+        `(:root-key  ,ekey
+          :pkey      ,pkey
+          :skey      ,skey
+          :dh-pt     ,ack-pt
+          :dh-key    ,ack-key
+          :dict      ,(maps:empty)
+          )))
+      )))
 
 ;; -----------------------------------------------------
 ;; Double-Ratchet Encryption/Decryption Service Constructors
