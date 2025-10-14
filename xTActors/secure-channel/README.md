@@ -1,4 +1,3 @@
-
 On initial Socket Interface creation, we set up a socket state object, and generate unencrypted reader/writer Actors.
 These Actors are wired into the Async Socket protocol, for that socket, provided by Lispworks, and the async comms are
 started. Each Socket Interface can act as both client / server.
@@ -23,12 +22,12 @@ The client then sends the server this random ECC Point plus a short packet of in
 public key. The info packet contains the service desired, currently +SERVER-CONNECT-ID+, the UUID to use for the channel
 back to the client over the socket connection, and the client's public key ID.
 
-[A public key ID is not the same as the public key. It is a UUID that refers to a database entry containing the actual
+__[A public key ID is not the same as the public key. It is a UUID that refers to a database entry containing the actual
 public key. A database is held by each network node, containing a entries for all known participants and their public key
 and ID.
 
 In order to join a group like this and be recognized, you need to be introduced by a member who sends your ID and PKey
-over an ecrypted channel to another node as server. That member's participation vouches for you.]
+over an ecrypted channel to another node as server. That member's participation vouches for you.]__
 
 Clients initiate communications by contacting a server at service +SERVER-CONNECT-ID+, over the initial unencrypted
 channel, with a reply-to connection ID (UUID), a random ECC point, and their public ECC key.
