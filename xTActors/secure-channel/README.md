@@ -1,7 +1,7 @@
 -- Async Socket Protocol --
 ---
 This asynchronous communication layer resides beneath the Actor system, augmenting it to allow tansparent and seamless 
-message passing to remote Actors. Connections between client and server are establish on demand, without overt knowledge by
+message passing to remote Actors. Connections between client and server are established on demand, without overt knowledge by
 user Actor code. After an idle period of 20s, the connection is torn down.
 
 Message data, including Actor references, are marshaled in a network portable format of octet vectors. The Lisp objects are
