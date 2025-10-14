@@ -15,7 +15,7 @@ interface. There could be multiple Channels on each Socket. Initially, there is 
 Socket. Once a successful X3DH connection is negotiated then a secure encryption pipeline is attached to the unencrypted
 Channel, forming a secure Channel.
 
-Clients initiate communications by choosing a random UUID to represent a return channel back to them from the server, a
+Clients initiate communications by choosing a random UUID to represent a return channel back to them for the server, a
 random 256-bit secret integer, and a corresponding random ECC point equal to that secret integer times the server's
 public key.
 
