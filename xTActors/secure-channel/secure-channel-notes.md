@@ -1,135 +1,98 @@
 
-On initial Socket Interface creation, we set up a socket state object,
-and generate unencrypted reader/writer Actors. These Actors are wired
-into the Async Socket protocol, for that socket, provided by
-Lispworks, and the async comms are started. Each Socket Interface can
-act as both client / server.
+On initial Socket Interface creation, we set up a socket state object, and generate unencrypted reader/writer Actors.
+These Actors are wired into the Async Socket protocol, for that socket, provided by Lispworks, and the async comms are
+started. Each Socket Interface can act as both client / server.
 
-Wire transmissions are performed on self-sync octet streams produced by
-marshal encoding whatever arguments are being sent.
+Wire transmissions are performed on self-sync octet streams produced by marshal encoding whatever arguments are being
+sent.
 
-Servers silently listen for incoming connection requests from clients.
-The only service initially offered is +SERVER-CONNECT-ID+ (a
-universally known UUID), which performs an X3DH negotiation with
-clients to establish a secure encrypted connection. A separately keyed
-encrypted channel is set up for each client connection attempt.
+Servers silently listen for incoming connection requests from clients.  The only service initially offered is
++SERVER-CONNECT-ID+ (a universally known UUID), which performs an X3DH negotiation with clients to establish a secure
+encrypted connection. A separately keyed encrypted channel is set up for each client connection attempt.
 
-We distinguish Channels and Sockets - Channels are logical pipelines
-feeding a Socket. There could be multiple Channels on each Socket. The
-Socket represents a physical interface. Initially, there is only an
-unencrypted Channel on each Socket. Once a successful X3DH connection
-is negotiated then a secure encryption pipeline is attached to the
-unencrypted Channel, forming a secure Channel.
+We distinguish Channels and Sockets - Channels are logical pipelines feeding a Socket. The Socket represents a physical
+interface. There could be multiple Channels on each Socket. Initially, there is only an unencrypted Channel on each
+Socket. Once a successful X3DH connection is negotiated then a secure encryption pipeline is attached to the unencrypted
+Channel, forming a secure Channel.
 
-Clients initiate communications by choosing a random UUID to represent a return channel
-back to them for the server, a random 256-bit secret integer, and a corresponding random
-ECC point equal to that secret integer times the server's public key. 
+Clients initiate communications by choosing a random UUID to represent a return channel back to them for the server, a
+random 256-bit secret integer, and a corresponding random ECC point equal to that secret integer times the server's
+public key.
 
-The client then sends the server this random ECC Point plus a short packet of information
-encrypted to the server's public key. The info packet contains the service desired, 
-currently +SERVER-CONNECT-ID+, the UUID to use for the channel back to the client over the 
-socket connection, and the client's public key ID.
+The client then sends the server this random ECC Point plus a short packet of information encrypted to the server's
+public key. The info packet contains the service desired, currently +SERVER-CONNECT-ID+, the UUID to use for the channel
+back to the client over the socket connection, and the client's public key ID.
 
-[A public key ID is not the same as the public key. It is a UUID that refers to a database
-entry containing the actual public key. A database is held by each network node, containing
-a entries for all known participants and their public key and ID.
+[A public key ID is not the same as the public key. It is a UUID that refers to a database entry containing the actual
+public key. A database is held by each network node, containing a entries for all known participants and their public key
+and ID.
 
-In order to join a group like this and be recognized, you need to be introduced by a member
-who sends your ID and PKey over an ecrypted channel to another node as server. That member's
-participation vouches for you.]
+In order to join a group like this and be recognized, you need to be introduced by a member who sends your ID and PKey
+over an ecrypted channel to another node as server. That member's participation vouches for you.]
 
-Clients initiate communications by contacting a server at service
-+SERVER-CONNECT-ID+, over the initial unencrypted channel, with a
-reply-to connection ID (UUID), a random ECC point, and their public
-ECC key.  
+Clients initiate communications by contacting a server at service +SERVER-CONNECT-ID+, over the initial unencrypted
+channel, with a reply-to connection ID (UUID), a random ECC point, and their public ECC key.
 
-Servers validate the parameters - the random and public key ECC points
-must be valid curve points, the client ECC public key must be among
-those authorized for access - and then the server responds, over the
-unencrypted channel, back to that client connection ID with a randomly
-generated connection ID (UUID) for access to global services, their
-own random ECC point, and their own public ECC key. The supplied
-server connection ID feeds an encrypted channel on the socket.
+Servers validate the parameters - the random and public key ECC points must be valid curve points, the client ECC public
+key must be among those authorized for access - and then the server responds, over the unencrypted channel, back to that
+client connection ID with a randomly generated connection ID (UUID) for access to global services, their own random ECC
+point, and their own public ECC key. The supplied server connection ID feeds an encrypted channel on the socket.
 
-On reply to the client, the client performs similar validation checks
-against the supplied server random ECC point, and server public ECC
-key. Then it sets up its side of the encrypted channel.
+On reply to the client, the client performs similar validation checks against the supplied server random ECC point, and
+server public ECC key. Then it sets up its side of the encrypted channel.
 
-After that, all subsequent communications occur across encrypted
-channels, on both sides of the connection, using the keying
-established by the X3DH protocol. The keying is unique, on both sides,
-as the hash of X3DH keying and packet sequence number, for each
-subsequent communication packet.
+After that, all subsequent communications occur across encrypted channels, on both sides of the connection, using the
+keying established by the X3DH protocol. The keying is unique, on both sides, as the hash of X3DH keying and packet
+sequence number, for each subsequent communication packet.
 
-If anything fails during X3DH negotiation at the server, no response
-is generated back to the client. Similarly, if the server response is
-invalid at the client end, the connection is silently dropped.
+If anything fails during X3DH negotiation at the server, no response is generated back to the client. Similarly, if the
+server response is invalid at the client end, the connection is silently dropped.
 
-Connection ID's are either setup up universally, as with
-+SERVER-CONNECT-ID+, or as freshly generated UUIDs that represent an
-Actor. These ID's may either be permanent, for the duration of the
-connection, or ephemeral for one-time use as reply-to addresses.
+Connection ID's are either setup up universally, as with +SERVER-CONNECT-ID+, or as freshly generated UUIDs that
+represent an Actor. These ID's may either be permanent, for the duration of the connection, or ephemeral for one-time use
+as reply-to addresses.
 
-Actor arguments from each side are translated by the channels into
-Actor Proxy UUIDs for transmission to the other side and serve as
-channel ID's. On the receiving end, these UUIDs are recognized as
-Actor proxies, and so local proxy Actors are set up to represent them
-locally on the machine. These local proxy Actors receive messages and
-transmit them over the secure channel to the Actor on the other side
-identified by the proxy ID.
+Actor arguments from each side are translated by the channels into Actor Proxy UUIDs for transmission to the other side
+and serve as channel ID's. On the receiving end, these UUIDs are recognized as Actor proxies, and so local proxy Actors
+are set up to represent them locally on the machine. These local proxy Actors receive messages and transmit them over the
+secure channel to the Actor on the other side identified by the proxy ID.
 
-Almost anything can be transmitted, by deep copy, across a network
-connection, except for compiled functions and closures, or objects
-which contain such.  
+Almost anything can be transmitted, by deep copy, across a network connection, except for compiled functions and
+closures, or objects which contain such.
 
-Actors are an exception to this rule, with the invention of freshly
-generated UUID's to stand in for them. Objects containing references
-to Actors have their references replaced by UUID proxy addresses
-before transmission to the other side. Forwarding ephemeral proxy
-Actors are installed in the channel for each conversion. This is all
-handled by the channel, during object marshaling, and should appear
-transparent to the user, no matter how deeply buried these Actor
+Actors are an exception to this rule, with the invention of freshly generated UUID's to stand in for them. Objects
+containing references to Actors have their references replaced by UUID proxy addresses before transmission to the other
+side. Forwarding ephemeral proxy Actors are installed in the channel for each conversion. This is all handled by the
+channel, during object marshaling, and should appear transparent to the user, no matter how deeply buried these Actor
 references may be.
 
-Marshaling of data converts arbitrary Lisp objects and collections
-into serializable octet vectors. Unmarshaling performs the opposite
-conversion back into Lisp objects.
+Marshaling of data converts arbitrary Lisp objects and collections into serializable octet vectors. Unmarshaling performs
+the opposite conversion back into Lisp objects.
 
-Data sent between socket nodes is marshaled, compressed, chunked and
-numbered, and each chunk separately encrypted and authenticated,
-before being converted into self-sync octet streams transmitted across
-a TCP/IP socket connection. Chunks will sent and received in arbitrary
-and unpredictable order, as they are processed in parallel.
+Data sent between socket nodes is marshaled, compressed, chunked and numbered, and each chunk separately encrypted and
+authenticated, before being converted into self-sync octet streams transmitted across a TCP/IP socket connection. Chunks
+will sent and received in arbitrary and unpredictable order, as they are processed in parallel.
 
-Sockets are free to slice self-sync encoded chunks into smaller
-packets, but TCP/IP, as a stream protocol, ensures correct order of
-receipt among these packets. But since reassembly relies on Actors and
-message passing, each arriving packet is numbered sequentially so that
-the self-sync reader can process them in sequence. Self-sync encoding
-discerns chunk boundaries among partial chunk packets.
+Sockets are free to slice self-sync encoded chunks into smaller packets, but TCP/IP, as a stream protocol, ensures
+correct order of receipt among these packets. But since reassembly relies on Actors and message passing, each arriving
+packet is numbered sequentially so that the self-sync reader can process them in sequence. Self-sync encoding discerns
+chunk boundaries among partial chunk packets.
 
-Since each chunk is numbered, the de-chunker knows when a full message
-has arrived after reassembling the arriving chunks into an octet
-buffer. Once completed, the message is decompressed and unmarshaled
-before being sent to the customer.
+Since each chunk is numbered, the de-chunker knows when a full message has arrived after reassembling the arriving chunks
+into an octet buffer. Once completed, the message is decompressed and unmarshaled before being sent to the customer.
 
-Connections are protected against oversized packets, oversized chunks,
-invalid packet and chunk contents, and chunk replay. Messages are
-reassembled from received chunks, once all chunks have been received,
-and may be flagged as invalid if they contain unexpected contents, or
-if they fail to decompress and unmarshal properly. 
+Connections are protected against oversized packets, oversized chunks, invalid packet and chunk contents, and chunk
+replay. Messages are reassembled from received chunks, once all chunks have been received, and may be flagged as invalid
+if they contain unexpected contents, or if they fail to decompress and unmarshal properly.
 
-Failures are handled silently and result in a failure to communicate.
-No notification is issued, so the only reliable way to handle cross
-platform communications involves timeouts and retries. These must be
-managed by the user code, if needed.
+Failures are handled silently and result in a failure to communicate.  No notification is issued, so the only reliable
+way to handle cross platform communications involves timeouts and retries. These must be managed by the user code, if
+needed.
 
-Socket connections remain open for a limited duration (20s). So long
-as they are being used their timeout is extended. If they remain idle
-for longer than the timeout period, the connection is closed and the
-channel, and all waiting proxy Actors, is discarded. But as soon as
-another communication is attempted, a new socket connection, including
-a new X3DH exchange, will be automatically established.
+Socket connections remain open for a limited duration (20s). So long as they are being used their timeout is extended. If
+they remain idle for longer than the timeout period, the connection is closed and the channel, and all waiting proxy
+Actors, is discarded. But as soon as another communication is attempted, a new socket connection, including a new X3DH
+exchange, will be automatically established.
 
 
 
