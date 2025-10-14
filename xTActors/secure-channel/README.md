@@ -1,5 +1,14 @@
 -- Async Socket Protocol --
 ---
+This asynchronous communication layer resides beneath the Actor system, augmenting it to allow tansparent and seamless 
+message passing to remote Actors. Connections between client and server are establish on demand, without overt knowledge by
+user Actor code. After an idle period of 20s, the connection is torn down.
+
+Message data, including Actor references, are marshaled in a network portable format of octet vectors. The Lisp objects are
+unmarshaled at the receiving end to produce facsimiles of the original Lisp objects. Actor references are passed by proxy-UUID's
+and the network protocol senses these on receipt, and produces ephemeral Actors to stand in as proxies for the remote Actor.
+The proxy Actors forward messages across the network to the target Actors.
+
 On initial Socket Interface creation, we set up a socket state object, and generate unencrypted reader/writer Actors.
 These Actors are wired into the Async Socket protocol, for that socket, provided by Lispworks, and the async comms are
 started. Each Socket Interface can act as both client / server.
