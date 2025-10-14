@@ -26,9 +26,9 @@ the UUID chosen to represent the client over the socket connection, and the clie
 
 _[A public key ID is not the same as the public key. It is a UUID that refers to an encrypted database entry containing the actual
 public key. A database is held by each network node, containing entries for all known participants and their public key
-and ID.
+and ID._
 
-In order to join a group like this and be recognized, you need to be introduced by a member who sends your ID and PKey
+_In order to join a group like this and be recognized, you need to be introduced by a member who sends your ID and PKey
 over an ecrypted channel to each participating node. The member vouches for you.]_
 
 When a server is first contacted by a client, the server sets up an ephemeral service with UUID +SERVER-CONNECT-ID+, which is
