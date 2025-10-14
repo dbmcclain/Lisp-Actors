@@ -12,7 +12,7 @@ Servers silently listen for incoming connection requests from clients.
 The only service initially offered is +SERVER-CONNECT-ID+ (a
 universally known UUID), which performs an X3DH negotiation with
 clients to establish a secure encrypted connection. A separately keyed
-encrypted channel is set up for each client connection atttempt.
+encrypted channel is set up for each client connection attempt.
 
 We distinguish Channels and Sockets - Channels are logical pipelines
 feeding a Socket. There could be multiple Channels on each Socket. The
