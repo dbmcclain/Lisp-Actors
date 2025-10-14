@@ -19,7 +19,8 @@ keying double-ratchet scheme. So if you can receive a valid packet and Lisp data
 only they sent the data. 
 
 But by broadcasting the authentication keying, which is different from decryption keying, you enable any third
-party to produce an encrypted transcript that cannot be distinguished from our own. Therefore, since anyone could produce such
+party to produce an authenticated encrypted transcript that cannot be distinguished from our own. Therefore, 
+since anyone could produce such
 a communication transcript, you cannot prove that we did.
 
 On initial Socket Interface creation, we set up a socket state object, and generate unencrypted reader/writer Actors.
