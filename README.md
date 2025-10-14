@@ -73,7 +73,7 @@ We have, now, several instances of applications for Transactional Hewitt Actors:
 `
       
 `
-      3. A realtime data acquisition and precision frequency analysis system with hard realtime requirements for the data acquisition. Includes a GUI layer, direct data acquisition tasks, intermediate phase-coherent buffering so that higher level analyses can work with artifact-free data, telemetry generation and encoding/decoding in a sub-band, IRIG-B timestamp recovery, and data recording with deferred playback.
+      3. A realtime data acquisition and precision frequency analysis system with hard realtime requirements for the data acquisition. Includes a GUI layer, direct data acquisition tasks, intermediate phase-coherent buffering so that higher level analyses can work with artifact-free data, telemetry generation and encoding/decoding in a sub-band, IRIG-B timestamp recovery, and data recording with deferred playback. We use this system to monitor Ionosphere propagation at HF frequencies, achieving measurement accuracies of 100 μHz at 15 MHz.
 `
       
 `
