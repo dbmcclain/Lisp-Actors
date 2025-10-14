@@ -21,14 +21,14 @@ unencrypted Channel on each Socket. Once a successful X3DH connection
 is negotiated then a secure encryption pipeline is attached to the
 unencrypted Channel, forming a secure Channel.
 
-Clients initiate communications by choosing a random UUID to represent themselves
-to the server, a random 256-bit secret integer, and a corresponding ECC point equal
-to that random integer times the server's public key point. 
+Clients initiate communications by choosing a random UUID to represent a return channel
+back to them for the server, a random 256-bit secret integer, and a corresponding random
+ECC point equal to that secret integer times the server's public key. 
 
 The client then sends the server this random ECC Point plus a short packet of information
 encrypted to the server's public key. The info packet contains the service desired, 
-currently +SERVER-CONNECT-ID+, the UUID to use to respond to the client over the socket
-connection, and the client's public key ID.
+currently +SERVER-CONNECT-ID+, the UUID to use for the channel back to the client over the 
+socket connection, and the client's public key ID.
 
 [A public key ID is not the same as the public key. It is a UUID that refers to a database
 entry containing the actual public key. A database is held by each network node, containing
