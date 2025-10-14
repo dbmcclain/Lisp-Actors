@@ -4,3 +4,21 @@ Since Quicklisp does not enforce any conventions regarding the naming of package
 
 The code in PROJECT-PACKAGES-xxx provides for recursive abbreviation expansion during LOAD and IN-PACKAGE, for Lispworks, SBCL, and Allegro, feeding from my abbreviations stored in PROJECT-MAPPINGS.lisp.
 
+For use of the Greek alphabet, I have my Emacs editor allow ^Z-char to produce extended Unicode characters. The mapping from ASCII characters to extended chars is shown in EDITOR-ENHANCEMENTS.lisp.
+
+`
+(let ((ascii-str "abcdefghijklmnoprstuvxyzABCDEFGHIJKLMNOPRSTUVXYZ•ª")
+      (greek-str "αβψδεφγηιξκλμνοπρστθωχυζΑΒΨΔΕΦΓΗΙΞΚΛΜΝΟΠΡΣΤΘΩΧΥΖ✕∊"))
+  ;; ° is Option-Shift-8
+  ;; · is Option-Shift-9
+  ;; Interesting chars:
+  ;;  #\U+03f5  ϵ #\U+220A
+  ;;  #\U+2715  ✕
+  ;;
+  (loop for ascii-ch across ascii-str
+        for greek-ch across greek-str
+        do
+          (editor:bind-string-to-key (string greek-ch)
+                                     (vector "Ctrl-z" ascii-ch))
+        ))
+`
