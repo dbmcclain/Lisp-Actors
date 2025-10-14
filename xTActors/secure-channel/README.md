@@ -18,7 +18,7 @@ Channel, forming a secure Channel.
 Clients initiate communications by choosing a fresh UUID to represent them at the server, a
 random 256-bit secret integer and the corresponding random ECC point expressed in Elligator encoding.
 
-The client then sends the server this random ECC Point plus a short packet of information encrypted to the server's
+The client then sends the server this random ECC Point plus a short packet of information encrypted to the hash of the server's
 public key multiplied by the secret integer. The server can derive the decryption key by multiplying the random ECC point
 by their secret key. The info packet contains the service desired, currently +SERVER-CONNECT-ID+, 
 the UUID chosen to represent the client over the socket connection, and the client's public key ID.
@@ -33,9 +33,9 @@ over an ecrypted channel to each participating node. The member vouches for you.
 When a server is first contacted by a client, the server sets up an ephemeral service with UUID +SERVER-CONNECT-ID+, which is
 widely known to the public as a handshake service to establish an encrypted channel.
 
-Servers validate the parameters - the random and public key ECC points must be valid curve points, the client ECC public
-key must be among those authorized for access - and then the server responds, over the unencrypted channel, back to that
-client connection ID. 
+Servers validate the client parameters - the random and public key ECC points must be valid curve points, the client ECC public
+key must be among those authorized for access. Once validated the server responds, over the unencrypted channel, back to that
+client connection ID. Any invalid parameters elicits total silence from the server, and the server immediately closes the socket connection.
 
 The server chooses a random 256-bit integer and its corresponding ECC point expressed in Elligator 
 encoding. The server sends that random point back to the client, along with an encrypted information packet. The packet
