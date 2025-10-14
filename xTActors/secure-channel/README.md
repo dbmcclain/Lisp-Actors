@@ -4,6 +4,9 @@ This asynchronous communication layer resides beneath the Actor system, augmenti
 message passing to remote Actors. Connections between client and server are established on demand, without overt knowledge by
 user Actor code. After an idle period of 20s, the connection is torn down.
 
+Clients are nodes that initiate connections, Servers respond to these connection attempts. But any node on the network can act
+as both Client and Server for two or more separate communications.
+
 Message data, including Actor references, are marshaled in a network portable format of octet vectors. The Lisp objects are
 unmarshaled at the receiving end to produce facsimiles of the original Lisp objects. Actor references are passed by proxy-UUID's
 and the network protocol senses these on receipt, and produces ephemeral Actors to stand in as proxies for the remote Actor.
