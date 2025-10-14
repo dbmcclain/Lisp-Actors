@@ -1,0 +1,43 @@
+
+
+(setf (logical-pathname-translations "PROJECTS")
+      #+:MSWINDOWS
+      `(("DYLIB;**;*.*"        "z:/usr/local/lib/**/*.*")
+        ("LIB;**;*.*"          "z:/usr/local/lib/**/*.*")
+        ("LISPLIB;**;*.*"      "z:/usr/local/Lisp/Source/**/*.*")
+        ("LISP;**;*.*"         "y:/projects/Lispworks/**/*.*")
+        ("**;*.*"              "y:/projects/**/*.*"))
+      #-:MSWINDOWS
+      `(("DYLIB;**;*.*"        "/usr/local/lib/**/*.*")
+        ("LIB;**;*.*"          "/usr/local/lib/**/*.*")
+        ("LISPLIB;**;*.*"      "/usr/local/Lisp/Source/**/*.*")
+        ("LISP;**;*.*"         "~/projects/Lispworks/**/*.*")
+        ("**;*.*"              "~/projects/**/*.*"))
+      )
+
+#-quicklisp
+(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp"
+                                       (user-homedir-pathname))))
+  (when (probe-file quicklisp-init)
+    (load quicklisp-init)))
+
+(ql:quickload :cl-advice)
+(load "~/projects/Lispworks/startup/project-packages-sbcl")
+(load "~/projects/lispworks/startup/project-mappings")
+
+(asdf:initialize-source-registry
+ `(:SOURCE-REGISTRY
+   (:EXCLUDE "dbm-git-repo")
+   ;; (:TREE #P"~/projects/Emotiq/src/")
+   (:TREE #P"~/projects/Lispworks/")
+   ;; (:TREE #P"~/Documents/GitHub/")
+   ;; (:TREE #P"/usr/local/lisp/source/")
+   :IGNORE-INHERITED-CONFIGURATION))
+
+(defun asdf (lib &rest args &key &allow-other-keys)
+  "Shortcut for ASDF."
+  (apply 'asdf:oos 'asdf:load-op lib args))
+
+(ql:quickload :com.ral.actors.extra)
+(ql:quickload :data-objects)
+

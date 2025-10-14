@@ -1,0 +1,68 @@
+;; -*- Mode: Lisp; coding: UTF-8 -*-
+
+#+:LISPWORKS
+(progn
+  (pushnew :LATIN-1 system:*specific-valid-file-encodings*)
+  ;; ;(pushnew :unicode system:*specific-valid-file-encodings*)
+  (pushnew :utf-8 system:*specific-valid-file-encodings*)
+
+  (lw:set-default-character-element-type 'cl:character))
+
+(setf *read-default-float-format* 'double-float)
+
+;; ------------------------------------------------------------
+;; As per Martin Simmons DM/RAL  2024/07/23 19:50:48 UTC
+
+(defvar *old-initialized-libraries* nil)
+
+(defadvice (capi::initialized-libraries checker :around) ()
+ (let ((list (call-next-advice)))
+   (if (and (listp  list) (every 'keywordp list))
+       (setq *old-initialized-libraries* list)
+     (let ((*debug-io* *terminal-io*)
+           (dbg:*full-windowing-debugging* nil))
+       (setq capi::*initialized-libraries* *old-initialized-libraries*)
+       (cerror "Ignore it" "capi::initialized-libraries got ~s" list)
+       *old-initialized-libraries*))))
+;; ------------------------------------------------------------
+
+
+(let ((path (environment-variable "PATH")))
+  (setf (environment-variable "PATH") (concatenate 'string
+                                                   "~/bin:/usr/local/bin:/opt/homebrew/bin:"
+                                                   path)))
+
+;; (load-logical-pathname-translations "PROJECTS")
+(setf (logical-pathname-translations "PROJECTS")
+      #+:MSWINDOWS
+      `(("DYLIB;**;*.*"        "z:/usr/local/lib/**/*.*")
+        ("LIB;**;*.*"          "z:/usr/local/lib/**/*.*")
+        ("LISPLIB;**;*.*"      "z:/usr/local/Lisp/Source/**/*.*")
+        ("LISP;**;*.*"         "y:/projects/Lispworks/**/*.*")
+        ("**;*.*"              "y:/projects/**/*.*"))
+      #-:MSWINDOWS
+      `(("DYLIB;**;*.*"        "/usr/local/lib/**/*.*")
+        ("LIB;**;*.*"          "/usr/local/lib/**/*.*")
+        ("LISPLIB;**;*.*"      "/usr/local/Lisp/Source/**/*.*")
+        ("LISP;**;*.*"         "~/projects/Lispworks/**/*.*")
+        ("**;*.*"              "~/projects/**/*.*"))
+      )
+
+;; (defvar *my-path* (translate-logical-pathname "PROJECTS:LISP;"))
+
+(cd (translate-logical-pathname "PROJECTS:LISP;"))
+;; (cd #P"~/projects/Lispworks/")
+
+(with-open-file (*standard-output*
+                 #P"loadup.txt"
+                 :if-exists         :rename
+                 :if-does-not-exist :create
+                 :external-format   :UTF-8
+                 :direction         :output)
+  (let ((*background-output* *standard-output*))
+    (handler-bind ((error (lambda (c)
+                            (declare (ignore c))
+                            (finish-output *background-output*))
+                          ))
+      (load "_my-lw-startup")
+      )))
