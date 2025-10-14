@@ -44,7 +44,10 @@ key for this packet is the random integer multiplied by the client's public key.
 multiplying the random Elligator point by their secret key.
 
 The server then prepares an encrypted channel with keying derived from X3DH using its secret key, the client's public key, 
-the random integer chosen by the server, and the random ECC point shared by the client.
+the random integer chosen by the server, and the random ECC point shared by the client. The services offered are those known
+by everyone as public services, identified by keyword symbols. Currently we have :ECHO and :EVAL on offer. Client's can send arbitrary code
+over to the :EVAL service for compiling and execution by the server, with results sent back to the client. The :ECHO service simply echoes
+whatever is sent by the client, back to the client.
 
 On reply to the client, the client performs similar validation checks against the supplied server random ECC point, and
 server public ECC key. Then it sets up its side of the encrypted channel using an X3DH key based on its own secret key, 
