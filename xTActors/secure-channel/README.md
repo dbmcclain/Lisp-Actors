@@ -9,6 +9,19 @@ unmarshaled at the receiving end to produce facsimiles of the original Lisp obje
 and the network protocol senses these on receipt, and produces ephemeral Actors to stand in as proxies for the remote Actor.
 The proxy Actors forward messages across the network to the target Actors.
 
+All network communication is protected by encryption with a double-ratchet evolving keying for every packet sent. On initial
+contact, two nodes handshake using a secure X3DH protocol to establish an encrypted channel between themselves. Encrypted data is
+authenticated but not signed. On receipt of valid packets, the authentication key is transmitted to the open public to keep all 
+communications between two parties refutable. 
+
+Signing is unnecessary since only the two valid participants can know the evolving
+keying double-ratchet scheme. So if you can receive a valid packet and Lisp data from the other party, you can be assured that 
+only they sent the data. 
+
+But by broadcasting the authentication keying, which is different from decryption keying, you enable any third
+party to produce an encrypted transcript that cannot be distinguished from our own. Therefore, since anyone could produce such
+a communication transcript, you cannot prove that we did.
+
 On initial Socket Interface creation, we set up a socket state object, and generate unencrypted reader/writer Actors.
 These Actors are wired into the Async Socket protocol, for that socket, provided by Lispworks, and the async comms are
 started. Each Socket Interface can act as both client / server.
