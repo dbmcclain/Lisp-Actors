@@ -6,7 +6,7 @@ The code in PROJECT-PACKAGES-xxx provides for recursive abbreviation expansion d
 
 For use of the Greek alphabet, I have my Emacs editor allow ^Z-char to produce extended Unicode characters. The mapping from ASCII characters to extended chars is shown in EDITOR-ENHANCEMENTS.lisp.
 
-``
+```
 (let ((ascii-str "abcdefghijklmnoprstuvxyzABCDEFGHIJKLMNOPRSTUVXYZ•ª")
       (greek-str "αβψδεφγηιξκλμνοπρστθωχυζΑΒΨΔΕΦΓΗΙΞΚΛΜΝΟΠΡΣΤΘΩΧΥΖ✕∊"))
   ;; ° is Option-Shift-8
@@ -21,4 +21,5 @@ For use of the Greek alphabet, I have my Emacs editor allow ^Z-char to produce e
           (editor:bind-string-to-key (string greek-ch)
                                      (vector "Ctrl-z" ascii-ch))
         ))
-``
+```
+
