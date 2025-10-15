@@ -14,6 +14,8 @@ Deadlocks will be a thing of the past. Priority inversion will cease to happen. 
 There really could be multiple threads running beneath the Actors system - as Dispatch threads, delivering messages to Actors. A single Task may involve the execution of portions of Actor code by any number of arbitrary Dispatch threads. But you are never aware of them.
 
 And there are some hidden locks in the system to coordinate actions among multiple threads - in the Event Queue, a shared mailbox which is where all messages are sent, and in the committing of BECOME. But you never need to be aware of these locks.
+
+And best of all, the Transactional nature of Actors means that errors will not cascade any further than the abort of the currently running Actor code. All SEND and BECOME are discarded, and it is as though the errant message were never delivered.
 ___
 
 
