@@ -25,7 +25,7 @@ To illustrate, suppose we have an Actor named PKEY-DATABASE which holds a reposi
 
 The grouping of the expressions shows that the LET binding and the SEND are related by being executed, in succession, by the same thread at runtime. After sending, the thread goes on to do whatever follows the β-form (usually nothing) and then exits. 
 
-Notice that β is explicitly stated in customer position in the SEND. 
+Notice that we explicitly stated β in customer position of the SEND message. 
 
 _[And remember that, since we have Transactional Hewitt Actors, no SENDs actually happen until we exit successfuly.]_
 
