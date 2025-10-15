@@ -1,7 +1,7 @@
 DM/RAL 10/25 -- What follows is extremely stale information from more than 4 years ago. This *IS*, however, the currently active implementation folder.
 --
 
-For latest info, you should refer, instead, to the README.md in the outer folder for Lisp-Actors. [up one level from here](https://github.com/dbmcclain/Lisp-Actors/edit/main/xTActors/README.md)
+For latest info, you should refer, instead, to the README.md in the outer folder for Lisp-Actors. [up one level from here](https://github.com/dbmcclain/Lisp-Actors/README.md)
 --
 
 The information below might still be interesting for reference.
