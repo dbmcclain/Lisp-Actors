@@ -35,7 +35,7 @@ Also, bear in mind that any bindings established in the scope of the SEND will a
 
 ---
 
-Now, if you have a long succession of nested β-forms, your indentation grows out of control. You can, instead, say the same thing using LET+ which keeps all of its binding clauses aligned to the left, and only its ultimate body forms get indented just once. 
+Now, if you have a long succession of nested β-forms, your Editing indentation grows out of control. You can, instead, say the same thing using LET+ which keeps all of its binding clauses aligned to the left, and only its ultimate body forms get indented just once. 
 
 E.g., the same code from above could be written as:
 ```
