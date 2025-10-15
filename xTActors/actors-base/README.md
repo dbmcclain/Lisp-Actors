@@ -31,6 +31,8 @@ _[And remember that, since we have Transactional Hewitt Actors, no SENDs actuall
 
 Meanwhile the message gets delivered to the database service, and that service sends its lookup result to the customer Actor (here the anonymous β Actor). So the second grouping shows that anonymous β-Actor. The arglist and body are grouped together, analogous to a λ-form. This anonymous β-Actor receives its message and gets executed by some arbitrary thread in the future.
 
+The arglist of a β-Form can be an arbitrary tree of argument symbols, since we use LAMBDA* for the anonymous β-Actor behavior function.
+
 Also, bear in mind that any bindings established in the scope of the SEND will also be seen by the behavior code of the anonymous β-Actor. Creating an anonymous Actor creates a lambda-closure for its behavior code.
 
 ---
@@ -95,12 +97,12 @@ And for bindings we have:
 ```
 (symbol    value-form)              -- same as LET*
 (cons-form value-form)              -- implied DESTRUCTURING-BIND, so cons-form can represent an arbitrary tree.
-(:β        args-form  service-form) -- implied β-Form
-(:BETA     args-form  service-form) -- same as (:β )
+(:β        args-form  service-form) -- implied β-Form [1]
+(:BETA     args-form  service-form) -- same as (:β ) [1]
 (:MVB      arg-list   values-form)  -- implied MULTIPLE-VALUE-BIND
-(:MVL      list-form  values-form)  -- implied MULTIPLE-VALUE-LIST [1]
-(:ACC      (acc-form*) value-form)  -- implied WITH-ACCESSORS [2]
-(:SLOTS    (slot-form*) value-form) -- implied WITH-SLOTS [3]
+(:MVL      list-form  values-form)  -- implied MULTIPLE-VALUE-LIST [2]
+(:ACC      (acc-form*) value-form)  -- implied WITH-ACCESSORS [3]
+(:SLOTS    (slot-form*) value-form) -- implied WITH-SLOTS [4]
 (:SYM      (sym-form*))             -- implied SYMBOL-MACROLET
 (:FN       (fn-form*))              -- implied LABELS
 (:MAC      (macrolet-form*))        -- implied MACROLET
@@ -110,8 +112,10 @@ And for bindings we have:
 ```
 Notes:
 
-[1] Converts to (LET+ ((list-form (MULTIPLE-VALUE-LIST values-form))) ...), so if list-form is a symbol then it gets the list result of MULTIPLE-VALUE-LIST. If list-form is a cons, then we have a DESTRUCTURING-BIND on the list returned from MULTIPLE-VALUE-LIST.
+[1] args-form inherits the flexibility of LAMBDA*. A single symbol represents the entire argument list. A list of symbols represent argument. And you can also use embedded lists to ask for destructuration of individual argument lists, with the destructuration descending to arbitrary depth. Any arguments denoted with a lone underscore, #\_, are converted to unique gensyms, and declared as ignored.
 
-[2] If acc-form is a symbol then it must be the name of the accessor. If acc-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the symbol naming the accessor. This is the same as for WITH-ACCESSORS.
+[2] Converts to (LET+ ((list-form (MULTIPLE-VALUE-LIST values-form))) ...), so if list-form is a symbol then it gets the list result of MULTIPLE-VALUE-LIST. If list-form is a cons, then we have a DESTRUCTURING-BIND on the list returned from MULTIPLE-VALUE-LIST.
 
-[3] If slot-form is a symbol then it must be the name of the slot. If slot-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the symbol naming the slot. This is the same as for WITH-SLOTS.
+[3] If acc-form is a symbol then it must be the name of the accessor. If acc-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the symbol naming the accessor. This is the same as for WITH-ACCESSORS.
+
+[4] If slot-form is a symbol then it must be the name of the slot. If slot-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the symbol naming the slot. This is the same as for WITH-SLOTS.
