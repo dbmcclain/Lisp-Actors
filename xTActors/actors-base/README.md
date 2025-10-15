@@ -6,7 +6,7 @@ Its format is similar to that of MULTIPLE-VALUE-BIND, but in place of a VALUES-g
 
 You are telling the Actor to send its results to β as the customer in the message, and that β actually represents an unnamed Actor which expects a message containing the arguments shown in the β-form, and whose behavior body is made from the body forms that follow the SEND.
 
-Suppose we have an Actor named PKEY-DATABASE which holds a repsitory of cryptographic keys indexed by some identifier. Then the β-form shown here, and with contours drawn around related expressions:
+To illustrate, suppose we have an Actor named PKEY-DATABASE which holds a repsitory of cryptographic keys indexed by some identifier. Then the β-form shown here, and with contours drawn around related expressions:
 
 ```
 +-------------------------------------+
