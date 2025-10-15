@@ -107,7 +107,7 @@ And for bindings we have:
 (:FN       (fn-form*))              -- implied LABELS
 (:MAC      (macrolet-form*))        -- implied MACROLET
 (:DCL      (declaration*))          -- implied (LOCALLY (DECLARE ...) ...)
-(:DB       arg-list property-list)  -- implied (apply (LAMBDA (&KEY arg-list) ...) property-list)[5], as in "mini-database"
+(:DB       arg-list property-list)  -- implied (apply (LAMBDA (&KEY ,@arg-list &ALLOW-OTHER-KEYS) ...) property-list), as in "mini-database" [5]
 (:PAR      args-list expr-list)     -- implied parallel execution via β-Form with Fork-Join send.
 ```
 Notes:
