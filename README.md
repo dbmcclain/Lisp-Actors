@@ -116,7 +116,7 @@ Hewitt Actors can do one of 3 things (plus augmentation from our Lisp environmen
       2. An Actor can SEND a message to another Actor, where the arguments to SEND specify the target Actor, and other args that become the message to be delivered to the target Actor.
 `      
 `
-      3. An Actor can use BECOME in response to some message, to alter its internal state and/or behavior function.
+      3. An Actor can use BECOME, in response to some message, to alter its internal state and/or behavior function.
 `
 
 Our special twist on Hewitt Actors also makes them Transactional, in the sense that all SEND and BECOME are stashed for execution at the successful exit of the behavior function. If any errors occcur, those stashed items are discarded and it becomes as though the message were never delivered. 
