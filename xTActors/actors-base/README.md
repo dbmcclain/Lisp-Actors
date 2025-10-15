@@ -53,7 +53,7 @@ In this LET+ :β form, the customer is implied and not written explicitly. It wi
 
 When you have a target Actor that needs more arguments, as we have in this example, you can construct a single-argument Actor from it using the Actor analog to RCURRY, which is RACURRY. That packs up all the arguments as right-args, and leaves an Actor that expects at least one left-arg. This matches the expectations of our convention that customer Actors are always the first stated argument of any message.
 
-Now one of the nice features of β-form syntax is that you can easily draw mental boundaries around the things that belong in the currently executing thread, as distinct from those that will be executed in the future if a message is sent back to the anonymous β-Actor. 
+Now one of the nice features of β-form syntax is that you can easily draw mental boundaries around the things that belong in the currently executing thread, like we did explicitly above, as distinct from those that will be executed in the future if a message is sent back to the anonymous β-Actor. 
 
 But when you use LET+ with :β bindings, you lose this easy distinction. Just know that anything that follows the LET+ :β binding will only be executed, at some time in the future, if the anonymous β-Actor in that binding receives its message.
 
