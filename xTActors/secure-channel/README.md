@@ -27,7 +27,7 @@ since anyone could produce such
 a communication transcript, you cannot prove that we did.
 
 On initial Socket Interface creation, we set up a socket state object, and generate unencrypted reader/writer Actors.
-These Actors are wired into the Async Socket protocol, for that socket, provided by Lispworks, and the async comms are
+These Actors are wired into the Async Socket protocol, provided by Lispworks, for that socket, and the async comms are
 started. Each Socket Interface can act as both client / server.
 
 Wire transmissions are performed on self-sync octet streams produced by marshal encoding whatever arguments are being
