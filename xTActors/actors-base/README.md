@@ -51,7 +51,7 @@ where SERVICE is an Actor argument that takes a single Customer argument - here,
 
 In this LET+ :β form, the customer is implied and not written explicitly. It will be provied as an anonymous β-Actor for the generated SEND.
 
-When you have a target Actor that needs more arguments, as we have in this example, you can construct a single-argument Actor from it using the Actor analog to RCURRY, which is RACURRY. That packs up all the arguments as right-args, and leaves an Actor that expects at least one left-arg.
+When you have a target Actor that needs more arguments, as we have in this example, you can construct a single-argument Actor from it using the Actor analog to RCURRY, which is RACURRY. That packs up all the arguments as right-args, and leaves an Actor that expects at least one left-arg. This matches the expectations of our convention that customer Actors are always the first stated argument of any message.
 
 Now one of the nice features of β-form syntax is that you can easily draw mental boundaries around the things that belong in the currently executing thread, as distinct from those that will be executed in the future if a message is sent back to the anonymous β-Actor. 
 
