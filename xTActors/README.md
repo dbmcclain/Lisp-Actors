@@ -21,7 +21,7 @@ And best of all, the Transactional nature of Actors means that errors will not c
 
 Erlang was an early "Actor System", of sorts. But they conflate (Green) Threads with Actors. And they have the notion of killing an Actor. In our Transactional Conventional Hewitt Actor system, Actors are neither alive nor dead. They are just wrapped functional closures. Asking to kill an Actor has no more meaning than asking to kill the EVAL function.
 
-And quite unlike Erlang, our Actors never request to read a message. Messages are just sent to them by Dispatch threads, which is another way of saying that if a message is extracted from the global Event Queue by a Dispatch thread, then it will take the message as function call arguments and apply the behavior function of the target Actor to the message arguments. And if an Actor is already busy executing against a message from a different Dispatch thread, that's okay. We do parallel execution.
+And quite unlike Erlang, our Actors never request to read a message. Messages are just sent to them by Dispatch threads, which is another way of saying that if a message is extracted from the global Event Queue by a Dispatch thread, then it will take the message as function call arguments and apply the behavior function of the target Actor to those arguments. And if an Actor is already busy executing against a message from a different Dispatch thread, that's okay. We do parallel execution.
 ___
 
 
