@@ -27,3 +27,16 @@ The grouping of the expressions shows that the LET binding and the SEND are rela
 
 Meanwhile the message gets delivered to the database service, and that service sends its lookup result to the customer Actor (here the anonymous β Actor). So the second grouping shows that anonymous β-Actor. The arglist and body are grouped together, analogous to a λ-form.
 
+Now, if you have a long succession of nested β-forms, your indentation gets out of control. You can instead say the same thing using LET+ which keeps all of its binding clauses aligned to the left, and only its ultimate body forms get indented just once. E.g., the same code from above could be written as:
+```
+(LET+ ((id  "Server ID")
+       (:β  (pkey)  (racurry PKEY-DATABASE id)))
+   (do-something with the returned PKEY item))
+```
+The LET+ form has syntax:
+```
+(LET+ ((:β ARGS SERVICE)) &body body)
+```
+where SERVICE is an Actor argument that takes a single Customer argument - here, the anonymous β-Actor. 
+
+When you have an Actor that actually needs more arguments, as we have in this example, you can construct a single-argument Actor from it using the Actor analog to RCURRY, which is RACURRY. That packs up all the arguments as righ-args, and leaves an Actor that expects only a single lef-arg.
