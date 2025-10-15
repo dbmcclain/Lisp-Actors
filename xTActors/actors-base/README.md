@@ -19,7 +19,7 @@ To illustrate, suppose we have an Actor named PKEY-DATABASE which holds a repsit
 |  |  | (SEND PKEY-DATABASE β id)     |
 |  |  +-------------------------------+
 |  +----------------------------------------------+
-|    (do-something with the returned PKEY item))) |
+|    (do-something-with-the-returned-PKEY-item pkey))) |
 +-------------------------------------------------+
 ```
 
@@ -33,7 +33,7 @@ E.g., the same code from above could be written as:
 ```
 (LET+ ((id  "Server ID")
        (:β  (pkey)  (racurry PKEY-DATABASE id)))
-   (do-something with the returned PKEY item))
+   (do-something-with-the-returned-PKEY-item pkey))
 ```
 The LET+ form has syntax:
 ```
