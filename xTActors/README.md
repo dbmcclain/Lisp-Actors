@@ -1,5 +1,4 @@
 What follows is extremely stale information from more than 4 years ago.
-You should instead refer to folder xTActors for the latest information.
 ---
 
 -- Lisp-Actors - Classical Actors (in TActors folder) --
