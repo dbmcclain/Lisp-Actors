@@ -27,7 +27,7 @@ The grouping of the expressions shows that the LET binding and the SEND are rela
 
 Notice that β is explicitly stated in customer position in the SEND. 
 
-_[And remember that, since we have Transactional Hewitt Actors, no SENDS actually happen until we exit successfuly.]_
+_[And remember that, since we have Transactional Hewitt Actors, no SENDs actually happen until we exit successfuly.]_
 
 Meanwhile the message gets delivered to the database service, and that service sends its lookup result to the customer Actor (here the anonymous β Actor). So the second grouping shows that anonymous β-Actor. The arglist and body are grouped together, analogous to a λ-form. This anonymous β-Actor receives its message and gets executed by some arbitrary thread in the future.
 
