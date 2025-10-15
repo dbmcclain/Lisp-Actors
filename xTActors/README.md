@@ -1,4 +1,4 @@
-What follows is extremely stale information from more than 4 years ago.
+What follows is extremely stale information from more than 4 years ago. This *IS*, however, the currently active implementation folder.
 --
 
 You should, instead, refer to the README.md in the outer folder for Lisp-Actors.
