@@ -108,7 +108,7 @@ And for bindings we have:
 (:MAC      (macrolet-form*))        -- implied MACROLET
 (:DCL      (declaration*))          -- implied (LOCALLY (DECLARE ...) ...)
 (:DB       arg-list property-list)  -- implied GETF extraction from property-list, as in "mini-database" [5]
-(:PAR      args-list expr-list)     -- implied parallel execution via β-Form with Fork-Join send.
+(:PAR      args-list expr-list)     -- implied parallel execution via β-Form with SEND to FORK.
 ```
 Notes:
 
