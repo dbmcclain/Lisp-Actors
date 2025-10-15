@@ -8,6 +8,12 @@ Don't even bother thinking about threads and locks and even more complicated thi
 You can still have mutation in your program. After all, nothing gets done unless you have mutation. But by keeping state within Actors, and mutating solely through BECOME, and treating all shared data as immutable otherwise, then you automatically obtain parallel concurrent code. And you can decide for yourself what granularity of concurrency you want.
 
 All of your code will run the same on a single processor, without any mutithreading, as well as across all the CPU cores, each running a time-sliced OS. The only difference will be speed of overall execution.
+
+Deadlocks will be a thing of the past. Priority inversion will cease to happen. If two "Tasks" face a standoff, the rest of the Actors system remains alive and responsive. A "Task" is not a thread, but rather a coordinated series of actions that accomplish some or all of some task that you need to accomplish. 
+
+There really could be multiple threads running beneath the Actors system - as Dispatch threads, delivering messages to Actors. A single Task may involve the execution of portions of Actor code by any number of arbitrary Dispatch threads. But you are never aware of them.
+
+And there are some hidden locks in the system to coordinate actions among multiple threads - in the Event Queue, a shared mailbox which is where all messages are sent, and in the committing of BECOME. But you never need to be aware of these locks.
 ___
 
 
