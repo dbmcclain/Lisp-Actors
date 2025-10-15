@@ -22,6 +22,8 @@ And best of all, the Transactional nature of Actors means that errors will not c
 Erlang was an early "Actor System", of sorts. But they conflate (Green) Threads with Actors. And they have the notion of killing an Actor. In our Transactional Conventional Hewitt Actor system, Actors are neither alive nor dead. They are just wrapped functional closures. Asking to kill an Actor has no more meaning than asking to kill the EVAL function.
 
 And quite unlike Erlang, our Actors never request to read a message. Messages are just sent to them by Dispatch threads, which is another way of saying that if a message is extracted from the global Event Queue by a Dispatch thread, then it will take the message as function call arguments and apply the behavior function of the target Actor to those arguments. And if an Actor is already busy executing against a message from a different Dispatch thread, that's okay. We do parallel execution.
+
+But Actors occupy a special place in programming, and, I believe, they should not be seen as an end-all, in the same way that a Smalltalk views everything as an Object. Actor code is for managing and coordinating subsystems with asynchronous behavior. They are not a full substitute for the  performant Call/Return protocol most commonly used in a Lisp program. And by the same token, Call/Return can become very clumsy at managing asynchrony with multiple concurrent activities and numerous callbacks. Both paradims have their use.
 ___
 
 
