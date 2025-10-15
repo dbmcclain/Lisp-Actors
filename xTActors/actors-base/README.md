@@ -78,7 +78,8 @@ So, in summary, β-Forms look like MULTIPLE-VALUE-BIND, and they create anonymou
 
 
 Understanding LET+
-___
+---
+
 Lisp has so many different binding forms: LET, LET*, DESTRUCTURING-BIND, MULTIPLE-VALUE-BIND, SYMBOL-MACROLET, etc. Using them makes your code look like a veritable zoo of binding and cascading indentations. 
 
 LET+ attempts to unify their syntax. Semantically, as succession of LET+ bindings is similar to LET*. Each binding completes before performing the next.
