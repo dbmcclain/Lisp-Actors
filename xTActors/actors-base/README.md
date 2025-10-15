@@ -29,7 +29,7 @@ Meanwhile the message gets delivered to the database service, and that service s
 
 ---
 
-Now, if you have a long succession of nested β-forms, your indentation grows out of control. You can instead say the same thing using LET+ which keeps all of its binding clauses aligned to the left, and only its ultimate body forms get indented just once. 
+Now, if you have a long succession of nested β-forms, your indentation grows out of control. You can, instead, say the same thing using LET+ which keeps all of its binding clauses aligned to the left, and only its ultimate body forms get indented just once. 
 
 E.g., the same code from above could be written as:
 ```
