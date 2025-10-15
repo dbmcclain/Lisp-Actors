@@ -107,7 +107,7 @@ And for bindings we have:
 (:FN       (fn-form*))              -- implied LABELS
 (:MAC      (macrolet-form*))        -- implied MACROLET
 (:DCL      (declaration*))          -- implied (LOCALLY (DECLARE ...) ...)
-(:DB       arg-list property-list)  -- implied (apply (LAMBDA arg-list ...) property-list), as in "mini-database"
+(:DB       arg-list property-list)  -- implied (apply (LAMBDA (&KEY arg-list) ...) property-list)[5], as in "mini-database"
 (:PAR      args-list expr-list)     -- implied parallel execution via β-Form with Fork-Join send.
 ```
 Notes:
@@ -119,3 +119,5 @@ Notes:
 [3] If acc-form is a symbol then it must be the name of the accessor. If acc-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the symbol naming the accessor. This is the same as for WITH-ACCESSORS.
 
 [4] If slot-form is a symbol then it must be the name of the slot. If slot-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the symbol naming the slot. This is the same as for WITH-SLOTS.
+
+[5] The args in arg-list must be symbols naming the properties in the property-list. But since these are keyword args of a lambda function, they can be accompanied with default values, and present-p flag bindings.
