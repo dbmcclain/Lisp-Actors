@@ -15,7 +15,7 @@ There really could be multiple threads running beneath the Actors system - as Di
 
 And there are some hidden locks in the system to coordinate actions among multiple threads - in the Event Queue, a shared mailbox which is where all messages are sent, and in the committing of BECOME. But you never need to be aware of these locks.
 
-And best of all, the Transactional nature of Actors means that errors will not cascade any further than the abort of the currently running Actor code. All SEND and BECOME are discarded, and it is as though the errant message were never delivered. No globally visible effects from an Actor will become visible until its behavior code exits successfully. All SEND and BECOME are staged for execution at successful exit time when they will be committed.
+And best of all, the Transactional nature of Actors means that errors will not cascade any further than the abort of the currently running Actor code. All SEND, BECOME, and CREATEd Actors, are discarded, and it is as though the errant message were never delivered. No globally visible effects from an Actor will become visible until its behavior code exits successfully. All SEND and BECOME are staged for execution at successful exit time when they will be committed. And the only way to keep a CREATEd Actor alive is to share its identity in a committed SEND message or a BECOME.
 ___
 
 
