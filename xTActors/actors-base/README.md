@@ -87,7 +87,7 @@ LET+ attempts to unify their syntax. Semantically, a succession of LET+ bindings
 But LET+ can be used to subsume the variety into a compact, non-cascading, form.
 
 ```
-(LET+ (bindings*) forms*)
+(LET+ (bindings*) body-forms*)
 ```
 where * denotes zero or more-of.
 
