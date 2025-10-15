@@ -18,9 +18,9 @@ To illustrate, suppose we have an Actor named PKEY-DATABASE which holds a repsit
 |  |  +--------------------------+    |
 |  |  | (SEND PKEY-DATABASE β id)     |
 |  |  +-------------------------------+
-|  +----------------------------------------------+
+|  +---------------------------------------------------+
 |    (do-something-with-the-returned-PKEY-item pkey))) |
-+-------------------------------------------------+
++------------------------------------------------------+
 ```
 
 The grouping of the expressions shows that the LET binding and the SEND are related by being executed, in succession, by the same thread at runtime. After sending, the thread goes on to do whatever follows the β-form (usually nothing) and then exits. 
