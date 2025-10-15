@@ -27,6 +27,8 @@ The grouping of the expressions shows that the LET binding and the SEND are rela
 
 Meanwhile the message gets delivered to the database service, and that service sends its lookup result to the customer Actor (here the anonymous β Actor). So the second grouping shows that anonymous β-Actor. The arglist and body are grouped together, analogous to a λ-form. This anonymous β-Actor receives its message and gets executed by some arbitrary thread in the future.
 
+---
+
 Now, if you have a long succession of nested β-forms, your indentation gets out of control. You can instead say the same thing using LET+ which keeps all of its binding clauses aligned to the left, and only its ultimate body forms get indented just once. 
 
 E.g., the same code from above could be written as:
@@ -47,6 +49,8 @@ Now one of the nice features of β-form syntax is that you can easily draw menta
 
 But when you use LET+ with :β bindings, you loose this easy distinction. Just know that anything that follows the LET+ :β binding will only be executed, at some time in the future, if the anonymous β-Actor in that binding receives its message.
 
+---
+
 One important thing to remember, is that SELF always refers to the receiver Actor of the current message. That's why you see so much of my code making a copy for later use:
 ```
 (let ((ME  SELF))
@@ -57,5 +61,7 @@ One important thing to remember, is that SELF always refers to the receiver Acto
 ```
 
 If, instead of sending to ME, I had mistakenly sent to SELF, in that final SEND, then that message would have gone right back to the anonymous β-Actor currently executing.
+
+--- 
 
 So, in summary, β-Forms look like MULTIPLE-VALUE-BIND, and they create anonymous Actors bound to lexical symbol β inside the β-form. These are the Actor equivalent of Lambda expressions. _[And yes, you can spell it out as BETA.]_
