@@ -45,7 +45,7 @@ where SERVICE is an Actor argument that takes a single Customer argument - here,
 
 When you have an Actor that actually needs more arguments, as we have in this example, you can construct a single-argument Actor from it using the Actor analog to RCURRY, which is RACURRY. That packs up all the arguments as right-args, and leaves an Actor that expects only a single lef-arg.
 
-Now one of the nice features of β-form syntax is that you can easily draw mental boundaries around the things that belong in the currently executing thread, and those that will be executed in the future if a message is sent back to the anonymous β-Actor. 
+Now one of the nice features of β-form syntax is that you can easily draw mental boundaries around the things that belong in the currently executing thread, as distinct from those that will be executed in the future if a message is sent back to the anonymous β-Actor. 
 
 But when you use LET+ with :β bindings, you lose this easy distinction. Just know that anything that follows the LET+ :β binding will only be executed, at some time in the future, if the anonymous β-Actor in that binding receives its message.
 
