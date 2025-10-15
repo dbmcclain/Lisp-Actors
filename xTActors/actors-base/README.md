@@ -31,6 +31,8 @@ _[And remember that, since we have Transactional Hewitt Actors, no SENDs actuall
 
 Meanwhile the message gets delivered to the database service, and that service sends its lookup result to the customer Actor (here the anonymous β Actor). So the second grouping shows that anonymous β-Actor. The arglist and body are grouped together, analogous to a λ-form. This anonymous β-Actor receives its message and gets executed by some arbitrary thread in the future.
 
+Also, bear in mind that any bindings established in the scope of the SEND will also be seen by the behavior code of the anonymous β-Actor. Creating an anonymous Actor creates a lambda-closure for its behavior code.
+
 ---
 
 Now, if you have a long succession of nested β-forms, your indentation grows out of control. You can, instead, say the same thing using LET+ which keeps all of its binding clauses aligned to the left, and only its ultimate body forms get indented just once. 
