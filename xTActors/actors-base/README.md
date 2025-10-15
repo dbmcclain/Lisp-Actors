@@ -58,3 +58,4 @@ One important thing to remember, is that SELF always refers to the receiver Acto
 
 If, instead of sending to ME, I had mistakenly sent to SELF in that final SEND, that message would have gone right back to the anonymous β-Actor currently executing.
 
+So, in summary, β Forms look like MULTIPLE-VALUE-BIND, and they create anonymous Actors bound to lexical symbol β inside the β-form. These are the Actor equivalent of Lambda expressions. _[And yes, you can spell it out as BETA.]_
