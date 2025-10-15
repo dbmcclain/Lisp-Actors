@@ -5,7 +5,7 @@ Actors programming is the ultimate in luxurious simplicity, while rewarding your
 
 Don't even bother thinking about threads and locks and even more complicated things. Just program like you own the machine, but do your future self a huge favor and program in a Functional Programming paradigm, and with pattern matching at your disposal. We are still Lisp, and if you violate functional protocols - i.e., treating shared data as mutable - then you open your future self to a world of hurt, and you make it almost impossible to fully flex the SMP multi-core architecture of your machine.
 
-You can still have mutation in your program. After all, nothing gets done unless you have mutation. But by keeping state within Actors, and mutating solely through BECOME, and treating all shared data as immutable otherwise, then you automatically obtain parallel concurrent code. And you decide for yourself what granularity of concurrency you wish.
+You can still have mutation in your program. After all, nothing gets done unless you have mutation. But by keeping state within Actors, and mutating solely through BECOME, and treating all shared data as immutable otherwise, then you automatically obtain parallel concurrent code. And you can decide for yourself what granularity of concurrency you want.
 
 All of your code will run the same on a single processor, without any mutithreading, as well as across all the CPU cores, each running a time-sliced OS. The only difference will be speed of overall execution.
 ___
