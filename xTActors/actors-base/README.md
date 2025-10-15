@@ -112,7 +112,7 @@ And for bindings we have:
 ```
 Notes:
 
-[1] args-form inherits the flexibility of LAMBDA*. A single symbol represents the entire argument list. A list of symbols represent argument. And you can also use embedded lists to ask for destructuration of individual argument lists, with the destructuration descending to arbitrary depth. Any arguments denoted with a lone underscore, #\_, are converted to unique gensyms, and declared as ignored.
+[1] args-form inherits the flexibility of LAMBDA*. A single symbol represents the entire argument list. A list of symbols represent arguments. And you can also use embedded lists to ask for destructuration of individual argument lists, with the destructuration descending to arbitrary depth. Any arguments denoted with a lone underscore, #\_, are converted to unique gensyms, and declared as ignored.
 
 [2] Converts to (LET+ ((list-form (MULTIPLE-VALUE-LIST values-form))) ...), so if list-form is a symbol then it gets the list result of MULTIPLE-VALUE-LIST. If list-form is a cons, then we have a DESTRUCTURING-BIND on the list returned from MULTIPLE-VALUE-LIST.
 
