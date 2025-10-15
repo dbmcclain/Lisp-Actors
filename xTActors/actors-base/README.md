@@ -96,17 +96,17 @@ And for bindings we have:
 (symbol    value-form)              -- same as LET*
 (cons-form value-form)              -- implied DESTRUCTURING-BIND, so cons-form can represent an arbitrary tree.
 (:β        args-form  service-form) -- implied β-Form
-(:beta     args-form  service-form) -- same as (:β )
-(:mvb      arg-list   values-form)  -- implied MULTIPLE-VALUE-BIND
-(:mvl      list-form  values-form)  -- implied MULTIPLE-VALUE-LIST [1]
-(:acc      (acc-form*) value-form)  -- implied WITH-ACCESSORS [2]
-(:slots    (slot-form*) value-form) -- implied WITH-SLOTS [3]
-(:sym      sym-forms)               -- implied SYMBOL-MACROLET
-(:fn       labels-forms)            -- implied LABELS
-(:mac      macrolet-forms)          -- implied MACROLET
-(:dcl      declarations)            -- implied (LOCALLY (DECLARE ...) ...)
-(:dm       arg-list property-list)  -- imlied (apply (LAMBDA arg-list ...) property-list)
-(:par      args-list expr-list)     -- implied parallel execution via β-Form with Fork-Join send.
+(:BETA     args-form  service-form) -- same as (:β )
+(:MVB      arg-list   values-form)  -- implied MULTIPLE-VALUE-BIND
+(:MVL      list-form  values-form)  -- implied MULTIPLE-VALUE-LIST [1]
+(:ACC      (acc-form*) value-form)  -- implied WITH-ACCESSORS [2]
+(:SLOTS    (slot-form*) value-form) -- implied WITH-SLOTS [3]
+(:SYM      sym-forms)               -- implied SYMBOL-MACROLET
+(:FN       labels-forms)            -- implied LABELS
+(:MAC      macrolet-forms)          -- implied MACROLET
+(:DCL      declarations)            -- implied (LOCALLY (DECLARE ...) ...)
+(:DB       arg-list property-list)  -- imlied (apply (LAMBDA arg-list ...) property-list), as in "mini-database"
+(:PAR      args-list expr-list)     -- implied parallel execution via β-Form with Fork-Join send.
 ```
 Notes:
 
