@@ -112,6 +112,6 @@ Notes:
 
 [1] Converts to (LET+ ((list-form (MULTIPLE-VALUE-LIST values-form))) ...), so if list-form is a symbol then it gets the list result of MULTIPLE-VALUE-LIST. If list-form is a cons, then we have a DESTRUCTURING-BIND on the list returned from MULTIPLE-VALUE-LIST.
 
-[2] If acc-form is a symbol then it must be the name of the accessor. If acc-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the a symbol naming the accessor. This is the same as for WITH-ACCESSORS.
+[2] If acc-form is a symbol then it must be the name of the accessor. If acc-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the symbol naming the accessor. This is the same as for WITH-ACCESSORS.
 
-[3] If slot-form is a symbol then it must be the name of the slot. If slot-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the a symbol naming the slot. This is the same as for WITH-SLOTS.
+[3] If slot-form is a symbol then it must be the name of the slot. If slot-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the symbol naming the slot. This is the same as for WITH-SLOTS.
