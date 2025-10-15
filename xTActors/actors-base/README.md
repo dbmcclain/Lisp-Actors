@@ -23,5 +23,7 @@ Suppose we have an Actor named PKEY-DATABASE which holds a repsitory of cryptogr
 +-------------------------------------------------+
 ```
 
-The grouping of the expressions shows that the LET binding and the SEND are related by being executed, in succession, by the same thread at runtime. After sending, the thread goes on to do whatever follows the β-form (usually nothing) and then exits. Meanwhile the message gets delivered to the database service, and that service sends its lookup result to the customer Actor (here the anonymous β Actor). So the second grouping shows that anonymous β-Actor. The arglist and body are grouped together, analogous to a λ-form.
+The grouping of the expressions shows that the LET binding and the SEND are related by being executed, in succession, by the same thread at runtime. After sending, the thread goes on to do whatever follows the β-form (usually nothing) and then exits. 
+
+Meanwhile the message gets delivered to the database service, and that service sends its lookup result to the customer Actor (here the anonymous β Actor). So the second grouping shows that anonymous β-Actor. The arglist and body are grouped together, analogous to a λ-form.
 
