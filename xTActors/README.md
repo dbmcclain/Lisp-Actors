@@ -1,7 +1,7 @@
 What follows is extremely stale information from more than 4 years ago. This *IS*, however, the currently active implementation folder.
 --
 
-For latest info, you should refer, instead, to the README.md in the outer folder for Lisp-Actors.
+For latest info, you should refer, instead, to the README.md in the outer folder for Lisp-Actors. [up one level from here]
 --
 
 The information below might still be interesting for reference.
