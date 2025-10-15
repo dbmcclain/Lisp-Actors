@@ -82,7 +82,7 @@ Understanding LET+
 
 Lisp has so many different binding forms: LET, LET*, DESTRUCTURING-BIND, MULTIPLE-VALUE-BIND, SYMBOL-MACROLET, etc. Using them makes your code look like a veritable zoo of binding and cascading indentations. 
 
-LET+ attempts to unify their syntax. Semantically, s succession of LET+ bindings is similar to LET*. Each binding completes before performing the next.
+LET+ attempts to unify their syntax. Semantically, a succession of LET+ bindings is similar to LET*. Each binding completes before performing the next.
 
 But LET+ can be used to subsume the variety into a compact, non-cascading, form.
 
