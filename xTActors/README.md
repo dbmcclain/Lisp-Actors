@@ -9,7 +9,7 @@ You can still have mutation in your program. After all, nothing gets done unless
 
 All of your code will run the same on a single processor, without any mutithreading, as well as across all the CPU cores, each running a time-sliced OS. The only difference will be speed of overall execution.
 
-Deadlocks will be a thing of the past. Priority inversion will cease to happen. If two "Tasks" face a standoff, the rest of the Actors system remains alive and responsive. A "Task" is not a thread, but rather a coordinated series of actions that accomplish some or all of some task that you need to accomplish. 
+Deadlocks will be a thing of the past. Priority inversion will cease to happen. If two "Tasks" face a standoff, the rest of the Actors system remains alive and responsive. A "Task" is not a thread, but rather a coordinated series of actions that accomplish some or all of some computational chore that you need to accomplish. 
 
 There really could be multiple threads running beneath the Actors system - as Dispatch threads, delivering messages to Actors. A single Task may involve the execution of portions of Actor code by any number of arbitrary Dispatch threads. But you are never aware of them.
 
