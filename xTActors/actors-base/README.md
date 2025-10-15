@@ -107,7 +107,7 @@ And for bindings we have:
 (:FN       (fn-form*))              -- implied LABELS
 (:MAC      (macrolet-form*))        -- implied MACROLET
 (:DCL      (declaration*))          -- implied (LOCALLY (DECLARE ...) ...)
-(:DB       arg-list property-list)  -- implied (apply (LAMBDA (&KEY ,@arg-list) ...) property-list), as in "mini-database" [5]
+(:DB       arg-list property-list)  -- implied GETF extraction from property-list, as in "mini-database" [5]
 (:PAR      args-list expr-list)     -- implied parallel execution via β-Form with Fork-Join send.
 ```
 Notes:
@@ -120,4 +120,4 @@ Notes:
 
 [4] If slot-form is a symbol then it must be the name of the slot. If slot-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the symbol naming the slot. This is the same as for WITH-SLOTS.
 
-[5] The args in arg-list must be symbols naming the properties in the property-list. But since these are keyword args of a lambda function, they can be accompanied with default values, and present-p flag bindings.
+[5] The args in arg-list must be symbols naming the properties in the property-list. Extraction is performed by the mechanism used for &KEY arguments of functions. And since these are keyword args of a lambda function, they can be accompanied with default values, and present-p flag bindings. The syntesized lambda arglist includes &ALLOW-OTHER-KEYS so that you only have to list the properties that you need.
