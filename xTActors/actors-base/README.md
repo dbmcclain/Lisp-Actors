@@ -41,7 +41,7 @@ The LET+ form has syntax:
 ```
 (LET+ ((:β ARGS SERVICE)) &body body)
 ```
-where SERVICE is an Actor argument that takes a single Customer argument - here, the anonymous β-Actor. 
+where SERVICE is an Actor argument that takes a single Customer argument - here, the Actor produced by a call to RACURRY. 
 
 When you have an Actor that actually needs more arguments, as we have in this example, you can construct a single-argument Actor from it using the Actor analog to RCURRY, which is RACURRY. That packs up all the arguments as right-args, and leaves an Actor that expects only a single lef-arg.
 
