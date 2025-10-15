@@ -1,7 +1,7 @@
 DM/RAL 10/15/25 -- Simplify your life!
 ---
 
-Actors programming is the ultimate in luxurious simplicity, while rewarding your efforts with the maximum in parallel concurrent execution. It took me the better part of 20 years to finally achieve a simple and painless way to take maximum advantage of my multi-core processors. And here it is - _Transactional Hewitt Actors_.
+Actors programming is the ultimate in luxurious simplicity, while rewarding your efforts with the maximum in parallel concurrent execution. It took me the better part of 20 years to finally achieve a simple and painless way to take maximum advantage of my multi-core processors. And here it is - _Transactional Conventional Hewitt Actors_.
 
 Don't even bother thinking about threads and locks and even more complicated things. Just program like you own the machine, but do your future self a huge favor and program in a Functional Programming paradigm, and with pattern matching at your disposal. We are still Lisp, and if you violate functional protocols - i.e., treating shared data as mutable - then you open your future self to a world of hurt, and you make it almost impossible to fully flex the SMP multi-core architecture of your machine.
 
@@ -15,7 +15,11 @@ There really could be multiple threads running beneath the Actors system - as Di
 
 And there are some hidden locks in the system to coordinate actions among multiple threads - in the Event Queue, a shared mailbox which is where all messages are sent, and in the committing of BECOME. But you never need to be aware of these locks.
 
-And best of all, the Transactional nature of Actors means that errors will not cascade any further than the abort of the currently running Actor code. All SEND, BECOME, and CREATEd Actors, are discarded, and it is as though the errant message were never delivered. No globally visible effects from an Actor will become visible until its behavior code exits successfully. All SEND and BECOME are staged for execution at successful exit time when they will be committed. And the only way to keep a CREATEd Actor alive is to share its identity in a committed SEND message or a BECOME.
+All SEND and BECOME are staged for execution at successful exit time when they will be committed. And the only way to keep a CREATEd Actor from being garbage collected is to share its identity in a committed SEND message or a BECOME.
+
+And best of all, the Transactional nature of Actors means that errors will not cascade any further than the abort of the currently running Actor code. All SEND, BECOME, and CREATEd Actors, are discarded, and it is as though the errant message were never delivered. No globally visible effects from an Actor will become visible until its behavior code exits successfully. 
+
+Erlang was an early "Actor System", of sorts. But they conflate (Green) Threads with Actors. And they have the notion of killing an Actor. In our Transactional Conventional Hewitt Actor system, Actors are neither alive nor dead. They are just wrapped functional closures. Asking to kill an Actor has no more meaning than asking to kill the FIND function.
 ___
 
 
