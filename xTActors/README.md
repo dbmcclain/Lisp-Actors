@@ -1,5 +1,10 @@
 What follows is extremely stale information from more than 4 years ago.
+You should, instead, refer to the README.md in the outer folder for Lisp-Actors.
+The information below might still be interesting for reference.
 ---
+---
+
+
 
 -- Lisp-Actors - Classical Actors (in TActors folder) --
 -------------
