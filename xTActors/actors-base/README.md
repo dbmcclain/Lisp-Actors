@@ -27,7 +27,9 @@ The grouping of the expressions shows that the LET binding and the SEND are rela
 
 Meanwhile the message gets delivered to the database service, and that service sends its lookup result to the customer Actor (here the anonymous β Actor). So the second grouping shows that anonymous β-Actor. The arglist and body are grouped together, analogous to a λ-form. This anonymous β-Actor receives its message and gets executed by some arbitrary thread in the futuere.
 
-Now, if you have a long succession of nested β-forms, your indentation gets out of control. You can instead say the same thing using LET+ which keeps all of its binding clauses aligned to the left, and only its ultimate body forms get indented just once. E.g., the same code from above could be written as:
+Now, if you have a long succession of nested β-forms, your indentation gets out of control. You can instead say the same thing using LET+ which keeps all of its binding clauses aligned to the left, and only its ultimate body forms get indented just once. 
+
+E.g., the same code from above could be written as:
 ```
 (LET+ ((id  "Server ID")
        (:β  (pkey)  (racurry PKEY-DATABASE id)))
