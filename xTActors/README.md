@@ -13,7 +13,7 @@ Deadlocks will be a thing of the past. Priority inversion will cease to happen. 
 
 There really could be multiple machine threads running beneath the Actors system - as Dispatch threads, delivering messages to Actors. A single Task may involve the execution of portions of Actor code by any number of arbitrary Dispatch threads. But your code is never aware of them.
 
-And there are some hidden locks in the system to coordinate actions among multiple threads - in the Event Queue, a shared mailbox which is where all messages are sent, and in the committing of BECOME. But you never need to be aware of these locks.
+And there are some hidden locks in the system to coordinate actions among multiple machine threads - in the Event Queue, a shared mailbox which is where all messages are sent, and in the committing of BECOME. But you never need to be aware of these locks.
 
 Transactional means that all SEND and BECOME are staged for execution at successful exit when they will be committed. And the only way to keep a CREATEd Actor from being garbage collected is to share its identity in a committed SEND message or a BECOME state. No global effects from an Actor execution can become visible until its behavior code exits successfully. 
 
