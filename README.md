@@ -26,7 +26,7 @@ We must keep in mind that parallel execution of code snippets is possible at any
 
 So it is really pretty much the same idea as conventional multi-thread programming, but slightly more generalized - to the point where "threads" and "locks" become irrelevant. They are both present, but only used beneath the Actors protocol, never overtly by snippet "Actor" code. Deadlocks are a thing of the past. 
 
-For those portions of a task that need exclusive serialized access, you can place your Actors behind a SERIALIZER block. This allows the passage of only one message at a time to the following Actor blocks, until that Actor network sends a response back to the SERIALIZER, which then enables the passage of the next message. 
+For those portions of a task that need exclusive serialized access, you can place your Actors behind a SERIALIZER block. This allows the passage of only one message at a time to the following Actor blocks, until that Actor network sends a response back through the SERIALIZER, which then enables the passage of the next message. 
 
 Deadlocks cannot occur in an Actor system, but livelocks can happen, where two tasks are each enqueued in opposing SERIALIZER blocks, each awaiting a response from the other which will never occur. In such case, progress in those two tasks will halt, but the overall Actor system remains responsive to other messages.
 
