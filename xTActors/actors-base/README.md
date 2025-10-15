@@ -73,3 +73,43 @@ If, instead of sending to ME, I had mistakenly sent to SELF, in that final SEND,
 --- 
 
 So, in summary, β-Forms look like MULTIPLE-VALUE-BIND, and they create anonymous Actors bound to lexical symbol β inside the β-form. These are the Actor equivalent of Lambda expressions. _[And yes, you can spell it out as BETA.]_
+
+---
+
+Understanding LET+
+___
+Lisp has so many different binding forms: LET, LET*, DESTRUCTURING-BIND, MULTIPLE-VALUE-BIND, SYMBOL-MACROLET, etc. Using them makes your code look like a veritable zoo of binding and cascading indentations. 
+
+LET+ attempts to unify their syntax. Semantically, as succession of LET+ bindings is similar to LET*. Each binding completes before performing the next.
+
+But LET+ can be used to subsume the variety into a compact, non-cascading, form.
+
+```
+(LET+ (bindings*) forms*)
+```
+where * denotes zero or more-of.
+
+And for bindings we have:
+```
+(symbol    value-form)           -- same as LET*
+(cons-form value-form)           -- implied DESTRUCTURING-BIND, so cons-form can represent an arbitrary tree.
+(:β     args-form  service-form) -- implied β-Form
+(:beta  args-form  service-form) -- same as (:β )
+(:mvb   arg-list   values-form)  -- implied MULTIPLE-VALUE-BIND
+(:mvl   list-form  values-form)  -- implied MULTIPLE-VALUE-LIST [1]
+(:acc   (acc-form*) value-form)  -- implied WITH-ACCESSORS [2]
+(:slots (slot-form*) value-form) -- implied WITH-SLOTS [3]
+(:sym   sym-forms)               -- implied SYMBOL-MACROLET
+(:fn    labels-forms)            -- implied LABELS
+(:mac   macrolet-forms)          -- implied MACROLET
+(:dcl   declarations)            -- implied (LOCALLY (DECLARE ...) ...)
+(:dm    arg-list property-list)  -- imlied (apply (LAMBDA arg-list ...) property-list)
+(:par   args-list expr-list)     -- implied parallel execution via β-Form with Fork-Join send.
+```
+Notes:
+
+[1] Converts to (LET+ ((list-form (MULTIPLE-VALUE-LIST values-form))) ...), so if list-form is a symbol then it gets the list result of MULTIPLE-VALUE-LIST. If list-form is a cons, then we have a DESTRUCTURING-BIND on the list returned from MULTIPLE-VALUE-LIST.
+
+[2] If acc-form is a symbol then it must be the name of the accessor. If acc-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the a symbol naming the accessor. This is the same as for WITH-ACCESSORS.
+
+[3] If slot-form is a symbol then it must be the name of the slot. If slot-form is a pair, then the first must be a symbol that will become the name of the binding and the second must be the a symbol naming the slot. This is the same as for WITH-SLOTS.
