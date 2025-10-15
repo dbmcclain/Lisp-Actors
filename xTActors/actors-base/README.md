@@ -47,3 +47,14 @@ Now one of the nice features of β-form syntax is that you can easily draw menta
 
 But when you use LET+ with :β bindings, you loose this easy distinction. Just know that anything that follows the LET+ :β binding will only be executed, at some time in the future, if the anonymous β-Actor in that binding receives its message.
 
+One important thing to remember, is that SELF always refers to the receiver Actor of the current message. That's why you see so much of my code making a copy for later use:
+```
+(let ((ME  SELF))
+  (β  (...)
+       (SEND AnActor β ...)
+     ...
+     (SEND ME ....)))
+```
+
+If, instead of sending to ME, I had mistakenly sent to SELF in that final SEND, that message would have gone right back to the anonymous β-Actor currently executing.
+
