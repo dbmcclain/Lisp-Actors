@@ -35,6 +35,8 @@ The arglist of a β-Form can be an arbitrary tree of argument symbols, since we 
 
 Also, bear in mind that any bindings established in the scope of the SEND will also be seen by the behavior code of the anonymous β-Actor. Creating an anonymous Actor creates a lambda-closure for its behavior code.
 
+Writing code with β-Forms produces what I call Continuation Style Actors Code, with the β-Form being the continuation Actor. It is reminiscent of CPS Style, like the =BINDS code from Paul Graham.
+
 ---
 
 Now, if you have a long succession of nested β-forms, your Editing indentation grows out of control. You can, instead, say the same thing using LET+ which keeps all of its binding clauses aligned to the left, and only its ultimate body forms get indented just once. 
