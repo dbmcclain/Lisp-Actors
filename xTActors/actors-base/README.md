@@ -33,7 +33,7 @@ Thereafter the message gets delivered to the database service, and that service 
 
 The arglist of a β-Form can be an arbitrary tree of argument symbols, since we use LAMBDA* for the anonymous β-Actor behavior function.
 
-Also, bear in mind that any bindings established in the scope of the SEND will also be seen by the behavior code of the anonymous β-Actor. Creating an anonymous Actor creates a lambda-closure for its behavior code.
+Also, bear in mind that any bindings visible to the SEND will also be seen by the behavior code of the anonymous β-Actor. Creating an anonymous Actor creates a lambda-closure for its behavior code.
 
 Writing code with β-Forms produces what I call Continuation Style Actors Code, with the anonymous β-Actor being a continuation Actor. It is reminiscent of CPS Style, like the =BINDS code from Paul Graham.
 
