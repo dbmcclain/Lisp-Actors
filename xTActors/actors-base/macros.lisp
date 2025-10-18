@@ -77,10 +77,6 @@
   ;; For cross- and self-referential Actor constructions...
   ;;
   ;; All binding values should represent fresh Actor constructions.
-  ;; Violations may lead to undefined behavior.
-  ;;
-  ;; Macros are syntax engines and cannot infer semantic actions.
-  ;; Hence, there is no way to ensure proper use of this macro.
   ;;
   ;; Thanks to the Transactional Actor Behavior Protocol, no other
   ;; thread can learn the identity of any freshly constructed Actor
@@ -88,30 +84,8 @@
   ;;
   ;; Since we are freshly constructing Actors for all the names in the
   ;; binding list, we are the only executing thread that knows about
-  ;; them here, and it is therefore safe to immediately directly
+  ;; them here, and it is therefore safe to immediately and directly
   ;; mutate their behavior slots.
-  ;;
-  ;; As for the binding values, if they are freshly constructed Actors
-  ;; then we can safely copy their behavior function, because, again,
-  ;; nobody else has ever seen them. Their Actor envelopes will be
-  ;; discarded by the GC.
-  ;;
-  ;; But if they are extant Actors, not freshly constructed, then
-  ;; copying their behavior function will then have two Actors with
-  ;; the same behavior and same shared state slots in the functional
-  ;; closure. The possibility of future divergence between them
-  ;; exists. That might be okay, but beware.
-  ;;
-  ;; Note that making our names into Forwarding Actors, to avoid
-  ;; divergence, will not work correctly for common use cases. A TAG
-  ;; is expected to furnish itself to the customer. A (FWD TAG) will
-  ;; not present the correct identity to a customer who was only told
-  ;; the identity of the FWD Actor.
-  ;;
-  ;; Fortunately, as long as we abide by Functional Programming
-  ;; paradigm in the Actor bodies - treating all globally visible data
-  ;; as immutable - that also means that it is perfectly okay to carry
-  ;; a copy of the Actor behavior in another Actor.
   ;;
   `(let ,(mapcar #`(,(first a1) (create)) bindings)
      (setf ,@(mapcan #`((actor-beh ,(first a1)) (actor-beh ,(second a1))) bindings))
