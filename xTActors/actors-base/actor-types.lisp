@@ -63,20 +63,35 @@
 ;; containing only the customer can be sent.
 ;;
 ;; -------------------------------------------
+;; DM/RAL  2025/10/18 02:38:52 UTC
+;;
+;; Everyone decries the creation of NIL. I like NIL. It enables so
+;; many idiomatic Lisp expressions that would be much more cumbersome
+;; without it.
+;;
+;; So in the interest of saving space, we will denote SINK with NIL so
+;; that messages to SINK targets never take any space across the
+;; network.
+;;
+;; And by allowing a NIL function pointer in the behavior slot of an
+;; Actor, we enable BECOME-SINK to free up the memory stored in their
+;; closure bindings.
 
 (defstruct (actor
             (:constructor %create (beh)))
-  (beh  #'do-nothing  :type function))
+  (beh  nil  :type (or null function)))
 
 
 (defgeneric screened-beh (arg)
   (:method ((arg function))
    arg)
   (:method ((arg actor))
-   (fwd-beh arg)) )
+   (actor-beh arg))
+  (:method ((arg null))
+   nil))
 
 
-(defun create (&optional (beh #'do-nothing))
+(defun create (&optional beh)
   (%create (screened-beh beh)))
 
 ;; ----------------------------------------------------------

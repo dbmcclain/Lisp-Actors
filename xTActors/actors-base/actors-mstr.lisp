@@ -33,27 +33,22 @@ THE SOFTWARE.
 
 ;; equiv to #F
 (declaim  (OPTIMIZE (SPEED 3) (SAFETY 3) (debug 2) #+:LISPWORKS (FLOAT 0)))
-(declaim  (inline sink-beh))
+
 ;; --------------------------------------
 
 (deflex +timed-out+ (make-condition 'timeout))
 
-(defun sink-beh ()
-  #'do-nothing)
-
-(deflex sink
-  (create (sink-beh)))
+(deflex sink nil)
 
 (defgeneric is-pure-sink? (ac)
   ;; used by networking code to avoid sending useless data
   (:method ((ac actor))
-   (eq (sink-beh) (actor-beh ac)))
+   (null (actor-beh ac)))
   (:method (ac)
    t))
-   
 
 (defun become-sink ()
-  (become (sink-beh)))
+  (become nil))
 
 ;; --------------------------------------------------------
 ;; Core RUN Dispatcher for Actors
@@ -291,8 +286,8 @@ THE SOFTWARE.
   (let (done timeout sends pend-beh)
     (labels
         ((%send (msg)
-           ;; Within one behavior invocation there can be no
-           ;; significance to the ordering of sent messages.
+           ;; Within one Actor invocation there can be no significance
+           ;; to the ordering of sent messages.
            (push msg sends))
          
          (%become (new-beh)
@@ -328,7 +323,7 @@ THE SOFTWARE.
                         RETRY
                         (setf pend-beh   (actor-beh (the actor *self*))
                               sends      nil)
-                        (let ((*self-beh*  pend-beh))
+                        (when-let (*self-beh*  pend-beh)
                           ;; ---------------------------------
                           ;; Dispatch to Actor behavior with message args
                           (apply (the function pend-beh) (the list *self-msg*))
