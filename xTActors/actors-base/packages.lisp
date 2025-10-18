@@ -276,8 +276,10 @@ THE SOFTWARE.
    #:unless-β
    #:true
    #:false
+   
    #:def-actor
    #:define-behavior
+   #:define-behavior*
 
    #:unw-prot
    #:open-file

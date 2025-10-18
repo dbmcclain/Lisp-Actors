@@ -1,17 +1,10 @@
 
 (in-package :com.ral.actors.macros)
 
-#|
-(defmacro behav (args &body body)
-  `(protecting-variables ()
-     (lambda* ,args
-       ,@body)))
-|#
-
 (defmacro behav (args &body body)
   `(lambda* ,args
-       ,@body))
-
+     ,@body) )
+  
 #+:LISPWORKS
 (editor:indent-like 'behav 'lambda)
 
@@ -21,8 +14,9 @@
 
 (defmacro alambda (&rest clauses)
   (um:with-unique-names (msg)
-    `(behav (&rest ,msg)
-       (match ,msg ,@clauses))))
+    `(lambda (&rest ,msg)
+       (match ,msg ,@clauses))
+    ))
 
 ;; ----------------------------------------------------
 ;; ACTORS -- like LABELS, but for Actors.
@@ -89,7 +83,7 @@
   ;;
   `(let ,(mapcar #`(,(first a1) (create)) bindings)
      (setf ,@(mapcan #`((actor-beh ,(first a1)) (actor-beh ,(second a1))) bindings))
-     ,@body))
+     ,@body) )
 
 #+:LISPWORKS
 (editor:setup-indent "actors" 1)
@@ -119,8 +113,9 @@
 
 (defmacro beta (args form &body body)
   `(let ((beta (create
-                (behav ,args ,@body))))
-     ,form))
+                (behav ,args ,@body))
+             ))
+     ,form) )
 
 #+:LISPWORKS
 (editor:indent-like "beta" 'destructuring-bind)
@@ -130,18 +125,20 @@
 (µ α (args &body body)
   ;; α is to actor, what λ is to lambda
   `(create
-    (behav ,args ,@body)))
+    (behav ,args ,@body)) )
 
 (µ αα (&rest clauses)
   `(create
     (alambda
-     ,@clauses)))
+     ,@clauses)) )
 
 (µ β (args form &body body)
   ;; β is a BETA
   `(let ((β (create
-             (behav ,args ,@body))))
-     ,form))
+             (behav ,args ,@body))
+             ))
+     ,form) )
+    
 
 #+:LISPWORKS
 (progn
@@ -155,11 +152,12 @@
     `(β ,args
          (send (fork ,@(mapcar (lambda (e)
                                  `(create
-                                   (behav (,cust)
+                                   (lambda (,cust)
                                      (send ,cust ,e))))
                                exprs))
                β)
-       ,@body)))
+       ,@body)
+    ))
 
 #+:LISPWORKS
 (editor:indent-like "par" 'destructuring-bind)
@@ -173,7 +171,7 @@
 (defmacro with-actors (&body body)
   `(β _
        (send β)
-     ,@body))
+     ,@body) )
 
 ;; -----------------------------------------------------------
 
@@ -182,7 +180,7 @@
   ;; Meaning - the body action will only happen on
   ;; successful commit of the Actor body actions.
   `(send (create
-          (behav ()
+          (lambda ()
             ,@body))) )
 
 ;; -------------------------------------------------------
@@ -201,7 +199,7 @@
   (apply #'apply args))
 
 (defmacro ! (&rest args)
-  `(setf ,@args))
+  `(setf ,@args) )
 
 (defun β! (arg)
   (become arg))
@@ -210,5 +208,30 @@
   (become arg))
 
 (defmacro αλ (&rest clauses)
-  `(alambda ,@clauses))
+  `(alambda ,@clauses) )
 
+;; --------------------------------------------
+;; Making it safer for Lisp - by making state bindings local to
+;; invocation, it becomes safe to mutate the state vars. But these
+;; mutations will have no persistent effect. You can only persist
+;; state changes through BECOME.
+
+(defmacro define-behavior (name args fn)
+  (let ((g!args  (gensym))
+        (g!msg   (gensym)))
+    `(defun ,name (&rest ,g!args)
+       (lambda (&rest ,g!msg)
+         (apply (lambda* ,args
+                  (apply ,fn ,g!msg))
+                ,g!args)
+         ))
+    ))
+
+(defmacro define-behavior* (name args &body clauses)
+  `(define-behavior ,name ,args
+                    (alambda
+                     ,@clauses)) )
+#+:LISPWORKS
+(progn
+  (editor:indent-like 'define-behavior  'defun)
+  (editor:indent-like 'define-behavior* 'defun))
