@@ -29,11 +29,13 @@ Notice that we explicitly stated β in customer position of the SEND message.
 
 _[And remember that, since we have Transactional Hewitt Actors, no SENDs actually happen until we exit successfuly.]_
 
-Meanwhile the message gets delivered to the database service, and that service sends its lookup result to the customer Actor (here the anonymous β Actor). So the second grouping shows that anonymous β-Actor. The arglist and body are grouped together, analogous to a λ-form. This anonymous β-Actor receives its message and gets executed by some arbitrary thread in the future.
+Thereafter the message gets delivered to the database service, and that service sends its lookup result to the customer Actor (our anonymous β Actor). So the second grouping shows that anonymous β-Actor. The arglist and body are grouped together, analogous to a λ-form. This anonymous β-Actor receives its message and gets executed by some arbitrary thread in the future.
 
 The arglist of a β-Form can be an arbitrary tree of argument symbols, since we use LAMBDA* for the anonymous β-Actor behavior function.
 
-Also, bear in mind that any bindings established in the scope of the SEND will also be seen by the behavior code of the anonymous β-Actor. Creating an anonymous Actor creates a lambda-closure for its behavior code.
+Also, bear in mind that any bindings visible to the SEND will also be seen by the behavior code of the anonymous β-Actor. Creating an anonymous Actor creates a lambda-closure for its behavior code.
+
+Writing code with β-Forms produces what I call Continuation Style Actors Code, with the anonymous β-Actor being a continuation Actor. It is reminiscent of CPS Style, like the =BINDS code from Paul Graham.
 
 ---
 
