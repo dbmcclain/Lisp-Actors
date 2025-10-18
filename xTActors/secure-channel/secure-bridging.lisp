@@ -89,7 +89,7 @@
 
 ;; -----------------------------------------------
 
-(def-actor global-services
+(deflex global-services
   (create (service-list-beh
            `((:echo . ,remote-echo)
              (:eval . ,remote-eval))

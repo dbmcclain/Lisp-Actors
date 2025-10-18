@@ -437,10 +437,10 @@
       (β! (noncer-beh new-nonce))))
    ))
 
-(def-actor noncer (create
-                   (noncer-beh
-                    (vec-repr:int (hash/256 (uuid:make-v1-uuid)))
-                    )))
+(deflex* noncer (create
+                 (noncer-beh
+                  (vec-repr:int (hash/256 (uuid:make-v1-uuid)))
+                  )))
 
 ;; -------------------------------------------------------------------
 ;; Pad buffer to multiple of 1024 bytes to cloak actual length. Record
@@ -1182,7 +1182,7 @@
               ))
           ))))
 
-(def-actor aont-decoder
+(deflex aont-decoder
   ;; sends a sequence of original Lisp data items to cust
   (create 
       (behav (cust pkey-vec data-packet aont-vec)
