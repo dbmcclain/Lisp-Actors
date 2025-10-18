@@ -358,7 +358,7 @@
                        (with-contention-free-semantics
                         (lambda* (ix . ans)
                           (without-contention
-                           ;; (Ahem...)
+                           ;; (Ahem... this is okay since each task has its own unique index)
                            (setf (aref ansv ix) (car ans))
                            (unless (find 'no-ans ansv)
                              (become-sink)

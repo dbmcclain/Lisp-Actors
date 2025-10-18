@@ -66,8 +66,8 @@
         (exit new-beh))
        (msg
         (without-contention
-         ;; (naughty, naughty...)
-         (push msg pending))) ;; since we are single-threaded here...
+         (become (shunting-beh tag err sav-beh (cons msg pending)))
+         ))
        ))))
 
 (defun do-shunting-become (fn)

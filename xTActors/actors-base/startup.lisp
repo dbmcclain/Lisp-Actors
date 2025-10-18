@@ -151,7 +151,7 @@
      ;; Sent after forcibly killing off the Dispatch threads in the
      ;; dead-man timer.
      (without-contention
-      (setf threads nil)))
+      (become (custodian-beh))))
     
     ;; --------------------------------------------
     ((cust :get-threads)
