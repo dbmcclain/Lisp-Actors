@@ -367,9 +367,9 @@ customer, just one time."
 
 (defun future-wait-beh (tag &optional msgs)
   (alambda
-   ((atag actor) / (eq tag atag)
-    (become (fwd-beh actor))
-    (send-all-to actor msgs))
+   ((atag ans) / (eq tag atag)
+    (become (const-beh ans))
+    (send-all-to self msgs))
    (msg
     (become (future-wait-beh tag (cons msg msgs))))
    ))
@@ -409,7 +409,7 @@ customer, just one time."
 
 ;; -----------------------------------------
 
-(defun future-become-beh (tag &rest msgs)
+(defun future-become-wait-beh (tag &optional msgs)
   ;; There are times when you know you need to BECOME, but the
   ;; parameters aren't yet available. This FUTURE-BECOME-BEH behavior
   ;; function allows you to wait until the behavior can be completely
@@ -428,12 +428,40 @@ customer, just one time."
   ;;       ... develop new-beh ...
   ;;       (SEND tag new-beh)) ;; now become new-beh
   ;;
+  ;; --------------------------------------------------------
+  ;; In the wait function, when a result Actor arrives, we must
+  ;; produce a FWD to that Actor, and not simply subsume its behavior
+  ;; function. Why?
+  ;;
+  ;; Desipite the fact that behaviors could be shared (as with macro
+  ;; ACTORS), in this case, we are relying on some procesing to
+  ;; produce a future Actor to us. And that Actor might well have some
+  ;; TAG's and LABEL's pointing to it for its proper functioning.
+  ;;
+  ;; If we simply borrowed its behavior function for ourselves, we
+  ;; would not receive the notifications from those TAG's and LABEL's,
+  ;; because those are targeted to an Actor, not a behavior function.
+  
   (alambda
-   ((atag abeh) / (eq atag tag)
-    (become abeh)
-    (send-all-to self msgs))
+   ((atag actor) / (eq atag tag)
+    (become (fwd-beh actor))
+    (send-all-to actor msgs))
    (msg
-    (become (apply #'future-become-beh tag msg msgs)))
+    (become (future-become-beh tag (cons msg msgs))))
+   ))
+
+(defun future-become (actor &rest constr-args)
+  (let ((tag  (tag self)))
+    (send* actor tag constr-args)
+    (become (future-become-wait-beh tag))
+    ))
+
+(defun lazy-future-become (actor &rest constr-args)
+  (create
+   (lambda* msg
+     (let ((tag  (tag self)))
+       (become (future-become-wait-beh tag (list msg)))
+       (send* actor tag constr-args)))
    ))
 
 ;; --------------------------------------

@@ -86,8 +86,8 @@
   (:method ((arg function))
    arg)
   (:method ((arg actor))
-   (actor-beh arg))
-  (:method ((arg null))
+   (fwd-beh arg))
+  (:method (arg) ;; anything other than a function or an Actor becomes SINK
    nil))
 
 

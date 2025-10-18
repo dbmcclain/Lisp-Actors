@@ -116,7 +116,7 @@
   ;; others.
   ;;
   ;; The FUT is a lazy eval, doing nothing until a message is sent to us.
-  (lazy-future kvdb-orchestrator :make-kvdb *db-path*))
+  (lazy-future-become kvdb-orchestrator :make-kvdb *db-path*))
                  
 ;; -----------------------------------------------------------
 ;; Utility Functions
@@ -147,7 +147,7 @@
 
 (defun* lw-start-kvdb _
   (setf kvdb-orchestrator  (create (kvdb-orchestrator-beh)))
-  (setf kvdb               (lazy-future kvdb-orchestrator :make-kvdb *db-path*)))
+  (setf kvdb               (lazy-future-become kvdb-orchestrator :make-kvdb *db-path*)))
 
 (defun* lw-kill-kvdb _
   (princ "Allowing KVDB to sync before shutting down.")

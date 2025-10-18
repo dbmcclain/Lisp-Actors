@@ -117,7 +117,7 @@ THE SOFTWARE.
 ;; ---------------------------------------
 
 (defun become (new-beh)
-  (funcall *become-hook* new-beh))
+  (funcall *become-hook* (screened-beh new-beh)))
 
 ;; -----------------------------------
 ;; In an Actor, (ABORT-BEH) undoes any BECOME and SENDS to this point,

@@ -141,6 +141,8 @@ THE SOFTWARE.
 
    #:future
    #:lazy-future
+   #:future-become
+   #:lazy-future-become
    #:sink
    #:become-sink
    #:const
