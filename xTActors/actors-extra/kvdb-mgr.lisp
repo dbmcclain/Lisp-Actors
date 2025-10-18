@@ -158,50 +158,43 @@
 
 ;; ----------------------------------------------------------------
 
-(defun common-trans-beh (msg state)
+(defun common-trans-beh (msg &rest state &key saver db &allow-other-keys)
   ;; Common behavior for general and exclusive use.
   (match msg
     ;; -------------------
     ;; general entry for external clients
     ((cust :req)
-     (let+ ((:db (db) state))
-       (send cust db)))
+     (send cust db))
     
     ((cust :find-multiple . keys)
-     (let+ ((:db (db) state))
-       (send cust (mapcar (um:curry #'db-find db) keys))))
+     (send cust (mapcar (um:curry #'db-find db) keys)))
     
     ((cust :find key . default)
-     (let+ ((:db (db) state))
-       (send cust (db-find db key (car default)) )))
+     (send cust (db-find db key (car default)) ))
     
     ;; -------------------
     ;; We are the only one that knows the identity of saver, so this
     ;; can't be forged by malicious clients. Also, a-db will only
     ;; eql db if there have been no updates within the last 10 sec.
-    ((a-tag a-db) / (let+ ((:db (db saver) state))
-                      (and (eql a-tag saver)
-                           (eql a-db  db)))
-     (let+ ((:db (db saver) state))
-       (send saver sink :save-log db)))
+    ((a-tag a-db) / (and (eql a-tag saver)
+                         (eql a-db  db))
+     (send saver sink :save-log db))
     ))
 
 ;; ------------------------------
 
-(defun trans-gate-beh (state)
+(define-behavior trans-gate-beh (&rest state &key saver db &allow-other-keys)
   ;; General behavior of KVDB manager
   (labels ((upd (cust adb ans)
-             (let+ ((:db (saver) state)
-                    (new-db (db-add adb 'version (uuid:make-v1-uuid))))
+             (let ((new-db (db-add adb 'version (uuid:make-v1-uuid))))
                ;; version key is actually 'com.ral.actors.kvdb::version
                (send cust ans)
                (send-after 10 self saver new-db)
-               (become (trans-gate-beh (with state
-                                         :db  new-db)))
+               (become (apply #'trans-gate-beh (with state
+                                                 :db new-db)))
                ))
            (add (cust key val)
-             (let+ ((:db (db) state)
-                    (new-db  (db-add db key val)))
+             (let ((new-db  (db-add db key val)))
                (upd cust new-db val))))
     (alambda
      ((cust :req-excl owner timeout) / (and (realp timeout)
@@ -209,18 +202,16 @@
       ;; ignored unless timeout is positive real number
       ;; request exclusive :commit access
       ;; customer must either :commit or :abort within timeout period
-      (let+ ((fa-tag (tag self))
-             (:db (db) state))
+      (let ((fa-tag (tag self)))
         (send cust db)
         (send-after timeout fa-tag 'forced-abort)
-        (become (busy-trans-gate-beh (with state
-                                       :owner  owner
-                                       :fa-tag fa-tag)))
+        (become (apply #'busy-trans-gate-beh (with state
+                                              :owner  owner
+                                              :fa-tag fa-tag)))
         ))
-     
+        
      ((cust :find-or-add key val)
-      (let+ ((:db (db) state)
-             (ans (db-find db key db)))
+      (let ((ans (db-find db key db)))
         (if (eq ans db)
             (add cust key val)
           ;; else
@@ -231,13 +222,11 @@
       (add cust key val))
      
      ((cust :remove key)
-      (let+ ((:db (db) state))
-        (upd cust (db-remove db key) :ok)))
+      (upd cust (db-remove db key) :ok))
      
      ((cust :add-multiple . keys-vals)
       ;; keys-vals should be an ALIST of (KEY . VAL) pairs
-      (let+ ((:db (db) state)
-             (new-db  db))
+      (let ((new-db  db))
         (dolist (pair keys-vals)
           (setf new-db (db-add new-db (car pair) (cdr pair))))
         (if (eq new-db db)
@@ -246,8 +235,7 @@
         ))
      
      ((cust :remove-multiple . keys)
-      (let+ ((:db (db) state)
-             (new-db db))
+      (let ((new-db db))
         (dolist (key keys)
           (setf new-db (db-remove new-db key)))
         (if (eq new-db db)
@@ -258,95 +246,83 @@
      ;; -------------------
      ;; commit after update
      (( (cust . retry) :commit old-db new-db)
-      (let+ ((:db (db) state))
-        (cond ((eql old-db db) ;; make sure we have correct version
-               (cond ((eql new-db db)
-                      ;; no real change
-                      (send cust :ok))
-                     
-                     (t
-                      ;; changed db, so commit new
-                      (upd cust new-db :ok))
-                     ))
-              
-              (t
-               ;; had wrong version for old-db
-               (send retry db))
-              )))
+      (cond ((eql old-db db) ;; make sure we have correct version
+             (cond ((eql new-db db)
+                    ;; no real change
+                    (send cust :ok))
+                   
+                   (t
+                    ;; changed db, so commit new
+                    (upd cust new-db :ok))
+                   ))
+            
+            (t
+             ;; had wrong version for old-db
+             (send retry db))
+            ))
      
      (('maint-full-save)
-      (let+ ((:db (db saver) state)
-             (new-db (db-rebuild db)))
-        (become (trans-gate-beh (with state
-                                  :db new-db)))
+      (let ((new-db (db-rebuild db)))
+        (become (apply #'trans-gate-beh (with state
+                                          :db new-db)))
         (send saver sink :full-save new-db)))
      
      (msg
-      (common-trans-beh msg state))
+      (apply #'common-trans-beh msg state))
      )))
 
 ;; ----------------------------------------------------------------
-(defun busy-trans-gate-beh (state)
+(define-behavior busy-trans-gate-beh (&rest state &key queue owner db saver &allow-other-keys)
   ;; Behavior for exclusive access
   (behav (&rest msg)
     (labels ((release (cust new-db)
                (send cust new-db)
-               (let+ ((:db (queue) state))
-                 (do-queue (msg queue)
-                   (send* self msg))
-                 (become (trans-gate-beh (with state
-                                           :without (queue owner)
-                                           :db      new-db) ))
-                 ))
+               (do-queue (msg queue)
+                 (send* self msg))
+               (become (apply #'trans-gate-beh (with state
+                                                 :without (queue owner)
+                                                 :db      new-db) )))
              (stash ()
-               (let+ ((:db (queue) state))
-                 (become (busy-trans-gate-beh (with state
-                                                :queue (addq queue msg))))
-                 )))
+               (become (apply #'busy-trans-gate-beh (with state
+                                                      :queue (addq queue msg))))
+               ))
       
       (match msg
         ((acust :req-excl an-owner _)
-         (let+ ((:db (owner db) state))
-           (send acust
-                 (if (eql an-owner owner)
-                     db
-                   :fail))))
+         (send acust
+               (if (eql an-owner owner)
+                   db
+                 :fail)))
         
-        ((acust :abort an-owner) / (let+ ((:db (owner) state))
-                                     (eql an-owner owner))
+        ((acust :abort an-owner) / (eql an-owner owner)
          ;; relinquish excl :commit ownership
-         (let+ ((:db (db) state))
-           (release acust db)))
+         (release acust db))
         
-        ((atag 'forced-abort)  / (let+ ((:db (fa-tag) state))
-                                   (eql atag fa-tag))
-         (let+ ((:db (db) state))
-           (release sink db)))
+        ((atag 'forced-abort)  / (eql atag fa-tag)
+         (release sink db))
         
         ;; -------------------
         ;; commit after update from owner, then relinquish excl :commit ownership
-        (( (acust . an-owner) :commit old-db new-db) / (let+ ((:db (owner) state))
-                                                         (eql an-owner owner))
-         (let+ ((:db (db saver) state))
-           (cond ((eql old-db db) ;; make sure we have correct version
-                  (cond ((eql new-db db)
-                         ;; no real change
-                         (release acust db))
-                        
-                        (t
-                         ;; changed db, so commit new
-                         (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
-                           ;; version key is actually 'com.ral.actors.kvdb::version
-                           (send-after 10 self saver versioned-db)
-                           (release acust versioned-db)))
-                        ))
-                 
-                 (t
-                  ;; Sender must not have included the original db to
-                  ;; check against.  This is a programming error...
-                  (error "Should not happen"))
-                 )))
-        
+        (( (acust . an-owner) :commit old-db new-db) / (eql an-owner owner)
+         (cond ((eql old-db db) ;; make sure we have correct version
+                (cond ((eql new-db db)
+                       ;; no real change
+                       (release acust db))
+                      
+                      (t
+                       ;; changed db, so commit new
+                       (let ((versioned-db (db-add new-db 'version (uuid:make-v1-uuid) )))
+                         ;; version key is actually 'com.ral.actors.kvdb::version
+                         (send-after 10 self saver versioned-db)
+                         (release acust versioned-db)))
+                      ))
+               
+               (t
+                ;; Sender must not have included the original db to
+                ;; check against.  This is a programming error...
+                (error "Should not happen"))
+               ))
+      
         ((_ :commit . _)
          (stash))
         
@@ -354,7 +330,7 @@
          (stash))
         
         (_
-         (common-trans-beh msg state))
+         (apply #'common-trans-beh msg state))
         ))))
 
 ;; ----------------------------------------------------------------
@@ -369,8 +345,8 @@
   ;; itself.
   (alambda
    ((a-tag :opened db) / (eq a-tag tag)
-    (become (trans-gate-beh `(:db    ,db
-                              :saver ,saver)))
+    (become (trans-gate-beh :db db
+                            :saver saver))
     ;; now open for business, resubmit pending client requests
     (send-all-to self msgs))
 

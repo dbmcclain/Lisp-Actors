@@ -82,11 +82,19 @@
   ;; mutate their behavior slots.
   ;;
   `(let ,(mapcar #`(,(first a1) (create)) bindings)
-     (setf ,@(mapcan #`((actor-beh ,(first a1)) (actor-beh ,(second a1))) bindings))
+     (setf ,@(mapcan #`((actor-beh ,(first a1)) (beh ,(second a1))) bindings))
      ,@body) )
 
 #+:LISPWORKS
 (editor:setup-indent "actors" 1)
+
+(defgeneric beh (x)
+  (:method ((x function))
+   x)
+  (:method ((x actor))
+   (actor-beh x))
+  (:method (x)
+   nil))
 
 ;; -------------------------------------------------------
 ;;
