@@ -108,6 +108,11 @@
   ;; not present the correct identity to a customer who was only told
   ;; the identity of the FWD Actor.
   ;;
+  ;; Fortunately, as long as we abide by Functional Programming
+  ;; paradigm in the Actor bodies - treating all globally visible data
+  ;; as immutable - that also means that it is perfectly okay to carry
+  ;; a copy of the Actor behavior in another Actor.
+  ;;
   `(let ,(mapcar #`(,(first a1) (create)) bindings)
      (setf ,@(mapcan #`((actor-beh ,(first a1)) (actor-beh ,(second a1))) bindings))
      ,@body))
