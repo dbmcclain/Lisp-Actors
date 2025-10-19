@@ -217,29 +217,3 @@
 
 (defmacro αλ (&rest clauses)
   `(alambda ,@clauses) )
-
-;; --------------------------------------------
-;; Making it safer for Lisp - by making state bindings local to
-;; invocation, it becomes safe to mutate the state vars. But these
-;; mutations will have no persistent effect. You can only persist
-;; state changes through BECOME.
-
-(defmacro define-behavior (name args fn)
-  (let ((g!args  (gensym))
-        (g!msg   (gensym)))
-    `(defun ,name (&rest ,g!args)
-       (lambda (&rest ,g!msg)
-         (apply (lambda* ,args
-                  (apply ,fn ,g!msg))
-                ,g!args)
-         ))
-    ))
-
-(defmacro define-behavior* (name args &body clauses)
-  `(define-behavior ,name ,args
-                    (alambda
-                     ,@clauses)) )
-#+:LISPWORKS
-(progn
-  (editor:indent-like 'define-behavior  'defun)
-  (editor:indent-like 'define-behavior* 'defun))

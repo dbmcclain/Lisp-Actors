@@ -183,15 +183,14 @@
 
 ;; ------------------------------
 
-(define-behavior trans-gate-beh (&rest state &key saver db &allow-other-keys)
+(defun trans-gate-beh (&rest state &key saver db)
   ;; General behavior of KVDB manager
   (labels ((upd (cust adb ans)
              (let ((new-db (db-add adb 'version (uuid:make-v1-uuid))))
                ;; version key is actually 'com.ral.actors.kvdb::version
                (send cust ans)
                (send-after 10 self saver new-db)
-               (become (apply #'trans-gate-beh (with state
-                                                 :db new-db)))
+               (become (trans-gate-beh :saver saver :db new-db))
                ))
            (add (cust key val)
              (let ((new-db  (db-add db key val)))
@@ -205,9 +204,7 @@
       (let ((fa-tag (tag self)))
         (send cust db)
         (send-after timeout fa-tag 'forced-abort)
-        (become (apply #'busy-trans-gate-beh (with state
-                                              :owner  owner
-                                              :fa-tag fa-tag)))
+        (become (apply #'busy-trans-gate-beh :owner owner :fa-tag fa-tag state))
         ))
         
      ((cust :find-or-add key val)
@@ -263,8 +260,7 @@
      
      (('maint-full-save)
       (let ((new-db (db-rebuild db)))
-        (become (apply #'trans-gate-beh (with state
-                                          :db new-db)))
+        (become (trans-gate-beh :saver saver :db new-db))
         (send saver sink :full-save new-db)))
      
      (msg
@@ -272,16 +268,14 @@
      )))
 
 ;; ----------------------------------------------------------------
-(define-behavior busy-trans-gate-beh (&rest state &key queue owner db saver &allow-other-keys)
+(defun busy-trans-gate-beh (&rest state &key fa-tag queue owner db saver)
   ;; Behavior for exclusive access
   (behav (&rest msg)
     (labels ((release (cust new-db)
                (send cust new-db)
                (do-queue (msg queue)
                  (send* self msg))
-               (become (apply #'trans-gate-beh (with state
-                                                 :without (queue owner)
-                                                 :db      new-db) )))
+               (become (trans-gate-beh :saver saver :db new-db)))
              (stash ()
                (become (apply #'busy-trans-gate-beh (with state
                                                       :queue (addq queue msg))))
