@@ -450,10 +450,10 @@ WITH-ACCESSORS, in your code, putting it all into one place with LET+."
   ;;
   ;; Nest to any desired level.
   ;;
-  (let+ iter ((tree  tree)
-              (bods  body))
-    (if (consp (car tree))
-        (go-iter (car tree)
-                 `((lambda* ,(cdr tree) ,@bods)))
-      `(defun* ,(car tree) ,(cdr tree) ,@bods)
-      )))
+  (labels ((iter (tree bods)
+             (if (consp (car tree))
+                 (iter (car tree)
+                       `((lambda* ,(cdr tree) ,@bods)))
+               `(defun* ,(car tree) ,(cdr tree) ,@bods)
+               )))
+    (iter tree body)))
