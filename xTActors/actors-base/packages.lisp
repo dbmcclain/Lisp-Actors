@@ -175,6 +175,7 @@ THE SOFTWARE.
 
    #:serializer
    #:serializer-sink
+   #:safe-serializer
    #:with-intercepted-errors
    #:blocking-serializer
    #:condenser

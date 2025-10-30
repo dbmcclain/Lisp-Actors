@@ -232,35 +232,35 @@ prefixed by our unique SELF identity/"
          ;; Quiescent state - nobody in waiting, just flag him through, and
          ;; enter the busy state.
          (with-contention-free-semantics
-           (alambda
-            ((cust . msg)
-             (without-contention
-              (let ((tag  (tag self)))
-                (send* svc tag msg)
-                (become (busy-serializer-beh cust tag nil))
-                )))
-            )))
+          (alambda
+           ((cust . msg)
+            (without-contention
+             (let ((tag  (tag self)))
+               (send* svc tag msg)
+               (become (busy-serializer-beh cust tag nil))
+               )))
+           )))
 
        (busy-serializer-beh (cur-cust tag queue)
          ;; Busy state - new arriving messages get enqueued until we receive
          ;; a message through our interposed customer TAG.
          (with-contention-free-semantics
-           (alambda
-            ((atag . reply) / (eql atag tag)
-             (without-contention
-              (send* cur-cust reply)
-              (if (emptyq? queue)
-                  (become (serializer-beh))
-                (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
-                       (new-tag  (tag self)))
-                  (send* svc new-tag next-msg)
-                  (become (busy-serializer-beh next-cust new-tag new-queue))
-                  ))))
-            ((cust . msg)
-             (without-contention
-              (become (busy-serializer-beh cur-cust tag
-                                           (addq queue (cons cust msg))))))
-            ))) )
+          (alambda
+           ((atag . reply) / (eql atag tag)
+            (without-contention
+             (send* cur-cust reply)
+             (if (emptyq? queue)
+                 (become (serializer-beh))
+               (let+ ((:mvl ((next-cust . next-msg) &optional new-queue _) (popq queue))
+                      (new-tag  (tag self)))
+                 (send* svc new-tag next-msg)
+                 (become (busy-serializer-beh next-cust new-tag new-queue))
+                 ))))
+           ((cust . msg)
+            (without-contention
+             (become (busy-serializer-beh cur-cust tag
+                                          (addq queue (cons cust msg))))))
+           ))) )
     (create (serializer-beh))
     ))
 
@@ -308,6 +308,16 @@ prefixed by the label."
          sink))
 
 ;; ----------------------------------------------------------
+;; Safe Serializers - use a safety timeout on response from supervised Actor.
+
+(defun safe-serializer (act &key (timeout *timeout*))
+  (serializer
+   (create
+    (lambda* (cust . msg)
+      (let ((gate  (once cust)))
+        (send* act gate msg)
+        (send-after timeout gate +timed-out+)))
+    )))
 
 #|
 (defun tst (n)
@@ -349,3 +359,18 @@ prefixed by the label."
               ))
     (funcall fn)
     ))
+
+#|
+
+(let ((ser (serializer
+            (create
+             (lambda* (cust . msg)
+               (send* cust msg))
+             ))))
+  (send ser (label writeln :Returned) :hello)
+  ;; (inspect ser)
+  )
+
+(send (serializer
+       (create #'send*)) println :hello)
+|#

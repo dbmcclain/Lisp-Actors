@@ -244,9 +244,8 @@
 
 ;; ---------------------------------
 
-(defun fwd-beh (actor)
-  (behav (&rest msg)
-    (send* actor msg)))
+(define ((fwd-beh actor) . msg)
+  (send* actor msg))
 
 (defun fwd (actor)
   (create (fwd-beh actor)))
@@ -365,14 +364,14 @@ customer, just one time."
 ;; Now two years out, and I still haven't found a use for FUTURE
 ;; DM/RAL 09/23
 
-(defun future-wait-beh (tag &optional msgs)
-  (alambda
-   ((atag ans) / (eq tag atag)
-    (become (const-beh ans))
-    (send-all-to self msgs))
-   (msg
-    (become (future-wait-beh tag (cons msg msgs))))
-   ))
+(define ((future-wait-beh tag &optional msgs) . msg)
+  (match msg
+    ((atag ans) / (eq tag atag)
+     (become (const-beh ans))
+     (send-all-to self msgs))
+    (_
+     (become (future-wait-beh tag (cons msg msgs))))
+    ))
 
 (defun future (actor &rest constr-args)
   ;; Return a value that represents a future Actor target. Send the
@@ -409,7 +408,7 @@ customer, just one time."
 
 ;; -----------------------------------------
 
-(defun future-become-wait-beh (tag &optional msgs)
+(define ((future-become-wait-beh tag &optional msgs) . msg)
   ;; There are times when you know you need to BECOME, but the
   ;; parameters aren't yet available. This FUTURE-BECOME-BEH behavior
   ;; function allows you to wait until the behavior can be completely
@@ -442,13 +441,13 @@ customer, just one time."
   ;; would not receive the notifications from those TAG's and LABEL's,
   ;; because those are targeted to an Actor, not a behavior function.
   
-  (alambda
-   ((atag actor) / (eq atag tag)
-    (become (fwd-beh actor))
-    (send-all-to actor msgs))
-   (msg
-    (become (future-become-beh tag (cons msg msgs))))
-   ))
+  (match msg
+    ((atag actor) / (eq atag tag)
+     (become (fwd-beh actor))
+     (send-all-to actor msgs))
+    (_
+     (become (future-become-beh tag (cons msg msgs))))
+    ))
 
 (defun future-become (actor &rest constr-args)
   (let ((tag  (tag self)))
@@ -572,30 +571,30 @@ customer, just one time."
 ;;   Consumer sends :READY with customer and sequence counter of desired messaage
 
 (defun sequenced-delivery ()
-  (labels ((sequenced-beh (&optional items)
-             (alambda
-              ((cust :ready ctr)
-               (let ((msg (assoc ctr items)))
-                 (cond (msg
-                        (send cust (cdr msg))
-                        (become (sequenced-beh (remove msg items))))
-                       (t
-                        (become (pending-sequenced-beh cust ctr items)))
-                       )))
-              
-              ((:deliver ctr . msg)
-               (become (sequenced-beh (acons ctr msg items))))
-              ))
-
-           (pending-sequenced-beh (cust ctr items)
-             (alambda
-              ((:deliver in-ctr . msg)
-               (cond ((eql in-ctr ctr)
-                      (send cust msg)
-                      (become (sequenced-beh items)))
-                     (t
-                      (become (pending-sequenced-beh cust ctr (acons in-ctr msg items))))
-                     )))))
+  (labels* (( ((sequenced-bah &optional items) . msg)
+                    (match msg
+                      ((cust :ready ctr)
+                       (let ((msg (assoc ctr items)))
+                         (cond (msg
+                                (send cust (cdr msg))
+                                (become (sequenced-beh (remove msg items))))
+                               (t
+                                (become (pending-sequenced-beh cust ctr items)))
+                               )))
+                      
+                      ((:deliver ctr . msg)
+                       (become (sequenced-beh (acons ctr msg items))))
+                      ))
+            
+            ( ((pending-sequenced-beh cust ctr items) . msg)
+                    (match msg
+                      ((:deliver in-ctr . msg)
+                       (cond ((eql in-ctr ctr)
+                              (send cust msg)
+                              (become (sequenced-beh items)))
+                             (t
+                    (become (pending-sequenced-beh cust ctr (acons in-ctr msg items))))
+                             )))))
     (create (sequenced-beh))
     ))
 
@@ -789,29 +788,29 @@ This the Actors equivalent of WITH-OPEN-FILE."
 
 ;; ---------------------------------------
 
-(defun counter-beh (&optional (ct 0))
-  (alambda
-   ((:inc)
-    (become (counter-beh (1+ ct))))
-   ((:inc delta)
-    (become (counter-beh (+ ct delta))))
-   ((:dec)
-    (become (counter-beh (1- ct))))
-   ((:dec delta)
-    (become (counter-beh (- ct delta))))
-   ((:reset)
-    (become (counter-beh 0)))
-   ((:reset init)
-    (become (counter-beh init)))
-   ((cust :read)
-    (send cust ct))
-   ((cust :read-reset)
-    (send cust ct)
-    (become (counter-beh 0)))
-   ((cust :read-reset init)
-    (send cust ct)
-    (become (counter-beh init)))
-   ))
+(define ((counter-beh &optional (ct 0)) . msg)
+  (match msg
+    ((:inc)
+     (become (counter-beh (1+ ct))))
+    ((:inc delta)
+     (become (counter-beh (+ ct delta))))
+    ((:dec)
+     (become (counter-beh (1- ct))))
+    ((:dec delta)
+     (become (counter-beh (- ct delta))))
+    ((:reset)
+     (become (counter-beh 0)))
+    ((:reset init)
+     (become (counter-beh init)))
+    ((cust :read)
+     (send cust ct))
+    ((cust :read-reset)
+     (send cust ct)
+     (become (counter-beh 0)))
+    ((cust :read-reset init)
+     (send cust ct)
+     (become (counter-beh init)))
+    ))
 
 (defun counter (&optional (initial-ct 0))
   (create (counter-beh initial-ct)))
