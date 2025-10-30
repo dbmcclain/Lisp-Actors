@@ -293,56 +293,55 @@
 ;; If anything goes wrong, the Phys Writer sends a shutdown signal.
 ;;
 
-(defun physical-writer-beh (state)
-  (behav (cust byte-vec)
-    (let+ ((:slots (io-state
-                    io-running
-                    kill-timer
-                    shutdown) state)
-           (bytes-to-write (length byte-vec))
-           (bytes-written  0))
-      ;; (send fmt-println "Socket Write: ~A bytes" bytes-to-write)
-      (labels
-          ;; these functions execute in the thread of the async socket handler
-          ((not-writing ()
-             (send cust :err)) ;; clear the Serializer
-           
-           (write-done (io-state buffer nb-written)
-             (declare (ignore buffer))
-             ;; this is a callback routine, executed in the thread of
-             ;; the async collection
-             (cond ((comm:async-io-state-write-status io-state)
-                    (let+ ((:β _  (racurry io-running :finish-wr-fail)))
-                      (send shutdown)
-                      (send cust :err)))
-                   
-                   (t
-                    (incf bytes-written nb-written)
-                    (cond ((< bytes-written bytes-to-write)
-                           ;; not strictly needed here... we should never reach here
-                           (comm:async-io-state-write-buffer io-state
-                                                             byte-vec
-                                                             #'write-done
-                                                             :start bytes-written)
-                           (send kill-timer :resched))
-
-                          (t
-                           ;; io-running will reply to our cust for us
-                           (send io-running cust :finish-wr-ok))
-                          ))
-                   ))
-           
-           (begin-write ()
-             ;; (send fmt-println "Socket write: ~d bytes" bytes-to-write)
-             (comm:async-io-state-write-buffer io-state
-                                               byte-vec
-                                               #'write-done)
-             (send kill-timer :resched)) )
-        
-        (send io-running sink :try-writing
-              (create #'begin-write)
-              (create #'not-writing))
-        ))))
+(define ((physical-writer-beh state) cust byte-vec)
+  (let+ ((:slots (io-state
+                  io-running
+                  kill-timer
+                  shutdown) state)
+         (bytes-to-write (length byte-vec))
+         (bytes-written  0))
+    ;; (send fmt-println "Socket Write: ~A bytes" bytes-to-write)
+    (labels
+        ;; these functions execute in the thread of the async socket handler
+        ((not-writing ()
+           (send cust :err)) ;; clear the Serializer
+         
+         (write-done (io-state buffer nb-written)
+           (declare (ignore buffer))
+           ;; this is a callback routine, executed in the thread of
+           ;; the async collection
+           (cond ((comm:async-io-state-write-status io-state)
+                  (let+ ((:β _  (racurry io-running :finish-wr-fail)))
+                    (send shutdown)
+                    (send cust :err)))
+                 
+                 (t
+                  (incf bytes-written nb-written)
+                  (cond ((< bytes-written bytes-to-write)
+                         ;; not strictly needed here... we should never reach here
+                         (comm:async-io-state-write-buffer io-state
+                                                           byte-vec
+                                                           #'write-done
+                                                           :start bytes-written)
+                         (send kill-timer :resched))
+                        
+                        (t
+                         ;; io-running will reply to our cust for us
+                         (send io-running cust :finish-wr-ok))
+                        ))
+                 ))
+         
+         (begin-write ()
+           ;; (send fmt-println "Socket write: ~d bytes" bytes-to-write)
+           (comm:async-io-state-write-buffer io-state
+                                             byte-vec
+                                             #'write-done)
+           (send kill-timer :resched)) )
+      
+      (send io-running sink :try-writing
+            (create #'begin-write)
+            (create #'not-writing))
+      )))
 
 (defun make-writer (state)
   (serializer-sink (create (physical-writer-beh state))))
@@ -350,20 +349,20 @@
 ;; -------------------------------------------------------------------------
 ;; Watchdog Timer - shuts down interface after prologned inactivity
 
-(defun watchdog-timer-beh (killer tag)
-  (alambda
-   ((:resched)
-    (let ((new-tag (tag self)))
-      (become (watchdog-timer-beh killer new-tag))
-      (send-after *socket-timeout-period* new-tag :timed-out)))
-   
-   ((atag :timed-out) / (eql atag tag)
-    (become-sink)
-    (send killer))
-
-   ((:discard)
-    (become-sink))
-   ))
+(define ((watchdog-timer-beh killer tag) . msg)
+  (match msg
+    ((:resched)
+     (let ((new-tag (tag self)))
+       (become (watchdog-timer-beh killer new-tag))
+       (send-after *socket-timeout-period* new-tag :timed-out)))
+    
+    ((atag :timed-out) / (eql atag tag)
+     (become-sink)
+     (send killer))
+    
+    ((:discard)
+     (become-sink))
+    ))
 
 (defun make-kill-timer (killer)
   (actors ((tag    (tag timer))
@@ -429,19 +428,17 @@
   handshake        ;; Actor target for handshake negotiation
   custs)           ;; List of customers waiting for this connection to become established
 
-(defun same-ip-test (ip-addr ip-port)
-  (lambda (rec)
-    (let+ ((:slots ((rec-ip-addr ip-addr)
-                    (rec-ip-port ip-port)) rec))
-      (and (eql ip-addr rec-ip-addr)
-           (eql ip-port rec-ip-port))
-      )))
+(define ((same-ip-test ip-addr ip-port) rec)
+  (let+ ((:slots ((rec-ip-addr ip-addr)
+                  (rec-ip-port ip-port)) rec))
+    (and (eql ip-addr rec-ip-addr)
+         (eql ip-port rec-ip-port))
+    ))
 
-(defun member-ip-test (ip-addr)
-  (lambda (rec)
-    (let+ ((:slots (report-ip-addrs) rec))
-      (member ip-addr report-ip-addrs :test #'string-equal)
-      )))
+(define ((member-ip-test ip-addr) rec)
+  (let+ ((:slots (report-ip-addrs) rec))
+    (member ip-addr report-ip-addrs :test #'string-equal)
+    ))
 
 (defun find-connection-using-ip (cnx-lst ip-addr ip-port)
   (find-if (same-ip-test ip-addr ip-port) cnx-lst))
@@ -465,19 +462,18 @@
 ;; A global counter to label instances of server connections from this
 ;; host session
 
-(defun gen-srv-name-beh (&optional (n 0))
-  (behav (cust accepting-handle peer-ip peer-port)
-    (let* ((new-n (1+ n))
-           (name  (format nil "~A:~D ~A #~D->~A:~D"
-                          (machine-instance)
-                          (comm:accepting-handle-local-port accepting-handle)
-                          (comm:accepting-handle-name accepting-handle)
-                          new-n
-                          (comm:ip-address-string peer-ip)
-                          peer-port)
-                  ))
-      (become (gen-srv-name-beh new-n))
-      (send cust name))
+(define ((gen-srv-name-beh &optional (n 0)) cust accepting-handle peer-ip peer-port)
+  (let* ((new-n (1+ n))
+         (name  (format nil "~A:~D ~A #~D->~A:~D"
+                        (machine-instance)
+                        (comm:accepting-handle-local-port accepting-handle)
+                        (comm:accepting-handle-name accepting-handle)
+                        new-n
+                        (comm:ip-address-string peer-ip)
+                        peer-port)
+                ))
+    (become (gen-srv-name-beh new-n))
+    (send cust name)
     ))
 
 (deflex* gen-srv-name
@@ -486,62 +482,62 @@
 ;; ------------------------
 ;; The list of currently active socket connections
 
-(defun connections-list-beh (&optional cnx-lst)
-  (alambda
-   
-   ((cust :show)
-    (send cust cnx-lst))
-
-   #| --------------------------------------------
+(define ((connections-list-beh &optional cnx-lst) . msg)
+  (match msg
+    
+    ((cust :show)
+     (send cust cnx-lst))
+    
+    #| --------------------------------------------
     A Server sends :ADD-SERVER when a new client connection is
     established. The peer-ip addr is that of the client.
-   
+    
     If a record already exists for this peer-ip, shut down our new
     attempt here. No point having a duplicate path.
-   
+    
     Else, construct a new record for our list of connections,
     marked as a :PENDING-SERVER connection. The STATE and SENDER
     Actor will be filled in during the construction of a socket
     interface, which we initiate here.
-   |#
-   ((cust :add-server accepting-handle io-state)
-    (send cust :ok)
-    (let+ ((:mvb (peer-ip peer-port)
-               #+:LISPWORKS8 (comm:socket-connection-peer-address io-state)
-             #+:LISPWORKS7 (comm:get-socket-peer-address (slot-value io-state 'comm::object))
-             )
-           (rec (find-connection-using-ip cnx-lst peer-ip peer-port)))
-      (cond
-
-       (rec
-        ;; already exists or is pending - so shut down our attempt
-        (send forcible-socket-closer sink io-state))
-       
-       (peer-ip
-        ;; reserve our place while we create a channel
-        (let ((rec (make-connection-rec
-                    :ip-addr         peer-ip
-                    :ip-port         peer-port
-                    :state           :pending-server)))
-          (become (connections-list-beh (cons rec cnx-lst)))
-          (let+ ((:β (server-name) (racurry gen-srv-name accepting-handle peer-ip peer-port))
-                 (constr      (socket-intf-constructor :kind             :server
-                                                       :ip-addr          peer-ip
-                                                       :ip-port          peer-port
-                                                       :report-ip-addr   server-name
-                                                       :io-state         io-state)))
-            (send fmt-println "Server Socket (~S) starting up" server-name)
-            (send constr sink))
-          ))
-       )))
+    |#
+    ((cust :add-server accepting-handle io-state)
+     (send cust :ok)
+     (let+ ((:mvb (peer-ip peer-port)
+                #+:LISPWORKS8 (comm:socket-connection-peer-address io-state)
+              #+:LISPWORKS7 (comm:get-socket-peer-address (slot-value io-state 'comm::object))
+              )
+            (rec (find-connection-using-ip cnx-lst peer-ip peer-port)))
+       (cond
         
-   #| --------------------------------------------
+        (rec
+         ;; already exists or is pending - so shut down our attempt
+         (send forcible-socket-closer sink io-state))
+        
+        (peer-ip
+         ;; reserve our place while we create a channel
+         (let ((rec (make-connection-rec
+                     :ip-addr         peer-ip
+                     :ip-port         peer-port
+                     :state           :pending-server)))
+           (become (connections-list-beh (cons rec cnx-lst)))
+           (let+ ((:β (server-name) (racurry gen-srv-name accepting-handle peer-ip peer-port))
+                  (constr      (socket-intf-constructor :kind             :server
+                                                        :ip-addr          peer-ip
+                                                        :ip-port          peer-port
+                                                        :report-ip-addr   server-name
+                                                        :io-state         io-state)))
+             (send fmt-println "Server Socket (~S) starting up" server-name)
+             (send constr sink))
+           ))
+        )))
+        
+    #| --------------------------------------------
     Message :ADD-SOCKET is sent during construction of the socket
     interface graph.
-   
+    
     Add an initial socket connection to our list of available
     connections. At this point the connection is not-encrypted.
-   
+    
     Look for an existing record for this same ip-addr:
    
       1. If we find one and it is a :PENDING-SERVER record, then
@@ -557,303 +553,303 @@
       it to our list. That happens when a client wants a connection
       to a new server.
    |#
-   ((cust :add-socket ip-addr ip-port new-state sender)
-    (send cust :ok)
-    (let ((rec (find-connection-using-ip cnx-lst ip-addr ip-port)))
-      (cond (rec
-             (let+ ((:slots ((old-state state)) rec))
-               (cond ((eql :pending-server old-state)
-                      (let+ ((new-rec (make-connection-rec
-                                       :ip-addr  ip-addr
-                                       :ip-port  ip-port
-                                       :state    new-state
-                                       :sender   sender))
-                             (new-cnx (replace-connection cnx-lst rec new-rec)))
-                        (become (connections-list-beh new-cnx))
-                        ))
-                     
-                     (t
-                      (let+ ((new-rec  (copy-with rec
-                                                  :state  new-state
-                                                  :sender sender))
-                             (new-cnx  (replace-connection cnx-lst rec new-rec)))
-                        (unless (or (null old-state)
-                                    (eql old-state new-state))
-                          (let+ ((:slots (shutdown) old-state))
-                            (send shutdown)))
-                        (become (connections-list-beh new-cnx))
-                        ))
-                     )))
-           
-            (t
-             (let ((new-rec (make-connection-rec
-                             :ip-addr  ip-addr
-                             :ip-port  ip-port
-                             :state    new-state
-                             :sender   sender)))
-               (become (connections-list-beh (cons new-rec cnx-lst)))
-               ))
-            )))
-
-   #| -------------------------------------------- |#
-   ;; Message :FIND-CONNECTION - sent by CLIENT-CONNECTOR.
-   ;;
-   ;; Called by client code. Search for existing connection, avoiding
-   ;; DNS lookup unless absolutely necessary. Any number of aliases
-   ;; for the same connection may exist.
-   ;;
-   ;; The REPORT-IP-ADDRS contains a list of known aliases which have
-   ;; resolved to the recorded IP Addr in the record, if it exists.
-   ;;
-   ;; Otherwise, if no record can be found having the alias, we need
-   ;; to do a DNS lookup and construct a new connection.
-   ;;
-   ((cust :find-connection addr port handshake)
-    (let+ ((:mvb (clean-ip-addr addr-str)
-               (cond ((integerp addr)
-                      (values addr (comm:ip-address-string addr)))
-
-                     (t
-                      (let ((saddr (string addr)))
-                        (values
-                         (let ((rec (find-connection-using-report-ip cnx-lst saddr)))
-                           (cond (rec
-                                  (connection-rec-ip-addr rec))
-                                 (t
-                                  (or (canon-ip-addr saddr)
-                                      (error "Unknown host: ~S" addr)))
-                                 ))
-                         saddr)))
-                     )))
-      (send self cust :find-socket clean-ip-addr port addr-str handshake)
-      ))
-
-   #| --------------------------------------------
-    Message :FIND-SOCKET is sent by client Actors on this machine,
-    looking for a socket connection to a remote host.
-   
-    Look for an available connection already in place.
-   
-    If we find one, and it has no waiting list, then send its
-    writer Actor to the customer as an available connection to the
-    server.
-   
-    If we find one, but it has a waiting list, then join the wait -
-    they are waiting on a successful handshake with the server. All
-    will be notified if it completes.
-   
-    If no records are found for the server ip address, then
-    construct one with us as the first waiting member, add the new
-    record to the list, and then try to form a network TCP
-    connection with the server.
-   |#
-   ((cust :find-socket ip-addr ip-port report-ip-addr handshake)
-    (let ((rec (find-connection-using-ip cnx-lst ip-addr ip-port)))
-      (cond
-       (rec
-        (let+ ((:slots (custs
-                        chan
-                        report-ip-addrs) rec))
-          (cond (custs
-                 ;; waiting custs so join the crowd
-                 (let+ ((new-rec (copy-with rec
-                                            :report-ip-addrs (adjoin report-ip-addr report-ip-addrs
-                                                                     :test #'string-equal)
-                                            :custs (cons cust custs)))
-                        (new-cnx (replace-connection cnx-lst rec new-rec)))
-                   (become (connections-list-beh new-cnx))))
-
-                (t
-                 ;; no waiting list - just go
-                 (unless (member report-ip-addr report-ip-addrs
-                                 :test #'string-equal)
-                   (let+ ((new-rec (copy-with rec
-                                              :report-ip-addrs (cons report-ip-addr report-ip-addrs)))
-                          (new-cnx (replace-connection cnx-lst rec new-rec)))
-                     (become (connections-list-beh new-cnx))
-                     ))
-                 (send cust chan))
-                )))
-
-       (t
-        ;; else - no record yet, so create and wait on the channel
-        ;; No response will be issued from us here to the customer.
-        ;; If a connection succeeds, and the handshake completes,
-        ;; then the customer will be notified at that time.
-        ;;
-        (let* ((new-rec (make-connection-rec
-                         :ip-addr         ip-addr
-                         :ip-port         ip-port
-                         :report-ip-addrs (list report-ip-addr)
-                         :handshake       handshake
-                         :custs           (list cust)))
-               (new-cnx (cons new-rec cnx-lst))
-               (me      self))
-          (become (connections-list-beh new-cnx))
-          (let+ ((:β (io-state . args)  (racurry async-socket-system
-                                                 :connect ip-addr ip-port) ))
-            (cond
-             (args
-              (send fmt-println "CONNECTION-ERROR: ~S~%~S"
-                  report-ip-addr
-                  (apply #'format nil args))
-              (send me sink :abort ip-addr ip-port))
-
-             ((typep io-state 'comm:async-io-state)
-              (let+ ((:β (state socket)  (socket-intf-constructor :kind           :client
-                                                                  :ip-addr        ip-addr
-                                                                  :ip-port        ip-port
-                                                                  :report-ip-addr report-ip-addr
-                                                                  :io-state       io-state)))
-                (send me sink :negotiate state socket)
+    ((cust :add-socket ip-addr ip-port new-state sender)
+     (send cust :ok)
+     (let ((rec (find-connection-using-ip cnx-lst ip-addr ip-port)))
+       (cond (rec
+              (let+ ((:slots ((old-state state)) rec))
+                (cond ((eql :pending-server old-state)
+                       (let+ ((new-rec (make-connection-rec
+                                        :ip-addr  ip-addr
+                                        :ip-port  ip-port
+                                        :state    new-state
+                                        :sender   sender))
+                              (new-cnx (replace-connection cnx-lst rec new-rec)))
+                         (become (connections-list-beh new-cnx))
+                         ))
+                      
+                      (t
+                       (let+ ((new-rec  (copy-with rec
+                                                   :state  new-state
+                                                   :sender sender))
+                              (new-cnx  (replace-connection cnx-lst rec new-rec)))
+                         (unless (or (null old-state)
+                                     (eql old-state new-state))
+                           (let+ ((:slots (shutdown) old-state))
+                             (send shutdown)))
+                         (become (connections-list-beh new-cnx))
+                         ))
+                      )))
+             
+             (t
+              (let ((new-rec (make-connection-rec
+                              :ip-addr  ip-addr
+                              :ip-port  ip-port
+                              :state    new-state
+                              :sender   sender)))
+                (become (connections-list-beh (cons new-rec cnx-lst)))
                 ))
-
-             ;; else - some error happened, but has probably already been reported to user
-             ))
-          ))
-       )))
-       
-   #| --------------------------------------------
-    Message :ABORT might be sent during an initial attempt to form a
-    TCP connection with a server. If that connection fails, we get
-    this message.
-   
-    Look for a records mentioning the ip adddr and purge it from our
-    list of available connections. Future requests will begin anew.
-    Any waiting clients will just be left hanging.
-   |#
-   ((cust :abort ip-addr ip-port)
-    (send cust :ok)
-    (let ((rec (find-connection-using-ip cnx-lst ip-addr ip-port)))
-      (when rec
-        ;; leaves all waiting custs hanging...
-        (let+ ((:slots (report-ip-addrs) rec))
-          (become (connections-list-beh (remove rec cnx-lst :count 1)))
-          (on-commit
-            ;; ...would otherwise prevent us from updating the list...
-            (error "Can't connect to: ~S" (car report-ip-addrs)))
-          ))))
-
-   #| --------------------------------------------
-    Mesasge :NEGOTIATE is sent after successfully forming a TCP
-    connection with a server.
-   
-    The server is now waiting for us to start the DH handshake
-    crypto-dance.
-   
-    Client Actors must await a secure channel. The only Actors that
-    are permitted to communicate over an insecure channeol are
-    those involved in the DH crypto-dance of the initial handshake
-    with the server. And even that is encrypted in a different way.
-   
-    When an initial TCP connection is established with a server on
-    the network, that server just sits there silently waiting for
-    the handshake dance to begin from the client side. The server
-    only responds if it recognizes the client and its encrypted
-    handshae message.
-   
-    If we didn't find any record of this TCP connection in our
-    list, then just play dumb and say :OK.
-   
-    Here STATE is the state devloped by the socket interface, and
-    SOCKET is the unencrypted output Actor.
-   
-    All the SOCKET Actor does is to serialize whatever is being
-    sent, then encode it into a self-sync byte streaam, before
-    sending it out the physical async socket port. It doesn't even
-    chop it into manageable blocks of data. So there will be some
-    maximum size that can be transferred successfully across the TCP
-    port.
-   
-    The server side has the same situation at this time. So whatever
-    is transferred in either direction is done so in the clear,
-    except for these simple encodings. Anyone listening with
-    decoders for these serial protocols will be able to read what is
-    sent.
-    ------------------------------------------------------------
-    ;; The initial X3DH handshake sends encrypted random numbers
-    ;; across the cleartext link, along with small AES encrypted
-    ;; packets containing connection info for each party.
-    ;;
-    ;; For Lattice Crypto, QC offers no advantage.
-    ;;
-    ;; For ECC we are subject to Shor's Algorithm O(log^2 N) for the
-    ;; DLP, so we must choose a sufficiently large key size for
-    ;; protection.
-    ;;
-    ;; But even in the case of ECC vulnerabilities against Schorr's
-    ;; Algorithm in QC, busting open our crypto keying provides no
-    ;; advantage because the messages passed are merely random numbers
-    ;; and have no overt relation to the AES keying in the data
-    ;; packets.
-    ;;
-    ;; No public keys are sent across the connection, just UUID's that
-    ;; refer to previously arranged public keys. Cracking would have
-    ;; to know the implicit public keys involved on both sides of the
-    ;; communication channel. Those may be generally known for
-    ;; advertised server nodes, but not for client nodes.
-    ;;
-    ;; With SHA3 hashes and AES/256 encryption, our data packets are
-    ;; resistant to QC attack by Grover's Algorithm, O(Sqrt N).
-   |#
-   ((cust :negotiate state socket)
-    (let+ ((:slots (handshake)      (find-connection-using-sender cnx-lst socket))
-           (:slots (local-services) state))
-      ;; Let the dance begin...
-      (send handshake cust socket local-services)))
-  
-   #| --------------------------------------------
-    Message :SET-CHANNEL is sent during handshake after a secure
-    channel writer (Actor) has been constructed for this socket
-    connection.
-   
-    The writeable endpoint Actor for that encrypted channel is
-    CHAN.
-   
-    Look up the record containing the non-secure writer, SENDER,
-    and add the secure endpoint, CHAN, to the record.
-   
-    Then notify all waiting clients about it. Clear the waiting
-    list and update our records.
-   |#
-   ((cust :set-channel sender chan)
-    (send cust :ok)
-    (let ((rec (find-connection-using-sender cnx-lst sender)))
-      (when rec
-        (let+ ((:slots (custs
-                        state
-                        report-ip-addrs) rec)
-               (:slots (io-state) state)
-               (new-rec  (copy-with rec
-                                    :chan  chan
-                                    :custs nil))
-               (new-cnx (replace-connection cnx-lst rec new-rec)))
-          (become (connections-list-beh new-cnx))
-          (when custs
-            (let+ ((:mvb (peer-ip peer-port)
-                    #+:LISPWORKS8
-                    (comm:socket-connection-peer-address io-state)
-                    #+:LISPWORKS7
-                    (comm:get-socket-peer-address (slot-value io-state 'comm::object)) )
-                   (client-name (format nil "~A->~A:~D"
-                                        (car report-ip-addrs)
-                                        (comm:ip-address-string peer-ip)
-                                        peer-port)))
-              (send fmt-println "Client Socket (~S) starting up" client-name)
-              (send-to-all custs chan)))
-          ))))
+             )))
     
-   #| --------------------------------------------
-    Message :REMOVE is sent when a socket connection is closed down.
-    Just remove any records referencing STATE.
+    #| -------------------------------------------- |#
+    ;; Message :FIND-CONNECTION - sent by CLIENT-CONNECTOR.
+    ;;
+    ;; Called by client code. Search for existing connection, avoiding
+    ;; DNS lookup unless absolutely necessary. Any number of aliases
+    ;; for the same connection may exist.
+    ;;
+    ;; The REPORT-IP-ADDRS contains a list of known aliases which have
+    ;; resolved to the recorded IP Addr in the record, if it exists.
+    ;;
+    ;; Otherwise, if no record can be found having the alias, we need
+    ;; to do a DNS lookup and construct a new connection.
+    ;;
+    ((cust :find-connection addr port handshake)
+     (let+ ((:mvb (clean-ip-addr addr-str)
+                (cond ((integerp addr)
+                       (values addr (comm:ip-address-string addr)))
+                      
+                      (t
+                       (let ((saddr (string addr)))
+                         (values
+                          (let ((rec (find-connection-using-report-ip cnx-lst saddr)))
+                            (cond (rec
+                                   (connection-rec-ip-addr rec))
+                                  (t
+                                   (or (canon-ip-addr saddr)
+                                       (error "Unknown host: ~S" addr)))
+                                  ))
+                          saddr)))
+                      )))
+       (send self cust :find-socket clean-ip-addr port addr-str handshake)
+       ))
+
+    #| --------------------------------------------
+   Message :FIND-SOCKET is sent by client Actors on this machine,
+   looking for a socket connection to a remote host.
+   
+   Look for an available connection already in place.
+   
+   If we find one, and it has no waiting list, then send its
+   writer Actor to the customer as an available connection to the
+   server.
+   
+   If we find one, but it has a waiting list, then join the wait -
+   they are waiting on a successful handshake with the server. All
+   will be notified if it completes.
+   
+   If no records are found for the server ip address, then
+   construct one with us as the first waiting member, add the new
+   record to the list, and then try to form a network TCP
+   connection with the server.
    |#
-   ((cust :remove state)
-    (send cust :ok)
-    (let ((rec (find-connection-using-state cnx-lst state)))
-      (when rec
-        (become (connections-list-beh (remove rec cnx-lst :count 1)))
+    ((cust :find-socket ip-addr ip-port report-ip-addr handshake)
+     (let ((rec (find-connection-using-ip cnx-lst ip-addr ip-port)))
+       (cond
+        (rec
+         (let+ ((:slots (custs
+                         chan
+                         report-ip-addrs) rec))
+           (cond (custs
+                  ;; waiting custs so join the crowd
+                  (let+ ((new-rec (copy-with rec
+                                             :report-ip-addrs (adjoin report-ip-addr report-ip-addrs
+                                                                      :test #'string-equal)
+                                             :custs (cons cust custs)))
+                         (new-cnx (replace-connection cnx-lst rec new-rec)))
+                    (become (connections-list-beh new-cnx))))
+                 
+                 (t
+                  ;; no waiting list - just go
+                  (unless (member report-ip-addr report-ip-addrs
+                                  :test #'string-equal)
+                    (let+ ((new-rec (copy-with rec
+                                               :report-ip-addrs (cons report-ip-addr report-ip-addrs)))
+                           (new-cnx (replace-connection cnx-lst rec new-rec)))
+                      (become (connections-list-beh new-cnx))
+                      ))
+                  (send cust chan))
+                 )))
+        
+        (t
+         ;; else - no record yet, so create and wait on the channel
+         ;; No response will be issued from us here to the customer.
+         ;; If a connection succeeds, and the handshake completes,
+         ;; then the customer will be notified at that time.
+         ;;
+         (let* ((new-rec (make-connection-rec
+                          :ip-addr         ip-addr
+                          :ip-port         ip-port
+                          :report-ip-addrs (list report-ip-addr)
+                          :handshake       handshake
+                          :custs           (list cust)))
+                (new-cnx (cons new-rec cnx-lst))
+                (me      self))
+           (become (connections-list-beh new-cnx))
+           (let+ ((:β (io-state . args)  (racurry async-socket-system
+                                                  :connect ip-addr ip-port) ))
+             (cond
+              (args
+               (send fmt-println "CONNECTION-ERROR: ~S~%~S"
+                     report-ip-addr
+                     (apply #'format nil args))
+               (send me sink :abort ip-addr ip-port))
+              
+              ((typep io-state 'comm:async-io-state)
+               (let+ ((:β (state socket)  (socket-intf-constructor :kind           :client
+                                                                   :ip-addr        ip-addr
+                                                                   :ip-port        ip-port
+                                                                   :report-ip-addr report-ip-addr
+                                                                   :io-state       io-state)))
+                 (send me sink :negotiate state socket)
+                 ))
+              
+              ;; else - some error happened, but has probably already been reported to user
+              ))
+           ))
         )))
-   ))
+    
+    #| --------------------------------------------
+   Message :ABORT might be sent during an initial attempt to form a
+   TCP connection with a server. If that connection fails, we get
+   this message.
+   
+   Look for a records mentioning the ip adddr and purge it from our
+   list of available connections. Future requests will begin anew.
+   Any waiting clients will just be left hanging.
+   |#
+    ((cust :abort ip-addr ip-port)
+     (send cust :ok)
+     (let ((rec (find-connection-using-ip cnx-lst ip-addr ip-port)))
+       (when rec
+         ;; leaves all waiting custs hanging...
+         (let+ ((:slots (report-ip-addrs) rec))
+           (become (connections-list-beh (remove rec cnx-lst :count 1)))
+           (on-commit
+             ;; ...would otherwise prevent us from updating the list...
+             (error "Can't connect to: ~S" (car report-ip-addrs)))
+           ))))
+    
+    #| --------------------------------------------
+   Mesasge :NEGOTIATE is sent after successfully forming a TCP
+   connection with a server.
+   
+   The server is now waiting for us to start the DH handshake
+   crypto-dance.
+   
+   Client Actors must await a secure channel. The only Actors that
+   are permitted to communicate over an insecure channeol are
+   those involved in the DH crypto-dance of the initial handshake
+   with the server. And even that is encrypted in a different way.
+   
+   When an initial TCP connection is established with a server on
+   the network, that server just sits there silently waiting for
+   the handshake dance to begin from the client side. The server
+   only responds if it recognizes the client and its encrypted
+   handshae message.
+   
+   If we didn't find any record of this TCP connection in our
+   list, then just play dumb and say :OK.
+   
+   Here STATE is the state devloped by the socket interface, and
+   SOCKET is the unencrypted output Actor.
+   
+   All the SOCKET Actor does is to serialize whatever is being
+   sent, then encode it into a self-sync byte streaam, before
+   sending it out the physical async socket port. It doesn't even
+   chop it into manageable blocks of data. So there will be some
+   maximum size that can be transferred successfully across the TCP
+   port.
+   
+   The server side has the same situation at this time. So whatever
+   is transferred in either direction is done so in the clear,
+   except for these simple encodings. Anyone listening with
+   decoders for these serial protocols will be able to read what is
+   sent.
+   ------------------------------------------------------------
+   ;; The initial X3DH handshake sends encrypted random numbers
+   ;; across the cleartext link, along with small AES encrypted
+   ;; packets containing connection info for each party.
+   ;;
+   ;; For Lattice Crypto, QC offers no advantage.
+   ;;
+   ;; For ECC we are subject to Shor's Algorithm O(log^2 N) for the
+   ;; DLP, so we must choose a sufficiently large key size for
+   ;; protection.
+   ;;
+   ;; But even in the case of ECC vulnerabilities against Schorr's
+   ;; Algorithm in QC, busting open our crypto keying provides no
+   ;; advantage because the messages passed are merely random numbers
+   ;; and have no overt relation to the AES keying in the data
+   ;; packets.
+   ;;
+   ;; No public keys are sent across the connection, just UUID's that
+   ;; refer to previously arranged public keys. Cracking would have
+   ;; to know the implicit public keys involved on both sides of the
+   ;; communication channel. Those may be generally known for
+   ;; advertised server nodes, but not for client nodes.
+   ;;
+   ;; With SHA3 hashes and AES/256 encryption, our data packets are
+   ;; resistant to QC attack by Grover's Algorithm, O(Sqrt N).
+   |#
+    ((cust :negotiate state socket)
+     (let+ ((:slots (handshake)      (find-connection-using-sender cnx-lst socket))
+            (:slots (local-services) state))
+       ;; Let the dance begin...
+       (send handshake cust socket local-services)))
+    
+    #| --------------------------------------------
+   Message :SET-CHANNEL is sent during handshake after a secure
+   channel writer (Actor) has been constructed for this socket
+   connection.
+   
+   The writeable endpoint Actor for that encrypted channel is
+   CHAN.
+   
+   Look up the record containing the non-secure writer, SENDER,
+   and add the secure endpoint, CHAN, to the record.
+   
+   Then notify all waiting clients about it. Clear the waiting
+   list and update our records.
+   |#
+    ((cust :set-channel sender chan)
+     (send cust :ok)
+     (let ((rec (find-connection-using-sender cnx-lst sender)))
+       (when rec
+         (let+ ((:slots (custs
+                         state
+                         report-ip-addrs) rec)
+                (:slots (io-state) state)
+                (new-rec  (copy-with rec
+                                     :chan  chan
+                                     :custs nil))
+                (new-cnx (replace-connection cnx-lst rec new-rec)))
+           (become (connections-list-beh new-cnx))
+           (when custs
+             (let+ ((:mvb (peer-ip peer-port)
+                        #+:LISPWORKS8
+                      (comm:socket-connection-peer-address io-state)
+                      #+:LISPWORKS7
+                      (comm:get-socket-peer-address (slot-value io-state 'comm::object)) )
+                    (client-name (format nil "~A->~A:~D"
+                                         (car report-ip-addrs)
+                                         (comm:ip-address-string peer-ip)
+                                         peer-port)))
+               (send fmt-println "Client Socket (~S) starting up" client-name)
+              (send-to-all custs chan)))
+           ))))
+    
+    #| --------------------------------------------
+   Message :REMOVE is sent when a socket connection is closed down.
+   Just remove any records referencing STATE.
+   |#
+    ((cust :remove state)
+     (send cust :ok)
+     (let ((rec (find-connection-using-state cnx-lst state)))
+       (when rec
+         (become (connections-list-beh (remove rec cnx-lst :count 1)))
+         )))
+    ))
 
 (deflex* connections
   (create (connections-list-beh)))
@@ -880,12 +876,12 @@
         (send connections sink :remove state)
         ))))
 
-(defun initial-socket-shutdown-beh ()
-  (alambda
-   ((cust :init state)
-    (become (socket-shutdown-beh state))
-    (send cust :ok))
-   ))
+(define ((initial-socket-shutdown-beh) . msg)
+  (match msg
+    ((cust :init state)
+     (become (socket-shutdown-beh state))
+     (send cust :ok))
+    ))
 
 (defun make-socket-shutdown ()
   (create (initial-socket-shutdown-beh)))

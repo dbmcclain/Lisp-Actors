@@ -46,29 +46,29 @@
 ;; ----------------------------------------------------------------
 ;; Self-organizing list of services for Server and connection Actors
 
-(defun service-list-beh (lst)
-  (alambda
-   ((cust :available-services)
-    (>> cust (mapcar #'car lst)))
-   
-   ((cust :add-service name handler)
-    ;; replace or add
-    (β! (service-list-beh (acons name handler
-                                     (remove (assoc name lst) lst))))
-    (>> cust :ok))
-   
-   ((cust :get-service name)
-    (>> cust (cdr (assoc name lst))))
-   
-   ((cust :remove-service name)
-    (β! (service-list-beh (remove (assoc name lst) lst)))
-    (>> cust :ok))
-   
-   ((rem-cust verb . msg)
-    (let ((pair (assoc verb lst)))
-      (when pair
-        (>>* (cdr pair) rem-cust msg))
-      ))))
+(define ((service-list-beh lst) . msg)
+  (match msg
+    ((cust :available-services)
+     (>> cust (mapcar #'car lst)))
+    
+    ((cust :add-service name handler)
+     ;; replace or add
+     (β! (service-list-beh (acons name handler
+                                  (remove (assoc name lst) lst))))
+     (>> cust :ok))
+    
+    ((cust :get-service name)
+     (>> cust (cdr (assoc name lst))))
+    
+    ((cust :remove-service name)
+     (β! (service-list-beh (remove (assoc name lst) lst)))
+     (>> cust :ok))
+    
+    ((rem-cust verb . msg)
+     (let ((pair (assoc verb lst)))
+       (when pair
+         (>>* (cdr pair) rem-cust msg))
+       ))))
 
 ;; -----------------------------------------------
 ;; Simple Services
@@ -144,155 +144,156 @@
 
 ;; -------------------------------------------------------------------
 
-(defun local-services-beh (&optional svcs encryptor decryptor)
-  (alambda
+(define ((local-services-beh &optional svcs encryptor decryptor) . msg)
+  ;; This thing is starting to resemble a Chinese Restaurant Menu...
+  (match msg
 
-   ;; --------------------------------------------
-
-   ((cust :add-service-with-id id actor)
-    ;; insert ahead of any with same id
-    (let ((new-svcs (acons id (local-service actor) svcs)))
-      (β! (local-services-beh new-svcs encryptor decryptor))
-      (>> cust id)))
-   
-   ((cust :add-service actor)
-    ;; used for connection handlers
-    (>> self cust :add-service-with-id (uuid:make-v1-uuid) actor))
-
-   ((cust :add-single-use-service id actor)
-    (let ((new-svcs (acons id (ephem-service actor) svcs)))
-      (β! (local-services-beh new-svcs encryptor decryptor))
-      (send-after *default-ephemeral-ttl* self sink :remove-service id)
-      (>> cust id)))
-
-   ;; --------------------------------------------
-
-   ((cust :add-ephemeral-client-with-id id actor ttl)
-    (let ((new-svcs (acons id (ephem-service actor ttl) svcs)))
-      (β! (local-services-beh new-svcs encryptor decryptor))
-      (>> cust id)
-      (when ttl
-        (send-after ttl self sink :remove-service id))))
-   
-   #| ;; unused
-   ((cust :add-ephemeral-client actor ttl)
-    ;; used for transient customer proxies
-    (>> self cust :add-ephemeral-client-with-id (uuid:make-v1-uuid) actor ttl))
-   |#
-   
-   ((cust :add-ephemeral-clients clients ttl)
-    (if clients
-        (let+ ((me  self)
-               ( ((id . ac) . rest) clients)
-               (:β _  (racurry me :add-ephemeral-client-with-id id ac ttl)))
-          (>> me cust :add-ephemeral-clients rest ttl) )
-      ;; else
-      (>> cust :ok)))
-   
-   ;; --------------------------------------------
-
-   ((cust :remove-service id)
-    (let ((new-svcs (remove (assoc id svcs :test #'uuid:uuid=) svcs :count 1)))
-      (β! (local-services-beh new-svcs encryptor decryptor))
-      (>> cust :ok)))
-
-   ;; --------------------------------------------
-
-   ((cust :set-crypto socket encryptor decryptor)
-    (let ((enc  (sink-pipe (client-marshal-encoder self) ;; translate Actors to CLIENT-PROXY's
-                           ;; (marshal-compressor)
-                           smart-compressor
-                           encryptor
-                           socket))
-          (dec  (sink-pipe decryptor
-                           ;; (fail-silent-marshal-decompressor)
-                           fail-silent-smart-decompressor
-                           (server-marshal-decoder self) ;; translate CLIENT-PROXY's into local proxy Actors
-                           self)))
-      (β! (local-services-beh svcs enc dec))
-      (>> cust :ok)))
-   
-   ;; -------------------------------------------------------------------
-   ;; encrytped socket send - proxy Actors send to here...  The entire
-   ;; message, including UUID target, is encrypted. The only thing
-   ;; appearing on the wire are the (SEQ CTXT AUTH)
-   ((:ssend . msg) / encryptor
-    (>>* encryptor msg))
-   
-   ;; -------------------------------------------------------------------
-   ;; unencrypted/decrypted socket delivery - messages come here after
-   ;; being decrypted.
-   
-   ((service-id . msg) / (typep service-id 'uuid:uuid)
-    (let ((pair (assoc service-id svcs :test #'uuid:uuid=)))
-      (when pair
-        (let ((svc (cdr pair)))
-          (>>* (local-service-handler svc) msg)
-          (when (ephem-service-p svc)
-            (cond ((ephem-service-ttl svc)
-                   ;; possibly counterintuitive... if we have traffic on this
-                   ;; ephemeral connection, keep it alive a bit longer in case
-                   ;; it gets reused. Removal only removes one copy of the
-                   ;; pairing in the services list. Since a removal has already
-                   ;; been scheduled, we insert an extra one for it to work
-                   ;; against.
-                   (β! (local-services-beh (cons pair svcs) encryptor decryptor))
-                   (send-after (ephem-service-ttl svc) self sink :remove-service (car pair)))
-                  (t
-                   ;; no TTL specified, so just remove it
-                   (β! (local-services-beh (remove pair svcs :count 1) encryptor decryptor)))
-                  ))
-          ))))
-
-   ;; -------------------------------------------------------------------
-   ;; encrypted socket delivery -- decryptor decodes the message and
-   ;; sends back to us as an unencrypted socket delivery (See previous
-   ;; message handler clause)
-   ((seq tau ack iv ctxt auth) / (and decryptor
-                                      (integerp seq)
-                                      (integerp tau)
-                                      (integerp ack)
-                                      (typep iv   'ub8-vector)
-                                      (typep ctxt 'ub8-vector)
-                                      (typep auth 'ub8-vector))
-    (>> decryptor seq tau ack iv ctxt auth))
-
-   ;; -------------------------------------------------------------------
-   ;; encrypted handshake pair - The first message sent to server by a
-   ;; prospective client, and the first reply back to client from
-   ;; server. There are no encrypting/decrypting channels developed
-   ;; yet, so we have to do our own crypto for the initial handshake
-   ;; messsages. Both sides have this receiving dispatcher waiting.
-   
-   #-:lattice-crypto
-   ((rand-tau aescrypt) / (and (null decryptor) ;; i.e., only valid during initial handshake dance
-                               (integerp rand-tau)
-                               (consp aescrypt))
-    (let+ ((:β (rand-pt info)
-               (racurry eccke:ecc-cnx-decrypt rand-tau aescrypt)))
-      (when (and (consp info)
-                 (typep (car info) 'uuid:uuid))
-        (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
-          (when pair
-            (let ((svc  (cdr pair)))
-              (>>* (local-service-handler svc) rand-pt (cdr info))
-              ))))
-      ))
-        
-   #+:lattice-crypto
-   ((latcrypt aescrypt) / (and (null decryptor) ;; i.e., only valid during initial handshake dance
-                               (typep latcrypt 'vector)
-                               (consp aescrypt))
-    (let+ ((:β (rkey info)
-               (racurry lattice-ke:cnx-packet-decoder latcrypt aescrypt)) )
-      (when (typep (car info) 'uuid:uuid)
-        (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
-          (when pair
-            (let ((svc  (cdr pair)))
-              (>>* (local-service-handler svc) rkey (cdr info))
-              ))))
-      ))
-   ))
+    ;; --------------------------------------------
+    
+    ((cust :add-service-with-id id actor)
+     ;; insert ahead of any with same id
+     (let ((new-svcs (acons id (local-service actor) svcs)))
+       (β! (local-services-beh new-svcs encryptor decryptor))
+       (>> cust id)))
+    
+    ((cust :add-service actor)
+     ;; used for connection handlers
+     (>> self cust :add-service-with-id (uuid:make-v1-uuid) actor))
+    
+    ((cust :add-single-use-service id actor)
+     (let ((new-svcs (acons id (ephem-service actor) svcs)))
+       (β! (local-services-beh new-svcs encryptor decryptor))
+       (send-after *default-ephemeral-ttl* self sink :remove-service id)
+       (>> cust id)))
+    
+    ;; --------------------------------------------
+    
+    ((cust :add-ephemeral-client-with-id id actor ttl)
+     (let ((new-svcs (acons id (ephem-service actor ttl) svcs)))
+       (β! (local-services-beh new-svcs encryptor decryptor))
+       (>> cust id)
+       (when ttl
+         (send-after ttl self sink :remove-service id))))
+    
+    #| ;; unused
+    ((cust :add-ephemeral-client actor ttl)
+     ;; used for transient customer proxies
+     (>> self cust :add-ephemeral-client-with-id (uuid:make-v1-uuid) actor ttl))
+    |#
+    
+    ((cust :add-ephemeral-clients clients ttl)
+     (if clients
+         (let+ ((me  self)
+                ( ((id . ac) . rest) clients)
+                (:β _  (racurry me :add-ephemeral-client-with-id id ac ttl)))
+           (>> me cust :add-ephemeral-clients rest ttl) )
+       ;; else
+       (>> cust :ok)))
+    
+    ;; --------------------------------------------
+    
+    ((cust :remove-service id)
+     (let ((new-svcs (remove (assoc id svcs :test #'uuid:uuid=) svcs :count 1)))
+       (β! (local-services-beh new-svcs encryptor decryptor))
+       (>> cust :ok)))
+    
+    ;; --------------------------------------------
+    
+    ((cust :set-crypto socket encryptor decryptor)
+     (let ((enc  (sink-pipe (client-marshal-encoder self) ;; translate Actors to CLIENT-PROXY's
+                            ;; (marshal-compressor)
+                            smart-compressor
+                            encryptor
+                            socket))
+           (dec  (sink-pipe decryptor
+                            ;; (fail-silent-marshal-decompressor)
+                            fail-silent-smart-decompressor
+                            (server-marshal-decoder self) ;; translate CLIENT-PROXY's into local proxy Actors
+                            self)))
+       (β! (local-services-beh svcs enc dec))
+       (>> cust :ok)))
+    
+    ;; -------------------------------------------------------------------
+    ;; encrytped socket send - proxy Actors send to here...  The entire
+    ;; message, including UUID target, is encrypted. The only thing
+    ;; appearing on the wire are the (SEQ CTXT AUTH)
+    ((:ssend . msg) / encryptor
+     (>>* encryptor msg))
+    
+    ;; -------------------------------------------------------------------
+    ;; unencrypted/decrypted socket delivery - messages come here after
+    ;; being decrypted.
+    
+    ((service-id . msg) / (typep service-id 'uuid:uuid)
+     (let ((pair (assoc service-id svcs :test #'uuid:uuid=)))
+       (when pair
+         (let ((svc (cdr pair)))
+           (>>* (local-service-handler svc) msg)
+           (when (ephem-service-p svc)
+             (cond ((ephem-service-ttl svc)
+                    ;; possibly counterintuitive... if we have traffic on this
+                    ;; ephemeral connection, keep it alive a bit longer in case
+                    ;; it gets reused. Removal only removes one copy of the
+                    ;; pairing in the services list. Since a removal has already
+                    ;; been scheduled, we insert an extra one for it to work
+                    ;; against.
+                    (β! (local-services-beh (cons pair svcs) encryptor decryptor))
+                    (send-after (ephem-service-ttl svc) self sink :remove-service (car pair)))
+                   (t
+                    ;; no TTL specified, so just remove it
+                    (β! (local-services-beh (remove pair svcs :count 1) encryptor decryptor)))
+                   ))
+           ))))
+    
+    ;; -------------------------------------------------------------------
+    ;; encrypted socket delivery -- decryptor decodes the message and
+    ;; sends back to us as an unencrypted socket delivery (See previous
+    ;; message handler clause)
+    ((seq tau ack iv ctxt auth) / (and decryptor
+                                       (integerp seq)
+                                       (integerp tau)
+                                       (integerp ack)
+                                       (typep iv   'ub8-vector)
+                                       (typep ctxt 'ub8-vector)
+                                       (typep auth 'ub8-vector))
+     (>> decryptor seq tau ack iv ctxt auth))
+    
+    ;; -------------------------------------------------------------------
+    ;; encrypted handshake pair - The first message sent to server by a
+    ;; prospective client, and the first reply back to client from
+    ;; server. There are no encrypting/decrypting channels developed
+    ;; yet, so we have to do our own crypto for the initial handshake
+    ;; messsages. Both sides have this receiving dispatcher waiting.
+    
+    #-:lattice-crypto
+    ((rand-tau aescrypt) / (and (null decryptor) ;; i.e., only valid during initial handshake dance
+                                (integerp rand-tau)
+                                (consp aescrypt))
+     (let+ ((:β (rand-pt info)
+                (racurry eccke:ecc-cnx-decrypt rand-tau aescrypt)))
+       (when (and (consp info)
+                  (typep (car info) 'uuid:uuid))
+         (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
+           (when pair
+             (let ((svc  (cdr pair)))
+               (>>* (local-service-handler svc) rand-pt (cdr info))
+               ))))
+       ))
+    
+    #+:lattice-crypto
+    ((latcrypt aescrypt) / (and (null decryptor) ;; i.e., only valid during initial handshake dance
+                                (typep latcrypt 'vector)
+                                (consp aescrypt))
+     (let+ ((:β (rkey info)
+                (racurry lattice-ke:cnx-packet-decoder latcrypt aescrypt)) )
+       (when (typep (car info) 'uuid:uuid)
+         (let ((pair (assoc (car info) svcs :test #'uuid:uuid=)))
+           (when pair
+             (let ((svc  (cdr pair)))
+               (>>* (local-service-handler svc) rkey (cdr info))
+               ))))
+       ))
+    ))
 
 (defun make-local-services ()
   (create (local-services-beh)))
