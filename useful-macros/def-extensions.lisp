@@ -19,6 +19,7 @@
    #:do-let+
    #:maybe-ignore_
    #:to-proper-list
+   #:define
    ))
 
 (in-package #:com.ral.useful-macros.def-extensions)
@@ -438,3 +439,21 @@ WITH-ACCESSORS, in your code, putting it all into one place with LET+."
   (+ a b))
 
 |#
+;; --------------------------------------------
+;; Concise Curried Forms
+
+(defmacro define (tree &body body)
+  ;; (DEFINE ((x a) b) ...) is a concise way of writing:
+  ;;
+  ;;    (DEFUN x (a)
+  ;;       (LAMBDA (b) ...))
+  ;;
+  ;; Nest to any desired level.
+  ;;
+  (let+ iter ((tree  tree)
+              (bods  body))
+    (if (consp (car tree))
+        (go-iter (car tree)
+                 `((lambda* ,(cdr tree) ,@bods)))
+      `(defun* ,(car tree) ,(cdr tree) ,@bods)
+      )))
