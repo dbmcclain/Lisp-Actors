@@ -400,15 +400,24 @@ arguments when given."
 extensions. The hope is to avoid use of a cumbersome mixture of LET,
 LET*, DESTRUCTURING-BIND, MULTIPLE-VALUE-BIND, WITH-SLOTS,
 WITH-ACCESSORS, in your code, putting it all into one place with LET+."
-  (if bindings
-      (let ((binding (first bindings)))
-        (do-let+ (first binding) binding
-                 `(let+ ,(rest bindings)
-                    ,@body)))
-    ;; else
-    `(locally
-       ,@body)
-    ))
+  (cond ((consp bindings)
+         (let ((binding (first bindings)))
+           (do-let+ (first binding) binding
+                    `(let+ ,(rest bindings)
+                       ,@body))
+           ))
+        
+        ((null bindings)
+         `(locally
+            ,@body))
+
+        ((symbolp bindings)
+         ;; (NLET name bindings &body body)
+         `(nlet ,bindings ,(car body) ,@(cdr body)))
+        
+        (t
+         (error "LET+ Syntax"))
+        ))
 
 #+:LISPWORKS
 (editor:setup-indent "let+" 1)

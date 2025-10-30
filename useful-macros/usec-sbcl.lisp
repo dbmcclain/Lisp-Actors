@@ -54,8 +54,10 @@ THE SOFTWARE.
 (defun get-time-usec ()
    ;; time since midnight Jan 1, 1970, measured in microseconds
    (cffi:with-foreign-pointer (tsinfo (* 2 8))
+     (setf (cffi:mem-aref tsinfo :uint64 0) 0
+           (cffi:mem-aref tsinfo :uint64 1) 0)
      (if (zerop (_get-time-of-day tsinfo (cffi:null-pointer)))
-         (+ (* 1000000 (the integer (cffi:mem-aref tsinfo :uint64 0)))
+         (+ (the integer (* 1000000 (the integer (cffi:mem-aref tsinfo :uint64 0))))
             (the integer (cffi:mem-aref tsinfo :uint64 1)))
        (error "Can't perform Posix gettimeofday()"))
      ))

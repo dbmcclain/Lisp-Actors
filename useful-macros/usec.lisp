@@ -102,8 +102,8 @@ THE SOFTWARE.
                   :fill   0)))
          (if (zerop (_get-time-of-day arr fli:*null-pointer*))
              (adjust-to-monotonic state
-              (+ (the fixnum (* 1000000 (the fixnum (fli:dereference arr :index 0))))
-                 (the fixnum (fli:dereference arr :index 1))))
+              (+ (the integer (* 1000000 (the integer (fli:dereference arr :index 0))))
+                 (the integer (fli:dereference arr :index 1))))
            (error "Can't perform Posix gettimeofday()"))
          )))))
 
