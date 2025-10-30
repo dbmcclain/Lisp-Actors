@@ -146,6 +146,19 @@ arguments when given."
                  bindings)
         ,@body))
 
+(defun auto-curry (binding)
+  (destructuring-bind (tree &body body) binding
+    (if (consp tree)
+        (labels ((iter (tree bods)
+                   (if (consp (car tree))
+                       (iter (car tree)
+                             `((lambda* ,(cdr tree) ,@bods)))
+                     `(,(car tree) ,(cdr tree) ,@bods)
+                     )))
+          (iter tree body))
+      ;; else
+      binding)))
+  
 ;; ---------------------------------------
 
 (defmacro µ (name args &body body)
@@ -199,10 +212,10 @@ arguments when given."
 |#
 
 (µ labels* (bindings &body body)
-  (wrap-bindings 'labels bindings body))
+  (wrap-bindings 'labels (mapcar #'auto-curry bindings) body))
   
 (µ flet* (bindings &body body)
-  (wrap-bindings 'flet bindings body))
+  (wrap-bindings 'flet (mapcar #' auto-curry bindings) body))
 
 ;; ---------------------------------------------------------------
 
@@ -450,10 +463,5 @@ WITH-ACCESSORS, in your code, putting it all into one place with LET+."
   ;;
   ;; Nest to any desired level.
   ;;
-  (labels ((iter (tree bods)
-             (if (consp (car tree))
-                 (iter (car tree)
-                       `((lambda* ,(cdr tree) ,@bods)))
-               `(defun* ,(car tree) ,(cdr tree) ,@bods)
-               )))
-    (iter tree body)))
+  (assert (consp tree))
+  (cons 'DEFUN* (auto-curry (cons tree body))))
