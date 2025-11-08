@@ -325,7 +325,7 @@ customer, just one time."
 
 ;; -------------------------------------------------
 
-(defun rate-limited-customer (cust dt)
+(defun rate-limited-gate (cust dt)
   ;; Construct an Actor that allows sending a message to cust no
   ;; sooner than dt sec from when we exit the current behavior.
   ;; -- useful for real-time animation of graphs where we want to
@@ -446,7 +446,7 @@ customer, just one time."
      (become (fwd-beh actor))
      (send-all-to actor msgs))
     (_
-     (become (future-become-beh tag (cons msg msgs))))
+     (become (future-become-wait-beh tag (cons msg msgs))))
     ))
 
 (defun future-become (actor &rest constr-args)
@@ -571,7 +571,7 @@ customer, just one time."
 ;;   Consumer sends :READY with customer and sequence counter of desired messaage
 
 (defun sequenced-delivery ()
-  (labels* (( ((sequenced-bah &optional items) . msg)
+  (labels* (( ((sequenced-beh &optional items) . msg)
                     (match msg
                       ((cust :ready ctr)
                        (let ((msg (assoc ctr items)))

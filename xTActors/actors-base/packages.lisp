@@ -169,7 +169,7 @@ THE SOFTWARE.
    #:timed-tag
    #:timed-once-tag
    #:timed-once-tag-with-ka
-   #:rate-limited-customer
+   #:rate-limited-gate
    #:ser
    #:par
 
@@ -349,6 +349,8 @@ THE SOFTWARE.
 
    #:with-contention-free-semantics
    #:without-contention
+
+   #:reppy
    ))
 
 #+(OR :ALLEGRO :CCL)
