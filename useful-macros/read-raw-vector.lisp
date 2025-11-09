@@ -34,39 +34,41 @@
              (fixnum csiz end pos nr-elts-per-buf))
     (fli:with-dynamic-foreign-objects ((pb :uint8 :nelems (length buf)))
       (fli:with-coerced-pointer (pel :type ctyp) pb
-        (while (< pos end)
-          (case direction
-            (:input
-             (let* ((nr-bytes-to-read (* csiz (min nr-elts-per-buf (- end pos))))
-                    (nr-bytes-read    (read-sequence buf stream :end nr-bytes-to-read))
-                    (nr-elts-read     (truncate nr-bytes-read csiz)))
-               (declare (fixnum nr-bytes-to-read nr-bytes-read nr-elts-read))
-               (when (plusp nr-elts-read)
-                 (fli:replace-foreign-array pb       buf
-                                            :end1    nr-bytes-read)
-                 (fli:replace-foreign-array sequence pel
-                                            :start1  pos
-                                            :end2    nr-elts-read)
-                 (incf pos nr-elts-read))
-               (when (< nr-bytes-read nr-bytes-to-read)
-                 (setf end pos))
-               ))
-            (:output
-             (let* ((nr-elts-to-write  (min nr-elts-per-buf (- end pos)))
-                    (nr-bytes-to-write (* csiz nr-elts-to-write)))
-               (fli:replace-foreign-array pel sequence
-                                          :start2 pos
-                                          :end1   nr-elts-to-write)
-               (fli:replace-foreign-array buf pb
-                                          :end2   nr-bytes-to-write)
-               (write-sequence buf stream :end nr-bytes-to-write)
-               (incf pos nr-elts-to-write)
-               ))
-            ))
         (case direction
-          (:input   pos)
-          (:output  sequence))
-        ))))
+          
+            (:input
+             (while (< pos end)
+               (let* ((nr-bytes-to-read (* csiz (min nr-elts-per-buf (- end pos))))
+                      (nr-bytes-read    (read-sequence buf stream :end nr-bytes-to-read))
+                      (nr-elts-read     (truncate nr-bytes-read csiz)))
+                 (declare (fixnum nr-bytes-to-read nr-bytes-read nr-elts-read))
+                 (when (plusp nr-elts-read)
+                   (fli:replace-foreign-array pb       buf
+                                              :end1    nr-bytes-read)
+                   (fli:replace-foreign-array sequence pel
+                                              :start1  pos
+                                              :end2    nr-elts-read)
+                   (incf pos nr-elts-read))
+                 (when (< nr-bytes-read nr-bytes-to-read)
+                   (setf end pos))
+                 ))
+             pos)
+            
+            (:output
+             (while (< pos end)
+               (let* ((nr-elts-to-write  (min nr-elts-per-buf (- end pos)))
+                      (nr-bytes-to-write (* csiz nr-elts-to-write)))
+                 (fli:replace-foreign-array pel sequence
+                                            :start2 pos
+                                            :end1   nr-elts-to-write)
+                 (fli:replace-foreign-array buf pb
+                                            :end2   nr-bytes-to-write)
+                 (write-sequence buf stream :end nr-bytes-to-write)
+                 (incf pos nr-elts-to-write)
+                 ))
+             sequence)
+            )))
+    ))
 
 ;; --------------------------------------------
 
