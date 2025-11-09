@@ -1,5 +1,15 @@
 ;; read-raw-vector.lisp
 ;;
+;; Read/Write Raw Binary Vectors (8, 16, 32, 64-bits) without respect
+;; to any network ordering. Just a raw write of vector contents in
+;; stored memory byte order.
+;;
+;; For two machines of same endian order on opposite ends of a network
+;; connection, both supporting single- and double-precision IEEE
+;; floating point numbers, this is an expedient way to send data.
+;;
+;; Actual transmission occurs as a stream of :UINT8 octets.
+;;
 ;; DM/RAL  2025/11/09 07:00:50 UTC
 ;; ----------------------------------
 
@@ -11,6 +21,7 @@
 ;; ----------------------------------
 
 (defun %read-raw-vector (ctyp sequence stream start end)
+  ;; Perform actual I/O as :UINT8 octets, up to 16 at a time.
   #F
   (declare (fixnum start))
   (let* ((csiz                (fli:size-of ctyp))
@@ -41,6 +52,34 @@
         pos ))
     ))
 
+(defun %write-raw-vector (ctyp sequence stream start end)
+  ;; Perform actual I/O as :UINT8 octets, up to 16 at a time.
+  #F
+  (declare (fixnum start))
+  (let* ((csiz                (fli:size-of ctyp))
+         (nr-elts-per-buf     (truncate (max csiz 16) csiz))
+         (buf                 (make-array (* csiz nr-elts-per-buf)
+                                          :element-type '(unsigned-byte 8)))
+         (end                 (or end (length sequence)))
+         (pos                 start))
+    (declare (dynamic-extent buf)
+             (fixnum csiz end pos nr-elts-per-buf))
+    (fli:with-dynamic-foreign-objects ((pb :uint8 :nelems (length buf)))
+      (fli:with-coerced-pointer (pel :type ctyp) pb
+        (while (< pos end)
+          (let* ((nr-elts-to-write  (min nr-elts-per-buf (- end pos)))
+                 (nr-bytes-to-write (* csiz nr-elts-to-write)))
+            (fli:replace-foreign-array pel sequence
+                                       :start2 pos
+                                       :end1   nr-elts-to-write)
+            (fli:replace-foreign-array buf pb
+                                       :end2   nr-bytes-to-write)
+            (write-sequence buf stream :end nr-bytes-to-write)
+            (incf pos nr-elts-to-write)
+            ))
+        sequence))
+    ))
+
 ;; --------------------------------------------
 
 (defun c-type-for (lisp-type)
@@ -68,14 +107,20 @@
     ))
 
 ;; --------------------------------------------
-;; Switch between standard :UINT8 reading, and otherwise
+;; Switch between standard :UINT8 reading/writing, and otherwise
 
-(defun rv-dispatch (sequence stream start end uint8-fn)
+(defun rv-dispatch (other-fn uint8-fn sequence &rest args)
   (let ((ctyp (c-type-for (array-element-type sequence))))
     (if (eql ctyp :uint8)
         (funcall uint8-fn)
-      (%read-raw-vector ctyp sequence stream start end))
+      (apply other-fn ctyp sequence args))
     ))
+
+(defun rv-rd-dispatch (&rest args)
+  (apply #'rv-dispatch #'%read-raw-vector args))
+
+(defun rv-wr-dispatch (&rest args)
+  (apply #'rv-dispatch #'%write-raw-vector args))
 
 ;; --------------------------------------------
 
@@ -85,12 +130,20 @@
   ;; 8, 16, 32, or 64 bits. This includes :FLOAT and :DOUBLE.
   ;;
   ;; Stream should have element type '(UNSIGNED-BYTE 8).
-  (rv-dispatch sequence stream start end
-               (lambda ()
-                 (read-sequence sequence stream
-                                :start start
-                                :end end))
-               ))
+  (rv-rd-dispatch
+   (lambda ()
+     (read-sequence sequence stream
+                    :start start
+                    :end end))
+   sequence stream start end))
+
+(defun write-raw-vector (sequence stream &key (start 0) end)
+  (rv-wr-dispatch
+   (lambda ()
+     (write-sequence sequence stream
+                     :start start
+                     :end   end))
+   sequence stream start end))
 
 ;; --------------------------------------------
 
@@ -111,13 +164,25 @@
 
 ;; --------------------------------------------
 
-(defmethod stream:stream-read-sequence ((stream raw-vector-augmented-stream-mixin) sequence start end)
+(defmethod stream:stream-read-sequence ((stream raw-vector-augmented-stream-mixin) (sequence vector) start end)
   ;;
   ;; Read elements into a raw vector whose element type has
   ;; 8, 16, 32, or 64 bits. This includes :FLOAT and :DOUBLE.
   ;;
   ;; Stream should have element type '(UNSIGNED-BYTE 8).
-  (rv-dispatch sequence stream start end
-               (lambda ()
-                 (call-next-method))))
-
+  (rv-rd-dispatch
+   (lambda ()
+     (call-next-method))
+   sequence stream start end))
+                  
+(defmethod stream:stream-write-sequence ((stream raw-vector-augmented-stream-mixin) (sequence vector) start end)
+  ;;
+  ;; Read elements into a raw vector whose element type has
+  ;; 8, 16, 32, or 64 bits. This includes :FLOAT and :DOUBLE.
+  ;;
+  ;; Stream should have element type '(UNSIGNED-BYTE 8).
+  (rv-wr-dispatch
+   (lambda ()
+     (call-next-method))
+   sequence stream start end))
+                  
