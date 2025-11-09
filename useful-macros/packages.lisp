@@ -813,4 +813,6 @@ THE SOFTWARE.
 
    #:read-raw-vector
    #:c-type-for
+   #:raw-vector-augmented-stream-mixin
+   #:make-raw-vector-augmented-stream
    ))
