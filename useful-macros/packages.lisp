@@ -810,4 +810,7 @@ THE SOFTWARE.
    
    #:ffmt
    #:define-constant
+
+   #:read-raw-vector
+   #:c-type-for
    ))

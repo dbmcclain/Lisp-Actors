@@ -155,6 +155,7 @@ THE SOFTWARE.
                 (:file "jd")
                 (:file "cl-stk")
                 #+:LISPWORKS (:file "fdpl")
+                #+:LISPWORKS (:file "read-raw-vector")
                 )
   :serial       t
   :depends-on   ("com.ral.useful-macros"

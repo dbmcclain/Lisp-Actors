@@ -2047,7 +2047,7 @@ This is C++ style enumerations."
 ;; Safe FLI interfaces with coercion of caller args to
 ;; types required by FLI interface
 ;;
-#+:LISPWORKS
+;; #+:LISPWORKS
 (defun* coerce-fli-arg ((name type &rest rest))
   (declare (ignore rest))
   (unless (eq name :constant)
