@@ -108,26 +108,33 @@
 
 ;; --------------------------------------------
 
-(defun read-raw-vector (sequence stream &key (start 0) end)
-  ;;
-  ;; Read elements into a raw vector whose element type has
-  ;; 8, 16, 32, or 64 bits. This includes :FLOAT and :DOUBLE.
-  ;;
-  ;; Stream should have element type '(UNSIGNED-BYTE 8).
-  (rv-dispatch :input
-               (lambda ()
-                 (read-sequence sequence stream
-                                :start start
-                                :end end))
-               sequence stream start end))
-
-(defun write-raw-vector (sequence stream &key (start 0) end)
-  (rv-dispatch :output
-               (lambda ()
-                 (write-sequence sequence stream
+(defgeneric read-raw-vector (sequence stream &key start end)
+  (:method ((sequence vector) stream &key (start 0) end)
+   ;;
+   ;; Read elements into a raw vector whose element type has
+   ;; 8, 16, 32, or 64 bits. This includes :FLOAT and :DOUBLE.
+   ;;
+   ;; Stream should have element type '(UNSIGNED-BYTE 8).
+   (rv-dispatch :input
+                (lambda ()
+                  (read-sequence sequence stream
                                  :start start
-                                 :end   end))
-               sequence stream start end))
+                                 :end end))
+                sequence stream start end)))
+   
+(defgeneric write-raw-vector (sequence stream &key start end)
+  (:method ((sequence vector) stream &key (start 0) end)
+   ;;
+   ;; Write elements from a raw vector whose element type has
+   ;; 8, 16, 32, or 64 bits. This includes :FLOAT and :DOUBLE.
+   ;;
+   ;; Stream should have element type '(UNSIGNED-BYTE 8).
+   (rv-dispatch :output
+                (lambda ()
+                  (write-sequence sequence stream
+                                  :start start
+                                  :end   end))
+                sequence stream start end)))
 
 ;; --------------------------------------------
 
@@ -135,16 +142,14 @@
   ())
 
 (defun make-raw-vector-augmented-stream (stream)
-  (let* ((mixin-class  (find-class 'raw-vector-augmented-stream-mixin))
-         (stream-class (class-of stream))
-         (bridge-class-name (intern (concatenate 'string
-                                                 (string :RV-Augm-)
-                                                 (string (class-name stream-class)))
-                                    (find-package :com.ral.useful-macros)))
-         (bridge-class (clos:ensure-class bridge-class-name
-                                          :direct-superclasses (list mixin-class stream-class)
-                                          :metaclass           (class-of stream-class))))
-    (change-class stream bridge-class)))
+  (let ((class-name   (concatenate 'string
+                                   (string :RV-AUGM-)
+                                   (string (class-name (class-of stream))))
+                      ))
+    (wrap-instance-with-mixin stream
+                              :mixin-class 'raw-vector-augmented-stream-mixin
+                              :class-name  class-name)
+    ))
 
 ;; --------------------------------------------
 
@@ -161,7 +166,7 @@
 
 (defmethod stream:stream-write-sequence ((stream raw-vector-augmented-stream-mixin) (sequence vector) start end)
   ;;
-  ;; Read elements into a raw vector whose element type has
+  ;; Write elements from a raw vector whose element type has
   ;; 8, 16, 32, or 64 bits. This includes :FLOAT and :DOUBLE.
   ;;
   ;; Stream should have element type '(UNSIGNED-BYTE 8).

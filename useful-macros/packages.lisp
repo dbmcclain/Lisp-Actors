@@ -815,4 +815,5 @@ THE SOFTWARE.
    #:c-type-for
    #:raw-vector-augmented-stream-mixin
    #:make-raw-vector-augmented-stream
+   #:wrap-instance-with-mixin
    ))

@@ -155,6 +155,7 @@ THE SOFTWARE.
                 (:file "jd")
                 (:file "cl-stk")
                 #+:LISPWORKS (:file "fdpl")
+                (:file "wrap-mixin")
                 #+:LISPWORKS (:file "read-raw-vector")
                 )
   :serial       t
