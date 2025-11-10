@@ -18,16 +18,16 @@
          (class-name   (cond ((null class-name)
                               (intern (concatenate 'string
                                                    (string (class-name mixin-class))
-                                                   #\-
+                                                   "-"
                                                    (string (class-name obj-class)))
-                                      (find-package :com.ral.useful-macros)))
+                                      (symbol-package (class-name mixin-class))))
                              
                              ((symbolp class-name)
                               class-name)
 
                              (t
                               (intern (string class-name)
-                                      (find-package :com.ral.useful-macros)))
+                                      (symbol-package (class-name mixin-class))))
                              ))
          (bridge-class  (#+:LISPWORKS clos:ensure-class
                          #+:SBCL      sb-mop:ensure-class

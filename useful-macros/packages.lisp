@@ -812,6 +812,7 @@ THE SOFTWARE.
    #:define-constant
 
    #:read-raw-vector
+   #:write-raw-vector
    #:c-type-for
    #:raw-vector-augmented-stream-mixin
    #:make-raw-vector-augmented-stream
