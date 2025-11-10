@@ -146,8 +146,7 @@
                                    (string :RV-AUGM-)
                                    (string (class-name (class-of stream))))
                       ))
-    (wrap-instance-with-mixin stream
-                              :mixin-class 'raw-vector-augmented-stream-mixin
+    (wrap-instance-with-mixin stream 'raw-vector-augmented-stream-mixin
                               :class-name  class-name)
     ))
 

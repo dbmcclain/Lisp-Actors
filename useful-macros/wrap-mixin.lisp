@@ -10,7 +10,7 @@
 
 ;; ----------------------------------
 
-(defun wrap-instance-with-mixin (obj &key mixin-class class-name)
+(defun wrap-instance-with-mixin (obj mixin-class &key class-name)
   (let* ((mixin-class  (if (symbolp mixin-class)
                            (find-class mixin-class)
                          mixin-class))
