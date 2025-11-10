@@ -142,13 +142,8 @@
   ())
 
 (defun make-raw-vector-augmented-stream (stream)
-  (let ((class-name   (concatenate 'string
-                                   (string :RV-AUGM-)
-                                   (string (class-name (class-of stream))))
-                      ))
-    (wrap-instance-with-mixin stream 'raw-vector-augmented-stream-mixin
-                              :class-name  class-name)
-    ))
+  (wrap-instance-with-mixin stream 'raw-vector-augmented-stream-mixin
+                            :name-prefix :RV-AUGM))
 
 ;; --------------------------------------------
 

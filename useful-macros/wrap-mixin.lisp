@@ -10,18 +10,23 @@
 
 ;; ----------------------------------
 
-(defun wrap-instance-with-mixin (obj mixin-class &key class-name)
+(defun wrap-instance-with-mixin (obj mixin-class &key name-prefix class-name)
   (let* ((mixin-class  (if (symbolp mixin-class)
                            (find-class mixin-class)
                          mixin-class))
          (obj-class    (class-of obj))
          (class-name   (cond ((null class-name)
-                              (intern (concatenate 'string
-                                                   (string (class-name mixin-class))
-                                                   "-"
-                                                   (string (class-name obj-class)))
-                                      (symbol-package (class-name mixin-class))))
-                             
+                              (let ((obj-class-name (class-name obj-class)))
+                                (intern (concatenate 'string
+                                                     (or (string name-prefix)
+                                                         (string (class-name mixin-class)))
+                                                     "-"
+                                                     (string (package-name (symbol-package obj-class-name)))
+                                                     "-"
+                                                     (string obj-class-name))
+                                        (symbol-package (class-name mixin-class)))
+                                ))
+                              
                              ((symbolp class-name)
                               class-name)
 
