@@ -119,7 +119,7 @@
                 (lambda ()
                   (read-sequence sequence stream
                                  :start start
-                                 :end end))
+                                 :end   end))
                 sequence stream start end)))
    
 (defgeneric write-raw-vector (sequence stream &key start end)
@@ -159,8 +159,7 @@
   ;;
   ;; Stream should have element type '(UNSIGNED-BYTE 8).
   (rv-dispatch :input
-               (lambda ()
-                 (call-next-method))
+               #'call-next-method
                sequence stream start end))
 
 (defmethod stream:stream-write-sequence ((stream raw-vector-augmented-stream-mixin) (sequence vector) start end)
@@ -170,7 +169,6 @@
   ;;
   ;; Stream should have element type '(UNSIGNED-BYTE 8).
   (rv-dispatch :output
-               (lambda ()
-                 (call-next-method))
+               #'call-next-method
                sequence stream start end))
 
