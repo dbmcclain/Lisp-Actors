@@ -34,11 +34,12 @@
                               (intern (string class-name)
                                       (symbol-package (class-name mixin-class))))
                              ))
-         (bridge-class  (#+:LISPWORKS clos:ensure-class
-                         #+:SBCL      sb-mop:ensure-class
-                                      class-name
-                                      :direct-superclasses (list mixin-class obj-class)
-                                      :metaclass           (class-of obj-class))))
-    (change-class obj bridge-class)))
+         (augm-class   (#+:LISPWORKS clos:ensure-class
+                        #+:SBCL      sb-mop:ensure-class
+                        class-name
+                        :direct-superclasses (list mixin-class obj-class)
+                        :metaclass           (class-of obj-class))
+                       ))
+    (change-class obj augm-class)))
 
 
