@@ -18,7 +18,8 @@
          (class-name   (cond ((null class-name)
                               (let ((obj-class-name (class-name obj-class)))
                                 (intern (concatenate 'string
-                                                     (or (string name-prefix)
+                                                     (or (and name-prefix
+                                                              (string name-prefix))
                                                          (string (class-name mixin-class)))
                                                      "-"
                                                      (string (package-name (symbol-package obj-class-name)))
