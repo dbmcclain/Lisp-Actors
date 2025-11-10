@@ -811,6 +811,9 @@ THE SOFTWARE.
    #:ffmt
    #:define-constant
 
+   #:copy-from/to-byte-vector
+   #:copy-byte-vector-to-raw-vector
+   #:copy-raw-vector-to-byte-vector
    #:read-raw-vector
    #:write-raw-vector
    #:c-type-for

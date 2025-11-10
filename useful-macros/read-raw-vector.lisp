@@ -18,7 +18,56 @@
 
 (in-package #:com.ral.useful-macros.read-raw-vector)
 
-;; ----------------------------------
+;; --------------------------------------------
+
+(defun copy-from/to-byte-vector (direction vec ubvec start1 end1 start2 end2)
+  (let ((ctyp (c-type-for (array-element-type vec))))
+    (if (eql ctyp :uint8)
+        (case direction
+          (:from
+           (replace vec ubvec
+                    :start1 start1 :end1 end1
+                    :start2 start2 :end2 end2))
+          (:to
+           (replace ubvec vec
+                    :start1 start2 :end1 end2
+                    :start2 start1 :end2 end1)) )
+      ;; else
+      (let* ((csiz (fli:size-of ctyp))
+             (nel  (- (or end1 (length vec)) start1))
+             (nb   (min (- (or end2 (length ubvec)) start2)
+                        (* csiz nel)))
+             (ne   (truncate nb csiz))
+             (nb   (* csiz ne)))
+        (fli:with-dynamic-foreign-objects ((ubp :uint8 :nelems nb))
+          (fli:with-coerced-pointer (ep :type ctyp) ubp
+            (case direction
+              (:from
+               (fli:replace-foreign-array ubp ubvec :end1 nb :start2 start2)
+               (fli:replace-foreign-array vec ep :end2 ne :start1 start1)
+               vec)
+              (:to
+               (fli:replace-foreign-array ep vec :end1 ne :start2 start1)
+               (fli:replace-foreign-array ubvec ubp :start1 start2 :end2 nb)
+               ubvec))
+            )))
+      )))
+      
+(defun copy-byte-vector-to-raw-vector (ubvec vec &key
+                                             (start1 0)
+                                             end1
+                                             (start2 0)
+                                             end2)
+  (copy-from/to-byte-vector :from vec ubvec start2 end2 start1 end1))
+
+(defun copy-raw-vector-to-byte-vector (vec ubvec &key
+                                           (start1 0)
+                                           end1
+                                           (start2 0)
+                                           end2)
+  (copy-from/to-byte-vector :to vec ubvec start1 end1 start2 end2))
+
+;; --------------------------------------------
 
 (defun %read/write-raw-vector (ctyp direction sequence stream start end)
   ;; Perform actual I/O as :UINT8 octets, up to 16 at a time.
