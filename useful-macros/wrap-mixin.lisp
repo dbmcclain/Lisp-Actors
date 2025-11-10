@@ -10,7 +10,9 @@
 
 ;; ----------------------------------
 
-(defun wrap-instance-with-mixin (obj mixin-class &key name-prefix class-name)
+(defun wrap-instance-with-mixin (obj mixin-class &key name-prefix class-name post)
+  ;; When POST is NIL = subclassing of Mixin Class, mixin overrides instance class.
+  ;;      POST is T   = secondary augmentation if instance class does not override.
   (let* ((obj-class        (class-of obj))
          (mixin-class      (if (symbolp mixin-class)
                                (find-class mixin-class)
@@ -39,7 +41,9 @@
          (augm-class       (#+:LISPWORKS clos:ensure-class
                             #+:SBCL      sb-mop:ensure-class
                             class-name
-                            :direct-superclasses (list mixin-class obj-class)
+                            :direct-superclasses (if post
+                                                     (list obj-class mixin-class)
+                                                   (list mixin-class obj-class))
                             :metaclass           (class-of obj-class))
                            ))
     (change-class obj augm-class)
