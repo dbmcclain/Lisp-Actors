@@ -75,6 +75,17 @@
   (%send-to-pool (msg self self-msg))
   (abort))
 
+;; --------------------------------------------
+;; RELEASE-CONTENTION - needed for Actor system shutdown
+
+(define-condition release-contention ()
+  ())
+
+(defun release-contention ()
+  (signal 'release-contention))
+
+;; --------------------------------------------
+
 (defun do-without-contention (guard thunk)
   (declare (cons guard)
            (function thunk))
@@ -103,7 +114,8 @@
             (release)))
         (if (eq me owner)
             (handler-bind
-                ((error #'release))
+                ((error              #'release)
+                 (release-contention #'release))
               (funcall thunk))
           ;; else, Re-enqueue our message for later delivery,
           ;; and go process the next available message. This

@@ -128,19 +128,18 @@
     ((cust 'poison-pill)
      ;; Try to kill off one of our Dispatchers
      (cond (threads
+            (send-to-pool self cust 'poison-pill)
             (let* ((my-proc (mpc:get-current-process))
                    (pair    (rassoc my-proc threads)))
               (cond (pair
                      ;; We are one, so die.
                      (without-contention
-                      (setf threads (remove pair threads))
-                      (if threads
-                          (send-to-pool self cust 'poison-pill)
-                        (send-to-pool cust :ok))
+                      (setf threads (delete pair threads))
+                      (release-contention)
                       (mpc:current-process-kill)))
                     (t
                      ;; Not one of the Dispatchers, try again
-                     (repeat-send self))
+                     (sleep 0.1)) ;; get out of the way
                     )))
            (t
             ;; No dispatch threads remain, we are done.
@@ -148,10 +147,11 @@
            ))
 
     (('reset-custodian)
-     ;; Sent after forcibly killing off the Dispatch threads in the
-     ;; dead-man timer.
+     ;; Sent by the dead-man switch after forcibly killing off
+     ;; Dispatch threads.
      (without-contention
-      (become (custodian-beh))))
+      (become (custodian-beh))
+      ))
     
     ;; --------------------------------------------
     ((cust :get-threads)
@@ -204,12 +204,13 @@
    (mpc:funcall-async
     (lambda ()
       ;; We are now running in a known non-Actor thread
-      (mpc:with-lock (*central-mail-lock*)
-        (when (actors-running-p)
-          (when-let (procs (get-dispatch-threads))
-            (setup-dead-man-switch procs)
-            (ask custodian 'poison-pill))
-          (setf *central-mail* nil))
+      (when (actors-running-p)
+        (mpc:with-lock (*central-mail-lock*)
+          (when (actors-running-p)
+            (when-let (procs (get-dispatch-threads))
+              (setup-dead-man-switch procs)
+              (ask custodian 'poison-pill))
+            (setf *central-mail* nil)))
         ))
     )))
 
