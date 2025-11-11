@@ -96,38 +96,58 @@
 
 (defun rd-gen (rdr-fn cas-fn)
   (prog ()
-    again
+    AGAIN
     (let ((v (funcall rdr-fn)))
       (cond ((rmw-desc-p v)
+             ;; Try to finish up the RMW for the current owner.
              (let* ((ans (multiple-value-list 
                           (funcall (rmw-desc-new-fn v) (rmw-desc-old v))))
                     (new (car ans)))
                (cond ((funcall cas-fn v new)
-                      (setf (rmw-desc-ans v) ans)
+                      ;; Potential race condition here... Owner of
+                      ;; descr may awaken before we set his answer
+                      ;; list. So he must wait until he sees a CONS in
+                      ;; the answer slot.
+                      (setf (rmw-desc-ans v) (list ans))
                       (return new))
                      (t
-                      (go again))
+                      ;; Someone else finished before we could.
+                      ;; Retry the READ.
+                      (go AGAIN))
                      )))
             (t
+             ;; Normal READ
              (return v))
             ))))
 
 (defun rmw-gen (rdr-fn cas-fn new-fn)
+  ;; NEW-FN must be side effect free. May be called more than once.
   (let ((desc (make-rmw-desc
                :new-fn new-fn)))
     ;; NOTE: desc cannot be dynamic-extent
     (prog ()
-      again
+      AGAIN
       (let ((old (rd-gen rdr-fn cas-fn)))
-        (setf (rmw-desc-old desc) old)
+        (setf (rmw-desc-old desc) old)  ;; must save old first
         (if (funcall cas-fn old desc)
+            ;; The place is ours now...
             (let* ((ans (multiple-value-list (funcall new-fn old)))
                    (new (car ans)))
               (if (funcall cas-fn desc new)
                   (return (values-list ans))
-                (return (values-list (rmw-desc-ans desc)))
+                ;; else - someone else set our var for us.
+                (progn
+                  ;; They left our values-list in our answer slot,
+                  ;; wrapped in a CONS cell.
+                  (unless (consp (rmw-desc-ans desc))  ;; Not yet?
+                    (mpcompat:process-wait "Waiting for my answer"
+                                           (lambda ()
+                                             (consp (rmw-desc-ans desc)))
+                                           ))
+                  (return (values-list (car (rmw-desc-ans desc)))))
                 ))
-          (go again))
+          ;; else - couldn't own place, try again
+          (go AGAIN))
         ))))
 
 ;; ----------------------------------------------------------
