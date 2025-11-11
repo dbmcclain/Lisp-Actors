@@ -296,3 +296,6 @@ A null timeout means wait forever."
 
 (defun process-alive-p (proc)
   (nyi 'process-alive-p))
+
+(defun yield ()
+  (sb-thread:thread-yield))

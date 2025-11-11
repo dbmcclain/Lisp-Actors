@@ -53,6 +53,7 @@ THE SOFTWARE.
    #:process-exclusive-lock
    #:process-exclusive-unlock
    #:mailbox
+   #:yield
    )
   #+(OR :LISPWORKS6 :LISPWORKS7 :LISPWORKS8)
   (:import-from #:mp
@@ -161,5 +162,6 @@ THE SOFTWARE.
    #:process-sharing-unlock
    #:process-exclusive-unlock
    #:mailbox
+   #:yield
    ))
 
