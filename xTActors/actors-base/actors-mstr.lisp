@@ -74,16 +74,17 @@ THE SOFTWARE.
       chains, except those needed along an activation chain of interest.)
 |#
 
-(defun msg (target args)
-  (declare (list args))
-  (list* self-msg-parent target args))
+(defgeneric msg (target args)
+  (:method ((target actor) (args list))
+   (list* self-msg-parent target args)))
 
 ;; --------------------------------------------
 
-(defun send-to-pool (target &rest msg)
-  ;; the default SEND for foreign (non-Actor) threads
-  (when (actor-p target)
-    (%send-to-pool (msg target msg))))
+(defgeneric send-to-pool (target &rest msg)
+  (:method ((target actor) &rest msg)
+   ;; the default SEND for foreign (non-Actor) threads
+   (%send-to-pool (msg target msg)))
+  (:method (target &rest msg)))
 
 ;; -----------------------------------------------
 ;; SEND/BECOME
@@ -100,9 +101,10 @@ THE SOFTWARE.
 ;; will make it seem that the message causing the error was never
 ;; delivered.
 
-(defun send (target &rest msg)
-  (when (actor-p target)
-    (funcall *send-hook* (msg target msg))))
+(defgeneric send (target &rest msg)
+  (:method ((target actor) &rest msg)
+   (funcall *send-hook* (msg target msg)))
+  (:method (target &rest msg)))
 
 (defun send* (&rest args)
   ;; when last arg is a list that you want destructed
@@ -281,9 +283,9 @@ THE SOFTWARE.
 |#
 ;; --------------------------------------------
 
-(defun run-actors (&optional (actor nil actor-provided-p) &rest message)
+(defun actor-dispatch-loop (&optional timeout (done (list nil)))
   #F
-  (let (done timeout sends pend-beh)
+  (let (sends pend-beh)
     (labels
         ((%send (msg)
            ;; Within one Actor invocation there can be no significance
@@ -313,80 +315,73 @@ THE SOFTWARE.
            ;; depth is never more than one Actor at a time,
            ;; before trampolining back here.
            
-           (loop until done
-                 do
-                   (when-let (evt (mpc:mailbox-read *central-mail* nil timeout))
-                     (let ((*self-msg-parent* (and (car (the cons evt)) evt))
-                           (*self*            (cadr (the cons evt)))   ;; self
-                           (*self-msg*        (cddr (the cons evt))))  ;; self-msg
-                       (tagbody
-                        RETRY
-                        (setf pend-beh   (actor-beh (the actor *self*))
-                              sends      nil)
-                        (when-let (*self-beh*  pend-beh)
-                          ;; ---------------------------------
-                          ;; Dispatch to Actor behavior with message args
-                          (apply (the function pend-beh) (the list *self-msg*))
-                          
-                          ;; ---------------------------------
-                          ;; Commit BECOME and SENDS
-                          (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
-                                      (mpc:compare-and-swap
-                                       (actor-beh (the actor *self*))
-                                       *self-beh* pend-beh))     ;; effective BECOME
-                            ;; failed on behavior update - try again...
-                            #+:LISPWORKS
-                            (report-collision *self-beh*) ;; for engineering telemetry
-                            (go RETRY))
-                     
-                          (dolist (msg (the list sends))
-                            (mpc:mailbox-send *central-mail* msg))
-                          ))
-                       ))
+           (um:until (car done)
+             (when-let (evt (mpc:mailbox-read *central-mail* nil timeout))
+               (let ((*self-msg-parent* (and (car (the cons evt)) evt))
+                     (*self*            (cadr (the cons evt)))   ;; self
+                     (*self-msg*        (cddr (the cons evt))))  ;; self-msg
+                 (tagbody
+                  RETRY
+                  (setf pend-beh   (actor-beh (the actor *self*))
+                        sends      nil)
+                  (when-let (*self-beh*  pend-beh)
+                    ;; ---------------------------------
+                    ;; Dispatch to Actor behavior with message args
+                    (apply (the function pend-beh) (the list *self-msg*))
+                    
+                    ;; ---------------------------------
+                    ;; Commit BECOME and SENDS
+                    (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
+                                (mpc:compare-and-swap
+                                 (actor-beh (the actor *self*))
+                                 *self-beh* pend-beh))     ;; effective BECOME
+                      ;; failed on behavior update - try again...
+                      #+:LISPWORKS
+                      (report-collision *self-beh*) ;; for engineering telemetry
+                      (go RETRY))
+                    
+                    (dolist (msg (the list sends))
+                      (mpc:mailbox-send *central-mail* msg))
+                    ))
                  ))
-         
-         (dispatcher ()
-           (loop until done 
-                 do
-                   (with-simple-restart (abort "Handle next event")
-                     (dispatch-loop))
-                 )))
+             )))
       (declare (dynamic-extent #'%send #'%become #'%abort-beh
-                               #'dispatch-loop #'dispatcher))
+                               #'dispatch-loop))
       ;; --------------------------------------------
-
+      
       (let ((*send-hook*      #'%send)
             (*become-hook*    #'%become)
             (*ac-become-hook* #'%become)
             (*abort-beh-hook* #'%abort-beh))
         
-        ;; --------------------------------------------
-        (cond
-         (actor-provided-p
-          ;; we are an ASK
-          (if (is-pure-sink? actor)
-              (values nil t)
-            ;; else
-            (let ((me  (once
-                        (create
-                         (lambda* msg
-                           (setf done (list msg))))
-                        )))
-              (setf timeout *ASK-TIMEOUT*)  ;; for periodic DONE checking
-              (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
-              
-              (apply #'send-to-pool actor me message)
-              (with-simple-restart (abort "Terminate ASK")
-                (dispatcher))
-              (when done
-                (values (car done) t)))
-            ))
-         
-         (t  ;; else - we are normal Dispatch thread
-             (with-simple-restart (abort "Terminate Actor thread")
-               (dispatcher)))
-         ))
+        (um:until (car done)
+          (with-simple-restart (abort "Handle next event")
+            (dispatch-loop))
+          ))
       )))
+
+(defun run-actor-dispatch-loop ()
+  (with-simple-restart (abort "Terminate Actor thread")
+    (actor-dispatch-loop)))
+  
+(defgeneric run-ask (actor &rest message)
+  (:method ((actor actor) &rest message)
+   #F
+   (let* ((done (list nil))
+          (me   (once
+                 (create
+                  (lambda* msg
+                    (setf (car done) (list msg))))
+                 )))
+     (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
+     (apply #'send-to-pool actor me message)
+     (with-simple-restart (abort "Terminate ASK")
+       (actor-dispatch-loop *ASK-TIMEOUT* done))
+     (when (car done)
+       (values (caar done) t))
+     ))
+  (:method (actor &rest message)
+   (values nil t)))
 
 ;; ----------------------------------------------------------------
 ;; Error Handling
@@ -504,7 +499,7 @@ THE SOFTWARE.
    ;; we get back nil.  If *TIMEOUT* is not-nil, and timeout occurs, we
    ;; get back list (<timeout-condiiton-object>) as ans.
    (multiple-value-bind (ans okay)
-       (apply #'run-actors target msg)
+       (apply #'run-ask target msg)
      (unless okay
        (error 'terminated-ask))
      (check-for-errors ans)

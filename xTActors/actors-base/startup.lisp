@@ -105,7 +105,7 @@
         (let ((new-thread (mpc:process-run-function
                            (format nil "Actor Thread #~D" id)
                            ()
-                           #'run-actors
+                           #'run-actor-dispatch-loop
                            )))
           (send cust :ok)
           (become (custodian-beh (acons id new-thread threads)))
