@@ -142,11 +142,8 @@
                 (progn
                   ;; They left our values-list in our answer slot,
                   ;; wrapped in a CONS cell.
-                  (unless (consp (rmw-desc-ans desc))  ;; Not yet?
-                    (mpcompat:process-wait "Waiting for my answer"
-                                           (lambda ()
-                                             (consp (rmw-desc-ans desc)))
-                                           ))
+                  (until (consp (rmw-desc-ans desc))
+                    (mpc:yield))
                   (return (values-list (car (rmw-desc-ans desc)))))
                 ))
           ;; else - couldn't own place, try again
