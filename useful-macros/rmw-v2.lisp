@@ -95,6 +95,7 @@
   ans)    ;; multiple-value-list of return vals from successful RMW
 
 (defun rd-gen (rdr-fn cas-fn)
+  #F
   (prog ()
     AGAIN
     (let ((v (funcall rdr-fn)))
@@ -122,6 +123,7 @@
 
 (defun rmw-gen (rdr-fn cas-fn new-fn)
   ;; NEW-FN must be side effect free. May be called more than once.
+  #F
   (let ((desc (make-rmw-desc
                :new-fn new-fn)))
     ;; NOTE: desc cannot be dynamic-extent
@@ -234,6 +236,7 @@
 #+:ALLEGRO
 (define-rmw-functions (sys:global-symbol-value sym))
 (define-rmw-functions (svref svec ix))
+(define-rmw-functions (slot-value struct slot-name))
 
 ;; -----------------------------------------------------------------------------------
 
