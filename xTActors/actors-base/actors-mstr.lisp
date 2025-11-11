@@ -283,82 +283,91 @@ THE SOFTWARE.
 |#
 ;; --------------------------------------------
 
-(defun actor-dispatch-loop (&optional timeout (done (list nil)))
+(defun actor-dispatch-loop (&optional timeout done)
   #F
-  (let (sends pend-beh)
-    (labels
-        ((%send (msg)
-           ;; Within one Actor invocation there can be no significance
-           ;; to the ordering of sent messages.
-           (push msg sends))
-         
-         (%become (new-beh)
-           (setf pend-beh new-beh))
-         
-         (%abort-beh ()
-           (setf pend-beh *self-beh*
-                 sends    nil))
-
-         (dispatch-loop ()
-           ;; -------------------------------------------------------
-           ;; Think of the *current-x* global vars as dedicated registers
-           ;; of a special architecture CPU which uses a FIFO queue for its
-           ;; instruction stream, instead of linear memory, and which
-           ;; executes breadth-first instead of depth-first. This maximizes
-           ;; concurrency.
-           ;; -------------------------------------------------------
+  (macrolet ((REPEAT (&body body)
+               `(um:until (car done)
+                  ,@body))
+             (WITH-NEXT-EVENT ((var) &body body)
+               `(when-let (,var (mpc:mailbox-read *central-mail* nil timeout))
+                  ,@body))
+             (SEND-EVENT (msg)
+               `(mpc:mailbox-send *central-mail* ,msg)))
+    
+    (let (sends pend-beh)
+      (labels
+          ((%send (msg)
+             ;; Within one Actor invocation there can be no significance
+             ;; to the ordering of sent messages.
+             (push msg sends))
            
-           ;; Fetch next event from event queue - ideally, this
-           ;; would be just a handful of simple register/memory
-           ;; moves and direct jump. No call/return needed, and
-           ;; stack useful only for a microcoding assist. Our
-           ;; depth is never more than one Actor at a time,
-           ;; before trampolining back here.
+           (%become (new-beh)
+             (setf pend-beh new-beh))
            
-           (um:until (car done)
-             (when-let (evt (mpc:mailbox-read *central-mail* nil timeout))
-               (let ((*self-msg-parent* (and (car (the cons evt)) evt))
-                     (*self*            (cadr (the cons evt)))   ;; self
-                     (*self-msg*        (cddr (the cons evt))))  ;; self-msg
-                 (tagbody
-                  RETRY
-                  (setf pend-beh   (actor-beh (the actor *self*))
-                        sends      nil)
-                  (when-let (*self-beh*  pend-beh)
-                    ;; ---------------------------------
-                    ;; Dispatch to Actor behavior with message args
-                    (apply (the function pend-beh) (the list *self-msg*))
-                    
-                    ;; ---------------------------------
-                    ;; Commit BECOME and SENDS
-                    (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
-                                (mpc:compare-and-swap
-                                 (actor-beh (the actor *self*))
-                                 *self-beh* pend-beh))     ;; effective BECOME
-                      ;; failed on behavior update - try again...
-                      #+:LISPWORKS
-                      (report-collision *self-beh*) ;; for engineering telemetry
-                      (go RETRY))
-                    
-                    (dolist (msg (the list sends))
-                      (mpc:mailbox-send *central-mail* msg))
-                    ))
-                 ))
-             )))
-      (declare (dynamic-extent #'%send #'%become #'%abort-beh
-                               #'dispatch-loop))
-      ;; --------------------------------------------
-      
-      (let ((*send-hook*      #'%send)
-            (*become-hook*    #'%become)
-            (*ac-become-hook* #'%become)
-            (*abort-beh-hook* #'%abort-beh))
+           (%abort-beh ()
+             (setf pend-beh *self-beh*
+                   sends    nil))
+           
+           (dispatch-loop ()
+             ;; -------------------------------------------------------
+             ;; Think of the *current-x* global vars as dedicated registers
+             ;; of a special architecture CPU which uses a FIFO queue for its
+             ;; instruction stream, instead of linear memory, and which
+             ;; executes breadth-first instead of depth-first. This maximizes
+             ;; concurrency.
+             ;; -------------------------------------------------------
+             
+             ;; Fetch next event from event queue - ideally, this
+             ;; would be just a handful of simple register/memory
+             ;; moves and direct jump. No call/return needed, and
+             ;; stack useful only for a microcoding assist. Our
+             ;; depth is never more than one Actor at a time,
+             ;; before trampolining back here.
+             
+             (REPEAT
+              (WITH-NEXT-EVENT (evt)
+                (let ((*self-msg-parent* (and (car (the cons evt)) evt))
+                      (*self*            (cadr (the cons evt)))   ;; self
+                      (*self-msg*        (cddr (the cons evt))))  ;; self-msg
+                  (tagbody
+                   RETRY
+                   (setf pend-beh   (actor-beh (the actor *self*))
+                         sends      nil)
+                   (when-let (*self-beh*  pend-beh)
+                     ;; ---------------------------------
+                     ;; Dispatch to Actor behavior with message args
+                     (apply (the function pend-beh) (the list *self-msg*))
+                     
+                     ;; ---------------------------------
+                     ;; Commit BECOME and SENDS
+                     (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
+                                 (mpc:compare-and-swap
+                                  (actor-beh (the actor *self*))
+                                  *self-beh* pend-beh))     ;; effective BECOME
+                       ;; failed on behavior update - try again...
+                       #+:LISPWORKS
+                       (report-collision *self-beh*) ;; for engineering telemetry
+                       (go RETRY))
+                     
+                     (dolist (msg (the list sends))
+                       (SEND-EVENT msg))
+                     ))
+                  ))
+              )))
+        (declare (dynamic-extent #'%send #'%become #'%abort-beh
+                                 #'dispatch-loop))
+        ;; --------------------------------------------
         
-        (um:until (car done)
-          (with-simple-restart (abort "Handle next event")
-            (dispatch-loop))
-          ))
-      )))
+        (let ((*send-hook*      #'%send)
+              (*become-hook*    #'%become)
+              (*ac-become-hook* #'%become)
+              (*abort-beh-hook* #'%abort-beh))
+          
+          (REPEAT
+           (with-simple-restart (abort "Handle next event")
+             (dispatch-loop))
+           ))
+        ))))
 
 (defun run-actor-dispatch-loop ()
   (with-simple-restart (abort "Terminate Actor thread")
@@ -366,6 +375,10 @@ THE SOFTWARE.
   
 (defgeneric run-ask (actor &rest message)
   (:method ((actor actor) &rest message)
+   ;; Run an Actor dispatcher while awaiting an answer. We tell the
+   ;; dispatch loop to pause to check every *ASK-TIMEOUT* seconds
+   ;; while waiting for messages to dispatch. The loop checks a shared
+   ;; DONE cell whose CAR will be non-NIL when an answer has arrived.
    #F
    (let* ((done (list nil))
           (me   (once
