@@ -45,6 +45,8 @@
 (defvar *self-msg*        nil)
 (defvar *self-msg-parent* nil)
 
+(defvar *state*           nil)
+
 (defvar *send-hook*      #'%send-to-pool)
 (defvar *become-hook*    #'not-in-actor)
 (defvar *abort-beh-hook* #'do-nothing)

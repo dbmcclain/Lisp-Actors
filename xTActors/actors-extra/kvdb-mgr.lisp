@@ -158,32 +158,33 @@
 
 ;; ----------------------------------------------------------------
 
-(defun common-trans-beh (msg &rest state &key saver db &allow-other-keys)
+(defun common-trans-beh (msg)
   ;; Common behavior for general and exclusive use.
-  (match msg
-    ;; -------------------
-    ;; general entry for external clients
-    ((cust :req)
-     (send cust db))
+  (let+ ((:db (db saver) *state*))
+    (match msg
+      ;; -------------------
+      ;; general entry for external clients
+      ((cust :req)
+       (send cust db))
+      
+      ((cust :find-multiple . keys)
+       (send cust (mapcar (um:curry #'db-find db) keys)))
     
-    ((cust :find-multiple . keys)
-     (send cust (mapcar (um:curry #'db-find db) keys)))
+      ((cust :find key . default)
+       (send cust (db-find db key (car default)) ))
     
-    ((cust :find key . default)
-     (send cust (db-find db key (car default)) ))
-    
-    ;; -------------------
-    ;; We are the only one that knows the identity of saver, so this
-    ;; can't be forged by malicious clients. Also, a-db will only
-    ;; eql db if there have been no updates within the last 10 sec.
-    ((a-tag a-db) / (and (eql a-tag saver)
-                         (eql a-db  db))
-     (send saver sink :save-log db))
-    ))
+      ;; -------------------
+      ;; We are the only one that knows the identity of saver, so this
+      ;; can't be forged by malicious clients. Also, a-db will only
+      ;; eql db if there have been no updates within the last 10 sec.
+      ((a-tag a-db) / (and (eq a-tag saver)
+                           (eq a-db  db))
+       (send saver sink :save-log db))
+      )))
 
 ;; ------------------------------
 
-(defun trans-gate-beh (&rest state &key saver db)
+(def-actor-beh trans-gate-beh (&key saver db)
   ;; General behavior of KVDB manager
   (labels ((upd (cust adb ans)
              (let ((new-db (db-add adb 'version (uuid:make-v1-uuid))))
@@ -204,7 +205,7 @@
       (let ((fa-tag (tag self)))
         (send cust db)
         (send-after timeout fa-tag 'forced-abort)
-        (become (apply #'busy-trans-gate-beh :owner owner :fa-tag fa-tag state))
+        (become (apply #'busy-trans-gate-beh :owner owner :fa-tag fa-tag *state*))
         ))
         
      ((cust :find-or-add key val)
@@ -264,11 +265,12 @@
         (send saver sink :full-save new-db)))
      
      (msg
-      (apply #'common-trans-beh msg state))
+      (common-trans-beh msg))
      )))
 
 ;; ----------------------------------------------------------------
-(defun busy-trans-gate-beh (&rest state &key fa-tag queue owner db saver)
+
+(def-actor-beh busy-trans-gate-beh (&key fa-tag queue owner db saver)
   ;; Behavior for exclusive access
   (behav (&rest msg)
     (labels ((release (cust new-db)
@@ -277,7 +279,7 @@
                  (send* self msg))
                (become (trans-gate-beh :saver saver :db new-db)))
              (stash ()
-               (become (apply #'busy-trans-gate-beh (with state
+               (become (apply #'busy-trans-gate-beh (with *state*
                                                       :queue (addq queue msg))))
                ))
       
@@ -324,7 +326,7 @@
          (stash))
         
         (_
-         (apply #'common-trans-beh msg state))
+         (common-trans-beh msg))
         ))))
 
 ;; ----------------------------------------------------------------

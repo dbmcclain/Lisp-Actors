@@ -217,3 +217,37 @@
 
 (defmacro αλ (&rest clauses)
   `(alambda ,@clauses) )
+
+;; --------------------------------------------
+;; Actor Behavior definer that binds *STATE* to the closure args.
+;; Behavior code can then call any other functions to perform duties,
+;; while having the Actor state available to those functions.
+
+(defmacro def-actor-beh (name state-args &body body)
+  ;; Use DEF-ACTOR-BEH to have *STATE* binding refer to behavior closure
+  ;; args when behavior is invoked.
+  ;;
+  ;; Body can do anything, but it should finally produce a behavior
+  ;; function.
+  ;;
+  (um:with-unique-names (state msg fn)
+    `(defun ,name (&rest ,state)
+       (destructuring-bind ,state-args ,state
+         (let ((,fn (progn ,@body)))
+           (lambda* ,msg
+             (let ((*state* ,state))
+               (apply ,fn ,msg)))
+           )))
+    ))
+
+(defmacro %def-actor (defkind name state-args &body body)
+  (let ((beh-name (intern (concatenate 'string (string name) (string :-BEH)))))
+    `(,defkind ,name (create
+                      (def-actor-beh ,beh-name ,state-args ,@body)))))
+
+(defmacro def-actor (name state-args &body body)
+  `(%def-actor deflex ,name ,state-args ,@body))
+
+(defmacro def-actor* (name state-args &body body)
+  `(%def-actor deflex* ,name ,state-args ,@body))
+

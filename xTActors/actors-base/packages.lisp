@@ -281,6 +281,9 @@ THE SOFTWARE.
    #:false
    
    #:def-actor
+   #:def-actor*
+   #:def-actor-beh
+   #:*state*
    #:define-behavior
    #:define-behavior*
 
