@@ -83,7 +83,8 @@ THE SOFTWARE.
 (defgeneric send-to-pool (target &rest msg)
   (:method ((target actor) &rest msg)
    ;; the default SEND for foreign (non-Actor) threads
-   (%send-to-pool (msg target msg)))
+   (when (actor-beh target)
+     (%send-to-pool (msg target msg))))
   (:method (target &rest msg)))
 
 ;; -----------------------------------------------
@@ -103,7 +104,8 @@ THE SOFTWARE.
 
 (defgeneric send (target &rest msg)
   (:method ((target actor) &rest msg)
-   (funcall *send-hook* (msg target msg)))
+   (when (actor-beh target)
+     (funcall *send-hook* (msg target msg))))
   (:method (target &rest msg)))
 
 (defun send* (&rest args)
@@ -386,6 +388,10 @@ THE SOFTWARE.
                   (lambda* msg
                     (setf (car done) (list msg))))
                  )))
+     ;; NOTE: If you have no *TIMEOUT*, and the Actor target becomes
+     ;; SINK along the way, (or otherwise, fails to respond), you will
+     ;; become permanently stuck running Dispatch duty, and never
+     ;; return back to the caller of ASK.
      (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
      (apply #'send-to-pool actor me message)
      (with-simple-restart (abort "Terminate ASK")
@@ -466,7 +472,8 @@ THE SOFTWARE.
              (declare (ignore c))
              (format stream
                      "An Actor calling ASK violates transactional boundaries.
-         Try using β-forms instead."))))
+         Try using β-forms instead.")
+             )))
 
 (defun do-with-recursive-ask (fn)
   (handler-bind
@@ -487,12 +494,40 @@ THE SOFTWARE.
   `(do-with-recursive-ask (lambda ()
                             ,@body)))
 
+;; --------------------------------------------
+;; Calling ASK without a *TIMEOUT* risks the possibility that you
+;; could become stuck permanently performing message Dispatch service,
+;; and never return to the caller of ASK.
+;;
+;; The target service Actor might not respond.
+
+(define-condition dangerous-ask (warning)
+  ()
+  (:report (lambda (c stream)
+             (declare (ignore c))
+             (format stream
+                     "Calling ASK without *TIMEOUT* risks descending permanently into Dispatch duty.")
+             )))
+
+(defun do-without-timeout-warnings (fn)
+  (handler-bind
+      ((dangerous-ask #'muffle-warning))
+    (funcall fn)))
+
+(defmacro without-timeout-warnings (&body body)
+  `(do-without-timeout-warnings (lambda ()
+                                  ,@body)))
+
+;; --------------------------------------------
+
 (define-condition terminated-ask (error)
   ()
   (:report (lambda (c stream)
              (declare (ignore c))
              (format stream "Terminated ASK"))
    ))
+
+;; --------------------------------------------
 
 (defgeneric ask (target &rest msg)
   (:method ((target actor) &rest msg)
@@ -504,19 +539,22 @@ THE SOFTWARE.
    ;; But if called from within an Actor, the immediacy violates
    ;; transactional boundaries, since SEND is normally staged for
    ;; execution at successful exit, or discarded if errors.
-   (when self
-     (warn 'recursive-ask))
-  
-   ;; In normal situation, we get back the result message as a list and
-   ;; flag t.  In exceptional situation, from restart "Terminate ASK",
-   ;; we get back nil.  If *TIMEOUT* is not-nil, and timeout occurs, we
-   ;; get back list (<timeout-condiiton-object>) as ans.
-   (multiple-value-bind (ans okay)
-       (apply #'run-ask target msg)
-     (unless okay
-       (error 'terminated-ask))
-     (check-for-errors ans)
-     (values-list ans)))
+   (when (actor-beh target)
+     (when self
+       (warn 'recursive-ask))
+     (unless *timeout*
+       (warn 'dangerous-ask))
+     
+     ;; In normal situation, we get back the result message as a list and
+     ;; flag t.  In exceptional situation, from restart "Terminate ASK",
+     ;; we get back nil.  If *TIMEOUT* is not-nil, and timeout occurs, we
+     ;; get back list (<timeout-condiiton-object>) as ans.
+     (multiple-value-bind (ans okay)
+         (apply #'run-ask target msg)
+       (unless okay
+         (error 'terminated-ask))
+       (check-for-errors ans)
+       (values-list ans))))
   (:method ((target function) &rest msg)
    (apply target msg))
   (:method (target &rest msg)

@@ -221,7 +221,7 @@
 ;; --------------------------------------------
 ;; Actor Behavior definer that binds *STATE* to the closure args.
 ;; Behavior code can then call any other functions to perform duties,
-;; while having the Actor state available to those functions.
+;; while making the Actor state available to those functions.
 
 (defmacro def-actor-beh (name state-args &body body)
   ;; Use DEF-ACTOR-BEH to have *STATE* binding refer to behavior closure

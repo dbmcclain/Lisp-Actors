@@ -299,6 +299,8 @@ THE SOFTWARE.
 
    #:recursive-ask
    #:with-recursive-ask
+   #:dangerous-ask
+   #:without-timeout-warnings
    #:err-chk
    #:referred-error
    #:terminated-ask

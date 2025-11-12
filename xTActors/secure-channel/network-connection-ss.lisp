@@ -1043,18 +1043,20 @@
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
   ;;
-  (unless (ask async-socket-system :async-running?)
-    (setf async-socket-system (create (async-socket-system-beh))
-          gen-srv-name        (create (gen-srv-name-beh))
-          connections         (create (connections-list-beh))))
-  (unless (ask async-socket-system :server-running?)
-    (send-after 1 async-socket-system sink :start-tcp-server)) )
-
+  (let ((*timeout* (or *timeout* 5)))
+    (unless (ask async-socket-system :async-running?)
+      (setf async-socket-system (create (async-socket-system-beh))
+            gen-srv-name        (create (gen-srv-name-beh))
+            connections         (create (connections-list-beh))))
+    (unless (ask async-socket-system :server-running?)
+      (send-after 1 async-socket-system sink :start-tcp-server)) ))
+  
 (defun* lw-reset-actors-server _
-  (when (ask async-socket-system :async-running?)
-    (ask async-socket-system :shutdown)
-    (princ "Actor Server has been shut down."))
-  (values))
+  (let ((*timeout* (or *timeout* 5)))
+    (when (ask async-socket-system :async-running?)
+      (ask async-socket-system :shutdown)
+      (princ "Actor Server has been shut down."))
+    (values)))
 
 (defmethod restart-actors-system :after (&optional nbr-execs)
   (declare (ignore nbr-execs))
