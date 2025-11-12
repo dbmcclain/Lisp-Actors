@@ -359,7 +359,7 @@
      (let (rcvrs   ;; these last only for the duration of this message handling
            proxies)
        (aop:dflet ((translate-actor-to-proxy (ac)
-                     (if (is-pure-sink? ac)
+                     (if (is-sink? ac)
                          nil
                        (let ((pair (rassoc ac rcvrs)))
                          (if pair

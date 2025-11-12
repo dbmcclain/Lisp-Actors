@@ -36,14 +36,21 @@ THE SOFTWARE.
 
 ;; --------------------------------------
 
-(deflex +timed-out+ (make-condition 'timeout))
+(declaim (inline VIABLE-ACTOR?))
+
+(deflex +timed-out+
+  (make-condition 'timeout))
 
 (deflex sink nil)
 
-(defgeneric is-pure-sink? (ac)
+(defun VIABLE-ACTOR? (ac)
+  ;; If an Actor becomes unviable, then it will stay unviable.
+  (actor-beh ac))
+
+(defgeneric is-sink? (ac)
   ;; used by networking code to avoid sending useless data
   (:method ((ac actor))
-   (null (actor-beh ac)))
+   (not (VIABLE-ACTOR? ac)))
   (:method (ac)
    t))
 
@@ -83,7 +90,7 @@ THE SOFTWARE.
 (defgeneric send-to-pool (target &rest msg)
   (:method ((target actor) &rest msg)
    ;; the default SEND for foreign (non-Actor) threads
-   (when (actor-beh target)
+   (when (VIABLE-ACTOR? target)
      (%send-to-pool (msg target msg))))
   (:method (target &rest msg)))
 
@@ -104,7 +111,7 @@ THE SOFTWARE.
 
 (defgeneric send (target &rest msg)
   (:method ((target actor) &rest msg)
-   (when (actor-beh target)
+   (when (VIABLE-ACTOR? target)
      (funcall *send-hook* (msg target msg))))
   (:method (target &rest msg)))
 
@@ -539,7 +546,7 @@ THE SOFTWARE.
    ;; But if called from within an Actor, the immediacy violates
    ;; transactional boundaries, since SEND is normally staged for
    ;; execution at successful exit, or discarded if errors.
-   (when (actor-beh target)
+   (when (VIABLE-ACTOR? target)
      (when self
        (warn 'recursive-ask))
      (unless *timeout*

@@ -77,7 +77,7 @@ THE SOFTWARE.
    #:simd
    #:mimd
    #:actor-nlet
-   #:is-pure-sink?
+   #:is-sink?
    #:deflex
    #:deflex*
    #:µ
