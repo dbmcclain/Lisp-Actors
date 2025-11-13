@@ -312,26 +312,21 @@ prefixed by the label."
 
 (defun safe-serializer (act &key (timeout *timeout*))
   (serializer
-   (create
-    (lambda* (cust . msg)
-      (let ((gate  (once cust)))
-        (send* act gate msg)
-        (send-after timeout gate +timed-out+)))
-    )))
+   (timed-service act timeout)))
 
 #|
 (defun tst (n)
   (labels ((doit-beh (&optional (n 0))
-             (lambda* _
+             (lambda* (ans)
                (let ((newct (1+ n)))
-                 (send println newct)
+                 (send println (list newct ans))
                  (become (doit-beh newct))))))
     (let* ((dst (create (doit-beh)))
            (x (safe-serializer
                (α (cust)
-                 (sleep 0.19999)
+                 (sleep 0.199999)
                  (send cust :ok))
-               :timeout 0.2)
+               :timeout 0.2025)
               ))
       (dotimes (ix n)
         (send x dst))
