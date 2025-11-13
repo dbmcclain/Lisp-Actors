@@ -29,23 +29,19 @@ So here is an UNW-PROT for Actors:
        (send* svc gate msg)))
    ))
 
-(defun do-unw-prot (unw worker cust &rest msg)
+(defun do-unw-prot (unwfn worker cust &rest msg)
   ;; Timeout from *timeout*
   ;; Notice the prominent β construction.
   ;;
   (β ans
       (send* (timed-service worker) β msg) ;; β is a Continuation Actor
     (send* cust ans)
-    (send unw)))
+    (send (create unwfn))))
 
 (defmacro unw-prot ((worker cust &rest msg) &body unw-body)
-  `(do-unw-prot (create
-                 ;; turning unwind into an Actor makes it stand or fail
-                 ;; on its own.
-                 (lambda ()
-                   ,@unw-body))
-                ,worker ,cust
-                ,@msg))
+  `(do-unw-prot (lambda ()
+                  ,@unw-body))
+                ,worker ,cust ,@msg))
 ```
 UNW-PROT forms a Timed-Service from the worker Actor, so that a timeout will be generated if the worker fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the worker and its actual customer. But notice the strong similarity of Actors programming compared to CPS-style coding. We have a CUSTOMER Actor in first position of each message, CPS-style has a Continuation closure in first position of every function call.
 
