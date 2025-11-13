@@ -47,6 +47,8 @@ So here is an UNW-PROT for Actors:
                 ,worker ,cust
                 ,@msg))
 ```
+UNW-PROT forms a Timed-Service from the worker Actor, so that a timeout will be generated if the worker fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the worker and its actual customer.
+
 And here is an example use of UNW-PROT to control access to a file, and ensure that the file will be closed:
 ```
 ;; --------------------------------------------
