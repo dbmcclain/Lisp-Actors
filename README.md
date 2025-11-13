@@ -62,7 +62,27 @@ And here is an example use of UNW-PROT to control access to a file, and ensure t
        ))
     )))
 ```
-We say, "sort of..." because there is no guarantee of unwinding except for the timeout timer. But if you specify a NIL timeout value, then no timeout will ever be generated.
+We say, "sort of..." because there is no guarantee of unwinding except as provided by a timeout timer. But if you specify a NIL timeout value, then no timeout will ever be generated.
+
+So, to use the FILE-MANAGER Actor, we could do something like this:
+```
+(let ((counter (create
+                (lambda (cust fd)
+                  (let ((wds 0))
+                    (loop for line = (read-line fd nil fd)
+                          for ix from 0
+                          until (eql line fd)
+                          do
+                            (incf wds (length (um:split-string line :delims '(#\space #\tab))))
+                          finally (send fmt-println "File has ~D lines, ~D words" ix wds))
+                    (send cust :ok))
+                  ))))
+  (β ans
+      (send file-manager β :open counter 3
+            "/Users/davidmcclain/projects/Lispworks/color-theme.lisp"
+            :direction :input)
+    (send fmt-println "I guess we're done: ~A" ans)))```
+```
 
 
 
