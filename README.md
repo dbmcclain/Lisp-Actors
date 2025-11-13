@@ -1,3 +1,99 @@
+-- 12 Nov 2025 -- Actors and Continuation Passing Style
+---
+In the early days of the development of Hewitt Actors, Sussman and Steele developed their Scheme language and found that the implementation exactly matched the implementation of an Actors system.
+
+So they claimed. And until recently, I just didn't see it. Their statement always puzzled me.
+
+But I had occaision to revist an old Scheme-like interpreter, written in Lisp, that used a Trampoline for execution of the compiled Scheme code. It compiles to Lisp closures and the Trampoline is just a LIFO stack of these closures. As some closures are executed their action is to push new closures onto the Trampoline stack. This keeps happening until all the closures have a chance to execute, and finishes when the Trampoline stack empties.
+
+So yes, this is very similar to Actors. But the difference here is that the Actors Event Queue is a FIFO queue, to keep fairness, while the Scheme Trampoline is a LIFO stack that keeps putting off the earliest closures (messages) until the final moments. The Trampoline is a depth-first execution of the expression tree, while the Event queue is a breadth-first execution. But otherwise, there really is a similarity.
+
+And so, one of the huge acheivements of Scheme is Continuations - first class objects that capture the entire future of a program. Lisp does not have Continuations _(except for the one implicit continuation that always resides at the stop of the system stack)_.
+
+A lot of Actor code with β-expressions is a close analog of Scheme Continuations. We even refer to them as _Continuation Actors_. And since Scheme Continuations can be used to express elaborate flow control, we ought to be able to do something similar with our Actors system.
+
+In fact, we can write an UNW-PROT for the Actors system, which is a close analog of Lisp's UNWIND-PROTECT. But in the Actors system, there is no dynamic state connecting the execution of one Actor to another. And so to guarantee that cleanup actions are performed, we must always have a backup timeout mechanism that can respond in place of the expected response, if that expected response is too slow in coming or not at all.
+
+So here is an UNW-PROT for Actors:
+
+```
+;; --------------------------------------------
+;; UNW-PROT -- Unwind-protect for Actors... sort of...
+
+(defun timed-service (svc &optional (timeout *timeout*))
+  ;; The clock only starts running when a message is sent to SVC.
+  (create
+   (lambda (cust &rest msg)
+     (let ((gate (once cust)))
+       (send-after timeout gate +timed-out+)
+       (send* svc gate msg)))
+   ))
+
+(defun do-unw-prot (unwfn worker cust &rest msg)
+  ;; Timeout from *timeout*
+  ;; Notice the prominent β construction.
+  ;;
+  (β ans
+      (send* (timed-service worker) β msg) ;; β is a Continuation Actor
+    (send* cust ans)
+    (send (create unwfn))))
+
+(defmacro unw-prot ((worker cust &rest msg) &body unw-body)
+  `(do-unw-prot (lambda ()
+                  ,@unw-body)
+                ,worker ,cust ,@msg))
+```
+UNW-PROT forms a Timed-Service from the worker Actor, so that a timeout will be generated if the worker fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the worker and its actual customer. But notice the strong similarity of Actors programming compared to CPS-style coding. We have a CUSTOMER Actor in first position of each message, CPS-style has a Continuation closure in first position of every function call.
+
+And here is an example use of UNW-PROT to control access to a file, and ensure that the file will be closed:
+```
+;; --------------------------------------------
+;; FILE-MANAGER -- WITH-OPEN-FILE for Actors... sort of...
+
+(deflex file-manager
+  (create
+   (alambda
+    ((cust :open worker timeout . open-args)
+     ;; WORKER should know what to do with a (cust fp) message.
+     (let ((*timeout* timeout)
+           (fp  (apply #'open open-args)))
+       (UNW-PROT (worker cust fp)
+         (close fp))
+       ))
+    )))
+```
+We say, "sort of..." because there is no guarantee of unwinding, except as provided by a timeout timer. But if you specify a NIL timeout value, then no timeout will ever be generated. And then, if the worker Actor chain fails to respond to its customer argument, the unwind would never happen.
+
+So, to use the FILE-MANAGER Actor, we could do something like this:
+```
+(let ((counter (create
+                (lambda (cust fd)
+                  (let ((wds 0))
+                    (loop for line = (read-line fd nil fd)
+                          for ix from 0
+                          until (eql line fd)
+                          do
+                            (incf wds (length (um:split-string line :delims '(#\space #\tab))))
+                          finally (send fmt-println "File has ~D lines, ~D words" ix wds))
+                    (send cust :ok))
+                  ))))
+  (β ans
+      (send file-manager β :open counter 3
+            "/Users/davidmcclain/projects/Lispworks/color-theme.lisp"
+            :direction :input)
+    (send fmt-println "I guess we're done: ~A" ans)))```
+```
+
+Well, isn't that a hoot!? Our example blends the functionally pure Actors world with an overtly imperative Customer Actor. You could seriously implement an entire program in functionally pure form, so long as we have BECOME at our disposal to offer persistent evolution. BECOME is the only mutation needed, and it is under careful control among the pool of Dispatch threads.
+
+So next up on flow control, maybe we should implement an Actors equivalent to CATCH/THROW? Since there is no shared dynamic state among Actor participants, what would CATCH actually do? It is even more befuddling in light of Transactional behaviors.
+
+One distinction between Actors and Scheme Continuations is that Actors have the ability to morph their behavior and state with BECOME, while a Continuation typically does not. We take advantage of this in the Timed-Service constructed for the worker Actor, where we interpose the actual customer with a Gated unwind Actor. That GATE is a ONCE block that forwards only one message before turning itself into SINK. A response will come, either from the worker chain, or from the timeout timer. But only one of them will pass along to the interposed unwinding customer, and then back to the original customer.
+
+We can do BECOME because of the magic of _Indirection_. An Actor is a wrapper surrounding a behavior functional closure, and nothing more. We can modify that closure without altering the identity of the Actor. But since Scheme Continuations are direct entities, one cannot similarly mutate a Continuation. 
+
+
+
 -- 12 Apr 2025 -- Grand Recap
 ---
 So what is Actors programming *really* all about? 
