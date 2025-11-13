@@ -1,3 +1,71 @@
+-- 12 Nov 2025 -- Actors and Continuation Passing Style
+---
+In the early days of the development of Hewitt Actors, Sussman and Steele developed their Scheme language and found that the implementation exactly matched the implementation of an Actors system.
+
+So they claim. And until recently, I just didn't see it. That statement always puzzled me.
+
+But I had occaision to revist an old Scheme-like interpreter, written in Lisp, that used a Trampoline for execution of the compiled Scheme code. It compiles to Lisp closures and the Trampoline is just a LIFO stack of these closures. As some closures are executed their action is to push new closures onto the Trampoline stack. This keeps happening until all the closures have a chance to execute, and finishes when the Trampoline stack empties.
+
+So yes, this is very similar to Actors. But the difference here is that the Actors Event Queue is a FIFO queue, to keep fairness, while the Scheme Trampoline is a LIFO that keeps putting off the earliest closures (messages) until the final moments. But otherwise, there really is a similarity.
+
+And so, one of the huge acheivements of Scheme is Continuations - first class objects that capture the entire future of a program. Lisp does not have Continuations (except for the one implicit continuation that always resides at the stop of the system stack).
+
+A lot of Actor code with β-expressions is a close analog of Scheme Continuations. We call them Continuation Actors. And since Scheme Continuations can be used to express elaborate flow control, we ought to be able to do something similar with our Actors system.
+
+In fact, we can write an UNW-PROT for the Actors system, which is a close analog of Lisp's UNWIND-PROTECT. In the Actors system, there is no dynamic state connecting the execution of one Actor to another. And so to guarantee that cleanup actions are performed, we must always have a backup timeout mechanism that can respond in place of the expected response, if that expected response is slow in coming or not at all.
+
+So here is an UNW-PROT for Actors:
+
+```
+;; --------------------------------------------
+;; UNW-PROT -- Unwind-protect for Actors... sort of...
+
+(defun timed-service (svc &optional (timeout *timeout*))
+  ;; The clock only starts running when a message is sent to SVC.
+  (create
+   (behav (cust &rest msg)
+     (let ((gate (once cust)))
+       (send-after timeout gate +timed-out+)
+       (send* svc gate msg)))
+   ))
+
+(defun do-unw-prot (unw worker cust &rest msg)
+  ;; Timeout from *timeout*
+  (β ans
+      (send* (timed-service worker) β msg)
+    (send* cust ans)
+    (send unw)))
+
+(defmacro unw-prot ((worker cust &rest msg) &body unw-body)
+  `(do-unw-prot (create
+                 ;; turning unwind into an Actor makes it stand or fail
+                 ;; on its own.
+                 (lambda ()
+                   ,@unw-body))
+                ,worker ,cust
+                ,@msg))
+```
+And here is an example use of UNW-PROT to control access to a file, and ensure that the file will be closed:
+```
+;; --------------------------------------------
+;; FILE-MANAGER -- WITH-OPEN-FILE for Actors... sort of...
+
+(deflex file-manager
+  (create
+   (alambda
+    ((cust :open worker timeout . open-args)
+     ;; WORKER should know what to do with a (cust fp) message.
+     (let ((*timeout* timeout)
+           (fp  (apply #'open open-args)))
+       (unw-prot (worker cust fp)
+         (close fp))
+       ))
+    )))
+```
+We say, "sort of..." because there is no guarantee of unwinding except for the timeout timer. But if you specify a NIL timeout value, then no timeout will ever be generated.
+
+
+
 -- 12 Apr 2025 -- Grand Recap
 ---
 So what is Actors programming *really* all about? 
