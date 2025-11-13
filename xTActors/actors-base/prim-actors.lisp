@@ -648,141 +648,54 @@ customer, just one time."
      (apply #'send-to-all custs msg))
    ))
   
-;; -------------------------------------------------------
-;; Unwind-Protect for Actors...
-;;
+;; --------------------------------------------
+;; UNW-PROT -- Unwind-protect for Actors... sort of...
 
-(defun warn-timeout (timeout timeout-provided-p msg)
-  (unless (or timeout-provided-p
-              (and (realp timeout)
-                   (plusp timeout)))
-    (warn "You are taking a risk not using a Timeout for ~A." msg)))
+(defun do-unw-prot (worker cust msg unw-fn)
+  ;; Timeout from *TIMEOUT*
+  (β ans
+      (send* (timed-service worker) β msg)
+    (send* cust ans)
+    (funcall unw-fn)))
 
+(defmacro unw-prot ((worker cust &rest msg) &body unw-body)
+  `(do-unw-prot ,worker ,cust (list ,@msg) (lambda ()
+                                             ,@unw-body)))
 
-(defun unw-prot-beh (fn-form fn-unw &key (timeout *timeout* timeout-provided-p))
-  (warn-timeout timeout timeout-provided-p "UNW-PROT")
-  (alambda
-   ((cust)
-    (β ans
-        (send (timed-service (create fn-form) timeout) β)
-      (send* cust ans)
-      (send (create fn-unw))
-      ))
-   ))
-  
-(defmacro unw-prot ((cust) form &rest unw-clauses)
-  "UNW-PROT -- Constructs an Actor that expects a message indicating a
-customer.
+;; --------------------------------------------
+;; FILE-MANAGER -- WITH-OPEN-FILE for Actors... sort of...
 
-It will peform the first clause and then guarantee that the remaining
-unwind clauses get performed, amd provide a response to the customer,
-no later than TIMEOUT seconds after initiating the first clause.
-
-If the action of the first clause sends a response to the customer
-before the TIMEOUT period expires, that answer is provided to the
-customer, as well as performing the unwind clauses at that time.
-
-This is the Actors equivalent of UNWIND-PROTECT."
-  (let* ((pos     (position :timeout unw-clauses))
-         (unspec  (gensym))
-         (timeout (if pos 
-                      (nth (1+ pos) unw-clauses)
-                    unspec))
-         (unwinds (if pos
-                      (append (um:take pos unw-clauses)
-                              (um:drop (+ 2 pos) unw-clauses))
-                    unw-clauses)))
-    `(create (unw-prot-beh
-              (lambda (,cust)
-                ,form)
-              (lambda ()
-                ,@unwinds)
-              ,@(unless (eq timeout unspec)
-                  `(:timeout ,timeout))
-              ))))
-  
-#+:LISPWORKS
-(editor:indent-like "UNW-PROT" "MULTIPLE-VALUE-BIND")
-
-#|
-(send (unw-prot (cust)
-          (progn
-            (sleep 1)
-            ;; (error "What!?")
-            (send cust :hello))
-        :timeout 1.1
-        (send println :unwinding))
-      println))
-|#
-;; -------------------------------------------------------
-;; OPEN-FILE for Actors - using UNW-PROT to ensure file closing.
-
-(defun open-file (filename &rest open-args
-                           &key (timeout *timeout* timeout-provided-p)
-                           &allow-other-keys)
-  "OPEN-FILE -- Constructs an Actor that will open the file in the
-indicated mode, and ensure that the file gets closed, and issue a
-response to the customer, no later than TIMEOUT seconds after opening
-the file.
-
-The Actor expects a message with customer and target service, along
-with any args needed by the service. After opening the file, it will
-forward the customer, open file descr, and args, to the service.
-
-If the service sends a message back to the customer before the TIMEOUT
-period expires, that answer will be sent to the customer, and the file
-will be closed at that time.
-
-This the Actors equivalent of WITH-OPEN-FILE."
-  (warn-timeout timeout timeout-provided-p "OPEN-FILE")
+(deflex file-manager
   (create
    (alambda
-    ((cust target . args)
-     ;; Target should expect a customer and a file-descr
-     (let* ((fd   (apply #'open filename (um:remove-prop :timeout open-args)))
-            (prot (unw-prot (cust)
-                      (send* target cust fd args)
-                    
-                    (close fd)
-                    (send fmt-println "File closed: ~A" filename)
-                    :timeout timeout) ))
-       (send fmt-println "File opened: ~A" filename)
-       (send prot cust)
-       )))
-   ))
+    ((cust :open worker timeout . open-args)
+     ;; WORKER should know what to do with a (cust fp) message.
+     (let ((*timeout* timeout)
+           (fp  (apply #'open open-args)))
+       (unw-prot (worker cust fp)
+         (close fp))
+       ))
+    )))
 
 #|
-(let ((line-counter (create
-                     (behav (cust fd)
-                       ;; (sleep 1)
-                       (loop for line = (read-line fd nil fd)
-                             for ix from 0
-                             until (eql line fd)
-                             finally (send fmt-println "File has ~D lines" ix))
-                       ;; (error "What!?")
-                       ;; (sleep 5)
-                       (send cust :ok))
-                     ))
-      (word-counter (create
-                     (behav (cust fd)
-                       ;; (sleep 2)
-                       (let ((sum (loop for line = (read-line fd nil fd)
-                                        until (eql line fd)
-                                        sum (length (um:split-string line :delims '(\space \tab))))
-                                  ))
-                         (send fmt-println "File has ~D words" sum)
-                         ;; (error "What!?")
-                         (send cust :ok))
-                       )))
-      (filer (open-file
-              "/Users/davidmcclain/projects/Lispworks/color-theme.lisp"
-              :direction :input
-              :timeout   3)
-             ))
+(let ((counter (create
+                (behav (cust fd)
+                  ;; (sleep 5)
+                  (let ((wds 0))
+                    (loop for line = (read-line fd nil fd)
+                          for ix from 0
+                          until (eql line fd)
+                          do
+                            (incf wds (length (um:split-string line :delims '(#\space #\tab))))
+                          finally (send fmt-println "File has ~D lines, ~D words" ix wds))
+                    ;; (error "What!?")
+                    ;; (sleep 5)
+                    (send cust :ok))
+                  ))))
   (β ans
-      (send (fork (racurry filer line-counter)
-                  (racurry filer word-counter))
-            β)
+      (send file-manager β :open counter 3
+            "/Users/davidmcclain/projects/Lispworks/color-theme.lisp"
+            :direction :input)
     (send fmt-println "I guess we're done: ~A" ans)))
 |#
 
