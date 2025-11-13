@@ -653,11 +653,12 @@ customer, just one time."
 
 (defun do-unw-prot (unwfn worker cust &rest msg)
   ;; Timeout from *timeout*
-  (β ans
-      (send* (timed-service worker) β msg)
-    (send* cust ans) 
-    (send (create unwfn))
-    ))
+  (let ((*timeout* (or *timeout* 3)))
+    (β ans
+        (send* (timed-service worker) β msg)
+      (send* cust ans) 
+      (send (create unwfn))
+      )))
 
 (defmacro unw-prot ((worker cust &rest msg) &body unw-body)
   `(do-unw-prot (lambda ()
