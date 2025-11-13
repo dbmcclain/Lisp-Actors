@@ -23,7 +23,7 @@ So here is an UNW-PROT for Actors:
 (defun timed-service (svc &optional (timeout *timeout*))
   ;; The clock only starts running when a message is sent to SVC.
   (create
-   (behav (cust &rest msg)
+   (lambda (cust &rest msg)
      (let ((gate (once cust)))
        (send-after timeout gate +timed-out+)
        (send* svc gate msg)))
