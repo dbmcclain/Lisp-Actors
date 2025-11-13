@@ -526,7 +526,7 @@ customer, just one time."
   ;; in which case there will be a spurious timer running from a prior
   ;; attempt.
   ;;
-  (when (and (actor-p actor)
+  (when (and (viable-actor? actor)
              (realp dt))
     (let ((timer (apply #'mpc:make-timer #'send-to-pool actor msg)))
       (mpc:schedule-timer-relative timer (max 0 dt)))
@@ -710,14 +710,17 @@ customer, just one time."
      (become (counter-beh (1+ ct))))
     ((:inc delta)
      (become (counter-beh (+ ct delta))))
+    
     ((:dec)
      (become (counter-beh (1- ct))))
     ((:dec delta)
      (become (counter-beh (- ct delta))))
+
     ((:reset)
      (become (counter-beh 0)))
     ((:reset init)
      (become (counter-beh init)))
+
     ((cust :read)
      (send cust ct))
     ((cust :read-reset)

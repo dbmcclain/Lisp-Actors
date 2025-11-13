@@ -36,23 +36,21 @@ THE SOFTWARE.
 
 ;; --------------------------------------
 
-(declaim (inline VIABLE-ACTOR?))
-
 (deflex +timed-out+
   (make-condition 'timeout))
 
 (deflex sink nil)
 
-(defun VIABLE-ACTOR? (ac)
-  ;; If an Actor becomes unviable, then it will stay unviable.
-  (actor-beh ac))
-
-(defgeneric is-sink? (ac)
-  ;; used by networking code to avoid sending useless data
+(defgeneric VIABLE-ACTOR? (ac)
   (:method ((ac actor))
-   (not (VIABLE-ACTOR? ac)))
+   ;; If an Actor becomes unviable, then it will stay unviable.
+   (actor-beh ac))
   (:method (ac)
-   t))
+   nil))
+
+(defun is-sink? (ac)
+  ;; used by networking code to avoid sending useless data
+  (not (viable-actor? ac)))
 
 (defun become-sink ()
   (become nil))
