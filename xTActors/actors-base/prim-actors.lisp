@@ -651,21 +651,18 @@ customer, just one time."
 ;; --------------------------------------------
 ;; UNW-PROT -- Unwind-protect for Actors... sort of...
 
-(defun do-unw-prot (unw worker cust &rest msg)
+(defun do-unw-prot (unwfn worker cust &rest msg)
   ;; Timeout from *timeout*
   (β ans
       (send* (timed-service worker) β msg)
-    (send* cust ans)
-    (send unw)))
+    (send* cust ans) 
+    (send (create unwfn))
+    ))
 
 (defmacro unw-prot ((worker cust &rest msg) &body unw-body)
-  `(do-unw-prot (create
-                 ;; turning this into an Actor makes it stand or fail
-                 ;; on its own.
-                 (lambda ()
-                   ,@unw-body))
-                ,worker ,cust
-                ,@msg))
+  `(do-unw-prot (lambda ()
+                  ,@unw-body)
+                ,worker ,cust ,@msg))
 
 ;; --------------------------------------------
 ;; FILE-MANAGER -- WITH-OPEN-FILE for Actors... sort of...
