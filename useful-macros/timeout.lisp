@@ -18,5 +18,15 @@
   `(let ((*timeout*  ,dt))
      ,@body))
 
+(defmacro with-default-timeout (dt &rest body)
+  `(with-timeout (or *timeout* ,dt)
+     ,@body))
+
 #+:LISPWORKS
-(editor:setup-indent "with-timeout" 1)
+(progn
+  (editor:setup-indent "with-timeout" 1)
+  (editor:setup-indent "with-default-timeout" 1))
+
+(deflex +timed-out+
+  (make-condition 'timeout))
+

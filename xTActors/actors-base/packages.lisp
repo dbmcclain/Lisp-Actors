@@ -40,11 +40,15 @@ THE SOFTWARE.
   (:import-from #:um
    #:timeout
    #:*timeout*
-   #:with-timeout)
+   #:+TIMED-OUT+
+   #:with-timeout
+   #:with-default-timeout)
   (:export
    #:timeout
    #:*timeout*
-   #:with-timeout)
+   #:+TIMED-OUT+
+   #:with-timeout
+   #:with-default-timeout)
   (:import-from #:um
    #:with
    ;; #:match
@@ -306,7 +310,6 @@ THE SOFTWARE.
    #:terminated-ask
    #:ask-timeout
    #:check-for-errors
-   #:+timed-out+
    #:warn-timeout
    
    #:restartable

@@ -653,7 +653,7 @@ customer, just one time."
 
 (defun do-unw-prot (unwfn worker cust &rest msg)
   ;; Timeout from *timeout*
-  (let ((*timeout* (or *timeout* 3)))
+  (with-default-timeout 3
     (β ans
         (send* (timed-service worker) β msg)
       (send* cust ans) 
@@ -673,8 +673,8 @@ customer, just one time."
    (alambda
     ((cust :open worker timeout . open-args)
      ;; WORKER should know what to do with a (cust fp) message.
-     (let ((*timeout* timeout)
-           (fp  (apply #'open open-args)))
+     (with-timeout timeout
+       (fp  (apply #'open open-args))
        (unw-prot (worker cust fp)
          (close fp))
        ))

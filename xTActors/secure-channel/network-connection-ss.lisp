@@ -1043,7 +1043,7 @@
   ;; time so that we get a proper background-error-stream.  Cannot be
   ;; performed on initial load of the LFM.
   ;;
-  (let ((*timeout* (or *timeout* 5)))
+  (with-default-timeout 5
     (unless (ask async-socket-system :async-running?)
       (setf async-socket-system (create (async-socket-system-beh))
             gen-srv-name        (create (gen-srv-name-beh))
@@ -1052,7 +1052,7 @@
       (send-after 1 async-socket-system sink :start-tcp-server)) ))
   
 (defun* lw-reset-actors-server _
-  (let ((*timeout* (or *timeout* 5)))
+  (with-default-timeout 5
     (when (ask async-socket-system :async-running?)
       (ask async-socket-system :shutdown)
       (princ "Actor Server has been shut down."))

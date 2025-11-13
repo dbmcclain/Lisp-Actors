@@ -171,14 +171,14 @@
   *central-mail*)
 
 (defun get-dispatch-threads ()
-  (let ((*timeout* (or *timeout* 1)))
-    (mapcar #'cdr (ask custodian :get-threads))))
+  (with-default-timeout 1
+    (Mapcar #'cdr (ask custodian :get-threads))))
 
 (defun add-executives (n)
   (check-type n (integer 0 *))
   (if self
       (send custodian sink 'add-executives n)
-    (let ((*timeout*  (or *timeout* 1)))
+    (with-default-timeout 1
       (ask custodian 'add-executives n))
     ))
 
@@ -193,7 +193,7 @@
    (check-type nbr-execs (integer 1 *))
    (if self
        (send custodian sink 'ensure-executives nbr-execs)
-     (let ((*timeout*  (or *timeout* 1)))
+     (with-default-timeout 1
        (ask custodian 'ensure-executives nbr-execs)))
    ))
 
@@ -213,7 +213,7 @@
           (when (actors-running-p)
             (when-let (procs (get-dispatch-threads))
               (setup-dead-man-switch procs)
-              (let ((*timeout* (or *timeout* 5)))
+              (with-default-timeout 5
                 (ask custodian 'poison-pill)))
             (setf *central-mail* nil)))
         ))

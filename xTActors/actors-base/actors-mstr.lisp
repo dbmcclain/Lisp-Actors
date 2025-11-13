@@ -36,9 +36,6 @@ THE SOFTWARE.
 
 ;; --------------------------------------
 
-(deflex +timed-out+
-  (make-condition 'timeout))
-
 (deflex sink nil)
 
 (defgeneric VIABLE-ACTOR? (ac)

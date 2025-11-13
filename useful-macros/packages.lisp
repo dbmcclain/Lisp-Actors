@@ -59,6 +59,8 @@ THE SOFTWARE.
    #:*timeout*
    #:timeout
    #:with-timeout
+   #:with-default-timeout
+   #:+TIMED-OUT+
    
    #:defconstant+
 
