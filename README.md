@@ -2,7 +2,7 @@
 ---
 In the early days of the development of Hewitt Actors, Sussman and Steele developed their Scheme language and found that the implementation exactly matched the implementation of an Actors system.
 
-So they claim. And until recently, I just didn't see it. That statement always puzzled me.
+So they claimed. And until recently, I just didn't see it. That statement always puzzled me.
 
 But I had occaision to revist an old Scheme-like interpreter, written in Lisp, that used a Trampoline for execution of the compiled Scheme code. It compiles to Lisp closures and the Trampoline is just a LIFO stack of these closures. As some closures are executed their action is to push new closures onto the Trampoline stack. This keeps happening until all the closures have a chance to execute, and finishes when the Trampoline stack empties.
 
