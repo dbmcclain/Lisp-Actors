@@ -4,9 +4,9 @@ In the early days of the development of Hewitt Actors, Sussman and Steele develo
 
 So they claim. And until recently, I just didn't see it. That statement always puzzled me.
 
-But I had occaision to revist an old Scheme-like interpreter, written in Lisp, that used a Trampoline for execution of the compiled Scheme code. It compiles to Lisp closures and the Trampoline is just a LIFO stack of these closures. As some closures are executed their action is to push new closures onto the Trampoline stack. This keeps happening until all the closures have a chance to execute, and finishes when the Trampoline stack empties. The LIFO stack is a depth-first execution stroll on the expression trees, while the Actors event queue is a breadth-first stroll.
+But I had occaision to revist an old Scheme-like interpreter, written in Lisp, that used a Trampoline for execution of the compiled Scheme code. It compiles to Lisp closures and the Trampoline is just a LIFO stack of these closures. As some closures are executed their action is to push new closures onto the Trampoline stack. This keeps happening until all the closures have a chance to execute, and finishes when the Trampoline stack empties.
 
-So yes, this is very similar to Actors. But the difference here is that the Actors Event Queue is a FIFO queue, to keep fairness, while the Scheme Trampoline is a LIFO stack that keeps putting off the earliest closures (messages) until the final moments. But otherwise, there really is a similarity.
+So yes, this is very similar to Actors. But the difference here is that the Actors Event Queue is a FIFO queue, to keep fairness, while the Scheme Trampoline is a LIFO stack that keeps putting off the earliest closures (messages) until the final moments. The Trampoline is a depth-first execution of the expression tree, while the Event queue is a breadth-first execution. But otherwise, there really is a similarity.
 
 And so, one of the huge acheivements of Scheme is Continuations - first class objects that capture the entire future of a program. Lisp does not have Continuations _(except for the one implicit continuation that always resides at the stop of the system stack)_.
 
