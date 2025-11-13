@@ -40,7 +40,7 @@ So here is an UNW-PROT for Actors:
 
 (defmacro unw-prot ((worker cust &rest msg) &body unw-body)
   `(do-unw-prot (lambda ()
-                  ,@unw-body))
+                  ,@unw-body)
                 ,worker ,cust ,@msg))
 ```
 UNW-PROT forms a Timed-Service from the worker Actor, so that a timeout will be generated if the worker fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the worker and its actual customer. But notice the strong similarity of Actors programming compared to CPS-style coding. We have a CUSTOMER Actor in first position of each message, CPS-style has a Continuation closure in first position of every function call.
