@@ -86,6 +86,10 @@ So, to use the FILE-MANAGER Actor, we could do something like this:
     (send fmt-println "I guess we're done: ~A" ans)))```
 ```
 
+So maybe we should implement an Actors equivalent to CATCH/THROW.
+
+One distinction between Actors and Scheme Continuations is that Actors have the ability to morph their behavior and state, while a Continuation typically does not.
+
 
 
 -- 12 Apr 2025 -- Grand Recap
