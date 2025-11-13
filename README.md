@@ -64,7 +64,7 @@ And here is an example use of UNW-PROT to control access to a file, and ensure t
        ))
     )))
 ```
-We say, "sort of..." because there is no guarantee of unwinding except as provided by a timeout timer. But if you specify a NIL timeout value, then no timeout will ever be generated.
+We say, "sort of..." because there is no guarantee of unwinding except as provided by a timeout timer. But if you specify a NIL timeout value, then no timeout will ever be generated. And then, if the worker Actor chain fails to respond to its customer argument, the unwind would never happen.
 
 So, to use the FILE-MANAGER Actor, we could do something like this:
 ```
