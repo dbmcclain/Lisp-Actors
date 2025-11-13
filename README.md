@@ -34,7 +34,7 @@ So here is an UNW-PROT for Actors:
   ;; Notice the prominent β construction.
   ;;
   (β ans
-      (send* (timed-service worker) β msg)
+      (send* (timed-service worker) β msg) ;; β is a Continuation Actor
     (send* cust ans)
     (send unw)))
 
