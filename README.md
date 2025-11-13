@@ -66,7 +66,7 @@ And here is an example use of UNW-PROT to control access to a file, and ensure t
        ))
     )))
 ```
-We say, "sort of..." because there is no guarantee of unwinding except as provided by a timeout timer. But if you specify a NIL timeout value, then no timeout will ever be generated. And then, if the worker Actor chain fails to respond to its customer argument, the unwind would never happen.
+We say, "sort of..." because there is no guarantee of unwinding, except as provided by a timeout timer. But if you specify a NIL timeout value, then no timeout will ever be generated. And then, if the worker Actor chain fails to respond to its customer argument, the unwind would never happen.
 
 So, to use the FILE-MANAGER Actor, we could do something like this:
 ```
@@ -88,7 +88,7 @@ So, to use the FILE-MANAGER Actor, we could do something like this:
     (send fmt-println "I guess we're done: ~A" ans)))```
 ```
 
-So maybe we should implement an Actors equivalent to CATCH/THROW.
+So maybe we should implement an Actors equivalent to CATCH/THROW? Since there is no shared dynamic state among Actor participants, what would CATCH actually do? It is even more befuddling in light of Transactional behaviors.
 
 One distinction between Actors and Scheme Continuations is that Actors have the ability to morph their behavior and state with BECOME, while a Continuation typically does not.
 
