@@ -12,7 +12,7 @@ And so, one of the huge acheivements of Scheme is Continuations - first class ob
 
 A lot of Actor code with β-expressions is a close analog of Scheme Continuations. We even refer to them as _Continuation Actors_. And since Scheme Continuations can be used to express elaborate flow control, we ought to be able to do something similar with our Actors system.
 
-In fact, we can write an UNW-PROT for the Actors system, which is a close analog of Lisp's UNWIND-PROTECT. But in the Actors system, there is no dynamic state connecting the execution of one Actor to another. And so to guarantee that cleanup actions are performed, we must always have a backup timeout mechanism that can respond in place of the expected response, if that expected response is slow in coming or not at all.
+In fact, we can write an UNW-PROT for the Actors system, which is a close analog of Lisp's UNWIND-PROTECT. But in the Actors system, there is no dynamic state connecting the execution of one Actor to another. And so to guarantee that cleanup actions are performed, we must always have a backup timeout mechanism that can respond in place of the expected response, if that expected response is too slow in coming or not at all.
 
 So here is an UNW-PROT for Actors:
 
