@@ -88,7 +88,9 @@ So, to use the FILE-MANAGER Actor, we could do something like this:
     (send fmt-println "I guess we're done: ~A" ans)))```
 ```
 
-So maybe we should implement an Actors equivalent to CATCH/THROW? Since there is no shared dynamic state among Actor participants, what would CATCH actually do? It is even more befuddling in light of Transactional behaviors.
+Well, isn't that a hoot!? Our example blends the functionally pure Actors world with an overtly imperative Customer Actor. You could seriously implement an entire program in functionally pure form, so long as we have BECOME at our disposal to offer persistent evolution. BECOME is the only mutation needed, and it is under careful control among the pool of Dispatch threads.
+
+So next up on flow control, maybe we should implement an Actors equivalent to CATCH/THROW? Since there is no shared dynamic state among Actor participants, what would CATCH actually do? It is even more befuddling in light of Transactional behaviors.
 
 One distinction between Actors and Scheme Continuations is that Actors have the ability to morph their behavior and state with BECOME, while a Continuation typically does not. We take advantage of this in the TimedService constructed for the worker Actor, where we interpose the actual customer with a Gated unwind Actor. That GATE is a ONCE block that forwards only one message before turning itself into SINK. 
 
