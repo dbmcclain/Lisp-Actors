@@ -88,7 +88,7 @@ So, to use the FILE-MANAGER Actor, we could do something like this:
 
 So maybe we should implement an Actors equivalent to CATCH/THROW.
 
-One distinction between Actors and Scheme Continuations is that Actors have the ability to morph their behavior and state, while a Continuation typically does not.
+One distinction between Actors and Scheme Continuations is that Actors have the ability to morph their behavior and state with BECOME, while a Continuation typically does not.
 
 
 
