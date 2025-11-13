@@ -90,7 +90,7 @@ So, to use the FILE-MANAGER Actor, we could do something like this:
 
 So maybe we should implement an Actors equivalent to CATCH/THROW? Since there is no shared dynamic state among Actor participants, what would CATCH actually do? It is even more befuddling in light of Transactional behaviors.
 
-One distinction between Actors and Scheme Continuations is that Actors have the ability to morph their behavior and state with BECOME, while a Continuation typically does not.
+One distinction between Actors and Scheme Continuations is that Actors have the ability to morph their behavior and state with BECOME, while a Continuation typically does not. We take advantage of this in the TimedService constructed for the worker Actor, where interposing the actual customer with a Gated unwind Actor. That GATE contains a ONCE block that forwards only one message before turning itself into SINK. We can do this because of the magic of _Indirection_. An Actor is a wrapper surrounding a behavior functional closure. We can modify that closure without altering the identity of the Actor. But since Scheme Continuations are direct entities, one cannot mutate a Continuation. 
 
 
 
