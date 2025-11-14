@@ -99,25 +99,30 @@
     ;; --------------------------------------------
     ((cust 'add-executive id) ;; internal routine
      (check-type id (integer 1 *))
-     (if (assoc id threads)
-         (send cust :ok)
+     (send cust :ok)
+     (unless (find id threads :key #'first)
        (without-contention
-        (let ((new-thread (mpc:process-run-function
-                           (format nil "Actor Thread #~D" id)
-                           ()
-                           #'run-actor-dispatch-loop
-                           )))
-          (send cust :ok)
-          (become (custodian-beh (acons id new-thread threads)))
-          ))
-       ))
+        (let* ((done-cell  (list nil))
+               (new-thread (mpc:process-run-function
+                            (format nil "Actor Thread #~D" id)
+                            ()
+                            #'run-actor-dispatch-loop done-cell
+                            )))
+          (become (custodian-beh (cons (list id new-thread done-cell) threads)))
+          ))))
     
     ;; --------------------------------------------
     ((cust 'ensure-executives n)
-     (check-type n (integer 1 *))
-     (dotimes (ix n)
-       (send self cust 'add-executive (1+ ix))
-       (setf cust sink)))
+     (if (zerop n)
+         (send cust :ok)
+       (progn
+         (check-type n (integer 1 *))
+         (let ((me self))
+           (β _
+               (send self β 'add-executive n)
+             (send me cust 'ensure-executives (1- n)))
+           ))
+       ))
 
     ;; --------------------------------------------
     ((cust 'add-executives n)
@@ -130,13 +135,13 @@
      (cond (threads
             (send-to-pool self cust 'poison-pill)
             (let* ((my-proc (mpc:get-current-process))
-                   (pair    (rassoc my-proc threads)))
-              (cond (pair
+                   (triple  (find my-proc threads :key #'second)))
+              (cond (triple
                      ;; We are one, so die.
                      (without-contention
-                      (setf threads (delete pair threads))
-                      (release-contention)
-                      (mpc:current-process-kill)))
+                      (setf (car (third triple)) t) ;; set the DONE flag
+                      (become (custodian-beh (remove triple threads)))
+                      ))
                     (t
                      ;; Not one of the Dispatchers, try again
                      (sleep 0.1)) ;; get out of the way
@@ -152,7 +157,7 @@
      (without-contention
       (become (custodian-beh))
       ))
-    
+     
     ;; --------------------------------------------
     ((cust :get-threads)
      (send cust threads))
@@ -172,7 +177,7 @@
 
 (defun get-dispatch-threads ()
   (with-default-timeout 1
-    (Mapcar #'cdr (ask custodian :get-threads))))
+    (Mapcar #'second (ask custodian :get-threads))))
 
 (defun add-executives (n)
   (check-type n (integer 0 *))

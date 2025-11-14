@@ -76,15 +76,6 @@
   (abort))
 
 ;; --------------------------------------------
-;; RELEASE-CONTENTION - needed for Actor system shutdown
-
-(define-condition release-contention ()
-  ())
-
-(defun release-contention ()
-  (signal 'release-contention))
-
-;; --------------------------------------------
 
 (defun do-without-contention (guard thunk)
   (declare (cons guard)

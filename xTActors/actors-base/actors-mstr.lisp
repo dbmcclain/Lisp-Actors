@@ -374,9 +374,9 @@ THE SOFTWARE.
            ))
         ))))
 
-(defun run-actor-dispatch-loop ()
+(defun run-actor-dispatch-loop (done-cell)
   (with-simple-restart (abort "Terminate Actor thread")
-    (actor-dispatch-loop)))
+    (actor-dispatch-loop nil done-cell)))
   
 (defgeneric run-ask (actor &rest message)
   (:method ((actor actor) &rest message)
