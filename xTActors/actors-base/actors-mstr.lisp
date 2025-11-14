@@ -41,7 +41,7 @@ THE SOFTWARE.
 (defgeneric VIABLE-ACTOR? (ac)
   (:method ((ac actor))
    ;; If an Actor becomes unviable, then it will stay unviable.
-   (actor-beh ac))
+   (functionp (actor-beh ac)))
   (:method (ac)
    nil))
 
@@ -337,25 +337,26 @@ THE SOFTWARE.
                    RETRY
                    (setf pend-beh   (actor-beh (the actor *self*))
                          sends      nil)
-                   (when-let (*self-beh*  pend-beh)
-                     ;; ---------------------------------
-                     ;; Dispatch to Actor behavior with message args
-                     (apply (the function pend-beh) (the list *self-msg*))
-                     
-                     ;; ---------------------------------
-                     ;; Commit BECOME and SENDS
-                     (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
-                                 (mpc:compare-and-swap
-                                  (actor-beh (the actor *self*))
-                                  *self-beh* pend-beh))     ;; effective BECOME
-                       ;; failed on behavior update - try again...
-                       #+:LISPWORKS
-                       (report-collision *self-beh*) ;; for engineering telemetry
-                       (go RETRY))
-                     
-                     (dolist (msg (the list sends))
-                       (SEND-EVENT msg))
-                     ))
+                   (when (functionp pend-beh)
+                     (let ((*self-beh* pend-beh))
+                       ;; ---------------------------------
+                       ;; Dispatch to Actor behavior with message args
+                       (apply (the function pend-beh) (the list *self-msg*))
+                       
+                       ;; ---------------------------------
+                       ;; Commit BECOME and SENDS
+                       (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
+                                   (mpc:compare-and-swap
+                                    (actor-beh (the actor *self*))
+                                    *self-beh* pend-beh))     ;; effective BECOME
+                         ;; failed on behavior update - try again...
+                         #+:LISPWORKS
+                         (report-collision *self-beh*) ;; for engineering telemetry
+                         (go RETRY))
+                       
+                       (dolist (msg (the list sends))
+                         (SEND-EVENT msg))
+                       )))
                   ))
               )))
         (declare (dynamic-extent #'%send #'%become #'%abort-beh
