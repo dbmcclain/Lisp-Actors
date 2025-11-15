@@ -43,7 +43,9 @@ So here is an UNW-PROT for Actors:
                   ,@unw-body)
                 ,service ,cust))
 ```
-UNW-PROT forms a Timed-Service from the service Actor, so that a timeout will be generated if the service fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the service and its actual customer. Recall that a "service" is an Actor that takes only a customer in a message. 
+UNW-PROT forms a Timed-Service from the service Actor, so that a timeout will be generated if the service fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the service and its actual customer. 
+
+Recall that a "service" is an Actor that takes only a customer in a message. If we have an arbitrary Actor that understands a variety of message formats, but always takes a Customer Actor in first message position, then we can form a "Serivce" Actor by way of RACURRY, the Actor equivalent of RCURRY, and providing the rest of a message sans customer. Then later we can SEND a message consisting only of the Customer and a full message will then be sent along to the original worker Actor.
 
 But notice the strong similarity of Actors programming compared to CPS-style coding. We have a CUSTOMER Actor in first position of each message, CPS-style has a Continuation closure in first position of every function call.
 
