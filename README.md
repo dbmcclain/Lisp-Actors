@@ -38,7 +38,9 @@ So here is an UNW-PROT for Actors:
        (send (create unwfn))))
    ))
 ```
-UNW-PROT forms a Timed-Service from the service Actor, so that a timeout will be generated if the service fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the service and its actual customer. The β form represents an unnamed Continuation Actor. If/when an answer is sent to the interposed customer, β, then the answer will be forwarded to the original customer, and the unwind function will be called. By executing the unwind function as a behavior for an anonymous Actor, we ensure that a failure in that unwind function will not affect the answer delivery to the customer.
+UNW-PROT forms a Timed-Service from the service Actor, so that a timeout will be generated if the service fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the service and its actual customer. 
+
+A β form represents an unnamed Continuation Actor. If/when an answer is sent to the interposed customer, β, then the answer will be forwarded to the original customer, and the unwind function will be called. By executing the unwind function as a behavior for an anonymous Actor, we ensure that a failure in that unwind function will not affect the answer delivery to the customer.
 
 But notice the strong similarity of Actors programming compared to CPS-style coding. We have a CUSTOMER Actor in first position of each message, CPS-style has a Continuation closure in first position of every function call.
 
