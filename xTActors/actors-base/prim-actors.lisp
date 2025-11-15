@@ -660,10 +660,14 @@ customer, just one time."
       (send (create unwfn))
       )))
 
-(defmacro unw-prot (svc cust &body unw-body)
+(defmacro unw-prot ((snd svc cust) &body unw-body)
+  (assert (eql snd 'send))
   `(do-unw-prot (lambda ()
                   ,@unw-body)
                 ,svc ,cust))
+
+#+:LISPWORKS
+(editor:setup-indent "unw-prot"  2)
 
 ;; --------------------------------------------
 ;; FILE-MANAGER -- WITH-OPEN-FILE for Actors... sort of...
@@ -675,7 +679,8 @@ customer, just one time."
      ;; WORKER should know what to do with a (cust fp) message.
      (with-timeout timeout
        (let ((fp  (apply #'open open-args)))
-         (unw-prot (racurry worker fp) cust
+         (unw-prot
+             (send (racurry worker fp) cust)
            (close fp))
          )))
     )))
