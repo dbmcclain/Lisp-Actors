@@ -38,7 +38,7 @@ So here is an UNW-PROT for Actors:
        (send (create unwfn))))
    ))
 ```
-UNW-PROT forms a Timed-Service from the service Actor, so that a timeout will be generated if the service fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the service and its actual customer. 
+UNW-PROT forms a Timed-Service from the service Actor, so that a timeout will be generated if the service fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the service and its actual customer. The β form represents an unnamed Continuation Actor. If/when an answer is sent to the interposed customer, β, then the answer will be forwarded to the original customer, and the unwind function will be called. By executing the unwind function as a behavior for an anonymous Actor, we ensure that a failure in that unwind function will not affect the answer delivery to the customer.
 
 But notice the strong similarity of Actors programming compared to CPS-style coding. We have a CUSTOMER Actor in first position of each message, CPS-style has a Continuation closure in first position of every function call.
 
@@ -90,6 +90,8 @@ So next up on flow control, maybe we should implement an Actors equivalent to CA
 One distinction between Actors and Scheme Continuations is that Actors have the ability to morph their behavior and state with BECOME, while a Continuation typically does not. We take advantage of this in the Timed-Service constructed for the worker Actor, where we interpose the actual customer with a Gated unwind Actor. That GATE is a ONCE block that forwards only one message before turning itself into SINK. A response will come, either from the worker chain, or from the timeout timer. But only one of them will pass along to the interposed unwinding customer, and then back to the original customer.
 
 We can do BECOME because of the magic of _Indirection_. An Actor is a wrapper surrounding a behavior functional closure, and nothing more. We can modify that closure without altering the identity of the Actor. But since Scheme Continuations are direct entities, one cannot similarly mutate a Continuation. 
+
+Another distinction between our Actors system and Scheme Continuations is that, in Scheme, a Continuation will be performed immediately. Whereas, in the Actors system, a Continuation Actor will only be performned if the sender successfully commits its SENDs and BECOME.
 
 
 
