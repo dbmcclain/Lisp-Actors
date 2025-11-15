@@ -29,21 +29,26 @@ So here is an UNW-PROT for Actors:
        (send* svc gate msg)))
    ))
 
-(defun do-unw-prot (unwfn worker cust &rest msg)
+(defun do-unw-prot (unwfn service cust)
   ;; Timeout from *timeout*
   ;; Notice the prominent β construction.
   ;;
   (β ans
-      (send* (timed-service worker) β msg) ;; β is a Continuation Actor
+      (send (timed-service service) β) ;; β is a Continuation Actor
     (send* cust ans)
     (send (create unwfn))))
 
-(defmacro unw-prot ((worker cust &rest msg) &body unw-body)
+(defmacro unw-prot ((snd service cust) &body unw-body)
+  (assert (eql snd 'SEND)
   `(do-unw-prot (lambda ()
                   ,@unw-body)
-                ,worker ,cust ,@msg))
+                ,service ,cust))
 ```
-UNW-PROT forms a Timed-Service from the worker Actor, so that a timeout will be generated if the worker fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the worker and its actual customer. But notice the strong similarity of Actors programming compared to CPS-style coding. We have a CUSTOMER Actor in first position of each message, CPS-style has a Continuation closure in first position of every function call.
+UNW-PROT forms a Timed-Service from the service Actor, so that a timeout will be generated if the service fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the service and its actual customer. 
+
+Recall that a "service" is an Actor that takes only a customer in a message. If we have an arbitrary Actor that understands a variety of message formats, but always takes a Customer Actor in first message position, then we can form a "Serivce" Actor by way of RACURRY, the Actor equivalent of RCURRY, and providing the rest of a message sans customer. Then later we can SEND a message consisting only of the Customer and a full message will then be sent along to the original worker Actor.
+
+But notice the strong similarity of Actors programming compared to CPS-style coding. We have a CUSTOMER Actor in first position of each message, CPS-style has a Continuation closure in first position of every function call.
 
 And here is an example use of UNW-PROT to control access to a file, and ensure that the file will be closed:
 ```
@@ -57,7 +62,8 @@ And here is an example use of UNW-PROT to control access to a file, and ensure t
      ;; WORKER should know what to do with a (cust fp) message.
      (let ((*timeout* timeout)
            (fp  (apply #'open open-args)))
-       (UNW-PROT (worker cust fp)
+       (UNW-PROT
+            (SEND (racurry worker fp) cust)   ;; form a service from the worker
          (close fp))
        ))
     )))
