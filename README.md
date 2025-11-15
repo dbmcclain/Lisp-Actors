@@ -29,24 +29,16 @@ So here is an UNW-PROT for Actors:
        (send* svc gate msg)))
    ))
 
-(defun do-unw-prot (unwfn service cust)
-  ;; Timeout from *timeout*
-  ;; Notice the prominent β construction.
-  ;;
-  (β ans
-      (send (timed-service service) β) ;; β is a Continuation Actor
-    (send* cust ans)
-    (send (create unwfn))))
-
-(defmacro unw-prot ((snd service cust) &body unw-body)
-  (assert (eql snd 'SEND)
-  `(do-unw-prot (lambda ()
-                  ,@unw-body)
-                ,service ,cust))
+(defun unw-prot (svc unwfn &optional (timeout *timeout*))
+  (create
+   (lambda (cust &rest msg)
+     (β ans
+         (send* (timed-service svc timeout) β msg)
+       (send* cust ans)
+       (send (create unwfn))))
+   ))
 ```
 UNW-PROT forms a Timed-Service from the service Actor, so that a timeout will be generated if the service fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the service and its actual customer. 
-
-Recall that a "service" is an Actor that takes only a customer in a message. If we have an arbitrary Actor that understands a variety of message formats, but always takes a Customer Actor in first message position, then we can form a "Serivce" Actor by way of RACURRY, the Actor equivalent of RCURRY, and providing the rest of a message sans customer. Then later we can SEND a message consisting only of the Customer and a full message will then be sent along to the original worker Actor.
 
 But notice the strong similarity of Actors programming compared to CPS-style coding. We have a CUSTOMER Actor in first position of each message, CPS-style has a Continuation closure in first position of every function call.
 
@@ -60,12 +52,13 @@ And here is an example use of UNW-PROT to control access to a file, and ensure t
    (alambda
     ((cust :open worker timeout . open-args)
      ;; WORKER should know what to do with a (cust fp) message.
-     (let ((*timeout* timeout)
-           (fp  (apply #'open open-args)))
-       (UNW-PROT
-            (SEND (racurry worker fp) cust)   ;; form a service from the worker
-         (close fp))
-       ))
+     (with-timeout timeout
+        (let ((fp  (apply #'open open-args)))
+           (send (UNW-PROT worker
+                    (lambda ()
+                      (close fp)))
+              cust fp)
+       )))
     )))
 ```
 We say, "sort of..." because there is no guarantee of unwinding, except as provided by a timeout timer. But if you specify a NIL timeout value, then no timeout will ever be generated. And then, if the worker Actor chain fails to respond to its customer argument, the unwind would never happen.
