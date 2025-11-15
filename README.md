@@ -38,7 +38,8 @@ So here is an UNW-PROT for Actors:
     (send* cust ans)
     (send (create unwfn))))
 
-(defmacro unw-prot (service cust &body unw-body)
+(defmacro unw-prot ((snd service cust) &body unw-body)
+  (assert (eql snd 'SEND)
   `(do-unw-prot (lambda ()
                   ,@unw-body)
                 ,service ,cust))
@@ -62,7 +63,7 @@ And here is an example use of UNW-PROT to control access to a file, and ensure t
      (let ((*timeout* timeout)
            (fp  (apply #'open open-args)))
        (UNW-PROT
-            (racurry worker fp) cust   ;; form a service from the worker
+            (SEND (racurry worker fp) cust)   ;; form a service from the worker
          (close fp))
        ))
     )))
