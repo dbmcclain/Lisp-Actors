@@ -29,7 +29,7 @@ So here is an UNW-PROT for Actors:
        (send* svc gate msg)))
    ))
 
-(defun do-unw-prot (unwfn worker cust &rest msg)
+(defun do-unw-prot (unwfn service cust)
   ;; Timeout from *timeout*
   ;; Notice the prominent β construction.
   ;;
@@ -38,12 +38,14 @@ So here is an UNW-PROT for Actors:
     (send* cust ans)
     (send (create unwfn))))
 
-(defmacro unw-prot ((worker cust &rest msg) &body unw-body)
+(defmacro unw-prot (service cust &body unw-body)
   `(do-unw-prot (lambda ()
                   ,@unw-body)
-                ,worker ,cust ,@msg))
+                ,service ,cust))
 ```
-UNW-PROT forms a Timed-Service from the worker Actor, so that a timeout will be generated if the worker fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the worker and its actual customer. But notice the strong similarity of Actors programming compared to CPS-style coding. We have a CUSTOMER Actor in first position of each message, CPS-style has a Continuation closure in first position of every function call.
+UNW-PROT forms a Timed-Service from the service Actor, so that a timeout will be generated if the service fails to send a message to the customer in time. Also, we interpose a Continuation Actor between the service and its actual customer. Recall that a "service" is an Actor that takes only a customer in a message. 
+
+But notice the strong similarity of Actors programming compared to CPS-style coding. We have a CUSTOMER Actor in first position of each message, CPS-style has a Continuation closure in first position of every function call.
 
 And here is an example use of UNW-PROT to control access to a file, and ensure that the file will be closed:
 ```
@@ -57,7 +59,7 @@ And here is an example use of UNW-PROT to control access to a file, and ensure t
      ;; WORKER should know what to do with a (cust fp) message.
      (let ((*timeout* timeout)
            (fp  (apply #'open open-args)))
-       (UNW-PROT (worker cust fp)
+       (UNW-PROT (racurry worker fp) cust   ;; form a service from the worker
          (close fp))
        ))
     )))
