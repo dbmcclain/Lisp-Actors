@@ -651,23 +651,17 @@ customer, just one time."
 ;; --------------------------------------------
 ;; UNW-PROT -- Unwind-protect for Actors... sort of...
 
-(defun do-unw-prot (unwfn svc cust)
-  ;; Timeout from *timeout*
-  (with-default-timeout 3
-    (β ans
-        (send (timed-service svc) β)
-      (send* cust ans) 
-      (send (create unwfn))
-      )))
-
-(defmacro unw-prot ((snd svc cust) &body unw-body)
-  (assert (eql snd 'send))
-  `(do-unw-prot (lambda ()
-                  ,@unw-body)
-                ,svc ,cust))
-
-#+:LISPWORKS
-(editor:setup-indent "unw-prot"  2)
+(defun unw-prot (svc unwfn &optional (timeout *timeout*))
+  (create
+   (lambda (cust &rest msg)
+     (with-timeout timeout
+       (with-default-timeout 3
+         (β ans
+             (send* (timed-service svc) β msg)
+           (send* cust ans)
+           (send (create unwfn)))
+         )))
+   ))
 
 ;; --------------------------------------------
 ;; FILE-MANAGER -- WITH-OPEN-FILE for Actors... sort of...
@@ -679,9 +673,9 @@ customer, just one time."
      ;; WORKER should know what to do with a (cust fp) message.
      (with-timeout timeout
        (let ((fp  (apply #'open open-args)))
-         (unw-prot
-             (send (racurry worker fp) cust)
-           (close fp))
+         (send (unw-prot worker (lambda ()
+                                  (close fp)))
+               cust fp)
          )))
     )))
 
