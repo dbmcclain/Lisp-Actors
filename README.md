@@ -61,7 +61,8 @@ And here is an example use of UNW-PROT to control access to a file, and ensure t
      ;; WORKER should know what to do with a (cust fp) message.
      (let ((*timeout* timeout)
            (fp  (apply #'open open-args)))
-       (UNW-PROT (racurry worker fp) cust   ;; form a service from the worker
+       (UNW-PROT
+            (racurry worker fp) cust   ;; form a service from the worker
          (close fp))
        ))
     )))
