@@ -52,7 +52,7 @@
           )))))
 
 (defmacro verify-curve (place enc)
-  `(do-verify-curve 'place ,place ,enc))
+  `(do-verify-curve ',place ,place ,enc))
 
 ;; -------------------------------------------------
 

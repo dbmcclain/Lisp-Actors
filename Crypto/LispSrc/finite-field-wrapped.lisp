@@ -127,6 +127,7 @@ THE SOFTWARE.
 ;; value of an FFLD instance, and during comparisons where the true
 ;; value of the instance is needed.
 
+#|
 (defgeneric basic-wrap (p x)
   (:method ((p ffbase) (x integer))
    #F
@@ -178,6 +179,15 @@ THE SOFTWARE.
      (if (minusp diff)
          ans
        diff))) )
+|#
+
+(declaim (inline basic-wrap basic-normalize))
+
+(defun basic-wrap (p x)
+  (mod x (ffbase-base p)))
+
+(defun basic-normalize (p x)
+  (basic-wrap p x))
 
 ;; -----------------------------------------------------
 ;; FFLD - instance of finite field values. Their class points to the
