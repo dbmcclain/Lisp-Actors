@@ -77,7 +77,7 @@
 ;; -----------------------------------------------------
 
 (deflex db-differencer
-  ;; An Actor that computes and sends to cust, the list of removals,
+  ;; An Actor that computes, and sends to cust, the list of removals,
   ;; additions, and changes, from old-db to new-db.
   (create
    (behav (cust old-db new-db)

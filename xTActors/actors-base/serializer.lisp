@@ -218,7 +218,7 @@
 
 (defun tag (cust)
   "TAG -- Construct an Actor to relay a message to the customer,
-prefixed by our unique SELF identity/"
+prefixed by our unique SELF identity"
   (create
    (behav msg
      (send* cust self msg))
