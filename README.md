@@ -47,21 +47,20 @@ But notice the strong similarity of Actors programming compared to CPS-style cod
 And here is an example use of UNW-PROT to control access to a file, and ensure that the file will be closed:
 ```
 ;; --------------------------------------------
-;; FILE-MANAGER -- WITH-OPEN-FILE for Actors... sort of...
+;; FILE-USER -- a WITH-OPEN-FILE for Actors... sort of...
 
-(deflex file-manager
+(defun file-user (svc timeout &rest open-args)
+  ;; SVC should know what to do with a (CUST FP ...) message.
   (create
-   (alambda
-    ((cust :open worker timeout . open-args)
-     ;; WORKER should know what to do with a (cust fp) message.
+   (lambda (cust &rest msg)
      (with-timeout timeout
         (let ((fp  (apply #'open open-args)))
-           (send (UNW-PROT worker
+           (send* (UNW-PROT svc
                     (lambda ()
                       (close fp)))
-              cust fp)
+              cust fp msg)
        )))
-    )))
+    ))
 ```
 We say, "sort of..." because there is no guarantee of unwinding, except as provided by a timeout timer. But if you specify a NIL timeout value, then no timeout will ever be generated. And then, if the worker Actor chain fails to respond to its customer argument, the unwind would never happen.
 
@@ -79,9 +78,10 @@ So, to use the FILE-MANAGER Actor, we could do something like this:
                     (send cust :ok))
                   ))))
   (β ans
-      (send file-manager β :open counter 3
+      (send (file-user counter 3
             "/Users/davidmcclain/projects/Lispworks/color-theme.lisp"
             :direction :input)
+         β)
     (send fmt-println "I guess we're done: ~A" ans)))```
 ```
 
