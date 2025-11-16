@@ -292,6 +292,7 @@ THE SOFTWARE.
    #:define-behavior*
 
    #:unw-prot
+   #:file-user
    #:open-file
    #:with-actors
    #:delegate

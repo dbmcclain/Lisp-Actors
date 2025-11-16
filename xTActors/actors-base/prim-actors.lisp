@@ -663,20 +663,19 @@ customer, just one time."
    ))
 
 ;; --------------------------------------------
-;; FILE-MANAGER -- WITH-OPEN-FILE for Actors... sort of...
+;; FILE-USER -- a WITH-OPEN-FILE for Actors... sort of...
 
-(deflex file-manager
+(defun file-user (svc timeout &rest open-args)
+  ;; SVC should know what to do with a (CUST FP ...) message.
   (create
-   (alambda
-    ((cust :open worker timeout . open-args)
-     ;; WORKER should know what to do with a (cust fp) message.
+   (lambda (cust &rest msg)
      (with-timeout timeout
        (let ((fp  (apply #'open open-args)))
-         (send (unw-prot worker (lambda ()
-                                  (close fp)))
-               cust fp)
+         (send* (unw-prot svc (lambda ()
+                                (close fp)))
+                cust fp msg)
          )))
-    )))
+   ))
 
 #|
 (let ((counter (create
@@ -694,9 +693,10 @@ customer, just one time."
                     (send cust :ok))
                   ))))
   (β ans
-      (send file-manager β :open counter 3
+      (send (file-user counter 3
             "/Users/davidmcclain/projects/Lispworks/color-theme.lisp"
             :direction :input)
+            β)
     (send fmt-println "I guess we're done: ~A" ans)))
 |#
 
