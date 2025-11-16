@@ -336,8 +336,9 @@
              (loop for ix from 1 to 24 nconc
                    (make-list 16 :initial-element ix))
              'vector)))
-  (aont-distr-encode vec)
-       (enc (rs-encode-bytes vec))
+  (aont-distr-encode vec))
+
+(let* ((enc (rs-encode-bytes vec))
        (dec (rs-decode-bytes enc)))
   (assert (equalp dec vec))
   (with-standard-io-syntax
