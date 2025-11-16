@@ -927,13 +927,11 @@ export zle_bracketed_paste=( )
         ;; 16 for nonce
         ;; 16 for canary-buffer
         ;; 32 for embedded key
-        (ceiling nel 16)
+        (ceiling (+ nel 16 16 32) 96)
       (declare (ignore ngrps))
       (let* ((bytes     (ub-cat-vecs nonce
                                      bytes
-                                     (if (zerop nrem)
-                                         #()
-                                       (make-ub-vec (- 16 nrem)))
+                                     (make-ub-vec (- nrem))
                                      (make-ub-vec 16)
                                      key))
              (nel       (length bytes))
