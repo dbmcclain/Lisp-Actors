@@ -654,13 +654,12 @@ customer, just one time."
 (defun unw-prot (svc unwfn &optional (timeout *timeout*))
   (create
    (lambda (cust &rest msg)
-     (with-timeout timeout
-       (with-default-timeout 3
-         (β ans
-             (send* (timed-service svc) β msg)
-           (send* cust ans)
-           (send (create unwfn)))
-         )))
+     (with-timeout (or timeout 3)
+       (β ans
+           (send* (timed-service svc) β msg)
+         (send* cust ans)
+         (send (create unwfn)))
+       ))
    ))
 
 ;; --------------------------------------------
