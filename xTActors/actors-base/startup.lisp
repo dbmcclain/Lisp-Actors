@@ -91,6 +91,9 @@
 ;;
 ;; --------------------------------------------
 
+(defstruct custodian-thread
+  id proc done-cell)
+
 (defun custodian-beh (&optional threads)
   ;; Custodian holds the list of parallel Actor dispatcher threads
   (with-contention-free-semantics
@@ -100,15 +103,19 @@
     ((cust 'add-executive id) ;; internal routine
      (check-type id (integer 1 *))
      (send cust :ok)
-     (unless (find id threads :key #'first)
+     (unless (find id threads :key #'custodian-thread-id)
        (without-contention
         (let* ((done-cell  (list nil))
                (new-thread (mpc:process-run-function
                             (format nil "Actor Thread #~D" id)
                             ()
-                            #'run-actor-dispatch-loop done-cell
+                            #'launch-dispatcher done-cell
                             )))
-          (become (custodian-beh (cons (list id new-thread done-cell) threads)))
+          (become (custodian-beh (cons (make-custodian-thread
+                                        :id        id
+                                        :proc      new-thread
+                                        :done-cell done-cell)
+                                       threads)))
           ))))
     
     ;; --------------------------------------------
@@ -128,6 +135,14 @@
     ((cust 'add-executives n)
      (check-type n (integer 0 *))
      (send self cust 'ensure-executives (+ (length threads) n)))
+
+    ;; --------------------------------------------
+    (('remove-dispatcher thread)
+     (without-contention
+      (let ((entry (find thread threads :key #'custodian-thread-proc)))
+        (when entry
+          (become (custodian-beh (remove entry threads)))
+          ))))
     
     ;; --------------------------------------------
     ((cust 'poison-pill)
@@ -135,17 +150,10 @@
      (cond (threads
             (send-to-pool self cust 'poison-pill)
             (let* ((my-proc (mpc:get-current-process))
-                   (triple  (find my-proc threads :key #'second)))
-              (cond (triple
-                     ;; We are one, so die.
-                     (without-contention
-                      (setf (car (third triple)) t) ;; set the DONE flag
-                      (become (custodian-beh (remove triple threads)))
-                      ))
-                    (t
-                     ;; Not one of the Dispatchers, try again
-                     (sleep 0.1)) ;; get out of the way
-                    )))
+                   (entry   (find my-proc threads :key #'custodian-thread-proc)))
+              (unless entry  ;; not one of the dispatcher threads?
+                (sleep 0.1)) ;; get out of way...
+              ))
            (t
             ;; No dispatch threads remain, we are done.
             (send cust :ok))
@@ -169,6 +177,12 @@
 (defun init-custodian ()
   (setf custodian (create (custodian-beh))))
 
+(defun launch-dispatcher (done-cell)
+  ;; Notify Custodian on death of dispatcher thread.
+  (unwind-protect
+      (run-actor-dispatch-loop done-cell)
+    (send custodian 'remove-dispatcher (mpc:get-current-process))))
+
 ;; --------------------------------------------------------------
 ;; User-level Functions
 
@@ -176,8 +190,10 @@
   *central-mail*)
 
 (defun get-dispatch-threads ()
-  (with-default-timeout 1
-    (Mapcar #'second (ask custodian :get-threads))))
+  (mapcar #'custodian-thread-proc
+          (with-default-timeout 1
+            (ask custodian :get-threads))
+          ))
 
 (defun add-executives (n)
   (check-type n (integer 0 *))
@@ -216,12 +232,16 @@
       (when (actors-running-p)
         (mpc:with-lock (*central-mail-lock*)
           (when (actors-running-p)
-            (when-let (procs (get-dispatch-threads))
-              (setup-dead-man-switch procs)
-              (with-default-timeout 5
-                (ask custodian 'poison-pill)))
-            (setf *central-mail* nil)))
-        ))
+            (let ((entries (with-timeout 1
+                              (ask custodian :get-threads))))
+              (dolist (entry entries)
+                (setf (car (custodian-thread-done-cell entry)) t))
+              (when entries
+                (setup-dead-man-switch (mapcar #'custodian-thread-proc entries))
+                (with-default-timeout 5
+                  (ask custodian 'poison-pill))))
+            (setf *central-mail* nil))
+          )))
     )))
 
 ;; --------------------------------------------
