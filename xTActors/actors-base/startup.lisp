@@ -92,7 +92,7 @@
 ;; --------------------------------------------
 
 (defstruct custodian-thread
-  id proc done-cell)
+  id proc done)
 
 (defun custodian-beh (&optional threads)
   ;; Custodian holds the list of parallel Actor dispatcher threads
@@ -105,17 +105,16 @@
      (send cust :ok)
      (unless (find id threads :key #'custodian-thread-id)
        (without-contention
-        (let* ((done-cell  (list nil))
-               (new-thread (mpc:process-run-function
-                            (format nil "Actor Thread #~D" id)
-                            ()
-                            #'launch-dispatcher done-cell
-                            )))
-          (become (custodian-beh (cons (make-custodian-thread
-                                        :id        id
-                                        :proc      new-thread
-                                        :done-cell done-cell)
-                                       threads)))
+        (let ((entry  (make-custodian-thread
+                       :id  id)))
+          (setf (custodian-thread-proc entry)
+                (mpc:process-run-function
+                 (format nil "Actor Thread #~D" id)
+                 ()
+                 #'launch-dispatcher
+                 (um:pointer-& (custodian-thread-done entry))
+                 ))
+          (become (custodian-beh (cons entry threads)))
           ))))
     
     ;; --------------------------------------------
@@ -177,10 +176,10 @@
 (defun init-custodian ()
   (setf custodian (create (custodian-beh))))
 
-(defun launch-dispatcher (done-cell)
+(defun launch-dispatcher (done-ptr)
   ;; Notify Custodian on death of dispatcher thread.
   (unwind-protect
-      (run-actor-dispatch-loop done-cell)
+      (run-actor-dispatch-loop done-ptr)
     (send custodian 'remove-dispatcher (mpc:get-current-process))))
 
 ;; --------------------------------------------------------------
@@ -235,7 +234,7 @@
             (let ((entries (with-timeout 1
                               (ask custodian :get-threads))))
               (dolist (entry entries)
-                (setf (car (custodian-thread-done-cell entry)) t))
+                (setf (custodian-thread-done entry) t))
               (when entries
                 (setup-dead-man-switch (mapcar #'custodian-thread-proc entries))
                 (with-default-timeout 5

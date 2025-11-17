@@ -287,10 +287,10 @@ THE SOFTWARE.
 |#
 ;; --------------------------------------------
 
-(defun actor-dispatch-loop (&optional timeout done)
+(defun actor-dispatch-loop (&optional timeout done-ptr)
   #F
   (macrolet ((REPEAT (&body body)
-               `(um:until (car done)
+               `(um:until (um:pointer-* done-ptr)
                   ,@body))
              (WITH-NEXT-EVENT ((var) &body body)
                `(when-let (,var (mpc:mailbox-read *central-mail* nil timeout))
@@ -374,9 +374,9 @@ THE SOFTWARE.
            ))
         ))))
 
-(defun run-actor-dispatch-loop (done-cell)
+(defun run-actor-dispatch-loop (done-ptr)
   (with-simple-restart (abort "Terminate Actor thread")
-    (actor-dispatch-loop nil done-cell)))
+    (actor-dispatch-loop nil done-ptr)))
   
 (defgeneric run-ask (actor &rest message)
   (:method ((actor actor) &rest message)
@@ -385,11 +385,11 @@ THE SOFTWARE.
    ;; while waiting for messages to dispatch. The loop checks a shared
    ;; DONE cell whose CAR will be non-NIL when an answer has arrived.
    #F
-   (let* ((done (list nil))
+   (let* ((done nil)
           (me   (once
                  (create
                   (lambda* msg
-                    (setf (car done) (list msg))))
+                    (setf done (list msg))))
                  )))
      ;; NOTE: If you have no *TIMEOUT*, and the Actor target becomes
      ;; SINK along the way, (or otherwise, fails to respond), you will
@@ -398,9 +398,9 @@ THE SOFTWARE.
      (forced-send-after *timeout* me +timed-out+) ;; overall timeout from ASK caller
      (apply #'send-to-pool actor me message)
      (with-simple-restart (abort "Terminate ASK")
-       (actor-dispatch-loop *ASK-TIMEOUT* done))
-     (when (car done)
-       (values (caar done) t))
+       (actor-dispatch-loop *ASK-TIMEOUT* (um:pointer-& done)))
+     (when done
+       (values (car done) t))
      ))
   (:method (actor &rest message)
    (values nil t)))
