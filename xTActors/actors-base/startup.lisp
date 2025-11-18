@@ -91,7 +91,7 @@
 ;;
 ;; --------------------------------------------
 
-(defstruct custodian-thread
+(defstruct dispatcher
   id proc done)
 
 (defun custodian-beh (&optional threads)
@@ -103,16 +103,16 @@
     ((cust 'add-executive id) ;; internal routine
      (check-type id (integer 1 *))
      (send cust :ok)
-     (unless (find id threads :key #'custodian-thread-id)
+     (unless (find id threads :key #'dispatcher-id)
        (without-contention
-        (let ((entry  (make-custodian-thread
+        (let ((entry  (make-dispatcher
                        :id  id)))
-          (setf (custodian-thread-proc entry)
+          (setf (dispatcher-proc entry)
                 (mpc:process-run-function
                  (format nil "Actor Thread #~D" id)
                  ()
                  #'launch-dispatcher
-                 (um:pointer-& (custodian-thread-done entry))
+                 (um:pointer-& (dispatcher-done entry))
                  ))
           (become (custodian-beh (cons entry threads)))
           ))))
@@ -138,7 +138,7 @@
     ;; --------------------------------------------
     (('remove-dispatcher thread)
      (without-contention
-      (let ((entry (find thread threads :key #'custodian-thread-proc)))
+      (let ((entry (find thread threads :key #'dispatcher-proc)))
         (when entry
           (become (custodian-beh (remove entry threads)))
           ))))
@@ -148,11 +148,9 @@
      ;; Try to kill off one of our Dispatchers
      (cond (threads
             (send-to-pool self cust 'poison-pill)
-            (let* ((my-proc (mpc:get-current-process))
-                   (entry   (find my-proc threads :key #'custodian-thread-proc)))
-              (unless entry  ;; not one of the dispatcher threads?
-                (sleep 0.1)) ;; get out of way...
-              ))
+            (unless (find (mpc:get-current-process) threads
+                          :key #'dispatcher-proc)
+              (sleep 0.1))) ;; get out of way...
            (t
             ;; No dispatch threads remain, we are done.
             (send cust :ok))
@@ -189,7 +187,7 @@
   *central-mail*)
 
 (defun get-dispatch-threads ()
-  (mapcar #'custodian-thread-proc
+  (mapcar #'dispatcher-proc
           (with-default-timeout 1
             (ask custodian :get-threads))
           ))
@@ -234,9 +232,9 @@
             (let ((entries (with-timeout 1
                               (ask custodian :get-threads))))
               (dolist (entry entries)
-                (setf (custodian-thread-done entry) t))
+                (setf (dispatcher-done entry) t))
               (when entries
-                (setup-dead-man-switch (mapcar #'custodian-thread-proc entries))
+                (setup-dead-man-switch (mapcar #'dispatcher-proc entries))
                 (with-default-timeout 5
                   (ask custodian 'poison-pill))))
             (setf *central-mail* nil))
