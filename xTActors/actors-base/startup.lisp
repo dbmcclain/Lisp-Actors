@@ -94,7 +94,7 @@
 (defstruct dispatcher
   id proc done)
 
-(defun custodian-beh (&optional threads)
+(defun custodian-beh (&optional dispatchers)
   ;; Custodian holds the list of parallel Actor dispatcher threads
   (with-contention-free-semantics
    (alambda
@@ -103,7 +103,7 @@
     ((cust 'add-executive id) ;; internal routine
      (check-type id (integer 1 *))
      (send cust :ok)
-     (unless (find id threads :key #'dispatcher-id)
+     (unless (find id dispatchers :key #'dispatcher-id)
        (without-contention
         (let ((entry  (make-dispatcher
                        :id  id)))
@@ -114,7 +114,7 @@
                  #'launch-dispatcher
                  (um:pointer-& (dispatcher-done entry))
                  ))
-          (become (custodian-beh (cons entry threads)))
+          (become (custodian-beh (cons entry dispatchers)))
           ))))
     
     ;; --------------------------------------------
@@ -133,22 +133,22 @@
     ;; --------------------------------------------
     ((cust 'add-executives n)
      (check-type n (integer 0 *))
-     (send self cust 'ensure-executives (+ (length threads) n)))
+     (send self cust 'ensure-executives (+ (length dispatchers) n)))
 
     ;; --------------------------------------------
     (('remove-dispatcher thread)
      (without-contention
-      (let ((entry (find thread threads :key #'dispatcher-proc)))
+      (let ((entry (find thread dispatchers :key #'dispatcher-proc)))
         (when entry
-          (become (custodian-beh (remove entry threads)))
+          (become (custodian-beh (remove entry dispatchers)))
           ))))
     
     ;; --------------------------------------------
     ((cust 'poison-pill)
      ;; Try to kill off one of our Dispatchers
-     (cond (threads
+     (cond (dispatchers
             (send-to-pool self cust 'poison-pill)
-            (unless (find (mpc:get-current-process) threads
+            (unless (find (mpc:get-current-process) dispatchers
                           :key #'dispatcher-proc)
               (sleep 0.1))) ;; get out of way...
            (t
@@ -164,8 +164,8 @@
       ))
      
     ;; --------------------------------------------
-    ((cust :get-threads)
-     (send cust threads))
+    ((cust :get-dispatchers)
+     (send cust dispatchers))
     )))
 
 (deflex* custodian
@@ -189,7 +189,7 @@
 (defun get-dispatch-threads ()
   (mapcar #'dispatcher-proc
           (with-default-timeout 1
-            (ask custodian :get-threads))
+            (ask custodian :get-dispatchers))
           ))
 
 (defun add-executives (n)
@@ -230,12 +230,12 @@
         (mpc:with-lock (*central-mail-lock*)
           (when (actors-running-p)
             (let ((entries (with-timeout 1
-                              (ask custodian :get-threads))))
-              (dolist (entry entries)
-                (setf (dispatcher-done entry) t))
+                              (ask custodian :get-dispatchers))))
               (when entries
+                (dolist (entry entries)
+                  (setf (dispatcher-done entry) t))
                 (setup-dead-man-switch (mapcar #'dispatcher-proc entries))
-                (with-default-timeout 5
+                (with-timeout (* 2 *ACTORS-GRACE-PERIOD*)
                   (ask custodian 'poison-pill))))
             (setf *central-mail* nil))
           )))
@@ -267,7 +267,7 @@ Terminate them?")
               )))
          
          (launch-timer ()
-           (mpc:schedule-timer-relative timer *actors-grace-period*)
+           (mpc:schedule-timer-relative timer *ACTORS-GRACE-PERIOD*)
            ))
       
       (setf timer (mpc:make-timer #'mpc:funcall-async #'kill-with-prejudice))
@@ -290,8 +290,8 @@ Terminate them?")
 (mpc:atomic-exchange *central-mail* nil)
 (print *central-mail*)
 (inspect *central-mail*)
-(ask custodian :get-threads)
+(ask custodian :get-dispatchers)
 (get-dispatch-threads)
-(setf custodian (create (custodian-beh (ask custodian :get-threads))))
+(setf custodian (create (custodian-beh (ask custodian :get-dispatchers))))
 (send println :hello)
 |#
