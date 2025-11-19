@@ -119,21 +119,22 @@
     
     ;; --------------------------------------------
     ((cust 'ensure-executives n)
+     (check-type n (integer 0 *))
+     (send self cust 'screened-ensure-executives n))
+
+    ((cust 'screened-ensure-executives n)
      (if (zerop n)
          (send cust :ok)
-       (progn
-         (check-type n (integer 1 *))
-         (let ((me self))
-           (β _
-               (send self β 'add-executive n)
-             (send me cust 'ensure-executives (1- n)))
-           ))
-       ))
+       (let ((me self))
+         (β _
+             (send self β 'add-executive n)
+           (send me cust 'screened-ensure-executives (1- n)))
+         )))
 
     ;; --------------------------------------------
     ((cust 'add-executives n)
      (check-type n (integer 0 *))
-     (send self cust 'ensure-executives (+ (length dispatchers) n)))
+     (send self cust 'screened-ensure-executives (+ (length dispatchers) n)))
 
     ;; --------------------------------------------
     (('remove-dispatcher thread)
