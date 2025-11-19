@@ -147,7 +147,7 @@
     ((cust 'poison-pill)
      ;; Try to kill off one of our Dispatchers
      (cond (dispatchers
-            (send-to-pool self cust 'poison-pill)
+            (send-to-pool self cust 'poison-pill) ;; immediate re-send
             (unless (find (mpc:get-current-process) dispatchers
                           :key #'dispatcher-proc)
               (sleep 0.1))) ;; get out of way...
