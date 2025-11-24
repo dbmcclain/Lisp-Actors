@@ -219,6 +219,15 @@
 (defun tag (cust)
   "TAG -- Construct an Actor to relay a message to the customer,
 prefixed by our unique SELF identity"
+  ;;
+  ;; Why are TAGs used so often? Because:
+  ;;  1. A Tag is an Actor.
+  ;;  2. Hence it has unique identity.
+  ;;  3. They can be used to identify the incoming path for a message.
+  ;;  4. They are impossible to forge.
+  ;;  5. They are impossible to guess.
+  ;;  6. They provide identifiable, alternate, pathways to a designated Actor.
+  ;;
   (create
    (behav msg
      (send* cust self msg))
