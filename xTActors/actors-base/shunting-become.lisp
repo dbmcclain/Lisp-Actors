@@ -37,21 +37,6 @@
 ;;
 ;; This is all elegantly produced by macro SHUNTING-BECOME, which
 ;; carries the surface syntax of MULTIPLE-VALUE-BIND.
-#|
-(defun shunting-beh (tag err sav-beh &optional pending)
-  (flet ((exit (beh)
-           (become beh)
-           (send-all-to self pending)))
-    (alambda
-     ((atag) / (eq atag err)
-      (exit sav-beh))
-     ((atag new-beh) / (eq atag tag)
-      (exit new-beh))
-     (msg
-      (become (shunting-beh tag err sav-beh
-                            (cons msg pending))))
-     )))
-|#
 
 (defun shunting-beh (tag err sav-beh &optional pending)
   (with-contention-free-semantics
