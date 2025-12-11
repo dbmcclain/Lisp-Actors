@@ -7,8 +7,8 @@
 
 ;; ----------------------------------
 
-;; DEFGLOBAL - intended for global bindings that never get rebound
-;; during execution
+;; DEFGLOBAL - intended for global bindings that never get dynamically
+;; rebound during execution
 
 (mpc:defglobal *central-mail*         nil)
 (mpc:defglobal *central-mail-lock*    (mpc:make-lock))
@@ -34,8 +34,9 @@
 ;; --------------------------------------------
 ;; Per-Thread for Activated Actors
 ;;
-;; May become rebound during execution. Different for every Dispatcher
-;; thread, one shared collection for all non-Dispatcher threads.
+;; May become dynamically rebound during execution. Different for
+;; every Dispatcher thread, one shared collection for all
+;; non-Dispatcher threads.
 ;;
 ;; User code should treat all of these dynamic globals as read-only!
 ;; --------------------------------------------
@@ -50,7 +51,7 @@
 (defvar *send-hook*      #'%send-to-pool)
 (defvar *become-hook*    #'not-in-actor)
 (defvar *abort-beh-hook* #'do-nothing)
-(defvar *ac-become-hook* #'not-in-actor)
+(defvar *ac-become-hook* #'not-in-actor) ;; backup BECOME-HOOK, never rebound by CONFLICT-FREE-SEMANTICS
 
 ;; --------------------------------------------
 ;; User level has Read-Only access

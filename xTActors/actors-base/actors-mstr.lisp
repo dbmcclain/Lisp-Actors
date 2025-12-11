@@ -314,19 +314,19 @@ THE SOFTWARE.
            
            (dispatch-loop ()
              ;; -------------------------------------------------------
-             ;; Think of the *current-x* global vars as dedicated registers
-             ;; of a special architecture CPU which uses a FIFO queue for its
-             ;; instruction stream, instead of linear memory, and which
-             ;; executes breadth-first instead of depth-first. This maximizes
-             ;; concurrency.
+             ;; Think of the *current-x* global vars as dedicated
+             ;; registers of a special architecture CPU which uses a
+             ;; FIFO queue for its instruction stream, instead of
+             ;; linear memory, and which executes breadth-first
+             ;; instead of depth-first. This maximizes concurrency.
              ;; -------------------------------------------------------
              
              ;; Fetch next event from event queue - ideally, this
              ;; would be just a handful of simple register/memory
              ;; moves and direct jump. No call/return needed, and
-             ;; stack useful only for a microcoding assist. Our
-             ;; depth is never more than one Actor at a time,
-             ;; before trampolining back here.
+             ;; stack useful only for a microcoding assist. Our depth
+             ;; is never more than one Actor at a time, before
+             ;; trampolining back here.
              
              (REPEAT
               (WITH-NEXT-EVENT (evt)
