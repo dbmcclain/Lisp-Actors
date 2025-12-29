@@ -163,7 +163,7 @@
          (flet ((,rdr-fn ()
                   ,reader-form)
                 (,cas-fn (,old ,new)
-                  (mpcompat:compare-and-swap ,reader-form ,old ,new)))
+                  (cas ,reader-form ,old ,new)))
            (declare (dynamic-extent #',rdr-fn #',cas-fn))
            (,rmw-fn #',rdr-fn #',cas-fn ,@args)))
       )))
