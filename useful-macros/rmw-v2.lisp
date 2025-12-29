@@ -90,10 +90,12 @@
 ;; --------------------------------------------
 
 (defstruct rmw-desc
-  old     ;; captured old value
-  new-fn  ;; mutator function
-          ;; - Warning! can be called multiple times and from arbitrary threads
-  ans)    ;; multiple-value-list of return vals from successful RMW
+  old      ;; captured old value
+  new-fn)  ;; mutator function
+           ;; - Warning! can be called multiple times and from arbitrary threads
+
+(defstruct rmw-ans
+  ans)     ;; multiple-value-list of return vals from successful RMW
 
 (defun rd-gen (rdr-fn cas-fn)
   #F
@@ -102,21 +104,21 @@
     (let ((v (funcall rdr-fn)))
       (cond ((rmw-desc-p v)
              ;; Try to finish up the RMW for the current owner.
-             (let* ((ans (multiple-value-list 
-                          (funcall (rmw-desc-new-fn v) (rmw-desc-old v))))
-                    (new (car ans)))
-               (cond ((funcall cas-fn v new)
-                      ;; Potential race condition here... Owner of
-                      ;; descr may awaken before we set his answer
-                      ;; list. So he must wait until he sees a CONS in
-                      ;; the answer slot.
-                      (setf (rmw-desc-ans v) (list ans))
-                      (return new))
+             (let*  ((ans  (multiple-value-list 
+                            (funcall (rmw-desc-new-fn v) (rmw-desc-old v))))
+                     (rans (make-rmw-ans
+                            :ans  ans)))
+               (cond ((funcall cas-fn v rans)
+                      ;; We provided the ans
+                      (return (car ans)))
                      (t
                       ;; Someone else finished before we could.
                       ;; Retry the READ.
                       (go AGAIN))
                      )))
+            ((rmw-ans-p v)
+             ;; RMW was answered but not finished
+             (return (car (rmw-ans-ans v))))
             (t
              ;; Normal READ
              (return v))
@@ -138,14 +140,13 @@
                    (new (car ans)))
               (if (funcall cas-fn desc new)
                   (return (values-list ans))
-                ;; else - someone else set our var for us.
-                (progn
-                  ;; They left our values-list in our answer slot,
-                  ;; wrapped in a CONS cell.
-                  (until (consp (rmw-desc-ans desc))
-                    (mpc:yield))
-                  (return (values-list (car (rmw-desc-ans desc)))))
-                ))
+                ;; else - someone else answered for us.
+                (let* ((rans (funcall rdr-fn)) ;; has to be a RMW-ANS struct
+                       (ans  (rmw-ans-ans rans))
+                       (new  (car ans)))
+                  (funcall cas-fn rans new)
+                  (return (values-list ans))
+                  )))
           ;; else - couldn't own place, try again
           (go AGAIN))
         ))))
