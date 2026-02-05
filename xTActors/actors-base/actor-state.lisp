@@ -44,7 +44,7 @@
 ;;
 ;; -------------------------------------------------------------------
 ;; No need for ACTOR-STATE... Just use PLists.
-
+#|
 (defun trim-plist (plist removals)
   (loop for key in removals do
           (remf plist key))
@@ -60,7 +60,72 @@
     (loop for (key val) on props by #'cddr do
             (setf (getf new-plist key) val))
     new-plist))
+|#
+;; --------------------------------------------
+;; Purely Functional PLIST operations.
+;;
+;; Try to be efficient, avoid copying entire PLIST if possible.
+;; Is this really a speedup? Perhaps COPY-LIST is actually fast?
+
+(defun plist-get (lst key &optional default)
+  (getf lst key default))
+
+(defun plist-put (lst &rest kv-args)
+  ;; Add or change a PLIST binding. Returns a new list without mutating.
+  (um:nlet iter ((tl  lst)
+                 (hd  nil))
+    (cond
+     ((null kv-args)
+      (append hd tl))
+     ((null tl)
+      (append hd kv-args))
+     (t
+      (let* ((key (car tl))
+             (val (getf kv-args key #'putter)))
+        (cond
+         ((eq #'putter val)
+          (go-iter (cddr tl) (list* key (cadr tl) hd)))
+         (t
+          (remf kv-args key)
+          (go-iter (cddr tl) (list* key val hd)))
+         )))
+     )))
+
+(defun plist-remove (lst &rest keys)
+  ;; Remove entries from a PLIST. Returns a new list without mutating.
+  (um:nlet iter ((tl  lst)
+                 (hd  nil))
+    (cond
+     ((null keys)
+      (append hd tl))
+     ((null tl)
+      hd)
+     (t
+      (let ((key (car tl)))
+        (cond
+         ((find key keys)
+          (delete key keys)
+          (go-iter (cddr tl) hd))
+         (t
+          (go-iter (cddr tl) (list* key (cadr tl) hd)))
+         )))
+     )))
+
+;; --------------------------------------------
+
+(defun augment-plist (plist &rest props)
+  (let ((elision-keys (getf props :without)))
+    (when elision-keys
+      (remf props :without)
+      (setf plist (apply #'plist-remove plist (um:mklist elision-keys))))
+    (apply #'plist-put plist props)))
   
+(defmethod um:with ((state list) &rest props)
+  ;; State LIST is assumed to be a property list of alternating keywords and values.
+  (apply #'augment-plist state props))
+
+;; --------------------------------------------
+
 (defmacro dictionary-bind (kw-args dict &body body)
   ;; Because we are providing a function arglist of &KEY args, this
   ;; also supports default values for missing items, as well as
@@ -71,10 +136,6 @@
 
 (defmethod do-let+ ((fst (eql :db)) list-form form)
   `(dictionary-bind ,(cadr list-form) ,(third list-form) ,form))
-
-(defmethod um:with ((state list) &rest props)
-  ;; State LIST is assumed to be a property list of alternating keywords and values.
-  (apply #'augment-plist state props))
 
 ;; --------------------------------------------
 #|

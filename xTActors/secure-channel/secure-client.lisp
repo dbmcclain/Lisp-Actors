@@ -517,7 +517,7 @@
   ;; cannot perform. Hence, proving that Actors are more general than
   ;; Lambda Calculus.
   ;;
-  ;; Lambda Calculus performs comptation by substitution of bindings.
+  ;; Lambda Calculus performs computation by substitution of bindings.
   ;; Lambda Calculus is provably equivalent to a Turing Machine. Hence
   ;; both are subsumed by Actors, and the notion of Universal
   ;; Computation - being anything that a Turing Complete computing
