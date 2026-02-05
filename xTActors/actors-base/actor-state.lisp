@@ -81,9 +81,9 @@
       (append hd kv-args))
      (t
       (let* ((key (car tl))
-             (val (getf kv-args key #'putter)))
+             (val (getf kv-args key kv-args)))
         (cond
-         ((eq #'putter val)
+         ((eq kv-args val)
           (go-iter (cddr tl) (list* key (cadr tl) hd)))
          (t
           (remf kv-args key)
