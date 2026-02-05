@@ -76,9 +76,9 @@
                  (hd  nil))
     (cond
      ((null kv-args)
-      (append hd tl))
+      (nconc hd tl))
      ((null tl)
-      (append hd kv-args))
+      (nconc hd kv-args))
      (t
       (let* ((key (car tl))
              (val (getf kv-args key kv-args)))
@@ -97,14 +97,14 @@
                  (hd  nil))
     (cond
      ((null keys)
-      (append hd tl))
+      (nconc hd tl))
      ((null tl)
       hd)
      (t
       (let ((key (car tl)))
         (cond
          ((find key keys)
-          (delete key keys)
+          (setf keys (delete key keys))
           (go-iter (cddr tl) hd))
          (t
           (go-iter (cddr tl) (list* key (cadr tl) hd)))
