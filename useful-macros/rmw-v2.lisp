@@ -109,8 +109,8 @@
 ;; a true flag. Or else, for an empty list a NIL for all 3 values.
 ;;
 ;; But if another thread comes along before we can finish the RMW, and
-;; tries to read the queue, it sees the RMW-DESC and tries to help us
-;; finish our RMW in order to obtain a RD value.
+;; tries to RMW or RD the queue, will see the RMW-DESC and so tries to
+;; help us finish our RMW in order to obtain a RD value.
 ;;
 ;; But that second thread also has to copy the extra needed return
 ;; values and stash them away for eventual return to the original RMW
@@ -123,10 +123,11 @@
 ;; the RMW-ANS struct and can grab the new queue cell value from the
 ;; stored args in the struct.
 ;;
-;; Any other threads that might want to RMW the queue cell will have
-;; to spin wait until the original RMW thread finishes, as indicated
-;; by the fact that the RD value does not match the RMW-ANS struct
-;; contained in the queue cell during an initial CAS operation.
+;; Any other threads that might want to RMW the queue cell, upon
+;; seeing the RMW-ANS, will have to wait until the original RMW thread
+;; finishes, as indicated by the fact that the RD value does not match
+;; the RMW-ANS struct contained in the queue cell during an initial
+;; CAS operation.
 ;;
 ;; Once the original RMW thread resumes and sees that his RMW-DESC has
 ;; been replaced by a RMW-ANS struct it can now return the multiple
