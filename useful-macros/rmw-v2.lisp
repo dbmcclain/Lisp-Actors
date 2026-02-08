@@ -195,6 +195,7 @@
                      (return (values-list ans))
                      ))))
               ((rmw-ans-p (funcall rdr-fn))
+               ;; Someone else has a pending RMW
                (mpc:process-allow-scheduling)
                (go AGAIN))
               (t
