@@ -88,6 +88,8 @@
 ;; Define generalized RMW functions with logic defined just once for all cases.
 ;; Extend the defns to allow for aux return values from a successful RMW op.
 ;; --------------------------------------------
+;; The potential need for multiple return values from RMW mandates
+;; that we use a 2-phase RMW protocol.
 ;;
 ;; Example: Consider a simple LIST used as a queue. You want to pop an
 ;; item off the queue and return both the value, and a flag indicating
@@ -131,8 +133,6 @@
 ;; values that it needs, after atomically swapping out the RMW-ANS
 ;; struct with the new queue cell value.
 ;;
-;; The potential need for multiple return values mandates that we use
-;; a 2-phase RMW protocol.
 ;; ----------------------------------------------------
 
 (defstruct rmw-desc
