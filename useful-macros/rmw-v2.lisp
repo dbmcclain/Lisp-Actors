@@ -194,7 +194,7 @@
                      (funcall cas-fn rans new)
                      (return (values-list ans))
                      ))))
-              ((rmw-ans-p old)
+              ((rmw-ans-p (funcall rdr-fn))
                (mpc:process-allow-scheduling)
                (go AGAIN))
               (t
