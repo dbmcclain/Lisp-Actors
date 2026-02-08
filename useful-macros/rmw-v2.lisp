@@ -88,6 +88,52 @@
 ;; Define generalized RMW functions with logic defined just once for all cases.
 ;; Extend the defns to allow for aux return values from a successful RMW op.
 ;; --------------------------------------------
+;;
+;; Example: Consider a simple LIST used as a queue. You want to pop an
+;; item off the queue and return both the value, and a flag indicating
+;; if there were actually something on the queue when, perhaps, NIL
+;; was the value. Otherwise, return a false flag if the queue were
+;; empty.
+;;
+;; And you want this information from an atomic RMW to pop the LIST.
+;; So the RMW mutator function has to return 3 items: the new List
+;; head, the value that was at the head, and a true flag, or else just
+;; return a NIL for all 3 items if the queue were empty.
+;;
+;; So once we have ownership of the queue inside an RMW, which we do
+;; by atomically swapping the queue LIST with an RMW-DESC structure,
+;; we need to supply 3 return items to the original caller: the CDR of
+;; the queue LIST, the CAR (value of the queue entry at the head), and
+;; a true flag. Or else, for an empty list a NIL for all 3 values.
+;;
+;; But if another thread comes along before we can finish the RMW, and
+;; tries to read the queue, it sees the RMW-DESC and tries to help us
+;; finish our RMW in order to obtain a RD value.
+;;
+;; But that second thread also has to copy the extra needed return
+;; values and stash them away for eventual return to the original RMW
+;; thread. It does that by storing the multiple values into an RMW-ANS
+;; struct and atomically replacing the RMW-DESC in the queue cell with
+;; the RMW-ANS struct, before returning the RD value to the thread
+;; caller.
+;;
+;; Any other threads that might want to RD the queue cell will now see
+;; the RMW-ANS struct and can grab the new queue cell value from the
+;; stored args in the struct.
+;;
+;; Any other threads that might want to RMW the queue cell will have
+;; to spin wait until the original RMW thread finishes, as indicated
+;; by the fact that the RD value does not match the RMW-ANS struct
+;; contained in the queue cell during an initial CAS operation.
+;;
+;; Once the original RMW thread resumes and sees that his RMW-DESC has
+;; been replaced by a RMW-ANS struct it can now return the multiple
+;; values that it needs, after atomically swapping out the RMW-ANS
+;; struct with the new queue cell value.
+;;
+;; The potential need for multiple return values mandates that we use
+;; a 2-phase RMW protocol.
+;; ----------------------------------------------------
 
 (defstruct rmw-desc
   old      ;; captured old value
@@ -134,22 +180,26 @@
       AGAIN
       (let ((old (rd-gen rdr-fn cas-fn)))
         (setf (rmw-desc-old desc) old)  ;; must save old first
-        (if (funcall cas-fn old desc)
-            ;; The place is ours now...
-            (let* ((ans (multiple-value-list (funcall new-fn old)))
-                   (new (car ans)))
-              (if (funcall cas-fn desc new)
-                  (return (values-list ans))
-                ;; else - someone else answered for us.
-                (let* ((rans (funcall rdr-fn)) ;; has to be a RMW-ANS struct
-                       (ans  (rmw-ans-ans rans))
-                       (new  (car ans)))
-                  (funcall cas-fn rans new)
-                  (return (values-list ans))
-                  )))
-          ;; else - couldn't own place, try again
-          (go AGAIN))
-        ))))
+        (cond ((funcall cas-fn old desc)
+               ;; The place is ours now...
+               (let* ((ans (multiple-value-list (funcall new-fn old)))
+                      (new (car ans)))
+                 (if (funcall cas-fn desc new)
+                     (return (values-list ans))
+                   ;; else - someone else answered for us.
+                   (let* ((rans (funcall rdr-fn)) ;; has to be a RMW-ANS struct
+                          (ans  (rmw-ans-ans rans))
+                          (new  (car ans)))
+                     (funcall cas-fn rans new)
+                     (return (values-list ans))
+                     ))))
+              ((rmw-ans-p old)
+               (mpc:process-allow-scheduling)
+               (go AGAIN))
+              (t
+               ;; else - couldn't own place, try again
+               (go AGAIN))
+              )))))
 
 ;; ----------------------------------------------------------
 ;; helpers
