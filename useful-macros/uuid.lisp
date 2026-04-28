@@ -603,7 +603,7 @@ built according code-char of each number in the uuid-string"
   ;; return an int representing the seconds since 1900-01-01 and a
   ;; rounding remainder in 100ns units. This is compatible with Lisp
   ;; universal-time keeping.
-  (round (- (uuid-time id) #N|10_010_304_000_0000000.|) 10_000_000.))
+  (round (- (uuid-time id) #N|10_010_304_000_0000000.|) #N|10_000_000.|))
 
 (defun copy-v1-uuid-replacing-time (new-time uuid)
   (make-instance 'uuid
@@ -665,7 +665,7 @@ built according code-char of each number in the uuid-string"
       (uuid-to-universal-time uuid)
     (when (minusp frac)
       (decf utc)
-      (incf frac 10_000_000.))
+      (incf frac #N|10_000_000.|))
     (multiple-value-bind (ss mm hh d m y dow)
         (decode-universal-time utc 0)
       (let ((mac (uuid-mac uuid))

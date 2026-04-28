@@ -89,10 +89,12 @@ THE SOFTWARE.
 
 (defun remove-separators (s)
   (delete #\, (remove #\_ s)))
-  
+
+#| ;; Unused...
 (defun delete-separators (s)
   (delete #\, (delete #\_ s)))
-  
+|#
+
 (defun match-number (s)
   (multiple-value-bind (start end)
       (#~m/^[+-]?[0-9][0-9]*(\.[0-9]*([eEdDsSfF][+-]?[0-9]+)?)?/ s)
@@ -294,13 +296,13 @@ THE SOFTWARE.
 
 (defun |reader-for-#N| (stream sub-char numarg)
   (declare (ignore sub-char numarg))
-  (let* ((v   (read stream t nil t))
-         (ans (or (when (or (stringp v)
-                            (symbolp v))
-                    (read-extended-number-syntax (string v)))
-                  v)))
+  (let ((v (read stream t nil t)))
     (unless *read-suppress*
-      ans)))
+      (or (when (or (stringp v)
+                    (symbolp v))
+            (read-extended-number-syntax (string v)))
+          v))
+    ))
 
 (set-dispatch-macro-character
  #\# #\n '|reader-for-#N|)

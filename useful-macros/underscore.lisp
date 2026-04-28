@@ -6,7 +6,7 @@
 ;; -------------------------------------------------------------------
 ;; Handle default Reader ops
 
-#+:LISPWORKS
+#+:LISPWORKSx
 (progn
   (defadvice (sys::read-token underscore-skipper :around)
       (&rest args)
@@ -53,7 +53,7 @@
 
 ;; --------------------------------------------
 
-#+:SBCL
+#+:SBCLx
 (sb-ext:with-unlocked-packages (:sb-impl)
   (cl-advice:make-advisable 'sb-impl::read-maybe-nothing)
   (cl-advice:add-advice :around 'sb-impl::read-maybe-nothing

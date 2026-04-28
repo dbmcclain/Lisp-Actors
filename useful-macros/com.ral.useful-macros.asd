@@ -109,15 +109,16 @@ THE SOFTWARE.
                 ;; (:file "match-macro-ex3")
                 ;; (:file "monitor-macros")
                 ;; (:file "lazy") ;; supplanted by a better, simpler, version
-                (:file "underscore")
+                
+                ;; (:file "underscore") ;; DM/RAL  2026/04/28 16:07:44 UTC - SBCL Broken in ver 2.6.3
                 (:file "sep")
+
                 #+:LISPWORKS (:file "abbrev-bignums")
                 ;; (:file  "picfmt")
                 
                	(:file "uuid")
                 ;; (:file "xfli")
 		;; (:file "rubber-objects")
-                
 
                 (:file "handlers")
                 #+:LISPWORKS (:file "defalias")
