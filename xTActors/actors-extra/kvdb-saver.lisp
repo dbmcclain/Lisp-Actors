@@ -131,7 +131,8 @@
         (loenc:serialize sav-db f
                          :max-portability t)
         ))
-    (send fmt-println "Saved full KVDB: ~S" db-path)
+    #+:LISPWORKS
+    (send fmt-println "~A Saved full KVDB: ~S" (hcl:date-string) db-path)
     (send ctrl-tag :update-entry) ;; inode has changed
     sav-db))
 
@@ -187,7 +188,8 @@
                                        :max-portability t
                                        :self-sync t))
                     (send me cust :become me new-db)
-                    (send fmt-println "Saved KVDB Deltas: ~S" path))
+                    #+:LISPWORKS
+                    (send fmt-println "~A Saved KVDB Deltas: ~S" (hcl:date-string) path))
                 (error ()
                   ;; possible error because file not existing yet
                   (recover))

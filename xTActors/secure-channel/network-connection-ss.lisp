@@ -77,7 +77,7 @@
                               #'start-server-listener
                               :handle-name "Actors Server"
                               :init-timeout 1
-                              :ipv6 nil)))
+                              :ipv6         nil)))
                  ;; Tell the customer that we succeeded.
                  (send cust :ok)
                  (send fmt-println "-- Actor Server started on port ~A --" port)

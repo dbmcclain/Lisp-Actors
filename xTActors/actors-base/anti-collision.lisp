@@ -58,38 +58,38 @@
   (error "Unguarded BECOME in contention-free semantics"))
 |#
 
-(defun do-with-disallowed-contention (msg guard fn)
+(defun %do-with-disallowed-contention (msg guard fn)
   ;; If user forgets to surround their BECOME clause with
   ;; WITHOUT-CONTENTION, then we still let them try, but they have to go
   ;; through the same protection protocol as all the other clauses
   ;; using WITHOUT-CONTENTION.
   (let ((*become-hook* (lambda (beh)
                          (warn "Calling BECOME outside of WITHOUT-CONTENTION")
-                         (do-without-contention guard (lambda ()
-                                                        (become beh))))
+                         (%do-without-contention guard (lambda ()
+                                                         (become beh))))
                        ))
     (apply fn msg)
     ))
 
-(defun go-around ()
+(defun %go-around ()
   (%send-to-pool (msg self self-msg))
   (abort))
 
 ;; --------------------------------------------
 
-(defun do-without-contention (guard thunk)
+(defun %og-do-without-contention (guard thunk)
   (declare (cons guard)
            (function thunk))
   (symbol-macrolet ((owner  (car (the cons guard))))
     (let ((*become-hook* *ac-become-hook*)
           (me  (mpc:get-current-process)))
           
-      (flet ((acquire ()
+      (flet ((try-acquire ()
                (mpc:compare-and-swap owner nil me))
-             (release (&rest ignored)
+             (try-release (&rest ignored)
                (declare (ignore ignored))
                (mpc:compare-and-swap owner me nil)))
-        (declare (dynamic-extent #'acquire))
+        (declare (dynamic-extent #'try-acquire))
         ;;
         ;; First thread to attempt WITHOUT-CONTENTION takes it,
         ;; preemptively blocking all other threads from mutating the
@@ -100,21 +100,45 @@
         ;; concurrent manner. So it continues to be a good idea to
         ;; keep the behavior code functionally pure.
         ;;
-        (when (acquire)
-          (on-commit
-            (release)))
-        (if (eq me owner)
-            (handler-bind
-                ((error              #'release)
-                 (release-contention #'release))
-              (funcall thunk))
-          ;; else, Re-enqueue our message for later delivery,
-          ;; and go process the next available message. This
-          ;; drops all pending BECOME and SEND.
-          (go-around))
-        ))
-    ))
+        (cond ((try-acquire)
+               (on-commit
+                 ;; May be performed on arbitrary future thread, after successful commit.
+                 ;; So just testing OWNER as ME is insufficient, except in CAS.
+                 (try-release))
+               (let ((normal-exit nil))
+                 ;; this NORMAL-EXIT allows for all kinds of premature exits,
+                 ;; e.g., ABORT, THROW, ERROR, etc.
+                 (unwind-protect
+                     (prog1
+                       (funcall thunk)
+                       (setf normal-exit t))
+                   (unless normal-exit
+                     ;; Normal exit will be handled with the ON-COMMIT above.
+                     (try-release)))
+                 ))
 
+              (t
+               ;; else, Re-enqueue our message for later delivery,
+               ;; and go process the next available message. This
+               ;; drops all pending BECOME and SEND.
+               (%go-around))
+              ))
+      )))
+
+(defvar *do-without-contention-vector* #'%og-do-without-contention)
+
+(defun %bypassed-without-contention (guard thunk)
+  (declare (ignore guard))
+  (funcall thunk))
+
+(defun %do-without-contention (guard thunk)
+  ;; This indirection allows for nested WITHOUT-CONTENTION, all
+  ;; executing within one thread.
+  (let* ((fn *do-without-contention-vector*)
+         (*do-without-contention-vector* #'%bypassed-without-contention))
+    (funcall fn guard thunk)
+    ))
+  
 (defmacro with-contention-free-semantics (beh-fn)
   ;; Should wrap a behavior function.
   ;;
@@ -134,12 +158,12 @@
   (um:with-unique-names (g!guard g!msg)
     `(let ((,g!guard (list nil)))
        (lambda (&rest ,g!msg)
-         (do-with-disallowed-contention
+         (%do-with-disallowed-contention
           ,g!msg
           ,g!guard
           (macrolet ((without-contention (&body body)
-                       `(do-without-contention ,',g!guard (lambda ()
-                                                            ,@body))
+                       `(%do-without-contention ,',g!guard (lambda ()
+                                                             ,@body))
                        ))
             ,beh-fn))
          ))

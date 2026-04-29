@@ -439,6 +439,7 @@
 (tst "fornax.local")
 (tst "sextans.local")
 (tst "pictoris.local")
+(tst "aquila.local")
 
 (tracing-on)
 (tracing-off)
