@@ -360,6 +360,8 @@ THE SOFTWARE.
    #:without-contention
 
    #:reppy
+
+   #:at-exit
    ))
 
 #+(OR :ALLEGRO :CCL)
@@ -390,6 +392,7 @@ THE SOFTWARE.
   (:export
    #:protecting-variables
    #:*self-msg-parent*
+   #:*at-exit-hook*
    ))
 
 (defpackage #:com.ral.actors.types

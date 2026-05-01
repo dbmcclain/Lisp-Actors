@@ -251,3 +251,12 @@
 (defmacro def-actor* (name state-args &body body)
   `(%def-actor deflex* ,name ,state-args ,@body))
 
+;; --------------------------------------------
+
+(defun do-at-exit (fn)
+  (funcall *at-exit-hook* fn))
+
+(defmacro at-exit (&body body)
+  `(do-at-exit (lambda () ,@body)))
+
+;; --------------------------------------------

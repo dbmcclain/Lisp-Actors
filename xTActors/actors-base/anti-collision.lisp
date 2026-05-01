@@ -100,30 +100,12 @@
         ;; concurrent manner. So it continues to be a good idea to
         ;; keep the behavior code functionally pure.
         ;;
-        (cond ((try-acquire)
-               (on-commit
-                 ;; May be performed on arbitrary future thread, after successful commit.
-                 ;; So just testing OWNER as ME is insufficient, except in CAS.
-                 (try-release))
-               (let ((normal-exit nil))
-                 ;; this NORMAL-EXIT allows for all kinds of premature exits,
-                 ;; e.g., ABORT, THROW, ERROR, etc.
-                 (unwind-protect
-                     (prog1
-                       (funcall thunk)
-                       (setf normal-exit t))
-                   (unless normal-exit
-                     ;; Normal exit will be handled with the ON-COMMIT above.
-                     (try-release)))
-                 ))
-
-              (t
-               ;; else, Re-enqueue our message for later delivery,
-               ;; and go process the next available message. This
-               ;; drops all pending BECOME and SEND.
-               (%go-around))
-              ))
-      )))
+        (or (try-acquire)
+            (%go-around))
+        (at-exit
+         (try-release))
+        (funcall thunk)
+        ))))
 
 (defvar *do-without-contention-vector* #'%og-do-without-contention)
 

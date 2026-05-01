@@ -298,7 +298,7 @@ THE SOFTWARE.
              (SEND-EVENT (msg)
                `(mpc:mailbox-send *central-mail* ,msg)))
     
-    (let (sends pend-beh)
+    (let (sends pend-beh pend-exits)
       (labels
           ((%send (msg)
              ;; Within one Actor invocation there can be no significance
@@ -311,7 +311,10 @@ THE SOFTWARE.
            (%abort-beh ()
              (setf pend-beh *self-beh*
                    sends    nil))
-           
+
+           (%at-exit (fn)
+             (push fn pend-exits))
+
            (dispatch-loop ()
              ;; -------------------------------------------------------
              ;; Think of the *current-x* global vars as dedicated
@@ -336,43 +339,53 @@ THE SOFTWARE.
                   (tagbody
                    RETRY
                    (setf pend-beh   (actor-beh (the actor *self*))
+                         pend-exits nil
                          sends      nil)
                    (when (functionp pend-beh)
-                     (let ((*self-beh* pend-beh))
-                       ;; ---------------------------------
-                       ;; Dispatch to Actor behavior with message args
-                       (apply (the function pend-beh) (the list *self-msg*))
+                     (unwind-protect
+                         (let ((*self-beh* pend-beh))
+                           ;; ---------------------------------
+                           ;; Dispatch to Actor behavior with message args
+                           (apply (the function pend-beh) (the list *self-msg*))
+                           
+                           ;; ---------------------------------
+                           ;; Commit BECOME and SENDS
+                           (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
+                                       (mpc:compare-and-swap
+                                        (actor-beh (the actor *self*))
+                                        *self-beh* pend-beh))     ;; effective BECOME
+                             ;; failed on behavior update - try again...
+                             #+:LISPWORKS
+                             (report-collision *self-beh*) ;; for engineering telemetry
+                             (go RETRY))
+                           
+                           (when sends
+                             (dolist (msg (the list sends))
+                               (SEND-EVENT msg))))
                        
-                       ;; ---------------------------------
-                       ;; Commit BECOME and SENDS
-                       (unless (or (eq *self-beh* pend-beh)   ;; no BECOME
-                                   (mpc:compare-and-swap
-                                    (actor-beh (the actor *self*))
-                                    *self-beh* pend-beh))     ;; effective BECOME
-                         ;; failed on behavior update - try again...
-                         #+:LISPWORKS
-                         (report-collision *self-beh*) ;; for engineering telemetry
-                         (go RETRY))
-                       
-                       (dolist (msg (the list sends))
-                         (SEND-EVENT msg))
-                       )))
-                  ))
-              )))
+                       ;; unwind clause
+                       (when pend-exits
+                         (dolist (fn (the list pend-exits))
+                           (funcall fn)))
+                       ))
+                   ))))
+             ))
         (declare (dynamic-extent #'%send #'%become #'%abort-beh
+                                 #'%at-exit
                                  #'dispatch-loop))
         ;; --------------------------------------------
         
         (let ((*send-hook*      #'%send)
               (*become-hook*    #'%become)
               (*ac-become-hook* #'%become)
-              (*abort-beh-hook* #'%abort-beh))
-          
+              (*abort-beh-hook* #'%abort-beh)
+              (*at-exit-hook*   #'%at-exit))
+
           (REPEAT
            (with-simple-restart (abort "Handle next event")
-             (dispatch-loop))
-           ))
-        ))))
+             (dispatch-loop)))
+          )))
+    ))
 
 (defun run-actor-dispatch-loop (done-ptr)
   (with-simple-restart (abort "Terminate Actor thread")
