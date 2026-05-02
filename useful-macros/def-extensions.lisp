@@ -4,7 +4,8 @@
 ;; ----------------------------------
 
 (defpackage #:com.ral.useful-macros.def-extensions
-  (:use #:common-lisp #:um)
+  (:use #:common-lisp #:um
+   #+:LISPWORKS #:lw)
   (:export
    #:λ
    #:∂
