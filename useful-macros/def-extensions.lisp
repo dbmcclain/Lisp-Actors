@@ -242,18 +242,15 @@ arguments when given."
 	 (backing-var (intern (concatenate 'string s0 s1 s2) s3)))
     ;; Note: The DEFINE-SYMBOL-MACRO must be the last thing we do so
     ;; that the value of the form is the symbol VAR.
-    (if docp
-      `(progn
-         ;; dbm/ral - 02/22 put symbol-macro first, to support self-recursive defs
-	 (define-symbol-macro ,var ,backing-var)
-	 (,deffer ,backing-var ,val ,doc)
-	 (setf (documentation ',var 'variable) ,doc)
-         ',var)
-      `(progn
-	 (define-symbol-macro ,var ,backing-var)
-	 (,deffer ,backing-var ,val)
-         ',var))))
-  
+    `(progn
+       ;; dbm/ral - 02/22 put symbol-macro first, to support self-recursive defs
+       (define-symbol-macro ,var ,backing-var)
+       (,deffer ,backing-var ,val ,@(and docp `(,doc)))
+       ,@(and docp
+              `((setf (documentation ',var 'variable) ,doc)))
+       ',var)
+    ))
+
 (defmacro deflex (var val &optional (doc nil docp))
   "Define a top level (global) lexical VAR with initial value VAL,
   which is assigned unconditionally as with DEFPARAMETER. If a DOC
