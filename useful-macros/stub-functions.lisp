@@ -55,7 +55,7 @@ for any other symbol."
        ',function-name)))
 
 ;; -----------------------------------------------------------------------------
-;; with-fast-impl (macro)
+;; with-fast-impl (macro) -- this *is* my (DBM) code.
 
 (eval-always
 (defmacro error-running-fast-impl-function? (fast-name)
