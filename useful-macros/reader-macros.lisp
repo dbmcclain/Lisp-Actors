@@ -298,9 +298,9 @@ THE SOFTWARE.
   (declare (ignore sub-char numarg))
   (let ((v (read stream t nil t)))
     (unless *read-suppress*
-      (or (when (or (stringp v)
-                    (symbolp v))
-            (read-extended-number-syntax (string v)))
+      (or (and (or (stringp v)
+                   (symbolp v))
+               (read-extended-number-syntax (string v)))
           v))
     ))
 
