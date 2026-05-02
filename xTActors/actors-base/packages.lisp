@@ -169,10 +169,10 @@ THE SOFTWARE.
    #:fwd
    #:label
    #:tag
-   #:once-tag
-   #:timed-tag
-   #:timed-once-tag
-   #:timed-once-tag-with-ka
+   ;; #:once-tag
+   ;; #:timed-tag
+   ;; #:timed-once-tag
+   ;; #:timed-once-tag-with-ka
    #:rate-limited-gate
    #:ser
    #:par
@@ -298,7 +298,8 @@ THE SOFTWARE.
    #:delegate
 
    #:future-become-beh
-   
+
+   #:timed-gate
    #:timed-service
    #:with-maximum-io-syntax
 
