@@ -59,24 +59,24 @@
 ;;
 ;; (In general, to make something read-only, place it within a function.)
 
-(declaim (inline self self-beh self-msg self-msg-parent))
+(declaim (inline fn-self fn-self-beh fn-self-msg fn-self-msg-parent))
 
-(defun self ()
+(defun fn-self ()
   *self*)
 
-(defun self-beh ()
+(defun fn-self-beh ()
   *self-beh*)
 
-(defun self-msg ()
+(defun fn-self-msg ()
   *self-msg*)
 
-(defun self-msg-parent ()
+(defun fn-self-msg-parent ()
   *self-msg-parent*)
 
-(define-symbol-macro self             (self))
-(define-symbol-macro self-beh         (self-beh))
-(define-symbol-macro self-msg         (self-msg))
-(define-symbol-macro self-msg-parent  (self-msg-parent))
+(define-symbol-macro self             (fn-self))
+(define-symbol-macro self-beh         (fn-self-beh))
+(define-symbol-macro self-msg         (fn-self-msg))
+(define-symbol-macro self-msg-parent  (fn-self-msg-parent))
 
 ;; --------------------------------------------
 #|

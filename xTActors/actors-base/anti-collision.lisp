@@ -71,10 +71,6 @@
     (apply fn msg)
     ))
 
-(defun %go-around ()
-  (%send-to-pool (msg self self-msg))
-  (abort))
-
 ;; --------------------------------------------
 
 (defun %og-do-without-contention (guard thunk)
@@ -86,6 +82,9 @@
           
       (flet ((try-acquire ()
                (mpc:compare-and-swap owner nil me))
+             (go-around ()
+               (%send-to-pool (msg self self-msg))
+               (abort))
              (try-release (&rest ignored)
                (declare (ignore ignored))
                (mpc:compare-and-swap owner me nil)))
@@ -101,7 +100,7 @@
         ;; keep the behavior code functionally pure.
         ;;
         (or (try-acquire)
-            (%go-around))
+            (go-around))
         (at-exit
          (try-release))
         (funcall thunk)
