@@ -261,23 +261,53 @@ customer, just one time."
      (become-sink))
    ))
 
-#| ;; Don't use - the clock starts running as soon as this is invoked.
-(defun timed-gate (cust timeout)
-  (cond ((realp timeout)
-         (let ((gate (once cust)))
-           (send-after timeout gate +timed-out+)
-           gate))
-        (t
-         cust)))
-|#
+;; -----------------------------------------
+;; Delayed Send
+
+(defun forced-send-after (dt actor &rest msg)
+  ;; FORCED-SEND-AFTER -- unsafe for use in a BECOME branch of
+  ;; behavior code...
+  ;;
+  ;; NOTE: Actors, except those at the edge, must never do anything
+  ;; that has observable effects beyond SEND and BECOME. Starting a
+  ;; timer running breaks this. Our caller might have to be retried,
+  ;; in which case there will be a spurious timer running from a prior
+  ;; attempt.
+  ;;
+  (when (realp dt)
+    (let ((timer (apply #'mpc:make-timer #'send-to-pool actor msg)))
+      (mpc:schedule-timer-relative timer (max 0 dt)))
+    ))
+  
+(defun send-after (dt actor &rest msg)
+  ;; SEND-AFTER is safe to use in a BECOME branch of behavior code.
+  ;; The timer doesn't get launched unless the SENDS and BECOME commit
+  ;; at our exit.
+  ;;
+  ;; We mark the timer launch as non-idempotent so that it happens in
+  ;; an edge Actor, and gets launched via message SEND. If we get
+  ;; retried, that SEND will have been discarded and possibly tried
+  ;; again during message delivery retry.
+  ;;
+  (when (realp dt)
+    (on-commit
+      (apply #'forced-send-after dt actor msg))
+    ))
+
+;; --------------------------------------------
+
+(defun timed-gate (cust &optional (timeout *timeout*))
+  ;; Timer starts on successful exit of calling Actor
+  (let ((gate (once cust)))
+    (send-after timeout gate +timed-out+)
+    gate))
 
 (defun timed-service (svc &optional (timeout *timeout*))
   ;; Prefer this, so that the clock only starts running when a message
   ;; is sent to svc.
   (create
    (behav (cust &rest msg)
-     (let ((gate (once cust)))
-       (send-after timeout gate +timed-out+)
+     (let ((gate (timed-gate cust timeout)))
        (send* svc gate msg)))
    ))
 
@@ -301,9 +331,33 @@ customer, just one time."
      (let ((gate (once cust)))
        (apply #'send-to-all actors gate msg)))
    ))
-  
-;; ---------------------
 
+;; --------------------------------------------
+
+(defun select (cust &rest services)
+  ;; Obtain answer from one of the services, or a timeout.
+  (let ((gate (timed-gate cust)))
+    (send-to-all services gate)))
+
+(defun expect (actor cust &rest msg)
+  ;; Expect an answer from actor being sent to cust, or timeout.
+  ;; Analog of SEND
+  (select cust (apply #'racurry actor msg)))
+
+(defun expect* (actor cust &rest msg)
+  ;; Convert actor into a service and expect of it.
+  ;; Analog of SEND*
+  (apply #'expect actor cust (apply #'list* msg)))
+
+#|
+(send-after 1 println (list :timeout +timed-out+))
+(β ans
+    (with-timeout 1
+      (select β))
+  (send* println ans))
+|#
+;; ---------------------
+#|
 (defun once-tag (cust)
   (create
    (behav (&rest msg)
@@ -322,7 +376,7 @@ customer, just one time."
   (let ((atag (once-tag cust)))
     (send-after timeout atag +timed-out+)
     atag))
-
+|#
 ;; -------------------------------------------------
 
 (defun rate-limited-gate (cust dt)
@@ -512,38 +566,6 @@ customer, just one time."
   (create
    (behav (cust &rest args)
      (send (apply #'fork (mapcar #'racurry svcs args)) cust))))
-
-;; -----------------------------------------
-;; Delayed Send
-
-(defun forced-send-after (dt actor &rest msg)
-  ;; FORCED-SEND-AFTER -- unsafe for use in a BECOME branch of
-  ;; behavior code...
-  ;;
-  ;; NOTE: Actors, except those at the edge, must never do anything
-  ;; that has observable effects beyond SEND and BECOME. Starting a
-  ;; timer running breaks this. Our caller might have to be retried,
-  ;; in which case there will be a spurious timer running from a prior
-  ;; attempt.
-  ;;
-  (when (and (viable-actor? actor)
-             (realp dt))
-    (let ((timer (apply #'mpc:make-timer #'send-to-pool actor msg)))
-      (mpc:schedule-timer-relative timer (max 0 dt)))
-    ))
-  
-(defun send-after (dt actor &rest msg)
-  ;; SEND-AFTER is safe to use in a BECOME branch of behavior code.
-  ;; The timer doesn't get launched unless the SENDS and BECOME commit
-  ;; at our exit.
-  ;;
-  ;; We mark the timer launch as non-idempotent so that it happens in
-  ;; an edge Actor, and gets launched via message SEND. If we get
-  ;; retried, that SEND will have been discarded and possibly tried
-  ;; again during message delivery retry.
-  ;;
-  (on-commit
-    (apply #'forced-send-after dt actor msg)))
 
 ;; --------------------------------------
 

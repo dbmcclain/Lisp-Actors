@@ -362,6 +362,10 @@ THE SOFTWARE.
    #:reppy
 
    #:at-exit
+   
+   #:select
+   #:expect
+   #:expect*
    ))
 
 #+(OR :ALLEGRO :CCL)
