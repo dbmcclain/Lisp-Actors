@@ -78,8 +78,8 @@ THE SOFTWARE.
    #:echo-service
    #:fork
    #:par-map
-   #:simd
-   #:mimd
+   ;; #:simd
+   ;; #:mimd
    #:actor-nlet
    #:is-sink?
    #:deflex
@@ -143,10 +143,10 @@ THE SOFTWARE.
    #:start-tcp-server
    #:terminate-server
 
-   #:future
-   #:lazy-future
-   #:future-become
-   #:lazy-future-become
+   ;; #:future
+   ;; #:lazy-future
+   ;; #:future-become
+   ;; #:lazy-future-become
    #:sink
    #:become-sink
    #:const
@@ -174,7 +174,7 @@ THE SOFTWARE.
    ;; #:timed-once-tag
    ;; #:timed-once-tag-with-ka
    #:rate-limited-gate
-   #:ser
+   ;; #:ser
    #:par
 
    #:serializer
@@ -187,7 +187,7 @@ THE SOFTWARE.
    #:map-reduce
    #:err-from
    #:timing
-   #:sequenced-delivery
+   ;; #:sequenced-delivery
    #:mbox-sender
    #:time-tag
    

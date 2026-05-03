@@ -1,3 +1,4 @@
+
 ;; prim-actors.lisp - A collection of useful primitive Actors
 ;;
 ;; DM/RAL 05/21
@@ -356,27 +357,6 @@ customer, just one time."
       (select β))
   (send* println ans))
 |#
-;; ---------------------
-#|
-(defun once-tag (cust)
-  (create
-   (behav (&rest msg)
-     (send* cust self msg)
-     (become-sink))
-   ))
-
-;; ---------------------
-
-(defun timed-tag (cust &optional (timeout *timeout*))
-  (let ((atag (tag cust)))
-    (send-after timeout atag +timed-out+)
-    atag))
-
-(defun timed-once-tag (cust &optional (timeout *timeout*))
-  (let ((atag (once-tag cust)))
-    (send-after timeout atag +timed-out+)
-    atag))
-|#
 ;; -------------------------------------------------
 
 (defun rate-limited-gate (cust dt)
@@ -401,171 +381,6 @@ customer, just one time."
     joiner
     ))
 
-;; -------------------------------------------------
-;; LAZY-FUTURE - A non-macro β replacement?
-;;
-;;  Instead of:
-;;
-;;     (β (targ)
-;;          (send* targ-generator β generator-args)
-;;       (send* targ my-args))
-;;
-;;  do this:
-;;
-;;     (send* (lazy-future targ-generator generator-args) my-args)
-
-;; -----------------------------------------------
-;; Now two years out, and I still haven't found a use for FUTURE
-;; DM/RAL 09/23
-
-(define ((future-wait-beh tag &optional msgs) . msg)
-  (match msg
-    ((atag ans) / (eq tag atag)
-     (become (const-beh ans))
-     (send-all-to self msgs))
-    (_
-     (become (future-wait-beh tag (cons msg msgs))))
-    ))
-
-(defun future (actor &rest constr-args)
-  ;; Return a value that represents a future Actor target. Send the
-  ;; Actor arg its constructor args to produce that future Actor
-  ;; target.
-  (actors ((fut (create
-                 (future-wait-beh tag)))
-           (tag (tag fut)))
-    (send* actor tag constr-args)
-    fut))
-
-(defun lazy-future (actor &rest constr-args)
-  (create
-   (lambda* msg
-     (let ((tag  (tag self)))
-       (become (future-wait-beh tag (list msg)))
-       (send* actor tag constr-args)))
-   ))
-
-#|
-;; This peculiar construct is roughly equiv to a beta form, but more
-;; general in that many future customers could be sent to the same
-;; action
-
- (send (future ac arg1 arg2 ...) (α (&rest ans)
-                                   ... body using ans))
-
- .EQUIV.
-
- (β (&rest ans)
-     (send ac β arg1 arg2 ...)
-   ... body using ans)
- |#
-
-;; -----------------------------------------
-
-(define ((future-become-wait-beh tag &optional msgs) . msg)
-  ;; There are times when you know you need to BECOME, but the
-  ;; parameters aren't yet available. This FUTURE-BECOME-BEH behavior
-  ;; function allows you to wait until the behavior can be completely
-  ;; defined.
-  ;;
-  ;; Meanwhile, incoming messges are stashed for transmission to
-  ;; yourself, until you become fully defined.
-  ;;
-  ;; NOTE: See SET-BEH and why it is unsafe to directly mutate an
-  ;; Actor's behavior.
-  ;;
-  ;; Use as:
-  ;;
-  ;;     (let ((tag   (TAG SELF)))
-  ;;       (BECOME (FUTURE-BECOME-BEH tag))
-  ;;       ... develop new-beh ...
-  ;;       (SEND tag new-beh)) ;; now become new-beh
-  ;;
-  ;; --------------------------------------------------------
-  ;; In the wait function, when a result Actor arrives, we must
-  ;; produce a FWD to that Actor, and not simply subsume its behavior
-  ;; function. Why?
-  ;;
-  ;; Desipite the fact that behaviors could be shared (as with macro
-  ;; ACTORS), in this case, we are relying on some procesing to
-  ;; produce a future Actor to us. And that Actor might well have some
-  ;; TAG's and LABEL's pointing to it for its proper functioning.
-  ;;
-  ;; If we simply borrowed its behavior function for ourselves, we
-  ;; would not receive the notifications from those TAG's and LABEL's,
-  ;; because those are targeted to an Actor, not a behavior function.
-  
-  (match msg
-    ((atag actor) / (eq atag tag)
-     (become (fwd-beh actor))
-     (send-all-to actor msgs))
-    (_
-     (become (future-become-wait-beh tag (cons msg msgs))))
-    ))
-
-(defun future-become (actor &rest constr-args)
-  (let ((tag  (tag self)))
-    (send* actor tag constr-args)
-    (become (future-become-wait-beh tag))
-    ))
-
-(defun lazy-future-become (actor &rest constr-args)
-  (create
-   (lambda* msg
-     (let ((tag  (tag self)))
-       (become (future-become-wait-beh tag (list msg)))
-       (send* actor tag constr-args)))
-   ))
-
-;; --------------------------------------
-;; SER - make an Actor that evaluates a series of blocks sequentially
-;; - i.e., without concurrency between them.  Each block is fed the
-;; same initial message, and the results from each block are sent as
-;; an ordered collection to cust.
-
-(deflex ser
-  (α (cust lst &rest msg)
-    (if (null lst)
-        (send cust)
-      (let ((me self))
-        (beta msg-hd
-            (send* (car lst) beta msg)
-          (beta msg-tl
-              (send* me beta (cdr lst) msg)
-            (send-combined-msg cust msg-hd msg-tl)))
-        ))))
-
-;; ----------------------------------------------
-
-(defun simd (svc)
-  ;; process an entire list of args in parallel
-  ;; cust should expect a (&rest ans)
-  ;; svc expects only a cust arg and a single operand
-  ;;
-  ;; -- So, why ever do this? --
-  ;; You could as well just send individual messages to the svc,
-  ;; naming the cust which then has to accept individual results.
-  ;;
-  ;; Using SIMD just gathers all results into an ordered list for
-  ;; delivery to cust.
-  (create
-   (behav (cust &rest args)
-     (send (apply #'fork (mapcar (curry #'racurry svc) args)) cust))))
-
-#|
-(let ((svc (create (behav (cust arg)
-                     (send cust (1+ arg))))))
-  (send (simd svc) println 1 2 3))
-|#
-
-(defun mimd (&rest svcs)
-  ;; Multiple Instr, Mult Data - process a list of svc against a
-  ;; matching list of args. Each svc expects a cust and a single operand.
-  ;; cust should expect a (&rest ans)
-  ;; Why? -- same comments as for SIMD --
-  (create
-   (behav (cust &rest args)
-     (send (apply #'fork (mapcar #'racurry svcs args)) cust))))
 
 ;; --------------------------------------
 
@@ -586,39 +401,6 @@ customer, just one time."
             (timer (timing dut))))
   (send timer println 1))
 |#
-
-;; ---------------------------------------------------------
-;; SEQUENCED-DELIVERY
-;;   Provider sends :DELIVER with sequence counter and message
-;;   Consumer sends :READY with customer and sequence counter of desired messaage
-
-(defun sequenced-delivery ()
-  (labels* (( ((sequenced-beh &optional items) . msg)
-                    (match msg
-                      ((cust :ready ctr)
-                       (let ((msg (assoc ctr items)))
-                         (cond (msg
-                                (send cust (cdr msg))
-                                (become (sequenced-beh (remove msg items))))
-                               (t
-                                (become (pending-sequenced-beh cust ctr items)))
-                               )))
-                      
-                      ((:deliver ctr . msg)
-                       (become (sequenced-beh (acons ctr msg items))))
-                      ))
-            
-            ( ((pending-sequenced-beh cust ctr items) . msg)
-                    (match msg
-                      ((:deliver in-ctr . msg)
-                       (cond ((eql in-ctr ctr)
-                              (send cust msg)
-                              (become (sequenced-beh items)))
-                             (t
-                    (become (pending-sequenced-beh cust ctr (acons in-ctr msg items))))
-                             )))))
-    (create (sequenced-beh))
-    ))
 
 ;; -------------------------------------
 ;; Systolic Processing Pipelines
