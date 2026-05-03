@@ -31,6 +31,14 @@
 (defun kvdb-orchestrator-beh (&optional open-dbs)
   ;; Prevent duplicate kvdb Actors for the same file.
   (alambda
+
+   ((cust 'forced-sync)
+    (send
+     (apply #'fork (mapcar (lambda (open-db)
+                             (racurry (open-database-kvdb-actor open-db) 'forced-sync))
+                           open-dbs))
+     cust))
+
    ((cust :make-kvdb path)
     ;; The call to ENSURE-FILE-EXISTS might produce an error. Since we
     ;; are behind a Serializer, we need to send that error code back
@@ -111,13 +119,29 @@
                                     (format nil "~A/" (sb-ext:posix-getenv "HOME")))
                    ))
 
+(defun fut-kvdb-handler (tag &optional msgs)
+  (alambda
+   ((atag kvdb) /. (eq tag atag)
+    (become (fwd-beh kvdb))
+    (send-all-to kvdb msgs))
+   (msg
+    (become (fut-kvdb-handler tag (cons msg msgs))))
+   ))
+
+(defun lazy-fut-kvdb-handler (path)
+  (create
+   (lambda* msg
+     (let ((tag (tag self)))
+       (send kvdb-orchestrator tag :make-kvdb path)
+       (become (fut-kvdb-handler tag (list msg)))
+       ))
+   ))
+
 (deflex* kvdb
   ;; The main Actor for just the goof-around KVDB. Make your own for
   ;; others.
-  ;;
-  ;; The FUT is a lazy eval, doing nothing until a message is sent to us.
-  (lazy-future-become kvdb-orchestrator :make-kvdb *db-path*))
-                 
+  (lazy-fut-kvdb-handler *db-path*))
+
 ;; -----------------------------------------------------------
 ;; Utility Functions
 
@@ -147,11 +171,23 @@
 
 (defun* lw-start-kvdb _
   (setf kvdb-orchestrator  (create (kvdb-orchestrator-beh)))
-  (setf kvdb               (lazy-future-become kvdb-orchestrator :make-kvdb *db-path*)))
+  (setf kvdb               (lazy-fut-kvdb-handler *db-path*)))
 
 (defun* lw-kill-kvdb _
-  (princ "Allowing KVDB to sync before shutting down.")
-  (sleep 11)) ;; give us time to sync
+  ;; (princ "Allowing KVDB to sync before shutting down.")
+  ;; (sleep 11) ;; give us time to sync
+  ;; (ask kvdb-orchestrator 'forced-sync)
+  (sign-off))
+
+(defun sign-off ()
+  (terpri)
+  (princ "Allowing KVDB to sync before shutting down. ")
+  (dotimes (ix 10)
+    (sleep 1)
+    (princ #\.))
+  (sleep 1)
+  (princ " Done!")
+  t)
 
 #+:LISPWORKS
 (let ((lw:*handle-existing-action-in-action-list* '(:silent :skip)))
@@ -169,6 +205,10 @@
   (lw:define-action "Save Session After"
                     "Restart KVDB"
                     'lw-start-kvdb)
+
+  (lw:define-action "Confirm when quitting image"
+                    "Stop KVDB"
+                    'lw-kill-kvdb)
   )
 
 

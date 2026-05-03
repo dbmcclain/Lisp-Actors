@@ -180,6 +180,9 @@
       ((a-tag a-db) / (and (eq a-tag saver)
                            (eq a-db  db))
        (send saver sink :save-log db))
+
+      ((cust 'forced-sync)
+       (send saver cust :saver-log db))
       )))
 
 ;; ------------------------------
@@ -472,6 +475,9 @@
                 
           ((:maint-full-save)
            (send dbmgr 'maint-full-save))
+
+          ((cust 'forced-sync)
+           (send dbmgr cust 'forced-sync))
 
           #|
           (msg
