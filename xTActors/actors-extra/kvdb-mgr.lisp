@@ -181,8 +181,11 @@
                            (eq a-db  db))
        (send saver sink :save-log db))
 
+      ;; --------------------------------------------
+
       ((cust 'forced-sync)
-       (send saver cust :saver-log db))
+       ;; (format t "~%Forced Syncing...")
+       (send saver cust :save-log db))
       )))
 
 ;; ------------------------------

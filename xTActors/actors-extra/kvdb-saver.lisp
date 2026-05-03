@@ -174,26 +174,30 @@
                ((db-find new-db 'version)
                 (db-find last-db 'version))) )
       (handler-case
-          (when (uuid:uuid-time< prev-ver new-ver)
-            (β (delta)
-                (send db-differencer β last-db new-db)
-              (handler-case
-                  (progn
-                    (with-open-file (f path
-                                       :direction         :output
-                                       :if-exists         :append
-                                       :if-does-not-exist :error
-                                       :element-type      '(unsigned-byte 8))
-                      (loenc:serialize delta f
-                                       :max-portability t
-                                       :self-sync t))
-                    (send me cust :become me new-db)
-                    #+:LISPWORKS
-                    (send fmt-println "~A Saved KVDB Deltas: ~S" (hcl:date-string) path))
-                (error ()
-                  ;; possible error because file not existing yet
-                  (recover))
-                )))
+          (cond ((uuid:uuid-time< prev-ver new-ver)
+                 (β (delta)
+                     (send db-differencer β last-db new-db)
+                   (handler-case
+                       (progn
+                         (with-open-file (f path
+                                            :direction         :output
+                                            :if-exists         :append
+                                            :if-does-not-exist :error
+                                            :element-type      '(unsigned-byte 8))
+                           (loenc:serialize delta f
+                                            :max-portability t
+                                            :self-sync t))
+                         (send me cust :become me new-db)
+                         #+:LISPWORKS
+                         (send fmt-println "~A Saved KVDB Deltas: ~S" (hcl:date-string) path))
+                     (error ()
+                       ;; possible error because file not existing yet
+                       (recover))
+                     )))
+
+                (t
+                 (send cust :ok))
+                )
         (error ()
           ;; possible error from non-existent prev-ver
           (recover))

@@ -33,6 +33,7 @@
   (alambda
 
    ((cust 'forced-sync)
+    ;; (format t "~%Forced Syncing...")
     (send
      (apply #'fork (mapcar (lambda (open-db)
                              (racurry (open-database-kvdb-actor open-db) 'forced-sync))
@@ -177,7 +178,11 @@
   ;; (princ "Allowing KVDB to sync before shutting down.")
   ;; (sleep 11) ;; give us time to sync
   ;; (ask kvdb-orchestrator 'forced-sync)
-  (sign-off))
+  (with-timeout 11
+    (ask kvdb-orchestrator 'forced-sync))
+  t
+  ;; (sign-off)
+  )
 
 (defun sign-off ()
   (terpri)
