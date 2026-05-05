@@ -59,20 +59,23 @@
     (cond ((eql old-val val)
            tbl)
           (t
-           (let ((new-tbl (copy-fpl-hashtable tbl)))
-             (push (cons key val) (fpl-hashtable-alst new-tbl))
-             new-tbl))
+           (%fpl-force-add tbl key val))
           )))
+
+(defun %fpl-force-add (tbl key val)
+  (let ((new-tbl (copy-fpl-hashtable tbl)))
+    (push (cons key val) (fpl-hashtable-alst new-tbl))
+    new-tbl))
 
 (defsetf fpl-gethash fpl-sethash)
 
 (defun fpl-gethash-or-add (tbl key val)
   ;; => val, new-tbl
-  (multiple-value-bind (tbl-val present-p)
-      (fpl-gethash tbl key)
-    (if present-p
-        (values tbl-val tbl)
-      (values val (fpl-sethash tbl key val)))
+  (multiple-value-bind (tbl-val flag)
+      (fpl-gethash tbl key tbl)
+    (if (eq flag tbl)
+        (values val (%fpl-force-add tbl key val))
+      (values tbl-val tbl))
     ))
 
 (defun fpl-remhash (tbl key)
