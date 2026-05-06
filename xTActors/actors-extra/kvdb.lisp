@@ -122,7 +122,7 @@
 
 (defun fut-kvdb-handler (tag &optional msgs)
   (alambda
-   ((atag kvdb) /. (eq tag atag)
+   ((atag kvdb) / (eq tag atag)
     (become (fwd-beh kvdb))
     (send-all-to kvdb msgs))
    (msg
