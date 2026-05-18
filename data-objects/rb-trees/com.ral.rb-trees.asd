@@ -30,6 +30,7 @@ THE SOFTWARE.
   :components  ((:file "rb-packages")
                 (:file "orderable")
                 (:file "ord")
+                (:file "rb-classes")
                 (:file "bal-binary-trees")
                 (:file "bal-binary-tree-maps"))
   :serial t

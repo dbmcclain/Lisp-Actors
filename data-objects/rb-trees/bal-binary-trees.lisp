@@ -53,15 +53,6 @@ THE SOFTWARE.
 ;; ------------------------------------------------------
 ;; Types & Public seed constructors - EMPTY, SINGLETON
 
-(defclass tree ()
-  ())
-
-;; -------------------------------
-
-(defclass empty (tree)
-  ((is-empty :reader is-empty :allocation :class :initform t)
-   (height   :reader height   :allocation :class :initform 0)))
-
 (defvar +empty+
   (make-instance 'empty))
 
@@ -72,20 +63,7 @@ THE SOFTWARE.
 
 ;; -------------------------------
 
-(defclass node (tree)
-  ((l  :reader node-l  :initarg :l  :type tree)
-   (v  :reader node-v  :initarg :v)
-   (r  :reader node-r  :initarg :r  :type tree)
-   (h  :reader node-h
-       :reader height  :initarg :h  :type fixnum)
-   (is-empty :reader is-empty :allocation :class :initform nil)
-   )
-  (:default-initargs
-   :l +empty+
-   :r +empty+
-   :h 1))
-
-(defun singleton (x)
+(defun singleton-node (x)
   (make-instance 'node
    :v  x))
 
@@ -204,7 +182,7 @@ THE SOFTWARE.
      ,@body))
 
 (defmethod add ((tree empty) x)
-  (values (singleton x) t))
+  (values (singleton-node x) t))
 
 (defmethod add ((tree node) x)
   ;; execute with S(Log2(N))
@@ -252,14 +230,14 @@ THE SOFTWARE.
   (add-max-elt l v))
 
 (defmethod add-min-elt ((s empty) v)
-  (singleton v))
+  (singleton-node v))
 
 (defmethod add-min-elt ((s node) v)
   (with-node-bindings (l x r) s
     (bal (add-min-elt l v) x r)))
 
 (defmethod add-max-elt ((s empty) v)
-  (singleton v))
+  (singleton-node v))
 
 (defmethod add-max-elt ((s node) v)
   (with-node-bindings (l x r) s
