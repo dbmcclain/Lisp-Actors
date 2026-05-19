@@ -26,8 +26,8 @@ THE SOFTWARE.
 |#
 
 ;; For Mac-64
-pushd /Applications/LispWorks\ 8.0\ \(64-bit\)/LispWorks\ \(64-bit\).app/Contents/MacOS
-"$PWD/Lispworks-8-0-0-macos64-universal" -build ~/projects/lispworks/Crypto/deliver-aont.lisp
+pushd /Applications/LispWorks\ 8.1\ \(64-bit\)/LispWorks\ \(64-bit\).app/Contents/MacOS
+"$PWD/lispworks-8-1-0-macos64-universal" -build ~/projects/lispworks/Crypto/LispSrc/deliver-aont.lisp
 popd
 
 ;; For Mac
@@ -50,9 +50,9 @@ popd
 
 |#
 
-(load-logical-pathname-translations "PROJECTS")
-(cd (translate-logical-pathname "PROJECTS:LISP;"))
-;; (cd #P"~/projects/Lispworks/")
+;; (load-logical-pathname-translations "PROJECTS")
+;; (cd (translate-logical-pathname "PROJECTS:LISP;"))
+(cd #P"~/projects/Lispworks/")
 (compile-file-if-needed "startup/project-packages-lw"   :load t)
 (load "startup/project-mappings")
 (load "startup/_my_bare-startup")
@@ -108,7 +108,8 @@ popd
 (deliver 'tolstoy-aont:make-aont-messaging-intf 
 
          #+:MACOSX
-         (let ((this-dir (translate-logical-pathname "PROJECTS:LISP;Crypto;")))
+         (let (;; (this-dir (translate-logical-pathname "PROJECTS:LISP;Crypto;"))
+               (this-dir "~/projects/Lispworks/Crypto/LispSrc/"))
            (create-macos-application-bundle
             "/Applications/Tolstoy-AONT.app"
             :signature  "ACUD"

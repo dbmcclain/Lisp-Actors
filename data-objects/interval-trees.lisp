@@ -45,7 +45,7 @@ THE SOFTWARE.
                  (cond ((= kstart istart)                  ;; K |---|
                         (values (maps:map-cell-val v) t))  ;; I |-----|
                        (t                                  ;; K |----|
-                        (find-containing key l default))   ;; I   |---|
+                        (find-containing l key default))   ;; I   |---|
                        )))
               (t
                ;; key > interval
@@ -57,7 +57,7 @@ THE SOFTWARE.
                             (+ istart ilen))                 ;; I   |-----|
                         (values (maps:map-cell-val v) t))
                        (t                                    ;; K |------| or    |-----|
-                        (find-containing key r default))     ;; I |---|       |-----|
+                        (find-containing r key default))     ;; I |---|       |-----|
                        )))
               )))
     ))

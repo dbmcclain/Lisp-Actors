@@ -28,7 +28,7 @@ only store the package name")
 ;; store or restore will signal a store-error or a 
 ;; restore-error respectively inside a handler-bind.
 (defun sdle-store-report (condition stream)
-  (declare (type stream stream))
+  ;; (declare (type stream stream))
   (aif (caused-by condition)
        (format stream "~A" it)
        (apply #'format stream (format-string condition) 

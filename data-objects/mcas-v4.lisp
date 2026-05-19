@@ -119,7 +119,7 @@ THE SOFTWARE.
 (defun mcas-help (mdesc)
   ;; minimum CAS algorithm, for N locations, needs only N+1 CAS
   (declare (mcas-desc mdesc))
-  (sys:compare-and-swap
+  (mpc:compare-and-swap
    (ref-val mdesc) :undecided
    (if (every (lambda (wdesc)
                 (declare (word-desc wdesc))
@@ -130,7 +130,7 @@ THE SOFTWARE.
                     (return (or (eq content wdesc)
                                 (and (eq value (word-desc-old wdesc))
                                      (undecided-p mdesc)
-                                     (or (sys:compare-and-swap
+                                     (or (mpc:compare-and-swap
                                           (ref-val (word-desc-addr wdesc))
                                           content wdesc)
                                          (go again))

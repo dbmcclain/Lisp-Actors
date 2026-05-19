@@ -200,10 +200,9 @@
          ;; ----------------------------------------------
          ;; Stale keying in message - lookup how to decrypt
          (t
-          (let+ ((:db (dict) state))
+          (let+ ((:db (dict ack-key) state))
             (um:when-let (entry (maps:find dict inp-ack-key))
-              (let+ ((:db (bday root dh-pt seqs) entry))
-                ;; :bday  - time of creation of this entry
+              (let+ ((:db (root dh-pt seqs) entry))
                 ;; :root  - root key at time we saw inp-ack to ratchet forward
                 ;; :dh-pt - DH shared pt
                 ;; :seqs  - history

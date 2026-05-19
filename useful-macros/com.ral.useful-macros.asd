@@ -32,6 +32,7 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "fix-walker")
                 (:file "eval-always")
                 (:file "def-extensions")
+                (:file "singleton-class")
 
                 #+:CLOZURE (:file "clozure-compat")
   	        #+:SBCL    (:file "sbcl-compat")

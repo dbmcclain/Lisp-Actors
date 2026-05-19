@@ -555,13 +555,16 @@ THE SOFTWARE.
 (defvar *ibe-encryption*
   #.(uuid:uuid "{5A8D6AC4-2B44-11E1-84AB-C82A14446EA7}"))
 
+(defvar *ecc-xxxx-public-key*
+  #.(uuid:uuid "{CC4C4F10-52EC-11F1-9163-60BBF0E19001}"))
+
 (defun encrypt-ibe (msg from-id to-id)
   ;; use twofish-aes encryption
   (let* ((ks        (list (ctr-drbg #.(+ 256 256 256 128 128))))
          (cmsg      (encrypt-msg msg :keys ks))
          (signature (sign-with-cmsg cmsg from-id))
          (keys      (dh-encrypt (list ks (um:paste-strings #\space from-id to-id))
-                                *ecc-acudora-public-key*)))
+                                *ecc-xxxx-public-key*)))
     (with-sensitive-objects (ks)
       (encode-object-to-base64 (list *ibe-encryption* signature keys cmsg)))))
 

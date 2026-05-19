@@ -26,14 +26,14 @@
 ;; -------------------------------
 
 (defclass empty (tree)
-  ((is-empty :reader is-empty :allocation :class :initform t)
-   (height   :reader height   :allocation :class :initform 0)))
+  ()
+  (:metaclass um:singleton-class))
 
-(let (instance)
-  ;; make EMPTY into a singleton class
-  (defmethod make-instance ((class (eql (find-class 'empty))) &key)
-    (or instance
-        (setf instance (call-next-method)))))
+(defmethod is-empty ((tree empty))
+  t)
+
+(defmethod height ((tree empty))
+  0)
 
 ;; -------------------------------
 
@@ -42,11 +42,12 @@
    (v  :reader node-v  :initarg :v)
    (r  :reader node-r  :initarg :r  :type tree)
    (h  :reader node-h
-       :reader height  :initarg :h  :type fixnum)
-   (is-empty :reader is-empty :allocation :class :initform nil)
-   )
+       :reader height  :initarg :h  :type fixnum))
   (:default-initargs
    :l +empty+
    :r +empty+
    :h 1))
+
+(defmethod is-empty ((tree node))
+  nil)
 

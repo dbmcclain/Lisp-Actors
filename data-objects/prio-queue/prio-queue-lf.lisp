@@ -217,6 +217,7 @@ THE SOFTWARE.
   (multiple-value-bind (_ pair)
       (um:rmw (ref:ref-val q) (lambda (lst)
                                 (values (cons nil nil) lst)))
+    (declare (ignore _))
     (append (car pair) (reverse (cdr pair)))
     ))
 

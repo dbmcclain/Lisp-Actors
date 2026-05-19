@@ -822,4 +822,6 @@ THE SOFTWARE.
    #:raw-vector-augmented-stream-mixin
    #:make-raw-vector-augmented-stream
    #:wrap-instance-with-mixin
+
+   #:singleton-class
    ))

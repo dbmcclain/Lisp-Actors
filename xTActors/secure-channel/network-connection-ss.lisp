@@ -30,12 +30,15 @@
                (repeat-send self)))))
      (alambda
       ((cust :start-tcp-server)
+       (do-nothing cust) ;; to remove compiler warnings
        (create-ws-collection))
 
       ((cust :start-tcp-server port)
+       (do-nothing cust port) ;; to remove compiler warnings
        (create-ws-collection))
       
       ((cust :connect ip-addr ip-port)
+       (do-nothing cust ip-addr ip-port) ;; to remove compiler warnings
        (create-ws-collection))
       
       ;; --------------------------------------------

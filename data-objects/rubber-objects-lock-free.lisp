@@ -262,10 +262,16 @@ THE SOFTWARE.
 
 
 #| -----------------------------------------------------------------------------------------------
-  ;; compare speed of access between property lists and hashtables
-  ;; Speed of hashtable is relatively constant for any number of entries in the table (as expected)
-  ;; Speed of property list is blazing fast here.
+  ;; Compare speed of access between property lists and hashtables.
+  ;;
+  ;; The compiler is smart enough to elide useless code, so we have to
+  ;; make use of lookups in some substantial way to avoid compiler
+  ;; elisions.
+  ;;
+  ;; Speed of hashtable is very good overall.
+  ;; Speed of property lists is best for 10 or fewer associations. (2025 M1 iMac, LWM 8.1.1)
   ;; Speed of map is offensively slow, in comparison.
+  ;;
 (defun tst (&key (nel 20) (niter 1_000_000))
   #F
   (let* ((keys (loop repeat nel collect
@@ -282,32 +288,110 @@ THE SOFTWARE.
 			))
          (ht   (make-hash-table))
          (lst  (mapcan 'list keys vals))
-         (map  (maps:empty)))
+         (map  (maps:empty))
+         (ct   0))
     (loop for key in keys
           for val in vals
           do
             (setf (gethash key ht) val)
             (maps:addf map key val))
+    (labels ((doit (x)
+               ;; call this on every lookup value to avoid compiler
+               ;; elisions of useless code.
+               (when x
+                 (incf ct))))
 
-    ;; --------------------------------------------
-    ;; HT - minor amount of allocation, no page faults, no GC, 20 ms
-    (print "Timing HT")
-    (time (dolist (query queries)
-            (gethash query ht)))
+      ;; --------------------------------------------
+      ;; HT - minor amount of allocation, no page faults, no GC, 20 ms
+      (print "Timing HT")
+      (time (dolist (query queries)
+              (doit (gethash query ht))))
+      (format t "~%Hits = ~D" (shiftf ct 0))
+      
+      ;; --------------------------------------------
+      ;; LST - no allocation, no page faults, no GC, 3 ms
+      (print "Timing Lst")
+      (time (dolist (query queries)
+              (doit (getf lst query))))
+      (format t "~%Hits = ~D" (shiftf ct 0))
 
-    ;; --------------------------------------------
-    ;; LST - no allocation, no page faults, no GC, 3 ms
-    (print "Timing Lst")
-    (time (dolist (query queries)
-            (getf lst query)))
+      ;; --------------------------------------------
+      ;; MAP - lots of allocation, 38 page faults, no GC, 2449 ms.
+      (print "Timing Map")
+      (time (dolist (query queries)
+              (doit (maps:find map query))))
+      (format t "~%Hits = ~D" (shiftf ct 0))
+      )))
+(tst :nel 10)
 
-    ;; --------------------------------------------
-    ;; MAP - lots of allocation, 38 page faults, no GC, 2449 ms.
-    (print "Timing Map")
-    (time (dolist (query queries)
-            (maps:find map query)))
+(defun tst (&key (niter 1_000_000))
+  #F
+  (let* ((props '(:one 1 :two 2 :three 3))
+         (ht    (make-hash-table))
+         (ct    0))
+    (loop for (key val) on props do
+          (setf (gethash key ht) val))
+    (labels ((doit (a b)
+               (when (or a b)
+                 (incf ct)))
+             (getsf (plist &rest keys)
+               (values-list
+                (loop for key in keys collect (getf plist key)))))
+      
+      (print "Timing Hashtable")
+      (time
+       (dotimes (ix niter)
+         (let ((two  (gethash :two ht))
+               (four (gethash :four ht)))
+           (doit two four))
+         ))
+      (format t "~%Hits = ~D" (shiftf ct 0))
+      
+      (print "Timing Proplist")
+      (time
+       (dotimes (ix niter)
+         (let ((two (getf props :two))
+               (four (getf props :four)))
+           (doit two four))
+         ))
+      (format t "~%Hits = ~D" (shiftf ct 0))
+      
+      (print "Timing Dict")
+      (time
+       (dotimes (ix niter)
+         (ac:dictionary-bind (two four) props
+           (doit two four))
+         ))
+      (format t "~%Hits = ~D" (shiftf ct 0))
+      
+      (print "Timing Dictx")
+      (time
+       (dotimes (ix niter)
+         (multiple-value-bind (two four)
+             (getsf props :two :four)
+           (doit two four))
+         ))
+      (format t "~%Hits = ~D" (shiftf ct 0))
+      )))
+(tst)
+
+(defun tst (&key (niter 1_000_000))
+  (let ((ct 0))
+    (time (dotimes (ix niter)
+            (when (> ix 15)
+                (incf ct))))
+    (format t "~%Hits = ~D" (shiftf ct 0))
+
+    (time (dotimes (ix niter)
+            (funcall (lambda (&key jx &allow-other-keys)
+                       (when (> jx 15)
+                         (incf ct)))
+                     :jx ix)))
+    (format t "~%Hits = ~D" (shiftf ct 0))
     ))
-(tst :nel 1000)
+(tst :niter 1_000_000_000)
+    
+
 |#
 
 (defvar *responder* nil)

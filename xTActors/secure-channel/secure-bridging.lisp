@@ -332,7 +332,7 @@
    struct object.
   
    After the marshaler deserializes a struct object, it returns
-   whatever the result of AFTER-RETRIEVE returns. Normally it just
+   whatever the result of AFTER-RESTORE returns. Normally it just
    returns its argument object.
   
    So rather than inventing whole new type encodings for Actors, we
@@ -398,7 +398,7 @@
 (aop:defdynfun translate-proxy-to-actor (proxy)
   proxy)
 
-(defmethod loenc:after-restore ((obj client-proxy))
+(defmethod loenc:after-restore((obj client-proxy))
   (translate-proxy-to-actor obj))
 
 (defun server-marshal-decoder (local-services)
