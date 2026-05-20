@@ -267,8 +267,8 @@ THE SOFTWARE.
 
 (defun convert-hyphenated-number (s)
   ;; xxxx-xx-xxxx  as in telephone numbers, SSN's, and UUID's
-  (if (#~m/^[0-9]+(\-[0-9]+)*$/ s)
-      (read-from-string (delete #\- s))))
+  (when (#~m/^[0-9]+(\-[0-9]+)*$/ s)
+    (read-from-string (delete #\- s))))
     
 (defun convert-other-base-number (s)
   ;; 0xNNNN_NNNN_NNN

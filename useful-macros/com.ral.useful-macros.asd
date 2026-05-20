@@ -159,6 +159,7 @@ THE SOFTWARE.
                 #+:LISPWORKS (:file "fdpl")
                 (:file "wrap-mixin")
                 #+:LISPWORKS (:file "read-raw-vector")
+                (:file "fmt")
                 )
   :serial       t
   :depends-on   ("com.ral.useful-macros"

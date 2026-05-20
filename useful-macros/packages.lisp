@@ -824,4 +824,5 @@ THE SOFTWARE.
    #:wrap-instance-with-mixin
 
    #:singleton-class
+   #:pr-int
    ))
