@@ -291,16 +291,29 @@ THE SOFTWARE.
           ((convert-other-base-number s))
           )))
 
-;; Reader macro for #N
+;; Reader macro for #N 
 ;; Parses a variety of numbers
+
+(defvar *nn-package* (make-package '|#N-reader-numbers|))
+#| 
+(inspect *nn-package*)
+|#
 
 (defun |reader-for-#N| (stream sub-char numarg)
   (declare (ignore sub-char numarg))
-  (let ((v (read stream t nil t)))
+  (let* ((*package* *nn-package*)
+         (v         (read stream t nil t)))
     (unless *read-suppress*
       (or (and (or (stringp v)
                    (symbolp v))
-               (read-extended-number-syntax (string v)))
+               (let ((ans  (read-extended-number-syntax (string v))))
+                 (when (and ans
+                            (symbolp v))
+                   #+nil
+                   (let ((*package* nil))
+                     (format t "~%~S" v))
+                   (unintern v *nn-package*))
+                 ans))
           v))
     ))
 
