@@ -825,4 +825,5 @@ THE SOFTWARE.
 
    #:singleton-class
    #:pr-int
+   #:with-extended-number-syntax
    ))

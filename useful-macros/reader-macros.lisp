@@ -124,7 +124,8 @@ THE SOFTWARE.
   ;; hh:mm:ss.ss, or hh:mm
   ;; return sec
   (multiple-value-bind (start end gstart gend)
-      (#~m/^([+-])?([0-9]+):([0-9]{1,2})(:[0-9]{1,2}(\.[0-9_,]*)?)?$/ s)
+      ;; (#~m/^([+-])?([0-9]+)[:^]([0-9]{1,2})([:^][0-9]{1,2}(\.[0-9_,]*)?)?$/ s)
+      (#~m/^([+-])?([0-9]+)[:^.]([0-5][0-9])([:^.][0-5][0-9](\.[0-9_,]*)?)?$/ s)
     (declare (ignore end))
     (when start
       (symbol-macrolet
@@ -272,13 +273,15 @@ THE SOFTWARE.
     
 (defun convert-other-base-number (s)
   ;; 0xNNNN_NNNN_NNN
-  (when (or (#~m/^0[xXoObB]/ s)
-            (#~m/^[0-9]+[rR]/ s))
-    (ignore-errors
-      ;; Our upgraded Lisp Reader already handles these.
-      ;; See: 
-      (read-from-string (concatenate 'string "#" s)))
-    ))
+  (cond ((#~m/^0[xXoObB]/ s)
+         (ignore-errors
+           (read-from-string (concatenate 'string "#" (subseq s 1)))))
+        ((#~m/^[0-9]+[rR]/ s)
+         (ignore-errors
+           (read-from-string (concatenate 'string "#" s))))
+        (t
+         nil)
+        ))
     
 (defun read-extended-number-syntax (s)
   (let ((s  (remove-separators s))) ;; sep "," or "_"
@@ -287,8 +290,8 @@ THE SOFTWARE.
           ((convert-utc-date s))
           ;; ((convert-date s))
           ((convert-american-short-date s))
-          ((convert-hyphenated-number s))
           ((convert-other-base-number s))
+          ((convert-hyphenated-number s))
           )))
 
 ;; Reader macro for #N 
