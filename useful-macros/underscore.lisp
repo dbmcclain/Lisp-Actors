@@ -4,82 +4,82 @@
 ;; -------------------------------------------------------------------
 (in-package :common-lisp-user)
 ;; -------------------------------------------------------------------
-;; Handle default Reader ops
 
-#+:LISPWORKSx
-(progn
-  (defadvice (sys::read-token underscore-skipper :around)
-      (&rest args)
-    (let* ((ans  (multiple-value-list (apply #'call-next-advice args)))
-           (val  (car ans))
-           name)
-      (cond ((and (symbolp val)
-                  (find #\_ (setf name (symbol-name val))))
-             (let ((namex (remove #\_ name)))
-               (multiple-value-bind (ans2 end)
-                   (read-from-string namex nil nil)
-                 (if (and (numberp ans2)
-                          (eql end (length namex)))
-                     (progn
-                       (unintern val (symbol-package val))
-                       ans2) ;; just 1 retval - same as when a normal number is encountered
-                   ;; else
-		   (values-list ans))
-                 )))
-            (t
-             (values-list ans))
-            )))
-  
-  ;; ----------------------------------------------------
-  ;; Handle #X, #B, #O, #R formats
-  
-  (defvar *in-sharp-r* nil)
-
-  (defadvice (sys::sharp-r underscore-skipper :around)
-      (&rest args)
-    (let ((*in-sharp-r* t))
-      (apply #'call-next-advice args)))
-  
-  (defadvice (sys::new-read-extended-token underscore-skipper :around)
-      (&rest args)
-    (let* ((ans (multiple-value-list (apply #'call-next-advice args)))
-           (val (car ans)))
-      (cond ((and *in-sharp-r*
-                  (stringp val))
-             (apply #'values (remove #\_ val) (cdr ans)))
-            (t
-             (values-list ans))
-            ))))
+(defun skip-underscore (ans)
+  (when (and (symbolp ans)
+             (find #\_ (symbol-name ans)))
+    (let ((num (ignore-errors
+                 (read-from-string (remove #\_ (symbol-name ans))))))
+      (when (realp num)
+        (unintern ans)
+        (setf ans num))
+      ))
+  ans)
 
 ;; --------------------------------------------
 
-#+:SBCLx
-(sb-ext:with-unlocked-packages (:sb-impl)
-  (cl-advice:make-advisable 'sb-impl::read-maybe-nothing)
-  (cl-advice:add-advice :around 'sb-impl::read-maybe-nothing
+(defun read-base-number (stream subch pref test-fn reader-fn)
+  (let ((str  (make-array 16
+                          :element-type 'character
+                          :adjustable   t
+                          :fill-pointer 0)))
+    (um:nlet iter ()
+      (let ((ch  (read-char stream nil stream t)))
+        (cond ((char= #\_ ch)
+               (go-iter))
+              ((funcall test-fn ch)
+               (vector-push-extend ch str)
+               (go-iter))
+              (t
+               (unless (eq ch stream)
+                 (unread-char ch stream))
+               (with-input-from-string (s str)
+                 (funcall reader-fn s subch pref)))
+              )))
+    ))
+
+(defun patch-reader-fn (subch &optional base)
+  (let ((reader-fn  (get-dispatch-macro-character #\# subch)))
+    (set-dispatch-macro-character #\# subch
+                                  (if (char-equal subch #\r)
+                                      (lambda (stream subch pref)
+                                        (let ((test-fn  (um:rcurry #'digit-char-p pref)))
+                                          (read-base-number stream subch pref test-fn reader-fn)))
+                                    (let ((test-fn (um:rcurry #'digit-char-p base)))
+                                      (lambda (stream subch pref)
+                                        (read-base-number stream subch pref test-fn reader-fn)))
+                                    ))
+    ))
+
+;; --------------------------------------------
+
+#+:LISPWORKS
+(progn
+  (defadvice (read underscore-skipper :around)
+      (&rest args)
+    (skip-underscore (apply #'call-next-advice args)))
+  (defadvice (read-preserving-whitespace underscore-skipper :around)
+      (&rest args)
+    (skip-underscore (apply #'call-next-advice args)))
+  (patch-reader-fn #\x 16)
+  (patch-reader-fn #\o  8)
+  (patch-reader-fn #\b  2)
+  (patch-reader-fn #\r))
+
+;; --------------------------------------------
+
+#+:SBCL
+(sb-ext:with-unlocked-packages (:common-lisp)
+  (cl-advice:make-advisable 'read)
+  (cl-advice:make-advisable 'read-preserving-whitespace)
+  (cl-advice:add-advice :around 'read
 			(lambda (next-fn &rest args)
-			  (multiple-value-bind (flag result)
-			      (apply next-fn args)
-			    (case flag
-			      (0
-			       (values flag result))
-			      (t
-			       (let (name)
-				 (cond ((and (symbolp result)
-					     (find #\_ (setf name (symbol-name result))))
-					(let ((namex (remove #\_ name)))
-					  (multiple-value-bind (ans end)
-					      (read-from-string namex nil nil)
-					    (if (and (numberp ans)
-						     (eql end (length namex)))
-						(progn
-						  (unintern result (symbol-package result))
-						  (values flag ans))
-						(values flag result))
-					    )))
-				       (t
-					(values flag result))
-				       )))
-			      )))
-			))
+                          (skip-underscore (apply next-fn args))))
+  (cl-advice:add-advice :around 'read-preserving-whitespace
+                        (lambda (next-fn &rest args)
+                          (skip-underscore (apply next-fn args))))
+  (patch-reader-fn #\x 16)
+  (patch-reader-fn #\o  8)
+  (patch-reader-fn #\b  2)
+  (patch-reader-fn #\r))
 

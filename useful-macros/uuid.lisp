@@ -377,11 +377,11 @@ INTERNAL-TIME-UINITS-PER-SECOND which gives the ticks per count for the current 
      (critical-section
        (nlet iter ()
          ;; The standard calls for times measured from 1582-10-15
-         (let ((time-now ;; (+ (* (get-universal-time) 10000000) 100103040000000000)
+         (let ((time-now ;; (+ (* (get-universal-time) 10000000.) 100103040000000000.)
                          (+ (* 10. (the integer (usec:get-universal-time-usec)))
-                            ;; #N|02_208_988_800_0000000|  ;; time offseet between 1970-01-01 and 1900-01-01
-                            #N|10_010_304_000_0000000| ;; time offset in 100ns increments
-                         )))  ;; 10_010_304_000 is time between 1582-10-15 and 1900-01-01 in seconds
+                            ;; #N|02_208_988_800_0000000.|  ;; time offseet between 1970-01-01 and 1900-01-01
+                            #N|10_010_304_000_0000000.| ;; time offset in 100ns increments
+                         )))  ;; 10_010_304_000. is time between 1582-10-15 and 1900-01-01 in seconds
            (declare (integer time-now))
            (cond ((/= last-time time-now)
                   (setf uuids-this-tick 0

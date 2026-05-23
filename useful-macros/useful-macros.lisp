@@ -2568,11 +2568,11 @@ This is C++ style enumerations."
 
 (defun hhmmss.ss (val)
   "(hhmmss.ss val) -- convert time from hhmmss.ss to sec"
-  (let* ((h    (truncate val #n1_00_00))
-         (mmss (- val (* h #n1_00_00)))
-         (m    (truncate mmss #n1_00))
-         (s    (- mmss (* #n1_00 m))))
-    (values (+ s (* 60 (+ m (* 60 h))))
+  (let* ((h    (truncate val #n1_00_00.))
+         (mmss (- val (* h #n1_00_00.)))
+         (m    (truncate mmss #n1_00.))
+         (s    (- mmss (* #n1_00. m))))
+    (values (+ s (* 60. (+ m (* 60. h))))
             h m s)))
 
 (defun hms (val)
@@ -2581,53 +2581,53 @@ This is C++ style enumerations."
 
 (defun ddmmyyyy (val)
   "(ddmmyyyy val) -- convert date from ddmmyyyy to universal time"
-  (let* ((d    (truncate val #n1_00_0000))
-         (mmyy (- val (* d #n1_00_0000)))
-         (m    (truncate mmyy #n1_0000))
-         (y    (- mmyy (* m #n1_0000))))
+  (let* ((d    (truncate val #n1_00_0000.))
+         (mmyy (- val (* d #n1_00_0000.)))
+         (m    (truncate mmyy #n1_0000.))
+         (y    (- mmyy (* m #n1_0000.))))
     (values (encode-universal-time 0 0 0 d m y)
             d m y)))
 
 (defun dmy (val)
   "(dmy val) -- convert date from ddmmyy to universal time"
-  (let* ((d    (truncate val #n1_00_00))
-         (mmyy (- val (* d #n1_00_00)))
-         (m    (truncate mmyy #n1_00))
-         (y    (+ 2000 (- mmyy (* m #n1_00)))))
+  (let* ((d    (truncate val #n1_00_00.))
+         (mmyy (- val (* d #n1_00_00.)))
+         (m    (truncate mmyy #n1_00.))
+         (y    (+ 2000. (- mmyy (* m #n1_00.)))))
     (values (encode-universal-time 0 0 0 d m y)
             d m y)))
 
   
 (defun yyyymmdd (val)
   "(yyyymmdd val) -- convert date from yyyymmdd to universal time"
-  (let* ((y     (truncate val #n1_00_00))
-         (mmdd  (- val (* y #n1_00_00)))
-         (m     (truncate mmdd #n1_00))
-         (d     (- mmdd (* m #n1_00))))
+  (let* ((y     (truncate val #n1_00_00.))
+         (mmdd  (- val (* y #n1_00_00.)))
+         (m     (truncate mmdd #n1_00.))
+         (d     (- mmdd (* m #n1_00.))))
     (values (encode-universal-time 0 0 0 d m y)
             y m d)))
     
 (defun ymd (val)
   "(ymd val) -- convert date from yymmdd to universal time"
-  (yyyymmdd (+ val #.(* 2000 #n1_00_00))))
+  (yyyymmdd (+ val #.(* 2000. #n1_00_00.))))
     
 ;; --------------------------------------
 
 (defun nn-to-hz (nn)
   ;; 440 Hz = A4 = A above middle C
-  (* 440 (expt 2 (/ (- nn 69) 12))))
+  (* 440. (expt 2. (/ (- nn 69.) 12.))))
 
 (defun hz-to-nn (hz)
   ;; nn60 = Middle C = C4
-  (+ 69 (* 12 (log (/ hz 440) 2))))
+  (+ 69. (* 12. (log (/ hz 440.) 2.))))
 
 (defun q-for-bw (bw)
   ;; bw in octaves
-  (/ (* 2 (sinh (/ (* bw (log 2)) 2)))))
+  (/ (* 2. (sinh (/ (* bw (log 2.)) 2.)))))
 
 (defun bw-for-q (q)
   ;; bw in octaves
-  (* (/ 2 (log 2)) (asinh (/ (* 2 q)))))
+  (* (/ 2. (log 2.)) (asinh (/ (* 2. q)))))
 
 ;; --------------------------------------
 #|
