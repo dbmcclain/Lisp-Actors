@@ -45,3 +45,53 @@
   `(progn
      ,@(mapcar #'skip-underscore body)))
 
+
+;; --------------------------------------------
+
+(defun patched-numreader (stream subch pref test-fn prev-fn)
+  (let ((tok  (make-array 16
+                          :element-type 'character
+                          :adjustable   t
+                          :fill-pointer 0)))
+    (um:nlet iter ()
+      (let ((ch  (read-char stream nil stream)))
+        (cond ((eq ch stream))
+              ((char= #\_ ch)
+               (go-iter))
+              ((funcall test-fn ch)
+               (vector-push-extend ch tok)
+               (go-iter))
+              (t
+               (unread-char ch stream))
+              )))
+    (with-input-from-string (s tok)
+      (funcall prev-fn s subch pref))
+    ))
+
+(defun patch-numreader (subch &optional base)
+  (let ((prev-fn  (get-dispatch-macro-character #\# subch)))
+    (set-dispatch-macro-character #\# subch
+                                  (if (char-equal subch #\r)
+                                      (lambda (stream subch pref)
+                                        (let ((test-fn (um:rcurry #'digit-char-p pref)))
+                                          (patched-numreader stream subch pref test-fn prev-fn)))
+                                    (let ((test-fn  (um:rcurry #'digit-char-p base)))
+                                      (lambda (stream subch pref)
+                                        (patched-numreader stream subch pref test-fn prev-fn)))
+                                    ))))
+
+(unless (fboundp 'do-nothing)
+  (defun do-nothing (&rest ignored)
+    (declare (ignore ignored))))
+
+
+(progn
+  (patch-numreader #\x 16)
+  (patch-numreader #\o  8)
+  (patch-numreader #\b  2)
+  (patch-numreader #\r)
+  (setf (symbol-function 'patch-numreader) #'do-nothing))
+
+#|
+(print #x1_00)
+|#
