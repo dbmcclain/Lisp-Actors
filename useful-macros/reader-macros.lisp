@@ -297,27 +297,40 @@ THE SOFTWARE.
 ;; Reader macro for #N 
 ;; Parses a variety of numbers
 
-(defvar *nn-package* (make-package '|#N-reader-numbers|))
-#| 
-(inspect *nn-package*)
-|#
-
 (defun |reader-for-#N| (stream sub-char numarg)
   (declare (ignore sub-char numarg))
-  (let* ((*package* *nn-package*)
-         (v         (read stream t nil t)))
-    (unless *read-suppress*
-      (or (and (or (stringp v)
-                   (symbolp v))
-               (let ((ans  (read-extended-number-syntax (string v))))
-                 (when (and ans
-                            (symbolp v))
-                   #+nil
-                   (let ((*package* nil))
-                     (format t "~%~S" v))
-                   (unintern v *nn-package*))
-                 ans))
-          v))
+  (let* ((tok  (make-array 16
+                           :element-type 'character
+                           :adjustable   t
+                           :fill-pointer 0))
+         (ch    (read-char stream nil stream))
+         (delim (let ((pos (position ch #(#\| #\" #\/ #\$ #\% #\( #\[ #\{ #\«))))
+                  (when pos
+                    (aref #(#\| #\" #\/ #\$ #\% #\) #\] #\} #\») pos)))))
+    (if delim
+        (um:nlet iter ()
+          (let ((ch  (read-char stream nil stream)))
+            (cond ((eq ch stream))
+                  ((char= ch delim))
+                  (t
+                   (vector-push-extend ch tok)
+                   (go-iter))
+                  )))
+      ;; else
+      (unless (eq ch stream)
+        (unread-char ch stream)
+        (um:nlet iter ()
+          (let ((ch  (read-char stream nil stream)))
+            (cond ((eq ch stream))
+                  ((or (whitespace-char-p ch)
+                       (find ch #( #\( #\) )))
+                   (unread-char ch stream))
+                  (t
+                   (vector-push-extend ch tok)
+                   (go-iter))
+                  )))))
+    (or (read-extended-number-syntax tok)
+        (intern tok))
     ))
 
 (set-dispatch-macro-character
