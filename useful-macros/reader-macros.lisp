@@ -283,16 +283,21 @@ THE SOFTWARE.
          nil)
         ))
     
+(defmacro with-vanilla-readtable (&body body)
+  `(let ((*readtable*  (copy-readtable nil)))
+     ,@body))
+
 (defun read-extended-number-syntax (s)
-  (let ((s  (remove-separators s))) ;; sep "," or "_"
-    (cond ((convert-real-or-complex s))
-          ((convert-sexigisimal s))
-          ((convert-utc-date s))
-          ;; ((convert-date s))
-          ((convert-american-short-date s))
-          ((convert-other-base-number s))
-          ((convert-hyphenated-number s))
-          )))
+  (with-vanilla-readtable
+    (let ((s  (remove-separators s))) ;; sep "," or "_"
+      (cond ((convert-real-or-complex s))
+            ((convert-sexigisimal s))
+            ((convert-utc-date s))
+            ;; ((convert-date s))
+            ((convert-american-short-date s))
+            ((convert-other-base-number s))
+            ((convert-hyphenated-number s))
+            ))))
 
 ;; Reader macro for #N 
 ;; Parses a variety of numbers
@@ -343,6 +348,41 @@ THE SOFTWARE.
 #N|123-45-6789|
 #n1+2j
 |#
+;; --------------------------------------------
+;; From Pascal Bourguignon
+
+(defun angle-terminator-p (c)
+  "Characters that terminate a token in standard Lisp syntax."
+  (or (null c)
+      (whitespace-char-p c)
+      (member c '(#\( #\) #\' #\` #\, #\; #\" #\|))))
+
+(defun read-angle-or-fallback (stream char)
+  "Reader macro function. CHAR is the first digit (or sign) that triggered us.
+   Buffer characters until a terminator; if it parses as an angle, return the
+   angle; otherwise, push the buffer back via a concatenated-stream and call
+   READ with the angle reader macro disabled."
+  (with-vanilla-readtable
+   (let ((buffer (make-array 16 :element-type 'character
+                             :adjustable t :fill-pointer 0)))
+     (vector-push-extend char buffer)
+     (loop for c = (peek-char nil stream nil nil t)
+           while (and c (not (angle-terminator-p c)))
+           do (vector-push-extend (read-char stream t nil t) buffer))
+     (setf buffer (coerce buffer 'string))
+     (or (read-extended-number-syntax buffer)
+         ;; Fallback: put the buffer back in front of STREAM and re-READ
+         ;; with standard syntax (no angle reader macro).
+         (let* ((pushback (make-string-input-stream buffer))
+                (combined (make-concatenated-stream pushback stream)))
+           (read combined t nil t))))))
+  
+(defun install-angle-reader (&optional (readtable *readtable*))
+  "Install the angle reader macro on digits and signs."
+  (dolist (c '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\+ #\-)) ; <- the magic is here ;-)
+    (set-macro-character c #'read-angle-or-fallback t readtable))
+  readtable)
+
 ;; --------------------------------------
 
 (defmacro! alet (letargs &rest body)

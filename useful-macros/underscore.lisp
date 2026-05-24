@@ -53,26 +53,35 @@
 
 ;; --------------------------------------------
 
+(defun nbr-termination-char-p (ch)
+  ;; tests for if char terminates a number accumulation
+  (or (whitespace-char-p ch)
+      (multiple-value-bind (fn non-terminating)
+          (get-macro-character ch)
+        (and fn
+             (not non-terminating))
+        )))
+
 (defun patched-numreader (stream subch pref prev-fn)
   (let ((tok  (make-array 16
                           :element-type 'character
                           :adjustable   t
                           :fill-pointer 0)))
-    (um:nlet iter ()
-      (let ((ch  (read-char stream nil stream)))
-        (cond ((eq ch stream))
-              ((char= #\_ ch)
-               (go-iter))
-              ((or (whitespace-char-p ch)
-                   (get-macro-character ch))
-               (unread-char ch stream))
-              (t
-               (vector-push-extend ch tok)
-               (go-iter))
-              )))
-    (with-input-from-string (s tok)
-      (funcall prev-fn s subch pref))
-    ))
+    (um:with-vanilla-readtable
+      (um:nlet iter ()
+        (let ((ch  (read-char stream nil nil t)))
+          (cond ((null ch))
+                ((char= #\_ ch)
+                 (go-iter))
+                ((nbr-termination-char-p ch)
+                 (unread-char ch stream))
+                (t
+                 (vector-push-extend ch tok)
+                 (go-iter))
+                )))
+      (with-input-from-string (s tok)
+        (funcall prev-fn s subch pref))
+      )))
 
 (defun patch-numreader (subch)
   (set-dispatch-macro-character #\# subch
