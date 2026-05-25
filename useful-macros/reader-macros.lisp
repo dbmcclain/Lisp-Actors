@@ -137,24 +137,23 @@ THE SOFTWARE.
            (sstart (aref gstart 3))
            (send   (aref gend   3))
            (sfrac  (aref gstart 4)))
-        (ignore-errors
-          (let* ((hh   (read-from-string (subseq s hstart hend)))
-                 (mm   (read-from-string (subseq s mstart mend)))
-                 (valm (* 60 (+ mm (* 60 hh))))
-                 (ss   (if sstart
-                           (read-from-string (subseq s (1+ sstart) send))
-                         0))
-                 (val  (if sstart
-                           (+ valm
-                              (if sfrac
-                                  (float ss 1d0)
-                                ss))
-                         valm)))
-            (if (and sign
-                     (char= (char s sign) #\-))
-                (- val)
-              val)
-            ))))))
+        (let* ((hh   (read-from-string (subseq s hstart hend)))
+               (mm   (read-from-string (subseq s mstart mend)))
+               (valm (* 60 (+ mm (* 60 hh))))
+               (ss   (if sstart
+                         (read-from-string (subseq s (1+ sstart) send))
+                       0))
+               (val  (if sstart
+                         (+ valm
+                            (if sfrac
+                                (float ss 1d0)
+                              ss))
+                       valm)))
+          (if (and sign
+                   (char= (char s sign) #\-))
+              (- val)
+            val)
+          )))))
 
 (defun convert-utc-date (s)
   ;; yyyy/mm/dd [hh:mm:ss] [UTC[+/-nn]]]
@@ -179,26 +178,25 @@ THE SOFTWARE.
            (utstart (aref gstart 8))
            (tzstart (aref gstart 9))
            (tzend   (aref gend   9)))
-        (ignore-errors
-          (let* ((yyyy (read-from-string (subseq s ystart  yend)))
-                 (mm   (read-from-string (subseq s mstart  mend)))
-                 (dd   (read-from-string (subseq s dstart  dend)))
-                 (hrs  (if hstart
-                           (read-from-string (subseq s hstart  hend))
-                         0))
-                 (mins (if mmstart
-                           (read-from-string (subseq s mmstart mmend))
-                         0))
-                 (secs (if sstart
-                           (read-from-string (subseq s sstart  send))
-                         0))
-                 (tz   (when utstart
-                         (list
-                          (if tzstart
-                              (- (read-from-string (subseq s tzstart tzend)))
-                            0)))))
-            (apply #'encode-universal-time secs mins hrs dd mm yyyy tz))
-          ))) ))
+        (let* ((yyyy (read-from-string (subseq s ystart  yend)))
+               (mm   (read-from-string (subseq s mstart  mend)))
+               (dd   (read-from-string (subseq s dstart  dend)))
+               (hrs  (if hstart
+                         (read-from-string (subseq s hstart  hend))
+                       0))
+               (mins (if mmstart
+                         (read-from-string (subseq s mmstart mmend))
+                       0))
+               (secs (if sstart
+                         (read-from-string (subseq s sstart  send))
+                       0))
+               (tz   (when utstart
+                       (list
+                        (if tzstart
+                            (- (read-from-string (subseq s tzstart tzend)))
+                          0)))))
+          (apply #'encode-universal-time secs mins hrs dd mm yyyy tz))
+        ))) )
 
 #|
 ;; now extended syntax in above def
@@ -215,12 +213,11 @@ THE SOFTWARE.
            (mend   (aref gend   1))
            (dstart (aref gstart 2))
            (dend   (aref gend   2)))
-        (ignore-errors
-          (let* ((yyyy (read-from-string (subseq s ystart yend)))
-                 (mm   (read-from-string (subseq s mstart mend)))
-                 (dd   (read-from-string (subseq s dstart dend))))
-            (encode-universal-time 0 0 0 dd mm yyyy 0)) ;; makes UTC date
-          )))))
+        (let* ((yyyy (read-from-string (subseq s ystart yend)))
+               (mm   (read-from-string (subseq s mstart mend)))
+               (dd   (read-from-string (subseq s dstart dend))))
+          (encode-universal-time 0 0 0 dd mm yyyy 0)) ;; makes UTC date
+        ))))
 |#
 
 #|
@@ -238,12 +235,11 @@ THE SOFTWARE.
            (mend   (aref gend   1))
            (dstart (aref gstart 2))
            (dend   (aref gend   2)))
-        (ignore-errors
-          (let* ((yyyy (read-from-string (subseq s ystart yend)))
-                 (mm   (read-from-string (subseq s mstart mend)))
-                 (dd   (read-from-string (subseq s dstart dend))))
-            (encode-universal-time 0 0 0 dd mm yyyy))
-          )))))
+        (let* ((yyyy (read-from-string (subseq s ystart yend)))
+               (mm   (read-from-string (subseq s mstart mend)))
+               (dd   (read-from-string (subseq s dstart dend))))
+          (encode-universal-time 0 0 0 dd mm yyyy))
+        ))))
 |#
 
 (defun convert-american-short-date (s)
@@ -259,12 +255,11 @@ THE SOFTWARE.
            (mend   (aref gend   0))
            (dstart (aref gstart 1))
            (dend   (aref gend   1)))
-        (ignore-errors
-          (let* ((yyyy (+ 2000 (read-from-string (subseq s ystart yend))))
-                 (mm   (read-from-string (subseq s mstart mend)))
-                 (dd   (read-from-string (subseq s dstart dend))))
-            (encode-universal-time 0 0 0 dd mm yyyy)
-            ))))))
+        (let* ((yyyy (+ 2000 (read-from-string (subseq s ystart yend))))
+               (mm   (read-from-string (subseq s mstart mend)))
+               (dd   (read-from-string (subseq s dstart dend))))
+          (encode-universal-time 0 0 0 dd mm yyyy)
+          )))))
 
 (defun convert-hyphenated-number (s)
   ;; xxxx-xx-xxxx  as in telephone numbers, SSN's, and UUID's
@@ -274,11 +269,12 @@ THE SOFTWARE.
 (defun convert-other-base-number (s)
   ;; 0xNNNN_NNNN_NNN
   (cond ((#~m/^0[xXoObB]/ s)
-         (ignore-errors
-           (read-from-string (concatenate 'string "#" (subseq s 1)))))
+         (read-from-string (concatenate 'string "#" (subseq s 1))))
         ((#~m/^[0-9]+[rR]/ s)
-         (ignore-errors
-           (read-from-string (concatenate 'string "#" s))))
+         (read-from-string (concatenate 'string "#" s)))
+        ((#~m/^0[tT]/ s)  ;; special 0t prefix for decimal
+         (let ((*read-base* 10.))
+           (read-from-string (subseq s 2))))
         (t
          nil)
         ))
@@ -288,16 +284,17 @@ THE SOFTWARE.
      ,@body))
 
 (defun read-extended-number-syntax (s)
-  (with-vanilla-readtable
-    (let ((s  (remove-separators s))) ;; sep "," or "_"
-      (cond ((convert-real-or-complex s))
-            ((convert-sexigisimal s))
-            ((convert-utc-date s))
-            ;; ((convert-date s))
-            ((convert-american-short-date s))
-            ((convert-other-base-number s))
-            ((convert-hyphenated-number s))
-            ))))
+  (ignore-errors
+    (with-vanilla-readtable
+      (let ((s  (remove-separators s))) ;; sep "," or "_"
+        (cond ((convert-real-or-complex s))
+              ((convert-sexigisimal s))
+              ((convert-utc-date s))
+              ;; ((convert-date s))
+              ((convert-american-short-date s))
+              ((convert-other-base-number s))
+              ((convert-hyphenated-number s))
+              )))))
 
 ;; Reader macro for #N 
 ;; Parses a variety of numbers
@@ -382,6 +379,12 @@ THE SOFTWARE.
   (dolist (c '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\+ #\-)) ; <- the magic is here ;-)
     (set-macro-character c #'read-angle-or-fallback t readtable))
   readtable)
+
+(let (#+:LISPWORKS (lw:*handle-warn-on-redefinition* nil))
+  ;; Prevent printouts from using xxx\-\1\2\3 for xxx-123, etc.  ; <- make that magic invisible ;-)
+  (defmethod print-object :around (object out-stream)
+    (with-vanilla-readtable
+      (call-next-method))))
 
 ;; --------------------------------------
 
