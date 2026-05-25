@@ -347,19 +347,6 @@ THE SOFTWARE.
           (read combined t nil t)))))
 
 ;; --------------------------------------------
-;; Reader macro for #N 
-;; Parses a variety of numbers
-
-(defun get-delim (ch)
-  (and (find ch "~`'\":@#$%^&*_=|\\?/.,([{<«")
-       (case ch
-         (#\(  #\))
-         (#\[  #\])
-         (#\{  #\})
-         (#\<  #\>)
-         (#\«  #\»)
-         (t    ch))
-       ))
 
 (defun token-terminating-char-p (ch)
   (or (null ch)
@@ -386,6 +373,37 @@ THE SOFTWARE.
           ))
       (coerce buffer 'string))
     ))
+
+;; --------------------------------------------
+
+(defun get-delim (ch)
+  (and (find ch "~`'\":@#$%^&*_=|\\?/.,([{<«")
+       (case ch
+         (#\(  #\))
+         (#\[  #\])
+         (#\{  #\})
+         (#\<  #\>)
+         (#\«  #\»)
+         (t    ch))
+       ))
+
+(defun read-chars-till-delim (stream delim)
+  (let ((buffer (make-array 16
+                            :element-type 'character
+                            :adjustable   t
+                            :fill-pointer 0)))
+    (prog ()
+      again
+      (let ((ch  (read-char stream t nil t)))
+        (unless (eql ch delim)
+          (vector-push-extend ch buffer)
+          (go again))
+        ))
+    (coerce buffer 'string)))
+
+;; --------------------------------------------
+;; Reader macro for #N 
+;; Parses a variety of numbers
 
 (defun |reader-for-#N| (stream sub-char numarg)
   (declare (ignore sub-char numarg))
@@ -473,7 +491,8 @@ THE SOFTWARE.
 (defmacro string-interp (str)
   ;; Substitute value of form following $ inside string.
   ;; Escape literal $ using "...\$..."
-  ;; Prefer established $ conventions. No need for ${}, since we are Lisp.
+  ;; Prefer established $ conventions, but braces ${} needed only for
+  ;; identifier separation. A sexpr can stand without braces.
   ;;
   ;; Note: We want this to be a macro so that we can separately call
   ;; on STRING-INTERP with an arbitrary string argument constructed
@@ -515,7 +534,8 @@ THE SOFTWARE.
                                     (#\b  #\Backspace) ;; #x08
                                     (#\v  #\VT)        ;; #x0B
                                     (#\f  #\Page)      ;; #x0C
-                                    (#\a  #\Bell)      ;; #x07
+                                    (#\a  #\Bell)      ;; #x07  - #\a for Alert
+                                    (#\e  #\Escape)    ;; #x1B
                                     (#\x  (if (and (<= (+ pos 3.) len)  ;; \xnn
                                                    (all-xdig '(1 2.)))
                                               (xconv 1 3.)
@@ -535,15 +555,33 @@ THE SOFTWARE.
                                              (subseq str start pos)
                                              parts)))
                 ((char= #\$ ch)
-                 (multiple-value-bind (val epos)
-                     (read-from-string str t nil
-                                       :start new-pos
-                                       :end   (position #\\ str :start new-pos)
-                                       :preserve-whitespace t)
-                   (go-iter epos epos nil (list* `(princ-to-string ,val)
-                                                 (subseq str start pos)
-                                                 parts))
-                   ))
+                 (labels ((peek (off)
+                            (let ((pos (+ new-pos off)))
+                              (and (<= pos len)
+                                   (char str pos)))))
+                   (multiple-value-bind (val epos)
+                       (if (eql #\{ (peek 0))
+                           (let* ((startpos (1+ new-pos))
+                                  (endpos   (position #\} str :start new-pos)))
+                             (unless endpos
+                               (error "No closing #\\} for string interpolation group (offset ~A)" pos))
+                             (multiple-value-bind (val epos)
+                                 (read-from-string str t nil
+                                                   :start startpos
+                                                   :end   endpos
+                                                   :preserve-whitespace t)
+                               (unless (eql epos endpos)
+                                 (error "Incorrect interpolation group in {..} (offset ~A)" pos))
+                               (values val (1+ epos))))
+                         ;; else
+                         (read-from-string str t nil
+                                           :start new-pos
+                                           :end   (position #\\ str :start new-pos)
+                                           :preserve-whitespace t))
+                     (go-iter epos epos nil (list* `(princ-to-string ,val)
+                                                   (subseq str start pos)
+                                                   parts))
+                     )))
                 (t
                  (go-iter start new-pos nil parts))
                 )))
@@ -551,13 +589,19 @@ THE SOFTWARE.
 
 #|
 (let ((x 15.))
+  #1"x = ${x}'s\n"#)
+
+(let ((x 15.))
+  #1"x = ${x's\n"#)  ;; <- produce missing #\} error
+
+(let ((x 15.))
   #1"x = $x\n"#)
 
 (let ((x 15.))
   (string-interp "x = $x\\n"))
 
-(string-interp "\\U+03BB")
-(string-interp "abc \\U+X3bbdef")
+(string-interp "\\U+03BB")         ;; <- should be "λ"
+(string-interp "abc \\U+X3bbdef")  ;; <- should be invalid
  |#
 ;; -------------------------------------------------------------------------------
 
@@ -1057,22 +1101,6 @@ of the #> reader macro
 (aliases)
 (unalias 'this)
 |#
-
-;; ------------------------------------------------------------
-
-(defun read-chars-till-delim (stream delim)
-  (let ((buffer (make-array 16
-                            :element-type 'character
-                            :adjustable   t
-                            :fill-pointer 0)))
-    (prog ()
-      again
-      (let ((ch  (read-char stream t nil t)))
-        (unless (eql ch delim)
-          (vector-push-extend ch buffer)
-          (go again))
-        ))
-    (coerce buffer 'string)))
 
 ;; -------------------------------------------------------
 
