@@ -535,7 +535,9 @@ THE SOFTWARE.
    #:get-$-dispatch-reader
    #:set-/-dispatch-reader
    #:get-/-dispatch-reader
+   #:get-delim
    #:read-chars-till-delim
+   #:read-chars-to-end-of-token
 
    #:alias
    #:unalias

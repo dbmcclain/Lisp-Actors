@@ -341,17 +341,27 @@ THE SOFTWARE.
 ;; Reader macro for #N 
 ;; Parses a variety of numbers
 
-(defun read-accumulated-buffer (buffer stream)
-  (setf buffer (coerce buffer 'string))
-  (or (read-extended-number-syntax buffer)
+(defun read-accumulated-string (str stream)
+  (or (read-extended-number-syntax str)
       ;; Fallback: put the buffer back in front of STREAM and re-READ
       ;; with standard syntax (no angle reader macro).
-      (let* ((pushback (make-string-input-stream buffer))
+      (let* ((pushback (make-string-input-stream str))
              (combined (make-concatenated-stream pushback stream)))
         (with-vanilla-readtable
           (read combined t nil t)))))
 
-(defun nbr-terminating-char-p (ch)
+(defun get-delim (ch)
+  (and (find ch "~`'\":@#$%^&*_=|\\?/.,([{<«")
+       (case ch
+         (#\(  #\))
+         (#\[  #\])
+         (#\{  #\})
+         (#\<  #\>)
+         (#\«  #\»)
+         (t    ch))
+       ))
+
+(defun token-terminating-char-p (ch)
   (or (null ch)
       (whitespace-char-p ch)
       (multiple-value-bind (fn non-terminating-p)
@@ -360,38 +370,32 @@ THE SOFTWARE.
              (not non-terminating-p)))
       ))
 
-(defun |reader-for-#N| (stream sub-char numarg)
-  (declare (ignore sub-char numarg))
-  (let* ((buffer (make-array 16
+(defun read-chars-to-end-of-token (stream first-char)
+  (let ((buffer (make-array 16
                              :element-type 'character
                              :adjustable   t
-                             :fill-pointer 0))
-         (ch     (read-char stream nil nil t))
-         (delim  (let ((pos (position ch #(#\| #\" #\/ #\$ #\% #\( #\[ #\{ #\«))))
-                   (when pos
-                     (aref #(#\| #\" #\/ #\$ #\% #\) #\] #\} #\») pos)))))
-    (if delim
-        (prog ()
-          again
-          (let ((ch  (read-char stream nil nil t)))
-            (unless (or (null ch)
-                        (char= ch delim))
-              (vector-push-extend ch buffer)
-              (go again))
-            ))
-      ;; else
-      (when ch
-        (unread-char ch stream)
-        (with-vanilla-readtable
-          (prog ()
-            again
-            (let ((ch  (peek-char nil stream nil nil t)))
-              (unless (nbr-terminating-char-p ch)
-                (read-char stream nil nil t)
-                (vector-push-extend ch buffer)
-                (go again))
-              )))))
-    (read-accumulated-buffer buffer stream)
+                             :fill-pointer 0)))
+    (vector-push-extend first-char buffer)
+    (with-vanilla-readtable
+      (prog ()
+        again
+        (let ((ch (peek-char nil stream nil nil t)))
+          (unless (token-terminating-char-p ch)
+            (vector-push-extend (read-char stream t nil t) buffer)
+            (go again))
+          ))
+      (coerce buffer 'string))
+    ))
+
+(defun |reader-for-#N| (stream sub-char numarg)
+  (declare (ignore sub-char numarg))
+  (let* ((ch     (read-char stream t nil t))
+         (delim  (get-delim ch))
+         (str    (if delim
+                     (read-chars-till-delim stream delim)
+                   (read-chars-to-end-of-token stream ch))))
+    (unless *read-suppress*
+      (read-accumulated-string str stream))
     ))
 
 (set-dispatch-macro-character
@@ -412,14 +416,9 @@ THE SOFTWARE.
    Buffer characters until a terminator; if it parses as an angle, return the
    angle; otherwise, push the buffer back via a concatenated-stream and call
    READ with the angle reader macro disabled."
-  (let ((buffer (make-array 16 :element-type 'character
-                            :adjustable t :fill-pointer 0)))
-    (vector-push-extend char buffer)
-    (with-vanilla-readtable
-      (loop for c = (peek-char nil stream nil nil t)
-            until (nbr-terminating-char-p c)
-            do (vector-push-extend (read-char stream t nil t) buffer)))
-    (read-accumulated-buffer buffer stream)
+  (let ((str (read-chars-to-end-of-token stream char)))
+    (unless *read-suppress*
+      (read-accumulated-string str stream))
     ))
   
 (defun install-angle-reader (&optional (readtable *readtable*))
@@ -994,13 +993,10 @@ of the #> reader macro
 (set-/-dispatch-reader "lit"
                        (lambda (stream &rest _)
                          (declare (ignore _))
-                         (let ((delim (read-char stream t nil t)))
-                           (case delim
-                             (#\(  (setf delim #\)))
-                             (#\[  (setf delim #\]))
-                             (#\{  (setf delim #\}))
-                             (#\«  (setf delim #\»)) )
-                           (read-chars-till-delim stream (list delim))
+                         (let ((delim (get-delim (read-char stream t nil t))))
+                           (if delim
+                               (read-chars-till-delim stream delim)
+                             (error "Delimiter char needed"))
                            )))
 
 (set-macro-character #\} (get-macro-character #\) nil))
@@ -1064,14 +1060,19 @@ of the #> reader macro
 
 ;; ------------------------------------------------------------
 
-(defun read-chars-till-delim (stream delims &rest first-char)
-  (let ((chars (copy-list first-char)))
-    (do ((ch (read-char stream nil stream)
-             (read-char stream nil stream)))
-        ((or (eq ch stream)
-             (find ch delims)))
-      (push ch chars))
-    (coerce (nreverse chars) 'string)))
+(defun read-chars-till-delim (stream delim)
+  (let ((buffer (make-array 16
+                            :element-type 'character
+                            :adjustable   t
+                            :fill-pointer 0)))
+    (prog ()
+      again
+      (let ((ch  (read-char stream t nil t)))
+        (unless (eql ch delim)
+          (vector-push-extend ch buffer)
+          (go again))
+        ))
+    (coerce buffer 'string)))
 
 ;; -------------------------------------------------------
 

@@ -45,7 +45,9 @@ THE SOFTWARE.
    #:->>
    #:ash-dpb
    #:set-/-dispatch-reader
-   #:read-chars-till-delim)
+   #:get-delim
+   #:read-chars-till-delim
+   #:read-chars-to-end-of-token)
   (:import-from #:ironclad
    #:make-digest
    #:update-digest
@@ -638,17 +640,12 @@ built according code-char of each number in the uuid-string"
                        (lambda (stream &rest _)
                          (declare (ignore _))
                          (make-uuid-from-string
-                          (let ((ch (read-char stream)))
-                            (if (digit-char-p ch 16.)
-                                (read-chars-till-delim stream "/" ch)
-                              (read-chars-till-delim stream
-                                                     (case ch
-                                                       (#\{ "}")
-                                                       (#\[ "]")
-                                                       (#\( ")")
-                                                       (#\< ">")
-                                                       (#\" "\"")
-                                                       (t (list ch))) ))))))
+                          (let* ((ch    (read-char stream t nil t))
+                                 (delim (get-delim ch)))
+                            (if delim
+                                (read-chars-till-delim stream delim)
+                              (read-chars-to-end-of-token stream ch))
+                            ))))
 
 ;; -----------------------------------------------
 
