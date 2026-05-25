@@ -337,11 +337,7 @@ THE SOFTWARE.
             (convert-hyphenated-number s)
             )))))
 
-;; --------------------------------------------
-;; Reader macro for #N 
-;; Parses a variety of numbers
-
-(defun read-accumulated-string (str stream)
+(defun read-accumulated-string-or-fallback (str stream)
   (or (read-extended-number-syntax str)
       ;; Fallback: put the buffer back in front of STREAM and re-READ
       ;; with standard syntax (no angle reader macro).
@@ -349,6 +345,10 @@ THE SOFTWARE.
              (combined (make-concatenated-stream pushback stream)))
         (with-vanilla-readtable
           (read combined t nil t)))))
+
+;; --------------------------------------------
+;; Reader macro for #N 
+;; Parses a variety of numbers
 
 (defun get-delim (ch)
   (and (find ch "~`'\":@#$%^&*_=|\\?/.,([{<«")
@@ -395,7 +395,7 @@ THE SOFTWARE.
                      (read-chars-till-delim stream delim)
                    (read-chars-to-end-of-token stream ch))))
     (unless *read-suppress*
-      (read-accumulated-string str stream))
+      (read-accumulated-string-or-fallback str stream))
     ))
 
 (set-dispatch-macro-character
@@ -411,20 +411,20 @@ THE SOFTWARE.
 ;; --------------------------------------------
 ;; From Pascal Bourguignon
 
-(defun read-angle-or-fallback (stream char)
+(defun read-extended-numeric-syntax (stream char)
   "Reader macro function. CHAR is the first digit (or sign) that triggered us.
    Buffer characters until a terminator; if it parses as an angle, return the
    angle; otherwise, push the buffer back via a concatenated-stream and call
    READ with the angle reader macro disabled."
   (let ((str (read-chars-to-end-of-token stream char)))
     (unless *read-suppress*
-      (read-accumulated-string str stream))
+      (read-accumulated-string-or-fallback str stream))
     ))
   
 (defun install-angle-reader (&optional (readtable *readtable*))
   "Install the angle reader macro on digits and signs."
   (dolist (c '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\+ #\-)) ; <- the magic is here ;-)
-    (set-macro-character c #'read-angle-or-fallback t readtable))
+    (set-macro-character c #'read-extended-numeric-syntax t readtable))
   readtable)
 
 (let (#+:LISPWORKS (lw:*handle-warn-on-redefinition* nil))
