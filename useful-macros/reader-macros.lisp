@@ -95,20 +95,25 @@ THE SOFTWARE.
   (delete #\, (delete #\_ s)))
 |#
 #|
-(cl-ppcre:parse-string "^[+-]?[0-9]+([.][0-9]*([eEdDsSfF][+-]?[0-9]+)?)?")
+(cl-ppcre:parse-string "^[+-]?[0-9]+(\\.[0-9]*([eEdDsSfF][+-]?[0-9]+)?)?")
 (cl-ppcre:parse-string "^[iIjJ]$")
-(cl-ppcre:parse-string "^([+-])?([0-9]+)[:]([0-5][0-9])([:][0-5][0-9]([.][0-9_,]*)?)?$")
+(cl-ppcre:parse-string "^([+-])?([0-9]+):([0-5][0-9])(:[0-5][0-9](\\.[0-9_,]*)?)?$")
 (cl-ppcre:parse-string "^([0-9]{4})/([0-9]{1,2})/([0-9]{1,2})([ ]+([0-9]{1,2}):([0-9]{1,2})(:([0-9]{1,2}))?)?([ ]+UTC([-+][0-9]{1,2})?)?$")
-(cl-ppcre:parse-string "^[0-9]+(\-[0-9]+)*$")
+(cl-ppcre:parse-string "^[0-9]+(-[0-9]+)*$")
+(cl-ppcre:parse-string "^[0-9]+(\\.[0-9]+)*$")
+(match-number "100.")
 |#
 
 (defun match-number (s)
   (multiple-value-bind (start end)
       (#~m/^[+-]?[0-9]+([.][0-9]*([eEdDsSfF][+-]?[0-9]+)?)?/ s)
     (when start
-      (values (read-from-string (subseq s start end))
-              (subseq s end))
-      )))
+      (multiple-value-bind (val tailpos)
+          (let ((*read-base* 10.))
+            (read-from-string s t nil :start start :end end))
+        (and (eql tailpos end)
+             (values val (subseq s end)))
+        ))))
 
 (defun match-complex-ij (s)
   (#~m/^[iIjJ]$/ s))
@@ -117,36 +122,36 @@ THE SOFTWARE.
   (multiple-value-bind (val srest)
       (match-number s)
     (when val
-      (cond ((= 0 (length srest)) val)
+      (cond ((zerop (length srest)) val)
             ((match-complex-ij srest) (complex 0 val))
             ((multiple-value-bind (ival sresti)
                  (match-number srest)
                (and ival
                     (match-complex-ij sresti)
                     (complex val ival))))
-            (t nil)))
+            ))
     ))
 
 (defun convert-sexigisimal (s)
   ;; hh:mm:ss.ss, or hh:mm
   ;; return sec
   (multiple-value-bind (start end gstart gend)
-      ;; (#~m/^([+-])?([0-9]+)[:]([0-9]{1,2})([:][0-9]{1,2}([.][0-9_,]*)?)?$/ s)
-      (#~m/^([+-])?([0-9]+)[:]([0-5][0-9])([:][0-5][0-9]([.][0-9_,]*)?)?$/ s)
+      (#~m/^([+-])?([0-9]+):([0-9]{1,2})(:[0-9]{1,2}([.][0-9_,]*)?)?$/ s)
     (declare (ignore end))
     (when start
       (symbol-macrolet
           ((sign   (aref gstart 0))
            (hstart (aref gstart 1))
            (hend   (aref gend   1))
-           (mstart (aref gstart 2))
-           (mend   (aref gend   2))
-           (sstart (aref gstart 3))
-           (send   (aref gend   3))
-           (sfrac  (aref gstart 4)))
-        (let* ((hh   (read-from-string (subseq s hstart hend)))
+           (mstart (aref gstart 2.))
+           (mend   (aref gend   2.))
+           (sstart (aref gstart 3.))
+           (send   (aref gend   3.))
+           (sfrac  (aref gstart 4.)))
+        (let* ((*read-base* 10.)
+               (hh   (read-from-string (subseq s hstart hend)))
                (mm   (read-from-string (subseq s mstart mend)))
-               (valm (* 60 (+ mm (* 60 hh))))
+               (valm (* 60. (+ mm (* 60. hh))))
                (ss   (if sstart
                          (read-from-string (subseq s (1+ sstart) send))
                        0))
@@ -174,18 +179,19 @@ THE SOFTWARE.
            (yend    (aref gend   0))
            (mstart  (aref gstart 1))
            (mend    (aref gend   1))
-           (dstart  (aref gstart 2))
-           (dend    (aref gend   2))
-           (hstart  (aref gstart 4))
-           (hend    (aref gend   4))
-           (mmstart (aref gstart 5))
-           (mmend   (aref gend   5))
-           (sstart  (aref gstart 7))
-           (send    (aref gend   7))
-           (utstart (aref gstart 8))
-           (tzstart (aref gstart 9))
-           (tzend   (aref gend   9)))
-        (let* ((yyyy (read-from-string (subseq s ystart  yend)))
+           (dstart  (aref gstart 2.))
+           (dend    (aref gend   2.))
+           (hstart  (aref gstart 4.))
+           (hend    (aref gend   4.))
+           (mmstart (aref gstart 5.))
+           (mmend   (aref gend   5.))
+           (sstart  (aref gstart 7.))
+           (send    (aref gend   7.))
+           (utstart (aref gstart 8.))
+           (tzstart (aref gstart 9.))
+           (tzend   (aref gend   9.)))
+        (let* ((*read-base* 10.)
+               (yyyy (read-from-string (subseq s ystart  yend)))
                (mm   (read-from-string (subseq s mstart  mend)))
                (dd   (read-from-string (subseq s dstart  dend)))
                (hrs  (if hstart
@@ -256,90 +262,136 @@ THE SOFTWARE.
     (declare (ignore end))
     (when start
       (symbol-macrolet
-          ((ystart (aref gstart 2))
-           (yend   (aref gend   2))
+          ((ystart (aref gstart 2.))
+           (yend   (aref gend   2.))
            (mstart (aref gstart 0))
            (mend   (aref gend   0))
            (dstart (aref gstart 1))
            (dend   (aref gend   1)))
-        (let* ((yyyy (+ 2000 (read-from-string (subseq s ystart yend))))
+        (let* ((*read-base* 10.)
+               (yyyy (+ 2000. (read-from-string (subseq s ystart yend))))
                (mm   (read-from-string (subseq s mstart mend)))
                (dd   (read-from-string (subseq s dstart dend))))
           (encode-universal-time 0 0 0 dd mm yyyy)
           )))))
 
+(defun must-read-full-string (str)
+  (multiple-value-bind (val endpos)
+      (read-from-string str)
+    (and (= endpos (length str))
+         val)
+    ))
+  
 (defun convert-hyphenated-number (s)
   ;; xxxx-xx-xxxx  as in telephone numbers, SSN's, and UUID's
-  (when (#~m/^[0-9]+(\-[0-9]+)*$/ s)
-    (Read-from-string (delete #\- s))))
+  (when (#~m/^[0-9]+(-[0-9]+)*$/ s)
+    (must-read-full-string (delete #\- s))))
     
 (defun convert-other-base-number (s)
   ;; 0xNNNN_NNNN_NNN
   (cond ((#~m/^0[xXoObB]/ s)
-         (read-from-string (concatenate 'string "#" (subseq s 1))))
+         (must-read-full-string (concatenate 'string "#" (subseq s 1))))
         ((#~m/^[0-9]+[rR]/ s)
-         (read-from-string (concatenate 'string "#" s)))
+         (must-read-full-string (concatenate 'string "#" s)))
         ((#~m/^0[tT]/ s)  ;; special 0t prefix for decimal
          (let ((*read-base* 10.))
-           (read-from-string (subseq s 2))))
-        (t
-         nil)
+           (must-read-full-string (subseq s 2))))
         ))
-    
+
+;; --------------------------------------------
+
+(defvar *vanilla-readtable* (copy-readtable nil))
+
+(defun report-attempt-to-write-vanilla-readtable (rt)
+  (when (eq rt *vanilla-readtable*)
+    (error "Vanilla Readtable is Read-Only!")))
+
+#+:LISPWORKS
+(lw:defadvice (set-dispatch-macro-character not-in-vanilla-readtable :before)
+    (disp-char sub-char function &optional (readtable *readtable*))
+  (declare (ignore disp-char sub-char function))
+  (report-attempt-to-write-vanilla-readtable readtable))
+
+#+:LISPWORKS
+(lw:defadvice (set-macro-character not-in-vanilla-readtable :before)
+    (char function &optional non-terminating-p (readtable *readtable*))
+  (declare (ignore char function non-terminating-p))
+  (report-attempt-to-write-vanilla-readtable readtable))
+
 (defmacro with-vanilla-readtable (&body body)
-  `(let ((*readtable*  (copy-readtable nil)))
+  `(let ((*readtable*  *vanilla-readtable*))
      ,@body))
+
+;; --------------------------------------------
 
 (defun read-extended-number-syntax (s)
   (ignore-errors
     (with-vanilla-readtable
       (let ((s  (remove-separators s))) ;; sep "," or "_"
-        (cond ((convert-real-or-complex s))
-              ((convert-sexigisimal s))
-              ((convert-utc-date s))
-              ;; ((convert-date s))
-              ((convert-american-short-date s))
-              ((convert-other-base-number s))
-              ((convert-hyphenated-number s))
-              )))))
+        (or (convert-real-or-complex s)
+            (convert-sexigisimal s)
+            (convert-utc-date s)
+            ;; (convert-date s)
+            (convert-american-short-date s)
+            (convert-other-base-number s)
+            (convert-hyphenated-number s)
+            )))))
 
+;; --------------------------------------------
 ;; Reader macro for #N 
 ;; Parses a variety of numbers
 
+(defun read-accumulated-buffer (buffer stream)
+  (setf buffer (coerce buffer 'string))
+  (or (read-extended-number-syntax buffer)
+      ;; Fallback: put the buffer back in front of STREAM and re-READ
+      ;; with standard syntax (no angle reader macro).
+      (let* ((pushback (make-string-input-stream buffer))
+             (combined (make-concatenated-stream pushback stream)))
+        (with-vanilla-readtable
+          (read combined t nil t)))))
+
+(defun nbr-terminating-char-p (ch)
+  (or (null ch)
+      (whitespace-char-p ch)
+      (multiple-value-bind (fn non-terminating-p)
+          (get-macro-character ch)
+        (and fn
+             (not non-terminating-p)))
+      ))
+
 (defun |reader-for-#N| (stream sub-char numarg)
   (declare (ignore sub-char numarg))
-  (let* ((tok  (make-array 16
-                           :element-type 'character
-                           :adjustable   t
-                           :fill-pointer 0))
-         (ch    (read-char stream nil stream))
-         (delim (let ((pos (position ch #(#\| #\" #\/ #\$ #\% #\( #\[ #\{ #\«))))
-                  (when pos
-                    (aref #(#\| #\" #\/ #\$ #\% #\) #\] #\} #\») pos)))))
+  (let* ((buffer (make-array 16
+                             :element-type 'character
+                             :adjustable   t
+                             :fill-pointer 0))
+         (ch     (read-char stream nil nil t))
+         (delim  (let ((pos (position ch #(#\| #\" #\/ #\$ #\% #\( #\[ #\{ #\«))))
+                   (when pos
+                     (aref #(#\| #\" #\/ #\$ #\% #\) #\] #\} #\») pos)))))
     (if delim
-        (um:nlet iter ()
-          (let ((ch  (read-char stream nil stream)))
-            (cond ((eq ch stream))
-                  ((char= ch delim))
-                  (t
-                   (vector-push-extend ch tok)
-                   (go-iter))
-                  )))
+        (prog ()
+          again
+          (let ((ch  (read-char stream nil nil t)))
+            (unless (or (null ch)
+                        (char= ch delim))
+              (vector-push-extend ch buffer)
+              (go again))
+            ))
       ;; else
-      (unless (eq ch stream)
+      (when ch
         (unread-char ch stream)
-        (um:nlet iter ()
-          (let ((ch  (read-char stream nil stream)))
-            (cond ((eq ch stream))
-                  ((or (whitespace-char-p ch)
-                       (find ch #( #\( #\) )))
-                   (unread-char ch stream))
-                  (t
-                   (vector-push-extend ch tok)
-                   (go-iter))
-                  )))))
-    (or (read-extended-number-syntax tok)
-        (intern tok))
+        (with-vanilla-readtable
+          (prog ()
+            again
+            (let ((ch  (peek-char nil stream nil nil t)))
+              (unless (nbr-terminating-char-p ch)
+                (read-char stream nil nil t)
+                (vector-push-extend ch buffer)
+                (go again))
+              )))))
+    (read-accumulated-buffer buffer stream)
     ))
 
 (set-dispatch-macro-character
@@ -355,31 +407,20 @@ THE SOFTWARE.
 ;; --------------------------------------------
 ;; From Pascal Bourguignon
 
-(defun angle-terminator-p (c)
-  "Characters that terminate a token in standard Lisp syntax."
-  (or (null c)
-      (whitespace-char-p c)
-      (member c '(#\( #\) #\' #\` #\, #\; #\" #\|))))
-
 (defun read-angle-or-fallback (stream char)
   "Reader macro function. CHAR is the first digit (or sign) that triggered us.
    Buffer characters until a terminator; if it parses as an angle, return the
    angle; otherwise, push the buffer back via a concatenated-stream and call
    READ with the angle reader macro disabled."
-  (with-vanilla-readtable
-   (let ((buffer (make-array 16 :element-type 'character
-                             :adjustable t :fill-pointer 0)))
-     (vector-push-extend char buffer)
-     (loop for c = (peek-char nil stream nil nil t)
-           while (and c (not (angle-terminator-p c)))
-           do (vector-push-extend (read-char stream t nil t) buffer))
-     (setf buffer (coerce buffer 'string))
-     (or (read-extended-number-syntax buffer)
-         ;; Fallback: put the buffer back in front of STREAM and re-READ
-         ;; with standard syntax (no angle reader macro).
-         (let* ((pushback (make-string-input-stream buffer))
-                (combined (make-concatenated-stream pushback stream)))
-           (read combined t nil t))))))
+  (let ((buffer (make-array 16 :element-type 'character
+                            :adjustable t :fill-pointer 0)))
+    (vector-push-extend char buffer)
+    (with-vanilla-readtable
+      (loop for c = (peek-char nil stream nil nil t)
+            until (nbr-terminating-char-p c)
+            do (vector-push-extend (read-char stream t nil t) buffer)))
+    (read-accumulated-buffer buffer stream)
+    ))
   
 (defun install-angle-reader (&optional (readtable *readtable*))
   "Install the angle reader macro on digits and signs."
@@ -579,7 +620,7 @@ THE SOFTWARE.
 ;; interpolation, as in #1> or #1".
 ;;
 ;; DM/RAL 2024/10/27 11:25:43 UTC - cleaned up substantially by going
-;; back to Doug Comer's original code.
+;; back to Doug Hoyte's original code.
 
 (defun |#"-reader| (stream sub-char numarg)
   (declare (ignore sub-char))
@@ -597,7 +638,7 @@ THE SOFTWARE.
 
 
 ;;; #|
-;;; ;; Doug Comer's original definition
+;;; ;; Doug Hoyte's original definition
 ;;; (defun |#"-reader| (stream sub-char numarg)
 ;;;   (declare (ignore sub-char numarg))
 ;;;   (let (chars)
@@ -702,10 +743,10 @@ THE SOFTWARE.
 ;; --------------------------------------------
 ;; Reader macro for #>
 ;; like the Bourne shell > to-lists for surrounding strings
-;; String is interpolatable. Use prefix numarg to enable interpolation.
+;; Offers string interpolation when prefix numarg. E.g., #1>
 ;;
 ;; DM/RAL 2024/10/27 11:25:43 UTC - cleaned up substantially by going
-;; back to Doug Comer's original code.
+;; back to Doug Hoyte's original code.
 
 (defun |#>-reader| (stream sub-char numarg)
   (declare (ignore sub-char))
@@ -742,7 +783,7 @@ THE SOFTWARE.
   #\# #\> #'|#>-reader|)
 
 ;;; #|
-;;; ;; Doug Comer's original code
+;;; ;; Doug Hoyte's original code
 ;;; (defun |#>-reader| (stream sub-char numarg)
 ;;;   (declare (ignore sub-char numarg))
 ;;;   (let (chars)
