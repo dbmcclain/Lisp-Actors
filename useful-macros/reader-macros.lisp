@@ -94,10 +94,17 @@ THE SOFTWARE.
 (defun delete-separators (s)
   (delete #\, (delete #\_ s)))
 |#
+#|
+(cl-ppcre:parse-string "^[+-]?[0-9]+([.][0-9]*([eEdDsSfF][+-]?[0-9]+)?)?")
+(cl-ppcre:parse-string "^[iIjJ]$")
+(cl-ppcre:parse-string "^([+-])?([0-9]+)[:]([0-5][0-9])([:][0-5][0-9]([.][0-9_,]*)?)?$")
+(cl-ppcre:parse-string "^([0-9]{4})/([0-9]{1,2})/([0-9]{1,2})([ ]+([0-9]{1,2}):([0-9]{1,2})(:([0-9]{1,2}))?)?([ ]+UTC([-+][0-9]{1,2})?)?$")
+(cl-ppcre:parse-string "^[0-9]+(\-[0-9]+)*$")
+|#
 
 (defun match-number (s)
   (multiple-value-bind (start end)
-      (#~m/^[+-]?[0-9][0-9]*(\.[0-9]*([eEdDsSfF][+-]?[0-9]+)?)?/ s)
+      (#~m/^[+-]?[0-9]+([.][0-9]*([eEdDsSfF][+-]?[0-9]+)?)?/ s)
     (when start
       (values (read-from-string (subseq s start end))
               (subseq s end))
@@ -124,8 +131,8 @@ THE SOFTWARE.
   ;; hh:mm:ss.ss, or hh:mm
   ;; return sec
   (multiple-value-bind (start end gstart gend)
-      ;; (#~m/^([+-])?([0-9]+)[:^]([0-9]{1,2})([:^][0-9]{1,2}(\.[0-9_,]*)?)?$/ s)
-      (#~m/^([+-])?([0-9]+)[:^.]([0-5][0-9])([:^.][0-5][0-9](\.[0-9_,]*)?)?$/ s)
+      ;; (#~m/^([+-])?([0-9]+)[:]([0-9]{1,2})([:][0-9]{1,2}([.][0-9_,]*)?)?$/ s)
+      (#~m/^([+-])?([0-9]+)[:]([0-5][0-9])([:][0-5][0-9]([.][0-9_,]*)?)?$/ s)
     (declare (ignore end))
     (when start
       (symbol-macrolet
@@ -264,7 +271,7 @@ THE SOFTWARE.
 (defun convert-hyphenated-number (s)
   ;; xxxx-xx-xxxx  as in telephone numbers, SSN's, and UUID's
   (when (#~m/^[0-9]+(\-[0-9]+)*$/ s)
-    (read-from-string (delete #\- s))))
+    (Read-from-string (delete #\- s))))
     
 (defun convert-other-base-number (s)
   ;; 0xNNNN_NNNN_NNN

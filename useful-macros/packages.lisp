@@ -825,7 +825,7 @@ THE SOFTWARE.
 
    #:singleton-class
    #:pr-int
-   #:with-extended-number-syntax
    #:with-vanilla-readtable
    #:install-angle-reader
+   #:install-radix-readers
    ))
