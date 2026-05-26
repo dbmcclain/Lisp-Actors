@@ -302,26 +302,52 @@ THE SOFTWARE.
 
 (defvar *vanilla-readtable* (copy-readtable nil))
 
-(defun report-attempt-to-write-vanilla-readtable (rt)
-  (when (eq rt *vanilla-readtable*)
-    (error "Vanilla Readtable is Read-Only!")))
-
-#+:LISPWORKS
-(lw:defadvice (set-dispatch-macro-character not-in-vanilla-readtable :before)
-    (disp-char sub-char function &optional (readtable *readtable*))
-  (declare (ignore disp-char sub-char function))
-  (report-attempt-to-write-vanilla-readtable readtable))
-
-#+:LISPWORKS
-(lw:defadvice (set-macro-character not-in-vanilla-readtable :before)
-    (char function &optional non-terminating-p (readtable *readtable*))
-  (declare (ignore char function non-terminating-p))
-  (report-attempt-to-write-vanilla-readtable readtable))
-
 (defmacro with-vanilla-readtable (&body body)
   `(let ((*readtable*  *vanilla-readtable*))
      ,@body))
 
+(defun report-attempt-to-write-vanilla-readtable (rt)
+  (when (eq rt *vanilla-readtable*)
+    (error "Vanilla Readtable is Read-Only!")))
+
+;; --------------------------------------------
+
+#+:LISPWORKS
+(progn
+  (lw:defadvice (set-dispatch-macro-character not-in-vanilla-readtable :before)
+      (disp-char sub-char function &optional (readtable *readtable*))
+    (declare (ignore disp-char sub-char function))
+    (report-attempt-to-write-vanilla-readtable readtable))
+  
+  (lw:defadvice (set-macro-character not-in-vanilla-readtable :before)
+      (char function &optional non-terminating-p (readtable *readtable*))
+    (declare (ignore char function non-terminating-p))
+    (report-attempt-to-write-vanilla-readtable readtable)))
+
+;; --------------------------------------------
+
+#+:SBCL
+(progn
+  (defun check-set-mac-char (char function &optional non-terminating-p (readtable *readtable*))
+    (declare (ignore char function non-terminating-p))
+    (report-attempt-to-write-vanilla-readtable readtable))
+  
+  (defun check-set-disp-mac-char (char subchar function &optional (readtable *readtable*))
+    (declare (ignore char subchar function))
+    (report-attempt-to-write-vanilla-readtable readtable))
+  
+  (sb-ext:with-unlocked-packages (:cl)
+    (cl-advice:make-advisable 'cl:set-macro-character
+                              :arguments '(char function &optional non-terminating-p (readtable *readtable*))
+                              :force-use-arguments t)
+    (cl-advice:make-advisable 'cl:set-dispatch-macro-character
+                              :arguments '(char subchar function &optional (readtable *readtable*))
+                              :force-use-arguments t)
+    (cl-advice:add-advice :before 'cl:set-macro-character
+                          #'check-set-mac-char)
+    (cl-advice:add-advice :before 'cl:set-dispatch-macro-character
+                          #'check-set-disp-mac-char)))
+                               
 ;; --------------------------------------------
 
 (defun read-extended-number-syntax (s)
