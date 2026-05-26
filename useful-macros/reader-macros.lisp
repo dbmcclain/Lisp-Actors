@@ -510,81 +510,85 @@ THE SOFTWARE.
                                  parts)))
         (let ((ch      (char str pos))
               (new-pos (1+ pos)))
-          (cond (esc
-                 (labels ((xdig (n)
-                            (let ((dch  (char str (+ pos n))))
-                              (digit-char-p dch 16.)))
-                          (all-xdig (nlst)
-                            (every #'xdig nlst))
-                          (xconv (start end)
-                            (incf new-pos (1- end))
-                            (let ((*read-base* 16.))
-                              (code-char
-                               (read-from-string
-                                (subseq str (+ pos start) (+ pos end)))
-                               )))
-                          (xerr  (msg end)
-                            (error msg (subseq str (1- pos)
-                                               (min len (+ pos end))))
-                            ))
-                   (let ((new-ch  (case ch
-                                    (#\n  #\Newline)   ;; #x0A
-                                    (#\r  #\Return)    ;; #x0D
-                                    (#\t  #\Tab)       ;; #x09
-                                    (#\b  #\Backspace) ;; #x08
-                                    (#\v  #\VT)        ;; #x0B
-                                    (#\f  #\Page)      ;; #x0C
-                                    (#\a  #\Bell)      ;; #x07  - #\a for Alert
-                                    (#\e  #\Escape)    ;; #x1B
-                                    (#\x  (if (and (<= (+ pos 3.) len)  ;; \xnn
-                                                   (all-xdig '(1 2.)))
-                                              (xconv 1 3.)
-                                            (xerr "Invalid Hex ~A" 3.)))
-                                    (#\U  (if (and (<= (+ pos 6.) len)  ;; \U+nnnn
-                                                   (char= #\+ (char str new-pos))
-                                                   (all-xdig '(2. 3. 4. 5.)))
-                                              (xconv 2. 6.)
-                                            (xerr "Invalid Unicode ~A" 6.)))
-                                    (t    ch)) ))
-                     (go-iter new-pos new-pos nil (cons
-                                                   (make-string 1 :initial-element new-ch)
-                                                   parts))
-                     )))
-                ((char= #\\ ch)
-                 (go-iter new-pos new-pos t (cons
-                                             (subseq str start pos)
-                                             parts)))
-                ((char= #\$ ch)
-                 (labels ((peek (off)
-                            (let ((pos (+ new-pos off)))
-                              (and (<= pos len)
-                                   (char str pos)))))
-                   (multiple-value-bind (val epos)
-                       (if (eql #\{ (peek 0))
-                           (let* ((startpos (1+ new-pos))
-                                  (endpos   (position #\} str :start new-pos)))
-                             (unless endpos
-                               (error "No closing #\\} for string interpolation group (offset ~A)" pos))
-                             (multiple-value-bind (val epos)
-                                 (read-from-string str t nil
-                                                   :start startpos
-                                                   :end   endpos
-                                                   :preserve-whitespace t)
-                               (unless (eql epos endpos)
-                                 (error "Incorrect interpolation group in {..} (offset ~A)" pos))
-                               (values val (1+ epos))))
-                         ;; else
-                         (read-from-string str t nil
-                                           :start new-pos
-                                           :end   (position #\\ str :start new-pos)
-                                           :preserve-whitespace t))
-                     (go-iter epos epos nil (list* `(princ-to-string ,val)
-                                                   (subseq str start pos)
-                                                   parts))
-                     )))
-                (t
-                 (go-iter start new-pos nil parts))
-                )))
+          (labels ((peek (off)
+                     (let ((pos (+ new-pos off)))
+                       (and (< pos len)
+                            (char str pos)))))
+            (cond (esc
+                   (labels ((xdig (n)
+                              (let ((dch  (char str (+ pos n))))
+                                (digit-char-p dch 16.)))
+                            (all-xdig (nlst)
+                              (every #'xdig nlst))
+                            (xconv (start end)
+                              (incf new-pos (1- end))
+                              (let ((*read-base* 16.))
+                                (code-char
+                                 (read-from-string
+                                  (subseq str (+ pos start) (+ pos end)))
+                                 )))
+                            (xerr  (msg end)
+                              (error msg (subseq str (1- pos)
+                                                 (min len (+ pos end))))
+                              ))
+                     (let ((new-ch  (case ch
+                                      (#\n  #\Newline)   ;; #x0A
+                                      (#\r  #\Return)    ;; #x0D
+                                      (#\t  #\Tab)       ;; #x09
+                                      (#\b  #\Backspace) ;; #x08
+                                      (#\v  #\VT)        ;; #x0B
+                                      (#\f  #\Page)      ;; #x0C
+                                      (#\a  #\Bell)      ;; #x07  - #\a for Alert
+                                      (#\e  #\Escape)    ;; #x1B
+                                      (#\x  (if (and (<= (+ pos 3.) len)  ;; \xnn
+                                                     (all-xdig '(1 2.)))
+                                                (xconv 1 3.)
+                                              (xerr "Invalid Hex ~A" 3.)))
+                                      (#\U  (if (and (<= (+ pos 6.) len)  ;; \U+nnnn
+                                                     (char= #\+ (char str new-pos))
+                                                     (all-xdig '(2. 3. 4. 5.)))
+                                                (xconv 2. 6.)
+                                              (xerr "Invalid Unicode ~A" 6.)))
+                                      (t    ch)) ))
+                       (go-iter new-pos new-pos nil (cons
+                                                     (make-string 1 :initial-element new-ch)
+                                                     parts))
+                       )))
+                  ((char= #\\ ch)
+                   (go-iter new-pos new-pos t (cons
+                                               (subseq str start pos)
+                                               parts)))
+                  ((char= #\$ ch)
+                   (let ((next-ch  (peek 0)))
+                     (multiple-value-bind (val epos)
+                         (cond ((eql #\{ next-ch)
+                                (let* ((startpos (1+ new-pos))
+                                       (endpos   (position #\} str :start new-pos)))
+                                  (unless endpos
+                                    (error "No closing #\\} for string interpolation group (offset ~A)" pos))
+                                  (multiple-value-bind (val epos)
+                                      (read-from-string str t nil
+                                                        :start startpos
+                                                        :end   endpos
+                                                        :preserve-whitespace t)
+                                    (unless (eql epos endpos)
+                                      (error "Incorrect interpolation group in {..} (offset ~A)" pos))
+                                    (values val (1+ epos))
+                                    )))
+                           ((eql #\( next-ch)
+                            (read-from-string str t nil
+                                              :start new-pos
+                                              :preserve-whitespace t))
+                           (t
+                            (go-iter start new-pos nil parts)) )
+                       
+                       (go-iter epos epos nil (list* `(princ-to-string ,val)
+                                                     (subseq str start pos)
+                                                     parts))
+                       )))
+                  (t
+                   (go-iter start new-pos nil parts))
+                  ))))
       )))
 
 #|
@@ -595,10 +599,10 @@ THE SOFTWARE.
   #1"x = ${x's\n"#)  ;; <- produce missing #\} error
 
 (let ((x 15.))
-  #1"x = $x\n"#)
+  #1"x = $x\n"#)     ;; <- produce "x = $x"
 
 (let ((x 15.))
-  (string-interp "x = $x\\n"))
+  (string-interp "x = ${x}\\n"))
 
 (string-interp "\\U+03BB")         ;; <- should be "λ"
 (string-interp "abc \\U+X3bbdef")  ;; <- should be invalid
