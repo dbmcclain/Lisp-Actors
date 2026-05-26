@@ -358,10 +358,7 @@ THE SOFTWARE.
       ))
 
 (defun read-chars-to-end-of-token (stream first-char)
-  (let ((buffer (make-array 16
-                             :element-type 'character
-                             :adjustable   t
-                             :fill-pointer 0)))
+  (let ((buffer (make-char-buffer)))
     (vector-push-extend first-char buffer)
     (with-vanilla-readtable
       (prog ()
@@ -386,20 +383,6 @@ THE SOFTWARE.
          (#\«  #\»)
          (t    ch))
        ))
-
-(defun read-chars-till-delim (stream delim)
-  (let ((buffer (make-array 16
-                            :element-type 'character
-                            :adjustable   t
-                            :fill-pointer 0)))
-    (prog ()
-      again
-      (let ((ch  (read-char stream t nil t)))
-        (unless (eql ch delim)
-          (vector-push-extend ch buffer)
-          (go again))
-        ))
-    (coerce buffer 'string)))
 
 ;; --------------------------------------------
 ;; Reader macro for #N 
@@ -452,6 +435,7 @@ THE SOFTWARE.
       (call-next-method))))
 
 ;; --------------------------------------
+;; For constructing state machines...
 
 (defmacro! alet (letargs &rest body)
   `(let ((,a!this) ,@letargs)
@@ -503,21 +487,28 @@ THE SOFTWARE.
                 (pos   0)
                 (esc   nil)
                 (parts nil))
-      (if (>= pos len)
-          `(concatenate 'string
-                        ,@(nreverse
-                           (cons (subseq str start)
-                                 parts)))
-        (let ((ch      (char str pos))
-              (new-pos (1+ pos)))
-          (labels ((peek (off)
-                     (let ((pos (+ new-pos off)))
-                       (and (< pos len)
-                            (char str pos)))))
+      
+      (labels ((peek (off)
+                 (let ((ix (+ pos off)))
+                   (and (< ix len)
+                        (char str ix)))))
+        
+        (if (>= pos len)
+            `(concatenate 'string
+                          ,@(nreverse
+                             (cons (subseq str start)
+                                   parts)))
+          ;; else
+          (let ((ch      (char str pos))
+                (new-pos (1+ pos))
+                (next-ch (peek 1)))
+            
             (cond (esc
-                   (labels ((xdig (n)
-                              (let ((dch  (char str (+ pos n))))
-                                (digit-char-p dch 16.)))
+                   (labels ((digit-char-p* (ch radix)
+                              (and ch
+                                   (digit-char-p ch radix)))
+                            (xdig (n)
+                              (digit-char-p* (peek n) 16.))
                             (all-xdig (nlst)
                               (every #'xdig nlst))
                             (xconv (start end)
@@ -554,42 +545,45 @@ THE SOFTWARE.
                                                      (make-string 1 :initial-element new-ch)
                                                      parts))
                        )))
+                  
                   ((char= #\\ ch)
                    (go-iter new-pos new-pos t (cons
                                                (subseq str start pos)
                                                parts)))
-                  ((char= #\$ ch)
-                   (let ((next-ch  (peek 0)))
-                     (multiple-value-bind (val epos)
-                         (cond ((eql #\{ next-ch)
-                                (let* ((startpos (1+ new-pos))
-                                       (endpos   (position #\} str :start new-pos)))
-                                  (unless endpos
-                                    (error "No closing #\\} for string interpolation group (offset ~A)" pos))
-                                  (multiple-value-bind (val epos)
-                                      (read-from-string str t nil
-                                                        :start startpos
-                                                        :end   endpos
-                                                        :preserve-whitespace t)
-                                    (unless (eql epos endpos)
-                                      (error "Incorrect interpolation group in {..} (offset ~A)" pos))
-                                    (values val (1+ epos))
-                                    )))
-                           ((eql #\( next-ch)
-                            (read-from-string str t nil
-                                              :start new-pos
-                                              :preserve-whitespace t))
-                           (t
-                            (go-iter start new-pos nil parts)) )
-                       
-                       (go-iter epos epos nil (list* `(princ-to-string ,val)
-                                                     (subseq str start pos)
-                                                     parts))
-                       )))
+                  
+                  ((and (char= #\$ ch)
+                        (eql #\{ next-ch))
+                   (let* ((endpos   (position #\} str :start new-pos))
+                          (s        (if endpos
+                                        (concatenate 'string
+                                                     "(progn "
+                                                     (subseq str (1+ new-pos) endpos)
+                                                     ")" )
+                                      (error "No closing #\\} for string interpolation at offset ~A)" pos)))
+                          (val      (read-from-string s))
+                          (epos     (1+ endpos)))
+                     (go-iter epos epos nil
+                              (list* `(princ-to-string ,val)
+                                     (subseq str start pos)
+                                     parts))
+                     ))
+                  
+                  ((and (char= #\$ ch)
+                        (eql #\( next-ch))
+                   (multiple-value-bind (val epos)
+                       (read-from-string str t nil
+                                         :start new-pos
+                                         :preserve-whitespace t)
+                     (go-iter epos epos nil (list* `(princ-to-string ,val)
+                                                   (subseq str start pos)
+                                                   parts))
+                     ))
+                  
                   (t
                    (go-iter start new-pos nil parts))
-                  ))))
-      )))
+                  )))
+        ))
+    ))
 
 #|
 (let ((x 15.))
@@ -672,16 +666,16 @@ THE SOFTWARE.
 (defun |#"-reader| (stream sub-char numarg)
   (declare (ignore sub-char))
   ;; numarg here means interpolation
-  (let (chars)
-    (do ((prev (read-char stream) curr)
-         (curr (read-char stream) (read-char stream)))
-        ((and (char= prev #\") (char= curr #\#)))
-      (push prev chars))
+  (let ((buffer  (make-char-buffer))
+        (ch      (read-char stream)))
+    (nlet iter ((prev ch)
+                (curr (read-char stream)))
+      (unless (and (char= prev #\") (char= curr #\#))
+        (vector-push-extend prev buffer)
+        (go-iter curr (read-char stream))))
     (unless *read-suppress*
-      (let ((chars (coerce (nreverse chars) 'string)))
-        ;; this bit is added to Doug's code to enable string interpolation
-        (interpolated-string numarg chars))
-      )))
+      (interpolated-string numarg (coerce buffer 'string)))
+    ))
 
 
 ;;; #|
@@ -798,33 +792,21 @@ THE SOFTWARE.
 (defun |#>-reader| (stream sub-char numarg)
   (declare (ignore sub-char))
   ;; numarg enables string interpolation
-  (let (chars)
-    (do ((curr (read-char stream)
-               (read-char stream)))
-        ((char= #\newline curr))
-      (push curr chars))
-    (let* ((pattern (nreverse chars))
-           (pointer pattern)
-           (output))
-      (do ((curr (read-char stream)
-                 (read-char stream)))
-          ((null pointer))
-        (push curr output)
-        (setf pointer
-              (if (char= (car pointer) curr)
-                (cdr pointer)
-                pattern))
-        (if (null pointer)
-          (return)))
-      (unless *read-suppress*
-        (let ((str (coerce
-                    (nreverse
-                     (nthcdr (length pattern) output))
-                    'string)
-                   ))
-          ;; this bit is added to Doug's code to enable string interpolation
-          (interpolated-string numarg str))
-        ))))
+  (let* ((end-pattern  (read-chars-till-delim stream #\newline))
+         (npat     (length end-pattern))
+         (buffer   (make-char-buffer)))
+    (nlet iter ((index  0))
+      (when (< index npat)
+        (let ((ch (read-char stream)))
+          (vector-push-extend ch buffer)
+          (go-iter (if (char= ch (char end-pattern index))
+                       (1+ index)
+                     0))
+          )))
+    (unless *read-suppress*
+      (decf (fill-pointer buffer) npat)
+      (interpolated-string numarg (coerce buffer 'string)))
+    ))
 
 (set-dispatch-macro-character
   #\# #\> #'|#>-reader|)
@@ -1047,9 +1029,11 @@ of the #> reader macro
                              (error "Delimiter char needed"))
                            )))
 
+#|
 (set-macro-character #\} (get-macro-character #\) nil))
 (set-macro-character #\] (get-macro-character #\) nil))
 (set-macro-character #\» (get-macro-character #\) nil))
+|#
 ;; ----------------------------------------------------------
 
 ;; ---------------------------------------------------

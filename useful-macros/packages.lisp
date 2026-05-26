@@ -538,6 +538,7 @@ THE SOFTWARE.
    #:get-delim
    #:read-chars-till-delim
    #:read-chars-to-end-of-token
+   #:make-char-buffer
 
    #:alias
    #:unalias

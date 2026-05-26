@@ -30,15 +30,26 @@ THE SOFTWARE.
 ;; ---------------------------------------
 ;; This part from Doug Hoyte using Edi's ppcre
 
-(defun segment-reader (stream ch n)
-  (if (> n 0)
-      (let ((chars))
-        (do ((curr (read-char stream)
-                   (read-char stream)))
-            ((char= ch curr))
-          (push curr chars))
-        (cons (coerce (nreverse chars) 'string)
-              (segment-reader stream ch (- n 1))))))
+(defun make-char-buffer (&optional (nel 16))
+  (make-array nel :element-type 'character
+              :adjustable t :fill-pointer 0))
+
+(defun read-chars-till-delim (stream delim)
+  (let ((buffer (make-char-buffer)))
+    (prog ()
+      again
+      (let ((ch  (read-char stream t nil t)))
+        (unless (eql ch delim)
+          (vector-push-extend ch buffer)
+          (go again))
+        ))
+    (coerce buffer 'string)))
+
+(defun segment-reader (stream delim n)
+  (when (plusp n)
+    (cons (read-chars-till-delim stream delim)
+          (segment-reader stream delim (1- n)))
+    ))
 
 #+cl-ppcre
 (defmacro! match-mode-ppcre-lambda-form (o!args)
