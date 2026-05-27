@@ -74,4 +74,3 @@
   (defmethod print-object :around ((object symbol) out-stream)
     (with-vanilla-readtable
       (call-next-method))))
-

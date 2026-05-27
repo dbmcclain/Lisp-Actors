@@ -102,6 +102,7 @@ THE SOFTWARE.
 (cl-ppcre:parse-string "^[0-9]+(-[0-9]+)*$")
 (cl-ppcre:parse-string "^[0-9]+(\\.[0-9]+)*$")
 (match-number "100.")
+(ppcre:parse-string "^([+-])?([0-9]+)[o°]((([0-9]{1,2})['])([0-9]{1,2}[\"]([.][0-9_,]*)?)?)?$")
 |#
 
 (defun match-number (s)
@@ -132,11 +133,27 @@ THE SOFTWARE.
             ))
     ))
 
-(defun convert-sexigisimal (s)
-  ;; hh:mm:ss.ss, or hh:mm
-  ;; return sec
+#|
+(defun tst (s)
+  (#~m/^([+-])?([0-9]+):([0-9]{1,2}([.][0-9]+||:([0-9]{1,2}([.][0-9]+)?)))$/ s))
+
+(tst "1:00")
+(tst "1:00.234")
+(tst "1:00:00")
+(tst "1:00:00.234")
+
+(convert-sexigisimal-1 "1:00")
+(convert-sexigisimal-1 "1:00.234")
+(convert-sexigisimal-1 "1:00:00")
+(convert-sexigisimal-1 "1:00:00.234")
+|#
+
+(defun convert-sexigisimal-1 (s)
+  ;; With colon separators, there is no way to ascertain degrees or hours. Just assume degrees.
+  ;; ddd:mm.mmmm or ddd:mm:ss.ssss
+  ;; return arcsec
   (multiple-value-bind (start end gstart gend)
-      (#~m/^([+-])?([0-9]+):([0-9]{1,2})(:[0-9]{1,2}([.][0-9_,]*)?)?$/ s)
+      (#~m/^([+-])?([0-9]+):([0-9]{1,2}([.][0-9]+||:([0-9]{1,2}([.][0-9]+)?)))$/ s)
     (declare (ignore end))
     (when start
       (symbol-macrolet
@@ -144,28 +161,84 @@ THE SOFTWARE.
            (hstart (aref gstart 1))
            (hend   (aref gend   1))
            (mstart (aref gstart 2.))
-           (mend   (aref gend   2.))
-           (sstart (aref gstart 3.))
-           (send   (aref gend   3.))
-           (sfrac  (aref gstart 4.)))
+           (sstart (aref gstart 4.)))
         (let* ((*read-base* 10.)
-               (hh   (read-from-string (subseq s hstart hend)))
-               (mm   (read-from-string (subseq s mstart mend)))
-               (valm (* 60. (+ mm (* 60. hh))))
+               (*read-default-float-format* 'double-float)
                (ss   (if sstart
-                         (read-from-string (subseq s (1+ sstart) send))
+                         (read-from-string s t nil
+                                           :start sstart)
                        0))
-               (val  (if sstart
-                         (+ valm
-                            (if sfrac
-                                (float ss 1d0)
-                              ss))
-                       valm)))
-          (if (and sign
-                   (char= (char s sign) #\-))
-              (- val)
-            val)
+               (mm   (* 60. (read-from-string s t nil
+                                              :start mstart
+                                              :end (and sstart
+                                                        (1- sstart)))))
+               (hh   (* 3600. (read-from-string s t nil
+                                                :start hstart
+                                                :end hend)))
+               (sgn  (if (and sign
+                              (char= #\- (char s sign)))
+                         -1
+                       1)))
+          (* sgn (+ hh mm ss))
           )))))
+
+#|
+(defun tst (s)
+  (#~m/^([+-])?([0-9]+)[dh]([.][0-9]+||([0-9]{1,2})m([.][0-9]+||([0-9]{1,2})s([.][0-9]+)?)?)?$/ s))
+
+(tst "1d")
+(tst "+1d")
+(tst "+1d.234")
+(tst "+1d00m")
+(tst "+1d00m.234")
+(tst "+1d00m00s")
+(tst "+1d00m00s.234")
+
+(convert-sexigisimal-2 "1d")
+(convert-sexigisimal-2 "+1d")
+(convert-sexigisimal-2 "+1d.234")
+(convert-sexigisimal-2 "+1d00m")
+(convert-sexigisimal-2 "+1d00m.234")
+(convert-sexigisimal-2 "+1d00m00s")
+(convert-sexigisimal-2 "+1d00m00s.234")
+|#
+
+
+(defun convert-sexigisimal-2 (s)
+  ;; NNNdNNmNNs.NNN and NNhNNmNNs.NNN
+  ;; Here we can distinguish hours versus degrees with the suffix d or h on the major value.
+  ;; return arcsec
+  (multiple-value-bind (start end gstart gend)
+      (#~m/^([+-])?([0-9]+)[dh]([.][0-9]+||([0-9]{1,2})m([.][0-9]+||([0-9]{1,2})s([.][0-9]+)?)?)?$/ s)
+    (declare (ignore end gend))
+    (when start
+      (symbol-macrolet
+          ((sign   (aref gstart 0))
+           (hstart (aref gstart 1))
+           (hfrac  (aref gstart 2.))
+           (mstart (aref gstart 3.))
+           (sstart (aref gstart 5.)))
+        (let* ((*read-base* 10.)
+               (*read-default-float-format* 'double-float)
+               (ss   (if sstart
+                         (read-from-string (remove #\s (subseq s sstart)))
+                       0))
+               (mm   (if mstart
+                         (* 60. (read-from-string (remove #\m (subseq s mstart sstart))))
+                       0))
+               (hflag (char s (1- hfrac)))
+               (hmul  (if (char= hflag #\h) 15. 1))
+               (hh    (* 3600. (read-from-string (remove hflag (subseq s hstart mstart)))))
+               (sgn   (if (and sign
+                               (char= #\- (char s sign)))
+                          -1
+                        1)))
+          (* sgn hmul (+ hh mm ss))))
+      )))
+
+(defun convert-sexigisimal (s)
+  (or (convert-sexigisimal-1 s)
+      (convert-sexigisimal-2 s)))
 
 (defun convert-utc-date (s)
   ;; yyyy/mm/dd [hh:mm:ss] [UTC[+/-nn]]]
@@ -304,8 +377,8 @@ THE SOFTWARE.
   (ignore-errors
     (with-vanilla-readtable
       (let ((s  (remove-separators s))) ;; sep "," or "_"
-        (or (convert-real-or-complex s)
-            (convert-sexigisimal s)
+        (or (convert-sexigisimal s)
+            (convert-real-or-complex s)
             (convert-utc-date s)
             ;; (convert-date s)
             (convert-american-short-date s)
@@ -403,30 +476,6 @@ THE SOFTWARE.
   (dolist (c '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\+ #\-)) ; <- the magic is here ;-)
     (set-macro-character c #'read-extended-numeric-syntax t readtable))
   readtable)
-
-#|
-#+nil
-(let (#+:LISPWORKS (lw:*handle-warn-on-redefinition* nil))
-  ;; Prevent printouts from using xxx\-\1\2\3 for xxx-123, etc.  ; <- make that magic invisible ;-)
-  (defmethod print-object :around ((object symbol) out-stream)
-    (with-vanilla-readtable
-      (call-next-method))))
-
-#-nil
-(let (#+:LISPWORKS (lw:*handle-warn-on-redefinition* nil))
-  ;; Prevent printouts from using xxx\-\1\2\3 for xxx-123, etc.  ; <- make that magic invisible ;-)
-  (defmethod print-object :around ((object symbol) out-stream)
-    (if *print-readably*
-        (with-vanilla-readtable
-          (call-next-method))
-      (let ((pkg  (symbol-package object)))
-        (unless (eq pkg *package*)
-          (unless (eq pkg #.(find-package :keyword))
-            (princ (package-name pkg) out-stream))
-          (princ #\: out-stream))
-        (princ (symbol-name object) out-stream))
-      )))
-|#
 
 ;; --------------------------------------
 ;; For constructing state machines...
