@@ -830,5 +830,6 @@ THE SOFTWARE.
    #:pr-int
    #:with-vanilla-readtable
    #:install-angle-reader
+   #:install-primed-symbols
    #:install-radix-readers
    ))

@@ -300,56 +300,6 @@ THE SOFTWARE.
 
 ;; --------------------------------------------
 
-(defvar *vanilla-readtable* (copy-readtable nil))
-
-(defmacro with-vanilla-readtable (&body body)
-  `(let ((*readtable*  *vanilla-readtable*))
-     ,@body))
-
-(defun report-attempt-to-write-vanilla-readtable (rt)
-  (when (eq rt *vanilla-readtable*)
-    (error "Vanilla Readtable is Read-Only!")))
-
-;; --------------------------------------------
-
-#+:LISPWORKS
-(progn
-  (lw:defadvice (set-dispatch-macro-character not-in-vanilla-readtable :before)
-      (disp-char sub-char function &optional (readtable *readtable*))
-    (declare (ignore disp-char sub-char function))
-    (report-attempt-to-write-vanilla-readtable readtable))
-  
-  (lw:defadvice (set-macro-character not-in-vanilla-readtable :before)
-      (char function &optional non-terminating-p (readtable *readtable*))
-    (declare (ignore char function non-terminating-p))
-    (report-attempt-to-write-vanilla-readtable readtable)))
-
-;; --------------------------------------------
-
-#+:SBCL
-(progn
-  (defun check-set-mac-char (char function &optional non-terminating-p (readtable *readtable*))
-    (declare (ignore char function non-terminating-p))
-    (report-attempt-to-write-vanilla-readtable readtable))
-  
-  (defun check-set-disp-mac-char (char subchar function &optional (readtable *readtable*))
-    (declare (ignore char subchar function))
-    (report-attempt-to-write-vanilla-readtable readtable))
-  
-  (sb-ext:with-unlocked-packages (:cl)
-    (cl-advice:make-advisable 'cl:set-macro-character
-                              :arguments '(char function &optional non-terminating-p (readtable *readtable*))
-                              :force-use-arguments t)
-    (cl-advice:make-advisable 'cl:set-dispatch-macro-character
-                              :arguments '(char subchar function &optional (readtable *readtable*))
-                              :force-use-arguments t)
-    (cl-advice:add-advice :before 'cl:set-macro-character
-                          #'check-set-mac-char)
-    (cl-advice:add-advice :before 'cl:set-dispatch-macro-character
-                          #'check-set-disp-mac-char)))
-                               
-;; --------------------------------------------
-
 (defun read-extended-number-syntax (s)
   (ignore-errors
     (with-vanilla-readtable
@@ -454,11 +404,29 @@ THE SOFTWARE.
     (set-macro-character c #'read-extended-numeric-syntax t readtable))
   readtable)
 
+#|
+#+nil
 (let (#+:LISPWORKS (lw:*handle-warn-on-redefinition* nil))
   ;; Prevent printouts from using xxx\-\1\2\3 for xxx-123, etc.  ; <- make that magic invisible ;-)
-  (defmethod print-object :around (object out-stream)
+  (defmethod print-object :around ((object symbol) out-stream)
     (with-vanilla-readtable
       (call-next-method))))
+
+#-nil
+(let (#+:LISPWORKS (lw:*handle-warn-on-redefinition* nil))
+  ;; Prevent printouts from using xxx\-\1\2\3 for xxx-123, etc.  ; <- make that magic invisible ;-)
+  (defmethod print-object :around ((object symbol) out-stream)
+    (if *print-readably*
+        (with-vanilla-readtable
+          (call-next-method))
+      (let ((pkg  (symbol-package object)))
+        (unless (eq pkg *package*)
+          (unless (eq pkg #.(find-package :keyword))
+            (princ (package-name pkg) out-stream))
+          (princ #\: out-stream))
+        (princ (symbol-name object) out-stream))
+      )))
+|#
 
 ;; --------------------------------------
 ;; For constructing state machines...

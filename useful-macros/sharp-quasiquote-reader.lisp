@@ -35,7 +35,7 @@ THE SOFTWARE.
   (declare (ignore sub-char))
   (let* ((numarg (or numarg 1))
          (a-args (loop for i from 1 to numarg
-                       collect (symb 'a i)))
+                       collect (symb 'a i) ))
          (ans  `(lambda ,a-args
                   (declare (ignorable ,@a-args))
                   ,(funcall
@@ -48,5 +48,9 @@ THE SOFTWARE.
   
 
 #| ;; example -- a1 is first parameter
-(mapcar #`(,a1 (intern ,(bang-symbol-name a1))) syms)
+
+(defun bang-symbol-name (s)
+  (subseq (symbol-name s) 2))
+
+(mapcar #`(,a1 (intern ,(bang-symbol-name a1))) '(g!a g!b g!c))
 |#

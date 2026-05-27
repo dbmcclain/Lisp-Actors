@@ -117,17 +117,13 @@ THE SOFTWARE.
   `(labels ((,name ,lambda-list ,@body))
      #',name))
 
-  ;; --------------------------------------------
+;; --------------------------------------------
 
-(defun raw-mkstr (&rest args)
+(defun mkstr (&rest args)
   (with-output-to-string (s)
-    (dolist (a args) 
+    (dolist (a args)
       (princ a s))
     ))
-  
-(defun mkstr (&rest args)
-  (with-standard-io-syntax
-    (apply 'raw-mkstr args)))
 
 ;; ----------------------------------------------
 ;; Symbology...
@@ -146,15 +142,15 @@ THE SOFTWARE.
   (values (intern-symbol (apply #'mkstr args))))
 
 (defun kwsymb (&rest args)
-  (values (intern-symbol (apply #'mkstr args) (find-package :keyword))))
+  (values (intern-symbol (apply #'mkstr args) #.(find-package :keyword))))
 
 (defgeneric kwsymbol (x)
   (:method ((name string))
-   (intern-symbol name (find-package :keyword)))
+   (intern-symbol name #.(find-package :keyword)))
   (:method ((sym symbol))
    (if (keywordp sym)
        sym
-     (intern (symbol-name sym) (find-package :keyword))))
+     (intern (symbol-name sym) #.(find-package :keyword))))
   (:method ((cons cons))
    (if (eq 'quote (car cons))
        (kwsymbol (cadr cons))
