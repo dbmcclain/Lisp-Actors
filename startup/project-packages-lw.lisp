@@ -51,7 +51,7 @@
          (let ((norm-name (normalize name))
                to-name)
            (when (find norm-name froms :test #'string=)
-             (error "Cyclic mappong ~A" norm-name))
+             (error "Cyclic mapping ~A" norm-name))
            (mp:with-sharing-lock (*map-lock*)
              (if (setf to-name (gethash norm-name *mappings*))
                  (map-name to-name (cons norm-name froms))

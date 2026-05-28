@@ -61,5 +61,7 @@
  (#:restricted    #:com.ral.useful-macros.restricted-eval)
  (#:debug-stream  #:com.ral.useful-macros.debug-stream)
  (#:astro         #:com.ral.astro)
+ (#:rch           #:reppy-channels)
+ (#:sg            #:com.ral.scigraph)
  )
 

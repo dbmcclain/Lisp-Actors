@@ -8,6 +8,13 @@
 
 (in-package #:editor-enhancements)
 
+(load-logical-pathname-translations "EDITOR-SRC")
+
+#+nil
+(setf dspec:*active-finders*
+      (append dspec:*active-finders*
+              (list "EDITOR-SRC:editor-tags-db")))
+
 ;; --------------------------------------------------------------------
 ;; Editor Enhancements
 
@@ -132,15 +139,15 @@
          (realname (namestring file))
          (fname    (subseq realname (1+ (position #\/ realname :from-end t))))
          (str      #1>.end
-;; $fname
+;; ${fname}
 ;;
 ;; DM/RAL  $(um:zulu-date-string)
 ;; ----------------------------------
 
-(defpackage #:$package
+(defpackage #:${package}
   (:use #:common-lisp))
 
-(in-package #:$package)
+(in-package #:${package})
 
 ;; ----------------------------------
 
@@ -199,14 +206,22 @@
                                     (editor::insert-string (editor::current-point) string)))))))
 ;; !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-(let ((ascii-str "abcdefghijklmnoprstuvxyzABCDEFGHIJKLMNOPRSTUVXYZ•ª")
-      (greek-str "αβψδεφγηιξκλμνοπρστθωχυζΑΒΨΔΕΦΓΗΙΞΚΛΜΝΟΠΡΣΤΘΩΧΥΖ✕∊"))
+(let ((ascii-str "abcdefghijklmnoprstuvxyzABCDEFGHIJKLMNOPRSTUVXYZ•ª'\"")
+      (greek-str "αβψδεφγηιξκλμνοπρστθωχυζΑΒΨΔΕΦΓΗΙΞΚΛΜΝΟΠΡΣΤΘΩΧΥΖ✕∊′″"))
   ;; ° is Option-Shift-8
   ;; · is Option-Shift-9
   ;; Interesting chars:
-  ;;  #\U+03f5  ϵ #\U+220A
+  ;;  #\U+03f5  ϵ #\U+220A ∊
   ;;  #\U+2715  ✕
-  ;;
+  ;;  #\U+2019  ’
+  ;;  #\U+201D  ”
+  ;;  #\U+2095  ₕ
+  ;;  #\U+2098  ₘ
+  ;;  #\U+209C  ₛ
+  ;;  #\U+FF07  ＇
+  ;;  #\U+FF02  ＂
+  ;;  #\U+2032  ′  Martin Simmons points out that 2032 and 2033 were originally intended
+  ;;  #\U+2033  ″  for arcmin and arcsec designation.
   (loop for ascii-ch across ascii-str
         for greek-ch across greek-str
         do
@@ -218,7 +233,7 @@
 
 (format t "#\\U+~4,'0x" (char-code #\∊))
 
-(let* ((base #x2700)
+(let* ((base #x3000)
        (v (loop for ix from 0 below 256 collect ix)))
   (format t "
 ~x

@@ -97,3 +97,30 @@
                                 (lambda ()
                                   ,@body)))
 
+(defun .x (x)
+  (write x :base 16.)
+  (values))
+
+(defun .b (x)
+  (write x :base 2.)
+  (values))
+
+(defun .d (x)
+  (write x :base 10.)
+  (values))
+
+(defun show-unicode (block)
+  (let* ((base (ash (floor block #x100) 8.))
+         (v (loop for ix from 0 below 256. by 16. collect
+                    (format nil "~2,'0x  ~{~C   ~}"
+                            ix
+                            (loop for iy from 0 below 16. collect
+                                    (code-char (+ base ix iy)))))))
+    (format t "
+Block ~4,'0x
+    ~{~2,'0x  ~}
+~{~A
+~}"
+            base
+            (loop for ix from 0 below 16. collect ix)
+            v)))
