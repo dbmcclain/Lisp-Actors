@@ -114,8 +114,7 @@ THE SOFTWARE.
       (#~m/^[+-]?[0-9]+([.][0-9]*([eEdDsSfF][+-]?[0-9]+)?)?/ s)
     (when start
       (multiple-value-bind (val tailpos)
-          (let ((*read-base* 10.))
-            (read-from-string s t nil :start start :end end))
+          (read-from-string s t nil :start start :end end)
         (and (eql tailpos end)
              (values val (subseq s end)))
         ))))
@@ -167,9 +166,7 @@ THE SOFTWARE.
            (hend   (aref gend   1))
            (mstart (aref gstart 2.))
            (sstart (aref gstart 4.)))
-        (let* ((*read-base* 10.)
-               (*read-default-float-format* 'double-float)
-               (ss   (if sstart
+        (let* ((ss   (if sstart
                          (read-from-string s t nil
                                            :start sstart)
                        0))
@@ -264,14 +261,12 @@ THE SOFTWARE.
         t)
        s :sharedp t)
     ;; (format t "~%Secs: ~S ~S ~S" sign secs sfrac)
-    (let ((*read-base* 10.)
-          (*read-default-float-format* 'double-float))
-      (adj-sign sign
-                (if sfrac
-                    (read-from-string (concatenate 'string secs sfrac))
-                  ;; else
-                  (read-from-string secs)))
-      )))
+    (adj-sign sign
+              (if sfrac
+                  (read-from-string (concatenate 'string secs sfrac))
+                ;; else
+                (read-from-string secs)))
+    ))
   
 (defun convert-minutes (s)
   (or
@@ -282,20 +277,18 @@ THE SOFTWARE.
          t)
         s :sharedp t)
      ;; (format t "~%Mins: ~S ~S ~S ~S" sign mins mtail mfrac)
-     (let ((*read-base* 10.)
-           (*read-default-float-format* 'double-float))
-       (adj-sign sign
-                 (if mfrac
-                     (* 60.
-                        (read-from-string (concatenate 'string mins mfrac)))
-                   ;; else
-                   (let ((secs  (if mtail
-                                    (convert-seconds mtail)
-                                  0)))
-                     (and secs
-                          (+ secs (* 60. (read-from-string mins)))
-                          )))
-                 )))
+     (adj-sign sign
+               (if mfrac
+                   (* 60.
+                      (read-from-string (concatenate 'string mins mfrac)))
+                 ;; else
+                 (let ((secs  (if mtail
+                                  (convert-seconds mtail)
+                                0)))
+                   (and secs
+                        (+ secs (* 60. (read-from-string mins)))
+                        )))
+               ))
    ;; or
    (convert-seconds s)))
   
@@ -313,9 +306,7 @@ THE SOFTWARE.
          t)
         s :sharedp t)
      ;; (format t "~%Degs: ~S ~S ~S ~S ~S" sign degs dkind dtail dfrac)
-     (let* ((*read-base*  10.)
-            (*read-default-float-format* 'double-float)
-            (hsf  (if (string= dkind "h")
+     (let* ((hsf  (if (string= dkind "h")
                       15.
                     1)))
        (adj-sign sign
@@ -444,9 +435,7 @@ THE SOFTWARE.
            (mend   (aref gend   3.))
            (sstart (aref gstart 5.))
            (send   (aref gend   5.)))
-        (let* ((*read-base* 10.)
-               (*read-default-float-format* 'double-float)
-               (ss   (if sstart
+        (let* ((ss   (if sstart
                          (read-from-string (remove (char s send) (subseq s sstart)))
                        0))
                (mm   (if mstart
@@ -480,8 +469,7 @@ THE SOFTWARE.
         t)
        s :sharedp t)
     (declare (ignore timetail secstail))
-    (let* ((*read-base* 10.)
-           (yyyy  (read-from-string year))
+    (let* ((yyyy  (read-from-string year))
            (mm    (read-from-string mon))
            (dd    (read-from-string day))
            (hrs   (if hour
@@ -552,8 +540,7 @@ THE SOFTWARE.
          "^([0-9]{1,2})/([0-9]{1,2})/([0-9]{1,2})$")
         t)
        s :sharedp t)
-    (let* ((*read-base* 10.)
-           (yyyy  (+ 2000. (read-from-string year)))
+    (let* ((yyyy  (+ 2000. (read-from-string year)))
            (mm    (read-from-string mon))
            (dd    (read-from-string day)))
       (encode-universal-time 0 0 0 dd mm yyyy)
@@ -580,8 +567,7 @@ THE SOFTWARE.
         ((#~m/^[0-9]+[rR]/ s)
          (must-read-full-string (concatenate 'string "#" s)))
         ((#~m/^0[tT]/ s)  ;; special 0t prefix for decimal
-         (let ((*read-base* 10.))
-           (must-read-full-string (subseq s 2))))
+         (must-read-full-string (subseq s 2)))
         ))
 
 ;; --------------------------------------------
@@ -589,7 +575,9 @@ THE SOFTWARE.
 (defun read-extended-number-syntax (s)
   (ignore-errors
     (with-vanilla-readtable
-      (let ((s  (remove-separators s))) ;; sep "," or "_"
+      (let ((*read-base* 10.)
+            (*read-default-float-format* 'double-float)
+            (s  (remove-separators s))) ;; sep "," or "_"
         (or (convert-sexigisimal s)
             (convert-real-or-complex s)
             (convert-utc-date s)
