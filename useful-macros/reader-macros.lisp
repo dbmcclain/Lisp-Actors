@@ -473,7 +473,6 @@ THE SOFTWARE.
 (defun convert-utc-date (s)
   ;; yyyy/mm/dd [hh:mm:ss] [UTC[+/-nn]]]
   ;; if UTC is elided then convert by default TZ and DST
-  (format t "~%~S" s)
   (cl-ppcre:register-groups-bind (year mon day timetail hour minutes secstail seconds zonetail timezone)
       ((load-time-value
         (ppcre:create-scanner
