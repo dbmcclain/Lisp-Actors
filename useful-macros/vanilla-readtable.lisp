@@ -16,7 +16,12 @@
   (let ((readtable (copy-readtable nil)))
     (set-macro-character #\' (get-macro-character #\' readtable) t readtable)
     (setf *vanilla-readtable* readtable))
-  (set-macro-character #\' (get-macro-character #\') t))
+  (set-macro-character #\' (get-macro-character #\') t)
+  (set-macro-character #\" (get-macro-character #\") t)
+  ;; now for Unicode variants
+  (set-macro-character #\’ (get-macro-character #\’) t)
+  (set-macro-character #\” (get-macro-character #\”) t)
+  )
 
 #+:ALLOW-PRIMED-SYMBOLS
 (install-primed-symbols)

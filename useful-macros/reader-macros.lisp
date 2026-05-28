@@ -78,13 +78,17 @@ THE SOFTWARE.
   )
 
 ;; ------------------------------------------------------
-
+;; DM/RAL  2026/05/28 10:10:55 UTC -- upgraded reader allows for colons embedded in numbers.
+;;   1:23:32.35
+;;   1:23
+;;   1°23′32″.35  (not quote and double quote, use ^z-' and ^z-")
+;;   1°23′        etc...
 ;; --------------------------------------------------------------
 ;; Allow extended number syntax:
 ;;   - embedded underscore separators 123_445.789_443
 ;;   - allow 1+2j or 1-2j or just 2j, where j in [jJiI]
 ;;   - allow dates in yyyy/mm/dd format
-;;   - allow sexigisimal time in |hh:mm:ss.ss| format (bars needed because of #\:)
+;;   - allow sexigisimal time in hh:mm:ss.ss format
 ;;   - allow hyphenated numbers as in telephone numbers, SSN's, and UUID's
 
 (defun remove-separators (s)
@@ -133,6 +137,7 @@ THE SOFTWARE.
             ))
     ))
 
+;; --------------------------------------------
 #|
 (defun tst (s)
   (#~m/^([+-])?([0-9]+):([0-9]{1,2}([.][0-9]+||:([0-9]{1,2}([.][0-9]+)?)))$/ s))
@@ -182,9 +187,24 @@ THE SOFTWARE.
           (* sgn (+ hh mm ss))
           )))))
 
+;; --------------------------------------------
 #|
 (defun tst (s)
   (#~m/^([+-])?([0-9]+)[dh]([.][0-9]+||([0-9]{1,2})m([.][0-9]+||([0-9]{1,2})s([.][0-9]+)?)?)?$/ s))
+
+(with-standard-io-syntax
+  (pprint
+   (ppcre:parse-string
+    "^([+-])?([0-9]+)[dh°]([.][0-9]+|([0-9]{1,2})[m’'′]([.][0-9]+|([0-9]{1,2})[s”\"＂″]([.][0-9]+)?)?)?$"))
+  (values))
+  
+(defun tst (s)
+  (cl-ppcre:scan
+       (load-time-value
+        (ppcre:create-scanner
+         "^([+-])?([0-9]+)[dh°]([.][0-9]+|([0-9]{1,2})[m’'′]([.][0-9]+|([0-9]{1,2})[s”\"＂″]([.][0-9]+)?)?)?$")
+        t)
+       s))
 
 (tst "1d")
 (tst "+1d")
@@ -195,38 +215,244 @@ THE SOFTWARE.
 (tst "+1d00m00s.234")
 
 (convert-sexigisimal-2 "1d")
-(convert-sexigisimal-2 "+1d")
+(convert-sexigisimal-2 "+1h")
 (convert-sexigisimal-2 "+1d.234")
 (convert-sexigisimal-2 "+1d00m")
 (convert-sexigisimal-2 "+1d00m.234")
+(convert-sexigisimal-2 "+1°00’.234")
 (convert-sexigisimal-2 "+1d00m00s")
 (convert-sexigisimal-2 "+1d00m00s.234")
+(convert-sexigisimal-2 "+1°00’00”.234")
+(convert-sexigisimal-2 "+1°13’01”.234")
+(convert-sexigisimal-2 "+1°13'01”.234")
+(convert-sexigisimal-2 "+1h00m00s.234")
+|#
+#|
+(cl-ppcre:parse-string "\\.[0-9]+")
+(setf (cl-ppcre:parse-tree-synonym 'frac) (cl-ppcre:parse-string "[.][0-9]+"))
+(lw:find-regexp-in-string "\\.\\([0-9]+\\)" "123.456" :brackets-limits t)
+(inspect (lw:precompile-regexp "\\.\\([0-9]+\\)"))
+(lw:find-regexp-in-string
+ "^\\([+-]\\)?\\([0-9]+\\)[dh°]\\(\\.[0-9]+\\|\\([0-9][0-9]?\\)[m’'′]\\(\\.[0-9]+\\|\\([0-9][0-9]?\\)[s”\"＂″]\\(\\.[0-9]+\\)?\\)?\\)?$"
+ "+1h00m00s.234"
+ :brackets-limits t)
 |#
 
+#|
+(convert-sexigisimal-2b "+1h00m00s.234")
+(convert-sexigisimal-2b "+1h00m00s")
+(convert-sexigisimal-2b "+1h00m.234")
+(convert-sexigisimal-2b "+1h.234")
+(convert-sexigisimal-2b "+1m.234")
+(convert-sexigisimal-2b "+1m00s.234")
+(convert-sexigisimal-2b "+1s.234")
+|#
 
+;; --------------------------------------------
+
+(defun adj-sign (sign val)
+  (if (and sign
+           (string= sign "-"))
+      (- val)
+    val))
+
+(defun convert-seconds (s)
+  (cl-ppcre:register-groups-bind (sign secs sfrac)
+      ((load-time-value
+        (ppcre:create-scanner
+         "^([+-])?([0-9]+)[s\”\"\＂\″](\\.[0-9]+)?$")
+        t)
+       s :sharedp t)
+    ;; (format t "~%Secs: ~S ~S ~S" sign secs sfrac)
+    (let ((*read-base* 10.)
+          (*read-default-float-format* 'double-float))
+      (adj-sign sign
+                (if sfrac
+                    (read-from-string (concatenate 'string secs sfrac))
+                  ;; else
+                  (read-from-string secs)))
+      )))
+  
+(defun convert-minutes (s)
+  (or
+   (cl-ppcre:register-groups-bind (sign mins mtail mfrac)
+       ((load-time-value
+         (ppcre:create-scanner
+          "^([+-])?([0-9]+)[m\’\'\′]((\\.[0-9]+)|[0-9].+)?$")
+         t)
+        s :sharedp t)
+     ;; (format t "~%Mins: ~S ~S ~S ~S" sign mins mtail mfrac)
+     (let ((*read-base* 10.)
+           (*read-default-float-format* 'double-float))
+       (adj-sign sign
+                 (if mfrac
+                     (* 60.
+                        (read-from-string (concatenate 'string mins mfrac)))
+                   ;; else
+                   (let ((secs  (if mtail
+                                    (convert-seconds mtail)
+                                  0)))
+                     (and secs
+                          (+ secs (* 60. (read-from-string mins)))
+                          )))
+                 )))
+   ;; or
+   (convert-seconds s)))
+  
+(defun convert-sexigisimal-2b (s)
+  #|
+  ;; nnn°nn′nn″.nnn  or NNNhNNmNNs.NNN - can use 'd' or '°', ' (quote) or ′ U+2032, 
+  ;; nnn′nn″.nnn  or  NNNmNNs.NNN      - double quote " or ″ U+2033
+  ;; nnn″.nnn  or NNNs.NNN
+  |#
+  (or
+   (cl-ppcre:register-groups-bind (sign degs dkind dtail dfrac)
+       ((load-time-value
+         (ppcre:create-scanner
+          "^([+-])?([0-9]+)([dh°])((\\.[0-9]+)|[0-9].+)?$")
+         t)
+        s :sharedp t)
+     ;; (format t "~%Degs: ~S ~S ~S ~S ~S" sign degs dkind dtail dfrac)
+     (let* ((*read-base*  10.)
+            (*read-default-float-format* 'double-float)
+            (hsf  (if (string= dkind "h")
+                      15.
+                    1)))
+       (adj-sign sign
+                 (* hsf
+                    (if dfrac
+                        (* 3600.
+                           (read-from-string (concatenate 'string degs dfrac)))
+                      ;; else
+                      (let ((mins  (if dtail
+                                       (convert-minutes dtail)
+                                     0)))
+                        (and mins
+                             (+ mins (* 3600. (read-from-string degs)))
+                             ))
+                      )))
+       ))
+   ;; or
+   (convert-minutes s)))
+                
+;; --------------------------------------------
+                   
+#+nil     
+(defun convert-sexigisimal-2a (s)
+  #|
+  ;; nnn°nn′nn″.nnn  or NNNhNNmNNs.NNN - can use 'd' or '°', ' (quote) or ′ U+2032, 
+  ;; nnn′nn″.nnn  or  NNNmNNs.NNN      - double quote " or ″ U+2033
+  ;; nnn″.nnn  or NNNs.NNN
+  |#
+  (or
+   (cl-ppcre:register-groups-bind (sign degs dfrac mins mfrac secs sfrac)
+       ;; nn°nn′nn″.nnn
+       ((load-time-value
+         (ppcre:create-scanner
+          `        "^([+-])?([0-9]+)[dh°](\\.[0-9]+|([0-9]{1,2})[m\’\'\′](\\.[0-9]+|([0-9]{1,2})[s\”\"\＂\″](\\.[0-9]+)?)?)?$")
+         t)
+        s :sharedp t)
+     ;; (terpri)
+     ;; (print (list sign degs dfrac mins mfrac secs sfrac))
+     (let ((val  (cond (secs
+                        (+ (read-from-string (if sfrac
+                                                 (concatenate 'string secs sfrac)
+                                               secs))
+                           (* 60. (+ (read-from-string mins)
+                                     (* 60. (read-from-string degs))))))
+                       (mins
+                        (* 60. (+ (read-from-string (if mfrac
+                                                        (concatenate 'string mins mfrac)
+                                                      mins))
+                                  (* 60. (read-from-string degs)))))
+                       (t
+                        (* 3600. (read-from-string (if dfrac
+                                                       (concatenate 'string degs dfrac)
+                                                     degs))))
+                       )))
+       (if (and sign
+                (string= sign "-"))
+           (- val)
+         val)))
+   (cl-ppcre:register-groups-bind (sign mins mfrac secs sfrac)
+       ;; nn′nn″.nnn
+       ((load-time-value
+         (ppcre:create-scanner
+          `        "^([+-])?([0-9]+)[m\’\'\′](\\.[0-9]+|([0-9]{1,2})[s\”\"\＂\″](\\.[0-9]+)?)?$")
+         t)
+        s :sharedp t)
+     ;; (terpri)
+     ;; (print (list sign mins mfrac secs sfrac))
+     (let ((val  (cond (secs
+                        (+ (read-from-string (if sfrac
+                                                 (concatenate 'string secs sfrac)
+                                               secs))
+                           (* 60. (read-from-string mins))))
+                       (t
+                        (* 60. (read-from-string (if mfrac
+                                                     (concatenate 'string mins mfrac)
+                                                   mins))))
+                       )))
+       (if (and sign
+                (string= sign "-"))
+           (- val)
+         val)))
+   (cl-ppcre:register-groups-bind (sign secs sfrac)
+       ;; nn″.nnn
+       ((load-time-value
+         (ppcre:create-scanner
+          `        "^([+-])?([0-9]+)[s\”\"\＂\″](\\.[0-9]+)?$")
+         t)
+        s :sharedp t)
+     ;; (terpri)
+     ;; (print (list sign secs sfrac))
+     (let ((val  (read-from-string (if sfrac
+                                       (concatenate 'string secs sfrac)
+                                     secs))))
+       (if (and sign
+                (string= sign "-"))
+           (- val)
+         val)))
+   ))
+
+;; --------------------------------------------
+
+#+nil
 (defun convert-sexigisimal-2 (s)
-  ;; NNNdNNmNNs.NNN and NNhNNmNNs.NNN
-  ;; Here we can distinguish hours versus degrees with the suffix d or h on the major value.
-  ;; return arcsec
+  ;; NNNdNNmNNs.NNN and NNhNNmNNs.NNN, ddd°mm’ss”.sss
+  ;;            (use Option-shift-8, ^z-', and ^z-" = U+00B0, U+2019, and U+201D)
+  ;;            Non-interfering chars: U+FF02 (＂) and U+FF07 (＇)
+  ;;                                   U+2032 (′) and U+2033 (″)
+  ;; Here we can distinguish degrees versus hours, using the suffix d, h, ° after the major value.
+  ;; Return arcsec. Hours get multiplied by 15.
   (multiple-value-bind (start end gstart gend)
-      (#~m/^([+-])?([0-9]+)[dh]([.][0-9]+||([0-9]{1,2})m([.][0-9]+||([0-9]{1,2})s([.][0-9]+)?)?)?$/ s)
-    (declare (ignore end gend))
+      ;; (#~m/^([+-])?([0-9]+)[dh°]([.][0-9]+||([0-9]{1,2})[m’'′]([.][0-9]+||([0-9]{1,2})[s”″]([.][0-9]+)?)?)?$/ s)
+      (cl-ppcre:scan
+       (load-time-value
+        (ppcre:create-scanner
+         "^([+-])?([0-9]+)[dh°]([.][0-9]+|([0-9]{1,2})[m’'′]([.][0-9]+|([0-9]{1,2})[s”\"＂″]([.][0-9]+)?)?)?$")
+        t)
+       s)
+         
+    (declare (ignore end))
     (when start
       (symbol-macrolet
           ((sign   (aref gstart 0))
            (hstart (aref gstart 1))
-           (hfrac  (aref gstart 2.))
+           (hend   (aref gend    1))
            (mstart (aref gstart 3.))
-           (sstart (aref gstart 5.)))
+           (mend   (aref gend   3.))
+           (sstart (aref gstart 5.))
+           (send   (aref gend   5.)))
         (let* ((*read-base* 10.)
                (*read-default-float-format* 'double-float)
                (ss   (if sstart
-                         (read-from-string (remove #\s (subseq s sstart)))
+                         (read-from-string (remove (char s send) (subseq s sstart)))
                        0))
                (mm   (if mstart
-                         (* 60. (read-from-string (remove #\m (subseq s mstart sstart))))
+                         (* 60. (read-from-string (remove (char s mend) (subseq s mstart sstart))))
                        0))
-               (hflag (char s (1- hfrac)))
+               (hflag (char s hend))
                (hmul  (if (char= hflag #\h) 15. 1))
                (hh    (* 3600. (read-from-string (remove hflag (subseq s hstart mstart)))))
                (sgn   (if (and sign
@@ -236,54 +462,45 @@ THE SOFTWARE.
           (* sgn hmul (+ hh mm ss))))
       )))
 
+;; --------------------------------------------
+
 (defun convert-sexigisimal (s)
   (or (convert-sexigisimal-1 s)
-      (convert-sexigisimal-2 s)))
+      (convert-sexigisimal-2b s)))
+
+;; --------------------------------------------
 
 (defun convert-utc-date (s)
   ;; yyyy/mm/dd [hh:mm:ss] [UTC[+/-nn]]]
   ;; if UTC is elided then convert by default TZ and DST
-  (multiple-value-bind (start end gstart gend)
-      (#~m%^([0-9]{4})/([0-9]{1,2})/([0-9]{1,2})([ ]+([0-9]{1,2}):([0-9]{1,2})(:([0-9]{1,2}))?)?([ ]+UTC([-+][0-9]{1,2})?)?$% s)
-    (declare (ignore end))
-    (when start
-      (symbol-macrolet
-          ((ystart  (aref gstart 0))
-           (yend    (aref gend   0))
-           (mstart  (aref gstart 1))
-           (mend    (aref gend   1))
-           (dstart  (aref gstart 2.))
-           (dend    (aref gend   2.))
-           (hstart  (aref gstart 4.))
-           (hend    (aref gend   4.))
-           (mmstart (aref gstart 5.))
-           (mmend   (aref gend   5.))
-           (sstart  (aref gstart 7.))
-           (send    (aref gend   7.))
-           (utstart (aref gstart 8.))
-           (tzstart (aref gstart 9.))
-           (tzend   (aref gend   9.)))
-        (let* ((*read-base* 10.)
-               (yyyy (read-from-string (subseq s ystart  yend)))
-               (mm   (read-from-string (subseq s mstart  mend)))
-               (dd   (read-from-string (subseq s dstart  dend)))
-               (hrs  (if hstart
-                         (read-from-string (subseq s hstart  hend))
-                       0))
-               (mins (if mmstart
-                         (read-from-string (subseq s mmstart mmend))
-                       0))
-               (secs (if sstart
-                         (read-from-string (subseq s sstart  send))
-                       0))
-               (tz   (when utstart
+  (format t "~%~S" s)
+  (cl-ppcre:register-groups-bind (year mon day timetail hour minutes secstail seconds zonetail timezone)
+      ((load-time-value
+        (ppcre:create-scanner
+         "^([0-9]{4})/([0-9]{1,2})/([0-9]{1,2})([ ]+([0-9]{1,2}):([0-9]{1,2})(:([0-9]{1,2}))?)?([ ]+UTC([-+][0-9]{1,2})?)?$")
+        t)
+       s :sharedp t)
+    (declare (ignore timetail secstail))
+    (let* ((*read-base* 10.)
+           (yyyy  (read-from-string year))
+           (mm    (read-from-string mon))
+           (dd    (read-from-string day))
+           (hrs   (if hour
+                      (read-from-string hour)
+                    0))
+           (mins  (if minutes
+                      (read-from-string minutes)
+                    0))
+           (secs  (if seconds
+                      (read-from-string seconds)
+                    0))
+           (tz   (when zonetail
                        (list
-                        (if tzstart
-                            (- (read-from-string (subseq s tzstart tzend)))
+                        (if timezone
+                            (- (read-from-string timezone))
                           0)))))
-          (apply #'encode-universal-time secs mins hrs dd mm yyyy tz))
-        ))) )
-
+      (apply #'encode-universal-time secs mins hrs dd mm yyyy tz)
+      )))
 #|
 ;; now extended syntax in above def
 (defun convert-utc-date (s)
@@ -329,24 +546,21 @@ THE SOFTWARE.
 |#
 
 (defun convert-american-short-date (s)
-  ;; mm/dd/yy 
-  (multiple-value-bind (start end gstart gend)
-      (#~m%^([0-9]{1,2})/([0-9]{1,2})/([0-9]{1,2})$% s)
-    (declare (ignore end))
-    (when start
-      (symbol-macrolet
-          ((ystart (aref gstart 2.))
-           (yend   (aref gend   2.))
-           (mstart (aref gstart 0))
-           (mend   (aref gend   0))
-           (dstart (aref gstart 1))
-           (dend   (aref gend   1)))
-        (let* ((*read-base* 10.)
-               (yyyy (+ 2000. (read-from-string (subseq s ystart yend))))
-               (mm   (read-from-string (subseq s mstart mend)))
-               (dd   (read-from-string (subseq s dstart dend))))
-          (encode-universal-time 0 0 0 dd mm yyyy)
-          )))))
+  ;; mm/dd/yy
+  (cl-ppcre:register-groups-bind (year mon day)
+      ((load-time-value
+        (ppcre:create-scanner
+         "^([0-9]{1,2})/([0-9]{1,2})/([0-9]{1,2})$")
+        t)
+       s :sharedp t)
+    (let* ((*read-base* 10.)
+           (yyyy  (+ 2000. (read-from-string year)))
+           (mm    (read-from-string mon))
+           (dd    (read-from-string day)))
+      (encode-universal-time 0 0 0 dd mm yyyy)
+      )))
+
+;; --------------------------------------------
 
 (defun must-read-full-string (str)
   (multiple-value-bind (val endpos)
