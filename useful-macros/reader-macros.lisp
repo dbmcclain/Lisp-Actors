@@ -247,18 +247,25 @@ THE SOFTWARE.
 
 ;; --------------------------------------------
 
-(defun adj-sign (sign val)
-  (if (and sign
-           (string= sign "-"))
-      (- val)
-    val))
+(defun cvt-hms (sign whole tail frac follow-fn scale)
+  ;; common code for both hours & minutes & seconds
+  (let ((ans (if frac
+                 (* scale
+                    (read-from-string (concatenate 'string whole frac)))
+               ;; else
+               (let ((sub  (if tail
+                               (funcall follow-fn tail)
+                             0)))
+                 (and sub
+                      (+ sub (* scale (read-from-string whole))))
+                 ))))
+    (when ans
+      (if (and sign
+               (string= sign "-"))
+          (- ans)
+        ans))
+    ))
 
-(defun cvt-secs (secs sfrac)
-  (if sfrac
-      (read-from-string (concatenate 'string secs sfrac))
-    ;; else
-    (read-from-string secs)))
-  
 (defun convert-seconds (s)
   (cl-ppcre:register-groups-bind (sign secs sfrac)
       ((load-time-value
@@ -267,62 +274,21 @@ THE SOFTWARE.
         t)
        s :sharedp t)
     ;; (format t "~%Secs: ~S ~S ~S" sign secs sfrac)
-    (adj-sign sign (cvt-secs secs sfrac))
+    (cvt-hms sign secs nil sfrac nil 1)
     ))
-
-(defun convert-seconds-ext (s)
-  (cl-ppcre:register-groups-bind (secs sfrac)
-      ((load-time-value
-        (ppcre:create-scanner
-         "^([0-9]{1,2})[s\”\"\＂\″](\\.[0-9]+)?$")
-        t)
-       s :sharedp t)
-    ;; (format t "~%Secs: ~S ~S ~S" sign secs sfrac)
-    (cvt-secs secs sfrac)))
-
-(defun cvt-hm (whole tail frac follow-fn scale)
-  (if frac
-      (* scale
-         (read-from-string (concatenate 'string whole frac)))
-    ;; else
-    (let ((sub  (if tail
-                    (funcall follow-fn tail)
-                  0)))
-      (and sub
-           (+ sub (* scale (read-from-string whole))))
-      )))
-
-(defun cvt-mins (mins mtail mfrac)
-  (cvt-hm mins mtail mfrac #'convert-seconds-ext 60.))
 
 (defun convert-minutes (s)
   (or
    (cl-ppcre:register-groups-bind (sign mins mtail mfrac)
        ((load-time-value
          (ppcre:create-scanner
-          "^([+-])?([0-9]+)[m\’\'\′]((\\.[0-9]+)|[0-9].+)?$")
+          "^([+-])?([0-9]+)[m\’\'\′]((\\.[0-9]+)|[0-9].*)?$")
          t)
         s :sharedp t)
      ;; (format t "~%Mins: ~S ~S ~S ~S" sign mins mtail mfrac)
-     (let ((ans (cvt-mins mins mtail mfrac)))
-       (and ans
-            (adj-sign sign ans))
-       ))
+     (cvt-hms sign mins mtail mfrac #'convert-seconds 60.))
    ;; or
    (convert-seconds s)))
-
-(defun convert-minutes-ext (s)
-  (cl-ppcre:register-groups-bind (mins mtail mfrac)
-      ((load-time-value
-        (ppcre:create-scanner
-         "^([0-9]{1,2})[m\’\'\′]((\\.[0-9]+)|[0-9].+)?$")
-        t)
-       s :sharedp t)
-    ;; (format t "~%Mins: ~S ~S ~S ~S" sign mins mtail mfrac)
-    (cvt-mins mins mtail mfrac)))
-
-(defun cvt-hrs (degs dtail dfrac)
-  (cvt-hm degs dtail dfrac #'convert-minutes-ext 3600.))
 
 (defun convert-sexigisimal-2b (s)
   #|
@@ -334,17 +300,16 @@ THE SOFTWARE.
    (cl-ppcre:register-groups-bind (sign degs dkind dtail dfrac)
        ((load-time-value
          (ppcre:create-scanner
-          "^([+-])?([0-9]+)([dh°])((\\.[0-9]+)|[0-9].+)?$")
+          "^([+-])?([0-9]+)([dh°])((\\.[0-9]+)|[0-9].*)?$")
          t)
         s :sharedp t)
      ;; (format t "~%Degs: ~S ~S ~S ~S ~S" sign degs dkind dtail dfrac)
      (let* ((hsf  (if (string= dkind "h")
                       15.
                     1))
-            (hrs  (cvt-hrs degs dtail dfrac)))
-       (and hrs
-            (adj-sign sign
-                      (* hsf hrs)))
+            (ans  (cvt-hms sign degs dtail dfrac #'convert-minutes 3600.)))
+       (when ans
+         (* hsf ans))
        ))
    ;; or
    (convert-minutes s)))
