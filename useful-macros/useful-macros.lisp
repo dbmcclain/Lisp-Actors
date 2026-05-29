@@ -3362,3 +3362,78 @@ low NSH bits of arg B. Obviously, NSH should be a positive left shift."
 (defmacro define-constant (name value &optional doc)
   `(defconstant ,name (if (boundp ',name) (symbol-value ',name) ,value)
                       ,@(when doc (list doc))))
+
+
+;; --------------------------------------------
+
+(defun deg (x)
+  (/ x 360)) ;; to turns
+
+(defun rad (x)
+  (/ x 2 pi)) ;; to turns
+
+(defun to-rad (x) ;; from turns
+  (* x 2 pi))
+
+(defun to-deg (x) ;; from turns
+  (* x 360))
+
+;; -------------------------
+;; Trig of Turns args
+
+(defun sint (x)
+  (sin (to-rad x)))
+
+(defun cost (x)
+  (cos (to-rad x)))
+
+(defun tant (x)
+  (tan (to-rad x)))
+
+(defun asint (x)
+  (rad (asin x)))
+
+(defun acost (x)
+  (rad (acos x)))
+
+(defun atant (y &optional (x nil x-given-p))
+  (rad (if x-given-p
+           (atan y x)
+         (atan y))
+       ))
+
+(defun phaset (x)
+  (rad (phase x)))
+
+(defun cist (x)
+  (cis (to-rad x)))
+
+;; ------------------------
+;; Trig of Degrees args
+
+(defun sind (x)
+  (sint (deg x)))
+
+(defun cosd (x)
+  (cost (deg x)))
+
+(defun tand (x)
+  (tant (deg x)))
+
+(defun asind (x)
+  (to-deg (asint x)))
+
+(defun acosd (x)
+  (to-deg (acost x)))
+
+(defun atand (y &optional (x nil x-given-p))
+  (to-deg (if x-given-p
+              (atant y x)
+            (atant y))
+          ))
+
+(defun phased (x)
+  (to-deg (phaset x)))
+
+(defun cisd (x)
+  (cist (deg x)))

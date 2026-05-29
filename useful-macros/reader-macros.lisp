@@ -181,7 +181,7 @@ THE SOFTWARE.
                               (char= #\- (char s sign)))
                          -1
                        1)))
-          (* sgn (+ hh mm ss))
+          (* 1/1296000 sgn (+ hh mm ss)) ;; convert to turns
           )))))
 
 ;; --------------------------------------------
@@ -267,30 +267,33 @@ THE SOFTWARE.
     ))
 
 (defun convert-seconds (s)
-  (cl-ppcre:register-groups-bind (sign secs sfrac)
+  (cl-ppcre:register-groups-bind (sign secs skind sfrac)
       ((load-time-value
         (ppcre:create-scanner
-         "^([+-])?([0-9]+)[s\”\"\＂\″](\\.[0-9]+)?$")
+         "^([+-])?([0-9]+)([s\”\"\＂\″])(\\.[0-9]+)?$")
         t)
        s :sharedp t)
     ;; (format t "~%Secs: ~S ~S ~S" sign secs sfrac)
-    (cvt-hms sign secs nil sfrac nil 1)
+    (values (cvt-hms sign secs nil sfrac nil 1)
+            skind)
     ))
 
 (defun convert-minutes (s)
   (or
-   (cl-ppcre:register-groups-bind (sign mins mtail mfrac)
+   (cl-ppcre:register-groups-bind (sign mins mkind mtail mfrac)
        ((load-time-value
          (ppcre:create-scanner
-          "^([+-])?([0-9]+)[m\’\'\′]((\\.[0-9]+)|[0-9].*)?$")
+          "^([+-])?([0-9]+)([m\’\'\′])((\\.[0-9]+)|[0-9].*)?$")
          t)
         s :sharedp t)
      ;; (format t "~%Mins: ~S ~S ~S ~S" sign mins mtail mfrac)
-     (cvt-hms sign mins mtail mfrac #'convert-seconds 60.))
+     (return-from convert-minutes
+       (values (cvt-hms sign mins mtail mfrac #'convert-seconds 60.)
+               mkind)))
    ;; or
    (convert-seconds s)))
 
-(defun convert-sexigisimal-2b (s)
+(defun convert-hours (s)
   #|
   ;; nnn°nn′nn″.nnn  or NNNhNNmNNs.NNN - can use 'd' or '°', ' (quote) or ′ U+2032, 
   ;; nnn′nn″.nnn  or  NNNmNNs.NNN      - double quote " or ″ U+2033
@@ -304,15 +307,21 @@ THE SOFTWARE.
          t)
         s :sharedp t)
      ;; (format t "~%Degs: ~S ~S ~S ~S ~S" sign degs dkind dtail dfrac)
-     (let* ((hsf  (if (string= dkind "h")
-                      15.
-                    1))
-            (ans  (cvt-hms sign degs dtail dfrac #'convert-minutes 3600.)))
-       (when ans
-         (* hsf ans))
-       ))
+     (return-from convert-hours
+       (values (cvt-hms sign degs dtail dfrac #'convert-minutes 3600.)
+               dkind)))
    ;; or
    (convert-minutes s)))
+
+(defun convert-sexigisimal-2b (s)
+  (multiple-value-bind (val kind)
+      (convert-hours s)
+    (when val
+      (* 1/1296000   ;; convert to turns
+         (if (find (char kind 0) "hms")
+             (* 15. val)
+           val)))
+    ))
                 
 ;; --------------------------------------------
                    

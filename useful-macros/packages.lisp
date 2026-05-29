@@ -832,4 +832,27 @@ THE SOFTWARE.
    #:install-angle-reader
    #:install-primed-symbols
    #:install-radix-readers
+
+   #:deg
+   #:rad
+   #:to-deg
+   #:to-rad
+
+   #:sint
+   #:cost
+   #:tant
+   #:asint
+   #:acost
+   #:atant
+   #:phaset
+   #:cist
+
+   #:sind
+   #:cosd
+   #:tand
+   #:asind
+   #:acosd
+   #:atand
+   #:phased
+   #:cisd
    ))
