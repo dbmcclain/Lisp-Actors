@@ -371,10 +371,9 @@
                                    proxies (acons ac proxy proxies))
                              proxy))
                          ))))
-         (let+ ((enc (loenc:encode (loenc:unshared-list msg)
-                                   :max-portability t))
+         (let+ ((enc (ser:encode msg :max-portability t))
                 (:β _  (racurry local-services :add-ephemeral-clients rcvrs *default-ephemeral-ttl*)))
-           (>> cust enc))
+           (>> cust enc))         
          )))
    ))
 
@@ -389,7 +388,7 @@
     (β (enc)
         (>> encoder β obj)
       (>> fmt-println "Encoding: ~S" enc)
-      (>> fmt-println "Decoding: ~S" (loenc:decode enc))
+      (>> fmt-println "Decoding: ~S" (ser:decode enc))
       )))
 |#
 
@@ -423,7 +422,7 @@
                        )))
          (multiple-value-bind (dec cx)
              (ignore-errors
-               (loenc:decode vec))
+               (ser:decode vec))
            (unless cx
              (>>* cust dec)))
          )))

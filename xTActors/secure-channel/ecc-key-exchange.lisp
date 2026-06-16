@@ -315,8 +315,7 @@
 
 (defun make-aes-packet (key &rest data)
   (let* ((vdata  (padder
-                  (loenc:encode (loenc:unshared-list data)
-                                :max-portability t)))
+                  (ser:encode data :max-portability t)))
          (iv     (make-iv key))
          (cdata  (aes-enc/dec key iv vdata))
          (chk    (make-auth-chk key iv cdata)))
@@ -327,7 +326,7 @@
   (let ((chkx (make-auth-chk key iv cdata)))
     (when (equalp chkx chk) ;; just drop on the floor if not valid
       (let ((vdata  (aes-enc/dec key iv cdata)))
-        (loenc:decode (unpadder vdata)))
+        (ser:decode (unpadder vdata)))  ;; is unpadding actually needed here?
       )))
 
 ;; ----------------------------------------------------
@@ -367,7 +366,13 @@
              ))
          )))
    ))
+#|
+(let+ ((:β (srv-pkey)  eccke:srv-pkey))
+  (send println srv-pkey))
 
+(send my-pkeyid println)
+(send srv-pkey println)
+|#
 ;; ----------------------------------------------------
 ;; For Actors-based code, using ECC encryption
 

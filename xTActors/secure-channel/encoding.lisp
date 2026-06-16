@@ -165,15 +165,14 @@
   (create 
       (behav (cust &rest args)
         ;; (>> fmt-println "Marshal Encoder")
-        (>> cust (loenc:encode (loenc:unshared-list args)
-                               :max-portability t))
+        (>> cust (ser:encode args :max-portability t))
         )))
 
 (deflex marshal-decoder
   (create 
       (behav (cust vec)
         ;; (>> fmt-println "Marshal Decoder")
-        (>>* cust (loenc:decode vec)) )))
+        (>>* cust (ser:decode vec)) )))
   
 (deflex fail-silent-marshal-decoder
   (create
@@ -188,19 +187,19 @@
      ;; kinds of attacks and not let them pass, nor cause trouble for
      ;; us.
      (ignore-errors
-       (let ((dec (loenc:decode vec)))
+       (let ((dec (ser:decode vec)))
          (when (listp dec)
            (>>* cust dec))
        )))
     )))
-
 #|
 (defun marshal-cmpr-encoder ()
   (create 
       (behav (cust &rest msg)
         ;; takes arbitrary objects and producdes an encoded bytevec
-        (>> (marshal-compressor) cust (loenc:encode (loenc:unshared-list msg)
-                                                    :max-portability t)))))
+        (>> (marshal-compressor) cust
+            (ser:encode msg :max-portability t)
+            ))))
 
 (defun uncompressed? (vec)
   (and (>= (length vec) 4)
@@ -212,7 +211,9 @@
       (behav (cust msg)
         (beta (enc)
             (>> (marshal-decompressor) beta msg)
-          (>>* cust (loenc:decode enc))))))
+          (>>* cust
+               (ser:decode enc)
+               )))))
 
 (defun marshal-compressor ()
   ;; takes bytevec and produces bytevec
@@ -1123,10 +1124,10 @@
         ))))
 
 (let* ((x   (hcl:file-string "./xTActors/encoding.lisp"))
-       (xe  (loenc:encode x :max-portability t))
+       (xe  (ser:encode x :max-portability t))
        (xc  (subseq (xzlib:compress xe :fixed) 0))
        (xx  (xzlib:uncompress xc))
-       (xd  (loenc:decode xx)))
+       (xd  (ser:decode xx)))
   (print xd))
 
 |#
@@ -1211,8 +1212,7 @@
                               :if-does-not-exist :create
                               :element-type '(unsigned-byte 8))
             (write-sequence +AONT-FILE-TYPE-ID+ fd)
-            (loenc:serialize vecs fd
-                             :max-portability t)
+            (ser:serialize vecs fd :max-portability t)
             (>> cust :ok)
             )))))
 
@@ -1227,7 +1227,8 @@
        (let ((file-type (make-ub8-vector 16)))
          (read-sequence file-type fd)
          (if (equalp +AONT-FILE-TYPE-ID+ file-type)
-             (>>* aont-decoder cust (loenc:deserialize fd))
+             (>>* aont-decoder cust
+                  (ser:deserialize fd))
            (error "~A: Not an AONT encoded file" fname))
          )))))
 
@@ -1235,7 +1236,7 @@
 ;; Tests...
 #|
 (defun tst ()
-  (let ((msg (hcl:file-string "./xTActors/encoding.lisp")))
+  (let ((msg (hcl:file-string "./xTActors/secure-channel/encoding.lisp")))
     (multiple-value-bind (skey pkey)
         (make-deterministic-keys :test)
       (let ((ekey (vec (hash/256 skey pkey))))
@@ -1251,7 +1252,7 @@
 (tst)
 
 
-(let ((msg (hcl:file-string "./xTActors/encoding.lisp"))
+(let ((msg (hcl:file-string "./xTActors/secure-channel/encoding.lisp"))
       (fout "./xTActors/aont-test"))
   (multiple-value-bind (skey pkey)
       (make-deterministic-keys :test)
@@ -1260,7 +1261,7 @@
       )))
 
 (defun tst ()
-  (let ((msg (hcl:file-string "./xTActors/encoding.lisp"))
+  (let ((msg (hcl:file-string "./xTActors/secure-channel/encoding.lisp"))
         (finp "./xTActors/aont-test")
         (fout "./xTActors/aont-test-result.txt"))
     (beta (dmsg)
@@ -1463,16 +1464,16 @@
 
 ;; -------------------------------------------------------------
 
-(! s (hcl:file-string "./xTActors/encoding.lisp"))
+(! s (hcl:file-string "./xTActors/secure-channel/encoding.lisp"))
 
-(let ((pipe (sink-pipe (marshal-encoder)
-                       (chunker :max-size 16000)
-                       (marshal-encoder)
+(let ((pipe (sink-pipe marshal-encoder
+                       (chunker 16000)
+                       marshal-encoder
                        ;; channel out
                        ;; channel in
-                       (marshal-decoder)
+                       marshal-decoder
                        (dechunker)
-                       (marshal-decoder)
+                       marshal-decoder
                        println)))
   (>> (α _
           (>> pipe s))))
