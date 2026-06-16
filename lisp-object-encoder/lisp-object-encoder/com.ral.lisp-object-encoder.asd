@@ -41,7 +41,8 @@ THE SOFTWARE.
                 (:file "lisp-object-encoder")
                 (:file "unshared-list")
                 (:file "safe-marshaling")
-                (:file "dump"))
+                (:file "dump")
+                (:file "serializer"))
   :SERIAL T
   :depends-on   ("com.ral.self-sync"
                  "com.ral.ubyte-streams"

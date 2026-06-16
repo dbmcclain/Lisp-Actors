@@ -389,7 +389,7 @@ recycling that buffer for another use later. This is an attempt to avoid generat
                                                 :magic-number use-magic)
                      backend)))
       (cond (preflen
-           (deserialize-prefixed-stream stream preflen :backend bknd))
+             (deserialize-prefixed-stream stream preflen :backend bknd))
             
             (length
              (deserialize-for-length stream length :backend bknd))

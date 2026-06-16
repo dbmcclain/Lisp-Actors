@@ -236,8 +236,8 @@
 	  for code-length = (aref huffman-code-lengths i)
 	  do (unless (zerop code-length)
                (incf (aref bl-count code-length))))
-    (loop for bits fixnum from 1 to max-bits
-	  with code = 0
+    (loop with code = 0
+          for bits fixnum from 1 to max-bits
 	  do (setf code (ash (+ code (aref bl-count (1- bits))) 1)
                    (aref next-code bits) code))
     (loop for i fixnum from 0 to max-code
@@ -488,9 +488,9 @@ LENGTH elements"
   (declare (type (vector (unsigned-byte 8)) buffer)
            (type (unsigned-byte 32) adler)
            (optimize speed))
-  (loop for i fixnum from 0 below (length buffer)
-	with s1 of-type (unsigned-byte 32) = (logand adler #xffff)
+  (loop with s1 of-type (unsigned-byte 32) = (logand adler #xffff)
 	with s2 of-type (unsigned-byte 32) = (logand (ash adler -16) #xffff)
+	for i fixnum from 0 below (length buffer)
 	do (setf s1 (mod (+ s1 (aref buffer i)) +adler-base+)
                  s2 (mod (+ s2 s1) +adler-base+))
 	finally (return (+ (ash s2 16) s1))))
@@ -527,9 +527,9 @@ END specifies the end position in the BUFFER (length of BUFFER by default)"
   (loop with bit-stream = (make-bit-stream :bytes buffer :position start)
 	with cmf fixnum = (bit-stream-read-byte bit-stream)
 	with flg fixnum = (bit-stream-read-byte bit-stream)
+	with adler-32 = (read-32-bits-from-array buffer (- end 4))
 	for bfinal fixnum = (bit-stream-read-bits bit-stream 1)
 	for btype fixnum = (bit-stream-read-bits bit-stream 2)
-	with adler-32 = (read-32-bits-from-array buffer (- end 4))
 	do (check-type (ldb (byte 4 0) cmf) (integer 8))
 	   (check-type (ldb (byte 1 5) flg) (integer 0))
            (assert (zerop (mod (+ (* 256 cmf) flg) 31)))
@@ -583,8 +583,8 @@ result in RESULT."
                (multiple-value-bind (length distance)
                    (bit-stream-read-length-and-distance bit-stream symbol)
                  (declare (type fixnum length distance))
-                 (loop for j fixnum from 0 below length
-                       with source-index fixnum = (- i distance)
+                 (loop with source-index fixnum = (- i distance)
+                       for j fixnum from 0 below length
                        do (vector-push-extend
                            (logand (aref result (+ (mod j distance)
                                                    source-index))
@@ -669,10 +669,10 @@ Recognized types are :NO-COMPRESSION, :FIXED and :DYNAMIC."
 				  :adjustable t
 				  :fill-pointer 0
 				  :element-type '(unsigned-byte 8))
+	with last-bits = nil
 	for i fixnum from 0 below blocks
 	for start = (* i block-size)
         for end = (* (1+ i) block-size)
-	with last-bits = nil
 	do (when (= i (1- blocks))
              (setq bfinal 1))
            (check-type (ldb (byte 4 0) cmf) (integer 8))
@@ -894,5 +894,6 @@ push INDEX into HASH-TABLE"
    bit-stream (fixed-huffman-code +huffman-end-of-block-symbol+)))
 
 (defun encode-dynamic-huffman-block (bit-stream buffer)
+  (declare (ignore bit-stream buffer))
   (error "Not implemented yet."))
 

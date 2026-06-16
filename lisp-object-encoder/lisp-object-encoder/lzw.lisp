@@ -189,27 +189,31 @@ THE SOFTWARE.
 (defstruct compressed
   data)
 
-(defmethod compress (x)
-  ;; Compress an arbitrary Lisp object to a byte vector.  Overt
-  ;; byte-vec are used because these serialize more efficiently than
-  ;; general arrays of T.
-  (make-compressed
-   :data (cvt-intvec-to-octets
-          (lzw-compress
-           (loenc:encode x)))))
+(defgeneric compress (x)
+  (:method (x)
+   ;; Compress an arbitrary Lisp object to a byte vector.  Overt
+   ;; byte-vec are used because these serialize more efficiently than
+   ;; general arrays of T.
+   (make-compressed
+    :data (cvt-intvec-to-octets
+           (lzw-compress
+            (loenc:encode x)))
+    ))
+  (:method ((x compressed))
+   x))
 
-(defmethod compress ((x compressed))
-  x)
-
-(defmethod decompress (x)
-  x)
-
-(defmethod decompress ((x compressed))
-  ;; decompress a byte vector back to an arbitrary Lisp object
-  (loenc:decode
-   (lzw-decompress
-    (cvt-octets-to-intvec
-     (compressed-data x)))))
+(defgeneric decompress (x)
+  (:method (x)
+   x)
+  (:method ((x compressed))
+   ;; decompress a byte vector back to an arbitrary Lisp object
+   (decompress
+    (loenc:decode
+     (lzw-decompress
+      (cvt-octets-to-intvec
+       (compressed-data x)))
+     ))
+   ))
 
 ;; -----------------------------------------------------------
 ;; Compression based on Zlib - better compression
@@ -225,12 +229,17 @@ THE SOFTWARE.
 (defun simple-decompress (ub8v)
   (snappy:uncompress ub8v 0 (length ub8v)))
 
-(defun zl-compress (x)
-  (make-zl-compressed
-   :data (simple-compress (loenc:encode x))))
+(defgeneric zl-compress (x)
+  (:method (x)
+   (make-zl-compressed
+    :data (simple-compress (loenc:encode x))))
+  (:method ((x zl-compressed))
+   x))
 
 (defmethod decompress ((x zl-compressed))
-  (loenc:decode
-   (simple-decompress
-    (zl-compressed-data x))))
+  (decompress
+   (loenc:decode
+    (simple-decompress
+     (zl-compressed-data x)))
+   ))
 
