@@ -535,7 +535,8 @@ THE SOFTWARE.
    #:get-$-dispatch-reader
    #:set-/-dispatch-reader
    #:get-/-dispatch-reader
-   #:get-delim
+   #:get-matching-delim
+   #:read-chars-till
    #:read-chars-till-delim
    #:read-chars-to-end-of-token
    #:make-char-buffer
@@ -828,11 +829,16 @@ THE SOFTWARE.
 
    #:singleton-class
    #:pr-int
-   #:with-vanilla-readtable
-   #:install-angle-reader
-   #:install-primed-symbols
-   #:install-radix-readers
 
+   #:install-angle-reader
+   #:install-radix-readers
+   #:read-escaped-char
+   
+   #:with-vanilla-readtable
+   #:update-ral-syntax
+   #:using-ral-syntax
+   #:using-standard-syntax
+   
    #:deg
    #:rad
    #:to-deg

@@ -29,10 +29,35 @@ THE SOFTWARE.
   :author      "D.McClain <dbm@refined-audiometrics.com>"
   :license     "Copyright (c) 2008 by Refined Audiometrics Laboratory, LLC. All rights reserved."
   :components  ((:file "packages")
-                (:file "vanilla-readtable")
-                #+:LISPWORKS (:file "fix-walker")
                 (:file "eval-always")
+                (:file "vanilla-readtable")
+
+                #+:LISPWORKS (:file "fix-walker")
+                
+                (:file "sharp-f")
+                (:file "sharp-quasiquote-reader")
+                (:file "basic-useful")
+                (:file "bang-macros")
+                (:file "nlet")
                 (:file "def-extensions")
+
+                ;; --------------------------------------------
+                #| ;; superseded by parseq-readers.lisp ;; DM/RAL  2026/06/12T09:11:05U
+                (:file "packrat-readers")
+                #+:LISPWORKS (:file "packrat-checker")
+                (:file "packrat-readers-parser")
+                |#
+                ;; --------------------------------------------
+                ;; --------------------------------------------
+                (:file "parseq-readers") ;; extended number syntax
+                (:file "underscore") ;; DM/RAL  2026/04/28 16:07:44 UTC - SBCL Broken in ver 2.6.3
+                ;; --------------------------------------------
+                ;; --------------------------------------------
+                (:file "ppcre-reader")
+                (:file "reader-macros")
+                ;; (:file "reader-regexps")  ;; superseded by parseq-readers.lisp ;; DM/RAL  2026/06/12T09:08:07U
+                ;; --------------------------------------------
+
                 (:file "singleton-class")
 
                 #+:CLOZURE (:file "clozure-compat")
@@ -40,11 +65,9 @@ THE SOFTWARE.
 		#+:ALLEGRO (:file "allegro-compat")
                 
                 ;; (:file "fix-aref") ;; is too fraught with problems DM/RAL 03/24
-                (:file "sharp-f")
-                (:file "stub-functions")
-                (:file "basic-useful")
 
                 (:file "nbr-cpus")
+                (:file "stub-functions")
 
                 ;; (:file "freev")
                 ;; (:file "package-aliases")
@@ -52,12 +75,8 @@ THE SOFTWARE.
                 (:file "dynamic-wind")
                 (:file "dflet")
                 (:file "option")
-                (:file "nlet")
                 (:file "with")
-                (:file "sharp-quasiquote-reader")
-                (:file "bang-macros")
-                (:file "ppcre-reader")
-                (:file "reader-macros")
+
                 (:file "list-match")
                 #+(AND :COM.RAL :LISPWORKS) (:file "ctypes")
                 (:file "useful-macros")
@@ -65,9 +84,9 @@ THE SOFTWARE.
                 (:file "encaps-type")
                 (:file "rmw-v2")
                 (:file "timeout")
+                (:file "zulu-time")
 		#-:SBCL (:file "usec")
                 #+:SBCL (:file "usec-sbcl")
-                (:file "zulu-time")
                 #+(AND :LISPWORKS :MACOSX) (:file "OSX-UUID-Generate")
                 #+(AND :ALLEGRO :MACOSX)   (:file "OSX-UUID-Generate-Allegro")
                 #-(OR (AND :MACOSX :LISPWORKS)
@@ -79,6 +98,8 @@ THE SOFTWARE.
                  "cffi"
                  "com.ral.mpcompat"
                  "closer-mop"
+                 ;; "esrap"
+                 "parseq"
                  ))
 
 ;; Actors can be invoked after first loading "useful-macros"
@@ -112,7 +133,6 @@ THE SOFTWARE.
                 ;; (:file "monitor-macros")
                 ;; (:file "lazy") ;; supplanted by a better, simpler, version
                 
-                (:file "underscore") ;; DM/RAL  2026/04/28 16:07:44 UTC - SBCL Broken in ver 2.6.3
                 (:file "sep")
 
                 #+:LISPWORKS (:file "abbrev-bignums")

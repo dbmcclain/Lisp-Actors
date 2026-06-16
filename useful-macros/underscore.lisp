@@ -5,33 +5,10 @@
 (in-package #:com.ral.useful-macros)
 ;; -------------------------------------------------------------------
 
-(defun nbr-termination-char-p (ch)
-  ;; tests for if char terminates a number accumulation
-  (or (null ch)
-      (whitespace-char-p ch)
-      (multiple-value-bind (fn non-terminating)
-          (get-macro-character ch)
-        (and fn
-             (not non-terminating))
-        )))
-
 (defun patched-numreader (stream subch pref prev-fn)
-  (let ((tok  (make-array 16
-                          :element-type 'character
-                          :adjustable   t
-                          :fill-pointer 0)))
-    (um:with-vanilla-readtable
-      (um:nlet iter ()
-        (let ((ch  (peek-char nil stream nil nil t)))
-          (unless (nbr-termination-char-p ch)
-            (unless (char= #\_ ch)
-              (vector-push-extend ch tok))
-            (read-char stream nil nil t)
-            (go-iter))
-          ))
-      (with-input-from-string (s (coerce tok 'string))
-        (funcall prev-fn s subch pref))
-      )))
+  (um:with-vanilla-readtable
+    (with-input-from-string (s (remove #\_ (read-chars-to-end-of-token stream nil)))
+      (funcall prev-fn s subch pref))))
 
 ;; --------------------------------------------
 
@@ -59,3 +36,4 @@
   (set-dispatch-macro-character #\# #\r *sub-r-reader* readtable))
 
 (install-radix-readers)
+(update-ral-syntax)

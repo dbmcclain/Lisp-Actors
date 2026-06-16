@@ -45,7 +45,7 @@ THE SOFTWARE.
    #:->>
    #:ash-dpb
    #:set-/-dispatch-reader
-   #:get-delim
+   #:get-matching-delim
    #:read-chars-till-delim
    #:read-chars-to-end-of-token)
   (:import-from #:ironclad
@@ -641,7 +641,7 @@ built according code-char of each number in the uuid-string"
                          (declare (ignore _))
                          (make-uuid-from-string
                           (let* ((ch    (read-char stream t nil t))
-                                 (delim (get-delim ch)))
+                                 (delim (get-matching-delim ch)))
                             (if delim
                                 (read-chars-till-delim stream delim)
                               (read-chars-to-end-of-token stream ch))
@@ -676,3 +676,5 @@ built according code-char of each number in the uuid-string"
                       (ldb (byte 8. pos) mac))
                 )))))
 
+
+(um:update-ral-syntax)

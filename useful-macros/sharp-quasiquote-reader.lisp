@@ -45,7 +45,8 @@ THE SOFTWARE.
 
 (set-dispatch-macro-character
  #\# #\` '|reader-for-#`|)
-  
+
+(update-ral-syntax)
 
 #| ;; example -- a1 is first parameter
 

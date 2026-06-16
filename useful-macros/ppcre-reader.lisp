@@ -34,16 +34,25 @@ THE SOFTWARE.
   (make-array nel :element-type 'character
               :adjustable t :fill-pointer 0))
 
-(defun read-chars-till-delim (stream delim)
+(defun read-chars-till (stream fn &optional (eof-error-p t) eof-value recursive-p)
   (let ((buffer (make-char-buffer)))
     (prog ()
       again
-      (let ((ch  (read-char stream t nil t)))
-        (unless (eql ch delim)
-          (vector-push-extend ch buffer)
-          (go again))
-        ))
-    (coerce buffer 'string)))
+      (let ((ch  (read-char stream eof-error-p eof-value recursive-p)))
+        (cond ((and (characterp ch)
+                    (char= ch #\\))
+               (let ((ch2 (read-escaped-char stream)))
+                 (vector-push-extend ch2 buffer)
+                 (go again)))
+              
+              ((not (funcall fn ch))
+               (vector-push-extend ch buffer)
+               (go again))
+              )))
+    (coerce buffer 'simple-string)))
+
+(defun read-chars-till-delim (stream delim)
+  (read-chars-till stream (um:curry #'char= delim) t nil t))
 
 (defun segment-reader (stream delim n)
   (when (plusp n)

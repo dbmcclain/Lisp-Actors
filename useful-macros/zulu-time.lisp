@@ -15,16 +15,10 @@
   (multiple-value-bind (sec min hr date mon yr day daylight-p zone)
       (decode-universal-time local-time)
     (declare (ignore daylight-p day))
-    (format nil "~{~2,'0D~^/~} ~{~2,'0D~^\:~} ~A"
+    (format nil "~{~2,'0D~^/~}T~{~2,'0D~^\:~}U~@d"
             (list yr mon date)
             (list hr min sec)
-            (case zone
-              (0 "GMT")
-              (5 "EST")
-              (6 "CST")
-              (7 "MST")
-              (8 "PST")
-              (t "LCL")))
+            (- zone))
     ))
 
 (defun zulu-date-string (&optional (zulu-time (get-universal-time)))
@@ -32,11 +26,15 @@
   (multiple-value-bind (sec min hr date mon yr day daylight-p zone)
       (decode-universal-time zulu-time 0)
     (declare (ignore daylight-p day zone))
-    (format nil "~{~2,'0D~^/~} ~{~2,'0D~^\:~} UTC"
+    (format nil "~{~2,'0D~^/~}T~{~2,'0D~^\:~}U"
             (list yr mon date)
             (list hr min sec))
     ))
 
 #|
-(zulu-date-string 0) => "1900/01/01 00:00:00 UTC" 
+(zulu-date-string 0) => "1900/01/01T00:00:00U"
+(local-date-string 0) => "1899/12/31T17:00:00U-7"
+
+(local-date-string) => "2026/06/10T02:22:56U-7"
+(zulu-date-string)  => "2026/06/10T09:23:13U"
  |#

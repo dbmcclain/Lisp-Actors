@@ -1,4 +1,4 @@
-;; useful_macros.lisp -- A collection of really handy macros
+; useful_macros.lisp -- A collection of really handy macros
 ;;
 ;; DM/HMSC  11/97
 ;; -----------------------------------------------------------
@@ -77,520 +77,17 @@ THE SOFTWARE.
   (editor:setup-indent "curried-lambda" 1)
   )
 
-;; ------------------------------------------------------
-;; DM/RAL  2026/05/28 10:10:55 UTC -- upgraded reader allows for colons embedded in numbers.
-;;   1:23:32.35
-;;   1:23
-;;   1°23′32″.35  (not quote and double quote, use ^z-' and ^z-")
-;;   1°23′        etc...
-;; --------------------------------------------------------------
-;; Allow extended number syntax:
-;;   - embedded underscore separators 123_445.789_443
-;;   - allow 1+2j or 1-2j or just 2j, where j in [jJiI]
-;;   - allow dates in yyyy/mm/dd format
-;;   - allow sexigisimal time in hh:mm:ss.ss format
-;;   - allow hyphenated numbers as in telephone numbers, SSN's, and UUID's
-
-(defun remove-separators (s)
-  (delete #\, (remove #\_ s)))
-
-#| ;; Unused...
-(defun delete-separators (s)
-  (delete #\, (delete #\_ s)))
-|#
-#|
-(cl-ppcre:parse-string "^[+-]?[0-9]+(\\.[0-9]*([eEdDsSfF][+-]?[0-9]+)?)?")
-(cl-ppcre:parse-string "^[iIjJ]$")
-(cl-ppcre:parse-string "^([+-])?([0-9]+):([0-5][0-9])(:[0-5][0-9](\\.[0-9_,]*)?)?$")
-(cl-ppcre:parse-string "^([0-9]{4})/([0-9]{1,2})/([0-9]{1,2})([ ]+([0-9]{1,2}):([0-9]{1,2})(:([0-9]{1,2}))?)?([ ]+UTC([-+][0-9]{1,2})?)?$")
-(cl-ppcre:parse-string "^[0-9]+(-[0-9]+)*$")
-(cl-ppcre:parse-string "^[0-9]+(\\.[0-9]+)*$")
-(match-number "100.")
-(ppcre:parse-string "^([+-])?([0-9]+)[o°]((([0-9]{1,2})['])([0-9]{1,2}[\"]([.][0-9_,]*)?)?)?$")
-|#
-
-(defun match-number (s)
-  (multiple-value-bind (start end)
-      (#~m/^[+-]?[0-9]+([.][0-9]*([eEdDsSfF][+-]?[0-9]+)?)?/ s)
-    (when start
-      (multiple-value-bind (val tailpos)
-          (read-from-string s t nil :start start :end end)
-        (and (eql tailpos end)
-             (values val (subseq s end)))
-        ))))
-
-(defun match-complex-ij (s)
-  (#~m/^[iIjJ]$/ s))
-
-(defun convert-real-or-complex (s)
-  (multiple-value-bind (val srest)
-      (match-number s)
-    (when val
-      (cond ((zerop (length srest)) val)
-            ((match-complex-ij srest) (complex 0 val))
-            ((multiple-value-bind (ival sresti)
-                 (match-number srest)
-               (and ival
-                    (match-complex-ij sresti)
-                    (complex val ival))))
-            ))
-    ))
-
 ;; --------------------------------------------
-#|
-(defun tst (s)
-  (#~m/^([+-])?([0-9]+):([0-9]{1,2}([.][0-9]+||:([0-9]{1,2}([.][0-9]+)?)))$/ s))
-
-(tst "1:00")
-(tst "1:00.234")
-(tst "1:00:00")
-(tst "1:00:00.234")
-
-(convert-sexigisimal-1 "1:00")
-(convert-sexigisimal-1 "1:00.234")
-(convert-sexigisimal-1 "1:00:00")
-(convert-sexigisimal-1 "1:00:00.234")
-|#
-
-(defun convert-sexigisimal-1 (s)
-  ;; With colon separators, there is no way to ascertain degrees or hours. Just assume degrees.
-  ;; ddd:mm.mmmm or ddd:mm:ss.ssss
-  ;; return arcsec
-  (multiple-value-bind (start end gstart gend)
-      (#~m/^([+-])?([0-9]+):([0-9]{1,2}([.][0-9]+||:([0-9]{1,2}([.][0-9]+)?)))$/ s)
-    (declare (ignore end))
-    (when start
-      (symbol-macrolet
-          ((sign   (aref gstart 0))
-           (hstart (aref gstart 1))
-           (hend   (aref gend   1))
-           (mstart (aref gstart 2.))
-           (sstart (aref gstart 4.)))
-        (let* ((ss   (if sstart
-                         (read-from-string s t nil
-                                           :start sstart)
-                       0))
-               (mm   (* 60. (read-from-string s t nil
-                                              :start mstart
-                                              :end (and sstart
-                                                        (1- sstart)))))
-               (hh   (* 3600. (read-from-string s t nil
-                                                :start hstart
-                                                :end hend)))
-               (sgn  (if (and sign
-                              (char= #\- (char s sign)))
-                         -1
-                       1)))
-          (* 1/1296000 sgn (+ hh mm ss)) ;; convert to turns
-          )))))
-
-;; --------------------------------------------
-#|
-(defun tst (s)
-  (#~m/^([+-])?([0-9]+)[dh]([.][0-9]+||([0-9]{1,2})m([.][0-9]+||([0-9]{1,2})s([.][0-9]+)?)?)?$/ s))
-
-(with-standard-io-syntax
-  (pprint
-   (ppcre:parse-string
-    "^([+-])?([0-9]+)[dh°]([.][0-9]+|([0-9]{1,2})[m’'′]([.][0-9]+|([0-9]{1,2})[s”\"＂″]([.][0-9]+)?)?)?$"))
-  (values))
-  
-(defun tst (s)
-  (cl-ppcre:scan
-       (load-time-value
-        (ppcre:create-scanner
-         "^([+-])?([0-9]+)[dh°]([.][0-9]+|([0-9]{1,2})[m’'′]([.][0-9]+|([0-9]{1,2})[s”\"＂″]([.][0-9]+)?)?)?$")
-        t)
-       s))
-
-(tst "1d")
-(tst "+1d")
-(tst "+1d.234")
-(tst "+1d00m")
-(tst "+1d00m.234")
-(tst "+1d00m00s")
-(tst "+1d00m00s.234")
-
-(convert-sexigisimal-2 "1d")
-(convert-sexigisimal-2 "+1h")
-(convert-sexigisimal-2 "+1d.234")
-(convert-sexigisimal-2 "+1d00m")
-(convert-sexigisimal-2 "+1d00m.234")
-(convert-sexigisimal-2 "+1°00’.234")
-(convert-sexigisimal-2 "+1d00m00s")
-(convert-sexigisimal-2 "+1d00m00s.234")
-(convert-sexigisimal-2 "+1°00’00”.234")
-(convert-sexigisimal-2 "+1°13’01”.234")
-(convert-sexigisimal-2 "+1°13'01”.234")
-(convert-sexigisimal-2 "+1h00m00s.234")
-|#
-#|
-(cl-ppcre:parse-string "\\.[0-9]+")
-(setf (cl-ppcre:parse-tree-synonym 'frac) (cl-ppcre:parse-string "[.][0-9]+"))
-(lw:find-regexp-in-string "\\.\\([0-9]+\\)" "123.456" :brackets-limits t)
-(inspect (lw:precompile-regexp "\\.\\([0-9]+\\)"))
-(lw:find-regexp-in-string
- "^\\([+-]\\)?\\([0-9]+\\)[dh°]\\(\\.[0-9]+\\|\\([0-9][0-9]?\\)[m’'′]\\(\\.[0-9]+\\|\\([0-9][0-9]?\\)[s”\"＂″]\\(\\.[0-9]+\\)?\\)?\\)?$"
- "+1h00m00s.234"
- :brackets-limits t)
-|#
-
-#|
-(convert-sexigisimal-2b "+1h00m00s.234")
-(convert-sexigisimal-2b "+1h00m00s")
-(convert-sexigisimal-2b "+1h00m.234")
-(convert-sexigisimal-2b "+1h.234")
-(convert-sexigisimal-2b "+1m.234")
-(convert-sexigisimal-2b "+1m00s.234")
-(convert-sexigisimal-2b "+1s.234")
-|#
-
-;; --------------------------------------------
-
-(defun cvt-hms (sign whole tail frac follow-fn scale)
-  ;; common code for both hours & minutes & seconds
-  (let ((ans (if frac
-                 (* scale
-                    (read-from-string (concatenate 'string whole frac)))
-               ;; else
-               (let ((sub  (if tail
-                               (funcall follow-fn tail)
-                             0)))
-                 (and sub
-                      (+ sub (* scale (read-from-string whole))))
-                 ))))
-    (when ans
-      (if (and sign
-               (string= sign "-"))
-          (- ans)
-        ans))
-    ))
-
-(defun convert-seconds (s)
-  (cl-ppcre:register-groups-bind (sign secs skind sfrac)
-      ((load-time-value
-        (ppcre:create-scanner
-         "^([+-])?([0-9]+)([s\”\"\＂\″])(\\.[0-9]+)?$")
-        t)
-       s :sharedp t)
-    ;; (format t "~%Secs: ~S ~S ~S" sign secs sfrac)
-    (values (cvt-hms sign secs nil sfrac nil 1)
-            skind)
-    ))
-
-(defun convert-minutes (s)
-  (or
-   (cl-ppcre:register-groups-bind (sign mins mkind mtail mfrac)
-       ((load-time-value
-         (ppcre:create-scanner
-          "^([+-])?([0-9]+)([m\’\'\′])((\\.[0-9]+)|[0-9].*)?$")
-         t)
-        s :sharedp t)
-     ;; (format t "~%Mins: ~S ~S ~S ~S" sign mins mtail mfrac)
-     (return-from convert-minutes
-       (values (cvt-hms sign mins mtail mfrac #'convert-seconds 60.)
-               mkind)))
-   ;; or
-   (convert-seconds s)))
-
-(defun convert-hours (s)
-  #|
-  ;; nnn°nn′nn″.nnn  or NNNhNNmNNs.NNN - can use 'd' or '°', ' (quote) or ′ U+2032, 
-  ;; nnn′nn″.nnn  or  NNNmNNs.NNN      - double quote " or ″ U+2033
-  ;; nnn″.nnn  or NNNs.NNN
-  |#
-  (or
-   (cl-ppcre:register-groups-bind (sign degs dkind dtail dfrac)
-       ((load-time-value
-         (ppcre:create-scanner
-          "^([+-])?([0-9]+)([dh°])((\\.[0-9]+)|[0-9].*)?$")
-         t)
-        s :sharedp t)
-     ;; (format t "~%Degs: ~S ~S ~S ~S ~S" sign degs dkind dtail dfrac)
-     (return-from convert-hours
-       (values (cvt-hms sign degs dtail dfrac #'convert-minutes 3600.)
-               dkind)))
-   ;; or
-   (convert-minutes s)))
-
-(defun convert-sexigisimal-2b (s)
-  (multiple-value-bind (val kind)
-      (convert-hours s)
-    (when val
-      (* 1/1296000   ;; convert to turns
-         (if (find (char kind 0) "hms")
-             (* 15. val)
-           val)))
-    ))
-                
-;; --------------------------------------------
-                   
-#+nil     
-(defun convert-sexigisimal-2a (s)
-  #|
-  ;; nnn°nn′nn″.nnn  or NNNhNNmNNs.NNN - can use 'd' or '°', ' (quote) or ′ U+2032, 
-  ;; nnn′nn″.nnn  or  NNNmNNs.NNN      - double quote " or ″ U+2033
-  ;; nnn″.nnn  or NNNs.NNN
-  |#
-  (or
-   (cl-ppcre:register-groups-bind (sign degs dfrac mins mfrac secs sfrac)
-       ;; nn°nn′nn″.nnn
-       ((load-time-value
-         (ppcre:create-scanner
-          `        "^([+-])?([0-9]+)[dh°](\\.[0-9]+|([0-9]{1,2})[m\’\'\′](\\.[0-9]+|([0-9]{1,2})[s\”\"\＂\″](\\.[0-9]+)?)?)?$")
-         t)
-        s :sharedp t)
-     ;; (terpri)
-     ;; (print (list sign degs dfrac mins mfrac secs sfrac))
-     (let ((val  (cond (secs
-                        (+ (read-from-string (if sfrac
-                                                 (concatenate 'string secs sfrac)
-                                               secs))
-                           (* 60. (+ (read-from-string mins)
-                                     (* 60. (read-from-string degs))))))
-                       (mins
-                        (* 60. (+ (read-from-string (if mfrac
-                                                        (concatenate 'string mins mfrac)
-                                                      mins))
-                                  (* 60. (read-from-string degs)))))
-                       (t
-                        (* 3600. (read-from-string (if dfrac
-                                                       (concatenate 'string degs dfrac)
-                                                     degs))))
-                       )))
-       (if (and sign
-                (string= sign "-"))
-           (- val)
-         val)))
-   (cl-ppcre:register-groups-bind (sign mins mfrac secs sfrac)
-       ;; nn′nn″.nnn
-       ((load-time-value
-         (ppcre:create-scanner
-          `        "^([+-])?([0-9]+)[m\’\'\′](\\.[0-9]+|([0-9]{1,2})[s\”\"\＂\″](\\.[0-9]+)?)?$")
-         t)
-        s :sharedp t)
-     ;; (terpri)
-     ;; (print (list sign mins mfrac secs sfrac))
-     (let ((val  (cond (secs
-                        (+ (read-from-string (if sfrac
-                                                 (concatenate 'string secs sfrac)
-                                               secs))
-                           (* 60. (read-from-string mins))))
-                       (t
-                        (* 60. (read-from-string (if mfrac
-                                                     (concatenate 'string mins mfrac)
-                                                   mins))))
-                       )))
-       (if (and sign
-                (string= sign "-"))
-           (- val)
-         val)))
-   (cl-ppcre:register-groups-bind (sign secs sfrac)
-       ;; nn″.nnn
-       ((load-time-value
-         (ppcre:create-scanner
-          `        "^([+-])?([0-9]+)[s\”\"\＂\″](\\.[0-9]+)?$")
-         t)
-        s :sharedp t)
-     ;; (terpri)
-     ;; (print (list sign secs sfrac))
-     (let ((val  (read-from-string (if sfrac
-                                       (concatenate 'string secs sfrac)
-                                     secs))))
-       (if (and sign
-                (string= sign "-"))
-           (- val)
-         val)))
-   ))
-
-;; --------------------------------------------
-
-#+nil
-(defun convert-sexigisimal-2 (s)
-  ;; NNNdNNmNNs.NNN and NNhNNmNNs.NNN, ddd°mm’ss”.sss
-  ;;            (use Option-shift-8, ^z-', and ^z-" = U+00B0, U+2019, and U+201D)
-  ;;            Non-interfering chars: U+FF02 (＂) and U+FF07 (＇)
-  ;;                                   U+2032 (′) and U+2033 (″)
-  ;; Here we can distinguish degrees versus hours, using the suffix d, h, ° after the major value.
-  ;; Return arcsec. Hours get multiplied by 15.
-  (multiple-value-bind (start end gstart gend)
-      ;; (#~m/^([+-])?([0-9]+)[dh°]([.][0-9]+||([0-9]{1,2})[m’'′]([.][0-9]+||([0-9]{1,2})[s”″]([.][0-9]+)?)?)?$/ s)
-      (cl-ppcre:scan
-       (load-time-value
-        (ppcre:create-scanner
-         "^([+-])?([0-9]+)[dh°]([.][0-9]+|([0-9]{1,2})[m’'′]([.][0-9]+|([0-9]{1,2})[s”\"＂″]([.][0-9]+)?)?)?$")
-        t)
-       s)
-         
-    (declare (ignore end))
-    (when start
-      (symbol-macrolet
-          ((sign   (aref gstart 0))
-           (hstart (aref gstart 1))
-           (hend   (aref gend    1))
-           (mstart (aref gstart 3.))
-           (mend   (aref gend   3.))
-           (sstart (aref gstart 5.))
-           (send   (aref gend   5.)))
-        (let* ((ss   (if sstart
-                         (read-from-string (remove (char s send) (subseq s sstart)))
-                       0))
-               (mm   (if mstart
-                         (* 60. (read-from-string (remove (char s mend) (subseq s mstart sstart))))
-                       0))
-               (hflag (char s hend))
-               (hmul  (if (char= hflag #\h) 15. 1))
-               (hh    (* 3600. (read-from-string (remove hflag (subseq s hstart mstart)))))
-               (sgn   (if (and sign
-                               (char= #\- (char s sign)))
-                          -1
-                        1)))
-          (* sgn hmul (+ hh mm ss))))
-      )))
-
-;; --------------------------------------------
-
-(defun convert-sexigisimal (s)
-  (or (convert-sexigisimal-1 s)
-      (convert-sexigisimal-2b s)))
-
-;; --------------------------------------------
-
-(defun convert-utc-date (s)
-  ;; yyyy/mm/dd [hh:mm:ss] [UTC[+/-nn]]]
-  ;; if UTC is elided then convert by default TZ and DST
-  (cl-ppcre:register-groups-bind (year mon day timetail hour minutes secstail seconds zonetail timezone)
-      ((load-time-value
-        (ppcre:create-scanner
-         "^([0-9]{4})/([0-9]{1,2})/([0-9]{1,2})([ ]+([0-9]{1,2}):([0-9]{1,2})(:([0-9]{1,2}))?)?([ ]+UTC([-+][0-9]{1,2})?)?$")
-        t)
-       s :sharedp t)
-    (declare (ignore timetail secstail))
-    (let* ((yyyy  (read-from-string year))
-           (mm    (read-from-string mon))
-           (dd    (read-from-string day))
-           (hrs   (if hour
-                      (read-from-string hour)
-                    0))
-           (mins  (if minutes
-                      (read-from-string minutes)
-                    0))
-           (secs  (if seconds
-                      (read-from-string seconds)
-                    0))
-           (tz   (when zonetail
-                       (list
-                        (if timezone
-                            (- (read-from-string timezone))
-                          0)))))
-      (apply #'encode-universal-time secs mins hrs dd mm yyyy tz)
-      )))
-#|
-;; now extended syntax in above def
-(defun convert-utc-date (s)
-  ;; yyyy/mm/dd
-  (multiple-value-bind (start end gstart gend)
-      (#~m%^([0-9]{4})/([0-9]{1,2})/([0-9]{1,2}) UTC$% s)
-    (declare (ignore end))
-    (when start
-      (symbol-macrolet
-          ((ystart (aref gstart 0))
-           (yend   (aref gend   0))
-           (mstart (aref gstart 1))
-           (mend   (aref gend   1))
-           (dstart (aref gstart 2))
-           (dend   (aref gend   2)))
-        (let* ((yyyy (read-from-string (subseq s ystart yend)))
-               (mm   (read-from-string (subseq s mstart mend)))
-               (dd   (read-from-string (subseq s dstart dend))))
-          (encode-universal-time 0 0 0 dd mm yyyy 0)) ;; makes UTC date
-        ))))
-|#
-
-#|
-;; subsumed by convert-utc-date
-(defun convert-date (s)
-  ;; yyyy/mm/dd
-  (multiple-value-bind (start end gstart gend)
-      (#~m%^([0-9]{4})/([0-9]{1,2})/([0-9]{1,2})$% s)
-    (declare (ignore end))
-    (when start
-      (symbol-macrolet
-          ((ystart (aref gstart 0))
-           (yend   (aref gend   0))
-           (mstart (aref gstart 1))
-           (mend   (aref gend   1))
-           (dstart (aref gstart 2))
-           (dend   (aref gend   2)))
-        (let* ((yyyy (read-from-string (subseq s ystart yend)))
-               (mm   (read-from-string (subseq s mstart mend)))
-               (dd   (read-from-string (subseq s dstart dend))))
-          (encode-universal-time 0 0 0 dd mm yyyy))
-        ))))
-|#
-
-(defun convert-american-short-date (s)
-  ;; mm/dd/yy
-  (cl-ppcre:register-groups-bind (year mon day)
-      ((load-time-value
-        (ppcre:create-scanner
-         "^([0-9]{1,2})/([0-9]{1,2})/([0-9]{1,2})$")
-        t)
-       s :sharedp t)
-    (let* ((yyyy  (+ 2000. (read-from-string year)))
-           (mm    (read-from-string mon))
-           (dd    (read-from-string day)))
-      (encode-universal-time 0 0 0 dd mm yyyy)
-      )))
-
-;; --------------------------------------------
-
-(defun must-read-full-string (str)
-  (multiple-value-bind (val endpos)
-      (read-from-string str)
-    (and (= endpos (length str))
-         val)
-    ))
-  
-(defun convert-hyphenated-number (s)
-  ;; xxxx-xx-xxxx  as in telephone numbers, SSN's, and UUID's
-  (when (#~m/^[0-9]+(-[0-9]+)*$/ s)
-    (must-read-full-string (delete #\- s))))
-    
-(defun convert-other-base-number (s)
-  ;; 0xNNNN_NNNN_NNN
-  (cond ((#~m/^0[xXoObB]/ s)
-         (must-read-full-string (concatenate 'string "#" (subseq s 1))))
-        ((#~m/^[0-9]+[rR]/ s)
-         (must-read-full-string (concatenate 'string "#" s)))
-        ((#~m/^0[tT]/ s)  ;; special 0t prefix for decimal
-         (must-read-full-string (subseq s 2)))
-        ))
-
-;; --------------------------------------------
-
-(defun read-extended-number-syntax (s)
-  (ignore-errors
-    (with-vanilla-readtable
-      (let ((*read-base* 10.)
-            (*read-default-float-format* 'double-float)
-            (s  (remove-separators s))) ;; sep "," or "_"
-        (or (convert-sexigisimal s)
-            (convert-real-or-complex s)
-            (convert-utc-date s)
-            ;; (convert-date s)
-            (convert-american-short-date s)
-            (convert-other-base-number s)
-            (convert-hyphenated-number s)
-            )))))
 
 (defun read-accumulated-string-or-fallback (str stream)
-  (or (read-extended-number-syntax str)
-      ;; Fallback: put the buffer back in front of STREAM and re-READ
-      ;; with standard syntax (no angle reader macro).
-      (let* ((pushback (make-string-input-stream str))
-             (combined (make-concatenated-stream pushback stream)))
-        (with-vanilla-readtable
+  (with-vanilla-readtable
+    (or ;; (read-extended-numbers str)
+        ;; (packrat-readers:read-extended-number str)
+        (parseq-readers:read-extended-number str)
+        ;; Fallback: put the buffer back in front of STREAM and re-READ
+        ;; with standard syntax (no angle reader macro).
+        (let* ((pushback (make-string-input-stream str))
+               (combined (make-concatenated-stream pushback stream)))
           (read combined t nil t)))))
 
 ;; --------------------------------------------
@@ -605,23 +102,20 @@ THE SOFTWARE.
       ))
 
 (defun read-chars-to-end-of-token (stream first-char)
-  (let ((buffer (make-char-buffer)))
-    (vector-push-extend first-char buffer)
-    (with-vanilla-readtable
-      (prog ()
-        again
-        (let ((ch (peek-char nil stream nil nil t)))
-          (unless (token-terminating-char-p ch)
-            (vector-push-extend (read-char stream t nil t) buffer)
-            (go again))
-          ))
-      (coerce buffer 'string))
-    ))
+  (when first-char
+    (unread-char first-char stream))
+  (progn ;; with-vanilla-readtable
+    (read-chars-till stream (lambda (ch)
+                              (when (token-terminating-char-p ch)
+                                (when ch
+                                  (unread-char ch stream))
+                                t))
+                     nil nil t)))
 
 ;; --------------------------------------------
 
-(defun get-delim (ch)
-  (and (find ch "~`'\":@#$%^&*_=|\\?/.,([{<«")
+(defun get-matching-delim (ch)
+  (and (find ch "~`'\":@#$%^&*_=|?/.,([{<«")
        (case ch
          (#\(  #\))
          (#\[  #\])
@@ -635,13 +129,26 @@ THE SOFTWARE.
 ;; Reader macro for #N 
 ;; Parses a variety of numbers
 
+(defvar *num-readtable*
+  ;; a readtable with comma as non-terminating for use as spacer in
+  ;; numbers
+  (with-vanilla-readtable
+    (let ((rt (copy-readtable)))
+      (set-macro-character #\, (get-macro-character #\, rt) t rt)
+      rt)))
+
+(defmacro with-num-readtable (&body body)
+  `(let ((*readtable* *num-readtable*))
+     ,@body))
+
 (defun |reader-for-#N| (stream sub-char numarg)
   (declare (ignore sub-char numarg))
   (let* ((ch     (read-char stream t nil t))
-         (delim  (get-delim ch))
+         (delim  (get-matching-delim ch))
          (str    (if delim
                      (read-chars-till-delim stream delim)
-                   (read-chars-to-end-of-token stream ch))))
+                   (with-num-readtable
+                     (read-chars-to-end-of-token stream ch)) )))
     (unless *read-suppress*
       (read-accumulated-string-or-fallback str stream))
     ))
@@ -664,7 +171,8 @@ THE SOFTWARE.
    Buffer characters until a terminator; if it parses as an angle, return the
    angle; otherwise, push the buffer back via a concatenated-stream and call
    READ with the angle reader macro disabled."
-  (let ((str (read-chars-to-end-of-token stream char)))
+  (let ((str (with-num-readtable
+              (read-chars-to-end-of-token stream char))))
     (unless *read-suppress*
       (read-accumulated-string-or-fallback str stream))
     ))
@@ -674,6 +182,9 @@ THE SOFTWARE.
   (dolist (c '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\+ #\-)) ; <- the magic is here ;-)
     (set-macro-character c #'read-extended-numeric-syntax t readtable))
   readtable)
+
+#+:HAS-ANGLE-READER
+(install-angle-reader)
 
 ;; --------------------------------------
 ;; For constructing state machines...
@@ -726,7 +237,6 @@ THE SOFTWARE.
   (let ((len (length str)))
     (nlet iter ((start 0)
                 (pos   0)
-                (esc   nil)
                 (parts nil))
       
       (labels ((peek (off)
@@ -744,85 +254,37 @@ THE SOFTWARE.
                 (new-pos (1+ pos))
                 (next-ch (peek 1)))
             
-            (cond (esc
-                   (labels ((digit-char-p* (ch radix)
-                              (and ch
-                                   (digit-char-p ch radix)))
-                            (xdig (n)
-                              (digit-char-p* (peek n) 16.))
-                            (all-xdig (nlst)
-                              (every #'xdig nlst))
-                            (xconv (start end)
-                              (incf new-pos (1- end))
-                              (let ((*read-base* 16.))
-                                (code-char
-                                 (read-from-string
-                                  (subseq str (+ pos start) (+ pos end)))
-                                 )))
-                            (xerr  (msg end)
-                              (error msg (subseq str (1- pos)
-                                                 (min len (+ pos end))))
-                              ))
-                     (let ((new-ch  (case ch
-                                      (#\n  #\Newline)   ;; #x0A
-                                      (#\r  #\Return)    ;; #x0D
-                                      (#\t  #\Tab)       ;; #x09
-                                      (#\b  #\Backspace) ;; #x08
-                                      (#\v  #\VT)        ;; #x0B
-                                      (#\f  #\Page)      ;; #x0C
-                                      (#\a  #\Bell)      ;; #x07  - #\a for Alert
-                                      (#\e  #\Escape)    ;; #x1B
-                                      (#\x  (if (and (<= (+ pos 3.) len)  ;; \xnn
-                                                     (all-xdig '(1 2.)))
-                                                (xconv 1 3.)
-                                              (xerr "Invalid Hex ~A" 3.)))
-                                      (#\U  (if (and (<= (+ pos 6.) len)  ;; \U+nnnn
-                                                     (char= #\+ (char str new-pos))
-                                                     (all-xdig '(2. 3. 4. 5.)))
-                                                (xconv 2. 6.)
-                                              (xerr "Invalid Unicode ~A" 6.)))
-                                      (t    ch)) ))
-                       (go-iter new-pos new-pos nil (cons
-                                                     (make-string 1 :initial-element new-ch)
-                                                     parts))
-                       )))
-                  
-                  ((char= #\\ ch)
-                   (go-iter new-pos new-pos t (cons
-                                               (subseq str start pos)
-                                               parts)))
-                  
-                  ((and (char= #\$ ch)
-                        (eql #\{ next-ch))
-                   (let* ((endpos   (position #\} str :start new-pos))
-                          (s        (if endpos
-                                        (concatenate 'string
-                                                     "(progn "
-                                                     (subseq str (1+ new-pos) endpos)
-                                                     ")" )
+            (cond
+             ((and (char= #\$ ch)
+                   (eql #\{ next-ch))
+              (let* ((endpos   (position #\} str :start new-pos))
+                     (s        (if endpos
+                                   (concatenate 'string
+                                                "(progn "
+                                                (subseq str (1+ new-pos) endpos)
+                                                ")" )
                                       (error "No closing #\\} for string interpolation at offset ~A)" pos)))
-                          (val      (read-from-string s))
-                          (epos     (1+ endpos)))
-                     (go-iter epos epos nil
-                              (list* `(princ-to-string ,val)
-                                     (subseq str start pos)
-                                     parts))
-                     ))
-                  
-                  ((and (char= #\$ ch)
-                        (eql #\( next-ch))
-                   (multiple-value-bind (val epos)
-                       (read-from-string str t nil
-                                         :start new-pos
-                                         :preserve-whitespace t)
-                     (go-iter epos epos nil (list* `(princ-to-string ,val)
-                                                   (subseq str start pos)
-                                                   parts))
-                     ))
-                  
-                  (t
-                   (go-iter start new-pos nil parts))
-                  )))
+                     (val      (read-from-string s))
+                     (epos     (1+ endpos)))
+                (go-iter epos epos (list* `(princ-to-string ,val)
+                                          (subseq str start pos)
+                                          parts))
+                ))
+             
+             ((and (char= #\$ ch)
+                   (eql #\( next-ch))
+              (multiple-value-bind (val epos)
+                  (read-from-string str t nil
+                                    :start new-pos
+                                    :preserve-whitespace t)
+                (go-iter epos epos (list* `(princ-to-string ,val)
+                                          (subseq str start pos)
+                                          parts))
+                ))
+             
+             (t
+              (go-iter start new-pos parts))
+             )))
         ))
     ))
 
@@ -904,20 +366,71 @@ THE SOFTWARE.
 ;; DM/RAL 2024/10/27 11:25:43 UTC - cleaned up substantially by going
 ;; back to Doug Hoyte's original code.
 
-(defun |#"-reader| (stream sub-char numarg)
+(defun get-hexcode (stream len)
+  (let ((val  0))
+    (dotimes (ix len)
+      (let* ((ch  (read-char stream t nil t))
+             (dig (digit-char-p ch 16.)))
+        (if dig
+            (setf val (+ (* 16. val) dig))
+          (error "Invalid hex digit: ~A" ch))
+        ))
+    (code-char val)))
+
+(defun read-escaped-char (stream)
+  (let ((ch  (read-char stream t nil t)))
+    (case ch
+      (#\n  #\Newline)   ;; #x0A
+      (#\r  #\Return)    ;; #x0D
+      (#\t  #\Tab)       ;; #x09
+      (#\b  #\Backspace) ;; #x08
+      (#\v  #\VT)        ;; #x0B
+      (#\f  #\Page)      ;; #x0C
+      (#\a  #\Bell)      ;; #x07  - #\a for Alert
+      (#\e  #\Escape)    ;; #x1B
+      (#\^  (code-char (ldb (byte 5 0) (char-code (read-char stream t nil t)))))
+      ((#\x #\X)  (get-hexcode stream 2))
+      ((#\U #\u)  (let ((ch  (read-char stream t nil t)))
+                    (if (char= ch #\+)
+                        (get-hexcode stream 4)
+                      (error "Invalid char code #\\U~c" ch))))
+      (otherwise ch)
+      )))
+
+(defun heredoc-reader (stream end-pattern sub-char numarg)
   (declare (ignore sub-char))
-  ;; numarg here means interpolation
-  (let ((buffer  (make-char-buffer))
-        (ch      (read-char stream)))
-    (nlet iter ((prev ch)
-                (curr (read-char stream)))
-      (unless (and (char= prev #\") (char= curr #\#))
-        (vector-push-extend prev buffer)
-        (go-iter curr (read-char stream))))
+  (let ((npat    (length end-pattern))
+        (buffer  (make-char-buffer)))
+    (nlet iter ((index  0))
+      (when (< index npat)
+        (let ((ch (read-char stream t nil t)))
+          (cond ((char= ch #\\)
+                 (let ((ch2 (read-escaped-char stream)))
+                   (vector-push-extend ch2 buffer)
+                   (go-iter 0)))
+                (t
+                 (vector-push-extend ch buffer)
+                 (go-iter (if (char= ch (char end-pattern index))
+                              (1+ index)
+                            0)))
+                ))))
     (unless *read-suppress*
-      (interpolated-string numarg (coerce buffer 'string)))
+      (decf (fill-pointer buffer) npat)
+      (interpolated-string numarg (coerce buffer 'simple-string)))
     ))
 
+(defun |#"-reader| (stream sub-char numarg)
+  ;; numarg here means interpolation
+  (heredoc-reader stream "\"#" sub-char numarg))
+
+#|
+(let ((arr (make-array 5
+                       :element-type 'fixnum
+                       :adjustable   t
+                       :fill-pointer 0)))
+  (vector-push-extend 5 arr)
+  (inspect (coerce arr 'simple-vector)))
+|#
 
 ;;; #|
 ;;; ;; Doug Hoyte's original definition
@@ -1031,23 +544,15 @@ THE SOFTWARE.
 ;; back to Doug Hoyte's original code.
 
 (defun |#>-reader| (stream sub-char numarg)
-  (declare (ignore sub-char))
   ;; numarg enables string interpolation
-  (let* ((end-pattern  (read-chars-till-delim stream #\newline))
-         (npat     (length end-pattern))
-         (buffer   (make-char-buffer)))
-    (nlet iter ((index  0))
-      (when (< index npat)
-        (let ((ch (read-char stream)))
-          (vector-push-extend ch buffer)
-          (go-iter (if (char= ch (char end-pattern index))
-                       (1+ index)
-                     0))
-          )))
-    (unless *read-suppress*
-      (decf (fill-pointer buffer) npat)
-      (interpolated-string numarg (coerce buffer 'string)))
-    ))
+  (let ((end-pattern  (let ((str  (read-chars-till-delim stream #\newline)))
+                        (with-input-from-string (s str)
+                          (read-chars-till s (lambda (ch)
+                                               (or (null ch)
+                                                   (whitespace-char-p ch)))
+                                           nil nil t))
+                        )))
+    (heredoc-reader stream end-pattern sub-char numarg)))
 
 (set-dispatch-macro-character
   #\# #\> #'|#>-reader|)
@@ -1264,7 +769,7 @@ of the #> reader macro
 (set-/-dispatch-reader "lit"
                        (lambda (stream &rest _)
                          (declare (ignore _))
-                         (let ((delim (get-delim (read-char stream t nil t))))
+                         (let ((delim (get-matching-delim (read-char stream t nil t))))
                            (if delim
                                (read-chars-till-delim stream delim)
                              (error "Delimiter char needed"))
@@ -1343,3 +848,5 @@ of the #> reader macro
        (setf (symbol-function ',new-name) (symbol-function ',old-name)))))
      
 ;; -------------------------------------------------------
+
+(update-ral-syntax)

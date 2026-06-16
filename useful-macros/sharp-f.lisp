@@ -20,7 +20,8 @@
                           #+LISPWORKS (float ,(- 3 numarg))
                           ))))
   
-  (set-dispatch-macro-character #\# #\f '|reader-for-#F|))
+  (set-dispatch-macro-character #\# #\f '|reader-for-#F|)
+  (update-ral-syntax))
 
 (defmacro fast-progn (&rest body)
   `(locally #f ,@body))
