@@ -113,7 +113,7 @@
                                    (let ((slot-name (slot-definition-name slot)))
                                      (and (slot-boundp obj slot-name)
                                           (or sdle-store::*store-class-slots*
-                                              (not (eql (clos:slot-definition-allocation slot)
+                                              (not (eql (slot-definition-allocation slot)
                                                         :class)))))))
                      (sdle-store::serializable-slots obj)) )
          (slot-names (mapcar #'slot-definition-name all-slots)))
